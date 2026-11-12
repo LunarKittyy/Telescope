@@ -200,6 +200,8 @@ impl VisionService for VisionHost {
     fn view_turned(&self, old: Turn, new: Turn) {
         if old != new {
             self.shared.tracking.lock().unwrap().remap(&turned(old, new));
+            // A mask kept from before says where people were in the picture as it was
+            self.shared.vision.drop_masks();
         }
     }
 

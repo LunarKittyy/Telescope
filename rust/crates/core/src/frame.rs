@@ -288,6 +288,11 @@ pub enum Touch {
 /// A frame step in Rust, run on the stream's thread.
 pub trait CpuStep: Send {
     fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext);
+    /// Whether this step is there to hide something (Privacy blur, Background, the wait screen). When it fails, the pipeline sends a dark frame
+    /// in place of the one it was given, and keeps doing so if the step ends up skipped, rather than letting the clear picture through.
+    fn hides(&self) -> bool {
+        false
+    }
     /// Asked right before process. Only a step that's certain may answer less than Changes.
     fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
         Touch::Changes

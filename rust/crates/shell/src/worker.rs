@@ -355,6 +355,8 @@ struct Shared {
     /// The frame steps, and the newest packet number that made it out (one frame at a time, never an older one).
     publish: Mutex<(Box<dyn FramePipeline>, u64)>,
     next_steps: Mutex<Option<Vec<StagedStep>>>,
+    /// Steps went into the pipeline ahead of a frame (hide_cached), so the next frame still has to be told they were replaced.
+    steps_replaced: AtomicBool,
     next_colour: Mutex<Option<Vec<FrameStep>>>,
     seq: AtomicU64,
     slot: Arc<dyn FrameSlot>,
@@ -368,6 +370,8 @@ struct Shared {
     /// Frames that made it through the steps and into the slot, which the camera loop counts the ones it skipped from. Locked around the slot's
     /// publish and the camera loop's read of the slot, so a count and the frame it was read with always agree.
     published: Mutex<u64>,
+    // Where the camera loop stood in `published` when its camera closed, so the reopened one counts what went by meanwhile
+    sent_through: Mutex<Option<u64>>,
     /// The number of the last frame that went to the camera, which a camera restart doesn't forget (u64::MAX before any).
     last_sent_number: AtomicU64,
     /// What this stream counts into for the stats.
@@ -498,8 +502,8 @@ impl StreamWorker {
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
-            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_colour: Mutex::new(None), gate: setup.gate,
-            seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), frames_shed: AtomicU64::new(0), published: Mutex::new(0), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
+            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), steps_replaced: AtomicBool::new(false), next_colour: Mutex::new(None), gate: setup.gate,
+            seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), frames_shed: AtomicU64::new(0), published: Mutex::new(0), sent_through: Mutex::new(None), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
             last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), fps_cell: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
             handover_thread: Mutex::new(None),
@@ -552,6 +556,7 @@ impl StreamWorker {
     /// Swap the plugin steps from the next frame on (the panels moved to another stream, or a plugin changed its step).
     pub fn set_steps(&self, steps: Vec<StagedStep>) {
         *self.shared.next_steps.lock().unwrap() = Some(steps);
+        self.shared.hide_cached();
     }
 
     /// Swap the colour step from the next frame on, the other steps left as they are (a LUT baked for a stream behind the panels).
@@ -806,10 +811,33 @@ impl Shared {
         true
     }
 
+    /// New steps are only put in the pipeline when the next frame arrives, and until then the camera keeps sending the last frame it made (a feed that
+    /// stalled, a long exposure). So the moment steps are handed over they go in now, and the steps that hide things (Blur now, the wait screen) run on
+    /// that last frame, which goes out in its place: nothing clear is sent while it waits for a frame to hide.
+    fn hide_cached(&self) {
+        let mut publish = self.publish.lock().unwrap();
+        // Read under the lock frames are published under, so a newer frame can't be taken for the one that was there
+        let Some((cached, _)) = self.slot.latest() else { return };
+        let Some(steps) = self.next_steps.lock().unwrap().take() else { return };
+        self.steps_replaced.store(true, Ordering::SeqCst);
+        let pipeline = publish.0.as_mut();
+        pipeline.set_steps(steps);
+        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()) };
+        let hidden = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pipeline.hide_again(cached, &ctx))).unwrap_or_else(|_| {
+            log::error!("Hiding the frame on the camera failed");
+            None
+        });
+        if let Some(out) = hidden {
+            let mut published = self.published.lock().unwrap();
+            self.slot.publish(out);
+            *published += 1;
+        }
+    }
+
     /// _prepare: the steps as they are now, the frame at its size, and the frame through the steps.
     fn prepare(&self, pipeline: &mut dyn FramePipeline, seq: u64, frame: Frame) -> Frame {
         let next_steps = self.next_steps.lock().unwrap().take();
-        let replaced = next_steps.is_some();
+        let replaced = next_steps.is_some() | self.steps_replaced.swap(false, Ordering::SeqCst);
         if let Some(steps) = next_steps {
             pipeline.set_steps(steps);
         }
@@ -1226,11 +1254,12 @@ impl Shared {
         let mut pacer = Pacer::new(period);
         let mut last_preview = Instant::now() - Duration::from_secs(1);
         let (mut seen, mut fitted): (u64, Option<Frame>) = (0, None);
+        let mut fitted_to = (cam_w, cam_h);
         // Frames that came in while the last one was being paced, each with how many had been published by then, and the newest one sent
         let mut queued: std::collections::VecDeque<(Frame, u64)> = std::collections::VecDeque::new();
         let mut shown: Option<Frame> = None;
         // How many frames had been published when the last one was sent, to count the ones skipped since
-        let mut published_then = *self.published.lock().unwrap();
+        let mut published_then = self.sent_through.lock().unwrap().take().unwrap_or_else(|| *self.published.lock().unwrap());
         let mut scaler = None;
         let mut ok = true;
         let mut delivery_log = telescope_core::time::DeliveryLog::from_env();
@@ -1271,23 +1300,40 @@ impl Shared {
             {
                 let new_frame = next.is_some();
                 let started = Instant::now();
+                // An app that took another size than the camera was opened at gets frames fitted to that one, or they'd be fitted twice
+                let want = cam.fit_size().unwrap_or((cam_w, cam_h));
                 let (src, fresh_at) = match next {
                     Some((src, at)) => {
                         // A frame a plugin replaced in the slot goes out again but isn't another one
                         let fresh = src.number != self.last_sent_number.load(Ordering::Relaxed);
                         watch.frame(telescope_core::time::monotonic_ns(), &context);
-                        let fit = fit_frame(&src, cam_w, cam_h);
+                        let fit = fit_frame(&src, want.0, want.1);
                         fitted = Some(if nv12 { to_nv12(&fit) } else { fit });
+                        fitted_to = want;
                         shown = Some(src.clone());
                         (src, fresh.then_some(at))
                     }
-                    None => (shown.clone().unwrap(), None),
+                    None => {
+                        let src = shown.clone().unwrap();
+                        if want != fitted_to {
+                            let fit = fit_frame(&src, want.0, want.1);
+                            fitted = Some(if nv12 { to_nv12(&fit) } else { fit });
+                            fitted_to = want;
+                        }
+                        (src, None)
+                    }
                 };
                 let began = telescope_core::time::monotonic_ns();
                 if let Err(e) = cam.send(fitted.as_ref().unwrap()) {
                     self.status("warn", &fill(&tr("Virtual camera error: {error}"), &[("error", &e)]));
-                    // Whatever that frame was, nothing says why it didn't go
-                    self.stats.dropped(DropReason::Unknown, 1);
+                    // A new frame that didn't go is counted here, and the ones the burst passed over before it; a resend isn't another frame
+                    if let Some(at) = fresh_at {
+                        self.stats.dropped(DropReason::Unknown, 1);
+                        self.stats.dropped(DropReason::Paced, at.saturating_sub(published_then).saturating_sub(1));
+                        published_then = at;
+                        // Sent again after the reopen it's a repeat, not a second count
+                        self.last_sent_number.store(src.number, Ordering::Relaxed);
+                    }
                     ok = false;
                     break;
                 }
@@ -1353,6 +1399,10 @@ impl Shared {
                 self.status(net_kind, &if counted { format!("{mbps:.1} Mbps") } else { "-".into() });
                 (t0, bytes0, recv0, shed0) = (Instant::now(), bytes_now, recv_now, shed_now);
             }
+        }
+        // A requested reopen takes frame periods too, so the count carries over unless the camera was let go on purpose
+        if !self.parked.load(Ordering::SeqCst) {
+            *self.sent_through.lock().unwrap() = Some(published_then);
         }
         drop(cam);
         self.vcam_free.set();
@@ -1812,8 +1862,14 @@ mod tests {
         nv12: AtomicBool,
         /// What locked_size answers.
         locked: Mutex<Option<(u32, u32)>>,
+        /// The size an app reads the open camera at, when it isn't the one it was opened at.
+        reader: Mutex<Option<(u32, u32)>>,
         /// The open camera reports itself outdated once.
         outdated: AtomicBool,
+        /// The next send fails once.
+        fail_next_send: AtomicBool,
+        /// Opening the camera takes this long, in ms.
+        open_delay_ms: AtomicU64,
         /// What each send takes, in ms.
         send_cost_ms: AtomicU64,
         /// Every send: when it began, the number of the frame and how old it was then, in ms.
@@ -1824,6 +1880,9 @@ mod tests {
 
     impl VideoOutput for Cam {
         fn send(&mut self, frame: &Frame) -> Result<(), String> {
+            if self.0.fail_next_send.swap(false, Ordering::SeqCst) {
+                return Err("gone".into());
+            }
             let age = telescope_core::time::monotonic_ns().saturating_sub(frame.time_ns) as f64 / 1e6;
             self.0.timeline.lock().unwrap().push((Instant::now(), frame.number, age));
             let cost = self.0.send_cost_ms.load(Ordering::Relaxed);
@@ -1838,6 +1897,9 @@ mod tests {
         }
         fn size(&self) -> (u32, u32) {
             self.1
+        }
+        fn fit_size(&mut self) -> Option<(u32, u32)> {
+            *self.0.reader.lock().unwrap()
         }
         fn device(&self) -> String {
             "/dev/video9".into()
@@ -1865,6 +1927,10 @@ mod tests {
         fn open(&self, slot: u32, width: u32, height: u32, fps: u32) -> Result<Box<dyn VideoOutput>, String> {
             self.0.opened.lock().unwrap().push((slot, width, height, fps));
             self.0.life.lock().unwrap().push("open");
+            let delay = self.0.open_delay_ms.load(Ordering::Relaxed);
+            if delay > 0 {
+                std::thread::sleep(Duration::from_millis(delay));
+            }
             Ok(Box::new(Cam(self.0.clone(), (width, height))))
         }
         fn locked_size(&self, _slot: u32) -> Option<(u32, u32)> {
@@ -1961,6 +2027,20 @@ mod tests {
         let sent = cams.frames.lock().unwrap()[0].clone();
         assert_eq!((sent.width, sent.height, sent.data.len()), (6, 6, 54), "the 4x2 frames are fitted into it");
         assert_eq!(log.lock().unwrap().iter().filter(|e| matches!(e, WorkerEvent::VcamOpened(..))).collect::<Vec<_>>(), [&WorkerEvent::VcamOpened(6, 6)]);
+    }
+
+    #[test]
+    fn frames_are_fitted_to_the_size_an_app_reads_the_camera_at_now() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(10)])]);
+        let w = started(WorkerSetup { canvas: (Some(6), Some(6)), ..setup(opener) }, &cams, &log);
+        wait_for(|| !cams.frames.lock().unwrap().is_empty());
+        assert_eq!(cams.frames.lock().unwrap()[0].width, 6, "fitted to the canvas while no app reads");
+        *cams.reader.lock().unwrap() = Some((4, 2));
+        wait_for(|| cams.frames.lock().unwrap().last().is_some_and(|f| f.width == 4));
+        w.stop();
+        let last = cams.frames.lock().unwrap().last().unwrap().clone();
+        assert_eq!((last.width, last.height, last.data.len()), (4, 2, 12), "the 4x2 frame fills what the app reads, with no bars");
     }
 
     #[test]
@@ -2465,6 +2545,48 @@ mod tests {
         fn pipeline(&self) -> Result<Box<dyn FramePipeline>, String> {
             Ok((self.0)())
         }
+    }
+
+    /// Passes frames through, and hides on request: once steps were handed over, hide_again gives a dark frame of the size it was given.
+    struct HidesWhenAsked(Arc<AtomicBool>);
+
+    impl FramePipeline for HidesWhenAsked {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            frame
+        }
+        fn hide_again(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Option<Frame> {
+            Some(grey(frame.width, frame.height, 7))
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+    }
+
+    struct Nothing;
+
+    impl telescope_core::frame::CpuStep for Nothing {
+        fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+    }
+
+    #[test]
+    fn steps_that_hide_things_run_on_the_frame_a_stalled_feed_keeps_sending() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        // One frame, then nothing for the rest of the test
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(200), Step::Pause(Duration::from_secs(30))])]);
+        let asked = Arc::new(AtomicBool::new(false));
+        let media = WithPipeline(Box::new({
+            let asked = asked.clone();
+            move || Box::new(HidesWhenAsked(asked.clone()))
+        }));
+        let w = start(setup(opener), Arc::new(media), &cams, &log);
+        wait_for(|| cams.sent.lock().unwrap().contains(&200));
+        w.set_steps(vec![StagedStep { owner: "privacy".into(), stage: telescope_core::frame::FrameStage::Privacy, step: FrameStep::Cpu(Box::new(Nothing)) }]);
+        wait_for(|| cams.sent.lock().unwrap().last() == Some(&7));
+        assert!(asked.load(Ordering::SeqCst));
+        w.stop();
     }
 
     #[test]
@@ -3446,6 +3568,59 @@ mod tests {
         let published = *w.shared.published.lock().unwrap();
         assert_eq!(published, 60);
         assert_eq!((s.totals.delivered, s.drops.paced), (60, 0), "{s:?}");
+    }
+
+    #[test]
+    fn frames_that_go_by_while_the_camera_reopens_are_counted_as_dropped() {
+        // A send fails, the camera is retried 3 s later, and frames keep coming meanwhile
+        let steps: Vec<Step> = (0..200u32).flat_map(|i| [Step::Frame(10 + (i % 200) as u8), Step::Pause(Duration::from_millis(20))]).chain([Step::Pause(Duration::from_millis(400))]).collect();
+        let (opener, _opens) = scripted(vec![Some(steps)]);
+        let cams = Arc::new(Cams::default());
+        cams.fail_next_send.store(true, Ordering::SeqCst);
+        let events: Events = Arc::new(|_| {});
+        let w = StreamWorker::start(WorkerSetup { source_id: "reopen-test".into(), url: "https://127.0.0.1:40004/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
+        wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) == 200);
+        std::thread::sleep(Duration::from_millis(600));
+        let snap = Hub::shared().snapshot();
+        w.stop();
+        let s = snap.sources.iter().find(|s| s.source_id == "reopen-test").expect("the stream is in the snapshot");
+        assert_eq!(s.totals.delivered + s.drops.paced + s.drops.unknown, s.totals.received, "every frame is sent or counted as dropped: {s:?}");
+    }
+
+    #[test]
+    fn frames_that_go_by_while_the_camera_reopens_on_request_are_counted_as_dropped() {
+        // The output fps changes mid-stream and opening the camera again takes about 15 frame periods
+        let steps: Vec<Step> = (0..150u32).flat_map(|i| [Step::Frame(10 + (i % 200) as u8), Step::Pause(Duration::from_millis(20))]).chain([Step::Pause(Duration::from_millis(400))]).collect();
+        let (opener, _opens) = scripted(vec![Some(steps)]);
+        let cams = Arc::new(Cams::default());
+        let events: Events = Arc::new(|_| {});
+        let w = StreamWorker::start(WorkerSetup { source_id: "requested-reopen-test".into(), url: "https://127.0.0.1:40006/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
+        wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) >= 30);
+        cams.open_delay_ms.store(300, Ordering::SeqCst);
+        w.update_output(None, None, Some(15));
+        wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) == 150);
+        std::thread::sleep(Duration::from_millis(600));
+        let snap = Hub::shared().snapshot();
+        w.stop();
+        assert_eq!(cams.opened.lock().unwrap().len(), 2, "the camera was reopened");
+        let s = snap.sources.iter().find(|s| s.source_id == "requested-reopen-test").expect("the stream is in the snapshot");
+        assert_eq!(s.totals.delivered + s.drops.paced + s.drops.unknown, s.totals.received, "every frame is sent or counted as dropped: {s:?}");
+    }
+
+    #[test]
+    fn a_frame_that_fails_to_send_is_not_counted_again_when_it_is_sent_after_the_reopen() {
+        // One frame, the camera fails on it and is reopened 3 s later with nothing newer to send
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(10), Step::Pause(Duration::from_millis(3600))])]);
+        let cams = Arc::new(Cams::default());
+        cams.fail_next_send.store(true, Ordering::SeqCst);
+        let events: Events = Arc::new(|_| {});
+        let w = StreamWorker::start(WorkerSetup { source_id: "retry-count-test".into(), url: "https://127.0.0.1:40005/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
+        wait_for(|| !cams.sent.lock().unwrap().is_empty());
+        std::thread::sleep(Duration::from_millis(300));
+        let snap = Hub::shared().snapshot();
+        w.stop();
+        let s = snap.sources.iter().find(|s| s.source_id == "retry-count-test").expect("the stream is in the snapshot");
+        assert_eq!(s.totals.delivered + s.drops.paced + s.drops.unknown, s.totals.received, "the frame counts once: {s:?}");
     }
 
     /// Runs frames arriving after each of the gaps (ms) through a 30 fps camera and returns (arrived, delivered, paced drops).

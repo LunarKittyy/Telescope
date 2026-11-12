@@ -268,6 +268,12 @@ void MediaStream::Deliver() {
         ComPtr<IUnknown> token = m_tokens.front();
         m_tokens.pop_front();
         HRESULT hr = MakeSample(token.Get());
+        if (hr == MF_E_SAMPLEALLOCATOR_EMPTY) {
+            // The reader holds every sample for now, so keep the request and try again shortly
+            m_tokens.push_front(token);
+            if (m_wake.wait_for(lock, std::chrono::milliseconds(5), [this] { return m_stopWorker; })) break;
+            continue;
+        }
         if (FAILED(hr)) {
             Log(L"slot %d: making a frame failed (0x%08x)", m_slot, hr);
             if (m_queue) m_queue->QueueEventParamVar(MEError, GUID_NULL, hr, nullptr);

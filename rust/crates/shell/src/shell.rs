@@ -37,6 +37,11 @@ pub struct Slot {
     pub defaults: Value,
     /// Its hook timer in the stats hub, looked up the first time one is timed.
     pub timer: Option<Arc<telescope_core::stats::Timer>>,
+    /// What get_config() was when its settings were last looked at for what moved (a save it asked for, a preset handed to it), by camera for a
+    /// device-local plugin (see `State::setting_scope`).
+    pub seen: Vec<(Option<String>, Value)>,
+    /// When each dotted path of its config last moved, by the state's setting clock (Host::setting_revision), by camera for a device-local plugin.
+    pub moved: Vec<(Option<String>, String, u64)>,
 }
 
 /// The plugins' packet step makers by owner, in the order they came on (HostPackets).
@@ -273,6 +278,31 @@ impl telescope_core::frame::CpuStep for KeepBefore {
     }
 }
 
+/// A step that hides things (Privacy blur, the wait screen), watched while Colour grading compares. The picture kept from before the colour step is clear, so the moment this step has something to hide the kept one goes too and the preview shows no compare side.
+struct DropsBeforeWhenHiding {
+    inner: Box<dyn telescope_core::frame::CpuStep>,
+    before: Arc<std::sync::Mutex<BTreeMap<String, telescope_core::Frame>>>,
+}
+
+impl telescope_core::frame::CpuStep for DropsBeforeWhenHiding {
+    fn hides(&self) -> bool {
+        self.inner.hides()
+    }
+
+    fn touch(&self, ctx: &dyn telescope_core::frame::FrameContext) -> telescope_core::frame::Touch {
+        let touch = self.inner.touch(ctx);
+        if touch != telescope_core::frame::Touch::Nothing {
+            self.before.lock().unwrap().remove(ctx.source_id());
+        }
+        touch
+    }
+
+    fn process(&mut self, frame: &mut telescope_core::Frame, ctx: &dyn telescope_core::frame::FrameContext) {
+        self.before.lock().unwrap().remove(ctx.source_id());
+        self.inner.process(frame, ctx);
+    }
+}
+
 /// Monotonic seconds, the view controller's clock.
 pub fn now_s() -> f64 {
     telescope_core::time::monotonic_ns() as f64 / 1e9
@@ -366,6 +396,10 @@ pub struct State {
     // Plugin hooks running right now, and whether one asked for save_now
     calls: u32,
     pub(crate) save_after_call: bool,
+    /// Counts how often a plugin's settings moved, so Host::setting_revision can tell later edits from earlier ones.
+    pub(crate) setting_clock: u64,
+    /// The plugins that asked for a save during the hook running now, whose settings are looked at when the hook ends.
+    pub(crate) saved_in_call: Vec<usize>,
 }
 
 impl State {
@@ -426,7 +460,7 @@ impl State {
             camera_on_shown: true,
             shown: None,
             tray_close_notified: false,
-            shortcut_menu: None, stills: Vec::new(), source_stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false,
+            shortcut_menu: None, stills: Vec::new(), source_stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false, setting_clock: 0, saved_in_call: Vec::new(),
         }
     }
 
@@ -458,6 +492,10 @@ impl State {
             timer.add(telescope_core::time::monotonic_ns().saturating_sub(began));
         }
         self.slots[i].plugin = Some(plugin);
+        if self.saved_in_call.contains(&i) {
+            self.saved_in_call.retain(|s| *s != i);
+            self.note_config(i);
+        }
         self.calls -= 1;
         if self.calls == 0 && std::mem::take(&mut self.save_after_call) && !self.save_now() {
             self.effects.push(Effect::SaveSoon); // a file that can't be read now isn't saved over, and is tried again
@@ -471,6 +509,60 @@ impl State {
         }
     }
 
+    /// Whose settings plugin i holds: a device-local plugin holds the shown camera's, so what moved is told apart per camera, and any other plugin has
+    /// the one set.
+    pub fn setting_scope(&self, i: usize) -> Option<String> {
+        if self.slots.get(i).is_some_and(|s| s.info.device_local) {
+            self.streams.source_id.clone().or_else(|| self.selected.clone())
+        } else {
+            None
+        }
+    }
+
+    /// Looks at what plugin i's settings are now against what they were when last looked at: whatever moved gets a new revision. The first look
+    /// only remembers where they are.
+    pub fn note_config(&mut self, i: usize) {
+        let Some(now) = self.slots.get(i).and_then(|s| s.plugin.as_ref()).map(|p| p.get_config()).filter(Value::is_object) else { return };
+        let scope = self.setting_scope(i);
+        let slot = &mut self.slots[i];
+        let was = match slot.seen.iter_mut().find(|(s, _)| *s == scope) {
+            Some((_, seen)) => Some(std::mem::replace(seen, now.clone())),
+            None => {
+                slot.seen.push((scope.clone(), now.clone()));
+                None
+            }
+        };
+        let Some(was) = was else { return };
+        let changed = telescope_core::settings::leaf_changes(&was, &now);
+        if changed.is_empty() {
+            return;
+        }
+        self.setting_clock += 1;
+        let clock = self.setting_clock;
+        let slot = &mut self.slots[i];
+        for (path, _, _) in changed {
+            slot.moved.retain(|(s, p, _)| !(*s == scope && *p == path));
+            slot.moved.push((scope.clone(), path, clock));
+        }
+    }
+
+    /// Remembers where plugin i's settings are now, unless that is already known for the camera shown, so a change made next is told from what came before.
+    pub fn note_config_baseline(&mut self, i: usize) {
+        let scope = self.setting_scope(i);
+        if self.slots.get(i).is_some_and(|s| !s.seen.iter().any(|(sc, _)| *sc == scope)) {
+            self.rebaseline(i, scope);
+        }
+    }
+
+    /// Takes plugin i's settings as they are as the start for `scope`, whatever was seen before: they were put there (a camera's profile coming in),
+    /// not edited.
+    fn rebaseline(&mut self, i: usize, scope: Option<String>) {
+        let Some(now) = self.slots[i].plugin.as_ref().map(|p| p.get_config()).filter(Value::is_object) else { return };
+        let seen = &mut self.slots[i].seen;
+        seen.retain(|(s, _)| *s != scope);
+        seen.push((scope, now));
+    }
+
     /// The same hook on every plugin, in registration order.
     pub fn each(&mut self, mut f: impl FnMut(&mut dyn Plugin, &mut crate::host::Ctx)) {
         for i in 0..self.slots.len() {
@@ -482,7 +574,7 @@ impl State {
     pub fn register(&mut self, plugin: Box<dyn Plugin>) -> Result<(), String> {
         let info = plugin.info();
         let i = self.slots.len();
-        self.slots.push(Slot { plugin: Some(plugin), info: info.clone(), card: None, header: None, actions: vec![], tray: vec![], defaults: json!({}), timer: None });
+        self.slots.push(Slot { plugin: Some(plugin), info: info.clone(), card: None, header: None, actions: vec![], tray: vec![], defaults: json!({}), timer: None, seen: Vec::new(), moved: Vec::new() });
         let made = self.call(i, |p, host| {
             p.setup(host);
             let card = p.card();
@@ -695,6 +787,7 @@ impl State {
                     load_config_tolerantly(p, &defaults, s);
                 }
             });
+            self.rebaseline(i, id.map(String::from));
             self.call(i, |p, host| p.on_profile_applied(host));
         }
     }
@@ -731,6 +824,7 @@ impl State {
                     load_config_tolerantly(p, &defaults, s);
                 }
             });
+            self.rebaseline(i, id.map(String::from));
             self.call(i, |p, host| p.on_profile_applied(host));
         }
     }
@@ -858,22 +952,42 @@ impl State {
         if colour.is_none() || self.colour.split().is_none() {
             self.colour_before.lock().unwrap().clear();
         }
+        let comparing = colour.is_some() && self.colour.split().is_some();
+        // A step that hides things, which isn't a CPU one, can't say when it does: no compare then
+        let mut unwatched = false;
+        let mut plugin_steps = Vec::new();
+        for i in 0..self.slots.len() {
+            let (owner, stage) = (self.slots[i].info.name.clone(), self.slots[i].info.frame_stage);
+            let Some(p) = self.slots[i].plugin.as_mut() else { continue };
+            match catch_unwind(AssertUnwindSafe(|| p.frame_step())) {
+                Ok(Some(step)) => {
+                    let hides = matches!(stage, FrameStage::Privacy | FrameStage::Cover);
+                    let step = match step {
+                        telescope_core::frame::FrameStep::Cpu(inner) if comparing && hides => {
+                            telescope_core::frame::FrameStep::Cpu(Box::new(DropsBeforeWhenHiding { inner, before: self.colour_before.clone() }))
+                        }
+                        other => {
+                            unwatched |= comparing && hides;
+                            other
+                        }
+                    };
+                    plugin_steps.push(telescope_core::media::StagedStep { owner, stage, step });
+                }
+                Ok(None) => {}
+                Err(_) => log::error!("Plugin {owner} couldn't give its frame step; leaving it out"),
+            }
+        }
+        if unwatched {
+            self.colour_before.lock().unwrap().clear();
+        }
         if let Some(step) = colour {
-            if self.colour.split().is_some() {
+            if comparing && !unwatched {
                 let keep = KeepBefore(self.colour_before.clone());
                 steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step: telescope_core::frame::FrameStep::Cpu(Box::new(keep)) });
             }
             steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step });
         }
-        for i in 0..self.slots.len() {
-            let (owner, stage) = (self.slots[i].info.name.clone(), self.slots[i].info.frame_stage);
-            let Some(p) = self.slots[i].plugin.as_mut() else { continue };
-            match catch_unwind(AssertUnwindSafe(|| p.frame_step())) {
-                Ok(Some(step)) => steps.push(telescope_core::media::StagedStep { owner, stage, step }),
-                Ok(None) => {}
-                Err(_) => log::error!("Plugin {owner} couldn't give its frame step; leaving it out"),
-            }
-        }
+        steps.extend(plugin_steps);
         steps
     }
 
@@ -2352,6 +2466,48 @@ mod tests {
     }
 
     #[test]
+    fn comparing_shows_no_clear_picture_while_a_step_that_hides_things_is_hiding() {
+        use telescope_core::frame::{CpuStep, FrameContext, FrameStage, FrameStep, Touch};
+        struct Hides(Arc<std::sync::atomic::AtomicBool>);
+        impl CpuStep for Hides {
+            fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
+                if self.0.load(std::sync::atomic::Ordering::Relaxed) { Touch::Changes } else { Touch::Nothing }
+            }
+            fn process(&mut self, _frame: &mut telescope_core::Frame, _ctx: &dyn FrameContext) {}
+        }
+        struct Privacy(Arc<std::sync::atomic::AtomicBool>);
+        impl Plugin for Privacy {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "privacy".into(), frame_stage: FrameStage::Privacy, ..Default::default() }
+            }
+            fn frame_step(&mut self) -> Option<FrameStep> {
+                Some(FrameStep::Cpu(Box::new(Hides(self.0.clone()))))
+            }
+        }
+        let hiding = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let mut s = state();
+        s.register(Box::new(Privacy(hiding.clone()))).unwrap();
+        let warm = telescope_core::host::ColourStage::new(2, Arc::new(telescope_core::colour::lattice(2).iter().map(|v| v * 0.5).collect()), None);
+        s.colour.set_stage("grade", Some(warm), 0, None);
+        s.colour.set_split("grade", Some(0.5));
+        let mut steps = s.pipeline_steps(None);
+        let run = |steps: &mut Vec<telescope_core::media::StagedStep>| {
+            let mut frame = telescope_core::Frame::new(2, 1, telescope_core::frame::PixelFormat::Rgba, vec![9; 8]);
+            for st in steps.iter_mut().filter(|st| matches!(st.step, FrameStep::Cpu(_))) {
+                let FrameStep::Cpu(step) = &mut st.step else { unreachable!() };
+                if step.touch(&NoCtx) != Touch::Nothing {
+                    step.process(&mut frame, &NoCtx);
+                }
+            }
+        };
+        run(&mut steps);
+        assert!(s.colour_before.lock().unwrap().contains_key("p1"), "nothing hidden: the compare has its picture");
+        hiding.store(true, std::sync::atomic::Ordering::Relaxed);
+        run(&mut steps);
+        assert!(s.colour_before.lock().unwrap().is_empty(), "hiding: no clear picture left for the compare");
+    }
+
+    #[test]
     fn a_stream_gets_the_colour_stages_set_for_it_alone() {
         use telescope_core::frame::FrameStage;
         let mut s = state();
@@ -2532,5 +2688,86 @@ mod tests {
         let seen: Vec<Event> = heard.lock().unwrap().iter().filter(|e| matches!(e, Event::MotionSeen { .. })).cloned().collect();
         assert_eq!(seen, [Event::MotionSeen { source_id: "phone".into(), owner: "watcher".into(), zones: vec![1] }]);
         assert_eq!(crate::host::Ctx { state: &mut s, me: "watcher".into() }.motion("watcher"), [1]);
+    }
+    #[test]
+    fn a_setting_has_a_revision_that_moves_with_each_edit_even_when_the_value_comes_back() {
+        use telescope_core::host::HostSettings;
+        struct Dial(Arc<Mutex<Value>>);
+        impl Plugin for Dial {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "dial".into(), ..Default::default() }
+            }
+            fn get_config(&self) -> Value {
+                self.0.lock().unwrap().clone()
+            }
+            fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
+                *self.0.lock().unwrap() = cfg.clone();
+                Ok(())
+            }
+        }
+        let cfg = Arc::new(Mutex::new(json!({"a": 1, "b": 1})));
+        let mut s = state();
+        s.register(Box::new(Dial(cfg.clone()))).unwrap();
+        let rev = |s: &mut State, key: &str| crate::host::Ctx { state: s, me: String::new() }.setting_revision("dial", key);
+        assert_eq!((rev(&mut s, "a"), rev(&mut s, "nope")), (0, 0), "nothing moved yet");
+        // A tool writes a preset: the plugin never saved for it, and it counts all the same
+        crate::host::Ctx { state: &mut s, me: "mcp".into() }.apply_preset("dial", &json!({"a": 2, "b": 1}));
+        let by_tool = rev(&mut s, "a");
+        assert!(by_tool > 0 && rev(&mut s, "b") == 0, "only what moved");
+        // The person edits it twice, and the second lands on the tool's value again
+        let edit = |s: &mut State, a: i64| {
+            *cfg.lock().unwrap() = json!({"a": a, "b": 1});
+            s.call(0, |_, host| host.schedule_save());
+        };
+        edit(&mut s, 3);
+        let first = rev(&mut s, "a");
+        edit(&mut s, 2);
+        let second = rev(&mut s, "a");
+        assert!(by_tool < first && first < second, "{by_tool} {first} {second}");
+        assert_eq!(cfg.lock().unwrap()["a"], json!(2), "the same value as the tool left, and told apart by the revision");
+        // A save that changed nothing, or an edit of another setting, leaves it
+        s.call(0, |_, host| host.schedule_save());
+        *cfg.lock().unwrap() = json!({"a": 2, "b": 5});
+        s.call(0, |_, host| host.schedule_save());
+        assert_eq!((rev(&mut s, "a"), rev(&mut s, "b") > second), (second, true));
+    }
+    #[test]
+    fn a_camera_has_its_own_revisions_so_editing_another_camera_does_not_move_them() {
+        use telescope_core::host::HostSettings;
+        struct Dial(Arc<Mutex<Value>>);
+        impl Plugin for Dial {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "dial".into(), device_local: true, ..Default::default() }
+            }
+            fn get_config(&self) -> Value {
+                self.0.lock().unwrap().clone()
+            }
+            fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
+                *self.0.lock().unwrap() = cfg.clone();
+                Ok(())
+            }
+        }
+        let cfg = Arc::new(Mutex::new(json!({"a": 1})));
+        let mut s = state();
+        s.register(Box::new(Dial(cfg.clone()))).unwrap();
+        let rev = |s: &mut State| crate::host::Ctx { state: s, me: String::new() }.setting_revision("dial", "a");
+        let switch_to = |s: &mut State, camera: &str, config: Value| {
+            s.streams.source_id = Some(camera.into());
+            *cfg.lock().unwrap() = config;
+            s.rebaseline(0, Some(camera.into()));
+        };
+        switch_to(&mut s, "cam-a", json!({"a": 1}));
+        crate::host::Ctx { state: &mut s, me: "mcp".into() }.apply_preset("dial", &json!({"a": 2}));
+        let left_by_tool = rev(&mut s);
+        assert!(left_by_tool > 0);
+        // The person edits the other camera's setting of the same name
+        switch_to(&mut s, "cam-b", json!({"a": 1}));
+        assert_eq!(rev(&mut s), 0, "nothing moved on this camera");
+        *cfg.lock().unwrap() = json!({"a": 5});
+        s.call(0, |_, host| host.schedule_save());
+        assert!(rev(&mut s) > left_by_tool);
+        // Back on the first camera its revision is as the tool left it
+        switch_to(&mut s, "cam-a", json!({"a": 2}));
+        assert_eq!(rev(&mut s), left_by_tool);
     }
 }

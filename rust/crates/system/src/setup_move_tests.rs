@@ -80,7 +80,7 @@ impl Run {
 
 fn install(run: &Run, setup: &Path, old: &Path, location: Option<PathBuf>, folders: &[PathBuf]) -> Result<InstallResult, UpdateError> {
     let (run_it, locate) = (|argv: &[String]| run.call(argv), || location.clone());
-    install_with_setup(setup, old, &SetupEnv { run: &run_it, locate: &locate, folders })
+    install_with_setup(setup, old, 200, &SetupEnv { run: &run_it, locate: &locate, installed_build: &|_| None, folders })
 }
 
 /// Ops that hold back the named files for a number of tries, as an exiting copy does.

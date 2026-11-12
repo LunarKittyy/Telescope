@@ -74,12 +74,23 @@ impl Entry {
         self.fails >= STEP_FAILS_BEFORE_SKIP
     }
 
+    /// A CPU step that says it's there to hide something: when it fails, what goes on is a dark frame, never the clear one.
+    fn hides(&self) -> bool {
+        match &self.kind {
+            Kind::Cpu(step) | Kind::Either(_, step) => step.hides(),
+            Kind::Shader(_) => false,
+        }
+    }
+
     fn failed(&mut self, why: &str) {
         self.fails += 1;
+        let (hides, owner) = (self.hides(), &self.owner);
         if self.fails == 1 {
-            log::error!("Plugin {} failed on a frame ({why}); passing it through unchanged", self.owner);
+            let then = if hides { "withholding the frame" } else { "passing it through unchanged" };
+            log::error!("Plugin {owner} failed on a frame ({why}); {then}");
         } else if self.fails == STEP_FAILS_BEFORE_SKIP {
-            log::error!("Plugin {} failed on {} frames in a row; skipping it until the stream restarts", self.owner, self.fails);
+            let then = if hides { "withholding every frame" } else { "skipping it" };
+            log::error!("Plugin {owner} failed on {} frames in a row; {then} until the stream restarts", self.fails);
         }
     }
 }
@@ -247,11 +258,13 @@ impl Pipeline {
         }
         self.bring_down(chain, frame, ctx, touch == Touch::Reads);
         let entry = &mut self.steps[i];
+        let hides = entry.hides();
         let step = entry.kind.cpu();
         // A step that changes pixels in place would copy them all if a clone kept the old ones, so only one that failed on its last frame
         // gets that fallback; a built-in step that panics the first time may hand on a half-changed frame. Whole-frame writers build a new
         // buffer and swap it in, so they leave this one intact either way.
-        let before = (entry.fails > 0).then(|| frame.clone());
+        // (a step that hides never falls back to the picture it was given)
+        let before = (entry.fails > 0 && !hides).then(|| frame.clone());
         let (size, format) = ((frame.width, frame.height), frame.format);
         let was = Arc::downgrade(&frame.data);
         let cap = SPARE_POOL_FRAMES * frame.width as usize * frame.height as usize * 3;
@@ -266,7 +279,7 @@ impl Pipeline {
                 entry.failed("it panicked");
                 match &before {
                     Some(before) => *frame = before.clone(),
-                    None if !sound(frame) => *frame = neutral(size, format, frame.number, frame.time_ns),
+                    None if hides || !sound(frame) => *frame = neutral(size, format, frame.number, frame.time_ns),
                     None => {}
                 }
             }
@@ -438,6 +451,12 @@ impl FramePipeline for Pipeline {
         chain.timing = timing;
         for i in 0..self.steps.len() {
             if self.steps[i].skipped() {
+                if self.steps[i].hides() {
+                    // Skipped for failing too often, which can't mean the room shows: the card's copy goes with the picture
+                    let size = (frame.width, frame.height);
+                    frame = neutral(size, frame.format, frame.number, frame.time_ns);
+                    self.bring_down(&mut chain, &mut frame, ctx, false);
+                }
                 continue;
             }
             let step_began = timing.then(monotonic_ns);
@@ -470,6 +489,30 @@ impl FramePipeline for Pipeline {
         self.count(chain.ups, chain.downs);
         span("pipeline", began);
         frame
+    }
+
+    fn hide_again(&mut self, mut frame: Frame, ctx: &dyn FrameContext) -> Option<Frame> {
+        let mut chain = Chain::default();
+        let mut hid = false;
+        for i in 0..self.steps.len() {
+            if !matches!(self.steps[i].stage, FrameStage::Privacy | FrameStage::Cover) {
+                continue;
+            }
+            if self.steps[i].skipped() {
+                if self.steps[i].hides() {
+                    frame = neutral((frame.width, frame.height), frame.format, frame.number, frame.time_ns);
+                    hid = true;
+                }
+                continue;
+            }
+            // Only a CPU step can say whether it has something to hide right now
+            let (Kind::Cpu(step) | Kind::Either(_, step)) = &self.steps[i].kind else { continue };
+            if catch_unwind(AssertUnwindSafe(|| step.touch(ctx))).unwrap_or(Touch::Changes) != Touch::Nothing {
+                hid = true;
+                self.run_cpu(i, &mut frame, &mut chain, ctx);
+            }
+        }
+        hid.then_some(frame)
     }
 
     fn is_empty(&self) -> bool {
@@ -669,6 +712,69 @@ pub(crate) mod tests {
         let out = quietly(|| p.process(grey(4, 2, 1), &NoContext));
         assert_eq!(out.data[0], 5);
         assert_eq!(*seen.lock().unwrap(), [5]);
+    }
+
+    /// Panics, and says it hides something.
+    struct HidingPanics;
+
+    impl CpuStep for HidingPanics {
+        fn hides(&self) -> bool {
+            true
+        }
+        fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {
+            panic!("broken")
+        }
+    }
+
+    #[test]
+    fn a_step_that_hides_things_never_lets_the_clear_picture_through_when_it_fails_or_is_skipped() {
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("blur", FrameStage::Privacy, HidingPanics), step("tag", FrameStage::Overlay, Push(5, seen.clone()))]);
+        let source = grey(4, 2, 200);
+        let dark = |out: &Frame| out.data[1..8].iter().all(|v| *v == 16) && out.data[8..].iter().all(|v| *v == 128);
+        for n in 0..STEP_FAILS_BEFORE_SKIP + 5 {
+            let out = quietly(|| p.process(source.clone(), &NoContext));
+            assert!(dark(&out), "frame {n}: {:?}", out.data);
+            assert_eq!(out.number, source.number);
+        }
+        assert!(p.steps[0].skipped(), "skipped by now, and still nothing clear goes out");
+        assert_eq!(seen.lock().unwrap().len(), STEP_FAILS_BEFORE_SKIP as usize + 5, "the steps after it still run");
+        // One that doesn't say it hides keeps the old way
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("fun", FrameStage::Effects, Panics)]);
+        quietly(|| p.process(source.clone(), &NoContext));
+        assert_eq!(quietly(|| p.process(source.clone(), &NoContext)).data, source.data);
+    }
+
+    /// Hides when told to: it paints the picture 9, and says it has nothing to do otherwise.
+    struct HidesOnCue(Arc<std::sync::atomic::AtomicBool>);
+
+    impl CpuStep for HidesOnCue {
+        fn hides(&self) -> bool {
+            true
+        }
+        fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
+            if self.0.load(Ordering::SeqCst) { Touch::Changes } else { Touch::Nothing }
+        }
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            frame.data_mut().fill(9);
+        }
+    }
+
+    #[test]
+    fn the_steps_that_hide_things_can_run_again_on_a_frame_that_already_went_out() {
+        let on = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("blur", FrameStage::Privacy, HidesOnCue(on.clone())), step("grade", FrameStage::Colour, Push(3, seen.clone())), step("tag", FrameStage::Overlay, Push(4, seen.clone()))]);
+        let went_out = grey(4, 2, 200);
+        assert!(p.hide_again(went_out.clone(), &NoContext).is_none(), "nothing to hide, nothing to send again");
+        on.store(true, Ordering::SeqCst);
+        let hidden = p.hide_again(went_out.clone(), &NoContext).expect("hidden now");
+        assert!(hidden.data.iter().all(|v| *v == 9));
+        assert!(seen.lock().unwrap().is_empty(), "only the steps that hide ran, not the rest of the pipeline");
+        assert_eq!(went_out.data[0], 200);
     }
 
     /// Notes where the pixels were when the step got them and when it was done.

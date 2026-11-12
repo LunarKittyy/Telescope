@@ -168,6 +168,8 @@ object SessionEndpoint {
 
     fun screenStarted(context: Context) {
         appContext = context.applicationContext
+        // The first start reads (or makes) the TLS identity: do it off the main thread while the screen comes up
+        kotlin.concurrent.thread(name = "tls-warm", isDaemon = true) { try { PhoneTls.identity(context) } catch (_: Exception) {} }
         screens.started()
     }
 
@@ -188,18 +190,23 @@ open class StartWindow(private val clock: () -> Long) {
     @Volatile private var until = 0L
     private var issued = 0L
     @Volatile private var abortedUpTo = 0L
+    private var pendingOwner: String? = null
 
     // The ticket goes to the service with the start, so abort() can tell it which starts were stopped before they ran.
     @Synchronized
-    fun begin(): Long {
+    fun begin(owner: String? = null): Long {
         until = clock() + PENDING_MS
+        pendingOwner = owner
         return ++issued
     }
 
     // A stop arrived while a start was still queued: every start so far is cancelled and the window closes.
+    // Another computer's stop leaves a start queued for a known computer alone.
     @Synchronized
-    fun abort(): Boolean {
+    fun abort(by: String? = null): Boolean {
         if (!open()) return false
+        val owner = pendingOwner
+        if (owner != null && by != null && owner != by) return false
         abortedUpTo = issued
         until = 0L
         return true
@@ -244,11 +251,12 @@ private class ServiceSessionCommands(private val context: Context) : SessionComm
     }
 
     override fun stop(computer: PairedComputer?): ControlResult {
+        val service = CameraStreamService.instance
+        // Another computer's stream carries on, and so does a start it has queued
+        service?.otherOwner(computer)?.let { return StreamOwner.busyOther(it) }
         // A start still queued (no instance yet, or one before onStartCommand) must not open the camera after this stop
-        SessionStartWindow.abort()
-        val service = CameraStreamService.instance ?: return ControlResult(ok = true)
-        // Another computer's stream carries on
-        service.otherOwner(computer)?.let { return StreamOwner.busyOther(it) }
+        SessionStartWindow.abort(computer?.id)
+        if (service == null) return ControlResult(ok = true)
         // On the main thread like every other stop, not this socket thread racing them.
         android.os.Handler(android.os.Looper.getMainLooper()).post { CameraStreamService.instance?.stopStreaming("remoteStop") }
         return ControlResult(ok = true)

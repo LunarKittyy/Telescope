@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">Quyên góp hoặc đọc thêm</a>"
 msgid "No mic"
 msgstr "Không có mic"
 
-#: rust/crates/audio/src/plugin.rs:110 rust/crates/core/src/vision.rs:103 rust/crates/shell/src/plugins_tab.rs:432 rust/crates/system/src/updates_plugin.rs:451
+#: rust/crates/audio/src/plugin.rs:110 rust/crates/core/src/vision.rs:103 rust/crates/shell/src/plugins_tab.rs:432 rust/crates/system/src/updates_plugin.rs:456
 msgid "Downloading…"
 msgstr "Đang tải về…"
 
@@ -194,12 +194,12 @@ msgid "unmuted"
 msgstr "đã bật tiếng"
 
 #. a switch's state, as in "Phone mic: on"
-#: rust/crates/audio/src/plugin.rs:985 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1091
+#: rust/crates/audio/src/plugin.rs:985 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1200
 msgid "on"
 msgstr "bật"
 
 #. a switch's state, as in "Phone mic: on"
-#: rust/crates/audio/src/plugin.rs:985 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1092
+#: rust/crates/audio/src/plugin.rs:985 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1201
 msgid "off"
 msgstr "tắt"
 
@@ -548,7 +548,7 @@ msgid "Looking…"
 msgstr "Đang xem…"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:27 rust/crates/effects/src/framing.rs:70 rust/crates/effects/src/fun_pack.rs:38 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:459 rust/crates/effects/ui/background.slint:46 rust/crates/effects/ui/background.slint:51 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:287 rust/crates/link/src/browser/plugin.rs:585 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:78
+#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:27 rust/crates/effects/src/framing.rs:72 rust/crates/effects/src/fun_pack.rs:38 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:459 rust/crates/effects/ui/background.slint:46 rust/crates/effects/ui/background.slint:51 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:287 rust/crates/link/src/browser/plugin.rs:585 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:78
 msgid "Off"
 msgstr "Tắt"
 
@@ -1456,121 +1456,121 @@ msgid "Body"
 msgstr "Toàn thân"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Sloth"
 msgstr "Sên"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Lazy"
 msgstr "Rùa"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Mellow"
 msgstr "Lững thững"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Calm"
 msgstr "Thong dong"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Easy"
 msgstr "Êm"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Steady"
 msgstr "Đều tay"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Brisk"
 msgstr "Mau lẹ"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Quick"
 msgstr "Nhanh"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Snappy"
 msgstr "Thần tốc"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Zippy"
 msgstr "Tia chớp"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:70
+#: rust/crates/effects/src/framing.rs:72
 msgid "Fidget"
 msgstr "Cựa quậy"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:70
+#: rust/crates/effects/src/framing.rs:72
 msgid "Shift"
 msgstr "Dịch"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:70
+#: rust/crates/effects/src/framing.rs:72
 msgid "Lean"
 msgstr "Nghiêng người"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:70
+#: rust/crates/effects/src/framing.rs:72
 msgid "Step"
 msgstr "Bước chân"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:70
+#: rust/crates/effects/src/framing.rs:72
 msgid "Roam"
 msgstr "Đi lại"
 
-#: rust/crates/effects/src/framing.rs:87
+#: rust/crates/effects/src/framing.rs:89
 msgid "Zoom and pan to follow you."
 msgstr "Thu phóng và lia để theo sát bạn."
 
-#: rust/crates/effects/src/framing.rs:88
+#: rust/crates/effects/src/framing.rs:90
 msgid "How much of you is in the picture, from just your head to all of you."
 msgstr "Phần cơ thể bạn xuất hiện trong ảnh, từ chỉ phần đầu đến toàn thân."
 
-#: rust/crates/effects/src/framing.rs:89
+#: rust/crates/effects/src/framing.rs:91
 msgid "How quickly the framing follows when you move."
 msgstr "Tốc độ căn khung theo kịp khi bạn di chuyển."
 
-#: rust/crates/effects/src/framing.rs:90
+#: rust/crates/effects/src/framing.rs:92
 msgid "How much you can move before the framing follows you, from a fidget to walking around."
 msgstr "Mức độ bạn có thể cử động trước khi căn khung đi theo, từ cựa quậy đến đi lại."
 
-#: rust/crates/effects/src/framing.rs:91
+#: rust/crates/effects/src/framing.rs:93
 msgid "Show hands"
 msgstr "Hiện bàn tay"
 
-#: rust/crates/effects/src/framing.rs:92
+#: rust/crates/effects/src/framing.rs:94
 msgid "Widens the view so your hands are in it too."
 msgstr "Mở rộng góc nhìn để thấy cả bàn tay của bạn."
 
-#: rust/crates/effects/src/framing.rs:93
+#: rust/crates/effects/src/framing.rs:95
 msgid "Something else is moving the zoom and pan."
 msgstr "Có tính năng khác đang điều khiển thu phóng và lia máy."
 
-#: rust/crates/effects/src/framing.rs:94
+#: rust/crates/effects/src/framing.rs:96
 msgid "Auto framing: how much of you"
 msgstr "Căn khung tự động: phần cơ thể"
 
-#: rust/crates/effects/src/framing.rs:95
+#: rust/crates/effects/src/framing.rs:97
 msgid "Auto framing speed"
 msgstr "Tốc độ căn khung tự động"
 
-#: rust/crates/effects/src/framing.rs:835
+#: rust/crates/effects/src/framing.rs:875
 msgid "Zooms and pans to keep you in the picture as you move."
 msgstr "Thu phóng và lia máy để giữ bạn luôn trong khung hình khi bạn di chuyển."
 
-#: rust/crates/effects/src/framing.rs:836
+#: rust/crates/effects/src/framing.rs:876
 msgid "Without it there's no Auto framing card and the zoom stays where you put it."
 msgstr "Nếu không có tiện ích này, sẽ không có thẻ Căn khung tự động và mức thu phóng sẽ giữ nguyên ở vị trí bạn đặt."
 
@@ -2262,7 +2262,7 @@ msgstr "Ảnh RAW không có cài đặt chất lượng"
 msgid "The camera is already taking a photo."
 msgstr "Camera đang chụp ảnh rồi."
 
-#: rust/crates/effects/src/photos.rs:59
+#: rust/crates/effects/src/photos.rs:59 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:263
 msgid "The camera couldn't take the photo."
 msgstr "Camera không thể chụp ảnh."
 
@@ -2275,7 +2275,7 @@ msgstr "Như video"
 msgid "{seconds} s"
 msgstr "{seconds} s"
 
-#: rust/crates/effects/src/photos.rs:450 rust/crates/effects/src/photos.rs:962 rust/crates/effects/src/photos.rs:978 rust/crates/effects/ui/photos.slint:143
+#: rust/crates/effects/src/photos.rs:450 rust/crates/effects/src/photos.rs:981 rust/crates/effects/src/photos.rs:997 rust/crates/effects/ui/photos.slint:143
 msgid "Take photo"
 msgstr "Chụp ảnh"
 
@@ -2327,7 +2327,7 @@ msgstr "Độ phơi sáng"
 msgid "Distortion fix"
 msgstr "Sửa méo hình"
 
-#: rust/crates/effects/src/photos.rs:581 rust/crates/effects/src/photos.rs:903
+#: rust/crates/effects/src/photos.rs:581 rust/crates/effects/src/photos.rs:922
 msgid "Start streaming to take photos."
 msgstr "Bắt đầu truyền phát để chụp ảnh."
 
@@ -2358,31 +2358,36 @@ msgstr "Đang chụp ảnh, video đang tạm dừng…"
 msgid "Saved {name}"
 msgstr "Đã lưu {name}"
 
-#: rust/crates/effects/src/photos.rs:807
+#: rust/crates/effects/src/photos.rs:807 rust/crates/effects/src/photos.rs:829
 msgid "Photo saved"
 msgstr "Đã lưu ảnh"
 
-#: rust/crates/effects/src/photos.rs:822
+#: rust/crates/effects/src/photos.rs:825
+#, python-brace-format
+msgid "It came late. Saved {name}"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:839
 msgid "Save photos in"
 msgstr "Lưu ảnh vào"
 
-#: rust/crates/effects/src/photos.rs:837 rust/crates/effects/src/photos.rs:953 rust/crates/effects/ui/photos.slint:134
+#: rust/crates/effects/src/photos.rs:854 rust/crates/effects/src/photos.rs:972 rust/crates/effects/ui/photos.slint:134
 msgid "Photos"
 msgstr "Ảnh"
 
-#: rust/crates/effects/src/photos.rs:838
+#: rust/crates/effects/src/photos.rs:855
 msgid "Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it."
 msgstr "Chụp ảnh chất lượng tối đa trên điện thoại hoặc máy DSLR, bao gồm cả ảnh RAW nếu camera hỗ trợ."
 
-#: rust/crates/effects/src/photos.rs:839
+#: rust/crates/effects/src/photos.rs:856
 msgid "Without it there's no Photos card and no Take photo shortcut."
 msgstr "Nếu không có tiện ích này, sẽ không có thẻ Ảnh và không có phím tắt Chụp ảnh."
 
-#: rust/crates/effects/src/photos.rs:955 rust/crates/effects/src/photos.rs:993
+#: rust/crates/effects/src/photos.rs:974 rust/crates/effects/src/photos.rs:1012
 msgid "Photo mode"
 msgstr "Chế độ chụp ảnh"
 
-#: rust/crates/effects/src/photos.rs:960 rust/crates/effects/src/photos.rs:1003
+#: rust/crates/effects/src/photos.rs:979 rust/crates/effects/src/photos.rs:1022
 msgid "Photo timer"
 msgstr "Hẹn giờ chụp ảnh"
 
@@ -4873,6 +4878,46 @@ msgstr "Một chương trình khác đang gắn camera làm ổ đĩa. Hãy ng�
 msgid "The webcam isn't sending anything. Try another resolution or frame rate."
 msgstr "Webcam không gửi dữ liệu nào. Hãy thử độ phân giải hoặc tốc độ khung hình khác."
 
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:259
+msgid "The camera is busy. Try again in a moment."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:260
+msgid "The camera's mode doesn't allow that setting."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:261
+msgid "The camera is on Bulb. Pick a shutter speed first."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:262
+msgid "This camera can't take that kind of photo."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:264
+msgid "Telescope couldn't save the photo."
+msgstr "Telescope không thể lưu ảnh."
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:265
+msgid "The photo was interrupted because the camera stopped."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:266
+msgid "The camera took too long to take the photo. If it still arrives, it is saved and you'll be told."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:267
+msgid "The camera's image quality is locked to RAW and JPEG together, so it can't take a JPEG on its own."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:268
+msgid "The camera's image quality is locked to RAW, so it can't take a JPEG."
+msgstr ""
+
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:269
+msgid "The camera only sent part of the photo. What came is saved."
+msgstr ""
+
 #: rust/crates/outputs/src/wininstall.rs:225 rust/crates/setup/src/setup.rs:805
 msgid "Installed"
 msgstr "Đã cài đặt"
@@ -6359,11 +6404,11 @@ msgstr "Đang thiết lập thêm camera ảo…"
 msgid "Couldn't add more virtual cameras"
 msgstr "Không thể thêm camera ảo"
 
-#: rust/crates/shell/src/host.rs:577
+#: rust/crates/shell/src/host.rs:597
 msgid "Only a phone's stream has the video this needs."
 msgstr "Chỉ luồng phát của điện thoại mới có video mà tính năng này cần."
 
-#: rust/crates/shell/src/host.rs:583
+#: rust/crates/shell/src/host.rs:603
 msgid "Needs Light: Heavy sends whole pictures, with no keyframes to work with."
 msgstr "Cần định dạng Nhẹ: Định dạng Nặng gửi toàn bộ khung hình ảnh, không có khung hình chính để xử lý."
 
@@ -6602,7 +6647,7 @@ msgstr "Khoảng cách lấy nét"
 msgid "Install the v4l2loopback package. Fedora and Nobara: v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms."
 msgstr "Cài đặt gói v4l2loopback. Fedora và Nobara: v4l2loopback (từ RPM Fusion). Debian, Ubuntu và Arch: v4l2loopback-dkms."
 
-#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:459
+#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:464
 msgid "Checking…"
 msgstr "Đang kiểm tra…"
 
@@ -6622,7 +6667,7 @@ msgstr "Đã cài đặt."
 msgid "Check again"
 msgstr "Kiểm tra lại"
 
-#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:453
+#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:458
 msgid "Installing…"
 msgstr "Đang cài đặt…"
 
@@ -7101,56 +7146,56 @@ msgstr "Cài đặt tiện ích bổ sung"
 msgid "Plugins (*.zip)"
 msgstr "Tiện ích bổ sung (*.zip)"
 
-#: rust/crates/shell/src/shell.rs:592
+#: rust/crates/shell/src/shell.rs:630
 #, python-brace-format
 msgid "{plugins} didn't start"
 msgid_plural "{plugins} didn't start"
 msgstr[0] "{plugins} không khởi động được"
 
-#: rust/crates/shell/src/shell.rs:594
+#: rust/crates/shell/src/shell.rs:632
 #, python-brace-format
 msgid "{n} plugin didn't start"
 msgid_plural "{n} plugins didn't start"
 msgstr[0] "{n} tiện ích bổ sung không khởi động được"
 
-#: rust/crates/shell/src/shell.rs:596
+#: rust/crates/shell/src/shell.rs:634
 msgid "Telescope works without it. The Plugins tab in Settings says what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings says what went wrong."
 msgstr[0] "Telescope vẫn hoạt động khi không có tiện ích này. Thẻ Tiện ích bổ sung trong Cài đặt cho biết sự cố đã xảy ra."
 
-#: rust/crates/shell/src/shell.rs:600 rust/crates/shell/src/shell.rs:620
+#: rust/crates/shell/src/shell.rs:638 rust/crates/shell/src/shell.rs:658
 msgid "Plugins…"
 msgstr "Tiện ích bổ sung…"
 
-#: rust/crates/shell/src/shell.rs:614
+#: rust/crates/shell/src/shell.rs:652
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
 msgstr[0] "{plugins} đã bị tắt"
 
-#: rust/crates/shell/src/shell.rs:615
+#: rust/crates/shell/src/shell.rs:653
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "Bạn đã tắt mục này trong phần Tiện ích bổ sung. Để bật lại, hãy mở Tiện ích bổ sung trong Cài đặt và bật lên."
 
-#: rust/crates/shell/src/shell.rs:635
+#: rust/crates/shell/src/shell.rs:673
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "Bản sao của tệp cũ nằm tại {path}."
 
-#: rust/crates/shell/src/shell.rs:637
+#: rust/crates/shell/src/shell.rs:675
 msgid "Your settings couldn't be read"
 msgstr "Không thể đọc cài đặt của bạn"
 
-#: rust/crates/shell/src/shell.rs:638
+#: rust/crates/shell/src/shell.rs:676
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescope đã khởi động với cài đặt mặc định, vì vậy các điện thoại đã ghép đôi cần được ghép đôi lại."
 
-#: rust/crates/shell/src/shell.rs:962
+#: rust/crates/shell/src/shell.rs:1000
 msgid "Telescope - Save failed"
 msgstr "Telescope - Lưu thất bại"
 
-#: rust/crates/shell/src/shell.rs:963
+#: rust/crates/shell/src/shell.rs:1001
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "Không thể lưu cài đặt. Kiểm tra dung lượng đĩa và quyền truy cập."
 
@@ -7780,7 +7825,7 @@ msgstr "Không thể tráo đổi trực tiếp bản AppImage sang phiên bản
 msgid "Telescope can't swap its own files here, because its folder isn't writable. Download {version} from its release page and install it yourself."
 msgstr "Telescope không thể tự tráo đổi các tệp tại đây vì thư mục không có quyền ghi. Hãy tải về {version} từ trang phát hành và tự cài đặt."
 
-#: rust/crates/system/src/going_back.rs:247 rust/crates/system/src/updates_plugin.rs:523
+#: rust/crates/system/src/going_back.rs:247 rust/crates/system/src/updates_plugin.rs:528
 msgid "Open download page"
 msgstr "Mở trang tải về"
 
@@ -7852,165 +7897,170 @@ msgstr "Một ứng dụng khác đã sử dụng phím này"
 msgid "Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all, so pick another."
 msgstr "Phím tắt Mọi nơi được lấy từ Windows trong khi Telescope chạy. Phím mà ứng dụng khác đã chiếm sẽ không thể gửi đến Telescope, vì vậy hãy chọn phím khác."
 
-#: rust/crates/system/src/mcp.rs:590 rust/crates/system/src/mcp.rs:733
+#: rust/crates/system/src/mcp.rs:630 rust/crates/system/src/mcp.rs:773
 msgid "An AI app"
 msgstr "Một ứng dụng AI"
 
-#: rust/crates/system/src/mcp.rs:596
+#: rust/crates/system/src/mcp.rs:636
 #, python-brace-format
 msgid "Refused (read only): {what}"
 msgstr "Đã từ chối (chỉ đọc): {what}"
 
-#: rust/crates/system/src/mcp.rs:625
+#: rust/crates/system/src/mcp.rs:665
 #, python-brace-format
 msgid "Failed: {what}"
 msgstr "Thất bại: {what}"
 
-#: rust/crates/system/src/mcp.rs:656
+#: rust/crates/system/src/mcp.rs:696
 msgid "Read status"
 msgstr "Đã đọc trạng thái"
 
-#: rust/crates/system/src/mcp.rs:657
+#: rust/crates/system/src/mcp.rs:697
 msgid "Read stats"
 msgstr "Đã đọc thống kê"
 
-#: rust/crates/system/src/mcp.rs:658
+#: rust/crates/system/src/mcp.rs:698
 #, python-brace-format
 msgid "Watched stats for {n} s"
 msgstr "Đã theo dõi thống kê trong {n} giây"
 
-#: rust/crates/system/src/mcp.rs:659
+#: rust/crates/system/src/mcp.rs:699
 msgid "Read diagnostics"
 msgstr "Đã đọc chẩn đoán"
 
-#: rust/crates/system/src/mcp.rs:660
+#: rust/crates/system/src/mcp.rs:700
 msgid "Measured the picture"
 msgstr "Đã đo ảnh"
 
-#: rust/crates/system/src/mcp.rs:662
+#: rust/crates/system/src/mcp.rs:702
 #, python-brace-format
 msgid "Listed the {plugin} settings"
 msgstr "Đã liệt kê cài đặt {plugin}"
 
-#: rust/crates/system/src/mcp.rs:663
+#: rust/crates/system/src/mcp.rs:703
 msgid "Listed every setting"
 msgstr "Đã liệt kê mọi cài đặt"
 
-#: rust/crates/system/src/mcp.rs:666
+#: rust/crates/system/src/mcp.rs:706
 #, python-brace-format
 msgid "Read {names}"
 msgstr "Đã đọc {names}"
 
-#: rust/crates/system/src/mcp.rs:667
+#: rust/crates/system/src/mcp.rs:707
 msgid "Read every setting"
 msgstr "Đã đọc mọi cài đặt"
 
-#: rust/crates/system/src/mcp.rs:670
+#: rust/crates/system/src/mcp.rs:710
 #, python-brace-format
 msgid "Set {changes}"
 msgstr "Đã đặt {changes}"
 
-#: rust/crates/system/src/mcp.rs:670
+#: rust/crates/system/src/mcp.rs:710
 #, python-brace-format
 msgid "{name} to {value}"
 msgstr "{name} thành {value}"
 
-#: rust/crates/system/src/mcp.rs:671
+#: rust/crates/system/src/mcp.rs:711
 msgid "Set settings"
 msgstr "Đã đặt cài đặt"
 
-#: rust/crates/system/src/mcp.rs:673
+#: rust/crates/system/src/mcp.rs:713
 msgid "Undid its changes"
 msgstr "Đã hoàn tác thay đổi"
 
-#: rust/crates/system/src/mcp.rs:674
+#: rust/crates/system/src/mcp.rs:714
 msgid "Listed the actions"
 msgstr "Đã liệt kê các thao tác"
 
-#: rust/crates/system/src/mcp.rs:678
+#: rust/crates/system/src/mcp.rs:718
 #, python-brace-format
 msgid "Ran {action}"
 msgstr "Đã chạy {action}"
 
-#: rust/crates/system/src/mcp.rs:719
+#: rust/crates/system/src/mcp.rs:759
 msgid "MCP server settings"
 msgstr "Cài đặt máy chủ MCP"
 
-#: rust/crates/system/src/mcp.rs:720
+#: rust/crates/system/src/mcp.rs:760
 msgid "An AI app is connected."
 msgstr "Một ứng dụng AI đang kết nối."
 
-#: rust/crates/system/src/mcp.rs:720
+#: rust/crates/system/src/mcp.rs:760
 msgid "No AI app is connected. Open the MCP settings."
 msgstr "Chưa có ứng dụng AI nào kết nối. Mở cài đặt MCP."
 
-#: rust/crates/system/src/mcp.rs:721
+#: rust/crates/system/src/mcp.rs:761
 msgid "Undo what the AI changed"
 msgstr "Hoàn tác thay đổi của AI"
 
-#: rust/crates/system/src/mcp.rs:722
+#: rust/crates/system/src/mcp.rs:762
 msgid "Undo what the AI changed."
 msgstr "Hoàn tác những gì AI đã thay đổi."
 
-#: rust/crates/system/src/mcp.rs:722
+#: rust/crates/system/src/mcp.rs:762
 msgid "The AI hasn't changed anything."
 msgstr "AI chưa thay đổi gì cả."
 
-#: rust/crates/system/src/mcp.rs:737
+#: rust/crates/system/src/mcp.rs:777
 msgid "No AI app is connected"
 msgstr "Chưa có ứng dụng AI nào kết nối"
 
-#: rust/crates/system/src/mcp.rs:738
+#: rust/crates/system/src/mcp.rs:778
 msgid "Read only"
 msgstr "Chỉ đọc"
 
-#: rust/crates/system/src/mcp.rs:738
+#: rust/crates/system/src/mcp.rs:778
 msgid "Read and change"
 msgstr "Đọc và thay đổi"
 
-#: rust/crates/system/src/mcp.rs:741
+#: rust/crates/system/src/mcp.rs:781
 msgid "Copy the entry for an AI app's MCP settings."
 msgstr "Sao chép mục cấu hình cho cài đặt MCP của ứng dụng AI."
 
-#: rust/crates/system/src/mcp.rs:743
+#: rust/crates/system/src/mcp.rs:783
 msgid "Nothing yet"
 msgstr "Chưa có gì"
 
-#: rust/crates/system/src/mcp.rs:1009
-msgid "You"
-msgstr "Bạn"
-
-#: rust/crates/system/src/mcp.rs:1009
+#: rust/crates/system/src/mcp.rs:1112
 msgid "Undid what the AI changed"
 msgstr "Đã hoàn tác những gì AI thay đổi"
 
-#: rust/crates/system/src/mcp.rs:1103
+#: rust/crates/system/src/mcp.rs:1112
+#, python-brace-format
+msgid "Undid what the AI changed, except {n} it couldn't put back"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:1113
+msgid "You"
+msgstr "Bạn"
+
+#: rust/crates/system/src/mcp.rs:1212
 #, python-brace-format
 msgid "{list} and {n} more"
 msgstr "{list} và {n} mục khác"
 
-#: rust/crates/system/src/mcp.rs:1228 rust/crates/system/ui/mcp.slint:29
+#: rust/crates/system/src/mcp.rs:1394 rust/crates/system/ui/mcp.slint:29
 msgid "MCP server"
 msgstr "Máy chủ MCP"
 
-#: rust/crates/system/src/mcp.rs:1229
+#: rust/crates/system/src/mcp.rs:1395
 msgid "Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port."
 msgstr "Cho phép một ứng dụng AI như Claude Desktop xem Telescope và thay đổi cài đặt thông qua một lệnh không mở cổng mạng."
 
-#: rust/crates/system/src/mcp.rs:1230
+#: rust/crates/system/src/mcp.rs:1396
 msgid "Without it AI apps can't connect to Telescope."
 msgstr "Nếu tắt, các ứng dụng AI sẽ không thể kết nối tới Telescope."
 
-#: rust/crates/system/src/mcp.rs:1261 rust/crates/system/ui/mcp.slint:227
+#: rust/crates/system/src/mcp.rs:1427 rust/crates/system/ui/mcp.slint:227
 msgid "MCP"
 msgstr "MCP"
 
-#: rust/crates/system/src/mcp.rs:1262 rust/crates/system/ui/mcp.slint:31
+#: rust/crates/system/src/mcp.rs:1428 rust/crates/system/ui/mcp.slint:31
 msgctxt "search"
 msgid "mcp ai claude model assistant agent connect access read only"
 msgstr "mcp ai claude mô hình trợ lý tác nhân kết nối truy cập chỉ đọc model assistant agent connect access read only"
 
-#: rust/crates/system/src/mcp.rs:1302
+#: rust/crates/system/src/mcp.rs:1478
 msgid "An AI app is connected to Telescope through the MCP server."
 msgstr "Một ứng dụng AI đang kết nối tới Telescope thông qua máy chủ MCP."
 
@@ -8102,21 +8152,25 @@ msgstr "Không có hành động nào tên là {action}. Dùng lệnh telescope 
 msgid "{action} can't be used right now (no device, or the control is off)."
 msgstr "Hiện không thể dùng {action} (không có thiết bị, hoặc nút điều khiển đang tắt)."
 
-#: rust/crates/system/src/setup_move.rs:350
+#: rust/crates/system/src/setup_move.rs:381
+msgid "A newer Telescope is already installed, so this copy stays as it is. Open the installed one from the Start menu."
+msgstr ""
+
+#: rust/crates/system/src/setup_move.rs:389
 msgid "The installer took too long, so this copy stays as it is."
 msgstr "Trình cài đặt mất quá nhiều thời gian, nên bản sao này vẫn được giữ nguyên."
 
-#: rust/crates/system/src/setup_move.rs:352
+#: rust/crates/system/src/setup_move.rs:391
 #, python-brace-format
 msgid "Couldn't start the installer: {error}"
 msgstr "Không thể khởi chạy trình cài đặt: {error}"
 
-#: rust/crates/system/src/setup_move.rs:356
+#: rust/crates/system/src/setup_move.rs:395
 #, python-brace-format
 msgid "The installer stopped (code {code}), so this copy stays as it is."
 msgstr "Trình cài đặt đã dừng (mã {code}), nên bản sao này vẫn được giữ nguyên."
 
-#: rust/crates/system/src/setup_move.rs:360
+#: rust/crates/system/src/setup_move.rs:399
 msgid "Telescope was installed, but its folder wasn't where expected. Open it from the Start menu."
 msgstr "Telescope đã được cài đặt, nhưng thư mục ứng dụng không nằm ở vị trí mong đợi. Hãy mở ứng dụng từ menu Start."
 
@@ -8451,7 +8505,7 @@ msgstr "Không thể thay thế các tệp của Telescope: {error}"
 msgid "{file} is in use, so the update wasn't installed. Try again after a restart."
 msgstr "{file} đang được sử dụng, nên bản cập nhật chưa được cài đặt. Hãy thử lại sau khi khởi động lại máy."
 
-#: rust/crates/system/src/updates.rs:622 rust/crates/system/src/updates_plugin.rs:97 rust/crates/system/src/updates_plugin.rs:168 rust/crates/system/src/updates_plugin.rs:240 rust/crates/system/src/updates_plugin.rs:616 rust/crates/system/src/updates_plugin.rs:791
+#: rust/crates/system/src/updates.rs:622 rust/crates/system/src/updates_plugin.rs:97 rust/crates/system/src/updates_plugin.rs:168 rust/crates/system/src/updates_plugin.rs:240 rust/crates/system/src/updates_plugin.rs:621 rust/crates/system/src/updates_plugin.rs:796
 msgid "The update failed."
 msgstr "Cập nhật thất bại."
 
@@ -8467,78 +8521,78 @@ msgstr "Ổn định"
 msgid "Nightly"
 msgstr "Nightly"
 
-#: rust/crates/system/src/updates_plugin.rs:449
+#: rust/crates/system/src/updates_plugin.rs:454
 #, python-brace-format
 msgid "Downloading {percent}%…"
 msgstr "Đang tải về {percent} %…"
 
-#: rust/crates/system/src/updates_plugin.rs:454
+#: rust/crates/system/src/updates_plugin.rs:459
 msgid "Setting up Python's libraries. This takes a few minutes…"
 msgstr "Đang thiết lập các thư viện Python. Việc này mất vài phút…"
 
-#: rust/crates/system/src/updates_plugin.rs:455
+#: rust/crates/system/src/updates_plugin.rs:460
 msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "Đã cập nhật. Telescope sẽ khởi động lại khi bạn dừng truyền phát."
 
-#: rust/crates/system/src/updates_plugin.rs:465
+#: rust/crates/system/src/updates_plugin.rs:470
 msgid "Going back to the Python version didn't work because it didn't start, so this version is back."
 msgstr "Không thể quay lại phiên bản Python vì bản đó không khởi động được, nên đã quay về phiên bản này."
 
-#: rust/crates/system/src/updates_plugin.rs:470
+#: rust/crates/system/src/updates_plugin.rs:475
 msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along."
 msgstr "Việc cập nhật cũng sẽ cài đặt ứng dụng cho người dùng của bạn, tạo mục trong menu Start và xóa bản sao đã giải nén này. Các cài đặt và điện thoại vẫn được giữ lại."
 
-#: rust/crates/system/src/updates_plugin.rs:476
+#: rust/crates/system/src/updates_plugin.rs:481
 msgid "Stop streaming to update."
 msgstr "Dừng truyền phát để cập nhật."
 
-#: rust/crates/system/src/updates_plugin.rs:488
+#: rust/crates/system/src/updates_plugin.rs:493
 msgid "This is a source checkout, so it doesn't update itself."
 msgstr "Đây là bản cài đặt từ mã nguồn, nên sẽ không tự cập nhật."
 
-#: rust/crates/system/src/updates_plugin.rs:496
+#: rust/crates/system/src/updates_plugin.rs:501
 msgid "There's no nightly release yet."
 msgstr "Chưa có bản phát hành nightly nào."
 
-#: rust/crates/system/src/updates_plugin.rs:496
+#: rust/crates/system/src/updates_plugin.rs:501
 msgid "There's no stable release yet."
 msgstr "Chưa có bản phát hành ổn định nào."
 
-#: rust/crates/system/src/updates_plugin.rs:498
+#: rust/crates/system/src/updates_plugin.rs:503
 msgid "You have the latest version."
 msgstr "Bạn đang có phiên bản mới nhất."
 
-#: rust/crates/system/src/updates_plugin.rs:502
+#: rust/crates/system/src/updates_plugin.rs:507
 #, python-brace-format
 msgid "Telescope {version} is available"
 msgstr "Đã có Telescope {version}"
 
-#: rust/crates/system/src/updates_plugin.rs:523
+#: rust/crates/system/src/updates_plugin.rs:528
 msgid "Update and restart"
 msgstr "Cập nhật và khởi động lại"
 
-#: rust/crates/system/src/updates_plugin.rs:527
+#: rust/crates/system/src/updates_plugin.rs:532
 msgid "Stop streaming to go back."
 msgstr "Dừng truyền phát để quay lại."
 
-#: rust/crates/system/src/updates_plugin.rs:527
+#: rust/crates/system/src/updates_plugin.rs:532
 #, python-brace-format
 msgid "Swap this version for the last Python version, {version}."
 msgstr "Đổi phiên bản này sang phiên bản Python cuối cùng, {version}."
 
-#: rust/crates/system/src/updates_plugin.rs:684
+#: rust/crates/system/src/updates_plugin.rs:689
 msgid "Couldn't check for updates."
 msgstr "Không thể kiểm tra bản cập nhật."
 
-#: rust/crates/system/src/updates_plugin.rs:841
+#: rust/crates/system/src/updates_plugin.rs:846
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "Đã cập nhật. Hãy đóng và mở lại Telescope để hoàn tất."
 
-#: rust/crates/system/src/updates_plugin.rs:857
+#: rust/crates/system/src/updates_plugin.rs:862
 msgid "Updates"
 msgstr "Bản cập nhật"
 
-#: rust/crates/system/src/updates_plugin.rs:858
+#: rust/crates/system/src/updates_plugin.rs:863
 msgid "Checking for new versions of Telescope and installing them."
 msgstr "Kiểm tra các phiên bản mới của Telescope và cài đặt chúng."
 
@@ -9044,22 +9098,22 @@ msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "kéo giãn ép tỷ lệ cao stretch squish aspect tall"
 
-#: rust/crates/system/src/updates_plugin.rs:468
+#: rust/crates/system/src/updates_plugin.rs:473
 #, python-brace-format
 msgid "Telescope {version} is available."
 msgstr "Đã có Telescope {version}."
 
-#: rust/crates/system/src/updates_plugin.rs:484
+#: rust/crates/system/src/updates_plugin.rs:489
 #, python-brace-format
 msgid "Telescope {version} didn't start after updating, so it's held back. Try again?"
 msgstr "Telescope {version} không khởi động được sau khi cập nhật, nên đã bị giữ lại. Bạn có muốn thử lại không?"
 
-#: rust/crates/system/src/updates_plugin.rs:490
+#: rust/crates/system/src/updates_plugin.rs:495
 #, python-brace-format
 msgid "The latest nightly build is {version}."
 msgstr "Bản dựng nightly mới nhất là {version}."
 
-#: rust/crates/system/src/updates_plugin.rs:490
+#: rust/crates/system/src/updates_plugin.rs:495
 #, python-brace-format
 msgid "The latest stable build is {version}."
 msgstr "Bản dựng ổn định mới nhất là {version}."
@@ -9095,10 +9149,6 @@ msgstr "Mất kết nối với điện thoại trong khi đang chụp ảnh."
 #: rust/crates/link/src/stills.rs:58
 msgid "The phone gave up on the photo, maybe because its stream stopped."
 msgstr "Điện thoại đã hủy việc chụp ảnh, có thể do luồng phát đã dừng."
-
-#: rust/crates/link/src/stills.rs:59
-msgid "Telescope couldn't save the photo."
-msgstr "Telescope không thể lưu ảnh."
 
 #: rust/crates/link/src/stills.rs:60
 msgid "This phone can't take photos from Telescope. Update the app on the phone."

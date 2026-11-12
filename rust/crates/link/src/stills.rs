@@ -19,6 +19,8 @@ use telescope_core::source::PairedPhone;
 /// The /v1/still this desktop speaks; a phone sends stills: 1 in /v1/state when it takes it.
 pub const STILLS_VERSION: i64 = 1;
 const CHUNK: usize = 1 << 20;
+/// The most one photo file may be, whatever the phone says it is.
+const MAX_FILE_BYTES: u64 = 1 << 30;
 const MAX_REPLY: usize = 1 << 20;
 
 /// How long things may take; tests shorten them.
@@ -502,9 +504,10 @@ impl Runner<'_> {
             };
             report(&saved); // before the downloads, which can take a while for a batch of RAW files
             while fetched < files.len() && !self.stopped() {
-                let Some(path) = self.fetch(&sid, fetched, &files[fetched], folder) else {
+                let Some(path) = self.fetch(&sid, fetched, &files[fetched], folder, &alive_now, longest) else {
                     self.forget(&sid);
-                    return StillResult::failed("save", "", &saved);
+                    let code = if self.stopped() { "failed" } else if !alive_now() { "interrupted" } else { "save" };
+                    return StillResult::failed(code, "", &saved);
                 };
                 saved.push(path.to_string_lossy().into_owned());
                 fetched += 1;
@@ -534,7 +537,7 @@ impl Runner<'_> {
     }
 
     /// File n of the photo into folder under the phone's name (made free), or None when it couldn't be saved.
-    fn fetch(&self, sid: &str, n: usize, info: &Map<String, Value>, folder: &Path) -> Option<PathBuf> {
+    fn fetch(&self, sid: &str, n: usize, info: &Map<String, Value>, folder: &Path, alive: &dyn Fn() -> bool, patience: Duration) -> Option<PathBuf> {
         let hook = self.inner.before_fetch.lock().unwrap().clone();
         if hook.is_some_and(|h| !h()) {
             return None;
@@ -548,20 +551,35 @@ impl Runner<'_> {
             }
         };
         let part = path.with_file_name(format!("{}.part", path.file_name().unwrap_or_default().to_string_lossy()));
+        let size = info.get("size").filter(|v| v.is_i64() || v.is_u64()).and_then(Value::as_u64);
+        // What the phone says the file is, never more than a photo can be; the whole download gets as long as a photo does
+        let cap = size.map_or(MAX_FILE_BYTES, |s| s.min(MAX_FILE_BYTES));
+        let deadline = Instant::now() + patience;
         let got = (|| -> Result<(), String> {
             let url = format!("{}/still/file?id={sid}&n={n}", self.base);
             let mut resp = self.auth.open(Request::get(&url, self.timings().file)).map_err(|e: Error| e.to_string())?;
             let mut out = std::fs::File::create(&part).map_err(|e| e.to_string())?;
             let mut buf = vec![0u8; CHUNK];
+            let mut have = 0u64;
             loop {
+                if self.stopped() || !alive() {
+                    return Err("stopped".into());
+                }
+                if Instant::now() > deadline {
+                    return Err("took too long".into());
+                }
                 let k = resp.read(&mut buf).map_err(|e| e.to_string())?;
                 if k == 0 {
                     break;
                 }
+                have += k as u64;
+                if have > cap {
+                    return Err(format!("more than {cap} bytes"));
+                }
                 out.write_all(&buf[..k]).map_err(|e| e.to_string())?;
             }
             drop(out);
-            if let Some(size) = info.get("size").filter(|v| v.is_i64() || v.is_u64()).and_then(Value::as_u64) {
+            if let Some(size) = size {
                 let have = std::fs::metadata(&part).map_err(|e| e.to_string())?.len();
                 if have != size {
                     return Err(format!("got {have} of {size} bytes"));
@@ -960,6 +978,92 @@ mod tests {
         let (r, _, p) = timed(Phone { polls: 1000, ..Phone::default() }, Timings { longest: Duration::ZERO, ..quick() }, json!({}), None);
         assert_eq!(r.code, "timeout");
         assert_eq!(p.forgotten, ["abc"]);
+    }
+
+    /// A phone that answers every request with a canned status and sends the photo file as a chunked body that never ends; counts what it sent.
+    fn endless_phone(advertised: Option<u64>, pace: Duration) -> (u16, Arc<std::sync::atomic::AtomicU64>) {
+        use std::io::{BufRead, BufReader};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let sent = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let counted = sent.clone();
+        std::thread::spawn(move || {
+            for conn in listener.incoming().flatten() {
+                let counted = counted.clone();
+                std::thread::spawn(move || {
+                    let mut conn = conn;
+                    let mut line = String::new();
+                    let mut reader = BufReader::new(conn.try_clone().unwrap());
+                    let _ = reader.read_line(&mut line);
+                    let mut length = 0usize;
+                    loop {
+                        let mut h = String::new();
+                        if reader.read_line(&mut h).unwrap_or(0) == 0 || h.trim().is_empty() {
+                            break;
+                        }
+                        if let Some(v) = h.to_ascii_lowercase().strip_prefix("content-length:") {
+                            length = v.trim().parse().unwrap_or(0);
+                        }
+                    }
+                    let _ = std::io::copy(&mut reader.by_ref().take(length as u64), &mut std::io::sink());
+                    if line.contains("/v1/still/file") {
+                        let _ = conn.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nTransfer-Encoding: chunked\r\n\r\n");
+                        let chunk = vec![b'x'; 1 << 20];
+                        for _ in 0..64 {
+                            let head = format!("{:x}\r\n", chunk.len());
+                            if conn.write_all(head.as_bytes()).and_then(|_| conn.write_all(&chunk)).and_then(|_| conn.write_all(b"\r\n")).is_err() {
+                                return;
+                            }
+                            counted.fetch_add(chunk.len() as u64, Ordering::SeqCst);
+                            if !pace.is_zero() {
+                                std::thread::sleep(pace);
+                            }
+                        }
+                        return;
+                    }
+                    let size = advertised.map_or(String::new(), |n| format!(", \"size\": {n}"));
+                    let body = if line.starts_with("POST") {
+                        r#"{"ok": true, "id": "abc"}"#.to_string()
+                    } else {
+                        format!(r#"{{"id": "abc", "state": "done", "shots": 1, "taken": 1, "files": [{{"name": "big.jpg"{size}}}]}}"#)
+                    };
+                    let head = format!("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len());
+                    let _ = conn.write_all(head.as_bytes()).and_then(|_| conn.write_all(body.as_bytes()));
+                });
+            }
+        });
+        (port, sent)
+    }
+
+    fn take_from(port: u16, timings: Timings) -> StillResult {
+        let stills = Stills::new();
+        stills.set_timings(timings);
+        let (tx, rx) = mpsc::channel();
+        let folder = telescope_core::testing::scratch_dir("stills-endless");
+        assert!(stills.take(Some("phone-1"), &format!("http://127.0.0.1:{port}/v1"), PhoneAuth::new("token", ""), Map::new(), folder.clone(),
+                            Box::new(move |r| tx.send(r).unwrap()), None, None));
+        let r = rx.recv_timeout(Duration::from_secs(20)).unwrap();
+        let left: Vec<_> = std::fs::read_dir(&folder).unwrap().flatten().filter(|e| e.metadata().map(|m| m.len() > 0).unwrap_or(false)).collect();
+        assert!(left.is_empty(), "left behind: {left:?}");
+        r
+    }
+
+    #[test]
+    fn a_file_longer_than_the_phone_said_is_dropped_not_downloaded_forever() {
+        let (port, sent) = endless_phone(Some(1000), Duration::ZERO);
+        let r = take_from(port, quick());
+        assert_eq!(r.code, "save");
+        std::thread::sleep(Duration::from_millis(300));
+        assert!(sent.load(Ordering::SeqCst) < 32 << 20, "sent {}", sent.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn a_download_that_trickles_forever_runs_out_of_time() {
+        let (port, _) = endless_phone(None, Duration::from_millis(50));
+        let started = Instant::now();
+        let r = take_from(port, Timings { longest: Duration::from_millis(400), ..quick() });
+        assert_eq!(r.code, "save");
+        assert!(started.elapsed() < Duration::from_secs(10));
     }
 
     #[test]

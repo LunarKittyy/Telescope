@@ -156,6 +156,19 @@ class UdpVideoTest {
     }
 
     @Test
+    fun `sealing into a reused buffer gives the same datagram as sealing to a new array`() {
+        val a = UdpSeal(key, UdpWire.TO_DESKTOP)
+        val b = UdpSeal(key, UdpWire.TO_DESKTOP)
+        val buf = ByteArray(2048) { 7 }
+        repeat(3) { i ->
+            val plain = ByteArray(10 + i * 400) { (it + i).toByte() }
+            val length = a.sealInto(plain, buf)
+            assertArrayEquals(b.seal(plain), buf.copyOf(length))
+        }
+        assertEquals(-1, a.sealInto(ByteArray(100), ByteArray(50)))
+    }
+
+    @Test
     fun `opens what the other side sealed, once, and nothing forged`() {
         val desktop = UdpSeal(key, UdpWire.TO_PHONE)
         val phone = UdpSeal(key, UdpWire.TO_PHONE)

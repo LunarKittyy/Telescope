@@ -17,6 +17,59 @@ pub struct Pipe {
 
 type Output = Arc<Mutex<Box<dyn Write + Send>>>;
 
+/// The longest message taken from one line, the same limit Telescope puts on a request.
+const MAX_LINE: usize = crate::mcp::MAX_LINE;
+
+/// One line read with a cap.
+enum Line {
+    Text(String),
+    /// Longer than the cap: the line was thrown away as it arrived.
+    TooLong,
+    End,
+}
+
+/// Reads up to the next newline but keeps no more than `max` bytes: the rest of a longer line is skipped as it comes in, so a sender that
+/// never ends a line can't make this grow.
+fn read_line(reader: &mut impl BufRead, max: usize) -> std::io::Result<Line> {
+    let mut line: Vec<u8> = Vec::new();
+    let (mut too_long, mut any) = (false, false);
+    loop {
+        let chunk = match reader.fill_buf() {
+            Ok(chunk) => chunk,
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(e) => return Err(e),
+        };
+        if chunk.is_empty() {
+            break;
+        }
+        any = true;
+        let (upto, done) = match chunk.iter().position(|b| *b == b'\n') {
+            Some(at) => (at, true),
+            None => (chunk.len(), false),
+        };
+        if !too_long {
+            if line.len() + upto > max {
+                too_long = true;
+                line = Vec::new();
+            } else {
+                line.extend_from_slice(&chunk[..upto]);
+            }
+        }
+        reader.consume(upto + usize::from(done));
+        if done {
+            break;
+        }
+    }
+    if !any {
+        return Ok(Line::End);
+    }
+    if too_long {
+        return Ok(Line::TooLong);
+    }
+    let text = String::from_utf8_lossy(&line).into_owned();
+    Ok(Line::Text(text.strip_suffix('\r').map(String::from).unwrap_or(text)))
+}
+
 /// A live connection to Telescope: where messages go, whether it's still there, and the requests it hasn't answered yet.
 struct Session {
     write: Box<dyn Write + Send>,
@@ -57,8 +110,13 @@ fn connect_session(connect: &mut dyn FnMut() -> Result<Pipe, String>, output: &O
     let pending: Arc<Mutex<HashSet<String>>> = Arc::default();
     let (output, flag, waiting) = (output.clone(), alive.clone(), pending.clone());
     std::thread::spawn(move || {
-        let reader = std::io::BufReader::new(read);
-        for line in reader.lines().map_while(Result::ok) {
+        let mut reader = std::io::BufReader::new(read);
+        loop {
+            let line = match read_line(&mut reader, MAX_LINE) {
+                Ok(Line::Text(line)) => line,
+                Ok(Line::TooLong) => continue,
+                Ok(Line::End) | Err(_) => break,
+            };
             let Ok(message) = serde_json::from_str::<Value>(&line) else { continue };
             if message.get("method").is_none() {
                 if let Some(id) = message.get("id") {
@@ -80,10 +138,18 @@ fn connect_session(connect: &mut dyn FnMut() -> Result<Pipe, String>, output: &O
 
 /// Reads messages from `input` until it ends, handing each to Telescope through `connect` (called again whenever the connection is gone).
 /// Returns the exit code.
-pub fn run(input: impl BufRead, output: Box<dyn Write + Send>, mut connect: impl FnMut() -> Result<Pipe, String>) -> i32 {
+pub fn run(mut input: impl BufRead, output: Box<dyn Write + Send>, mut connect: impl FnMut() -> Result<Pipe, String>) -> i32 {
     let output: Output = Arc::new(Mutex::new(output));
     let mut session: Option<Session> = None;
-    for line in input.lines().map_while(Result::ok) {
+    loop {
+        let line = match read_line(&mut input, MAX_LINE) {
+            Ok(Line::Text(line)) => line,
+            Ok(Line::TooLong) => {
+                emit(&output, &json!({"jsonrpc": "2.0", "id": null, "error": {"code": -32600, "message": "That message is longer than 1 MiB, so it was skipped."}}));
+                continue;
+            }
+            Ok(Line::End) | Err(_) => break,
+        };
         if line.trim().is_empty() {
             continue;
         }
@@ -283,6 +349,35 @@ mod tests {
         assert_eq!(collect(&out, 1)[0]["result"], json!({"echo": "tools/list"}));
         drop(feed_tx);
         assert_eq!(finished.join().unwrap(), 0);
+    }
+
+    #[test]
+    fn a_line_without_a_newline_is_skipped_as_it_comes_in_and_never_kept_whole() {
+        // Longer than the cap, with no newline in it: the reader never holds more than the cap
+        let long = std::io::repeat(b'a').take(3 * MAX_LINE as u64);
+        let mut input = std::io::BufReader::with_capacity(8192, long);
+        assert!(matches!(read_line(&mut input, MAX_LINE), Ok(Line::TooLong)));
+        assert!(matches!(read_line(&mut input, MAX_LINE), Ok(Line::End)), "and what follows is the end, not the rest of the line");
+    }
+
+    #[test]
+    fn an_oversize_message_is_refused_and_the_next_one_is_still_served() {
+        let (out_tx, out) = channel();
+        let mut input = format!("{{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\",\"params\":{{\"pad\":\"{}\"}}}}\n", "x".repeat(MAX_LINE + 10));
+        input.push_str("{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"ping\"}\n");
+        run(Cursor::new(input), Box::new(ChanWriter(out_tx)), || Err("off".into()));
+        let answers = collect(&out, 2);
+        assert_eq!(answers[0]["error"]["code"], json!(-32600));
+        assert!(answers[0]["error"]["message"].as_str().unwrap().contains("longer than 1 MiB"));
+        assert_eq!((answers[1]["id"].clone(), answers[1]["result"].clone()), (json!(2), json!({})), "the next message is answered as usual");
+    }
+
+    #[test]
+    fn a_line_right_at_the_cap_is_taken_and_a_last_line_without_a_newline_too() {
+        let mut input = Cursor::new(format!("{}\r\nlast", "a".repeat(MAX_LINE - 1)));
+        assert!(matches!(read_line(&mut input, MAX_LINE), Ok(Line::Text(t)) if t.len() == MAX_LINE - 1), "a carriage return is not part of the message");
+        assert!(matches!(read_line(&mut input, MAX_LINE), Ok(Line::Text(t)) if t == "last"));
+        assert!(matches!(read_line(&mut input, MAX_LINE), Ok(Line::End)));
     }
 
     #[test]

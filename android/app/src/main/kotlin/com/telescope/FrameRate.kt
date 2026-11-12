@@ -4,7 +4,7 @@ package com.telescope
  * Frames per second over the last [windowMs], from a tick per frame. The phone reports what it actually makes, so the
  * computer can tell a camera giving fewer frames (a dim room at 60 fps) from a link losing them.
  */
-class FrameRate(private val windowMs: Long = 2_000L, private val clock: () -> Long = System::currentTimeMillis) {
+class FrameRate(private val windowMs: Long = 2_000L, private val clock: () -> Long = { System.nanoTime() / 1_000_000L }) {
     private val times = ArrayDeque<Long>()
 
     @Synchronized

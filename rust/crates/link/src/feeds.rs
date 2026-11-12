@@ -152,18 +152,29 @@ impl MjpegFeed {
         // What the last part left behind (its CRLF and a little of what follows) moves to the front, once a part rather than once a line
         self.buf.drain(..self.pos);
         self.pos = 0;
+        // Lines before the boundary and lines of the part's head each get a byte budget, so short lines forever can't pile up in buf
+        let mut skipped = 0;
         loop {
             let Some(line) = self.read_line()? else { return Ok(None) };
             let stripped = line.trim_ascii();
             if stripped == self.boundary.as_slice() || stripped == [self.boundary.as_slice(), b"--"].concat().as_slice() {
                 break;
             }
+            skipped += line.len() + 2;
+            if skipped > MAX_PART_HEADER_BYTES {
+                return Ok(None);
+            }
         }
         let mut length: Option<i64> = None;
+        let mut head = 0;
         loop {
             let Some(line) = self.read_line()? else { return Ok(None) };
             if line.is_empty() {
                 break;
+            }
+            head += line.len() + 2;
+            if head > MAX_PART_HEADER_BYTES {
+                return Ok(None);
             }
             if line.to_ascii_lowercase().starts_with(b"content-length:") {
                 length = std::str::from_utf8(&line[15..]).ok().and_then(|v| v.trim().parse().ok());
@@ -319,6 +330,38 @@ mod tests {
     fn a_part_claiming_a_huge_length_ends_the_stream_instead_of_buffering() {
         let stream = format!("--frame\r\nContent-Length: {}\r\n\r\nxx", MAX_FRAME_BYTES + 1);
         assert_eq!(mjpeg(stream.as_bytes()).read_part().unwrap(), None);
+    }
+
+    /// Endless short lines, as many as are asked for, and the bytes it was asked for.
+    struct Endless {
+        line: &'static [u8],
+        asked: Arc<std::sync::atomic::AtomicUsize>,
+        pos: usize,
+    }
+
+    impl Read for Endless {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            if self.asked.load(std::sync::atomic::Ordering::SeqCst) > 64 * 1024 * 1024 {
+                return Ok(0);
+            }
+            let n = buf.len().min(self.line.len() - self.pos);
+            buf[..n].copy_from_slice(&self.line[self.pos..self.pos + n]);
+            self.pos = (self.pos + n) % self.line.len();
+            self.asked.fetch_add(n, std::sync::atomic::Ordering::SeqCst);
+            Ok(n)
+        }
+    }
+
+    #[test]
+    fn short_lines_forever_end_the_stream_instead_of_filling_memory() {
+        // Once in the part's head, once before any boundary
+        for (opening, line) in [(&b"--frame\r\n"[..], &b"x\r\n"[..]), (&b""[..], &b"x\r\n"[..])] {
+            let asked = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let line: &'static [u8] = Box::leak([opening, line].concat().into_boxed_slice());
+            let mut feed = MjpegFeed::from_reader(Box::new(Endless { line, asked: asked.clone(), pos: 0 }), b"--frame".to_vec(), StopHandle::default());
+            assert_eq!(feed.read_part().unwrap(), None);
+            assert!(asked.load(std::sync::atomic::Ordering::SeqCst) < 1024 * 1024, "read {} bytes", asked.load(std::sync::atomic::Ordering::SeqCst));
+        }
     }
 
     #[test]

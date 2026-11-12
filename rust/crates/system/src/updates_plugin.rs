@@ -209,12 +209,12 @@ impl Backend for RealBackend {
 
     fn install_via_setup(&self, manifest: &Manifest, asset: &Asset, progress: Progress, cancelled: &dyn Fn() -> bool, streaming: &dyn Fn() -> bool)
         -> Result<(i64, InstallResult), String> {
-        self.download_and(manifest, asset, progress, cancelled, streaming, |setup, _build| {
+        self.download_and(manifest, asset, progress, cancelled, streaming, |setup, build| {
             let run = |argv: &[String]| (self.run_setup)(argv);
             let locate = || (self.locate)();
             let folders = setup_move::desktop_folders();
-            let env = setup_move::SetupEnv { run: &run, locate: &locate, folders: &folders };
-            setup_move::install_with_setup(setup, &self.directory, &env)
+            let env = setup_move::SetupEnv { run: &run, locate: &locate, installed_build: &setup_move::installed_build, folders: &folders };
+            setup_move::install_with_setup(setup, &self.directory, build, &env)
         })
     }
 
@@ -315,6 +315,11 @@ enum Phase {
     SettingUp,
     /// Installed during a stream: restarts once it stops.
     RestartPending,
+}
+
+/// A stream that runs or is still starting: the camera and the phone's connection are in use either way.
+fn in_use(host: &dyn Host) -> bool {
+    host.is_streaming() || host.is_starting()
 }
 
 pub struct UpdatesPlugin {
@@ -437,7 +442,7 @@ impl UpdatesPlugin {
     }
 
     pub fn status_text(&self, host: &dyn Host) -> (String, &'static str) {
-        self.status_while(host.is_streaming())
+        self.status_while(in_use(host))
     }
 
     fn status_while(&self, streaming: bool) -> (String, &'static str) {
@@ -501,7 +506,7 @@ impl UpdatesPlugin {
     fn refresh(&self, host: &mut dyn Host) {
         let tip = self.available.as_ref().map(|m| tr("Telescope {version} is available").field("version", m.display_version()));
         host.set_ui_props("header", &json!({"shown": self.available.is_some(), "tip": tip.unwrap_or_default()}));
-        host.set_ui_props(SECTION, &self.section_props(host.is_streaming()));
+        host.set_ui_props(SECTION, &self.section_props(in_use(host)));
     }
 
     fn section_props(&self, streaming: bool) -> Value {
@@ -560,7 +565,7 @@ impl UpdatesPlugin {
         if self.busy() {
             return;
         }
-        if host.is_streaming() {
+        if in_use(host) {
             self.refresh(host);
             return;
         }
@@ -762,7 +767,7 @@ impl UpdatesPlugin {
             self.backend.open_url(&if manifest.notes.is_empty() { releases_url() } else { manifest.notes });
             return;
         }
-        if host.is_streaming() {
+        if in_use(host) {
             self.refresh(host);
             return;
         }
@@ -813,7 +818,7 @@ impl UpdatesPlugin {
         if !result.skipped.is_empty() {
             log::warn!("Files in use kept their old version: {}", result.skipped.join(", "));
         }
-        if host.is_streaming() {
+        if in_use(host) {
             // Started (say, by an app opening the camera) while it downloaded: don't cut the stream off
             self.phase = Phase::RestartPending;
             self.relaunch_argv = Some(result.relaunch);
@@ -824,7 +829,7 @@ impl UpdatesPlugin {
     }
 
     fn on_stream_stopped(&mut self, host: &mut dyn Host) {
-        if self.phase == Phase::RestartPending && self.relaunch_argv.is_some() && !host.is_restarting() && !host.is_streaming() {
+        if self.phase == Phase::RestartPending && self.relaunch_argv.is_some() && !host.is_restarting() && !in_use(host) {
             self.phase = Phase::Installing;
             // After the stop that brought this has finished; quitting stops again, so only once
             host.schedule(0, "restart");
@@ -888,6 +893,11 @@ impl Plugin for UpdatesPlugin {
         self.poster = None;
     }
 
+    fn on_stream_starting(&mut self, _host: &mut dyn Host) {
+        // The install's thread must not stop adb under a stream that is opening
+        self.streaming.store(true, Ordering::SeqCst);
+    }
+
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
         match event {
             Event::TimerFired { token, .. } if token == "first" => self.maybe_auto_check(host),
@@ -904,12 +914,21 @@ impl Plugin for UpdatesPlugin {
             }
             Event::Posted { token, .. } if token == DONE => self.drain(host),
             Event::UpdateRequested => self.open_updates(host),
-            Event::StreamStarted { .. } => {
-                self.streaming.store(host.is_streaming(), Ordering::SeqCst);
+            Event::StreamStartBegan => {
+                // From the first moment of a start, the phone's wake included, so a download that ends meanwhile leaves adb alone
+                self.streaming.store(true, Ordering::SeqCst);
                 self.refresh(host);
             }
+            Event::StreamStarted { .. } => {
+                self.streaming.store(in_use(host), Ordering::SeqCst);
+                self.refresh(host);
+            }
+            Event::StreamStartFailed => {
+                self.streaming.store(in_use(host), Ordering::SeqCst);
+                self.on_stream_stopped(host);
+            }
             Event::StreamStopped => {
-                self.streaming.store(host.is_streaming(), Ordering::SeqCst);
+                self.streaming.store(in_use(host), Ordering::SeqCst);
                 self.on_stream_stopped(host);
             }
             _ => {}
@@ -1347,6 +1366,30 @@ mod tests {
         plugin.on_event(&mut host, &Event::TimerFired { owner: "updates".into(), token: "restart".into() });
         assert_eq!(*fake.relaunched.lock().unwrap(), vec![vec!["start.sh".to_string()]]);
         assert_eq!(quits(&host), 1);
+    }
+
+    #[test]
+    fn a_stream_that_is_still_starting_counts_as_streaming() {
+        let (mut plugin, mut host, fake) = env();
+        plugin.check(&mut host, false);
+        // The order of a real start: it begins and wakes the phone (no worker yet, so no on_stream_starting), the host thread hears of it
+        host.starting = true;
+        plugin.on_event(&mut host, &Event::StreamStartBegan);
+        assert_eq!(last_props(&host, SECTION)["update-enabled"], false);
+        plugin.update_now(&mut host);
+        assert_eq!(*fake.installs.lock().unwrap(), 0);
+        // An install that was already downloading sees it too, so it leaves adb alone while the phone wakes
+        plugin.phase = Phase::Downloading;
+        plugin.streaming.store(false, Ordering::SeqCst);
+        plugin.on_event(&mut host, &Event::StreamStartBegan);
+        assert!(plugin.streaming.load(Ordering::SeqCst));
+        // An update that lands meanwhile waits, and goes once the start has failed
+        plugin.on_installed(&mut host, Ok((200, InstallResult { relaunch: vec!["start.sh".into()], skipped: vec![] })));
+        assert!(fake.relaunched.lock().unwrap().is_empty() && quits(&host) == 0);
+        host.starting = false;
+        plugin.on_event(&mut host, &Event::StreamStartFailed);
+        assert!(!plugin.streaming.load(Ordering::SeqCst));
+        assert!(host.is_scheduled("restart"));
     }
 
     #[test]

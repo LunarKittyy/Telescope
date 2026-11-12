@@ -84,4 +84,28 @@ class StartWindowTest {
         window.abort()
         assertFalse(window.aborted(0L))
     }
+
+    @Test
+    fun `another computer's stop leaves a queued start alone`() {
+        val ticket = window.begin("a")
+        assertFalse(window.abort("b"))
+        assertTrue(window.open())
+        assertFalse(window.aborted(ticket))
+        assertTrue(window.abort("a"))
+        assertTrue(window.aborted(ticket))
+    }
+
+    @Test
+    fun `a stop that names nobody still cancels a start`() {
+        val ticket = window.begin("a")
+        assertTrue(window.abort(null))
+        assertTrue(window.aborted(ticket))
+    }
+
+    @Test
+    fun `a start nobody owns is cancelled by any stop`() {
+        val ticket = window.begin()
+        assertTrue(window.abort("b"))
+        assertTrue(window.aborted(ticket))
+    }
 }

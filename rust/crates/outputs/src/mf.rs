@@ -184,6 +184,10 @@ impl VideoOutput for MfCamera {
         (self.width, self.height)
     }
 
+    fn fit_size(&mut self) -> Option<(u32, u32)> {
+        self.reader()?.reader_size()
+    }
+
     fn device(&self) -> String {
         self.device.clone()
     }
@@ -324,6 +328,17 @@ pub(crate) mod tests {
         for row in buf[64..96].chunks(8) {
             assert!(row[3] > 200 && row[4] > 200 && row[0] < 30, "white in the middle, black bars at the sides: {row:?}");
         }
+    }
+
+    #[test]
+    fn the_size_to_fit_to_follows_the_reader() {
+        let o = Opener::new(None);
+        let mut c = cam(&o, 16, 16);
+        assert_eq!(c.fit_size(), None);
+        *o.buf.lock().unwrap() = Some(reading(8, 4));
+        assert_eq!(c.fit_size(), Some((8, 4)));
+        *o.buf.lock().unwrap() = Some(reading(4, 2));
+        assert_eq!(c.fit_size(), Some((4, 2)));
     }
 
     // test_vcam.py::test_frames_are_dropped_until_an_app_opens_the_camera

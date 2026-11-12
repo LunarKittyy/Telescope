@@ -2,12 +2,29 @@ package com.telescope
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.ByteBuffer
 
 // How old the video on the phone's UDP path can get: its queue, repairs and what Dynamic reads from it
 class UdpLatencyTest {
+
+    @Test
+    fun `a stall asks for a keyframe at once, not after the poll times out`() {
+        var now = 0L
+        var asks = 0
+        val q = UdpSendQueue(clock = { now }, onNeedKey = { asks++ })
+        q.maxAgeMs = 100
+        q.offer(ByteArray(10), true)
+        now = 1_000
+        val started = System.nanoTime()
+        val job = q.poll(2_000)
+        val tookMs = (System.nanoTime() - started) / 1_000_000
+        assertNull(job)
+        assertEquals(1, asks)
+        assertTrue(tookMs < 1_000) { "poll waited $tookMs ms before asking" }
+    }
 
     // ---- the queue's age
 

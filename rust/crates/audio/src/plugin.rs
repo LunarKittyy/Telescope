@@ -38,6 +38,7 @@ pub const GAIN_MAX_DB: i32 = 12;
 const T_METER: &str = "meter";
 const P_PREPARED: &str = "prepared";
 const P_INSTALLED: &str = "installed";
+const P_NR_PROBLEM: &str = "nr_problem";
 const P_STATUS: &str = "status";
 const TRAY_MUTE: &str = "microphone.mute";
 const DONATE: &str = n_("<a href=\"{url}\">Donate or read more</a>");
@@ -888,6 +889,10 @@ impl MicrophonePlugin {
                 match token.as_str() {
                     P_PREPARED => self.on_prepared(h, gen, &s("error")),
                     P_INSTALLED => self.on_installed(h, &s("error")),
+                    P_NR_PROBLEM => {
+                        self.nr_problem = s("text");
+                        self.render(h);
+                    }
                     P_STATUS => self.on_worker_status(h, gen, &s("kind"), &s("text")),
                     _ => {}
                 }
@@ -1060,7 +1065,14 @@ impl Plugin for MicrophonePlugin {
 
     fn setup(&mut self, host: &mut dyn Host) {
         self.poster = host.poster();
-        self.nr_problem = (self.denoise_problem)();
+        // Loading RNNoise can take seconds on a first start (a virus scan of the DLL), so it happens off the window's thread
+        match self.poster.clone() {
+            Some(p) => {
+                let problem = std::mem::replace(&mut self.denoise_problem, Box::new(String::new));
+                (self.run_job)(Box::new(move || p.post(P_NR_PROBLEM, json!({"text": problem()}))));
+            }
+            None => self.nr_problem = (self.denoise_problem)(),
+        }
         let mut h = Hosted(host);
         self.render(&mut h);
     }

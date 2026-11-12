@@ -330,18 +330,57 @@ fn strerror(e: &io::Error) -> String {
     telescope_core::system::os_words(e)
 }
 
+/// The build in `telescope-rs build-info`'s answer.
+pub fn build_from_info(text: &str) -> Option<i64> {
+    serde_json::from_str::<serde_json::Value>(text).ok()?["build"].as_i64()
+}
+
+/// The build of the copy installed in directory, which it says itself; None if it doesn't answer in time.
+pub fn installed_build(directory: &Path) -> Option<i64> {
+    use std::io::Read;
+    use std::process::{Command, Stdio};
+    let mut cmd = Command::new(directory.join(EXE_NAME));
+    cmd.arg("build-info").stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::null());
+    #[cfg(windows)]
+    std::os::windows::process::CommandExt::creation_flags(&mut cmd, 0x0800_0000);
+    let mut child = cmd.spawn().ok()?;
+    let started = std::time::Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) if status.success() => break,
+            Ok(None) if started.elapsed() < Duration::from_secs(20) => std::thread::sleep(Duration::from_millis(100)),
+            Ok(None) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
+            }
+            _ => return None,
+        }
+    }
+    let mut text = String::new();
+    child.stdout.take()?.read_to_string(&mut text).ok()?;
+    build_from_info(&text)
+}
+
 /// What install_with_setup needs from the computer, so a test can stand in for it.
 pub struct SetupEnv<'a> {
     pub run: &'a dyn Fn(&[String]) -> SetupRun,
     pub locate: &'a dyn Fn() -> Option<PathBuf>,
+    /// The build the installed copy in a folder is, or None when it can't be told.
+    pub installed_build: &'a dyn Fn(&Path) -> Option<i64>,
     /// Where desktop shortcuts are.
     pub folders: &'a [PathBuf],
 }
 
 /// Runs the downloaded installer silently for this user; the result starts the installed copy, which tidies away old_dir once it has
 /// started fine (it's noted in that folder too, see pending_move). This copy is left as it is until then, so a failed install loses
-/// nothing. A desktop shortcut to this copy, which won't work once its folder goes, gets the installed copy's desktop icon in its place.
-pub fn install_with_setup(setup: &Path, old_dir: &Path, env: &SetupEnv) -> Result<InstallResult, UpdateError> {
+/// nothing. A newer build already installed is left alone (the installer would overwrite it with this older one). A desktop shortcut to this copy, which won't work once its folder goes, gets the installed copy's desktop icon in its place.
+pub fn install_with_setup(setup: &Path, old_dir: &Path, build: i64, env: &SetupEnv) -> Result<InstallResult, UpdateError> {
+    if let Some(location) = (env.locate)().filter(|l| std::fs::canonicalize(l).ok() != std::fs::canonicalize(old_dir).ok()) {
+        if (env.installed_build)(&location).is_some_and(|installed| installed > build) {
+            return Err(UpdateError(tr("A newer Telescope is already installed, so this copy stays as it is. Open the installed one from the Start menu.")));
+        }
+    }
     let mut argv: Vec<String> = [setup.to_string_lossy().as_ref(), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"].map(String::from).to_vec();
     if !shortcuts_to(&old_dir.join(EXE_NAME), env.folders).is_empty() {
         argv.push("/MERGETASKS=desktopicon".into()); // installer/Telescope.iss [Tasks]
@@ -676,7 +715,7 @@ mod tests {
         let seen = RefCell::new(Vec::new());
         let run = |argv: &[String]| { *seen.borrow_mut() = argv.to_vec(); SetupRun::Exited(0) };
         let locate = || Some(new.clone());
-        let result = install_with_setup(Path::new("Setup.exe"), &old, &SetupEnv { run: &run, locate: &locate, folders: &[] }).unwrap();
+        let result = install_with_setup(Path::new("Setup.exe"), &old, 200, &SetupEnv { run: &run, locate: &locate, installed_build: &|_| None, folders: &[] }).unwrap();
         assert_eq!(*seen.borrow(), ["Setup.exe", "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"]);
         assert_eq!(result.relaunch, [new.join(EXE_NAME).to_string_lossy().into_owned(), "--after-update".into(), MOVED_FROM.into(), old.to_string_lossy().into_owned()]);
         assert!(!new.join(update_guard::JOURNAL).exists(), "the fresh install must not be rolled back to an old journal");
@@ -694,7 +733,7 @@ mod tests {
         let seen = RefCell::new(Vec::new());
         let run = |argv: &[String]| { *seen.borrow_mut() = argv.to_vec(); SetupRun::Exited(0) };
         let locate = || Some(new.clone());
-        install_with_setup(Path::new("Setup.exe"), &old, &SetupEnv { run: &run, locate: &locate, folders: std::slice::from_ref(&desktop) }).unwrap();
+        install_with_setup(Path::new("Setup.exe"), &old, 200, &SetupEnv { run: &run, locate: &locate, installed_build: &|_| None, folders: std::slice::from_ref(&desktop) }).unwrap();
         assert_eq!(seen.borrow().last().map(String::as_str), Some("/MERGETASKS=desktopicon"));
         assert_eq!(shortcuts_to(&old.join(EXE_NAME), &[desktop]).len(), 1);
         std::fs::remove_dir_all(&root).unwrap();
@@ -714,22 +753,52 @@ mod tests {
     fn a_failed_installer_leaves_this_copy_alone_and_says_why() {
         let (root, old, new) = two_copies("setup-fail");
         let locate = || Some(new.clone());
-        let fail = |run: &dyn Fn(&[String]) -> SetupRun| install_with_setup(Path::new("Setup.exe"), &old, &SetupEnv { run, locate: &locate, folders: &[] }).unwrap_err().0;
+        let fail = |run: &dyn Fn(&[String]) -> SetupRun| install_with_setup(Path::new("Setup.exe"), &old, 200, &SetupEnv { run, locate: &locate, installed_build: &|_| None, folders: &[] }).unwrap_err().0;
         assert!(fail(&|_| SetupRun::TimedOut).contains("took too long"));
         assert!(fail(&|_| SetupRun::CouldNotStart(io::Error::other("no such file"))).contains("Couldn't start the installer: no such file"));
         assert!(fail(&|_| SetupRun::Exited(5)).contains("code 5"));
         assert!(!new.join(PENDING_MOVE).exists());
         let nowhere = || None;
-        let e = install_with_setup(Path::new("Setup.exe"), &old, &SetupEnv { run: &|_| SetupRun::Exited(0), locate: &nowhere, folders: &[] }).unwrap_err();
+        let e = install_with_setup(Path::new("Setup.exe"), &old, 200, &SetupEnv { run: &|_| SetupRun::Exited(0), locate: &nowhere, installed_build: &|_| None, folders: &[] }).unwrap_err();
         assert!(e.0.contains("wasn't where expected"));
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_newer_installed_copy_is_not_overwritten_by_an_older_build() {
+        let (root, old, new) = two_copies("setup-newer");
+        let ran = RefCell::new(false);
+        let run = |_: &[String]| { *ran.borrow_mut() = true; SetupRun::Exited(0) };
+        let locate = || Some(new.clone());
+        let at = |installed: Option<i64>, build: i64| {
+            let installed_build = |dir: &Path| { assert_eq!(dir, new); installed };
+            install_with_setup(Path::new("Setup.exe"), &old, build, &SetupEnv { run: &run, locate: &locate, installed_build: &installed_build, folders: &[] })
+        };
+        let e = at(Some(300), 200).unwrap_err();
+        assert!(e.0.contains("newer Telescope is already installed"), "{}", e.0);
+        assert!(!*ran.borrow(), "the installer never ran");
+        assert!(!new.join(PENDING_MOVE).exists());
+        // The same build, an older one, or one that can't say: the move goes ahead as before
+        for installed in [Some(200), Some(100), None] {
+            assert!(at(installed, 200).is_ok());
+            assert!(*ran.borrow());
+            *ran.borrow_mut() = false;
+        }
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn the_build_comes_out_of_what_build_info_prints() {
+        assert_eq!(build_from_info(r#"{"version": "5.0.5", "build": 1441, "channel": "stable", "commit": "abc"}"#), Some(1441));
+        assert_eq!(build_from_info("not json"), None);
+        assert_eq!(build_from_info(r#"{"version": "x"}"#), None);
     }
 
     #[test]
     fn installing_over_the_same_folder_moves_nothing() {
         let (root, old, _new) = two_copies("setup-same");
         let locate = || Some(old.clone());
-        let result = install_with_setup(Path::new("Setup.exe"), &old, &SetupEnv { run: &|_| SetupRun::Exited(0), locate: &locate, folders: &[] }).unwrap();
+        let result = install_with_setup(Path::new("Setup.exe"), &old, 200, &SetupEnv { run: &|_| SetupRun::Exited(0), locate: &locate, installed_build: &|_| None, folders: &[] }).unwrap();
         assert_eq!(result.relaunch.len(), 2);
         assert!(!old.join(PENDING_MOVE).exists());
         std::fs::remove_dir_all(&root).unwrap();

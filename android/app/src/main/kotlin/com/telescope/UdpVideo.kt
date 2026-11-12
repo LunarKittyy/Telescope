@@ -237,6 +237,18 @@ class UdpSeal(key: ByteArray, private val direction: Byte) {
         return ByteBuffer.allocate(8 + sealed.size).putLong(n).put(sealed).array()
     }
 
+    /** [seal] into [out] (counter, then the sealed bytes) instead of a new array; the datagram's length, or -1 if [out] is too small. */
+    @Synchronized
+    fun sealInto(plain: ByteArray, out: ByteArray): Int {
+        val size = 8 + plain.size + TAG
+        if (out.size < size) return -1
+        val n = counter++
+        cipher.init(Cipher.ENCRYPT_MODE, spec, GCMParameterSpec(128, UdpWire.nonce(direction, n)))
+        ByteBuffer.wrap(out, 0, 8).putLong(n)
+        cipher.doFinal(plain, 0, plain.size, out, 8)
+        return size
+    }
+
     // The plaintext, or null for anything forged, damaged, replayed or far too old
     @Synchronized
     fun open(datagram: ByteArray, length: Int = datagram.size): ByteArray? {
@@ -257,6 +269,7 @@ class UdpSeal(key: ByteArray, private val direction: Byte) {
 
     companion object {
         const val WINDOW = 4096
+        const val TAG = 16
         fun newKey(): ByteArray = ByteArray(32).also { SecureRandom().nextBytes(it) }
     }
 }
@@ -389,7 +402,7 @@ class UdpSendQueue(
                 } else {
                     job = live.poll()
                 }
-                if (job != null || waitNs <= 0) break
+                if (job != null || waitNs <= 0 || ask) break
                 var step = waitNs
                 if (repairs.isNotEmpty()) {  // out of credit: it comes back in a moment
                     val ms = (-credit * 8_000 / repairBps.coerceAtLeast(1)).toLong() + 1
@@ -494,6 +507,8 @@ class UdpVideoClient(
     @Volatile private var closed = false
     private val queue = UdpSendQueue(clock = ::nowMs, onNeedKey = requestKeyFrame, onStale = { link.stale(it) }, paced = { transmitter.pacedMs })
     private val link = UdpLink()
+    private val sendBuf = ByteArray(8 + UdpWire.HEADER + UdpWire.MAX_PAYLOAD + UdpSeal.TAG)
+    private val outPacket = DatagramPacket(sendBuf, sendBuf.size)
     private var sendBuffer = 0  // what Dynamic last limited the socket's send buffer to; 0 = not limited
     private val transmitter = UdpTransmitter(link, System::nanoTime,
         { Thread.sleep(it / 1_000_000, (it % 1_000_000).toInt()) }, ::send)
@@ -604,8 +619,18 @@ class UdpVideoClient(
 
     private fun send(plain: ByteArray) {
         if (closed) return
-        val sealed = out.seal(plain)
-        try { udp.send(DatagramPacket(sealed, sealed.size, peer)) } catch (_: Exception) {}
+        // Only the sender thread gets here, so one buffer and packet do for every datagram
+        val length = out.sealInto(plain, sendBuf)
+        try {
+            if (length >= 0) {
+                outPacket.setData(sendBuf, 0, length)
+                outPacket.socketAddress = peer
+                udp.send(outPacket)
+            } else {
+                val sealed = out.seal(plain)
+                udp.send(DatagramPacket(sealed, sealed.size, peer))
+            }
+        } catch (_: Exception) {}
     }
 
     /** Whether this desktop reports how its link does (an older one doesn't). */

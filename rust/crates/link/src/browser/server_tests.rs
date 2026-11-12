@@ -617,6 +617,22 @@ fn a_new_link_drops_the_browser_and_the_old_token() {
 }
 
 #[test]
+fn a_browser_that_never_stops_ponging_is_still_cut_off_by_a_new_link() {
+    let run = server();
+    let feed = run.feed();
+    let mut b = run.browser("");
+    b.recv_json();
+    run.server.new_token();
+    // A pong every few ms means the server's read never times out
+    let deadline = Instant::now() + FIVE;
+    while feed.connected() && Instant::now() < deadline {
+        b.send(ws::PONG, b"", true);
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    assert!(!feed.connected());
+}
+
+#[test]
 fn capture_changes_reach_a_connected_page() {
     let run = server();
     let mut b = run.browser("");

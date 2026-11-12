@@ -85,7 +85,10 @@ class H264ClientQueue(
             config?.let { add(it, now, true) }
         } else if (packets.size >= capacity || (queuedAt.isNotEmpty() && !keyWriting && now - maxOf(queuedAt.first(), keyDoneMs) > maxWaitMs)) {
             clear()
-            return true
+            if (!key) return true
+            // The overflowing frame is itself a keyframe: restart from it rather than drop it and ask for another
+            waitingForKey = false
+            config?.let { add(it, now, true) }
         }
         add(packet, now, key)
         ready.signal()

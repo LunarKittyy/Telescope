@@ -468,3 +468,12 @@ fn there_is_one_fine_factor_and_it_is_the_colour_wheels() {
         }
     }
 }
+
+/// Every icon name v5.0.5 exported, so a user's Lua plugin card written against it still compiles
+#[test]
+fn icons_exported_in_v5_0_5_still_resolve() {
+    const V5_0_5: &[&str] = &["battery", "battery-charging", "bell", "bolt", "bookmark", "camera", "check", "chevron", "chip", "colour", "copy", "crop", "download", "eye", "eyedropper", "eye-off", "focus", "framing", "heavy", "help", "image", "keyboard", "layout", "lock", "mic", "mirror", "monitor", "moon", "notes", "pencil", "phone", "photo", "plug", "plus", "pop-out", "qr", "reset", "search", "skeleton", "sliders", "snapshot", "sparkle", "stabilize", "stop", "sun", "thermometer", "torch", "trash", "upside-down", "usb", "v-alert", "v-battery", "v-battery-charging", "v-bell", "v-camera", "v-camera-off", "v-check", "v-close", "v-connection", "v-devices", "v-expand", "v-gear", "v-help", "video", "v-lenses", "v-mic", "v-mic-off", "v-play", "v-plus", "v-preset", "v-qr", "v-reset", "v-status", "v-stop", "v-stream", "v-thermometer", "v-transforms", "v-update", "v-usb", "v-wifi", "wifi", "x"];
+    let table = std::fs::read_to_string(kit().join("ui/icons.slint")).unwrap();
+    let missing: Vec<_> = V5_0_5.iter().filter(|n| !table.contains(&format!("out property <image> {n}:"))).collect();
+    assert!(missing.is_empty(), "icons a v5.0.5 plugin could use are gone, alias them: {missing:?}");
+}
