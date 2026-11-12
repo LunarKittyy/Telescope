@@ -466,7 +466,8 @@ fn ours(entry: &Path) -> io::Result<bool> {
     }
     if name == "ui-kit" {
         let inside = std::fs::read_dir(entry)?.map(|e| e.map(|e| e.file_name().to_string_lossy().into_owned())).collect::<io::Result<BTreeSet<String>>>()?;
-        return Ok(["ui-kit.slint", "theme.slint", "icons.slint"].iter().all(|n| inside.contains(*n))); // the kit gains files, so what it holds beyond these isn't checked
+        // The kit gains files, but only of these kinds: a file of the user's own of another kind keeps the whole folder
+        return Ok(["ui-kit.slint", "theme.slint", "icons.slint"].iter().all(|n| inside.contains(*n)) && only_kit_files(entry)?);
     }
     if let Some(allowed) = folders.get(name.as_str()) {
         // A folder that can't be looked into is an error, not an empty one
@@ -475,6 +476,20 @@ fn ours(entry: &Path) -> io::Result<bool> {
     }
     // The Python app's libraries: lib-<build>, with the Qt it can't run without
     Ok(name.strip_prefix(update_guard::LIB_PREFIX).is_some_and(|b| !b.is_empty() && b.bytes().all(|c| c.is_ascii_digit())) && entry.join("PyQt6").is_dir())
+}
+
+/// Whether everything under dir is a kind of file the ui-kit folder is made of: .slint, .svg, .ttf and its licence text.
+fn only_kit_files(dir: &Path) -> io::Result<bool> {
+    for e in std::fs::read_dir(dir)? {
+        let path = e?.path();
+        let meta = std::fs::symlink_metadata(&path)?;
+        let kind = path.extension().and_then(|x| x.to_str()).unwrap_or("");
+        let fine = if meta.is_dir() { only_kit_files(&path)? } else { meta.is_file() && ["slint", "svg", "ttf", "txt"].contains(&kind) };
+        if !fine {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
 
 /// The libraries a release keeps next to the exe: RNNoise and the runtime it needs, and FFmpeg's four with their major version in the name.
@@ -823,13 +838,15 @@ mod tests {
         write(&old.join("lib-12/PyQt6/qt.dll"), "qt");
         write(&old.join("lib-project/main.rs"), "the user's");
         write(&old.join("notes.txt"), "the user's");
+        write(&old.join("ui-kit/my-notes.md"), "the user's, added to the kit");
         for file in ["ui-kit.slint", "theme.slint", "icons.slint", "menus/any.slint"] {
             write(&old.join("ui-kit").join(file), "kit");
         }
         write(&new.join(PENDING_MOVE), &old.to_string_lossy());
         let done = remove_unzipped_copy(&old, &new, 1, Duration::ZERO, &[]);
         assert!(done, "Telescope's part of it is gone, the rest is left to the user");
-        assert!(!old.join("Telescope.apk").exists() && !old.join("lib-12").exists() && !old.join("ui-kit").exists());
+        assert!(!old.join("Telescope.apk").exists() && !old.join("lib-12").exists());
+        assert!(old.join("ui-kit/my-notes.md").exists(), "a file of the user's inside a recognised folder");
         assert!(old.join("platform-tools/mine.txt").exists() && old.join("lib-project/main.rs").exists() && old.join("notes.txt").exists());
         // Once the exe is gone there is nothing left to try again, so the marker goes
         assert!(!old.join(EXE_NAME).exists() && new.join(PENDING_MOVE).exists());
