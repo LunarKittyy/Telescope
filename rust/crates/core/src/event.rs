@@ -140,8 +140,8 @@ events! {
     "camera_opened" => CameraOpened { source_id: String, slot: u32, width: u32, height: u32 },
     /// Whether an app is reading the virtual camera (Wait screen watches it).
     "camera_watched" => CameraWatched { watched: bool },
-    /// Something asks for the wait screen in place of the shown stream's picture, or lets go.
-    "cover_requested" => CoverRequested { owner: String, on: bool },
+    /// Something asks for the wait screen in place of the shown stream's picture, or lets go. `note` is the line to show under the name instead of the usual one (the default screen only).
+    "cover_requested" => CoverRequested { owner: String, on: bool, note: Option<String> },
     /// Wait screen shows in place of the shown stream's picture for a cover_requested, or stopped.
     "stream_covered" => StreamCovered { covered: bool },
     /// The main window came on screen, or went to the tray or was minimized.
