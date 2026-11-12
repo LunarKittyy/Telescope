@@ -188,7 +188,7 @@ fn face_exposure_shots() {
     shoot(&dir, "face-exposure-held", &card, 406.0, &[json!({"active": true, "on": true, "held": true, "held-note": "Manual", "follow-tip": "Go back to following your face."})], &nothing);
 }
 
-const PHONES: &str = "rows: [{id: \"p1\", name: \"Pixel 8\", sub: \"Wi-Fi\", renamable: true, rename-label: \"Rename Pixel 8\", remove-label: \"Remove Pixel 8\", confirm-title: \"Remove Pixel 8?\", confirm: \"It will need pairing again.\"}, {id: \"p2\", name: \"Browser on iPad\", sub: \"Browser\", renamable: false, rename-label: \"\", remove-label: \"Remove Browser on iPad\", confirm-title: \"\", confirm: \"\"}]; computer-name: \"luna-desktop\"; names: [\"Pixel 8\"]; current: 0;";
+const PHONES: &str = "rows: [{id: \"p1\", name: \"Pixel 8\", sub: \"Wi-Fi\", renamable: true, rename-label: \"Rename Pixel 8\", remove-label: \"Remove Pixel 8\", confirm-title: \"Remove Pixel 8?\", confirm: \"It will need pairing again.\"}, {id: \"p2\", name: \"Browser on iPad\", sub: \"Browser\", renamable: false, rename-label: \"\", remove-label: \"Remove Browser on iPad\", confirm-title: \"\", confirm: \"\"}]; computer-name: \"my-desktop\"; names: [\"Pixel 8\"]; current: 0;";
 
 #[test]
 fn connection_dialog_shots() {
@@ -197,7 +197,7 @@ fn connection_dialog_shots() {
     file_widget(&dir, "your-devices", f, "PhonePicker", PHONES, (560.0, 520.0), &|ui| {
         let _ = ui.set_property("phones-open", Value::Bool(true));
     });
-    file_widget(&dir, "your-devices-empty", f, "PhonePicker", "computer-name: \"luna-desktop\"; names: []; current: -1;", (560.0, 520.0), &|ui| {
+    file_widget(&dir, "your-devices-empty", f, "PhonePicker", "computer-name: \"my-desktop\"; names: []; current: -1;", (560.0, 520.0), &|ui| {
         let _ = ui.set_property("phones-open", Value::Bool(true));
     });
     let (cells, modules) = telescope_core::qr::encode("telescope://pair/example");
