@@ -564,6 +564,33 @@ fn max_zoom_spinbox_applies_straight_away() {
 }
 
 #[test]
+fn a_number_with_junk_after_it_is_not_taken_and_the_old_one_stays() {
+    let mut r = Rig::linux();
+    r.plugin.set_config(&json!({"max_zoom": 12, "custom_canvas_w": 900, "custom_canvas_h": 600})).unwrap();
+    r.plugin.on_plugins_ready(&mut r.host);
+    r.ui("video", "shown", vec![]);
+    assert_eq!(r.plugin.panel.custom_w, 900);
+    for typed in ["12garbage", "1e3", "20 x 3", "+20", "-5", "2.5", "", "x", "99999999999999999999"] {
+        r.ui("video", "zoom-committed", vec![json!(typed)]);
+        assert_eq!(r.plugin.get_config()["max_zoom"], json!(12), "{typed:?}");
+        r.ui("video", "custom-committed", vec![json!("w"), json!(typed)]);
+        assert_eq!(r.plugin.panel.custom_w, 900, "{typed:?}");
+    }
+    assert_eq!(r.plugin.settings_sections()[1].ui.props["zoom-text"], json!("12×"), "the box goes back to the saved value");
+    // What the boxes show themselves, and a bare number, are taken
+    for typed in ["20×", "20", " 20 ", "20x", "20 X"] {
+        r.ui("video", "zoom-committed", vec![json!(typed)]);
+        assert_eq!(r.plugin.get_config()["max_zoom"], json!(20), "{typed:?}");
+        r.ui("video", "zoom-committed", vec![json!("12")]);
+    }
+    for typed in ["1280 px", "1280px", "1280"] {
+        r.ui("video", "custom-committed", vec![json!("w"), json!(typed)]);
+        assert_eq!(r.plugin.panel.custom_w, 1280, "{typed:?}");
+        r.ui("video", "custom-committed", vec![json!("w"), json!("900")]);
+    }
+}
+
+#[test]
 fn max_gain_loads_with_a_safe_fallback_and_is_announced() {
     for (stored, want) in [(None, 12), (Some(json!(48)), 48), (Some(json!(24)), 24), (Some(json!(30)), 12), (Some(json!("36")), 12),
                            (Some(json!(true)), 12)] {
