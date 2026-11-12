@@ -88,7 +88,7 @@ impl Download for FakeDownload {
     fn available(&self) -> bool { self.available }
     fn running(&self) -> bool { false }
     fn size_mb(&self) -> u64 { 47 }
-    fn waiting(&self) -> String { String::new() }
+    fn is_waiting(&self, _: &str) -> bool { false }
     fn error(&self) -> String { self.error.clone() }
     fn failed_for(&self) -> String { if self.error.is_empty() { String::new() } else { self.started.borrow().last().cloned().unwrap_or_default() } }
     fn progress(&self) -> (u64, u64) { (0, 0) }
@@ -117,7 +117,7 @@ impl Download for NoDownload {
     fn available(&self) -> bool { true }
     fn running(&self) -> bool { false }
     fn size_mb(&self) -> u64 { 1 }
-    fn waiting(&self) -> String { String::new() }
+    fn is_waiting(&self, _: &str) -> bool { false }
     fn error(&self) -> String { String::new() }
     fn failed_for(&self) -> String { String::new() }
     fn progress(&self) -> (u64, u64) { (0, 0) }
