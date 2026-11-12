@@ -325,7 +325,10 @@ impl Codec {
             }
             ff::av_frame_unref(self.frame);
             ff::av_frame_move_ref(self.frame, self.held);
-            self.take_frame().map(Some)
+            let began = monotonic_ns();
+            let frame = self.take_frame()?;
+            span("take_frame", began);
+            Ok(Some(frame))
         }
     }
 

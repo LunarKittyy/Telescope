@@ -389,7 +389,7 @@ class UdpSendQueue(
                 } else {
                     job = live.poll()
                 }
-                if (job != null || waitNs <= 0) break
+                if (job != null || waitNs <= 0 || ask) break
                 var step = waitNs
                 if (repairs.isNotEmpty()) {  // out of credit: it comes back in a moment
                     val ms = (-credit * 8_000 / repairBps.coerceAtLeast(1)).toLong() + 1

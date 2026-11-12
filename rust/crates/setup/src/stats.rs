@@ -425,7 +425,8 @@ fn rows_listing(snap: &Snapshot, s: &SourceSnapshot, view: View, ctx: &Context, 
         }
     }
     out.push(Row::head("video", &tr("Virtual camera")));
-    let apps = match ctx.watched {
+    // Only the first camera is watched for readers, so another one has no answer
+    let apps = match ctx.watched.filter(|_| s.slot == 0) {
         Some(true) => tr("In use"),
         Some(false) => tr("Nothing"),
         None => tr("Not known"),

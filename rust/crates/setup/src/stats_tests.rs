@@ -162,6 +162,20 @@ fn the_card_asks_for_the_stream_output_cards_bitrate_and_whether_an_app_reads_th
 }
 
 #[test]
+fn an_extra_camera_doesnt_show_the_first_cameras_readers() {
+    let hub = Hub::new();
+    hub.register("second", 1).set_target_fps(30);
+    let snap = hub.snapshot_at(telescope_core::time::monotonic_ns() + SECOND, None, None);
+    let ctx = Context { watched: Some(true), ..Context::default() };
+    let value = |snap: &Snapshot| rows(snap, &snap.sources[0], View::Standard, &ctx).iter().find(|r| r.label == "Reading the virtual camera").unwrap().value.clone();
+    assert_eq!(value(&snap), "Not known");
+    let hub = Hub::new();
+    hub.register("first", 0).set_target_fps(30);
+    let snap = hub.snapshot_at(telescope_core::time::monotonic_ns() + SECOND, None, None);
+    assert_eq!(value(&snap), "In use");
+}
+
+#[test]
 fn nerd_adds_times_balancer_moves_plugins_and_the_apps_cost() {
     let balance = Arc::new(Balance::free());
     for _ in 0..6 {
