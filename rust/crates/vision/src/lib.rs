@@ -81,17 +81,24 @@ fn people_rgb(frame: &Frame) -> Option<Rgb> {
     small_rgb(frame, pw, ph, true).map(|data| Rgb::new(pw, ph, data))
 }
 
+/// The pack's backend from `load`: the marker only says the files matched once, and the library is native code that runs as the user.
+fn find_pack(dir: &Path, info: &PackInfo, load: &dyn Fn(&Path) -> Result<Arc<dyn Backend>, LoadError>) -> Result<Arc<dyn Backend>, LoadError> {
+    let folder = info.folder(dir);
+    if !info.installed(dir) {
+        return Err(LoadError::Missing(format!("no vision pack in {}", folder.display())));
+    }
+    if pack::tree_hash(&folder).ok() != info.id {
+        return Err(LoadError::Failed(service::VisionError::new("RuntimeError", "the vision pack has changed since it was checked, so it wasn't loaded")));
+    }
+    load(&folder)
+}
+
 impl VisionHost {
     /// MediaPipe from this version's pack in the Python app's folder (vision_pack.default_dir).
     pub fn system() -> VisionHost {
         let (dir, info) = (pack::default_dir(), PackInfo::current());
         let (find_dir, find_info) = (dir.clone(), info.clone());
-        let find: Find = Box::new(move || {
-            if !find_info.installed(&find_dir) {
-                return Err(LoadError::Missing(format!("no vision pack in {}", find_info.folder(&find_dir).display())));
-            }
-            mediapipe::MediaPipe::load(&find_info.folder(&find_dir)).map(|b| Arc::new(b) as Arc<dyn Backend>)
-        });
+        let find: Find = Box::new(move || find_pack(&find_dir, &find_info, &|folder| mediapipe::MediaPipe::load(folder).map(|b| Arc::new(b) as Arc<dyn Backend>)));
         let (there_dir, there_info) = (dir.clone(), info.clone());
         VisionHost::with(find, Some(Box::new(move || there_info.installed(&there_dir))), dir, info, Box::new(pack::web))
     }

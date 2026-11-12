@@ -22,18 +22,21 @@ journal_list() {
 roll_back() {
     grep -q '"state": *"\(trial\|swapping\|rolling_back\)"' .update.json 2>/dev/null && [ -d .previous ] || return 1
     build=$(sed -n 's/.*"to_build": *\([0-9]*\).*/\1/p' .update.json)
-    journal_list added | while read -r name; do
-        [ -n "$name" ] && rm -rf "./$name"
-    done
-    journal_list entries | while read -r name; do
+    # One failed step keeps .previous and the journal, so the next start (or this launcher) can try again
+    ok=1
+    while read -r name; do
+        [ -n "$name" ] && { rm -rf "./$name" || ok=0; }
+    done < <(journal_list added)
+    while read -r name; do
         if [ -n "$name" ] && [ -e ".previous/$name" ]; then
             # A file is replaced by the rename itself, so start.sh is never missing; only a folder has to go first
             if [ -d "./$name" ] && [ ! -L "./$name" ]; then
-                rm -rf "./$name"
+                rm -rf "./$name" || { ok=0; continue; }
             fi
-            mv -f ".previous/$name" "./$name"
+            mv -f ".previous/$name" "./$name" || ok=0
         fi
-    done
+    done < <(journal_list entries)
+    [ "$ok" = 1 ] || return 1
     # Only a trial is the new build's fault; a cut-short install or roll-back says nothing about it
     grep -q '"state": *"trial"' .update.json && [ -n "$build" ] && [ "$build" != 0 ] && printf '{"build":%s}' "$build" > .update-failed
     rm -rf .previous .update-staging .update.json

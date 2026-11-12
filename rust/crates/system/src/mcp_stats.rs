@@ -311,6 +311,24 @@ mod tests {
     }
 
     #[test]
+    fn drops_from_before_the_last_minute_are_not_counted_in_it_for_a_stream_the_hub_has_kept_longer() {
+        use telescope_core::stats::{DropReason, Hub};
+        const SECOND: u64 = 1_000_000_000;
+        let hub = Hub::new();
+        let stats = hub.register("phone", 1);
+        let began = telescope_core::time::monotonic_ns();
+        let mut snap = Snapshot::default();
+        for second in 1..=120u64 {
+            if second == 5 {
+                stats.dropped(DropReason::LostOnLink, 9);
+            }
+            snap = hub.snapshot_at(began + second * SECOND, None, None);
+        }
+        let report = Collected::from_snapshot(&snap, 60).report(Level::Standard, &[]);
+        assert_eq!(report["streams"][0]["dropped_in_window"]["total"], json!(0), "{report}");
+    }
+
+    #[test]
     fn standard_leaves_out_what_only_nerds_want_and_a_series_filter_narrows_it() {
         let c = Collected::from_snapshot(&snapshot(vec![source("phone", vec![30.0; 5], vec![Drops::default(); 5])]), 5);
         let standard = c.report(Level::Standard, &[]);

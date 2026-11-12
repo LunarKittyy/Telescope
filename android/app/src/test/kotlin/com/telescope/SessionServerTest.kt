@@ -150,6 +150,34 @@ class SessionServerTest {
     }
 
     @Test
+    fun `a computer unpaired while its start body arrives does not start a stream`() {
+        var token: String? = "secret-token"
+        val commands = FakeCommands()
+        val server = SessionServer(0, { computersOf(token) }, commands)
+        server.start()
+        try {
+            val port = actualPort(server)
+            Socket("127.0.0.1", port).use { socket ->
+                socket.soTimeout = 2_000
+                val body = "{\"action\":\"start\"}"
+                val out = socket.getOutputStream()
+                out.write(("POST /v1/session HTTP/1.1\r\nAuthorization: Bearer secret-token\r\n" +
+                    "Content-Type: application/json\r\nContent-Length: ${body.length}\r\n\r\n").toByteArray())
+                out.flush()
+                Thread.sleep(300)
+                token = null
+                out.write(body.toByteArray())
+                out.flush()
+                val text = socket.getInputStream().readBytes().toString(StandardCharsets.UTF_8)
+                assertTrue(text.startsWith("HTTP/1.1 401"), text)
+            }
+            assertFalse(commands.calls.contains("start"))
+        } finally {
+            server.stop()
+        }
+    }
+
+    @Test
     fun `the token is re-read per request so a re-pair takes effect immediately`() {
         var token: String? = "first-token"
         val server = SessionServer(0, { computersOf(token) }, FakeCommands())
