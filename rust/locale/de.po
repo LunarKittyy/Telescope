@@ -5450,12 +5450,12 @@ msgid "Copied"
 msgstr "Kopiert"
 
 #: rust/crates/setup/src/setup.rs:522
-msgid "The graphics card failed and the processor is decoding until you restart Telescope"
-msgstr "Die Grafikkarte ist ausgefallen und der Prozessor dekodiert, bis du Telescope neu startest"
+msgid "Off until you restart Telescope because the graphics card failed"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:523
-msgid "The graphics card was too slow, so the processor is decoding for now"
-msgstr "Die Grafikkarte war zu langsam, daher übernimmt vorerst der Prozessor die Dekodierung"
+msgid "Paused for a few minutes because the graphics card was too slow"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:524
 #, python-brace-format
@@ -9396,6 +9396,12 @@ msgstr "Konnte nicht neu gestartet werden"
 
 #~ msgid "Set flip, rotation, zoom, pan and stretch back to default."
 #~ msgstr "Umdrehen, Drehung, Zoom, Schwenken und Strecken zurücksetzen."
+
+#~ msgid "The graphics card failed and the processor is decoding until you restart Telescope"
+#~ msgstr "Die Grafikkarte ist ausgefallen und der Prozessor dekodiert, bis du Telescope neu startest"
+
+#~ msgid "The graphics card was too slow, so the processor is decoding for now"
+#~ msgstr "Die Grafikkarte war zu langsam, daher übernimmt vorerst der Prozessor die Dekodierung"
 
 #~ msgid "Blur the others"
 #~ msgstr "Andere weichzeichnen"

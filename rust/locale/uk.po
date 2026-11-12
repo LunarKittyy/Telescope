@@ -5450,12 +5450,12 @@ msgid "Copied"
 msgstr "Скопійовано"
 
 #: rust/crates/setup/src/setup.rs:522
-msgid "The graphics card failed and the processor is decoding until you restart Telescope"
-msgstr "Стався збій відеокарти, і процесор декодує, доки ви не перезапустите Telescope"
+msgid "Off until you restart Telescope because the graphics card failed"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:523
-msgid "The graphics card was too slow, so the processor is decoding for now"
-msgstr "Відеокарта виявилася надто повільною, тому поки що декодує процесор"
+msgid "Paused for a few minutes because the graphics card was too slow"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:524
 #, python-brace-format
@@ -9405,6 +9405,12 @@ msgstr "Не вдалося перезапустити"
 
 #~ msgid "Set flip, rotation, zoom, pan and stretch back to default."
 #~ msgstr "Скинути віддзеркалення, поворот, масштаб, панорамування та розтягнення до початкових."
+
+#~ msgid "The graphics card failed and the processor is decoding until you restart Telescope"
+#~ msgstr "Стався збій відеокарти, і процесор декодує, доки ви не перезапустите Telescope"
+
+#~ msgid "The graphics card was too slow, so the processor is decoding for now"
+#~ msgstr "Відеокарта виявилася надто повільною, тому поки що декодує процесор"
 
 #~ msgid "Blur the others"
 #~ msgstr "Розмити інших"
