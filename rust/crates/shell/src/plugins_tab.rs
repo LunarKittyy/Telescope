@@ -538,7 +538,7 @@ impl Panel {
             tile.note = fill(&tr("Couldn't start: {problem}"), &[("problem", why.trim_end_matches('.'))]);
             tile.note_kind = "status_err".into();
         } else {
-            tile.note = fill(&tr("Loaded from {folder} by telescope-rs dev. Telescope restarts automatically when you save a plugin file."), &[("folder", &item.folder.to_string_lossy())]);
+            tile.note = fill(&tr("Loaded from {folder} by telescope-rs dev. Saving a file in that folder restarts Telescope."), &[("folder", &item.folder.to_string_lossy())]);
         }
         tile
     }
