@@ -297,6 +297,8 @@ pub trait CpuStep: Send {
     fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
         Touch::Changes
     }
+    /// Told when the pipeline sends a dark frame in place of this step's work because it's skipped, without touch or process being asked. Only for a step that hides.
+    fn withheld(&self, _ctx: &dyn FrameContext) {}
     /// For the CPU half of an Either: the shader's uniforms for a frame of this size, asked before each run on the card. A step whose
     /// uniforms depend on the picture's size (a warp worked out for it) answers here; the card only uploads an answer that changed.
     fn card_uniforms(&mut self, _width: u32, _height: u32) -> Option<Value> {

@@ -265,7 +265,8 @@ pub trait FramePipeline: Send {
     fn replace_steps(&mut self, _owner: &str, _stage: crate::frame::FrameStage, _steps: Vec<crate::frame::FrameStep>) {}
     fn process(&mut self, frame: Frame, ctx: &dyn FrameContext) -> Frame;
     /// A frame that already went through process, run through the steps that hide things (stages Privacy and Cover) again: for the frame
-    /// a stalled stream keeps sending when those steps just changed. None when none of them had anything to hide, or this pipeline can't.
+    /// a stalled stream keeps sending when those steps just changed. A Background step that wasn't in the steps before can't be run on a finished
+    /// picture, so it makes the frame dark instead. None when none of them had anything to hide, or this pipeline can't.
     fn hide_again(&mut self, _frame: Frame, _ctx: &dyn FrameContext) -> Option<Frame> {
         None
     }

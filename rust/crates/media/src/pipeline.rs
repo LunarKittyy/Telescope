@@ -152,6 +152,8 @@ pub struct Pipeline {
     on_card: bool,
     /// How long the last frame spent bringing pictures down from the card (measured while the steps are timed).
     last_readback_ns: u64,
+    /// The steps just handed over hold a Background step that the ones before them didn't, and no frame has gone through them yet.
+    background_added: bool,
 }
 
 impl Drop for Pipeline {
@@ -177,7 +179,7 @@ impl Pipeline {
 
     /// One that listens to this balance, for tests.
     fn with_balance(balance: Arc<Balance>) -> Pipeline {
-        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0 }
+        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, background_added: false }
     }
 
     fn timer_of(&self, owner: &str) -> Option<Arc<Timer>> {
@@ -239,6 +241,26 @@ impl Pipeline {
             if let Some(held) = chain.held.take() {
                 gpu.put_down(held);
             }
+        }
+    }
+
+    /// Lets go of what the card holds for this frame without bringing it down, for a frame whose picture is being withheld.
+    fn drop_card_work(&mut self, chain: &mut Chain) {
+        chain.ahead.clear();
+        if let (Some(held), Some(gpu)) = (chain.held.take(), self.gpu.clone().flatten()) {
+            gpu.put_down(held);
+        }
+    }
+
+    /// Whether the steps hold a Background step, which hides the room.
+    fn has_background(&self) -> bool {
+        self.steps.iter().any(|e| e.stage == FrameStage::Background && e.hides())
+    }
+
+    /// A skipped step that hides is sent a dark frame in place of its work: a step watching what it hides hears of it.
+    fn tell_withheld(&self, i: usize, ctx: &dyn FrameContext) {
+        if let Kind::Cpu(step) | Kind::Either(_, step) = &self.steps[i].kind {
+            let _ = catch_unwind(AssertUnwindSafe(|| step.withheld(ctx)));
         }
     }
 
@@ -421,22 +443,27 @@ fn sound(frame: &Frame) -> bool {
 
 impl FramePipeline for Pipeline {
     fn set_steps(&mut self, steps: Vec<StagedStep>) {
+        let had_background = self.has_background();
         let mut entries: Vec<Entry> = steps.into_iter().map(|s| Entry { timer: self.timer_of(&s.owner), owner: s.owner, stage: s.stage, kind: Kind::of(s.step), fails: 0, no_shader: false }).collect();
         // Stable: as registered within a stage
         entries.sort_by_key(|e| e.stage);
         self.steps = entries;
+        self.background_added = !had_background && self.has_background();
     }
 
     fn replace_steps(&mut self, owner: &str, stage: FrameStage, steps: Vec<FrameStep>) {
+        let had_background = self.has_background();
         self.steps.retain(|e| e.owner != owner);
         let timer = self.timer_of(owner);
         let fresh: Vec<Entry> = steps.into_iter().map(|step| Entry { owner: owner.to_string(), stage, kind: Kind::of(step), fails: 0, no_shader: false, timer: timer.clone() }).collect();
         // First within the stage, where the window's own steps go
         let at = self.steps.iter().position(|e| e.stage >= stage).unwrap_or(self.steps.len());
         self.steps.splice(at..at, fresh);
+        self.background_added |= !had_background && self.has_background();
     }
 
     fn process(&mut self, mut frame: Frame, ctx: &dyn FrameContext) -> Frame {
+        self.background_added = false;
         let started = *self.started_ns.get_or_insert_with(monotonic_ns);
         let time = monotonic_ns().saturating_sub(started) as f32 / 1e9;
         // A step that builds a new frame stays on this one: person masks are worked out once per number
@@ -455,7 +482,9 @@ impl FramePipeline for Pipeline {
                     // Skipped for failing too often, which can't mean the room shows: the card's copy goes with the picture
                     let size = (frame.width, frame.height);
                     frame = neutral(size, frame.format, frame.number, frame.time_ns);
-                    self.bring_down(&mut chain, &mut frame, ctx, false);
+                    // Dropped, not brought down: the card's copy has the picture this one stands in for, and landing it would put that back
+                    self.drop_card_work(&mut chain);
+                    self.tell_withheld(i, ctx);
                 }
                 continue;
             }
@@ -494,12 +523,23 @@ impl FramePipeline for Pipeline {
     fn hide_again(&mut self, mut frame: Frame, ctx: &dyn FrameContext) -> Option<Frame> {
         let mut chain = Chain::default();
         let mut hid = false;
+        let new_background = std::mem::take(&mut self.background_added);
         for i in 0..self.steps.len() {
-            if !matches!(self.steps[i].stage, FrameStage::Privacy | FrameStage::Cover) {
+            let stage = self.steps[i].stage;
+            if !matches!(stage, FrameStage::Background | FrameStage::Privacy | FrameStage::Cover) {
                 continue;
             }
             if self.steps[i].skipped() {
                 if self.steps[i].hides() {
+                    frame = neutral((frame.width, frame.height), frame.format, frame.number, frame.time_ns);
+                    self.tell_withheld(i, ctx);
+                    hid = true;
+                }
+                continue;
+            }
+            if stage == FrameStage::Background {
+                // The picture in hand went out without it and has been through the stages after it, so it can't be done again: a new one makes the whole frame dark until a frame comes to do it properly
+                if new_background && self.steps[i].hides() {
                     frame = neutral((frame.width, frame.height), frame.format, frame.number, frame.time_ns);
                     hid = true;
                 }
@@ -745,6 +785,89 @@ pub(crate) mod tests {
         p.set_steps(vec![step("fun", FrameStage::Effects, Panics)]);
         quietly(|| p.process(source.clone(), &NoContext));
         assert_eq!(quietly(|| p.process(source.clone(), &NoContext)).data, source.data);
+    }
+
+    fn is_dark(out: &Frame) -> bool {
+        let luma = out.width as usize * out.height as usize;
+        out.data[..luma].iter().all(|v| *v == 16) && out.data[luma..].iter().all(|v| *v == 128)
+    }
+
+    #[test]
+    fn a_skipped_hiding_step_after_a_shader_never_lets_the_cards_picture_through() {
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let mut p = Pipeline::new();
+        p.set_steps(vec![shader(INVERT), step("blur", FrameStage::Privacy, HidingPanics)]);
+        let source = grey(8, 8, 200);
+        for n in 0..STEP_FAILS_BEFORE_SKIP + 5 {
+            let out = quietly(|| p.process(source.clone(), &NoContext));
+            assert!(is_dark(&out), "frame {n}: the inverted picture from the card is {:?}", out.data[0]);
+        }
+        assert!(p.steps[1].skipped(), "past the skip, with the shader's work still waiting on the card each frame");
+    }
+
+    /// Hides, fails, and counts how often the pipeline says it withheld a frame for it.
+    struct HidingCounts(Arc<std::sync::Mutex<u32>>);
+
+    impl CpuStep for HidingCounts {
+        fn hides(&self) -> bool {
+            true
+        }
+        fn withheld(&self, _ctx: &dyn FrameContext) {
+            *self.0.lock().unwrap() += 1;
+        }
+        fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {
+            panic!("broken")
+        }
+    }
+
+    #[test]
+    fn a_skipped_hiding_step_hears_that_its_frame_is_withheld() {
+        let heard = Arc::new(std::sync::Mutex::new(0));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("blur", FrameStage::Privacy, HidingCounts(heard.clone()))]);
+        for _ in 0..STEP_FAILS_BEFORE_SKIP {
+            quietly(|| p.process(grey(4, 2, 200), &NoContext));
+        }
+        assert_eq!(*heard.lock().unwrap(), 0, "while it runs, it knows from process");
+        assert!(is_dark(&p.process(grey(4, 2, 200), &NoContext)));
+        assert_eq!(*heard.lock().unwrap(), 1, "skipped: told, though neither touch nor process is asked");
+        assert!(is_dark(&p.hide_again(grey(4, 2, 200), &NoContext).expect("dark")));
+        assert_eq!(*heard.lock().unwrap(), 2);
+    }
+
+    /// Hides, and does nothing to the picture.
+    struct Hides;
+
+    impl CpuStep for Hides {
+        fn hides(&self) -> bool {
+            true
+        }
+        fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+    }
+
+    #[test]
+    fn a_background_step_that_is_new_hides_the_frame_a_stalled_feed_keeps_sending() {
+        let mut p = Pipeline::new();
+        let went_out = grey(4, 2, 200);
+        p.set_steps(vec![step("tag", FrameStage::Overlay, Idle)]);
+        assert!(p.hide_again(went_out.clone(), &NoContext).is_none(), "no hiding step, nothing to hide");
+        p.set_steps(vec![step("tag", FrameStage::Overlay, Idle), step("background", FrameStage::Background, Hides)]);
+        let hidden = p.hide_again(went_out.clone(), &NoContext).expect("the room was in the picture that went out");
+        assert!(is_dark(&hidden));
+        assert_eq!(hidden.number, went_out.number);
+        // Handed over again with the step already in: its picture went out with it, so there's nothing new to hide
+        p.set_steps(vec![step("tag", FrameStage::Overlay, Idle), step("background", FrameStage::Background, Hides)]);
+        assert!(p.hide_again(went_out.clone(), &NoContext).is_none());
+        // Swapped for another of its kind (a new picture or blur): the same
+        p.set_steps(vec![step("background", FrameStage::Background, Hides)]);
+        assert!(p.hide_again(went_out.clone(), &NoContext).is_none());
+        // Asked for once: a frame that went through the new steps settles it
+        p.set_steps(Vec::new());
+        p.set_steps(vec![step("background", FrameStage::Background, Hides)]);
+        p.process(grey(4, 2, 1), &NoContext);
+        assert!(p.hide_again(went_out, &NoContext).is_none());
     }
 
     /// Hides when told to: it paints the picture 9, and says it has nothing to do otherwise.
