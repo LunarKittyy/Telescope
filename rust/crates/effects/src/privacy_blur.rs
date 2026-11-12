@@ -23,6 +23,8 @@ use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 pub const NAME: &str = "privacy_blur";
 /// What it asks the host and the Wait screen for things under.
 const TITLE: &str = n_("Privacy blur");
+/// Under the name on the wait screen while it covers the picture, so it doesn't read as a broken camera.
+const COVER_NOTE: &str = n_("Paused for privacy");
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/vision_status.slint"), "\n", include_str!("../ui/privacy_blur.slint"));
 /// What happens while more than one person is in the picture: all of it gets blurred, or the wait screen goes up in place of it.
 pub const MODES: [(&str, &str); 2] = [("blur", n_("Blur the whole picture")), ("wait", n_("Show the wait screen"))];
@@ -196,7 +198,7 @@ impl PrivacyBlurPlugin {
         if want_cover != self.asked_cover {
             self.asked_cover = want_cover;
             // Wait screen answers through stream_covered
-            host.emit(Event::CoverRequested { owner: TITLE.into(), on: want_cover });
+            host.emit(Event::CoverRequested { owner: TITLE.into(), on: want_cover, note: want_cover.then(|| tr(COVER_NOTE)) });
         }
         self.show(host);
     }
@@ -300,7 +302,7 @@ impl Plugin for PrivacyBlurPlugin {
 
     fn shutdown(&mut self, host: &mut dyn Host) {
         if self.asked_cover {
-            host.emit(Event::CoverRequested { owner: TITLE.into(), on: false });
+            host.emit(Event::CoverRequested { owner: TITLE.into(), on: false, note: None });
         }
         if self.wanting {
             host.want_people(TITLE, false);

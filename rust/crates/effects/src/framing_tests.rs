@@ -326,6 +326,107 @@ fn it_frames_the_person_on_the_shown_stream_and_goes_wide_when_they_leave() {
 }
 
 #[test]
+fn a_group_is_framed_whole_even_when_the_model_reports_one_of_them_at_a_time() {
+    let mut r = Rig::new();
+    r.switch(true);
+    let crowd = [at(0.2), at(0.5), at(0.8)];
+    // Mostly one at a time, a different one each report, and two now and then
+    let mut zooms = Vec::new();
+    for i in 0..240 {
+        *r.clock.lock().unwrap() += 1.0 / 30.0;
+        if i % 30 == 0 {
+            r.people("phone", &[crowd[0].clone(), crowd[2].clone()]);
+        } else if i % 3 == 0 {
+            r.people("phone", std::slice::from_ref(&crowd[(i / 3) % 3]));
+        }
+        r.tick();
+        if i >= 120 {
+            zooms.push(r.last().0);
+        }
+    }
+    let (low, high) = zooms.iter().fold((f32::MAX, f32::MIN), |(l, h), z| (l.min(*z), h.max(*z)));
+    assert!(high < 1.8 && high - low < 0.05, "zoom {low} to {high}");
+    // One person alone still gets the close framing
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(4.0, Some(&[at(0.2)]));
+    assert!(r.last().0 > 2.5);
+}
+
+#[test]
+fn a_group_stays_framed_for_as_long_as_the_reports_keep_alternating_between_its_people() {
+    let mut r = Rig::new();
+    r.switch(true);
+    let crowd = [at(0.2), at(0.8)];
+    r.people("phone", &crowd);
+    let mut zooms = Vec::new();
+    for i in 0..600 {
+        *r.clock.lock().unwrap() += 1.0 / 30.0;
+        if i % 3 == 0 {
+            r.people("phone", std::slice::from_ref(&crowd[(i / 3) % 2]));
+        }
+        r.tick();
+        if i >= 300 {
+            zooms.push(r.last().0);
+        }
+    }
+    let (low, high) = zooms.iter().fold((f32::MAX, f32::MIN), |(l, h), z| (l.min(*z), h.max(*z)));
+    assert!(high < 1.8 && high - low < 0.05, "zoom {low} to {high}");
+}
+
+#[test]
+fn one_person_who_jumps_across_the_picture_is_still_one_person() {
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(4.0, Some(&[at(0.2)]));
+    // A missed detection, then they are far from where they were
+    r.run(0.5, None);
+    let mut lowest = f32::MAX;
+    for _ in 0..180 {
+        r.run(1.0 / 30.0, Some(&[at(0.6)]));
+        lowest = lowest.min(r.last().0);
+    }
+    assert_eq!(r.plugin.tracked.len(), 1);
+    assert!(lowest > 2.5, "zoomed out to {lowest}");
+}
+
+#[test]
+fn someone_who_moves_is_followed_not_trailed() {
+    let (a, b) = (at(0.3), at(0.7));
+    let tracked = track(Vec::new(), &[a.clone(), b.clone()], 1.0, ASPECT);
+    assert_eq!(tracked.len(), 2);
+    // a steps a little to the right: still a, now there, and b is left where they were
+    let moved = at(0.33);
+    let tracked = track(tracked, std::slice::from_ref(&moved), 1.1, ASPECT);
+    assert_eq!(tracked.len(), 2);
+    assert!(tracked.contains(&(moved, 1.1)) && tracked.contains(&(b, 1.0)));
+    // someone far from both is new
+    let tracked = track(tracked, &[at(0.98)], 1.2, ASPECT);
+    assert_eq!(tracked.len(), 3);
+    // so the crop follows where they are now
+    let mut r = Rig::new();
+    r.switch(true);
+    for i in 0..300 {
+        r.run(1.0 / 30.0, Some(&[at(0.2 + 0.15 * (i as f64 / 90.0).min(1.0)), at(0.8)]));
+    }
+    let now = fit(target_box(&[at(0.35), at(0.8)], ASPECT, FRAMING_DEFAULT, &[]).unwrap(), MAX_ZOOM);
+    let at_end = r.last();
+    assert!(close(at_end.0 as f64, now.zoom, 0.05), "zoom {} against {}", at_end.0, now.zoom);
+}
+
+#[test]
+fn when_everyone_has_left_the_old_crop_is_held_only_for_the_usual_moment() {
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(2.0, Some(&[at(0.2), at(0.8)]));
+    assert!(r.plugin.target(ASPECT, *r.clock.lock().unwrap()).zoom > 1.1);
+    // Reports keep coming, with nobody in them
+    r.run(HOLD_S + 0.2, Some(&[]));
+    let zoom = r.plugin.target(ASPECT, *r.clock.lock().unwrap()).zoom;
+    assert!(close(zoom, 1.0, 1e-9), "{zoom}");
+}
+
+#[test]
 fn a_flipped_view_pans_the_other_way_to_the_same_person() {
     let mut r = Rig::new();
     r.host.view = View { flip_h: true, ..View::default() };

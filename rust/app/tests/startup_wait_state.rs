@@ -193,7 +193,7 @@ fn asked_to_stand_in_for_the_stream_the_wait_screen_joins_the_pipeline_at_its_st
     let mut s = state(&file, vec![Box::new(WaitScreenPlugin::new(cameras))]);
     assert!(s.pipeline_steps(None).iter().all(|step| step.owner != "wait_screen"));
     s.effects.clear();
-    s.bus.emit(Event::CoverRequested { owner: "Privacy blur".into(), on: true });
+    s.bus.emit(Event::CoverRequested { owner: "Privacy blur".into(), on: true, note: None });
     s.deliver_events();
     // The asker hears it's in place, and the window is told to rebuild the steps
     assert!(pushed(&s, &Effect::FrameStep("wait_screen".into())));
@@ -219,7 +219,7 @@ fn asked_to_stand_in_for_the_stream_the_wait_screen_joins_the_pipeline_at_its_st
     cpu.process(&mut frame, &Ctx);
     assert_eq!((frame.width, frame.height, frame.number), (64, 36, 7));
     assert_ne!(frame.data[0], 99);
-    s.bus.emit(Event::CoverRequested { owner: "Privacy blur".into(), on: false });
+    s.bus.emit(Event::CoverRequested { owner: "Privacy blur".into(), on: false, note: None });
     s.deliver_events();
     assert!(s.pipeline_steps(None).iter().all(|step| step.owner != "wait_screen"));
 }

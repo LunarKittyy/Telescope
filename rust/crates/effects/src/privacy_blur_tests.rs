@@ -207,6 +207,7 @@ fn the_wait_screen_is_asked_for_and_the_picture_blurred_until_it_answers() {
     rig.set_mode("wait");
     rig.see(2, 0.5);
     assert_eq!(rig.asks(), [true]);
+    assert!(rig.host.events.iter().any(|e| matches!(e, Event::CoverRequested { on: true, note: Some(note), .. } if note == "Paused for privacy")));
     // nothing answered: Wait screen is off
     assert_eq!(rig.process(), blurred(&stripes()));
     assert!(rig.shown("vision-text").as_str().unwrap().contains("Wait screen"));
@@ -336,7 +337,7 @@ fn settings_round_trip_and_shutdown_lets_go() {
     rig.ui("now-clicked", vec![]);
     rig.plugin.shutdown(&mut rig.host);
     assert!(!rig.wanted());
-    assert_eq!(rig.host.events.last(), Some(&Event::CoverRequested { owner: "Privacy blur".into(), on: false }));
+    assert_eq!(rig.host.events.last(), Some(&Event::CoverRequested { owner: "Privacy blur".into(), on: false, note: None }));
 }
 
 #[test]
