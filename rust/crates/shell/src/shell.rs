@@ -273,6 +273,27 @@ impl telescope_core::frame::CpuStep for KeepBefore {
     }
 }
 
+/// A step that hides things (Privacy blur, the wait screen), watched while Colour grading compares. The picture kept from before the colour step is clear, so the moment this step has something to hide the kept one goes too and the preview shows no compare side.
+struct DropsBeforeWhenHiding {
+    inner: Box<dyn telescope_core::frame::CpuStep>,
+    before: Arc<std::sync::Mutex<BTreeMap<String, telescope_core::Frame>>>,
+}
+
+impl telescope_core::frame::CpuStep for DropsBeforeWhenHiding {
+    fn touch(&self, ctx: &dyn telescope_core::frame::FrameContext) -> telescope_core::frame::Touch {
+        let touch = self.inner.touch(ctx);
+        if touch != telescope_core::frame::Touch::Nothing {
+            self.before.lock().unwrap().remove(ctx.source_id());
+        }
+        touch
+    }
+
+    fn process(&mut self, frame: &mut telescope_core::Frame, ctx: &dyn telescope_core::frame::FrameContext) {
+        self.before.lock().unwrap().remove(ctx.source_id());
+        self.inner.process(frame, ctx);
+    }
+}
+
 /// Monotonic seconds, the view controller's clock.
 pub fn now_s() -> f64 {
     telescope_core::time::monotonic_ns() as f64 / 1e9
@@ -858,22 +879,42 @@ impl State {
         if colour.is_none() || self.colour.split().is_none() {
             self.colour_before.lock().unwrap().clear();
         }
+        let comparing = colour.is_some() && self.colour.split().is_some();
+        // A step that hides things, which isn't a CPU one, can't say when it does: no compare then
+        let mut unwatched = false;
+        let mut plugin_steps = Vec::new();
+        for i in 0..self.slots.len() {
+            let (owner, stage) = (self.slots[i].info.name.clone(), self.slots[i].info.frame_stage);
+            let Some(p) = self.slots[i].plugin.as_mut() else { continue };
+            match catch_unwind(AssertUnwindSafe(|| p.frame_step())) {
+                Ok(Some(step)) => {
+                    let hides = matches!(stage, FrameStage::Privacy | FrameStage::Cover);
+                    let step = match step {
+                        telescope_core::frame::FrameStep::Cpu(inner) if comparing && hides => {
+                            telescope_core::frame::FrameStep::Cpu(Box::new(DropsBeforeWhenHiding { inner, before: self.colour_before.clone() }))
+                        }
+                        other => {
+                            unwatched |= comparing && hides;
+                            other
+                        }
+                    };
+                    plugin_steps.push(telescope_core::media::StagedStep { owner, stage, step });
+                }
+                Ok(None) => {}
+                Err(_) => log::error!("Plugin {owner} couldn't give its frame step; leaving it out"),
+            }
+        }
+        if unwatched {
+            self.colour_before.lock().unwrap().clear();
+        }
         if let Some(step) = colour {
-            if self.colour.split().is_some() {
+            if comparing && !unwatched {
                 let keep = KeepBefore(self.colour_before.clone());
                 steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step: telescope_core::frame::FrameStep::Cpu(Box::new(keep)) });
             }
             steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step });
         }
-        for i in 0..self.slots.len() {
-            let (owner, stage) = (self.slots[i].info.name.clone(), self.slots[i].info.frame_stage);
-            let Some(p) = self.slots[i].plugin.as_mut() else { continue };
-            match catch_unwind(AssertUnwindSafe(|| p.frame_step())) {
-                Ok(Some(step)) => steps.push(telescope_core::media::StagedStep { owner, stage, step }),
-                Ok(None) => {}
-                Err(_) => log::error!("Plugin {owner} couldn't give its frame step; leaving it out"),
-            }
-        }
+        steps.extend(plugin_steps);
         steps
     }
 
@@ -2349,6 +2390,48 @@ mod tests {
         s.colour.set_stage("grade", None, 0, None);
         assert!(colour(&mut s).is_empty());
         assert!(s.colour_before.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn comparing_shows_no_clear_picture_while_a_step_that_hides_things_is_hiding() {
+        use telescope_core::frame::{CpuStep, FrameContext, FrameStage, FrameStep, Touch};
+        struct Hides(Arc<std::sync::atomic::AtomicBool>);
+        impl CpuStep for Hides {
+            fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
+                if self.0.load(std::sync::atomic::Ordering::Relaxed) { Touch::Changes } else { Touch::Nothing }
+            }
+            fn process(&mut self, _frame: &mut telescope_core::Frame, _ctx: &dyn FrameContext) {}
+        }
+        struct Privacy(Arc<std::sync::atomic::AtomicBool>);
+        impl Plugin for Privacy {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "privacy".into(), frame_stage: FrameStage::Privacy, ..Default::default() }
+            }
+            fn frame_step(&mut self) -> Option<FrameStep> {
+                Some(FrameStep::Cpu(Box::new(Hides(self.0.clone()))))
+            }
+        }
+        let hiding = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let mut s = state();
+        s.register(Box::new(Privacy(hiding.clone()))).unwrap();
+        let warm = telescope_core::host::ColourStage::new(2, Arc::new(telescope_core::colour::lattice(2).iter().map(|v| v * 0.5).collect()), None);
+        s.colour.set_stage("grade", Some(warm), 0, None);
+        s.colour.set_split("grade", Some(0.5));
+        let mut steps = s.pipeline_steps(None);
+        let mut run = |steps: &mut Vec<telescope_core::media::StagedStep>| {
+            let mut frame = telescope_core::Frame::new(2, 1, telescope_core::frame::PixelFormat::Rgba, vec![9; 8]);
+            for st in steps.iter_mut().filter(|st| matches!(st.step, FrameStep::Cpu(_))) {
+                let FrameStep::Cpu(step) = &mut st.step else { unreachable!() };
+                if step.touch(&NoCtx) != Touch::Nothing {
+                    step.process(&mut frame, &NoCtx);
+                }
+            }
+        };
+        run(&mut steps);
+        assert!(s.colour_before.lock().unwrap().contains_key("p1"), "nothing hidden: the compare has its picture");
+        hiding.store(true, std::sync::atomic::Ordering::Relaxed);
+        run(&mut steps);
+        assert!(s.colour_before.lock().unwrap().is_empty(), "hiding: no clear picture left for the compare");
     }
 
     #[test]
