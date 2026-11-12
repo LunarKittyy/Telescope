@@ -573,7 +573,7 @@ impl Reader {
             let Some(hub) = self.hub() else { break };
             if line.get("sensors").is_some() {
                 let alive_ms = line.get("alive_ms").and_then(Value::as_u64).filter(|n| *n > 0).unwrap_or(ALIVE_DEFAULT_MS);
-                let every = alive_ms / 3;
+                let every = (alive_ms / 3).max(100); // a tiny alive_ms from a hostile phone must not ping in a tight loop
                 match &alive_every {
                     Some(shared) => shared.store(every, Ordering::SeqCst),
                     None => alive_every = self.keep_alive(every, alive_stop.clone()),
