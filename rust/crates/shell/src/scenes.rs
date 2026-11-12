@@ -298,6 +298,11 @@ pub fn show_live(w: &std::rc::Rc<window::Window>, fps: &str, net: &str) {
 }
 
 /// Lets what plugins started on their threads come back: runs the event loop's jobs until none came for a while.
+/// Turns the window's motion off, so a picture is never caught mid-spring and the same settings always draw the same pixels.
+pub fn hold_still(w: &std::rc::Rc<window::Window>) {
+    let _ = w.ui.set_global_property("Motion", "off", slint_interpreter::Value::Bool(true));
+}
+
 fn settle(w: &std::rc::Rc<window::Window>) {
     let (start, mut quiet) = (Instant::now(), Instant::now());
     while start.elapsed() < Duration::from_secs(3) && quiet.elapsed() < Duration::from_millis(150) {

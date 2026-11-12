@@ -1106,6 +1106,7 @@ fn run_card(out: &str, words: &[String]) -> Result<(), String> {
             config["plugin_configs"][plugin.as_str()] = settings.clone();
             let page = if whole_window { Page::WindowTop } else { Page::Card { plugin: plugin.clone() } };
             Setup { page, then: Some(Box::new(move |w| {
+                telescope_shell::scenes::hold_still(w);
                 w.emit(telescope_core::event::Event::PhonesChanged { count: 1 });
                 if let Some(state) = &phone {
                     streaming_phone(w, state);
