@@ -197,6 +197,10 @@ struct Derived {
 }
 
 impl CpuStep for Step {
+    fn hides(&self) -> bool {
+        true
+    }
+
     fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
         let mut spares = std::mem::take(&mut self.spares);
         with_spares(&mut spares, || self.run(frame, ctx));

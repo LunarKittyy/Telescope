@@ -280,6 +280,10 @@ struct DropsBeforeWhenHiding {
 }
 
 impl telescope_core::frame::CpuStep for DropsBeforeWhenHiding {
+    fn hides(&self) -> bool {
+        self.inner.hides()
+    }
+
     fn touch(&self, ctx: &dyn telescope_core::frame::FrameContext) -> telescope_core::frame::Touch {
         let touch = self.inner.touch(ctx);
         if touch != telescope_core::frame::Touch::Nothing {
