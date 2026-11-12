@@ -258,11 +258,11 @@ impl Pipeline {
         }
         self.bring_down(chain, frame, ctx, touch == Touch::Reads);
         let entry = &mut self.steps[i];
+        let hides = entry.hides();
         let step = entry.kind.cpu();
         // A step that changes pixels in place would copy them all if a clone kept the old ones, so only one that failed on its last frame
         // gets that fallback; a built-in step that panics the first time may hand on a half-changed frame. Whole-frame writers build a new
         // buffer and swap it in, so they leave this one intact either way.
-        let hides = entry.hides();
         // (a step that hides never falls back to the picture it was given)
         let before = (entry.fails > 0 && !hides).then(|| frame.clone());
         let (size, format) = ((frame.width, frame.height), frame.format);
@@ -506,7 +506,7 @@ impl FramePipeline for Pipeline {
                 continue;
             }
             // Only a CPU step can say whether it has something to hide right now
-            let Kind::Cpu(step) | Kind::Either(_, step) = &self.steps[i].kind else { continue };
+            let (Kind::Cpu(step) | Kind::Either(_, step)) = &self.steps[i].kind else { continue };
             if catch_unwind(AssertUnwindSafe(|| step.touch(ctx))).unwrap_or(Touch::Changes) != Touch::Nothing {
                 hid = true;
                 self.run_cpu(i, &mut frame, &mut chain, ctx);
