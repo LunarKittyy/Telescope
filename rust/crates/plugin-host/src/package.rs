@@ -288,7 +288,8 @@ impl PluginFolder {
     /// Unpack a plugin .zip (one folder, named as the plugin) into the plugins folder, switched off. replace: put it in place of the one
     /// there, switched off; its settings are kept since they're saved by name.
     pub fn install_zip(&self, archive: &Path, replace: bool) -> Result<Installed, InstallError> {
-        let file = fs::File::open(archive)?;
+        let mut file = fs::File::open(archive)?;
+        check_central_directory(&mut file)?;
         let mut zip = zip::ZipArchive::new(file).map_err(|_| invalid(NOT_A_ZIP))?;
         let name = zip_name(&mut zip)?;
         if self.reserved.contains(&name) {
@@ -304,14 +305,18 @@ impl PluginFolder {
         }
         make_private_dir(&self.folder)?;
         let staging = make_staging(&self.folder)?;
-        let result = self.unpack_and_swap(&mut zip, &staging, &name, &target);
-        let _ = fs::remove_dir_all(&staging);
+        let mut keep_staging = false;
+        let result = self.unpack_and_swap(&mut zip, &staging, &name, &target, &mut keep_staging);
+        // If the old version couldn't be put back, staging is where it is, so it stays
+        if !keep_staging {
+            let _ = fs::remove_dir_all(&staging);
+        }
         result?;
         let enabled = self.switches.added();
         Ok(self.inspect(&target, &enabled, unsafe_permissions(&self.folder), false))
     }
 
-    fn unpack_and_swap(&self, zip: &mut zip::ZipArchive<fs::File>, staging: &Path, name: &str, target: &Path) -> Result<(), InstallError> {
+    fn unpack_and_swap(&self, zip: &mut zip::ZipArchive<fs::File>, staging: &Path, name: &str, target: &Path, keep_staging: &mut bool) -> Result<(), InstallError> {
         for i in 0..zip.len() {
             let mut entry = zip.by_index(i).map_err(|_| invalid(NOT_A_ZIP))?;
             let entry_name = entry.name().map_err(|_| invalid(NOT_A_ZIP))?.to_string();
@@ -337,7 +342,12 @@ impl PluginFolder {
             (self.rename)(target, &old)?;
             if let Err(e) = (self.rename)(&staging.join(name), target) {
                 // The old one stays, and stays as switched on as it was
-                let _ = (self.rename)(&old, target);
+                if let Err(restore) = (self.rename)(&old, target) {
+                    *keep_staging = true;
+                    log::error!("Couldn't install {name} ({e}) or put the old one back ({restore}); it is kept in {}", old.display());
+                    return Err(InstallError::Io(io::Error::other(format!(
+                        "couldn't install {name} or put the old version back; the old version is kept in {}", old.display()))));
+                }
                 return Err(e.into());
             }
             self.switch_off_replaced(name);
@@ -382,9 +392,41 @@ fn entry_parts(name: &str) -> Vec<&str> {
 
 /// The name of the plugin in a .zip (its one top folder), checked as install_zip checks it.
 pub fn zip_plugin_name(archive: &Path) -> Result<String, InstallError> {
-    let file = fs::File::open(archive)?;
+    let mut file = fs::File::open(archive)?;
+    check_central_directory(&mut file)?;
     let mut zip = zip::ZipArchive::new(file).map_err(|_| invalid(NOT_A_ZIP))?;
     zip_name(&mut zip)
+}
+
+/// The biggest central directory a plugin .zip may have (500 entries with long names fit many times over).
+const MAX_DIRECTORY_BYTES: u32 = 4 * 1024 * 1024;
+
+/// Reads the end-of-central-directory records at the end of a .zip and refuses one that claims too many entries or too big a directory,
+/// before ZipArchive::new builds the whole index. Every record in the last 64 KiB counts, since a reader may fall back to an earlier one.
+fn check_central_directory<R: Read + io::Seek>(file: &mut R) -> Result<(), InstallError> {
+    const SIGNATURE: [u8; 4] = [b'P', b'K', 5, 6];
+    const RECORD: usize = 22;
+    let length = file.seek(io::SeekFrom::End(0))?;
+    let window = length.min((RECORD + SIGNATURE.len() + (1 << 16)) as u64);
+    file.seek(io::SeekFrom::End(-(window as i64)))?;
+    let mut tail = Vec::with_capacity(window as usize);
+    file.take(window).read_to_end(&mut tail)?;
+    let mut found = false;
+    for at in 0..tail.len().saturating_sub(RECORD - 1) {
+        if tail[at..at + 4] != SIGNATURE {
+            continue;
+        }
+        found = true;
+        let record = &tail[at..at + RECORD];
+        let word = |i: usize| u16::from_le_bytes([record[i], record[i + 1]]);
+        let long = |i: usize| u32::from_le_bytes([record[i], record[i + 1], record[i + 2], record[i + 3]]);
+        // A maxed-out field means ZIP64, which a plugin of at most 500 files never needs
+        let zip64 = word(8) == u16::MAX || word(10) == u16::MAX || long(12) == u32::MAX || long(16) == u32::MAX;
+        if zip64 || usize::from(word(8).max(word(10))) > MAX_FILES || long(12) > MAX_DIRECTORY_BYTES {
+            return Err(invalid(TOO_BIG));
+        }
+    }
+    if found { Ok(()) } else { Err(invalid(NOT_A_ZIP)) }
 }
 
 fn zip_name<R: io::Read + io::Seek>(zip: &mut zip::ZipArchive<R>) -> Result<String, InstallError> {
