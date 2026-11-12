@@ -38,6 +38,9 @@ object UpdateLogic {
     // A check that began on one channel says nothing once the other has been picked.
     fun resultWanted(checkedChannel: String, currentChannel: String): Boolean = checkedChannel == currentChannel
 
+    // A check's answer only goes out while its own check still holds the Checking state: never over a download or a later check.
+    fun checkOwnsState(checking: Boolean, checkId: Long, currentCheckId: Long): Boolean = checking && checkId == currentCheckId
+
     // A nightly build follows nightly; stable and local builds follow stable.
     fun defaultChannel(buildChannel: String): String = if (buildChannel == NIGHTLY) NIGHTLY else STABLE
 

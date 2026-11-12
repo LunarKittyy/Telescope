@@ -37,8 +37,9 @@ object Updater {
     @Volatile var state: State = State.Idle
         private set
     @Volatile private var checkedThisRun = false
-    // Held while the channel is written and while a check's result is published, so a switch lands either before the result is judged or after it is out.
-    private val channelLock = Any()
+    // Held while the channel is written, a check starts and a check's result is published, so a switch lands either before the result is judged or after it is out, and one check runs at a time.
+    private val lock = Any()
+    private var checkId = 0L
     private val listeners = CopyOnWriteArraySet<() -> Unit>()
     private val main = Handler(Looper.getMainLooper())
 
@@ -54,7 +55,7 @@ object Updater {
         prefs(context).getString(KEY_CHANNEL, null) ?: UpdateLogic.defaultChannel(BuildConfig.CHANNEL)
 
     fun setChannel(context: Context, channel: String) {
-        synchronized(channelLock) { prefs(context).edit().putString(KEY_CHANNEL, channel).apply() }
+        synchronized(lock) { prefs(context).edit().putString(KEY_CHANNEL, channel).apply() }
         check(context)
     }
 
@@ -77,19 +78,29 @@ object Updater {
     }
 
     fun check(context: Context) {
-        if (state is State.Checking || state is State.Downloading || state is State.Installing) return
         val app = context.applicationContext
-        val channel = channel(app)
-        checkedThisRun = true
-        set(State.Checking)
-        Thread {
+        val id = synchronized(lock) {
+            if (state is State.Checking || state is State.Downloading || state is State.Installing) return
+            checkedThisRun = true
+            set(State.Checking)
+            ++checkId
+        }
+        Thread { runCheck(app, id) }.start()
+    }
+
+    // Asks the current channel until an answer is for the channel still picked, and only publishes while this check still owns the Checking state.
+    private fun runCheck(app: Context, id: Long) {
+        while (true) {
+            val channel = channel(app)
             val fetched = try {
                 Result.success(http.fetchManifest(UpdateLogic.manifestUrl(channel)))
             } catch (e: Exception) {
                 Result.failure(e)  // offline is normal; the next launch or Check tries again
             }
-            val switched = synchronized(channelLock) {
-                if (!UpdateLogic.resultWanted(channel, channel(app))) return@synchronized true
+            val published = synchronized(lock) {
+                if (!UpdateLogic.checkOwnsState(state is State.Checking, id, checkId)) return
+                // The channel was switched while it was being asked: this answer is dropped and the new channel is asked
+                if (!UpdateLogic.resultWanted(channel, channel(app))) return@synchronized false
                 val manifest = fetched.getOrNull()
                 if (fetched.isFailure) {
                     set(State.CheckFailed)
@@ -103,14 +114,10 @@ object Updater {
                         },
                     )
                 }
-                false
+                true
             }
-            if (switched) {
-                // The other channel was picked while this one was being asked: its answer is dropped and the new channel is checked
-                set(State.Idle)
-                check(app)
-            }
-        }.start()
+            if (published) return
+        }
     }
 
     // Downloads, verifies and installs. The caller has already made sure installs are allowed.
@@ -118,7 +125,7 @@ object Updater {
         val app = context.applicationContext
         if (UpdateLogic.apkAsset(manifest) == null) return
         if (streamBusyNow()) return
-        set(State.Downloading(manifest, 0))
+        synchronized(lock) { set(State.Downloading(manifest, 0)) }  // under the lock, so a check's answer in flight can't land on top of it
         Thread {
             val apk = File(File(app.cacheDir, "updates").apply { mkdirs() }, "Telescope.apk")
             val (selected, downloadProblem) = http.downloadUpdate(manifest, apk, app.strings(),

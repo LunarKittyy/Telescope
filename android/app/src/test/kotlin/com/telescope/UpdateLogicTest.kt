@@ -30,6 +30,13 @@ class UpdateLogicTest {
     }
 
     @Test
+    fun `a check's answer never replaces a download or a later check`() {
+        assertTrue(UpdateLogic.checkOwnsState(true, 3, 3))
+        assertFalse(UpdateLogic.checkOwnsState(false, 3, 3))
+        assertFalse(UpdateLogic.checkOwnsState(true, 3, 4))
+    }
+
+    @Test
     fun `parses the release manifest and finds the apk`() {
         val parsed = UpdateLogic.parse(manifest())
         assertNotNull(parsed)
