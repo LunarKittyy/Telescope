@@ -95,6 +95,9 @@ fn start_codes(data: &[u8]) -> Vec<(usize, usize)> {
     out
 }
 
+/// An access unit delimiter, which ends the NAL unit before it and takes any stray bytes after it.
+const END_OF_SETUP: &[u8] = b"\x00\x00\x00\x01\x09\xf0";
+
 /// The stream's SPS and PPS as last seen, kept so a fresh decoder or a new packet step can start from a keyframe.
 #[derive(Default)]
 struct Headers {
@@ -127,8 +130,9 @@ impl Headers {
         };
     }
 
+    /// The SPS and PPS closed off by a delimiter, so data that starts mid-picture can't end up stuck to the PPS.
     fn setup(&self) -> Vec<u8> {
-        [self.sps.as_deref().unwrap_or_default(), self.pps.as_deref().unwrap_or_default()].concat()
+        [self.sps.as_deref().unwrap_or_default(), self.pps.as_deref().unwrap_or_default(), END_OF_SETUP].concat()
     }
 }
 
@@ -594,7 +598,7 @@ pub(crate) mod tests {
         }
         let setup = h.setup();
         let kinds: Vec<u8> = start_codes(&setup).iter().map(|&(_, e)| setup[e] & 31).collect();
-        assert_eq!(kinds, [7, 8]);
+        assert_eq!(kinds, [7, 8, 9]);
         assert!(h.tail.len() <= 4);
     }
 
@@ -1012,6 +1016,44 @@ pub(crate) mod tests {
             dec.feed(&stripped).0.is_some()
         }).collect();
         assert!(recovered.iter().any(|&r| r) && dec.hw().is_none());
+    }
+
+    /// The NAL units of an Annex-B packet, each with its start code.
+    fn nal_units(p: &[u8]) -> Vec<&[u8]> {
+        let codes = start_codes(p);
+        codes.iter().enumerate().map(|(i, &(s, _))| &p[s..codes.get(i + 1).map_or(p.len(), |c| c.0)]).collect()
+    }
+
+    #[test]
+    fn software_taking_over_is_given_a_pps_with_nothing_stuck_to_it() {
+        // The card refuses a keyframe that arrived in pieces, so software gets its tail after the setup: that tail must not stick to the PPS
+        let Some(packets) = testenc::h264_noisy(&[60, 120, 180], 128, 96, 5) else { return };
+        let _turn = card_test();
+        let seen = Arc::new(Mutex::new(Vec::<Vec<u8>>::new()));
+        let s = seen.clone();
+        let tap = tap_with(maker(move || {
+            let s = s.clone();
+            Box::new(FnStep(move |u: &[u8]| {
+                s.lock().unwrap().push(u.to_vec());
+                vec![u.to_vec()]
+            }))
+        }));
+        let mut dec = pretend_hardware(Some(tap));
+        dec.codec.refusals = u32::MAX;
+        let units = nal_units(&packets[0]);
+        let pps_len = units.iter().find(|u| u[start_codes(u)[0].1] & 31 == 8).unwrap().len();
+        let (setup, idr): (Vec<&[u8]>, Vec<&[u8]>) = units.into_iter().partition(|u| matches!(u[start_codes(u)[0].1] & 31, 7 | 8));
+        let (setup, idr) = (setup.concat(), idr.concat());
+        dec.feed(&setup);
+        dec.feed(&idr[..idr.len() / 2]);
+        dec.feed(&idr[idr.len() / 2..]);
+        assert!(dec.hw().is_none());
+        dec.feed(&packets[1..].concat());
+        for unit in seen.lock().unwrap().iter() {
+            for nal in nal_units(unit).into_iter().filter(|n| n[start_codes(n)[0].1] & 31 == 8) {
+                assert_eq!(nal.len(), pps_len, "the PPS has {} bytes after it", nal.len() as isize - pps_len as isize);
+            }
+        }
     }
 
     #[test]
