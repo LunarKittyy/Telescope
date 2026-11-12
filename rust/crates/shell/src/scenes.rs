@@ -288,6 +288,15 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
     picture.ok_or_else(|| "nothing drawn".into())
 }
 
+/// The window as it is a moment into a stream (for the site's clips): the start button says Stop, the status bar says Live with a frame rate and throughput.
+pub fn show_live(w: &std::rc::Rc<window::Window>, fps: &str, net: &str) {
+    w.show_streaming();
+    w.set("status", telescope_core::i18n::tr("Live"));
+    w.set("status-kind", "status_ok");
+    w.set("fps", fps);
+    w.set("net", net);
+}
+
 /// Lets what plugins started on their threads come back: runs the event loop's jobs until none came for a while.
 fn settle(w: &std::rc::Rc<window::Window>) {
     let (start, mut quiet) = (Instant::now(), Instant::now());

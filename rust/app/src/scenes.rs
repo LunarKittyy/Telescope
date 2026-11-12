@@ -35,6 +35,13 @@ struct SceneOffer {
     pairs: std::sync::atomic::AtomicBool,
 }
 
+/// The site clip's phone is a Pixel 9 Pro where the other scenes have a Pixel 8.
+static SITE_PHONE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn site_phone_name() -> &'static str {
+    if SITE_PHONE.load(std::sync::atomic::Ordering::Relaxed) { "Pixel 9 Pro" } else { "Pixel 8" }
+}
+
 impl PairingOffer for SceneOffer {
     fn payload(&self) -> String {
         "telescope://pair/example".into()
@@ -51,7 +58,7 @@ impl PairingOffer for SceneOffer {
     fn poll(&self) -> Option<PairedPhone> {
         self.pairs.swap(false, std::sync::atomic::Ordering::Relaxed).then(|| PairedPhone {
             id: "phone-1".into(),
-            name: "Pixel 8".into(),
+            name: site_phone_name().into(),
             token: "token".into(),
             ips: Vec::new(),
             active_ip: None,
@@ -96,6 +103,21 @@ impl Outputs for SceneOutputs {
         while std::thread::current().name() != Some("main") {
             std::thread::park();
         }
+        vec![Slot { slot: 0, name: "Telescope".into(), device: "/dev/video11".into() }]
+    }
+    fn formats(&self) -> Vec<PixelFormat> {
+        Vec::new()
+    }
+    fn open(&self, _slot: u32, _width: u32, _height: u32, _fps: u32) -> Result<Box<dyn VideoOutput>, String> {
+        Err("no virtual camera in scenes".into())
+    }
+}
+
+/// A computer whose virtual camera is set up and answers at once, for the site clip's Get set up card.
+struct ReadyOutputs;
+
+impl Outputs for ReadyOutputs {
+    fn slots(&self) -> Vec<Slot> {
         vec![Slot { slot: 0, name: "Telescope".into(), device: "/dev/video11".into() }]
     }
     fn formats(&self) -> Vec<PixelFormat> {
@@ -354,6 +376,8 @@ struct Changes {
     on_air: bool,
     /// The Wait screen and Startup plugins are there, which put their cards on the Streaming page.
     streaming: bool,
+    /// The virtual camera is set up and the Get set up card's check answers (site clip).
+    vcam_ready: bool,
 }
 
 /// An autostart entry that is never written.
@@ -407,7 +431,7 @@ fn services_with(link: SceneLink, changes: Changes) -> Arc<Services> {
         tray: None,
         link,
         media: Arc::new(telescope_media::FfmpegMedia),
-        outputs: Arc::new(SceneOutputs),
+        outputs: if changes.vcam_ready { Arc::new(ReadyOutputs) } else { Arc::new(SceneOutputs) },
         audio: None,
         notifier: None,
         autostart: None,
@@ -1132,8 +1156,46 @@ fn card_props(w: &std::rc::Rc<telescope_shell::window::Window>, plugin: &str, pr
     }
 }
 
+/// `scenes OUT --setup-clip [--scale S]`: the Get set up stages and the Add phone dialog as the site's setup clip shows them, in a 1300 x 760 window.
+fn setup_clip_scenes() -> Vec<Scene> {
+    SITE_PHONE.store(true, std::sync::atomic::Ordering::Relaxed);
+    let window = |id: &'static str, phone: bool, vcam: bool, stream: bool| {
+        Scene::new(id, move || {
+            let mut config = main_window_config(phone);
+            if phone {
+                config["plugin_configs"]["connection"]["phones"][0]["name"] = json!("Pixel 9 Pro");
+            }
+            config["plugin_configs"]["connection"]["computer_id"] = json!("computer-id");
+            config["plugin_configs"]["connection"]["computer_name"] = json!("Studio PC");
+            if stream {
+                config["plugin_configs"]["onboarding"] = json!({"streamed": true});
+            }
+            let link = if phone { SceneLink { answer: Some(res(PhoneStatus::Ready, Some("wifi"), None)), adb: true, network: true, pairs: false } } else { quiet() };
+            Setup { page: Page::WindowTop, then: Some(Box::new(move |w| {
+                if phone {
+                    w.emit(telescope_core::event::Event::PhonesChanged { count: 1 });
+                }
+                if stream {
+                    streaming_phone(w, &json!({"name": "Pixel 9 Pro"}));
+                    w.emit(telescope_core::event::Event::StreamConnected { source_id: "phone:a".into() });
+                    w.process();
+                    telescope_shell::scenes::show_live(w, "30", "7.8 Mbps");
+                }
+            })), ..Setup::window(Some(services_with(link, Changes { vcam_ready: vcam, ..Changes::default() })), config, 1300.0, 760.0) }
+        })
+    };
+    vec![
+        window("s1-checking", false, false, false),
+        window("s2-vcam", false, true, false),
+        window("s3-paired", true, true, false),
+        window("s4-live", true, true, true),
+        Scene::new("d-add", || add_phone(true, true)),
+        Scene::new("d-paired", || add_phone_pairing(true, true, true)),
+    ]
+}
+
 /// The command: OUT, then scene ids (all of them when none), then --scale with one or more factors (1 and 1.5); or
-/// --list for what list() says; or --card (see run_card).
+/// --list for what list() says; or --card (see run_card); or --setup-clip (setup_clip_scenes).
 pub fn run(words: &[String]) -> Result<(), String> {
     if words.first().map(String::as_str) == Some("--list") {
         println!("{}", list());
@@ -1144,6 +1206,15 @@ pub fn run(words: &[String]) -> Result<(), String> {
     };
     if words.iter().any(|w| w == "--card") {
         return run_card(out, &words[1..]);
+    }
+    if words.iter().any(|w| w == "--setup-clip") {
+        let scale = words.iter().position(|w| w == "--scale").and_then(|i| words.get(i + 1)).and_then(|s| s.parse::<f32>().ok()).unwrap_or(2.0);
+        let (n, failed) = telescope_shell::scenes::render(&setup_clip_scenes(), &[scale], std::path::Path::new(out))?;
+        for line in &failed {
+            eprintln!("couldn't render {line}");
+        }
+        println!("{n} pictures in {out}/{scale}x");
+        return if failed.is_empty() { Ok(()) } else { Err(format!("{} failed", failed.len())) };
     }
     let (mut ids, mut scales, mut in_scales) = (Vec::new(), Vec::new(), false);
     for w in &words[1..] {
