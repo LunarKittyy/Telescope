@@ -1361,6 +1361,29 @@ fn the_journal_is_saved_with_the_config_and_undo_still_works_after_a_restart() {
 }
 
 #[test]
+fn an_edit_after_a_restart_that_lands_on_the_same_value_is_not_undone() {
+    let mut r = Rig::new();
+    set_contrast(&mut r, 0, 1.4);
+    let saved: Value = serde_json::from_str(&r.plugin.get_config().to_string()).unwrap();
+    let mut after = Rig::new();
+    after.host.edit_by_hand("grading", r.config());
+    after.plugin.set_config(&saved).unwrap();
+    after.plugin.on_plugins_ready(&mut after.host);
+    // The person moves it and comes back to the AI's value
+    by_hand(&mut after, 1.7);
+    by_hand(&mut after, 1.4);
+    after.plugin.undo_all(&mut after.host);
+    assert_eq!(after.config()["contrast"], json!(1.4), "the person's edit stays");
+    // Untouched since the restart, the same step does go back
+    let mut again = Rig::new();
+    again.host.edit_by_hand("grading", r.config());
+    again.plugin.set_config(&saved).unwrap();
+    again.plugin.on_plugins_ready(&mut again.host);
+    again.plugin.undo_all(&mut again.host);
+    assert_eq!(again.config()["contrast"], json!(1.0));
+}
+
+#[test]
 fn a_revert_by_another_app_does_not_make_an_older_step_valid_after_the_person_edited_past_it() {
     let mut r = Rig::new();
     let (a, b) = (r.handle.open_client().unwrap(), r.handle.open_client().unwrap());

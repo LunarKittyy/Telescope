@@ -1082,6 +1082,15 @@ impl McpPlugin {
         answer
     }
 
+    /// Steps loaded from the file have no revisions, which would let any later edit that lands on the same value pass for the AI's own work. They
+    /// are tied to where the settings stand now, so only an edit after this counts against them.
+    fn stamp_loaded(&mut self, host: &dyn Host) {
+        for c in self.journal.iter_mut().filter(|c| c.rev.is_none() && c.rev_before.is_none()) {
+            let now = host.setting_revision(&c.plugin, &c.key);
+            (c.rev_before, c.rev) = (Some(now), Some(now));
+        }
+    }
+
     /// Steps an undo couldn't take yet (another camera is shown, a plugin is off) go back in the journal, in the order they happened.
     fn keep(&mut self, kept: Vec<Change>) {
         self.journal.extend(kept);
@@ -1409,6 +1418,10 @@ impl Plugin for McpPlugin {
 
     fn setup(&mut self, host: &mut dyn Host) {
         self.handle.attach(host.poster());
+    }
+
+    fn on_plugins_ready(&mut self, host: &mut dyn Host) {
+        self.stamp_loaded(host);
     }
 
     fn shutdown(&mut self, host: &mut dyn Host) {
