@@ -1045,15 +1045,16 @@ fn list() -> Value {
     json!({"plugins": names, "scenes": all().iter().map(|s| s.id.clone()).collect::<Vec<_>>()})
 }
 
-/// `scenes OUT --card PLUGIN [--config JSON | --config-lines FILE] [--width N] [--scale S] [--name NAME]`: one plugin's card alone
+/// `scenes OUT --card PLUGIN [--config JSON | --config-lines FILE] [--card-width N] [--window] [--scale S] [--name NAME]`: one plugin's card alone
 /// (as Page::Card draws it) with that plugin's settings (an event goes out first, so plugins that load settings quietly show them), for the site's clip tiles. A lines file holds one JSON settings object per
 /// line and gives one picture each, NAME-000.png and on (NAME is the plugin's name unless given). Dev tool, changes nothing in the app.
 fn run_card(out: &str, words: &[String]) -> Result<(), String> {
     let value = |flag: &str| words.iter().position(|w| w == flag).and_then(|i| words.get(i + 1)).cloned();
     let plugin = value("--card").ok_or("--card needs a plugin name")?;
-    let width = value("--width").map_or(Ok(CARD_WIDTH), |w| w.parse::<f32>().map_err(|_| format!("not a width: {w}")))?;
+    let width = value("--card-width").map_or(Ok(CARD_WIDTH), |w| w.parse::<f32>().map_err(|_| format!("not a width: {w}")))?;
     let scale = value("--scale").map_or(Ok(1.0), |w| w.parse::<f32>().map_err(|_| format!("not a scale: {w}")))?;
     let name = value("--name").unwrap_or_else(|| plugin.clone());
+    let whole_window = words.iter().any(|w| w == "--window");
     let parse = |t: &str| serde_json::from_str::<Value>(t).map_err(|e| format!("settings aren't JSON: {e}"));
     let states: Vec<(String, Value)> = match (value("--config-lines"), value("--config")) {
         (Some(file), _) => {
@@ -1066,18 +1067,27 @@ fn run_card(out: &str, words: &[String]) -> Result<(), String> {
     };
     let scenes: Vec<Scene> = states.into_iter().map(|(id, settings)| {
         let plugin = plugin.clone();
-        let (plugin2, props) = (plugin.clone(), settings.get("_props").cloned());
+        let (plugin2, props, phone) = (plugin.clone(), settings.get("_props").cloned(), settings.get("_state").cloned());
         Scene::new(id, move || {
-            let (plugin2, props) = (plugin2.clone(), props.clone());
+            let (plugin2, props, phone) = (plugin2.clone(), props.clone(), phone.clone());
             let mut config = main_window_config(true);
-            config["selected_device"] = json!("phone-1");
-            config["devices"] = json!({"phone-1": {"plugin_configs": {plugin.as_str(): settings.clone()}}});
+            if whole_window {
+                // the first-run checklist is done, so the video stage shows the preview
+                config["plugin_configs"]["onboarding"] = json!({"streamed": true});
+            } else {
+                config["selected_device"] = json!("phone-1");
+                config["devices"] = json!({"phone-1": {"plugin_configs": {plugin.as_str(): settings.clone()}}});
+            }
             // a plugin that keeps one copy for the whole app reads it from here
             config["plugin_configs"][plugin.as_str()] = settings.clone();
-            Setup { page: Page::Card { plugin: plugin.clone() }, then: Some(Box::new(move |w| {
+            let page = if whole_window { Page::WindowTop } else { Page::Card { plugin: plugin.clone() } };
+            Setup { page, then: Some(Box::new(move |w| {
                 w.emit(telescope_core::event::Event::PhonesChanged { count: 1 });
+                if let Some(state) = &phone {
+                    streaming_phone(w, state);
+                }
                 card_props(w, &plugin2, &props);
-            })), ..Setup::window(Some(services(quiet())), config, width, 400.0) }
+            })), ..Setup::window(Some(services(quiet())), config, width, if whole_window { 900.0 } else { 400.0 }) }
         })
     }).collect();
     let (n, failed) = telescope_shell::scenes::render(&scenes, &[scale], std::path::Path::new(out))?;
@@ -1086,6 +1096,26 @@ fn run_card(out: &str, words: &[String]) -> Result<(), String> {
     }
     println!("{n} pictures in {out}/{scale}x");
     if failed.is_empty() { Ok(()) } else { Err(format!("{} failed", failed.len())) }
+}
+
+/// A phone streaming with this state ("_state" in a settings line): the source live and shown, and the plugins told the stream started and
+/// what the phone says about itself, as a real start does.
+fn streaming_phone(w: &std::rc::Rc<telescope_shell::window::Window>, state: &Value) {
+    let source = "phone:a";
+    {
+        let mut st = w.state.borrow_mut();
+        st.streams.live.push(source.into());
+        st.streams.source_id = Some(source.into());
+        st.streams.phone_state = Some(state.clone());
+        let info = telescope_core::plugin::StreamInfo { source_id: source.into(), url: "url".into(), session: 1 };
+        for i in 0..st.slots.len() {
+            st.call(i, |p, host| {
+                p.on_stream_start(host, &info);
+                p.on_phone_state(host, state);
+            });
+        }
+    }
+    w.process();
 }
 
 /// Puts properties straight on a card ("_props" in a settings line), for states settings can't reach: a plugin that shows its saved

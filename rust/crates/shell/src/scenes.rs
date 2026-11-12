@@ -20,6 +20,8 @@ pub use crate::layout::{WIDTH_THREE_COL, WIDTH_TWO_COL};
 /// cut out of the window (Qt draws dialogs as windows of their own).
 pub enum Page {
     Window,
+    /// The main window cut off at the height asked for instead of growing to fit its columns (much quicker to draw, for the site's clips).
+    WindowTop,
     Settings(String),
     /// The settings window on a tab with this typed into its search box.
     SettingsSearch { tab: String, query: String },
@@ -176,6 +178,7 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
     }
     let picture = match &setup.page {
         Page::Window => grown(&w, setup.width, setup.height, scale),
+        Page::WindowTop => crate::offscreen::draw(w.ui.window(), setup.width, setup.height, scale),
         Page::Card { plugin } => {
             if !w.only_card(plugin) {
                 return Err(format!("{plugin} has no card"));
