@@ -12,7 +12,7 @@ use std::net::{IpAddr, Shutdown, SocketAddr, TcpListener, TcpStream};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use telescope_core::web::{Certificate, PageHandler, Reply, Request, Serve, ServerStats, Socket, Step, Upgrade, Web, WebServer};
 
 /// Browsers refuse certificates valid for more than 398 days, so it's renewed a month before it runs out.
@@ -24,6 +24,8 @@ const KEY_FILE: &str = "browser_camera_key.pem";
 
 /// Handshake and HTTP request: nothing for this long ends the connection, a quiet kept-alive one included.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
+/// All of one request's line and headers, from its first byte: a slow drip can't keep the connection past this.
+const HEAD_TIMEOUT: Duration = Duration::from_secs(10);
 const MAX_CONNECTIONS: usize = 16;
 const MAX_PER_ADDRESS: usize = 6;
 /// The longest request line or header line (http.server's limit).
@@ -496,25 +498,57 @@ enum Served {
     Upgrade(Upgrade),
 }
 
-/// The line up to its newline without it, or None when the connection ended or the line is past `MAX_LINE` (Err(true)).
-fn read_line(stream: &mut impl BufRead) -> Result<Option<String>, bool> {
+/// A stream whose next reads can be given less time than the connection's usual timeout.
+trait Timed {
+    fn limit_reads(&mut self, timeout: Duration);
+}
+
+impl Timed for rustls::StreamOwned<rustls::ServerConnection, TcpStream> {
+    fn limit_reads(&mut self, timeout: Duration) {
+        let _ = self.sock.set_read_timeout(Some(timeout));
+    }
+}
+
+/// The line up to its newline without it, or None when the connection ended or the line is past `MAX_LINE` (Err(true)). Err(false) is a failed read or `deadline` passing.
+fn read_line<S: Read + Timed>(stream: &mut BufReader<S>, deadline: Instant) -> Result<Option<String>, bool> {
     let mut line = Vec::new();
-    let read = stream.by_ref().take(MAX_LINE + 1).read_until(b'\n', &mut line).map_err(|_| false)?;
-    if read == 0 {
-        return Ok(None);
+    loop {
+        if stream.buffer().is_empty() {
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return Err(false);
+            }
+            stream.get_mut().limit_reads(left);
+        }
+        let chunk = stream.fill_buf().map_err(|_| false)?;
+        if chunk.is_empty() {
+            return Ok(if line.is_empty() { None } else { Some(finish_line(line)) });
+        }
+        let (used, done) = match chunk.iter().position(|b| *b == b'\n') {
+            Some(i) => (i + 1, true),
+            None => (chunk.len(), false),
+        };
+        line.extend_from_slice(&chunk[..used]);
+        stream.consume(used);
+        if line.len() as u64 > MAX_LINE {
+            return Err(true);
+        }
+        if done {
+            return Ok(Some(finish_line(line)));
+        }
     }
-    if line.len() as u64 > MAX_LINE {
-        return Err(true);
-    }
+}
+
+fn finish_line(mut line: Vec<u8>) -> String {
     while matches!(line.last(), Some(b'\n' | b'\r')) {
         line.pop();
     }
-    Ok(Some(String::from_utf8_lossy(&line).into_owned()))
+    String::from_utf8_lossy(&line).into_owned()
 }
 
 /// One request and its answer: another request after it, the connection's end, or a page taking it over.
-fn serve_request<S: Read + Write>(stream: &mut BufReader<S>, handler: &dyn PageHandler, stats: &ServerStats) -> Served {
-    match serve_one(stream, handler, stats) {
+fn serve_request<S: Read + Write + Timed>(stream: &mut BufReader<S>, handler: &dyn PageHandler, stats: &ServerStats) -> Served {
+    match serve_one(stream, handler, stats, HEAD_TIMEOUT) {
         Ok(true) => Served::Again,
         Ok(false) => Served::Done,
         Err(upgrade) => Served::Upgrade(upgrade),
@@ -522,8 +556,15 @@ fn serve_request<S: Read + Write>(stream: &mut BufReader<S>, handler: &dyn PageH
 }
 
 /// serve_request, with an upgrade as the error so the early returns stay plain bools.
-fn serve_one<S: Read + Write>(stream: &mut BufReader<S>, handler: &dyn PageHandler, stats: &ServerStats) -> Result<bool, Upgrade> {
-    let line = match read_line(stream) {
+fn serve_one<S: Read + Write + Timed>(stream: &mut BufReader<S>, handler: &dyn PageHandler, stats: &ServerStats, head_timeout: Duration) -> Result<bool, Upgrade> {
+    // A quiet kept-alive connection gets the usual timeout, the clock for the head starts with its first byte
+    stream.get_mut().limit_reads(REQUEST_TIMEOUT);
+    match stream.fill_buf() {
+        Ok(chunk) if !chunk.is_empty() => {}
+        _ => return Ok(false),
+    }
+    let deadline = Instant::now() + head_timeout;
+    let line = match read_line(stream, deadline) {
         Ok(Some(line)) if !line.is_empty() => line,
         Ok(Some(_)) => return Ok(false),
         Ok(None) | Err(false) => return Ok(false),
@@ -540,11 +581,13 @@ fn serve_one<S: Read + Write>(stream: &mut BufReader<S>, handler: &dyn PageHandl
         return Ok(refuse(stream.get_mut(), 505, "Invalid HTTP version"));
     }
     let mut headers = Vec::new();
+    let mut lines = 0;
     loop {
-        match read_line(stream) {
+        match read_line(stream, deadline) {
             Ok(Some(l)) if l.is_empty() => break,
             Ok(Some(l)) => {
-                if headers.len() >= MAX_HEADERS {
+                lines += 1;
+                if lines > MAX_HEADERS {
                     return Ok(refuse(stream.get_mut(), 431, "Too many headers"));
                 }
                 if let Some((k, v)) = l.split_once(':') {
@@ -555,6 +598,7 @@ fn serve_one<S: Read + Write>(stream: &mut BufReader<S>, handler: &dyn PageHandl
             Err(true) => return Ok(refuse(stream.get_mut(), 431, "Line too long")),
         }
     }
+    stream.get_mut().limit_reads(REQUEST_TIMEOUT);
     let request = Request { method: method.to_string(), target: target.to_string(), headers };
     let connection = request.header("Connection").unwrap_or("").to_ascii_lowercase();
     // HTTP/1.1 stays open unless asked to close; older ones close unless asked to keep alive

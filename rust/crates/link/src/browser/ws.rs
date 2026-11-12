@@ -71,13 +71,17 @@ pub struct WsConnection<'a> {
     on_tick: OnTick<'a>,
     last_heard: Instant,
     idle: Duration,
+    last_tick: Instant,
+    /// How often a tick runs even while data keeps arriving; never until a read timeout is set.
+    tick_every: Duration,
 }
 
 impl<'a> WsConnection<'a> {
     /// on_tick runs each time a read times out with nothing in, and may send through what it's handed.
     pub fn new(sock: Box<dyn Socket>, on_tick: impl for<'s> FnMut(&'s mut SendFn<'s>) -> Result<(), Closed> + 'a)
                -> WsConnection<'a> {
-        WsConnection { sock, buf: Vec::new(), on_tick: Box::new(on_tick), last_heard: Instant::now(), idle: IDLE_TIMEOUT }
+        WsConnection { sock, buf: Vec::new(), on_tick: Box::new(on_tick), last_heard: Instant::now(), idle: IDLE_TIMEOUT,
+                       last_tick: Instant::now(), tick_every: Duration::MAX }
     }
 
     pub fn send(&mut self, data: &[u8]) -> Result<(), Closed> {
@@ -86,6 +90,7 @@ impl<'a> WsConnection<'a> {
 
     /// Runs the tick now, as a read timing out would.
     pub fn tick(&mut self) -> Result<(), Closed> {
+        self.last_tick = Instant::now();
         let sock = &mut *self.sock;
         (self.on_tick)(&mut |data| send_on(sock, data))
     }
@@ -98,6 +103,10 @@ impl<'a> WsConnection<'a> {
                 Ok(got) => {
                     self.last_heard = Instant::now();
                     self.buf.extend_from_slice(&chunk[..got]);
+                    // A peer that never goes quiet (pongs every few ms) would otherwise keep a read from ever timing out
+                    if self.last_tick.elapsed() >= self.tick_every {
+                        self.tick()?;
+                    }
                 }
                 Err(e) if matches!(e.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {
                     if self.last_heard.elapsed() > self.idle {
@@ -187,6 +196,7 @@ impl<'a> WsConnection<'a> {
     }
 
     pub fn set_read_timeout(&mut self, timeout: Option<Duration>) {
+        self.tick_every = timeout.unwrap_or(Duration::MAX);
         let _ = self.sock.set_read_timeout(timeout);
     }
 }
