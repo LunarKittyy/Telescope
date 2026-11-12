@@ -306,12 +306,12 @@ plugin.actions() [no host]
 plugin.apply_preset(cfg)
 plugin.card() [no host]
 plugin.diagnostics() [no host]
+plugin.events.<event>(event)
 plugin.frame_step() [no host]
 plugin.get_config() [no host]
 plugin.header_widget() [no host]
 plugin.on_camera_off()
 plugin.on_camera_on()
-plugin.on_event(event)
 plugin.on_focus_gained(stream)
 plugin.on_focus_lost()
 plugin.on_issue_action(key, id)

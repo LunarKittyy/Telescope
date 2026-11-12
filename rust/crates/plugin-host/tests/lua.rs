@@ -5,10 +5,10 @@ use serde_json::to_value;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use telescope_core::event::{LensBox, RememberedSource, SourceName};
-use telescope_core::host::{Pick, PickKind, View};
+use telescope_core::host::{HostShell, Pick, PickKind, View};
 use telescope_core::plugin::{load_config_tolerantly, Plugin, PluginInfo, StreamInfo};
 use telescope_core::testing::{scratch_dir, FakeHost};
-use telescope_core::ui::{SlintSource, UiEvent};
+use telescope_core::ui::{added_issue_key, SlintSource, UiEvent};
 use telescope_core::Event;
 use telescope_plugin_host::guest::{Guest, GuestPlugin, HostCalls, PluginContext, HOOKS, HOST_API};
 use telescope_plugin_host::lua::GLOBALS;
@@ -806,7 +806,7 @@ fn hooks_called() -> Vec<(String, usize, bool)> {
     p.run_action(&mut host, "a", h);
     p.release_action(&mut host, "a", h);
     p.on_ui(&mut host, &UiEvent { ui: "card".into(), callback: "c".into(), args: Vec::new() });
-    p.on_issue_action(&mut host, "k", "i");
+    p.on_issue_action(&mut host, &added_issue_key("recorder", "k"), "i");
     p.on_stream_starting(&mut host);
     p.on_stream_start(&mut host, &stream);
     p.on_stream_stop(&mut host);
@@ -877,7 +877,9 @@ fn current_api() -> String {
         lines.push(format!("host.{}({}){permission}{later}", m.name, m.params.join(", ")));
     }
     for (hook, args, with_host) in HOOKS {
-        lines.push(format!("plugin.{hook}({args}){}", if *with_host { "" } else { " [no host]" }));
+        // Lua plugins don't define on_event: each event goes to the function of its name in plugin.events
+        let name = if *hook == "on_event" { "events.<event>" } else { hook };
+        lines.push(format!("plugin.{name}({args}){}", if *with_host { "" } else { " [no host]" }));
     }
     lines.extend(lua_globals().iter().filter(|g| *g != "_G" && *g != "host").map(|g| format!("global {g}")));
     // An event's fields and types, as plain text whatever spacing this compiler's stringify! gives
@@ -1004,4 +1006,126 @@ fn a_plugin_ticks_with_core_timers() {
     t.event(fired);
     assert_eq!(t.call("ticks", vec![]).unwrap(), json!(3));
     assert!(!t.host.is_scheduled("tick"), "it stops after three");
+}
+
+// ── Limits a plugin's own code could dodge ──────────────────────────────────
+
+/// What `run` of a plugin with this body answers with the hook limit cut to a fifth of a second, or a failure if it hasn't answered in a few.
+fn stopped_soon(name: &str, body: &str) -> Result<Value, String> {
+    let folder = plugin(name, &format!("return {{ run = function() {body} end }}\n"), json!({}));
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = tx.send(PluginTest::open(&folder).and_then(|mut t| {
+            t.set_hook_limit(std::time::Duration::from_millis(200));
+            t.call("run", vec![])
+        }));
+    });
+    rx.recv_timeout(std::time::Duration::from_secs(5)).expect("the plugin's code outran the time limit")
+}
+
+#[test]
+fn a_coroutine_is_held_to_the_time_limit() {
+    for (name, body) in [
+        ("co_resume", "coroutine.resume(coroutine.create(function() while true do end end))"),
+        ("co_wrap", "coroutine.wrap(function() while true do end end)()"),
+        ("co_nested", "coroutine.wrap(function() coroutine.wrap(function() while true do end end)() end)()"),
+    ] {
+        let err = stopped_soon(name, body).unwrap_err();
+        assert!(err.contains("took too long"), "{name}: {err}");
+    }
+}
+
+#[test]
+fn a_catch_cant_swallow_the_time_limit() {
+    for (name, body) in [
+        ("catch_pcall", "while true do pcall(function() while true do end end) end"),
+        ("catch_xpcall", "while true do xpcall(function() while true do end end, function() end) end"),
+        ("catch_resume", "local co = coroutine.create(function() while true do end end) while true do coroutine.resume(co) end"),
+    ] {
+        let err = stopped_soon(name, body).unwrap_err();
+        assert!(err.contains("took too long"), "{name}: {err}");
+    }
+    assert_eq!(stopped_soon("catch_fine", "return select(2, pcall(error, 'x', 0)) .. tostring((pcall(error)))").unwrap(), json!("xfalse"), "an ordinary catch still works");
+}
+
+#[test]
+fn a_finaliser_cant_be_set() {
+    // Lua runs a finaliser with its hooks off, so one that looped would hang the window or the unloading
+    let err = stopped_soon("gc_set", "setmetatable({}, { __gc = function() while true do end end })").unwrap_err();
+    assert!(err.contains("__gc"), "{err}");
+    // Added after the metatable is set, Lua never marks the table for finalising, so nothing runs
+    let late = "local mt = {} local t = setmetatable({}, mt) mt.__gc = function() while true do end end t = nil collectgarbage() collectgarbage() return 'fine'";
+    assert_eq!(stopped_soon("gc_late", late).unwrap(), json!("fine"));
+    assert_eq!(stopped_soon("gc_none", "local t = setmetatable({}, { __index = function() return 1 end }) return t.x").unwrap(), json!(1));
+}
+
+#[test]
+fn what_a_plugin_hands_the_host_is_held_to_a_size_in_text_too() {
+    // The same 6 MB text a few times over is more than the host will copy out, though Lua holds it once
+    let big = "local big = string.rep('x', 6 * 1024 * 1024) ";
+    let err = stopped_soon("bytes_json", &format!("{big} return json.encode({{ big, big, big }})")).unwrap_err();
+    assert!(err.contains("too big"), "{err}");
+    assert_eq!(stopped_soon("bytes_one", &format!("{big} return #json.encode({{ big }})")).unwrap(), json!(6 * 1024 * 1024 + 4));
+    // and a call's arguments together
+    let err = stopped_soon("bytes_call", &format!("local big = string.rep('x', 9 * 1024 * 1024) host.set_ui_props(big, {{ big }})")).unwrap_err();
+    assert!(err.contains("too big"), "{err}");
+    let err = stopped_soon("bytes_decode", "return json.decode(string.rep('1,', 9 * 1024 * 1024))").unwrap_err();
+    assert!(err.contains("too big"), "{err}");
+}
+
+#[test]
+fn a_hook_cant_pile_up_calls_for_the_host() {
+    let folder = plugin("piles", r#"
+        return { flood = function(n) for i = 1, n do host.schedule(1, "t") end end,
+                 emits = function(n) for i = 1, n do host.emit("piles.x", {}) end end }
+    "#, json!({}));
+    let mut t = PluginTest::open(&folder).unwrap();
+    let err = t.call("emits", vec![json!(telescope_plugin_host::guest::MAX_CALLS_PER_HOOK + 1)]).unwrap_err();
+    assert!(err.contains("too much"), "{err}");
+    t.call("emits", vec![json!(100)]).unwrap();
+    // A hook with no host leaves its calls waiting, and the next ones add to them
+    let each = telescope_plugin_host::guest::MAX_CALLS_PER_HOOK / 2 + 1;
+    t.call_without_host("flood", vec![json!(each)]).unwrap();
+    let err = t.call_without_host("flood", vec![json!(each)]).unwrap_err();
+    assert!(err.contains("waiting for the host"), "{err}");
+    t.call("emits", vec![json!(1)]).unwrap();
+    t.call_without_host("flood", vec![json!(each)]).unwrap();
+}
+
+// ── Banners belong to the plugin that showed them ───────────────────────────
+
+const BANNERS: &str = r#"
+    local heard = {}
+    return {
+      show = function(key) host.show_issue(key, { title = "From me", actions = { { label = "Go", does = { kind = "plugin", id = "go" } } } }) end,
+      clear = function(key) host.clear_issue(key) end,
+      on_issue_action = function(key, id) heard[#heard + 1] = key .. "/" .. id end,
+      heard = function() return heard end,
+    }
+"#;
+
+#[test]
+fn a_plugins_banner_keys_are_its_own() {
+    let mut t = PluginTest::open(&plugin("banner_a", BANNERS, json!({}))).unwrap();
+    // The app's banner, under a key the plugin knows
+    t.host.show_issue("start", telescope_core::ui::Issue { title: "App's".into(), text: String::new(), actions: vec![], kind: "err".into(), details: String::new(), tell_dismiss: false });
+    t.call("show", vec![json!("start")]).unwrap();
+    let keys: Vec<&str> = t.host.issues.iter().map(|(k, _)| k.as_str()).collect();
+    assert_eq!(keys, ["start", added_issue_key("banner_a", "start").as_str()], "the plugin's \"start\" is another banner than the app's");
+    t.call("clear", vec![json!("start")]).unwrap();
+    assert_eq!(t.host.issues.len(), 1, "it took down its own, not the app's");
+    t.call("show", vec![json!("one")]).unwrap();
+    t.call("show", vec![json!("two")]).unwrap();
+    t.call("clear", vec![]).unwrap();
+    let keys: Vec<&str> = t.host.issues.iter().map(|(k, _)| k.as_str()).collect();
+    assert_eq!(keys, ["start"], "with no key it clears its own banners, not everyone's");
+}
+
+#[test]
+fn a_banner_button_reaches_only_the_plugin_that_showed_it() {
+    let mut t = PluginTest::open(&plugin("banner_b", BANNERS, json!({}))).unwrap();
+    for (key, id) in [("switch_auto", "x"), (added_issue_key("someone_else", "k").as_str(), "switch_auto"), (added_issue_key("banner_b", "k").as_str(), "go")] {
+        t.plugin.on_issue_action(&mut t.host, key, id);
+    }
+    assert_eq!(t.call("heard", vec![]).unwrap(), json!(["k/go"]), "the app's and another plugin's banners aren't its to hear about");
 }

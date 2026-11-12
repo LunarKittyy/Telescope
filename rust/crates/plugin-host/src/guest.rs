@@ -8,13 +8,14 @@ use crate::manifest::PERMISSIONS;
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 use std::cell::RefCell;
+use std::collections::BTreeSet;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use telescope_core::frame::{FrameStep, ShaderStep};
 use telescope_core::host::{ColourStage, Host, OutputChange, PickKind, PreviewLayer, ViewChange};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::source::RouteSpec;
-use telescope_core::ui::{ActionSpec, CardSpec, Issue, IssueDoes, SettingsSection, SlintSource, TrayAction, UiEvent, UiSpec};
+use telescope_core::ui::{added_issue_key, issue_owner, ActionSpec, CardSpec, Issue, IssueDoes, SettingsSection, SlintSource, TrayAction, UiEvent, UiSpec};
 use telescope_core::Event;
 
 /// A plugin running in a runtime. Hooks are Plugin's method names; args is a JSON array of the hook's arguments.
@@ -65,15 +66,42 @@ pub const HOOKS: &[(&str, &str, bool)] = &[
 pub struct HostCalls<'a> {
     context: &'a mut PluginContext,
     host: Option<&'a mut dyn Host>,
+    /// What this hook has asked of the host so far.
+    calls: usize,
+    sent: usize,
+}
+
+/// How many calls and how many bytes of arguments one hook may hand the host (and a hook without a host may leave waiting), so a loop
+/// can't fill the host's queues with effects and events before the time limit stops it.
+pub const MAX_CALLS_PER_HOOK: usize = 10_000;
+pub const MAX_BYTES_PER_HOOK: usize = 32 * 1024 * 1024;
+/// How many banners one plugin can have up at once.
+const MAX_BANNERS: usize = 256;
+const MAX_BANNER_KEY: usize = 128;
+const MAX_BANNER_BYTES: usize = 64 * 1024;
+
+/// A value's size as the host holds it: its nodes and the bytes of its texts.
+fn weight(v: &Value) -> usize {
+    match v {
+        Value::String(s) => 1 + s.len(),
+        Value::Array(a) => 1 + a.iter().map(weight).sum::<usize>(),
+        Value::Object(o) => 1 + o.iter().map(|(k, v)| k.len() + weight(v)).sum::<usize>(),
+        _ => 1,
+    }
 }
 
 impl<'a> HostCalls<'a> {
     pub fn new(context: &'a mut PluginContext, host: Option<&'a mut dyn Host>) -> HostCalls<'a> {
-        HostCalls { context, host }
+        HostCalls { context, host, calls: 0, sent: 0 }
     }
 
     /// One host method from HOST_API, arguments by name.
     pub fn call(&mut self, method: &str, args: Value) -> Result<Value, String> {
+        self.calls += 1;
+        self.sent += weight(&args);
+        if self.calls > MAX_CALLS_PER_HOOK || self.sent > MAX_BYTES_PER_HOOK {
+            return Err("it asked the host for too much in one go".into());
+        }
         let host = self.host.as_mut().map(|h| &mut **h as &mut dyn Host);
         self.context.call(host, method, args)
     }
@@ -242,11 +270,14 @@ pub struct PluginContext {
     catalog: Option<Catalog>,
     /// Calls a hook without a host made, done at the start of the next hook that has one.
     deferred: Vec<(String, Value)>,
+    deferred_bytes: usize,
+    /// The keys of the banners this plugin has shown, as it knows them.
+    banners: BTreeSet<String>,
 }
 
 impl PluginContext {
     pub fn new(info: PluginInfo, folder: impl Into<PathBuf>, permissions: Vec<String>) -> PluginContext {
-        PluginContext { info, folder: folder.into(), permissions, catalog: None, deferred: Vec::new() }
+        PluginContext { info, folder: folder.into(), permissions, catalog: None, deferred: Vec::new(), deferred_bytes: 0, banners: BTreeSet::new() }
     }
 
     /// Loads the plugin's locale/<lang>.po for lang ("en" or "" for English).
@@ -282,7 +313,7 @@ impl PluginContext {
     }
 
     /// The one door from a guest into the host: method from HOST_API with its arguments by name.
-    pub fn call(&mut self, host: Option<&mut dyn Host>, method: &str, args: Value) -> Result<Value, String> {
+    pub fn call(&mut self, host: Option<&mut dyn Host>, method: &str, mut args: Value) -> Result<Value, String> {
         let spec = host_method(method).ok_or_else(|| format!("host has no method {method}"))?;
         if let Some(p) = spec.permission {
             if !self.permissions.iter().any(|have| have == p) {
@@ -294,10 +325,22 @@ impl PluginContext {
         }
         if method == "show_issue" {
             self.check_issue(&args)?;
+            self.own_banner(&mut args)?;
+        }
+        if method == "clear_issue" {
+            return match host {
+                Some(host) => self.clear_banners(host, &args),
+                None => Err("host.clear_issue can't be called here: this hook runs without the host".into()),
+            };
         }
         match host {
             Some(host) => call_host(host, &self.info, method, &args),
             None if spec.deferrable => {
+                let size = weight(&args);
+                if self.deferred.len() >= MAX_CALLS_PER_HOOK || self.deferred_bytes + size > MAX_BYTES_PER_HOOK {
+                    return Err(format!("host.{method}: too many calls are waiting for the host"));
+                }
+                self.deferred_bytes += size;
                 self.deferred.push((method.to_string(), args));
                 Ok(Value::Null)
             }
@@ -321,6 +364,37 @@ impl PluginContext {
             }
         }
         Ok(())
+    }
+
+    /// Gives a banner the key that says it's this plugin's: a plugin's banner buttons are heard by it alone, and it can't show or clear
+    /// a key of the app's or of another plugin.
+    fn own_banner(&mut self, args: &mut Value) -> Result<(), String> {
+        let Some(key) = args.get("key").and_then(Value::as_str).map(str::to_string) else { return Ok(()) };
+        if key.len() > MAX_BANNER_KEY {
+            return Err(format!("host.show_issue's key can be at most {MAX_BANNER_KEY} bytes"));
+        }
+        if args.get("issue").is_some_and(|i| weight(i) > MAX_BANNER_BYTES) {
+            return Err("host.show_issue's banner is too big".into());
+        }
+        if !self.banners.contains(&key) && self.banners.len() >= MAX_BANNERS {
+            return Err(format!("host.show_issue: a plugin can have at most {MAX_BANNERS} banners"));
+        }
+        args["key"] = json!(added_issue_key(&self.info.name, &key));
+        self.banners.insert(key);
+        Ok(())
+    }
+
+    /// host.clear_issue: the plugin's banner with that key, or all of its own banners without one. Never another plugin's or the app's.
+    fn clear_banners(&mut self, host: &mut dyn Host, args: &Value) -> Result<Value, String> {
+        let keys: Vec<String> = match args.get("key").and_then(Value::as_str) {
+            Some(key) => vec![key.to_string()],
+            None => self.banners.iter().cloned().collect(),
+        };
+        for key in keys {
+            host.clear_issue(Some(&added_issue_key(&self.info.name, &key)), None);
+            self.banners.remove(&key);
+        }
+        Ok(Value::Null)
     }
 
     /// Holds an emitted built-in event to the permission of the host operation it triggers; events that name an owner are never a plugin's to send.
@@ -350,6 +424,7 @@ impl PluginContext {
 
     /// Does what hooks without a host queued, in order.
     pub fn flush(&mut self, host: &mut dyn Host) {
+        self.deferred_bytes = 0;
         for (method, args) in std::mem::take(&mut self.deferred) {
             if let Err(e) = call_host(host, &self.info, &method, &args) {
                 log::error!("Plugin {}: host.{method} failed: {e}", self.info.name);
@@ -668,7 +743,10 @@ impl<G: Guest> Plugin for GuestPlugin<G> {
     }
 
     fn on_issue_action(&mut self, host: &mut dyn Host, key: &str, id: &str) {
-        self.with_host(host, "on_issue_action", vec![json!(key), json!(id)]);
+        // Only a banner this plugin showed is its to hear about, under the key it gave
+        if let Some(own) = issue_owner(key).filter(|(owner, _)| *owner == self.info.name).map(|(_, own)| own) {
+            self.with_host(host, "on_issue_action", vec![json!(own), json!(id)]);
+        }
     }
 
     fn on_stream_starting(&mut self, host: &mut dyn Host) {

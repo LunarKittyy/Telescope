@@ -191,3 +191,16 @@ pub enum IssueDoes {
     /// The panels go to this source's stream and its camera is asked to come back on.
     CameraOnAgain { source_id: Option<String> },
 }
+
+const ADDED_KEY: &str = "plugin\u{1f}";
+
+/// The banner key for plugin's own key, for a plugin people add: the window delivers the banner's buttons only to the plugin in the key,
+/// and a plugin can only show and clear keys that carry its own name.
+pub fn added_issue_key(plugin: &str, key: &str) -> String {
+    format!("{ADDED_KEY}{plugin}\u{1f}{key}")
+}
+
+/// Which added plugin a banner key belongs to, and the key as that plugin knows it. None for a built-in's key.
+pub fn issue_owner(key: &str) -> Option<(&str, &str)> {
+    key.strip_prefix(ADDED_KEY)?.split_once('\u{1f}')
+}
