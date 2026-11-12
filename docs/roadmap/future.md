@@ -86,6 +86,18 @@ With several people in view, Auto framing frames the whole group. A choice of on
 
 Background replacement can eat the edges of things that aren't a person. A chair back or light clothing against a bright wall partly dissolves into the new background. Tuning the mask threshold and edge softening on those cases should help, and so might smoothing the mask over a few frames. The hard part is finding settings that fix this without making hair and hands worse. Small to medium.
 
+### A sharper cutout for Background
+
+A **High quality cutout** option in Background, using a video matting model (RVM) instead of the selfie segmenter. In tests it was clearly better on edges and hair, with fewer leaks from the background and a mask about ten times steadier on still areas. It can drop a hand or part of the body in a hard clip where the current one keeps them. It costs about 0.4 of a core at 15 masks a second, against about 0.03 now, and it needs an optional download of about 26 MB (the runtime and the model). Medium. Not decided yet.
+
+### Background blur on the GPU
+
+Blur is the heaviest step left on the CPU with everything on at 4K. Switching it off saves about half of Telescope's processor use there. Doing the shrink, blur and blend on the graphics card would take most of that away. Medium, and part of [Doing the picture work on the GPU](#doing-the-picture-work-on-the-gpu).
+
+### The 1998 webcam costs more than it should
+
+With the Fun pack's 1998 webcam on, the processor use goes up by about 44%, and the picture is repeated every other frame on purpose. Much of the cost is the way the blocky look is made, which could be done once and held for the repeated frame. Small.
+
 ### Stick figure with crossed legs and close-ups
 
 The stick figure gets the pose wrong when legs are crossed, and in a close-up it turns into a huge head on a pair of shoulders. The close-up needs the drawing to scale to the body that's visible instead of assuming a whole one, and the crossed legs need the leg joints to be trusted less when they overlap. Small.
