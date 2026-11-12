@@ -353,7 +353,7 @@ impl Write for Dripper {
 }
 
 impl Timed for Dripper {
-    fn limit_reads(&mut self, _: Duration) {}
+    fn limit_reads(&mut self, _: Option<Instant>) {}
 }
 
 #[test]
@@ -363,9 +363,97 @@ fn a_request_that_never_finishes_its_head_is_dropped_on_time() {
     // A request line, then colonless lines forever, each one inside any per-read timeout
     let mut stream = BufReader::new(Dripper { line: b"GET /hello HTTP/1.1\r\nx\r\n", pos: 0, pace: Duration::from_millis(40) });
     let started = Instant::now();
-    let served = serve_one(&mut stream, &pages, &stats, Duration::from_millis(300));
+    let served = serve_one(&mut stream, &pages, &stats, Duration::from_secs(5), Duration::from_millis(300));
     assert!(matches!(served, Ok(false)));
     assert!(started.elapsed() < Duration::from_secs(2), "took {:?}", started.elapsed());
+}
+
+/// Sends `bytes` one at a time, `pace` apart, until the other end is gone.
+fn drip(tcp: &mut TcpStream, bytes: &[u8], pace: Duration) {
+    for b in bytes {
+        if tcp.write_all(&[*b]).is_err() {
+            return;
+        }
+        std::thread::sleep(pace);
+    }
+}
+
+fn pending_tls(conn: &mut rustls::ClientConnection) -> Vec<u8> {
+    let mut out = Vec::new();
+    while conn.wants_write() {
+        conn.write_tls(&mut out).unwrap();
+    }
+    out
+}
+
+/// The server's end of a connection where the client has the TLS handshake done and then drips `payload` as one record.
+fn server_end(payload: &'static [u8], pace: Duration) -> rustls::StreamOwned<rustls::ServerConnection, Limited> {
+    let cert = ensure_certificate(&scratch_dir("drip"), &hosts(&["127.0.0.1"]), unix_now()).unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let client_config = client_for(&cert);
+    std::thread::spawn(move || {
+        let mut tcp = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        let mut conn = rustls::ClientConnection::new(client_config, ServerName::try_from("127.0.0.1".to_string()).unwrap()).unwrap();
+        while conn.is_handshaking() {
+            if conn.complete_io(&mut tcp).is_err() {
+                return;
+            }
+        }
+        conn.writer().write_all(payload).unwrap();
+        drip(&mut tcp, &pending_tls(&mut conn), pace);
+    });
+    let (tcp, _) = listener.accept().unwrap();
+    let mut tcp = Limited::new(tcp);
+    let mut tls = rustls::ServerConnection::new(tls_config(&cert.cert, &cert.key).unwrap()).unwrap();
+    finish_handshake(&mut tls, &mut tcp, Duration::from_secs(10)).unwrap();
+    rustls::StreamOwned::new(tls, tcp)
+}
+
+const A_REQUEST: &[u8] = b"GET /hello HTTP/1.1\r\nHost: x\r\nX-Padding: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\r\n\r\n";
+
+#[test]
+fn a_handshake_dripped_past_its_deadline_is_dropped_on_time() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let cert = ensure_certificate(&scratch_dir("drip-hello"), &hosts(&["127.0.0.1"]), unix_now()).unwrap();
+    let client_config = client_for(&cert);
+    // Each byte comes well inside any per-read timeout, the whole hello takes seconds
+    std::thread::spawn(move || {
+        let mut tcp = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        let mut conn = rustls::ClientConnection::new(client_config, ServerName::try_from("127.0.0.1".to_string()).unwrap()).unwrap();
+        drip(&mut tcp, &pending_tls(&mut conn), Duration::from_millis(25));
+    });
+    let (tcp, _) = listener.accept().unwrap();
+    let mut tcp = Limited::new(tcp);
+    let mut tls = rustls::ServerConnection::new(tls_config(&cert.cert, &cert.key).unwrap()).unwrap();
+    let started = Instant::now();
+    let done = finish_handshake(&mut tls, &mut tcp, Duration::from_millis(150));
+    assert_eq!(done.unwrap_err().kind(), std::io::ErrorKind::TimedOut);
+    assert!(started.elapsed() < Duration::from_secs(1), "took {:?}", started.elapsed());
+}
+
+#[test]
+fn a_request_dripped_inside_tls_is_dropped_on_time() {
+    let pages = Pages { seen: Mutex::default(), go: Mutex::new(None) };
+    let stats = ServerStats::new(0, 0, false, "Test");
+    let mut stream = BufReader::new(server_end(A_REQUEST, Duration::from_millis(25)));
+    let started = Instant::now();
+    let served = serve_one(&mut stream, &pages, &stats, Duration::from_millis(150), Duration::from_millis(150));
+    assert!(matches!(served, Ok(false)));
+    assert!(started.elapsed() < Duration::from_secs(1), "took {:?}", started.elapsed());
+    assert!(pages.seen.lock().unwrap().is_empty());
+}
+
+#[test]
+fn a_taken_connection_gets_its_tick_while_a_record_drips() {
+    let mut taken = Taken(BufReader::new(server_end(A_REQUEST, Duration::from_millis(25))));
+    taken.set_read_timeout(Some(Duration::from_millis(150))).unwrap();
+    let started = Instant::now();
+    let mut buf = [0u8; 256];
+    let err = taken.read(&mut buf).unwrap_err();
+    assert!(matches!(err.kind(), std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock), "{err:?}");
+    assert!(started.elapsed() < Duration::from_secs(1), "took {:?}", started.elapsed());
 }
 
 #[test]
