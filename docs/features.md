@@ -141,6 +141,18 @@ An optional plugin for the look of the picture, switched on in Plugins (it needs
 
 **Compare** splits the preview with the picture before the grade left of the line. Apps always get the graded picture. The switch in the card's header turns the grade off without losing it. Each wheel, slider, the Compare button, the switch and the LUT strength can go on a key in Keyboard shortcuts.
 
+## Filters
+
+An optional plugin with the basic filters of a photo editor, switched on under **Look** in the Plugins tab. It needs no download, except for skin smoothing. A filter at 0 is off and costs nothing, and the switch in the card's header sets them all aside without losing them. Each phone has its own settings and presets save them.
+
+- **Denoise** smooths the noise in each frame and keeps the edges. **Over time** also averages every part of the picture that holds still with the frames before it, which cleans up a dim room far better than blurring. Anything that moves is left out so it can't leave a ghost, and it starts over when the camera or the picture size changes
+- **Dehaze** takes the washed-out look off a dirty lens, a window behind you or a cheap camera's low contrast
+- **Skin smoothing** softens skin inside the person mask and keeps eyes, brows, hair and edges sharp. It needs the vision download, and the card says so until it's there
+- **Sharpen** has an **Amount**, a **Radius** and a **Threshold** that leaves flat areas like skin and walls alone. Strong edges get steeper without a white outline. **Clarity** adds contrast to the mid-sized detail, which makes a flat picture look less flat, with no glowing outlines. Below 0 it softens instead
+- **Vignette** darkens the corners (or lightens them below 0) with a **Size** and a **Roundness**. **Glow** puts a soft bloom around the bright parts and **Film grain** adds grain that moves every frame and is strongest in the mid-tones
+
+Denoise, dehaze, skin smoothing, clarity and sharpen come before Colour grading in the picture's path and the vignette, glow and grain come after it, so the grade doesn't change them. They run on the graphics card and fall back to the processor while something like a game keeps the card busy. The Camera card has the phone's own **Sharpening** and **Noise reduction**, and sharpening twice looks worse than once, so use one or the other.
+
 ## Notes next to the lens
 
 Optional, switched on under **On screen** in the Plugins tab of Settings. Type your notes on the Notes card and **Send to phone** puts them on the phone's screen in big text right under the front camera. Reading them there keeps your eyes almost on the lens and the people on the call see you looking at them. It needs the front camera and the phone facing you, and the phone app from the same release (with an older one the card asks you to update it).

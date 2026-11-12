@@ -143,6 +143,17 @@
   "icon": "colour"
  },
  {
+  "name": "filters",
+  "title": "Filters",
+  "about": "Sharpen, clarity, dehaze, denoise, skin smoothing, vignette, glow and film grain, like the filters of a photo editor.",
+  "when_off": "Without it there's no Filters card and the picture isn't sharpened, cleaned up or finished.",
+  "required": false,
+  "optional": true,
+  "needs_vision": false,
+  "category": "look",
+  "icon": "sliders"
+ },
+ {
   "name": "stream_output",
   "title": "Stream output",
   "about": "The resolution, frame rate and format of the stream.",

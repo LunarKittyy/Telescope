@@ -1049,10 +1049,14 @@ impl State {
                             other
                         }
                     };
-                    plugin_steps.push(telescope_core::media::StagedStep { owner, stage, step });
+                    plugin_steps.push(telescope_core::media::StagedStep { owner: owner.clone(), stage, step });
                 }
                 Ok(None) => {}
                 Err(_) => log::error!("Plugin {owner} couldn't give its frame step; leaving it out"),
+            }
+            match catch_unwind(AssertUnwindSafe(|| p.staged_frame_steps())) {
+                Ok(more) => plugin_steps.extend(more.into_iter().map(|(stage, step)| telescope_core::media::StagedStep { owner: owner.clone(), stage, step })),
+                Err(_) => log::error!("Plugin {owner} couldn't give its staged frame steps; leaving them out"),
             }
         }
         if unwatched || background {
@@ -2571,6 +2575,33 @@ mod tests {
         let mut frame = Frame::new(1, 1, PixelFormat::Rgba, vec![0; 4]);
         step.process(&mut frame, &NoCtx);
         assert_eq!(frame.data[0], 1);
+    }
+
+    #[test]
+    fn a_plugin_can_put_steps_at_two_stages_and_one_in_the_colour_stage_follows_the_grade() {
+        use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep};
+        struct Nothing;
+        impl CpuStep for Nothing {
+            fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+        }
+        struct TwoPlaces;
+        impl Plugin for TwoPlaces {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "filters".into(), frame_stage: FrameStage::Effects, ..Default::default() }
+            }
+            fn staged_frame_steps(&mut self) -> Vec<(FrameStage, FrameStep)> {
+                vec![(FrameStage::Colour, FrameStep::Cpu(Box::new(Nothing))), (FrameStage::Effects, FrameStep::Cpu(Box::new(Nothing)))]
+            }
+        }
+        let mut s = state();
+        s.register(Box::new(TwoPlaces)).unwrap();
+        let warm = telescope_core::host::ColourStage::new(2, Arc::new(telescope_core::colour::lattice(2).iter().map(|v| v * 0.5).collect()), None);
+        s.colour.set_stage("grade", Some(warm), 0, None);
+        let steps = s.pipeline_steps(None);
+        // as the pipeline sorts them by stage (a stable sort), the grade's own step comes ahead of the plugin's in the colour stage
+        let mut sorted: Vec<(&str, FrameStage)> = steps.iter().map(|st| (st.owner.as_str(), st.stage)).collect();
+        sorted.sort_by_key(|(_, stage)| *stage);
+        assert_eq!(sorted, [("filters", FrameStage::Effects), ("colour", FrameStage::Colour), ("filters", FrameStage::Colour)]);
     }
 
     #[test]

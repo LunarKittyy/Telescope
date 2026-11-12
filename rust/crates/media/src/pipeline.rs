@@ -50,6 +50,13 @@ impl Kind {
         }
     }
 
+    fn slot_ref(&self) -> Option<&gpu::ShaderSlot> {
+        match self {
+            Kind::Shader(slot) | Kind::Either(slot, _) => Some(slot),
+            Kind::Cpu(_) => None,
+        }
+    }
+
     fn slot(&mut self) -> &mut gpu::ShaderSlot {
         match self {
             Kind::Shader(slot) | Kind::Either(slot, _) => slot,
@@ -445,6 +452,15 @@ impl FramePipeline for Pipeline {
     fn set_steps(&mut self, steps: Vec<StagedStep>) {
         let had_background = self.has_background();
         let mut entries: Vec<Entry> = steps.into_iter().map(|s| Entry { timer: self.timer_of(&s.owner), owner: s.owner, stage: s.stage, kind: Kind::of(s.step), fails: 0, no_shader: false }).collect();
+        // A step that keeps its last frame (denoising over time) and comes again with other settings goes on from it
+        let mut old: Vec<Option<&Entry>> = self.steps.iter().map(Some).collect();
+        for entry in &entries {
+            let Some(new) = entry.kind.slot_ref().filter(|s| s.keeps_history()) else { continue };
+            let found = old.iter_mut().find(|o| o.is_some_and(|o| o.owner == entry.owner && o.stage == entry.stage && o.kind.slot_ref().is_some_and(|s| s.keeps_history() && s.same_shader(new))));
+            if let Some(slot) = found.and_then(Option::take).and_then(|o| o.kind.slot_ref()) {
+                new.take_history_from(slot);
+            }
+        }
         // Stable: as registered within a stage
         entries.sort_by_key(|e| e.stage);
         self.steps = entries;
@@ -1272,6 +1288,35 @@ pub(crate) mod tests {
         p.set_steps(vec![shader(INVERT)]);
         p.process(grey(16, 8, 16), &ctx);
         assert_eq!(ctx.1.load(std::sync::atomic::Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn a_step_that_keeps_its_last_frame_goes_on_from_it_when_its_settings_change() {
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        // 0.2 on the first frame, then the last frame's red and 0.2 more
+        let counts = |plus: f64| ShaderStep {
+            wgsl: "struct Params { plus: f32 }\nfn effect(uv: vec2<f32>) -> vec4<f32> { if has_previous() { return vec4<f32>(previous(uv).r + params.plus, 0.0, 0.0, 1.0); } return vec4<f32>(0.2, 0.0, 0.0, 1.0); }".into(),
+            uniforms: serde_json::json!({"plus": plus}),
+            textures: Vec::new(),
+        };
+        let staged = |owner: &str, plus: f64| StagedStep { owner: owner.into(), stage: FrameStage::Effects, step: FrameStep::Shader(counts(plus)) };
+        let frame = |n: u64| {
+            let mut f = Frame::new(8, 4, PixelFormat::Rgba, vec![0; 8 * 4 * 4]);
+            f.time_ns = 1_000_000_000 + n * 33_000_000;
+            f
+        };
+        let mut p = Pipeline::new();
+        p.set_steps(vec![staged("filters", 0.2)]);
+        assert_eq!(p.process(frame(0), &NoContext).data[0], 51);
+        assert_eq!(p.process(frame(1), &NoContext).data[0], 102);
+        // new settings (and any other plugin's slider does this too): the same step again, and it counts on
+        p.set_steps(vec![staged("filters", 0.1)]);
+        assert_eq!(p.process(frame(2), &NoContext).data[0], 128);
+        // another owner's step, or another shader, starts from nothing
+        p.set_steps(vec![staged("other", 0.1)]);
+        assert_eq!(p.process(frame(3), &NoContext).data[0], 51);
     }
 
     /// A shader and a CPU step that do the same, as a step that can run either way, with the balance in the test's hands.

@@ -45,7 +45,7 @@ pub struct Gpu {
     convert_module: wgpu::ShaderModule,
     /// Download buffers to use again: mapping a new one each frame costs the card a flush.
     downloads: Mutex<Vec<wgpu::Buffer>>,
-    /// For plugin shaders: the picture so far, the sampler, the frame's info and the person mask.
+    /// For plugin shaders: the picture so far, the sampler, the frame's info, the person mask and the step's last frame.
     frame_layout: wgpu::BindGroupLayout,
     linear: wgpu::Sampler,
     /// Stands in for planes a format doesn't have.
@@ -164,7 +164,7 @@ impl Gpu {
         });
         let frame_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("frame"),
-            entries: &[tex_entry(0), sampler_entry(1), uniform_entry(2), tex_entry(shader::BINDING_MASK)],
+            entries: &[tex_entry(0), sampler_entry(1), uniform_entry(2), tex_entry(shader::BINDING_MASK), tex_entry(shader::BINDING_HISTORY)],
         });
         let convert_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("convert"),
@@ -229,6 +229,20 @@ impl Gpu {
             }),
             multiview_mask: None,
             cache: None,
+        })
+    }
+
+    /// A texture of its own (not the pool's) that a step keeps its last frame in.
+    fn history_texture(&self, w: u32, h: u32) -> wgpu::Texture {
+        self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("history"),
+            size: wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: WORK,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
         })
     }
 
@@ -443,8 +457,10 @@ impl Gpu {
 
     /// One shader step on the held picture. Nothing runs yet; land sends it all to the card in one go.
     pub fn shade(&self, held: &mut Held, slot: &ShaderSlot, time: f32, mask: Option<&MaskPlane>) {
-        let info = self.uniform(&shader::frame_uniform(held.width, held.height, time, held.number, mask.is_some()));
-        slot.draw(self, &mut held.enc, &held.a, &held.b, &info, mask);
+        let past = slot.past(held);
+        let info = self.uniform(&shader::frame_uniform(held.width, held.height, time, held.number, mask.is_some(), past.is_some()));
+        slot.draw(self, &mut held.enc, &held.a, &held.b, &info, mask, past.as_ref());
+        slot.keep(self, &mut held.enc, &held.b, held.time_ns);
         std::mem::swap(&mut held.a, &mut held.b);
     }
 
@@ -623,7 +639,18 @@ fn draw(enc: &mut wgpu::CommandEncoder, pipeline: &wgpu::RenderPipeline, binds: 
 pub struct ShaderSlot {
     step: ShaderStep,
     wants_mask: bool,
+    wants_history: bool,
     built: Option<Result<Built, String>>,
+    /// What the step drew for the stream's last frame, for a shader that asks for it (previous).
+    history: Mutex<Option<Past>>,
+}
+
+/// A step's last frame on the card, and the time of the picture it was drawn for.
+struct Past {
+    texture: wgpu::Texture,
+    width: u32,
+    height: u32,
+    time_ns: u64,
 }
 
 /// A picture on the card with shaders recorded on it. land reads it back and it can go on from there.
@@ -670,7 +697,33 @@ struct Built {
 
 impl ShaderSlot {
     pub fn new(step: ShaderStep) -> ShaderSlot {
-        ShaderSlot { wants_mask: shader::uses_person_mask(&step.wgsl), step, built: None }
+        ShaderSlot { wants_mask: shader::uses_person_mask(&step.wgsl), wants_history: shader::uses_history(&step.wgsl), step, built: None, history: Mutex::new(None) }
+    }
+
+    /// The last frame this step drew, as a view, when there is one that still goes with held's picture: the same size and not too old.
+    fn past(&self, held: &Held) -> Option<wgpu::TextureView> {
+        if !self.wants_history {
+            return None;
+        }
+        let kept = self.history.lock().unwrap();
+        let p = kept.as_ref()?;
+        let age = held.time_ns.checked_sub(p.time_ns)?;
+        ((p.width, p.height) == (held.width, held.height) && age < shader::HISTORY_MAX_AGE_NS).then(|| p.texture.create_view(&Default::default()))
+    }
+
+    /// Copies what the step just drew, so the next frame can use it.
+    fn keep(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, drawn: &wgpu::Texture, time_ns: u64) {
+        if !self.wants_history {
+            return;
+        }
+        let mut kept = self.history.lock().unwrap();
+        let (width, height) = (drawn.width(), drawn.height());
+        if !kept.as_ref().is_some_and(|p| (p.width, p.height) == (width, height)) {
+            *kept = Some(Past { texture: gpu.history_texture(width, height), width, height, time_ns });
+        }
+        let p = kept.as_mut().unwrap();
+        enc.copy_texture_to_texture(drawn.as_image_copy(), p.texture.as_image_copy(), wgpu::Extent3d { width, height, depth_or_array_layers: 1 });
+        p.time_ns = time_ns;
     }
 
     /// Changes the shader's uniforms; once built, the new values go into its buffer. A shader with no Params ignores them.
@@ -689,6 +742,25 @@ impl ShaderSlot {
         }
     }
 
+    /// Takes over what `old` (the same shader from a step the plugin has since replaced) drew for the last frame, so a step whose settings
+    /// changed goes on from its history instead of starting again. Nothing happens for a different shader or one that keeps none.
+    pub fn take_history_from(&self, old: &ShaderSlot) {
+        if self.wants_history && old.wants_history && self.step.wgsl == old.step.wgsl {
+            let kept = old.history.lock().unwrap().take();
+            *self.history.lock().unwrap() = kept;
+        }
+    }
+
+    /// Whether the step keeps its last frame for the shader.
+    pub fn keeps_history(&self) -> bool {
+        self.wants_history
+    }
+
+    /// Whether this is the same shader (whatever its settings are).
+    pub fn same_shader(&self, other: &ShaderSlot) -> bool {
+        self.step.wgsl == other.step.wgsl
+    }
+
     /// Whether the shader reads the person mask.
     pub fn wants_mask(&self) -> bool {
         self.wants_mask
@@ -702,7 +774,7 @@ impl ShaderSlot {
         self.built.as_ref().unwrap().as_ref().map(|_| ()).map_err(Clone::clone)
     }
 
-    fn draw(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, src: &wgpu::Texture, dst: &wgpu::Texture, info: &wgpu::Buffer, mask: Option<&MaskPlane>) {
+    fn draw(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, src: &wgpu::Texture, dst: &wgpu::Texture, info: &wgpu::Buffer, mask: Option<&MaskPlane>, past: Option<&wgpu::TextureView>) {
         let Some(Ok(built)) = &self.built else { return };
         let (src_view, dst_view) = (src.create_view(&Default::default()), dst.create_view(&Default::default()));
         let frame_bind = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -713,6 +785,7 @@ impl ShaderSlot {
                 wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&gpu.linear) },
                 wgpu::BindGroupEntry { binding: 2, resource: info.as_entire_binding() },
                 wgpu::BindGroupEntry { binding: shader::BINDING_MASK, resource: wgpu::BindingResource::TextureView(mask.map_or(&gpu.blank, |m| &m.view)) },
+                wgpu::BindGroupEntry { binding: shader::BINDING_HISTORY, resource: wgpu::BindingResource::TextureView(past.unwrap_or(&gpu.blank)) },
             ],
         });
         let mut binds = vec![&frame_bind];
@@ -826,6 +899,35 @@ mod tests {
     }
 
     const IDENTITY: &str = "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }";
+
+    /// 0.2 on the first frame, then the last frame's red and 0.2 more.
+    const COUNTS: &str = "fn effect(uv: vec2<f32>) -> vec4<f32> { if has_previous() { return vec4<f32>(previous(uv).r + 0.2, 0.0, 0.0, 1.0); } return vec4<f32>(0.2, 0.0, 0.0, 1.0); }";
+
+    #[test]
+    fn a_step_that_asks_gets_what_it_drew_for_the_last_frame_until_the_size_or_the_time_changes() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let frame = |w: u32, time_ns: u64| {
+            let mut f = Frame::new(w, 4, PixelFormat::Rgba, vec![0; (w * 4 * 4) as usize]);
+            f.time_ns = time_ns;
+            f
+        };
+        let red = |f: &Frame| f.data[0];
+        let mut slots = [ShaderSlot::new(step(COUNTS, json!({})))];
+        let ms = 1_000_000;
+        // 0.2 is 51 of 255, and every frame adds another
+        assert_eq!(red(&run(&gpu, &frame(8, 100 * ms), &mut slots)), 51);
+        assert_eq!(red(&run(&gpu, &frame(8, 133 * ms), &mut slots)), 102);
+        assert_eq!(red(&run(&gpu, &frame(8, 166 * ms), &mut slots)), 153);
+        // another size starts again, so does a gap too long for it to be the same scene, and so does a clock that went back
+        assert_eq!(red(&run(&gpu, &frame(16, 199 * ms), &mut slots)), 51);
+        assert_eq!(red(&run(&gpu, &frame(16, 232 * ms), &mut slots)), 102);
+        assert_eq!(red(&run(&gpu, &frame(16, 232 * ms + shader::HISTORY_MAX_AGE_NS + 1), &mut slots)), 51);
+        assert_eq!(red(&run(&gpu, &frame(16, 5 * ms), &mut slots)), 51);
+        // a step that doesn't ask keeps nothing, and the frames after it are as they were
+        let mut plain = [ShaderSlot::new(step(IDENTITY, json!({})))];
+        run(&gpu, &frame(8, 400 * ms), &mut plain);
+        assert!(plain[0].history.lock().unwrap().is_none());
+    }
 
     #[test]
     fn the_colour_lut_on_the_cpu_gives_the_picture_the_shader_does() {
