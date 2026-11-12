@@ -427,6 +427,13 @@ pub fn confirm(directory: &Path) {
     }
 }
 
+/// confirm() for the build that is on trial only: a copy that installed the update and is still running (or one that is a different build) leaves the journal, as it's the way back.
+pub fn confirm_build(directory: &Path, build: i64) {
+    if read_journal(directory).is_some_and(|j| j["to_build"].as_i64() == Some(build)) {
+        confirm(directory);
+    }
+}
+
 /// The write end of the pipe the terminate handler wakes its thread through.
 #[cfg(unix)]
 static TERMINATE_PIPE: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(-1);
@@ -448,6 +455,12 @@ extern "C" fn on_terminate(signal: libc::c_int) {
 /// A handler rather than a blocked mask, which every program this one starts would inherit. Not on Windows, where a shutdown closes the window instead.
 #[cfg(unix)]
 pub fn confirm_on_terminate(directory: PathBuf) {
+    confirm_on_terminate_as(directory, crate::version::build());
+}
+
+/// confirm_on_terminate for a copy of this build: one that isn't the build on trial (the old copy, still running while it waits to restart) leaves the journal alone.
+#[cfg(unix)]
+pub fn confirm_on_terminate_as(directory: PathBuf, build: i64) {
     let mut ends = [0; 2];
     // SAFETY: room for the two descriptors
     if unsafe { libc::pipe2(ends.as_mut_ptr(), libc::O_CLOEXEC) } != 0 {
@@ -458,7 +471,7 @@ pub fn confirm_on_terminate(directory: PathBuf) {
         let mut byte = 0u8;
         // SAFETY: reads one byte into a local from a pipe this thread's handler end keeps open
         if unsafe { libc::read(ends[0], (&mut byte as *mut u8).cast(), 1) } == 1 {
-            confirm(&directory);
+            confirm_build(&directory, build);
             // SAFETY: back to the default action, then that action
             unsafe {
                 libc::signal(byte as libc::c_int, libc::SIG_DFL);
@@ -477,6 +490,9 @@ pub fn confirm_on_terminate(directory: PathBuf) {
 
 #[cfg(not(unix))]
 pub fn confirm_on_terminate(_directory: PathBuf) {}
+
+#[cfg(not(unix))]
+pub fn confirm_on_terminate_as(_directory: PathBuf, _build: i64) {}
 
 /// The command that starts the version in place: the exe on Windows, the AppImage, or start.sh (else this program) on Linux.
 pub fn relaunch_command(directory: &Path, after_update: bool) -> Vec<String> {
