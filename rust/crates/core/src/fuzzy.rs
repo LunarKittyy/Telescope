@@ -27,7 +27,8 @@ pub fn normalize(text: &str) -> String {
     let mut out = String::new();
     let mut gap = false;
     for c in folded.chars() {
-        if c.is_ascii_lowercase() || c.is_ascii_digit() {
+        // Any script's letters and digits, not just English's, so a Russian or Japanese label can be found
+        if c.is_alphanumeric() {
             if gap && !out.is_empty() {
                 out.push(' ');
             }
@@ -70,6 +71,10 @@ fn subsequence(q: &str, text: &str) -> bool {
     q.chars().all(|c| it.any(|t| t == c))
 }
 
+fn is_cjk(c: char) -> bool {
+    matches!(c, '\u{3040}'..='\u{30ff}' | '\u{3400}'..='\u{4dbf}' | '\u{4e00}'..='\u{9fff}' | '\u{f900}'..='\u{faff}' | '\u{ac00}'..='\u{d7af}')
+}
+
 /// How well the typed word q fits one word of a field, 0 for not at all.
 fn word_score(q: &str, w: &str) -> f64 {
     if w == q {
@@ -80,7 +85,8 @@ fn word_score(q: &str, w: &str) -> f64 {
         return 88.0 - (wc.len() - qc.len()).min(12) as f64;
     }
     let mut best = 0.0;
-    if qc.len() >= 5 && w.contains(q) {
+    // Chinese and Japanese run words together, so a short piece of one is found inside it
+    if (qc.len() >= 5 || (qc.len() >= 2 && qc.iter().any(|&c| is_cjk(c)))) && w.contains(q) {
         best = 55.0;
     }
     if qc.len() >= 4 && qc[0] == wc[0] {
@@ -180,9 +186,17 @@ mod tests {
 
     #[test]
     fn normalize_gives_what_python_recorded() {
+        // What the recording drops is any letter outside English's: those stay now, so what's compared is the rest
+        let english = |text: &str| -> String {
+            let plain: String = text.chars().map(|c| if c.is_ascii() { c } else { ' ' }).collect();
+            plain.split_whitespace().collect::<Vec<_>>().join(" ")
+        };
         for case in recorded()["normalize"].as_array().unwrap() {
             let (text, want) = (case[0].as_str().unwrap(), case[1].as_str().unwrap());
-            assert_eq!(normalize(text), want, "{text:?}");
+            let got = normalize(text);
+            if got != want {
+                assert_eq!(english(&got), want, "{text:?}");
+            }
         }
     }
 
@@ -205,6 +219,27 @@ mod tests {
             assert!(doc.score(q, &weights, false) > 0.0, "{q}");
         }
         assert_eq!(doc.score("crop", &weights, false), 0.0, "inside microphone is no match");
+    }
+
+    #[test]
+    fn other_scripts_are_searchable_by_their_translated_labels() {
+        assert_eq!(normalize("\u{41c}\u{438}\u{43a}\u{440}\u{43e}\u{444}\u{43e}\u{43d}, \u{412}\u{43a}\u{43b}"), "\u{43c}\u{438}\u{43a}\u{440}\u{43e}\u{444}\u{43e}\u{43d} \u{432}\u{43a}\u{43b}");
+        assert_eq!(normalize("\u{65e5}\u{672c}\u{8a9e} abc"), "\u{65e5}\u{672c}\u{8a9e} abc");
+        let weights = [("name", 1.0), ("keywords", 0.9)];
+        // (label as the translation shows it, what someone types)
+        for (label, typed) in [
+            ("\u{41c}\u{438}\u{43a}\u{440}\u{43e}\u{444}\u{43e}\u{43d}", "\u{41c}\u{438}\u{43a}\u{440}\u{43e}\u{444}\u{43e}\u{43d}"),
+            ("\u{41c}\u{438}\u{43a}\u{440}\u{43e}\u{444}\u{43e}\u{43d}", "\u{43c}\u{438}\u{43a}\u{440}\u{43e}"),
+            ("\u{30de}\u{30a4}\u{30af}", "\u{30de}\u{30a4}"),
+            ("\u{9ea6}\u{514b}\u{98ce}\u{9759}\u{97f3}", "\u{9759}\u{97f3}"),
+            ("\u{b9c8}\u{c774}\u{d06c}", "\u{b9c8}\u{c774}\u{d06c}"),
+        ] {
+            let doc = Doc::new(&[("name", label), ("keywords", "")]);
+            assert!(doc.score(typed, &weights, false) > 0.0, "{typed} in {label}");
+            assert_eq!(doc.score("xyz", &weights, false), 0.0);
+        }
+        let doc = Doc::new(&[("name", "\u{41c}\u{438}\u{43a}\u{440}\u{43e}\u{444}\u{43e}\u{43d}"), ("keywords", "")]);
+        assert_eq!(doc.score("\u{43a}\u{430}\u{43c}\u{435}\u{440}\u{430}", &weights, false), 0.0, "another word still isn't found");
     }
 
     #[test]
