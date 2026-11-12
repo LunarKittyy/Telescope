@@ -558,6 +558,8 @@ impl Reader {
         }
         let mut got_through = false;
         let alive_stop = Arc::new(AtomicBool::new(false));
+        // One keep-alive worker for the connection: a later greeting only changes how often it pings
+        let mut alive_every: Option<Arc<AtomicU64>> = None;
         while !self.stopped() {
             let Ok(raw) = resp.readline(MAX_LINE) else { break };
             if raw.is_empty() {
@@ -571,7 +573,11 @@ impl Reader {
             let Some(hub) = self.hub() else { break };
             if line.get("sensors").is_some() {
                 let alive_ms = line.get("alive_ms").and_then(Value::as_u64).filter(|n| *n > 0).unwrap_or(ALIVE_DEFAULT_MS);
-                self.keep_alive(Duration::from_millis(alive_ms / 3), alive_stop.clone());
+                let every = alive_ms / 3;
+                match &alive_every {
+                    Some(shared) => shared.store(every, Ordering::SeqCst),
+                    None => alive_every = self.keep_alive(every, alive_stop.clone()),
+                }
                 hub.reader_hello(self.id, line.get("sensors"));
             } else {
                 hub.reader_line(self.id, &line);
@@ -582,20 +588,29 @@ impl Reader {
         if got_through { None } else { Some("failed") }
     }
 
-    /// Tells the phone this computer is still here: it stops the sensors of one that went quiet.
-    fn keep_alive(&self, every: Duration, done: Arc<AtomicBool>) {
+    /// Tells the phone this computer is still here: it stops the sensors of one that went quiet. Returns the interval in ms the worker reads, None when it couldn't start.
+    fn keep_alive(&self, every_ms: u64, done: Arc<AtomicBool>) -> Option<Arc<AtomicU64>> {
         let url = format!("{}/alive", self.url.split('?').next().unwrap_or(&self.url));
         let (link, stopped) = (self.link.clone(), self.stopped.clone());
-        std::thread::Builder::new().name("phone-sensors-alive".into()).spawn(move || loop {
-            let deadline = std::time::Instant::now() + every;
-            while std::time::Instant::now() < deadline {
+        let every = Arc::new(AtomicU64::new(every_ms));
+        let shared = every.clone();
+        let spawned = std::thread::Builder::new().name("phone-sensors-alive".into()).spawn(move || loop {
+            let last = std::time::Instant::now();
+            while last.elapsed() < Duration::from_millis(shared.load(Ordering::SeqCst)) {
                 if done.load(Ordering::SeqCst) || stopped.load(Ordering::SeqCst) {
                     return;
                 }
                 std::thread::sleep(Duration::from_millis(10));
             }
             link.alive(&url); // the stream itself notices a phone that's gone
-        }).expect("sensors keep-alive thread");
+        });
+        match spawned {
+            Ok(_) => Some(every),
+            Err(e) => {
+                log::warn!("The sensors keep-alive couldn't get a thread: {e}");
+                None
+            }
+        }
     }
 }
 
@@ -1026,6 +1041,25 @@ mod tests {
         let pings = link.pings.lock().unwrap().len();
         std::thread::sleep(Duration::from_millis(400));
         assert!(link.pings.lock().unwrap().len() <= pings + 1);
+    }
+
+    #[test]
+    fn greeting_again_does_not_start_another_keep_alive() {
+        let (hub, _) = hub();
+        let link = FakeLink::new("a");
+        hub.want("level", &["orientation"]);
+        follow(&hub, "phone", "https://p/v1", &link, Some(all()));
+        assert!(soon(|| link.live().len() == 1));
+        // A slow greeting first, then a flood of them: the last one sets the pace and there is still one worker
+        link.live()[0].send(json!({"version": 1, "sensors": ["orientation"], "alive_ms": 60000}));
+        for _ in 0..30 {
+            link.live()[0].send(json!({"version": 1, "sensors": ["orientation"], "alive_ms": 300}));
+        }
+        assert!(wait_for(|| !link.pings.lock().unwrap().is_empty(), Duration::from_secs(2)));
+        std::thread::sleep(Duration::from_millis(500));
+        let pings = link.pings.lock().unwrap().len();
+        // One worker every 100 ms is about six; thirty-one of them would be over a hundred
+        assert!(pings <= 12, "{pings} pings");
     }
 
     #[test]
