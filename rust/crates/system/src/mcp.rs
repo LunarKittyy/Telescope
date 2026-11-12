@@ -8,7 +8,7 @@
 //! plugin can measure the picture).
 
 use serde_json::{json, Map, Value};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::io::{BufRead, Read, Write};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{channel, RecvTimeoutError, Sender};
@@ -540,6 +540,8 @@ struct Change {
     /// Read from the file only: someone besides the AI moved the setting between this step and the next one on it, or nobody can tell (an older file).
     /// The revisions that said so don't survive a restart, so this is what carries it over.
     cut: bool,
+    /// Read from a file that didn't say (before steps were marked): the newest step on a setting is taken as untouched, as it was then.
+    unmarked: bool,
 }
 
 /// A revision no setting ever has, for a loaded step that can't be told apart from an edit: it never counts as untouched.
@@ -555,7 +557,7 @@ impl Change {
         Some(Change {
             seq: v["seq"].as_u64()?, session: PREVIOUS_RUN, plugin: v["plugin"].as_str()?.to_string(), key: v["key"].as_str()?.to_string(),
             source: v["source"].as_str().map(String::from), was: v.get("was")?.clone(), now: v.get("now")?.clone(), rev_before: None, rev: None,
-            cut: v["cut"].as_bool().unwrap_or(true),
+            cut: v["cut"].as_bool().unwrap_or(true), unmarked: v["cut"].as_bool().is_none(),
         })
     }
 }
@@ -595,6 +597,8 @@ pub struct McpPlugin {
     /// What the AI apps changed, oldest first: a revert undoes only its own connection's (`Client::session`), so one AI app can't take back another's.
     /// They stay after the connection ends, so the header button can still undo them, up to JOURNAL_KEPT of them.
     journal: Vec<Change>,
+    /// Settings whose newest journal step was edited past by someone else, as last seen with a host in hand (get_config has none to ask).
+    edited: HashSet<Slot>,
     /// Actions that moved nothing saved, so undo can only say it can't put them back. In memory only.
     unrestored: Vec<Untracked>,
     next_seq: u64,
@@ -617,7 +621,7 @@ pub struct McpPlugin {
 impl McpPlugin {
     pub fn new(handle: McpHandle) -> McpPlugin {
         McpPlugin {
-            handle, jobs: HashMap::new(), next_job: 0, journal: Vec::new(), unrestored: Vec::new(), next_seq: 0, stats_lease: false, stats_wanted: false, access: Access::default(), log: VecDeque::new(), open: HashMap::new(),
+            handle, jobs: HashMap::new(), next_job: 0, journal: Vec::new(), edited: HashSet::new(), unrestored: Vec::new(), next_seq: 0, stats_lease: false, stats_wanted: false, access: Access::default(), log: VecDeque::new(), open: HashMap::new(),
             pending: 0, activity: Activity::Rest, snapshot: None, watches: HashMap::new(), clock: telescope_core::time::local_clock,
         }
     }
@@ -1057,7 +1061,7 @@ impl McpPlugin {
                         self.journal.push(step);
                     }
                 }
-                None => self.journal.push(Change { seq, session, plugin, key, source: source.clone(), was, now, rev_before, rev, cut: false }),
+                None => self.journal.push(Change { seq, session, plugin, key, source: source.clone(), was, now, rev_before, rev, cut: false, unmarked: false }),
             }
         }
         let extra = self.journal.len().saturating_sub(JOURNAL_KEPT);
@@ -1105,6 +1109,7 @@ impl McpPlugin {
                 let c = &mut self.journal[i];
                 if c.rev.is_none() && c.rev_before.is_none() {
                     let tied = match above {
+                        _ if n == 0 && c.cut && !c.unmarked => NEVER_UNTOUCHED,
                         _ if n == 0 => host.setting_revision(&c.plugin, &c.key),
                         Some(above) if !c.cut => above,
                         _ => NEVER_UNTOUCHED,
@@ -1116,13 +1121,29 @@ impl McpPlugin {
         }
     }
 
+    /// Notes the settings whose newest step someone has edited past since, so the saved journal can say so (the revisions are gone after a restart).
+    fn note_edits(&mut self, host: &dyn Host) {
+        if self.journal.is_empty() && self.edited.is_empty() {
+            return;
+        }
+        let mut newest: HashMap<Slot, &Change> = HashMap::new();
+        for c in &self.journal {
+            let slot = (c.plugin.clone(), c.key.clone());
+            if newest.get(&slot).is_none_or(|n| n.seq < c.seq) {
+                newest.insert(slot, c);
+            }
+        }
+        let edited: HashSet<Slot> = newest.into_iter().filter(|(_, c)| c.rev.is_some_and(|rev| rev != host.setting_revision(&c.plugin, &c.key))).map(|(slot, _)| slot).collect();
+        self.edited = edited;
+    }
+
     /// The journal as it is saved: each step says whether anyone but the AI moved its setting before the next write to it, which the revisions can tell now
     /// and nothing can after a restart.
     fn journal_json(&self) -> Vec<Value> {
         self.journal.iter().map(|c| {
             let next = self.journal.iter().filter(|n| n.plugin == c.plugin && n.key == c.key && n.seq > c.seq).min_by_key(|n| n.seq);
             let cut = match (next, c.rev) {
-                (None, _) => false,
+                (None, _) => self.edited.contains(&(c.plugin.clone(), c.key.clone())),
                 (Some(next), Some(rev)) if next.rev_before.is_some() => next.rev_before != Some(rev),
                 _ => c.cut,
             };
@@ -1564,6 +1585,7 @@ impl Plugin for McpPlugin {
             }
             _ => {}
         }
+        self.note_edits(host);
     }
 
     fn diagnostics(&self) -> Vec<(String, String)> {
