@@ -545,7 +545,7 @@ impl FrameContext for Held {
 
 fn step_in(mode: &str, blur: i64, edges: i64) -> Step {
     let mode = MODES.iter().position(|(k, _)| *k == mode).unwrap();
-    Step { settings: Settings { mode, blur, edges, picture: None, high_quality: false }, covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None }
+    Step { settings: Settings { mode, blur, edges, cut_in: 0, picture: None, high_quality: false }, covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None }
 }
 
 fn varied_mask(w: usize, h: usize, seed: usize) -> Gray {
@@ -1163,4 +1163,88 @@ fn the_card_offers_the_cutouts_download_and_says_the_normal_one_is_used_meanwhil
     rig.host.matting = Some(vision::READY.into());
     rig.event(Event::MattingStateChanged { state: vision::READY.into() });
     assert_eq!(rig.shown("cutout-text"), json!(""));
+}
+
+// ── Cut-in ──────────────────────────────────────────────────────────────
+
+fn person_area(mask: &Gray) -> u64 {
+    mask.data.iter().map(|&v| v as u64).sum()
+}
+
+#[test]
+fn cut_in_zero_leaves_the_mask_and_a_positive_one_shrinks_the_person() {
+    let mask = soft_mask(256, 144);
+    for edges in [0, 3, 8] {
+        assert_eq!(mask.soften_cut(edges, 0), mask.soften(edges));
+    }
+    assert_eq!(mask.cut_in(0), mask);
+    let (mut last, mut last_soft) = (person_area(&mask), person_area(&mask.soften(3)));
+    for cut in 1..=10 {
+        let area = person_area(&mask.cut_in(cut));
+        let soft = person_area(&mask.soften_cut(3, cut));
+        assert!(area < last && soft < last_soft, "cut-in {cut}: {area} vs {last}, {soft} vs {last_soft}");
+        (last, last_soft) = (area, soft);
+    }
+    // the border of a picture isn't a person's edge
+    let whole = Gray::filled(32, 18, 255);
+    assert_eq!(whole.cut_in(5), whole);
+}
+
+#[test]
+fn cut_in_is_saved_only_when_set_and_clamped_and_reaches_the_stream() {
+    let mut rig = Rig::new(None, vision::READY);
+    rig.set_mode("blur");
+    assert_eq!(rig.shown("cut-in"), json!(0));
+    assert!(rig.plugin.get_config().get("cut_in").is_none());
+    rig.ui("cut-in-moved", vec![json!(4.4)]);
+    assert_eq!((rig.shown("cut-in"), rig.shown("cut-in-text")), (json!(4), json!("4")));
+    assert_eq!(rig.plugin.get_config()["cut_in"], json!(4));
+    let saved = rig.plugin.get_config();
+    let mut other = Rig::new(None, vision::READY);
+    other.plugin.set_config(&saved).unwrap();
+    assert_eq!(other.plugin.cut_in, 4);
+    other.plugin.set_config(&json!({"mode": "blur", "cut_in": 99})).unwrap();
+    assert_eq!(other.plugin.cut_in, 10);
+    other.plugin.set_config(&json!({"mode": "blur", "cut_in": "x"})).unwrap();
+    assert_eq!(other.plugin.cut_in, 0);
+    assert!(rig.host.calls.iter().any(|c| c == "refresh_frame_step"));
+}
+
+#[test]
+fn cut_in_pulls_the_cutout_in_with_either_mask() {
+    let (w, h) = (96, 54);
+    let source = stripes(w, h);
+    let ctx = TwoMasks(half_mask(w, h), half_mask(w, h), Default::default());
+    for high in [false, true] {
+        let mut plain = step_in("blur", 4, 0);
+        let mut cut = step_in("blur", 4, 0);
+        (plain.settings.high_quality, cut.settings.high_quality, cut.settings.cut_in) = (high, high, 3);
+        let (mut a, mut b) = (frame_of(&source), frame_of(&source));
+        plain.process(&mut a, &ctx);
+        cut.process(&mut b, &ctx);
+        let (a, b) = (Rgb::from_frame(&a).unwrap(), Rgb::from_frame(&b).unwrap());
+        // the person is the left half: the columns just inside its edge are the room's now
+        assert_eq!(column(&a, 44, 46), column(&source, 44, 46));
+        assert_ne!(column(&b, 44, 46), column(&source, 44, 46), "high quality {high}");
+        assert_eq!(column(&b, 0, 20), column(&source, 0, 20), "the middle of the person stays");
+    }
+}
+
+#[test]
+fn cut_in_on_yuv_planes_looks_like_the_one_in_rgb() {
+    let (scene, mask) = peek::sample_scene(960, 540);
+    let served = Served::new(mask.shrink(256, 144));
+    let frame = i420_of(&scene);
+    for cut in [2, 5, 10] {
+        let mut step = step_in("blur", 6, 3);
+        step.settings.cut_in = cut;
+        let mut got = frame.clone();
+        step.process(&mut got, &served);
+        let rgb = Rgb::from_frame(&frame).unwrap();
+        let whole = Gray { w: rgb.w, h: rgb.h, data: served.at(rgb.w, rgb.h).to_vec() };
+        let mut want = frame.clone();
+        compose(&rgb, &whole.soften_cut(3, cut), &blurred(&rgb, 6, Some(&whole))).write_to(&mut want);
+        let (psnr, off, worst) = apart(&Rgb::from_frame(&got).unwrap(), &Rgb::from_frame(&want).unwrap());
+        assert!(psnr > 44.0 && off < 0.03, "cut-in {cut}: {psnr:.1} dB, {:.3}% off by more than 3, worst {worst}", off * 100.0);
+    }
 }

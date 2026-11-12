@@ -202,11 +202,28 @@ impl Gray {
 
     /// pictures.soften: the mask's edge feathered (edges 0..10; 0 leaves it as it was drawn), blurred at a quarter of the size.
     pub fn soften(&self, edges: i64) -> Gray {
-        if edges <= 0 {
+        self.soften_cut(edges, 0)
+    }
+
+    /// `soften` with the border pulled in first: eroded by `cut` pixels (0..10) at the quarter size the feathering is done at. 0 is `soften` as it was.
+    pub fn soften_cut(&self, edges: i64, cut: i64) -> Gray {
+        if edges <= 0 && cut <= 0 {
             return self.clone();
         }
-        let small = self.area((self.w / 4).max(1), (self.h / 4).max(1));
-        small.blur(edges as f64 * 0.6).linear_exact(self.w, self.h)
+        let mut small = self.area((self.w / 4).max(1), (self.h / 4).max(1));
+        small = small.cut_in(cut);
+        if edges > 0 {
+            small = small.blur(edges as f64 * 0.6);
+        }
+        small.linear_exact(self.w, self.h)
+    }
+
+    /// The mask's border pulled in by `cut` pixels: the smallest value within that distance, so a soft edge keeps its shape and its middle moves inward. Outside the picture doesn't count. 0 is the mask as it was.
+    pub fn cut_in(&self, cut: i64) -> Gray {
+        if cut <= 0 {
+            return self.clone();
+        }
+        self.erode(cut as usize * 2 + 1)
     }
 
     /// cv2.absdiff-and-threshold's result: 255 where this is above `level`, else 0.
