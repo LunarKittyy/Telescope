@@ -63,6 +63,8 @@ events! {
     "stream_stopped" => StreamStopped,
     /// A Start ended without a stream (the phone couldn't be reached or woken); no stream_started follows.
     "stream_start_failed" => StreamStartFailed,
+    /// A Start began, before the phone is woken or the camera is ready; stream_started or stream_start_failed ends it.
+    "stream_start_began" => StreamStartBegan,
     /// The shown stream's settings changed which video transport it can use; Connection re-evaluates its route.
     "stream_transport_changed" => StreamTransportChanged,
     /// A stream's frames are coming in (its source id; "" for no phone picked), the first time or back after a drop.

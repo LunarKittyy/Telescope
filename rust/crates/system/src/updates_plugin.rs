@@ -914,6 +914,11 @@ impl Plugin for UpdatesPlugin {
             }
             Event::Posted { token, .. } if token == DONE => self.drain(host),
             Event::UpdateRequested => self.open_updates(host),
+            Event::StreamStartBegan => {
+                // From the first moment of a start, the phone's wake included, so a download that ends meanwhile leaves adb alone
+                self.streaming.store(true, Ordering::SeqCst);
+                self.refresh(host);
+            }
             Event::StreamStarted { .. } => {
                 self.streaming.store(in_use(host), Ordering::SeqCst);
                 self.refresh(host);
@@ -1367,16 +1372,18 @@ mod tests {
     fn a_stream_that_is_still_starting_counts_as_streaming() {
         let (mut plugin, mut host, fake) = env();
         plugin.check(&mut host, false);
+        // The order of a real start: it begins and wakes the phone (no worker yet, so no on_stream_starting), the host thread hears of it
         host.starting = true;
-        plugin.refresh(&mut host);
+        plugin.on_event(&mut host, &Event::StreamStartBegan);
         assert_eq!(last_props(&host, SECTION)["update-enabled"], false);
         plugin.update_now(&mut host);
         assert_eq!(*fake.installs.lock().unwrap(), 0);
-        // The install's thread sees it too, so it leaves adb alone
-        plugin.on_stream_starting(&mut host);
+        // An install that was already downloading sees it too, so it leaves adb alone while the phone wakes
+        plugin.phase = Phase::Downloading;
+        plugin.streaming.store(false, Ordering::SeqCst);
+        plugin.on_event(&mut host, &Event::StreamStartBegan);
         assert!(plugin.streaming.load(Ordering::SeqCst));
         // An update that lands meanwhile waits, and goes once the start has failed
-        plugin.phase = Phase::Downloading;
         plugin.on_installed(&mut host, Ok((200, InstallResult { relaunch: vec!["start.sh".into()], skipped: vec![] })));
         assert!(fake.relaunched.lock().unwrap().is_empty() && quits(&host) == 0);
         host.starting = false;
