@@ -1469,6 +1469,29 @@ mod launcher_tests {
     }
 
     #[test]
+    fn a_launcher_that_cant_restore_an_entry_keeps_the_backup_and_the_journal() {
+        let dir = scratch_dir("start-sh-restore-fails");
+        let app = dir.join("app");
+        std::fs::create_dir_all(app.join(PREVIOUS_DIR)).unwrap();
+        executable(&app.join("start.sh"), START_SH);
+        executable(&app.join("telescope-rs"), "#!/usr/bin/env bash\nexit 1\n");
+        for name in ["a", "b"] {
+            std::fs::write(app.join(name), "new").unwrap();
+            std::fs::write(app.join(PREVIOUS_DIR).join(name), "old").unwrap();
+        }
+        write_journal(&app, &json!({"state": "trial", "started": false, "to_build": 5000, "entries": ["a", "b"], "added": []})).unwrap();
+        // A permission error on one entry
+        let tools = dir.join("tools");
+        std::fs::create_dir(&tools).unwrap();
+        executable(&tools.join("mv"), "#!/usr/bin/env bash\nfor a in \"$@\"; do [ \"$a\" = ./b ] && exit 1; done\nexec /bin/mv \"$@\"\n");
+        let (_, out) = run(&app, Some(format!("{}:{}", tools.display(), std::env::var("PATH").unwrap_or_default())));
+        assert_eq!(read_journal(&app).unwrap()["state"], "trial", "{out}");
+        assert_eq!(std::fs::read_to_string(app.join(PREVIOUS_DIR).join("b")).unwrap(), "old", "{out}");
+        assert_eq!(std::fs::read_to_string(app.join("a")).unwrap(), "old", "{out}");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
     fn going_back_from_a_launcher_that_cant_run_replaces_start_sh_in_one_step() {
         let dir = scratch_dir("start-sh-rollback");
         std::fs::create_dir(dir.join(PREVIOUS_DIR)).unwrap();
