@@ -392,6 +392,15 @@ fn held_sender() -> (WebhookSender, Bodies, std::sync::mpsc::Sender<()>, Results
     (sender, sent, release, results)
 }
 
+// Waits until the held sender has picked up its first request, so later sends queue behind it
+fn sending_started(sent: &Bodies) {
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    while sent.lock().unwrap().is_empty() {
+        assert!(std::time::Instant::now() < deadline, "the sender never started");
+        std::thread::sleep(Duration::from_millis(2));
+    }
+}
+
 fn post(body: &str) -> WebhookRequest {
     webhook_request("http://h/x", "POST", body, true)
 }
@@ -400,7 +409,7 @@ fn post(body: &str) -> WebhookRequest {
 fn a_test_never_takes_the_place_of_a_state() {
     let (sender, sent, release, _) = held_sender();
     sender.send(post("first"), "state:1", Some("state"));
-    std::thread::sleep(Duration::from_millis(50));
+    sending_started(&sent);
     sender.send(post("on"), "state:2", Some("state"));
     sender.send(post("test"), "test", None);
     for _ in 0..3 {
@@ -425,7 +434,7 @@ fn waiting_for_the_sender_gives_up_at_the_deadline() {
 fn the_sender_only_sends_whats_true_at_the_end() {
     let (sender, sent, release, results) = held_sender();
     sender.send(post("1"), "state", None);
-    std::thread::sleep(Duration::from_millis(50));
+    sending_started(&sent);
     sender.send(post("2"), "state", None); // waits behind the first...
     sender.send(post("3"), "state", None); // ...and this replaces it
     for _ in 0..2 {
