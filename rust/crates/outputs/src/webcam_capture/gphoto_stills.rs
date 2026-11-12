@@ -148,6 +148,8 @@ pub struct PhotoCaps {
     pub quality: Option<Quality>,
     pub iso: Option<Menu>,
     pub shutter: Option<Menu>,
+    /// The shutter speed the camera is on, even when it is one the card can't pick (read-only on a mode dial setting): what the wait for a photo goes by.
+    pub shutter_now: Option<String>,
 }
 
 impl PhotoCaps {
@@ -169,7 +171,11 @@ impl PhotoCaps {
 
 /// A setting the camera lets the card pick from now: a list of choices it isn't holding read-only.
 fn menu(rig: &mut dyn Rig, names: &'static [&'static str], label: fn(&str) -> Option<String>, skip: fn(&str) -> bool) -> Option<Menu> {
-    let (name, s): (&'static str, Setting) = resolve(rig, names)?;
+    let (name, s) = resolve(rig, names)?;
+    menu_of(name, &s, label, skip)
+}
+
+fn menu_of(name: &'static str, s: &Setting, label: fn(&str) -> Option<String>, skip: fn(&str) -> bool) -> Option<Menu> {
     if s.readonly || !matches!(s.kind, Kind::Choice) {
         return None;
     }
@@ -192,8 +198,10 @@ pub fn read_photo_caps(rig: &mut dyn Rig) -> PhotoCaps {
     });
     let iso = menu(rig, &ISO, |_| None, |_| false);
     // Bulb is a button held down, not a speed: it isn't offered
-    let shutter = menu(rig, &SHUTTER, shutter_label, |c| c.to_lowercase().contains("bulb"));
-    PhotoCaps { quality, iso, shutter }
+    let setting = resolve(rig, &SHUTTER);
+    let shutter_now = setting.as_ref().map(|(_, s)| s.value.clone());
+    let shutter = setting.and_then(|(name, s)| menu_of(name, &s, shutter_label, |c| c.to_lowercase().contains("bulb")));
+    PhotoCaps { quality, iso, shutter, shutter_now }
 }
 
 /// What the card asked a photo to be (the /v1/still options it sends, as far as a camera takes them).
@@ -589,8 +597,11 @@ fn exposure_of(shared: &Shared, wish: &Wish) -> Option<f64> {
         return shutter_seconds(speed);
     }
     let caps = shared.caps.lock().unwrap();
-    let menu = caps.as_ref()?.shutter.as_ref()?;
-    shutter_seconds(menu.values.get(menu.current?)?)
+    let caps = caps.as_ref()?;
+    match &caps.shutter {
+        Some(menu) => shutter_seconds(menu.values.get(menu.current?)?),
+        None => shutter_seconds(caps.shutter_now.as_deref()?),
+    }
 }
 
 /// One photo from start to saved files, on the thread of its own: the countdown, the camera's thread doing the shooting, the files.

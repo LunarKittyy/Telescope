@@ -593,6 +593,22 @@ fn the_exposure_is_the_speed_asked_for_else_the_one_the_camera_is_on() {
 }
 
 #[test]
+fn a_shutter_speed_the_camera_holds_read_only_still_sets_the_wait() {
+    let state = d5100(true);
+    state.lock().unwrap().settings.insert("shutterspeed".into(), setting(true, &["0,0250s", "30,0000s", "300,0000s"], "300,0000s"));
+    let caps = read_photo_caps(&mut Fake(state.clone()));
+    assert!(caps.shutter.is_none(), "the card can't pick it");
+    assert!(caps.json().get("shutter").is_none());
+    let shared = Shared::default();
+    shared.set_caps(Some(caps));
+    assert_eq!(exposure_of(&shared, &wish(Format::Jpeg)), Some(300.0), "but the wait goes by it");
+    // On Bulb there is no time to go by
+    state.lock().unwrap().settings.insert("shutterspeed".into(), setting(true, &["Bulb", "30,0000s"], "Bulb"));
+    shared.set_caps(Some(read_photo_caps(&mut Fake(state))));
+    assert_eq!(exposure_of(&shared, &wish(Format::Jpeg)), None);
+}
+
+#[test]
 fn a_photo_that_comes_after_the_wait_is_saved_and_the_card_is_told_it_was_late() {
     let state = d5100(true);
     state.lock().unwrap().capture_takes = Duration::from_millis(700);
