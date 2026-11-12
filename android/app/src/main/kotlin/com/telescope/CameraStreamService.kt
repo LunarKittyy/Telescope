@@ -896,7 +896,8 @@ class CameraStreamService : Service() {
                 val since = busySinceMs
                 if (since != 0L && System.currentTimeMillis() - since >= BUSY_STUCK_MS) {
                     mainHandler.post {
-                        if (state in BUSY_STATES) {
+                        // A stream that stopped and restarted since this was posted has its own watchdog
+                        if (running.get() && state in BUSY_STATES) {
                             setState(StreamState.Failed, "busyTimeout", java.util.concurrent.TimeoutException("stuck in $state"))
                             stopStreaming("busyTimeout")
                         }
@@ -909,7 +910,7 @@ class CameraStreamService : Service() {
                 val watched = controller?.hasPreviewSurface() == true || srv.hasActiveViewer()
                 if (!watched && srv.idleForMs() >= IDLE_STOP_MS) {
                     android.util.Log.i(TAG, "No desktop activity for ${IDLE_STOP_MS / 1000}s - stopping to save battery")
-                    mainHandler.post { stopStreaming("idleWatchdog") }
+                    mainHandler.post { if (running.get()) stopStreaming("idleWatchdog") }
                     break
                 }
             }
