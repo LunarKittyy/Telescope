@@ -1918,7 +1918,7 @@ msgid "Pill"
 msgstr "Pille"
 
 #. Light and Heavy are the names of the two stream formats
-#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:781 rust/crates/outputs/src/stream_output.rs:990 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:109 rust/crates/outputs/ui/stream_output.slint:113 rust/crates/setup/src/stats_phone.rs:98 rust/crates/setup/ui/setup.slint:459
+#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:781 rust/crates/outputs/src/stream_output.rs:990 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:109 rust/crates/outputs/ui/stream_output.slint:113 rust/crates/setup/src/stats_phone.rs:98 rust/crates/setup/ui/setup.slint:451
 msgid "Light"
 msgstr "Leicht"
 
@@ -6370,168 +6370,168 @@ msgctxt "search"
 msgid "appearance theme colors colours interface"
 msgstr "erscheinungsbild design farben oberflaeche benutzeroberflaeche appearance theme colors colours interface"
 
-#: rust/crates/setup/ui/setup.slint:444 rust/crates/setup/ui/setup.slint:445
-msgid "Help translate"
-msgstr "Beim Übersetzen helfen"
-
-#: rust/crates/setup/ui/setup.slint:446
-msgid "Fix a text or add a language, no coding needed."
-msgstr "Einen Text korrigieren oder eine Sprache ergänzen, ganz ohne Programmieren."
-
-#: rust/crates/setup/ui/setup.slint:451 rust/crates/setup/ui/setup.slint:458
+#: rust/crates/setup/ui/setup.slint:443 rust/crates/setup/ui/setup.slint:450
 msgid "Theme"
 msgstr "Design"
 
-#: rust/crates/setup/ui/setup.slint:454
+#: rust/crates/setup/ui/setup.slint:446
 msgctxt "search"
 msgid "theme classic dark blue appearance look old oled black light white"
 msgstr "design thema klassisch dunkel blau aussehen optik alt oled schwarz hell weiß theme classic dark blue appearance look old oled black light white"
 
-#: rust/crates/setup/ui/setup.slint:459
+#: rust/crates/setup/ui/setup.slint:451
 msgid "Dark"
 msgstr "Dunkel"
 
-#: rust/crates/setup/ui/setup.slint:459
+#: rust/crates/setup/ui/setup.slint:451
 msgid "Classic"
 msgstr "Klassisch"
 
-#: rust/crates/setup/ui/setup.slint:459
+#: rust/crates/setup/ui/setup.slint:451
 msgid "OLED"
 msgstr "OLED"
 
-#: rust/crates/setup/ui/setup.slint:466 rust/crates/setup/ui/setup.slint:467 rust/crates/setup/ui/setup.slint:475
+#: rust/crates/setup/ui/setup.slint:458 rust/crates/setup/ui/setup.slint:459 rust/crates/setup/ui/setup.slint:467
 msgid "Card colours"
 msgstr "Kartenfarben"
 
-#: rust/crates/setup/ui/setup.slint:468
+#: rust/crates/setup/ui/setup.slint:460
 msgid "Give every card in the main window a different colour."
 msgstr "Jeder Karte im Hauptfenster eine eigene Farbe geben."
 
-#: rust/crates/setup/ui/setup.slint:471
+#: rust/crates/setup/ui/setup.slint:463
 msgctxt "search"
 msgid "color colour theme appearance monochrome colourful purple hue accent look"
 msgstr "farbe farben design erscheinungsbild monochrom farbenfroh lila farbton akzent aussehen color colour theme appearance monochrome colourful purple hue accent look"
 
-#: rust/crates/setup/ui/setup.slint:476
+#: rust/crates/setup/ui/setup.slint:468
 msgid "Colourful"
 msgstr "Farbenfroh"
 
-#: rust/crates/setup/ui/setup.slint:476
+#: rust/crates/setup/ui/setup.slint:468
 msgid "Monochrome"
 msgstr "Monochrom"
 
-#: rust/crates/setup/ui/setup.slint:484 rust/crates/setup/ui/setup.slint:491
+#: rust/crates/setup/ui/setup.slint:476 rust/crates/setup/ui/setup.slint:483
 msgid "Language"
 msgstr "Sprache"
 
-#: rust/crates/setup/ui/setup.slint:487
+#: rust/crates/setup/ui/setup.slint:479
 msgctxt "search"
 msgid "language translation translate locale"
 msgstr "sprache uebersetzung uebersetzen gebietsschema lokalisierung language translation translate locale"
 
-#: rust/crates/setup/ui/setup.slint:504
+#: rust/crates/setup/ui/setup.slint:496
 msgid "Restart to switch"
 msgstr "Zum Wechseln neu starten"
 
-#: rust/crates/setup/ui/setup.slint:504
+#: rust/crates/setup/ui/setup.slint:496
 msgid "Restart Telescope to switch to it."
 msgstr "Starte Telescope neu, um die Sprache zu wechseln."
 
-#: rust/crates/setup/ui/setup.slint:506 rust/crates/shell/ui/settings.slint:501 rust/crates/shell/ui/settings.slint:504
+#: rust/crates/setup/ui/setup.slint:498 rust/crates/shell/ui/settings.slint:501 rust/crates/shell/ui/settings.slint:504
 msgid "Restart now"
 msgstr "Jetzt neu starten"
 
-#: rust/crates/setup/ui/setup.slint:510 rust/crates/shell/src/plugins_tab.rs:625
+#: rust/crates/setup/ui/setup.slint:502 rust/crates/shell/src/plugins_tab.rs:625
 msgid "Restart"
 msgstr "Neu starten"
 
-#: rust/crates/setup/ui/setup.slint:511
+#: rust/crates/setup/ui/setup.slint:503
 msgid "Restart Telescope in the language you picked."
 msgstr "Telescope in der gewählten Sprache neu starten."
 
-#: rust/crates/setup/ui/setup.slint:534
+#: rust/crates/setup/ui/setup.slint:516 rust/crates/setup/ui/setup.slint:520
+msgid "Help translate"
+msgstr "Beim Übersetzen helfen"
+
+#: rust/crates/setup/ui/setup.slint:521
+msgid "Fix a text or add a language, no coding needed."
+msgstr "Einen Text korrigieren oder eine Sprache ergänzen, ganz ohne Programmieren."
+
+#: rust/crates/setup/ui/setup.slint:542
 msgid "About"
 msgstr "Info"
 
-#: rust/crates/setup/ui/setup.slint:535
+#: rust/crates/setup/ui/setup.slint:543
 msgid "Version, log, bug reports and help."
 msgstr "Version, Protokoll, Fehlerberichte und Hilfe."
 
-#: rust/crates/setup/ui/setup.slint:536
+#: rust/crates/setup/ui/setup.slint:544
 msgctxt "search"
 msgid "info version help support credits"
 msgstr "info version hilfe support mitwirkende credits info version help support credits"
 
-#: rust/crates/setup/ui/setup.slint:547
+#: rust/crates/setup/ui/setup.slint:555
 msgctxt "search"
 msgid "about author credits made by version number build"
 msgstr "ueber autor entwickler mitwirkende erstellt von versionsnummer build about author credits made by version number build"
 
-#: rust/crates/setup/ui/setup.slint:562
+#: rust/crates/setup/ui/setup.slint:570
 msgid "Log"
 msgstr "Protokoll"
 
-#: rust/crates/setup/ui/setup.slint:565
+#: rust/crates/setup/ui/setup.slint:573
 msgctxt "search"
 msgid "log file open show temp folder"
 msgstr "protokoll logdatei öffnen anzeigen temporärer ordner log file open show temp folder"
 
-#: rust/crates/setup/ui/setup.slint:566 rust/crates/system/ui/shortcuts.slint:218
+#: rust/crates/setup/ui/setup.slint:574 rust/crates/system/ui/shortcuts.slint:218
 msgid "Open"
 msgstr "Öffnen"
 
-#: rust/crates/setup/ui/setup.slint:566
+#: rust/crates/setup/ui/setup.slint:574
 msgid "Open log"
 msgstr "Protokoll öffnen"
 
-#: rust/crates/setup/ui/setup.slint:566
+#: rust/crates/setup/ui/setup.slint:574
 msgid "Open the full log. It's kept in the temp folder, which the system clears."
 msgstr "Das vollständige Protokoll öffnen. Es liegt im temporären Ordner, den das System bereinigt."
 
-#: rust/crates/setup/ui/setup.slint:570
+#: rust/crates/setup/ui/setup.slint:578
 msgid "Diagnostics"
 msgstr "Diagnose"
 
-#: rust/crates/setup/ui/setup.slint:573
+#: rust/crates/setup/ui/setup.slint:581
 msgctxt "search"
 msgid "copy diagnostics info system details"
 msgstr "diagnose diagnosedaten kopieren info systemdetails copy diagnostics info system details"
 
-#: rust/crates/setup/ui/setup.slint:576
+#: rust/crates/setup/ui/setup.slint:584
 msgid "Copy diagnostics"
 msgstr "Diagnosedaten kopieren"
 
-#: rust/crates/setup/ui/setup.slint:577
+#: rust/crates/setup/ui/setup.slint:585
 msgid "Copy info for a bug report without pairing tokens, addresses or file paths."
 msgstr "Infos für einen Fehlerbericht kopieren, ohne Kopplungs-Tokens, Adressen oder Dateipfade."
 
-#: rust/crates/setup/ui/setup.slint:583
+#: rust/crates/setup/ui/setup.slint:591
 msgid "Bug reports"
 msgstr "Fehlerberichte"
 
-#: rust/crates/setup/ui/setup.slint:586
+#: rust/crates/setup/ui/setup.slint:594
 msgctxt "search"
 msgid "bug report diagnostics logs debug support problem issue help copy log file"
 msgstr "fehler meldung fehlerbericht diagnosedaten diagnose protokolle debug support problem hilfe kopieren protokolldatei bug report diagnostics logs debug support problem issue help copy log file"
 
-#: rust/crates/setup/ui/setup.slint:587 rust/crates/setup/ui/setup.slint:587
+#: rust/crates/setup/ui/setup.slint:595 rust/crates/setup/ui/setup.slint:595
 msgid "Report a bug"
 msgstr "Fehler melden"
 
-#: rust/crates/setup/ui/setup.slint:587
+#: rust/crates/setup/ui/setup.slint:595
 msgid "Copy the diagnostics and open the bug form on GitHub."
 msgstr "Die Diagnosedaten kopieren und das Fehlerformular auf GitHub öffnen."
 
-#: rust/crates/setup/ui/setup.slint:591
+#: rust/crates/setup/ui/setup.slint:599
 msgid "Need help?"
 msgstr "Brauchst du Hilfe?"
 
-#: rust/crates/setup/ui/setup.slint:594
+#: rust/crates/setup/ui/setup.slint:602
 msgctxt "search"
 msgid "help support troubleshooting question faq problem not working stuck ask"
 msgstr "hilfe support problembehandlung frage faq problem funktioniert nicht haengt fragen help support troubleshooting question faq problem not working stuck ask"
 
-#: rust/crates/setup/ui/setup.slint:595
+#: rust/crates/setup/ui/setup.slint:603
 msgid "Troubleshooting"
 msgstr "Problembehandlung"
 

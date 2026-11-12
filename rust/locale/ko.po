@@ -1918,7 +1918,7 @@ msgid "Pill"
 msgstr "알약"
 
 #. Light and Heavy are the names of the two stream formats
-#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:781 rust/crates/outputs/src/stream_output.rs:990 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:109 rust/crates/outputs/ui/stream_output.slint:113 rust/crates/setup/src/stats_phone.rs:98 rust/crates/setup/ui/setup.slint:459
+#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:781 rust/crates/outputs/src/stream_output.rs:990 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:109 rust/crates/outputs/ui/stream_output.slint:113 rust/crates/setup/src/stats_phone.rs:98 rust/crates/setup/ui/setup.slint:451
 msgid "Light"
 msgstr "가볍게"
 
@@ -6370,168 +6370,168 @@ msgctxt "search"
 msgid "appearance theme colors colours interface"
 msgstr "모양 테마 색상 인터페이스 appearance theme colors colours interface"
 
-#: rust/crates/setup/ui/setup.slint:444 rust/crates/setup/ui/setup.slint:445
-msgid "Help translate"
-msgstr "번역 참여"
-
-#: rust/crates/setup/ui/setup.slint:446
-msgid "Fix a text or add a language, no coding needed."
-msgstr "코딩 없이 문구를 수정하거나 언어를 추가해 보세요."
-
-#: rust/crates/setup/ui/setup.slint:451 rust/crates/setup/ui/setup.slint:458
+#: rust/crates/setup/ui/setup.slint:443 rust/crates/setup/ui/setup.slint:450
 msgid "Theme"
 msgstr "테마"
 
-#: rust/crates/setup/ui/setup.slint:454
+#: rust/crates/setup/ui/setup.slint:446
 msgctxt "search"
 msgid "theme classic dark blue appearance look old oled black light white"
 msgstr "테마 클래식 다크 어두운 파란색 외관 모양 옛날 올레드 블랙 검은색 라이트 밝은 흰색 theme classic dark blue appearance look old oled black light white"
 
-#: rust/crates/setup/ui/setup.slint:459
+#: rust/crates/setup/ui/setup.slint:451
 msgid "Dark"
 msgstr "다크"
 
-#: rust/crates/setup/ui/setup.slint:459
+#: rust/crates/setup/ui/setup.slint:451
 msgid "Classic"
 msgstr "클래식"
 
-#: rust/crates/setup/ui/setup.slint:459
+#: rust/crates/setup/ui/setup.slint:451
 msgid "OLED"
 msgstr "OLED"
 
-#: rust/crates/setup/ui/setup.slint:466 rust/crates/setup/ui/setup.slint:467 rust/crates/setup/ui/setup.slint:475
+#: rust/crates/setup/ui/setup.slint:458 rust/crates/setup/ui/setup.slint:459 rust/crates/setup/ui/setup.slint:467
 msgid "Card colours"
 msgstr "카드 색상"
 
-#: rust/crates/setup/ui/setup.slint:468
+#: rust/crates/setup/ui/setup.slint:460
 msgid "Give every card in the main window a different colour."
 msgstr "메인 창의 모든 카드에 서로 다른 색상을 지정해요."
 
-#: rust/crates/setup/ui/setup.slint:471
+#: rust/crates/setup/ui/setup.slint:463
 msgctxt "search"
 msgid "color colour theme appearance monochrome colourful purple hue accent look"
 msgstr "색상 테마 모양 단색 컬러 보라 강조 보기 color colour theme appearance monochrome colourful purple hue accent look"
 
-#: rust/crates/setup/ui/setup.slint:476
+#: rust/crates/setup/ui/setup.slint:468
 msgid "Colourful"
 msgstr "다채롭게"
 
-#: rust/crates/setup/ui/setup.slint:476
+#: rust/crates/setup/ui/setup.slint:468
 msgid "Monochrome"
 msgstr "단색"
 
-#: rust/crates/setup/ui/setup.slint:484 rust/crates/setup/ui/setup.slint:491
+#: rust/crates/setup/ui/setup.slint:476 rust/crates/setup/ui/setup.slint:483
 msgid "Language"
 msgstr "언어"
 
-#: rust/crates/setup/ui/setup.slint:487
+#: rust/crates/setup/ui/setup.slint:479
 msgctxt "search"
 msgid "language translation translate locale"
 msgstr "언어 번역 로캘 language translation translate locale"
 
-#: rust/crates/setup/ui/setup.slint:504
+#: rust/crates/setup/ui/setup.slint:496
 msgid "Restart to switch"
 msgstr "전환하려면 다시 시작"
 
-#: rust/crates/setup/ui/setup.slint:504
+#: rust/crates/setup/ui/setup.slint:496
 msgid "Restart Telescope to switch to it."
 msgstr "변경하려면 Telescope를 다시 시작하세요."
 
-#: rust/crates/setup/ui/setup.slint:506 rust/crates/shell/ui/settings.slint:501 rust/crates/shell/ui/settings.slint:504
+#: rust/crates/setup/ui/setup.slint:498 rust/crates/shell/ui/settings.slint:501 rust/crates/shell/ui/settings.slint:504
 msgid "Restart now"
 msgstr "지금 다시 시작"
 
-#: rust/crates/setup/ui/setup.slint:510 rust/crates/shell/src/plugins_tab.rs:625
+#: rust/crates/setup/ui/setup.slint:502 rust/crates/shell/src/plugins_tab.rs:625
 msgid "Restart"
 msgstr "다시 시작"
 
-#: rust/crates/setup/ui/setup.slint:511
+#: rust/crates/setup/ui/setup.slint:503
 msgid "Restart Telescope in the language you picked."
 msgstr "선택한 언어로 Telescope를 다시 시작해요."
 
-#: rust/crates/setup/ui/setup.slint:534
+#: rust/crates/setup/ui/setup.slint:516 rust/crates/setup/ui/setup.slint:520
+msgid "Help translate"
+msgstr "번역 참여"
+
+#: rust/crates/setup/ui/setup.slint:521
+msgid "Fix a text or add a language, no coding needed."
+msgstr "코딩 없이 문구를 수정하거나 언어를 추가해 보세요."
+
+#: rust/crates/setup/ui/setup.slint:542
 msgid "About"
 msgstr "정보"
 
-#: rust/crates/setup/ui/setup.slint:535
+#: rust/crates/setup/ui/setup.slint:543
 msgid "Version, log, bug reports and help."
 msgstr "버전, 로그, 버그 신고 및 도움말이에요."
 
-#: rust/crates/setup/ui/setup.slint:536
+#: rust/crates/setup/ui/setup.slint:544
 msgctxt "search"
 msgid "info version help support credits"
 msgstr "정보 버전 도움말 지원 크레딧 info version help support credits"
 
-#: rust/crates/setup/ui/setup.slint:547
+#: rust/crates/setup/ui/setup.slint:555
 msgctxt "search"
 msgid "about author credits made by version number build"
 msgstr "정보 제작자 크레딧 만든 사람 버전 번호 빌드 about author credits made by version number build"
 
-#: rust/crates/setup/ui/setup.slint:562
+#: rust/crates/setup/ui/setup.slint:570
 msgid "Log"
 msgstr "로그"
 
-#: rust/crates/setup/ui/setup.slint:565
+#: rust/crates/setup/ui/setup.slint:573
 msgctxt "search"
 msgid "log file open show temp folder"
 msgstr "로그 파일 열기 보기 임시 폴더 log file open show temp folder"
 
-#: rust/crates/setup/ui/setup.slint:566 rust/crates/system/ui/shortcuts.slint:218
+#: rust/crates/setup/ui/setup.slint:574 rust/crates/system/ui/shortcuts.slint:218
 msgid "Open"
 msgstr "열기"
 
-#: rust/crates/setup/ui/setup.slint:566
+#: rust/crates/setup/ui/setup.slint:574
 msgid "Open log"
 msgstr "로그 열기"
 
-#: rust/crates/setup/ui/setup.slint:566
+#: rust/crates/setup/ui/setup.slint:574
 msgid "Open the full log. It's kept in the temp folder, which the system clears."
 msgstr "전체 로그를 열어요. 로그는 시스템이 비우는 임시 폴더에 보관돼요."
 
-#: rust/crates/setup/ui/setup.slint:570
+#: rust/crates/setup/ui/setup.slint:578
 msgid "Diagnostics"
 msgstr "진단"
 
-#: rust/crates/setup/ui/setup.slint:573
+#: rust/crates/setup/ui/setup.slint:581
 msgctxt "search"
 msgid "copy diagnostics info system details"
 msgstr "진단 정보 복사 시스템 세부 정보 copy diagnostics info system details"
 
-#: rust/crates/setup/ui/setup.slint:576
+#: rust/crates/setup/ui/setup.slint:584
 msgid "Copy diagnostics"
 msgstr "진단 정보 복사"
 
-#: rust/crates/setup/ui/setup.slint:577
+#: rust/crates/setup/ui/setup.slint:585
 msgid "Copy info for a bug report without pairing tokens, addresses or file paths."
 msgstr "페어링 토큰, 주소 또는 파일 경로를 제외하고 버그 신고용 정보를 복사해요."
 
-#: rust/crates/setup/ui/setup.slint:583
+#: rust/crates/setup/ui/setup.slint:591
 msgid "Bug reports"
 msgstr "버그 신고"
 
-#: rust/crates/setup/ui/setup.slint:586
+#: rust/crates/setup/ui/setup.slint:594
 msgctxt "search"
 msgid "bug report diagnostics logs debug support problem issue help copy log file"
 msgstr "버그 신고 진단 로그 디버그 지원 문제 도움말 로그 파일 복사 bug report diagnostics logs debug support problem issue help copy log file"
 
-#: rust/crates/setup/ui/setup.slint:587 rust/crates/setup/ui/setup.slint:587
+#: rust/crates/setup/ui/setup.slint:595 rust/crates/setup/ui/setup.slint:595
 msgid "Report a bug"
 msgstr "버그 신고"
 
-#: rust/crates/setup/ui/setup.slint:587
+#: rust/crates/setup/ui/setup.slint:595
 msgid "Copy the diagnostics and open the bug form on GitHub."
 msgstr "진단 정보를 복사하고 GitHub에서 버그 신고 양식을 열어요."
 
-#: rust/crates/setup/ui/setup.slint:591
+#: rust/crates/setup/ui/setup.slint:599
 msgid "Need help?"
 msgstr "도움이 필요하신가요?"
 
-#: rust/crates/setup/ui/setup.slint:594
+#: rust/crates/setup/ui/setup.slint:602
 msgctxt "search"
 msgid "help support troubleshooting question faq problem not working stuck ask"
 msgstr "도움말 지원 문제 해결 질문 faq 작동 안 함 질문하기 help support troubleshooting question faq problem not working stuck ask"
 
-#: rust/crates/setup/ui/setup.slint:595
+#: rust/crates/setup/ui/setup.slint:603
 msgid "Troubleshooting"
 msgstr "문제 해결"
 
