@@ -683,9 +683,9 @@ fn a_watch_with_no_stream_says_so_and_a_bad_length_is_refused() {
 #[test]
 fn the_access_level_is_saved_defaults_to_read_and_change_and_ignores_what_it_does_not_know() {
     let mut p = McpPlugin::new(McpHandle::default());
-    assert_eq!((p.access(), p.get_config()), (Access::ReadAndChange, json!({"access": "read_and_change"})));
+    assert_eq!((p.access(), p.get_config()), (Access::ReadAndChange, json!({"access": "read_and_change", "journal": []})));
     p.set_config(&json!({"access": "read_only"})).unwrap();
-    assert_eq!((p.access(), p.get_config()), (Access::ReadOnly, json!({"access": "read_only"})));
+    assert_eq!((p.access(), p.get_config()), (Access::ReadOnly, json!({"access": "read_only", "journal": []})));
     p.set_config(&json!({"access": "everything"})).unwrap();
     assert_eq!(p.access(), Access::ReadAndChange);
     p.set_config(&json!({})).unwrap();
@@ -792,7 +792,7 @@ fn the_log_keeps_the_last_thirty_and_only_in_memory() {
     }
     assert_eq!(r.plugin.log().len(), LOG_KEPT);
     assert_eq!(r.props(TAB)["log"].as_array().unwrap().len(), 30);
-    assert_eq!(r.plugin.get_config(), json!({"access": "read_and_change"}), "nothing of it is in what gets saved");
+    assert_eq!(r.plugin.get_config(), json!({"access": "read_and_change", "journal": []}), "nothing of it is in what gets saved");
 }
 
 #[test]
@@ -968,7 +968,9 @@ fn set_contrast(r: &mut Rig, session: u64, value: f64) {
 }
 
 fn by_hand(r: &mut Rig, contrast: f64) {
-    r.host.plugin_configs.get_mut("grading").unwrap()["contrast"] = json!(contrast);
+    let mut config = r.config();
+    config["contrast"] = json!(contrast);
+    r.host.edit_by_hand("grading", config);
 }
 
 #[test]
@@ -1268,4 +1270,212 @@ fn a_nerd_watch_keeps_the_times_on_when_the_nerd_ask_runs_out_and_lets_go_when_i
         }
     }).unwrap();
     assert_eq!(asked_for_times(&r), [true, false]);
+}
+
+// ── Undo covers what actions change, survives a restart and tells the person's edits from its own ──
+
+fn blur_action(r: &mut Rig) {
+    let action = ActionSpec { id: "privacy_blur.auto".into(), label: "Privacy blur when someone walks in".into(), group: "Privacy blur".into(), params: vec![], repeats: false,
+                              on_release: false, current: None, keywords: String::new() };
+    r.host.actions = vec![("blur".into(), action)];
+    // No declared settings, like the real plugin: only its saved config holds the switch
+    r.host.plugin_configs.insert("blur".into(), json!({"on": true, "mode": "whole"}));
+    r.host.plugins.push("blur".into());
+    r.host.action_effects.insert("privacy_blur.auto".into(), ("blur".into(), json!({"on": false, "mode": "whole"})));
+}
+
+#[test]
+fn an_action_that_turns_off_something_no_setting_declares_is_put_back_by_revert() {
+    let mut r = Rig::new();
+    blur_action(&mut r);
+    let said = r.ask("run_action", json!({"action": "privacy_blur.auto"})).unwrap();
+    assert_eq!(said["changed"][0], json!({"id": "blur.on", "was": true, "now": false}), "{said}");
+    assert!(r.plugin.can_undo());
+    let back = r.ask("revert", json!({})).unwrap();
+    assert_eq!(back["reverted"], json!([{"id": "blur.on", "back_to": true}]), "{back}");
+    assert_eq!(r.host.plugin_configs["blur"], json!({"on": true, "mode": "whole"}), "automatic privacy blur is on again");
+    assert!(!r.plugin.can_undo());
+}
+
+#[test]
+fn the_headers_undo_puts_back_an_actions_undeclared_state_beside_a_declared_setting() {
+    let mut r = Rig::new();
+    blur_action(&mut r);
+    r.ask("set", json!({"changes": {"grading.contrast": 1.4}})).unwrap();
+    r.ask("run_action", json!({"action": "privacy_blur.auto"})).unwrap();
+    r.ui(HEADER, "undo", vec![]);
+    assert_eq!((r.config()["contrast"].clone(), r.host.plugin_configs["blur"]["on"].clone()), (json!(1.0), json!(true)));
+}
+
+#[test]
+fn an_action_that_moves_an_undeclared_key_of_a_plugin_that_declares_others_puts_it_back_too() {
+    let mut r = Rig::new();
+    with_actions(&mut r);
+    let mut grading = r.config();
+    grading["lut"] = json!("other.cube");
+    r.host.action_effects.insert("grading.reset".into(), ("grading".into(), grading));
+    let said = r.ask("run_action", json!({"action": "grading.reset"})).unwrap();
+    assert_eq!(said["changed"], json!([{"id": "grading.lut", "was": "keep.cube", "now": "other.cube"}]));
+    r.ask("revert", json!({})).unwrap();
+    assert_eq!(r.config()["lut"], json!("keep.cube"));
+}
+
+#[test]
+fn an_action_that_changes_nothing_saved_is_named_when_undo_cannot_put_it_back() {
+    let mut r = Rig::new();
+    with_actions(&mut r);
+    r.ask("run_action", json!({"action": "grading.reset"})).unwrap();
+    assert!(!r.plugin.can_undo(), "there is nothing to undo, so the button isn't lit for it");
+    let back = r.ask("revert", json!({})).unwrap();
+    assert_eq!(back["reverted"], json!([]));
+    assert_eq!(back["not_restored"][0]["action"], json!("grading.reset"), "{back}");
+    assert!(back["not_restored"][0]["why"].as_str().unwrap().contains("nothing to put back"));
+    assert!(r.ask("revert", json!({})).unwrap().get("not_restored").is_none(), "it is told once");
+    // With a setting moved too, the button's undo says what it left
+    with_actions(&mut r);
+    r.ask("run_action", json!({"action": "grading.reset"})).unwrap();
+    r.ask("set", json!({"changes": {"grading.contrast": 1.4}})).unwrap();
+    r.ui(HEADER, "undo", vec![]);
+    assert_eq!(r.plugin.log().remove(0).text, "Undid what the AI changed, except 1 it couldn't put back");
+}
+
+#[test]
+fn the_journal_is_saved_with_the_config_and_undo_still_works_after_a_restart() {
+    let mut r = Rig::new();
+    r.ask("set", json!({"changes": {"grading.contrast": 1.4, "grading.masters.gain": 0.5}})).unwrap();
+    let saved: Value = serde_json::from_str(&r.plugin.get_config().to_string()).unwrap();
+    assert_eq!((saved["access"].clone(), saved["journal"].as_array().unwrap().len()), (json!("read_and_change"), 2));
+    // Telescope starts again with the settings as the AI left them
+    let mut after = Rig::new();
+    after.host.edit_by_hand("grading", r.config());
+    after.plugin.set_config(&saved).unwrap();
+    assert!(after.plugin.can_undo(), "the button is lit after the restart");
+    // An AI app that connects now is nobody who made those changes
+    assert_eq!(after.ask_as(1, "revert", json!({})).unwrap()["reverted"], json!([]));
+    after.ask_as(1, "set", json!({"changes": {"grading.contrast": 1.2}})).unwrap();
+    let seqs: Vec<u64> = after.plugin.journal.iter().map(|c| c.seq).collect();
+    assert!(seqs.windows(2).all(|w| w[0] < w[1]), "new steps come after the saved ones: {seqs:?}");
+    after.plugin.undo_all(&mut after.host);
+    assert_eq!((after.config()["contrast"].clone(), after.config()["masters"]["gain"].clone()), (json!(1.0), json!(1.0)));
+    assert!(after.host.calls.iter().any(|c| c == "schedule_save"), "the emptied journal is saved too");
+}
+
+#[test]
+fn what_changes_the_journal_asks_for_a_save() {
+    let mut r = Rig::new();
+    let saves = |r: &Rig| r.host.calls.iter().filter(|c| *c == "schedule_save").count();
+    r.ask("set", json!({"changes": {"grading.contrast": 1.4}})).unwrap();
+    let after_set = saves(&r);
+    with_actions(&mut r);
+    r.ask("run_action", json!({"action": "grading.reset"})).unwrap();
+    assert!(saves(&r) > after_set, "an action's steps are saved");
+    let before_revert = saves(&r);
+    r.ask("revert", json!({})).unwrap();
+    assert!(saves(&r) > before_revert);
+}
+
+#[test]
+fn a_saved_journal_with_a_broken_entry_still_loads_the_rest() {
+    let mut r = Rig::new();
+    r.plugin.set_config(&json!({"journal": [{"seq": 3, "plugin": "grading", "key": "contrast", "source": "phone", "was": 1.0, "now": 1.4}, {"nonsense": true}, 7]})).unwrap();
+    assert_eq!(r.plugin.journal.len(), 1);
+    assert_eq!(r.plugin.journal[0].session, PREVIOUS_RUN);
+    r.plugin.set_config(&json!({"access": "read_only"})).unwrap();
+    assert_eq!(r.plugin.journal.len(), 1, "a config with no journal in it leaves the one there is");
+}
+
+#[test]
+fn an_edit_that_lands_on_the_ais_value_again_is_the_persons_and_is_left_alone() {
+    let mut r = Rig::new();
+    set_contrast(&mut r, 0, 1.4);
+    by_hand(&mut r, 1.7);
+    by_hand(&mut r, 1.4);
+    let back = r.ask("revert", json!({})).unwrap();
+    assert_eq!(back["reverted"], json!([]), "{back}");
+    assert!(back["left"][0]["why"].as_str().unwrap().contains("edited since"), "{back}");
+    assert_eq!(r.config()["contrast"], json!(1.4), "the person's value stays");
+}
+
+#[test]
+fn the_persons_edit_of_another_setting_does_not_stop_the_revert_of_this_one() {
+    let mut r = Rig::new();
+    set_contrast(&mut r, 0, 1.4);
+    let mut config = r.config();
+    config["masters"]["lift"] = json!(0.2);
+    r.host.edit_by_hand("grading", config);
+    let back = r.ask("revert", json!({})).unwrap();
+    assert_eq!(back["reverted"], json!([{"id": "grading.contrast", "back_to": 1.0}]), "{back}");
+    assert_eq!(r.config()["masters"]["lift"], json!(0.2));
+}
+
+#[test]
+fn writing_again_after_the_person_landed_on_the_same_value_is_not_folded_into_the_first_step() {
+    let mut r = Rig::new();
+    set_contrast(&mut r, 0, 1.4);
+    by_hand(&mut r, 1.7);
+    by_hand(&mut r, 1.4);
+    set_contrast(&mut r, 0, 1.2);
+    assert_eq!(r.plugin.journal.len(), 2, "the person's edits are between the two writes");
+    let back = r.ask("revert", json!({})).unwrap();
+    assert_eq!(r.config()["contrast"], json!(1.4), "back to where the person left it, not to the start: {back}");
+    assert_eq!(back["reverted"], json!([{"id": "grading.contrast", "back_to": 1.4}]));
+    assert!(back["left"][0]["why"].as_str().unwrap().contains("edited since"));
+}
+
+#[test]
+fn two_apps_writing_one_after_the_other_are_still_undone_together_with_revisions_counted() {
+    let mut r = Rig::new();
+    let (a, b) = (r.handle.open_client().unwrap(), r.handle.open_client().unwrap());
+    r.deliver();
+    set_contrast(&mut r, a.session(), 1.4);
+    set_contrast(&mut r, b.session(), 1.7);
+    set_contrast(&mut r, a.session(), 1.9);
+    r.plugin.undo_all(&mut r.host);
+    assert_eq!(r.config()["contrast"], json!(1.0));
+}
+
+#[test]
+fn a_change_for_a_camera_that_is_not_shown_stays_in_the_journal_and_goes_back_when_it_is() {
+    let mut r = Rig::new();
+    set_contrast(&mut r, 0, 1.4);
+    r.host.focused = Some("other phone".into());
+    let back = r.ask("revert", json!({})).unwrap();
+    assert_eq!(back["reverted"], json!([]));
+    assert!(back["left"][0]["why"].as_str().unwrap().contains("kept"), "it doesn't say it is gone: {back}");
+    assert!(r.plugin.can_undo(), "the change is still there to undo");
+    assert_eq!(r.props(HEADER)["can-undo"], json!(true));
+    // The button's undo keeps it too
+    r.ui(HEADER, "undo", vec![]);
+    assert!(r.plugin.can_undo());
+    assert_eq!(r.config()["contrast"], json!(1.4));
+    r.host.focused = Some("phone".into());
+    let back = r.ask("revert", json!({})).unwrap();
+    assert_eq!(back["reverted"], json!([{"id": "grading.contrast", "back_to": 1.0}]), "{back}");
+    assert!(!r.plugin.can_undo());
+}
+
+#[test]
+fn a_kept_change_stays_in_order_beside_the_ones_that_were_undone() {
+    let mut r = Rig::new();
+    set_contrast(&mut r, 0, 1.4);
+    r.host.focused = Some("other phone".into());
+    r.ask("set", json!({"changes": {"grading.masters.gain": 0.5}})).unwrap();
+    r.host.focused = Some("phone".into());
+    r.ask("revert", json!({})).unwrap();
+    assert_eq!((r.config()["contrast"].clone(), r.config()["masters"]["gain"].clone()), (json!(1.0), json!(0.5)));
+    let kept: Vec<&str> = r.plugin.journal.iter().map(|c| c.key.as_str()).collect();
+    assert_eq!(kept, ["masters.gain"]);
+}
+
+#[test]
+fn a_change_for_a_plugin_that_is_switched_off_is_kept_until_it_is_back() {
+    let mut r = Rig::new();
+    set_contrast(&mut r, 0, 1.4);
+    let config = r.host.plugin_configs.remove("grading").unwrap();
+    let back = r.ask("revert", json!({})).unwrap();
+    assert!(back["left"][0]["why"].as_str().unwrap().contains("switched off"), "{back}");
+    assert!(r.plugin.can_undo());
+    r.host.plugin_configs.insert("grading".into(), config);
+    r.ask("revert", json!({})).unwrap();
+    assert_eq!(r.config()["contrast"], json!(1.0));
 }

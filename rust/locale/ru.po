@@ -194,12 +194,12 @@ msgid "unmuted"
 msgstr "звук включен"
 
 #. a switch's state, as in "Phone mic: on"
-#: rust/crates/audio/src/plugin.rs:985 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1091
+#: rust/crates/audio/src/plugin.rs:985 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1200
 msgid "on"
 msgstr "вкл."
 
 #. a switch's state, as in "Phone mic: on"
-#: rust/crates/audio/src/plugin.rs:985 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1092
+#: rust/crates/audio/src/plugin.rs:985 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1201
 msgid "off"
 msgstr "выкл."
 
@@ -548,7 +548,7 @@ msgid "Looking…"
 msgstr "Анализ…"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:27 rust/crates/effects/src/framing.rs:70 rust/crates/effects/src/fun_pack.rs:38 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:459 rust/crates/effects/ui/background.slint:46 rust/crates/effects/ui/background.slint:51 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:287 rust/crates/link/src/browser/plugin.rs:585 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:78
+#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:27 rust/crates/effects/src/framing.rs:72 rust/crates/effects/src/fun_pack.rs:38 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:459 rust/crates/effects/ui/background.slint:46 rust/crates/effects/ui/background.slint:51 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:287 rust/crates/link/src/browser/plugin.rs:585 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:78
 msgid "Off"
 msgstr "Выкл"
 
@@ -1456,121 +1456,121 @@ msgid "Body"
 msgstr "В полный рост"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Sloth"
 msgstr "Улитка"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Lazy"
 msgstr "Лениво"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Mellow"
 msgstr "Плавно"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Calm"
 msgstr "Спокойно"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Easy"
 msgstr "Ровно"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Steady"
 msgstr "Бодро"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Brisk"
 msgstr "Быстро"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Quick"
 msgstr "Шустро"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Snappy"
 msgstr "Пуля"
 
 #. Speed 1 to 10, slowest first, as a playful word for each step; keep them short
-#: rust/crates/effects/src/framing.rs:51
+#: rust/crates/effects/src/framing.rs:53
 msgid "Zippy"
 msgstr "Молния"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:70
+#: rust/crates/effects/src/framing.rs:72
 msgid "Fidget"
 msgstr "Ерзать"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:70
+#: rust/crates/effects/src/framing.rs:72
 msgid "Shift"
 msgstr "Сдвиг"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:70
+#: rust/crates/effects/src/framing.rs:72
 msgid "Lean"
 msgstr "Наклониться"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:70
+#: rust/crates/effects/src/framing.rs:72
 msgid "Step"
 msgstr "Шагнуть"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:70
+#: rust/crates/effects/src/framing.rs:72
 msgid "Roam"
 msgstr "Ходить"
 
-#: rust/crates/effects/src/framing.rs:87
+#: rust/crates/effects/src/framing.rs:89
 msgid "Zoom and pan to follow you."
 msgstr "Масштабировать и панорамировать кадр, следуя за тобой."
 
-#: rust/crates/effects/src/framing.rs:88
+#: rust/crates/effects/src/framing.rs:90
 msgid "How much of you is in the picture, from just your head to all of you."
 msgstr "Насколько крупно брать план: от одной головы до фигуры в полный рост."
 
-#: rust/crates/effects/src/framing.rs:89
+#: rust/crates/effects/src/framing.rs:91
 msgid "How quickly the framing follows when you move."
 msgstr "Насколько быстро кадрирование следует за твоими движениями."
 
-#: rust/crates/effects/src/framing.rs:90
+#: rust/crates/effects/src/framing.rs:92
 msgid "How much you can move before the framing follows you, from a fidget to walking around."
 msgstr "Насколько свободно можно двигаться до срабатывания кадрирования: от мелких движений в кресле до ходьбы по комнате."
 
-#: rust/crates/effects/src/framing.rs:91
+#: rust/crates/effects/src/framing.rs:93
 msgid "Show hands"
 msgstr "Показывать руки"
 
-#: rust/crates/effects/src/framing.rs:92
+#: rust/crates/effects/src/framing.rs:94
 msgid "Widens the view so your hands are in it too."
 msgstr "Расширяет кадр, чтобы в него попадали и руки."
 
-#: rust/crates/effects/src/framing.rs:93
+#: rust/crates/effects/src/framing.rs:95
 msgid "Something else is moving the zoom and pan."
 msgstr "Что-то другое меняет масштаб и панорамирование."
 
-#: rust/crates/effects/src/framing.rs:94
+#: rust/crates/effects/src/framing.rs:96
 msgid "Auto framing: how much of you"
 msgstr "Автокадрирование: крупность плана"
 
-#: rust/crates/effects/src/framing.rs:95
+#: rust/crates/effects/src/framing.rs:97
 msgid "Auto framing speed"
 msgstr "Скорость автокадрирования"
 
-#: rust/crates/effects/src/framing.rs:835
+#: rust/crates/effects/src/framing.rs:875
 msgid "Zooms and pans to keep you in the picture as you move."
 msgstr "Масштабирует и панорамирует кадр, чтобы ты оставался в кадре при движении."
 
-#: rust/crates/effects/src/framing.rs:836
+#: rust/crates/effects/src/framing.rs:876
 msgid "Without it there's no Auto framing card and the zoom stays where you put it."
 msgstr "Без него не будет карточки «Автокадрирование», и масштаб останется таким, каким ты его настроил."
 
@@ -6359,11 +6359,11 @@ msgstr "Настройка дополнительных виртуальных �
 msgid "Couldn't add more virtual cameras"
 msgstr "Не удалось добавить дополнительные виртуальные камеры"
 
-#: rust/crates/shell/src/host.rs:577
+#: rust/crates/shell/src/host.rs:597
 msgid "Only a phone's stream has the video this needs."
 msgstr "Только в трансляции с телефона есть видео нужного формата."
 
-#: rust/crates/shell/src/host.rs:583
+#: rust/crates/shell/src/host.rs:603
 msgid "Needs Light: Heavy sends whole pictures, with no keyframes to work with."
 msgstr "Требуется формат «Легкий»: «Тяжелый» передает полные кадры без ключевых кадров для обработки."
 
@@ -7103,7 +7103,7 @@ msgstr "Установить плагин"
 msgid "Plugins (*.zip)"
 msgstr "Плагины (*.zip)"
 
-#: rust/crates/shell/src/shell.rs:592
+#: rust/crates/shell/src/shell.rs:630
 #, python-brace-format
 msgid "{plugins} didn't start"
 msgid_plural "{plugins} didn't start"
@@ -7111,7 +7111,7 @@ msgstr[0] "Плагин {plugins} не запустился"
 msgstr[1] "Плагины {plugins} не запустились"
 msgstr[2] "Плагины {plugins} не запустились"
 
-#: rust/crates/shell/src/shell.rs:594
+#: rust/crates/shell/src/shell.rs:632
 #, python-brace-format
 msgid "{n} plugin didn't start"
 msgid_plural "{n} plugins didn't start"
@@ -7119,18 +7119,18 @@ msgstr[0] "{n} плагин не запустился"
 msgstr[1] "{n} плагина не запустились"
 msgstr[2] "{n} плагинов не запустились"
 
-#: rust/crates/shell/src/shell.rs:596
+#: rust/crates/shell/src/shell.rs:634
 msgid "Telescope works without it. The Plugins tab in Settings says what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings says what went wrong."
 msgstr[0] "Telescope работает и без него. Во вкладке «Плагины» в Настройках написано, что пошло не так."
 msgstr[1] "Telescope работает и без них. Во вкладке «Плагины» в Настройках написано, что пошло не так."
 msgstr[2] "Telescope работает и без них. Во вкладке «Плагины» в Настройках написано, что пошло не так."
 
-#: rust/crates/shell/src/shell.rs:600 rust/crates/shell/src/shell.rs:620
+#: rust/crates/shell/src/shell.rs:638 rust/crates/shell/src/shell.rs:658
 msgid "Plugins…"
 msgstr "Плагины…"
 
-#: rust/crates/shell/src/shell.rs:614
+#: rust/crates/shell/src/shell.rs:652
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
@@ -7138,31 +7138,31 @@ msgstr[0] "Плагин {plugins} выключен"
 msgstr[1] "Плагины {plugins} выключены"
 msgstr[2] "Плагины {plugins} выключены"
 
-#: rust/crates/shell/src/shell.rs:615
+#: rust/crates/shell/src/shell.rs:653
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "Ты выключил это в «Плагинах». Чтобы вернуть, открой «Плагины» в Настройках и включи."
 msgstr[1] "Ты выключил их в «Плагинах». Чтобы вернуть их, открой «Плагины» в Настройках и включи их."
 msgstr[2] "Ты выключил их в «Плагинах». Чтобы вернуть их, открой «Плагины» в Настройках и включи их."
 
-#: rust/crates/shell/src/shell.rs:635
+#: rust/crates/shell/src/shell.rs:673
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "Копия старого файла сохранена в {path}."
 
-#: rust/crates/shell/src/shell.rs:637
+#: rust/crates/shell/src/shell.rs:675
 msgid "Your settings couldn't be read"
 msgstr "Не удалось прочитать твои настройки"
 
-#: rust/crates/shell/src/shell.rs:638
+#: rust/crates/shell/src/shell.rs:676
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescope запущен со стандартными настройками, поэтому сопряженные телефоны нужно связать снова."
 
-#: rust/crates/shell/src/shell.rs:962
+#: rust/crates/shell/src/shell.rs:1000
 msgid "Telescope - Save failed"
 msgstr "Telescope - не удалось сохранить"
 
-#: rust/crates/shell/src/shell.rs:963
+#: rust/crates/shell/src/shell.rs:1001
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "Не удалось сохранить настройки. Проверь свободное место на диске и права доступа."
 
@@ -7864,165 +7864,170 @@ msgstr "Эта клавиша уже используется другим пр�
 msgid "Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all, so pick another."
 msgstr "Горячие клавиши «Везде» перехватываются у Windows, пока работает Telescope. Клавиша, уже занятая другим приложением, не доходит до Telescope, поэтому выбери другую."
 
-#: rust/crates/system/src/mcp.rs:590 rust/crates/system/src/mcp.rs:733
+#: rust/crates/system/src/mcp.rs:630 rust/crates/system/src/mcp.rs:773
 msgid "An AI app"
 msgstr "ИИ-приложение"
 
-#: rust/crates/system/src/mcp.rs:596
+#: rust/crates/system/src/mcp.rs:636
 #, python-brace-format
 msgid "Refused (read only): {what}"
 msgstr "Отклонено (только чтение): {what}"
 
-#: rust/crates/system/src/mcp.rs:625
+#: rust/crates/system/src/mcp.rs:665
 #, python-brace-format
 msgid "Failed: {what}"
 msgstr "Сбой: {what}"
 
-#: rust/crates/system/src/mcp.rs:656
+#: rust/crates/system/src/mcp.rs:696
 msgid "Read status"
 msgstr "Прочитан статус"
 
-#: rust/crates/system/src/mcp.rs:657
+#: rust/crates/system/src/mcp.rs:697
 msgid "Read stats"
 msgstr "Прочитана статистика"
 
-#: rust/crates/system/src/mcp.rs:658
+#: rust/crates/system/src/mcp.rs:698
 #, python-brace-format
 msgid "Watched stats for {n} s"
 msgstr "Наблюдение за статистикой ({n} с)"
 
-#: rust/crates/system/src/mcp.rs:659
+#: rust/crates/system/src/mcp.rs:699
 msgid "Read diagnostics"
 msgstr "Прочитана диагностика"
 
-#: rust/crates/system/src/mcp.rs:660
+#: rust/crates/system/src/mcp.rs:700
 msgid "Measured the picture"
 msgstr "Измерены параметры картинки"
 
-#: rust/crates/system/src/mcp.rs:662
+#: rust/crates/system/src/mcp.rs:702
 #, python-brace-format
 msgid "Listed the {plugin} settings"
 msgstr "Получен список настроек ({plugin})"
 
-#: rust/crates/system/src/mcp.rs:663
+#: rust/crates/system/src/mcp.rs:703
 msgid "Listed every setting"
 msgstr "Получен список всех настроек"
 
-#: rust/crates/system/src/mcp.rs:666
+#: rust/crates/system/src/mcp.rs:706
 #, python-brace-format
 msgid "Read {names}"
 msgstr "Прочитано: {names}"
 
-#: rust/crates/system/src/mcp.rs:667
+#: rust/crates/system/src/mcp.rs:707
 msgid "Read every setting"
 msgstr "Прочитаны все настройки"
 
-#: rust/crates/system/src/mcp.rs:670
+#: rust/crates/system/src/mcp.rs:710
 #, python-brace-format
 msgid "Set {changes}"
 msgstr "Изменено: {changes}"
 
-#: rust/crates/system/src/mcp.rs:670
+#: rust/crates/system/src/mcp.rs:710
 #, python-brace-format
 msgid "{name} to {value}"
 msgstr "{name} → {value}"
 
-#: rust/crates/system/src/mcp.rs:671
+#: rust/crates/system/src/mcp.rs:711
 msgid "Set settings"
 msgstr "Изменены настройки"
 
-#: rust/crates/system/src/mcp.rs:673
+#: rust/crates/system/src/mcp.rs:713
 msgid "Undid its changes"
 msgstr "Отмена своих изменений"
 
-#: rust/crates/system/src/mcp.rs:674
+#: rust/crates/system/src/mcp.rs:714
 msgid "Listed the actions"
 msgstr "Получен список действий"
 
-#: rust/crates/system/src/mcp.rs:678
+#: rust/crates/system/src/mcp.rs:718
 #, python-brace-format
 msgid "Ran {action}"
 msgstr "Выполнено: {action}"
 
-#: rust/crates/system/src/mcp.rs:719
+#: rust/crates/system/src/mcp.rs:759
 msgid "MCP server settings"
 msgstr "Настройки MCP-сервера"
 
-#: rust/crates/system/src/mcp.rs:720
+#: rust/crates/system/src/mcp.rs:760
 msgid "An AI app is connected."
 msgstr "ИИ-приложение подключено."
 
-#: rust/crates/system/src/mcp.rs:720
+#: rust/crates/system/src/mcp.rs:760
 msgid "No AI app is connected. Open the MCP settings."
 msgstr "ИИ-приложение не подключено. Открыть настройки MCP."
 
-#: rust/crates/system/src/mcp.rs:721
+#: rust/crates/system/src/mcp.rs:761
 msgid "Undo what the AI changed"
 msgstr "Отменить изменения ИИ"
 
-#: rust/crates/system/src/mcp.rs:722
+#: rust/crates/system/src/mcp.rs:762
 msgid "Undo what the AI changed."
 msgstr "Отменить изменения, внесенные ИИ."
 
-#: rust/crates/system/src/mcp.rs:722
+#: rust/crates/system/src/mcp.rs:762
 msgid "The AI hasn't changed anything."
 msgstr "ИИ ничего не менял."
 
-#: rust/crates/system/src/mcp.rs:737
+#: rust/crates/system/src/mcp.rs:777
 msgid "No AI app is connected"
 msgstr "ИИ-приложение не подключено"
 
-#: rust/crates/system/src/mcp.rs:738
+#: rust/crates/system/src/mcp.rs:778
 msgid "Read only"
 msgstr "Только чтение"
 
-#: rust/crates/system/src/mcp.rs:738
+#: rust/crates/system/src/mcp.rs:778
 msgid "Read and change"
 msgstr "Чтение и изменение"
 
-#: rust/crates/system/src/mcp.rs:741
+#: rust/crates/system/src/mcp.rs:781
 msgid "Copy the entry for an AI app's MCP settings."
 msgstr "Скопировать запись для настроек MCP в ИИ-приложении."
 
-#: rust/crates/system/src/mcp.rs:743
+#: rust/crates/system/src/mcp.rs:783
 msgid "Nothing yet"
 msgstr "Пока пусто"
 
-#: rust/crates/system/src/mcp.rs:1009
-msgid "You"
-msgstr "Ты"
-
-#: rust/crates/system/src/mcp.rs:1009
+#: rust/crates/system/src/mcp.rs:1112
 msgid "Undid what the AI changed"
 msgstr "Отменены изменения ИИ"
 
-#: rust/crates/system/src/mcp.rs:1103
+#: rust/crates/system/src/mcp.rs:1112
+#, python-brace-format
+msgid "Undid what the AI changed, except {n} it couldn't put back"
+msgstr ""
+
+#: rust/crates/system/src/mcp.rs:1113
+msgid "You"
+msgstr "Ты"
+
+#: rust/crates/system/src/mcp.rs:1212
 #, python-brace-format
 msgid "{list} and {n} more"
 msgstr "{list} и еще {n}"
 
-#: rust/crates/system/src/mcp.rs:1228 rust/crates/system/ui/mcp.slint:29
+#: rust/crates/system/src/mcp.rs:1394 rust/crates/system/ui/mcp.slint:29
 msgid "MCP server"
 msgstr "MCP-сервер"
 
-#: rust/crates/system/src/mcp.rs:1229
+#: rust/crates/system/src/mcp.rs:1395
 msgid "Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port."
 msgstr "Позволяет ИИ-приложению (например, Claude Desktop) просматривать и менять настройки Telescope через команду без открытия сетевого порта."
 
-#: rust/crates/system/src/mcp.rs:1230
+#: rust/crates/system/src/mcp.rs:1396
 msgid "Without it AI apps can't connect to Telescope."
 msgstr "Без него ИИ-приложения не смогут подключиться к Telescope."
 
-#: rust/crates/system/src/mcp.rs:1261 rust/crates/system/ui/mcp.slint:227
+#: rust/crates/system/src/mcp.rs:1427 rust/crates/system/ui/mcp.slint:227
 msgid "MCP"
 msgstr "MCP"
 
-#: rust/crates/system/src/mcp.rs:1262 rust/crates/system/ui/mcp.slint:31
+#: rust/crates/system/src/mcp.rs:1428 rust/crates/system/ui/mcp.slint:31
 msgctxt "search"
 msgid "mcp ai claude model assistant agent connect access read only"
 msgstr "мцп ии нейросеть клод модель ассистент агент подключение доступ только чтение mcp ai claude model assistant agent connect access read only"
 
-#: rust/crates/system/src/mcp.rs:1302
+#: rust/crates/system/src/mcp.rs:1478
 msgid "An AI app is connected to Telescope through the MCP server."
 msgstr "ИИ-приложение подключено к Telescope через MCP-сервер."
 
