@@ -1361,6 +1361,34 @@ fn the_journal_is_saved_with_the_config_and_undo_still_works_after_a_restart() {
 }
 
 #[test]
+fn a_revert_by_another_app_does_not_make_an_older_step_valid_after_the_person_edited_past_it() {
+    let mut r = Rig::new();
+    let (a, b) = (r.handle.open_client().unwrap(), r.handle.open_client().unwrap());
+    r.deliver();
+    set_contrast(&mut r, a.session(), 1.4);
+    by_hand(&mut r, 1.7);
+    by_hand(&mut r, 1.4);
+    set_contrast(&mut r, b.session(), 1.8);
+    r.ask_as(b.session(), "revert", json!({})).unwrap();
+    assert_eq!(r.config()["contrast"], json!(1.4));
+    let back = r.ask_as(a.session(), "revert", json!({})).unwrap();
+    assert_eq!(r.config()["contrast"], json!(1.4), "the person's 1.4 is not overwritten: {back}");
+    assert_eq!(back["reverted"], json!([]));
+}
+
+#[test]
+fn a_revert_by_another_app_still_leaves_an_untouched_older_step_valid() {
+    let mut r = Rig::new();
+    let (a, b) = (r.handle.open_client().unwrap(), r.handle.open_client().unwrap());
+    r.deliver();
+    set_contrast(&mut r, a.session(), 1.4);
+    set_contrast(&mut r, b.session(), 1.8);
+    r.ask_as(b.session(), "revert", json!({})).unwrap();
+    let back = r.ask_as(a.session(), "revert", json!({})).unwrap();
+    assert_eq!(r.config()["contrast"], json!(1.0), "{back}");
+}
+
+#[test]
 fn what_changes_the_journal_asks_for_a_save() {
     let mut r = Rig::new();
     let saves = |r: &Rig| r.host.calls.iter().filter(|c| *c == "schedule_save").count();

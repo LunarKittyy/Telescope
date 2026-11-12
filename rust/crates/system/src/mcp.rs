@@ -569,6 +569,8 @@ struct Unwound {
     reverted: Vec<Value>,
     left: Vec<Value>,
     kept: Vec<Change>,
+    /// For each setting undone, its revision as it was before the oldest write undone (None where the host doesn't count).
+    rev_before: HashMap<Slot, Option<u64>>,
 }
 
 /// A watch that is collecting: the tool call waits for it to end.
@@ -1069,9 +1071,9 @@ impl McpPlugin {
             }
             return answer;
         }
-        let Unwound { reverted, left, kept } = unwind(host, mine);
+        let Unwound { reverted, left, kept, rev_before } = unwind(host, mine);
         self.keep(kept);
-        self.resync(host, &reverted);
+        self.resync(host, &reverted, &rev_before);
         host.schedule_save();
         let mut answer = json!({"reverted": reverted, "left": left});
         if !not_restored.is_empty() {
@@ -1087,13 +1089,16 @@ impl McpPlugin {
     }
 
     /// Putting a setting back is a move of it too. The step below it in the journal (the one that left it with the value it was put back to) is
-    /// still the latest word on it, so it takes the new revision, and a later undo doesn't take its own work for somebody's edit.
-    fn resync(&mut self, host: &dyn Host, reverted: &[Value]) {
+    /// still the latest word on it, so it takes the new revision, and a later undo doesn't take its own work for somebody's edit. Only when it is
+    /// the step the undone one began from: one that ends in the same value but was edited past since stays out of date.
+    fn resync(&mut self, host: &dyn Host, reverted: &[Value], rev_before: &HashMap<Slot, Option<u64>>) {
         let shown = host.focused_source_id();
         for done in reverted {
             let Some((plugin, key)) = done["id"].as_str().and_then(|id| id.split_once('.')) else { continue };
             let back = &done["back_to"];
-            if let Some(c) = self.journal.iter_mut().rev().find(|c| c.plugin == plugin && c.key == key && c.source == shown && c.now == *back) {
+            let began_at = rev_before.get(&(plugin.to_string(), key.to_string())).copied().flatten();
+            let still_latest = |c: &Change| began_at.is_none() || c.rev.is_none() || c.rev == began_at;
+            if let Some(c) = self.journal.iter_mut().rev().find(|c| c.plugin == plugin && c.key == key && c.source == shown && c.now == *back && still_latest(c)) {
                 c.rev = Some(host.setting_revision(plugin, key));
             }
         }
@@ -1104,9 +1109,9 @@ impl McpPlugin {
     pub fn undo_all(&mut self, host: &mut dyn Host) {
         let all = std::mem::take(&mut self.journal);
         let not_restored = not_restored(&std::mem::take(&mut self.unrestored));
-        let Unwound { reverted, left, kept } = unwind(host, all);
+        let Unwound { reverted, left, kept, rev_before } = unwind(host, all);
         self.keep(kept);
-        self.resync(host, &reverted);
+        self.resync(host, &reverted, &rev_before);
         let ids: Vec<String> = reverted.iter().filter_map(|c| c["id"].as_str().map(String::from)).collect();
         let skipped = left.len() + not_restored.len();
         let text = if skipped == 0 { tr("Undid what the AI changed") } else { tr("Undid what the AI changed, except {n} it couldn't put back").field("n", skipped) };
@@ -1384,7 +1389,7 @@ fn unwind(host: &mut dyn Host, mut changes: Vec<Change>) -> Unwound {
             }
         }
     }
-    Unwound { reverted, left, kept }
+    Unwound { reverted, left, kept, rev_before: standing_rev }
 }
 
 impl Plugin for McpPlugin {
