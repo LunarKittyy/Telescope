@@ -195,6 +195,7 @@ class MainActivity : LookActivity() {
         PairedComputers.addListener(pairingListener)
         Updater.addListener(updateListener)
         setupPrefs().registerOnSharedPreferenceChangeListener(setupPrefsListener)
+        StreamPrefs.register(this, streamPrefsListener)
         renderPairing()
         renderUpdate()
         // Reachable while screen is up; service holds reference after screen goes dark
@@ -212,13 +213,22 @@ class MainActivity : LookActivity() {
     // The notification's "Stop waiting" may have switched it off; if it's on, (re)start the service, which Android
     // may have stopped. Only here, with the activity visible, so waiting never starts from the background.
     private fun syncWaitForComputer() {
+        showWaitForComputer()
+        if (StreamPrefs.waitForComputer(this)) WaitingService.start(this)
+    }
+
+    private fun showWaitForComputer() {
         val on = StreamPrefs.waitForComputer(this)
         if (checkWaitForComputer.isChecked != on) {
             checkWaitForComputer.setOnCheckedChangeListener(null)  // only showing the saved value
             checkWaitForComputer.isChecked = on
             checkWaitForComputer.setOnCheckedChangeListener(waitListener)
         }
-        if (on) WaitingService.start(this)
+    }
+
+    // "Stop waiting" can be tapped while the app is on screen, where onStart doesn't run again. A field, as listeners are held weakly.
+    private val streamPrefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (StreamPrefs.isWaitForComputerKey(key)) showWaitForComputer()
     }
 
     private val waitListener = CompoundButton.OnCheckedChangeListener { _, checked ->
@@ -241,6 +251,7 @@ class MainActivity : LookActivity() {
         // Coming back (or the power button turning the screen on again) shows the app, not a black screen nobody remembers
         blackScreen.leave()
         setupPrefs().unregisterOnSharedPreferenceChangeListener(setupPrefsListener)
+        StreamPrefs.unregister(this, streamPrefsListener)
         uiHandler.removeCallbacks(statusPoller)
         PairedComputers.removeListener(pairingListener)
         Updater.removeListener(updateListener)
