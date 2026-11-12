@@ -566,6 +566,11 @@ impl Window {
             let steps = self.state.borrow_mut().pipeline_steps(w.inner.source_id());
             w.inner.set_steps(steps);
         }
+        // A stream behind the panels keeps its steps, and the view it has with them: a turn of the shown one's isn't its own
+        let behind: Vec<Rc<ShellWorker>> = self.streams.workers.borrow().iter().filter(|w| !w.live.get()).cloned().collect();
+        for w in behind {
+            w.inner.follow_view_epoch();
+        }
     }
 
     /// A colour bake finished. A stream behind the panels takes its own LUT and keeps the rest of the steps it had, as

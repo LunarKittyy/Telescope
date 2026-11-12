@@ -278,6 +278,8 @@ pub fn to_nv12(frame: &Frame) -> Frame {
 struct Ctx {
     source_id: String,
     vision: Option<Arc<dyn telescope_core::vision::VisionService>>,
+    /// How many times the view had turned when the steps these frames go through were handed over: their pictures are of that view.
+    view_epoch: u64,
 }
 
 impl FrameContext for Ctx {
@@ -285,10 +287,10 @@ impl FrameContext for Ctx {
         &self.source_id
     }
     fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
-        self.vision.as_ref()?.person_mask(&self.source_id, frame)
+        self.vision.as_ref()?.person_mask_in(&self.source_id, frame, frame.width as usize, frame.height as usize, self.view_epoch)
     }
     fn person_mask_at(&self, frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
-        self.vision.as_ref()?.person_mask_at(&self.source_id, frame, w, h)
+        self.vision.as_ref()?.person_mask_in(&self.source_id, frame, w, h, self.view_epoch)
     }
     fn colour_preview(&self, frame: &Frame) -> Frame {
         frame.clone()
@@ -354,7 +356,11 @@ struct Shared {
     photo_until: Mutex<Option<Instant>>,
     /// The frame steps, and the newest packet number that made it out (one frame at a time, never an older one).
     publish: Mutex<(Box<dyn FramePipeline>, u64)>,
-    next_steps: Mutex<Option<Vec<StagedStep>>>,
+    next_steps: Mutex<Option<(Vec<StagedStep>, u64)>>,
+    /// How many times the view had turned when the steps in the pipeline were handed over (Ctx::view_epoch).
+    view_epoch: AtomicU64,
+    /// How many times the steps that hide things were run on the frame already out (hide_cached), so frames made before that can be told from the ones after.
+    hidings: AtomicU64,
     /// Steps went into the pipeline ahead of a frame (hide_cached), so the next frame still has to be told they were replaced.
     steps_replaced: AtomicBool,
     next_colour: Mutex<Option<Vec<FrameStep>>>,
@@ -400,6 +406,8 @@ pub trait VideoWorker: Send + Sync {
     fn slot(&self) -> Arc<dyn FrameSlot>;
     fn set_steps(&self, steps: Vec<StagedStep>);
     fn set_colour(&self, steps: Vec<FrameStep>);
+    /// The view turned and this stream keeps its steps (it's behind the panels).
+    fn follow_view_epoch(&self) {}
     fn update_output(&self, width: Option<Option<u32>>, height: Option<Option<u32>>, fps: Option<u32>);
     fn settle(&self);
     fn hold_for_photo(&self, seconds: f32);
@@ -433,6 +441,9 @@ impl VideoWorker for StreamWorker {
     }
     fn set_colour(&self, steps: Vec<FrameStep>) {
         StreamWorker::set_colour(self, steps);
+    }
+    fn follow_view_epoch(&self) {
+        StreamWorker::follow_view_epoch(self);
     }
     fn update_output(&self, width: Option<Option<u32>>, height: Option<Option<u32>>, fps: Option<u32>) {
         StreamWorker::update_output(self, width, height, fps);
@@ -495,6 +506,7 @@ impl StreamWorker {
         pipeline.set_stats(stats.clone());
         pipeline.set_steps(setup.steps);
         let tap = media.packet_tap();
+        let view_epoch = setup.vision.as_ref().map_or(0, |f| f.service.view_epoch());
         let shared = Arc::new(Shared {
             url: Mutex::new(setup.url), opener: Mutex::new(setup.opener), waiting_text: setup.waiting_text, media, outputs, events,
             slot_number: setup.slot, source_id: setup.source_id, vision: setup.vision, hardware: setup.hardware_decode, hardware_default: setup.hardware_default,
@@ -502,7 +514,7 @@ impl StreamWorker {
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
-            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), steps_replaced: AtomicBool::new(false), next_colour: Mutex::new(None), gate: setup.gate,
+            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), next_colour: Mutex::new(None), gate: setup.gate,
             seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), frames_shed: AtomicU64::new(0), published: Mutex::new(0), sent_through: Mutex::new(None), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
             last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), fps_cell: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
@@ -555,8 +567,16 @@ impl StreamWorker {
 
     /// Swap the plugin steps from the next frame on (the panels moved to another stream, or a plugin changed its step).
     pub fn set_steps(&self, steps: Vec<StagedStep>) {
-        *self.shared.next_steps.lock().unwrap() = Some(steps);
+        // Read here, where the steps were made: a turn of the view after this is one these steps don't have
+        let epoch = self.shared.vision.as_ref().map_or(0, |f| f.service.view_epoch());
+        *self.shared.next_steps.lock().unwrap() = Some((steps, epoch));
         self.shared.hide_cached();
+    }
+
+    /// The view turned and this stream's steps stay as they are (it's behind the panels): what it makes is still of the view it has, so its masks are asked for under the new count.
+    pub fn follow_view_epoch(&self) {
+        let epoch = self.shared.vision.as_ref().map_or(0, |f| f.service.view_epoch());
+        self.shared.view_epoch.store(epoch, Ordering::SeqCst);
     }
 
     /// Swap the colour step from the next frame on, the other steps left as they are (a LUT baked for a stream behind the panels).
@@ -818,17 +838,20 @@ impl Shared {
         let mut publish = self.publish.lock().unwrap();
         // Read under the lock frames are published under, so a newer frame can't be taken for the one that was there
         let Some((cached, _)) = self.slot.latest() else { return };
-        let Some(steps) = self.next_steps.lock().unwrap().take() else { return };
+        let Some((steps, epoch)) = self.next_steps.lock().unwrap().take() else { return };
         self.steps_replaced.store(true, Ordering::SeqCst);
+        self.view_epoch.store(epoch, Ordering::SeqCst);
         let pipeline = publish.0.as_mut();
         pipeline.set_steps(steps);
-        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()) };
+        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: epoch };
         let hidden = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pipeline.hide_again(cached, &ctx))).unwrap_or_else(|_| {
             log::error!("Hiding the frame on the camera failed");
             None
         });
         if let Some(out) = hidden {
             let mut published = self.published.lock().unwrap();
+            // Counted under the lock the camera reads frames with, so a frame it already has queued is known to be from before
+            self.hidings.fetch_add(1, Ordering::SeqCst);
             self.slot.publish(out);
             *published += 1;
         }
@@ -838,8 +861,9 @@ impl Shared {
     fn prepare(&self, pipeline: &mut dyn FramePipeline, seq: u64, frame: Frame) -> Frame {
         let next_steps = self.next_steps.lock().unwrap().take();
         let replaced = next_steps.is_some() | self.steps_replaced.swap(false, Ordering::SeqCst);
-        if let Some(steps) = next_steps {
+        if let Some((steps, epoch)) = next_steps {
             pipeline.set_steps(steps);
+            self.view_epoch.store(epoch, Ordering::SeqCst);
         }
         if let Some(steps) = self.next_colour.lock().unwrap().take() {
             pipeline.replace_steps("colour", telescope_core::frame::FrameStage::Colour, steps);
@@ -877,7 +901,7 @@ impl Shared {
             let upright = *self.vision.as_ref().map(|f| f.upright.lock().unwrap()).expect("a feed");
             motion.feed(&frame, &self.source_id, Some(&upright), telescope_core::time::monotonic_ns() as f64 / 1e9);
         }
-        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()) };
+        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: self.view_epoch.load(Ordering::SeqCst) };
         pipeline.process(frame, &ctx)
     }
 
@@ -1257,6 +1281,8 @@ impl Shared {
         let mut fitted_to = (cam_w, cam_h);
         // Frames that came in while the last one was being paced, each with how many had been published by then, and the newest one sent
         let mut queued: std::collections::VecDeque<(Frame, u64)> = std::collections::VecDeque::new();
+        // How many times the steps that hide things had been run on the frame already out when the queue was last looked at
+        let mut hidings = self.hidings.load(Ordering::SeqCst);
         let mut shown: Option<Frame> = None;
         // How many frames had been published when the last one was sent, to count the ones skipped since
         let mut published_then = self.sent_through.lock().unwrap().take().unwrap_or_else(|| *self.published.lock().unwrap());
@@ -1274,10 +1300,11 @@ impl Shared {
                 self.slot.wait_newer(seen, wait.min(Duration::from_millis(100)).max(Duration::from_millis(1)));
             }
             // The count is read with the frame, under the lock publishing takes, or a frame published in between would be counted as skipped now and again when it goes out
-            let (latest, published_at) = {
+            let (latest, published_at, hid) = {
                 let published = self.published.lock().unwrap();
-                (self.slot.latest(), *published)
+                (self.slot.latest(), *published, self.hidings.load(Ordering::SeqCst))
             };
+            forget_before_hiding(&mut queued, &mut hidings, hid);
             if let Some((src, count)) = latest.filter(|(_, count)| *count != seen) {
                 seen = count;
                 match queued.back_mut() {
@@ -1297,6 +1324,10 @@ impl Shared {
                 Pick::New(frame, at) => Some((frame, at)),
                 Pick::Resend => None,
             };
+            // A hiding that came after the frame was taken: it's not sent, the next pass takes the hidden one
+            if self.hidings.load(Ordering::SeqCst) != hidings {
+                continue;
+            }
             {
                 let new_frame = next.is_some();
                 let started = Instant::now();
@@ -1407,6 +1438,14 @@ impl Shared {
         drop(cam);
         self.vcam_free.set();
         ok
+    }
+}
+
+/// The steps that hide things were run on the frame already out since the queue was last looked at (`hid` times against `seen`): what's queued was made before, with the room in it, and never goes out.
+fn forget_before_hiding(queued: &mut std::collections::VecDeque<(Frame, u64)>, seen: &mut u64, hid: u64) {
+    if hid != *seen {
+        *seen = hid;
+        queued.clear();
     }
 }
 
@@ -2586,6 +2625,119 @@ mod tests {
         w.set_steps(vec![StagedStep { owner: "privacy".into(), stage: telescope_core::frame::FrameStage::Privacy, step: FrameStep::Cpu(Box::new(Nothing)) }]);
         wait_for(|| cams.sent.lock().unwrap().last() == Some(&7));
         assert!(asked.load(Ordering::SeqCst));
+        w.stop();
+    }
+
+    #[test]
+    fn what_is_queued_before_the_steps_that_hide_things_ran_on_the_frame_out_never_goes_out() {
+        let mut queued: VecDeque<(Frame, u64)> = VecDeque::from([(grey(4, 2, 200), 1), (grey(4, 2, 201), 2)]);
+        let mut seen = 0;
+        forget_before_hiding(&mut queued, &mut seen, 0);
+        assert_eq!(queued.len(), 2, "nothing hid: they wait their turn");
+        forget_before_hiding(&mut queued, &mut seen, 1);
+        assert!(queued.is_empty(), "hiding began: the clear ones are gone");
+        queued.push_back((grey(4, 2, 7), 3));
+        forget_before_hiding(&mut queued, &mut seen, 1);
+        assert_eq!(queued.len(), 1, "the one made for it stays, and so does anything after");
+    }
+
+    #[test]
+    fn no_clear_frame_reaches_the_camera_once_blur_now_has_taken_effect() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        // A burst, as the camera loop queues frames from, then nothing
+        let steps: Vec<Step> = (0..40u8).flat_map(|i| [Step::Frame(100 + i), Step::Pause(Duration::from_millis(3))]).chain([Step::Pause(Duration::from_secs(30))]).collect();
+        let (opener, _opens) = scripted(vec![Some(steps)]);
+        let asked = Arc::new(AtomicBool::new(false));
+        let media = WithPipeline(Box::new({
+            let asked = asked.clone();
+            move || Box::new(HidesWhenAsked(asked.clone()))
+        }));
+        let w = start(setup(opener), Arc::new(media), &cams, &log);
+        wait_for(|| !cams.sent.lock().unwrap().is_empty());
+        w.set_steps(vec![StagedStep { owner: "privacy".into(), stage: telescope_core::frame::FrameStage::Privacy, step: FrameStep::Cpu(Box::new(Nothing)) }]);
+        // Sends that had begun by now, one of them maybe still going: every one after began on a hidden frame
+        let begun = cams.timeline.lock().unwrap().len();
+        wait_for(|| cams.sent.lock().unwrap().contains(&7));
+        let sent = cams.sent.lock().unwrap().clone();
+        let before_hidden = sent.iter().position(|v| *v == 7).unwrap();
+        assert!(before_hidden <= begun, "{} clear frames went out after the hiding began, from the queue: {sent:?}", before_hidden - begun.min(before_hidden));
+        assert!(sent[before_hidden..].iter().all(|v| *v == 7), "and nothing clear after it either: {sent:?}");
+        w.stop();
+    }
+
+    /// A vision service that counts how often the view has turned and notes the count each mask was asked under.
+    #[derive(Default)]
+    struct Epochs {
+        turns: AtomicU64,
+        asked: Mutex<Vec<u64>>,
+        masks: Masks,
+    }
+
+    impl telescope_core::vision::VisionService for Epochs {
+        fn attach(&self, bus: telescope_core::BusSender) {
+            self.masks.attach(bus)
+        }
+        fn state(&self) -> String {
+            self.masks.state()
+        }
+        fn load(&self) {}
+        fn person_mask(&self, source_id: &str, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+            self.masks.person_mask(source_id, frame)
+        }
+        fn view_epoch(&self) -> u64 {
+            self.turns.load(Ordering::SeqCst)
+        }
+        fn person_mask_in(&self, source_id: &str, frame: &Frame, _w: usize, _h: usize, epoch: u64) -> Option<Arc<Vec<u8>>> {
+            self.asked.lock().unwrap().push(epoch);
+            self.masks.person_mask(source_id, frame)
+        }
+        fn want_people(&self, _owner: &str, _on: bool) {}
+        fn wants_people(&self) -> bool {
+            false
+        }
+        fn feed_raw(&self, _source_id: &str, _frame: &Frame, _upright: telescope_core::vision::Upright) {}
+        fn tracked_people(&self, _source_id: &str) -> (Vec<serde_json::Value>, u32) {
+            (Vec::new(), 0)
+        }
+        fn view_turned(&self, _old: telescope_core::vision::Turn, _new: telescope_core::vision::Turn) {}
+        fn drop_stream(&self, _source_id: &str) {}
+        fn set_power_saving(&self, _on: bool) {}
+        fn diagnostics(&self) -> Vec<(String, String)> {
+            Vec::new()
+        }
+        fn shutdown(&self) {}
+        fn pack(&self) -> telescope_core::vision::VisionPack {
+            unimplemented!()
+        }
+        fn download(&self, _switch_on: &str) {}
+        fn cancel_download(&self) {}
+        fn remove_pack(&self) -> Result<(), String> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_frame_asks_for_its_mask_under_the_turn_of_the_view_its_steps_were_made_in() {
+        let service = Arc::new(Epochs::default());
+        let vision = VisionFeed { service: service.clone(), upright: Arc::default(), frame_sizes: Arc::default(), motion: None, owners: Arc::default(), owner: 1 };
+        let seen = Arc::new(Seen::default());
+        let w = running(&seen, Vec::new(), Some(vision), None);
+        wait_for(|| service.asked.lock().unwrap().len() >= 2);
+        // The view turns; the steps in the pipeline are still the old view's, so the frames going through them are too
+        service.turns.store(1, Ordering::SeqCst);
+        let at = service.asked.lock().unwrap().len();
+        wait_for(|| service.asked.lock().unwrap().len() >= at + 3);
+        assert!(service.asked.lock().unwrap()[at..].iter().all(|e| *e == 0), "old-view frames asked under the new turn: {:?}", service.asked.lock().unwrap());
+        // New steps made after the turn take the new count to their frames
+        w.set_steps(Vec::new());
+        wait_for(|| service.asked.lock().unwrap().last() == Some(&1));
+        let at = service.asked.lock().unwrap().len();
+        wait_for(|| service.asked.lock().unwrap().len() >= at + 3);
+        assert!(service.asked.lock().unwrap()[at..].iter().all(|e| *e == 1));
+        // A stream behind the panels keeps its steps and follows the count
+        service.turns.store(2, Ordering::SeqCst);
+        w.follow_view_epoch();
+        wait_for(|| service.asked.lock().unwrap().last() == Some(&2));
         w.stop();
     }
 
