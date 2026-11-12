@@ -1,7 +1,7 @@
 //! Full-quality photos from the phone (stills.py, /v1/still in docs/protocol.md): what the lens can take, and taking
 //! them into a folder, one at a time per phone, each on a thread of its own.
 
-use crate::https::{Error, PhoneAuth, Request};
+use crate::https::{Aborter, Error, PhoneAuth, Request};
 use crate::phones::auth_of;
 use crate::util::python_json;
 use serde::Serialize;
@@ -22,6 +22,8 @@ const CHUNK: usize = 1 << 20;
 /// The most one photo file may be, whatever the phone says it is.
 const MAX_FILE_BYTES: u64 = 1 << 30;
 const MAX_REPLY: usize = 1 << 20;
+/// How often a download's watcher looks at the clock, the stop flag and whether the stream is still the same.
+const WATCH_EVERY: Duration = Duration::from_millis(25);
 
 /// How long things may take; tests shorten them.
 #[derive(Clone, Copy, Debug)]
@@ -458,7 +460,9 @@ impl Runner<'_> {
             log::warn!("Can't make the photo folder {}: {e}", folder.display());
             return StillResult::failed("save", "", &[]);
         }
-        let alive_now = || alive.as_ref().is_none_or(|a| a());
+        // Behind a lock so a download's watcher thread can ask it too
+        let alive = Mutex::new(alive);
+        let alive_now = || alive.lock().unwrap_or_else(|e| e.into_inner()).as_ref().is_none_or(|a| a());
         while !self.stopped() {
             if !alive_now() {
                 // Its stream stopped or restarted: the phone drops the photo with it, if it can still say so at all
@@ -537,7 +541,7 @@ impl Runner<'_> {
     }
 
     /// File n of the photo into folder under the phone's name (made free), or None when it couldn't be saved.
-    fn fetch(&self, sid: &str, n: usize, info: &Map<String, Value>, folder: &Path, alive: &dyn Fn() -> bool, patience: Duration) -> Option<PathBuf> {
+    fn fetch(&self, sid: &str, n: usize, info: &Map<String, Value>, folder: &Path, alive: &(dyn Fn() -> bool + Sync), patience: Duration) -> Option<PathBuf> {
         let hook = self.inner.before_fetch.lock().unwrap().clone();
         if hook.is_some_and(|h| !h()) {
             return None;
@@ -555,9 +559,11 @@ impl Runner<'_> {
         // What the phone says the file is, never more than a photo can be; the whole download gets as long as a photo does
         let cap = size.map_or(MAX_FILE_BYTES, |s| s.min(MAX_FILE_BYTES));
         let deadline = Instant::now() + patience;
-        let got = (|| -> Result<(), String> {
+        let aborter: Mutex<Option<Aborter>> = Mutex::new(None);
+        let download = || -> Result<(), String> {
             let url = format!("{}/still/file?id={sid}&n={n}", self.base);
-            let mut resp = self.auth.open(Request::get(&url, self.timings().file)).map_err(|e: Error| e.to_string())?;
+            let mut resp = self.auth.open(Request::get(&url, self.timings().file).watched(&|a| *aborter.lock().unwrap_or_else(|e| e.into_inner()) = Some(a)))
+                .map_err(|e: Error| e.to_string())?;
             let mut out = std::fs::File::create(&part).map_err(|e| e.to_string())?;
             let mut buf = vec![0u8; CHUNK];
             let mut have = 0u64;
@@ -586,7 +592,25 @@ impl Runner<'_> {
                 }
             }
             std::fs::rename(&part, &path).map_err(|e| e.to_string())
-        })();
+        };
+        // A read can sit inside one chunk-size line for as long as bytes trickle in, so the limits are enforced from outside by closing the socket
+        let (done, finished) = std::sync::mpsc::channel::<()>();
+        let got = std::thread::scope(|scope| {
+            let (stopped, alive, aborter) = (&self.stop, alive, &aborter);
+            scope.spawn(move || {
+                while let Err(std::sync::mpsc::RecvTimeoutError::Timeout) = finished.recv_timeout(WATCH_EVERY) {
+                    if stopped.load(Ordering::SeqCst) || !alive() || Instant::now() > deadline {
+                        if let Some(a) = aborter.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
+                            a.abort();
+                            return;
+                        }
+                    }
+                }
+            });
+            let got = download();
+            drop(done);
+            got
+        });
         match got {
             Ok(()) => Some(path),
             Err(e) => {
@@ -982,6 +1006,11 @@ mod tests {
 
     /// A phone that answers every request with a canned status and sends the photo file as a chunked body that never ends; counts what it sent.
     fn endless_phone(advertised: Option<u64>, pace: Duration) -> (u16, Arc<std::sync::atomic::AtomicU64>) {
+        phone_that_drips(advertised, pace, false)
+    }
+
+    /// With `in_extension` the file's first chunk-size line gets a never-ending extension, a byte per `pace`, instead of chunks.
+    fn phone_that_drips(advertised: Option<u64>, pace: Duration, in_extension: bool) -> (u16, Arc<std::sync::atomic::AtomicU64>) {
         use std::io::{BufRead, BufReader};
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
         let port = listener.local_addr().unwrap().port();
@@ -1008,6 +1037,16 @@ mod tests {
                     let _ = std::io::copy(&mut reader.by_ref().take(length as u64), &mut std::io::sink());
                     if line.contains("/v1/still/file") {
                         let _ = conn.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\nTransfer-Encoding: chunked\r\n\r\n");
+                        if in_extension {
+                            let _ = conn.write_all(b"1;");
+                            for _ in 0..400 {
+                                if conn.write_all(b"a").is_err() {
+                                    return;
+                                }
+                                std::thread::sleep(pace);
+                            }
+                            return;
+                        }
                         let chunk = vec![b'x'; 1 << 20];
                         for _ in 0..64 {
                             let head = format!("{:x}\r\n", chunk.len());
@@ -1036,12 +1075,16 @@ mod tests {
     }
 
     fn take_from(port: u16, timings: Timings) -> StillResult {
+        take_from_alive(port, timings, None)
+    }
+
+    fn take_from_alive(port: u16, timings: Timings, alive: Option<Alive>) -> StillResult {
         let stills = Stills::new();
         stills.set_timings(timings);
         let (tx, rx) = mpsc::channel();
         let folder = telescope_core::testing::scratch_dir("stills-endless");
         assert!(stills.take(Some("phone-1"), &format!("http://127.0.0.1:{port}/v1"), PhoneAuth::new("token", ""), Map::new(), folder.clone(),
-                            Box::new(move |r| tx.send(r).unwrap()), None, None));
+                            Box::new(move |r| tx.send(r).unwrap()), None, alive));
         let r = rx.recv_timeout(Duration::from_secs(20)).unwrap();
         let left: Vec<_> = std::fs::read_dir(&folder).unwrap().flatten().filter(|e| e.metadata().map(|m| m.len() > 0).unwrap_or(false)).collect();
         assert!(left.is_empty(), "left behind: {left:?}");
@@ -1064,6 +1107,25 @@ mod tests {
         let r = take_from(port, Timings { longest: Duration::from_millis(400), ..quick() });
         assert_eq!(r.code, "save");
         assert!(started.elapsed() < Duration::from_secs(10));
+    }
+
+    #[test]
+    fn a_chunk_line_that_never_ends_runs_out_of_time() {
+        let (port, _) = phone_that_drips(None, Duration::from_millis(25), true);
+        let started = Instant::now();
+        let r = take_from(port, Timings { longest: Duration::from_millis(300), ..quick() });
+        assert_eq!(r.code, "save");
+        assert!(started.elapsed() < Duration::from_secs(5), "took {:?}", started.elapsed());
+    }
+
+    #[test]
+    fn a_chunk_line_that_never_ends_is_dropped_when_the_stream_goes() {
+        let (port, _) = phone_that_drips(None, Duration::from_millis(25), true);
+        let began = Instant::now();
+        let alive: Alive = Box::new(move || began.elapsed() < Duration::from_millis(300));
+        let r = take_from_alive(port, Timings { longest: Duration::from_secs(60), ..quick() }, Some(alive));
+        assert_eq!(r.code, "interrupted");
+        assert!(began.elapsed() < Duration::from_secs(5), "took {:?}", began.elapsed());
     }
 
     #[test]
