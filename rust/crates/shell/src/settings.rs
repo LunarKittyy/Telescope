@@ -943,6 +943,14 @@ impl Settings {
         let _ = self.ui.set_property("all-on-enabled", SValue::Bool(panel.all_on_enabled));
         let _ = self.ui.set_property("footer-note", s(&panel.footer_note()));
         let _ = self.ui.set_property("footer-shown", SValue::Bool(!panel.pending.is_empty()));
+        let banner = panel.download_banner();
+        if let Some(b) = &banner {
+            // Kept while the banner shuts, so its words don't empty out as it goes
+            let _ = self.ui.set_property("download-title", s(&b.title));
+            let _ = self.ui.set_property("download-percent", SValue::Number(b.percent.map_or(-1.0, f64::from)));
+            let _ = self.ui.set_property("download-error", s(&b.error));
+        }
+        let _ = self.ui.set_property("download-shown", SValue::Bool(banner.is_some()));
         let _ = self.ui.set_property("has-added", SValue::Bool(!panel.installed.is_empty()));
         let rows: Vec<SValue> = panel.update_rows.iter().flat_map(|u| [
             update_row("check", tr("Check for updates"),

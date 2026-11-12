@@ -789,7 +789,7 @@ pub struct SectionPlace {
 /// plugin's sections on them.
 pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlace]) -> String {
     let mut out = String::from("import { Theme, Icons, Folds, Reveal, TextField, WindowBox, KeyFocus, TipLayer, Tips, Motion, Unfold } from \"@ui-kit/ui-kit.slint\";\n");
-    out.push_str("import { SettingsNav, ScrollPage, SettingsLayout, ResultsList, PluginsPanel, PluginsFooter, Ask, NavTab, Result, GroupView, UpdateRowView } from \"shell/settings.slint\";\n");
+    out.push_str("import { SettingsNav, ScrollPage, SettingsLayout, ResultsList, PluginsPanel, PluginsFooter, DownloadBanner, Ask, NavTab, Result, GroupView, UpdateRowView } from \"shell/settings.slint\";\n");
     let mut imported = Vec::new();
     for piece in sections.iter().flat_map(|s| std::iter::once(&s.piece).chain(s.footer.as_ref())) {
         let line = format!("import {{ {} as {}C }} from {};\n", piece.component, piece.id, quote(&piece.file));
@@ -814,7 +814,7 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
     for t in 0..tabs {
         let footers: Vec<&Piece> = sections.iter().filter(|s| s.tab == t).filter_map(|s| s.footer.as_ref()).collect();
         let footer_h = if Some(t) == plugins_tab {
-            "(64px * footer-fold.value)".to_string()
+            "(64px * footer-fold.value) + (64px * download-fold.value)".to_string()
         } else {
             footers.iter().map(|f| format!("({}.preferred-height + 10px)", f.id)).chain(std::iter::once("0px".to_string())).collect::<Vec<_>>().join(" + ")
         };
@@ -831,6 +831,8 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
         if Some(t) == plugins_tab {
             out.push_str(&format!(
                 "    if footer-fold.value > 0 && !root.searching && root.current == {t}: PluginsFooter {{\n        x: 260px;\n        y: root.height - 16px - self.height;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: footer-fold.value;\n        note: root.footer-note;\n        restart => {{ root.restart(); }}\n    }}\n"));
+            out.push_str(&format!(
+                "    if download-fold.value > 0 && !root.searching && root.current == {t}: DownloadBanner {{\n        x: 260px;\n        y: root.height - 16px - 64px * footer-fold.value - self.height;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: download-fold.value;\n        title: root.download-title;\n        percent: root.download-percent;\n        error: root.download-error;\n    }}\n"));
         }
         let mut below = String::from("root.height - 16px");
         for f in footers.iter().rev() {
@@ -882,6 +884,12 @@ export component TelescopeSettings inherits Window {
     in-out property <int> plugin-filter;
     in property <bool> footer-shown;
     in property <string> footer-note;
+    // A pack download's banner (the vision pack's): its name, how far it is (-1: not known) and what went wrong
+    in property <bool> download-shown;
+    in property <string> download-title;
+    in property <int> download-percent: -1;
+    in property <string> download-error;
+    download-fold := Unfold { open: root.download-shown; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
     // The restart bar opening and shutting, and the plugins page giving up its room as it goes
     footer-fold := Unfold { open: root.footer-shown; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
     in property <bool> has-added;

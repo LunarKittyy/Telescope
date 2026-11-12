@@ -193,6 +193,27 @@ pub enum Step {
     Ask(Question, Commit),
 }
 
+/// What the banner over the restart bar shows for a pack download: its name, how far it is (None: size not known) and what went wrong.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DownloadBanner {
+    pub title: String,
+    pub percent: Option<u8>,
+    pub error: String,
+}
+
+/// The banner for one pack download: its progress while it runs, the error it reported once it has failed, nothing otherwise.
+/// A second pack's download gets its banner by calling this with its own title and numbers.
+pub fn download_banner(title: &str, running: bool, done: u64, size: u64, error: &str) -> Option<DownloadBanner> {
+    if running {
+        let percent = (done * 100).checked_div(size).map(|p| p.min(99) as u8);
+        Some(DownloadBanner { title: title.to_string(), percent, error: String::new() })
+    } else if !error.is_empty() {
+        Some(DownloadBanner { title: title.to_string(), percent: None, error: fill(&tr("The download didn't work. {error}"), &[("error", error)]) })
+    } else {
+        None
+    }
+}
+
 /// The vision pack's download as the tab sees it (VisionDownload).
 pub trait Download {
     fn ready(&self) -> bool;
@@ -571,6 +592,13 @@ impl Panel {
         } else {
             tr("No plugin is switched on.")
         }
+    }
+
+    /// The banner for the pack download under way or just failed, None when there is nothing to say.
+    pub fn download_banner(&self) -> Option<DownloadBanner> {
+        let dl = &self.download;
+        let (done, size) = dl.progress();
+        download_banner(&tr("Downloading the vision pack"), dl.running(), done, size, &dl.error())
     }
 
     pub fn footer_note(&self) -> String {
