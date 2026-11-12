@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use telescope_core::event::Event;
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat};
-use telescope_core::host::{FileDialog, FileDialogKind, Host, RequestId};
+use telescope_core::host::{FileDialog, FileDialogKind, Host, Poster, RequestId};
 use telescope_core::i18n::{n_, tr, tr_ctx};
 use telescope_core::output::{Held, Outputs, WaitScreen};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
@@ -34,6 +34,8 @@ const KEPT_PREFIX: &str = "wait_screen-";
 const RETRY: Duration = Duration::from_secs(10);
 /// The picture in the card, when it's an animation, moves on.
 const TICK: &str = "preview-tick";
+/// What a post says when a cover has been made.
+const COVER_MADE: &str = "cover-made";
 /// The formats the pictures can be loaded from, as the file dialog lists them: the ones Qt reads in the Python app that this can too.
 pub(crate) const PICKER_FORMATS: &str = "*.bmp *.gif *.ico *.jfif *.jpeg *.jpg *.pbm *.pgm *.png *.ppm *.tga *.webp";
 
@@ -107,11 +109,17 @@ fn picture_in(rgb: &Rgb, format: PixelFormat, mirror: bool) -> Option<Frame> {
 pub struct Covers {
     loader: Loader,
     cache: Mutex<CoverCache>,
+    /// Told whenever a cover has been made, so a stream that stalled on the black stand-in can show it.
+    on_made: Mutex<Option<Arc<dyn Poster>>>,
 }
 
 impl Covers {
     fn new(loader: Loader) -> Arc<Covers> {
-        Arc::new(Covers { loader, cache: Mutex::new(CoverCache::default()) })
+        Arc::new(Covers { loader, cache: Mutex::new(CoverCache::default()), on_made: Mutex::new(None) })
+    }
+
+    fn tell_when_made(&self, poster: Arc<dyn Poster>) {
+        *self.on_made.lock().unwrap_or_else(|e| e.into_inner()) = Some(poster);
     }
 
     fn find(&self, key: &CoverKey) -> Option<Arc<Cover>> {
@@ -159,8 +167,9 @@ impl Covers {
             }
             Err(e) => log::error!("Couldn't make the wait screen for the stream: {e}"),
         }
+        let frames_empty = frames.is_empty();
         let mut cache = self.cache.lock().unwrap_or_else(|e| e.into_inner());
-        if frames.is_empty() {
+        if frames_empty {
             cache.failed.retain(|(k, _)| *k != key);
             cache.failed.push((key.clone(), Instant::now()));
         } else {
@@ -173,6 +182,14 @@ impl Covers {
             cache.failed.retain(|(k, _)| *k != key);
         }
         cache.loading.retain(|k| *k != key);
+        let made = !frames_empty;
+        drop(cache);
+        if made {
+            let poster = self.on_made.lock().unwrap_or_else(|e| e.into_inner()).clone();
+            if let Some(poster) = poster {
+                poster.post(COVER_MADE, Value::Null);
+            }
+        }
     }
 
     #[cfg(test)]
@@ -566,6 +583,7 @@ impl Plugin for WaitScreenPlugin {
     fn setup(&mut self, host: &mut dyn Host) {
         self.screen = self.outputs.wait_screen(0);
         if let Some(poster) = host.poster() {
+            self.covers.tell_when_made(poster.clone());
             self.watch = self.outputs.watch(Box::new(move |watched| poster.post("watched", json!(watched))));
             if let Some(watch) = &self.watch {
                 watch.start();
@@ -602,6 +620,12 @@ impl Plugin for WaitScreenPlugin {
             }
             Event::CoverRequested { owner, on, note } => self.on_cover_requested(host, owner, *on, note.as_deref()),
             Event::Posted { owner, token, data } if owner == NAME && token == "watched" => self.on_watched(host, data.as_bool().unwrap_or(false)),
+            // A stream that stalled while its cover was still being made keeps sending the black stand-in until its step is asked for again
+            Event::Posted { owner, token, .. } if owner == NAME && token == COVER_MADE => {
+                if self.covering {
+                    host.refresh_frame_step();
+                }
+            }
             Event::TimerFired { owner, token } if owner == NAME && token == TICK => self.tick(host),
             Event::RequestDone { request, ok, data, .. } if self.picking == Some(*request) => {
                 self.picking = None;
