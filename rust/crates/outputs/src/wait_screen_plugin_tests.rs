@@ -684,6 +684,71 @@ fn a_slow_wait_screen_never_holds_up_the_stream() {
     assert!(done.data.as_chunks::<4>().0.iter().all(|p| p[..3] == [200, 200, 200]));
 }
 
+#[test]
+fn a_cover_that_is_made_after_the_stream_stalled_asks_for_the_step_again() {
+    let release = Arc::new((Mutex::new(false), std::sync::Condvar::new()));
+    let gate = release.clone();
+    let mut r = Rig::with_loader(Arc::new(move |_, w, h| {
+        let (open, cv) = &*gate;
+        let _ = cv.wait_timeout_while(open.lock().unwrap(), Duration::from_secs(5), |o| !*o);
+        Ok(vec![(Rgb { width: w, height: h, data: vec![200; (w * h * 3) as usize] }, 1.0)])
+    }));
+    let refreshes = |r: &Rig| r.host.calls.iter().filter(|c| *c == "refresh_frame_step").count();
+    r.event(Event::CoverRequested { owner: "Blur".into(), on: true, note: None });
+    // The stream stalls on the black stand-in, so no frame comes to ask for the step again
+    let asked = refreshes(&r);
+    {
+        let (open, cv) = &*release;
+        *open.lock().unwrap() = true;
+        cv.notify_all();
+    }
+    let mut posted = Vec::new();
+    for _ in 0..500 {
+        posted.extend(r.host.take_posted());
+        if !posted.is_empty() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert_eq!(posted.len(), 1, "the cover being made is said: {posted:?}");
+    for (token, data) in posted {
+        r.event(Event::Posted { owner: NAME.into(), token, data });
+    }
+    assert_eq!(refreshes(&r), asked + 1, "the host is asked for the step, which runs on the frame the camera keeps sending");
+}
+
+#[test]
+fn a_cover_that_is_made_when_nobody_asked_for_it_any_more_asks_for_nothing() {
+    let release = Arc::new((Mutex::new(false), std::sync::Condvar::new()));
+    let gate = release.clone();
+    let mut r = Rig::with_loader(Arc::new(move |_, w, h| {
+        let (open, cv) = &*gate;
+        let _ = cv.wait_timeout_while(open.lock().unwrap(), Duration::from_secs(5), |o| !*o);
+        Ok(vec![(Rgb { width: w, height: h, data: vec![200; (w * h * 3) as usize] }, 1.0)])
+    }));
+    r.event(Event::CoverRequested { owner: "Blur".into(), on: true, note: None });
+    r.event(Event::CoverRequested { owner: "Blur".into(), on: false, note: None });
+    let asked = r.host.calls.iter().filter(|c| *c == "refresh_frame_step").count();
+    {
+        let (open, cv) = &*release;
+        *open.lock().unwrap() = true;
+        cv.notify_all();
+    }
+    let mut posted = Vec::new();
+    for _ in 0..500 {
+        posted.extend(r.host.take_posted());
+        if !posted.is_empty() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(!posted.is_empty(), "it was said all the same");
+    for (token, data) in posted {
+        r.event(Event::Posted { owner: NAME.into(), token, data });
+    }
+    assert_eq!(r.host.calls.iter().filter(|c| *c == "refresh_frame_step").count(), asked);
+}
+
 // test_wait_screen.py::test_a_wait_screen_that_wont_load_is_not_retried_on_every_frame
 #[test]
 fn a_wait_screen_that_wont_load_is_not_retried_on_every_frame() {

@@ -852,6 +852,42 @@ fn a_turn_of_the_view_drops_the_masks_and_what_would_be_blended_into_the_next() 
 }
 
 #[test]
+fn a_frame_made_before_a_turn_of_the_view_gets_no_mask_after_it_and_leaves_no_trace() {
+    let (v, _) = finder(Duration::from_millis(1));
+    let ask = |seq: u64, x: usize, epoch: u64| {
+        let f = someone_at(x);
+        v.newest_mask_in("a", seq, 256, 144, Box::new(move || Some(f)), epoch)
+    };
+    let before = v.view_epoch();
+    assert!(ask(1, 20, before).is_some());
+    v.drop_masks();
+    assert_ne!(v.view_epoch(), before);
+    // The frame in the pipeline when the view turned only now asks: its picture is of the old way round, so nothing for it
+    assert!(ask(2, 20, before).is_none(), "an old picture is never given a mask of the new view");
+    assert!(v.stream("a").newest.lock().unwrap().mask.is_none(), "and none was kept for what comes next");
+    // What it would blend into the next mask isn't there either
+    let flipped = ask(3, 256 - 20 - 60, v.view_epoch()).unwrap();
+    assert_eq!(flipped[80 * 256 + 30], 0, "no trace of the old silhouette");
+    assert!(flipped[80 * 256 + 200] > 128);
+}
+
+#[test]
+fn a_mask_of_the_old_view_is_not_handed_to_a_frame_of_the_new_one_even_before_it_is_cleared() {
+    let (v, _) = finder(Duration::from_millis(1));
+    let f = someone_at(20);
+    let first = v.newest_mask("a", 1, 256, 144, Box::new(move || Some(f)));
+    assert!(first.is_some());
+    // The turn counted but the kept mask not yet dropped, as when the turn lands between the two
+    v.inner.turns.fetch_add(1, Ordering::SeqCst);
+    let epoch = v.view_epoch();
+    assert!(v.stream("a").newest.lock().unwrap().mask.is_some());
+    let f = someone_at(180);
+    let second = v.newest_mask_in("a", 2, 256, 144, Box::new(move || Some(f)), epoch).unwrap();
+    assert_eq!(second[80 * 256 + 30], 0, "not the old person's");
+    assert!(second[80 * 256 + 200] > 128, "the new picture's own");
+}
+
+#[test]
 fn a_stuck_model_holds_up_one_frame_and_not_every_frame() {
     let (v, _) = finder(Duration::from_secs(1));
     assert!(v.newest_mask("a", 1, 256, 144, Box::new(|| Some(someone_at(50)))).is_none());

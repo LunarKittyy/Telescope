@@ -136,6 +136,8 @@ struct MaskJob {
     picture: Picture,
     /// When the frame was handed over.
     at: f64,
+    /// The view's turns its picture was made under (Inner::turns when its step asked).
+    epoch: u64,
 }
 
 /// The newest mask a frame step can get at once.
@@ -149,6 +151,8 @@ struct MadeMask {
     sizes: Vec<(usize, usize, Arc<Vec<u8>>)>,
     /// Which inference this is, so a size made outside the lock is only kept if it still belongs.
     generation: u64,
+    /// The view's turns its picture was made under: only a frame made under the same count is handed it.
+    epoch: u64,
 }
 
 impl MadeMask {
@@ -361,9 +365,19 @@ impl Vision {
     /// A frame step's way in: how sure the model was about each pixel of the newest frame it has done, at w x h, or None when there's
     /// nothing yet. Frame seq goes to the mask thread, and picture() runs there.
     pub fn newest_mask(&self, key: &str, seq: u64, w: usize, h: usize, picture: Picture) -> Option<Arc<Vec<u8>>> {
+        self.newest_mask_in(key, seq, w, h, picture, self.view_epoch())
+    }
+
+    /// How many times the view has turned. A frame's picture is of the view it went through, so what asks for its mask says which count that was (newest_mask_in).
+    pub fn view_epoch(&self) -> u64 {
+        self.inner.turns.load(Ordering::SeqCst)
+    }
+
+    /// newest_mask for a picture made when the view had turned `epoch` times: once it has turned again, that picture's mask is of the wrong way round, so none is made or handed out for it.
+    pub fn newest_mask_in(&self, key: &str, seq: u64, w: usize, h: usize, picture: Picture, epoch: u64) -> Option<Arc<Vec<u8>>> {
         if self.inner.masks_wait.load(Ordering::SeqCst) {
             let mut picture = Some(picture);
-            return self.person_mask(key, seq, w, h, &mut || picture.take().and_then(|p| p()));
+            return self.person_mask_in(key, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch);
         }
         let Some(backend) = self.ready() else {
             self.load();
@@ -371,16 +385,20 @@ impl Vision {
         };
         let sv = self.stream(key);
         let mut n = sv.newest.lock().unwrap();
+        // Read under the lock drop_masks turns the count with
+        if self.view_epoch() != epoch {
+            return None;
+        }
         if n.asked != Some(seq) {
             n.asked = Some(seq);
-            n.job = Some(MaskJob { seq, size: (w, h), picture, at: monotonic() });
+            n.job = Some(MaskJob { seq, size: (w, h), picture, at: monotonic(), epoch });
             if !n.thread {
                 let (inner, sv2) = (self.inner.clone(), sv.clone());
                 n.thread = std::thread::Builder::new().name("vision-mask".into()).spawn(move || mask_loop(inner, backend, sv2)).is_ok();
             }
             sv.mask_wanted.notify_all();
         }
-        let usable = |n: &NewestMask| n.mask.as_ref().is_some_and(|m| m.usable(w, h));
+        let usable = |n: &NewestMask| n.mask.as_ref().is_some_and(|m| m.epoch == epoch && m.usable(w, h));
         if !usable(&n) && !n.gave_up {
             let (done, until) = (n.done, std::time::Instant::now() + std::time::Duration::from_secs_f64(FIRST_MASK_WAIT_S));
             while !usable(&n) && n.done == done {
@@ -391,7 +409,7 @@ impl Vision {
                 n = sv.mask_done.wait_timeout(n, left).unwrap().0;
             }
         }
-        let Some(made) = n.mask.as_ref().filter(|m| m.usable(w, h)) else { return None };
+        let Some(made) = n.mask.as_ref().filter(|m| m.epoch == epoch && m.usable(w, h)) else { return None };
         if (made.w, made.h) == (w, h) {
             return Some(made.mask.clone());
         }
@@ -420,6 +438,10 @@ impl Vision {
     /// How sure the model is each pixel of frame `seq` (w x h) is a person, or None when it can't say yet. picture() gives the
     /// frame as RGB and is only called when the model needs it.
     pub fn person_mask(&self, key: &str, seq: u64, w: usize, h: usize, picture: &mut dyn FnMut() -> Option<Rgb>) -> Option<Arc<Vec<u8>>> {
+        self.person_mask_in(key, seq, w, h, picture, self.view_epoch())
+    }
+
+    fn person_mask_in(&self, key: &str, seq: u64, w: usize, h: usize, picture: &mut dyn FnMut() -> Option<Rgb>, epoch: u64) -> Option<Arc<Vec<u8>>> {
         let Some(backend) = self.ready() else {
             self.load();
             return None;
@@ -427,15 +449,19 @@ impl Vision {
         let sv = self.stream(key);
         let mut m = sv.mask.lock().unwrap();
         m.asked = monotonic();
-        self.mask(&mut m, &*backend, seq, w, h, picture)
+        self.mask(&mut m, &*backend, seq, w, h, picture, epoch)
     }
 
-    fn mask(&self, m: &mut MaskState, backend: &dyn Backend, seq: u64, w: usize, h: usize, picture: &mut dyn FnMut() -> Option<Rgb>)
+    #[allow(clippy::too_many_arguments)]
+    fn mask(&self, m: &mut MaskState, backend: &dyn Backend, seq: u64, w: usize, h: usize, picture: &mut dyn FnMut() -> Option<Rgb>, epoch: u64)
             -> Option<Arc<Vec<u8>>> {
-        let turns = self.inner.turns.load(Ordering::SeqCst);
-        if m.turns != turns {
-            // The view turned since: what was kept, and what the next mask would blend in, is of the old picture
-            (m.turns, m.seq, m.mask, m.small, m.motion) = (turns, None, None, None, Motion::default());
+        // A picture from before a turn of the view leaves what's kept alone: it's of the old way round, and what it would blend into the next mask is too
+        if self.view_epoch() != epoch {
+            return None;
+        }
+        if m.turns != epoch {
+            // The view turned since what was kept was made: it, and what the next mask would blend in, is of the old picture
+            (m.turns, m.seq, m.mask, m.small, m.motion) = (epoch, None, None, None, Motion::default());
         }
         if let (Some(at), Some((mw, mh, mask))) = (m.seq, &m.mask) {
             if at == seq && (*mw, *mh) == (w, h) {
@@ -602,10 +628,11 @@ impl Vision {
 
     /// The view turned (flipped or rotated): a mask kept for a stream, or one being made, says where people were in the picture as it was. None of them is handed out again and none is blended into the next, so a frame step gets nothing until the model has looked at the turned picture, and a step that hides things stays safe on that.
     pub fn drop_masks(&self) {
+        // Once, before any stream's: a stream with nothing yet still has its first picture asked about under the new count
+        self.inner.turns.fetch_add(1, Ordering::SeqCst);
         let streams: Vec<Arc<StreamVision>> = self.inner.streams.lock().unwrap().values().cloned().collect();
         for sv in streams {
             let mut n = sv.newest.lock().unwrap();
-            self.inner.turns.fetch_add(1, Ordering::SeqCst);
             (n.job, n.asked, n.mask, n.gave_up) = (None, None, None, false);
             sv.mask_done.notify_all();
         }
@@ -732,8 +759,7 @@ fn tidy_loop(inner: Weak<Inner>) {
 fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>) {
     let vision = Vision { inner };
     loop {
-        // The turns are read where the job is taken, under the lock drop_masks holds to move them on
-        let (job, turns) = {
+        let job = {
             let mut n = sv.newest.lock().unwrap();
             loop {
                 if sv.stopping.load(Ordering::SeqCst) {
@@ -741,22 +767,22 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
                     return;
                 }
                 match n.job.take() {
-                    Some(job) => break (job, vision.inner.turns.load(Ordering::SeqCst)),
+                    Some(job) => break job,
                     None => n = sv.mask_wanted.wait(n).unwrap(),
                 }
             }
         };
-        let MaskJob { seq, size: (w, h), picture, at } = job;
+        let MaskJob { seq, size: (w, h), picture, at, epoch } = job;
         let mut picture = Some(picture);
         let mut m = sv.mask.lock().unwrap();
         m.asked = monotonic();
-        let mask = vision.mask(&mut m, &*backend, seq, w, h, &mut || picture.take().and_then(|p| p()));
+        let mask = vision.mask(&mut m, &*backend, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch);
         drop(m);
         let mut n = sv.newest.lock().unwrap();
         n.done += 1;
-        // Without one the last stays until it's too old: a failed frame now and then doesn't show. One of a picture from before a turn of the view is dropped.
-        if let Some(mask) = mask.filter(|_| vision.inner.turns.load(Ordering::SeqCst) == turns) {
-            n.mask = Some(MadeMask { w, h, mask, at, sizes: Vec::new(), generation: n.done });
+        // Without one the last stays until it's too old: a failed frame now and then doesn't show. One of a picture from before a turn of the view is dropped, whenever the turn came.
+        if let Some(mask) = mask.filter(|_| vision.inner.turns.load(Ordering::SeqCst) == epoch) {
+            n.mask = Some(MadeMask { w, h, mask, at, sizes: Vec::new(), generation: n.done, epoch });
             n.gave_up = false;
         }
         sv.mask_done.notify_all();
