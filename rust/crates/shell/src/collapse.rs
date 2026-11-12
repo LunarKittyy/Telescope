@@ -7,6 +7,22 @@
 use serde_json::Value;
 use std::collections::BTreeSet;
 
+/// Cards whose English title changed since a release that saved folds: (old key, new key). A fold saved under the old
+/// key (and under its sections) counts for the new one.
+const RENAMED: &[(&str, &str)] = &[("notes/Notes", "notes/Teleprompter")];
+
+fn renamed(key: &str) -> String {
+    for (old, new) in RENAMED {
+        if key == *old {
+            return new.to_string();
+        }
+        if let Some(rest) = key.strip_prefix(old).filter(|r| r.starts_with('/')) {
+            return format!("{new}{rest}");
+        }
+    }
+    key.to_string()
+}
+
 #[derive(Default)]
 pub struct Collapsing {
     folded: BTreeSet<String>,
@@ -20,7 +36,7 @@ impl Collapsing {
 
     /// Take what keys() saved earlier; anything that isn't a list of strings is ignored.
     pub fn load(&mut self, keys: Option<&Value>) {
-        self.folded = keys.and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).map(String::from).collect();
+        self.folded = keys.and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).map(renamed).collect();
     }
 
     pub fn is_folded(&self, key: &str) -> bool {
@@ -65,6 +81,14 @@ mod tests {
         assert!(state.keys().is_empty());
         state.load(None);
         assert!(state.keys().is_empty());
+    }
+
+    #[test]
+    fn folds_saved_under_a_card_s_old_title_count_for_the_new_one() {
+        let mut state = Collapsing::default();
+        state.load(Some(&json!(["notes/Notes", "notes/Notes/Speed", "notes/Teleprompter", "notes/Notesy", "other/Notes"])));
+        assert_eq!(state.keys(), ["notes/Notesy", "notes/Teleprompter", "notes/Teleprompter/Speed", "other/Notes"]);
+        assert!(state.is_folded("notes/Teleprompter"));
     }
 
     #[test]
