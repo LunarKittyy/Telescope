@@ -44,7 +44,7 @@ def main():
             if key not in seen:
                 seen[key] = len(lines)
                 iso, k, d = key
-                lines.append(json.dumps({"wb_kelvin": k, "_state": state("0", **{**PRO, "iso": iso, "focus_distance": d})}))
+                lines.append(json.dumps({"wb_kelvin": k, "_props": {"kelvin": k, "kelvin-text": f"{k} K"}, "_state": state("0", **{**PRO, "iso": iso, "focus_distance": d})}))
             frames.append(seen[key])
         print("\n".join(lines))
         json.dump(frames, open(sys.argv[2], "w"))
