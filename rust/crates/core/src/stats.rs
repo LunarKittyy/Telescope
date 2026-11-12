@@ -454,7 +454,7 @@ pub struct SourceSeries {
     pub decode_ms: Vec<f32>,
     pub step_ms: Vec<f32>,
     pub camera_ms: Vec<f32>,
-    /// The drop totals at the end of each of those seconds, so what was dropped lately can be told from the whole run.
+    /// The drop totals at the end of each of those seconds and of the one before, so what was dropped lately can be told from the whole run.
     #[serde(default)]
     pub drop_totals: Vec<Drops>,
 }
@@ -747,7 +747,8 @@ fn sample(e: &mut Entry, now_ns: u64) -> SourceSnapshot {
     keep(&mut s.decode_ms, decode);
     keep(&mut s.step_ms, step);
     keep(&mut s.camera_ms, camera);
-    if s.drop_totals.len() >= KEPT {
+    // One more than the other series: a window of KEPT seconds is counted from the total just before it
+    if s.drop_totals.len() > KEPT {
         s.drop_totals.remove(0);
     }
     s.drop_totals.push(drops);
