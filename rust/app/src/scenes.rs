@@ -1046,7 +1046,7 @@ fn list() -> Value {
 }
 
 /// `scenes OUT --card PLUGIN [--config JSON | --config-lines FILE] [--width N] [--scale S] [--name NAME]`: one plugin's card alone
-/// (as Page::Card draws it) with that plugin's settings, for the site's clip tiles. A lines file holds one JSON settings object per
+/// (as Page::Card draws it) with that plugin's settings (an event goes out first, so plugins that load settings quietly show them), for the site's clip tiles. A lines file holds one JSON settings object per
 /// line and gives one picture each, NAME-000.png and on (NAME is the plugin's name unless given). Dev tool, changes nothing in the app.
 fn run_card(out: &str, words: &[String]) -> Result<(), String> {
     let value = |flag: &str| words.iter().position(|w| w == flag).and_then(|i| words.get(i + 1)).cloned();
@@ -1066,11 +1066,18 @@ fn run_card(out: &str, words: &[String]) -> Result<(), String> {
     };
     let scenes: Vec<Scene> = states.into_iter().map(|(id, settings)| {
         let plugin = plugin.clone();
+        let (plugin2, props) = (plugin.clone(), settings.get("_props").cloned());
         Scene::new(id, move || {
+            let (plugin2, props) = (plugin2.clone(), props.clone());
             let mut config = main_window_config(true);
             config["selected_device"] = json!("phone-1");
             config["devices"] = json!({"phone-1": {"plugin_configs": {plugin.as_str(): settings.clone()}}});
-            Setup { page: Page::Card { plugin: plugin.clone() }, ..Setup::window(Some(services(quiet())), config, width, 400.0) }
+            // a plugin that keeps one copy for the whole app reads it from here
+            config["plugin_configs"][plugin.as_str()] = settings.clone();
+            Setup { page: Page::Card { plugin: plugin.clone() }, then: Some(Box::new(move |w| {
+                w.emit(telescope_core::event::Event::PhonesChanged { count: 1 });
+                card_props(w, &plugin2, &props);
+            })), ..Setup::window(Some(services(quiet())), config, width, 400.0) }
         })
     }).collect();
     let (n, failed) = telescope_shell::scenes::render(&scenes, &[scale], std::path::Path::new(out))?;
@@ -1079,6 +1086,20 @@ fn run_card(out: &str, words: &[String]) -> Result<(), String> {
     }
     println!("{n} pictures in {out}/{scale}x");
     if failed.is_empty() { Ok(()) } else { Err(format!("{} failed", failed.len())) }
+}
+
+/// Puts properties straight on a card ("_props" in a settings line), for states settings can't reach: a plugin that shows its saved
+/// settings only through its own events. Colour grading's wheel-x and wheel-y also get their wheel-colour.
+fn card_props(w: &std::rc::Rc<telescope_shell::window::Window>, plugin: &str, props: &Option<Value>) {
+    let Some(Value::Object(props)) = props else { return };
+    let mut props = props.clone();
+    if let (true, Some(x), Some(y)) = (plugin == "colour_grading", props.get("wheel-x").and_then(Value::as_array), props.get("wheel-y").and_then(Value::as_array)) {
+        let colours: Vec<Value> = x.iter().zip(y).map(|(x, y)| json!(telescope_effects::colour_grading::wheel_colour(x.as_f64().unwrap_or(0.0), y.as_f64().unwrap_or(0.0), 1.6))).collect();
+        props.insert("wheel-colour".into(), Value::Array(colours));
+    }
+    for (key, value) in &props {
+        w.set_card_property(plugin, "card", key, value);
+    }
 }
 
 /// The command: OUT, then scene ids (all of them when none), then --scale with one or more factors (1 and 1.5); or

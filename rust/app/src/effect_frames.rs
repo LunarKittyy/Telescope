@@ -71,6 +71,8 @@ pub fn run(words: &[String]) -> Result<(), String> {
             }
             plugin.set_config(&cfg).map_err(|_| "the plugin turned the settings down".to_string())?;
             if name == "colour_grading" {
+                // the plugin tells the pipeline about a grade it loaded quietly on the next event it hears
+                plugin.on_event(&mut host, &telescope_core::event::Event::PhonesChanged { count: 1 });
                 grade = host.colour_stages.iter().rev().find_map(|(_, s)| s.as_ref().and_then(|s| s.eval.0.clone()));
             } else {
                 let step: FrameStep = plugin.frame_step().ok_or("the plugin has no picture change for these settings")?;
