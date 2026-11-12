@@ -35,6 +35,9 @@ object UpdateLogic {
         if (channel == NIGHTLY) "https://github.com/$REPO/releases/download/nightly/manifest.json"
         else "https://github.com/$REPO/releases/latest/download/manifest.json"
 
+    // A check that began on one channel says nothing once the other has been picked.
+    fun resultWanted(checkedChannel: String, currentChannel: String): Boolean = checkedChannel == currentChannel
+
     // A nightly build follows nightly; stable and local builds follow stable.
     fun defaultChannel(buildChannel: String): String = if (buildChannel == NIGHTLY) NIGHTLY else STABLE
 

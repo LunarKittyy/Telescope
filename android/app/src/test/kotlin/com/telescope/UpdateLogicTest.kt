@@ -23,6 +23,13 @@ class UpdateLogicTest {
     """.trimIndent()
 
     @Test
+    fun `a check's answer is dropped once the channel has been switched`() {
+        assertTrue(UpdateLogic.resultWanted(UpdateLogic.NIGHTLY, UpdateLogic.NIGHTLY))
+        assertFalse(UpdateLogic.resultWanted(UpdateLogic.NIGHTLY, UpdateLogic.STABLE))
+        assertFalse(UpdateLogic.resultWanted(UpdateLogic.STABLE, UpdateLogic.NIGHTLY))
+    }
+
+    @Test
     fun `parses the release manifest and finds the apk`() {
         val parsed = UpdateLogic.parse(manifest())
         assertNotNull(parsed)

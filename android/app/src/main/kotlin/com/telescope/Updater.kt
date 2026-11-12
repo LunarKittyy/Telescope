@@ -37,6 +37,8 @@ object Updater {
     @Volatile var state: State = State.Idle
         private set
     @Volatile private var checkedThisRun = false
+    // Held while the channel is written and while a check's result is published, so a switch lands either before the result is judged or after it is out.
+    private val channelLock = Any()
     private val listeners = CopyOnWriteArraySet<() -> Unit>()
     private val main = Handler(Looper.getMainLooper())
 
@@ -52,7 +54,7 @@ object Updater {
         prefs(context).getString(KEY_CHANNEL, null) ?: UpdateLogic.defaultChannel(BuildConfig.CHANNEL)
 
     fun setChannel(context: Context, channel: String) {
-        prefs(context).edit().putString(KEY_CHANNEL, channel).apply()
+        synchronized(channelLock) { prefs(context).edit().putString(KEY_CHANNEL, channel).apply() }
         check(context)
     }
 
@@ -81,20 +83,33 @@ object Updater {
         checkedThisRun = true
         set(State.Checking)
         Thread {
-            val manifest = try {
-                http.fetchManifest(UpdateLogic.manifestUrl(channel))
+            val fetched = try {
+                Result.success(http.fetchManifest(UpdateLogic.manifestUrl(channel)))
             } catch (e: Exception) {
-                set(State.CheckFailed)  // offline is normal; the next launch or Check tries again
-                return@Thread
+                Result.failure(e)  // offline is normal; the next launch or Check tries again
             }
-            prefs(app).edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply()
-            set(
-                if (manifest != null && UpdateLogic.isNewer(manifest, BuildConfig.VERSION_CODE)) {
-                    State.Available(manifest)
+            val switched = synchronized(channelLock) {
+                if (!UpdateLogic.resultWanted(channel, channel(app))) return@synchronized true
+                val manifest = fetched.getOrNull()
+                if (fetched.isFailure) {
+                    set(State.CheckFailed)
                 } else {
-                    State.UpToDate
-                },
-            )
+                    prefs(app).edit().putLong(KEY_LAST_CHECK, System.currentTimeMillis()).apply()
+                    set(
+                        if (manifest != null && UpdateLogic.isNewer(manifest, BuildConfig.VERSION_CODE)) {
+                            State.Available(manifest)
+                        } else {
+                            State.UpToDate
+                        },
+                    )
+                }
+                false
+            }
+            if (switched) {
+                // The other channel was picked while this one was being asked: its answer is dropped and the new channel is checked
+                set(State.Idle)
+                check(app)
+            }
         }.start()
     }
 
