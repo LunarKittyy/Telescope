@@ -393,14 +393,19 @@ const TABLES_KEPT: usize = 2;
 
 fn table_for(amount: f64, w: usize, h: usize) -> Table {
     let key = amount.to_bits();
-    let mut kept = TABLES.lock().unwrap_or_else(|e| e.into_inner());
-    if let Some(i) = kept.iter().position(|(a, tw, th, _)| (*a, *tw, *th) == (key, w, h)) {
-        let hit = kept.remove(i);
-        let table = hit.3.clone();
-        kept.insert(0, hit);
-        return table;
+    {
+        let mut kept = TABLES.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(i) = kept.iter().position(|(a, tw, th, _)| (*a, *tw, *th) == (key, w, h)) {
+            let hit = kept.remove(i);
+            let table = hit.3.clone();
+            kept.insert(0, hit);
+            return table;
+        }
     }
+    // Made without the lock: it takes long, and other streams and the view's steps need the cache meanwhile
     let table = Arc::new(lens_table(amount, w, h));
+    let mut kept = TABLES.lock().unwrap_or_else(|e| e.into_inner());
+    kept.retain(|(a, tw, th, _)| (*a, *tw, *th) != (key, w, h));
     kept.insert(0, (key, w, h, table.clone()));
     kept.truncate(TABLES_KEPT);
     table
@@ -1107,5 +1112,22 @@ mod tests {
         let mut f = ramp(4, 4);
         cpu.process(&mut f, &NoCtx);
         near(&channel(&f, 0)[..4], &[90, 70, 50, 30]);
+    }
+
+    #[test]
+    fn building_one_lens_table_does_not_hold_up_everything_else_that_wants_the_cache() {
+        let builder = std::thread::spawn(|| {
+            let began = std::time::Instant::now();
+            table_for(0.37, 4096, 3072);
+            began.elapsed()
+        });
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        let began = std::time::Instant::now();
+        // what the shell does on every refresh of the view with the lens off
+        steps(&View::default());
+        let waited = began.elapsed();
+        let build = builder.join().unwrap();
+        assert!(build > std::time::Duration::from_millis(100), "the table must take a while for this to show anything: {build:?}");
+        assert!(waited < build / 3, "steps() waited {waited:?} of a {build:?} build");
     }
 }
