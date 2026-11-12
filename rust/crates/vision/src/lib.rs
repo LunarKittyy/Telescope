@@ -55,6 +55,8 @@ struct Shared {
     cancel: Arc<AtomicBool>,
     opener: WebOpener,
     cutout: Mutex<Option<Arc<CutoutPack>>>,
+    /// When each stream's normal mask was last asked for while the cutout gave the picture its masks (see person_mask_hq).
+    warmed: Mutex<std::collections::HashMap<String, f64>>,
 }
 
 /// The vision service the binary hands the shell.
@@ -149,7 +151,7 @@ impl VisionHost {
         );
         VisionHost { shared: Arc::new(Shared {
             vision, bus, tracking, dir, info, download: Mutex::new(Download::default()), cancel: Arc::new(AtomicBool::new(false)), opener,
-            cutout: Mutex::new(None),
+            cutout: Mutex::new(None), warmed: Mutex::new(Default::default()),
         }) }
     }
 
@@ -286,6 +288,7 @@ impl VisionService for VisionHost {
     fn drop_stream(&self, source_id: &str) {
         self.shared.tracking.lock().unwrap().drop_stream(source_id);
         self.shared.vision.drop_stream(source_id);
+        self.shared.warmed.lock().unwrap().remove(source_id);
     }
 
     fn set_power_saving(&self, on: bool) {
@@ -314,11 +317,27 @@ impl VisionService for VisionHost {
     fn person_mask_hq(&self, source_id: &str, frame: &Frame, w: usize, h: usize, epoch: u64) -> Option<Arc<Vec<u8>>> {
         let shared = frame.clone();
         let hq = self.shared.vision.newest_cutout_in(source_id, frame.number, w, h, Box::new(move || rgb(&shared)), epoch);
-        // Not downloaded, loading, failed or late: the normal mask, so the picture never goes without one it could have had
-        hq.or_else(|| {
+        let normal = |frame: &Frame| {
             let shared = frame.clone();
             self.shared.vision.newest_mask_nowait_in(source_id, frame.number, w, h, Box::new(move || model_rgb(&shared)), epoch)
-        })
+        };
+        // Not downloaded, loading, failed or late: the normal mask, so the picture never goes without one it could have had
+        let Some(hq) = hq else { return normal(frame) };
+        // While the cutout gives the masks the normal model still gets a frame now and then, so it has a fresh mask to fall back on the moment the cutout is late
+        let now = service::monotonic();
+        let due = {
+            let mut warmed = self.shared.warmed.lock().unwrap();
+            let last = warmed.entry(source_id.to_string()).or_insert(f64::NEG_INFINITY);
+            let due = now - *last >= service::MASK_MAX_AGE_S / 2.0;
+            if due {
+                *last = now;
+            }
+            due
+        };
+        if due {
+            normal(frame);
+        }
+        Some(hq)
     }
 
     fn matting_state(&self) -> String {

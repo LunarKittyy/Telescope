@@ -303,3 +303,38 @@ fn a_matting_library_swapped_after_the_download_was_checked_is_not_loaded() {
         Ok(_) => panic!("loaded"),
     }
 }
+
+#[test]
+fn the_normal_mask_stays_warm_while_the_cutout_gives_the_masks() {
+    let (h, _bus, normal) = host_with(Box::new(|_, _| Err(io::Error::other("offline"))));
+    let cutout = Fake::new();
+    let (dir, info) = (scratch_dir("warm-cutout"), PackInfo::default());
+    let h = h.with_cutout(Box::new(move || Ok(cutout.clone() as Arc<dyn Backend>)), None, dir, info);
+    h.load();
+    wait(|| h.state() == READY);
+    let frame = |n: u64| {
+        let mut f = Frame::new(64, 36, telescope_core::frame::PixelFormat::Rgba, vec![0; 64 * 36 * 4]);
+        f.number = n;
+        f
+    };
+    let n = std::cell::Cell::new(0);
+    let ask = || {
+        n.set(n.get() + 1);
+        h.person_mask_hq("a", &frame(n.get()), 64, 36, 0)
+    };
+    // until the cutout's first mask the normal one stands in
+    wait(|| {
+        std::thread::sleep(Duration::from_millis(5));
+        ask().is_some() && h.matting_state() == READY
+    });
+    let ran = || normal.log.lock().unwrap().segmented.len();
+    let before = ran();
+    let end = std::time::Instant::now() + Duration::from_millis(900);
+    while std::time::Instant::now() < end {
+        assert!(ask().is_some());
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    // asked on its own, not only when the cutout fell behind: its mask is never older than the cutout's is allowed to go before it's needed
+    assert!(ran() >= before + 2, "the normal model ran {} times in 0.9 s of cutout masks", ran() - before);
+    h.shutdown();
+}
