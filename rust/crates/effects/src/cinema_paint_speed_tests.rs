@@ -72,7 +72,7 @@ fn a_picture_laid_on_the_canvas_lands_as_it_did_pixel_by_pixel() {
     for (x, y) in [(10i64, 12i64), (-15, -9), (70, 50), (-60, 5), (55, 100), (0, 0), (20, -30)] {
         let mut now = Canvas::new(64, 48);
         now.data = noise(64 * 48 * 4, 11);
-        let mut before = Canvas { w: 64, h: 48, data: now.data.clone() };
+        let mut before = Canvas::over(64, 48, now.data.clone());
         now.image(&picture, x, y);
         for row in 0..picture.h {
             for col in 0..picture.w {

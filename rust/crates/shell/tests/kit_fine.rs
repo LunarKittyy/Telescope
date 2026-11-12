@@ -508,13 +508,6 @@ fn the_readout_says_the_owners_words_between_two_ticks() {
     assert_eq!(text(&ui, "read"), "52");
 }
 
-fn truth(ui: &ComponentInstance, name: &str) -> bool {
-    match ui.get_property(name).unwrap() {
-        Value::Bool(b) => b,
-        other => panic!("{name} is {other:?}"),
-    }
-}
-
 #[test]
 fn grabbing_the_dial_again_while_the_readout_swells_keeps_it_following() {
     // Press again at every moment of the swell, and after a wheel notch too: the readout says each new value and settles small, then big

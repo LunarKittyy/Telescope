@@ -113,14 +113,18 @@ component StatsList inherits VerticalLayout {
     in property <[StatRow]> rows;
     in property <color> hue;
     callback pin-toggled(string, bool);
-    for r in rows: VerticalLayout {
+    // The repeater counts lines instead of walking the list: the list comes new every second, and a repeater over it would drop every line and build it again, while a count that stays the same is no change
+    property <int> count;
+    init => { count = rows.length; }
+    changed rows => { count = rows.length; }
+    for i in count: VerticalLayout {
         // The same gap above every heading and the same one below it
-        if r.head: VerticalLayout {
+        if rows[i].head: VerticalLayout {
             padding-top: Theme.u(6);
             padding-bottom: Theme.u(1);
-            SectionHeading { text: r.label; icon: Icons.named(r.icon); }
+            SectionHeading { text: rows[i].label; icon: Icons.named(rows[i].icon); }
         }
-        if !r.head: StatLine { line: r; hue: root.hue; pin-toggled(id, on) => { root.pin-toggled(id, on); } }
+        if !rows[i].head: StatLine { line: rows[i]; hue: root.hue; pin-toggled(id, on) => { root.pin-toggled(id, on); } }
     }
 }
 

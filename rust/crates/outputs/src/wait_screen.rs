@@ -182,6 +182,11 @@ pub fn default_screen(width: u32, height: u32) -> Rgb {
     screen_with(width, height, &tr("Waiting for camera"))
 }
 
+/// The default screen with `note` under the name instead of the usual line.
+pub fn note_screen(width: u32, height: u32, note: &str) -> Rgb {
+    screen_with(width, height, note)
+}
+
 /// The default screen with `waiting` under the name ("" for no such line).
 fn screen_with(width: u32, height: u32, waiting: &str) -> Rgb {
     let Some(mut pm) = tiny_skia::Pixmap::new(width.max(1), height.max(1)) else {

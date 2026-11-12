@@ -521,7 +521,7 @@ impl Codec {
         self.pictures = self.pictures.saturating_add(1);
         let frame = Frame::new(w as u32, h as u32, PixelFormat::I420, i420);
         Ok(match bgr {
-            Some(bgr) => frame.with_bgr(bgr),
+            Some(bgr) => frame.with_lazy_bgr(bgr),
             None => frame,
         })
     }

@@ -5,6 +5,7 @@
 use crate::cpu::Rgb;
 use crate::cv_draw::{plain_scale_from_height, plain_text_width, Canvas};
 use crate::imgops::{compose, shrink_plane, times, Gray, Remap};
+use std::borrow::Cow;
 use std::collections::VecDeque;
 use telescope_core::avx2_too;
 use telescope_core::frame::{Frame, PixelFormat};
@@ -60,20 +61,20 @@ fn fits(iw: usize, ih: usize, w: usize, h: usize) -> bool {
     (iw, ih) == (w, h) || (iw * h).abs_diff(ih * w) as f64 <= (iw * h).max(ih * w) as f64 * 0.01
 }
 
-/// image at frame's size, or None when it's missing or a different shape, which stretching would only bend.
-fn fit(image: Option<&Rgb>, w: usize, h: usize) -> Option<Rgb> {
+/// image at frame's size, or None when it's missing or a different shape, which stretching would only bend. One that is the right size is borrowed.
+fn fit(image: Option<&Rgb>, w: usize, h: usize) -> Option<Cow<'_, Rgb>> {
     let image = image?;
     if (image.w, image.h) == (w, h) {
-        return Some(image.clone());
+        return Some(Cow::Borrowed(image));
     }
-    fits(image.w, image.h, w, h).then(|| image.linear_exact(w, h))
+    fits(image.w, image.h, w, h).then(|| Cow::Owned(image.linear_exact(w, h)))
 }
 
-fn fit_gray(mask: &Gray, w: usize, h: usize) -> Option<Gray> {
+fn fit_gray(mask: &Gray, w: usize, h: usize) -> Option<Cow<'_, Gray>> {
     if (mask.w, mask.h) == (w, h) {
-        return Some(mask.clone());
+        return Some(Cow::Borrowed(mask));
     }
-    fits(mask.w, mask.h, w, h).then(|| mask.linear_exact(w, h))
+    fits(mask.w, mask.h, w, h).then(|| Cow::Owned(mask.linear_exact(w, h)))
 }
 
 /// Where a frame differs from the empty room: someone in front of it, without the vision download.
@@ -141,8 +142,8 @@ pub struct Inputs {
 pub enum Effect {
     Clones(PlateMask),
     Cloak(PlateMask),
-    Light(Option<Rgb>),
-    Slit(VecDeque<Rgb>, Option<(usize, usize)>),
+    Light(Light),
+    Slit(Slit),
     Stick(Option<StickPaper>),
     Webcam(Webcam),
     Vhs(Vhs),
@@ -155,8 +156,8 @@ impl Effect {
         Some(match name {
             "clones" => Effect::Clones(PlateMask::default()),
             "cloak" => Effect::Cloak(PlateMask::default()),
-            "light" => Effect::Light(None),
-            "slit" => Effect::Slit(VecDeque::new(), None),
+            "light" => Effect::Light(Light::default()),
+            "slit" => Effect::Slit(Slit::default()),
             "stick" => Effect::Stick(None),
             "webcam" => Effect::Webcam(Webcam::new()),
             "vhs" => Effect::Vhs(Vhs::new()),
@@ -166,7 +167,7 @@ impl Effect {
         })
     }
 
-    /// The effects that need no RGB picture work on the frame's own data (VHS, ASCII, stick figure); None for the rest, frame untouched.
+    /// The effects that need no RGB picture work on the frame's own data (VHS, ASCII, stick figure, light painting, slit-scan); None for the rest, frame untouched.
     pub fn run_frame(&mut self, frame: &mut Frame, look: &Look) -> Option<()> {
         let (w, h) = (frame.width as usize, frame.height as usize);
         match self {
@@ -177,6 +178,8 @@ impl Effect {
                 Some(())
             }
             Effect::Stick(paper) => stick_figure(paper, w, h, look).write_over(frame).then_some(()),
+            Effect::Light(light) => light.run_planes(frame, look),
+            Effect::Slit(slit) => slit.run_planes(frame, look),
             _ => None,
         }
     }
@@ -205,21 +208,8 @@ impl Effect {
                 };
                 compose(&plate, &mask.soften(look.edges), frame)
             }
-            Effect::Light(trail) => light(trail, frame, look),
-            Effect::Slit(frames, shape) => {
-                let small = frame.area((w / 2).max(1), (h / 2).max(1));
-                if *shape != Some((small.w, small.h)) {
-                    frames.clear();
-                    *shape = Some((small.w, small.h));
-                }
-                let spread = look.spread.max(1) as usize;
-                let (sw, sh) = (small.w, small.h);
-                frames.push_front(small);
-                while frames.len() > spread + 1 {
-                    frames.pop_back();
-                }
-                slit_bands(frames, look.across, spread, sw, sh).linear_exact(w, h)
-            }
+            Effect::Light(light) => light.run_rgb(frame, look),
+            Effect::Slit(slit) => slit.run_rgb(frame, look),
             Effect::Stick(paper) => stick_figure(paper, w, h, look).picture(),
             Effect::Webcam(c) => c.run(frame),
             Effect::Vhs(v) => v.run(frame),
@@ -231,6 +221,36 @@ impl Effect {
             }
             Effect::Ascii(glyphs) => ascii(frame, glyphs),
         }
+    }
+}
+
+/// What light painting keeps between frames: the trail in RGB, and for each pair of rows the columns the trail is not black in, so a
+/// frame with little lit only works on those.
+#[derive(Default)]
+pub struct Light {
+    pub(crate) trail: Option<Rgb>,
+    pub(crate) spans: Vec<(usize, usize)>,
+    /// Whether spans describe the trail (the RGB way of working doesn't keep them)
+    pub(crate) planar: bool,
+}
+
+impl Light {
+    fn run_rgb(&mut self, frame: &Rgb, look: &Look) -> Rgb {
+        self.planar = false;
+        light(&mut self.trail, frame, look)
+    }
+
+    /// The trail kept for a frame of w x h: black with nothing to work on if it is new, and anywhere if the other way of working made it.
+    pub(crate) fn ready(&mut self, w: usize, h: usize) {
+        let strips = h / 2;
+        if self.trail.as_ref().is_none_or(|t| (t.w, t.h) != (w, h)) {
+            self.trail = Some(Rgb::new(w, h));
+            self.spans = vec![(0, 0); strips];
+        } else if !self.planar {
+            // made by the other way of working: anywhere may hold some
+            self.spans = vec![(0, w); strips];
+        }
+        self.planar = true;
     }
 }
 
@@ -272,7 +292,7 @@ fn over_two(a: &mut [u8], b: &mut [u8], row_len: usize, band: impl Fn(usize, &mu
 
 avx2_too! {
     /// One row of light painting: the trail (held, or fresh from what's lit now) and the picture over it.
-    fn light_row(frame: &[u8], trail: &mut [u8], out: &mut [u8], level: u8, keep: f32, fresh: bool) {
+    pub(crate) fn light_row(frame: &[u8], trail: &mut [u8], out: &mut [u8], level: u8, keep: f32, fresh: bool) {
         for ((f, t), o) in frame.as_chunks::<3>().0.iter().zip(trail.as_chunks_mut::<3>().0).zip(out.as_chunks_mut::<3>().0) {
             let grey = ((f[0] as u32 * 9798 + f[1] as u32 * 19235 + f[2] as u32 * 3735 + (1 << 14)) >> 15) as u8;
             let lit = grey > level;
@@ -286,27 +306,69 @@ avx2_too! {
     }
 }
 
+/// Slit-scan's history of the last frames at half size, the RGB way or as the planes of a frame.
+#[derive(Default)]
+pub struct Slit {
+    frames: VecDeque<Rgb>,
+    shape: Option<(usize, usize)>,
+    planes: crate::slit_planes::History,
+}
+
+impl Slit {
+    fn run_rgb(&mut self, frame: &Rgb, look: &Look) -> Rgb {
+        let (w, h) = (frame.w, frame.h);
+        self.planes.clear();
+        let small = frame.area((w / 2).max(1), (h / 2).max(1));
+        if self.shape != Some((small.w, small.h)) {
+            self.frames.clear();
+            self.shape = Some((small.w, small.h));
+        }
+        let spread = look.spread.max(1) as usize;
+        let (sw, sh) = (small.w, small.h);
+        self.frames.push_front(small);
+        while self.frames.len() > spread + 1 {
+            self.frames.pop_back();
+        }
+        slit_bands(&self.frames, look.across, spread, sw, sh).linear_exact(w, h)
+    }
+
+    /// The same on the frame's own planes: no trip through RGB. None when the frame isn't one this works on.
+    fn run_planes(&mut self, frame: &mut Frame, look: &Look) -> Option<()> {
+        let done = self.planes.run(frame, look.across, look.spread.max(1) as usize);
+        if done.is_some() {
+            self.frames.clear();
+            self.shape = None;
+        }
+        done
+    }
+}
+
 /// Slit's picture at the reduced size: each of up to 45 bands (columns across, rows otherwise) taken from an older frame, the
 /// further along the older, so motion smears into a ripple.
 fn slit_bands(frames: &VecDeque<Rgb>, across: bool, spread: usize, sw: usize, sh: usize) -> Rgb {
+    let mut out = Rgb::scratch(sw, sh);
+    band_rows(&mut out.data, 3, &|i| &frames[i].data, frames.len(), across, spread, sw, sh);
+    out
+}
+
+/// slit_bands of any number of channels a pixel: out gets each band from source(n), n counting from the newest of `count` frames.
+pub(crate) fn band_rows<'a>(out: &mut [u8], ch: usize, source: &dyn Fn(usize) -> &'a [u8], count: usize, across: bool, spread: usize, sw: usize, sh: usize) {
     let size = if across { sw } else { sh };
     let bands = 45.min(size);
-    let mut out = Rgb::scratch(sw, sh);
-    let last = frames.len() - 1;
+    let last = count - 1;
     for b in 0..bands {
         let (lo, hi) = (b * size / bands, (b + 1) * size / bands);
-        let src = &frames[last.min(b * spread / (bands - 1).max(1))].data;
+        let src = source(last.min(b * spread / (bands - 1).max(1)));
         if across {
             for y in 0..sh {
-                let span = (y * sw + lo) * 3..(y * sw + hi) * 3;
-                out.data[span.clone()].copy_from_slice(&src[span]);
+                let span = (y * sw + lo) * ch..(y * sw + hi) * ch;
+                out[span.clone()].copy_from_slice(&src[span]);
             }
         } else {
-            let span = lo * sw * 3..hi * sw * 3;
-            out.data[span.clone()].copy_from_slice(&src[span]);
+            let span = lo * sw * ch..hi * sw * ch;
+            out[span.clone()].copy_from_slice(&src[span]);
         }
     }
-    out
 }
 
 // ── Stick figure ───────────────────────────────────────────────────────
@@ -361,7 +423,7 @@ pub fn stick_figure<'a>(paper: &'a mut Option<StickPaper>, w: usize, h: usize, l
         _ => false,
     };
     if !paper.as_ref().is_some_and(|p| p.size == (w, h) && same_plate(&p.plate) && p.lines == look.lines && p.heads == look.heads) {
-        let mut out = fit(look.plate.as_deref(), w, h).unwrap_or_else(|| Rgb::filled(w, h, PAPER));
+        let mut out = fit(look.plate.as_deref(), w, h).map_or_else(|| Rgb::filled(w, h, PAPER), Cow::into_owned);
         let thick = 3.max(h / 70) as i32;
         let ink = [INK[0], INK[1], INK[2], 0];
         let (fw, fh) = (w as f64, h as f64);
@@ -838,6 +900,7 @@ impl Crt {
 /// The ramp's characters as OpenCV's Hershey Plain draws them in a cell this size.
 pub struct AsciiGlyphs {
     cell: (usize, usize),
+    #[cfg(test)]
     glyphs: Vec<u8>,
     /// The same as rows of R, G, B pixels as they're drawn (green, a third as much blue), so a row of a glyph is copied in one go
     coloured: Vec<u8>,
@@ -854,7 +917,7 @@ impl AsciiGlyphs {
             canvas.plain_text(&text, ((cw as i32 - tw).div_euclid(2), ch as i32 - 3), scale, [255, 0, 0, 0]);
         }
         let coloured = glyphs.iter().flat_map(|&t| [0, t, t / 3]).collect();
-        AsciiGlyphs { cell: (cw, ch), glyphs, coloured }
+        AsciiGlyphs { cell: (cw, ch), #[cfg(test)] glyphs, coloured }
     }
 }
 

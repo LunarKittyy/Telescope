@@ -727,6 +727,48 @@ fn a_step_asking_at_another_size_gets_the_mask_it_can_at_once() {
     assert_eq!(ask(2, 128, 72).unwrap().len(), 128 * 72);
 }
 
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture --test-threads 1"]
+fn bench_second_size_of_a_mask() {
+    let (v, _) = finder(Duration::from_millis(1));
+    let frame = someone_at(50);
+    let ask = |w, h| {
+        let f = frame.clone();
+        v.newest_mask("a", 7, w, h, Box::new(move || Some(f))).unwrap()
+    };
+    ask(256, 144);
+    wait(|| v.stream("a").newest.lock().unwrap().done >= 1);
+    for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+        ask(w, h);
+        let kept = (0..50).map(|_| { let t = Instant::now(); ask(w, h); t.elapsed().as_secs_f64() * 1000.0 }).fold(f64::MAX, f64::min);
+        let base = vec![128u8; 256 * 144];
+        let resize = (0..20).map(|_| { let t = Instant::now(); crate::ops::mask_resized(&base, 256, 144, w, h); t.elapsed().as_secs_f64() * 1000.0 }).fold(f64::MAX, f64::min);
+        println!("mask at {w}x{h}: each frame before (a resize) {resize:.3} ms, now (a kept one) {kept:.4} ms");
+    }
+}
+
+#[test]
+fn test_two_steps_at_different_sizes_get_stable_masks_and_one_inference() {
+    let (v, looked) = finder(Duration::from_millis(1));
+    let frame = someone_at(50);
+    let ask = |w, h| {
+        let f = frame.clone();
+        v.newest_mask("a", 7, w, h, Box::new(move || Some(f))).unwrap()
+    };
+    ask(256, 144);
+    ask(64, 36);
+    wait(|| v.stream("a").newest.lock().unwrap().done >= 1);
+    let (full, quarter) = (ask(256, 144), ask(64, 36));
+    let inferences = looked.lock().unwrap().len();
+    for _ in 0..5 {
+        assert!(Arc::ptr_eq(&ask(256, 144), &full));
+        assert!(Arc::ptr_eq(&ask(64, 36), &quarter));
+    }
+    assert_eq!((full.len(), quarter.len()), (256 * 144, 64 * 36));
+    assert_eq!(looked.lock().unwrap().len(), inferences);
+    assert_eq!(inferences, 1);
+}
+
 /// Finder until it's told to fail.
 struct Breaks {
     finder: Finder,

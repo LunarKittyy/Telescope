@@ -74,12 +74,13 @@ impl<T> Mailbox<T> {
 }
 
 /// A thread that lives as long as its handle, working on the newest job put in.
-struct Worker<T: Send + 'static> {
+pub(crate) struct Worker<T: Send + 'static> {
     mailbox: Arc<Mailbox<T>>,
+    thread: Option<std::thread::JoinHandle<()>>,
 }
 
 impl<T: Send + 'static> Worker<T> {
-    fn start(name: &str, mut run: impl FnMut(T) + Send + 'static) -> Worker<T> {
+    pub(crate) fn start(name: &str, mut run: impl FnMut(T) + Send + 'static) -> Worker<T> {
         let mailbox = Mailbox::new();
         let inbox = mailbox.clone();
         let spawned = std::thread::Builder::new().name(name.into()).spawn(move || {
@@ -87,13 +88,21 @@ impl<T: Send + 'static> Worker<T> {
                 run(job);
             }
         });
-        if let Err(e) = spawned {
+        if let Err(e) = &spawned {
             log::error!("Couldn't start the {name} thread: {e}");
         }
-        Worker { mailbox }
+        Worker { mailbox, thread: spawned.ok() }
     }
 
-    fn put(&self, job: T) {
+    /// Closes the mailbox and waits for the job in hand to finish, so nothing it uses is still in use afterwards.
+    pub(crate) fn finish(mut self) {
+        self.mailbox.close();
+        if let Some(thread) = self.thread.take() {
+            let _ = thread.join();
+        }
+    }
+
+    pub(crate) fn put(&self, job: T) {
         self.mailbox.put(job);
     }
 }
@@ -349,17 +358,16 @@ impl PassWork {
     pub fn overlay(&mut self, passes: &[(String, Arc<dyn PreviewPass>)], w: u32, h: u32, scale: f32) -> Option<Image> {
         self.painted_at = Some(Instant::now());
         self.size = (w, h);
-        let mut out: Option<Vec<u8>> = None;
+        let mut out: Option<SharedPixelBuffer<Rgba8Pixel>> = None;
         for (owner, pass) in passes {
             let Some(layer) = guarded(owner, "paint", || pass.paint(w, h, scale)).flatten().filter(|l| (l.width, l.height) == (w, h) && l.format == PixelFormat::Rgba) else { continue };
             match out.as_mut() {
-                // A pass hands over the only reference to the picture it just painted, so it's taken as it is
-                None => out = Some(Arc::try_unwrap(layer.data).unwrap_or_else(|shared| shared.as_ref().clone())),
-                Some(below) => over(below, &layer.data),
+                // The first picture is copied once, into what Slint shows, and the pass can keep its own to paint on again
+                None => out = Some(SharedPixelBuffer::clone_from_slice(&layer.data, w, h)),
+                Some(below) => over(below.make_mut_bytes(), &layer.data),
             }
         }
-        let buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(&out?, w, h);
-        Some(Image::from_rgba8(buffer))
+        Some(Image::from_rgba8(out?))
     }
 }
 

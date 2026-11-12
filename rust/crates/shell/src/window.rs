@@ -86,6 +86,13 @@ pub struct Window {
     preview_timer: slint::Timer,
     /// The number of the frame the preview shows, so a frame isn't painted twice.
     painted: Cell<u64>,
+    /// The size the preview was last painted at, to notice a stage that changed under a stalled stream.
+    painted_size: Cell<(u32, u32)>,
+    /// The stage the last paint filled, so a resized stage can be told from a frame of another size
+    painted_stage: Cell<(u32, u32)>,
+    painted_source: Cell<u64>,
+    // A pass asked for the overlay to be drawn again and it hasn't been yet (the picture it goes on may still be being made)
+    overlay_pending: crate::preview::OverlayAsk,
     /// What passes on the preview (tint, analyse, paint) have in hand.
     passes: RefCell<crate::preview_passes::PassWork>,
     /// The layers' shapes last handed to the preview card, so they're only set again when they change.
@@ -443,6 +450,10 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         painter: RefCell::default(),
         preview_timer: slint::Timer::default(),
         painted: Cell::new(0),
+        painted_size: Cell::new((0, 0)),
+        painted_stage: Cell::new((0, 0)),
+        painted_source: Cell::new(0),
+        overlay_pending: Default::default(),
         passes: RefCell::default(),
         layers_drawn: RefCell::default(),
         logged: Cell::new(false),
@@ -826,6 +837,18 @@ impl Window {
     }
 
     /// Colour grading's compare: the shown stream's picture before its colour step left of the line.
+    /// What the Compare split of the shown frame is made from: its line and the before picture, the same for every retry of one frame.
+    fn colour_split_tag(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let st = self.state.borrow();
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        if let (Some(position), Some(id)) = (st.colour.split(), st.streams.source_id.as_deref()) {
+            position.to_bits().hash(&mut hasher);
+            st.colour_before.lock().unwrap().get(id).map(|b| std::sync::Arc::as_ptr(&b.data) as usize).hash(&mut hasher);
+        }
+        hasher.finish()
+    }
+
     pub fn with_colour_split(&self, frame: telescope_core::Frame) -> telescope_core::Frame {
         let st = self.state.borrow();
         let (Some(position), Some(id)) = (st.colour.split(), st.streams.source_id.as_deref()) else { return frame };
@@ -995,19 +1018,23 @@ impl Window {
             return;
         }
         let Some((frame, number)) = self.preview_frame() else { return };
-        let frame = self.with_colour_split(frame);
+        // The Compare split is only made for a frame that gets painted; a pick under way needs it now
+        let picking = !self.state.borrow().overlays.picking().is_empty();
+        let frame = if picking { self.with_colour_split(frame) } else { frame };
         self.state.borrow_mut().overlays.shown_frame(&frame);
         if let Some(p) = &popout {
             fit_popout(p, frame.width, frame.height);
         }
         // A pass asked for the preview to be drawn again
-        let (passes, dirty) = {
+        let (passes, asked) = {
             let st = self.state.borrow();
             (crate::preview_passes::PassWork::sorted(&st.passes), st.preview_dirty.swap(false, std::sync::atomic::Ordering::SeqCst))
         };
-        if dirty {
+        if asked {
             self.painted.set(0);
         }
+        // Kept until the overlay is drawn: the picture it goes on may only land later
+        let dirty = self.overlay_pending.look(asked);
         // A tint is painted a frame late, so a frame already painted is painted again once the worker's result for it is in: that is
         // what brings a stream that stopped sending up to date
         let tints = passes.iter().any(|(_, p)| p.tints());
@@ -1017,13 +1044,10 @@ impl Window {
             (stream_gen, self.preview_source()).hash(&mut hasher);
             hasher.finish()
         };
-        let again = number == self.painted.get();
-        if again && !(tints && self.passes.borrow().tint_newer(source)) {
-            return;
-        }
-        // Half the frames on the card unless Smooth is on; what it skips only changes what's painted here
-        if !again && !self.cadence.borrow_mut().due(number, popout.is_some() || on("smooth-on"), self.painted.get() == 0) {
-            return;
+        if self.painted_source.replace(source) != source {
+            if let Some(p) = self.painter.borrow_mut().as_mut() {
+                p.restart();
+            }
         }
         let stage = match &popout {
             Some(p) => (p.window().size().width, p.window().size().height),
@@ -1036,14 +1060,37 @@ impl Window {
                 (px("stage-width"), px("stage-height"))
             }
         };
+        // A stalled stream's last frame is painted again when the stage it fills changed size
         let (w, h) = crate::preview::fit_within((frame.width, frame.height), stage);
+        let resized = self.painted_size.get() != (w, h);
+        let again = number == self.painted.get();
+        let ready = self.painter.borrow().as_ref().is_some_and(|p| p.ready());
+        // A tinting pass paints the picture itself: what the fallback finished meanwhile is dropped, or it would stay waiting for ever
+        if tints && ready {
+            if let Some(p) = self.painter.borrow_mut().as_mut() {
+                let _ = p.paint_ready(w, h);
+            }
+        }
+        let ready = ready && !tints;
+        if again && !resized && !ready && !(tints && self.passes.borrow().tint_newer(source)) {
+            return;
+        }
+        // Half the frames on the card unless Smooth is on; what it skips only changes what's painted here, and a resized stage paints at once
+        let due = again || self.cadence.borrow_mut().due(number, popout.is_some() || on("smooth-on"), self.painted.get() == 0 || self.painted_stage.get() != stage);
+        // A picture that finished off the window's thread goes up on its own, but the next one is only asked for when the cadence says
+        let take_only = match crate::preview::step(due, ready, tints) {
+            crate::preview::Step::Skip => return,
+            step => step == crate::preview::Step::Take,
+        };
+        let tag = crate::preview::paint_tag(self.colour_split_tag(), number);
+        let frame = if picking || take_only { frame } else { self.with_colour_split(frame) };
         if !self.logged.replace(true) {
             log::info!("Preview: {}x{} {:?} frames shown at {w}x{h}", frame.width, frame.height, frame.format);
         }
         // Passes that tint the picture, or want a look at it, get a CPU copy at the size it is painted at, made on a worker so the
         // window never waits on the graphics card for it; a tint is painted a frame late, from the worker's last result
         let mut worker_up = true;
-        if !again && self.passes.borrow().needs_copy(&passes) {
+        if !take_only && (!again || resized) && self.passes.borrow().needs_copy(&passes) {
             let scaler = || self.services.as_ref().map(|s| s.media.scaler());
             let dirty = self.state.borrow().preview_dirty.clone();
             worker_up = self.passes.borrow_mut().submit(scaler, &passes, &frame, crate::preview_passes::FrameId { source, number }, (w, h), &dirty);
@@ -1064,17 +1111,32 @@ impl Window {
         };
         let image = match tinted {
             Some(image) => image,
+            None if take_only => {
+                let Some(image) = self.painter.borrow_mut().as_mut().and_then(|p| p.paint_ready(w, h)) else { return };
+                self.painted_size.set((w, h));
+                self.painted_stage.set(stage);
+                image
+            }
             None => {
                 let mut painter = self.painter.borrow_mut();
                 if painter.is_none() {
                     let Some(services) = &self.services else { return };
                     *painter = Some(Box::new(crate::preview::CpuPainter(services.media.scaler())));
                 }
-                let Some(image) = painter.as_mut().and_then(|p| p.paint(&frame, w, h)) else { return };
+                let Some(image) = painter.as_mut().and_then(|p| {
+                    p.derived_from(tag);
+                    p.paint(&frame, w, h)
+                }) else {
+                    return;
+                };
                 image
             }
         };
-        self.painted.set(number);
+        if !take_only {
+            self.painted.set(number);
+            self.painted_size.set((w, h));
+            self.painted_stage.set(stage);
+        }
 
         let (target, id) = match &popout {
             Some(p) => (p, ""),
@@ -1087,6 +1149,7 @@ impl Window {
         let mut work = self.passes.borrow_mut();
         let shown = crate::preview::shown_size((frame.width, frame.height), stage);
         if work.overlay_due(dirty, shown) {
+            self.overlay_pending.drawn();
             let overlay = work.overlay(&passes, shown.0, shown.1, self.ui.window().scale_factor());
             let _ = target.set_property(&name("has-overlay"), SValue::Bool(overlay.is_some()));
             if let Some(overlay) = overlay {
@@ -1783,7 +1846,8 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         }
     }
     let window = build_app(ConfigFile::default(), services.clone(), Some(opts.clone()))?;
-    *window.painter.borrow_mut() = gpu_painter;
+    // Without the card's painter the picture is scaled on a thread of its own, so the window never waits on a readback
+    *window.painter.borrow_mut() = gpu_painter.or_else(|| Some(Box::new(crate::preview::ThreadedPainter::for_window(services.media.scaler())) as Box<dyn crate::preview::Painter>));
     if let Some(t0) = std::env::var("TELESCOPE_T0").ok().and_then(|v| v.parse::<u64>().ok()) {
         let mut done = false;
         let _ = window.ui.window().set_rendering_notifier(move |state, _| {
@@ -1798,6 +1862,8 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     let weak = Rc::downgrade(&window);
     window.preview_timer.start(slint::TimerMode::Repeated, Duration::from_millis(100), move || {
         if let Some(w) = weak.upgrade() {
+            let seen = w.ui.window().is_visible() && !w.ui.window().is_minimized();
+            w.streams.frame_unwanted.store(!(seen || w.popout.borrow().is_some()), std::sync::atomic::Ordering::SeqCst);
             w.paint_preview();
             w.paint_pick();
             w.paint_layers();

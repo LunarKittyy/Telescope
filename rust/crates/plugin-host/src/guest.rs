@@ -848,7 +848,7 @@ mod tests {
         call_host(&mut host, &info, "emit", &json!({"name": "cover_requested", "data": {"owner": "Echo", "on": true}})).unwrap();
         call_host(&mut host, &info, "emit", &json!({"name": "echo.ping", "data": [1]})).unwrap();
         assert!(call_host(&mut host, &info, "emit", &json!({"name": "other.ping"})).is_err());
-        assert_eq!(host.events[0], Event::CoverRequested { owner: "Echo".into(), on: true });
+        assert_eq!(host.events[0], Event::CoverRequested { owner: "Echo".into(), on: true, note: None });
         assert_eq!(host.events[1], Event::Custom { name: "echo.ping".into(), data: json!([1]) });
     }
 

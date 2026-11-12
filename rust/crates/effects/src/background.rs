@@ -14,10 +14,10 @@ use std::sync::{Arc, OnceLock};
 use telescope_core::actions::{self, Choice, SliderSpec};
 use telescope_core::config::clamped_int;
 use telescope_core::event::Event;
-use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep};
+use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat};
 use telescope_core::host::{FileDialog, FileDialogKind, Host, RequestId};
 use telescope_core::i18n::{n_, tr};
-use telescope_core::image::with_spares;
+use telescope_core::image::{over_rows, planes_up_to_420, resize_linear_fixed, rgb_planes, rgb_to_420, small_rgb, spare_bytes, with_spares};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
@@ -48,28 +48,73 @@ fn blurred_to(frame: &Rgb, strength: i64, mask: Option<&Gray>, w: usize, h: usiz
 /// `blurred_to` with the mask already shrunk to the blur's working size (an eighth of the frame).
 fn blurred_by(frame: &Rgb, strength: i64, rest: Option<&Gray>, w: usize, h: usize) -> Rgb {
     let (sw, sh) = ((frame.w / BLUR_SMALL).max(1), (frame.h / BLUR_SMALL).max(1));
-    let small = frame.shrink(sw, sh);
-    let sigma = (1.0 + strength as f64 * 1.2) * SMALL / BLUR_SMALL as f64;
-    let plain = small.blur(sigma);
-    let Some(rest) = rest else { return plain.linear_exact(w, h) };
-    if rest.data.iter().all(|m| *m == 0) {
-        // nobody to leave out
-        return plain.linear_exact(w, h);
+    blurred_small(&frame.shrink(sw, sh), strength, rest).linear_exact(w, h)
+}
+
+/// The blur at its working size: `small` (an eighth of the frame) blurred, with the people in `rest` (the mask shrunk to the same size) left out.
+fn blurred_small(small: &Rgb, strength: i64, rest: Option<&Gray>) -> Rgb {
+    let weights = rest.and_then(|r| Weights::of(r, strength));
+    blurred_with(small, strength, weights.as_ref())
+}
+
+/// What the person-excluding blur takes from the mask alone: the background share of each pixel and that share blurred. Made once for a mask and a strength.
+struct Weights {
+    rest: Vec<f32>,
+    spread: Vec<f32>,
+}
+
+impl Weights {
+    /// None where nobody is in the mask, so the blur is the plain one.
+    fn of(rest: &Gray, strength: i64) -> Option<Weights> {
+        if rest.data.iter().all(|m| *m == 0) {
+            return None;
+        }
+        let share: Vec<f32> = rest.data.iter().map(|m| 1.0 - *m as f32 / 255.0).collect();
+        let spread = blur_quick(&share, rest.w, rest.h, 1, blur_sigma(strength));
+        Some(Weights { rest: share, spread })
     }
-    let rest: Vec<f32> = rest.data.iter().map(|m| 1.0 - *m as f32 / 255.0).collect();
-    let spread = blur_quick(&rest, sw, sh, 1, sigma);
-    let kept: Vec<f32> = small.data.as_chunks::<3>().0.iter().zip(&rest).flat_map(|(p, r)| p.map(|v| v as f32 * r)).collect();
+}
+
+fn blur_sigma(strength: i64) -> f64 {
+    (1.0 + strength as f64 * 1.2) * SMALL / BLUR_SMALL as f64
+}
+
+/// `blurred_small` with the mask's weights already made (None for the plain blur).
+fn blurred_with(small: &Rgb, strength: i64, weights: Option<&Weights>) -> Rgb {
+    let (sw, sh) = (small.w, small.h);
+    let sigma = blur_sigma(strength);
+    let plain = small.blur(sigma);
+    let Some(Weights { rest, spread }) = weights else { return plain };
+    let kept: Vec<f32> = small.data.as_chunks::<3>().0.iter().zip(rest).flat_map(|(p, r)| p.map(|v| v as f32 * r)).collect();
     let total = blur_quick(&kept, sw, sh, 3, sigma);
     let mut out = Rgb::scratch(sw, sh);
     let colours = out.data.as_chunks_mut::<3>().0.iter_mut().zip(total.as_chunks::<3>().0).zip(plain.data.as_chunks::<3>().0);
-    for ((o, (v, p)), s) in colours.map(|((o, v), p)| (o, (v, p))).zip(&spread) {
+    for ((o, (v, p)), s) in colours.map(|((o, v), p)| (o, (v, p))).zip(spread) {
         // where there's next to no background, the plain blur
         let weight = (s * 4.0).clamp(0.0, 1.0);
         for c in 0..3 {
             o[c] = (v[c] / s.max(1e-3) * weight + p[c] as f32 * (1.0 - weight)).clamp(0.0, 255.0) as u8;
         }
     }
-    out.linear_exact(w, h)
+    out
+}
+
+/// `out` (the background) with `src` over it where `mask` says (0..255 a pixel): one plane, in place. Rows with no mask are left as the background and rows all mask are the source.
+fn lay_over(src: &[u8], mask: &[u8], out: &mut [u8], w: usize) {
+    over_rows(out, w, |y, line| {
+        let (top, m) = (&src[y * w..][..w], &mask[y * w..][..w]);
+        if m.iter().all(|&v| v == 0) {
+            return;
+        }
+        if m.iter().all(|&v| v == 255) {
+            line.copy_from_slice(top);
+            return;
+        }
+        for ((o, &t), &m) in line.iter_mut().zip(top).zip(m) {
+            let x = t as u32 * m as u32 + *o as u32 * (255 - m as u32) + 128;
+            *o = ((x + (x >> 8)) >> 8) as u8;
+        }
+    });
 }
 
 /// The sample's background blurred at strength 1..10 at the bubble's size, made the first time and kept.
@@ -110,10 +155,34 @@ struct Step {
     /// The picture scaled to cover this frame's size
     covered: Option<Rgb>,
     spares: Vec<Vec<u8>>,
+    /// The picture as I420 at this frame's size, for frames in YUV
+    covered_yuv: Option<((usize, usize), Vec<u8>)>,
     /// A mask has come since the app started, so vision works and having none now means it lost track: the room stays hidden.
     had_mask: Arc<AtomicBool>,
     /// What the last mask led to, so an unchanged mask isn't feathered and shrunk again
     derived: Option<Derived>,
+    /// What the last quarter-size mask led to, for frames in YUV
+    quarter: Option<Quarter>,
+}
+
+/// A quarter-size mask kept (so an unchanged one is known by its address) with its feathered copy for one edge setting and its eighth-size copy.
+struct Quarter {
+    src: Arc<Vec<u8>>,
+    size: (usize, usize),
+    /// The frame's size, which everything kept here is made for (two sizes can share a quarter-size mask)
+    full: (usize, usize),
+    soft: Option<(i64, Gray)>,
+    rest: Option<Gray>,
+    /// The feathered mask scaled up to the luma and chroma planes' sizes, for the edge setting in `soft`
+    wide: Option<Wide>,
+    /// The blur's weights for one strength
+    weights: Option<(i64, Option<Weights>)>,
+}
+
+/// A feathered mask at the size of the luma plane and of a chroma plane.
+struct Wide {
+    luma: Vec<u8>,
+    chroma: Vec<u8>,
 }
 
 /// The mask kept (so an unchanged one is known by its address) with its feathered copy for one edge setting and its eighth-size copy.
@@ -135,6 +204,9 @@ impl CpuStep for Step {
 impl Step {
     fn run(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
         if self.settings.mode == 0 {
+            return;
+        }
+        if self.run_planes(frame, ctx) {
             return;
         }
         let mask = mask_shared(ctx, frame);
@@ -177,6 +249,78 @@ impl Step {
             self.covered = None;
         }
         self.covered.get_or_insert_with(|| cover(picture, rgb.w, rgb.h))
+    }
+
+    /// A frame in YUV done on its planes, with no RGB picture of it made at full size: the mask comes at a quarter of the size and is feathered there, the blur is made at an eighth, and both are scaled up as they go over the frame's own planes. Where there's no one in the mask the frame is the background alone. False when this isn't a frame it does that way (the caller does it in RGB).
+    fn run_planes(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) -> bool {
+        let (w, h) = (frame.width as usize, frame.height as usize);
+        let blur = MODES[self.settings.mode].0 == "blur";
+        let picture = self.settings.picture.clone().filter(|_| !blur);
+        if frame.format != PixelFormat::I420 || w < 2 || h < 2 || frame.i420_planes().is_none() || (!blur && picture.is_none()) {
+            return false;
+        }
+        let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+        let (qw, qh) = ((w / 4).max(1), (h / 4).max(1));
+        let mask = ctx.person_mask_at(frame, qw, qh).filter(|m| m.len() == qw * qh);
+        if mask.is_none() && !self.had_mask.load(Ordering::Relaxed) {
+            return true;
+        }
+        let edges = self.settings.edges;
+        let mut quarter = None;
+        if let Some(src) = mask {
+            self.had_mask.store(true, Ordering::Relaxed);
+            let mut q = match self.quarter.take() {
+                Some(q) if Arc::ptr_eq(&q.src, &src) && q.size == (qw, qh) && q.full == (w, h) => q,
+                _ => Quarter { src, size: (qw, qh), full: (w, h), soft: None, rest: None, wide: None, weights: None },
+            };
+            if q.soft.as_ref().is_none_or(|(e, _)| *e != edges) {
+                let whole = Gray { w: qw, h: qh, data: q.src.to_vec() };
+                q.soft = Some((edges, if edges <= 0 { whole } else { whole.blur(edges as f64 * 0.6) }));
+                q.wide = None;
+            }
+            if blur && q.rest.is_none() {
+                let whole = Gray { w: qw, h: qh, data: q.src.to_vec() };
+                q.rest = Some(whole.shrink((w / BLUR_SMALL).max(1), (h / BLUR_SMALL).max(1)));
+            }
+            quarter = Some(q);
+        }
+        let mut out = spare_bytes(frame.data.len());
+        // the background goes down first, and the frame goes over it where the mask is
+        if blur {
+            let (sw, sh) = ((w / BLUR_SMALL).max(1), (h / BLUR_SMALL).max(1));
+            let Some(small) = small_rgb(frame, sw, sh, false) else { return false };
+            let strength = self.settings.blur;
+            if let Some(q) = quarter.as_mut() {
+                if q.weights.as_ref().is_none_or(|(s, _)| *s != strength) {
+                    q.weights = Some((strength, q.rest.as_ref().and_then(|r| Weights::of(r, strength))));
+                }
+            }
+            let weights = quarter.as_ref().and_then(|q| q.weights.as_ref()).and_then(|(_, w)| w.as_ref());
+            let blurred = blurred_with(&Rgb { w: sw, h: sh, data: small }, strength, weights);
+            planes_up_to_420(&rgb_planes(&blurred.data), (sw, sh), &mut out, (w, h));
+        } else if let Some(picture) = picture {
+            if self.covered_yuv.as_ref().is_none_or(|(s, _)| *s != (w, h)) {
+                let covered = cover(&picture, w, h);
+                let mut yuv = vec![0u8; frame.data.len()];
+                rgb_to_420(&covered.data, w, h, &mut yuv, false);
+                self.covered_yuv = Some(((w, h), yuv));
+            }
+            out.copy_from_slice(&self.covered_yuv.as_ref().unwrap().1);
+        }
+        if let Some(q) = quarter.as_mut() {
+            let soft = q.soft.as_ref().map(|(_, g)| g).filter(|g| g.data.iter().any(|&v| v != 0));
+            if let (Some(soft), Some((sy, su, sv))) = (soft, frame.i420_planes()) {
+                let wide = q.wide.get_or_insert_with(|| Wide { luma: resize_linear_fixed(&soft.data, qw, qh, 1, w, h), chroma: resize_linear_fixed(&soft.data, qw, qh, 1, cw, ch) });
+                let (oy, chroma) = out.split_at_mut(w * h);
+                let (ou, ov) = chroma.split_at_mut(cw * ch);
+                lay_over(sy, &wide.luma, oy, w);
+                lay_over(su, &wide.chroma, ou, cw);
+                lay_over(sv, &wide.chroma, ov, cw);
+            }
+        }
+        frame.replace_data(out);
+        self.quarter = quarter;
+        true
     }
 
     /// No telling the person from the room right now: the whole picture gets what the room would.
@@ -465,7 +609,7 @@ impl Plugin for BackgroundPlugin {
             return None;
         }
         let settings = Settings { mode: self.mode, blur: self.blur, edges: self.edges, picture: self.picture.clone() };
-        Some(FrameStep::Cpu(Box::new(Step { settings, covered: None, spares: Vec::new(), had_mask: self.had_mask.clone(), derived: None })))
+        Some(FrameStep::Cpu(Box::new(Step { settings, covered: None, spares: Vec::new(), covered_yuv: None, had_mask: self.had_mask.clone(), derived: None, quarter: None })))
     }
 
     fn get_config(&self) -> Value {

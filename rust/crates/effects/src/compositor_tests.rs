@@ -127,16 +127,55 @@ fn a_stretched_or_cropped_stream_is_drawn_that_way() {
 fn corner_masks_are_worked_out_once_per_radius() {
     let first = corner_masks(12);
     assert!(Arc::ptr_eq(&corner_masks(12), &first));
-    let [(tl_in, tl_out), (tr_in, _), (bl_in, _), (br_in, _)] = &*first;
-    assert!(tl_in[0] == 0.0 && tl_in[12 * 12 - 1] == 1.0 && tl_in.iter().zip(tl_out).all(|(a, b)| (a + b - 1.0).abs() < 1e-6));
-    let at = |m: &Vec<f32>, y: usize, x: usize| m[y * 12 + x];
+    assert!(first.inside(0, 0, 0) == 0.0 && first.inside(0, 11, 11) == 1.0);
+    // each corner is the same curve turned to face its own way
     for y in 0..12 {
         for x in 0..12 {
-            assert_eq!(at(tr_in, y, x), at(tl_in, y, 11 - x));
-            assert_eq!(at(br_in, y, x), at(tl_in, 11 - y, 11 - x));
-            assert_eq!(at(bl_in, y, x), at(tl_in, 11 - y, x));
+            assert_eq!(first.inside(1, x, y), first.inside(0, 11 - x, y));
+            assert_eq!(first.inside(3, x, y), first.inside(0, 11 - x, 11 - y));
+            assert_eq!(first.inside(2, x, y), first.inside(0, x, 11 - y));
         }
     }
+}
+
+#[test]
+fn the_kept_corner_squares_stay_within_their_budget() {
+    // radii up to a 4K picture's half height, a few thousand times over, never keep more than the budget
+    for r in (1..=1080).step_by(37).chain([1080, 540, 1, 1080]) {
+        corner_masks(r);
+        assert!(corner_cache_bytes() <= CORNER_CACHE_BYTES, "{r}: {}", corner_cache_bytes());
+    }
+    // one square a radius, not eight: a 1080 radius is about 4.7 MB
+    assert_eq!(corner_masks(1080).bytes(), 1080 * 1080 * 4);
+}
+
+#[test]
+fn nv12_comes_into_a_tile_as_i420_without_a_trip_through_rgb() {
+    let (w, h) = (66usize, 38usize);
+    let mut data = noise(w, h, 1, 11);
+    data.extend(noise(w / 2, h / 2, 2, 12));
+    let nv12 = Frame::new(w as u32, h as u32, PixelFormat::Nv12, data.clone());
+    let direct = converted(&nv12, Kind::I420).unwrap();
+    assert_eq!(direct.format, PixelFormat::I420);
+    assert_eq!(&direct.data[..w * h], &data[..w * h]);
+    // the colour samples are the same ones, split into their planes
+    let (cw, chh) = (w / 2, h / 2);
+    let (u, v) = direct.data[w * h..].split_at(cw * chh);
+    for i in 0..cw * chh {
+        assert_eq!((u[i], v[i]), (data[w * h + 2 * i], data[w * h + 2 * i + 1]));
+    }
+    // against the old trip through RGB, on a smooth picture rather than noise: within a few levels in what the viewer sees
+    let smooth = |f: &Frame| to_rgb(f).unwrap();
+    let gradient: Vec<u8> = (0..w * h).map(|i| (40 + (i % w) * 2 + (i / w)) as u8).collect();
+    let mut g = gradient;
+    g.extend((0..2 * cw * chh).map(|i| if i % 2 == 0 { 110 + (i / 2 % cw) as u8 } else { 150 - (i / 2 / cw) as u8 }));
+    let frame = Frame::new(w as u32, h as u32, PixelFormat::Nv12, g);
+    let new = converted(&frame, Kind::I420).unwrap();
+    let rgb = to_rgb(&frame).unwrap();
+    let mut via = Frame::new(w as u32, h as u32, PixelFormat::I420, vec![255; PixelFormat::I420.size(w as u32, h as u32)]);
+    put_rgb(&mut via, &rgb);
+    let worst = smooth(&new).iter().zip(smooth(&via).iter()).map(|(a, b)| (*a as i32 - *b as i32).abs()).max().unwrap();
+    assert!(worst <= 3, "{worst}");
 }
 
 #[test]
@@ -317,12 +356,11 @@ fn paste_reference(canvas: &mut [u8], kind: Kind, cw: usize, chh: usize, content
             if let Some(m) = &masks {
                 let mut kept = under.into_iter();
                 for (corner, &(cx0, cy0)) in corners.iter().enumerate() {
-                    let (inside, outside) = &m[corner];
                     for yy in 0..r {
                         for xx in 0..r * ch {
                             let at = ((cy0 + yy) * plane.w + cx0) * ch + xx;
-                            let k = yy * r + xx / ch;
-                            data[at] = blend(data[at], kept.next().unwrap_or(0), inside[k], outside[k]);
+                            let inside = m.inside(corner, xx / ch, yy);
+                            data[at] = blend(data[at], kept.next().unwrap_or(0), inside, 1.0 - inside);
                         }
                     }
                 }
@@ -434,6 +472,84 @@ fn bench_two_tile_render() {
             comp.render(&all, PixelFormat::I420);
             let took = best_of(5, || { std::hint::black_box(comp.render(&all, PixelFormat::I420)); });
             println!("render two tiles {w}x{h} radius {radius}: {took:.2} ms");
+        }
+    }
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture"]
+fn bench_two_tile_render_fresh() {
+    for (w, h) in [(1920u32, 1080u32), (3840, 2160)] {
+        for format in [PixelFormat::I420, PixelFormat::Nv12] {
+            let tiles = vec![t("a", 0.0, 0.0, 0.5, 1.0), t("b", 0.5, 0.0, 0.5, 1.0)];
+            let mut data = noise(w as usize, h as usize, 1, 3);
+            data.extend(noise(2 * (w as usize / 2) * (h as usize / 2), 1, 1, 4));
+            let frame = Frame::new(w, h, format, data);
+            let all: Frames = [("a", None::<u64>), ("b", None)].iter().map(|(s, n)| (s.to_string(), (frame.clone(), *n))).collect();
+            let mut comp = Compositor::default();
+            comp.prepare(&Layout::of(tiles), (w, h));
+            comp.render(&all, PixelFormat::I420);
+            let took = best_of(5, || { std::hint::black_box(comp.render(&all, PixelFormat::I420)); });
+            println!("render two fresh {format:?} tiles {w}x{h}: {took:.2} ms");
+        }
+    }
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture"]
+fn bench_linear_scale() {
+    for ((w, h), (w2, h2)) in [((1920usize, 1080usize), (1280usize, 720usize)), ((3840, 2160), (2560, 1440)), ((3840, 2160), (1333, 750))] {
+        for ch in [1usize, 4] {
+            let plane = noise(w, h, ch, 5);
+            let took = best_of(5, || { std::hint::black_box(scale_to(&plane, w, h, ch, w2, h2)); });
+            println!("linear scale {w}x{h} x{ch} -> {w2}x{h2}: {took:.2} ms");
+        }
+    }
+}
+
+/// The scaling this replaced, kept to compare every byte against.
+fn linear_reference(src: Region, w2: usize, h2: usize) -> Vec<u8> {
+    let ch = src.ch;
+    let (xs, ys) = (linear_taps(src.w, w2), linear_taps(src.h, h2));
+    let n = w2 * ch;
+    let row = |y: usize| -> Vec<i32> {
+        let mut out = vec![0i32; n];
+        for (dx, &(x0, x1, a0, a1)) in xs.iter().enumerate() {
+            for c in 0..ch {
+                out[dx * ch + c] = src.at(x0, y, c) as i32 * a0 + src.at(x1, y, c) as i32 * a1;
+            }
+        }
+        out
+    };
+    let mut rows: HashMap<usize, Vec<i32>> = HashMap::new();
+    let mut out = vec![0u8; n * h2];
+    let vec16 = n / 16 * 16;
+    let vec_end = if (vec16 as i64) < n as i64 - 8 { vec16 + 8 } else { vec16 };
+    for (dy, &(y0, y1, b0, b1)) in ys.iter().enumerate() {
+        rows.entry(y0).or_insert_with(|| row(y0));
+        rows.entry(y1).or_insert_with(|| row(y1));
+        rows.retain(|k, _| *k >= y0);
+        let (s0, s1) = (&rows[&y0], &rows[&y1]);
+        let line = &mut out[dy * n..(dy + 1) * n];
+        for i in 0..n {
+            line[i] = if i < vec_end {
+                let hi = |b: i32, s: i32| (b * ((s >> 4).clamp(-32768, 32767))) >> 16;
+                ((hi(b0, s0[i]) + hi(b1, s1[i]) + 2) >> 2).clamp(0, 255) as u8
+            } else {
+                ((b0 as i64 * s0[i] as i64 + b1 as i64 * s1[i] as i64 + (1 << 21)) >> 22).clamp(0, 255) as u8
+            };
+        }
+    }
+    out
+}
+
+#[test]
+fn linear_scaling_is_the_same_as_the_version_it_replaced() {
+    for ch in [1usize, 3, 4] {
+        for ((w, h), (w2, h2)) in [((64usize, 48usize), (40usize, 30usize)), ((65, 49), (130, 98)), ((200, 120), (133, 77)), ((1920, 1080), (1280, 720)), ((31, 17), (31, 40)), ((9, 9), (1, 1)), ((300, 200), (299, 3))] {
+            let data = noise(w + 3, h + 2, ch, (w * h) as u64);
+            let region = Region { data: &data, stride: w + 3, ch, x0: 2, y0: 1, w, h };
+            assert!(linear(region, w2, h2) == linear_reference(region, w2, h2), "{ch} channels {w}x{h} to {w2}x{h2}");
         }
     }
 }

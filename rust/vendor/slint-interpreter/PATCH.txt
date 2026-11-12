@@ -1,0 +1,68 @@
+slint-interpreter 1.18.1 from crates.io with four changes (the second and fourth need vendor/i-slint-core), the first two in ItemTree::item_geometry (search for "Telescope patch"): ItemTree::item_geometry no longer clones
+the item's geometry expression and no longer builds a Struct from it.
+
+Why: Slint asks every item for its geometry on every walk of the item tree (rendering, hit testing, dirty tracking). The interpreter answered by cloning the
+whole geometry expression (a deep copy of an expression tree, allocating) and evaluating it into a Value::Struct (a HashMap of SmolStr to Value, allocating
+again), then read x, y, width and height back out of the map. A profile of the desktop window at 4K with every plugin loaded showed that walk at about 46 %
+of the window thread, malloc, free and memmove at about 40 % of it.
+
+What it does now: the expression is borrowed from the compilation unit (the cell is only borrowed while it is read, as before), and when it is the usual
+Expression::Struct the four fields are evaluated one by one, in the order upstream gets them from the field map (height, width, x, y), because evaluating height can create a ComponentContainer's component, which x reads. Any other expression shape takes the old path, so results are the same. The dependencies the
+evaluation reads are tracked exactly as before, because the same sub-expressions are evaluated in the same context.
+
+Second change, in item_tree_vtable.rs and instance.rs (search for "Telescope patch"): ItemTree::item_geometry now remembers each item's rect. Instance has one cache entry per flat tree index
+(created on first use) holding the last rect and a PropertyTracker. The geometry is only evaluated again when the tracker is dirty, that is when a property the geometry expression read has changed;
+the tracker is registered as a dependency of whatever is being evaluated (the window's redraw tracker, a layout), so a change reaches them as it did before. One difference from upstream's other caches: evaluating an item's geometry can itself invalidate a property it already read (a ComponentContainer creating its component sets properties), and
+PropertyTracker::evaluate_as_dependency_root forgets such a change because it clears the dirty flag after the closure. The vendored i-slint-core has a variant that clears it before (see
+vendor/i-slint-core/PATCH.txt), so the tracker is still dirty afterwards. The cache evaluates once; while the tracker is dirty again it evaluates again, at most 8 times in one query. If it has not settled after 8 passes nothing is cached
+for that query: the geometry is evaluated once more directly in the caller's own tracking context, exactly as without the cache, and the entry stays dirty so the next query starts over.
+Nothing guarantees such a chain ever settles; it just costs what it cost before the cache. An ordinary item is evaluated once. The renderer (femtovg has no
+partial rendering) still walks every item that is not inside a cached layer on each frame, so this makes each visit cheap instead of making fewer visits. Items in a repeated row live in their own
+Instance, so a repeater adding or removing rows never reuses an entry for a different item.
+
+Measured (release, window thread CPU over 40 s after 25 s warm-up, fake phone, headless nested KWin, one run each):
+  4K, everything loaded and on:  15.77 % -> 13.32 % (15 % less)
+  4K, nothing loaded:             3.75 % ->  3.15 % (16 % less)
+  1080p, everything loaded and on: 12.77 % -> 10.25 % (20 % less)
+  1080p, nothing loaded:          2.80 % ->  2.37 % (15 % less)
+The main window and the Settings window drew byte for byte the same before and after.
+
+Measured with the cache on top (same setup, two runs each, base then patched back to back): 4K all on 13.5 -> 11.5 %, 4K nothing loaded 3.1 -> 3.1 % (no change, within noise), 1080p all on 10.3 -> 8.6 %, 1080p nothing loaded 2.2 -> 1.85 %.
+Pixels: the main window, Settings, a resize, and a card folding and unfolding (mid-animation too) drew byte for byte the same.
+
+Third change, in item_tree_vtable.rs and instance.rs (search for "Telescope patch"): ItemTree::parent_node and sub_component_path_of no longer search the tree on every call.
+
+Why: the core asks for an item's parent on every walk (absolute positions, hit testing, dirty tracking). For an item in a repeated row the interpreter found the row's place in its parent by walking
+the parent's whole sub-component tree for the path and then scanning dynamic_table for the matching repeater, each time. After the geometry cache this was about 15 % of the window thread at 4K
+with everything on (Instance::parent_node 8.1 % and sub_component_path_of 7.2 % self time).
+
+What it does now: the tree of one instance never changes after build_instance (repeaters and conditionals put their rows in their own Instance, and sub_components is filled once), so where a
+sub-component sits below its root is found once and kept in SubComponentInstance::path_in_root, and a repeated Instance keeps the flat index of its placeholder in the parent in parent_flat_index
+(only set when the lookup succeeds). Embedded components (ComponentContainer) and popups take the same path as before. resolve_item_rc_from_ref uses the same cached path.
+
+Measured (release, window thread CPU over 40 s after 25 s warm-up, everything on, two runs each, base then patched back to back): 4K 11.3 -> 9.9 %, 1080p 8.8 -> 7.0 %.
+Pixels: main window, three window sizes, folding and unfolding cards drew byte for byte the same.
+
+Drop it with the rest of this folder.
+
+Fourth change, in instance.rs (search for "Telescope patch"): Instance::ensure_instantiated only walks its repeaters, conditionals and ComponentContainers when something they read has changed.
+
+Why: the core runs ensure_instantiated on the whole tree before every frame and every input event. Each call went through every dynamic node of every instance, cloned Rc's and the
+compilation unit for each, read each repeater's model property and collected each repeater's rows into a fresh Vec to recurse into them, even when nothing had changed. After the
+parent lookup cache this was the largest interpreter cost left on the window thread at 4K with everything on (Instance::ensure_updated 6.9 % and PropertyHandle::update for the model 4.2 % self time).
+
+What it does now: every Instance with dynamic nodes has a PropertyTracker that records what its last walk read (the models, the repeaters' dirty flags, the conditions, a ListView's
+viewport and row heights, the ComponentContainer's factory). A child instance's tracker is registered with its parent's before the child walks, so a change anywhere below marks every
+instance above it dirty, and a clean instance answers straight away. The walk uses the keeping-invalidation variant from vendor/i-slint-core, so a change the walk itself causes (a row's
+init setting a property another repeater's model reads) leaves the tracker dirty for the next call. A ListView sets its dirty flag without reading it, and a row added or removed outside its
+instantiated rows doesn't set it, so the walk registers the dirty flag and the model's row count (Repeater::track_row_count_changes in vendor/i-slint-core, which resolves the model
+the usual way) before the update reads the count or runs row init code. A walk that re-enters the same instance (from init code) walks as before without the tracker. Direct ensure_updated calls (get_subtree_range, get_subtree) are unchanged.
+Rows still appear, update and go in the same call as before: the tracker only skips walks that would have changed nothing.
+
+Measured (release, window thread CPU over 40 s after 25 s warm-up, everything on, two runs each, base then patched back to back): 4K 9.9 -> 8.4 %, 1080p 7.0 -> 6.5 %.
+
+Drop it with the rest of this folder.
+
+Drop it when Slint stops cloning and boxing in item_geometry (nothing upstream is known yet; check the release notes after 1.18.1), then remove this folder and the
+slint-interpreter line under [patch.crates-io] in rust/Cargo.toml. Tests and the lockfile were left out of the copy, and so were the [[test]] entries for them in Cargo.toml.
+Slint's GPL-3 option is what Telescope uses; the licence files are kept in LICENSES.

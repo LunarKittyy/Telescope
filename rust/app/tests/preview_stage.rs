@@ -488,6 +488,61 @@ fn frames_are_scaled_to_the_view_as_they_are_painted() {
     assert_eq!((image.size().width, image.size().height), (800, 450));
 }
 
+// A stream that stopped sending still gets its last picture redrawn when the window it fills is resized
+#[test]
+fn a_stalled_stream_is_painted_again_at_the_new_size_of_the_popout() {
+    let s = on_air("stage-stalled-resize");
+    let p = s.pop_out();
+    p.window().set_size(slint::PhysicalSize::new(800, 600));
+    s.show(0, grey(1920, 1080));
+    let size = |p: &ComponentInstance| match p.get_property("frame").unwrap() {
+        SValue::Image(i) => (i.size().width, i.size().height),
+        other => panic!("frame is {other:?}"),
+    };
+    assert_eq!(size(&p), (800, 450));
+    p.window().set_size(slint::PhysicalSize::new(400, 300));
+    s.r.w.paint_preview();
+    assert_eq!(size(&p), (400, 225), "no new frame came, the same one is drawn for the new size");
+}
+
+// The frame the stream stalled on may be one the card skipped: a resize still paints it
+#[test]
+fn a_stalled_stream_whose_last_frame_was_skipped_is_painted_at_the_new_size() {
+    let s = on_air_capped("stage-stalled-skipped");
+    s.show(0, grey(1920, 1080));
+    let first = s.image_size();
+    s.show(0, grey(1920, 1080));
+    assert_eq!(s.image_size(), first, "the second frame is one the card skips");
+    s.r.w.ui.window().set_size(slint::PhysicalSize::new(700, 500));
+    s.r.w.process();
+    s.r.w.paint_preview();
+    let scale = s.r.w.ui.window().scale_factor();
+    let stage = ((s.number("stage-width") * scale).round() as u32, (s.number("stage-height") * scale).round() as u32);
+    let want = telescope_shell::preview::fit_within((1920, 1080), stage);
+    assert_ne!(want, first, "the window really got smaller");
+    assert_eq!(s.image_size(), want, "no new frame came, the skipped one is drawn for the new size");
+}
+
+#[test]
+#[ignore = "bench: cargo test --release -p telescope-app --test preview_stage compare_split_cost -- --ignored --nocapture"]
+fn compare_split_cost() {
+    for (w, h) in [(1920, 1080), (3840, 2160)] {
+        let (before, after) = (grey(w, h), blue(w, h));
+        let before = Frame::new(w, h, PixelFormat::I420, before.data.iter().step_by(4).copied().chain(std::iter::repeat(128)).take((w * h * 3 / 2) as usize).collect());
+        let t = std::time::Instant::now();
+        for _ in 0..10 {
+            std::hint::black_box(telescope_core::colour::with_split(&before, &after, 0.5));
+        }
+        println!("with_split {w}x{h} I420: {:.2} ms", t.elapsed().as_secs_f64() * 100.0);
+        let (before, after) = (grey(w, h), grey(w, h));
+        let t = std::time::Instant::now();
+        for _ in 0..10 {
+            std::hint::black_box(telescope_core::colour::with_split(&before, &after, 0.5));
+        }
+        println!("with_split {w}x{h} RGBA: {:.2} ms", t.elapsed().as_secs_f64() * 100.0);
+    }
+}
+
 #[test]
 fn card_preview_downscales_large_frame_before_signal() {
     let s = on_air("stage-large");
@@ -1088,4 +1143,54 @@ fn the_skeleton_follows_the_zoom_and_marks_an_arm_held_out() {
     assert!((xs[0] - 0.4).abs() < 1e-3 && (xs[1] - 0.6).abs() < 1e-3 && shoulders["out"] == false, "{xs:?}");
     assert_eq!(lines.iter().filter(|l| l["out"] == true).count(), 2, "shoulder to elbow and elbow to wrist, not the side of the body or the face");
     assert!(lit_near(&s, s.at(0.5, 0.3)), "drawn where the zoom put it");
+}
+
+/// The CPU fallback's painter, as the app uses it when the window can't take the card's textures.
+fn threaded(s: &Stage) {
+    use telescope_core::media::Media;
+    s.r.w.use_painter(Box::new(telescope_shell::preview::ThreadedPainter::for_window(telescope_media::FfmpegMedia.scaler())));
+}
+
+#[test]
+fn the_fallback_painter_never_holds_the_window_up_and_the_picture_lands_when_it_is_made() {
+    let s = on_air("stage-threaded");
+    threaded(&s);
+    s.show(0, blue(1920, 1080));
+    assert!(!s.has_frame(), "the scaler runs on a thread of its own, so nothing is there yet");
+    s.r.until("the picture lands", |_| s.has_frame());
+    let scale = s.r.w.ui.window().scale_factor();
+    let stage = ((s.number("stage-width") * scale).round() as u32, (s.number("stage-height") * scale).round() as u32);
+    assert_eq!(s.image_size(), telescope_shell::preview::fit_within((1920, 1080), stage));
+    let (r, g, b) = s.pixel();
+    assert!(b > 200 && r < 60 && g < 60, "{:?}", (r, g, b));
+    // The next frame is another picture, with no help from the 10 Hz timer
+    s.show(0, grey(1920, 1080));
+    s.r.until("the next picture lands", |_| s.pixel().2 < 150);
+    assert!(s.pixel().0 > 100);
+}
+
+#[test]
+fn the_fallback_painter_still_paints_again_for_a_resize_and_a_stream_switch() {
+    let s = on_air_capped("stage-threaded-resize");
+    threaded(&s);
+    s.show(0, grey(1920, 1080));
+    s.r.until("the picture lands", |_| s.has_frame());
+    let first = s.image_size();
+    s.r.w.ui.window().set_size(slint::PhysicalSize::new(700, 500));
+    s.r.w.process();
+    s.r.w.paint_preview();
+    let scale = s.r.w.ui.window().scale_factor();
+    let stage = ((s.number("stage-width") * scale).round() as u32, (s.number("stage-height") * scale).round() as u32);
+    let want = telescope_shell::preview::fit_within((1920, 1080), stage);
+    assert_ne!(want, first, "the window really got smaller");
+    s.r.until("the same frame at the new size", |_| s.image_size() == want);
+    // A new stream's first frame is painted whatever the frame count says
+    s.r.stop(None);
+    s.r.pump();
+    s.r.start();
+    s.r.until("the second worker", |r| r.workers_made() == 2);
+    s.r.worker(1).says("ok", "Streaming");
+    s.r.pump();
+    s.show(1, blue(640, 360));
+    s.r.until("the new stream's picture", |_| s.pixel().2 > 200);
 }

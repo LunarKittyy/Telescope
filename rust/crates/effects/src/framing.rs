@@ -39,6 +39,10 @@ const ANKLES_BELOW: f64 = 3.1;
 const LEARN: f64 = 0.1;
 /// Nobody clear enough to frame for this long: the framing holds where it is before it widens, since a missed detection is not someone leaving.
 const HOLD_S: f64 = 1.5;
+/// A person the model hasn't reported for this long has left the group: the model reports only some of the people each time, and framing each report made it jump.
+const GROUP_S: f64 = 3.0;
+/// A report is the same person as one already followed when it is within this many shoulder widths of them.
+const SAME_PERSON: f64 = 2.5;
 /// How far under the eyes the chin is, in shoulder widths: Head ends just below it.
 const CHIN: f64 = 0.43;
 /// Chest ends this far under the shoulder line (about the armpits), in shoulder widths.
@@ -174,7 +178,7 @@ pub fn target_box(people: &[Person], aspect: f64, framing: f64, hands: &[&str]) 
 }
 
 /// target_box with what a person's body is known to look like standing in for what the model has lost.
-pub fn target_box_with(people: &[Person], aspect: f64, framing: f64, hands: &[&str], props: &Proportions) -> Option<Box4> {
+pub fn target_box_with<'a>(people: impl IntoIterator<Item = &'a Person>, aspect: f64, framing: f64, hands: &[&str], props: &Proportions) -> Option<Box4> {
     let mut boxes: Vec<Box4> = Vec::new();
     for person in people {
         let (person, to_shown) = upright(person, aspect);
@@ -205,6 +209,36 @@ pub fn target_box_with(people: &[Person], aspect: f64, framing: f64, hands: &[&s
         boxes.push((fold(f64::min, |p| p.0), fold(f64::min, |p| p.1), fold(f64::max, |p| p.0), fold(f64::max, |p| p.1)));
     }
     boxes.into_iter().reduce(|a, b| (a.0.min(b.0), a.1.min(b.1), a.2.max(b.2), a.3.max(b.3)))
+}
+
+/// `tracked` (each person with when they were last reported) after a report: each person goes to the nearest one within SAME_PERSON shoulder widths, taking their place, or is added.
+pub fn track(mut tracked: Vec<(Person, f64)>, people: &[Person], now: f64, aspect: f64) -> Vec<(Person, f64)> {
+    let place = |person: &Person| body(person, aspect);
+    let mut pairs: Vec<(f64, usize, usize)> = Vec::new();
+    for (i, person) in people.iter().enumerate() {
+        let Some(((x, y), width)) = place(person) else { continue };
+        for (j, (old, _)) in tracked.iter().enumerate() {
+            let Some(((ox, oy), owidth)) = place(old) else { continue };
+            let apart = ((x - ox) * aspect).hypot(y - oy);
+            if apart <= SAME_PERSON * width.max(owidth) {
+                pairs.push((apart, i, j));
+            }
+        }
+    }
+    pairs.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let (mut taken, mut used) = (vec![false; people.len()], vec![false; tracked.len()]);
+    for (_, i, j) in pairs {
+        if !taken[i] && !used[j] {
+            (taken[i], used[j]) = (true, true);
+            tracked[j] = (people[i].clone(), now);
+        }
+    }
+    for (i, person) in people.iter().enumerate() {
+        if !taken[i] && place(person).is_some() {
+            tracked.push((person.clone(), now));
+        }
+    }
+    tracked
 }
 
 /// The window (same shape as the picture) that holds box, as close as max_zoom allows and inside the picture.
@@ -438,6 +472,10 @@ pub struct FramingPlugin {
     status_problem: String,
     // Following
     people: Vec<Person>,
+    /// Each person followed with where they were last reported and when, dropped after GROUP_S unseen; only the current report's people unless two or more were seen together lately
+    tracked: Vec<(Person, f64)>,
+    /// When two or more people were last in one report
+    together_at: Option<f64>,
     seen_at: Option<f64>,
     spring: Option<Spring>,
     goal: Option<Target>,
@@ -494,6 +532,8 @@ impl FramingPlugin {
             status_active: false,
             status_problem: String::new(),
             people: Vec::new(),
+            tracked: Vec::new(),
+            together_at: None,
             seen_at: None,
             spring: None,
             goal: None,
@@ -599,6 +639,7 @@ impl FramingPlugin {
             host.want_people(TITLE, false);
             host.release_view(TITLE);
             self.people.clear();
+            self.forget_group();
             self.seen_at = None;
         }
         self.refresh_status(host, self.switch, String::new());
@@ -703,9 +744,35 @@ impl FramingPlugin {
         if self.steering && source_id == host.focused_source_id().unwrap_or_default() {
             self.people = people.iter().filter_map(Person::from_value).collect();
             let aspect = host.view_aspect() as f64;
-            self.proportions.learn(&self.people, if aspect != 0.0 { aspect } else { 16.0 / 9.0 });
-            self.seen_at = Some((self.clock)());
+            let aspect = if aspect != 0.0 { aspect } else { 16.0 / 9.0 };
+            self.proportions.learn(&self.people, aspect);
+            let now = (self.clock)();
+            self.seen_at = Some(now);
+            self.remember(now, aspect);
         }
+    }
+
+    /// Takes this report into the people followed. Once two or more have been seen together each person goes to the nearest one already followed, or is new; before that, and a while after, only the people in this report count, so one person who jumps is still one person.
+    fn remember(&mut self, now: f64, aspect: f64) {
+        let group = self.together_at.is_some_and(|at| now - at < GROUP_S);
+        if self.people.iter().filter(|p| body(p, aspect).is_some()).count() >= 2 {
+            self.together_at = Some(now);
+        }
+        if group {
+            self.tracked.retain(|(_, at)| now - at < GROUP_S);
+            self.tracked = track(std::mem::take(&mut self.tracked), &self.people, now, aspect);
+            // Reports that alternate between them are still the group being there
+            if self.tracked.iter().filter(|(_, at)| now - at < HOLD_S).count() >= 2 {
+                self.together_at = Some(now);
+            }
+        } else {
+            self.tracked = track(Vec::new(), &self.people, now, aspect);
+        }
+    }
+
+    fn forget_group(&mut self) {
+        self.tracked.clear();
+        self.together_at = None;
     }
 
     fn on_view_changed(&mut self, view: &View) {
@@ -716,6 +783,8 @@ impl FramingPlugin {
         }
         let remap = turned(old, new);
         self.people = self.people.iter().map(|person| person.mapped(&remap)).collect();
+        // Who is who is found again from the next reports, in the new orientation
+        self.forget_group();
         (self.spring, self.goal, self.smooth) = (None, None, None);
         self.last_box = None;
         self.room_state.reset();
@@ -740,7 +809,15 @@ impl FramingPlugin {
             }
         }
         self.widened = widened;
-        let found = target_box_with(people, aspect, self.framing_value(), &self.widened, &self.proportions);
+        // With two or more followed, everyone followed counts, so a report that misses some of them doesn't move the framing; a report with nobody in it finds nobody
+        let together = self.together_at.is_some_and(|at| now - at < GROUP_S);
+        let group: Vec<&Person> = self.tracked.iter().filter(|(_, at)| now - at < GROUP_S).map(|(person, _)| person).collect();
+        let reported = people.iter().any(|person| body(person, aspect).is_some());
+        let found = if together && group.len() >= 2 && reported {
+            target_box_with(group, aspect, self.framing_value(), &self.widened, &self.proportions)
+        } else {
+            target_box_with(people, aspect, self.framing_value(), &self.widened, &self.proportions)
+        };
         // A person the model misses for a moment is not gone: keep framing where they were
         let held = self.last_box.filter(|(_, at)| now - at < self.hold_s).map(|(b, _)| b);
         if found.is_some() {
@@ -859,6 +936,7 @@ impl Plugin for FramingPlugin {
     fn on_focus_gained(&mut self, host: &mut dyn Host, _stream: &StreamInfo) {
         self.catch_up(host);
         self.people.clear();
+        self.forget_group();
         (self.seen_at, self.spring, self.goal, self.smooth) = (None, None, None, None);
         self.last_box = None;
         self.room_state.reset();
