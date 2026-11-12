@@ -514,6 +514,7 @@ export component DownloadBanner inherits Rectangle {
     in property <string> title;
     in property <int> percent: -1;
     in property <string> error;
+    in property <string> detail;
     in property <float> amount: 1;
     height: Theme.u(27) * amount;
     border-radius: Theme.r-card;
@@ -521,6 +522,7 @@ export component DownloadBanner inherits Rectangle {
     clip: true;
     accessible-role: AccessibleRole.text;
     accessible-label: root.error != "" ? root.error : root.title;
+    Tip { says: root.error != "" ? root.error : root.title; detail: root.detail; inert: true; }
     VerticalLayout {
         y: 0px;
         height: Theme.u(27);

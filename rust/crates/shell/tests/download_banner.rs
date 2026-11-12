@@ -11,11 +11,13 @@ const TITLE: &str = "Downloading the vision pack";
 // Progress while it runs, the download's own error once it failed, nothing otherwise.
 #[test]
 fn the_banner_follows_the_download() {
-    assert_eq!(download_banner(TITLE, false, 0, 0, ""), None);
-    assert_eq!(download_banner(TITLE, true, 0, 0, ""), Some(DownloadBanner { title: TITLE.into(), percent: None, error: String::new() }));
-    assert_eq!(download_banner(TITLE, true, 40, 100, "").unwrap().percent, Some(40));
-    assert_eq!(download_banner(TITLE, true, 100, 100, "").unwrap().percent, Some(99), "all the bytes in is not yet unpacked and checked");
-    let failed = download_banner(TITLE, false, 40, 100, "No network").unwrap();
+    assert_eq!(download_banner(TITLE, 47, false, 0, 0, ""), None);
+    let b0 = download_banner(TITLE, 47, true, 0, 0, "").unwrap();
+    assert!(b0.detail.contains("47 MB"));
+    assert_eq!(download_banner(TITLE, 47, true, 0, 0, ""), Some(DownloadBanner { title: TITLE.into(), percent: None, error: String::new(), detail: b0.detail.clone() }));
+    assert_eq!(download_banner(TITLE, 47, true, 40, 100, "").unwrap().percent, Some(40));
+    assert_eq!(download_banner(TITLE, 47, true, 100, 100, "").unwrap().percent, Some(99), "all the bytes in is not yet unpacked and checked");
+    let failed = download_banner(TITLE, 47, false, 40, 100, "No network").unwrap();
     assert_eq!(failed.error, "The download didn't work. No network");
     assert_eq!(failed.percent, None);
 }

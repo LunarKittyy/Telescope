@@ -832,7 +832,7 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
             out.push_str(&format!(
                 "    if footer-fold.value > 0 && !root.searching && root.current == {t}: PluginsFooter {{\n        x: 260px;\n        y: root.height - 16px - self.height;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: footer-fold.value;\n        note: root.footer-note;\n        restart => {{ root.restart(); }}\n    }}\n"));
             out.push_str(&format!(
-                "    if download-fold.value > 0 && !root.searching && root.current == {t}: DownloadBanner {{\n        x: 260px;\n        y: root.height - 16px - 64px * footer-fold.value - self.height;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: download-fold.value;\n        title: root.download-title;\n        percent: root.download-percent;\n        error: root.download-error;\n    }}\n"));
+                "    if download-fold.value > 0 && !root.searching && root.current == {t}: DownloadBanner {{\n        x: 260px;\n        y: root.height - 16px - 64px * footer-fold.value - self.height;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: download-fold.value;\n        title: root.download-title;\n        percent: root.download-percent;\n        error: root.download-error;\n        detail: root.download-detail;\n    }}\n"));
         }
         let mut below = String::from("root.height - 16px");
         for f in footers.iter().rev() {
@@ -889,6 +889,7 @@ export component TelescopeSettings inherits Window {
     in property <string> download-title;
     in property <int> download-percent: -1;
     in property <string> download-error;
+    in property <string> download-detail;
     download-fold := Unfold { open: root.download-shown; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
     // The restart bar opening and shutting, and the plugins page giving up its room as it goes
     footer-fold := Unfold { open: root.footer-shown; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }

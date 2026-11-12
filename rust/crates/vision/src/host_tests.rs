@@ -105,6 +105,50 @@ fn test_the_plugin_waiting_for_the_download_is_switched_on_with_no_dialog_open()
 }
 
 #[test]
+fn several_plugins_asking_while_it_downloads_share_one_download_and_all_switch_on() {
+    let zipped = crate::pack::tests::zipped(&[("models/a.task", b"model")]);
+    let (opened, gate) = (Arc::new(std::sync::atomic::AtomicU64::new(0)),Arc::new(AtomicBool::new(false)));
+    let (o, g) = (opened.clone(), gate.clone());
+    let (h, bus) = host(Box::new(move |_, _| {
+        o.fetch_add(1, Ordering::SeqCst);
+        wait(|| g.load(Ordering::SeqCst));
+        Ok(Box::new(Cursor::new(zipped.clone())) as Box<dyn Read>)
+    }));
+    h.download("framing");
+    h.download("background");
+    h.download("framing");
+    gate.store(true, Ordering::SeqCst);
+    let out = Mutex::new(Vec::new());
+    wait(|| {
+        let mut out = out.lock().unwrap();
+        out.extend(events(&bus).into_iter().filter_map(|e| match e {
+            Event::VisionDownloadFinished { switch_on, .. } => Some(switch_on),
+            _ => None,
+        }));
+        out.len() >= 2
+    });
+    assert_eq!(out.into_inner().unwrap(), ["framing", "background"]);
+    assert_eq!(opened.load(Ordering::SeqCst), 1, "one download, not one per plugin");
+}
+
+#[test]
+fn leftovers_of_a_download_that_was_cut_off_do_not_get_in_the_way() {
+    let zipped = crate::pack::tests::zipped(&[("models/a.task", b"model")]);
+    let (h, bus) = host(Box::new(move |_, _| Ok(Box::new(Cursor::new(zipped.clone())) as Box<dyn Read>)));
+    let dir = h.vision_dir().to_path_buf();
+    let pid = h.shared.info.pack_id().unwrap();
+    std::fs::create_dir_all(dir.join(format!(".{pid}.unpacking"))).unwrap();
+    std::fs::write(dir.join(format!(".{pid}.unpacking")).join("half"), b"x").unwrap();
+    std::fs::write(dir.join(format!(".{pid}.zip.part")), b"half a zip").unwrap();
+    assert!(!h.pack().ready && !h.pack().downloading, "nothing reads as downloading after a restart");
+    h.download("");
+    assert_eq!(finished(&bus), [(String::new(), String::new())]);
+    assert!(h.pack().ready);
+    let left: Vec<_> = std::fs::read_dir(&dir).unwrap().flatten().map(|e| e.file_name().to_string_lossy().to_string()).collect();
+    assert_eq!(left, [pid], "only the pack is left");
+}
+
+#[test]
 fn people_are_tracked_steadily_and_reach_the_bus() {
     let (h, bus, fake) = host_with(Box::new(|_, _| Err(io::Error::other("offline"))));
     *fake.detect.lock().unwrap() = Arc::new(|| vec![telescope_core::pose::Person::new([("nose", 0.3, 0.3, 0.99), ("left_shoulder", 0.35, 0.45, 0.99), ("right_shoulder", 0.25, 0.45, 0.99)])]);

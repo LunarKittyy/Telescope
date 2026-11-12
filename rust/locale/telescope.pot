@@ -72,7 +72,7 @@ msgstr ""
 msgid "No mic"
 msgstr ""
 
-#: rust/crates/audio/src/plugin.rs:111 rust/crates/core/src/vision.rs:103 rust/crates/shell/src/plugins_tab.rs:453 rust/crates/system/src/updates_plugin.rs:456
+#: rust/crates/audio/src/plugin.rs:111 rust/crates/core/src/vision.rs:103 rust/crates/shell/src/plugins_tab.rs:465 rust/crates/system/src/updates_plugin.rs:456
 msgid "Downloading…"
 msgstr ""
 
@@ -367,7 +367,7 @@ msgstr ""
 msgid "Noise reduction unavailable"
 msgstr ""
 
-#: rust/crates/audio/ui/microphone.slint:311 rust/crates/effects/src/desk.rs:215 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:488 rust/crates/link/ui/connection.slint:716 rust/crates/setup/ui/setup.slint:414 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:608 rust/crates/system/ui/shortcuts.slint:351 rust/crates/system/ui/updates.slint:247
+#: rust/crates/audio/ui/microphone.slint:311 rust/crates/effects/src/desk.rs:215 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:488 rust/crates/link/ui/connection.slint:716 rust/crates/setup/ui/setup.slint:414 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:610 rust/crates/system/ui/shortcuts.slint:351 rust/crates/system/ui/updates.slint:247
 msgid "Cancel"
 msgstr ""
 
@@ -521,7 +521,7 @@ msgstr ""
 msgid "Extras"
 msgstr ""
 
-#: rust/crates/core/src/vision.rs:101 rust/crates/shell/src/plugins_tab.rs:453
+#: rust/crates/core/src/vision.rs:101 rust/crates/shell/src/plugins_tab.rs:465
 #, python-brace-format
 msgid "Downloading… {percent}%"
 msgstr ""
@@ -2081,7 +2081,7 @@ msgstr ""
 msgid "It answered: {error}"
 msgstr ""
 
-#: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:459 rust/crates/shell/src/doc.rs:460 rust/crates/shell/src/doc.rs:923
+#: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:459 rust/crates/shell/src/doc.rs:460 rust/crates/shell/src/doc.rs:924
 msgid "Settings"
 msgstr ""
 
@@ -2849,7 +2849,7 @@ msgstr ""
 msgid "Save the grade and LUT as a .cube file to use in other apps."
 msgstr ""
 
-#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:707
+#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:719
 msgid "Replace"
 msgstr ""
 
@@ -3013,7 +3013,7 @@ msgstr ""
 msgid "Name:"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:490 rust/crates/link/ui/connection.slint:718 rust/crates/setup/ui/setup.slint:415 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1014 rust/crates/shell/ui/settings.slint:609
+#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:490 rust/crates/link/ui/connection.slint:718 rust/crates/setup/ui/setup.slint:415 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1015 rust/crates/shell/ui/settings.slint:611
 msgid "OK"
 msgstr ""
 
@@ -4144,7 +4144,7 @@ msgstr ""
 msgid "Switching it on asks for your password."
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:1544 rust/crates/shell/src/plugins_tab.rs:649 rust/crates/shell/src/plugins_tab.rs:668
+#: rust/crates/link/src/plugin.rs:1544 rust/crates/shell/src/plugins_tab.rs:661 rust/crates/shell/src/plugins_tab.rs:680
 msgid "Switch on"
 msgstr ""
 
@@ -4176,7 +4176,7 @@ msgstr ""
 msgid "Frame rate"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:22 rust/crates/setup/ui/setup.slint:22 rust/crates/shell/src/plugins_tab.rs:634 rust/crates/shell/src/plugins_tab.rs:639 rust/crates/shell/ui/settings.slint:323
+#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:22 rust/crates/setup/ui/setup.slint:22 rust/crates/shell/src/plugins_tab.rs:646 rust/crates/shell/src/plugins_tab.rs:651 rust/crates/shell/ui/settings.slint:323
 msgid "Remove"
 msgstr ""
 
@@ -6243,7 +6243,7 @@ msgstr ""
 msgid "Restart now"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:510 rust/crates/shell/src/plugins_tab.rs:653
+#: rust/crates/setup/ui/setup.slint:510 rust/crates/shell/src/plugins_tab.rs:665
 msgid "Restart"
 msgstr ""
 
@@ -6353,7 +6353,7 @@ msgstr ""
 msgid "Stream another camera at the same time on a separate virtual camera."
 msgstr ""
 
-#: rust/crates/shell/src/doc.rs:961 rust/crates/shell/src/doc.rs:962
+#: rust/crates/shell/src/doc.rs:962 rust/crates/shell/src/doc.rs:963
 msgid "Search settings"
 msgstr ""
 
@@ -6839,236 +6839,245 @@ msgstr ""
 msgid "Telescope couldn't start a new copy of itself. Close it and open it again to apply your changes."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:211 rust/crates/shell/src/plugins_tab.rs:456
+#: rust/crates/shell/src/plugins_tab.rs:211
+#, python-brace-format
+msgid "This one-time download (about {mb} MB) is shared by every plugin that finds people in the picture."
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:215 rust/crates/shell/src/plugins_tab.rs:468
 #, python-brace-format
 msgid "The download didn't work. {error}"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:431
+#: rust/crates/shell/src/plugins_tab.rs:216
+msgid "Switch on a plugin that needs the vision pack to try again."
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:443
 msgid "Telescope needs this plugin to work, so it can't be switched off."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:432
+#: rust/crates/shell/src/plugins_tab.rs:444
 msgid "Required"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:459
+#: rust/crates/shell/src/plugins_tab.rs:471
 msgid "There's no download of what it needs for this computer yet, so it can't be switched on."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:462
+#: rust/crates/shell/src/plugins_tab.rs:474
 #, python-brace-format
 msgid "Its download (about {mb} MB) isn't there anymore. Switch it off and on again to get it."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:469
+#: rust/crates/shell/src/plugins_tab.rs:481
 msgid "Needs the vision download"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:487
+#: rust/crates/shell/src/plugins_tab.rs:499
 msgid "There's no vision download for this computer yet."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:489
+#: rust/crates/shell/src/plugins_tab.rs:501
 #, python-brace-format
 msgid "Switching one of these on downloads about {mb} MB first, once for all of them."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:500
+#: rust/crates/shell/src/plugins_tab.rs:512
 #, python-brace-format
 msgid "By {author}."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:510
+#: rust/crates/shell/src/plugins_tab.rs:522
 #, python-brace-format
 msgid "Updated to {version} automatically. The new version runs after Telescope restarts."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:516
+#: rust/crates/shell/src/plugins_tab.rs:528
 msgid "Its files changed since you switched it on, so it's off for now. Switch it on again if you trust this version."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:519 rust/crates/shell/src/plugins_tab.rs:559
+#: rust/crates/shell/src/plugins_tab.rs:531 rust/crates/shell/src/plugins_tab.rs:571
 #, python-brace-format
 msgid "It didn't start ({problem})."
 msgstr ""
 
 #. keep the <a href="{url}"> link
-#: rust/crates/shell/src/plugins_tab.rs:528
+#: rust/crates/shell/src/plugins_tab.rs:540
 #, python-brace-format
 msgid "Version {version} is out. <a href=\"{url}\">Download it from its release page</a> and install it here to replace this one."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:538
+#: rust/crates/shell/src/plugins_tab.rs:550
 msgid "Added"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:555
+#: rust/crates/shell/src/plugins_tab.rs:567
 msgid "`telescope-rs dev --plugin` loads this plugin, so it's always on."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:556
+#: rust/crates/shell/src/plugins_tab.rs:568
 msgid "Being written"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:562
+#: rust/crates/shell/src/plugins_tab.rs:574
 #, python-brace-format
 msgid "Loaded from {folder} by telescope-rs dev. Telescope restarts by itself when you save one of its files."
 msgstr ""
 
 #. next to a group's name on the Plugins tab, how many of its plugins are switched on
-#: rust/crates/shell/src/plugins_tab.rs:576
+#: rust/crates/shell/src/plugins_tab.rs:588
 #, python-brace-format
 msgid "{on} of {total} on"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:589
+#: rust/crates/shell/src/plugins_tab.rs:601
 #, python-brace-format
 msgid "No plugins match “{text}”."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:591
+#: rust/crates/shell/src/plugins_tab.rs:603
 msgid "Every plugin is switched on."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:593
+#: rust/crates/shell/src/plugins_tab.rs:605
 msgid "No plugin is switched on."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:601
+#: rust/crates/shell/src/plugins_tab.rs:613
 msgid "Downloading the vision pack"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:605
+#: rust/crates/shell/src/plugins_tab.rs:617
 #, python-brace-format
 msgid "Restart to apply {n} change"
 msgid_plural "Restart to apply {n} changes"
 msgstr[0] ""
 msgstr[1] ""
 
-#: rust/crates/shell/src/plugins_tab.rs:610
+#: rust/crates/shell/src/plugins_tab.rs:622
 #, python-brace-format
 msgid "Plugins ({n} off)"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:632
+#: rust/crates/shell/src/plugins_tab.rs:644
 #, python-brace-format
 msgid "Remove {plugin}?"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:633
+#: rust/crates/shell/src/plugins_tab.rs:645
 #, python-brace-format
 msgid "Its folder ({folder}) is deleted from the plugins folder. To use it again you'll have to add it again."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:637
+#: rust/crates/shell/src/plugins_tab.rs:649
 msgid "Remove the download?"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:638
+#: rust/crates/shell/src/plugins_tab.rs:650
 #, python-brace-format
 msgid "It frees about {mb} MB. Switching on one of the optional plugins downloads it again."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:647
+#: rust/crates/shell/src/plugins_tab.rs:659
 msgid "Install plugin updates without asking?"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:648
+#: rust/crates/shell/src/plugins_tab.rs:660
 msgid ""
 "Telescope will install new versions of the plugins you switched on and switch them on too, without showing them to you first.\n"
 "\n"
 "Whoever controls a plugin's repo on GitHub (its author, or anyone who gets into their account) can then run new code on this computer every time they publish a release. Only switch this on if you trust all of them with that."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:653
+#: rust/crates/shell/src/plugins_tab.rs:665
 msgid "Restart Telescope now?"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:653
+#: rust/crates/shell/src/plugins_tab.rs:665
 msgid "Streaming stops while Telescope restarts. It takes a few seconds."
-msgstr ""
-
-#: rust/crates/shell/src/plugins_tab.rs:667
-#, python-brace-format
-msgid "Switch on {plugin}?"
-msgstr ""
-
-#: rust/crates/shell/src/plugins_tab.rs:668
-msgid "A plugin can do anything on your computer. Only switch it on if you trust its source."
-msgstr ""
-
-#: rust/crates/shell/src/plugins_tab.rs:670 rust/crates/shell/src/plugins_tab.rs:691
-#, python-brace-format
-msgid "Switch off {plugin}?"
-msgstr ""
-
-#: rust/crates/shell/src/plugins_tab.rs:671
-msgid "Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch it back on."
-msgstr ""
-
-#: rust/crates/shell/src/plugins_tab.rs:671 rust/crates/shell/src/plugins_tab.rs:691
-msgid "Switch off"
-msgstr ""
-
-#: rust/crates/shell/src/plugins_tab.rs:678
-#, python-brace-format
-msgid "Download about {mb} MB?"
 msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:679
 #, python-brace-format
-msgid "{plugin} uses MediaPipe to find people in the picture. It comes as a separate download from Telescope's releases on GitHub, which the other optional plugins share."
+msgid "Switch on {plugin}?"
 msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:680
-msgid "Download and switch on"
+msgid "A plugin can do anything on your computer. Only switch it on if you trust its source."
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:682 rust/crates/shell/src/plugins_tab.rs:703
+#, python-brace-format
+msgid "Switch off {plugin}?"
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:683
+msgid "Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch it back on."
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:683 rust/crates/shell/src/plugins_tab.rs:703
+msgid "Switch off"
 msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:690
+#, python-brace-format
+msgid "Download about {mb} MB?"
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:691
+#, python-brace-format
+msgid "{plugin} uses MediaPipe to find people in the picture. It comes as a separate download from Telescope's releases on GitHub, which the other optional plugins share."
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:692
+msgid "Download and switch on"
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:702
 msgid "Its settings stay saved for when you switch it back on."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:705
+#: rust/crates/shell/src/plugins_tab.rs:717
 #, python-brace-format
 msgid "Replace {plugin}?"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:706
+#: rust/crates/shell/src/plugins_tab.rs:718
 msgid "The version in this .zip takes its place with the same settings. Like any plugin you add it starts out switched off."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:718
+#: rust/crates/shell/src/plugins_tab.rs:730
 #, python-brace-format
 msgid "{plugin} was installed, but it can't run yet. {problem}"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:720
+#: rust/crates/shell/src/plugins_tab.rs:732
 #, python-brace-format
 msgid "{plugin} {version} is in place but switched off for now. To use it, switch it on again and restart Telescope."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:722
+#: rust/crates/shell/src/plugins_tab.rs:734
 #, python-brace-format
 msgid "{plugin} is installed but switched off for now. To use it, switch it on and restart Telescope."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:732
+#: rust/crates/shell/src/plugins_tab.rs:744
 #, python-brace-format
 msgid "Telescope couldn't save the change: {error}"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:756
+#: rust/crates/shell/src/plugins_tab.rs:768
 #, python-brace-format
 msgid "Telescope couldn't delete its folder: {error}"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:764
+#: rust/crates/shell/src/plugins_tab.rs:776
 #, python-brace-format
 msgid "Telescope couldn't delete it: {error}"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:801
+#: rust/crates/shell/src/plugins_tab.rs:813
 #, python-brace-format
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr ""
@@ -7099,31 +7108,31 @@ msgstr ""
 msgid "Remove {plugin}"
 msgstr ""
 
-#: rust/crates/shell/src/settings.rs:956
+#: rust/crates/shell/src/settings.rs:957
 msgid "Check for updates"
 msgstr ""
 
-#: rust/crates/shell/src/settings.rs:957
+#: rust/crates/shell/src/settings.rs:958
 msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
 msgstr ""
 
-#: rust/crates/shell/src/settings.rs:958
+#: rust/crates/shell/src/settings.rs:959
 msgid "Install updates without asking"
 msgstr ""
 
-#: rust/crates/shell/src/settings.rs:958
+#: rust/crates/shell/src/settings.rs:959
 msgid "Installs new versions of the plugins you switched on and switches them on again."
 msgstr ""
 
-#: rust/crates/shell/src/settings.rs:959
+#: rust/crates/shell/src/settings.rs:960
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr ""
 
-#: rust/crates/shell/src/settings.rs:1047
+#: rust/crates/shell/src/settings.rs:1048
 msgid "Install a plugin"
 msgstr ""
 
-#: rust/crates/shell/src/settings.rs:1049
+#: rust/crates/shell/src/settings.rs:1050
 msgid "Plugins (*.zip)"
 msgstr ""
 
@@ -9178,27 +9187,27 @@ msgstr ""
 msgid "The download doesn't contain Telescope, so it wasn't installed."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:756
+#: rust/crates/shell/src/plugins_tab.rs:768
 msgid "Couldn't remove it"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:732
+#: rust/crates/shell/src/plugins_tab.rs:744
 msgid "Couldn't save that"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:711
+#: rust/crates/shell/src/plugins_tab.rs:723
 msgid "Couldn't install it"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:718
+#: rust/crates/shell/src/plugins_tab.rs:730
 msgid "Installed, but it won't load"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:720
+#: rust/crates/shell/src/plugins_tab.rs:732
 msgid "Replaced"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:801
+#: rust/crates/shell/src/plugins_tab.rs:813
 msgid "Couldn't open it"
 msgstr ""
 

@@ -949,6 +949,7 @@ impl Settings {
             let _ = self.ui.set_property("download-title", s(&b.title));
             let _ = self.ui.set_property("download-percent", SValue::Number(b.percent.map_or(-1.0, f64::from)));
             let _ = self.ui.set_property("download-error", s(&b.error));
+            let _ = self.ui.set_property("download-detail", s(&b.detail));
         }
         let _ = self.ui.set_property("download-shown", SValue::Bool(banner.is_some()));
         let _ = self.ui.set_property("has-added", SValue::Bool(!panel.installed.is_empty()));
