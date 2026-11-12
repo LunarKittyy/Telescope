@@ -1565,22 +1565,26 @@ msgid "Set how coarse the film grain is."
 msgstr ""
 
 #: rust/crates/effects/src/filters.rs:87
+msgid "Also on the phone"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:88
 msgid "The Camera card has the phone's own Sharpening and Noise reduction. Using both looks worse."
 msgstr ""
 
-#: rust/crates/effects/src/filters.rs:357 rust/crates/effects/src/filters.rs:449 rust/crates/effects/src/filters.rs:511 rust/crates/effects/src/filters.rs:511 rust/crates/effects/src/filters.rs:524 rust/crates/effects/ui/filters.slint:35
+#: rust/crates/effects/src/filters.rs:358 rust/crates/effects/src/filters.rs:451 rust/crates/effects/src/filters.rs:513 rust/crates/effects/src/filters.rs:513 rust/crates/effects/src/filters.rs:526 rust/crates/effects/ui/filters.slint:36
 msgid "Filters"
 msgstr ""
 
-#: rust/crates/effects/src/filters.rs:358
+#: rust/crates/effects/src/filters.rs:359
 msgid "Turn every filter off to see the picture without them."
 msgstr ""
 
-#: rust/crates/effects/src/filters.rs:450
+#: rust/crates/effects/src/filters.rs:452
 msgid "Sharpen, clarity, dehaze, denoise, skin smoothing, vignette, glow and film grain, like the filters of a photo editor."
 msgstr ""
 
-#: rust/crates/effects/src/filters.rs:451
+#: rust/crates/effects/src/filters.rs:453
 msgid "Without it there's no Filters card and the picture isn't sharpened, cleaned up or finished."
 msgstr ""
 
@@ -3225,7 +3229,7 @@ msgstr ""
 msgid "Follow my face"
 msgstr ""
 
-#: rust/crates/effects/ui/filters.slint:36
+#: rust/crates/effects/ui/filters.slint:37
 msgid "Sharpen, clean up and finish the picture like a photo editor."
 msgstr ""
 

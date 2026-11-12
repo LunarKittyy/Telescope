@@ -8,6 +8,7 @@ export component FiltersCard inherits Card {
     in property <string> switch-name;
     in property <string> switch-help;
     in property <string> camera-note;
+    in property <string> camera-note-detail;
     // Every slider's label, tip, setting, heading (a section starts there when it isn't empty), value, readout and range, side by side
     in property <[string]> slider-label;
     in property <[string]> slider-tip;
@@ -46,7 +47,7 @@ export component FiltersCard inherits Card {
     switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    Note { text: camera-note; }
+    Status { text: camera-note; detail: camera-note-detail; }
     for i in slider-mains: VerticalLayout {
             if slider-heading[i] != "": SectionHeading { text: slider-heading[i]; }
             UnfoldGroup {

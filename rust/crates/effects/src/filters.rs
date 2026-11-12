@@ -84,7 +84,8 @@ pub const SLIDERS: [SliderDef; 15] = [
 ];
 
 /// What the card says about the phone's own filters: sharpening twice looks worse than once.
-const CAMERA_NOTE: &str = n_("The Camera card has the phone's own Sharpening and Noise reduction. Using both looks worse.");
+const CAMERA_NOTE: &str = n_("Also on the phone");
+const CAMERA_NOTE_DETAIL: &str = n_("The Camera card has the phone's own Sharpening and Noise reduction. Using both looks worse.");
 
 /// What the sliders say, as the numbers the shaders and filters_cpu.rs take.
 #[derive(Clone, Debug, PartialEq)]
@@ -357,6 +358,7 @@ impl FiltersPlugin {
             "switch-name": tr("Filters"),
             "switch-help": tr("Turn every filter off to see the picture without them."),
             "camera-note": tr(CAMERA_NOTE),
+            "camera-note-detail": tr(CAMERA_NOTE_DETAIL),
             "slider-label": SLIDERS.iter().map(|s| tr(s.label)).collect::<Vec<_>>(),
             "slider-setting": SLIDERS.iter().map(|s| format!("filters.{}", s.key)).collect::<Vec<_>>(),
             "slider-parent": SLIDERS.iter().map(|s| s.after.map_or(-1, |a| a as i64)).collect::<Vec<_>>(),
