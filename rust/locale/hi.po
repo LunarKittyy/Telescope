@@ -180,7 +180,7 @@ msgstr "VB-Cable पाएं"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "टाइपिंग, पंखे का शोर और कमरे की सरसराहट हटाएं."
 
-#: rust/crates/audio/src/plugin.rs:957 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:619 rust/crates/effects/src/notes.rs:683 rust/crates/link/src/browser/plugin.rs:612 rust/crates/link/src/plugin.rs:1409 rust/crates/link/src/plugin.rs:1416 rust/crates/outputs/src/stream_output.rs:948 rust/crates/system/src/shortcuts.rs:528 rust/crates/system/src/shortcuts.rs:530
+#: rust/crates/audio/src/plugin.rs:957 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:619 rust/crates/effects/src/notes.rs:683 rust/crates/link/src/browser/plugin.rs:612 rust/crates/link/src/plugin.rs:1420 rust/crates/link/src/plugin.rs:1427 rust/crates/outputs/src/stream_output.rs:948 rust/crates/system/src/shortcuts.rs:528 rust/crates/system/src/shortcuts.rs:530
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -194,12 +194,12 @@ msgid "unmuted"
 msgstr "अनम्यूट"
 
 #. a switch's state, as in "Phone mic: on"
-#: rust/crates/audio/src/plugin.rs:990 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1253
+#: rust/crates/audio/src/plugin.rs:990 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1274
 msgid "on"
 msgstr "चालू"
 
 #. a switch's state, as in "Phone mic: on"
-#: rust/crates/audio/src/plugin.rs:990 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1254
+#: rust/crates/audio/src/plugin.rs:990 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1275
 msgid "off"
 msgstr "बंद"
 
@@ -223,7 +223,7 @@ msgstr "बंद करें"
 msgid "Switch while held, back on release"
 msgstr "दबाए रखने पर स्विच करें, छोड़ने पर वापस"
 
-#: rust/crates/audio/src/plugin.rs:1047 rust/crates/audio/src/plugin.rs:1139 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1363 rust/crates/outputs/src/stream_output.rs:618 rust/crates/outputs/src/stream_output.rs:635 rust/crates/shell/src/plugins/presets.rs:335 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
+#: rust/crates/audio/src/plugin.rs:1047 rust/crates/audio/src/plugin.rs:1139 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1374 rust/crates/outputs/src/stream_output.rs:618 rust/crates/outputs/src/stream_output.rs:635 rust/crates/shell/src/plugins/presets.rs:335 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
 msgid "Does"
 msgstr "काम"
 
@@ -396,19 +396,19 @@ msgstr "स्टॉप्स"
 msgid " stops"
 msgstr " स्टॉप्स"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:453 rust/crates/link/src/plugin.rs:1364 rust/crates/outputs/src/stream_output.rs:619 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:325
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:453 rust/crates/link/src/plugin.rs:1375 rust/crates/outputs/src/stream_output.rs:619 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:325
 msgid "Next"
 msgstr "अगला"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:453 rust/crates/link/src/plugin.rs:1364 rust/crates/outputs/src/stream_output.rs:619 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:325
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:453 rust/crates/link/src/plugin.rs:1375 rust/crates/outputs/src/stream_output.rs:619 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:325
 msgid "Previous"
 msgstr "पिछला"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1364 rust/crates/outputs/src/stream_output.rs:619
+#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1375 rust/crates/outputs/src/stream_output.rs:619
 msgid "Pick"
 msgstr "चुनें"
 
-#: rust/crates/core/src/actions.rs:215 rust/crates/link/src/plugin.rs:1365 rust/crates/outputs/src/stream_output.rs:620
+#: rust/crates/core/src/actions.rs:215 rust/crates/link/src/plugin.rs:1376 rust/crates/outputs/src/stream_output.rs:620
 msgid "Option"
 msgstr "विकल्प"
 
@@ -3947,7 +3947,7 @@ msgstr "USB पर कनेक्ट फ़ोन कोई दूसरा ह
 msgid "phone plugged in, but Telescope isn't open on it"
 msgstr "फ़ोन कनेक्ट है, लेकिन उस पर Telescope खुला नहीं है"
 
-#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1080 rust/crates/link/src/plugin.rs:1335 rust/crates/link/ui/connection.slint:558 rust/crates/link/ui/connection.slint:559
+#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1090 rust/crates/link/src/plugin.rs:1346 rust/crates/link/ui/connection.slint:558 rust/crates/link/ui/connection.slint:559
 msgid "No device yet"
 msgstr "अभी कोई डिवाइस नहीं है"
 
@@ -4084,109 +4084,109 @@ msgstr "क्या यह फिर से {name} है?"
 msgid "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry."
 msgstr "{name} नाम का फ़ोन एक नए फ़ोन के रूप में पेयर हुआ. ऐसा तब होता है जब उस पर Telescope फिर से इंस्टॉल किया जाता है या उसका डेटा साफ़ किया जाता है. 'हाँ' चुनने से {name} की सेटिंग्स और प्रीसेट इस पर आ जाते हैं और पुरानी एंट्री हट जाती है."
 
-#: rust/crates/link/src/plugin.rs:1007
+#: rust/crates/link/src/plugin.rs:1017
 msgid "Phone app updated. Open Telescope on the phone."
 msgstr "फ़ोन ऐप अपडेट हो गया. फ़ोन पर Telescope खोलें."
 
-#: rust/crates/link/src/plugin.rs:1081 rust/crates/link/src/plugin.rs:1102
+#: rust/crates/link/src/plugin.rs:1091 rust/crates/link/src/plugin.rs:1112
 msgctxt "status"
 msgid "Streaming"
 msgstr "स्ट्रीमिंग"
 
-#: rust/crates/link/src/plugin.rs:1082
+#: rust/crates/link/src/plugin.rs:1092
 #, python-brace-format
 msgid "Waiting for {source}"
 msgstr "{source} का इंतज़ार है"
 
-#: rust/crates/link/src/plugin.rs:1083
+#: rust/crates/link/src/plugin.rs:1093
 #, python-brace-format
 msgid "{source}, no pairing needed"
 msgstr "{source}, पेयरिंग की ज़रूरत नहीं"
 
-#: rust/crates/link/src/plugin.rs:1097 rust/crates/shell/src/streams.rs:1039
+#: rust/crates/link/src/plugin.rs:1107 rust/crates/shell/src/streams.rs:1039
 msgid "Reconnecting"
 msgstr "फिर से कनेक्ट हो रहा है"
 
-#: rust/crates/link/src/plugin.rs:1100
+#: rust/crates/link/src/plugin.rs:1110
 msgid "Streaming over USB"
 msgstr "USB से स्ट्रीम हो रहा है"
 
-#: rust/crates/link/src/plugin.rs:1101
+#: rust/crates/link/src/plugin.rs:1111
 msgid "Streaming over Wi-Fi"
 msgstr "Wi-Fi से स्ट्रीम हो रहा है"
 
-#: rust/crates/link/src/plugin.rs:1105 rust/crates/shell/src/streams.rs:1043
+#: rust/crates/link/src/plugin.rs:1115 rust/crates/shell/src/streams.rs:1043
 msgid "Connecting"
 msgstr "कनेक्ट हो रहा है"
 
-#: rust/crates/link/src/plugin.rs:1121
+#: rust/crates/link/src/plugin.rs:1131
 msgid "Updating the phone app over USB…"
 msgstr "USB से फ़ोन ऐप को अपडेट किया जा रहा है…"
 
-#: rust/crates/link/src/plugin.rs:1125
+#: rust/crates/link/src/plugin.rs:1135
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "{phone} पर मौजूद Telescope ऐप इससे पुराना है."
 
-#: rust/crates/link/src/plugin.rs:1200 rust/crates/setup/src/setup.rs:850 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:691 rust/crates/system/src/shortcuts.rs:839
+#: rust/crates/link/src/plugin.rs:1210 rust/crates/setup/src/setup.rs:850 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:691 rust/crates/system/src/shortcuts.rs:839
 msgid "Copy command"
 msgstr "कमांड कॉपी करें"
 
-#: rust/crates/link/src/plugin.rs:1208 rust/crates/link/src/plugin.rs:1360 rust/crates/link/src/plugin.rs:1409 rust/crates/link/src/plugin.rs:1416 rust/crates/setup/src/monitoring.rs:322 rust/crates/setup/src/stats.rs:421 rust/crates/setup/ui/monitoring.slint:67
+#: rust/crates/link/src/plugin.rs:1218 rust/crates/link/src/plugin.rs:1371 rust/crates/link/src/plugin.rs:1420 rust/crates/link/src/plugin.rs:1427 rust/crates/setup/src/monitoring.rs:322 rust/crates/setup/src/stats.rs:421 rust/crates/setup/ui/monitoring.slint:67
 msgid "Phone"
 msgstr "फ़ोन"
 
-#: rust/crates/link/src/plugin.rs:1208
+#: rust/crates/link/src/plugin.rs:1218
 #, python-brace-format
 msgid "Phone · {ip}"
 msgstr "फ़ोन · {ip}"
 
-#: rust/crates/link/src/plugin.rs:1209
+#: rust/crates/link/src/plugin.rs:1219
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes its camera settings on this computer, and unpairs it on the phone too if Telescope can reach it."
 msgstr "क्या आप \"{name}\" को हटाना चाहते हैं? इससे इस कंप्यूटर पर मौजूद इसकी कैमरा सेटिंग्स मिट जाएंगी, और अगर Telescope उस तक पहुंच सकता है तो यह फ़ोन पर भी अनपेयर हो जाएगा."
 
-#: rust/crates/link/src/plugin.rs:1212
+#: rust/crates/link/src/plugin.rs:1222
 #, python-brace-format
 msgid "Rename {name}"
 msgstr "{name} का नाम बदलें"
 
-#: rust/crates/link/src/plugin.rs:1213 rust/crates/link/src/plugin.rs:1220
+#: rust/crates/link/src/plugin.rs:1223 rust/crates/link/src/plugin.rs:1230
 #, python-brace-format
 msgid "Remove {name}"
 msgstr "{name} को हटाएं"
 
-#: rust/crates/link/src/plugin.rs:1214
+#: rust/crates/link/src/plugin.rs:1224
 msgid "Remove phone"
 msgstr "फ़ोन हटाएं"
 
-#: rust/crates/link/src/plugin.rs:1217
+#: rust/crates/link/src/plugin.rs:1227
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes the settings it had on this computer. It can still connect with the code, and starts from the defaults."
 msgstr "क्या आप \"{name}\" को हटाना चाहते हैं? इससे इस कंप्यूटर पर मौजूद इसकी सेटिंग्स मिट जाएंगी. यह कोड से अब भी कनेक्ट हो सकता है, और डिफ़ॉल्ट सेटिंग्स से शुरू होगा."
 
-#: rust/crates/link/src/plugin.rs:1221
+#: rust/crates/link/src/plugin.rs:1231
 msgid "Remove browser"
 msgstr "ब्राउज़र हटाएं"
 
-#: rust/crates/link/src/plugin.rs:1521
+#: rust/crates/link/src/plugin.rs:1532
 msgid "Virtual camera is set up differently"
 msgstr "वर्चुअल कैमरा अलग तरीके से सेट है"
 
-#: rust/crates/link/src/plugin.rs:1522
+#: rust/crates/link/src/plugin.rs:1533
 #, python-brace-format
 msgid "v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:"
 msgstr "v4l2loopback लोड है, लेकिन {device} के बिना: किसी अन्य ऐप ने इसे अलग सेटिंग्स के साथ सेट किया है. उस ऐप को बंद करें और इसे Telescope को सौंपने के लिए यह चलाएं:"
 
-#: rust/crates/link/src/plugin.rs:1532
+#: rust/crates/link/src/plugin.rs:1543
 msgid "The virtual camera is off"
 msgstr "वर्चुअल कैमरा बंद है"
 
-#: rust/crates/link/src/plugin.rs:1532
+#: rust/crates/link/src/plugin.rs:1543
 msgid "Switching it on asks for your password."
 msgstr "इसे चालू करने पर आपका पासवर्ड मांगा जाएगा."
 
-#: rust/crates/link/src/plugin.rs:1533 rust/crates/shell/src/plugins_tab.rs:621 rust/crates/shell/src/plugins_tab.rs:640
+#: rust/crates/link/src/plugin.rs:1544 rust/crates/shell/src/plugins_tab.rs:621 rust/crates/shell/src/plugins_tab.rs:640
 msgid "Switch on"
 msgstr "चालू करें"
 
@@ -4939,72 +4939,72 @@ msgstr ""
 msgid "The camera only sent part of the photo. What came is saved."
 msgstr ""
 
-#: rust/crates/outputs/src/wininstall.rs:248 rust/crates/setup/src/setup.rs:805
+#: rust/crates/outputs/src/wininstall.rs:256 rust/crates/setup/src/setup.rs:805
 msgid "Installed"
 msgstr "इंस्टॉल हो गया"
 
-#: rust/crates/outputs/src/wininstall.rs:249
+#: rust/crates/outputs/src/wininstall.rs:257
 msgid "The driver copy in Program Files failed checksum verification - not registering"
 msgstr "Program Files में मौजूद ड्राइवर कॉपी चेकसम सत्यापन में विफल रही - रजिस्टर नहीं किया जा रहा है"
 
-#: rust/crates/outputs/src/wininstall.rs:250
+#: rust/crates/outputs/src/wininstall.rs:258
 msgid "The driver install hit an error while running as admin - not registering"
 msgstr "एडमिन के तौर पर चलने के दौरान ड्राइवर इंस्टॉलेशन में गड़बड़ी आई - रजिस्टर नहीं किया जा रहा है"
 
-#: rust/crates/outputs/src/wininstall.rs:251
+#: rust/crates/outputs/src/wininstall.rs:259
 msgid "Program Files\\Telescope has links in it or other users can change it - delete that folder, then install again"
 msgstr "Program Files\\Telescope में लिंक मौजूद हैं या अन्य उपयोगकर्ता इसे बदल सकते हैं - उस फ़ोल्डर को मिटाएं, फिर से इंस्टॉल करें"
 
-#: rust/crates/outputs/src/wininstall.rs:252
+#: rust/crates/outputs/src/wininstall.rs:260
 msgid "Windows refused to register the driver (regsvr32 failed)"
 msgstr "Windows ने ड्राइवर रजिस्टर करने से मना कर दिया (regsvr32 विफल रहा)"
 
-#: rust/crates/outputs/src/wininstall.rs:253
+#: rust/crates/outputs/src/wininstall.rs:261
 msgid "Registration failed (cancelled or denied?)"
 msgstr "रजिस्ट्रेशन विफल रहा (रद्द किया गया या अस्वीकार किया गया?)"
 
-#: rust/crates/outputs/src/wininstall.rs:265
+#: rust/crates/outputs/src/wininstall.rs:273
 msgid "Timed out"
 msgstr "टाइम आउट हो गया"
 
-#: rust/crates/outputs/src/wininstall.rs:272
+#: rust/crates/outputs/src/wininstall.rs:280
 #, python-brace-format
 msgid "Download failed: {error}"
 msgstr "डाउनलोड विफल रहा: {error}"
 
-#: rust/crates/outputs/src/wininstall.rs:279
+#: rust/crates/outputs/src/wininstall.rs:287
 #, python-brace-format
 msgid "{file} failed checksum verification (got {digest}...) - not registering"
 msgstr "{file} चेकसम सत्यापन में विफल रहा ({digest}... मिला) - रजिस्टर नहीं किया जा रहा है"
 
-#: rust/crates/outputs/src/wininstall.rs:289
+#: rust/crates/outputs/src/wininstall.rs:297
 #, python-brace-format
 msgid "Couldn't create {path}: {error}"
 msgstr "{path} बनाया नहीं जा सका: {error}"
 
-#: rust/crates/outputs/src/wininstall.rs:294
+#: rust/crates/outputs/src/wininstall.rs:302
 #, python-brace-format
 msgid "Downloading {file}..."
 msgstr "{file} डाउनलोड हो रहा है..."
 
-#: rust/crates/outputs/src/wininstall.rs:301
+#: rust/crates/outputs/src/wininstall.rs:309
 msgid "Downloaded"
 msgstr "डाउनलोड हो गया"
 
-#: rust/crates/outputs/src/wininstall.rs:311
+#: rust/crates/outputs/src/wininstall.rs:319
 #, python-brace-format
 msgid "{file} failed checksum verification - not registering"
 msgstr "{file} चेकसम सत्यापन में विफल रहा - रजिस्टर नहीं किया जा रहा है"
 
-#: rust/crates/outputs/src/wininstall.rs:322
+#: rust/crates/outputs/src/wininstall.rs:330
 msgid "Registering (admin access required)..."
 msgstr "रजिस्टर किया जा रहा है (एडमिन ऐक्सेस आवश्यक)..."
 
-#: rust/crates/outputs/src/wininstall.rs:336
+#: rust/crates/outputs/src/wininstall.rs:344
 msgid "Camera access is off in Windows (Settings > Privacy & security > Camera). Turn it on, then try again"
 msgstr "Windows में कैमरा ऐक्सेस बंद है (Settings > Privacy & security > Camera). इसे चालू करें, फिर कोशिश करें"
 
-#: rust/crates/outputs/src/wininstall.rs:344
+#: rust/crates/outputs/src/wininstall.rs:352
 msgid "Downloading driver files..."
 msgstr "ड्राइवर फ़ाइलें डाउनलोड हो रही हैं..."
 
@@ -7924,170 +7924,170 @@ msgstr "कोई दूसरा ऐप पहले से इस की क�
 msgid "Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all, so pick another."
 msgstr "जब Telescope चलता है तो हर जगह वाले शॉर्टकट Windows से लिए जाते हैं. किसी अन्य ऐप द्वारा ली जा चुकी की Telescope तक नहीं पहुंचती, इसलिए कोई दूसरी चुनें."
 
-#: rust/crates/system/src/mcp.rs:639 rust/crates/system/src/mcp.rs:782
+#: rust/crates/system/src/mcp.rs:643 rust/crates/system/src/mcp.rs:786
 msgid "An AI app"
 msgstr "एक AI ऐप"
 
-#: rust/crates/system/src/mcp.rs:645
+#: rust/crates/system/src/mcp.rs:649
 #, python-brace-format
 msgid "Refused (read only): {what}"
 msgstr "अस्वीकार किया गया (सिर्फ़ पढ़ने के लिए): {what}"
 
-#: rust/crates/system/src/mcp.rs:674
+#: rust/crates/system/src/mcp.rs:678
 #, python-brace-format
 msgid "Failed: {what}"
 msgstr "विफल: {what}"
 
-#: rust/crates/system/src/mcp.rs:705
+#: rust/crates/system/src/mcp.rs:709
 msgid "Read status"
 msgstr "स्थिति पढ़ी"
 
-#: rust/crates/system/src/mcp.rs:706
+#: rust/crates/system/src/mcp.rs:710
 msgid "Read stats"
 msgstr "आंकड़े पढ़े"
 
-#: rust/crates/system/src/mcp.rs:707
+#: rust/crates/system/src/mcp.rs:711
 #, python-brace-format
 msgid "Watched stats for {n} s"
 msgstr "{n} सेकंड तक आंकड़े देखे"
 
-#: rust/crates/system/src/mcp.rs:708
+#: rust/crates/system/src/mcp.rs:712
 msgid "Read diagnostics"
 msgstr "डायग्नोस्टिक्स पढ़े"
 
-#: rust/crates/system/src/mcp.rs:709
+#: rust/crates/system/src/mcp.rs:713
 msgid "Measured the picture"
 msgstr "तस्वीर को मापा"
 
-#: rust/crates/system/src/mcp.rs:711
+#: rust/crates/system/src/mcp.rs:715
 #, python-brace-format
 msgid "Listed the {plugin} settings"
 msgstr "{plugin} की सेटिंग्स की सूची देखी"
 
-#: rust/crates/system/src/mcp.rs:712
+#: rust/crates/system/src/mcp.rs:716
 msgid "Listed every setting"
 msgstr "हर सेटिंग की सूची देखी"
 
-#: rust/crates/system/src/mcp.rs:715
+#: rust/crates/system/src/mcp.rs:719
 #, python-brace-format
 msgid "Read {names}"
 msgstr "{names} को पढ़ा"
 
-#: rust/crates/system/src/mcp.rs:716
+#: rust/crates/system/src/mcp.rs:720
 msgid "Read every setting"
 msgstr "हर सेटिंग पढ़ी"
 
-#: rust/crates/system/src/mcp.rs:719
+#: rust/crates/system/src/mcp.rs:723
 #, python-brace-format
 msgid "Set {changes}"
 msgstr "{changes} सेट किया"
 
-#: rust/crates/system/src/mcp.rs:719
+#: rust/crates/system/src/mcp.rs:723
 #, python-brace-format
 msgid "{name} to {value}"
 msgstr "{name} को {value} पर"
 
-#: rust/crates/system/src/mcp.rs:720
+#: rust/crates/system/src/mcp.rs:724
 msgid "Set settings"
 msgstr "सेटिंग्स सेट कीं"
 
-#: rust/crates/system/src/mcp.rs:722
+#: rust/crates/system/src/mcp.rs:726
 msgid "Undid its changes"
 msgstr "अपने बदलाव वापस लिए"
 
-#: rust/crates/system/src/mcp.rs:723
+#: rust/crates/system/src/mcp.rs:727
 msgid "Listed the actions"
 msgstr "एक्शन की सूची देखी"
 
-#: rust/crates/system/src/mcp.rs:727
+#: rust/crates/system/src/mcp.rs:731
 #, python-brace-format
 msgid "Ran {action}"
 msgstr "{action} चलाया"
 
-#: rust/crates/system/src/mcp.rs:768
+#: rust/crates/system/src/mcp.rs:772
 msgid "MCP server settings"
 msgstr "MCP सर्वर सेटिंग्स"
 
-#: rust/crates/system/src/mcp.rs:769
+#: rust/crates/system/src/mcp.rs:773
 msgid "An AI app is connected."
 msgstr "एक AI ऐप कनेक्ट है."
 
-#: rust/crates/system/src/mcp.rs:769
+#: rust/crates/system/src/mcp.rs:773
 msgid "No AI app is connected. Open the MCP settings."
 msgstr "कोई AI ऐप कनेक्ट नहीं है. MCP सेटिंग्स खोलें."
 
-#: rust/crates/system/src/mcp.rs:770
+#: rust/crates/system/src/mcp.rs:774
 msgid "Undo what the AI changed"
 msgstr "AI के बदलाव वापस लें"
 
-#: rust/crates/system/src/mcp.rs:771
+#: rust/crates/system/src/mcp.rs:775
 msgid "Undo what the AI changed."
 msgstr "AI के बदलाव वापस लें."
 
-#: rust/crates/system/src/mcp.rs:771
+#: rust/crates/system/src/mcp.rs:775
 msgid "The AI hasn't changed anything."
 msgstr "AI ने कुछ नहीं बदला है."
 
-#: rust/crates/system/src/mcp.rs:786
+#: rust/crates/system/src/mcp.rs:790
 msgid "No AI app is connected"
 msgstr "कोई AI ऐप कनेक्ट नहीं है"
 
-#: rust/crates/system/src/mcp.rs:787
+#: rust/crates/system/src/mcp.rs:791
 msgid "Read only"
 msgstr "सिर्फ़ पढ़ें"
 
-#: rust/crates/system/src/mcp.rs:787
+#: rust/crates/system/src/mcp.rs:791
 msgid "Read and change"
 msgstr "पढ़ें और बदलें"
 
-#: rust/crates/system/src/mcp.rs:790
+#: rust/crates/system/src/mcp.rs:794
 msgid "Copy the entry for an AI app's MCP settings."
 msgstr "किसी AI ऐप की MCP सेटिंग्स के लिए एंट्री कॉपी करें."
 
-#: rust/crates/system/src/mcp.rs:792
+#: rust/crates/system/src/mcp.rs:796
 msgid "Nothing yet"
 msgstr "अभी कुछ नहीं"
 
-#: rust/crates/system/src/mcp.rs:1165
+#: rust/crates/system/src/mcp.rs:1186
 msgid "Undid what the AI changed"
 msgstr "AI के बदलाव वापस लिए"
 
-#: rust/crates/system/src/mcp.rs:1165
+#: rust/crates/system/src/mcp.rs:1186
 #, python-brace-format
 msgid "Undid what the AI changed, except {n} it couldn't put back"
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:1166
+#: rust/crates/system/src/mcp.rs:1187
 msgid "You"
 msgstr "आप"
 
-#: rust/crates/system/src/mcp.rs:1265
+#: rust/crates/system/src/mcp.rs:1286
 #, python-brace-format
 msgid "{list} and {n} more"
 msgstr "{list} और {n} अन्य"
 
-#: rust/crates/system/src/mcp.rs:1447 rust/crates/system/ui/mcp.slint:29
+#: rust/crates/system/src/mcp.rs:1468 rust/crates/system/ui/mcp.slint:29
 msgid "MCP server"
 msgstr "MCP सर्वर"
 
-#: rust/crates/system/src/mcp.rs:1448
+#: rust/crates/system/src/mcp.rs:1469
 msgid "Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port."
 msgstr "Claude Desktop जैसे किसी AI ऐप को बिना कोई नेटवर्क पोर्ट खोले एक कमांड के ज़रिए Telescope को देखने और उसकी सेटिंग्स बदलने देता है."
 
-#: rust/crates/system/src/mcp.rs:1449
+#: rust/crates/system/src/mcp.rs:1470
 msgid "Without it AI apps can't connect to Telescope."
 msgstr "इसके बिना AI ऐप्स Telescope से कनेक्ट नहीं हो सकते."
 
-#: rust/crates/system/src/mcp.rs:1484 rust/crates/system/ui/mcp.slint:227
+#: rust/crates/system/src/mcp.rs:1505 rust/crates/system/ui/mcp.slint:227
 msgid "MCP"
 msgstr "MCP"
 
-#: rust/crates/system/src/mcp.rs:1485 rust/crates/system/ui/mcp.slint:31
+#: rust/crates/system/src/mcp.rs:1506 rust/crates/system/ui/mcp.slint:31
 msgctxt "search"
 msgid "mcp ai claude model assistant agent connect access read only"
 msgstr "एमसीपी एआई क्लॉड मॉडल असिस्टेंट एजेंट कनेक्ट एक्सेस सिर्फ़ पढ़ें mcp ai claude model assistant agent connect access read only"
 
-#: rust/crates/system/src/mcp.rs:1535
+#: rust/crates/system/src/mcp.rs:1556
 msgid "An AI app is connected to Telescope through the MCP server."
 msgstr "MCP सर्वर के ज़रिए एक AI ऐप Telescope से कनेक्ट है."
 
@@ -8544,11 +8544,16 @@ msgstr "Telescope की फ़ाइलों को बदला नहीं 
 msgid "{file} is in use, so the update wasn't installed. Try again after a restart."
 msgstr "{file} इस्तेमाल में है, इसलिए अपडेट इंस्टॉल नहीं किया गया. रीस्टार्ट करने के बाद फिर कोशिश करें."
 
-#: rust/crates/system/src/updates.rs:622 rust/crates/system/src/updates_plugin.rs:97 rust/crates/system/src/updates_plugin.rs:168 rust/crates/system/src/updates_plugin.rs:240 rust/crates/system/src/updates_plugin.rs:621 rust/crates/system/src/updates_plugin.rs:796
+#: rust/crates/system/src/updates.rs:596
+#, python-brace-format
+msgid "Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a folder of its own."
+msgstr ""
+
+#: rust/crates/system/src/updates.rs:665 rust/crates/system/src/updates_plugin.rs:97 rust/crates/system/src/updates_plugin.rs:168 rust/crates/system/src/updates_plugin.rs:240 rust/crates/system/src/updates_plugin.rs:621 rust/crates/system/src/updates_plugin.rs:796
 msgid "The update failed."
 msgstr "अपडेट विफल रहा."
 
-#: rust/crates/system/src/updates.rs:646
+#: rust/crates/system/src/updates.rs:692
 msgid "This update wasn't installed because it can't start on this computer."
 msgstr "यह अपडेट इंस्टॉल नहीं किया गया क्योंकि यह इस कंप्यूटर पर शुरू नहीं हो सकता."
 

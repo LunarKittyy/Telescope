@@ -133,6 +133,10 @@ class SessionServer(
                     if (params == null) {
                         HttpWire.sendError(out, 400, "Bad Request"); return
                     }
+                    // Unpaired while the body was arriving: the early check above is stale by now
+                    if (computers().matchToken(HttpWire.bearerToken(request)) == null) {
+                        HttpWire.sendError(out, 401, "Unauthorized"); return
+                    }
                     val result = when (val action = params["action"]) {
                         "start" -> commands.start(StreamOpening.from(params), computer)
                         "stop" -> commands.stop(computer)

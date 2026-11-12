@@ -546,9 +546,8 @@ pub fn clean_up_after_update(directory: &Path, this_build: Option<i64>) {
         return; // this copy was rolled back underneath it: the version in place needs these
     }
     // An AppImage's folder is the user's own, so only what its update made there goes
-    if telescope_core::system::appimage().is_some() {
-        let _ = remove(&directory.join(STAGING_DIR));
-        let _ = remove(&directory.join(PREVIOUS_DIR));
+    if let Some(name) = appimage_name() {
+        clean_up_appimage_folder(directory, &name);
         return;
     }
     let mut leftovers: Vec<PathBuf> = [OLD_EXE_NAME, FAILED_EXE_NAME, STAGING_DIR, PREVIOUS_DIR].iter().map(|n| directory.join(n)).collect();
@@ -564,6 +563,25 @@ pub fn clean_up_after_update(directory: &Path, this_build: Option<i64>) {
     for p in leftovers {
         let _ = if is_python_build_lib(&p) { remove_python_lib(&p) } else { remove(&p) };
     }
+}
+
+/// An AppImage's update leaves only its own file in .update-staging and .previous. A folder of those names holding anything else is the user's.
+pub fn is_appimage_leftover(dir: &Path, name: &str) -> bool {
+    let partial = format!("{name}.partial");
+    std::fs::read_dir(dir).is_ok_and(|list| list.flatten().all(|e| e.file_name() == *name || e.file_name() == *partial))
+}
+
+/// remove(), but only for a folder an AppImage update made (see is_appimage_leftover).
+pub fn remove_appimage_leftover(dir: &Path, name: &str) -> io::Result<()> {
+    if is_real_dir(dir) && !is_appimage_leftover(dir, name) {
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "not made by an update"));
+    }
+    remove(dir)
+}
+
+fn clean_up_appimage_folder(directory: &Path, name: &str) {
+    let _ = remove_appimage_leftover(&directory.join(STAGING_DIR), name);
+    let _ = remove_appimage_leftover(&directory.join(PREVIOUS_DIR), name);
 }
 
 /// PyQt6 goes last: it's what says a folder is the Python app's, so a file still held leaves one the next start still recognises.
@@ -673,6 +691,27 @@ mod appimage_tests {
         assert!(install_appimage(&new, &current, false, 131, &mut rename, &|_| panic!("never run")).is_err());
         assert_eq!(read_journal(&dir).unwrap()["appimage"], "Other.AppImage");
         assert!(dir.join(PREVIOUS_DIR).exists());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn folders_of_the_same_names_that_hold_other_things_survive_clean_up_and_block_an_install() {
+        let (dir, current, new) = placed("foreign");
+        for name in [PREVIOUS_DIR, STAGING_DIR] {
+            std::fs::create_dir_all(dir.join(name)).unwrap();
+            std::fs::write(dir.join(name).join("holiday.jpg"), "theirs").unwrap();
+        }
+        clean_up_appimage_folder(&dir, "Telescope.AppImage");
+        assert!(dir.join(PREVIOUS_DIR).join("holiday.jpg").exists() && dir.join(STAGING_DIR).join("holiday.jpg").exists());
+        assert!(install_appimage(&new, &current, false, 131, &mut rename, &|_| true).is_err());
+        assert!(dir.join(PREVIOUS_DIR).join("holiday.jpg").exists() && dir.join(STAGING_DIR).join("holiday.jpg").exists());
+        assert_eq!(std::fs::read(&current).unwrap(), image("old"));
+        // Its own leftovers still go
+        std::fs::remove_file(dir.join(PREVIOUS_DIR).join("holiday.jpg")).unwrap();
+        std::fs::write(dir.join(PREVIOUS_DIR).join("Telescope.AppImage"), "old").unwrap();
+        std::fs::remove_dir_all(dir.join(STAGING_DIR)).unwrap();
+        clean_up_appimage_folder(&dir, "Telescope.AppImage");
+        assert!(!dir.join(PREVIOUS_DIR).exists());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -1411,6 +1450,7 @@ mod launcher_tests {
         std::fs::create_dir_all(app.join("lib")).unwrap();
         executable(&app.join("start.sh"), START_SH);
         executable(&app.join("telescope-rs"), PROGRAM);
+        std::fs::create_dir_all(app.join("lib/fallback")).unwrap();
         std::fs::write(app.join("lib/marker"), version).unwrap();
         app
     }
@@ -1465,6 +1505,29 @@ mod launcher_tests {
         let (code, out) = run(&app, Some(needs_lib(&dir)));
         assert!(code == 0 && out.contains("telescope-rs started 130"), "{code} {out}");
         assert!(!app.join(JOURNAL).exists());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_launcher_that_cant_restore_an_entry_keeps_the_backup_and_the_journal() {
+        let dir = scratch_dir("start-sh-restore-fails");
+        let app = dir.join("app");
+        std::fs::create_dir_all(app.join(PREVIOUS_DIR)).unwrap();
+        executable(&app.join("start.sh"), START_SH);
+        executable(&app.join("telescope-rs"), "#!/usr/bin/env bash\nexit 1\n");
+        for name in ["a", "b"] {
+            std::fs::write(app.join(name), "new").unwrap();
+            std::fs::write(app.join(PREVIOUS_DIR).join(name), "old").unwrap();
+        }
+        write_journal(&app, &json!({"state": "trial", "started": false, "to_build": 5000, "entries": ["a", "b"], "added": []})).unwrap();
+        // A permission error on one entry
+        let tools = dir.join("tools");
+        std::fs::create_dir(&tools).unwrap();
+        executable(&tools.join("mv"), "#!/usr/bin/env bash\nfor a in \"$@\"; do [ \"$a\" = ./b ] && exit 1; done\nexec /bin/mv \"$@\"\n");
+        let (_, out) = run(&app, Some(format!("{}:{}", tools.display(), std::env::var("PATH").unwrap_or_default())));
+        assert_eq!(read_journal(&app).unwrap()["state"], "trial", "{out}");
+        assert_eq!(std::fs::read_to_string(app.join(PREVIOUS_DIR).join("b")).unwrap(), "old", "{out}");
+        assert_eq!(std::fs::read_to_string(app.join("a")).unwrap(), "old", "{out}");
         std::fs::remove_dir_all(&dir).unwrap();
     }
 
