@@ -1,15 +1,18 @@
 // The Colour grading card. Joined after parts.slint, which has the imports.
 
-// One wheel: its name and readout over the puck's ring, and the master slider under it
+// One wheel: its name and readout over the puck's disc, and the master slider under it
 component WheelCell inherits VerticalLayout {
     in property <string> name;
     in property <string> wheel-label;
-    in property <string> tip;
+    in property <string> hint;
+    in property <string> tip-body;
     in property <string> master-tip;
+    in property <string> master-title;
     in property <string> master-shortcut;
     // The setting id of the master slider, for the outline when something outside the window reads or changes it
     in property <string> master-setting;
-    in property <string> hint;
+    // The kit fill of the master slider's track: a ramp for lift, gamma, gain or offset
+    in property <string> master-fill: "plain";
     in property <string> readout;
     in property <float> puck-x;
     in property <float> puck-y;
@@ -19,6 +22,7 @@ component WheelCell inherits VerticalLayout {
     in property <float> master-value;
     in property <float> master-step: 0.01;
     in property <float> master-default;
+    in property <length> wheel-height: Theme.u(72);
     in property <color> hue: Theme.accent;
     in property <bool> enabled: true;
     callback pressed();
@@ -27,19 +31,39 @@ component WheelCell inherits VerticalLayout {
     callback reset();
     callback key(string, bool);
     callback master-moved(float);
-    spacing: 4px;
+    spacing: Theme.u(2);
     horizontal-stretch: 1;
     HorizontalLayout {
-        Text { text: name; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; vertical-alignment: center; }
+        Text {
+            text: name;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-label;
+            color: enabled ? Theme.ink : Theme.dis;
+            vertical-alignment: center;
+            overflow: elide;
+        }
         Rectangle { horizontal-stretch: 1; }
-        Text { text: readout; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.accent-soft; vertical-alignment: center; }
+        Text {
+            text: readout;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-value;
+            color: enabled ? Theme.ink : Theme.dis;
+            vertical-alignment: center;
+        }
     }
-    Wheel {
+    ColourWheel {
+        height: root.wheel-height;
         puck-x: root.puck-x;
         puck-y: root.puck-y;
         puck-colour: root.puck-colour;
-        tip: root.tip;
+        hue: root.hue;
         label: root.wheel-label;
+        spoken: Spoken.wheel(root.puck-x, root.puck-y);
+        tip: root.wheel-label;
+        tip-detail: root.tip-body;
+        tip-hint: root.hint;
         enabled: root.enabled;
         pressed => { root.pressed(); }
         dragged(dx, dy, shift) => { root.dragged(dx, dy, shift); }
@@ -47,13 +71,13 @@ component WheelCell inherits VerticalLayout {
         reset => { root.reset(); }
         key(k, shift) => { root.key(k, shift); }
     }
-    // QSlider's 20px
     Rectangle {
-        height: 20px;
+        height: Theme.u(10);
         Slider {
             width: parent.width;
             height: parent.height;
             row-height: parent.height;
+            fill: root.master-fill;
             has-readout: false;
             hue: root.hue;
             label: root.name;
@@ -65,16 +89,17 @@ component WheelCell inherits VerticalLayout {
             value: master-value;
             has-default: true;
             default-value: master-default;
+            tip: root.master-title;
+            tip-detail: root.master-tip;
             moved(v) => { root.master-moved(v); }
         }
-        if master-tip != "": Tooltip { TipBody { says: hint != "" ? master-tip + "\n" + hint : master-tip; } }
     }
 }
 
 export component ColourGradingCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
-    in property <string> reset-hint;
+    idle: !active;
+    // Greyed out until a phone is paired
     in property <bool> on: true;
     in property <string> switch-name;
     in property <string> switch-help;
@@ -88,7 +113,9 @@ export component ColourGradingCard inherits Card {
     in property <[color]> wheel-colour: [#808080, #808080, #808080, #808080];
     in property <[string]> wheel-labels: ["", "", "", ""];
     in property <[string]> master-tips: ["", "", "", ""];
-    in property <[string]> wheel-tips: ["", "", "", ""];
+    in property <[string]> master-labels: ["", "", "", ""];
+    in property <string> wheel-tip;
+    in property <string> wheel-hint;
     in property <[string]> master-text: ["", "", "", ""];
     in property <[float]> master-min: [0, 0, 0, 0];
     in property <[float]> master-max: [1, 1, 1, 1];
@@ -109,7 +136,6 @@ export component ColourGradingCard inherits Card {
     in property <string> curve-line;
     in property <[CurvePoint]> curve-points: [{ x: 0, y: 0 }];
     in property <int> curve-picked: -1;
-    in property <color> curve-colour: #e7eaef;
     // The LUT page
     in property <string> lut-text: @tr("No LUT loaded");
     in property <string> lut-path;
@@ -122,6 +148,8 @@ export component ColourGradingCard inherits Card {
     in property <bool> replace-open;
     // Auto: busy while it looks at the picture
     in property <bool> auto-busy;
+    // A stream is there for Auto to look at
+    in property <bool> auto-ready: true;
     in property <string> auto-label;
     callback switch-toggled-by-hand(bool);
     callback compare-toggled(bool);
@@ -150,176 +178,143 @@ export component ColourGradingCard inherits Card {
     callback auto-clicked;
 
     title: @tr("Colour grading");
+    tip: @tr("Change the colours of the picture with colour wheels, curves and LUT files.");
     icon: Icons.colour;
-    opacity: active ? 1 : 0.4;
     enabled: active;
+    // Anything the grade has set off default, which lights the card's Reset
+    in property <bool> grade-lit;
+    has-reset: true;
+    reset-lit: grade-lit;
+    reset-label: @tr("Reset grade");
+    reset => { root.reset-clicked(); }
     has-switch: true;
     switch-shortcut: "colour_grading.on";
     switch-setting: "colour_grading.on";
     switch-enabled: active;
     switch-checked: on;
     switch-label: switch-name;
-    switch-tip: switch-help;
+    switch-tip: switch-name;
+    switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    FormRow {
-        label: @tr("Compare");
-        quiet: true;
-        Rectangle { horizontal-stretch: 1; }
-        Switch {
-            enabled: active;
-            y: (parent.height - self.height) / 2;
-            checked: compare;
+    UnfoldGroup {
+        SwitchRow {
+            icon: Icons.compare;
             label: @tr("Compare");
+            hue: root.hue;
+            enabled: active;
+            checked: compare;
             shortcut: "colour_grading.compare";
-            tip: @tr("Left of the line the preview shows the picture without the grade (apps always get it graded)");
+            tip: @tr("Compare");
+            tip-detail: @tr("Show the ungraded picture left of the line on the preview. Apps always get the graded picture.");
             toggled(v) => { root.compare-toggled(v); }
         }
-    }
-    // A hidden row keeps its height out of the layout with visible and max-height
-    if compare: SliderRow {
-        enabled: active;
-        label: @tr("Split");
-        tip: @tr("Where the line between before and after is");
-        minimum: 0;
-        maximum: 100;
-        value: split;
-        readout: split-text;
-        hue: root.hue;
-        has-default: true;
-        default-value: 50;
-        hint: root.reset-hint;
-        moved(v) => { root.split-moved(v); }
-    }
-    HorizontalLayout {
-        spacing: 8px;
-        Segmented {
-            margin: 0px;
-            items: [@tr("Primaries"), @tr("Curves"), @tr("LUT")];
-            disabled: [!active, !active, !active];
-            has-icons: [false, false, false];
-            icons: [Icons.colour, Icons.colour, Icons.colour];
-            label: @tr("Page");
-            current: page;
-            picked(i) => { root.page-picked(i); }
+        // A hidden row keeps its height out of the layout with visible and max-height
+        Unfolding {
+            open: compare;
+            RailSlider {
+            icon: Icons.split;
+            enabled: active;
+            label: @tr("Split");
+            tip: @tr("Split");
+            tip-detail: @tr("Move the line between before and after.");
+            minimum: 0;
+            maximum: 100;
+            value: split;
+            readout: split-text;
+            hue: root.hue;
+            has-default: true;
+            default-value: 50;
+            moved(v) => { root.split-moved(v); }
         }
-        Button {
-            enabled: active && !auto-busy;
-            text: auto-label != "" ? auto-label : @tr("Auto");
-            accessible-label: @tr("Auto colour grading");
-            tip: @tr("Looks at about a second of the picture and sets white balance, brightness, contrast and colour for you. Everything it sets stays on the sliders to change");
-            clicked => { root.auto-clicked(); }
         }
-        Rectangle {
-            width: 30px;
-            IconButton {
-                y: (parent.height - self.height) / 2;
-                icon: Icons.reset;
-                label: @tr("Reset the grade");
-                clicked => { root.reset-clicked(); }
+    }
+    // The pages and Auto on one row. Where the card is too narrow for the pages and Auto's word, Auto is its icon alone, so no page name is ever cut
+    header-row := Rectangle {
+        height: Theme.row;
+        accessible-role: none;
+        property <bool> icon-only: self.width < pages.min-width + Theme.u(4) + Theme.u(34);
+        HorizontalLayout {
+            spacing: Theme.u(4);
+            pages := Segmented {
+                hue: root.hue;
+                margin: 0px;
+                items: [@tr("Primaries"), @tr("Curves"), @tr("LUT")];
+                disabled: [!active, !active, !active];
+                has-icons: [false, false, false];
+                icons: [Icons.colour, Icons.colour, Icons.colour];
+                label: @tr("Page");
+                tips: [@tr("Primaries"), @tr("Curves"), @tr("LUT")];
+                tip-details: [@tr("Colour wheels and sliders."), @tr("Brightness, hue and saturation curves."), @tr("Load a LUT file or export the grade.")];
+                current: page;
+                picked(i) => { root.page-picked(i); }
             }
-            Tooltip { TipBody { says: @tr("Reset the grade"); } }
+            // Auto keeps one width whatever it is doing: its answer shows in the icon's colour and the tooltip, never in the label. Without a
+            // stream it is dimmed, and its tooltip says why.
+            Button {
+                width: header-row.icon-only ? Theme.row : self.preferred-width;
+                enabled: active && !auto-busy && auto-ready;
+                text: header-row.icon-only ? "" : @tr("Auto");
+                has-icon: true;
+                icon: Icons.sparkle;
+                icon-tint: auto-label == "" ? Theme.ink2 : auto-label == @tr("Looks fine") ? Theme.ok : Theme.warn;
+                accessible-label: @tr("Auto colour grading");
+                tip: auto-busy ? @tr("Looking at the picture") : !auto-ready ? @tr("Auto") : auto-label != "" ? auto-label : @tr("Auto");
+                tip-detail: auto-busy ? "" : !auto-ready ? @tr("Start the stream first, so Auto has a picture to look at.") : auto-label != "" ? "" : @tr("Set white balance, brightness, contrast and colour from about a second of the picture. You can still adjust everything on the sliders.");
+                clicked => { root.auto-clicked(); }
+            }
         }
     }
 
     // ── Primaries ─────────────────────────────────────────────────────
-    if page == 0: VerticalLayout {
-        spacing: 8px;
-        padding-top: 4px;
-        // The wheels' grid has rows 10px apart, the rows under it 8px (_primaries_page)
-        VerticalLayout {
-        spacing: 10px;
-        HorizontalLayout {
-            spacing: 12px;
-            WheelCell {
+    PageGroup {
+    clip: pg0.moving || pg1.moving || pg2.moving;
+    pg0 := Page {
+    shown: page == 0;
+    lead: 0px;
+    VerticalLayout {
+        spacing: Theme.u(4);
+        padding-top: Theme.u(2);
+        // The wheels, two by two: four of them side by side would be too small to set a colour with, and three in a row leaves offset alone
+        GridLayout {
+            spacing: Theme.u(5);
+            for name[i] in [@tr("Lift"), @tr("Gamma"), @tr("Gain"), @tr("Offset")]: WheelCell {
+                row: floor(i / 2);
+                col: mod(i, 2);
                 enabled: active;
-                name: @tr("Lift");
-                wheel-label: wheel-labels[0];
-                tip: wheel-tips[0];
-                master-tip: master-tips[0];
-                master-shortcut: "colour_grading.lift_master";
-                master-setting: "colour_grading.masters.lift";
-                hint: root.reset-hint;
-                readout: master-text[0];
-                puck-x: wheel-x[0]; puck-y: wheel-y[0]; puck-colour: wheel-colour[0];
-                master-min: master-min[0]; master-max: master-max[0]; master-value: master-value[0]; master-step: master-step[0]; master-default: master-default[0];
+                name: name;
+                wheel-label: wheel-labels[i];
+                hint: root.wheel-hint;
+                tip-body: root.wheel-tip;
+                master-title: master-labels[i];
+                master-tip: master-tips[i];
+                master-shortcut: ["colour_grading.lift_master", "colour_grading.gamma_master", "colour_grading.gain_master", "colour_grading.offset_master"][i];
+                master-setting: ["colour_grading.masters.lift", "colour_grading.masters.gamma", "colour_grading.masters.gain", "colour_grading.masters.offset"][i];
+                master-fill: ["lift", "gamma", "gain", "offset"][i];
+                readout: master-text[i];
+                puck-x: wheel-x[i];
+                puck-y: wheel-y[i];
+                puck-colour: wheel-colour[i];
+                master-min: master-min[i];
+                master-max: master-max[i];
+                master-value: master-value[i];
+                master-step: master-step[i];
+                master-default: master-default[i];
                 hue: root.hue;
-                pressed => { root.wheel-pressed(0); }
-                dragged(dx, dy, s) => { root.wheel-dragged(0, dx, dy, s); }
-                released => { root.wheel-released(0); }
-                reset => { root.wheel-reset(0); }
-                key(k, s) => { root.wheel-key(0, k, s); }
-                master-moved(v) => { root.master-moved(0, v); }
-            }
-            WheelCell {
-                enabled: active;
-                name: @tr("Gamma");
-                wheel-label: wheel-labels[1];
-                tip: wheel-tips[1];
-                master-tip: master-tips[1];
-                master-shortcut: "colour_grading.gamma_master";
-                master-setting: "colour_grading.masters.gamma";
-                hint: root.reset-hint;
-                readout: master-text[1];
-                puck-x: wheel-x[1]; puck-y: wheel-y[1]; puck-colour: wheel-colour[1];
-                master-min: master-min[1]; master-max: master-max[1]; master-value: master-value[1]; master-step: master-step[1]; master-default: master-default[1];
-                hue: root.hue;
-                pressed => { root.wheel-pressed(1); }
-                dragged(dx, dy, s) => { root.wheel-dragged(1, dx, dy, s); }
-                released => { root.wheel-released(1); }
-                reset => { root.wheel-reset(1); }
-                key(k, s) => { root.wheel-key(1, k, s); }
-                master-moved(v) => { root.master-moved(1, v); }
+                pressed => { root.wheel-pressed(i); }
+                dragged(dx, dy, s) => { root.wheel-dragged(i, dx, dy, s); }
+                released => { root.wheel-released(i); }
+                reset => { root.wheel-reset(i); }
+                key(k, s) => { root.wheel-key(i, k, s); }
+                master-moved(v) => { root.master-moved(i, v); }
             }
         }
-        HorizontalLayout {
-            spacing: 12px;
-            WheelCell {
-                enabled: active;
-                name: @tr("Gain");
-                wheel-label: wheel-labels[2];
-                tip: wheel-tips[2];
-                master-tip: master-tips[2];
-                master-shortcut: "colour_grading.gain_master";
-                master-setting: "colour_grading.masters.gain";
-                hint: root.reset-hint;
-                readout: master-text[2];
-                puck-x: wheel-x[2]; puck-y: wheel-y[2]; puck-colour: wheel-colour[2];
-                master-min: master-min[2]; master-max: master-max[2]; master-value: master-value[2]; master-step: master-step[2]; master-default: master-default[2];
-                hue: root.hue;
-                pressed => { root.wheel-pressed(2); }
-                dragged(dx, dy, s) => { root.wheel-dragged(2, dx, dy, s); }
-                released => { root.wheel-released(2); }
-                reset => { root.wheel-reset(2); }
-                key(k, s) => { root.wheel-key(2, k, s); }
-                master-moved(v) => { root.master-moved(2, v); }
-            }
-            WheelCell {
-                enabled: active;
-                name: @tr("Offset");
-                wheel-label: wheel-labels[3];
-                tip: wheel-tips[3];
-                master-tip: master-tips[3];
-                master-shortcut: "colour_grading.offset_master";
-                master-setting: "colour_grading.masters.offset";
-                hint: root.reset-hint;
-                readout: master-text[3];
-                puck-x: wheel-x[3]; puck-y: wheel-y[3]; puck-colour: wheel-colour[3];
-                master-min: master-min[3]; master-max: master-max[3]; master-value: master-value[3]; master-step: master-step[3]; master-default: master-default[3];
-                hue: root.hue;
-                pressed => { root.wheel-pressed(3); }
-                dragged(dx, dy, s) => { root.wheel-dragged(3, dx, dy, s); }
-                released => { root.wheel-released(3); }
-                reset => { root.wheel-reset(3); }
-                key(k, s) => { root.wheel-key(3, k, s); }
-                master-moved(v) => { root.master-moved(3, v); }
-            }
-        }
-        }
-        for name[i] in [@tr("Temperature"), @tr("Tint"), @tr("Contrast"), @tr("Pivot"), @tr("Saturation"), @tr("Vibrance"), @tr("Shadows"), @tr("Highlights")]: SliderRow {
+        for name[i] in [@tr("Temperature"), @tr("Tint"), @tr("Contrast"), @tr("Pivot"), @tr("Saturation"), @tr("Vibrance"), @tr("Shadows"), @tr("Highlights")]: RailSlider {
+            icon: [Icons.thermometer, Icons.tint, Icons.contrast, Icons.pivot, Icons.saturation, Icons.sparkle, Icons.shadows, Icons.sun][i];
             enabled: active;
             label: name;
-            tip: slider-tips[i];
+            tip: name;
+            tip-detail: slider-tips[i];
             shortcut: ["colour_grading.temperature", "colour_grading.tint", "colour_grading.contrast", "colour_grading.pivot", "colour_grading.saturation", "colour_grading.vibrance", "colour_grading.shadows", "colour_grading.highlights"][i];
             setting: ["colour_grading.temperature", "colour_grading.tint", "colour_grading.contrast", "colour_grading.pivot", "colour_grading.saturation", "colour_grading.vibrance", "colour_grading.shadows", "colour_grading.highlights"][i];
             minimum: slider-min[i];
@@ -328,34 +323,46 @@ export component ColourGradingCard inherits Card {
             value: slider-value[i];
             readout: slider-text[i];
             hue: root.hue;
+            // Each slider's track shows what it does: colours for temperature, tint and saturation, greys or stripes for the tones
+            fill: i == 0 || i == 1 || i == 4 ? "gradient" : i == 2 ? "contrast" : i == 3 ? "pivot" : i == 5 ? "vibrance" : i == 6 ? "shadows" : "highlights";
+            grad-a: i == 0 ? #5b9ee8 : i == 1 ? #6fc27a : #8d8d8d;
+            grad-b: i == 0 ? #c4c4c4 : i == 1 ? #c4c4c4 : #c4a483;
+            grad-c: i == 0 ? #ee9d4a : i == 1 ? #d46fc4 : #ee6a3c;
             has-default: true;
             default-value: slider-default[i];
-            hint: root.reset-hint;
             moved(v) => { root.slider-moved(i, v); }
         }
     }
 
+    }
     // ── Curves ────────────────────────────────────────────────────────
-    if page == 1: VerticalLayout {
-        spacing: 8px;
-        padding-top: 4px;
+    pg1 := Page {
+    shown: page == 1;
+    lead: 0px;
+    VerticalLayout {
+        spacing: Theme.u(4);
+        padding-top: Theme.u(2);
         Segmented {
+            hue: root.hue;
             margin: 0px;
             items: [@tr("RGB"), @tr("Hue vs sat"), @tr("Hue vs hue")];
             disabled: [!active, !active, !active];
             has-icons: [false, false, false];
             icons: [Icons.colour, Icons.colour, Icons.colour];
             label: @tr("Curve");
+            tips: [@tr("RGB"), @tr("Hue vs sat"), @tr("Hue vs hue")];
             current: curve;
             picked(i) => { root.curve-picked-by-hand(i); }
         }
         if curve == 0: Segmented {
+            hue: root.hue;
             margin: 0px;
             items: [@tr("All"), @tr("Red"), @tr("Green"), @tr("Blue")];
             disabled: [!active, !active, !active, !active];
             has-icons: [false, false, false, false];
             icons: [Icons.colour, Icons.colour, Icons.colour, Icons.colour];
             label: @tr("Channel");
+            tips: [@tr("All"), @tr("Red"), @tr("Green"), @tr("Blue")];
             current: channel;
             picked(i) => { root.channel-picked(i); }
         }
@@ -364,7 +371,8 @@ export component ColourGradingCard inherits Card {
             line: curve-line;
             points: curve-points;
             picked: curve-picked;
-            colour: curve-colour;
+            // The curve is drawn in the channel it edits (all: the ink), or in the Look group's colour for a hue curve
+            colour: curve != 0 ? Theme.plugin-hue("look") : channel == 0 ? Theme.ink : channel == 1 ? Theme.err : channel == 2 ? Theme.ok : Theme.plugin-hue("streaming");
             label: @tr("Curve");
             pressed(x, y, w, h, right) => { root.curve-pressed(x, y, w, h, right); }
             moved(x, y, w, h) => { root.curve-moved(x, y, w, h); }
@@ -374,83 +382,103 @@ export component ColourGradingCard inherits Card {
         }
     }
 
+    }
     // ── LUT ───────────────────────────────────────────────────────────
-    if page == 2: VerticalLayout {
-        spacing: 8px;
-        padding-top: 4px;
-        FormRow {
-            label: @tr("LUT");
-            HorizontalLayout {
-                spacing: 8px;
-                Button {
-                    enabled: active;
-                    text: @tr("Load…");
-                    tip: @tr("Pick a .cube LUT to put on top of the grade");
-                    clicked => { root.load-clicked(); }
-                }
-                shown-lut-text := Text {
-                    text: lut-text;
-                    horizontal-stretch: 1;
-                    font-family: Theme.font;
-                    font-size: Theme.body;
-                    color: Theme.dim;
-                    vertical-alignment: center;
-                    overflow: elide;
-                    if shown-lut-text.preferred-width > shown-lut-text.width: Tooltip { TipBody { says: shown-lut-text.text; } }
-                }
-                if lut-loaded: Rectangle {
-                    width: 34px;
-                    IconButton {
-                        icon: Icons.v-close;
-                        label: @tr("Take the LUT off");
+    pg2 := Page {
+    shown: page == 2;
+    lead: 0px;
+    VerticalLayout {
+        spacing: Theme.u(4);
+        padding-top: Theme.u(2);
+        UnfoldGroup {
+            RailRow {
+                icon: Icons.cube;
+                label: @tr("LUT");
+                hue: root.hue;
+                enabled: active;
+                changed: lut-loaded;
+                HorizontalLayout {
+                    spacing: Theme.u(4);
+                    // The slot is the LUT: empty until one is loaded, then it reads the file's name
+                    PictureField {
+                        enabled: active;
+                        has-picture: false;
+                        set: lut-loaded;
+                        empty-icon: Icons.cube;
+                        name: lut-text != "" ? lut-text : @tr("Load");
+                        problem: lut-note;
+                        hue: root.hue;
+                        tip: @tr("Load LUT");
+                        tip-detail: @tr("Pick a .cube LUT file to apply on top of the grade.");
+                        clicked => { root.load-clicked(); }
+                    }
+                    if lut-loaded: IconButton {
+                        raised: true;
+                        icon: Icons.x;
+                        label: @tr("Remove LUT");
+                        tip: @tr("Remove LUT");
                         clicked => { root.clear-clicked(); }
                     }
-                    Tooltip { TipBody { says: @tr("Take the LUT off"); } }
-                }
+                    }
+
+            }
+            Unfolding {
+                open: lut-loaded;
+                RailSlider {
+                icon: Icons.gauge;
+                enabled: active;
+                label: @tr("Strength");
+                tip: @tr("Strength");
+                tip-detail: @tr("How strongly the LUT is applied.");
+                shortcut: "colour_grading.lut_strength";
+                setting: "colour_grading.lut_strength";
+                minimum: 0;
+                maximum: 100;
+                value: strength;
+                readout: strength-text;
+                hue: root.hue;
+                has-default: true;
+                default-value: 100;
+                moved(v) => { root.strength-moved(v); }
+            }
             }
         }
-        if lut-loaded: SliderRow {
-            enabled: active;
-            label: @tr("Strength");
-            tip: @tr("How much of the LUT's look goes on the picture");
-            shortcut: "colour_grading.lut_strength";
-            setting: "colour_grading.lut_strength";
-            minimum: 0;
-            maximum: 100;
-            value: strength;
-            readout: strength-text;
-            hue: root.hue;
-            has-default: true;
-            default-value: 100;
-            hint: root.reset-hint;
-            moved(v) => { root.strength-moved(v); }
-        }
-        if lut-note != "": Note {
-            text: lut-note;
-            kind: "status_warn";
-        }
-        FormRow {
-            label: @tr("Export");
-            HorizontalLayout {
-                Button {
-                    enabled: active;
-                    text: @tr("Export grade…");
-                    tip: @tr("Save the grade, LUT included, as a .cube file for other apps");
-                    clicked => { root.export-clicked(); }
+        UnfoldGroup {
+            RailRow {
+                icon: Icons.download;
+                label: @tr("Export");
+                hue: root.hue;
+                enabled: active;
+                HorizontalLayout {
+                    Button {
+                        enabled: active;
+                        text: @tr("Export grade");
+                        tip: @tr("Export grade");
+                        tip-detail: @tr("Save the grade and LUT as a .cube file to use in other apps.");
+                        clicked => { root.export-clicked(); }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
                 }
+            }
+            Unfolding {
+                open: export-note != "";
+                RailRow {
+                has-icon: false;
+                StatusLine { text: export-note; kind: "status_" + export-kind; }
+            }
+            }
+            Unfolding {
+                open: replace-open;
+                HorizontalLayout {
+                spacing: Theme.u(4);
+                Button { text: @tr("Replace"); clicked => { root.replace-answered(true); } }
+                Button { text: @tr("Cancel"); clicked => { root.replace-answered(false); } }
                 Rectangle { horizontal-stretch: 1; }
             }
+            }
         }
-        if export-note != "": Note {
-            text: export-note;
-            kind: "status_" + export-kind;
-        }
-        if replace-open: HorizontalLayout {
-            spacing: 8px;
-            Button { text: @tr("Replace"); clicked => { root.replace-answered(true); } }
-            Button { text: @tr("Cancel"); clicked => { root.replace-answered(false); } }
-            Rectangle { horizontal-stretch: 1; }
-        }
+    }
+    }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;

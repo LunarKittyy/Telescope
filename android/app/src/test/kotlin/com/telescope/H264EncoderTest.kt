@@ -24,4 +24,21 @@ class H264EncoderTest {
             }
         }
     }
+
+    @Test
+    fun `the encoder latency hint is the first extra to go, so an encoder that refuses it keeps the rest`() {
+        val attempts = H264Encoder.ATTEMPTS
+        val withoutHint = attempts.first { H264Encoder.Extra.ENCODER_LATENCY !in it.extras && it.extras.isNotEmpty() }
+        assertEquals(all - H264Encoder.Extra.ENCODER_LATENCY, withoutHint.extras)
+        assertTrue(attempts.indexOf(withoutHint) <= 2)
+    }
+
+    @Test
+    fun `before Android 11 the latency hint is left out and no attempt is tried twice`() {
+        val old = H264Encoder.attemptsFor(29)
+        assertEquals(old.size, old.toSet().size)
+        assertTrue(old.none { H264Encoder.Extra.ENCODER_LATENCY in it.extras })
+        assertEquals(H264Encoder.ATTEMPTS, H264Encoder.attemptsFor(30))
+        assertEquals(H264Encoder.ATTEMPTS.size - 2, old.size)
+    }
 }

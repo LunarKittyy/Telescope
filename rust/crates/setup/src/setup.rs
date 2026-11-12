@@ -14,7 +14,7 @@ use std::path::Path;
 use std::sync::Arc;
 use telescope_core::canvas;
 use telescope_core::event::Event;
-use telescope_core::host::{FileDialog, FileDialogKind, Host, Poster, RequestId};
+use telescope_core::host::{FileDialog, FileDialogKind, Host, Look, Poster, RequestId};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::link::Link;
 use telescope_core::media::Media;
@@ -31,6 +31,7 @@ pub const MAX_GAIN_CHOICES: [i64; 4] = [12, 24, 36, 48];
 pub const DEFAULT_MAX_GAIN: i64 = 12;
 
 const SUDO_HINT: &str = n_("Asks for your password (pkexec or sudo): this changes system settings.");
+const SUDO_NEEDS: &str = n_("Needs your password (pkexec or sudo) because this changes system settings.");
 
 pub const AUTHOR_URL: &str = "https://github.com/LunarKittyy";
 pub const BUG_REPORT_URL: &str = "https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml";
@@ -232,9 +233,14 @@ pub struct SetupPlugin {
     pub max_zoom: i64,
     pub max_gain: Value,
     pub limiter: bool,
-    pub hw_decode: bool,
+    /// The switch as the user left it: None until they touch it, when the graphics card is on if it's VA-API.
+    pub hw_choice: Option<bool>,
+    /// The graphics card this computer has, once looked for.
+    hw_device: Option<String>,
     pub power_saving: bool,
     pub plugin_hues: bool,
+    /// The look of the windows (Appearance)
+    pub look: Look,
     pub language: String,
     /// set_config has no host: the others hear the loaded values with the next hook that has one.
     pending: bool,
@@ -266,9 +272,11 @@ impl SetupPlugin {
             max_zoom: DEFAULT_MAX_ZOOM,
             max_gain: json!(DEFAULT_MAX_GAIN),
             limiter: true,
-            hw_decode: false,
+            hw_choice: None,
+            hw_device: None,
             power_saving: false,
             plugin_hues: true,
+            look: Look::Dark,
             language: String::new(),
             pending: true,
             panel: Panel::new(apk_bundled),
@@ -314,6 +322,7 @@ impl SetupPlugin {
             host.emit(Event::MaxGainChanged { max_gain: self.max_gain_i32() });
             host.emit(Event::LimiterChanged { on: self.limiter });
             host.set_plugin_hues(self.plugin_hues);
+            host.set_look(self.look);
             host.set_power_saving(self.power_saving);
         }
     }
@@ -358,10 +367,10 @@ impl SetupPlugin {
         json!({
             "linux": self.linux,
             "v4l-text": p.v4l.text, "v4l-kind": p.v4l.kind, "v4l-command": p.v4l_command,
-            "load-tip": tr(SUDO_HINT),
+            "load-tip": tr(SUDO_NEEDS),
             "persist-checked": p.persist_checked, "persist-enabled": p.persist_enabled,
             "persist-text": persist.text, "persist-kind": persist.kind, "persist-command": p.persist_command,
-            "persist-tip": format!("{}\n{}", tr("Also writes it to /etc/modprobe.d/ and /etc/modules-load.d/, so it survives a reboot."), tr(SUDO_HINT)),
+            "persist-tip": format!("{} {}", tr("Write the setting to /etc/modprobe.d/ and /etc/modules-load.d/ so the module loads after a reboot."), tr("Needs your password (pkexec or sudo).")),
             "extras-shown": p.extras_shown, "extras-text": p.extras.text, "extras-kind": p.extras.kind,
             "extras-button": p.extras_button, "extras-enabled": p.extras_enabled, "extras-tip": busy_tip,
             "uc-text": p.uc.text, "uc-kind": p.uc.kind, "uc-button": p.uc_button, "uc-tip": p.uc_tip, "uc-primary": p.uc_primary,
@@ -374,13 +383,13 @@ impl SetupPlugin {
         let p = &self.panel;
         let status = p.canvas_status.clone().unwrap_or_default();
         let (apply, tip) = if self.linux {
-            let note = tr("Applying stops the stream, unloads v4l2loopback and loads it again. Close OBS and anything else using the virtual camera first.");
+            let note = tr("Applying stops the stream and reloads the virtual camera. Close OBS and other apps using it first.");
             (tr("Apply and reload"), format!("{note}\n{}", tr(SUDO_HINT)))
         } else {
             (tr("Apply"), tr("Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."))
         };
         json!({
-            "hw-enabled": p.hw_enabled, "hw-checked": self.hw_decode && (p.hw_enabled || p.hw_line.is_empty()), "hw-line": p.hw_line,
+            "hw-enabled": p.hw_enabled, "hw-checked": self.hw_decode() && (p.hw_enabled || p.hw_line.is_empty()), "hw-line": p.hw_line,
             "saving-checked": self.power_saving,
             "zoom-text": format!("{}×", self.max_zoom),
             "canvas-items": self.canvas_items(), "canvas-current": p.canvas_current,
@@ -404,7 +413,7 @@ impl SetupPlugin {
     pub fn apk_props(&self) -> Value {
         let p = &self.panel;
         json!({
-            "apk-button": if self.link.bundled_apk().is_some() { tr("Install over USB") } else { tr("Choose APK...") },
+            "apk-button": if self.link.bundled_apk().is_some() { tr("Install over USB") } else { tr("Choose APK") },
             "apk-text": p.apk.text, "apk-kind": p.apk.kind, "apk-enabled": p.apk_enabled,
             "pick-shown": !p.apk_choices.is_empty(), "pick-items": p.apk_choices, "pick-current": 0,
         })
@@ -414,6 +423,7 @@ impl SetupPlugin {
         let draft = self.languages.iter().any(|l| l.code == current_language() && l.draft);
         json!({
             "hues-current": if self.plugin_hues { 0 } else { 1 },
+            "theme-current": self.look.index(),
             "lang-items": self.language_items(), "lang-current": self.panel.lang_current,
             "lang-restart": self.restart_needed(),
             "help-text": if draft { tr("This translation is a first draft and some texts might read a bit oddly.") }
@@ -428,7 +438,7 @@ impl SetupPlugin {
         json!({
             "version-text": tr("Version {version}").field("version", &self.version),
             "made-before": before, "made-link": link, "made-after": after,
-            "diag-text": if self.panel.copied { tr("Copied") } else { tr("Copy diagnostics") },
+            "diag-text": if self.panel.copied { tr("Copied") } else { tr("Copy") },
             "log-shown": self.log_path.is_some(),
         })
     }
@@ -500,6 +510,7 @@ impl SetupPlugin {
     }
 
     pub fn show_graphics_card(&mut self, device: Option<&str>, failed: bool) {
+        self.hw_device = device.map(str::to_string);
         self.panel.hw_enabled = device.is_some();
         self.panel.hw_found = device.map(hw_name);
         self.show_hardware_failed(failed);
@@ -590,10 +601,10 @@ impl SetupPlugin {
         p.extras_button = !extras.is_empty();
         p.extras_enabled = !extras.is_empty() && !busy && !p.removing;
         p.extras_tip = if busy {
-            tr("Stop the streams going to them first")
+            tr("Stop the streams going to them first.")
         } else {
-            format!("{} {}", tr("Back to just the one camera; Add camera sets them up again."),
-                    if self.linux { tr("Asks for your password.") } else { tr("Windows asks for permission.") })
+            format!("{} {}", tr("Go back to one camera. Use Add camera to set up the others again."),
+                    if self.linux { tr("Needs your password.") } else { tr("Windows asks for permission.") })
         };
     }
 
@@ -635,17 +646,17 @@ impl SetupPlugin {
             (Line::new(tr("Ready"), "status_ok"), tr("Reinstall"), String::new(), false)
         } else if mf == "update" || (mf == "offer" && !uc_name.is_empty()) {
             let text = if mf == "update" { tr("Update ready") } else { tr("Some apps can't see it") };
-            (Line::new(text, "status_warn"), tr("Update"), tr("Installs the camera every Windows 11 app can see (Windows asks for admin access once)."), true)
+            (Line::new(text, "status_warn"), tr("Update"), tr("Install the camera every Windows 11 app can see (Windows asks for admin access once)."), true)
         } else if !uc_name.is_empty() && in_app_folder {
             // Registered by an older Telescope from the app's own folder, which any program running as this user can write to
             (Line::new(tr("Reinstall for a security fix"), "status_warn"), tr("Reinstall"),
-             tr("Moves the driver into Program Files (Windows asks for admin access once)."), true)
+             tr("Move the driver into Program Files (Windows asks for admin access once)."), true)
         } else if uc_name == UC_NAME {
             (Line::new(tr("Ready"), "status_ok"), tr("Reinstall"), String::new(), false)
         } else if !uc_name.is_empty() {
             // Registered by an older Telescope under UnityCapture's own name: works, just harder to find
             (Line::new(tr("Apps list it as “{name}”").field("name", uc_name), "status_warn"), tr("Rename"),
-             tr("Register it again as “{name}”").field("name", UC_NAME), true)
+             tr("Register it again as “{name}”.").field("name", UC_NAME), true)
         } else {
             let dlls = mf == "offer" || dlls; // the Windows 11 one comes with Telescope
             let text = if dlls { tr("Not installed") } else { tr("Not installed (Install driver downloads it first)") };
@@ -850,7 +861,7 @@ impl SetupPlugin {
         self.panel.canvas_status = Some(if ok {
             Line::new(if self.linux { tr("Done - loopback reloaded.") } else { tr("Done - canvas updated.") }, "status_ok")
         } else if msg.to_lowercase().contains("in use") {
-            Line::new(tr("Failed: module is still in use. Close OBS and any other app using the virtual camera, then try again."), "status_err")
+            Line::new(tr("Failed: still in use. Close OBS and other apps using it, then try again."), "status_err")
         } else {
             Line::new(tr("Failed: {message}").field("message", msg), "status_err")
         });
@@ -882,13 +893,19 @@ impl SetupPlugin {
 
     /// The decoder for the next stream: the window reads it from these settings when it starts one.
     pub fn on_hw_decode(&mut self, host: &mut dyn Host, on: bool) {
-        self.hw_decode = on;
+        self.hw_choice = Some(on);
         host.schedule_save();
     }
 
     pub fn on_power_saving(&mut self, host: &mut dyn Host, on: bool) {
         self.power_saving = on;
         host.set_power_saving(on);
+        host.schedule_save();
+    }
+
+    pub fn on_look(&mut self, host: &mut dyn Host, look: Look) {
+        self.look = look;
+        host.set_look(look);
         host.schedule_save();
     }
 
@@ -914,13 +931,19 @@ impl SetupPlugin {
         host.schedule(2000, "copied");
     }
 
+    /// Whether decoding is on the graphics card: what was chosen, else the default for the card found.
+    pub fn hw_decode(&self) -> bool {
+        self.hw_choice.unwrap_or_else(|| telescope_core::media::hardware_decode_default(self.linux, self.hw_device.as_deref()))
+    }
+
     fn decoding(&self) -> String {
         let status = self.media.decoding_status();
-        let chosen = if self.hw_decode { "graphics card" } else { "processor" };
+        let hw_decode = self.hw_decode();
+        let chosen = if hw_decode { "graphics card" } else { "processor" };
         if status.backends.is_empty() {
-            return if self.hw_decode && status.hardware_failed {
+            return if hw_decode && status.hardware_failed {
                 "not streaming (graphics card failed; processor until restart)".to_string()
-            } else if self.hw_decode && status.hardware_slow {
+            } else if hw_decode && status.hardware_slow {
                 "not streaming (graphics card was too slow; processor for now)".to_string()
             } else {
                 format!("not streaming ({chosen} selected)")
@@ -929,10 +952,10 @@ impl SetupPlugin {
         let mut text = status.backends.iter()
             .map(|b| if b == "processor" { "processor".to_string() } else { format!("graphics card ({b})") })
             .collect::<Vec<_>>().join(", ");
-        if self.hw_decode != status.backends.iter().any(|b| b != "processor") {
-            text += &if self.hw_decode && status.hardware_failed {
+        if hw_decode != status.backends.iter().any(|b| b != "processor") {
+            text += &if hw_decode && status.hardware_failed {
                 " (graphics card failed; processor until restart)".to_string()
-            } else if self.hw_decode && status.hardware_slow {
+            } else if hw_decode && status.hardware_slow {
                 " (graphics card was too slow; processor for now)".to_string()
             } else {
                 format!(" ({chosen} selected for the next connection)")
@@ -1176,6 +1199,7 @@ impl Plugin for SetupPlugin {
             ("phone-app", "pick-done") => self.phone_picked(host, Some(index.max(0) as usize)),
             ("phone-app", "pick-cancelled") => self.phone_picked(host, None),
             ("look", "hues-picked") => self.on_plugin_hues(host, index == 0),
+            ("look", "theme-picked") => self.on_look(host, Look::from_index(index)),
             ("look", "lang-picked") => self.on_language(host, index.max(0) as usize),
             ("look", "restart-clicked") => {
                 host.restart_app();
@@ -1203,18 +1227,27 @@ impl Plugin for SetupPlugin {
     }
 
     fn get_config(&self) -> Value {
-        json!({
+        let mut cfg = json!({
             "canvas_preset": self.canvas_preset,
             "custom_canvas_w": self.custom_w,
             "custom_canvas_h": self.custom_h,
             "max_zoom": self.max_zoom,
             "max_gain": self.max_gain,
             "limiter": self.limiter,
-            "hw_decode": self.hw_decode,
+            "hw_decode": self.hw_choice.unwrap_or(false),
             "power_saving": self.power_saving,
             "plugin_hues": self.plugin_hues,
             "language": self.language,
-        })
+        });
+        // Always written, as older versions did; a false only counts as a choice with the mark beside it, so an untouched switch keeps its default
+        if self.hw_choice == Some(false) {
+            cfg["hw_decode_chosen"] = json!(true);
+        }
+        // Written only once chosen, so a config that never touched the theme stays as an older Telescope wrote it
+        if self.look != Look::Dark {
+            cfg["look"] = json!(self.look.name());
+        }
+        cfg
     }
 
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
@@ -1228,9 +1261,15 @@ impl Plugin for SetupPlugin {
             _ => json!(DEFAULT_MAX_GAIN),
         };
         self.limiter = cfg.get("limiter") != Some(&Value::Bool(false)); // only an explicit off turns it off
-        self.hw_decode = telescope_core::media::hardware_decode_on(Some(cfg));
+        self.hw_choice = telescope_core::media::hardware_decode_choice(Some(cfg));
         self.power_saving = cfg.get("power_saving") == Some(&Value::Bool(true));
         self.plugin_hues = cfg.get("plugin_hues") != Some(&Value::Bool(false));
+        // A config an older Telescope wrote says classic_theme instead
+        self.look = match cfg.get("look").and_then(Value::as_str).and_then(Look::from_name) {
+            Some(look) => look,
+            None if cfg.get("classic_theme") == Some(&Value::Bool(true)) => Look::Classic,
+            None => Look::Dark,
+        };
         self.language = cfg.get("language").and_then(Value::as_str).unwrap_or("").to_string();
         self.pending = true;
         Ok(())

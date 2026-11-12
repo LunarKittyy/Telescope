@@ -42,7 +42,7 @@ fn compensation_snaps_and_all_three_reset_on_a_double_click() {
     }
     ui.window().set_size(slint::LogicalSize::new(460.0, 900.0));
     ui.show().unwrap();
-    for (label, callback, value) in [("Brightness", "ae-moved", 0.0), ("Temperature", "kelvin-moved", 5500.0), ("Tint G–M", "tint-moved", 0.0)] {
+    for (label, callback, value) in [("Brightness", "ae-moved", 0.0), ("Temperature", "kelvin-moved", 5500.0), ("Tint", "tint-moved", 0.0)] {
         let slider = ElementHandle::find_by_accessible_label(&ui, label).find(|e| e.accessible_value_maximum().is_some()).expect("the slider");
         double_click(ui.window(), &slider);
         assert_eq!(moved.borrow().last(), Some(&(callback, value)), "{label}");

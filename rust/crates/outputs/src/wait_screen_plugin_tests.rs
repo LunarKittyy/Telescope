@@ -386,7 +386,7 @@ fn the_card_says_when_a_pick_failed_or_wont_load() {
     assert!(r.host.calls.iter().any(|c| c.starts_with("pick_file Open Choose a wait screen")));
     let request = r.plugin.picking.expect("a dialog open");
     r.event(Event::RequestDone { request, ok: true, message: String::new(), data: json!({"path": tmp.join("gone.png").to_str(), "filter": ""}) });
-    let note = r.card("picture-note");
+    let note = r.card("picture-detail");
     let gone = if cfg!(windows) { "cannot find the file specified. Keeping" } else { "No such file" };
     assert!(note.as_str().unwrap().contains(gone) && note.as_str().unwrap().contains("Keeping"), "{note}");
     assert_eq!(r.plugin.image_path(), None);
@@ -484,7 +484,8 @@ fn settings_section_goes_in_streaming_and_shows_the_wait_screen() {
     let picture = &r.host.images[&("wait-screen".to_string(), "preview".to_string())];
     assert_eq!((picture.width, picture.height, picture.format), (384, 216, PixelFormat::Rgba));
     assert_eq!(r.card("mirror-checked"), json!(false));
-    assert_eq!(r.card("picture-note"), "Shown at 1920 \u{d7} 1080, the size the stream opens the camera at. Still images and GIFs work; transparent parts show the dark background.");
+    assert_eq!(r.card("picture-note"), "Shown at 1920 \u{d7} 1080");
+    assert_eq!(r.card("picture-detail"), "The size the stream opens the camera at. Still images and GIFs work; transparent parts show the dark background.");
     r.ui("mirror-toggled", vec![json!(true)]);
     assert!(r.plugin.mirror());
     // The picture follows the camera's shape
@@ -596,19 +597,40 @@ fn it_stands_in_for_the_streams_picture_when_asked() {
     let mut r = Rig::new();
     let frame = blank(320, 180, PixelFormat::I420);
     assert!(r.plugin.frame_step().is_none());
-    r.event(Event::CoverRequested { owner: "Blur".into(), on: true });
+    r.event(Event::CoverRequested { owner: "Blur".into(), on: true, note: None });
     assert_eq!(answers(&r.host), [true]);
     assert!(r.host.calls.iter().any(|c| c == "refresh_frame_step"));
     let shown = covered(&mut r.plugin, &frame);
     assert_eq!((shown.width, shown.height, shown.format), (320, 180, PixelFormat::I420));
     assert_ne!(shown.data, frame.data, "the default screen, at the stream's size");
-    r.event(Event::CoverRequested { owner: "Other".into(), on: true });
-    r.event(Event::CoverRequested { owner: "Blur".into(), on: false });
+    r.event(Event::CoverRequested { owner: "Other".into(), on: true, note: None });
+    r.event(Event::CoverRequested { owner: "Blur".into(), on: false, note: None });
     assert_eq!(answers(&r.host), [true, true, true]);
     assert!(r.plugin.frame_step().is_some(), "someone still wants it");
-    r.event(Event::CoverRequested { owner: "Other".into(), on: false });
+    r.event(Event::CoverRequested { owner: "Other".into(), on: false, note: None });
     assert_eq!(answers(&r.host).last(), Some(&false));
     assert!(r.plugin.frame_step().is_none());
+}
+
+#[test]
+fn a_cover_can_carry_its_own_line_under_the_name_on_the_default_screen() {
+    let frame = blank(640, 360, PixelFormat::I420);
+    let usual = |r: &mut Rig| {
+        r.event(Event::CoverRequested { owner: "Blur".into(), on: true, note: None });
+        covered(&mut r.plugin, &frame)
+    };
+    let plain = usual(&mut Rig::new());
+    let mut r = Rig::new();
+    r.event(Event::CoverRequested { owner: "Blur".into(), on: true, note: Some("Paused for privacy".into()) });
+    let noted = covered(&mut r.plugin, &frame);
+    // Without a font on this machine no line is drawn at all
+    if wait_screen::note_screen(640, 360, "Paused for privacy") != wait_screen::default_screen(640, 360) {
+        assert_ne!(noted.data, plain.data);
+    }
+    // Letting go takes the line with it
+    r.event(Event::CoverRequested { owner: "Blur".into(), on: false, note: None });
+    r.event(Event::CoverRequested { owner: "Blur".into(), on: true, note: None });
+    assert_eq!(covered(&mut r.plugin, &frame).data, plain.data);
 }
 
 // test_wait_screen.py::test_the_stand_in_is_mirrored_and_coloured_like_the_camera_shows_it
@@ -621,7 +643,7 @@ fn the_stand_in_is_mirrored_and_coloured_like_the_camera_shows_it() {
     }
     let picture = Rgb { width: 4, height: 2, data };
     let mut r = Rig::with_loader(Arc::new(move |_, _, _| Ok(vec![(picture.clone(), 1.0)])));
-    r.event(Event::CoverRequested { owner: "Blur".into(), on: true });
+    r.event(Event::CoverRequested { owner: "Blur".into(), on: true, note: None });
     let at = |f: &Frame, x: usize| f.data[x * 4..x * 4 + 4].to_vec();
     let out = covered(&mut r.plugin, &blank(4, 2, PixelFormat::Rgba));
     assert_eq!(at(&out, 0), [255, 0, 0, 255]);
@@ -645,7 +667,7 @@ fn a_slow_wait_screen_never_holds_up_the_stream() {
         let _ = cv.wait_timeout_while(open.lock().unwrap(), Duration::from_secs(5), |o| !*o);
         Ok(vec![(Rgb { width: w, height: h, data: vec![200; (w * h * 3) as usize] }, 1.0)])
     }));
-    r.event(Event::CoverRequested { owner: "Blur".into(), on: true });
+    r.event(Event::CoverRequested { owner: "Blur".into(), on: true, note: None });
     let frame = Frame::new(64, 36, PixelFormat::Rgba, vec![99; 64 * 36 * 4]);
     let mut step = step_of(&mut r.plugin).unwrap();
     let mut out = frame.clone();
@@ -671,7 +693,7 @@ fn a_wait_screen_that_wont_load_is_not_retried_on_every_frame() {
         seen.lock().unwrap().push((w, h));
         Err("unreadable".into())
     }));
-    r.event(Event::CoverRequested { owner: "Blur".into(), on: true });
+    r.event(Event::CoverRequested { owner: "Blur".into(), on: true, note: None });
     let frame = Frame::new(64, 36, PixelFormat::I420, vec![200; PixelFormat::I420.size(64, 36)]);
     for _ in 0..5 {
         // Black, never the camera's picture
@@ -696,12 +718,12 @@ fn a_wait_screen_that_wont_load_is_not_retried_on_every_frame() {
 #[test]
 fn changing_the_picture_while_covering_asks_for_a_new_step() {
     let mut r = Rig::new();
-    r.event(Event::CoverRequested { owner: "Blur".into(), on: true });
+    r.event(Event::CoverRequested { owner: "Blur".into(), on: true, note: None });
     let before = r.host.calls.iter().filter(|c| *c == "refresh_frame_step").count();
     r.plugin.set_mirror(&mut r.host, true);
     assert_eq!(r.host.calls.iter().filter(|c| *c == "refresh_frame_step").count(), before + 1);
     // Not covering: nothing to ask for
-    r.event(Event::CoverRequested { owner: "Blur".into(), on: false });
+    r.event(Event::CoverRequested { owner: "Blur".into(), on: false, note: None });
     let before = r.host.calls.iter().filter(|c| *c == "refresh_frame_step").count();
     r.plugin.set_mirror(&mut r.host, false);
     assert_eq!(r.host.calls.iter().filter(|c| *c == "refresh_frame_step").count(), before);
@@ -755,7 +777,7 @@ fn it_is_a_cover_stage_plugin_in_on_screen_that_can_be_switched_off() {
 fn an_nv12_stream_is_covered_like_any_other() {
     let mut r = Rig::new();
     let frame = Frame::new(320, 180, PixelFormat::Nv12, vec![200; PixelFormat::Nv12.size(320, 180)]);
-    r.event(Event::CoverRequested { owner: "Blur".into(), on: true });
+    r.event(Event::CoverRequested { owner: "Blur".into(), on: true, note: None });
     let out = covered(&mut r.plugin, &frame);
     assert_eq!(out.format, PixelFormat::Nv12);
     assert_ne!(out.data, frame.data);

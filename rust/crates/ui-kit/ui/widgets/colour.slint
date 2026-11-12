@@ -1,0 +1,393 @@
+// Picking a colour: a swatch that shows it, and a bubble with a saturation and brightness pad, a hue strip and a pipette.
+
+import { Theme } from "../theme.slint";
+import { Icons } from "../icons.slint";
+import { Reveal } from "folds.slint";
+import { Icon, FocusRing, TouchRing, IconButton, KeyFocus } from "basics.slint";
+import { Bubble } from "bubble.slint";
+import { NumberField } from "field.slint";
+import { Switch } from "switch.slint";
+import { Unfold, Fade } from "motion.slint";
+import { Tip } from "tip.slint";
+import { FineAxis, Grip, Hold } from "fine.slint";
+
+// The colour at a hue (0 to 1) on the pad's top right corner, and what the hue strip shows there
+global Hues {
+    public pure function full(h: float) -> color { Colors.hsv(clamp(h, 0, 1) * 360, 1, 1, 1) }
+}
+
+// Saturation across, brightness up. A drag never writes the parent's values; it shows where the person put it until the parent says
+// something new.
+component SatPad inherits Rectangle {
+    in property <float> h;
+    in property <float> s;
+    in property <float> v;
+    in property <color> colour;
+    in property <string> label;
+    callback moved(float, float);
+    property <float> ls;
+    property <float> lv;
+    property <bool> touched;
+    property <float> shown-s: touched ? ls : s;
+    property <float> shown-v: touched ? lv : v;
+    changed s => { touched = false; }
+    changed v => { touched = false; }
+    // Shift while dragging goes finer: the handle follows a tenth of the pointer's travel
+    fine-x := FineAxis { }
+    fine-y := FineAxis { }
+    property <bool> shift-now;
+    function put(x: length, y: length) {
+        ls = clamp(x / root.width, 0, 1);
+        lv = 1 - clamp(y / root.height, 0, 1);
+        touched = true;
+        moved(ls, lv);
+    }
+    function put-fine(x: length, y: length) {
+        put(fine-x.at(x / 1px, shift-now, -100000, 100000) * 1px, fine-y.at(y / 1px, shift-now, -100000, 100000) * 1px);
+    }
+    function nudge(ds: float, dv: float) {
+        ls = clamp(shown-s + ds, 0, 1);
+        lv = clamp(shown-v + dv, 0, 1);
+        touched = true;
+        moved(ls, lv);
+    }
+    height: Theme.u(56);
+    border-radius: Theme.r-ctl;
+    // The bubble opens with the focus on the pad
+    init => { focus.focus(); }
+    accessible-role: slider;
+    accessible-label: label;
+    accessible-value: Math.round(shown-s * 100) + "%, " + Math.round(shown-v * 100) + "%";
+    forward-focus: focus;
+    // The colour at full brightness, white to it across, then black over it going down
+    Rectangle {
+        border-radius: Theme.r-ctl;
+        background: @linear-gradient(90deg, #ffffff 0%, Hues.full(h) 100%);
+    }
+    Rectangle {
+        border-radius: Theme.r-ctl;
+        background: @linear-gradient(180deg, #00000000 0%, #000000 100%);
+    }
+    focus := FocusScope {
+        key-pressed(e) => {
+            let big = e.modifiers.shift ? 0.1 : 0.02;
+            if (e.text == Key.LeftArrow) { nudge(-big, 0); return accept; }
+            if (e.text == Key.RightArrow) { nudge(big, 0); return accept; }
+            if (e.text == Key.UpArrow) { nudge(0, big); return accept; }
+            if (e.text == Key.DownArrow) { nudge(0, -big); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    // The handle: a ring over the pad that holds the colour it sits on
+    Rectangle {
+        property <length> d: Theme.u(9);
+        x: shown-s * root.width - d / 2;
+        y: (1 - shown-v) * root.height - d / 2;
+        width: d;
+        height: d;
+        border-radius: d / 2;
+        background: colour;
+        border-width: Theme.stroke;
+        border-color: #ffffff;
+        drop-shadow-blur: Theme.u(2);
+        drop-shadow-color: #00000099;
+    }
+    TouchArea {
+        property <Hold> grip;
+        mouse-cursor: crosshair;
+        pointer-event(e) => {
+            shift-now = e.modifiers.shift;
+            if (e.kind == PointerEventKind.down) { grip = Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                focus.focus();
+                fine-x.begin(self.mouse-x / 1px);
+                fine-y.begin(self.mouse-y / 1px);
+                put(self.mouse-x, self.mouse-y);
+            }
+        }
+        moved => { if (self.pressed && !Grip.cut(grip)) { put-fine(self.mouse-x, self.mouse-y); } }
+    }
+}
+
+// Hue along a track: the colours of the wheel, with the handle taking the one it is on
+component HueStrip inherits Rectangle {
+    in property <float> h;
+    in property <string> label;
+    callback moved(float);
+    property <float> lh;
+    property <bool> touched;
+    property <float> shown: touched ? lh : h;
+    changed h => { touched = false; }
+    property <length> inset: Theme.handle-w / 2;
+    // Shift while dragging goes finer: the handle follows a tenth of the pointer's travel
+    fine := FineAxis { }
+    property <bool> shift-now;
+    function put(x: length) {
+        lh = clamp((x - inset) / (root.width - 2 * inset), 0, 1);
+        touched = true;
+        moved(lh);
+    }
+    function nudge(d: float) {
+        lh = clamp(shown + d, 0, 1);
+        touched = true;
+        moved(lh);
+    }
+    height: Theme.handle-h;
+    accessible-role: slider;
+    accessible-label: label;
+    accessible-value: Math.round(shown * 360) + "°";
+    forward-focus: focus;
+    focus := FocusScope {
+        key-pressed(e) => {
+            let big = e.modifiers.shift ? 0.1 : 0.01;
+            if (e.text == Key.LeftArrow || e.text == Key.DownArrow) { nudge(-big); return accept; }
+            if (e.text == Key.RightArrow || e.text == Key.UpArrow) { nudge(big); return accept; }
+            reject
+        }
+    }
+    // A square strip with a solid cap at each end, as the slider fills do: the software renderer squares off a gradient's corners
+    groove := Rectangle {
+        property <length> t: Theme.u(6);
+        y: (parent.height - t) / 2;
+        height: t;
+        Rectangle {
+            x: 0px;
+            width: parent.height;
+            border-radius: parent.height / 2;
+            background: Hues.full(0);
+        }
+        Rectangle {
+            x: parent.width - parent.height;
+            width: parent.height;
+            border-radius: parent.height / 2;
+            background: Hues.full(0);
+        }
+        Rectangle {
+            x: parent.height / 2;
+            width: parent.width - parent.height;
+            background: @linear-gradient(90deg, #ff0000 0%, #ffff00 16.667%, #00ff00 33.333%, #00ffff 50%, #0000ff 66.667%, #ff00ff 83.333%, #ff0000 100%);
+        }
+    }
+    Rectangle {
+        x: shown * (root.width - Theme.handle-w);
+        width: Theme.handle-w;
+        height: Theme.handle-h;
+        border-radius: Theme.r-handle;
+        background: Hues.full(shown);
+        border-width: Theme.stroke;
+        border-color: Theme.ink;
+        FocusRing { shown: focus.has-focus; radius: Theme.r-handle; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    }
+    TouchArea {
+        property <Hold> grip;
+        pointer-event(e) => {
+            shift-now = e.modifiers.shift;
+            if (e.kind == PointerEventKind.down) { grip = Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                focus.focus();
+                fine.begin(self.mouse-x / 1px);
+                put(self.mouse-x);
+            }
+        }
+        moved => { if (self.pressed && !Grip.cut(grip)) { put(fine.at(self.mouse-x / 1px, shift-now, -100000, 100000) * 1px); } }
+    }
+}
+
+// A box with a letter on its left, for one of red, green and blue
+component ChannelBox inherits Rectangle {
+    in property <string> letter;
+    in property <string> value;
+    in property <string> label;
+    callback committed(string);
+    height: Theme.row;
+    // Three digits fit between the letter and the box's right padding at the width the three share
+    NumberField {
+        width: parent.width;
+        height: parent.height;
+        value: root.value;
+        label: root.label;
+        keeps-focus: true;
+        committed(text) => { root.committed(text); }
+    }
+    Text {
+        x: Theme.u(5);
+        width: Theme.u(6);
+        height: parent.height;
+        text: letter;
+        font-family: Theme.font;
+        font-size: Theme.small;
+        font-weight: Theme.w-label;
+        color: Theme.faint;
+        vertical-alignment: center;
+    }
+}
+
+// Kind "colour": a swatch as wide as its row that shows the colour itself. A click opens a bubble with a pad (saturation across,
+// brightness up), a hue strip, a pipette for picking from the preview and, behind a small switch, the exact values: hex and red,
+// green and blue. The pad and strip are fed hue, saturation and brightness as the person left them, so a grey keeps its hue.
+export component ColourField inherits Rectangle {
+    // What the swatch shows, and the pad's handle
+    in property <color> colour;
+    in property <float> h;
+    in property <float> s;
+    in property <float> v;
+    // The colour as the values show it: hex with its #, and red, green, blue
+    in property <string> hex;
+    in property <[int]> channels: [0, 0, 0];
+    // The card's colour: the bubble's edge
+    in property <color> hue: Theme.accent;
+    in property <string> label;
+    in property <string> tip;
+    in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
+    in property <string> pipette-tip;
+    in property <bool> enabled: true;
+    // False when there's no preview to pick from
+    in property <bool> can-pick: true;
+    out property <bool> open: bubble.open;
+    out property <string> control-kind: "colour";
+    // Hue, saturation and brightness, each 0 to 1, as the pad or the strip moved them
+    callback moved(float, float, float);
+    callback hex-typed(string);
+    callback channel-typed(int, string);
+    callback pipette-clicked();
+    public function show() { if (enabled) { bubble.show(); } }
+    // A bubble that is open when the field goes disabled closes, and takes no change while it fades
+    changed enabled => { if (!enabled) { bubble.close(); } }
+    // Whether the exact values show in the bubble
+    property <bool> show-values;
+    height: Theme.row;
+    horizontal-stretch: 1;
+    border-radius: Theme.r-ctl;
+    background: !enabled ? Theme.raise.mix(Theme.card, 0.4) : open || touch.pressed ? Theme.sel : touch.has-hover ? Theme.hover : Theme.raise;
+    border-width: !enabled ? Theme.outline-w : Theme.ctl-outline-w(touch.has-hover || open, touch.pressed);
+    border-color: !enabled ? Theme.dis-outline : Theme.ctl-outline(touch.has-hover || open, touch.pressed);
+    accessible-role: button;
+    accessible-label: label;
+    accessible-value: hex;
+    accessible-expandable: true;
+    accessible-expanded: open;
+    accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
+    accessible-action-default => { if (root.enabled) { root.show(); } }
+    forward-focus: focus;
+    focus := FocusScope {
+        enabled: root.enabled;
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+        key-pressed(e) => {
+            if (e.text == " " || e.text == "\n") { root.show(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    // The colour inset in the raised well, so a colour near the card's own still reads as a control
+    Rectangle {
+        x: Theme.u(2);
+        y: Theme.u(2);
+        width: parent.width - Theme.u(4);
+        height: parent.height - Theme.u(4);
+        border-radius: Theme.r-handle;
+        background: colour;
+        opacity: enabled ? 1 : 0.5;
+    }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; hover: touch.has-hover; inert: !root.enabled; enabled: !root.open; focused: focus.has-focus && KeyFocus.keyboard; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        scroll-event(e) => { usage.wheel(); reject }
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
+        clicked => { focus.focus(); root.show(); }
+    }
+    bubble := Bubble {
+        width: parent.width;
+        height: parent.height;
+        hue: root.hue;
+        content-width: Theme.u(122);
+        label: root.label;
+        VerticalLayout {
+            spacing: 0px;
+            VerticalLayout {
+                spacing: Theme.u(4);
+                SatPad {
+                    h: root.h;
+                    s: root.s;
+                    v: root.v;
+                    colour: root.colour;
+                    label: @tr("Saturation and brightness");
+                    moved(s, v) => { if (root.enabled) { root.moved(root.h, s, v); } }
+                }
+                HueStrip {
+                    h: root.h;
+                    label: @tr("Hue");
+                    moved(h) => { if (root.enabled) { root.moved(h, root.s, root.v); } }
+                }
+                HorizontalLayout {
+                    spacing: Theme.u(4);
+                    IconButton {
+                        icon: Icons.eyedropper;
+                        label: @tr("Pick from the preview");
+                        tip: root.pipette-tip;
+                        enabled: root.can-pick;
+                        clicked => { if (root.enabled) { bubble.close(); root.pipette-clicked(); } }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    Text {
+                        text: @tr("Values");
+                        font-family: Theme.font;
+                        font-size: Theme.body;
+                        font-weight: Theme.w-label;
+                        color: Theme.ink2;
+                        vertical-alignment: center;
+                    }
+                    Rectangle {
+                        width: Theme.switch-w;
+                        Switch {
+                            y: (parent.height - self.height) / 2;
+                            label: @tr("Values");
+                            hue: root.hue;
+                            checked: root.show-values;
+                            toggled(on) => { root.show-values = on; }
+                        }
+                    }
+                }
+            }
+            // The exact values open and close with the bubble growing and shrinking round them, the fields fading in a touch behind
+            Rectangle {
+                values-open := Unfold { open: root.show-values; }
+                values-fade := Fade { shown: root.show-values; }
+                min-height: 0px;
+                preferred-height: values-open.value * values.preferred-height;
+                max-height: values-open.value > 0 ? 100000px : 0px;
+                vertical-stretch: values-open.value > 0 ? 1 : 0;
+                clip: true;
+                values := VerticalLayout {
+                    y: 0px;
+                    width: parent.width;
+                    height: self.preferred-height;
+                    opacity: values-fade.value;
+                    padding-top: Theme.u(4);
+                    spacing: Theme.u(2);
+                    visible: values-open.value > 0;
+                    // Hex across the whole width, red, green and blue in three equal boxes under it
+                    NumberField {
+                        value: root.hex;
+                        label: @tr("Hex");
+                        keeps-focus: true;
+                        committed(text) => { if (root.enabled) { root.hex-typed(text); } }
+                    }
+                    HorizontalLayout {
+                        spacing: Theme.u(2);
+                        for letter[i] in [@tr("R"), @tr("G"), @tr("B")]: ChannelBox {
+                            horizontal-stretch: 1;
+                            letter: letter;
+                            value: "\{root.channels[i]}";
+                            label: [@tr("Red"), @tr("Green"), @tr("Blue")][i];
+                            committed(text) => { if (root.enabled) { root.channel-typed(i, text); } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

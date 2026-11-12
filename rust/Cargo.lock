@@ -1639,8 +1639,6 @@ dependencies = [
 [[package]]
 name = "femtovg"
 version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31eebf3ab1b76359ccd5f850c07a7c6b2722c64d9127c40e02358e83f3ff9b1a"
 dependencies = [
  "bitflags 2.13.2",
  "bytemuck",
@@ -2532,8 +2530,6 @@ dependencies = [
 [[package]]
 name = "i-slint-core"
 version = "1.18.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed2ea15059d70bc31b1a8b1eb4c34f2c5df04cb7e53f36179b43c0261231d646"
 dependencies = [
  "accesskit",
  "bitflags 2.13.2",
@@ -5289,8 +5285,6 @@ dependencies = [
 [[package]]
 name = "slint-interpreter"
 version = "1.18.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "645cf39fcf871b5b49f7319973e8dee7af03ee51c5a2c8e1e7466d72acc8b217"
 dependencies = [
  "derive_more",
  "i-slint-backend-linuxkms",
@@ -5761,12 +5755,15 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
+ "slint",
  "slint-interpreter",
  "telescope-core",
  "telescope-media",
  "telescope-ui-kit",
  "ureq",
  "windows",
+ "zune-core",
+ "zune-jpeg",
 ]
 
 [[package]]
@@ -5784,6 +5781,7 @@ dependencies = [
  "serde",
  "serde_json",
  "slint-interpreter",
+ "socket2",
  "str0m",
  "telescope-core",
  "telescope-media",
@@ -5876,6 +5874,7 @@ dependencies = [
  "wayland-backend",
  "wayland-client",
  "wayland-protocols",
+ "wayland-protocols-plasma",
  "windows",
  "x11-dl",
  "zbus",

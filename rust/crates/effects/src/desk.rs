@@ -4,13 +4,13 @@
 
 use crate::imgops::Remap;
 use crate::pixels::{put_rgb, to_rgb};
-use crate::sheet::{self, usable_corners, warp_for, warp_map, Sheet, Warp, P, STRETCH_MAX, STRETCH_MIN};
+use crate::sheet::{self, card_rows, usable_corners, warp_for, warp_map, Sheet, Warp, BACKDROP, P, STRETCH_MAX, STRETCH_MIN};
 use crate::shared::Paired;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use telescope_core::actions::{self, round_half_even, Choice};
 use telescope_core::event::Event;
-use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep};
+use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, ShaderStep};
 use telescope_core::host::{Host, PickKind, Poster, View};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::image::{keep_bytes, with_spares};
@@ -21,6 +21,7 @@ use telescope_core::view::{view_to_shown, Geometry};
 pub const NAME: &str = "desk";
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/desk.slint"));
 const T_WARP: &str = "warp";
+const DESK: &str = include_str!("desk.wgsl");
 
 /// What "make the writing stand out" does to the sheet: nothing, more contrast, or black and white.
 pub const CLEANUPS: [(&str, &str); 3] = [("off", n_("Off")), ("contrast", n_("Contrast")), ("bw", n_("Black and white"))];
@@ -30,19 +31,22 @@ pub const SHAPES: [(&str, &str); 5] = [("auto", n_("Auto")), ("a4", n_("A4")), (
 const CLEAN_VALUES: [&str; 3] = ["Off", "Contrast", "Black and white"];
 const SHAPE_VALUES: [&str; 5] = ["Auto", "A4", "Letter", "Square", "Fill the picture"];
 
-const SWITCH_TIP: &str = n_("Straighten the sheet you marked");
-const MARK_TIP: &str = n_("Drag the four corners of the sheet into place on the preview");
-const RESET_TIP: &str = n_("Put the width and height back to 100%");
-const CLEAN_TIP: &str = n_("Make the writing on the sheet stand out");
-const SHAPE_TIP: &str = n_("Auto works the shape out from the corners");
-const STRETCH_TIPS: [&str; 2] = [n_("Stretch the sheet sideways if it still looks squashed"), n_("Stretch the sheet up and down if it still looks squashed")];
-const RESET_HINT: &str = n_("Double-click to reset");
+const SWITCH_TIP: &str = n_("Straighten the marked sheet.");
+const MARK_TIP: &str = n_("Drag the four corners of the sheet into place on the preview.");
+const RESET_TIP: &str = n_("Set the width and height back to 100%.");
+const CLEAN_TIP: &str = n_("Make the writing on the sheet stand out.");
+const SHAPE_TIP: &str = n_("Work out the shape from the corners.");
+const SHAPE_FILL_TIP: &str = n_("Fill the whole picture with the sheet.");
+const STRETCH_TIP: &str = n_("Stretch the sheet if it still looks squashed.");
+const STRETCH_OFF_TIP: &str = n_("Fill already uses the whole picture.");
+/// What the card's shape tiles are called: the same shapes, with Fill short and its full name in the tile's tooltip.
+const SHAPE_NAMES: [&str; 5] = [n_("Auto"), n_("A4"), n_("Letter"), n_("Square"), n_("Fill")];
 
 /// The frame step: the sheet, and the warp for the size of frame it saw last.
 struct DeskStep {
     spares: Vec<Vec<u8>>,
     sheet: Sheet,
-    made: Option<((usize, usize), Warp, Remap)>,
+    made: Option<((usize, usize), Warp, Option<Remap>)>,
     poster: Option<Arc<dyn Poster>>,
 }
 
@@ -52,25 +56,50 @@ impl CpuStep for DeskStep {
         with_spares(&mut spares, || self.run(frame));
         self.spares = spares;
     }
+
+    fn card_uniforms(&mut self, width: u32, height: u32) -> Option<Value> {
+        let size = (width as usize, height as usize);
+        if size.0 < 2 || size.1 < 2 {
+            // The CPU leaves such a frame alone: the identity warp over all of it does the same
+            return Some(card_params([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]], (0, 0, size.0, size.1)));
+        }
+        self.warp_for_size(size);
+        let (_, warp, _) = self.made.as_ref().expect("made above");
+        Some(card_params(card_rows(warp), warp.rect))
+    }
+
+    fn card_block_chroma(&self) -> bool {
+        true
+    }
+}
+
+/// The card's uniforms (desk.wgsl's Params) for a warp.
+fn card_params(rows: [[f64; 4]; 3], rect: (usize, usize, usize, usize)) -> Value {
+    json!({"r0": rows[0], "r1": rows[1], "r2": rows[2], "rect": [rect.0, rect.1, rect.2, rect.3], "backdrop": BACKDROP as f64 / 255.0})
 }
 
 impl DeskStep {
-    fn run(&mut self, frame: &mut Frame) {
-        let size = (frame.width as usize, frame.height as usize);
-        if size.0 < 2 || size.1 < 2 {
-            return;
-        }
+    /// The warp for this size, worked out and posted to the preview the first time the size comes; its pixel map is made when the CPU needs it.
+    fn warp_for_size(&mut self, size: (usize, usize)) {
         if self.made.as_ref().is_none_or(|(s, _, _)| *s != size) {
             let warp = warp_for(&self.sheet, size.0, size.1);
             if let Some(poster) = &self.poster {
                 let m = &warp.on_preview;
                 poster.post(T_WARP, json!({"matrix": [m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2], m[2][0], m[2][1], m[2][2]]}));
             }
-            let map = warp_map(size.0, size.1, &warp.matrix, warp.rect.2, warp.rect.3);
-            self.made = Some((size, warp, map));
+            self.made = Some((size, warp, None));
         }
+    }
+
+    fn run(&mut self, frame: &mut Frame) {
+        let size = (frame.width as usize, frame.height as usize);
+        if size.0 < 2 || size.1 < 2 {
+            return;
+        }
+        self.warp_for_size(size);
         let Some(rgb) = to_rgb(frame) else { return };
-        let (_, warp, map) = self.made.as_ref().expect("made above");
+        let (_, warp, map) = self.made.as_mut().expect("made above");
+        let map = map.get_or_insert_with(|| warp_map(size.0, size.1, &warp.matrix, warp.rect.2, warp.rect.3));
         let out = sheet::straighten_with(&rgb, size.0, size.1, &self.sheet, warp, map);
         put_rgb(frame, &out);
         keep_bytes(rgb);
@@ -162,40 +191,43 @@ impl DeskPlugin {
         })
     }
 
-    fn status(&self) -> (String, &'static str) {
+    /// (a short word, the sentence for its tooltip, its kind).
+    fn status(&self) -> (String, String, &'static str) {
+        // The preview says what to drag while the corners are placed, and the Mark button is the way in
         if self.picking {
-            (tr("Drag the corners on the preview onto the sheet's corners."), "dim")
+            (String::new(), String::new(), "dim")
         } else if self.refused {
-            (tr("Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."), "status_warn")
-        } else if self.on && self.corners.is_none() {
-            (tr("Mark the sheet's corners to straighten it."), "status_warn")
+            (tr("Sheet unclear"), tr("Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."), "status_warn")
         } else if self.on && self.off_picture() {
-            (tr("Part of the sheet is outside the picture. Zoom out or mark it again."), "status_warn")
+            (tr("Sheet cut off"), tr("Part of the sheet is outside the picture. Zoom out or mark it again."), "status_warn")
         } else {
-            (String::new(), "dim")
+            (String::new(), String::new(), "dim")
         }
     }
 
     fn fixed_props() -> Value {
         let list = |l: &[(&str, &str)]| l.iter().map(|(_, t)| tr(t)).collect::<Vec<_>>();
+        // Fill is named in full in its tooltip, and Auto and Fill say what they do
+        let shape_tips = [String::new(), String::new(), String::new(), String::new(), tr("Fill the picture")];
+        let shape_details = [tr(SHAPE_TIP), String::new(), String::new(), String::new(), tr(SHAPE_FILL_TIP)];
         json!({
             "switch-name": tr("Desk mode"), "switch-help": tr(SWITCH_TIP), "mark-tip": tr(MARK_TIP), "done-text": tr("Done"),
-            "cancel-text": tr("Cancel"), "reset-text": tr("Reset"), "reset-tip": tr(RESET_TIP), "clean-items": list(&CLEANUPS),
-            "clean-tip": tr(CLEAN_TIP), "shape-items": list(&SHAPES), "shape-tip": tr(SHAPE_TIP), "reset-hint": tr(RESET_HINT),
-            "stretch-tips": STRETCH_TIPS.iter().map(|t| tr(t)).collect::<Vec<_>>(),
+            "cancel-text": tr("Cancel"), "reset-text": tr("Reset"), "reset-help": tr(RESET_TIP), "clean-items": list(&CLEANUPS),
+            "clean-tip": tr(CLEAN_TIP), "shape-items": SHAPE_NAMES.iter().map(|t| tr(t)).collect::<Vec<_>>(), "shape-tips": shape_tips, "shape-details": shape_details,
+            "stretch-tip": tr(STRETCH_TIP), "stretch-off-tip": tr(STRETCH_OFF_TIP),
         })
     }
 
     fn state_props(&self) -> Value {
         let fill = self.shape == "fill";
-        let (status, kind) = self.status();
+        let (status, detail, kind) = self.status();
         json!({
             "active": self.paired.on(), "on": self.on, "picking": self.picking,
             "mark-text": if self.corners.is_some() { tr("Mark the sheet again") } else { tr("Mark the sheet") },
             "reset-shown": !fill && self.stretch != [100, 100],
             "clean-current": index_of(&CLEANUPS, &self.cleanup), "shape-current": index_of(&SHAPES, &self.shape),
             "stretch-enabled": !fill, "stretch": self.stretch, "stretch-text": self.stretch.map(|v| format!("{v}%")),
-            "status": status, "status-kind": if kind == "dim" { "status_dim" } else { kind },
+            "status": status, "status-detail": detail, "status-kind": if kind == "dim" { "status_dim" } else { kind },
         })
     }
 
@@ -252,7 +284,8 @@ impl DeskPlugin {
         let start = self.corners.map(|c| c.map(|[x, y]| [x as f32, y as f32]));
         if !host.pick_on_preview(NAME, PickKind::Quad, start, &tr("Drag the corners onto the sheet's corners, then press Enter.")) {
             let mut props = self.state_props();
-            props["status"] = json!(tr("Start streaming to mark the sheet on the preview."));
+            props["status"] = json!(tr("Not streaming"));
+            props["status-detail"] = json!(tr("Start streaming to mark the sheet on the preview."));
             props["status-kind"] = json!("status_warn");
             host.set_ui_props("card", &props);
         }
@@ -448,7 +481,14 @@ impl Plugin for DeskPlugin {
         if !self.active() {
             return None;
         }
-        Some(FrameStep::Cpu(Box::new(DeskStep { sheet: self.sheet()?, made: None, poster: self.poster.clone(), spares: Vec::new() })))
+        let sheet = self.sheet()?;
+        // Cleaning the sheet up works on its pixels, so only the plain straightening can run on the card
+        let plain = !matches!(sheet.cleanup.as_str(), "contrast" | "bw");
+        let step = Box::new(DeskStep { sheet, made: None, poster: self.poster.clone(), spares: Vec::new() });
+        if plain {
+            return Some(FrameStep::Either(ShaderStep { wgsl: DESK.into(), uniforms: card_params([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]], (0, 0, 0, 0)), textures: Vec::new() }, step));
+        }
+        Some(FrameStep::Cpu(step))
     }
 
     fn get_config(&self) -> Value {
@@ -496,3 +536,7 @@ impl Plugin for DeskPlugin {
 #[cfg(test)]
 #[path = "desk_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "desk_card_tests.rs"]
+mod card_tests;

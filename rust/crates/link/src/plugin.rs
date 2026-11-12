@@ -566,7 +566,7 @@ impl ConnectionPlugin {
             // Reopened mid-download: its progress shows on the next step
             add.usb_text = tr("Getting adb from Google…");
         } else if adb {
-            add.usb_text = tr("Or plug the phone in with a USB cable to pair it over USB.");
+            add.usb_text = tr("Or plug it in over USB.");
             add.usb_kind = "status_dim";
             host.schedule(PAIR_USB_POLL.as_millis() as u64, T_PAIR_USB);
             self.poll_usb();
@@ -595,7 +595,7 @@ impl ConnectionPlugin {
         let paired = add.paired.is_some();
         host.set_ui_props("card", &json!({
             "add-open": open,
-            "add-subtitle": if paired { tr("You can start streaming now.") } else { tr("Open Telescope on the phone first.") },
+            "add-subtitle": if paired { tr("You can start streaming now.") } else { tr("Open the app on the phone first.") },
             "qr-cells": add.qr.0, "qr-size": add.qr.1,
             "wifi-text": add.wifi_text, "usb-text": add.usb_text, "usb-kind": add.usb_kind, "usb-action": add.usb_action, "usb-pick-action": add.usb_pick_action,
             "usb-link-text": add.licence.as_ref().map(|l| l.0.as_str()).unwrap_or_default(), "usb-link-url": adb_download::LICENSE_URL,
@@ -620,17 +620,17 @@ impl ConnectionPlugin {
         }
         if let Some(chosen) = add.chosen.clone() {
             let name = usable.iter().find(|(s, _)| *s == chosen).map(|(_, n)| n.clone()).unwrap_or_default();
-            add.usb_text = tr("Pairing {phone}. Keep Telescope open on it until it's done.").field("phone", &name);
+            add.usb_text = tr("Pairing {phone}. Keep the app open.").field("phone", &name);
             add.usb_kind = "status_dim";
             self.send_offer(&chosen);
         } else if !usable.is_empty() {
-            add.usb_text = tr("Pick a phone below to pair it over USB.");
+            add.usb_text = tr("Pick a phone to pair over USB.");
             add.usb_kind = "status_dim";
         } else if add.usb_states.iter().any(|d| d.state == "unauthorized") {
-            add.usb_text = tr("Phone plugged in. Allow USB debugging in the prompt on the phone.");
+            add.usb_text = tr("Allow USB debugging on the phone.");
             add.usb_kind = "status_warn";
         } else {
-            add.usb_text = tr("Or plug the phone in with a USB cable to pair it over USB.");
+            add.usb_text = tr("Or plug it in over USB.");
             add.usb_kind = "status_dim";
         }
         self.render_add(host, true);
@@ -1079,7 +1079,7 @@ pub fn card_props(c: &Connection, ctx: &CardCtx) -> Value {
         let text = match &ctx.source {
             None => tr("No device yet"),
             Some(_) if c.streaming && live => tr_ctx("status", "Streaming"),
-            Some(source) if c.streaming => tr("Waiting for {source}…").field("source", source),
+            Some(source) if c.streaming => tr("Waiting for {source}").field("source", source),
             Some(source) => tr("{source}, no pairing needed").field("source", source),
         };
         p.insert("status-kind".into(), json!(if live { "status_ok" } else { "status_dim" }));
@@ -1087,7 +1087,6 @@ pub fn card_props(c: &Connection, ctx: &CardCtx) -> Value {
         for (k, v) in [("using-shown", false), ("route-shown", false), ("switch-usb-shown", false), ("update-shown", false)] {
             p.insert(k.into(), json!(v));
         }
-        p.insert("route-icon".into(), json!("x"));
         p.insert("note-text".into(), json!(""));
         return Value::Object(p);
     };
@@ -1095,7 +1094,7 @@ pub fn card_props(c: &Connection, ctx: &CardCtx) -> Value {
     let (mut kind, mut text) = status_line(res);
     if c.streaming {
         (kind, text) = if c.lost {
-            ("status_warn", tr("Reconnecting…"))
+            ("status_warn", tr("Reconnecting"))
         } else if c.connected {
             ("", match c.stream_route() {
                 Some(r) if is_usb(&r) => tr("Streaming over USB"),
@@ -1103,7 +1102,7 @@ pub fn card_props(c: &Connection, ctx: &CardCtx) -> Value {
                 None => tr_ctx("status", "Streaming"),
             })
         } else {
-            ("status_dim", tr("Connecting…"))
+            ("status_dim", tr("Connecting"))
         };
     }
     let route = if c.streaming { c.stream_route() } else { res.and_then(|r| r.route.clone()) };
@@ -1129,7 +1128,6 @@ pub fn card_props(c: &Connection, ctx: &CardCtx) -> Value {
     json!({
         "status-kind": kind, "status-text": text,
         "using-text": route_text(route.as_ref()), "using-shown": route.is_some(),
-        "route-icon": match &route { Some(r) if is_usb(r) => "usb", Some(_) => "wifi", None => "x" },
         "route-shown": true, "route-current": route_index(preference),
         "note-text": note, "note-kind": note_kind,
         "switch-usb-shown": c.switch_usb_visible && c.streaming,
@@ -2089,7 +2087,7 @@ mod tests {
         let mut e = env();
         let header = e.plugin.header_widget().unwrap();
         assert_eq!(header.component, "PhonePicker");
-        assert!(UI.contains("callback manage;") && UI.contains("@tr(\"Your devices: add, rename, remove\")"));
+        assert!(UI.contains("callback manage;") && UI.contains("@tr(\"Add, rename or remove the phones you've paired.\")"));
         assert_eq!(e.plugin.card().unwrap().ui.component, "ConnectionCard");
     }
 
@@ -2235,11 +2233,11 @@ mod tests {
         e.shared.conn().set_stream_route(Some(wifi()));
         e.host.focused = Some("id-a".into());
         e.plugin.on_stream_start(&mut e.host, &StreamInfo { source_id: "id-a".into(), url: "https://10.0.0.5:8080/v1/video.h264".into(), session: 0 });
-        assert_eq!(e.status(), "Connecting…");
+        assert_eq!(e.status(), "Connecting");
         e.plugin.on_event(&mut e.host, &Event::StreamConnected { source_id: "id-a".into() });
         assert_eq!(e.status(), "Streaming over Wi-Fi");
         e.plugin.on_event(&mut e.host, &Event::StreamLost { source_id: "id-a".into() });
-        assert_eq!(e.status(), "Reconnecting…");
+        assert_eq!(e.status(), "Reconnecting");
     }
 
     #[test]
@@ -2362,9 +2360,9 @@ mod tests {
         let states = json!([{"serial": "s1", "state": "device", "model": "Pixel 8"}, {"serial": "s2", "state": "unauthorized", "model": ""}]);
         e.plugin.on_event(&mut e.host, &Event::Posted { owner: NAME.into(), token: P_USB_STATE.into(), data: states.clone() });
         assert_eq!(e.props("card")["picks"], json!([{"serial": "s1", "label": "Pair Pixel 8", "enabled": true}]));
-        assert_eq!(e.props("card")["usb-text"], "Pick a phone below to pair it over USB.");
+        assert_eq!(e.props("card")["usb-text"], "Pick a phone to pair over USB.");
         e.ui("card", "pick", vec![json!("s1")]);
-        assert_eq!(e.props("card")["usb-text"], "Pairing Pixel 8. Keep Telescope open on it until it's done.");
+        assert_eq!(e.props("card")["usb-text"], "Pairing Pixel 8. Keep the app open.");
         let only_unauthorized = json!([{"serial": "s2", "state": "unauthorized", "model": ""}]);
         e.plugin.on_event(&mut e.host, &Event::Posted { owner: NAME.into(), token: P_USB_STATE.into(), data: only_unauthorized });
         assert_eq!(e.props("card")["usb-kind"], "status_warn");
@@ -2747,7 +2745,7 @@ mod tests {
         assert_eq!(e.props("card")["route-current"], 0);
         let issue = e.issue("route").unwrap();
         assert_eq!(issue.title, "Can't reach Pixel over Wi-Fi");
-        assert!(issue.text.contains("Still streaming over USB, so Connect via stays on Automatic."));
+        assert!(issue.text.contains("Still streaming over USB, so it stays on Automatic."));
         e.link.answer(ready(wifi())); // on the same Wi-Fi now
         e.press("route", 0);
         std::thread::sleep(Duration::from_millis(50));
@@ -2822,7 +2820,7 @@ mod tests {
         assert!(e.host.is_scheduled(T_USB_WATCH));
 
         e.plugin.on_event(&mut e.host, &Event::StreamLost { source_id: String::new() });
-        assert_eq!(e.status(), "Reconnecting…");
+        assert_eq!(e.status(), "Reconnecting");
         assert!(!e.host.is_scheduled(T_USB_WATCH)); // recovery picks USB up by itself
 
         e.plugin.on_event(&mut e.host, &Event::StreamConnected { source_id: String::new() });
@@ -3065,9 +3063,9 @@ mod tests {
         usb_state(&mut e, json!([{"serial": "s1", "state": "device", "model": "Pixel 8"}]));
         e.ui("card", "pick", vec![json!("s1")]);
         usb_state(&mut e, json!([]));
-        assert_eq!(e.props("card")["usb-text"], "Or plug the phone in with a USB cable to pair it over USB.");
+        assert_eq!(e.props("card")["usb-text"], "Or plug it in over USB.");
         usb_state(&mut e, json!([{"serial": "s1", "state": "device", "model": "Pixel 8"}]));
-        assert_eq!(e.props("card")["usb-text"], "Pick a phone below to pair it over USB.");
+        assert_eq!(e.props("card")["usb-text"], "Pick a phone to pair over USB.");
     }
 
     #[test]
@@ -3166,7 +3164,7 @@ mod tests {
         *e.link.adb.lock().unwrap() = true;
         release.send(()).unwrap();
         e.settle_until(|e| e.host.is_scheduled(T_PAIR_USB));
-        assert_eq!(e.props("card")["usb-text"], "Or plug the phone in with a USB cable to pair it over USB.");
+        assert_eq!(e.props("card")["usb-text"], "Or plug it in over USB.");
     }
 
     // test_adb_widget.py::test_asking_while_a_download_runs_doesn_t_ask_or_start_another

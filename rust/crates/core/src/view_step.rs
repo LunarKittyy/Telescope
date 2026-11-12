@@ -7,7 +7,7 @@
 
 use crate::frame::{CpuStep, Frame, FrameContext, FrameStep, PixelFormat};
 use crate::host::View;
-use crate::image::{frame_rgb, keep_bytes, resample_linear, rgb_to_420, rint, Tap};
+use crate::image::{frame_rgb, keep_bytes, resample_linear, rgb_to_420, rint, spare_bytes, with_spares, Tap};
 use crate::view::window;
 
 /// Quarter turns clockwise in a rotation of degrees (0 for none).
@@ -25,17 +25,32 @@ struct Turn {
     quarters: u32,
 }
 
-/// `plane` (w x h, `bpp` bytes a pixel) turned clockwise by 1 or 3 quarters: h x w.
-fn turn_plane(plane: &[u8], w: usize, h: usize, bpp: usize, quarters: u32) -> Vec<u8> {
-    let mut out = vec![0u8; plane.len()];
-    for y in 0..h {
-        for x in 0..w {
-            let (nx, ny) = if quarters == 1 { (h - 1 - y, x) } else { (y, w - 1 - x) };
-            let (from, to) = ((y * w + x) * bpp, (ny * h + nx) * bpp);
-            out[to..to + bpp].copy_from_slice(&plane[from..from + bpp]);
+/// Pixels along each side of the blocks a turn works through: a block's source rows and destination columns both stay in the cache.
+const BLOCK: usize = 64;
+
+/// `plane` (w x h, `bpp` bytes a pixel) turned clockwise by 1 or 3 quarters (h x w) into `out`. Blocks at a time, so neither the rows
+/// read nor the columns written walk the whole picture for every pixel.
+fn turn_plane(plane: &[u8], w: usize, h: usize, bpp: usize, quarters: u32, out: &mut [u8]) {
+    match bpp {
+        1 => turn_blocks::<1>(plane, w, h, quarters, out),
+        2 => turn_blocks::<2>(plane, w, h, quarters, out),
+        4 => turn_blocks::<4>(plane, w, h, quarters, out),
+        _ => unreachable!("planes have 1, 2 or 4 bytes a pixel"),
+    }
+}
+
+fn turn_blocks<const B: usize>(plane: &[u8], w: usize, h: usize, quarters: u32, out: &mut [u8]) {
+    for by in (0..h).step_by(BLOCK) {
+        for bx in (0..w).step_by(BLOCK) {
+            for y in by..(by + BLOCK).min(h) {
+                let row = &plane[y * w * B..(y + 1) * w * B];
+                for x in bx..(bx + BLOCK).min(w) {
+                    let to = if quarters == 1 { x * h + (h - 1 - y) } else { (w - 1 - x) * h + y } * B;
+                    out[to..to + B].copy_from_slice(&row[x * B..(x + 1) * B]);
+                }
+            }
         }
     }
-    out
 }
 
 /// The frame turned by a quarter or three (clockwise); the same frame for other counts or formats it can't turn.
@@ -43,20 +58,27 @@ pub fn turn_frame(frame: &Frame, quarters: u32) -> Frame {
     if quarters % 4 != 1 && quarters % 4 != 3 {
         return frame.clone();
     }
+    let q = quarters % 4;
     let (w, h) = (frame.width as usize, frame.height as usize);
-    let data: Vec<u8> = match frame.format {
-        PixelFormat::Rgba | PixelFormat::Bgra => turn_plane(&frame.data, w, h, 4, quarters % 4),
+    let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+    let mut data = vec![0u8; frame.data.len()];
+    match frame.format {
+        PixelFormat::Rgba | PixelFormat::Bgra => turn_plane(&frame.data, w, h, 4, q, &mut data),
         PixelFormat::I420 => {
-            let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
             let (y, u, v) = frame.i420_planes().expect("an I420 frame has planes");
-            [turn_plane(y, w, h, 1, quarters % 4), turn_plane(u, cw, ch, 1, quarters % 4), turn_plane(v, cw, ch, 1, quarters % 4)].concat()
+            let (oy, rest) = data.split_at_mut(w * h);
+            let (ou, ov) = rest.split_at_mut(cw * ch);
+            turn_plane(y, w, h, 1, q, oy);
+            turn_plane(u, cw, ch, 1, q, ou);
+            turn_plane(v, cw, ch, 1, q, ov);
         }
         PixelFormat::Nv12 => {
-            let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
             let (y, uv) = frame.data.split_at(w * h);
-            [turn_plane(y, w, h, 1, quarters % 4), turn_plane(uv, cw, ch, 2, quarters % 4)].concat()
+            let (oy, ouv) = data.split_at_mut(w * h);
+            turn_plane(y, w, h, 1, q, oy);
+            turn_plane(uv, cw, ch, 2, q, ouv);
         }
-    };
+    }
     let mut out = Frame::new(frame.height, frame.width, frame.format, data);
     out.number = frame.number;
     out.time_ns = frame.time_ns;
@@ -217,35 +239,60 @@ fn covered(s: f64, n: usize) -> f32 {
 /// Zoom and stretch: the frame resampled as RGB, then back in its own format.
 struct Resample {
     passes: Vec<Pass>,
+    // The sampling of each pass at the picture size it saw last
+    plans: Option<((usize, usize), Vec<Plan>)>,
+    // The RGB pictures of the frame before, for this one to draw on
+    spares: Vec<Vec<u8>>,
+}
+
+/// What one pass does at a picture size: the taps of each column and row, and for a stretch how much of each the picture covers.
+struct Plan {
+    xs: Vec<Tap>,
+    ys: Vec<Tap>,
+    covered: Option<(Vec<f32>, Vec<f32>)>,
+}
+
+impl Plan {
+    fn new(w: usize, h: usize, pass: &Pass) -> Plan {
+        let xs = (0..w).map(|x| tap((pass.source((x as f64 + 0.5) / w as f64, 0.5).0 * w as f64 - 0.5) as f32, w)).collect();
+        let ys = (0..h).map(|y| tap((pass.source(0.5, (y as f64 + 0.5) / h as f64).1 * h as f64 - 0.5) as f32, h)).collect();
+        let covered = pass.is_stretch().then(|| {
+            let fx = (0..w).map(|x| covered(pass.stretched((x as f64 + 0.5) / w as f64, 0.5).0, w)).collect();
+            let fy = (0..h).map(|y| covered(pass.stretched(0.5, (y as f64 + 0.5) / h as f64).1, h)).collect();
+            (fx, fy)
+        });
+        Plan { xs, ys, covered }
+    }
 }
 
 /// `pixels` (RGB, w x h) through one pass, the same size.
-fn resample(pixels: Vec<u8>, w: usize, h: usize, pass: &Pass) -> Vec<u8> {
-    let xs: Vec<Tap> = (0..w).map(|x| tap((pass.source((x as f64 + 0.5) / w as f64, 0.5).0 * w as f64 - 0.5) as f32, w)).collect();
-    let ys: Vec<Tap> = (0..h).map(|y| tap((pass.source(0.5, (y as f64 + 0.5) / h as f64).1 * h as f64 - 0.5) as f32, h)).collect();
-    let mut out = resample_linear(&pixels, w, h, 3, &xs, &ys);
+fn resample(pixels: Vec<u8>, w: usize, h: usize, plan: &Plan) -> Vec<u8> {
+    let mut out = resample_linear(&pixels, w, h, 3, &plan.xs, &plan.ys);
     keep_bytes(pixels);
-    if pass.is_stretch() {
-        black_outside(&mut out, w, h, pass);
+    if let Some((fx, fy)) = &plan.covered {
+        black_outside(&mut out, w, fx, fy);
     }
     out
 }
 
-/// What a stretch leaves bare: black, fading in over the pixel at the picture's edge.
-fn black_outside(rgb: &mut [u8], w: usize, h: usize, pass: &Pass) {
-    let fx: Vec<f32> = (0..w).map(|x| covered(pass.stretched((x as f64 + 0.5) / w as f64, 0.5).0, w)).collect();
-    let fy: Vec<f32> = (0..h).map(|y| covered(pass.stretched(0.5, (y as f64 + 0.5) / h as f64).1, h)).collect();
+/// What a stretch leaves bare: black, fading in over the pixel at the picture's edge (fx and fy: how much of each column and row is covered).
+fn black_outside(rgb: &mut [u8], w: usize, fx: &[f32], fy: &[f32]) {
     // The columns at either end that aren't wholly inside; the middle only ever changes with its row
     let left = fx.iter().take_while(|&&f| f < 1.0).count();
     let right = w - fx.iter().rev().take_while(|&&f| f < 1.0).count();
     let (left, right) = (left.min(w), right.max(left));
+    // Columns with none of the picture are black whatever their row, which a fill does faster than the blend that gives 0
+    let bare_left = fx[..left].iter().take_while(|&&f| f == 0.0).count();
+    let bare_right = right + fx[right..].iter().take_while(|&&f| f != 0.0).count();
     let scale = |px: &mut [u8], f: f32| px.iter_mut().for_each(|v| *v = (*v as f32 * f + 0.5) as u8);
-    for (line, &f) in rgb.chunks_exact_mut(w * 3).zip(&fy) {
+    for (line, &f) in rgb.chunks_exact_mut(w * 3).zip(fy) {
         if f == 0.0 {
             line.fill(0);
             continue;
         }
-        for x in (0..left).chain(right..w) {
+        line[..bare_left * 3].fill(0);
+        line[bare_right.min(w) * 3..].fill(0);
+        for x in (bare_left..left).chain(right..bare_right.min(w)) {
             scale(&mut line[x * 3..][..3], fx[x] * f);
         }
         if f < 1.0 {
@@ -254,22 +301,39 @@ fn black_outside(rgb: &mut [u8], w: usize, h: usize, pass: &Pass) {
     }
 }
 
-impl CpuStep for Resample {
-    fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+impl Resample {
+    fn new(passes: Vec<Pass>) -> Resample {
+        Resample { passes, plans: None, spares: Vec::new() }
+    }
+
+    fn run(&mut self, frame: &mut Frame) {
         let (w, h) = (frame.width as usize, frame.height as usize);
         let Some(mut rgb) = frame_rgb(frame) else { return };
-        for pass in &self.passes {
-            rgb = resample(rgb, w, h, pass);
+        if !matches!(&self.plans, Some((size, _)) if *size == (w, h)) {
+            self.plans = Some(((w, h), self.passes.iter().map(|pass| Plan::new(w, h, pass)).collect()));
+        }
+        for plan in self.plans.iter().flat_map(|(_, plans)| plans) {
+            rgb = resample(rgb, w, h, plan);
         }
         let format = frame.format;
-        let data = frame.data_mut();
+        // Written whole into a spare buffer that then replaces the pixels, so a panic leaves the frame as it was
+        let mut data = spare_bytes(format.size(frame.width, frame.height));
         match format {
             PixelFormat::Rgba => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(o, p)| *o = [p[0], p[1], p[2], 255]),
             PixelFormat::Bgra => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(o, p)| *o = [p[2], p[1], p[0], 255]),
-            PixelFormat::I420 => rgb_to_420(&rgb, w, h, data, false),
-            PixelFormat::Nv12 => rgb_to_420(&rgb, w, h, data, true),
+            PixelFormat::I420 => rgb_to_420(&rgb, w, h, &mut data, false),
+            PixelFormat::Nv12 => rgb_to_420(&rgb, w, h, &mut data, true),
         }
+        frame.replace_data(data);
         keep_bytes(rgb);
+    }
+}
+
+impl CpuStep for Resample {
+    fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+        let mut spares = std::mem::take(&mut self.spares);
+        with_spares(&mut spares, || self.run(frame));
+        self.spares = spares;
     }
 }
 
@@ -280,6 +344,18 @@ fn crop_needed(view: &View) -> bool {
 
 fn stretch_needed(view: &View) -> bool {
     (view.stretch_x - 1.0).abs() >= 1e-6 || (view.stretch_y - 1.0).abs() >= 1e-6
+}
+
+/// The resamplings of a view whose picture was turned by `done` quarters already: the crop, then the stretch.
+fn passes(view: &View, done: u32) -> Vec<Pass> {
+    let mut passes = Vec::new();
+    if crop_needed(view) {
+        passes.push(Pass::new(view, done, true, false));
+    }
+    if stretch_needed(view) {
+        passes.push(Pass::new(view, 0, false, true));
+    }
+    passes
 }
 
 /// The frame steps of a view, in order, all on the CPU (a busy card, OBS encoding on it, would hold up every frame for a shader, and
@@ -299,15 +375,9 @@ pub fn steps(view: &View) -> Vec<FrameStep> {
         out.push(FrameStep::Cpu(Box::new(Flip { horizontal: view.flip_h != half, vertical: view.flip_v != half })));
         return out;
     }
-    let mut passes = Vec::new();
-    if crop_needed(view) {
-        passes.push(Pass::new(view, done, true, false));
-    }
-    if stretch_needed(view) {
-        passes.push(Pass::new(view, 0, false, true));
-    }
+    let passes = passes(view, done);
     if !passes.is_empty() {
-        out.push(FrameStep::Cpu(Box::new(Resample { passes })));
+        out.push(FrameStep::Cpu(Box::new(Resample::new(passes))));
     }
     out
 }
@@ -470,25 +540,179 @@ mod tests {
         near(&channel(&zoomed, 1), &[30, 10, 30, 10, 30, 10, 30, 10]);
     }
 
-    /// Run by hand for the cost of a 1080p frame: cargo test --release -p telescope-core view_cost -- --ignored --nocapture
+    /// Resample as it was before it kept its buffers and plans: fresh ones for every frame, and every bare column blended to black.
+    mod before {
+        use super::super::*;
+
+        fn resample(pixels: Vec<u8>, w: usize, h: usize, pass: &Pass) -> Vec<u8> {
+            let xs: Vec<Tap> = (0..w).map(|x| tap((pass.source((x as f64 + 0.5) / w as f64, 0.5).0 * w as f64 - 0.5) as f32, w)).collect();
+            let ys: Vec<Tap> = (0..h).map(|y| tap((pass.source(0.5, (y as f64 + 0.5) / h as f64).1 * h as f64 - 0.5) as f32, h)).collect();
+            let mut out = resample_linear(&pixels, w, h, 3, &xs, &ys);
+            keep_bytes(pixels);
+            if pass.is_stretch() {
+                black_outside(&mut out, w, h, pass);
+            }
+            out
+        }
+
+        fn black_outside(rgb: &mut [u8], w: usize, h: usize, pass: &Pass) {
+            let fx: Vec<f32> = (0..w).map(|x| covered(pass.stretched((x as f64 + 0.5) / w as f64, 0.5).0, w)).collect();
+            let fy: Vec<f32> = (0..h).map(|y| covered(pass.stretched(0.5, (y as f64 + 0.5) / h as f64).1, h)).collect();
+            let left = fx.iter().take_while(|&&f| f < 1.0).count();
+            let right = w - fx.iter().rev().take_while(|&&f| f < 1.0).count();
+            let (left, right) = (left.min(w), right.max(left));
+            let scale = |px: &mut [u8], f: f32| px.iter_mut().for_each(|v| *v = (*v as f32 * f + 0.5) as u8);
+            for (line, &f) in rgb.chunks_exact_mut(w * 3).zip(&fy) {
+                if f == 0.0 {
+                    line.fill(0);
+                    continue;
+                }
+                for x in (0..left).chain(right..w) {
+                    scale(&mut line[x * 3..][..3], fx[x] * f);
+                }
+                if f < 1.0 {
+                    scale(&mut line[left * 3..right * 3], f);
+                }
+            }
+        }
+
+        pub fn process(passes: &[Pass], frame: &mut Frame) {
+            let (w, h) = (frame.width as usize, frame.height as usize);
+            let Some(mut rgb) = frame_rgb(frame) else { return };
+            for pass in passes {
+                rgb = resample(rgb, w, h, pass);
+            }
+            let format = frame.format;
+            let data = frame.data_mut();
+            match format {
+                PixelFormat::Rgba => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(o, p)| *o = [p[0], p[1], p[2], 255]),
+                PixelFormat::Bgra => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(o, p)| *o = [p[2], p[1], p[0], 255]),
+                PixelFormat::I420 => rgb_to_420(&rgb, w, h, data, false),
+                PixelFormat::Nv12 => rgb_to_420(&rgb, w, h, data, true),
+            }
+            keep_bytes(rgb);
+        }
+    }
+
+    fn noise(w: u32, h: u32, format: PixelFormat, seed: u32) -> Frame {
+        let mut x = seed.wrapping_mul(2_654_435_761).wrapping_add(1);
+        let data = (0..format.size(w, h)).map(|_| {
+            x = x.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
+            (x >> 24) as u8
+        }).collect();
+        Frame::new(w, h, format, data)
+    }
+
+    /// Views for every kind of pass: crops, flips, a half turn, stretches narrower, wider and far too narrow, and both at once.
+    fn views() -> Vec<View> {
+        vec![
+            View { zoom: 2.0, pan_x: 0.3, ..View::default() },
+            View { zoom: 1.37, pan_x: -1.0, pan_y: 0.6, flip_v: true, ..View::default() },
+            View { rotation: Some(180), zoom: 1.5, ..View::default() },
+            View { stretch_x: 0.8, ..View::default() },
+            View { stretch_x: 0.5, stretch_y: 0.6, ..View::default() },
+            View { stretch_x: 1.4, stretch_y: 0.9, ..View::default() },
+            View { stretch_x: 0.02, ..View::default() },
+            View { stretch_y: 0.03, stretch_x: 0.97, ..View::default() },
+            View { zoom: 1.7, stretch_y: 1.1, flip_h: true, ..View::default() },
+            View { zoom: 3.0, pan_y: 0.2, stretch_x: 0.75, stretch_y: 0.85, ..View::default() },
+        ]
+    }
+
+    #[test]
+    fn the_resampling_gives_the_bytes_it_always_gave() {
+        for view in views() {
+            for (w, h) in [(64, 48), (101, 67), (7, 5), (1, 1), (2, 9), (300, 260)] {
+                for format in [PixelFormat::I420, PixelFormat::Nv12, PixelFormat::Rgba, PixelFormat::Bgra] {
+                    let passes = passes(&view, 0);
+                    let mut now = Resample::new(passes.clone());
+                    // The next frames draw on the buffers the one before left
+                    for seed in 0..3 {
+                        let frame = noise(w, h, format, seed);
+                        let (mut want, mut got) = (frame.clone(), frame);
+                        before::process(&passes, &mut want);
+                        now.process(&mut got, &NoCtx);
+                        assert!(got.data == want.data, "{view:?} {w}x{h} {format:?} frame {seed}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_sampling_follows_the_size_of_the_frames() {
+        let view = View { zoom: 1.6, stretch_x: 0.7, ..View::default() };
+        let passes = passes(&view, 0);
+        let mut now = Resample::new(passes.clone());
+        for (w, h) in [(64, 48), (32, 24), (64, 48), (65, 48), (64, 48)] {
+            let frame = noise(w, h, PixelFormat::I420, w);
+            let (mut want, mut got) = (frame.clone(), frame);
+            before::process(&passes, &mut want);
+            now.process(&mut got, &NoCtx);
+            assert!(got.data == want.data, "{w}x{h}");
+        }
+    }
+
+    #[test]
+    fn a_frame_that_isnt_a_picture_is_left_as_it_was() {
+        let mut step = Resample::new(passes(&View { zoom: 2.0, ..View::default() }, 0));
+        let mut short = Frame::new(4, 4, PixelFormat::I420, vec![0; PixelFormat::I420.size(4, 4)]);
+        std::sync::Arc::make_mut(&mut short.data).truncate(3);
+        let same = short.clone();
+        step.process(&mut short, &NoCtx);
+        assert_eq!(short, same);
+    }
+
+    /// Run by hand for the cost of a frame: cargo test --release -p telescope-core view_cost -- --ignored --nocapture
+    /// Before: the step as it was; after: as it runs now.
     #[test]
     #[ignore]
     fn view_cost() {
-        for (name, view) in [("zoom 2x", View { zoom: 2.0, pan_x: 0.3, ..View::default() }), ("stretch", View { stretch_x: 0.8, ..View::default() }),
-                             ("zoom and stretch", View { zoom: 1.7, stretch_y: 1.1, flip_h: true, ..View::default() })] {
-            for format in [PixelFormat::I420, PixelFormat::Rgba] {
-                let data = (0..format.size(1920, 1080)).map(|i| (i * 31 % 251) as u8).collect();
-                let mut f = Frame::new(1920, 1080, format, data);
-                let mut chain = steps(&view);
-                let FrameStep::Cpu(step) = &mut chain[0] else { panic!("cpu") };
-                for _ in 0..5 {
-                    step.process(&mut f, &NoCtx);
-                }
+        // The best and the median of a few rounds, since the machine is rarely quiet
+        fn timed(mut run: impl FnMut()) -> (f64, f64) {
+            (0..5).for_each(|_| run());
+            let mut rounds: Vec<f64> = (0..9).map(|_| {
                 let t = std::time::Instant::now();
-                for _ in 0..60 {
-                    step.process(&mut f, &NoCtx);
+                (0..8).for_each(|_| run());
+                t.elapsed().as_secs_f64() * 1000.0 / 8.0
+            }).collect();
+            rounds.sort_by(f64::total_cmp);
+            (rounds[0], rounds[4])
+        }
+        for (w, h) in [(1920, 1080), (3840, 2160)] {
+            for (name, view) in [("zoom 2x", View { zoom: 2.0, pan_x: 0.3, ..View::default() }), ("stretch", View { stretch_x: 0.8, ..View::default() }),
+                                 ("zoom and stretch", View { zoom: 1.7, stretch_y: 1.1, flip_h: true, ..View::default() })] {
+                for format in [PixelFormat::I420, PixelFormat::Rgba] {
+                    let passes = passes(&view, 0);
+                    let mut f = noise(w, h, format, 1);
+                    let (best, median) = timed(|| before::process(&passes, &mut f));
+                    println!("{w}x{h} {name} {format:?} before: best {best:.2} ms, median {median:.2} ms a frame");
+                    let mut f = noise(w, h, format, 1);
+                    let mut step = Resample::new(passes.clone());
+                    let (best, median) = timed(|| step.process(&mut f, &NoCtx));
+                    println!("{w}x{h} {name} {format:?} after: best {best:.2} ms, median {median:.2} ms a frame");
                 }
-                println!("{name} {format:?}: {:.2} ms a frame", t.elapsed().as_secs_f64() * 1000.0 / 60.0);
+            }
+        }
+    }
+
+    /// Run by hand for the cost of a quarter turn: cargo test --release -p telescope-core turn_cost -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn turn_cost() {
+        for (w, h) in [(1920, 1080), (3840, 2160)] {
+            for format in [PixelFormat::I420, PixelFormat::Nv12, PixelFormat::Rgba] {
+                let f = Frame::new(w, h, format, (0..format.size(w, h)).map(|i| (i * 31 % 251) as u8).collect());
+                for quarters in [1, 3] {
+                    for _ in 0..3 {
+                        std::hint::black_box(turn_frame(&f, quarters));
+                    }
+                    let t = std::time::Instant::now();
+                    for _ in 0..30 {
+                        std::hint::black_box(turn_frame(&f, quarters));
+                    }
+                    println!("turn {w}x{h} {format:?} {quarters}/4: {:.2} ms a frame", t.elapsed().as_secs_f64() * 1000.0 / 30.0);
+                }
             }
         }
     }

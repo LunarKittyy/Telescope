@@ -15,9 +15,18 @@ use telescope_core::{FrameStage, Host};
 const FOCUS_STEPS: i64 = 1000;
 /// LogSliderRow.STEPS
 const LOG_STEPS: f64 = 2000.0;
-/// (English label, the phone's value) of the noise reduction and sharpening modes.
-const MODES: [(&str, i64); 3] = [(n_("Off"), 0), (n_("Fast"), 1), (n_("High Quality"), 2)];
-const LOW_LIGHT_TIP: &str = n_("Brightens a dark room when exposure is automatic but can drop the frame rate as low as 10 fps.");
+/// (the name saved shortcuts pick a mode by, the phone's value) of the noise reduction and sharpening modes.
+const MODES: [(&str, i64); 3] = [("Off", 0), ("Fast", 1), ("High Quality", 2)];
+/// What the modes are called on the card, in English.
+const MODE_NAMES: [&str; 3] = [n_("Off"), n_("Fast"), n_("High quality")];
+const OIS_TIP: &str = n_("Reduce shake with optical stabilisation in the lens.");
+const BLACK_LEVEL_LOCK_TIP: &str = n_("Keep the black level from changing as the light changes.");
+const TORCH_TIP: &str = n_("Keep the phone's flash on as a light.");
+const NOISE_FAST_TIP: &str = n_("Reduce noise without lowering the frame rate.");
+const NOISE_HIGH_TIP: &str = n_("Reduce noise as much as possible, even if the frame rate drops.");
+const SHARPEN_FAST_TIP: &str = n_("Sharpen without lowering the frame rate.");
+const SHARPEN_HIGH_TIP: &str = n_("Sharpen as well as possible, even if the frame rate drops.");
+const LOW_LIGHT_TIP: &str = n_("Brighten a dark room when exposure is automatic. The frame rate can drop as low as 10 fps.");
 const CAPABILITY_LABELS: [(&str, &str); 5] = [
     ("supportsManualSensor", n_("Manual exposure")),
     ("supportsManualWB", n_("Manual WB")),
@@ -74,8 +83,13 @@ pub fn ns_to_display(ns: i64) -> String {
     format!("1/{grouped}")
 }
 
-fn ev_text(ev: f64) -> String {
-    tr("{n} EV").field("n", number(ev, 1, true))
+/// Decimals that tell every step of the phone's compensation apart: a step of 1/6 or 1/3 EV is no tenth, so one decimal would round it by turns to 0.1 and 0.2.
+fn ev_decimals(step: f64) -> usize {
+    if (step * 10.0 - (step * 10.0).round()).abs() < 0.01 { 1 } else { 2 }
+}
+
+fn ev_text(units: i64, step: f64) -> String {
+    tr("{n} EV").field("n", number(units as f64 * step, ev_decimals(step), true))
 }
 
 fn signed(v: i64) -> String {
@@ -243,11 +257,13 @@ struct LogRow {
     /// The box takes decimals (QDoubleSpinBox) rather than whole numbers.
     double: bool,
     shutter: bool,
+    /// How many typed values the dial has had that could not be used: the dial shakes when it counts up.
+    rejected: i64,
 }
 
 impl LogRow {
     fn new(v_min: f64, v_max: f64, spin_scale: f64, double: bool, shutter: bool) -> LogRow {
-        LogRow { v_min, v_max, pos: 0.0, spin: v_min * spin_scale, shown: v_min, enabled: false, spin_scale, double, shutter }
+        LogRow { v_min, v_max, pos: 0.0, spin: v_min * spin_scale, shown: v_min, enabled: false, spin_scale, double, shutter, rejected: 0 }
     }
 
     fn to_spin(&self, val: f64) -> f64 {
@@ -257,7 +273,8 @@ impl LogRow {
         sv.max(lo.min(hi)).min(hi.max(lo))
     }
 
-    /// _on_spin: a value typed in its box, in the box's units. None if it isn't a number.
+    /// _on_spin: a value typed in its box, in the box's units. None if it isn't a number. The card has no box any more.
+    #[cfg(test)]
     fn typed(&mut self, text: &str) -> Option<f64> {
         let typed = text.trim().replace(',', ".").parse::<f64>().ok().filter(|v| v.is_finite())?;
         self.spin = self.to_spin(typed / self.spin_scale);
@@ -268,6 +285,7 @@ impl LogRow {
     }
 
     /// What the box holds.
+    #[cfg(test)]
     fn spin_text(&self) -> String {
         if self.double { format!("{:.2}", self.spin) } else { format!("{}", self.spin as i64) }
     }
@@ -300,6 +318,168 @@ impl LogRow {
         let v = self.shown;
         if self.shutter { ns_to_display(actions::round_half_even(v) as i64) } else { format!("ISO {}", actions::round_half_even(v) as i64) }
     }
+}
+
+/// One stop of a dial: what it is called and what it sends (an ISO, or nanoseconds).
+#[derive(Clone, Debug, PartialEq)]
+struct Stop {
+    name: String,
+    value: f64,
+    /// A full stop, which the dial names in its strip (the thirds between are only ticks until the dial is on one).
+    major: bool,
+}
+
+/// The ISO values a camera app offers, a third of a stop apart.
+const ISO_STOPS: [u32; 37] = [
+    25, 32, 40, 50, 64, 80, 100, 125, 160, 200, 250, 320, 400, 500, 640, 800, 1000, 1250, 1600, 2000, 2500, 3200, 4000, 5000, 6400, 8000, 10000,
+    12800, 16000, 20000, 25600, 32000, 40000, 51200, 64000, 80000, 102400,
+];
+/// Shutter times below a quarter of a second, as the n of 1/n, a third of a stop apart.
+const SHUTTER_FRACTIONS: [u32; 34] = [
+    8000, 6400, 5000, 4000, 3200, 2500, 2000, 1600, 1250, 1000, 800, 640, 500, 400, 320, 250, 200, 160, 125, 100, 80, 60, 50, 40, 30, 25, 20, 15,
+    13, 10, 8, 6, 5, 4,
+];
+/// And from a third of a second up, in seconds.
+const SHUTTER_SECONDS: [f64; 21] = [0.3, 0.4, 0.5, 0.6, 0.8, 1.0, 1.3, 1.6, 2.0, 2.5, 3.2, 4.0, 5.0, 6.0, 8.0, 10.0, 13.0, 15.0, 20.0, 25.0, 30.0];
+
+/// The stops a dial turns through inside a lens's range: ISO from low to high, shutter times from slow to fast, so right is more light
+/// for one and a faster shutter for the other. A stop a few per cent past the range counts as its end, which the card holds it to.
+/// Every third stop is a full stop (25, 50, 100 and 1/8000, 1/4000, 1/2000 and so on), the others are the thirds between them.
+fn dial_stops(shutter: bool, v_min: f64, v_max: f64) -> Vec<Stop> {
+    let inside = |v: f64| v >= v_min * 0.97 && v <= v_max * 1.03;
+    let all: Vec<Stop> = if !shutter {
+        ISO_STOPS.iter().map(|v| Stop { name: format!("{v}"), value: f64::from(*v), major: false }).collect()
+    } else {
+        let slow = SHUTTER_SECONDS.iter().rev().map(|s| {
+            let n = if s.fract() == 0.0 { format!("{s}") } else { number(*s, 1, false) };
+            Stop { name: tr("{n} s").field("n", n), value: (s * 1e9).round(), major: false }
+        });
+        let fast = SHUTTER_FRACTIONS.iter().rev().map(|d| Stop { name: format!("1/{d}"), value: (1e9 / f64::from(*d)).round(), major: false });
+        slow.chain(fast).collect()
+    };
+    all.into_iter().enumerate().map(|(i, s)| Stop { major: i % 3 == 0, ..s }).filter(|s| inside(s.value)).collect()
+}
+
+/// Where in the list the first full stop is, for the dial's `label-from`.
+fn first_major(stops: &[Stop]) -> usize {
+    stops.iter().position(|s| s.major).unwrap_or(0)
+}
+
+/// The place in `stops` closest to a value (on the log scale, as a stop is), 0 when there are none.
+fn nearest_stop(stops: &[Stop], value: f64) -> usize {
+    let distance = |s: &Stop| (value.max(1e-9) / s.value).ln().abs();
+    stops.iter().enumerate().min_by(|a, b| distance(a.1).total_cmp(&distance(b.1))).map_or(0, |(i, _)| i)
+}
+
+/// Where a value sits on the dial: the nearest stop and how far from it towards the next one that way (a fraction of a tick, kept to half a tick past the ends), on the tick itself within a half per cent of its value.
+fn dial_place(stops: &[Stop], value: f64) -> (usize, f64) {
+    let i = nearest_stop(stops, value);
+    if stops.len() < 2 {
+        return (i, 0.0);
+    }
+    let value = value.max(1e-9);
+    let here = stops[i].value;
+    let rising = stops[stops.len() - 1].value > stops[0].value;
+    let later = (value / here).ln() * if rising { 1.0 } else { -1.0 } >= 0.0;
+    // The next tick's value that way, or where the one beyond the end would be
+    let next = if later {
+        if i + 1 < stops.len() { stops[i + 1].value } else { here * (here / stops[i - 1].value) }
+    } else if i > 0 {
+        stops[i - 1].value
+    } else {
+        here * (here / stops[1].value)
+    };
+    let off = ((value / here).ln() / (next / here).ln()).clamp(0.0, 0.5);
+    if off < 0.005 {
+        return (i, 0.0);
+    }
+    (i, if later { off } else { -off })
+}
+
+/// The value a dial's place stands for: `off` of the way from stop `i` to the one beside it, on the log scale the stops are on.
+fn dial_value(stops: &[Stop], i: usize, off: f64) -> Option<f64> {
+    let here = stops.get(i)?.value;
+    if off == 0.0 {
+        return Some(here);
+    }
+    let j = if off > 0.0 { i + 1 } else { i.checked_sub(1)? };
+    let there = stops.get(j)?.value;
+    Some(here * (there / here).powf(off.abs()))
+}
+
+/// An exposure time as it is written (1/250, 0.5, 0.5 s, 2s, 30", 8 ms; a bare number below 1 is seconds and one from 1 up is the n of 1/n, as on a camera), in nanoseconds, or None when it isn't one.
+fn parse_shutter(text: &str) -> Option<f64> {
+    let t = text.trim().to_lowercase().replace(',', ".");
+    let number = |part: &str| part.trim().parse::<f64>().ok().filter(|v| v.is_finite() && *v > 0.0);
+    let ns = if let Some(n) = t.strip_prefix("1/") {
+        1e9 / number(n.trim_end_matches('s'))?
+    } else if let Some(ms) = t.strip_suffix("ms") {
+        number(ms)? * 1e6
+    } else if let Some(sec) = t.strip_suffix("sec").or_else(|| t.strip_suffix('s')).or_else(|| t.strip_suffix('"')) {
+        number(sec)? * 1e9
+    } else {
+        let n = number(&t)?;
+        if n >= 1.0 { 1e9 / n } else { n * 1e9 }
+    };
+    Some(ns.round())
+}
+
+/// An ISO as it is written: 400 or ISO 400.
+fn parse_iso(text: &str) -> Option<f64> {
+    let t = text.trim().to_lowercase();
+    let t = t.strip_prefix("iso").unwrap_or(&t);
+    t.trim().replace(',', ".").parse::<f64>().ok().filter(|v| v.is_finite() && *v > 0.0).map(f64::round)
+}
+
+/// A decimal as it is typed: a dot or a comma for the point, a plus, a hyphen or a true minus sign in front.
+fn parse_decimal(text: &str) -> Option<f64> {
+    let t = text.trim().replace('\u{2212}', "-").replace(',', ".");
+    t.parse::<f64>().ok().filter(|v| v.is_finite())
+}
+
+/// What is left of a typed value once one of its units is taken off the end (and nothing else is touched).
+fn without_unit<'a>(text: &'a str, units: &[&str]) -> &'a str {
+    let t = text.trim();
+    let lower = t.to_lowercase();
+    for unit in units.iter().filter(|u| !u.is_empty()) {
+        if lower.len() == t.len() && lower.ends_with(unit) {
+            if let Some(rest) = t.get(..t.len() - unit.len()) {
+                return rest.trim();
+            }
+        }
+    }
+    t
+}
+
+/// The unit a readout template writes after its number, in the current language ("EV", "m").
+fn readout_unit(template: &str) -> String {
+    tr(template).replace("{n}", "").trim().to_lowercase()
+}
+
+/// Brightness as it is typed (1, +1, -0.7, 1,5, 1 EV), in the phone's compensation steps: the nearest step, held to the phone's range.
+fn parse_ev_steps(text: &str, step: f64, min: i64, max: i64) -> Option<i64> {
+    if step <= 0.0 || !step.is_finite() {
+        return None;
+    }
+    let ev = parse_decimal(without_unit(text, &["ev", &readout_unit("{n} EV")]))?;
+    Some((ev / step).round().clamp(min as f64, max as f64) as i64)
+}
+
+/// Focus distance as it is typed (0.5, 2 m, 1,5 metres, inf, ∞), as a slider position on the scale the readout uses: the nearest position, held to the lens's nearest distance. Too far to tell from infinity is infinity, as the readout says it.
+fn parse_focus_position(text: &str, max_diopters: f64) -> Option<i64> {
+    if max_diopters <= 0.0 || !max_diopters.is_finite() {
+        return None;
+    }
+    let body = without_unit(text, &["metres", "metre", "meters", "meter", "m", &readout_unit("{n} m")]).to_lowercase();
+    if matches!(body.as_str(), "inf" | "infinity" | "infinite" | "∞") {
+        return Some(0);
+    }
+    let metres = parse_decimal(&body).filter(|m| *m > 0.0)?;
+    let diopters = 1.0 / metres;
+    if diopters <= 0.01 {
+        return Some(0);
+    }
+    Some((diopters / max_diopters * FOCUS_STEPS as f64).round().clamp(0.0, FOCUS_STEPS as f64) as i64)
 }
 
 /// A QSlider: a whole-number value inside its range.
@@ -499,10 +679,10 @@ impl CameraControl {
             focus_slider: IntSlider { min: 0, max: FOCUS_STEPS, value: 0, enabled: false },
             focus_text: "∞".into(),
             focus_max_diopters: 10.0,
-            ois: Tile { tip: tr("Optical image stabilization"), ..Tile::new(true) },
+            ois: Tile { tip: tr(OIS_TIP), ..Tile::new(true) },
             low_light: Tile { tip: tr(LOW_LIGHT_TIP), visible: false, ..Tile::new(false) },
-            bll: Tile::new(false),
-            torch: Tile::new(false),
+            bll: Tile { tip: tr(BLACK_LEVEL_LOCK_TIP), ..Tile::new(false) },
+            torch: Tile { tip: tr(TORCH_TIP), ..Tile::new(false) },
             nr: 1,
             edge: 1,
             manual_exp: false,
@@ -741,7 +921,7 @@ impl CameraControl {
         self.set_focus_slider_value(view.focus_distance);
 
         self.set_ae(view.ae_comp, true);
-        self.ae_text = ev_text(view.ae_comp as f64 * self.ae_step);
+        self.ae_text = ev_text(view.ae_comp, self.ae_step);
         self.set_nr(view.nr_mode_index, true);
         self.set_edge(view.edge_mode_index, true);
         self.set_bll(view.black_level_lock, true);
@@ -824,10 +1004,10 @@ impl CameraControl {
         }
 
         self.torch.enabled = caps.flash;
-        self.torch.tip = if caps.flash { String::new() } else { tr("This lens has no flash to use as a torch") };
+        self.torch.tip = if caps.flash { tr(TORCH_TIP) } else { tr("This lens has no flash to use as a torch") };
         // Greyed out but stays checked across lens switches
         self.ois.enabled = caps.ois;
-        self.ois.tip = if caps.ois { tr("Optical image stabilization") } else { tr("This lens has no optical stabilization") };
+        self.ois.tip = if caps.ois { tr(OIS_TIP) } else { tr("This lens has no optical stabilisation") };
     }
 
     // ── Handlers ──
@@ -854,6 +1034,18 @@ impl CameraControl {
             self.send(json!({"action": "auto"}));
         }
         self.out.saves += 1;
+    }
+
+    /// A dial turned to a value (held to the lens's range). False when the dial is off.
+    fn set_dial_value(&mut self, iso: bool, value: f64) -> bool {
+        let row = if iso { &mut self.iso } else { &mut self.shutter };
+        if !row.enabled {
+            return false;
+        }
+        let val = value.clamp(row.v_min, row.v_max);
+        row.set_value(val);
+        if iso { self.on_iso_changed(val) } else { self.on_shutter_changed(val) }
+        true
     }
 
     fn on_iso_changed(&mut self, val: f64) {
@@ -913,7 +1105,7 @@ impl CameraControl {
         }
         self.focus.enabled[1] = available;
         self.focus.tips[1] = if available {
-            tr("Click the preview to focus there")
+            tr("Click the preview to focus on that point.")
         } else if self.stream.is_some() {
             tr("This lens can't focus on a point")
         } else {
@@ -994,7 +1186,7 @@ impl CameraControl {
     }
 
     fn on_ae_comp_changed(&mut self, steps: i64) {
-        self.ae_text = ev_text(steps as f64 * self.ae_step);
+        self.ae_text = ev_text(steps, self.ae_step);
         self.send(json!({"action": "ae_comp", "value": steps}));
         self.out.saves += 1;
     }
@@ -1077,7 +1269,7 @@ impl CameraControl {
         }
         if let Some(ae) = num("ae_comp")? {
             self.set_ae(ae as i64, false);
-            self.ae_text = ev_text(ae as i64 as f64 * self.ae_step);
+            self.ae_text = ev_text(ae as i64, self.ae_step);
         }
         if let Some(nr) = num("nr_mode")? {
             self.set_nr(mode_index(Some(nr)), false);
@@ -1141,6 +1333,19 @@ impl CameraControl {
 
     // ── What the card shows ──
 
+    /// Low light is always on the card: greyed out, with the reason, until a streaming phone says it takes it.
+    fn low_light_tile(&self) -> Value {
+        let t = &self.low_light;
+        let (enabled, tip) = if t.visible {
+            (t.enabled, t.tip.clone())
+        } else if self.stream.is_some() {
+            (false, tr("This phone's app is too old for low light"))
+        } else {
+            (false, tr("Start streaming to use low light"))
+        };
+        json!({"checked": t.checked, "enabled": enabled, "tip": tip})
+    }
+
     fn props(&self) -> Value {
         let lenses: Vec<Value> = self.lenses.cameras.iter().map(|cam| {
             let label = lens_label(cam);
@@ -1153,6 +1358,7 @@ impl CameraControl {
             "active": self.card_on(),
             "phone-only-hidden": !self.source.is_empty(),
             "lenses": lenses,
+            "lens-names": lenses.iter().map(|l| l["name"].clone()).collect::<Vec<_>>(),
             "current-lens": self.lenses.checked.map_or(-1, |i| i as i64),
             "lens-placeholder": self.lenses.placeholder,
             "info": self.info_text,
@@ -1160,11 +1366,7 @@ impl CameraControl {
             "exposure-mode": self.exp.index,
             "exposure-disabled": self.exp.enabled.iter().map(|e| !e).collect::<Vec<_>>(),
             "show-manual-exposure": self.manual_exp,
-            "iso-pos": self.iso.pos,
-            "iso-text": self.iso.text(),
             "iso-enabled": self.iso.enabled,
-            "shutter-pos": self.shutter.pos,
-            "shutter-text": self.shutter.text(),
             "shutter-enabled": self.shutter.enabled,
             "ae-comp": self.ae.value,
             "ae-min": self.ae.min,
@@ -1185,8 +1387,7 @@ impl CameraControl {
             "focus-text": self.focus_text,
             "focus-enabled": self.focus_slider.enabled,
             "ois": tile(&self.ois),
-            "low-light": tile(&self.low_light),
-            "show-low-light": self.low_light.visible,
+            "low-light": self.low_light_tile(),
             "black-level-lock": tile(&self.bll),
             "torch": tile(&self.torch),
             "noise-reduction": self.nr,
@@ -1194,8 +1395,20 @@ impl CameraControl {
         });
         // Apart from the rest: json! gives up on one this long
         props["lens-columns"] = json!(lens_columns(self.lenses.cameras.len()));
-        props["iso-spin"] = json!(self.iso.spin_text());
-        props["shutter-spin"] = json!(self.shutter.spin_text());
+        for (key, row) in [("iso", &self.iso), ("shutter", &self.shutter)] {
+            let stops = dial_stops(row.shutter, row.v_min, row.v_max);
+            let (index, between) = dial_place(&stops, row.shown);
+            props[format!("{key}-index")] = json!(index);
+            props[format!("{key}-between")] = json!(between);
+            // What the dial reads between two ticks, where no tick's name is the value
+            props[format!("{key}-text")] = json!(if between == 0.0 { String::new() } else if row.shutter { ns_to_display(actions::round_half_even(row.shown) as i64) } else { format!("{}", actions::round_half_even(row.shown) as i64) });
+            props[format!("{key}-rejected")] = json!(row.rejected);
+            props[format!("{key}-label-from")] = json!(first_major(&stops));
+            props[format!("{key}-stops")] = json!(stops.iter().map(|s| s.name.as_str()).collect::<Vec<_>>());
+        }
+        // The words alone are the same on both rows, so each segment's tooltip says which row it is
+        props["noise-tip-details"] = json!(["".to_string(), tr(NOISE_FAST_TIP), tr(NOISE_HIGH_TIP)]);
+        props["sharpening-tip-details"] = json!(["".to_string(), tr(SHARPEN_FAST_TIP), tr(SHARPEN_HIGH_TIP)]);
         props["exposure-tips"] = json!(self.exp.tips);
         props["wb-tips"] = json!(self.wb.tips);
         props["focus-tips"] = json!(self.focus.tips);
@@ -1254,7 +1467,7 @@ impl CameraControl {
                                     self.focus.enabled.clone()),
             _ => {
                 let (label, current) = if id == "camera.noise_reduction" { (tr("Noise reduction"), self.nr) } else { (tr("Sharpening"), self.edge) };
-                (label, MODES.iter().map(|(l, _)| l.to_string()).collect(), MODES.iter().map(|(l, _)| tr(l)).collect(), Some(current),
+                (label, MODES.iter().map(|(l, _)| l.to_string()).collect(), MODE_NAMES.iter().map(|l| tr(l)).collect(), Some(current),
                  vec![true; 3])
             }
         };
@@ -1528,28 +1741,40 @@ impl Plugin for CameraControl {
                     self.on_exp_mode();
                 }
             }
-            "iso-moved" | "shutter-moved" => {
-                let row = if event.callback == "iso-moved" { &mut self.iso } else { &mut self.shutter };
-                if !row.enabled {
-                    return;
-                }
-                row.pos = n(0).round().clamp(0.0, LOG_STEPS);
-                let val = row.get_value();
-                row.spin = row.to_spin(val);
-                row.shown = val;
-                if event.callback == "iso-moved" { self.on_iso_changed(val) } else { self.on_shutter_changed(val) }
+            "iso-picked" | "shutter-picked" => {
+                let iso = event.callback == "iso-picked";
+                let row = if iso { &self.iso } else { &self.shutter };
+                let stops = dial_stops(row.shutter, row.v_min, row.v_max);
+                let Some(stop) = stops.get((n(0) as usize).min(stops.len().saturating_sub(1))) else { return };
+                self.set_dial_value(iso, stop.value);
+            }
+            "iso-fine" | "shutter-fine" => {
+                let iso = event.callback == "iso-fine";
+                let row = if iso { &self.iso } else { &self.shutter };
+                let stops = dial_stops(row.shutter, row.v_min, row.v_max);
+                let Some(value) = dial_value(&stops, n(0) as usize, n(1)) else { return };
+                self.set_dial_value(iso, value.round());
             }
             "iso-typed" | "shutter-typed" => {
-                let row = if event.callback == "iso-typed" { &mut self.iso } else { &mut self.shutter };
+                let iso = event.callback == "iso-typed";
                 let text = event.args.first().and_then(Value::as_str).unwrap_or("");
-                if !row.enabled {
-                    return;
-                }
-                if let Some(val) = row.typed(text) {
-                    if event.callback == "iso-typed" { self.on_iso_changed(val) } else { self.on_shutter_changed(val) }
+                match if iso { parse_iso(text) } else { parse_shutter(text) } {
+                    Some(value) if self.set_dial_value(iso, value) => {}
+                    _ => {
+                        let row = if iso { &mut self.iso } else { &mut self.shutter };
+                        if row.enabled {
+                            row.rejected += 1;
+                        }
+                    }
                 }
             }
             "ae-moved" => self.set_ae(n(0).round() as i64, false),
+            "ae-typed" => {
+                let text = event.args.first().and_then(Value::as_str).unwrap_or("");
+                if let Some(steps) = parse_ev_steps(text, self.ae_step, self.ae.min, self.ae.max) {
+                    self.set_ae(steps, false);
+                }
+            }
             "wb-picked" => {
                 if self.wb.enabled.get(n(0) as usize) == Some(&true) {
                     self.set_wb_mode(n(0) as usize == 1);
@@ -1563,6 +1788,14 @@ impl Plugin for CameraControl {
                 let pos = n(0).round() as i64;
                 if self.focus_slider.set(pos) {
                     self.on_focus_slider(self.focus_slider.value);
+                }
+            }
+            "focus-typed" if self.focus_slider.enabled => {
+                let text = event.args.first().and_then(Value::as_str).unwrap_or("");
+                if let Some(pos) = parse_focus_position(text, self.focus_max_diopters) {
+                    if self.focus_slider.set(pos) {
+                        self.on_focus_slider(self.focus_slider.value);
+                    }
                 }
             }
             "ois-toggled" => self.set_ois(b(0)),
@@ -1584,7 +1817,7 @@ impl Plugin for CameraControl {
         let lens_refs: Vec<(&str, String)> = lens_options.iter().map(|(v, s)| (v.as_str(), s.clone())).collect();
         let two = [("Auto", tr("Auto")), ("Manual", tr("Manual"))];
         let focus = [("Auto", tr("Auto")), ("Point", tr("Tap a point")), ("Manual", tr_ctx("focus", "Manual"))];
-        let modes: Vec<(&str, String)> = MODES.iter().map(|(l, _)| (*l, tr(l))).collect();
+        let modes: Vec<(&str, String)> = MODES.iter().zip(MODE_NAMES).map(|((value, _), name)| (*value, tr(name))).collect();
         let shutter_label = tr("Shutter");
         let iso = LogSliderSpec { id: "camera.iso", label: "ISO", group: &g, keywords: &search("exposure manual"),
                                   minimum: self.iso.v_min, maximum: self.iso.v_max, decimals: 0, suffix: "" };
@@ -1601,7 +1834,7 @@ impl Plugin for CameraControl {
             actions::log_slider_action(&iso, self.iso.get_value()),
             actions::log_slider_action(&shutter, self.shutter.get_value() * 1e-6),
             slider("camera.compensation", &tr("Compensation"), &search("exposure ev brightness"), self.ae.min as f64 * s,
-                   self.ae.max as f64 * s, 1.0, 1, " EV", true, self.ae.value as f64 * s),
+                   self.ae.max as f64 * s, 1.0, ev_decimals(s), " EV", true, self.ae.value as f64 * s),
             actions::choice_action("camera.wb_mode", &tr("White balance mode"), &g, "wb", &two),
             slider("camera.temperature", &tr("Temperature"), &search("white balance wb kelvin"), WB_MIN_K as f64, WB_MAX_K as f64, 100.0,
                    0, " K", true, self.kelvin.value as f64),

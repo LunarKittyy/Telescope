@@ -35,7 +35,6 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import java.util.concurrent.Executor
 
@@ -48,7 +47,10 @@ private enum class AspectOption(val label: String, val ratio: Float) {
         R4_3("4:3", 3f / 4f),
     }
 
-class PreviewActivity : AppCompatActivity() {
+class PreviewActivity : LookActivity() {
+
+    // Controls over live video keep a see-through dark tile in every look, so Light borrows Dark's
+    override fun dressedIn(saved: Look) = saved.overVideo
 
     private lateinit var textureView: TextureView
     private lateinit var btnClose: ImageButton
@@ -157,6 +159,7 @@ class PreviewActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        SessionEndpoint.screenStarted(this)
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED) {
             Toast.makeText(this, getString(R.string.preview_camera_permission), Toast.LENGTH_SHORT).show()
@@ -172,6 +175,7 @@ class PreviewActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
+        SessionEndpoint.screenStopped()
         // onStart can finish early (no camera permission) before registering or binding
         if (receiverRegistered) {
             unregisterReceiver(screenOffReceiver)
@@ -303,11 +307,12 @@ class PreviewActivity : AppCompatActivity() {
                 }
                 override fun onDisconnected(camera: CameraDevice) {
                     camera.close()
-                    if (myGeneration == standaloneGeneration) cameraDevice = null
+                    // A stream started from the computer took the camera: leave rather than freeze, so a lens tap can't take it back
+                    if (myGeneration == standaloneGeneration) { cameraDevice = null; lostCamera(null) }
                 }
                 override fun onError(camera: CameraDevice, error: Int) {
                     camera.close()
-                    if (myGeneration == standaloneGeneration) cameraDevice = null
+                    if (myGeneration == standaloneGeneration) { cameraDevice = null; lostCamera(null) }
                 }
             }, handler)
         } catch (_: Exception) {}
@@ -340,7 +345,7 @@ class PreviewActivity : AppCompatActivity() {
         }
     }
 
-    private fun lostCamera(e: Exception) {
+    private fun lostCamera(e: Exception?) {
         android.util.Log.w(TAG, "Preview lost the camera", e)
         runOnUiThread { finish() }
     }
@@ -480,43 +485,48 @@ class PreviewActivity : AppCompatActivity() {
                 minimumWidth = dp(76)
                 setPadding(dp(14), dp(6), dp(14), dp(6))
                 setOnClickListener { onSelect(lens.id) }
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(58))
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(58), if (entries.size >= 3) 1f else 0f)
                     .apply { marginEnd = dp(8) }
             }
             tile.addView(TextView(this).apply {
                 text = lens.label.first
+                gravity = Gravity.CENTER
                 textSize = 16f
-                typeface = android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL)
+                typeface = androidx.core.content.res.ResourcesCompat.getFont(this@PreviewActivity, R.font.ibm_plex_sans_semibold)
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             })
             if (lens.label.second.isNotEmpty()) tile.addView(TextView(this).apply {
                 text = lens.label.second
+                gravity = Gravity.CENTER
                 textSize = 11f
-                setTextColor(resources.getColor(R.color.colorOnSurfaceDim, theme))
+                setTextColor(attrColor(R.attr.tsInk2))
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             })
             lensContainer.addView(tile)
         }
+        // Gaps between tiles only, so the row's two ends sit on the screen's margins
+        (lensContainer.getChildAt(lensContainer.childCount - 1)?.layoutParams as? LinearLayout.LayoutParams)?.marginEnd = 0
         refreshPillSelection()
     }
 
     // The picked lens is drawn like the desktop's picked tile: a wash of the Camera card's mint and a mint border
     private fun refreshPillSelection() {
         val density = resources.displayMetrics.density
-        val hue = resources.getColor(R.color.hueMint, theme)
+        val hue = attrColor(R.attr.tsHueCamera)
         for (i in 0 until lensContainer.childCount) {
             val v = lensContainer.getChildAt(i) as? LinearLayout ?: continue
             val selected = v.tag == currentCameraId
             v.isSelected = selected
             v.background = android.graphics.drawable.GradientDrawable().apply {
-                cornerRadius = 12 * density
+                cornerRadius = 8 * density
                 setColor(if (selected) androidx.core.graphics.ColorUtils.compositeColors(
-                    androidx.core.graphics.ColorUtils.setAlphaComponent(hue, 46),
-                    resources.getColor(R.color.colorOverlay, theme)) else resources.getColor(R.color.colorOverlay, theme))
-                setStroke((1 * density).toInt(), if (selected) hue else 0x33FFFFFF)
+                    androidx.core.graphics.ColorUtils.setAlphaComponent(hue, 41),
+                    attrColor(R.attr.tsOverlay)) else attrColor(R.attr.tsOverlay))
+                setStroke(((if (selected) 2 else 1) * density).toInt(), if (selected) hue else attrColor(R.attr.tsOverlayEdge))
             }
-            (v.getChildAt(0) as? TextView)?.setTextColor(
-                if (selected) hue else resources.getColor(R.color.colorOnSurface, theme))
+            // Both lines wear the hue when picked, as the desktop's tile does
+            (v.getChildAt(0) as? TextView)?.setTextColor(if (selected) hue else attrColor(R.attr.tsInk))
+            (v.getChildAt(1) as? TextView)?.setTextColor(if (selected) hue else attrColor(R.attr.tsInk2))
         }
     }
 

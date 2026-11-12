@@ -1,55 +1,220 @@
-// Palette and type, sized as Qt drew them: points at 96 dpi, so 1pt = 4/3 px.
+// Colours, type, radii and spacing. Read rust/crates/ui-kit/STYLE.md before adding to it.
+// Four looks share one set of tokens: Dark (the new one), Classic (the deep blue of 5.0), OLED (true black, layers told apart by outlines)
+// and Light. A token has one value per look, written pick(dark, classic, oled, light): tests/colours.rs reads them in that order.
+// Sizes: text from `body`, corners from `radius`, gaps from `unit`. Nothing outside this file spells a size.
+
+// IBM Plex Sans, bundled so the window never depends on a system font (fonts/OFL.txt is its licence)
+import "fonts/IBMPlexSans-Regular.ttf";
+import "fonts/IBMPlexSans-Medium.ttf";
+import "fonts/IBMPlexSans-SemiBold.ttf";
+import "fonts/IBMPlexSans-Bold.ttf";
 
 export global Theme {
-    out property <color> bg: #0f1216;
-    out property <color> surface: #161a20;
-    out property <color> surface-raise: #1d222a;
-    out property <color> surface-hover: #242a33;
-    out property <color> surface-sunk: #0a0c0f;
-    out property <color> chrome: #121519;
-    out property <color> border: #232932;
-    out property <color> border-strong: #2f3641;
-    out property <color> border-hover: #4a5462;
-    out property <color> text: #e7eaef;
-    out property <color> text-hover: #74777a;
-    out property <color> text-dim: #a1abb8;
-    out property <color> text-faint: #7a8491;
-    out property <color> text-disabled: #525b67;
-    out property <color> accent: #aa9cf5;
-    out property <color> accent-soft: #cdc4fa;
-    out property <color> fill: #6a58cf;
-    out property <color> fill-hover: #7867dc;
-    out property <color> fill-press: #5b4bb8;
-    out property <color> ok: #5fc98c;
-    out property <color> warn: #f0b65c;
-    out property <color> err: #ef6f6b;
-    // PLUGIN_HUES["camera"], the Camera card's mint
-    out property <color> hue-camera: #7fd3c4;
-    out property <color> dim: #8792a0;
+    // Set by the window from Appearance: 0 Dark, 1 Classic, 2 OLED, 3 Light
+    in-out property <int> look: 0;
+    out property <bool> classic: look == 1;
+    out property <bool> oled: look == 2;
+    out property <bool> light: look == 3;
+    // The value a token takes in the look that is on
+    public pure function pick(dark: color, blue: color, black: color, white: color) -> color {
+        look == 1 ? blue : look == 2 ? black : look == 3 ? white : dark
+    }
+
+    // Surfaces. Dark, Classic and Light layer by fill (Light the other way up: cards a step off the ground, light on light); OLED is black
+    // all over and tells a layer apart by its outline (the outline tokens below)
+    out property <color> stage: pick(#0d0d0d, #0a0c0f, #000000, #dcdcdc);
+    out property <color> chrome: pick(#141414, #121519, #000000, #f2f2f2);
+    out property <color> ground: pick(#1b1b1b, #0f1216, #000000, #e8e8e8);
+    out property <color> trough: pick(#1a1a1a, #0f1216, #000000, #e0e0e0);
+    out property <color> card: pick(#242424, #161a20, #000000, #ffffff);
+    out property <color> raise: pick(#303030, #1d222a, #000000, #ebebeb);
+    out property <color> hover: pick(#3a3a3a, #242a33, #121212, #e0e0e0);
+    out property <color> sel: pick(#3b3b3b, #2f3641, #1a1a1a, #dedede);
+    // A control held down: a step above hover, so a press never looks like a hover
+    out property <color> press: pick(#4a4a4a, #3a4452, #262626, #cfcfcf);
+    // A bubble's surface: a touch above the card, so a control at rest in it still shows
+    out property <color> bubble: pick(#282828, #191e25, #000000, #f7f7f7);
+
+    // Lines: only where one splits meaning, never a box round everything
+    out property <color> line: pick(#333333, #232932, #404040, #d4d4d4);
+    out property <color> line-strong: pick(#4a4a4a, #2f3641, #5c5c5c, #bdbdbd);
+    out property <color> line-hover: pick(#5c5c5c, #4a5462, #8c8c8c, #9e9e9e);
+
+    // Outlines, OLED only (nothing in the other looks, where a fill does the telling): a card's, a control's at rest, hovered or open (thicker) and
+    // held, and a popup's (menu, tip, bubble, dialog), which a shadow can no longer lift off black
+    out property <color> outline: pick(transparent, transparent, #666666, transparent);
+    out property <color> outline-hover: pick(transparent, transparent, #b0b0b0, transparent);
+    out property <color> outline-press: pick(transparent, transparent, #ffffff, transparent);
+    out property <length> outline-w: look == 2 ? unit / 2 : 0px;
+    out property <length> outline-w-over: look == 2 ? stroke : 0px;
+    out property <color> card-outline: pick(transparent, transparent, #484848, transparent);
+    out property <length> card-outline-w: look == 2 ? unit / 2 : 0px;
+    out property <color> dis-outline: pick(transparent, transparent, #333333, transparent);
+    // A recess inside a surface (the banner's details box): a darkening of what is under it, drawn with the outline in OLED
+    out property <color> well: pick(#00000040, #00000040, #00000000, #00000012);
+    out property <color> pop-outline: pick(transparent, transparent, #7a7a7a, transparent);
+    out property <length> pop-outline-w: look == 2 ? unit / 2 : 0px;
+    // A control's outline by state: at rest, hovered or open, held
+    public pure function ctl-outline(over: bool, held: bool) -> color { held ? outline-press : over ? outline-hover : outline }
+    public pure function ctl-outline-w(over: bool, held: bool) -> length { over || held ? outline-w-over : outline-w }
+
+    // Shadows and the dimming behind a dialog: lighter on Light, where the dark would be heavy
+    out property <color> shadow: pick(#00000080, #00000080, #00000080, #00000033);
+    out property <color> shadow-strong: pick(#000000a0, #000000a0, #000000a0, #00000040);
+    out property <color> scrim: #000000;
+    out property <float> scrim-a: look == 3 ? 0.3 : 0.5;
+
+    // Ink
+    out property <color> ink: pick(#eeeeee, #e7eaef, #eeeeee, #161616);
+    out property <color> ink2: pick(#d9d9d9, #a1abb8, #d9d9d9, #333333);
+    out property <color> faint: pick(#c8c8c8, #7a8491, #c8c8c8, #404040);
+    out property <color> dis: pick(#6f6f6f, #525b67, #6f6f6f, #9a9a9a);
+    out property <color> hot: pick(#ffffff, #74777a, #ffffff, #000000);
+    out property <color> dim: pick(#b8b8b8, #8792a0, #b8b8b8, #4d4d4d);
+
+    // Accent: links and the focus ring. Fill: the one filled button (Start streaming) and a lit switch's glyph
+    out property <color> accent: pick(#aa9cf5, #aa9cf5, #aa9cf5, #6353c5);
+    out property <color> accent-soft: pick(#cdc4fa, #cdc4fa, #cdc4fa, #8578d8);
+    out property <color> fill: pick(#7566d6, #6a58cf, #7566d6, #5e48c8);
+    out property <color> fill-hover: pick(#8677e4, #7867dc, #8677e4, #6c58d4);
+    out property <color> fill-press: pick(#6558c2, #5b4bb8, #6558c2, #4e3ab0);
+    // Text and glyphs on a violet fill (a primary button, a selection, a done step), white in every look
+    out property <color> on-fill: #ffffff;
+    // A darkening laid over a pressed face
+    out property <color> shade: #000000;
+    // The text on a filled button that wears its card's colour (Classic's primary button is violet with white text)
+    out property <color> on-hue: pick(#101010, #ffffff, #101010, #ffffff);
+    // What a hue-filled button takes towards on hover: lighter, except on Light where the fill is already deep
+    out property <color> hue-hover-to: look == 3 ? #000000 : #ffffff;
+    // Start streaming: white with black text (black with white text on Light). Classic keeps the violet fill.
+    out property <color> go-fill: pick(#ffffff, #6a58cf, #ffffff, #161616);
+    out property <color> go-hover: pick(#e6e6e6, #7867dc, #e6e6e6, #3a3a3a);
+    out property <color> go-press: pick(#cccccc, #5b4bb8, #cccccc, #000000);
+    out property <color> go-ink: pick(#000000, #ffffff, #000000, #ffffff);
+    // Stop streaming: the opposite of Start with the thick outline in Start's colour and the same text (Classic keeps the red fill, without an outline)
+    out property <color> stop-fill: pick(#000000, err.mix(card, 0.42), #000000, #ffffff);
+    out property <color> stop-hover: pick(#1c1c1c, err.mix(card, 0.5), #1c1c1c, #ebebeb);
+    out property <color> stop-press: pick(#2e2e2e, err.mix(card, 0.35), #2e2e2e, #d6d6d6);
+    out property <color> stop-edge: pick(#ffffff, #ffffff, #ffffff, #161616);
+    out property <length> stop-edge-w: classic ? 0px : stroke;
+    out property <color> stop-ink: pick(#ffffff, #ffffff, #ffffff, #161616);
+
+    // The red button: err quietened into the card (solid on Light, where white text needs the depth), and the outline OLED gives it
+    out property <color> danger: pick(err.mix(card, 0.42), err.mix(card, 0.42), err.mix(card, 0.42), err);
+    out property <color> danger-hover: pick(err.mix(card, 0.5), err.mix(card, 0.5), err.mix(card, 0.5), err.mix(black, 0.9));
+    out property <color> danger-press: pick(err.mix(card, 0.35), err.mix(card, 0.35), err.mix(card, 0.35), err.mix(black, 0.75));
+    out property <color> danger-outline: pick(transparent, transparent, err, transparent);
+
+    // Status
+    out property <color> ok: pick(#79bf8e, #5fc98c, #79bf8e, #377c4f);
+    // The Update button: a deep green that white text reads on (Classic keeps its old bright one)
+    out property <color> update-fill: pick(#2e6b45, ok, #2e6b45, #2e6b45);
+    out property <color> update-hover: pick(#357a4f, ok.brighter(0.1), #357a4f, #357a4f);
+    out property <color> update-press: pick(#275a3a, ok.darker(0.2), #275a3a, #275a3a);
+    out property <color> warn: pick(#ef8a4e, #f0b65c, #ef8a4e, #aa4d00);
+    out property <color> err: pick(#ec6b69, #ef6f6b, #ec6b69, #b63a3d);
+
+    // Old names for the tokens above, so a card not yet moved over still draws in the right look
+    out property <color> bg: ground;
+    out property <color> surface: card;
+    out property <color> surface-raise: raise;
+    out property <color> surface-hover: hover;
+    out property <color> surface-sunk: stage;
+    out property <color> border: line;
+    out property <color> border-strong: line-strong;
+    out property <color> border-hover: line-hover;
+    out property <color> text: ink;
+    out property <color> text-dim: ink2;
+    out property <color> text-faint: faint;
+    out property <color> text-disabled: dis;
+    out property <color> text-hover: hot;
+    // PLUGIN_HUES["camera"], the Camera card's colour
+    out property <color> hue-camera: plugin-hue("camera");
     // theme.set_plugin_hues: off puts every card back in the accent colour
     in-out property <bool> own-hues: true;
+    // How a row that was changed from its default shows it, on the icon rail: false lights its icon, true keeps the icon quiet and adds a small dot
+    in-out property <bool> mark-dot: false;
     out property <length> mono-size: 13px;
     out property <string> mono: "monospace";
 
-    // theme.hue: a plugin group's colour (PLUGIN_HUES), the accent for an unknown group or with plugin colours off
-    // Qt lays wrapped lines out its font's ascent and descent apart, each rounded to whole pixels (16px for 13px Inter,
-    // where Slint's natural line is 15.73px): a wrapped Text's line-height-factor, so a paragraph doesn't drift off Qt's
-    public pure function line-factor(size: length) -> float {
-        (round(size * 1984 / 2048 / 1px) + round(size * 494 / 2048 / 1px)) / (size * 2478 / 2048 / 1px)
-    }
-
+    // The card colours, one per plugin group
     public pure function plugin-hue(group: string) -> color {
         !own-hues ? accent
-            : group == "camera" ? #7fd3c4 : group == "look" ? #e6a6e0 : group == "vision" ? #bcd98c
-            : group == "preview" ? #f2b48c : group == "on_screen" ? #f2a0bf : group == "sound" ? #e8d08a
-            : group == "streaming" ? #8cc4f2 : group == "extras" ? #b9bdcc : accent
+            : group == "camera" ? pick(#4fbcb3, #7fd3c4, #4fbcb3, #007d75)
+            : group == "look" ? pick(#dc7ea2, #e6a6e0, #dc7ea2, #a14a6e)
+            : group == "vision" ? pick(#79bf8e, #bcd98c, #79bf8e, #377c4f)
+            : group == "preview" ? pick(#e39a5e, #f2b48c, #e39a5e, #9c5916)
+            : group == "on_screen" ? pick(#b894dc, #f2a0bf, #b894dc, #7c5a9d)
+            : group == "sound" ? pick(#cdb173, #e8d08a, #cdb173, #82682a)
+            : group == "streaming" ? pick(#6aa6d8, #8cc4f2, #6aa6d8, #3571a0)
+            : group == "extras" ? pick(#a3abbd, #b9bdcc, #a3abbd, #646c7c) : accent
     }
 
-    out property <string> font: "Inter";
-    // font-size: 9.75pt for everything unless a rule says otherwise. Qt draws text at whole logical pixels (the point size
-    // times 4/3, rounded), so each size here is that whole number: a fraction would lay lines out a pixel off Qt's
+    // The colour a control takes while it rests: the card's colour, quietened
+    public pure function muted(hue: color) -> color { hue.mix(card, 0.5) }
+    // `muted` brought up towards the full colour by t (0 at rest, 1 held), for a colour that eases between the two
+    public pure function lit(hue: color, t: float) -> color { hue.mix(card, 0.5 + 0.5 * t) }
+    // A control's edge at rest: the card's colour, a little quietened, so a handle reads against its own fill
+    public pure function edge(hue: color) -> color { hue.mix(card, 0.75) }
+    // The inside of an active control: a little of the card's colour over the card
+    public pure function tint(hue: color) -> color { hue.mix(card, 0.16) }
+    // The same while it is held down: more of the card's colour, so a lit switch or picked segment answers a press
+    public pure function held(hue: color) -> color { hue.mix(card, 0.34) }
+
+    // A wrapped line is the font's ascent and descent apart, each rounded to whole pixels (17px for 13px Plex, where Slint's
+    // natural line is 16.9px): a wrapped Text's line-height-factor, so a paragraph's lines fall on whole pixels
+    public pure function line-factor(size: length) -> float {
+        (round(size * 1.025 / 1px) + round(size * 0.275 / 1px)) / (size * 1.3 / 1px)
+    }
+
+    out property <string> font: "IBM Plex Sans";
+    // Text centred in a box by its line box sits low: Plex's ascent is 1.025 em and its descent 0.275, so the capitals' middle is below the box's
+    // middle (measured on renders at 11 to 24 px and at 1 to 2x: 0.3 to 0.5 px low, which is what the eye reads as 1 px). Every kit control that
+    // centres a word in a box lifts it by one physical pixel (`property <length> lift: 1phx;` in the control: a global can't say 1phx), so the
+    // lift is whole at every scale.
+    // Weights: names and labels are medium, a value or a picked option semibold
+    out property <int> w-label: 500;
+    out property <int> w-value: 600;
+    out property <int> w-title: 600;
+
+    // The one text size. Qt draws text at whole logical pixels, so each size here is a whole number
     in-out property <length> body: 13px;
-    out property <length> small: 12px;        // 9pt
-    out property <length> card-title: 15px;   // 11pt is 14.67px, drawn at 15
-    out property <length> start: 13px;        // 10pt is 13.33px, drawn at 13
+    out property <length> small: round(body * 12 / 13 / 1px) * 1px;
+    out property <length> tiny: round(body * 11 / 13 / 1px) * 1px;
+    out property <length> card-title: round(body * 16 / 13 / 1px) * 1px;
+    out property <length> start: body;
+    // A line icon sits in text this size
+    out property <length> icon: round(body * 16 / 13 / 1px) * 1px;
+    out property <length> icon-small: round(body * 14 / 13 / 1px) * 1px;
+
+    // The one corner radius, and what follows from it
+    in-out property <length> radius: 6px;
+    out property <length> r-ctl: radius;
+    out property <length> r-card: radius * 4 / 3;
+    out property <length> r-handle: radius * 2 / 3;
+    out property <length> r-bubble: radius * 7 / 3;
+    out property <length> r-pill: 1000px;
+
+    // The one spacing unit, and what follows from it
+    in-out property <length> unit: 2px;
+    public pure function u(n: float) -> length { unit * n }
+    out property <length> row: unit * 16;
+    // How wide the control at the right of a settings row is (a picker, a text box, a segmented choice), the same in every row so the column of them lines up
+    out property <length> control-w: unit * 130;
+    // A tile that is a control of its own: a toggle tile, a picture option
+    out property <length> tile: unit * 20;
+    out property <length> gap: unit * 3;
+    out property <length> pad: unit * 8;
+    // The thick outline of an active control
+    out property <length> stroke: unit;
+    // A slider's track thickness
+    out property <length> track: unit * 4;
+    // A slider's handle, and a switch
+    out property <length> handle-w: unit * 7;
+    out property <length> handle-h: unit * 12;
+    out property <length> switch-w: unit * 22;
+    out property <length> switch-h: unit * 12;
+    // A bubble's pointer: as wide as two of its heights, so its sides run at 45 degrees
+    out property <length> pointer-h: unit * 4;
+    out property <length> pointer-w: unit * 8;
 }

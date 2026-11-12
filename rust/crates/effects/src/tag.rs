@@ -232,6 +232,107 @@ pub struct Tag {
     pub ink: Vec<u8>,
     /// 255 minus alpha, a byte a pixel.
     pub keep: Vec<u8>,
+    /// What the tile contributes to a YUV frame, worked out the first time one is drawn on.
+    yuv: YuvTerms,
+}
+
+impl Tag {
+    pub fn new(x: usize, y: usize, width: usize, height: usize, ink: Vec<u8>, keep: Vec<u8>) -> Tag {
+        Tag { x, y, width, height, ink, keep, yuv: YuvTerms::default() }
+    }
+}
+
+/// A tag's per-pixel and per-chroma-cell terms for one frame size. They only depend on the tile and where it sits.
+struct Terms {
+    frame: (usize, usize),
+    /// Per tile pixel: its luma and 16 times its alpha over 255.
+    luma: Vec<(f32, f32)>,
+    /// Per chroma cell, row after row from (cx0, cy0): the tile's keep and pixel count, its U and V averages, and 128 times
+    /// its alpha average over 255.
+    cells: Vec<Cell>,
+    cx0: usize,
+    cy0: usize,
+    cols: usize,
+}
+
+#[derive(Clone, Copy)]
+struct Cell {
+    keep: f32,
+    n: f32,
+    u: f32,
+    v: f32,
+    alpha: f32,
+}
+
+/// The terms behind a lock. A copy of the tag starts without them, and two tags are equal whatever they hold.
+#[derive(Default)]
+struct YuvTerms(std::sync::Mutex<Option<std::sync::Arc<Terms>>>);
+
+impl Clone for YuvTerms {
+    fn clone(&self) -> Self {
+        YuvTerms::default()
+    }
+}
+
+impl std::fmt::Debug for YuvTerms {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("YuvTerms")
+    }
+}
+
+impl PartialEq for YuvTerms {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+
+impl Terms {
+    fn of(tag: &Tag, (w, h): (usize, usize)) -> Terms {
+        let luma = (0..tag.width * tag.height).map(|t| {
+            let (y, _, _) = yuv_of([tag.ink[t * 3], tag.ink[t * 3 + 1], tag.ink[t * 3 + 2]]);
+            (y, 16.0 * (255.0 - tag.keep[t] as f32) / 255.0)
+        }).collect();
+        let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+        let (cx0, cy0) = (tag.x / 2, tag.y / 2);
+        let (cx1, cy1) = ((tag.x + tag.width).div_ceil(2).min(cw), (tag.y + tag.height).div_ceil(2).min(ch));
+        let mut cells = Vec::with_capacity(cx1.saturating_sub(cx0) * cy1.saturating_sub(cy0));
+        for cy in cy0..cy1 {
+            for cx in cx0..cx1 {
+                let (mut su, mut sv, mut keep, mut alpha, mut n) = (0.0, 0.0, 0.0, 0.0, 0.0);
+                for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+                    let (x, y) = (cx * 2 + dx, cy * 2 + dy);
+                    // Pixels of the 2 x 2 that the tile doesn't cover count as no tag
+                    let inside = x >= tag.x && x < tag.x + tag.width && y >= tag.y && y < tag.y + tag.height;
+                    let (k, a, u, v) = if inside {
+                        let t = (y - tag.y) * tag.width + x - tag.x;
+                        let (_, u, v) = yuv_of([tag.ink[t * 3], tag.ink[t * 3 + 1], tag.ink[t * 3 + 2]]);
+                        (tag.keep[t] as f32, 255.0 - tag.keep[t] as f32, u, v)
+                    } else {
+                        (255.0, 0.0, 0.0, 0.0)
+                    };
+                    if x < w && y < h {
+                        su += u;
+                        sv += v;
+                        keep += k;
+                        alpha += a;
+                        n += 1.0;
+                    }
+                }
+                cells.push(Cell { keep, n, u: su / n, v: sv / n, alpha: 128.0 * alpha / n / 255.0 });
+            }
+        }
+        Terms { frame: (w, h), luma, cells, cx0, cy0, cols: cx1.saturating_sub(cx0) }
+    }
+}
+
+impl Tag {
+    fn terms(&self, size: (usize, usize)) -> std::sync::Arc<Terms> {
+        let mut held = self.yuv.0.lock().unwrap_or_else(|e| e.into_inner());
+        match held.as_ref() {
+            Some(t) if t.frame == size => t.clone(),
+            _ => held.insert(std::sync::Arc::new(Terms::of(self, size))).clone(),
+        }
+    }
 }
 
 /// A premultiplied float tile the pieces are painted on.
@@ -359,7 +460,7 @@ pub fn render_with(spec: &Spec, w: u32, h: u32, fonts: &Fonts) -> Option<Tag> {
         }
     }
     let keep = alpha.iter().map(|a| 255 - a).collect();
-    Some(Tag { x: x0 as usize, y: y0 as usize, width: tw, height: th, ink, keep })
+    Some(Tag::new(x0 as usize, y0 as usize, tw, th, ink, keep))
 }
 
 /// BT.601 limited range, as the decoder's frames and the preview use it: (Y, U, V) of premultiplied ink, with the offsets taken
@@ -398,49 +499,25 @@ pub fn apply(frame: &mut Frame, tag: &Tag) {
         PixelFormat::I420 | PixelFormat::Nv12 => {
             let nv12 = frame.format == PixelFormat::Nv12;
             let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+            let terms = tag.terms((w, h));
             let data = frame.data_mut();
             let (luma, chroma) = data.split_at_mut(w * h);
             // Where a chroma cell's U and V are
             let places = |i: usize| if nv12 { (i * 2, i * 2 + 1) } else { (i, cw * ch + i) };
             for ty in 0..tag.height {
-                for tx in 0..tag.width {
-                    let t = ty * tag.width + tx;
-                    let alpha = 255.0 - tag.keep[t] as f32;
-                    let (y, _, _) = yuv_of([tag.ink[t * 3], tag.ink[t * 3 + 1], tag.ink[t * 3 + 2]]);
-                    let i = (tag.y + ty) * w + tag.x + tx;
-                    let under = luma[i] as f32;
-                    luma[i] = (under * tag.keep[t] as f32 / 255.0 + y + 16.0 * alpha / 255.0).round().clamp(0.0, 255.0) as u8;
+                let at = (tag.y + ty) * w + tag.x;
+                let row = &mut luma[at..at + tag.width];
+                for (tx, (under, &(y, a))) in row.iter_mut().zip(&terms.luma[ty * tag.width..(ty + 1) * tag.width]).enumerate() {
+                    let keep = tag.keep[ty * tag.width + tx] as f32;
+                    *under = (*under as f32 * keep / 255.0 + y + a).round().clamp(0.0, 255.0) as u8;
                 }
             }
             // Chroma is shared by 2 x 2 pixels: each takes the average of the tag over the pixels it covers
-            let (cx0, cy0) = (tag.x / 2, tag.y / 2);
-            let (cx1, cy1) = ((tag.x + tag.width).div_ceil(2), (tag.y + tag.height).div_ceil(2));
-            for cy in cy0..cy1.min(ch) {
-                for cx in cx0..cx1.min(cw) {
-                    let (mut su, mut sv, mut keep, mut alpha, mut n) = (0.0, 0.0, 0.0, 0.0, 0.0);
-                    for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
-                        let (x, y) = (cx * 2 + dx, cy * 2 + dy);
-                        // Pixels of the 2 x 2 that the tile doesn't cover count as no tag
-                        let inside = x >= tag.x && x < tag.x + tag.width && y >= tag.y && y < tag.y + tag.height;
-                        let (k, a, u, v) = if inside {
-                            let t = (y - tag.y) * tag.width + x - tag.x;
-                            let (_, u, v) = yuv_of([tag.ink[t * 3], tag.ink[t * 3 + 1], tag.ink[t * 3 + 2]]);
-                            (tag.keep[t] as f32, 255.0 - tag.keep[t] as f32, u, v)
-                        } else {
-                            (255.0, 0.0, 0.0, 0.0)
-                        };
-                        if x < w && y < h {
-                            su += u;
-                            sv += v;
-                            keep += k;
-                            alpha += a;
-                            n += 1.0;
-                        }
-                    }
-                    let (u, v) = places(cy * cw + cx);
-                    chroma[u] = (chroma[u] as f32 * keep / n / 255.0 + su / n + 128.0 * alpha / n / 255.0).round().clamp(0.0, 255.0) as u8;
-                    chroma[v] = (chroma[v] as f32 * keep / n / 255.0 + sv / n + 128.0 * alpha / n / 255.0).round().clamp(0.0, 255.0) as u8;
-                }
+            for (i, c) in terms.cells.iter().enumerate() {
+                let (cy, cx) = (terms.cy0 + i / terms.cols, terms.cx0 + i % terms.cols);
+                let (u, v) = places(cy * cw + cx);
+                chroma[u] = (chroma[u] as f32 * c.keep / c.n / 255.0 + c.u + c.alpha).round().clamp(0.0, 255.0) as u8;
+                chroma[v] = (chroma[v] as f32 * c.keep / c.n / 255.0 + c.v + c.alpha).round().clamp(0.0, 255.0) as u8;
             }
         }
         _ => {}

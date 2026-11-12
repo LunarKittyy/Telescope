@@ -11,7 +11,7 @@ use telescope_core::i18n::Fields;
 use crate::convert::rgb_to_i420;
 use crate::wait_screen::{self, Loader, Rgb, DEFAULT_SIZE};
 use serde_json::{json, Value};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -46,6 +46,8 @@ struct CoverKey {
     format: PixelFormat,
     image: Option<String>,
     mirror: bool,
+    /// The line under the name on the default screen, when someone asked for another
+    note: Option<String>,
 }
 
 /// The pictures of one stand-in with how long each shows, and how long they take all together.
@@ -144,7 +146,11 @@ impl Covers {
     fn load(&self, key: CoverKey) {
         let (w, h) = key.size;
         let mut frames = Vec::new();
-        match (self.loader)(key.image.as_deref(), w, h) {
+        let loaded = match (&key.image, &key.note) {
+            (None, Some(note)) => Ok(vec![(wait_screen::note_screen(w, h, note), wait_screen::STILL_PERIOD)]),
+            _ => (self.loader)(key.image.as_deref(), w, h),
+        };
+        match loaded {
             Ok(pictures) => {
                 frames = pictures.iter().filter_map(|(rgb, s)| picture_in(rgb, key.format, key.mirror).map(|f| (f, s.max(0.01)))).collect();
                 if frames.is_empty() {
@@ -160,7 +166,7 @@ impl Covers {
         } else {
             let total = frames.iter().map(|(_, s)| s).sum();
             // This picture's other sizes stay for a moment (a stream that changes size comes back), the rest go
-            cache.made.retain(|(k, _)| k.image == key.image && k.mirror == key.mirror && *k != key);
+            cache.made.retain(|(k, _)| k.image == key.image && k.mirror == key.mirror && k.note == key.note && *k != key);
             cache.made.push((key.clone(), Arc::new(Cover { frames, total })));
             let drop = cache.made.len().saturating_sub(2);
             cache.made.drain(..drop);
@@ -180,13 +186,14 @@ struct CoverStep {
     covers: Arc<Covers>,
     image: Option<String>,
     mirror: bool,
+    note: Option<String>,
     black: Option<Frame>,
 }
 
 impl CpuStep for CoverStep {
     fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
         let size = (frame.width, frame.height);
-        let key = CoverKey { size, format: frame.format, image: self.image.clone(), mirror: self.mirror };
+        let key = CoverKey { size, format: frame.format, image: self.image.clone(), mirror: self.mirror, note: self.note.clone() };
         let picture = match self.covers.find(&key) {
             Some(cover) => cover.at(monotonic_ns() as f64 / 1e9).clone(),
             None => {
@@ -248,7 +255,7 @@ pub struct WaitScreenPlugin {
     last_size: Option<(u32, u32)>,
     shut: bool,
     /// Who asked for it in place of the stream's picture.
-    asked: BTreeSet<String>,
+    asked: BTreeMap<String, Option<String>>,
     covering: bool,
     /// The file dialog open, if one is.
     picking: Option<RequestId>,
@@ -280,7 +287,7 @@ impl WaitScreenPlugin {
             mirror: false,
             last_size: None,
             shut: false,
-            asked: BTreeSet::new(),
+            asked: BTreeMap::new(),
             covering: false,
             picking: None,
             animation: Vec::new(),
@@ -379,9 +386,14 @@ impl WaitScreenPlugin {
 
     // ── In place of the stream's picture ──────────────────────────────
 
-    fn on_cover_requested(&mut self, host: &mut dyn Host, owner: &str, on: bool) {
+    /// The line someone asked to have under the name, if anyone did.
+    fn cover_note(&self) -> Option<String> {
+        self.asked.values().flatten().next().cloned()
+    }
+
+    fn on_cover_requested(&mut self, host: &mut dyn Host, owner: &str, on: bool, note: Option<&str>) {
         if on {
-            self.asked.insert(owner.to_string());
+            self.asked.insert(owner.to_string(), note.map(String::from));
         } else {
             self.asked.remove(owner);
         }
@@ -389,7 +401,7 @@ impl WaitScreenPlugin {
         if self.covering {
             // Likely the stream's size, and what the decoder makes: ready by the first frame
             let size = self.size(host);
-            self.covers.make(CoverKey { size, format: PixelFormat::I420, image: self.image_path.clone(), mirror: self.mirror });
+            self.covers.make(CoverKey { size, format: PixelFormat::I420, image: self.image_path.clone(), mirror: self.mirror, note: self.cover_note() });
         }
         host.refresh_frame_step();
         host.emit(Event::StreamCovered { covered: self.covering }); // every time, so whoever asked hears back straight away
@@ -458,7 +470,7 @@ impl WaitScreenPlugin {
         if self.covering {
             host.refresh_frame_step();
             let size = self.size(host);
-            self.covers.make(CoverKey { size, format: PixelFormat::I420, image: self.image_path.clone(), mirror: self.mirror });
+            self.covers.make(CoverKey { size, format: PixelFormat::I420, image: self.image_path.clone(), mirror: self.mirror, note: self.cover_note() });
         }
     }
 
@@ -466,16 +478,20 @@ impl WaitScreenPlugin {
 
     fn props(&self, host: &dyn Host, pick_error: &str, unreadable: bool, preview: (u32, u32)) -> Value {
         let (w, h) = self.size(host);
-        let note = if !pick_error.is_empty() {
-            tr("Couldn't use that image: {problem}. Keeping the current wait screen.").field("problem", pick_error)
+        // A short line under the picture, with the sentence as its tooltip
+        let (note, detail, kind) = if !pick_error.is_empty() {
+            (tr("Couldn't use that image"), tr("{problem}. Keeping the current wait screen.").field("problem", pick_error), "status_err")
         } else if unreadable {
-            tr("Couldn't read that image, so the default screen is showing. Choose another one.")
+            (tr("Couldn't read that image"), tr("The default screen is showing. Choose another one."), "status_err")
         } else {
-            tr("Shown at {size}, the size the stream opens the camera at. Still images and GIFs work; transparent parts show the dark background.")
-                .field("size", format!("{w} \u{d7} {h}"))
+            (
+                tr("Shown at {size}").field("size", format!("{w} \u{d7} {h}")),
+                tr("The size the stream opens the camera at. Still images and GIFs work; transparent parts show the dark background."),
+                "status_dim",
+            )
         };
         json!({
-            "preview-width": preview.0, "preview-height": preview.1, "picture-note": note,
+            "preview-width": preview.0, "preview-height": preview.1, "picture-note": note, "picture-detail": detail, "picture-kind": kind,
             "default-enabled": self.image_path.is_some(), "mirror-checked": self.mirror,
         })
     }
@@ -580,7 +596,7 @@ impl Plugin for WaitScreenPlugin {
                     host.schedule_save();
                 }
             }
-            Event::CoverRequested { owner, on } => self.on_cover_requested(host, owner, *on),
+            Event::CoverRequested { owner, on, note } => self.on_cover_requested(host, owner, *on, note.as_deref()),
             Event::Posted { owner, token, data } if owner == NAME && token == "watched" => self.on_watched(host, data.as_bool().unwrap_or(false)),
             Event::TimerFired { owner, token } if owner == NAME && token == TICK => self.tick(host),
             Event::RequestDone { request, ok, data, .. } if self.picking == Some(*request) => {
@@ -611,7 +627,7 @@ impl Plugin for WaitScreenPlugin {
     }
 
     fn frame_step(&mut self) -> Option<FrameStep> {
-        self.covering.then(|| FrameStep::Cpu(Box::new(CoverStep { covers: self.covers.clone(), image: self.image_path.clone(), mirror: self.mirror, black: None })))
+        self.covering.then(|| FrameStep::Cpu(Box::new(CoverStep { covers: self.covers.clone(), image: self.image_path.clone(), mirror: self.mirror, note: self.cover_note(), black: None })))
     }
 
     fn settings_sections(&mut self) -> Vec<SettingsSection> {

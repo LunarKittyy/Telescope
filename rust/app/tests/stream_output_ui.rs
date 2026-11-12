@@ -13,6 +13,14 @@ use telescope_core::ui::{SlintSource, UiEvent};
 use telescope_outputs::stream_output::StreamOutputPlugin;
 use telescope_shell::source::to_slint;
 
+/// Time for the pages to cross over (they are looked at as they go: a page's move starts when it is first laid out).
+fn let_it_move(ui: &ComponentInstance) {
+    for _ in 0..30 {
+        let _ = ElementHandle::find_by_accessible_label(ui, "").count();
+        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(50));
+    }
+}
+
 fn double_click(window: &slint::Window, e: &ElementHandle) {
     let (p, s) = (e.absolute_position(), e.size());
     let position = LogicalPosition::new(p.x + s.width / 3.0, p.y + s.height / 2.0);
@@ -45,10 +53,12 @@ fn stream_quality_and_bitrate_reset_on_a_double_click() {
         ui.set_property("bitrate-tip", Value::String("All the way right is Dynamic".into())).unwrap();
         ui.window().set_size(slint::LogicalSize::new(460.0, 400.0));
         ui.show().unwrap();
+        // The row for this format unfolds
+        let_it_move(&ui);
         let slider = ElementHandle::find_by_accessible_label(&ui, label).find(|e| e.accessible_value_maximum().is_some()).expect("the slider");
         double_click(ui.window(), &slider);
         if name == "bitrate-moved" {
-            assert_eq!(slider.accessible_description().as_deref(), Some("All the way right is Dynamic\nDouble-click to reset"), "its own tip stays, with what a double-click does");
+            assert_eq!(slider.accessible_description().as_deref(), Some("Bitrate. All the way right is Dynamic. Double-click to reset"), "its own tip stays, with what a double-click does");
         }
     }
     let moved = moved.borrow();
@@ -101,6 +111,8 @@ impl Drawn {
                 self.ui.set_property(name, to_slint(value, &like)).unwrap();
             }
         }
+        // The row for the format unfolds, the other folds away
+        let_it_move(&self.ui);
     }
 
     /// What was done on the card reaches the plugin, and the card shows the outcome.
@@ -116,7 +128,7 @@ impl Drawn {
     }
 
     fn option(&self, label: &str) -> ElementHandle {
-        ElementHandle::find_by_accessible_label(&self.ui, label).find(|e| e.accessible_checked().is_some_and(|_| e.accessible_description().is_some_and(|d| !d.is_empty()))).expect("the button")
+        ElementHandle::find_by_accessible_label(&self.ui, &format!("Format: {label}")).find(|e| e.accessible_checked().is_some()).expect("the button")
     }
 
     fn click(&mut self, label: &str) {
@@ -134,7 +146,7 @@ impl Drawn {
     fn at(slider: &ElementHandle, v: f32) -> LogicalPosition {
         let (p, s) = (slider.absolute_position(), slider.size());
         let (low, high) = (slider.accessible_value_minimum().unwrap(), slider.accessible_value_maximum().unwrap());
-        LogicalPosition::new(p.x + 10.0 + (v - low) / (high - low) * (s.width - 20.0), p.y + s.height / 2.0)
+        LogicalPosition::new(p.x + 7.0 + (v - low) / (high - low) * (s.width - 14.0), p.y + s.height / 2.0)
     }
 
     /// Takes the handle at `from` and lets go of it at `to`; the value the plugin last heard.
@@ -198,8 +210,7 @@ fn light_is_the_default_and_switching_reconnects() {
     assert_eq!(c.says("h264-enabled"), true, "offered before the phone has reported");
     assert!(c.says("light-tip").as_str().unwrap().contains("H.264"));
     assert!(c.says("heavy-tip").as_str().unwrap().contains("MJPEG"));
-    assert_eq!(light.accessible_description().as_deref(), Some("Good for most calls"));
-    assert_eq!(heavy.accessible_description().as_deref(), Some("Sharper, more data"));
+    assert_eq!(heavy.accessible_checked(), Some(false));
     assert!(c.slider("Bitrate").is_some() && c.slider("JPEG quality").is_none());
 
     c.plugin.on_phone_state(&mut c.host, &json!({"cameras": [], "codecs": ["mjpeg", "h264"]}));

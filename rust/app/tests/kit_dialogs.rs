@@ -78,6 +78,8 @@ fn a_press_beside_a_dialog_is_its_cancel_and_one_inside_is_not() {
     click(ui, 250.0, 150.0);
     assert_eq!(dismissals(ui), 0.0, "and on its title");
     click(ui, 20.0, 20.0);
+    // It eases out first, then says so
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(300));
     assert_eq!(dismissals(ui), 1.0, "a press outside it");
 }
 
@@ -90,5 +92,76 @@ fn a_drag_that_starts_in_a_dialog_and_ends_outside_leaves_it_open() {
     settle(ui);
     assert_eq!(dismissals(ui), 0.0, "pressed inside, released outside");
     click(ui, 550.0, 450.0);
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(300));
     assert_eq!(dismissals(ui), 1.0, "the next press outside does close it");
+}
+
+// A dialog that is fading away takes no more presses or keys, so the first decision (a press beside it is Cancel) stands
+const SAVING: &str = r#"
+import { DialogFrame, Button } from "@ui-kit/ui-kit.slint";
+export component T inherits Window {
+    in-out property <int> saves;
+    in-out property <int> lefts;
+    in-out property <int> dismissals;
+    public function open() { pop.show(); }
+    pop := PopupWindow {
+        x: 0px;
+        y: 0px;
+        width: 600px;
+        height: 500px;
+        close-policy: no-auto-close;
+        frame := DialogFrame {
+            x: 100px;
+            y: 100px;
+            width: 300px;
+            height: 200px;
+            title: "Rename";
+            dismissable: true;
+            dismissed => { root.dismissals += 1; }
+            left => { root.lefts += 1; }
+            Button { text: "Save"; clicked => { root.saves += 1; } }
+        }
+    }
+}
+"#;
+
+fn count(ui: &ComponentInstance, name: &str) -> f32 {
+    match ui.get_property(name).unwrap() {
+        Value::Number(n) => n as f32,
+        v => panic!("{v:?}"),
+    }
+}
+
+#[test]
+fn a_dialog_that_is_fading_out_takes_no_press_or_key_and_keeps_its_first_decision() {
+    offscreen::install();
+    // The clock stands still, so the fade is under way for the whole sweep of clicks
+    let _still = offscreen::freeze_clock();
+    let ui = compile::compile("saving.slint", SAVING, Vec::new(), "T").map(|d| d.create().unwrap()).unwrap_or_else(|e| panic!("{e}"));
+    ui.window().set_size(slint::LogicalSize::new(600.0, 500.0));
+    ui.show().unwrap();
+    ui.invoke("open", &[]).unwrap();
+    settle(&ui);
+    let keys = |ui: &ComponentInstance, list: &[slint::SharedString]| {
+        for text in list {
+            ui.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+            ui.window().dispatch_event(WindowEvent::KeyReleased { text: text.clone() });
+        }
+    };
+    // Tab to Save: Enter on it saves while the dialog is up
+    keys(&ui, &[slint::platform::Key::Tab.into(), "\n".into()]);
+    assert_eq!(count(&ui, "saves"), 1.0, "Enter on Save saves in a dialog that is up");
+    ui.set_property("saves", Value::Number(0.0)).unwrap();
+    // Press beside the dialog (Cancel); while it fades Enter and every click on the dialog do nothing
+    click(&ui, 20.0, 20.0);
+    keys(&ui, &["\n".into(), " ".into()]);
+    for y in (110..300).step_by(8) {
+        for x in (110..400).step_by(8) {
+            click(&ui, x as f32, y as f32);
+        }
+    }
+    assert_eq!(count(&ui, "saves"), 0.0, "nothing saved while it was leaving");
+    offscreen::skip(std::time::Duration::from_millis(300));
+    settle(&ui);
+    assert_eq!((count(&ui, "dismissals"), count(&ui, "lefts"), count(&ui, "saves")), (1.0, 1.0, 0.0), "it cancelled");
 }

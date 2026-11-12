@@ -2,6 +2,7 @@
 
 pub mod admin;
 pub mod banners;
+pub mod bar;
 pub mod collapse;
 pub mod compile;
 pub mod doc;
@@ -9,8 +10,11 @@ mod extra_cameras;
 pub mod file_dialog;
 pub mod flow;
 mod frame;
+#[cfg(all(unix, not(target_os = "macos")))]
+mod kde;
 pub mod handover;
 pub mod layout;
+pub mod motion;
 pub mod notice;
 pub mod offscreen;
 pub mod overlays;
@@ -21,9 +25,11 @@ pub mod preview;
 pub mod plugins_tab;
 pub mod scenes;
 mod screen;
+pub mod same;
 pub mod search;
 pub mod profiles;
 pub mod snapshot;
+pub mod specimen;
 pub mod source;
 pub mod sources;
 pub mod stream_flow;

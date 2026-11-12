@@ -74,13 +74,14 @@ fn the_card_is_greyed_out_until_a_phone_is_paired() {
 fn monitoring_threshold_changes_are_saved() {
     let mut r = Rig::new();
     let before = r.saves();
-    r.ui("batt-committed", vec![json!("30")]);
-    r.ui("temp-committed", vec![json!("50 °C")]);
+    r.ui("batt-moved", vec![json!(30.0)]);
+    r.ui("temp-moved", vec![json!(50.0)]);
     assert_eq!(r.saves(), before + 2);
     assert_eq!((r.plugin.battery_alert, r.plugin.temp_alert), (30, 50));
-    r.ui("batt-step", vec![json!(1)]);
-    r.ui("batt-committed", vec![json!("200")]);
-    assert_eq!(r.plugin.battery_alert, 95, "held to the box's range");
+    r.ui("batt-moved", vec![json!(200)]);
+    assert_eq!(r.plugin.battery_alert, 95, "held to the bar's range");
+    r.ui("temp-moved", vec![json!(1)]);
+    assert_eq!(r.plugin.temp_alert, 35);
 }
 
 #[test]
@@ -486,4 +487,19 @@ fn a_stream_restarted_behind_the_panels_warns_again() {
     assert_eq!(warnings(&r), once, "a reading from before the restart is dropped");
     r.event(Event::PhonePolled { source_id: "other".into(), session: 2, shown: false, state: low });
     assert!(warnings(&r) > once, "the restarted stream's own warning");
+}
+
+#[test]
+fn the_bars_on_the_card_are_the_live_readings() {
+    let mut r = Rig::new();
+    let none = r.plugin.props();
+    assert_eq!((none["battery-has-level"].clone(), none["temp-has-level"].clone(), none["battery-value"].clone()), (json!(false), json!(false), json!("-")));
+    r.plugin.update_display(&mut r.host, 74, true, 38.5);
+    let p = r.plugin.props();
+    assert_eq!((p["battery-level"].clone(), p["battery-has-level"].clone(), p["battery-icon"].clone()), (json!(74), json!(true), json!("battery-charging")));
+    assert_eq!((p["temp-level"].clone(), p["temp-has-level"].clone(), p["temp-value"].clone()), (json!(38.5), json!(true), json!("38.5 °C")));
+    // The handles are where the warnings are set
+    assert_eq!((p["batt-alert"].clone(), p["temp-alert"].clone()), (json!(20), json!(45)));
+    r.plugin.on_stream_stop(&mut r.host);
+    assert_eq!(r.plugin.props()["battery-has-level"], json!(false), "no stream, no reading: the bar stays, empty");
 }

@@ -166,13 +166,16 @@ impl MfCamera {
 
 impl VideoOutput for MfCamera {
     fn send(&mut self, frame: &Frame) -> Result<(), String> {
-        let frame = match frame.format {
-            PixelFormat::I420 => frame.clone(),
-            PixelFormat::Rgba => rgb_to_i420(&frame.data, frame.width, frame.height, 4, false),
-            other => return Err(format!("The Windows 11 camera takes I420 or RGBA frames, not {other:?}")),
-        };
+        if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Rgba) {
+            return Err(format!("The Windows 11 camera takes I420 or RGBA frames, not {:?}", frame.format));
+        }
+        // No converting for a picture no app is there to see
         let Some(view) = self.reader() else { return Ok(()) };
         let Some((w, h)) = view.reader_size() else { return Ok(()) };
+        let frame = match frame.format {
+            PixelFormat::Rgba => rgb_to_i420(&frame.data, frame.width, frame.height, 4, false),
+            _ => frame.clone(),
+        };
         view.write(&fit_frame(&frame, w, h));
         Ok(())
     }

@@ -3,9 +3,12 @@
 
 import { Reveal } from "folds.slint";
 import { Theme } from "../theme.slint";
-import { Icon, KeyFocus } from "basics.slint";
+import { Icon, KeyFocus, FocusRing } from "basics.slint";
 import { Icons } from "../icons.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
+import { Tip } from "tip.slint";
+import { Motion, Arrival } from "motion.slint";
+import { ProblemMark } from "setting.slint";
 
 // setMaxLength: what of new text over a cap stays, given the text before (telescope_core::names::fit_to_cap). Slint can't
 // cut a string, so the window answers; with nobody to ask it gives "".
@@ -17,6 +20,11 @@ export component TextField inherits Rectangle {
     in-out property <string> text;
     in property <string> placeholder;
     in property <string> label;
+    // A tooltip while the box isn't being typed in: its name, then a line or two more
+    in property <string> tip;
+    in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
     in property <image> icon;
     in property <bool> has-icon;
     in property <bool> clearable;
@@ -39,53 +47,76 @@ export component TextField inherits Rectangle {
     public function let-go() {
         input.clear-focus();
     }
-    height: 32px;
-    border-radius: 7px;
-    border-width: 1px;
-    background: enabled ? Theme.surface-raise : Theme.bg;
-    border-color: !enabled ? Theme.border : input.has-focus ? Theme.accent : touch.has-hover ? Theme.border-hover : Theme.border-strong;
+    out property <string> control-kind: "field";
+    height: Theme.row;
+    border-radius: Theme.r-ctl;
+    border-width: !enabled ? Theme.outline-w : input.has-focus ? Theme.stroke : Theme.ctl-outline-w(touch.has-hover, false);
+    background: !enabled ? Theme.raise.mix(Theme.card, 0.4) : touch.has-hover && !input.has-focus ? Theme.hover : Theme.raise;
+    border-color: !enabled ? Theme.dis-outline : input.has-focus ? Theme.accent : Theme.ctl-outline(touch.has-hover, false);
     forward-focus: input;
     accessible-role: text-input;
     accessible-label: label;
     accessible-value: text;
     accessible-placeholder-text: placeholder;
-    touch := TouchArea { mouse-cursor: MouseCursor.text; clicked => { input.focus(); } }
-    if has-icon: Icon { x: 7px; source: icon; tint: Theme.text-dim; width: 16px; height: 16px; accessible-role: none; }
+    if has-icon: Icon { x: 7px; source: icon; tint: Theme.ink2; width: 16px; height: 16px; accessible-role: none; }
     if text == "" && placeholder != "": Text {
         x: input.x;
+        width: input.width;
+        height: parent.height;
         text: placeholder;
         font-family: Theme.font;
         font-size: Theme.body;
-        color: Theme.text-faint;
+        color: enabled ? Theme.faint : Theme.dis;
+        horizontal-alignment: root.align-right ? right : left;
         vertical-alignment: center;
-        height: parent.height;
+        overflow: elide;
     }
-    // The 1px border, QSS's 10px padding and QLineEdit's own 2px margin
-    input := TextInput {
-        x: has-icon ? 39px : 13px;
-        width: parent.width - self.x - (clearable && text != "" ? 30px : 13px);
+    // A box that isn't being edited shows its text through this one, which can end in an ellipsis where the box's own can only cut off
+    if text != "" && !input.has-focus: Text {
+        x: input.x;
+        width: input.width;
         height: parent.height;
-        text <=> root.text;
-        enabled: root.enabled;
+        text: root.text;
         font-family: Theme.font;
         font-size: Theme.body;
-        color: self.has-focus ? white : Theme.text;
-        selection-background-color: Theme.fill;
-        selection-foreground-color: white;
-        vertical-alignment: center;
-        single-line: true;
+        color: enabled ? Theme.ink : Theme.dis;
         horizontal-alignment: root.align-right ? right : left;
+        vertical-alignment: center;
+        overflow: elide;
         accessible-role: none;
-        edited => { root.edited(self.text); }
-        accepted => { root.accepted(); }
-        // Tab (or a click) into a box that has scrolled half out of sight brings it in
-        changed has-focus => { if (self.has-focus) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
-        key-pressed(e) => {
-            if (e.text == Key.DownArrow) { root.step(1); return accept; }
-            if (e.text == Key.UpArrow) { root.step(-1); return accept; }
-            if (e.text == Key.Escape && !root.escape-clears) { root.escaped(); return accept; }
-            if (e.text == Key.Escape && root.text != "") { root.text = ""; root.edited(""); return accept; }
-            reject
+    }
+    Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; hover: touch.has-hover; inert: !root.enabled; enabled: !input.has-focus; }
+    // The box is the TouchArea's child: a text box takes the pointer over its text, but a TouchArea round it still sees it, so the field hovers there too
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.text;
+        clicked => { input.focus(); }
+        // The 1px border, QSS's 10px padding and QLineEdit's own 2px margin
+        input := TextInput {
+            x: has-icon ? 39px : 13px;
+            width: root.width - self.x - (clearable && text != "" ? 30px : 13px);
+            height: root.height;
+            text <=> root.text;
+            enabled: root.enabled;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: self.has-focus ? Theme.ink : transparent;
+            selection-background-color: Theme.fill;
+            selection-foreground-color: Theme.on-fill;
+            vertical-alignment: center;
+            single-line: true;
+            horizontal-alignment: root.align-right ? right : left;
+            accessible-role: none;
+            edited => { root.edited(self.text); }
+            accepted => { root.accepted(); }
+            // Tab (or a click) into a box that has scrolled half out of sight brings it in
+            changed has-focus => { if (self.has-focus) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+            key-pressed(e) => {
+                if (e.text == Key.DownArrow) { root.step(1); return accept; }
+                if (e.text == Key.UpArrow) { root.step(-1); return accept; }
+                if (e.text == Key.Escape && !root.escape-clears) { root.escaped(); return accept; }
+                if (e.text == Key.Escape && root.text != "") { root.text = ""; root.edited(""); return accept; }
+                reject
+            }
         }
     }
     if clearable && text != "": Rectangle {
@@ -93,11 +124,11 @@ export component TextField inherits Rectangle {
         width: 20px;
         height: 20px;
         border-radius: 4px;
-        background: clear-touch.has-hover ? Theme.surface-hover : transparent;
+        background: clear-touch.has-hover ? Theme.hover : transparent;
         accessible-role: button;
         accessible-label: @tr("Clear");
         clear-touch := TouchArea { clicked => { root.text = ""; root.edited(""); input.focus(); } }
-        Icon { source: Icons.x; tint: Theme.text-dim; width: 12px; height: 12px; accessible-role: none; }
+        Icon { source: Icons.x; tint: Theme.ink2; width: 12px; height: 12px; accessible-role: none; }
     }
 }
 
@@ -105,9 +136,16 @@ export component TextField inherits Rectangle {
 // leaving the box the typed text goes out through committed and whoever holds the value keeps what makes sense of it,
 // held to its limits, and the box then shows `value` again, so empty or nonsense text can't stay.
 export component NumberField inherits Rectangle {
+    out property <string> control-kind: "field";
     // The current value as the box shows it
     in property <string> value;
+    // Dim text while the box is empty
+    in property <string> placeholder;
     in property <string> label;
+    in property <string> tip;
+    in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
     in property <bool> enabled: true;
     // Inside a popup: Enter leaves the focus here, the window's scope can't take it from a popup
     in property <bool> keeps-focus;
@@ -136,8 +174,11 @@ export component NumberField inherits Rectangle {
         width: parent.width;
         height: parent.height;
         text: root.value;
+        placeholder: root.placeholder;
         enabled: root.enabled;
         label: root.label;
+        tip: root.tip;
+        tip-detail: root.tip-detail; tip-hint: root.tip-hint;
         align-right: true;
         escape-clears: false;
         edited(text) => { root.edited(text); }
@@ -158,4 +199,109 @@ export component NumberField inherits Rectangle {
         }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+}
+
+// Kind "picker": a file a card takes, as the control that chooses it (the picture behind you, a LUT): a raised slot with the file's own small picture in it
+// and its name, or an empty slot ("Choose") until there is one. A file that can't be opened shows the red mark with the reason as its tooltip.
+// Clicking it (or Space or Enter) says `clicked`; the card opens its file dialog.
+export component PictureField inherits Rectangle {
+    in property <image> thumb;
+    in property <bool> has-picture;
+    // Something is chosen (a picture with no thumbnail, a LUT): its name reads in full ink, the empty slot's words dimmer
+    in property <bool> set: has-picture;
+    // The empty slot's glyph, and the thumbnail's place for something with no picture of its own
+    in property <image> empty-icon: Icons.photo;
+    // The file's name, or what the empty slot says
+    in property <string> name;
+    in property <string> problem;
+    // The red mark's tooltip name, over `problem`'s reason
+    in property <string> problem-title: @tr("Can't open this picture");
+    in property <bool> enabled: true;
+    in property <string> tip;
+    in property <string> tip-detail;
+    in property <color> hue: Theme.accent;
+    out property <string> control-kind: "picker";
+    callback clicked;
+    height: Theme.row;
+    horizontal-stretch: 1;
+    min-width: Theme.u(40);
+    border-radius: Theme.r-ctl;
+    background: !enabled ? Theme.trough : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : Theme.raise;
+    border-width: !enabled ? Theme.outline-w : Theme.ctl-outline-w(touch.has-hover, touch.pressed);
+    border-color: !enabled ? Theme.dis-outline : Theme.ctl-outline(touch.has-hover, touch.pressed);
+    animate background, border-width, border-color { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
+    accessible-role: button;
+    accessible-label: name;
+    accessible-description: problem != "" ? problem : tip;
+    accessible-action-default => { if (enabled) { clicked(); } }
+    forward-focus: focus;
+    changed enabled => { if (!enabled) { focus.clear-focus(); } }
+    focus := FocusScope {
+        enabled: root.enabled;
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+        key-pressed(e) => {
+            if (root.enabled && (e.text == " " || e.text == "\n")) { clicked(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: root.border-radius; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hover: touch.has-hover; focused: focus.has-focus && KeyFocus.keyboard; inert: !root.enabled; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
+        clicked => { root.clicked(); }
+    }
+    HorizontalLayout {
+        padding: Theme.u(3);
+        spacing: Theme.u(4);
+        // The slot: the picture cropped to it, or the empty slot's own glyph
+        Rectangle {
+            width: Theme.u(20);
+            border-radius: Theme.r-handle;
+            background: Theme.trough;
+            border-width: Theme.outline-w;
+            border-color: Theme.dis-outline;
+            clip: true;
+            // The picture takes the empty slot's place in one frame and comes up to full
+            if has-picture: Rectangle {
+                width: parent.width;
+                height: parent.height;
+                opacity: arrival.solid;
+                arrival := Arrival { }
+                Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: thumb;
+                    image-fit: cover;
+                    opacity: enabled ? 1 : 0.5;
+                }
+            }
+            if !has-picture: Icon {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                width: Theme.icon-small;
+                height: Theme.icon-small;
+                source: empty-icon;
+                tint: set ? hue : Theme.dis;
+            }
+        }
+        Text {
+            text: name;
+            overflow: elide;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-value;
+            color: !enabled ? Theme.dis : set ? Theme.ink : Theme.ink2;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            min-width: 0px;
+            accessible-role: none;
+        }
+        if problem != "": Rectangle {
+            width: Theme.u(8);
+            ProblemMark { y: (parent.height - self.height) / 2; says: problem-title; detail: problem; }
+        }
+        Rectangle { width: Theme.u(1); }
+    }
 }

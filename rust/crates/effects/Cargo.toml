@@ -14,6 +14,9 @@ rustls.workspace = true
 rqrr.workspace = true
 ring.workspace = true
 base64.workspace = true
+# The bundled photo the Framing bubble shows
+zune-jpeg.workspace = true
+zune-core.workspace = true
 ureq = { workspace = true, features = ["platform-verifier"] }
 
 [dev-dependencies]
@@ -21,6 +24,7 @@ i-slint-backend-testing = "=1.18.1"
 # the pipeline frame steps run on in the app, so tests run the real shaders
 telescope-media.workspace = true
 slint-interpreter.workspace = true
+slint.workspace = true
 telescope-ui-kit.workspace = true
 
 [target.'cfg(windows)'.dependencies]

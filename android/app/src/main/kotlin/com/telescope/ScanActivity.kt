@@ -15,6 +15,8 @@ class ScanActivity : CaptureActivity() {
         findViewById<TextView>(com.google.zxing.client.android.R.id.zxing_status_view).apply {
             (layoutParams as ViewGroup.MarginLayoutParams).bottomMargin = (48 * resources.displayMetrics.density).toInt()
             gravity = Gravity.CENTER
+            typeface = androidx.core.content.res.ResourcesCompat.getFont(this@ScanActivity, R.font.ibm_plex_sans_medium)
+            textSize = 15f
             val side = (24 * resources.displayMetrics.density).toInt()
             setPadding(side, 0, side, 0)
         }

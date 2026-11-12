@@ -6,16 +6,17 @@ use crate::layout::Region;
 use crate::shell::{Effect, State};
 use crate::source::{scan, to_json, to_property};
 use serde_json::Value;
-use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use slint_interpreter::{ComponentInstance, Struct, Value as SValue};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
+use telescope_core::bar::{self, BarStat};
 use telescope_core::config::ConfigFile;
 use telescope_core::event::Event;
-use telescope_core::i18n::tr;
+use telescope_core::i18n::{tr, Fields};
 use telescope_core::link::{RoutePrefs, StreamRequest};
 use telescope_core::plugin::{Plugin, PluginInfo};
 use telescope_core::services::Services;
@@ -85,6 +86,13 @@ pub struct Window {
     preview_timer: slint::Timer,
     /// The number of the frame the preview shows, so a frame isn't painted twice.
     painted: Cell<u64>,
+    /// The size the preview was last painted at, to notice a stage that changed under a stalled stream.
+    painted_size: Cell<(u32, u32)>,
+    /// The stage the last paint filled, so a resized stage can be told from a frame of another size
+    painted_stage: Cell<(u32, u32)>,
+    painted_source: Cell<u64>,
+    // A pass asked for the overlay to be drawn again and it hasn't been yet (the picture it goes on may still be being made)
+    overlay_pending: crate::preview::OverlayAsk,
     /// What passes on the preview (tint, analyse, paint) have in hand.
     passes: RefCell<crate::preview_passes::PassWork>,
     /// The layers' shapes last handed to the preview card, so they're only set again when they change.
@@ -100,11 +108,22 @@ pub struct Window {
     pub(crate) plugin_windows: RefCell<Vec<(String, String, ComponentInstance)>>,
     popout_asks: Cell<i32>,
     painted_gen: Cell<i32>,
+    /// The bar's pins that come back from hidden are put in place first and shown after this fires (bar.rs `View::returning`).
+    bar_reveal: RefCell<Option<crate::bar::View>>,
+    bar_timer: slint::Timer,
+    /// The bar's pins, one row for each pin that has had one. It is changed in place, never replaced, so each pin's element in the bar
+    /// lives on (and keeps its motion, or a drag that is under way) while a row's numbers change.
+    bar_rows: Rc<VecModel<SValue>>,
+    /// The banners the window draws, and their rows. Changed in place too, so a banner that is up keeps its motion, and a banner that
+    /// has gone keeps its row until its strip has shut (banners.rs `View`).
+    banner_view: RefCell<crate::banners::View>,
+    banner_rows: Rc<VecModel<SValue>>,
 }
 
 /// _PopoutWindow: the picture alone on black, in a window of its own.
 const POPOUT: &str = r#"
 import { PreviewMarks, PreviewPick, LensOutline, SkeletonLine } from "shell/preview.slint";
+import { FineAxis } from "@ui-kit/ui-kit.slint";
 
 export struct LayerPath { commands: string, stroke: color, width: length, fill: color, evenodd: bool }
 export struct LayerText { x: length, y: length, text: string, color: color, size: length }
@@ -201,6 +220,9 @@ export component PreviewPopout inherits Window {
         font: layer-font;
     }
     // The card's stage, as it's the same FrameLabel in Qt
+    // Shift while dragging goes finer: the picture follows a tenth of the pointer's travel
+    fine-u := FineAxis { }
+    fine-v := FineAxis { }
     if has-frame: TouchArea {
         mouse-cursor: stage-cursor == "cross" ? MouseCursor.crosshair : stage-cursor == "grab" ? MouseCursor.grab : stage-cursor == "grabbing" ? MouseCursor.grabbing : MouseCursor.default;
         pointer-event(e) => {
@@ -209,7 +231,13 @@ export component PreviewPopout inherits Window {
                 : e.button != PointerEventButton.left ? ""
                 : e.kind == PointerEventKind.down ? "down" : e.kind == PointerEventKind.up ? "up" : "";
             if kind != "" {
-                root.view-pointer(kind, (self.mouse-x - pic-x) / max(pic-width, 1px), (self.mouse-y - pic-y) / max(pic-height, 1px), pic-width / 1px, pic-height / 1px);
+                let u = (self.mouse-x - pic-x) / max(pic-width, 1px);
+                let v = (self.mouse-y - pic-y) / max(pic-height, 1px);
+                if kind == "down" {
+                    fine-u.begin(u);
+                    fine-v.begin(v);
+                }
+                root.view-pointer(kind, kind == "move" ? fine-u.at(u, e.modifiers.shift, -100000, 100000) : u, kind == "move" ? fine-v.at(v, e.modifiers.shift, -100000, 100000) : v, pic-width / 1px, pic-height / 1px);
             }
         }
         scroll-event(e) => {
@@ -405,8 +433,8 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
     let text = doc::window(&cards, &panels, &headers);
     let def = crate::compile::compile("window.slint", &text, files.clone(), "TelescopeWindow")?;
     let ui = def.create().map_err(|e| e.to_string())?;
+    crate::motion::apply(&ui);
     set_app_icon(&ui);
-
     let window = Rc::new(Window {
         state: Rc::new(RefCell::new(state)),
         ui,
@@ -422,6 +450,10 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         painter: RefCell::default(),
         preview_timer: slint::Timer::default(),
         painted: Cell::new(0),
+        painted_size: Cell::new((0, 0)),
+        painted_stage: Cell::new((0, 0)),
+        painted_source: Cell::new(0),
+        overlay_pending: Default::default(),
         passes: RefCell::default(),
         layers_drawn: RefCell::default(),
         logged: Cell::new(false),
@@ -431,6 +463,11 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         plugin_windows: RefCell::default(),
         popout_asks: Cell::new(0),
         painted_gen: Cell::new(0),
+        bar_reveal: RefCell::new(None),
+        bar_timer: slint::Timer::default(),
+        bar_rows: Rc::new(VecModel::default()),
+        banner_view: RefCell::default(),
+        banner_rows: Rc::new(VecModel::default()),
     });
     WINDOW.with(|w| *w.borrow_mut() = Some(window.clone()));
     window.streams.flow.borrow_mut().slot_memory = window.state.borrow().slot_memory.clone();
@@ -472,6 +509,14 @@ impl Window {
             let listed = st.shortcut_menu.iter().flat_map(|(_, b)| b).filter(|b| action.split(' ').any(|a| a == b.action))
                 .map(|b| crate::source::from_json(&serde_json::json!({"id": b.id, "text": b.text}))).collect::<Vec<_>>();
             SValue::Model(slint::ModelRc::new(slint::VecModel::from(listed)))
+        });
+        let state = self.state.clone();
+        let _ = self.ui.set_global_callback("Shortcuts", "key-chips", move |args| {
+            let action = match args.first() { Some(SValue::String(s)) => s.to_string(), _ => String::new() };
+            let st = state.borrow();
+            let first = st.shortcut_menu.iter().flat_map(|(_, b)| b).find(|b| action.split(' ').any(|a| a == b.action));
+            let chips = first.map(|b| crate::keys::key_chips(&b.text)).unwrap_or_default().into_iter().map(|k| SValue::String(k.into())).collect::<Vec<_>>();
+            SValue::Model(slint::ModelRc::new(slint::VecModel::from(chips)))
         });
         for callback in ["add", "edit"] {
             let weak = Rc::downgrade(self);
@@ -524,6 +569,7 @@ impl Window {
                 let _ = ui.set_callback(&format!("{}-{cb}", piece.id), move |args| {
                     if let Some(w) = weak.upgrade() {
                         let event = UiEvent { ui: ui_name.clone(), callback: callback.clone(), args: args.iter().map(to_json).collect() };
+                        crate::input::tips(&w.ui, "changed", &[]);
                         w.state.borrow_mut().ui_event(&plugin, event);
                         w.process();
                     }
@@ -581,6 +627,20 @@ impl Window {
             SValue::Void
         });
         let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("banner-closed", move |args| {
+            if let (Some(w), Some(SValue::String(key))) = (weak.upgrade(), args.first()) {
+                // Not inside the strip's own change handler: the row (and the strip) goes a moment after
+                let key = key.to_string();
+                let weak = Rc::downgrade(&w);
+                slint::Timer::single_shot(Duration::ZERO, move || {
+                    if let Some(w) = weak.upgrade() {
+                        w.banner_shut(&key);
+                    }
+                });
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
         let _ = ui.set_callback("banner-dismissed", move |args| {
             if let (Some(w), Some(SValue::String(key))) = (weak.upgrade(), args.first()) {
                 let pressed = w.state.borrow_mut().banners.dismiss(key);
@@ -597,6 +657,7 @@ impl Window {
             let input = crate::keys::key_input(&args[0], released, typing, w.modal());
             SValue::Bool(w.key(&input))
         });
+        self.wire_bar();
         let weak = Rc::downgrade(self);
         let _ = ui.set_callback("settings-clicked", move |_| {
             if let Some(w) = weak.upgrade() {
@@ -609,7 +670,185 @@ impl Window {
         self.show_idle();
     }
 
+    /// The bottom bar's callbacks: how it was measured, where a pin is held, an unpin from its menu.
+    fn wire_bar(self: &Rc<Self>) {
+        let _ = self.ui.set_property("bar-pins", SValue::Model(ModelRc::from(self.bar_rows.clone())));
+        let _ = self.ui.set_property("banners", SValue::Model(ModelRc::from(self.banner_rows.clone())));
+        let num = |v: &SValue| match v { SValue::Number(n) => *n as f32, _ => 0.0 };
+        let text = |v: &SValue| match v { SValue::String(s) => s.to_string(), _ => String::new() };
+        let ui = &self.ui;
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("bar-resized", move |_| {
+            if let Some(w) = weak.upgrade() {
+                w.process();
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("bar-pin-measured", move |args| {
+            if let (Some(w), [id, width, plain]) = (weak.upgrade(), args) {
+                w.state.borrow_mut().bar.measured(&text(id), num(width), num(plain));
+                w.show_bar();
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("bar-drag-started", move |args| {
+            if let (Some(w), Some(id)) = (weak.upgrade(), args.first()) {
+                w.state.borrow_mut().bar.drag_start(&text(id));
+                w.show_bar();
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("bar-drag-moved", move |args| {
+            if let (Some(w), [id, x]) = (weak.upgrade(), args) {
+                w.state.borrow_mut().bar.drag_to(&text(id), num(x));
+                w.show_bar();
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("bar-drag-ended", move |args| {
+            if let (Some(w), Some(id)) = (weak.upgrade(), args.first()) {
+                let moved = w.state.borrow_mut().bar.drag_end(&text(id));
+                if moved {
+                    w.state.borrow_mut().effects.push(Effect::SaveSoon);
+                }
+                w.process();
+            }
+            SValue::Void
+        });
+        let weak = Rc::downgrade(self);
+        let _ = ui.set_callback("bar-unpin", move |args| {
+            if let (Some(w), Some(id)) = (weak.upgrade(), args.first()) {
+                w.unpin_from_bar(&text(id));
+            }
+            SValue::Void
+        });
+    }
+
+    /// Takes a readout off the bar (its menu's Unpin), and tells the plugins.
+    pub fn unpin_from_bar(self: &Rc<Self>, id: &str) {
+        let mut st = self.state.borrow_mut();
+        if st.bar.pin(id, false) {
+            st.effects.push(Effect::SaveSoon);
+        }
+        drop(st);
+        self.process();
+    }
+
+    /// The bar's own readouts, from what the shown stream reported, and the pins as bar.rs lays them out now.
+    pub fn show_bar(self: &Rc<Self>) {
+        let text = |name: &str| match self.ui.get_property(name) { Ok(SValue::String(s)) => s.to_string(), _ => String::new() };
+        let number = |name: &str| match self.ui.get_property(name) { Ok(SValue::Number(n)) => n as f32, _ => 0.0 };
+        let reading = |value: String| if value == "-" { String::new() } else { value };
+        // The frame rate is said with its unit like the other readouts
+        let rate = |value: String| if value == "-" || value.is_empty() { String::new() } else { tr("{n} fps").field("n", value) };
+        let tone = |name: &str| match text(name).as_str() { "warn" => "warn", "err" => "err", _ => "" }.to_string();
+        let camera = text("status-camera");
+        let own = vec![
+            BarStat { sub: text("status-size"), tip: camera.clone(), ..BarStat::new(bar::CAMERA, &tr("Virtual camera"), "", &camera) },
+            BarStat { tip: text("fps-tip"), tone: tone("fps-tone"), ..BarStat::new(bar::FPS, &tr("Frame rate"), "film", &rate(text("fps"))) },
+            BarStat { tip: tr("How much data per second reaches this computer."), tone: tone("net-tone"), ..BarStat::new(bar::THROUGHPUT, &tr("Throughput"), "gauge", &reading(text("net"))) },
+        ];
+        let streams = self.streams.flow.try_borrow().ok().map(|flow| flow.sessions.streams.len());
+        let status_shown = camera.is_empty();
+        let _ = crate::same::set(&self.ui, "bar-status-shown", SValue::Bool(status_shown));
+        let view = {
+            let mut st = self.state.borrow_mut();
+            if let Some(n) = streams {
+                st.bar.set_streams(n);
+            }
+            st.bar.set_own(own);
+            st.bar.set_metrics(crate::bar::Metrics { width: number("bar-width"), pad: number("bar-pad"), gap: number("bar-gap"), chip: number("bar-chip") });
+            if let Some(ids) = st.bar.pins_changed() {
+                st.bus.emit(Event::BarPinsChanged { pinned: ids });
+            }
+            if !st.bar.take_dirty() {
+                return;
+            }
+            st.bar.view()
+        };
+        self.push_bar(view);
+    }
+
+    fn push_bar(self: &Rc<Self>, view: crate::bar::View) {
+        use crate::bar::State;
+        let rows = |view: &crate::bar::View, hold: &[String]| -> Vec<SValue> {
+            view.rows.iter().map(|r| {
+                let state = if hold.contains(&r.id) { State::Hidden } else { r.state };
+                SValue::Struct(Struct::from_iter([
+                    ("id".to_string(), SValue::String(r.id.as_str().into())),
+                    ("name".to_string(), SValue::String(r.name.as_str().into())),
+                    ("tip".to_string(), SValue::String(r.tip.as_str().into())),
+                    ("icon".to_string(), SValue::String(r.icon.as_str().into())),
+                    ("value".to_string(), SValue::String(r.value.as_str().into())),
+                    ("sub".to_string(), SValue::String(r.sub.as_str().into())),
+                    ("tone".to_string(), SValue::String(r.tone.as_str().into())),
+                    ("state".to_string(), SValue::Number(match state { State::Shown => 0.0, State::Folded => 1.0, State::Hidden => 2.0 })),
+                    ("side".to_string(), SValue::Number(if r.side == bar::Side::Left { 0.0 } else { 1.0 })),
+                    ("x".to_string(), SValue::Number(r.x as f64)),
+                    ("w".to_string(), SValue::Number(r.w as f64)),
+                    ("locked".to_string(), SValue::Bool(r.locked)),
+                ]))
+            }).collect()
+        };
+        let set_all = |view: &crate::bar::View, hold: &[String]| {
+            let ui = &self.ui;
+            for (i, row) in rows(view, hold).into_iter().enumerate() {
+                match self.bar_rows.row_data(i) {
+                    Some(old) if crate::same::equal(&old, &row) => {}
+                    Some(_) => self.bar_rows.set_row_data(i, row),
+                    None => self.bar_rows.push(row),
+                }
+            }
+            let chip = |c: &Option<crate::bar::Chip>| c.map_or((0.0, 0.0), |c| (c.count as f64, c.x as f64));
+            let ((ln, lx), (rn, rx)) = (chip(&view.left), chip(&view.right));
+            let _ = crate::same::set(ui, "bar-left-folded", SValue::Number(ln));
+            if ln > 0.0 {
+                let _ = crate::same::set(ui, "bar-left-chip-x", SValue::Number(lx));
+            }
+            let _ = crate::same::set(ui, "bar-right-folded", SValue::Number(rn));
+            if rn > 0.0 {
+                let _ = crate::same::set(ui, "bar-right-chip-x", SValue::Number(rx));
+            }
+            let _ = crate::same::set(ui, "bar-status-x", SValue::Number(view.status_x as f64));
+            let _ = crate::same::set(ui, "bar-status-room", SValue::Number(view.status_room as f64));
+        };
+        self.bar_timer.stop();
+        self.bar_reveal.borrow_mut().take();
+        if view.returning.is_empty() {
+            set_all(&view, &[]);
+            return;
+        }
+        // Pins coming back are put where they belong while they are still hidden, and shown a moment later
+        set_all(&view, &view.returning);
+        *self.bar_reveal.borrow_mut() = Some(view);
+        let weak = Rc::downgrade(self);
+        self.bar_timer.start(slint::TimerMode::SingleShot, Duration::from_millis(30), move || {
+            if let Some(w) = weak.upgrade() {
+                let view = w.bar_reveal.borrow_mut().take();
+                if let Some(view) = view {
+                    w.push_bar(crate::bar::View { returning: Vec::new(), ..view });
+                }
+            }
+        });
+    }
+
     /// Colour grading's compare: the shown stream's picture before its colour step left of the line.
+    /// What the Compare split of the shown frame is made from: its line and the before picture, the same for every retry of one frame.
+    fn colour_split_tag(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let st = self.state.borrow();
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        if let (Some(position), Some(id)) = (st.colour.split(), st.streams.source_id.as_deref()) {
+            position.to_bits().hash(&mut hasher);
+            st.colour_before.lock().unwrap().get(id).map(|b| std::sync::Arc::as_ptr(&b.data) as usize).hash(&mut hasher);
+        }
+        hasher.finish()
+    }
+
     pub fn with_colour_split(&self, frame: telescope_core::Frame) -> telescope_core::Frame {
         let st = self.state.borrow();
         let (Some(position), Some(id)) = (st.colour.split(), st.streams.source_id.as_deref()) else { return frame };
@@ -708,6 +947,7 @@ impl Window {
     pub fn process(self: &Rc<Self>) {
         self.sync_camera(); // the events below may be about it, and plugins read it back
         for _ in 0..50 {
+            self.show_bar();
             self.state.borrow_mut().deliver_events();
             let queued = self.state.borrow().effects.len();
             if queued == 0 {
@@ -728,6 +968,7 @@ impl Window {
         self.sync_camera();
         self.show_add_button();
         self.show_banners();
+        self.show_bar();
         self.paint_pick();
         self.paint_layers();
     }
@@ -777,25 +1018,36 @@ impl Window {
             return;
         }
         let Some((frame, number)) = self.preview_frame() else { return };
-        let frame = self.with_colour_split(frame);
+        // The Compare split is only made for a frame that gets painted; a pick under way needs it now
+        let picking = !self.state.borrow().overlays.picking().is_empty();
+        let frame = if picking { self.with_colour_split(frame) } else { frame };
         self.state.borrow_mut().overlays.shown_frame(&frame);
         if let Some(p) = &popout {
             fit_popout(p, frame.width, frame.height);
         }
         // A pass asked for the preview to be drawn again
-        let (passes, dirty) = {
+        let (passes, asked) = {
             let st = self.state.borrow();
             (crate::preview_passes::PassWork::sorted(&st.passes), st.preview_dirty.swap(false, std::sync::atomic::Ordering::SeqCst))
         };
-        if dirty {
+        if asked {
             self.painted.set(0);
         }
-        if number == self.painted.get() {
-            return;
-        }
-        // Half the frames on the card unless Smooth is on; what it skips only changes what's painted here
-        if !self.cadence.borrow_mut().due(number, popout.is_some() || on("smooth-on"), self.painted.get() == 0) {
-            return;
+        // Kept until the overlay is drawn: the picture it goes on may only land later
+        let dirty = self.overlay_pending.look(asked);
+        // A tint is painted a frame late, so a frame already painted is painted again once the worker's result for it is in: that is
+        // what brings a stream that stopped sending up to date
+        let tints = passes.iter().any(|(_, p)| p.tints());
+        let source = {
+            use std::hash::{Hash, Hasher};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            (stream_gen, self.preview_source()).hash(&mut hasher);
+            hasher.finish()
+        };
+        if self.painted_source.replace(source) != source {
+            if let Some(p) = self.painter.borrow_mut().as_mut() {
+                p.restart();
+            }
         }
         let stage = match &popout {
             Some(p) => (p.window().size().width, p.window().size().height),
@@ -808,27 +1060,62 @@ impl Window {
                 (px("stage-width"), px("stage-height"))
             }
         };
+        // A stalled stream's last frame is painted again when the stage it fills changed size
         let (w, h) = crate::preview::fit_within((frame.width, frame.height), stage);
+        let resized = self.painted_size.get() != (w, h);
+        let again = number == self.painted.get();
+        let ready = self.painter.borrow().as_ref().is_some_and(|p| p.ready());
+        // A tinting pass paints the picture itself: what the fallback finished meanwhile is dropped, or it would stay waiting for ever
+        if tints && ready {
+            if let Some(p) = self.painter.borrow_mut().as_mut() {
+                let _ = p.paint_ready(w, h);
+            }
+        }
+        let ready = ready && !tints;
+        if again && !resized && !ready && !(tints && self.passes.borrow().tint_newer(source)) {
+            return;
+        }
+        // Half the frames on the card unless Smooth is on; what it skips only changes what's painted here, and a resized stage paints at once
+        let due = again || self.cadence.borrow_mut().due(number, popout.is_some() || on("smooth-on"), self.painted.get() == 0 || self.painted_stage.get() != stage);
+        // A picture that finished off the window's thread goes up on its own, but the next one is only asked for when the cadence says
+        let take_only = match crate::preview::step(due, ready, tints) {
+            crate::preview::Step::Skip => return,
+            step => step == crate::preview::Step::Take,
+        };
+        let tag = crate::preview::paint_tag(self.colour_split_tag(), number);
+        let frame = if picking || take_only { frame } else { self.with_colour_split(frame) };
         if !self.logged.replace(true) {
             log::info!("Preview: {}x{} {:?} frames shown at {w}x{h}", frame.width, frame.height, frame.format);
         }
-        // Passes that tint the picture, or want a look at it, work on a CPU copy at the size it is painted at
-        let tinted = if self.passes.borrow().needs_copy(&passes) {
+        // Passes that tint the picture, or want a look at it, get a CPU copy at the size it is painted at, made on a worker so the
+        // window never waits on the graphics card for it; a tint is painted a frame late, from the worker's last result
+        let mut worker_up = true;
+        if !take_only && (!again || resized) && self.passes.borrow().needs_copy(&passes) {
             let scaler = || self.services.as_ref().map(|s| s.media.scaler());
-            let mut work = self.passes.borrow_mut();
-            work.copy(scaler, &frame, w, h).map(|copy| {
-                work.analyse(&passes, &copy, &self.state.borrow().preview_dirty);
-                let mut shown = copy;
-                crate::preview_passes::PassWork::tint(&passes, &mut shown);
-                shown
-            })
+            let dirty = self.state.borrow().preview_dirty.clone();
+            worker_up = self.passes.borrow_mut().submit(scaler, &passes, &frame, crate::preview_passes::FrameId { source, number }, (w, h), &dirty);
+        }
+        if !tints {
+            self.passes.borrow_mut().stop_tinting();
+        }
+        let tinted = if tints && worker_up {
+            // Nothing yet for this stream, run of tinting or size: what's up stays until the worker's first picture asks for a paint,
+            // unless the worker has had so long that it can't be making one
+            let image = self.passes.borrow_mut().tinted(w, h, source);
+            if image.is_none() && !self.passes.borrow().tint_gave_up() {
+                return;
+            }
+            image
         } else {
             None
         };
-        let image = match tinted.filter(|f| passes.iter().any(|(_, p)| p.tints()) && f.data.len() == (w * h * 4) as usize) {
-            Some(shown) => {
-                let rgb: Vec<u8> = shown.data.as_chunks::<4>().0.iter().flat_map(|p| [p[0], p[1], p[2]]).collect();
-                slint::Image::from_rgb8(slint::SharedPixelBuffer::<slint::Rgb8Pixel>::clone_from_slice(&rgb, w, h))
+        let image = match tinted {
+            Some(image) => image,
+            None if take_only => {
+                let Some(image) = self.painter.borrow_mut().as_mut().and_then(|p| p.paint_ready(w, h)) else { return };
+                self.painted_size.set((w, h));
+                self.painted_stage.set(stage);
+                image
             }
             None => {
                 let mut painter = self.painter.borrow_mut();
@@ -836,11 +1123,20 @@ impl Window {
                     let Some(services) = &self.services else { return };
                     *painter = Some(Box::new(crate::preview::CpuPainter(services.media.scaler())));
                 }
-                let Some(image) = painter.as_mut().and_then(|p| p.paint(&frame, w, h)) else { return };
+                let Some(image) = painter.as_mut().and_then(|p| {
+                    p.derived_from(tag);
+                    p.paint(&frame, w, h)
+                }) else {
+                    return;
+                };
                 image
             }
         };
-        self.painted.set(number);
+        if !take_only {
+            self.painted.set(number);
+            self.painted_size.set((w, h));
+            self.painted_stage.set(stage);
+        }
 
         let (target, id) = match &popout {
             Some(p) => (p, ""),
@@ -853,6 +1149,7 @@ impl Window {
         let mut work = self.passes.borrow_mut();
         let shown = crate::preview::shown_size((frame.width, frame.height), stage);
         if work.overlay_due(dirty, shown) {
+            self.overlay_pending.drawn();
             let overlay = work.overlay(&passes, shown.0, shown.1, self.ui.window().scale_factor());
             let _ = target.set_property(&name("has-overlay"), SValue::Bool(overlay.is_some()));
             if let Some(overlay) = overlay {
@@ -1028,6 +1325,15 @@ impl Window {
         done
     }
 
+    /// Sets one property of a plugin's card or header widget, as a scene does to put a card in a state no event gets it into.
+    pub fn set_card_property(self: &Rc<Self>, plugin: &str, ui: &str, prop: &str, value: &Value) -> bool {
+        let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else { return false };
+        let name = format!("{}-{prop}", r.id);
+        let done = self.ui.set_property(&name, to_property(&self.ui, &name, value)).is_ok();
+        self.process();
+        done
+    }
+
     /// Draws the preview through this from now on, in place of the graphics card's painter or the CPU's.
     pub fn use_painter(&self, painter: Box<dyn crate::preview::Painter>) {
         *self.painter.borrow_mut() = Some(painter);
@@ -1049,7 +1355,7 @@ impl Window {
         let (file, text) = source_of(plugin, id, &spec.ui);
         let component = &spec.ui.component;
         // Its file goes through the loader as a card's does, so its texts are translated
-        let doc = format!("export {{ {component} }} from \"{file}\";\nexport {{ KeyFocus, WindowBox }} from \"@ui-kit/ui-kit.slint\";\n");
+        let doc = format!("export {{ {component} }} from \"{file}\";\nexport {{ KeyFocus, WindowBox, Theme, Motion, Tips }} from \"@ui-kit/ui-kit.slint\";\n");
         let files = match &spec.ui.source {
             SlintSource::Text(_) => vec![(file.clone(), text.clone())],
             SlintSource::File(_) => Vec::new(),
@@ -1090,6 +1396,10 @@ impl Window {
         });
         crate::keys::watch_plugin_keys(&ui, Rc::downgrade(self));
         Self::set_window_props(&ui, plugin, id, &spec.ui.props);
+        if let Ok(look) = self.ui.get_global_property("Theme", "look") {
+            let _ = ui.set_global_property("Theme", "look", look);
+        }
+        crate::motion::apply(&ui);
         let _ = ui.show();
         crate::frame::dress(&ui);
         crate::parent::attach(&ui, &self.ui);
@@ -1118,7 +1428,7 @@ impl Window {
 
     fn set_window_props(ui: &ComponentInstance, plugin: &str, id: &str, props: &Value) {
         for (k, v) in props.as_object().into_iter().flatten() {
-            if let Err(e) = ui.set_property(k, to_property(ui, k, v)) {
+            if let Err(e) = crate::same::set(ui, k, to_property(ui, k, v)) {
                 log::warn!("{plugin} set {k} on its window {id}: {e:?}");
             }
         }
@@ -1130,14 +1440,15 @@ impl Window {
         }
         let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else {
             // Not a card or a header: one of its settings sections, if the settings window has been built
-            if let Some(settings) = crate::settings::current() {
-                settings.set_props(plugin, ui, props);
+            match crate::settings::current() {
+                Some(settings) => settings.set_props(plugin, ui, props),
+                None => crate::settings::hold_props(plugin, ui, props),
             }
             return;
         };
         for (k, v) in props.as_object().into_iter().flatten() {
             let name = format!("{}-{k}", r.id);
-            if let Err(e) = self.ui.set_property(&name, to_property(&self.ui, &name, v)) {
+            if let Err(e) = crate::same::set(&self.ui, &name, to_property(&self.ui, &name, v)) {
                 log::warn!("{plugin} set {k} on its {ui}: {e:?}");
             }
         }
@@ -1161,11 +1472,10 @@ impl Window {
                     log::warn!("{plugin} set {prop} on its {ui}: {e:?}");
                 }
             }
-            None => {
-                if let Some(settings) = crate::settings::current() {
-                    settings.set_image(plugin, ui, prop, image);
-                }
-            }
+            None => match crate::settings::current() {
+                Some(settings) => settings.set_image(plugin, ui, prop, image),
+                None => crate::settings::hold_image(plugin, ui, prop, image),
+            },
         }
     }
 
@@ -1255,7 +1565,24 @@ impl Window {
             Effect::CopyText(text) => self.copy_text(&text),
             Effect::PluginHues(on) => {
                 let _ = self.ui.set_global_property("Theme", "own-hues", SValue::Bool(on));
+                if let Some(question) = self.slots_question() {
+                    let _ = question.set_global_property("Theme", "own-hues", SValue::Bool(on));
+                }
                 crate::settings::set_hues(on);
+            }
+            Effect::Look(look) => {
+                let index = SValue::Number(look.index() as f64);
+                let _ = self.ui.set_global_property("Theme", "look", index.clone());
+                for (_, _, open) in self.plugin_windows.borrow().iter() {
+                    let _ = open.set_global_property("Theme", "look", index.clone());
+                    crate::frame::dress(open);
+                }
+                if let Some(question) = self.slots_question() {
+                    let _ = question.set_global_property("Theme", "look", index.clone());
+                    crate::frame::dress(&question);
+                }
+                crate::frame::dress(&self.ui);
+                crate::settings::set_look(look);
             }
             Effect::RestartCanvas { plugin, request, shows_command } => self.restart_canvas(&plugin, request, shows_command),
             Effect::RemoveExtras { plugin, request } => self.remove_extras(&plugin, request),
@@ -1326,23 +1653,33 @@ impl Window {
     }
 
     pub fn show_banners(&self) {
-        let s = self.state.borrow();
-        let rows: Vec<SValue> = s.banners.all().iter().map(|(key, issue)| {
-            let actions: Vec<SValue> = issue.actions.iter().map(|a| SValue::String(a.label.as_str().into())).collect();
-            SValue::Struct(Struct::from_iter([
-                ("key".to_string(), SValue::String(key.as_str().into())),
-                ("title".to_string(), SValue::String(issue.title.as_str().into())),
-                ("text".to_string(), SValue::String(issue.text.as_str().into())),
-                ("details".to_string(), SValue::String(issue.details.as_str().into())),
-                ("kind".to_string(), SValue::String(issue.kind.as_str().into())),
-                ("actions".to_string(), SValue::Model(ModelRc::new(VecModel::from(actions)))),
-            ]))
-        }).collect();
-        let _ = self.ui.set_property("banners", SValue::Model(ModelRc::new(VecModel::from(rows))));
+        let edits = self.banner_view.borrow_mut().sync(self.state.borrow().banners.all());
+        let view = self.banner_view.borrow();
+        for edit in edits {
+            match edit {
+                crate::banners::Edit::Insert(i) => self.banner_rows.insert(i, banner_row(&view.rows()[i])),
+                crate::banners::Edit::Set(i) => self.banner_rows.set_row_data(i, banner_row(&view.rows()[i])),
+            }
+        }
+    }
+
+    /// A banner's strip has shut: its row goes now, unless the banner has come back since.
+    fn banner_shut(&self, key: &str) {
+        let at = self.banner_view.borrow_mut().remove_shut(key);
+        if let Some(i) = at {
+            self.banner_rows.remove(i);
+        }
     }
 
     pub(crate) fn set(&self, name: &str, text: impl Into<SharedString>) {
-        let _ = self.ui.set_property(name, SValue::String(text.into()));
+        let text = text.into();
+        // The footer shows a stream by its camera and size, not the sentence that says them
+        if name == "status" {
+            let (camera, size) = streaming_parts(&text).unwrap_or_default();
+            let _ = self.ui.set_property("status-camera", SValue::String(camera.into()));
+            let _ = self.ui.set_property("status-size", SValue::String(size.into()));
+        }
+        let _ = self.ui.set_property(name, SValue::String(text));
     }
 
     /// _show_focus_stopped and the start button as it is while idle.
@@ -1469,6 +1806,22 @@ pub(crate) fn windowing() -> &'static str {
 }
 
 /// The window with every built-in plugin, on file.
+/// A banner's row for the window.
+fn banner_row(row: &crate::banners::Row) -> SValue {
+    let issue = &row.issue;
+    let actions: Vec<SValue> = issue.actions.iter().map(|a| SValue::String(a.label.as_str().into())).collect();
+    SValue::Struct(Struct::from_iter([
+        ("key".to_string(), SValue::String(row.key.as_str().into())),
+        ("title".to_string(), SValue::String(issue.title.as_str().into())),
+        ("text".to_string(), SValue::String(issue.text.as_str().into())),
+        ("details".to_string(), SValue::String(issue.details.as_str().into())),
+        ("kind".to_string(), SValue::String(issue.kind.as_str().into())),
+        ("actions".to_string(), SValue::Model(ModelRc::new(VecModel::from(actions)))),
+        ("open".to_string(), SValue::Bool(row.open)),
+        ("rev".to_string(), SValue::Number(f64::from(row.rev))),
+    ]))
+}
+
 pub fn build_app(file: ConfigFile, services: Arc<Services>, opts: Option<WindowOptions>) -> Result<Rc<Window>, String> {
     build(file, |bus| {
         let mut plugins = crate::plugins::builtins(Some(&services), bus);
@@ -1493,7 +1846,8 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         }
     }
     let window = build_app(ConfigFile::default(), services.clone(), Some(opts.clone()))?;
-    *window.painter.borrow_mut() = gpu_painter;
+    // Without the card's painter the picture is scaled on a thread of its own, so the window never waits on a readback
+    *window.painter.borrow_mut() = gpu_painter.or_else(|| Some(Box::new(crate::preview::ThreadedPainter::for_window(services.media.scaler())) as Box<dyn crate::preview::Painter>));
     if let Some(t0) = std::env::var("TELESCOPE_T0").ok().and_then(|v| v.parse::<u64>().ok()) {
         let mut done = false;
         let _ = window.ui.window().set_rendering_notifier(move |state, _| {
@@ -1508,6 +1862,8 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     let weak = Rc::downgrade(&window);
     window.preview_timer.start(slint::TimerMode::Repeated, Duration::from_millis(100), move || {
         if let Some(w) = weak.upgrade() {
+            let seen = w.ui.window().is_visible() && !w.ui.window().is_minimized();
+            w.streams.frame_unwanted.store(!(seen || w.popout.borrow().is_some()), std::sync::atomic::Ordering::SeqCst);
             w.paint_preview();
             w.paint_pick();
             w.paint_layers();
@@ -1562,6 +1918,8 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         window.show_window();
     }
     window.process();
+    // Building the cards' pages leaves freed memory behind
+    (app_hooks().release_memory)();
     slint::run_event_loop_until_quit().map_err(|e| e.to_string())?;
     drop(tray_timer);
     let _ = window.ui.hide();
@@ -1610,5 +1968,63 @@ mod popout_tests {
         size(500, 300);
         super::fit_popout(&p, 0, 0);
         assert_eq!(now(), (500, 300), "no frame to take the shape of");
+    }
+}
+
+/// The camera and the size in the sentence "Streaming {size} at {fps} fps to {camera}" (the worker's, in the person's language), or None
+/// for any other status.
+pub(crate) fn streaming_parts(text: &str) -> Option<(String, String)> {
+    let template = tr("Streaming {size} at {fps} fps to {camera}");
+    // The template's text between its blanks (one more of these than there are blanks) and the blanks' names
+    let (mut literals, mut names) = (vec![String::new()], Vec::new());
+    let mut rest = template.as_str();
+    while let Some(open) = rest.find('{') {
+        let close = rest[open..].find('}')? + open;
+        literals.last_mut()?.push_str(&rest[..open]);
+        names.push(&rest[open + 1..close]);
+        literals.push(String::new());
+        rest = &rest[close + 1..];
+    }
+    literals.last_mut()?.push_str(rest);
+    if !text.starts_with(literals[0].as_str()) {
+        return None;
+    }
+    let mut at = literals[0].len();
+    let (mut size, mut camera) = (None, None);
+    for (i, name) in names.iter().enumerate() {
+        let next = &literals[i + 1];
+        // A blank runs to the text after it, or to the end of the sentence when nothing follows
+        let (end, resume) = if i + 1 == names.len() && next.is_empty() { (text.len(), text.len()) } else {
+            let end = text[at..].find(next.as_str())? + at;
+            (end, end + next.len())
+        };
+        let value = text[at..end].to_string();
+        match *name {
+            "size" => size = Some(value),
+            "camera" => camera = Some(value),
+            _ => {}
+        }
+        at = resume;
+    }
+    Some((camera?, size?))
+}
+
+#[cfg(test)]
+mod streaming_parts_tests {
+    use super::streaming_parts;
+
+    #[test]
+    fn the_camera_and_size_come_out_of_the_streaming_sentence() {
+        assert_eq!(streaming_parts("Streaming 1920 \u{d7} 1080 at 30 fps to Phone Camera"), Some(("Phone Camera".into(), "1920 \u{d7} 1080".into())));
+        assert_eq!(streaming_parts("Streaming 4 \u{d7} 4 at 24 fps to Telescope"), Some(("Telescope".into(), "4 \u{d7} 4".into())));
+        // a camera whose own name has the words in it
+        assert_eq!(streaming_parts("Streaming 640 \u{d7} 480 at 15 fps to Cam to go"), Some(("Cam to go".into(), "640 \u{d7} 480".into())));
+    }
+
+    #[test]
+    fn any_other_status_is_left_as_it_is() {
+        for text in ["Not streaming", "Stream reconnected", "Reconnecting.", "Streaming", "", "Virtual camera error: busy"] {
+            assert_eq!(streaming_parts(text), None, "{text:?}");
+        }
     }
 }

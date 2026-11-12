@@ -21,3 +21,8 @@ test-group = "real-starts"
 [[profile.default.overrides]]
 filter = "binary(integration)"
 test-group = "pairing-port"
+
+# A test that waits on a message bus or a dialog has no business taking long: one that does is killed and fails instead of holding the run
+[[profile.default.overrides]]
+filter = "test(file_dialog)"
+slow-timeout = { period = "15s", terminate-after = 2 }

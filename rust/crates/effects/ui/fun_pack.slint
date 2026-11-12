@@ -1,8 +1,9 @@
 // The Fun pack card. Joined after parts.slint, which has the imports, and vision_status.slint.
 
 export component FunPackCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     in property <[string]> effect-items: [""];
     in property <int> effect: 0;
     in property <string> hint;
@@ -17,6 +18,8 @@ export component FunPackCard inherits Card {
     in property <string> clone-tip;
     in property <bool> show-clean;
     in property <string> clean-tip;
+    in property <string> clear-tip;
+    in property <string> direction-tip;
     in property <bool> show-clear;
     in property <bool> clear-enabled: true;
     // The five sliders in the card's order: Edges, Trails, Brightness, Spread, Smear
@@ -27,7 +30,6 @@ export component FunPackCard inherits Card {
     in property <[float]> slider-default: [3, 5, 6, 20, 0];
     in property <[string]> slider-tips: ["", "", "", "", ""];
     in property <[string]> slider-text: ["3", "5", "6", "20", "0"];
-    in property <string> reset-hint;
     in property <string> effect-tip;
     in property <bool> show-direction;
     in property <int> direction: 0;
@@ -44,151 +46,187 @@ export component FunPackCard inherits Card {
     callback direction-picked(int);
 
     title: @tr("Fun pack");
+    tip: @tr("Silly effects like clones, an invisibility cloak, light painting, retro looks and datamosh.");
     icon: Icons.sparkle;
-    opacity: active ? 1 : 0.4;
     enabled: active;
 
-    FormRow {
-        label: @tr("Effect");
-        ChoiceField {
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.sparkle;
+            label: @tr("Effect");
+            hue: root.hue;
             enabled: active;
-            compact: true;
-            items: effect-items;
-            current: effect;
-            caption: @tr("Effect");
-            shortcut: "fun_pack.effect";
-            picked(i) => { root.effect-picked(i); }
+            ChoiceField {
+                enabled: active;
+                compact: true;
+                items: effect-items;
+                current: effect;
+                caption: @tr("Effect");
+                tip: @tr("Effect");
+                tip-detail: hint;
+                shortcut: "fun_pack.effect";
+                picked(i) => { root.effect-picked(i); }
+            }
         }
-    }
-    if hint != "": Note {
-        text: hint;
-    }
-    if show-plate: HorizontalLayout {
-        spacing: 8px;
-        Button {
-            text: plate-text;
-            tip: plate-tip;
-            shortcut: "fun_pack.plate";
-            enabled: active && (plate-enabled);
-            clicked => { root.plate-clicked(); }
+        Unfolding {
+            open: show-plate;
+            HorizontalLayout {
+            spacing: Theme.u(4);
+            Button {
+                text: plate-text;
+                tip: plate-text;
+                tip-detail: plate-tip;
+                shortcut: "fun_pack.plate";
+                enabled: active && (plate-enabled);
+                clicked => { root.plate-clicked(); }
+            }
+            Rectangle { horizontal-stretch: 1; }
         }
-        Rectangle { horizontal-stretch: 1; }
-    }
-    if show-buttons: HorizontalLayout {
-        spacing: 8px;
-        if show-clone: Button {
-            text: clone-text;
-            tip: clone-tip;
-            shortcut: "fun_pack.clone";
-            enabled: active && (clone-enabled);
-            clicked => { root.clone-clicked(); }
         }
-        if show-clean: Button {
+        Unfolding {
+            open: show-buttons;
+            HorizontalLayout {
+            spacing: Theme.u(4);
+            if show-clone: Button {
+                text: clone-text;
+                tip: clone-text;
+                tip-detail: clone-tip;
+                shortcut: "fun_pack.clone";
+                enabled: active && (clone-enabled);
+                clicked => { root.clone-clicked(); }
+            }
+            if show-clean: Button {
+                enabled: active;
+                text: @tr("Clean up");
+                tip: @tr("Clean up");
+                tip-detail: clean-tip;
+                shortcut: "fun_pack.clean";
+                clicked => { root.clean-clicked(); }
+            }
+            if show-clear: Button {
+                text: @tr("Clear");
+                tip: @tr("Clear");
+                tip-detail: clear-tip;
+                enabled: active && (clear-enabled);
+                clicked => { root.clear-clicked(); }
+            }
+            Rectangle { horizontal-stretch: 1; }
+        }
+        }
+        // Hidden rows are left out, not shrunk: a shrunk one still gets the card's spacing
+        Unfolding {
+            open: slider-show[0];
+            RailSlider {
+            icon: Icons.edges;
             enabled: active;
-            text: @tr("Clean up");
-            tip: clean-tip;
-            shortcut: "fun_pack.clean";
-            clicked => { root.clean-clicked(); }
+            label: @tr("Edges");
+            tip-detail: slider-tips[0];
+            minimum: slider-min[0];
+            maximum: slider-max[0];
+            value: slider-value[0];
+            readout: slider-text[0];
+            hue: root.hue;
+            has-default: true;
+            default-value: slider-default[0];
+            moved(v) => { root.slider-moved(0, v); }
         }
-        if show-clear: Button {
-            text: @tr("Clear");
-            enabled: active && (clear-enabled);
-            clicked => { root.clear-clicked(); }
         }
-        Rectangle { horizontal-stretch: 1; }
-    }
-    // Hidden rows are left out, not shrunk: a shrunk one still gets the card's spacing
-    if slider-show[0]: SliderRow {
-        enabled: active;
-        label: @tr("Edges");
-        tip: slider-tips[0];
-        minimum: slider-min[0];
-        maximum: slider-max[0];
-        value: slider-value[0];
-        readout: slider-text[0];
-        hue: root.hue;
-        has-default: true;
-        default-value: slider-default[0];
-        hint: root.reset-hint;
-        moved(v) => { root.slider-moved(0, v); }
-    }
-    if slider-show[1]: SliderRow {
-        enabled: active;
-        label: @tr("Trails");
-        tip: slider-tips[1];
-        minimum: slider-min[1];
-        maximum: slider-max[1];
-        value: slider-value[1];
-        readout: slider-text[1];
-        hue: root.hue;
-        has-default: true;
-        default-value: slider-default[1];
-        hint: root.reset-hint;
-        moved(v) => { root.slider-moved(1, v); }
-    }
-    if slider-show[2]: SliderRow {
-        enabled: active;
-        label: @tr("Brightness");
-        tip: slider-tips[2];
-        minimum: slider-min[2];
-        maximum: slider-max[2];
-        value: slider-value[2];
-        readout: slider-text[2];
-        hue: root.hue;
-        has-default: true;
-        default-value: slider-default[2];
-        hint: root.reset-hint;
-        moved(v) => { root.slider-moved(2, v); }
-    }
-    if slider-show[3]: SliderRow {
-        enabled: active;
-        label: @tr("Spread");
-        tip: slider-tips[3];
-        minimum: slider-min[3];
-        maximum: slider-max[3];
-        value: slider-value[3];
-        readout: slider-text[3];
-        hue: root.hue;
-        has-default: true;
-        default-value: slider-default[3];
-        hint: root.reset-hint;
-        moved(v) => { root.slider-moved(3, v); }
-    }
-    if slider-show[4]: SliderRow {
-        enabled: active;
-        label: @tr("Smear");
-        tip: slider-tips[4];
-        shortcut: "fun_pack.smear";
-        minimum: slider-min[4];
-        maximum: slider-max[4];
-        value: slider-value[4];
-        readout: slider-text[4];
-        hue: root.hue;
-        has-default: true;
-        default-value: slider-default[4];
-        hint: root.reset-hint;
-        moved(v) => { root.slider-moved(4, v); }
-    }
-    if show-direction: FormRow {
-        label: @tr("Direction");
-        Segmented {
-            items: [@tr("Down"), @tr("Across")];
-            disabled: [!active, !active];
-            has-icons: [false, false];
-            icons: [Icons.sparkle, Icons.sparkle];
+        Unfolding {
+            open: slider-show[1];
+            RailSlider {
+            icon: Icons.trails;
+            enabled: active;
+            label: @tr("Trails");
+            tip-detail: slider-tips[1];
+            minimum: slider-min[1];
+            maximum: slider-max[1];
+            value: slider-value[1];
+            readout: slider-text[1];
+            hue: root.hue;
+            has-default: true;
+            default-value: slider-default[1];
+            moved(v) => { root.slider-moved(1, v); }
+        }
+        }
+        Unfolding {
+            open: slider-show[2];
+            RailSlider {
+            icon: Icons.sun;
+            enabled: active;
+            label: @tr("Brightness");
+            tip-detail: slider-tips[2];
+            minimum: slider-min[2];
+            maximum: slider-max[2];
+            value: slider-value[2];
+            readout: slider-text[2];
+            hue: root.hue;
+            has-default: true;
+            default-value: slider-default[2];
+            moved(v) => { root.slider-moved(2, v); }
+        }
+        }
+        Unfolding {
+            open: slider-show[3];
+            RailSlider {
+            icon: Icons.stretch;
+            enabled: active;
+            label: @tr("Spread");
+            tip-detail: slider-tips[3];
+            minimum: slider-min[3];
+            maximum: slider-max[3];
+            value: slider-value[3];
+            readout: slider-text[3];
+            hue: root.hue;
+            has-default: true;
+            default-value: slider-default[3];
+            moved(v) => { root.slider-moved(3, v); }
+        }
+        }
+        Unfolding {
+            open: slider-show[4];
+            RailSlider {
+            icon: Icons.distortion;
+            enabled: active;
+            label: @tr("Smear");
+            tip-detail: slider-tips[4];
+            shortcut: "fun_pack.smear";
+            minimum: slider-min[4];
+            maximum: slider-max[4];
+            value: slider-value[4];
+            readout: slider-text[4];
+            hue: root.hue;
+            has-default: true;
+            default-value: slider-default[4];
+            moved(v) => { root.slider-moved(4, v); }
+        }
+        }
+        Unfolding {
+            open: show-direction;
+            RailRow {
+            icon: Icons.pan;
             label: @tr("Direction");
-            current: direction;
-            picked(i) => { root.direction-picked(i); }
+            hue: root.hue;
+            enabled: active;
+            Segmented {
+                hue: root.hue;
+                items: [@tr("Down"), @tr("Across")];
+                tips: [@tr("Down"), @tr("Across")];
+                tip-details: [direction-tip, direction-tip];
+                disabled: [!active, !active];
+                has-icons: [false, false];
+                icons: [Icons.sparkle, Icons.sparkle];
+                label: @tr("Direction");
+                current: direction;
+                picked(i) => { root.direction-picked(i); }
+            }
         }
-    }
-    if problem != "": Note {
-        text: problem;
-        kind: "status_warn";
-    }
-    if vision-text != "": VisionStatus {
-        text: vision-text;
-        download: vision-download;
-        download-clicked => { root.download-clicked(); }
+        }
+        StatusUnfold { text: problem != "" ? @tr("Not ready") : ""; kind: "status_warn"; detail: problem; }
+        VisionStatus {
+            text: vision-text;
+            download: vision-download;
+            download-clicked => { root.download-clicked(); }
+        }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;

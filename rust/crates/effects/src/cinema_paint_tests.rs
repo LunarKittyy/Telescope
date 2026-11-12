@@ -183,3 +183,93 @@ fn a_scope_shrinks_as_qt_draws_it_without_see_through_pixels_darkening_it() {
         assert!((p[3] as i32 - want).abs() <= 1, "column {x}: {} against Qt's {want}", p[3]);
     }
 }
+
+/// paint() on the layer against paint_canvas() on it, which paints from nothing: the same pixels, or both nothing.
+fn same_paint(layer: &CinemaLayer, w: usize, h: usize, scale: f64, what: &str) {
+    let fast = layer.paint(w as u32, h as u32, scale as f32);
+    match (fast, layer.paint_canvas(w, h, scale)) {
+        (None, None) => {}
+        (Some(frame), Some(canvas)) => assert!(*frame.data == canvas.data, "{what}"),
+        (fast, slow) => panic!("{what}: {} against {}", fast.is_some(), slow.is_some()),
+    }
+}
+
+/// A picture with something different in it for each seed, for the scope to draw.
+fn scene(seed: u32) -> Rgb {
+    let mut rgb = Rgb::filled(96, 54, [0; 3]);
+    for (i, v) in rgb.data.iter_mut().enumerate() {
+        *v = ((i as u32 * (7 + seed * 3) / 5) % 256) as u8;
+    }
+    rgb
+}
+
+#[test]
+fn the_kept_paint_matches_painting_from_nothing_as_things_change() {
+    let (now, read) = clock();
+    let layer = CinemaLayer::with_clock(read);
+    let level = |roll: f64| Level { roll: Some(roll), pitch: 2.5, roll_level: false, pitch_level: false };
+    layer.set_look(Look { guides: "thirds", false_colour: true, scope: "waveform", ..Look::default() });
+    same_paint(&layer, 640, 360, 1.0, "guides and legend, no scope picture yet");
+    layer.analyse_rgb(&scene(1));
+    same_paint(&layer, 640, 360, 1.0, "a scope");
+    // a scope that moves, the preview letting go of each picture before the next
+    for seed in 2..6 {
+        layer.analyse_rgb(&scene(seed));
+        same_paint(&layer, 640, 360, 1.0, "the scope moved");
+    }
+    // the level guide, tilting
+    layer.set_look(Look { guides: "thirds", false_colour: true, scope: "waveform", level: true, ..Look::default() });
+    for roll in [0.0, 3.0, -7.5, 12.0] {
+        layer.set_level(Some((level(roll), 100.0)));
+        same_paint(&layer, 640, 360, 1.0, "the level tilted");
+    }
+    // a picture handed out stays as it was while a newer one is painted
+    let held = layer.paint(640, 360, 1.0).expect("a picture");
+    let before = (*held.data).clone();
+    layer.analyse_rgb(&scene(7));
+    layer.set_level(Some((level(-3.0), 100.0)));
+    same_paint(&layer, 640, 360, 1.0, "painted while the last was still held");
+    assert!(*held.data == before, "a picture handed out is never drawn on again");
+    drop(held);
+    // a guide taken away and another put, the legend gone
+    layer.set_look(Look { guides: "golden", scope: "waveform", level: true, ..Look::default() });
+    same_paint(&layer, 640, 360, 1.0, "other guides");
+    // another size, then another scale
+    same_paint(&layer, 500, 300, 1.0, "resized");
+    same_paint(&layer, 500, 300, 1.5, "rescaled");
+    // a scope picked that has no picture yet, the level going stale, then everything off
+    layer.set_look(Look { scope: "parade", level: true, ..Look::default() });
+    same_paint(&layer, 500, 300, 1.5, "a scope not worked out yet");
+    set(&now, 100.0 + LEVEL_STALE_S + 1.0);
+    same_paint(&layer, 500, 300, 1.5, "a stale level");
+    assert!(layer.paint(500, 300, 1.5).is_none());
+    layer.set_look(Look::default());
+    assert!(layer.paint(500, 300, 1.5).is_none());
+}
+
+#[test]
+fn the_kept_pictures_are_let_go_when_they_are_no_use() {
+    let layer = CinemaLayer::default();
+    let kept = |layer: &CinemaLayer| {
+        let cache = layer.cache.lock().unwrap();
+        (cache.still.is_some(), cache.held.is_some())
+    };
+    layer.set_look(Look { guides: "thirds", scope: "waveform", ..Look::default() });
+    layer.analyse_rgb(&scene(1));
+    assert!(layer.paint(320, 180, 1.0).is_some());
+    assert_eq!(kept(&layer), (true, true));
+    // The scope off: the guides stay, the picture the scope was on goes
+    layer.set_look(Look { guides: "thirds", ..Look::default() });
+    assert!(layer.paint(320, 180, 1.0).is_some());
+    assert_eq!(kept(&layer), (true, false));
+    // Every tool off, with or without another paint: nothing is kept
+    layer.set_look(Look { guides: "thirds", scope: "waveform", ..Look::default() });
+    assert!(layer.paint(320, 180, 1.0).is_some());
+    layer.set_look(Look::default());
+    assert_eq!(kept(&layer), (false, false));
+    layer.set_look(Look { peaking: true, scope: "waveform", ..Look::default() });
+    assert!(layer.paint(320, 180, 1.0).is_some());
+    layer.set_look(Look { peaking: true, ..Look::default() });
+    assert!(layer.paint(320, 180, 1.0).is_none());
+    assert_eq!(kept(&layer), (false, false));
+}

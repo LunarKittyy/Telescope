@@ -346,7 +346,7 @@ fn cpu(step: Option<FrameStep>) -> Box<dyn CpuStep> {
 }
 
 /// Runs the frame through the step and waits for its thread's answer (what it posted).
-fn look(step: &mut dyn CpuStep, frame: &Frame, host: &FakeHost) -> Value {
+fn look_via(step: &mut dyn CpuStep, frame: &Frame, host: &FakeHost) -> Value {
     let mut copy = frame.clone();
     step.process(&mut copy, &NoContext);
     assert!(std::sync::Arc::ptr_eq(&copy.data, &frame.data), "the frame goes on unchanged");
@@ -373,14 +373,14 @@ fn a_code_in_the_picture_goes_to_the_clipboard_once() {
     rig.set_config(json!({"on": true}));
     assert!(rig.host.layers.contains_key(NAME));
     // One look isn't enough to outline it
-    let answer = look(&mut *step, &frame, &rig.host);
+    let answer = look_via(&mut *step, &frame, &rig.host);
     assert_eq!(answer["text"], "WIFI:T:WPA;S:Telescope;P:hunter22;;");
     rig.event(Event::Posted { owner: NAME.into(), token: "found".into(), data: answer });
     assert!(rig.outline() == 0 && rig.plugin.steady.pending());
     for _ in 0..2 {
         // While a code waits to be confirmed it's looked at sooner
         std::thread::sleep(Duration::from_millis(120));
-        let answer = look(&mut *step, &frame, &rig.host);
+        let answer = look_via(&mut *step, &frame, &rig.host);
         rig.event(Event::Posted { owner: NAME.into(), token: "found".into(), data: answer });
     }
     assert_eq!(rig.host.clipboard.as_deref(), Some("hunter22"));
@@ -404,12 +404,47 @@ fn a_code_in_the_picture_goes_to_the_clipboard_once() {
 }
 
 #[test]
+fn a_step_dropped_with_a_picture_waiting_leaves_the_next_step_able_to_look() {
+    let mut rig = Rig::new();
+    rig.set_config(json!({"on": true}));
+    let (shared, poster) = (rig.plugin.shared.clone(), rig.plugin.poster.clone().unwrap());
+    // A picture queued but never taken, as when the step goes while its worker hasn't woken yet
+    let waiting = Reader::new(shared.clone(), poster);
+    shared.busy.store(true, Ordering::SeqCst);
+    *waiting.slot.frame.lock().unwrap() = Some(video_frame("hello"));
+    drop(waiting);
+    assert!(!shared.busy.load(Ordering::SeqCst), "the dropped step's look is over");
+    // And through the real thing: queue a frame, drop at once, a new step still answers
+    let frame = video_frame("WIFI:T:WPA;S:Telescope;P:hunter22;;");
+    for _ in 0..20 {
+        let mut old = cpu(rig.plugin.frame_step());
+        old.process(&mut frame.clone(), &NoContext);
+        drop(old);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while shared.busy.load(Ordering::SeqCst) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        rig.host.take_posted();
+        *shared.looked_at.lock().unwrap() = None;
+        let mut next = cpu(rig.plugin.frame_step());
+        assert_eq!(look_via(&mut *next, &frame, &rig.host)["text"], "WIFI:T:WPA;S:Telescope;P:hunter22;;");
+        drop(next);
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while shared.busy.load(Ordering::SeqCst) && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        rig.host.take_posted();
+        *shared.looked_at.lock().unwrap() = None;
+    }
+}
+
+#[test]
 fn a_wide_frame_is_shrunk_before_it_is_looked_at() {
     let mut rig = Rig::new();
     rig.set_config(json!({"on": true}));
     let mut step = cpu(rig.plugin.frame_step());
     let big = Frame::new(2560, 1440, PixelFormat::Rgba, vec![90; 2560 * 1440 * 4]);
-    let answer = look(&mut *step, &big, &rig.host);
+    let answer = look_via(&mut *step, &big, &rig.host);
     assert_eq!((answer["text"].as_str(), answer["corners"].is_null()), (Some(""), true));
 }
 
@@ -485,7 +520,7 @@ fn a_copy_wayland_ignores_says_to_click_copy() {
     rig.read("https://example.com");
     rig.timer("check");
     assert_eq!(rig.host.clipboard.as_deref(), Some("old"));
-    assert!(rig.props()["status"].as_str().unwrap().contains("Click Copy"));
+    assert!(rig.props()["status"].as_str().unwrap().contains("Found a code"));
     assert_eq!(rig.props()["status-kind"], "status_warn");
     assert_eq!(rig.notified(), ["send_notification QR code found"]);
     rig.host.clipboard_deaf = false;
@@ -590,7 +625,7 @@ fn a_new_step_keeps_to_the_same_pace() {
     rig.set_config(json!({"on": true}));
     let frame = video_frame("https://example.com");
     let mut step = cpu(rig.plugin.frame_step());
-    look(&mut *step, &frame, &rig.host);
+    look_via(&mut *step, &frame, &rig.host);
     let deadline = Instant::now() + Duration::from_secs(5);
     while rig.plugin.shared.busy.load(Ordering::SeqCst) {
         assert!(Instant::now() < deadline, "the look never finished");
@@ -602,4 +637,55 @@ fn a_new_step_keeps_to_the_same_pace() {
     let mut copy = frame.clone();
     next.process(&mut copy, &NoContext);
     assert!(!rig.plugin.shared.busy.load(Ordering::SeqCst));
+}
+
+/// A video frame of the given size with a code in it, luma only.
+fn sized_video_frame(text: &str, (w, h): (usize, usize), scale: usize) -> Frame {
+    let grey = code_picture(text, scale, (w, h), (w * 2 / 5, h / 5), 90);
+    let mut data: Vec<u8> = grey.iter().map(|g| (*g as f32 * 219.0 / 255.0 + 16.0).round() as u8).collect();
+    data.extend(vec![128; 2 * (w / 2) * (h / 2)]);
+    Frame::new(w as u32, h as u32, PixelFormat::I420, data)
+}
+
+#[test]
+fn a_4k_video_frame_is_read_from_its_y_plane() {
+    let frame = sized_video_frame("https://example.com/telescope", (3840, 2160), 18);
+    let (text, _) = look(&frame).unwrap().expect("a code");
+    assert_eq!(text, "https://example.com/telescope");
+    let mut nv12 = frame.clone();
+    nv12.format = PixelFormat::Nv12;
+    assert_eq!(look(&nv12).unwrap().map(|r| r.0).as_deref(), Some("https://example.com/telescope"));
+}
+
+#[test]
+fn the_worker_answers_every_look_and_stops_with_the_step() {
+    let mut rig = Rig::new();
+    rig.set_config(json!({"on": true}));
+    let mut step = cpu(rig.plugin.frame_step());
+    let frame = video_frame("hello");
+    for _ in 0..3 {
+        assert_eq!(look_via(&mut *step, &frame, &rig.host)["text"], "hello");
+        std::thread::sleep(Duration::from_millis(310));
+    }
+    drop(step);
+}
+
+#[test]
+#[ignore = "timing"]
+fn bench_look_at_1080p_and_4k() {
+    for (name, frame) in [("1080p", sized_video_frame("bench", (1920, 1080), 9)), ("4k", sized_video_frame("bench", (3840, 2160), 18))] {
+        let t = Instant::now();
+        for _ in 0..20 {
+            look(&frame).unwrap();
+        }
+        eprintln!("{name}: {:.2} ms a look (Y plane)", t.elapsed().as_secs_f64() * 50.0);
+        let (w, h) = (frame.width as usize, frame.height as usize);
+        let (dw, dh) = (1280, (h * 1280 / w).max(1));
+        let t = Instant::now();
+        for _ in 0..20 {
+            let rgb = Rgb::from_frame(&frame).unwrap();
+            try_read_code(&rgb.area(dw, dh).gray().data, dw, dh).unwrap();
+        }
+        eprintln!("{name}: {:.2} ms a look (old, through RGB)", t.elapsed().as_secs_f64() * 50.0);
+    }
 }

@@ -448,11 +448,11 @@ impl Connection {
         let now_on = if self.stream_route().is_some_and(|r| is_usb(&r)) { "USB" } else { "Wi-Fi" };
         let kept = route_choice_label(self.route_pref);
         let hint = match preference {
-            RoutePreference::Usb => format!(" {}", tr("Check the cable and that Telescope is open on the phone.")),
-            RoutePreference::Wifi => format!(" {}", tr("Check that it's on the same network as this computer.")),
+            RoutePreference::Usb => format!(" {}", tr("Check the cable and the phone app.")),
+            RoutePreference::Wifi => format!(" {}", tr("Check it's on the same network.")),
             RoutePreference::Auto => String::new(),
         };
-        let text = tr("Still streaming over {now}, so Connect via stays on {kept}.").field("now", now_on).field("kept", &kept) + &hint;
+        let text = tr("Still streaming over {now}, so it stays on {kept}.").field("now", now_on).field("kept", &kept) + &hint;
         ProbeOutcome::Refuse { title, text, preference }
     }
 
@@ -811,15 +811,15 @@ fn with_phone(text: String, phone: &str) -> String {
 
 /// (status kind, short text) for the card's Phone row.
 pub fn status_line(res: Option<&Resolution>) -> (&'static str, String) {
-    let Some(res) = res else { return ("status_dim", tr("Checking…")) };
+    let Some(res) = res else { return ("status_dim", tr("Checking")) };
     match res.status {
         PhoneStatus::Ready => ("status_ok", tr("Ready")),
-        PhoneStatus::Unreachable => ("status_warn", format!("○ {}", tr("Can't reach the phone"))),
-        PhoneStatus::NotPaired => ("status_err", format!("○ {}", tr("Needs pairing again"))),
-        PhoneStatus::LocalOnly => ("status_warn", format!("○ {}", tr("Phone accepts USB only"))),
-        PhoneStatus::UsbNeedsAttention => ("status_warn", format!("○ {}", tr("USB not available"))),
-        PhoneStatus::PhoneOutdated => ("status_warn", format!("○ {}", tr("Phone app needs an update"))),
-        PhoneStatus::DesktopOutdated => ("status_warn", format!("○ {}", tr("This app needs an update"))),
+        PhoneStatus::Unreachable => ("status_warn", tr("Can't reach the phone")),
+        PhoneStatus::NotPaired => ("status_err", tr("Needs pairing again")),
+        PhoneStatus::LocalOnly => ("status_warn", tr("Phone accepts USB only")),
+        PhoneStatus::UsbNeedsAttention => ("status_warn", tr("USB not available")),
+        PhoneStatus::PhoneOutdated => ("status_warn", tr("Phone app needs an update")),
+        PhoneStatus::DesktopOutdated => ("status_warn", tr("This app needs an update")),
     }
 }
 
@@ -1160,7 +1160,7 @@ mod tests {
 
     #[test]
     fn status_line_covers_every_state() {
-        assert_eq!(status_line(None), ("status_dim", "Checking…".to_string()));
+        assert_eq!(status_line(None), ("status_dim", "Checking".to_string()));
         assert_eq!(status_line(Some(&ready(wifi()))).0, "status_ok");
         for s in [PhoneStatus::Unreachable, PhoneStatus::LocalOnly, PhoneStatus::UsbNeedsAttention, PhoneStatus::PhoneOutdated, PhoneStatus::DesktopOutdated] {
             assert_eq!(status_line(Some(&Resolution::new(s))).0, "status_warn");
@@ -1415,7 +1415,7 @@ mod tests {
         let outcome = c.on_route_probed(probe_id, &phone.id, preference, &Resolution::new(PhoneStatus::Unreachable), true, 1.0);
         let ProbeOutcome::Refuse { title, text, .. } = outcome else { panic!("{outcome:?}") };
         assert_eq!(title, "Can't reach Pixel over Wi-Fi");
-        assert!(text.contains("Still streaming over USB, so Connect via stays on Automatic."));
+        assert!(text.contains("Still streaming over USB, so it stays on Automatic."));
         assert_eq!(c.route_pref, RoutePreference::Auto);
         // Try again, on the same Wi-Fi now
         let RouteChange::Probe { probe_id, phone, preference } = c.set_route_preference(RoutePreference::Wifi, true, 2.0) else { panic!() };

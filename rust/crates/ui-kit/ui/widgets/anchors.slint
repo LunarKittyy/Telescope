@@ -1,0 +1,180 @@
+// A small picture of a frame with a place to put something in it: one of a few anchors, picked by a click on it.
+
+import { Theme } from "../theme.slint";
+import { Reveal } from "folds.slint";
+import { FocusRing, KeyFocus, TouchRing } from "basics.slint";
+import { Tip } from "tip.slint";
+import { Worm } from "motion.slint";
+
+// Kind "segmented", the options laid out as the places they stand for (a name tag's corner): each anchor is a dot in a recessed
+// frame with the outline of a picture inside it, and the picked one is a bar in the card's colour with the thick outline. `across` and `down` place option i from 0 (left,
+// top) to 1 (right, bottom); `moves` says where an arrow goes from option i, four numbers each in the order left, right, up, down
+// (-1 for nowhere). The name of an option is its tooltip. Picking, Tab stops, Space and Enter work like Segmented's.
+export component AnchorFrame inherits Rectangle {
+    in property <[string]> items;
+    in property <[float]> across;
+    in property <[float]> down;
+    in property <[int]> moves;
+    in property <string> label;
+    in property <bool> enabled: true;
+    // Where the parent says it is. Picking never writes here, so a parent's `current: position` keeps following position.
+    in-out property <int> current: 0;
+    property <int> local;
+    property <bool> touched;
+    out property <int> shown: touched ? local : current;
+    changed current => { touched = false; }
+    // The card's colour, for the picked bar's outline
+    in property <color> hue: Theme.accent;
+    in property <string> shortcut;
+    in property <string> setting;
+    // What a click on an anchor reaches, square
+    in property <length> hit: Theme.u(18);
+    // The picked bar's size and the room the anchors keep from the frame's edge
+    in property <length> bar-w: Theme.u(15);
+    in property <length> bar-h: Theme.u(5);
+    in property <length> inset: Theme.u(6);
+    out property <string> control-kind: "segmented";
+    callback picked(int);
+    function pick(i: int) {
+        if (enabled) {
+            worm.sync();
+            local = i;
+            touched = true;
+            picked(i);
+        }
+    }
+    // The anchor an arrow key sends the focus to, with how often that was asked so the same one can be asked again
+    property <int> arrow-to;
+    property <int> arrows;
+    function go(from: int, way: int) {
+        let to = moves.length > from * 4 + way ? moves[from * 4 + way] : -1;
+        if (to < 0 || to >= items.length) {
+            return;
+        }
+        if (from == shown) {
+            pick(to);
+        }
+        arrow-to = to;
+        arrows += 1;
+    }
+    // Where the picked outline is now, for a test
+    out property <length> worm-left: worm.left;
+    out property <length> worm-right: worm.right;
+    out property <length> worm-top: worm.top;
+    out property <length> worm-bottom: worm.bottom;
+    // The anchor held down (-1 for none)
+    property <int> held-i: -1;
+    min-height: Theme.u(30);
+    preferred-height: Theme.u(49);
+    border-radius: Theme.r-ctl;
+    background: enabled ? Theme.trough : Theme.trough.mix(Theme.card, 0.4);
+    border-width: Theme.outline-w;
+    border-color: enabled ? Theme.outline : Theme.dis-outline;
+    accessible-role: tab-list;
+    accessible-label: label;
+    TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
+    // The picture the anchors are places on: its outline, so the dots are positions on something
+    Rectangle {
+        x: Theme.u(2);
+        y: Theme.u(2);
+        width: parent.width - Theme.u(4);
+        height: parent.height - Theme.u(4);
+        border-radius: Theme.r-ctl / 2;
+        // The picture the anchors are places on, as a quieter surface and no line round it
+        background: root.enabled ? Theme.raise.mix(Theme.trough, 0.5) : Theme.trough.mix(Theme.card, 0.4);
+        border-width: Theme.outline-w;
+        border-color: root.enabled ? Theme.line-strong : Theme.dis-outline;
+        accessible-role: none;
+    }
+    for item[i] in items: zone := Rectangle {
+        property <bool> on: i == shown;
+        property <bool> held: touch.pressed;
+        changed held => { if (held) { held-i = i; } else if (held-i == i) { held-i = -1; } }
+        // Where the anchor's centre is, and its bar's corner: the bar's own width is taken off by how far across it sits
+        property <length> cx: inset + (across[i] * (root.width - 2 * inset - bar-w)) + bar-w / 2;
+        property <length> cy: inset + (down[i] * (root.height - 2 * inset - bar-h)) + bar-h / 2;
+        x: max(0px, min(cx - hit / 2, root.width - hit));
+        y: max(0px, min(cy - hit / 2, root.height - hit));
+        width: hit;
+        height: hit;
+        accessible-role: tab;
+        accessible-label: label + ": " + item;
+        accessible-checkable: true;
+        accessible-checked: on;
+        accessible-action-default => { pick(i); }
+        property <int> asked: arrows;
+        changed asked => {
+            if (arrow-to == i) {
+                zone-focus.focus();
+            }
+        }
+        // A frame that goes off with the focus on an anchor lets go of it
+        property <bool> live: root.enabled;
+        changed live => { if (!live) { zone-focus.clear-focus(); } }
+        zone-focus := FocusScope {
+            enabled: root.enabled;
+            focus-gained(reason) => {
+                if (reason == FocusReason.tab-navigation) {
+                    Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height);
+                }
+            }
+            key-pressed(e) => {
+                if (!root.enabled) { return reject; }
+                if (e.text == " " || e.text == "\n") { pick(i); return accept; }
+                if (e.text == Key.LeftArrow) { go(i, 0); return accept; }
+                if (e.text == Key.RightArrow) { go(i, 1); return accept; }
+                if (e.text == Key.UpArrow) { go(i, 2); return accept; }
+                if (e.text == Key.DownArrow) { go(i, 3); return accept; }
+                reject
+            }
+        }
+        // A dot where the anchor is, while another is picked; hovering it grows it
+        if !on: Rectangle {
+            x: cx - zone.x - self.width / 2;
+            y: cy - zone.y - self.height / 2;
+            width: touch.has-hover && root.enabled ? Theme.u(4) : Theme.u(2.5);
+            height: self.width;
+            border-radius: self.width / 2;
+            background: !root.enabled ? Theme.dis : touch.pressed ? Theme.ink : touch.has-hover ? Theme.ink2 : Theme.line-hover;
+        }
+        FocusRing { shown: zone-focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+        usage := Tip { says: item; hover: touch.has-hover; inert: !root.enabled; focused: zone-focus.has-focus && KeyFocus.keyboard; }
+        touch := TouchArea {
+            enabled: root.enabled;
+            mouse-cursor: pointer;
+            pointer-event(e) => {
+                if (e.kind == PointerEventKind.down) {
+                    usage.press();
+                    zone-focus.focus();
+                }
+            }
+            scroll-event(e) => { usage.wheel(); reject }
+            clicked => { pick(i); }
+        }
+    }
+    // The picked bar: it stretches from one anchor to the next, across first and then down
+    // Glides for a pick until it has arrived (see Segmented): every pick sets it, arriving clears it, nothing counts or waits
+    property <bool> gliding;
+    changed shown => { gliding = true; glide-end.restart(); }
+    property <bool> worm-rest: worm.at-rest;
+    changed worm-rest => { if (worm-rest) { gliding = false; } }
+    glide-end := Timer {
+        interval: 900ms;
+        running: root.gliding;
+        triggered => { root.gliding = false; }
+    }
+    worm := Worm {
+        to-x: inset + (shown >= 0 && across.length > shown ? across[shown] : 0) * (root.width - 2 * inset - bar-w);
+        to-y: inset + (shown >= 0 && down.length > shown ? down[shown] : 0) * (root.height - 2 * inset - bar-h);
+        to-w: bar-w;
+        to-h: bar-h;
+        radius: Theme.r-handle / 2;
+        hue: root.hue;
+        snap: !gliding;
+        shown: root.enabled && root.shown >= 0 && root.shown < items.length;
+        pressed: held-i >= 0 && held-i == root.shown;
+    }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+}
+
+import { ShortcutMenu } from "shortcut-menu.slint";

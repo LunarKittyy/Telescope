@@ -1,7 +1,7 @@
 // The Shortcuts page (plugins/shortcuts.py's ShortcutsSection and BindingEditor): the list of shortcuts, the Everywhere
 // card and the editor for one shortcut, as a popup. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Button, IconButton, Card, FormRow, ChoiceField, TextField, NumberField, Switch, SettingRow, DialogFrame, WindowBox } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, IconButton, Card, RailRow, SwitchRow, ListRow, Tag, Status, Unfolding, UnfoldGroup, ChoiceField, TextField, NumberField, DialogFrame, DialogButtons, WindowBox } from "@ui-kit/ui-kit.slint";
 
 export struct BindingRow {
     keys: string,
@@ -25,26 +25,14 @@ export struct ParamRow {
     at: int,
 }
 
-component Note inherits Text {
-    in property <string> kind: "status_dim";
-    font-family: Theme.font;
-    font-size: Theme.body;
-    color: kind == "status_warn" ? Theme.warn : kind == "" ? Theme.text : Theme.text-dim;
-    wrap: word-wrap;
-    vertical-alignment: center;
-}
-
-// A shortcut as a strip: the key, what it does with where it works (or why not, in amber) under it, edit and remove
-component Strip inherits Rectangle {
+// A shortcut as a list row: what it does, with where it works (or why not) under it, its keys, edit and remove. A click anywhere on
+// the row edits it, a right-click offers its command line.
+component Item inherits Rectangle {
     in property <BindingRow> item;
     callback edit;
     callback remove;
     callback copy-line;
-    min-height: 48px;
-    border-radius: 9px;
-    border-width: 1px;
-    border-color: touch.has-hover ? Theme.border-hover : Theme.border;
-    background: Theme.surface-raise;
+    height: Theme.row + Theme.u(8);
     menu := ContextMenuArea {
         Menu {
             MenuItem {
@@ -53,72 +41,29 @@ component Strip inherits Rectangle {
                 activated => { root.copy-line(); }
             }
         }
-        touch := TouchArea {
+        TouchArea {
             mouse-cursor: pointer;
             clicked => { root.edit(); }
         }
     }
-    HorizontalLayout {
-        padding-left: 12px;
-        padding-right: 6px;
-        padding-top: 6px;
-        padding-bottom: 6px;
-        spacing: 12px;
-        Rectangle {
-            width: 150px;
-            HorizontalLayout {
-                alignment: start;
-                Rectangle {
-                    height: 26px;
-                    y: (parent.height - self.height) / 2;
-                    width: min(key.preferred-width + 16px, 150px);
-                    border-radius: 6px;
-                    border-width: 1px;
-                    border-color: Theme.border-strong;
-                    background: Theme.bg;
-                    key := Text {
-                        text: item.keys;
-                        font-family: Theme.font;
-                        font-size: Theme.body;
-                        font-weight: 600;
-                        color: Theme.text;
-                        overflow: elide;
-                        width: parent.width - 16px;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-                }
-            }
-        }
+    ListRow {
+        width: parent.width;
+        height: parent.height;
+        title: item.does;
+        sub: item.where;
+        // The keys are a keycap; amber when the shortcut can't work, with the reason in its tooltip
         VerticalLayout {
-            horizontal-stretch: 1;
-            min-width: 120px;
-            spacing: 1px;
             alignment: center;
-            Text {
-                text: item.does;
-                font-family: Theme.font;
-                font-size: Theme.body;
-                color: Theme.text;
-                overflow: elide;
-            }
-            Text {
-                text: item.where;
-                font-family: Theme.font;
-                font-size: Theme.small;
-                color: item.ok ? Theme.text-dim : Theme.warn;
-                overflow: elide;
-            }
+            Tag { text: item.keys; tint: item.ok ? Theme.ink2 : Theme.warn; detail: item.ok ? "" : item.where; }
         }
         IconButton {
-            y: (parent.height - self.height) / 2;
             icon: Icons.pencil;
             label: item.edit-label;
             tip: @tr("Edit");
+            tip-detail: @tr("Change the keys of this shortcut.");
             clicked => { root.edit(); }
         }
         IconButton {
-            y: (parent.height - self.height) / 2;
             icon: Icons.trash;
             label: item.remove-label;
             clicked => { root.remove(); }
@@ -128,15 +73,18 @@ component Strip inherits Rectangle {
 
 // The key a shortcut uses: press one while it has focus
 component KeyBox inherits Rectangle {
+    // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font)
+    property <length> lift: 1phx;
     in property <string> text;
     callback pressed(string, bool, bool, bool, bool);
     callback cleared;
-    height: 32px;
+    height: Theme.row;
     horizontal-stretch: 1;
-    border-radius: 7px;
-    border-width: 1px;
-    background: Theme.surface-raise;
-    border-color: focus.has-focus ? Theme.accent : touch.has-hover ? Theme.border-hover : Theme.border-strong;
+    border-radius: Theme.r-ctl;
+    // The outline is the focus: this box takes the keys you press
+    border-width: focus.has-focus ? Theme.stroke : Theme.ctl-outline-w(touch.has-hover, false);
+    border-color: focus.has-focus ? Theme.accent : Theme.ctl-outline(touch.has-hover, false);
+    background: touch.has-hover && !focus.has-focus ? Theme.hover : Theme.raise;
     accessible-role: text-input;
     accessible-label: @tr("Key");
     accessible-value: text;
@@ -148,25 +96,27 @@ component KeyBox inherits Rectangle {
             accept
         }
     }
-    // QKeySequenceEdit's line edit: QSS's 10px padding and its own 2px margin
     HorizontalLayout {
-        padding-left: 13px;
-        padding-right: 4px;
+        padding-left: Theme.u(6);
+        padding-right: Theme.u(2);
         Text {
+            y: -lift;
             horizontal-stretch: 1;
             // Unfocused and empty: QKeySequenceEdit's own placeholder
-            text: root.text != "" ? root.text : focus.has-focus ? @tr("Press a key…") : "Press shortcut";
+            text: root.text != "" ? root.text : focus.has-focus ? @tr("Press a key") : @tr("Press shortcut");
             font-family: Theme.font;
             font-size: Theme.body;
-            color: root.text != "" ? Theme.text : Theme.text-faint;
+            font-weight: root.text != "" ? Theme.w-value : Theme.w-label;
+            color: root.text != "" ? Theme.ink : Theme.faint;
             vertical-alignment: center;
         }
         if root.text != "": IconButton {
-            width: 26px;
-            height: 26px;
+            bare: true;
+            width: Theme.row - Theme.u(4);
+            height: Theme.row - Theme.u(4);
             y: (parent.height - self.height) / 2;
             icon: Icons.x;
-            icon-size: 14px;
+            icon-size: Theme.icon-small;
             label: @tr("Clear");
             clicked => { root.cleared(); focus.focus(); }
         }
@@ -211,17 +161,23 @@ callback param-committed(int, string);
     callback copy-command;
     callback save;
     callback cancel;
-    spacing: 14px;
+    spacing: Theme.u(7);
+    // Which way the editor was left
+    property <bool> saving;
+    // The editor's problem line keeps its last words while it folds away
+    property <string> held-problem;
+    changed problem => { if (problem != "") { held-problem = problem; } }
+    init => { held-problem = problem; }
 
     changed editor-open => {
         if (self.editor-open) {
+            root.saving = false;
             editor.show();
         } else {
             editor.close();
         }
     }
 
-    Note { text: @tr("Right-click most controls to add one for it."); }
 
     Card {
         title: @tr("Shortcuts");
@@ -233,13 +189,13 @@ callback param-committed(int, string);
         action-label: @tr("Pick a control and the key for it");
         action-text: @tr("Add");
         action => { root.add(); }
-        for row[i] in rows: Strip {
+        for row[i] in rows: Item {
             item: row;
             edit => { root.edit(i); }
             remove => { root.remove(i); }
             copy-line => { root.copy-line(i); }
         }
-        if rows.length == 0: Note { text: @tr("No shortcuts yet. Add one, or right-click a control in the main window."); }
+        if rows.length == 0: Status { text: @tr("No shortcuts yet"); }
     }
 
     Card {
@@ -247,25 +203,29 @@ callback param-committed(int, string);
         keywords: @tr("search" => "global system wide hotkeys background other apps");
         icon: Icons.monitor;
         hue: Theme.plugin-hue("extras");
-        SettingRow {
-            title: @tr("Desktop shortcut settings");
+        RailRow {
+            icon: Icons.monitor;
+            label: @tr("Desktop shortcut settings");
+            tip-detail: note-text;
+            named: true;
+            hue: Theme.plugin-hue("extras");
             keywords: @tr("search" => "global hotkeys portal kde plasma gnome desktop keys rebind");
-            sub: note-text;
             if system-shown: Button {
                 text: @tr("Open");
-                tip: @tr("Where your desktop lets you change the keys of global shortcuts");
+                tip: @tr("Global shortcuts");
+                tip-detail: @tr("Where your desktop lets you change the keys of global shortcuts.");
                 clicked => { root.open-system(); }
             }
         }
-        SettingRow {
-            title: @tr("Notify when one runs");
+        SwitchRow {
+            icon: Icons.bell;
+            label: @tr("Notify when one runs");
+            tip: @tr("Notify when one runs");
+            tip-detail: @tr("While Telescope is in the background");
             keywords: @tr("search" => "notification notify toast confirmation popup");
-            sub: @tr("While Telescope is in the background");
-            Switch {
-                checked: notify;
-                label: @tr("Notify when one runs");
-                toggled(on) => { root.notify-toggled(on); }
-            }
+            hue: Theme.plugin-hue("extras");
+            checked: notify;
+            toggled(on) => { root.notify-toggled(on); }
         }
     }
 
@@ -285,26 +245,33 @@ callback param-committed(int, string);
             width: min(root.width, 520px);
             height: self.preferred-height;
             dismissable: true;
-            dismissed => { root.cancel(); }
+            // Cancel and Save fade the dialog out; what they decided is said when it is gone
+            left => { if (root.saving) { root.save(); } else { root.cancel(); } }
             title: @tr("Keyboard shortcut");
             VerticalLayout {
-                spacing: 14px;
-                FormRow {
+                spacing: Theme.gap;
+                RailRow {
+                    icon: Icons.search;
                     label: @tr("Find");
+                    hue: Theme.plugin-hue("extras");
+                    enabled: true;
                     TextField {
                         // BindingEditor opens with the search box focused
                         init => { self.focus(); }
                         y: (parent.height - self.height) / 2;
                         horizontal-stretch: 1;
                         text: query;
-                        placeholder: @tr("Search: mute, zoom, exposure, preset…");
+                        placeholder: @tr("Search");
                         label: @tr("Find");
                         clearable: true;
                         edited(t) => { root.search(t); }
                     }
                 }
-                FormRow {
+                RailRow {
+                    icon: Icons.sliders;
                     label: @tr("Control");
+                    hue: Theme.plugin-hue("extras");
+                    enabled: true;
                     ChoiceField {
                         compact: true;
                         y: (parent.height - self.height) / 2;
@@ -315,7 +282,9 @@ callback param-committed(int, string);
                         picked(i) => { root.control-picked(i); }
                     }
                 }
-                for p in params: FormRow {
+                for p in params: RailRow {
+                    has-icon: false;
+                    named: true;
                     label: p.label;
                     if !p.number: ChoiceField {
                         compact: true;
@@ -336,8 +305,11 @@ callback param-committed(int, string);
                         step(d) => { root.param-step(p.at, d); }
                     }
                 }
-                FormRow {
+                RailRow {
+                    icon: Icons.keyboard;
                     label: @tr("Key");
+                    hue: Theme.plugin-hue("extras");
+                    enabled: true;
                     KeyBox {
                         y: (parent.height - self.height) / 2;
                         text: keys-text;
@@ -345,34 +317,35 @@ callback param-committed(int, string);
                         cleared => { root.key-cleared(); }
                     }
                 }
-                FormRow {
-                    label: "";
-                    // widgets.Switch with its text: the words on the left, the track at the row's end
-                    HorizontalLayout {
-                        spacing: 12px;
-                        Note { text: @tr("Also works while another app is in front"); kind: ""; horizontal-stretch: 1; }
-                        Switch {
-                            y: (parent.height - self.height) / 2;
-                            checked: global;
-                            label: @tr("Also works while another app is in front");
-                            toggled(on) => { root.global-toggled(on); }
+                SwitchRow {
+                    icon: Icons.monitor;
+                    label: @tr("Also works while another app is in front");
+                    hue: Theme.plugin-hue("extras");
+                    checked: global;
+                    toggled(on) => { root.global-toggled(on); }
+                }
+                UnfoldGroup {
+                    Unfolding {
+                        open: problem != "";
+                        lead: 0px;
+                        RailRow {
+                            has-icon: false;
+                            Status { text: held-problem; detail: held-problem; kind: "warn"; }
                         }
                     }
                 }
-                if problem != "": Note { text: problem; kind: "status_warn"; }
-                // dialog_buttons: Cancel and Save 96px wide, 4px under the rows
-                HorizontalLayout {
-                    spacing: 8px;
-                    padding-top: 4px;
+                DialogButtons {
                     Button {
                         text: copy-text;
-                        tip: copy-tip;
+                        tip: @tr("Copy");
+                        tip-detail: copy-tip;
+                        dialog: true;
                         enabled: copy-enabled;
                         clicked => { root.copy-command(); }
                     }
                     Rectangle { horizontal-stretch: 1; }
-                    Button { width: 96px; text: @tr("Cancel"); clicked => { root.cancel(); } }
-                    Button { width: 96px; text: @tr("Save"); role: "primary"; enabled: save-enabled; clicked => { root.save(); } }
+                    Button { text: @tr("Cancel"); dialog: true; clicked => { root.saving = false; editor-frame.leave(); } }
+                    Button { text: @tr("Save"); dialog: true; role: "primary"; hue: Theme.plugin-hue("extras"); enabled: save-enabled; clicked => { root.saving = true; editor-frame.leave(); } }
                 }
             }
         }

@@ -283,7 +283,7 @@ fn a_photo_is_taken_through_the_shell_and_every_plugin_hears_what_became_of_it()
     state.bus.emit(Event::PhonesChanged { count: 1 });
     state.deliver_events();
     assert_eq!(props_of(&state, "photos", "card")["take-enabled"], false, "nothing streams yet");
-    assert!(props_of(&state, "photos", "card")["info"].as_str().unwrap().contains("Start streaming"));
+    assert!(props_of(&state, "photos", "card")["take-tip"].as_str().unwrap().contains("Start streaming"));
 
     // A stream is up and its phone has said what its lens takes
     state.streams.streaming = true;
@@ -293,8 +293,7 @@ fn a_photo_is_taken_through_the_shell_and_every_plugin_hears_what_became_of_it()
     state.bus.emit(Event::PhoneStateUpdated { state: phone_state() });
     state.deliver_events();
     let card = props_of(&state, "photos", "card");
-    let format = card["tiles"].as_array().unwrap().iter().find(|t| t["key"] == "format").expect("a Format tile").clone();
-    assert_eq!((&card["take-enabled"], &format["options"]), (&json!(true), &json!(["JPEG", "RAW (DNG)", "RAW and JPEG"])));
+    assert_eq!((&card["take-enabled"], &card["format-options"], &card["format-enabled"]), (&json!(true), &json!(["JPEG", "RAW (DNG)", "RAW and JPEG"]), &json!(true)));
 
     state.effects.clear();
     ui(&mut state, "photos", "card", "take-clicked", vec![]);

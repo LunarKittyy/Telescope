@@ -119,6 +119,21 @@ unsafe extern "C" fn pick_hw(ctx: *mut ff::AVCodecContext, mut formats: *const f
     ff::AVPixelFormat::AV_PIX_FMT_NONE
 }
 
+/// How software H.264 spreads its work: how many threads, and whether they take whole pictures (each adds a picture of delay) or slices.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Threads {
+    pub count: i32,
+    pub whole_frames: bool,
+}
+
+/// Slice threads for software H.264: a stream of several slices a picture decodes up to this many times faster (4K in 4 slices: 13 ms
+/// with one thread, 8.5 with 2, 6.8 with 4, no better with 8), one slice goes the same speed with any. Whole-picture threads would
+/// decode single-slice streams faster too, but each one holds back a picture, so they stay off.
+fn software_h264_threads() -> Threads {
+    let cores = std::thread::available_parallelism().map_or(2, |n| n.get());
+    Threads { count: cores.clamp(1, 4) as i32, whole_frames: false }
+}
+
 /// One libavcodec decoder with its parser (for H.264) and buffers.
 pub struct Codec {
     ctx: *mut ff::AVCodecContext,
@@ -126,10 +141,14 @@ pub struct Codec {
     packet: *mut ff::AVPacket,
     frame: *mut ff::AVFrame,
     sw_frame: *mut ff::AVFrame,
+    // The newest picture decode_newest has finished, still on the decoder's side until take_newest reads it
+    held: *mut ff::AVFrame,
     hw_device: *mut ff::AVBufferRef,
     sws: *mut ff::SwsContext,
     pub hw: Option<Hw>,
-    /// Whether the card copies its pictures out as I420. Most only give NV12, and asking again would be a failed call per frame.
+    /// Whether to ask the card for I420 at the copy. Off: the card's own NV12 is taken and split here, since a driver's conversion to
+    /// I420 runs on the graphics card's compute queue and waits behind a game's work (48 ms a 4K picture beside one, 9 ms as NV12).
+    /// Only tests and benches turn it on, to compare.
     pub(crate) card_gives_i420: bool,
     /// What to fail on purpose, and how many pictures have been good so far.
     pub forced: Option<(Forced, u32)>,
@@ -177,6 +196,16 @@ impl Codec {
     }
 
     fn open(id: ff::AVCodecID, hw: Option<Hw>, parse: bool) -> Result<Codec, String> {
+        Codec::open_threaded(id, hw, parse, software_h264_threads())
+    }
+
+    /// Software H.264 as a bench or test wants it: this many threads, slice threading (low delay) or whole-frame threading.
+    #[cfg(test)]
+    pub(crate) fn h264_threaded(threads: Threads) -> Result<Codec, String> {
+        Codec::open_threaded(ff::AVCodecID::AV_CODEC_ID_H264, None, true, threads)
+    }
+
+    fn open_threaded(id: ff::AVCodecID, hw: Option<Hw>, parse: bool, threads: Threads) -> Result<Codec, String> {
         // SAFETY: plain libavcodec setup; every pointer is checked before use and freed in Drop
         unsafe {
             let codec = ff::avcodec_find_decoder(id);
@@ -189,10 +218,11 @@ impl Codec {
                 packet: ff::av_packet_alloc(),
                 frame: ff::av_frame_alloc(),
                 sw_frame: ff::av_frame_alloc(),
+                held: ff::av_frame_alloc(),
                 hw_device: ptr::null_mut(),
                 sws: ptr::null_mut(),
                 hw,
-                card_gives_i420: true,
+                card_gives_i420: false,
                 forced: if hw.is_some() { Forced::asked() } else { None },
                 pictures: 0,
                 #[cfg(test)]
@@ -205,11 +235,13 @@ impl Codec {
                 parse_buf: Vec::new(),
                 unit_buf: Vec::new(),
             };
-            if c.ctx.is_null() || c.packet.is_null() || c.frame.is_null() || c.sw_frame.is_null() || (parse && c.parser.is_null()) {
+            if c.ctx.is_null() || c.packet.is_null() || c.frame.is_null() || c.sw_frame.is_null() || c.held.is_null() || (parse && c.parser.is_null()) {
                 return Err("out of memory opening a decoder".into());
             }
             // Show each frame as soon as it's decoded instead of holding some back for reordering (h264_reader.py)
-            (*c.ctx).flags |= ff::AV_CODEC_FLAG_LOW_DELAY as i32;
+            if !threads.whole_frames {
+                (*c.ctx).flags |= ff::AV_CODEC_FLAG_LOW_DELAY as i32;
+            }
             match hw {
                 Some(h) => {
                     let r = ff::av_hwdevice_ctx_create(&mut c.hw_device, h.device_type(), ptr::null(), ptr::null_mut(), 0);
@@ -223,8 +255,15 @@ impl Codec {
                     (*c.ctx).hw_device_ctx = ff::av_buffer_ref(c.hw_device);
                     (*c.ctx).opaque = h.pixel_format() as i32 as usize as *mut _;
                     (*c.ctx).get_format = Some(pick_hw);
+                    // The picture decode_newest holds is a surface the decoder can't use meanwhile
+                    (*c.ctx).extra_hw_frames = 1;
                 }
-                None if parse => (*c.ctx).thread_count = 2,
+                None if parse => {
+                    (*c.ctx).thread_count = threads.count;
+                    if threads.whole_frames {
+                        (*c.ctx).thread_type = ff::FF_THREAD_FRAME as i32;
+                    }
+                }
                 None => {}
             }
             let r = ff::avcodec_open2(c.ctx, codec, ptr::null_mut());
@@ -268,6 +307,35 @@ impl Codec {
 
     /// Decodes one access unit (or one whole JPEG); every frame it finishes goes to done.
     pub fn decode(&mut self, unit: &[u8], mut done: impl FnMut(Frame)) -> Result<u32, Fault> {
+        self.feed(unit, Some(&mut done))
+    }
+
+    /// Decodes one access unit, keeping the newest picture it finishes on the decoder's side for take_newest. A picture that a
+    /// later one replaces is never downloaded or converted.
+    pub fn decode_newest(&mut self, unit: &[u8]) -> Result<u32, Fault> {
+        self.feed(unit, None)
+    }
+
+    /// The newest picture decode_newest kept, as a frame, and nothing is kept after it.
+    pub fn take_newest(&mut self) -> Result<Option<Frame>, Fault> {
+        // SAFETY: held and frame are this codec's own frames; move_ref leaves held empty, and take_frame reads the picture in frame
+        unsafe {
+            if (*self.held).buf[0].is_null() {
+                return Ok(None);
+            }
+            ff::av_frame_unref(self.frame);
+            ff::av_frame_move_ref(self.frame, self.held);
+            self.take_frame().map(Some)
+        }
+    }
+
+    /// Lets go of the picture decode_newest kept.
+    pub fn drop_newest(&mut self) {
+        // SAFETY: held is this codec's own frame
+        unsafe { ff::av_frame_unref(self.held) }
+    }
+
+    fn feed(&mut self, unit: &[u8], mut done: Option<&mut dyn FnMut(Frame)>) -> Result<u32, Fault> {
         #[cfg(test)]
         if self.refusals > 0 {
             self.refusals -= 1;
@@ -311,10 +379,22 @@ impl Codec {
                     return Err(Fault::Broken(err_text(r)));
                 }
                 count += 1;
-                let began = monotonic_ns();
-                let frame = self.take_frame()?;
-                span("take_frame", began);
-                done(frame);
+                match done.as_mut() {
+                    Some(done) => {
+                        let began = monotonic_ns();
+                        let frame = self.take_frame()?;
+                        span("take_frame", began);
+                        done(frame);
+                    }
+                    None => {
+                        // A picture this one replaces still counts as one the card gave
+                        if !(*self.held).buf[0].is_null() {
+                            self.pictures = self.pictures.saturating_add(1);
+                        }
+                        ff::av_frame_unref(self.held);
+                        ff::av_frame_move_ref(self.held, self.frame);
+                    }
+                }
             }
         }
         Ok(count)
@@ -327,7 +407,7 @@ impl Codec {
     /// The card's picture in sw_frame, in main memory.
     unsafe fn copy_off_the_card(&mut self) -> Result<(), Fault> {
         ff::av_frame_unref(self.sw_frame);
-        // Ask for I420 so the driver converts while it copies; one that only gives NV12 is split in take_frame
+        // The card's own NV12 is split in take_frame, unless a test asked for I420
         if self.card_gives_i420 {
             (*self.sw_frame).format = ff::AVPixelFormat::AV_PIX_FMT_YUV420P as i32;
         }
@@ -402,13 +482,17 @@ impl Codec {
         } else if fmt == ff::AVPixelFormat::AV_PIX_FMT_NV12 as i32 {
             copy_plane(&mut i420, (*src).data[0], (*src).linesize[0], w, h);
             let (uv, stride) = ((*src).data[1], (*src).linesize[1] as isize);
-            let mut v = Vec::with_capacity(cw * ch);
-            for row in 0..ch {
+            // The two planes are filled in place, a row of interleaved pairs at a time
+            let chroma_at = i420.len();
+            i420.resize(chroma_at + 2 * cw * ch, 0);
+            let (u, v) = i420[chroma_at..].split_at_mut(cw * ch);
+            for (row, (u, v)) in u.chunks_exact_mut(cw).zip(v.chunks_exact_mut(cw)).enumerate() {
                 let line = std::slice::from_raw_parts(uv.offset(row as isize * stride), cw * 2);
-                i420.extend(line.iter().step_by(2));
-                v.extend(line.iter().skip(1).step_by(2));
+                for ((pair, u), v) in line.as_chunks::<2>().0.iter().zip(u).zip(v) {
+                    *u = pair[0];
+                    *v = pair[1];
+                }
             }
-            i420.extend_from_slice(&v);
         } else {
             // Anything else (a 4:2:2 or 4:4:4 JPEG) goes through swscale
             self.sws = ff::sws_getCachedContext(self.sws, w as i32, h as i32, std::mem::transmute::<i32, ff::AVPixelFormat>(fmt), w as i32, h as i32,
@@ -437,7 +521,7 @@ impl Codec {
         self.pictures = self.pictures.saturating_add(1);
         let frame = Frame::new(w as u32, h as u32, PixelFormat::I420, i420);
         Ok(match bgr {
-            Some(bgr) => frame.with_bgr(bgr),
+            Some(bgr) => frame.with_lazy_bgr(bgr),
             None => frame,
         })
     }
@@ -488,6 +572,7 @@ impl Drop for Codec {
             ff::av_packet_free(&mut self.packet);
             ff::av_frame_free(&mut self.frame);
             ff::av_frame_free(&mut self.sw_frame);
+            ff::av_frame_free(&mut self.held);
             ff::avcodec_free_context(&mut self.ctx);
             if !self.hw_device.is_null() {
                 ff::av_buffer_unref(&mut self.hw_device);
@@ -910,5 +995,234 @@ mod picture_tests {
     fn something_else_is_refused() {
         assert!(decode_picture(b"hello there, not a picture").is_err());
         assert!(decode_picture(&bmp()[..30]).is_err());
+    }
+}
+
+/// Timed runs on recorded-phone-like clips. TELESCOPE_BENCH_CLIPS is a folder of Annex-B .h264 files with an access unit
+/// delimiter in front of each picture (made with ffmpeg, libx264 high profile, no B-frames, a keyframe a second).
+#[cfg(test)]
+pub(crate) mod decode_bench {
+    use super::*;
+    use std::hash::{Hash, Hasher};
+    use std::time::Instant;
+
+    pub(crate) fn clip_dir() -> std::path::PathBuf {
+        std::env::var_os("TELESCOPE_BENCH_CLIPS").map(Into::into)
+            .unwrap_or_else(|| std::path::PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".cache/telescope-scratch/decode-clips"))
+    }
+
+    /// The file cut into access units at each delimiter (NAL type 9).
+    pub(crate) fn packets(name: &str) -> Option<Vec<Vec<u8>>> {
+        let data = std::fs::read(clip_dir().join(name)).ok()?;
+        let mut starts = Vec::new();
+        for i in 0..data.len().saturating_sub(5) {
+            if data[i..i + 3] == [0, 0, 1] && data[i + 3] & 0x1f == 9 {
+                starts.push(if i > 0 && data[i - 1] == 0 { i - 1 } else { i });
+            }
+        }
+        starts.push(data.len());
+        Some(starts.windows(2).map(|w| data[w[0]..w[1]].to_vec()).collect())
+    }
+
+    pub(crate) fn digest(frames: &[Frame]) -> u64 {
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        for f in frames {
+            (f.width, f.height).hash(&mut h);
+            f.data.hash(&mut h);
+        }
+        h.finish()
+    }
+
+    pub(crate) struct Run {
+        pub per_packet_ms: Vec<f64>,
+        pub frames: Vec<Frame>,
+        pub lag: Vec<usize>,
+    }
+
+    pub(crate) fn run(codec: &mut Codec, packets: &[Vec<u8>]) -> Run {
+        let mut out = Run { per_packet_ms: Vec::new(), frames: Vec::new(), lag: Vec::new() };
+        for (i, p) in packets.iter().enumerate() {
+            let began = Instant::now();
+            codec.parse(p, |c, unit| {
+                c.decode(unit, |f| {
+                    out.lag.push(i.saturating_sub(out.frames.len()));
+                    out.frames.push(f);
+                }).unwrap();
+            });
+            out.per_packet_ms.push(began.elapsed().as_secs_f64() * 1000.0);
+        }
+        out
+    }
+
+    pub(crate) fn pct(v: &[f64], p: f64) -> f64 {
+        let mut s = v.to_vec();
+        s.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        s[((s.len() - 1) as f64 * p) as usize]
+    }
+
+    /// What each picture's copy off a VA-API card takes, asking for I420 and for the card's own NV12.
+    /// cargo test --release -p telescope-media --lib -- --ignored --nocapture what_the_copy_off_the_card_costs
+    #[test]
+    #[ignore = "a measurement, needs the clips and a VA-API card"]
+    fn what_the_copy_off_the_card_costs() {
+        for name in ["p1080.h264", "p4k.h264"] {
+            let Some(packets) = packets(name) else { continue };
+            for i420 in [true, false] {
+                let mut codec = Codec::h264(Some(Hw::Vaapi)).expect("VA-API");
+                codec.card_gives_i420 = i420;
+                codec.copy_ns = Some(Vec::new());
+                let r = run(&mut codec, &packets);
+                let times = codec.copy_ns.take().unwrap();
+                let times = &times[30..];
+                let ms = |mut v: Vec<u64>| {
+                    v.sort();
+                    v[v.len() / 2] as f64 / 1e6
+                };
+                println!("{name:11} as {}: copy {:.2} ms waiting on the decoder, {:.2} ms with it done; {} pictures", if i420 { "I420" } else { "NV12" },
+                         ms(times.iter().map(|t| t.0).collect()), ms(times.iter().map(|t| t.1).collect()), r.frames.len());
+            }
+        }
+    }
+
+    /// cargo test --release -p telescope-media --lib -- --ignored --nocapture software_thread_counts
+    #[test]
+    #[ignore = "a measurement, needs the clips"]
+    fn software_thread_counts() {
+        for name in ["p1080.h264", "p1080s4.h264", "p4k.h264", "p4ks4.h264"] {
+            let Some(packets) = packets(name) else {
+                eprintln!("no clip {name}");
+                continue;
+            };
+            let mut reference = None;
+            for (count, whole_frames) in [(1, false), (2, false), (4, false), (8, false), (0, false), (2, true), (4, true), (8, true), (0, true)] {
+                let mut best: Option<(f64, f64, f64, usize, usize, u64, i32)> = None;
+                for _ in 0..3 {
+                    let mut codec = Codec::h264_threaded(Threads { count, whole_frames }).unwrap();
+                    let active = unsafe { ((*codec.ctx).active_thread_type, (*codec.ctx).thread_count) };
+                    let began = Instant::now();
+                    let r = run(&mut codec, &packets);
+                    let total = began.elapsed().as_secs_f64() * 1000.0;
+                    let per = total / r.frames.len().max(1) as f64;
+                    let maxlag = r.lag.iter().copied().max().unwrap_or(0);
+                    let row = (per, pct(&r.per_packet_ms, 0.5), pct(&r.per_packet_ms, 0.99), maxlag, r.frames.len(), digest(&r.frames), active.0);
+                    let _ = active.1;
+                    if best.map_or(true, |b| row.0 < b.0) {
+                        best = Some(row);
+                    }
+                }
+                let b = best.unwrap();
+                let same = *reference.get_or_insert(b.5) == b.5;
+                println!("{name:13} threads {count} {:6} active type {} | {:5.2} ms/frame, packet p50 {:5.2} p99 {:5.2}, max frame lag {} packets, {} frames, same pixels as 1 thread: {same}",
+                         if whole_frames { "frames" } else { "slices" }, b.6, b.0, b.1, b.2, b.3, b.4);
+            }
+        }
+    }
+}
+
+/// take_frame on synthetic pictures: a reference built from the plain planes, and timings by source format and range.
+#[cfg(test)]
+mod extract_tests {
+    use super::*;
+    use std::time::Instant;
+
+    /// Gives the codec a decoded picture of this format, full of a pattern that differs per plane, padding included.
+    unsafe fn load(codec: &mut Codec, fmt: ff::AVPixelFormat, w: usize, h: usize, matrix: i32, full: bool, seed: u32) {
+        let f = codec.frame;
+        ff::av_frame_unref(f);
+        (*f).format = fmt as i32;
+        (*f).width = w as i32;
+        (*f).height = h as i32;
+        assert!(ff::av_frame_get_buffer(f, 0) >= 0);
+        let mut x = seed.wrapping_mul(2_654_435_761) | 1;
+        let (ch, nv12) = (h.div_ceil(2), fmt == ff::AVPixelFormat::AV_PIX_FMT_NV12);
+        for (plane, rows) in [(0, h), (1, ch), (2, ch)] {
+            if plane == 2 && nv12 || (*f).data[plane].is_null() {
+                continue;
+            }
+            let bytes = std::slice::from_raw_parts_mut((*f).data[plane], (*f).linesize[plane] as usize * rows);
+            for b in bytes {
+                x ^= x << 13;
+                x ^= x >> 17;
+                x ^= x << 5;
+                *b = (x >> 11) as u8;
+            }
+        }
+        ptr::addr_of_mut!((*f).colorspace).cast::<i32>().write(matrix);
+        let range = if full { ff::AVColorRange::AVCOL_RANGE_JPEG } else { ff::AVColorRange::AVCOL_RANGE_MPEG };
+        ptr::addr_of_mut!((*f).color_range).cast::<i32>().write(range as i32);
+    }
+
+    /// The picture's planes as packed I420 straight from the definition: rows without padding, NV12 chroma split in two.
+    unsafe fn expected(codec: &Codec, w: usize, h: usize) -> Vec<u8> {
+        let f = codec.frame;
+        let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+        let row = |plane: usize, y: usize, n: usize| std::slice::from_raw_parts((*f).data[plane].add(y * (*f).linesize[plane] as usize), n);
+        let mut out: Vec<u8> = (0..h).flat_map(|y| row(0, y, w).to_vec()).collect();
+        if (*f).format == ff::AVPixelFormat::AV_PIX_FMT_NV12 as i32 {
+            out.extend((0..ch).flat_map(|y| row(1, y, cw * 2).iter().step_by(2).copied().collect::<Vec<_>>()));
+            out.extend((0..ch).flat_map(|y| row(1, y, cw * 2).iter().skip(1).step_by(2).copied().collect::<Vec<_>>()));
+        } else {
+            out.extend((0..ch).flat_map(|y| row(1, y, cw).to_vec()));
+            out.extend((0..ch).flat_map(|y| row(2, y, cw).to_vec()));
+        }
+        out
+    }
+
+    const CASES: [(ff::AVPixelFormat, i32, bool, &str); 6] = [
+        (ff::AVPixelFormat::AV_PIX_FMT_YUV420P, 5, false, "I420 limited"),
+        (ff::AVPixelFormat::AV_PIX_FMT_YUV420P, 5, true, "I420 full"),
+        (ff::AVPixelFormat::AV_PIX_FMT_NV12, 5, false, "NV12 limited"),
+        (ff::AVPixelFormat::AV_PIX_FMT_NV12, 5, true, "NV12 full"),
+        (ff::AVPixelFormat::AV_PIX_FMT_YUV420P, 1, false, "I420 BT.709"),
+        (ff::AVPixelFormat::AV_PIX_FMT_NV12, 1, true, "NV12 BT.709 full"),
+    ];
+
+    /// What the old take_frame gave: the planes, then the range squeeze or the BGR round trip.
+    fn reference(planes: Vec<u8>, w: usize, h: usize, matrix: i32, full: bool) -> Vec<u8> {
+        yuv::Converter::default().standard(planes, w, h, yuv::Encoding { matrix, full_range: full }).0
+    }
+
+    #[test]
+    fn every_source_gives_the_same_bytes_as_its_definition() {
+        let mut codec = Codec::h264(None).unwrap();
+        // Odd sizes, and widths with padding on the end of each row
+        for (w, h) in [(64, 48), (37, 21), (2, 2), (1, 1), (130, 7)] {
+            for (n, (fmt, matrix, full, name)) in CASES.into_iter().enumerate() {
+                unsafe {
+                    load(&mut codec, fmt, w, h, matrix, full, n as u32 + 1);
+                    let want = reference(expected(&codec, w, h), w, h, matrix, full);
+                    let got = codec.take_frame().unwrap();
+                    assert_eq!((got.width as usize, got.height as usize), (w, h), "{name} {w}x{h}");
+                    assert!(*got.data == want, "{name} {w}x{h} differs from its definition");
+                }
+            }
+        }
+    }
+
+    /// cargo test --release -p telescope-media --lib -- --ignored --nocapture what_extracting_costs
+    #[test]
+    #[ignore = "a measurement"]
+    fn what_extracting_costs() {
+        let mut codec = Codec::h264(None).unwrap();
+        for (w, h) in [(1920, 1080), (3840, 2160)] {
+            println!("{w}x{h}");
+            for (n, (fmt, matrix, full, name)) in CASES.into_iter().enumerate() {
+                let mut times = Vec::new();
+                let mut hash = 0u64;
+                for round in 0..25 {
+                    unsafe {
+                        load(&mut codec, fmt, w, h, matrix, full, n as u32 + 1);
+                        let began = Instant::now();
+                        let frame = codec.take_frame().unwrap();
+                        times.push(began.elapsed().as_nanos() as u64);
+                        if round == 0 {
+                            hash = frame.data.iter().fold(1469598103934665603u64, |a, &b| (a ^ b as u64).wrapping_mul(1099511628211));
+                        }
+                    }
+                }
+                times.sort();
+                println!("  {name:<18} median {:6.2} ms, best {:6.2} ms, hash {hash:016x}", times[12] as f64 / 1e6, times[0] as f64 / 1e6);
+            }
+        }
     }
 }

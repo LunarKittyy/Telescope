@@ -4,6 +4,7 @@
 import { Theme } from "../theme.slint";
 import { Icon } from "basics.slint";
 import { ChoiceField } from "choices.slint";
+import { Grip, Hold } from "fine.slint";
 
 // One of the two arrows. It reports going down and coming up rather than a click, so a held one can keep stepping.
 component StepArrow inherits Rectangle {
@@ -20,19 +21,27 @@ component StepArrow inherits Rectangle {
             up();
         }
     }
-    width: 28px;
-    border-radius: 8px;
-    background: !enabled ? transparent : touch.pressed ? Theme.fill : touch.has-hover ? Theme.border-strong : transparent;
+    out property <string> control-kind: "stepper";
+    width: Theme.row;
+    border-radius: Theme.r-ctl;
+    background: !enabled ? transparent : touch.pressed ? Theme.press : touch.has-hover ? Theme.sel : transparent;
+    border-width: enabled && (touch.has-hover || touch.pressed) ? Theme.ctl-outline-w(touch.has-hover, touch.pressed) : 0px;
+    border-color: Theme.ctl-outline(touch.has-hover, touch.pressed);
     accessible-role: button;
     accessible-label: label;
     accessible-description: description;
     accessible-action-default => { if (enabled) { down(); up(); } }
     changed enabled => { if (!enabled) { release(); } }
+    // A held arrow keeps its owner stepping, so one in something that goes away lets go by itself
+    property <Hold> grip;
+    property <int> gone: Grip.leaves;
+    changed gone => { if (holding && Grip.cut(grip)) { release(); } }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
         pointer-event(e) => {
             if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left && !holding) {
+                grip = Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
                 holding = true;
                 down();
             }
@@ -41,16 +50,20 @@ component StepArrow inherits Rectangle {
         scroll-event(e) => { reject }
     }
     // The kit's chevron (icons/chevron.svg), a quarter turn each way so it points along the list
+    // Slint maps a path's viewbox into the box less one stroke, offset by half of it: so the box is the icon's 16 and the viewbox the 16 less
+    // a stroke, starting half a stroke in, which makes one unit one pixel and puts the chevron on the grid at full size
     Path {
-        width: 14px;
-        height: 14px;
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        viewbox-width: 16;
-        viewbox-height: 16;
+        width: 16px;
+        height: 16px;
+        x: round((parent.width - self.width) / 2 / 1phx) * 1phx;
+        y: round((parent.height - self.height) / 2 / 1phx) * 1phx;
+        viewbox-x: Theme.stroke / 2 / 1px;
+        viewbox-y: Theme.stroke / 2 / 1px;
+        viewbox-width: 16 - Theme.stroke / 1px;
+        viewbox-height: 16 - Theme.stroke / 1px;
         commands: dir < 0 ? "M 9.5 4.5 L 6 8 L 9.5 11.5" : "M 6.5 4.5 L 10 8 L 6.5 11.5";
-        stroke: !enabled ? Theme.text-disabled : touch.pressed ? white : touch.has-hover ? Theme.text : Theme.text-dim;
-        stroke-width: 1.4px;
+        stroke: !enabled ? Theme.dis : touch.pressed ? Theme.ink : touch.has-hover ? Theme.ink : Theme.ink2;
+        stroke-width: Theme.stroke;
         stroke-line-cap: round;
         stroke-line-join: round;
         accessible-role: none;
@@ -58,11 +71,13 @@ component StepArrow inherits Rectangle {
 }
 
 export component Stepper inherits Rectangle {
+    out property <string> control-kind: "stepper";
     in property <string> caption;
     in property <[string]> items;
     in property <int> current;
     in property <bool> enabled: true;
     in property <string> tip;
+    in property <string> tip-detail;
     // What a screen reader calls the arrows
     in property <string> previous-label;
     in property <string> next-label;
@@ -101,6 +116,7 @@ export component Stepper inherits Rectangle {
         current: root.current;
         enabled: root.enabled;
         tip: root.tip;
+        tip-detail: root.tip-detail;
         centered: true;
         side: 32px;
         // What the stepper shows is the camera's value: a pick it refuses doesn't stay on screen

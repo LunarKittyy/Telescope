@@ -8,10 +8,13 @@ use crate::transfers;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 use telescope_core::frame::{Frame, PixelFormat, ShaderStep};
+use telescope_core::image::spare_bytes;
 use telescope_core::shader;
 use telescope_core::time::{monotonic_ns, span};
 use wgpu::naga;
 
+/// Set on the convert shader's mode to read YUV chroma by index, a sample for its 2 x 2 block, as the CPU does (taps stay 1).
+const BLOCK_CHROMA: u32 = 8;
 const CONVERT: &str = include_str!("shaders/convert.wgsl");
 /// What a working picture on the card is kept as: gamma-encoded RGBA, like the camera's own values.
 const WORK: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
@@ -246,6 +249,18 @@ impl Gpu {
         })
     }
 
+    /// Lets go of the kept textures and download buffers (the stream stopped), so they don't hold the card's memory while idle.
+    pub fn release_idle(&self) {
+        self.pool.lock().unwrap().clear();
+        self.downloads.lock().unwrap().clear();
+    }
+
+    /// How many bytes of textures are kept for the next frame, for tests.
+    #[cfg(test)]
+    pub(crate) fn kept_bytes(&self) -> usize {
+        self.pool.lock().unwrap().bytes()
+    }
+
     /// Hands textures back for the next frame of the same size.
     fn give_back(&self, textures: impl IntoIterator<Item = wgpu::Texture>) {
         let mut pool = self.pool.lock().unwrap();
@@ -306,7 +321,11 @@ impl Gpu {
 
     /// One pass of the convert shader from planes into target. taps: samples a side per output pixel, for shrinking.
     fn convert_pass(&self, enc: &mut wgpu::CommandEncoder, planes: &[wgpu::TextureView; 3], mode: Mode, target: &wgpu::Texture, taps: u32, src_size: (u32, u32)) {
-        let settings: [u32; 4] = [mode as u32, taps.max(1), src_size.0, src_size.1];
+        self.convert_pass_with(enc, planes, mode, target, taps, src_size, false);
+    }
+
+    fn convert_pass_with(&self, enc: &mut wgpu::CommandEncoder, planes: &[wgpu::TextureView; 3], mode: Mode, target: &wgpu::Texture, taps: u32, src_size: (u32, u32), block_chroma: bool) {
+        let settings: [u32; 4] = [mode as u32 | if block_chroma { BLOCK_CHROMA } else { 0 }, taps.max(1), src_size.0, src_size.1];
         let buf = self.uniform(bytemuck_u32(&settings));
         let view = target.create_view(&Default::default());
         let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -334,12 +353,12 @@ impl Gpu {
         buf
     }
 
-    fn download(&self, enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<Vec<Vec<u8>>, String> {
+    fn download(&self, enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<Vec<u8>, String> {
         self.download_timed(enc, textures, bpp).map(|(planes, _)| planes)
     }
 
-    /// Copies textures into one buffer, waits for the card and hands back each one's rows without padding, and how long the wait was in ns.
-    fn download_timed(&self, mut enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<(Vec<Vec<u8>>, u64), String> {
+    /// Copies textures into one buffer, waits for the card and hands back each one's rows without padding, the planes one after another in one buffer, and how long the wait was in ns.
+    fn download_timed(&self, mut enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<(Vec<u8>, u64), String> {
         let mut offsets = Vec::new();
         let mut size = 0u64;
         for (t, b) in textures.iter().zip(bpp) {
@@ -377,15 +396,17 @@ impl Gpu {
         let waited = monotonic_ns().saturating_sub(began);
         let began = monotonic_ns();
         let mapped = slice.get_mapped_range().map_err(|e| e.to_string())?;
-        let mut out = Vec::new();
+        // Rows go straight into one buffer from the spares, so the readback is the only copy
+        let total: usize = textures.iter().zip(bpp).map(|(t, b)| (t.width() * b) as usize * t.height() as usize).sum();
+        let mut out = spare_bytes(total);
+        let mut put = 0;
         for ((t, b), off) in textures.iter().zip(bpp).zip(&offsets) {
             let (row, stride) = ((t.width() * b) as usize, aligned_row(t.width() * b) as usize);
-            let mut plane = Vec::with_capacity(row * t.height() as usize);
             for y in 0..t.height() as usize {
                 let at = *off as usize + y * stride;
-                plane.extend_from_slice(&mapped[at..at + row]);
+                out[put..put + row].copy_from_slice(&mapped[at..at + row]);
+                put += row;
             }
-            out.push(plane);
         }
         drop(mapped);
         buf.unmap();
@@ -401,6 +422,11 @@ impl Gpu {
 
     /// Puts a frame on the card, ready for shaders.
     pub fn lift(&self, frame: &Frame) -> Result<Held, String> {
+        self.lift_with(frame, false)
+    }
+
+    /// As lift, with block_chroma reading YUV chroma a sample to its 2 x 2 block as the CPU does, where lift blends it linearly.
+    pub fn lift_with(&self, frame: &Frame, block_chroma: bool) -> Result<Held, String> {
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) {
             return Err(format!("{:?} frames can't go on the card", frame.format));
         }
@@ -410,7 +436,7 @@ impl Gpu {
         let mut enc = self.device.create_command_encoder(&Default::default());
         let planes = self.upload(frame, &mut used);
         let (a, b) = (self.texture(w, h, WORK), self.texture(w, h, WORK));
-        self.convert_pass(&mut enc, &planes.views, planes.mode, &a, 1, (planes.width, planes.height));
+        self.convert_pass_with(&mut enc, &planes.views, planes.mode, &a, 1, (planes.width, planes.height), block_chroma);
         span("upload", began);
         Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, waited_ns: 0 })
     }
@@ -457,7 +483,7 @@ impl Gpu {
         };
         held.waited_ns += waited;
         self.give_back(targets);
-        let mut result = Frame::new(w, h, held.format, out.concat());
+        let mut result = Frame::new(w, h, held.format, out);
         result.number = held.number;
         result.time_ns = held.time_ns;
         Ok(result)
@@ -560,7 +586,7 @@ impl Gpu {
         // Enough samples per output pixel that shrinking a lot still averages instead of skipping pixels
         let taps = (frame.width.div_ceil(out_w)).max(frame.height.div_ceil(out_h)).clamp(1, 8);
         self.convert_pass(&mut enc, &planes.views, planes.mode, &target, taps, (planes.width, planes.height));
-        let out = self.download(enc, &[&target], &[4])?.pop().unwrap_or_default();
+        let out = self.download(enc, &[&target], &[4])?;
         used.push(target);
         self.give_back(used);
         Ok(out)
@@ -617,6 +643,10 @@ pub struct Held {
 }
 
 impl Held {
+    pub fn size(&self) -> (u32, u32) {
+        (self.width, self.height)
+    }
+
     pub fn take_waited(&mut self) -> u64 {
         std::mem::take(&mut self.waited_ns)
     }
@@ -633,12 +663,30 @@ struct Built {
     pipeline: wgpu::RenderPipeline,
     /// Group 1: the plugin's uniforms and textures, or None when it has neither.
     extras: Option<wgpu::BindGroup>,
+    /// The Params buffer, kept so new uniforms can be written into it.
+    ubuf: Option<wgpu::Buffer>,
     _keep: Vec<wgpu::Texture>,
 }
 
 impl ShaderSlot {
     pub fn new(step: ShaderStep) -> ShaderSlot {
         ShaderSlot { wants_mask: shader::uses_person_mask(&step.wgsl), step, built: None }
+    }
+
+    /// Changes the shader's uniforms; once built, the new values go into its buffer. A shader with no Params ignores them.
+    pub fn set_uniforms(&mut self, gpu: &Gpu, uniforms: serde_json::Value) {
+        if uniforms == self.step.uniforms {
+            return;
+        }
+        match shader::pack_uniforms(&self.step.wgsl, &uniforms) {
+            Ok(bytes) => {
+                if let Some(Ok(Built { ubuf: Some(buf), .. })) = &self.built {
+                    gpu.queue.write_buffer(buf, 0, &bytes);
+                }
+                self.step.uniforms = uniforms;
+            }
+            Err(why) => log::warn!("A shader's uniforms were refused: {why}"),
+        }
     }
 
     /// Whether the shader reads the person mask.
@@ -734,7 +782,7 @@ fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
     if let Some(e) = pollster::block_on(scope.pop()) {
         return Err(e.to_string());
     }
-    Ok(Built { pipeline, extras, _keep: keep })
+    Ok(Built { pipeline, extras, ubuf, _keep: keep })
 }
 
 #[cfg(test)]
@@ -840,7 +888,7 @@ mod tests {
         let target = window.picture(32, 18);
         window.paint(&frame, &target).unwrap();
         let enc = window.device.create_command_encoder(&Default::default());
-        let painted = window.download(enc, &[&target], &[4]).unwrap().pop().unwrap();
+        let painted = window.download(enc, &[&target], &[4]).unwrap();
         assert_eq!(painted, gpu.rgba(&frame, 32, 18).unwrap());
     }
 
@@ -967,6 +1015,38 @@ mod tests {
     }
 
     #[test]
+    fn odd_sized_pictures_come_back_from_the_card_with_the_chroma_the_cpu_makes() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        for (w, h) in [(641usize, 361usize), (7, 5), (640, 361), (641, 360)] {
+            // Hard edges in the colour, the last column and row included, so any shifted chroma cell shows
+            let mut rgba = vec![255u8; w * h * 4];
+            let mut n = 7u32;
+            for (i, p) in rgba.chunks_exact_mut(4).enumerate() {
+                let (x, y) = (i % w, i / w);
+                n = n.wrapping_mul(1664525).wrapping_add(1013904223);
+                let edge = if (x / 3 + y / 5) % 2 == 0 { 220 } else { 30 };
+                let last = if x + 1 == w || y + 1 == h { 255 } else { 0 };
+                p[0] = (edge as u32 + (n >> 29)).min(255) as u8;
+                p[1] = (x * 255 / w) as u8;
+                p[2] = (last as u32).max((y * 255 / h) as u32) as u8;
+            }
+            let frame = Frame::new(w as u32, h as u32, PixelFormat::Rgba, rgba);
+            let rgb = telescope_core::image::frame_rgb(&frame).unwrap();
+            for nv12 in [false, true] {
+                let mut expected = vec![0u8; w * h + 2 * chroma(w as u32) as usize * chroma(h as u32) as usize];
+                telescope_core::image::rgb_to_420(&rgb, w, h, &mut expected, nv12);
+                let mut held = gpu.lift(&frame).unwrap();
+                held.format = if nv12 { PixelFormat::Nv12 } else { PixelFormat::I420 };
+                let out = gpu.land(&mut held).unwrap();
+                gpu.put_down(held);
+                assert_eq!(out.data.len(), expected.len());
+                let worst = out.data.iter().zip(expected.iter()).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
+                assert!(worst <= 2, "{w}x{h} nv12 {nv12}: worst difference {worst}");
+            }
+        }
+    }
+
+    #[test]
     fn the_preview_is_scaled_and_converted_on_the_card() {
         let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
         // Left half black, right half white, shrunk four times: still black on the left and white on the right
@@ -1048,6 +1128,107 @@ mod timing {
             line("upload I420, writing the planes", written);
             line("upload I420, on the card as RGBA and done", converted);
             line("back down as I420 after a shader", landed);
+        }
+    }
+}
+
+#[cfg(test)]
+mod preview_bench {
+    use super::*;
+    use std::time::Instant;
+
+    /// A picture with gradients, edges and noise, as I420 or NV12.
+    pub(super) fn picture(w: u32, h: u32, nv12: bool) -> Frame {
+        let (cw, ch) = (chroma(w) as usize, chroma(h) as usize);
+        let mut noise = 2463534242u32;
+        let mut data = Vec::with_capacity((w * h) as usize + 2 * cw * ch);
+        for y in 0..h {
+            for x in 0..w {
+                noise ^= noise << 13;
+                noise ^= noise >> 17;
+                noise ^= noise << 5;
+                let edge = if (x / 64 + y / 64) % 5 == 0 { 40 } else { 0 };
+                let fine = if (x / 3 + y / 3) % 2 == 0 { 12 } else { 0 };
+                data.push(16u8.saturating_add((x * 150 / w + y * 60 / h) as u8).saturating_add(edge).saturating_add(fine).saturating_add((noise & 7) as u8).min(235));
+            }
+        }
+        let u = |i: usize| (90 + (i % cw) * 70 / cw + (i / cw) % 7) as u8;
+        let v = |i: usize| (150 - (i % cw) * 60 / cw + (i / cw) % 5) as u8;
+        if nv12 {
+            for i in 0..cw * ch {
+                data.push(u(i));
+                data.push(v(i));
+            }
+            Frame::new(w, h, PixelFormat::Nv12, data)
+        } else {
+            data.extend((0..cw * ch).map(u));
+            data.extend((0..cw * ch).map(v));
+            Frame::new(w, h, PixelFormat::I420, data)
+        }
+    }
+
+    /// What painting the preview costs the thread that asks for it (the UI's), before and after the card has finished.
+    /// cargo test --release -p telescope-media --lib -- --ignored --nocapture what_the_preview_paint_costs
+    #[test]
+    #[ignore = "a measurement, needs a graphics card"]
+    fn what_the_preview_paint_costs() {
+        let gpu = Gpu::shared().expect("a graphics card");
+        println!("on {}", gpu.adapter_name);
+        for (w, h) in [(1920, 1080), (3840, 2160)] {
+            for nv12 in [false, true] {
+                // Several frames in turn, so each one comes in cold from memory as a decoded one does
+                let frames: Vec<Frame> = (0..8).map(|_| picture(w, h, nv12)).collect();
+                let target = gpu.picture(960, 540);
+                let (mut asked, mut done) = (Vec::new(), Vec::new());
+                for i in 0..80 {
+                    let start = Instant::now();
+                    gpu.paint(&frames[i % frames.len()], &target).unwrap();
+                    let a = start.elapsed().as_nanos() as u64;
+                    gpu.device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
+                    if i >= 10 {
+                        asked.push(a);
+                        done.push(start.elapsed().as_nanos() as u64);
+                    }
+                }
+                let med = |mut v: Vec<u64>| { v.sort(); v[v.len() / 2] as f64 / 1e6 };
+                println!("{w}x{h} {:<5} paint() returns after {:5.2} ms, card done after {:5.2} ms", if nv12 { "NV12" } else { "I420" }, med(asked), med(done));
+            }
+        }
+    }
+
+    /// What the fallback costs the UI thread when the card can't hand its texture to the window: the readback, and the processor's own scaler.
+    /// cargo test --release -p telescope-media --lib -- --ignored --nocapture what_the_preview_fallback_costs
+    #[test]
+    #[ignore = "a measurement, needs a graphics card"]
+    fn what_the_preview_fallback_costs() {
+        let gpu = Gpu::shared().expect("a graphics card");
+        for (w, h) in [(1920, 1080), (3840, 2160)] {
+            let frames: Vec<Frame> = (0..8).map(|_| picture(w, h, false)).collect();
+            let (mut card, mut cpu) = (Vec::new(), Vec::new());
+            #[cfg(ffmpeg)]
+            let mut scaler = crate::ffmpeg::CpuScaler::default();
+            for i in 0..60 {
+                let f = &frames[i % frames.len()];
+                let start = Instant::now();
+                let rgba = gpu.rgba(f, 960, 540).unwrap();
+                let mut rgb = vec![0u8; 960 * 540 * 3];
+                telescope_core::image::drop_alpha(&rgba, 960, &mut rgb);
+                let a = start.elapsed().as_nanos() as u64;
+                #[cfg(ffmpeg)]
+                let b = {
+                    let start = Instant::now();
+                    let _ = scaler.rgb(f, 960, 540);
+                    start.elapsed().as_nanos() as u64
+                };
+                #[cfg(not(ffmpeg))]
+                let b = 0;
+                if i >= 10 {
+                    card.push(a);
+                    cpu.push(b);
+                }
+            }
+            let med = |mut v: Vec<u64>| { v.sort(); v[v.len() / 2] as f64 / 1e6 };
+            println!("{w}x{h} I420 to 960x540 RGB: through the card {:5.2} ms, swscale on the processor {:5.2} ms", med(card), med(cpu));
         }
     }
 }

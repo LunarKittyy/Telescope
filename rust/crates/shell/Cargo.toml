@@ -36,3 +36,5 @@ x11-dl = "2.21"
 wayland-backend = { version = "0.3.10", default-features = false, features = ["client_system"] }
 wayland-client = "0.31.10"
 wayland-protocols = { version = "0.32.8", default-features = false, features = ["client", "staging"] }
+# The title bar's colours on KDE Plasma (kde.rs): org_kde_kwin_server_decoration_palette; already in the tree through winit
+wayland-protocols-plasma = { version = "0.3.12", default-features = false, features = ["client"] }

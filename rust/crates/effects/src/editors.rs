@@ -6,20 +6,28 @@ use crate::grade::{monotone_curve, periodic_curve};
 
 const WHEEL_STEP: f64 = 0.01;
 const WHEEL_BIG_STEP: f64 = 0.05;
-const WHEEL_FINE: f64 = 0.25;
+/// How far a drag moves the puck while Shift is held, against 1 for a plain drag.
+const WHEEL_FINE: f64 = 0.1;
 
 fn round4(v: f64) -> f64 {
     (v * 10000.0).round() / 10000.0
 }
 
-/// A puck on a ring of hues: dragged (it doesn't jump to the pointer, Shift for finer moves), moved with the arrow keys, and
-/// put back in the middle by Home or a double-click.
+/// A puck on a ring of hues: dragged (it doesn't jump to the pointer, and Shift makes the moves a tenth the size, whenever it is
+/// pressed), moved with the arrow keys, and put back in the middle by Home or a double-click.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Wheel {
     pub x: f64,
     pub y: f64,
-    /// The puck as the drag began.
-    drag: Option<(f64, f64)>,
+    /// While dragged: where the pointer was when it last reported (the card gives it from where it went down), and where the puck
+    /// would be if the circle's edge didn't stop it, so pushing past the rim and coming back takes the same way back.
+    drag: Option<Drag>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Drag {
+    pointer: (f64, f64),
+    puck: (f64, f64),
 }
 
 impl Wheel {
@@ -40,14 +48,18 @@ impl Wheel {
     }
 
     pub fn press(&mut self) {
-        self.drag = Some((self.x, self.y));
+        self.drag = Some(Drag { pointer: (0.0, 0.0), puck: (self.x, self.y) });
     }
 
-    /// The pointer is (dx, dy) from where it went down, in radii of the puck's area, y down; whether the puck moved.
+    /// The pointer is (dx, dy) from where it went down, in radii of the puck's area, y down; whether the puck moved. Each report moves
+    /// the puck by what the pointer travelled since the last one, so letting Shift go or taking hold of it mid-drag changes the speed
+    /// from there on and never makes the puck jump.
     pub fn drag_by(&mut self, dx: f64, dy: f64, shift: bool) -> bool {
-        let Some((x0, y0)) = self.drag else { return false };
+        let Some(drag) = self.drag else { return false };
         let speed = if shift { WHEEL_FINE } else { 1.0 };
-        self.set_value(x0 + dx * speed, y0 - dy * speed)
+        let puck = (drag.puck.0 + (dx - drag.pointer.0) * speed, drag.puck.1 - (dy - drag.pointer.1) * speed);
+        self.drag = Some(Drag { pointer: (dx, dy), puck });
+        self.set_value(puck.0, puck.1)
     }
 
     pub fn release(&mut self) {
@@ -387,11 +399,58 @@ mod tests {
     }
 
     #[test]
-    fn shift_moves_the_puck_a_quarter_as_far() {
+    fn shift_moves_the_puck_a_tenth_as_far() {
         let mut w = wheel();
         w.press();
         w.drag_by(0.4, 0.0, true);
-        assert!((w.x - 0.1).abs() < 1e-9);
+        assert!((w.x - 0.04).abs() < 1e-9);
+        // and small values are there to be had: one pixel of a 50 pixel radius, with Shift
+        let mut w = wheel();
+        w.press();
+        w.drag_by(1.0 / 50.0, 0.0, true);
+        assert_eq!(w.value(), (0.002, 0.0));
+    }
+
+    #[test]
+    fn shift_going_down_or_up_mid_drag_never_makes_the_puck_jump() {
+        let mut w = wheel();
+        w.press();
+        w.drag_by(0.2, 0.0, false);
+        let before = w.value();
+        // the same pointer place, Shift now held: nothing moves
+        assert!(!w.drag_by(0.2, 0.0, true));
+        assert_eq!(w.value(), before);
+        // further on at the fine speed
+        w.drag_by(0.4, 0.0, true);
+        assert!((w.x - (before.0 + 0.02)).abs() < 1e-9);
+        // and Shift let go again: back to the full speed from here
+        let fine = w.x;
+        w.drag_by(0.5, 0.0, false);
+        assert!((w.x - (fine + 0.1)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn pushing_past_the_rim_and_coming_back_retraces_the_way() {
+        let mut w = wheel();
+        w.press();
+        w.drag_by(1.5, 0.0, false);
+        assert!((w.x - 1.0).abs() < 1e-9, "stopped at the rim");
+        w.drag_by(1.2, 0.0, false);
+        assert!((w.x - 1.0).abs() < 1e-9, "still held by the rim while the pointer is past it");
+        w.drag_by(0.5, 0.0, false);
+        assert!((w.x - 0.5).abs() < 1e-9, "and follows once the pointer is back inside");
+    }
+
+    #[test]
+    fn a_drag_never_snaps_to_the_middle_or_a_grid() {
+        let mut w = wheel();
+        w.press();
+        let mut seen = Vec::new();
+        for i in 1..=10 {
+            w.drag_by(i as f64 * 0.001, 0.0, false);
+            seen.push(w.x);
+        }
+        assert_eq!(seen, [0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01]);
     }
 
     #[test]

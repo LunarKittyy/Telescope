@@ -1,8 +1,9 @@
 // The Privacy blur card. Joined after parts.slint and vision_row.slint.
 
 export component PrivacyBlurCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     in property <bool> on: false;
     in property <string> switch-help;
     in property <int> mode: 0;
@@ -17,47 +18,59 @@ export component PrivacyBlurCard inherits Card {
     callback download-clicked;
 
     title: @tr("Privacy blur");
+    tip: @tr("Blur the whole picture or show the wait screen when more than one person is in it.");
     icon: Icons.eye-off;
-    opacity: active ? 1 : 0.4;
     enabled: active;
     has-switch: true;
     switch-shortcut: "privacy_blur.auto";
     switch-enabled: active;
     switch-checked: on;
     switch-label: @tr("Privacy blur");
-    switch-tip: switch-help;
+    switch-tip: @tr("Privacy blur");
+    switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    Rectangle {
-        height: 32px;
+    RailRow {
+        icon: Icons.eye-off;
+        label: @tr("What happens");
+        hue: root.hue;
+        enabled: active;
         ChoiceField {
-            width: parent.width;
-            compact: true;
             enabled: active;
+            compact: true;
             caption: @tr("Privacy blur: what happens");
-            items: [@tr("Blur the others"), @tr("Blur all but me"), @tr("Show the wait screen")];
+            items: [@tr("Blur the whole picture"), @tr("Show the wait screen")];
             current: mode;
             shortcut: "privacy_blur.mode";
-            tip: mode-tip;
+            tip: @tr("Privacy blur: what happens");
+            tip-detail: mode-tip;
             picked(i) => { root.mode-picked(i); }
         }
     }
-    HorizontalLayout {
-        alignment: start;
-        Button {
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.blur;
+            label: @tr("Blur now");
+            hue: root.hue;
             enabled: active;
-            text: @tr("Blur now");
-            tip: now-tip;
-            // a checked QPushButton: the filled one
-            role: now ? "primary" : "";
-            shortcut: "privacy_blur.now";
-            clicked => { root.now-clicked(); }
+            Button {
+                horizontal-stretch: 1;
+                enabled: active;
+                text: @tr("Blur now");
+                tip: @tr("Blur now");
+                tip-detail: now-tip;
+                // a checked QPushButton: the filled one
+                role: now ? "primary" : "";
+                hue: root.hue;
+                shortcut: "privacy_blur.now";
+                clicked => { root.now-clicked(); }
+            }
         }
-    }
-    if vision-text != "": VisionStatus {
-        text: vision-text;
-        download: vision-download;
-        download-clicked => { root.download-clicked(); }
+        VisionStatus {
+            text: vision-text;
+            download: vision-download;
+            download-clicked => { root.download-clicked(); }
+        }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;

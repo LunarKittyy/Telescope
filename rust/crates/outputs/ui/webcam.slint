@@ -1,7 +1,7 @@
 // The Webcam card: which webcam streams and how, plus whichever picture settings the camera itself offers, as rows the plugin builds.
 // A DSLR's values come as a strip of tiles under its focus buttons instead (aperture and exposure step like a dial). Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Card, FormRow, Slider, ChoiceField, Segmented, SwitchTile, SectionHeading, Button, Stepper, Jog } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Card, RailRow, Slider, ChoiceField, Segmented, SwitchTile, SectionHeading, Button, Stepper, Jog } from "@ui-kit/ui-kit.slint";
 
 // One row of picture settings: a section heading, an Auto/Manual switch, an on/off tile, a menu or a slider. The strip's tiles are
 // rows too, a "stepper" or a "menu" each.
@@ -28,6 +28,17 @@ global Pick {
         name == "sun" ? Icons.sun : name == "image" ? Icons.image : name == "focus" ? Icons.focus
             : name == "crop" ? Icons.crop : name == "moon" ? Icons.moon : Icons.sun
     }
+    // What a picture setting of the camera is, by its name
+    public pure function control(name: string) -> image {
+        name == "exposure_auto" ? Icons.exposure : name == "exposure_time" ? Icons.timer : name == "gain" ? Icons.volume
+            : name == "brightness" ? Icons.sun : name == "backlight" ? Icons.torch : name == "anti_flicker" ? Icons.bolt
+            : name == "white_balance_auto" || name == "white_balance" || name == "dslr_white_balance" ? Icons.thermometer
+            : name == "saturation" ? Icons.saturation : name == "hue" ? Icons.colour : name == "contrast" ? Icons.contrast
+            : name == "gamma" ? Icons.sliders : name == "sharpness" ? Icons.sharpen
+            : name == "focus_auto" || name == "focus" || name == "dslr_focus" ? Icons.focus
+            : name == "dslr_aperture" ? Icons.aperture : name == "dslr_exposure_comp" ? Icons.exposure
+            : name == "zoom" ? Icons.zoom : name == "pan" || name == "tilt" ? Icons.pan : Icons.sliders
+    }
 }
 
 export component WebcamCard inherits Card {
@@ -48,7 +59,10 @@ export component WebcamCard inherits Card {
     in property <[ControlRow]> tiles;
     in property <[int]> tile-indexes;
     in property <bool> has-controls;
-    has-action: has-controls;
+    has-reset: has-controls;
+    reset-lit: has-controls;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Set the webcam's picture settings back to default.");
     callback size-picked(int);
     callback fps-picked(int);
     callback control-set(string, float);
@@ -60,18 +74,14 @@ export component WebcamCard inherits Card {
     callback hold-up();
 
     // As many tiles side by side as are 112px wide with 8px between, the last one taking the rest of its line when it's alone on it
-    property <int> tile-cols: max(1, min(root.tiles.length, floor((root.width - 34px + 8px) / 120px)));
-    // Wide enough for three tiles in a line: the resolution then takes two of those columns and the frame rate the third, so their edges meet the tiles' and the buttons'
-    property <bool> three-up: floor((root.width - 34px + 8px) / 120px) >= 3;
+    property <int> tile-cols: max(1, min(root.tiles.length, floor((root.width - Theme.u(17) + Theme.u(4)) / Theme.u(60))));
 
     title: @tr("Webcam");
+    tip: @tr("Stream from webcams and capture cards plugged into this computer.");
     icon: Icons.video;
-    action-icon: Icons.reset;
-    action-label: @tr("Put the webcam's picture settings back to its defaults");
-    action-text: @tr("Reset");
 
     Text {
-        height: 18px;
+        height: Theme.u(9);
         text: root.status-text;
         overflow: elide;
         vertical-alignment: center;
@@ -80,23 +90,34 @@ export component WebcamCard inherits Card {
         accessible-label: @tr("Camera");
         accessible-description: root.status-tip;
         color: root.status-kind == "status_ok" ? Theme.ok : root.status-kind == "status_warn" ? Theme.warn
-            : root.status-kind == "status_err" ? Theme.err : Theme.text-dim;
+            : root.status-kind == "status_err" ? Theme.err : Theme.ink2;
     }
-    pair := HorizontalLayout {
-        spacing: 8px;
+    RailRow {
+        icon: Icons.grid;
+        label: @tr("Resolution");
+        tip-detail: root.size-tip;
+        hue: root.hue;
+        enabled: root.size-enabled;
         ChoiceField {
-            // Exactly what the tiles' columns are, so the edges line up
-            min-width: root.three-up ? (pair.width - 16px) / 3 * 2 + 8px : (pair.width - 8px) / 2;
-            max-width: self.min-width;
             caption: @tr("Resolution");
+            compact: true;
             items: root.size-items;
             current <=> root.size-current;
             enabled: root.size-enabled;
-            tip: root.size-tip;
+            tip: @tr("Resolution");
+            tip-detail: root.size-tip;
             picked(i) => { root.size-current = i; root.size-picked(i); }
         }
+    }
+    RailRow {
+        icon: Icons.film;
+        label: @tr("Frame rate");
+        hue: root.hue;
+        enabled: root.fps-enabled;
         ChoiceField {
             caption: @tr("Frame rate");
+            tip: @tr("Frame rate");
+            compact: true;
             items: root.fps-items;
             current <=> root.fps-current;
             enabled: root.fps-enabled;
@@ -110,14 +131,20 @@ export component WebcamCard inherits Card {
             text: row.label;
             icon: Pick.icon(row.icon);
         }
-        FormRow {
+        RailRow {
             visible: row.kind == "auto";
             height: row.kind == "auto" ? self.preferred-height : 0;
+            icon: Pick.control(row.name);
             label: row.label;
+            tip-detail: @tr("Let the webcam pick or set it yourself.");
+            hue: root.hue;
             enabled: row.enabled;
             Segmented {
+                hue: root.hue;
                 horizontal-stretch: 1;
                 items: [@tr("Auto"), @tr("Manual")];
+                tips: [@tr("Auto"), @tr("Manual")];
+                tip-details: [@tr("Let the webcam pick or set it yourself."), @tr("Let the webcam pick or set it yourself.")];
                 current: row.checked ? 0 : 1;
                 picked(i) => { root.control-set(row.name, i == 0 ? 1 : 0); }
             }
@@ -125,13 +152,14 @@ export component WebcamCard inherits Card {
         // Drag the jog toward Near or Far, the further the faster, and it springs back to stop. Focus runs autofocus once
         HorizontalLayout {
             visible: row.kind == "jog";
-            height: row.kind == "jog" ? 32px : 0;
-            spacing: 8px;
+            height: row.kind == "jog" ? Theme.u(16) : 0;
+            spacing: Theme.u(4);
             Jog {
                 near-text: row.options[0];
                 far-text: row.options[2];
                 label: row.label;
-                tip: @tr("Drag to focus nearer or further away, the further the faster");
+                tip: row.label;
+                tip-hint: @tr("Drag to focus, the further the faster.");
                 hue: root.hue;
                 enabled: row.enabled;
                 moved(v) => { root.jog(row.name, v); }
@@ -139,7 +167,7 @@ export component WebcamCard inherits Card {
             }
             Button {
                 text: row.options[1];
-                tip: @tr("Focus once automatically");
+                tip: @tr("Focus once");
                 enabled: row.enabled;
                 clicked => { root.control-set(row.name, 1); }
             }
@@ -147,21 +175,28 @@ export component WebcamCard inherits Card {
         SwitchTile {
             visible: row.kind == "switch";
             // Not its preferred-height: that is only the text's, and drops the tile's own 40px
-            height: row.kind == "switch" ? 40px : 0;
+            height: row.kind == "switch" ? Theme.u(20) : 0;
             icon: Pick.icon(row.icon);
             text: row.label;
+            tip: row.label;
+            tip-detail: row.tip;
             hue: root.hue;
             checked: row.checked;
             enabled: row.enabled;
             toggled(on) => { root.control-set(row.name, on ? 1 : 0); }
         }
-        FormRow {
+        RailRow {
             visible: row.kind == "menu";
             height: row.kind == "menu" ? self.preferred-height : 0;
+            icon: Pick.control(row.name);
             label: row.label;
+            tip-detail: row.tip;
+            hue: root.hue;
             enabled: row.enabled;
             ChoiceField {
                 name: row.label;
+                tip: row.label;
+                tip-detail: row.tip;
                 horizontal-stretch: 1;
                 items: row.options;
                 current: row.index;
@@ -169,10 +204,13 @@ export component WebcamCard inherits Card {
                 picked(i) => { root.control-set(row.name, i); }
             }
         }
-        FormRow {
+        RailRow {
             visible: row.kind == "slider";
             height: row.kind == "slider" ? self.preferred-height : 0;
+            icon: Pick.control(row.name);
             label: row.label;
+            tip-detail: row.tip;
+            hue: root.hue;
             enabled: row.enabled;
             Slider {
                 horizontal-stretch: 1;
@@ -186,7 +224,8 @@ export component WebcamCard inherits Card {
                 enabled: row.enabled;
                 has-default: true;
                 default-value: row.reset-to;
-                tip: row.tip != "" ? row.tip + "\n" + @tr("Double-click to reset") : @tr("Double-click to reset");
+                tip: row.label;
+                tip-detail: row.tip;
                 moved(v) => { root.control-set(row.name, v); }
             }
         }
@@ -195,18 +234,18 @@ export component WebcamCard inherits Card {
     GridLayout {
         visible: root.tiles.length > 0;
         height: root.tiles.length > 0 ? self.preferred-height : 0;
-        spacing: 8px;
+        spacing: Theme.u(4);
         for tile[j] in root.tiles: Rectangle {
             row: floor(j / root.tile-cols);
             col: mod(j, root.tile-cols);
             colspan: j == root.tiles.length - 1 && mod(root.tiles.length, root.tile-cols) == 1 ? root.tile-cols : 1;
-            height: 48px;
+            height: Theme.u(24);
             if tile.kind == "stepper": Stepper {
                 caption: tile.label;
                 items: tile.options;
                 current: root.tile-indexes[j];
                 enabled: tile.enabled;
-                tip: tile.tip;
+                tip: tile.label;
                 previous-label: @tr("Previous");
                 next-label: @tr("Next");
                 step(by) => { root.control-step(tile.name, by); }
@@ -220,7 +259,8 @@ export component WebcamCard inherits Card {
                 current: root.tile-indexes[j];
                 follows: true;
                 enabled: tile.enabled;
-                tip: tile.tip;
+                tip: tile.label;
+                tip-detail: tile.tip;
                 picked(i) => { root.control-set(tile.name, i); }
             }
         }

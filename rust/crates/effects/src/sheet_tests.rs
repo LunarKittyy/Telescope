@@ -352,3 +352,44 @@ fn the_ellipse_is_the_one_opencv_makes() {
         assert_eq!(row.iter().map(|v| if *v == 200 { '#' } else { ' ' }).collect::<String>(), line);
     }
 }
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture --test-threads 1"]
+fn bench_straighten() {
+    for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+        let (fw, fh) = (w as f64 / W as f64, h as f64 / H as f64);
+        let rgb: Vec<u8> = (0..w * h * 3).map(|i| ((i / 3 % w) * 7 + (i / 3 / w) * 3 + i % 3 * 50) as u8).collect();
+        for shape in ["auto", "a4", "fill"] {
+            for cleanup in ["off", "contrast"] {
+                let s = Sheet { cleanup: cleanup.into(), ..sheet(CORNERS.map(|[x, y]| [x * fw, y * fh]), shape) };
+                let warp = warp_for(&s, w, h);
+                let map = warp_map(w, h, &warp.matrix, warp.rect.2, warp.rect.3);
+                let mut best = f64::MAX;
+                for _ in 0..30 {
+                    let start = std::time::Instant::now();
+                    keep_bytes(straighten_with(&rgb, w, h, &s, &warp, &map));
+                    best = best.min(start.elapsed().as_secs_f64() * 1000.0);
+                }
+                println!("straighten {w}x{h} shape {shape} cleanup {cleanup} rect {:?}: {best:.2} ms", warp.rect);
+            }
+        }
+    }
+}
+
+#[test]
+fn a_sheet_with_no_cleanup_remapped_in_place_is_the_copy_it_replaced() {
+    let frame = desk_frame();
+    for shape in ["auto", "a4", "letter", "square", "fill"] {
+        let s = sheet(CORNERS, shape);
+        let warp = warp_for(&s, W, H);
+        let (x, y, rw, rh) = warp.rect;
+        let map = warp_map(W, H, &warp.matrix, rw, rh);
+        let mut flat = vec![0u8; rw * rh * 3];
+        map.run(&frame, &mut flat);
+        let mut want = vec![BACKDROP; W * H * 3];
+        for row in 0..rh {
+            want[((y + row) * W + x) * 3..][..rw * 3].copy_from_slice(&flat[row * rw * 3..][..rw * 3]);
+        }
+        assert!(straighten_with(&frame, W, H, &s, &warp, &map) == want, "{shape}");
+    }
+}

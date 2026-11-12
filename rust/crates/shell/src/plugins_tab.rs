@@ -57,7 +57,7 @@ pub enum Filter {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Badge {
     pub text: String,
-    /// "lock", "restart", "vision" or "added".
+    /// "lock", "vision" or "added".
     pub kind: String,
 }
 
@@ -399,7 +399,6 @@ impl Panel {
     /// _tile's pending: the plugin waits on a restart.
     fn waits(&mut self, tile: &mut Tile) {
         self.pending.insert(tile.name.clone());
-        tile.badges.push(Badge { text: tr("Restart required"), kind: "restart".into() });
     }
 
     fn builtin_tile(&mut self, p: &PluginInfo, on: bool) -> Tile {
@@ -408,7 +407,7 @@ impl Panel {
             tile.on = true;
             tile.locked = true;
             tile.enabled = false;
-            tile.tooltip = tr("Telescope can't work without this one, so it can't be switched off");
+            tile.tooltip = tr("Telescope needs this plugin to work, so it can't be switched off.");
             tile.badges.push(Badge { text: tr("Required"), kind: "lock".into() });
             return tile;
         }
@@ -532,7 +531,7 @@ impl Panel {
         tile.locked = true;
         tile.enabled = false;
         tile.added = false;
-        tile.tooltip = tr("telescope-rs dev --plugin loads this one, so it's always on");
+        tile.tooltip = tr("`telescope-rs dev --plugin` loads this plugin, so it's always on.");
         tile.badges.push(Badge { text: tr("Being written"), kind: "added".into() });
         if !item.problem.is_empty() || self.problems.contains_key(&item.name) {
             let why = if item.problem.is_empty() { &self.problems[&item.name] } else { &item.problem };

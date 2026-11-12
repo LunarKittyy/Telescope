@@ -61,37 +61,66 @@ It needs a model runtime like ONNX Runtime, which is large with GPU support, so 
 
 Heavy generative edits (StreamDiffusion and the like) would need Telescope to send frames to a program the user runs themselves. That crosses the line plugins aren't allowed to cross and mostly needs a high-end GPU, so it's not part of this.
 
-### An MCP server
+### More for the MCP server
 
-Lets an AI app like Claude Desktop read and change Telescope's settings, so someone can describe the look they want and the model works out which settings get there. It can also just help people find things. Lua plugins can't reach outside Telescope, which makes this a built-in optional plugin, off by default. The AI app starts a small `telescope mcp` command that talks to the running Telescope over a local socket (a named pipe on Windows) without opening a network port.
+The MCP server is built (see [next.md](next.md#an-mcp-server)). What's left of the idea:
 
-A few broad tools instead of one per slider:
-
-- `describe` lists every setting with its range, current value and what it does
-- `set` changes several settings at once, so the camera doesn't show each step
-- `measure` gives the picture as numbers, like the histogram, clipping and the face's brightness and colour
-- `snapshot` and `revert`, with a snapshot taken automatically when a model connects and a Revert button in the window
-- `show` opens the right tab and highlights a setting with the keyboard navigation's highlight, for when someone asks where something is
-- `frame` sends a small frame, only when the user allows it
-
-Frames are off by default. A middle step could blur the person out with the vision mask. The model then sees the room and the light but not them. Telescope shows when a model is connected and separately when it's getting frames. Installing plugins and phone controls that are hard to undo stay out of reach. Changes land in the camera straight away, which matters in a live call. A preview mode where changes wait until accepted would help if the preview and the output can be kept apart.
-
-Two parts are worth doing even without the MCP part:
-
-- **Settings in plugin.json.** Plugins declare their settings with type, range and a short description. Without that a model can only guess what a value does, and check-plugin and the docs can use it too
-- **Measuring the picture.** The numbers `measure` gives are what [Auto colour grading](next.md#auto-colour-grading) needs, and one version can serve both
+- `frame` sending a small frame, only when the user allows it, and off by default. A middle step could blur the person out with the vision mask, so the model sees the room and the light but not them. Telescope would show when a model is connected and separately when it's getting frames
+- `show` opening the right tab and highlighting a setting, for when someone asks where something is
+- A preview mode where changes wait until accepted, which needs the preview and the output to be kept apart
+- More plugins declaring their settings so the model can reach them
 
 ### Not for now
 
 - **Live captions** would be the most useful accessibility plugin on this list but need Whisper or Vosk and a model. That means a second optional download like the vision one. Worth deciding on its own
 
-## Older DSLRs over USB
+## Smaller things for after 5.1.0
 
-Cameras with a webcam mode or clean HDMI out already work as webcams from 4.4. Older DSLRs have neither but can still send live view over USB, which gphoto2 speaks for most of them. A Nikon D5100 tested in October 2026 sent 640×426 MJPEG at a steady 30 fps for 15 minutes through `gphoto2 --capture-movie --stdout`. A source could read that same stream from the `gphoto2` command most distros ship, so the app adds no library. The picture looks like a decent 480p webcam with real background blur.
+Decided, but small enough that none of them needs a release of its own.
 
-The camera ends live view every few minutes and gphoto2 starts it again (the mirror clicks and about a second of frames goes missing). The source has to hold the last frame through that gap. Some desktops also open a camera as a drive the moment it's plugged in, and gphoto2 can't reach it until that lets go. It would be Linux only. Windows has no gphoto2 and the vendor SDKs come with licences and one SDK per brand. Not every camera can do it either (a Samsung NX300 only shows up as a USB drive).
+### Auto framing that follows one person
 
-Small once webcam support is in and settled.
+With several people in view, Auto framing frames the whole group. A choice of one person to follow would keep the frame on them, the way it already follows a single person, and ignore whoever walks past behind. The open part is how to choose. Clicking someone in the preview is the obvious way, and the other is following whoever talks. Small to medium, on top of the people tracking that's there.
+
+### Cleaner edges for Background
+
+Background replacement can eat the edges of things that aren't a person. A chair back or light clothing against a bright wall partly dissolves into the new background. Tuning the mask threshold and edge softening on those cases should help, and so might smoothing the mask over a few frames. The hard part is finding settings that fix this without making hair and hands worse. Small to medium.
+
+### A sharper cutout for Background
+
+A **High quality cutout** option in Background, using a video matting model (RVM) instead of the selfie segmenter. In tests it was clearly better on edges and hair, with fewer leaks from the background and a mask about ten times steadier on still areas. It can drop a hand or part of the body in a hard clip where the current one keeps them. It costs about 0.4 of a core at 15 masks a second, against about 0.03 now, and it needs an optional download of about 26 MB (the runtime and the model). Medium. Not decided yet.
+
+### Background blur on the GPU
+
+Blur is the heaviest step left on the CPU with everything on at 4K. Switching it off saves about half of Telescope's processor use there. Doing the shrink, blur and blend on the graphics card would take most of that away. Medium, and part of [Doing the picture work on the GPU](#doing-the-picture-work-on-the-gpu).
+
+### The 1998 webcam costs more than it should
+
+With the Fun pack's 1998 webcam on, the processor use goes up by about 44%, and the picture is repeated every other frame on purpose. Much of the cost is the way the blocky look is made, which could be done once and held for the repeated frame. Small.
+
+### Lens correction
+
+Wide and ultra-wide lenses bend straight lines and stretch faces near the edges. A Lens correction in Transforms would straighten that. A first try cost about 2 ms a frame at 1080p on the CPU, but clicks in the preview and everything that finds faces and bodies still used the uncorrected picture, so framing and the face effects would land in the wrong place. Those need to go through the same correction first. Medium.
+
+### Composite tiles zoom further
+
+A tile in Composite zooms in at most 4x, while Auto framing follows the Max zoom setting. The tiles could follow it too. Small.
+
+### Stick figure with crossed legs and close-ups
+
+The stick figure gets the pose wrong when legs are crossed, and in a close-up it turns into a huge head on a pair of shoulders. The close-up needs the drawing to scale to the body that's visible instead of assuming a whole one, and the crossed legs need the leg joints to be trusted less when they overlap. Small.
+
+### Pausing effects while nothing reads the camera
+
+When no app is using the virtual camera, the effects keep running on frames nobody sees. They could pause while the phone stays connected, and pick up again as soon as an app opens the camera. Telescope already knows when an app has the camera open, since the idle stop uses that. Lowers the cost of leaving Telescope running all day. Medium, since the decoder, effects and vision all have to stop and start cleanly.
+
+### A hot phone
+
+When the phone gets hot, the phone app lowers the frame rate, but some cameras offer no lower rate, so nothing changes and the phone keeps heating. It could drop to a smaller picture at that point instead of waiting for critical heat, the way it already goes to 720p there, and pause with a message at extreme heat. Small, mostly in the phone app, and it needs a real phone to try.
+
+### A faster interface underneath
+
+The work on Slint's interpreter continues, mainly cheaper struct field lookups and fewer allocations while the window updates. Nobody sees it except as a lighter window, like the rest of [Lighter on the processor and memory](next.md#lighter-on-the-processor-and-memory). Medium.
 
 ## A guide to unusual setups
 

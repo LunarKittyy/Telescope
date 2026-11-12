@@ -38,6 +38,7 @@ export component Test inherits Window {
             title: "Folding";
             fold-key: "k";
             height: 80px;
+            Rectangle { height: 20px; }
         }
         dd := ChoiceField {
             name: "Fruit";
@@ -70,7 +71,7 @@ fn press(ui: &ComponentInstance, text: SharedString) {
     ui.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
     ui.window().dispatch_event(WindowEvent::KeyReleased { text });
     // The list opens and a letter is looked up a moment after the key
-    i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(20));
+    i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(200));
 }
 
 fn key(ui: &ComponentInstance, k: Key) {
@@ -208,9 +209,8 @@ fn hovering_a_row_moves_the_highlight() {
     assert_eq!(lit(&ui), vec![0]);
     let row = rows(&ui).into_iter().find(|r| r.accessible_item_index() == Some(2)).expect("third row");
     let (p, s) = (row.absolute_position(), row.size());
-    // A row's position is inside the popup, which opens 4px under the dropdown
-    let (dd, h) = (dropdown(&ui).absolute_position(), dropdown(&ui).size().height);
-    let (x, y) = (dd.x + p.x + s.width / 2.0, dd.y + h + 4.0 + p.y + s.height / 2.0);
+    // The popup covers the window now, so a row's position is the window's
+    let (x, y) = (p.x + s.width / 2.0, p.y + s.height / 2.0);
     ui.window().dispatch_event(WindowEvent::PointerMoved { position: slint::LogicalPosition::new(x, y) });
     assert_eq!(lit(&ui), vec![2], "hover moves the highlight");
     key(&ui, Key::DownArrow);

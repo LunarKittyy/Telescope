@@ -61,6 +61,7 @@ impl Rgb {
         }
         let d = &frame.data;
         match frame.format {
+            PixelFormat::Rgba if d.len() == w * h * 4 => telescope_core::image::drop_alpha(d, w, &mut out.data),
             PixelFormat::Rgba | PixelFormat::Bgra => {
                 let (r, b) = if frame.format == PixelFormat::Rgba { (0, 2) } else { (2, 0) };
                 for (o, p) in out.data.as_chunks_mut::<3>().0.iter_mut().zip(d.as_chunks::<4>().0) {
@@ -78,20 +79,27 @@ impl Rgb {
         let (w, h) = (self.w, self.h);
         debug_assert_eq!((w, h), (frame.width as usize, frame.height as usize));
         let format = frame.format;
-        let d = frame.data_mut();
+        if self.data.len() != w * h * 3 || !matches!(format, PixelFormat::Rgba | PixelFormat::Bgra | PixelFormat::I420 | PixelFormat::Nv12) {
+            return;
+        }
+        // Every byte is written into a spare buffer that then replaces the pixels, so a panic leaves the frame as it was
+        let mut out = spare_bytes(format.size(w as u32, h as u32));
         match format {
             PixelFormat::Rgba | PixelFormat::Bgra => {
                 let (r, b) = if format == PixelFormat::Rgba { (0, 2) } else { (2, 0) };
-                for (p, o) in d.as_chunks_mut::<4>().0.iter_mut().zip(self.data.as_chunks::<3>().0) {
-                    p[r] = o[0];
-                    p[1] = o[1];
-                    p[b] = o[2];
-                    p[3] = 255;
-                }
+                telescope_core::image::over_rows(&mut out, w * 4, |y, line| {
+                    let Some(row) = self.data.get(y * w * 3..(y + 1) * w * 3) else { return };
+                    for (p, o) in line.as_chunks_mut::<4>().0.iter_mut().zip(row.as_chunks::<3>().0) {
+                        p[r] = o[0];
+                        p[1] = o[1];
+                        p[b] = o[2];
+                        p[3] = 255;
+                    }
+                });
             }
-            PixelFormat::I420 | PixelFormat::Nv12 => rgb_to_420(&self.data, w, h, d, format == PixelFormat::Nv12),
-            _ => {}
+            _ => rgb_to_420(&self.data, w, h, &mut out, format == PixelFormat::Nv12),
         }
+        frame.replace_data(out);
     }
 }
 
@@ -175,5 +183,23 @@ mod tests {
     fn odd_sizes_work() {
         let fr = frame(PixelFormat::I420, 5, 3, |img| img.data.fill(128));
         assert_eq!(Rgb::from_frame(&fr).unwrap().at(4, 2)[0] / 4, 32);
+    }
+
+    #[test]
+    fn writing_a_picture_back_leaves_what_others_hold_alone_and_matches_an_in_place_write() {
+        for format in [PixelFormat::I420, PixelFormat::Nv12, PixelFormat::Rgba, PixelFormat::Bgra] {
+            let (w, h) = (16, 10);
+            let mut img = Rgb::new(w, h);
+            img.data.iter_mut().enumerate().for_each(|(i, v)| *v = (((i / 3) % w) * 8 + (i / 3 / w) * 4 + (i % 3) * 20) as u8);
+            let mut held = Frame::new(w as u32, h as u32, format, vec![5; format.size(w as u32, h as u32)]);
+            let kept = held.clone();
+            img.write_to(&mut held);
+            assert_eq!(kept.data[0], 5, "{format:?}: the other holder's pixels are untouched");
+            assert!(!Arc::ptr_eq(&kept.data, &held.data));
+            let back = Rgb::from_frame(&held).unwrap();
+            let worst = back.data.iter().zip(&img.data).map(|(a, b)| (*a as i32 - *b as i32).abs()).max().unwrap();
+            // the chroma of YUV is shared by 2 x 2 pixels
+            assert!(worst <= if matches!(format, PixelFormat::Rgba | PixelFormat::Bgra) { 0 } else { 12 }, "{format:?} {worst}");
+        }
     }
 }

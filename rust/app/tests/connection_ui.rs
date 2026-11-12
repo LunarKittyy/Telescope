@@ -439,8 +439,9 @@ export component W inherits Window {
     settle(&w);
     let shown = offscreen::draw(w.window(), 600.0, 620.0, 1.0).unwrap();
     assert!(shown.height > 0);
-    click(&w, 38.0, 111.0); // the startup switch, on to begin with
-    click(&w, 431.0, 151.0); // OK
+    // By name rather than place: the question's lines wrap where the font says
+    press(&w, "Also switch it on at every startup"); // on to begin with
+    press(&w, "OK");
     assert_eq!(*said.borrow(), [(Value::Bool(true), Value::Bool(false))]);
 }
 

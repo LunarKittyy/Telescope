@@ -8,7 +8,7 @@ use crate::grade::{self, Grade, CHANNELS, LINEAR, MASTER_DEFAULT, MASTER_RANGE, 
 use crate::shared::{number_in, Paired};
 use serde_json::{json, Map, Value};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use telescope_core::actions::{self, SliderSpec};
 use telescope_core::colour::{lattice, LEVELS};
@@ -18,12 +18,12 @@ use crate::auto_grade::{AutoState, CameraLock, MeasureStep, POST_MEASURED, T_HOL
 use crate::auto_measure::Measurement;
 use crate::auto_tuning::{HOLD_TIMEOUT_MS, LABEL_MS, MEASURE_TIMEOUT_MS};
 use telescope_core::frame::{FrameStage, FrameStep};
-use telescope_core::host::{ColourStage, FileDialog, FileDialogKind, Host, RequestId};
+use telescope_core::host::{ColourStage, FileDialog, FileDialogKind, Host, Poster, RequestId};
 use telescope_core::people::{self, Track};
 use telescope_core::pose::Person;
 use telescope_core::view::Geometry;
 use telescope_core::i18n::{n_, number, percent, tr};
-use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
+use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::settings::SettingSpec;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
@@ -32,24 +32,25 @@ pub const NAME: &str = "colour_grading";
 pub const OWNER: &str = NAME;
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/colour_grading.slint"));
 
+/// Posted by the thread that baked a stage.
+const POST_STAGE: &str = "stage_baked";
+/// Posted by the thread that read a saved LUT.
+const POST_LUT: &str = "lut_read";
 const LUT_FILES: &str = n_("LUT files (*.cube)");
 const EXPORT_SIZES: [(u32, &str); 2] = [(33, n_("33-point LUT (*.cube)")), (65, n_("65-point LUT (*.cube)"))];
-const CHANNEL_COLOURS: [&str; 4] = ["#e7eaef", "#ef6f6b", "#5fc98c", "#8cc4f2"];
-/// The Look group's hue, which a hue curve is drawn in.
-const LOOK_HUE: &str = "#e6a6e0";
 const WHEEL_NAMES: [&str; 4] = [n_("Lift"), n_("Gamma"), n_("Gain"), n_("Offset")];
 const WHEEL_TIPS: [&str; 4] = [
-    n_("Shadows: colour and level, with white staying put"),
-    n_("Midtones: colour and brightness, with black and white staying put"),
-    n_("Highlights: colour and level, with black staying put"),
-    n_("Everything: colour and level"),
+    n_("Change the colour and level of the shadows without changing white."),
+    n_("Change the colour and brightness of the midtones without changing black or white."),
+    n_("Change the colour and level of the highlights without changing black."),
+    n_("Change the colour and level of the whole picture."),
 ];
-const WHEEL_HINT: &str = n_("Drag towards a colour to add it. Double-click to reset.");
-const NO_LUT: &str = n_("No LUT loaded");
+const WHEEL_TIP: &str = n_("Drag towards a colour to add it.");
+const WHEEL_HINT: &str = n_("Hold Shift to go slower. Double-click to reset.");
 const CANT_OPEN: &str = n_("Telescope can't open that file.");
 const CANT_SAVE: &str = n_("Telescope couldn't save the LUT there.");
 const SAVED: &str = n_("Saved {file}.");
-const SWITCH_TIP: &str = n_("Switch the grade off to see the camera's own colours");
+const SWITCH_TIP: &str = n_("Turn the grade off to see the camera's original colours.");
 /// What vision is asked for under while Auto looks at the picture.
 const AUTO_TITLE: &str = "Auto colour grading";
 const AUTO_NO_STREAM: &str = n_("Start the stream first, so Auto has a picture to look at.");
@@ -87,14 +88,14 @@ struct SliderDef {
 }
 
 const SLIDERS: [SliderDef; 8] = [
-    SliderDef { key: "temperature", label: n_("Temperature"), lo: -200.0, hi: 200.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Warmer or cooler") },
-    SliderDef { key: "tint", label: n_("Tint"), lo: -200.0, hi: 200.0, steps: 1.0, decimals: 0, signed: true, tip: n_("More magenta or more green") },
-    SliderDef { key: "contrast", label: n_("Contrast"), lo: 0.0, hi: 2.0, steps: 100.0, decimals: 2, signed: false, tip: n_("Spreads the tones apart around the pivot") },
-    SliderDef { key: "pivot", label: n_("Pivot"), lo: 0.0, hi: 1.0, steps: 1000.0, decimals: 3, signed: false, tip: n_("The level contrast turns around") },
-    SliderDef { key: "saturation", label: n_("Saturation"), lo: 0.0, hi: 2.0, steps: 100.0, decimals: 0, signed: false, tip: n_("How colourful the picture is") },
-    SliderDef { key: "vibrance", label: n_("Vibrance"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Colours up the dull parts more than the strong ones, and spares skin") },
-    SliderDef { key: "shadows", label: n_("Shadows"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Brightens or darkens the darker parts") },
-    SliderDef { key: "highlights", label: n_("Highlights"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Brightens or darkens the brighter parts") },
+    SliderDef { key: "temperature", label: n_("Temperature"), lo: -200.0, hi: 200.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Make the picture warmer or cooler.") },
+    SliderDef { key: "tint", label: n_("Tint"), lo: -200.0, hi: 200.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Shift the picture towards magenta or green.") },
+    SliderDef { key: "contrast", label: n_("Contrast"), lo: 0.0, hi: 2.0, steps: 100.0, decimals: 2, signed: false, tip: n_("Spread the tones apart around the pivot.") },
+    SliderDef { key: "pivot", label: n_("Pivot"), lo: 0.0, hi: 1.0, steps: 1000.0, decimals: 3, signed: false, tip: n_("The brightness level that contrast leaves unchanged.") },
+    SliderDef { key: "saturation", label: n_("Saturation"), lo: 0.0, hi: 2.0, steps: 100.0, decimals: 0, signed: false, tip: n_("Make the picture more or less colourful.") },
+    SliderDef { key: "vibrance", label: n_("Vibrance"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Boost dull colours more than strong colours and skin tones.") },
+    SliderDef { key: "shadows", label: n_("Shadows"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Brighten or darken the shadows.") },
+    SliderDef { key: "highlights", label: n_("Highlights"), lo: -100.0, hi: 100.0, steps: 1.0, decimals: 0, signed: true, tip: n_("Brighten or darken the highlights.") },
 ];
 
 fn slider_value(g: &Grade, key: &str) -> f64 {
@@ -170,10 +171,27 @@ struct Parsed {
     lut: Arc<CubeLut>,
 }
 
+/// A LUT file read on its thread: which read it was, the path, the file's stamp, and what came of it.
+type LutRead = (u64, String, Option<(u128, u64)>, Result<CubeLut, ReadError>);
+
 fn stamp(path: &Path) -> Option<(u128, u64)> {
     let meta = std::fs::metadata(path).ok()?;
     let ns = meta.modified().ok()?.duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
     Some((ns, meta.len()))
+}
+
+/// The pipeline's stage for a grade that changes the picture: its lattice, and exact tables when each channel stands alone.
+fn build_stage(g: &Grade) -> ColourStage {
+    let size = g.lut_size();
+    let mut rgb = lattice(size as usize);
+    g.apply(&mut rgb);
+    let table = g.per_channel().then(|| {
+        let mut ramp: Vec<f32> = (0..LEVELS).flat_map(|i| [i as f32 / (LEVELS - 1) as f32; 3]).collect();
+        g.apply(&mut ramp);
+        Arc::new(ramp)
+    });
+    let grade = g.clone();
+    ColourStage::new(size, Arc::new(rgb), table).with_eval(move |px: &mut [f32]| grade.apply(px))
 }
 
 pub struct ColourGradingPlugin {
@@ -181,6 +199,16 @@ pub struct ColourGradingPlugin {
     on: bool,
     lut_path: String,
     lut_problem: String,
+    /// The saved LUT file isn't read while the effect is off: it is when the effect goes on.
+    lut_deferred: bool,
+    /// Counts publishes; a bake is only handed over if nothing was published since it began.
+    stage_gen: u64,
+    stage_busy: bool,
+    /// The saved LUT is being read on a thread (lut_gen says which read counts); nothing is published until it lands.
+    lut_gen: u64,
+    lut_loading: bool,
+    lut_slot: Arc<Mutex<Vec<LutRead>>>,
+    stage_slot: Arc<Mutex<Option<(u64, ColourStage)>>>,
     /// 0 tone curves, 1 hue vs sat, 2 hue vs hue.
     curve: usize,
     channel: usize,
@@ -221,6 +249,13 @@ impl ColourGradingPlugin {
             on: true,
             lut_path: String::new(),
             lut_problem: String::new(),
+            lut_deferred: false,
+            stage_gen: 0,
+            stage_busy: false,
+            lut_gen: 0,
+            lut_loading: false,
+            lut_slot: Arc::new(Mutex::new(Vec::new())),
+            stage_slot: Arc::default(),
             curve: 0,
             channel: 0,
             page: 0,
@@ -271,26 +306,64 @@ impl ColourGradingPlugin {
 
     /// The grade as the pipeline takes it, or None for no change at all (off, or a grade that does nothing).
     pub fn stage(&self) -> Option<ColourStage> {
-        let g = &self.grade;
-        if !self.on || g.is_identity() {
+        if !self.on || self.grade.is_identity() {
             return None;
         }
-        let size = g.lut_size();
-        let mut rgb = lattice(size as usize);
-        g.apply(&mut rgb);
-        let table = g.per_channel().then(|| {
-            let mut ramp: Vec<f32> = (0..LEVELS).flat_map(|i| [i as f32 / (LEVELS - 1) as f32; 3]).collect();
-            g.apply(&mut ramp);
-            Arc::new(ramp)
-        });
-        let grade = g.clone();
-        Some(ColourStage::new(size, Arc::new(rgb), table).with_eval(move |px: &mut [f32]| grade.apply(px)))
+        Some(build_stage(&self.grade))
     }
 
+    /// Tells the pipeline. Baking the lattice takes milliseconds (tens with a detailed LUT), so a grade that changes the picture is baked
+    /// on a thread, one at a time: edits that come while it runs are folded into the next bake, and only the newest is handed over.
     fn publish(&mut self, host: &mut dyn Host) {
         self.dirty = false;
-        let stage = self.stage();
-        host.set_colour_stage(OWNER, stage, 0, None);
+        self.stage_gen += 1;
+        // the grade isn't whole until the LUT is in: landing it publishes
+        if self.lut_loading {
+            return;
+        }
+        let wanted = self.on && !self.grade.is_identity();
+        let poster = self.auto.poster.clone().filter(|_| wanted);
+        let Some(poster) = poster else {
+            host.set_colour_stage(OWNER, self.stage(), 0, None);
+            return;
+        };
+        if !self.stage_busy && !self.bake_on_thread(poster) {
+            host.set_colour_stage(OWNER, self.stage(), 0, None);
+        }
+    }
+
+    /// Whether a stage is being baked on its thread (for a test to wait on).
+    #[cfg(test)]
+    pub(crate) fn baking(&self) -> bool {
+        self.stage_busy || self.lut_loading
+    }
+
+    /// Starts baking the grade as it is now; false when there was no thread to do it on.
+    fn bake_on_thread(&mut self, poster: Arc<dyn Poster>) -> bool {
+        let (grade, generation, slot) = (self.grade.clone(), self.stage_gen, self.stage_slot.clone());
+        let spawned = std::thread::Builder::new().name("colour-grading-bake".into()).spawn(move || {
+            let stage = build_stage(&grade);
+            *slot.lock().unwrap_or_else(|e| e.into_inner()) = Some((generation, stage));
+            poster.post(POST_STAGE, Value::Null);
+        });
+        self.stage_busy = spawned.is_ok();
+        spawned.is_ok()
+    }
+
+    /// A bake finished: its stage goes to the pipeline unless the grade changed since, in which case the newest is baked next.
+    fn stage_baked(&mut self, host: &mut dyn Host) {
+        self.stage_busy = false;
+        let Some((generation, stage)) = self.stage_slot.lock().unwrap_or_else(|e| e.into_inner()).take() else { return };
+        if generation == self.stage_gen {
+            host.set_colour_stage(OWNER, Some(stage), 0, None);
+        } else if self.on && !self.grade.is_identity() {
+            if let Some(poster) = self.auto.poster.clone() {
+                if self.bake_on_thread(poster) {
+                    return;
+                }
+            }
+            host.set_colour_stage(OWNER, self.stage(), 0, None);
+        }
     }
 
     /// Settings were loaded without a host to tell: the card shows them and the pipeline gets the grade, once.
@@ -324,7 +397,12 @@ impl ColourGradingPlugin {
         {
             self.reads += 1;
         }
-        match read_cube(Path::new(path)) {
+        self.kept_read(path, key, read_cube(Path::new(path)))
+    }
+
+    /// What a read of the file at path came to, kept for next time when it worked.
+    fn kept_read(&mut self, path: &str, key: Option<(u128, u64)>, read: Result<CubeLut, ReadError>) -> (Option<Arc<CubeLut>>, String) {
+        match read {
             Ok(lut) => {
                 let lut = Arc::new(lut);
                 if let Some(stamp) = key {
@@ -340,9 +418,64 @@ impl ColourGradingPlugin {
         }
     }
 
+    /// The saved LUT the effect was switched on for: from the parsed ones if the file is unchanged, else read on a thread.
+    fn read_deferred_lut(&mut self, host: &mut dyn Host) {
+        let path = self.lut_path.clone();
+        let cached = stamp(Path::new(&path)).is_some_and(|key| self.parsed.iter().any(|p| p.path == path && p.stamp == key));
+        let Some(poster) = self.auto.poster.clone().filter(|_| !cached) else {
+            let (lut, problem) = self.read_lut(&path);
+            self.grade.lut = lut;
+            self.lut_problem = problem;
+            self.show(host, &self.lut_props());
+            return;
+        };
+        self.lut_gen += 1;
+        let (generation, slot) = (self.lut_gen, self.lut_slot.clone());
+        let spawned = std::thread::Builder::new().name("colour-grading-lut".into()).spawn(move || {
+            let key = stamp(Path::new(&path));
+            let read = read_cube(Path::new(&path));
+            slot.lock().unwrap_or_else(|e| e.into_inner()).push((generation, path, key, read));
+            poster.post(POST_LUT, Value::Null);
+        });
+        self.lut_loading = spawned.is_ok();
+        if !self.lut_loading {
+            let path = self.lut_path.clone();
+            let (lut, problem) = self.read_lut(&path);
+            self.grade.lut = lut;
+            self.lut_problem = problem;
+            self.show(host, &self.lut_props());
+        }
+    }
+
+    /// The LUT's read finished: it goes into the grade unless the file, the path or the switch changed since.
+    fn lut_landed(&mut self, host: &mut dyn Host) {
+        let done: Vec<LutRead> = std::mem::take(&mut *self.lut_slot.lock().unwrap_or_else(|e| e.into_inner()));
+        let Some((_, path, key, read)) = done.into_iter().find(|(generation, path, ..)| *generation == self.lut_gen && *path == self.lut_path) else { return };
+        if !std::mem::take(&mut self.lut_loading) || !self.on {
+            return;
+        }
+        #[cfg(test)]
+        {
+            self.reads += 1;
+        }
+        let (lut, problem) = self.kept_read(&path, key, read);
+        self.grade.lut = lut;
+        self.lut_problem = problem;
+        self.show(host, &self.lut_props());
+        self.publish(host);
+    }
+
+    /// A read of the LUT still out is for a path or a time that's gone.
+    fn drop_lut_read(&mut self) {
+        self.lut_gen += 1;
+        self.lut_loading = false;
+    }
+
     fn load_lut(&mut self, host: &mut dyn Host, path: &str) {
         let (lut, problem) = if path.is_empty() { (None, String::new()) } else { self.read_lut(path) };
         self.lut_path = path.to_string();
+        self.drop_lut_read();
+        self.lut_deferred = false;
         self.lut_problem = problem;
         self.grade.lut = lut;
         self.show(host, &self.lut_props());
@@ -422,7 +555,16 @@ impl ColourGradingPlugin {
             "wheel-colour": self.wheels.iter().map(|w| wheel_colour(w.x, w.y, 1.6)).collect::<Vec<_>>(),
             "master-value": masters,
             "master-text": texts,
+            "grade-lit": self.off_default(),
         })
+    }
+
+    /// Anything Reset would change: every setting but the LUT, which has its own way off.
+    fn off_default(&self) -> bool {
+        let (g, d) = (&self.grade, Grade::default());
+        g.temperature != d.temperature || g.tint != d.tint || g.wheels != d.wheels || g.masters != d.masters || g.contrast != d.contrast
+            || g.pivot != d.pivot || g.shadows != d.shadows || g.highlights != d.highlights || g.saturation != d.saturation
+            || g.vibrance != d.vibrance || g.curves != d.curves || g.hue_sat != d.hue_sat || g.hue_hue != d.hue_hue
     }
 
     fn slider_text(def: &SliderDef, value: f64) -> String {
@@ -432,11 +574,10 @@ impl ColourGradingPlugin {
     fn slider_props(&self) -> Value {
         let values: Vec<f64> = SLIDERS.iter().map(|d| (slider_value(&self.grade, d.key) * d.steps).round_ties_even() / d.steps).collect();
         let texts: Vec<String> = SLIDERS.iter().map(|d| Self::slider_text(d, slider_value(&self.grade, d.key))).collect();
-        json!({"slider-value": values, "slider-text": texts})
+        json!({"slider-value": values, "slider-text": texts, "grade-lit": self.off_default()})
     }
 
     fn curve_props(&self) -> Value {
-        let tone = self.curve == 0;
         let line: String = self.editor.line(200).iter().enumerate()
             .map(|(i, (x, y))| format!("{} {:.1} {:.1}", if i == 0 { "M" } else { "L" }, x * 1000.0, (1.0 - y) * 1000.0)).collect::<Vec<_>>().join(" ");
         json!({
@@ -445,14 +586,14 @@ impl ColourGradingPlugin {
             "curve-line": line,
             "curve-points": self.editor.points.iter().map(|p| json!({"x": p.0, "y": p.1})).collect::<Vec<_>>(),
             "curve-picked": self.editor.picked,
-            "curve-colour": if tone { CHANNEL_COLOURS[self.channel] } else { LOOK_HUE },
+            "grade-lit": self.off_default(),
         })
     }
 
     fn lut_props(&self) -> Value {
         let name = Path::new(&self.lut_path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         json!({
-            "lut-text": if self.lut_path.is_empty() { tr(NO_LUT) } else { name },
+            "lut-text": name,
             "lut-path": self.lut_path,
             "lut-loaded": !self.lut_path.is_empty(),
             "strength": (self.grade.lut_strength * 100.0).round_ties_even(),
@@ -522,9 +663,10 @@ impl ColourGradingPlugin {
             "switch-name": tr("Colour grading"),
             "switch-help": tr(SWITCH_TIP),
             "wheel-labels": WHEEL_NAMES.iter().map(|w| tr("{wheel} colour").field("wheel", tr(w))).collect::<Vec<_>>(),
-            "reset-hint": tr("Double-click to reset"),
             "master-tips": WHEEL_TIPS.iter().map(|t| tr(t)).collect::<Vec<_>>(),
-            "wheel-tips": WHEEL_TIPS.iter().map(|t| format!("{}\n{}", tr(t), tr(WHEEL_HINT))).collect::<Vec<_>>(),
+            "master-labels": MASTER_LABELS.iter().map(|t| tr(t)).collect::<Vec<_>>(),
+            "wheel-tip": tr(WHEEL_TIP),
+            "wheel-hint": tr(WHEEL_HINT),
             "master-min": MASTER_RANGE.iter().map(|r| r.0).collect::<Vec<_>>(),
             "master-max": MASTER_RANGE.iter().map(|r| r.1).collect::<Vec<_>>(),
             "master-step": MASTER_STEPS.iter().map(|s| 1.0 / s).collect::<Vec<_>>(),
@@ -770,6 +912,14 @@ impl ColourGradingPlugin {
 
     fn set_on(&mut self, host: &mut dyn Host, on: bool) {
         self.on = on;
+        if !on && self.lut_loading {
+            // not wanted after all: the file waits for the next time
+            self.drop_lut_read();
+            self.lut_deferred = true;
+        }
+        if on && std::mem::take(&mut self.lut_deferred) {
+            self.read_deferred_lut(host);
+        }
         self.show(host, &json!({"on": on}));
         self.publish(host);
         host.schedule_save();
@@ -943,6 +1093,7 @@ impl Plugin for ColourGradingPlugin {
 
     fn setup(&mut self, host: &mut dyn Host) {
         self.auto.poster = host.poster();
+        self.auto.ready = host.is_streaming() && host.focused_source_id().is_some();
         self.show(host, &ColourGradingPlugin::fixed_props());
         self.show_all(host);
     }
@@ -969,6 +1120,8 @@ impl Plugin for ColourGradingPlugin {
             Event::ViewChanged { view } => self.auto.shared.hear_view(Geometry::from(view)),
             Event::PictureMeasureRequested { token } => self.probe_requested(host, token),
             Event::Posted { owner, token, .. } if owner == NAME && token == POST_MEASURED => self.auto_measured(host),
+            Event::Posted { owner, token, .. } if owner == NAME && token == POST_STAGE => self.stage_baked(host),
+            Event::Posted { owner, token, .. } if owner == NAME && token == POST_LUT => self.lut_landed(host),
             Event::TimerFired { owner, token } if owner == NAME && token == T_LABEL => {
                 self.auto.label.clear();
                 self.show_auto(host);
@@ -991,8 +1144,15 @@ impl Plugin for ColourGradingPlugin {
         }
     }
 
+    fn on_stream_start(&mut self, host: &mut dyn Host, _stream: &StreamInfo) {
+        self.auto.ready = true;
+        self.show_auto(host);
+    }
+
     fn on_stream_stop(&mut self, host: &mut dyn Host) {
         self.auto_abort(host);
+        self.auto.ready = false;
+        self.show_auto(host);
     }
 
     fn frame_step(&mut self) -> Option<FrameStep> {
@@ -1200,13 +1360,16 @@ impl Plugin for ColourGradingPlugin {
         g.hue_hue = points(cfg.get("hue_hue"), &neutral, false);
         g.lut_strength = number_in(cfg.get("lut_strength"), 1.0, 0.0, 1.0);
         let path = cfg.get("lut").and_then(Value::as_str).unwrap_or("").to_string();
-        let (lut, problem) = if path.is_empty() { (None, String::new()) } else { self.read_lut(&path) };
+        self.on = cfg.get("on") != Some(&Value::Bool(false));
+        // Off: the file waits until the effect is switched on, so a LUT nobody uses costs no parse or memory
+        self.drop_lut_read();
+        self.lut_deferred = !self.on && !path.is_empty();
+        let (lut, problem) = if path.is_empty() || self.lut_deferred { (None, String::new()) } else { self.read_lut(&path) };
         g.lut = lut;
         self.lut_problem = problem;
         self.lut_path = path;
         self.grade = g;
         self.auto.wrote = false;
-        self.on = cfg.get("on") != Some(&Value::Bool(false));
         // once, with the whole grade, so the stream never sees half of it: the next hook with a host does it
         self.dirty = true;
         Ok(())

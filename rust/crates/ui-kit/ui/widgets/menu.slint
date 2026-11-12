@@ -1,0 +1,102 @@
+// The one menu: the surface a list of commands sits on and its rows. Right-click menus (menus/std-widgets-impl.slint) and the cards' own
+// (the Presets menu) both use it, so every menu has the same look and the same motion in and out.
+
+import { Theme } from "../theme.slint";
+import { Motion, Fade, Pop } from "motion.slint";
+import { Grip } from "fine.slint";
+
+// Kind "menu": a raised surface with `r-ctl` corners and a soft shadow, no line round it. It pops in from a little under its size and
+// fades in when it is made, and goes the same way when `leaving` is set (the owner keeps the pop-up until `Motion.fade-out` + 40 ms later).
+export component MenuSurface inherits Rectangle {
+    out property <string> control-kind: "menu";
+    // Going: the menu fades and shrinks back
+    in property <bool> leaving;
+    // How present it is now, 0 to 1, for a test
+    out property <float> presence: fade.value;
+    property <bool> arrived;
+    init => { arrived = true; }
+    fade := Fade { shown: arrived && !root.leaving; }
+    pop := Pop { to: arrived && !root.leaving ? 1 : 0; }
+    background: Theme.raise;
+    border-radius: Theme.r-ctl;
+    border-width: Theme.pop-outline-w;
+    border-color: Theme.pop-outline;
+    opacity: fade.value;
+    transform-scale: pop.scale;
+    transform-origin: { x: root.width / 2, y: 0px };
+    drop-shadow-blur: Theme.u(6);
+    drop-shadow-color: Theme.shadow;
+    // A drag that was under way in it lets go
+    changed leaving => { if (leaving) { Grip.leave(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+    @children
+    // A menu that is easing out still shows its rows, but takes no more presses: the first pick stands
+    if root.leaving: TouchArea {
+        width: parent.width;
+        height: parent.height;
+        mouse-cursor: MouseCursor.default;
+    }
+}
+
+// A row of a menu, or a divider (`separator`). `current` is the row the pointer or the keys are on. The release of the right-click that
+// opened the menu can land on a row and is not a pick.
+export component MenuItem inherits Rectangle {
+    out property <string> control-kind: "menu";
+    in property <string> title;
+    in property <bool> separator;
+    in property <bool> enabled: true;
+    in property <bool> current;
+    callback hovered;
+    callback left;
+    callback activate;
+    property <duration> opened;
+    property <bool> had-press;
+    init => { opened = animation-tick(); }
+    height: separator ? Theme.u(4.5) : Theme.u(13);
+    if separator: Rectangle {
+        y: Theme.u(2);
+        height: Theme.stroke / 2;
+        background: Theme.line;
+    }
+    if !separator: Rectangle {
+        border-radius: Theme.r-handle;
+        background: root.current && root.enabled ? Theme.hover : transparent;
+        border-width: root.current && root.enabled ? Theme.outline-w-over : 0px;
+        border-color: Theme.outline-hover;
+        animate background { duration: Motion.tone-for(false); easing: Motion.tone; }
+        accessible-role: button;
+        accessible-label: root.title;
+        accessible-enabled: root.enabled;
+        accessible-action-default => { if (root.enabled) { root.activate(); } }
+        touch := TouchArea {
+            enabled: root.enabled;
+            pointer-event(e) => {
+                if (e.kind == PointerEventKind.move && !root.current) {
+                    root.hovered();
+                } else if (e.kind == PointerEventKind.down) {
+                    root.had-press = true;
+                } else if (e.kind == PointerEventKind.up && (root.had-press || animation-tick() - root.opened > 300ms)
+                        && self.mouse-x > 0 && self.mouse-x < self.width && self.mouse-y > 0 && self.mouse-y < self.height) {
+                    root.activate();
+                }
+            }
+            changed has-hover => {
+                if (!self.has-hover && root.current) {
+                    root.left();
+                }
+            }
+        }
+        Text {
+            x: Theme.u(4);
+            y: -1phx;
+            width: parent.width - Theme.u(8);
+            height: parent.height;
+            text: root.title;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            color: root.enabled ? Theme.ink : Theme.dis;
+            vertical-alignment: center;
+            overflow: elide;
+            accessible-role: none;
+        }
+    }
+}

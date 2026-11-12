@@ -17,7 +17,7 @@ use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 use telescope_core::view::{self, lens_step, pan_for, shown_to_view, window, window_centre, zoom_detent, Geometry, PhoneZoomCaps, ViewStatus, ROTATIONS};
 
 pub const NAME: &str = "transforms";
-const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/pad.slint"), "\n", include_str!("../ui/transforms.slint"));
+const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/transforms.slint"));
 
 /// Rotation's segments, by the names saved settings and the shortcut use.
 const ROTATION_SEGMENTS: [(&str, &str); 4] = [("None", "0\u{b0}"), ("90 CW", "90\u{b0}"), ("180", "180\u{b0}"), ("90 CCW", "270\u{b0}")];
@@ -32,10 +32,9 @@ const PAN_STEPS: f64 = 200.0;
 const DEFAULT_MAX_ZOOM: i32 = 10;
 const T_SETTLE: &str = "settle";
 
-const RESET_TIP: &str = n_("Clear flip, rotation, zoom, pan and stretch back to defaults");
-const PAN_TIP: &str = n_("Drag to move the view. Double-click to centre it.");
-const STRETCH_TIPS: [&str; 2] = [n_("Stretch or squish the picture sideways"), n_("Stretch or squish the picture up and down")];
-const RESET_HINT: &str = n_("Double-click to reset");
+const RESET_TIP: &str = n_("Set flip, rotation, zoom, pan and stretch back to default.");
+const PAN_TIP: &str = n_("Drag to move. Double-click to centre.");
+const STRETCH_TIPS: [&str; 2] = [n_("Stretch or squeeze the picture horizontally."), n_("Stretch or squeeze the picture vertically.")];
 
 /// A hand-edited or damaged config value becomes the default instead of breaking every frame.
 fn number_of(value: Option<&Value>, default: f64, lo: f64, hi: f64) -> f64 {
@@ -120,6 +119,8 @@ pub struct TransformsPlugin {
     /// set_config has no host: the window hears the settings with the next hook that has one.
     pending_view: bool,
     held: [Option<bool>; 2],
+    /// The map shape the card was last given, to tell when the frame's shape has moved.
+    map_aspect_sent: std::cell::Cell<f64>,
 }
 
 impl Default for TransformsPlugin {
@@ -158,6 +159,7 @@ impl TransformsPlugin {
             paired: Paired::default(),
             pending_view: false,
             held: [None; 2],
+            map_aspect_sent: std::cell::Cell::new(0.0),
         }
     }
 
@@ -229,10 +231,6 @@ impl TransformsPlugin {
         if pct != 0.0 { percent(pct, 0, true) } else { percent(0.0, 0, false) }
     }
 
-    fn pan_text(&self) -> String {
-        tr("H {x}\nV {y}").field("x", Self::pan_label(self.pan_x)).field("y", Self::pan_label(self.pan_y))
-    }
-
     fn zoom_where_text(&self) -> String {
         let mut text = self.zoom_where.clone();
         if !self.snaps.is_empty() {
@@ -241,8 +239,7 @@ impl TransformsPlugin {
         if !self.taken_by.is_empty() {
             text = tr("{owner} is moving the zoom and pan").field("owner", tr(&self.taken_by));
         }
-        // A slider with a default says how to use it
-        format!("{text}\n{}", tr(RESET_HINT)).trim_start_matches('\n').to_string()
+        text.trim_start_matches('\n').to_string()
     }
 
     fn lens(&self) -> (&'static str, String) {
@@ -266,13 +263,47 @@ impl TransformsPlugin {
         })
     }
 
+    /// The longer lenses' boxes on the pan map: `view::lens_boxes` (as the preview) with nothing zoomed, flipped or turned.
+    fn lens_outlines(&self) -> Value {
+        let streaming = self.stream.is_some() && self.status.streaming;
+        let caps = self.status.caps.as_ref().filter(|_| streaming);
+        let boxes = view::lens_boxes(caps, &Geometry::default());
+        json!(boxes.into_iter().map(|(_, x0, y0, x1, y1)| json!({"x0": x0, "y0": y0, "x1": x1, "y1": y1})).collect::<Vec<_>>())
+    }
+
+    fn show_lens_outlines(&self, host: &mut dyn Host) {
+        self.show(host, &json!({"lens-outlines": self.lens_outlines()}));
+    }
+
     fn pan_props(&self) -> Value {
         json!({
             "pan-x": self.pan_x,
             "pan-y": self.pan_y,
             "pan-enabled": self.pan_active(),
-            "pan-text": self.pan_text(),
         })
+    }
+
+    /// The map's shape follows the frame the window shows.
+    fn show_map_aspect(&self, host: &mut dyn Host) {
+        let aspect = self.map_aspect(host);
+        self.map_aspect_sent.set(aspect);
+        self.show(host, &json!({"map-aspect": aspect}));
+    }
+
+    /// The first frame (or a new size) arrives after the stream starts, so the shape is looked at again when the frames have moved it.
+    fn follow_map_aspect(&self, host: &mut dyn Host) {
+        if (self.map_aspect(host) - self.map_aspect_sent.get()).abs() > 1e-6 {
+            self.show_map_aspect(host);
+        }
+    }
+
+    /// The map's shape: width over height of the phone's frame, as the window shows it.
+    fn map_aspect(&self, host: &dyn Host) -> f64 {
+        let shown = host.view_aspect() as f64;
+        if shown <= 0.0 {
+            return 16.0 / 9.0;
+        }
+        if matches!(self.rotation, Some(90 | 270)) { 1.0 / shown } else { shown }
     }
 
     fn stretch_props(&self) -> Value {
@@ -294,13 +325,13 @@ impl TransformsPlugin {
 
     fn fixed_props() -> Value {
         let add = |action: &str| tr("Add shortcut for {action}…").field("action", tr(action));
-        json!({"reset-tip": tr(RESET_TIP), "pan-tip": tr(PAN_TIP), "pan-add-x": add("Pan left/right"), "pan-add-y": add("Pan up/down"), "reset-hint": tr(RESET_HINT),
+        json!({"reset-help": tr(RESET_TIP), "pan-tip": tr(PAN_TIP), "pan-add-x": add("Pan left/right"), "pan-add-y": add("Pan up/down"),
                "stretch-tips": STRETCH_TIPS.iter().map(|t| tr(t)).collect::<Vec<_>>()})
     }
 
     fn all_props(&self) -> Value {
         let mut all = Map::new();
-        for part in [self.flip_props(), self.zoom_props(), self.pan_props(), self.stretch_props()] {
+        for part in [self.flip_props(), self.zoom_props(), self.pan_props(), self.stretch_props(), json!({"lens-outlines": self.lens_outlines()})] {
             if let Value::Object(m) = part {
                 all.extend(m);
             }
@@ -315,6 +346,7 @@ impl TransformsPlugin {
 
     fn show_all(&self, host: &mut dyn Host) {
         self.show(host, &self.all_props());
+        self.show_map_aspect(host);
     }
 
     fn show_zoom_where(&self, host: &mut dyn Host) {
@@ -373,6 +405,11 @@ impl TransformsPlugin {
         let (x, y) = (x.clamp(-1.0, 1.0), y.clamp(-1.0, 1.0));
         self.pan_steps = [(x * PAN_STEPS).trunc() as i32, (y * PAN_STEPS).trunc() as i32];
         self.on_pan_changed(host);
+    }
+
+    /// The map's crop was moved so its middle is at (cx, cy) of the frame: the pan that puts the window there.
+    fn on_map_moved(&mut self, host: &mut dyn Host, cx: f64, cy: f64) {
+        self.on_pan_pad(host, pan_for(cx, self.zoom), pan_for(cy, self.zoom));
     }
 
     /// Zoom or pan changed: the sliders follow and the window's view moves (the phone hears, the lens boxes move).
@@ -475,6 +512,10 @@ impl TransformsPlugin {
             // Checks the dot again once a new ratio had time to take, in case no phone state comes in between
             host.schedule(((LENS_SETTLE_S * 1000.0) as u64) + 100, T_SETTLE);
         }
+        let was = (old.streaming, old.caps.as_ref().map(|c| c.lens_zooms.clone()));
+        if was != (status.streaming, status.caps.as_ref().map(|c| c.lens_zooms.clone())) {
+            self.show_lens_outlines(host);
+        }
         self.zoom_where = if status.sent.is_none() {
             if status.streaming { tr("Zoomed on this computer: this lens can't zoom itself") } else { tr("Zoomed on this computer") }
         } else if status.desktop_zoom > 1.0 {
@@ -497,6 +538,8 @@ impl TransformsPlugin {
         self.stream = None;
         self.session = None;
         self.live_lens.clear();
+        self.show_map_aspect(host);
+        self.show_lens_outlines(host);
         self.show_zoom_where(host);
     }
 }
@@ -541,7 +584,12 @@ impl Plugin for TransformsPlugin {
             }
             Event::ViewDragged { du, dv } => self.view_dragged(host, *du as f64, *dv as f64),
             Event::ViewScrolled { factor, u, v } => self.view_scrolled(host, *factor as f64, *u as f64, *v as f64),
-            Event::ViewStatus { status } => self.view_status(host, status),
+            Event::ViewStatus { status } => {
+                self.view_status(host, status);
+                self.follow_map_aspect(host);
+            }
+            // A new decoded size says so for every kind of source, the phone readings are the older stand-in for a phone's
+            Event::FrameSizeChanged { .. } | Event::CameraOpened { .. } | Event::PhonePolled { .. } | Event::PhoneStateUpdated { .. } => self.follow_map_aspect(host),
             Event::ViewTaken { owner } => self.view_taken(host, owner),
             Event::TimerFired { owner, token } if owner == NAME && token == T_SETTLE => {
                 self.show_zoom_where(host);
@@ -574,29 +622,9 @@ impl Plugin for TransformsPlugin {
                     self.on_zoom_changed(host, (n(0) * 100.0).round() as i32);
                 }
             }
-            "pad-pointer" => {
+            "map-moved" => {
                 if self.pan_active() {
-                    self.on_pan_pad(host, n(0), n(1));
-                }
-            }
-            "pad-key" => {
-                if !self.pan_active() {
-                    return;
-                }
-                let step = if b(1) { 0.1 } else { 0.01 };
-                let (x, y) = (self.pan_x, self.pan_y);
-                match event.args.first().and_then(Value::as_str).unwrap_or("") {
-                    "home" => self.on_pan_pad(host, 0.0, 0.0),
-                    "left" => self.on_pan_pad(host, x - step, y),
-                    "right" => self.on_pan_pad(host, x + step, y),
-                    "up" => self.on_pan_pad(host, x, y - step),
-                    "down" => self.on_pan_pad(host, x, y + step),
-                    _ => {}
-                }
-            }
-            "pad-reset" => {
-                if self.pan_active() {
-                    self.on_pan_pad(host, 0.0, 0.0);
+                    self.on_map_moved(host, n(0), n(1));
                 }
             }
             "stretch-moved" => {
@@ -712,14 +740,18 @@ impl Plugin for TransformsPlugin {
         self.catch_up(host);
     }
 
-    fn on_stream_start(&mut self, _host: &mut dyn Host, stream: &StreamInfo) {
+    fn on_stream_start(&mut self, host: &mut dyn Host, stream: &StreamInfo) {
         self.stream = Some(stream.url.clone());
         self.session = Some(stream.session);
+        self.show_map_aspect(host);
+        self.show_lens_outlines(host);
     }
 
     fn on_focus_gained(&mut self, host: &mut dyn Host, stream: &StreamInfo) {
         self.stream = Some(stream.url.clone());
         self.session = Some(stream.session);
+        self.show_map_aspect(host);
+        self.show_lens_outlines(host);
         if let Some((live, default, tele)) = self.behind.take(host, stream.session) {
             self.live_lens = live;
             self.default_lens = default;

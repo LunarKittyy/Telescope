@@ -237,7 +237,7 @@ fn switching_off_asks_first_names_what_goes_and_waits_for_a_restart() {
     assert!(last.title == "Switch off Presets?" && last.text.contains("The Presets card goes away.") && last.text.contains("settings stay saved"));
     assert_eq!(r.panel.pending_changes(), 1);
     assert_eq!(r.panel.footer_note(), "Restart to apply 1 change");
-    assert!(labels(&r.panel).contains(&"Restart required".to_string()));
+    assert!(!labels(&r.panel).contains(&"Restart required".to_string()));
     flip(&mut r, "presets", true, &mut yes);
     assert!(r.admin.builtin_off().is_empty() && r.panel.pending_changes() == 0);
 }
@@ -389,6 +389,11 @@ fn the_restart_button_restarts_telescope() {
     let (_w, s, _) = settings_with("plugins-restart", builtins(), |_, _| {});
     switch_named(&s.ui, "Presets").invoke_accessible_default_action();
     s.ui.invoke("answered", &[SValue::Bool(true)]).unwrap();
+    // The bar opens over a third of a second, looked at as it goes (it is made when it is first laid out)
+    for _ in 0..30 {
+        let _ = labelled(&s.ui, "Restart now");
+        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(50));
+    }
     let buttons: Vec<ElementHandle> = labelled(&s.ui, "Restart now").into_iter().filter(|e| e.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::Button)).collect();
     assert_eq!(buttons.len(), 1, "one button, in the footer");
     assert_eq!(s.ui.get_property("footer-note").unwrap(), SValue::String("Restart to apply 1 change".into()));
@@ -612,7 +617,7 @@ fn installing_a_plugin_thats_there_asks_then_replaces_it() {
     let note = &outcome.notices[0];
     assert!(note.kind == NoticeKind::Info && note.title == "Replaced" && note.text.contains("Extra 1.1"));
     assert!(!tile(&r.panel, "Extra 1.1").on);
-    assert!(labels(&r.panel).contains(&"Restart required".to_string()) && r.panel.pending_changes() == 1); // the old one still runs
+    assert!(!labels(&r.panel).contains(&"Restart required".to_string()) && r.panel.pending_changes() == 1); // the old one still runs
 }
 
 #[test]

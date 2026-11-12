@@ -3,8 +3,10 @@
 
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
-import { FocusRing } from "basics.slint";
-import { TipBody, TipUse } from "tip.slint";
+import { FocusRing, KeyFocus } from "basics.slint";
+import { Tip } from "tip.slint";
+import { Settle } from "motion.slint";
+import { FineAxis, Grip, Hold } from "fine.slint";
 
 export component Jog inherits Rectangle {
     // What the two ends are called, in the track's own corners
@@ -13,6 +15,10 @@ export component Jog inherits Rectangle {
     // What a screen reader calls it
     in property <string> label;
     in property <string> tip;
+    in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
+    in property <[string]> tip-keys;
     in property <bool> enabled: true;
     in property <color> hue: Theme.accent;
     // How far the handle is from the middle, -1 (all the way toward the first end) to 1. Asked for in 48ths, so a drag tells the owner
@@ -28,8 +34,11 @@ export component Jog inherits Rectangle {
     property <bool> on-handle;
     property <length> pressed-at;
     property <int> asked;
+    // Shift while dragging goes finer: the handle follows a tenth of the pointer's travel
+    fine := FineAxis { }
+    property <bool> shift-now;
     function drag-to(x: length) {
-        offset = clamp((x - root.width / 2) / max(1px, reach), -1, 1);
+        offset = clamp((fine.at(x / 1px, shift-now, -100000, 100000) * 1px - root.width / 2) / max(1px, reach), -1, 1);
         let q = round(offset * 48);
         if (q != asked) {
             asked = q;
@@ -44,33 +53,39 @@ export component Jog inherits Rectangle {
             moved(0);
         }
     }
-    height: 32px;
+    out property <string> control-kind: "jog";
+    height: Theme.row;
     horizontal-stretch: 1;
-    min-width: 96px;
-    border-radius: 7px;
-    border-width: 1px;
-    background: !enabled ? Theme.bg : touch.has-hover || dragging ? Theme.surface-hover : Theme.surface-raise;
-    border-color: !enabled ? Theme.border : touch.has-hover || dragging ? Theme.border-hover : Theme.border-strong;
+    min-width: Theme.u(48);
+    border-radius: Theme.r-ctl;
+    background: !enabled ? Theme.raise.mix(Theme.card, 0.4) : touch.has-hover || dragging ? Theme.hover : Theme.raise;
+    border-width: !enabled ? Theme.outline-w : Theme.ctl-outline-w(touch.has-hover, dragging);
+    border-color: !enabled ? Theme.dis-outline : Theme.ctl-outline(touch.has-hover, dragging);
     accessible-role: slider;
     accessible-label: label;
-    accessible-description: tip;
+    accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
     accessible-action-increment => { if (enabled) { tapped(1); } }
     accessible-action-decrement => { if (enabled) { tapped(-1); } }
-    changed enabled => { if (!enabled && dragging) { let-go(); } }
+    changed enabled => {
+        if (!enabled) {
+            focus.clear-focus();
+            if (dragging) { let-go(); }
+        }
+    }
     forward-focus: focus;
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         focus-lost => { if (dragging) { let-go(); } }
         enabled: root.enabled;
         key-pressed(e) => {
-            if (e.modifiers.control || e.modifiers.meta || e.modifiers.alt) { return reject; }
+            if (!root.enabled || e.modifiers.control || e.modifiers.meta || e.modifiers.alt) { return reject; }
             if (e.text == Key.LeftArrow || e.text == Key.DownArrow) { tapped(-1); return accept; }
             if (e.text == Key.RightArrow || e.text == Key.UpArrow) { tapped(1); return accept; }
             reject
         }
     }
-    FocusRing { shown: focus.has-focus; radius: 7px; width: parent.width + 4px; height: parent.height + 4px; }
-    usage := TipUse { hover: touch.has-hover; }
+    FocusRing { shown: focus.has-focus; radius: 7px; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
     Text {
         x: 11px;
         width: root.width / 2 - 24px;
@@ -78,7 +93,7 @@ export component Jog inherits Rectangle {
         text: root.near-text;
         font-family: Theme.font;
         font-size: Theme.small;
-        color: enabled ? Theme.text-faint : Theme.text-disabled;
+        color: enabled ? Theme.faint : Theme.dis;
         vertical-alignment: center;
         overflow: elide;
         accessible-role: none;
@@ -90,7 +105,7 @@ export component Jog inherits Rectangle {
         text: root.far-text;
         font-family: Theme.font;
         font-size: Theme.small;
-        color: enabled ? Theme.text-faint : Theme.text-disabled;
+        color: enabled ? Theme.faint : Theme.dis;
         horizontal-alignment: right;
         vertical-alignment: center;
         overflow: elide;
@@ -100,29 +115,32 @@ export component Jog inherits Rectangle {
     Rectangle {
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
-        width: 2px;
-        height: 12px;
+        width: Theme.stroke;
+        height: Theme.u(6);
         border-radius: 1px;
-        background: enabled ? Theme.border-hover : Theme.border-strong;
+        background: enabled ? Theme.line-hover : Theme.line-strong;
     }
     handle := Rectangle {
-        width: 14px;
-        height: 22px;
+        width: Theme.u(7);
+        height: Theme.u(11);
         y: (parent.height - self.height) / 2;
-        x: (parent.width - self.width) / 2 + root.offset * root.reach;
-        border-radius: 5px;
-        background: !enabled ? Theme.text-disabled : touch.pressed || dragging ? hue.brighter(0.15) : touch.has-hover ? hue.brighter(0.1) : hue;
-        // Back to the middle in a moment rather than a jump, but never behind a hand that's moving it
-        animate x { duration: root.dragging ? 0ms : 160ms; easing: ease-out; }
+        x: (parent.width - self.width) / 2 + glide.value * root.reach;
+        border-radius: Theme.r-handle;
+        background: !enabled ? Theme.dis : touch.pressed || dragging ? hue.brighter(0.15) : touch.has-hover ? hue.brighter(0.1) : hue;
     }
+    // Back to the middle in a moment rather than a jump, but never behind a hand that's moving it
+    glide := Settle { to: root.offset; snap: root.dragging; }
     touch := TouchArea {
+        property <Hold> grip;
         enabled: root.enabled;
         mouse-cursor: MouseCursor.ew-resize;
         scroll-event(e) => { usage.wheel(); reject }
         pointer-event(e) => {
-            if (e.kind == PointerEventKind.down) { usage.press(); }
+            shift-now = e.modifiers.shift;
+            if (e.kind == PointerEventKind.down) { usage.press(); grip = Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
             if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
                 focus.focus();
+                fine.begin(self.mouse-x / 1px);
                 pressed-at = self.mouse-x;
                 on-handle = abs(self.mouse-x - root.width / 2) <= handle.width / 2 + 4px;
                 // A press on the handle holds it at once, one beside it waits to see whether it's a click or a drag
@@ -130,16 +148,18 @@ export component Jog inherits Rectangle {
             }
             if (e.kind == PointerEventKind.up && e.button == PointerEventButton.left) {
                 if (dragging) { let-go(); }
-                else if (!on-handle) { tapped(self.mouse-x < root.width / 2 ? -1 : 1); }
+                else if (!on-handle && !Grip.cut(grip)) { tapped(self.mouse-x < root.width / 2 ? -1 : 1); }
             }
             if (e.kind == PointerEventKind.cancel && dragging) { let-go(); }
         }
         moved => {
-            if (self.pressed) {
-                if (!dragging && abs(self.mouse-x - pressed-at) > 4px) { dragging = true; }
+            if (self.pressed && !Grip.cut(grip)) {
+                if (!dragging && abs(self.mouse-x - pressed-at) > 4px) {
+                    dragging = true;
+                    fine.begin(self.mouse-x / 1px);
+                }
                 if (dragging) { drag-to(self.mouse-x); }
             }
         }
     }
-    if root.tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
 }

@@ -128,9 +128,9 @@ impl Preview {
         } else if !can {
             why
         } else if host.is_streaming() {
-            tr("Turn the phone's camera off. Its mic keeps streaming.")
+            tr("Turn the phone's camera off and keep streaming its mic.")
         } else {
-            tr("Start with the phone's camera off, streaming just its mic.")
+            tr("Start with the phone's camera off and stream only its mic.")
         };
         let mut props = json!({
             "visible-card": !self.setup_needed,

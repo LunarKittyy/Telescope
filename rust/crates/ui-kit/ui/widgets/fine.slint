@@ -1,0 +1,76 @@
+// Shift while dragging goes finer, the same on every control that is dragged: one factor, one way of keeping the value from jumping.
+
+// A press that took hold of something: which one it was (in order) and where it was made
+export struct Hold {
+    id: int,
+    x: length,
+    y: length,
+}
+
+// A container that went away: the box it had, and the last press that had been taken before it went
+struct Gone {
+    upto: int,
+    x: length,
+    y: length,
+    w: length,
+    h: length,
+}
+
+// Kind "helper". The press that holds the pointer, so a drag, a click that waits and a held arrow survive their container going away without still
+// changing anything. A control takes a `Hold` at each press and asks `cut` with it at every move, timer and release; a container that goes away
+// calls `leave` with its box. A press made after a container went is never cut by it, however many presses come between.
+export global Grip {
+    property <int> count;
+    property <int> slot;
+    // How many containers have gone, so a control that is holding something can look again
+    out property <int> leaves;
+    property <[Gone]> gone: [
+        { upto: -1, x: 0px, y: 0px, w: 0px, h: 0px }, { upto: -1, x: 0px, y: 0px, w: 0px, h: 0px },
+        { upto: -1, x: 0px, y: 0px, w: 0px, h: 0px }, { upto: -1, x: 0px, y: 0px, w: 0px, h: 0px },
+        { upto: -1, x: 0px, y: 0px, w: 0px, h: 0px }, { upto: -1, x: 0px, y: 0px, w: 0px, h: 0px },
+        { upto: -1, x: 0px, y: 0px, w: 0px, h: 0px }, { upto: -1, x: 0px, y: 0px, w: 0px, h: 0px },
+    ];
+    public function take(px: length, py: length) -> Hold {
+        count += 1;
+        return { id: count, x: px, y: py };
+    }
+    public function leave(bx: length, by: length, w: length, h: length) {
+        gone[slot] = { upto: count, x: bx, y: by, w: w, h: h };
+        slot = Math.mod(slot + 1, 8);
+        leaves += 1;
+    }
+    pure function hit(p: Hold, i: int) -> bool {
+        return gone[i].upto >= p.id && p.x >= gone[i].x && p.x <= gone[i].x + gone[i].w && p.y >= gone[i].y && p.y <= gone[i].y + gone[i].h;
+    }
+    // The press sits in something that has gone away since it was made
+    public pure function cut(p: Hold) -> bool {
+        return hit(p, 0) || hit(p, 1) || hit(p, 2) || hit(p, 3) || hit(p, 4) || hit(p, 5) || hit(p, 6) || hit(p, 7);
+    }
+}
+
+// The fraction of a drag's distance a Shift-held drag moves: the colour wheel's tenth (WHEEL_FINE in effects/src/editors.rs says the same)
+export global Fine {
+    out property <float> factor: 0.1;
+}
+
+// Kind "helper". One axis of a drag: `at` takes where the pointer would put the value (in the control's own units) and whether Shift is held, and gives where the value goes: the pointer's own place, except that every move made with Shift held counts a tenth, and what was held back stays held back after Shift is let go, so the value never jumps when Shift is pressed or released mid-drag. Held to lo and hi; what the value would be past an end is not forgotten, so coming back takes the same way back, as the colour wheel's puck does at its rim.
+export component FineAxis {
+    out property <string> control-kind: "helper";
+    // Shift was held at the last move
+    out property <bool> fine;
+    // What the pointer's place is off from the value's, in the control's units
+    property <float> held-back;
+    property <float> last;
+    // A drag begins with the pointer at `u`
+    public function begin(u: float) {
+        held-back = 0;
+        last = u;
+        fine = false;
+    }
+    public function at(u: float, shift: bool, lo: float, hi: float) -> float {
+        fine = shift;
+        if (shift) { held-back += (u - last) * (1 - Fine.factor); }
+        last = u;
+        return clamp(u - held-back, lo, hi);
+    }
+}

@@ -1,0 +1,13 @@
+// The main window's size, for a dialog shown from inside a card to centre itself on the window.
+export global WindowBox {
+    in-out property <length> width;
+    in-out property <length> height;
+    // Where a dialog this big goes
+    public pure function left(w: length) -> length { max(8px, (self.width - w) / 2) }
+    public pure function top(h: length) -> length { max(8px, (self.height - h) / 2) }
+    // A dialog's height, held to the window where the window's size is known
+    public pure function cap(h: length) -> length { self.height > 0 ? min(h, self.height - 16px) : h }
+    // The size of a pop-up that covers the window, for a dialog that takes a click beside it as its Cancel
+    public pure function cover-w(w: length) -> length { self.width > 0 ? self.width : max(w + 16px, 4000px) }
+    public pure function cover-h(h: length) -> length { self.height > 0 ? self.height : max(h + 16px, 4000px) }
+}

@@ -5,7 +5,7 @@
 //! does (keying waits while its own pick runs, so the screen shows to click on).
 
 use crate::cpu::rgb_at;
-use crate::shared::{hex, no_pictures, Paired, PictureReader};
+use crate::shared::{hex, hsv_to_rgb, no_pictures, parse_hex, rgb_to_hsv, Paired, PictureReader};
 use serde_json::{json, Map, Value};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -13,12 +13,14 @@ use telescope_core::actions::{self, Choice, SliderSpec};
 use telescope_core::config::clamped_int;
 use telescope_core::event::Event;
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat, ShaderStep, Touch};
-use telescope_core::host::{FileDialog, FileDialogKind, Host, PickKind, RequestId};
+use telescope_core::host::{FileDialog, FileDialogKind, Host, PickKind, Poster, RequestId};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
 pub const NAME: &str = "chroma_key";
+/// The owner of the pipette's pick on the preview, apart from the screen's own so keying doesn't step aside for it.
+const BACKDROP_OWNER: &str = "chroma_key.backdrop";
 const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/chroma_key.slint"));
 const WGSL: &str = include_str!("chroma_key.wgsl");
 
@@ -36,7 +38,7 @@ const SAMPLE: i64 = 4;
 const MIN_CHROMA: f64 = 12.0;
 /// tolerance, softness, spill: their saved names and defaults
 const SLIDERS: [(&str, i64); 3] = [("tolerance", 40), ("softness", 30), ("spill", 60)];
-const SLIDER_TIPS: [&str; 3] = [n_("Higher takes out more shades of the screen"), n_("How soft the edge around you is"), n_("Takes the screen's colour out of your edges and skin")];
+const SLIDER_TIPS: [&str; 3] = [n_("Higher values remove more shades of the screen colour."), n_("How soft the edge around you is."), n_("Remove the screen's colour from your edges and skin.")];
 
 /// (Cb, Cr) of a B, G, R colour, centred on 0, as cv2.cvtColor's fixed-point BGR2YCrCb makes them.
 pub fn chroma_of(bgr: [u8; 3]) -> (f64, f64) {
@@ -164,25 +166,47 @@ fn bgr(value: Option<&Value>) -> Option<[u8; 3]> {
 /// What the baked tables were made from: the key colour and the sliders.
 type TablesKey = (String, [i64; 3]);
 
+/// A read of the picture that has finished: which read it was, for what path, and what came of it.
+type Landed = (u64, String, Option<Frame>);
+
+/// Posted by the thread that read the picture.
+const POST_PICTURE: &str = "picture_read";
+
 pub struct ChromaKeyPlugin {
     on: bool,
     screen: &'static str,
     /// B, G, R picked on the preview
     picked: Option<[u8; 3]>,
     colour: [u8; 3],
+    /// The colour as the pad and the strip left it (hue, saturation, brightness), so a grey keeps its hue
+    hsv: (f32, f32, f32),
     sliders: [i64; 3],
     background: &'static str,
     picture_path: String,
+    /// The picture in full, kept only while it's what's behind you (it can be 4K); the card and the thumb need no more.
     picture: Option<Frame>,
+    /// Whether the picture could be read when it was chosen or loaded.
+    has_picture: bool,
     picture_problem: String,
-    status: Option<String>,
+    /// The picture's small copy for the Choose control, and whether the card has it yet.
+    thumb: Option<Frame>,
+    thumb_sent: bool,
+    /// What the last pick said: a short word, and the sentence for its tooltip.
+    status: Option<(String, String)>,
     paired: Paired,
     held: Option<bool>,
     /// Keying waits while the screen's colour is picked, so the screen shows to click on.
     picking: bool,
     last: Arc<Mutex<Option<Frame>>>,
     reader: PictureReader,
-    editing_colour: bool,
+    /// Where a read of the saved picture is done: on a thread, with the host's poster to say it landed.
+    poster: Option<Arc<dyn Poster>>,
+    /// Which read counts: the newest one started, and whether it's still out.
+    read_gen: u64,
+    reading: bool,
+    /// The picture couldn't be read when it was wanted; no more tries until the path changes or the key goes off and on.
+    read_failed: bool,
+    landed: Arc<Mutex<Vec<Landed>>>,
     asked: Option<RequestId>,
     /// set_config has no host: the card hears the settings with the next hook that has one.
     pending: bool,
@@ -207,18 +231,26 @@ impl ChromaKeyPlugin {
             screen: "green",
             picked: None,
             colour: DEFAULT_COLOUR,
+            hsv: rgb_to_hsv([DEFAULT_COLOUR[2], DEFAULT_COLOUR[1], DEFAULT_COLOUR[0]], (0.0, 0.0)),
             sliders: [SLIDERS[0].1, SLIDERS[1].1, SLIDERS[2].1],
             background: "colour",
             picture_path: String::new(),
             picture: None,
+            has_picture: false,
             picture_problem: String::new(),
+            thumb: None,
+            thumb_sent: true,
             status: None,
             paired: Paired::default(),
             held: None,
             picking: false,
             last: Arc::new(Mutex::new(None)),
             reader,
-            editing_colour: false,
+            poster: None,
+            read_gen: 0,
+            reading: false,
+            read_failed: false,
+            landed: Arc::new(Mutex::new(Vec::new())),
             asked: None,
             pending: true,
             cached: None,
@@ -243,32 +275,20 @@ impl ChromaKeyPlugin {
 
     // ── What the card shows ───────────────────────────────────────────
 
-    /// The text under the controls: why the picture behind you isn't there yet.
-    fn note(&self) -> String {
-        if self.on && self.background == "picture" && !self.picture_problem.is_empty() {
-            self.picture_problem.clone()
-        } else if self.on && self.background == "picture" && self.picture.is_none() {
-            tr("Choose a picture to put behind you.")
-        } else {
-            String::new()
-        }
-    }
-
     fn fixed_props() -> Value {
         json!({
             "switch-name": tr("Chroma key"),
-            "switch-help": tr("Swap the screen behind you"),
+            "switch-help": tr("Replace the green or blue screen behind you."),
             "slider-tips": SLIDER_TIPS.iter().map(|t| tr(t)).collect::<Vec<_>>(),
-            "reset-hint": tr("Double-click to reset"),
-            "colour-tip": tr("Pick the colour that goes behind you"),
-            "colour-title": tr("Colour behind you"),
-            "picture-choose-tip": tr("Pick the picture that goes behind you"),
+            "colour-tip": tr("Pick the colour that goes behind you."),
+            "pipette-tip": tr("Pick from the preview"),
+            "picture-choose-tip": tr("Pick the picture that goes behind you."),
         })
     }
 
     fn all_props(&self) -> Value {
-        let picked_tip = if self.picked.is_some() { tr("The colour picked from the preview. Click to pick again.") } else { tr("Pick the screen's colour from the preview") };
-        let text = self.note();
+        let picked_tip = if self.picked.is_some() { tr("The colour picked from the preview. Click to pick again.") } else { String::new() };
+        let text = self.status_text();
         let (r, g, b) = (self.colour[2], self.colour[1], self.colour[0]);
         json!({
             "active": self.paired.on(),
@@ -281,24 +301,36 @@ impl ChromaKeyPlugin {
             "slider-text": self.sliders.iter().map(|v| v.to_string()).collect::<Vec<_>>(),
             "behind": BACKGROUNDS.iter().position(|(k, _)| *k == self.background).unwrap_or(0),
             "backdrop-colour": hex([r, g, b]),
-            "editing-colour": self.editing_colour,
+            "screen-colour": hex(self.key_colour().map_or([128, 128, 128], |k| [k[2], k[1], k[0]])),
+            "colour-h": self.hsv.0,
+            "colour-s": self.hsv.1,
+            "colour-v": self.hsv.2,
+            "colour-hex": hex([r, g, b]),
             "channel-value": [r, g, b],
-            "picture-text": if self.picture_path.is_empty() { tr("No picture yet") } else { file_name(&self.picture_path) },
+            "picture-text": file_name(&self.picture_path),
+            "has-picture": self.has_picture,
+            "picture-problem": self.picture_problem,
             "picture-tip": self.picture_path,
             "status": text,
+            "status-detail": self.status.as_ref().map(|s| s.1.clone()).unwrap_or_default(),
             "status-kind": if self.status_text().is_empty() { "status_dim" } else { "status_warn" },
         })
     }
 
     /// What the status line says: a message from the last pick, else the note about the picture.
     fn status_text(&self) -> String {
-        self.status.clone().unwrap_or_else(|| self.note())
+        self.status.as_ref().map(|s| s.0.clone()).unwrap_or_default()
     }
 
-    fn show(&self, host: &mut dyn Host) {
+    fn show(&mut self, host: &mut dyn Host) {
         let mut props = self.all_props();
         props["status"] = json!(self.status_text());
         host.set_ui_props("card", &props);
+        if !self.thumb_sent {
+            self.thumb_sent = true;
+            let empty = Frame::new(0, 0, telescope_core::frame::PixelFormat::Rgba, Vec::new());
+            host.set_ui_image("card", "picture-thumb", self.thumb.as_ref().unwrap_or(&empty));
+        }
     }
 
     fn catch_up(&mut self, host: &mut dyn Host) {
@@ -312,6 +344,7 @@ impl ChromaKeyPlugin {
     /// _changed: everything the settings decide has to be shown, kept and handed to the stream again.
     fn changed(&mut self, host: &mut dyn Host) {
         self.status = None;
+        self.settle_picture();
         self.show(host);
         host.schedule_save();
         host.refresh_frame_step();
@@ -341,7 +374,7 @@ impl ChromaKeyPlugin {
 
     fn pick(&mut self, host: &mut dyn Host) {
         if !host.pick_on_preview(NAME, PickKind::Point, None, &tr("Click the screen behind you on the preview. Esc cancels.")) {
-            self.status = Some(tr("Start streaming to pick the screen's colour on the preview."));
+            self.status = Some((tr("Not streaming"), tr("Start streaming to pick the screen's colour on the preview.")));
             self.show(host);
         }
     }
@@ -359,13 +392,34 @@ impl ChromaKeyPlugin {
         };
         let colour = sample(&frame, at[0] as f64, at[1] as f64);
         if !keyable(colour) {
-            self.status = Some(tr("That spot has hardly any colour. Click the screen itself."));
+            self.status = Some((tr("No colour there"), tr("That spot has hardly any colour. Click the screen itself.")));
             self.show(host);
             return;
         }
         self.picked = Some(colour);
         self.screen = "picked";
         self.changed(host);
+    }
+
+    /// The backdrop colour as a B, G, R: the pad's numbers, or a colour that came from somewhere else and keeps the hue a grey had.
+    fn set_colour(&mut self, host: &mut dyn Host, bgr: [u8; 3]) {
+        self.colour = bgr;
+        self.hsv = rgb_to_hsv([bgr[2], bgr[1], bgr[0]], (self.hsv.0, self.hsv.1));
+        self.changed(host);
+    }
+
+    fn pick_backdrop(&mut self, host: &mut dyn Host) {
+        if !host.pick_on_preview(BACKDROP_OWNER, PickKind::Point, None, &tr("Click a colour on the preview. Esc cancels.")) {
+            self.status = Some((tr("Not streaming"), tr("Start streaming to pick a colour on the preview.")));
+            self.show(host);
+        }
+    }
+
+    fn picked_backdrop(&mut self, host: &mut dyn Host, pick: &telescope_core::host::Pick) {
+        // What the preview showed, so the colour is the one that was clicked
+        let (Some(shown), Some(at)) = (&pick.picture, pick.in_picture.first()) else { return };
+        let bgr = sample(shown, at[0] as f64, at[1] as f64);
+        self.set_colour(host, bgr);
     }
 
     fn set_background(&mut self, host: &mut dyn Host, background: &'static str) {
@@ -380,10 +434,81 @@ impl ChromaKeyPlugin {
         self.asked = host.pick_file(&dialog);
     }
 
+    fn read_picture(&self) -> Option<Frame> {
+        if self.picture_path.is_empty() {
+            return None;
+        }
+        (self.reader)(&self.picture_path).ok().filter(|f| f.width > 0 && f.height > 0)
+    }
+
+    /// Reads the picture for the card (its thumb and whether it opens); settle_picture decides whether it stays in full.
     fn load_picture(&mut self, path: &str) {
         self.picture_path = path.to_string();
-        self.picture = if path.is_empty() { None } else { (self.reader)(path).ok().filter(|f| f.width > 0 && f.height > 0) };
-        self.picture_problem = if !path.is_empty() && self.picture.is_none() { tr("Telescope can't open that picture.") } else { String::new() };
+        self.picture = self.read_picture();
+        self.has_picture = self.picture.is_some();
+        self.thumb = self.picture.as_ref().map(|p| crate::shared::picture_thumb(p, 96));
+        self.thumb_sent = false;
+        self.picture_problem = if !path.is_empty() && !self.has_picture { tr("Can't open that picture") } else { String::new() };
+        self.read_failed = false;
+        // a read still out was for the old path
+        self.read_gen += 1;
+        self.reading = false;
+    }
+
+    /// Reads the picture for the stream on a thread; false when there's nowhere to post the result.
+    fn read_on_thread(&mut self) -> bool {
+        let Some(poster) = self.poster.clone() else { return false };
+        self.read_gen += 1;
+        let (gen, path, reader, landed) = (self.read_gen, self.picture_path.clone(), self.reader.clone(), self.landed.clone());
+        let spawned = std::thread::Builder::new().name("chroma-key-picture".into()).spawn(move || {
+            let frame = reader(&path).ok().filter(|f| f.width > 0 && f.height > 0);
+            landed.lock().unwrap().push((gen, path, frame));
+            poster.post(POST_PICTURE, json!({"gen": gen}));
+        });
+        self.reading = spawned.is_ok();
+        spawned.is_ok()
+    }
+
+    /// A read finished: keep it if it's still the one wanted, else drop it.
+    fn picture_landed(&mut self, host: &mut dyn Host) {
+        let done: Vec<Landed> = std::mem::take(&mut *self.landed.lock().unwrap());
+        let Some((_, _, frame)) = done.into_iter().find(|(gen, path, _)| *gen == self.read_gen && *path == self.picture_path) else { return };
+        if !std::mem::take(&mut self.reading) || !self.has_picture || !(self.on && self.background == "picture") {
+            return;
+        }
+        match frame {
+            Some(frame) => {
+                self.picture = Some(frame);
+                host.refresh_frame_step();
+            }
+            None => self.picture_unreadable(host),
+        }
+    }
+
+    fn picture_unreadable(&mut self, host: &mut dyn Host) {
+        self.read_failed = true;
+        self.picture_problem = tr("Can't open that picture");
+        self.show(host);
+    }
+
+    /// The full picture is held only while the key is on with a picture behind you, and read again when it's wanted.
+    fn settle_picture(&mut self) {
+        if !self.has_picture {
+            return;
+        }
+        if !(self.on && self.background == "picture") {
+            self.picture = None;
+            // a read still out is for a time that's gone, and the next switching on may try again
+            self.read_gen += 1;
+            self.reading = false;
+            self.read_failed = false;
+        } else if self.picture.is_none() && !self.reading && !self.read_failed && !self.read_on_thread() {
+            self.picture = self.read_picture();
+            if self.picture.is_none() {
+                self.read_failed = true;
+                self.picture_problem = tr("Can't open that picture");
+            }
+        }
     }
 
     // ── The stream ────────────────────────────────────────────────────
@@ -425,6 +550,7 @@ impl Plugin for ChromaKeyPlugin {
 
     fn setup(&mut self, host: &mut dyn Host) {
         host.set_ui_props("card", &ChromaKeyPlugin::fixed_props());
+        self.poster = host.poster();
         self.show(host);
     }
 
@@ -444,7 +570,9 @@ impl Plugin for ChromaKeyPlugin {
                     host.refresh_frame_step();
                 }
             }
+            Event::Posted { owner, token, .. } if owner == NAME && token == POST_PICTURE => self.picture_landed(host),
             Event::PreviewPicked { owner, pick: Some(pick) } if owner == NAME => self.picked_point(host, pick),
+            Event::PreviewPicked { owner, pick: Some(pick) } if owner == BACKDROP_OWNER => self.picked_backdrop(host, pick),
             Event::RequestDone { request, ok, data, .. } if self.asked == Some(*request) => {
                 self.asked = None;
                 if let (true, Some(path)) = (*ok, data.get("path").and_then(Value::as_str)) {
@@ -490,15 +618,33 @@ impl Plugin for ChromaKeyPlugin {
                     self.set_background(host, background);
                 }
             }
-            "colour-clicked" => {
-                self.editing_colour = !self.editing_colour;
-                self.show(host);
-            }
-            "channel-moved" => {
-                let i = (n(0) as usize).min(2);
-                self.colour[2 - i] = n(1).round().clamp(0.0, 255.0) as u8;
+            "colour-moved" => {
+                let unit = |i: usize| n(i).clamp(0.0, 1.0) as f32;
+                self.hsv = (unit(0), unit(1), unit(2));
+                let [r, g, b] = hsv_to_rgb(self.hsv.0, self.hsv.1, self.hsv.2);
+                self.colour = [b, g, r];
                 self.changed(host);
             }
+            "hex-typed" => {
+                let typed = event.args.first().and_then(Value::as_str).and_then(parse_hex);
+                match typed {
+                    Some([r, g, b]) => self.set_colour(host, [b, g, r]),
+                    // the box goes back to the colour it had
+                    None => self.show(host),
+                }
+            }
+            "channel-typed" => {
+                let typed = event.args.get(1).and_then(Value::as_str).and_then(|t| t.trim().parse::<i64>().ok());
+                match typed {
+                    Some(value) => {
+                        let mut colour = self.colour;
+                        colour[2 - (n(0) as usize).min(2)] = value.clamp(0, 255) as u8;
+                        self.set_colour(host, colour);
+                    }
+                    None => self.show(host),
+                }
+            }
+            "pipette-clicked" => self.pick_backdrop(host),
             "picture-clicked" => self.choose_picture(host),
             _ => {}
         }
@@ -567,6 +713,7 @@ impl Plugin for ChromaKeyPlugin {
             return None;
         }
         let key = self.key_colour()?;
+        self.settle_picture();
         let keys = self.tables(key).texture();
         let (picture, size, use_picture) = match (&self.picture, self.background) {
             (Some(p), "picture") => (p.clone(), [p.width as f32, p.height as f32], 1.0),
@@ -601,10 +748,12 @@ impl Plugin for ChromaKeyPlugin {
         let screen = cfg.get("screen").and_then(Value::as_str).and_then(|s| SCREENS.iter().find(|(k, ..)| *k == s)).map_or("green", |(k, ..)| *k);
         self.screen = if screen == "picked" && self.picked.is_none() { "green" } else { screen };
         self.colour = bgr(cfg.get("colour")).unwrap_or(DEFAULT_COLOUR);
+        self.hsv = rgb_to_hsv([self.colour[2], self.colour[1], self.colour[0]], (self.hsv.0, self.hsv.1));
         let picture = cfg.get("picture").and_then(Value::as_str).unwrap_or("").to_string();
-        self.load_picture(&picture);
         self.background = cfg.get("background").and_then(Value::as_str).and_then(|b| BACKGROUNDS.iter().find(|(k, _)| *k == b)).map_or("colour", |(k, _)| *k);
         self.on = cfg.get("on") == Some(&Value::Bool(true));
+        self.load_picture(&picture);
+        self.settle_picture();
         for (i, (name, default)) in SLIDERS.iter().enumerate() {
             self.sliders[i] = clamped_int(cfg.get(*name).unwrap_or(&Value::Null), *default, 0, 100);
         }

@@ -2,6 +2,7 @@ use super::*;
 use telescope_core::balance::{Balance, Place};
 use std::sync::Arc;
 use telescope_core::stats::{DropReason, Hub};
+use telescope_core::host::HostUi;
 use telescope_core::testing::FakeHost;
 use crate::stats_phone::PhoneReading;
 
@@ -70,7 +71,9 @@ fn the_cards_numbers_are_the_streams() {
     assert_eq!(p["empty-text"], "");
     assert_eq!(p["view"], 0);
     // Standard leaves the Nerd rows out
-    assert!(!has_row(&p, "Decoded") && !has_row(&p, "Memory") && !has_row(&p, "Frame steps run on"));
+    assert!(!has_row(&p, "Decoded") && !has_row(&p, "Frame steps run on"));
+    // The app's own numbers are there in both views, since they can be pinned
+    assert!(has_row(&p, "Memory"));
 }
 
 #[test]
@@ -84,16 +87,17 @@ fn no_drops_says_none() {
 }
 
 #[test]
-fn what_needs_the_phone_says_so_once() {
+fn what_the_phone_has_not_said_has_no_row_and_no_heading() {
     let hub = Hub::new();
     let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
     let p = props(&host);
-    let phone = row(&p, "From the phone");
-    assert_eq!((phone["value"].as_str(), phone["kind"].as_str(), phone["note"].as_str()), (Some("Not available yet"), Some("status_dim"), Some("")), "no explaining line under it");
-    assert_eq!(p["rows"].as_array().unwrap().iter().filter(|r| r["value"] == "Not available yet").count(), 1, "one line, not a row each");
+    assert!(!has_row(&p, "From the phone") && !has_row(&p, "Phone"), "nothing to say, so no line and no heading");
+    assert!(p["rows"].as_array().unwrap().iter().all(|r| r["value"] != "Not available yet"), "no line says it isn't available");
+    assert!(!has_row(&p, "Processor"), "the processor reading is not there yet either");
+    assert!(has_row(&p, "Memory") && has_row(&p, "The app"), "what is measured stays");
     assert_eq!(row(&p, "Reading the virtual camera")["note"], "", "no explaining line under the apps either");
     plugin.on_ui(&mut host, &UiEvent { ui: "card".into(), callback: "view-picked".into(), args: vec![json!(1)] });
-    assert_eq!(row(&props(&host), "From the phone")["note"], "");
+    assert!(!has_row(&props(&host), "From the phone"));
 }
 
 #[test]
@@ -216,6 +220,46 @@ fn the_costly_numbers_are_only_asked_for_while_nerd_is_showing() {
 }
 
 #[test]
+fn a_pinned_number_keeps_the_costly_measuring_going_while_the_card_is_folded() {
+    let mut host = FakeHost::new();
+    let mut plugin = StatsPlugin::new();
+    let wants = |host: &FakeHost| host.calls.iter().filter(|c| c.starts_with("want_stats")).cloned().collect::<Vec<_>>();
+    plugin.on_plugins_ready(&mut host);
+    assert!(wants(&host).is_empty());
+    host.pin_to_bar("stats.step_zoom", true);
+    for event in std::mem::take(&mut host.events) {
+        plugin.on_event(&mut host, &event);
+    }
+    assert_eq!(wants(&host), ["want_stats stats true"], "a pin in Standard view still needs the numbers");
+    plugin.on_event(&mut host, &Event::CardFolded { key: FOLD_KEY.into(), folded: true });
+    assert!(plugin.wanting(), "folding the card leaves the bar's readout measured");
+    plugin.on_event(&mut host, &Event::WindowShown { shown: false });
+    assert!(!plugin.wanting(), "a window in the tray measures nothing");
+    plugin.on_event(&mut host, &Event::WindowShown { shown: true });
+    host.pin_to_bar("stats.step_zoom", false);
+    for event in std::mem::take(&mut host.events) {
+        plugin.on_event(&mut host, &event);
+    }
+    assert!(!plugin.wanting(), "unpinning lets it go");
+}
+
+#[test]
+fn a_folded_card_builds_nothing_until_it_opens_and_unchanged_numbers_are_not_resent() {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    let sets = |host: &FakeHost| host.calls.iter().filter(|c| c.starts_with("set_ui_props card ")).count();
+    assert_eq!(sets(&host), 1);
+    let snap = plugin.latest.clone().unwrap();
+    plugin.on_event(&mut host, &Event::StatsUpdated { snapshot: snap.clone() });
+    assert_eq!(sets(&host), 1, "the same numbers aren't handed over twice");
+    plugin.on_event(&mut host, &Event::CardFolded { key: FOLD_KEY.into(), folded: true });
+    plugin.on_event(&mut host, &Event::StatsUpdated { snapshot: snap });
+    assert_eq!(sets(&host), 1, "a folded card isn't fed");
+    plugin.on_event(&mut host, &Event::CardFolded { key: FOLD_KEY.into(), folded: false });
+    assert_eq!(sets(&host), 2, "opening it brings the numbers up to date");
+}
+
+#[test]
 fn a_hidden_window_costs_nothing_to_draw() {
     let hub = Hub::new();
     let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
@@ -234,7 +278,8 @@ fn with_no_stream_the_card_says_how_to_get_numbers() {
     host.streaming = false;
     plugin.on_stream_stop(&mut host);
     let p = props(&host);
-    assert_eq!((p["rows"].as_array().unwrap().len(), p["empty-text"].as_str()), (0, Some("Start a stream to see its numbers.")));
+    assert_eq!((p["rows"].as_array().unwrap().len(), p["empty-text"].as_str()), (0, Some("Not streaming")));
+    assert_eq!(p["empty-detail"], "Start a stream to see its numbers.", "the sentence is the tooltip's");
 }
 
 #[test]
@@ -396,7 +441,7 @@ fn nerd_adds_the_encoder_and_the_camera() {
     assert_eq!(row(&p, "From the camera")["value"], "8.4 ms");
     assert_eq!(row(&p, "From the camera")["note"], "slowest 15 ms");
     assert_eq!(row(&p, "Send queue")["value"], "3.0 ms");
-    assert_eq!(row(&p, "Round trip, jitter and clock offset")["value"], "Not available yet");
+    assert!(!has_row(&p, "Round trip, jitter and clock offset"), "what the protocol doesn't carry yet has no line");
 }
 
 #[test]
@@ -589,4 +634,227 @@ fn the_cards_own_polls_update_the_phone_numbers() {
     // A poll of a stream that isn't shown is somebody else's
     plugin.on_event(&mut host, &Event::PhonePolled { source_id: "other".into(), session: 1, shown: false, state: json!({"takes_stats": true, "battery_temp_c": 50.0}) });
     assert_eq!(plugin.phone.as_ref().and_then(|p| p.battery_temp_c), Some(36.5));
+}
+
+fn tapped(plugin: &mut StatsPlugin, host: &mut FakeHost, id: &str, on: bool) {
+    plugin.on_ui(host, &UiEvent { ui: "card".into(), callback: "pin-toggled".into(), args: vec![json!(id), json!(on)] });
+}
+
+#[test]
+fn a_line_with_a_star_pins_its_number_into_the_bar() {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    let p = props(&host);
+    // The frame rate and the throughput are the window's own pins: the lines carry their ids and are not starred until pinned
+    assert_eq!(row(&p, "Frames out")["pin"], "fps");
+    assert_eq!(row(&p, "Bitrate")["pin"], "throughput");
+    assert_eq!(row(&p, "Frames in")["pin"], "stats.frames_in");
+    assert_eq!(row(&p, "Frames in")["pinned"], false);
+    assert_eq!(row(&p, "Connection")["pin"], "stats.connection", "a text line is starred too");
+    tapped(&mut plugin, &mut host, "stats.frames_in", true);
+    assert!(host.calls.iter().any(|c| c == "pin_to_bar stats.frames_in true"));
+    assert_eq!(row(&props(&host), "Frames in")["pinned"], true);
+    tapped(&mut plugin, &mut host, "stats.frames_in", false);
+    assert_eq!(row(&props(&host), "Frames in")["pinned"], false);
+}
+
+#[test]
+fn only_what_is_pinned_is_offered_to_the_bar_and_with_its_own_reading() {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    assert!(host.bar_offers.is_empty(), "nothing of the card's is pinned: nothing to read out");
+    tapped(&mut plugin, &mut host, "stats.frames_in", true);
+    tapped(&mut plugin, &mut host, "stats.memory", true);
+    fn by_id(host: &FakeHost, id: &str) -> BarStat {
+        host.bar_offers.iter().find(|s| s.id == id).cloned().unwrap_or_else(|| panic!("no {id} in {:?}", host.bar_offers))
+    }
+    assert_eq!((by_id(&host, "stats.frames_in").name.as_str(), by_id(&host, "stats.frames_in").value.as_str()), ("Frames in", "2.4 fps"));
+    assert_eq!(by_id(&host, "stats.frames_in").icon, "download");
+    assert_eq!(by_id(&host, "stats.memory").value, "200 MB");
+    // Nerd-only numbers are offered as well, whichever view is open
+    tapped(&mut plugin, &mut host, "stats.decoded", true);
+    assert_eq!(by_id(&host, "stats.decoded").value, "2.3 fps");
+    // The window's own readouts are the window's to read
+    assert!(host.bar_offers.iter().all(|s| s.id.starts_with("stats.")));
+}
+
+#[test]
+fn the_bar_stops_hearing_from_the_card_when_the_stream_ends_or_the_plugin_stops() {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    tapped(&mut plugin, &mut host, "stats.frames_in", true);
+    assert!(!host.bar_offers.is_empty());
+    host.streaming = false;
+    plugin.on_stream_stop(&mut host);
+    assert!(host.bar_offers.is_empty(), "no stream: nothing to read");
+    plugin.on_event(&mut host, &Event::StatsUpdated { snapshot: snapshot(&hub, "phone") });
+    assert!(!host.bar_offers.is_empty());
+    plugin.shutdown(&mut host);
+    assert!(host.bar_offers.is_empty(), "switched off: its pins vanish quietly");
+}
+
+#[test]
+fn the_camera_has_a_line_and_is_locked_while_several_streams_run() {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    host.bar_own = vec![BarStat::new("camera", "Virtual camera", "", "Phone Camera")];
+    host.bar_pinned = vec!["camera".into()];
+    plugin.on_event(&mut host, &Event::BarPinsChanged { pinned: vec!["camera".into()] });
+    let p = props(&host);
+    assert_eq!((row(&p, "Camera")["value"].as_str(), row(&p, "Camera")["pin"].as_str(), row(&p, "Camera")["pinned"].as_bool()), (Some("Phone Camera"), Some("camera"), Some(true)));
+    assert_eq!(row(&p, "Camera")["locked"], false);
+    host.streaming = true;
+    host.streams = Some(2);
+    plugin.on_event(&mut host, &Event::BarPinsChanged { pinned: vec!["camera".into()] });
+    assert_eq!(row(&props(&host), "Camera")["locked"], true);
+}
+
+#[test]
+fn the_app_wide_total_is_there_only_with_several_streams_and_follows_none() {
+    let hub = Hub::new();
+    let a = hub.register("phone-a", 0);
+    let b = hub.register("phone-b", 1);
+    a.received(10, 1_000_000);
+    b.received(10, 2_000_000);
+    let snap = hub.snapshot_at(telescope_core::time::monotonic_ns() + 10 * SECOND, Some(SECOND), Some(200 << 20));
+    let (mut plugin, mut host) = set_up(snap.clone());
+    host.focused = Some("phone-a".into());
+    plugin.on_focus_gained(&mut host, &stream("phone-a"));
+    assert!(has_row(&props(&host), "All streams"));
+    tapped(&mut plugin, &mut host, "stats.total_throughput", true);
+    let total = host.bar_offers.iter().find(|s| s.id == "stats.total_throughput").unwrap().value.clone();
+    // Whichever stream the panels show, the total is the same
+    host.focused = Some("phone-b".into());
+    plugin.on_focus_gained(&mut host, &stream("phone-b"));
+    assert_eq!(host.bar_offers.iter().find(|s| s.id == "stats.total_throughput").unwrap().value, total);
+    let one = hub_one();
+    let (_plugin, host) = set_up(one);
+    assert!(!has_row(&props(&host), "All streams"));
+}
+
+fn hub_one() -> Snapshot {
+    let hub = Hub::new();
+    snapshot(&hub, "phone")
+}
+
+#[test]
+fn the_cards_stars_match_what_is_pinned_the_camera_included() {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    host.bar_own = vec![BarStat::new("camera", "Virtual camera", "", "Phone Camera")];
+    // What a fresh settings file pins
+    host.bar_pinned = vec!["camera".into(), "fps".into(), "throughput".into()];
+    let pinned = host.bar_pinned.clone();
+    plugin.on_event(&mut host, &Event::BarPinsChanged { pinned });
+    let p = props(&host);
+    for label in ["Camera", "Frames out", "Bitrate"] {
+        assert_eq!(row(&p, label)["pinned"], true, "{label} is starred");
+    }
+    for label in ["Frames in", "Repeated", "Dropped", "Memory"] {
+        assert_eq!(row(&p, label)["pinned"], false, "{label} is not");
+    }
+    // Locked while several streams run
+    host.streaming = true;
+    host.streams = Some(2);
+    let pinned = host.bar_pinned.clone();
+    plugin.on_event(&mut host, &Event::BarPinsChanged { pinned });
+    let p = props(&host);
+    assert_eq!((row(&p, "Camera")["pinned"].as_bool(), row(&p, "Camera")["locked"].as_bool()), (Some(true), Some(true)));
+    // Several streams bring the camera in even when it was unpinned: the host says so in bar_pins
+    host.bar_pinned = vec!["camera".into()];
+    let pinned = host.bar_pinned.clone();
+    plugin.on_event(&mut host, &Event::BarPinsChanged { pinned });
+    assert_eq!(row(&props(&host), "Camera")["pinned"], true);
+}
+
+#[test]
+fn every_pinnable_stat_has_an_icon_of_its_own_or_names_itself() {
+    let hub = Hub::new();
+    let snap = snapshot(&hub, "phone");
+    let all = rows(&snap, snap.sources.first().unwrap(), View::Nerd, &Context { streams: 2, ..Context::default() });
+    // The lines with a fixed place in the card wear an icon of their own; a plugin's own icon and the text readouts (a drop cause, a stage) are the exceptions
+    let mut icons: Vec<(String, &'static str)> = all.iter().filter(|r| r.pin.starts_with("stats.") && r.bar_icon.is_empty() && !pin_icon(&r.pin).is_empty()).map(|r| (r.pin.clone(), pin_icon(&r.pin))).collect();
+    // The phone's lines only show once a phone has said something, so their ids are checked here
+    use crate::stats_phone as ph;
+    for id in [ph::PIN_DELAY, ph::PIN_WIFI, ph::PIN_TEMPERATURE, ph::PIN_THROTTLING, ph::PIN_CAMERA_FPS, ph::PIN_ENCODER_FPS, ph::PIN_ENCODE, ph::PIN_QUEUE] {
+        icons.push((id.into(), pin_icon(id)));
+    }
+    assert!(icons.iter().all(|(_, i)| !i.is_empty()), "{icons:?}");
+    // The window's own pins
+    icons.push(("fps".into(), "film"));
+    icons.push(("throughput".into(), "gauge"));
+    let mut names: Vec<&str> = icons.iter().map(|(_, i)| *i).collect();
+    names.sort();
+    names.dedup();
+    assert_eq!(names.len(), icons.len(), "two stats share an icon: {icons:?}");
+    // Every line that can be read has a star, in both views, and no two share an id
+    let ids: Vec<&str> = all.iter().filter(|r| !r.head && r.kind != "status_dim").map(|r| r.pin.as_str()).collect();
+    assert!(ids.iter().all(|id| !id.is_empty()), "a line without a star: {:?}", all.iter().filter(|r| !r.head && r.kind != "status_dim" && r.pin.is_empty()).map(|r| &r.label).collect::<Vec<_>>());
+    let mut sorted = ids.clone();
+    sorted.sort();
+    sorted.dedup();
+    assert_eq!(sorted.len(), ids.len(), "two lines share an id: {ids:?}");
+}
+
+#[test]
+fn the_text_stats_can_be_pinned_and_read_in_the_bar() {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    tapped(&mut plugin, &mut host, "stats.connection", true);
+    tapped(&mut plugin, &mut host, "stats.reading_camera", true);
+    let offered = |id: &str| host.bar_offers.iter().find(|s| s.id == id).cloned().unwrap_or_else(|| panic!("{id} is offered: {:?}", host.bar_offers.iter().map(|s| &s.id).collect::<Vec<_>>()));
+    let connection = offered("stats.connection");
+    assert!(!connection.value.is_empty() && !connection.icon.is_empty(), "{connection:?}");
+    let reading = offered("stats.reading_camera");
+    assert!(!reading.value.is_empty() && !reading.icon.is_empty() && reading.icon != connection.icon, "{reading:?}");
+}
+
+#[test]
+fn plugins_are_listed_by_their_display_names_with_their_own_icons() {
+    let mut snap = snapshot(&Hub::new(), "phone");
+    let timing = NamedTiming { name: "qr_reader".into(), timing: Default::default() };
+    snap.sources[0].plugins = vec![timing.clone()];
+    snap.app.hooks = vec![NamedTiming { name: "mcp".into(), ..timing }];
+    let looks = vec![
+        PluginLook { name: "qr_reader".into(), title: "QR reader".into(), icon: "qr".into() },
+        PluginLook { name: "mcp".into(), title: "MCP".into(), icon: "plug".into() },
+    ];
+    let all = rows(&snap, &snap.sources[0], View::Nerd, &Context { looks, ..Context::default() });
+    let step = all.iter().find(|r| r.pin == "stats.step_qr_reader").expect("the frame step line");
+    assert_eq!((step.label.as_str(), step.bar_icon.as_str()), ("QR reader", "qr"));
+    let hook = all.iter().find(|r| r.pin == "stats.hook_mcp").expect("the events line");
+    assert_eq!(hook.label, "MCP");
+    // An unknown plugin keeps its id, tidied
+    assert_eq!(plugin_title("privacy_blur", &[]), "Privacy blur");
+}
+
+#[test]
+fn the_apps_numbers_stay_offered_while_the_focused_stream_is_not_in_the_snapshot_yet() {
+    let hub = Hub::new();
+    let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
+    tapped(&mut plugin, &mut host, "stats.memory", true);
+    tapped(&mut plugin, &mut host, "stats.frames_in", true);
+    assert!(host.bar_offers.iter().any(|s| s.id == "stats.frames_in"));
+    // A second stream took the focus before the next tick: the snapshot only knows the first
+    host.focused = Some("phone-b".into());
+    plugin.on_focus_gained(&mut host, &stream("phone-b"));
+    let ids: Vec<&str> = host.bar_offers.iter().map(|s| s.id.as_str()).collect();
+    assert_eq!(ids, ["stats.memory"], "the app's own number stays, the stream's go until it reports");
+}
+
+#[test]
+fn a_pinned_plugin_timing_is_still_offered_when_it_is_not_among_the_listed_slowest() {
+    let hub = Hub::new();
+    let now = telescope_core::time::monotonic_ns();
+    hub.snapshot_at(now, Some(0), Some(0));
+    hub.register("phone", 0).set_target_fps(30);
+    hub.hooks().timer("quiet").add(MS);
+    for i in 0..10 {
+        hub.hooks().timer(&format!("busy_{i}")).add((10 + i) * MS);
+    }
+    let snap = hub.snapshot_at(now + SECOND, Some(SECOND), Some(0));
+    let source = &snap.sources[0];
+    assert!(!rows(&snap, source, View::Nerd, &Context::default()).iter().any(|r| r.pin == "stats.hook_quiet"));
+    let offered = offers(&snap, Some(source), &Context::default());
+    assert!(offered.iter().any(|o| o.id == "stats.hook_quiet"));
 }

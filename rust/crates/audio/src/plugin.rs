@@ -25,7 +25,12 @@ use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, TrayAction, UiEvent,
 
 pub const NAME: &str = "microphone";
 const UI: &str = include_str!("../ui/microphone.slint");
-const NO_MIC_NOTE: &str = n_("Telescope doesn't pass on this camera's microphone. To use it, choose it as the microphone in your call app.");
+// Statuses the compact label is told apart by, so they are compared as the translated text and never by their shape
+const SETTING_UP: &str = n_("Setting up…");
+const CONNECTING: &str = n_("Connecting…");
+const DOWNLOADING: &str = n_("Downloading VB-Cable from vb-audio.com…");
+const NO_MIC_NOTE: &str = n_("Telescope doesn't pass on this camera's microphone. To use it, choose it as the microphone in the app that uses the camera.");
+const NO_MIC_TIP: &str = n_("This camera's microphone doesn't go through Telescope. Pick it as the microphone in the app that uses the camera instead.");
 pub const METER_MS: u64 = 33;
 pub const GAIN_MIN_DB: i32 = -24;
 /// Until Advanced says otherwise (max_gain_changed).
@@ -93,6 +98,27 @@ pub trait AudioRoutes: Send + Sync {
 
 /// Through the link: a session of its own on the route the stream holds, so the phone's /v1/audio comes over the same
 /// pinned connection.
+/// The short word the card shows for a status sentence, which is then its tooltip.
+fn short_of(text: &str, kind: &str, action_url: Option<&str>) -> String {
+    if text.is_empty() {
+        String::new()
+    } else if text == tr(NO_MIC_NOTE) {
+        tr("No mic")
+    } else if text == tr(SETTING_UP) || text == tr(CONNECTING) {
+        text.to_string()
+    } else if text == tr(DOWNLOADING) {
+        tr("Downloading…")
+    } else if action_url == Some(INSTALL) {
+        tr("Needs VB-Cable")
+    } else if kind == "err" {
+        tr("Problem")
+    } else if kind == "warn" {
+        tr("Needs attention")
+    } else {
+        tr("On elsewhere")
+    }
+}
+
 pub struct LinkAudio(pub Arc<dyn Link>);
 
 /// The phone's audio, keeping its session (and the route's forward) until it's done.
@@ -421,6 +447,7 @@ impl MicrophonePlugin {
         }
         self.action_url = action.as_ref().map(|a| a.1.clone()).unwrap_or_default();
         h.set_card(&json!({
+            "status-short": short_of(&text, &kind, action.as_ref().map(|a| a.1.as_str())),
             "status-text": text,
             "status-kind": format!("status_{kind}"),
             "fix-text": action.as_ref().map(|a| a.0.clone()).unwrap_or_default(),
@@ -451,7 +478,7 @@ impl MicrophonePlugin {
             "here": self.here(),
             "muted": self.muted,
             "mute-text": if self.muted { tr("Unmute") } else { tr("Mute") },
-            "mute-tip": if self.muted { tr("Apps hear the mic again.") } else { tr("Apps hear silence, but the microphone stays connected.") },
+            "mute-tip": if self.muted { String::new() } else { tr("Send silence to apps without disconnecting the microphone.") },
         }));
         h.update_tray(&self.tray());
         self.meter.muted = self.muted;
@@ -553,7 +580,7 @@ impl MicrophonePlugin {
         if let Some((text, action)) = self.backend.problem() {
             self.show(h, &text, "warn", action);
         } else if self.worker.is_none() && !self.preparing {
-            self.show(h, &tr("Off until the stream starts."), "dim", None);
+            self.show(h, "", "dim", None);
         }
     }
 
@@ -604,7 +631,7 @@ impl MicrophonePlugin {
 
     fn source_words(&self) -> Value {
         if self.kind() == Kind::Other {
-            return json!({"mic-label": tr("Camera mic"), "toggle-name": tr("Camera microphone"), "toggle-tip": tr(NO_MIC_NOTE),
+            return json!({"mic-label": tr("Camera mic"), "toggle-name": tr("Camera microphone"), "toggle-tip": tr(NO_MIC_TIP),
                           "gain-tip": ""});
         }
         let phone = self.kind() == Kind::Phone;
@@ -618,9 +645,9 @@ impl MicrophonePlugin {
                 tr("Use the browser's microphone on this computer while streaming. Apps list it as “{name}”.")
             }.field("name", &name),
             "gain-tip": if phone {
-                tr("Makes the phone mic louder or quieter for other apps. The range is in Advanced.")
+                tr("Make the phone mic louder or quieter for other apps. The range is in Advanced.")
             } else {
-                tr("Makes the browser mic louder or quieter for other apps. The range is in Advanced.")
+                tr("Make the browser mic louder or quieter for other apps. The range is in Advanced.")
             },
         })
     }
@@ -675,7 +702,7 @@ impl MicrophonePlugin {
         }
         self.gen += 1;
         self.preparing = true;
-        self.show(h, &tr("Setting up…"), "dim", None);
+        self.show(h, &tr(SETTING_UP), "dim", None);
         let (gen, backend, poster) = (self.gen, self.backend.clone(), self.poster.clone());
         (self.run_job)(Box::new(move || {
             let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| backend.prepare())).unwrap_or_else(|e| {
@@ -710,7 +737,7 @@ impl MicrophonePlugin {
             self.show(h, &tr(NO_MIC_NOTE), "dim", None);
             return;
         };
-        self.show(h, &tr("Connecting…"), "dim", None);
+        self.show(h, &tr(CONNECTING), "dim", None);
         self.audio_key = key.clone();
         let poster = self.poster.clone();
         let status: OnStatus = Arc::new(move |kind, text| {
@@ -769,7 +796,7 @@ impl MicrophonePlugin {
             return;
         }
         self.installing = true;
-        self.show(h, &tr("Downloading VB-Cable from vb-audio.com…"), "dim", None);
+        self.show(h, &tr(DOWNLOADING), "dim", None);
         let (backend, poster) = (self.backend.clone(), self.poster.clone());
         (self.run_job)(Box::new(move || {
             let err = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| backend.install())).unwrap_or_else(|e| {
@@ -828,7 +855,7 @@ impl MicrophonePlugin {
     /// Everything the card shows, for a fresh card or after set_config.
     fn render(&mut self, h: &mut dyn MicHost) {
         let mut props = self.source_words();
-        let nr_tip = if self.nr_problem.is_empty() { tr("Takes out typing, fans and room hiss.") } else { self.nr_problem.clone() };
+        let nr_tip = if self.nr_problem.is_empty() { tr("Remove typing, fan noise and room hiss.") } else { self.nr_problem.clone() };
         props["active"] = json!(self.card_on());
         props["auto-level"] = json!(self.auto_level);
         props["nr"] = json!(self.noise_reduction && self.nr_problem.is_empty());

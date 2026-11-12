@@ -123,7 +123,7 @@ fn background_and_privacy_blur_work_on_the_real_models() {
     assert_eq!(person, 0.0, "the person isn't blurred");
     assert!(room > 1.0, "the room is: {room}");
 
-    // Privacy blur by hand, with the one person the pose model finds: all but them
+    // Privacy blur by hand, turned on from its card: the whole picture is blurred
     let people = backend.pose().unwrap().detect(&Rgb::new(SIZE.0, SIZE.1, astronaut()), 1).unwrap();
     assert!(!people.is_empty());
     let mut tracker = PeopleTracker::new();
@@ -139,7 +139,7 @@ fn background_and_privacy_blur_work_on_the_real_models() {
     let out = through(privacy.frame_step(), &ctx);
     let (person, room) = changed(&out, &mask, 250);
     eprintln!("Privacy blur: the person moved {person} levels and the room {room}");
-    assert!(room > 1.0 && person < room / 2.0, "the person stays and the room is blurred: {person} against {room}");
+    assert!(room > 1.0 && person > 1.0, "the person and the room are both blurred: {person} and {room}");
 }
 
 /// The astronaut slid x pixels to the right, what leaves on one side coming back on the other.

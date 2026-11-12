@@ -25,7 +25,7 @@ fn path_with_pactl(dir: &Path, script: &str) -> String {
 /// The program in this profile, with no display to open a window on.
 fn run(profile: &Path, path: &str, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_telescope-rs")).args(args).env("PATH", path).env(DEV_PROFILE_ENV, profile)
-        .env_remove("DISPLAY").env_remove("WAYLAND_DISPLAY").output().unwrap()
+        .env(si::CLAIM_SCOPE_ENV, profile.parent().and_then(|d| d.file_name()).unwrap_or_default()).env_remove("DISPLAY").env_remove("WAYLAND_DISPLAY").output().unwrap()
 }
 
 /// One at a time: the mic's source name is claimed machine-wide, and a copy that finds it taken leaves it alone whatever else it does wrong.

@@ -95,27 +95,39 @@ fn pan_and_zoom_shortcuts_have_nothing_to_do_while_they_cant_be_used() {
 }
 
 #[test]
-fn the_pan_pad_works_from_the_keyboard() {
+fn the_maps_crop_sets_the_pan_that_puts_the_window_there() {
     let mut r = Rig::new();
     r.zoom(200);
-    r.ui("pad-key", vec![json!("right"), json!(false)]);
-    r.ui("pad-key", vec![json!("down"), json!(true)]);
-    assert!(r.plugin.pan().0 > 0.0 && r.plugin.pan().1 == 0.1);
-    r.ui("pad-key", vec![json!("home"), json!(false)]);
-    assert_eq!(r.plugin.pan(), (0.0, 0.0));
+    // At 2x the crop's middle runs from 0.25 to 0.75 of the frame, and the pan from -1 to 1
+    r.ui("map-moved", vec![json!(0.625), json!(0.25)]);
+    assert_eq!(r.plugin.pan(), (0.5, -1.0));
+    assert_eq!((r.host.view.pan_x, r.host.view.pan_y), (0.5, -1.0));
+    r.ui("map-moved", vec![json!(0.5), json!(0.5)]);
+    assert_eq!(r.plugin.pan(), (0.0, 0.0), "the middle is the middle");
 }
 
 #[test]
-fn the_pad_hands_over_values_the_sliders_quantise() {
+fn the_map_hands_over_values_the_sliders_quantise() {
     let mut r = Rig::new();
     r.zoom(200);
-    r.ui("pad-pointer", vec![json!(0.5033), json!(-1.7)]);
-    assert_eq!(r.plugin.pan(), (100.0 / 200.0, -1.0));
-    assert_eq!(r.shown("pan-text"), json!("H +50%\nV -100%"));
-    r.ui("pad-reset", vec![]);
+    r.ui("map-moved", vec![json!(0.5 + 0.5033 / 4.0), json!(0.0)]);
+    assert_eq!(r.plugin.pan(), (100.0 / 200.0, -1.0), "a pan in 200ths, and held to the frame");
+    assert_eq!((r.shown("pan-x"), r.shown("pan-y")), (json!(0.5), json!(-1.0)));
+    r.ui("map-moved", vec![json!(0.5), json!(0.5)]);
     assert_eq!(r.plugin.pan(), (0.0, 0.0));
     r.zoom(100);
     assert_eq!(r.shown("pan-enabled"), json!(false));
+}
+
+#[test]
+fn the_map_does_nothing_while_the_pan_cant_be_used() {
+    let mut r = Rig::new();
+    r.ui("map-moved", vec![json!(0.3), json!(0.3)]);
+    assert_eq!(r.plugin.pan(), (0.0, 0.0), "unzoomed there is nothing to pan");
+    r.zoom(200);
+    r.event(Event::ViewTaken { owner: "Auto framing".into() });
+    r.ui("map-moved", vec![json!(0.3), json!(0.3)]);
+    assert_eq!(r.plugin.pan(), (0.0, 0.0), "the view is someone else's");
 }
 
 #[test]
@@ -136,14 +148,13 @@ fn handlers_update_runtime_state_and_schedule_a_save() {
 fn returning_zoom_to_one_resets_and_disables_pan() {
     let mut r = Rig::new();
     r.zoom(200);
-    r.ui("pad-pointer", vec![json!(0.8), json!(-0.8)]);
-    assert_eq!((r.shown("pan-x"), r.shown("pan-y"), r.shown("pan-enabled")), (json!(0.8), json!(-0.8), json!(true)));
+    r.ui("map-moved", vec![json!(0.5 + 0.75 / 4.0), json!(0.5 - 0.75 / 4.0)]);
+    assert_eq!((r.shown("pan-x"), r.shown("pan-y"), r.shown("pan-enabled")), (json!(0.75), json!(-0.75), json!(true)));
     r.zoom(100);
     assert_eq!(r.plugin.pan(), (0.0, 0.0));
     assert_eq!(r.shown("pan-enabled"), json!(false));
     assert_eq!(r.host.view.pan_x, 0.0);
     assert_eq!((r.shown("pan-x"), r.shown("pan-y")), (json!(0.0), json!(0.0)), "the pad's dot is back in the middle");
-    assert_eq!(r.shown("pan-text"), json!("H 0%\nV 0%"));
 }
 
 #[test]
@@ -501,7 +512,7 @@ fn dragging_stops_at_the_edge_and_does_nothing_unzoomed() {
     let mut r = drag_rig("None", false);
     r.event(Event::ViewDragged { du: -5.0, dv: 0.0 });
     assert_eq!(r.plugin.pan().0, 1.0);
-    assert_eq!(r.shown("pan-text").as_str().unwrap().lines().next().unwrap(), "H +100%");
+    assert_eq!(r.shown("pan-x"), json!(1.0));
     r.zoom(100);
     r.event(Event::ViewDragged { du: 0.3, dv: 0.3 });
     assert_eq!(r.plugin.pan(), (0.0, 0.0));
@@ -572,7 +583,7 @@ fn dragging_the_preview_sticks_at_the_centre_then_lets_go() {
     assert!((seen[49] - (-0.025 / 0.75)).abs() < 1e-6, "lets go right where the drag is, no jump: {}", seen[49]);
     assert_eq!(r.plugin.pan().1, 0.0);
     // moved another way: the next drag starts from there
-    r.ui("pad-pointer", vec![json!(0.5), json!(0.0)]);
+    r.ui("map-moved", vec![json!(0.65), json!(0.5)]);
     r.event(Event::ViewDragged { du: -0.001, dv: 0.0 });
     assert!(r.plugin.pan().0 > 0.5);
 }
@@ -590,15 +601,140 @@ fn a_saved_half_step_rounds_to_even_like_pythons_round() {
 }
 
 #[test]
-fn a_double_click_resets_zoom_and_pan() {
-    // The pan pad puts itself back to the middle and the zoom slider back to 1 (the slider's default), each leaving the other alone
+fn putting_the_maps_crop_back_in_the_middle_leaves_the_zoom_alone() {
+    // A double-click on the map puts the crop in the middle and on the zoom slider back to 1 (its default), each leaving the other alone
     let mut r = Rig::new();
     r.zoom(420);
-    r.ui("pad-pointer", vec![json!(0.7), json!(0.5)]);
+    r.ui("map-moved", vec![json!(0.5 + 0.7 * (1.0 - 1.0 / 4.2) / 2.0), json!(0.5)]);
     assert!(r.plugin.pan().0 != 0.0);
-    r.ui("pad-reset", vec![]);
+    r.ui("map-moved", vec![json!(0.5), json!(0.5)]);
     assert_eq!((r.plugin.pan().0, r.plugin.zoom()), (0.0, 4.2));
-    r.ui("pad-pointer", vec![json!(0.7), json!(0.5)]);
+    r.ui("map-moved", vec![json!(0.7), json!(0.5)]);
     r.zoom(100);
     assert_eq!((r.plugin.zoom(), r.plugin.pan().0), (1.0, 0.0));
+}
+
+// ── The zoom and pan map ─────────────────────────────────────────────
+
+#[test]
+fn the_map_cant_be_dragged_while_something_else_has_the_view() {
+    let mut r = Rig::new();
+    r.zoom(250);
+    r.event(Event::ViewTaken { owner: "Auto framing".into() });
+    assert_eq!(r.shown("pan-enabled"), json!(false));
+    r.ui("map-moved", vec![json!(0.7), json!(0.5)]);
+    assert_eq!(r.plugin.pan(), (0.0, 0.0));
+}
+
+#[test]
+fn the_map_has_the_shape_of_the_frame_the_window_shows_and_no_picture() {
+    let mut r = Rig::new();
+    r.host.aspect = 16.0 / 9.0;
+    r.plugin.show_all(&mut r.host);
+    assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 16.0 / 9.0));
+    // turned a quarter, the frame is as tall as it was wide
+    r.host.aspect = 9.0 / 16.0;
+    r.plugin.on_stream_start(&mut r.host, &stream());
+    assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 9.0 / 16.0));
+    assert!(!r.host.calls.iter().any(|c| c.starts_with("set_ui_image")), "the map never asks for a picture");
+}
+
+#[test]
+fn the_map_takes_the_frames_shape_once_the_first_frame_has_come() {
+    let mut r = Rig::new();
+    r.host.aspect = 0.0;
+    r.plugin.on_stream_start(&mut r.host, &stream());
+    assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 16.0 / 9.0), "no frame yet, so the usual shape");
+    r.host.aspect = 4.0 / 3.0;
+    r.event(Event::CameraOpened { source_id: "phone".into(), slot: 0, width: 640, height: 480 });
+    assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 4.0 / 3.0), "the first frame's shape is taken up");
+    r.host.aspect = 3.0 / 4.0;
+    r.event(Event::ViewStatus { status: json!({"streaming": true, "caps": null, "sent": null, "sent_ratio_at": 0.0, "desktop_zoom": 1.0}) });
+    assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 3.0 / 4.0), "a new size is followed too");
+}
+
+#[test]
+fn the_map_follows_a_decoded_size_change_that_has_no_event_of_its_own() {
+    let mut r = Rig::new();
+    r.host.aspect = 16.0 / 9.0;
+    r.plugin.on_stream_start(&mut r.host, &stream());
+    r.host.aspect = 4.0 / 3.0;
+    r.event(Event::PhoneStateUpdated { state: json!({}) });
+    assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 4.0 / 3.0));
+    r.host.aspect = 16.0 / 9.0;
+    r.event(Event::PhonePolled { source_id: "phone".into(), session: 1, shown: true, state: json!({}) });
+    assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 16.0 / 9.0));
+}
+
+#[test]
+fn the_map_follows_any_sources_decoded_size_change() {
+    let mut r = Rig::new();
+    r.host.aspect = 16.0 / 9.0;
+    r.plugin.on_stream_start(&mut r.host, &stream());
+    r.host.aspect = 9.0 / 16.0;
+    r.event(Event::FrameSizeChanged { source_id: "browser".into(), width: 720, height: 1280 });
+    assert!(approx(r.shown("map-aspect").as_f64().unwrap(), 9.0 / 16.0));
+}
+
+fn outlines(r: &Rig) -> Vec<(f64, f64, f64, f64)> {
+    r.shown("lens-outlines").as_array().unwrap().iter()
+        .map(|o| ["x0", "y0", "x1", "y1"].map(|k| o[k].as_f64().unwrap()))
+        .map(|b| (b[0], b[1], b[2], b[3])).collect()
+}
+
+fn two_lenses() -> PhoneZoomCaps {
+    PhoneZoomCaps { ratio_max: 10.0, crop_max: 4.0, freeform: true, lens_zooms: vec![2.0, 5.0] }
+}
+
+#[test]
+fn the_pan_map_outlines_the_longer_lenses_the_preview_does() {
+    let mut r = Rig::new();
+    r.plugin.on_stream_start(&mut r.host, &stream());
+    assert!(r.shown("lens-outlines").as_array().is_none_or(|a| a.is_empty()), "nothing before there is a phone to ask");
+    r.view_status(&status(1.0, 1.0));
+    let one = outlines(&r);
+    assert_eq!(one.len(), 1);
+    // the same box the preview draws for it (view::lens_boxes) with nothing zoomed or panned
+    let boxes = view::lens_boxes(Some(&tele()), &Geometry::default());
+    assert_eq!(one[0], (boxes[0].1, boxes[0].2, boxes[0].3, boxes[0].4));
+    assert!((one[0].0 - (0.5 - 0.5 / 3.7)).abs() < 1e-9 && (one[0].2 - (0.5 + 0.5 / 3.7)).abs() < 1e-9);
+    // zoom, pan, flip and rotation don't move them: they stand for the views the lenses have
+    r.zoom(200);
+    r.ui("map-moved", vec![json!(0.6), json!(0.5)]);
+    r.run("transforms.rotation", json!({"op": "set", "option": "90 CW"}));
+    assert_eq!(outlines(&r), one);
+}
+
+#[test]
+fn the_outlines_follow_the_phones_lenses() {
+    let mut r = Rig::new();
+    r.plugin.on_stream_start(&mut r.host, &stream());
+    r.view_status(&status(1.0, 1.0));
+    assert_eq!(outlines(&r).len(), 1);
+    // another phone with two longer lenses
+    r.view_status(&ViewStatus { caps: Some(two_lenses()), ..status(1.0, 1.0) });
+    let two = outlines(&r);
+    assert_eq!(two.len(), 2);
+    assert!(two[1].0 > two[0].0, "the longer lens sees less: {two:?}");
+    // a phone with none
+    r.view_status(&ViewStatus { caps: Some(PhoneZoomCaps { lens_zooms: vec![], ..two_lenses() }), ..status(1.0, 1.0) });
+    assert!(outlines(&r).is_empty());
+    // and they go when the stream does, and come back with it
+    r.view_status(&ViewStatus { caps: Some(two_lenses()), ..status(1.0, 1.0) });
+    r.plugin.on_stream_stop(&mut r.host);
+    assert!(outlines(&r).is_empty());
+    r.plugin.on_stream_start(&mut r.host, &stream());
+    assert_eq!(outlines(&r).len(), 2, "the status it had is still the phone's");
+}
+
+#[test]
+fn the_outlines_are_not_sent_again_for_a_status_that_changes_nothing_about_them() {
+    let mut r = Rig::new();
+    r.plugin.on_stream_start(&mut r.host, &stream());
+    r.view_status(&status(1.0, 1.0));
+    let sent = |r: &Rig| r.host.calls.iter().filter(|c| c.contains("lens-outlines")).count();
+    let before = sent(&r);
+    r.view_status(&status(3.7, now_s()));
+    r.view_status(&status(1.0, now_s()));
+    assert_eq!(sent(&r), before);
 }

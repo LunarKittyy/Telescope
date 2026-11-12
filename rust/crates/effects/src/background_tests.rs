@@ -236,7 +236,7 @@ fn picture_mode_puts_the_picture_behind_and_survives_a_bad_file() {
     let frame = Rgb::filled(64, 36, [200, 200, 200]);
     assert_eq!(rig.process(&frame), frame);
     rig.event(Event::StreamStopped);
-    assert_eq!(rig.shown("vision-text"), json!("Telescope can't open that picture."));
+    assert_eq!(rig.shown("picture-problem"), json!("Can't open that picture"));
 }
 
 #[test]
@@ -420,4 +420,565 @@ fn each_setting_makes_the_picture_python_makes() {
             assert_eq!(sha(&got.data), case["sha"], "{case}");
         }
     }
+}
+
+// ── The blur bubble ───────────────────────────────────────────────────
+
+fn samples(r: &Rig) -> usize {
+    r.host.calls.iter().filter(|c| c.starts_with("set_ui_image card blur-picture")).count()
+}
+
+#[test]
+fn the_blur_bubble_shows_until_the_preview_can_show_the_blur_itself() {
+    let mut r = Rig::new(None, vision::READY);
+    r.set_mode("blur");
+    // nothing streams: the preview has no picture to show it on
+    assert_eq!(r.shown("blur-peek"), json!("picture"));
+    r.host.streaming = true;
+    r.event(Event::StreamStarted { url: String::new() });
+    assert_eq!(r.shown("blur-peek"), json!(""), "streaming with vision ready: the preview blurs");
+    r.host.streaming = false;
+    r.event(Event::StreamStopped);
+    assert_eq!(r.shown("blur-peek"), json!("picture"));
+    // streaming but the person can't be told from the room yet
+    r.host.streaming = true;
+    r.host.vision = Some(vision::LOADING.into());
+    r.event(Event::VisionStateChanged { state: vision::LOADING.into() });
+    assert_eq!(r.shown("blur-peek"), json!("picture"));
+    r.host.vision = Some(vision::READY.into());
+    r.event(Event::VisionStateChanged { state: vision::READY.into() });
+    assert_eq!(r.shown("blur-peek"), json!(""));
+    // the effect itself is off
+    r.set_mode("off");
+    assert_eq!(r.shown("blur-peek"), json!("picture"));
+    r.set_mode("picture");
+    assert_eq!(r.shown("blur-peek"), json!("picture"));
+}
+
+#[test]
+fn the_blur_sample_is_made_only_while_the_bubble_is_up_and_follows_the_strength() {
+    let mut r = Rig::new(None, vision::READY);
+    r.set_mode("blur");
+    r.ui("blur-moved", vec![json!(3)]);
+    assert_eq!(samples(&r), 0, "closed: nothing is made");
+    r.ui("blur-peek-open", vec![json!(true)]);
+    assert_eq!(samples(&r), 1);
+    let key = ("card".to_string(), "blur-picture".to_string());
+    let sharpness = |r: &Rig| {
+        let f = &r.host.images[&key];
+        assert_eq!((f.width as usize, f.height as usize), (peek::WIDTH, peek::HEIGHT));
+        // how much the wall changes from pixel to pixel along a row of the top shelf, away from the person
+        let row = 10 * f.width as usize * 4;
+        (0..60).map(|x| (f.data[row + x * 4] as i64 - f.data[row + (x + 1) * 4] as i64).abs()).sum::<i64>()
+    };
+    let mild = sharpness(&r);
+    r.ui("blur-moved", vec![json!(10)]);
+    assert_eq!(samples(&r), 2, "moving the strength makes a new sample");
+    let strong = sharpness(&r);
+    r.ui("blur-moved", vec![json!(1)]);
+    let faint = sharpness(&r);
+    assert!(strong < mild && mild < faint, "{faint} {mild} {strong}");
+    r.ui("blur-peek-open", vec![json!(false)]);
+    r.ui("blur-moved", vec![json!(5)]);
+    assert_eq!(samples(&r), 3, "closed again: nothing more is made");
+}
+
+#[test]
+fn the_blur_sample_leaves_the_person_sharp_as_the_effect_does() {
+    let mut r = Rig::new(None, vision::READY);
+    r.set_mode("blur");
+    r.ui("blur-moved", vec![json!(10)]);
+    r.ui("blur-peek-open", vec![json!(true)]);
+    let (scene, _) = peek::sample_scene(peek::WIDTH, peek::HEIGHT);
+    // the first pick of the bubble made the sample once and kept it
+    assert!(std::ptr::eq(peek::blur_scene(), peek::blur_scene()));
+    let f = &r.host.images[&("card".to_string(), "blur-picture".to_string())];
+    // the middle of the shirt is the scene's own colour, the wall is not
+    let at = |x: usize, y: usize| [f.data[(y * f.width as usize + x) * 4], f.data[(y * f.width as usize + x) * 4 + 1], f.data[(y * f.width as usize + x) * 4 + 2]];
+    let shirt = (peek::WIDTH / 2, (peek::HEIGHT as f64 * 0.85) as usize);
+    let (mine, theirs) = (at(shirt.0, shirt.1), scene.at(shirt.0, shirt.1));
+    assert!((0..3).all(|c| (mine[c] as i32 - theirs[c] as i32).abs() <= 3), "{mine:?} {theirs:?}");
+    let wall = (20, 40);
+    assert_ne!(at(wall.0, wall.1), scene.at(wall.0, wall.1));
+}
+
+// ── Masks kept between frames ──
+
+/// A context that hands out the same Arc until the test swaps it, as the vision service does for an unchanged mask.
+struct Held(std::cell::RefCell<Arc<Vec<u8>>>);
+
+impl FrameContext for Held {
+    fn source_id(&self) -> &str {
+        "phone"
+    }
+    fn person_mask(&self, _: &Frame) -> Option<Arc<Vec<u8>>> {
+        Some(self.0.borrow().clone())
+    }
+    fn colour_preview(&self, frame: &Frame) -> Frame {
+        frame.clone()
+    }
+}
+
+fn step_in(mode: &str, blur: i64, edges: i64) -> Step {
+    let mode = MODES.iter().position(|(k, _)| *k == mode).unwrap();
+    Step { settings: Settings { mode, blur, edges, picture: None }, covered: None, spares: Vec::new(), covered_yuv: None, had_mask: Arc::default(), derived: None, quarter: None }
+}
+
+fn varied_mask(w: usize, h: usize, seed: usize) -> Gray {
+    Gray { w, h, data: (0..w * h).map(|i| if (i % w + seed * 5) % 41 < 20 { 255 } else { (i * 7 % 256) as u8 }).collect() }
+}
+
+#[test]
+fn a_kept_mask_gives_the_same_picture_as_working_it_out_each_frame() {
+    let (w, h) = (96, 54);
+    let source = stripes(w, h);
+    let mut blur_step = step_in("blur", 4, 3);
+    let held = Held(Arc::new(varied_mask(w, h, 0).data.clone()).into());
+    for round in 0..6 {
+        // the mask changes on round 3; the edge setting on rounds 2 and 4
+        if round == 3 {
+            *held.0.borrow_mut() = Arc::new(varied_mask(w, h, 1).data.clone());
+        }
+        if round == 2 || round == 4 {
+            blur_step.settings.edges = round as i64;
+        }
+        let mask = Gray { w, h, data: held.0.borrow().to_vec() };
+        let want = compose(&source, &mask.soften(blur_step.settings.edges), &blurred(&source, 4, Some(&mask)));
+        let mut frame = frame_of(&source);
+        blur_step.process(&mut frame, &held);
+        assert_eq!(Rgb::from_frame(&frame).unwrap(), Rgb::from_frame(&{ let mut f = frame_of(&source); want.write_to(&mut f); f }).unwrap(), "round {round}");
+    }
+    // the same size with a new mask Arc of equal bytes is a new mask, and a new frame size starts again
+    let held = Held(Arc::new(varied_mask(64, 36, 2).data.clone()).into());
+    let small = stripes(64, 36);
+    let mask = Gray { w: 64, h: 36, data: held.0.borrow().to_vec() };
+    let want = compose(&small, &mask.soften(blur_step.settings.edges), &blurred(&small, 4, Some(&mask)));
+    let mut frame = frame_of(&small);
+    blur_step.process(&mut frame, &held);
+    let mut expected = frame_of(&small);
+    want.write_to(&mut expected);
+    assert_eq!(frame.data, expected.data);
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture"]
+fn bench_background_with_an_unchanged_mask() {
+    for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+        let source = stripes(w, h);
+        let held = Held(Arc::new(varied_mask(w, h, 0).data.clone()).into());
+        let mut step = step_in("blur", 4, 3);
+        let best = |f: &mut dyn FnMut()| (0..5).map(|_| {
+            let start = std::time::Instant::now();
+            f();
+            start.elapsed().as_secs_f64() * 1000.0
+        }).fold(f64::MAX, f64::min);
+        let mut frame = frame_of(&source);
+        step.process(&mut frame, &held);
+        let new = best(&mut || step.process(&mut frame, &held));
+        let old = best(&mut || {
+            let mask = Gray { w, h, data: held.0.borrow().to_vec() };
+            let edges = mask.soften(3);
+            compose(&source, &edges, &blurred(&source, 4, Some(&mask))).write_to(&mut frame);
+        });
+        println!("background blur {w}x{h}, unchanged mask: old {old:.2} ms, new {new:.2} ms");
+    }
+}
+
+// ── Frames in YUV ──
+
+/// A frame as the decoder makes it: I420.
+fn i420_of(rgb: &Rgb) -> Frame {
+    let mut frame = Frame::new(rgb.w as u32, rgb.h as u32, PixelFormat::I420, vec![0; PixelFormat::I420.size(rgb.w as u32, rgb.h as u32)]);
+    rgb.write_to(&mut frame);
+    frame
+}
+
+/// The vision service's way: a small mask made once and handed out at any size, the same Arc for as long as it asks the same size.
+struct Served {
+    base: Gray,
+    made: std::cell::RefCell<Vec<((usize, usize), Arc<Vec<u8>>)>>,
+}
+
+impl Served {
+    fn new(base: Gray) -> Served {
+        Served { base, made: Default::default() }
+    }
+
+    fn at(&self, w: usize, h: usize) -> Arc<Vec<u8>> {
+        let mut made = self.made.borrow_mut();
+        if let Some((_, m)) = made.iter().find(|(size, _)| *size == (w, h)) {
+            return m.clone();
+        }
+        let mask = Arc::new(self.base.linear_exact(w, h).data.clone());
+        made.push(((w, h), mask.clone()));
+        mask
+    }
+}
+
+impl FrameContext for Served {
+    fn source_id(&self) -> &str {
+        "phone"
+    }
+    fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        Some(self.at(frame.width as usize, frame.height as usize))
+    }
+    fn person_mask_at(&self, _: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        Some(self.at(w, h))
+    }
+    fn colour_preview(&self, frame: &Frame) -> Frame {
+        frame.clone()
+    }
+}
+
+
+/// (wall ms, cpu ms) a call takes, the best wall of a few runs and the cpu over all of them (every thread of the process, so work spread over the workers counts in full).
+pub(crate) fn measure(f: &mut dyn FnMut()) -> (f64, f64) {
+    let cpu = || {
+        let stat = std::fs::read_to_string("/proc/self/stat").unwrap_or_default();
+        let fields: Vec<&str> = stat.rsplit_once(')').map_or("", |(_, rest)| rest).split_whitespace().collect();
+        let ticks = |i: usize| fields.get(i).and_then(|v| v.parse::<f64>().ok()).unwrap_or(0.0);
+        (ticks(11) + ticks(12)) / 100.0 * 1000.0
+    };
+    f();
+    let runs = 60;
+    let before = cpu();
+    let wall = (0..runs).map(|_| {
+        let start = std::time::Instant::now();
+        f();
+        start.elapsed().as_secs_f64() * 1000.0
+    }).fold(f64::MAX, f64::min);
+    (wall, (cpu() - before) / runs as f64)
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture --test-threads 1"]
+fn bench_background_in_yuv() {
+    for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+        let (scene, mask) = peek::sample_scene(w, h);
+        let served = Served::new(mask.shrink(256, 144));
+        let source = i420_of(&scene);
+        let mut step = step_in("blur", 6, 3);
+        let mut frame = source.clone();
+        step.process(&mut frame, &served);
+        let (sw, sh) = ((w / BLUR_SMALL).max(1), (h / BLUR_SMALL).max(1));
+        let whole = Gray { w, h, data: served.at(w, h).to_vec() };
+        let (soft, rest) = (whole.soften(3), whole.shrink(sw, sh));
+        // the RGB way as it was, with the mask kept for a steady picture and worked out again for a moved one
+        let old_steady = measure(&mut || {
+            let mut frame = source.clone();
+            let rgb = Rgb::from_frame(&frame).unwrap();
+            compose(&rgb, &soft, &blurred_by(&rgb, 6, Some(&rest), w, h)).write_to(&mut frame);
+        });
+        let old_moved = measure(&mut || {
+            let mut frame = source.clone();
+            let rgb = Rgb::from_frame(&frame).unwrap();
+            let whole = Gray { w, h, data: served.at(w, h).to_vec() };
+            let (soft, rest) = (whole.soften(3), whole.shrink(sw, sh));
+            compose(&rgb, &soft, &blurred_by(&rgb, 6, Some(&rest), w, h)).write_to(&mut frame);
+        });
+        let new_steady = measure(&mut || {
+            let mut frame = source.clone();
+            step.process(&mut frame, &served);
+        });
+        let new_moved = measure(&mut || {
+            let mut frame = source.clone();
+            // a mask the model has just made: the same bytes at a new address
+            for (_, m) in served.made.borrow_mut().iter_mut() {
+                *m = Arc::new(m.to_vec());
+            }
+            step.process(&mut frame, &served);
+        });
+        println!("background blur {w}x{h} (wall ms, cpu ms): steady mask old {old_steady:.2?} new {new_steady:.2?}; moved mask old {old_moved:.2?} new {new_moved:.2?}");
+    }
+}
+
+/// How far two pictures are apart: (PSNR in dB, the share of values more than 3 levels off, the worst gap).
+fn apart(a: &Rgb, b: &Rgb) -> (f64, f64, u8) {
+    let (mut sum, mut off, mut worst) = (0f64, 0usize, 0u8);
+    for (x, y) in a.data.iter().zip(&b.data) {
+        let d = x.abs_diff(*y);
+        sum += (d as f64).powi(2);
+        off += (d > 3) as usize;
+        worst = worst.max(d);
+    }
+    let mse = (sum / a.data.len() as f64).max(1e-9);
+    (10.0 * (255.0f64 * 255.0 / mse).log10(), off as f64 / a.data.len() as f64, worst)
+}
+
+/// What the RGB way makes of an I420 frame: the whole picture at full size, the mask at full size, composed.
+fn in_rgb(frame: &Frame, served: &Served, blur: i64, edges: i64, behind: Option<&Rgb>) -> Rgb {
+    let rgb = Rgb::from_frame(frame).unwrap();
+    let mask = Gray { w: rgb.w, h: rgb.h, data: served.at(rgb.w, rgb.h).to_vec() };
+    let under = match behind {
+        Some(picture) => cover(picture, rgb.w, rgb.h),
+        None => blurred(&rgb, blur, Some(&mask)),
+    };
+    // through YUV and back, as a frame goes, so only what the method changes is measured
+    let mut out = frame.clone();
+    compose(&rgb, &mask.soften(edges), &under).write_to(&mut out);
+    Rgb::from_frame(&out).unwrap()
+}
+
+#[test]
+fn the_blur_on_yuv_planes_looks_like_the_one_in_rgb() {
+    let (scene, mask) = peek::sample_scene(960, 540);
+    let served = Served::new(mask.shrink(256, 144));
+    let frame = i420_of(&scene);
+    // (blur, edges, least PSNR, most share of values over 3 levels off), set a little past what each measures
+    for (blur, edges, least, share) in [(6, 3, 44.0, 0.02), (1, 0, 39.0, 0.16), (10, 10, 45.0, 0.01), (4, 5, 43.0, 0.045)] {
+        let mut step = step_in("blur", blur, edges);
+        let mut got = frame.clone();
+        step.process(&mut got, &served);
+        let want = in_rgb(&frame, &served, blur, edges, None);
+        let (psnr, off, worst) = apart(&Rgb::from_frame(&got).unwrap(), &want);
+        // the planes are averaged before the colours are worked out, so saturated colours come out a level or two apart
+        assert!(psnr > least && off < share, "blur {blur} edges {edges}: {psnr:.1} dB, {:.3}% off by more than 3, worst {worst}", off * 100.0);
+    }
+}
+
+#[test]
+fn a_picture_on_yuv_planes_looks_like_the_one_in_rgb() {
+    let (scene, mask) = peek::sample_scene(960, 540);
+    let served = Served::new(mask.shrink(256, 144));
+    let frame = i420_of(&scene);
+    let behind = peek::sample_scene(480, 270).0;
+    let mut step = step_in("picture", 6, 3);
+    step.settings.picture = Some(Arc::new(behind.clone()));
+    let mut got = frame.clone();
+    step.process(&mut got, &served);
+    let want = in_rgb(&frame, &served, 6, 3, Some(&behind));
+    let (psnr, off, worst) = apart(&Rgb::from_frame(&got).unwrap(), &want);
+    assert!(psnr > 60.0 && off < 0.0005, "{psnr:.1} dB, {:.3}% off by more than 3, worst {worst}", off * 100.0);
+}
+
+#[test]
+fn with_no_one_in_the_mask_the_whole_frame_is_the_background() {
+    let (scene, _) = peek::sample_scene(960, 540);
+    let served = Served::new(Gray::new(256, 144));
+    let frame = i420_of(&scene);
+    let mut step = step_in("blur", 6, 3);
+    let mut got = frame.clone();
+    step.process(&mut got, &served);
+    let want = in_rgb(&frame, &served, 6, 3, None);
+    let (psnr, off, worst) = apart(&Rgb::from_frame(&got).unwrap(), &want);
+    assert!(psnr > 44.0 && off < 0.025, "{psnr:.1} dB, {:.3}% off by more than 3, worst {worst}", off * 100.0);
+    assert_ne!(got.data, frame.data);
+}
+
+#[test]
+fn with_everyone_in_the_mask_the_frame_is_left_as_it_was() {
+    let (scene, _) = peek::sample_scene(960, 540);
+    let served = Served::new(Gray::filled(256, 144, 255));
+    let frame = i420_of(&scene);
+    let mut step = step_in("blur", 6, 3);
+    let mut got = frame.clone();
+    step.process(&mut got, &served);
+    assert_eq!(got.data, frame.data);
+}
+
+#[test]
+fn a_frame_in_yuv_waits_for_a_mask_and_then_hides_the_room_if_it_goes() {
+    let (scene, mask) = peek::sample_scene(480, 270);
+    let frame = i420_of(&scene);
+    let mut step = step_in("blur", 6, 3);
+    let mut got = frame.clone();
+    step.process(&mut got, &Ctx(None, Default::default()));
+    assert_eq!(got.data, frame.data, "no mask yet");
+    step.process(&mut got, &Served::new(mask.shrink(256, 144)));
+    assert_ne!(got.data, frame.data);
+    let mut lost = frame.clone();
+    step.process(&mut lost, &Ctx(None, Default::default()));
+    assert_ne!(lost.data, frame.data, "the mask went away and the room stays hidden");
+}
+
+#[test]
+fn odd_sized_frames_in_yuv_come_out_the_same_size() {
+    for (w, h) in [(101usize, 57usize), (7, 5), (2, 2), (640, 361)] {
+        let (scene, mask) = peek::sample_scene(w, h);
+        let served = Served::new(mask.shrink(256.min(w), 144.min(h)));
+        for mode in ["blur", "picture"] {
+            let mut step = step_in(mode, 5, 4);
+            step.settings.picture = Some(Arc::new(Rgb::filled(8, 8, [10, 200, 30])));
+            let mut frame = i420_of(&scene);
+            step.process(&mut frame, &served);
+            assert_eq!((frame.width as usize, frame.height as usize, frame.data.len()), (w, h, PixelFormat::I420.size(w as u32, h as u32)), "{mode} {w}x{h}");
+        }
+    }
+}
+
+/// Writes a picture as a binary PPM, for looking at.
+pub(crate) fn dump_ppm(path: &std::path::Path, rgb: &Rgb) {
+    let mut bytes = format!("P6\n{} {}\n255\n", rgb.w, rgb.h).into_bytes();
+    bytes.extend_from_slice(&rgb.data);
+    std::fs::write(path, bytes).unwrap();
+}
+
+/// Reads a binary PPM (no comments).
+pub(crate) fn read_ppm(path: &str) -> Rgb {
+    let bytes = std::fs::read(path).unwrap();
+    let mut parts = bytes.splitn(5, |b| b.is_ascii_whitespace());
+    assert_eq!(parts.next().unwrap(), b"P6");
+    let mut number = || std::str::from_utf8(parts.next().unwrap()).unwrap().parse::<usize>().unwrap();
+    let (w, h, _) = (number(), number(), number());
+    let data = parts.next().unwrap().to_vec();
+    Rgb { w, h, data }
+}
+
+/// Old, new and the gap between them times four, written as PPMs for a look.
+pub(crate) fn dump_look(name: &str, old: &Rgb, new: &Rgb) {
+    let Ok(dir) = std::env::var("LOOK_DIR") else { return };
+    let dir = std::path::Path::new(&dir);
+    std::fs::create_dir_all(dir).unwrap();
+    let diff = Rgb { w: old.w, h: old.h, data: old.data.iter().zip(&new.data).map(|(a, b)| (a.abs_diff(*b) as u32 * 4).min(255) as u8).collect() };
+    dump_ppm(&dir.join(format!("{name}_old.ppm")), old);
+    dump_ppm(&dir.join(format!("{name}_new.ppm")), new);
+    dump_ppm(&dir.join(format!("{name}_diff4x.ppm")), &diff);
+}
+
+/// A hard-edged, saturated card: colour bars, a checkerboard and thin lines in pure colours.
+pub(crate) fn test_card(w: usize, h: usize) -> Rgb {
+    let bars = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [255, 0, 255], [0, 255, 255], [255, 255, 255], [0, 0, 0]];
+    let mut data = Vec::with_capacity(w * h * 3);
+    for y in 0..h {
+        for x in 0..w {
+            let p = if y < h / 3 {
+                bars[x * bars.len() / w]
+            } else if y < 2 * h / 3 {
+                if (x / 24 + y / 24) % 2 == 0 { [255, 40, 0] } else { [0, 60, 255] }
+            } else if (x / 3) % 2 == 0 {
+                bars[(y * 8 / h) % 8]
+            } else {
+                [20, 200, 40]
+            };
+            data.extend_from_slice(&p);
+        }
+    }
+    Rgb { w, h, data }
+}
+
+/// A centred ellipse as a person mask at the size the model works at.
+pub(crate) fn ellipse_mask(w: usize, h: usize) -> Gray {
+    let mut data = vec![0u8; w * h];
+    for y in 0..h {
+        for x in 0..w {
+            let (dx, dy) = ((x as f64 + 0.5) / w as f64 - 0.5, (y as f64 + 0.5) / h as f64 - 0.5);
+            let d = (dx / 0.18).powi(2) + (dy / 0.38).powi(2);
+            data[y * w + x] = (255.0 * (1.5 - d).clamp(0.0, 1.0)) as u8;
+        }
+    }
+    Gray { w, h, data }
+}
+
+#[test]
+#[ignore = "writes pictures to look at: LOOK_DIR=out LOOK_FRAME=frame.ppm cargo test -- --ignored look_at_background"]
+fn look_at_background_blur_old_and_new() {
+    let mut pictures = vec![("card", test_card(1920, 1080))];
+    if let Ok(path) = std::env::var("LOOK_FRAME") {
+        pictures.push(("clip", read_ppm(&path)));
+    }
+    for (name, scene) in pictures {
+        let served = Served::new(ellipse_mask(256, 144));
+        let frame = i420_of(&scene);
+        let mut step = step_in("blur", 6, 3);
+        let mut got = frame.clone();
+        step.process(&mut got, &served);
+        let want = in_rgb(&frame, &served, 6, 3, None);
+        let new = Rgb::from_frame(&got).unwrap();
+        let (psnr, off, worst) = apart(&new, &want);
+        println!("background blur {name}: {psnr:.1} dB, {:.3}% off by more than 3, worst {worst}", off * 100.0);
+        dump_look(&format!("background_{name}"), &want, &new);
+    }
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture --test-threads 1"]
+fn bench_background_at_the_vision_rate() {
+    for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+        let (scene, mask) = peek::sample_scene(w, h);
+        let served = Served::new(mask.shrink(256, 144));
+        let source = i420_of(&scene);
+        let mut step = step_in("blur", 6, 3);
+        let mut frame = source.clone();
+        step.process(&mut frame, &served);
+        // a new mask every third frame, as the vision service makes them
+        let mut n = 0usize;
+        let mut run = || {
+            n += 1;
+            if n % 3 == 0 {
+                for (_, m) in served.made.borrow_mut().iter_mut() {
+                    *m = Arc::new(m.to_vec());
+                }
+            }
+            let mut frame = source.clone();
+            step.process(&mut frame, &served);
+        };
+        run();
+        let start = std::time::Instant::now();
+        (0..60).for_each(|_| run());
+        println!("background blur {w}x{h} vision rate, mean wall ms: {:.2}", start.elapsed().as_secs_f64() * 1000.0 / 60.0);
+    }
+}
+
+#[test]
+fn kept_expanded_masks_and_blur_weights_give_what_a_fresh_step_gives_in_yuv() {
+    let (w, h) = (160, 90);
+    let (scene, mask) = peek::sample_scene(w, h);
+    let served = Served::new(mask.shrink(40, 22));
+    let source = i420_of(&scene);
+    let mut kept = step_in("blur", 4, 3);
+    // frames on the same mask, then the edge setting and the strength move, then a new mask
+    for round in 0..6 {
+        if round == 2 {
+            kept.settings.edges = 6;
+        }
+        if round == 3 {
+            kept.settings.blur = 9;
+        }
+        if round == 5 {
+            for (_, m) in served.made.borrow_mut().iter_mut() {
+                *m = Arc::new(m.iter().map(|v| 255 - v).collect());
+            }
+        }
+        let mut fresh = step_in("blur", kept.settings.blur, kept.settings.edges);
+        let (mut a, mut b) = (source.clone(), source.clone());
+        kept.process(&mut a, &served);
+        fresh.process(&mut b, &served);
+        assert!(a.data == b.data, "round {round}");
+    }
+}
+
+/// One quarter-size mask whatever the frame size, as the vision service hands it out when two sizes round to the same quarter.
+struct OneMask(Arc<Vec<u8>>);
+
+impl FrameContext for OneMask {
+    fn source_id(&self) -> &str {
+        "phone"
+    }
+    fn person_mask(&self, _: &Frame) -> Option<Arc<Vec<u8>>> {
+        Some(self.0.clone())
+    }
+    fn person_mask_at(&self, _: &Frame, _: usize, _: usize) -> Option<Arc<Vec<u8>>> {
+        Some(self.0.clone())
+    }
+    fn colour_preview(&self, frame: &Frame) -> Frame {
+        frame.clone()
+    }
+}
+
+#[test]
+fn a_resize_that_keeps_the_quarter_size_mask_gives_what_a_fresh_step_gives() {
+    let (scene, mask) = peek::sample_scene(160, 90);
+    let served = OneMask(Arc::new(mask.shrink(40, 22).data.clone()));
+    let mut kept = step_in("blur", 4, 3);
+    // 160x90 to 162x90 keeps the 40x22 mask, then to 163x88 and back
+    for (w, h) in [(160, 90), (162, 90), (163, 88), (160, 90), (162, 90)] {
+        let (scene, _) = peek::sample_scene(w, h);
+        let source = i420_of(&scene);
+        let mut fresh = step_in("blur", 4, 3);
+        let (mut a, mut b) = (source.clone(), source.clone());
+        kept.process(&mut a, &served);
+        fresh.process(&mut b, &served);
+        assert!(a.data == b.data, "{w}x{h}");
+    }
+    let _ = scene;
 }

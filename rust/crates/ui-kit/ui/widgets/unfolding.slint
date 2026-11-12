@@ -1,0 +1,141 @@
+// A row, or a few, that are there only in some states (the blur sliders after Blur is picked).
+
+import { Theme } from "../theme.slint";
+import { Motion, Unfold } from "motion.slint";
+import { Grip } from "fine.slint";
+import { Tips } from "tip.slint";
+
+// Kind "helper". A column with no spacing of its own, for a row and the Unfolding that hangs from it: the Unfolding takes the card's gap
+// above it into its own height, so while it is shut no gap is left behind (a layout puts its spacing round a shut row too).
+//     UnfoldGroup { SegmentedRow { } Unfolding { open: blur; Slider { } Slider { } } }
+export component UnfoldGroup inherits VerticalLayout {
+    out property <string> control-kind: "helper";
+    spacing: 0px;
+}
+
+// Kind "helper". Unfolding: rows that appear and disappear with a state. Never `if state: Row`, which pops them in and out at once:
+// give the rows to this and set `open`. It opens and shuts in height and opacity together (one spring, `Motion.unfold-open` and
+// `unfold-close`), so a state that flips again mid-way turns the move round from where it is, with its speed, however often. Rows
+// inside are out of the keyboard and the pointer while it is shut. Put it in an UnfoldGroup after the row it belongs under (`lead`
+// is the gap it brings with it; 0 when it is the first thing in its place).
+export component Unfolding inherits Rectangle {
+    out property <string> control-kind: "helper";
+    in property <bool> open;
+    // A change that has to be there now (a window being built; reduced motion asks for that by itself)
+    in property <bool> snap;
+    in property <length> lead: Theme.gap;
+    // How far open, 0 to 1, for a test
+    out property <float> value: unfold.value;
+    // One period both ways: a row that goes as another comes (Off, Blur, Picture) and the one that comes always add up to one row's height, so
+    // the card goes from the old height to the new one and never through a smaller one (a quicker shut than open made it dip first)
+    unfold := Unfold { open: root.open; snap: root.snap; open-for: Motion.unfold-open; close-for: Motion.unfold-open; }
+    // What is inside goes out of reach as it shuts: a tip of one of its rows goes down with it
+    changed open => {
+        if (!open) {
+            Tips.dismiss();
+            // Rows that snap shut are gone before they can be measured, so what is under their top edge goes with them
+            Grip.leave(rows.absolute-position.x, rows.absolute-position.y, rows.width, snap ? 100000px : rows.height);
+        }
+    }
+    min-height: 0px;
+    vertical-stretch: 0;
+    preferred-height: unfold.value * (rows.preferred-height + lead);
+    max-height: unfold.value > 0 ? 100000px : 0px;
+    clip: unfold.value < 1;
+    visible: unfold.value > 0;
+    // Keys meant for a row that is folding away go nowhere while it fades (a disabled scope still sees them first), and Tab still moves on
+    FocusScope {
+        enabled: false;
+        width: parent.width;
+        height: parent.height;
+        capture-key-pressed(e) => { if (root.open || e.text == Key.Tab || e.text == Key.Backtab) { reject } else { accept } }
+        capture-key-released(e) => { if (root.open || e.text == Key.Tab || e.text == Key.Backtab) { reject } else { accept } }
+        rows := VerticalLayout {
+            y: lead;
+            width: parent.width;
+            height: max(parent.height - lead, self.preferred-height);
+            spacing: Theme.gap;
+            opacity: clamp(unfold.value * 1.4 - 0.2, 0, 1);
+            @children
+        }
+    }
+    // A row on its way out still fades, but nothing in it can be clicked any more
+    if !open && unfold.value > 0: TouchArea {
+        width: parent.width;
+        height: parent.height;
+        mouse-cursor: MouseCursor.default;
+    }
+}
+
+// Kind "helper". Pages: the contents of a tabbed place (a card's Primaries, Curves and LUT), one `Page` for each, in a PageGroup. Never
+// `if tab == 0: Rows`, which swaps them at once and makes the card jump to the other page's height. The page that is picked grows to its
+// height while the one that was up shrinks away, on the same spring (so the two always add up to one page's worth: the card's height
+// moves from one page's to the other's with no dip), and the words cross-fade over it. All the pages are drawn from the top of the group
+// and overlap, each fading with how far open it is. A tab picked mid-way turns the whole move round from where it is. Give the group
+// `clip: p0.moving || p1.moving` (the pages' ids) so what is taller than the group is cut while it moves and never when it is at rest
+// (a focus ring at the edge is never cut).
+//     PageGroup { clip: a.moving || b.moving; a := Page { shown: tab == 0; Rows } b := Page { shown: tab == 1; Rows } }
+export component PageGroup inherits Rectangle {
+    out property <string> control-kind: "helper";
+    vertical-stretch: 0;
+    VerticalLayout {
+        spacing: 0px;
+        @children
+    }
+}
+
+export component Page inherits Rectangle {
+    out property <string> control-kind: "helper";
+    in property <bool> shown;
+    // A change that has to be there now (a window being built; reduced motion asks for that by itself)
+    in property <bool> snap;
+    // How far open, 0 to 1, for a test
+    out property <float> value: unfold.value;
+    // Between shut and open, for the group's clip
+    out property <bool> moving: unfold.value > 0 && unfold.value < 1;
+    // The gap above, carried like Unfolding's: it opens and shuts with the page, so the two pages' gaps add up to one
+    in property <length> lead: Theme.gap;
+    // One period for both ways: the page that goes and the page that comes are mirror images, so together they are always one page's height
+    unfold := Unfold { open: root.shown; snap: root.snap; open-for: Motion.reflow-open; close-for: Motion.reflow-open; }
+    changed shown => {
+        if (!shown) {
+            Tips.dismiss();
+            // Rows that snap shut are gone before they can be measured, so what is under their top edge goes with them
+            Grip.leave(rows.absolute-position.x, rows.absolute-position.y, rows.width, snap ? 100000px : rows.height);
+        }
+    }
+    min-height: 0px;
+    vertical-stretch: 0;
+    preferred-height: unfold.value * (rows.preferred-height + lead);
+    max-height: unfold.value > 0 ? 100000px : 0px;
+    visible: unfold.value > 0;
+    // The page that comes is on top of the one that goes where they overlap, so its rows get the pointer first
+    z: shown ? 2 : 1;
+    // Drawn from the top of the group whatever this page's place in it is
+    // Out of the keyboard as soon as it is not the page shown, though it still fades: a disabled scope sees keys first, and Tab still moves on
+    FocusScope {
+        enabled: false;
+        width: parent.width;
+        height: parent.height;
+        capture-key-pressed(e) => { if (root.shown || e.text == Key.Tab || e.text == Key.Backtab) { reject } else { accept } }
+        capture-key-released(e) => { if (root.shown || e.text == Key.Tab || e.text == Key.Backtab) { reject } else { accept } }
+        rows := VerticalLayout {
+            x: 0px;
+            y: root.lead - root.y;
+            width: parent.width;
+            height: self.preferred-height;
+            opacity: clamp((unfold.value - 0.25) * 1.7, 0, 1);
+            // Out of the keyboard and the pointer once it can't be seen
+            visible: unfold.value > 0.25;
+            @children
+        }
+    }
+    // A page on its way out still fades over the one coming, but nothing in it can be clicked any more
+    if !shown && unfold.value > 0: TouchArea {
+        x: 0px;
+        y: root.lead - root.y;
+        width: parent.width;
+        height: rows.preferred-height;
+        mouse-cursor: MouseCursor.default;
+    }
+}

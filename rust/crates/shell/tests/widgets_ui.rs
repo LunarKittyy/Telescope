@@ -7,8 +7,8 @@ use slint::{ComponentHandle, LogicalPosition};
 use slint_interpreter::{ComponentInstance, Value};
 
 const DOC: &str = r#"
-import { Theme, Icons, Switch, SwitchTile, Segmented, Slider, Tag, FormRow, Button, ChoiceField, TipBody, SettingRow, DialogFrame } from "@ui-kit/ui-kit.slint";
-export { Theme }
+import { Theme, Icons, Switch, SwitchTile, Segmented, Slider, Tag, FormRow, Button, ChoiceField, TipBody, TipLayer, WindowBox, SettingRow, DialogFrame } from "@ui-kit/ui-kit.slint";
+export { Theme, WindowBox }
 export component Test inherits Window {
     width: 420px;
     height: 560px;
@@ -43,6 +43,7 @@ export component Test inherits Window {
         Segmented { label: "Bound mode"; items: ["a", "b", "c"]; current: mode; }
         tag := Tag { text: "Experimental"; }
         Rectangle { width: 200px; height: 40px; Segmented { label: "Seg"; items: ["Auto", "Tap a point", "Manual"]; current: 0; } }
+        Rectangle { width: 300px; height: 40px; Segmented { label: "Roomy"; items: ["Auto", "Tap a point", "Manual"]; current: 0; } }
         Rectangle { width: 400px; height: 40px; Segmented { label: "Wide"; items: ["Auto", "Tap a point", "Manual"]; current: 0; } }
         HorizontalLayout {
             spacing: 6px;
@@ -68,6 +69,7 @@ export component Test inherits Window {
     out property <length> bold-width: bold-measure.preferred-width;
     bold-measure := Text { text: "Tap a point"; font-size: Theme.body; font-weight: 600; font-family: Theme.font; visible: false; }
     tag-measure := Text { text: "Experimental"; font-size: floor(Theme.body * 0.88 / 1px) * 1px; font-weight: 600; font-family: Theme.font; visible: false; }
+    TipLayer { }
 }
 "#;
 
@@ -77,6 +79,8 @@ fn rig() -> ComponentInstance {
     let def = telescope_shell::compile::compile("widgets.slint", DOC, vec![], "Test").expect("the document compiles");
     let ui = def.create().unwrap();
     ui.window().set_size(slint::LogicalSize::new(420.0, 560.0));
+    ui.set_global_property("WindowBox", "width", Value::Number(420.0)).unwrap();
+    ui.set_global_property("WindowBox", "height", Value::Number(560.0)).unwrap();
     ui.show().unwrap();
     ui
 }
@@ -127,7 +131,7 @@ fn a_switch_toggles_from_anywhere_on_its_row_and_sits_at_the_row_end() {
     for width in [300.0, 400.0] {
         ui.set_property("row-width", Value::Number(width)).unwrap();
         settle(&ui);
-        assert_eq!((right("Notify"), right("Battery")), (width as f32 - 11.0, width as f32 - 13.0), "at {width}");
+        assert_eq!((right("Notify"), right("Battery")), (width as f32, width as f32), "at {width}");
     }
     // On the icon and the text, left of the track, not only on the track
     let position = LogicalPosition::new(20.0, 20.0);
@@ -311,10 +315,10 @@ fn a_long_tooltip_wraps_and_a_short_one_stays_on_one_line() {
     ui.set_property("tip-text", Value::String(long_text.trim_end().into())).unwrap();
     settle(&ui);
     let (long_w, long_h) = (num(&ui, "tip-width"), num(&ui, "tip-height"));
-    // About 64 characters to a line: the long one stops at a readable width and grows downwards
-    assert!(long_w <= 470.0 + 16.0 + 1.0, "{long_w} wide");
+    // About 36 characters to a line: the long one stops at a readable width and grows downwards
+    assert!(long_w <= 262.0, "{long_w} wide");
     let text = labelled(&ui, long_text.trim_end()).into_iter().next().expect("the tip's text");
-    assert!(f64::from(text.size().height) <= long_h - 10.0 + 0.5 && f64::from(text.size().height) >= long_h - 10.0 - 0.5, "none of it is cut off: {} in {long_h}", text.size().height);
+    assert!(f64::from(text.size().height) <= long_h - 12.0 + 0.5 && f64::from(text.size().height) >= long_h - 12.0 - 0.5, "none of it is cut off: {} in {long_h}", text.size().height);
 
     // The same body, reused
     ui.set_property("tip-text", Value::String("Settings".into())).unwrap();
@@ -328,8 +332,17 @@ fn a_long_tooltip_wraps_and_a_short_one_stays_on_one_line() {
 #[test]
 fn a_picked_segment_keeps_room_for_its_bold_text() {
     let ui = rig();
-    let segment = labelled(&ui, "Seg: Tap a point").into_iter().next().expect("the middle segment");
+    let segment = labelled(&ui, "Roomy: Tap a point").into_iter().next().expect("the middle segment");
     assert!(segment.size().width as f64 >= num(&ui, "bold-width") + 16.0, "{} against {}", segment.size().width, num(&ui, "bold-width") + 16.0);
+}
+
+// A room too narrow for every option's full text: the options give way and end in an ellipsis, the row stays in its place
+#[test]
+fn segments_that_do_not_fit_shrink_instead_of_leaving_their_room() {
+    let ui = rig();
+    let widths: f32 = ["Auto", "Tap a point", "Manual"].iter().map(|s| labelled(&ui, &format!("Seg: {s}"))[0].size().width).sum();
+    // Three segments and two gaps of 6 px in a room 200 px wide
+    assert!(widths + 12.0 <= 200.5, "{widths} of 188 for the segments");
 }
 
 // Qt's equal stretches: three segments of different lengths come out as wide as each other
@@ -426,10 +439,15 @@ fn a_dropdown_picked_by_hand_still_follows_the_value_bound_to_it() {
     let shown = || labelled(&ui, "Bound list").into_iter().next().and_then(|e| e.accessible_value()).map(|v| v.to_string());
     assert_eq!(shown().as_deref(), Some("a"));
     click(&ui, &labelled(&ui, "Bound list")[0]);
+    // The list takes the focus a moment after it opens
+    wait(30);
     settle(&ui);
     for key in [Key::Escape, Key::DownArrow] {
         ui.window().dispatch_event(WindowEvent::KeyPressed { text: key.into() });
         ui.window().dispatch_event(WindowEvent::KeyReleased { text: key.into() });
+        settle(&ui);
+        // Escape eases the list out before it goes
+        wait(300);
         settle(&ui);
     }
     assert_eq!(shown().as_deref(), Some("b"), "the arrows picked it");
@@ -494,7 +512,7 @@ fn wait(ms: u64) {
 }
 
 // test_tooltips.py::test_tooltips_show_sooner: Qt's own wait is 700 ms and Python's 250. Slint 1.18 keeps Tooltip's at 500 and
-// doesn't let a program change it, so this holds it to sooner than Qt's.
+// doesn't let a program change it, so the kit draws its own tip (ui/widgets/tip.slint) and this holds it to sooner than Qt's.
 #[test]
 fn tooltips_show_sooner() {
     let ui = rig();
@@ -536,8 +554,11 @@ fn a_dropdown_says_its_tip_and_its_arrows_skip_what_cant_be_picked() {
     wait(600);
     assert!(!labelled(&ui, "About the field").is_empty() );
     click(&ui, &labelled(&ui, "Picked").remove(0));
+    wait(30);
     ui.window().dispatch_event(WindowEvent::KeyPressed { text: slint::platform::Key::Escape.into() });
     ui.window().dispatch_event(WindowEvent::KeyReleased { text: slint::platform::Key::Escape.into() });
+    // Escape eases the list out before it goes
+    wait(300);
     let down: slint::SharedString = slint::platform::Key::DownArrow.into();
     key(&ui, &down);
     assert_eq!(ui.get_property("pressed").unwrap(), Value::String("row 2".into()));

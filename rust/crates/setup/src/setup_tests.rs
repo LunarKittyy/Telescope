@@ -479,7 +479,7 @@ fn setup_plugin_builds_its_cards_and_syncs_config() {
     assert_eq!(r.host.clipboard.as_deref(), Some("Telescope test report"));
     assert_eq!(r.plugin.about_props()["diag-text"], json!("Copied"));
     r.plugin.on_event(&mut r.host, &Event::TimerFired { owner: NAME.into(), token: "copied".into() });
-    assert_eq!(r.plugin.about_props()["diag-text"], json!("Copy diagnostics"));
+    assert_eq!(r.plugin.about_props()["diag-text"], json!("Copy"));
     r.host.clipboard = None;
     r.ui("about", "bug-clicked", vec![]);
     assert_eq!(r.host.clipboard.as_deref(), Some("Telescope test report"));
@@ -699,29 +699,52 @@ fn setup_plugin_canvas_config() {
 fn setup_plugin_config_round_trip() {
     let mut r = Rig::linux();
     let cfg = json!({"canvas_preset": "Custom...", "custom_canvas_w": 2048, "custom_canvas_h": 1536, "max_zoom": 15, "max_gain": 36,
-                     "limiter": false, "hw_decode": true, "power_saving": true, "plugin_hues": false, "language": "sv"});
+                     "limiter": false, "hw_decode": true, "power_saving": true, "plugin_hues": false, "look": "classic", "language": "sv"});
     r.plugin.set_config(&cfg).unwrap();
     assert_eq!(r.plugin.get_config(), cfg);
     r.plugin.on_plugins_ready(&mut r.host);
     assert_eq!(r.host.plugin_hues, Some(false));
+    assert_eq!(r.host.look, Some(Look::Classic));
 }
 
 #[test]
-fn hardware_decoding_is_off_unless_saved_on() {
+fn hardware_decoding_follows_the_card_until_a_choice_is_made() {
     let mut r = Rig::linux();
-    assert_eq!(r.plugin.get_config()["hw_decode"], json!(false), "a new install");
+    let fresh = r.plugin.get_config();
+    assert_eq!((&fresh["hw_decode"], fresh.get("hw_decode_chosen")), (&json!(false), None), "a new install saves the false older versions did, with no mark");
+    assert!(!r.plugin.hw_decode(), "and nothing is on before a card is found");
+    r.plugin.show_graphics_card(Some("vaapi"), false);
+    assert!(r.plugin.hw_decode() && r.plugin.video_props()["hw-checked"] == json!(true), "VA-API is on by default");
+    r.plugin.show_graphics_card(Some("cuda"), false);
+    assert!(!r.plugin.hw_decode(), "any other card stays off until turned on");
+    r.plugin.show_graphics_card(None, false);
+    assert!(!r.plugin.hw_decode());
+    r.plugin.show_graphics_card(Some("vaapi"), false);
+    // Settings from before there was a default: older versions always saved a false, and one nobody chose counts as untouched
+    r.plugin.set_config(&json!({"hw_decode": false})).unwrap();
+    assert!(r.plugin.hw_decode(), "a saved false without the mark is the old default");
     r.plugin.set_config(&json!({})).unwrap();
-    assert_eq!(r.plugin.get_config()["hw_decode"], json!(false), "settings from before it was saved");
-    // Turned on, it stays on across a save and a read
+    assert!(r.plugin.hw_decode(), "settings from before it was saved");
+    // Switched off here, it stays off across a save and a read
+    r.ui("video", "hw-toggled", vec![json!(false)]);
+    let saved = r.plugin.get_config();
+    assert_eq!((&saved["hw_decode"], &saved["hw_decode_chosen"]), (&json!(false), &json!(true)));
+    r.plugin.set_config(&saved).unwrap();
+    assert!(!r.plugin.hw_decode(), "a choice to switch it off is kept");
+    // Turned on, it stays on, and a card that isn't VA-API is used then
     r.ui("video", "hw-toggled", vec![json!(true)]);
     let saved = r.plugin.get_config();
     assert_eq!(saved["hw_decode"], json!(true));
     r.plugin.set_config(&saved).unwrap();
-    assert_eq!(r.plugin.get_config()["hw_decode"], json!(true), "a choice made here");
-    // Anything that isn't plainly true stays off, as it always did
-    for saved in [json!(false), json!("yes"), json!(1)] {
+    r.plugin.show_graphics_card(Some("cuda"), false);
+    assert!(r.plugin.hw_decode(), "a choice made here");
+    // Anything that isn't plainly true or false is no choice, so the default for the card found
+    for saved in [json!("yes"), json!(1)] {
         r.plugin.set_config(&json!({"hw_decode": saved})).unwrap();
-        assert_eq!(r.plugin.get_config()["hw_decode"], json!(false), "{saved}");
+        r.plugin.show_graphics_card(Some("vaapi"), false);
+        assert!(r.plugin.hw_decode(), "{saved}");
+        r.plugin.show_graphics_card(Some("cuda"), false);
+        assert!(!r.plugin.hw_decode(), "{saved}");
     }
     r.ui("video", "hw-toggled", vec![json!(true)]);
     assert_eq!(r.plugin.get_config()["hw_decode"], json!(true));
@@ -731,6 +754,22 @@ fn hardware_decoding_is_off_unless_saved_on() {
     assert_eq!(r.plugin.diagnostics()[0].1, "processor (graphics card failed; processor until restart)");
     r.media.status.lock().unwrap().backends = vec![];
     assert_eq!(r.plugin.diagnostics()[0].1, "not streaming (graphics card failed; processor until restart)");
+}
+
+#[test]
+fn the_stream_decoder_choice_reads_the_saved_settings_and_the_card() {
+    use telescope_core::media::{hardware_decode_choice, hardware_decode_default};
+    let vaapi = Some("vaapi");
+    // Never chosen: the card decides, on Linux only
+    assert!(hardware_decode_default(true, vaapi) && !hardware_decode_default(false, vaapi));
+    assert!(!hardware_decode_default(true, Some("cuda")) && !hardware_decode_default(true, None));
+    assert_eq!(hardware_decode_choice(Some(&json!({}))), None);
+    assert_eq!(hardware_decode_choice(None), None);
+    assert_eq!(hardware_decode_choice(Some(&json!({"hw_decode": false}))), None, "an old config's false");
+    // Chosen: the card doesn't matter
+    assert_eq!(hardware_decode_choice(Some(&json!({"hw_decode": false, "hw_decode_chosen": true}))), Some(false));
+    assert_eq!(hardware_decode_choice(Some(&json!({"hw_decode": true}))), Some(true));
+    assert_eq!(hardware_decode_choice(Some(&json!({"hw_decode": "yes"}))), None, "not a boolean");
 }
 
 #[test]
@@ -827,6 +866,33 @@ fn setup_dialog_canvas_dimension_selection_and_result_messages() {
     assert_eq!(r.plugin.panel.canvas_status.clone().unwrap().text, "Failed: permission denied");
     r.plugin.set_canvas_apply_result(true, "ok", "");
     assert!(r.plugin.panel.canvas_status.clone().unwrap().text.contains("Done"));
+}
+
+#[test]
+fn the_theme_applies_and_saves() {
+    let mut r = Rig::linux();
+    assert_eq!(r.plugin.look_props()["theme-current"], json!(0));
+    for (index, look) in [(1, Look::Classic), (2, Look::Oled), (3, Look::Light)] {
+        r.ui("look", "theme-picked", vec![json!(index)]);
+        assert_eq!(r.host.look, Some(look));
+        assert_eq!(r.plugin.get_config()["look"], json!(look.name()));
+        assert_eq!(r.plugin.look_props()["theme-current"], json!(index));
+    }
+    r.ui("look", "theme-picked", vec![json!(0)]);
+    assert_eq!(r.host.look, Some(Look::Dark));
+    assert!(r.plugin.get_config().get("look").is_none(), "the default look leaves the config as an older Telescope wrote it");
+}
+
+#[test]
+fn a_config_from_before_the_looks_loads_classic_as_classic() {
+    let mut r = Rig::linux();
+    r.plugin.set_config(&json!({"classic_theme": true})).unwrap();
+    r.plugin.on_plugins_ready(&mut r.host);
+    assert_eq!(r.host.look, Some(Look::Classic));
+    r.plugin.set_config(&json!({"classic_theme": false})).unwrap();
+    assert_eq!(r.plugin.look_props()["theme-current"], json!(0));
+    r.plugin.set_config(&json!({"look": "oled", "classic_theme": true})).unwrap();
+    assert_eq!(r.plugin.look_props()["theme-current"], json!(2));
 }
 
 #[test]

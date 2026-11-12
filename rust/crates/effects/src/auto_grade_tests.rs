@@ -62,10 +62,29 @@ impl Rig {
 
     fn event(&mut self, e: Event) {
         self.plugin.on_event(&mut self.host, &e);
+        self.settle();
     }
 
     fn ui(&mut self, callback: &str, args: Vec<Value>) {
         self.plugin.on_ui(&mut self.host, &UiEvent { ui: "card".into(), callback: callback.into(), args });
+        self.settle();
+    }
+
+    /// Delivers the posts of a stage baked on its thread (until none is running), as the window would.
+    fn settle(&mut self) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while self.plugin.baking() && std::time::Instant::now() < deadline {
+            let mine: Vec<(String, Value)> = {
+                let mut posted = self.host.posted.lock().unwrap();
+                let (mine, rest): (Vec<_>, Vec<_>) = posted.drain(..).partition(|(t, _)| t == "stage_baked");
+                *posted = rest;
+                mine
+            };
+            for (token, data) in mine {
+                self.plugin.on_event(&mut self.host, &Event::Posted { owner: "colour_grading".into(), token, data });
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
     }
 
     fn shown(&self, key: &str) -> Value {
@@ -113,7 +132,8 @@ impl Rig {
         self.show(scene, camera, 16);
     }
 
-    fn published(&self) -> usize {
+    fn published(&mut self) -> usize {
+        self.settle();
         self.host.colour_stages.len()
     }
 }

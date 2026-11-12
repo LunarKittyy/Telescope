@@ -10,7 +10,7 @@ At startup `window::build` registers the plugins into `shell::State` (settings, 
 - Every property and callback a card's component declares (read off its source by `source::scan`) is aliased on the window as `p<slot>-<name>`. That's how `host.set_ui_props()` reaches a card by name and how its callbacks come back as `UiEvent`s. Header widgets are `h<slot>-…` and settings sections `s<n>-…`.
 - `@tr("…")` texts are translated before compiling (`source::translate`), so translations need nothing from Slint's gettext. Texts with named blanks (`{name}`) are filled in on the Rust side.
 - Folding goes through the kit's `Folds` global. A card gets its key (`<plugin>/<title in English>`) from the window, and a `Section` gets its key from `scope: root.fold-key` plus its `key`.
-- `settings.rs` builds the settings window the same way, the first time it opens. Its search walks the window's items when a search starts: elements with `accessible-id: "setting"` or `"card"` are what it finds, and the kit's `keywords` property puts extra words on them. `ElementHandle` can't do this, it leaves out whatever is scrolled off the page.
+- `settings.rs` builds the settings window the same way, two seconds after start while the app is idle (`prepare`), so the first click only shows it; it builds on that click if it's earlier. Its search walks the window's items when a search starts: elements with `accessible-id: "setting"` or `"card"` are what it finds, and the kit's `keywords` property puts extra words on them. `ElementHandle` can't do this, it leaves out whatever is scrolled off the page.
 
 ## How streams run
 
@@ -52,6 +52,6 @@ The pictures are for looking at a card in every state it has, with real texts an
 
 - A wrapped `Text` inside an `if` is measured as one line, so the card lays out too short and the rest overlaps it. Keep the element and use `visible: …` with `height: visible ? self.preferred-height : 0px` instead.
 - Font sizes have to be whole pixels, the ones Qt draws at (the point size times 4/3, rounded): a fractional size lays every line out a pixel off Qt's. `Theme` has them.
-- Wrapped text drifts a pixel every few lines unless the `Text` has `line-height-factor: Theme.line-factor(self.font-size)`. Qt rounds the line pitch to whole pixels (16px for 13px Inter, where Slint's own line is 15.73px).
+- Wrapped text drifts a pixel every few lines unless the `Text` has `line-height-factor: Theme.line-factor(self.font-size)`. Qt rounds the line pitch to whole pixels (17px for 13px Plex, where Slint's own line is 16.9px).
 - A card that waits for a phone (Python's `dim_until_paired`) is faded to 0.4 and disabled as well. Give `Card` `enabled: false` and its controls `enabled`/`disabled` too, so they take Qt's disabled colours.
 - A card's `out` properties are readable from the window (`p<slot>-<name>`), but only `in` and `in-out` ones can be set.

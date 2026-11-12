@@ -313,14 +313,22 @@ mod tests {
         let gate = Arc::new(Gate::default());
         let held = Held::new(Stubborn { leave: AtomicBool::new(false), runs: AtomicUsize::new(0) }, &gate);
         held.start();
+        let began = std::time::Instant::now() + Duration::from_secs(20);
+        while held.job().runs.load(Ordering::SeqCst) < 1 && std::time::Instant::now() < began {
+            std::thread::sleep(Duration::from_millis(5));
+        }
         held.stop();
         held.start();
         held.restart_with(|| {});
         assert_eq!(held.job().runs.load(Ordering::SeqCst), 1);
         assert!(!held.running());
         held.job().leave.store(true, Ordering::SeqCst);
-        std::thread::sleep(Duration::from_millis(50));
-        held.start();
+        // Asking again is refused until the stuck thread has seen it may leave, which a slow machine takes longer over
+        let deadline = std::time::Instant::now() + Duration::from_secs(20);
+        while held.job().runs.load(Ordering::SeqCst) < 2 && std::time::Instant::now() < deadline {
+            held.start();
+            std::thread::sleep(Duration::from_millis(10));
+        }
         std::thread::sleep(Duration::from_millis(50));
         assert_eq!(held.job().runs.load(Ordering::SeqCst), 2);
     }

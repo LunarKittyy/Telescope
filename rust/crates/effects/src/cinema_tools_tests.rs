@@ -200,3 +200,86 @@ fn every_guide_in_the_list_has_lines() {
     }
     assert!(guide_lines("off").is_none());
 }
+
+// ── Speed ────────────────────────────────────────────────────────────────────
+
+/// A picture with edges, gradients and noise, so every tool has something to mark.
+fn busy(w: usize, h: usize) -> Rgb {
+    let mut s = 99u32;
+    let mut out = Rgb::new(w, h);
+    for y in 0..h {
+        for x in 0..w {
+            s ^= s << 13;
+            s ^= s >> 17;
+            s ^= s << 5;
+            let block = if (x / 64 + y / 64) % 2 == 0 { 40 } else { 215 };
+            let v = (block as u32 + (s >> 27)).min(255) as u8;
+            out.set(x, y, [v, (x * 255 / w) as u8, (y * 255 / h) as u8]);
+        }
+    }
+    out
+}
+
+/// sobel_abs as it was written before the interior got its own loop.
+fn sobel_abs_before(grey: &Gray, dx: bool) -> Vec<u8> {
+    let (w, h) = (grey.w as isize, grey.h as isize);
+    let at = |x: isize, y: isize| -> i32 {
+        let r = |i: isize, n: isize| if n == 1 { 0 } else if i < 0 { -i } else if i >= n { 2 * (n - 1) - i } else { i };
+        grey.data[(r(y, h) * w + r(x, w)) as usize] as i32
+    };
+    let mut out = vec![0u8; grey.data.len()];
+    for y in 0..h {
+        for x in 0..w {
+            let g = if dx {
+                (at(x + 1, y - 1) - at(x - 1, y - 1)) + 2 * (at(x + 1, y) - at(x - 1, y)) + (at(x + 1, y + 1) - at(x - 1, y + 1))
+            } else {
+                (at(x - 1, y + 1) - at(x - 1, y - 1)) + 2 * (at(x, y + 1) - at(x, y - 1)) + (at(x + 1, y + 1) - at(x + 1, y - 1))
+            };
+            out[(y * w + x) as usize] = g.unsigned_abs().min(255) as u8;
+        }
+    }
+    out
+}
+
+/// peaking_mask as it was: two Sobel passes, then the mask.
+fn peaking_mask_before(frame: &Rgb, sensitivity: i64) -> Vec<bool> {
+    let grey = frame.gray();
+    let (gx, gy) = (sobel_abs_before(&grey, true), sobel_abs_before(&grey, false));
+    let threshold = peaking_threshold(sensitivity) / 2;
+    gx.iter().zip(&gy).map(|(&x, &y)| ((x as f32 * 0.5 + y as f32 * 0.5).round_ties_even() as i64) > threshold).collect()
+}
+
+#[test]
+fn peaking_gives_the_mask_it_always_did_at_any_size() {
+    for (w, h) in [(1, 1), (1, 7), (7, 1), (2, 2), (3, 3), (5, 4), (64, 36), (131, 77)] {
+        let frame = busy(w, h);
+        for sensitivity in [1, 5, 10] {
+            assert_eq!(peaking_mask(&frame, sensitivity), peaking_mask_before(&frame, sensitivity), "{w}x{h} at {sensitivity}");
+        }
+    }
+}
+
+#[test]
+#[ignore = "timing"]
+fn time_the_pixel_tools() {
+    for (w, h) in [(1920, 1080), (3840, 2160)] {
+        let frame = busy(w, h);
+        for (name, look) in [
+            ("peaking", Look { peaking: true, ..look() }),
+            ("zebras", Look { zebras: true, ..look() }),
+            ("false colour", Look { false_colour: true, ..look() }),
+            ("all three", Look { peaking: true, zebras: true, false_colour: true, ..look() }),
+        ] {
+            let mut phase = 0;
+            let mut work = frame.clone();
+            tint(&look, &mut work, &mut phase);
+            let runs = 8;
+            let start = std::time::Instant::now();
+            for _ in 0..runs {
+                let mut work = frame.clone();
+                tint(&look, &mut work, &mut phase);
+            }
+            eprintln!("{w}x{h} {name}: {:.2} ms", start.elapsed().as_secs_f64() * 1000.0 / runs as f64);
+        }
+    }
+}

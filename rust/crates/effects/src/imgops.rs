@@ -74,12 +74,29 @@ fn linear(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usize) -> Ve
 /// cv2.resize(INTER_NEAREST): each output pixel takes the source pixel its left edge falls in.
 fn nearest(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usize) -> Vec<u8> {
     let mut out = spare_bytes(w2 * h2 * ch);
+    // The columns are worked out once, and a source row that several output rows share is built once and copied
+    let columns: Vec<usize> = (0..w2).map(|x| (x * w / w2).min(w - 1) * ch).collect();
+    let rl = w2 * ch;
+    let mut last = usize::MAX;
     for y in 0..h2 {
         let sy = (y * h / h2).min(h - 1);
-        for x in 0..w2 {
-            let sx = (x * w / w2).min(w - 1);
-            out[(y * w2 + x) * ch..(y * w2 + x + 1) * ch].copy_from_slice(&src[(sy * w + sx) * ch..(sy * w + sx + 1) * ch]);
+        let (done, rest) = out.split_at_mut(y * rl);
+        let line = &mut rest[..rl];
+        if sy == last {
+            line.copy_from_slice(&done[(y - 1) * rl..]);
+        } else {
+            let row = &src[sy * w * ch..][..w * ch];
+            if ch == 3 {
+                for (o, &at) in line.as_chunks_mut::<3>().0.iter_mut().zip(&columns) {
+                    *o = [row[at], row[at + 1], row[at + 2]];
+                }
+            } else {
+                for (o, &at) in line.chunks_exact_mut(ch).zip(&columns) {
+                    o.copy_from_slice(&row[at..at + ch]);
+                }
+            }
         }
+        last = sy;
     }
     out
 }
@@ -133,6 +150,21 @@ impl Rgb {
     /// cv2.blur(k x k): the average of the square around each pixel, the edges mirrored.
     pub fn box_blur(&self, kw: usize, kh: usize) -> Rgb {
         Rgb { w: self.w, h: self.h, data: boxed(&self.data, self.w, self.h, 3, kw, kh) }
+    }
+}
+
+/// pictures.shrink of one plane of bytes (a luma plane, say) to w x h.
+pub fn shrink_plane(src: &[u8], w: usize, h: usize, tw: usize, th: usize) -> Vec<u8> {
+    let (data, iw, ih) = halved_down(src, w, h, 1, tw, th);
+    match data {
+        None if (iw, ih) == (tw, th) => src.to_vec(),
+        None => resize_area(src, w, h, 1, tw, th),
+        Some(data) if (iw, ih) == (tw, th) => data,
+        Some(data) => {
+            let out = resize_area(&data, iw, ih, 1, tw, th);
+            keep_bytes(data);
+            out
+        }
     }
 }
 
@@ -536,37 +568,42 @@ fn boxed(src: &[u8], w: usize, h: usize, ch: usize, kw: usize, kh: usize) -> Vec
     out
 }
 
-/// A rectangle's minimum (erode) or maximum (dilate), one axis at a time.
+/// a and b side by side, the smaller (erode) or the larger (dilate) of each pair, into a.
+fn pick_into(a: &mut [u8], b: &[u8], erode: bool) {
+    if erode {
+        a.iter_mut().zip(b).for_each(|(a, b)| *a = (*a).min(*b));
+    } else {
+        a.iter_mut().zip(b).for_each(|(a, b)| *a = (*a).max(*b));
+    }
+}
+
+/// A rectangle's minimum (erode) or maximum (dilate), one axis at a time, a row of whole slices at a time so each step vectorises.
 fn morph(src: &[u8], w: usize, h: usize, k: usize, erode: bool) -> Vec<u8> {
-    let half = (k / 2) as isize;
-    let pick = |a: u8, b: u8| if erode { a.min(b) } else { a.max(b) };
-    let start = if erode { 255 } else { 0 };
+    let half = k / 2;
     let mut across = vec![0u8; w * h];
-    for y in 0..h {
-        for x in 0..w {
-            let mut v = start;
-            for j in -half..=half {
-                let xx = x as isize + j;
-                if xx >= 0 && (xx as usize) < w {
-                    v = pick(v, src[y * w + xx as usize]);
-                }
-            }
-            across[y * w + x] = v;
-        }
-    }
     let mut out = vec![0u8; w * h];
-    for y in 0..h {
-        for x in 0..w {
-            let mut v = start;
-            for j in -half..=half {
-                let yy = y as isize + j;
-                if yy >= 0 && (yy as usize) < h {
-                    v = pick(v, across[yy as usize * w + x]);
-                }
-            }
-            out[y * w + x] = v;
-        }
+    if w == 0 || h == 0 {
+        return out;
     }
+    over_rows(&mut across, w, |y, line| {
+        let row = &src[y * w..][..w];
+        line.copy_from_slice(row);
+        for j in 1..=half.min(w - 1) {
+            pick_into(&mut line[..w - j], &row[j..], erode);
+            pick_into(&mut line[j..], &row[..w - j], erode);
+        }
+    });
+    over_rows(&mut out, w, |y, line| {
+        line.copy_from_slice(&across[y * w..][..w]);
+        for j in 1..=half {
+            if y >= j {
+                pick_into(line, &across[(y - j) * w..][..w], erode);
+            }
+            if y + j < h {
+                pick_into(line, &across[(y + j) * w..][..w], erode);
+            }
+        }
+    });
     out
 }
 
@@ -686,16 +723,26 @@ impl Remap {
     /// The warped picture of src into dst, w x h pixels.
     pub fn run(&self, src: &[u8], dst: &mut [u8]) {
         assert_eq!(src.len(), self.src_len, "a remap is made for one size of picture");
+        over_rows(dst, self.w * 3, |y, line| self.run_row(src, y, line));
+    }
+
+    /// Row y of the warped picture, `w * 3` bytes, for a caller that uses each row as it is made.
+    pub fn run_row(&self, src: &[u8], y: usize, line: &mut [u8]) {
         let (w, stride) = (self.w, self.stride);
-        over_rows(dst, w * 3, |y, line| {
-            let (first, end, roomy) = self.rows[y];
-            let (first, end) = (first as usize, end as usize);
-            let (before, rest) = line.split_at_mut(first * 3);
-            let (middle, after) = rest.split_at_mut((end - first) * 3);
-            before.fill(0);
-            after.fill(0);
-            remap_row(src, stride, &self.spots[y * w + first..y * w + end], middle, roomy);
-        });
+        debug_assert_eq!(src.len(), self.src_len);
+        let (first, end, roomy) = self.rows[y];
+        let (first, end) = (first as usize, end as usize);
+        let (before, rest) = line.split_at_mut(first * 3);
+        let (middle, after) = rest.split_at_mut((end - first) * 3);
+        before.fill(0);
+        after.fill(0);
+        remap_row(src, stride, &self.spots[y * w + first..y * w + end], middle, roomy);
+    }
+
+    /// The stretch of row y that isn't black, as (first, end) pixels.
+    pub fn span(&self, y: usize) -> (usize, usize) {
+        let (first, end, _) = self.rows[y];
+        (first as usize, end as usize)
     }
 }
 
@@ -704,7 +751,7 @@ fn remap_row(src: &[u8], stride: usize, spots: &[Spot], out: &mut [u8], roomy: b
     #[cfg(target_arch = "x86_64")]
     if roomy && std::arch::is_x86_feature_detected!("ssse3") {
         // SAFETY: the processor was just asked, and roomy says every spot of this row can be read 8 bytes at a time on both rows
-        done = unsafe { remap_row_ssse3(src, stride, spots, out) };
+        done = if std::arch::is_x86_feature_detected!("avx2") { unsafe { remap_row_avx2(src, stride, spots, out) } } else { unsafe { remap_row_ssse3(src, stride, spots, out) } };
     }
     #[cfg(not(target_arch = "x86_64"))]
     let _ = roomy;
@@ -743,6 +790,37 @@ unsafe fn remap_row_ssse3(src: &[u8], stride: usize, spots: &[Spot], out: &mut [
         let px = _mm_shuffle_epi8(_mm_srli_epi32::<10>(_mm_add_epi32(sums, round)), bytes);
         // 4 bytes down, the last one lands on the next pixel, which comes after it
         to.add(i * 3).cast::<i32>().write_unaligned(_mm_cvtsi128_si32(px));
+    }
+    done
+}
+
+/// remap_row_ssse3 two pixels at a time; answers how many it did (an even number, never the last pixel).
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+unsafe fn remap_row_avx2(src: &[u8], stride: usize, spots: &[Spot], out: &mut [u8]) -> usize {
+    use std::arch::x86_64::*;
+    let done = spots.len().saturating_sub(1) & !1;
+    let from = src.as_ptr();
+    let to = out.as_mut_ptr();
+    let lanes = |a: __m128i, b: __m128i| _mm256_inserti128_si256::<1>(_mm256_castsi128_si256(a), b);
+    let side_by_side = _mm256_broadcastsi128_si256(_mm_setr_epi8(0, 3, 1, 4, 2, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1));
+    let bytes = _mm256_broadcastsi128_si256(_mm_setr_epi8(0, 4, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1));
+    let round = _mm256_set1_epi32(512);
+    for (i, pair) in spots[..done].chunks_exact(2).enumerate() {
+        let (a, b) = (&pair[0], &pair[1]);
+        let (fx_a, fx_b) = (a.fx as i16, b.fx as i16);
+        let across = lanes(_mm_set1_epi16((fx_a << 8) | (32 - fx_a)), _mm_set1_epi16((fx_b << 8) | (32 - fx_b)));
+        let (fy_a, fy_b) = (a.fy as i32, b.fy as i32);
+        let down = lanes(_mm_set1_epi32((fy_a << 16) | (32 - fy_a)), _mm_set1_epi32((fy_b << 16) | (32 - fy_b)));
+        let top = lanes(_mm_loadl_epi64(from.add(a.at as usize).cast()), _mm_loadl_epi64(from.add(b.at as usize).cast()));
+        let top = _mm256_maddubs_epi16(_mm256_shuffle_epi8(top, side_by_side), across);
+        let below = lanes(_mm_loadl_epi64(from.add(a.at as usize + stride).cast()), _mm_loadl_epi64(from.add(b.at as usize + stride).cast()));
+        let below = _mm256_maddubs_epi16(_mm256_shuffle_epi8(below, side_by_side), across);
+        let sums = _mm256_madd_epi16(_mm256_unpacklo_epi16(top, below), down);
+        let px = _mm256_shuffle_epi8(_mm256_srli_epi32::<10>(_mm256_add_epi32(sums, round)), bytes);
+        // 4 bytes down each, the fourth of the first lands on the second pixel, which is written after it, and the second's on the next
+        to.add(i * 6).cast::<i32>().write_unaligned(_mm_cvtsi128_si32(_mm256_castsi256_si128(px)));
+        to.add(i * 6 + 3).cast::<i32>().write_unaligned(_mm_cvtsi128_si32(_mm256_extracti128_si256::<1>(px)));
     }
     done
 }
@@ -1010,5 +1088,95 @@ mod tests {
         }
         let out = mask.shrink(120, 67);
         assert_eq!((out.w, out.h, out.data.len()), (120, 67, 120 * 67));
+    }
+
+    /// The rectangle's minimum or maximum as it was first written: a window at a time, one axis after the other.
+    fn morph_slowly(src: &[u8], w: usize, h: usize, k: usize, erode: bool) -> Vec<u8> {
+        let half = (k / 2) as isize;
+        let pick = |a: u8, b: u8| if erode { a.min(b) } else { a.max(b) };
+        let start = if erode { 255 } else { 0 };
+        let mut across = vec![0u8; w * h];
+        for y in 0..h {
+            for x in 0..w {
+                let mut v = start;
+                for j in -half..=half {
+                    let xx = x as isize + j;
+                    if xx >= 0 && (xx as usize) < w {
+                        v = pick(v, src[y * w + xx as usize]);
+                    }
+                }
+                across[y * w + x] = v;
+            }
+        }
+        let mut out = vec![0u8; w * h];
+        for y in 0..h {
+            for x in 0..w {
+                let mut v = start;
+                for j in -half..=half {
+                    let yy = y as isize + j;
+                    if yy >= 0 && (yy as usize) < h {
+                        v = pick(v, across[yy as usize * w + x]);
+                    }
+                }
+                out[y * w + x] = v;
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn erode_and_dilate_take_the_same_rectangle_as_a_plain_window() {
+        let mut n = 7u32;
+        for (w, h, k) in [(1usize, 1usize, 9usize), (3, 40, 9), (40, 3, 9), (37, 29, 9), (64, 48, 3), (50, 50, 1), (20, 20, 25)] {
+            let src: Vec<u8> = (0..w * h).map(|_| {
+                n = n.wrapping_mul(1664525).wrapping_add(1013904223);
+                if n >> 28 == 0 { 255 } else { (n >> 24) as u8 }
+            }).collect();
+            for erode in [true, false] {
+                assert_eq!(morph(&src, w, h, k, erode), morph_slowly(&src, w, h, k, erode), "{w}x{h} k={k} erode={erode}");
+            }
+        }
+    }
+
+    #[test]
+    #[ignore = "timing bench, run with --release -- --ignored --nocapture"]
+    fn bench_dilate() {
+        for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+            let mut m = Gray::new(w, h);
+            for y in h / 5..h * 4 / 5 {
+                m.data[y * w + w / 3..y * w + w / 2].fill(255);
+            }
+            let best = |f: &mut dyn FnMut()| (0..5).map(|_| {
+                let start = std::time::Instant::now();
+                f();
+                start.elapsed().as_secs_f64() * 1000.0
+            }).fold(f64::MAX, f64::min);
+            let before = best(&mut || { std::hint::black_box(morph_slowly(&m.data, w, h, 9, false)); });
+            let now = best(&mut || { std::hint::black_box(m.dilate(9)); });
+            println!("dilate(9) {w}x{h}: plain windows {before:.2} ms, now {now:.2} ms");
+        }
+    }
+
+    #[test]
+    #[ignore = "timing bench, run with --release -- --ignored --nocapture"]
+    fn bench_mask_work() {
+        for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+            let mut m = Gray::new(w, h);
+            for y in 0..h {
+                for x in w / 3..2 * w / 3 {
+                    m.data[y * w + x] = 255;
+                }
+            }
+            let shared = std::sync::Arc::new(m.data.clone());
+            let best = |f: &mut dyn FnMut()| (0..5).map(|_| {
+                let start = std::time::Instant::now();
+                f();
+                start.elapsed().as_secs_f64() * 1000.0
+            }).fold(f64::MAX, f64::min);
+            let copy = best(&mut || { std::hint::black_box(Gray { w, h, data: shared.to_vec() }); });
+            let soft = best(&mut || { std::hint::black_box(m.soften(3)); });
+            let eighth = best(&mut || { std::hint::black_box(m.shrink((w / 8).max(1), (h / 8).max(1))); });
+            println!("mask {w}x{h}: owned copy {copy:.3} ms, soften(3) {soft:.3} ms, shrink to an eighth {eighth:.3} ms");
+        }
     }
 }

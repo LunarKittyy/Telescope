@@ -29,8 +29,7 @@ pub const SMOOTH_S: f64 = 0.5;
 /// The point moves at most this often: each move has the phone meter and focus again.
 pub const EVERY_S: f64 = 1.5;
 
-const SWITCH_TIP: &str = n_("Meter the exposure on your face");
-const FOLLOW_TIP: &str = n_("Go back to metering on your face");
+const FOLLOW_TIP: &str = n_("Go back to metering the exposure on your face.");
 const PICKED_NOTE: &str = n_("The phone meters on the point you picked by hand.");
 const MANUAL_NOTE: &str = n_("Focus is on Manual in the Camera card.");
 const CANT_METER: &str = n_("This lens can't meter on a point.");
@@ -153,7 +152,7 @@ impl FaceExposurePlugin {
     }
 
     fn fixed_props() -> Value {
-        json!({"switch-name": tr(TITLE), "switch-help": tr(SWITCH_TIP), "follow-tip": tr(FOLLOW_TIP)})
+        json!({"switch-name": tr(TITLE), "follow-tip": tr(FOLLOW_TIP)})
     }
 
     fn state_props(&self) -> Value {

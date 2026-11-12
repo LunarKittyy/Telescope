@@ -35,6 +35,8 @@ fn opened(label: &str) -> (Rc<Window>, Heard) {
     let asker = heard.clone();
     let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), move |_| vec![Box::new(Asker(asker)) as Box<dyn Plugin>], None, None).unwrap();
     w.ui.window().set_size(slint::LogicalSize::new(1300.0, 900.0));
+    // A CI machine's own setting can be animations off, which snaps what these tests watch move
+    telescope_shell::motion::set(&w.ui, telescope_shell::motion::Motion::Full);
     (w, heard)
 }
 
@@ -53,10 +55,21 @@ fn plugin_action(id: &str) -> IssueDoes {
 fn show(w: &Rc<Window>, key: &str, shown: Issue) {
     w.state.borrow_mut().banners.show(key, shown);
     w.process();
+    settled(w);
 }
 
 fn clear(w: &Rc<Window>, key: Option<&str>, only: Option<&Issue>) {
     w.state.borrow_mut().banners.clear(key, only);
+    w.process();
+}
+
+/// The strips shut and the rows that were going gone (their motion is a third of a second or so).
+fn settled(w: &Rc<Window>) {
+    for _ in 0..40 {
+        // Looked at as a screen reader would (a banner is made when it is first laid out), then a frame later
+        let _ = drawn(w, "");
+        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(50));
+    }
     w.process();
 }
 
@@ -109,10 +122,14 @@ fn keys_replace_and_clear() {
     assert!(drawn(&w, "First").is_empty() && !drawn(&w, "Second").is_empty());
     clear(&w, Some("vcam"), None);
     assert_eq!(keys(&w), ["start"]);
+    settled(&w);
     assert!(area_height(&w) > 0.0, "one left");
     clear(&w, None, None);
     assert!(keys(&w).is_empty());
+    assert!(area_height(&w) > 0.0, "it shuts over a few frames, it does not vanish");
+    settled(&w);
     assert_eq!(area_height(&w), 0.0);
+    assert_eq!(w.ui.get_property("banners").map(|v| matches!(v, Value::Model(m) if slint::Model::row_count(&m) == 0)), Ok(true), "and its row goes after");
 }
 
 // test_banner.py::test_an_action_runs_and_takes_the_banner_with_it

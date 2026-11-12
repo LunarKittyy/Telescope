@@ -1,7 +1,7 @@
 // The Microphone card. Texts with blanks come
 // filled from Rust; the Install VB-Cable question is a popup inside the card.
 
-import { Theme, Icons, Icon, Button, Card, FormRow, Slider, Switch, NumberField, TipBody, DialogFrame, WindowBox } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Well, Button, Card, RailRow, SwitchRow, Slider, Switch, Tip, TipBody, DialogFrame, DialogButtons, WindowBox, Status, UnfoldGroup, Unfolding } from "@ui-kit/ui-kit.slint";
 
 // The meter's numbers from the plugin: bar ends and the held marker as 0..1 along it, and which light is on.
 export struct MeterState {
@@ -12,22 +12,6 @@ export struct MeterState {
     muted: bool,
     readout: string,
     red: bool,
-}
-
-global Status {
-    public pure function color(kind: string) -> color {
-        kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
-            : kind == "status_dim" ? Theme.text-dim : Theme.text
-    }
-}
-
-// wrapped_note: a QLabel#dim, so body size
-component Note inherits Text {
-    in property <string> kind: "status_dim";
-    font-family: Theme.font;
-    font-size: Theme.body;
-    color: Status.color(kind);
-    wrap: word-wrap;
 }
 
 // One zone of a bar, in its own colour along the bar the way hardware meters light up.
@@ -45,31 +29,32 @@ component Zone inherits Rectangle {
     background: tone.with-alpha(alpha);
 }
 
-// LevelMeter: peak and RMS bars, a held peak marker, ticks under the bar and a clip light. A click clears the hold.
+// LevelMeter: peak and RMS bars, a held peak marker, ticks under the bar and a clip light after it. A click clears the hold.
 component LevelMeter inherits Rectangle {
     in property <MeterState> state;
     callback clicked;
-    property <length> dot: 8px;
-    property <length> inset: 10px;
-    property <length> bar-h: 8px;
-    property <length> track-w: root.width - inset - dot - 6px - 1px;
-    property <length> top: (root.height - bar-h) / 2 - 2px;
-    min-width: 84px;
-    height: 36px;
+    // The track is the Gain slider's: it starts and ends where that one does, in the same column
+    property <length> inset: 0px;
+    property <length> bar-h: Theme.u(4);
+    // The clip light sits after the bar, and the two together end where the slider's track does
+    property <length> dot: Theme.u(4);
+    property <length> track-w: root.width - inset - dot - Theme.u(3);
+    property <length> top: (root.height - bar-h) / 2 - Theme.u(1);
+    min-width: Theme.u(42);
+    height: Theme.row;
     horizontal-stretch: 1;
     function tone(zone: int) -> color {
-        state.muted ? Theme.text-faint : zone == 2 ? Theme.err : zone == 1 ? Theme.warn : Theme.ok
+        state.muted ? Theme.dis : zone == 2 ? Theme.err : zone == 1 ? Theme.warn : Theme.ok
     }
     function at(p: float) -> length {
         p * track-w
     }
-    bar := Rectangle {
-        x: inset + 0.5px;
+    bar := Well {
+        x: inset;
         y: top;
         width: track-w;
         height: bar-h;
         border-radius: bar-h / 2;
-        background: Theme.surface-sunk;
         clip: true;
         // Peak at 55%, RMS on top at full colour; zones at -18 and -6 dBFS
         Zone { from: 0; to: 0.55; level: state.peak; tone: tone(0); alpha: 0.55; track: track-w; height: bar-h; }
@@ -79,52 +64,41 @@ component LevelMeter inherits Rectangle {
         Zone { from: 0.55; to: 0.85; level: state.rms; tone: tone(1); alpha: 1; track: track-w; height: bar-h; }
         Zone { from: 0.85; to: 1; level: state.rms; tone: tone(2); alpha: 1; track: track-w; height: bar-h; }
         if state.hold >= 0: Rectangle {
-            x: min(max(at(state.hold), 3px), track-w - bar-h / 2) - 1px;
-            width: 2px;
+            x: min(max(at(state.hold), Theme.u(1.5)), track-w - bar-h / 2) - Theme.u(0.5);
+            width: Theme.u(1);
             height: bar-h;
-            background: state.muted ? Theme.text-dim : Theme.text;
+            background: state.muted ? Theme.ink2 : Theme.ink;
         }
-    }
-    Rectangle {
-        x: bar.x;
-        y: bar.y;
-        width: bar.width;
-        height: bar.height;
-        border-radius: bar.border-radius;
-        border-width: 1px;
-        border-color: Theme.border-strong;
     }
     // Ticks at -40, -30, -20, -12 and -6 dBFS
     for p in [0.16667, 0.25, 0.5, 0.7, 0.85]: Rectangle {
         x: inset + round(p * track-w / 1px) * 1px;
-        y: top + bar-h + 3px;
-        width: 1px;
-        height: 3px;
-        background: Theme.border-strong;
+        y: top + bar-h + Theme.u(1.5);
+        width: Theme.u(0.5);
+        height: Theme.u(1.5);
+        background: Theme.line-strong;
     }
-    Rectangle {
-        x: root.width - dot - 0.5px;
+    Well {
+        x: root.width - dot;
         y: top + bar-h / 2 - dot / 2;
         width: dot;
         height: dot;
         border-radius: dot / 2;
-        background: state.lit == "clip" ? Theme.err : state.lit == "limit" ? Theme.warn : Theme.surface-sunk;
-        border-width: state.lit == "" ? 1px : 0px;
-        border-color: Theme.border-strong;
+        rim: Theme.dis-outline;
+        background: state.lit == "clip" ? Theme.err : state.lit == "limit" ? Theme.warn : Theme.trough;
     }
     // One area for the click and the tooltip: a second one on top would take the click
     touch := TouchArea {
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
     }
-    if touch.has-hover: Tooltip {
-        TipBody { says: @tr("Yellow means the limiter is holding loud peaks down and red means the sound clipped (click to clear)."); }
-    }
+    Tip { says: @tr("Level"); detail: @tr("Yellow: the limiter is holding peaks down. Red: it clipped."); hint: @tr("Click to clear"); hover: touch.has-hover; }
 }
 
 export component MicrophoneCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active;
+    idle: !active;
+    // Greyed out until a phone is paired
     // On for the stream the panels show: the controls are there
     in property <bool> here;
     in property <bool> on;
@@ -146,6 +120,7 @@ export component MicrophoneCard inherits Card {
     in property <bool> nr-enabled: true;
     in property <string> nr-note;
     in property <string> nr-tip;
+    in property <string> status-short;
     in property <string> status-text;
     in property <string> status-kind: "status_dim";
     // The fix for a problem (Install VB-Cable, Get VB-Cable)
@@ -158,10 +133,28 @@ export component MicrophoneCard inherits Card {
     in property <string> donationware;
     // The donate link's words, translated, without its markup
     in property <string> donate-text;
+    // What the status line said last, kept while it folds away
+    property <string> held-short;
+    property <string> held-text;
+    property <string> held-kind;
+    property <string> held-fix;
+    function keep() {
+        if (status-text != "" || fix-shown) {
+            held-short = status-short;
+            held-text = status-text;
+            held-kind = status-kind;
+            held-fix = fix-text;
+        }
+    }
+    init => { keep(); }
+    changed status-short => { keep(); }
+    changed status-text => { keep(); }
+    changed status-kind => { keep(); }
+    changed fix-text => { keep(); }
+    changed fix-shown => { keep(); }
     callback toggled(bool);
     callback mute-toggled(bool);
     callback gain-moved(float);
-    callback gain-typed(string);
     callback auto-toggled(bool);
     callback nr-toggled(bool);
     callback fix-clicked;
@@ -170,15 +163,16 @@ export component MicrophoneCard inherits Card {
     callback donate;
 
     title: @tr("Microphone");
-    icon: Icons.v-mic;
-    opacity: active ? 1 : 0.4;
+    tip: @tr("Use the phone's microphone on this computer.");
+    icon: Icons.mic;
     enabled: active;
-    // The Mute button and the on/off switch sit in the header, so the card says at a glance whether the mic is in use
+    // The Mute button and the on/off switch sit in the header, so the card says at a glance whether the mic is in use. Mute is an
+    // icon of its own width, so swapping Mute and Unmute never moves the title
     has-action: here;
-    action-text: mute-text;
-    action-icon: muted ? Icons.v-mic-off : Icons.v-mic;
-    action-tint: muted ? Theme.err : Theme.text-dim;
-    action-label: mute-tip;
+    action-icon: muted ? Icons.v-mic-off : Icons.mic;
+    action-tint: muted ? Theme.err : Theme.ink2;
+    action-label: mute-text;
+    action-tip-detail: mute-tip;
     action-shortcut: "microphone.mute";
     action => { root.mute-toggled(!muted); }
     has-switch: true;
@@ -186,164 +180,143 @@ export component MicrophoneCard inherits Card {
     switch-checked: on;
     switch-enabled: toggle-enabled;
     switch-label: toggle-name;
-    switch-tip: toggle-tip;
+    switch-tip: toggle-name;
+    switch-tip-detail: toggle-tip;
     switch-toggled(v) => { root.toggled(v); }
 
     changed confirm-asked => {
         question.show();
     }
 
-    if here: FormRow {
-        label: mic-label;
-        HorizontalLayout {
-            spacing: 8px;
-            LevelMeter { state: meter; clicked => { root.meter-clicked(); } }
-            // Inset like the gain box's text above it (its 10px padding plus the border)
-            HorizontalLayout {
-                width: 78px;
-                padding-right: 11px;
-                Text {
-                    text: meter.readout;
-                    font-family: Theme.font;
-                    font-size: Theme.body;
-                    color: meter.red ? Theme.err : Theme.text-dim;
-                    horizontal-alignment: right;
-                    vertical-alignment: center;
-                }
-            }
-        }
-    }
-    if here: FormRow {
-        label: @tr("Gain");
-        HorizontalLayout {
-            spacing: 8px;
-            Slider {
+    // The rows that need the phone's mic unfold in and out together; the status line hangs under them. Nothing shows, and the card is
+    // header-only, while there is neither
+    UnfoldGroup {
+        Unfolding {
+            open: here;
+            lead: 0px;
+        RailRow {
+                icon: Icons.mic;
+                label: mic-label;
+                tip: @tr("Level");
+                tip-detail: @tr("Yellow: the limiter is holding peaks down. Red: it clipped.");
                 hue: root.hue;
-                has-readout: false;
-                readout: gain-text;
-                minimum: gain-min;
-                maximum: gain-max;
-                value: gain;
-                label: @tr("Gain");
-                shortcut: "microphone.gain";
-                has-default: true;
-                default-value: 0;
-                tip: @tr("Double-click to reset");
-                moved(v) => { root.gain-moved(v); }
-            }
-            gain-box := NumberField {
-                width: 78px;
-                y: 2px;
-                value: gain-text;
-                label: @tr("Gain");
-                shortcut: "microphone.gain";
-                committed(text) => { root.gain-typed(text); }
-                step(d) => { root.gain-moved(gain - d); }
-            }
-        }
-    }
-    if here: FormRow {
-        label: @tr("Auto level");
-        Rectangle { horizontal-stretch: 1; }
-        Switch {
-            y: 8px;
-            checked: auto-level;
-            label: @tr("Auto level");
-            tip: @tr("Evens out quiet and loud speech.");
-            toggled(v) => { root.auto-toggled(v); }
-        }
-    }
-    if here: FormRow {
-        label: @tr("Noise reduction");
-        HorizontalLayout {
-            spacing: 10px;
-            // Alone, the switch sits at the row's end like the others; with the reason, the reason follows it
-            if nr-note == "": Rectangle { horizontal-stretch: 1; }
-            Rectangle {
-                width: 36px;
-                Switch {
-                    y: (parent.height - self.height) / 2;
-                    checked: nr;
-                    enabled: nr-enabled;
-                    label: @tr("Noise reduction");
-                    tip: nr-tip;
-                    toggled(v) => { root.nr-toggled(v); }
+                HorizontalLayout {
+                    // The slider's own spacing and readout width, so the two tracks and their numbers line up
+                    spacing: Theme.u(4);
+                    LevelMeter { state: meter; clicked => { root.meter-clicked(); } }
+                    Text {
+                        width: Theme.u(28);
+                        text: meter.readout;
+                        font-family: Theme.font;
+                        font-size: Theme.body;
+                        font-weight: Theme.w-value;
+                        color: meter.red ? Theme.err : Theme.ink2;
+                        horizontal-alignment: right;
+                        vertical-alignment: center;
+                    }
                 }
             }
-            // A layout around it, for the row to grow with the lines the text wraps to
-            VerticalLayout {
-                alignment: center;
-                padding-top: 8px;
-                padding-bottom: 8px;
-                horizontal-stretch: nr-note != "" ? 1 : 0;
-                max-width: nr-note != "" ? 10000px : 0px;
-                Note {
-                    text: nr-note;
-                    visible: nr-note != "";
-                    height: nr-note != "" ? self.preferred-height : 0px;
+        RailRow {
+                icon: Icons.volume;
+                label: @tr("Gain");
+                tip-detail: gain-tip;
+                hue: root.hue;
+                changed: gain != 0;
+                Slider {
+                    hue: root.hue;
+                    readout: gain-text;
+                    minimum: gain-min;
+                    maximum: gain-max;
+                    value: gain;
+                    label: @tr("Gain");
+                    shortcut: "microphone.gain";
+                    has-default: true;
+                    default-value: 0;
+                    tip: @tr("Gain");
+                    tip-detail: gain-tip;
+                    moved(v) => { root.gain-moved(v); }
+                }
+            }
+        SwitchRow {
+                icon: Icons.waveform;
+                label: @tr("Auto level");
+                hue: root.hue;
+                changed: auto-level;
+                checked: auto-level;
+                tip: @tr("Auto level");
+                tip-detail: @tr("Even out quiet and loud speech.");
+                toggled(v) => { root.auto-toggled(v); }
+            }
+        SwitchRow {
+                icon: Icons.denoise;
+                label: @tr("Noise reduction");
+                hue: root.hue;
+                changed: nr;
+                checked: nr;
+                enabled: nr-enabled;
+                tip: @tr("Noise reduction");
+                tip-detail: nr-tip;
+                problem: nr-note;
+                problem-title: @tr("Noise reduction unavailable");
+                toggled(v) => { root.nr-toggled(v); }
+            }
+        }
+        Unfolding {
+            open: status-text != "" || fix-shown;
+            lead: here ? Theme.gap : 0px;
+            RailRow {
+                has-icon: false;
+                // One line: what the microphone is doing, with the sentence in its tooltip
+                HorizontalLayout {
+                    spacing: Theme.u(4);
+                    Status {
+                        text: held-short;
+                        detail: held-text;
+                        kind: held-kind == "status_ok" ? "ok" : held-kind == "status_warn" ? "warn" : held-kind == "status_err" ? "err" : "";
+                    }
+                    if fix-shown: Button {
+                        text: held-fix;
+                        clicked => { root.fix-clicked(); }
+                    }
                 }
             }
         }
-    }
-    // Left out with `if`: a row hidden at 0px still takes the card's spacing
-    if status-text != "": FormRow {
-        label: "";
-        VerticalLayout {
-            alignment: center;
-            padding-top: 8px;
-            padding-bottom: 8px;
-            horizontal-stretch: 1;
-            Note {
-                text: status-text;
-                kind: status-kind;
-                height: self.preferred-height;
-            }
-        }
-    }
-    if fix-shown: FormRow {
-        label: "";
-        Button {
-            y: 1px;
-            text: fix-text;
-            clicked => { root.fix-clicked(); }
-        }
-        Rectangle { horizontal-stretch: 1; }
     }
 
     question := PopupWindow {
         x: -root.absolute-position.x;
         y: -root.absolute-position.y;
-        width: WindowBox.cover-w(max(root.width, 460px));
+        width: WindowBox.cover-w(max(root.width, Theme.u(230)));
         height: WindowBox.cover-h(question-frame.preferred-height);
         close-policy: no-auto-close;
         question-frame := DialogFrame {
             x: WindowBox.left(self.width);
             y: WindowBox.top(self.height);
-            width: max(root.width, 460px);
+            width: max(root.width, Theme.u(230));
             height: self.preferred-height;
             dismissable: true;
-            dismissed => { question.close(); root.confirm-answered(false); }
+            dismissed => { root.confirm-answered(false); }
+            left => { question.close(); }
             title: @tr("Install VB-Cable");
-            Note { text: @tr("The phone's mic needs VB-Audio Virtual Cable on Windows."); kind: "status_none"; }
-            Note { text: @tr("VB-Cable is made by VB-Audio, not Telescope. Telescope can download it from vb-audio.com and open VB-Audio's own setup, which asks for admin. Restart the computer when it's done."); }
             // VB-Audio's own two lines stay in English, as their licence asks for them word for word
-            Note { text: origin + "\n" + donationware; }
-            HorizontalLayout {
-                spacing: 8px;
-                Button {
-                    text: donate-text;
-                    role: "quiet";
-                    clicked => { root.donate(); }
-                }
-                Rectangle { horizontal-stretch: 1; }
-                Button {
-                    text: @tr("Cancel");
-                    clicked => { question.close(); root.confirm-answered(false); }
-                }
+            Text {
+                text: origin + "\n" + donationware;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                color: Theme.ink2;
+                wrap: word-wrap;
+            }
+            DialogButtons {
+                Button { text: donate-text; dialog: true; clicked => { root.donate(); } }
+                Button { text: @tr("Cancel"); dialog: true; clicked => { question-frame.leave(); root.confirm-answered(false); } }
                 Button {
                     text: @tr("Download and install");
+                    tip: @tr("Download and install");
+                    tip-detail: @tr("Telescope downloads VB-Cable from vb-audio.com and opens its setup, which asks for admin. Restart the computer afterwards.");
                     role: "primary";
-                    clicked => { question.close(); root.confirm-answered(true); }
+                    dialog: true;
+                    hue: root.hue;
+                    clicked => { question-frame.leave(); root.confirm-answered(true); }
                 }
             }
         }

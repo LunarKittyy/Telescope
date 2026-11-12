@@ -74,6 +74,8 @@ fn tab_icon(tab: &str) -> &'static str {
         "video" => "video",
         "audio" => "mic",
         "devices" => "phone",
+        "on_air" => "bell",
+        "mcp" => "plug",
         "shortcuts" => "keyboard",
         "plugins" => "plug",
         "about" => "download",
@@ -96,14 +98,13 @@ fn model(rows: Vec<SValue>) -> SValue {
     SValue::Model(ModelRc::new(VecModel::from(rows)))
 }
 
-fn hue(group: &str, own: bool) -> slint::Color {
-    let hex = if !own { "#aa9cf5" } else {
-        match group {
-            "camera" => "#7fd3c4", "look" => "#e6a6e0", "vision" => "#bcd98c", "preview" => "#f2b48c",
-            "on_screen" => "#f2a0bf", "sound" => "#e8d08a", "streaming" => "#8cc4f2", _ => "#b9bdcc",
-        }
-    };
-    crate::source::parse_color(hex).unwrap_or_default()
+/// Theme.plugin-hue for the Plugins tab, asked of the main window's Theme so there is one table of colours (the window's own own-hues decides
+/// whether they are the cards' colours or the accent).
+fn hue(ui: &ComponentInstance, group: &str) -> slint::Color {
+    match ui.invoke_global("Theme", "plugin-hue", &[SValue::String(group.into())]) {
+        Ok(SValue::Brush(b)) => b.color(),
+        _ => slint::Color::default(),
+    }
 }
 
 pub struct Settings {
@@ -185,24 +186,63 @@ pub fn set_hues(on: bool) {
     }
 }
 
-pub fn open(window: &Rc<Window>, tab: &str) {
+/// Host::set_look reaches the settings window too.
+pub fn set_look(look: telescope_core::host::Look) {
+    if let Some(settings) = SETTINGS.with(|s| s.borrow().clone()) {
+        let _ = settings.ui.set_global_property("Theme", "look", SValue::Number(look.index() as f64));
+        crate::frame::dress(&settings.ui);
+        settings.show_panel();
+    }
+}
+
+/// The settings window, built now if it wasn't yet (without showing it).
+fn ensure(window: &Rc<Window>) -> Option<Rc<Settings>> {
     let existing = SETTINGS.with(|s| s.borrow().clone());
-    let settings = match existing {
-        Some(s) => s,
+    match existing {
+        Some(s) => Some(s),
         None => match build(window) {
             Ok(s) => {
                 SETTINGS.with(|slot| *slot.borrow_mut() = Some(s.clone()));
                 if let Ok(own) = window.ui.get_global_property("Theme", "own-hues") {
                     let _ = s.ui.set_global_property("Theme", "own-hues", own);
                 }
-                s
+                if let Ok(look) = window.ui.get_global_property("Theme", "look") {
+                    let _ = s.ui.set_global_property("Theme", "look", look);
+                }
+                Some(s)
             }
             Err(e) => {
                 log::error!("The settings window couldn't be built: {e}");
-                return;
+                None
             }
         },
-    };
+    }
+}
+
+/// Compiles the settings page without making the window (a made window is a real one on Wayland, shown or not). The app
+/// doesn't call it any more: the page is compiled on the first open, so a launch that never opens Settings doesn't hold it.
+pub fn prepare(window: &Rc<Window>) {
+    if SETTINGS.with(|s| s.borrow().is_some()) || PLAN.with(|p| p.borrow().is_some()) {
+        return;
+    }
+    match plan(window) {
+        Ok(plan) => PLAN.with(|p| *p.borrow_mut() = Some(plan)),
+        Err(e) => log::error!("The settings window couldn't be prepared: {e}"),
+    }
+}
+
+/// Whether the page is compiled and waiting for the first open, for tests.
+pub fn prepared() -> bool {
+    PLAN.with(|p| p.borrow().is_some())
+}
+
+pub fn open(window: &Rc<Window>, tab: &str) {
+    let first = SETTINGS.with(|s| s.borrow().is_none());
+    let Some(settings) = ensure(window) else { return };
+    if first {
+        // The compiler leaves a lot of freed memory behind; trimmed once the window is up, not on the click
+        slint::Timer::single_shot(std::time::Duration::from_millis(500), || (crate::window::app_hooks().release_memory)());
+    }
     let coming_up = !settings.ui.window().is_visible();
     if !tab.is_empty() {
         settings.show_tab(tab);
@@ -212,6 +252,7 @@ pub fn open(window: &Rc<Window>, tab: &str) {
     crate::frame::dress(&settings.ui);
     crate::parent::attach(&settings.ui, &window.ui);
     if coming_up {
+        settings.start_watching();
         if settings.fitted.get() {
             settings.centre(&settings.ui);
         }
@@ -225,6 +266,7 @@ pub fn open(window: &Rc<Window>, tab: &str) {
 
 /// Drops the settings window, so the next open builds it again (each scene has a window of its own).
 pub fn forget() {
+    PLAN.with(|p| *p.borrow_mut() = None);
     SETTINGS.with(|s| *s.borrow_mut() = None);
 }
 
@@ -233,7 +275,70 @@ pub fn current() -> Option<Rc<Settings>> {
     SETTINGS.with(|s| s.borrow().clone())
 }
 
+/// Everything the settings window needs except the window itself. Compiling the page is most of the cost of opening it, and
+/// creating the component makes a real empty toplevel on Wayland (winit maps it when made), so only this is ready ahead of the click.
+struct Plan {
+    sections: Vec<(String, SettingsSection)>,
+    places: Vec<SectionPlace>,
+    tabs: Vec<(String, String, Vec<usize>)>,
+    plugins_tab: Option<usize>,
+    pieces: Vec<(String, String, String)>,
+    tab_sections: Vec<Vec<(String, String)>>,
+    section_words: Vec<Vec<(String, String)>>,
+    panel: Panel,
+    def: slint_interpreter::ComponentDefinition,
+}
+
+thread_local! {
+    static PLAN: RefCell<Option<Plan>> = const { RefCell::new(None) };
+    // What plugins said about their sections after the plan was made, for the window that is yet to be created
+    static LATE: RefCell<Late> = RefCell::new(Late::default());
+}
+
+#[derive(Default)]
+struct Late {
+    props: Vec<(String, String, serde_json::Map<String, serde_json::Value>)>,
+    images: Vec<(String, String, String, slint::Image)>,
+}
+
+/// Keeps a section's new properties while the page is prepared but not yet a window, so the window starts out with them (the plan only holds the ones from when it was made).
+pub fn hold_props(plugin: &str, ui: &str, props: &serde_json::Value) {
+    if !prepared() {
+        return;
+    }
+    let Some(new) = props.as_object() else { return };
+    LATE.with(|l| {
+        let mut late = l.borrow_mut();
+        match late.props.iter_mut().find(|(p, u, _)| p == plugin && u == ui) {
+            Some((_, _, held)) => held.extend(new.iter().map(|(k, v)| (k.clone(), v.clone()))),
+            None => late.props.push((plugin.into(), ui.into(), new.clone())),
+        }
+    });
+}
+
+/// The same for a section's picture.
+pub fn hold_image(plugin: &str, ui: &str, prop: &str, image: slint::Image) {
+    if !prepared() {
+        return;
+    }
+    LATE.with(|l| {
+        let mut late = l.borrow_mut();
+        late.images.retain(|(p, u, n, _)| !(p == plugin && u == ui && n == prop));
+        late.images.push((plugin.into(), ui.into(), prop.into(), image));
+    });
+}
+
 pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
+    let plan = match PLAN.with(|p| p.borrow_mut().take()) {
+        Some(plan) => plan,
+        None => plan(window)?,
+    };
+    create(window, plan)
+}
+
+fn plan(window: &Rc<Window>) -> Result<Plan, String> {
+    // What the plugins say from here on is newer than the plan; what they said before is in it
+    LATE.with(|l| *l.borrow_mut() = Late::default());
     let mut sections: Vec<(String, SettingsSection)> = Vec::new();
     {
         let mut state = window.state.borrow_mut();
@@ -280,8 +385,14 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
     }
     let text = doc::settings(tabs.len(), plugins_tab, &places);
     let def = crate::compile::compile("settings.slint", &text, files, "TelescopeSettings")?;
+    Ok(Plan { sections, places, tabs, plugins_tab, pieces, tab_sections, section_words, panel, def })
+}
+
+fn create(window: &Rc<Window>, plan: Plan) -> Result<Rc<Settings>, String> {
+    let Plan { sections, places, tabs, plugins_tab, pieces, tab_sections, section_words, panel, def } = plan;
     // Under the main window, as Python's dialog has it as its parent
     let ui = crate::parent::make(&window.ui, || def.create()).map_err(|e| e.to_string())?;
+    crate::motion::apply(&ui);
     // A .zip dropped anywhere on the window installs like the Install button does
     let drops = Rc::new(plugins_tab::DropBatch::default());
     crate::keys::watch_scan_codes_and(&ui, move |event| {
@@ -317,6 +428,13 @@ pub fn build(window: &Rc<Window>) -> Result<Rc<Settings>, String> {
         seen: RefCell::new(String::new()),
     });
     settings.wire(&places, &sections);
+    let late = LATE.with(|l| std::mem::take(&mut *l.borrow_mut()));
+    for (plugin, ui, props) in late.props {
+        settings.set_props(&plugin, &ui, &serde_json::Value::Object(props));
+    }
+    for (plugin, ui, prop, image) in late.images {
+        settings.set_image(&plugin, &ui, &prop, image);
+    }
     settings.show_panel();
     settings.start_watching();
     settings.show_row(0);
@@ -431,8 +549,9 @@ impl Settings {
                 for cb in &piece.iface.callbacks {
                     let (plugin, section_id, callback, weak) = (plugin.clone(), section_id.clone(), cb.clone(), Rc::downgrade(self));
                     let _ = ui.set_callback(&format!("{}-{cb}", piece.id), move |args| {
-                        if let Some(w) = weak.upgrade().and_then(|s| s.window.upgrade()) {
+                        if let Some((s, w)) = weak.upgrade().and_then(|s| s.window.upgrade().map(|w| (s, w))) {
                             let event = UiEvent { ui: section_id.clone(), callback: callback.clone(), args: args.iter().map(to_json).collect() };
+                            crate::input::tips(&s.ui, "changed", &[]);
                             w.state.borrow_mut().ui_event(&plugin, event);
                             w.process();
                         }
@@ -510,7 +629,7 @@ impl Settings {
         let Some((_, _, id)) = self.pieces.iter().find(|p| p.0 == plugin && p.1 == ui) else { return };
         for (k, v) in props.as_object().into_iter().flatten() {
             let name = format!("{id}-{k}");
-            let _ = self.ui.set_property(&name, to_property(&self.ui, &name, v));
+            let _ = crate::same::set(&self.ui, &name, to_property(&self.ui, &name, v));
         }
     }
 
@@ -713,7 +832,7 @@ impl Settings {
         }
         let (hits, partial) = search_ex(&self.entries.borrow(), text, 12);
         let rows: Vec<SValue> = hits.iter().map(|e| SValue::Struct(Struct::from_iter([("name".to_string(), s(&e.name)), ("path".to_string(), s(&e.path()))]))).collect();
-        let _ = self.ui.set_property("results", model(rows));
+        let _ = crate::same::set(&self.ui, "results", model(rows));
         let _ = self.ui.set_property("result", SValue::Number(0.0));
         let _ = self.ui.set_property("results-note", s(&if partial && !hits.is_empty() { tr("Nothing matches every word. These match some of them.") } else { String::new() }));
         let _ = self.ui.set_property("results-empty", s(&if hits.is_empty() {
@@ -764,7 +883,9 @@ impl Settings {
         let query = match self.ui.get_property("plugin-query") { Ok(SValue::String(q)) => q.to_string(), _ => String::new() };
         let filter = match self.ui.get_property("plugin-filter") { Ok(SValue::Number(1.0)) => Filter::On, Ok(SValue::Number(2.0)) => Filter::Off, _ => Filter::All };
         let panel = self.panel.borrow();
-        let own = self.window.upgrade().is_none_or(|w| w.ui.get_global_property("Theme", "own-hues").map_or(true, |v| v == SValue::Bool(true)));
+        // The main window's Theme knows the look and whether the cards have colours of their own
+        let window = self.window.upgrade();
+        let hue_of = |group: &str| window.as_ref().map_or_else(|| hue(&self.ui, group), |w| hue(&w.ui, group));
         let link = |l: &Option<plugins_tab::Link>| l.as_ref().map(|l| (l.text.clone(), l.url.clone())).unwrap_or_default();
         let groups: Vec<SValue> = panel.shown(&query, filter).into_iter().map(|(g, count)| {
             let tall = g.tiles.iter().map(tile_extra).max().unwrap_or(0);
@@ -774,7 +895,7 @@ impl Settings {
                 let (byline_link, byline_url) = link(&t.byline_link);
                 SValue::Struct(Struct::from_iter([
                     ("name".to_string(), s(&t.name)), ("title".to_string(), s(&t.title)), ("about".to_string(), s(&t.about)),
-                    ("icon".to_string(), SValue::Image(icon(&t.icon))), ("hue".to_string(), SValue::Brush(slint::Brush::SolidColor(hue(&t.group, own)))),
+                    ("icon".to_string(), SValue::Image(icon(&t.icon))), ("hue".to_string(), SValue::Brush(slint::Brush::SolidColor(hue_of(&t.group)))),
                     ("on".to_string(), SValue::Bool(t.on)), ("locked".to_string(), SValue::Bool(t.locked)), ("enabled".to_string(), SValue::Bool(t.enabled)),
                     ("tooltip".to_string(), s(&t.tooltip)), ("note".to_string(), s(&t.note)), ("note-kind".to_string(), s(&t.note_kind)),
                     ("note-link".to_string(), s(&note_link)), ("note-url".to_string(), s(&note_url)),
@@ -786,12 +907,12 @@ impl Settings {
             }).collect();
             SValue::Struct(Struct::from_iter([
                 ("id".to_string(), s(&g.id)), ("title".to_string(), s(&g.title)), ("count".to_string(), s(&count)),
-                ("icon".to_string(), SValue::Image(icon(group_icon(&g.id)))), ("hue".to_string(), SValue::Brush(slint::Brush::SolidColor(hue(&g.id, own)))),
+                ("icon".to_string(), SValue::Image(icon(group_icon(&g.id)))), ("hue".to_string(), SValue::Brush(slint::Brush::SolidColor(hue_of(&g.id)))),
                 ("tiles".to_string(), model(tiles)), ("tile-height".to_string(), SValue::Number((94 + tall) as f64)),
                 ("remove-pack".to_string(), SValue::Bool(g.remove_pack)), ("status".to_string(), s(&g.status)),
             ]))
         }).collect();
-        let _ = self.ui.set_property("groups", model(groups));
+        let _ = crate::same::set(&self.ui, "groups", model(groups));
         let _ = self.ui.set_property("narrowed", SValue::Bool(!query.trim().is_empty() || filter != Filter::All));
         let _ = self.ui.set_property("empty-note", s(&Panel::empty_note(&query, filter)));
         let _ = self.ui.set_property("all-on-enabled", SValue::Bool(panel.all_on_enabled));
@@ -804,9 +925,7 @@ impl Settings {
             update_row("auto", tr("Install updates without asking"), tr("Installs new versions of the plugins you switched on and switches them on again."),
                        &tr("Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."), true, u.auto_on, u.auto_enabled),
         ]).collect();
-        let _ = self.ui.set_property("update-rows", model(rows));
-        let names: Vec<SValue> = ["All", "On", "Off"].iter().map(|w| s(&fill(&tr("Show: {which}"), &[("which", &telescope_core::i18n::tr_ctx("plugins", w))]))).collect();
-        let _ = self.ui.set_property("filter-names", model(names));
+        let _ = crate::same::set(&self.ui, "update-rows", model(rows));
         let _ = self.plugins_tab;
     }
 
@@ -925,11 +1044,16 @@ impl Settings {
         }
     }
 
-    /// Polls the vision download and the update check while the window lives, and shows what they've come to.
+    /// Polls the vision download and the update check while the window is shown, and shows what they've come to.
     fn start_watching(self: &Rc<Self>) {
         let weak = Rc::downgrade(self);
         self.watch.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(600), move || {
             let Some(s) = weak.upgrade() else { return };
+            // Hidden: rests until open() starts it again, which also catches up on what changed meanwhile
+            if !s.ui.window().is_visible() {
+                s.watch.stop();
+                return;
+            }
             poll_updates(s.panel.borrow().admin.as_ref());
             let sign = format!("{} {}", s.panel.borrow().download_sign(), CHECKED.with(|c| c.get()));
             if *s.seen.borrow() != sign {

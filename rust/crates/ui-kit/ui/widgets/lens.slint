@@ -1,0 +1,309 @@
+// The lens row: one choice among the phone's cameras, drawn as tiles that say a number and a unit over a focal length. Unlike a PictureSegmented its
+// number of tiles changes (the phone says its lenses after the card is up, a lens goes away), and the row reflows with motion when it does.
+
+import { Theme } from "../theme.slint";
+import { Reveal } from "folds.slint";
+import { FocusRing, TouchRing, KeyFocus } from "basics.slint";
+import { ShortcutMenu } from "shortcut-menu.slint";
+import { Tip } from "tip.slint";
+import { Motion, WormEdge, WormFill, Unfold, Fade } from "motion.slint";
+
+// One lens as the row holds it. `id` is the phone's own name for it (the row never reads it), the rest is what its tile says.
+export struct LensTile {
+    id: string,
+    number: string,
+    unit: string,
+    rest: string,
+    name: string,
+}
+
+// What a lens tile shows: its number and unit over its focal length. The tile itself and its outline are the row's.
+export component LensArt inherits Rectangle {
+    out property <string> control-kind: "helper";
+    in property <LensTile> lens;
+    in property <bool> on;
+    in property <color> hue;
+    VerticalLayout {
+        alignment: center;
+        spacing: Theme.u(1);
+        HorizontalLayout {
+            alignment: center;
+            spacing: Theme.u(0.5);
+            Text {
+                text: lens.number;
+                font-family: Theme.font;
+                font-size: Theme.body * 1.25;
+                font-weight: Theme.w-value;
+                color: on ? hue : Theme.ink;
+                accessible-role: none;
+            }
+            Text {
+                text: lens.unit;
+                font-family: Theme.font;
+                font-size: Theme.small;
+                font-weight: Theme.w-label;
+                color: on ? hue : Theme.ink2;
+                vertical-alignment: bottom;
+                height: Theme.u(9);
+                accessible-role: none;
+            }
+        }
+        // Always there, empty or not, so the focal length sits on the same baseline in every tile
+        Text {
+            text: lens.rest;
+            height: Theme.small * 1.3;
+            font-family: Theme.font;
+            font-size: Theme.small;
+            color: on ? hue : Theme.ink2;
+            horizontal-alignment: center;
+            overflow: elide;
+            accessible-role: none;
+        }
+    }
+}
+
+// Kind "segmented", for lenses. Up to five tiles in a row; each tile's width is a spring of how present it is, so the tiles that stay make room by
+// sliding, one that comes grows from nothing and fades in, one that goes shrinks to nothing and fades out (keeping what it said while it does), and a
+// change mid-way turns round from where everything is. The tiles are as wide as the row leaves them, the same gaps and widths as an equal row of
+// choices, so a row that has settled looks like any other. Before the phone has said, three dim tiles are the row, and the lenses' drawings fade in
+// on them. One outline, a Worm, follows the picked tile wherever it is. More lenses than five are the caller's rows of a PictureSegmented.
+export component LensRow inherits Rectangle {
+    in property <[LensTile]> lenses;
+    in property <string> label;
+    // The tooltip on the dim tiles, while there are no lenses yet
+    in property <string> placeholder;
+    // Where the parent says it is. Picking never writes here, so a parent's `current: lens` keeps following it.
+    in-out property <int> current: -1;
+    in property <color> hue: Theme.accent;
+    in property <string> shortcut;
+    in property <string> setting;
+    in property <length> tile-height: Theme.u(27);
+    out property <string> control-kind: "segmented";
+    callback picked(int);
+    property <int> local;
+    property <bool> touched;
+    out property <int> shown: touched ? local : current;
+    changed current => { touched = false; }
+    // How many tiles the row has room for: the lenses, or three dim ones until the phone has said
+    out property <int> count: lenses.length > 0 ? min(5, lenses.length) : 3;
+    height: tile-height;
+    horizontal-stretch: 1;
+    preferred-width: 0px;
+    accessible-role: tab-list;
+    accessible-label: label;
+    function pick(i: int) {
+        le.value;
+        re.value;
+        local = i;
+        touched = true;
+        picked(i);
+    }
+    // A key just picked, so the colours follow at once; a click eases them
+    property <bool> quick;
+    Timer {
+        interval: 80ms;
+        running: quick;
+        triggered => { quick = false; }
+    }
+    // The tile an arrow key sends the focus to, with how often that was asked so the same one can be asked again
+    property <int> arrow-to;
+    property <int> arrows;
+    function step(from: int, to: int) {
+        if (to < 0 || to >= min(5, lenses.length)) {
+            return;
+        }
+        if (from == shown) {
+            quick = true;
+            pick(to);
+        }
+        arrow-to = to;
+        arrows += 1;
+    }
+    // What each tile said, for as long as it is leaving
+    property <LensTile> h0;
+    property <LensTile> h1;
+    property <LensTile> h2;
+    property <LensTile> h3;
+    property <LensTile> h4;
+    property <[LensTile]> held: [h0, h1, h2, h3, h4];
+    function keep() {
+        if (lenses.length > 0) { h0 = lenses[0]; }
+        if (lenses.length > 1) { h1 = lenses[1]; }
+        if (lenses.length > 2) { h2 = lenses[2]; }
+        if (lenses.length > 3) { h3 = lenses[3]; }
+        if (lenses.length > 4) { h4 = lenses[4]; }
+    }
+    init => { keep(); }
+    changed lenses => { keep(); }
+    // How present each tile is (its width, 0 to 1), and how present its drawing is
+    s0 := Unfold { open: root.count > 0; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
+    s1 := Unfold { open: root.count > 1; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
+    s2 := Unfold { open: root.count > 2; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
+    s3 := Unfold { open: root.count > 3; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
+    s4 := Unfold { open: root.count > 4; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
+    d0 := Fade { shown: root.lenses.length > 0; }
+    d1 := Fade { shown: root.lenses.length > 1; }
+    d2 := Fade { shown: root.lenses.length > 2; }
+    d3 := Fade { shown: root.lenses.length > 3; }
+    d4 := Fade { shown: root.lenses.length > 4; }
+    property <[float]> w: [s0.value, s1.value, s2.value, s3.value, s4.value];
+    property <[float]> drawn: [d0.value, d1.value, d2.value, d3.value, d4.value];
+    // The gap between a tile and the next is as present as the smaller of the two, so the row always adds up to its width
+    property <[length]> gaps: [Theme.gap * min(w[0], w[1]), Theme.gap * min(w[1], w[2]), Theme.gap * min(w[2], w[3]), Theme.gap * min(w[3], w[4])];
+    property <float> total: max(0.001, w[0] + w[1] + w[2] + w[3] + w[4]);
+    property <length> unit: (root.width - gaps[0] - gaps[1] - gaps[2] - gaps[3]) / total;
+    property <[length]> xs: [0px, unit * w[0] + gaps[0], unit * (w[0] + w[1]) + gaps[0] + gaps[1], unit * (w[0] + w[1] + w[2]) + gaps[0] + gaps[1] + gaps[2],
+        unit * (w[0] + w[1] + w[2] + w[3]) + gaps[0] + gaps[1] + gaps[2] + gaps[3]];
+    // Where the tiles are now, for a test
+    out property <[length]> tile-x: xs;
+    out property <[length]> tile-w: [unit * w[0], unit * w[1], unit * w[2], unit * w[3], unit * w[4]];
+    // Everything has arrived where it was going
+    out property <bool> settled: abs(w[0] - (count > 0 ? 1 : 0)) < 0.004 && abs(w[1] - (count > 1 ? 1 : 0)) < 0.004 && abs(w[2] - (count > 2 ? 1 : 0)) < 0.004
+        && abs(w[3] - (count > 3 ? 1 : 0)) < 0.004 && abs(w[4] - (count > 4 ? 1 : 0)) < 0.004;
+    // The pointer is on a tile, or holds one down (-1 for none)
+    property <int> hover-i: -1;
+    property <int> press-i: -1;
+    // The outline is the picked tile's own: its two edges are tile numbers (0 is the first tile, 1.5 halfway between the second and the third) on the
+    // worm's springs, and where a tile number is on the screen is read from the tiles every frame. So a row that reflows (placeholders becoming
+    // lenses, a lens coming or going) carries the outline along from the first frame, never at a place the tile has left; a spring that chased the
+    // tile's own moving place would wait for it to stop (a spring is only retargeted by a value that is at rest). A pick between two lenses
+    // glides: the edge on the side it travels to leads and the other trails (see Worm). The first place it is given is never travelled to.
+    property <bool> gliding;
+    property <bool> forward: true;
+    property <int> was: -1;
+    changed shown => {
+        if (was >= 0 && shown >= 0) {
+            forward = shown > was;
+            gliding = true;
+            glide-end.restart();
+        }
+        was = shown;
+    }
+    property <length> target: clamp(shown, 0, 4) * 1px;
+    le := WormEdge { to: root.target; lead: !root.forward; snap: !root.gliding; }
+    re := WormEdge { to: root.target; lead: root.forward; snap: !root.gliding; }
+    // A place between two tiles' edges: `f` is a tile number
+    function edge-at(f: float, right: bool) -> length {
+        let i = clamp(floor(f), 0, 4);
+        let j = min(4, i + 1);
+        let t = clamp(f - i, 0, 1);
+        let a = xs[i] + (right ? unit * w[i] : 0px);
+        let b = xs[j] + (right ? unit * w[j] : 0px);
+        return a + (b - a) * t;
+    }
+    property <length> ring-l: edge-at(le.value / 1px, false);
+    property <length> ring-r: edge-at(re.value / 1px, true);
+    // Where the picked outline is now, for a test
+    out property <length> worm-left: ring-l;
+    out property <length> worm-right: ring-r;
+    property <bool> worm-rest: abs(le.value - target) < 0.01px && abs(re.value - target) < 0.01px;
+    changed worm-rest => { if (worm-rest) { gliding = false; } }
+    glide-end := Timer {
+        interval: 900ms;
+        running: root.gliding;
+        triggered => { root.gliding = false; }
+    }
+    // The outline is there while the picked tile is: it fades in and out where the tile is
+    property <bool> ring-on: shown >= 0 && shown < root.lenses.length && w[min(4, shown)] > 0.5;
+    ring-fade := Fade { shown: root.ring-on; }
+    TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
+    // Layer 1, the tiles' surfaces; a dim tile has no lens yet, or its lens is leaving
+    for k in 5: Rectangle {
+        x: xs[k];
+        width: unit * w[k];
+        height: parent.height;
+        border-radius: Theme.r-ctl;
+        clip: true;
+        opacity: clamp(w[k] * 1.4 - 0.2, 0, 1);
+        // The picked tile's own colour is the worm's, which lies over this
+        background: press-i == k && shown != k ? Theme.press : hover-i == k && shown != k ? Theme.hover : Theme.raise;
+        border-width: Theme.ctl-outline-w(hover-i == k && shown != k, press-i == k && shown != k);
+        border-color: Theme.ctl-outline(hover-i == k && shown != k, press-i == k && shown != k);
+        animate background, border-width, border-color { duration: Motion.tone-for(press-i == k || quick); easing: Motion.tone; }
+        // Dim until its lens has been drawn in, dim again as it goes
+        Rectangle {
+            background: Theme.trough;
+            opacity: 1 - drawn[k];
+        }
+    }
+    WormFill { wx: ring-l; wy: 0px; ww: max(0px, ring-r - ring-l); wh: root.height; colour: press-i == shown ? Theme.held(root.hue) : Theme.tint(root.hue); presence: ring-fade.value; radius: Theme.r-ctl; }
+    // Layer 2, what each tile says: only while there is something to say (the tile has a lens, or is fading out)
+    for k in 5: Rectangle {
+        x: xs[k];
+        width: unit * w[k];
+        height: parent.height;
+        clip: true;
+        opacity: clamp(w[k] * 1.4 - 0.2, 0, 1) * drawn[k];
+        if k < root.lenses.length || drawn[k] > 0.002: LensArt {
+            lens: k < root.lenses.length ? root.lenses[k] : root.held[k];
+            hue: root.hue;
+            on: root.shown == k;
+        }
+    }
+    // Layer 3, what takes a press and a key: only for a tile that has a lens
+    for k in 5: Rectangle {
+        x: xs[k];
+        width: unit * w[k];
+        height: parent.height;
+        if k < root.lenses.length: Rectangle {
+            width: parent.width;
+            height: parent.height;
+            accessible-role: tab;
+            accessible-label: root.label + ": " + root.lenses[k].name;
+            accessible-checkable: true;
+            accessible-checked: root.shown == k;
+            accessible-action-default => { pick(k); }
+            property <bool> held: seg-touch.pressed;
+            changed held => { if (held) { press-i = k; } else if (press-i == k) { press-i = -1; } }
+            property <bool> over: seg-touch.has-hover;
+            changed over => { if (over) { hover-i = k; } else if (hover-i == k) { hover-i = -1; } }
+            property <int> asked: root.arrows;
+            changed asked => {
+                if (root.arrow-to == k) {
+                    seg-focus.focus();
+                }
+            }
+            seg-focus := FocusScope {
+                focus-gained(reason) => {
+                    if (reason == FocusReason.tab-navigation) {
+                        Reveal.show(root.absolute-position.x + xs[k], root.absolute-position.y, unit * w[k], root.height);
+                    }
+                }
+                key-pressed(e) => {
+                    if (e.text == " " || e.text == "\n") { quick = true; pick(k); return accept; }
+                    if (e.text == Key.LeftArrow) { step(k, k - 1); return accept; }
+                    if (e.text == Key.RightArrow) { step(k, k + 1); return accept; }
+                    reject
+                }
+            }
+            FocusRing { shown: seg-focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+            usage := Tip { says: root.lenses[k].name; hover: seg-touch.has-hover; focused: seg-focus.has-focus && KeyFocus.keyboard; }
+            seg-touch := TouchArea {
+                mouse-cursor: pointer;
+                scroll-event(e) => { usage.wheel(); reject }
+                pointer-event(e) => {
+                    if (e.kind == PointerEventKind.down) {
+                        usage.press();
+                        seg-focus.focus();
+                    }
+                }
+                clicked => { pick(k); }
+            }
+        }
+    }
+    // The outline last, over the tiles and what they say
+    Rectangle {
+        x: ring-l;
+        y: 0px;
+        width: max(0px, ring-r - ring-l);
+        height: root.height;
+        visible: ring-fade.value > 0 && self.width > 0px;
+        opacity: ring-fade.value;
+        border-radius: Theme.r-ctl;
+        border-width: Theme.stroke;
+        border-color: root.hue;
+        background: transparent;
+    }
+    if lenses.length == 0 && placeholder != "": Tip { says: root.label; detail: placeholder; inert: true; }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+}

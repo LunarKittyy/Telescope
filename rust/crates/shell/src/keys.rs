@@ -12,6 +12,31 @@ thread_local! {
     static LAST_SCAN: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
 }
 
+/// The keys of a saved shortcut as a tooltip's caps, one per key, from a menu entry's "Ctrl+Alt+M: Mute" (a plus key stays one).
+pub fn key_chips(entry: &str) -> Vec<String> {
+    let keys = entry.split_once(": ").map_or(entry, |(keys, _)| keys);
+    let mut chips: Vec<String> = Vec::new();
+    let mut rest = keys;
+    while !rest.is_empty() {
+        match rest.find('+') {
+            // A '+' that starts what's left is the key itself ("Ctrl++")
+            Some(0) => {
+                chips.push("+".into());
+                rest = rest[1..].strip_prefix('+').unwrap_or(&rest[1..]);
+            }
+            Some(i) => {
+                chips.push(rest[..i].into());
+                rest = &rest[i + 1..];
+            }
+            None => {
+                chips.push(rest.into());
+                rest = "";
+            }
+        }
+    }
+    chips
+}
+
 /// The scan code the system gives a physical key, 0 when it gives none.
 fn scan_code(key: slint::winit_030::winit::keyboard::PhysicalKey) -> u32 {
     use slint::winit_030::winit::platform::scancode::PhysicalKeyExtScancode;
@@ -144,6 +169,14 @@ impl Window {
 mod tests {
     use super::*;
     use slint::winit_030::winit::keyboard::{Key, NamedKey, SmolStr};
+
+    #[test]
+    fn a_menu_entry_gives_its_keys_as_one_cap_each() {
+        assert_eq!(key_chips("Ctrl+Alt+M: Mute"), ["Ctrl", "Alt", "M"]);
+        assert_eq!(key_chips("F5"), ["F5"]);
+        assert_eq!(key_chips("Ctrl++: Louder"), ["Ctrl", "+"]);
+        assert!(key_chips("").is_empty());
+    }
 
     #[test]
     fn a_plugin_window_names_keys_as_the_main_window_does() {

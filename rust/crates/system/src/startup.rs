@@ -34,6 +34,8 @@ pub const START_WATCHED: &str = "watched";
 pub const STOP_OFF: &str = "off";
 pub const STOP_OWN: &str = "own";
 pub const STOP_ANY: &str = "any";
+/// What settings that never chose a stop are: only a stream it started itself is stopped.
+pub const STOP_DEFAULT: &str = STOP_OWN;
 pub const START_CHOICES: [(&str, &str); 3] = [
     (START_OFF, n_("Only when I press Start")),
     (START_READY, n_("When the device is ready")),
@@ -111,7 +113,7 @@ impl StartupPlugin {
         StartupPlugin {
             autostart,
             start_on: START_OFF,
-            stop_idle: STOP_OFF,
+            stop_idle: STOP_DEFAULT,
             stop_delay_s: DEFAULT_STOP_DELAY_S,
             notify_stop: true,
             held: false,
@@ -434,7 +436,7 @@ impl StartupPlugin {
         json!({
             "open-checked": self.autostart.enabled(),
             "open-enabled": !dev,
-            "open-tip": if dev { tr("Not in a dev profile") } else { String::new() },
+            "open-tip": if dev { tr("Not available in a dev profile.") } else { String::new() },
         })
     }
 
@@ -620,14 +622,14 @@ impl Plugin for StartupPlugin {
                 }
             }
             self.start_on = choice(&START_CHOICES, "start_on").unwrap_or(START_OFF);
-            self.stop_idle = choice(&STOP_CHOICES, "stop_idle").unwrap_or(STOP_OFF);
+            self.stop_idle = choice(&STOP_CHOICES, "stop_idle").unwrap_or(STOP_DEFAULT);
         } else if cfg.get("watch_stream") == Some(&Value::Bool(true)) {
             // The two checkboxes from before; watching won when both were on
             (self.start_on, self.stop_idle) = (START_WATCHED, STOP_OWN);
         } else if cfg.get("auto_stream") == Some(&Value::Bool(true)) {
             (self.start_on, self.stop_idle) = (START_READY, STOP_OFF);
         } else {
-            (self.start_on, self.stop_idle) = (START_OFF, STOP_OFF);
+            (self.start_on, self.stop_idle) = (START_OFF, STOP_DEFAULT);
         }
         self.stop_delay_s = clamp_delay(cfg.get("stop_delay_s"));
         self.notify_stop = cfg.get("notify_stop") != Some(&Value::Bool(false));

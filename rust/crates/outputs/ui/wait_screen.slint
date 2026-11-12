@@ -2,7 +2,7 @@
 // apps see, the choice of another one and Mirror. The picture is set from Rust (Host::set_ui_image). Texts with blanks come
 // filled from Rust.
 
-import { Theme, Icons, Card, Button, Switch } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Card, Button, SwitchRow, RailRow, Status, UnfoldGroup, Unfolding } from "@ui-kit/ui-kit.slint";
 
 export component WaitScreenSettings inherits Card {
     in property <image> preview;
@@ -10,70 +10,68 @@ export component WaitScreenSettings inherits Card {
     in property <length> preview-width: 384px;
     in property <length> preview-height: 216px;
     in property <string> picture-note;
+    // The sentence behind the line under the picture, and whether it is a problem
+    in property <string> picture-detail;
+    in property <string> picture-kind: "status_dim";
     in property <bool> default-enabled;
     in-out property <bool> mirror-checked;
     callback choose-clicked;
     callback default-clicked;
     callback mirror-toggled(bool);
+    // What the line under the picture said last, kept while it folds away
+    property <string> held-note;
+    property <string> held-detail;
+    property <string> held-kind;
+    function keep() {
+        if (picture-note != "") {
+            held-note = picture-note;
+            held-detail = picture-detail;
+            held-kind = picture-kind;
+        }
+    }
+    init => { keep(); }
+    changed picture-note => { keep(); }
+    changed picture-detail => { keep(); }
+    changed picture-kind => { keep(); }
     title: @tr("Wait screen");
+    tip: @tr("What apps see on the virtual camera while nothing is streaming.");
     icon: Icons.moon;
-    Text {
-        text: @tr("What video calls see while no device is streaming.");
-        font-family: Theme.font;
-        font-size: Theme.body;
-        color: Theme.text-dim;
-        wrap: word-wrap;
-        line-height-factor: Theme.line-factor(self.font-size);
-    }
-    HorizontalLayout {
-        alignment: center;
-        Image {
-            source: preview;
-            width: preview-width;
-            height: preview-height;
-            image-fit: fill;
-            image-rendering: smooth;
-            accessible-role: image;
-            accessible-label: @tr("Wait screen");
+    // Choosing is the page's one action, in the header like every card's; going back to the built-in picture is its reset
+    has-action: true;
+    action-icon: Icons.image;
+    action-text: @tr("Choose image");
+    action-label: @tr("Choose image");
+    action => { root.choose-clicked(); }
+    has-reset: true;
+    reset-lit: default-enabled;
+    reset-label: @tr("Use default");
+    reset => { root.default-clicked(); }
+    UnfoldGroup {
+        // As wide as the card's rows and in the same corners as its controls
+        Rectangle {
+            height: self.width * preview-height / preview-width;
+            border-radius: Theme.r-ctl;
+            clip: true;
+            Image {
+                source: preview;
+                width: parent.width;
+                height: parent.height;
+                image-fit: fill;
+                image-rendering: smooth;
+                accessible-role: image;
+                accessible-label: @tr("Wait screen");
+            }
+        }
+        Unfolding {
+            open: picture-note != "";
+            Status { text: held-note; detail: held-detail; kind: held-kind == "status_err" ? "err" : ""; }
         }
     }
-    Text {
-        text: picture-note;
-        font-family: Theme.font;
-        font-size: Theme.body;
-        color: Theme.text-dim;
-        wrap: word-wrap;
-        line-height-factor: Theme.line-factor(self.font-size);
-    }
-    HorizontalLayout {
-        spacing: 8px;
-        alignment: start;
-        Button { text: @tr("Choose image…"); role: "primary"; clicked => { root.choose-clicked(); } }
-        Button { text: @tr("Use default"); enabled: default-enabled; clicked => { root.default-clicked(); } }
-    }
-    Rectangle {
-        height: 36px;
-        // The row is named as a whole, so the text in it is skipped by screen readers (the switch says it) and the search finds the row
-        accessible-role: groupbox;
-        accessible-id: "setting";
-        accessible-label: @tr("Mirror it, for apps that flip the camera");
-        Text {
-            x: 0;
-            width: parent.width - 48px;
-            height: parent.height;
-            text: @tr("Mirror it, for apps that flip the camera");
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: Theme.text;
-            vertical-alignment: center;
-            accessible-role: none;
-        }
-        Switch {
-            x: parent.width - self.width;
-            y: 8px;
-            checked <=> root.mirror-checked;
-            label: @tr("Mirror it, for apps that flip the camera");
-            toggled(on) => { root.mirror-toggled(on); }
-        }
+    SwitchRow {
+        icon: Icons.mirror;
+        label: @tr("Mirror it, for apps that flip the camera");
+        hue: root.hue;
+        checked <=> root.mirror-checked;
+        toggled(on) => { root.mirror-toggled(on); }
     }
 }

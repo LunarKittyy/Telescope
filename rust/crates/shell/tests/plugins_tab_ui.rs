@@ -55,6 +55,11 @@ fn a_built_in_plugin_switched_off_isnt_loaded_and_the_window_says_so_once() {
     assert_eq!(s.plugins_off().iter().map(|p| p.name.as_str()).collect::<Vec<_>>(), ["presets"]);
     assert!(s.diagnostics().contains(&("Plugins off".to_string(), "presets".to_string())));
     drop(s);
+    // The banner opens over a third of a second (it is made when it is first laid out)
+    for _ in 0..30 {
+        let _ = labelled(&w.ui, "Presets is turned off");
+        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(50));
+    }
     assert!(!labelled(&w.ui, "Presets is turned off").is_empty(), "the banner says so");
     assert!(!labelled(&w.ui, "Plugins…").is_empty(), "with a way there");
     w.ui.invoke("banner-dismissed", &[Value::String("plugins_off".into())]).unwrap();
@@ -122,5 +127,53 @@ fn switching_a_plugin_off_asks_first_and_cancel_puts_the_switch_back() {
     assert_eq!(saved["plugins"]["off"], serde_json::json!(["presets"]));
     assert_eq!(s.ui.get_property("footer-shown").unwrap(), Value::Bool(true));
     assert_eq!(s.ui.get_property("footer-note").unwrap(), Value::String("Restart to apply 1 change".into()));
+    settings::forget();
+}
+
+// The restart bar opens and shuts with the page above it giving up the room as it goes, so nothing under or over it jumps.
+#[test]
+fn the_restart_bar_opens_and_shuts_with_the_page_moving_with_it() {
+    let (w, _dir) = built("plugins-tab-bar-motion");
+    settings::open(&w, "plugins");
+    let s = settings::current().unwrap();
+    s.ui.window().set_size(slint::LogicalSize::new(1000.0, 700.0));
+    // A CI machine's own setting can be animations off, which snaps the bar
+    telescope_shell::motion::set(&s.ui, telescope_shell::motion::Motion::Full);
+    let tab = s.tabs().iter().position(|t| t == "plugins").expect("the Plugins tab");
+    let height = || match s.ui.get_property(&format!("page{tab}-height")).unwrap() { Value::Number(n) => n as f32, v => panic!("{v:?}") };
+    let frame = |ms: u64| {
+        let _ = labelled(&s.ui, "Restart now");
+        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(ms));
+    };
+    frame(16);
+    let full = height();
+    // A real pending change, so the window's own refresh agrees the bar is wanted
+    let switch = labelled(&s.ui, "Presets").into_iter().find(|e| e.accessible_checkable() == Some(true)).expect("a switch named Presets");
+    switch.invoke_accessible_default_action();
+    s.ui.invoke("answered", &[Value::Bool(true)]).unwrap();
+    assert_eq!(s.ui.get_property("footer-shown").unwrap(), Value::Bool(true));
+    let mut open = vec![height()];
+    for _ in 0..40 {
+        frame(16);
+        open.push(height());
+    }
+    let least = *open.last().unwrap();
+    assert!(full - least > 40.0, "the page gave up room for the bar: {full} {least}");
+    assert!(open.windows(2).all(|p| p[1] <= p[0] + 0.001), "it only shrinks: {open:?}");
+    assert!(open.windows(2).map(|p| (p[0] - p[1]).abs()).fold(0.0, f32::max) < (full - least) * 0.25, "no jump: {open:?}");
+    assert!(open[10] > least + 4.0, "it takes a few frames, it does not snap: {open:?}");
+    let hidden = labelled(&s.ui, "Restart now").len();
+    assert!(hidden > 0);
+    let switch = labelled(&s.ui, "Presets").into_iter().find(|e| e.accessible_checkable() == Some(true)).expect("a switch named Presets");
+    switch.invoke_accessible_default_action();
+    assert_eq!(s.ui.get_property("footer-shown").unwrap(), Value::Bool(false), "back as it was: nothing to restart for");
+    let mut shut = vec![height()];
+    for _ in 0..40 {
+        frame(16);
+        shut.push(height());
+    }
+    assert!((shut.last().unwrap() - full).abs() < 0.5, "and gives it back: {shut:?}");
+    assert!(shut.windows(2).all(|p| p[1] >= p[0] - 0.001), "{shut:?}");
+    assert!(labelled(&s.ui, "Restart now").is_empty(), "the bar is gone once it has shut");
     settings::forget();
 }

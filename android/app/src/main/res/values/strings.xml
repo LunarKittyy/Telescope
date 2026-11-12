@@ -20,6 +20,8 @@
     <string name="update_available">Update available</string>
     <string name="update_failed_title">Update didn\'t finish</string>
     <string name="update">Update</string>
+    <!-- In Settings, after checking for updates. %1$s is a version such as Telescope 1.2.3 -->
+    <string name="update_found">%1$s is available.</string>
     <string name="updating">Updating…</string>
     <string name="try_again">Try again</string>
     <!-- %1$s is "Telescope 1.2.3", %2$d the percentage done -->
@@ -71,21 +73,23 @@
     <string name="allow">Allow</string>
     <string name="open_settings">Open settings</string>
 
-    <!-- Pairing card -->
-    <string name="pair_title">Pair with your computer</string>
-    <!-- "Add phone" is the name of a button in the desktop app: keep it the same as the desktop translation -->
-    <string name="pair_hint">On your computer, open Telescope and click Add phone. Over USB, the phone pairs without scanning.</string>
-    <string name="scan_pairing_code">Scan pairing code</string>
-    <string name="pair_another">Pair another computer</string>
-    <!-- Heading over the list when there's exactly one computer, and when there are more -->
-    <string name="paired_computer_title">Paired computer</string>
+    <!-- Pairing card on the main screen. The line under it says what pairing does while nothing is paired -->
+    <string name="pairing_title">Pairing</string>
+    <string name="pair_intro">Pair with Telescope on your computer so it can use this phone\'s camera.</string>
+    <string name="pair_a_computer">Pair a computer</string>
+    <string name="manage">Manage</string>
+    <string name="pair_new">Pair new</string>
+    <plurals name="computers_paired">
+        <item quantity="one">%1$d computer paired</item>
+        <item quantity="other">%1$d computers paired</item>
+    </plurals>
+    <!-- The screen that lists the paired computers: its title, the card's heading and what it says with none left -->
+    <string name="manage_computers">Manage computers</string>
     <string name="paired_computers_title">Paired computers</string>
+    <string name="no_computers_paired">No computers paired.</string>
     <!-- %1$s is a date, already written the phone's way -->
     <string name="paired_on">Paired %1$s</string>
     <string name="remove">Remove</string>
-    <!-- Under the first few paired computers: unfolds the rest. %1$d is how many there are, always more than 3 -->
-    <string name="show_all_computers">Show all %1$d</string>
-    <string name="show_fewer">Show fewer</string>
     <string name="cancel">Cancel</string>
     <string name="ok">OK</string>
     <!-- %1$s is the computer's name -->
@@ -146,6 +150,19 @@
     <string name="status_camera_taken">Another app is using the camera. Streaming goes on when it\'s free.</string>
     <string name="streaming_started_remotely">Streaming started from your computer</string>
 
+    <!-- Settings screen, opened from the gear in the main screen's top bar -->
+    <string name="settings">Settings</string>
+    <string name="back">Back</string>
+    <string name="look_title">Look</string>
+    <string name="theme_label">Theme</string>
+    <!-- The four looks, named as on the computer's Settings -->
+    <string name="look_dark">Dark</string>
+    <string name="look_classic">Classic</string>
+    <string name="look_oled">OLED</string>
+    <string name="look_light">Light</string>
+    <string name="diagnostics_section">Diagnostics</string>
+    <string name="help_section">Need help?</string>
+
     <!-- About card -->
     <string name="about_title">About</string>
     <string name="copy_diagnostics">Copy diagnostics</string>
@@ -154,6 +171,8 @@
     <string name="troubleshooting">Troubleshooting</string>
     <string name="nightly_updates">Nightly updates</string>
     <string name="nightly_updates_hint">Built from every change: fixes arrive sooner, with less testing.</string>
+    <!-- Spoken by a screen reader after a choice in a row of choices is picked. %1$s is the choice -->
+    <string name="choice_selected">%1$s selected</string>
     <string name="updates_section">Updates</string>
     <string name="check_for_updates">Check for updates</string>
     <!-- Shown in About only while this language's translation is a first draft -->
@@ -177,8 +196,8 @@
     <string name="preview_no_cameras">No cameras found.</string>
     <string name="preview_may_stretch">Preview may look stretched - couldn\'t read camera info.</string>
 
-    <!-- Notes screen: the notes sent from the computer, shown right under the front camera -->
-    <string name="notes_close">Close the notes</string>
+    <!-- Teleprompter screen: the script sent from the computer, shown right under the front camera -->
+    <string name="notes_close">Close the teleprompter</string>
 
     <!-- Notifications -->
     <string name="notif_channel_streaming">Streaming</string>

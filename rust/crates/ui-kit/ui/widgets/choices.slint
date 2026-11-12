@@ -2,19 +2,25 @@
 
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
-import { Icon, FocusRing, TouchRing } from "basics.slint";
+import { Icon, FocusRing, TouchRing, KeyFocus } from "basics.slint";
 import { WindowBox } from "dialog.slint";
 import { FlickBar } from "scroll.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
-import { TipBody, TipUse } from "tip.slint";
+import { Tip } from "tip.slint";
 import { SearchWords } from "setting.slint";
+import { Motion, Worm, WormFill, Fade } from "motion.slint";
 
-// segmented_row: equal segments in one track, the picked one a filled pill.
+// Kind "segmented": equal raised segments side by side. The picked one has a thick border in the card's colour and a muted inside,
+// not a flat fill, so Start streaming stays the only filled thing in the window.
 export component Segmented inherits Rectangle {
+    // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font)
+    property <length> lift: 1phx;
     in property <[string]> items;
     in property <[bool]> disabled;
     // What to say on hover over each item, where there's something to say (why it can't be picked)
     in property <[string]> tips;
+    // A line or two more under an item's tip
+    in property <[string]> tip-details;
     // A 13px line icon before each item's text, where has-icons says so
     in property <[image]> icons;
     in property <[bool]> has-icons;
@@ -26,9 +32,18 @@ export component Segmented inherits Rectangle {
     out property <int> shown: touched ? local : current;
     changed current => { touched = false; }
     function pick(i: int) {
+        if (disabled[i]) { return; }
+        worm.sync();
         local = i;
         touched = true;
         picked(i);
+    }
+    // A key just picked, so the colours follow at once; a click eases them
+    property <bool> quick;
+    Timer {
+        interval: 80ms;
+        running: quick;
+        triggered => { quick = false; }
     }
     // Every option is a Tab stop of its own, as in reading_order; Space picks it
     // The option an arrow key sends the focus to, with how often that was asked so the same one can be asked again
@@ -40,6 +55,7 @@ export component Segmented inherits Rectangle {
             return;
         }
         if (from == shown) {
+            quick = true;
             pick(to);
         }
         arrow-to = to;
@@ -49,51 +65,114 @@ export component Segmented inherits Rectangle {
     in property <string> shortcut;
     // The id of the setting it is, for the outline when something outside the window reads or changes it
     in property <string> setting;
-    // Room above and below the 32px track, to sit in a 36px form row; 0 for a row of its own (segmented_row alone)
-    in property <length> margin: 2px;
+    // Room above and below the segments, when the row it sits in is taller than they are
+    in property <length> margin: 0px;
+    // The card's colour, for the picked segment's border
+    in property <color> hue: Theme.accent;
+    out property <string> control-kind: "segmented";
     callback picked(int);
-    height: 32px + 2 * margin;
+    height: Theme.row + 2 * margin;
     horizontal-stretch: 1;
     preferred-width: 0px;
+    // Room for the longest name in every segment (up to a limit, so a long list can still give way): the row it sits in gives way to
+    // this, a segment never does, so no name is cut by what is next to it
+    out property <length> needed: names.preferred-width + items.length * Theme.u(8) + icon-room * items.length + max(0, items.length - 1) * Theme.gap;
+    min-width: min(needed, Theme.u(130));
+    // What an icon before a name takes
+    property <length> icon-room: has-icons.length > 0 ? Theme.icon-small + Theme.u(3) : 0px;
+    // How much of its own room every segment can have: all of it while the row is wide enough, and the same share of it for each while it isn't, so
+    // the minimums never add up to more than the row and a long name gives way in proportion instead of pushing past the card
+    property <float> fit: min(1, max(0, root.width - max(0, items.length - 1) * Theme.gap) / max(1px, names.preferred-width + items.length * (Theme.u(8) + icon-room)));
+    // Measures every name at the picked weight, out of the way
+    Rectangle {
+        width: 0px;
+        height: 0px;
+        opacity: 0;
+        names := HorizontalLayout {
+            spacing: 0px;
+            for item in items: Text { text: item; font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; accessible-role: none; }
+        }
+    }
     accessible-role: tab-list;
     accessible-label: label;
-    track := Rectangle {
-        y: margin;
-        height: 32px;
-        background: Theme.surface-raise;
-        border-width: 1px;
-        border-color: Theme.border;
-        border-radius: 8px;
+    // Layers, bottom to top: the surfaces and everything that takes a press, the worm (the picked outline, which stretches between
+    // options), then each option's text. The two layouts have the same rules, so an option's text sits on its surface.
+    // Where the picked option's surface is, for the worm
+    property <length> sel-x;
+    property <length> sel-w;
+    // Where the picked outline is now, for a test
+    out property <length> worm-left: worm.left;
+    out property <length> worm-right: worm.right;
+    out property <length> worm-top: worm.top;
+    out property <length> worm-bottom: worm.bottom;
+    // The pointer is on an option, or holds one down (-1 for none)
+    property <int> hover-i: -1;
+    property <int> press-i: -1;
+    // The worm glides for a pick (a click, a key, or something outside) until it has arrived, and rests after, so a layout that resizes
+    // moves it with no lag. Every pick sets it again and arriving clears it, so nothing counts and a pick mid-flight, or back to where
+    // it came from, never snaps it. (The timer only clears it after a pick that moved nothing.)
+    property <bool> gliding;
+    changed shown => { gliding = true; glide-end.restart(); }
+    property <bool> worm-rest: worm.at-rest;
+    changed worm-rest => { if (worm-rest) { gliding = false; } }
+    glide-end := Timer {
+        interval: 900ms;
+        running: root.gliding;
+        triggered => { root.gliding = false; }
     }
-    TouchRing { setting: root.setting; y: margin; width: parent.width; height: 32px; radius: 8px; }
+    TouchRing { setting: root.setting; y: margin; width: parent.width; height: Theme.row; radius: Theme.r-ctl; }
     HorizontalLayout {
         y: margin;
-        height: 32px;
-        padding: 3px;
-        spacing: 2px;
+        height: Theme.row;
+        spacing: Theme.gap;
         for item[i] in items: seg := Rectangle {
             property <bool> on: i == shown;
             property <bool> off: disabled[i];
             horizontal-stretch: 1;
-            // A picked segment is bold, so every one keeps room for its bold text and the picked one never loses its end.
-            // All too wide at first, so the layout takes the same off each: equal widths, as Qt's equal stretches give
-            min-width: bold-width.preferred-width + 16px;
+            // A picked segment is bold, so every one keeps room for its bold text and the picked one never loses its end. The row shares what is
+            // left equally, so a long name only takes more than the others when it must (equal widths as Qt's equal stretches give, while the
+            // names fit), and a row too narrow for all of them shrinks every name's room by the same share and ends it in an ellipsis
+            min-width: (bold-width.preferred-width + Theme.u(8) + (has-icons[i] ? Theme.icon-small + Theme.u(3) : 0px)) * root.fit;
             preferred-width: 1000px;
-            border-radius: 6px;
-            background: on ? (off ? Theme.border-strong : seg-touch.has-hover ? Theme.fill-hover : Theme.fill)
-                : (seg-touch.has-hover && !off ? Theme.surface-hover : transparent);
+            border-radius: Theme.r-ctl;
+            // The picked one's own colour is the worm's, which lies over this
+            background: off ? Theme.raise.mix(Theme.card, 0.4)
+                : seg-touch.pressed && !on ? Theme.press
+                : seg-touch.has-hover && !on ? Theme.hover : Theme.raise;
+            border-width: off ? Theme.outline-w : Theme.ctl-outline-w(seg-touch.has-hover && !on, seg-touch.pressed && !on);
+            border-color: off ? Theme.dis-outline : Theme.ctl-outline(seg-touch.has-hover && !on, seg-touch.pressed && !on);
+            animate background, border-width, border-color { duration: Motion.tone-for(seg-touch.pressed || quick); easing: Motion.tone; }
             accessible-role: tab;
             accessible-label: label + ": " + item;
             accessible-checkable: true;
             accessible-checked: on;
             accessible-action-default => { if (!off) { pick(i); } }
-            bold-width := Text { text: item; font-family: Theme.font; font-size: Theme.body; font-weight: 600; visible: false; }
+            bold-width := Text { text: item; font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; visible: false; }
+            // Where the worm goes when this one is picked
+            property <length> at-x: self.x;
+            property <length> at-w: self.width;
+            function claim() {
+                if (on) {
+                    root.sel-x = self.x;
+                    root.sel-w = self.width;
+                }
+            }
+            changed on => { claim(); }
+            changed at-x => { claim(); }
+            changed at-w => { claim(); }
+            init => { claim(); }
+            property <bool> over: seg-touch.has-hover;
+            changed over => { if (over) { hover-i = i; } else if (hover-i == i) { hover-i = -1; } }
+            property <bool> held: seg-touch.pressed;
+            changed held => { if (held) { press-i = i; } else if (press-i == i) { press-i = -1; } }
             property <int> asked: arrows;
             changed asked => {
                 if (arrow-to == i) {
                     seg-focus.focus();
                 }
             }
+            // An option that goes off with the focus on it lets go of it
+            changed off => { if (off) { seg-focus.clear-focus(); } }
             seg-focus := FocusScope {
                 enabled: !off;
                 focus-gained(reason) => {
@@ -102,14 +181,15 @@ export component Segmented inherits Rectangle {
                     }
                 }
                 key-pressed(e) => {
-                    if (e.text == " " || e.text == "\n") { pick(i); return accept; }
+                    if (off) { return reject; }
+                    if (e.text == " " || e.text == "\n") { quick = true; pick(i); return accept; }
                     if (e.text == Key.LeftArrow) { step(i, i - 1); return accept; }
                     if (e.text == Key.RightArrow) { step(i, i + 1); return accept; }
                     reject
                 }
             }
-            FocusRing { shown: seg-focus.has-focus; radius: 6px; width: parent.width + 4px; height: parent.height + 4px; }
-            usage := TipUse { hover: seg-touch.has-hover; }
+            FocusRing { shown: seg-focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+            usage := Tip { says: tips[i]; detail: tip-details.length > i ? tip-details[i] : ""; hover: seg-touch.has-hover; focused: seg-focus.has-focus && KeyFocus.keyboard; }
             seg-touch := TouchArea {
                 mouse-cursor: off ? default : pointer;
                 scroll-event(e) => { usage.wheel(); reject }
@@ -127,38 +207,316 @@ export component Segmented inherits Rectangle {
                     }
                 }
             }
-            // Above the touch area, which would otherwise take the pointer before the tooltip sees it
-            if tips[i] != "" && !usage.used: Tooltip { TipBody { says: tips[i]; } }
+        }
+    }
+    // The picked inside lies under the text and the outline over everything, in this order always, so the outline never passes under a
+    // surface or a word whatever it is doing
+    WormFill { wx: worm.x; wy: worm.y; ww: worm.width; wh: worm.height; colour: worm.inside; presence: worm.presence; radius: worm.radius; }
+    HorizontalLayout {
+        y: margin;
+        height: Theme.row;
+        spacing: Theme.gap;
+        for item[i] in items: Rectangle {
+            property <bool> on: i == shown;
+            property <bool> off: disabled[i];
+            horizontal-stretch: 1;
+            min-width: (bold-copy.preferred-width + Theme.u(8) + (has-icons[i] ? Theme.icon-small + Theme.u(3) : 0px)) * root.fit;
+            preferred-width: 1000px;
+            bold-copy := Text { text: item; font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; visible: false; }
             HorizontalLayout {
                 alignment: center;
-                spacing: 6px;
+                spacing: Theme.u(3);
                 if has-icons[i]: Icon {
-                    y: (parent.height - 13px) / 2;
+                    y: (parent.height - Theme.icon-small) / 2;
                     source: icons[i];
-                    tint: off ? Theme.text-disabled : on ? white : Theme.text-dim;
-                    width: 13px;
-                    height: 13px;
+                    tint: off ? Theme.dis : on ? Theme.ink : Theme.ink2;
+                    width: Theme.icon-small;
+                    height: Theme.icon-small;
                     accessible-role: none;
                 }
-                Text {
-                    text: item;
-                    font-family: Theme.font;
-                    font-size: Theme.body;
-                    font-weight: on ? 600 : 400;
-                    color: off ? Theme.text-disabled : on ? white : seg-touch.has-hover ? Theme.text : Theme.text-dim;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                    overflow: elide;
+                // In a box of its own so the word can be lifted (lift) and the icon beside it stays on the row's middle
+                Rectangle {
+                    min-width: 0px;
+                    preferred-width: segment-name.preferred-width;
+                    segment-name := Text {
+                        y: -lift;
+                        width: parent.width;
+                        height: parent.height;
+                        text: item;
+                        font-family: Theme.font;
+                        font-size: Theme.body;
+                        font-weight: on ? Theme.w-value : Theme.w-label;
+                        color: off ? Theme.dis : on || hover-i == i ? Theme.ink : Theme.ink2;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        overflow: elide;
+                        accessible-role: none;
+                    }
                 }
             }
         }
     }
+    worm := Worm {
+        to-x: sel-x;
+        to-y: margin;
+        to-w: sel-w;
+        to-h: Theme.row;
+        hue: root.hue;
+        snap: !gliding;
+        outline-only: true;
+        shown: shown >= 0 && shown < items.length && !disabled[shown];
+        pressed: press-i == shown;
+    }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
 }
 
-// controls.ChoiceTile in "field" style: small caption over the value, chevron on the right, a list when clicked.
-// compact, or no caption to show: a plain combo box (NoScrollComboBox in a control_row), 32px with the value alone.
+// Kind "segmented" with a drawing per option: option i is drawn by the caller in the square at x = i * pitch, cell-width by art-height, reading `shown` and `disabled`, and a drawing takes no pointer.
+export component PictureSegmented inherits Rectangle {
+    // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font)
+    property <length> lift: 1phx;
+    in property <[string]> items;
+    in property <[bool]> disabled;
+    // What to say on hover over each option, where it differs from its name (why it can't be picked); a name alone has a tip of its own
+    in property <[string]> tips;
+    // A line or two more under an option's tip
+    in property <[string]> tip-details;
+    in property <string> label;
+    // Where the parent says it is. Picking never writes here, so a parent's `current: mode` keeps following mode.
+    in-out property <int> current: 0;
+    property <int> local;
+    property <bool> touched;
+    out property <int> shown: touched ? local : current;
+    changed current => { touched = false; }
+    function pick(i: int) {
+        if (disabled[i]) { return; }
+        worm.sync();
+        local = i;
+        touched = true;
+        picked(i);
+    }
+    // A key just picked, so the colours follow at once; a click eases them
+    property <bool> quick;
+    Timer {
+        interval: 80ms;
+        running: quick;
+        triggered => { quick = false; }
+    }
+    // The option an arrow key sends the focus to, with how often that was asked so the same one can be asked again
+    property <int> arrow-to;
+    property <int> arrows;
+    function step(from: int, to: int) {
+        if (to < 0 || to >= items.length || disabled[to]) {
+            return;
+        }
+        if (from == shown) {
+            quick = true;
+            pick(to);
+        }
+        arrow-to = to;
+        arrows += 1;
+    }
+    // An arrow in the grid: along a row, or up and down the columns, never wrapping round to another row
+    function go(from: int, across: int, down: int) {
+        let c = mod(from, cols) + across;
+        let r = floor(from / cols) + down;
+        if (c < 0 || c >= cols || r < 0) { return; }
+        step(from, r * cols + c);
+    }
+    in property <string> shortcut;
+    in property <string> setting;
+    // The card's colour, for the picked tile's border
+    in property <color> hue: Theme.accent;
+    // Each option's name under its drawing
+    in property <bool> show-names;
+    // The tile's height with the name, when shown, in it
+    in property <length> tile-height: Theme.u(24);
+    // How tall the drawings are when names are under them: the drawing and its name are centred in the tile as one group
+    in property <length> art-size: Theme.u(10);
+    // How many options go in a row (0 for all of them in one): a grid is laid out in rows, one control with one picked outline, so a
+    // pick from one row to another moves straight across and up or down and never wraps through a one-dimensional index
+    in property <int> columns: 0;
+    out property <int> cols: columns > 0 ? min(columns, max(1, items.length)) : max(1, items.length);
+    out property <int> rows: floor((items.length + cols - 1) / cols);
+    // Where the drawings go: option i is drawn at (x-of(i), y-of(i)) in the drawing layer, cell-width by art-height
+    out property <length> pitch: cell-width + Theme.gap;
+    out property <length> row-pitch: tile-height + Theme.gap;
+    out property <length> cell-width: (self.width - (cols - 1) * Theme.gap) / cols;
+    public pure function x-of(i: int) -> length { mod(i, cols) * pitch }
+    public pure function y-of(i: int) -> length { floor(i / cols) * row-pitch }
+    out property <length> name-height: Theme.u(7);
+    out property <length> art-gap: Theme.u(2);
+    out property <length> art-height: names-drawn ? art-size : tile-height;
+    // The drawing, the gap and the name are centred in the tile as one block measured from the drawing's top to the name's baseline (its capitals'
+    // bottom), so the space above the drawing and below the words is the same: the name's box is centred on its capitals, so its baseline is
+    // half a cap height under the box's middle
+    property <length> cap-h: round(Theme.tiny * 0.7 / 1phx) * 1phx;
+    out property <length> art-top: names-drawn ? round((tile-height - (art-size + art-gap + name-height / 2 + cap-h / 2)) / 2 / 1phx) * 1phx : 0px;
+    out property <string> control-kind: "segmented";
+    // Every name fits under its drawing, or none is drawn: a row with some names and some tooltips only reads as uneven. The widest decides, at the heaviest weight so a pick never changes it.
+    property <bool> names-fit: measure.preferred-width <= cell-width - Theme.u(2);
+    // The names are on the tiles (a test and a card that makes room for them can ask)
+    out property <bool> names-drawn: show-names && names-fit;
+    callback picked(int);
+    height: max(1, rows) * tile-height + max(0, rows - 1) * Theme.gap;
+    horizontal-stretch: 1;
+    preferred-width: 0px;
+    accessible-role: tab-list;
+    accessible-label: label;
+    // Measures the widest name, out of the way: a layout's preferred width is its widest child's
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 0px;
+        height: 0px;
+        opacity: 0;
+        measure := VerticalLayout {
+            for item in items: Text {
+                text: item;
+                font-family: Theme.font;
+                font-size: Theme.tiny;
+                font-weight: Theme.w-value;
+                accessible-role: none;
+            }
+        }
+    }
+    // Where the picked outline is now, for a test
+    out property <length> worm-left: worm.left;
+    out property <length> worm-right: worm.right;
+    out property <length> worm-top: worm.top;
+    out property <length> worm-bottom: worm.bottom;
+    // The pointer is on a tile, or holds one down (-1 for none)
+    property <int> hover-i: -1;
+    property <int> press-i: -1;
+    // The worm glides for a pick (a click, a key, or something outside) until it has arrived, and rests after, so a layout that resizes
+    // moves it with no lag. Every pick sets it again and arriving clears it, so nothing counts and a pick mid-flight, or back to where
+    // it came from, never snaps it. (The timer only clears it after a pick that moved nothing.)
+    property <bool> gliding;
+    changed shown => { gliding = true; glide-end.restart(); }
+    property <bool> worm-rest: worm.at-rest;
+    changed worm-rest => { if (worm-rest) { gliding = false; } }
+    glide-end := Timer {
+        interval: 900ms;
+        running: root.gliding;
+        triggered => { root.gliding = false; }
+    }
+    TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
+    for item[i] in items: seg := Rectangle {
+        property <bool> on: i == shown;
+        property <bool> off: disabled[i];
+        // A name that doesn't fit under its drawing isn't cut short: the tooltip carries it instead
+        property <bool> name-cut: show-names && !names-fit;
+        x: x-of(i);
+        y: y-of(i);
+        width: cell-width;
+        height: tile-height;
+        border-radius: Theme.r-ctl;
+        // The picked one's own colour is the worm's, which lies over this
+        background: off ? Theme.raise.mix(Theme.card, 0.4)
+            : seg-touch.pressed && !on ? Theme.press
+            : seg-touch.has-hover && !on ? Theme.hover : Theme.raise;
+        border-width: off ? Theme.outline-w : Theme.ctl-outline-w(seg-touch.has-hover && !on, seg-touch.pressed && !on);
+        border-color: off ? Theme.dis-outline : Theme.ctl-outline(seg-touch.has-hover && !on, seg-touch.pressed && !on);
+        animate background, border-width, border-color { duration: Motion.tone-for(seg-touch.pressed || quick); easing: Motion.tone; }
+        property <bool> held: seg-touch.pressed;
+        changed held => { if (held) { press-i = i; } else if (press-i == i) { press-i = -1; } }
+        property <bool> over: seg-touch.has-hover;
+        changed over => { if (over) { hover-i = i; } else if (hover-i == i) { hover-i = -1; } }
+        accessible-role: tab;
+        accessible-label: label + ": " + item;
+        accessible-checkable: true;
+        accessible-checked: on;
+        accessible-action-default => { if (!off) { pick(i); } }
+        property <int> asked: arrows;
+        changed asked => {
+            if (arrow-to == i) {
+                seg-focus.focus();
+            }
+        }
+        // An option that goes off with the focus on it lets go of it
+        changed off => { if (off) { seg-focus.clear-focus(); } }
+        seg-focus := FocusScope {
+            enabled: !off;
+            focus-gained(reason) => {
+                if (reason == FocusReason.tab-navigation) {
+                    Reveal.show(root.absolute-position.x + seg.x, root.absolute-position.y + seg.y, seg.width, seg.height);
+                }
+            }
+            key-pressed(e) => {
+                if (off) { return reject; }
+                if (e.text == " " || e.text == "\n") { quick = true; pick(i); return accept; }
+                if (e.text == Key.LeftArrow) { go(i, -1, 0); return accept; }
+                if (e.text == Key.RightArrow) { go(i, 1, 0); return accept; }
+                if (e.text == Key.UpArrow) { go(i, 0, -1); return accept; }
+                if (e.text == Key.DownArrow) { go(i, 0, 1); return accept; }
+                reject
+            }
+        }
+        FocusRing { shown: seg-focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+        usage := Tip { says: name-cut ? item : tips[i] != "" ? tips[i] : item; detail: name-cut ? (tips[i] != "" ? tips[i] : "") : tip-details.length > i ? tip-details[i] : ""; hover: seg-touch.has-hover; inert: off; focused: seg-focus.has-focus && KeyFocus.keyboard; }
+        seg-touch := TouchArea {
+            mouse-cursor: off ? default : pointer;
+            scroll-event(e) => { usage.wheel(); reject }
+            pointer-event(e) => {
+                if (e.kind == PointerEventKind.down) {
+                    usage.press();
+                }
+                if (e.kind == PointerEventKind.down && !off) {
+                    seg-focus.focus();
+                }
+            }
+            clicked => {
+                if (!off) {
+                    pick(i);
+                }
+            }
+        }
+    }
+    WormFill { wx: worm.x; wy: worm.y; ww: worm.width; wh: worm.height; colour: worm.inside; presence: worm.presence; radius: worm.radius; }
+    for item[i] in items: Text {
+        property <bool> on: i == shown;
+        visible: names-drawn;
+        x: x-of(i);
+        y: y-of(i) + art-top + art-size + art-gap - lift;
+        width: cell-width;
+        height: name-height;
+        text: item;
+        font-family: Theme.font;
+        font-size: Theme.tiny;
+        font-weight: on ? Theme.w-value : Theme.w-label;
+        color: disabled[i] ? Theme.dis : on || hover-i == i ? Theme.ink : Theme.ink2;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+        // The tile is named by it already
+        accessible-role: none;
+    }
+    // The caller's drawings, over the tiles and under nothing: they take no pointer, so a press goes to the tile below
+    Rectangle {
+        y: art-top;
+        width: parent.width;
+        height: art-height;
+        @children
+    }
+    // The outline last, over the tiles, the names and the drawings: the one layer order, which never changes while it moves
+    worm := Worm {
+        to-x: x-of(max(0, shown));
+        to-y: y-of(max(0, shown));
+        to-w: cell-width;
+        to-h: tile-height;
+        hue: root.hue;
+        snap: !gliding;
+        outline-only: true;
+        shown: shown >= 0 && shown < items.length && !disabled[shown];
+        pressed: press-i == shown;
+    }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+}
+
+// Kind "picker": the one style for anything that opens a list or a menu, everywhere: a raised box with the value and a chevron,
+// never "..." in a button. A caption makes it two lines (small caption over the value) until a card moves the caption into its row.
 export component ChoiceField inherits Rectangle {
+    // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font)
+    property <length> lift: 1phx;
     // Whether its list is open
     out property <bool> open;
     // Items that went away while the list was open, by index: greyed out and can't be picked
@@ -171,12 +529,13 @@ export component ChoiceField inherits Rectangle {
     // A small icon before the text (the header's phone picker), and its text in bold
     in property <image> icon;
     in property <bool> has-icon;
-    in property <color> icon-tint: Theme.text-dim;
+    in property <color> icon-tint: Theme.ink2;
     in property <bool> bold;
+    out property <string> control-kind: "picker";
     // The value in the middle between room kept free at each side, no chevron, and the arrow keys asking for a step instead of
     // picking: how a Stepper uses it, with its arrows in that room
     in property <bool> centered;
-    in property <length> side: 30px;
+    in property <length> side: Theme.u(15);
     callback nudged(int);
     in property <[string]> items;
     // Rows that are a group's title among its items (ComboItemDelegate's "heading"): not picked, and the arrows skip them
@@ -192,6 +551,7 @@ export component ChoiceField inherits Rectangle {
     out property <int> shown: touched && !follows ? local : current;
     changed current => { touched = false; }
     function pick(i: int) {
+        if (!enabled) { return; }
         local = i;
         touched = true;
         picked(i);
@@ -199,8 +559,12 @@ export component ChoiceField inherits Rectangle {
     in property <bool> enabled: true;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
-    // A tooltip, when there's something to say beyond the label
+    // A tooltip, when there's something to say beyond the label: its name, then a line or two more and the keys that do the same
     in property <string> tip;
+    in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
+    in property <[string]> tip-keys;
     callback picked(int);
     // The row the arrows move to from `from`, or there when there's none that way
     function step-from(from: int, by: int) -> int {
@@ -231,15 +595,61 @@ export component ChoiceField inherits Rectangle {
         scans += 1;
         settling = true;
     }
-    // Close the list from the keyboard and hand the focus back
-    function close-list() {
-        popup.close();
+    // The list eases out before it goes: it is closed (`open` is false, the focus is back) as soon as it is asked to, and the popup
+    // itself goes when the fade is over
+    property <bool> closing;
+    function close-now() {
+        closing = false;
         root.open = false;
+        popup.close();
         focus.focus();
     }
-    function choose(i: int) {
+    // A field that goes off with its list up (or a key scan under way) drops them and lets go of the focus
+    changed enabled => {
+        if (!enabled) {
+            settling = false;
+            best = -1;
+            hl = -1;
+            closing = false;
+            root.open = false;
+            popup.close();
+            focus.clear-focus();
+        }
+    }
+    // Close the list and hand the focus back. Every way out eases it out (a pick, a click outside, Escape, Tab, the window losing focus);
+    // `gently: false` is only for what must be gone this frame (reduced motion asks for that by itself)
+    function close-list(gently: bool) {
+        if (gently && Motion.fades && open && !closing) {
+            list-fade.sync();
+            // The focus stays where it is until the fade is over: moving it would take the pop-up down at once
+            closing = true;
+            root.open = false;
+            hl = -1;
+        } else if (!closing) {
+            close-now();
+        }
+    }
+    Timer {
+        interval: Motion.fade-out + 40ms;
+        running: closing;
+        triggered => { close-now(); }
+    }
+    // Open it, or take it back from the fade-out it is in the middle of (a click on the field while it is going turns it round)
+    function open-list() {
+        if (closing) {
+            list-fade.sync();
+            closing = false;
+            root.open = true;
+        } else {
+            popup.show();
+        }
+    }
+    // The list's own opacity and drop, for a test
+    out property <float> list-shown: list-fade.value;
+    list-fade := Fade { shown: root.open && !root.closing; }
+    function choose(i: int, gently: bool) {
         pick(i);
-        close-list();
+        close-list(gently);
     }
     Timer {
         interval: 1ms;
@@ -265,30 +675,29 @@ export component ChoiceField inherits Rectangle {
             }
         }
     }
-    height: plain ? 32px : 48px;
+    height: plain ? Theme.row : Theme.u(24);
     horizontal-stretch: 1;
     for item in items: SearchWords { words: item; control: true; }
     min-width: 0px;
-    preferred-width: 0px;
-    border-radius: plain ? 7px : 10px;
-    border-width: 1px;
-    background: !enabled ? Theme.bg : touch.has-hover ? Theme.surface-hover : Theme.surface-raise;
-    // Qt's plain combo box has the strong border; the tile its quiet one
-    border-color: !enabled ? Theme.border : touch.has-hover ? Theme.border-hover : plain ? Theme.border-strong : Theme.border;
+    preferred-width: Theme.control-w;
+    border-radius: Theme.r-ctl;
+    background: !enabled ? Theme.raise.mix(Theme.card, 0.4) : open ? Theme.sel : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : Theme.raise;
+    border-width: !enabled ? Theme.outline-w : Theme.ctl-outline-w(touch.has-hover || open, touch.pressed);
+    border-color: !enabled ? Theme.dis-outline : Theme.ctl-outline(touch.has-hover || open, touch.pressed);
     accessible-role: combobox;
     accessible-label: caption != "" ? caption : name;
     accessible-value: shown < 0 ? placeholder : items[shown];
     accessible-expandable: true;
     accessible-expanded: open;
-    accessible-description: tip;
-    accessible-action-default => { if (root.enabled) { popup.show(); } }
+    accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
+    accessible-action-default => { if (root.enabled) { open-list(); } }
     forward-focus: focus;
     focus := FocusScope {
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         enabled: root.enabled;
         key-pressed(e) => {
-            if (e.modifiers.control || e.modifiers.meta) { return reject; }
-            if ((e.modifiers.alt && (e.text == Key.DownArrow || e.text == Key.UpArrow)) || e.text == " " || e.text == "\n") { popup.show(); return accept; }
+            if (!root.enabled || e.modifiers.control || e.modifiers.meta) { return reject; }
+            if ((e.modifiers.alt && (e.text == Key.DownArrow || e.text == Key.UpArrow)) || e.text == " " || e.text == "\n") { open-list(); return accept; }
             if (centered && (e.text == Key.LeftArrow || e.text == Key.UpArrow)) { nudged(-1); return accept; }
             if (centered && (e.text == Key.RightArrow || e.text == Key.DownArrow)) { nudged(1); return accept; }
             if (e.text == Key.UpArrow && step(-1) != shown) { pick(step(-1)); return accept; }
@@ -300,8 +709,8 @@ export component ChoiceField inherits Rectangle {
             reject
         }
     }
-    FocusRing { shown: focus.has-focus; radius: plain ? 7px : 10px; width: parent.width + 4px; height: parent.height + 4px; }
-    usage := TipUse { hover: touch.has-hover; }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
@@ -310,93 +719,108 @@ export component ChoiceField inherits Rectangle {
         clicked => {
             // Something has to hold the focus for the list's own to go back to when it closes (see `watch`)
             focus.focus();
-            popup.show();
+            open-list();
         }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    if root.tip != "" && !usage.used: Tooltip { TipBody { says: root.tip; } }
     if has-icon: Icon {
         source: icon;
         tint: icon-tint;
-        x: 11px;
-        width: 14px;
-        height: 14px;
+        x: Theme.u(6);
+        width: Theme.icon-small;
+        height: Theme.icon-small;
         accessible-role: none;
     }
     if plain: VerticalLayout {
-        padding-left: has-icon ? 33px : 11px; // the phone picker's 32px padding sits inside its border
-        padding-right: 30px;
+        padding-left: has-icon ? Theme.u(6) + Theme.icon-small + Theme.u(4) : Theme.u(6);
+        padding-right: Theme.u(13);
+        padding-bottom: 2 * lift;
         alignment: center;
         Text {
             text: shown < 0 ? placeholder : items[shown];
             font-family: Theme.font;
             font-size: Theme.body;
-            font-weight: bold ? 600 : 400;
-            color: shown < 0 ? Theme.text-faint : enabled ? Theme.text : Theme.text-disabled;
+            font-weight: shown < 0 ? Theme.w-label : Theme.w-value;
+            color: !enabled ? Theme.dis : shown < 0 ? Theme.ink2 : Theme.ink;
             overflow: elide;
         }
     }
     // _two_lines: the caption's capitals and the value's read as one block centred top to bottom, the value's capitals
-    // 9px under the caption's baseline (stacked_baselines, with Inter's capitals 8px tall at 11px and 9px at 13px)
+    // 9px under the caption's baseline (stacked_baselines, with Plex's capitals 8px tall at 11px and 9px at 13px)
     property <length> first-baseline: round((root.height / 1px - 26) / 2 + 8) * 1px;
     if !plain: Text {
-        x: centered ? side : has-icon ? 32px : 12px;
-        y: first-baseline - 11px * 1984 / 2048;
-        width: root.width - self.x - (centered ? side : 30px);
+        x: centered ? side : has-icon ? Theme.u(16) : Theme.u(6);
+        y: first-baseline - Theme.tiny * 1.025;
+        width: root.width - self.x - (centered ? side : Theme.u(13));
         text: caption;
         font-family: Theme.font;
-        font-size: 11px; // 0.88 of the body size, 11.44px, which Qt draws at 11
-        color: enabled ? Theme.text-faint : Theme.text-disabled;
+        font-size: Theme.tiny;
+        color: enabled ? Theme.ink2 : Theme.dis;
         horizontal-alignment: centered ? center : left;
         overflow: elide;
     }
     if !plain: Text {
-        x: centered ? side : has-icon ? 32px : 12px;
-        y: first-baseline + 18px - 13px * 1984 / 2048;
-        width: root.width - self.x - (centered ? side : 30px);
-        text: items[shown];
+        x: centered ? side : has-icon ? Theme.u(16) : Theme.u(6);
+        y: first-baseline + 18px - Theme.body * 1.025;
+        width: root.width - self.x - (centered ? side : Theme.u(13));
+        text: shown < 0 ? placeholder : items[shown];
         font-family: Theme.font;
         font-size: Theme.body;
-        font-weight: 600;
-        color: enabled ? Theme.text : Theme.text-disabled;
+        font-weight: shown < 0 ? Theme.w-label : Theme.w-value;
+        color: !enabled ? Theme.dis : shown < 0 ? Theme.ink2 : Theme.ink;
         horizontal-alignment: centered ? center : left;
         overflow: elide;
     }
     if !centered: Icon {
         source: @image-url("../icons/chevron.svg");
-        x: parent.width - 12px - self.width;
-        width: plain ? 10px : 14px;
-        height: plain ? 10px : 14px;
+        x: parent.width - Theme.u(4) - self.width;
+        y: (parent.height - self.height) / 2;
+        tint: enabled ? Theme.ink2 : Theme.dis;
+        width: Theme.u(8);
+        height: Theme.u(8);
     }
     popup := PopupWindow {
-        // Wide enough for its longest option, and inside the window: a longer one wraps, Slint moves it in from the edge
-        property <length> room-w: WindowBox.width > 0 ? WindowBox.width - 16px : 4000px;
-        property <length> room-h: WindowBox.height > 0 ? WindowBox.height - 16px : 4000px;
+        // It covers the window, as a Bubble's does, and nothing closes it but the field: a press anywhere outside the list, Escape, Tab
+        // or the window losing focus ease it out first (a pop-up that closes itself goes in one frame, with no out-motion)
+        close-policy: no-auto-close;
+        x: -root.absolute-position.x;
+        y: -root.absolute-position.y;
+        width: WindowBox.cover-w(list-w);
+        height: WindowBox.cover-h(list-h);
+        // Wide enough for its longest option, and inside the window: a longer one wraps
+        property <length> win-w: WindowBox.width > 0 ? WindowBox.width : 4000px;
+        property <length> win-h: WindowBox.height > 0 ? WindowBox.height : 4000px;
+        property <length> room-w: win-w - 16px;
+        property <length> room-h: win-h - 16px;
         // By rows alone: a bar narrowing the list changes how many wrap, so this can't follow the list's real height
         property <bool> popup-tall: items.length * 26px + 10px > room-h;
-        x: 0;
-        y: root.height + 4px;
-        width: min(room-w, max(root.width, longest.preferred-width + 26px));
-        height: min(room-h, rows.preferred-height + 2px);
+        property <length> list-w: min(room-w, max(root.width, longest.preferred-width + 26px));
+        property <length> list-h: min(room-h, rows.preferred-height + 2px);
+        // Under the field, held inside the window's sides and bottom
+        property <length> list-x: max(8px, min(root.absolute-position.x, win-w - list-w - 8px));
+        property <length> list-y: max(8px, min(root.absolute-position.y + root.height + 4px, win-h - list-h - 8px));
         // Slint doesn't say when a popup closes, but its focus goes back to the field then. Taken a moment after it
         // opens, since opening clears the focus
         watch := FocusScope {
-            focus-lost => { root.open = false; hl = -1; }
+            // The window lost its focus while the list was up: it goes the way a click outside does
+            focus-lost => { if (root.open && !closing) { close-list(true); } }
             key-pressed(e) => {
-                if (e.text == Key.Escape) { close-list(); return accept; }
-                if (e.text == Key.Tab || e.text == Key.Backtab) { close-list(); return reject; }
+                if (closing) { return accept; }
+                if (e.text == Key.Escape) { close-list(true); return accept; }
+                // Tab is the one way out that has to move the focus on this frame, so it puts the list away at once
+                if (e.text == Key.Tab || e.text == Key.Backtab) { close-now(); return reject; }
                 if (e.text == Key.UpArrow) { hl = step-from(hl, -1); return accept; }
                 if (e.text == Key.DownArrow) { hl = step-from(hl, 1); return accept; }
                 if (e.text == Key.Home) { scan(1, ""); return accept; }
                 if (e.text == Key.End) { scan(2, ""); return accept; }
-                if (e.text == " " || e.text == "\n") { if (hl >= 0) { choose(hl); } else { close-list(); } return accept; }
+                if (e.text == " " || e.text == "\n") { if (hl >= 0) { choose(hl, false); } else { close-list(false); } return accept; }
                 if (e.text.character-count == 1 && !e.modifiers.control && !e.modifiers.alt && !e.modifiers.meta) { scan(0, e.text); return accept; }
                 reject
             }
         }
         Timer {
             interval: 1ms;
-            running: !root.open;
+            running: !root.open && !root.closing;
             triggered => {
                 root.open = true;
                 watch.focus();
@@ -413,13 +837,33 @@ export component ChoiceField inherits Rectangle {
                 font-weight: headings[i] ? 700 : 400;
             }
         }
+        // Everything outside the list: a press there eases it out, and nothing under it sees that press
+        TouchArea {
+            pointer-event(e) => {
+                if (e.kind == PointerEventKind.down) {
+                    // A press on the field while the list is going out turns it round (this pop-up is over the field and takes the press)
+                    let on-field = self.mouse-x >= root.absolute-position.x && self.mouse-x <= root.absolute-position.x + root.width
+                        && self.mouse-y >= root.absolute-position.y && self.mouse-y <= root.absolute-position.y + root.height;
+                    if (closing && on-field) { open-list(); }
+                    else if (!closing) { close-list(true); }
+                }
+            }
+        }
         Rectangle {
-            background: Theme.surface-raise;
-            border-width: 1px;
-            border-color: Theme.border-hover;
-            border-radius: 7px;
+            // It comes in a touch from above and fades, and goes the same way
+            opacity: list-fade.value;
+            x: popup.list-x;
+            y: popup.list-y + (1 - list-fade.value) * -Theme.u(2);
+            width: popup.list-w;
+            height: popup.list-h;
+            background: Theme.raise;
+            border-radius: Theme.r-ctl;
+            border-width: Theme.pop-outline-w;
+            border-color: Theme.pop-outline;
             drop-shadow-blur: 12px;
-            drop-shadow-color: #00000080;
+            drop-shadow-color: Theme.shadow;
+            // The list's own face takes its presses, so one between the rows isn't a press outside
+            TouchArea { }
             list := Flickable {
                 x: 1px;
                 y: 1px;
@@ -450,19 +894,21 @@ export component ChoiceField inherits Rectangle {
                         accessible-item-index: i;
                         accessible-item-count: items.length;
                         accessible-enabled: !headings[i] && !is-gone;
-                        accessible-action-default => { if (!headings[i] && !is-gone) { choose(i); } }
+                        accessible-action-default => { if (!headings[i] && !is-gone) { choose(i, false); } }
                         height: headings[i] ? 32px : max(26px, line.preferred-height + 10px);
-                        border-radius: 5px;
-                        background: headings[i] || is-gone ? transparent : lit ? Theme.fill : item-touch.has-hover ? Theme.surface-hover : transparent;
+                        border-radius: Theme.r-handle;
+                        background: headings[i] || is-gone ? transparent : lit ? Theme.sel : transparent;
+                        border-width: headings[i] || is-gone || !lit ? 0px : Theme.outline-w-over;
+                        border-color: Theme.outline-hover;
                         if headings[i]: Rectangle {
                             y: 2px;
                             height: parent.height - 3px;
-                            background: Theme.accent.with-alpha(0.12);
+                            background: Theme.card.with-alpha(0.6);
                         }
                         item-touch := TouchArea {
                             enabled: !headings[i] && !is-gone;
                             clicked => {
-                                choose(i);
+                                if (!closing) { choose(i, true); }
                             }
                         }
                         line := Text {
@@ -471,8 +917,8 @@ export component ChoiceField inherits Rectangle {
                             text: item;
                             font-family: Theme.font;
                             font-size: headings[i] ? Theme.body * 0.85 : Theme.body;
-                            font-weight: headings[i] ? 700 : 400;
-                            color: headings[i] ? Theme.accent : is-gone ? Theme.text-disabled : lit ? white : Theme.text;
+                            font-weight: headings[i] ? Theme.w-value : Theme.w-label;
+                            color: headings[i] ? Theme.ink2 : is-gone ? Theme.dis : Theme.ink;
                             vertical-alignment: center;
                             wrap: word-wrap;
                         }

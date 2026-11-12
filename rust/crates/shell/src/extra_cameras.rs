@@ -13,6 +13,7 @@ use telescope_core::ui::{Issue, IssueAction, IssueDoes};
 
 const QUESTION: &str = r#"
 import { Ask } from "shell/settings.slint";
+export { Theme, Motion } from "@ui-kit/ui-kit.slint";
 
 export component SlotsQuestion inherits Window {
     in property <string> window-title;
@@ -93,6 +94,13 @@ impl Window {
                 return self.streams.slots.cancel();
             }
         };
+        // It is a window of its own, with a Theme of its own: it starts in the look the app is in, and later changes reach it (Effect::Look)
+        for name in ["look", "own-hues"] {
+            if let Ok(value) = self.ui.get_global_property("Theme", name) {
+                let _ = ui.set_global_property("Theme", name, value);
+            }
+        }
+        crate::motion::apply(&ui);
         let string = |t: &str| SValue::String(t.into());
         let _ = ui.set_property("window-title", string(&tr("Set up more virtual cameras")));
         let _ = ui.set_property("text", string(&text));
@@ -165,6 +173,41 @@ impl Window {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use telescope_core::config::{ConfigFile, CONFIG_FILENAME};
+    use telescope_core::host::Look;
+    use telescope_core::plugin::Plugin;
+
+    fn look_of(ui: &ComponentInstance) -> SValue {
+        ui.get_global_property("Theme", "look").unwrap()
+    }
+
+    #[test]
+    fn the_question_opens_in_the_look_the_app_is_in_and_follows_a_change() {
+        i_slint_backend_testing::init_no_event_loop();
+        let dir = telescope_core::testing::scratch_dir("slots-question-look");
+        let w = crate::window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), |_| Vec::<Box<dyn Plugin>>::new(), None, None).unwrap();
+        w.state.borrow_mut().effects.push(crate::shell::Effect::Look(Look::Light));
+        w.process();
+        w.set_up_slots("b");
+        let question = w.slots_question().expect("the question is up");
+        assert_eq!(look_of(&question), SValue::Number(Look::Light.index() as f64), "it starts in the app's look");
+        w.state.borrow_mut().effects.push(crate::shell::Effect::Look(Look::Oled));
+        w.process();
+        assert_eq!(look_of(&question), SValue::Number(Look::Oled.index() as f64), "and takes a later change");
+        w.slots_answered(false);
+    }
+
+    #[test]
+    fn the_question_follows_the_motion_setting_like_every_other_window() {
+        i_slint_backend_testing::init_no_event_loop();
+        let dir = telescope_core::testing::scratch_dir("slots-question-motion");
+        let w = crate::window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), |_| Vec::<Box<dyn Plugin>>::new(), None, None).unwrap();
+        w.set_up_slots("b");
+        let question = w.slots_question().expect("the question is up");
+        let reduced = question.get_global_property("Motion", "reduced").expect("its Motion is reachable");
+        assert_eq!(reduced, SValue::Bool(crate::motion::current() != crate::motion::Motion::Full), "it starts in the mode the app is in");
+        w.slots_answered(false);
+    }
 
     #[test]
     fn whoever_asks_while_the_cameras_are_set_up_waits_behind_the_first() {

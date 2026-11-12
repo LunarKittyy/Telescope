@@ -2,11 +2,12 @@
 
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
-import { Icon, FocusRing, TouchRing } from "basics.slint";
-import { TipBody, TipUse } from "tip.slint";
+import { Icon, FocusRing, TouchRing, KeyFocus } from "basics.slint";
+import { Tip } from "tip.slint";
+import { Motion, Flick, Tone } from "motion.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
 
-// common.Switch: a 36x20 track at the row's end.
+// Kind "switch": a track at the row's end with a square handle. Off is quiet, on takes a thick border in the card's colour.
 export component Switch inherits Rectangle {
     // Where the parent says it is. A click never writes here, so a parent's `checked: on` keeps following on.
     in-out property <bool> checked;
@@ -15,9 +16,21 @@ export component Switch inherits Rectangle {
     property <bool> touched;
     out property <bool> shown: touched ? local : checked;
     changed checked => { touched = false; }
-    // What a click does, and what a key does; SwitchTile calls it for a click on the tile
+    // A key just changed it, so the handle and colours follow at once; a click flicks the handle and eases the colours
+    property <bool> quick;
+    Timer {
+        interval: 80ms;
+        running: quick;
+        triggered => { quick = false; }
+    }
+    // What a click does; SwitchTile calls it for a click on the tile
     public function flip() {
+        quick = false;
+        change();
+    }
+    function change() {
         if (enabled) {
+            flick.sync();
             local = !shown;
             touched = true;
             toggled(local);
@@ -25,6 +38,7 @@ export component Switch inherits Rectangle {
     }
     // Got here by Tab, so it shows the ring; a click gives it the focus without one (theme.keyboard_focus)
     property <bool> keyed;
+    out property <bool> ringed: focus.has-focus && keyed;
     public function take-focus() {
         if (enabled) {
             keyed = false;
@@ -33,27 +47,44 @@ export component Switch inherits Rectangle {
     }
     in property <string> label;
     in property <bool> enabled: true;
-    // A tooltip, when there's something to say beyond the label
+    // A tooltip, when there's something to say beyond the label: its name, then a line or two more and the keys that do the same
     in property <string> tip;
+    in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
+    in property <[string]> tip-keys;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     // A switch that's risky to leave on stays red while it is
     in property <bool> danger;
     // The id of the setting it is ("transforms.flip_h"), which a caller outside the window outlines it by when it reads or changes it
     in property <string> setting;
+    // The card's colour: the border and handle of a lit switch
+    in property <color> hue: Theme.accent;
+    // The row it sits in is under the pointer, so the track answers too
+    in property <bool> row-hover;
+    // The row it sits in is held down
+    in property <bool> row-held;
+    property <bool> held: enabled && (touch.pressed || row-held);
+    out property <string> control-kind: "switch";
     callback toggled(bool);
-    width: 36px;
-    height: 20px;
-    border-radius: 10px;
-    background: !enabled ? (shown ? Theme.border-strong : Theme.surface-raise)
-        : shown && danger ? Theme.err
-        : shown ? (touch.has-hover ? Theme.fill-hover : Theme.fill)
-        : (touch.has-hover ? Theme.border-hover : Theme.border-strong);
+    width: Theme.switch-w;
+    height: Theme.switch-h;
+    border-radius: Theme.r-ctl;
+    property <color> lit: danger ? Theme.err : hue;
+    property <bool> over-it: touch.has-hover || row-hover;
+    border-width: !enabled ? Theme.outline-w : shown ? Theme.stroke : Theme.ctl-outline-w(over-it, held);
+    border-color: !enabled ? Theme.dis-outline : shown ? lit : Theme.ctl-outline(over-it, held);
+    background: !enabled ? Theme.trough
+        : shown ? (held ? Theme.held(lit) : Theme.tint(lit))
+        : held ? Theme.press
+        : touch.has-hover || row-hover ? Theme.hover : Theme.raise;
+    animate background, border-width, border-color { duration: Motion.tone-for(held || quick); easing: Motion.tone; }
     accessible-role: switch;
     accessible-label: label;
     accessible-checkable: true;
     accessible-checked: shown;
-    accessible-action-default => { flip(); }
+    accessible-action-default => { quick = true; change(); }
     forward-focus: focus;
     focus := FocusScope {
         focus-gained(reason) => {
@@ -64,13 +95,18 @@ export component Switch inherits Rectangle {
         }
         enabled: root.enabled;
         key-pressed(e) => {
-            if (e.text == " " || e.text == "\n") { flip(); return accept; }
+            if (e.text == " " || e.text == "\n") { quick = true; change(); return accept; }
             reject
         }
     }
-    FocusRing { shown: focus.has-focus && keyed; radius: 10px; width: parent.width + 4px; height: parent.height + 4px; }
-    TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: 10px; }
-    usage := TipUse { hover: touch.has-hover; }
+    FocusRing { shown: focus.has-focus && keyed; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: root.ringed; }
+    // The handle's place between its two ends, 0 off and 1 on, with the little overshoot of a flick
+    // A key moves it like a click does (only the colours are at once): a handle that snaps for one press cuts a move still going
+    flick := Flick { to: shown ? 1 : 0; }
+    // Where the handle is now, 0 to 1 and a little past either end while it flicks, for a test
+    out property <float> handle-place: flick.value;
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
@@ -79,39 +115,57 @@ export component Switch inherits Rectangle {
         clicked => { flip(); }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    Rectangle {
-        width: 14px;
-        height: 14px;
-        border-radius: 7px;
-        y: 3px;
-        x: shown ? parent.width - 17px : 3px;
-        background: !enabled ? Theme.text-disabled : shown ? white : Theme.text-dim;
-        animate x { duration: 90ms; }
+    // The handle is on its "on" side of the middle: its glyph and colour change there, as it passes, not at the click
+    property <bool> over: flick.value > 0.5;
+    // The handle carries I when on and O when off, so the state doesn't rest on colour alone
+    handle := Rectangle {
+        property <length> margin: Theme.u(1.5);
+        property <length> size: Theme.switch-h - 2 * margin;
+        width: size;
+        height: size;
+        border-radius: Theme.r-handle;
+        y: margin;
+        x: margin + flick.value * (parent.width - size - 2 * margin);
+        background: !enabled ? Theme.sel : over ? lit : held ? Theme.ink2 : Theme.line-hover;
+        animate background { duration: Motion.tone-for(held || quick); easing: Motion.tone; }
+        Text {
+            text: over ? "I" : "O";
+            font-family: Theme.font;
+            font-size: Theme.tiny - 1px;
+            font-weight: Theme.w-value;
+            color: !enabled ? Theme.dis : over ? Theme.card : held ? Theme.card : Theme.ink2;
+            animate color { duration: Motion.tone-for(held || quick); easing: Motion.tone; }
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            accessible-role: none;
+        }
     }
-    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
 }
 
-// controls.SwitchTile: icon, name and switch in a small raised tile; the icon takes the card's hue while on.
+// Kind "toggle": a name and a switch on one line, no box round them; the icon takes the card's colour while on.
 export component SwitchTile inherits Rectangle {
     in property <image> icon;
     in property <string> text;
+    // What a screen reader calls it, when the text alone repeats in a card ("Notify me" under two warnings)
+    in property <string> name: text;
     in property <color> hue: Theme.accent;
     in-out property <bool> checked;
     in property <bool> enabled: true;
     // A tooltip for the whole tile, say why it can't be used
     in property <string> tip;
+    in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
+    in property <[string]> tip-keys;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
+    out property <string> control-kind: "toggle";
     callback toggled(bool);
-    height: 40px;
+    height: Theme.row;
     horizontal-stretch: 1;
     min-width: 0px;
     preferred-width: 0px;
-    background: Theme.surface-raise;
-    border-width: 1px;
-    border-color: Theme.border;
-    border-radius: 9px;
-    usage := TipUse { hover: tile-touch.has-hover; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; shortcut: root.shortcut; hover: tile-touch.has-hover; inert: !root.enabled; focused: sw.ringed; }
     tile-touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
@@ -120,17 +174,13 @@ export component SwitchTile inherits Rectangle {
         clicked => { sw.flip(); }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    if root.tip != "" && !usage.used: Tooltip { TipBody { says: root.tip; } }
-    // The QSS border sits outside the layout's 10px margins
     HorizontalLayout {
-        padding-left: 11px;
-        padding-right: 11px;
-        spacing: 9px;
+        spacing: Theme.u(4);
         Icon {
             source: icon;
-            tint: sw.shown && enabled ? hue : Theme.text-dim;
-            width: 15px;
-            height: 15px;
+            tint: sw.shown && enabled ? hue : Theme.ink2;
+            width: Theme.icon;
+            height: Theme.icon;
             y: (parent.height - self.height) / 2;
         }
         Text {
@@ -138,20 +188,182 @@ export component SwitchTile inherits Rectangle {
             horizontal-stretch: 1;
             font-family: Theme.font;
             font-size: Theme.body;
-            color: enabled ? Theme.text : Theme.text-disabled;
+            font-weight: Theme.w-label;
+            color: enabled ? Theme.ink : Theme.dis;
             vertical-alignment: center;
             wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
             // The switch beside it carries this text as its name
             accessible-role: none;
         }
         Rectangle {
-            width: 36px;
+            width: Theme.switch-w;
             sw := Switch {
                 y: (parent.height - self.height) / 2;
                 checked <=> root.checked;
                 enabled: root.enabled;
-                label: root.text;
+                hue: root.hue;
+                row-hover: tile-touch.has-hover;
+                row-held: tile-touch.pressed;
+                label: root.name;
                 toggled(on) => { root.toggled(on); }
+            }
+        }
+    }
+}
+
+// Kind "toggle", the tile that is its own switch: an icon and a name, the thick border in the card's colour is the state, and with no text it is an icon tile named by `name`.
+export component ToggleTile inherits Rectangle {
+    // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font)
+    property <length> lift: 1phx;
+    in property <image> icon;
+    in property <string> text;
+    // What a screen reader calls it, when there is no text or the text alone repeats in a card
+    in property <string> name: text;
+    in property <color> hue: Theme.accent;
+    // Where the parent says it is. A click never writes here, so a parent's `checked: on` keeps following on.
+    in-out property <bool> checked;
+    property <bool> local;
+    property <bool> touched;
+    out property <bool> shown: touched ? local : checked;
+    changed checked => { touched = false; }
+    // A key just changed it, so the colours follow at once
+    property <bool> quick;
+    Timer {
+        interval: 80ms;
+        running: quick;
+        triggered => { quick = false; }
+    }
+    in property <bool> enabled: true;
+    // A tooltip for the whole tile: say why it can't be used, or what an icon alone means
+    in property <string> tip;
+    in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
+    in property <[string]> tip-keys;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
+    // The id of the setting it is, for the outline when something outside the window reads or changes it
+    in property <string> setting;
+    out property <string> control-kind: "toggle";
+    callback toggled(bool);
+    public function flip() {
+        quick = false;
+        change();
+    }
+    function change() {
+        if (enabled) {
+            fade.sync();
+            local = !shown;
+            touched = true;
+            toggled(local);
+        }
+    }
+    // Got here by Tab, so it shows the ring; a click gives it the focus without one
+    property <bool> keyed;
+    property <bool> held: enabled && touch.pressed;
+    // The tile is as wide as its icon and its whole word and never narrower, instead of an equal share of the row (one tile with a label among icon-only ones, where
+    // the label is there to be found). The row it sits in gives way elsewhere, not here.
+    in property <bool> natural;
+    property <length> natural-w: 2 * Theme.u(6) + (icon.width > 0 ? Theme.icon + Theme.u(4) : 0px) + word.preferred-width;
+    word := Text {
+        visible: false;
+        text: root.text;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        font-weight: Theme.w-value;
+        accessible-role: none;
+    }
+    height: Theme.tile;
+    horizontal-stretch: natural ? 0 : 1;
+    min-width: natural ? natural-w : 0px;
+    preferred-width: natural ? natural-w : 0px;
+    border-radius: Theme.r-ctl;
+    // The outline and the muted inside fade in and out together (a multi-select tile has no worm: nothing travels between the tiles)
+    fade := Tone { on: shown && enabled; snap: quick; rise: Motion.tile-in; fall: Motion.tile-out; }
+    out property <float> lit: fade.value;
+    border-width: !enabled ? Theme.outline-w : max(Theme.ctl-outline-w(touch.has-hover, held), lit > 0.01 ? Theme.stroke : 0px);
+    border-color: !enabled ? Theme.dis-outline : lit > 0.01 ? hue.with-alpha(lit) : Theme.ctl-outline(touch.has-hover, held);
+    property <color> at-rest: !enabled ? Theme.raise.mix(Theme.card, 0.4)
+        : held ? Theme.press
+        : touch.has-hover ? Theme.hover : Theme.raise;
+    animate at-rest { duration: Motion.tone-for(held || quick); easing: Motion.tone; }
+    background: (held ? Theme.held(hue) : Theme.tint(hue)).mix(at-rest, lit);
+    accessible-role: switch;
+    accessible-label: name;
+    accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
+    accessible-checkable: true;
+    accessible-checked: shown;
+    accessible-action-default => { quick = true; change(); }
+    forward-focus: focus;
+    focus := FocusScope {
+        focus-gained(reason) => {
+            if (reason == FocusReason.tab-navigation) {
+                keyed = true;
+                Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height);
+            }
+        }
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (e.text == " " || e.text == "\n") { quick = true; change(); return accept; }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus && keyed; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && keyed; }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down) {
+                keyed = false;
+                focus.focus();
+                usage.press();
+            }
+        }
+        scroll-event(e) => { usage.wheel(); reject }
+        clicked => { flip(); }
+    }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+    // An icon-only tile puts its icon on the tile's own middle, in whole pixels, with no padding to push it
+    if text == "" && icon.width > 0: Icon {
+        source: icon;
+        tint: !enabled ? Theme.dis : shown ? hue : Theme.ink2;
+        width: Theme.icon;
+        height: Theme.icon;
+        x: round((parent.width - self.width) / 2 / 1px) * 1px;
+        y: round((parent.height - self.height) / 2 / 1px) * 1px;
+    }
+    if text != "": HorizontalLayout {
+        padding-left: Theme.u(6);
+        padding-right: Theme.u(6);
+        spacing: Theme.u(4);
+        alignment: start;
+        // No icon, no slot: the text starts at the tile's own padding
+        if icon.width > 0: Icon {
+            source: icon;
+            tint: !enabled ? Theme.dis : shown ? hue : Theme.ink2;
+            width: Theme.icon;
+            height: Theme.icon;
+            y: (parent.height - self.height) / 2;
+        }
+        if text != "": Rectangle {
+            horizontal-stretch: 1;
+            min-width: 0px;
+            preferred-width: tile-name.preferred-width;
+            tile-name := Text {
+                y: -lift;
+                width: parent.width;
+                height: parent.height;
+                text: root.text;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                font-weight: Theme.w-value;
+                color: !enabled ? Theme.dis : shown || touch.has-hover ? Theme.ink : Theme.ink2;
+                vertical-alignment: center;
+                overflow: elide;
+                // The tile carries this text as its name
+                accessible-role: none;
             }
         }
     }

@@ -2,12 +2,14 @@
 
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
-import { TipBody, TipUse } from "tip.slint";
+import { Tip } from "tip.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
+import { Motion, Tone } from "motion.slint";
 
 // A line icon (widgets/line_icons.py), white in the file and tinted here.
 export component Icon inherits Image {
-    in property <color> tint: Theme.text-dim;
+    in property <color> tint: Theme.ink2;
+    out property <string> control-kind: "icon";
     colorize: tint;
     image-fit: contain;
     image-rendering: smooth;
@@ -37,19 +39,20 @@ export global Touched {
 // The outline round a control that was just touched from outside: a change is the stronger one. Fills its parent, which gives the shape.
 export component TouchRing inherits Rectangle {
     in property <string> setting;
-    in property <length> radius: 7px;
+    in property <length> radius: Theme.r-ctl;
+    out property <string> control-kind: "outline";
     if setting != "": Rectangle {
         for t in Touched.items: Rectangle {
             if t.id == root.setting: Rectangle {
-                x: -3px;
-                y: -3px;
-                width: root.width + 6px;
-                height: root.height + 6px;
-                border-radius: radius + 3px;
-                border-width: t.changed ? 2px : 1px;
+                x: -Theme.u(1.5);
+                y: -Theme.u(1.5);
+                width: root.width + Theme.u(3);
+                height: root.height + Theme.u(3);
+                border-radius: radius + Theme.u(1.5);
+                border-width: t.changed ? Theme.stroke : Theme.u(0.5);
                 border-color: Theme.accent;
                 opacity: t.on ? 1 : 0;
-                animate opacity { duration: 500ms; easing: ease-out; }
+                animate opacity { duration: Motion.fades ? (t.on ? Motion.fade-in : Motion.outline-out) : 0ms; easing: Motion.tone; }
             }
         }
     }
@@ -59,22 +62,28 @@ export component TouchRing inherits Rectangle {
 // leave a control focused, and the ring stays away for that (theme.keyboard_focus).
 export component FocusRing inherits Rectangle {
     in property <bool> shown;
-    in property <length> radius: 7px;
-    x: -2px;
-    y: -2px;
-    border-radius: radius + 2px;
-    border-width: shown && KeyFocus.keyboard ? 2px : 0px;
+    in property <length> radius: Theme.r-ctl;
+    out property <string> control-kind: "outline";
+    x: -Theme.stroke;
+    y: -Theme.stroke;
+    border-radius: radius + Theme.stroke;
+    border-width: shown && KeyFocus.keyboard ? Theme.stroke : 0px;
     border-color: Theme.accent;
 }
 
 // A link the person can click: the text in the accent colour, which opens its address.
 export component LinkText inherits Rectangle {
+    // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font), the same as every other word in a kit control
+    property <length> lift: 1phx;
     in property <string> text;
     in property <string> url;
-    in property <length> font-size: 12px;
+    in property <length> font-size: Theme.small;
+    out property <string> control-kind: "link";
     callback opened(string);
-    height: 18px;
-    width: label.preferred-width;
+    height: Theme.u(9);
+    // As wide as its words, or as wide as the place gives it, where it ends in an ellipsis
+    preferred-width: label.preferred-width;
+    min-width: 0px;
     accessible-role: button;
     accessible-label: text;
     accessible-description: url;
@@ -89,61 +98,100 @@ export component LinkText inherits Rectangle {
             reject
         }
     }
-    FocusRing { shown: focus.has-focus; radius: 4px; width: parent.width + 4px; height: parent.height + 4px; }
-    TouchArea { mouse-cursor: pointer; clicked => { root.opened(url); } }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-handle; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.opened(url); } }
     label := Text {
+        y: -lift;
+        width: parent.width;
+        height: parent.height;
         text: root.text;
         font-family: Theme.font;
         font-size: root.font-size;
-        color: Theme.accent-soft;
+        color: touch.has-hover ? Theme.ink : Theme.accent-soft;
+        animate color { duration: Motion.tone-for(false); easing: Motion.tone; }
         vertical-alignment: center;
+        overflow: elide;
+    }
+    // The underline of a link under the pointer, as long as the words show
+    if touch.has-hover: Rectangle {
+        x: 0px;
+        y: parent.height / 2 + root.font-size * 0.62 - lift;
+        width: min(label.preferred-width, parent.width);
+        height: 1px;
+        background: Theme.ink;
     }
 }
 
-// QPushButton: raised fill, strong border, 600 weight. role "primary" is the filled lavender one and "danger" the dark red one.
+// Kind "button": a raised fill with no line round it, semibold. role "primary" is a filled button (violet; in a card, given the card's
+// `hue`, it wears that in the new look), "go" and "stop" are Start and Stop streaming, "danger" the red one, "quiet" the same raised square with dimmer words (no button is ever a ghost: every one has a surface at rest). Anything that opens a menu is a ChoiceField, not a Button.
 export component Button inherits Rectangle {
+    // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font)
+    property <length> lift: 1phx;
     in property <string> text;
     in property <image> icon;
     in property <bool> has-icon: false;
-    in property <color> icon-tint: Theme.accent-soft;
+    in property <color> icon-tint: Theme.ink2;
     in property <string> role: "";
-    in property <length> icon-size: 14px;
-    // A square of colour before the text, as a QPushButton draws a swatch icon (chroma_key.swatch: 12px)
+    // The card's colour, for a primary button inside a card (the new look fills it with this; Classic stays violet)
+    in property <color> hue: Theme.fill;
+    property <bool> wears-hue: role == "primary" && !Theme.classic && hue != Theme.fill;
+    // The raised square (not a filled button): in OLED it is told from the card by its outline
+    property <bool> plain: !filled && !wears-hue;
+    // The text, and the glyph, of a button with a fill of its own
+    property <color> ink-on-fill: role == "go" ? Theme.go-ink : role == "stop" ? Theme.stop-ink : wears-hue ? Theme.on-hue : Theme.on-fill;
+    property <bool> filled: role == "primary" || role == "danger" || role == "go" || role == "stop";
+    in property <length> icon-size: Theme.icon-small;
+    // A square of colour before the text, as a QPushButton draws a swatch icon
     in property <bool> has-swatch;
     in property <color> swatch;
     in property <length> font-size: Theme.body;
-    in property <int> font-weight: 600;
-    in property <length> padding-x: 13px;
-    in property <length> gap: 9px;
+    in property <int> font-weight: Theme.w-value;
+    in property <length> padding-x: Theme.u(6);
+    in property <length> gap: Theme.u(4);
     in property <bool> enabled: true;
-    // A tooltip, when there's something to say beyond the label
+    // A tooltip, when there's something to say beyond the label: its name, then a line or two more and the keys that do the same
     in property <string> tip;
-    // QPushButton[strip]: a setting row's button, on no fill until hovered
+    in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
+    in property <[string]> tip-keys;
+    // A setting row's button: the same raised square as any other (kept so rows can say what they are; it no longer changes the look)
     in property <bool> strip;
-    // card_action greys to faint text rather than the darker disabled grey, on no fill
+    // A disabled quiet button stays on no fill (kept for the old cards; a disabled button is `dis` on `trough` like every other)
     in property <bool> quiet-when-disabled;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
+    // The label gives way to a narrow place and ends in an ellipsis (a folder's name)
+    in property <bool> shrinks;
+    // Every text the label can be, so the button is as wide as the widest of them and never changes width when the label does
+    in property <[string]> reserve;
+    // A button in a dialog's button row: a floor on its width so Cancel and Save sit as even blocks
+    in property <bool> dialog;
+    // The widest of the label and the reserved texts, set the way the label is (a hidden copy, out of any layout)
+    property <length> widest: measure.preferred-width;
+    property <length> reserved-w: reserve.length == 0 ? 0px : widest + 2 * padding-x + (has-icon ? icon-size + gap : 0px) + (has-swatch ? Theme.icon-small + gap : 0px);
+    out property <string> control-kind: "button";
     callback clicked;
-    // QPushButton's 30px min-height inside its 1px border
-    height: 32px;
-    min-width: lay.preferred-width;
-    border-radius: 7px;
-    border-width: 1px;
-    background: !enabled ? (quiet-when-disabled ? transparent : Theme.bg)
-        : role == "danger" ? (touch.pressed ? #5a2d2f : touch.has-hover ? #824244 : #6b3638)
+    height: Theme.row;
+    // A long label gives way to a narrow place at some width and ends in an ellipsis; a short one never shrinks
+    min-width: shrinks ? 0px : max(min(lay.preferred-width, Theme.u(70)), reserved-w, dialog ? Theme.u(40) : 0px);
+    preferred-width: max(lay.preferred-width, reserved-w, dialog ? Theme.u(40) : 0px);
+    border-radius: Theme.r-ctl;
+    // Stop streaming's thick outline sits inside the button, so the button keeps its size in both states
+    border-width: !enabled ? Theme.outline-w : role == "stop" ? Theme.stop-edge-w : plain ? Theme.ctl-outline-w(touch.has-hover, touch.pressed) : role == "danger" ? Theme.outline-w : 0px;
+    border-color: !enabled ? Theme.dis-outline : role == "stop" ? Theme.stop-edge : plain ? Theme.ctl-outline(touch.has-hover, touch.pressed) : role == "danger" ? Theme.danger-outline : transparent;
+    background: !enabled ? Theme.trough
+        : role == "go" ? (touch.pressed ? Theme.go-press : touch.has-hover ? Theme.go-hover : Theme.go-fill)
+        : role == "stop" ? (touch.pressed ? Theme.stop-press : touch.has-hover ? Theme.stop-hover : Theme.stop-fill)
+        : wears-hue ? (touch.pressed ? hue.mix(Theme.shade, 0.85) : touch.has-hover ? hue.mix(Theme.hue-hover-to, 0.85) : hue)
+        : role == "danger" ? (touch.pressed ? Theme.danger-press : touch.has-hover ? Theme.danger-hover : Theme.danger)
         : role == "primary" ? (touch.pressed ? Theme.fill-press : touch.has-hover ? Theme.fill-hover : Theme.fill)
-        : role == "quiet" ? (touch.has-hover ? Theme.surface-raise : transparent)
-        : strip ? (touch.has-hover ? Theme.surface-hover : transparent)
-        : (touch.pressed ? Theme.surface-raise : touch.has-hover ? #2c333e : Theme.surface-hover);
-    border-color: !enabled ? Theme.border
-        : role == "danger" ? #874648
-        : role == "primary" ? (touch.has-hover ? Theme.fill-hover : Theme.fill)
-        : role == "quiet" ? (touch.has-hover ? Theme.border-hover : Theme.border)
-        : (touch.has-hover ? Theme.border-hover : Theme.border-strong);
+        : (touch.pressed ? Theme.sel : touch.has-hover ? Theme.hover : Theme.raise);
+    // A press comes in at once and a hover, a release or Start becoming Stop eases
+    animate background, border-width, border-color { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
     accessible-role: button;
     accessible-label: text;
-    accessible-description: tip == text ? "" : tip;
+    accessible-description: (tip == text ? "" : tip) + (tip == text || tip == "" || tip-detail == "" ? "" : ". ") + tip-detail;
     accessible-action-default => { if (enabled) { clicked(); } }
     forward-focus: focus;
     focus := FocusScope {
@@ -157,8 +205,8 @@ export component Button inherits Rectangle {
             reject
         }
     }
-    FocusRing { shown: focus.has-focus; radius: root.border-radius; width: parent.width + 4px; height: parent.height + 4px; }
-    usage := TipUse { hover: touch.has-hover; }
+    FocusRing { shown: focus.has-focus; radius: root.border-radius; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         mouse-cursor: pointer;
         pointer-event(e) => {
@@ -168,73 +216,131 @@ export component Button inherits Rectangle {
         clicked => { if (enabled) { root.clicked(); } }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
+    // A click is seen: the face darkens at once and goes back over a moment, so even a quick click leaves a press behind it
+    press-t := Tone { on: touch.pressed && enabled; instant-in: true; fall: Motion.press-out; }
+    out property <float> pressed-tone: press-t.value;
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        border-radius: root.border-radius;
+        background: filled || wears-hue ? Theme.shade : Theme.ink;
+        opacity: (filled || wears-hue ? 0.2 : 0.1) * press-t.value;
+    }
+    // Measures the widest text the label can be, out of the way
+    Rectangle {
+        width: 0px;
+        height: 0px;
+        opacity: 0;
+        measure := VerticalLayout {
+            Text { text: root.text; font-family: Theme.font; font-size: root.font-size; font-weight: root.font-weight; accessible-role: none; }
+            for t in reserve: Text { text: t; font-family: Theme.font; font-size: root.font-size; font-weight: root.font-weight; accessible-role: none; }
+        }
+    }
     lay := HorizontalLayout {
+        // The words sink a pixel with the press
+        y: press-t.value * 1px;
+        height: parent.height;
         padding-left: padding-x;
         padding-right: padding-x;
         spacing: gap;
         alignment: center;
         if has-icon: Icon {
             source: icon;
-            tint: icon-tint;
+            tint: !enabled ? Theme.dis : filled ? ink-on-fill : icon-tint;
+            animate tint { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
             width: icon-size;
             height: icon-size;
             y: (parent.height - self.height) / 2;
         }
         if has-swatch: Rectangle {
-            width: 12px;
-            height: 12px;
+            width: Theme.icon-small;
+            height: Theme.icon-small;
+            border-radius: Theme.r-handle / 2;
             y: (parent.height - self.height) / 2;
             background: swatch;
             opacity: enabled ? 1 : 0.5;
         }
-        if text != "": Text {
-            text: root.text;
-            font-family: Theme.font;
-            font-size: root.font-size;
-            font-weight: root.font-weight;
-            color: !enabled ? (quiet-when-disabled ? Theme.text-faint : Theme.text-disabled) : role == "primary" || role == "danger" ? white : role == "quiet" ? Theme.text-dim : Theme.text;
-            vertical-alignment: center;
+        // The label sits in a box of its own so it can be lifted (lift) without lifting an icon beside it
+        if text != "": Rectangle {
+            horizontal-stretch: root.shrinks ? 1 : 0;
+            min-width: root.shrinks ? 0px : min(label.preferred-width, Theme.u(60));
+            preferred-width: label.preferred-width;
+            label := Text {
+                y: -lift;
+                width: parent.width;
+                height: parent.height;
+                text: root.text;
+                overflow: elide;
+                font-family: Theme.font;
+                font-size: root.font-size;
+                font-weight: root.font-weight;
+                color: !enabled ? Theme.dis : filled ? ink-on-fill : role == "quiet" ? Theme.ink2 : Theme.ink;
+                animate color { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
+                vertical-alignment: center;
+            }
         }
     }
 }
 
-// QPushButton#icon_btn: transparent, quiet border, just an icon (icon_button: 30px, a 15px icon).
+// Kind "icon-button": a ghost with just an icon, square, a fill only while hovered.
 export component IconButton inherits Rectangle {
     in property <image> icon;
-    in property <length> icon-size: 15px;
+    in property <length> icon-size: Theme.icon;
     in property <string> label;
-    // A tooltip, when there's something to say beyond the label
+    // A tooltip, when there's something to say beyond the label: its name, then a line or two more and the keys that do the same
     in property <string> tip;
+    in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
+    in property <[string]> tip-keys;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
+    in property <bool> enabled: true;
+    // On no fill at rest, for an icon that sits inside a field (the cross that clears a text box); every other icon button is a raised square like a Button
+    in property <bool> bare;
+    // Kept for callers that still pass it; raised is now the only look unless `bare`
+    in property <bool> raised: true;
+    out property <string> control-kind: "icon-button";
     callback clicked;
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
-    border-width: 1px;
-    border-color: touch.has-hover ? Theme.border-hover : Theme.border;
-    background: touch.has-hover ? Theme.surface-raise : transparent;
+    width: Theme.row;
+    height: Theme.row;
+    border-radius: Theme.r-ctl;
+    background: !enabled ? Theme.trough : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : bare ? transparent : Theme.raise;
+    border-width: !enabled ? Theme.outline-w : bare && !touch.has-hover && !touch.pressed ? 0px : Theme.ctl-outline-w(touch.has-hover, touch.pressed);
+    border-color: !enabled ? Theme.dis-outline : Theme.ctl-outline(touch.has-hover, touch.pressed);
+    animate background, border-width, border-color { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
     accessible-role: button;
     accessible-label: label;
-    accessible-description: tip == label ? "" : tip;
+    accessible-enabled: enabled;
+    accessible-description: (tip == label ? "" : tip) + (tip == label || tip == "" || tip-detail == "" ? "" : ". ") + tip-detail;
+    accessible-action-default => { if (enabled) { clicked(); } }
     forward-focus: focus;
     focus := FocusScope {
+        enabled: root.enabled;
         focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
         key-pressed(e) => {
-            if (e.text == " " || e.text == "\n") { clicked(); return accept; }
+            if (enabled && (e.text == " " || e.text == "\n")) { clicked(); return accept; }
             reject
         }
     }
-    FocusRing { shown: focus.has-focus; radius: 8px; width: parent.width + 4px; height: parent.height + 4px; }
-    usage := TipUse { hover: touch.has-hover; }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
+        enabled: root.enabled;
         mouse-cursor: pointer;
         pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
         scroll-event(e) => { usage.wheel(); reject }
         clicked => { root.clicked(); }
     }
     if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
-    Icon { source: icon; tint: Theme.text-dim; width: icon-size; height: icon-size; }
+    press-t := Tone { on: touch.pressed && enabled; instant-in: true; fall: Motion.press-out; }
+    out property <float> pressed-tone: press-t.value;
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        border-radius: Theme.r-ctl;
+        background: Theme.ink;
+        opacity: 0.1 * press-t.value;
+    }
+    Icon { y: (parent.height - icon-size) / 2 + press-t.value * 1px; source: icon; tint: !enabled ? Theme.dis : touch.has-hover ? Theme.ink : Theme.ink2; width: icon-size; height: icon-size; }
 }

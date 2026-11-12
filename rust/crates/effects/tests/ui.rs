@@ -177,9 +177,12 @@ fn compile_editor() {
     assert!(result.component("CompositeEditor").is_some());
 }
 
-/// Desk's stretch sliders stick at 100% (slider.set_snaps([100]) in desk.py).
+/// Desk's Width and Height sliders go back to 100% by a double-click (slider.set_snaps([100]) in desk.py).
 #[test]
-fn desks_stretch_sliders_snap_at_100() {
-    assert_eq!(include_str!("../ui/desk.slint").matches("marks: [100];").count(), 2);
-    assert!(include_str!("../ui/parts.slint").contains("marks: root.marks;"));
+fn desks_width_and_height_sliders_have_100_for_their_default() {
+    let card = include_str!("../ui/desk.slint");
+    for line in ["has-default: true;", "default-value: 100;"] {
+        assert_eq!(card.matches(line).count(), 2, "{line}");
+    }
+    assert!(!card.contains("Pad {"), "no card uses the pad now");
 }

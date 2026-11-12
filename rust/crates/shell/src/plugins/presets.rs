@@ -179,7 +179,7 @@ impl PresetsPlugin {
     fn fixed_props() -> Value {
         json!({
             "label": tr("Presets"),
-            "tip": tr("This phone's saved camera, output, transform, framing and background settings"),
+            "tip": tr("Saved camera, output, transform, framing and background settings for this phone."),
             "save-text": tr("Save current as…"), "rename-text": tr("Rename"), "delete-text": tr("Delete"),
             "dialog-label": tr("Name:"), "replace-title": tr("Replace preset"), "replace-text": tr("Replace"),
             "cancel-text": tr("Cancel"),

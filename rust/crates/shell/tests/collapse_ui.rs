@@ -127,6 +127,8 @@ impl Rig {
         window.dispatch_event(WindowEvent::PointerMoved { position });
         window.dispatch_event(WindowEvent::PointerPressed { position, button });
         window.dispatch_event(WindowEvent::PointerReleased { position, button });
+        // A card a click folded closes over a fraction of a second: let it finish
+        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(600));
     }
 
     fn click(&self, e: &ElementHandle) {
@@ -201,12 +203,12 @@ fn a_folded_section_stays_folded_when_its_card_is_folded_and_opened() {
 }
 
 #[test]
-fn the_rule_and_icon_of_a_section_heading_fold_it_too() {
+fn the_rest_of_a_section_headings_row_folds_it_too() {
     let r = rig();
     let light = r.title("Light", 0);
     let (p, s) = (light.absolute_position(), light.size());
-    // The icon sits left of the title and the rule runs from it to the card's edge
-    r.click_at(p.x - 14.0, p.y + s.height / 2.0, PointerEventButton::Left);
+    // Right of the title, out to the card's edge
+    r.click_at(380.0, p.y + s.height / 2.0, PointerEventButton::Left);
     assert!(r.state.borrow().is_folded("p/Things/Light"));
     r.click_at(380.0, p.y + s.height / 2.0, PointerEventButton::Left);
     assert!(!r.state.borrow().is_folded("p/Things/Light"));
@@ -400,6 +402,7 @@ export component Test inherits Window {
     width: 420px;
     height: 1800px;
     in property <[Lens]> lenses;
+    in property <[string]> lens-names;
     in property <int> columns: 1;
     VerticalLayout {
         alignment: start;
@@ -409,6 +412,7 @@ export component Test inherits Window {
             active: true;
             fold-key: "camera_control/Camera";
             lenses: root.lenses;
+            lens-names: root.lens-names;
             lens-columns: root.columns;
         }
     }
@@ -432,10 +436,12 @@ fn a_row_that_grows_once_folding_is_installed_gets_its_new_height() {
         ("name".to_string(), Value::String(format!("Back {i}mm").into())),
     ]))).collect();
     ui.set_property("columns", Value::Number(3.0)).unwrap();
+    let names: Vec<Value> = (0..5).map(|i| Value::String(format!("Back {i}mm").into())).collect();
+    ui.set_property("lens-names", Value::Model(slint::ModelRc::new(slint::VecModel::from(names)))).unwrap();
     ui.set_property("lenses", Value::Model(slint::ModelRc::new(slint::VecModel::from(lenses)))).unwrap();
     slint::platform::update_timers_and_animations();
     let bottom = card().absolute_position().y + card().size().height;
-    let tiles: Vec<ElementHandle> = (0..5).map(|i| ElementHandle::find_by_accessible_label(&ui, &format!("Back {i}mm")).next().unwrap_or_else(|| panic!("no tile {i}"))).collect();
+    let tiles: Vec<ElementHandle> = (0..5).map(|i| ElementHandle::find_by_accessible_label(&ui, &format!("Lens: Back {i}mm")).next().unwrap_or_else(|| panic!("no tile {i}"))).collect();
     let first_row = tiles[0].absolute_position().y;
     let last_row = tiles[4].absolute_position().y;
     assert!(last_row > first_row, "two rows of tiles");

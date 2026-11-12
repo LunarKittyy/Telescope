@@ -455,14 +455,14 @@ fn a_lens_that_can_only_meter_takes_a_meter_point_and_tap_a_point_stays_off() {
 }
 
 #[test]
-fn compensation_snaps_and_all_three_reset_on_a_double_click() {
-    // Brightness snaps to 0; all three have a default a double-click goes back to (the slider's own job in ui-kit)
+fn compensation_moves_freely_and_all_three_reset_on_a_double_click() {
+    // Brightness doesn't snap to 0 (its centre line shows where 0 is); all three have a default a double-click goes back to (the slider's own job in ui-kit)
     let card = include_str!("../../ui/cards/camera.slint");
-    let brightness = &card[card.find("label: @tr(\"Brightness\");\n            Slider").unwrap()..];
+    let brightness = &card[card.find("shortcut: \"camera.compensation\";").unwrap()..];
     let brightness = &brightness[..brightness.find("moved(v)").unwrap()];
-    assert!(brightness.contains("marks: [0];") && brightness.contains("default-value: 0;"));
+    assert!(!brightness.contains("marks:") && brightness.contains("default-value: 0;"));
     assert_eq!(card.matches("has-default: true;").count(), 3);
-    assert_eq!(card.matches("marks:").count(), 1);
+    assert_eq!(card.matches("marks:").count(), 0);
     let mut r = Rig::new();
     r.streaming();
     r.cam.kelvin.enabled = true;
@@ -513,9 +513,11 @@ fn low_light_shows_only_once_the_phone_says_it_takes_it() {
         s
     };
     r.state(state.clone());
-    assert_eq!(r.props()["show-low-light"], false); // an older phone app
+    let tile = |r: &Rig| (r.props()["low-light"]["enabled"].clone(), r.props()["low-light"]["tip"].as_str().unwrap().to_string());
+    assert_eq!(tile(&r).0, false); // an older phone app, or not streaming yet: greyed out, with why
+    assert!(!tile(&r).1.is_empty());
     r.state(with(json!({"low_light_toggle": true})));
-    assert_eq!(r.props()["show-low-light"], true);
+    assert_eq!(tile(&r).0, true);
     assert!(!r.cam.low_light.checked);
     r.streaming();
     r.clear();
@@ -523,7 +525,7 @@ fn low_light_shows_only_once_the_phone_says_it_takes_it() {
     assert!(r.cam.low_light.checked);
     assert!(r.sent().is_empty()); // following the phone isn't a new request
     r.cam.on_stream_stop(&mut r.host);
-    assert_eq!(r.props()["show-low-light"], false); // until the next phone says it takes it
+    assert_eq!(tile(&r).0, false); // until the next phone says it takes it
 }
 
 #[test]
@@ -722,8 +724,9 @@ fn the_card_compiles_and_has_every_property_the_plugin_sets() {
         assert!(names.contains(key), "camera.slint has no {key}");
     }
     let callbacks: Vec<String> = def.callbacks().map(|c| c.replace('_', "-")).collect();
-    for cb in ["lens-picked", "exposure-picked", "iso-moved", "shutter-moved", "ae-moved", "wb-picked", "kelvin-moved", "tint-moved",
-               "focus-picked", "focus-moved", "ois-toggled", "low-light-toggled", "bll-toggled", "torch-toggled", "nr-picked", "edge-picked"] {
+    for cb in ["lens-picked", "exposure-picked", "iso-picked", "shutter-picked", "ae-moved", "wb-picked", "kelvin-moved", "tint-moved",
+               "focus-picked", "focus-moved", "ois-toggled", "low-light-toggled", "bll-toggled", "torch-toggled", "nr-picked", "edge-picked",
+               "iso-fine", "shutter-fine", "iso-typed", "shutter-typed", "ae-typed", "focus-typed"] {
         assert!(callbacks.contains(&cb.to_string()), "camera.slint has no {cb}");
     }
 }
@@ -883,7 +886,7 @@ fn back_on_a_after_b_nothing_is_sent_and_a_keeps_its_own_range() {
 #[test]
 fn iso_shutter_and_focus_move_a_position_at_a_time() {
     let card = include_str!("../../ui/cards/camera.slint");
-    for label in ["label: \"ISO\";\n            Slider", "label: @tr(\"Shutter\");\n            Slider", "label: @tr(\"Distance\");\n            Slider"] {
+    for label in ["shortcut: \"camera.focus\";"] {
         let at = card.find(label).unwrap_or_else(|| panic!("no {label}"));
         let slider = &card[at..at + card[at..].find("moved(v)").unwrap()];
         assert!(slider.contains("step: 1;"), "{label}: {slider}");
@@ -899,10 +902,10 @@ fn the_log_readouts_say_the_value_they_were_given() {
     assert_eq!(r.cam.iso.text(), "ISO 1234");
     r.cam.shutter.set_value(33_333_333.0);
     assert_eq!(r.cam.shutter.text(), "1/30");
-    // Moved by hand, it says where the slider is
+    // Turned to the last stop by hand, it says that stop
     r.cam.iso.enabled = true;
     r.cam.manual_exp = true;
-    r.ui("iso-moved", vec![json!(2000)]);
+    r.ui("iso-picked", vec![json!(1000)]);
     assert_eq!(r.cam.iso.text(), "ISO 6400");
 }
 
@@ -930,4 +933,326 @@ fn every_camera_action_is_offered_on_its_control() {
     for action in r.cam.actions() {
         assert!(card.contains(&format!("shortcut: \"{}\"", action.id)) || card.contains(&format!("action: \"{}\"", action.id)), "{}", action.id);
     }
+}
+
+// ── The dials: a lens's ISO and shutter times as stops ──
+
+#[test]
+fn the_iso_dial_has_the_stops_inside_the_lens_range() {
+    let stops = dial_stops(false, 50.0, 1600.0);
+    let names: Vec<&str> = stops.iter().map(|s| s.name.as_str()).collect();
+    assert_eq!((names[0], names[names.len() - 1], names.contains(&"400")), ("50", "1600", true));
+    assert!(stops.windows(2).all(|w| w[0].value < w[1].value), "low to high");
+    // A lens that stops a hair under a stop still gets it, held to its own end
+    assert_eq!(dial_stops(false, 50.0, 3199.0).last().unwrap().name, "3200");
+    assert!(dial_stops(false, 7.0, 9.0).is_empty(), "no stop in a range this small");
+}
+
+#[test]
+fn the_shutter_dial_goes_from_slow_to_fast() {
+    let stops = dial_stops(true, 100_000.0, 1_000_000_000.0);
+    assert!(stops.windows(2).all(|w| w[0].value > w[1].value), "slow to fast, so right is faster");
+    let names: Vec<&str> = stops.iter().map(|s| s.name.as_str()).collect();
+    assert_eq!((names[0], names[names.len() - 1]), ("1 s", "1/8000"));
+    assert!(names.contains(&"1/60") && names.contains(&"1/4"));
+    assert_eq!(nearest_stop(&stops, 16_666_667.0), names.iter().position(|n| *n == "1/60").unwrap());
+}
+
+#[test]
+fn turning_a_dial_sends_that_stop_and_a_disabled_dial_sends_nothing() {
+    let mut r = Rig::new();
+    r.streaming();
+    let stops = dial_stops(false, r.cam.iso.v_min, r.cam.iso.v_max);
+    let at = stops.iter().position(|s| s.name == "800").unwrap();
+    r.ui("iso-picked", vec![json!(at)]);
+    assert!(r.sent().is_empty(), "auto exposure: the dial is off");
+    r.ui("exposure-picked", vec![json!(1)]);
+    r.clear();
+    r.ui("iso-picked", vec![json!(at)]);
+    assert!(r.sent().contains(&json!({"action": "iso", "value": 800})));
+    assert_eq!(r.props()["iso-index"], at);
+    let slow = dial_stops(true, r.cam.shutter.v_min, r.cam.shutter.v_max);
+    let eighth = slow.iter().position(|s| s.name == "1/125").unwrap();
+    r.clear();
+    r.ui("shutter-picked", vec![json!(eighth)]);
+    assert!(r.sent().contains(&json!({"action": "shutter", "value": 8_000_000})));
+    assert_eq!(r.props()["shutter-stops"][eighth], "1/125");
+}
+
+#[test]
+fn every_third_stop_is_a_full_stop_and_the_dial_says_where_the_first_one_is() {
+    let iso = dial_stops(false, 50.0, 1600.0);
+    let majors: Vec<&str> = iso.iter().filter(|s| s.major).map(|s| s.name.as_str()).collect();
+    assert_eq!(majors, ["50", "100", "200", "400", "800", "1600"], "a doubling each");
+    assert_eq!(first_major(&iso), 0);
+    // A range that starts on a third: the first full stop is later
+    let from_64 = dial_stops(false, 64.0, 1600.0);
+    assert_eq!((from_64[0].name.as_str(), first_major(&from_64)), ("64", 2));
+    let shutter = dial_stops(true, 100_000.0, 1_000_000_000.0);
+    let majors: Vec<&str> = shutter.iter().filter(|s| s.major).map(|s| s.name.as_str()).collect();
+    assert_eq!(majors, ["1 s", "0.5 s", "1/4", "1/8", "1/15", "1/30", "1/60", "1/125", "1/250", "1/500", "1/1000", "1/2000", "1/4000", "1/8000"], "{majors:?}");
+}
+
+#[test]
+fn a_value_between_two_ticks_is_a_place_on_the_dial_and_back() {
+    let stops = dial_stops(false, 50.0, 1600.0);
+    let at = |name: &str| stops.iter().position(|s| s.name == name).unwrap();
+    assert_eq!(dial_place(&stops, 400.0), (at("400"), 0.0));
+    assert_eq!(dial_place(&stops, 400.2), (at("400"), 0.0), "a rounding of the phone's is still the tick");
+    // 450 is on the log scale about half way from 400 to 500
+    let (i, off) = dial_place(&stops, 447.0);
+    assert_eq!(i, at("400"));
+    assert!(off > 0.4 && off <= 0.5, "{off}");
+    let (i, off) = dial_place(&stops, 360.0);
+    assert_eq!(i, at("400"));
+    assert!(off < 0.0 && off >= -0.5, "{off}");
+    // And back: the place gives the value again
+    let (i, off) = dial_place(&stops, 430.0);
+    let back = dial_value(&stops, i, off).unwrap();
+    assert!((back - 430.0).abs() < 1.0, "{back}");
+    // Past the last tick it is held to half a tick
+    let (i, off) = dial_place(&stops, 1700.0);
+    assert_eq!(i, stops.len() - 1);
+    assert!(off > 0.0 && off <= 0.5);
+    // Shutter times run the other way, and the value comes back in nanoseconds
+    let slow = dial_stops(true, 100_000.0, 1_000_000_000.0);
+    let thirty = slow.iter().position(|s| s.name == "1/30").unwrap();
+    let (i, off) = dial_place(&slow, 1e9 / 33.0);
+    assert_eq!(i, thirty, "1/33 is nearer 1/30 than 1/40");
+    assert!(off > 0.0, "towards the faster one: {off}");
+    let back = dial_value(&slow, i, off).unwrap();
+    assert!((back - 1e9 / 33.0).abs() < 1e5, "{back}");
+}
+
+#[test]
+fn exposure_times_and_isos_are_read_as_they_are_written() {
+    assert_eq!(parse_shutter("1/250"), Some(4_000_000.0));
+    assert_eq!(parse_shutter(" 1/33 "), Some((1e9_f64 / 33.0).round()));
+    assert_eq!(parse_shutter("250"), Some(4_000_000.0), "a bare number from 1 up is the n of 1/n");
+    assert_eq!(parse_shutter("0.5"), Some(500_000_000.0));
+    assert_eq!(parse_shutter("0,5 s"), Some(500_000_000.0));
+    assert_eq!(parse_shutter("2s"), Some(2_000_000_000.0));
+    assert_eq!(parse_shutter("30\""), Some(30_000_000_000.0));
+    assert_eq!(parse_shutter("8 ms"), Some(8_000_000.0));
+    for bad in ["", "fast", "1/", "1/0", "-3", "1/x", "s"] {
+        assert_eq!(parse_shutter(bad), None, "{bad:?}");
+    }
+    assert_eq!(parse_iso("400"), Some(400.0));
+    assert_eq!(parse_iso("ISO 640"), Some(640.0));
+    assert_eq!(parse_iso("412.4"), Some(412.0));
+    for bad in ["", "iso", "-100", "0", "lots"] {
+        assert_eq!(parse_iso(bad), None, "{bad:?}");
+    }
+}
+
+#[test]
+fn a_dial_between_ticks_sends_that_value_and_reads_it_in_its_own_words() {
+    let mut r = Rig::new();
+    r.streaming();
+    r.ui("exposure-picked", vec![json!(1)]);
+    let stops = dial_stops(false, r.cam.iso.v_min, r.cam.iso.v_max);
+    let at = stops.iter().position(|s| s.name == "400").unwrap();
+    r.clear();
+    r.ui("iso-fine", vec![json!(at), json!(0.25)]);
+    let sent = r.sent();
+    let value = sent.iter().find(|b| b["action"] == "iso").map(|b| b["value"].as_i64().unwrap()).expect("an ISO was sent");
+    assert!((400..500).contains(&value) && value != 400, "a quarter of the way from 400 to 500: {value}");
+    let p = r.props();
+    assert_eq!(p["iso-index"], at);
+    assert!(p["iso-between"].as_f64().unwrap() > 0.2 && p["iso-between"].as_f64().unwrap() < 0.3);
+    assert_eq!(p["iso-text"], value.to_string());
+    // On a tick again it reads as the tick
+    r.ui("iso-picked", vec![json!(at)]);
+    assert_eq!((r.props()["iso-between"].as_f64(), r.props()["iso-text"].as_str()), (Some(0.0), Some("")));
+    // The shutter, in nanoseconds
+    let slow = dial_stops(true, r.cam.shutter.v_min, r.cam.shutter.v_max);
+    let thirty = slow.iter().position(|s| s.name == "1/30").unwrap();
+    r.clear();
+    r.ui("shutter-fine", vec![json!(thirty), json!(0.4)]);
+    let ns = r.sent().iter().find(|b| b["action"] == "shutter").map(|b| b["value"].as_i64().unwrap()).expect("a shutter time was sent");
+    assert!(ns < 33_333_333 && ns > 25_000_000, "between 1/30 and 1/40: {ns}");
+    assert!(r.props()["shutter-text"].as_str().unwrap().starts_with("1/3") || r.props()["shutter-text"].as_str().unwrap().starts_with("1/4"));
+}
+
+#[test]
+fn a_typed_value_is_set_clamped_to_the_range_and_a_bad_one_counts_for_the_shake() {
+    let mut r = Rig::new();
+    r.streaming();
+    r.ui("exposure-picked", vec![json!(1)]);
+    r.clear();
+    r.ui("shutter-typed", vec![json!("1/250")]);
+    assert!(r.sent().contains(&json!({"action": "shutter", "value": 4_000_000})));
+    assert_eq!(r.props()["shutter-text"], "");
+    r.clear();
+    r.ui("shutter-typed", vec![json!("1/33")]);
+    assert!(r.sent().contains(&json!({"action": "shutter", "value": 30_303_030})));
+    assert_eq!(r.props()["shutter-text"], "1/33");
+    r.clear();
+    r.ui("iso-typed", vec![json!("400")]);
+    assert!(r.sent().contains(&json!({"action": "iso", "value": 400})));
+    // Past the lens's range it is held to it
+    r.ui("iso-typed", vec![json!("999999")]);
+    assert!(r.sent().contains(&json!({"action": "iso", "value": r.cam.iso.v_max as i64})));
+    let before = r.props()["shutter-rejected"].as_i64().unwrap();
+    r.clear();
+    r.ui("shutter-typed", vec![json!("fast")]);
+    assert!(r.sent().is_empty(), "nothing changed");
+    assert_eq!(r.props()["shutter-rejected"].as_i64().unwrap(), before + 1);
+}
+
+#[test]
+fn a_dial_that_is_off_takes_nothing_typed_or_between() {
+    let mut r = Rig::new();
+    r.streaming();
+    r.clear();
+    r.ui("iso-typed", vec![json!("400")]);
+    r.ui("iso-fine", vec![json!(5), json!(0.2)]);
+    assert!(r.sent().is_empty(), "auto exposure: the dial is off");
+    assert_eq!(r.props()["iso-rejected"], 0, "and it does not shake: it is not asking");
+}
+
+#[test]
+fn the_noise_and_sharpening_rows_say_which_row_they_are_on_hover() {
+    let r = Rig::new();
+    let p = r.props();
+    assert_eq!(p["noise-tip-details"][2], "Reduce noise as much as possible, even if the frame rate drops.");
+    assert_eq!(p["sharpening-tip-details"][0], "");
+}
+
+#[test]
+fn brightness_readout_moves_by_the_phones_step_with_every_unit() {
+    for step in [0.167, 0.333, 0.5, 1.0] {
+        let mut r = Rig::new();
+        r.cam.ae_step = step;
+        let mut last: Option<f64> = None;
+        for units in -6..=6_i64 {
+            r.cam.on_ae_comp_changed(units);
+            let shown: f64 = r.cam.ae_text.trim_end_matches(" EV").parse().unwrap();
+            if let Some(before) = last {
+                assert!((shown - before - step).abs() < 0.011, "step {step}: {before} to {shown} at {units} is not one step ({})", r.cam.ae_text);
+            }
+            last = Some(shown);
+        }
+    }
+}
+
+// ── typed values in the Brightness and Focus boxes ──
+
+#[test]
+fn typed_brightness_is_read_in_ev_and_lands_on_the_nearest_step() {
+    for text in ["1", "+1", "1 EV", "1ev", " +1.0 EV ", "1,0"] {
+        assert_eq!(parse_ev_steps(text, 0.5, -6, 6), Some(2), "{text}");
+    }
+    assert_eq!(parse_ev_steps("-0.7", 0.5, -6, 6), Some(-1));
+    assert_eq!(parse_ev_steps("-0.7", 0.167, -12, 12), Some(-4));
+    assert_eq!(parse_ev_steps("1,5", 1.0 / 3.0, -12, 12), Some(5));
+    assert_eq!(parse_ev_steps("\u{2212}0,5 EV", 0.5, -6, 6), Some(-1), "the minus sign Swedish writes and a decimal comma");
+    assert_eq!(parse_ev_steps("0", 0.5, -6, 6), Some(0));
+    assert_eq!(parse_ev_steps("40", 0.5, -6, 6), Some(6), "past the range is held to it");
+    assert_eq!(parse_ev_steps("-40", 0.5, -6, 6), Some(-6));
+    for bad in ["", "EV", "abc", "inf", "nan", "1e999", "1 m"] {
+        assert_eq!(parse_ev_steps(bad, 0.5, -6, 6), None, "{bad:?}");
+    }
+    assert_eq!(parse_ev_steps("1", 0.0, -6, 6), None, "a phone with no step has nothing to land on");
+}
+
+#[test]
+fn a_brightness_readout_typed_back_lands_on_the_same_step() {
+    for step in [0.1_f64, 0.167, 1.0 / 6.0, 0.25, 0.333, 1.0 / 3.0, 0.5, 1.0] {
+        let max = (3.0 / step).round() as i64;
+        for steps in -max..=max {
+            let readout = ev_text(steps, step);
+            assert_eq!(parse_ev_steps(&readout, step, -max, max), Some(steps), "step {step}: {readout}");
+        }
+    }
+}
+
+#[test]
+fn typing_brightness_sets_the_step_and_the_readout_follows() {
+    let mut r = Rig::new();
+    r.streaming();
+    r.cam.ae_step = 0.5;
+    r.cam.ae.set_range(-4, 4);
+    r.clear();
+    r.ui("ae-typed", vec![json!("1")]);
+    assert!(r.sent().contains(&json!({"action": "ae_comp", "value": 2})));
+    assert_eq!(r.props()["ae-comp"], 2);
+    assert_eq!(r.props()["ae-text"], "+1.0 EV");
+    r.clear();
+    r.ui("ae-typed", vec![json!("99")]);
+    assert_eq!(r.props()["ae-comp"], 4);
+    assert_eq!(r.props()["ae-text"], "+2.0 EV");
+    r.clear();
+    r.ui("ae-typed", vec![json!("nonsense")]);
+    assert!(r.sent().is_empty(), "nothing changed");
+    assert_eq!(r.props()["ae-comp"], 4);
+}
+
+#[test]
+fn typed_focus_distance_is_read_in_metres_and_lands_on_the_nearest_position() {
+    // A lens that focuses as near as 0.1 m: 10 dioptres across 1000 positions
+    for text in ["0.5", "0,5", "0.5 m", "0.5m", " 0.50 m ", "0.5 metres"] {
+        assert_eq!(parse_focus_position(text, 10.0), Some(200), "{text}");
+    }
+    assert_eq!(parse_focus_position("2 m", 10.0), Some(50));
+    assert_eq!(parse_focus_position("0.1", 10.0), Some(1000), "the near limit");
+    assert_eq!(parse_focus_position("0.01", 10.0), Some(1000), "nearer than the lens goes is held to the limit");
+    for text in ["inf", "INF", "Infinity", "∞", "∞ m", "1000", "100 m"] {
+        assert_eq!(parse_focus_position(text, 10.0), Some(0), "{text}: too far to tell from infinity");
+    }
+    for bad in ["", "m", "0", "-1", "-2 m", "abc", "nan", "1 EV"] {
+        assert_eq!(parse_focus_position(bad, 10.0), None, "{bad:?}");
+    }
+    assert_eq!(parse_focus_position("1", 0.0), None, "no scale, no distance");
+}
+
+#[test]
+fn a_focus_readout_typed_back_reads_the_same_and_lands_on_the_same_position_where_it_can_tell() {
+    for max_diopters in [2.0, 5.0, 8.0, 10.0, 12.5] {
+        let mut r = Rig::new();
+        r.cam.focus_max_diopters = max_diopters;
+        for pos in 0..=FOCUS_STEPS {
+            r.cam.on_focus_slider(pos);
+            let readout = r.cam.focus_text.clone();
+            let back = parse_focus_position(&readout, max_diopters).unwrap_or_else(|| panic!("{readout} is not read"));
+            r.cam.on_focus_slider(back);
+            assert_eq!(r.cam.focus_text, readout, "max {max_diopters}: {pos} reads {readout} but comes back as {back}");
+            // A readout with two decimals can't tell the nearest positions apart, so exact where it can
+            let metres = 1.0 / (pos as f64 / FOCUS_STEPS as f64 * max_diopters);
+            if readout != "∞" && metres * metres * max_diopters / FOCUS_STEPS as f64 > 0.02 {
+                assert_eq!(back, pos, "max {max_diopters}: {readout}");
+            }
+        }
+    }
+}
+
+#[test]
+fn typing_a_focus_distance_moves_the_slider_and_the_readout_follows() {
+    let mut r = Rig::new();
+    r.streaming();
+    r.cam.focus_max_diopters = 8.0;
+    r.cam.manual_focus = true;
+    r.cam.focus_slider.enabled = true;
+    r.clear();
+    r.ui("focus-typed", vec![json!("0.5")]);
+    assert_eq!(r.props()["focus-pos"], 250);
+    assert_eq!(r.props()["focus-text"], "0.50 m");
+    assert!(r.sent().contains(&json!({"action": "focus_distance", "value": 2.0})));
+    r.ui("focus-typed", vec![json!("inf")]);
+    assert_eq!(r.props()["focus-pos"], 0);
+    assert_eq!(r.props()["focus-text"], "∞");
+    r.clear();
+    r.ui("focus-typed", vec![json!("far away")]);
+    assert!(r.sent().is_empty(), "nothing changed");
+    assert_eq!(r.props()["focus-pos"], 0);
+}
+
+#[test]
+fn a_focus_slider_that_is_off_takes_nothing_typed() {
+    let mut r = Rig::new();
+    r.streaming();
+    r.clear();
+    r.ui("focus-typed", vec![json!("0.5")]);
+    assert!(r.sent().is_empty());
+    assert_eq!(r.props()["focus-pos"], 0);
 }

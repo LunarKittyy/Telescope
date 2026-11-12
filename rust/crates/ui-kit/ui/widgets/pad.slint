@@ -1,0 +1,492 @@
+// One pad that sets two numbers: x across and y up and down.
+
+import { Theme } from "../theme.slint";
+import { Reveal } from "folds.slint";
+import { FocusRing, TouchRing, KeyFocus } from "basics.slint";
+import { Tip } from "tip.slint";
+import { ShortcutMenu, ShortcutEntry } from "shortcut-menu.slint";
+import { Motion, Settle, Tone, Fade, ClickWait } from "motion.slint";
+import { FineAxis, Grip, Hold } from "fine.slint";
+
+// A square of the surround's colour with a quarter circle cut out, over one corner (0 to 3 clockwise from the top left): the software renderer squares off a gradient's corners, so the drawing is rounded by covering them.
+export component CornerCap inherits Path {
+    out property <string> control-kind: "helper";
+    in property <int> corner;
+    in property <length> r;
+    width: r;
+    height: r;
+    viewbox-width: self.width / 1px;
+    viewbox-height: self.height / 1px;
+    property <string> k: "" + r / 1px;
+    commands: corner == 0 ? "M 0 0 L " + k + " 0 A " + k + " " + k + " 0 0 0 0 " + k + " Z"
+        : corner == 1 ? "M " + k + " 0 L " + k + " " + k + " A " + k + " " + k + " 0 0 0 0 0 Z"
+        : corner == 2 ? "M " + k + " " + k + " L 0 " + k + " A " + k + " " + k + " 0 0 0 " + k + " 0 Z"
+        : "M 0 " + k + " L 0 0 A " + k + " " + k + " 0 0 0 " + k + " " + k + " Z";
+}
+
+// A box drawn on a pad, as shares of the pad's width and height (0 to 1): a place the frame handle can match, like the view a longer lens has.
+export struct PadMark {
+    x0: float,
+    y0: float,
+    x1: float,
+    y1: float,
+}
+
+// Kind "pad": one box that sets two numbers (x across, y up and down) with the caller's drawing and buttons as its children, which can follow `handle-x` and `handle-y`, and it says `moved` then `released` like a slider. With `box-w` and `box-h` the handle is a frame of that size instead of a puck (the crop on a map): a press inside it keeps hold of where it was grabbed, a press outside centres it there, and what lies outside it is dimmed.
+export component Pad inherits Rectangle {
+    in property <float> x-minimum: 0;
+    in property <float> x-maximum: 100;
+    in property <float> y-minimum: 0;
+    in property <float> y-maximum: 100;
+    // Where the parent says it is. A drag never writes here, so a parent's `value-x: temperature` keeps following temperature.
+    in-out property <float> value-x: 0;
+    in-out property <float> value-y: 0;
+    // Where the person last put it, shown until the parent says something new
+    property <float> local-x;
+    property <float> local-y;
+    property <bool> touched;
+    out property <float> shown-x: touched ? local-x : value-x;
+    out property <float> shown-y: touched ? local-y : value-y;
+    // A click that is still waiting out the double-click interval is dropped when anything else sets the numbers or the pad goes disabled
+    changed value-x => { touched = false; pend.cancel(); }
+    changed value-y => { touched = false; pend.cancel(); }
+    changed enabled => { if (!enabled) { pend.cancel(); } }
+    in property <float> step-x: 1;
+    in property <float> step-y: 1;
+    // y grows upward, as on a graph; off, it grows downward, as on a screen
+    in property <bool> y-up;
+    // Where the crosshair crosses
+    in property <float> centre-x: (x-minimum + x-maximum) / 2;
+    in property <float> centre-y: (y-minimum + y-maximum) / 2;
+    in property <bool> has-centre: true;
+    // A double-click and Home put the pad back here (the centre when it has no default)
+    in property <bool> has-default;
+    in property <float> default-x;
+    in property <float> default-y;
+    // The numbers in a small chip on the pad, bottom right or top left
+    in property <string> readout;
+    in property <bool> readout-top-left;
+    // What a screen reader says for where it is: the readout unless the owner has better words
+    in property <string> spoken: readout;
+    in property <string> label;
+    in property <color> hue: Theme.accent;
+    // The handle's inside: what colour lies under it, where the drawing has one
+    in property <color> handle-fill: Theme.card;
+    // The colour the pad sits on, which its rounded corners are cut out of
+    in property <color> surround: Theme.card;
+    in property <bool> enabled: true;
+    // The size of a frame handle, as it lies on the pad; 0 for the round puck. The frame's centre runs from half its size in to half its size in
+    in property <length> box-w: 0;
+    in property <length> box-h: 0;
+    // Up to four boxes drawn thinly over the pad: a frame of one's size is pulled onto it while dragged, and the box brightens under the frame
+    in property <[PadMark]> marks;
+    in property <string> tip;
+    in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
+    property <string> hint-line: tip-hint != "" ? tip-hint : has-default ? @tr("Double-click to reset") : "";
+    in property <[string]> tip-keys;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
+    // A pad that stands for two actions gives their ids in `shortcut` with a space between, and an add item for each here
+    in property <[ShortcutEntry]> shortcut-adds;
+    // The ids of the two settings it is, for the outline when something outside the window reads or changes them
+    in property <string> setting-x;
+    in property <string> setting-y;
+    out property <string> control-kind: "pad";
+    callback moved(float, float);
+    callback released(float, float);
+    // The handle's centre, in the pad's own coordinates, for a drawing that follows it
+    out property <length> handle-x: glide-x.value * root.width;
+    out property <length> handle-y: y-up ? root.height * (1 - glide-y.value) : glide-y.value * root.height;
+    // Where the handle's centre is heading, as a share of the pad: along the room it has once the frame is full size, kept inside the range
+    property <length> aim-inset-x: framed ? min(box-w, root.width) / 2 : Theme.u(6);
+    property <length> aim-inset-y: framed ? min(box-h, root.height) / 2 : Theme.u(6);
+    property <float> aim-x: clamp((shown-x - x-minimum) / max(0.0001, x-maximum - x-minimum), 0, 1);
+    property <float> aim-y: clamp((shown-y - y-minimum) / max(0.0001, y-maximum - y-minimum), 0, 1);
+    // The handle glides in places on the pad, not in numbers, so a range that closes under it (the zoom going to 1x) never sends it across the pad; y-up turns the place over
+    property <bool> quick;
+    // Only a finger puts it somewhere at once: a key, Home and the double-click's reset glide, retargeting what is still moving
+    glide-x := Settle { to: (aim-inset-x + aim-x * (root.width - 2 * aim-inset-x)) / max(1px, root.width); snap: dragging; pace: Motion.lead; }
+    glide-y := Settle { to: (aim-inset-y + aim-y * (root.height - 2 * aim-inset-y)) / max(1px, root.height); snap: dragging; pace: Motion.trail; }
+    // The frame's size: it starts at the pad's own size (nothing to travel from while there is no frame) and eases to the box it is given and
+    // back, so it comes in as a frame closing in on the picture, and goes out the same way
+    frame-w := Settle { to: (framed ? box-w : root.width) / 1px; }
+    frame-h := Settle { to: (framed ? box-h : root.height) / 1px; }
+    // Drawn while it is there, and while it is still closing back out to the pad's size
+    property <bool> frame-shown: framed || abs(frame-w.value * 1px - root.width) > 0.5px || abs(frame-h.value * 1px - root.height) > 0.5px;
+    held-tone := Tone { on: held; }
+    hover-tone := Tone { on: touch.has-hover && enabled; }
+    Timer {
+        interval: 80ms;
+        running: quick;
+        triggered => { quick = false; }
+    }
+    // The mark the frame is the size of (the first, as there is usually one), -1 for none
+    pure function fits(m: PadMark) -> bool {
+        framed && m.x1 > m.x0 && m.y1 > m.y0
+            && abs((m.x1 - m.x0) * root.width - box-w) <= box-w * 0.02 + 0.5px
+            && abs((m.y1 - m.y0) * root.height - box-h) <= box-h * 0.02 + 0.5px
+    }
+    property <int> hit: marks.length > 0 && fits(marks[0]) ? 0 : marks.length > 1 && fits(marks[1]) ? 1 : marks.length > 2 && fits(marks[2]) ? 2 : marks.length > 3 && fits(marks[3]) ? 3 : -1;
+    property <PadMark> hit-mark: hit == 0 ? marks[0] : hit == 1 ? marks[1] : hit == 2 ? marks[2] : marks[3];
+    property <length> hit-x: (hit-mark.x0 + hit-mark.x1) / 2 * root.width;
+    property <length> hit-y: (hit-mark.y0 + hit-mark.y1) / 2 * root.height;
+    // Where the handle's centre runs from and to
+    property <bool> framed: box-w > 0px && box-h > 0px;
+    property <length> inset-x: frame-shown ? frame-w.value * 1px / 2 : Theme.u(6);
+    property <length> inset-y: frame-shown ? frame-h.value * 1px / 2 : Theme.u(6);
+    // A first click away from the handle waits for the double-click interval (the sliders' rule, `ClickWait`) before the handle moves, when a
+    // double-click would reset it, so the reset never starts with a jump to the click; a drag, or a press on the handle itself, takes hold at once
+    property <length> press-px;
+    property <length> press-py;
+    property <length> pend-x;
+    property <length> pend-y;
+    property <bool> pending: pend.waiting;
+    pend := ClickWait {
+        elapsed => {
+            if (!enabled || Grip.cut(touch.grip)) { return; }
+            drag-to(pend-x, pend-y);
+            if (!dragging) { released(shown-x, shown-y); }
+        }
+    }
+    // Where a press took hold of the frame, so it follows the pointer from there
+    property <length> grab-dx;
+    property <length> grab-dy;
+    property <bool> dragging;
+    // Shift while dragging goes finer: the handle follows a tenth of the pointer's travel
+    fine-x := FineAxis { }
+    fine-y := FineAxis { }
+    property <bool> shift-now;
+    // A press has the handle and is dragging it (a screen reader and an owner that wants to know)
+    out property <bool> held: dragging && touch.pressed;
+    // What the arrows move by: one step. Shift with an arrow moves by a tenth of the range, in whole steps
+    out property <float> key-small-x: max(0.0001, step-x);
+    out property <float> key-small-y: max(0.0001, step-y);
+    out property <float> key-big-x: max(0.0001, step-x) * max(1, round((x-maximum - x-minimum) / max(0.0001, step-x) / 10));
+    out property <float> key-big-y: max(0.0001, step-y) * max(1, round((y-maximum - y-minimum) / max(0.0001, step-y) / 10));
+    // Every way of setting the numbers goes through here, saying what a drag says: moved, then released
+    function set-to(vx: float, vy: float) {
+        if (!enabled) { return; }
+        pend.cancel();
+        let tx = clamp(vx, x-minimum, x-maximum);
+        let ty = clamp(vy, y-minimum, y-maximum);
+        if (tx != shown-x || ty != shown-y) {
+            glide-x.sync();
+            glide-y.sync();
+            quick = true;
+            local-x = tx;
+            local-y = ty;
+            touched = true;
+            moved(tx, ty);
+            released(tx, ty);
+        }
+    }
+    // The numbers the pointer is at, held to the step
+    function at-x(px: length) -> float {
+        round((x-minimum + clamp((px - inset-x) / max(1px, root.width - 2 * inset-x), 0, 1) * (x-maximum - x-minimum)) / max(0.0001, step-x)) * max(0.0001, step-x)
+    }
+    function at-y(py: length) -> float {
+        let f = clamp((py - inset-y) / max(1px, root.height - 2 * inset-y), 0, 1);
+        round((y-minimum + (y-up ? 1 - f : f) * (y-maximum - y-minimum)) / max(0.0001, step-y)) * max(0.0001, step-y)
+    }
+    // A soft detent: the frame is exactly on the mark within snap-hold, at the pointer from snap-reach out, and eases between, so it never jumps or sticks
+    property <length> snap-reach: Theme.u(5);
+    property <length> snap-hold: Theme.u(1.5);
+    // How much of the way to the pointer the dragged frame goes: 1 when nothing pulls on it
+    function pull(px: length, py: length) -> float {
+        if (!(dragging && touch.pressed && hit >= 0)) { return 1; }
+        let dx = (clamp(px, inset-x, max(inset-x, root.width - inset-x)) - hit-x) / 1px;
+        let dy = (clamp(py, inset-y, max(inset-y, root.height - inset-y)) - hit-y) / 1px;
+        let d = sqrt(dx * dx + dy * dy);
+        let reach = snap-reach / 1px;
+        let hold = snap-hold / 1px;
+        d >= reach ? 1 : d <= hold ? 0 : (d - hold) * reach / ((reach - hold) * d)
+    }
+    function drag-to(px: length, py: length) {
+        if (!enabled) { return; }
+        let s = pull(px, py);
+        let qx = hit < 0 ? px : hit-x + (clamp(px, inset-x, max(inset-x, root.width - inset-x)) - hit-x) * s;
+        let qy = hit < 0 ? py : hit-y + (clamp(py, inset-y, max(inset-y, root.height - inset-y)) - hit-y) * s;
+        let tx = clamp(at-x(qx), x-minimum, x-maximum);
+        let ty = clamp(at-y(qy), y-minimum, y-maximum);
+        if (tx != shown-x || ty != shown-y) {
+            local-x = tx;
+            local-y = ty;
+            touched = true;
+            moved(tx, ty);
+        }
+    }
+    // Both axes get similar travel: 3 across to 2 high unless the caller says otherwise, and in a layout never flatter than 2 across to 1 high
+    preferred-height: self.width * 2 / 3;
+    horizontal-stretch: 1;
+    min-width: Theme.u(48);
+    min-height: self.width / 2;
+    vertical-stretch: 0;
+    border-radius: Theme.r-ctl;
+    background: enabled ? Theme.raise : Theme.trough;
+    border-width: !enabled ? Theme.outline-w : Theme.ctl-outline-w(touch.has-hover, held);
+    border-color: !enabled ? Theme.dis-outline : Theme.ctl-outline(touch.has-hover, held);
+    accessible-role: slider;
+    accessible-label: label;
+    accessible-value: spoken;
+    accessible-description: tip-detail == "" ? tip : tip + ". " + tip-detail;
+    accessible-action-increment => { if (enabled) { set-to(shown-x + step-x, shown-y); } }
+    accessible-action-decrement => { if (enabled) { set-to(shown-x - step-x, shown-y); } }
+    forward-focus: focus;
+    focus := FocusScope {
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+        enabled: root.enabled;
+        key-pressed(e) => {
+            let by-x = e.modifiers.shift ? key-big-x : key-small-x;
+            let by-y = e.modifiers.shift ? key-big-y : key-small-y;
+            if (e.text == Key.RightArrow) { set-to(shown-x + by-x, shown-y); return accept; }
+            if (e.text == Key.LeftArrow) { set-to(shown-x - by-x, shown-y); return accept; }
+            if (e.text == Key.UpArrow) { set-to(shown-x, shown-y + (y-up ? by-y : -by-y)); return accept; }
+            if (e.text == Key.DownArrow) { set-to(shown-x, shown-y + (y-up ? -by-y : by-y)); return accept; }
+            if (e.text == Key.Home) { set-to(has-default ? default-x : centre-x, has-default ? default-y : centre-y); return accept; }
+            reject
+        }
+    }
+    TouchRing { setting: root.setting-x; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
+    TouchRing { setting: root.setting-y; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.hint-line; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
+    touch := TouchArea {
+        property <Hold> grip;
+        enabled: root.enabled;
+        mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
+        scroll-event(e) => { usage.wheel(); reject }
+        pointer-event(e) => {
+            shift-now = e.modifiers.shift;
+            if (e.kind == PointerEventKind.down) { usage.press(); grip = Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                dragging = true;
+                focus.focus();
+                let inside = frame-shown && abs(self.mouse-x - handle-x) <= frame-w.value * 1px / 2 && abs(self.mouse-y - handle-y) <= frame-h.value * 1px / 2;
+                grab-dx = inside ? handle-x - self.mouse-x : 0px;
+                grab-dy = inside ? handle-y - self.mouse-y : 0px;
+                press-px = self.mouse-x;
+                press-py = self.mouse-y;
+                fine-x.begin((self.mouse-x + grab-dx) / 1px);
+                fine-y.begin((self.mouse-y + grab-dy) / 1px);
+                let on-puck = !frame-shown && abs(self.mouse-x - handle-x) <= Theme.u(8) && abs(self.mouse-y - handle-y) <= Theme.u(8);
+                if (!inside && !on-puck && has-default && !pending) {
+                    pend-x = self.mouse-x;
+                    pend-y = self.mouse-y;
+                    pend.start();
+                } else if (!pending) {
+                    drag-to(self.mouse-x + grab-dx, self.mouse-y + grab-dy);
+                }
+            }
+            if (e.kind == PointerEventKind.move && dragging && self.pressed && !Grip.cut(grip)) { follow(); }
+            if (dragging && ((e.kind == PointerEventKind.up && e.button == PointerEventButton.left) || e.kind == PointerEventKind.cancel)) {
+                dragging = false;
+                if (!pending) { released(shown-x, shown-y); }
+            }
+        }
+        moved => {
+            if (self.pressed && dragging && !Grip.cut(grip)) { follow(); }
+        }
+        // The pointer moved with the button down: a drag that starts away from the handle ends the wait and takes hold at once
+        function follow() {
+            if (pending) {
+                if (abs(self.mouse-x - press-px) > Theme.u(2) || abs(self.mouse-y - press-py) > Theme.u(2)) {
+                    pend.cancel();
+                } else {
+                    pend-x = self.mouse-x;
+                    pend-y = self.mouse-y;
+                    return;
+                }
+            }
+            drag-to(fine-x.at((self.mouse-x + grab-dx) / 1px, shift-now, -100000, 100000) * 1px, fine-y.at((self.mouse-y + grab-dy) / 1px, shift-now, -100000, 100000) * 1px);
+        }
+        double-clicked => {
+            pend.cancel();
+            // The reset glides back even though the pointer is on the handle: only a drag under way puts it at once
+            glide-x.sync();
+            glide-y.sync();
+            dragging = false;
+            set-to(has-default ? default-x : centre-x, has-default ? default-y : centre-y);
+        }
+    }
+    // The caller's drawing, and any buttons on it, above the pad's own touch area so they answer first. 
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        @children
+    }
+    // A frame handle: what lies outside it dimmed, and the frame outlined in the card's colour (quiet at rest, full colour held), tinted inside while
+    // held. Every number is in whole physical pixels from one set (`fx`, `fy`, `fw`, `fh`), the dimmed surround's hole and the outline run on the
+    // same line (the middle of the outline's stroke, so the surround's edge always lies under the outline and nothing can show past it), and the
+    // surround's outer edge is the pad's own rounded corners, which the corner path covers, so there are no slivers in the corners to cover.
+    property <length> px-x: self.absolute-position.x;
+    property <length> px-y: self.absolute-position.y;
+    property <length> fw: round(frame-w.value * 1px / 1phx) * 1phx;
+    property <length> fh: round(frame-h.value * 1px / 1phx) * 1phx;
+    // The frame stays inside the pad while it grows and moves
+    property <length> fx: round((px-x + max(fw / 2, min(handle-x, root.width - fw / 2)) - fw / 2) / 1phx) * 1phx - px-x;
+    property <length> fy: round((px-y + max(fh / 2, min(handle-y, root.height - fh / 2)) - fh / 2) / 1phx) * 1phx - px-y;
+    property <length> fr: min(Theme.r-ctl, min(fw, fh) / 2);
+    // The outline's middle line: half a stroke in from the frame's edge
+    property <length> half: Theme.stroke / 2;
+    property <length> mr: max(0px, fr - half);
+    property <length> mx: fx + half;
+    property <length> my: fy + half;
+    property <length> mw: fw - Theme.stroke;
+    property <length> mh: fh - Theme.stroke;
+    property <length> pr: min(Theme.r-ctl, min(root.width, root.height) / 2);
+    // On a layer of its own: femtovg on wgpu loses parts of a stroke drawn after an anti-aliased fill like this on the same surface
+    if frame-shown: Path {
+        width: root.width;
+        height: root.height;
+        viewbox-width: root.width / 1px;
+        viewbox-height: root.height / 1px;
+        fill: Theme.stage.with-alpha(0.6);
+        fill-rule: FillRule.evenodd;
+        cache-rendering-hint: true;
+        commands: "M\{pr / 1px} 0H\{(root.width - pr) / 1px}A\{pr / 1px} \{pr / 1px} 0 0 1 \{root.width / 1px} \{pr / 1px}V\{(root.height - pr) / 1px}A\{pr / 1px} \{pr / 1px} 0 0 1 \{(root.width - pr) / 1px} \{root.height / 1px}H\{pr / 1px}A\{pr / 1px} \{pr / 1px} 0 0 1 0 \{(root.height - pr) / 1px}V\{pr / 1px}A\{pr / 1px} \{pr / 1px} 0 0 1 \{pr / 1px} 0Z"
+            + "M\{(mx + mr) / 1px} \{my / 1px}H\{(mx + mw - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mx + mw) / 1px} \{(my + mr) / 1px}V\{(my + mh - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mx + mw - mr) / 1px} \{(my + mh) / 1px}H\{(mx + mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{mx / 1px} \{(my + mh - mr) / 1px}V\{(my + mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mx + mr) / 1px} \{my / 1px}Z";
+    }
+    if has-centre: Rectangle {
+        x: inset-x + (centre-x - x-minimum) / max(0.0001, x-maximum - x-minimum) * (root.width - 2 * inset-x) - Theme.stroke / 2;
+        y: Theme.u(4);
+        width: Theme.stroke;
+        height: root.height - Theme.u(8);
+        border-radius: Theme.stroke / 2;
+        background: enabled ? Theme.ink.with-alpha(0.3) : Theme.dis.with-alpha(0.5);
+    }
+    if has-centre: Rectangle {
+        x: Theme.u(4);
+        y: inset-y + (y-up ? 1 - (centre-y - y-minimum) / max(0.0001, y-maximum - y-minimum) : (centre-y - y-minimum) / max(0.0001, y-maximum - y-minimum)) * (root.height - 2 * inset-y) - Theme.stroke / 2;
+        width: root.width - Theme.u(8);
+        height: Theme.stroke;
+        border-radius: Theme.stroke / 2;
+        background: enabled ? Theme.ink.with-alpha(0.3) : Theme.dis.with-alpha(0.5);
+    }
+    // The pad's four corners in the surround's colour as one path on a layer of its own, so their square bounds leave no fringe of their own
+    Path {
+        width: root.width;
+        height: root.height;
+        viewbox-width: root.width / 1px;
+        viewbox-height: root.height / 1px;
+        fill: surround;
+        cache-rendering-hint: true;
+        commands: "M0 0H\{pr / 1px}A\{pr / 1px} \{pr / 1px} 0 0 0 0 \{pr / 1px}Z"
+            + "M\{root.width / 1px} 0V\{pr / 1px}A\{pr / 1px} \{pr / 1px} 0 0 0 \{(root.width - pr) / 1px} 0Z"
+            + "M\{root.width / 1px} \{root.height / 1px}H\{(root.width - pr) / 1px}A\{pr / 1px} \{pr / 1px} 0 0 0 \{root.width / 1px} \{(root.height - pr) / 1px}Z"
+            + "M0 \{root.height / 1px}V\{(root.height - pr) / 1px}A\{pr / 1px} \{pr / 1px} 0 0 0 \{pr / 1px} \{root.height / 1px}Z";
+    }
+    // The tint while held is its own rectangle on the outline's middle line: femtovg on wgpu knocks out parts of a stroke over a fill of the same path
+    if frame-shown && held-tone.value > 0.01: Rectangle {
+        x: mx;
+        y: my;
+        width: mw;
+        height: mh;
+        border-radius: mr;
+        background: hue.with-alpha(0.14 * held-tone.value);
+    }
+    // The frame's outline: the stroke is centred on `half` in from the frame's edge, so its outer edge is the frame's edge
+    if frame-shown: Path {
+        x: fx;
+        y: fy;
+        width: fw;
+        height: fh;
+        // fitted: the viewbox is the box less one stroke, so a unit is a pixel
+        viewbox-width: mw / 1px;
+        viewbox-height: mh / 1px;
+        stroke: !enabled ? Theme.dis : Theme.lit(hue, max(held-tone.value, hover-tone.value));
+        stroke-width: Theme.stroke;
+        commands: "M\{mr / 1px} 0H\{(mw - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{mw / 1px} \{mr / 1px}V\{(mh - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mw - mr) / 1px} \{mh / 1px}H\{mr / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 0 \{(mh - mr) / 1px}V\{mr / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{mr / 1px} 0Z";
+    }
+    // The marks sit above the frame's outline so one under it still lights its edge; four fixed places keep their last box while fading out
+    for slot in 4: Rectangle {
+        width: root.width;
+        height: root.height;
+        property <bool> here: slot < root.marks.length;
+        property <PadMark> want: root.marks[slot];
+        property <PadMark> held;
+        init => { if (here) { held = want; } }
+        changed want => { if (here) { held = want; } }
+        // A box not on show takes its new place at once, one on show moves there
+        property <bool> unseen: presence.value < 0.01;
+        gx0 := Settle { to: held.x0; snap: unseen; }
+        gy0 := Settle { to: held.y0; snap: unseen; }
+        gx1 := Settle { to: held.x1; snap: unseen; }
+        gy1 := Settle { to: held.y1; snap: unseen; }
+        presence := Fade { shown: here; }
+        // On the frame: the frame's size and its middle on this box's middle
+        property <bool> on-it: here && root.fits(want) && abs(root.handle-x - (want.x0 + want.x1) / 2 * root.width) < 1.5px && abs(root.handle-y - (want.y0 + want.y1) / 2 * root.height) < 1.5px;
+        lit := Tone { on: on-it; }
+        property <length> sw: Theme.stroke / 2;
+        property <length> bx: round((root.px-x + gx0.value * root.width) / 1phx) * 1phx - root.px-x;
+        property <length> by: round((root.px-y + gy0.value * root.height) / 1phx) * 1phx - root.px-y;
+        property <length> bw: round((root.px-x + gx1.value * root.width) / 1phx) * 1phx - root.px-x - bx;
+        property <length> bh: round((root.px-y + gy1.value * root.height) / 1phx) * 1phx - root.px-y - by;
+        property <length> mr: max(0px, min(Theme.r-ctl, min(bw, bh) / 2) - sw / 2);
+        property <length> mw: bw - sw;
+        property <length> mh: bh - sw;
+        Path {
+            visible: presence.value > 0.01 && mw > 2 * sw && mh > 2 * sw;
+            opacity: presence.value;
+            x: bx;
+            y: by;
+            width: bw;
+            height: bh;
+            // fitted: the viewbox is the box less one stroke, so a unit is a pixel
+            viewbox-width: mw / 1px;
+            viewbox-height: mh / 1px;
+            stroke: Theme.ink.with-alpha(root.enabled ? 0.22 + 0.38 * lit.value : 0.13);
+            stroke-width: sw;
+            commands: "M\{mr / 1px} 0H\{(mw - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{mw / 1px} \{mr / 1px}V\{(mh - mr) / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{(mw - mr) / 1px} \{mh / 1px}H\{mr / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 0 \{(mh - mr) / 1px}V\{mr / 1px}A\{mr / 1px} \{mr / 1px} 0 0 1 \{mr / 1px} 0Z";
+        }
+    }
+    // A pad that can't be used lets the card show through what is drawn on it (a frame handle's pad keeps its picture: the frame goes grey instead)
+    if !enabled && !frame-shown: Rectangle {
+        border-radius: Theme.r-ctl;
+        background: Theme.card;
+        opacity: 0.55;
+    }
+    if readout != "": Rectangle {
+        x: readout-top-left ? Theme.u(4) : root.width - self.width - Theme.u(4);
+        y: readout-top-left ? Theme.u(4) : root.height - self.height - Theme.u(4);
+        width: min(chip-text.preferred-width + Theme.u(8), root.width - Theme.u(8));
+        height: Theme.u(11);
+        border-radius: Theme.r-handle;
+        background: Theme.card.with-alpha(0.78);
+        chip-text := Text {
+            x: Theme.u(4);
+            width: parent.width - Theme.u(8);
+            height: parent.height;
+            text: readout;
+            font-family: Theme.font;
+            font-size: Theme.small;
+            font-weight: Theme.w-value;
+            color: enabled ? Theme.ink : Theme.dis;
+            vertical-alignment: center;
+            overflow: elide;
+            accessible-role: none;
+        }
+    }
+    // Held, a halo of the card's full colour round the handle, since a handle already in full colour on hover has nothing else to change
+    if held-tone.value > 0.01 && !frame-shown: Rectangle {
+        opacity: held-tone.value;
+        x: handle-x - self.width / 2;
+        y: handle-y - self.height / 2;
+        width: Theme.u(19);
+        height: Theme.u(19);
+        border-radius: self.width / 2;
+        background: hue.with-alpha(0.32);
+    }
+    if !frame-shown: handle := Rectangle {
+        width: Theme.u(12);
+        height: Theme.u(12);
+        x: handle-x - self.width / 2;
+        y: handle-y - self.height / 2;
+        border-radius: self.width / 2;
+        background: !enabled ? Theme.raise : handle-fill;
+        border-width: Theme.u(1.5);
+        border-color: !enabled ? Theme.dis : hue.mix(Theme.card, 0.75 + 0.25 * max(held-tone.value, hover-tone.value));
+    }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; adds: root.shortcut-adds; }
+}

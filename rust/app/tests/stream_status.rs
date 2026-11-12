@@ -391,9 +391,22 @@ fn eliding_label_keeps_its_full_text_available() {
     assert_eq!(says("Short"), 1, "it all shows, so no tooltip");
     r.w.ui.window().dispatch_event(slint::platform::WindowEvent::PointerMoved { position: slint::LogicalPosition::new(300.0, 200.0) });
     r.skip(50);
+    // The readouts are on the bar while a stream is going, and the line gives way to them
+    r.w.ui.set_property("fps", slint_interpreter::Value::String("30".into())).unwrap();
+    r.w.ui.set_property("net", slint_interpreter::Value::String("12.4 Mbps".into())).unwrap();
     r.w.ui.set_property("status", slint_interpreter::Value::String(long.into())).unwrap();
+    // The window works the bar out whenever it has processed what came in
+    r.w.process();
+    // The line swaps its text with a fade, and a tip only hears the pointer once the pointer moves over a text that is drawn: hover after the swap is over
+    r.skip(600);
     hover();
-    assert_eq!(says(long), 2, "the line and its tooltip");
+    // The tooltip comes up on timers that real time and the plugin threads also move, so wait for it (bounded, and a miss fails) rather than trust one fixed skip
+    let mut waited = 0;
+    while says(long) < 2 && waited < 30 {
+        r.skip(100);
+        waited += 1;
+    }
+    assert_eq!(says(long), 2, "the line and its tooltip (waited {waited} x 100 ms)");
     let line = i_slint_backend_testing::ElementHandle::find_by_accessible_label(&r.w.ui, long).next().expect("the line");
     assert!(line.size().width < 500.0, "it gives way to the window rather than holding it open: {}", line.size().width);
     assert!(line.absolute_position().x + line.size().width <= 560.0, "and is cut off inside it");

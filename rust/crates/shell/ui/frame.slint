@@ -1,7 +1,7 @@
 // The window around the cards (app.py _build_header, _build_footer, widgets/banner.py, widgets/tiles.py). The window
 // itself is written by the shell at startup (doc.rs), which places every plugin's card between these.
 
-import { Theme, Icons, Icon, FocusRing, Button, TipBody, TipUse, ShortcutMenu } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Well, FocusRing, KeyFocus, Button, IconButton, Tip, TipBody, TipUse, ShortcutMenu, Arrival, Motion, Fade, Settle, Unfold, MenuSurface, MenuItem, BarPin, PinReadout, PinChip } from "@ui-kit/ui-kit.slint";
 
 export struct BannerData {
     key: string,
@@ -11,6 +11,10 @@ export struct BannerData {
     // "err", "warn" or "info"
     kind: string,
     actions: [string],
+    // False while the banner is closing (its issue is gone, its row stays until it has shut)
+    open: bool,
+    // Counts changes of what the banner says, so a new message cross-fades
+    rev: int,
 }
 
 export struct TileData {
@@ -34,46 +38,34 @@ export global StatusColors {
     }
 }
 
-// QPushButton#icon_btn: transparent with a quiet border, a 36px square in the header.
+// The header's controls are one size, a little bigger than a card's: the bar's height less its padding
+// The header's icon button: the kit's, a little bigger.
 export component HeaderIconButton inherits Rectangle {
     in property <image> icon;
-    in property <length> icon-size: 18px;
+    in property <length> icon-size: Theme.icon;
     in property <string> label;
     in property <string> tip;
+    in property <string> tip-detail;
     in property <bool> enabled: true;
     callback clicked;
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    border-width: 1px;
-    border-color: touch.has-hover && enabled ? Theme.border-hover : Theme.border;
-    background: touch.has-hover && enabled ? Theme.surface-raise : transparent;
-    accessible-role: button;
-    accessible-label: label;
-    accessible-enabled: enabled;
-    accessible-action-default => { if (enabled) { clicked(); } }
-    forward-focus: focus;
-    focus := FocusScope {
+    width: Theme.u(18);
+    height: Theme.u(18);
+    accessible-role: none;
+    IconButton {
+        width: parent.width;
+        height: parent.height;
+        raised: true;
+        icon: root.icon;
+        icon-size: root.icon-size;
+        label: root.label;
+        tip: root.tip;
+        tip-detail: root.tip-detail;
         enabled: root.enabled;
-        key-pressed(e) => {
-            if (e.text == " " || e.text == "\n") { clicked(); return accept; }
-            reject
-        }
-    }
-    FocusRing { shown: focus.has-focus; radius: 8px; width: parent.width + 4px; height: parent.height + 4px; }
-    usage := TipUse { hover: touch.has-hover; }
-    touch := TouchArea {
-        enabled: root.enabled;
-        mouse-cursor: pointer;
-        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
-        scroll-event(e) => { usage.wheel(); reject }
         clicked => { root.clicked(); }
     }
-    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
-    Icon { source: icon; tint: enabled ? Theme.text-dim : Theme.text-disabled; width: icon-size; height: icon-size; accessible-role: none; }
 }
 
-// QPushButton#start_btn: lavender while idle, red while streaming.
+// Start streaming: the one white button in the window (violet in Classic), black with a white outline while streaming (red in Classic).
 export component StartButton inherits Rectangle {
     in property <string> text;
     in property <bool> streaming;
@@ -81,204 +73,348 @@ export component StartButton inherits Rectangle {
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     callback clicked;
-    height: 40px;
-    width: lay.preferred-width;
-    border-radius: 8px;
-    border-width: 1px;
-    background: !enabled ? Theme.bg : streaming ? (touch.has-hover ? #c45a55 : #b04a46)
-        : touch.pressed ? Theme.fill-press : touch.has-hover ? Theme.fill-hover : Theme.fill;
-    border-color: !enabled ? Theme.border : streaming ? #c45a55 : touch.has-hover ? Theme.fill-hover : Theme.fill;
-    accessible-role: button;
-    accessible-label: text;
-    accessible-enabled: enabled;
-    accessible-action-default => { if (enabled) { clicked(); } }
-    forward-focus: focus;
-    focus := FocusScope {
+    height: Theme.u(18);
+    // Start and Stop are the same size: the width never drops below what "Start streaming" and "Stop streaming" take
+    width: max(btn.min-width, Theme.u(88));
+    accessible-role: none;
+    btn := Button {
+        width: parent.width;
+        height: parent.height;
+        text: root.text;
+        role: root.streaming ? "stop" : "go";
+        has-icon: true;
+        icon: root.streaming ? Icons.v-stop : Icons.v-play;
+        icon-size: Theme.icon;
+        font-size: Theme.body * 1.08;
+        padding-x: Theme.u(9);
+        gap: Theme.u(4);
         enabled: root.enabled;
-        key-pressed(e) => {
-            if (e.text == " " || e.text == "\n") { clicked(); return accept; }
-            reject
-        }
-    }
-    FocusRing { shown: focus.has-focus; radius: 8px; width: parent.width + 4px; height: parent.height + 4px; }
-    touch := TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { root.clicked(); } }
-    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    lay := HorizontalLayout {
-        padding-left: 23.5px;
-        padding-right: 23.5px;
-        spacing: 4px;
-        alignment: center;
-        Icon {
-            source: streaming ? Icons.v-stop : Icons.v-play;
-            tint: enabled ? white : Theme.text-disabled;
-            width: 14px;
-            height: 14px;
-            y: (parent.height - self.height) / 2;
-            accessible-role: none;
-        }
-        Text {
-            text: root.text;
-            font-family: Theme.font;
-            font-size: Theme.start;
-            font-weight: 700;
-            color: enabled ? white : Theme.text-disabled;
-            vertical-alignment: center;
-        }
+        shortcut: root.shortcut;
+        clicked => { root.clicked(); }
     }
 }
 
-// The footer's FPS and Throughput pills.
-export component FooterPill inherits Rectangle {
-    in property <string> caption;
-    in property <string> value;
-    in property <color> value-color: Theme.text;
-    in property <string> tip;
-    height: 24px;
-    width: lay.preferred-width;
-    border-radius: 12px;
-    border-width: 1px;
-    border-color: Theme.border;
-    background: Theme.surface-raise;
-    accessible-role: text;
-    accessible-label: caption + " " + value;
-    if tip != "": Tooltip { TipBody { says: tip; } }
-    lay := HorizontalLayout {
-        padding-left: 11px;
-        padding-right: 11px;
-        spacing: 6px;
-        Text { text: caption; font-family: Theme.font; font-size: Theme.body; color: Theme.text-faint; vertical-alignment: center; }
-        Text { text: value; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: value-color; vertical-alignment: center; }
-    }
-}
-
+// The bar under the window, the top bar's colour. The pins are the readouts people pinned from the Stats card (the camera, the frame rate
+// and the throughput to begin with), each side stacking from its own edge and folding the innermost ones into "+N" when they do not
+// fit. Not streaming (or while the stream says something else), the status is a dim word on the left. No dot, no badge.
 export component Footer inherits Rectangle {
     in property <string> status;
     in property <string> status-kind: "status_dim";
-    in property <string> fps;
-    in property <color> fps-color: Theme.text;
-    in property <string> fps-tip;
-    in property <string> net;
-    in property <color> net-color: Theme.text;
-    height: 40px;
+    // The status is a word of its own (anything but the streaming sentence, which the camera pin says)
+    in property <bool> status-shown: true;
+    in property <[BarPin]> pins;
+    // How many pins each side folded, and where its chip goes
+    in property <int> left-folded;
+    in property <length> left-chip-x;
+    in property <int> right-folded;
+    in property <length> right-chip-x;
+    // Where the status starts (after the pins on the left) and how much of the bar it may use
+    in property <length> status-x: Theme.u(8);
+    in property <length> status-room: root.width - 2 * Theme.u(8);
+    callback pin-measured(string, length, length);
+    callback drag-started(string);
+    callback drag-moved(string, length);
+    callback drag-ended(string);
+    callback unpin(string);
+    height: Theme.u(20);
     background: Theme.chrome;
-    Rectangle { y: 0; height: 1px; background: Theme.border; }
-    HorizontalLayout {
-        padding-left: 16px;
-        padding-right: 16px;
-        padding-top: 8px;
-        padding-bottom: 8px;
-        spacing: 14px;
-        shown-status := Text {
-            horizontal-stretch: 1;
-            text: status;
-            overflow: elide;
-            if shown-status.preferred-width > shown-status.width: Tooltip { TipBody { says: shown-status.text; } }
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: StatusColors.of(status-kind);
-            vertical-alignment: center;
-            accessible-role: text;
-        }
-        FooterPill { caption: @tr("FPS"); value: fps; value-color: fps-color; tip: fps-tip; }
-        FooterPill { caption: @tr("Throughput"); value: net; value-color: net-color; }
-    }
-}
-
-// QPushButton#banner_action: min-height 30px inside its 1px border.
-component BannerButton inherits Rectangle {
-    in property <string> text;
-    callback clicked;
-    height: 32px;
-    width: label.preferred-width + 26px;
-    border-radius: 8px;
-    border-width: 1px;
-    border-color: #ffffff24;
-    background: touch.has-hover ? #ffffff1f : #ffffff0f;
-    accessible-role: button;
-    accessible-label: text;
-    accessible-action-default => { clicked(); }
-    forward-focus: focus;
-    focus := FocusScope {
-        key-pressed(e) => {
-            if (e.text == " " || e.text == "\n") { clicked(); return accept; }
-            reject
-        }
-    }
-    FocusRing { shown: focus.has-focus; radius: 8px; width: parent.width + 4px; height: parent.height + 4px; }
-    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
-    label := Text {
-        text: root.text;
+    status-fade := Fade { shown: status-shown && status != ""; }
+    shown-status := Text {
+        x: status-x;
+        width: max(0px, status-room);
+        height: parent.height;
+        text: status;
+        overflow: elide;
         font-family: Theme.font;
         font-size: Theme.body;
-        font-weight: 600;
-        color: Theme.text;
+        color: StatusColors.of(status-kind);
+        vertical-alignment: center;
+        opacity: status-fade.value;
+        visible: status-fade.value > 0.001;
+        accessible-role: text;
+        Tip { says: shown-status.text; enabled: shown-status.preferred-width > shown-status.width; inert: true; }
     }
-}
-
-export component Banner inherits Rectangle {
-    in property <BannerData> data;
-    callback action(int);
-    callback dismissed;
-    border-radius: 12px;
-    border-width: 1px;
-    background: data.kind == "warn" ? #2a2419 : #2a1d20;
-    border-color: data.kind == "warn" ? #5c4a2a : #5a3134;
-    accessible-role: groupbox;
-    accessible-label: data.title;
-    // banner.py's margins sit inside the QSS border; here the border is inside the padding
-    HorizontalLayout {
-        padding-left: 15px;
-        padding-right: 11px;
-        padding-top: 13px;
-        padding-bottom: 13px;
-        spacing: 12px;
-        VerticalLayout {
-            alignment: start;
-            Icon { source: Icons.v-alert; tint: data.kind == "warn" ? Theme.warn : Theme.err; width: 20px; height: 20px; accessible-role: none; }
+    for pin[i] in pins: PinReadout {
+        pin: pin;
+        bar-w: root.width;
+        measured(w, plain) => { root.pin-measured(pin.id, w, plain); }
+        drag-started => { root.drag-started(pin.id); }
+        drag-moved(cx) => { root.drag-moved(pin.id, cx); }
+        drag-ended => { root.drag-ended(pin.id); }
+        menu-asked(x) => {
+            root.menu-pin = pin.id;
+            root.menu-locked = pin.locked;
+            root.menu-x = x;
+            root.menu-current = -1;
+            root.leaving = false;
+            menu.show();
         }
-        VerticalLayout {
-            horizontal-stretch: 1;
-            spacing: 3px;
-            alignment: start;
-            Text { text: data.title; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.text; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); }
-            if data.text != "": Text { text: data.text; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); }
-            if data.details != "": Rectangle {
-                background: #00000040;
-                border-radius: 6px;
-                HorizontalLayout {
-                    padding-left: 8px;
-                    padding-right: 8px;
-                    padding-top: 6px;
-                    padding-bottom: 6px;
-                    TextInput { text: data.details; read-only: true; font-family: Theme.mono; font-size: Theme.body; color: Theme.text; wrap: word-wrap; }
+    }
+    PinChip {
+        count: left-folded;
+        to-x: left-chip-x;
+        label: @tr("More");
+        clicked => { root.open-folded(0, self.x); }
+    }
+    PinChip {
+        count: right-folded;
+        to-x: right-chip-x;
+        label: @tr("More");
+        clicked => { root.open-folded(1, self.x); }
+    }
+
+    // The right-click menu of a pin, and the folded pins' list, are pop-ups above the bar that ease out before they go
+    property <string> menu-pin;
+    property <bool> menu-locked;
+    property <length> menu-x;
+    property <int> menu-current: -1;
+    property <bool> leaving;
+    property <int> folded-side: -1;
+    property <length> folded-x;
+    function leave() { leaving = true; }
+    // How tall the folded pins' list is, for a test
+    out property <length> list-height: min(root.folded-count * Theme.u(13) + Theme.u(5), max(Theme.u(18), root.absolute-position.y - Theme.u(6)));
+    public function open-folded(side: int, x: length) {
+        root.folded-side = side;
+        root.folded-x = x;
+        root.leaving = false;
+        list.show();
+    }
+    Timer {
+        interval: Motion.fade-out + 40ms;
+        running: root.leaving;
+        triggered => {
+            root.leaving = false;
+            menu.close();
+            list.close();
+        }
+    }
+    menu := PopupWindow {
+        x: clamp(root.menu-x - Theme.u(4), 0px, max(0px, root.width - Theme.u(60)));
+        y: -(Theme.u(18) + Theme.u(3));
+        width: Theme.u(60);
+        height: Theme.u(18);
+        close-policy: close-on-click-outside;
+        MenuSurface {
+            width: parent.width;
+            height: parent.height;
+            leaving: root.leaving;
+            VerticalLayout {
+                padding: Theme.u(2.5);
+                MenuItem {
+                    title: @tr("Unpin");
+                    enabled: !root.menu-locked;
+                    current: root.menu-current == 0;
+                    hovered => { root.menu-current = 0; }
+                    left => { root.menu-current = -1; }
+                    activate => {
+                        root.unpin(root.menu-pin);
+                        root.leave();
+                    }
                 }
             }
         }
-        for label[i] in data.actions: VerticalLayout {
-            alignment: center;
-            BannerButton { text: label; clicked => { root.action(i); } }
-        }
-        VerticalLayout {
-            alignment: start;
-            close := Rectangle {
-                width: 28px;
-                height: 28px;
-                border-radius: 6px;
-                background: close-touch.has-hover ? #ffffff14 : transparent;
-                accessible-role: button;
-                accessible-label: @tr("Dismiss");
-                accessible-action-default => { root.dismissed(); }
-                forward-focus: close-focus;
-                close-focus := FocusScope {
-                    key-pressed(e) => {
-                        if (e.text == " " || e.text == "\n") { root.dismissed(); return accept; }
-                        reject
+    }
+    list := PopupWindow {
+        x: clamp(root.folded-x, 0px, max(0px, root.width - Theme.u(120)));
+        y: -(root.list-height + Theme.u(3));
+        width: Theme.u(120);
+        // As tall as its rows, or as much of the window above the bar as there is, and then it scrolls
+        height: root.list-height;
+        close-policy: close-on-click-outside;
+        MenuSurface {
+            width: parent.width;
+            height: parent.height;
+            leaving: root.leaving;
+            Flickable {
+                viewport-width: self.width;
+                viewport-height: rows.preferred-height;
+                rows := VerticalLayout {
+                    width: parent.width;
+                    height: self.preferred-height;
+                    padding: Theme.u(2.5);
+                    for pin in pins: HorizontalLayout {
+                        if pin.state == 1 && pin.side == root.folded-side: HorizontalLayout {
+                            height: Theme.u(13);
+                            padding-left: Theme.u(4);
+                            padding-right: Theme.u(4);
+                            spacing: Theme.u(3);
+                            if pin.icon != "": Icon { y: (parent.height - self.height) / 2; source: Icons.named(pin.icon); tint: Theme.faint; width: Theme.icon-small; height: Theme.icon-small; }
+                            Text { text: pin.name; horizontal-stretch: 1; min-width: 0px; overflow: elide; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; vertical-alignment: center; }
+                            Text { text: pin.value; font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; color: pin.tone == "err" ? Theme.err : pin.tone == "warn" ? Theme.warn : Theme.ink; vertical-alignment: center; horizontal-alignment: right; }
+                        }
                     }
                 }
-                FocusRing { shown: close-focus.has-focus; radius: 6px; width: parent.width + 4px; height: parent.height + 4px; }
-                close-touch := TouchArea { mouse-cursor: pointer; clicked => { root.dismissed(); } }
-                Tooltip { TipBody { says: @tr("Dismiss"); } }
-                Icon { source: Icons.v-close; tint: Theme.text-dim; width: 14px; height: 14px; accessible-role: none; }
+            }
+        }
+    }
+    // How many pins the open list holds
+    property <int> folded-count: folded-side == 0 ? left-folded : folded-side == 1 ? right-folded : 0;
+}
+
+// A banner's action: the kit's button.
+component BannerButton inherits Rectangle {
+    in property <string> text;
+    // False in the layer that is fading out: it has no name and no click
+    in property <bool> live: true;
+    callback clicked;
+    height: Theme.row;
+    width: btn.min-width;
+    accessible-role: none;
+    btn := Button {
+        width: parent.width;
+        height: parent.height;
+        text: root.text;
+        accessible-label: root.live ? root.text : "";
+        clicked => { if (root.live) { root.clicked(); } }
+    }
+}
+
+// What one banner says: its icon, words and buttons. The Banner draws two of these over each other to cross-fade a new message.
+component BannerBody inherits HorizontalLayout {
+    in property <BannerData> data;
+    // The layer that shows (the other one is going out and answers nobody)
+    in property <bool> live: true;
+    // The room the dismiss cross keeps at the right end
+    in property <length> dismiss-room;
+    callback action(int);
+    // banner.py's margins sit inside the QSS border; here the border is inside the padding
+    padding-left: Theme.u(7.5);
+    padding-right: Theme.u(5.5);
+    padding-top: Theme.u(6.5);
+    padding-bottom: Theme.u(6.5);
+    spacing: Theme.u(6);
+    VerticalLayout {
+        alignment: start;
+        Icon { source: Icons.v-alert; tint: data.kind == "warn" ? Theme.warn : Theme.err; width: Theme.u(10); height: Theme.u(10); accessible-role: none; }
+    }
+    VerticalLayout {
+        horizontal-stretch: 1;
+        spacing: Theme.u(1.5);
+        alignment: start;
+        Text { text: data.title; accessible-label: root.live ? self.text : ""; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.ink; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); }
+        if data.text != "": Text { text: data.text; accessible-label: root.live ? self.text : ""; font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); }
+        if data.details != "": Well {
+            background: Theme.well;
+            HorizontalLayout {
+                padding-left: Theme.u(4);
+                padding-right: Theme.u(4);
+                padding-top: Theme.u(3);
+                padding-bottom: Theme.u(3);
+                TextInput { text: data.details; accessible-value: root.live ? self.text : ""; read-only: true; font-family: Theme.mono; font-size: Theme.body; color: Theme.ink; wrap: word-wrap; }
+            }
+        }
+    }
+    for label[i] in data.actions: VerticalLayout {
+        alignment: center;
+        BannerButton { text: label; live: root.live; clicked => { root.action(i); } }
+    }
+    Rectangle { width: root.dismiss-room; }
+}
+
+// A strip under the top bar. It grows open from nothing (the strip first, its words fade up as it opens) and shuts the same way back, on
+// the pace of the Name tag's position move, and everything under it follows because its height is what the BannerArea adds up. A message
+// that changes under the same banner (a new `rev`) cross-fades the words and the height moves with them, so it is no close and open.
+// A banner that is going keeps what it said until it has shut and then says `closed`: its row is removed after the motion, never before.
+export component Banner inherits Rectangle {
+    in property <BannerData> data;
+    in property <bool> open: true;
+    in property <int> rev;
+    // The gap above the strip: it opens and shuts with the strip, so nothing is left behind while it is shut
+    in property <length> lead: Theme.u(4);
+    callback action(int);
+    callback dismissed;
+    callback closed;
+    // How far open, 0 to 1, and how far the second layer has taken over, for a test
+    out property <float> value: unfold.value;
+    out property <float> mixed: swap.value;
+    out property <length> strip-height: card.height;
+    // A banner is made shut and opens in its first frame, so even the first one grows
+    property <bool> here;
+    unfold := Unfold { open: root.open && here; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
+    // 0 is the first layer, 1 the second: the message that comes in fades in on top of the one that goes out
+    swap := Unfold { open: root.on-b; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
+    gap := Settle { to: root.lead / 1px; pace: 1.75; }
+    property <bool> on-b;
+    property <BannerData> a-data;
+    property <BannerData> b-data;
+    property <length> words-h: layer-a.preferred-height * (1 - swap.value) + layer-b.preferred-height * swap.value;
+    // True from the moment it has shut, and only then: the row can go
+    property <bool> shut: !root.open && here && unfold.value <= 0;
+    init => {
+        a-data = root.data;
+        here = true;
+    }
+    // The layer that is less visible takes the new words (and the other keeps fading out), so a change in the middle of a change turns round
+    changed rev => {
+        if (swap.value < 0.5) {
+            b-data = root.data;
+            on-b = true;
+        } else {
+            a-data = root.data;
+            on-b = false;
+        }
+    }
+    changed shut => { if (shut) { root.closed(); } }
+    min-height: 0px;
+    vertical-stretch: 0;
+    preferred-height: unfold.value * (gap.value * 1px + words-h);
+    max-height: unfold.value > 0 ? 100000px : 0px;
+    visible: unfold.value > 0;
+    accessible-role: groupbox;
+    accessible-label: root.open ? data.title : "";
+    card := Well {
+        x: 0px;
+        y: unfold.value * gap.value * 1px;
+        width: parent.width;
+        height: unfold.value * root.words-h;
+        border-radius: Theme.r-card;
+        background: (data.kind == "warn" ? Theme.warn : Theme.err).mix(Theme.card, 0.14);
+        rim-w: Theme.card-outline-w;
+        rim: (data.kind == "warn" ? Theme.warn : Theme.err).mix(Theme.card, 0.6);
+        animate background { duration: Motion.tone-for(false); easing: Motion.tone; }
+        clip: true;
+        words := Rectangle {
+            x: 0px;
+            y: (unfold.value - 1) * Theme.u(3);
+            width: parent.width;
+            height: root.words-h;
+            opacity: clamp(unfold.value * 1.4 - 0.2, 0, 1);
+            layer-a := BannerBody {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                height: self.preferred-height;
+                z: root.on-b ? 0 : 1;
+                visible: !root.on-b || swap.value < 1;
+                opacity: clamp(1 - swap.value * 2.2, 0, 1);
+                data: root.a-data;
+                live: root.open && !root.on-b;
+                dismiss-room: cross.width;
+                action(i) => { root.action(i); }
+            }
+            layer-b := BannerBody {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                height: self.preferred-height;
+                z: root.on-b ? 1 : 0;
+                visible: root.on-b || swap.value > 0;
+                opacity: clamp((swap.value - 0.22) * 1.7, 0, 1);
+                data: root.b-data;
+                live: root.open && root.on-b;
+                dismiss-room: cross.width;
+                action(i) => { root.action(i); }
+            }
+            cross := IconButton {
+                x: parent.width - Theme.u(5.5) - self.width;
+                y: Theme.u(6.5);
+                z: 2;
+                icon: Icons.v-close;
+                icon-size: Theme.icon-small;
+                label: root.open ? @tr("Dismiss") : "";
+                tip: @tr("Dismiss");
+                clicked => { if (root.open) { root.dismissed(); } }
             }
         }
     }
@@ -288,14 +424,20 @@ export component BannerArea inherits VerticalLayout {
     in property <[BannerData]> banners;
     callback action(string, int);
     callback dismissed(string);
-    padding-left: 16px;
-    padding-right: 16px;
-    padding-top: banners.length > 0 ? 12px : 0px;
-    spacing: 8px;
-    for b in banners: Banner {
+    // A banner has shut and its row can go
+    callback closed(string);
+    padding-left: Theme.u(8);
+    padding-right: Theme.u(8);
+    spacing: 0px;
+    for b[i] in banners: Banner {
         data: b;
-        action(i) => { root.action(b.key, i); }
+        open: b.open;
+        rev: b.rev;
+        // The first strip sits Theme.u(6) under the top bar, the rest Theme.u(4) from the one above
+        lead: i == 0 ? Theme.u(6) : Theme.u(4);
+        action(n) => { root.action(b.key, n); }
         dismissed => { root.dismissed(b.key); }
+        closed => { root.closed(b.key); }
     }
 }
 
@@ -304,10 +446,10 @@ component StreamTile inherits Rectangle {
     callback focus-requested;
     callback stop-requested;
     width: lay.preferred-width;
-    border-radius: 10px;
-    border-width: 1px;
-    background: Theme.surface;
-    border-color: data.focused ? Theme.accent : touch.has-hover ? Theme.border-hover : Theme.border;
+    border-radius: Theme.r-card;
+    border-width: data.focused ? Theme.stroke : touch.has-hover ? Theme.outline-w-over : Theme.card-outline-w;
+    background: touch.has-hover ? Theme.hover : Theme.card;
+    border-color: data.focused ? Theme.accent : touch.has-hover ? Theme.outline-hover : Theme.card-outline;
     accessible-role: button;
     accessible-label: data.name;
     accessible-description: data.state;
@@ -320,46 +462,39 @@ component StreamTile inherits Rectangle {
             reject
         }
     }
-    FocusRing { shown: focus.has-focus; radius: 10px; width: parent.width + 4px; height: parent.height + 4px; }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-card; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
     touch := TouchArea { mouse-cursor: pointer; clicked => { root.focus-requested(); } }
-    if !data.focused: Tooltip { TipBody { says: @tr("Show this one's settings"); } }
+    Tip { says: data.focused ? "" : @tr("Show settings"); detail: data.focused ? "" : @tr("Show this stream's settings in the cards."); hover: touch.has-hover; focused: focus.has-focus && KeyFocus.keyboard; }
     lay := HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 6px;
-        padding-top: 8px;
-        padding-bottom: 8px;
-        spacing: 10px;
-        Rectangle {
-            width: 128px;
-            height: 72px;
-            border-radius: 6px;
-            background: Theme.surface-sunk;
+        padding-left: Theme.u(4);
+        padding-right: Theme.u(3);
+        padding-top: Theme.u(4);
+        padding-bottom: Theme.u(4);
+        spacing: Theme.u(5);
+        Well {
+            width: Theme.u(64);
+            height: Theme.u(36);
+            background: Theme.stage;
+            rim: Theme.dis-outline;
             clip: true;
             if data.has-thumb: Image { source: data.thumb; width: parent.width; height: parent.height; image-fit: contain; }
-            if !data.has-thumb: Text { text: "…"; color: Theme.text-faint; font-family: Theme.font; }
+            if !data.has-thumb: Text { text: "…"; color: Theme.faint; font-family: Theme.font; }
         }
         VerticalLayout {
-            spacing: 2px;
+            spacing: Theme.u(1);
             alignment: start;
-            Text { text: data.name; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.text; }
-            Text { text: data.output; font-family: Theme.font; font-size: 11px; color: Theme.text-faint; }
+            Text { text: data.name; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.ink; }
+            Text { text: data.output; font-family: Theme.font; font-size: Theme.tiny; color: Theme.ink2; }
             Text { text: data.state; font-family: Theme.font; font-size: Theme.body; color: StatusColors.of(data.kind); }
         }
         VerticalLayout {
             alignment: start;
-            stop := Rectangle {
-                width: 26px;
-                height: 26px;
-                border-radius: 8px;
-                border-width: 1px;
-                border-color: stop-touch.has-hover ? Theme.border-hover : Theme.border;
-                background: stop-touch.has-hover ? Theme.surface-raise : transparent;
-                accessible-role: button;
-                accessible-label: data.stop-label;
-                accessible-action-default => { root.stop-requested(); }
-                stop-touch := TouchArea { mouse-cursor: pointer; clicked => { root.stop-requested(); } }
-                Tooltip { TipBody { says: data.stop-label; } }
-                Icon { source: Icons.v-close; tint: Theme.text-dim; width: 12px; height: 12px; accessible-role: none; }
+            IconButton { raised: true;
+                icon: Icons.v-close;
+                icon-size: Theme.icon-small;
+                label: data.stop-label;
+                tip: data.stop-label;
+                clicked => { root.stop-requested(); }
             }
         }
     }
@@ -369,13 +504,13 @@ export component StreamTiles inherits HorizontalLayout {
     in property <[TileData]> tiles;
     callback focus-requested(string);
     callback stop-requested(string);
-    padding-left: 16px;
-    padding-right: 16px;
-    padding-top: tiles.length > 1 ? 12px : 0px;
-    spacing: 10px;
+    padding-left: Theme.u(8);
+    padding-right: Theme.u(8);
+    padding-top: tiles.length > 1 ? Theme.u(6) : 0px;
+    spacing: Theme.u(5);
     alignment: start;
     if tiles.length > 1: HorizontalLayout {
-        spacing: 10px;
+        spacing: Theme.u(5);
         for t in tiles: StreamTile {
             data: t;
             focus-requested => { root.focus-requested(t.id); }

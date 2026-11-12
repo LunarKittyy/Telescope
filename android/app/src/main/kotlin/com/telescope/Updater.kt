@@ -59,10 +59,16 @@ object Updater {
     // Local builds ("dev") are signed with a debug key, so no release could install over them anyway.
     fun canUpdate(): Boolean = BuildConfig.CHANNEL != "dev"
 
+    // An install the user walked away from goes back to Available, so the button works again.
+    fun recoverStuckInstall() {
+        val installing = state as? State.Installing ?: return
+        if (canUpdate() && UpdateLogic.installStuck(installing.sinceMs, System.currentTimeMillis())) installCancelled()
+    }
+
     // Once each time the app starts, then daily while it stays open.
     fun maybeCheck(context: Context) {
         if (!canUpdate()) return
-        (state as? State.Installing)?.let { if (UpdateLogic.installStuck(it.sinceMs, System.currentTimeMillis())) installCancelled() }
+        recoverStuckInstall()
         if (state !is State.Idle && state !is State.UpToDate && state !is State.CheckFailed) return
         val last = prefs(context).getLong(KEY_LAST_CHECK, 0)
         if (!checkedThisRun || UpdateLogic.checkDue(last, System.currentTimeMillis())) check(context)
@@ -96,6 +102,7 @@ object Updater {
     fun downloadAndInstall(context: Context, manifest: UpdateManifest) {
         val app = context.applicationContext
         if (UpdateLogic.apkAsset(manifest) == null) return
+        if (streamBusyNow()) return
         set(State.Downloading(manifest, 0))
         Thread {
             val apk = File(File(app.cacheDir, "updates").apply { mkdirs() }, "Telescope.apk")
@@ -108,9 +115,14 @@ object Updater {
                 set(State.Failed(problem, selected))
                 return@Thread
             }
+            // Last look before the installer opens, since a stream can start during the download
+            if (streamBusyNow()) {
+                set(State.Available(selected))
+                return@Thread
+            }
             set(State.Installing(selected))
             try {
-                install(app, apk)
+                if (!install(app, apk)) set(State.Available(selected))
             } catch (e: Exception) {
                 set(State.Failed(app.getString(R.string.update_error_install_start), selected))
             }
@@ -143,21 +155,27 @@ object Updater {
             @Suppress("DEPRECATION") info.signatures?.toSet().orEmpty()
         }
 
-    private fun install(context: Context, apk: File) {
+    // False when a stream started meanwhile and the session was abandoned instead of committed.
+    private fun install(context: Context, apk: File): Boolean {
         val installer = context.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         params.setAppPackageName(context.packageName)
         val sessionId = installer.createSession(params)
-        installer.openSession(sessionId).use { session ->
+        return installer.openSession(sessionId).use { session ->
             session.openWrite("Telescope.apk", 0, apk.length()).use { out ->
                 apk.inputStream().use { it.copyTo(out) }
                 session.fsync(out)
+            }
+            if (streamBusyNow()) {
+                session.abandon()
+                return@use false
             }
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or
                 (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0)
             val intent = Intent(context, UpdateInstallReceiver::class.java)
             val pending = PendingIntent.getBroadcast(context, sessionId, intent, flags)
             session.commit(pending.intentSender)
+            true
         }
     }
 
@@ -167,6 +185,12 @@ object Updater {
         if (ok) { set(State.UpToDate); return }
         set(State.Failed(message?.takeIf { it.isNotBlank() }?.let { context.getString(R.string.update_error_not_installed_because, it) }
             ?: context.getString(R.string.update_error_not_installed), manifest))
+    }
+
+    // A stream started while the installer was preparing: drop the session and go back to Available.
+    internal fun deferInstall(context: Context, sessionId: Int) {
+        if (sessionId >= 0) runCatching { context.packageManager.packageInstaller.abandonSession(sessionId) }
+        installCancelled()
     }
 
     internal fun installCancelled() {
@@ -189,6 +213,11 @@ class UpdateInstallReceiver : BroadcastReceiver() {
                 }
                 if (confirm == null) {
                     Updater.installFinished(context, false, null)
+                    return
+                }
+                // The very last look before the confirmation screen can appear
+                if (streamBusyNow()) {
+                    Updater.deferInstall(context, intent.getIntExtra(PackageInstaller.EXTRA_SESSION_ID, -1))
                     return
                 }
                 confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

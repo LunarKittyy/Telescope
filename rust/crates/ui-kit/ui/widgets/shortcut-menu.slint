@@ -12,12 +12,15 @@ export global Shortcuts {
     // Goes up whenever the saved shortcuts change, so bindings-for asks again
     in property <int> version;
     pure callback bindings-for(string, int) -> [ShortcutEntry];
+    // The keys of an action's first saved shortcut, one string per key ("Ctrl", "Alt", "M"), for the caps in its tooltip
+    pure callback key-chips(string, int) -> [string];
     callback add(string);
     callback edit(string);
 }
 
 // Laid over a control (after its other children) for its action id; other clicks go through to the control.
 export component ShortcutMenu inherits ContextMenuArea {
+    out property <string> control-kind: "helper";
     // A control with several actions gives their ids here with spaces between, and fills `adds`
     in property <string> action;
     // An add item for each action of a control with several: the action's id and "Add shortcut for {action}…"

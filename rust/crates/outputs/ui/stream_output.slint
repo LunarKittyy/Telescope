@@ -1,59 +1,12 @@
 // The Stream output card: resolution, frame rate and shape as three
 // tiles, Light or Heavy, then JPEG quality or bitrate. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Card, FormRow, Slider, ChoiceField, TipBody, TipUse, ShortcutMenu } from "@ui-kit/ui-kit.slint";
-
-// One of the two format buttons (widgets.controls.OptionCard): a title, a plain note and an icon.
-component OptionCard inherits Rectangle {
-    in property <string> title;
-    in property <string> note;
-    in property <image> icon;
-    in property <bool> checked;
-    in property <bool> enabled: true;
-    in property <string> tip;
-    in property <color> hue: Theme.accent;
-    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
-    in property <string> shortcut;
-    callback clicked;
-    horizontal-stretch: 1;
-    min-height: 54px;
-    border-radius: 9px;
-    border-width: 1px;
-    background: checked ? hue.with-alpha(0.12) : touch.has-hover && enabled ? Theme.surface-hover : Theme.surface-raise;
-    border-color: checked ? hue : touch.has-hover && enabled ? Theme.border-hover : Theme.border-strong;
-    opacity: enabled ? 1 : 0.5;
-    accessible-role: button;
-    accessible-label: title;
-    accessible-description: note;
-    accessible-checked: checked;
-    accessible-action-default => { if (root.enabled) { root.clicked(); } }
-    usage := TipUse { hover: touch.has-hover; }
-    touch := TouchArea {
-        enabled: root.enabled;
-        mouse-cursor: root.enabled ? pointer : default;
-        pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
-        scroll-event(e) => { usage.wheel(); reject }
-        clicked => { root.clicked(); }
-    }
-    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-    HorizontalLayout {
-        padding-left: 12px;
-        padding-right: 12px;
-        spacing: 10px;
-        Icon { source: icon; tint: checked ? hue : Theme.text-dim; width: 16px; height: 16px; y: (parent.height - self.height) / 2; }
-        VerticalLayout {
-            alignment: center;
-            spacing: 1px;
-            Text { text: title; font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: checked ? hue : Theme.text; }
-            Text { text: note; font-family: Theme.font; font-size: 11px; color: Theme.text-dim; }
-        }
-    }
-    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
-}
+import { Theme, Icons, Card, RailRow, Slider, Segmented, ChoiceField, UnfoldGroup, Unfolding, Page, PageGroup } from "@ui-kit/ui-kit.slint";
 
 export component StreamOutputCard inherits Card {
-    // dim_until_paired: faded and disabled until there's a phone, and gone for a source that isn't one
     in property <bool> active: true;
+    idle: !active;
+    // dim_until_paired: faded and disabled until there's a phone, and gone for a source that isn't one
     in property <bool> phone-only-hidden;
     in property <[string]> res-items: ["-"];
     in-out property <int> res-current;
@@ -77,7 +30,7 @@ export component StreamOutputCard inherits Card {
     in property <string> bitrate-readout;
     in property <string> bitrate-tip;
     // value_label's fits: the column both readouts share, wide enough for "100 Mbps" and the words it can show
-    in property <length> readout-width: 64px;
+    in property <length> readout-width: Theme.u(32);
     callback res-picked(int);
     callback fps-picked(int);
     callback ar-picked(int);
@@ -86,36 +39,57 @@ export component StreamOutputCard inherits Card {
     callback bitrate-moved(float);
 
     title: @tr("Stream output");
+    tip: @tr("The resolution, frame rate and format of the stream.");
     icon: Icons.v-stream;
-    opacity: active ? 1 : 0.4;
     enabled: active;
     blocked: !active;
     visible: !phone-only-hidden;
 
-    HorizontalLayout {
-        spacing: 8px;
+    RailRow {
+        icon: Icons.grid;
+        label: @tr("Resolution");
+        hue: root.hue;
+        enabled: active;
         ChoiceField {
-            horizontal-stretch: 3;
             caption: @tr("Resolution");
+            tip: @tr("Resolution");
+            compact: true;
             shortcut: "stream.resolution";
             items: root.res-items;
             current <=> root.res-current;
             enabled: root.res-enabled;
             picked(i) => { root.res-current = i; root.res-picked(i); }
         }
+    }
+    RailRow {
+        icon: Icons.film;
+        label: @tr("Frame rate");
+        tip-detail: root.fps-tip;
+        hue: root.hue;
+        enabled: active;
         ChoiceField {
-            horizontal-stretch: 2;
             caption: @tr("Frame rate");
+            compact: true;
             shortcut: "stream.fps";
             items: root.fps-items;
             current <=> root.fps-current;
             gone: root.fps-gone;
-            tip: root.fps-tip;
+            tip: @tr("Frame rate");
+            tip-detail: root.fps-tip;
             picked(i) => { root.fps-current = i; root.fps-picked(i); }
         }
+    }
+    RailRow {
+        icon: Icons.aspect;
+        label: @tr("Aspect ratio");
+        tip-detail: @tr("How wide the picture is compared to its height.");
+        hue: root.hue;
+        enabled: active;
         ChoiceField {
-            horizontal-stretch: 2;
-            caption: @tr("Shape");
+            caption: @tr("Aspect ratio");
+            tip: @tr("Aspect ratio");
+            tip-detail: @tr("How wide the picture is compared to its height.");
+            compact: true;
             shortcut: "stream.aspect_ratio";
             items: root.ar-items;
             current <=> root.ar-current;
@@ -123,69 +97,82 @@ export component StreamOutputCard inherits Card {
             picked(i) => { root.ar-current = i; root.ar-picked(i); }
         }
     }
-    HorizontalLayout {
-        spacing: 8px;
-        OptionCard {
-            title: @tr("Light");
-            note: @tr("Good for most calls");
-            icon: Icons.bolt;
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.layers;
+            label: @tr("Format");
+            tip-detail: @tr("The codec: how the phone compresses the picture before sending it.");
             hue: root.hue;
-            checked: root.h264;
-            enabled: root.h264-enabled;
-            tip: root.light-tip;
-            shortcut: "stream.format";
-            clicked => { root.format-picked(true); }
+            enabled: active;
+            Segmented {
+                hue: root.hue;
+                items: [@tr("Light"), @tr("Heavy")];
+                disabled: [!active || !h264-enabled, !active];
+                has-icons: [true, true];
+                icons: [Icons.bolt, Icons.heavy];
+                tips: [@tr("Light"), @tr("Heavy")];
+                tip-details: [root.light-tip, root.heavy-tip];
+                label: @tr("Format");
+                shortcut: "stream.format";
+                current: h264 ? 0 : 1;
+                picked(i) => { root.format-picked(i == 0); }
+            }
         }
-        OptionCard {
-            title: @tr("Heavy");
-            note: @tr("Sharper, more data");
-            icon: Icons.heavy;
-            hue: root.hue;
-            checked: !root.h264;
-            tip: root.heavy-tip;
-            shortcut: "stream.format";
-            clicked => { root.format-picked(false); }
+        PageGroup {
+        clip: quality-page.moving || bitrate-page.moving;
+        quality-page := Page {
+            shown: !root.h264;
+            RailRow {
+                    icon: Icons.gem;
+                    label: @tr("JPEG quality");
+                    tip-detail: root.quality-tip;
+                    hue: root.hue;
+                    enabled: active;
+                    changed: abs(root.quality - 85) > 0.5;
+                    Slider {
+                        minimum: 1;
+                        maximum: 95;
+                        value: root.quality;
+                        readout: root.quality-readout;
+                        readout-width: root.readout-width;
+                        label: @tr("JPEG quality");
+                        shortcut: "stream.quality";
+                        hue: root.hue;
+                        tip: @tr("JPEG quality");
+                        tip-detail: root.quality-tip;
+                        marks: [85];
+                        has-default: true;
+                        default-value: 85;
+                        moved(v) => { root.quality = v; root.quality-moved(v); }
+                    }
+                }
         }
-    }
-    FormRow {
-        label: @tr("JPEG quality");
-        visible: !root.h264;
-        height: root.h264 ? 0 : self.preferred-height;
-        Slider {
-            horizontal-stretch: 1;
-            minimum: 1;
-            maximum: 95;
-            value <=> root.quality;
-            readout: root.quality-readout;
-            readout-width: root.readout-width;
-            label: @tr("JPEG quality");
-            shortcut: "stream.quality";
-            hue: root.hue;
-            tip: root.quality-tip + "\n" + @tr("Double-click to reset");
-            marks: [85];
-            has-default: true;
-            default-value: 85;
-            moved(v) => { root.quality-moved(v); }
+        bitrate-page := Page {
+            shown: root.h264;
+            RailRow {
+                    icon: Icons.gauge;
+                    label: @tr("Bitrate");
+                    tip-detail: root.bitrate-tip;
+                    hue: root.hue;
+                    enabled: active;
+                    changed: root.bitrate > 0.5;
+                    Slider {
+                        minimum: 0;
+                        maximum: 101;
+                        value: root.bitrate;
+                        readout: root.bitrate-readout;
+                        readout-width: root.readout-width;
+                        label: @tr("Bitrate");
+                        shortcut: "stream.bitrate";
+                        hue: root.hue;
+                        tip: @tr("Bitrate");
+                        tip-detail: root.bitrate-tip;
+                        has-default: true;
+                        default-value: 0;
+                        moved(v) => { root.bitrate = v; root.bitrate-moved(v); }
+                    }
+                }
         }
-    }
-    FormRow {
-        label: @tr("Bitrate");
-        visible: root.h264;
-        height: root.h264 ? self.preferred-height : 0;
-        Slider {
-            horizontal-stretch: 1;
-            minimum: 0;
-            maximum: 101;
-            value <=> root.bitrate;
-            readout: root.bitrate-readout;
-            readout-width: root.readout-width;
-            label: @tr("Bitrate");
-            shortcut: "stream.bitrate";
-            hue: root.hue;
-            tip: root.bitrate-tip + "\n" + @tr("Double-click to reset");
-            has-default: true;
-            default-value: 0;
-            moved(v) => { root.bitrate-moved(v); }
         }
     }
 }

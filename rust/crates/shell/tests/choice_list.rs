@@ -39,7 +39,10 @@ fn click(w: &ComponentInstance, x: f32, y: f32) {
     w.window().dispatch_event(WindowEvent::PointerMoved { position });
     w.window().dispatch_event(WindowEvent::PointerPressed { position, button });
     w.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+    // A frame to start the list's ease, then long enough for it to finish
     telescope_shell::offscreen::pump();
+    telescope_shell::offscreen::draw(w.window(), 300.0, 400.0, 1.0);
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(300));
 }
 
 // Which row of the open list is filled, by looking at a pixel near each row's end
@@ -58,6 +61,8 @@ fn marked(w: &ComponentInstance) -> Vec<usize> {
     let found = (0..4).filter(|r| at(*r) != plain).collect();
     w.window().dispatch_event(WindowEvent::KeyPressed { text: slint::platform::Key::Escape.into() });
     w.window().dispatch_event(WindowEvent::KeyReleased { text: slint::platform::Key::Escape.into() });
+    telescope_shell::offscreen::draw(w.window(), 300.0, 400.0, 1.0);
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(300));
     click(w, 280.0, 390.0);
     telescope_shell::offscreen::draw(w.window(), 300.0, 400.0, 1.0);
     found

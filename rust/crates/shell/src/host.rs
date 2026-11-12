@@ -96,6 +96,9 @@ impl HostSettings for Ctx<'_> {
     fn running_plugins(&self) -> Vec<(String, String)> {
         self.state.slots.iter().filter(|s| !s.info.name.is_empty()).map(|s| (s.info.name.clone(), s.info.title.clone())).collect()
     }
+    fn plugin_looks(&self) -> Vec<telescope_core::host::PluginLook> {
+        self.state.slots.iter().filter(|s| !s.info.name.is_empty()).map(|s| telescope_core::host::PluginLook { name: s.info.name.clone(), title: s.info.title.clone(), icon: s.info.icon.clone() }).collect()
+    }
 }
 
 impl HostStreams for Ctx<'_> {
@@ -307,6 +310,9 @@ impl HostShell for Ctx<'_> {
     fn set_plugin_hues(&mut self, on: bool) {
         self.state.effects.push(Effect::PluginHues(on));
     }
+    fn set_look(&mut self, look: telescope_core::host::Look) {
+        self.state.effects.push(Effect::Look(look));
+    }
     fn set_shortcut_menu(&mut self, bindings: Option<Vec<telescope_core::ui::ShortcutEntry>>) {
         self.state.shortcut_menu = bindings.map(|b| (self.me.clone(), b));
         self.state.effects.push(Effect::ShortcutMenu);
@@ -321,6 +327,24 @@ impl HostShell for Ctx<'_> {
 impl HostUi for Ctx<'_> {
     fn set_ui_props(&mut self, ui: &str, props: &Value) {
         self.state.effects.push(Effect::Props { plugin: self.me.clone(), ui: ui.into(), props: props.clone() });
+    }
+    fn offer_bar_stats(&mut self, stats: &[telescope_core::bar::BarStat]) {
+        let me = self.me.clone();
+        self.state.bar.offer(&me, stats);
+    }
+    fn bar_pins(&self) -> Vec<String> {
+        self.state.bar.pinned()
+    }
+    fn pin_to_bar(&mut self, id: &str, pinned: bool) {
+        if self.state.bar.pin(id, pinned) {
+            if let Some(ids) = self.state.bar.pins_changed() {
+                self.state.bus.emit(Event::BarPinsChanged { pinned: ids });
+            }
+            self.state.effects.push(Effect::SaveSoon);
+        }
+    }
+    fn bar_stat(&self, id: &str) -> Option<telescope_core::bar::BarStat> {
+        self.state.bar.stat(id).cloned()
     }
     fn update_tray_action(&mut self, action: &TrayAction) {
         if let Some(i) = self.state.index(&self.me) {

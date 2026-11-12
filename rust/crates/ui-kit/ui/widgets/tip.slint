@@ -1,34 +1,405 @@
-// What a tooltip shows, styled like QToolTip in theme.py: raised fill, hover border, 6px corners, wrapping at about 64
-// characters. Slint's Tooltip can't be inherited, so it goes inside one: Tooltip { TipBody { says: "..."; } }
+// Tooltips. Slint's own Tooltip follows the pointer and waits a fixed 500ms, so the kit draws its own: a control holds a `Tip`
+// (what it says, when it may show), the one `Tips` global holds the tip that is up, and a `TipLayer` at the top of the window (and
+// inside the kit's pop-ups) draws it, below the control it explains or above it near the bottom edge, never following the pointer.
+// Read the Tooltips section of rust/crates/ui-kit/STYLE.md.
 
 import { Theme } from "../theme.slint";
-import { WindowBox } from "dialog.slint";
+import { WindowBox } from "window-box.slint";
+import { Shortcuts } from "shortcut-menu.slint";
+import { Peeks } from "peeks.slint";
+import { Fade } from "motion.slint";
 
-export component TipBody inherits Rectangle {
-    in property <string> says;
-    background: Theme.surface-raise;
-    border-width: 1px;
-    border-color: Theme.border-hover;
-    border-radius: 6px;
-    HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 8px;
-        padding-top: 5px;
-        padding-bottom: 5px;
-        Text {
-            text: root.says;
-            max-width: WindowBox.width > 0 ? min(470px, WindowBox.width - 34px) : 470px;
-            wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: Theme.text;
+// Where a tip goes, in window coordinates. Pure, so a test can ask without drawing anything.
+export global TipSpot {
+    // Room kept free between a tip and the window's edge
+    out property <length> margin: Theme.u(4);
+    // Between the control and the tip
+    out property <length> gap: Theme.u(2);
+    // Whether it sits above the control: only when it doesn't fit below, and then where there is more room
+    public pure function above(anchor-y: length, anchor-h: length, h: length, window-h: length) -> bool {
+        anchor-y + anchor-h + gap + h + margin > window-h && (anchor-y - gap - h >= margin || anchor-y > window-h - anchor-y - anchor-h)
+    }
+    // Its top edge, kept inside the window whichever side it sits on
+    public pure function top(anchor-y: length, anchor-h: length, h: length, above: bool, window-h: length) -> length {
+        max(margin, min(above ? anchor-y - gap - h : anchor-y + anchor-h + gap, window-h - h - margin))
+    }
+    // Its left edge: centred on the control, pushed in from the window's sides
+    public pure function left(anchor-x: length, anchor-w: length, w: length, window-w: length) -> length {
+        max(margin, min(anchor-x + anchor-w / 2 - w / 2, window-w - w - margin))
+    }
+}
+
+// The tip that is up. Written by the `Tip` that owns it, drawn by every TipLayer.
+export global Tips {
+    // How long the pointer rests before the first tip, and how long after one went down the next is warm
+    out property <duration> delay: 500ms;
+    out property <duration> warm-for: 1s;
+    // The rest a warm tip waits for, so passing over controls doesn't flash a chain of tips
+    out property <duration> warm-rest: 100ms;
+    // The pointer rests while it stays inside this circle, whose centre is where it last left the circle
+    out property <length> rest-radius: 4px;
+    // For this long after a value changed the wait is longer by this factor
+    out property <duration> quiet-for: 2500ms;
+    out property <float> quiet-factor: 2.5;
+    in-out property <bool> shown;
+    in-out property <int> owner;
+    in-out property <string> says;
+    in-out property <string> detail;
+    in-out property <string> hint;
+    in-out property <[string]> keys;
+    in-out property <color> hue: transparent;
+    // The control it explains, in window coordinates
+    in-out property <length> ax;
+    in-out property <length> ay;
+    in-out property <length> aw;
+    in-out property <length> ah;
+    property <int> last-id;
+    // Bumped by `dismiss`: a tip that was asked for before it stays down until its control is entered again
+    out property <int> epoch;
+    property <duration> went-down: -100s;
+    property <duration> last-beat;
+    // Bumped each time the pointer leaves its rest circle: a tip that was counting restarts its wait
+    out property <int> rest-gen;
+    property <length> rest-x: -100000px;
+    property <length> rest-y: -100000px;
+    // A press, the wheel or a drag ended the warm time: it stays ended until a tip shows again
+    property <bool> cold;
+    property <duration> changed-at: -100s;
+    public function claim() -> int {
+        last-id += 1;
+        return last-id;
+    }
+    // A tip up, or gone down a moment ago, and nothing pressed since: the next one needs only a short rest
+    public function is-warm() -> bool {
+        return !cold && (shown || animation-tick() - went-down < warm-for);
+    }
+    // A value was just changed: for a while the wait is longer
+    public function is-quiet() -> bool {
+        return animation-tick() - changed-at < quiet-for;
+    }
+    // How long the pointer has to rest on a control before its tip shows
+    public function wait() -> duration {
+        return (is-warm() ? warm-rest : delay) * (is-quiet() ? quiet-factor : 1);
+    }
+    // The window says where the pointer is (its input watch does, on every move)
+    public function moved(x: length, y: length) {
+        if ((x - rest-x) * (x - rest-x) + (y - rest-y) * (y - rest-y) > rest-radius * rest-radius) {
+            rest-x = x;
+            rest-y = y;
+            rest-gen += 1;
+        }
+    }
+    // A press, a drag start or the wheel anywhere: the next tip needs the whole wait again
+    public function cool() { cold = true; }
+    // A value was changed from the window (a slider, dial, switch, choice, field)
+    public function changed() { changed-at = animation-tick(); }
+    public function show(id: int, text: string, more: string, note: string, caps: [string], colour: color, x: length, y: length, w: length, h: length) {
+        owner = id;
+        says = text;
+        detail = more;
+        hint = note;
+        keys = caps;
+        hue = colour;
+        ax = x;
+        ay = y;
+        aw = w;
+        ah = h;
+        last-beat = animation-tick();
+        if (!shown) { cold = false; }
+        shown = true;
+    }
+    public function hide(id: int) {
+        if (shown && owner == id) {
+            shown = false;
+            went-down = animation-tick();
+        }
+    }
+    // Whatever holds the tips' owners hides them without the pointer or the focus moving (a page of Settings, a fold, a tab): it calls
+    // this, and the tip that is up goes down with its fade and none of the controls under the pointer or holding the focus right now shows
+    // one again until the pointer has left and come back (a control that was removed is taken care of by the heartbeat, below). The kit's
+    // own folds and Unfolding do it themselves; a card or page that hides a part of itself with `visible` calls it where it does.
+    public function dismiss() {
+        epoch += 1;
+        if (shown) {
+            shown = false;
+            went-down = animation-tick();
+        }
+    }
+    // The tip's owner calls this while it shows, so a tip whose control went away under it (no one left to hide it) goes down by itself
+    public function beat() { last-beat = animation-tick(); }
+    public function check() {
+        if (shown && animation-tick() - last-beat > 600ms) {
+            shown = false;
+            went-down = animation-tick();
         }
     }
 }
 
-// Tells a control whether it is being used, which keeps its tooltip down: a press or the wheel on it counts, until the
-// pointer leaves it. A Tooltip inside `if !usage.used` is then gone and its popup with it.
+// One key of a shortcut, as a small cap.
+component KeyCap inherits Rectangle {
+    in property <string> text;
+    height: Theme.u(8);
+    border-radius: Theme.r-handle;
+    background: Theme.card;
+    border-width: Theme.outline-w;
+    border-color: Theme.outline;
+    preferred-width: max(Theme.u(8), cap.preferred-width + Theme.u(4));
+    horizontal-stretch: 0;
+    cap := Text {
+        width: parent.width;
+        height: parent.height;
+        text: root.text;
+        font-family: Theme.font;
+        font-size: Theme.tiny;
+        font-weight: Theme.w-value;
+        color: Theme.ink2;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+// Kind "tip". What a tooltip draws: a name line (semibold, with the key caps of its shortcut on its right), then a detail line or two
+// (smaller, quieter), on a raised surface with the thin outline of a floating thing and a soft shadow. A dot in the card's colour
+// goes before the name when `hue` is set. Only `says` is needed, the rest only shows when it is set.
+export component TipBody inherits Rectangle {
+    in property <string> says;
+    in property <string> detail;
+    // The last line, smaller and dimmer than the detail: what a gesture does ("Double-click to reset")
+    in property <string> hint;
+    in property <[string]> keys;
+    in property <color> hue: transparent;
+    out property <string> control-kind: "tip";
+    // The most a line of text may be, held to a narrow window
+    property <length> measure: min(Theme.u(120), WindowBox.width > 0 ? WindowBox.width - 2 * TipSpot.margin - Theme.u(10) : Theme.u(120));
+    background: Theme.sel;
+    border-radius: Theme.r-ctl;
+    border-width: 1px;
+    border-color: Theme.line-hover;
+    drop-shadow-blur: Theme.u(6);
+    drop-shadow-offset-y: Theme.u(2);
+    drop-shadow-color: Theme.shadow;
+    preferred-width: lay.preferred-width;
+    preferred-height: lay.preferred-height;
+    lay := VerticalLayout {
+        padding-left: Theme.u(5);
+        padding-right: Theme.u(5);
+        padding-top: Theme.u(3);
+        padding-bottom: Theme.u(3);
+        spacing: Theme.u(1);
+        HorizontalLayout {
+            spacing: Theme.u(3);
+            if root.hue.alpha > 0: VerticalLayout {
+                alignment: start;
+                padding-top: (Theme.body * 1.3 - Theme.u(3)) / 2;
+                Rectangle {
+                    width: Theme.u(3);
+                    height: Theme.u(3);
+                    border-radius: self.height / 2;
+                    background: root.hue;
+                }
+            }
+            Text {
+                text: root.says;
+                horizontal-stretch: 1;
+                max-width: root.measure;
+                wrap: word-wrap;
+                line-height-factor: Theme.line-factor(self.font-size);
+                font-family: Theme.font;
+                font-size: Theme.body;
+                font-weight: Theme.w-value;
+                color: Theme.ink;
+            }
+            if root.keys.length > 0: VerticalLayout {
+                alignment: start;
+                horizontal-stretch: 0;
+                padding-left: Theme.u(2);
+                // The caps' letters sit on the name's baseline
+                padding-top: Theme.u(0.5);
+                HorizontalLayout {
+                    spacing: Theme.u(1);
+                    for key in root.keys: KeyCap { text: key; }
+                }
+            }
+        }
+        if root.detail != "": Text {
+            text: root.detail;
+            max-width: root.measure;
+            wrap: word-wrap;
+            line-height-factor: Theme.line-factor(self.font-size);
+            font-family: Theme.font;
+            font-size: Theme.small;
+            color: Theme.ink2;
+        }
+        if root.hint != "": Text {
+            text: root.hint;
+            max-width: root.measure;
+            wrap: word-wrap;
+            line-height-factor: Theme.line-factor(self.font-size);
+            font-family: Theme.font;
+            font-size: Theme.tiny;
+            color: Theme.faint;
+        }
+    }
+}
+
+// Kind "helper". Draws the tip that is up. One goes last in a window (so it is over everything), and one in each pop-up of the kit,
+// since a pop-up covers the window's own. It has no size and takes no input: it only places the tip in window coordinates.
+export component TipLayer inherits Rectangle {
+    out property <string> control-kind: "helper";
+    x: 0;
+    y: 0;
+    width: 0px;
+    height: 0px;
+    Timer {
+        interval: 300ms;
+        running: Tips.shown;
+        triggered => { Tips.check(); }
+    }
+    // A tip fades in and out, and stays where it is; it is drawn until it has faded
+    fade := Fade { shown: Tips.shown; }
+    // How solid the tip is now, for a test
+    out property <float> presence: fade.value;
+    if Tips.shown || fade.value > 0.02: tip := TipBody {
+        opacity: fade.value;
+        property <length> window-w: WindowBox.width > 0 ? WindowBox.width : 4000px;
+        property <length> window-h: WindowBox.height > 0 ? WindowBox.height : 4000px;
+        property <bool> above: TipSpot.above(Tips.ay, Tips.ah, self.height, window-h);
+        says: Tips.says;
+        detail: Tips.detail;
+        hint: Tips.hint;
+        keys: Tips.keys;
+        hue: Tips.hue;
+        width: self.preferred-width;
+        height: self.preferred-height;
+        x: TipSpot.left(Tips.ax, Tips.aw, self.width, window-w) - root.absolute-position.x;
+        y: TipSpot.top(Tips.ay, Tips.ah, self.height, above, window-h) - root.absolute-position.y;
+    }
+}
+
+// Kind "helper". Goes in a control (not in a layout), covering it: what the tip explains. Tells the window to show its tip when the pointer has
+// rested on it (`hover`) for a moment (a short one when another tip was up a second ago, a longer one just after a value changed), at once when the keyboard focus is on it (`focused`), and
+// takes it down when the pointer leaves, a press or the wheel lands on it (until the pointer leaves), or it is disabled.
+export component Tip inherits Rectangle {
+    out property <string> control-kind: "helper";
+    // The name, always shown
+    in property <string> says;
+    // A line or two more, in smaller quieter type
+    in property <string> detail;
+    // A last line in smaller and dimmer type still: what a gesture does ("Double-click to reset")
+    in property <string> hint;
+    // The keys that do the same, as caps on the right of the name: an action id here fills them from its saved shortcut
+    in property <[string]> keys;
+    in property <string> shortcut;
+    // The card's colour: a dot before the name
+    in property <color> hue: transparent;
+    in property <bool> hover;
+    in property <bool> focused;
+    in property <bool> enabled: true;
+    // The control takes no pointer of its own (it is disabled, or just a label), so the tip watches the pointer over it
+    in property <bool> inert;
+    // A press or the wheel on the control, which keeps its tip down until the pointer leaves
+    out property <bool> used;
+    out property <bool> up: Tips.shown && Tips.owner == id;
+    property <bool> wheeled;
+    property <bool> over;
+    property <int> id;
+    // How long this hover waits before its tip shows (Tips.wait when it began), and the pointer rest it last counted from
+    property <duration> waiting: Tips.delay;
+    property <int> rest: Tips.rest-gen;
+    // A held bubble is up: it stands in front of the tooltips for as long as it is
+    // The `dismiss` that was current when the pointer last came in or the focus last arrived: a dismiss since then keeps the tip down
+    property <int> seen;
+    property <bool> want: enabled && says != "" && !used && !Peeks.shown && seen == Tips.epoch && (hover || over || focused);
+    property <[string]> caps: keys.length > 0 || shortcut == "" ? keys : Shortcuts.key-chips(shortcut, Shortcuts.version);
+    property <length> ax: root.absolute-position.x;
+    property <length> ay: root.absolute-position.y;
+    property <length> aw: root.width;
+    property <length> ah: root.height;
+    // Covers the control it sits in, so it is where the tip points and as big as the control
+    x: 0px;
+    y: 0px;
+    width: 100%;
+    height: 100%;
+    init => { id = Tips.claim(); }
+    public function press() {
+        used = true;
+        Tips.cool();
+    }
+    public function wheel() {
+        used = true;
+        wheeled = true;
+        Tips.cool();
+    }
+    // Counts the wait from now, as long as it is for the pointer or the focus to rest
+    function arm() {
+        if (want && !up) {
+            waiting = Tips.wait();
+            wait-timer.restart();
+        }
+    }
+    function present() {
+        Tips.show(id, says, detail, hint, caps, hue, ax, ay, aw, ah);
+    }
+    function refresh() {
+        if (up) { present(); }
+    }
+    changed hover => {
+        if (hover) { seen = Tips.epoch; }
+        if (!hover) {
+            // The wheel makes the TouchArea drop its hover for a moment, which isn't leaving
+            if (wheeled) { wheeled = false; } else { used = false; }
+        }
+    }
+    changed over => {
+        if (over) { seen = Tips.epoch; }
+        if (!over) { used = false; }
+    }
+    changed focused => { if (focused) { seen = Tips.epoch; } }
+    changed want => {
+        if (want) {
+            if (focused) { present(); } else { arm(); }
+        } else {
+            Tips.hide(id);
+        }
+    }
+    changed rest => { arm(); }
+    changed says => { refresh(); }
+    changed detail => { refresh(); }
+    changed hint => { refresh(); }
+    changed caps => { refresh(); }
+    changed hue => { refresh(); }
+    changed ax => { refresh(); }
+    changed ay => { refresh(); }
+    changed aw => { refresh(); }
+    changed ah => { refresh(); }
+    if inert: TouchArea {
+        x: 0px;
+        y: 0px;
+        width: root.aw;
+        height: root.ah;
+        pointer-event(e) => { if (e.kind == PointerEventKind.down) { root.press(); } }
+        scroll-event(e) => {
+            root.wheel();
+            reject
+        }
+        changed has-hover => { root.over = self.has-hover; }
+    }
+    wait-timer := Timer {
+        interval: root.waiting;
+        running: root.want && !root.up;
+        triggered => { root.present(); }
+    }
+    Timer {
+        interval: 100ms;
+        running: root.up;
+        triggered => { Tips.beat(); }
+    }
+}
+
+// The old way: tells a control whether it is being used, which keeps its Tooltip down. Kept for a card that still draws a Tooltip
+// { TipBody { says: ... } } (the pointer's tooltip, in the new look); a control should hold a `Tip` instead.
 export component TipUse inherits Rectangle {
+    out property <string> control-kind: "helper";
     in property <bool> hover;
     out property <bool> used;
     // The wheel makes the TouchArea drop its hover for a moment, which isn't leaving

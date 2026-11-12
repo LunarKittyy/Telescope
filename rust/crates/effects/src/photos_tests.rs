@@ -146,25 +146,49 @@ impl Rig {
     }
 }
 
-/// A tile as the card shows it: (its list, where it is in it), or None when the card has no such tile.
+/// A control as the card shows it: (its list, where it is in it), or None when the card has nothing to pick there (it is greyed out).
 fn tile(props: &Value, key: &str) -> Option<(Vec<String>, i64)> {
-    let at = props["tiles"].as_array()?.iter().position(|t| t["key"] == key)?;
-    let list = props["tiles"][at]["options"].as_array()?.iter().map(|o| o.as_str().unwrap().to_string()).collect();
-    Some((list, props["tile-indexes"][at].as_i64()?))
+    let (prefix, there) = match key {
+        "iso" | "shutter" => (key, !props[format!("{key}-options")].as_array()?.is_empty()),
+        "exposure_s" => ("exposure", props["exposure-options"].as_array()?.len() > 1),
+        "mode" | "format" => (key, props[format!("{key}-enabled")] == true),
+        "distortion" => (key, props["distortion-enabled"] == true),
+        "burst" | "focus_steps" | "bracket" => ("slot", props["slot-key"] == key),
+        _ => return None,
+    };
+    if !there {
+        return None;
+    }
+    if prefix == "distortion" {
+        return Some((vec![], props["distortion-index"].as_i64()?)); // the card words its three choices itself
+    }
+    let list = props[format!("{prefix}-options")].as_array()?.iter().map(|o| o.as_str().unwrap().to_string()).collect();
+    Some((list, props[format!("{prefix}-index")].as_i64()?))
 }
 
+/// The controls with something to pick, in the order the card has them.
 fn keys(props: &Value) -> Vec<String> {
-    props["tiles"].as_array().unwrap().iter().map(|t| t["key"].as_str().unwrap().to_string()).collect()
+    let offered = props["shots-offered"].as_array().map_or(0, |s| s.iter().filter(|o| **o == true).count());
+    let slot = props["slot-key"].as_str().unwrap_or("");
+    ["iso", "shutter", "mode", "format", "shots", "burst", "focus_steps", "bracket", "exposure_s", "distortion"]
+        .into_iter()
+        .filter(|key| match *key {
+            "shots" => offered > 1,
+            "burst" | "focus_steps" | "bracket" => slot == *key,
+            _ => tile(props, key).is_some(),
+        })
+        .map(String::from)
+        .collect()
 }
 
 #[test]
 fn without_photos_the_button_is_off_and_the_card_says_why() {
     let mut rig = Rig::new(None, false);
     assert_eq!(rig.props()["take-enabled"], false);
-    assert!(rig.props()["info"].as_str().unwrap().contains("Start streaming"));
+    assert!(rig.props()["take-tip"].as_str().unwrap().contains("Start streaming"));
     rig.host.streaming = true;
     rig.caps_changed();
-    assert!(rig.props()["info"].as_str().unwrap().contains("Update the app"));
+    assert!(rig.props()["take-tip"].as_str().unwrap().contains("Update the app"), "the reason is the disabled button's tooltip, not a sentence on the card");
 }
 
 impl Rig {
@@ -177,8 +201,10 @@ impl Rig {
 fn the_card_shows_only_what_the_lens_has() {
     let mut rig = Rig::new(Some(json!({"size": [1920, 1080]})), true);
     let p = rig.props();
-    assert!(p["take-enabled"] == true && p["info-shown"] == false);
-    assert!(keys(&p).is_empty() && p["best-shown"] == false, "a plain lens has the timer, the folder and nothing else");
+    assert!(p["take-enabled"] == true);
+    assert!(keys(&p).is_empty() && p["best-enabled"] == false, "a plain lens has the timer, the folder and nothing else to pick");
+    assert_eq!((p["mode-options"].clone(), p["format-options"].clone()), (json!(["Normal"]), json!(["JPEG"])), "greyed out in their places");
+    assert_eq!(p["shots-offered"], json!([true, false, false, false]));
     rig.host.still_caps = Some(full_json());
     rig.caps_changed();
     let p = rig.props();
@@ -212,8 +238,8 @@ fn picking_a_night_mode_hides_what_it_cant_do() {
     let mut rig = Rig::new(Some(full_json()), true);
     rig.ui("tile-picked", vec![json!("mode"), json!(2)]);
     let p = rig.props();
-    assert!(tile(&p, "format").is_none() && tile(&p, "exposure_s").is_none() && p["best-shown"] == false);
-    assert_eq!(tile(&p, "shots").unwrap().0, ["Single", "Burst"]);
+    assert!(tile(&p, "format").is_none() && tile(&p, "exposure_s").is_none() && p["best-enabled"] == false);
+    assert_eq!(p["shots-offered"], json!([true, true, false, false]));
     assert_eq!(rig.plugin.get_config()["mode"], "night");
 }
 
@@ -248,7 +274,7 @@ fn take_photo_sends_the_options_with_the_views_rotation() {
     rig.event(Event::RequestDone { request: id, ok: true, message: String::new(), data: json!({"ok": true, "files": ["/tmp/photos/IMG_1.jpg", "/tmp/photos/IMG_1.dng"]}) });
     let p = rig.props();
     assert!(p["status"].as_str().unwrap().contains("IMG_1.jpg") && p["status"].as_str().unwrap().contains("1 more"));
-    assert_eq!((p["status-kind"].as_str(), p["open-shown"].as_bool()), (Some("status_ok"), Some(true)));
+    assert_eq!((p["status-kind"].as_str(), p["open-enabled"].as_bool()), (Some("status_ok"), Some(true)));
     // Taken from a shortcut with another app in front
     assert!(rig.host.calls.iter().any(|c| c == "send_notification Photo saved"));
 }
@@ -485,10 +511,11 @@ fn the_card_offers_the_cameras_own_iso_and_shutter_lists_and_no_quality() {
     let (iso, shutter) = (tile(&p, "iso").unwrap(), tile(&p, "shutter").unwrap());
     assert_eq!((iso.0, iso.1), (["100", "200", "400", "800"].map(String::from).to_vec(), 2));
     assert_eq!((shutter.0, shutter.1), (["1/1000", "1/40", "30 s"].map(String::from).to_vec(), 1));
-    assert_eq!(p["quality-shown"], false, "a camera keeps its own JPEG quality");
+    assert_eq!(p["quality-enabled"], false, "a camera keeps its own JPEG quality");
+    assert!(p["quality-tip"].as_str().unwrap().contains("own JPEG quality"), "and the tooltip says so");
     assert_eq!(tile(&p, "format").unwrap().0, ["JPEG", "RAW (DNG)", "RAW and JPEG"]);
     assert_eq!(keys(&p), ["iso", "shutter", "format"], "the dials first, then the named choice");
-    assert_eq!(p["best-shown"], false);
+    assert_eq!(p["best-enabled"], false);
     // A phone's card has neither list
     let phone = Rig::new(Some(full_json()), true);
     assert!(tile(&phone.props(), "iso").is_none() && tile(&phone.props(), "shutter").is_none());
@@ -607,51 +634,21 @@ fn diagnostics_say_what_the_camera_offers_now() {
 // ── The tiles ────────────────────────────────────────────────────────────────
 
 #[test]
-fn tiles_fill_every_line_from_edge_to_edge_with_no_holes() {
-    // (row, column, columns taken) on a grid of 6
-    assert_eq!(flow(&[1, 1, 1], 3), [(0, 0, 2), (0, 2, 2), (0, 4, 2)]);
-    assert_eq!(flow(&[1, 1, 1], 2), [(0, 0, 3), (0, 3, 3), (1, 0, 6)], "the last one alone takes its line");
-    assert_eq!(flow(&[1, 1, 1, 1], 3), [(0, 0, 3), (0, 3, 3), (1, 0, 3), (1, 3, 3)], "four are two and two where three would fit");
-    assert_eq!(flow(&[1, 1], 3), [(0, 0, 3), (0, 3, 3)]);
-    assert_eq!(flow(&[1, 1, 1, 1, 1], 3), [(0, 0, 2), (0, 2, 2), (0, 4, 2), (1, 0, 3), (1, 3, 3)]);
-    // A wide tile is worth two: it shares a line with one other, or has its own
-    assert_eq!(flow(&[1, 2], 3), [(0, 0, 2), (0, 2, 4)]);
-    assert_eq!(flow(&[1, 1, 1, 1, 1, 1, 1, 2], 3), [(0, 0, 2), (0, 2, 2), (0, 4, 2), (1, 0, 2), (1, 2, 2), (1, 4, 2), (2, 0, 2), (2, 2, 4)]);
-    assert_eq!(flow(&[2], 3), [(0, 0, 6)]);
-    assert_eq!(flow(&[1, 1, 2], 2), [(0, 0, 3), (0, 3, 3), (1, 0, 6)]);
-    assert_eq!(flow(&[1, 1, 1], 1), [(0, 0, 6), (1, 0, 6), (2, 0, 6)]);
-    assert!(flow(&[], 3).is_empty());
-    // Whatever the mix, a line's tiles add up to the whole grid and none overlap
-    for cols in 1..=3 {
-        for mask in 0..256u32 {
-            let weights: Vec<usize> = (0..8).map(|i| 1 + ((mask >> i) & 1) as usize).collect();
-            let placed = flow(&weights, cols);
-            let rows = placed.iter().map(|p| p.0).max().unwrap() + 1;
-            for row in 0..rows {
-                let mut line: Vec<_> = placed.iter().filter(|p| p.0 == row).collect();
-                line.sort_by_key(|p| p.1);
-                assert_eq!(line.iter().map(|p| p.2).sum::<usize>(), GRID, "{weights:?} in {cols}: {placed:?}");
-                assert!(line.windows(2).all(|w| w[0].1 + w[0].2 == w[1].1) && line[0].1 == 0, "{weights:?} in {cols}: {placed:?}");
-            }
-        }
-    }
-}
-
-#[test]
-fn a_dslr_has_its_dials_then_the_format_and_a_phone_its_named_choices_with_the_long_ones_wide() {
+fn a_dslr_has_its_dials_then_the_format_and_a_phone_its_named_choices() {
     let rig = dslr(dslr_json());
     let p = rig.props();
-    let at = |key: &str| p["tiles"].as_array().unwrap().iter().find(|t| t["key"] == key).unwrap().clone();
-    assert_eq!((at("iso")["kind"].clone(), at("shutter")["kind"].clone(), at("format")["kind"].clone()), (json!("dial"), json!("dial"), json!("choice")));
-    // Three in a line when they fit, and the format takes the line it is alone on when only two do
-    assert_eq!((at("format")["w3"].clone(), at("format")["w2"].clone()), (json!(2), json!(6)));
+    assert_eq!(keys(&p), ["iso", "shutter", "format"]);
+    assert_eq!((p["iso-options"].as_array().unwrap().len(), p["shutter-options"].as_array().unwrap().len()), (4, 3));
     let mut phone = Rig::new(Some(full_json()), true);
     phone.ui("tile-picked", vec![json!("shots"), json!(2)]);
     let p = phone.props();
     assert_eq!(keys(&p), ["mode", "format", "shots", "bracket", "distortion"]);
-    let wide: Vec<_> = p["tiles"].as_array().unwrap().iter().filter(|t| t["w3"].as_i64() > Some(2) || t["w2"].as_i64() == Some(6)).map(|t| t["key"].as_str().unwrap()).collect();
-    assert!(wide.contains(&"bracket") && wide.contains(&"distortion"), "{wide:?}");
+    assert_eq!((p["slot-key"].clone(), p["shots-index"].clone()), (json!("bracket"), json!(2)));
     assert_eq!(tile(&p, "bracket").unwrap().0[0], "3 photos, 1 EV apart");
+    // A shot the lens doesn't have can't be picked, whatever the card sends
+    let mut plain = Rig::new(Some(json!({"size": [1920, 1080]})), true);
+    plain.ui("tile-picked", vec![json!("shots"), json!(3)]);
+    assert_eq!(plain.props()["shots-index"], json!(0));
     let long = {
         phone.ui("tile-picked", vec![json!("shots"), json!(0)]);
         tile(&phone.props(), "exposure_s").unwrap().0
@@ -679,19 +676,18 @@ fn a_dial_steps_along_its_list_and_stops_at_the_ends() {
 }
 
 #[test]
-fn stepping_sends_no_new_tiles_that_would_rebuild_the_arrow_under_the_hand() {
+fn a_step_keeps_the_hold_and_a_new_list_lets_it_go() {
     let mut rig = dslr(dslr_json());
-    let before = rig.host.calls.len();
+    rig.ui("tile-hold-down", vec![json!("shutter"), json!(-1)]);
+    assert!(rig.plugin.held.is_some());
     rig.ui("tile-step", vec![json!("shutter"), json!(1)]);
-    let sent: Vec<Value> = rig.host.calls[before..].iter().filter_map(|c| c.strip_prefix("set_ui_props card ")).map(|c| serde_json::from_str(c).unwrap()).collect();
-    assert!(!sent.is_empty() && sent.iter().all(|p| p.get("tiles").is_none() && p.get("tile-indexes").is_some()), "{sent:?}");
-    // A new list of tiles does go
-    let before = rig.host.calls.len();
+    assert!(rig.plugin.held.is_some(), "a step along the same lists leaves the arrow held");
+    // A new list of options does let go: the arrow would step along a list it no longer has
     let mut scene = dslr_json();
     scene.as_object_mut().unwrap().remove("iso");
     rig.host.still_caps = Some(scene);
     rig.event(Event::StillCapsChanged { source_id: "webcam:cam".into() });
-    assert!(rig.host.calls[before..].iter().any(|c| c.starts_with("set_ui_props card ") && c.contains("\"tiles\"")));
+    assert!(rig.plugin.held.is_none());
 }
 
 fn hold_tick(rig: &mut Rig) {

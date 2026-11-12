@@ -25,10 +25,10 @@ const MAX_BITRATE_MBPS: i64 = 100;
 /// One past the top of the slider: Dynamic, as much as the connection carries. -1 in the config and to the phone.
 const DYNAMIC_POS: i64 = MAX_BITRATE_MBPS + 1;
 const DYNAMIC: i64 = -1;
-const BITRATE_TIP: &str = n_("All the way right is Dynamic, which adjusts to what your connection can handle.");
+const BITRATE_TIP: &str = n_("All the way right is Dynamic, which adjusts to your connection.");
 const NO_DYNAMIC_TIP: &str = n_("This phone's app is too old for Dynamic and uses Auto until it's updated.");
-const LIGHT_TIP: &str = n_("H.264 from the phone's hardware encoder, like video calls use.");
-const HEAVY_TIP: &str = n_("MJPEG: every frame a full JPEG. Several times Light's data, sharper in fast motion.");
+const LIGHT_TIP: &str = n_("H.264 from the phone's hardware encoder, with much less data than Heavy.");
+const HEAVY_TIP: &str = n_("Send every frame as a full JPEG (MJPEG). Sharper in fast motion but uses several times more data than Light.");
 
 pub const FORMAT_MJPEG: &str = "mjpeg";
 pub const FORMAT_H264: &str = "h264";
@@ -284,9 +284,7 @@ impl StreamOutputPlugin {
     // ── What the card shows ───────────────────────────────────────────────
 
     fn quality_tip(&self) -> String {
-        let label = quality_label(self.quality);
-        tr("{quality}. The dot ({default}%) is recommended: higher costs a lot more data for little you'd see. On slow Wi-Fi, lower it or the FPS.")
-            .field("quality", &label).field("default", DEFAULT_QUALITY.to_string())
+        tr("The dot marks the recommended level. Higher uses a lot more data for little visible difference. Go lower on slow Wi-Fi.")
     }
 
     fn bitrate_text(&self) -> String {
@@ -295,9 +293,9 @@ impl StreamOutputPlugin {
 
     fn light_tip(&self) -> String {
         if !self.h264_available {
-            tr("Light needs FFmpeg but it's missing from this copy of Telescope. Reinstalling brings it back.")
+            tr("Light needs FFmpeg, which is missing from this copy of Telescope. Reinstall Telescope to get it back.")
         } else if !self.phone_codecs.is_empty() && !self.phone_codecs.iter().any(|c| c == FORMAT_H264) {
-            tr("H.264. This phone has no H.264 encoder.")
+            tr("This phone has no H.264 encoder.")
         } else {
             tr(LIGHT_TIP)
         }
@@ -320,7 +318,7 @@ impl StreamOutputPlugin {
             "ar-items": ar_items, "ar-current": self.sizes.ar, "ar-enabled": self.sizes.enabled,
             "fps-items": FPS_CHOICES.iter().map(|f| format!("{f} fps")).collect::<Vec<_>>(), "fps-current": self.fps_current,
             "fps-gone": FPS_CHOICES.iter().map(|f| self.camera_max_fps != 0 && *f > self.camera_max_fps).collect::<Vec<_>>(),
-            "fps-tip": tr("The phone's capture rate and the virtual camera's. Lower saves data and battery."),
+            "fps-tip": tr("Frames per second for both the phone's capture and the virtual camera. Lower saves data and battery."),
             "h264": self.stream_format() == FORMAT_H264, "h264-enabled": self.h264_offered(),
             "light-tip": self.light_tip(), "heavy-tip": tr(HEAVY_TIP),
             "quality": self.quality, "quality-readout": format!("{}%", self.quality), "quality-tip": self.quality_tip(),
@@ -699,12 +697,6 @@ fn truthy(v: Option<&Value>) -> bool {
         Some(Value::Array(a)) => !a.is_empty(),
         Some(Value::Object(o)) => !o.is_empty(),
     }
-}
-
-/// widgets.common.quality_label: what a JPEG quality looks like, in words.
-fn quality_label(q: i64) -> String {
-    let text = if q >= 91 { tr("{q}%: High") } else if q >= 80 { tr("{q}%: Balanced") } else if q >= 60 { tr("{q}%: Low") } else { tr("{q}%: Very low") };
-    text.field("q", q.to_string())
 }
 
 impl Plugin for StreamOutputPlugin {

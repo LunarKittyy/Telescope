@@ -2,11 +2,18 @@
 
 import { Theme } from "../theme.slint";
 import { Reveal } from "folds.slint";
-import { FocusRing, KeyFocus, TouchRing } from "basics.slint";
-import { TipBody, TipUse } from "tip.slint";
+import { Icon, FocusRing, KeyFocus, TouchRing } from "basics.slint";
+import { Tip } from "tip.slint";
+import { Peek } from "peek.slint";
 import { ShortcutMenu } from "shortcut-menu.slint";
+import { Fills, RampFill, ZebraFill, EdgeFill } from "fills.slint";
+import { Motion, Settle, Tone, ClickWait } from "motion.slint";
+import { FineAxis, Grip, Hold } from "fine.slint";
 
-// The theme's QSlider: a quiet 4px groove and a handle in the card's hue; value_label reads it out on the right.
+// Kind "slider", one anatomy for every slider: a track, a handle, the value on the right and, when it goes both ways, a tick at the
+// centre. Only the fill varies, by name: "plain" is the card's colour up to the handle, "gradient" the range's own colours along the
+// whole track with the handle taking the colour under it, and the named ramps of fills.slint (shadows, highlights, contrast, vibrance,
+// pivot, lift, gamma, gain, offset, tolerance, edges, spill). Everything is muted at rest and takes its full colour while held, handle too.
 export component Slider inherits HorizontalLayout {
     in property <float> minimum: 0;
     in property <float> maximum: 100;
@@ -16,29 +23,101 @@ export component Slider inherits HorizontalLayout {
     property <float> local;
     property <bool> touched;
     out property <float> shown: touched ? local : value;
-    changed value => { touched = false; }
+    // A click on the track that is still waiting out the double-click interval is dropped when anything else sets the value
+    changed value => { touched = false; pend.cancel(); }
+    // A disabled slider drops a waiting click and an open typed box, which would otherwise still commit
+    changed enabled => {
+        if (!enabled) {
+            pend.cancel();
+            key-live = false;
+            slider-focus.clear-focus();
+            if (is-typing) {
+                is-typing = false;
+                KeyFocus.given-back += 1;
+            }
+        }
+    }
     in property <float> step: 1;
     in property <string> readout;
     in property <string> label;
     in property <color> hue: Theme.accent;
+    // "plain", "gradient" or a name from fills.slint; a gradient runs grad-a, grad-b, grad-c along the track (a temperature slider: blue, grey, orange)
+    in property <string> fill: "plain";
+    in property <color> grad-a: Theme.ink2;
+    in property <color> grad-b: Theme.ink2;
+    in property <color> grad-c: Theme.ink2;
+    // The threshold fill: a row-high bar filled to a live value (level, on the handle's scale) with the handle as the level to warn at, both numbers on the bar
+    in property <float> level: 0;
+    in property <bool> has-level;
+    in property <string> level-text;
+    in property <image> level-icon;
+    in property <bool> has-level-icon;
+    property <bool> in-bar: Fills.is-bar(fill);
+    // The slider goes both ways: a tick marks where it is neutral
+    in property <bool> two-way: minimum < 0 && maximum > 0;
+    in property <float> centre: minimum < 0 && maximum > 0 ? 0 : (minimum + maximum) / 2;
+    out property <string> control-kind: "slider";
+    // Where the handle is drawn now, 0 to 1 along the track, and how far its colour has come up while held, for a test
+    out property <float> handle-place: track.fraction;
+    out property <float> lit: held-tone.value;
     in property <bool> enabled: true;
     // false drops the readout column, for a slider with a box of its own beside it
     in property <bool> has-readout: true;
     // value_label's fits: wider than the usual column when its words need it
-    in property <length> readout-width: 56px;
+    in property <length> readout-width: Theme.u(28);
     // Dots on the groove (NoScrollSlider.set_snaps, at most four) that a dragged handle sticks to within snap-px; only a
     // drag snaps, keys and clicks on the groove step freely
     in property <[float]> marks;
-    in property <length> snap-px: 5px;
-    // The row it sits in: a control_row's 36px, or a bare QSlider's 20px
-    in property <length> row-height: 36px;
+    in property <length> snap-px: Theme.u(2.5);
+    // The row it sits in
+    in property <length> row-height: Theme.row;
     // A double-click puts the slider back here (NoScrollSlider.set_default)
     in property <bool> has-default;
     in property <float> default-value;
-    // A tooltip on the slider and its readout
+    // A tooltip on the slider and its readout: its name, then a line or two more and the keys that do the same
     in property <string> tip;
-    // The value as a box beside the readout would hold it (LogSliderRow's spin box): a click on the readout types over it there. Empty: only a readout.
+    in property <string> tip-detail;
+    // A last, dimmer line of the tip, what a gesture does. A slider with a default says "Double-click to reset" itself, so `tip` is only the name
+    in property <string> tip-hint;
+    property <string> hint-line: tip-hint != "" ? tip-hint : has-default ? @tr("Double-click to reset") : "";
+    in property <[string]> tip-keys;
+    // The value as a box beside the readout would hold it (LogSliderRow's spin box): a click on the readout types over it there, and
+    // `typed` hands the text to the owner to read. Empty: the slider reads a typed number itself (below) and says it with moved and released.
     in property <string> typing;
+    // Without `typing`: Enter on the slider or a click on the readout opens a box for the number, Enter sets it and Escape leaves it as it was; false for a readout in other units than the slider's own number (EV, metres)
+    in property <bool> type-in: true;
+    // A readout that is a word ("Chest", "Easy") or anything but a number isn't the slider's raw number, so no box offers one
+    pure function reads-as-number(text: string) -> bool {
+        text == "" || text.starts-with("0") || text.starts-with("1") || text.starts-with("2") || text.starts-with("3") || text.starts-with("4")
+            || text.starts-with("5") || text.starts-with("6") || text.starts-with("7") || text.starts-with("8") || text.starts-with("9")
+            || text.starts-with("+") || text.starts-with("-") || text.starts-with("\u{2212}")
+    }
+    property <bool> can-type: enabled && (has-readout || in-bar) && (typing != "" || (type-in && reads-as-number(readout)));
+    // The box was opened from the keyboard, so the focus goes back to the slider when it closes
+    property <bool> typing-by-key;
+    // A bubble while it is touched, for a value the main preview can't show by itself: "" for none, else what it draws ("picture" from
+    // `peek-picture`, "chase" with four numbers in `peek-values`, "text" at `peek-values[0]` with `peek-text`). The card decides when there is one.
+    in property <string> peek;
+    in property <[float]> peek-values;
+    in property <image> peek-picture;
+    in property <string> peek-text;
+    // Touched: held with the pointer, or a key used on it a moment ago while it has the focus
+    out property <bool> touched-now: enabled && (track.held || key-live);
+    // The bubble is up: the owner of a live picture in it runs only while this is true
+    out property <bool> peeking: bubble.open;
+    callback peek-changed(bool);
+    property <bool> key-live;
+    property <int> key-idle;
+    // The handle is put at its place at once only while the pointer drags it (and a slider with big steps still slides between them);
+    // a key, a typed number, a reset, a click on the track and anything else glides there.
+    property <bool> quick;
+    // A press that took hold of the handle itself, or a glide that has caught up with the pointer: from then on the handle sticks to it
+    property <bool> caught;
+    // A click on the track waits for the double-click interval before the handle moves, so a double-click doesn't first jump and then reset
+    // A first click on the track that waits to see whether it is a double-click (shared with the pan map: motion.slint)
+    property <bool> pending: pend.waiting;
+    property <float> pending-v;
+    property <length> press-x;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     // The id of the setting it is ("colour_grading.contrast"), which a caller outside the window outlines it by when it reads or changes it
@@ -48,24 +127,106 @@ export component Slider inherits HorizontalLayout {
     property <bool> dragging;
     // The pointer is on the readout when it takes typing
     property <bool> readout-over;
+    // What the arrows move by: one step. Page up and down and Shift with an arrow move by a tenth of the range, in whole steps
+    out property <float> key-small: max(0.0001, step);
+    out property <float> key-big: max(0.0001, step) * max(1, round((maximum - minimum) / max(0.0001, step) / 10));
+    // Every way of setting a value from the keyboard or a typed number goes through here, saying what a drag says: moved, then released
+    // Keys glide the handle too (it retargets as each repeat lands, keeping its speed)
+    function set-to(v: float) { apply(v, false); }
+    function apply(v: float, instantly: bool) {
+        if (!enabled) { return; }
+        pend.cancel();
+        let to = clamp(v, minimum, maximum);
+        if (to != shown) {
+            glide.sync();
+            quick = instantly;
+            local = to;
+            touched = true;
+            moved(to);
+            released(to);
+        }
+    }
+    function start-typing(by-key: bool) {
+        if (can-type) {
+            typing-by-key = by-key;
+            is-typing = true;
+        }
+    }
     function typing-done(text: string) {
         if (is-typing) {
             is-typing = false;
-            KeyFocus.given-back += 1;
-            if (text != typing) { typed(text); }
+            if (!enabled) { return; }
+            if (typing-by-key) { slider-focus.focus(); } else { KeyFocus.given-back += 1; }
+            if (typing != "") {
+                if (text != typing) { typed(text); }
+            } else if (text.is-float()) {
+                apply(round(text.to-float() / max(0.0001, step)) * max(0.0001, step), false);
+            }
         }
     }
     callback moved(float);
     callback released(float);
     callback typed(string);
-    spacing: 8px;
+    spacing: Theme.u(4);
     horizontal-stretch: 1;
     track := Rectangle {
         horizontal-stretch: 1;
-        min-width: 84px;
+        min-width: Theme.u(42);
         height: row-height;
-        property <length> inset: 10px; // padding 3px + groove margin 7px: where the handle's centre runs
-        property <float> fraction: (shown - minimum) / max(0.0001, maximum - minimum);
+        // Where the handle's centre runs from and to
+        property <length> inset: Theme.handle-w / 2;
+        // Held: the finger or key is on it, and it takes its full colour
+        property <bool> held: dragging && touch.pressed;
+        // The colour under the handle: the card's, or the gradient's at that spot
+        property <color> under: Fills.colours-handle(fill) ? Fills.at(fill, fraction, grad-a, grad-b, grad-c) : hue;
+        property <float> target: (shown - minimum) / max(0.0001, maximum - minimum);
+        // Where the handle is drawn: it glides to a value that something other than the person changed
+        property <float> fraction: glide.value;
+        // A step that is a visible jump on the track (a 1 to 5 slider, a 1 to 10 one): the handle slides from step to step even while it is
+        // dragged, on a quicker settle, retargeting mid-flight when the pointer crosses several at once
+        property <bool> chunky: step / max(0.0001, maximum - minimum) * (self.width - Theme.handle-w) >= Theme.u(8);
+        out property <bool> stepping: chunky;
+        // A stepped slider's handle is a magnet while it is dragged (see `detent`): it follows the pointer, held back near each step, and
+        // springs into its slot when let go; anything else glides to the value, a finger that has hold of the handle puts it there at once
+        property <bool> magnetic: dragging && caught && chunky;
+        glide := Settle { to: magnetic ? track.pointer-fraction : track.target; snap: dragging && caught; }
+        // Where a pointer at `fraction` along the track puts a stepped slider's handle: 1 to 1 with it on average, but held back near each
+        // step (the middle third of a step moves it a fifth as far) and made up in the last of the way to the midpoint, where the value changes
+        // and the next step's pull takes over. It is the pointer's own place at every midpoint, so nothing jumps there
+        function detent(p: float) -> float {
+            let span = max(0.0001, maximum - minimum);
+            let s = p * span / max(0.0001, step);
+            let n = round(s);
+            let d = s - n;
+            let held = d * 0.35 + 0.65 * 4 * d * d * d;
+            return clamp((n + held) * max(0.0001, step) / span, 0, 1);
+        }
+        // Shift while dragging goes finer: the value follows a tenth of the pointer's travel
+        fine := FineAxis { }
+        property <float> pointer-fraction: detent(touch.eff);
+        // A handle that glides to the pointer sticks to it once it arrives
+        changed fraction => {
+            if (dragging && !caught && !pending && abs(fraction - target) * (self.width - Theme.handle-w) < Theme.u(2)) {
+                caught = true;
+            }
+        }
+        pend := ClickWait {
+            elapsed => {
+                if (!enabled || Grip.cut(touch.grip)) { return; }
+                local = pending-v;
+                touched = true;
+                root.moved(local);
+                if (!dragging) { released(local); }
+            }
+        }
+        // How far the colour has come from muted to full while held, and how far the handle's edge has come while it is under the pointer
+        held-tone := Tone { on: track.held; }
+        hover-tone := Tone { on: touch.has-hover && enabled; }
+        Timer {
+            interval: 80ms;
+            running: quick;
+            triggered => { quick = false; }
+        }
         // The value a dragged handle at `v` sticks to: the first mark within reach, else itself
         function snapped(v: float) -> float {
             if (marks.length > 0 && abs((marks[0] - v) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset)) <= snap-px) { return marks[0]; }
@@ -74,7 +235,7 @@ export component Slider inherits HorizontalLayout {
             if (marks.length > 3 && abs((marks[3] - v) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset)) <= snap-px) { return marks[3]; }
             return v;
         }
-        TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: 7px; }
+        TouchRing { setting: root.setting; width: parent.width; height: parent.height; radius: Theme.r-ctl; }
         accessible-role: slider;
         accessible-label: label;
         // The readout carries the unit ("30%", "+1.0 EV"), which the bare number would lose
@@ -82,84 +243,292 @@ export component Slider inherits HorizontalLayout {
         accessible-value-minimum: minimum;
         accessible-value-maximum: maximum;
         accessible-value-step: step;
-        accessible-description: tip;
-        accessible-action-increment => { if (enabled) { local = min(maximum, shown + step); touched = true; moved(local); released(local); } }
-        accessible-action-decrement => { if (enabled) { local = max(minimum, shown - step); touched = true; moved(local); released(local); } }
+        accessible-description: tip + (tip-detail == "" ? "" : ". " + tip-detail) + (hint-line == "" ? "" : ". " + hint-line);
+        accessible-action-increment => { if (enabled) { set-to(shown + step); } }
+        accessible-action-decrement => { if (enabled) { set-to(shown - step); } }
         forward-focus: slider-focus;
         slider-focus := FocusScope {
             focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+            changed has-focus => { if (!self.has-focus) { key-live = false; } }
             enabled: root.enabled;
             key-pressed(e) => {
-                if (e.text == Key.UpArrow) { local = min(maximum, shown + step); touched = true; moved(local); released(local); return accept; }
-                if (e.text == Key.DownArrow) { local = max(minimum, shown - step); touched = true; moved(local); released(local); return accept; }
-                if (e.text == Key.LeftArrow) { local = max(minimum, shown - step); touched = true; moved(local); released(local); return accept; }
-                if (e.text == Key.RightArrow) { local = min(maximum, shown + step); touched = true; moved(local); released(local); return accept; }
+                if (!root.enabled) { return reject; }
+                if (e.text == Key.UpArrow || e.text == Key.RightArrow || e.text == Key.DownArrow || e.text == Key.LeftArrow || e.text == Key.PageUp || e.text == Key.PageDown || e.text == Key.Home || e.text == Key.End) {
+                    key-live = true;
+                    key-idle = 0;
+                }
+                let by = e.modifiers.shift ? key-big : key-small;
+                if (e.text == Key.UpArrow || e.text == Key.RightArrow) { set-to(shown + by); return accept; }
+                if (e.text == Key.DownArrow || e.text == Key.LeftArrow) { set-to(shown - by); return accept; }
+                if (e.text == Key.PageUp) { set-to(shown + key-big); return accept; }
+                if (e.text == Key.PageDown) { set-to(shown - key-big); return accept; }
+                if (e.text == Key.Home) { set-to(minimum); return accept; }
+                if (e.text == Key.End) { set-to(maximum); return accept; }
+                if (e.text == "\n" && can-type) { start-typing(true); return accept; }
                 reject
             }
         }
-        Rectangle {
-            x: track.inset;
-            width: parent.width - 2 * track.inset;
-            height: 4px;
-            border-radius: 2px;
-            background: enabled ? Theme.border-strong : Theme.surface-raise;
+        // The track. Each part rounds its own ends: a clip would square them off in the software renderer
+        groove := Rectangle {
+            y: in-bar ? 0px : (parent.height - Theme.track) / 2;
+            height: in-bar ? parent.height : Theme.track;
+            border-radius: in-bar ? Theme.r-ctl : Theme.track / 2;
+            background: Theme.raise;
+            border-width: Theme.outline-w;
+            border-color: enabled ? Theme.outline : Theme.dis-outline;
+            property <length> live-w: track.width * clamp((level - minimum) / max(0.0001, maximum - minimum), 0, 1);
+            property <color> live-colour: !enabled ? Theme.sel : Theme.lit(hue, held-tone.value);
+            if has-level && in-bar && live-w > 0px: Rectangle {
+                x: 0px;
+                width: min(live-w, Theme.r-ctl * 2);
+                border-radius: Theme.r-ctl;
+                background: live-colour;
+            }
+            if has-level && in-bar && live-w > Theme.r-ctl: Rectangle {
+                x: Theme.r-ctl;
+                width: max(0px, min(live-w, track.width - Theme.r-ctl) - Theme.r-ctl);
+                background: live-colour;
+            }
+            if has-level && in-bar && live-w > track.width - Theme.r-ctl: Rectangle {
+                x: track.width - Theme.r-ctl * 2;
+                width: Theme.r-ctl * 2;
+                border-radius: Theme.r-ctl;
+                background: live-colour;
+            }
+            if enabled && fill == "plain": Rectangle {
+                x: 0px;
+                y: 0px;
+                height: parent.height;
+                width: track.inset + track.fraction * (track.width - 2 * track.inset);
+                border-radius: Theme.track / 2;
+                background: Theme.lit(hue, held-tone.value);
+            }
+            // At rest a fill fades towards the card: faded as one layer over a card-coloured base, since a veil drawn on top leaves its rounded ends' edge pixels bright
+            if enabled && fill != "plain": Rectangle {
+                border-radius: Theme.track / 2;
+                background: in-bar ? transparent : Theme.card;
+                Rectangle {
+                    opacity: in-bar ? 1 : 1 - Fills.rest-veil(fill) * (1 - held-tone.value);
+                    if Fills.is-ramp(fill): RampFill {
+                        kind: fill;
+                        ga: grad-a;
+                        gb: grad-b;
+                        gc: grad-c;
+                    }
+                    if fill == "contrast": ZebraFill { }
+                    if fill == "edges": EdgeFill {
+                        ga: grad-a;
+                        gb: grad-b;
+                        softness: track.fraction;
+                    }
+                }
+            }
+            if !enabled && !in-bar: Rectangle {
+                x: 0px;
+                y: 0px;
+                height: parent.height;
+                width: track.inset + track.fraction * (track.width - 2 * track.inset);
+                border-radius: Theme.track / 2;
+                background: Theme.sel;
+            }
         }
-        // QSlider::sub-page: the same as the groove until the groove goes dark on a disabled slider
-        if !enabled: Rectangle {
-            x: track.inset;
-            width: track.fraction * (parent.width - 2 * track.inset);
-            height: 4px;
-            border-radius: 2px;
-            background: Theme.border-hover;
+        if two-way: Rectangle {
+            x: track.inset + (centre - minimum) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset) - Theme.stroke / 2;
+            y: (parent.height - self.height) / 2;
+            width: Theme.stroke;
+            height: Theme.track + Theme.u(4);
+            border-radius: Theme.stroke / 2;
+            background: enabled ? Theme.ink2.with-alpha(0.7) : Theme.dis;
         }
+        // A mark on the centre line of a two-way slider is already drawn by that line
         for mark in marks: Rectangle {
-            x: track.inset - 2.5px + (mark - minimum) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset);
-            y: (parent.height - 5px) / 2;
-            width: 5px;
-            height: 5px;
-            border-radius: 2.5px;
-            background: enabled ? Theme.text-faint : Theme.text-disabled;
+            visible: !two-way || abs(mark - centre) > 0.0001 * max(0.0001, maximum - minimum);
+            x: track.inset - Theme.u(1) + (mark - minimum) / max(0.0001, maximum - minimum) * (track.width - 2 * track.inset);
+            y: (parent.height - self.height) / 2;
+            width: Theme.u(2);
+            height: Theme.u(2);
+            border-radius: Theme.u(1);
+            background: enabled ? Theme.faint : Theme.dis;
+        }
+        // The threshold bar's two numbers: the level beside the handle (on the side with room), the live value at the end away from the handle
+        if in-bar && !is-typing: level-number := Text {
+            property <bool> left-side: track.fraction > 0.5;
+            x: left-side ? handle.x - Theme.u(4) - self.width : handle.x + Theme.handle-w + Theme.u(4);
+            width: Theme.u(24);
+            height: parent.height;
+            text: readout;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-value;
+            // Over the full colour of a held bar the card's own dark reads, where the light ink wouldn't
+            color: !enabled ? Theme.dis : track.held && has-level && (left-side ? self.x + self.width - Theme.u(7) : self.x + Theme.u(7)) < groove.live-w ? Theme.card : Theme.ink;
+            horizontal-alignment: left-side ? right : left;
+            vertical-alignment: center;
+            overflow: elide;
+            accessible-role: none;
+        }
+        if in-bar && is-typing: TextInput {
+            property <bool> left-side: track.fraction > 0.5;
+            x: left-side ? handle.x - Theme.u(4) - self.width : handle.x + Theme.handle-w + Theme.u(4);
+            width: Theme.u(24);
+            height: parent.height;
+            text: root.typing != "" ? root.typing : "\{root.shown}";
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-value;
+            color: Theme.ink;
+            selection-background-color: Theme.fill;
+            selection-foreground-color: Theme.on-fill;
+            horizontal-alignment: left-side ? right : left;
+            vertical-alignment: center;
+            single-line: true;
+            accessible-label: root.label;
+            enabled: root.enabled;
+            init => { self.focus(); self.select-all(); }
+            accepted => { root.typing-done(self.text); }
+            changed has-focus => { if (!self.has-focus) { root.typing-done(self.text); } }
+            key-pressed(e) => {
+                if (e.text == Key.Escape) {
+                    root.is-typing = false;
+                    if (typing-by-key) { slider-focus.focus(); } else { KeyFocus.given-back += 1; }
+                    return accept;
+                }
+                reject
+            }
+        }
+        if in-bar && level-text != "": level-box := HorizontalLayout {
+            width: min(self.preferred-width, track.width / 2 - Theme.u(6));
+            // At the end away from the handle: far right while the handle is in the left half, far left once it passes the middle
+            x: track.fraction > 0.5 ? Theme.u(5) : track.width - Theme.u(5) - self.width;
+            y: 0px;
+            height: parent.height;
+            spacing: Theme.u(2);
+            if has-level-icon: Icon {
+                y: (parent.height - Theme.icon-small) / 2;
+                source: level-icon;
+                tint: !enabled ? Theme.dis : track.held && has-level && groove.live-w > parent.x + parent.width / 2 ? Theme.card : Theme.ink;
+                width: Theme.icon-small;
+                height: Theme.icon-small;
+            }
+            Text {
+                text: level-text;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                font-weight: Theme.w-value;
+                color: !enabled ? Theme.dis : track.held && has-level && groove.live-w > parent.x + parent.width / 2 ? Theme.card : Theme.ink;
+                vertical-alignment: center;
+                overflow: elide;
+                accessible-role: none;
+            }
         }
         handle := Rectangle {
-            width: 14px;
-            height: 14px;
-            border-radius: 7px;
-            x: track.inset - 7px + track.fraction * (track.width - 2 * track.inset);
-            background: !enabled ? Theme.text-disabled : (touch.has-hover || touch.pressed) ? hue.brighter(0.15) : hue;
-            FocusRing { shown: slider-focus.has-focus; radius: 7px; width: parent.width + 4px; height: parent.height + 4px; }
+            width: Theme.handle-w;
+            height: Theme.handle-h;
+            y: (parent.height - self.height) / 2;
+            border-radius: Theme.r-handle;
+            x: track.fraction * (track.width - Theme.handle-w);
+            background: !enabled ? Theme.raise : in-bar ? Theme.card : track.under.mix(Theme.card, held-tone.value);
+            border-width: Theme.stroke;
+            border-color: !enabled ? Theme.dis : track.under.mix(Theme.card, 0.75 + 0.25 * max(held-tone.value, hover-tone.value));
+            FocusRing { shown: slider-focus.has-focus; radius: Theme.r-handle; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
         }
-        usage := TipUse { hover: touch.has-hover || readout-over; }
+        // Keys count as touching it for a moment after the last one
+        key-timer := Timer {
+            interval: 500ms;
+            running: key-live;
+            triggered => {
+                key-idle += 1;
+                if (key-idle >= 3) { key-live = false; }
+            }
+        }
+        bubble := Peek {
+            // The bubble follows the handle and its pointer points at it
+            has-point: true;
+            point-x: handle.x;
+            point-y: handle.y;
+            point-w: handle.width;
+            point-h: handle.height;
+            kind: root.peek;
+            engaged: root.touched-now;
+            hue: root.hue;
+            values: root.peek-values;
+            picture: root.peek-picture;
+            text: root.peek-text;
+            changed open => { root.peek-changed(self.open); }
+        }
+        usage := Tip { says: root.tip != "" ? root.tip : root.has-default ? root.label : ""; detail: root.tip-detail; hint: root.hint-line; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover || readout-over; inert: !root.enabled; focused: slider-focus.has-focus && KeyFocus.keyboard; }
         touch := TouchArea {
+            property <Hold> grip;
             enabled: root.enabled;
             property <float> picked: clamp((self.mouse-x - track.inset) / (track.width - 2 * track.inset), 0, 1);
+            // Where the pointer is along the track, past either end too, so Shift's tenth is counted from the pointer's own place
+            property <float> beyond: (self.mouse-x - track.inset) / (track.width - 2 * track.inset);
+            // Where the pointer puts the handle once Shift's slower going is counted, 0 to 1 along the track
+            property <float> eff: picked;
+            property <bool> shift-now;
+            // The pointer is on the handle as it is drawn now
+            property <bool> on-handle: abs(self.mouse-x - (handle.x + Theme.handle-w / 2)) <= Theme.handle-w / 2 + Theme.u(1);
+            function drag() {
+                eff = (fine.at(minimum + beyond * (maximum - minimum), shift-now, minimum, maximum) - minimum) / max(0.0001, maximum - minimum);
+                let v = snapped(round((minimum + eff * (maximum - minimum)) / step) * step);
+                if (pending) {
+                    // A drag that starts on the track is no click: it takes hold at once
+                    if (abs(self.mouse-x - press-x) > Theme.u(2)) {
+                        pend.cancel();
+                    } else {
+                        pending-v = v;
+                        return;
+                    }
+                }
+                glide.sync();
+                local = v;
+                touched = true;
+                root.moved(local);
+            }
             scroll-event(e) => { usage.wheel(); reject }
             pointer-event(e) => {
-                if (e.kind == PointerEventKind.down) { usage.press(); }
-                if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                shift-now = e.modifiers.shift;
+                if (e.kind == PointerEventKind.down) { usage.press(); grip = Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
+                // A second press while the first click waits is the double-click's, which `double-clicked` answers
+                if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left && !pending) {
+                    fine.begin(minimum + beyond * (maximum - minimum));
+                    eff = picked;
+                    glide.sync();
                     dragging = true;
-                    local = round((minimum + picked * (maximum - minimum)) / step) * step;
-                    touched = true;
-                    root.moved(local);
+                    press-x = self.mouse-x;
+                    caught = on-handle;
+                    let v = round((minimum + picked * (maximum - minimum)) / step) * step;
+                    if (!caught && has-default) {
+                        pend.start();
+                        pending-v = v;
+                    } else {
+                        local = v;
+                        touched = true;
+                        root.moved(local);
+                    }
                 }
-                if (e.kind == PointerEventKind.move && dragging && self.pressed) {
-                    local = snapped(round((minimum + picked * (maximum - minimum)) / step) * step);
-                    touched = true;
-                    root.moved(local);
+                if (e.kind == PointerEventKind.move && dragging && self.pressed && !Grip.cut(grip)) {
+                    drag();
                 }
                 if (dragging && ((e.kind == PointerEventKind.up && e.button == PointerEventButton.left) || e.kind == PointerEventKind.cancel)) {
+                    glide.sync();
                     dragging = false;
-                    released(shown);
+                    caught = false;
+                    if (!pending) { released(shown); }
                 }
             }
             moved => {
-                if (self.pressed && dragging) {
-                    local = snapped(round((minimum + picked * (maximum - minimum)) / step) * step);
-                    touched = true;
-                    root.moved(local);
+                if (self.pressed && dragging && !Grip.cut(grip)) {
+                    drag();
                 }
             }
             double-clicked => {
                 if (has-default) {
+                    pend.cancel();
+                    // The reset glides back even though the pointer is on the handle: only a drag under way puts it at once
+                    glide.sync();
+                    dragging = false;
+                    caught = false;
                     local = default-value;
                     touched = true;
                     root.moved(local);
@@ -167,17 +536,26 @@ export component Slider inherits HorizontalLayout {
                 }
             }
         }
+        if in-bar && can-type && !is-typing: TouchArea {
+            property <bool> left-side: track.fraction > 0.5;
+            x: left-side ? handle.x - Theme.u(4) - self.width : handle.x + Theme.handle-w + Theme.u(4);
+            width: Theme.u(24);
+            height: parent.height;
+            mouse-cursor: MouseCursor.text;
+            pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
+            changed has-hover => { readout-over = self.has-hover; }
+            clicked => { start-typing(false); }
+        }
         if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
-        if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
     }
-    if has-readout: Rectangle {
+    if has-readout && !in-bar: Rectangle {
         width: readout-width;
-        if typing != "": typing-touch := TouchArea {
+        if can-type: typing-touch := TouchArea {
             enabled: root.enabled;
             mouse-cursor: MouseCursor.text;
             pointer-event(e) => { if (e.kind == PointerEventKind.down) { usage.press(); } }
             changed has-hover => { readout-over = self.has-hover; }
-            clicked => { is-typing = true; }
+            clicked => { start-typing(false); }
         }
         if !is-typing: Text {
             width: parent.width;
@@ -185,32 +563,36 @@ export component Slider inherits HorizontalLayout {
             text: readout;
             font-family: Theme.font;
             font-size: Theme.body;
-            font-weight: 600;
-            // QLabel#val outranks QLabel:disabled in the theme, so a disabled readout keeps the accent's soft shade
-            color: enabled ? hue : Theme.accent-soft;
+            font-weight: Theme.w-value;
+            color: enabled ? Theme.ink : Theme.dis;
             horizontal-alignment: right;
             vertical-alignment: center;
-            if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
+            overflow: elide;
         }
         if is-typing: TextInput {
             width: parent.width;
             height: parent.height;
-            text: root.typing;
+            text: root.typing != "" ? root.typing : "\{root.shown}";
             font-family: Theme.font;
             font-size: Theme.body;
-            font-weight: 600;
-            color: hue;
+            font-weight: Theme.w-value;
+            color: Theme.ink;
             selection-background-color: Theme.fill;
-            selection-foreground-color: white;
+            selection-foreground-color: Theme.on-fill;
             horizontal-alignment: right;
             vertical-alignment: center;
             single-line: true;
             accessible-label: root.label;
+            enabled: root.enabled;
             init => { self.focus(); self.select-all(); }
             accepted => { root.typing-done(self.text); }
             changed has-focus => { if (!self.has-focus) { root.typing-done(self.text); } }
             key-pressed(e) => {
-                if (e.text == Key.Escape) { root.is-typing = false; KeyFocus.given-back += 1; return accept; }
+                if (e.text == Key.Escape) {
+                    root.is-typing = false;
+                    if (typing-by-key) { slider-focus.focus(); } else { KeyFocus.given-back += 1; }
+                    return accept;
+                }
                 reject
             }
         }

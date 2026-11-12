@@ -1,8 +1,67 @@
 // The Transforms card. Joined after parts.slint and pad.slint.
 
+// The zoom and pan map: the whole frame in its own shape on an empty field, centred in a row of fixed height so the card never changes
+// size when the phone turns, with the crop drawn on it as a rounded frame and dragged directly. Zoom stays the slider above.
+component ZoomMap inherits Rectangle {
+    in property <float> zoom: 1;
+    in property <float> pan-x;
+    in property <float> pan-y;
+    in property <bool> enabled: true;
+    in property <color> hue: Theme.accent;
+    in property <string> tip;
+    in property <string> tip-hint;
+    in property <string> label;
+    in property <string> shortcut;
+    in property <[ShortcutEntry]> shortcut-adds;
+    in property <string> setting-x;
+    in property <string> setting-y;
+    in property <float> aspect: 1.7778;
+    // What the phone's longer lenses see, as boxes on the map
+    in property <[PadMark]> marks;
+    callback moved(float, float);
+    callback grabbed(bool);
+    height: Theme.u(76);
+    horizontal-stretch: 1;
+    property <float> span: 1 - 1 / max(1, zoom);
+    map := Pad {
+        width: min(parent.width, parent.height * max(0.2, aspect));
+        height: min(parent.height, parent.width / max(0.2, aspect));
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        x-minimum: 0.5 * (1 - root.span);
+        x-maximum: 0.5 * (1 + root.span);
+        y-minimum: 0.5 * (1 - root.span);
+        y-maximum: 0.5 * (1 + root.span);
+        value-x: 0.5 + root.pan-x * root.span / 2;
+        value-y: 0.5 + root.pan-y * root.span / 2;
+        step-x: 0.005;
+        step-y: 0.005;
+        box-w: self.width / max(1, root.zoom);
+        box-h: self.height / max(1, root.zoom);
+        has-centre: false;
+        has-default: true;
+        default-x: 0.5;
+        default-y: 0.5;
+        marks: root.marks;
+        enabled: root.enabled;
+        hue: root.hue;
+        tip: root.tip;
+        tip-hint: root.tip-hint;
+        label: root.label;
+        spoken: Spoken.pan(root.pan-x, root.pan-y);
+        shortcut: root.shortcut;
+        shortcut-adds: root.shortcut-adds;
+        setting-x: root.setting-x;
+        setting-y: root.setting-y;
+        moved(x, y) => { root.moved(x, y); }
+        changed held => { root.grabbed(self.held); }
+    }
+}
+
 export component TransformsCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     in property <[bool]> flips: [false, false];
     in property <int> rotation: 0;
     in property <float> zoom: 1;
@@ -18,69 +77,101 @@ export component TransformsCard inherits Card {
     in property <float> pan-y;
     in property <bool> pan-enabled;
     in property <string> pan-text;
+    // The map's shape: the frame's width over its height
+    in property <float> map-aspect: 1.7778;
+    // The boxes the phone's longer lenses see (the preview's Lens outlines, at no zoom), drawn thinly on the map
+    in property <[PadMark]> lens-outlines;
     in property <float> stretch-x: 100;
     in property <float> stretch-y: 100;
     in property <string> stretch-x-text;
     in property <string> stretch-y-text;
-    in property <string> reset-tip;
     in property <string> pan-tip;
     in property <string> pan-add-x;
     in property <string> pan-add-y;
-    in property <string> reset-hint;
     in property <[string]> stretch-tips: ["", ""];
     callback reset-clicked;
     callback flip-toggled(int, bool);
     callback rotation-picked(int);
     callback zoom-moved(float);
-    callback pad-pointer(float, float);
-    callback pad-key(string, bool);
-    callback pad-reset();
+    // The middle of the crop as a fraction of the frame, across and down, and whether the crop is held
+    callback map-moved(float, float);
+    callback map-grabbed(bool);
     callback stretch-moved(int, float);
 
     title: @tr("Transforms");
+    tip: @tr("Zoom, pan, flip, rotate and stretch the picture.");
     icon: Icons.crop;
-    opacity: active ? 1 : 0.4;
     enabled: active;
-    has-action: true;
-    action-icon: Icons.reset;
-    // card_action(tr("Reset"), "reset", …)
-    action-text: @tr("Reset");
-    action-label: reset-tip;
-    action-shortcut: "transforms.reset";
-    action => { root.reset-clicked(); }
+    in property <string> reset-help;
+    has-reset: true;
+    reset-detail: reset-help;
+    reset-lit: flips[0] || flips[1] || rotation != 0 || zoom != 1 || pan-x != 0 || pan-y != 0 || stretch-x != 100 || stretch-y != 100;
+    reset-label: @tr("Reset");
+    reset-shortcut: "transforms.reset";
+    reset => { root.reset-clicked(); }
 
-    FormRow {
+    RailRow {
+        icon: Icons.mirror;
         label: @tr("Flip");
-        Toggles {
-            items: [@tr("Mirror"), @tr("Upside down")];
-            icons: [Icons.mirror, Icons.upside-down];
-            checked: flips;
-            enabled: active;
-            label: @tr("Flip");
-            shortcuts: ["transforms.flip_horizontal", "transforms.flip_vertical"];
-            settings: ["transforms.flip_h", "transforms.flip_v"];
-            toggled(i, on) => { root.flip-toggled(i, on); }
+        hue: root.hue;
+        enabled: active;
+        changed: flips[0] || flips[1];
+        HorizontalLayout {
+            spacing: Theme.gap;
+            ToggleTile {
+                icon: Icons.mirror;
+                text: @tr("Mirror");
+                tip: @tr("Mirror");
+                tip-detail: @tr("Flip the picture left to right.");
+                shortcut: "transforms.flip_horizontal";
+                setting: "transforms.flip_h";
+                hue: root.hue;
+                enabled: active;
+                checked: flips[0];
+                toggled(on) => { root.flip-toggled(0, on); }
+            }
+            ToggleTile {
+                icon: Icons.upside-down;
+                text: @tr("Upside down");
+                tip: @tr("Upside down");
+                tip-detail: @tr("Flip the picture top to bottom.");
+                shortcut: "transforms.flip_vertical";
+                setting: "transforms.flip_v";
+                hue: root.hue;
+                enabled: active;
+                checked: flips[1];
+                toggled(on) => { root.flip-toggled(1, on); }
+            }
         }
     }
-    FormRow {
+    RailRow {
+        icon: Icons.rotate;
         label: @tr("Rotation");
+        hue: root.hue;
+        enabled: active;
+        changed: rotation != 0;
         Segmented {
+            hue: root.hue;
             items: ["0\u{b0}", "90\u{b0}", "180\u{b0}", "270\u{b0}"];
             disabled: [!active, !active, !active, !active];
             has-icons: [false, false, false, false];
             icons: [Icons.colour, Icons.colour, Icons.colour, Icons.colour];
             label: @tr("Rotation");
+            tips: [@tr("Rotation"), @tr("Rotation"), @tr("Rotation"), @tr("Rotation")];
             shortcut: "transforms.rotation";
             setting: "transforms.rotation";
             current: rotation;
             picked(i) => { root.rotation-picked(i); }
         }
     }
-    FormRow {
+    RailRow {
+        icon: Icons.zoom;
         label: @tr("Zoom");
-        enabled: zoom-free;
+        hue: root.hue;
+        enabled: zoom-free && active;
+        changed: zoom != 1;
         HorizontalLayout {
-            spacing: 8px;
+            spacing: Theme.gap;
             Rectangle {
                 horizontal-stretch: 1;
                 Slider {
@@ -91,7 +182,8 @@ export component TransformsCard inherits Card {
                     hue: root.hue;
                     enabled: active && zoom-free;
                     label: @tr("Zoom");
-                    tip: root.zoom-tip;
+                    tip: @tr("Zoom");
+                    tip-detail: root.zoom-tip;
                     shortcut: "transforms.zoom";
                     setting: "transforms.zoom";
                     minimum: 1;
@@ -105,75 +197,69 @@ export component TransformsCard inherits Card {
                 }
             }
             Rectangle {
-                width: 56px;
+                width: Theme.u(28);
                 HorizontalLayout {
                     alignment: end;
-                    spacing: 4px;
+                    spacing: Theme.u(2);
                     if dot-level != "": Rectangle {
-                        width: 6px;
-                        y: (parent.height - 6px) / 2;
-                        height: 6px;
+                        width: Theme.u(3);
+                        y: (parent.height - Theme.u(3)) / 2;
+                        height: Theme.u(3);
                         Rectangle {
-                            width: 6px;
-                            height: 6px;
-                            border-radius: 3px;
+                            width: Theme.u(3);
+                            height: Theme.u(3);
+                            border-radius: Theme.u(1.5);
                             background: dot-level == "on" ? Theme.accent : Theme.err;
                         }
-                        Tooltip { TipBody { says: root.dot-tip; } }
+                        Tip { says: @tr("Lens switch"); detail: root.dot-tip; inert: true; }
                     }
                     Text {
                         text: zoom-text;
                         font-family: Theme.font;
                         font-size: Theme.body;
-                        font-weight: 600;
-                        color: !active ? Theme.accent-soft : zoom-free ? root.hue : Theme.text-disabled;
+                        font-weight: Theme.w-value;
+                        color: !active || !zoom-free ? Theme.dis : root.hue;
                         horizontal-alignment: right;
                         vertical-alignment: center;
                     }
                 }
-                Tooltip { TipBody { says: root.zoom-tip; } }
+                Tip { says: @tr("Zoom"); detail: root.zoom-tip; hint: @tr("Double-click to reset"); inert: true; }
             }
         }
     }
-    FormRow {
+    RailRow {
+        icon: Icons.pan;
         label: @tr("Pan");
-        min-height: 72px;
-        HorizontalLayout {
-            spacing: 8px;
-            PanPad {
-                pan-x: root.pan-x;
-                pan-y: root.pan-y;
-                enabled: active && pan-enabled;
-                hue: root.hue;
-                tip: root.pan-tip;
-                label: @tr("Pan");
-                setting-x: "transforms.pan_x";
-                setting-y: "transforms.pan_y";
-                shortcut: "transforms.pan_x transforms.pan_y";
-                shortcut-adds: [{ id: "transforms.pan_x", text: root.pan-add-x }, { id: "transforms.pan_y", text: root.pan-add-y }];
-                pointer(x, y) => { root.pad-pointer(x, y); }
-                key(k, s) => { root.pad-key(k, s); }
-                reset => { root.pad-reset(); }
-            }
-            Text {
-                width: 56px;
-                text: pan-text;
-                font-family: Theme.font;
-                font-size: Theme.body;
-                font-weight: 600;
-                color: !active ? Theme.accent-soft : pan-enabled ? root.hue : Theme.text-disabled;
-                horizontal-alignment: right;
-                vertical-alignment: center;
-            }
+        hue: root.hue;
+        enabled: active && pan-enabled;
+        changed: pan-x != 0 || pan-y != 0;
+        ZoomMap {
+            zoom: root.zoom;
+            pan-x: root.pan-x;
+            pan-y: root.pan-y;
+            enabled: active && pan-enabled;
+            hue: root.hue;
+            tip: @tr("Pan");
+            tip-hint: root.pan-tip;
+            label: @tr("Pan");
+            aspect: root.map-aspect;
+            marks: root.lens-outlines;
+            shortcut: "transforms.pan_x transforms.pan_y";
+            shortcut-adds: [{ id: "transforms.pan_x", text: root.pan-add-x }, { id: "transforms.pan_y", text: root.pan-add-y }];
+            setting-x: "transforms.pan_x";
+            setting-y: "transforms.pan_y";
+            moved(x, y) => { root.map-moved(x, y); }
+            grabbed(on) => { root.map-grabbed(on); }
         }
     }
-    SliderRow {
+    RailSlider {
+        icon: Icons.stretch;
         enabled: active;
         label: @tr("Width");
-        tip: stretch-tips[0];
+        tip: @tr("Width");
+        tip-detail: stretch-tips[0];
         shortcut: "transforms.stretch_x";
         setting: "transforms.stretch_x";
-        hint: reset-hint;
         minimum: 50;
         maximum: 200;
         value: stretch-x;
@@ -183,13 +269,14 @@ export component TransformsCard inherits Card {
         default-value: 100;
         moved(v) => { root.stretch-moved(0, v); }
     }
-    SliderRow {
+    RailSlider {
+        icon: Icons.stretch-tall;
         enabled: active;
         label: @tr("Height");
-        tip: stretch-tips[1];
+        tip: @tr("Height");
+        tip-detail: stretch-tips[1];
         shortcut: "transforms.stretch_y";
         setting: "transforms.stretch_y";
-        hint: reset-hint;
         minimum: 50;
         maximum: 200;
         value: stretch-y;

@@ -1,66 +1,9 @@
-// The Notes card. Joined after parts.slint, which has the imports.
-
-// QPlainTextEdit: several lines that wrap, scrolling to keep the cursor in sight
-component NotesEditor inherits Rectangle {
-    in-out property <string> text;
-    in property <string> placeholder;
-    in property <string> label;
-    in property <bool> enabled: true;
-    callback edited(string);
-    min-height: 140px;
-    // QAbstractScrollArea's size hint
-    preferred-height: 192px;
-    vertical-stretch: 1;
-    border-radius: 7px;
-    border-width: 1px;
-    background: Theme.surface-raise;
-    border-color: input.has-focus ? Theme.accent : Theme.border-strong;
-    forward-focus: input;
-    flick := Flickable {
-        x: 1px;
-        y: 1px;
-        width: parent.width - 2px;
-        height: parent.height - 2px;
-        viewport-height: max(self.height, input.preferred-height + 14px);
-        TouchArea { width: flick.viewport-width; height: flick.viewport-height; mouse-cursor: MouseCursor.text; clicked => { input.focus(); } }
-        if text == "" && placeholder != "": Text {
-            x: 10px;
-            y: 7px;
-            width: flick.width - 20px;
-            text: placeholder;
-            wrap: word-wrap;
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: Theme.text-faint;
-        }
-        input := TextInput {
-            x: 10px;
-            y: 7px;
-            width: flick.width - 20px;
-            text <=> root.text;
-            single-line: false;
-            accessible-label: root.label;
-            accessible-placeholder-text: root.placeholder;
-            wrap: word-wrap;
-            enabled: root.enabled;
-            changed has-focus => { if (self.has-focus) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: self.has-focus ? white : Theme.text;
-            selection-background-color: Theme.fill;
-            selection-foreground-color: white;
-            edited => { root.edited(self.text); }
-            cursor-position-changed(p) => {
-                if (p.y + flick.viewport-y < 0) { flick.viewport-y = -p.y; }
-                else if (p.y + 22px + flick.viewport-y > flick.height - 7px) { flick.viewport-y = -(p.y + 22px - flick.height + 7px); }
-            }
-        }
-    }
-}
+// The Teleprompter card. Joined after parts.slint, which has the imports.
 
 export component NotesCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     // The saved sets: how the picker names each, which is open and what its buttons say
     in property <[string]> set-items: [""];
     in property <int> set-current: 0;
@@ -72,16 +15,22 @@ export component NotesCard inherits Card {
     // What the editor holds; set when a set is opened, typing edits it from inside
     in-out property <string> text;
     in property <string> placeholder;
+    in property <string> editor-tip;
     in property <string> editor-label;
     in property <int> size: 44;
     in property <string> size-text;
     in property <string> size-tip;
+    // The start of the open set, for the size bubble's sample
+    in property <string> sample;
     in property <int> scroll;
     in property <[string]> scroll-items: ["", ""];
+    in property <string> scroll-tip;
     in property <int> speed: 3;
     in property <string> speed-text;
-    in property <string> reset-hint;
-    // By hand has no speed and no Play
+    in property <string> speed-tip;
+    // Why the speed and Play are greyed out by hand
+    in property <string> by-hand-tip;
+    // By hand has no speed and no Play: they stay, greyed out
     in property <bool> show-auto: true;
     in property <bool> playing;
     in property <string> back-text;
@@ -96,6 +45,7 @@ export component NotesCard inherits Card {
     in property <bool> clear-enabled;
     in property <bool> nav-enabled;
     in property <string> status;
+    in property <string> status-detail;
     in property <string> status-kind: "status_dim";
     callback set-picked(int);
     callback new-clicked;
@@ -110,146 +60,211 @@ export component NotesCard inherits Card {
     callback send-clicked;
     callback clear-clicked;
 
-    title: @tr("Notes");
+    title: @tr("Teleprompter");
+    tip: @tr("Show your script on the phone's screen so you can read it while looking into the camera.");
     icon: Icons.notes;
-    opacity: active ? 1 : 0.4;
     enabled: active;
 
-    HorizontalLayout {
-        spacing: 6px;
-        ChoiceField {
-            enabled: active;
-            compact: true;
-            caption: set-tip;
-            items: set-items;
-            current: set-current;
-            picked(i) => { root.set-picked(i); }
-        }
-        IconButton {
-            width: 30px;
-            height: 30px;
-            y: 1px;
-            icon: Icons.plus;
-            icon-size: 15px;
-            label: new-tip;
-            opacity: new-enabled ? 1 : 0.4;
-            clicked => { if (new-enabled) { root.new-clicked(); } }
-        }
-        IconButton {
-            width: 30px;
-            height: 30px;
-            y: 1px;
-            icon: Icons.trash;
-            icon-size: 15px;
-            label: delete-tip;
-            opacity: delete-enabled ? 1 : 0.4;
-            clicked => { if (delete-enabled) { root.delete-clicked(); } }
-        }
-    }
-    NotesEditor {
-        enabled: active;
-        text <=> root.text;
-        placeholder: root.placeholder;
-        label: editor-label;
-        edited(t) => { root.text-edited(t); }
-    }
-    SliderRow {
-        enabled: active;
-        label: @tr("Text size");
-        tip: size-tip;
-        hint: reset-hint;
-        minimum: 16;
-        maximum: 120;
-        value: size;
-        readout: size-text;
+    RailRow {
+        icon: Icons.notes;
+        label: @tr("Script");
         hue: root.hue;
-        has-default: true;
-        default-value: 44;
-        moved(v) => { root.size-moved(v); }
+        enabled: active;
+        HorizontalLayout {
+            spacing: Theme.gap;
+            ChoiceField {
+                enabled: active;
+                compact: true;
+                has-icon: true;
+                icon: Icons.notes;
+                caption: set-tip;
+                items: set-items;
+                current: set-current;
+                picked(i) => { root.set-picked(i); }
+            }
+            IconButton {
+                raised: true;
+                icon: Icons.plus;
+                label: new-tip;
+                tip: new-tip;
+                enabled: active && new-enabled;
+                clicked => { root.new-clicked(); }
+            }
+            IconButton {
+                raised: true;
+                icon: Icons.trash;
+                label: delete-tip;
+                tip: delete-tip;
+                enabled: active && delete-enabled;
+                clicked => { root.delete-clicked(); }
+            }
+        }
     }
-    FormRow {
+    RailRow {
+        icon: Icons.pencil;
+        label: editor-label;
+        hue: root.hue;
+        enabled: active;
+        TextArea {
+            enabled: active;
+            skeleton: true;
+            label: editor-label;
+            placeholder: root.placeholder;
+            tip: editor-label;
+            tip-detail: editor-tip;
+            text <=> root.text;
+            edited(t) => { root.text-edited(t); }
+        }
+    }
+    RailRow {
+        icon: Icons.text-size;
+        label: @tr("Text size");
+        hue: root.hue;
+        enabled: active;
+        changed: size != 44;
+        Slider {
+            enabled: active;
+            label: @tr("Text size");
+            tip: @tr("Text size");
+            tip-detail: size-tip;
+            hue: root.hue;
+            minimum: 16;
+            maximum: 120;
+            value: size;
+            peek: "text";
+            peek-values: [size * 1.0];
+            peek-text: sample;
+            readout: size-text;
+            has-default: true;
+            default-value: 44;
+            moved(v) => { root.size-moved(v); }
+        }
+    }
+    RailRow {
+        icon: Icons.scroll;
         label: @tr("Scroll");
+        hue: root.hue;
+        enabled: active;
+        changed: scroll != 0;
         Segmented {
+            hue: root.hue;
             items: scroll-items;
             disabled: [!active, !active];
             has-icons: [false, false];
             icons: [Icons.colour, Icons.colour];
             label: @tr("Scroll");
+            tips: scroll-items;
+            tip-details: [scroll-tip, scroll-tip];
             current: scroll;
             picked(i) => { root.scroll-picked(i); }
         }
     }
-    if show-auto: SliderRow {
-        enabled: active;
+    RailRow {
+        icon: Icons.gauge;
         label: @tr("Speed");
-        shortcut: "notes.speed";
-        hint: reset-hint;
-        minimum: 1;
-        maximum: 10;
-        value: speed;
-        readout: speed-text;
         hue: root.hue;
-        has-default: true;
-        default-value: 3;
-        moved(v) => { root.speed-moved(v); }
-    }
-    HorizontalLayout {
-        spacing: 8px;
-        Button {
-            horizontal-stretch: 1;
-            preferred-width: 0px;
-            min-width: 0px;
-            text: back-text;
-            tip: back-tip;
-            shortcut: "notes.previous";
-            enabled: active && (nav-enabled);
-            clicked => { root.back-clicked(); }
-        }
-        if show-auto: Button {
-            horizontal-stretch: 1;
-            preferred-width: 0px;
-            min-width: 0px;
-            text: play-text;
-            tip: play-tip;
-            shortcut: "notes.play";
-            role: playing ? "primary" : "";
-            enabled: active && (nav-enabled);
-            clicked => { root.play-toggled(!root.playing); }
-        }
-        Button {
-            horizontal-stretch: 1;
-            preferred-width: 0px;
-            min-width: 0px;
-            text: next-text;
-            tip: next-tip;
-            shortcut: "notes.next";
-            enabled: active && (nav-enabled);
-            clicked => { root.next-clicked(); }
+        enabled: active && show-auto;
+        changed: speed != 3;
+        Slider {
+            enabled: active && show-auto;
+            label: @tr("Speed");
+            tip: @tr("Speed");
+            tip-detail: show-auto ? speed-tip : by-hand-tip;
+            shortcut: "notes.speed";
+            hue: root.hue;
+            minimum: 1;
+            maximum: 10;
+            value: speed;
+            readout: speed-text;
+            has-default: true;
+            default-value: 3;
+            moved(v) => { root.speed-moved(v); }
         }
     }
-    HorizontalLayout {
-        spacing: 8px;
-        Button {
-            horizontal-stretch: 1;
-            preferred-width: 0px;
-            min-width: 0px;
-            text: send-text;
-            shortcut: "notes.send";
-            role: "primary";
-            enabled: active && (send-enabled);
-            clicked => { root.send-clicked(); }
-        }
-        Button {
-            horizontal-stretch: 1;
-            preferred-width: 0px;
-            min-width: 0px;
-            text: clear-text;
-            shortcut: "notes.clear";
-            enabled: active && (clear-enabled);
-            clicked => { root.clear-clicked(); }
+    RailRow {
+        icon: Icons.phone;
+        label: @tr("Move through the script");
+        hue: root.hue;
+        enabled: active;
+        HorizontalLayout {
+            spacing: Theme.gap;
+            Button {
+                horizontal-stretch: 1;
+                preferred-width: 0px;
+                min-width: 0px;
+                has-icon: true;
+                icon: Icons.skip-back;
+                icon-size: Theme.icon;
+                accessible-label: back-text;
+                tip: back-text;
+                tip-detail: back-tip;
+                shortcut: "notes.previous";
+                enabled: active && nav-enabled;
+                clicked => { root.back-clicked(); }
+            }
+            ToggleTile {
+                height: Theme.row;
+                icon: Icons.v-play;
+                name: play-text;
+                tip: play-text;
+                tip-detail: show-auto ? play-tip : by-hand-tip;
+                shortcut: "notes.play";
+                hue: root.hue;
+                enabled: active && nav-enabled && show-auto;
+                checked: playing;
+                toggled(on) => { root.play-toggled(on); }
+            }
+            Button {
+                horizontal-stretch: 1;
+                preferred-width: 0px;
+                min-width: 0px;
+                has-icon: true;
+                icon: Icons.skip-next;
+                icon-size: Theme.icon;
+                accessible-label: next-text;
+                tip: next-text;
+                tip-detail: next-tip;
+                shortcut: "notes.next";
+                enabled: active && nav-enabled;
+                clicked => { root.next-clicked(); }
+            }
         }
     }
-    if status != "": Note { text: status; kind: status-kind; }
+    UnfoldGroup {
+        RailRow {
+            has-icon: false;
+            enabled: active;
+            HorizontalLayout {
+                spacing: Theme.gap;
+                Button {
+                    horizontal-stretch: 1;
+                    preferred-width: 0px;
+                    min-width: 0px;
+                    has-icon: true;
+                    icon: Icons.send-phone;
+                    text: send-text;
+                    shortcut: "notes.send";
+                    role: "primary";
+                    hue: root.hue;
+                    enabled: active && send-enabled;
+                    clicked => { root.send-clicked(); }
+                }
+                // An icon button with the name as its tooltip, so the long German names never cut the Send text
+                IconButton {
+                    raised: true;
+                    icon: Icons.clear-phone;
+                    label: clear-text;
+                    tip: clear-text;
+                    shortcut: "notes.clear";
+                    enabled: active && clear-enabled;
+                    clicked => { root.clear-clicked(); }
+                }
+            }
+        }
+        StatusUnfold { text: status; kind: status-kind; detail: status-detail; }
+    }
     // Nothing to touch until a phone is paired
     blocked: !active;
 }
+
+import { RailRow, ToggleTile, TextArea } from "@ui-kit/ui-kit.slint";

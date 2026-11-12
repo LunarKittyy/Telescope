@@ -36,6 +36,12 @@ RNNoise (pyrnnoise's wheel)
     Noise reduction for the microphone.
     Copyright (c) Xiph.Org Foundation, Mozilla Corporation and others.
     License: BSD 3-Clause. Source: https://github.com/xiph/rnnoise
+
+IBM Plex Sans (ui-kit/fonts/)
+    The window's typeface, in its regular, medium, semibold and bold weights.
+    Copyright (c) 2017 IBM Corp., with Reserved Font Name "Plex".
+    License: SIL Open Font License 1.1 (ui-kit/fonts/OFL.txt).
+    Source: https://github.com/IBM/plex
 """
 
 WINDOWS = """

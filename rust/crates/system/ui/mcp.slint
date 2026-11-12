@@ -1,6 +1,6 @@
 // The MCP server's tab in Settings and its button in the header. The texts that are lists or carry names come filled from Rust.
 
-import { Theme, Icons, Card, FormRow, Segmented, IconButton, Icon, FocusRing, TipBody, TipUse } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Well, Card, RailRow, Segmented, IconButton, Icon, FocusRing, KeyFocus, Tip, Motion, Status } from "@ui-kit/ui-kit.slint";
 
 // One line of the activity log: when, which AI app, what it did in words. kind is "" or "refused".
 export struct McpLogRow {
@@ -11,7 +11,7 @@ export struct McpLogRow {
 }
 
 export component McpSettings inherits VerticalLayout {
-    spacing: 12px;
+    spacing: Theme.u(7);
     // The AI apps connected now, by the name each gave; none: empty
     in property <[string]> clients;
     in property <string> none-text;
@@ -27,69 +27,75 @@ export component McpSettings inherits VerticalLayout {
 
     Card {
         title: @tr("MCP server");
+        tip: @tr("Let an AI app read and change Telescope's settings.");
         keywords: @tr("search" => "mcp ai claude model assistant agent connect access read only");
-        icon: Icons.sliders;
+        icon: Icons.plug;
         hue: Theme.plugin-hue("extras");
-        FormRow {
+        RailRow {
+            icon: Icons.devices;
             label: @tr("Connected");
+            named: true;
+            hue: Theme.plugin-hue("extras");
             VerticalLayout {
-                horizontal-stretch: 1;
                 alignment: center;
-                spacing: 2px;
-                min-height: 36px;
+                spacing: Theme.u(1);
                 if clients.length == 0: Text {
                     text: none-text;
                     font-family: Theme.font;
                     font-size: Theme.body;
-                    color: Theme.text-faint;
+                    color: Theme.faint;
+                    horizontal-alignment: right;
                     vertical-alignment: center;
                 }
                 for name in clients: Text {
                     text: name;
                     font-family: Theme.font;
                     font-size: Theme.body;
-                    color: Theme.text;
+                    font-weight: Theme.w-value;
+                    color: Theme.ink;
+                    horizontal-alignment: right;
                     overflow: elide;
                     vertical-alignment: center;
                 }
             }
         }
-        FormRow {
+        RailRow {
+            icon: Icons.lock;
             label: @tr("Access");
-            Rectangle {
-                horizontal-stretch: 1;
-                Segmented {
-                    width: min(parent.width, 340px);
-                    x: 0;
-                    label: @tr("Access");
-                    items: access-items;
-                    disabled: [false, false];
-                    has-icons: [false, false];
-                    icons: [Icons.colour, Icons.colour];
-                    current: access-current;
-                    picked(i) => { root.access-picked(i); }
-                }
+            named: true;
+            hue: Theme.plugin-hue("extras");
+            Segmented {
+                width: Theme.control-w;
+                hue: Theme.plugin-hue("extras");
+                label: @tr("Access");
+                items: access-items;
+                disabled: [false, false];
+                has-icons: [false, false];
+                icons: [Icons.colour, Icons.colour];
+                current: access-current;
+                picked(i) => { root.access-picked(i); }
             }
         }
-        FormRow {
+        // The line to paste into the AI app's config, in monospace in a recessed well with a button that copies it
+        RailRow {
+            icon: Icons.keyboard;
             label: @tr("Command");
+            hue: Theme.plugin-hue("extras");
             HorizontalLayout {
-                horizontal-stretch: 1;
-                spacing: 8px;
-                Rectangle {
+                spacing: Theme.gap;
+                Well {
                     horizontal-stretch: 1;
-                    min-height: 36px;
-                    background: Theme.surface-sunk;
-                    border-radius: 6px;
+                    min-width: 0px;
+                    min-height: Theme.row;
                     accessible-role: text;
                     accessible-label: command;
                     VerticalLayout {
-                        padding: 8px;
+                        padding: Theme.u(4);
                         Text {
                             text: command;
                             font-family: Theme.mono;
-                            font-size: 12px;
-                            color: Theme.text;
+                            font-size: Theme.mono-size;
+                            color: Theme.ink;
                             wrap: word-wrap;
                             vertical-alignment: center;
                             accessible-role: none;
@@ -97,11 +103,12 @@ export component McpSettings inherits VerticalLayout {
                     }
                 }
                 VerticalLayout {
-                    alignment: center;
+                    alignment: start;
                     IconButton {
                         icon: Icons.copy;
                         label: @tr("Copy");
-                        tip: copy-tip;
+                        tip: @tr("Copy");
+                        tip-detail: copy-tip;
                         clicked => { root.copy-clicked(); }
                     }
                 }
@@ -114,35 +121,28 @@ export component McpSettings inherits VerticalLayout {
         keywords: @tr("search" => "mcp ai log history what the ai did refused");
         icon: Icons.notes;
         hue: Theme.plugin-hue("extras");
-        if log.length == 0: Text {
-            text: log-empty;
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: Theme.text-faint;
-            height: 28px;
-            vertical-alignment: center;
-        }
+        if log.length == 0: Status { text: log-empty; }
         for row in log: Rectangle {
-            min-height: 26px;
+            min-height: Theme.row;
             accessible-role: text;
             accessible-label: row.time + ", " + row.who + ", " + row.text;
             HorizontalLayout {
-                spacing: 10px;
+                spacing: Theme.gap;
                 Text {
-                    width: 62px;
+                    width: Theme.u(31);
                     text: row.time;
                     font-family: Theme.font;
                     font-size: Theme.small;
-                    color: Theme.text-faint;
+                    color: Theme.faint;
                     vertical-alignment: center;
                     accessible-role: none;
                 }
                 Text {
-                    width: 110px;
+                    width: Theme.u(45);
                     text: row.who;
                     font-family: Theme.font;
                     font-size: Theme.small;
-                    color: Theme.text-dim;
+                    color: Theme.ink2;
                     overflow: elide;
                     vertical-alignment: center;
                     accessible-role: none;
@@ -153,7 +153,7 @@ export component McpSettings inherits VerticalLayout {
                     text: row.text;
                     font-family: Theme.font;
                     font-size: Theme.body;
-                    color: row.kind == "refused" ? Theme.warn : Theme.text;
+                    color: row.kind == "refused" ? Theme.warn : Theme.ink;
                     overflow: elide;
                     vertical-alignment: center;
                     accessible-role: none;
@@ -163,18 +163,25 @@ export component McpSettings inherits VerticalLayout {
     }
 }
 
-// Half of the split header button: a segment with its own hover, focus and press
+// Half of the split header button: a raised segment with its own hover, focus and press, and the thick outline while the AI is changing things
 component Segment inherits Rectangle {
     in property <bool> enabled: true;
     in property <string> label;
     in property <string> tip;
+    in property <string> tip-detail;
+    // The outline of state, in the accent while it is on
+    in property <bool> outlined;
     callback clicked;
     accessible-role: button;
     accessible-label: label;
-    accessible-description: tip;
+    accessible-description: tip-detail != "" ? tip-detail : tip;
     accessible-enabled: enabled;
     accessible-action-default => { if (enabled) { clicked(); } }
-    background: touch.pressed && enabled ? Theme.surface-hover : touch.has-hover && enabled ? Theme.surface-raise : transparent;
+    border-radius: Theme.r-ctl;
+    border-width: outlined ? Theme.stroke : !enabled ? Theme.outline-w : Theme.ctl-outline-w(touch.has-hover, touch.pressed);
+    border-color: outlined ? Theme.accent : !enabled ? Theme.dis-outline : Theme.ctl-outline(touch.has-hover, touch.pressed);
+    background: !enabled ? Theme.trough : touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : Theme.raise;
+    animate background, border-width, border-color { duration: Motion.tone-for(touch.pressed); easing: Motion.tone; }
     forward-focus: focus;
     focus := FocusScope {
         enabled: root.enabled;
@@ -183,8 +190,8 @@ component Segment inherits Rectangle {
             reject
         }
     }
-    FocusRing { shown: focus.has-focus; radius: 6px; x: 0px; y: 0px; width: parent.width; height: parent.height; }
-    usage := TipUse { hover: touch.has-hover; }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; x: 0px; y: 0px; width: parent.width; height: parent.height; }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
     touch := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
@@ -192,12 +199,12 @@ component Segment inherits Rectangle {
         scroll-event(e) => { usage.wheel(); reject }
         clicked => { root.clicked(); }
     }
-    if tip != "" && !usage.used: Tooltip { TipBody { says: tip; } }
     @children
 }
 
-// The header's MCP button, there while the plugin is on. Left: whether an AI app is connected, and open the MCP settings. Right: undo what
-// the AI changed. activity is "" at rest, "read" while it looks at things and "change" while it moves things, and fades back on its own.
+// The header's MCP button, there while the plugin is on: two raised segments side by side. Left: whether an AI app is connected, and open the
+// MCP settings. Right: undo what the AI changed. activity is "" at rest, "read" while it looks at things and "change" while it moves things,
+// and fades back on its own.
 export component McpButton inherits Rectangle {
     in property <bool> shown;
     in property <bool> connected;
@@ -210,57 +217,39 @@ export component McpButton inherits Rectangle {
     callback open;
     callback undo;
     visible: shown;
-    height: 36px;
-    width: shown ? 104px : 0px;
-    border-radius: 8px;
-    border-width: 1px;
-    clip: true;
-    border-color: activity == "change" ? Theme.accent : Theme.border;
-    animate border-color { duration: 400ms; easing: ease-out; }
+    height: Theme.u(18);
+    width: shown ? Theme.u(18) + Theme.u(1) + Theme.u(18) : 0px;
     HorizontalLayout {
+        spacing: Theme.u(1);
         Segment {
-            horizontal-stretch: 1;
+            width: Theme.u(18);
             label: open-label;
-            tip: open-tip;
+            tip: @tr("MCP");
+            tip-detail: open-tip;
+            outlined: activity != "";
             clicked => { root.open(); }
+            // The MCP glyph on a raised square like the bar's other buttons: an AI app's work on the picture is the outline
+            // (the Segment's own), and whether one is connected is in the tooltip
             HorizontalLayout {
-                padding-left: 12px;
-                padding-right: 10px;
-                spacing: 8px;
-                alignment: start;
+                alignment: center;
                 VerticalLayout {
-                    width: 8px;
                     alignment: center;
-                    Rectangle {
-                        height: 8px;
-                        border-radius: 4px;
-                        border-width: connected ? 0px : 1.5px;
-                        border-color: Theme.text-faint;
-                        background: !connected ? transparent : activity == "change" ? Theme.accent : activity == "read" ? Theme.accent-soft : Theme.ok;
-                        animate background { duration: 400ms; easing: ease-out; }
-                        accessible-role: none;
+                    Icon {
+                        source: Icons.plug;
+                        tint: connected ? Theme.ink : Theme.ink2;
+                        width: Theme.icon;
+                        height: Theme.icon;
+                        animate tint { duration: Motion.fades ? Motion.outline-out : 0ms; easing: Motion.tone; }
                     }
-                }
-                Text {
-                    text: @tr("MCP");
-                    font-family: Theme.font;
-                    font-size: Theme.body;
-                    font-weight: 600;
-                    color: connected ? Theme.text : Theme.text-dim;
-                    vertical-alignment: center;
-                    accessible-role: none;
                 }
             }
         }
-        Rectangle {
-            width: 1px;
-            background: Theme.border;
-        }
         Segment {
-            width: 36px;
+            width: Theme.u(18);
             enabled: can-undo;
             label: undo-label;
-            tip: undo-tip;
+            tip: @tr("Undo");
+            tip-detail: undo-tip;
             clicked => { root.undo(); }
             HorizontalLayout {
                 alignment: center;
@@ -268,9 +257,9 @@ export component McpButton inherits Rectangle {
                     alignment: center;
                     Icon {
                         source: Icons.reset;
-                        tint: can-undo ? Theme.text-dim : Theme.text-disabled;
-                        width: 16px;
-                        height: 16px;
+                        tint: can-undo ? Theme.ink2 : Theme.dis;
+                        width: Theme.icon;
+                        height: Theme.icon;
                     }
                 }
             }

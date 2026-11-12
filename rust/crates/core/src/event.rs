@@ -140,8 +140,8 @@ events! {
     "camera_opened" => CameraOpened { source_id: String, slot: u32, width: u32, height: u32 },
     /// Whether an app is reading the virtual camera (Wait screen watches it).
     "camera_watched" => CameraWatched { watched: bool },
-    /// Something asks for the wait screen in place of the shown stream's picture, or lets go.
-    "cover_requested" => CoverRequested { owner: String, on: bool },
+    /// Something asks for the wait screen in place of the shown stream's picture, or lets go. `note` is the line to show under the name instead of the usual one (the default screen only).
+    "cover_requested" => CoverRequested { owner: String, on: bool, note: Option<String> },
     /// Wait screen shows in place of the shown stream's picture for a cover_requested, or stopped.
     "stream_covered" => StreamCovered { covered: bool },
     /// The main window came on screen, or went to the tray or was minimized.
@@ -180,6 +180,8 @@ events! {
     "still_caps_changed" => StillCapsChanged { source_id: String },
     /// A stream fell behind its frame rate, or caught up again; only the shown one is measured.
     "stream_behind" => StreamBehind { source_id: String, behind: bool },
+    /// Not in plugin.py: a stream's decoded frames changed size (a rotated phone, a Browser camera turning), whichever kind of source it is.
+    "frame_size_changed" => FrameSizeChanged { source_id: String, width: u32, height: u32 },
 
     /// Not in plugin.py: a pick_on_preview ended, with the pick or None when cancelled (Python's on_done callback).
     "preview_picked" => PreviewPicked { owner: String, pick: Option<Pick> },
@@ -203,6 +205,9 @@ events! {
     "vision_download_finished" => VisionDownloadFinished { error: String, switch_on: String },
     /// Not in plugin.py: about once a second while a stream runs, how it's going as numbers (core::stats::Snapshot), with the last minute of each series.
     "stats_updated" => StatsUpdated { snapshot: Snapshot },
+    /// Not in plugin.py: the readouts pinned to the bottom bar changed (a pin, an unpin, or the bar's own readouts came or went): every id
+    /// pinned now, left side first. A card with a star for each readout redraws it from this.
+    "bar_pins_changed" => BarPinsChanged { pinned: Vec<String> },
     /// Not in plugin.py: something outside the window (the MCP server) wants the picture of a stream measured, about a second of steady
     /// frames, and whichever plugin can do that (Colour grading) answers with picture_measured and the same token. Nobody answering
     /// means nothing here can measure, which the asker finds out from its own timeout.

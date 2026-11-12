@@ -1,16 +1,19 @@
-//! The frame the system draws around a window: on Windows the title bar follows the app's dark palette and shows the app's icon.
-//! Elsewhere the system's own frame and the icon property are left alone.
+//! The frame the system draws around a window: on Windows the title bar is the top bar's colour in the look that is on (Windows 11; Windows
+//! 10 keeps its own) and shows the app's icon. On KDE Plasma it's the same colours (kde.rs). GNOME and the other desktops keep the system's
+//! own frame.
 
 use slint_interpreter::ComponentInstance;
 
-/// Dresses the frame of a window that was just shown, once the system has made it.
+/// Dresses the frame of a window that was just shown, once the system has made it, and again when the look changes (the look changes).
 pub(crate) fn dress(ui: &ComponentInstance) {
     #[cfg(windows)]
     {
-        let colours = (colour(ui, "bg"), colour(ui, "text"));
+        let colours = (colour(ui, "chrome"), colour(ui, "ink"));
         crate::screen::when_made(ui, |w| hwnd_of(w), move |_, hwnd| windows_frame(hwnd, colours));
     }
-    #[cfg(not(windows))]
+    #[cfg(all(unix, not(target_os = "macos")))]
+    crate::kde::dress(ui);
+    #[cfg(not(any(windows, all(unix, not(target_os = "macos")))))]
     let _ = ui;
 }
 
@@ -51,8 +54,10 @@ fn windows_frame(hwnd: isize, (caption, text): (Option<u32>, Option<u32>)) {
         // SAFETY: hwnd is this process's window and value outlives the call at the size passed; Windows 10 refuses the colours, which is fine
         let _ = unsafe { DwmSetWindowAttribute(hwnd, attribute, &value as *const u32 as *const c_void, 4) };
     };
-    // The app is dark, so the title bar is too (it darkens the buttons as well); the two colours are Windows 11 only
-    set(DWMWA_USE_IMMERSIVE_DARK_MODE, 1);
+    // A dark look gets a dark title bar (it darkens the buttons as well), Light a light one; the caption takes the top bar's colour and the
+    // text the bar's ink, both Windows 11 only
+    let dark = caption.is_none_or(|c| (c & 0xff) + (c >> 8 & 0xff) + (c >> 16 & 0xff) < 3 * 128);
+    set(DWMWA_USE_IMMERSIVE_DARK_MODE, u32::from(dark));
     if let Some(c) = caption {
         set(DWMWA_CAPTION_COLOR, c);
     }

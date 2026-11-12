@@ -27,6 +27,8 @@ pub const SIZE_DEFAULT: i64 = 44;
 pub const SPEED_MAX: i64 = 10;
 pub const SPEED_DEFAULT: i64 = 3;
 pub const MAX_SETS: usize = 9;
+/// How much of the open set the text size bubble draws.
+pub const SAMPLE_CHARS: usize = 160;
 /// The phone reads control requests up to 64 KiB.
 pub const NOTES_MAX_BYTES: usize = 60_000;
 pub const NAME_CHARS: usize = 32;
@@ -41,15 +43,18 @@ const RESEND_AFTER_S: f64 = 8.0;
 /// The scroll modes by the names saved settings use, with their texts.
 const SCROLLS: [(&str, &str); 2] = [("auto", n_("Auto")), ("hand", n_("By hand"))];
 
-const PLACEHOLDER: &str = n_("Type or paste your notes.");
-const SET_TIP: &str = n_("Your saved notes");
-const NEW_TIP: &str = n_("New notes");
-const DELETE_TIP: &str = n_("Delete these notes");
-const SIZE_TIP: &str = n_("How big the notes are on the phone");
-const BACK_TIP: &str = n_("Back to the line before");
-const PLAY_TIP: &str = n_("Start or pause scrolling on the phone");
-const NEXT_TIP: &str = n_("On to the next line");
-const RESET_HINT: &str = n_("Double-click to reset");
+const PLACEHOLDER: &str = n_("Type or paste your script.");
+const SET_TIP: &str = n_("Saved scripts");
+const NEW_TIP: &str = n_("New script");
+const EDITOR_TIP: &str = n_("Type or paste what you want to read on the phone.");
+const SCROLL_TIP: &str = n_("Scroll automatically or move one line at a time by hand.");
+const DELETE_TIP: &str = n_("Delete script");
+const SIZE_TIP: &str = n_("How big the text is on the phone.");
+const SPEED_TIP: &str = n_("How fast the text scrolls on the phone.");
+const BY_HAND_TIP: &str = n_("Only used with Auto scrolling.");
+const BACK_TIP: &str = n_("Go back one line.");
+const PLAY_TIP: &str = n_("Start or pause scrolling on the phone.");
+const NEXT_TIP: &str = n_("Go to the next line.");
 
 /// How big the notes control is on the wire, as the phone client sends it.
 pub fn body_size(text: &str) -> usize {
@@ -101,42 +106,79 @@ pub struct StatusFacts {
     pub preview: bool,
 }
 
-/// (what the card says about the notes, its status kind).
-pub fn notes_status(f: &StatusFacts) -> (String, &'static str) {
+/// What the card says about the script: a short word, and a sentence for its tooltip.
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum Say {
+    Nothing,
+    NoPhone,
+    Update,
+    TooLong,
+    Closed,
+    Preview,
+    NotShown,
+    Edited,
+    Up,
+}
+
+impl Say {
+    /// (the word, its status kind).
+    pub fn word(self) -> (String, &'static str) {
+        match self {
+            Say::Nothing => (String::new(), "dim"),
+            Say::NoPhone => (tr("Phone only"), "dim"),
+            Say::Update => (tr("Update the phone app"), "status_warn"),
+            Say::TooLong => (tr("Too long"), "status_err"),
+            Say::Closed => (tr("Closed on the phone"), "status_warn"),
+            Say::Preview => (tr("Waiting for the phone"), "status_warn"),
+            Say::NotShown => (tr("Not on the phone yet"), "status_warn"),
+            Say::Edited => (tr("Send again"), "status_ok"),
+            Say::Up => (tr("On the phone"), "status_ok"),
+        }
+    }
+
+    pub fn detail(self) -> String {
+        match self {
+            Say::Nothing => String::new(),
+            Say::NoPhone => tr("The teleprompter only works with a phone as the camera."),
+            Say::Update => tr("Update Telescope on the phone to show a script there."),
+            Say::TooLong => tr("This script is too long to send to the phone."),
+            Say::Closed => tr("The script was closed on the phone. Send again to show it."),
+            Say::Preview => tr("The script shows up on the phone once you close its preview."),
+            Say::NotShown => tr("Open Telescope on the phone to see the script."),
+            Say::Edited => tr("Send again to show your changes on the phone."),
+            Say::Up => tr("The script is on the phone's screen."),
+        }
+    }
+}
+
+/// What the card says about the script.
+pub fn notes_status(f: &StatusFacts) -> Say {
     if !f.phone {
-        return (tr("Notes only work with a phone as the camera."), "dim");
+        return Say::NoPhone;
     }
     if f.takes_notes == Some(false) {
-        return (tr("Update Telescope on the phone to show notes there."), "status_warn");
+        return Say::Update;
     }
     if f.too_long {
-        return (tr("These notes are too long to send to the phone."), "status_err");
+        return Say::TooLong;
     }
-    if !f.streaming {
-        return (tr("Start streaming to send the notes to the phone."), "dim");
-    }
-    if !f.sent {
-        if f.front == Some(false) {
-            return (tr("Switch to the front camera to have the phone's screen facing you."), "status_warn");
-        }
-        return (String::new(), "dim");
+    // Not streaming: the Send button is off and says nothing more
+    if !f.streaming || !f.sent {
+        return Say::Nothing;
     }
     if !f.shown {
-        if f.closed {
-            return (tr("The notes were closed on the phone. Send again to show them."), "status_warn");
-        }
-        if f.preview {
-            return (tr("The notes show up on the phone once you close its preview."), "status_warn");
-        }
-        return (tr("Open Telescope on the phone to see the notes."), "status_warn");
-    }
-    if f.front == Some(false) {
-        return (tr("The notes are up but the phone streams from its back camera."), "status_warn");
+        return if f.closed {
+            Say::Closed
+        } else if f.preview {
+            Say::Preview
+        } else {
+            Say::NotShown
+        };
     }
     if f.edited {
-        return (tr("Send again to show your changes on the phone."), "status_ok");
+        return Say::Edited;
     }
-    (tr("The notes are on the phone's screen."), "status_ok")
+    Say::Up
 }
 
 pub struct NotesPlugin {
@@ -211,7 +253,7 @@ impl NotesPlugin {
 
     fn set_label(index: usize, text: &str) -> String {
         let name = set_name(text);
-        if name.is_empty() { tr("Notes {n}").field("n", (index + 1).to_string()) } else { name }
+        if name.is_empty() { tr("Script {n}").field("n", (index + 1).to_string()) } else { name }
     }
 
     // ── What the card shows ───────────────────────────────────────────
@@ -232,7 +274,7 @@ impl NotesPlugin {
         body_size(self.text()) > NOTES_MAX_BYTES
     }
 
-    fn status(&self) -> (String, &'static str) {
+    fn status(&self) -> Say {
         let sent = self.is_sent();
         notes_status(&StatusFacts {
             streaming: self.ctrl.is_some(),
@@ -255,8 +297,8 @@ impl NotesPlugin {
     fn fixed_props() -> Value {
         json!({
             "set-tip": tr(SET_TIP), "new-tip": tr(NEW_TIP), "delete-tip": tr(DELETE_TIP),
-            "placeholder": tr(PLACEHOLDER), "editor-label": tr("Notes"), "size-tip": tr(SIZE_TIP),
-            "scroll-items": SCROLLS.iter().map(|(_, t)| tr(t)).collect::<Vec<_>>(), "reset-hint": tr(RESET_HINT),
+            "placeholder": tr(PLACEHOLDER), "editor-tip": tr(EDITOR_TIP), "scroll-tip": tr(SCROLL_TIP), "editor-label": tr("Script"), "size-tip": tr(SIZE_TIP), "speed-tip": tr(SPEED_TIP), "by-hand-tip": tr(BY_HAND_TIP),
+            "scroll-items": SCROLLS.iter().map(|(_, t)| tr(t)).collect::<Vec<_>>(),
             "back-text": tr_ctx("notes", "Previous"), "back-tip": tr(BACK_TIP), "play-tip": tr(PLAY_TIP),
             "next-text": tr_ctx("notes", "Next"), "next-tip": tr(NEXT_TIP), "send-text": tr("Send to phone"),
             "clear-text": tr("Clear from phone"),
@@ -269,13 +311,16 @@ impl NotesPlugin {
             "set-items": self.sets.iter().enumerate().map(|(i, t)| Self::set_label(i, t)).collect::<Vec<_>>(),
             "set-current": self.current,
             "text": self.text(),
+            // The size bubble's sample: just the start, so a long set never costs a long layout while it is up
+            "sample": self.text().chars().take(SAMPLE_CHARS).collect::<String>(),
             "new-enabled": self.sets.len() < MAX_SETS,
             "delete-enabled": self.sets.len() > 1 || !self.sets[0].is_empty(),
         })
     }
 
     fn state_props(&self) -> Value {
-        let (status, kind) = self.status();
+        let say = self.status();
+        let (status, kind) = say.word();
         let sent = self.is_sent();
         json!({
             "active": self.paired.on(),
@@ -285,7 +330,7 @@ impl NotesPlugin {
             "show-auto": self.scroll_auto,
             "playing": self.playing, "play-text": if self.playing { tr("Pause") } else { tr("Play") },
             "send-enabled": self.send_enabled(), "clear-enabled": sent, "nav-enabled": sent,
-            "status": status, "status-kind": if kind == "dim" { "status_dim" } else { kind },
+            "status": status, "status-detail": say.detail(), "status-kind": if kind == "dim" { "status_dim" } else { kind },
         })
     }
 
@@ -514,9 +559,9 @@ impl Plugin for NotesPlugin {
     fn info(&self) -> PluginInfo {
         PluginInfo {
             name: NAME.into(),
-            title: n_("Notes").into(),
-            about: n_("Shows your notes on the phone's screen right under the camera, to read while looking people in the eye.").into(),
-            when_off: n_("Without it there's no Notes card and the phone never shows notes.").into(),
+            title: n_("Teleprompter").into(),
+            about: n_("Shows your script on the phone's screen right under the camera, to read while looking people in the eye.").into(),
+            when_off: n_("Without it there's no Teleprompter card and the phone never shows a script.").into(),
             category: "on_screen".into(),
             icon: "notes".into(),
             optional: true,
@@ -593,16 +638,16 @@ impl Plugin for NotesPlugin {
     }
 
     fn actions(&mut self) -> Vec<ActionSpec> {
-        let group = tr("Notes");
+        let group = tr("Teleprompter");
         let click = |id: &str, label: String| ActionSpec { id: id.into(), label, group: group.clone(), params: Vec::new(), repeats: false, on_release: false, current: None, keywords: String::new() };
-        let speed_label = tr("Notes scroll speed");
+        let speed_label = tr("Teleprompter speed");
         let speed = SliderSpec { id: "notes.speed", label: &speed_label, group: &group, keywords: "", minimum: 1.0, maximum: SPEED_MAX as f64, step: 1.0, decimals: 0, suffix: "", has_default: true };
         vec![
-            click("notes.send", tr("Send notes")),
-            click("notes.clear", tr("Clear notes")),
+            click("notes.send", tr("Send script")),
+            click("notes.clear", tr("Clear script")),
             click("notes.next", tr("Next line")),
             click("notes.previous", tr("Previous line")),
-            actions::toggle_action("notes.play", &tr("Scroll notes"), &group, "", &[]),
+            actions::toggle_action("notes.play", &tr("Scroll script"), &group, "", &[]),
             actions::slider_action(&speed, self.speed as f64),
         ]
     }
@@ -613,11 +658,11 @@ impl Plugin for NotesPlugin {
         match id {
             "notes.send" if self.send_enabled() => {
                 self.send(host);
-                Some(tr("Send notes"))
+                Some(tr("Send script"))
             }
             "notes.clear" if sent => {
                 self.clear(host);
-                Some(tr("Clear notes"))
+                Some(tr("Clear script"))
             }
             "notes.next" if sent => {
                 self.move_by(host, 1);
@@ -635,12 +680,12 @@ impl Plugin for NotesPlugin {
                     self.send_style(host);
                 }
                 let state = if self.playing { tr("playing") } else { tr("paused") };
-                Some(tr("{label}: {value}").field("label", tr("Scroll notes")).field("value", &state))
+                Some(tr("{label}: {value}").field("label", tr("Scroll script")).field("value", &state))
             }
             "notes.speed" if self.scroll_auto => {
                 let target = actions::slider_target(params, self.speed, 1.0, 1, SPEED_MAX, Some(SPEED_DEFAULT))?;
                 self.set_speed(host, target);
-                Some(actions::slider_text(&tr("Notes scroll speed"), &self.speed.to_string()))
+                Some(actions::slider_text(&tr("Teleprompter speed"), &self.speed.to_string()))
             }
             _ => None,
         }
@@ -724,8 +769,8 @@ impl Plugin for NotesPlugin {
             Some(false) => "phone too old",
         };
         vec![
-            ("Notes".into(), if self.is_sent() { "on the phone" } else { "not sent" }.into()),
-            ("Notes on phone".into(), on.into()),
+            ("Teleprompter".into(), if self.is_sent() { "on the phone" } else { "not sent" }.into()),
+            ("Teleprompter on phone".into(), on.into()),
         ]
     }
 }

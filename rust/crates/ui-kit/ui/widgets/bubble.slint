@@ -1,0 +1,261 @@
+// The one popover: a bubble that points at the control it belongs to.
+
+import { Theme } from "../theme.slint";
+import { WindowBox } from "dialog.slint";
+import { TipLayer } from "tip.slint";
+import { Motion, Pop, Fade } from "motion.slint";
+import { Grip } from "fine.slint";
+
+// Where a bubble goes, in window coordinates. Pure, so a test can ask without drawing anything.
+export global BubbleSpot {
+    // Room kept free between a bubble and the window's edge
+    out property <length> margin: Theme.u(4);
+    // Between the pointer's tip and the control
+    out property <length> gap: Theme.u(1);
+    // Whether it opens below the control: only when it doesn't fit above, and then where there is more room
+    public pure function below(anchor-y: length, anchor-h: length, h: length, window-h: length) -> bool {
+        anchor-y - gap - h < margin && (anchor-y + anchor-h + gap + h + margin <= window-h || window-h - anchor-y - anchor-h > anchor-y)
+    }
+    // The bubble's top edge, pointer included, kept inside the window whichever side it opened on
+    public pure function top(anchor-y: length, anchor-h: length, h: length, below: bool, window-h: length) -> length {
+        max(margin, min(below ? anchor-y + anchor-h + gap : anchor-y - gap - h, window-h - h - margin))
+    }
+    // Its left edge: centred on the control, pushed in from the window's sides
+    public pure function left(anchor-x: length, anchor-w: length, w: length, window-w: length) -> length {
+        max(margin, min(anchor-x + anchor-w / 2 - w / 2, window-w - w - margin))
+    }
+    // Where the pointer's tip sits along the bubble: over the control's middle, kept off the rounded corners
+    public pure function tip(anchor-x: length, anchor-w: length, left: length, w: length) -> length {
+        max(Theme.r-bubble + Theme.pointer-w / 2, min(anchor-x + anchor-w / 2 - left, w - Theme.r-bubble - Theme.pointer-w / 2))
+    }
+}
+
+// The frame and its pointer, placed by BubbleSpot, with whatever it is given inside. Both bubbles draw it: the popup `Bubble` below (a
+// press outside closes it) and the held one that `PeekLayer` draws (it takes nothing, so a drag underneath goes on). It has no size of
+// its own: the frame and pointer sit at window coordinates measured from where it is placed (the window's top left).
+export component BubbleFrame inherits Rectangle {
+    out property <string> control-kind: "bubble";
+    in property <color> hue: Theme.accent;
+    // The width of what's inside, and room inside is padding and the frame's line on top of that
+    in property <length> content-width: Theme.u(100);
+    in property <string> label;
+    // The control it points at, in window coordinates, and the window's size
+    in property <length> ax;
+    in property <length> ay;
+    in property <length> aw;
+    in property <length> ah;
+    in property <length> window-w: 4000px;
+    in property <length> window-h: 4000px;
+    // The frame's own face takes the presses that land on it (the popup needs that, a held bubble must not)
+    in property <bool> takes-presses;
+    // How far through popping in it is: its size grows from Motion.pop-from to full about the pointer's tip
+    in property <float> pop-scale: 1;
+    // Room between the frame's outside and what's in it
+    out property <length> inner: Theme.u(4) + Theme.stroke;
+    // Whole physical pixels all round (the frame's size, where it sits and where its pointer points), so the outline's straight edges land on
+    // one pixel row or column along their whole length instead of a fraction that changes as the handle moves
+    out property <length> frame-w: round(min(content-width + 2 * inner, window-w - 2 * BubbleSpot.margin) / 1phx) * 1phx;
+    out property <length> frame-h: round(body.preferred-height / 1phx) * 1phx;
+    out property <length> total-h: frame-h + Theme.pointer-h;
+    out property <bool> flip: BubbleSpot.below(ay, ah, total-h, window-h);
+    out property <length> bx: round(BubbleSpot.left(ax, aw, frame-w, window-w) / 1phx) * 1phx;
+    out property <length> by: round(BubbleSpot.top(ay, ah, total-h, flip, window-h) / 1phx) * 1phx;
+    transform-scale: pop-scale;
+    transform-origin: { x: bx + BubbleSpot.tip(ax, aw, bx, frame-w), y: flip ? by : by + total-h };
+    // Where the pointer's tip is along the frame, which slides along its edge while the frame itself is held in by the window's side
+    out property <length> tip-x: round(BubbleSpot.tip(ax, aw, bx, frame-w) / 1phx) * 1phx;
+    // The frame and its pointer are one outline: a single closed path stroked at the frame's own thickness, so the pointer has the same
+    // line as the frame, joined to it with no seam. Slint maps a path's viewbox into the element's box less the stroke width, offset by half
+    // of it, so the element is the whole frame (and pointer) and the viewbox is that less one stroke: the numbers below are 1 to 1 pixels, the
+    // outline's middle line runs half a stroke in from the frame's edge, and its outer edge is the frame's own edge. The path starts in the
+    // middle of a straight edge, so where it closes is a real collinear line and not a join at a corner or a zero-length segment.
+    property <length> half: Theme.stroke / 2;
+    property <length> corner: Theme.r-bubble - half;
+    property <length> pw: Theme.pointer-w;
+    property <length> ph: Theme.pointer-h;
+    property <length> cw: frame-w - Theme.stroke;
+    property <length> ch: frame-h - Theme.stroke;
+    property <length> tx: tip-x - half;
+    property <string> arc: " A " + corner / 1px + " " + corner / 1px + " 0 0 1 ";
+    property <string> outline: flip
+        ? "M " + cw / 2 / 1px + " " + ch / 1px
+            + " L " + corner / 1px + " " + ch / 1px
+            + arc + 0 + " " + (ch - corner) / 1px
+            + " L 0 " + corner / 1px
+            + arc + corner / 1px + " 0"
+            + " L " + (tx - pw / 2) / 1px + " 0"
+            + " L " + tx / 1px + " " + (-ph) / 1px
+            + " L " + (tx + pw / 2) / 1px + " 0"
+            + " L " + (cw - corner) / 1px + " 0"
+            + arc + cw / 1px + " " + corner / 1px
+            + " L " + cw / 1px + " " + (ch - corner) / 1px
+            + arc + (cw - corner) / 1px + " " + ch / 1px + " Z"
+        : "M " + cw / 2 / 1px + " 0"
+            + " L " + (cw - corner) / 1px + " 0"
+            + arc + cw / 1px + " " + corner / 1px
+            + " L " + cw / 1px + " " + (ch - corner) / 1px
+            + arc + (cw - corner) / 1px + " " + ch / 1px
+            + " L " + (tx + pw / 2) / 1px + " " + ch / 1px
+            + " L " + tx / 1px + " " + (ch + ph) / 1px
+            + " L " + (tx - pw / 2) / 1px + " " + ch / 1px
+            + " L " + corner / 1px + " " + ch / 1px
+            + arc + 0 + " " + (ch - corner) / 1px
+            + " L 0 " + corner / 1px
+            + arc + corner / 1px + " 0 Z";
+    frame := Rectangle {
+        x: bx;
+        y: by + (flip ? Theme.pointer-h : 0px);
+        width: frame-w;
+        height: frame-h;
+        background: Theme.bubble;
+        border-radius: Theme.r-bubble;
+        drop-shadow-blur: Theme.u(8);
+        drop-shadow-offset-y: Theme.u(5);
+        drop-shadow-color: Theme.shadow;
+        accessible-role: groupbox;
+        accessible-label: root.label;
+        if takes-presses: TouchArea { }
+        // The face, then the line, as two paths: femtovg on wgpu knocks out parts of a stroke over an anti-aliased fill of its own shape (a step in the top edge)
+        Path {
+            x: 0px;
+            y: flip ? -ph : 0px;
+            width: frame-w;
+            height: frame-h + ph;
+            viewbox-x: 0;
+            viewbox-y: flip ? -ph / 1px : 0;
+            viewbox-width: cw / 1px;
+            viewbox-height: (ch + ph) / 1px;
+            // fitted: the viewbox is the box less one stroke, so a unit is a pixel
+            commands: root.outline;
+            stroke-width: Theme.stroke;
+            fill: Theme.bubble;
+            anti-alias: false;
+        }
+        Path {
+            x: 0px;
+            y: flip ? -ph : 0px;
+            width: frame-w;
+            height: frame-h + ph;
+            viewbox-x: 0;
+            viewbox-y: flip ? -ph / 1px : 0;
+            viewbox-width: cw / 1px;
+            viewbox-height: (ch + ph) / 1px;
+            // fitted: the same box and viewbox as the face
+            commands: root.outline;
+            stroke: root.hue;
+            stroke-width: Theme.stroke;
+            stroke-line-join: round;
+        }
+        body := VerticalLayout {
+            padding: inner;
+            @children
+        }
+    }
+}
+
+// Kind "bubble". A frame in the card's colour with a pointer at the control it belongs to, in a pop-up that covers the window, so
+// nothing clips it and a press anywhere outside closes it (the card behind never sees that press). It sits inside the control
+// it points at, as big as the control, and takes no room in the card, so opening it moves nothing. It opens above the control and
+// flips below near the window's top; a pointer at the control's middle, the frame kept inside the window. Whatever it is given
+// goes inside. Escape closes it; the focus goes in and back to where it was.
+// It pops in from a little under its size with a hair of overshoot and fades in, and fades out when it closes; the pop-up goes when that is over.
+export component Bubble inherits Rectangle {
+    in property <color> hue: Theme.accent;
+    // The width of what's inside, and room inside is padding and the frame's line on top of that
+    in property <length> content-width: Theme.u(100);
+    // What a screen reader calls it
+    in property <string> label;
+    // Going: it is fading out and the pop-up closes when that is over
+    property <bool> leaving;
+    out property <bool> open: popup.is-open && !leaving;
+    out property <string> control-kind: "bubble";
+    // How solid and how big it is now, for a test
+    out property <float> presence: fade-state.value;
+    callback closed();
+    public function show() {
+        leaving = false;
+        popup.show();
+    }
+    function close-now() {
+        leaving = false;
+        if (popup.is-open) {
+            popup.close();
+            root.closed();
+        }
+    }
+    public function close() {
+        if (popup.is-open && !leaving) {
+            if (Motion.fades) {
+                fade-state.sync();
+                leaving = true;
+            } else {
+                close-now();
+            }
+        }
+    }
+    Timer {
+        interval: Motion.fade-out + 40ms;
+        running: leaving;
+        triggered => { close-now(); }
+    }
+    // Outside the pop-up so it can be read: the pop-up's own content is made again each time it opens
+    fade-state := Fade { shown: popup.is-open && !leaving; }
+    popup := PopupWindow {
+        // The window's top left, the way a dialog in a pop-up covers it
+        x: -root.absolute-position.x;
+        y: -root.absolute-position.y;
+        width: WindowBox.cover-w(drawn.frame-w);
+        height: WindowBox.cover-h(drawn.total-h);
+        close-policy: no-auto-close;
+        property <length> window-w: WindowBox.width > 0 ? WindowBox.width : 4000px;
+        property <length> window-h: WindowBox.height > 0 ? WindowBox.height : 4000px;
+        // Set once the content is made, so the pop and the fade start from nothing
+        property <bool> arrived;
+        focus-in := FocusScope {
+            // Keys meant for a control in a bubble that is fading away go nowhere (Tab and Escape still work)
+            capture-key-pressed(e) => { if (!root.leaving || e.text == Key.Tab || e.text == Key.Backtab || e.text == Key.Escape) { reject } else { accept } }
+            capture-key-released(e) => { if (!root.leaving || e.text == Key.Tab || e.text == Key.Backtab || e.text == Key.Escape) { reject } else { accept } }
+            // Escape from anywhere inside, unless a box in it takes the key first
+            key-pressed(e) => {
+                if (e.text == Key.Escape) { root.close(); return accept; }
+                reject
+            }
+            // Everything outside the frame: a press there closes it
+            TouchArea {
+                pointer-event(e) => {
+                    if (e.kind == PointerEventKind.down) { root.close(); }
+                }
+            }
+            shell := Rectangle {
+                init => { popup.arrived = true; }
+                fade := Fade { shown: popup.arrived && !root.leaving; }
+                pop := Pop { to: popup.arrived && !root.leaving ? 1 : 0; }
+                opacity: fade.value;
+                // A drag that was under way in it lets go
+                property <bool> gone: root.leaving;
+                changed gone => { if (gone) { Grip.leave(self.absolute-position.x, self.absolute-position.y, self.width, self.height); } }
+                drawn := BubbleFrame {
+                    pop-scale: pop.scale;
+                    hue: root.hue;
+                    content-width: root.content-width;
+                    label: root.label;
+                    ax: root.absolute-position.x;
+                    ay: root.absolute-position.y;
+                    aw: root.width;
+                    ah: root.height;
+                    window-w: popup.window-w;
+                    window-h: popup.window-h;
+                    takes-presses: true;
+                    @children
+                }
+                // A tooltip of a control in the bubble: the pop-up covers the window's own layer
+                TipLayer { }
+                // A bubble that is fading away takes no more presses
+                if root.leaving: TouchArea {
+                    width: parent.width;
+                    height: parent.height;
+                }
+            }
+        }
+    }
+}

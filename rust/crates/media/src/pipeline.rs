@@ -7,9 +7,11 @@
 use crate::gpu::{self, Gpu, Held, MaskPlane};
 use crate::transfers;
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Weak};
 use telescope_core::balance::{Balance, Place};
-use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, Touch};
+use telescope_core::image::SparePool;
+use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat, Touch};
 use telescope_core::media::{FramePipeline, StagedStep};
 use telescope_core::stats::{SourceStats, Timer};
 use telescope_core::time::{monotonic_ns, span};
@@ -82,6 +84,9 @@ impl Entry {
     }
 }
 
+/// How many pictures' worth of RGB the shared spare pool keeps between steps.
+const SPARE_POOL_FRAMES: usize = 5;
+
 /// Frames between two looks at what a frame costs.
 const TALLY_FRAMES: u32 = 300;
 
@@ -97,6 +102,10 @@ struct Chain {
     mask: Option<(u32, u32, Option<Arc<Vec<u8>>>)>,
     /// What it has waited for the card so far.
     waited_ns: u64,
+    /// Whether the steps are being timed, so the readbacks are too.
+    timing: bool,
+    /// How long the readbacks took, which isn't the cost of the step that happened to trigger one.
+    down_ns: u64,
 }
 
 /// Transfers over the last TALLY_FRAMES frames.
@@ -109,6 +118,9 @@ struct Tally {
     /// The app's mask uploads at the last look.
     masks: u64,
 }
+
+/// How many pipelines are using the card now; the last one to stop lets go of what it kept.
+static ON_THE_CARD: AtomicUsize = AtomicUsize::new(0);
 
 /// Runs one stream's steps. The graphics card is only opened once a shader step comes along.
 pub struct Pipeline {
@@ -123,6 +135,22 @@ pub struct Pipeline {
     /// The card failed a frame: steps that can run on the CPU stay there until the next stream, whatever the balance says.
     card_lost: bool,
     stats: Option<Arc<SourceStats>>,
+    /// The spare buffers every CPU step of this stream draws on.
+    pool: SparePool,
+    /// Whether this pipeline is counted in ON_THE_CARD.
+    on_card: bool,
+    /// How long the last frame spent bringing pictures down from the card (measured while the steps are timed).
+    last_readback_ns: u64,
+}
+
+impl Drop for Pipeline {
+    fn drop(&mut self) {
+        if self.on_card && ON_THE_CARD.fetch_sub(1, Ordering::SeqCst) == 1 {
+            if let Some(gpu) = self.gpu.take().flatten() {
+                gpu.release_idle();
+            }
+        }
+    }
 }
 
 impl Default for Pipeline {
@@ -138,7 +166,7 @@ impl Pipeline {
 
     /// One that listens to this balance, for tests.
     fn with_balance(balance: Arc<Balance>) -> Pipeline {
-        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, stats: None }
+        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0 }
     }
 
     fn timer_of(&self, owner: &str) -> Option<Arc<Timer>> {
@@ -151,17 +179,27 @@ impl Pipeline {
     }
 
     fn gpu(&mut self) -> Option<Arc<Gpu>> {
-        self.gpu.get_or_insert_with(Gpu::shared).clone()
+        let gpu = self.gpu.get_or_insert_with(Gpu::shared).clone();
+        if gpu.is_some() && !self.on_card {
+            self.on_card = true;
+            ON_THE_CARD.fetch_add(1, Ordering::SeqCst);
+        }
+        gpu
     }
 
     /// Brings frame up to date with the card, and drops the card's copy unless keep.
-    fn bring_down(&mut self, chain: &mut Chain, frame: &mut Frame, keep: bool) {
+    fn bring_down(&mut self, chain: &mut Chain, frame: &mut Frame, ctx: &dyn FrameContext, keep: bool) {
         let Some(gpu) = self.gpu.clone().flatten() else { return };
         if let (Some(held), false) = (chain.held.as_mut(), chain.ahead.is_empty()) {
             chain.downs += 1;
-            match gpu.land(held) {
-                Ok(out) => {
-                    *frame = out;
+            let cap = SPARE_POOL_FRAMES * held.size().0 as usize * held.size().1 as usize * 3;
+            let down_began = chain.timing.then(monotonic_ns);
+            let landed = self.pool.scope(cap, || gpu.land(held).map(|out| std::mem::replace(frame, out).recycle()));
+            if let Some(began) = down_began {
+                chain.down_ns += monotonic_ns().saturating_sub(began);
+            }
+            match landed {
+                Ok(()) => {
                     chain.waited_ns += held.take_waited();
                     for i in chain.ahead.drain(..) {
                         self.steps[i].fails = 0;
@@ -169,13 +207,20 @@ impl Pipeline {
                 }
                 Err(why) => {
                     // The frame in hand is the last good one, and what the card did after it is lost with it
-                    for i in chain.ahead.drain(..) {
+                    let lost: Vec<usize> = chain.ahead.drain(..).collect();
+                    for &i in &lost {
                         if matches!(self.steps[i].kind, Kind::Shader(_)) {
                             self.steps[i].failed(&why);
                         }
                     }
                     self.lost_card(&why);
                     gpu.put_down(chain.held.take().unwrap());
+                    // Steps with a CPU half do their work on the frame in hand now, in order, so this frame isn't missing them; card-only steps stay lost
+                    for i in lost {
+                        if matches!(self.steps[i].kind, Kind::Either(..)) {
+                            self.run_cpu(i, frame, chain, ctx);
+                        }
+                    }
                 }
             }
         }
@@ -200,31 +245,48 @@ impl Pipeline {
         if touch == Touch::Nothing {
             return;
         }
-        self.bring_down(chain, frame, touch == Touch::Reads);
+        self.bring_down(chain, frame, ctx, touch == Touch::Reads);
         let entry = &mut self.steps[i];
         let step = entry.kind.cpu();
-        // A clone shares the pixels, so keeping the frame to fall back on only costs a copy if the step changes it
-        let before = frame.clone();
-        match catch_unwind(AssertUnwindSafe(|| step.process(frame, ctx))) {
+        // A step that changes pixels in place would copy them all if a clone kept the old ones, so only one that failed on its last frame
+        // gets that fallback; a built-in step that panics the first time may hand on a half-changed frame. Whole-frame writers build a new
+        // buffer and swap it in, so they leave this one intact either way.
+        let before = (entry.fails > 0).then(|| frame.clone());
+        let (size, format) = ((frame.width, frame.height), frame.format);
+        let was = Arc::downgrade(&frame.data);
+        let cap = SPARE_POOL_FRAMES * frame.width as usize * frame.height as usize * 3;
+        let pool = &mut self.pool;
+        match catch_unwind(AssertUnwindSafe(|| pool.scope(cap, || step.process(frame, ctx)))) {
             Ok(()) if sound(frame) => entry.fails = 0,
             Ok(()) => {
                 entry.failed(&format!("handed back {}x{} {:?} with {} bytes", frame.width, frame.height, frame.format, frame.data.len()));
-                *frame = before.clone();
+                *frame = before.clone().unwrap_or_else(|| neutral(size, format, frame.number, frame.time_ns));
             }
             Err(_) => {
                 entry.failed("it panicked");
-                *frame = before.clone();
+                match &before {
+                    Some(before) => *frame = before.clone(),
+                    None if !sound(frame) => *frame = neutral(size, format, frame.number, frame.time_ns),
+                    None => {}
+                }
             }
         }
         // A step that said it only reads and then didn't: the frame in hand wins
-        if !Arc::ptr_eq(&frame.data, &before.data) {
-            self.bring_down(chain, frame, false);
+        if !std::ptr::eq(Weak::as_ptr(&was), Arc::as_ptr(&frame.data)) {
+            self.bring_down(chain, frame, ctx, false);
         }
     }
 
     fn run_shader(&mut self, i: usize, frame: &mut Frame, chain: &mut Chain, ctx: &dyn FrameContext, time: f32) {
         let Some(gpu) = self.gpu() else { return self.steps[i].failed("no graphics card to run shaders on") };
         let entry = &mut self.steps[i];
+        // A step with a CPU half may need uniforms that depend on this frame's size
+        if let Kind::Either(slot, cpu) = &mut entry.kind {
+            let (w, h) = (frame.width, frame.height);
+            if let Ok(Some(uniforms)) = catch_unwind(AssertUnwindSafe(|| cpu.card_uniforms(w, h))) {
+                slot.set_uniforms(&gpu, uniforms);
+            }
+        }
         let slot = entry.kind.slot();
         if let Err(why) = slot.prepare(&gpu) {
             // A shader that doesn't build never will: say so once and leave it out, or run the CPU way
@@ -240,7 +302,7 @@ impl Pipeline {
         if slot.wants_mask() {
             // The vision model looks at the picture as it is here, and answers once per frame
             if !chain.mask.as_ref().is_some_and(|(w, h, _)| (*w, *h) == (frame.width, frame.height)) {
-                self.bring_down(chain, frame, true);
+                self.bring_down(chain, frame, ctx, true);
                 let asked = catch_unwind(AssertUnwindSafe(|| ctx.person_mask(frame))).unwrap_or(None);
                 chain.mask = Some((frame.width, frame.height, asked));
             }
@@ -248,9 +310,11 @@ impl Pipeline {
                 masked = gpu.keep_mask(&mut self.mask, mask, *w, *h);
             }
         }
+        // Read the way the CPU reads it if any step here has a CPU way that takes chroma by its block, so both ways see the same colours
+        let block_chroma = self.steps.iter().any(|e| matches!(&e.kind, Kind::Either(_, cpu) if cpu.card_block_chroma()));
         let entry = &mut self.steps[i];
         if chain.held.is_none() {
-            match gpu.lift(frame) {
+            match gpu.lift_with(frame, block_chroma) {
                 Ok(held) => {
                     chain.held = Some(held);
                     chain.ups += 1;
@@ -325,6 +389,18 @@ impl Drop for Trial {
     }
 }
 
+/// A flat dark picture of this size, for a step that broke the frame it was given when there is no copy to go back to.
+fn neutral((w, h): (u32, u32), format: PixelFormat, number: u64, time_ns: u64) -> Frame {
+    let (luma, rest) = (w as usize * h as usize, format.size(w, h));
+    let data = match format {
+        PixelFormat::I420 | PixelFormat::Nv12 => [vec![16; luma], vec![128; rest - luma]].concat(),
+        _ => [0, 0, 0, 255].repeat(luma),
+    };
+    let mut out = Frame::new(w, h, format, data);
+    (out.number, out.time_ns) = (number, time_ns);
+    out
+}
+
 /// Whether a step handed back something the rest of the stream can use.
 fn sound(frame: &Frame) -> bool {
     frame.width > 0 && frame.height > 0 && frame.data.len() == frame.format.size(frame.width, frame.height)
@@ -359,11 +435,13 @@ impl FramePipeline for Pipeline {
         let mut off_card = false;
         // Asked once a frame: a step is only timed while the stats panel wants every plugin's time
         let timing = self.stats.as_ref().is_some_and(|s| s.steps().on());
+        chain.timing = timing;
         for i in 0..self.steps.len() {
             if self.steps[i].skipped() {
                 continue;
             }
             let step_began = timing.then(monotonic_ns);
+            let down_before = chain.down_ns;
             let either = matches!(self.steps[i].kind, Kind::Either(..)) && !self.steps[i].no_shader && !self.card_lost;
             if either && !(on_card && self.gpu().is_some()) {
                 self.ready_on_card(i);
@@ -375,12 +453,14 @@ impl FramePipeline for Pipeline {
                 self.run_cpu(i, &mut frame, &mut chain, ctx);
             }
             if let (Some(began), Some(timer)) = (step_began, &self.steps[i].timer) {
-                timer.add(monotonic_ns().saturating_sub(began));
+                // Bringing the picture down from the card is the card's cost (the readback figure), not this step's
+                timer.add(monotonic_ns().saturating_sub(began).saturating_sub(chain.down_ns - down_before));
             }
             frame.number = number;
         }
-        self.bring_down(&mut chain, &mut frame, false);
+        self.bring_down(&mut chain, &mut frame, ctx, false);
         frame.number = number;
+        self.last_readback_ns = chain.down_ns;
         if chain.downs > 0 {
             self.balance.note_wait(chain.waited_ns);
         }
@@ -571,20 +651,119 @@ pub(crate) mod tests {
         let mut p = Pipeline::new();
         p.set_steps(vec![step("broken", FrameStage::Effects, Counts(calls.clone())), step("mangler", FrameStage::Effects, Mangles)]);
         let source = grey(4, 2, 1);
-        for _ in 0..STEP_FAILS_BEFORE_SKIP + 10 {
+        for n in 0..STEP_FAILS_BEFORE_SKIP + 10 {
             let out = quietly(|| p.process(source.clone(), &NoContext));
-            assert_eq!(out.data, source.data, "passed through, what the step did to it left behind");
             assert_eq!((out.width, out.height), (4, 2));
+            assert_eq!(out.data.len(), out.format.size(4, 2), "a whole picture comes out");
+            // The first failure has no copy to go back to (a built-in step may hand on a half-changed frame); after that there is
+            if n > 0 {
+                assert_eq!(out.data, source.data, "passed through, what the step did to it left behind");
+            }
         }
         assert_eq!(*calls.lock().unwrap(), STEP_FAILS_BEFORE_SKIP, "skipped from then on");
         assert!(p.steps[0].skipped() && p.steps[1].skipped());
-        // What the decoder made is never changed under it
+        // What the decoder made is never changed under it while somebody else holds it
         assert_eq!(source.data[0], 1);
         // The next stream's pipeline tries them again, and steps after a broken one still run
         p.set_steps(vec![step("broken", FrameStage::Effects, Panics), step("fine", FrameStage::Overlay, Push(5, seen.clone()))]);
         let out = quietly(|| p.process(grey(4, 2, 1), &NoContext));
         assert_eq!(out.data[0], 5);
         assert_eq!(*seen.lock().unwrap(), [5]);
+    }
+
+    /// Notes where the pixels were when the step got them and when it was done.
+    struct Where(Arc<std::sync::Mutex<Vec<(usize, usize)>>>);
+
+    impl CpuStep for Where {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            let was = frame.data.as_ptr() as usize;
+            frame.data_mut()[0] = 3;
+            self.0.lock().unwrap().push((was, frame.data.as_ptr() as usize));
+        }
+    }
+
+    #[test]
+    fn an_in_place_step_that_works_does_not_copy_the_picture() {
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("tag", FrameStage::Overlay, Where(seen.clone()))]);
+        p.process(grey(64, 64, 1), &NoContext);
+        let seen = seen.lock().unwrap();
+        assert_eq!(seen[0].0, seen[0].1, "changed where it was");
+    }
+
+    /// Breaks the picture halfway, then panics twice.
+    struct BreaksOnce(Arc<std::sync::Mutex<u32>>);
+
+    impl CpuStep for BreaksOnce {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            let n = {
+                let mut n = self.0.lock().unwrap();
+                *n += 1;
+                *n
+            };
+            frame.data_mut()[0] = 200;
+            if n <= 2 {
+                panic!("broken")
+            }
+        }
+    }
+
+    #[test]
+    fn a_panicking_in_place_step_hands_on_one_half_changed_frame_then_rolls_back_until_it_works_again() {
+        let calls = Arc::new(std::sync::Mutex::new(0));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("tag", FrameStage::Overlay, BreaksOnce(calls.clone()))]);
+        let out = quietly(|| p.process(grey(8, 8, 1), &NoContext));
+        assert_eq!(out.data[0], 200, "accepted: the first failure hands on what the step had done");
+        assert_eq!(p.steps[0].fails, 1);
+        let out = quietly(|| p.process(grey(8, 8, 1), &NoContext));
+        assert_eq!(out.data[0], 1, "a step that failed last frame is rolled back");
+        let out = p.process(grey(8, 8, 1), &NoContext);
+        assert_eq!(out.data[0], 200, "its good frame stands");
+        assert_eq!(p.steps[0].fails, 0, "and it is back to running without a copy");
+    }
+
+    /// Writes a whole new picture into a spare buffer, then panics before swapping it in.
+    struct RewritesThenPanics;
+
+    impl CpuStep for RewritesThenPanics {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            let mut out = telescope_core::image::spare_bytes(frame.data.len());
+            out.fill(9);
+            if out.len() > 1 {
+                panic!("before the swap")
+            }
+            frame.replace_data(out);
+        }
+    }
+
+    #[test]
+    fn a_whole_frame_writer_that_panics_leaves_the_frame_intact_with_no_copy() {
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("fx", FrameStage::Effects, RewritesThenPanics)]);
+        let source = grey(8, 8, 1);
+        let out = quietly(|| p.process(source.clone(), &NoContext));
+        assert_eq!(out.data, source.data);
+        assert!(Arc::ptr_eq(&out.data, &source.data), "not even copied");
+        assert_eq!(p.steps[0].fails, 1);
+    }
+
+    #[test]
+    fn steps_share_one_spare_pool_capped_by_bytes() {
+        use telescope_core::image::{keep_bytes, spare_bytes};
+        struct Hoards;
+        impl CpuStep for Hoards {
+            fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {
+                let held: Vec<Vec<u8>> = (0..10).map(|_| spare_bytes(300_000)).collect();
+                held.into_iter().for_each(keep_bytes);
+            }
+        }
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("a", FrameStage::Effects, Hoards), step("b", FrameStage::Overlay, Hoards)]);
+        p.process(grey(256, 256, 1), &NoContext);
+        let cap = SPARE_POOL_FRAMES * 256 * 256 * 3;
+        assert!(p.pool.bytes() > 0 && p.pool.bytes() <= cap, "{} of {cap}", p.pool.bytes());
     }
 
     const INVERT: &str = "fn effect(uv: vec2<f32>) -> vec4<f32> { let c = sample(uv); return vec4<f32>(1.0 - c.rgb, 1.0); }";
@@ -657,6 +836,57 @@ pub(crate) mod tests {
             p.process(grey(8, 8, 126), &NoContext);
             assert_eq!(p.last_transfers, want, "{what}");
         }
+    }
+
+    /// Reads the picture and takes its time over it, noting how long it really took.
+    struct Slow(Arc<std::sync::atomic::AtomicU64>);
+
+    impl CpuStep for Slow {
+        fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
+            Touch::Reads
+        }
+        fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {
+            let began = monotonic_ns();
+            std::thread::sleep(std::time::Duration::from_millis(2));
+            self.0.fetch_add(monotonic_ns() - began, Ordering::SeqCst);
+        }
+    }
+
+    #[test]
+    fn a_step_isnt_charged_for_bringing_the_picture_down_from_the_card() {
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let hub = telescope_core::stats::Hub::new();
+        let stats = hub.register("timing", 1);
+        hub.want("test", true);
+        let own = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let mut p = Pipeline::new();
+        p.set_stats(stats.clone());
+        p.set_steps(vec![shader(INVERT), step("reader", FrameStage::Effects, Slow(own.clone()))]);
+        let mut readback_ns = 0;
+        for _ in 0..6 {
+            p.process(grey(1920, 1080, 126), &NoContext);
+            readback_ns += p.last_readback_ns;
+        }
+        assert!(readback_ns > 0, "the readback was measured");
+        let timing = stats.steps().timer("reader").take();
+        assert_eq!(timing.count, 6);
+        let (own_ms, readback_ms) = (own.load(Ordering::SeqCst) as f64 / 6e6, readback_ns as f64 / 6e6);
+        // Its own time (the sleep and a few microseconds of bookkeeping), without the readback that came before it
+        assert!(timing.mean_ms as f64 <= own_ms + 0.3, "charged {:.2} ms for a step that took {own_ms:.2} ms, with a readback of {readback_ms:.2} ms in front of it", timing.mean_ms);
+    }
+
+    #[test]
+    fn the_card_lets_go_of_what_it_kept_when_the_last_stream_stops() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let mut p = Pipeline::new();
+        p.set_steps(vec![shader(INVERT)]);
+        p.process(grey(64, 64, 126), &NoContext);
+        assert!(gpu.kept_bytes() > 0, "a frame leaves its textures for the next");
+        drop(p);
+        // another test's stream may be running; only when none is, nothing stays kept
+        assert!(gpu.kept_bytes() == 0 || ON_THE_CARD.load(Ordering::SeqCst) > 0);
     }
 
     #[test]
@@ -895,9 +1125,29 @@ pub(crate) mod tests {
         p.gpu = Some(Some(gpu.clone()));
         p.process(grey(8, 8, 100), &NoContext);
         assert_eq!(p.last_transfers, (1, 1));
+        // Two steps with a CPU half and a card-only one after them, none read back yet when the card goes
+        struct Plus(u8);
+        impl CpuStep for Plus {
+            fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+                frame.data_mut().iter_mut().for_each(|v| *v = v.saturating_add(self.0));
+            }
+        }
+        let (mut chain, _) = either(Place::Card);
+        chain.gpu = Some(Some(gpu.clone()));
+        let Kind::Either(_, invert) = chain.steps.remove(0).kind else { panic!("two ways") };
+        let shader = || ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let staged = |owner: &str, step| StagedStep { owner: owner.into(), stage: FrameStage::Effects, step };
+        chain.set_steps(vec![
+            staged("first", FrameStep::Either(shader(), invert)),
+            staged("second", FrameStep::Either(shader(), Box::new(Plus(10)))),
+            staged("card only", FrameStep::Shader(shader())),
+        ]);
         gpu.lose();
-        // The frame on the card when it went is the last that isn't changed
-        p.process(grey(8, 8, 100), &NoContext);
+        // The frame on the card when it went is the last that isn't changed, but the steps that could run on the CPU still do, in order
+        assert_eq!(p.process(grey(8, 8, 100), &NoContext).data[0], 167);
+        let out = chain.process(grey(8, 8, 100), &NoContext);
+        assert_eq!(chain.last_transfers, (1, 1), "it was the readback that failed");
+        assert_eq!(out.data[0], 177, "invert, then plus 10, as the CPU makes it; the card-only step is lost with the card");
         for _ in 0..STEP_FAILS_BEFORE_SKIP + 5 {
             assert_eq!(p.process(grey(8, 8, 100), &NoContext).data[0], 167);
             assert_eq!(p.last_transfers, (0, 0));

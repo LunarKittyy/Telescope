@@ -343,19 +343,22 @@ fn a_grey_pick_is_refused() {
     r.ui("screen-picked", vec![json!(2)]);
     r.click([0.5, 0.5]);
     assert_eq!(r.config()["picked"], Value::Null);
-    assert!(r.shown("status").as_str().unwrap().contains("hardly any colour"));
+    assert_eq!(r.shown("status"), json!("No colour there"));
+    assert!(r.shown("status-detail").as_str().unwrap().contains("hardly any colour"));
 }
 
 #[test]
 fn without_a_stream_the_card_says_to_start_one() {
     let mut r = Rig::new(false);
     r.ui("screen-picked", vec![json!(2)]);
-    assert!(r.shown("status").as_str().unwrap().contains("Start streaming"));
+    assert_eq!(r.shown("status"), json!("Not streaming"));
+    assert!(r.shown("status-detail").as_str().unwrap().contains("Start streaming"));
     // picking again, with a colour picked before
     r.plugin.set_config(&json!({"picked": [200, 40, 160]})).unwrap();
     r.event(Event::StreamStopped);
     r.ui("screen-picked", vec![json!(2)]);
-    assert!(r.shown("status").as_str().unwrap().contains("Start streaming"));
+    assert_eq!(r.shown("status"), json!("Not streaming"));
+    assert!(r.shown("status-detail").as_str().unwrap().contains("Start streaming"));
     assert_eq!(r.shown("status-kind"), json!("status_warn"));
 }
 
@@ -430,11 +433,11 @@ fn a_picture_that_wont_open_or_is_missing_says_so() {
     let mut r = Rig::new(true);
     r.plugin.set_config(&json!({"on": true, "background": "picture", "picture": "/pics/gone.png"})).unwrap();
     r.event(Event::PhonesChanged { count: 1 });
-    assert_eq!(r.shown("status"), json!("Telescope can't open that picture."));
+    assert_eq!(r.shown("picture-problem"), json!("Can't open that picture"));
     assert_eq!(r.shown("picture-text"), json!("gone.png"));
     r.plugin.set_config(&json!({"on": true, "background": "picture"})).unwrap();
     r.event(Event::PhonesChanged { count: 1 });
-    assert_eq!(r.shown("status"), json!("Choose a picture to put behind you."));
+    assert_eq!((r.shown("picture-text"), r.shown("picture-problem"), r.shown("has-picture")), (json!(""), json!(""), json!(false)));
     r.plugin.set_config(&json!({"on": false, "background": "picture"})).unwrap();
     r.event(Event::PhonesChanged { count: 1 });
     assert_eq!(r.shown("status"), json!(""));
@@ -480,4 +483,240 @@ fn a_saturated_key_colour_is_clamped_to_a_byte_as_opencv_does() {
     assert_eq!((sum(&red.alpha), sum(&red.cr), sum(&red.cb)), (14722651, 7659545, 8591522));
     let blue = key_tables([255, 0, 0], 40, 30, 60);
     assert_eq!((sum(&blue.alpha), sum(&blue.cr), sum(&blue.cb)), (14877747, 8471525, 7655053));
+}
+
+#[test]
+fn the_pad_and_strip_set_the_stored_colour_as_before() {
+    let mut r = Rig::new(false);
+    assert_eq!(r.config()["colour"], json!(DEFAULT_COLOUR));
+    // full red at the top right of the pad, red's hue
+    r.ui("colour-moved", vec![json!(0.0), json!(1.0), json!(1.0)]);
+    assert_eq!(r.config()["colour"], json!([0, 0, 255]), "stored as B, G, R, whole numbers");
+    assert_eq!((r.shown("colour-h"), r.shown("colour-s"), r.shown("colour-v")), (json!(0.0), json!(1.0), json!(1.0)));
+    assert_eq!((r.shown("backdrop-colour"), r.shown("colour-hex"), r.shown("channel-value")), (json!("#ff0000"), json!("#ff0000"), json!([255, 0, 0])));
+    // dragging down to black keeps the hue the person had, so coming back up is the same colour
+    r.ui("colour-moved", vec![json!(0.25), json!(0.5), json!(0.0)]);
+    assert_eq!(r.config()["colour"], json!([0, 0, 0]));
+    assert_eq!((r.shown("colour-h"), r.shown("colour-s")), (json!(0.25), json!(0.5)));
+    r.ui("colour-moved", vec![json!(0.25), json!(0.5), json!(1.0)]);
+    assert_eq!(r.config()["colour"], json!([128, 255, 191]));
+    // the card changed the setting, so it is saved and the stream rebuilt
+    assert!(r.host.calls.iter().any(|c| c == "schedule_save") && r.host.calls.iter().any(|c| c == "refresh_frame_step"));
+    // a colour that came from the saved settings is what it is on the pad
+    r.plugin.set_config(&json!({"colour": [0, 255, 0]})).unwrap();
+    r.ui("hex-typed", vec![json!("#00ff00")]);
+    assert_eq!((r.shown("colour-h"), r.shown("colour-s"), r.shown("colour-v")), (json!(1.0f32 / 3.0), json!(1.0), json!(1.0)));
+}
+
+#[test]
+fn typed_values_set_the_colour_and_nonsense_leaves_it() {
+    let mut r = Rig::new(false);
+    r.ui("hex-typed", vec![json!(" #FF8800 ")]);
+    assert_eq!(r.config()["colour"], json!([0, 136, 255]));
+    r.ui("hex-typed", vec![json!("not a colour")]);
+    assert_eq!(r.config()["colour"], json!([0, 136, 255]), "a typo changes nothing");
+    assert_eq!(r.shown("colour-hex"), json!("#ff8800"), "and the box is told what it still is, with its #");
+    r.ui("channel-typed", vec![json!(2), json!("12")]);
+    r.ui("channel-typed", vec![json!(1), json!("999")]);
+    r.ui("channel-typed", vec![json!(0), json!("-5")]);
+    assert_eq!(r.config()["colour"], json!([12, 255, 0]), "blue 12, green and red held to 0 to 255, stored as B, G, R");
+    r.ui("channel-typed", vec![json!(0), json!("lots")]);
+    assert_eq!(r.config()["colour"], json!([12, 255, 0]));
+}
+
+#[test]
+fn the_pipette_picks_the_backdrop_from_the_preview_without_pausing_the_key() {
+    let mut r = Rig::new(true);
+    r.ui("pipette-clicked", vec![]);
+    assert!(r.host.calls.iter().any(|c| c == "pick_on_preview chroma_key.backdrop Point"));
+    // the key keeps working while it runs: only the screen's own pick steps it aside
+    r.event(Event::PreviewPickChanged { owner: "chroma_key.backdrop".into() });
+    r.ui("switch-toggled-by-hand", vec![json!(true)]);
+    assert!(matches!(r.plugin.frame_step(), Some(FrameStep::Shader(_))));
+    // the colour is the one on the picture the preview showed
+    let pick = Pick { kind: PickKind::Point, shown: vec![[0.5, 0.5]], full: vec![[0.5, 0.5]], in_picture: vec![[0.5, 0.5]], picture: Some(flat(32, 18, [20, 90, 200])) };
+    r.event(Event::PreviewPicked { owner: "chroma_key.backdrop".into(), pick: Some(pick) });
+    assert_eq!(r.config()["colour"], json!([20, 90, 200]));
+    assert_eq!(r.config()["picked"], Value::Null, "and the screen's own pick is untouched");
+    // without a preview it says why
+    let mut r = Rig::new(false);
+    r.ui("pipette-clicked", vec![]);
+    assert_eq!(r.shown("status"), json!("Not streaming"));
+    assert!(r.shown("status-detail").as_str().unwrap().contains("Start streaming"));
+}
+
+#[test]
+fn hex_is_read_with_or_without_the_hash_short_or_long_and_alpha_is_dropped() {
+    use crate::shared::parse_hex;
+    for (typed, want) in [
+        ("#ff8800", Some([255, 136, 0])),
+        ("ff8800", Some([255, 136, 0])),
+        ("  #FF8800  ", Some([255, 136, 0])),
+        ("#f80", Some([255, 136, 0])),
+        ("f80", Some([255, 136, 0])),
+        ("#ff8800cc", Some([255, 136, 0])),
+        ("ff880000", Some([255, 136, 0])),
+        ("#f80c", Some([255, 136, 0])),
+        ("f80c", Some([255, 136, 0])),
+    ] {
+        assert_eq!(parse_hex(typed), want, "{typed:?}");
+    }
+    for typed in ["", "#", "##ff8800", "#ff880", "#ff88000", "#ff8800cc1", "#gg0000", "#ff 88 00", "#ff8800;", "\u{ff03}ff8800", "ff88\u{e9}0", "red"] {
+        assert_eq!(parse_hex(typed), None, "{typed:?}");
+    }
+}
+
+#[test]
+fn a_long_hex_with_alpha_sets_the_colour_and_the_box_shows_it_as_six_digits() {
+    let mut r = Rig::new(false);
+    r.ui("hex-typed", vec![json!("#12345678")]);
+    assert_eq!(r.config()["colour"], json!([0x56, 0x34, 0x12]), "stored as B, G, R");
+    assert_eq!(r.shown("colour-hex"), json!("#123456"));
+    r.ui("hex-typed", vec![json!("#12345")]);
+    assert_eq!(r.shown("colour-hex"), json!("#123456"), "five digits is a typo: it reverts");
+}
+
+#[test]
+fn the_saved_picture_is_held_in_full_only_while_it_is_behind_you() {
+    let reads = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let (given, counted) = (flat(10, 10, [0, 0, 200]), reads.clone());
+    let mut p = ChromaKeyPlugin::with_reader(Arc::new(move |_| {
+        counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok(given.clone())
+    }));
+    let mut cfg = json!({"on": false, "background": "picture", "picture": "/pics/red.png"});
+    p.set_config(&cfg).unwrap();
+    // off: read once for the card's thumb and not kept
+    assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst), 1);
+    assert!(p.picture.is_none() && p.has_picture && p.thumb.is_some());
+    assert_eq!(p.all_props()["has-picture"], json!(true));
+    // switched on: read again for the stream, once
+    cfg["on"] = json!(true);
+    p.set_config(&cfg).unwrap();
+    assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst), 2);
+    assert_eq!(shader(&mut p).uniforms["backdrop"][3], json!(1.0));
+    shader(&mut p);
+    assert_eq!(reads.load(std::sync::atomic::Ordering::SeqCst), 2);
+    // a colour behind you needs none of it
+    cfg["background"] = json!("colour");
+    p.set_config(&cfg).unwrap();
+    assert!(p.picture.is_none() && p.has_picture);
+}
+
+
+/// A plugin set up on a host with a poster, reading pictures through a counted reader that may be told to fail or wait.
+struct Reading {
+    plugin: ChromaKeyPlugin,
+    host: FakeHost,
+    reads: Arc<std::sync::atomic::AtomicUsize>,
+    gate: Arc<Mutex<bool>>,
+    works: Arc<Mutex<bool>>,
+}
+
+impl Reading {
+    fn new() -> Reading {
+        let reads = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let (gate, works) = (Arc::new(Mutex::new(true)), Arc::new(Mutex::new(true)));
+        let (counted, open, good, given) = (reads.clone(), gate.clone(), works.clone(), flat(10, 10, [0, 0, 200]));
+        let reader: PictureReader = Arc::new(move |_| {
+            counted.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            while !*open.lock().unwrap() {
+                std::thread::sleep(std::time::Duration::from_millis(2));
+            }
+            if *good.lock().unwrap() { Ok(given.clone()) } else { Err("gone".into()) }
+        });
+        let mut plugin = ChromaKeyPlugin::with_reader(reader);
+        let mut host = FakeHost::new();
+        plugin.setup(&mut host);
+        plugin.on_event(&mut host, &Event::PhonesChanged { count: 1 });
+        plugin.set_config(&json!({"on": false, "background": "picture", "picture": "/pics/red.png"})).unwrap();
+        Reading { plugin, host, reads, gate, works }
+    }
+
+    fn reads(&self) -> usize {
+        self.reads.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    fn switch(&mut self, on: bool) {
+        self.plugin.on_ui(&mut self.host, &UiEvent { ui: "card".into(), callback: "switch-toggled-by-hand".into(), args: vec![json!(on)] });
+    }
+
+    /// Waits for the thread's post and delivers it the way the host does.
+    fn land(&mut self) {
+        for _ in 0..1000 {
+            let posted = self.host.take_posted();
+            if let Some((token, data)) = posted.into_iter().next() {
+                self.plugin.on_event(&mut self.host, &Event::Posted { owner: NAME.into(), token, data });
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        panic!("nothing was posted");
+    }
+}
+
+#[test]
+fn switching_the_key_on_reads_the_picture_off_the_calling_thread() {
+    let mut r = Reading::new();
+    assert_eq!(r.reads(), 1);
+    *r.gate.lock().unwrap() = false;
+    r.switch(true);
+    // not here yet: the colour until it lands
+    assert!(r.plugin.picture.is_none());
+    assert_eq!(shader(&mut r.plugin).uniforms["backdrop"][3], json!(0.0));
+    *r.gate.lock().unwrap() = true;
+    r.land();
+    assert_eq!(shader(&mut r.plugin).uniforms["backdrop"][3], json!(1.0));
+    assert_eq!(r.reads(), 2);
+}
+
+#[test]
+fn a_read_that_finishes_after_the_key_went_off_is_dropped() {
+    let mut r = Reading::new();
+    *r.gate.lock().unwrap() = false;
+    r.switch(true);
+    r.switch(false);
+    *r.gate.lock().unwrap() = true;
+    r.land();
+    assert!(r.plugin.picture.is_none());
+    // and a later switching on reads again and keeps that one
+    r.switch(true);
+    r.land();
+    assert!(r.plugin.picture.is_some());
+}
+
+#[test]
+fn a_read_for_an_old_path_is_not_kept() {
+    let mut r = Reading::new();
+    *r.gate.lock().unwrap() = false;
+    r.switch(true);
+    // the path changes (its own read is done here) while the old one's thread is still out
+    *r.gate.lock().unwrap() = true;
+    r.plugin.set_config(&json!({"on": false, "background": "colour", "picture": "/pics/other.png"})).unwrap();
+    r.land();
+    assert!(r.plugin.picture.is_none());
+}
+
+#[test]
+fn a_picture_that_went_missing_says_so_once_and_is_not_read_again_until_switched_on_again() {
+    let mut r = Reading::new();
+    *r.works.lock().unwrap() = false;
+    r.switch(true);
+    r.land();
+    let shown = |r: &Reading| r.host.calls.iter().rev().filter_map(|c| c.strip_prefix("set_ui_props card ")).filter_map(|j| serde_json::from_str::<Value>(j).ok()).find_map(|v| v.get("picture-problem").cloned());
+    assert_eq!(shown(&r), Some(json!("Can't open that picture")));
+    let after_fail = r.reads();
+    for tolerance in [10.0, 20.0, 30.0] {
+        r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: "slider-moved".into(), args: vec![json!(0), json!(tolerance)] });
+        shader(&mut r.plugin);
+    }
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    assert_eq!(r.reads(), after_fail);
+    assert!(r.host.take_posted().is_empty());
+    // off and on again is a new try
+    *r.works.lock().unwrap() = true;
+    r.switch(false);
+    r.switch(true);
+    r.land();
+    assert!(r.plugin.picture.is_some());
 }

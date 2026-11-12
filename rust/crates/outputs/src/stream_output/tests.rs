@@ -78,7 +78,7 @@ fn a_phone_without_an_encoder_goes_heavy_and_reconnects() {
     assert_eq!(p.stream_format(), FORMAT_MJPEG);
     assert!(host.calls.contains(&"reconnect_stream".to_string()));
     assert_eq!(p.props()["h264-enabled"], false);
-    assert_eq!(p.props()["light-tip"], "H.264. This phone has no H.264 encoder.");
+    assert_eq!(p.props()["light-tip"], "This phone has no H.264 encoder.");
 }
 
 #[test]
@@ -531,7 +531,7 @@ fn stream_output_phone_settings_lifecycle() {
     assert!(got.contains(&json!({"action": "fps_target", "value": 25})));
     assert!(got.contains(&json!({"action": "jpeg_quality", "value": 91})));
     assert_eq!(p.props()["quality-readout"], "91%");
-    assert!(p.props()["quality-tip"].as_str().unwrap().contains("High"));
+    assert!(p.props()["quality-tip"].as_str().unwrap().contains("recommended"));
 
     p.on_stream_stop(&mut host);
     let before = sent(&host).len();
@@ -881,13 +881,6 @@ fn diagnostics_show_the_phones_wifi() {
     assert_eq!(diag(&p)["Phone Wi-Fi"], "5 GHz, -58 dBm, 866 Mbps link");
     p.on_phone_state(&mut host, &json!({"cameras": []}));
     assert!(!diag(&p).contains_key("Phone Wi-Fi"));
-}
-
-#[test]
-fn quality_label_boundaries() {
-    for (quality, suffix) in [(95, "High"), (91, "High"), (90, "Balanced"), (80, "Balanced"), (79, "Low"), (60, "Low"), (59, "Very low")] {
-        assert_eq!(quality_label(quality), format!("{quality}%: {suffix}"));
-    }
 }
 
 #[test]

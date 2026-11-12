@@ -1,0 +1,247 @@
+// A puck on a ring of hues, for a colour that is added to a picture (lift, gamma, gain, offset).
+
+import { Theme } from "../theme.slint";
+import { Reveal } from "folds.slint";
+import { FocusRing, TouchRing, KeyFocus } from "basics.slint";
+import { Tip } from "tip.slint";
+import { ShortcutMenu } from "shortcut-menu.slint";
+import { Motion, Settle, Tone } from "motion.slint";
+import { Grip, Hold } from "fine.slint";
+
+// Kind "wheel": a disc inside a ring of hues, each hue where a puck pointing at it would push the picture, and a puck on the disc that is dragged (it doesn't jump to the pointer, and it never snaps), moved with the arrows, and put back in the middle by Home, Delete, Backspace or a double-click. The pointer goes out in radii of the disc, from where it went down; holding Shift while dragging goes slower (a tenth as far), and the puck takes a dot and the pointer a crosshair while it does. It says `pressed`, `dragged` while held and `released`, and the owner works out the puck.
+export component ColourWheel inherits Rectangle {
+    // Where the puck sits, in the unit circle: x towards blue, y up
+    in property <float> puck-x;
+    in property <float> puck-y;
+    // The colour the puck adds, as the inside of the puck
+    in property <color> puck-colour: #808080;
+    in property <color> hue: Theme.accent;
+    in property <bool> enabled: true;
+    // What it is called, and to a screen reader the way it is set now ("towards blue, 12%")
+    in property <string> label;
+    in property <string> spoken;
+    in property <string> tip;
+    in property <string> tip-detail;
+    // A last, smaller and dimmer line: what a gesture does ("Double-click to reset")
+    in property <string> tip-hint;
+    in property <[string]> tip-keys;
+    // The action a key can stand in for: a right-click on it offers a keyboard shortcut
+    in property <string> shortcut;
+    // The id of the setting it is, for the outline when something outside the window reads or changes it
+    in property <string> setting;
+    out property <string> control-kind: "wheel";
+    callback pressed();
+    callback dragged(float, float, bool);
+    callback released();
+    callback reset();
+    // An arrow ("left", "right", "up", "down") or "home" for Home, Delete and Backspace, and whether Shift is held
+    callback key(string, bool);
+    // Shift is held while the puck is dragged: its moves are a tenth the size
+    out property <bool> fine;
+    property <bool> held: touch.pressed;
+    // A double-click's reset glides back even though the pointer is on the puck: only a drag that is under way puts it at once, and the next press starts one
+    property <bool> resetting;
+    height: Theme.u(62);
+    horizontal-stretch: 1;
+    min-width: Theme.u(44);
+    // Whole physical pixels, found from where the wheel sits in the window: a rectangle's edges and the ring's clip are then drawn the same on every side, where a centre or radius on a part of a pixel blurs one side of the disc more than the other
+    property <length> ring-w: Theme.u(2.5);
+    property <length> gap-w: Theme.u(2);
+    property <length> radius: floor((min(self.width, self.height) / 2 - ring-w - gap-w - Theme.u(1)) / 1phx) * 1phx;
+    property <length> cx: round((self.absolute-position.x + self.width / 2) / 1phx) * 1phx - self.absolute-position.x;
+    property <length> cy: round((self.absolute-position.y + self.height / 2) / 1phx) * 1phx - self.absolute-position.y;
+    // The puck glides to a place that something other than the person set (Auto, Reset, an AI app), across first and then down so its path
+    // bows; a finger or a key has it at once
+    property <bool> quick;
+    glide-x := Settle { to: puck-x; snap: held && !resetting; pace: Motion.lead; }
+    glide-y := Settle { to: puck-y; snap: held && !resetting; pace: Motion.trail; }
+    held-tone := Tone { on: held && enabled; }
+    hover-tone := Tone { on: touch.has-hover && enabled; }
+    Timer {
+        interval: 80ms;
+        running: quick;
+        triggered => { quick = false; }
+    }
+    property <length> px: cx + glide-x.value * radius;
+    property <length> py: cy - glide-y.value * radius;
+    property <length> ring-out: radius + gap-w + ring-w;
+    // The puck and the crosshair are whole physical pixels too, and an even number across, so at (0, 0) the puck's middle is the disc's
+    // middle, the crosshair's middle and a pixel edge, with the same on every side
+    property <length> puck-d: 2 * round(Theme.u(9) / 2phx) * 1phx;
+    property <length> cross: 2phx;
+    accessible-role: slider;
+    accessible-label: label;
+    accessible-value: spoken;
+    accessible-description: tip + (tip-detail == "" ? "" : ". " + tip-detail) + (tip-hint == "" ? "" : ". " + tip-hint);
+    accessible-action-increment => { if (enabled) { glide-x.sync(); glide-y.sync(); quick = true; root.key("right", false); } }
+    accessible-action-decrement => { if (enabled) { glide-x.sync(); glide-y.sync(); quick = true; root.key("left", false); } }
+    forward-focus: focus;
+    // A wheel that goes off while it has the focus lets go of it
+    changed enabled => { if (!enabled) { focus.clear-focus(); } }
+    focus := FocusScope {
+        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if (!root.enabled) { return reject; }
+            if (e.text == Key.LeftArrow) { glide-x.sync(); glide-y.sync(); quick = true; root.key("left", e.modifiers.shift); return accept; }
+            if (e.text == Key.RightArrow) { glide-x.sync(); glide-y.sync(); quick = true; root.key("right", e.modifiers.shift); return accept; }
+            if (e.text == Key.UpArrow) { glide-x.sync(); glide-y.sync(); quick = true; root.key("up", e.modifiers.shift); return accept; }
+            if (e.text == Key.DownArrow) { glide-x.sync(); glide-y.sync(); quick = true; root.key("down", e.modifiers.shift); return accept; }
+            if (e.text == Key.Home || e.text == Key.Delete || e.text == Key.Backspace) { glide-x.sync(); glide-y.sync(); quick = true; root.key("home", false); return accept; }
+            reject
+        }
+    }
+    TouchRing { setting: root.setting; x: cx - ring-out; y: cy - ring-out; width: 2 * ring-out; height: 2 * ring-out; radius: ring-out; }
+    // The ring of hues: 72 wedges under a circular clip. Slint's femtovg grows an anti-aliased path by a pixel and not evenly on every side, which left the ring thicker on three sides of the disc, so the outer edge comes from the clip: a border radius, drawn the way the disc is. The software renderer has no gradient clip either, hence wedges of solid colour, and the disc covers their middle
+    Rectangle {
+        x: cx - ring-out;
+        y: cy - ring-out;
+        width: 2 * ring-out;
+        height: 2 * ring-out;
+        border-radius: ring-out;
+        clip: true;
+        opacity: enabled ? 1 : 0.3;
+        for c[i] in [#ff4a89, #ff499b, #ff48ad, #ff47be, #ff47cf, #ff48e0, #ff48ee, #ff4af9, #fc4bff, #f44dff, #eb4fff, #de52ff, #d155ff, #c358ff, #b45cff, #a660ff, #9664ff, #8868ff, #786cff, #6972ff, #5a76ff, #4a7cff, #3c80ff, #2e86ff, #218aff, #148fff, #0a93ff, #0498ff, #009cf9, #00a0ee, #00a4e0, #00a8cf, #00acbe, #00aead, #00b19b, #00b389, #00b577, #00b664, #00b752, #00b841, #00b830, #00b71f, #00b611, #00b606, #04b400, #0ab200, #14b000, #21ad00, #2eaa00, #3ca700, #4aa300, #5a9f00, #699b00, #789700, #889200, #968e00, #a68800, #b48400, #c37e00, #d17a00, #de7500, #eb7000, #f46c00, #fc6700, #ff6306, #ff5f11, #ff5b1f, #ff5730, #ff5441, #ff5052, #ff4e64, #ff4c77] : Path {
+            width: parent.width;
+            height: parent.height;
+            viewbox-width: self.width / 1px;
+            viewbox-height: self.height / 1px;
+            fill: c;
+            MoveTo {
+                x: ring-out / 1px;
+                y: ring-out / 1px;
+            }
+            LineTo {
+                x: (ring-out + ring-out * sin(i * 5deg - 0.4deg)) / 1px;
+                y: (ring-out - ring-out * cos(i * 5deg - 0.4deg)) / 1px;
+            }
+            ArcTo {
+                x: (ring-out + ring-out * sin(i * 5deg + 5.4deg)) / 1px;
+                y: (ring-out - ring-out * cos(i * 5deg + 5.4deg)) / 1px;
+                radius-x: ring-out / 1px;
+                radius-y: ring-out / 1px;
+                sweep: true;
+            }
+            Close {}
+        }
+    }
+    // The gap between the ring and the disc, in the card's own colour
+    Rectangle {
+        x: cx - (radius + gap-w);
+        y: cy - (radius + gap-w);
+        width: 2 * (radius + gap-w);
+        height: 2 * (radius + gap-w);
+        border-radius: self.width / 2;
+        background: Theme.card;
+    }
+    // The disc, lighter towards the middle: rings of solid colour, as the software renderer doesn't clip a gradient either
+    for t[i] in [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1] : Rectangle {
+        property <length> r: round(radius * t / 1phx) * 1phx;
+        x: cx - r;
+        y: cy - r;
+        width: 2 * r;
+        height: 2 * r;
+        border-radius: r;
+        background: !enabled ? Theme.trough : touch.has-hover || held ? Theme.hover.mix(Theme.sel, t - 0.05) : Theme.raise.mix(Theme.hover, t - 0.05);
+        // The outer ring carries the disc's outline where fills can't tell it from the card
+        border-width: t < 0.95 ? 0px : !enabled ? Theme.outline-w : Theme.ctl-outline-w(touch.has-hover, held);
+        border-color: !enabled ? Theme.dis-outline : Theme.ctl-outline(touch.has-hover, held);
+        animate background, border-width, border-color { duration: Motion.tone-for(held); easing: Motion.tone; }
+    }
+    // The crosshair and the two rings inside, quiet: where the puck is, not a scale to read
+    Rectangle { x: cx - radius + Theme.u(2); y: cy - cross / 2; width: 2 * radius - Theme.u(4); height: cross; background: enabled ? Theme.ink.with-alpha(0.16) : Theme.dis.with-alpha(0.3); }
+    Rectangle { x: cx - cross / 2; y: cy - radius + Theme.u(2); width: cross; height: 2 * radius - Theme.u(4); background: enabled ? Theme.ink.with-alpha(0.16) : Theme.dis.with-alpha(0.3); }
+    for t in [0.33, 0.66]: Rectangle {
+        property <length> r: round(radius * t / 1phx) * 1phx;
+        x: cx - r;
+        y: cy - r;
+        width: 2 * r;
+        height: 2 * r;
+        border-radius: r;
+        border-width: Theme.u(0.5);
+        border-color: enabled ? Theme.ink.with-alpha(0.12) : Theme.dis.with-alpha(0.25);
+    }
+    if puck-x != 0 || puck-y != 0: Path {
+        x: -Theme.u(0.3);
+        y: -Theme.u(0.3);
+        width: root.width + Theme.u(0.6);
+        height: root.height + Theme.u(0.6);
+        viewbox-width: root.width / 1px;
+        viewbox-height: root.height / 1px;
+        fit: ImageFit.fill;
+        commands: "M \{cx / 1px} \{cy / 1px} L \{px / 1px} \{py / 1px}";
+        stroke: enabled ? Theme.ink.with-alpha(0.5) : Theme.dis;
+        stroke-width: Theme.u(0.6);
+    }
+    // Held, a halo round the puck in the card's colour, or in ink while Shift makes the moves finer
+    if held-tone.value > 0.01: Rectangle {
+        opacity: held-tone.value;
+        x: px - self.width / 2;
+        y: py - self.height / 2;
+        width: Theme.u(17);
+        height: Theme.u(17);
+        border-radius: self.width / 2;
+        background: fine ? Theme.ink.with-alpha(0.22) : hue.with-alpha(0.32);
+    }
+    Rectangle {
+        x: px - self.width / 2;
+        y: py - self.height / 2;
+        width: puck-d;
+        height: puck-d;
+        border-radius: self.width / 2;
+        border-width: Theme.u(1.5);
+        border-color: !enabled ? Theme.dis : hue.mix(Theme.card, 0.75 + 0.25 * max(held-tone.value, hover-tone.value));
+        background: enabled ? puck-colour : Theme.raise;
+        if held && fine: Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: Theme.u(2);
+            height: Theme.u(2);
+            border-radius: self.width / 2;
+            background: Theme.ink;
+        }
+    }
+    FocusRing {
+        shown: focus.has-focus;
+        x: cx - ring-out - Theme.stroke;
+        y: cy - ring-out - Theme.stroke;
+        width: 2 * ring-out + 2 * Theme.stroke;
+        height: 2 * ring-out + 2 * Theme.stroke;
+        radius: ring-out;
+    }
+    usage := Tip { says: root.tip; detail: root.tip-detail; hint: root.tip-hint; keys: root.tip-keys; shortcut: root.shortcut; hover: touch.has-hover; inert: !root.enabled; focused: focus.has-focus && KeyFocus.keyboard; }
+    touch := TouchArea {
+        property <Hold> grip;
+        enabled: root.enabled;
+        property <length> from-x;
+        property <length> from-y;
+        mouse-cursor: self.pressed ? (fine ? MouseCursor.crosshair : MouseCursor.grabbing) : MouseCursor.grab;
+        scroll-event(e) => { usage.wheel(); reject }
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down) { usage.press(); grip = Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
+            if (e.button == PointerEventButton.left && e.kind == PointerEventKind.down) {
+                resetting = false;
+                self.from-x = self.mouse-x;
+                self.from-y = self.mouse-y;
+                fine = e.modifiers.shift;
+                focus.focus();
+                root.pressed();
+            }
+            if (e.kind == PointerEventKind.move && self.pressed && !Grip.cut(grip)) {
+                fine = e.modifiers.shift;
+                root.dragged((self.mouse-x - self.from-x) / radius, (self.mouse-y - self.from-y) / radius, e.modifiers.shift);
+            }
+            if (e.kind == PointerEventKind.up && e.button == PointerEventButton.left) {
+                fine = false;
+                root.released();
+            }
+        }
+        double-clicked => {
+            glide-x.sync();
+            glide-y.sync();
+            resetting = true;
+            root.reset();
+        }
+    }
+    if root.shortcut != "": ShortcutMenu { action: root.shortcut; }
+}

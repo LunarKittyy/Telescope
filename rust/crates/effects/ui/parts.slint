@@ -1,12 +1,12 @@
 // What both cards of this crate are built from. The plugins join this file and their card into one source (Rust's concat!),
 // so it holds the only import line.
 
-import { Theme, Icons, Icon, FocusRing, TouchRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, Stepper, SwitchTile, TextField, NumberField, FlickBar, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu, Reveal } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, KeyFocus, TouchRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, Stepper, SwitchTile, ToggleTile, PictureSegmented, Dial, RailRow, SwitchRow, TextField, NumberField, FlickBar, Tip, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu, Reveal, ColourField, WindowBox, TipLayer, Pad, PadMark, ColourWheel, Motion, Status, UnfoldGroup, Unfolding, Page, PageGroup, PictureField, FineAxis, Grip, Hold } from "@ui-kit/ui-kit.slint";
 
-global Status {
+global StatusInk {
     public pure function color(kind: string) -> color {
         kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
-            : kind == "status_dim" ? Theme.text-dim : Theme.text
+            : kind == "status_dim" ? Theme.ink2 : Theme.ink
     }
 }
 
@@ -15,8 +15,51 @@ component Note inherits Text {
     in property <string> kind: "status_dim";
     font-family: Theme.font;
     font-size: Theme.body;
-    color: Status.color(kind);
+    color: StatusInk.color(kind);
     wrap: word-wrap;
+}
+
+// One line of status for a plugin's own kinds ("status_warn"...): the kit's Status, a short word with its sentence as the tooltip
+component StatusLine inherits Rectangle {
+    in property <string> text;
+    in property <string> kind: "status_dim";
+    in property <string> detail;
+    height: Theme.row;
+    horizontal-stretch: 1;
+    Status {
+        width: parent.width;
+        text: root.text;
+        detail: root.detail;
+        kind: root.kind == "status_ok" ? "ok" : root.kind == "status_warn" ? "warn" : root.kind == "status_err" ? "err" : "";
+    }
+}
+
+// The red mark that says something is wrong with a control (the Microphone's Noise reduction has the same one): the reason is its tooltip
+// A line of status that unfolds in and out with its words (never `if status != ""`), and keeps its last words while it shuts. Put it in an
+// UnfoldGroup after the row it hangs from.
+component StatusUnfold inherits Unfolding {
+    in property <string> text;
+    in property <string> kind: "status_dim";
+    in property <string> detail;
+    property <string> held-text;
+    property <string> held-kind;
+    property <string> held-detail;
+    function keep() {
+        if (root.text != "") {
+            held-text = root.text;
+            held-kind = root.kind;
+            held-detail = root.detail;
+        }
+    }
+    open: text != "";
+    init => { keep(); }
+    changed text => { keep(); }
+    changed kind => { keep(); }
+    changed detail => { keep(); }
+    RailRow {
+        has-icon: false;
+        StatusLine { text: held-text; kind: held-kind; detail: held-detail; }
+    }
 }
 
 // control_row with a slider and its readout, and the tooltip the slider has in Qt
@@ -24,16 +67,17 @@ component Note inherits Text {
 component LabelRow inherits HorizontalLayout {
     in property <string> label;
     in property <bool> enabled: true;
-    in property <length> label-width: 96px;
-    spacing: 10px;
-    min-height: 36px;
+    in property <length> label-width: Theme.u(48);
+    spacing: Theme.u(4);
+    min-height: Theme.row;
     Text {
         text: label;
         width: label-width;
         font-family: Theme.font;
         font-size: Theme.body;
+        font-weight: Theme.w-label;
         // QLabel#form_label outranks QLabel:disabled in the theme
-        color: Theme.text-dim;
+        color: Theme.ink;
         vertical-alignment: center;
     }
     @children
@@ -41,6 +85,9 @@ component LabelRow inherits HorizontalLayout {
 
 component SliderRow inherits LabelRow {
     in property <string> tip;
+    // The tooltip's body under the title (tip, or the label when tip is empty) and its hint line; either one switches the tip to title, body and hint
+    in property <string> tip-detail;
+    in property <string> tip-hint;
     in property <float> minimum: 0;
     in property <float> maximum: 100;
     in property <float> value: 0;
@@ -51,18 +98,30 @@ component SliderRow inherits LabelRow {
     in property <float> default-value;
     // Values a dragged handle sticks to (NoScrollSlider.set_snaps)
     in property <[float]> marks;
-    // "Double-click to reset", added to the tip of a slider that has a default
-    in property <string> hint;
+    // The kit slider's fills: "plain" or "gradient" along grad-a, grad-b, grad-c
+    in property <string> fill: "plain";
+    in property <color> grad-a: Theme.ink2;
+    in property <color> grad-b: Theme.ink2;
+    in property <color> grad-c: Theme.ink2;
     // The action a key can stand in for: a right-click on it offers a keyboard shortcut
     in property <string> shortcut;
     // The id of the setting it is, for the outline when something outside the window reads or changes it
     in property <string> setting;
+    // A bubble while it is touched (the slider's peek), and a picture for it
+    in property <string> peek;
+    in property <image> peek-picture;
     callback moved(float);
+    callback peek-changed(bool);
     Rectangle {
         horizontal-stretch: 1;
         Slider {
+            peek: root.peek;
+            peek-picture: root.peek-picture;
+            peek-changed(o) => { root.peek-changed(o); }
             setting: root.setting;
-            tip: root.tip != "" && has-default && hint != "" ? root.tip + "\n" + hint : root.tip;
+            tip: root.tip != "" ? root.tip : root.tip-detail != "" || root.tip-hint != "" || root.has-default ? root.label : "";
+            tip-detail: root.tip-detail;
+            tip-hint: root.has-default ? root.tip-hint : "";
             shortcut: root.shortcut;
             width: parent.width;
             height: parent.height;
@@ -77,7 +136,87 @@ component SliderRow inherits LabelRow {
             has-default: root.has-default;
             default-value: root.default-value;
             marks: root.marks;
+            fill: root.fill;
+            grad-a: root.grad-a;
+            grad-b: root.grad-b;
+            grad-c: root.grad-c;
             moved(v) => { root.moved(v); }
+        }
+    }
+}
+
+// A slider on the card's icon rail: the icon is the label, its word the tooltip. The row marks itself changed when the value is off its default.
+component RailSlider inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    in property <string> tip;
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    in property <float> value: 0;
+    in property <float> step: 1;
+    in property <string> readout;
+    in property <length> readout-width: Theme.u(28);
+    in property <color> hue: Theme.accent;
+    in property <bool> enabled: true;
+    in property <bool> has-default;
+    in property <float> default-value;
+    in property <[float]> marks;
+    in property <string> fill: "plain";
+    in property <color> grad-a: Theme.ink2;
+    in property <color> grad-b: Theme.ink2;
+    in property <color> grad-c: Theme.ink2;
+    // The tooltip's body under the title (tip, or the label when tip is empty) and its hint line; either one switches the tip to title, body and hint
+    in property <string> tip-detail;
+    in property <string> tip-hint;
+    in property <string> shortcut;
+    in property <string> setting;
+    in property <string> peek;
+    in property <image> peek-picture;
+    callback moved(float);
+    callback peek-changed(bool);
+    height: Theme.row;
+    horizontal-stretch: 1;
+    RailRow {
+        width: parent.width;
+        height: parent.height;
+        icon: root.icon;
+        label: root.label;
+        tip: root.tip-detail != "" || root.tip-hint != "" ? root.tip : "";
+        tip-detail: root.tip-detail;
+        hue: root.hue;
+        enabled: root.enabled;
+        changed: root.has-default && abs(root.value - root.default-value) > root.step / 2;
+        Rectangle {
+            horizontal-stretch: 1;
+            Slider {
+                peek: root.peek;
+                peek-picture: root.peek-picture;
+                peek-changed(o) => { root.peek-changed(o); }
+                setting: root.setting;
+                tip: root.tip != "" ? root.tip : root.tip-detail != "" || root.tip-hint != "" || root.has-default ? root.label : "";
+                tip-detail: root.tip-detail;
+                tip-hint: root.has-default ? root.tip-hint : "";
+                shortcut: root.shortcut;
+                width: parent.width;
+                height: parent.height;
+                hue: root.hue;
+                enabled: root.enabled;
+                label: root.label;
+                minimum: root.minimum;
+                maximum: root.maximum;
+                step: root.step;
+                value: root.value;
+                readout: root.readout;
+                readout-width: root.readout-width;
+                has-default: root.has-default;
+                default-value: root.default-value;
+                marks: root.marks;
+                fill: root.fill;
+                grad-a: root.grad-a;
+                grad-b: root.grad-b;
+                grad-c: root.grad-c;
+                moved(v) => { root.moved(v); }
+            }
         }
     }
 }
@@ -118,178 +257,6 @@ global Spoken {
     }
 }
 
-// ColourWheel: a puck on a ring of hues. Drag anywhere (it doesn't jump to the pointer), arrows move it, Home or a
-// double-click puts it back. The pointer is reported in radii of the area the puck moves in.
-component Wheel inherits Rectangle {
-    in property <float> puck-x;
-    in property <float> puck-y;
-    in property <color> puck-colour: #808080;
-    in property <bool> enabled: true;
-    in property <string> tip;
-    in property <string> label;
-    callback pressed();
-    callback dragged(float, float, bool);
-    callback released();
-    callback reset();
-    callback key(string, bool);
-    height: 124px;
-    horizontal-stretch: 1;
-    min-width: 88px;
-    // Whole physical pixels, found from where the wheel sits in the window: a rectangle's edges and the ring's clip are then
-    // drawn the same on every side, where a centre or radius on a part of a pixel blurs one side of the disc more than the other
-    property <length> radius: floor((min(self.width, self.height) / 2 - 11px) / 1phx) * 1phx;
-    property <length> cx: round((self.absolute-position.x + self.width / 2) / 1phx) * 1phx - self.absolute-position.x;
-    property <length> cy: round((self.absolute-position.y + self.height / 2) / 1phx) * 1phx - self.absolute-position.y;
-    property <length> px: cx + puck-x * radius;
-    property <length> py: cy - puck-y * radius;
-    forward-focus: focus;
-    accessible-role: slider;
-    accessible-label: label;
-    accessible-value: Spoken.wheel(puck-x, puck-y);
-    accessible-description: @tr("Arrow keys move the puck a little, Shift with an arrow moves it further. Home puts it back in the middle.");
-    focus := FocusScope {
-        focus-gained(reason) => { if (reason == FocusReason.tab-navigation) { Reveal.show(root.absolute-position.x, root.absolute-position.y, root.width, root.height); } }
-        enabled: root.enabled;
-        key-pressed(e) => {
-            if (Keys.name(e.text) != "" && Keys.name(e.text) != "[" && Keys.name(e.text) != "]") {
-                root.key(Keys.name(e.text), e.modifiers.shift);
-                return accept;
-            }
-            reject
-        }
-    }
-    // The ring of hues, each where a puck pointing at it would push the picture: 72 wedges under a circular clip. Slint's femtovg
-    // grows an anti-aliased path by a pixel and not evenly on every side, which left the ring thicker on three sides of the disc, so
-    // the outer edge comes from the clip: a border radius, drawn the way the disc is. The software renderer has no gradient clip
-    // either, hence wedges of solid colour, and the disc covers their middle
-    property <length> ring-out: radius + 9px;
-    Rectangle {
-        x: cx - ring-out;
-        y: cy - ring-out;
-        width: 2 * ring-out;
-        height: 2 * ring-out;
-        border-radius: ring-out;
-        clip: true;
-        opacity: enabled ? 1 : 0.3;
-        for c[i] in [#ff4a89, #ff499b, #ff48ad, #ff47be, #ff47cf, #ff48e0, #ff48ee, #ff4af9, #fc4bff, #f44dff, #eb4fff, #de52ff, #d155ff, #c358ff, #b45cff, #a660ff, #9664ff, #8868ff, #786cff, #6972ff, #5a76ff, #4a7cff, #3c80ff, #2e86ff, #218aff, #148fff, #0a93ff, #0498ff, #009cf9, #00a0ee, #00a4e0, #00a8cf, #00acbe, #00aead, #00b19b, #00b389, #00b577, #00b664, #00b752, #00b841, #00b830, #00b71f, #00b611, #00b606, #04b400, #0ab200, #14b000, #21ad00, #2eaa00, #3ca700, #4aa300, #5a9f00, #699b00, #789700, #889200, #968e00, #a68800, #b48400, #c37e00, #d17a00, #de7500, #eb7000, #f46c00, #fc6700, #ff6306, #ff5f11, #ff5b1f, #ff5730, #ff5441, #ff5052, #ff4e64, #ff4c77] : Path {
-            width: parent.width;
-            height: parent.height;
-            viewbox-width: self.width / 1px;
-            viewbox-height: self.height / 1px;
-            fill: c;
-            MoveTo {
-                x: ring-out / 1px;
-                y: ring-out / 1px;
-            }
-            LineTo {
-                x: (ring-out + ring-out * sin(i * 5deg - 0.4deg)) / 1px;
-                y: (ring-out - ring-out * cos(i * 5deg - 0.4deg)) / 1px;
-            }
-            ArcTo {
-                x: (ring-out + ring-out * sin(i * 5deg + 5.4deg)) / 1px;
-                y: (ring-out - ring-out * cos(i * 5deg + 5.4deg)) / 1px;
-                radius-x: ring-out / 1px;
-                radius-y: ring-out / 1px;
-                sweep: true;
-            }
-            Close {}
-        }
-    }
-    Rectangle {
-        x: cx - (radius + 4px);
-        y: cy - (radius + 4px);
-        width: 2 * (radius + 4px);
-        height: 2 * (radius + 4px);
-        border-radius: self.width / 2;
-        background: Theme.surface;
-    }
-    // The well, lighter towards the middle: rings of solid colour, as the software renderer doesn't clip a gradient either
-    for t[i] in [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1] : Rectangle {
-        property <length> r: round(radius * t / 1phx) * 1phx;
-        x: cx - r;
-        y: cy - r;
-        width: 2 * r;
-        height: 2 * r;
-        border-radius: r;
-        background: Theme.surface-raise.mix(Theme.surface-hover, t - 0.05);
-    }
-    Rectangle {
-        x: cx - radius;
-        y: cy - radius;
-        width: 2 * radius;
-        height: 2 * radius;
-        border-radius: radius;
-        border-width: 1px;
-        border-color: Theme.border-strong;
-    }
-    Rectangle { x: cx - radius; y: cy; width: 2 * radius; height: 1px; background: Theme.border-strong; }
-    Rectangle { x: cx; y: cy - radius; width: 1px; height: 2 * radius; background: Theme.border-strong; }
-    for t in [0.33, 0.66]: Rectangle {
-        property <length> r: round(radius * t / 1phx) * 1phx;
-        x: cx - r;
-        y: cy - r;
-        width: 2 * r;
-        height: 2 * r;
-        border-radius: r;
-        border-width: 1px;
-        border-color: Theme.border-strong;
-    }
-    if puck-x != 0 || puck-y != 0: Path {
-        x: -0.6px;
-        y: -0.6px;
-        width: root.width + 1.2px;
-        height: root.height + 1.2px;
-        viewbox-width: root.width / 1px;
-        viewbox-height: root.height / 1px;
-        fit: ImageFit.fill;
-        commands: "M \{cx / 1px} \{cy / 1px} L \{px / 1px} \{py / 1px}";
-        stroke: Theme.text-dim;
-        stroke-width: 1.2px;
-    }
-    Rectangle {
-        // Qt's 2px pen straddles the 7px radius
-        x: px - 8px;
-        y: py - 8px;
-        width: 16px;
-        height: 16px;
-        border-radius: 8px;
-        border-width: 2px;
-        border-color: enabled ? Theme.text : Theme.text-disabled;
-        background: enabled ? puck-colour : Theme.surface-raise;
-    }
-    FocusRing {
-        shown: focus.has-focus;
-        x: cx - (radius + 13px);
-        y: cy - (radius + 13px);
-        width: 2 * (radius + 13px);
-        height: 2 * (radius + 13px);
-        radius: radius + 13px;
-    }
-    usage := TipUse { hover: touch.has-hover; }
-    touch := TouchArea {
-        enabled: root.enabled;
-        property <length> from-x;
-        property <length> from-y;
-        mouse-cursor: self.pressed ? MouseCursor.grabbing : MouseCursor.grab;
-        scroll-event(e) => { usage.wheel(); reject }
-        pointer-event(e) => {
-            if (e.kind == PointerEventKind.down) { usage.press(); }
-            if (e.button == PointerEventButton.left && e.kind == PointerEventKind.down) {
-                self.from-x = self.mouse-x;
-                self.from-y = self.mouse-y;
-                focus.focus();
-                root.pressed();
-            }
-            if (e.kind == PointerEventKind.move && self.pressed) {
-                root.dragged((self.mouse-x - self.from-x) / radius, (self.mouse-y - self.from-y) / radius, e.modifiers.shift);
-            }
-            if (e.kind == PointerEventKind.up && e.button == PointerEventButton.left) { root.released(); }
-        }
-        double-clicked => { root.reset(); }
-    }
-    if tip != "" && !usage.used: Tooltip { TipBody { says: root.tip; } }
-}
-
 export struct CurvePoint {
     x: float,
     y: float,
@@ -303,19 +270,23 @@ component CurveBox inherits Rectangle {
     in property <string> line;
     in property <[CurvePoint]> points: [{ x: 0, y: 0 }];
     in property <int> picked: -1;
-    in property <color> colour: Theme.text;
+    in property <color> colour: Theme.ink;
     in property <string> label;
     callback pressed(float, float, float, float, bool);
     callback moved(float, float, float, float);
     callback released();
     callback double-clicked(float, float, float, float);
     callback key(string, bool);
-    height: 200px;
+    height: Theme.u(100);
     horizontal-stretch: 1;
-    property <length> pad: 8px;
+    property <length> pad: Theme.u(4);
     property <length> area-w: self.width - 2 * pad;
-    property <length> area-h: self.height - pad - (hue-curve ? 14px : pad);
-    property <color> tone: enabled ? colour : Theme.text-disabled;
+    property <length> area-h: self.height - pad - (hue-curve ? Theme.u(7) : pad);
+    property <color> tone: enabled ? colour : Theme.dis;
+    // Shift while dragging a point goes finer: it follows a tenth of the pointer's travel
+    fine-x := FineAxis { }
+    fine-y := FineAxis { }
+    property <bool> shift-now;
     forward-focus: focus;
     accessible-role: slider;
     accessible-label: label;
@@ -335,24 +306,22 @@ component CurveBox inherits Rectangle {
     Rectangle {
         x: pad - 1px;
         y: pad - 1px;
-        width: area-w + 2px;
-        height: area-h + 2px;
-        border-radius: 4px;
-        border-width: 1px;
-        border-color: Theme.border;
-        background: Theme.surface-sunk;
+        width: area-w + Theme.u(1);
+        height: area-h + Theme.u(1);
+        border-radius: Theme.r-handle;
+        background: Theme.stage;
     }
     if hue-curve: Rectangle {
         x: pad;
-        y: pad + area-h + 4px;
+        y: pad + area-h + Theme.u(2);
         width: area-w;
-        height: 6px;
-        border-radius: 2px;
+        height: Theme.u(3);
+        border-radius: Theme.u(1);
         opacity: enabled ? 1 : 0.4;
         background: @linear-gradient(90deg, #d96262 0%, #d99d62 8%, #d9d962 17%, #9dd962 25%, #62d962 33%, #62d99d 42%, #62d9d9 50%, #629dd9 58%, #6262d9 67%, #9d62d9 75%, #d962d9 83%, #d9629d 92%, #d96262 100%);
     }
-    for i in [1, 2, 3]: Rectangle { x: pad + area-w * i / 4; y: pad; width: 1px; height: area-h; background: Theme.border; }
-    for i in [1, 2, 3]: Rectangle { x: pad; y: pad + area-h * i / 4; width: area-w; height: 1px; background: Theme.border; }
+    for i in [1, 2, 3]: Rectangle { x: pad + area-w * i / 4; y: pad; width: 1px; height: area-h; background: Theme.line; }
+    for i in [1, 2, 3]: Rectangle { x: pad; y: pad + area-h * i / 4; width: area-w; height: 1px; background: Theme.line; }
     // The line nothing changes along
     // fill: a path keeps its viewbox's shape by default, and this box isn't square. A stroke sits half out of a path's box
     Path {
@@ -364,20 +333,20 @@ component CurveBox inherits Rectangle {
         viewbox-height: 100;
         fit: ImageFit.fill;
         commands: hue-curve ? "M 0 50 L 100 50" : "M 0 100 L 100 0";
-        stroke: Theme.border-strong;
+        stroke: Theme.line-strong;
         stroke-width: 1px;
     }
     Rectangle {
-        x: pad - 2px;
-        y: pad - 2px;
-        width: area-w + 4px;
-        height: area-h + 4px;
+        x: pad - Theme.u(1);
+        y: pad - Theme.u(1);
+        width: area-w + Theme.u(2);
+        height: area-h + Theme.u(2);
         clip: true;
         Path {
             x: 1px;
             y: 1px;
-            width: area-w + 2px;
-            height: area-h + 2px;
+            width: area-w + Theme.u(1);
+            height: area-h + Theme.u(1);
             viewbox-width: 1000;
             viewbox-height: 1000;
             fit: ImageFit.fill;
@@ -387,28 +356,46 @@ component CurveBox inherits Rectangle {
         }
     }
     for p[i] in points: Rectangle {
-        x: pad + p.x * area-w - 5px;
-        y: pad + (1 - p.y) * area-h - 5px;
-        width: 10px;
-        height: 10px;
-        border-radius: 5px;
-        border-width: 1.5px;
+        x: pad + p.x * area-w - Theme.u(2.5);
+        y: pad + (1 - p.y) * area-h - Theme.u(2.5);
+        width: Theme.u(5);
+        height: Theme.u(5);
+        border-radius: Theme.u(2.5);
+        border-width: Theme.u(0.75);
         border-color: tone;
-        background: i == picked && enabled ? colour : Theme.surface;
+        background: i == picked && enabled ? colour : Theme.card;
     }
-    FocusRing { shown: focus.has-focus; radius: 6px; x: 1px; y: 1px; width: root.width - 2px; height: root.height - 2px; }
-    TouchArea {
+    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; x: 1px; y: 1px; width: root.width - Theme.u(1); height: root.height - Theme.u(1); }
+    // A drag held in something that goes away lets the editor go by itself, and its moves stop
+    property <int> gone: Grip.leaves;
+    changed gone => {
+        if (touch.holding && Grip.cut(touch.grip)) {
+            touch.holding = false;
+            root.released();
+        }
+    }
+    touch := TouchArea {
+        property <Hold> grip;
+        property <bool> holding;
         enabled: root.enabled;
         mouse-cursor: MouseCursor.crosshair;
         pointer-event(e) => {
+            shift-now = e.modifiers.shift;
             if (e.kind == PointerEventKind.down && (e.button == PointerEventButton.left || e.button == PointerEventButton.right)) {
+                grip = Grip.take(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                holding = true;
                 focus.focus();
+                fine-x.begin(self.mouse-x / 1px);
+                fine-y.begin(self.mouse-y / 1px);
                 root.pressed(self.mouse-x / 1px, self.mouse-y / 1px, root.width / 1px, root.height / 1px, e.button == PointerEventButton.right);
             }
-            if (e.kind == PointerEventKind.move && self.pressed) {
-                root.moved(self.mouse-x / 1px, self.mouse-y / 1px, root.width / 1px, root.height / 1px);
+            if (e.kind == PointerEventKind.move && self.pressed && holding && !Grip.cut(grip)) {
+                root.moved(fine-x.at(self.mouse-x / 1px, shift-now, -100000, 100000), fine-y.at(self.mouse-y / 1px, shift-now, -100000, 100000), root.width / 1px, root.height / 1px);
             }
-            if (e.kind == PointerEventKind.up) { root.released(); }
+            if ((e.kind == PointerEventKind.up || e.kind == PointerEventKind.cancel) && holding) {
+                holding = false;
+                root.released();
+            }
         }
         double-clicked => { root.double-clicked(self.mouse-x / 1px, self.mouse-y / 1px, root.width / 1px, root.height / 1px); }
     }

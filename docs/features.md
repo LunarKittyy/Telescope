@@ -32,7 +32,7 @@ Optional. It finds you in the picture and moves zoom and pan to keep you framed.
 - **Framing** sets how much of you is in the shot, from just your head to your whole body. Two people get framed together. With nobody in view for two seconds it zooms back out
 - **Speed** goes from **Sloth** to **Zippy**. **Easy** is the default
 - **Room to move** is how far you can shift before the framing follows (**Fidget** to **Roam**, while **Off** follows every move)
-- **Widen for something in your hand** (off by default) makes room when you hold something out to the side
+- **Show hands** (off by default) widens the view so your hands are in it too, for when you hold something out to the side
 - Zoom and Pan on the Transforms card are greyed out while it's on. Flip and rotation still work and your own zoom and pan come back when you switch it off
 - The skeleton button under the preview shows what the framing is reacting to. It never appears in the camera output
 
@@ -48,11 +48,11 @@ Picking a point on the preview or a focus mode on the Camera card takes over fro
 
 ## Privacy blur
 
-Optional. It hides other people who walk into the picture, in one of three ways picked on its card. **Blur the others** blurs everyone but you, **Blur all but me** blurs the room as well and **Show the wait screen** puts the wait screen up in place of the whole picture. "You" is whoever has been in the picture longest when blurring starts. If you step out while it blurs, nobody else gets taken for you: they stay blurred until you come back to about where you were. Blurring starts once a second person has been found a couple of times in a row and only stops after there has been only one person (or nobody) for about five seconds. Someone walking past or the model losing track for a moment won't make it flicker.
+Optional. When more than one person is in the picture it hides all of it, in one of two ways picked on its card. **Blur the whole picture** blurs everything and **Show the wait screen** puts the wait screen up instead. It doesn't try to tell you from anyone else. Blurring starts as soon as one update from the people finder sees two or more people, and it only stops once there has been only one person (or nobody) for 4 seconds, so the finder losing a person for a moment doesn't make it flicker.
 
-Treat this as a proof of concept and not a guarantee of privacy. It takes a moment to react and MediaPipe doesn't always spot people. Don't count on it to keep anything private.
+It only knows about the people MediaPipe finds. It can miss someone (a person turned away, small or half out of the frame), and it takes a moment to react. Don't count on it to keep anything private.
 
-**Blur now** does the same by hand until you click it again and you can bind it to a key in Keyboard shortcuts. It works without the vision download too, in which case it blurs the whole picture since there's nobody to tell apart. Switching the card on for automatic blurring does need the download.
+**Blur now** does the same by hand until you click it again and you can bind it to a key in Keyboard shortcuts. It works without the vision download too. Switching the card on for automatic blurring does need the download.
 
 With several cameras streaming it watches the one shown in the panels, and whenever it blurs or covers that one the others get blurred all over too until it stops. A camera you clicked away from while it was blurred stays blurred.
 
@@ -103,8 +103,8 @@ Optional. Point the phone down at a sheet of paper, mark the sheet's four corner
 - **Writing** can make the text stand out. **Contrast** evens out the light across the paper so it turns white and the ink stays dark. **Black and white** turns everything into pure black ink on white paper, which works best for printed text and pen
 - Clicking the straightened picture still works the way you'd expect: **Tap a point** focuses on the word you clicked, scrolling zooms around it and other plugins' picks land where you clicked. The lens outlines and the skeleton aren't drawn while the sheet is straightened
 - If zooming or Auto framing pushes part of the sheet off the picture the card warns about it. Zoom out or mark it again
-- The sheet keeps its own shape, centred with dark bars beside it (white ones with **Contrast** or **Black and white**), so a standing page stays a standing page in a wide call. **Shape** set to **Auto** works the real shape out from the corners, undoing the tilt. **A4**, **Letter** and **Square** use that size instead, turned the way the sheet lies. **Fill the picture** stretches it over the whole frame
-- If the page still looks a bit squashed, **Width** and **Height** stretch it by eye from 50% to 200%. A double-click on a slider or **Reset** puts them back to 100%
+- The sheet keeps its own shape, centred with dark bars beside it (white ones with **Contrast** or **Black and white**), so a standing page stays a standing page in a wide call. **Shape** set to **Auto** works the real shape out from the corners, undoing the tilt. **A4**, **Letter** and **Square** use that size instead, turned the way the sheet lies. **Fill** stretches it over the whole frame
+- If the page still looks a bit squashed, drag the handle on the pad at the bottom of the card: across is the width, down is the height, from 50% to 200% (the corner of the drawn sheet follows it). A double-click on the pad or the reset button on it puts both back to 100%
 - Each phone remembers its own corners and presets save them too
 
 ## QR codes
@@ -129,7 +129,11 @@ Photos go to the folder under **Save in** (a Telescope folder in your Pictures b
 
 An optional plugin for the look of the picture, switched on in Plugins (it needs no download). Like Background it runs on the computer and works with any phone and with Browser camera. Each phone gets its own grade and grades are saved in presets.
 
-**Primaries** has four colour wheels. Lift is the shadows, Gamma the midtones, Gain the highlights and Offset all of it. Drag a wheel towards a colour to push the picture that way and use the slider under it for the level. Below them are Temperature and Tint, Contrast with its Pivot, Saturation and then Shadows and Highlights for brightening or darkening only the darker or brighter parts. A double-click puts any wheel, slider or curve back where it started. With the keyboard the arrows move a wheel's dot and Home centres it.
+**Primaries** has four colour wheels. Lift is the shadows, Gamma the midtones, Gain the highlights and Offset all of it. Drag a wheel towards a colour to push the picture that way and use the slider under it for the level. Below them are Temperature and Tint, Contrast with its Pivot, Saturation, Vibrance and then Shadows and Highlights for brightening or darkening only the darker or brighter parts. A double-click puts any wheel, slider or curve back where it started. With the keyboard the arrows move a wheel's dot and Home centres it.
+
+**Auto** in the card's header sets Temperature, Tint, Gamma, Gain, Lift, Contrast, Highlights and Saturation from about a second of the picture, so the stream has to be running. Faces keep natural skin tones, which is why it uses the vision download and asks for it the first time if it isn't there yet. The sliders stay yours to change afterwards, and the button says **Looks fine** when there was nothing to correct.
+
+**Vibrance** is like Saturation but pushes the dull colours more than the strong ones and goes easy on skin tones. Drag it left to calm down the loudest colours.
 
 **Curves** has the RGB curves (all channels together, or red, green and blue on their own) plus Hue vs sat and Hue vs hue. On those two you pull a hue up to give it more colour or turn it towards the next hue along. Pulling it down does the opposite. Click to add a point and drag it, or double-click a point to take it off. In a curve that has keyboard focus **[** and **]** pick a point, the arrows move it and Delete removes it.
 
@@ -159,8 +163,8 @@ It only works on 64-bit Intel and AMD computers for now.
 
 Optional. It puts your name and pronouns in a corner of the picture, with a smaller second line under them if you want one (like your role). Switch it on under **On screen** in the Plugins tab of Settings and fill in the **Name tag** card. With several cameras each one has its own tag (or none), so the desk camera doesn't have to show your name too.
 
-- **Style** is **Bar** (a dark box with a coloured edge), **Pill**, **Light** or **Shadow**, which has no box at all and only a soft shadow behind the text
-- **Position** can be any bottom corner, bottom centre or the top corners. **Size** is measured against the picture's height and the tag looks the same at 720p and 4K
+- **Style** is **Bar** (a dark box with a coloured edge), **Pill**, **Light** or **Shadow**, which has no box at all and only a soft shadow behind the text. Each tile shows its look
+- **Position** is the small frame next to the styles: click the corner or the bottom centre you want. **Size** is measured against the picture's height and the tag looks the same at 720p and 4K
 - Presets save the tag too. One preset can have it on for a talk and another can leave it off for a chat
 - Names in any script work (Arabic and Hebrew ones start from the right) and anything too long for the picture is cut short with "…"
 - The tag goes on the picture before Telescope fits it to the virtual camera's canvas. With a **Canvas size** of another shape it sits in the corner of the picture rather than of the canvas. A low-resolution stream on a bigger canvas makes its text a little soft too (a higher resolution on the Stream output card helps)
@@ -187,7 +191,7 @@ A phone that can't do Light switches to Heavy automatically.
 
 - **Heavy** has a JPEG quality slider
 - **Light** has a bitrate slider with **Auto**, a fixed 1-100 Mbps or **Dynamic**. Dynamic sends as much as the connection can carry and backs off before the video starts to lag. If that's still too much it lowers the frame rate too (down to 15) and climbs back once there's room
-- **Hardware acceleration** under Video in Settings decodes Light on the graphics card instead of the processor, which matters most at 4K or on a laptop. It's off by default. It works on Windows with any graphics card and on Linux through VA-API or NVIDIA's CUDA. The line under the switch says which one it found
+- **Hardware acceleration** under Video in Settings decodes Light on the graphics card instead of the processor, which matters most at 4K or on a laptop. It works on Windows with any graphics card and on Linux through VA-API or NVIDIA's CUDA. The line under the switch says which one it found. On Linux it's on by default when the card is VA-API, and everywhere else it starts off. If the card falls behind, Telescope decodes on the processor for a few minutes and then tries the card again
 - Light only lists resolutions the phone's encoder can take
 
 <details>
@@ -341,7 +345,7 @@ Updating installs the new version for your user instead (Start menu entry and un
 
 Click a card's title to fold it down to its header and click again to open it. Section titles inside a card work the same way. Folds are remembered after a restart and saved for the whole app, not per phone. Shortcuts keep working on folded controls. Tab reaches the titles and Space or Enter folds them.
 
-**Monochrome** under **Card colours** in General puts every card in the app's purple instead of its own colour.
+The **Look** section of General in Settings picks the window's look (**Dark**, **Classic**, **OLED** or **Light**) and the **Card colours**. **Monochrome** puts every card in the app's purple instead of its own colour.
 </details>
 
 ## Keyboard shortcuts
@@ -361,6 +365,10 @@ Shortcuts are global by default and also work while another app is in front.
 
 **Notify when one runs** shows a quick confirmation while Telescope is in the background. It's off by default.
 </details>
+
+## MCP server
+
+Optional, switched on under **Extras** in the Plugins tab of Settings. It lets an AI app like Claude Desktop read and change Telescope's settings, with a **Read only** switch in the MCP tab and an **MCP** button in the top bar that undoes what the AI changed. Telescope sends nothing to a model by itself. See [MCP server](mcp.md) for adding it to an AI app and what it can do.
 
 ## Plugins
 

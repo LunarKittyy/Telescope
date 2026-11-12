@@ -524,7 +524,7 @@ impl UpdatesPlugin {
             "update-enabled": !self.busy() && (blocker.is_some() || !streaming),
             "back-shown": self.built_channel != "dev",
             "back-enabled": !self.busy() && !streaming,
-            "back-tip": if streaming { tr("Stop streaming to go back.") } else { tr("Swaps this version for the last Python one, {version}.").field("version", going_back::VERSION) },
+            "back-tip": if streaming { tr("Stop streaming to go back.") } else { tr("Swap this version for the last Python version, {version}.").field("version", going_back::VERSION) },
             "back-open": self.back_asked.is_some(),
             "back-text": self.back_asked.as_ref().map(|(_, d)| d.text.clone()).unwrap_or_default(),
             "back-action": self.back_asked.as_ref().map(|(_, d)| d.action.clone()).unwrap_or_default(),

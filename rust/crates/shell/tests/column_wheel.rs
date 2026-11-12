@@ -92,6 +92,9 @@ fn the_wheel_scrolls_the_column_after_a_control_was_used() {
     // The first row of the open list
     click(&w, LogicalPosition::new(at.x, at.y + 32.0), PointerEventButton::Left);
     telescope_shell::offscreen::draw(w.window(), 400.0, 300.0, 1.0);
+    // The list eases out before it goes
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(300));
+    telescope_shell::offscreen::draw(w.window(), 400.0, 300.0, 1.0);
     assert_eq!(wheel(&w, at), -40.0, "after picking from the list");
     let _ = w.hide();
 }

@@ -1,6 +1,6 @@
 // The video stage (plugins/preview.py): the letterboxed picture and the toolbar under it, no card chrome.
 
-import { Theme, Icons, Button } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, IconButton, ToggleTile, Arrival, FineAxis } from "@ui-kit/ui-kit.slint";
 import { PreviewMarks, PreviewPick, LensOutline, SkeletonLine } from "../../shell/preview.slint";
 
 // A shape a plugin draws on the preview (add_preview_layer), in px of the picture's rect
@@ -77,29 +77,32 @@ export component PreviewCard inherits Rectangle {
     callback smooth-clicked;
 
     visible: visible-card;
-    preferred-height: 240px + 2px + 55px;
-    background: Theme.surface-sunk;
-    border-width: 1px;
-    border-color: Theme.border;
-    border-radius: 12px;
+    preferred-height: Theme.u(120) + Theme.row + Theme.u(8);
+    background: Theme.stage;
+    border-radius: Theme.r-card;
     clip: true;
 
     VerticalLayout {
-        padding: 1px;
         spacing: 0px;
         surface := Rectangle {
-            min-height: 240px;
+            min-height: Theme.u(120);
             vertical-stretch: 1;
-            background: Theme.surface-sunk;
-            border-radius: 11px;
+            background: Theme.stage;
             accessible-role: image;
             accessible-label: @tr("Preview");
-            if has-frame: Image {
+            // The first picture takes the idle text's place in one frame and comes up to full
+            if has-frame: Rectangle {
                 width: parent.width;
                 height: parent.height;
-                source: frame;
-                image-fit: contain;
-                image-rendering: smooth;
+                opacity: arrival.solid;
+                arrival := Arrival { }
+                Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: frame;
+                    image-fit: contain;
+                    image-rendering: smooth;
+                }
             }
             if has-frame && has-overlay: Image {
                 width: parent.width;
@@ -147,19 +150,22 @@ export component PreviewCard inherits Rectangle {
             }
             if !has-frame: VerticalLayout {
                 alignment: center;
-                spacing: 12px;
+                spacing: Theme.u(6);
                 if camera-off: HorizontalLayout {
                     alignment: center;
-                    Image { source: Icons.v-camera-off; colorize: Theme.accent; width: 52px; height: 52px; }
+                    Icon { source: Icons.camera-off; tint: Theme.dis; width: Theme.u(26); height: Theme.u(26); accessible-role: none; }
                 }
                 Text {
                     text: stage-text;
                     horizontal-alignment: center;
                     font-family: Theme.font;
-                    font-size: camera-off ? 15px : 13px;
-                    color: camera-off ? Theme.accent-soft : Theme.text-faint;
+                    font-size: camera-off ? Theme.u(7.5) : Theme.u(6.5);
+                    color: camera-off ? Theme.ink2 : Theme.faint;
                 }
             }
+            // Shift while dragging goes finer: the picture follows a tenth of the pointer's travel
+            fine-u := FineAxis { }
+            fine-v := FineAxis { }
             if has-frame: TouchArea {
                 mouse-cursor: stage-cursor == "cross" ? MouseCursor.crosshair : stage-cursor == "grab" ? MouseCursor.grab : stage-cursor == "grabbing" ? MouseCursor.grabbing : MouseCursor.default;
                 pointer-event(e) => {
@@ -168,7 +174,13 @@ export component PreviewCard inherits Rectangle {
                         : e.button != PointerEventButton.left ? ""
                         : e.kind == PointerEventKind.down ? "down" : e.kind == PointerEventKind.up ? "up" : "";
                     if kind != "" {
-                        root.view-pointer(kind, (self.mouse-x - pic-x) / max(pic-width, 1px), (self.mouse-y - pic-y) / max(pic-height, 1px), pic-width / 1px, pic-height / 1px);
+                        let u = (self.mouse-x - pic-x) / max(pic-width, 1px);
+                        let v = (self.mouse-y - pic-y) / max(pic-height, 1px);
+                        if kind == "down" {
+                            fine-u.begin(u);
+                            fine-v.begin(v);
+                        }
+                        root.view-pointer(kind, kind == "move" ? fine-u.at(u, e.modifiers.shift, -100000, 100000) : u, kind == "move" ? fine-v.at(v, e.modifiers.shift, -100000, 100000) : v, pic-width / 1px, pic-height / 1px);
                     }
                 }
                 scroll-event(e) => {
@@ -177,18 +189,18 @@ export component PreviewCard inherits Rectangle {
                     if u < 0 || u > 1 || v < 0 || v > 1 || e.delta-y == 0 {
                         return reject;
                     }
-                    root.view-wheel(u, v, e.delta-y / 60px); // a notch of the wheel is 60 px here
+                    root.view-wheel(u, v, e.delta-y / Theme.u(30)); // a notch of the wheel is 60 px here
                     accept
                 }
             }
             if has-frame && marker-shown: Rectangle {
-                x: pic-x + marker-u * pic-width - 22px;
-                y: pic-y + marker-v * pic-height - 22px;
-                width: 44px;
-                height: 44px;
-                border-width: 2px;
+                x: pic-x + marker-u * pic-width - Theme.u(11);
+                y: pic-y + marker-v * pic-height - Theme.u(11);
+                width: Theme.u(22);
+                height: Theme.u(22);
+                border-width: Theme.u(1);
                 border-color: Theme.accent-soft;
-                border-radius: 6px;
+                border-radius: Theme.r-ctl;
             }
             if picking: PreviewPick {
                 width: parent.width;
@@ -208,85 +220,85 @@ export component PreviewCard inherits Rectangle {
             }
         }
         Rectangle {
-            background: Theme.surface;
-            Rectangle { y: 0; height: 1px; background: Theme.border; }
+            background: Theme.card;
+            // Every control is an icon with its word in the tooltip (Smooth is the one that also shows its word). Actions are plain icon buttons, the ones that stay on are tiles with the outline
             HorizontalLayout {
-                padding-left: 12px;
-                padding-right: 12px;
-                padding-top: 9px;
-                padding-bottom: 10px;
-                spacing: 8px;
-                Button {
-                    text: toggle-text;
-                    role: "quiet";
-                    min-width: 78px;
-                    has-icon: true;
+                padding-left: Theme.pad;
+                padding-right: Theme.pad;
+                padding-top: Theme.u(4);
+                padding-bottom: Theme.u(4);
+                spacing: Theme.gap;
+                IconButton {
+                    raised: true;
                     icon: showing ? Icons.eye-off : Icons.eye;
-                    icon-tint: Theme.text-dim;
-                    enabled: !popout;
-                    tip: @tr("Stop drawing this preview. The camera output doesn't change.");
+                    label: toggle-text;
+                    tip: showing ? @tr("Hide preview") : @tr("Show preview");
+                    tip-detail: showing ? @tr("Stop drawing the preview without changing the camera output.") : "";
                     shortcut: "show_hide";
+                    enabled: !popout;
                     clicked => { root.toggle(); }
                 }
-                Button {
-                    width: 36px;
-                    role: "quiet";
-                    padding-x: 0px;
-                    has-icon: true;
-                    icon: camera-on ? Icons.v-camera : Icons.v-camera-off;
-                    icon-size: 16px;
-                    icon-tint: camera-on ? Theme.text-dim : Theme.accent;
+                ToggleTile {
+                    width: Theme.row;
+                    height: Theme.row;
+                    horizontal-stretch: 0;
+                    icon: camera-on ? Icons.camera : Icons.camera-off;
+                    name: @tr("Device camera");
+                    hue: Theme.plugin-hue("preview");
+                    checked: !camera-on;
                     enabled: camera-enabled;
-                    tip: camera-tip;
-                    accessible-label: @tr("Device camera");
+                    tip: @tr("Camera");
+                    tip-detail: camera-tip;
                     shortcut: "streaming.camera";
-                    clicked => { root.camera-clicked(); }
+                    toggled(on) => { root.camera-clicked(); }
                 }
                 Rectangle { horizontal-stretch: 1; }
-                if skeleton-shown: Button {
-                    width: 36px;
-                    role: "quiet";
-                    padding-x: 0px;
-                    has-icon: true;
+                if skeleton-shown: ToggleTile {
+                    width: Theme.row;
+                    height: Theme.row;
+                    horizontal-stretch: 0;
                     icon: Icons.skeleton;
-                    icon-size: 16px;
-                    icon-tint: skeleton-on ? Theme.accent-soft : Theme.text-dim;
-                    tip: @tr("Draw the skeleton MediaPipe finds. Doesn't show in the camera output.");
-                    accessible-label: @tr("Skeleton");
+                    name: @tr("Skeleton");
+                    hue: Theme.plugin-hue("preview");
+                    checked: skeleton-on;
+                    tip: @tr("Skeleton");
+                    tip-detail: @tr("Draw the skeleton MediaPipe finds on the preview only, not in the camera output.");
                     shortcut: "skeleton";
-                    clicked => { root.skeleton-clicked(); }
+                    toggled(on) => { root.skeleton-clicked(); }
                 }
-                Button {
-                    width: 36px;
-                    role: "quiet";
-                    padding-x: 0px;
-                    has-icon: true;
+                ToggleTile {
+                    width: Theme.row;
+                    height: Theme.row;
+                    horizontal-stretch: 0;
                     icon: Icons.v-lenses;
-                    icon-size: 16px;
-                    icon-tint: !lenses-enabled ? Theme.text-disabled : lenses-on ? Theme.accent-soft : Theme.text-dim;
+                    name: @tr("Lens outlines");
+                    hue: Theme.plugin-hue("preview");
+                    checked: lenses-on;
                     enabled: lenses-enabled;
-                    tip: @tr("Keep showing what the phone's longer lenses see. Doesn't show in the camera output.");
-                    accessible-label: @tr("Lens outlines");
+                    tip: @tr("Lens outlines");
+                    tip-detail: @tr("Always outline what the phone's longer lenses see. This only shows on the preview, not in the camera output.");
                     shortcut: "lens_outlines";
-                    clicked => { root.lenses-clicked(); }
+                    toggled(on) => { root.lenses-clicked(); }
                 }
-                Button {
+                // The one tile that says its word: people look for it by name, so its label is always shown and never cut
+                ToggleTile {
+                    height: Theme.row;
+                    natural: true;
+                    icon: Icons.film;
                     text: @tr("Smooth");
-                    role: "quiet";
-                    has-icon: true;
-                    icon: Icons.video;
-                    icon-tint: smooth-on ? Theme.accent-soft : Theme.text-dim;
+                    hue: Theme.plugin-hue("preview");
+                    checked: smooth-on;
                     enabled: !popout;
-                    tip: @tr("Shows every frame in the preview but uses a bit more CPU.");
-                    clicked => { root.smooth-clicked(); }
+                    tip: @tr("Smooth");
+                    tip-detail: @tr("Show every frame in the preview at the cost of a bit more CPU.");
+                    toggled(on) => { root.smooth-clicked(); }
                 }
-                Button {
-                    text: @tr("Pop out");
-                    role: "quiet";
-                    min-width: 92px;
-                    has-icon: true;
+                IconButton {
+                    raised: true;
                     icon: Icons.pop-out;
-                    icon-tint: Theme.text-dim;
+                    label: @tr("Pop out");
+                    tip: @tr("Pop out");
+                    tip-detail: @tr("Open the preview in a separate window.");
                     shortcut: "pop_out";
                     clicked => { root.pop-out(); }
                 }

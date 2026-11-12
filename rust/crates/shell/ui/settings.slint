@@ -1,7 +1,7 @@
 // The settings window (widgets/settings_window.py) and its Plugins tab (widgets/plugins_panel.py). The window itself
 // is written at startup by doc.rs, with every plugin's settings sections placed on their tabs.
 
-import { Theme, Icons, Icon, FocusRing, Button, IconButton, LinkText, Switch, SearchWords, SettingRow, TextField, TipBody, ColumnScrollbar } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Ghost, FocusRing, Button, IconButton, LinkText, Switch, Segmented, Worm, SearchWords, SettingRow, TextField, Tip, TipBody, ColumnScrollbar, Motion, DialogFrame, DialogButtons, Status, Card, RailRow, SwitchRow, Unfolding, UnfoldGroup } from "@ui-kit/ui-kit.slint";
 
 export struct NavTab {
     id: string,
@@ -73,26 +73,29 @@ component NavItem inherits Rectangle {
     in property <NavTab> tab;
     in property <bool> selected;
     callback clicked;
-    height: 38px;
+    height: Theme.u(19);
     accessible-role: list-item;
     accessible-label: tab.name;
     accessible-item-selectable: true;
     accessible-item-selected: selected;
     accessible-action-default => { clicked(); }
     touch := TouchArea { clicked => { root.clicked(); } }
-    Rectangle {
-        y: 1px;
-        height: parent.height - 2px;
-        border-radius: 7px;
-        background: selected ? Theme.fill : touch.has-hover ? Theme.surface-hover : transparent;
-        Icon { x: 13px; source: tab.icon; tint: selected ? white : Theme.text-dim; width: 16px; height: 16px; accessible-role: none; }
+    Ghost {
+        y: Theme.u(0.5);
+        height: parent.height - Theme.u(1);
+        // The picked tab's own look is the worm's, which the column draws under the rows
+        plain: selected;
+        over: touch.has-hover;
+        held: touch.pressed;
+        Icon { x: Theme.u(6.5); y: (parent.height - self.height) / 2; source: tab.icon; tint: selected ? Theme.accent : Theme.ink2; width: Theme.icon; height: Theme.icon; accessible-role: none; }
         Text {
-            x: 35px;
-            width: parent.width - 45px;
+            x: Theme.u(17.5);
+            width: parent.width - Theme.u(22.5);
             text: tab.name;
             font-family: Theme.font;
             font-size: Theme.body;
-            color: selected ? white : Theme.text-dim;
+            font-weight: selected ? Theme.w-value : Theme.w-label;
+            color: selected ? Theme.ink : Theme.ink2;
             vertical-alignment: center;
             overflow: elide;
         }
@@ -106,13 +109,14 @@ export component SettingsNav inherits Rectangle {
     in-out property <int> current;
     callback picked(int);
     in-out property <length> offset;
-    out property <length> content: 8px + tabs.length * 38px;
+    out property <length> item: Theme.u(19);
+    out property <length> content: Theme.u(4) + tabs.length * item;
     property <length> range: max(0px, content - root.height);
     // Keeps the picked tab inside, whichever way it was picked
     function show-current() {
-        let top = 4px + current * 38px;
-        if (top < min(offset, range) + 4px) { offset = max(0px, top - 4px); }
-        else if (top + 38px + 4px > min(offset, range) + root.height) { offset = min(range, top + 38px + 4px - root.height); }
+        let top = Theme.u(2) + current * item;
+        if (top < min(offset, range) + Theme.u(2)) { offset = max(0px, top - Theme.u(2)); }
+        else if (top + item + Theme.u(2) > min(offset, range) + root.height) { offset = min(range, top + item + Theme.u(2) - root.height); }
     }
     changed current => { show-current(); }
     changed height => { show-current(); }
@@ -128,7 +132,7 @@ export component SettingsNav inherits Rectangle {
             reject
         }
     }
-    FocusRing { shown: focus.has-focus; radius: 7px; width: parent.width + 4px; height: min(parent.height + 4px, tabs.length * 38px + 12px); }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + Theme.u(2); height: min(parent.height + Theme.u(2), tabs.length * item + Theme.u(6)); }
     Flickable {
         width: parent.width;
         height: parent.height;
@@ -142,11 +146,26 @@ export component SettingsNav inherits Rectangle {
                 accept
             }
         }
+        // The picked tab's outline, in the rows' own scroll so scrolling doesn't make it lag
+        Rectangle {
+            y: -min(root.offset, root.range);
+            width: parent.width;
+            height: root.content;
+            Worm {
+                to-x: 0px;
+                to-y: Theme.u(2) + current * item + Theme.u(0.5);
+                to-w: parent.width;
+                to-h: item - Theme.u(1);
+                radius: Theme.r-ctl;
+                hue: Theme.accent;
+                shown: current >= 0 && current < tabs.length;
+            }
+        }
         VerticalLayout {
             y: -min(root.offset, root.range);
             width: parent.width;
             height: self.preferred-height;
-            padding-top: 4px;
+            padding-top: Theme.u(2);
             alignment: start;
             for tab[i] in tabs: NavItem {
                 tab: tab;
@@ -165,6 +184,12 @@ export component SettingsNav inherits Rectangle {
 // lets Tab reach a control that has scrolled out of sight (a plain clip makes Slint skip it, and the cycle would be
 // whatever is in view). It never moves itself: the page scrolls by `offset`, and a control that takes the focus asks
 // for that through Reveal.
+// How wide a Settings page's content may grow, the same on every page: past this a name and its control are too far apart to read as
+// one row. Pages keep to the left, under the page title, however wide the window is.
+export global SettingsLayout {
+    out property <length> content-max: Theme.u(260);
+}
+
 export component ScrollPage inherits Flickable {
     in-out property <length> offset;
     out property <length> content: lay.preferred-height;
@@ -172,7 +197,8 @@ export component ScrollPage inherits Flickable {
     // Set from changes, not bound: the bar narrows the page, which changes how tall its content is
     in-out property <bool> bar;
     property <bool> checked;
-    out property <length> inner-width: root.width - 8px - (bar ? 11px : 0px);
+    // The bar's room is always kept, so the page doesn't move or narrow when the bar appears
+    out property <length> inner-width: min(root.width - 8px - 11px, SettingsLayout.content-max);
     changed content => { bar = content > root.height; }
     changed height => { bar = content > root.height; }
     interactive: false;
@@ -200,11 +226,13 @@ export component ScrollPage inherits Flickable {
         y: -min(offset, range);
         width: inner-width;
         height: self.preferred-height;
-        spacing: 14px;
+        spacing: Theme.u(7);
         @children
     }
     ColumnScrollbar {
-        x: parent.width - 11px;
+        // Takes presses over its whole gutter, the room beside the content included
+        before: 8px;
+        x: parent.width - 8px - 11px;
         height: parent.height;
         visible: bar;
         content: root.content;
@@ -220,18 +248,21 @@ export component ResultsList inherits VerticalLayout {
     in property <string> note;
     in property <string> empty;
     callback opened(int);
-    spacing: 8px;
+    spacing: Theme.gap;
     alignment: start;
-    if note != "": Text { text: note; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
+    if note != "": Status { text: note; detail: note; }
     if results.length > 0: Rectangle {
-        height: results.length * 52px;
+        height: results.length * Theme.u(26);
         accessible-role: list;
         accessible-label: @tr("Search results");
         VerticalLayout {
             for r[i] in results: Rectangle {
-                height: 52px;
-                border-radius: 8px;
-                background: i == current ? Theme.fill : row-touch.has-hover ? Theme.surface-hover : transparent;
+                height: Theme.u(26);
+                border-radius: Theme.r-ctl;
+                border-width: i == current ? Theme.stroke : row-touch.has-hover ? Theme.outline-w-over : 0px;
+                border-color: i == current ? Theme.accent : Theme.outline-hover;
+                background: i == current ? Theme.tint(Theme.accent) : row-touch.has-hover ? Theme.hover : transparent;
+                animate background { duration: Motion.tone-for(row-touch.pressed); easing: Motion.tone; }
                 accessible-role: list-item;
                 accessible-label: r.name;
                 accessible-description: r.path;
@@ -239,149 +270,72 @@ export component ResultsList inherits VerticalLayout {
                 accessible-action-default => { root.opened(i); }
                 row-touch := TouchArea { clicked => { current = i; root.opened(i); } }
                 VerticalLayout {
-                    padding-left: 14px;
-                    padding-right: 10px;
+                    padding-left: Theme.u(7);
+                    padding-right: Theme.u(5);
                     alignment: center;
-                    spacing: 2px;
-                    Text { text: r.name; overflow: elide; font-family: Theme.font; font-size: Theme.body; color: i == current ? white : Theme.text; }
-                    Text { text: r.path; overflow: elide; font-family: Theme.font; font-size: Theme.body; color: i == current ? #e6e1ff : Theme.text-dim; }
+                    spacing: Theme.u(1);
+                    Text { text: r.name; overflow: elide; font-family: Theme.font; font-size: Theme.body; color: Theme.ink; font-weight: i == current ? Theme.w-value : Theme.w-label; }
+                    Text { text: r.path; overflow: elide; font-family: Theme.font; font-size: Theme.small; color: Theme.ink2; }
                 }
             }
         }
     }
-    if empty != "": Text { text: empty; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
+    if empty != "": Status { text: empty; detail: empty; }
 }
 
-// QLabel#plugin_badge.
-component Badge inherits Rectangle {
-    in property <BadgeData> data;
-    height: 18px;
-    width: label.preferred-width + 16px;
-    border-radius: 8px;
-    border-width: 1px;
-    background: data.kind == "restart" ? #251f17 : Theme.surface-raise;
-    border-color: data.kind == "restart" ? #5a4a2e : Theme.border;
-    label := Text {
-        text: data.text;
-        font-family: Theme.font;
-        font-size: 11px;
-        color: data.kind == "restart" ? Theme.warn : data.kind == "lock" ? Theme.accent-soft : Theme.text-dim;
-        vertical-alignment: center;
-    }
-}
-
-// An icon on a tinted square (_chip); grey for a plugin that's off.
-component Chip inherits Rectangle {
-    in property <image> icon;
-    in property <color> hue;
-    in property <bool> lit: true;
-    width: 28px;
-    height: 28px;
-    border-radius: self.width / 3;
-    background: (lit ? hue : Theme.text-faint).with-alpha(lit ? 0.14 : 0.10);
-    Icon { source: icon; tint: lit ? hue : Theme.text-faint; width: 16px; height: 16px; accessible-role: none; }
-}
-
-// A plugin as a tile: icon, name and switch on top, what it does under them, then any note and its badges.
-component PluginTile inherits Rectangle {
+// A plugin as a named row: its icon in its card's colour (grey while it is off), its name, what it says about itself in a quiet word or
+// two and the switch. What it does is the row's tooltip.
+component PluginRow inherits Rectangle {
     in property <TileView> tile;
     callback switched(bool);
     callback removed;
     callback open-url(string);
-    border-radius: 12px;
-    border-width: 1px;
-    background: Theme.surface;
-    border-color: touch.has-hover ? Theme.border-strong : Theme.border;
+    height: max(lay.preferred-height, Theme.row);
     accessible-role: groupbox;
     accessible-label: tile.title;
     accessible-description: tile.about;
     accessible-id: "setting";
-    touch := TouchArea { }
-    if tile.locked && tile.tooltip != "": Tooltip { TipBody { says: tile.tooltip; } }
-    VerticalLayout {
-        padding-left: 12px;
-        padding-right: 12px;
-        padding-top: 10px;
-        padding-bottom: 12px;
-        spacing: 6px;
-        alignment: start;
+    Tip { says: tile.title; detail: tile.about + (tile.byline != "" ? "\n" + tile.byline : "") + (tile.badges.length > 0 ? "\n" + tile.badges[0].text : "") + (tile.note != "" ? "\n" + tile.note : "") + (tile.tooltip != "" ? "\n" + tile.tooltip : ""); inert: true; }
+    lay := RailRow {
+        width: parent.width;
+        icon: tile.icon;
+        label: tile.title;
+        named: true;
+        // The row carries the marker itself (its description, the whole row)
+        searchable: false;
+        hue: tile.on ? tile.hue : Theme.dis;
+        // The row is named by its text already, the tooltip is the row's
+        tip: "";
         HorizontalLayout {
-            spacing: 10px;
-            height: 32px;
-            Chip { y: 0; icon: tile.icon; hue: tile.hue; lit: tile.on; }
-            Text {
-                horizontal-stretch: 1;
-                text: tile.title;
-                wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
-                font-family: Theme.font;
-                font-size: Theme.body;
-                font-weight: 600;
-                color: tile.on ? Theme.text : Theme.text-dim;
-                vertical-alignment: center;
-                // The tile and its switch are named by it already
-                accessible-role: none;
+            spacing: Theme.gap;
+            alignment: end;
+            if tile.byline-link != "": VerticalLayout {
+                alignment: center;
+                LinkText { text: tile.byline-link; url: tile.byline-url; horizontal-stretch: 0; opened(u) => { root.open-url(u); } }
+            }
+            if tile.note-link != "": VerticalLayout {
+                alignment: center;
+                LinkText { text: tile.note-link; url: tile.note-url; horizontal-stretch: 0; opened(u) => { root.open-url(u); } }
             }
             if tile.removable: IconButton {
-                y: 1px;
                 icon: Icons.trash;
                 label: tile.remove-label;
                 tip: @tr("Remove");
+                tip-detail: @tr("Delete this plugin's folder from the plugins folder.");
                 clicked => { root.removed(); }
             }
-            Rectangle {
-                width: 36px;
+            VerticalLayout {
+                alignment: center;
                 Switch {
-                    y: 6px;
+                    hue: tile.hue;
                     checked: tile.on;
                     label: tile.title;
                     enabled: tile.enabled && !tile.locked;
                     toggled(on) => { root.switched(on); }
                 }
-                if !tile.locked && tile.tooltip != "": Tooltip { TipBody { says: tile.tooltip; } }
             }
         }
-        about := Text {
-            height: 32px;
-            text: tile.about;
-            wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
-            overflow: elide;
-            font-family: Theme.font;
-            font-size: 12px;
-            color: Theme.text-faint;
-            vertical-alignment: top;
-        }
-        if tile.byline != "" || tile.byline-link != "": HorizontalLayout {
-            spacing: 4px;
-            alignment: start;
-            height: 18px;
-            if tile.byline != "": Text { text: tile.byline; font-family: Theme.font; font-size: 12px; color: Theme.text-faint; vertical-alignment: center; }
-            if tile.byline-link != "": LinkText { text: tile.byline-link; url: tile.byline-url; opened(u) => { root.open-url(u); } }
-        }
-        if tile.note != "": Text {
-            text: tile.note;
-            wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
-            font-family: Theme.font;
-            font-size: 12px;
-            color: tile.note-kind == "status_err" ? Theme.err : tile.note-kind == "status_warn" ? Theme.warn : Theme.text-faint;
-        }
-        if tile.note-link != "": LinkText { text: tile.note-link; url: tile.note-url; opened(u) => { root.open-url(u); } }
-        if tile.badges.length > 0: HorizontalLayout {
-            spacing: 4px;
-            alignment: start;
-            for b in tile.badges: Badge { data: b; }
-        }
     }
-}
-
-// card_action: a quiet button with a small icon.
-export component CardAction inherits Button {
-    role: "quiet";
-    height: 30px;
-    padding-x: 10px;
-    gap: 6px;
-    has-icon: true;
-    icon-tint: Theme.text-dim;
-    quiet-when-disabled: true;
 }
 
 export component PluginsPanel inherits VerticalLayout {
@@ -391,12 +345,9 @@ export component PluginsPanel inherits VerticalLayout {
     in property <bool> narrowed;
     in-out property <string> query;
     in-out property <int> filter;
-    in property <int> columns: 2;
     // Something has been added, so there are no instructions to show, and the update switches that go with it
     in property <bool> has-added;
     in property <[UpdateRowView]> update-rows;
-    // What each of All, On and Off is called to a screen reader ("Show: On")
-    in property <[string]> filter-names;
     callback switched(string, bool);
     callback removed(string);
     callback remove-pack;
@@ -408,32 +359,12 @@ export component PluginsPanel inherits VerticalLayout {
     callback install;
     callback open-folder;
     callback open-docs;
-    spacing: 14px;
+    spacing: Theme.u(7);
     alignment: start;
+    // Find a plugin, show the ones that are on or off, and put them all back as they came
     HorizontalLayout {
-        spacing: 12px;
-        Text {
-            horizontal-stretch: 1;
-            text: @tr("A change takes effect the next time Telescope starts, and settings are kept either way.");
-            wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: Theme.text-dim;
-        }
-        VerticalLayout {
-            alignment: start;
-            CardAction {
-                text: @tr("Reset to defaults");
-                icon: Icons.reset;
-                enabled: all-on-enabled;
-                clicked => { root.all-on(); }
-                tip: @tr("Switch the built-in plugins back to the standard selection: the optional ones off, the rest on");
-            }
-        }
-    }
-    HorizontalLayout {
-        spacing: 10px;
-        height: 32px;
+        spacing: Theme.gap;
+        height: Theme.row;
         TextField {
             horizontal-stretch: 1;
             text <=> root.query;
@@ -444,165 +375,140 @@ export component PluginsPanel inherits VerticalLayout {
             clearable: true;
             edited => { root.filter-changed(); }
         }
-        Rectangle {
-            width: 178px;
-            border-radius: 8px;
-            border-width: 1px;
-            background: Theme.surface-raise;
-            border-color: Theme.border;
-            accessible-role: tab-list;
+        // The kit's Segmented: the picked one wears the worm, like every one-of choice
+        Segmented {
+            width: Theme.u(90);
+            hue: Theme.accent;
+            horizontal-stretch: 0;
+            items: [@tr("plugins" => "All"), @tr("plugins" => "On"), @tr("plugins" => "Off")];
+            disabled: [false, false, false];
+            has-icons: [false, false, false];
+            icons: [Icons.search, Icons.search, Icons.search];
+            label: @tr("Show");
+            current: filter;
+            picked(i) => { filter = i; root.filter-changed(); }
+        }
+        IconButton {
+            icon: Icons.reset;
+            label: @tr("Reset to defaults");
+            enabled: all-on-enabled;
+            tip: @tr("Reset to defaults");
+            tip-detail: @tr("Switch the optional built-in plugins off and the rest on.");
+            clicked => { root.all-on(); }
+        }
+    }
+    for g in groups: Card {
+        title: g.title;
+        tip: g.count;
+        icon: g.icon;
+        hue: g.hue;
+        has-action: g.remove-pack;
+        action-icon: Icons.trash;
+        action-text: @tr("Remove download");
+        action-tip-detail: @tr("Delete the download these plugins use. Switching any of these plugins on downloads it again.");
+        action => { root.remove-pack(); }
+        if g.status != "": Status { text: g.status; detail: g.status; }
+        for t in g.tiles: PluginRow {
+            tile: t;
+            switched(on) => { root.switched(t.name, on); }
+            removed => { root.removed(t.name); }
+            open-url(u) => { root.open-url(u); }
+        }
+    }
+    if groups.length == 0: VerticalLayout {
+        padding-top: Theme.u(8);
+        padding-bottom: Theme.u(8);
+        spacing: Theme.gap;
+        Status { text: empty-note; detail: empty-note; horizontal: "center"; }
+        HorizontalLayout {
+            alignment: center;
+            Button { text: @tr("Show all plugins"); clicked => { root.show-all(); } }
+        }
+    }
+    if !narrowed: Card {
+        title: @tr("Added plugins");
+        icon: Icons.download;
+        hue: Theme.accent;
+        has-action: true;
+        action-icon: Icons.plus;
+        action-text: @tr("Install");
+        action-label: @tr("Install");
+        action-tip-detail: @tr("Pick a plugin's .zip file. You can also drop the file onto this window.");
+        action => { root.install(); }
+        UnfoldGroup {
+            Unfolding {
+                open: !has-added;
+                lead: 0px;
+                Status { text: @tr("No plugins added yet"); }
+            }
+        }
+        for r in update-rows: RailRow {
+            icon: Icons.update;
+            label: r.title;
+            tip-detail: r.about;
+            named: true;
+            hue: r.danger ? Theme.err : Theme.accent;
             HorizontalLayout {
-                padding: 3px;
-                spacing: 2px;
-                for label[i] in [@tr("plugins" => "All"), @tr("plugins" => "On"), @tr("plugins" => "Off")]: Rectangle {
-                    border-radius: 6px;
-                    background: i == filter ? (seg.has-hover ? Theme.fill-hover : Theme.fill) : seg.has-hover ? Theme.surface-hover : transparent;
-                    accessible-role: tab;
-                    accessible-label: filter-names[i];
-                    accessible-checked: i == filter;
-                    accessible-action-default => { filter = i; root.filter-changed(); }
-                    seg := TouchArea { clicked => { filter = i; root.filter-changed(); } }
-                    Text {
-                        text: label;
-                        font-family: Theme.font;
-                        font-size: Theme.body;
-                        font-weight: i == filter ? 600 : 400;
-                        color: i == filter ? white : seg.has-hover ? Theme.text : Theme.text-dim;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
+                spacing: Theme.gap;
+                alignment: end;
+                if r.note != "": Status { horizontal-stretch: 0; text: r.note; detail: r.note; kind: r.danger ? "err" : ""; font-size: Theme.small; font-weight: Theme.w-label; }
+                VerticalLayout {
+                    alignment: center;
+                    Switch {
+                        checked: r.on;
+                        label: r.title;
+                        enabled: r.enabled;
+                        danger: r.danger;
+                        toggled(on) => { root.update-switched(r.id, on); }
                     }
                 }
             }
         }
-    }
-    VerticalLayout {
-        spacing: 22px;
-        for g in groups: VerticalLayout {
-            spacing: 10px;
-            accessible-role: groupbox;
-            accessible-label: g.title;
-            accessible-id: "card";
+        RailRow {
+            has-icon: false;
             HorizontalLayout {
-                spacing: 10px;
-                height: 26px;
-                alignment: start;
-                Chip { width: 26px; height: 26px; icon: g.icon; hue: g.hue; }
-                Text { text: g.title; font-family: Theme.font; font-size: Theme.card-title; font-weight: 600; color: Theme.text; vertical-alignment: center; }
-                Text { text: g.count; font-family: Theme.font; font-size: Theme.small; color: Theme.text-faint; vertical-alignment: center; }
-                Rectangle { horizontal-stretch: 1; }
-                if g.remove-pack: CardAction {
-                    y: -2px;
-                    text: @tr("Remove download");
-                    icon: Icons.trash;
-                    clicked => { root.remove-pack(); }
-                    tip: @tr("Delete the download the plugins here use. Switching one on gets it again.");
-                }
+                spacing: Theme.gap;
+                alignment: end;
+                Button { text: @tr("How plugins work"); clicked => { root.open-docs(); } }
+                Button { text: @tr("Open plugins folder"); clicked => { root.open-folder(); } }
             }
-            if g.status != "": Text {
-                text: g.status;
-                wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
-                font-family: Theme.font;
-                font-size: Theme.body;
-                color: Theme.text-dim;
-            }
-            Rectangle {
-                property <length> w: (self.width - (columns - 1) * 10px) / columns;
-                height: ceil(g.tiles.length / columns) * (g.tile-height + 10px) - 10px;
-                for t[i] in g.tiles: PluginTile {
-                    x: mod(i, columns) * (parent.w + 10px);
-                    y: floor(i / columns) * (g.tile-height + 10px);
-                    width: parent.w;
-                    height: g.tile-height;
-                    tile: t;
-                    switched(on) => { root.switched(t.name, on); }
-                    removed => { root.removed(t.name); }
-                    open-url(u) => { root.open-url(u); }
-                }
-            }
-        }
-    }
-    if groups.length == 0: VerticalLayout {
-        padding-top: 24px;
-        padding-bottom: 24px;
-        spacing: 10px;
-        Text { text: empty-note; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); horizontal-alignment: center; font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
-        HorizontalLayout {
-            alignment: center;
-            CardAction { text: @tr("Show all plugins"); icon: Icons.reset; clicked => { root.show-all(); } }
-        }
-    }
-    if !narrowed: VerticalLayout {
-        spacing: 8px;
-        HorizontalLayout {
-            spacing: 10px;
-            height: 30px;
-            Chip { y: 2px; width: 26px; height: 26px; icon: Icons.download; hue: Theme.accent; }
-            Text { text: @tr("Added plugins"); accessible-id: "card"; font-family: Theme.font; font-size: Theme.card-title; font-weight: 600; color: Theme.text; vertical-alignment: center; }
-            Rectangle { horizontal-stretch: 1; }
-            CardAction {
-                text: @tr("Install");
-                icon: Icons.plus;
-                clicked => { root.install(); }
-                tip: @tr("Pick a plugin's .zip file. You can also drop one onto this window.");
-            }
-        }
-        if !has-added: Text {
-            text: @tr("No plugins added yet. Plugins people share come as .zip files. Added plugins start out switched off.");
-            wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size);
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: Theme.text-dim;
-        }
-        for r in update-rows: SettingRow {
-            title: r.title;
-            sub: r.about;
-            note: r.note;
-            note-color: r.danger ? Theme.err : Theme.text-dim;
-            Switch {
-                checked: r.on;
-                label: r.title;
-                enabled: r.enabled;
-                danger: r.danger;
-                toggled(on) => { root.update-switched(r.id, on); }
-            }
-        }
-        HorizontalLayout {
-            spacing: 8px;
-            alignment: start;
-            Button { text: @tr("How plugins work"); height: 32px; clicked => { root.open-docs(); } }
-            Button { text: @tr("Open plugins folder"); height: 32px; clicked => { root.open-folder(); } }
         }
     }
 }
 
-// The restart bar kept under the Plugins tab's page.
+// The restart bar kept under the Plugins tab's page: in the warning colour so it is noticed, and the one place a pending restart shows.
+// `amount` (0 to 1) is how far it has opened, from the window's own Unfold: the page above it gives up the same room as it grows, so
+// the bar opens and shuts with everything round it moving, and the words fade up as it opens.
 export component PluginsFooter inherits Rectangle {
     in property <string> note;
+    in property <float> amount: 1;
     callback restart;
-    height: 54px;
-    border-radius: 12px;
-    border-width: 1px;
-    background: Theme.surface-raise;
-    border-color: Theme.border-strong;
+    height: Theme.u(27) * amount;
+    border-radius: Theme.r-card;
+    background: Theme.warn;
+    clip: true;
     HorizontalLayout {
-        padding-left: 16px;
-        padding-right: 10px;
-        padding-top: 10px;
-        padding-bottom: 10px;
-        spacing: 12px;
-        Text { horizontal-stretch: 1; text: note; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; font-weight: 600; color: Theme.text; vertical-alignment: center; }
+        y: 0px;
+        height: Theme.u(27);
+        opacity: clamp(root.amount * 1.4 - 0.2, 0, 1);
+        padding-left: Theme.u(8);
+        padding-right: Theme.u(5);
+        padding-top: Theme.u(5);
+        padding-bottom: Theme.u(5);
+        spacing: Theme.u(6);
+        Text { horizontal-stretch: 1; text: note; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; color: Theme.stage; vertical-alignment: center; }
         Button {
             text: @tr("Restart now");
-            role: "primary";
-            height: 32px;
+            enabled: root.amount >= 1;
             clicked => { root.restart(); }
-            tip: @tr("Start Telescope again to apply your changes");
+            tip: @tr("Restart now");
+            tip-detail: @tr("Restart Telescope to apply your changes.");
         }
     }
 }
 
-// QMessageBox for the few questions the Plugins tab asks, drawn over the settings window. With info it only tells,
-// as QMessageBox.information and warning do: one button.
+// The few questions the Plugins tab asks, over the settings window: the kit's dialog on a dimmed window. It pops and fades in and goes
+// the same way, and the answer is said once the fade is over. With info it only tells, one button.
 export component Ask inherits Rectangle {
     in property <string> title;
     in property <string> text;
@@ -610,35 +516,36 @@ export component Ask inherits Rectangle {
     in property <bool> danger;
     in property <bool> info;
     callback answered(bool);
-    background: #00000080;
+    // What the dialog is left with: Escape and a press beside it are a no
+    property <bool> answer;
+    // The window dims and clears with the dialog
+    background: Theme.scrim.with-alpha(Theme.scrim-a * dlg.presence);
     TouchArea { }
     FocusScope {
+        init => { self.focus(); }
         key-pressed(e) => {
-            if (e.text == Key.Escape) { root.answered(false); return accept; }
+            if (e.text == Key.Escape) { root.answer = false; dlg.leave(); return accept; }
             reject
         }
-        Rectangle {
+        dlg := DialogFrame {
             x: (root.width - self.width) / 2;
             y: (root.height - self.height) / 2;
-            width: 420px;
-            height: lay.preferred-height;
-            background: Theme.bg;
-            border-radius: 12px;
-            border-width: 1px;
-            border-color: Theme.border-strong;
-            accessible-role: groupbox;
-            accessible-label: title;
-            lay := VerticalLayout {
-                padding: 20px;
-                spacing: 12px;
-                Text { text: title; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.card-title; font-weight: 600; color: Theme.text; }
-                Text { text: root.text; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; color: Theme.text-dim; }
-                HorizontalLayout {
-                    spacing: 8px;
-                    alignment: end;
-                    if !info: Button { text: @tr("Cancel"); clicked => { root.answered(false); } }
-                    Button { text: info ? @tr("OK") : yes; role: danger && !info ? "" : "primary"; clicked => { root.answered(true); } }
-                }
+            width: Theme.u(210);
+            height: self.preferred-height;
+            title: root.title;
+            dismissable: true;
+            left => { root.answered(root.answer); }
+            Text {
+                text: root.text;
+                wrap: word-wrap;
+                line-height-factor: Theme.line-factor(self.font-size);
+                font-family: Theme.font;
+                font-size: Theme.body;
+                color: Theme.ink2;
+            }
+            DialogButtons {
+                if !info: Button { text: @tr("Cancel"); dialog: true; clicked => { root.answer = false; dlg.leave(); } }
+                Button { text: info ? @tr("OK") : yes; dialog: true; role: danger && !info ? "" : "primary"; clicked => { root.answer = true; dlg.leave(); } }
             }
         }
     }

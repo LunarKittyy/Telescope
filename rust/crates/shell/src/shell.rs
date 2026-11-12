@@ -35,6 +35,8 @@ pub struct Slot {
     pub tray: Vec<TrayAction>,
     /// get_config() right after setup, which a device profile starts from.
     pub defaults: Value,
+    /// Its hook timer in the stats hub, looked up the first time one is timed.
+    pub timer: Option<Arc<telescope_core::stats::Timer>>,
 }
 
 /// The plugins' packet step makers by owner, in the order they came on (HostPackets).
@@ -138,6 +140,8 @@ pub enum Effect {
     TakeStill { plugin: String, request: RequestId, source: String, options: Value, folder: String },
     /// Host::set_plugin_hues: every card in its group's colour, or all in the accent.
     PluginHues(bool),
+    /// Host::set_look: the look the windows draw.
+    Look(telescope_core::host::Look),
     /// Host::restart_vcam_canvas: plugin's request, answered by a RequestDone once the camera is back.
     RestartCanvas { plugin: String, request: RequestId, shows_command: bool },
     /// Host::remove_extra_cameras: plugin's request, answered by a RequestDone.
@@ -279,6 +283,8 @@ pub struct State {
     pub panels: Panels,
     pub collapse: Collapsing,
     pub banners: Banners,
+    /// The pins in the bottom bar and what plugins offer it (bar.rs).
+    pub bar: crate::bar::Bar,
     pub file: ConfigFile,
     pub bus: EventBus,
     pub effects: Vec<Effect>,
@@ -372,6 +378,7 @@ impl State {
             panels: Panels::default(),
             collapse: Collapsing::default(),
             banners: Banners::default(),
+            bar: crate::bar::Bar::new(),
             file,
             bus,
             effects: Vec::new(),
@@ -441,12 +448,14 @@ impl State {
         // What a plugin's hooks cost is only timed while the Stats panel wants it
         let hooks = telescope_core::stats::Hub::global();
         let began = hooks.hooks().on().then(telescope_core::time::monotonic_ns);
-        let result = {
-            let mut ctx = crate::host::Ctx { state: self, me: name.clone() };
-            catch_unwind(AssertUnwindSafe(|| f(plugin.as_mut(), &mut ctx)))
+        let (result, name) = {
+            let mut ctx = crate::host::Ctx { state: self, me: name };
+            let result = catch_unwind(AssertUnwindSafe(|| f(plugin.as_mut(), &mut ctx)));
+            (result, ctx.me)
         };
         if let Some(began) = began {
-            hooks.hooks().timer(&name).add(telescope_core::time::monotonic_ns().saturating_sub(began));
+            let timer = self.slots[i].timer.get_or_insert_with(|| hooks.hooks().timer(&name));
+            timer.add(telescope_core::time::monotonic_ns().saturating_sub(began));
         }
         self.slots[i].plugin = Some(plugin);
         self.calls -= 1;
@@ -473,7 +482,7 @@ impl State {
     pub fn register(&mut self, plugin: Box<dyn Plugin>) -> Result<(), String> {
         let info = plugin.info();
         let i = self.slots.len();
-        self.slots.push(Slot { plugin: Some(plugin), info: info.clone(), card: None, header: None, actions: vec![], tray: vec![], defaults: json!({}) });
+        self.slots.push(Slot { plugin: Some(plugin), info: info.clone(), card: None, header: None, actions: vec![], tray: vec![], defaults: json!({}), timer: None });
         let made = self.call(i, |p, host| {
             p.setup(host);
             let card = p.card();
@@ -640,6 +649,10 @@ impl State {
         }
         *self.slot_memory.borrow_mut() = window.output_slots.iter().filter_map(|(id, slot)| Some((id.clone(), u32::try_from(slot.as_u64()?).ok()?))).collect();
         self.selected = window.selected_device.clone();
+        self.bar.load(window.bar_pins.clone());
+        if let Some(ids) = self.bar.pins_changed() {
+            self.bus.emit(Event::BarPinsChanged { pinned: ids });
+        }
         if profiles::spread_shared_settings(cfg, &self.device_local()) {
             self.file.save(cfg);
         }
@@ -927,7 +940,7 @@ impl State {
             }).collect();
         sections.extend(self.unsaved_profiles.iter().cloned());
         sections.extend(self.profile_sections(&cfg, self.selected.as_deref()));
-        let window = WindowState { selected_device: self.selected.clone(), collapsed: self.collapse.keys(), output_slots: self.slot_memory.borrow().iter().map(|(id, slot)| (id.clone(), json!(slot))).collect() };
+        let window = WindowState { selected_device: self.selected.clone(), collapsed: self.collapse.keys(), output_slots: self.slot_memory.borrow().iter().map(|(id, slot)| (id.clone(), json!(slot))).collect(), bar_pins: Some(self.bar.persisted()) };
         merge_for_save(&mut cfg, &window, &sections);
         profiles::drop_unchanged(&mut cfg, &self.changes_only, &self.defaults());
         if self.file.save(&mut cfg) {

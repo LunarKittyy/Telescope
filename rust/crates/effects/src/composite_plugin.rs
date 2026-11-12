@@ -33,8 +33,8 @@ pub const FALLBACK_FPS: u64 = 30;
 /// What the Telescope camera opens at before any stream has said how big it is (vcam.DEFAULT_SIZE).
 pub const DEFAULT_SIZE: (u32, u32) = (1920, 1080);
 const STALE_NS: u64 = (STALE_S * 1e9) as u64;
-const SWITCH_TIP: &str = n_("Send the streams out as one picture");
-const LAYOUT_TIP: &str = n_("A layout you saved in the editor");
+const SWITCH_TIP: &str = n_("Combine the running streams into one picture.");
+const LAYOUT_TIP: &str = n_("A layout you saved in the editor.");
 
 /// What the frame steps of every stream, the clock and the plugin share.
 pub(crate) struct Hub {
@@ -162,7 +162,9 @@ impl Shared {
     }
 
     /// The clock: rests until there's a stream on the camera to keep moving, then draws while that stream stalls.
+    /// While frames arrive it sleeps until the newest one would count as stalled, instead of looking every frame time.
     fn run_clock(&self) {
+        let period = 1_000_000_000 / FALLBACK_FPS;
         loop {
             {
                 let mut hub = self.hub();
@@ -174,11 +176,25 @@ impl Shared {
                     continue;
                 }
                 hub.ticks += 1;
+                let wait = Self::clock_wait(hub.main_frame.as_ref().map(|(_, at)| *at), monotonic_ns(), period);
+                // the wake lets shutdown cut the sleep short
+                let (hub, _) = self.wake.wait_timeout(hub, Duration::from_nanos(wait)).unwrap_or_else(|e| e.into_inner());
+                if hub.shut {
+                    return;
+                }
             }
-            std::thread::sleep(Duration::from_nanos(1_000_000_000 / FALLBACK_FPS));
             if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.draw_stalled(monotonic_ns()))).is_err() {
                 log::error!("Drawing the picture while its stream stalls failed");
             }
+        }
+    }
+
+    /// How long the clock sleeps (ns): a frame time while the stream is stalled or unheard from, else until its newest frame counts as
+    /// stalled (two frame times old, as `draw_stalled` sees it). A frame stamped in the future counts as new, so it never exceeds that.
+    fn clock_wait(last_frame: Option<u64>, now: u64, period: u64) -> u64 {
+        match last_frame {
+            Some(at) if now.saturating_sub(at) < 2 * period => 2 * period - now.saturating_sub(at),
+            _ => period,
         }
     }
 }
@@ -214,6 +230,8 @@ pub struct CompositePlugin {
     camera_label: String,
     /// What the card says under the layout, "" while it's hidden.
     pub(crate) note: String,
+    /// The short word the card shows for `note`, which is its tooltip.
+    note_short: String,
     /// set_config has no host: the card hears the settings with the next hook that has one.
     pending: bool,
     /// Where the switch was when a held key began.
@@ -245,7 +263,7 @@ impl CompositePlugin {
         let shared = Arc::new(Shared { hub: Mutex::new(hub), wake: Condvar::new(), store: Mutex::new(Arc::new(NoFrames)) });
         let mut plugin = CompositePlugin {
             on: false, layout: Layout::default(), layouts: Vec::new(), target: None, camera_size: None, canvas: (None, None), shared,
-            clock: None, camera_label, note: String::new(), pending: false, held: None, reader, editor: None,
+            clock: None, camera_label, note: String::new(), note_short: String::new(), pending: false, held: None, reader, editor: None,
         };
         plugin.prepare();
         plugin
@@ -265,7 +283,12 @@ impl CompositePlugin {
         let size = self.size();
         let on = self.on;
         let mut hub = self.shared.hub();
-        hub.compositor.prepare(&self.layout, size);
+        // Off, nothing draws: the background (a canvas-sized picture) is only worked out while it's on
+        if on {
+            hub.compositor.prepare(&self.layout, size);
+        } else {
+            hub.compositor = Compositor::new(self.reader.clone());
+        }
         hub.on = on;
     }
 
@@ -404,7 +427,8 @@ impl CompositePlugin {
                 ("layout-items".to_string(), json!(names)),
                 ("layout-current".to_string(), json!(current)),
                 ("layout-enabled".to_string(), json!(!names.is_empty())),
-                ("status".to_string(), json!(self.note)),
+                ("status".to_string(), json!(self.note_short)),
+                ("status-detail".to_string(), json!(self.note)),
             ]);
         }
         props
@@ -425,6 +449,17 @@ impl CompositePlugin {
             tr("It goes out on {camera} once the stream there sends a picture.").field("camera", camera)
         } else {
             tr("Goes out on {camera}.").field("camera", camera)
+        };
+        self.note_short = if !self.on {
+            String::new()
+        } else if self.layout.tiles.is_empty() {
+            tr("Nothing in it")
+        } else if live < 2 {
+            tr("Needs two streams")
+        } else if self.target.is_none() || self.shared.store().stream_frame(self.target.as_deref()).is_none() {
+            tr("Not going out")
+        } else {
+            tr("Going out")
         };
         host.set_ui_props("card", &self.card_props());
         self.show_editor(host);
@@ -450,7 +485,7 @@ impl CompositePlugin {
 
     fn set_on(&mut self, host: &mut dyn Host, on: bool) {
         self.on = on;
-        self.shared.hub().on = on;
+        self.prepare();
         self.wake_clock();
         self.show(host);
         host.schedule_save();

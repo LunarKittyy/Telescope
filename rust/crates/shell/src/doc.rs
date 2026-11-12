@@ -12,9 +12,17 @@ use crate::source::{quote, Interface};
 
 /// Spacing between cards in a column and between columns (app.py _build_body).
 const GAP: f32 = 14.0;
-/// The column's right inset, so its scrollbar doesn't cover a card's border.
-const INSET: f32 = 6.0;
+/// The scrollbar's width. A side rail with a column after it keeps a gutter for its bar at its right, always, so the bar appearing
+/// moves and narrows nothing: cards, EDGE, bar, EDGE, then the next column. The last column's bar sits in the window's right margin
+/// with EDGE each side, and the stage's, which has a rail after it, in the gap before that rail. The bar's hit area is the whole
+/// gutter it sits in, so no pixel beside the handle is dead.
 const BAR: f32 = 11.0;
+/// How far a bar's handle is from what it sits between: close, the same on both sides.
+const EDGE: f32 = 2.0;
+/// The window's left margin.
+const MARGIN: f32 = 16.0;
+/// The window's right margin, where the last column's bar sits: the handle with EDGE each side (the left margin is the plain 16).
+const MARGIN_RIGHT: f32 = BAR + 2.0 * EDGE;
 
 /// One plugin's piece of UI as the window holds it.
 #[derive(Clone, Debug)]
@@ -46,7 +54,7 @@ pub struct HeaderPlace {
 /// The window's document. cards are in registration order; panels says where each one shows.
 pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> String {
     let mut out = String::new();
-    out.push_str("import { Theme, Icons, Folds, Reveal, Shortcuts, TextCap, WindowBox, ColumnScrollbar, KeyFocus, Touched } from \"@ui-kit/ui-kit.slint\";\n");
+    out.push_str("import { Theme, Icons, Folds, Reveal, Shortcuts, TextCap, WindowBox, ColumnScrollbar, KeyFocus, Touched, Tips, TipLayer, PeekLayer, Motion, BarPin } from \"@ui-kit/ui-kit.slint\";\n");
     out.push_str("import { Footer, BannerArea, StreamTiles, HeaderIconButton, StartButton, BannerData, TileData } from \"shell/frame.slint\";\n");
     let mut imported = Vec::new();
     for piece in cards.iter().map(|c| &c.piece).chain(headers.iter().map(|h| &h.piece)) {
@@ -56,8 +64,8 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
             out.push_str(&line);
         }
     }
-    out.push_str("export { Folds, Theme, Reveal, Shortcuts, TextCap, WindowBox, KeyFocus, Touched }\n");
-    out.push_str(&FRAME_TOP.field("three", WIDTH_THREE_COL).field("two", WIDTH_TWO_COL));
+    out.push_str("export { Folds, Theme, Reveal, Shortcuts, TextCap, WindowBox, KeyFocus, Touched, Tips, Motion }\n");
+    out.push_str(&FRAME_TOP.field("three", WIDTH_THREE_COL).field("two", WIDTH_TWO_COL).field("margin_sum", MARGIN + MARGIN_RIGHT));
 
     // Column geometry for each mode, relative to the body's left edge
     let cols = [Mode::Three, Mode::Two, Mode::One].map(|m| panels.columns(m));
@@ -65,7 +73,13 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
         let x = mode_expr(|m| col_x(&cols[m], c));
         let w = mode_expr(|m| col_w(&cols[m], c));
         out.push_str(&format!("    out property <length> c{c}x: {x};\n    out property <length> c{c}w: {w};\n"));
-        out.push_str(&format!("    property <length> card{c}w: c{c}w - {INSET}px - (bar{c} ? {BAR}px : 0px);\n"));
+        let gutter = mode_expr(|m| format!("{}px", gutter_of(&cols[m], c)));
+        out.push_str(&format!("    out property <length> card{c}w: c{c}w - {gutter};\n"));
+        let bar_x = mode_expr(|m| bar_x(&cols[m], c));
+        out.push_str(&format!("    out property <length> bar{c}x: {bar_x};\n"));
+        let before = mode_expr(|m| format!("{}px", bar_room(&cols[m], c).0));
+        let after = mode_expr(|m| format!("{}px", bar_room(&cols[m], c).1));
+        out.push_str(&format!("    out property <length> bar{c}-before: {before};\n    out property <length> bar{c}-after: {after};\n"));
     }
     // Preferred content height and stretch room of each column in the current mode
     #[allow(clippy::needless_range_loop)] // c names the column in the generated text as well
@@ -107,7 +121,7 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
     out.push_str(&HEADER.field("left", header(false)).field("right", header(true)));
 
     // The body: cards placed by their column in the current mode
-    out.push_str(BODY_TOP);
+    out.push_str(&BODY_TOP.field("margin_right", MARGIN_RIGHT));
     // In the three-column order, which is the order Tab takes (Qt goes by layout order, column by column)
     let mut order: Vec<usize> = cols[0].iter().flat_map(|(list, _)| list.iter().copied()).collect();
     let rest: Vec<usize> = (0..cards.len()).filter(|i| !order.contains(i)).collect();
@@ -130,12 +144,17 @@ fn shown(cols: &[(Vec<usize>, Option<f32>); 3]) -> Vec<(usize, Option<f32>)> {
     (0..3).filter(|&c| !cols[c].0.is_empty()).map(|c| (c, cols[c].1)).collect()
 }
 
+/// The gap after the column at `at` in `shown`: a rail whose bar sits between it and the next column leaves just the bar's edges.
+fn gap_after(shown: &[(usize, Option<f32>)], at: usize) -> f32 {
+    if at + 1 < shown.len() && shown[at].1.is_some() { EDGE } else { GAP }
+}
+
 fn width_of(w: Option<f32>, shown: &[(usize, Option<f32>)]) -> String {
     match w {
         Some(px) => format!("{px}px"),
         None => {
             let fixed: f32 = shown.iter().filter_map(|(_, w)| *w).sum();
-            let gaps = GAP * (shown.len().saturating_sub(1)) as f32;
+            let gaps: f32 = (0..shown.len().saturating_sub(1)).map(|at| gap_after(shown, at)).sum();
             let stretchy = shown.iter().filter(|(_, w)| w.is_none()).count().max(1) as f32;
             format!("max(0px, (body-w - {}px) / {stretchy})", fixed + gaps)
         }
@@ -145,13 +164,52 @@ fn width_of(w: Option<f32>, shown: &[(usize, Option<f32>)]) -> String {
 fn col_x(cols: &[(Vec<usize>, Option<f32>); 3], c: usize) -> String {
     let shown = shown(cols);
     let mut parts = vec!["0px".to_string()];
-    for (sc, w) in &shown {
+    for (at, (sc, w)) in shown.iter().enumerate() {
         if *sc == c {
             return parts.join(" + ");
         }
-        parts.push(format!("{} + {GAP}px", width_of(*w, &shown)));
+        parts.push(format!("{} + {}px", width_of(*w, &shown), gap_after(&shown, at)));
     }
     "0px".into()
+}
+
+/// What a column keeps at its right for its bar: only a fixed-width rail with another column after it.
+fn gutter_of(cols: &[(Vec<usize>, Option<f32>); 3], c: usize) -> f32 {
+    let shown = shown(cols);
+    match shown.iter().position(|(sc, _)| *sc == c) {
+        Some(at) if at + 1 < shown.len() && shown[at].1.is_some() => EDGE + BAR,
+        _ => 0.0,
+    }
+}
+
+/// Where a column's bar handle goes, from the body's left edge: in the rail's own gutter, in the margin after the last column, or in the
+/// gap between the stage and the rail after it.
+fn bar_x(cols: &[(Vec<usize>, Option<f32>); 3], c: usize) -> String {
+    let shown = shown(cols);
+    let Some(at) = shown.iter().position(|(sc, _)| *sc == c) else { return "0px".into() };
+    let end = format!("root.c{c}x + root.c{c}w");
+    if at + 1 == shown.len() {
+        format!("{end} + {}px", ((MARGIN_RIGHT - BAR) / 2.0).floor())
+    } else if shown[at].1.is_some() {
+        format!("{end} - {BAR}px")
+    } else {
+        format!("{end} + {}px", ((GAP - BAR) / 2.0).floor())
+    }
+}
+
+/// The room a bar's hit area takes before and after its handle, so it covers the whole gutter from the cards to what comes next.
+fn bar_room(cols: &[(Vec<usize>, Option<f32>); 3], c: usize) -> (f32, f32) {
+    let shown = shown(cols);
+    let Some(at) = shown.iter().position(|(sc, _)| *sc == c) else { return (0.0, 0.0) };
+    if at + 1 == shown.len() {
+        let before = ((MARGIN_RIGHT - BAR) / 2.0).floor();
+        (before, MARGIN_RIGHT - BAR - before)
+    } else if shown[at].1.is_some() {
+        (EDGE, EDGE)
+    } else {
+        let before = ((GAP - BAR) / 2.0).floor();
+        (before, GAP - BAR - before)
+    }
 }
 
 fn col_w(cols: &[(Vec<usize>, Option<f32>); 3], c: usize) -> String {
@@ -195,6 +253,12 @@ fn aliases(piece: &Piece) -> String {
     out
 }
 
+/// Whether a card is drawn once into a layer of its own and reused until something in it changes. Every card but the preview's: its
+/// picture changes with every frame, and everything in a layer with it would be drawn again each time.
+fn caches(card: &CardPlace) -> bool {
+    !card.fold_key.starts_with("preview/")
+}
+
 /// Where card i sits in each mode: its column and the card above it there.
 fn card_element(i: usize, card: &CardPlace, cards: &[CardPlace], cols: &[[(Vec<usize>, Option<f32>); 3]; 3]) -> String {
     let id = &card.piece.id;
@@ -216,8 +280,9 @@ fn card_element(i: usize, card: &CardPlace, cards: &[CardPlace], cols: &[[(Vec<u
         }
     });
     let extra = if card.region == Region::Center { mode_expr(|m| format!("root.extra{}", place(m).0)) } else { "0px".into() };
+    let cache = if caches(card) { "                cache-rendering-hint: true;\n" } else { "" };
     format!(
-        "            {id} := {id}C {{\n                x: {x};\n                y: {y};\n                width: {w};\n                height: self.preferred-height + {extra};\n                fold-key: root.card-folds ? {key} : \"\";\n                hue: Theme.plugin-hue({cat});\n            }}\n",
+        "            {id} := {id}C {{\n                x: {x};\n                y: {y};\n                width: {w};\n                height: self.preferred-height + {extra};\n                fold-key: root.card-folds ? {key} : \"\";\n                hue: Theme.plugin-hue({cat});\n{cache}            }}\n",
         key = quote(&card.fold_key),
         cat = quote(&card.category),
     )
@@ -243,18 +308,41 @@ export component TelescopeWindow inherits Window {
     in property <[TileData]> tiles;
     in property <string> status;
     in property <string> status-kind: "status_dim";
+    // Set from `status` when it is the streaming sentence: the camera and the size it names
+    in property <string> status-camera;
+    in property <string> status-size;
+    // What the shown stream reports, which the window turns into the bar's own pins (bar.rs): the frame rate and throughput as text and a tone
     in property <string> fps: "-";
     in property <string> fps-tone;
-    property <color> fps-color: fps-tone == "warn" ? Theme.warn : fps-tone == "err" ? Theme.err : Theme.text;
     in property <string> fps-tip;
     in property <string> net: "-";
     in property <string> net-tone;
-    property <color> net-color: net-tone == "warn" ? Theme.warn : Theme.text;
+    // The bottom bar's pins as bar.rs placed them, and what folded
+    in property <[BarPin]> bar-pins;
+    in property <int> bar-left-folded;
+    in property <length> bar-left-chip-x;
+    in property <int> bar-right-folded;
+    in property <length> bar-right-chip-x;
+    in property <length> bar-status-x: Theme.u(8);
+    in property <length> bar-status-room;
+    in property <bool> bar-status-shown: true;
+    // What bar.rs needs to lay the pins out: the bar's width, the room at its edges and between pins, and the chip's width
+    out property <length> bar-width: root.width;
+    out property <length> bar-pad: Theme.u(8);
+    out property <length> bar-gap: Theme.u(8);
+    out property <length> bar-chip: Theme.u(14);
+    callback bar-resized;
+    callback bar-pin-measured(string, length, length);
+    callback bar-drag-started(string);
+    callback bar-drag-moved(string, length);
+    callback bar-drag-ended(string);
+    callback bar-unpin(string);
     callback start-clicked;
     callback settings-clicked;
     callback add-picked(string);
     callback banner-action(string, int);
     callback banner-dismissed(string);
+    callback banner-closed(string);
     callback tile-focus(string);
     callback tile-stop(string);
     // A key pressed (or let go) anywhere in the window, before the focused control: true takes it (Plugin::on_key)
@@ -280,7 +368,7 @@ export component TelescopeWindow inherits Window {
     in-out property <bool> bar2;
     property <length> body-top: 60px + banner-area.preferred-height + tiles-row.preferred-height;
     property <length> view-h: max(0px, root.height - 40px - body-top - 32px);
-    property <length> body-w: max(0px, root.width - 32px);
+    property <length> body-w: max(0px, root.width - {margin_sum}px);
     out property <length> content-height: max(col0-full, max(col1-full, col2-full));
     // False for a card shown on its own (the card scenes), which doesn't fold
     in property <bool> card-folds: true;
@@ -291,7 +379,7 @@ export component TelescopeWindow inherits Window {
         WindowBox.width = self.width;
         WindowBox.height = self.height;
     }
-    changed width => { WindowBox.width = self.width; }
+    changed width => { WindowBox.width = self.width; root.bar-resized(); }
     changed height => { WindowBox.height = self.height; }
     // Where the focus goes when a text box lets go of it: the scope all the window's keys pass through
     public function focus-home() { keys.focus(); }
@@ -305,7 +393,7 @@ export component TelescopeWindow inherits Window {
     preferred-height: 900px;
     min-width: 560px;
     min-height: 520px;
-    background: Theme.bg;
+    background: Theme.ground;
     default-font-family: Theme.font;
     default-font-size: Theme.body;
     clipboard := TextInput { visible: false; width: 0px; height: 0px; }
@@ -338,48 +426,62 @@ const HEADER: &str = r#"
         x: 0;
         y: 0;
         width: root.width;
-        height: 60px;
+        height: Theme.u(30);
         background: Theme.chrome;
-        Rectangle { y: parent.height - 1px; height: 1px; background: Theme.border; }
         HorizontalLayout {
-            padding-left: 16px;
-            padding-right: 16px;
-            padding-top: 10px;
-            padding-bottom: 10px;
-            spacing: 12px;
-            HorizontalLayout {
-                // Header widgets keep their own width, like Qt's header row; the gap takes the rest
+            padding-left: Theme.pad;
+            padding-right: Theme.pad;
+            padding-top: Theme.u(4);
+            padding-bottom: Theme.u(4);
+            spacing: Theme.u(6);
+            // Every control is centred on the bar's height by a layout of its own: a y in a layout is ignored
+            VerticalLayout {
+                alignment: center;
                 horizontal-stretch: 0;
-                spacing: 14px;
-{left}            }
+                HorizontalLayout {
+                    // Header widgets keep their own width, like Qt's header row; the gap takes the rest
+                    spacing: Theme.u(7);
+{left}                }
+            }
             Rectangle { horizontal-stretch: 1; }
-            HorizontalLayout {
+            VerticalLayout {
+                alignment: center;
                 horizontal-stretch: 0;
-                spacing: 8px;
-{right}            }
-            HeaderIconButton {
-                y: (parent.height - self.height) / 2;
-                icon: Icons.v-gear;
-                icon-size: 19px;
-                label: @tr("Settings");
-                tip: @tr("Settings");
-                clicked => { root.settings-clicked(); }
+                HorizontalLayout {
+                    spacing: Theme.u(4);
+{right}                }
             }
-            if add-visible: HeaderIconButton {
-                y: (parent.height - self.height) / 2;
-                icon: Icons.v-plus;
-                label: @tr("Add camera");
-                tip: @tr("Stream another camera at the same time, to a virtual camera of its own");
-                enabled: add-enabled;
-                clicked => { add-menu.show({ x: self.absolute-position.x, y: self.absolute-position.y + self.height + 6px }); }
+            VerticalLayout {
+                alignment: center;
+                HeaderIconButton {
+                    icon: Icons.v-gear;
+                    icon-size: Theme.icon;
+                    label: @tr("Settings");
+                    tip: @tr("Settings");
+                    clicked => { root.settings-clicked(); }
+                }
             }
-            StartButton {
-                y: (parent.height - self.height) / 2;
-                text: root.mode == 2 ? start-short : start-text;
-                streaming: root.streaming;
-                shortcut: "streaming.start_stop";
-                enabled: start-enabled;
-                clicked => { root.start-clicked(); }
+            if add-visible: VerticalLayout {
+                alignment: center;
+                HeaderIconButton {
+                    icon: Icons.v-plus;
+                    icon-size: Theme.icon;
+                    label: @tr("Add camera");
+                    tip: @tr("Add camera");
+                    tip-detail: @tr("Stream another camera at the same time on a separate virtual camera.");
+                    enabled: add-enabled;
+                    clicked => { add-menu.show({ x: self.absolute-position.x, y: self.absolute-position.y + self.height + Theme.u(3) }); }
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                StartButton {
+                    text: root.mode == 2 ? start-short : start-text;
+                    streaming: root.streaming;
+                    shortcut: "streaming.start_stop";
+                    enabled: start-enabled;
+                    clicked => { root.start-clicked(); }
+                }
             }
         }
     }
@@ -391,6 +493,7 @@ const HEADER: &str = r#"
         banners: root.banners;
         action(key, i) => { root.banner-action(key, i); }
         dismissed(key) => { root.banner-dismissed(key); }
+        closed(key) => { root.banner-closed(key); }
     }
     tiles-row := StreamTiles {
         x: 0;
@@ -410,7 +513,8 @@ const BODY_TOP: &str = r#"
     Flickable {
         x: 16px;
         y: body-top + 16px;
-        width: body-w;
+        // The window's right margin too, where the last column's scrollbar sits
+        width: body-w + {margin_right}px;
         height: view-h;
         interactive: false;
         viewport-width: self.width;
@@ -429,9 +533,9 @@ const BODY_TOP: &str = r#"
 "#;
 
 const BODY_BOTTOM: &str = r#"        }
-        ColumnScrollbar { x: root.c0x + root.c0w - 11px; height: root.view-h; visible: root.bar0 && root.c0w > 0; content: root.col0-full; viewport: root.view-h; offset <=> root.scroll0; }
-        ColumnScrollbar { x: root.c1x + root.c1w - 11px; height: root.view-h; visible: root.bar1 && root.c1w > 0; content: root.col1-full; viewport: root.view-h; offset <=> root.scroll1; }
-        ColumnScrollbar { x: root.c2x + root.c2w - 11px; height: root.view-h; visible: root.bar2 && root.c2w > 0; content: root.col2-full; viewport: root.view-h; offset <=> root.scroll2; }
+        ColumnScrollbar { x: root.bar0x - root.bar0-before; before: root.bar0-before; after: root.bar0-after; height: root.view-h; visible: root.bar0 && root.c0w > 0; content: root.col0-full; viewport: root.view-h; offset <=> root.scroll0; }
+        ColumnScrollbar { x: root.bar1x - root.bar1-before; before: root.bar1-before; after: root.bar1-after; height: root.view-h; visible: root.bar1 && root.c1w > 0; content: root.col1-full; viewport: root.view-h; offset <=> root.scroll1; }
+        ColumnScrollbar { x: root.bar2x - root.bar2-before; before: root.bar2-before; after: root.bar2-after; height: root.view-h; visible: root.bar2 && root.c2w > 0; content: root.col2-full; viewport: root.view-h; offset <=> root.scroll2; }
     }
     Footer {
         x: 0;
@@ -439,13 +543,24 @@ const BODY_BOTTOM: &str = r#"        }
         width: root.width;
         status: root.status;
         status-kind: root.status-kind;
-        fps: root.fps;
-        fps-color: root.fps-color;
-        fps-tip: root.fps-tip;
-        net: root.net;
-        net-color: root.net-color;
+        status-shown: root.bar-status-shown;
+        status-x: root.bar-status-x;
+        status-room: root.bar-status-room;
+        pins: root.bar-pins;
+        left-folded: root.bar-left-folded;
+        left-chip-x: root.bar-left-chip-x;
+        right-folded: root.bar-right-folded;
+        right-chip-x: root.bar-right-chip-x;
+        pin-measured(id, w, plain) => { root.bar-pin-measured(id, w, plain); }
+        drag-started(id) => { root.bar-drag-started(id); }
+        drag-moved(id, x) => { root.bar-drag-moved(id, x); }
+        drag-ended(id) => { root.bar-drag-ended(id); }
+        unpin(id) => { root.bar-unpin(id); }
     }
     }
+    // Last, so a tooltip draws over everything
+    TipLayer { }
+    PeekLayer { }
 }
 "#;
 
@@ -480,6 +595,25 @@ export component Hinted inherits Card {
         let cards = vec![CardPlace { piece, region: Region::Right, fold_key: "one/Stage".into(), category: "sound".into() }];
         let doc = window(&cards, &Panels::default(), &[]);
         assert!(doc.contains("hue: Theme.plugin-hue(\"sound\");"), "{doc}");
+    }
+
+    #[test]
+    fn every_card_but_the_previews_is_drawn_into_a_cached_layer() {
+        i_slint_backend_testing::init_no_event_loop();
+        let (other, f0) = piece("p0", "plugins/one/card.slint", "Stage", STAGE);
+        let (preview, f1) = piece("p1", "plugins/preview/card.slint", "Stage", STAGE);
+        let cards = vec![
+            CardPlace { piece: other, region: Region::Right, fold_key: "one/Stage".into(), category: "sound".into() },
+            CardPlace { piece: preview, region: Region::Center, fold_key: "preview/Stage".into(), category: "preview".into() },
+        ];
+        let mut panels = Panels::default();
+        panels.place(Region::Right, 0, false, "sound");
+        panels.place(Region::Center, 1, false, "preview");
+        let doc = window(&cards, &panels, &[]);
+        let block = |id: &str| doc.split(&format!("{id} := {id}C {{")).nth(1).and_then(|r| r.split("            }").next()).unwrap_or_else(|| panic!("{id} in {doc}")).to_string();
+        assert!(block("p0").contains("cache-rendering-hint: true;"), "{doc}");
+        assert!(!block("p1").contains("cache-rendering-hint"), "{doc}");
+        crate::compile::compile("window.slint", &doc, vec![f0, f1], "TelescopeWindow").unwrap_or_else(|e| panic!("{e}\n{doc}"));
     }
 
     #[test]
@@ -552,6 +686,52 @@ export component Hinted inherits Card {
     }
 
     #[test]
+    fn the_gaps_around_the_scroll_bars_are_one_width_and_the_margins_are_equal() {
+        i_slint_backend_testing::init_no_event_loop();
+        let (p0, f0) = piece("p0", "plugins/a/card.slint", "Stage", STAGE);
+        let (p1, f1) = piece("p1", "plugins/b/card.slint", "Stage", STAGE);
+        let (p2, f2) = piece("p2", "plugins/c/card.slint", "Stage", STAGE);
+        let place = |piece, region, name: &str| CardPlace { piece, region, fold_key: format!("{name}/Stage"), category: "preview".into() };
+        let cards = vec![place(p0, Region::Left, "a"), place(p1, Region::Center, "b"), place(p2, Region::Right, "c")];
+        let mut panels = Panels::default();
+        panels.place(Region::Left, 0, false, "preview");
+        panels.place(Region::Center, 1, false, "preview");
+        panels.place(Region::Right, 2, false, "preview");
+        let text = window(&cards, &panels, &[]);
+        let def = crate::compile::compile("window.slint", &text, vec![f0, f1, f2], "TelescopeWindow").unwrap_or_else(|e| panic!("{e}\n{text}"));
+        let win = def.create().unwrap();
+        win.set_global_callback("Folds", "is-folded", |_| Value::Bool(false)).unwrap();
+        let edges = |id: &str| {
+            let e = i_slint_backend_testing::ElementHandle::find_by_element_id(&win, &format!("TelescopeWindow::{id}")).next().unwrap();
+            (e.absolute_position().x, e.absolute_position().x + e.size().width)
+        };
+        let num = |name: &str| match win.get_property(name).unwrap() { Value::Number(n) => n as f32, v => panic!("{name}: {v:?}") };
+        for width in [1300.0_f32, 1700.0] {
+            win.window().set_size(slint::LogicalSize::new(width, 800.0));
+            for bars in [false, true] {
+                for c in 0..3 {
+                    win.set_property(&format!("bar{c}"), Value::Bool(bars)).unwrap();
+                }
+                let (left, stage, right) = (edges("p0"), edges("p1"), edges("p2"));
+                // The left bar sits in the rail's gutter with the same small gap each side, to the cards and to the stage; the stage is a column gap from the right rail
+                let bar = num("bar0x") + 16.0;
+                assert_eq!(bar - left.1, 2.0, "left cards to the left bar at {width}");
+                assert_eq!(stage.0 - (bar + 11.0), 2.0, "left bar to the stage at {width}");
+                assert_eq!(right.0 - stage.1, 14.0, "stage to the right cards at {width}");
+                // The left margin is 16, the right 15: with the right bar's handle or without it, the handle has the same 2 px to the cards and to the window's edge
+                assert_eq!(left.0, 16.0);
+                assert_eq!(width - right.1, 15.0, "right margin at {width}, bars {bars}");
+                let handle = num("bar2x") + 16.0;
+                assert_eq!(handle - right.1, 2.0, "right cards to the right bar at {width}");
+                assert_eq!(width - (handle + 11.0), 2.0, "right bar to the window's edge at {width}");
+                // And the hit area is the whole gutter: from the cards to what comes next
+                assert_eq!((num("bar0-before"), num("bar0-after")), (2.0, 2.0));
+                assert_eq!((num("bar2-before"), num("bar2-after")), (2.0, 2.0));
+            }
+        }
+    }
+
+    #[test]
     fn cards_find_their_column_in_every_mode_and_reach_the_shell_by_name() {
         i_slint_backend_testing::init_no_event_loop();
         let camera = include_str!("../ui/cards/camera.slint");
@@ -571,10 +751,10 @@ export component Hinted inherits Card {
         win.window().set_size(slint::LogicalSize::new(1300.0, 900.0));
         let num = |name: &str| match win.get_property(name).unwrap() { Value::Number(n) => n, v => panic!("{name}: {v:?}") };
         assert_eq!(num("mode"), 0.0);
-        // Three columns: the stage takes what the right rail leaves, as in the Qt render (16..858, 872..1284)
+        // Three columns: the stage takes what the right rail leaves, one pixel wider than the Qt render since the right margin is 15 now (16..859, 873..1285)
         assert_eq!(num("c1x"), 0.0);
-        assert_eq!(num("c1w"), 842.0);
-        assert_eq!(num("c2x"), 856.0);
+        assert_eq!(num("c1w"), 843.0);
+        assert_eq!(num("c2x"), 857.0);
         win.set_property("p1-words", Value::String("hello".into())).unwrap();
         let got = std::rc::Rc::new(std::cell::RefCell::new(0.0));
         let g = got.clone();
@@ -583,7 +763,14 @@ export component Hinted inherits Card {
         assert_eq!(*got.borrow(), 3.0);
         win.window().set_size(slint::LogicalSize::new(560.0, 900.0));
         assert_eq!(num("mode"), 2.0);
-        assert_eq!(num("c0w"), 528.0);
+        assert_eq!(num("c0w"), 529.0);
+        // The scrollbar's room is always kept: the cards are the same width whether or not the bar is up
+        let narrow = num("card0w");
+        win.set_property("bar0", Value::Bool(true)).unwrap();
+        assert_eq!(num("card0w"), narrow, "a bar appearing doesn't narrow the column");
+        win.set_property("bar0", Value::Bool(false)).unwrap();
+        assert_eq!(num("card0w"), narrow);
+        assert_eq!(narrow, 529.0, "the last column's bar is in the margin, so its cards take the column");
     }
 }
 
@@ -601,8 +788,8 @@ pub struct SectionPlace {
 /// The settings window's document: tabs in order (plugins_tab is the index of the Plugins tab, if shown) and every
 /// plugin's sections on them.
 pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlace]) -> String {
-    let mut out = String::from("import { Theme, Icons, Folds, Reveal, TextField, WindowBox, KeyFocus } from \"@ui-kit/ui-kit.slint\";\n");
-    out.push_str("import { SettingsNav, ScrollPage, ResultsList, PluginsPanel, PluginsFooter, Ask, NavTab, Result, GroupView, UpdateRowView } from \"shell/settings.slint\";\n");
+    let mut out = String::from("import { Theme, Icons, Folds, Reveal, TextField, WindowBox, KeyFocus, TipLayer, Tips, Motion, Unfold } from \"@ui-kit/ui-kit.slint\";\n");
+    out.push_str("import { SettingsNav, ScrollPage, SettingsLayout, ResultsList, PluginsPanel, PluginsFooter, Ask, NavTab, Result, GroupView, UpdateRowView } from \"shell/settings.slint\";\n");
     let mut imported = Vec::new();
     for piece in sections.iter().flat_map(|s| std::iter::once(&s.piece).chain(s.footer.as_ref())) {
         let line = format!("import {{ {} as {}C }} from {};\n", piece.component, piece.id, quote(&piece.file));
@@ -611,7 +798,7 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
             out.push_str(&line);
         }
     }
-    out.push_str("export { Folds, Theme, Reveal, WindowBox, KeyFocus }\n");
+    out.push_str("export { Folds, Theme, Reveal, WindowBox, KeyFocus, Tips, Motion }\n");
     out.push_str(SETTINGS_TOP);
     for t in 0..tabs {
         out.push_str(&format!("    in-out property page{t}-offset <=> page{t}.offset;\n    out property page{t}-height <=> page{t}.height;\n"));
@@ -627,7 +814,7 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
     for t in 0..tabs {
         let footers: Vec<&Piece> = sections.iter().filter(|s| s.tab == t).filter_map(|s| s.footer.as_ref()).collect();
         let footer_h = if Some(t) == plugins_tab {
-            "(root.footer-shown ? 64px : 0px)".to_string()
+            "(64px * footer-fold.value)".to_string()
         } else {
             footers.iter().map(|f| format!("({}.preferred-height + 10px)", f.id)).chain(std::iter::once("0px".to_string())).collect::<Vec<_>>().join(" + ")
         };
@@ -643,17 +830,17 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
         out.push_str("    }\n");
         if Some(t) == plugins_tab {
             out.push_str(&format!(
-                "    if root.footer-shown && !root.searching && root.current == {t}: PluginsFooter {{\n        x: 260px;\n        y: root.height - 70px;\n        width: root.width - 284px;\n        note: root.footer-note;\n        restart => {{ root.restart(); }}\n    }}\n"));
+                "    if footer-fold.value > 0 && !root.searching && root.current == {t}: PluginsFooter {{\n        x: 260px;\n        y: root.height - 16px - self.height;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: footer-fold.value;\n        note: root.footer-note;\n        restart => {{ root.restart(); }}\n    }}\n"));
         }
         let mut below = String::from("root.height - 16px");
         for f in footers.iter().rev() {
             out.push_str(&format!(
-                "    {id} := {id}C {{\n        x: 260px;\n        y: {below} - self.preferred-height;\n        width: root.width - 284px;\n        visible: !root.searching && root.current == {t};\n    }}\n", id = f.id));
+                "    {id} := {id}C {{\n        x: 260px;\n        y: {below} - self.preferred-height;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        visible: !root.searching && root.current == {t};\n    }}\n", id = f.id));
             below = format!("{}.y - 10px", f.id);
         }
     }
     out.push_str(SETTINGS_BOTTOM.trim_end().strip_suffix('}').unwrap_or(SETTINGS_BOTTOM));
-    out.push_str("    }\n}\n");
+    out.push_str("    }\n    TipLayer { }\n}\n");
     out
 }
 
@@ -672,6 +859,9 @@ export component TelescopeSettings inherits Window {
     }
     changed width => { WindowBox.width = self.width; }
     changed height => { WindowBox.height = self.height; }
+    // A page that goes out of sight with the pointer still over a control must take that control's tooltip with it
+    changed current => { Tips.dismiss(); }
+    changed searching => { Tips.dismiss(); }
     // Where the focus goes when a text box lets go of it: the scope all the window's keys pass through
     public function focus-home() { keys.focus(); }
     property <int> given-back: KeyFocus.given-back;
@@ -692,9 +882,10 @@ export component TelescopeSettings inherits Window {
     in-out property <int> plugin-filter;
     in property <bool> footer-shown;
     in property <string> footer-note;
+    // The restart bar opening and shutting, and the plugins page giving up its room as it goes
+    footer-fold := Unfold { open: root.footer-shown; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
     in property <bool> has-added;
     in property <[UpdateRowView]> update-rows;
-    in property <[string]> filter-names;
     callback plugin-switched(string, bool);
     callback plugin-removed(string);
     callback remove-pack;
@@ -730,7 +921,7 @@ export component TelescopeSettings inherits Window {
     in property <length> least-height: 480px;
     min-width: least-width;
     min-height: least-height;
-    background: Theme.bg;
+    background: Theme.ground;
     default-font-family: Theme.font;
     default-font-size: Theme.body;
 "#;
@@ -754,7 +945,6 @@ const SETTINGS_RAIL: &str = r#"    Rectangle {
         width: 236px;
         height: root.height;
         background: Theme.chrome;
-        Rectangle { x: parent.width - 1px; width: 1px; background: Theme.border; }
         search := TextField {
             x: 10px;
             y: 14px;
@@ -788,7 +978,7 @@ const SETTINGS_RAIL: &str = r#"    Rectangle {
         font-family: Theme.font;
         font-size: 19px; // 14pt, which Qt draws at 19
         font-weight: 600;
-        color: Theme.text;
+        color: Theme.ink;
         vertical-alignment: center;
         accessible-role: text;
     }
@@ -801,10 +991,8 @@ const PLUGINS_PANEL: &str = r#"        PluginsPanel {
             narrowed: root.narrowed;
             query <=> root.plugin-query;
             filter <=> root.plugin-filter;
-            columns: max(parent.inner-width < 400px ? 1 : 2, min(3, floor((parent.inner-width + 10px) / 240px)));
             has-added: root.has-added;
             update-rows: root.update-rows;
-            filter-names: root.filter-names;
             switched(name, on) => { root.plugin-switched(name, on); }
             removed(name) => { root.plugin-removed(name); }
             remove-pack => { root.remove-pack(); }
@@ -822,7 +1010,7 @@ const PLUGINS_PANEL: &str = r#"        PluginsPanel {
 const SETTINGS_BOTTOM: &str = r#"    ResultsList {
         x: 260px;
         y: 53px;
-        width: root.width - 276px;
+        width: min(root.width - 276px, SettingsLayout.content-max);
         height: root.height - 69px;
         visible: root.searching;
         results: root.results;

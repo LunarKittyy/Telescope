@@ -506,6 +506,9 @@ pub struct WindowState {
     pub collapsed: Vec<String>,
     /// Which virtual camera each source streamed to last (the stream flow's slot_memory).
     pub output_slots: Map<String, Value>,
+    /// The readouts pinned to the bottom bar, as (left side, right side) in the order they are drawn. None is the default pins, which
+    /// a settings file doesn't spell out (so one written by the Python app, or by a version before the pins, stays as it was).
+    pub bar_pins: Option<(Vec<String>, Vec<String>)>,
 }
 
 impl WindowState {
@@ -524,8 +527,27 @@ impl WindowState {
             selected_device: cfg.get("selected_device").and_then(Value::as_str).map(str::to_string),
             collapsed,
             output_slots,
+            bar_pins: bar_pins_from(cfg.get("bar_pins")),
         }
     }
+}
+
+/// The `bar_pins` entry ({"left": [ids], "right": [ids]}) as the two lists, or None when it's missing or damaged (the default pins).
+/// Ids that are not text and ids that repeat are dropped.
+fn bar_pins_from(value: Option<&Value>) -> Option<(Vec<String>, Vec<String>)> {
+    let object = value?.as_object()?;
+    let mut seen = std::collections::BTreeSet::new();
+    // A side that is missing is empty; one that is not a list means the entry is damaged
+    let mut side = |name: &str| -> Option<Vec<String>> {
+        match object.get(name) {
+            None => Some(Vec::new()),
+            Some(Value::Array(ids)) => Some(ids.iter().filter_map(Value::as_str).filter(|id| seen.insert(id.to_string())).map(str::to_string).collect()),
+            Some(_) => None,
+        }
+    };
+    let left = side("left")?;
+    let right = side("right")?;
+    Some((left, right))
 }
 
 /// One plugin's settings to save: the whole app's copy, or a device's.
@@ -562,6 +584,15 @@ pub fn merge_for_save(cfg: &mut Value, window: &WindowState, sections: &[PluginS
     }
     if !window.output_slots.is_empty() {
         map.insert("output_slots".into(), Value::Object(window.output_slots.clone()));
+    }
+    // The default pins are not written, so the file stays what the Python app wrote until someone moves a pin
+    match &window.bar_pins {
+        Some((left, right)) if !crate::bar::is_default(left, right) => {
+            map.insert("bar_pins".into(), json!({"left": left, "right": right}));
+        }
+        _ => {
+            map.shift_remove("bar_pins");
+        }
     }
 }
 

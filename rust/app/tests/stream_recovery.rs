@@ -308,10 +308,10 @@ fn recovery_waits_while_the_phone_is_mid_start() {
 
 #[test]
 fn a_phone_gone_a_while_gets_the_wait_screen_then_a_banner_until_it_is_back() {
+    let _clock = telescope_shell::offscreen::freeze_clock(); // real time passing, even while the rig is made, would eat the 100 ms edges
     let r = unreachable("gone-banner");
     let worker = r.worker(0);
     r.forget_heard();
-    let _clock = telescope_shell::offscreen::freeze_clock(); // real time passing would eat the 100 ms edges
     assert!(!worker.is_parked());
     r.skip(9_900);
     assert!(!worker.is_parked());

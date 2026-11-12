@@ -152,6 +152,17 @@ pub fn frame(width: f32, height: f32, scale: f32) -> Option<Picture> {
     Some(Picture { width: pw, height: ph, rgba })
 }
 
+/// Draws `window` if it asked to be drawn again since it was last drawn (a property it paints changed, an animation ran), and
+/// says whether it had. A window that has never been drawn asks once.
+pub fn redraw(window: &slint::Window) -> bool {
+    let Some(adapter) = WINDOWS.with(|w| w.borrow().iter().find(|a| std::ptr::eq(a.window(), window)).cloned()) else { return false };
+    let size = adapter.size();
+    let mut buffer = vec![PremultipliedRgbaColor::default(); (size.width * size.height) as usize];
+    adapter.draw_if_needed(|r| {
+        r.render(&mut buffer, size.width as usize);
+    })
+}
+
 /// Draws the most recently created window at width x height logical pixels and scale.
 pub fn draw(window: &slint::Window, width: f32, height: f32, scale: f32) -> Option<Picture> {
     let adapter = WINDOWS.with(|w| w.borrow().last().cloned())?;

@@ -1,27 +1,13 @@
 // The Browser camera card: the code to scan, what's connected, and the
 // size and rate the browser is asked to send.
 
-import { Theme, Icons, Button, Card, FormRow, ChoiceField, QrCode, Reveal } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Well, IconButton, Card, RailRow, ChoiceField, QrCode, Reveal, Tip, Status, UnfoldGroup, Unfolding } from "@ui-kit/ui-kit.slint";
 
-global Status {
+global StatusInk {
     public pure function color(kind: string) -> color {
         kind == "status_ok" ? Theme.ok : kind == "status_warn" ? Theme.warn : kind == "status_err" ? Theme.err
-            : kind == "status_dim" ? Theme.text-dim : Theme.text
+            : kind == "status_dim" ? Theme.ink2 : Theme.ink
     }
-}
-
-// wrapped_note: a QLabel#dim, so body size
-component Note inherits Text {
-    in property <string> kind: "status_dim";
-    // False takes it out of its layout, height and all
-    in property <bool> shown: true;
-    visible: shown;
-    font-family: Theme.font;
-    font-size: Theme.body;
-    color: Status.color(kind);
-    wrap: word-wrap;
-    line-height-factor: Theme.line-factor(self.font-size);
-    height: shown ? self.preferred-height : 0px;
 }
 
 export component BrowserCameraCard inherits Card {
@@ -35,6 +21,8 @@ export component BrowserCameraCard inherits Card {
     in property <string> mic-text;
     in property <string> hint-text;
     in property <string> url;
+    // The link without its token, for the row
+    in property <string> url-short;
     in property <[int]> qr-cells;
     in property <int> qr-size;
     in property <[string]> addresses;
@@ -42,8 +30,25 @@ export component BrowserCameraCard inherits Card {
     in property <bool> show-addresses;
     in property <int> size-index: 1;
     in property <int> fps-index: 2;
+    // The certificate warning's name and the steps through it, for the tooltip on the code
+    in property <string> note-title;
     in property <string> note-text;
     in property <bool> new-link-enabled;
+    // What was wrong last, kept while its line folds away
+    property <string> held-warn;
+    property <string> held-detail;
+    function keep() {
+        if (mic-text != "") {
+            held-warn = @tr("No microphone");
+            held-detail = mic-text;
+        } else if (hint-text != "") {
+            held-warn = @tr("Not connected yet");
+            held-detail = hint-text;
+        }
+    }
+    init => { keep(); }
+    changed mic-text => { keep(); }
+    changed hint-text => { keep(); }
     callback new-link;
     callback address-picked(int);
     callback copy;
@@ -64,90 +69,139 @@ export component BrowserCameraCard inherits Card {
     visible: shown;
     height: shown ? self.preferred-height : 0px;
     title: @tr("Browser camera");
+    tip: @tr("Stream from any device's web browser by scanning a code.");
     icon: Icons.wifi;
     has-action: true;
     action-icon: Icons.reset;
     action-text: @tr("New link");
-    action-label: @tr("Make a new code; the old one stops working");
+    action-tip-detail: @tr("Make a new code. The old code stops working.");
     action-enabled: new-link-enabled;
     action => { root.new-link(); }
 
-    FormRow {
-        label: @tr("Browser");
-        Text {
-            text: status-text;
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: Status.color(status-kind);
-            overflow: elide;
-            vertical-alignment: center;
-            accessible-description: status-tip;
+    // The code is the card: centred, with what the browser is doing in one quiet line under it. The certificate steps are its tooltip.
+    Rectangle {
+        height: (qr-size > 0 ? (qr-size + 8) * 5px : Theme.u(56));
+        if url != "": QrCode {
+            x: (parent.width - self.width) / 2;
+            cells: qr-cells;
+            size: qr-size;
+            cell: 5px;
+            label: url;
         }
+        if url == "": Well {
+            x: (parent.width - self.width) / 2;
+            width: Theme.u(56);
+            height: Theme.u(56);
+            rim: Theme.dis-outline;
+        }
+        Tip { says: note-title; detail: note-text; inert: true; }
     }
-    Note { text: list-text; shown: show-list; }
-    Note { text: mic-text; kind: "status_warn"; shown: mic-text != ""; }
-    Note { text: hint-text; kind: "status_warn"; shown: hint-text != ""; }
-    if url != "": FormRow {
-        label: @tr("Scan");
+    // What is wrong, as a short warning that unfolds under the status with the sentence as its tooltip
+    UnfoldGroup {
         HorizontalLayout {
-            alignment: start;
-            padding-top: 4px;
-            padding-bottom: 4px;
-            QrCode { cells: qr-cells; size: qr-size; cell: 4px; label: url; }
-        }
-    }
-    if show-addresses: FormRow {
-        label: @tr("Address");
-        ChoiceField {
-            name: @tr("Address");
-            y: (parent.height - self.height) / 2;
-            items: addresses;
-            tip: @tr("Which of this computer's addresses the code points to");
-            current: address-index;
-            picked(i) => { root.address-picked(i); }
-        }
-    }
-    if url != "": FormRow {
-        label: @tr("Link");
-        HorizontalLayout {
-            spacing: 8px;
-            Text {
-                text: url;
+            alignment: center;
+            spacing: Theme.u(3);
+            shown-status := Text {
+                text: status-text;
                 font-family: Theme.font;
                 font-size: Theme.body;
-                color: Theme.text;
+                font-weight: Theme.w-label;
+                color: StatusInk.color(status-kind);
+                overflow: elide;
+                vertical-alignment: center;
+                accessible-description: status-tip;
+                Tip { says: status-tip != "" ? status-tip : status-text; detail: show-list ? list-text : ""; enabled: status-tip != "" || show-list; inert: true; }
+            }
+            Icon {
+                y: (parent.height - self.height) / 2;
+                source: Icons.help;
+                tint: Theme.faint;
+                width: Theme.icon-small;
+                height: Theme.icon-small;
+                accessible-role: none;
+                Tip { says: note-title; detail: note-text; inert: true; }
+            }
+        }
+        Unfolding {
+            open: mic-text != "" || hint-text != "";
+            lead: Theme.gap;
+            HorizontalLayout {
+                alignment: center;
+                Status {
+                    horizontal: "center";
+                    text: held-warn;
+                    detail: held-detail;
+                    kind: "warn";
+                }
+            }
+        }
+    }
+    // The link and its copy button in one row; the picker stands in for the link's text when this computer has more than one address
+    RailRow {
+        icon: Icons.link;
+        label: @tr("Link");
+        hue: root.hue;
+        enabled: url != "";
+        HorizontalLayout {
+            spacing: Theme.gap;
+            if !show-addresses: Text {
+                text: url-short;
+                font-family: Theme.font;
+                font-size: Theme.body;
+                color: Theme.ink;
                 overflow: elide;
                 vertical-alignment: center;
                 horizontal-stretch: 1;
             }
-            Button {
-                y: (parent.height - self.height) / 2;
-                text: @tr("Copy");
-                tip: @tr("Copy the link, to open it on a device that can't scan the code");
+            if show-addresses: Rectangle {
+                horizontal-stretch: 1;
+                ChoiceField {
+                    width: parent.width;
+                    name: @tr("Address");
+                    compact: true;
+                    items: addresses;
+                    tip: @tr("Address");
+                    tip-detail: @tr("Which of this computer's addresses the code points to.");
+                    current: address-index;
+                    picked(i) => { root.address-picked(i); }
+                }
+            }
+            IconButton { raised: true;
+                icon: Icons.copy;
+                label: @tr("Copy");
+                tip: @tr("Copy");
+                tip-detail: @tr("Copy the link to open it on a device that can't scan the code.");
+                enabled: url != "";
                 clicked => { root.copy(); }
             }
         }
     }
-    FormRow {
+    RailRow {
+        icon: Icons.grid;
         label: @tr("Resolution");
+        tip-detail: @tr("The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do.");
+        hue: root.hue;
         ChoiceField {
             name: @tr("Resolution");
-            y: (parent.height - self.height) / 2;
+            compact: true;
             items: ["480p", "720p", "1080p"];
-            tip: @tr("The size the browser sends; a camera that can't do it sends what it can");
+            tip: @tr("Resolution");
+            tip-detail: @tr("The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do.");
             current: size-index;
             picked(i) => { root.size-picked(i); }
         }
     }
-    FormRow {
+    RailRow {
+        icon: Icons.film;
         label: @tr("Frame rate");
+        hue: root.hue;
         ChoiceField {
             name: @tr("Frame rate");
-            y: (parent.height - self.height) / 2;
+            tip: @tr("Frame rate");
+            compact: true;
             items: ["15 fps", "24 fps", "30 fps"];
             current: fps-index;
             picked(i) => { root.fps-picked(i); }
         }
     }
-    Note { text: note-text; }
 }

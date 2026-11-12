@@ -21,6 +21,8 @@ pub use crate::layout::{WIDTH_THREE_COL, WIDTH_TWO_COL};
 pub enum Page {
     Window,
     Settings(String),
+    /// The settings window on a tab with this typed into its search box.
+    SettingsSearch { tab: String, query: String },
     /// The type name of the component that frames the popup, and of the one that opens it at its own top left (positions
     /// inside a popup start from the popup).
     Dialog { frame: String, owner: String },
@@ -30,6 +32,9 @@ pub enum Page {
     /// A control's right-click menu: the first control with this accessible label that isn't plain text, right-clicked in the
     /// middle, and this much (width, height) of the window from there.
     ControlMenu { label: String, size: (f32, f32) },
+    /// A control's tooltip: the first control with this accessible label that isn't plain text, hovered in the middle until its tip is up,
+    /// and this much (width, height) of the window from `from` (a little above and left of the control, in px) .
+    ControlTip { label: String, from: (f32, f32), size: (f32, f32) },
     /// One plugin's card alone, the setup's width wide (CARD_WIDTH usually) with CARD_MARGIN around it, as translation_scenes_audio.show_card and
     /// the other card scenes draw a card's panel in a widget of its own.
     Card { plugin: String },
@@ -158,6 +163,12 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
     }, setup.services, None);
     EVERY_OPTIONAL.with(|e| e.set(false));
     let w = w?;
+    // SCENES_LOOK=classic (or oled, or light) draws every scene in that look; SCENES_CLASSIC=1 is the old way to say classic
+    let named = std::env::var("SCENES_LOOK").ok().and_then(|n| telescope_core::host::Look::from_name(&n));
+    if let Some(look) = named.or_else(|| std::env::var_os("SCENES_CLASSIC").map(|_| telescope_core::host::Look::Classic)) {
+        let _ = w.ui.set_global_property("Theme", "look", slint_interpreter::Value::Number(look.index() as f64));
+        crate::settings::set_look(look);
+    }
     settle(&w);
     if let Some(then) = setup.then {
         then(&w);
@@ -216,6 +227,20 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
             crate::offscreen::draw(w.ui.window(), setup.width, shown.height as f32 / scale, scale)
                 .and_then(|p| crop(&p, position.x * scale, position.y * scale, size.0 * scale, size.1 * scale))
         }
+        Page::ControlTip { label, from, size } => {
+            use i_slint_backend_testing::{AccessibleRole, ElementHandle};
+            use slint::platform::WindowEvent;
+            let shown = grown(&w, setup.width, setup.height, scale).ok_or("nothing drawn")?;
+            let control = ElementHandle::find_by_accessible_label(&w.ui, label).find(|e| e.accessible_role() != Some(AccessibleRole::Text))
+                .ok_or_else(|| format!("no control called {label}"))?;
+            let (at, middle) = (control.absolute_position(), control.size());
+            let position = slint::LogicalPosition::new(at.x + middle.width / 2.0, at.y + middle.height / 2.0);
+            w.ui.window().dispatch_event(WindowEvent::PointerMoved { position });
+            crate::offscreen::skip(Duration::from_millis(700));
+            settle(&w);
+            crate::offscreen::draw(w.ui.window(), setup.width, shown.height as f32 / scale, scale)
+                .and_then(|p| crop(&p, (at.x - from.0) * scale, (at.y - from.1) * scale, size.0 * scale, size.1 * scale))
+        }
         Page::SettingsDialog { tab, call, then, frame, owner } => {
             // Opened as the window opens it, so what plugins say to their sections reaches it
             crate::settings::open(&w, tab);
@@ -230,6 +255,17 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
             crate::offscreen::draw(settings.ui.window(), setup.width, setup.height, scale);
             let picture = crate::offscreen::draw(settings.ui.window(), setup.width, setup.height, scale)
                 .and_then(|p| cut_out(&settings.ui, &p, frame, owner, scale));
+            crate::settings::forget();
+            picture
+        }
+        Page::SettingsSearch { tab, query } => {
+            crate::settings::open(&w, tab);
+            let settings = crate::settings::current().ok_or("no settings window")?;
+            let typed = crate::source::from_json(&json!(query));
+            let _ = settings.ui.set_property("query", typed.clone());
+            let _ = settings.ui.invoke("query-changed", &[typed]);
+            settle(&w);
+            let picture = crate::offscreen::draw(settings.ui.window(), setup.width, setup.height, scale);
             crate::settings::forget();
             picture
         }

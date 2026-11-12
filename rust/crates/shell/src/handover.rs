@@ -5,10 +5,20 @@
 use std::sync::Mutex;
 use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::host::View;
-use telescope_core::view::{share_shift, PhoneZoom};
+use telescope_core::view::{phone_window, rest_within, share_shift, window_centre, PhoneZoom};
 
-/// A new phone share that hasn't shown up in the frames by then is taken to have (seconds).
-const HANDOVER_S: f64 = 1.0;
+/// A new phone share that hasn't shown up in the frames by then is taken to have (seconds). A lens that takes a while to switch needs it.
+const HANDOVER_S: f64 = 2.0;
+/// How many steps along the way from the old share to the new one a frame is looked for at (its crop follows).
+const STEPS: usize = 12;
+/// A frame the phone's picture hasn't changed since is kept as the one to compare with for this long (seconds), and any frame at most BASE_MAX_S.
+const BASE_S: f64 = 0.25;
+const BASE_MAX_S: f64 = 1.0;
+/// A frame this much (grey levels) and this many times more different from the one before than they usually are is a cut.
+const CUT_MIN: f32 = 25.0;
+const CUT_TIMES: f32 = 10.0;
+/// A picture that has been moving and holds still this long (seconds) has got there.
+const SETTLED_S: f64 = 0.3;
 /// The size frames are compared at while a new phone share is on its way.
 const THUMB: (usize, usize) = (128, 72);
 /// A frame counts as the new share once it matches that this much better than the old one.
@@ -75,8 +85,8 @@ pub fn thumb(frame: &Frame) -> Thumb {
     Thumb { px }
 }
 
-/// moved_like: `now` looks like `before` moved by shift (share_shift) clearly better than like before as it was.
-pub fn moved_like(before: &Thumb, now: &Thumb, (scale, dx, dy): (f64, f64, f64)) -> bool {
+/// How far `now` is from `before` as it was and as moved by shift (share_shift), on average; None when too little of the picture is in both.
+fn compare(before: &Thumb, now: &Thumb, (scale, dx, dy): (f64, f64, f64)) -> Option<(f32, f32)> {
     let (w, h) = THUMB;
     let (tx, ty) = (dx * w as f64 + (scale - 1.0) * 0.5, dy * h as f64 + (scale - 1.0) * 0.5);
     let (mut seen, mut stayed, mut went) = (0usize, 0f32, 0f32);
@@ -99,21 +109,114 @@ pub fn moved_like(before: &Thumb, now: &Thumb, (scale, dx, dy): (f64, f64, f64))
             went += (shown - moved).abs();
         }
     }
-    if seen * 5 < w * h {
-        return false;
+    (seen * 5 >= w * h).then(|| (stayed / seen as f32, went / seen as f32))
+}
+
+/// moved_like: `now` looks like `before` moved by shift (share_shift) clearly better than like before as it was.
+pub fn moved_like(before: &Thumb, now: &Thumb, shift: (f64, f64, f64)) -> bool {
+    compare(before, now, shift).is_some_and(|(stayed, went)| stayed > 1.5 && went < ARRIVED * stayed)
+}
+
+/// The share a fraction of the way from old to new: the same window the phone would send along the way (log-spaced size).
+fn along(old: &PhoneZoom, new: &PhoneZoom, f: f64) -> PhoneZoom {
+    if f <= 0.0 {
+        return *old;
     }
-    let (stayed, went) = (stayed / seen as f32, went / seen as f32);
-    stayed > 1.5 && went < ARRIVED * stayed
+    if f >= 1.0 {
+        return *new;
+    }
+    let ((oz, opx, opy), (nz, npx, npy)) = (phone_window(Some(old)), phone_window(Some(new)));
+    let total = (oz.ln() + (nz.ln() - oz.ln()) * f).exp();
+    let centre = |o: f64, n: f64| window_centre(oz, o) + (window_centre(nz, n) - window_centre(oz, o)) * f;
+    // As a share on the main lens, which says only the window
+    PhoneZoom { ratio: 1.0, crop: total, x: centre(opx, npx), y: centre(opy, npy) }
 }
 
 struct Handover {
     old: PhoneZoom,
     new: PhoneZoom,
-    shift: (f64, f64, f64),
     /// The view for frames of the old share, and of the new one; the window keeps them current.
     views: (View, View),
+    /// The framing the crops are for, kept current like the views.
+    framing: View,
     since: f64,
     arrived: bool,
+    /// How far along from old to new the frames have been seen to get, 0 to 1.
+    progress: f64,
+    /// A frame to compare the next ones with, from when the picture was at `base_at`, and when it was taken.
+    base: Option<(Thumb, f64, f64)>,
+    /// How much consecutive frames differ when nothing happens.
+    calm: f32,
+    /// The frame the following ones are held against, and since when they have all been like it.
+    still: Option<(Thumb, f64)>,
+}
+
+impl Handover {
+    fn share(&self, f: f64) -> PhoneZoom {
+        along(&self.old, &self.new, f)
+    }
+
+    /// The view for frames that are `progress` of the way to the new share.
+    fn view(&self) -> View {
+        if self.arrived || self.progress >= 1.0 {
+            return self.views.1.clone();
+        }
+        if self.progress <= 0.0 {
+            return self.views.0.clone();
+        }
+        let f = &self.framing;
+        let crop = rest_within(f.zoom as f64, f.pan_x as f64, f.pan_y as f64, &self.share(self.progress), true).unwrap_or((self.views.0.zoom as f64, self.views.0.pan_x as f64, self.views.0.pan_y as f64));
+        View { zoom: crop.0 as f32, pan_x: crop.1 as f32, pan_y: crop.2 as f32, ..self.views.0.clone() }
+    }
+
+    /// What a frame says about how far along the phone's picture is: the furthest step it fits much better than the picture staying as it was.
+    fn seen(&mut self, now: &Thumb, before: Option<&Thumb>, at: f64) {
+        let Some((base, base_at, base_time)) = self.base.clone() else { return };
+        let from = self.share(base_at);
+        let mut best: Option<(f64, f32)> = None;
+        let mut overlap = false;
+        for i in 1..=STEPS {
+            let f = i as f64 / STEPS as f64;
+            if f <= self.progress {
+                continue;
+            }
+            let Some((stayed, went)) = compare(&base, now, share_shift(&from, &self.share(f))) else { continue };
+            overlap |= i == STEPS;
+            if stayed > 1.5 && went < ARRIVED * stayed && best.is_none_or(|(_, w)| went / stayed < w) {
+                best = Some((f, went / stayed));
+            }
+        }
+        // Where the new share shows too little of the old picture to find it in, a cut in the picture is what shows
+        let change = before.and_then(|b| compare(b, now, (1.0, 0.0, 0.0))).map_or(0.0, |(stayed, _)| stayed);
+        if !overlap && change > CUT_MIN && change > CUT_TIMES * self.calm.max(1.0) {
+            best = Some((1.0, 0.0));
+        } else {
+            self.calm += (change - self.calm) * 0.1;
+        }
+        match best {
+            Some((f, _)) => {
+                // From here on, the picture is taken to be where this says, which keeps what's compared near
+                self.progress = f;
+                self.base = Some((now.clone(), f, at));
+            }
+            // A frame the picture hasn't changed in since (or one that has gone unmatched too long) is the one to compare with
+            None if self.base.as_ref().is_some_and(|b| b.1 == self.progress) => {
+                let quiet = compare(&base, now, (1.0, 0.0, 0.0)).is_some_and(|(stayed, _)| stayed <= 1.5);
+                if (quiet && at - base_time >= BASE_S) || at - base_time >= BASE_MAX_S {
+                    self.base = Some((now.clone(), self.progress, at));
+                }
+            }
+            None => {}
+        }
+        // Once it has been seen to move and then holds still, it has got where it was going
+        let holds = self.still.as_ref().is_some_and(|(frame, _)| compare(frame, now, (1.0, 0.0, 0.0)).is_some_and(|(stayed, _)| stayed <= 1.5));
+        if !holds {
+            self.still = Some((now.clone(), at));
+        }
+        if self.progress >= 1.0 || (self.progress > 0.0 && self.still.as_ref().is_some_and(|(_, since)| at - since >= SETTLED_S)) {
+            self.arrived = true;
+        }
+    }
 }
 
 #[derive(Default)]
@@ -141,8 +244,11 @@ impl ViewGate {
         inner.steering = steering;
     }
 
-    pub fn begin(&self, old: PhoneZoom, new: PhoneZoom, views: (View, View), now: f64) {
-        self.0.lock().unwrap().handover = Some(Handover { old, new, shift: share_shift(&old, &new), views, since: now, arrived: false });
+    pub fn begin(&self, old: PhoneZoom, new: PhoneZoom, views: (View, View), framing: &View, now: f64) {
+        let mut inner = self.0.lock().unwrap();
+        // The last frame came in the old share, so it is the one to compare with
+        let base = inner.last.clone().map(|b| (b, 0.0, now));
+        inner.handover = Some(Handover { old, new, views, framing: framing.clone(), since: now, arrived: false, progress: 0.0, base, calm: 0.0, still: None });
     }
 
     pub fn end(&self) {
@@ -162,7 +268,7 @@ impl ViewGate {
 
     /// The view frames get while it waits.
     pub fn waiting_view(&self) -> Option<View> {
-        self.0.lock().unwrap().handover.as_ref().filter(|h| !h.arrived).map(|h| h.views.0.clone())
+        self.0.lock().unwrap().handover.as_ref().filter(|h| !h.arrived).map(Handover::view)
     }
 
     /// The old share while still waiting for `sent` to show up (_still_handing_over); None when that's over.
@@ -172,9 +278,10 @@ impl ViewGate {
         (!h.arrived && steering && Some(h.new) == sent && now - h.since <= HANDOVER_S).then_some(h.old)
     }
 
-    pub fn retarget(&self, views: (View, View)) {
+    pub fn retarget(&self, views: (View, View), framing: &View) {
         if let Some(h) = self.0.lock().unwrap().handover.as_mut() {
             h.views = views;
+            h.framing = framing.clone();
         }
     }
 
@@ -189,10 +296,17 @@ impl ViewGate {
         let before = std::mem::replace(&mut inner.last, thumb.clone());
         let h = inner.handover.as_mut()?;
         if !h.arrived {
-            let shown = matches!((&before, &thumb), (Some(b), Some(t)) if moved_like(b, t, h.shift));
-            h.arrived = shown || now - h.since > HANDOVER_S;
+            if let Some(t) = &thumb {
+                if h.base.is_none() {
+                    h.base = before.clone().map(|b| (b, h.progress, now));
+                }
+                h.seen(t, before.as_ref(), now);
+            }
+            if now - h.since > HANDOVER_S {
+                (h.arrived, h.progress) = (true, 1.0);
+            }
         }
-        let view = if h.arrived { h.views.1.clone() } else { h.views.0.clone() };
+        let view = h.view();
         (replaced || inner.shown.as_ref() != Some(&view)).then(|| {
             inner.shown = Some(view.clone());
             view

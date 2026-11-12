@@ -2,7 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::{Arc, Weak};
+use std::sync::{Arc, Mutex, OnceLock, Weak};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -58,11 +58,71 @@ impl Bgr {
     }
 }
 
+/// Buffers of BGR pictures that are no longer in use, for the next one to be written over (a 4K picture is 24 MB to fault in otherwise).
+static BGR_SPARES: Mutex<Vec<Vec<u8>>> = Mutex::new(Vec::new());
+
+/// How many spare BGR buffers are kept.
+const KEPT_BGR: usize = 3;
+
+/// A buffer for a BGR picture: one that was given back, or an empty one.
+pub fn spare_bgr() -> Vec<u8> {
+    BGR_SPARES.lock().map(|mut s| s.pop()).ok().flatten().unwrap_or_default()
+}
+
+/// A picture's BGR that is made the first time something asks for it, once, however many frames share it.
+pub struct LazyBgr {
+    picture: OnceLock<Arc<Bgr>>,
+    make: Mutex<Option<Box<dyn FnOnce() -> Bgr + Send>>>,
+}
+
+impl LazyBgr {
+    /// A picture that is made by `make` when it is first read.
+    pub fn new(make: impl FnOnce() -> Bgr + Send + 'static) -> LazyBgr {
+        LazyBgr { picture: OnceLock::new(), make: Mutex::new(Some(Box::new(make))) }
+    }
+
+    /// A picture that is already made.
+    pub fn ready(picture: Arc<Bgr>) -> LazyBgr {
+        LazyBgr { picture: OnceLock::from(picture), make: Mutex::new(None) }
+    }
+
+    /// The picture, made now if nothing has asked yet.
+    pub fn get(&self) -> &Bgr {
+        self.picture.get_or_init(|| {
+            let make = self.make.lock().ok().and_then(|mut m| m.take());
+            Arc::new(make.map(|m| m()).unwrap_or_default())
+        })
+    }
+
+    /// Whether something has asked for the picture yet.
+    pub fn is_made(&self) -> bool {
+        self.picture.get().is_some()
+    }
+}
+
+impl std::fmt::Debug for LazyBgr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LazyBgr").field("made", &self.is_made()).finish()
+    }
+}
+
+impl Drop for LazyBgr {
+    fn drop(&mut self) {
+        // Its buffer is written over by the next picture, unless a reader still holds it
+        let Some(Ok(bgr)) = self.picture.take().map(Arc::try_unwrap) else { return };
+        if let Ok(mut spares) = BGR_SPARES.lock() {
+            if spares.len() < KEPT_BGR {
+                spares.push(bgr.data);
+            }
+        }
+    }
+}
+
 /// The BGR a frame's pixels were made from. `of` names those pixels, so anything that gives the frame others leaves this behind.
 #[derive(Clone, Debug)]
 struct Decoded {
     of: Weak<Vec<u8>>,
-    picture: Arc<Bgr>,
+    picture: Arc<LazyBgr>,
 }
 
 /// The same picture as the frame's pixels, so it never decides whether two frames are equal.
@@ -84,15 +144,45 @@ impl Frame {
         Arc::make_mut(&mut self.data)
     }
 
+    /// Whole new pixels in place of the old ones, which stay as they were for anyone still holding them; with nobody else, the old buffer goes back to the spares.
+    pub fn replace_data(&mut self, data: Vec<u8>) {
+        debug_assert_eq!(data.len(), self.format.size(self.width, self.height));
+        self.decoded = None;
+        if let Ok(old) = Arc::try_unwrap(std::mem::replace(&mut self.data, Arc::new(data))) {
+            crate::image::keep_bytes(old);
+        }
+    }
+
+    /// Done with this frame: its pixels go back to the spares unless something else still holds them.
+    pub fn recycle(self) {
+        if let Ok(old) = Arc::try_unwrap(self.data) {
+            crate::image::keep_bytes(old);
+        }
+    }
+
     /// The frame with the BGR its pixels were converted from, which effects read in place of the lossier pixels.
-    pub fn with_bgr(mut self, picture: Arc<Bgr>) -> Frame {
+    pub fn with_bgr(self, picture: Arc<Bgr>) -> Frame {
+        self.with_lazy_bgr(Arc::new(LazyBgr::ready(picture)))
+    }
+
+    /// The frame with a BGR that is made when something first reads it, and shared by every clone of the frame.
+    pub fn with_lazy_bgr(mut self, picture: Arc<LazyBgr>) -> Frame {
         self.decoded = Some(Decoded { of: Arc::downgrade(&self.data), picture });
         self
     }
 
-    /// The BGR this picture was made from, while the pixels are still that picture.
-    pub fn bgr(&self) -> Option<&Bgr> {
+    fn decoded_picture(&self) -> Option<&LazyBgr> {
         self.decoded.as_ref().filter(|d| Weak::as_ptr(&d.of) == Arc::as_ptr(&self.data)).map(|d| &*d.picture)
+    }
+
+    /// Whether the frame has a BGR its pixels were made from, without making it if it isn't yet.
+    pub fn has_bgr(&self) -> bool {
+        self.decoded_picture().is_some()
+    }
+
+    /// The BGR this picture was made from, while the pixels are still that picture; made on the first call.
+    pub fn bgr(&self) -> Option<&Bgr> {
+        self.decoded_picture().map(LazyBgr::get).filter(|b| !b.data.is_empty())
     }
 
     /// The I420 planes (Y, U, V); None for other formats.
@@ -168,6 +258,18 @@ pub trait FrameContext {
     /// the model, so this is the newest mask there is, about a frame behind the picture. None also means the last one got too old, and a step
     /// that hides things has to stay safe on it.
     fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>>;
+    /// person_mask at w x h instead of the frame's size, for a step that works smaller (a blur, a feathered edge): the mask is made at that size, so the full-size one is never built. The answer is None or kept as person_mask's is; the default shrinks person_mask's.
+    fn person_mask_at(&self, frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        let mask = self.person_mask(frame)?;
+        let (fw, fh) = (frame.width as usize, frame.height as usize);
+        if mask.len() != fw * fh {
+            return None;
+        }
+        if (w, h) == (fw, fh) {
+            return Some(mask);
+        }
+        Some(Arc::new(crate::image::resize_area(&mask, fw, fh, 1, w, h)))
+    }
     /// For a final-stage step: the frame as the preview shows it, with a colour_split drawn in.
     fn colour_preview(&self, frame: &Frame) -> Frame;
 }
@@ -189,6 +291,15 @@ pub trait CpuStep: Send {
     /// Asked right before process. Only a step that's certain may answer less than Changes.
     fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
         Touch::Changes
+    }
+    /// For the CPU half of an Either: the shader's uniforms for a frame of this size, asked before each run on the card. A step whose
+    /// uniforms depend on the picture's size (a warp worked out for it) answers here; the card only uploads an answer that changed.
+    fn card_uniforms(&mut self, _width: u32, _height: u32) -> Option<Value> {
+        None
+    }
+    /// For the CPU half of an Either: whether the card reads YUV chroma as the CPU does (a sample repeated over its 2 x 2 block, not blended).
+    fn card_block_chroma(&self) -> bool {
+        false
     }
 }
 
@@ -287,11 +398,42 @@ mod tests {
     }
 
     #[test]
+    fn a_lazy_bgr_is_made_once_on_first_use_and_shared() {
+        let made = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = made.clone();
+        let lazy = Arc::new(LazyBgr::new(move || {
+            counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Bgr { data: vec![7; 12], start: 0, stride: 6 }
+        }));
+        let frame = Frame::new(2, 2, PixelFormat::I420, vec![1; 6]).with_lazy_bgr(lazy);
+        let clone = frame.clone();
+        assert!(frame.has_bgr());
+        assert_eq!(made.load(std::sync::atomic::Ordering::SeqCst), 0, "nothing asked yet");
+        assert_eq!(frame.bgr().unwrap().row(1, 2), [7; 6]);
+        assert_eq!(clone.bgr().unwrap().row(0, 2), [7; 6]);
+        assert_eq!(made.load(std::sync::atomic::Ordering::SeqCst), 1, "made once for both");
+    }
+
+    #[test]
     fn stages_sort_in_frame_order() {
         let mut s = FrameStage::ALL.to_vec();
         s.reverse();
         s.sort();
         assert_eq!(s, FrameStage::ALL);
         assert_eq!(serde_json::to_value(FrameStage::Colour).unwrap(), "colour");
+    }
+
+    #[test]
+    fn replacing_the_pixels_leaves_other_holders_alone_and_recycles_a_sole_buffer() {
+        let mut a = Frame::new(2, 2, PixelFormat::Rgba, vec![1; 16]);
+        let b = a.clone();
+        a.replace_data(vec![2; 16]);
+        assert_eq!((a.data[0], b.data[0]), (2, 1));
+        let mut lent = Vec::new();
+        crate::image::with_spares(&mut lent, || {
+            let mut sole = Frame::new(200, 100, PixelFormat::Rgba, vec![1; 80_000]);
+            sole.replace_data(vec![3; 80_000]);
+            assert_eq!(crate::image::spare_bytes(80_000).capacity(), 80_000, "the old buffer comes back out");
+        });
     }
 }

@@ -3,17 +3,16 @@
 // A small square of a colour, for a button (chroma_key.swatch)
 component Swatch inherits Rectangle {
     in property <color> colour;
-    width: 14px;
-    height: 14px;
-    border-radius: 3px;
-    border-width: 1px;
-    border-color: Theme.border-strong;
+    width: Theme.icon-small;
+    height: Theme.icon-small;
+    border-radius: Theme.r-handle / 2;
     background: colour;
 }
 
 export component ChromaKeyCard inherits Card {
-    // Greyed out until a phone is paired
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
     in property <bool> on: false;
     in property <string> switch-name;
     in property <string> switch-help;
@@ -24,151 +23,173 @@ export component ChromaKeyCard inherits Card {
     in property <[float]> slider-value: [40, 30, 60];
     in property <[string]> slider-tips: ["", "", ""];
     in property <[string]> slider-text: ["40", "30", "60"];
-    in property <string> reset-hint;
     in property <int> behind: 0;
     in property <color> backdrop-colour: #1e222a;
-    in property <bool> editing-colour: false;
-    in property <[float]> channel-value: [0, 0, 0];
+    // The screen being keyed, which the three sliders' fills are drawn from
+    in property <color> screen-colour: #3cb432;
+    in property <float> colour-h;
+    in property <float> colour-s;
+    in property <float> colour-v;
+    in property <string> colour-hex;
+    in property <[int]> channel-value: [0, 0, 0];
+    in property <bool> can-pick: true;
     in property <string> colour-tip;
-    in property <string> colour-title;
+    in property <string> pipette-tip;
     in property <string> picture-text;
     in property <string> picture-tip;
+    in property <image> picture-thumb;
+    in property <bool> has-picture;
+    in property <string> picture-problem;
     in property <string> picture-choose-tip;
     in property <string> status;
+    in property <string> status-detail;
     in property <string> status-kind: "status_dim";
     callback switch-toggled-by-hand(bool);
     callback screen-picked(int);
     callback slider-moved(int, float);
     callback background-picked(int);
-    callback colour-clicked;
-    callback channel-moved(int, float);
+    callback colour-moved(float, float, float);
+    callback hex-typed(string);
+    callback channel-typed(int, string);
+    callback pipette-clicked;
     callback picture-clicked;
 
     title: @tr("Chroma key");
+    tip: @tr("Replace a green or blue screen behind you with a colour or a picture.");
     icon: Icons.eyedropper;
-    opacity: active ? 1 : 0.4;
     enabled: active;
     has-switch: true;
     switch-shortcut: "chroma_key.on";
     switch-enabled: active;
     switch-checked: on;
     switch-label: switch-name;
-    switch-tip: switch-help;
+    switch-tip: switch-name;
+    switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    FormRow {
+    RailRow {
+        icon: Icons.screen;
         label: @tr("Screen");
+        tip-detail: @tr("Use green, blue or a colour picked from the preview as the screen colour.");
+        hue: root.hue;
+        enabled: active;
         Rectangle {
             horizontal-stretch: 1;
             HorizontalLayout {
-                spacing: 8px;
+                spacing: Theme.u(4);
                 Segmented {
+                    hue: root.hue;
                     items: [@tr("Green"), @tr("Blue"), @tr("Picked")];
                     disabled: [!active, !active, !active];
                     has-icons: [false, false, false];
                     icons: [Icons.eyedropper, Icons.eyedropper, Icons.eyedropper];
                     label: @tr("Screen");
+                    tips: [@tr("Green"), @tr("Blue"), @tr("Picked")];
+                    tip-details: ["", "", screen-tip];
                     shortcut: "chroma_key.screen";
                     current: screen;
                     picked(i) => { root.screen-picked(i); }
                 }
                 if has-picked: Rectangle {
-                    width: 14px;
-                    Swatch { colour: picked-colour; }
+                    width: Theme.icon-small;
+                    Swatch { colour: picked-colour; y: (parent.height - self.height) / 2; }
                 }
             }
-            if screen-tip != "": Tooltip { TipBody { says: screen-tip; } }
         }
     }
-    for name[i] in [@tr("Tolerance"), @tr("Edges"), @tr("Spill")]: SliderRow {
+    for name[i] in [@tr("Tolerance"), @tr("Edges"), @tr("Spill")]: RailSlider {
+        icon: [Icons.sliders, Icons.edges, Icons.tint][i];
         enabled: active;
         label: name;
-        tip: slider-tips[i];
+        tip: name;
+        tip-detail: slider-tips[i];
         shortcut: i == 0 ? "chroma_key.tolerance" : "";
         minimum: 0;
         maximum: 100;
         value: slider-value[i];
         readout: slider-text[i];
         hue: root.hue;
+        // What each does, drawn in its track: the screen's shades going grey, the edge between screen and person hardening to
+        // soft, and a skin tone with the screen's colour on it coming clean
+        fill: i == 0 ? "tolerance" : i == 1 ? "edges" : "spill";
+        grad-a: i == 0 ? screen-colour : i == 1 ? screen-colour : #d9a98a.mix(screen-colour, 0.55);
+        grad-b: i == 0 ? Theme.ink2.mix(screen-colour, 0.85) : #d9a98a;
         has-default: true;
         default-value: i == 0 ? 40 : i == 1 ? 30 : 60;
-        hint: root.reset-hint;
         moved(v) => { root.slider-moved(i, v); }
     }
-    FormRow {
-        label: @tr("Behind you");
-        Segmented {
-            items: [@tr("Colour"), @tr("Picture")];
-            disabled: [!active, !active];
-            has-icons: [false, false];
-            icons: [Icons.image, Icons.image];
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.person;
             label: @tr("Behind you");
-            current: behind;
-            picked(i) => { root.background-picked(i); }
-        }
-    }
-    if behind == 0: FormRow {
-        label: @tr("Colour");
-        // control_row(stretch=True): the button fills the row, with the colour as its icon
-        Button {
-            enabled: active;
-            horizontal-stretch: 1;
-            text: @tr("Choose…");
-            tip: colour-tip;
-            has-swatch: true;
-            swatch: backdrop-colour;
-            gap: 4px;
-            clicked => { root.colour-clicked(); }
-        }
-    }
-    if behind == 0 && editing-colour: VerticalLayout {
-        Text {
-            text: colour-title;
-            font-family: Theme.font;
-            font-size: Theme.body;
-            color: Theme.text-dim;
-        }
-        for name[i] in [@tr("Red"), @tr("Green"), @tr("Blue")]: SliderRow {
-            enabled: active;
-            label: name;
-            minimum: 0;
-            maximum: 255;
-            value: channel-value[i];
-            readout: "\{Math.round(channel-value[i])}";
+            tip-detail: @tr("Put a colour or a picture where the screen was.");
             hue: root.hue;
-            moved(v) => { root.channel-moved(i, v); }
+            enabled: active;
+            Segmented {
+                hue: root.hue;
+                items: [@tr("Colour"), @tr("Picture")];
+                disabled: [!active, !active];
+                has-icons: [false, false];
+                icons: [Icons.image, Icons.image];
+                label: @tr("Behind you");
+                tips: [@tr("Colour"), @tr("Picture")];
+                current: behind;
+                picked(i) => { root.background-picked(i); }
+            }
         }
-    }
-    if behind == 1: FormRow {
-        label: @tr("Picture");
-        HorizontalLayout {
-            spacing: 8px;
-            Button {
+        PageGroup {
+        clip: colour-page.moving || picture-page.moving;
+        colour-page := Page {
+            shown: behind == 0;
+            RailRow {
+                icon: Icons.colour;
+                label: @tr("Colour");
+                hue: root.hue;
                 enabled: active;
-                text: @tr("Choose…");
-                tip: picture-choose-tip;
-                clicked => { root.picture-clicked(); }
-            }
-            Rectangle {
-                horizontal-stretch: 1;
-                shown-picture-text := Text {
-                    width: parent.width;
-                    height: parent.height;
-                    text: picture-text;
-                    font-family: Theme.font;
-                    font-size: Theme.body;
-                    color: Theme.text-dim;
-                    vertical-alignment: center;
-                    overflow: elide;
-                    if shown-picture-text.preferred-width > shown-picture-text.width: Tooltip { TipBody { says: shown-picture-text.text; } }
+                ColourField {
+                    enabled: active;
+                    colour: backdrop-colour;
+                    h: colour-h;
+                    s: colour-s;
+                    v: colour-v;
+                    hex: colour-hex;
+                    channels: channel-value;
+                    hue: root.hue;
+                    label: @tr("Colour behind you");
+                    tip: @tr("Colour");
+                    tip-detail: colour-tip;
+                    pipette-tip: pipette-tip;
+                    can-pick: active;
+                    moved(h, s, v) => { root.colour-moved(h, s, v); }
+                    hex-typed(text) => { root.hex-typed(text); }
+                    channel-typed(i, text) => { root.channel-typed(i, text); }
+                    pipette-clicked => { root.pipette-clicked(); }
                 }
-                if picture-tip != "": Tooltip { TipBody { says: picture-tip; } }
             }
         }
-    }
-    if status != "": Note {
-        text: status;
-        kind: status-kind;
+        picture-page := Page {
+            shown: behind == 1;
+            RailRow {
+                icon: Icons.photo;
+                label: @tr("Picture");
+                hue: root.hue;
+                enabled: active;
+                PictureField {
+                    enabled: active;
+                    thumb: picture-thumb;
+                    has-picture: has-picture;
+                    set: has-picture || picture-text != "";
+                    name: picture-text != "" ? picture-text : @tr("Choose");
+                    problem: picture-problem;
+                    hue: root.hue;
+                    tip: @tr("Choose picture");
+                    tip-detail: picture-choose-tip;
+                    clicked => { root.picture-clicked(); }
+                }
+            }
+        }
+        }
+        StatusUnfold { text: status; kind: status-kind; detail: status-detail; }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;

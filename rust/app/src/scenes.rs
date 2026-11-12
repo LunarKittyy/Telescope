@@ -350,6 +350,49 @@ struct Changes {
     stats: bool,
     /// The MCP server is there, on the program's own handle (mcp_scene).
     mcp: bool,
+    /// The On Air sign is there, with a web server that only pretends to listen.
+    on_air: bool,
+    /// The Wait screen and Startup plugins are there, which put their cards on the Streaming page.
+    streaming: bool,
+}
+
+/// An autostart entry that is never written.
+struct SceneAutostart;
+
+impl telescope_core::system::Autostart for SceneAutostart {
+    fn enabled(&self) -> bool {
+        false
+    }
+    fn set_enabled(&self, _on: bool, _minimized: bool) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+/// A web that makes a certificate out of nothing and a server that never listens, for the On Air page's scenes.
+struct SceneWeb;
+
+struct SceneServer(Arc<telescope_core::web::ServerStats>);
+
+impl telescope_core::web::WebServer for SceneServer {
+    fn port(&self) -> u16 {
+        8768
+    }
+    fn stats(&self) -> Arc<telescope_core::web::ServerStats> {
+        self.0.clone()
+    }
+    fn stop(&self) {}
+}
+
+impl telescope_core::web::Web for SceneWeb {
+    fn addresses(&self) -> Vec<String> {
+        vec!["192.168.50.25".into(), "100.64.0.7".into()]
+    }
+    fn certificate(&self, _folder: &std::path::Path, _hosts: &[String]) -> Result<telescope_core::web::Certificate, String> {
+        Ok(telescope_core::web::Certificate { cert: Default::default(), key: Default::default() })
+    }
+    fn serve(&self, _certificate: &telescope_core::web::Certificate, serve: &telescope_core::web::Serve, _handler: Arc<dyn telescope_core::web::PageHandler>) -> Result<Box<dyn telescope_core::web::WebServer>, String> {
+        Ok(Box::new(SceneServer(Arc::new(telescope_core::web::ServerStats::new(8768, serve.port, false, &serve.label)))))
+    }
 }
 
 fn services(link: SceneLink) -> Arc<Services> {
@@ -408,6 +451,13 @@ fn services_with(link: SceneLink, changes: Changes) -> Arc<Services> {
             plugins.extend(stats);
             if changes.mcp {
                 plugins.push(Box::new(telescope_system::mcp::McpPlugin::new(telescope_system::mcp::McpHandle::global())));
+            }
+            if changes.streaming {
+                plugins.push(Box::new(telescope_outputs::wait_screen_plugin::WaitScreenPlugin::new(Arc::new(SceneOutputs))));
+                plugins.push(Box::new(telescope_system::startup::StartupPlugin::new(Arc::new(SceneAutostart))));
+            }
+            if changes.on_air {
+                plugins.push(Box::new(telescope_effects::on_air_plugin::OnAirPlugin::new(Arc::new(SceneWeb), None)));
             }
             plugins.extend(changes.webcam.map(|w| Box::new(w.plugin()) as Box<dyn telescope_core::plugin::Plugin>));
             plugins
@@ -649,6 +699,18 @@ fn add_phone_pairing(adb: bool, network: bool, pairs: bool) -> Setup {
     }
 }
 
+/// The Add device dialog with Browser camera offered beside Android, on the page `page` (0 Android, 1 Browser camera).
+fn add_phone_browser(page: i32) -> Setup {
+    let mut setup = add_phone(false, true);
+    setup.then = Some(Box::new(move |w| {
+        w.emit(telescope_core::Event::StreamSourcesChanged { sources: vec![telescope_core::event::SourceName { id: telescope_core::source::BROWSER_SOURCE.into(), name: "Browser camera".into() }] });
+        w.call_ui("connection", "card", "add-phone");
+        wait(w, 200);
+        let _ = w.set_card_property("connection", "card", "add-page", &json!(page));
+    }));
+    setup
+}
+
 /// translation_scenes.adb_licence: on Windows without adb, Get adb from Google pressed. Here the question is in Add device.
 fn adb_licence() -> Setup {
     let link = SceneLink { answer: Some(Resolution::new(PhoneStatus::Unreachable)), adb: false, network: true, pairs: false };
@@ -796,6 +858,19 @@ pub fn all() -> Vec<Scene> {
             ..Setup::window(Some(services(quiet())), config, WIDTH_THREE_COL, 900.0)
         }
     }));
+    // The tooltip of a control that has a saved shortcut (its keys as caps beside the name), and of one that has none
+    scenes.push(Scene::new("tip-control-mute", || {
+        let mut config = mic_config();
+        config["plugin_configs"]["shortcuts"]["bindings"] = json!([{"id": "a", "keys": "Ctrl+Alt+M", "action": "microphone.mute", "params": {"mode": "toggle"}}]);
+        Setup {
+            page: Page::ControlTip { label: "Mute".into(), from: (330.0, 40.0), size: (540.0, 170.0) },
+            ..Setup::window(Some(services(quiet())), config, WIDTH_THREE_COL, 900.0)
+        }
+    }));
+    scenes.push(Scene::new("tip-control-auto-level", || Setup {
+        page: Page::ControlTip { label: "Auto level".into(), from: (330.0, 40.0), size: (540.0, 170.0) },
+        ..Setup::window(Some(services(quiet())), mic_config(), WIDTH_THREE_COL, 900.0)
+    }));
     scenes.push(Scene::new("menu-control-pan", || Setup {
         page: Page::ControlMenu { label: "Pan".into(), size: (300.0, 90.0) },
         ..Setup::window(Some(services(quiet())), main_window_config(true), WIDTH_THREE_COL, 900.0)
@@ -810,6 +885,8 @@ pub fn all() -> Vec<Scene> {
     for &(id, adb, network) in ADD_PHONE {
         scenes.push(Scene::new(id, move || add_phone(adb, network)));
     }
+    scenes.push(Scene::new("dialog-add-phone-browser", || add_phone_browser(0)));
+    scenes.push(Scene::new("dialog-add-phone-browser-page", || add_phone_browser(1)));
     scenes.push(Scene::new("dialog-add-phone-done", || add_phone_pairing(true, true, true)));
     scenes.push(Scene::new("dialog-adb-licence", adb_licence));
     // translation_scenes.phones_dialog: Pixel 8 on Studio PC, and a browser remembered as a camera
@@ -890,6 +967,62 @@ pub fn all() -> Vec<Scene> {
             let services = services(quiet());
             HAS_LOG.store(id == "setup-about", std::sync::atomic::Ordering::Relaxed);
             Setup { page: Page::Settings(tab.into()), ..Setup::window(Some(services), main_window_config(true), SETTINGS_SIZE.0, SETTINGS_SIZE.1) }
+        }));
+    }
+    // The pages of the Settings redesign at a wide and a narrow window, for a look by eye (r2set-<page>-<2000|narrow>)
+    for (tab, name) in [("streaming", "streaming"), ("about", "about"), ("on_air", "onair")] {
+        for (label, size) in [("2000", (2000.0, 1000.0)), ("narrow", (720.0, 700.0))] {
+            for state in ["", "-more"] {
+                if state == "-more" && name == "streaming" {
+                    continue;
+                }
+                scenes.push(Scene::new(format!("r2set-{name}{state}-{label}"), move || {
+                    HAS_LOG.store(name == "about", std::sync::atomic::Ordering::Relaxed);
+                    let services = services_with(quiet(), Changes { on_air: name == "onair", streaming: name == "streaming", ..Changes::default() });
+                    let mut setup = Setup { page: Page::Settings(tab.into()), ..Setup::window(Some(services), main_window_config(true), size.0, size.1) };
+                    if state == "-more" {
+                        setup.then = Some(Box::new(move |w| {
+                            telescope_shell::settings::open(w, tab);
+                            if let Some(settings) = telescope_shell::settings::current() {
+                                if name == "onair" {
+                                    settings.set_props("on_air", "on_air", &json!({
+                                        "webhook-url": "http://homeassistant.local:8123/api/webhook/light", "webhook-on": "{\"on_air\": true}", "webhook-off": "{\"on_air\": false}",
+                                        "url-problem": "The address has to start with http:// or https://", "test-text": "Sent", "test-kind": "status_ok",
+                                    }));
+                                } else {
+                                    settings.set_props("updates", "updates", &json!({
+                                        "status-text": "Telescope 5.0.6 is out", "status-kind": "status_ok", "actions-shown": true,
+                                        "update-text": "Update and restart", "update-enabled": true, "portable-shown": true,
+                                    }));
+                                }
+                            }
+                        }));
+                    }
+                    setup
+                }));
+            }
+        }
+    }
+    // The rest of the Settings pages and the search, the same way (r2set-<page>-<2000|narrow>)
+    for tab in ["general", "video", "audio", "devices", "shortcuts", "plugins"] {
+        for (label, size) in [("2000", (2000.0, 1000.0)), ("narrow", (720.0, 700.0))] {
+            scenes.push(Scene::new(format!("r2set-{tab}-{label}"), move || {
+                let services = services_with(quiet(), Changes { streaming: true, ..Changes::default() });
+                let mut config = main_window_config(true);
+                if tab == "shortcuts" {
+                    config["plugin_configs"]["shortcuts"] = json!({"bindings": [
+                        {"id": "a", "keys": "Ctrl+Shift+M", "action": "microphone.mute", "params": {}, "global": true},
+                        {"id": "b", "keys": "F8", "action": "camera.torch", "params": {}, "global": false}], "notify": true});
+                }
+                Setup { page: Page::Settings(tab.into()), ..Setup::window(Some(services), config, size.0, size.1) }
+            }));
+        }
+    }
+    for (label, size) in [("2000", (2000.0, 1000.0)), ("narrow", (720.0, 700.0))] {
+        scenes.push(Scene::new(format!("r2set-mcp-{label}"), move || mcp_scene(Mcp::Undoable, Page::Settings("mcp".into()), size.0)));
+        scenes.push(Scene::new(format!("r2set-search-{label}"), move || {
+            let services = services_with(quiet(), Changes { on_air: true, streaming: true, ..Changes::default() });
+            Setup { page: Page::SettingsSearch { tab: "general".into(), query: "camera".into() }, ..Setup::window(Some(services), main_window_config(true), size.0, size.1) }
         }));
     }
     for &tab in SETTINGS_PAGES {
@@ -990,7 +1123,9 @@ mod tests {
             // Extras and the plug are what a plugin gets by saying nothing
             assert!(info.category != "extras" || IN_EXTRAS.contains(&info.name.as_str()), "{} needs a category, not Extras by default", info.name);
             assert_ne!(info.icon, "plug", "{} needs an icon, not the plug by default", info.name);
-            let known = [format!("{}.svg", info.icon), format!("v_{}.svg", info.icon)].iter().any(|f| icons.join(f).is_file());
+            // A file of that name, or a name icons.slint's `named` maps to another file ("preset" is the bookmark)
+            let table = std::fs::read_to_string(icons.join("../icons.slint")).unwrap_or_default();
+            let known = [format!("{}.svg", info.icon), format!("v_{}.svg", info.icon)].iter().any(|f| icons.join(f).is_file()) || table.contains(&format!("name == \"{}\"", info.icon));
             assert!(known, "{} needs an icon the kit has, not {:?}", info.name, info.icon);
         }
     }

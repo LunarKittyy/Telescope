@@ -1,0 +1,260 @@
+// Held bubbles: what a control shows while you touch it (a slider held or keyed), when the main preview can't show the change
+// itself. A control holds a `Peek` (what to draw, when it is touched), the one `Peeks` global holds the bubble that is up, and a
+// `PeekLayer` at the top of the window draws it on the kit's bubble frame. Unlike the popup `Bubble` it takes no press and no key, so
+// the drag or the key that opened it goes on, and it never moves anything in the card. Read the Bubbles section of rust/crates/ui-kit/STYLE.md.
+
+import { Theme } from "../theme.slint";
+import { WindowBox } from "window-box.slint";
+import { BubbleFrame } from "bubble.slint";
+import { CornerCap } from "pad.slint";
+import { Peeks } from "peeks.slint";
+import { Pop, Fade } from "motion.slint";
+
+// The size every held bubble draws at, so what is inside it changes and the bubble does not
+export global PeekBox {
+    out property <length> w: Theme.u(88);
+    out property <length> h: Theme.u(49.5);
+    // The width of the phone's screen a text sample stands for, in the same unit as the sizes in sp
+    out property <float> phone-dp: 360;
+    // The Speed bubble's frame is this share of the box (the crop's shape), and the room kept round the field it moves in
+    out property <float> frame-share: 0.3;
+    out property <length> frame-w: w * frame-share;
+    out property <length> frame-h: h * frame-share;
+    out property <length> margin: Theme.u(3);
+    // A text sample's size on the sample screen, for the notes' size in sp
+    public pure function text-size(sp: float) -> length { sp * (w / 1px) / phone-dp * 1px }
+    // The left or top edge of the frame at v, from 0 to 1 across the room it has (the element rounds it to whole physical pixels, so its outline stays sharp as it moves)
+    public pure function frame-at(v: float, extent: length, size: length) -> length { margin + clamp(v, 0, 1) * (extent - size - 2 * margin) }
+}
+
+// The box a held bubble draws in: rounded by covering its corners, since the software renderer squares off a clip.
+component PeekBoxFrame inherits Rectangle {
+    in property <color> surround: Theme.bubble;
+    width: PeekBox.w;
+    height: PeekBox.h;
+    border-radius: Theme.r-ctl;
+    @children
+    CornerCap { corner: 0; r: Theme.r-ctl; x: 0px; y: 0px; fill: surround; }
+    CornerCap { corner: 1; r: Theme.r-ctl; x: root.width - Theme.r-ctl; y: 0px; fill: surround; }
+    CornerCap { corner: 2; r: Theme.r-ctl; x: root.width - Theme.r-ctl; y: root.height - Theme.r-ctl; fill: surround; }
+    CornerCap { corner: 3; r: Theme.r-ctl; x: 0px; y: root.height - Theme.r-ctl; fill: surround; }
+}
+
+// Kind "helper". Draws the bubble that is up. One goes last in a window, next to the tooltips' layer. It has no size and takes no input:
+// it only places the bubble in window coordinates.
+export component PeekLayer inherits Rectangle {
+    out property <string> control-kind: "helper";
+    x: 0;
+    y: 0;
+    width: 0px;
+    height: 0px;
+    Timer {
+        interval: 300ms;
+        running: Peeks.shown;
+        triggered => { Peeks.check(); }
+    }
+    // The bubble pops in with a small overshoot and fades in with it, and fades out; it is drawn until it has faded
+    pop := Pop { to: Peeks.shown ? 1 : 0; }
+    fade := Fade { shown: Peeks.shown; }
+    // How solid the bubble is now and how big, for a test
+    out property <float> presence: fade.value;
+    out property <float> scale: pop.scale;
+    // What the bubble draws can change under it (one control's bubble gives way to another's, a picture to a chase): the new drawing fades in over the old,
+    // which stays whole underneath until the new one is solid, so the box never dips to its own surface half way. Each drawing keeps its own numbers, so the
+    // one on its way out does not change under its own fade. While the bubble itself is only just coming up the drawings do not fade: the bubble does.
+    property <string> kind: Peeks.kind;
+    property <[float]> numbers: Peeks.values;
+    property <image> photo: Peeks.picture;
+    property <string> words: Peeks.text;
+    property <[float]> picture-values;
+    property <image> picture-photo;
+    property <[float]> chase-values;
+    property <string> text-words;
+    property <[float]> text-values;
+    function keep() {
+        if (kind == "picture") {
+            picture-values = numbers;
+            picture-photo = photo;
+        }
+        if (kind == "chase") { chase-values = numbers; }
+        if (kind == "text") {
+            text-values = numbers;
+            text-words = words;
+        }
+    }
+    init => { keep(); }
+    changed kind => { keep(); }
+    changed numbers => { keep(); }
+    changed photo => { keep(); }
+    changed words => { keep(); }
+    property <bool> fresh: fade.value < 0.1;
+    picture-fade := Fade { shown: Peeks.kind == "picture"; snap: root.fresh; }
+    chase-fade := Fade { shown: Peeks.kind == "chase"; snap: root.fresh; }
+    text-fade := Fade { shown: Peeks.kind == "text"; snap: root.fresh; }
+    // Kept read, so a drawing that is not up has its place on record (0) when its turn comes, and fades in from there
+    property <float> held-place: picture-fade.value + chase-fade.value + text-fade.value;
+    changed held-place => { }
+    // How solid the drawing that is meant to be there is
+    out property <float> arrived: Peeks.kind == "picture" ? picture-fade.value : Peeks.kind == "chase" ? chase-fade.value : text-fade.value;
+    // A drawing is whole while it is the one being shown (as solid as its fade) or while the one coming in has not covered it yet
+    function opacity-of(k: string, own: float) -> float { Peeks.kind == k ? own : arrived < 0.995 ? 1 : 0 }
+    if Peeks.shown || fade.value > 0.02: BubbleFrame {
+        opacity: fade.value;
+        pop-scale: pop.scale;
+        hue: Peeks.hue;
+        content-width: PeekBox.w;
+        ax: Peeks.ax;
+        ay: Peeks.ay;
+        aw: Peeks.aw;
+        ah: Peeks.ah;
+        window-w: WindowBox.width > 0 ? WindowBox.width : 4000px;
+        window-h: WindowBox.height > 0 ? WindowBox.height : 4000px;
+        // Measured from the window's top left, wherever this layer sits
+        x: -root.absolute-position.x;
+        y: -root.absolute-position.y;
+        accessible-role: none;
+        // The drawings overlap in one box of the bubble's fixed size, so a change from one to another never makes the bubble taller
+        Rectangle {
+            width: PeekBox.w;
+            height: PeekBox.h;
+            if Peeks.kind == "picture" || picture-fade.value > 0.005: PeekBoxFrame {
+                z: Peeks.kind == "picture" ? 2 : 1;
+                opacity: opacity-of("picture", picture-fade.value);
+                background: Theme.trough;
+                // Four numbers in `values` (x, y, width, height as fractions of the picture) crop it: the renderer does the crop, so a framing change costs no new picture
+                property <bool> clipped: picture-values.length >= 4;
+                Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: picture-photo;
+                    image-fit: contain;
+                    source-clip-x: parent.clipped ? round(picture-values[0] * picture-photo.width) : 0;
+                    source-clip-y: parent.clipped ? round(picture-values[1] * picture-photo.height) : 0;
+                    source-clip-width: parent.clipped ? max(1, round(picture-values[2] * picture-photo.width)) : picture-photo.width;
+                    source-clip-height: parent.clipped ? max(1, round(picture-values[3] * picture-photo.height)) : picture-photo.height;
+                }
+            }
+            if Peeks.kind == "chase" || chase-fade.value > 0.005: PeekBoxFrame {
+                z: Peeks.kind == "chase" ? 2 : 1;
+                opacity: opacity-of("chase", chase-fade.value);
+                background: Theme.trough;
+                // What the framing moves, the crop's frame, in the card's colour with two fading copies behind it, so speed reads as the space
+                // between them; and the thing it follows, you, a head and shoulders. `values` is you (x, y), the frame, the first and second copy.
+                for copy[i] in [6, 4, 2]: Rectangle {
+                    width: PeekBox.frame-w;
+                    height: PeekBox.frame-h;
+                    x: round(PeekBox.frame-at(chase-values.length > copy ? chase-values[copy] : 0.5, parent.width, self.width) / 1phx) * 1phx;
+                    y: round(PeekBox.frame-at(chase-values.length > copy + 1 ? chase-values[copy + 1] : 0.5, parent.height, self.height) / 1phx) * 1phx;
+                    border-radius: min(Theme.r-ctl, self.height / 2);
+                    border-width: Theme.stroke;
+                    border-color: Peeks.hue.with-alpha(i == 2 ? 1.0 : i == 1 ? 0.4 : 0.18);
+                }
+                // Drawn after the frames so it is never hidden behind one
+                Rectangle {
+                    width: Theme.u(11);
+                    height: Theme.u(10);
+                    x: round((PeekBox.frame-at(chase-values.length > 0 ? chase-values[0] : 0.5, parent.width, PeekBox.frame-w) + (PeekBox.frame-w - self.width) / 2) / 1phx) * 1phx;
+                    y: round((PeekBox.frame-at(chase-values.length > 1 ? chase-values[1] : 0.5, parent.height, PeekBox.frame-h) + (PeekBox.frame-h - self.height) / 2) / 1phx) * 1phx;
+                    // The head
+                    Rectangle {
+                        width: Theme.u(4.5);
+                        height: Theme.u(4.5);
+                        x: (parent.width - self.width) / 2;
+                        y: 0px;
+                        border-radius: self.height / 2;
+                        border-width: Theme.stroke;
+                        border-color: Theme.ink2;
+                    }
+                    // The shoulders: a dome as wide as the mark
+                    Path {
+                        x: 0px;
+                        y: Theme.u(5.5);
+                        width: parent.width;
+                        height: Theme.u(4.5);
+                        viewbox-width: 100;
+                        viewbox-height: 40;
+                        // fitted: a decoration (the arc the target hops along), any scale will do
+                        commands: "M 6 40 A 44 34 0 0 1 94 40";
+                        stroke: Theme.ink2;
+                        stroke-width: Theme.stroke;
+                        stroke-line-cap: round;
+                    }
+                }
+            }
+            if Peeks.kind == "text" || text-fade.value > 0.005: PeekBoxFrame {
+                z: Peeks.kind == "text" ? 2 : 1;
+                opacity: opacity-of("text", text-fade.value);
+                background: Theme.stage;
+                clip: true;
+                Text {
+                    x: Theme.u(4);
+                    y: Theme.u(3);
+                    width: parent.width - Theme.u(8);
+                    height: parent.height - Theme.u(3);
+                    text: text-words != "" ? text-words : "Aa Bb";
+                    wrap: word-wrap;
+                    overflow: clip;
+                    vertical-alignment: top;
+                    font-family: Theme.font;
+                    font-weight: Theme.w-label;
+                    font-size: text-values.length > 0 ? PeekBox.text-size(text-values[0]) : Theme.body;
+                    color: Theme.ink;
+                }
+            }
+        }
+    }
+}
+
+// Kind "helper". Goes in a control (not in a layout), covering it: what the bubble points at. `engaged` is whether the control is being
+// touched (held, or keys used on it), `kind` what to draw ("" for nothing: the main preview shows the change) and the rest what the
+// drawing needs. `open` says the bubble is up, so an owner that feeds it a live picture can run only while it is.
+export component Peek inherits Rectangle {
+    out property <string> control-kind: "helper";
+    in property <string> kind;
+    in property <bool> engaged;
+    in property <color> hue: Theme.accent;
+    in property <[float]> values;
+    in property <image> picture;
+    in property <string> text;
+    out property <bool> open: Peeks.shown && Peeks.owner == id;
+    property <int> id;
+    property <bool> want: engaged && kind != "";
+    // What it points at, when that is a part of the control (a slider's handle) rather than all of it: a place in the control
+    in property <bool> has-point;
+    in property <length> point-x;
+    in property <length> point-y;
+    in property <length> point-w;
+    in property <length> point-h;
+    property <length> ax: root.absolute-position.x + (has-point ? point-x : 0px);
+    property <length> ay: root.absolute-position.y + (has-point ? point-y : 0px);
+    property <length> aw: has-point ? point-w : root.width;
+    property <length> ah: has-point ? point-h : root.height;
+    x: 0px;
+    y: 0px;
+    width: 100%;
+    height: 100%;
+    init => { id = Peeks.claim(); }
+    function present() {
+        Peeks.show(id, kind, values, picture, text, hue, ax, ay, aw, ah);
+    }
+    function refresh() {
+        if (open) { present(); }
+    }
+    changed want => {
+        if (want) { present(); } else { Peeks.hide(id); }
+    }
+    changed kind => { refresh(); }
+    changed values => { refresh(); }
+    changed picture => { refresh(); }
+    changed text => { refresh(); }
+    changed hue => { refresh(); }
+    changed ax => { refresh(); }
+    changed ay => { refresh(); }
+    changed aw => { refresh(); }
+    changed ah => { refresh(); }
+    Timer {
+        interval: 100ms;
+        running: root.open;
+        triggered => { Peeks.beat(); }
+    }
+}

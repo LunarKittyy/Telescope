@@ -189,6 +189,46 @@ pub trait SensorReader: Send + Sync {
     fn reading(&self, source_id: Option<&str>) -> Option<Value>;
 }
 
+/// The looks the window can wear, in the order Appearance lists them. The index is what the window's `Theme.look` takes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Look {
+    /// The dark look
+    #[default]
+    Dark,
+    /// The deep blue of 5.0
+    Classic,
+    /// True black, layers told apart by their outlines
+    Oled,
+    Light,
+}
+
+impl Look {
+    pub const ALL: [Look; 4] = [Look::Dark, Look::Classic, Look::Oled, Look::Light];
+
+    /// The look at this place in Appearance's list; Dark for anything else.
+    pub fn from_index(index: i64) -> Look {
+        Self::ALL.get(usize::try_from(index).unwrap_or(usize::MAX)).copied().unwrap_or_default()
+    }
+
+    pub fn index(self) -> usize {
+        self as usize
+    }
+
+    /// What the settings file calls it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Look::Dark => "dark",
+            Look::Classic => "classic",
+            Look::Oled => "oled",
+            Look::Light => "light",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Look> {
+        Self::ALL.into_iter().find(|l| l.name() == name)
+    }
+}
+
 /// Saving and reading settings: this plugin's, another's, and each device's.
 pub trait HostSettings {
     /// Persist all plugin config soon, coalescing rapid successive calls.
@@ -216,6 +256,10 @@ pub trait HostSettings {
     fn running_plugins(&self) -> Vec<(String, String)> {
         Vec::new()
     }
+    /// How each registered plugin is shown to people: its display title (in English) and its icon by name, for a list that names plugins (Stats).
+    fn plugin_looks(&self) -> Vec<PluginLook> {
+        Vec::new()
+    }
     /// Changes declared settings of a running plugin, given as {"key": value}. All of them are checked first and nothing changes unless
     /// every one is fine (the problems come back together). The change goes in through the plugin's own apply_preset, so its checks
     /// apply too, and is saved. Gives the plugin's settings afterwards.
@@ -235,6 +279,14 @@ pub trait HostSettings {
         }).collect();
         if kept.is_empty() { Ok(after) } else { Err(kept) }
     }
+}
+
+/// A plugin as people see it: what the Plugins tab calls it and its icon.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PluginLook {
+    pub name: String,
+    pub title: String,
+    pub icon: String,
 }
 
 /// A running plugin's declared settings.
@@ -367,6 +419,8 @@ pub trait HostShell {
     /// Whether every card gets its group's colour (true) or the accent colour (theme.set_plugin_hues). A host without a
     /// window ignores it.
     fn set_plugin_hues(&mut self, _on: bool) {}
+    /// Which look the window draws (Appearance in Settings). A host without a window ignores it.
+    fn set_look(&mut self, _look: Look) {}
     /// Asks the person for a file or folder. Event::RequestDone says how it went: ok with data {"path", "filter"} for
     /// the pick, not ok with an empty message when it was cancelled. None on a host that can't show a dialog.
     fn pick_file(&mut self, _dialog: &FileDialog) -> Option<RequestId> {
@@ -393,6 +447,21 @@ pub trait HostUi {
     fn open_window(&mut self, _id: &str, _window: &crate::ui::WindowSpec) {}
     /// Closes this plugin's window with this id, if it's open ("closed" still comes).
     fn close_window(&mut self, _id: &str) {}
+    /// The readouts this plugin can put in the bottom bar, as they read now; each call replaces the last. A pinned one shows its value
+    /// and one with an empty value takes no room. Offer nothing (or switch the plugin off) and its pins vanish quietly, to come back
+    /// with the plugin. The ids are kept in the settings, so they stay the same from run to run.
+    fn offer_bar_stats(&mut self, _stats: &[crate::bar::BarStat]) {}
+    /// The ids pinned to the bottom bar now, left side first, each side in the order it is drawn.
+    fn bar_pins(&self) -> Vec<String> {
+        Vec::new()
+    }
+    /// Pins a readout to the bar (at the inner end of its side, the right one for a new pin) or takes it off. Event::BarPinsChanged
+    /// follows when something changed. The camera stays pinned while two or more streams run.
+    fn pin_to_bar(&mut self, _id: &str, _pinned: bool) {}
+    /// What the bar reads for this id now, from any plugin or the window's own (see core::bar), or None while nothing offers it.
+    fn bar_stat(&self, _id: &str) -> Option<crate::bar::BarStat> {
+        None
+    }
 }
 
 /// The shown stream's view: zoom, pan, flip, rotation and stretch, done before the plugins see the frame.

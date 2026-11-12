@@ -1,12 +1,12 @@
 // The Expose for my face card. Joined after parts.slint and vision_status.slint.
 
 export component FaceExposureCard inherits Card {
-    // Greyed out until a phone is paired, and gone while a source that isn't a phone is picked
     in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired, and gone while a source that isn't a phone is picked
     in property <bool> phone-only-hidden;
     in-out property <bool> on;
     in property <string> switch-name;
-    in property <string> switch-help;
     // Something the user chose holds the point: the note says what, and Follow my face goes back
     in property <bool> held;
     in property <string> held-note;
@@ -18,33 +18,42 @@ export component FaceExposureCard inherits Card {
     callback download-clicked;
 
     title: @tr("Expose for my face");
+    tip: @tr("Meter the phone's exposure on your face.");
     icon: Icons.sun;
     visible: !phone-only-hidden;
-    opacity: active ? 1 : 0.4;
     enabled: active;
     has-switch: true;
     switch-shortcut: "face_exposure.on";
     switch-enabled: active;
     switch-checked <=> root.on;
     switch-label: switch-name;
-    switch-tip: switch-help;
+    switch-tip: switch-name;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
 
-    if held: Note { text: held-note; }
-    if held: HorizontalLayout {
-        alignment: start;
-        Button {
-            // action_button: the standard width
-            width: 160px;
-            text: @tr("Follow my face");
-            tip: follow-tip;
-            clicked => { root.follow-clicked(); }
+    // Something the user chose holds the point: the button that goes back says so in its tooltip
+    // Something the user chose holds the point: the button that goes back says so in its tooltip. Both rows unfold, so a card with neither is
+    // header-only: no fold
+    UnfoldGroup {
+        Unfolding {
+            open: held;
+            lead: 0px;
+            RailRow {
+                has-icon: false;
+                Button {
+                    horizontal-stretch: 1;
+                    text: @tr("Follow my face");
+                    tip: @tr("Follow my face");
+                    tip-detail: held-note != "" ? held-note + " " + follow-tip : follow-tip;
+                    clicked => { root.follow-clicked(); }
+                }
+            }
         }
-    }
-    if vision-text != "": VisionStatus {
-        text: vision-text;
-        download: vision-download;
-        download-clicked => { root.download-clicked(); }
+        VisionStatus {
+            lead: held ? Theme.gap : 0px;
+            text: vision-text;
+            download: vision-download;
+            download-clicked => { root.download-clicked(); }
+        }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;

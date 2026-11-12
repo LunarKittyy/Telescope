@@ -1,6 +1,6 @@
 //! People in the picture as a shared host service (vision.py's Vision, vision_download.py and vision_status.py). The vision
 //! crate implements VisionService and the binary hands it to the shell in Services; plugins never see it. They get:
-//! - FrameContext::person_mask in a frame step (Background, Privacy blur, Fun pack's cloak),
+//! - FrameContext::person_mask in a frame step (Background, Privacy blur, Fun pack's cloak), or person_mask_at for one that works at a smaller size,
 //! - HostVision::want_people, then Event::PeopleSeen (Person records, Auto framing) and Event::PeopleTracked (Track records
 //!   from core::people, Privacy blur and Expose for my face), or HostVision::tracked_people,
 //! - HostVision::vision_state and vision_pack, with status_text for the card's status row and download_vision for its button.
@@ -130,6 +130,18 @@ pub trait VisionService: Send + Sync {
     /// while it can't say. The same frame (by number) asked twice is worked out once. The model runs elsewhere and this hands over
     /// the newest mask it has, about a frame behind; only a stream's first mask is waited for.
     fn person_mask(&self, source_id: &str, frame: &Frame) -> Option<Arc<Vec<u8>>>;
+    /// person_mask at w x h instead of the frame's size, made at that size. The default shrinks person_mask's.
+    fn person_mask_at(&self, source_id: &str, frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        let mask = self.person_mask(source_id, frame)?;
+        let (fw, fh) = (frame.width as usize, frame.height as usize);
+        if mask.len() != fw * fh {
+            return None;
+        }
+        if (w, h) == (fw, fh) {
+            return Some(mask);
+        }
+        Some(Arc::new(crate::image::resize_area(&mask, fw, fh, 1, w, h)))
+    }
     /// While any owner wants people, fed frames are looked at and people_seen and people_tracked follow.
     fn want_people(&self, owner: &str, on: bool);
     fn wants_people(&self) -> bool;

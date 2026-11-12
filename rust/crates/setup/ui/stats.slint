@@ -8,74 +8,123 @@ export struct StatRow {
     value: string,
     note: string,
     kind: string,
-    // Slint path commands of the last minute in a 60px by 20px box, or empty
+    // Slint path commands of the last minute in a 60 by 20 box, or empty
     graph: string,
+    // The id of the readout the bottom bar can pin from this line, or empty for a line with nothing to pin
+    pin: string,
+    pinned: bool,
+    // Pinned and not to be taken off now (the camera while several streams run)
+    locked: bool,
 }
 
-// Every row has the same columns: the label, a 60px slot for the graph that stays empty when there is none, and the value on a right edge.
-// A row is 28px tall, or 44px when it has a note, so the card keeps to two heights.
+// Every line has the same columns, set from the kit's spacing: the label, a slot for the graph that stays empty when there is none, the
+// value on a right edge and the star (unpinned stars show while the row is hovered or has the keys, their room is always there). A line is one row tall, or a row and a small note under it when it has one.
 component StatLine inherits Rectangle {
     in property <StatRow> line;
-    property <color> ink: line.kind == "" || line.kind == "status_dim" ? Theme.text : Status.color(line.kind).brighter(0.12);
-    min-height: 28px;
+    in property <color> hue: Theme.accent;
+    callback pin-toggled(string, bool);
+    property <color> ink: line.kind == "" || line.kind == "status_dim" ? Theme.ink : Status.color(line.kind).brighter(0.12);
+    min-height: Theme.u(14);
     accessible-role: text;
     accessible-label: line.note == "" ? line.label + " " + line.value : line.label + " " + line.value + " " + line.note;
+    row-hover := RowHover { }
     VerticalLayout {
-        padding-top: 4px;
-        padding-bottom: 4px;
         spacing: 0px;
+        // The line's own height and no more, so the graph and the star centre on the value line whether or not a note hangs under it
+        alignment: start;
         HorizontalLayout {
-            spacing: 10px;
-            min-height: 20px;
+            spacing: Theme.u(4);
+            min-height: Theme.u(14);
             Text {
                 horizontal-stretch: 1;
                 min-width: 1px;
                 text: line.label;
                 font-family: Theme.font;
                 font-size: Theme.body;
-                color: Theme.text-dim;
+                color: Theme.ink2;
                 vertical-alignment: center;
                 wrap: word-wrap;
                 accessible-role: none;
             }
             Rectangle {
-                width: 60px;
+                width: Theme.u(30);
                 accessible-role: none;
                 if line.graph != "": Path {
-                    width: 60px;
-                    height: 20px;
-                    y: (parent.height - self.height) / 2;
+                    // Slint draws a stroked path inside its box less one stroke: the box is widened by the stroke so a viewbox unit is a pixel
+                    x: -Theme.stroke / 2;
+                    y: (parent.height - Theme.u(10)) / 2 - Theme.stroke / 2;
+                    width: Theme.u(30) + Theme.stroke;
+                    height: Theme.u(10) + Theme.stroke;
                     viewbox-width: 60;
                     viewbox-height: 20;
+                    fit: ImageFit.fill;
                     commands: line.graph;
-                    stroke: line.kind == "status_warn" ? Theme.warn : Theme.text-faint;
-                    stroke-width: 1px;
+                    stroke: line.kind == "status_warn" ? Theme.warn : Theme.faint;
+                    stroke-width: Theme.stroke;
                 }
             }
             Text {
-                width: 120px;
+                width: Theme.u(60);
                 text: line.value;
                 font-family: Theme.font;
                 font-size: Theme.body;
-                font-weight: 600;
+                font-weight: Theme.w-value;
                 color: ink;
                 horizontal-alignment: right;
                 vertical-alignment: center;
                 wrap: word-wrap;
                 accessible-role: none;
             }
+            Rectangle {
+                width: Theme.u(14);
+                accessible-role: none;
+                if line.pin != "": PinStar {
+                    y: (parent.height - self.height) / 2;
+                    reveal-on: true;
+                    row-hover: row-hover.over;
+                    pinned: line.pinned;
+                    locked: line.locked;
+                    label: line.label;
+                    hue: root.hue;
+                    toggled => { root.pin-toggled(line.pin, !line.pinned); }
+                }
+            }
         }
-        if line.note != "": Text {
-            text: line.note;
-            font-family: Theme.font;
-            font-size: Theme.small;
-            color: Theme.text-faint;
-            horizontal-alignment: right;
-            vertical-alignment: center;
-            min-height: 16px;
-            wrap: word-wrap;
-            accessible-role: none;
+        // The note ends where the value does, not under the star
+        if line.note != "": HorizontalLayout {
+            padding-right: Theme.u(18);
+            Text {
+                text: line.note;
+                font-family: Theme.font;
+                font-size: Theme.small;
+                color: Theme.faint;
+                horizontal-alignment: right;
+                vertical-alignment: center;
+                min-height: Theme.u(8);
+                wrap: word-wrap;
+                accessible-role: none;
+            }
         }
+    }
+}
+
+// The rows of one view of the stats
+component StatsList inherits VerticalLayout {
+    in property <[StatRow]> rows;
+    in property <color> hue;
+    callback pin-toggled(string, bool);
+    // The repeater counts lines instead of walking the list: the list comes new every second, and a repeater over it would drop every line and build it again, while a count that stays the same is no change
+    property <int> count;
+    init => { count = rows.length; }
+    changed rows => { count = rows.length; }
+    for i in count: VerticalLayout {
+        // The same gap above every heading and the same one below it
+        if rows[i].head: VerticalLayout {
+            padding-top: Theme.u(6);
+            padding-bottom: Theme.u(1);
+            SectionHeading { text: rows[i].label; icon: Icons.named(rows[i].icon); }
+        }
+        if !rows[i].head: StatLine { line: rows[i]; hue: root.hue; pin-toggled(id, on) => { root.pin-toggled(id, on); } }
     }
 }
 
@@ -85,41 +134,67 @@ export component StatsCard inherits Card {
     in property <string> view-standard;
     in property <string> view-nerd;
     in property <string> view-tip;
-    // What the card says instead of numbers while no stream runs
+    // What the card says in a word while no stream runs, and the sentence behind it
     in property <string> empty-text;
+    in property <string> empty-detail;
     // The source the numbers are for, when more than one stream runs
     in property <string> source-name;
     in property <[StatRow]> rows;
     callback view-picked(int);
+    callback pin-toggled(string, bool);
 
     title: @tr("Stats");
+    tip: @tr("Live numbers about the running stream.");
     icon: Icons.chip;
-
-    Segmented {
-        items: [view-standard, view-nerd];
-        disabled: [false, false];
-        has-icons: [false, false];
-        icons: [Icons.chip, Icons.chip];
-        tips: ["", view-tip];
-        label: @tr("Stats view");
-        current: view;
-        picked(i) => { root.view-picked(i); }
-    }
-    if source-name != "": Text {
-        text: source-name;
-        font-family: Theme.font;
-        font-size: Theme.small;
-        color: Theme.text-faint;
-        overflow: elide;
-    }
-    if empty-text != "": Note { text: empty-text; kind: "status_dim"; }
-    for r in rows: VerticalLayout {
-        // The same gap above every heading and the same one below it
-        if r.head: VerticalLayout {
-            padding-top: 12px;
-            padding-bottom: 2px;
-            SectionHeading { text: r.label; icon: Icons.named(r.icon); }
+    // Nothing to read while no stream runs: the card fades like the others do, and the rows go
+    idle: rows.length == 0;
+    // The rows stay while they fold away. A switch of view (Standard, Nerd) brings a whole new list: the list that was up is kept as it was in the
+    // layer that is going and the new one comes in on the other, so the two cross-fade and the card goes straight from one height to the other
+    property <[StatRow]> held;
+    property <[StatRow]> kept-a;
+    property <[StatRow]> kept-b;
+    property <bool> on-b;
+    property <int> seen-view;
+    function take() {
+        if (rows.length > 0) {
+            if (view != seen-view) {
+                if (on-b) { kept-b = held; } else { kept-a = held; }
+                on-b = !on-b;
+                seen-view = view;
+            }
+            held = rows;
         }
-        if !r.head: StatLine { line: r; }
+    }
+    changed rows => { take(); }
+    init => {
+        seen-view = view;
+        if (rows.length > 0) { held = rows; }
+    }
+
+    UnfoldGroup {
+        Segmented {
+            hue: root.hue;
+            items: [view-standard, view-nerd];
+            disabled: [false, false];
+            has-icons: [false, false];
+            icons: [Icons.chip, Icons.chip];
+            tip-details: ["", view-tip];
+            label: @tr("Stats view");
+            current: view;
+            picked(i) => { root.view-picked(i); }
+        }
+        StatusRow { text: root.empty-text; detail: root.empty-detail; kind: "status_dim"; }
+        StatusRow { text: root.source-name; kind: ""; }
+        PageGroup {
+            clip: layer-a.moving || layer-b.moving;
+            layer-a := Page {
+                shown: !root.on-b && rows.length > 0;
+                StatsList { rows: root.on-b ? root.kept-a : root.held; hue: root.hue; pin-toggled(id, on) => { root.pin-toggled(id, on); } }
+            }
+            layer-b := Page {
+                shown: root.on-b && rows.length > 0;
+                StatsList { rows: root.on-b ? root.held : root.kept-b; hue: root.hue; pin-toggled(id, on) => { root.pin-toggled(id, on); } }
+            }
+        }
     }
 }
