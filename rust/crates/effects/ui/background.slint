@@ -21,12 +21,18 @@ export component BackgroundCard inherits Card {
     in property <string> picture-choose-tip;
     in property <string> vision-text;
     in property <bool> vision-download;
+    in property <bool> high-quality;
+    in property <string> quality-tip;
+    in property <string> cutout-text;
+    in property <bool> cutout-download;
     callback mode-picked(int);
     callback blur-moved(float);
     callback blur-peek-open(bool);
     callback edges-moved(float);
     callback picture-clicked;
     callback download-clicked;
+    callback high-quality-toggled(bool);
+    callback cutout-download-clicked;
 
     title: @tr("Background");
     tip: @tr("Blur the background or replace it with a picture.");
@@ -116,6 +122,25 @@ export component BackgroundCard inherits Card {
             default-value: 3;
             moved(v) => { root.edges-moved(v); }
         }
+        }
+        Unfolding {
+            open: mode != 0;
+            SwitchRow {
+                icon: Icons.person;
+                label: @tr("High quality cutout");
+                tip: @tr("High quality cutout");
+                tip-detail: quality-tip;
+                hue: root.hue;
+                enabled: active;
+                changed: high-quality;
+                checked: high-quality;
+                toggled(v) => { root.high-quality-toggled(v); }
+            }
+        }
+        VisionStatus {
+            text: cutout-text;
+            download: cutout-download;
+            download-clicked => { root.cutout-download-clicked(); }
         }
         VisionStatus {
             text: vision-text;

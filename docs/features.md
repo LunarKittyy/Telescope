@@ -21,6 +21,7 @@ These apply live without restarting the camera.
 - Rotate 90° CW, 180° or 90° CCW
 - **Zoom 1-10x** with pan. **Max zoom** under Video in Settings goes up to 30x. Scroll over the preview to zoom and drag to pan
 - **Width** and **Height** stretch or squish the picture from 50% to 200%, each on its own. Whatever goes past the edge is cut off and a squish leaves black bars, like a rotated picture gets
+- **Lens correction** straightens the curved lines a wide lens makes, so faces near the edge stop looking stretched. Slide right for a wide lens and left for a long one. It crops or pulls in the picture just enough to keep the edges filled, and 0% leaves the picture exactly as it is
 - Double-click any slider to reset it. The pan pad takes arrow keys (Shift for bigger steps) and Home to centre
 
 Zooming crops from the full sensor first and hops to the telephoto lens once your framing fits inside it, which is why zooming in gets sharper. Dots on the zoom slider mark where a longer lens takes over.
@@ -39,6 +40,8 @@ Optional. It finds you in the picture and moves zoom and pan to keep you framed.
 ## Background
 
 Optional and it shares the vision download. **Blur** blurs everything behind you and **Picture** puts an image there instead (PNG, JPEG, WebP or BMP). **Edges** sets how soft the outline around you is. It runs on the computer so it works with any phone and with Browser camera.
+
+**High quality** swaps the cutout for a slower model (Robust Video Matting) that follows hair and edges much better and holds still where nothing moves. It's off by default because it uses more of the processor, about 40% of one core on a 1080p stream. It has a download of its own, about 25 MB on Linux and 20 MB on Windows, which the card offers when you switch it on. Until that's there, or if the model doesn't load, the normal cutout is used and the picture never waits for it. **Remove download** under People and vision on the Plugins tab deletes it as well.
 
 ## Expose for my face
 
@@ -141,6 +144,18 @@ An optional plugin for the look of the picture, switched on in Plugins (it needs
 
 **Compare** splits the preview with the picture before the grade left of the line. Apps always get the graded picture. The switch in the card's header turns the grade off without losing it. Each wheel, slider, the Compare button, the switch and the LUT strength can go on a key in Keyboard shortcuts.
 
+## Filters
+
+An optional plugin with the basic filters of a photo editor, switched on under **Look** in the Plugins tab. It needs no download, except for skin smoothing. A filter at 0 is off and costs nothing, and the switch in the card's header sets them all aside without losing them. Each phone has its own settings and presets save them.
+
+- **Denoise** smooths the noise in each frame and keeps the edges. **Over time** also averages every part of the picture that holds still with the frames before it, which cleans up a dim room far better than blurring. Anything that moves is left out so it can't leave a ghost, and it starts over when the camera or the picture size changes
+- **Dehaze** takes the washed-out look off a dirty lens, a window behind you or a cheap camera's low contrast
+- **Skin smoothing** softens skin inside the person mask and keeps eyes, brows, hair and edges sharp. It needs the vision download, and the card says so until it's there
+- **Sharpen** has an **Amount**, a **Radius** and a **Threshold** that leaves flat areas like skin and walls alone. Strong edges get steeper without a white outline. **Clarity** adds contrast to the mid-sized detail, which makes a flat picture look less flat, with no glowing outlines. Below 0 it softens instead
+- **Vignette** darkens the corners (or lightens them below 0) with a **Size** and a **Roundness**. **Glow** puts a soft bloom around the bright parts and **Film grain** adds grain that moves every frame and is strongest in the mid-tones
+
+Denoise, dehaze, skin smoothing, clarity and sharpen come before Colour grading in the picture's path and the vignette, glow and grain come after it, so the grade doesn't change them. They run on the graphics card and fall back to the processor while something like a game keeps the card busy. The Camera card has the phone's own **Sharpening** and **Noise reduction**, and sharpening twice looks worse than once, so use one or the other.
+
 ## Notes next to the lens
 
 Optional, switched on under **On screen** in the Plugins tab of Settings. Type your notes on the Notes card and **Send to phone** puts them on the phone's screen in big text right under the front camera. Reading them there keeps your eyes almost on the lens and the people on the call see you looking at them. It needs the front camera and the phone facing you, and the phone app from the same release (with an older one the card asks you to update it).
@@ -155,7 +170,7 @@ Android only lets an app open a screen while it's in front. With Telescope in th
 
 ## The vision download
 
-Auto framing, Background, Expose for my face and Privacy blur use MediaPipe to find people (the Fun pack can use it too). MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch one of them on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). They share the download and **Remove download** next to the People and vision heading on the Plugins tab deletes it again.
+Auto framing, Background, Expose for my face and Privacy blur use MediaPipe to find people (the Fun pack can use it too). MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch one of them on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). They share the download and **Remove download** next to the People and vision heading on the Plugins tab deletes it again. Background's **High quality** option has a second download of its own (see [Background](#background)).
 
 It only works on 64-bit Intel and AMD computers for now.
 

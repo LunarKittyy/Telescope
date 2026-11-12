@@ -158,7 +158,7 @@ fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions
     let link = Arc::new(telescope_link::LinkService::new());
     let problems = telescope_core::services::PluginProblems::default();
     // Added plugins can't take a built-in's name
-    let reserved: Vec<String> = vec!["camera_control".into(), "onboarding".into(), "connection".into(), "browser_camera".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into(), "notes".into(), "name_tag".into(), "composite".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "qr_reader".into(), "on_air".into(), "cinema".into(), "background".into(), "privacy_blur".into(), "framing".into(), "face_exposure".into(), "setup".into(), "monitoring".into(), "stats".into(), "mcp".into()];
+    let reserved: Vec<String> = vec!["camera_control".into(), "onboarding".into(), "connection".into(), "browser_camera".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "transforms".into(), "colour_grading".into(), "filters".into(), "notes".into(), "name_tag".into(), "composite".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "qr_reader".into(), "on_air".into(), "cinema".into(), "background".into(), "privacy_blur".into(), "framing".into(), "face_exposure".into(), "setup".into(), "monitoring".into(), "stats".into(), "mcp".into()];
     let admin: Arc<dyn telescope_core::plugin_admin::PluginAdmin> = Arc::new(telescope_plugin_host::admin::Admin::app(reserved.clone()));
     let added = telescope_plugin_host::load::factory(reserved, telescope_core::i18n::language(), problems.clone());
     let media: Arc<dyn telescope_core::media::Media> = Arc::new(telescope_media::FfmpegMedia);
@@ -203,6 +203,7 @@ fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions
                 Box::new(telescope_effects::fun_pack::FunPackPlugin::new()),
                 Box::new(telescope_effects::privacy_blur::PrivacyBlurPlugin::new()),
                 Box::new(telescope_effects::colour_grading::ColourGradingPlugin::new()),
+                Box::new(telescope_effects::filters::FiltersPlugin::new()),
                 Box::new(telescope_outputs::stream_output::StreamOutputPlugin::new(telescope_media::ffmpeg_available())),
                 Box::new(telescope_effects::transforms::TransformsPlugin::new()),
                 Box::new(telescope_effects::framing::FramingPlugin::new()),

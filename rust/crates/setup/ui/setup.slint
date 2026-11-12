@@ -448,14 +448,6 @@ export component LookSettings inherits Card {
     keywords: @tr("search" => "appearance theme colors colours interface");
     icon: Icons.sliders;
     hue: Theme.plugin-hue("streaming");
-    // Fixing a text or adding a language is the card's one action
-    has-action: true;
-    action-icon: Icons.pencil;
-    action-text: @tr("Help translate");
-    action-label: @tr("Help translate");
-    action-tip-detail: @tr("Fix a text or add a language, no coding needed.");
-    action => { root.translate-clicked(); }
-
     RailRow {
         icon: Icons.sun;
         label: @tr("Theme");
@@ -525,6 +517,22 @@ export component LookSettings inherits Card {
                         clicked => { root.restart-clicked(); }
                     }
                 }
+            }
+        }
+    }
+    // The whole button in its own row under Language, so it reads as an invitation and not as the card's action
+    RailRow {
+        has-icon: false;
+        HorizontalLayout {
+            alignment: end;
+            Button {
+                text: @tr("Help translate");
+                has-icon: true;
+                icon: Icons.pencil;
+                icon-tint: Theme.ink2;
+                tip: @tr("Help translate");
+                tip-detail: @tr("Fix a text or add a language, no coding needed.");
+                clicked => { root.translate-clicked(); }
             }
         }
     }

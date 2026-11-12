@@ -2,7 +2,7 @@
 
 use crate::compositor::cover;
 use crate::cpu::Rgb;
-use crate::shared::mask_shared;
+use crate::shared::{mask_shared, mask_shared_hq};
 use crate::imgops::{blur_quick, compose, Gray};
 use crate::peek;
 use crate::shared::{no_pictures, thumb_of, Paired, PictureReader};
@@ -32,6 +32,8 @@ const SMALL: f64 = 4.0;
 const BLUR_SMALL: usize = 8;
 const DEFAULT_BLUR: i64 = 6;
 const DEFAULT_EDGES: i64 = 3;
+/// What the High quality cutout costs next to the normal one, measured on a 1080p stream: a bit under half a core.
+const QUALITY_TIP: &str = n_("Cut out your hair and edges more cleanly, for about 40% of a CPU core.");
 
 /// The frame blurred (strength 1..10), at an eighth of the size and scaled back up. With the person mask, the person is left out of the blur, so they don't smear into a dark halo around themselves.
 pub fn blurred(frame: &Rgb, strength: i64, mask: Option<&Gray>) -> Rgb {
@@ -147,6 +149,8 @@ struct Settings {
     blur: i64,
     edges: i64,
     picture: Option<Arc<Rgb>>,
+    /// The slower model's mask (the normal one while it isn't there), see FrameContext::person_mask_hq
+    high_quality: bool,
 }
 
 /// What replaces the room.
@@ -216,7 +220,7 @@ impl Step {
         if self.run_planes(frame, ctx) {
             return;
         }
-        let mask = mask_shared(ctx, frame);
+        let mask = if self.settings.high_quality { mask_shared_hq(ctx, frame) } else { mask_shared(ctx, frame) };
         let Some(rgb) = Rgb::from_frame(frame) else { return };
         // No mask yet (vision still loading, or it can't segment) is the same as having lost track: the room stays hidden
         let Some(mask) = mask else { return self.hide_all(frame, &rgb) };
@@ -273,7 +277,8 @@ impl Step {
         }
         let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
         let (qw, qh) = ((w / 4).max(1), (h / 4).max(1));
-        let mask = ctx.person_mask_at(frame, qw, qh).filter(|m| m.len() == qw * qh);
+        // The high quality mask is the normal one while that model isn't downloaded, loaded or in time, so this never has less
+        let mask = if self.settings.high_quality { ctx.person_mask_hq_at(frame, qw, qh) } else { ctx.person_mask_at(frame, qw, qh) }.filter(|m| m.len() == qw * qh);
         let edges = self.settings.edges;
         let mut quarter = None;
         if let Some(src) = mask {
@@ -344,6 +349,7 @@ pub struct BackgroundPlugin {
     mode: usize,
     blur: i64,
     edges: i64,
+    high_quality: bool,
     picture_path: String,
     picture: Option<Arc<Rgb>>,
     picture_problem: String,
@@ -380,6 +386,7 @@ impl BackgroundPlugin {
             mode: 0,
             blur: DEFAULT_BLUR,
             edges: DEFAULT_EDGES,
+            high_quality: false,
             picture_path: String::new(),
             picture: None,
             picture_problem: String::new(),
@@ -401,6 +408,7 @@ impl BackgroundPlugin {
         json!({
             "edges-tip": tr("How soft the edge around you is."),
             "picture-choose-tip": tr("Pick the picture that goes behind you."),
+            "quality-tip": tr(QUALITY_TIP),
         })
     }
 
@@ -415,6 +423,7 @@ impl BackgroundPlugin {
             "picture-text": file_name(&self.picture_path),
             "has-picture": self.picture.is_some(),
             "picture-problem": self.picture_problem,
+            "high-quality": self.high_quality,
             "picture-tip": self.picture_path,
         })
     }
@@ -427,6 +436,9 @@ impl BackgroundPlugin {
         if let Value::Object(p) = &mut props {
             if let Value::Object(row) = row {
                 p.extend(row);
+            }
+            if let Value::Object(note) = vision_row::cutout_props(&*host, self.mode != 0 && self.high_quality) {
+                p.extend(note);
             }
             p.insert("blur-peek".into(), json!(if self.mode_name() == "blur" && working { "" } else { "picture" }));
         }
@@ -510,7 +522,7 @@ impl Plugin for BackgroundPlugin {
         if let Some(on) = self.paired.hear(event) {
             host.set_ui_props("card", &json!({"active": on}));
         }
-        if vision_row::changes_it(event) || matches!(event, Event::StreamStarted { .. } | Event::StreamStopped) {
+        if vision_row::changes_it(event) || vision_row::changes_cutout(event) || matches!(event, Event::StreamStarted { .. } | Event::StreamStopped) {
             self.show(host);
         }
         if let Event::RequestDone { request, ok, data, .. } = event {
@@ -565,9 +577,17 @@ impl Plugin for BackgroundPlugin {
                 self.edges = (n(0).round() as i64).clamp(0, 10);
                 self.changed(host);
             }
+            "high-quality-toggled" => {
+                self.high_quality = event.args.first().and_then(Value::as_bool).unwrap_or(false);
+                self.changed(host);
+            }
             "picture-clicked" => self.choose_picture(host),
             "download-clicked" => {
                 host.download_vision();
+                self.show(host);
+            }
+            "cutout-download-clicked" => {
+                host.download_matting();
                 self.show(host);
             }
             _ => {}
@@ -613,7 +633,7 @@ impl Plugin for BackgroundPlugin {
         if self.mode == 0 {
             return None;
         }
-        let settings = Settings { mode: self.mode, blur: self.blur, edges: self.edges, picture: self.picture.clone() };
+        let settings = Settings { mode: self.mode, blur: self.blur, edges: self.edges, picture: self.picture.clone(), high_quality: self.high_quality };
         Some(FrameStep::Cpu(Box::new(Step { settings, covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None })))
     }
 
@@ -623,6 +643,10 @@ impl Plugin for BackgroundPlugin {
         cfg.insert("blur".into(), json!(self.blur));
         cfg.insert("edges".into(), json!(self.edges));
         cfg.insert("picture".into(), json!(self.picture_path));
+        // Only when it's on, so a settings file stays as the Python app wrote it until someone asks for the better cutout
+        if self.high_quality {
+            cfg.insert("high_quality".into(), json!(true));
+        }
         Value::Object(cfg)
     }
 
@@ -632,6 +656,7 @@ impl Plugin for BackgroundPlugin {
         self.mode = cfg.get("mode").and_then(Value::as_str).and_then(|m| MODES.iter().position(|(k, _)| *k == m)).unwrap_or(0);
         self.blur = clamped_int(cfg.get("blur").unwrap_or(&Value::Null), DEFAULT_BLUR, 1, 10);
         self.edges = clamped_int(cfg.get("edges").unwrap_or(&Value::Null), DEFAULT_EDGES, 0, 10);
+        self.high_quality = cfg.get("high_quality").and_then(Value::as_bool).unwrap_or(false);
         let picture = cfg.get("picture").and_then(Value::as_str).unwrap_or("").to_string();
         self.load_picture(&picture);
         // once, with the whole of it: the next hook with a host shows it
@@ -647,7 +672,8 @@ impl Plugin for BackgroundPlugin {
     }
 
     fn diagnostics(&self) -> Vec<(String, String)> {
-        vec![("Background".into(), self.mode_name().into())]
+        let quality = if self.high_quality && self.mode != 0 { ", high quality cutout" } else { "" };
+        vec![("Background".into(), format!("{}{quality}", self.mode_name()))]
     }
 }
 

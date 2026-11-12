@@ -45,11 +45,14 @@ pub struct View {
     pub rotation: Option<i32>,
     pub stretch_x: f32,
     pub stretch_y: f32,
+    /// Lens correction, -1 to 1: above 0 straightens the barrel of a wide lens, below 0 the pincushion of a long one. 0 changes nothing.
+    #[serde(default)]
+    pub distortion: f32,
 }
 
 impl Default for View {
     fn default() -> Self {
-        View { zoom: 1.0, pan_x: 0.0, pan_y: 0.0, flip_h: false, flip_v: false, rotation: None, stretch_x: 1.0, stretch_y: 1.0 }
+        View { zoom: 1.0, pan_x: 0.0, pan_y: 0.0, flip_h: false, flip_v: false, rotation: None, stretch_x: 1.0, stretch_y: 1.0, distortion: 0.0 }
     }
 }
 
@@ -65,6 +68,7 @@ pub struct ViewChange {
     pub rotation: Option<Option<i32>>,
     pub stretch_x: Option<f32>,
     pub stretch_y: Option<f32>,
+    pub distortion: Option<f32>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -496,6 +500,18 @@ pub trait HostVision {
     }
     /// The status row's Download button: fetch the vision pack in the background (vision_download_finished says how it went).
     fn download_vision(&mut self) {}
+    /// How the high quality cutout's model is doing: "off" until a frame step asks for it, then "loading", "ready", "missing" (not downloaded) or
+    /// "failed". A host without it says "off".
+    fn matting_state(&self) -> String {
+        crate::vision::OFF.into()
+    }
+    /// Where that model's own download is, for the Background card's note.
+    fn matting_pack(&self) -> crate::vision::VisionPack {
+        crate::vision::VisionPack::default()
+    }
+    /// The note's Download button: fetch the high quality cutout in the background (vision_download_progress and vision_download_finished
+    /// say how it goes, with no plugin to switch on).
+    fn download_matting(&mut self) {}
 }
 
 /// Frames from other streams.

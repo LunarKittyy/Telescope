@@ -127,6 +127,9 @@ fn the_cards_have_what_their_plugins_use() {
     let mut privacy = PrivacyBlurPlugin::new();
     compile(&mut privacy);
     has_what_the_plugin_uses(&mut privacy, &["switch-toggled-by-hand", "mode-picked", "now-clicked", "download-clicked"]);
+    let mut filters = telescope_effects::filters::FiltersPlugin::new();
+    compile(&mut filters);
+    has_what_the_plugin_uses(&mut filters, &["switch-toggled-by-hand", "slider-moved", "download-clicked"]);
     let mut framing = FramingPlugin::new();
     compile(&mut framing);
     has_what_the_plugin_uses(&mut framing, &[

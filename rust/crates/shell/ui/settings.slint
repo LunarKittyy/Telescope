@@ -1,7 +1,7 @@
 // The settings window (widgets/settings_window.py) and its Plugins tab (widgets/plugins_panel.py). The window itself
 // is written at startup by doc.rs, with every plugin's settings sections placed on their tabs.
 
-import { Theme, Icons, Icon, Ghost, FocusRing, Button, IconButton, LinkText, Switch, Segmented, Worm, SearchWords, SettingRow, TextField, Tip, TipBody, ColumnScrollbar, Motion, DialogFrame, DialogButtons, Status, Card, RailRow, SwitchRow, Unfolding, UnfoldGroup } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Ghost, FocusRing, Button, IconButton, LinkText, Switch, Segmented, Worm, SearchWords, SettingRow, TextField, Tip, TipBody, ColumnScrollbar, ProgressBar, Motion, DialogFrame, DialogButtons, Status, Card, RailRow, SwitchRow, Unfolding, UnfoldGroup } from "@ui-kit/ui-kit.slint";
 
 export struct NavTab {
     id: string,
@@ -506,6 +506,69 @@ export component PluginsFooter inherits Rectangle {
             clicked => { root.restart(); }
             tip: @tr("Restart now");
             tip-detail: @tr("Restart Telescope to apply your changes.");
+        }
+    }
+}
+
+// The banner over the restart bar while a pack downloads (the vision pack, and any later one): its name, a bar and the percentage on the
+// right. `percent` is -1 while the size isn't known (the bar stays empty and no number shows). With an `error` it says what went wrong
+// instead, in the error colour. `amount` is how far it has opened, from the window's own Unfold, the same way the restart bar's is.
+export component DownloadBanner inherits Rectangle {
+    in property <string> title;
+    in property <int> percent: -1;
+    in property <string> error;
+    in property <string> detail;
+    in property <float> amount: 1;
+    height: Theme.u(27) * amount;
+    border-radius: Theme.r-card;
+    background: root.error != "" ? Theme.err : Theme.warn;
+    clip: true;
+    accessible-role: AccessibleRole.text;
+    accessible-label: root.error != "" ? root.error : root.title;
+    Tip { says: root.error != "" ? root.error : root.title; detail: root.detail; inert: true; }
+    VerticalLayout {
+        y: 0px;
+        height: Theme.u(27);
+        opacity: clamp(root.amount * 1.4 - 0.2, 0, 1);
+        padding-left: Theme.u(8);
+        padding-right: Theme.u(8);
+        padding-top: Theme.u(5);
+        padding-bottom: Theme.u(5);
+        spacing: Theme.u(3);
+        alignment: center;
+        Text {
+            text: root.error != "" ? root.error : root.title;
+            wrap: word-wrap;
+            line-height-factor: Theme.line-factor(self.font-size);
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: Theme.w-value;
+            color: Theme.stage;
+        }
+        if root.error == "": HorizontalLayout {
+            spacing: Theme.u(6);
+            alignment: stretch;
+            Rectangle {
+                horizontal-stretch: 1;
+                ProgressBar {
+                    y: (parent.height - self.height) / 2;
+                    width: parent.width;
+                    value: max(root.percent, 0) / 100;
+                    track: Theme.stage.with-alpha(0.25);
+                    fill: Theme.stage;
+                }
+            }
+            Text {
+                visible: root.percent >= 0;
+                width: Theme.u(18);
+                text: root.percent + "%";
+                horizontal-alignment: right;
+                vertical-alignment: center;
+                font-family: Theme.font;
+                font-size: Theme.small;
+                font-weight: Theme.w-value;
+                color: Theme.stage;
+            }
         }
     }
 }

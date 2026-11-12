@@ -52,7 +52,8 @@ Copy-Item "$work\build\Release\TelescopeCamera.dll" "$Out\virtualcamera\"
 python tools\fetch_rnnoise.py windows $Out
 if ($LASTEXITCODE) { throw 'fetch_rnnoise failed' }
 # rnnoise.dll needs it and a clean Windows may not have it. Next to the exe it's also found before a Python build's lib-<build>, which would then stay locked
-Copy-Item "$env:SystemRoot\System32\vcruntime140.dll" $Out
+# The matting pack's onnxruntime.dll (loaded from the pack's folder) also imports the three below, and Windows looks next to the exe for them too
+foreach ($dll in 'vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll', 'msvcp140_1.dll') { Copy-Item "$env:SystemRoot\System32\$dll" $Out }
 python tools\write_notices.py windows $env:FFMPEG_DIR "$Out\THIRD_PARTY_NOTICES.txt"
 if ($LASTEXITCODE) { throw 'write_notices failed' }
 Pop-Location

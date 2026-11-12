@@ -270,6 +270,15 @@ pub trait FrameContext {
         }
         Some(Arc::new(crate::image::resize_area(&mask, fw, fh, 1, w, h)))
     }
+    /// The same, from the slower model that cuts hair and edges cleaner (Background's High quality cutout). Without it set up, loaded or in
+    /// time this is person_mask, so a step that asks for it never has less than the normal mask.
+    fn person_mask_hq(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        self.person_mask(frame)
+    }
+    /// person_mask_hq at w x h, as person_mask_at is to person_mask.
+    fn person_mask_hq_at(&self, frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        self.person_mask_at(frame, w, h)
+    }
     /// For a final-stage step: the frame as the preview shows it, with a colour_split drawn in.
     fn colour_preview(&self, frame: &Frame) -> Frame;
 }
@@ -308,6 +317,14 @@ pub trait CpuStep: Send {
     fn card_block_chroma(&self) -> bool {
         false
     }
+    /// What the window's view steps answer with: a number that is the same for as long as the step puts the picture's pixels in the
+    /// same places. A step that keeps pictures of its own downstream (denoising over time) starts again when it changes.
+    fn geometry_key(&self) -> u64 {
+        0
+    }
+    /// Called with the stream's source id before the first frame after the picture's geometry changed: what the step remembers of that
+    /// stream's last pictures no longer lines up with the next one.
+    fn forget_history(&mut self, _source: &str) {}
 }
 
 /// A frame step as a GPU shader, the only kind a Lua or WASM plugin hands over: plain data the host compiles and runs.

@@ -19,6 +19,99 @@ pub fn rotation_name(rotation: Option<i32>) -> &'static str {
     ROTATIONS.iter().find(|(_, r)| *r == rotation).map_or("None", |(n, _)| n)
 }
 
+/// How hard a full Lens correction slider bends the picture: the lens model is r_source = r * (1 - c * r^2) with r in half
+/// diagonals from the centre and c = amount * this.
+pub const LENS_STRENGTH: f64 = 0.3;
+
+/// Lens correction's mapping, shared by the remap step (view_step) and everything that has to find a point through it: the picture the
+/// correction makes (the output) against the picture as the lens drew it (the source), both 0..1 of the whole frame. Only the amount
+/// and the source's width over height matter, not its size in pixels.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Lens {
+    c: f64,
+    scale: f64,
+    aspect: f64,
+}
+
+impl Lens {
+    pub fn new(amount: f64, aspect: f64) -> Lens {
+        let mut lens = Lens { c: amount * LENS_STRENGTH, scale: 1.0, aspect: if aspect > 0.0 { aspect } else { 1.0 } };
+        lens.scale = lens.fitted_scale();
+        lens
+    }
+
+    /// What the output is scaled by (1 = as it is) so that every edge is filled with picture: the largest scale at which the whole
+    /// border of the output still reads from inside the source. Straightening a barrel loses the outer ring and a pincushion
+    /// needs the output to pull in, since it would reach past the corners.
+    pub fn scale(&self) -> f64 {
+        self.scale
+    }
+
+    /// Half the frame's width and height, in units of its height.
+    fn half(&self) -> (f64, f64) {
+        (self.aspect / 2.0, 0.5)
+    }
+
+    fn fitted_scale(&self) -> f64 {
+        let c = self.c;
+        let (hw, hh) = self.half();
+        let r = hw.hypot(hh);
+        let border: Vec<(f64, f64)> = (0..=64).flat_map(|i| {
+            let t = i as f64 / 64.0 * 2.0 - 1.0;
+            [(t * hw, hh), (t * hw, -hh), (hw, t * hh), (-hw, t * hh)]
+        }).collect();
+        let fits = |s: f64| border.iter().all(|&(dx, dy)| {
+            let k = s * (1.0 - c * (s * s) * (dx * dx + dy * dy) / (r * r));
+            (dx * k).abs() <= hw + 1e-6 && (dy * k).abs() <= hh + 1e-6
+        });
+        // Past this a barrel's mapping folds back on itself
+        let top = if c > 0.0 { (1.0 / (3.0 * c)).sqrt() * 0.999 } else { 1.5 }.min(1.5);
+        let (mut good, mut bad) = if fits(1.0) { (1.0, top) } else { (0.2, 1.0) };
+        if good == 1.0 && fits(top) {
+            return top;
+        }
+        for _ in 0..30 {
+            let mid = (good + bad) / 2.0;
+            if fits(mid) { good = mid } else { bad = mid }
+        }
+        good
+    }
+
+    /// Where in the source an output point reads: its offset from the centre, scaled by one factor that depends on how far out it is.
+    pub fn forward(&self, x: f64, y: f64) -> (f64, f64) {
+        let (hw, hh) = self.half();
+        let (dx, dy) = ((x - 0.5) * self.aspect, y - 0.5);
+        let k = self.scale * (1.0 - self.c * self.scale * self.scale * (dx * dx + dy * dy) / (hw * hw + hh * hh));
+        (0.5 + (x - 0.5) * k, 0.5 + (y - 0.5) * k)
+    }
+
+    /// The reverse of forward: where a point of the source (as the lens drew it) lands in the output. The radius is found by bisection
+    /// on the rising part of the curve, so a point the output never reads (past a barrel's fold) lands on the fold's radius.
+    pub fn inverse(&self, x: f64, y: f64) -> (f64, f64) {
+        let (hw, hh) = self.half();
+        let (ex, ey) = ((x - 0.5) * self.aspect, y - 0.5);
+        let want = ex.hypot(ey);
+        if want < 1e-12 {
+            return (x, y);
+        }
+        let big_r2 = hw * hw + hh * hh;
+        // The source radius an output radius r reads from
+        let at = |r: f64| self.scale * r * (1.0 - self.c * self.scale * self.scale * r * r / big_r2);
+        let top = if self.c > 0.0 { (big_r2 / (3.0 * self.c)).sqrt() / self.scale } else { want / self.scale + 1e-9 };
+        let (mut lo, mut hi) = (0.0, top);
+        if at(top) <= want {
+            lo = top;
+        } else {
+            for _ in 0..60 {
+                let mid = (lo + hi) / 2.0;
+                if at(mid) < want { lo = mid } else { hi = mid }
+            }
+        }
+        let k = lo / want;
+        (0.5 + (x - 0.5) * k, 0.5 + (y - 0.5) * k)
+    }
+}
+
 /// A lens is taken only once the window sits this far inside its view (no flip-flopping).
 const LENS_MARGIN: f64 = 1.05;
 
@@ -78,6 +171,8 @@ pub struct Geometry {
     pub rotation: Option<i32>,
     pub stretch_x: f64,
     pub stretch_y: f64,
+    /// Lens correction's slider (View::distortion); inverse_map and raw_to_view map through it.
+    pub distortion: f64,
 }
 
 impl Default for Geometry {
@@ -90,7 +185,7 @@ impl From<&View> for Geometry {
     fn from(v: &View) -> Self {
         Geometry {
             zoom: v.zoom as f64, pan_x: v.pan_x as f64, pan_y: v.pan_y as f64, flip_h: v.flip_h, flip_v: v.flip_v,
-            rotation: v.rotation, stretch_x: v.stretch_x as f64, stretch_y: v.stretch_y as f64,
+            rotation: v.rotation, stretch_x: v.stretch_x as f64, stretch_y: v.stretch_y as f64, distortion: v.distortion as f64,
         }
     }
 }
@@ -140,7 +235,29 @@ pub fn inverse_map(u: f64, v: f64, w: f64, h: f64, g: &Geometry) -> (f64, f64) {
         u = (x0 + u * cw) / w;
         v = (y0 + v * ch) / h;
     }
+    // The crop was of what Lens correction made, so the lens's own reading comes last of all
+    if g.distortion.abs() >= 1e-6 && w > 0.0 && h > 0.0 {
+        (u, v) = Lens::new(g.distortion, w / h).forward(u, v);
+    }
     (clamp(u, 0.0, 1.0), clamp(v, 0.0, 1.0))
+}
+
+/// A point of a frame as the lens drew it (before Lens correction, turned and flipped the way g shows it) to the full view, with
+/// the frame's own width over height (before any turn). Without lens correction in g this is shown_to_view.
+pub fn raw_to_view(u: f64, v: f64, aspect: f64, g: &Geometry) -> (f64, f64) {
+    let (u, v) = unstretch(u, v, g.stretch_x, g.stretch_y);
+    let (mut u, mut v) = unturn(u, v, g.rotation);
+    if g.flip_h {
+        u = 1.0 - u;
+    }
+    if g.flip_v {
+        v = 1.0 - v;
+    }
+    if g.distortion.abs() >= 1e-6 && aspect > 0.0 {
+        (u, v) = Lens::new(g.distortion, aspect).inverse(u, v);
+    }
+    let ((x0, w), (y0, h)) = (window(g.zoom, g.pan_x), window(g.zoom, g.pan_y));
+    (x0 + u * w, y0 + v * h)
 }
 
 /// A point in the picture as shown at zoom 1 and no stretch to where it lands in the frame as shown with g now.
@@ -336,7 +453,7 @@ mod tests {
     #[test]
     fn shown_and_view_are_each_others_reverse() {
         for rotation in [None, Some(90), Some(180), Some(270)] {
-            let g = Geometry { zoom: 2.5, pan_x: 0.3, pan_y: -0.7, flip_h: true, flip_v: false, rotation, stretch_x: 1.2, stretch_y: 0.9 };
+            let g = Geometry { zoom: 2.5, pan_x: 0.3, pan_y: -0.7, flip_h: true, flip_v: false, rotation, stretch_x: 1.2, stretch_y: 0.9, distortion: 0.0 };
             let p = shown_to_view(0.2, 0.8, &g);
             assert!(close(view_to_shown(p.0, p.1, &g), (0.2, 0.8)), "{rotation:?}");
         }
@@ -348,6 +465,103 @@ mod tests {
         // Turning clockwise puts the top left corner at the top right
         assert!(close(view_to_shown(0.0, 0.0, &g), (1.0, 0.0)));
         assert!(close(inverse_map(1.0, 0.0, 100.0, 100.0, &g), (0.0, 0.0)));
+    }
+
+    fn grid() -> Vec<(f64, f64)> {
+        (0..=10).flat_map(|i| (0..=10).map(move |j| (i as f64 / 10.0, j as f64 / 10.0))).collect()
+    }
+
+    #[test]
+    fn the_lens_inverse_undoes_its_forward_reading_everywhere_including_the_corners() {
+        for aspect in [16.0 / 9.0, 4.0 / 3.0, 1.0, 9.0 / 16.0] {
+            for amount in [-1.0, -0.4, -0.05, 0.05, 0.4, 1.0] {
+                let lens = Lens::new(amount, aspect);
+                for (x, y) in grid() {
+                    let (sx, sy) = lens.forward(x, y);
+                    assert!(close(lens.inverse(sx, sy), (x, y)), "{aspect} {amount}: ({x}, {y}) read ({sx}, {sy}) came back {:?}", lens.inverse(sx, sy));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_lens_at_zero_changes_nothing() {
+        let lens = Lens::new(0.0, 16.0 / 9.0);
+        let near = |a: (f64, f64)| (a.0 - 0.9).abs() < 1e-6 && (a.1 - 0.2).abs() < 1e-6;
+        assert!(near(lens.forward(0.9, 0.2)) && near(lens.inverse(0.9, 0.2)));
+        assert!((lens.scale() - 1.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn a_point_picked_on_a_corrected_preview_is_found_where_the_lens_read_it() {
+        let (w, h) = (1920.0, 1080.0);
+        let g = Geometry { distortion: 1.0, ..Default::default() };
+        let (x, y) = inverse_map(0.95, 0.95, w, h, &g);
+        // The review's number: about 0.846, a 229 pixel difference from taking the preview as the phone's frame
+        assert!((x - 0.846).abs() < 0.01 && (y - 0.846).abs() < 0.01, "({x}, {y})");
+        assert!((0.95 - x) * w > 150.0);
+        let lens = Lens::new(1.0, w / h);
+        assert!(close(lens.inverse(x, y), (0.95, 0.95)), "and the lens undoes it");
+        // No correction, no change
+        assert!(close(inverse_map(0.95, 0.95, w, h, &Geometry::default()), (0.95, 0.95)));
+    }
+
+    #[test]
+    fn picks_at_the_corners_survive_the_round_trip_through_every_turn_flip_and_crop() {
+        let (w, h) = (1920.0, 1080.0);
+        for rotation in [None, Some(90), Some(180), Some(270)] {
+            for flip_h in [false, true] {
+                for (zoom, pan) in [(1.0, 0.0), (2.0, 0.6)] {
+                    for amount in [-1.0, -0.4, 0.4, 1.0] {
+                        let g = Geometry { zoom, pan_x: pan, pan_y: -pan, flip_h, rotation, distortion: amount, ..Default::default() };
+                        let flat = Geometry { distortion: 0.0, ..g };
+                        for (u, v) in [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0), (0.5, 0.5), (0.95, 0.95), (0.05, 0.9)] {
+                            // The frame the phone sent, undistorted, is the lens's output; the pick reads the lens's source
+                            let (sx, sy) = inverse_map(u, v, w, h, &g);
+                            let (fx, fy) = Lens::new(amount, w / h).inverse(sx, sy);
+                            let (ux, uy) = inverse_map(u, v, w, h, &flat);
+                            assert!(close((fx, fy), (ux, uy)) || (ux <= 0.0 || ux >= 1.0 || uy <= 0.0 || uy >= 1.0 || sx <= 0.0 || sx >= 1.0 || sy <= 0.0 || sy >= 1.0), "{g:?} ({u}, {v}): {:?} against {:?}", (fx, fy), (ux, uy));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_point_the_model_finds_in_the_lens_drawn_frame_lands_in_the_corrected_picture() {
+        let (w, h) = (1920.0, 1080.0);
+        for rotation in [None, Some(90), Some(270)] {
+            for flip_v in [false, true] {
+                let g = Geometry { flip_v, rotation, distortion: 0.8, ..Default::default() };
+                let flat = Geometry { distortion: 0.0, ..g };
+                for (u, v) in [(0.1, 0.1), (0.9, 0.2), (0.95, 0.95), (0.5, 0.3)] {
+                    // Where the shown point u, v is in the phone's frame, then turned the way the model gets it
+                    let (rx, ry) = inverse_map(u, v, w, h, &g);
+                    let (qx, qy) = view_to_shown(rx, ry, &flat);
+                    let up = crate::vision::Upright { turn: crate::vision::Turn { flip_h: false, flip_v, rotation }, distortion: 0.8, ..Default::default() }.for_frame(1920, 1080);
+                    assert!(close(up.to_shown(qx, qy), (u, v)), "{rotation:?} {flip_v} ({u}, {v}): {:?}", up.to_shown(qx, qy));
+                    // Without the frame's size there is nothing to undo
+                    let blind = crate::vision::Upright { aspect: 0.0, ..up };
+                    assert!(!close(blind.to_shown(qx, qy), (u, v)) || (u - 0.5).abs() + (v - 0.5).abs() < 1e-9);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_phone_crop_is_undone_after_the_lens_in_the_frame_it_sent() {
+        let sent = (2.0, 0.4, -0.3);
+        let (x0, wx) = window(sent.0, sent.1);
+        let (y0, wy) = window(sent.0, sent.2);
+        let lens = Lens::new(0.6, 16.0 / 9.0);
+        for (fx, fy) in [(0.1, 0.1), (0.9, 0.8), (0.5, 0.5)] {
+            // A point of the corrected frame the phone sent, in the lens's source, found by the model there
+            let (rx, ry) = lens.forward(fx, fy);
+            let up = crate::vision::Upright { sent, distortion: 0.6, ..Default::default() }.for_frame(1920, 1080);
+            let (px, py) = up.to_shown(rx, ry);
+            assert!(close((px, py), (x0 + fx * wx, y0 + fy * wy)), "({fx}, {fy}) -> ({px}, {py})");
+        }
     }
 
     #[test]

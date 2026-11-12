@@ -1,4 +1,4 @@
-//! The Transforms plugin (plugins/transforms.py): zoom, pan, flip, rotate and stretch the picture. The card keeps the manual
+//! The Transforms plugin (plugins/transforms.py): zoom, pan, flip, rotate and stretch the picture, and lens correction. The card keeps the manual
 //! view and hands it to the window (host.set_view); the window's view step does the pixels (core::view_step) and shares the zoom
 //! with the phone. What the card knows about the phone's lenses comes from the view_status events and the phone's state.
 
@@ -25,6 +25,8 @@ const ROTATION_SEGMENTS: [(&str, &str); 4] = [("None", "0\u{b0}"), ("90 CW", "90
 const PAN_SNAP: f64 = 0.02;
 /// Width and Height, in percent of the picture's own shape.
 const STRETCH_RANGE: (i32, i32) = (50, 200);
+/// Lens correction, in percent: below 0 straightens a long lens, above 0 a wide one.
+const LENS_RANGE: (i32, i32) = (-100, 100);
 /// How long the phone gets to take a new ratio before the dot says it didn't.
 const LENS_SETTLE_S: f64 = 2.0;
 /// The pan sliders' steps either way.
@@ -32,9 +34,10 @@ const PAN_STEPS: f64 = 200.0;
 const DEFAULT_MAX_ZOOM: i32 = 10;
 const T_SETTLE: &str = "settle";
 
-const RESET_TIP: &str = n_("Set flip, rotation, zoom, pan and stretch back to default.");
+const RESET_TIP: &str = n_("Set flip, rotation, zoom, pan, stretch and lens correction back to default.");
 const PAN_TIP: &str = n_("Drag to move. Double-click to centre.");
 const STRETCH_TIPS: [&str; 2] = [n_("Stretch or squeeze the picture horizontally."), n_("Stretch or squeeze the picture vertically.")];
+const LENS_TIP: &str = n_("Straighten the curved lines of a wide lens (right) or a long lens (left), with the edges cropped or pulled in to stay filled.");
 
 /// A hand-edited or damaged config value becomes the default instead of breaking every frame.
 fn number_of(value: Option<&Value>, default: f64, lo: f64, hi: f64) -> f64 {
@@ -94,6 +97,8 @@ pub struct TransformsPlugin {
     max_zoom_steps: i32,
     pan_steps: [i32; 2],
     stretch_steps: [i32; 2],
+    /// Lens correction in percent (the slider's own value).
+    lens_steps: i32,
     status: ViewStatus,
     /// What moves zoom and pan instead of this card ("" = nobody).
     taken_by: String,
@@ -144,6 +149,7 @@ impl TransformsPlugin {
             max_zoom_steps: DEFAULT_MAX_ZOOM * 100,
             pan_steps: [0, 0],
             stretch_steps: [100, 100],
+            lens_steps: 0,
             status: ViewStatus::default(),
             taken_by: String::new(),
             zoom_where: String::new(),
@@ -175,6 +181,11 @@ impl TransformsPlugin {
         (self.stretch_x, self.stretch_y)
     }
 
+    /// Lens correction, -1 to 1.
+    pub fn distortion(&self) -> f64 {
+        self.lens_steps as f64 / 100.0
+    }
+
     pub fn rotation(&self) -> Option<i32> {
         self.rotation
     }
@@ -185,7 +196,7 @@ impl TransformsPlugin {
 
     fn geometry(&self) -> Geometry {
         Geometry { zoom: self.zoom, pan_x: self.pan_x, pan_y: self.pan_y, flip_h: self.flip_h, flip_v: self.flip_v, rotation: self.rotation,
-                   stretch_x: self.stretch_x, stretch_y: self.stretch_y }
+                   stretch_x: self.stretch_x, stretch_y: self.stretch_y, distortion: self.distortion() }
     }
 
     fn free(&self) -> bool {
@@ -208,6 +219,7 @@ impl TransformsPlugin {
             rotation: Some(self.rotation),
             stretch_x: Some(self.stretch_x as f32),
             stretch_y: Some(self.stretch_y as f32),
+            distortion: Some(self.distortion() as f32),
         }
     }
 
@@ -315,6 +327,10 @@ impl TransformsPlugin {
         })
     }
 
+    fn lens_props(&self) -> Value {
+        json!({"distortion": self.lens_steps, "distortion-text": percent(self.lens_steps as f64, 0, self.lens_steps != 0)})
+    }
+
     fn rotation_index(&self) -> usize {
         ROTATIONS.iter().position(|(_, r)| *r == self.rotation).unwrap_or(0)
     }
@@ -326,12 +342,12 @@ impl TransformsPlugin {
     fn fixed_props() -> Value {
         let add = |action: &str| tr("Add shortcut for {action}…").field("action", tr(action));
         json!({"reset-help": tr(RESET_TIP), "pan-tip": tr(PAN_TIP), "pan-add-x": add("Pan left/right"), "pan-add-y": add("Pan up/down"),
-               "stretch-tips": STRETCH_TIPS.iter().map(|t| tr(t)).collect::<Vec<_>>()})
+               "stretch-tips": STRETCH_TIPS.iter().map(|t| tr(t)).collect::<Vec<_>>(), "distortion-tip": tr(LENS_TIP)})
     }
 
     fn all_props(&self) -> Value {
         let mut all = Map::new();
-        for part in [self.flip_props(), self.zoom_props(), self.pan_props(), self.stretch_props(), json!({"lens-outlines": self.lens_outlines()})] {
+        for part in [self.flip_props(), self.zoom_props(), self.pan_props(), self.stretch_props(), json!({"lens-outlines": self.lens_outlines()}), self.lens_props()] {
             if let Value::Object(m) = part {
                 all.extend(m);
             }
@@ -389,6 +405,12 @@ impl TransformsPlugin {
         self.show(host, &self.stretch_props());
     }
 
+    fn on_lens_changed(&mut self, host: &mut dyn Host) {
+        host.set_view(ViewChange { distortion: Some(self.distortion() as f32), ..Default::default() });
+        host.schedule_save();
+        self.show(host, &self.lens_props());
+    }
+
     /// The pan sliders' values, as the card reads them back (the pad hands it values and the sliders quantise).
     fn on_pan_changed(&mut self, host: &mut dyn Host) {
         self.pan_x = self.pan_steps[0] as f64 / PAN_STEPS;
@@ -441,6 +463,7 @@ impl TransformsPlugin {
         self.stretch_steps = [100, 100];
         self.stretch_x = 1.0;
         self.stretch_y = 1.0;
+        self.lens_steps = 0;
         self.raw_pan = None;
         host.set_view(self.manual_view());
         host.schedule_save();
@@ -632,6 +655,10 @@ impl Plugin for TransformsPlugin {
                 self.stretch_steps[which] = (n(1).round() as i32).clamp(STRETCH_RANGE.0, STRETCH_RANGE.1);
                 self.on_stretch_changed(host);
             }
+            "distortion-moved" => {
+                self.lens_steps = (n(0).round() as i32).clamp(LENS_RANGE.0, LENS_RANGE.1);
+                self.on_lens_changed(host);
+            }
             _ => {}
         }
     }
@@ -645,6 +672,7 @@ impl Plugin for TransformsPlugin {
         let pan_y_label = tr("Pan up/down");
         let width_label = tr("Width");
         let height_label = tr("Height");
+        let lens_label = tr("Lens correction");
         let max = self.max_zoom_steps as f64 / 100.0;
         let slider = |id: &str, label: &str, keywords: &str, min: f64, max: f64, step: f64, decimals: usize, suffix: &str, current: f64| {
             let spec = SliderSpec { id, label, group: &group, keywords, minimum: min, maximum: max, step, decimals, suffix, has_default: true };
@@ -659,6 +687,7 @@ impl Plugin for TransformsPlugin {
             slider("transforms.pan_y", &pan_y_label, &search("framing move"), -100.0, 100.0, 10.0, 0, "%", self.pan_steps[1] as f64 * 0.5),
             slider("transforms.stretch_x", &width_label, &search("stretch squish aspect wide"), 50.0, 200.0, 10.0, 0, "%", self.stretch_steps[0] as f64),
             slider("transforms.stretch_y", &height_label, &search("stretch squish aspect tall"), 50.0, 200.0, 10.0, 0, "%", self.stretch_steps[1] as f64),
+            slider("transforms.distortion", &lens_label, &search("lens distortion barrel pincushion wide fisheye straighten"), LENS_RANGE.0 as f64, LENS_RANGE.1 as f64, 5.0, 0, "%", self.lens_steps as f64),
         ];
         out.push(ActionSpec { id: "transforms.reset".into(), label: tr("Reset transforms"), group, params: Vec::new(), repeats: false, on_release: false, current: None, keywords: String::new() });
         out
@@ -713,6 +742,12 @@ impl Plugin for TransformsPlugin {
                 self.on_stretch_changed(host);
                 let label = if which == 0 { tr("Width") } else { tr("Height") };
                 Some(actions::slider_text(&label, &percent(target as f64, 0, false)))
+            }
+            "transforms.distortion" => {
+                let target = actions::slider_target(params, self.lens_steps as i64, 1.0, LENS_RANGE.0 as i64, LENS_RANGE.1 as i64, Some(0))?;
+                self.lens_steps = target as i32;
+                self.on_lens_changed(host);
+                Some(actions::slider_text(&tr("Lens correction"), &percent(target as f64, 0, target != 0)))
             }
             "transforms.reset" => {
                 self.reset_all(host);
@@ -799,11 +834,12 @@ impl Plugin for TransformsPlugin {
             SettingSpec::number("pan_y", "Moves the zoomed view up (-1) or down (1)", -1.0, 1.0, 3, 0.0),
             SettingSpec::number("stretch_x", "Makes the picture wider or narrower", 0.5, 2.0, 2, 1.0).unit("1 is unchanged"),
             SettingSpec::number("stretch_y", "Makes the picture taller or shorter", 0.5, 2.0, 2, 1.0).unit("1 is unchanged"),
+            SettingSpec::number("distortion", "Straightens the curve of a wide lens (above 0) or a long lens (below 0)", -1.0, 1.0, 2, 0.0).unit("0 is unchanged"),
         ]
     }
 
     fn get_config(&self) -> Value {
-        json!({
+        let mut cfg = json!({
             "flip_h": self.flip_h,
             "flip_v": self.flip_v,
             "rotation": view::rotation_name(self.rotation),
@@ -813,7 +849,12 @@ impl Plugin for TransformsPlugin {
             "pan_y": self.pan_y,
             "stretch_x": self.stretch_steps[0] as f64 / 100.0,
             "stretch_y": self.stretch_steps[1] as f64 / 100.0,
-        })
+        });
+        // Saved only once used, so a config that never touched it stays as older versions wrote it
+        if self.lens_steps != 0 {
+            cfg["distortion"] = json!(self.lens_steps as f64 / 100.0);
+        }
+        cfg
     }
 
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
@@ -852,6 +893,7 @@ impl Plugin for TransformsPlugin {
         }
         self.stretch_x = self.stretch_steps[0] as f64 / 100.0;
         self.stretch_y = self.stretch_steps[1] as f64 / 100.0;
+        self.lens_steps = (number_in(cfg.get("distortion"), 0.0, LENS_RANGE.0 as f64 / 100.0, LENS_RANGE.1 as f64 / 100.0) * 100.0).round_ties_even() as i32;
         self.pending_view = true;
         Ok(())
     }

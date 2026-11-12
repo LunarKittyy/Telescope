@@ -11,6 +11,8 @@ log.workspace = true
 serde_json.workspace = true
 # MediaPipe's own C library from the vision pack, the same one the Python app's MediaPipe calls
 libloading.workspace = true
+# ONNX Runtime, loaded from the matting download when high quality cutout is on
+ort.workspace = true
 # The pack's checksum (vision_pack.tree_hash)
 ring.workspace = true
 zip.workspace = true

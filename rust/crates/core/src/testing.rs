@@ -153,6 +153,9 @@ pub struct FakeHost {
     pub vision_after_want: Option<String>,
     /// What vision_pack() answers.
     pub pack: crate::vision::VisionPack,
+    /// What matting_state() answers instead of "off", and matting_pack() answers.
+    pub matting: Option<String>,
+    pub matting_pack: crate::vision::VisionPack,
     /// What tracked_people() answers for each source id.
     pub tracked: HashMap<String, (Vec<Value>, u32)>,
     /// What packets_problem() answers instead of "".
@@ -589,6 +592,7 @@ impl HostView for FakeHost {
         if let Some(r) = change.rotation { v.rotation = r; }
         if let Some(s) = change.stretch_x { v.stretch_x = s; }
         if let Some(s) = change.stretch_y { v.stretch_y = s; }
+        if let Some(d) = change.distortion { v.distortion = d; }
     }
     fn take_view(&mut self, owner: &str) -> bool {
         self.note(format!("take_view {owner}"));
@@ -632,6 +636,15 @@ impl HostVision for FakeHost {
     }
     fn download_vision(&mut self) {
         self.note("download_vision");
+    }
+    fn matting_state(&self) -> String {
+        self.matting.clone().unwrap_or_else(|| "off".into())
+    }
+    fn matting_pack(&self) -> crate::vision::VisionPack {
+        self.matting_pack.clone()
+    }
+    fn download_matting(&mut self) {
+        self.note("download_matting");
     }
 }
 

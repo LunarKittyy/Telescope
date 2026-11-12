@@ -24,6 +24,8 @@ pub mod cube;
 pub mod cv_draw;
 pub mod desk;
 pub mod face_exposure;
+pub mod filters;
+pub mod filters_cpu;
 pub mod framing;
 pub mod fun_effects;
 mod light_planes;

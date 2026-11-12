@@ -3,12 +3,14 @@
 //! Python crops, flips, turns and then stretches the picture. All of it runs on the CPU, so a card that OBS is encoding on can't hold
 //! up a frame for a zoom: a quarter turn is an exact copy of the planes, a flip is the planes copied in another order, and a zoom
 //! or a stretch is one bilinear resampling of the picture as RGB. The zoom is a fractional crop that repeats the edge, the stretch
-//! leaves black where the picture doesn't reach, both like cv2.warpAffine's linear interpolation does.
+//! leaves black where the picture doesn't reach, both like cv2.warpAffine's linear interpolation does. Lens correction comes first, on the
+//! picture as the lens made it, and is one table-driven bilinear read, also on the CPU.
 
 use crate::frame::{CpuStep, Frame, FrameContext, FrameStep, PixelFormat};
 use crate::host::View;
-use crate::image::{frame_rgb, keep_bytes, resample_linear, rgb_to_420, rint, spare_bytes, with_spares, Tap};
-use crate::view::window;
+use crate::image::{frame_rgb, keep_bytes, over_rows, resample_linear, rgb_to_420, rint, spare_bytes, with_spares, Tap};
+use crate::view::{window, Lens};
+use std::sync::{Arc, Mutex};
 
 /// Quarter turns clockwise in a rotation of degrees (0 for none).
 fn quarters(rotation: Option<i32>) -> u32 {
@@ -89,6 +91,10 @@ impl CpuStep for Turn {
     fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
         *frame = turn_frame(frame, self.quarters);
     }
+
+    fn geometry_key(&self) -> u64 {
+        key(&("turn", self.quarters))
+    }
 }
 
 /// A mirror, a flip or a half turn: the planes copied across in another order, so the picture never has to visit the graphics card.
@@ -151,6 +157,18 @@ impl CpuStep for Flip {
     fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
         flip_frame(frame, self.horizontal, self.vertical);
     }
+
+    fn geometry_key(&self) -> u64 {
+        key(&("flip", self.horizontal, self.vertical))
+    }
+}
+
+/// A number for what a step does to the picture's geometry (CpuStep::geometry_key).
+fn key(parts: &impl std::fmt::Debug) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    format!("{parts:?}").hash(&mut hasher);
+    hasher.finish()
 }
 
 /// One resampling of the picture as given (turned by `done` quarters already): the crop, flips and half turn of the view, or its
@@ -315,17 +333,128 @@ impl Resample {
         for plan in self.plans.iter().flat_map(|(_, plans)| plans) {
             rgb = resample(rgb, w, h, plan);
         }
-        let format = frame.format;
-        // Written whole into a spare buffer that then replaces the pixels, so a panic leaves the frame as it was
-        let mut data = spare_bytes(format.size(frame.width, frame.height));
-        match format {
-            PixelFormat::Rgba => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(o, p)| *o = [p[0], p[1], p[2], 255]),
-            PixelFormat::Bgra => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(o, p)| *o = [p[2], p[1], p[0], 255]),
-            PixelFormat::I420 => rgb_to_420(&rgb, w, h, &mut data, false),
-            PixelFormat::Nv12 => rgb_to_420(&rgb, w, h, &mut data, true),
+        store_rgb(frame, rgb);
+    }
+}
+
+/// `rgb` (the frame's size) written back into the frame in its own format.
+fn store_rgb(frame: &mut Frame, rgb: Vec<u8>) {
+    let (w, h, format) = (frame.width as usize, frame.height as usize, frame.format);
+    // Written whole into a spare buffer that then replaces the pixels, so a panic leaves the frame as it was
+    let mut data = spare_bytes(format.size(frame.width, frame.height));
+    match format {
+        PixelFormat::Rgba => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(o, p)| *o = [p[0], p[1], p[2], 255]),
+        PixelFormat::Bgra => data.as_chunks_mut::<4>().0.iter_mut().zip(rgb.as_chunks::<3>().0).for_each(|(o, p)| *o = [p[2], p[1], p[0], 255]),
+        PixelFormat::I420 => rgb_to_420(&rgb, w, h, &mut data, false),
+        PixelFormat::Nv12 => rgb_to_420(&rgb, w, h, &mut data, true),
+    }
+    frame.replace_data(data);
+    keep_bytes(rgb);
+}
+
+/// One output pixel of the lens correction: the top left of the 2 x 2 source pixels it blends (as a pixel index) and the weights
+/// of the right and lower ones out of 2048.
+#[derive(Clone, Copy)]
+struct Remap {
+    at: u32,
+    right: u16,
+    below: u16,
+}
+
+/// Where each pixel of a w x h picture reads its colour from for a Lens correction of `amount`, as a table.
+fn lens_table(amount: f64, w: usize, h: usize) -> Vec<Remap> {
+    let lens = Lens::new(amount, w as f64 / h as f64);
+    let mut table = vec![Remap { at: 0, right: 0, below: 0 }; w * h];
+    let place = |at: f64, n: usize| -> (usize, u16) {
+        // The last pixel has nothing to its right: it's the right one of the pair before it, in full
+        let at = at.clamp(0.0, n as f64 - 1.0);
+        let i = (at.floor() as usize).min(n - 2);
+        (i, rint((at - i as f64) * 2048.0).clamp(0, 2048) as u16)
+    };
+    over_rows(&mut table, w, |y, row| {
+        for (x, out) in row.iter_mut().enumerate() {
+            // The shared mapping works on 0..1 of the frame, a pixel's centre at (index + 0.5) / size
+            let (sx, sy) = lens.forward((x as f64 + 0.5) / w as f64, (y as f64 + 0.5) / h as f64);
+            let ((ix, fx), (iy, fy)) = (place(sx * w as f64 - 0.5, w), place(sy * h as f64 - 0.5, h));
+            *out = Remap { at: (iy * w + ix) as u32, right: fx, below: fy };
         }
-        frame.replace_data(data);
-        keep_bytes(rgb);
+    });
+    table
+}
+
+type Table = Arc<Vec<Remap>>;
+
+/// The last tables made, as (amount, w, h, table): steps are made again on every refresh of the view (a zoom, Auto framing, another
+/// plugin's change), and the table is the same for as long as the amount and the size are.
+static TABLES: Mutex<Vec<(u64, usize, usize, Table)>> = Mutex::new(Vec::new());
+
+/// How many tables are kept (a second stream of another size).
+const TABLES_KEPT: usize = 2;
+
+fn table_for(amount: f64, w: usize, h: usize) -> Table {
+    let key = amount.to_bits();
+    {
+        let mut kept = TABLES.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(i) = kept.iter().position(|(a, tw, th, _)| (*a, *tw, *th) == (key, w, h)) {
+            let hit = kept.remove(i);
+            let table = hit.3.clone();
+            kept.insert(0, hit);
+            return table;
+        }
+    }
+    // Made without the lock: it takes long, and other streams and the view's steps need the cache meanwhile
+    let table = Arc::new(lens_table(amount, w, h));
+    let mut kept = TABLES.lock().unwrap_or_else(|e| e.into_inner());
+    kept.retain(|(a, tw, th, _)| (*a, *tw, *th) != (key, w, h));
+    kept.insert(0, (key, w, h, table.clone()));
+    kept.truncate(TABLES_KEPT);
+    table
+}
+
+/// Lens correction: the picture bent so that the straight lines a wide (or long) lens curves come out straight, cut or pulled in
+/// to keep the edges filled. One bilinear read per pixel from a table that is made again only when the amount or the size changes.
+struct Undistort {
+    amount: f64,
+    table: Option<(usize, usize, Table)>,
+    spares: Vec<Vec<u8>>,
+}
+
+impl Undistort {
+    fn run(&mut self, frame: &mut Frame) {
+        let (w, h) = (frame.width as usize, frame.height as usize);
+        if w < 2 || h < 2 {
+            return;
+        }
+        if self.table.as_ref().is_none_or(|(tw, th, _)| (*tw, *th) != (w, h)) {
+            self.table = Some((w, h, table_for(self.amount, w, h)));
+        }
+        let Some(mut rgb) = frame_rgb(frame) else { return };
+        let Some((_, _, table)) = &self.table else { return };
+        let mut out = spare_bytes(w * h * 3);
+        over_rows(&mut out, w * 3, |y, line| {
+            for (px, m) in line.as_chunks_mut::<3>().0.iter_mut().zip(&table[y * w..(y + 1) * w]) {
+                let (a, wx, wy) = (m.at as usize * 3, m.right as u32, m.below as u32);
+                for (ch, o) in px.iter_mut().enumerate() {
+                    let top = rgb[a + ch] as u32 * (2048 - wx) + rgb[a + 3 + ch] as u32 * wx;
+                    let bottom = rgb[a + w * 3 + ch] as u32 * (2048 - wx) + rgb[a + w * 3 + 3 + ch] as u32 * wx;
+                    *o = ((top as u64 * (2048 - wy) as u64 + bottom as u64 * wy as u64 + (1 << 21)) >> 22) as u8;
+                }
+            }
+        });
+        keep_bytes(std::mem::take(&mut rgb));
+        store_rgb(frame, out);
+    }
+}
+
+impl CpuStep for Undistort {
+    fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+        let mut spares = std::mem::take(&mut self.spares);
+        with_spares(&mut spares, || self.run(frame));
+        self.spares = spares;
+    }
+
+    fn geometry_key(&self) -> u64 {
+        key(&("lens", self.amount.to_bits()))
     }
 }
 
@@ -335,11 +464,20 @@ impl CpuStep for Resample {
         with_spares(&mut spares, || self.run(frame));
         self.spares = spares;
     }
+
+    fn geometry_key(&self) -> u64 {
+        key(&("resample", &self.passes))
+    }
 }
 
 /// Whether the crop, flips or a half turn of the view change the picture.
 fn crop_needed(view: &View) -> bool {
     view.zoom > 1.0 || view.flip_h || view.flip_v || quarters(view.rotation) == 2
+}
+
+/// Whether Lens correction does anything (an amount of 0 adds no step, so the frame goes through exactly as it came).
+fn lens_needed(view: &View) -> bool {
+    view.distortion.abs() >= 1e-6
 }
 
 fn stretch_needed(view: &View) -> bool {
@@ -364,6 +502,13 @@ fn passes(view: &View, done: u32) -> Vec<Pass> {
 pub fn steps(view: &View) -> Vec<FrameStep> {
     let q = quarters(view.rotation);
     let mut out: Vec<FrameStep> = Vec::new();
+    // Before any turn, flip or crop: the lens bent the picture as the phone sent it
+    if !lens_needed(view) {
+        // Nothing keeps a table for a lens that's off
+        TABLES.lock().unwrap_or_else(|e| e.into_inner()).clear();
+    } else {
+        out.push(FrameStep::Cpu(Box::new(Undistort { amount: view.distortion as f64, table: None, spares: Vec::new() })));
+    }
     // Turned first, the rest of the work is the same as for any other view, on the turned picture
     let done = if q == 1 || q == 3 { q } else { 0 };
     if done != 0 {
@@ -385,6 +530,7 @@ pub fn steps(view: &View) -> Vec<FrameStep> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::view::LENS_STRENGTH;
 
     fn rgba(w: u32, h: u32) -> Frame {
         Frame::new(w, h, PixelFormat::Rgba, (0..w * h).flat_map(|i| [i as u8, 0, 0, 255]).collect())
@@ -718,6 +864,207 @@ mod tests {
     }
 
     #[test]
+    fn lens_correction_at_zero_adds_no_step_and_leaves_the_frame_alone() {
+        assert!(steps(&View { distortion: 0.0, ..View::default() }).is_empty());
+        let f = ramp(8, 6);
+        assert_eq!(through(&View { distortion: 0.0, ..View::default() }, f.clone()).data, f.data);
+    }
+
+    #[test]
+    fn lens_correction_is_a_cpu_step_that_runs_before_the_flip_and_the_zoom() {
+        for view in [View { distortion: 0.5, ..View::default() }, View { distortion: -0.5, flip_h: true, ..View::default() }, View { distortion: 0.3, zoom: 2.0, ..View::default() }] {
+            let s = steps(&view);
+            assert!(s.iter().all(|step| matches!(step, FrameStep::Cpu(_))), "{view:?}");
+        }
+        assert_eq!(steps(&View { distortion: 0.5, ..View::default() }).len(), 1);
+        assert_eq!(steps(&View { distortion: 0.5, flip_h: true, ..View::default() }).len(), 2, "the correction, then the plain flip");
+        // Corrected first and mirrored after: the same as doing the two in turn
+        let (w, h) = (64u32, 48u32);
+        let f = Frame::new(w, h, PixelFormat::Rgba, (0..w * h).flat_map(|i| [(i * 7 % 251) as u8, (i * 13 % 241) as u8, (i % 61 * 4) as u8, 255]).collect());
+        let both = through(&View { distortion: 0.6, flip_h: true, zoom: 1.5, ..View::default() }, f.clone());
+        let apart = through(&View { flip_h: true, zoom: 1.5, ..View::default() }, through(&View { distortion: 0.6, ..View::default() }, f));
+        assert_eq!(both.data, apart.data);
+    }
+
+    #[test]
+    fn the_geometry_keys_say_when_the_pictures_pixels_moved() {
+        let keys = |view: &View| -> Vec<u64> {
+            steps(view).into_iter().map(|s| match s { FrameStep::Cpu(c) => c.geometry_key(), _ => panic!("a CPU step") }).collect()
+        };
+        let still = View { flip_h: true, zoom: 1.5, distortion: 0.3, ..View::default() };
+        assert_eq!(keys(&still), keys(&still.clone()), "made again, the same");
+        for moved in [View { flip_h: false, ..still.clone() }, View { zoom: 1.6, ..still.clone() }, View { pan_x: 0.2, ..still.clone() },
+                      View { distortion: 0.31, ..still.clone() }, View { rotation: Some(90), ..still.clone() }, View { stretch_x: 1.1, ..still.clone() }] {
+            assert_ne!(keys(&still), keys(&moved), "{moved:?}");
+        }
+    }
+
+    #[test]
+    fn a_refresh_of_the_view_keeps_the_lens_table_while_the_amount_and_size_stay() {
+        // Other tests turn lens correction off, which empties the shared slots: a few tries
+        let kept = (0..50).any(|_| {
+            let (a, b) = (table_for(0.123, 96, 54), table_for(0.123, 96, 54));
+            Arc::ptr_eq(&a, &b)
+        });
+        assert!(kept, "the same amount and size should reuse the table");
+        let other = (0..50).any(|_| !Arc::ptr_eq(&table_for(0.123, 96, 54), &table_for(0.124, 96, 54)));
+        assert!(other, "another amount is another table");
+        // Two refreshes make two steps, and the second finds the first's table
+        let mut frame = rgba(96, 54);
+        let (mut one, mut two) = (Undistort { amount: 0.5, table: None, spares: Vec::new() }, Undistort { amount: 0.5, table: None, spares: Vec::new() });
+        one.process(&mut frame, &NoCtx);
+        two.process(&mut frame, &NoCtx);
+        let shared = (0..50).any(|_| {
+            one.table = None;
+            two.table = None;
+            one.process(&mut frame, &NoCtx);
+            two.process(&mut frame, &NoCtx);
+            matches!((&one.table, &two.table), (Some((_, _, a)), Some((_, _, b))) if Arc::ptr_eq(a, b))
+        });
+        assert!(shared);
+    }
+
+    #[test]
+    fn lens_correction_keeps_the_edges_filled_and_the_crop_tight() {
+        for (w, h) in [(1280usize, 720usize), (640, 480), (360, 640)] {
+            for amount in [1.0, 0.4, 0.05, -0.05, -0.4, -1.0] {
+                let lens = Lens::new(amount, w as f64 / h as f64);
+                let s = lens.scale();
+                let (mut reach_x, mut reach_y) = (0.0f64, 0.0f64);
+                for y in (0..h).step_by(7).chain([h - 1]) {
+                    for x in (0..w).step_by(7).chain([w - 1]) {
+                        let (nx, ny) = lens.forward((x as f64 + 0.5) / w as f64, (y as f64 + 0.5) / h as f64);
+                        let (sx, sy) = (nx * w as f64 - 0.5, ny * h as f64 - 0.5);
+                        assert!(sx >= -0.5 - 1e-6 && sx <= w as f64 - 0.5 + 1e-6 && sy >= -0.5 - 1e-6 && sy <= h as f64 - 0.5 + 1e-6, "{w}x{h} {amount}: ({x}, {y}) reads ({sx}, {sy})");
+                        reach_x = reach_x.max((sx - (w as f64 - 1.0) / 2.0).abs());
+                        reach_y = reach_y.max((sy - (h as f64 - 1.0) / 2.0).abs());
+                    }
+                }
+                // Tight: some edge of the output reads right up to the edge of the source
+                // (a full barrel setting stops at the scale where the mapping would fold back, short of the edge)
+                assert!(amount > 0.5 || reach_x >= w as f64 / 2.0 - 2.0 || reach_y >= h as f64 / 2.0 - 2.0, "{w}x{h} {amount}: crop is wasteful ({reach_x}, {reach_y}) at scale {s}");
+            }
+            let scale = |amount: f64| Lens::new(amount, w as f64 / h as f64).scale();
+            assert!(scale(-0.5) < 1.0 && scale(0.5) > 1.0 && (scale(1e-9) - 1.0).abs() < 1e-3);
+        }
+    }
+
+    /// A grid of straight lines 100 pixels apart in the scene, photographed through a barrel lens of `amount`: each picture pixel is
+    /// the scene point the lens model bends it to.
+    fn barrel_grid(w: usize, h: usize, amount: f64) -> Frame {
+        let c = amount * LENS_STRENGTH;
+        let (hw, hh) = (w as f64 / 2.0, h as f64 / 2.0);
+        let r = hw.hypot(hh);
+        let mut data = Vec::with_capacity(w * h * 4);
+        for y in 0..h {
+            for x in 0..w {
+                let (dx, dy) = (x as f64 + 0.5 - hw, y as f64 + 0.5 - hh);
+                let rd = dx.hypot(dy) / r;
+                // the scene radius the picture's rd shows: r_u * (1 - c r_u^2) = rd, on the rising side of the curve
+                let (mut lo, mut hi) = (0.0, if c > 0.0 { 1.0 / (3.0 * c).sqrt() } else { 2.0 });
+                for _ in 0..40 {
+                    let mid = (lo + hi) / 2.0;
+                    if mid * (1.0 - c * mid * mid) < rd { lo = mid } else { hi = mid }
+                }
+                let k = if rd > 0.0 { lo / rd } else { 1.0 };
+                let (sx, sy) = (dx * k, dy * k);
+                let line = |v: f64| (v - 100.0 * (v / 100.0).round()).abs();
+                let d = line(sx).min(line(sy));
+                let v = (255.0 * (1.0 - (1.6 - d).clamp(0.0, 1.0))) as u8;
+                data.extend([v, v, v, 255]);
+            }
+        }
+        Frame::new(w as u32, h as u32, PixelFormat::Rgba, data)
+    }
+
+    /// Where the dark line near `at` along a row (or a column) sits, by its weighted centre.
+    fn line_at(f: &Frame, row: bool, index: usize, at: f64) -> f64 {
+        let (w, h) = (f.width as usize, f.height as usize);
+        let (mut sum, mut weighted) = (0.0, 0.0);
+        for i in (at as i64 - 14).max(0) as usize..((at as i64 + 15) as usize).min(if row { w } else { h }) {
+            let g = f.data[(if row { index * w + i } else { i * w + index }) * 4];
+            let dark = 255.0 - g as f64;
+            sum += dark;
+            weighted += dark * (i as f64 + 0.5);
+        }
+        weighted / sum.max(1e-9)
+    }
+
+    /// How far the same grid line wanders between the rows (or columns) given, in pixels.
+    fn wander(f: &Frame, amount: f64, vertical_line: bool) -> f64 {
+        let (w, h) = (f.width as usize, f.height as usize);
+        let s = Lens::new(amount, w as f64 / h as f64).scale();
+        // A line near the edge, where the bend is greatest: x = -500 (or y = -200) of the scene
+        let (scene, along): (f64, Vec<usize>) = if vertical_line { (-500.0, vec![80, 200, 360, 520, 640]) } else { (-200.0, vec![120, 400, 640, 900, 1160]) };
+        let expected = if vertical_line { w as f64 / 2.0 } else { h as f64 / 2.0 } + scene / s;
+        let found: Vec<f64> = along.iter().map(|&i| line_at(f, vertical_line, i, expected)).collect();
+        found.iter().cloned().fold(f64::MIN, f64::max) - found.iter().cloned().fold(f64::MAX, f64::min)
+    }
+
+    #[test]
+    fn a_barrel_distorted_grid_comes_out_straight_with_the_matching_setting() {
+        let (w, h) = (1280usize, 720usize);
+        for amount in [0.4, 0.15] {
+            let photo = barrel_grid(w, h, amount);
+            let fixed = through(&View { distortion: amount as f32, ..View::default() }, photo.clone());
+            let half = through(&View { distortion: amount as f32 / 2.0, ..View::default() }, photo);
+            for vertical in [true, false] {
+                let (straight, bent) = (wander(&fixed, amount, vertical), wander(&half, amount, vertical));
+                assert!(straight < 0.7, "{amount} vertical {vertical}: the line still wanders {straight} pixels");
+                if amount > 0.3 {
+                    assert!(bent > 2.0 * straight.max(0.3), "{amount} vertical {vertical}: half the setting should leave it bent, {bent} against {straight}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_wrong_way_round_makes_the_bend_worse() {
+        let photo = barrel_grid(1280, 720, 0.4);
+        let wrong = through(&View { distortion: -0.4, ..View::default() }, photo);
+        assert!(wander(&wrong, 0.4, true) > 3.0 || wander(&wrong, 0.4, false) > 3.0);
+    }
+
+    #[test]
+    fn lens_correction_works_on_yuv_pictures_and_keeps_their_format() {
+        for format in [PixelFormat::I420, PixelFormat::Nv12] {
+            let (w, h) = (64u32, 48u32);
+            let c = (w * h / 4) as usize;
+            let chroma = if format == PixelFormat::I420 { [vec![100; c], vec![160; c]].concat() } else { [100u8, 160].repeat(c) };
+            let f = Frame::new(w, h, format, [vec![180; (w * h) as usize], chroma].concat());
+            for distortion in [0.7, -0.7] {
+                let out = through(&View { distortion, ..View::default() }, f.clone());
+                assert_eq!((out.width, out.height, out.format, out.data.len()), (w, h, format, f.data.len()));
+                let diff = out.data.iter().zip(f.data.iter()).map(|(&a, &b)| a.abs_diff(b)).max().unwrap();
+                assert!(diff <= 3, "{format:?} {distortion} drifted by {diff}");
+            }
+        }
+    }
+
+    /// Run by hand for the cost of a 1080p frame: cargo test --release -p telescope-core lens_cost -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn lens_cost() {
+        for format in [PixelFormat::I420, PixelFormat::Rgba] {
+            let data = (0..format.size(1920, 1080)).map(|i| (i * 31 % 251) as u8).collect();
+            let mut f = Frame::new(1920, 1080, format, data);
+            let t = std::time::Instant::now();
+            let mut chain = steps(&View { distortion: 0.5, ..View::default() });
+            let FrameStep::Cpu(step) = &mut chain[0] else { panic!("cpu") };
+            step.process(&mut f, &NoCtx);
+            println!("lens correction {format:?}: {:.2} ms for the first frame (table built)", t.elapsed().as_secs_f64() * 1000.0);
+            for _ in 0..5 {
+                step.process(&mut f, &NoCtx);
+            }
+            let t = std::time::Instant::now();
+            for _ in 0..60 {
+                step.process(&mut f, &NoCtx);
+            }
+            println!("lens correction {format:?}: {:.2} ms a frame", t.elapsed().as_secs_f64() * 1000.0 / 60.0);
+        }
+    }
+
+    #[test]
     fn quarter_turns_match_opencv() {
         // 3 wide, 2 tall: [[0, 1, 2], [3, 4, 5]]; cv2.ROTATE_90_CLOCKWISE gives [[3, 0], [4, 1], [5, 2]]
         let f = rgba(3, 2);
@@ -765,5 +1112,25 @@ mod tests {
         let mut f = ramp(4, 4);
         cpu.process(&mut f, &NoCtx);
         near(&channel(&f, 0)[..4], &[90, 70, 50, 30]);
+    }
+
+    #[test]
+    fn building_one_lens_table_does_not_hold_up_everything_else_that_wants_the_cache() {
+        let builder = std::thread::spawn(|| {
+            let began = std::time::Instant::now();
+            table_for(0.37, 4096, 3072);
+            began.elapsed()
+        });
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        let began = std::time::Instant::now();
+        // what the shell does on every refresh of the view with the lens off
+        steps(&View::default());
+        let waited = began.elapsed();
+        let build = builder.join().unwrap();
+        // A machine that builds it this fast can't show the wait either way
+        if build < std::time::Duration::from_millis(100) {
+            return;
+        }
+        assert!(waited < build / 3, "steps() waited {waited:?} of a {build:?} build");
     }
 }
