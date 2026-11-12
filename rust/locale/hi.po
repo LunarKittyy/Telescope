@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">दान करें या अधिक पढ़�
 msgid "No mic"
 msgstr "माइक नहीं है"
 
-#: rust/crates/audio/src/plugin.rs:111 rust/crates/core/src/vision.rs:103 rust/crates/shell/src/plugins_tab.rs:465 rust/crates/system/src/updates_plugin.rs:456
+#: rust/crates/audio/src/plugin.rs:111 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:474 rust/crates/system/src/updates_plugin.rs:456
 msgid "Downloading…"
 msgstr "डाउनलोड हो रहा है…"
 
@@ -520,43 +520,56 @@ msgstr "स्ट्रीमिंग और डिवाइस"
 msgid "Extras"
 msgstr "अतिरिक्त"
 
-#: rust/crates/core/src/vision.rs:101 rust/crates/shell/src/plugins_tab.rs:465
+#: rust/crates/core/src/vision.rs:114 rust/crates/core/src/vision.rs:143 rust/crates/shell/src/plugins_tab.rs:474
 #, python-brace-format
 msgid "Downloading… {percent}%"
 msgstr "डाउनलोड हो रहा है… {percent}%"
 
-#: rust/crates/core/src/vision.rs:107
+#: rust/crates/core/src/vision.rs:120
 #, python-brace-format
 msgid "Cleaner edges with a one-time download (about {mb} MB)."
 msgstr "एक बार के डाउनलोड (लगभग {mb} MB) के साथ साफ़ किनारे."
 
-#: rust/crates/core/src/vision.rs:109
+#: rust/crates/core/src/vision.rs:122
 #, python-brace-format
 msgid "Needs a one-time download (about {mb} MB)."
 msgstr "एक बार के डाउनलोड (लगभग {mb} MB) की ज़रूरत है."
 
-#: rust/crates/core/src/vision.rs:113
+#: rust/crates/core/src/vision.rs:126
 msgid "MediaPipe didn't load on this computer. Copy diagnostics has the details."
 msgstr "इस कंप्यूटर पर MediaPipe लोड नहीं हुआ. विवरण 'डायग्नोस्टिक्स कॉपी करें' में है."
 
-#: rust/crates/core/src/vision.rs:115
+#: rust/crates/core/src/vision.rs:128
 msgid "Getting ready…"
 msgstr "तैयार हो रहा है…"
+
+#: rust/crates/core/src/vision.rs:150
+msgid "The high quality cutout didn't load on this computer, so the normal one is used."
+msgstr ""
+
+#: rust/crates/core/src/vision.rs:153
+msgid "There's no high quality cutout for this computer yet, so the normal one is used."
+msgstr ""
+
+#: rust/crates/core/src/vision.rs:158
+#, python-brace-format
+msgid "Needs a one-time download (about {mb} MB). Until then the normal cutout is used."
+msgstr ""
 
 #: rust/crates/effects/src/auto_grade.rs:19
 msgid "Looking…"
 msgstr "देख रहा है…"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:27 rust/crates/effects/src/framing.rs:72 rust/crates/effects/src/fun_pack.rs:38 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:459 rust/crates/effects/ui/background.slint:46 rust/crates/effects/ui/background.slint:51 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:287 rust/crates/link/src/browser/plugin.rs:585 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:78
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:27 rust/crates/effects/src/framing.rs:72 rust/crates/effects/src/fun_pack.rs:38 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:459 rust/crates/effects/ui/background.slint:52 rust/crates/effects/ui/background.slint:57 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:287 rust/crates/link/src/browser/plugin.rs:585 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:78
 msgid "Off"
 msgstr "बंद"
 
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/ui/background.slint:46 rust/crates/effects/ui/background.slint:51 rust/crates/effects/ui/background.slint:64 rust/crates/effects/ui/background.slint:65
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/ui/background.slint:52 rust/crates/effects/ui/background.slint:57 rust/crates/effects/ui/background.slint:70 rust/crates/effects/ui/background.slint:71
 msgid "Blur"
 msgstr "ब्लर"
 
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/background.slint:46 rust/crates/effects/ui/background.slint:51 rust/crates/effects/ui/background.slint:84 rust/crates/effects/ui/chroma_key.slint:130 rust/crates/effects/ui/chroma_key.slint:135 rust/crates/effects/ui/chroma_key.slint:174 rust/crates/effects/ui/composite_editor.slint:323 rust/crates/effects/ui/composite_editor.slint:547 rust/crates/effects/ui/composite_editor.slint:549 rust/crates/effects/ui/composite_editor.slint:549
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/background.slint:52 rust/crates/effects/ui/background.slint:57 rust/crates/effects/ui/background.slint:90 rust/crates/effects/ui/chroma_key.slint:130 rust/crates/effects/ui/chroma_key.slint:135 rust/crates/effects/ui/chroma_key.slint:174 rust/crates/effects/ui/composite_editor.slint:323 rust/crates/effects/ui/composite_editor.slint:547 rust/crates/effects/ui/composite_editor.slint:549 rust/crates/effects/ui/composite_editor.slint:549
 msgid "Picture"
 msgstr "तस्वीर"
 
@@ -564,35 +577,39 @@ msgstr "तस्वीर"
 msgid "Pictures (*.png *.jpg *.jpeg *.webp *.bmp)"
 msgstr "तस्वीरें (*.png *.jpg *.jpeg *.webp *.bmp)"
 
-#: rust/crates/effects/src/background.rs:402 rust/crates/effects/src/chroma_key.rs:41 rust/crates/effects/src/fun_pack.rs:71
+#: rust/crates/effects/src/background.rs:36
+msgid "Cut out your hair and edges more cleanly, for about 40% of a CPU core."
+msgstr ""
+
+#: rust/crates/effects/src/background.rs:409 rust/crates/effects/src/chroma_key.rs:41 rust/crates/effects/src/fun_pack.rs:71
 msgid "How soft the edge around you is."
 msgstr "आपके आस-पास का किनारा कितना मुलायम है."
 
-#: rust/crates/effects/src/background.rs:403 rust/crates/effects/src/chroma_key.rs:285
+#: rust/crates/effects/src/background.rs:410 rust/crates/effects/src/chroma_key.rs:285
 msgid "Pick the picture that goes behind you."
 msgstr "अपने पीछे लगाने के लिए तस्वीर चुनें."
 
-#: rust/crates/effects/src/background.rs:466 rust/crates/effects/src/chroma_key.rs:433
+#: rust/crates/effects/src/background.rs:478 rust/crates/effects/src/chroma_key.rs:433
 msgid "Choose a picture"
 msgstr "तस्वीर चुनें"
 
-#: rust/crates/effects/src/background.rs:476 rust/crates/effects/src/chroma_key.rs:451 rust/crates/effects/src/chroma_key.rs:490 rust/crates/effects/src/chroma_key.rs:509
+#: rust/crates/effects/src/background.rs:488 rust/crates/effects/src/chroma_key.rs:451 rust/crates/effects/src/chroma_key.rs:490 rust/crates/effects/src/chroma_key.rs:509
 msgid "Can't open that picture"
 msgstr "वह तस्वीर नहीं खुल सकी"
 
-#: rust/crates/effects/src/background.rs:484 rust/crates/effects/src/background.rs:578 rust/crates/effects/src/background.rs:581 rust/crates/effects/src/background.rs:599 rust/crates/effects/ui/background.slint:31 rust/crates/effects/ui/background.slint:39 rust/crates/effects/ui/background.slint:50 rust/crates/effects/ui/composite_editor.slint:517
+#: rust/crates/effects/src/background.rs:496 rust/crates/effects/src/background.rs:598 rust/crates/effects/src/background.rs:601 rust/crates/effects/src/background.rs:619 rust/crates/effects/ui/background.slint:37 rust/crates/effects/ui/background.slint:45 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/composite_editor.slint:517
 msgid "Background"
 msgstr "बैकग्राउंड"
 
-#: rust/crates/effects/src/background.rs:485
+#: rust/crates/effects/src/background.rs:497
 msgid "Blurs the background behind you or swaps it for a picture."
 msgstr "आपके पीछे के बैकग्राउंड को ब्लर करता है या इसे किसी तस्वीर से बदलता है."
 
-#: rust/crates/effects/src/background.rs:486
+#: rust/crates/effects/src/background.rs:498
 msgid "Without it there's no Background card and the background stays as the camera sees it."
 msgstr "इसके बिना कोई बैकग्राउंड कार्ड नहीं होगा और बैकग्राउंड वैसा ही रहेगा जैसा कैमरा देखता है."
 
-#: rust/crates/effects/src/background.rs:580 rust/crates/effects/src/background.rs:606
+#: rust/crates/effects/src/background.rs:600 rust/crates/effects/src/background.rs:626
 msgid "Background blur"
 msgstr "बैकग्राउंड ब्लर"
 
@@ -644,7 +661,7 @@ msgstr "प्रीव्यू से चुना गया रंग. दो
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "प्रीव्यू में अपने पीछे की स्क्रीन पर क्लिक करें. Esc दबाकर रद्द करें."
 
-#: rust/crates/effects/src/chroma_key.rs:377 rust/crates/effects/src/chroma_key.rs:413 rust/crates/effects/src/desk.rs:287 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:688 rust/crates/shell/src/streams.rs:1745 rust/crates/shell/src/window.rs:1694 rust/crates/shell/src/worker.rs:542 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:377 rust/crates/effects/src/chroma_key.rs:413 rust/crates/effects/src/desk.rs:287 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:688 rust/crates/shell/src/streams.rs:1745 rust/crates/shell/src/window.rs:1694 rust/crates/shell/src/worker.rs:548 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "स्ट्रीम नहीं हो रहा है"
 
@@ -1121,7 +1138,7 @@ msgstr "स्ट्रेच"
 msgid "Crop"
 msgstr "क्रॉप"
 
-#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:232 rust/crates/effects/ui/transforms.slint:242 rust/crates/effects/ui/transforms.slint:244 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:236 rust/crates/effects/ui/transforms.slint:246 rust/crates/effects/ui/transforms.slint:248 rust/crates/outputs/src/webcam.rs:56
 msgid "Pan"
 msgstr "पैन"
 
@@ -1363,7 +1380,7 @@ msgstr "डेस्क मोड"
 msgid "Done"
 msgstr "हो गया"
 
-#: rust/crates/effects/src/desk.rs:215 rust/crates/effects/ui/transforms.slint:109 rust/crates/outputs/ui/webcam.slint:64
+#: rust/crates/effects/src/desk.rs:215 rust/crates/effects/ui/transforms.slint:113 rust/crates/outputs/ui/webcam.slint:64
 msgid "Reset"
 msgstr "रीसेट करें"
 
@@ -1430,6 +1447,162 @@ msgstr "फ़ोन के मीटरिंग पॉइंट को आप�
 #: rust/crates/effects/src/face_exposure.rs:292
 msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
 msgstr "इसके बिना 'मेरे चेहरे के लिए एक्सपोज़र' कार्ड नहीं होगा और फ़ोन आपके टैप किए गए पॉइंट या पूरी तस्वीर के हिसाब से मीटरिंग करेगा."
+
+#: rust/crates/effects/src/filters.rs:69
+msgid "Denoise"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:69
+msgid "Smooth the noise in each frame while keeping the edges."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:69 rust/crates/effects/ui/fun_pack.slint:100 rust/crates/effects/ui/fun_pack.slint:101
+msgid "Clean up"
+msgstr "साफ़ करें"
+
+#: rust/crates/effects/src/filters.rs:70
+msgid "Over time"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:70
+msgid "Average the parts that hold still with the frames before them to clean up a dim room, without ghosting on anything that moves."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:71
+msgid "Dehaze"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:71
+msgid "Lift the washed-out look of a dirty lens, a window behind you or a cheap camera."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:72
+msgid "Skin smoothing"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:72
+msgid "Soften skin inside the person mask while eyes, brows, hair and edges stay sharp."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:73
+msgid "Sharpen"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:73
+msgid "Make edges crisper without a white outline."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:73
+msgid "Detail"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:74
+msgid "Radius"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:74
+msgid "Set how wide the detail Sharpen picks up is."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:75
+msgid "Threshold"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:75
+msgid "Leave detail smaller than this alone, which keeps skin and walls smooth."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:76
+msgid "Clarity"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:76
+msgid "Add contrast to the mid-sized detail so a flat picture looks less flat, or go below 0 to soften it."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:77
+msgid "Vignette"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:77
+msgid "Darken the corners, or lighten them below 0."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:77
+msgid "Finish"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:78 rust/crates/effects/ui/name_tag.slint:167 rust/crates/effects/ui/name_tag.slint:171
+msgid "Size"
+msgstr "साइज़"
+
+#: rust/crates/effects/src/filters.rs:78
+msgid "Set how much of the picture stays clear of the vignette."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:79
+msgid "Roundness"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:79
+msgid "Shape the vignette from the frame's own shape to a circle."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:80
+msgid "Glow"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:80
+msgid "Add a soft bloom around the bright parts, like an old lens or a diffusion filter."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:81 rust/crates/effects/ui/fun_pack.slint:173
+msgid "Spread"
+msgstr "स्प्रेड"
+
+#: rust/crates/effects/src/filters.rs:81
+msgid "Set how far the glow reaches."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:82
+msgid "Film grain"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:82
+msgid "Add grain that moves every frame and is strongest in the mid-tones, like film."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:83
+msgid "Grain size"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:83
+msgid "Set how coarse the film grain is."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:87
+msgid "Also on the phone"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:88
+msgid "The Camera card has the phone's own Sharpening and Noise reduction. Using both looks worse."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:363 rust/crates/effects/src/filters.rs:456 rust/crates/effects/src/filters.rs:518 rust/crates/effects/src/filters.rs:518 rust/crates/effects/src/filters.rs:531 rust/crates/effects/ui/filters.slint:36
+msgid "Filters"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:364
+msgid "Turn every filter off to see the picture without them."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:457
+msgid "Sharpen, clarity, dehaze, denoise, skin smoothing, vignette, glow and film grain, like the filters of a photo editor."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:458
+msgid "Without it there's no Filters card and the picture isn't sharpened, cleaned up or finished."
+msgstr ""
 
 #: rust/crates/effects/src/framing.rs:20 rust/crates/effects/ui/framing.slint:43
 msgid "Auto framing"
@@ -2510,151 +2683,163 @@ msgstr "इसके बिना QR कोड कार्ड नहीं द�
 msgid "Read QR codes"
 msgstr "QR कोड पढ़ें"
 
-#: rust/crates/effects/src/transforms.rs:35
-msgid "Set flip, rotation, zoom, pan and stretch back to default."
-msgstr "पलटना, घुमाव, ज़ूम, पैन और खिंचाव को वापस डिफ़ॉल्ट पर सेट करें."
+#: rust/crates/effects/src/transforms.rs:37
+msgid "Set flip, rotation, zoom, pan, stretch and lens correction back to default."
+msgstr ""
 
-#: rust/crates/effects/src/transforms.rs:36
+#: rust/crates/effects/src/transforms.rs:38
 msgid "Drag to move. Double-click to centre."
 msgstr "खिसकाने के लिए खींचें. बीच में लाने के लिए डबल-क्लिक करें."
 
-#: rust/crates/effects/src/transforms.rs:37
+#: rust/crates/effects/src/transforms.rs:39
 msgid "Stretch or squeeze the picture horizontally."
 msgstr "तस्वीर को आड़े रूप में खींचें या सिकोड़ें."
 
-#: rust/crates/effects/src/transforms.rs:37
+#: rust/crates/effects/src/transforms.rs:39
 msgid "Stretch or squeeze the picture vertically."
 msgstr "तस्वीर को खड़े रूप में खींचें या सिकोड़ें."
 
-#: rust/crates/effects/src/transforms.rs:61
+#: rust/crates/effects/src/transforms.rs:40
+msgid "Straighten the curved lines of a wide lens (right) or a long lens (left), with the edges cropped or pulled in to stay filled."
+msgstr ""
+
+#: rust/crates/effects/src/transforms.rs:64
 #, python-brace-format
 msgid "Switched to {lens}"
 msgstr "{lens} पर स्विच किया गया"
 
-#: rust/crates/effects/src/transforms.rs:66
+#: rust/crates/effects/src/transforms.rs:69
 msgid "the telephoto"
 msgstr "टेलीफ़ोटो"
 
-#: rust/crates/effects/src/transforms.rs:68
+#: rust/crates/effects/src/transforms.rs:71
 msgid "the main camera"
 msgstr "मुख्य कैमरा"
 
-#: rust/crates/effects/src/transforms.rs:69
+#: rust/crates/effects/src/transforms.rs:72
 #, python-brace-format
 msgid "Panned past what {tele} can see, so it's on {live}. Pan back to switch again."
 msgstr "{tele} के देखने के दायरे से बाहर पैन किया गया, इसलिए यह {live} पर है. फिर से स्विच करने के लिए वापस पैन करें."
 
-#: rust/crates/effects/src/transforms.rs:72
+#: rust/crates/effects/src/transforms.rs:75
 #, python-brace-format
 msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
 msgstr "फ़ोन अपने आप {live} पर ही रहा, संभवतः {tele} के लिए बहुत अंधेरा है या वह बहुत पास है. जैसे ही मुमकिन होगा यह स्विच कर लेगा."
 
-#: rust/crates/effects/src/transforms.rs:78
+#: rust/crates/effects/src/transforms.rs:81
 msgid "It can wobble for a moment while it switches."
 msgstr "स्विच करते समय यह एक पल के लिए हिल सकता है."
 
-#: rust/crates/effects/src/transforms.rs:226
+#: rust/crates/effects/src/transforms.rs:238
 #, python-brace-format
 msgid "{n}×"
 msgstr "{n}×"
 
-#: rust/crates/effects/src/transforms.rs:237
+#: rust/crates/effects/src/transforms.rs:249
 msgid "Dots mark where the phone switches to another lens"
 msgstr "बिंदु दिखाते हैं कि फ़ोन किस जगह दूसरे लेंस पर स्विच करता है"
 
-#: rust/crates/effects/src/transforms.rs:240
+#: rust/crates/effects/src/transforms.rs:252
 #, python-brace-format
 msgid "{owner} is moving the zoom and pan"
 msgstr "{owner} ज़ूम और पैन बदल रहा है"
 
-#: rust/crates/effects/src/transforms.rs:327
+#: rust/crates/effects/src/transforms.rs:343
 #, python-brace-format
 msgid "Add shortcut for {action}…"
 msgstr "{action} के लिए शॉर्टकट जोड़ें…"
 
-#: rust/crates/effects/src/transforms.rs:520
+#: rust/crates/effects/src/transforms.rs:543
 msgid "Zoomed on this computer: this lens can't zoom itself"
 msgstr "इस कंप्यूटर पर ज़ूम किया गया: यह लेंस खुद ज़ूम नहीं कर सकता"
 
-#: rust/crates/effects/src/transforms.rs:520
+#: rust/crates/effects/src/transforms.rs:543
 msgid "Zoomed on this computer"
 msgstr "इस कंप्यूटर पर ज़ूम किया गया"
 
-#: rust/crates/effects/src/transforms.rs:522
+#: rust/crates/effects/src/transforms.rs:545
 msgid "Zoomed on the phone's sensor as far as this lens allows, the rest on this computer"
 msgstr "फ़ोन के सेंसर पर उतना ही ज़ूम किया गया जितना यह लेंस अनुमति देता है, बाकी इस कंप्यूटर पर"
 
-#: rust/crates/effects/src/transforms.rs:524
+#: rust/crates/effects/src/transforms.rs:547
 msgid "Zoomed on the phone's sensor"
 msgstr "फ़ोन के सेंसर पर ज़ूम किया गया"
 
-#: rust/crates/effects/src/transforms.rs:551 rust/crates/effects/src/transforms.rs:640 rust/crates/effects/ui/transforms.slint:101
+#: rust/crates/effects/src/transforms.rs:574 rust/crates/effects/src/transforms.rs:667 rust/crates/effects/ui/transforms.slint:105
 msgid "Transforms"
 msgstr "घुमाव और ज़ूम"
 
-#: rust/crates/effects/src/transforms.rs:552 rust/crates/effects/ui/transforms.slint:102
+#: rust/crates/effects/src/transforms.rs:575 rust/crates/effects/ui/transforms.slint:106
 msgid "Zoom, pan, flip, rotate and stretch the picture."
 msgstr "तस्वीर को ज़ूम, पैन, पलटें, घुमाएं और स्ट्रेच करें."
 
-#: rust/crates/effects/src/transforms.rs:553
+#: rust/crates/effects/src/transforms.rs:576
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "इसके बिना 'घुमाव और ज़ूम' कार्ड नहीं होगा और तस्वीर बिल्कुल वैसी ही जाएगी जैसी फ़ोन भेजता है."
 
-#: rust/crates/effects/src/transforms.rs:643 rust/crates/effects/src/transforms.rs:696 rust/crates/effects/ui/composite_editor.slint:445 rust/crates/effects/ui/transforms.slint:169 rust/crates/effects/ui/transforms.slint:184 rust/crates/effects/ui/transforms.slint:185 rust/crates/effects/ui/transforms.slint:226 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/transforms.rs:670 rust/crates/effects/src/transforms.rs:725 rust/crates/effects/ui/composite_editor.slint:445 rust/crates/effects/ui/transforms.slint:173 rust/crates/effects/ui/transforms.slint:188 rust/crates/effects/ui/transforms.slint:189 rust/crates/effects/ui/transforms.slint:230 rust/crates/outputs/src/webcam.rs:56
 msgid "Zoom"
 msgstr "ज़ूम"
 
-#: rust/crates/effects/src/transforms.rs:644 rust/crates/effects/src/transforms.rs:706
+#: rust/crates/effects/src/transforms.rs:671 rust/crates/effects/src/transforms.rs:735
 msgid "Pan left/right"
 msgstr "बाएं/दाएं पैन करें"
 
-#: rust/crates/effects/src/transforms.rs:645 rust/crates/effects/src/transforms.rs:706
+#: rust/crates/effects/src/transforms.rs:672 rust/crates/effects/src/transforms.rs:735
 msgid "Pan up/down"
 msgstr "ऊपर/नीचे पैन करें"
 
-#: rust/crates/effects/src/transforms.rs:646 rust/crates/effects/src/transforms.rs:714 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/desk.slint:165 rust/crates/effects/ui/desk.slint:172 rust/crates/effects/ui/desk.slint:173 rust/crates/effects/ui/transforms.slint:258 rust/crates/effects/ui/transforms.slint:259
+#: rust/crates/effects/src/transforms.rs:673 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/desk.slint:165 rust/crates/effects/ui/desk.slint:172 rust/crates/effects/ui/desk.slint:173 rust/crates/effects/ui/transforms.slint:262 rust/crates/effects/ui/transforms.slint:263
 msgid "Width"
 msgstr "चौड़ाई"
 
-#: rust/crates/effects/src/transforms.rs:647 rust/crates/effects/src/transforms.rs:714 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/transforms.slint:275 rust/crates/effects/ui/transforms.slint:276
+#: rust/crates/effects/src/transforms.rs:674 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/transforms.slint:279 rust/crates/effects/ui/transforms.slint:280
 msgid "Height"
 msgstr "ऊंचाई"
 
-#: rust/crates/effects/src/transforms.rs:654 rust/crates/effects/src/transforms.rs:674
+#: rust/crates/effects/src/transforms.rs:675 rust/crates/effects/src/transforms.rs:750 rust/crates/effects/ui/transforms.slint:296 rust/crates/effects/ui/transforms.slint:297
+msgid "Lens correction"
+msgstr ""
+
+#: rust/crates/effects/src/transforms.rs:682 rust/crates/effects/src/transforms.rs:703
 msgid "Flip horizontal"
 msgstr "हॉरिज़ॉन्टल पलटें"
 
-#: rust/crates/effects/src/transforms.rs:655 rust/crates/effects/src/transforms.rs:674
+#: rust/crates/effects/src/transforms.rs:683 rust/crates/effects/src/transforms.rs:703
 msgid "Flip vertical"
 msgstr "वर्टिकल पलटें"
 
-#: rust/crates/effects/src/transforms.rs:656 rust/crates/effects/src/transforms.rs:688 rust/crates/effects/ui/transforms.slint:149 rust/crates/effects/ui/transforms.slint:159 rust/crates/effects/ui/transforms.slint:160 rust/crates/effects/ui/transforms.slint:160 rust/crates/effects/ui/transforms.slint:160 rust/crates/effects/ui/transforms.slint:160
+#: rust/crates/effects/src/transforms.rs:684 rust/crates/effects/src/transforms.rs:717 rust/crates/effects/ui/transforms.slint:153 rust/crates/effects/ui/transforms.slint:163 rust/crates/effects/ui/transforms.slint:164 rust/crates/effects/ui/transforms.slint:164 rust/crates/effects/ui/transforms.slint:164 rust/crates/effects/ui/transforms.slint:164
 msgid "Rotation"
 msgstr "घुमाव"
 
-#: rust/crates/effects/src/transforms.rs:663 rust/crates/effects/src/transforms.rs:719
+#: rust/crates/effects/src/transforms.rs:692 rust/crates/effects/src/transforms.rs:754
 msgid "Reset transforms"
 msgstr "घुमाव और ज़ूम रीसेट करें"
 
-#: rust/crates/effects/ui/background.slint:32
+#: rust/crates/effects/ui/background.slint:38
 msgid "Blur the background or replace it with a picture."
 msgstr "बैकग्राउंड को ब्लर करें या उसकी जगह कोई तस्वीर लगाएं."
 
-#: rust/crates/effects/ui/background.slint:40
+#: rust/crates/effects/ui/background.slint:46
 msgid "Keep the background, blur it or replace it with a picture."
 msgstr "बैकग्राउंड वैसा ही रखें, उसे ब्लर करें या उसकी जगह कोई तस्वीर लगाएं."
 
-#: rust/crates/effects/ui/background.slint:92 rust/crates/effects/ui/chroma_key.slint:182
+#: rust/crates/effects/ui/background.slint:98 rust/crates/effects/ui/chroma_key.slint:182
 msgid "Choose"
 msgstr "चुनें"
 
-#: rust/crates/effects/ui/background.slint:95 rust/crates/effects/ui/chroma_key.slint:185
+#: rust/crates/effects/ui/background.slint:101 rust/crates/effects/ui/chroma_key.slint:185
 msgid "Choose picture"
 msgstr "तस्वीर चुनें"
 
-#: rust/crates/effects/ui/background.slint:107 rust/crates/effects/ui/background.slint:108 rust/crates/effects/ui/chroma_key.slint:100 rust/crates/effects/ui/fun_pack.slint:122
+#: rust/crates/effects/ui/background.slint:113 rust/crates/effects/ui/background.slint:114 rust/crates/effects/ui/chroma_key.slint:100 rust/crates/effects/ui/fun_pack.slint:122
 msgid "Edges"
 msgstr "किनारे"
+
+#: rust/crates/effects/ui/background.slint:130 rust/crates/effects/ui/background.slint:131
+msgid "High quality cutout"
+msgstr ""
 
 #: rust/crates/effects/ui/chroma_key.slint:58
 msgid "Replace a green or blue screen behind you with a colour or a picture."
@@ -2848,7 +3033,7 @@ msgstr "ग्रेड एक्सपोर्ट करें"
 msgid "Save the grade and LUT as a .cube file to use in other apps."
 msgstr "दूसरे ऐप्स में इस्तेमाल करने के लिए ग्रेड और LUT को .cube फ़ाइल के रूप में सेव करें."
 
-#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:719
+#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:739
 msgid "Replace"
 msgstr "बदलें"
 
@@ -3064,6 +3249,10 @@ msgstr "अपने चेहरे पर फ़ोन का एक्सप�
 msgid "Follow my face"
 msgstr "चेहरा फ़ॉलो करें"
 
+#: rust/crates/effects/ui/filters.slint:37
+msgid "Sharpen, clean up and finish the picture like a photo editor."
+msgstr ""
+
 #: rust/crates/effects/ui/framing.slint:44
 msgid "Zoom and pan automatically to keep you in the picture."
 msgstr "आपको तस्वीर में रखने के लिए अपने-आप ज़ूम और पैन करें."
@@ -3088,10 +3277,6 @@ msgstr "क्लोन, गायब करने वाला चोगा, �
 msgid "Effect"
 msgstr "इफ़ेक्ट"
 
-#: rust/crates/effects/ui/fun_pack.slint:100 rust/crates/effects/ui/fun_pack.slint:101
-msgid "Clean up"
-msgstr "साफ़ करें"
-
 #: rust/crates/effects/ui/fun_pack.slint:107 rust/crates/effects/ui/fun_pack.slint:108 rust/crates/system/ui/shortcuts.slint:124 rust/crates/ui-kit/ui/widgets/field.slint:129
 msgid "Clear"
 msgstr "साफ़ करें"
@@ -3103,10 +3288,6 @@ msgstr "ट्रेल्स"
 #: rust/crates/effects/ui/fun_pack.slint:156 rust/crates/outputs/src/webcam.rs:47 rust/crates/shell/ui/cards/camera.slint:231 rust/crates/shell/ui/cards/camera.slint:238 rust/crates/shell/ui/cards/camera.slint:249
 msgid "Brightness"
 msgstr "ब्राइटनेस"
-
-#: rust/crates/effects/ui/fun_pack.slint:173
-msgid "Spread"
-msgstr "स्प्रेड"
 
 #: rust/crates/effects/ui/fun_pack.slint:190
 msgid "Smear"
@@ -3159,10 +3340,6 @@ msgstr "पोजीशन"
 #: rust/crates/effects/ui/name_tag.slint:137
 msgid "Style"
 msgstr "स्टाइल"
-
-#: rust/crates/effects/ui/name_tag.slint:167 rust/crates/effects/ui/name_tag.slint:171
-msgid "Size"
-msgstr "साइज़"
 
 #: rust/crates/effects/ui/notes.slint:64
 msgid "Show your script on the phone's screen so you can read it while looking into the camera."
@@ -3394,31 +3571,31 @@ msgstr "क्या होता है"
 msgid "Copy QR codes held up to the camera to the clipboard."
 msgstr "कैमरे के सामने दिखाए गए QR कोड को क्लिपबोर्ड पर कॉपी करें."
 
-#: rust/crates/effects/ui/transforms.slint:115
+#: rust/crates/effects/ui/transforms.slint:119
 msgid "Flip"
 msgstr "पलटें"
 
-#: rust/crates/effects/ui/transforms.slint:123 rust/crates/effects/ui/transforms.slint:124
+#: rust/crates/effects/ui/transforms.slint:127 rust/crates/effects/ui/transforms.slint:128
 msgid "Mirror"
 msgstr "मिरर"
 
-#: rust/crates/effects/ui/transforms.slint:125
+#: rust/crates/effects/ui/transforms.slint:129
 msgid "Flip the picture left to right."
 msgstr "तस्वीर को बाएं से दाएं पलटें."
 
-#: rust/crates/effects/ui/transforms.slint:135 rust/crates/effects/ui/transforms.slint:136
+#: rust/crates/effects/ui/transforms.slint:139 rust/crates/effects/ui/transforms.slint:140
 msgid "Upside down"
 msgstr "उल्टा"
 
-#: rust/crates/effects/ui/transforms.slint:137
+#: rust/crates/effects/ui/transforms.slint:141
 msgid "Flip the picture top to bottom."
 msgstr "तस्वीर को ऊपर से नीचे पलटें."
 
-#: rust/crates/effects/ui/transforms.slint:214
+#: rust/crates/effects/ui/transforms.slint:218
 msgid "Lens switch"
 msgstr "लेंस बदलें"
 
-#: rust/crates/effects/ui/transforms.slint:226 rust/crates/ui-kit/ui/widgets/pad.slint:87 rust/crates/ui-kit/ui/widgets/slider.slint:82
+#: rust/crates/effects/ui/transforms.slint:230 rust/crates/ui-kit/ui/widgets/pad.slint:87 rust/crates/ui-kit/ui/widgets/slider.slint:82
 msgid "Double-click to reset"
 msgstr "रीसेट करने के लिए डबल-क्लिक करें"
 
@@ -4165,7 +4342,7 @@ msgstr "वर्चुअल कैमरा बंद है"
 msgid "Switching it on asks for your password."
 msgstr "इसे चालू करने पर आपका पासवर्ड मांगा जाएगा."
 
-#: rust/crates/link/src/plugin.rs:1544 rust/crates/shell/src/plugins_tab.rs:661 rust/crates/shell/src/plugins_tab.rs:680
+#: rust/crates/link/src/plugin.rs:1544 rust/crates/shell/src/plugins_tab.rs:681 rust/crates/shell/src/plugins_tab.rs:700
 msgid "Switch on"
 msgstr "चालू करें"
 
@@ -4197,7 +4374,7 @@ msgstr "ब्राउज़र जो साइज़ भेजता है. 
 msgid "Frame rate"
 msgstr "फ़्रेम रेट"
 
-#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:22 rust/crates/setup/ui/setup.slint:22 rust/crates/shell/src/plugins_tab.rs:646 rust/crates/shell/src/plugins_tab.rs:651 rust/crates/shell/ui/settings.slint:323
+#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:22 rust/crates/setup/ui/setup.slint:22 rust/crates/shell/src/plugins_tab.rs:666 rust/crates/shell/src/plugins_tab.rs:671 rust/crates/shell/ui/settings.slint:323
 msgid "Remove"
 msgstr "हटाएं"
 
@@ -5294,12 +5471,12 @@ msgid "Copied"
 msgstr "कॉपी हो गया"
 
 #: rust/crates/setup/src/setup.rs:522
-msgid "The graphics card failed and the processor is decoding until you restart Telescope"
-msgstr "ग्राफ़िक्स कार्ड फ़ेल हो गया है और जब तक आप Telescope रीस्टार्ट नहीं करते, तब तक प्रोसेसर डिकोड कर रहा है"
+msgid "Off until you restart Telescope because the graphics card failed"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:523
-msgid "The graphics card was too slow, so the processor is decoding for now"
-msgstr "ग्राफ़िक्स कार्ड बहुत धीमा था, इसलिए फ़िलहाल प्रोसेसर डीकोड कर रहा है"
+msgid "Paused for a few minutes because the graphics card was too slow"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:524
 #, python-brace-format
@@ -6264,7 +6441,7 @@ msgstr "इस पर स्विच करने के लिए Telescope �
 msgid "Restart now"
 msgstr "अभी रीस्टार्ट करें"
 
-#: rust/crates/setup/ui/setup.slint:510 rust/crates/shell/src/plugins_tab.rs:665
+#: rust/crates/setup/ui/setup.slint:510 rust/crates/shell/src/plugins_tab.rs:685
 msgid "Restart"
 msgstr "रीस्टार्ट करें"
 
@@ -6404,11 +6581,11 @@ msgstr "और वर्चुअल कैमरे सेट किए जा 
 msgid "Couldn't add more virtual cameras"
 msgstr "और वर्चुअल कैमरे नहीं जोड़े जा सके"
 
-#: rust/crates/shell/src/host.rs:615
+#: rust/crates/shell/src/host.rs:626
 msgid "Only a phone's stream has the video this needs."
 msgstr "सिर्फ़ फ़ोन की स्ट्रीम में ही इसके लिए ज़रूरी वीडियो होता है."
 
-#: rust/crates/shell/src/host.rs:621
+#: rust/crates/shell/src/host.rs:632
 msgid "Needs Light: Heavy sends whole pictures, with no keyframes to work with."
 msgstr "हल्का फ़ॉर्मैट चाहिए: भारी पूरी तस्वीरें भेजता है, जिनमें काम करने के लिए कोई कीफ़्रेम नहीं होते."
 
@@ -6860,151 +7037,164 @@ msgstr "प्लगइन एक्सटेंशन ऐड-ऑन मॉड�
 msgid "Telescope couldn't start a new copy of itself. Close it and open it again to apply your changes."
 msgstr "Telescope अपना नया इंस्टेंस शुरू नहीं कर सका. अपने बदलाव लागू करने के लिए इसे बंद करें और फिर से खोलें."
 
-#: rust/crates/shell/src/plugins_tab.rs:211
-#, python-brace-format
-msgid "This one-time download (about {mb} MB) is shared by every plugin that finds people in the picture."
-msgstr ""
-
-#: rust/crates/shell/src/plugins_tab.rs:215 rust/crates/shell/src/plugins_tab.rs:468
+#: rust/crates/shell/src/plugins_tab.rs:215 rust/crates/shell/src/plugins_tab.rs:477
 #, python-brace-format
 msgid "The download didn't work. {error}"
 msgstr "डाउनलोड काम नहीं कर पाया. {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:216
-msgid "Switch on a plugin that needs the vision pack to try again."
-msgstr ""
-
-#: rust/crates/shell/src/plugins_tab.rs:443
+#: rust/crates/shell/src/plugins_tab.rs:452
 msgid "Telescope needs this plugin to work, so it can't be switched off."
 msgstr "Telescope को काम करने के लिए इस प्लगइन की ज़रूरत है, इसलिए इसे बंद नहीं किया जा सकता."
 
-#: rust/crates/shell/src/plugins_tab.rs:444
+#: rust/crates/shell/src/plugins_tab.rs:453
 msgid "Required"
 msgstr "ज़रूरी"
 
-#: rust/crates/shell/src/plugins_tab.rs:471
+#: rust/crates/shell/src/plugins_tab.rs:480
 msgid "There's no download of what it needs for this computer yet, so it can't be switched on."
 msgstr "इस कंप्यूटर के लिए जिसकी ज़रूरत है उसका डाउनलोड अभी उपलब्ध नहीं है, इसलिए इसे चालू नहीं किया जा सकता."
 
-#: rust/crates/shell/src/plugins_tab.rs:474
+#: rust/crates/shell/src/plugins_tab.rs:483
 #, python-brace-format
 msgid "Its download (about {mb} MB) isn't there anymore. Switch it off and on again to get it."
 msgstr "इसका डाउनलोड (लगभग {mb} MB) अब मौजूद नहीं है. इसे पाने के लिए इसे बंद करके फिर से चालू करें."
 
-#: rust/crates/shell/src/plugins_tab.rs:481
+#: rust/crates/shell/src/plugins_tab.rs:490
 msgid "Needs the vision download"
 msgstr "विज़न डाउनलोड की ज़रूरत है"
 
-#: rust/crates/shell/src/plugins_tab.rs:499
+#: rust/crates/shell/src/plugins_tab.rs:508
 msgid "There's no vision download for this computer yet."
 msgstr "इस कंप्यूटर के लिए अभी कोई विज़न डाउनलोड उपलब्ध नहीं है."
 
-#: rust/crates/shell/src/plugins_tab.rs:501
+#: rust/crates/shell/src/plugins_tab.rs:510
 #, python-brace-format
 msgid "Switching one of these on downloads about {mb} MB first, once for all of them."
 msgstr "इनमें से किसी एक को चालू करने पर पहले लगभग {mb} MB डाउनलोड होता है, जो इन सभी के लिए सिर्फ़ एक बार होता है."
 
-#: rust/crates/shell/src/plugins_tab.rs:512
+#: rust/crates/shell/src/plugins_tab.rs:521
 #, python-brace-format
 msgid "By {author}."
 msgstr "{author} द्वारा."
 
-#: rust/crates/shell/src/plugins_tab.rs:522
+#: rust/crates/shell/src/plugins_tab.rs:531
 #, python-brace-format
 msgid "Updated to {version} automatically. The new version runs after Telescope restarts."
 msgstr "अपने आप {version} पर अपडेट हो गया. नया वर्ज़न Telescope के रीस्टार्ट होने के बाद चलेगा."
 
-#: rust/crates/shell/src/plugins_tab.rs:528
+#: rust/crates/shell/src/plugins_tab.rs:537
 msgid "Its files changed since you switched it on, so it's off for now. Switch it on again if you trust this version."
 msgstr "आपके इसे चालू करने के बाद से इसकी फ़ाइलें बदल गई हैं, इसलिए यह अभी बंद है. यदि आप इस वर्शन पर भरोसा करते हैं तो इसे फिर से चालू करें."
 
-#: rust/crates/shell/src/plugins_tab.rs:531 rust/crates/shell/src/plugins_tab.rs:571
+#: rust/crates/shell/src/plugins_tab.rs:540 rust/crates/shell/src/plugins_tab.rs:580
 #, python-brace-format
 msgid "It didn't start ({problem})."
 msgstr "यह शुरू नहीं हुआ ({problem})."
 
 #. keep the <a href="{url}"> link
-#: rust/crates/shell/src/plugins_tab.rs:540
+#: rust/crates/shell/src/plugins_tab.rs:549
 #, python-brace-format
 msgid "Version {version} is out. <a href=\"{url}\">Download it from its release page</a> and install it here to replace this one."
 msgstr "वर्ज़न {version} आ चुका है. <a href=\"{url}\">इसके रिलीज़ पेज से इसे डाउनलोड करें</a> और इसे बदलने के लिए यहां इंस्टॉल करें."
 
-#: rust/crates/shell/src/plugins_tab.rs:550
+#: rust/crates/shell/src/plugins_tab.rs:559
 msgid "Added"
 msgstr "जोड़े गए"
 
-#: rust/crates/shell/src/plugins_tab.rs:567
+#: rust/crates/shell/src/plugins_tab.rs:576
 msgid "`telescope-rs dev --plugin` loads this plugin, so it's always on."
 msgstr "`telescope-rs dev --plugin` इस प्लगइन को लोड करता है, इसलिए यह हमेशा चालू रहता है."
 
-#: rust/crates/shell/src/plugins_tab.rs:568
+#: rust/crates/shell/src/plugins_tab.rs:577
 msgid "Being written"
 msgstr "लिखा जा रहा है"
 
-#: rust/crates/shell/src/plugins_tab.rs:574
+#: rust/crates/shell/src/plugins_tab.rs:583
 #, python-brace-format
 msgid "Loaded from {folder} by telescope-rs dev. Telescope restarts by itself when you save one of its files."
 msgstr "telescope-rs dev द्वारा {folder} से लोड किया गया. जब आप इसकी किसी फ़ाइल को सेव करते हैं, तो Telescope अपने आप रीस्टार्ट हो जाता है."
 
 #. next to a group's name on the Plugins tab, how many of its plugins are switched on
-#: rust/crates/shell/src/plugins_tab.rs:588
+#: rust/crates/shell/src/plugins_tab.rs:597
 #, python-brace-format
 msgid "{on} of {total} on"
 msgstr "{total} में से {on} चालू"
 
-#: rust/crates/shell/src/plugins_tab.rs:601
+#: rust/crates/shell/src/plugins_tab.rs:610
 #, python-brace-format
 msgid "No plugins match “{text}”."
 msgstr "“{text}” से कोई प्लगइन मेल नहीं खाता."
 
-#: rust/crates/shell/src/plugins_tab.rs:603
+#: rust/crates/shell/src/plugins_tab.rs:612
 msgid "Every plugin is switched on."
 msgstr "सभी प्लगइन चालू हैं."
 
-#: rust/crates/shell/src/plugins_tab.rs:605
+#: rust/crates/shell/src/plugins_tab.rs:614
 msgid "No plugin is switched on."
 msgstr "कोई भी प्लगइन चालू नहीं है."
 
-#: rust/crates/shell/src/plugins_tab.rs:613
+#: rust/crates/shell/src/plugins_tab.rs:623
 msgid "Downloading the vision pack"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:617
+#: rust/crates/shell/src/plugins_tab.rs:624
+#, python-brace-format
+msgid "This one-time download (about {mb} MB) is shared by every plugin that finds people in the picture."
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:625
+msgid "Switch on a plugin that needs the vision pack to try again."
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:628
+msgid "Downloading the high quality cutout"
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:629
+#, python-brace-format
+msgid "This one-time download (about {mb} MB) gives the Background cutout cleaner edges."
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:630
+msgid "Press Download under High quality cutout in Background to try again."
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:637
 #, python-brace-format
 msgid "Restart to apply {n} change"
 msgid_plural "Restart to apply {n} changes"
 msgstr[0] "{n} बदलाव लागू करने के लिए रीस्टार्ट करें"
 msgstr[1] "{n} बदलाव लागू करने के लिए रीस्टार्ट करें"
 
-#: rust/crates/shell/src/plugins_tab.rs:622
+#: rust/crates/shell/src/plugins_tab.rs:642
 #, python-brace-format
 msgid "Plugins ({n} off)"
 msgstr "प्लगइन ({n} बंद)"
 
-#: rust/crates/shell/src/plugins_tab.rs:644
+#: rust/crates/shell/src/plugins_tab.rs:664
 #, python-brace-format
 msgid "Remove {plugin}?"
 msgstr "क्या आप {plugin} को हटाना चाहते हैं?"
 
-#: rust/crates/shell/src/plugins_tab.rs:645
+#: rust/crates/shell/src/plugins_tab.rs:665
 #, python-brace-format
 msgid "Its folder ({folder}) is deleted from the plugins folder. To use it again you'll have to add it again."
 msgstr "इसका फ़ोल्डर ({folder}) प्लगइन्स फ़ोल्डर से मिटा दिया जाता है. इसे दोबारा इस्तेमाल करने के लिए आपको इसे फिर से जोड़ना होगा."
 
-#: rust/crates/shell/src/plugins_tab.rs:649
+#: rust/crates/shell/src/plugins_tab.rs:669
 msgid "Remove the download?"
 msgstr "क्या आप डाउनलोड हटाना चाहते हैं?"
 
-#: rust/crates/shell/src/plugins_tab.rs:650
+#: rust/crates/shell/src/plugins_tab.rs:670
 #, python-brace-format
 msgid "It frees about {mb} MB. Switching on one of the optional plugins downloads it again."
 msgstr "इससे लगभग {mb} MB जगह खाली होती है. वैकल्पिक प्लगइन्स में से किसी एक को चालू करने पर यह फिर से डाउनलोड हो जाएगा."
 
-#: rust/crates/shell/src/plugins_tab.rs:659
+#: rust/crates/shell/src/plugins_tab.rs:679
 msgid "Install plugin updates without asking?"
 msgstr "क्या आप बिना पूछे प्लगइन अपडेट इंस्टॉल करना चाहते हैं?"
 
-#: rust/crates/shell/src/plugins_tab.rs:660
+#: rust/crates/shell/src/plugins_tab.rs:680
 msgid ""
 "Telescope will install new versions of the plugins you switched on and switch them on too, without showing them to you first.\n"
 "\n"
@@ -7014,94 +7204,94 @@ msgstr ""
 "\n"
 "GitHub पर प्लगइन के रेपो को नियंत्रित करने वाला कोई भी व्यक्ति (उसका लेखक, या उसके खाते का एक्सेस पाने वाला कोई भी व्यक्ति) हर बार रिलीज़ पब्लिश करने पर इस कंप्यूटर पर नया कोड चला सकता है. इसे तभी चालू करें जब आप इस मामले में उन सभी पर भरोसा करते हों."
 
-#: rust/crates/shell/src/plugins_tab.rs:665
+#: rust/crates/shell/src/plugins_tab.rs:685
 msgid "Restart Telescope now?"
 msgstr "क्या आप अभी Telescope को रीस्टार्ट करना चाहते हैं?"
 
-#: rust/crates/shell/src/plugins_tab.rs:665
+#: rust/crates/shell/src/plugins_tab.rs:685
 msgid "Streaming stops while Telescope restarts. It takes a few seconds."
 msgstr "Telescope के रीस्टार्ट होने के दौरान स्ट्रीमिंग रुक जाती है. इसमें कुछ सेकंड लगते हैं."
 
-#: rust/crates/shell/src/plugins_tab.rs:679
+#: rust/crates/shell/src/plugins_tab.rs:699
 #, python-brace-format
 msgid "Switch on {plugin}?"
 msgstr "क्या आप {plugin} को चालू करना चाहते हैं?"
 
-#: rust/crates/shell/src/plugins_tab.rs:680
+#: rust/crates/shell/src/plugins_tab.rs:700
 msgid "A plugin can do anything on your computer. Only switch it on if you trust its source."
 msgstr "एक प्लगइन आपके कंप्यूटर पर कुछ भी कर सकता है. इसे तभी चालू करें जब आपको इसके स्रोत पर भरोसा हो."
 
-#: rust/crates/shell/src/plugins_tab.rs:682 rust/crates/shell/src/plugins_tab.rs:703
+#: rust/crates/shell/src/plugins_tab.rs:702 rust/crates/shell/src/plugins_tab.rs:723
 #, python-brace-format
 msgid "Switch off {plugin}?"
 msgstr "क्या आप {plugin} को बंद करना चाहते हैं?"
 
-#: rust/crates/shell/src/plugins_tab.rs:683
+#: rust/crates/shell/src/plugins_tab.rs:703
 msgid "Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch it back on."
 msgstr "इसके बिना इसने Telescope में जो कुछ भी जोड़ा था वह हट जाता है. इसकी सेटिंग्स सुरक्षित रहती हैं ताकि जब आप इसे फिर से चालू करें तो वे काम आ सकें."
 
-#: rust/crates/shell/src/plugins_tab.rs:683 rust/crates/shell/src/plugins_tab.rs:703
+#: rust/crates/shell/src/plugins_tab.rs:703 rust/crates/shell/src/plugins_tab.rs:723
 msgid "Switch off"
 msgstr "बंद करें"
 
-#: rust/crates/shell/src/plugins_tab.rs:690
+#: rust/crates/shell/src/plugins_tab.rs:710
 #, python-brace-format
 msgid "Download about {mb} MB?"
 msgstr "लगभग {mb} MB डाउनलोड करें?"
 
-#: rust/crates/shell/src/plugins_tab.rs:691
+#: rust/crates/shell/src/plugins_tab.rs:711
 #, python-brace-format
 msgid "{plugin} uses MediaPipe to find people in the picture. It comes as a separate download from Telescope's releases on GitHub, which the other optional plugins share."
 msgstr "{plugin} तस्वीर में लोगों को पहचानने के लिए MediaPipe का इस्तेमाल करता है. यह GitHub पर Telescope की रिलीज़ से एक अलग डाउनलोड के रूप में आता है, जिसे अन्य वैकल्पिक प्लगइन भी शेयर करते हैं."
 
-#: rust/crates/shell/src/plugins_tab.rs:692
+#: rust/crates/shell/src/plugins_tab.rs:712
 msgid "Download and switch on"
 msgstr "डाउनलोड करें और चालू करें"
 
-#: rust/crates/shell/src/plugins_tab.rs:702
+#: rust/crates/shell/src/plugins_tab.rs:722
 msgid "Its settings stay saved for when you switch it back on."
 msgstr "इसकी सेटिंग्स सुरक्षित रहती हैं ताकि जब आप इसे फिर से चालू करें तो वे काम आ सकें."
 
-#: rust/crates/shell/src/plugins_tab.rs:717
+#: rust/crates/shell/src/plugins_tab.rs:737
 #, python-brace-format
 msgid "Replace {plugin}?"
 msgstr "{plugin} बदलें?"
 
-#: rust/crates/shell/src/plugins_tab.rs:718
+#: rust/crates/shell/src/plugins_tab.rs:738
 msgid "The version in this .zip takes its place with the same settings. Like any plugin you add it starts out switched off."
 msgstr "इस .zip वाला वर्ज़न उसी सेटिंग्स के साथ इसकी जगह ले लेगा. आपके द्वारा जोड़े गए किसी भी प्लगइन की तरह, यह शुरुआत में बंद रहेगा."
 
-#: rust/crates/shell/src/plugins_tab.rs:730
+#: rust/crates/shell/src/plugins_tab.rs:750
 #, python-brace-format
 msgid "{plugin} was installed, but it can't run yet. {problem}"
 msgstr "{plugin} इंस्टॉल हो गया था, लेकिन यह अभी चल नहीं सकता. {problem}"
 
-#: rust/crates/shell/src/plugins_tab.rs:732
+#: rust/crates/shell/src/plugins_tab.rs:752
 #, python-brace-format
 msgid "{plugin} {version} is in place but switched off for now. To use it, switch it on again and restart Telescope."
 msgstr "{plugin} {version} अपनी जगह पर है लेकिन अभी बंद है. इसका इस्तेमाल करने के लिए, इसे फिर से चालू करें और Telescope को रीस्टार्ट करें."
 
-#: rust/crates/shell/src/plugins_tab.rs:734
+#: rust/crates/shell/src/plugins_tab.rs:754
 #, python-brace-format
 msgid "{plugin} is installed but switched off for now. To use it, switch it on and restart Telescope."
 msgstr "{plugin} इंस्टॉल हो गया है लेकिन अभी बंद है. इसका इस्तेमाल करने के लिए, इसे चालू करें और Telescope को रीस्टार्ट करें."
 
-#: rust/crates/shell/src/plugins_tab.rs:744
+#: rust/crates/shell/src/plugins_tab.rs:764
 #, python-brace-format
 msgid "Telescope couldn't save the change: {error}"
 msgstr "Telescope बदलाव को सेव नहीं कर सका: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:768
+#: rust/crates/shell/src/plugins_tab.rs:788
 #, python-brace-format
 msgid "Telescope couldn't delete its folder: {error}"
 msgstr "Telescope इसका फ़ोल्डर मिटा नहीं सका: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:776
+#: rust/crates/shell/src/plugins_tab.rs:796
 #, python-brace-format
 msgid "Telescope couldn't delete it: {error}"
 msgstr "Telescope इसे मिटा नहीं सका: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:813
+#: rust/crates/shell/src/plugins_tab.rs:833
 #, python-brace-format
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr "Telescope इसका प्लगइन्स फ़ोल्डर नहीं बना सका: {error}"
@@ -7210,11 +7400,11 @@ msgstr "आपकी सेटिंग्स पढ़ी नहीं जा �
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescope अपनी डिफ़ॉल्ट सेटिंग्स के साथ शुरू हुआ, इसलिए पेयर किए गए फ़ोन फिर से पेयर करने होंगे."
 
-#: rust/crates/shell/src/shell.rs:1160
+#: rust/crates/shell/src/shell.rs:1164
 msgid "Telescope - Save failed"
 msgstr "Telescope - सेव नहीं हो सका"
 
-#: rust/crates/shell/src/shell.rs:1161
+#: rust/crates/shell/src/shell.rs:1165
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "सेटिंग्स सेव नहीं की जा सकीं. डिस्क स्पेस और अनुमतियां जांचें."
 
@@ -7320,7 +7510,7 @@ msgstr "फ़ोन का कैमरा शुरू हो रहा है
 msgid "Couldn't start the phone's camera"
 msgstr "फ़ोन का कैमरा शुरू नहीं किया जा सका"
 
-#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:926
+#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:932
 msgid "Connecting..."
 msgstr "कनेक्ट हो रहा है..."
 
@@ -7534,43 +7724,43 @@ msgstr "स्ट्रीमिंग रोकें"
 msgid "Stop"
 msgstr "रोकें"
 
-#: rust/crates/shell/src/window.rs:1983 rust/crates/shell/src/worker.rs:1272
+#: rust/crates/shell/src/window.rs:1983 rust/crates/shell/src/worker.rs:1278
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{camera} पर {fps} fps पर {size} स्ट्रीम हो रहा है"
 
-#: rust/crates/shell/src/worker.rs:533
+#: rust/crates/shell/src/worker.rs:539
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "स्ट्रीम एरर: {error}"
 
-#: rust/crates/shell/src/worker.rs:926
+#: rust/crates/shell/src/worker.rs:932
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "{url} से कनेक्ट हो रहा है..."
 
-#: rust/crates/shell/src/worker.rs:936
+#: rust/crates/shell/src/worker.rs:942
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "फ़ोन की स्ट्रीम से संपर्क नहीं हो पा रहा है. {seconds} सेकंड में फिर कोशिश की जाएगी…"
 
-#: rust/crates/shell/src/worker.rs:948
+#: rust/crates/shell/src/worker.rs:954
 msgid "Waiting for the first frame…"
 msgstr "पहले फ़्रेम का इंतज़ार है…"
 
-#: rust/crates/shell/src/worker.rs:1036
+#: rust/crates/shell/src/worker.rs:1042
 msgid "Stream reconnected"
 msgstr "स्ट्रीम फिर से कनेक्ट हो गई"
 
-#: rust/crates/shell/src/worker.rs:1141
+#: rust/crates/shell/src/worker.rs:1147
 msgid "The video is paused while the phone takes a photo"
 msgstr "फ़ोन द्वारा फ़ोटो लिए जाने के दौरान वीडियो रुका हुआ है"
 
-#: rust/crates/shell/src/worker.rs:1143 rust/crates/shell/src/worker.rs:1149
+#: rust/crates/shell/src/worker.rs:1149 rust/crates/shell/src/worker.rs:1155
 msgid "Stream dropped - reconnecting"
 msgstr "स्ट्रीम टूट गई - फिर से कनेक्ट हो रहा है"
 
-#: rust/crates/shell/src/worker.rs:1261 rust/crates/shell/src/worker.rs:1359
+#: rust/crates/shell/src/worker.rs:1267 rust/crates/shell/src/worker.rs:1365
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "वर्चुअल कैमरा एरर: {error}"
@@ -8506,7 +8696,7 @@ msgstr "इसके बिना ऑटोमैटिक स्ट्रीम
 msgid "Couldn't check for updates (HTTP {code})."
 msgstr "अपडेट नहीं खोजे जा सके (HTTP {code})."
 
-#: rust/crates/system/src/updates.rs:239 rust/crates/vision/src/pack.rs:257
+#: rust/crates/system/src/updates.rs:239 rust/crates/vision/src/pack.rs:299
 msgid "The download failed. Check the internet connection and try again."
 msgstr "डाउनलोड विफल रहा. इंटरनेट कनेक्शन जांचें और फिर कोशिश करें."
 
@@ -8522,7 +8712,7 @@ msgstr "Telescope खुद को अपडेट नहीं कर सकत
 msgid "Telescope's folder isn't writable, so it can't update itself."
 msgstr "Telescope के फ़ोल्डर में लिखने की अनुमति नहीं है, इसलिए यह खुद अपडेट नहीं हो सकता."
 
-#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:306
+#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:348
 msgid "The download couldn't be unpacked."
 msgstr "डाउनलोड अनपैक नहीं किया जा सका."
 
@@ -8946,27 +9136,27 @@ msgstr "नीचे के बार में पिन करें"
 msgid "Add keyboard shortcut…"
 msgstr "कीबोर्ड शॉर्टकट जोड़ें…"
 
-#: rust/crates/vision/src/pack.rs:206
+#: rust/crates/vision/src/pack.rs:248
 msgid "There's no download for this computer yet."
 msgstr "इस कंप्यूटर के लिए अभी कोई डाउनलोड उपलब्ध नहीं है."
 
-#: rust/crates/vision/src/pack.rs:220
+#: rust/crates/vision/src/pack.rs:262
 msgid "Cancelled."
 msgstr "रद्द किया गया."
 
-#: rust/crates/vision/src/pack.rs:228
+#: rust/crates/vision/src/pack.rs:270
 msgid "The download is bigger than it should be."
 msgstr "डाउनलोड तय साइज़ से बड़ा है."
 
-#: rust/crates/vision/src/pack.rs:236
+#: rust/crates/vision/src/pack.rs:278
 msgid "The download didn't match what this version of Telescope expects, so it wasn't used."
 msgstr "डाउनलोड Telescope के इस वर्शन की अपेक्षा के अनुरूप नहीं था, इसलिए इसका इस्तेमाल नहीं किया गया."
 
-#: rust/crates/vision/src/pack.rs:307
+#: rust/crates/vision/src/pack.rs:349
 msgid "The download unpacks to more than it should, so it wasn't used."
 msgstr "डाउनलोड ज़रूरत से ज़्यादा बड़ा अनपैक होता है, इसलिए इसका इस्तेमाल नहीं किया गया."
 
-#: rust/crates/vision/src/pack.rs:316
+#: rust/crates/vision/src/pack.rs:358
 msgid "The download contains unexpected paths, so it wasn't used."
 msgstr "डाउनलोड में अनपेक्षित पाथ हैं, इसलिए इसका इस्तेमाल नहीं किया गया."
 
@@ -8988,7 +9178,7 @@ msgid "Light"
 msgstr "रोशनी"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:427
+#: rust/app/src/main.rs:428
 msgid ", "
 msgstr ", "
 
@@ -9100,37 +9290,37 @@ msgstr ""
 "फ़ोन का माइक अभी भी स्ट्रीम हो रहा है, और किसी ऐप द्वारा\n"
 "कैमरा खोले जाने पर यह फिर से चालू हो जाता है."
 
-#: rust/crates/effects/src/transforms.rs:654
+#: rust/crates/effects/src/transforms.rs:682
 msgctxt "search"
 msgid "mirror"
 msgstr "मिरर आईना उलटा mirror"
 
-#: rust/crates/effects/src/transforms.rs:655
+#: rust/crates/effects/src/transforms.rs:683
 msgctxt "search"
 msgid "mirror upside down"
 msgstr "मिरर उल्टा सिर नीचे mirror upside down"
 
-#: rust/crates/effects/src/transforms.rs:656
+#: rust/crates/effects/src/transforms.rs:684
 msgctxt "search"
 msgid "rotate turn"
 msgstr "घुमाएं घुमाव मोड़ें rotate turn"
 
-#: rust/crates/effects/src/transforms.rs:657
+#: rust/crates/effects/src/transforms.rs:685
 msgctxt "search"
 msgid "crop framing"
 msgstr "क्रॉप फ़्रेमिंग काटना crop framing"
 
-#: rust/crates/effects/src/transforms.rs:658
+#: rust/crates/effects/src/transforms.rs:686
 msgctxt "search"
 msgid "framing move"
 msgstr "फ़्रेमिंग हिलाना सरकाना framing move"
 
-#: rust/crates/effects/src/transforms.rs:660
+#: rust/crates/effects/src/transforms.rs:688
 msgctxt "search"
 msgid "stretch squish aspect wide"
 msgstr "स्ट्रेच सिकोड़ें आस्पेक्ट चौड़ा खिंचाव stretch squish aspect wide"
 
-#: rust/crates/effects/src/transforms.rs:661
+#: rust/crates/effects/src/transforms.rs:689
 msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "स्ट्रेच सिकोड़ें आस्पेक्ट लंबा खिंचाव stretch squish aspect tall"
@@ -9223,33 +9413,42 @@ msgstr "अपडेट में अनपेक्षित फ़ाइले
 msgid "The download doesn't contain Telescope, so it wasn't installed."
 msgstr "डाउनलोड में Telescope नहीं है, इसलिए इसे इंस्टॉल नहीं किया गया."
 
-#: rust/crates/shell/src/plugins_tab.rs:768
+#: rust/crates/shell/src/plugins_tab.rs:788
 msgid "Couldn't remove it"
 msgstr "इसे हटाया नहीं जा सका"
 
-#: rust/crates/shell/src/plugins_tab.rs:744
+#: rust/crates/shell/src/plugins_tab.rs:764
 msgid "Couldn't save that"
 msgstr "उसे सेव नहीं किया जा सका"
 
-#: rust/crates/shell/src/plugins_tab.rs:723
+#: rust/crates/shell/src/plugins_tab.rs:743
 msgid "Couldn't install it"
 msgstr "इसे इंस्टॉल नहीं किया जा सका"
 
-#: rust/crates/shell/src/plugins_tab.rs:730
+#: rust/crates/shell/src/plugins_tab.rs:750
 msgid "Installed, but it won't load"
 msgstr "इंस्टॉल हो गया, लेकिन यह लोड नहीं होगा"
 
-#: rust/crates/shell/src/plugins_tab.rs:732
+#: rust/crates/shell/src/plugins_tab.rs:752
 msgid "Replaced"
 msgstr "बदल दिया गया"
 
-#: rust/crates/shell/src/plugins_tab.rs:813
+#: rust/crates/shell/src/plugins_tab.rs:833
 msgid "Couldn't open it"
 msgstr "इसे खोला नहीं जा सका"
 
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "रीस्टार्ट नहीं किया जा सका"
+
+#~ msgid "Set flip, rotation, zoom, pan and stretch back to default."
+#~ msgstr "पलटना, घुमाव, ज़ूम, पैन और खिंचाव को वापस डिफ़ॉल्ट पर सेट करें."
+
+#~ msgid "The graphics card failed and the processor is decoding until you restart Telescope"
+#~ msgstr "ग्राफ़िक्स कार्ड फ़ेल हो गया है और जब तक आप Telescope रीस्टार्ट नहीं करते, तब तक प्रोसेसर डिकोड कर रहा है"
+
+#~ msgid "The graphics card was too slow, so the processor is decoding for now"
+#~ msgstr "ग्राफ़िक्स कार्ड बहुत धीमा था, इसलिए फ़िलहाल प्रोसेसर डीकोड कर रहा है"
 
 #~ msgid "Blur the others"
 #~ msgstr "बाकियों को ब्लर करें"

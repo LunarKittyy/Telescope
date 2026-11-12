@@ -223,6 +223,9 @@ events! {
     /// outlines the controls that show them for a moment: changed is true for a change and false for a read. A control that isn't on
     /// screen is skipped, nothing is opened or scrolled to.
     "settings_touched" => SettingsTouched { ids: Vec<String>, changed: bool },
+    /// Not in plugin.py: the high quality cutout (Background's switch for it) went from not loaded to loading, ready or failed, the same as
+    /// vision_state_changed for MediaPipe: host.matting_state() has the new state. Its download's progress and end come as the vision pack's do.
+    "matting_state_changed" => MattingStateChanged { state: String },
     /// Not in plugin.py: an event a plugin someone added defines for itself, named "<plugin>.<what>".
     "custom" => Custom { name: String, data: Value },
 }

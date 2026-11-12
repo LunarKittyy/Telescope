@@ -434,6 +434,7 @@ fn services_with(link: SceneLink, changes: Changes) -> Arc<Services> {
                 Box::new(telescope_effects::framing::FramingPlugin::new()),
                 Box::new(telescope_effects::fun_pack::FunPackPlugin::new()),
                 Box::new(telescope_effects::colour_grading::ColourGradingPlugin::new()),
+                Box::new(telescope_effects::filters::FiltersPlugin::new()),
                 Box::new(telescope_effects::transforms::TransformsPlugin::new()),
                 Box::new(telescope_effects::desk::DeskPlugin::new()),
                 Box::new(telescope_effects::name_tag::NameTagPlugin::new()),

@@ -332,7 +332,7 @@ fn watching_again_or_turning_the_picture_starts_over() {
 #[test]
 fn the_picture_is_turned_the_way_its_shown_before_it_is_looked_at() {
     // A square on the right of the frame, seen through a flip, moves in the zone on the left of the picture as shown
-    let upright = Upright { turn: Turn { flip_h: true, flip_v: false, rotation: None }, sent: (1.0, 0.0, 0.0) };
+    let upright = Upright { turn: Turn { flip_h: true, flip_v: false, rotation: None }, sent: (1.0, 0.0, 0.0), ..Upright::default() };
     let events: Events = Arc::default();
     let log = events.clone();
     let m = Motion::new(Box::new(move |key, owner, zones| log.lock().unwrap().push((key.to_string(), owner.to_string(), zones.to_vec()))));

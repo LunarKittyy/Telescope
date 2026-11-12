@@ -519,8 +519,8 @@ impl SetupPlugin {
     /// The line under the switch. It stays on when the card fails, since that's only for this run, and the line says so.
     fn show_hardware_failed(&mut self, failed: bool) {
         self.panel.hw_line = match &self.panel.hw_found {
-            Some(_) if failed => tr("The graphics card failed and the processor is decoding until you restart Telescope"),
-            Some(_) if self.panel.hw_slow => tr("The graphics card was too slow, so the processor is decoding for now"),
+            Some(_) if failed => tr("Off until you restart Telescope because the graphics card failed"),
+            Some(_) if self.panel.hw_slow => tr("Paused for a few minutes because the graphics card was too slow"),
             Some(name) => tr("Found {device}").field("device", name),
             None => tr("No graphics card Telescope can use"),
         };

@@ -2,7 +2,9 @@
 //! use; every call is safe before it's ready (None, nothing). A frame step gets the newest mask at once and leaves its frame for a
 //! thread of the stream's own, so the model and the work around it never hold a frame up, and a mask is a frame or so behind the
 //! picture and never over MASK_MAX_AGE_S behind (past that a step gets None). People come from another such thread, about 12 times a second
-//! while something moves and 3 while nothing does.
+//! while something moves and 3 while nothing does. The high quality cutout (matting) is a second model behind the same kind of mask thread, on
+//! a stream key of its own: it only ever stands in for the normal mask when it has one in time, and the normal one is what a frame step
+//! gets while it's missing, loading, failed or late.
 
 use crate::ops::{add_weighted, mask_resized, model_input, people_size, turned, Motion, Rgb, MODEL_SIZE};
 use std::collections::{BTreeSet, HashMap};
@@ -33,6 +35,8 @@ pub const FIRST_MASK_WAIT_S: f64 = 0.5;
 pub const MASK_MAX_AGE_S: f64 = 0.5;
 /// How far apart two sizes' shapes can be for a mask of one to stand in for the other, as a share.
 const MASK_SHAPE_SLACK: f64 = 0.02;
+/// A failed cutout run this many times in a row (with no good one between) marks the cutout failed, so frames stop asking for it.
+pub const CUTOUT_MAX_FAILS: u32 = 5;
 /// Without a pack, how often asking looks for one again (a download may have finished).
 pub const LOOK_AGAIN_S: f64 = 5.0;
 /// A model nothing has asked for this long is closed and its memory given back; switched back on sooner, it's still there.
@@ -76,6 +80,16 @@ pub struct Gray {
 pub trait Segmenter: Send {
     /// How sure it is each pixel is a person, 0..255, as cv2.convertScaleAbs(mask, alpha=255) makes it.
     fn segment(&mut self, frame: &Rgb, ts_ms: i64) -> Result<Gray, VisionError>;
+    /// The picture segment gets, shrunk from the frame; None when the frame is small enough as it is.
+    fn input(&self, frame: &Rgb) -> Option<Rgb> {
+        model_input(frame, MODEL_SIZE)
+    }
+    /// Whether each mask is steadied with the last one carried in (a model that keeps its own memory of the last frames doesn't need it).
+    fn blends_last(&self) -> bool {
+        true
+    }
+    /// Forget the last frames: the next one is the first of a new picture. Called after a gap and when the stream starts again.
+    fn reset(&mut self) {}
 }
 
 /// The pose model (one stream's). Closed when dropped.
@@ -127,6 +141,8 @@ pub(crate) struct MaskState {
     pub(crate) asked: f64,
     /// The view's turns it has seen (Inner::turns): when that moves on, everything above is of another picture.
     turns: u64,
+    /// Failed runs since the last good one.
+    pub(crate) fails: u32,
 }
 
 /// A frame the mask thread hasn't got to: only the newest one waits.
@@ -177,6 +193,32 @@ pub(crate) struct NewestMask {
     thread: bool,
 }
 
+/// Which model a mask thread runs.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Which {
+    /// MediaPipe's selfie segmenter, the one everything uses.
+    Normal,
+    /// Robust Video Matting, for a frame step that asked for the high quality cutout.
+    Cutout,
+}
+
+/// The high quality cutout's side of the service: its own download (found, loaded and failed on their own), none of it touching the normal
+/// model's state.
+pub(crate) struct Cutout {
+    find: Find,
+    there: Box<dyn Fn() -> bool + Send + Sync>,
+    on_state: OnState,
+    backend: Mutex<Option<Arc<dyn Backend>>>,
+    state: Mutex<&'static str>,
+    problem: Mutex<String>,
+    looked_at: Mutex<f64>,
+}
+
+/// The stream key a stream's cutout masks go under, so they have a mask thread and a model of their own beside the normal ones.
+pub(crate) fn cutout_key(key: &str) -> String {
+    format!("{key}\u{1}cutout")
+}
+
 pub(crate) struct PeopleState {
     /// The newest small frame waiting for the pose model, and how to turn it upright.
     pub(crate) frame: Option<(Rgb, Upright)>,
@@ -205,7 +247,7 @@ impl StreamVision {
     fn new() -> StreamVision {
         StreamVision {
             mask: Mutex::new(MaskState { segment: None, clock: Timestamps::new(), seq: None, mask: None, small: None, at: 0.0,
-                                         motion: Motion::default(), asked: 0.0, turns: 0 }),
+                                         motion: Motion::default(), asked: 0.0, turns: 0, fails: 0 }),
             newest: Mutex::default(),
             mask_wanted: Condvar::new(),
             mask_done: Condvar::new(),
@@ -229,6 +271,7 @@ pub(crate) struct Inner {
     find: Find,
     there: Box<dyn Fn() -> bool + Send + Sync>,
     pub(crate) backend: Mutex<Option<Arc<dyn Backend>>>,
+    pub(crate) cutout: Mutex<Option<Arc<Cutout>>>,
     pub(crate) state: Mutex<&'static str>,
     pub(crate) problem: Mutex<String>,
     /// Held while load() decides; looked_at is when the last load() found no pack.
@@ -279,6 +322,7 @@ impl Vision {
             on_people, on_state, find,
             there: there.unwrap_or_else(|| Box::new(|| true)),
             backend: Mutex::new(None),
+            cutout: Mutex::new(None),
             state: Mutex::new(OFF),
             problem: Mutex::new(String::new()),
             looked_at: Mutex::new(-LOOK_AGAIN_S),
@@ -360,6 +404,82 @@ impl Vision {
         self.inner.backend.lock().unwrap().clone()
     }
 
+    // The high quality cutout's model (matting)
+
+    /// Gives the service a cutout: find loads it (Missing when the download isn't there), there says whether it is without loading anything and
+    /// on_state hears each change of cutout_state().
+    pub fn set_cutout(&self, find: Find, there: Option<Box<dyn Fn() -> bool + Send + Sync>>, on_state: OnState) {
+        *self.inner.cutout.lock().unwrap() = Some(Arc::new(Cutout {
+            find, on_state,
+            there: there.unwrap_or_else(|| Box::new(|| true)),
+            backend: Mutex::new(None),
+            state: Mutex::new(OFF),
+            problem: Mutex::new(String::new()),
+            looked_at: Mutex::new(-LOOK_AGAIN_S),
+        }));
+    }
+
+    pub(crate) fn cutout_slot(&self) -> Option<Arc<Cutout>> {
+        self.inner.cutout.lock().unwrap().clone()
+    }
+
+    /// OFF until a frame step asks for the cutout, then LOADING and READY; MISSING (without loading) when it isn't downloaded; FAILED. A service
+    /// with no cutout at all says MISSING.
+    pub fn cutout_state(&self) -> &'static str {
+        let Some(cutout) = self.cutout_slot() else { return MISSING };
+        let state = *cutout.state.lock().unwrap();
+        if state == OFF && !(cutout.there)() { MISSING } else { state }
+    }
+
+    /// What went wrong when the cutout failed (the error's type).
+    pub fn cutout_problem(&self) -> String {
+        self.cutout_slot().map(|c| c.problem.lock().unwrap().clone()).unwrap_or_default()
+    }
+
+    fn cutout_ready(&self) -> Option<Arc<dyn Backend>> {
+        let cutout = self.cutout_slot()?;
+        if *cutout.state.lock().unwrap() != READY {
+            return None;
+        }
+        let backend = cutout.backend.lock().unwrap().clone();
+        backend
+    }
+
+    /// Start loading the cutout in the background, once; after no download was found, again every LOOK_AGAIN_S.
+    pub fn load_cutout(&self) {
+        let Some(cutout) = self.cutout_slot() else { return };
+        {
+            let mut looked_at = cutout.looked_at.lock().unwrap();
+            if self.inner.closed.load(Ordering::SeqCst) {
+                return;
+            }
+            let state = *cutout.state.lock().unwrap();
+            if [LOADING, READY, FAILED].contains(&state) {
+                return;
+            }
+            if state == MISSING && monotonic() - *looked_at < LOOK_AGAIN_S {
+                return;
+            }
+            *looked_at = monotonic();
+            self.inner.set_cutout_state(&cutout, LOADING);
+        }
+        let inner = self.inner.clone();
+        let _ = std::thread::Builder::new().name("matting-load".into()).spawn(move || inner.load_cutout_now(&cutout));
+    }
+
+    /// The cutout's download just finished: after MISSING it reads OFF again, so the next ask loads it straight away.
+    pub fn cutout_downloaded(&self) {
+        let Some(cutout) = self.cutout_slot() else { return };
+        {
+            let mut looked_at = cutout.looked_at.lock().unwrap();
+            if self.inner.closed.load(Ordering::SeqCst) || *cutout.state.lock().unwrap() != MISSING {
+                return;
+            }
+            *looked_at = -LOOK_AGAIN_S;
+        }
+        self.inner.set_cutout_state(&cutout, OFF);
+    }
+
     // Person masks
 
     /// A frame step's way in: how sure the model was about each pixel of the newest frame it has done, at w x h, or None when there's
@@ -375,6 +495,16 @@ impl Vision {
 
     /// newest_mask for a picture made when the view had turned `epoch` times: once it has turned again, that picture's mask is of the wrong way round, so none is made or handed out for it.
     pub fn newest_mask_in(&self, key: &str, seq: u64, w: usize, h: usize, picture: Picture, epoch: u64) -> Option<Arc<Vec<u8>>> {
+        self.newest_normal(key, true, seq, w, h, picture, epoch)
+    }
+
+    /// newest_mask_in that never waits for the first mask: what the high quality cutout falls back on, so a frame step is never held up.
+    pub fn newest_mask_nowait_in(&self, key: &str, seq: u64, w: usize, h: usize, picture: Picture, epoch: u64) -> Option<Arc<Vec<u8>>> {
+        self.newest_normal(key, false, seq, w, h, picture, epoch)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn newest_normal(&self, key: &str, wait: bool, seq: u64, w: usize, h: usize, picture: Picture, epoch: u64) -> Option<Arc<Vec<u8>>> {
         if self.inner.masks_wait.load(Ordering::SeqCst) {
             let mut picture = Some(picture);
             return self.person_mask_in(key, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch);
@@ -383,6 +513,35 @@ impl Vision {
             self.load();
             return None;
         };
+        self.newest_from(key, backend, Which::Normal, wait, seq, w, h, picture, epoch)
+    }
+
+    /// The high quality cutout's way in, the same as newest_mask from its own model and thread, and never waiting: None while it isn't
+    /// downloaded, loading, failed, hasn't a mask yet or its newest is too old, and the caller then has the normal mask to use.
+    pub fn newest_cutout(&self, key: &str, seq: u64, w: usize, h: usize, picture: Picture) -> Option<Arc<Vec<u8>>> {
+        self.newest_cutout_in(key, seq, w, h, picture, self.view_epoch())
+    }
+
+    /// newest_cutout for a picture made when the view had turned `epoch` times (see newest_mask_in).
+    pub fn newest_cutout_in(&self, key: &str, seq: u64, w: usize, h: usize, picture: Picture, epoch: u64) -> Option<Arc<Vec<u8>>> {
+        let Some(backend) = self.cutout_ready() else {
+            self.load_cutout();
+            return None;
+        };
+        let key = cutout_key(key);
+        if self.inner.masks_wait.load(Ordering::SeqCst) {
+            let mut picture = Some(picture);
+            let sv = self.stream(&key);
+            let mut m = sv.mask.lock().unwrap();
+            m.asked = monotonic();
+            return self.mask(&mut m, &*backend, Which::Cutout, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch);
+        }
+        self.newest_from(&key, backend, Which::Cutout, false, seq, w, h, picture, epoch)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn newest_from(&self, key: &str, backend: Arc<dyn Backend>, which: Which, wait: bool, seq: u64, w: usize, h: usize, picture: Picture, epoch: u64)
+                   -> Option<Arc<Vec<u8>>> {
         let sv = self.stream(key);
         let mut n = sv.newest.lock().unwrap();
         // Read under the lock drop_masks turns the count with
@@ -394,12 +553,12 @@ impl Vision {
             n.job = Some(MaskJob { seq, size: (w, h), picture, at: monotonic(), epoch });
             if !n.thread {
                 let (inner, sv2) = (self.inner.clone(), sv.clone());
-                n.thread = std::thread::Builder::new().name("vision-mask".into()).spawn(move || mask_loop(inner, backend, sv2)).is_ok();
+                n.thread = std::thread::Builder::new().name("vision-mask".into()).spawn(move || mask_loop(inner, backend, sv2, which)).is_ok();
             }
             sv.mask_wanted.notify_all();
         }
         let usable = |n: &NewestMask| n.mask.as_ref().is_some_and(|m| m.epoch == epoch && m.usable(w, h));
-        if !usable(&n) && !n.gave_up {
+        if wait && !usable(&n) && !n.gave_up {
             let (done, until) = (n.done, std::time::Instant::now() + std::time::Duration::from_secs_f64(FIRST_MASK_WAIT_S));
             while !usable(&n) && n.done == done {
                 let Some(left) = until.checked_duration_since(std::time::Instant::now()) else {
@@ -449,11 +608,11 @@ impl Vision {
         let sv = self.stream(key);
         let mut m = sv.mask.lock().unwrap();
         m.asked = monotonic();
-        self.mask(&mut m, &*backend, seq, w, h, picture, epoch)
+        self.mask(&mut m, &*backend, Which::Normal, seq, w, h, picture, epoch)
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn mask(&self, m: &mut MaskState, backend: &dyn Backend, seq: u64, w: usize, h: usize, picture: &mut dyn FnMut() -> Option<Rgb>, epoch: u64)
+    fn mask(&self, m: &mut MaskState, backend: &dyn Backend, which: Which, seq: u64, w: usize, h: usize, picture: &mut dyn FnMut() -> Option<Rgb>, epoch: u64)
             -> Option<Arc<Vec<u8>>> {
         // A picture from before a turn of the view leaves what's kept alone: it's of the old way round, and what it would blend into the next mask is too
         if self.view_epoch() != epoch {
@@ -462,6 +621,10 @@ impl Vision {
         if m.turns != epoch {
             // The view turned since what was kept was made: it, and what the next mask would blend in, is of the old picture
             (m.turns, m.seq, m.mask, m.small, m.motion) = (epoch, None, None, None, Motion::default());
+            // A model that keeps its own memory of the last frames (the cutout's) forgets them too
+            if let Some(segment) = m.segment.as_mut() {
+                segment.reset();
+            }
         }
         if let (Some(at), Some((mw, mh, mask))) = (m.seq, &m.mask) {
             if at == seq && (*mw, *mh) == (w, h) {
@@ -473,13 +636,13 @@ impl Vision {
                 Ok(s) => m.segment = Some(s),
                 Err(e) => {
                     log::error!("Couldn't make the person segmenter: {}: {}", e.kind, e.message);
-                    self.inner.fail(&e);
+                    self.inner.fail_model(which, &e);
                     return None;
                 }
             }
         }
         let frame = picture()?;
-        let small = model_input(&frame, MODEL_SIZE).unwrap_or(frame);
+        let small = m.segment.as_ref().and_then(|s| s.input(&frame)).unwrap_or(frame);
         let now = monotonic();
         // Nothing moving: the last mask still fits, so the model runs less often (anything moving brings it back)
         let moved = m.motion.moved(&small);
@@ -487,19 +650,33 @@ impl Vision {
         if (moved && !saving) || m.small.is_none() || now - m.at >= MASK_STILL_EVERY_S {
             let t0 = std::time::Instant::now();
             let ts = m.clock.next();
-            let mut mask = match m.segment.as_mut().unwrap().segment(&small, ts) {
+            let gap = m.small.is_some() && now - m.at > MASK_MAX_AGE_S;
+            let resized = m.small.as_ref().is_some_and(|s| (s.w, s.h) != (small.w, small.h));
+            let segment = m.segment.as_mut().unwrap();
+            // After a long gap, or at another size, the model's memory is of another picture (the camera may have been switched meanwhile)
+            if gap || resized {
+                segment.reset();
+            }
+            let mut mask = match segment.segment(&small, ts) {
                 Ok(mask) => mask,
                 Err(e) => {
                     log::warn!("The person segmenter failed: {}: {}", e.kind, e.message);
+                    m.fails += 1;
+                    if which == Which::Cutout && m.fails >= CUTOUT_MAX_FAILS {
+                        self.inner.fail_model(which, &e);
+                    }
                     return None;
                 }
             };
+            m.fails = 0;
             // After a long gap the last mask is of another moment
             if let Some(last) = m.small.as_ref().filter(|s| (s.w, s.h) == (mask.w, mask.h) && now - m.at <= MASK_MAX_AGE_S) {
-                let carry = if moved { MASK_CARRY } else { MASK_CARRY_STILL };
-                mask.data = add_weighted(&mask.data, 1.0 - carry, &last.data, carry);
+                if m.segment.as_ref().is_some_and(|s| s.blends_last()) {
+                    let carry = if moved { MASK_CARRY } else { MASK_CARRY_STILL };
+                    mask.data = add_weighted(&mask.data, 1.0 - carry, &last.data, carry);
+                }
             }
-            self.note("mask", t0);
+            self.note(if which == Which::Cutout { "cutout" } else { "mask" }, t0);
             m.motion.used();
             m.small = Some(mask);
             m.at = now;
@@ -640,10 +817,16 @@ impl Vision {
 
     /// A stream ended: its tasks close and its people thread ends.
     pub fn drop_stream(&self, key: &str) {
-        let Some(sv) = self.inner.streams.lock().unwrap().remove(key) else { return };
-        sv.stopping.store(true, Ordering::SeqCst);
-        sv.wake();
-        sv.mask.lock().unwrap().segment = None;
+        // The cutout's models of the stream go with it, so a stream that starts again begins with fresh memory
+        for key in [key.to_string(), cutout_key(key)] {
+            let Some(sv) = self.inner.streams.lock().unwrap().remove(&key) else { continue };
+            sv.stopping.store(true, Ordering::SeqCst);
+            sv.wake();
+            // A mask being made holds the lock for as long as the model takes: its thread closes the model when it's done (see mask_loop)
+            if let Ok(mut m) = sv.mask.try_lock() {
+                m.segment = None;
+            };
+        }
     }
 
     /// No callback reaches on_people or on_state once this returns.
@@ -692,7 +875,23 @@ impl Vision {
         if self.power_saving() {
             line += ", power saving";
         }
-        vec![("Vision".into(), line)]
+        let mut lines = vec![("Vision".into(), line)];
+        if let Some(cutout) = self.cutout_slot().filter(|_| self.cutout_state() != OFF) {
+            let version = cutout.backend.lock().unwrap().as_ref().map_or("?".into(), |b| b.version());
+            let mut line = match self.cutout_state() {
+                READY => format!("ready ({version})"),
+                LOADING => "loading".into(),
+                MISSING => "not downloaded".into(),
+                _ => format!("didn't load ({})", cutout.problem.lock().unwrap()),
+            };
+            if let Some(recent) = ms.get("cutout").filter(|r| !r.is_empty()) {
+                let mut sorted = recent.clone();
+                sorted.sort_by(f64::total_cmp);
+                line += &format!(", mask {:.1} ms", sorted[sorted.len() / 2]);
+            }
+            lines.push(("High quality cutout".into(), line));
+        }
+        lines
     }
 }
 
@@ -716,6 +915,53 @@ impl Inner {
             None => e.kind.clone(),
         };
         self.set_state(FAILED);
+    }
+
+    /// A model that can't run: the normal one says so for the whole service, the cutout only for itself.
+    fn fail_model(&self, which: Which, e: &VisionError) {
+        match which {
+            Which::Normal => self.fail(e),
+            Which::Cutout => {
+                let Some(cutout) = self.cutout.lock().unwrap().clone() else { return };
+                // The same as fail(): the type and a missing library's name, never a message with a path in it
+                let missing = if e.kind == "OSError" { missing_library(&e.message) } else { None };
+                *cutout.problem.lock().unwrap() = match missing {
+                    Some(lib) => format!("{}: {lib} missing", e.kind),
+                    None => e.kind.clone(),
+                };
+                self.set_cutout_state(&cutout, FAILED);
+            }
+        }
+    }
+
+    fn set_cutout_state(&self, cutout: &Cutout, state: &'static str) {
+        let _held = self.callback_lock.lock().unwrap();
+        if self.closed.load(Ordering::SeqCst) {
+            return;
+        }
+        *cutout.state.lock().unwrap() = state;
+        if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| (cutout.on_state)(state))).is_err() {
+            log::error!("Cutout state callback failed");
+        }
+    }
+
+    fn load_cutout_now(&self, cutout: &Cutout) {
+        match (cutout.find)() {
+            Ok(backend) => {
+                log::info!("High quality cutout ({}) loaded", backend.version());
+                *cutout.backend.lock().unwrap() = Some(backend);
+                self.set_cutout_state(cutout, READY);
+            }
+            Err(LoadError::Missing(why)) => {
+                log::info!("The high quality cutout isn't there: {why}");
+                cutout.problem.lock().unwrap().clear();
+                self.set_cutout_state(cutout, MISSING);
+            }
+            Err(LoadError::Failed(e)) => {
+                log::error!("The high quality cutout didn't load: {}: {}", e.kind, e.message);
+                self.fail_model(Which::Cutout, &e);
+            }
+        }
     }
 
     fn load_now(&self) {
@@ -756,7 +1002,7 @@ fn tidy_loop(inner: Weak<Inner>) {
 }
 
 /// A stream's masks: only ever the newest frame waiting, so when the model falls behind it skips frames instead of queueing them.
-fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>) {
+fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>, which: Which) {
     let vision = Vision { inner };
     loop {
         let job = {
@@ -776,7 +1022,10 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
         let mut picture = Some(picture);
         let mut m = sv.mask.lock().unwrap();
         m.asked = monotonic();
-        let mask = vision.mask(&mut m, &*backend, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch);
+        let mask = vision.mask(&mut m, &*backend, which, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch);
+        if sv.stopping.load(Ordering::SeqCst) {
+            m.segment = None;
+        }
         drop(m);
         let mut n = sv.newest.lock().unwrap();
         n.done += 1;
@@ -838,3 +1087,7 @@ fn people_loop(inner: Arc<Inner>, key: String, sv: Arc<StreamVision>, quit: Arc<
 #[cfg(test)]
 #[path = "service_tests.rs"]
 pub(crate) mod tests;
+
+#[cfg(test)]
+#[path = "cutout_tests.rs"]
+mod cutout_tests;

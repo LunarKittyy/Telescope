@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use telescope_core::i18n::{tr, tr_ctx};
 use telescope_core::plugin::{PluginInfo, PLUGIN_CATEGORIES};
-use telescope_core::vision::VisionService;
+use telescope_core::vision::{VisionPack, VisionService};
 use telescope_core::plugin_admin::{AddedPlugin, InstallFailure, PluginAdmin, AUTO_UPDATE, CHECK_UPDATES};
 
 pub const DOCS_URL: &str = "https://github.com/LunarKittyy/Telescope/blob/master/docs/plugins.md";
@@ -204,16 +204,16 @@ pub struct DownloadBanner {
 }
 
 /// The banner for one pack download: its progress while it runs, the error it reported once it has failed, nothing otherwise.
-/// A second pack's download gets its banner by calling this with its own title and numbers.
-pub fn download_banner(title: &str, size_mb: u64, running: bool, done: u64, size: u64, error: &str) -> Option<DownloadBanner> {
+/// A pack's download gets its banner by calling this with its own title, the tooltip's line while it runs (`detail`), the one after
+/// a failure (`retry`) and its numbers.
+pub fn download_banner(title: &str, detail: &str, retry: &str, running: bool, done: u64, size: u64, error: &str) -> Option<DownloadBanner> {
     if running {
         let percent = (done * 100).checked_div(size).map(|p| p.min(99) as u8);
-        let detail = fill(&tr("This one-time download (about {mb} MB) is shared by every plugin that finds people in the picture."), &[("mb", &size_mb.to_string())]);
-        Some(DownloadBanner { title: title.to_string(), percent, error: String::new(), detail })
+        Some(DownloadBanner { title: title.to_string(), percent, error: String::new(), detail: detail.to_string() })
     } else if !error.is_empty() {
         Some(DownloadBanner {
             title: title.to_string(), percent: None, error: fill(&tr("The download didn't work. {error}"), &[("error", error)]),
-            detail: tr("Switch on a plugin that needs the vision pack to try again."),
+            detail: retry.to_string(),
         })
     } else {
         None
@@ -235,6 +235,10 @@ pub trait Download {
     fn progress(&self) -> (u64, u64);
     fn start(&self, switch_on: &str);
     fn remove(&self) -> Result<(), String>;
+    /// Where the high quality cutout's download is (its own pack, with nothing to switch on).
+    fn cutout(&self) -> VisionPack {
+        VisionPack::default()
+    }
 }
 
 /// The app's one download, from the vision service.
@@ -289,6 +293,9 @@ impl Download for VisionDownload {
     }
     fn remove(&self) -> Result<(), String> {
         self.service.remove_pack()
+    }
+    fn cutout(&self) -> VisionPack {
+        self.service.matting_pack()
     }
 }
 
@@ -365,7 +372,9 @@ impl Panel {
     pub fn download_sign(&self) -> String {
         let dl = &self.download;
         let (done, size) = dl.progress();
-        format!("{} {} {} {} {}", dl.ready(), dl.running(), (done * 100).checked_div(size).unwrap_or(0), dl.error(), dl.failed_for())
+        let cutout = dl.cutout();
+        format!("{} {} {} {} {} {} {} {}", dl.ready(), dl.running(), (done * 100).checked_div(size).unwrap_or(0), dl.error(), dl.failed_for(),
+                cutout.downloading, (cutout.done * 100).checked_div(cutout.size).unwrap_or(0), cutout.error)
     }
 
     /// How many switches, installs and removals wait for Telescope to start again.
@@ -610,7 +619,18 @@ impl Panel {
     pub fn download_banner(&self) -> Option<DownloadBanner> {
         let dl = &self.download;
         let (done, size) = dl.progress();
-        download_banner(&tr("Downloading the vision pack"), dl.size_mb(), dl.running(), done, size, &dl.error())
+        let vision = download_banner(
+            &tr("Downloading the vision pack"),
+            &fill(&tr("This one-time download (about {mb} MB) is shared by every plugin that finds people in the picture."), &[("mb", &dl.size_mb().to_string())]),
+            &tr("Switch on a plugin that needs the vision pack to try again."), dl.running(), done, size, &dl.error());
+        let cutout = dl.cutout();
+        let high = download_banner(
+            &tr("Downloading the high quality cutout"),
+            &fill(&tr("This one-time download (about {mb} MB) gives the Background cutout cleaner edges."), &[("mb", &cutout.size_mb.to_string())]),
+            &tr("Press Download under High quality cutout in Background to try again."), cutout.downloading, cutout.done, cutout.size, &cutout.error);
+        // One banner at a time: a download under way wins over a failure, the vision pack over the cutout
+        let running = |b: &Option<DownloadBanner>| b.as_ref().is_some_and(|b| b.error.is_empty());
+        if running(&vision) || !running(&high) && vision.is_some() { vision } else { high }
     }
 
     pub fn footer_note(&self) -> String {

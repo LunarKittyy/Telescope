@@ -292,6 +292,12 @@ impl FrameContext for Ctx {
     fn person_mask_at(&self, frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
         self.vision.as_ref()?.person_mask_in(&self.source_id, frame, w, h, self.view_epoch)
     }
+    fn person_mask_hq(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        self.vision.as_ref()?.person_mask_hq(&self.source_id, frame, frame.width as usize, frame.height as usize, self.view_epoch)
+    }
+    fn person_mask_hq_at(&self, frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        self.vision.as_ref()?.person_mask_hq(&self.source_id, frame, w, h, self.view_epoch)
+    }
     fn colour_preview(&self, frame: &Frame) -> Frame {
         frame.clone()
     }
@@ -894,11 +900,11 @@ impl Shared {
         }
         // vision looks for people in the frame before the view (view_controller.process_frame)
         if let Some(feed) = self.vision.as_ref().filter(|f| f.service.wants_people()) {
-            let upright = *feed.upright.lock().unwrap();
+            let upright = feed.upright.lock().unwrap().for_frame(frame.width, frame.height);
             feed.service.feed_raw(&self.source_id, &frame, upright);
         }
         if let Some(motion) = self.vision.as_ref().and_then(|f| f.motion.as_ref()).filter(|m| m.watching()) {
-            let upright = *self.vision.as_ref().map(|f| f.upright.lock().unwrap()).expect("a feed");
+            let upright = self.vision.as_ref().map(|f| f.upright.lock().unwrap().for_frame(frame.width, frame.height)).expect("a feed");
             motion.feed(&frame, &self.source_id, Some(&upright), telescope_core::time::monotonic_ns() as f64 / 1e9);
         }
         let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: self.view_epoch.load(Ordering::SeqCst) };

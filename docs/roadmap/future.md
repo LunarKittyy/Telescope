@@ -98,10 +98,6 @@ Blur is the heaviest step left on the CPU with everything on at 4K. Switching it
 
 With the Fun pack's 1998 webcam on, the processor use goes up by about 44%, and the picture is repeated every other frame on purpose. Much of the cost is the way the blocky look is made, which could be done once and held for the repeated frame. Small.
 
-### Lens correction
-
-Wide and ultra-wide lenses bend straight lines and stretch faces near the edges. A Lens correction in Transforms would straighten that. A first try cost about 2 ms a frame at 1080p on the CPU, but clicks in the preview and everything that finds faces and bodies still used the uncorrected picture, so framing and the face effects would land in the wrong place. Those need to go through the same correction first. Medium.
-
 ### Composite tiles zoom further
 
 A tile in Composite zooms in at most 4x, while Auto framing follows the Max zoom setting. The tiles could follow it too. Small.

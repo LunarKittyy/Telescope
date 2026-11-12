@@ -236,3 +236,22 @@ fn the_ceiling_leaves_room_for_the_real_packs() {
     // The Linux pack unpacks to 135,048,734 bytes
     assert!(MAX_UNPACKED > 135_048_734 && MAX_UNPACKED < 256 * 1024 * 1024);
 }
+
+#[test]
+fn the_cutouts_download_is_named_and_kept_apart_from_the_vision_pack() {
+    let info: Value = serde_json::from_str(MATTING_INFO).unwrap();
+    for key in ["linux", "windows"] {
+        let entry = PackInfo::from_json_for(Kind::Matting, &info, Some(key));
+        let id = entry.id.clone().expect(key);
+        assert!(id.len() == 64 && id.chars().all(|c| c.is_ascii_hexdigit()), "{key}: {id}");
+        assert_eq!(entry.asset_name().unwrap(), format!("Telescope-matting-{key}-{}.zip", &id[..16]));
+        // about the size the notes promise and under the cap the app stops unpacking at
+        assert!(entry.size > 1_000_000 && entry.size < MAX_UNPACKED, "{key}: {}", entry.size);
+    }
+    let vision = PackInfo::from_json(&serde_json::from_str(PACK_INFO).unwrap(), Some("linux"));
+    assert_ne!(vision.asset_name().unwrap().split('-').nth(1), Some("matting"));
+    assert_ne!(default_dir(), matting_dir());
+    assert_eq!(default_dir().parent(), matting_dir().parent());
+    // a build for another computer has none, and says so
+    assert!(PackInfo::from_json_for(Kind::Matting, &info, None).asset_name().is_none());
+}

@@ -376,7 +376,7 @@ fn a_rust_build_s_files_go_too() {
     let root = scratch_dir("move");
     let downloads = unzipped(&root.join("Downloads"), &["holiday.jpg"]);
     for name in ["ui-kit/ui-kit.slint", "ui-kit/theme.slint", "ui-kit/icons.slint", "ui-kit/icons/x.svg", "ui-kit/widgets/card.slint",
-                 "avcodec-62.dll", "avutil-60.dll", "swresample-6.dll", "swscale-9.dll", "rnnoise.dll"] {
+                 "avcodec-62.dll", "avutil-60.dll", "swresample-6.dll", "swscale-9.dll", "rnnoise.dll", "vcruntime140_1.dll", "msvcp140.dll", "msvcp140_1.dll"] {
         write(&downloads.join(name), b"x");
     }
     assert!(plain(&downloads, &installed(&root), root.join("adb")));

@@ -230,9 +230,10 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Vision effects
 
-<!-- due: rust/crates/vision/** rust/crates/effects/src/background.rs rust/crates/effects/src/framing.rs rust/crates/effects/src/fun_*.rs rust/crates/effects/src/face_exposure.rs rust/crates/effects/src/privacy_blur.rs rust/crates/effects/src/vision_row.rs rust/tools/build_vision_pack.py rust/tools/vision-pack-requirements.txt ; packages: mediapipe absl-py flatbuffers certifi -->
+<!-- due: rust/crates/vision/** rust/crates/effects/src/background.rs rust/crates/effects/src/framing.rs rust/crates/effects/src/fun_*.rs rust/crates/effects/src/face_exposure.rs rust/crates/effects/src/privacy_blur.rs rust/crates/effects/src/vision_row.rs rust/tools/build_vision_pack.py rust/tools/vision-pack-requirements.txt rust/tools/build_matting_pack.py ; packages: mediapipe absl-py flatbuffers certifi -->
 
 - [ ] Auto framing and Background (Linux and Windows): switching one on under **People** asks before downloading, shows the progress and after **Restart now** its card shows. Auto framing follows you while streaming from a real phone, widens when you hold a hand out and zooms back out when you leave, also at 90, 180 and 270 degrees and flipped. Zoom and Pan in Transforms grey out while it's on. Background blurs and puts a picture behind you. With both off **Remove download** deletes the download.
+- [ ] Background's **High quality** (Linux and Windows): off by default. Switching it on offers its own download with a note about the processor, and until it has finished the normal cutout keeps working. Afterwards hair and edges are cleaner and the mask holds still in a still room. Switching the camera, the resolution or the stream off and on doesn't leave a ghost of the old picture in the cutout. **Remove download** deletes it too.
 - [ ] Fun pack with a real phone: clones, the cloak and the stick figure follow you, light painting draws with a torch, and the retro looks hold 30 fps at 1080p. Datamosh on Light smears when you move, **Clean up** and switching it off bring the picture back within a second, and on Heavy the card says it needs Light.
 - [ ] Expose for my face with a real phone and a bright window behind you: the face gets lit right within a couple of seconds, a small head move doesn't change the exposure, walking out holds it and a tap on the preview takes over until **Follow my face**.
 - [ ] Privacy blur with a real phone: a second person walking in blurs the whole picture within a second and it stops about 4 seconds after they leave. Try each choice in the dropdown (**Show the wait screen** with your own wait screen image too) and **Blur now** from a keyboard shortcut.
@@ -262,6 +263,13 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Linux and Windows, streaming 1080p60 from a real phone: switch Colour grading on under **Look**, drag the wheels and curves and load a `.cube` LUT. The frame rate in the footer stays at 60 and Copy diagnostics shows the colour pipeline's time a frame.
 - [ ] Compare shows the ungraded picture left of the line on the preview while a call sees the whole picture graded. The header switch takes the grade off and puts it back.
 - [ ] Export grade… writes a `.cube` that gives the same look in another program (OBS's LUT filter or Resolve). Two phones keep their own grades and a preset brings its grade back.
+
+### Filters
+
+<!-- due: rust/crates/effects/src/filters.rs rust/crates/effects/src/filters_cpu.rs rust/crates/effects/src/filter_*.wgsl -->
+
+- [ ] Linux and Windows, streaming 1080p60 from a real phone in a dim room: Denoise and Over time clean up the noise without a ghost behind a hand waved in front, Sharpen and Clarity make the picture crisper with no white outline, and Vignette, Glow and Film grain show in a call after the grade. The frame rate in the footer stays at 60 and a game in front (the card busy) keeps the filters working.
+- [ ] Skin smoothing with the vision download softens a face and leaves the eyes, brows and hair sharp. Without the download the card says why it can't. A preset brings the filters back, and two phones keep their own.
 
 ### Notes next to the lens
 

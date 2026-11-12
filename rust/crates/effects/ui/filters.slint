@@ -1,0 +1,100 @@
+// The Filters card. Joined after parts.slint and vision_status.slint, which have the imports.
+
+export component FiltersCard inherits Card {
+    in property <bool> active: true;
+    idle: !active;
+    // Greyed out until a phone is paired
+    in property <bool> on: true;
+    in property <string> switch-name;
+    in property <string> switch-help;
+    in property <string> camera-note;
+    in property <string> camera-note-detail;
+    // Every slider's label, tip, setting, heading (a section starts there when it isn't empty), value, readout and range, side by side
+    in property <[string]> slider-label;
+    in property <[string]> slider-tip;
+    in property <[string]> slider-setting;
+    in property <[string]> slider-heading;
+    in property <[string]> slider-text;
+    in property <[float]> slider-value;
+    in property <[float]> slider-minimum;
+    in property <[float]> slider-maximum;
+    in property <[float]> slider-default;
+    // The slider a radius or a size hangs from (-1 for one that stands alone), and whether it shows: only while that amount is above 0
+    in property <[int]> slider-parent;
+    // The ones that stand alone, in order
+    in property <[int]> slider-mains;
+    in property <[bool]> slider-shown;
+    // The slider that needs the vision pack, with the note on why it can't work yet right under it
+    in property <int> skin-index: 3;
+    in property <bool> skin-available: true;
+    in property <string> vision-text;
+    in property <bool> vision-download;
+    callback switch-toggled-by-hand(bool);
+    callback slider-moved(int, float);
+    callback download-clicked;
+
+    title: @tr("Filters");
+    tip: @tr("Sharpen, clean up and finish the picture like a photo editor.");
+    icon: Icons.sliders;
+    enabled: active;
+    has-switch: true;
+    switch-shortcut: "filters.on";
+    switch-setting: "filters.on";
+    switch-enabled: active;
+    switch-checked: on;
+    switch-label: switch-name;
+    switch-tip: switch-name;
+    switch-tip-detail: switch-help;
+    switch-toggled(v) => { root.switch-toggled-by-hand(v); }
+
+    Status { text: camera-note; detail: camera-note-detail; }
+    for i in slider-mains: VerticalLayout {
+            if slider-heading[i] != "": SectionHeading { text: slider-heading[i]; }
+            UnfoldGroup {
+                RailSlider {
+                    icon: [Icons.denoise, Icons.timer, Icons.sun, Icons.person, Icons.sharpen, Icons.aperture, Icons.sliders, Icons.contrast, Icons.corners, Icons.zoom, Icons.aspect, Icons.sparkle, Icons.blur, Icons.grain, Icons.grid][i];
+                    enabled: active && on && (i != skin-index || skin-available);
+                    label: slider-label[i];
+                    tip: slider-label[i];
+                    tip-detail: slider-tip[i];
+                    setting: slider-setting[i];
+                    minimum: slider-minimum[i];
+                    maximum: slider-maximum[i];
+                    value: slider-value[i];
+                    readout: slider-text[i];
+                    hue: root.hue;
+                    has-default: true;
+                    default-value: slider-default[i];
+                    moved(v) => { root.slider-moved(i, v); }
+                }
+                if i == skin-index: VisionStatus {
+                    text: vision-text;
+                    download: vision-download;
+                    download-clicked => { root.download-clicked(); }
+                }
+                for child[j] in slider-label: VerticalLayout {
+                    if slider-parent[j] == i: Unfolding {
+                        open: slider-shown[j];
+                        RailSlider {
+                            icon: [Icons.denoise, Icons.timer, Icons.sun, Icons.person, Icons.sharpen, Icons.aperture, Icons.sliders, Icons.contrast, Icons.corners, Icons.zoom, Icons.aspect, Icons.sparkle, Icons.blur, Icons.grain, Icons.grid][j];
+                            enabled: active && on;
+                            label: child;
+                            tip: child;
+                            tip-detail: slider-tip[j];
+                            setting: slider-setting[j];
+                            minimum: slider-minimum[j];
+                            maximum: slider-maximum[j];
+                            value: slider-value[j];
+                            readout: slider-text[j];
+                            hue: root.hue;
+                            has-default: true;
+                            default-value: slider-default[j];
+                            moved(v) => { root.slider-moved(j, v); }
+                        }
+                    }
+                }
+            }
+    }
+    // Nothing to touch until a phone is paired
+    blocked: !active;
+}

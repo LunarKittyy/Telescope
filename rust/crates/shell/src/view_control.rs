@@ -76,6 +76,7 @@ fn apply(view: &View, c: &ViewChange, with_moves: bool) -> View {
     if let Some(r) = c.rotation { v.rotation = r; }
     if let Some(s) = c.stretch_x { v.stretch_x = s; }
     if let Some(s) = c.stretch_y { v.stretch_y = s; }
+    if let Some(d) = c.distortion { v.distortion = d; }
     v
 }
 
@@ -241,7 +242,12 @@ impl ViewController {
         let (zoom, px, py) = (view.zoom as f64, view.pan_x as f64, view.pan_y as f64);
         let split = split_zoom(zoom, px, py, caps.as_ref(), current);
         let (mut phone, mut desktop) = (split.phone, split.desktop);
-        if !self.owner.is_empty() && phone.is_some() {
+        if view.distortion.abs() >= 1e-6 {
+            // Lens correction takes the centre of the arriving frame for the lens's and the frame's diagonal for its strength, which
+            // only holds for the whole picture of the lens, so the phone keeps a neutral share and all the framing is done here
+            phone = phone.map(|_| PhoneZoom { ratio: 1.0, crop: 1.0, x: 0.5, y: 0.5 });
+            desktop = (zoom, px, py);
+        } else if !self.owner.is_empty() && phone.is_some() {
             (phone, desktop) = self.held(view, caps.as_ref(), current, split, now);
         }
         if desktop != self.desktop {
@@ -581,6 +587,27 @@ mod tests {
         said.extend(vc.set_view(&mut view, &change(Some(3.0), None, None), 0.0));
         assert_eq!(sent(&said), [PhoneZoom { ratio: 1.0, crop: 1.0, x: 0.5, y: 0.5 }, PhoneZoom { ratio: 1.0, crop: 3.0, x: 0.5, y: 0.5 }]);
         assert_eq!(vc.desktop, (1.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn with_lens_correction_on_the_phone_stays_on_its_whole_picture_and_this_computer_crops() {
+        let (mut vc, mut view) = engaged();
+        let mut said = vc.stream_start(&view, "p1", 1, 0.0);
+        said.extend(vc.phone_state(&view, &lens(), 0.0));
+        said.extend(vc.set_view(&mut view, &change(Some(3.0), None, None), 0.0));
+        assert_eq!(vc.sent().unwrap().crop, 3.0, "without the correction the phone crops");
+        // Turning it on takes the phone back to the whole picture, and the crop moves here
+        said.clear();
+        said.extend(vc.set_view(&mut view, &ViewChange { distortion: Some(0.5), ..Default::default() }, 1.0));
+        assert_eq!(sent(&said), [PhoneZoom { ratio: 1.0, crop: 1.0, x: 0.5, y: 0.5 }]);
+        assert_eq!(vc.desktop, (3.0, 0.0, 0.0));
+        said.clear();
+        said.extend(vc.set_view(&mut view, &change(Some(5.0), Some(0.5), None), 2.0));
+        assert!(sent(&said).is_empty(), "later zooms and pans stay on this computer");
+        assert_eq!(vc.desktop, (5.0, 0.5, 0.0));
+        // And off again, the phone takes its share back
+        said.extend(vc.set_view(&mut view, &ViewChange { distortion: Some(0.0), ..Default::default() }, 3.0));
+        assert!(sent(&said).iter().any(|p| p.crop > 1.0));
     }
 
     #[test]

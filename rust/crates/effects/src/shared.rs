@@ -20,6 +20,12 @@ pub(crate) fn mask_shared(ctx: &dyn FrameContext, frame: &Frame) -> Option<Arc<V
     (m.len() == (frame.width * frame.height) as usize).then_some(m)
 }
 
+/// The same from the high quality cutout's model, or the normal mask while that isn't there (person_mask_hq).
+pub(crate) fn mask_shared_hq(ctx: &dyn FrameContext, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+    let m = ctx.person_mask_hq(frame)?;
+    (m.len() == (frame.width * frame.height) as usize).then_some(m)
+}
+
 /// Reads a picture file (a PNG, JPEG, WebP or BMP) into a frame. The binary makes one from its Media.
 pub type PictureReader = Arc<dyn Fn(&str) -> Result<Frame, String> + Send + Sync>;
 
