@@ -100,6 +100,9 @@ pub struct FakeHost {
     pub packets: HashMap<String, Option<Arc<dyn PacketStepFactory>>>,
     /// What plugin_config() answers, by plugin name.
     pub plugin_configs: HashMap<String, Value>,
+    /// What setting_revision() counts: the clock, and when each dotted path of a plugin's config last moved.
+    pub revision_clock: u64,
+    pub revisions: Vec<(String, String, u64)>,
     /// Stands in for a plugin's own rules in apply_preset: puts right the config it was given, as a plugin does for settings that depend on each other.
     pub preset_rules: Option<fn(&str, &mut Value)>,
     /// Plugins has_plugin() says are there.
@@ -234,6 +237,25 @@ impl FakeHost {
         self.calls.push(call.into());
     }
 
+    /// A plugin's config changed from `old` to `new`: what moved gets a new revision, as the real host does when a plugin saves.
+    fn moved(&mut self, plugin: &str, old: &Value, new: &Value) {
+        let paths: Vec<String> = crate::settings::leaf_changes(old, new).into_iter().map(|(path, _, _)| path).collect();
+        if paths.is_empty() {
+            return;
+        }
+        self.revision_clock += 1;
+        for path in paths {
+            self.revisions.retain(|(p, k, _)| !(p == plugin && *k == path));
+            self.revisions.push((plugin.to_string(), path, self.revision_clock));
+        }
+    }
+
+    /// The person set a plugin's config to `new` by hand: it is stored as it is and what moved counts as touched.
+    pub fn edit_by_hand(&mut self, plugin: &str, new: Value) {
+        let old = self.plugin_configs.insert(plugin.to_string(), new.clone()).unwrap_or(Value::Null);
+        self.moved(plugin, &old, &new);
+    }
+
     fn request(&mut self) -> RequestId {
         self.next_request += 1;
         RequestId(self.next_request)
@@ -257,8 +279,12 @@ impl HostSettings for FakeHost {
             if let Some(rules) = self.preset_rules {
                 rules(name, &mut cfg);
             }
-            self.plugin_configs.insert(name.to_string(), cfg);
+            let old = self.plugin_configs.insert(name.to_string(), cfg.clone()).unwrap_or(Value::Null);
+            self.moved(name, &old, &cfg);
         }
+    }
+    fn setting_revision(&self, plugin: &str, key: &str) -> u64 {
+        self.revisions.iter().filter(|(p, k, _)| p == plugin && crate::settings::paths_overlap(k, key)).map(|(_, _, at)| *at).max().unwrap_or(0)
     }
     fn preset_plugins(&self) -> Vec<String> {
         self.preset_plugins.clone()
@@ -452,8 +478,9 @@ impl HostShell for FakeHost {
     }
     fn run_action(&mut self, plugin: &str, id: &str, params: &Value) -> Option<String> {
         self.note(format!("run_action {plugin} {id} {params}"));
-        if let Some((name, config)) = self.action_effects.get(id) {
-            self.plugin_configs.insert(name.clone(), config.clone());
+        if let Some((name, config)) = self.action_effects.get(id).cloned() {
+            let old = self.plugin_configs.insert(name.clone(), config.clone()).unwrap_or(Value::Null);
+            self.moved(&name, &old, &config);
         }
         if let Some(answer) = self.action_answers.get(id) {
             return answer.clone();

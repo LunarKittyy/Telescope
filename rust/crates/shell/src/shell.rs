@@ -37,6 +37,10 @@ pub struct Slot {
     pub defaults: Value,
     /// Its hook timer in the stats hub, looked up the first time one is timed.
     pub timer: Option<Arc<telescope_core::stats::Timer>>,
+    /// What get_config() was when its settings were last looked at for what moved (a save it asked for, a preset handed to it).
+    pub seen: Option<Value>,
+    /// When each dotted path of its config last moved, by the state's setting clock (Host::setting_revision).
+    pub moved: Vec<(String, u64)>,
 }
 
 /// The plugins' packet step makers by owner, in the order they came on (HostPackets).
@@ -366,6 +370,10 @@ pub struct State {
     // Plugin hooks running right now, and whether one asked for save_now
     calls: u32,
     pub(crate) save_after_call: bool,
+    /// Counts how often a plugin's settings moved, so Host::setting_revision can tell later edits from earlier ones.
+    pub(crate) setting_clock: u64,
+    /// The plugins that asked for a save during the hook running now, whose settings are looked at when the hook ends.
+    pub(crate) saved_in_call: Vec<usize>,
 }
 
 impl State {
@@ -426,7 +434,7 @@ impl State {
             camera_on_shown: true,
             shown: None,
             tray_close_notified: false,
-            shortcut_menu: None, stills: Vec::new(), source_stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false,
+            shortcut_menu: None, stills: Vec::new(), source_stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false, setting_clock: 0, saved_in_call: Vec::new(),
         }
     }
 
@@ -458,6 +466,10 @@ impl State {
             timer.add(telescope_core::time::monotonic_ns().saturating_sub(began));
         }
         self.slots[i].plugin = Some(plugin);
+        if self.saved_in_call.contains(&i) {
+            self.saved_in_call.retain(|s| *s != i);
+            self.note_config(i);
+        }
         self.calls -= 1;
         if self.calls == 0 && std::mem::take(&mut self.save_after_call) && !self.save_now() {
             self.effects.push(Effect::SaveSoon); // a file that can't be read now isn't saved over, and is tried again
@@ -468,6 +480,32 @@ impl State {
                 log::error!("Plugin {name} failed");
                 None
             }
+        }
+    }
+
+    /// Looks at what plugin i's settings are now against what they were when last looked at: whatever moved gets a new revision. The first look
+    /// only remembers where they are.
+    pub fn note_config(&mut self, i: usize) {
+        let Some(now) = self.slots.get(i).and_then(|s| s.plugin.as_ref()).map(|p| p.get_config()).filter(Value::is_object) else { return };
+        let Some(was) = self.slots[i].seen.replace(now.clone()) else { return };
+        let changed = telescope_core::settings::leaf_changes(&was, &now);
+        if changed.is_empty() {
+            return;
+        }
+        self.setting_clock += 1;
+        let clock = self.setting_clock;
+        let slot = &mut self.slots[i];
+        for (path, _, _) in changed {
+            slot.moved.retain(|(p, _)| *p != path);
+            slot.moved.push((path, clock));
+        }
+    }
+
+    /// Remembers where plugin i's settings are now, unless that is already known, so a change made next is told from what came before.
+    pub fn note_config_baseline(&mut self, i: usize) {
+        if self.slots.get(i).is_some_and(|s| s.seen.is_none()) {
+            let now = self.slots[i].plugin.as_ref().map(|p| p.get_config()).filter(Value::is_object);
+            self.slots[i].seen = now;
         }
     }
 
@@ -482,7 +520,7 @@ impl State {
     pub fn register(&mut self, plugin: Box<dyn Plugin>) -> Result<(), String> {
         let info = plugin.info();
         let i = self.slots.len();
-        self.slots.push(Slot { plugin: Some(plugin), info: info.clone(), card: None, header: None, actions: vec![], tray: vec![], defaults: json!({}), timer: None });
+        self.slots.push(Slot { plugin: Some(plugin), info: info.clone(), card: None, header: None, actions: vec![], tray: vec![], defaults: json!({}), timer: None, seen: None, moved: Vec::new() });
         let made = self.call(i, |p, host| {
             p.setup(host);
             let card = p.card();
@@ -1012,6 +1050,11 @@ impl State {
             merge_for_save(&mut cfg, &window, &back);
         }
         self.apply_device_profile(new, &cfg);
+        // The other phone's settings coming in are not anybody's edit
+        for i in 0..self.slots.len() {
+            self.slots[i].seen = None;
+            self.note_config_baseline(i);
+        }
         self.bus.emit(Event::DeviceChanged { source_id: new.unwrap_or("").to_string() });
         if start {
             self.effects.push(Effect::Start { interactive: true });
@@ -2532,5 +2575,47 @@ mod tests {
         let seen: Vec<Event> = heard.lock().unwrap().iter().filter(|e| matches!(e, Event::MotionSeen { .. })).cloned().collect();
         assert_eq!(seen, [Event::MotionSeen { source_id: "phone".into(), owner: "watcher".into(), zones: vec![1] }]);
         assert_eq!(crate::host::Ctx { state: &mut s, me: "watcher".into() }.motion("watcher"), [1]);
+    }
+    #[test]
+    fn a_setting_has_a_revision_that_moves_with_each_edit_even_when_the_value_comes_back() {
+        use telescope_core::host::HostSettings;
+        struct Dial(Arc<Mutex<Value>>);
+        impl Plugin for Dial {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "dial".into(), ..Default::default() }
+            }
+            fn get_config(&self) -> Value {
+                self.0.lock().unwrap().clone()
+            }
+            fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
+                *self.0.lock().unwrap() = cfg.clone();
+                Ok(())
+            }
+        }
+        let cfg = Arc::new(Mutex::new(json!({"a": 1, "b": 1})));
+        let mut s = state();
+        s.register(Box::new(Dial(cfg.clone()))).unwrap();
+        let rev = |s: &mut State, key: &str| crate::host::Ctx { state: s, me: String::new() }.setting_revision("dial", key);
+        assert_eq!((rev(&mut s, "a"), rev(&mut s, "nope")), (0, 0), "nothing moved yet");
+        // A tool writes a preset: the plugin never saved for it, and it counts all the same
+        crate::host::Ctx { state: &mut s, me: "mcp".into() }.apply_preset("dial", &json!({"a": 2, "b": 1}));
+        let by_tool = rev(&mut s, "a");
+        assert!(by_tool > 0 && rev(&mut s, "b") == 0, "only what moved");
+        // The person edits it twice, and the second lands on the tool's value again
+        let edit = |s: &mut State, a: i64| {
+            *cfg.lock().unwrap() = json!({"a": a, "b": 1});
+            s.call(0, |_, host| host.schedule_save());
+        };
+        edit(&mut s, 3);
+        let first = rev(&mut s, "a");
+        edit(&mut s, 2);
+        let second = rev(&mut s, "a");
+        assert!(by_tool < first && first < second, "{by_tool} {first} {second}");
+        assert_eq!(cfg.lock().unwrap()["a"], json!(2), "the same value as the tool left, and told apart by the revision");
+        // A save that changed nothing, or an edit of another setting, leaves it
+        s.call(0, |_, host| host.schedule_save());
+        *cfg.lock().unwrap() = json!({"a": 2, "b": 5});
+        s.call(0, |_, host| host.schedule_save());
+        assert_eq!((rev(&mut s, "a"), rev(&mut s, "b") > second), (second, true));
     }
 }

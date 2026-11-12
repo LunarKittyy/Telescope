@@ -18,6 +18,17 @@ pub struct Ctx<'a> {
     pub me: String,
 }
 
+impl Ctx<'_> {
+    /// The plugin whose hook this is asked to save: its settings are looked at for what moved when the hook ends.
+    fn saving(&mut self) {
+        if let Some(i) = self.state.index(&self.me) {
+            if !self.state.saved_in_call.contains(&i) {
+                self.state.saved_in_call.push(i);
+            }
+        }
+    }
+}
+
 struct NoFrames;
 
 impl FrameStore for NoFrames {
@@ -51,9 +62,11 @@ impl SensorReader for NoSensors {
 
 impl HostSettings for Ctx<'_> {
     fn schedule_save(&mut self) {
+        self.saving();
         self.state.effects.push(Effect::SaveSoon);
     }
     fn save_now(&mut self) {
+        self.saving();
         // This plugin is out of its slot while its hook runs, so the save waits until it's back
         self.state.save_after_call = true;
     }
@@ -63,11 +76,18 @@ impl HostSettings for Ctx<'_> {
     fn apply_preset(&mut self, name: &str, cfg: &Value) {
         if let Some(i) = self.state.index(name) {
             let cfg = cfg.clone();
+            self.state.note_config_baseline(i);
             let rejected = self.state.call(i, |p, host| p.apply_preset(host, &cfg));
+            // A preset moves settings whether or not the plugin saves for it
+            self.state.note_config(i);
             if let Some(Err(why)) = rejected {
                 log::warn!("{name} couldn't take its part of a preset: {}", why.0);
             }
         }
+    }
+    fn setting_revision(&self, plugin: &str, key: &str) -> u64 {
+        let Some(i) = self.state.index(plugin) else { return 0 };
+        self.state.slots[i].moved.iter().filter(|(path, _)| telescope_core::settings::paths_overlap(path, key)).map(|(_, at)| *at).max().unwrap_or(0)
     }
     fn preset_plugins(&self) -> Vec<String> {
         self.state.slots.iter().filter(|s| s.info.in_presets && !s.info.name.is_empty()).map(|s| s.info.name.clone()).collect()
