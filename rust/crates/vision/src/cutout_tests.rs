@@ -325,3 +325,22 @@ fn the_fallback_to_the_normal_mask_never_holds_a_frame_up() {
         v.newest_mask_nowait_in("a", 100, f.w, f.h, Box::new(move || Some(f)), v.view_epoch()).is_some()
     });
 }
+
+#[test]
+fn ending_a_stream_does_not_wait_for_a_mask_still_being_made() {
+    let r = rig_taking(Duration::from_millis(1500));
+    // the first asks load the cutout and then hand the frame to its thread, whose run takes a while
+    wait(|| {
+        ask(&r.normal.v, 1);
+        r.counts.runs.load(Ordering::SeqCst) > 0
+    });
+    let began = Instant::now();
+    r.normal.v.drop_stream("a");
+    assert!(began.elapsed() < Duration::from_millis(500), "ending the stream waited {:?} for the model", began.elapsed());
+    // the model closes once its run ends
+    let end = Instant::now() + Duration::from_secs(5);
+    while r.counts.closed.load(Ordering::SeqCst) == 0 {
+        assert!(Instant::now() < end, "the model was never closed");
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}

@@ -822,7 +822,10 @@ impl Vision {
             let Some(sv) = self.inner.streams.lock().unwrap().remove(&key) else { continue };
             sv.stopping.store(true, Ordering::SeqCst);
             sv.wake();
-            sv.mask.lock().unwrap().segment = None;
+            // A mask being made holds the lock for as long as the model takes: its thread closes the model when it's done (see mask_loop)
+            if let Ok(mut m) = sv.mask.try_lock() {
+                m.segment = None;
+            };
         }
     }
 
@@ -1020,6 +1023,9 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
         let mut m = sv.mask.lock().unwrap();
         m.asked = monotonic();
         let mask = vision.mask(&mut m, &*backend, which, seq, w, h, &mut || picture.take().and_then(|p| p()), epoch);
+        if sv.stopping.load(Ordering::SeqCst) {
+            m.segment = None;
+        }
         drop(m);
         let mut n = sv.newest.lock().unwrap();
         n.done += 1;
