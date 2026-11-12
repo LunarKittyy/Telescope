@@ -22,6 +22,7 @@ pub const DEFAULT_SIZE: (u32, u32) = (1920, 1080);
 /// A stream hook to call on plugins.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Hook {
+    StreamStartBegan,
     StreamStarting,
     StreamStart(StreamInfo),
     StreamStop,
@@ -181,6 +182,7 @@ impl StreamFlow {
         self.start_id = source.id.clone();
         host.clear_issue(&format!("stopped:{}", source.id_str()));
         host.emit(Event::StreamStartBegan); // before the phone wakes, so nothing takes the camera or the phone's connection from under it
+        self.each_plugin(host, Hook::StreamStartBegan); // the event only gets there after the wake has begun, this is at once
         self.sessions.preparing = true;
         let ok = catch_unwind(AssertUnwindSafe(|| host.camera_ready(interactive, source.id.as_deref()) && source.kind.prepare(interactive)));
         let ok = ok.unwrap_or_else(|_| {
@@ -1013,6 +1015,7 @@ mod tests {
         }
         fn call(&mut self, plugins: &[String], hook: &Hook) {
             let name = match hook {
+                Hook::StreamStartBegan => "on_stream_start_began",
                 Hook::StreamStarting => "on_stream_starting",
                 Hook::StreamStart(_) => "on_stream_start",
                 Hook::StreamStop => "on_stream_stop",
@@ -1285,8 +1288,8 @@ mod tests {
         assert!(is(&flow.sessions.focus, "a") && is(&flow.sessions.main, "a"));
         assert!(host.worker("a").live.get() && host.sources["a"].slot() == 0);
         assert!(logged(&host, "stream_started http://a/"));
-        assert_eq!(hooks(&host), ["camera on_stream_starting", "mic on_stream_starting", "camera on_stream_start",
-                                  "mic on_stream_start"]);
+        assert_eq!(hooks(&host), ["camera on_stream_start_began", "mic on_stream_start_began", "camera on_stream_starting",
+                                  "mic on_stream_starting", "camera on_stream_start", "mic on_stream_start"]);
     }
 
     #[test]
@@ -1295,6 +1298,8 @@ mod tests {
         host.select_device(Some("phone"));
         flow.start(&mut host, true, None);
         assert!(logged(&host, "stream_start_began") && flow.sessions.waking, "the start is announced while the phone is still waking");
+        // Plugins are called, not just told on the bus, before the wake begins: the log has the call ahead of the wake
+        assert!(hooks(&host).contains(&"camera on_stream_start_began".to_string()));
         let phone = host.sources["phone"].clone();
         assert!(host.stands["phone"].woken.get() && flow.sessions.waking && is(&flow.sessions.wake_source, "phone"));
         assert!(flow.sessions.streams.is_empty());

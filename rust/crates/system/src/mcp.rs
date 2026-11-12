@@ -537,11 +537,17 @@ struct Change {
     /// the person or something else moved the setting since, even when it ended up with the same value.
     rev_before: Option<u64>,
     rev: Option<u64>,
+    /// Read from the file only: someone besides the AI moved the setting between this step and the next one on it, or nobody can tell (an older file).
+    /// The revisions that said so don't survive a restart, so this is what carries it over.
+    cut: bool,
 }
 
+/// A revision no setting ever has, for a loaded step that can't be told apart from an edit: it never counts as untouched.
+const NEVER_UNTOUCHED: u64 = u64::MAX;
+
 impl Change {
-    fn to_json(&self) -> Value {
-        json!({"seq": self.seq, "plugin": self.plugin, "key": self.key, "source": self.source, "was": self.was, "now": self.now})
+    fn to_json(&self, cut: bool) -> Value {
+        json!({"seq": self.seq, "plugin": self.plugin, "key": self.key, "source": self.source, "was": self.was, "now": self.now, "cut": cut})
     }
 
     /// A change as it was saved, which no connection owns any more.
@@ -549,6 +555,7 @@ impl Change {
         Some(Change {
             seq: v["seq"].as_u64()?, session: PREVIOUS_RUN, plugin: v["plugin"].as_str()?.to_string(), key: v["key"].as_str()?.to_string(),
             source: v["source"].as_str().map(String::from), was: v.get("was")?.clone(), now: v.get("now")?.clone(), rev_before: None, rev: None,
+            cut: v["cut"].as_bool().unwrap_or(true),
         })
     }
 }
@@ -1050,7 +1057,7 @@ impl McpPlugin {
                         self.journal.push(step);
                     }
                 }
-                None => self.journal.push(Change { seq, session, plugin, key, source: source.clone(), was, now, rev_before, rev }),
+                None => self.journal.push(Change { seq, session, plugin, key, source: source.clone(), was, now, rev_before, rev, cut: false }),
             }
         }
         let extra = self.journal.len().saturating_sub(JOURNAL_KEPT);
@@ -1082,13 +1089,45 @@ impl McpPlugin {
         answer
     }
 
-    /// Steps loaded from the file have no revisions, which would let any later edit that lands on the same value pass for the AI's own work. They
-    /// are tied to where the settings stand now, so only an edit after this counts against them.
+    /// Steps loaded from the file have no revisions, which would let any later edit that lands on the same value pass for the AI's own work. The newest
+    /// step on a setting is tied to where it stands now, so only an edit after this counts against it. An older one follows it only when nothing but the AI
+    /// moved the setting between the two (it was saved that way), or else it gets a revision that never matches and is left as it is.
     fn stamp_loaded(&mut self, host: &dyn Host) {
-        for c in self.journal.iter_mut().filter(|c| c.rev.is_none() && c.rev_before.is_none()) {
-            let now = host.setting_revision(&c.plugin, &c.key);
-            (c.rev_before, c.rev) = (Some(now), Some(now));
+        let mut slots: Vec<Slot> = self.journal.iter().map(|c| (c.plugin.clone(), c.key.clone())).collect();
+        slots.sort();
+        slots.dedup();
+        for slot in slots {
+            let mut steps: Vec<usize> = (0..self.journal.len()).filter(|&i| (&self.journal[i].plugin, &self.journal[i].key) == (&slot.0, &slot.1)).collect();
+            steps.sort_by_key(|&i| std::cmp::Reverse(self.journal[i].seq));
+            // What the setting's revision was before the newer step on it
+            let mut above: Option<u64> = None;
+            for (n, i) in steps.into_iter().enumerate() {
+                let c = &mut self.journal[i];
+                if c.rev.is_none() && c.rev_before.is_none() {
+                    let tied = match above {
+                        _ if n == 0 => host.setting_revision(&c.plugin, &c.key),
+                        Some(above) if !c.cut => above,
+                        _ => NEVER_UNTOUCHED,
+                    };
+                    (c.rev_before, c.rev) = (Some(tied), Some(tied));
+                }
+                above = c.rev_before;
+            }
         }
+    }
+
+    /// The journal as it is saved: each step says whether anyone but the AI moved its setting before the next write to it, which the revisions can tell now
+    /// and nothing can after a restart.
+    fn journal_json(&self) -> Vec<Value> {
+        self.journal.iter().map(|c| {
+            let next = self.journal.iter().filter(|n| n.plugin == c.plugin && n.key == c.key && n.seq > c.seq).min_by_key(|n| n.seq);
+            let cut = match (next, c.rev) {
+                (None, _) => false,
+                (Some(next), Some(rev)) if next.rev_before.is_some() => next.rev_before != Some(rev),
+                _ => c.cut,
+            };
+            c.to_json(cut)
+        }).collect()
     }
 
     /// Steps an undo couldn't take yet (another camera is shown, a plugin is off) go back in the journal, in the order they happened.
@@ -1450,7 +1489,7 @@ impl Plugin for McpPlugin {
 
     fn get_config(&self) -> Value {
         // The undo journal is kept with the settings, so what the AI changed can still be undone after Telescope restarts
-        json!({"access": self.access.name(), "journal": self.journal.iter().map(Change::to_json).collect::<Vec<_>>()})
+        json!({"access": self.access.name(), "journal": self.journal_json()})
     }
 
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {

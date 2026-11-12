@@ -108,4 +108,37 @@ class StartWindowTest {
         assertTrue(window.abort("b"))
         assertTrue(window.aborted(ticket))
     }
+
+    @Test
+    fun `a stop only cancels the starts its own computer made`() {
+        val a = window.begin("a")
+        val b = window.begin("b")
+        assertTrue(window.abort("b"))
+        assertTrue(window.aborted(b))
+        assertFalse(window.aborted(a))
+        assertTrue(window.open())
+        assertTrue(window.abort("a"))
+        assertTrue(window.aborted(a))
+        assertFalse(window.open())
+    }
+
+    @Test
+    fun `a stop from a third computer cancels neither of two queued starts`() {
+        val a = window.begin("a")
+        val b = window.begin("b")
+        assertFalse(window.abort("c"))
+        assertFalse(window.aborted(a))
+        assertFalse(window.aborted(b))
+        assertTrue(window.open())
+    }
+
+    @Test
+    fun `starts from an earlier window don't count as queued`() {
+        window.begin("a")
+        now += StartWindow.PENDING_MS
+        val b = window.begin("b")
+        assertTrue(window.abort("b"))
+        assertTrue(window.aborted(b))
+        assertFalse(window.open())
+    }
 }

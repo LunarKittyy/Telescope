@@ -1399,6 +1399,70 @@ fn a_revert_by_another_app_does_not_make_an_older_step_valid_after_the_person_ed
     assert_eq!(back["reverted"], json!([]));
 }
 
+/// Saves the journal, starts a new run on the settings as they stand and hears the plugins are ready, as a restart does.
+fn restarted(r: &Rig) -> Rig {
+    let saved: Value = serde_json::from_str(&r.plugin.get_config().to_string()).unwrap();
+    let mut after = Rig::new();
+    after.host.edit_by_hand("grading", r.config());
+    after.plugin.set_config(&saved).unwrap();
+    after.plugin.on_plugins_ready(&mut after.host);
+    after
+}
+
+#[test]
+fn an_edit_between_two_steps_still_blocks_the_older_one_after_a_restart() {
+    let mut r = Rig::new();
+    let (a, b) = (r.handle.open_client().unwrap(), r.handle.open_client().unwrap());
+    r.deliver();
+    set_contrast(&mut r, a.session(), 1.4);
+    by_hand(&mut r, 1.7);
+    by_hand(&mut r, 1.4);
+    set_contrast(&mut r, b.session(), 1.8);
+    let mut after = restarted(&r);
+    after.plugin.undo_all(&mut after.host);
+    assert_eq!(after.config()["contrast"], json!(1.4), "the newest step goes back and the person's 1.4 is not overwritten");
+}
+
+#[test]
+fn two_steps_nobody_edited_between_both_go_back_after_a_restart() {
+    let mut r = Rig::new();
+    let (a, b) = (r.handle.open_client().unwrap(), r.handle.open_client().unwrap());
+    r.deliver();
+    set_contrast(&mut r, a.session(), 1.4);
+    set_contrast(&mut r, b.session(), 1.8);
+    let mut after = restarted(&r);
+    after.plugin.undo_all(&mut after.host);
+    assert_eq!(after.config()["contrast"], json!(1.0));
+}
+
+#[test]
+fn what_cuts_a_chain_is_kept_through_a_second_restart() {
+    let mut r = Rig::new();
+    let (a, b) = (r.handle.open_client().unwrap(), r.handle.open_client().unwrap());
+    r.deliver();
+    set_contrast(&mut r, a.session(), 1.4);
+    by_hand(&mut r, 1.7);
+    by_hand(&mut r, 1.4);
+    set_contrast(&mut r, b.session(), 1.8);
+    let once = restarted(&r);
+    let mut twice = restarted(&once);
+    twice.plugin.undo_all(&mut twice.host);
+    assert_eq!(twice.config()["contrast"], json!(1.4));
+}
+
+#[test]
+fn a_journal_from_before_chains_were_saved_only_undoes_the_newest_step_on_a_setting() {
+    let mut r = Rig::new();
+    r.plugin.set_config(&json!({"journal": [
+        {"seq": 1, "plugin": "grading", "key": "contrast", "source": "phone", "was": 1.0, "now": 1.4},
+        {"seq": 2, "plugin": "grading", "key": "contrast", "source": "phone", "was": 1.4, "now": 1.8},
+    ]})).unwrap();
+    by_hand(&mut r, 1.8);
+    r.plugin.on_plugins_ready(&mut r.host);
+    r.plugin.undo_all(&mut r.host);
+    assert_eq!(r.config()["contrast"], json!(1.4));
+}
+
 #[test]
 fn a_revert_by_another_app_still_leaves_an_untouched_older_step_valid() {
     let mut r = Rig::new();

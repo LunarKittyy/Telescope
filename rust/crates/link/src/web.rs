@@ -412,19 +412,66 @@ fn http_date(unix: i64) -> String {
             secs / 3600, secs % 3600 / 60, secs % 60)
 }
 
+/// A socket whose reads end at a deadline, however many reads TLS makes to get one record: the timeout of each read is
+/// what's left of it, so a peer dripping a byte at a time can't hold a connection past it.
+struct Limited {
+    tcp: TcpStream,
+    /// The longest one read waits, deadline or not; None for as long as it takes.
+    timeout: Option<Duration>,
+    deadline: Option<Instant>,
+}
+
+impl Limited {
+    fn new(tcp: TcpStream) -> Limited {
+        Limited { tcp, timeout: Some(REQUEST_TIMEOUT), deadline: None }
+    }
+}
+
+impl Read for Limited {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let mut wait = self.timeout;
+        if let Some(deadline) = self.deadline {
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return Err(std::io::ErrorKind::TimedOut.into());
+            }
+            wait = Some(wait.map_or(left, |w| w.min(left)));
+        }
+        self.tcp.set_read_timeout(wait)?;
+        self.tcp.read(buf)
+    }
+}
+
+impl Write for Limited {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.tcp.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.tcp.flush()
+    }
+}
+
+/// The TLS handshake, all of it inside `within`.
+fn finish_handshake(tls: &mut rustls::ServerConnection, tcp: &mut Limited, within: Duration) -> std::io::Result<()> {
+    tcp.deadline = Some(Instant::now() + within);
+    while tls.is_handshaking() {
+        tls.complete_io(tcp)?;
+    }
+    tcp.deadline = None;
+    Ok(())
+}
+
 /// One connection on its own thread: the TLS handshake, then requests until the other end or a timeout ends it.
 fn connection(tcp: TcpStream, config: Arc<rustls::ServerConfig>, handler: &dyn PageHandler, stats: &ServerStats) {
-    let _ = tcp.set_read_timeout(Some(REQUEST_TIMEOUT));
     let _ = tcp.set_write_timeout(Some(REQUEST_TIMEOUT));
     let _ = tcp.set_nodelay(true);
     let Ok(mut tls) = rustls::ServerConnection::new(config) else { return };
-    let mut tcp = tcp;
-    while tls.is_handshaking() {
-        if tls.complete_io(&mut tcp).is_err() {
-            // A browser that hasn't accepted the certificate yet hangs up here, which is expected
-            stats.note(Step::TlsFailed);
-            return;
-        }
+    let mut tcp = Limited::new(tcp);
+    if finish_handshake(&mut tls, &mut tcp, REQUEST_TIMEOUT).is_err() {
+        // A browser that hasn't accepted the certificate yet hangs up here, which is expected
+        stats.note(Step::TlsFailed);
+        return;
     }
     let mut stream = BufReader::new(rustls::StreamOwned::new(tls, tcp));
     let upgrade = loop {
@@ -448,27 +495,35 @@ fn connection(tcp: TcpStream, config: Arc<rustls::ServerConfig>, handler: &dyn P
 }
 
 /// A connection a page took over: what was read ahead stays in the buffer, so nothing the other end sent is lost.
-struct Taken(BufReader<rustls::StreamOwned<rustls::ServerConnection, TcpStream>>);
+struct Taken(BufReader<rustls::StreamOwned<rustls::ServerConnection, Limited>>);
 
 impl Read for Taken {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        // The timeout covers this whole read, so a record dripped in pieces still gives the caller its turn
+        let sock = &mut self.0.get_mut().sock;
+        sock.deadline = sock.timeout.map(|t| Instant::now() + t);
         self.0.read(buf)
     }
 }
 
 impl Write for Taken {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.0.get_mut().write(buf)
+        let tls = self.0.get_mut();
+        tls.sock.deadline = None;
+        tls.write(buf)
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        self.0.get_mut().flush()
+        let tls = self.0.get_mut();
+        tls.sock.deadline = None;
+        tls.flush()
     }
 }
 
 impl Socket for Taken {
     fn set_read_timeout(&mut self, timeout: Option<Duration>) -> std::io::Result<()> {
-        self.0.get_ref().sock.set_read_timeout(timeout)
+        self.0.get_mut().sock.timeout = timeout;
+        Ok(())
     }
 }
 
@@ -498,14 +553,14 @@ enum Served {
     Upgrade(Upgrade),
 }
 
-/// A stream whose next reads can be given less time than the connection's usual timeout.
+/// A stream whose next reads can be given a deadline, past which they fail whatever trickles in.
 trait Timed {
-    fn limit_reads(&mut self, timeout: Duration);
+    fn limit_reads(&mut self, until: Option<Instant>);
 }
 
-impl Timed for rustls::StreamOwned<rustls::ServerConnection, TcpStream> {
-    fn limit_reads(&mut self, timeout: Duration) {
-        let _ = self.sock.set_read_timeout(Some(timeout));
+impl Timed for rustls::StreamOwned<rustls::ServerConnection, Limited> {
+    fn limit_reads(&mut self, until: Option<Instant>) {
+        self.sock.deadline = until;
     }
 }
 
@@ -514,11 +569,10 @@ fn read_line<S: Read + Timed>(stream: &mut BufReader<S>, deadline: Instant) -> R
     let mut line = Vec::new();
     loop {
         if stream.buffer().is_empty() {
-            let left = deadline.saturating_duration_since(Instant::now());
-            if left.is_zero() {
+            if deadline <= Instant::now() {
                 return Err(false);
             }
-            stream.get_mut().limit_reads(left);
+            stream.get_mut().limit_reads(Some(deadline));
         }
         let chunk = stream.fill_buf().map_err(|_| false)?;
         if chunk.is_empty() {
@@ -548,7 +602,7 @@ fn finish_line(mut line: Vec<u8>) -> String {
 
 /// One request and its answer: another request after it, the connection's end, or a page taking it over.
 fn serve_request<S: Read + Write + Timed>(stream: &mut BufReader<S>, handler: &dyn PageHandler, stats: &ServerStats) -> Served {
-    match serve_one(stream, handler, stats, HEAD_TIMEOUT) {
+    match serve_one(stream, handler, stats, REQUEST_TIMEOUT, HEAD_TIMEOUT) {
         Ok(true) => Served::Again,
         Ok(false) => Served::Done,
         Err(upgrade) => Served::Upgrade(upgrade),
@@ -556,9 +610,9 @@ fn serve_request<S: Read + Write + Timed>(stream: &mut BufReader<S>, handler: &d
 }
 
 /// serve_request, with an upgrade as the error so the early returns stay plain bools.
-fn serve_one<S: Read + Write + Timed>(stream: &mut BufReader<S>, handler: &dyn PageHandler, stats: &ServerStats, head_timeout: Duration) -> Result<bool, Upgrade> {
+fn serve_one<S: Read + Write + Timed>(stream: &mut BufReader<S>, handler: &dyn PageHandler, stats: &ServerStats, quiet: Duration, head_timeout: Duration) -> Result<bool, Upgrade> {
     // A quiet kept-alive connection gets the usual timeout, the clock for the head starts with its first byte
-    stream.get_mut().limit_reads(REQUEST_TIMEOUT);
+    stream.get_mut().limit_reads(Some(Instant::now() + quiet));
     match stream.fill_buf() {
         Ok(chunk) if !chunk.is_empty() => {}
         _ => return Ok(false),
@@ -598,7 +652,7 @@ fn serve_one<S: Read + Write + Timed>(stream: &mut BufReader<S>, handler: &dyn P
             Err(true) => return Ok(refuse(stream.get_mut(), 431, "Line too long")),
         }
     }
-    stream.get_mut().limit_reads(REQUEST_TIMEOUT);
+    stream.get_mut().limit_reads(None);
     let request = Request { method: method.to_string(), target: target.to_string(), headers };
     let connection = request.header("Connection").unwrap_or("").to_ascii_lowercase();
     // HTTP/1.1 stays open unless asked to close; older ones close unless asked to keep alive

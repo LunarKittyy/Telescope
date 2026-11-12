@@ -54,6 +54,20 @@ object StreamOwner {
     fun busyOther(owner: PairedComputer) = ControlResult(ok = false, error = BUSY_OTHER, computer = owner.name)
 }
 
+// The live stream service as far as a remote stop is concerned.
+interface StopTarget {
+    fun otherOwner(caller: PairedComputer?): PairedComputer?
+    fun stop(op: String)
+}
+
+// Runs where the stop actually happens (the main thread): a start queued for another computer may have reached the
+// service since the request was answered, and that stream isn't this computer's to stop.
+internal fun stopForComputer(service: StopTarget?, computer: PairedComputer?): Boolean {
+    if (service == null || service.otherOwner(computer) != null) return false
+    service.stop("remoteStop")
+    return true
+}
+
 // Counts the app screens on show: the first one up and the last one gone are the only changes anyone needs to hear of.
 class VisibleScreens(private val onFirst: () -> Unit, private val onNone: () -> Unit) {
     private var count = 0
@@ -189,30 +203,35 @@ object SessionEndpoint {
 open class StartWindow(private val clock: () -> Long) {
     @Volatile private var until = 0L
     private var issued = 0L
-    @Volatile private var abortedUpTo = 0L
-    private var pendingOwner: String? = null
+    // Starts accepted and not stopped yet, by ticket: whose each one is (null when nobody is named)
+    private val queued = mutableMapOf<Long, String?>()
+    private val cancelled = mutableSetOf<Long>()
 
     // The ticket goes to the service with the start, so abort() can tell it which starts were stopped before they ran.
     @Synchronized
     fun begin(owner: String? = null): Long {
-        until = clock() + PENDING_MS
-        pendingOwner = owner
-        return ++issued
+        val now = clock()
+        if (now >= until) queued.clear()  // the window had closed: those starts are long past
+        if (cancelled.size > MAX_REMEMBERED) cancelled.removeAll { it <= issued - MAX_REMEMBERED }
+        until = now + PENDING_MS
+        queued[++issued] = owner
+        return issued
     }
 
-    // A stop arrived while a start was still queued: every start so far is cancelled and the window closes.
-    // Another computer's stop leaves a start queued for a known computer alone.
+    // A stop arrived while a start was still queued: the starts it may cancel are cancelled, and the window closes unless
+    // another computer's start is still waiting in it. A stop from a known computer leaves a start queued for another alone.
     @Synchronized
     fun abort(by: String? = null): Boolean {
         if (!open()) return false
-        val owner = pendingOwner
-        if (owner != null && by != null && owner != by) return false
-        abortedUpTo = issued
-        until = 0L
-        return true
+        val mine = queued.filterValues { owner -> owner == null || by == null || owner == by }.keys
+        cancelled.addAll(mine)
+        queued.keys.removeAll(mine)
+        if (queued.isEmpty()) until = 0L
+        return mine.isNotEmpty()
     }
 
-    fun aborted(ticket: Long): Boolean = ticket in 1..abortedUpTo
+    @Synchronized
+    fun aborted(ticket: Long): Boolean = ticket in cancelled
 
     // The service left StartingServer: stay busy just long enough for one poll to see it, then report its own state.
     fun settle() { until = minOf(until, clock() + SETTLE_MS) }
@@ -224,6 +243,7 @@ open class StartWindow(private val clock: () -> Long) {
     companion object {
         const val PENDING_MS = 5_000L  // the service never got to onStartCommand
         const val SETTLE_MS = 1_500L   // three of the computer's 0.5 s polls
+        private const val MAX_REMEMBERED = 32
     }
 }
 
@@ -257,8 +277,16 @@ private class ServiceSessionCommands(private val context: Context) : SessionComm
         // A start still queued (no instance yet, or one before onStartCommand) must not open the camera after this stop
         SessionStartWindow.abort(computer?.id)
         if (service == null) return ControlResult(ok = true)
-        // On the main thread like every other stop, not this socket thread racing them.
-        android.os.Handler(android.os.Looper.getMainLooper()).post { CameraStreamService.instance?.stopStreaming("remoteStop") }
+        // On the main thread like every other stop, not this socket thread racing them, and checked again there.
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            val live = CameraStreamService.instance
+            stopForComputer(live?.let { svc ->
+                object : StopTarget {
+                    override fun otherOwner(caller: PairedComputer?) = svc.otherOwner(caller)
+                    override fun stop(op: String) = svc.stopStreaming(op)
+                }
+            }, computer)
+        }
         return ControlResult(ok = true)
     }
 

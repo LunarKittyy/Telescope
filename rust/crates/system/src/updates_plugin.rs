@@ -893,6 +893,11 @@ impl Plugin for UpdatesPlugin {
         self.poster = None;
     }
 
+    fn on_stream_start_began(&mut self, _host: &mut dyn Host) {
+        // Heard before the phone wakes: the event for the same moment is queued behind the wake's own thread
+        self.streaming.store(true, Ordering::SeqCst);
+    }
+
     fn on_stream_starting(&mut self, _host: &mut dyn Host) {
         // The install's thread must not stop adb under a stream that is opening
         self.streaming.store(true, Ordering::SeqCst);
@@ -1390,6 +1395,17 @@ mod tests {
         plugin.on_event(&mut host, &Event::StreamStartFailed);
         assert!(!plugin.streaming.load(Ordering::SeqCst));
         assert!(host.is_scheduled("restart"));
+    }
+
+    #[test]
+    fn a_download_sees_a_start_before_the_event_for_it_arrives() {
+        let (mut plugin, mut host, _fake) = env();
+        plugin.check(&mut host, false);
+        plugin.phase = Phase::Downloading;
+        plugin.streaming.store(false, Ordering::SeqCst);
+        // The flow calls the hook as the start begins, on the host thread, while the event is still queued
+        plugin.on_stream_start_began(&mut host);
+        assert!(plugin.streaming.load(Ordering::SeqCst));
     }
 
     #[test]
