@@ -40,9 +40,18 @@ object StreamPrefs {
     fun waitForComputer(context: Context): Boolean =
         of(context).getBoolean(KEY_WAIT_FOR_COMPUTER, false)
 
+    // Whether a preference change is the waiting switch, so the screen can follow the notification's "Stop waiting".
+    fun isWaitForComputerKey(key: String?): Boolean = key == KEY_WAIT_FOR_COMPUTER
+
     fun setWaitForComputer(context: Context, value: Boolean) {
         of(context).edit().putBoolean(KEY_WAIT_FOR_COMPUTER, value).apply()
     }
+
+    fun register(context: Context, listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener) =
+        of(context).registerOnSharedPreferenceChangeListener(listener)
+
+    fun unregister(context: Context, listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener) =
+        of(context).unregisterOnSharedPreferenceChangeListener(listener)
 
     fun saveSelection(context: Context, selection: Selection) {
         of(context).edit()
