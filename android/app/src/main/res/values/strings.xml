@@ -209,6 +209,7 @@
     <string name="notif_streaming_usb">To %1$s over USB</string>
     <string name="notif_streaming_wifi">To %1$s over Wi-Fi</string>
     <string name="notif_mic_streaming">Microphone is streaming, camera off</string>
+    <string name="notif_camera_off">Camera is off</string>
     <string name="notif_waiting">Waiting for your computer</string>
     <string name="notif_stop_waiting">Stop waiting</string>
 </resources>
