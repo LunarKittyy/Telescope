@@ -730,6 +730,9 @@ class CameraStreamService : Service() {
             // e.g. EADDRINUSE if a just-stopped instance's port hasn't been released yet.
             setState(StreamState.Failed, "startServer", e)
             stopForeground(STOP_FOREGROUND_REMOVE)
+            // onDestroy can wait on a bound activity, so give back the endpoint and the waiting notification now
+            SessionEndpoint.release(SessionEndpoint.OWNER_SERVICE)
+            if (covered) WaitingService.showStreaming(this, false)
             stopSelf()
             return START_NOT_STICKY
         }
