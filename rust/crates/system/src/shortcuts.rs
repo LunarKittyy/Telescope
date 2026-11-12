@@ -246,6 +246,19 @@ impl ShortcutsPlugin {
         self.apply(host);
     }
 
+    /// A preset was renamed: the shortcuts that apply it by its name apply it by the new one.
+    fn follow_preset_rename(&mut self, host: &mut dyn Host, old: &str, new: &str) {
+        let renamed = |b: &Binding| b.action == "presets.apply" && b.params.get("name").and_then(Value::as_str) == Some(old);
+        if old.is_empty() || new.is_empty() || !self.bindings.iter().any(renamed) {
+            return;
+        }
+        let mut bindings = self.bindings.clone();
+        for b in bindings.iter_mut().filter(|b| renamed(b)) {
+            b.params.insert("name".into(), Value::String(new.into()));
+        }
+        self.set_bindings(host, bindings);
+    }
+
     /// Hand the global bindings to the system; the rest are matched as keys come in.
     fn apply(&mut self, host: &mut dyn Host) {
         for id in self.held.keys().cloned().collect::<Vec<_>>() {
@@ -1196,6 +1209,12 @@ impl Plugin for ShortcutsPlugin {
             }
             return;
         }
+        if let Event::Custom { name, data } = event {
+            if name == telescope_core::event::PRESET_RENAMED {
+                self.follow_preset_rename(host, data["old"].as_str().unwrap_or(""), data["new"].as_str().unwrap_or(""));
+            }
+            return;
+        }
         if let Event::Posted { owner, token, data } = event {
             if owner != "shortcuts" {
                 return;
@@ -1459,6 +1478,25 @@ mod tests {
         let props = plugin.section_props();
         assert_eq!(props["save-enabled"], json!(true));
         assert!(props["problem"].as_str().unwrap().contains("text boxes of other apps"), "{}", props["problem"]);
+    }
+
+    #[test]
+    fn a_shortcut_for_a_preset_follows_its_rename() {
+        let (mut plugin, mut host, _) = make(json!([
+            b("a", "F5", "presets.apply", json!({"name": "Desk"}), false),
+            b("b", "F6", "presets.apply", json!({"name": "Night"}), false),
+            b("c", "F7", "camera.torch", json!({"name": "Desk"}), false),
+        ]), false, true);
+        let renamed = |old: &str, new: &str| Event::Custom { name: "presets.renamed".into(), data: json!({"old": old, "new": new}) };
+        host.calls.clear();
+        plugin.on_event(&mut host, &renamed("Desk", "Studio"));
+        let names: Vec<_> = plugin.bindings().iter().map(|b| b.params["name"].clone()).collect();
+        assert_eq!(names, [json!("Studio"), json!("Night"), json!("Desk")], "only the preset action of that name");
+        assert!(host.calls.iter().any(|c| c.contains("schedule_save")), "{:?}", host.calls);
+        // Another rename, or one that is no preset's, changes nothing
+        host.calls.clear();
+        plugin.on_event(&mut host, &renamed("Gone", "Else"));
+        assert!(host.calls.is_empty(), "{:?}", host.calls);
     }
 
     #[test]

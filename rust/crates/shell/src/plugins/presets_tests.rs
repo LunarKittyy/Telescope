@@ -160,6 +160,19 @@ fn rename_and_delete() {
     assert_eq!(r.plugin.get_config(), json!({"presets": [{"name": "C"}]}));
 }
 
+#[test]
+fn a_rename_is_announced_so_shortcuts_can_follow_it() {
+    let mut r = Rig::new(&[]);
+    r.load(json!([{"name": "Desk"}, {"name": "Night"}]));
+    r.host.events.clear();
+    r.plugin.rename(&mut r.host, "Desk", "Studio");
+    assert_eq!(r.host.events, [Event::Custom { name: "presets.renamed".into(), data: json!({"old": "Desk", "new": "Studio"}) }]);
+    r.host.events.clear();
+    r.plugin.rename(&mut r.host, "Studio", "Studio");
+    r.plugin.rename(&mut r.host, "Nothing", "Else");
+    assert!(r.host.events.is_empty(), "nothing renamed, nothing said");
+}
+
 // test_presets.py::test_clean_presets_drops_malformed_and_duplicate_entries
 #[test]
 fn clean_presets_drops_malformed_and_duplicate_entries() {
