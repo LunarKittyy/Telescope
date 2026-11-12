@@ -126,6 +126,14 @@ foreach ($dir in @($telescope, $dst)) {{
         Set-AdminOwner $dir
     }}
 }}
+# A DLL whose update was cut short between setting the working one aside and putting the new one in: that aside is the only copy, so it goes back first
+foreach ($name in $files.Keys) {{
+    $target = Join-Path $dst $name
+    if (-not (Test-Path -LiteralPath $target)) {{
+        $left = Get-ChildItem -LiteralPath $dst -Filter ($name + '.*.old') -Force | Select-Object -First 1
+        if ($left) {{ Move-Item -LiteralPath $left.FullName -Destination $target -Force }}
+    }}
+}}
 # Old copies set aside by an earlier update, once nothing has them loaded any more, and half-made new ones
 Get-ChildItem -LiteralPath $dst -Filter '*.old' -Force | Remove-Item -Force -ErrorAction SilentlyContinue
 Get-ChildItem -LiteralPath $dst -Filter '*.new' -Force | Remove-Item -Force -ErrorAction SilentlyContinue
@@ -954,6 +962,14 @@ mod tests {
         let script = mf_install_script(Path::new("C:/app"), &"AB".repeat(32), 1, None);
         let rename = script.find("Move-Item -LiteralPath $target").unwrap();
         assert!(script.find("'*.old'").unwrap() < rename);
+    }
+
+    #[test]
+    fn a_dll_set_aside_by_a_cut_short_update_goes_back_before_old_copies_are_deleted() {
+        let script = mf_install_script(Path::new("C:/app"), &"AB".repeat(32), 1, None);
+        let restore = script.find("Move-Item -LiteralPath $left.FullName -Destination $target").unwrap();
+        assert!(script[..restore].contains("-not (Test-Path -LiteralPath $target)"), "only when the registered path is empty");
+        assert!(restore < script.find("Filter '*.old' -Force | Remove-Item").unwrap(), "the only working copy is not deleted as a leftover");
     }
 
     #[test]
