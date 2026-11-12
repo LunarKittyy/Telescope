@@ -835,6 +835,23 @@ fn a_mask_isnt_stretched_onto_a_picture_of_another_shape() {
 }
 
 #[test]
+fn a_turn_of_the_view_drops_the_masks_and_what_would_be_blended_into_the_next() {
+    let (v, _) = finder(Duration::from_millis(1));
+    let ask = |seq: u64, x: usize| {
+        let f = someone_at(x);
+        v.newest_mask("a", seq, 256, 144, Box::new(move || Some(f)))
+    };
+    let first = ask(1, 20).unwrap();
+    assert!(first[80 * 256 + 30] > 128, "the person is where the picture says");
+    v.drop_masks();
+    assert!(v.stream("a").newest.lock().unwrap().mask.is_none(), "nothing kept to hand out");
+    // The same frame again, flipped: no trace of the old silhouette at the old place
+    let flipped = ask(2, 256 - 20 - 60).unwrap();
+    assert_eq!(flipped[80 * 256 + 30], 0, "the old person isn't blended into the new mask");
+    assert!(flipped[80 * 256 + 200] > 128);
+}
+
+#[test]
 fn a_stuck_model_holds_up_one_frame_and_not_every_frame() {
     let (v, _) = finder(Duration::from_secs(1));
     assert!(v.newest_mask("a", 1, 256, 144, Box::new(|| Some(someone_at(50)))).is_none());

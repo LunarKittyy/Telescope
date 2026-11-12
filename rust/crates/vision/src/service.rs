@@ -6,7 +6,7 @@
 
 use crate::ops::{add_weighted, mask_resized, model_input, people_size, turned, Motion, Rgb, MODEL_SIZE};
 use std::collections::{BTreeSet, HashMap};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, Weak};
 use std::thread::JoinHandle;
 use telescope_core::pose::Person;
@@ -125,6 +125,8 @@ pub(crate) struct MaskState {
     pub(crate) at: f64,
     pub(crate) motion: Motion,
     pub(crate) asked: f64,
+    /// The view's turns it has seen (Inner::turns): when that moves on, everything above is of another picture.
+    turns: u64,
 }
 
 /// A frame the mask thread hasn't got to: only the newest one waits.
@@ -199,7 +201,7 @@ impl StreamVision {
     fn new() -> StreamVision {
         StreamVision {
             mask: Mutex::new(MaskState { segment: None, clock: Timestamps::new(), seq: None, mask: None, small: None, at: 0.0,
-                                         motion: Motion::default(), asked: 0.0 }),
+                                         motion: Motion::default(), asked: 0.0, turns: 0 }),
             newest: Mutex::default(),
             mask_wanted: Condvar::new(),
             mask_done: Condvar::new(),
@@ -239,6 +241,8 @@ pub(crate) struct Inner {
     pub(crate) hold_people: AtomicBool,
     /// Tests with a real model: a frame step waits for its own mask.
     masks_wait: AtomicBool,
+    /// How many times the view has turned (drop_masks), so a mask made for a picture from before one isn't taken for the new picture's.
+    turns: AtomicU64,
 }
 
 /// The vision service's core, shared with its threads.
@@ -284,6 +288,7 @@ impl Vision {
             give_back: Mutex::new(Box::new(give_back_memory)),
             hold_people: AtomicBool::new(false),
             masks_wait: AtomicBool::new(false),
+            turns: AtomicU64::new(0),
         }) }
     }
 
@@ -427,6 +432,11 @@ impl Vision {
 
     fn mask(&self, m: &mut MaskState, backend: &dyn Backend, seq: u64, w: usize, h: usize, picture: &mut dyn FnMut() -> Option<Rgb>)
             -> Option<Arc<Vec<u8>>> {
+        let turns = self.inner.turns.load(Ordering::SeqCst);
+        if m.turns != turns {
+            // The view turned since: what was kept, and what the next mask would blend in, is of the old picture
+            (m.turns, m.seq, m.mask, m.small, m.motion) = (turns, None, None, None, Motion::default());
+        }
         if let (Some(at), Some((mw, mh, mask))) = (m.seq, &m.mask) {
             if at == seq && (*mw, *mh) == (w, h) {
                 return Some(mask.clone());
@@ -590,6 +600,17 @@ impl Vision {
         }
     }
 
+    /// The view turned (flipped or rotated): a mask kept for a stream, or one being made, says where people were in the picture as it was. None of them is handed out again and none is blended into the next, so a frame step gets nothing until the model has looked at the turned picture, and a step that hides things stays safe on that.
+    pub fn drop_masks(&self) {
+        let streams: Vec<Arc<StreamVision>> = self.inner.streams.lock().unwrap().values().cloned().collect();
+        for sv in streams {
+            let mut n = sv.newest.lock().unwrap();
+            self.inner.turns.fetch_add(1, Ordering::SeqCst);
+            (n.job, n.asked, n.mask, n.gave_up) = (None, None, None, false);
+            sv.mask_done.notify_all();
+        }
+    }
+
     /// A stream ended: its tasks close and its people thread ends.
     pub fn drop_stream(&self, key: &str) {
         let Some(sv) = self.inner.streams.lock().unwrap().remove(key) else { return };
@@ -711,7 +732,8 @@ fn tidy_loop(inner: Weak<Inner>) {
 fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>) {
     let vision = Vision { inner };
     loop {
-        let job = {
+        // The turns are read where the job is taken, under the lock drop_masks holds to move them on
+        let (job, turns) = {
             let mut n = sv.newest.lock().unwrap();
             loop {
                 if sv.stopping.load(Ordering::SeqCst) {
@@ -719,7 +741,7 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
                     return;
                 }
                 match n.job.take() {
-                    Some(job) => break job,
+                    Some(job) => break (job, vision.inner.turns.load(Ordering::SeqCst)),
                     None => n = sv.mask_wanted.wait(n).unwrap(),
                 }
             }
@@ -732,8 +754,8 @@ fn mask_loop(inner: Arc<Inner>, backend: Arc<dyn Backend>, sv: Arc<StreamVision>
         drop(m);
         let mut n = sv.newest.lock().unwrap();
         n.done += 1;
-        // Without one the last stays until it's too old: a failed frame now and then doesn't show
-        if let Some(mask) = mask {
+        // Without one the last stays until it's too old: a failed frame now and then doesn't show. One of a picture from before a turn of the view is dropped.
+        if let Some(mask) = mask.filter(|_| vision.inner.turns.load(Ordering::SeqCst) == turns) {
             n.mask = Some(MadeMask { w, h, mask, at, sizes: Vec::new(), generation: n.done });
             n.gave_up = false;
         }
