@@ -571,10 +571,18 @@ impl Settings {
         };
         let weak = Rc::downgrade(self);
         let _ = ui.set_callback("key", move |args| {
-            let Some(w) = weak.upgrade().and_then(|s| s.window.upgrade()) else { return SValue::Bool(false) };
+            let Some((s, w)) = weak.upgrade().and_then(|s| s.window.upgrade().map(|w| (s, w))) else { return SValue::Bool(false) };
             let (released, typing) = (args.get(1) == Some(&SValue::Bool(true)), args.get(2) == Some(&SValue::Bool(true)));
-            let input = crate::keys::key_input(&args[0], released, typing, w.modal());
+            let input = crate::keys::key_input(&args[0], released, typing, s.modal());
             SValue::Bool(w.key(&input))
+        });
+        // Closing the window while a section has something half done (the shortcut editor holds the keys) tells the sections
+        let weak = Rc::downgrade(self);
+        ui.window().on_close_requested(move || {
+            if let Some(s) = weak.upgrade() {
+                s.tell_hidden();
+            }
+            slint::CloseRequestResponse::HideWindow
         });
         let weak = Rc::downgrade(self);
         let _ = ui.set_global_callback("Reveal", "show", move |args| {
@@ -735,6 +743,23 @@ impl Settings {
             w.state.borrow_mut().ui_event(plugin, UiEvent { ui: id.clone(), callback: "shown".into(), args: Vec::new() });
         }
         w.process();
+    }
+
+    /// Every section hears "hidden" when the window is closed, so one that holds the keys lets them go.
+    pub fn tell_hidden(&self) {
+        let Some(w) = self.window.upgrade() else { return };
+        for (plugin, id) in self.tab_sections.iter().flatten() {
+            w.state.borrow_mut().ui_event(plugin, UiEvent { ui: id.clone(), callback: "hidden".into(), args: Vec::new() });
+        }
+        w.process();
+    }
+
+    /// A question, a message or a popup of this window is up, so keys belong to it and no binding runs behind it. The main
+    /// window's popups count too: a menu opened over it is still open.
+    pub fn modal(&self) -> bool {
+        self.telling.get() || self.asking.borrow().is_some() || matches!(self.ui.get_property("asking"), Ok(SValue::Bool(true)))
+            || !i_slint_core::window::WindowInner::from_pub(self.ui.window()).active_popups().is_empty()
+            || self.window.upgrade().is_some_and(|w| w.modal())
     }
 
     /// Sets an image property on one of a plugin's sections.

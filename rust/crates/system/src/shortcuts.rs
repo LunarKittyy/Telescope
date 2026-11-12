@@ -1079,6 +1079,8 @@ impl ShortcutsPlugin {
                 self.set_bindings(host, bindings);
             }
             "cancel" => self.close_editor(host),
+            // Settings was closed with the editor open: the keys come back instead of staying held for a window that's gone
+            "hidden" if self.editing => self.close_editor(host),
             _ => {}
         }
     }
@@ -1413,6 +1415,24 @@ mod tests {
         assert_eq!(plugin.section_props()["save-enabled"], json!(true));
         ui(&mut plugin, &mut host, "save", json!([]));
         assert_eq!(plugin.bindings()[0].keys, "Q");
+    }
+
+    #[test]
+    fn closing_settings_with_the_editor_open_gives_the_keys_back() {
+        let (mut plugin, mut host, seen) = make(json!([b("a", "Ctrl+T", "camera.torch", json!({}), false)]), false, true);
+        plugin.settings_sections();
+        ui(&mut plugin, &mut host, "add", json!([]));
+        assert_eq!(seen.lock().unwrap().suspended, [true]);
+        assert!(!plugin.on_key(&mut host, &key("t", true, false)), "no binding runs while one is being picked");
+        ui(&mut plugin, &mut host, "hidden", json!([]));
+        assert_eq!(plugin.section_props()["editor-open"], json!(false));
+        assert_eq!(seen.lock().unwrap().suspended, [true, false], "global keys are back");
+        host.calls.clear();
+        assert!(plugin.on_key(&mut host, &key("t", true, false)), "and a key runs its action again");
+        assert_eq!(ran(&host).len(), 1, "{:?}", host.calls);
+        // Closed with no editor open: nothing to give back
+        ui(&mut plugin, &mut host, "hidden", json!([]));
+        assert_eq!(seen.lock().unwrap().suspended, [true, false]);
     }
 
     #[test]
