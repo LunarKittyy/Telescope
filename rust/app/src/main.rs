@@ -11,6 +11,7 @@
 //!   telescope-rs config-snapshot FOLDER   what this app makes of a config fixture, in the shape of its expected.json
 //!   telescope-rs scenes OUT [ids]         every card, dialog and Settings page, drawn offscreen
 //!   telescope-rs scenes OUT --card NAME   one plugin's card alone with settings (--config JSON, --config-lines FILE), for the site's clips
+//!   telescope-rs effect NAME W H          raw RGBA frames on stdin through a plugin's picture change to stdout, for the site's clips
 //!   telescope-rs camera-wait-screen OUT   the Windows 11 camera's built-in wait screen (build_windows.ps1 builds it into the DLL)
 //!   telescope-rs build-info               version, build, channel and commit as JSON, for the package checks
 //!   telescope-rs dev [--keep] [--reset] [--plugin FOLDER ...]   the dev desktop, in a profile of its own (dev.rs)
@@ -24,6 +25,7 @@
 mod cli;
 mod confirm;
 mod dev;
+mod effect_frames;
 mod scenes;
 
 /// The translations built into the program (build.rs).
@@ -605,6 +607,13 @@ fn main() {
     let command = words.first().map(String::as_str);
     if command == Some("scenes") {
         if let Err(e) = scenes::run(&words[1..]) {
+            eprintln!("{e}");
+            std::process::exit(1);
+        }
+        return;
+    }
+    if command == Some("effect") {
+        if let Err(e) = effect_frames::run(&words[1..]) {
             eprintln!("{e}");
             std::process::exit(1);
         }
