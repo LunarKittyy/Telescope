@@ -7303,6 +7303,10 @@ msgstr "Telescope kunde inte radera den: {error}"
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr "Telescope kunde inte skapa tilläggsmappen: {error}"
 
+#: rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1041
+msgid "Live"
+msgstr "Live"
+
 #: rust/crates/shell/src/search.rs:31
 msgid "Tab"
 msgstr "Flik"
@@ -7617,10 +7621,6 @@ msgstr "Kameran ger färre bildrutor än begärt. Svagt ljus gör den långsamma
 #: rust/crates/shell/src/streams.rs:973
 msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
 msgstr "Telefonens kamera ger färre bildrutor än begärt. Svagt ljus gör den långsammare."
-
-#: rust/crates/shell/src/streams.rs:1041
-msgid "Live"
-msgstr "Live"
 
 #: rust/crates/shell/src/streams.rs:1053
 msgid "Starting"
@@ -9185,7 +9185,7 @@ msgid "Light"
 msgstr "Ljus"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:428
+#: rust/app/src/main.rs:431
 msgid ", "
 msgstr ", "
 

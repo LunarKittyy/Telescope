@@ -7303,6 +7303,10 @@ msgstr "Telescopeで削除できませんでした: {error}"
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr "Telescopeでプラグイン フォルダーを作成できませんでした: {error}"
 
+#: rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1041
+msgid "Live"
+msgstr "ライブ"
+
 #: rust/crates/shell/src/search.rs:31
 msgid "Tab"
 msgstr "タブ"
@@ -7612,10 +7616,6 @@ msgstr "カメラのフレームレートが指定より低くなっています
 #: rust/crates/shell/src/streams.rs:973
 msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
 msgstr "スマートフォンのカメラが、要求されたフレームレートに届いていません。暗い場所では遅くなります。"
-
-#: rust/crates/shell/src/streams.rs:1041
-msgid "Live"
-msgstr "ライブ"
 
 #: rust/crates/shell/src/streams.rs:1053
 msgid "Starting"
@@ -9178,7 +9178,7 @@ msgid "Light"
 msgstr "明るさ"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:428
+#: rust/app/src/main.rs:431
 msgid ", "
 msgstr "、"
 

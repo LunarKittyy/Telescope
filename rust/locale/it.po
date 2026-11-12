@@ -7304,6 +7304,10 @@ msgstr "Telescope non è riuscito a eliminarlo: {error}"
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr "Telescope non è riuscito a creare la cartella dei plugin: {error}"
 
+#: rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1041
+msgid "Live"
+msgstr "In diretta"
+
 #: rust/crates/shell/src/search.rs:31
 msgid "Tab"
 msgstr "Scheda"
@@ -7618,10 +7622,6 @@ msgstr "La fotocamera produce meno fotogrammi di quelli richiesti. La scarsa luc
 #: rust/crates/shell/src/streams.rs:973
 msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
 msgstr "La fotocamera del telefono produce meno fotogrammi di quelli richiesti. La scarsa illuminazione la rallenta."
-
-#: rust/crates/shell/src/streams.rs:1041
-msgid "Live"
-msgstr "In diretta"
 
 #: rust/crates/shell/src/streams.rs:1053
 msgid "Starting"
@@ -9186,7 +9186,7 @@ msgid "Light"
 msgstr "Luce"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:428
+#: rust/app/src/main.rs:431
 msgid ", "
 msgstr ", "
 

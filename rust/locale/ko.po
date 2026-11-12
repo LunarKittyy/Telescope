@@ -7303,6 +7303,10 @@ msgstr "Telescope가 삭제하지 못했어요: {error}"
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr "Telescope가 플러그인 폴더를 만들지 못했어요: {error}"
 
+#: rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1041
+msgid "Live"
+msgstr "라이브"
+
 #: rust/crates/shell/src/search.rs:31
 msgid "Tab"
 msgstr "탭"
@@ -7612,10 +7616,6 @@ msgstr "카메라가 요청한 것보다 적은 프레임을 생성하고 있어
 #: rust/crates/shell/src/streams.rs:973
 msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
 msgstr "휴대폰 카메라가 요청한 것보다 적은 프레임을 만들고 있어요. 어두운 곳에서는 속도가 느려져요."
-
-#: rust/crates/shell/src/streams.rs:1041
-msgid "Live"
-msgstr "라이브"
 
 #: rust/crates/shell/src/streams.rs:1053
 msgid "Starting"
@@ -9178,7 +9178,7 @@ msgid "Light"
 msgstr "조명"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:428
+#: rust/app/src/main.rs:431
 msgid ", "
 msgstr ", "
 
