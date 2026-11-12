@@ -59,7 +59,7 @@ object StreamLauncher {
             if (owner != null) putExtra(CameraStreamService.EXTRA_OWNER, owner)
         }
         // Opened before the start, or a service that settles first would have its settle() undone
-        intent.putExtra(CameraStreamService.EXTRA_START_TICKET, SessionStartWindow.begin())
+        intent.putExtra(CameraStreamService.EXTRA_START_TICKET, SessionStartWindow.begin(owner))
         return try {
             // A plain start is allowed: the waiting service already keeps the app in the foreground.
             if (covered) context.startService(intent) else ContextCompat.startForegroundService(context, intent)
