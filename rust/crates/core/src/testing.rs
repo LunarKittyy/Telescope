@@ -589,6 +589,7 @@ impl HostView for FakeHost {
         if let Some(r) = change.rotation { v.rotation = r; }
         if let Some(s) = change.stretch_x { v.stretch_x = s; }
         if let Some(s) = change.stretch_y { v.stretch_y = s; }
+        if let Some(d) = change.distortion { v.distortion = d; }
     }
     fn take_view(&mut self, owner: &str) -> bool {
         self.note(format!("take_view {owner}"));

@@ -34,7 +34,7 @@ fn geometry(row: &Value) -> Geometry {
     let (stretch_x, stretch_y) = pair(&row["stretch"]);
     Geometry {
         zoom: f(&row["zoom"]), pan_x, pan_y, flip_h: row["flip_h"] == true, flip_v: row["flip_v"] == true,
-        rotation: row["rotation"].as_i64().map(|r| r as i32), stretch_x, stretch_y,
+        rotation: row["rotation"].as_i64().map(|r| r as i32), stretch_x, stretch_y, distortion: 0.0,
     }
 }
 

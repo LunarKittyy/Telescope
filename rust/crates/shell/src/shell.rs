@@ -975,7 +975,7 @@ impl State {
         let old = {
             let mut upright = self.upright.lock().unwrap();
             let old = upright.turn;
-            *upright = telescope_core::vision::Upright { turn, sent };
+            *upright = telescope_core::vision::Upright { turn, sent, distortion: f64::from(self.view.distortion), aspect: 0.0 };
             old
         };
         if let Some(vision) = self.vision.as_ref().filter(|_| old != turn) {
@@ -2798,6 +2798,32 @@ mod tests {
         s.bus.emit(Event::FocusPointPicked { x: 0.25, y: 0.6 });
         s.deliver_events();
         assert_eq!(focus_points(&heard), [(0.375, 0.7)]);
+    }
+
+    #[test]
+    fn a_picked_point_lands_where_the_lens_correction_read_it_in_the_phone_frame() {
+        let mut s = state();
+        let heard = camera_hears(&mut s);
+        s.view.distortion = 1.0;
+        s.bus.emit(Event::FocusPointPicked { x: 0.95, y: 0.95 });
+        s.bus.emit(Event::FocusPointPicked { x: 0.5, y: 0.5 });
+        s.deliver_events();
+        // About 229 pixels of a 1920 wide frame in from where the preview shows it
+        assert_eq!(focus_points(&heard), [(0.846, 0.846), (0.5, 0.5)]);
+    }
+
+    #[test]
+    fn vision_hears_the_lens_correction_so_people_land_in_the_corrected_picture() {
+        let mut s = state();
+        s.view.distortion = 0.8;
+        s.follow_view_for_vision();
+        let up = s.upright.lock().unwrap().for_frame(1920, 1080);
+        assert_eq!(up.distortion, 0.8_f32 as f64);
+        let (x, y) = up.to_shown(0.95, 0.95);
+        assert!(x > 0.95 && y > 0.95, "a corner the barrel pulled in goes back out: ({x}, {y})");
+        s.view.distortion = 0.0;
+        s.follow_view_for_vision();
+        assert_eq!(s.upright.lock().unwrap().for_frame(1920, 1080).to_shown(0.95, 0.95), (0.95, 0.95));
     }
 
     #[test]

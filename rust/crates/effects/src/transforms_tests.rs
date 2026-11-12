@@ -222,6 +222,37 @@ fn stretch_saves_loads_and_resets() {
 }
 
 #[test]
+fn lens_correction_saves_loads_resets_and_reaches_the_view() {
+    let mut r = Rig::new();
+    assert_eq!((r.plugin.distortion(), r.host.view.distortion), (0.0, 0.0));
+    r.ui("distortion-moved", vec![json!(35)]);
+    assert!(approx(r.host.view.distortion as f64, 0.35) && approx(r.plugin.distortion(), 0.35));
+    assert_eq!(r.shown("distortion-text"), json!("+35%"));
+    assert_eq!(r.plugin.get_config()["distortion"], json!(0.35));
+    assert!(TransformsPlugin::new().get_config().get("distortion").is_none(), "an unused setting leaves the saved config as it was");
+    assert!(r.saves() >= 1);
+    // a preset or a saved config brings it back, and a damaged value falls back
+    let saved = r.plugin.get_config();
+    let mut other = Rig::new();
+    other.plugin.apply_preset(&mut other.host, &saved).unwrap();
+    assert!(approx(other.host.view.distortion as f64, 0.35), "a preset sets the window's view");
+    assert_eq!(other.plugin.get_config(), saved);
+    other.plugin.set_config(&json!({"distortion": "junk"})).unwrap();
+    assert_eq!(other.plugin.distortion(), 0.0);
+    other.plugin.set_config(&json!({"distortion": 9})).unwrap();
+    assert_eq!(other.plugin.distortion(), 1.0);
+    // a config from before lens correction has none
+    other.plugin.set_config(&json!({"zoom": 2.0})).unwrap();
+    assert_eq!(other.plugin.distortion(), 0.0);
+    // the shortcut action and the reset
+    assert!(r.run("transforms.distortion", json!({"op": "set", "value": -20})).is_some());
+    assert!(approx(r.host.view.distortion as f64, -0.2));
+    r.ui("reset-clicked", vec![]);
+    assert_eq!((r.host.view.distortion, r.plugin.distortion()), (0.0, 0.0));
+    assert_eq!(r.shown("distortion"), json!(0));
+}
+
+#[test]
 fn loading_a_stretch_sets_the_view_once() {
     let mut r = Rig::new();
     r.host.view_changes.clear();
@@ -231,7 +262,7 @@ fn loading_a_stretch_sets_the_view_once() {
     r.event(Event::StreamStopped);
     let stretched: Vec<&ViewChange> = r.host.view_changes.iter().filter(|c| c.stretch_x.is_some() || c.stretch_y.is_some()).collect();
     // Python's call has the flips, the rotation and the stretch; here it's the whole view in one call, zoom and pan too
-    let want = ViewChange { zoom: Some(1.0), pan_x: Some(0.0), pan_y: Some(0.0), flip_h: Some(false), flip_v: Some(false), rotation: Some(None), stretch_x: Some(1.25), stretch_y: Some(0.7) };
+    let want = ViewChange { zoom: Some(1.0), pan_x: Some(0.0), pan_y: Some(0.0), flip_h: Some(false), flip_v: Some(false), rotation: Some(None), stretch_x: Some(1.25), stretch_y: Some(0.7), distortion: Some(0.0) };
     assert_eq!(stretched, [&want]);
 }
 

@@ -751,6 +751,20 @@ impl ShaderSlot {
         }
     }
 
+    /// A number for the shader and what it is given, for the pipeline to see a View stage step change.
+    pub fn geometry_key(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        self.step.wgsl.hash(&mut hasher);
+        self.step.uniforms.to_string().hash(&mut hasher);
+        hasher.finish()
+    }
+
+    /// Drops the last frame it drew: the next one starts again (the picture's geometry changed, so the old one doesn't line up).
+    pub fn forget_history(&self) {
+        *self.history.lock().unwrap() = None;
+    }
+
     /// Whether the step keeps its last frame for the shader.
     pub fn keeps_history(&self) -> bool {
         self.wants_history

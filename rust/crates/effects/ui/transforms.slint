@@ -85,6 +85,9 @@ export component TransformsCard inherits Card {
     in property <float> stretch-y: 100;
     in property <string> stretch-x-text;
     in property <string> stretch-y-text;
+    in property <float> distortion: 0;
+    in property <string> distortion-text;
+    in property <string> distortion-tip;
     in property <string> pan-tip;
     in property <string> pan-add-x;
     in property <string> pan-add-y;
@@ -97,6 +100,7 @@ export component TransformsCard inherits Card {
     callback map-moved(float, float);
     callback map-grabbed(bool);
     callback stretch-moved(int, float);
+    callback distortion-moved(float);
 
     title: @tr("Transforms");
     tip: @tr("Zoom, pan, flip, rotate and stretch the picture.");
@@ -105,7 +109,7 @@ export component TransformsCard inherits Card {
     in property <string> reset-help;
     has-reset: true;
     reset-detail: reset-help;
-    reset-lit: flips[0] || flips[1] || rotation != 0 || zoom != 1 || pan-x != 0 || pan-y != 0 || stretch-x != 100 || stretch-y != 100;
+    reset-lit: flips[0] || flips[1] || rotation != 0 || zoom != 1 || pan-x != 0 || pan-y != 0 || stretch-x != 100 || stretch-y != 100 || distortion != 0;
     reset-label: @tr("Reset");
     reset-shortcut: "transforms.reset";
     reset => { root.reset-clicked(); }
@@ -285,6 +289,23 @@ export component TransformsCard inherits Card {
         has-default: true;
         default-value: 100;
         moved(v) => { root.stretch-moved(1, v); }
+    }
+    RailSlider {
+        icon: Icons.distortion;
+        enabled: active;
+        label: @tr("Lens correction");
+        tip: @tr("Lens correction");
+        tip-detail: distortion-tip;
+        shortcut: "transforms.distortion";
+        setting: "transforms.distortion";
+        minimum: -100;
+        maximum: 100;
+        value: distortion;
+        readout: distortion-text;
+        hue: root.hue;
+        has-default: true;
+        default-value: 0;
+        moved(v) => { root.distortion-moved(v); }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;

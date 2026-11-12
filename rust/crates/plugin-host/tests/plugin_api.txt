@@ -289,6 +289,7 @@ payload StreamInfo.url: text
 payload UiEvent.args[]: number
 payload UiEvent.callback: text
 payload UiEvent.ui: text
+payload View.distortion: number
 payload View.flip_h: true or false
 payload View.flip_v: true or false
 payload View.pan_x: number

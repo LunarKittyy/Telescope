@@ -991,3 +991,60 @@ fn filters_cost_per_frame_at_1080p() {
     let (wall, cpu_ms) = fastest(Box::new(|n| run_all(&mut cpus, n)));
     eprintln!("COST all nine on the CPU: wall {wall:.1} ms, processor time {cpu_ms:.1} ms");
 }
+
+// ── The second review's cases ─────────────────────────────────────
+
+fn halves(left: u8, right: u8) -> Frame {
+    rgba(32, 16, |x, _| if x < 16 { [left; 3] } else { [right; 3] })
+}
+
+#[test]
+fn flipping_the_picture_makes_the_cpu_average_start_again() {
+    let s = with(&[(OVER_TIME, 100)]);
+    let memories = Memories::default();
+    let FrameStep::Either(_, mut step) = s.steps_with(&memories, true).remove(0).1 else { unreachable!() };
+    let ctx = Ctx(None);
+    for n in 0..4 {
+        on_cpu(&mut step, &timed(halves(100, 120), n), &ctx);
+    }
+    // Without the pipeline's word the old halves are blended into the flipped ones
+    let blended = on_cpu(&mut step, &timed(halves(120, 100), 4), &ctx);
+    assert_ne!(value(&blended, 4, 4), [120; 3], "the review's case");
+    step.forget_history("cam");
+    let again = on_cpu(&mut step, &timed(halves(120, 100), 5), &ctx);
+    assert_eq!((value(&again, 4, 4), value(&again, 28, 4)), ([120; 3], [100; 3]), "a flip is a new picture");
+    // Another stream's average isn't touched by one stream's view
+    step.forget_history("somewhere else");
+}
+
+#[test]
+fn two_streams_denoise_without_waiting_for_each_other() {
+    let s = with(&[(OVER_TIME, 70)]);
+    let memories = Memories::default();
+    let FrameStep::Either(_, mut step) = s.steps_with(&memories, true).remove(0).1 else { unreachable!() };
+    // Another stream's frame is being worked on: its memory is locked
+    let other = Arc::new(Mutex::new(cpu::Memory::default()));
+    memories.lock().unwrap().insert("other".into(), other.clone());
+    let busy = other.lock().unwrap();
+    let out = on_cpu(&mut step, &timed(noisy(64, 48, 120, 9.0, 3), 0), &Ctx(None));
+    assert_eq!(out.width, 64, "the frame of the stream 'cam' went through while 'other' was busy");
+    drop(busy);
+    assert_eq!(memories.lock().unwrap().len(), 2);
+}
+
+#[test]
+fn a_stopped_stream_and_a_denoise_that_went_off_release_their_pictures() {
+    let mut plugin = FiltersPlugin::new();
+    plugin.settings.values[OVER_TIME] = 70;
+    let mut host = FakeHost::default();
+    let FrameStep::Either(_, mut step) = plugin.staged_frame_steps().remove(0).1 else { unreachable!() };
+    on_cpu(&mut step, &timed(noisy(64, 48, 120, 9.0, 3), 0), &Ctx(None));
+    assert_eq!(plugin.memories.lock().unwrap().len(), 1, "a stream that denoises keeps its last picture");
+    plugin.on_stream_stop(&mut host);
+    assert!(plugin.memories.lock().unwrap().is_empty(), "the stream stopped");
+    on_cpu(&mut step, &timed(noisy(64, 48, 120, 9.0, 4), 1), &Ctx(None));
+    assert_eq!(plugin.memories.lock().unwrap().len(), 1);
+    plugin.settings.values[OVER_TIME] = 0;
+    assert!(plugin.staged_frame_steps().is_empty());
+    assert!(plugin.memories.lock().unwrap().is_empty(), "no temporal denoise any more");
+}

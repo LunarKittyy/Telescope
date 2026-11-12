@@ -153,11 +153,19 @@ impl Settings {
         let mut out = Vec::new();
         let mut early = |step: FrameStep| out.push((FrameStage::Effects, step));
         if let Some(p) = self.denoise_time() {
-            let memories = memories.clone();
-            early(FrameStep::Either(shader(DENOISE_TIME, json!({"tolerance": p.tolerance, "keep": p.keep})), Box::new(Pixels::new(move |rgb, meta, _| {
-                let mut all = memories.lock().unwrap_or_else(|e| e.into_inner());
-                cpu::denoise_time(rgb, all.entry(meta.source.to_string()).or_default(), &p, meta.source, meta.time_ns)
-            }))));
+            let (run_memories, forget_memories, (tolerance, keep)) = (memories.clone(), memories.clone(), (p.tolerance, p.keep));
+            let step = Pixels::new(move |rgb, meta, _| {
+                // The registry is locked only to find the stream's own memory, so streams don't wait for each other's frames
+                let memory = run_memories.lock().unwrap_or_else(|e| e.into_inner()).entry(meta.source.to_string()).or_default().clone();
+                let mut memory = memory.lock().unwrap_or_else(|e| e.into_inner());
+                cpu::denoise_time(rgb, &mut memory, &p, meta.source, meta.time_ns)
+            }).forgetting(move |source| {
+                let memory = forget_memories.lock().unwrap_or_else(|e| e.into_inner()).get(source).cloned();
+                if let Some(memory) = memory {
+                    memory.lock().unwrap_or_else(|e| e.into_inner()).reset();
+                }
+            });
+            early(FrameStep::Either(shader(DENOISE_TIME, json!({"tolerance": tolerance, "keep": keep})), Box::new(step)));
         }
         if let Some(p) = self.denoise_space() {
             early(FrameStep::Either(shader(DENOISE_SPACE, json!({"range": p.range})), Box::new(Pixels::new(move |rgb, _, _| cpu::denoise_space(rgb, &p)))));
@@ -195,9 +203,9 @@ fn shader(wgsl: &str, uniforms: Value) -> ShaderStep {
     ShaderStep { wgsl: wgsl.into(), uniforms, textures: Vec::new() }
 }
 
-/// What the CPU denoise over time remembers, by the stream it saw. The plugin keeps it, so moving a slider (which makes every step new)
-/// doesn't make the average start again.
-pub type Memories = Arc<Mutex<HashMap<String, cpu::Memory>>>;
+/// What the CPU denoise over time remembers, by the stream it saw, each in a lock of its own. The plugin keeps it, so moving a slider
+/// (which makes every step new) doesn't make the average start again.
+pub type Memories = Arc<Mutex<HashMap<String, Arc<Mutex<cpu::Memory>>>>>;
 
 /// What a CPU filter is told about the frame it runs on.
 pub struct Meta<'a> {
@@ -229,18 +237,25 @@ struct Pixels {
     /// For a filter that only changes brightness: on a video frame it works on the Y plane as it is, which saves turning the whole picture
     /// into RGB and back (most of what a CPU step costs).
     on_luma: Option<LumaRun>,
+    /// For a filter that keeps pictures of its own: told when the picture's geometry changed, to drop them.
+    forget: Option<Box<dyn Fn(&str) + Send>>,
 }
 
 type LumaRun = Box<dyn Fn(&[f32], usize, usize) -> Vec<f32> + Send>;
 
 impl Pixels {
     fn new(run: impl FnMut(&mut Rgb, &mut Meta, Option<&Gray>) + Send + 'static) -> Pixels {
-        Pixels { run: Box::new(run), wants_mask: false, resting: AtomicU32::new(0), slow: 0, on_luma: None }
+        Pixels { run: Box::new(run), wants_mask: false, resting: AtomicU32::new(0), slow: 0, on_luma: None, forget: None }
     }
 
     /// One that needs the person mask and leaves the frame alone while there is none.
     fn masked(run: impl FnMut(&mut Rgb, &mut Meta, Option<&Gray>) + Send + 'static) -> Pixels {
-        Pixels { run: Box::new(run), wants_mask: true, resting: AtomicU32::new(0), slow: 0, on_luma: None }
+        Pixels { run: Box::new(run), wants_mask: true, resting: AtomicU32::new(0), slow: 0, on_luma: None, forget: None }
+    }
+
+    fn forgetting(mut self, forget: impl Fn(&str) + Send + 'static) -> Pixels {
+        self.forget = Some(Box::new(forget));
+        self
     }
 
     fn on_luma(mut self, run: impl Fn(&[f32], usize, usize) -> Vec<f32> + Send + 'static) -> Pixels {
@@ -250,6 +265,12 @@ impl Pixels {
 }
 
 impl CpuStep for Pixels {
+    fn forget_history(&mut self, source: &str) {
+        if let Some(forget) = &self.forget {
+            forget(source);
+        }
+    }
+
     fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
         if self.resting.load(Ordering::Relaxed) > 0 {
             self.resting.fetch_sub(1, Ordering::Relaxed);
@@ -514,7 +535,16 @@ impl Plugin for FiltersPlugin {
         }
     }
 
+    fn on_stream_stop(&mut self, _host: &mut dyn Host) {
+        // A stopped stream's pictures are 24 MiB each at 1080p; a running one starts its average again from its next frame
+        self.memories.lock().unwrap_or_else(|e| e.into_inner()).clear();
+    }
+
     fn staged_frame_steps(&mut self) -> Vec<(FrameStage, FrameStep)> {
+        if !self.on || self.settings.denoise_time().is_none() {
+            // Nothing is averaging, so nothing needs the pictures it kept
+            self.memories.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        }
         if self.on { self.settings.steps_with(&self.memories, self.skin_possible) } else { Vec::new() }
     }
 

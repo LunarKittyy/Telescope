@@ -161,6 +161,10 @@ pub struct Pipeline {
     last_readback_ns: u64,
     /// The steps just handed over hold a Background step that the ones before them didn't, and no frame has gone through them yet.
     background_added: bool,
+    /// What the window's view steps do to the picture's geometry as of the last steps (None before any), and whether it changed since
+    /// the last frame: the pictures that steps keep (denoising over time) no longer line up with the next one, so they start again.
+    view_key: Option<u64>,
+    forget_due: bool,
 }
 
 impl Drop for Pipeline {
@@ -186,7 +190,7 @@ impl Pipeline {
 
     /// One that listens to this balance, for tests.
     fn with_balance(balance: Arc<Balance>) -> Pipeline {
-        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, background_added: false }
+        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, background_added: false, view_key: None, forget_due: false }
     }
 
     fn timer_of(&self, owner: &str) -> Option<Arc<Timer>> {
@@ -403,6 +407,37 @@ impl Pipeline {
         }
     }
 
+    /// Looks at what the View stage's steps do to the picture's geometry: when that is not what it was, the next frame makes every step
+    /// that keeps pictures of its own forget them. A rebuilt step that does the same (a filter's slider, another plugin's refresh) doesn't.
+    fn note_geometry(&mut self) {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        for entry in self.steps.iter().filter(|e| e.stage == FrameStage::View) {
+            match &entry.kind {
+                Kind::Cpu(step) | Kind::Either(_, step) => step.geometry_key().hash(&mut hasher),
+                Kind::Shader(slot) => slot.geometry_key().hash(&mut hasher),
+            }
+        }
+        let key = hasher.finish();
+        if self.view_key.is_some_and(|before| before != key) {
+            self.forget_due = true;
+        }
+        self.view_key = Some(key);
+    }
+
+    fn forget_histories(&mut self, source: &str) {
+        for entry in &mut self.steps {
+            match &mut entry.kind {
+                Kind::Cpu(step) => step.forget_history(source),
+                Kind::Shader(slot) => slot.forget_history(),
+                Kind::Either(slot, step) => {
+                    slot.forget_history();
+                    step.forget_history(source);
+                }
+            }
+        }
+    }
+
     fn count(&mut self, ups: u32, downs: u32) {
         transfers::frame(ups, downs);
         self.last_transfers = (ups, downs);
@@ -465,6 +500,7 @@ impl FramePipeline for Pipeline {
         entries.sort_by_key(|e| e.stage);
         self.steps = entries;
         self.background_added = !had_background && self.has_background();
+        self.note_geometry();
     }
 
     fn replace_steps(&mut self, owner: &str, stage: FrameStage, steps: Vec<FrameStep>) {
@@ -476,6 +512,7 @@ impl FramePipeline for Pipeline {
         let at = self.steps.iter().position(|e| e.stage >= stage).unwrap_or(self.steps.len());
         self.steps.splice(at..at, fresh);
         self.background_added |= !had_background && self.has_background();
+        self.note_geometry();
     }
 
     fn process(&mut self, mut frame: Frame, ctx: &dyn FrameContext) -> Frame {
@@ -485,6 +522,9 @@ impl FramePipeline for Pipeline {
         // A step that builds a new frame stays on this one: person masks are worked out once per number
         let number = frame.number;
         let began = monotonic_ns();
+        if std::mem::take(&mut self.forget_due) {
+            self.forget_histories(ctx.source_id());
+        }
         let mut chain = Chain::default();
         // Asked once, so a frame doesn't change its mind halfway
         let on_card = self.balance.place() == Place::Card;
@@ -672,6 +712,48 @@ pub(crate) mod tests {
         assert_eq!(p.stages(), [("blur".to_string(), FrameStage::Effects)]);
         p.replace_steps("view", FrameStage::View, vec![FrameStep::Cpu(Box::new(Rebuilds))]);
         assert_eq!(p.stages(), [("view".to_string(), FrameStage::View), ("blur".to_string(), FrameStage::Effects)]);
+    }
+
+    /// A view step that moves the picture some way (its number), and one that keeps pictures of its own and hears when to drop them.
+    struct Moves(u64);
+
+    impl CpuStep for Moves {
+        fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+        fn geometry_key(&self) -> u64 {
+            self.0
+        }
+    }
+
+    struct Keeps(Arc<std::sync::Mutex<Vec<String>>>);
+
+    impl CpuStep for Keeps {
+        fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+        fn forget_history(&mut self, source: &str) {
+            self.0.lock().unwrap().push(source.to_string());
+        }
+    }
+
+    #[test]
+    fn steps_that_keep_pictures_start_again_when_the_view_moves_the_picture_but_not_when_only_they_change() {
+        let forgot = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("view", FrameStage::View, Moves(1)), step("filters", FrameStage::Effects, Keeps(forgot.clone()))]);
+        p.process(grey(4, 2, 0), &NoContext);
+        // The filters' own settings change, the view doesn't
+        p.set_steps(vec![step("view", FrameStage::View, Moves(1)), step("filters", FrameStage::Effects, Keeps(forgot.clone()))]);
+        p.process(grey(4, 2, 0), &NoContext);
+        p.replace_steps("view", FrameStage::View, vec![FrameStep::Cpu(Box::new(Moves(1)))]);
+        p.process(grey(4, 2, 0), &NoContext);
+        assert!(forgot.lock().unwrap().is_empty(), "a refresh that moves nothing keeps what they remember");
+        // A flip, a pan, a zoom or a lens change
+        p.replace_steps("view", FrameStage::View, vec![FrameStep::Cpu(Box::new(Moves(2)))]);
+        p.process(grey(4, 2, 0), &NoContext);
+        p.process(grey(4, 2, 0), &NoContext);
+        assert_eq!(*forgot.lock().unwrap(), [""], "once, on the first frame after");
+        // The view going away is a change too
+        p.replace_steps("view", FrameStage::View, Vec::new());
+        p.process(grey(4, 2, 0), &NoContext);
+        assert_eq!(forgot.lock().unwrap().len(), 2);
     }
 
     /// What number the frame has when it gets here.
