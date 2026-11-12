@@ -96,6 +96,10 @@ struct Step {
 }
 
 impl CpuStep for Step {
+    fn hides(&self) -> bool {
+        true
+    }
+
     fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
         if self.active || self.shown_blurs.load(Ordering::Relaxed) { Touch::Changes } else { Touch::Nothing }
     }

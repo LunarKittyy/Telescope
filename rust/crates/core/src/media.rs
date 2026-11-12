@@ -264,6 +264,11 @@ pub trait FramePipeline: Send {
     /// `owner`'s steps swapped for these, the others left as they are with what they hold.
     fn replace_steps(&mut self, _owner: &str, _stage: crate::frame::FrameStage, _steps: Vec<crate::frame::FrameStep>) {}
     fn process(&mut self, frame: Frame, ctx: &dyn FrameContext) -> Frame;
+    /// A frame that already went through process, run through the steps that hide things (stages Privacy and Cover) again: for the frame
+    /// a stalled stream keeps sending when those steps just changed. None when none of them had anything to hide, or this pipeline can't.
+    fn hide_again(&mut self, _frame: Frame, _ctx: &dyn FrameContext) -> Option<Frame> {
+        None
+    }
     fn is_empty(&self) -> bool;
     /// Where to count what each step costs while the stats ask for it (Timers::on); a pipeline that can't just doesn't.
     fn set_stats(&mut self, _stats: Arc<crate::stats::SourceStats>) {}
