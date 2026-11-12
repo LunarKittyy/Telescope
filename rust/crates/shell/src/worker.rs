@@ -368,6 +368,8 @@ struct Shared {
     /// Frames that made it through the steps and into the slot, which the camera loop counts the ones it skipped from. Locked around the slot's
     /// publish and the camera loop's read of the slot, so a count and the frame it was read with always agree.
     published: Mutex<u64>,
+    // Where the camera loop stood in `published` when its camera failed, so the reopened one counts what went by meanwhile
+    sent_through: Mutex<Option<u64>>,
     /// The number of the last frame that went to the camera, which a camera restart doesn't forget (u64::MAX before any).
     last_sent_number: AtomicU64,
     /// What this stream counts into for the stats.
@@ -499,7 +501,7 @@ impl StreamWorker {
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
             photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_colour: Mutex::new(None), gate: setup.gate,
-            seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), frames_shed: AtomicU64::new(0), published: Mutex::new(0), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
+            seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), frames_shed: AtomicU64::new(0), published: Mutex::new(0), sent_through: Mutex::new(None), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
             last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), fps_cell: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
             handover_thread: Mutex::new(None),
@@ -1230,7 +1232,7 @@ impl Shared {
         let mut queued: std::collections::VecDeque<(Frame, u64)> = std::collections::VecDeque::new();
         let mut shown: Option<Frame> = None;
         // How many frames had been published when the last one was sent, to count the ones skipped since
-        let mut published_then = *self.published.lock().unwrap();
+        let mut published_then = self.sent_through.lock().unwrap().take().unwrap_or_else(|| *self.published.lock().unwrap());
         let mut scaler = None;
         let mut ok = true;
         let mut delivery_log = telescope_core::time::DeliveryLog::from_env();
@@ -1288,6 +1290,11 @@ impl Shared {
                     self.status("warn", &fill(&tr("Virtual camera error: {error}"), &[("error", &e)]));
                     // Whatever that frame was, nothing says why it didn't go
                     self.stats.dropped(DropReason::Unknown, 1);
+                    // That frame is counted, and the ones the burst passed over before it
+                    if let Some(at) = fresh_at {
+                        self.stats.dropped(DropReason::Paced, at.saturating_sub(published_then).saturating_sub(1));
+                        published_then = at;
+                    }
                     ok = false;
                     break;
                 }
@@ -1353,6 +1360,9 @@ impl Shared {
                 self.status(net_kind, &if counted { format!("{mbps:.1} Mbps") } else { "-".into() });
                 (t0, bytes0, recv0, shed0) = (Instant::now(), bytes_now, recv_now, shed_now);
             }
+        }
+        if !ok {
+            *self.sent_through.lock().unwrap() = Some(published_then);
         }
         drop(cam);
         self.vcam_free.set();
@@ -1814,6 +1824,8 @@ mod tests {
         locked: Mutex<Option<(u32, u32)>>,
         /// The open camera reports itself outdated once.
         outdated: AtomicBool,
+        /// The next send fails once.
+        fail_next_send: AtomicBool,
         /// What each send takes, in ms.
         send_cost_ms: AtomicU64,
         /// Every send: when it began, the number of the frame and how old it was then, in ms.
@@ -1824,6 +1836,9 @@ mod tests {
 
     impl VideoOutput for Cam {
         fn send(&mut self, frame: &Frame) -> Result<(), String> {
+            if self.0.fail_next_send.swap(false, Ordering::SeqCst) {
+                return Err("gone".into());
+            }
             let age = telescope_core::time::monotonic_ns().saturating_sub(frame.time_ns) as f64 / 1e6;
             self.0.timeline.lock().unwrap().push((Instant::now(), frame.number, age));
             let cost = self.0.send_cost_ms.load(Ordering::Relaxed);
@@ -3446,6 +3461,23 @@ mod tests {
         let published = *w.shared.published.lock().unwrap();
         assert_eq!(published, 60);
         assert_eq!((s.totals.delivered, s.drops.paced), (60, 0), "{s:?}");
+    }
+
+    #[test]
+    fn frames_that_go_by_while_the_camera_reopens_are_counted_as_dropped() {
+        // A send fails, the camera is retried 3 s later, and frames keep coming meanwhile
+        let steps: Vec<Step> = (0..200u32).flat_map(|i| [Step::Frame(10 + (i % 200) as u8), Step::Pause(Duration::from_millis(20))]).chain([Step::Pause(Duration::from_millis(400))]).collect();
+        let (opener, _opens) = scripted(vec![Some(steps)]);
+        let cams = Arc::new(Cams::default());
+        cams.fail_next_send.store(true, Ordering::SeqCst);
+        let events: Events = Arc::new(|_| {});
+        let w = StreamWorker::start(WorkerSetup { source_id: "reopen-test".into(), url: "https://127.0.0.1:40004/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
+        wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) == 200);
+        std::thread::sleep(Duration::from_millis(600));
+        let snap = Hub::shared().snapshot();
+        w.stop();
+        let s = snap.sources.iter().find(|s| s.source_id == "reopen-test").expect("the stream is in the snapshot");
+        assert_eq!(s.totals.delivered + s.drops.paced + s.drops.unknown, s.totals.received, "every frame is sent or counted as dropped: {s:?}");
     }
 
     /// Runs frames arriving after each of the gaps (ms) through a 30 fps camera and returns (arrived, delivered, paced drops).
