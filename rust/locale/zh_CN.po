@@ -1922,7 +1922,7 @@ msgid "Pill"
 msgstr "胶囊"
 
 #. Light and Heavy are the names of the two stream formats
-#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:781 rust/crates/outputs/src/stream_output.rs:990 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:109 rust/crates/outputs/ui/stream_output.slint:113 rust/crates/setup/src/stats_phone.rs:98 rust/crates/setup/ui/setup.slint:459
+#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:781 rust/crates/outputs/src/stream_output.rs:990 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:109 rust/crates/outputs/ui/stream_output.slint:113 rust/crates/setup/src/stats_phone.rs:98 rust/crates/setup/ui/setup.slint:451
 msgid "Light"
 msgstr "轻量"
 
@@ -6378,168 +6378,168 @@ msgctxt "search"
 msgid "appearance theme colors colours interface"
 msgstr "外观 主题 颜色 色彩 界面 appearance theme colors colours interface"
 
-#: rust/crates/setup/ui/setup.slint:444 rust/crates/setup/ui/setup.slint:445
-msgid "Help translate"
-msgstr "参与翻译"
-
-#: rust/crates/setup/ui/setup.slint:446
-msgid "Fix a text or add a language, no coding needed."
-msgstr "修正文本或添加语言，无需编写代码。"
-
-#: rust/crates/setup/ui/setup.slint:451 rust/crates/setup/ui/setup.slint:458
+#: rust/crates/setup/ui/setup.slint:443 rust/crates/setup/ui/setup.slint:450
 msgid "Theme"
 msgstr "主题"
 
-#: rust/crates/setup/ui/setup.slint:454
+#: rust/crates/setup/ui/setup.slint:446
 msgctxt "search"
 msgid "theme classic dark blue appearance look old oled black light white"
 msgstr "主题 经典 深色 暗色 蓝色 外观 界面 旧版 纯黑 黑色 浅色 亮色 白色 theme classic dark blue appearance look old oled black light white"
 
-#: rust/crates/setup/ui/setup.slint:459
+#: rust/crates/setup/ui/setup.slint:451
 msgid "Dark"
 msgstr "深色"
 
-#: rust/crates/setup/ui/setup.slint:459
+#: rust/crates/setup/ui/setup.slint:451
 msgid "Classic"
 msgstr "经典"
 
-#: rust/crates/setup/ui/setup.slint:459
+#: rust/crates/setup/ui/setup.slint:451
 msgid "OLED"
 msgstr "OLED"
 
-#: rust/crates/setup/ui/setup.slint:466 rust/crates/setup/ui/setup.slint:467 rust/crates/setup/ui/setup.slint:475
+#: rust/crates/setup/ui/setup.slint:458 rust/crates/setup/ui/setup.slint:459 rust/crates/setup/ui/setup.slint:467
 msgid "Card colours"
 msgstr "卡片配色"
 
-#: rust/crates/setup/ui/setup.slint:468
+#: rust/crates/setup/ui/setup.slint:460
 msgid "Give every card in the main window a different colour."
 msgstr "为主窗口中的每张卡片设置不同的颜色。"
 
-#: rust/crates/setup/ui/setup.slint:471
+#: rust/crates/setup/ui/setup.slint:463
 msgctxt "search"
 msgid "color colour theme appearance monochrome colourful purple hue accent look"
 msgstr "色彩 颜色 主题 外观 单色 彩色 紫色 色调 强调色 样式 color colour theme appearance monochrome colourful purple hue accent look"
 
-#: rust/crates/setup/ui/setup.slint:476
+#: rust/crates/setup/ui/setup.slint:468
 msgid "Colourful"
 msgstr "彩色"
 
-#: rust/crates/setup/ui/setup.slint:476
+#: rust/crates/setup/ui/setup.slint:468
 msgid "Monochrome"
 msgstr "单色"
 
-#: rust/crates/setup/ui/setup.slint:484 rust/crates/setup/ui/setup.slint:491
+#: rust/crates/setup/ui/setup.slint:476 rust/crates/setup/ui/setup.slint:483
 msgid "Language"
 msgstr "语言"
 
-#: rust/crates/setup/ui/setup.slint:487
+#: rust/crates/setup/ui/setup.slint:479
 msgctxt "search"
 msgid "language translation translate locale"
 msgstr "语言 翻译 界面语言 区域 language translation translate locale"
 
-#: rust/crates/setup/ui/setup.slint:504
+#: rust/crates/setup/ui/setup.slint:496
 msgid "Restart to switch"
 msgstr "重启以切换"
 
-#: rust/crates/setup/ui/setup.slint:504
+#: rust/crates/setup/ui/setup.slint:496
 msgid "Restart Telescope to switch to it."
 msgstr "重启 Telescope 即可切换。"
 
-#: rust/crates/setup/ui/setup.slint:506 rust/crates/shell/ui/settings.slint:501 rust/crates/shell/ui/settings.slint:504
+#: rust/crates/setup/ui/setup.slint:498 rust/crates/shell/ui/settings.slint:501 rust/crates/shell/ui/settings.slint:504
 msgid "Restart now"
 msgstr "立即重启"
 
-#: rust/crates/setup/ui/setup.slint:510 rust/crates/shell/src/plugins_tab.rs:625
+#: rust/crates/setup/ui/setup.slint:502 rust/crates/shell/src/plugins_tab.rs:625
 msgid "Restart"
 msgstr "重启"
 
-#: rust/crates/setup/ui/setup.slint:511
+#: rust/crates/setup/ui/setup.slint:503
 msgid "Restart Telescope in the language you picked."
 msgstr "以所选语言重启 Telescope。"
 
-#: rust/crates/setup/ui/setup.slint:534
+#: rust/crates/setup/ui/setup.slint:516 rust/crates/setup/ui/setup.slint:520
+msgid "Help translate"
+msgstr "参与翻译"
+
+#: rust/crates/setup/ui/setup.slint:521
+msgid "Fix a text or add a language, no coding needed."
+msgstr "修正文本或添加语言，无需编写代码。"
+
+#: rust/crates/setup/ui/setup.slint:542
 msgid "About"
 msgstr "关于"
 
-#: rust/crates/setup/ui/setup.slint:535
+#: rust/crates/setup/ui/setup.slint:543
 msgid "Version, log, bug reports and help."
 msgstr "版本、日志、问题报告与帮助。"
 
-#: rust/crates/setup/ui/setup.slint:536
+#: rust/crates/setup/ui/setup.slint:544
 msgctxt "search"
 msgid "info version help support credits"
 msgstr "信息 版本 帮助 支持 制作人员 致谢 info version help support credits"
 
-#: rust/crates/setup/ui/setup.slint:547
+#: rust/crates/setup/ui/setup.slint:555
 msgctxt "search"
 msgid "about author credits made by version number build"
 msgstr "关于 作者 致谢 制作人员 版本号 构建版本 about author credits made by version number build"
 
-#: rust/crates/setup/ui/setup.slint:562
+#: rust/crates/setup/ui/setup.slint:570
 msgid "Log"
 msgstr "日志"
 
-#: rust/crates/setup/ui/setup.slint:565
+#: rust/crates/setup/ui/setup.slint:573
 msgctxt "search"
 msgid "log file open show temp folder"
 msgstr "日志 文件 打开 显示 临时 文件夹 目录 log file open show temp folder"
 
-#: rust/crates/setup/ui/setup.slint:566 rust/crates/system/ui/shortcuts.slint:218
+#: rust/crates/setup/ui/setup.slint:574 rust/crates/system/ui/shortcuts.slint:218
 msgid "Open"
 msgstr "打开"
 
-#: rust/crates/setup/ui/setup.slint:566
+#: rust/crates/setup/ui/setup.slint:574
 msgid "Open log"
 msgstr "打开日志"
 
-#: rust/crates/setup/ui/setup.slint:566
+#: rust/crates/setup/ui/setup.slint:574
 msgid "Open the full log. It's kept in the temp folder, which the system clears."
 msgstr "打开完整日志。日志保存在临时文件夹中，系统会自动清理。"
 
-#: rust/crates/setup/ui/setup.slint:570
+#: rust/crates/setup/ui/setup.slint:578
 msgid "Diagnostics"
 msgstr "诊断信息"
 
-#: rust/crates/setup/ui/setup.slint:573
+#: rust/crates/setup/ui/setup.slint:581
 msgctxt "search"
 msgid "copy diagnostics info system details"
 msgstr "复制 诊断 信息 系统 详情 故障 copy diagnostics info system details"
 
-#: rust/crates/setup/ui/setup.slint:576
+#: rust/crates/setup/ui/setup.slint:584
 msgid "Copy diagnostics"
 msgstr "复制诊断信息"
 
-#: rust/crates/setup/ui/setup.slint:577
+#: rust/crates/setup/ui/setup.slint:585
 msgid "Copy info for a bug report without pairing tokens, addresses or file paths."
 msgstr "复制用于问题报告的信息，不含配对令牌、地址或文件路径。"
 
-#: rust/crates/setup/ui/setup.slint:583
+#: rust/crates/setup/ui/setup.slint:591
 msgid "Bug reports"
 msgstr "问题报告"
 
-#: rust/crates/setup/ui/setup.slint:586
+#: rust/crates/setup/ui/setup.slint:594
 msgctxt "search"
 msgid "bug report diagnostics logs debug support problem issue help copy log file"
 msgstr "问题报告 诊断信息 日志 调试 支持 问题 故障 帮助 复制日志文件 bug report diagnostics logs debug support problem issue help copy log file"
 
-#: rust/crates/setup/ui/setup.slint:587 rust/crates/setup/ui/setup.slint:587
+#: rust/crates/setup/ui/setup.slint:595 rust/crates/setup/ui/setup.slint:595
 msgid "Report a bug"
 msgstr "反馈问题"
 
-#: rust/crates/setup/ui/setup.slint:587
+#: rust/crates/setup/ui/setup.slint:595
 msgid "Copy the diagnostics and open the bug form on GitHub."
 msgstr "复制诊断信息并在 GitHub 上打开反馈表单。"
 
-#: rust/crates/setup/ui/setup.slint:591
+#: rust/crates/setup/ui/setup.slint:599
 msgid "Need help?"
 msgstr "需要帮助？"
 
-#: rust/crates/setup/ui/setup.slint:594
+#: rust/crates/setup/ui/setup.slint:602
 msgctxt "search"
 msgid "help support troubleshooting question faq problem not working stuck ask"
 msgstr "帮助 支持 故障排除 常见问题 疑问 故障 无法使用 卡住 提问 help support troubleshooting question faq problem not working stuck ask"
 
-#: rust/crates/setup/ui/setup.slint:595
+#: rust/crates/setup/ui/setup.slint:603
 msgid "Troubleshooting"
 msgstr "故障排除"
 
