@@ -2586,15 +2586,19 @@ mod tests {
         }
     }
 
-    /// Passes frames through, and hides on request: once steps were handed over, hide_again gives a dark frame of the size it was given.
+    /// Passes frames through, and hides on request: once steps were handed over, hide_again and every frame after give a dark frame of the size they were given.
     struct HidesWhenAsked(Arc<AtomicBool>);
 
     impl FramePipeline for HidesWhenAsked {
-        fn set_steps(&mut self, _steps: Vec<StagedStep>) {
-            self.0.store(true, Ordering::SeqCst);
+        fn set_steps(&mut self, steps: Vec<StagedStep>) {
+            // The empty set a worker starts with hides nothing
+            if !steps.is_empty() {
+                self.0.store(true, Ordering::SeqCst);
+            }
         }
         fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
-            frame
+            // Like the real pipeline, new frames are hidden too once the steps are in
+            if self.0.load(Ordering::SeqCst) { grey(frame.width, frame.height, 7) } else { frame }
         }
         fn hide_again(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Option<Frame> {
             Some(grey(frame.width, frame.height, 7))

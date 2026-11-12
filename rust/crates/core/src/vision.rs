@@ -148,6 +148,10 @@ pub trait VisionService: Send + Sync {
     }
     /// person_mask_at for a frame whose picture was made under view_epoch() == epoch: None once the view has turned since, as a mask of the old way round isn't the new picture's. The default doesn't know of turns.
     fn person_mask_in(&self, source_id: &str, frame: &Frame, w: usize, h: usize, _epoch: u64) -> Option<Arc<Vec<u8>>> {
+        // At the frame's own size it's person_mask as it was, not shrunk through person_mask_at
+        if (w, h) == (frame.width as usize, frame.height as usize) {
+            return self.person_mask(source_id, frame);
+        }
         self.person_mask_at(source_id, frame, w, h)
     }
     /// While any owner wants people, fed frames are looked at and people_seen and people_tracked follow.
