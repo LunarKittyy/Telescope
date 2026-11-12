@@ -264,6 +264,13 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Compare shows the ungraded picture left of the line on the preview while a call sees the whole picture graded. The header switch takes the grade off and puts it back.
 - [ ] Export grade… writes a `.cube` that gives the same look in another program (OBS's LUT filter or Resolve). Two phones keep their own grades and a preset brings its grade back.
 
+### Filters
+
+<!-- due: rust/crates/effects/src/filters.rs rust/crates/effects/src/filters_cpu.rs rust/crates/effects/src/filter_*.wgsl -->
+
+- [ ] Linux and Windows, streaming 1080p60 from a real phone in a dim room: Denoise and Over time clean up the noise without a ghost behind a hand waved in front, Sharpen and Clarity make the picture crisper with no white outline, and Vignette, Glow and Film grain show in a call after the grade. The frame rate in the footer stays at 60 and a game in front (the card busy) keeps the filters working.
+- [ ] Skin smoothing with the vision download softens a face and leaves the eyes, brows and hair sharp. Without the download the card says why it can't. A preset brings the filters back, and two phones keep their own.
+
 ### Notes next to the lens
 
 <!-- due: android/app/src/main/kotlin/com/telescope/Notes.kt android/app/src/main/kotlin/com/telescope/NotesActivity.kt android/app/src/main/kotlin/com/telescope/NotesPlacement.kt rust/crates/effects/src/notes.rs -->

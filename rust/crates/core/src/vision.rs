@@ -9,7 +9,7 @@ use crate::i18n::Fields;
 use crate::bus::BusSender;
 use crate::frame::Frame;
 use crate::i18n::tr;
-use crate::view::{shown_to_view, view_to_shown, Geometry};
+use crate::view::{raw_to_view, shown_to_view, view_to_shown, Geometry};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
@@ -33,7 +33,7 @@ pub struct Turn {
 
 impl Turn {
     fn geometry(&self, zoom: f64, pan_x: f64, pan_y: f64) -> Geometry {
-        Geometry { zoom, pan_x, pan_y, flip_h: self.flip_h, flip_v: self.flip_v, rotation: self.rotation, stretch_x: 1.0, stretch_y: 1.0 }
+        Geometry { zoom, pan_x, pan_y, flip_h: self.flip_h, flip_v: self.flip_v, rotation: self.rotation, stretch_x: 1.0, stretch_y: 1.0, distortion: 0.0 }
     }
 }
 
@@ -53,18 +53,31 @@ pub struct Upright {
     pub turn: Turn,
     /// (zoom, pan_x, pan_y) the phone already did (view.phone_window); (1, 0, 0) for none.
     pub sent: (f64, f64, f64),
+    /// Lens correction's slider: the frame the model sees is as the lens drew it, so a point has to go through the lens's own
+    /// mapping to land in the corrected picture.
+    #[serde(default)]
+    pub distortion: f64,
+    /// The raw frame's width over height (before any turn), 0 until a frame says (then there is no lens correction to undo).
+    #[serde(default)]
+    pub aspect: f64,
 }
 
 impl Default for Upright {
     fn default() -> Self {
-        Upright { turn: Turn::default(), sent: (1.0, 0.0, 0.0) }
+        Upright { turn: Turn::default(), sent: (1.0, 0.0, 0.0), distortion: 0.0, aspect: 0.0 }
     }
 }
 
 impl Upright {
+    /// This, for a raw frame of w x h pixels.
+    pub fn for_frame(self, w: u32, h: u32) -> Upright {
+        Upright { aspect: if h > 0 { w as f64 / h as f64 } else { 0.0 }, ..self }
+    }
+
     /// A point of the turned frame to the picture as shown at zoom 1.
     pub fn to_shown(&self, u: f64, v: f64) -> (f64, f64) {
-        let (x, y) = shown_to_view(u, v, &self.turn.geometry(self.sent.0, self.sent.1, self.sent.2));
+        let sent = Geometry { distortion: self.distortion, ..self.turn.geometry(self.sent.0, self.sent.1, self.sent.2) };
+        let (x, y) = raw_to_view(u, v, self.aspect, &sent);
         view_to_shown(x, y, &self.turn.geometry(1.0, 0.0, 0.0))
     }
 }
@@ -234,7 +247,7 @@ mod tests {
         let flip = turned(Turn::default(), Turn { flip_h: true, ..Turn::default() });
         let (x, y) = flip(0.3, 0.4);
         assert!((x - 0.7).abs() < 1e-12 && (y - 0.4).abs() < 1e-12);
-        let up = Upright { turn: Turn { rotation: Some(90), ..Turn::default() }, sent: (1.0, 0.0, 0.0) };
+        let up = Upright { turn: Turn { rotation: Some(90), ..Turn::default() }, sent: (1.0, 0.0, 0.0), ..Upright::default() };
         assert_eq!(up.to_shown(0.25, 0.5), (0.25, 0.5));
     }
 

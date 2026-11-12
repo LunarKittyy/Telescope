@@ -975,7 +975,7 @@ impl State {
         let old = {
             let mut upright = self.upright.lock().unwrap();
             let old = upright.turn;
-            *upright = telescope_core::vision::Upright { turn, sent };
+            *upright = telescope_core::vision::Upright { turn, sent, distortion: f64::from(self.view.distortion), aspect: 0.0 };
             old
         };
         if let Some(vision) = self.vision.as_ref().filter(|_| old != turn) {
@@ -1049,10 +1049,14 @@ impl State {
                             other
                         }
                     };
-                    plugin_steps.push(telescope_core::media::StagedStep { owner, stage, step });
+                    plugin_steps.push(telescope_core::media::StagedStep { owner: owner.clone(), stage, step });
                 }
                 Ok(None) => {}
                 Err(_) => log::error!("Plugin {owner} couldn't give its frame step; leaving it out"),
+            }
+            match catch_unwind(AssertUnwindSafe(|| p.staged_frame_steps())) {
+                Ok(more) => plugin_steps.extend(more.into_iter().map(|(stage, step)| telescope_core::media::StagedStep { owner: owner.clone(), stage, step })),
+                Err(_) => log::error!("Plugin {owner} couldn't give its staged frame steps; leaving them out"),
             }
         }
         if unwatched || background {
@@ -2574,6 +2578,33 @@ mod tests {
     }
 
     #[test]
+    fn a_plugin_can_put_steps_at_two_stages_and_one_in_the_colour_stage_follows_the_grade() {
+        use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep};
+        struct Nothing;
+        impl CpuStep for Nothing {
+            fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+        }
+        struct TwoPlaces;
+        impl Plugin for TwoPlaces {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "filters".into(), frame_stage: FrameStage::Effects, ..Default::default() }
+            }
+            fn staged_frame_steps(&mut self) -> Vec<(FrameStage, FrameStep)> {
+                vec![(FrameStage::Colour, FrameStep::Cpu(Box::new(Nothing))), (FrameStage::Effects, FrameStep::Cpu(Box::new(Nothing)))]
+            }
+        }
+        let mut s = state();
+        s.register(Box::new(TwoPlaces)).unwrap();
+        let warm = telescope_core::host::ColourStage::new(2, Arc::new(telescope_core::colour::lattice(2).iter().map(|v| v * 0.5).collect()), None);
+        s.colour.set_stage("grade", Some(warm), 0, None);
+        let steps = s.pipeline_steps(None);
+        // as the pipeline sorts them by stage (a stable sort), the grade's own step comes ahead of the plugin's in the colour stage
+        let mut sorted: Vec<(&str, FrameStage)> = steps.iter().map(|st| (st.owner.as_str(), st.stage)).collect();
+        sorted.sort_by_key(|(_, stage)| *stage);
+        assert_eq!(sorted, [("filters", FrameStage::Effects), ("colour", FrameStage::Colour), ("filters", FrameStage::Colour)]);
+    }
+
+    #[test]
     fn comparing_keeps_the_picture_from_before_the_colour_step_for_the_preview() {
         use telescope_core::frame::{FrameStage, FrameStep};
         let mut s = state();
@@ -2767,6 +2798,32 @@ mod tests {
         s.bus.emit(Event::FocusPointPicked { x: 0.25, y: 0.6 });
         s.deliver_events();
         assert_eq!(focus_points(&heard), [(0.375, 0.7)]);
+    }
+
+    #[test]
+    fn a_picked_point_lands_where_the_lens_correction_read_it_in_the_phone_frame() {
+        let mut s = state();
+        let heard = camera_hears(&mut s);
+        s.view.distortion = 1.0;
+        s.bus.emit(Event::FocusPointPicked { x: 0.95, y: 0.95 });
+        s.bus.emit(Event::FocusPointPicked { x: 0.5, y: 0.5 });
+        s.deliver_events();
+        // About 229 pixels of a 1920 wide frame in from where the preview shows it
+        assert_eq!(focus_points(&heard), [(0.846, 0.846), (0.5, 0.5)]);
+    }
+
+    #[test]
+    fn vision_hears_the_lens_correction_so_people_land_in_the_corrected_picture() {
+        let mut s = state();
+        s.view.distortion = 0.8;
+        s.follow_view_for_vision();
+        let up = s.upright.lock().unwrap().for_frame(1920, 1080);
+        assert_eq!(up.distortion, 0.8_f32 as f64);
+        let (x, y) = up.to_shown(0.95, 0.95);
+        assert!(x > 0.95 && y > 0.95, "a corner the barrel pulled in goes back out: ({x}, {y})");
+        s.view.distortion = 0.0;
+        s.follow_view_for_vision();
+        assert_eq!(s.upright.lock().unwrap().for_frame(1920, 1080).to_shown(0.95, 0.95), (0.95, 0.95));
     }
 
     #[test]

@@ -9,6 +9,10 @@
 //! vision service is that a person is at uv, 0..1, or 0 everywhere while it can't say (has_person_mask() tells the two apart). Only then is a
 //! mask worked out and bound, and it's uploaded only when it changes. Saying nothing about it costs a shader nothing. A mask user that isn't
 //! first on the card sends the picture down once for the vision model; see uses_person_mask.
+//!
+//! A shader that calls previous(uv) or has_previous() gets what this same step drew for the stream's last frame, which is how a step averages
+//! over time. has_previous() is false for the first frame, after the picture's size changed and when the last frame is too old to still be
+//! the same scene (HISTORY_MAX_AGE_NS), and previous() is 0 then. The card only keeps a copy for a shader that asks; see uses_history.
 
 use crate::frame::ShaderStep;
 use serde_json::Value;
@@ -27,6 +31,10 @@ pub const BINDING_SAMPLER: u32 = 1;
 pub const BINDING_FRAME: u32 = 2;
 /// The person mask: one channel, 1x1 and 0 when a step doesn't ask for it or there's none.
 pub const BINDING_MASK: u32 = 3;
+/// What the step drew for the last frame: the picture's size and RGBA, or 1x1 for a step that doesn't ask for it.
+pub const BINDING_HISTORY: u32 = 4;
+/// A last frame older than this (by the frames' own times) isn't used: the stream paused, or the step ran somewhere else for a while.
+pub const HISTORY_MAX_AGE_NS: u64 = 250_000_000;
 /// Group 1, the step's own: Params, then ShaderStep::textures in order.
 pub const GROUP_STEP: u32 = 1;
 pub const BINDING_PARAMS: u32 = 0;
@@ -39,12 +47,14 @@ struct FrameInfo {
     time: f32,
     number: u32,
     has_mask: u32,
+    has_history: u32,
 }
 
 @group(0) @binding(0) var telescope_input: texture_2d<f32>;
 @group(0) @binding(1) var telescope_sampler: sampler;
 @group(0) @binding(2) var<uniform> frame: FrameInfo;
 @group(0) @binding(3) var telescope_mask: texture_2d<f32>;
+@group(0) @binding(4) var telescope_history: texture_2d<f32>;
 
 fn sample(uv: vec2<f32>) -> vec4<f32> {
     return textureSampleLevel(telescope_input, telescope_sampler, uv, 0.0);
@@ -60,6 +70,14 @@ fn person_mask(uv: vec2<f32>) -> f32 {
 
 fn has_person_mask() -> bool {
     return frame.has_mask != 0u;
+}
+
+fn previous(uv: vec2<f32>) -> vec4<f32> {
+    return textureSampleLevel(telescope_history, telescope_sampler, uv, 0.0);
+}
+
+fn has_previous() -> bool {
+    return frame.has_history != 0u;
 }
 ";
 
@@ -240,14 +258,21 @@ pub fn uses_person_mask(wgsl: &str) -> bool {
     find_word(&code, "person_mask", '(').is_some() || find_word(&code, "has_person_mask", '(').is_some()
 }
 
-/// FrameInfo's buffer: the frame's size in pixels, the stream's time in seconds, the frame's number and whether a mask is bound.
-pub fn frame_uniform(width: u32, height: u32, time_s: f32, number: u64, has_mask: bool) -> [u8; 24] {
+/// Whether a shader reads what it drew for the last frame, so the executor only keeps a copy for those that do.
+pub fn uses_history(wgsl: &str) -> bool {
+    let code = strip_comments(wgsl);
+    find_word(&code, "previous", '(').is_some() || find_word(&code, "has_previous", '(').is_some()
+}
+
+/// FrameInfo's buffer: the frame's size in pixels, the stream's time in seconds, the frame's number and whether a mask and a last frame are bound.
+pub fn frame_uniform(width: u32, height: u32, time_s: f32, number: u64, has_mask: bool, has_history: bool) -> [u8; 24] {
     let mut buf = [0u8; 24];
     buf[0..4].copy_from_slice(&(width as f32).to_le_bytes());
     buf[4..8].copy_from_slice(&(height as f32).to_le_bytes());
     buf[8..12].copy_from_slice(&time_s.to_le_bytes());
     buf[12..16].copy_from_slice(&(number as u32).to_le_bytes());
     buf[16..20].copy_from_slice(&(has_mask as u32).to_le_bytes());
+    buf[20..24].copy_from_slice(&(has_history as u32).to_le_bytes());
     buf
 }
 
@@ -316,8 +341,20 @@ mod tests {
         assert!(!uses_person_mask(&format!("// person_mask(uv)\n{plain}")));
         assert!(uses_person_mask("fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(person_mask(uv)); }"));
         assert!(uses_person_mask("fn effect(uv: vec2<f32>) -> vec4<f32> { if has_person_mask() { return sample(uv); } return vec4<f32>(0.0); }"));
-        let buf = frame_uniform(2, 2, 0.0, 1, true);
+        let buf = frame_uniform(2, 2, 0.0, 1, true, false);
         assert_eq!(u32::from_le_bytes(buf[16..20].try_into().unwrap()), 1);
+    }
+
+    #[test]
+    fn only_a_shader_that_asks_for_the_last_frame_gets_one_kept() {
+        let plain = "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }";
+        assert!(!uses_history(plain));
+        assert!(!uses_history(&format!("// previous(uv)\n{plain}")));
+        assert!(!uses_history("fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv) * previous_gain; }"));
+        assert!(uses_history("fn effect(uv: vec2<f32>) -> vec4<f32> { return mix(sample(uv), previous(uv), 0.5); }"));
+        assert!(uses_history("fn effect(uv: vec2<f32>) -> vec4<f32> { if has_previous() { return previous(uv); } return sample(uv); }"));
+        let buf = frame_uniform(2, 2, 0.0, 1, false, true);
+        assert_eq!((u32::from_le_bytes(buf[16..20].try_into().unwrap()), u32::from_le_bytes(buf[20..24].try_into().unwrap())), (0, 1));
     }
 
     #[test]

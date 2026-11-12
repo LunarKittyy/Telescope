@@ -38,7 +38,7 @@ Crates only meet through traits in `core`. The shell never names `link` or `medi
 
 **Don't count on registration order.** While one plugin is in `setup()` the ones after it don't exist yet. Emit anything others follow again from `on_plugins_ready()`.
 
-**A frame's path is written down.** Each plugin that changes frames names its `FrameStage` (view, geometry, reading, background, effects, colour, privacy, overlay, combine, cover, final) and frames go through the stages in that order. Pick the stage by what has to come before and after, never by where a plugin sits in `shell::plugins::ORDER`, which only orders plugins within a stage.
+**A frame's path is written down.** Each plugin that changes frames names its `FrameStage` (view, geometry, reading, background, effects, colour, privacy, overlay, combine, cover, final) and frames go through the stages in that order. Pick the stage by what has to come before and after, never by where a plugin sits in `shell::plugins::ORDER`, which only orders plugins within a stage. A plugin whose work belongs at two places in the path (Filters cleans up before the grade and finishes after it) names the second place through `Plugin::staged_frame_steps`, which hands out steps with a stage each. Frame steps run in the Colour stage after the colour pipeline's own, which is how a step can follow the grade.
 
 **Cards fold without plugins knowing.** The window folds cards from what the kit's widgets built. A plugin builds its card completely and never lists titles or calls fold code.
 

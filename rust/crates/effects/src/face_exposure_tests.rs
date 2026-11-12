@@ -415,7 +415,7 @@ fn whole_runs_send_what_python_sends() {
                     r.host.view = View {
                         zoom: num(&v["zoom"]) as f32, pan_x: num(&v["pan_x"]) as f32, pan_y: num(&v["pan_y"]) as f32,
                         flip_h: v["flip_h"].as_bool().unwrap(), flip_v: v["flip_v"].as_bool().unwrap(), rotation: v["rotation"].as_i64().map(|d| d as i32),
-                        stretch_x: num(&op["stretch_x"]) as f32, stretch_y: num(&op["stretch_y"]) as f32,
+                        stretch_x: num(&op["stretch_x"]) as f32, stretch_y: num(&op["stretch_y"]) as f32, ..View::default()
                     };
                 }
                 other => panic!("{other}"),

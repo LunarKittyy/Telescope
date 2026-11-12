@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">寄付・詳細はこちら</a>"
 msgid "No mic"
 msgstr "マイクなし"
 
-#: rust/crates/audio/src/plugin.rs:111 rust/crates/core/src/vision.rs:103 rust/crates/core/src/vision.rs:132 rust/crates/shell/src/plugins_tab.rs:432 rust/crates/system/src/updates_plugin.rs:456
+#: rust/crates/audio/src/plugin.rs:111 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:432 rust/crates/system/src/updates_plugin.rs:456
 msgid "Downloading…"
 msgstr "ダウンロード中…"
 
@@ -520,38 +520,38 @@ msgstr "ストリーミングとデバイス"
 msgid "Extras"
 msgstr "その他"
 
-#: rust/crates/core/src/vision.rs:101 rust/crates/core/src/vision.rs:130 rust/crates/shell/src/plugins_tab.rs:432
+#: rust/crates/core/src/vision.rs:114 rust/crates/core/src/vision.rs:143 rust/crates/shell/src/plugins_tab.rs:432
 #, python-brace-format
 msgid "Downloading… {percent}%"
 msgstr "ダウンロード中… {percent}%"
 
-#: rust/crates/core/src/vision.rs:107
+#: rust/crates/core/src/vision.rs:120
 #, python-brace-format
 msgid "Cleaner edges with a one-time download (about {mb} MB)."
 msgstr "1回限りのダウンロード（約{mb} MB）で輪郭をよりきれいに処理します。"
 
-#: rust/crates/core/src/vision.rs:109
+#: rust/crates/core/src/vision.rs:122
 #, python-brace-format
 msgid "Needs a one-time download (about {mb} MB)."
 msgstr "1回限りのダウンロード（約{mb} MB）が必要です。"
 
-#: rust/crates/core/src/vision.rs:113
+#: rust/crates/core/src/vision.rs:126
 msgid "MediaPipe didn't load on this computer. Copy diagnostics has the details."
 msgstr "このコンピューターでMediaPipeを読み込めませんでした。詳細は「診断情報をコピー」で確認できます。"
 
-#: rust/crates/core/src/vision.rs:115
+#: rust/crates/core/src/vision.rs:128
 msgid "Getting ready…"
 msgstr "準備中…"
 
-#: rust/crates/core/src/vision.rs:137
+#: rust/crates/core/src/vision.rs:150
 msgid "The high quality cutout didn't load on this computer, so the normal one is used."
 msgstr ""
 
-#: rust/crates/core/src/vision.rs:140
+#: rust/crates/core/src/vision.rs:153
 msgid "There's no high quality cutout for this computer yet, so the normal one is used."
 msgstr ""
 
-#: rust/crates/core/src/vision.rs:145
+#: rust/crates/core/src/vision.rs:158
 #, python-brace-format
 msgid "Needs a one-time download (about {mb} MB). Until then the normal cutout is used."
 msgstr ""
@@ -1138,7 +1138,7 @@ msgstr "伸縮"
 msgid "Crop"
 msgstr "切り抜き"
 
-#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:232 rust/crates/effects/ui/transforms.slint:242 rust/crates/effects/ui/transforms.slint:244 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:236 rust/crates/effects/ui/transforms.slint:246 rust/crates/effects/ui/transforms.slint:248 rust/crates/outputs/src/webcam.rs:56
 msgid "Pan"
 msgstr "パン"
 
@@ -1380,7 +1380,7 @@ msgstr "デスク モード"
 msgid "Done"
 msgstr "完了"
 
-#: rust/crates/effects/src/desk.rs:215 rust/crates/effects/ui/transforms.slint:109 rust/crates/outputs/ui/webcam.slint:64
+#: rust/crates/effects/src/desk.rs:215 rust/crates/effects/ui/transforms.slint:113 rust/crates/outputs/ui/webcam.slint:64
 msgid "Reset"
 msgstr "リセット"
 
@@ -1447,6 +1447,162 @@ msgstr "スマートフォンの測光ポイントを顔に合わせて移動し
 #: rust/crates/effects/src/face_exposure.rs:292
 msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
 msgstr "無効にすると「顔に合わせて露出調整」カードが表示されず、タップした位置または画面全体で測光されます。"
+
+#: rust/crates/effects/src/filters.rs:69
+msgid "Denoise"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:69
+msgid "Smooth the noise in each frame while keeping the edges."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:69 rust/crates/effects/ui/fun_pack.slint:100 rust/crates/effects/ui/fun_pack.slint:101
+msgid "Clean up"
+msgstr "クリーンアップ"
+
+#: rust/crates/effects/src/filters.rs:70
+msgid "Over time"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:70
+msgid "Average the parts that hold still with the frames before them to clean up a dim room, without ghosting on anything that moves."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:71
+msgid "Dehaze"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:71
+msgid "Lift the washed-out look of a dirty lens, a window behind you or a cheap camera."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:72
+msgid "Skin smoothing"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:72
+msgid "Soften skin inside the person mask while eyes, brows, hair and edges stay sharp."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:73
+msgid "Sharpen"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:73
+msgid "Make edges crisper without a white outline."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:73
+msgid "Detail"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:74
+msgid "Radius"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:74
+msgid "Set how wide the detail Sharpen picks up is."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:75
+msgid "Threshold"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:75
+msgid "Leave detail smaller than this alone, which keeps skin and walls smooth."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:76
+msgid "Clarity"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:76
+msgid "Add contrast to the mid-sized detail so a flat picture looks less flat, or go below 0 to soften it."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:77
+msgid "Vignette"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:77
+msgid "Darken the corners, or lighten them below 0."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:77
+msgid "Finish"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:78 rust/crates/effects/ui/name_tag.slint:167 rust/crates/effects/ui/name_tag.slint:171
+msgid "Size"
+msgstr "サイズ"
+
+#: rust/crates/effects/src/filters.rs:78
+msgid "Set how much of the picture stays clear of the vignette."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:79
+msgid "Roundness"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:79
+msgid "Shape the vignette from the frame's own shape to a circle."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:80
+msgid "Glow"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:80
+msgid "Add a soft bloom around the bright parts, like an old lens or a diffusion filter."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:81 rust/crates/effects/ui/fun_pack.slint:173
+msgid "Spread"
+msgstr "広がり"
+
+#: rust/crates/effects/src/filters.rs:81
+msgid "Set how far the glow reaches."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:82
+msgid "Film grain"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:82
+msgid "Add grain that moves every frame and is strongest in the mid-tones, like film."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:83
+msgid "Grain size"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:83
+msgid "Set how coarse the film grain is."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:87
+msgid "Also on the phone"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:88
+msgid "The Camera card has the phone's own Sharpening and Noise reduction. Using both looks worse."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:363 rust/crates/effects/src/filters.rs:456 rust/crates/effects/src/filters.rs:518 rust/crates/effects/src/filters.rs:518 rust/crates/effects/src/filters.rs:531 rust/crates/effects/ui/filters.slint:36
+msgid "Filters"
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:364
+msgid "Turn every filter off to see the picture without them."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:457
+msgid "Sharpen, clarity, dehaze, denoise, skin smoothing, vignette, glow and film grain, like the filters of a photo editor."
+msgstr ""
+
+#: rust/crates/effects/src/filters.rs:458
+msgid "Without it there's no Filters card and the picture isn't sharpened, cleaned up or finished."
+msgstr ""
 
 #: rust/crates/effects/src/framing.rs:20 rust/crates/effects/ui/framing.slint:43
 msgid "Auto framing"
@@ -2527,129 +2683,137 @@ msgstr "無効にすると「QRコード」カードが表示されず、画像�
 msgid "Read QR codes"
 msgstr "QRコードを読み取る"
 
-#: rust/crates/effects/src/transforms.rs:35
-msgid "Set flip, rotation, zoom, pan and stretch back to default."
-msgstr "反転、回転、ズーム、パン、伸縮を初期設定に戻します。"
+#: rust/crates/effects/src/transforms.rs:37
+msgid "Set flip, rotation, zoom, pan, stretch and lens correction back to default."
+msgstr ""
 
-#: rust/crates/effects/src/transforms.rs:36
+#: rust/crates/effects/src/transforms.rs:38
 msgid "Drag to move. Double-click to centre."
 msgstr "ドラッグで移動。ダブルクリックで中央に戻します。"
 
-#: rust/crates/effects/src/transforms.rs:37
+#: rust/crates/effects/src/transforms.rs:39
 msgid "Stretch or squeeze the picture horizontally."
 msgstr "画像を水平方向に伸縮します。"
 
-#: rust/crates/effects/src/transforms.rs:37
+#: rust/crates/effects/src/transforms.rs:39
 msgid "Stretch or squeeze the picture vertically."
 msgstr "画像を垂直方向に伸縮します。"
 
-#: rust/crates/effects/src/transforms.rs:61
+#: rust/crates/effects/src/transforms.rs:40
+msgid "Straighten the curved lines of a wide lens (right) or a long lens (left), with the edges cropped or pulled in to stay filled."
+msgstr ""
+
+#: rust/crates/effects/src/transforms.rs:64
 #, python-brace-format
 msgid "Switched to {lens}"
 msgstr "{lens}に切り替えました"
 
-#: rust/crates/effects/src/transforms.rs:66
+#: rust/crates/effects/src/transforms.rs:69
 msgid "the telephoto"
 msgstr "望遠カメラ"
 
-#: rust/crates/effects/src/transforms.rs:68
+#: rust/crates/effects/src/transforms.rs:71
 msgid "the main camera"
 msgstr "メイン カメラ"
 
-#: rust/crates/effects/src/transforms.rs:69
+#: rust/crates/effects/src/transforms.rs:72
 #, python-brace-format
 msgid "Panned past what {tele} can see, so it's on {live}. Pan back to switch again."
 msgstr "{tele}の視野を超えてパンしたため、{live}に切り替わりました。再度切り替えるにはパンで戻してください。"
 
-#: rust/crates/effects/src/transforms.rs:72
+#: rust/crates/effects/src/transforms.rs:75
 #, python-brace-format
 msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
 msgstr "スマートフォンが自動的に{live}を維持しました。{tele}を使用するには暗すぎるか近すぎる可能性があります。利用可能になり次第切り替わります。"
 
-#: rust/crates/effects/src/transforms.rs:78
+#: rust/crates/effects/src/transforms.rs:81
 msgid "It can wobble for a moment while it switches."
 msgstr "切り替え時に一瞬揺れることがあります。"
 
-#: rust/crates/effects/src/transforms.rs:226
+#: rust/crates/effects/src/transforms.rs:238
 #, python-brace-format
 msgid "{n}×"
 msgstr "{n}倍"
 
-#: rust/crates/effects/src/transforms.rs:237
+#: rust/crates/effects/src/transforms.rs:249
 msgid "Dots mark where the phone switches to another lens"
 msgstr "ドットはスマートフォンが別のレンズに切り替わる位置を示します"
 
-#: rust/crates/effects/src/transforms.rs:240
+#: rust/crates/effects/src/transforms.rs:252
 #, python-brace-format
 msgid "{owner} is moving the zoom and pan"
 msgstr "{owner}がズームとパンを操作しています"
 
-#: rust/crates/effects/src/transforms.rs:327
+#: rust/crates/effects/src/transforms.rs:343
 #, python-brace-format
 msgid "Add shortcut for {action}…"
 msgstr "{action}のショートカットを追加…"
 
-#: rust/crates/effects/src/transforms.rs:520
+#: rust/crates/effects/src/transforms.rs:543
 msgid "Zoomed on this computer: this lens can't zoom itself"
 msgstr "このコンピューターでズーム中: このレンズ自体はズームできません"
 
-#: rust/crates/effects/src/transforms.rs:520
+#: rust/crates/effects/src/transforms.rs:543
 msgid "Zoomed on this computer"
 msgstr "このコンピューターでズーム中"
 
-#: rust/crates/effects/src/transforms.rs:522
+#: rust/crates/effects/src/transforms.rs:545
 msgid "Zoomed on the phone's sensor as far as this lens allows, the rest on this computer"
 msgstr "このレンズの上限までスマートフォンのセンサーでズームし、残りをこのコンピューターでズーム中"
 
-#: rust/crates/effects/src/transforms.rs:524
+#: rust/crates/effects/src/transforms.rs:547
 msgid "Zoomed on the phone's sensor"
 msgstr "スマートフォンのセンサーでズーム中"
 
-#: rust/crates/effects/src/transforms.rs:551 rust/crates/effects/src/transforms.rs:640 rust/crates/effects/ui/transforms.slint:101
+#: rust/crates/effects/src/transforms.rs:574 rust/crates/effects/src/transforms.rs:667 rust/crates/effects/ui/transforms.slint:105
 msgid "Transforms"
 msgstr "変形"
 
-#: rust/crates/effects/src/transforms.rs:552 rust/crates/effects/ui/transforms.slint:102
+#: rust/crates/effects/src/transforms.rs:575 rust/crates/effects/ui/transforms.slint:106
 msgid "Zoom, pan, flip, rotate and stretch the picture."
 msgstr "画像のズーム、パン、反転、回転、引き伸ばしができます。"
 
-#: rust/crates/effects/src/transforms.rs:553
+#: rust/crates/effects/src/transforms.rs:576
 msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "無効にすると「変形」カードが表示されず、スマートフォンから送られてきた画像がそのまま出力されます。"
 
-#: rust/crates/effects/src/transforms.rs:643 rust/crates/effects/src/transforms.rs:696 rust/crates/effects/ui/composite_editor.slint:445 rust/crates/effects/ui/transforms.slint:169 rust/crates/effects/ui/transforms.slint:184 rust/crates/effects/ui/transforms.slint:185 rust/crates/effects/ui/transforms.slint:226 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/transforms.rs:670 rust/crates/effects/src/transforms.rs:725 rust/crates/effects/ui/composite_editor.slint:445 rust/crates/effects/ui/transforms.slint:173 rust/crates/effects/ui/transforms.slint:188 rust/crates/effects/ui/transforms.slint:189 rust/crates/effects/ui/transforms.slint:230 rust/crates/outputs/src/webcam.rs:56
 msgid "Zoom"
 msgstr "ズーム"
 
-#: rust/crates/effects/src/transforms.rs:644 rust/crates/effects/src/transforms.rs:706
+#: rust/crates/effects/src/transforms.rs:671 rust/crates/effects/src/transforms.rs:735
 msgid "Pan left/right"
 msgstr "パン（左右）"
 
-#: rust/crates/effects/src/transforms.rs:645 rust/crates/effects/src/transforms.rs:706
+#: rust/crates/effects/src/transforms.rs:672 rust/crates/effects/src/transforms.rs:735
 msgid "Pan up/down"
 msgstr "パン（上下）"
 
-#: rust/crates/effects/src/transforms.rs:646 rust/crates/effects/src/transforms.rs:714 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/desk.slint:165 rust/crates/effects/ui/desk.slint:172 rust/crates/effects/ui/desk.slint:173 rust/crates/effects/ui/transforms.slint:258 rust/crates/effects/ui/transforms.slint:259
+#: rust/crates/effects/src/transforms.rs:673 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/desk.slint:165 rust/crates/effects/ui/desk.slint:172 rust/crates/effects/ui/desk.slint:173 rust/crates/effects/ui/transforms.slint:262 rust/crates/effects/ui/transforms.slint:263
 msgid "Width"
 msgstr "幅"
 
-#: rust/crates/effects/src/transforms.rs:647 rust/crates/effects/src/transforms.rs:714 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/transforms.slint:275 rust/crates/effects/ui/transforms.slint:276
+#: rust/crates/effects/src/transforms.rs:674 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/transforms.slint:279 rust/crates/effects/ui/transforms.slint:280
 msgid "Height"
 msgstr "高さ"
 
-#: rust/crates/effects/src/transforms.rs:654 rust/crates/effects/src/transforms.rs:674
+#: rust/crates/effects/src/transforms.rs:675 rust/crates/effects/src/transforms.rs:750 rust/crates/effects/ui/transforms.slint:296 rust/crates/effects/ui/transforms.slint:297
+msgid "Lens correction"
+msgstr ""
+
+#: rust/crates/effects/src/transforms.rs:682 rust/crates/effects/src/transforms.rs:703
 msgid "Flip horizontal"
 msgstr "左右反転"
 
-#: rust/crates/effects/src/transforms.rs:655 rust/crates/effects/src/transforms.rs:674
+#: rust/crates/effects/src/transforms.rs:683 rust/crates/effects/src/transforms.rs:703
 msgid "Flip vertical"
 msgstr "上下反転"
 
-#: rust/crates/effects/src/transforms.rs:656 rust/crates/effects/src/transforms.rs:688 rust/crates/effects/ui/transforms.slint:149 rust/crates/effects/ui/transforms.slint:159 rust/crates/effects/ui/transforms.slint:160 rust/crates/effects/ui/transforms.slint:160 rust/crates/effects/ui/transforms.slint:160 rust/crates/effects/ui/transforms.slint:160
+#: rust/crates/effects/src/transforms.rs:684 rust/crates/effects/src/transforms.rs:717 rust/crates/effects/ui/transforms.slint:153 rust/crates/effects/ui/transforms.slint:163 rust/crates/effects/ui/transforms.slint:164 rust/crates/effects/ui/transforms.slint:164 rust/crates/effects/ui/transforms.slint:164 rust/crates/effects/ui/transforms.slint:164
 msgid "Rotation"
 msgstr "回転"
 
-#: rust/crates/effects/src/transforms.rs:663 rust/crates/effects/src/transforms.rs:719
+#: rust/crates/effects/src/transforms.rs:692 rust/crates/effects/src/transforms.rs:754
 msgid "Reset transforms"
 msgstr "変形をリセット"
 
@@ -3085,6 +3249,10 @@ msgstr "スマートフォンの露出を顔に合わせて測光します。"
 msgid "Follow my face"
 msgstr "顔を追従"
 
+#: rust/crates/effects/ui/filters.slint:37
+msgid "Sharpen, clean up and finish the picture like a photo editor."
+msgstr ""
+
 #: rust/crates/effects/ui/framing.slint:44
 msgid "Zoom and pan automatically to keep you in the picture."
 msgstr "画像内に収まり続けるよう、自動でズームとパンを調整します。"
@@ -3109,10 +3277,6 @@ msgstr "分身、透明マント、ライト ペインティング、レトロ�
 msgid "Effect"
 msgstr "エフェクト"
 
-#: rust/crates/effects/ui/fun_pack.slint:100 rust/crates/effects/ui/fun_pack.slint:101
-msgid "Clean up"
-msgstr "クリーンアップ"
-
 #: rust/crates/effects/ui/fun_pack.slint:107 rust/crates/effects/ui/fun_pack.slint:108 rust/crates/system/ui/shortcuts.slint:124 rust/crates/ui-kit/ui/widgets/field.slint:129
 msgid "Clear"
 msgstr "クリア"
@@ -3124,10 +3288,6 @@ msgstr "光跡"
 #: rust/crates/effects/ui/fun_pack.slint:156 rust/crates/outputs/src/webcam.rs:47 rust/crates/shell/ui/cards/camera.slint:231 rust/crates/shell/ui/cards/camera.slint:238 rust/crates/shell/ui/cards/camera.slint:249
 msgid "Brightness"
 msgstr "明るさ"
-
-#: rust/crates/effects/ui/fun_pack.slint:173
-msgid "Spread"
-msgstr "広がり"
 
 #: rust/crates/effects/ui/fun_pack.slint:190
 msgid "Smear"
@@ -3180,10 +3340,6 @@ msgstr "位置"
 #: rust/crates/effects/ui/name_tag.slint:137
 msgid "Style"
 msgstr "スタイル"
-
-#: rust/crates/effects/ui/name_tag.slint:167 rust/crates/effects/ui/name_tag.slint:171
-msgid "Size"
-msgstr "サイズ"
 
 #: rust/crates/effects/ui/notes.slint:64
 msgid "Show your script on the phone's screen so you can read it while looking into the camera."
@@ -3415,31 +3571,31 @@ msgstr "動作"
 msgid "Copy QR codes held up to the camera to the clipboard."
 msgstr "カメラにかざしたQRコードをクリップボードにコピーします。"
 
-#: rust/crates/effects/ui/transforms.slint:115
+#: rust/crates/effects/ui/transforms.slint:119
 msgid "Flip"
 msgstr "反転"
 
-#: rust/crates/effects/ui/transforms.slint:123 rust/crates/effects/ui/transforms.slint:124
+#: rust/crates/effects/ui/transforms.slint:127 rust/crates/effects/ui/transforms.slint:128
 msgid "Mirror"
 msgstr "左右反転"
 
-#: rust/crates/effects/ui/transforms.slint:125
+#: rust/crates/effects/ui/transforms.slint:129
 msgid "Flip the picture left to right."
 msgstr "画像を左右に反転します。"
 
-#: rust/crates/effects/ui/transforms.slint:135 rust/crates/effects/ui/transforms.slint:136
+#: rust/crates/effects/ui/transforms.slint:139 rust/crates/effects/ui/transforms.slint:140
 msgid "Upside down"
 msgstr "上下逆"
 
-#: rust/crates/effects/ui/transforms.slint:137
+#: rust/crates/effects/ui/transforms.slint:141
 msgid "Flip the picture top to bottom."
 msgstr "画像を上下に反転します。"
 
-#: rust/crates/effects/ui/transforms.slint:214
+#: rust/crates/effects/ui/transforms.slint:218
 msgid "Lens switch"
 msgstr "レンズ切り替え"
 
-#: rust/crates/effects/ui/transforms.slint:226 rust/crates/ui-kit/ui/widgets/pad.slint:87 rust/crates/ui-kit/ui/widgets/slider.slint:82
+#: rust/crates/effects/ui/transforms.slint:230 rust/crates/ui-kit/ui/widgets/pad.slint:87 rust/crates/ui-kit/ui/widgets/slider.slint:82
 msgid "Double-click to reset"
 msgstr "ダブルクリックでリセット"
 
@@ -7212,11 +7368,11 @@ msgstr "設定を読み込めませんでした"
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescopeが初期設定で起動したため、ペアリング済みのスマートフォンは再度ペアリングする必要があります。"
 
-#: rust/crates/shell/src/shell.rs:1160
+#: rust/crates/shell/src/shell.rs:1164
 msgid "Telescope - Save failed"
 msgstr "Telescope - 保存に失敗しました"
 
-#: rust/crates/shell/src/shell.rs:1161
+#: rust/crates/shell/src/shell.rs:1165
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "設定を保存できませんでした。ディスクの空き容量と権限を確認してください。"
 
@@ -8988,7 +9144,7 @@ msgid "Light"
 msgstr "明るさ"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:427
+#: rust/app/src/main.rs:428
 msgid ", "
 msgstr "、"
 
@@ -9099,37 +9255,37 @@ msgstr ""
 "スマートフォンのマイクはストリーミングを続けており、\n"
 "アプリがカメラを開くと映像が再開されます。"
 
-#: rust/crates/effects/src/transforms.rs:654
+#: rust/crates/effects/src/transforms.rs:682
 msgctxt "search"
 msgid "mirror"
 msgstr "左右反転 ミラー mirror"
 
-#: rust/crates/effects/src/transforms.rs:655
+#: rust/crates/effects/src/transforms.rs:683
 msgctxt "search"
 msgid "mirror upside down"
 msgstr "反転 上下逆 上下反転 mirror upside down"
 
-#: rust/crates/effects/src/transforms.rs:656
+#: rust/crates/effects/src/transforms.rs:684
 msgctxt "search"
 msgid "rotate turn"
 msgstr "回転 向き rotate turn"
 
-#: rust/crates/effects/src/transforms.rs:657
+#: rust/crates/effects/src/transforms.rs:685
 msgctxt "search"
 msgid "crop framing"
 msgstr "切り抜き クロップ フレーミング crop framing"
 
-#: rust/crates/effects/src/transforms.rs:658
+#: rust/crates/effects/src/transforms.rs:686
 msgctxt "search"
 msgid "framing move"
 msgstr "フレーミング 移動 framing move"
 
-#: rust/crates/effects/src/transforms.rs:660
+#: rust/crates/effects/src/transforms.rs:688
 msgctxt "search"
 msgid "stretch squish aspect wide"
 msgstr "引き伸ばし 伸縮 横長 ワイド アスペクト比 stretch squish aspect wide"
 
-#: rust/crates/effects/src/transforms.rs:661
+#: rust/crates/effects/src/transforms.rs:689
 msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "引き伸ばし 伸縮 縦長 アスペクト比 stretch squish aspect tall"
@@ -9249,6 +9405,9 @@ msgstr "開けませんでした"
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "再起動できませんでした"
+
+#~ msgid "Set flip, rotation, zoom, pan and stretch back to default."
+#~ msgstr "反転、回転、ズーム、パン、伸縮を初期設定に戻します。"
 
 #~ msgid "The graphics card failed and the processor is decoding until you restart Telescope"
 #~ msgstr "グラフィック カードでエラーが発生したため、Telescopeを再起動するまでプロセッサーがデコードしています"
