@@ -539,7 +539,7 @@ fn skin_smoothing_softens_skin_inside_the_mask_and_keeps_an_eye_sharp() {
     let masked = Ctx(Some(Arc::new((0..w * h).map(|i| if i % w < 48 { 255 } else { 0 }).collect())));
     let half = on_cpu(&mut cpu_step, &frame, &masked);
     assert_eq!(value(&half, 80, 10), value(&frame, 80, 10));
-    assert_ne!(value(&half, 10, 10), value(&frame, 10, 10));
+    assert!(spread(&half, (4, 4, 36, 36)) < before * 0.6, "masked half: {}", spread(&half, (4, 4, 36, 36)));
 }
 
 // ── Dehaze, clarity, vignette, glow, grain ────────────────────────
