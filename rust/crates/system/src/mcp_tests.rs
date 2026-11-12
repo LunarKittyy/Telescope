@@ -1410,6 +1410,19 @@ fn restarted(r: &Rig) -> Rig {
 }
 
 #[test]
+fn an_edit_that_lands_on_the_ais_value_before_a_restart_is_not_undone_after_it() {
+    let mut r = Rig::new();
+    set_contrast(&mut r, 0, 1.4);
+    by_hand(&mut r, 1.7);
+    by_hand(&mut r, 1.4);
+    // The host keeps talking to the plugin between the edit and the save
+    r.plugin.on_event(&mut r.host, &Event::StreamStopped);
+    let mut after = restarted(&r);
+    after.plugin.undo_all(&mut after.host);
+    assert_eq!(after.config()["contrast"], json!(1.4), "the person's last choice stays");
+}
+
+#[test]
 fn an_edit_between_two_steps_still_blocks_the_older_one_after_a_restart() {
     let mut r = Rig::new();
     let (a, b) = (r.handle.open_client().unwrap(), r.handle.open_client().unwrap());
