@@ -561,15 +561,15 @@ msgid "Looking…"
 msgstr "Đang xem…"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:27 rust/crates/effects/src/framing.rs:72 rust/crates/effects/src/fun_pack.rs:38 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:459 rust/crates/effects/ui/background.slint:52 rust/crates/effects/ui/background.slint:57 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:287 rust/crates/link/src/browser/plugin.rs:585 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:78
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:27 rust/crates/effects/src/framing.rs:72 rust/crates/effects/src/fun_pack.rs:38 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:459 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:61 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:287 rust/crates/link/src/browser/plugin.rs:585 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:78
 msgid "Off"
 msgstr "Tắt"
 
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/ui/background.slint:52 rust/crates/effects/ui/background.slint:57 rust/crates/effects/ui/background.slint:70 rust/crates/effects/ui/background.slint:71
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:61 rust/crates/effects/ui/background.slint:74 rust/crates/effects/ui/background.slint:75
 msgid "Blur"
 msgstr "Làm mờ"
 
-#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/background.slint:52 rust/crates/effects/ui/background.slint:57 rust/crates/effects/ui/background.slint:90 rust/crates/effects/ui/chroma_key.slint:130 rust/crates/effects/ui/chroma_key.slint:135 rust/crates/effects/ui/chroma_key.slint:174 rust/crates/effects/ui/composite_editor.slint:323 rust/crates/effects/ui/composite_editor.slint:547 rust/crates/effects/ui/composite_editor.slint:549 rust/crates/effects/ui/composite_editor.slint:549
+#: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:61 rust/crates/effects/ui/background.slint:94 rust/crates/effects/ui/chroma_key.slint:130 rust/crates/effects/ui/chroma_key.slint:135 rust/crates/effects/ui/chroma_key.slint:174 rust/crates/effects/ui/composite_editor.slint:323 rust/crates/effects/ui/composite_editor.slint:547 rust/crates/effects/ui/composite_editor.slint:549 rust/crates/effects/ui/composite_editor.slint:549
 msgid "Picture"
 msgstr "Ảnh"
 
@@ -577,39 +577,43 @@ msgstr "Ảnh"
 msgid "Pictures (*.png *.jpg *.jpeg *.webp *.bmp)"
 msgstr "Ảnh (*.png *.jpg *.jpeg *.webp *.bmp)"
 
-#: rust/crates/effects/src/background.rs:36
+#: rust/crates/effects/src/background.rs:37
 msgid "Cut out your hair and edges more cleanly, for about 40% of a CPU core."
 msgstr ""
 
-#: rust/crates/effects/src/background.rs:409 rust/crates/effects/src/chroma_key.rs:41 rust/crates/effects/src/fun_pack.rs:71
+#: rust/crates/effects/src/background.rs:418 rust/crates/effects/src/chroma_key.rs:41 rust/crates/effects/src/fun_pack.rs:71
 msgid "How soft the edge around you is."
 msgstr "Độ mềm của đường viền quanh bạn."
 
-#: rust/crates/effects/src/background.rs:410 rust/crates/effects/src/chroma_key.rs:285
+#: rust/crates/effects/src/background.rs:419
+msgid "Pull the cutout's border in towards you."
+msgstr ""
+
+#: rust/crates/effects/src/background.rs:420 rust/crates/effects/src/chroma_key.rs:285
 msgid "Pick the picture that goes behind you."
 msgstr "Chọn ảnh làm nền phía sau bạn."
 
-#: rust/crates/effects/src/background.rs:478 rust/crates/effects/src/chroma_key.rs:433
+#: rust/crates/effects/src/background.rs:490 rust/crates/effects/src/chroma_key.rs:433
 msgid "Choose a picture"
 msgstr "Chọn một ảnh"
 
-#: rust/crates/effects/src/background.rs:488 rust/crates/effects/src/chroma_key.rs:451 rust/crates/effects/src/chroma_key.rs:490 rust/crates/effects/src/chroma_key.rs:509
+#: rust/crates/effects/src/background.rs:500 rust/crates/effects/src/chroma_key.rs:451 rust/crates/effects/src/chroma_key.rs:490 rust/crates/effects/src/chroma_key.rs:509
 msgid "Can't open that picture"
 msgstr "Không mở được ảnh đó"
 
-#: rust/crates/effects/src/background.rs:496 rust/crates/effects/src/background.rs:598 rust/crates/effects/src/background.rs:601 rust/crates/effects/src/background.rs:619 rust/crates/effects/ui/background.slint:37 rust/crates/effects/ui/background.slint:45 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/composite_editor.slint:517
+#: rust/crates/effects/src/background.rs:508 rust/crates/effects/src/background.rs:614 rust/crates/effects/src/background.rs:617 rust/crates/effects/src/background.rs:635 rust/crates/effects/ui/background.slint:41 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/background.slint:60 rust/crates/effects/ui/composite_editor.slint:517
 msgid "Background"
 msgstr "Nền"
 
-#: rust/crates/effects/src/background.rs:497
+#: rust/crates/effects/src/background.rs:509
 msgid "Blurs the background behind you or swaps it for a picture."
 msgstr "Làm mờ nền phía sau bạn hoặc thay nền bằng một ảnh."
 
-#: rust/crates/effects/src/background.rs:498
+#: rust/crates/effects/src/background.rs:510
 msgid "Without it there's no Background card and the background stays as the camera sees it."
 msgstr "Nếu không có tiện ích này, sẽ không có thẻ Nền và phần nền sẽ giữ nguyên như camera nhìn thấy."
 
-#: rust/crates/effects/src/background.rs:600 rust/crates/effects/src/background.rs:626
+#: rust/crates/effects/src/background.rs:616 rust/crates/effects/src/background.rs:642
 msgid "Background blur"
 msgstr "Làm mờ nền"
 
@@ -2817,27 +2821,31 @@ msgstr "Xoay"
 msgid "Reset transforms"
 msgstr "Đặt lại biến đổi"
 
-#: rust/crates/effects/ui/background.slint:38
+#: rust/crates/effects/ui/background.slint:42
 msgid "Blur the background or replace it with a picture."
 msgstr "Làm mờ nền hoặc thay bằng một ảnh."
 
-#: rust/crates/effects/ui/background.slint:46
+#: rust/crates/effects/ui/background.slint:50
 msgid "Keep the background, blur it or replace it with a picture."
 msgstr "Giữ nguyên nền, làm mờ hoặc thay bằng một ảnh."
 
-#: rust/crates/effects/ui/background.slint:98 rust/crates/effects/ui/chroma_key.slint:182
+#: rust/crates/effects/ui/background.slint:102 rust/crates/effects/ui/chroma_key.slint:182
 msgid "Choose"
 msgstr "Chọn"
 
-#: rust/crates/effects/ui/background.slint:101 rust/crates/effects/ui/chroma_key.slint:185
+#: rust/crates/effects/ui/background.slint:105 rust/crates/effects/ui/chroma_key.slint:185
 msgid "Choose picture"
 msgstr "Chọn ảnh"
 
-#: rust/crates/effects/ui/background.slint:113 rust/crates/effects/ui/background.slint:114 rust/crates/effects/ui/chroma_key.slint:100 rust/crates/effects/ui/fun_pack.slint:122
+#: rust/crates/effects/ui/background.slint:117 rust/crates/effects/ui/background.slint:118 rust/crates/effects/ui/chroma_key.slint:100 rust/crates/effects/ui/fun_pack.slint:122
 msgid "Edges"
 msgstr "Đường viền"
 
-#: rust/crates/effects/ui/background.slint:130 rust/crates/effects/ui/background.slint:131
+#: rust/crates/effects/ui/background.slint:135 rust/crates/effects/ui/background.slint:136
+msgid "Cut-in"
+msgstr ""
+
+#: rust/crates/effects/ui/background.slint:152 rust/crates/effects/ui/background.slint:153
 msgid "High quality cutout"
 msgstr ""
 

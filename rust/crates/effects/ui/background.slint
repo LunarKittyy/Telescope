@@ -13,6 +13,9 @@ export component BackgroundCard inherits Card {
     in property <float> edges: 3;
     in property <string> edges-text: "3";
     in property <string> edges-tip;
+    in property <float> cut-in: 0;
+    in property <string> cut-in-text: "0";
+    in property <string> cut-in-tip;
     in property <string> picture-text;
     in property <string> picture-tip;
     in property <image> picture-thumb;
@@ -29,6 +32,7 @@ export component BackgroundCard inherits Card {
     callback blur-moved(float);
     callback blur-peek-open(bool);
     callback edges-moved(float);
+    callback cut-in-moved(float);
     callback picture-clicked;
     callback download-clicked;
     callback high-quality-toggled(bool);
@@ -121,6 +125,24 @@ export component BackgroundCard inherits Card {
             has-default: true;
             default-value: 3;
             moved(v) => { root.edges-moved(v); }
+        }
+        }
+        Unfolding {
+            open: mode != 0;
+            RailSlider {
+            icon: Icons.edges;
+            enabled: active;
+            label: @tr("Cut-in");
+            tip: @tr("Cut-in");
+            tip-detail: cut-in-tip;
+            minimum: 0;
+            maximum: 10;
+            value: cut-in;
+            readout: cut-in-text;
+            hue: root.hue;
+            has-default: true;
+            default-value: 0;
+            moved(v) => { root.cut-in-moved(v); }
         }
         }
         Unfolding {

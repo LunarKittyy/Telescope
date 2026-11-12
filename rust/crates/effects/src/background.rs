@@ -32,6 +32,7 @@ const SMALL: f64 = 4.0;
 const BLUR_SMALL: usize = 8;
 const DEFAULT_BLUR: i64 = 6;
 const DEFAULT_EDGES: i64 = 3;
+const DEFAULT_CUT_IN: i64 = 0;
 /// What the High quality cutout costs next to the normal one, measured on a 1080p stream: a bit under half a core.
 const QUALITY_TIP: &str = n_("Cut out your hair and edges more cleanly, for about 40% of a CPU core.");
 
@@ -129,16 +130,19 @@ fn blurred_peek(strength: i64) -> &'static Rgb {
 }
 
 /// The sample's person mask feathered by edges 0..10 at the bubble's size (`Gray::soften` with its work done at this size), made the first time and kept.
-fn softened_peek(edges: i64) -> &'static Gray {
-    static MASKS: [OnceLock<Gray>; 11] = [const { OnceLock::new() }; 11];
-    let i = edges.clamp(0, 10) as usize;
-    MASKS[i].get_or_init(|| {
+fn softened_peek(edges: i64, cut: i64) -> &'static Gray {
+    static MASKS: [OnceLock<Gray>; 121] = [const { OnceLock::new() }; 121];
+    let (i, c) = (edges.clamp(0, 10), cut.clamp(0, 10));
+    MASKS[(i * 11 + c) as usize].get_or_init(|| {
         let (_, mask) = peek::blur_scene();
-        if i == 0 {
+        if i == 0 && c == 0 {
             return mask.shrink(peek::WIDTH, peek::HEIGHT);
         }
-        let small = mask.area((mask.w / 4).max(1), (mask.h / 4).max(1));
-        small.blur(i as f64 * 0.6).linear_exact(peek::WIDTH, peek::HEIGHT)
+        let mut small = mask.area((mask.w / 4).max(1), (mask.h / 4).max(1)).cut_in(c);
+        if i > 0 {
+            small = small.blur(i as f64 * 0.6);
+        }
+        small.linear_exact(peek::WIDTH, peek::HEIGHT)
     })
 }
 
@@ -148,6 +152,7 @@ struct Settings {
     mode: usize,
     blur: i64,
     edges: i64,
+    cut_in: i64,
     picture: Option<Arc<Rgb>>,
     /// The slower model's mask (the normal one while it isn't there), see FrameContext::person_mask_hq
     high_quality: bool,
@@ -178,7 +183,7 @@ struct Quarter {
     size: (usize, usize),
     /// The frame's size, which everything kept here is made for (two sizes can share a quarter-size mask)
     full: (usize, usize),
-    soft: Option<(i64, Gray)>,
+    soft: Option<((i64, i64), Gray)>,
     rest: Option<Gray>,
     /// The feathered mask scaled up to the luma and chroma planes' sizes, for the edge setting in `soft`
     wide: Option<Wide>,
@@ -196,7 +201,7 @@ struct Wide {
 struct Derived {
     src: Arc<Vec<u8>>,
     size: (usize, usize),
-    soft: Option<(i64, Gray)>,
+    soft: Option<((i64, i64), Gray)>,
     rest: Option<Gray>,
 }
 
@@ -231,8 +236,9 @@ impl Step {
         };
         let src = derived.src.clone();
         let whole = || Gray { w: size.0, h: size.1, data: src.to_vec() };
-        if derived.soft.as_ref().is_none_or(|(e, _)| *e != self.settings.edges) {
-            derived.soft = Some((self.settings.edges, whole().soften(self.settings.edges)));
+        let shaping = (self.settings.edges, self.settings.cut_in);
+        if derived.soft.as_ref().is_none_or(|(e, _)| *e != shaping) {
+            derived.soft = Some((shaping, whole().soften_cut(shaping.0, shaping.1)));
         }
         match self.backdrop() {
             Backdrop::Blur => {
@@ -279,7 +285,7 @@ impl Step {
         let (qw, qh) = ((w / 4).max(1), (h / 4).max(1));
         // The high quality mask is the normal one while that model isn't downloaded, loaded or in time, so this never has less
         let mask = if self.settings.high_quality { ctx.person_mask_hq_at(frame, qw, qh) } else { ctx.person_mask_at(frame, qw, qh) }.filter(|m| m.len() == qw * qh);
-        let edges = self.settings.edges;
+        let edges = (self.settings.edges, self.settings.cut_in);
         let mut quarter = None;
         if let Some(src) = mask {
             let mut q = match self.quarter.take() {
@@ -288,7 +294,8 @@ impl Step {
             };
             if q.soft.as_ref().is_none_or(|(e, _)| *e != edges) {
                 let whole = Gray { w: qw, h: qh, data: q.src.to_vec() };
-                q.soft = Some((edges, if edges <= 0 { whole } else { whole.blur(edges as f64 * 0.6) }));
+                let cut = whole.cut_in(edges.1);
+                q.soft = Some((edges, if edges.0 <= 0 { cut } else { cut.blur(edges.0 as f64 * 0.6) }));
                 q.wide = None;
             }
             if blur && q.rest.is_none() {
@@ -349,6 +356,7 @@ pub struct BackgroundPlugin {
     mode: usize,
     blur: i64,
     edges: i64,
+    cut_in: i64,
     high_quality: bool,
     picture_path: String,
     picture: Option<Arc<Rgb>>,
@@ -386,6 +394,7 @@ impl BackgroundPlugin {
             mode: 0,
             blur: DEFAULT_BLUR,
             edges: DEFAULT_EDGES,
+            cut_in: DEFAULT_CUT_IN,
             high_quality: false,
             picture_path: String::new(),
             picture: None,
@@ -407,6 +416,7 @@ impl BackgroundPlugin {
     fn fixed_props() -> Value {
         json!({
             "edges-tip": tr("How soft the edge around you is."),
+            "cut-in-tip": tr("Pull the cutout's border in towards you."),
             "picture-choose-tip": tr("Pick the picture that goes behind you."),
             "quality-tip": tr(QUALITY_TIP),
         })
@@ -420,6 +430,8 @@ impl BackgroundPlugin {
             "blur-text": self.blur.to_string(),
             "edges": self.edges,
             "edges-text": self.edges.to_string(),
+            "cut-in": self.cut_in,
+            "cut-in-text": self.cut_in.to_string(),
             "picture-text": file_name(&self.picture_path),
             "has-picture": self.picture.is_some(),
             "picture-problem": self.picture_problem,
@@ -454,7 +466,7 @@ impl BackgroundPlugin {
     /// mask is made once, at the bubble's size, the first time it is asked for, so a drag over the slider only lays one over the other.
     fn draw_blur(&self, host: &mut dyn Host) {
         let (scene, _) = peek::blur_scene_small();
-        let out = compose(scene, softened_peek(self.edges), blurred_peek(self.blur));
+        let out = compose(scene, softened_peek(self.edges, self.cut_in), blurred_peek(self.blur));
         host.set_ui_image("card", "blur-picture", &peek::rgba(&out));
     }
 
@@ -577,6 +589,10 @@ impl Plugin for BackgroundPlugin {
                 self.edges = (n(0).round() as i64).clamp(0, 10);
                 self.changed(host);
             }
+            "cut-in-moved" => {
+                self.cut_in = (n(0).round() as i64).clamp(0, 10);
+                self.changed(host);
+            }
             "high-quality-toggled" => {
                 self.high_quality = event.args.first().and_then(Value::as_bool).unwrap_or(false);
                 self.changed(host);
@@ -633,7 +649,7 @@ impl Plugin for BackgroundPlugin {
         if self.mode == 0 {
             return None;
         }
-        let settings = Settings { mode: self.mode, blur: self.blur, edges: self.edges, picture: self.picture.clone(), high_quality: self.high_quality };
+        let settings = Settings { mode: self.mode, blur: self.blur, edges: self.edges, cut_in: self.cut_in, picture: self.picture.clone(), high_quality: self.high_quality };
         Some(FrameStep::Cpu(Box::new(Step { settings, covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None })))
     }
 
@@ -643,6 +659,10 @@ impl Plugin for BackgroundPlugin {
         cfg.insert("blur".into(), json!(self.blur));
         cfg.insert("edges".into(), json!(self.edges));
         cfg.insert("picture".into(), json!(self.picture_path));
+        // Only when set, like high_quality, so a settings file stays as it was until someone pulls the border in
+        if self.cut_in != DEFAULT_CUT_IN {
+            cfg.insert("cut_in".into(), json!(self.cut_in));
+        }
         // Only when it's on, so a settings file stays as the Python app wrote it until someone asks for the better cutout
         if self.high_quality {
             cfg.insert("high_quality".into(), json!(true));
@@ -656,6 +676,7 @@ impl Plugin for BackgroundPlugin {
         self.mode = cfg.get("mode").and_then(Value::as_str).and_then(|m| MODES.iter().position(|(k, _)| *k == m)).unwrap_or(0);
         self.blur = clamped_int(cfg.get("blur").unwrap_or(&Value::Null), DEFAULT_BLUR, 1, 10);
         self.edges = clamped_int(cfg.get("edges").unwrap_or(&Value::Null), DEFAULT_EDGES, 0, 10);
+        self.cut_in = clamped_int(cfg.get("cut_in").unwrap_or(&Value::Null), DEFAULT_CUT_IN, 0, 10);
         self.high_quality = cfg.get("high_quality").and_then(Value::as_bool).unwrap_or(false);
         let picture = cfg.get("picture").and_then(Value::as_str).unwrap_or("").to_string();
         self.load_picture(&picture);
