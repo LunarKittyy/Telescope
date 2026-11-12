@@ -57,7 +57,7 @@ const WRITE_WAIT: Duration = Duration::from_secs(10);
 const JOURNAL_KEPT: usize = 200;
 /// A measuring that nobody answered at all (no plugin can measure) gives up after this, longer than the measuring itself takes.
 const JOB_WAIT_MS: u64 = 10_000;
-const MAX_LINE: u64 = 1 << 20;
+pub(crate) const MAX_LINE: usize = 1 << 20;
 const LATEST: &str = "2025-06-18";
 const KNOWN: [&str; 3] = ["2024-11-05", "2025-03-26", LATEST];
 /// Phone and stream controls that are hard to undo in a live call stay with the person: they have `--action` and the window.
@@ -414,9 +414,9 @@ pub fn serve_connection(mut reader: impl BufRead, writer: Arc<Mutex<dyn Write + 
     let running = Arc::new(AtomicUsize::new(0));
     loop {
         let mut line = String::new();
-        match (&mut reader).take(MAX_LINE).read_line(&mut line) {
+        match (&mut reader).take(MAX_LINE as u64).read_line(&mut line) {
             Ok(0) | Err(_) => return,
-            Ok(_) if !line.ends_with('\n') && line.len() as u64 >= MAX_LINE => return,
+            Ok(_) if !line.ends_with('\n') && line.len() >= MAX_LINE => return,
             Ok(_) => {}
         }
         if line.trim().is_empty() {
