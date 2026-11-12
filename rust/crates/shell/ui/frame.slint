@@ -408,7 +408,8 @@ export component Banner inherits Rectangle {
             }
             cross := IconButton {
                 x: parent.width - Theme.u(5.5) - self.width;
-                y: Theme.u(6.5);
+                // Centred like the action buttons, so the two line up
+                y: (parent.height - self.height) / 2;
                 z: 2;
                 icon: Icons.v-close;
                 icon-size: Theme.icon-small;
