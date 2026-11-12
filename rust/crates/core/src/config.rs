@@ -196,16 +196,14 @@ impl ConfigFile {
             Ok(raw) => raw,
             Err(e) => {
                 log::error!("Config at {} is not valid JSON - backing up and starting fresh: {e}", self.path.display());
-                self.back_up_invalid(&data);
-                return Ok(empty());
+                return self.backed_up_or_held(mode, &data);
             }
         };
         let raw = upgrade_from_v2(raw);
         if !is_whole_config_valid(&raw) {
             log::warn!("Config at {} is missing, malformed, or an unsupported older version - backing up and starting fresh",
                        self.path.display());
-            self.back_up_invalid(&data);
-            return Ok(empty());
+            return self.backed_up_or_held(mode, &data);
         }
         let Value::Object(map) = raw else { unreachable!() };
         Ok(Value::Object(validate_sections(map)))
@@ -296,29 +294,54 @@ impl ConfigFile {
         with_set_aside(&self.path, |s| s.notice.take())
     }
 
-    fn back_up_invalid(&self, original: &[u8]) {
+    /// A fresh start once the unusable file is backed up. When the copy can't be made the original is the only one left, so a strict read
+    /// errors and a start closes saving (until reread_after_unread_start gets the copy made); a lenient read just sees an empty file.
+    fn backed_up_or_held(&self, mode: Mode, original: &[u8]) -> io::Result<Value> {
+        match self.back_up_invalid(original) {
+            Ok(()) => Ok(empty()),
+            Err(e) => match mode {
+                Mode::Strict => Err(e),
+                Mode::Start => {
+                    with_set_aside(&self.path, |s| s.unread = true);
+                    Ok(empty())
+                }
+                Mode::Lenient => Ok(empty()),
+            },
+        }
+    }
+
+    fn back_up_invalid(&self, original: &[u8]) -> io::Result<()> {
         let fresh = with_set_aside(&self.path, |s| {
             // Every load before the first save sees the same file; one copy is enough
             if s.last.as_deref() == Some(original) {
                 return false;
             }
-            s.last = Some(original.to_vec());
             s.notice = Some(String::new());
             true
         });
         if !fresh {
-            return;
+            return Ok(());
         }
         let stamp = (self.clock)();
         let mut name = self.path.file_name().unwrap_or_default().to_os_string();
         name.push(format!(".invalid-{stamp}"));
         let backup = self.path.with_file_name(name);
-        match open_private(&backup, &set_mode).and_then(|mut f| f.write_all(original)) {
+        let written = open_private(&backup, &set_mode).and_then(|mut f| f.write_all(original).and_then(|_| f.sync_all()));
+        match written {
             Ok(()) => {
                 log::info!("Backed up invalid config to {}", backup.display());
-                with_set_aside(&self.path, |s| s.notice = Some(backup.display().to_string()));
+                // Only now does the next load skip the copy
+                with_set_aside(&self.path, |s| {
+                    s.last = Some(original.to_vec());
+                    s.notice = Some(backup.display().to_string());
+                });
+                Ok(())
             }
-            Err(e) => log::error!("Failed to back up invalid config to {}: {e}", backup.display()),
+            Err(e) => {
+                log::error!("Failed to back up invalid config to {}: {e}", backup.display());
+                let _ = fs::remove_file(&backup);
+                Err(e)
+            }
         }
     }
 }

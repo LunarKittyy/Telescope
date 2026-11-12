@@ -361,6 +361,27 @@ fn loading_a_bad_config_again_before_saving_backs_it_up_once() {
 }
 
 #[test]
+fn a_bad_config_whose_backup_failed_is_never_saved_over() {
+    let (dir, mut f) = file_with(b"not valid json");
+    f.clock = || "20250101T000000".to_string();
+    // A folder where the copy should go, so the copy can't be written
+    let blocker = dir.join(format!("{CONFIG_FILENAME}.invalid-20250101T000000"));
+    fs::create_dir(&blocker).unwrap();
+    assert!(f.load_strict().is_err());
+    assert!(!f.update(|c| c["selected_device"] = json!("Phone1")));
+    assert_eq!(fs::read(f.path()).unwrap(), b"not valid json");
+    // The start holds defaults and leaves saving closed, even though the file reads fine again
+    assert_eq!(f.load_at_start(), empty());
+    assert!(!f.update(|c| c["selected_device"] = json!("Phone1")));
+    assert_eq!(fs::read(f.path()).unwrap(), b"not valid json");
+    // Once the copy can be made it is, and saving opens
+    fs::remove_dir(&blocker).unwrap();
+    assert_eq!(f.reread_after_unread_start().unwrap().unwrap(), empty());
+    assert_eq!(fs::read(&blocker).unwrap(), b"not valid json");
+    assert!(f.update(|c| c["selected_device"] = json!("Phone1")));
+}
+
+#[test]
 fn a_reset_is_reported_once_with_where_the_copy_went() {
     let (_, f) = file_with(b"");
     assert_eq!(f.take_reset_notice(), None);
