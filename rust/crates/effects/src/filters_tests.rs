@@ -537,6 +537,8 @@ fn skin_smoothing_softens_skin_inside_the_mask_and_keeps_an_eye_sharp() {
     assert!(grey(&out, 47, 47) < 70.0, "the eye: {}", grey(&out, 47, 47));
     // and outside the mask nothing changes
     let masked = Ctx(Some(Arc::new((0..w * h).map(|i| if i % w < 48 { 255 } else { 0 }).collect())));
+    // a fresh step: on a slow machine the first run goes over the time budget and the step rests for the next frames
+    let (_, _, mut cpu_step) = only_step(&with(&[(SKIN_AT, 100)]));
     let half = on_cpu(&mut cpu_step, &frame, &masked);
     assert_eq!(value(&half, 80, 10), value(&frame, 80, 10));
     assert!(spread(&half, (4, 4, 36, 36)) < before * 0.6, "masked half: {}", spread(&half, (4, 4, 36, 36)));
