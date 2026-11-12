@@ -91,6 +91,18 @@ fn people_rgb(frame: &Frame) -> Option<Rgb> {
     small_rgb(frame, pw, ph, true).map(|data| Rgb::new(pw, ph, data))
 }
 
+/// The matting download's backend, after its files are hashed again: the marker only says they matched once, and the library is native code that runs as the user.
+fn find_matting(dir: &Path, info: &PackInfo) -> Result<Arc<dyn Backend>, LoadError> {
+    if !info.installed(dir) {
+        return Err(LoadError::Missing(format!("no matting download in {}", info.folder(dir).display())));
+    }
+    let folder = info.folder(dir);
+    if pack::tree_hash(&folder).ok() != info.id {
+        return Err(LoadError::Failed(service::VisionError::new("RuntimeError", "the matting download has changed since it was checked, so it wasn't loaded")));
+    }
+    matting::load(&folder)
+}
+
 impl VisionHost {
     /// MediaPipe from this version's pack in the Python app's folder (vision_pack.default_dir).
     pub fn system() -> VisionHost {
@@ -106,12 +118,7 @@ impl VisionHost {
         let host = VisionHost::with(find, Some(Box::new(move || there_info.installed(&there_dir))), dir, info, Box::new(pack::web));
         let (cutout_dir, cutout_info) = (pack::matting_dir(), PackInfo::current_matting());
         let (find_dir, find_info) = (cutout_dir.clone(), cutout_info.clone());
-        let find: Find = Box::new(move || {
-            if !find_info.installed(&find_dir) {
-                return Err(LoadError::Missing(format!("no matting download in {}", find_info.folder(&find_dir).display())));
-            }
-            matting::load(&find_info.folder(&find_dir))
-        });
+        let find: Find = Box::new(move || find_matting(&find_dir, &find_info));
         let (there_dir, there_info) = (cutout_dir.clone(), cutout_info.clone());
         host.with_cutout(find, Some(Box::new(move || there_info.installed(&there_dir))), cutout_dir, cutout_info)
     }

@@ -278,3 +278,28 @@ fn a_cutout_that_goes_from_loading_to_ready_or_failed_reaches_the_bus() {
     assert_eq!(h.matting_state(), MISSING);
     h.shutdown();
 }
+
+#[test]
+fn a_matting_library_swapped_after_the_download_was_checked_is_not_loaded() {
+    let tmp = scratch_dir("matting-swap");
+    let expected = tmp.join("expected");
+    for (name, data) in MATTING_FILES {
+        std::fs::create_dir_all(expected.join(name).parent().unwrap()).unwrap();
+        std::fs::write(expected.join(name), data).unwrap();
+    }
+    let tree = pack::tree_hash(&expected).unwrap();
+    let info = PackInfo::from_json_for(pack::Kind::Matting, &serde_json::json!({"linux": {"id": tree, "size": 1}}), Some("linux"));
+    let dir = tmp.join("matting");
+    let folder = info.folder(&dir);
+    std::fs::create_dir_all(folder.parent().unwrap()).unwrap();
+    std::fs::rename(&expected, &folder).unwrap();
+    std::fs::write(folder.join(pack::DONE), info.pack_id().unwrap()).unwrap();
+    assert!(info.installed(&dir));
+    std::fs::write(folder.join("lib/libonnxruntime.so"), b"swapped").unwrap();
+    assert!(info.installed(&dir), "the marker still says it's fine");
+    match find_matting(&dir, &info) {
+        Err(LoadError::Failed(e)) => assert!(e.message.contains("changed since"), "{}", e.message),
+        Err(_) => panic!("the swap went unnoticed: the library was handed to the loader"),
+        Ok(_) => panic!("loaded"),
+    }
+}
