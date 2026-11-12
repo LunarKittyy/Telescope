@@ -129,6 +129,7 @@ foreach ($dir in @($telescope, $dst)) {{
 # Old copies set aside by an earlier update, once nothing has them loaded any more, and half-made new ones
 Get-ChildItem -LiteralPath $dst -Filter '*.old' -Force | Remove-Item -Force -ErrorAction SilentlyContinue
 Get-ChildItem -LiteralPath $dst -Filter '*.new' -Force | Remove-Item -Force -ErrorAction SilentlyContinue
+$asides = @{{}}
 foreach ($name in $files.Keys) {{
     $target = Join-Path $dst $name
     # A copy already there and right is kept: a camera app may have it loaded, so it can't be overwritten
@@ -139,10 +140,16 @@ foreach ($name in $files.Keys) {{
         try {{
             Copy-Item -LiteralPath (Join-Path $src $name) -Destination $fresh -Force
             Set-AdminOwner $fresh
+            # Checked before the working one is touched, so a bad copy never costs it
+            if ((Get-Sha256 $fresh) -ne $files[$name]) {{
+                Remove-Item -LiteralPath $fresh -Force -ErrorAction SilentlyContinue
+                exit {EXIT_CHECKSUM}
+            }}
             # A loaded one can still be renamed out of the way
             if (Test-Path -LiteralPath $target) {{
                 $aside = $target + '.' + [guid]::NewGuid() + '.old'
                 Move-Item -LiteralPath $target -Destination $aside -Force
+                $asides[$name] = $aside
             }}
             Move-Item -LiteralPath $fresh -Destination $target -Force
         }} catch {{
@@ -158,7 +165,8 @@ if (-not (Test-AdminOnly $telescope)) {{ exit {EXIT_UNSAFE_FOLDER} }}
 foreach ($name in $files.Keys) {{
     $target = Join-Path $dst $name
     if ((Get-Sha256 $target) -ne $files[$name]) {{
-        Remove-Item -LiteralPath $target -Force
+        # The working one goes back over it, if there was one
+        if ($asides.ContainsKey($name)) {{ Move-Item -LiteralPath $asides[$name] -Destination $target -Force }} else {{ Remove-Item -LiteralPath $target -Force }}
         exit {EXIT_CHECKSUM}
     }}
 }}
@@ -959,6 +967,18 @@ mod tests {
         let restore = script.find("Move-Item -LiteralPath $aside -Destination $target").unwrap();
         assert!(swap < restore && script[restore..].contains("throw"), "a failed swap puts the old one back and still fails the install");
         assert!(!script.contains("Copy-Item -LiteralPath (Join-Path $src $name) -Destination $target"), "nothing is copied over the working file");
+    }
+
+    #[test]
+    fn a_new_dll_is_checked_before_the_working_one_moves_and_a_late_mismatch_restores_it() {
+        let script = mf_install_script(Path::new("C:/app"), &"AB".repeat(32), 1, None);
+        let check = script.find("(Get-Sha256 $fresh) -ne").unwrap();
+        let aside = script.find("Move-Item -LiteralPath $target -Destination $aside").unwrap();
+        assert!(check < aside, "a bad copy is found before the working one is set aside");
+        let restore = script.find("Move-Item -LiteralPath $asides[$name] -Destination $target").unwrap();
+        let exit = script[restore..].find(&format!("exit {EXIT_CHECKSUM}")).unwrap();
+        assert!(script[restore..restore + exit].contains("Remove-Item"), "the old one comes back, or a copy with none is removed, before the script exits");
+        assert!(script.find("Get-Sha256 $target) -ne").unwrap() < restore);
     }
 
     // test_platform_windows.py::test_unitycapture_registered_from_the_app_folder_goes_through_a_checked_copy
