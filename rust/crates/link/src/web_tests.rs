@@ -317,6 +317,58 @@ fn nonsense_is_a_bad_request() {
 }
 
 #[test]
+fn header_lines_without_a_colon_count_too() {
+    let run = start(0);
+    let mut client = Client::connect(&run);
+    let many: String = (0..101).map(|_| "x\r\n").collect();
+    client.send(&format!("GET /hello HTTP/1.1\r\n{many}\r\n"));
+    assert_eq!(client.read(false).unwrap().status, 431);
+}
+
+/// Hands out one short line per read, slowly, and never finishes the head.
+struct Dripper {
+    line: &'static [u8],
+    pos: usize,
+    pace: Duration,
+}
+
+impl Read for Dripper {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        std::thread::sleep(self.pace);
+        let n = buf.len().min(self.line.len() - self.pos);
+        buf[..n].copy_from_slice(&self.line[self.pos..self.pos + n]);
+        self.pos = (self.pos + n) % self.line.len();
+        Ok(n)
+    }
+}
+
+impl Write for Dripper {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+impl Timed for Dripper {
+    fn limit_reads(&mut self, _: Duration) {}
+}
+
+#[test]
+fn a_request_that_never_finishes_its_head_is_dropped_on_time() {
+    let pages = Pages { seen: Mutex::default(), go: Mutex::new(None) };
+    let stats = ServerStats::new(0, 0, false, "Test");
+    // A request line, then colonless lines forever, each one inside any per-read timeout
+    let mut stream = BufReader::new(Dripper { line: b"GET /hello HTTP/1.1\r\nx\r\n", pos: 0, pace: Duration::from_millis(40) });
+    let started = Instant::now();
+    let served = serve_one(&mut stream, &pages, &stats, Duration::from_millis(300));
+    assert!(matches!(served, Ok(false)));
+    assert!(started.elapsed() < Duration::from_secs(2), "took {:?}", started.elapsed());
+}
+
+#[test]
 fn a_page_that_fails_is_a_500_and_the_server_carries_on() {
     let run = start(0);
     let mut client = Client::connect(&run);
