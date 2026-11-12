@@ -399,8 +399,8 @@ impl ShortcutsPlugin {
             return false;
         }
         let Some(binding) = self.binding_for_keys(&keys) else { return false };
-        if key.typing && keys::edits_text(&binding.keys) {
-            // A plain key belongs to the text box
+        if key.typing && keys::text_box_takes(&binding.keys) {
+            // A plain key, or an editing command like paste, belongs to the text box
             return false;
         }
         let id = binding.id.clone();
@@ -754,6 +754,11 @@ impl ShortcutsPlugin {
         }
         if e.global && keys::edits_text(&e.keys) {
             let text = tr("Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer.")
+                .field("keys", keys::native_keys(&e.keys)).field("meta", meta);
+            return (text, false);
+        }
+        if e.global && keys::is_text_command(&e.keys) {
+            let text = tr("Everywhere, {keys} would stop working in the text boxes of other apps. Adding Alt or {meta} is safer.")
                 .field("keys", keys::native_keys(&e.keys)).field("meta", meta);
             return (text, false);
         }
@@ -1388,10 +1393,12 @@ mod tests {
         assert_eq!(props["save-enabled"], json!(true), "allowed, with a warning, everywhere");
         assert!(props["problem"].as_str().unwrap().contains("stop typing"), "{}", props["problem"]);
         ui(&mut plugin, &mut host, "key-pressed", json!(["z", true, false, true, false]));
+        assert!(plugin.section_props()["problem"].as_str().unwrap().contains("text boxes of other apps"), "redo is a text box's own key");
+        ui(&mut plugin, &mut host, "key-pressed", json!(["w", true, false, true, false]));
         assert_eq!(plugin.section_props()["problem"], json!(""));
         ui(&mut plugin, &mut host, "save", json!([]));
         let saved = plugin.bindings().last().unwrap();
-        assert_eq!((saved.keys.as_str(), saved.action.as_str(), saved.global), ("Ctrl+Shift+Z", "transforms.zoom", true));
+        assert_eq!((saved.keys.as_str(), saved.action.as_str(), saved.global), ("Ctrl+Shift+W", "transforms.zoom", true));
         assert_eq!(Value::Object(saved.params.clone()), json!({"op": "set", "amount": 10.0, "value": 30.0}));
     }
 
@@ -1433,6 +1440,25 @@ mod tests {
         // Closed with no editor open: nothing to give back
         ui(&mut plugin, &mut host, "hidden", json!([]));
         assert_eq!(seen.lock().unwrap().suspended, [true, false]);
+    }
+
+    #[test]
+    fn editing_commands_stay_with_a_focused_text_box_and_a_global_one_is_warned_about() {
+        let (mut plugin, mut host, _) = make(json!([b("a", "Ctrl+V", "camera.torch", json!({}), false), b("b", "Ctrl+T", "camera.torch", json!({}), false)]), false, true);
+        let typing = |k: KeyInput| KeyInput { typing: true, ..k };
+        assert!(!plugin.on_key(&mut host, &typing(key("v", true, false))), "paste pastes");
+        assert!(ran(&host).is_empty(), "{:?}", host.calls);
+        assert!(plugin.on_key(&mut host, &key("v", true, false)), "outside a text box it is the shortcut");
+        assert!(plugin.on_key(&mut host, &typing(key("t", true, false))), "a Ctrl key with no editing job still runs");
+        plugin.settings_sections();
+        ui(&mut plugin, &mut host, "add", json!([]));
+        ui(&mut plugin, &mut host, "key-pressed", json!(["v", true, false, false, false]));
+        let props = plugin.section_props();
+        assert_eq!(props["save-enabled"], json!(false), "taken by Ctrl+V already");
+        ui(&mut plugin, &mut host, "key-pressed", json!(["c", true, false, false, false]));
+        let props = plugin.section_props();
+        assert_eq!(props["save-enabled"], json!(true));
+        assert!(props["problem"].as_str().unwrap().contains("text boxes of other apps"), "{}", props["problem"]);
     }
 
     #[test]
