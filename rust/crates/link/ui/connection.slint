@@ -317,127 +317,136 @@ export component ConnectionCard inherits Card {
         y: -root.absolute-position.y;
         width: WindowBox.cover-w(max(root.width, Theme.u(230)));
         height: WindowBox.cover-h(add-frame.preferred-height);
-        add-frame := DialogFrame {
-            x: WindowBox.left(self.width);
-            y: WindowBox.top(self.height);
-            width: max(root.width, Theme.u(230));
-            // The window's height caps the dialog, and the code is what gives way
-            height: WindowBox.cap(self.preferred-height);
-            dismissable: true;
-            // A pairing with its code showing isn't lost to a stray click: that takes Back or Done
-            dismissed => { if (paired || qr-size == 0) { root.add-up = false; add-popup.close(); root.add-closed(); } }
-            left => { if (root.add-going) { root.add-going = false; root.add-up = false; add-popup.close(); } }
-            property <bool> on-source: other-name != "" && !paired && add-page == 1;
-            title: @tr("Add a phone");
-            if other-name != "" && !paired: Segmented {
-                hue: root.hue;
-                label: @tr("What to add");
-                margin: 0px;
-                items: ["Android", other-name];
-                has-icons: [true, true];
-                icons: [Icons.phone, Icons.wifi];
-                current: root.add-page;
-                picked(i) => { root.add-page = i; }
+        // Escape closes it even with a pairing code showing: only a press beside it is held back
+        FocusScope {
+            init => { self.focus(); }
+            key-pressed(e) => {
+                if (e.text == Key.Escape) { add-frame.dismiss(); return accept; }
+                reject
             }
-            // Nothing to pair on this side: the one button adds it, named for what it adds
-            if on-source: HorizontalLayout {
-                alignment: center;
-                padding-top: Theme.u(6);
-                padding-bottom: Theme.u(6);
-                Button {
-                    text: other-name;
-                    role: "primary";
+            add-frame := DialogFrame {
+                x: WindowBox.left(self.width);
+                y: WindowBox.top(self.height);
+                width: max(root.width, Theme.u(230));
+                // The window's height caps the dialog, and the code is what gives way
+                height: WindowBox.cap(self.preferred-height);
+                dismissable: true;
+                keep-open: !paired && qr-size != 0;
+                // A pairing with its code showing isn't lost to a stray click: that takes Back or Done
+                dismissed => { root.add-up = false; add-popup.close(); root.add-closed(); }
+                left => { if (root.add-going) { root.add-going = false; root.add-up = false; add-popup.close(); } }
+                property <bool> on-source: other-name != "" && !paired && add-page == 1;
+                title: @tr("Add a phone");
+                if other-name != "" && !paired: Segmented {
                     hue: root.hue;
-                    has-icon: true;
-                    icon: Icons.plus;
-                    icon-tint: Theme.on-hue;
-                    tip: @tr("Stream from any browser: no app on the phone, just a link or a code to open there");
-                    accessible-label: other-name;
-                    clicked => { root.other-picked(); }
+                    label: @tr("What to add");
+                    margin: 0px;
+                    items: ["Android", other-name];
+                    has-icons: [true, true];
+                    icons: [Icons.phone, Icons.wifi];
+                    current: root.add-page;
+                    picked(i) => { root.add-page = i; }
                 }
-            }
-            if qr-size > 0 && !paired && !on-source: Rectangle {
-                property <int> modules: qr-size + 8;
-                // A long payload makes more modules than the dialog's width holds at 6px. Whole device pixels each, or the
-                // white gaps between dark cells show on a scaled screen
-                function fit(room: length) -> length {
-                    return min(Theme.u(3), max(1phx, floor(room / modules / 1phx) * 1phx));
-                }
-                property <length> full: modules * fit(self.width);
-                min-height: 0px;
-                preferred-height: full;
-                max-height: full;
-                vertical-stretch: 1;
-                QrCode {
-                    x: (parent.width - self.width) / 2;
-                    cells: qr-cells;
-                    size: qr-size;
-                    cell: fit(min(parent.width, parent.height));
-                    label: @tr("Pairing code");
-                }
-                Tip { says: @tr("Pair over Wi-Fi"); detail: wifi-text; inert: true; }
-            }
-            // No code to show (this computer isn't on a network): the reason, in one line
-            if qr-size == 0 && wifi-shown && wifi-text != "" && !paired && !add-frame.on-source: RailRow {
-                icon: Icons.wifi;
-                label: "Wi-Fi";
-                hue: root.hue;
-                enabled: false;
-                Status { text: wifi-text; }
-            }
-            if usb-shown && !paired && !add-frame.on-source: RailRow {
-                icon: Icons.usb;
-                label: "USB";
-                hue: root.hue;
-                VerticalLayout {
-                    horizontal-stretch: 1;
-                    spacing: Theme.u(3);
+                // Nothing to pair on this side: the one button adds it, named for what it adds
+                if on-source: HorizontalLayout {
                     alignment: center;
-                    // One line of where the cable stands; the whole sentence is its tooltip when it doesn't fit
-                    Status {
-                        text: usb-text;
-                        kind: usb-kind == "status_ok" ? "ok" : usb-kind == "status_warn" ? "warn" : usb-kind == "status_err" ? "err" : "";
-                        font-weight: 400;
-                    }
-                    if usb-link-text != "": HorizontalLayout {
-                        alignment: start;
-                        LinkText {
-                            text: usb-link-text;
-                            url: usb-link-url;
-                            font-size: Theme.body;
-                            opened => { root.usb-link-clicked(); }
-                        }
-                        Note { text: usb-link-tail; width: self.preferred-width; }
-                    }
-                    if usb-after != "": Note { text: usb-after; }
-                    if usb-action != "": HorizontalLayout {
-                        alignment: start;
-                        spacing: Theme.gap;
-                        Button { text: usb-action; role: "primary"; hue: root.hue; clicked => { root.usb-action-clicked(); } }
-                        if usb-pick-action != "": Button { text: usb-pick-action; clicked => { root.usb-pick-clicked(); } }
-                    }
-                    if picks.length > 0: UsbPicks {
-                        picks: root.picks;
-                        pick(serial) => { root.pick(serial); }
+                    padding-top: Theme.u(6);
+                    padding-bottom: Theme.u(6);
+                    Button {
+                        text: other-name;
+                        role: "primary";
+                        hue: root.hue;
+                        has-icon: true;
+                        icon: Icons.plus;
+                        icon-tint: Theme.on-hue;
+                        tip: @tr("Stream from any browser: no app on the phone, just a link or a code to open there");
+                        accessible-label: other-name;
+                        clicked => { root.other-picked(); }
                     }
                 }
-            }
-            if paired: Text {
-                text: result-text;
-                font-family: Theme.font;
-                font-size: Theme.card-title;
-                font-weight: 600;
-                color: Theme.ink;
-                horizontal-alignment: center;
-            }
-            DialogButtons {
-                Button {
-                    text: paired ? @tr("Done") : @tr("Back");
-                    role: paired ? "primary" : "";
-                    dialog: true;
+                if qr-size > 0 && !paired && !on-source: Rectangle {
+                    property <int> modules: qr-size + 8;
+                    // A long payload makes more modules than the dialog's width holds at 6px. Whole device pixels each, or the
+                    // white gaps between dark cells show on a scaled screen
+                    function fit(room: length) -> length {
+                        return min(Theme.u(3), max(1phx, floor(room / modules / 1phx) * 1phx));
+                    }
+                    property <length> full: modules * fit(self.width);
+                    min-height: 0px;
+                    preferred-height: full;
+                    max-height: full;
+                    vertical-stretch: 1;
+                    QrCode {
+                        x: (parent.width - self.width) / 2;
+                        cells: qr-cells;
+                        size: qr-size;
+                        cell: fit(min(parent.width, parent.height));
+                        label: @tr("Pairing code");
+                    }
+                    Tip { says: @tr("Pair over Wi-Fi"); detail: wifi-text; inert: true; }
+                }
+                // No code to show (this computer isn't on a network): the reason, in one line
+                if qr-size == 0 && wifi-shown && wifi-text != "" && !paired && !add-frame.on-source: RailRow {
+                    icon: Icons.wifi;
+                    label: "Wi-Fi";
                     hue: root.hue;
-                    clicked => {
-                        if (paired) { root.add-closed(); } else { root.add-back(); }
+                    enabled: false;
+                    Status { text: wifi-text; }
+                }
+                if usb-shown && !paired && !add-frame.on-source: RailRow {
+                    icon: Icons.usb;
+                    label: "USB";
+                    hue: root.hue;
+                    VerticalLayout {
+                        horizontal-stretch: 1;
+                        spacing: Theme.u(3);
+                        alignment: center;
+                        // One line of where the cable stands; the whole sentence is its tooltip when it doesn't fit
+                        Status {
+                            text: usb-text;
+                            kind: usb-kind == "status_ok" ? "ok" : usb-kind == "status_warn" ? "warn" : usb-kind == "status_err" ? "err" : "";
+                            font-weight: 400;
+                        }
+                        if usb-link-text != "": HorizontalLayout {
+                            alignment: start;
+                            LinkText {
+                                text: usb-link-text;
+                                url: usb-link-url;
+                                font-size: Theme.body;
+                                opened => { root.usb-link-clicked(); }
+                            }
+                            Note { text: usb-link-tail; width: self.preferred-width; }
+                        }
+                        if usb-after != "": Note { text: usb-after; }
+                        if usb-action != "": HorizontalLayout {
+                            alignment: start;
+                            spacing: Theme.gap;
+                            Button { text: usb-action; role: "primary"; hue: root.hue; clicked => { root.usb-action-clicked(); } }
+                            if usb-pick-action != "": Button { text: usb-pick-action; clicked => { root.usb-pick-clicked(); } }
+                        }
+                        if picks.length > 0: UsbPicks {
+                            picks: root.picks;
+                            pick(serial) => { root.pick(serial); }
+                        }
+                    }
+                }
+                if paired: Text {
+                    text: result-text;
+                    font-family: Theme.font;
+                    font-size: Theme.card-title;
+                    font-weight: 600;
+                    color: Theme.ink;
+                    horizontal-alignment: center;
+                }
+                DialogButtons {
+                    Button {
+                        text: paired ? @tr("Done") : @tr("Back");
+                        role: paired ? "primary" : "";
+                        dialog: true;
+                        hue: root.hue;
+                        clicked => {
+                            if (paired) { root.add-closed(); } else { root.add-back(); }
+                        }
                     }
                 }
             }

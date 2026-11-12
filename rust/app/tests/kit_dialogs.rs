@@ -165,3 +165,55 @@ fn a_dialog_that_is_fading_out_takes_no_press_or_key_and_keeps_its_first_decisio
     settle(&ui);
     assert_eq!((count(&ui, "dismissals"), count(&ui, "lefts"), count(&ui, "saves")), (1.0, 1.0, 0.0), "it cancelled");
 }
+
+// A dialog that keeps itself open ignores a press beside it (it must not ease out and come back), and `dismiss()` still closes it
+const KEPT: &str = r#"
+import { DialogFrame } from "@ui-kit/ui-kit.slint";
+export component T inherits Window {
+    in-out property <int> dismissals;
+    in-out property <int> lefts;
+    public function open() { pop.show(); }
+    in-out property <bool> closing;
+    pop := PopupWindow {
+        x: 0px;
+        y: 0px;
+        width: 600px;
+        height: 500px;
+        close-policy: no-auto-close;
+        Rectangle {
+            width: 0px;
+            height: 0px;
+            property <bool> go: root.closing;
+            changed go => { if (self.go) { frame.dismiss(); } }
+        }
+        frame := DialogFrame {
+            x: 100px;
+            y: 100px;
+            width: 300px;
+            height: 200px;
+            title: "Pair";
+            dismissable: true;
+            keep-open: true;
+            dismissed => { root.dismissals += 1; }
+            left => { root.lefts += 1; }
+        }
+    }
+}
+"#;
+
+#[test]
+fn a_dialog_that_keeps_itself_open_ignores_a_press_beside_it_but_not_dismiss() {
+    offscreen::install();
+    let ui = compile::compile("test.slint", KEPT, Vec::new(), "T").map(|d| d.create().unwrap()).unwrap_or_else(|e| panic!("{e}"));
+    ui.window().set_size(slint::LogicalSize::new(600.0, 500.0));
+    ui.show().unwrap();
+    ui.invoke("open", &[]).unwrap();
+    settle(&ui);
+    click(&ui, 20.0, 20.0);
+    offscreen::skip(std::time::Duration::from_millis(300));
+    assert_eq!((count(&ui, "dismissals"), count(&ui, "lefts")), (0.0, 0.0), "a press beside it leaves it up and does not start easing out");
+    ui.set_property("closing", Value::Bool(true)).unwrap();
+    settle(&ui);
+    offscreen::skip(std::time::Duration::from_millis(300));
+    assert_eq!((count(&ui, "dismissals"), count(&ui, "lefts")), (1.0, 1.0), "dismiss closes it");
+}
