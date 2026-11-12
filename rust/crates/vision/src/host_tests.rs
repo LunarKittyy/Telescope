@@ -190,3 +190,35 @@ fn bench_model_pictures() {
         println!("vision pictures {w}x{h} (wall ms, cpu ms): segmenter input old {old:.2?} new {new:.2?}; people input old {old_people:.2?} new {new_people:.2?}");
     }
 }
+
+#[test]
+fn a_pack_file_swapped_after_the_marker_was_written_is_not_loaded() {
+    let tmp = scratch_dir("vision-swap");
+    let expected = tmp.join("expected");
+    for (name, data) in [("site/lib.so", &b"library"[..]), ("models/a.task", b"model")] {
+        std::fs::create_dir_all(expected.join(name).parent().unwrap()).unwrap();
+        std::fs::write(expected.join(name), data).unwrap();
+    }
+    let tree = pack::tree_hash(&expected).unwrap();
+    let info = PackInfo::from_json(&serde_json::json!({"linux": {"id": tree, "size": 1}}), Some("linux"));
+    let dir = tmp.join("vision");
+    let folder = info.folder(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::rename(&expected, &folder).unwrap();
+    std::fs::write(folder.join(pack::DONE), info.pack_id().unwrap()).unwrap();
+    let loads = std::sync::atomic::AtomicUsize::new(0);
+    let load = |_: &Path| -> Result<Arc<dyn Backend>, LoadError> {
+        loads.fetch_add(1, Ordering::SeqCst);
+        Err(LoadError::Missing("stop".into()))
+    };
+    assert!(matches!(find_pack(&dir, &info, &load), Err(LoadError::Missing(m)) if m == "stop"));
+    assert_eq!(loads.load(Ordering::SeqCst), 1, "an untouched pack is loaded");
+    std::fs::write(folder.join("site/lib.so"), b"swapped").unwrap();
+    assert!(info.installed(&dir), "the marker still says it's fine");
+    let found = find_pack(&dir, &info, &load);
+    assert_eq!(loads.load(Ordering::SeqCst), 1, "the swapped library was handed to the loader");
+    match found {
+        Err(LoadError::Failed(e)) => assert!(e.message.contains("changed since"), "{}", e.message),
+        _ => panic!("expected a refusal"),
+    }
+}
