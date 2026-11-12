@@ -5315,12 +5315,12 @@ msgid "Copied"
 msgstr "복사됨"
 
 #: rust/crates/setup/src/setup.rs:522
-msgid "The graphics card failed and the processor is decoding until you restart Telescope"
-msgstr "그래픽 카드에 오류가 발생해 Telescope를 다시 시작할 때까지 프로세서가 디코딩하고 있어요"
+msgid "Off until you restart Telescope because the graphics card failed"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:523
-msgid "The graphics card was too slow, so the processor is decoding for now"
-msgstr "그래픽 카드가 너무 느려서 지금은 프로세서가 디코딩 중이에요"
+msgid "Paused for a few minutes because the graphics card was too slow"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:524
 #, python-brace-format
@@ -9249,6 +9249,12 @@ msgstr "열 수 없음"
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "다시 시작할 수 없음"
+
+#~ msgid "The graphics card failed and the processor is decoding until you restart Telescope"
+#~ msgstr "그래픽 카드에 오류가 발생해 Telescope를 다시 시작할 때까지 프로세서가 디코딩하고 있어요"
+
+#~ msgid "The graphics card was too slow, so the processor is decoding for now"
+#~ msgstr "그래픽 카드가 너무 느려서 지금은 프로세서가 디코딩 중이에요"
 
 #~ msgid "Blur the others"
 #~ msgstr "다른 사람 흐리게"

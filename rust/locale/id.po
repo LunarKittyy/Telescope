@@ -5315,12 +5315,12 @@ msgid "Copied"
 msgstr "Disalin"
 
 #: rust/crates/setup/src/setup.rs:522
-msgid "The graphics card failed and the processor is decoding until you restart Telescope"
-msgstr "Kartu grafis mengalami kegagalan dan prosesor melakukan decoding sampai Anda memulai ulang Telescope"
+msgid "Off until you restart Telescope because the graphics card failed"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:523
-msgid "The graphics card was too slow, so the processor is decoding for now"
-msgstr "Kartu grafis terlalu lambat, jadi prosesor yang mendekode untuk saat ini"
+msgid "Paused for a few minutes because the graphics card was too slow"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:524
 #, python-brace-format
@@ -9249,6 +9249,12 @@ msgstr "Tidak dapat membukanya"
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "Tidak dapat memulai ulang"
+
+#~ msgid "The graphics card failed and the processor is decoding until you restart Telescope"
+#~ msgstr "Kartu grafis mengalami kegagalan dan prosesor melakukan decoding sampai Anda memulai ulang Telescope"
+
+#~ msgid "The graphics card was too slow, so the processor is decoding for now"
+#~ msgstr "Kartu grafis terlalu lambat, jadi prosesor yang mendekode untuk saat ini"
 
 #~ msgid "Blur the others"
 #~ msgstr "Buramkan orang lain"
