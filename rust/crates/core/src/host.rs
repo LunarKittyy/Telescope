@@ -252,6 +252,12 @@ pub trait HostSettings {
     fn plugin_settings(&self) -> Vec<PluginSettings> {
         Vec::new()
     }
+    /// When a plugin's setting last moved through the plugin itself (its own save, or a preset handed to it), as a number that only goes up: a setting is
+    /// still as somebody left it while this is the same as it was then, even when the value has been the same all along. `key` is a dotted path in its
+    /// get_config(), and anything inside it or around it counts. 0 for a plugin that never moved or a host that doesn't keep track.
+    fn setting_revision(&self, _plugin: &str, _key: &str) -> u64 {
+        0
+    }
     /// The plugins that are running, as (name, title).
     fn running_plugins(&self) -> Vec<(String, String)> {
         Vec::new()

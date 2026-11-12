@@ -19,7 +19,7 @@ use telescope_core::event::Event;
 use telescope_core::host::{Host, PluginSettings, Poster};
 use telescope_core::i18n::{n_, tr, tr_ctx, Fields};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
-use telescope_core::settings::{merge_changes, SettingSpec};
+use telescope_core::settings::{get_path, leaf_changes, merge_changes, put_path, SettingSpec};
 use telescope_core::stats::Snapshot;
 use telescope_core::ui::{SettingsSection, SlintSource, UiEvent, UiSpec};
 use crate::mcp_stats::{Collected, Level, WATCH_MAX_SECONDS, WINDOW_MAX};
@@ -55,9 +55,11 @@ const MAX_CLIENTS: usize = 8;
 const WRITE_WAIT: Duration = Duration::from_secs(10);
 /// How many undo steps are kept, oldest dropped first.
 const JOURNAL_KEPT: usize = 200;
+/// The connection number of a change kept from before Telescope started again: no AI app is that one, so only the header button's undo reaches it.
+const PREVIOUS_RUN: u64 = u64::MAX;
 /// A measuring that nobody answered at all (no plugin can measure) gives up after this, longer than the measuring itself takes.
 const JOB_WAIT_MS: u64 = 10_000;
-const MAX_LINE: u64 = 1 << 20;
+pub(crate) const MAX_LINE: usize = 1 << 20;
 const LATEST: &str = "2025-06-18";
 const KNOWN: [&str; 3] = ["2024-11-05", "2025-03-26", LATEST];
 /// Phone and stream controls that are hard to undo in a live call stay with the person: they have `--action` and the window.
@@ -313,7 +315,7 @@ pub fn tools() -> Vec<Value> {
         tool("set", "Changes settings, by id, all at once so the camera shows no half-way steps. Every value is checked first and nothing changes unless all of them are fine. Changes show in the camera straight away, which matters in a live call, so make small steps. revert undoes them. Refused when the person has set Telescope to read only.",
              json!({"changes": {"type": "object", "description": "Setting id to new value, such as {\"colour_grading.contrast\": 1.1, \"colour_grading.on\": true}.", "additionalProperties": true}}),
              &["changes"], false),
-        tool("revert", "Puts back what set and run_action changed, as it was before this session's first change to each setting. A setting the person or another AI app has moved since is left as it is. Refused when Telescope is set to read only.",
+        tool("revert", "Puts back what set and run_action changed (including what an action switched that isn't a listed setting), as it was before this session's first change to each. A setting the person or another AI app has moved since is left as it is, even if it has the same value again. A change for a camera that isn't shown, or a plugin that is off, is kept for a later revert. Actions that change something that isn't a saved setting (a mute) are named in not_restored, because they can't be put back. Refused when Telescope is set to read only.",
              json!({}), &[], false),
         tool("actions", "Lists the actions Telescope can run, like the ones keyboard shortcuts run, with what each takes. Starting or stopping the stream, switching the phone's camera and picking another phone are left to the person.",
              json!({}), &[], true),
@@ -414,9 +416,9 @@ pub fn serve_connection(mut reader: impl BufRead, writer: Arc<Mutex<dyn Write + 
     let running = Arc::new(AtomicUsize::new(0));
     loop {
         let mut line = String::new();
-        match (&mut reader).take(MAX_LINE).read_line(&mut line) {
+        match (&mut reader).take(MAX_LINE as u64).read_line(&mut line) {
             Ok(0) | Err(_) => return,
-            Ok(_) if !line.ends_with('\n') && line.len() as u64 >= MAX_LINE => return,
+            Ok(_) if !line.ends_with('\n') && line.len() >= MAX_LINE => return,
             Ok(_) => {}
         }
         if line.trim().is_empty() {
@@ -531,6 +533,44 @@ struct Change {
     source: Option<String>,
     was: Value,
     now: Value,
+    /// The setting's revision (Host::setting_revision) just before this write and just after it, when known (not after a restart). A later revision means
+    /// the person or something else moved the setting since, even when it ended up with the same value.
+    rev_before: Option<u64>,
+    rev: Option<u64>,
+}
+
+impl Change {
+    fn to_json(&self) -> Value {
+        json!({"seq": self.seq, "plugin": self.plugin, "key": self.key, "source": self.source, "was": self.was, "now": self.now})
+    }
+
+    /// A change as it was saved, which no connection owns any more.
+    fn from_json(v: &Value) -> Option<Change> {
+        Some(Change {
+            seq: v["seq"].as_u64()?, session: PREVIOUS_RUN, plugin: v["plugin"].as_str()?.to_string(), key: v["key"].as_str()?.to_string(),
+            source: v["source"].as_str().map(String::from), was: v.get("was")?.clone(), now: v.get("now")?.clone(), rev_before: None, rev: None,
+        })
+    }
+}
+
+/// An action that moved no saved setting, so there is nothing to put back for it (a mute, Blur now).
+#[derive(Clone, Debug, PartialEq)]
+struct Untracked {
+    seq: u64,
+    session: u64,
+    action: String,
+}
+
+/// A setting by plugin and key.
+type Slot = (String, String);
+
+/// What an undo did: what went back, what was left on purpose, and the writes that stay in the journal for a later undo.
+struct Unwound {
+    reverted: Vec<Value>,
+    left: Vec<Value>,
+    kept: Vec<Change>,
+    /// For each setting undone, its revision as it was before the oldest write undone (None where the host doesn't count).
+    rev_before: HashMap<Slot, Option<u64>>,
 }
 
 /// A watch that is collecting: the tool call waits for it to end.
@@ -548,6 +588,8 @@ pub struct McpPlugin {
     /// What the AI apps changed, oldest first: a revert undoes only its own connection's (`Client::session`), so one AI app can't take back another's.
     /// They stay after the connection ends, so the header button can still undo them, up to JOURNAL_KEPT of them.
     journal: Vec<Change>,
+    /// Actions that moved nothing saved, so undo can only say it can't put them back. In memory only.
+    unrestored: Vec<Untracked>,
     next_seq: u64,
     /// A nerd stats call asked for the per-plugin times a moment ago, and whether the host was last told they are wanted.
     stats_lease: bool,
@@ -568,7 +610,7 @@ pub struct McpPlugin {
 impl McpPlugin {
     pub fn new(handle: McpHandle) -> McpPlugin {
         McpPlugin {
-            handle, jobs: HashMap::new(), next_job: 0, journal: Vec::new(), next_seq: 0, stats_lease: false, stats_wanted: false, access: Access::default(), log: VecDeque::new(), open: HashMap::new(),
+            handle, jobs: HashMap::new(), next_job: 0, journal: Vec::new(), unrestored: Vec::new(), next_seq: 0, stats_lease: false, stats_wanted: false, access: Access::default(), log: VecDeque::new(), open: HashMap::new(),
             pending: 0, activity: Activity::Rest, snapshot: None, watches: HashMap::new(), clock: telescope_core::time::local_clock,
         }
     }
@@ -927,8 +969,10 @@ impl McpPlugin {
             return Err(format!("Nothing was changed.\n{}", problems.join("\n")));
         }
         let source = host.focused_source_id();
+        let revs = self.journal_revisions(host);
+        let before_all = all_configs(host);
         let mut applied: Vec<(String, Value)> = Vec::new();
-        let (mut done, mut writes) = (Vec::new(), Vec::new());
+        let mut done = Vec::new();
         for (name, map) in &by_plugin {
             let group = groups.iter().find(|g| g.name == *name).expect("grouped by a known plugin");
             let before = host.plugin_config(name).unwrap_or(Value::Null);
@@ -945,7 +989,6 @@ impl McpPlugin {
                                 change["also"] = json!("moved because of another change");
                             }
                             done.push(change);
-                            writes.push((name.clone(), spec.key.clone(), was, now));
                         }
                     }
                 }
@@ -959,31 +1002,55 @@ impl McpPlugin {
                 }
             }
         }
-        self.remember(session, writes, source);
+        // What moved is what the plugins now hold against what they held, so anything that went with a change is journalled too, declared or not
+        let writes = moves(host, &before_all, &all_configs(host));
+        self.remember_at(host, session, writes, source, &revs);
         Ok(json!({"changed": done, "note": "The camera shows these now. revert puts them back."}))
+    }
+
+    /// The revision of every setting the journal has a step for, as the host has them now: what a write is measured against, to see whether
+    /// somebody else moved the setting before it.
+    fn journal_revisions(&self, host: &dyn Host) -> HashMap<Slot, u64> {
+        self.journal.iter().map(|c| ((c.plugin.clone(), c.key.clone()), host.setting_revision(&c.plugin, &c.key))).collect()
+    }
+
+    /// Journals writes with no revisions known: only the values tell whose they are.
+    #[cfg(test)]
+    fn remember(&mut self, session: u64, writes: Vec<(String, String, Value, Value)>, source: Option<String>) {
+        self.remember_with(session, writes, source, None);
+    }
+
+    fn remember_at(&mut self, host: &mut dyn Host, session: u64, writes: Vec<(String, String, Value, Value)>, source: Option<String>, before: &HashMap<Slot, u64>) {
+        self.remember_with(session, writes, source, Some((&*host, before)));
+        host.schedule_save();
     }
 
     /// Journals writes as they happened. A write that moved nothing is no step. A connection moving the same setting again with nobody in between
     /// is still one step, from where it began to where it is now (so dragging a slider doesn't fill the journal), and a step that ends where it
-    /// began goes away. Past JOURNAL_KEPT the oldest are forgotten.
-    fn remember(&mut self, session: u64, writes: Vec<(String, String, Value, Value)>, source: Option<String>) {
+    /// began goes away. Nobody in between means the value and, where the host counts them, the revision are still what the step left. Past
+    /// JOURNAL_KEPT the oldest are forgotten.
+    fn remember_with(&mut self, session: u64, writes: Vec<(String, String, Value, Value)>, source: Option<String>, revs: Option<(&dyn Host, &HashMap<Slot, u64>)>) {
         for (plugin, key, was, now) in writes {
             if was == now {
                 continue;
             }
             self.next_seq += 1;
             let seq = self.next_seq;
+            let rev_before = revs.and_then(|(_, before)| before.get(&(plugin.clone(), key.clone())).copied());
+            let rev = revs.map(|(host, _)| host.setting_revision(&plugin, &key));
             let latest = self.journal.iter().rposition(|c| c.plugin == plugin && c.key == key && c.source == source);
-            match latest.filter(|&i| self.journal[i].session == session && self.journal[i].now == was) {
+            let untouched = |c: &Change| c.session == session && c.now == was && (c.rev.is_none() || rev_before.is_none() || c.rev == rev_before);
+            match latest.filter(|&i| untouched(&self.journal[i])) {
                 Some(i) => {
                     let mut step = self.journal.remove(i);
                     step.now = now;
                     step.seq = seq;
+                    step.rev = rev;
                     if step.was != step.now {
                         self.journal.push(step);
                     }
                 }
-                None => self.journal.push(Change { seq, session, plugin, key, source: source.clone(), was, now }),
+                None => self.journal.push(Change { seq, session, plugin, key, source: source.clone(), was, now, rev_before, rev }),
             }
         }
         let extra = self.journal.len().saturating_sub(JOURNAL_KEPT);
@@ -993,20 +1060,71 @@ impl McpPlugin {
     fn revert(&mut self, host: &mut dyn Host, session: u64) -> Value {
         let (mine, rest): (Vec<Change>, Vec<Change>) = std::mem::take(&mut self.journal).into_iter().partition(|c| c.session == session);
         self.journal = rest;
+        let (untracked, others): (Vec<Untracked>, Vec<Untracked>) = std::mem::take(&mut self.unrestored).into_iter().partition(|u| u.session == session);
+        self.unrestored = others;
+        let not_restored = not_restored(&untracked);
         if mine.is_empty() {
-            return json!({"reverted": [], "left": [], "note": "Nothing was changed through MCP this session."});
+            let mut answer = json!({"reverted": [], "left": [], "note": "Nothing was changed through MCP this session."});
+            if !not_restored.is_empty() {
+                answer["not_restored"] = json!(not_restored);
+                answer["note"] = json!("No setting was changed through MCP this session, so there is nothing to put back. Some actions it ran change things that aren't settings, which can't be put back (see not_restored).");
+            }
+            return answer;
         }
-        let (reverted, left) = unwind(host, mine);
-        json!({"reverted": reverted, "left": left})
+        let Unwound { reverted, left, kept, rev_before } = unwind(host, mine);
+        self.keep(kept);
+        self.resync(host, &reverted, &rev_before);
+        host.schedule_save();
+        let mut answer = json!({"reverted": reverted, "left": left});
+        if !not_restored.is_empty() {
+            answer["not_restored"] = json!(not_restored);
+        }
+        answer
+    }
+
+    /// Steps loaded from the file have no revisions, which would let any later edit that lands on the same value pass for the AI's own work. They
+    /// are tied to where the settings stand now, so only an edit after this counts against them.
+    fn stamp_loaded(&mut self, host: &dyn Host) {
+        for c in self.journal.iter_mut().filter(|c| c.rev.is_none() && c.rev_before.is_none()) {
+            let now = host.setting_revision(&c.plugin, &c.key);
+            (c.rev_before, c.rev) = (Some(now), Some(now));
+        }
+    }
+
+    /// Steps an undo couldn't take yet (another camera is shown, a plugin is off) go back in the journal, in the order they happened.
+    fn keep(&mut self, kept: Vec<Change>) {
+        self.journal.extend(kept);
+        self.journal.sort_by_key(|c| c.seq);
+    }
+
+    /// Putting a setting back is a move of it too. The step below it in the journal (the one that left it with the value it was put back to) is
+    /// still the latest word on it, so it takes the new revision, and a later undo doesn't take its own work for somebody's edit. Only when it is
+    /// the step the undone one began from: one that ends in the same value but was edited past since stays out of date.
+    fn resync(&mut self, host: &dyn Host, reverted: &[Value], rev_before: &HashMap<Slot, Option<u64>>) {
+        let shown = host.focused_source_id();
+        for done in reverted {
+            let Some((plugin, key)) = done["id"].as_str().and_then(|id| id.split_once('.')) else { continue };
+            let back = &done["back_to"];
+            let began_at = rev_before.get(&(plugin.to_string(), key.to_string())).copied().flatten();
+            let still_latest = |c: &Change| began_at.is_none() || c.rev.is_none() || c.rev == began_at;
+            if let Some(c) = self.journal.iter_mut().rev().find(|c| c.plugin == plugin && c.key == key && c.source == shown && c.now == *back && still_latest(c)) {
+                c.rev = Some(host.setting_revision(plugin, key));
+            }
+        }
     }
 
     /// The header button's undo: puts back what any AI app changed, the newest write first whichever connection made it, so a setting two of them moved
     /// goes back to where it began. It is the person's own action, so it works whatever the access level.
     pub fn undo_all(&mut self, host: &mut dyn Host) {
         let all = std::mem::take(&mut self.journal);
-        let (reverted, _) = unwind(host, all);
+        let not_restored = not_restored(&std::mem::take(&mut self.unrestored));
+        let Unwound { reverted, left, kept, rev_before } = unwind(host, all);
+        self.keep(kept);
+        self.resync(host, &reverted, &rev_before);
         let ids: Vec<String> = reverted.iter().filter_map(|c| c["id"].as_str().map(String::from)).collect();
-        self.push_log(tr("You"), tr("Undid what the AI changed"), false);
+        let skipped = left.len() + not_restored.len();
+        let text = if skipped == 0 { tr("Undid what the AI changed") } else { tr("Undid what the AI changed, except {n} it couldn't put back").field("n", skipped) };
+        self.push_log(tr("You"), text, false);
         if !ids.is_empty() {
             host.emit(Event::SettingsTouched { ids, changed: true });
         }
@@ -1014,7 +1132,8 @@ impl McpPlugin {
         self.push_page(host);
     }
 
-    /// Runs an action. The settings it moved are journalled and outlined like a set's, and the answer says when there is nothing for revert to undo.
+    /// Runs an action. What it moved is journalled and outlined like a set's, and the answer says when there is nothing for revert to undo. Everything
+    /// the plugins hold is looked at before and after, so an action's own state (Privacy blur's switch, the microphone, the background) goes back too.
     fn run_action(&mut self, host: &mut dyn Host, session: u64, args: &Value) -> Reply {
         let Some(id) = args["action"].as_str() else { return Err("action has to be an action id from actions.".into()) };
         if OUT_OF_REACH.contains(&id) {
@@ -1029,21 +1148,25 @@ impl McpPlugin {
             return Err(format!("There is no action called {id:?}. actions lists them."));
         };
         let params = Value::Object(checked_params(&action, &given, true)?);
-        let before = setting_values(host);
+        let revs = self.journal_revisions(host);
+        let before = all_configs(host);
         let source = host.focused_source_id();
         let Some(said) = host.run_action(&plugin, id, &params) else {
             return Err(format!("{} can't be used right now (no device, or its control is off).", action.label));
         };
-        let after = setting_values(host);
-        let moved: Vec<(String, String, Value, Value)> = after.into_iter()
-            .filter_map(|((plugin, key), now)| before.get(&(plugin.clone(), key.clone())).filter(|was| **was != now).map(|was| (plugin, key, was.clone(), now)))
-            .collect();
+        let moved = moves(host, &before, &all_configs(host));
         let changed: Vec<Value> = moved.iter().map(|(plugin, key, was, now)| json!({"id": format!("{plugin}.{key}"), "was": was, "now": now})).collect();
-        self.remember(session, moved, source);
         if changed.is_empty() {
-            Ok(json!({"said": said, "note": "No setting moved, so revert has nothing to put back for this action. Anything it does later, or outside the settings, is not tracked."}))
+            self.next_seq += 1;
+            self.unrestored.push(Untracked { seq: self.next_seq, session, action: action.label.clone() });
+            let extra = self.unrestored.len().saturating_sub(JOURNAL_KEPT);
+            self.unrestored.drain(..extra);
+        }
+        self.remember_at(host, session, moved, source, &revs);
+        if changed.is_empty() {
+            Ok(json!({"said": said, "note": "No setting moved, so revert has nothing to put back for this action. It may have changed something that isn't a setting (a mute, Blur now), which revert can't put back, and its answer will say so. Anything it does later is not tracked."}))
         } else {
-            Ok(json!({"said": said, "changed": changed, "note": "revert puts the settings it moved back. Anything it does later, or outside the settings, is not tracked."}))
+            Ok(json!({"said": said, "changed": changed, "note": "revert puts the settings it moved back. Anything it does later, or outside the settings (a mute, Blur now), is not tracked."}))
         }
     }
 
@@ -1146,44 +1269,86 @@ fn list_actions(host: &dyn Host) -> Vec<Value> {
         .map(|(_, a)| json!({"id": a.id, "group": a.group, "label": a.label, "params": a.params, "current": a.current})).collect()
 }
 
-/// Every setting's value now, by plugin and key.
-fn setting_values(host: &dyn Host) -> HashMap<(String, String), Value> {
-    let mut values = HashMap::new();
-    for group in host.plugin_settings() {
-        let config = host.plugin_config(&group.name).unwrap_or(Value::Null);
-        for spec in &group.settings {
-            values.insert((group.name.clone(), spec.key.clone()), spec.read(&config));
-        }
-    }
-    values
+/// What every running plugin holds now, by plugin: its whole get_config(), not only the settings it declares, since an action can move what isn't
+/// declared (Privacy blur's switch). This plugin's own is left out.
+fn all_configs(host: &dyn Host) -> Vec<(String, Value)> {
+    let mut names: Vec<String> = host.running_plugins().into_iter().map(|(name, _)| name).collect();
+    names.extend(host.plugin_settings().into_iter().map(|g| g.name));
+    let mut seen = std::collections::HashSet::new();
+    names.retain(|name| name != NAME && seen.insert(name.clone()));
+    names.into_iter().filter_map(|name| host.plugin_config(&name).map(|config| (name, config))).collect()
 }
 
-/// Puts back what these writes did, the newest first, and says what went back and what was left. A setting goes back only while it still
-/// has the value its write gave it: anything else means the person or another AI app moved it since, and that stays. What goes back is put
-/// back plugin by plugin in one go so settings that depend on each other are valid together, and when that would move a setting that
-/// isn't going back (zooming out puts the pan back to the middle) it isn't done at all.
-fn unwind(host: &mut dyn Host, mut changes: Vec<Change>) -> (Vec<Value>, Vec<Value>) {
+/// What moved between two looks at every plugin's config, as (plugin, key, was, now). A declared setting is read the way the plugin's settings read
+/// it (a value that was never written is its default), so one that only started to be written isn't a move; anything else is a spot in the config,
+/// with null for a value that wasn't there.
+fn moves(host: &dyn Host, before: &[(String, Value)], after: &[(String, Value)]) -> Vec<(String, String, Value, Value)> {
+    let groups = host.plugin_settings();
+    let mut out = Vec::new();
+    for (plugin, now) in after {
+        let Some((_, was)) = before.iter().find(|(name, _)| name == plugin) else { continue };
+        let specs: &[SettingSpec] = groups.iter().find(|g| g.name == *plugin).map(|g| g.settings.as_slice()).unwrap_or_default();
+        for (key, was_at, now_at) in leaf_changes(was, now) {
+            let (was_at, now_at) = match specs.iter().find(|s| s.key == key) {
+                Some(spec) => (spec.read(was), spec.read(now)),
+                None => (was_at, now_at),
+            };
+            if was_at != now_at {
+                out.push((plugin.clone(), key, was_at, now_at));
+            }
+        }
+    }
+    out
+}
+
+/// What undo says about actions that moved nothing it could put back.
+fn not_restored(untracked: &[Untracked]) -> Vec<Value> {
+    untracked.iter().map(|u| json!({
+        "action": u.action,
+        "why": "it didn't move any saved setting, so there is nothing to put back. If it changed something that isn't a setting (a mute, Blur now), that stays as it is.",
+    })).collect()
+}
+
+/// Puts back what these writes did, the newest first, and says what went back and what was left. A setting goes back only while nobody has
+/// touched it since: it has to still hold the value its write gave it, and where the host counts revisions it must not have moved since (the
+/// person landing on the same value again is still an edit). Anything else stays as it is. What goes back is put back plugin by plugin in one
+/// go so settings that depend on each other are valid together, and when that would move a setting that isn't going back (zooming out puts
+/// the pan back to the middle) it isn't done at all. A write for a camera that isn't shown, or a plugin that is off, isn't lost: it comes
+/// back in `kept` for an undo while it can be done.
+fn unwind(host: &mut dyn Host, mut changes: Vec<Change>) -> Unwound {
     changes.sort_by_key(|c| std::cmp::Reverse(c.seq));
     let groups = host.plugin_settings();
     let shown = host.focused_source_id();
-    let (mut reverted, mut left) = (Vec::new(), Vec::new());
-    // Where each setting stands once the writes undone so far are back
-    let mut standing: HashMap<(String, String), Value> = HashMap::new();
+    let (mut reverted, mut left, mut kept) = (Vec::new(), Vec::new(), Vec::new());
+    // Where each setting stands once the writes undone so far are back, and what its revision was before the one undone last
+    let mut standing: HashMap<Slot, Value> = HashMap::new();
+    let mut standing_rev: HashMap<Slot, Option<u64>> = HashMap::new();
     let mut back: Vec<(String, Map<String, Value>)> = Vec::new();
     for c in changes {
         let id = format!("{}.{}", c.plugin, c.key);
-        let Some(spec) = groups.iter().find(|g| g.name == c.plugin).and_then(|g| g.settings.iter().find(|s| s.key == c.key)) else {
-            left.push(json!({"id": id, "why": "the plugin is switched off now"}));
+        let Some(config) = host.plugin_config(&c.plugin) else {
+            left.push(json!({"id": id, "why": "the plugin is switched off now, so it was kept: undo again once it is on"}));
+            kept.push(c);
             continue;
         };
         let slot = (c.plugin.clone(), c.key.clone());
-        let now = standing.get(&slot).cloned().unwrap_or_else(|| spec.read(&host.plugin_config(&c.plugin).unwrap_or(Value::Null)));
+        let spec = groups.iter().find(|g| g.name == c.plugin).and_then(|g| g.settings.iter().find(|s| s.key == c.key));
+        let read = |config: &Value| match spec {
+            Some(spec) => spec.read(config),
+            None => get_path(config, &c.key).cloned().unwrap_or(Value::Null),
+        };
+        let now = standing.get(&slot).cloned().unwrap_or_else(|| read(&config));
+        let expected = standing_rev.get(&slot).copied().unwrap_or_else(|| Some(host.setting_revision(&c.plugin, &c.key)));
         if c.source != shown {
-            left.push(json!({"id": id, "why": "a different camera is shown now, so it was left alone"}));
+            left.push(json!({"id": id, "why": "a different camera is shown now, so it was kept: undo again while that camera is shown"}));
+            kept.push(c);
         } else if now != c.now {
             left.push(json!({"id": id, "why": "it was changed since by hand or by another AI app, so it was left as it is", "now": now}));
+        } else if matches!((expected, c.rev), (Some(a), Some(b)) if a != b) {
+            left.push(json!({"id": id, "why": "it was edited since (and has the same value again), so it was left as it is", "now": now}));
         } else {
-            standing.insert(slot, c.was.clone());
+            standing.insert(slot.clone(), c.was.clone());
+            standing_rev.insert(slot, c.rev_before);
             match back.iter_mut().find(|(name, _)| *name == c.plugin) {
                 Some((_, map)) => {
                     map.insert(c.key, c.was);
@@ -1193,7 +1358,8 @@ fn unwind(host: &mut dyn Host, mut changes: Vec<Change>) -> (Vec<Value>, Vec<Val
         }
     }
     for (plugin, map) in back {
-        let Some(group) = groups.iter().find(|g| g.name == plugin) else { continue };
+        let specs: &[SettingSpec] = groups.iter().find(|g| g.name == plugin).map(|g| g.settings.as_slice()).unwrap_or_default();
+        let (declared, raw): (Map<String, Value>, Map<String, Value>) = map.iter().map(|(k, v)| (k.clone(), v.clone())).partition(|(k, _)| specs.iter().any(|s| s.key == *k));
         let before = host.plugin_config(&plugin).unwrap_or(Value::Null);
         let undo = |host: &mut dyn Host| {
             if before.is_object() {
@@ -1201,9 +1367,23 @@ fn unwind(host: &mut dyn Host, mut changes: Vec<Change>) -> (Vec<Value>, Vec<Val
                 host.schedule_save();
             }
         };
-        match host.change_plugin_settings(&plugin, &map) {
+        // The declared ones go in through the plugin's checks, then the rest are put into what that left
+        let put = if declared.is_empty() { Ok(before.clone()) } else { host.change_plugin_settings(&plugin, &declared) };
+        let put = put.map(|after| {
+            if raw.is_empty() {
+                return after;
+            }
+            let mut patched = after.clone();
+            for (key, was) in &raw {
+                put_path(&mut patched, key, was.clone());
+            }
+            host.apply_preset(&plugin, &patched);
+            host.schedule_save();
+            host.plugin_config(&plugin).unwrap_or(patched)
+        });
+        match put {
             Ok(after) => {
-                let also: Vec<String> = group.settings.iter().filter(|s| !map.contains_key(&s.key) && s.read(&before) != s.read(&after)).map(|s| format!("{plugin}.{}", s.key)).collect();
+                let also: Vec<String> = specs.iter().filter(|s| !map.contains_key(&s.key) && s.read(&before) != s.read(&after)).map(|s| format!("{plugin}.{}", s.key)).collect();
                 if also.is_empty() {
                     reverted.extend(map.iter().map(|(key, was)| json!({"id": format!("{plugin}.{key}"), "back_to": was})));
                 } else {
@@ -1218,7 +1398,7 @@ fn unwind(host: &mut dyn Host, mut changes: Vec<Change>) -> (Vec<Value>, Vec<Val
             }
         }
     }
-    (reverted, left)
+    Unwound { reverted, left, kept, rev_before: standing_rev }
 }
 
 impl Plugin for McpPlugin {
@@ -1238,6 +1418,10 @@ impl Plugin for McpPlugin {
 
     fn setup(&mut self, host: &mut dyn Host) {
         self.handle.attach(host.poster());
+    }
+
+    fn on_plugins_ready(&mut self, host: &mut dyn Host) {
+        self.stamp_loaded(host);
     }
 
     fn shutdown(&mut self, host: &mut dyn Host) {
@@ -1265,12 +1449,22 @@ impl Plugin for McpPlugin {
     }
 
     fn get_config(&self) -> Value {
-        json!({"access": self.access.name()})
+        // The undo journal is kept with the settings, so what the AI changed can still be undone after Telescope restarts
+        json!({"access": self.access.name(), "journal": self.journal.iter().map(Change::to_json).collect::<Vec<_>>()})
     }
 
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
         // A missing or unknown value is the default: turning the plugin on is the deliberate choice
         self.access = cfg.get("access").and_then(Value::as_str).and_then(Access::from_name).unwrap_or_default();
+        // A config without a journal (only the access level) leaves the one it has
+        if let Some(list) = cfg.get("journal").and_then(Value::as_array) {
+            let mut journal: Vec<Change> = list.iter().filter_map(Change::from_json).collect();
+            journal.sort_by_key(|c| c.seq);
+            let extra = journal.len().saturating_sub(JOURNAL_KEPT);
+            journal.drain(..extra);
+            self.next_seq = self.next_seq.max(journal.last().map_or(0, |c| c.seq));
+            self.journal = journal;
+        }
         Ok(())
     }
 

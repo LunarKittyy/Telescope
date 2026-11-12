@@ -135,6 +135,40 @@ pub fn put_path(config: &mut Value, key: &str, value: Value) {
     }
 }
 
+/// Every spot of a config as a dotted path with the value there: objects are walked into, everything else (numbers, text, lists, an object whose
+/// own keys have dots in them) is one value.
+fn leaves(config: &Value, prefix: &str, out: &mut std::collections::BTreeMap<String, Value>) {
+    match config {
+        Value::Object(map) if !map.is_empty() && !map.keys().any(|k| k.contains('.') || k.is_empty()) => {
+            for (key, value) in map {
+                let path = if prefix.is_empty() { key.clone() } else { format!("{prefix}.{key}") };
+                leaves(value, &path, out);
+            }
+        }
+        _ if !prefix.is_empty() => {
+            out.insert(prefix.to_string(), config.clone());
+        }
+        _ => {}
+    }
+}
+
+/// What differs between two configs, as (dotted path, before, after): a value that wasn't there is null.
+pub fn leaf_changes(before: &Value, after: &Value) -> Vec<(String, Value, Value)> {
+    let (mut was, mut now) = (std::collections::BTreeMap::new(), std::collections::BTreeMap::new());
+    leaves(before, "", &mut was);
+    leaves(after, "", &mut now);
+    let paths: std::collections::BTreeSet<&String> = was.keys().chain(now.keys()).collect();
+    paths.into_iter()
+        .filter(|p| was.get(*p) != now.get(*p))
+        .map(|p| (p.clone(), was.get(p).cloned().unwrap_or(Value::Null), now.get(p).cloned().unwrap_or(Value::Null)))
+        .collect()
+}
+
+/// Whether two dotted paths are the same spot or one is inside the other.
+pub fn paths_overlap(a: &str, b: &str) -> bool {
+    a == b || a.strip_prefix(b).is_some_and(|rest| rest.starts_with('.')) || b.strip_prefix(a).is_some_and(|rest| rest.starts_with('.'))
+}
+
 /// The settings a change names, checked against what a plugin declares: the config with them put in, or what is wrong.
 /// Every problem is reported at once, and nothing is applied unless all of them are fine.
 pub fn merge_changes(specs: &[SettingSpec], config: &Value, changes: &Map<String, Value>) -> Result<Value, Vec<String>> {
@@ -186,6 +220,21 @@ mod tests {
         assert!(specs[0].check(&json!("yes")).unwrap_err().contains("true or false"));
         assert_eq!(specs[3].check(&json!("fine")).unwrap(), json!("fine"));
         assert_eq!(specs[3].check(&json!("slow")).unwrap_err(), "mode can be fast | fine, not \"slow\"");
+    }
+
+    #[test]
+    fn leaf_changes_name_each_spot_that_moved_and_nothing_that_stayed() {
+        let before = json!({"on": true, "masters": {"gain": 1.0, "lift": 0.0}, "list": [1, 2], "gone": 1});
+        let after = json!({"on": false, "masters": {"gain": 1.0, "lift": 0.2}, "list": [1, 2], "new": "x"});
+        assert_eq!(leaf_changes(&before, &after), vec![
+            ("gone".to_string(), json!(1), Value::Null),
+            ("masters.lift".to_string(), json!(0.0), json!(0.2)),
+            ("new".to_string(), Value::Null, json!("x")),
+            ("on".to_string(), json!(true), json!(false)),
+        ]);
+        assert!(leaf_changes(&before, &before).is_empty());
+        assert!(paths_overlap("masters", "masters.gain") && paths_overlap("masters.gain", "masters") && paths_overlap("on", "on"));
+        assert!(!paths_overlap("masters", "masterss.gain") && !paths_overlap("on", "one"));
     }
 
     #[test]

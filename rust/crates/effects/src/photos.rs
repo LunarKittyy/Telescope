@@ -813,6 +813,23 @@ impl PhotosPlugin {
         self.refresh(host);
     }
 
+    /// The files of a photo that came late: they are saved, and the person is told even with the window in front, since they stopped waiting.
+    fn late(&mut self, host: &mut dyn Host, data: &Value) {
+        let files: Vec<String> = data.get("files").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect()).unwrap_or_default();
+        let Some(first) = files.first() else { return };
+        let name = Path::new(first).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        let more = files.len() - 1;
+        let text = if more > 0 {
+            trn_open("It came late. Saved {name} and {n} more", "It came late. Saved {name} and {n} more", more as i64).field("name", &name)
+        } else {
+            tr("It came late. Saved {name}").field("name", &name)
+        };
+        self.last_saved = files;
+        self.show_status(host, text.clone(), "status_ok");
+        host.send_notification(&tr("Photo saved"), &text, false);
+        self.refresh(host);
+    }
+
     fn open_folder(&self, host: &mut dyn Host) {
         let folder = self.last_saved.first().and_then(|f| Path::new(f).parent().map(Path::to_path_buf)).unwrap_or_else(|| PathBuf::from(&self.folder));
         host.open_url(&telescope_core::system::file_url(&folder));
@@ -878,6 +895,8 @@ impl Plugin for PhotosPlugin {
                     self.release_hold(host);
                 }
             }
+            // A photo that came after its request had ended (a very long exposure): the camera saved it and says so
+            Event::RequestProgress { data, .. } if data.get("state").and_then(Value::as_str) == Some("late") => self.late(host, data),
             Event::RequestProgress { request, data } if self.taking.contains(request) => self.progress(host, data),
             Event::RequestDone { request, data, .. } if self.taking.contains(request) => {
                 self.taking.retain(|r| r != request);
