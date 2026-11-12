@@ -2491,7 +2491,7 @@ mod tests {
         s.colour.set_stage("grade", Some(warm), 0, None);
         s.colour.set_split("grade", Some(0.5));
         let mut steps = s.pipeline_steps(None);
-        let mut run = |steps: &mut Vec<telescope_core::media::StagedStep>| {
+        let run = |steps: &mut Vec<telescope_core::media::StagedStep>| {
             let mut frame = telescope_core::Frame::new(2, 1, telescope_core::frame::PixelFormat::Rgba, vec![9; 8]);
             for st in steps.iter_mut().filter(|st| matches!(st.step, FrameStep::Cpu(_))) {
                 let FrameStep::Cpu(step) = &mut st.step else { unreachable!() };
