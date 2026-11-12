@@ -493,3 +493,15 @@ fn the_preview_button_follows_the_camera_off_and_on_with_the_mic_running() {
     assert_eq!(r.streaming(), ["pixel"]);
     assert!(r.source("pixel").session().unwrap().worker.is_some());
 }
+
+#[test]
+fn the_preview_button_follows_a_second_camera_starting() {
+    let r = previewing("camera-button-two", true);
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    assert!(r.flag("p0-camera-enabled"));
+    r.add("oneplus");
+    r.pump();
+    assert!(!r.flag("p0-camera-enabled"), "only while one camera streams");
+}
