@@ -375,6 +375,22 @@ fn a_group_stays_framed_for_as_long_as_the_reports_keep_alternating_between_its_
 }
 
 #[test]
+fn one_person_who_jumps_across_the_picture_is_still_one_person() {
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(4.0, Some(&[at(0.2)]));
+    // A missed detection, then they are far from where they were
+    r.run(0.5, None);
+    let mut lowest = f32::MAX;
+    for _ in 0..180 {
+        r.run(1.0 / 30.0, Some(&[at(0.6)]));
+        lowest = lowest.min(r.last().0);
+    }
+    assert_eq!(r.plugin.tracked.len(), 1);
+    assert!(lowest > 2.5, "zoomed out to {lowest}");
+}
+
+#[test]
 fn someone_who_moves_is_followed_not_trailed() {
     let (a, b) = (at(0.3), at(0.7));
     let tracked = track(Vec::new(), &[a.clone(), b.clone()], 1.0, ASPECT);

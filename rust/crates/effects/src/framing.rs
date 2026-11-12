@@ -472,8 +472,10 @@ pub struct FramingPlugin {
     status_problem: String,
     // Following
     people: Vec<Person>,
-    /// Each person followed with where they were last reported and when, dropped after GROUP_S unseen
+    /// Each person followed with where they were last reported and when, dropped after GROUP_S unseen; only the current report's people unless two or more were seen together lately
     tracked: Vec<(Person, f64)>,
+    /// When two or more people were last in one report
+    together_at: Option<f64>,
     seen_at: Option<f64>,
     spring: Option<Spring>,
     goal: Option<Target>,
@@ -531,6 +533,7 @@ impl FramingPlugin {
             status_problem: String::new(),
             people: Vec::new(),
             tracked: Vec::new(),
+            together_at: None,
             seen_at: None,
             spring: None,
             goal: None,
@@ -749,14 +752,27 @@ impl FramingPlugin {
         }
     }
 
-    /// Takes this report into the people followed: each one goes to the nearest person already followed, or is new.
+    /// Takes this report into the people followed. Once two or more have been seen together each person goes to the nearest one already followed, or is new; before that, and a while after, only the people in this report count, so one person who jumps is still one person.
     fn remember(&mut self, now: f64, aspect: f64) {
-        self.tracked.retain(|(_, at)| now - at < GROUP_S);
-        self.tracked = track(std::mem::take(&mut self.tracked), &self.people, now, aspect);
+        let group = self.together_at.is_some_and(|at| now - at < GROUP_S);
+        if self.people.iter().filter(|p| body(p, aspect).is_some()).count() >= 2 {
+            self.together_at = Some(now);
+        }
+        if group {
+            self.tracked.retain(|(_, at)| now - at < GROUP_S);
+            self.tracked = track(std::mem::take(&mut self.tracked), &self.people, now, aspect);
+            // Reports that alternate between them are still the group being there
+            if self.tracked.iter().filter(|(_, at)| now - at < HOLD_S).count() >= 2 {
+                self.together_at = Some(now);
+            }
+        } else {
+            self.tracked = track(Vec::new(), &self.people, now, aspect);
+        }
     }
 
     fn forget_group(&mut self) {
         self.tracked.clear();
+        self.together_at = None;
     }
 
     fn on_view_changed(&mut self, view: &View) {
@@ -794,9 +810,10 @@ impl FramingPlugin {
         }
         self.widened = widened;
         // With two or more followed, everyone followed counts, so a report that misses some of them doesn't move the framing; a report with nobody in it finds nobody
+        let together = self.together_at.is_some_and(|at| now - at < GROUP_S);
         let group: Vec<&Person> = self.tracked.iter().filter(|(_, at)| now - at < GROUP_S).map(|(person, _)| person).collect();
         let reported = people.iter().any(|person| body(person, aspect).is_some());
-        let found = if group.len() >= 2 && reported {
+        let found = if together && group.len() >= 2 && reported {
             target_box_with(group, aspect, self.framing_value(), &self.widened, &self.proportions)
         } else {
             target_box_with(people, aspect, self.framing_value(), &self.widened, &self.proportions)
