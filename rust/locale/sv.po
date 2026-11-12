@@ -179,7 +179,7 @@ msgstr "Skaffa VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "Ta bort tangentbordsljud, fläktbrus och rumsbrus."
 
-#: rust/crates/audio/src/plugin.rs:957 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:619 rust/crates/effects/src/notes.rs:683 rust/crates/link/src/browser/plugin.rs:612 rust/crates/link/src/plugin.rs:1409 rust/crates/link/src/plugin.rs:1416 rust/crates/outputs/src/stream_output.rs:948 rust/crates/system/src/shortcuts.rs:528 rust/crates/system/src/shortcuts.rs:530
+#: rust/crates/audio/src/plugin.rs:957 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:619 rust/crates/effects/src/notes.rs:683 rust/crates/link/src/browser/plugin.rs:612 rust/crates/link/src/plugin.rs:1420 rust/crates/link/src/plugin.rs:1427 rust/crates/outputs/src/stream_output.rs:948 rust/crates/system/src/shortcuts.rs:528 rust/crates/system/src/shortcuts.rs:530
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -193,12 +193,12 @@ msgid "unmuted"
 msgstr "ljud på"
 
 #. a switch's state, as in "Phone mic: on"
-#: rust/crates/audio/src/plugin.rs:990 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1253
+#: rust/crates/audio/src/plugin.rs:990 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1274
 msgid "on"
 msgstr "på"
 
 #. a switch's state, as in "Phone mic: on"
-#: rust/crates/audio/src/plugin.rs:990 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1254
+#: rust/crates/audio/src/plugin.rs:990 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1275
 msgid "off"
 msgstr "av"
 
@@ -222,7 +222,7 @@ msgstr "Stäng av"
 msgid "Switch while held, back on release"
 msgstr "Växla medan tangenten hålls ner, tillbaka när du släpper"
 
-#: rust/crates/audio/src/plugin.rs:1047 rust/crates/audio/src/plugin.rs:1139 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1363 rust/crates/outputs/src/stream_output.rs:618 rust/crates/outputs/src/stream_output.rs:635 rust/crates/shell/src/plugins/presets.rs:335 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
+#: rust/crates/audio/src/plugin.rs:1047 rust/crates/audio/src/plugin.rs:1139 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1374 rust/crates/outputs/src/stream_output.rs:618 rust/crates/outputs/src/stream_output.rs:635 rust/crates/shell/src/plugins/presets.rs:335 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
 msgid "Does"
 msgstr "Gör"
 
@@ -395,19 +395,19 @@ msgstr "Steg"
 msgid " stops"
 msgstr " steg"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:453 rust/crates/link/src/plugin.rs:1364 rust/crates/outputs/src/stream_output.rs:619 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:325
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:453 rust/crates/link/src/plugin.rs:1375 rust/crates/outputs/src/stream_output.rs:619 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:325
 msgid "Next"
 msgstr "Nästa"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:453 rust/crates/link/src/plugin.rs:1364 rust/crates/outputs/src/stream_output.rs:619 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:325
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:453 rust/crates/link/src/plugin.rs:1375 rust/crates/outputs/src/stream_output.rs:619 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:325
 msgid "Previous"
 msgstr "Föregående"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1364 rust/crates/outputs/src/stream_output.rs:619
+#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1375 rust/crates/outputs/src/stream_output.rs:619
 msgid "Pick"
 msgstr "Välj"
 
-#: rust/crates/core/src/actions.rs:215 rust/crates/link/src/plugin.rs:1365 rust/crates/outputs/src/stream_output.rs:620
+#: rust/crates/core/src/actions.rs:215 rust/crates/link/src/plugin.rs:1376 rust/crates/outputs/src/stream_output.rs:620
 msgid "Option"
 msgstr "Alternativ"
 
@@ -3925,7 +3925,7 @@ msgstr "telefonen som är inkopplad via USB är en annan"
 msgid "phone plugged in, but Telescope isn't open on it"
 msgstr "telefonen är inkopplad, men Telescope är inte öppet på den"
 
-#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1080 rust/crates/link/src/plugin.rs:1335 rust/crates/link/ui/connection.slint:558 rust/crates/link/ui/connection.slint:559
+#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1090 rust/crates/link/src/plugin.rs:1346 rust/crates/link/ui/connection.slint:558 rust/crates/link/ui/connection.slint:559
 msgid "No device yet"
 msgstr "Ingen enhet än"
 
@@ -4062,109 +4062,109 @@ msgstr "Är det här {name} igen?"
 msgid "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry."
 msgstr "En telefon som heter {name} parkopplades som en ny telefon. Det händer när Telescope har installerats om på den eller dess data har rensats. Väljer du Ja flyttas inställningar och förinställningar för {name} över till den, och den gamla posten tas bort."
 
-#: rust/crates/link/src/plugin.rs:1007
+#: rust/crates/link/src/plugin.rs:1017
 msgid "Phone app updated. Open Telescope on the phone."
 msgstr "Telefonappen har uppdaterats. Öppna Telescope på telefonen."
 
-#: rust/crates/link/src/plugin.rs:1081 rust/crates/link/src/plugin.rs:1102
+#: rust/crates/link/src/plugin.rs:1091 rust/crates/link/src/plugin.rs:1112
 msgctxt "status"
 msgid "Streaming"
 msgstr "Strömmar"
 
-#: rust/crates/link/src/plugin.rs:1082
+#: rust/crates/link/src/plugin.rs:1092
 #, python-brace-format
 msgid "Waiting for {source}"
 msgstr "Väntar på {source}"
 
-#: rust/crates/link/src/plugin.rs:1083
+#: rust/crates/link/src/plugin.rs:1093
 #, python-brace-format
 msgid "{source}, no pairing needed"
 msgstr "{source}, ingen parkoppling behövs"
 
-#: rust/crates/link/src/plugin.rs:1097 rust/crates/shell/src/streams.rs:1039
+#: rust/crates/link/src/plugin.rs:1107 rust/crates/shell/src/streams.rs:1039
 msgid "Reconnecting"
 msgstr "Återansluter"
 
-#: rust/crates/link/src/plugin.rs:1100
+#: rust/crates/link/src/plugin.rs:1110
 msgid "Streaming over USB"
 msgstr "Strömmar via USB"
 
-#: rust/crates/link/src/plugin.rs:1101
+#: rust/crates/link/src/plugin.rs:1111
 msgid "Streaming over Wi-Fi"
 msgstr "Strömmar via Wi-Fi"
 
-#: rust/crates/link/src/plugin.rs:1105 rust/crates/shell/src/streams.rs:1043
+#: rust/crates/link/src/plugin.rs:1115 rust/crates/shell/src/streams.rs:1043
 msgid "Connecting"
 msgstr "Ansluter"
 
-#: rust/crates/link/src/plugin.rs:1121
+#: rust/crates/link/src/plugin.rs:1131
 msgid "Updating the phone app over USB…"
 msgstr "Uppdaterar telefonappen via USB…"
 
-#: rust/crates/link/src/plugin.rs:1125
+#: rust/crates/link/src/plugin.rs:1135
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Telescope-appen på {phone} är äldre än den här."
 
-#: rust/crates/link/src/plugin.rs:1200 rust/crates/setup/src/setup.rs:850 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:691 rust/crates/system/src/shortcuts.rs:839
+#: rust/crates/link/src/plugin.rs:1210 rust/crates/setup/src/setup.rs:850 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:691 rust/crates/system/src/shortcuts.rs:839
 msgid "Copy command"
 msgstr "Kopiera kommando"
 
-#: rust/crates/link/src/plugin.rs:1208 rust/crates/link/src/plugin.rs:1360 rust/crates/link/src/plugin.rs:1409 rust/crates/link/src/plugin.rs:1416 rust/crates/setup/src/monitoring.rs:322 rust/crates/setup/src/stats.rs:421 rust/crates/setup/ui/monitoring.slint:67
+#: rust/crates/link/src/plugin.rs:1218 rust/crates/link/src/plugin.rs:1371 rust/crates/link/src/plugin.rs:1420 rust/crates/link/src/plugin.rs:1427 rust/crates/setup/src/monitoring.rs:322 rust/crates/setup/src/stats.rs:421 rust/crates/setup/ui/monitoring.slint:67
 msgid "Phone"
 msgstr "Telefon"
 
-#: rust/crates/link/src/plugin.rs:1208
+#: rust/crates/link/src/plugin.rs:1218
 #, python-brace-format
 msgid "Phone · {ip}"
 msgstr "Telefon · {ip}"
 
-#: rust/crates/link/src/plugin.rs:1209
+#: rust/crates/link/src/plugin.rs:1219
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes its camera settings on this computer, and unpairs it on the phone too if Telescope can reach it."
 msgstr "Vill du ta bort \"{name}\"? Det raderar kamerainställningarna på den här datorn och tar även bort parkopplingen på telefonen om Telescope kan nå den."
 
-#: rust/crates/link/src/plugin.rs:1212
+#: rust/crates/link/src/plugin.rs:1222
 #, python-brace-format
 msgid "Rename {name}"
 msgstr "Byt namn på {name}"
 
-#: rust/crates/link/src/plugin.rs:1213 rust/crates/link/src/plugin.rs:1220
+#: rust/crates/link/src/plugin.rs:1223 rust/crates/link/src/plugin.rs:1230
 #, python-brace-format
 msgid "Remove {name}"
 msgstr "Ta bort {name}"
 
-#: rust/crates/link/src/plugin.rs:1214
+#: rust/crates/link/src/plugin.rs:1224
 msgid "Remove phone"
 msgstr "Ta bort telefon"
 
-#: rust/crates/link/src/plugin.rs:1217
+#: rust/crates/link/src/plugin.rs:1227
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes the settings it had on this computer. It can still connect with the code, and starts from the defaults."
 msgstr "Vill du ta bort \"{name}\"? Det raderar inställningarna som den hade på den här datorn. Den kan fortfarande ansluta med koden och börjar om från standardinställningarna."
 
-#: rust/crates/link/src/plugin.rs:1221
+#: rust/crates/link/src/plugin.rs:1231
 msgid "Remove browser"
 msgstr "Ta bort webbläsare"
 
-#: rust/crates/link/src/plugin.rs:1521
+#: rust/crates/link/src/plugin.rs:1532
 msgid "Virtual camera is set up differently"
 msgstr "Den virtuella kameran är inställd på ett annat sätt"
 
-#: rust/crates/link/src/plugin.rs:1522
+#: rust/crates/link/src/plugin.rs:1533
 #, python-brace-format
 msgid "v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:"
 msgstr "v4l2loopback är laddad, men utan {device}: en annan app har ställt in den med andra inställningar. Stäng den appen och kör det här för att lämna över den till Telescope:"
 
-#: rust/crates/link/src/plugin.rs:1532
+#: rust/crates/link/src/plugin.rs:1543
 msgid "The virtual camera is off"
 msgstr "Den virtuella kameran är av"
 
-#: rust/crates/link/src/plugin.rs:1532
+#: rust/crates/link/src/plugin.rs:1543
 msgid "Switching it on asks for your password."
 msgstr "Du behöver ange ditt lösenord för att slå på den."
 
-#: rust/crates/link/src/plugin.rs:1533 rust/crates/shell/src/plugins_tab.rs:621 rust/crates/shell/src/plugins_tab.rs:640
+#: rust/crates/link/src/plugin.rs:1544 rust/crates/shell/src/plugins_tab.rs:621 rust/crates/shell/src/plugins_tab.rs:640
 msgid "Switch on"
 msgstr "Slå på"
 
@@ -5293,12 +5293,12 @@ msgid "Copied"
 msgstr "Kopierat"
 
 #: rust/crates/setup/src/setup.rs:522
-msgid "The graphics card failed and the processor is decoding until you restart Telescope"
-msgstr "Grafikkortet slutade fungera och processorn avkodar tills du startar om Telescope"
+msgid "Off until you restart Telescope because the graphics card failed"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:523
-msgid "The graphics card was too slow, so the processor is decoding for now"
-msgstr "Grafikkortet var för långsamt, så processorn avkodar så länge"
+msgid "Paused for a few minutes because the graphics card was too slow"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:524
 #, python-brace-format
@@ -7902,170 +7902,170 @@ msgstr "En annan app använder redan den här tangenten"
 msgid "Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all, so pick another."
 msgstr "Kortkommandon som gäller Överallt tas över från Windows medan Telescope körs. En tangent som en annan app redan har tagit når aldrig Telescope, så välj en annan."
 
-#: rust/crates/system/src/mcp.rs:639 rust/crates/system/src/mcp.rs:782
+#: rust/crates/system/src/mcp.rs:643 rust/crates/system/src/mcp.rs:786
 msgid "An AI app"
 msgstr "En AI-app"
 
-#: rust/crates/system/src/mcp.rs:645
+#: rust/crates/system/src/mcp.rs:649
 #, python-brace-format
 msgid "Refused (read only): {what}"
 msgstr "Nekades (skrivskyddat): {what}"
 
-#: rust/crates/system/src/mcp.rs:674
+#: rust/crates/system/src/mcp.rs:678
 #, python-brace-format
 msgid "Failed: {what}"
 msgstr "Misslyckades: {what}"
 
-#: rust/crates/system/src/mcp.rs:705
+#: rust/crates/system/src/mcp.rs:709
 msgid "Read status"
 msgstr "Läste status"
 
-#: rust/crates/system/src/mcp.rs:706
+#: rust/crates/system/src/mcp.rs:710
 msgid "Read stats"
 msgstr "Läste statistik"
 
-#: rust/crates/system/src/mcp.rs:707
+#: rust/crates/system/src/mcp.rs:711
 #, python-brace-format
 msgid "Watched stats for {n} s"
 msgstr "Bevakade statistik i {n} s"
 
-#: rust/crates/system/src/mcp.rs:708
+#: rust/crates/system/src/mcp.rs:712
 msgid "Read diagnostics"
 msgstr "Läste diagnostik"
 
-#: rust/crates/system/src/mcp.rs:709
+#: rust/crates/system/src/mcp.rs:713
 msgid "Measured the picture"
 msgstr "Mätte bilden"
 
-#: rust/crates/system/src/mcp.rs:711
+#: rust/crates/system/src/mcp.rs:715
 #, python-brace-format
 msgid "Listed the {plugin} settings"
 msgstr "Listade inställningarna för {plugin}"
 
-#: rust/crates/system/src/mcp.rs:712
+#: rust/crates/system/src/mcp.rs:716
 msgid "Listed every setting"
 msgstr "Listade alla inställningar"
 
-#: rust/crates/system/src/mcp.rs:715
+#: rust/crates/system/src/mcp.rs:719
 #, python-brace-format
 msgid "Read {names}"
 msgstr "Läste {names}"
 
-#: rust/crates/system/src/mcp.rs:716
+#: rust/crates/system/src/mcp.rs:720
 msgid "Read every setting"
 msgstr "Läste alla inställningar"
 
-#: rust/crates/system/src/mcp.rs:719
+#: rust/crates/system/src/mcp.rs:723
 #, python-brace-format
 msgid "Set {changes}"
 msgstr "Ställde in {changes}"
 
-#: rust/crates/system/src/mcp.rs:719
+#: rust/crates/system/src/mcp.rs:723
 #, python-brace-format
 msgid "{name} to {value}"
 msgstr "{name} till {value}"
 
-#: rust/crates/system/src/mcp.rs:720
+#: rust/crates/system/src/mcp.rs:724
 msgid "Set settings"
 msgstr "Ändrade inställningar"
 
-#: rust/crates/system/src/mcp.rs:722
+#: rust/crates/system/src/mcp.rs:726
 msgid "Undid its changes"
 msgstr "Ångrade sina ändringar"
 
-#: rust/crates/system/src/mcp.rs:723
+#: rust/crates/system/src/mcp.rs:727
 msgid "Listed the actions"
 msgstr "Listade åtgärderna"
 
-#: rust/crates/system/src/mcp.rs:727
+#: rust/crates/system/src/mcp.rs:731
 #, python-brace-format
 msgid "Ran {action}"
 msgstr "Körde {action}"
 
-#: rust/crates/system/src/mcp.rs:768
+#: rust/crates/system/src/mcp.rs:772
 msgid "MCP server settings"
 msgstr "Inställningar för MCP-server"
 
-#: rust/crates/system/src/mcp.rs:769
+#: rust/crates/system/src/mcp.rs:773
 msgid "An AI app is connected."
 msgstr "En AI-app är ansluten."
 
-#: rust/crates/system/src/mcp.rs:769
+#: rust/crates/system/src/mcp.rs:773
 msgid "No AI app is connected. Open the MCP settings."
 msgstr "Ingen AI-app är ansluten. Öppna MCP-inställningarna."
 
-#: rust/crates/system/src/mcp.rs:770
+#: rust/crates/system/src/mcp.rs:774
 msgid "Undo what the AI changed"
 msgstr "Ångra vad AI:n ändrade"
 
-#: rust/crates/system/src/mcp.rs:771
+#: rust/crates/system/src/mcp.rs:775
 msgid "Undo what the AI changed."
 msgstr "Ångra vad AI:n ändrade."
 
-#: rust/crates/system/src/mcp.rs:771
+#: rust/crates/system/src/mcp.rs:775
 msgid "The AI hasn't changed anything."
 msgstr "AI:n har inte ändrat något."
 
-#: rust/crates/system/src/mcp.rs:786
+#: rust/crates/system/src/mcp.rs:790
 msgid "No AI app is connected"
 msgstr "Ingen AI-app är ansluten"
 
-#: rust/crates/system/src/mcp.rs:787
+#: rust/crates/system/src/mcp.rs:791
 msgid "Read only"
 msgstr "Bara läsning"
 
-#: rust/crates/system/src/mcp.rs:787
+#: rust/crates/system/src/mcp.rs:791
 msgid "Read and change"
 msgstr "Läs och ändra"
 
-#: rust/crates/system/src/mcp.rs:790
+#: rust/crates/system/src/mcp.rs:794
 msgid "Copy the entry for an AI app's MCP settings."
 msgstr "Kopiera posten för en AI-apps MCP-inställningar."
 
-#: rust/crates/system/src/mcp.rs:792
+#: rust/crates/system/src/mcp.rs:796
 msgid "Nothing yet"
 msgstr "Inget än"
 
-#: rust/crates/system/src/mcp.rs:1165
+#: rust/crates/system/src/mcp.rs:1186
 msgid "Undid what the AI changed"
 msgstr "Ångrade vad AI:n ändrade"
 
-#: rust/crates/system/src/mcp.rs:1165
+#: rust/crates/system/src/mcp.rs:1186
 #, python-brace-format
 msgid "Undid what the AI changed, except {n} it couldn't put back"
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:1166
+#: rust/crates/system/src/mcp.rs:1187
 msgid "You"
 msgstr "Du"
 
-#: rust/crates/system/src/mcp.rs:1265
+#: rust/crates/system/src/mcp.rs:1286
 #, python-brace-format
 msgid "{list} and {n} more"
 msgstr "{list} och {n} till"
 
-#: rust/crates/system/src/mcp.rs:1447 rust/crates/system/ui/mcp.slint:29
+#: rust/crates/system/src/mcp.rs:1468 rust/crates/system/ui/mcp.slint:29
 msgid "MCP server"
 msgstr "MCP-server"
 
-#: rust/crates/system/src/mcp.rs:1448
+#: rust/crates/system/src/mcp.rs:1469
 msgid "Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port."
 msgstr "Låter en AI-app som Claude Desktop titta på Telescope och ändra dess inställningar, via ett kommando som inte öppnar någon nätverksport."
 
-#: rust/crates/system/src/mcp.rs:1449
+#: rust/crates/system/src/mcp.rs:1470
 msgid "Without it AI apps can't connect to Telescope."
 msgstr "Utan det kan AI-appar inte ansluta till Telescope."
 
-#: rust/crates/system/src/mcp.rs:1484 rust/crates/system/ui/mcp.slint:227
+#: rust/crates/system/src/mcp.rs:1505 rust/crates/system/ui/mcp.slint:227
 msgid "MCP"
 msgstr "MCP"
 
-#: rust/crates/system/src/mcp.rs:1485 rust/crates/system/ui/mcp.slint:31
+#: rust/crates/system/src/mcp.rs:1506 rust/crates/system/ui/mcp.slint:31
 msgctxt "search"
 msgid "mcp ai claude model assistant agent connect access read only"
 msgstr "mcp ai claude modell assistent agent anslut åtkomst bara läsning skrivskyddad model assistant connect access read only"
 
-#: rust/crates/system/src/mcp.rs:1535
+#: rust/crates/system/src/mcp.rs:1556
 msgid "An AI app is connected to Telescope through the MCP server."
 msgstr "En AI-app är ansluten till Telescope via MCP-servern."
 
@@ -9236,6 +9236,12 @@ msgstr "Kunde inte öppna den"
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "Kunde inte starta om"
+
+#~ msgid "The graphics card failed and the processor is decoding until you restart Telescope"
+#~ msgstr "Grafikkortet slutade fungera och processorn avkodar tills du startar om Telescope"
+
+#~ msgid "The graphics card was too slow, so the processor is decoding for now"
+#~ msgstr "Grafikkortet var för långsamt, så processorn avkodar så länge"
 
 #~ msgid "Blur the others"
 #~ msgstr "Gör de andra oskarpa"
