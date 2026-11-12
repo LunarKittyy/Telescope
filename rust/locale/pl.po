@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">Przekaż darowiznę lub dowiedz się więcej</a>"
 msgid "No mic"
 msgstr "Brak mikrofonu"
 
-#: rust/crates/audio/src/plugin.rs:110 rust/crates/core/src/vision.rs:103 rust/crates/shell/src/plugins_tab.rs:432 rust/crates/system/src/updates_plugin.rs:451
+#: rust/crates/audio/src/plugin.rs:110 rust/crates/core/src/vision.rs:103 rust/crates/shell/src/plugins_tab.rs:432 rust/crates/system/src/updates_plugin.rs:456
 msgid "Downloading…"
 msgstr "Pobieranie…"
 
@@ -6647,7 +6647,7 @@ msgstr "Odległość ostrzenia"
 msgid "Install the v4l2loopback package. Fedora and Nobara: v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms."
 msgstr "Zainstaluj pakiet v4l2loopback. Fedora i Nobara: v4l2loopback (z RPM Fusion). Debian, Ubuntu i Arch: v4l2loopback-dkms."
 
-#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:459
+#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:464
 msgid "Checking…"
 msgstr "Sprawdzanie…"
 
@@ -6667,7 +6667,7 @@ msgstr "Zainstalowano."
 msgid "Check again"
 msgstr "Sprawdź ponownie"
 
-#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:453
+#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:458
 msgid "Installing…"
 msgstr "Instalowanie…"
 
@@ -7837,7 +7837,7 @@ msgstr "Pliku AppImage nie można podmienić na wersję w Pythonie. Pobierz plik
 msgid "Telescope can't swap its own files here, because its folder isn't writable. Download {version} from its release page and install it yourself."
 msgstr "Telescope nie może tu podmienić własnych plików, ponieważ jego folder nie ma praw zapisu. Pobierz wersję {version} z jej strony wydania i zainstaluj ją samodzielnie."
 
-#: rust/crates/system/src/going_back.rs:247 rust/crates/system/src/updates_plugin.rs:523
+#: rust/crates/system/src/going_back.rs:247 rust/crates/system/src/updates_plugin.rs:528
 msgid "Open download page"
 msgstr "Otwórz stronę pobierania"
 
@@ -8164,21 +8164,25 @@ msgstr "Brak działania o nazwie {action}. Polecenie telescope --list-actions wy
 msgid "{action} can't be used right now (no device, or the control is off)."
 msgstr "Nie można teraz użyć akcji {action} (brak urządzenia lub element sterujący jest wyłączony)."
 
-#: rust/crates/system/src/setup_move.rs:350
+#: rust/crates/system/src/setup_move.rs:381
+msgid "A newer Telescope is already installed, so this copy stays as it is. Open the installed one from the Start menu."
+msgstr ""
+
+#: rust/crates/system/src/setup_move.rs:389
 msgid "The installer took too long, so this copy stays as it is."
 msgstr "Instalator działał zbyt długo, więc ta kopia pozostaje bez zmian."
 
-#: rust/crates/system/src/setup_move.rs:352
+#: rust/crates/system/src/setup_move.rs:391
 #, python-brace-format
 msgid "Couldn't start the installer: {error}"
 msgstr "Nie udało się uruchomić instalatora: {error}"
 
-#: rust/crates/system/src/setup_move.rs:356
+#: rust/crates/system/src/setup_move.rs:395
 #, python-brace-format
 msgid "The installer stopped (code {code}), so this copy stays as it is."
 msgstr "Instalator został zatrzymany (kod {code}), więc ta kopia pozostaje bez zmian."
 
-#: rust/crates/system/src/setup_move.rs:360
+#: rust/crates/system/src/setup_move.rs:399
 msgid "Telescope was installed, but its folder wasn't where expected. Open it from the Start menu."
 msgstr "Program Telescope został zainstalowany, ale jego folder nie znajduje się w oczekiwanym miejscu. Otwórz go z menu Start."
 
@@ -8517,7 +8521,7 @@ msgstr "Nie udało się podmienić plików programu Telescope: {error}"
 msgid "{file} is in use, so the update wasn't installed. Try again after a restart."
 msgstr "Plik {file} jest używany, więc aktualizacja nie została zainstalowana. Spróbuj ponownie po ponownym uruchomieniu."
 
-#: rust/crates/system/src/updates.rs:622 rust/crates/system/src/updates_plugin.rs:97 rust/crates/system/src/updates_plugin.rs:168 rust/crates/system/src/updates_plugin.rs:240 rust/crates/system/src/updates_plugin.rs:616 rust/crates/system/src/updates_plugin.rs:791
+#: rust/crates/system/src/updates.rs:622 rust/crates/system/src/updates_plugin.rs:97 rust/crates/system/src/updates_plugin.rs:168 rust/crates/system/src/updates_plugin.rs:240 rust/crates/system/src/updates_plugin.rs:621 rust/crates/system/src/updates_plugin.rs:796
 msgid "The update failed."
 msgstr "Aktualizacja nie powiodła się."
 
@@ -8533,78 +8537,78 @@ msgstr "Stabilny"
 msgid "Nightly"
 msgstr "Nightly"
 
-#: rust/crates/system/src/updates_plugin.rs:449
+#: rust/crates/system/src/updates_plugin.rs:454
 #, python-brace-format
 msgid "Downloading {percent}%…"
 msgstr "Pobieranie {percent} %…"
 
-#: rust/crates/system/src/updates_plugin.rs:454
+#: rust/crates/system/src/updates_plugin.rs:459
 msgid "Setting up Python's libraries. This takes a few minutes…"
 msgstr "Konfigurowanie bibliotek Pythona. To zajmie kilka minut…"
 
-#: rust/crates/system/src/updates_plugin.rs:455
+#: rust/crates/system/src/updates_plugin.rs:460
 msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "Zaktualizowano. Telescope uruchomi się ponownie po zatrzymaniu strumieniowania."
 
-#: rust/crates/system/src/updates_plugin.rs:465
+#: rust/crates/system/src/updates_plugin.rs:470
 msgid "Going back to the Python version didn't work because it didn't start, so this version is back."
 msgstr "Powrót do wersji w Pythonie nie powiódł się, ponieważ się nie uruchomiła - przywrócono obecną wersję."
 
-#: rust/crates/system/src/updates_plugin.rs:470
+#: rust/crates/system/src/updates_plugin.rs:475
 msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along."
 msgstr "Aktualizacja instaluje go również dla twojego konta, ze skrótem w menu Start, i usuwa tę rozpakowaną kopię. Ustawienia i telefony zostaną zachowane."
 
-#: rust/crates/system/src/updates_plugin.rs:476
+#: rust/crates/system/src/updates_plugin.rs:481
 msgid "Stop streaming to update."
 msgstr "Zatrzymaj strumieniowanie, aby zaktualizować."
 
-#: rust/crates/system/src/updates_plugin.rs:488
+#: rust/crates/system/src/updates_plugin.rs:493
 msgid "This is a source checkout, so it doesn't update itself."
 msgstr "To jest wersja ze źródeł, więc nie aktualizuje się automatycznie."
 
-#: rust/crates/system/src/updates_plugin.rs:496
+#: rust/crates/system/src/updates_plugin.rs:501
 msgid "There's no nightly release yet."
 msgstr "Nie ma jeszcze wydania nightly."
 
-#: rust/crates/system/src/updates_plugin.rs:496
+#: rust/crates/system/src/updates_plugin.rs:501
 msgid "There's no stable release yet."
 msgstr "Nie ma jeszcze wydania stabilnego."
 
-#: rust/crates/system/src/updates_plugin.rs:498
+#: rust/crates/system/src/updates_plugin.rs:503
 msgid "You have the latest version."
 msgstr "Masz najnowszą wersję."
 
-#: rust/crates/system/src/updates_plugin.rs:502
+#: rust/crates/system/src/updates_plugin.rs:507
 #, python-brace-format
 msgid "Telescope {version} is available"
 msgstr "Telescope {version} jest dostępny"
 
-#: rust/crates/system/src/updates_plugin.rs:523
+#: rust/crates/system/src/updates_plugin.rs:528
 msgid "Update and restart"
 msgstr "Zaktualizuj i uruchom ponownie"
 
-#: rust/crates/system/src/updates_plugin.rs:527
+#: rust/crates/system/src/updates_plugin.rs:532
 msgid "Stop streaming to go back."
 msgstr "Zatrzymaj strumieniowanie, aby wrócić do starszej wersji."
 
-#: rust/crates/system/src/updates_plugin.rs:527
+#: rust/crates/system/src/updates_plugin.rs:532
 #, python-brace-format
 msgid "Swap this version for the last Python version, {version}."
 msgstr "Zamień tę wersję na ostatnią wersję w Pythonie ({version})."
 
-#: rust/crates/system/src/updates_plugin.rs:684
+#: rust/crates/system/src/updates_plugin.rs:689
 msgid "Couldn't check for updates."
 msgstr "Nie udało się sprawdzić aktualizacji."
 
-#: rust/crates/system/src/updates_plugin.rs:841
+#: rust/crates/system/src/updates_plugin.rs:846
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "Zaktualizowano. Zamknij i otwórz ponownie Telescope, aby dokończyć."
 
-#: rust/crates/system/src/updates_plugin.rs:857
+#: rust/crates/system/src/updates_plugin.rs:862
 msgid "Updates"
 msgstr "Aktualizacje"
 
-#: rust/crates/system/src/updates_plugin.rs:858
+#: rust/crates/system/src/updates_plugin.rs:863
 msgid "Checking for new versions of Telescope and installing them."
 msgstr "Sprawdzanie nowych wersji programu Telescope i instalowanie ich."
 
@@ -9112,22 +9116,22 @@ msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "rozciągnij ściśnij proporcje wysoki pionowy stretch squish aspect tall"
 
-#: rust/crates/system/src/updates_plugin.rs:468
+#: rust/crates/system/src/updates_plugin.rs:473
 #, python-brace-format
 msgid "Telescope {version} is available."
 msgstr "Telescope {version} jest dostępny."
 
-#: rust/crates/system/src/updates_plugin.rs:484
+#: rust/crates/system/src/updates_plugin.rs:489
 #, python-brace-format
 msgid "Telescope {version} didn't start after updating, so it's held back. Try again?"
 msgstr "Program Telescope {version} nie uruchomił się po aktualizacji, więc został wstrzymany. Spróbować ponownie?"
 
-#: rust/crates/system/src/updates_plugin.rs:490
+#: rust/crates/system/src/updates_plugin.rs:495
 #, python-brace-format
 msgid "The latest nightly build is {version}."
 msgstr "Najnowsza kompilacja nightly to {version}."
 
-#: rust/crates/system/src/updates_plugin.rs:490
+#: rust/crates/system/src/updates_plugin.rs:495
 #, python-brace-format
 msgid "The latest stable build is {version}."
 msgstr "Najnowsza wersja stabilna to {version}."

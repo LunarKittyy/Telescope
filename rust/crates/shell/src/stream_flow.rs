@@ -180,6 +180,7 @@ impl StreamFlow {
         }
         self.start_id = source.id.clone();
         host.clear_issue(&format!("stopped:{}", source.id_str()));
+        host.emit(Event::StreamStartBegan); // before the phone wakes, so nothing takes the camera or the phone's connection from under it
         self.sessions.preparing = true;
         let ok = catch_unwind(AssertUnwindSafe(|| host.camera_ready(interactive, source.id.as_deref()) && source.kind.prepare(interactive)));
         let ok = ok.unwrap_or_else(|_| {
@@ -1293,6 +1294,7 @@ mod tests {
         let (mut flow, mut host) = setup();
         host.select_device(Some("phone"));
         flow.start(&mut host, true, None);
+        assert!(logged(&host, "stream_start_began") && flow.sessions.waking, "the start is announced while the phone is still waking");
         let phone = host.sources["phone"].clone();
         assert!(host.stands["phone"].woken.get() && flow.sessions.waking && is(&flow.sessions.wake_source, "phone"));
         assert!(flow.sessions.streams.is_empty());

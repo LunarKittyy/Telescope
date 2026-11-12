@@ -7,7 +7,7 @@ mod unix {
     use std::path::{Path, PathBuf};
     use std::process::Child;
     use std::time::{Duration, Instant};
-    use telescope_system::update_guard::{confirm_on_terminate, failed_build, launch, read_journal, recover, EXE_NAME, JOURNAL};
+    use telescope_system::update_guard::{confirm_on_terminate_as, failed_build, launch, read_journal, recover, EXE_NAME, JOURNAL};
     use telescope_system::updates::install_windows;
 
     fn nobody() -> bool {
@@ -16,7 +16,9 @@ mod unix {
 
     /// The child's half: a start on trial, waiting for the system to end it.
     pub fn child(app: PathBuf) {
-        confirm_on_terminate(app.clone());
+        // The build this copy is: 131 is the one on trial in on_trial()
+        let build = std::env::var("TELESCOPE_TERMINATE_BUILD").ok().and_then(|b| b.parse().ok()).unwrap_or(131);
+        confirm_on_terminate_as(app.clone(), build);
         // What a relaunched copy starts with, whatever this copy did about the signals
         let line = format!("grep -E 'Sig(Blk|Ign)' /proc/self/status > '{0}.tmp'; mv '{0}.tmp' '{0}'", app.join("child-signals").display());
         launch(&["/bin/sh".to_string(), "-c".to_string(), line]).unwrap();
@@ -26,7 +28,11 @@ mod unix {
 
     /// A child with confirm_on_terminate installed, past the point where it hears signals.
     fn start_child(app: &Path) -> Child {
-        let child = std::process::Command::new(std::env::current_exe().unwrap()).env("TELESCOPE_TERMINATE_APP", app).spawn().unwrap();
+        start_child_as(app, 131)
+    }
+
+    fn start_child_as(app: &Path, build: i64) -> Child {
+        let child = std::process::Command::new(std::env::current_exe().unwrap()).env("TELESCOPE_TERMINATE_APP", app).env("TELESCOPE_TERMINATE_BUILD", build.to_string()).spawn().unwrap();
         let waited = Instant::now();
         while !app.join("ready").exists() {
             assert!(waited.elapsed() < Duration::from_secs(10), "the child never got ready");
@@ -83,6 +89,17 @@ mod unix {
         }
     }
 
+    pub fn the_old_copy_waiting_to_restart_leaves_the_way_back_when_it_gets_a_logout() {
+        let app = on_trial("terminate-old");
+        let mut child = start_child_as(&app, 130); // the copy that installed 131, not the one on trial
+        send(&child, libc::SIGTERM);
+        assert_eq!(child.wait().unwrap().signal(), Some(libc::SIGTERM));
+        assert_eq!(read_journal(&app).unwrap()["state"], "trial", "still on trial");
+        assert!(recover(&app, Duration::ZERO, &nobody, Duration::ZERO).is_some(), "the new build failing still rolls back");
+        assert_eq!(failed_build(&app), Some(131));
+        assert_eq!(std::fs::read_to_string(app.join(EXE_NAME)).unwrap(), "exe 130");
+    }
+
     pub fn a_start_that_dies_with_no_signal_still_rolls_back() {
         let app = on_trial("terminate-killed");
         let mut child = start_child(&app); // installed, but never run: a hard kill or a crash
@@ -103,8 +120,9 @@ mod unix {
 }
 
 #[cfg(unix)]
-const TESTS: [(&str, fn()); 3] = [
+const TESTS: [(&str, fn()); 4] = [
     ("sigterm_during_the_first_start_confirms_instead_of_rolling_back", unix::sigterm_during_the_first_start_confirms_instead_of_rolling_back),
+    ("the_old_copy_waiting_to_restart_leaves_the_way_back_when_it_gets_a_logout", unix::the_old_copy_waiting_to_restart_leaves_the_way_back_when_it_gets_a_logout),
     ("a_start_that_dies_with_no_signal_still_rolls_back", unix::a_start_that_dies_with_no_signal_still_rolls_back),
     ("sigterm_with_no_update_in_progress_leaves_no_journal_behind", unix::sigterm_with_no_update_in_progress_leaves_no_journal_behind),
 ];
