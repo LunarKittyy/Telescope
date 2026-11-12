@@ -1118,6 +1118,45 @@ pub(crate) mod tests {
         }
     }
 
+    /// A card that took ms a picture for the last few seconds at 30 fps, as the decoder would have timed it.
+    fn card_that_took(dec: &H264, ms: f64) {
+        let now = Instant::now();
+        let mut times = slow::Timings::default();
+        for i in 0..100u32 {
+            times.record(now - std::time::Duration::from_millis(3400 - u64::from(i) * 33), ms);
+        }
+        dec.timings.lock().unwrap().times = times;
+    }
+
+    #[test]
+    fn a_card_too_slow_for_the_stream_hands_over_to_software_for_a_while() {
+        let Some(packets) = testenc::h264(&(60..90).collect::<Vec<u8>>(), 64, 48, 5) else { return };
+        let _turn = card_test();
+        *COOLDOWN.lock().unwrap() = slow::Cooldown::new();
+        let mut dec = pretend_hardware(None);
+        dec.feed(&packets[0]);
+        // A slow integrated card: 45 ms a picture against 33 ms between pictures
+        card_that_took(&dec, 45.0);
+        assert!(dec.feed(&packets[1]).0.is_some());
+        let switched = dec.hw().is_none() && !hardware_failed() && hardware_slow() && dec.retry_hw == Some(Hw::Cuda);
+        *COOLDOWN.lock().unwrap() = slow::Cooldown::new();
+        assert!(switched, "still on {:?}", dec.hw());
+    }
+
+    #[test]
+    fn a_card_that_keeps_up_stays_on_the_card() {
+        let Some(packets) = testenc::h264(&(60..90).collect::<Vec<u8>>(), 64, 48, 5) else { return };
+        let _turn = card_test();
+        *COOLDOWN.lock().unwrap() = slow::Cooldown::new();
+        let mut dec = pretend_hardware(None);
+        dec.feed(&packets[0]);
+        card_that_took(&dec, 6.0);
+        assert!(dec.feed(&packets[1]).0.is_some());
+        let stayed = dec.hw() == Some(Hw::Cuda) && !hardware_slow();
+        *COOLDOWN.lock().unwrap() = slow::Cooldown::new();
+        assert!(stayed, "left the card for {:?}", dec.hw());
+    }
+
     #[test]
     fn linux_tries_va_api_before_cuda_when_ffmpeg_has_it() {
         #[cfg(not(windows))]
