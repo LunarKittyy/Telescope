@@ -631,12 +631,15 @@ pub fn install_appimage(new: &Path, current: &Path, extracted: bool, build: i64,
     }
     let staging = directory.join(STAGING_DIR);
     let staged = staging.join(&name);
+    // The folder is often shared (Downloads), so a staging or .previous that isn't an update's own is left alone and stops the install
+    if update_guard::remove_appimage_leftover(&staging, &name).is_err() {
+        return Err(failed());
+    }
     let refused = |e: UpdateError| {
         let _ = std::fs::remove_dir_all(&staging);
         e
     };
     // Beside the old one and not in the temp folder, which is often another filesystem that a rename can't cross
-    let _ = std::fs::remove_dir_all(&staging);
     let placed = std::fs::create_dir_all(&staging).and_then(|_| std::fs::copy(new, &staged)).and_then(|_| {
         std::fs::set_permissions(&staged, std::fs::metadata(current)?.permissions())?;
         std::fs::File::open(&staged)?.sync_all()
@@ -646,7 +649,7 @@ pub fn install_appimage(new: &Path, current: &Path, extracted: bool, build: i64,
         return Err(refused(UpdateError(tr("This update wasn't installed because it can't start on this computer."))));
     }
     let previous = directory.join(PREVIOUS_DIR);
-    if previous.exists() && update_guard::remove(&previous).is_err() {
+    if update_guard::remove_appimage_leftover(&previous, &name).is_err() {
         return Err(refused(failed()));
     }
     swap(directory, json!({"platform": "linux", "to_build": build, "entries": [name], "added": [], "appimage": name}), mv)?;
