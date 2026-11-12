@@ -186,12 +186,33 @@ fn blur_blurs_only_behind_the_person() {
 }
 
 #[test]
-fn without_a_mask_yet_the_frame_goes_out_as_it_is() {
+fn without_a_mask_yet_the_whole_frame_is_blurred() {
     let mut rig = Rig::new(None, vision::LOADING);
     rig.set_mode("blur");
-    let frame = Rgb::filled(64, 36, [200, 200, 200]);
-    assert_eq!(rig.process(&frame), frame);
+    let frame = stripes(64, 40);
+    assert_eq!(rig.process(&frame), blurred(&frame, 6, None));
+    assert_ne!(rig.process(&frame), frame);
     assert_eq!(rig.shown("vision-text"), json!("Getting ready…"));
+}
+
+#[test]
+fn without_a_mask_yet_a_picture_covers_the_whole_frame() {
+    let mut rig = Rig::with(BackgroundPlugin::with_reader(reader_of([0, 0, 255])), None, vision::LOADING);
+    rig.plugin.load_picture("/pics/beach.png");
+    rig.set_mode("picture");
+    let out = rig.process(&Rgb::filled(64, 36, [200, 200, 200]));
+    assert!(out.data.as_chunks::<3>().0.iter().all(|p| *p == [0, 0, 255]));
+}
+
+#[test]
+fn a_frame_in_yuv_without_a_mask_is_hidden_too() {
+    let mut rig = Rig::new(None, vision::LOADING);
+    rig.set_mode("blur");
+    let source = i420_of(&stripes(64, 40));
+    let mut frame = source.clone();
+    let Some(FrameStep::Cpu(mut step)) = rig.plugin.frame_step() else { panic!("a CPU step") };
+    step.process(&mut frame, &rig.ctx);
+    assert_ne!(frame.data, source.data);
 }
 
 #[test]
@@ -233,8 +254,11 @@ fn picture_mode_puts_the_picture_behind_and_survives_a_bad_file() {
     assert!(column(&out, 40, 64).as_chunks::<3>().0.iter().all(|p| *p == [0, 0, 255]) && column(&out, 0, 30).iter().all(|v| *v == 200));
     assert_eq!(rig.plugin.get_config()["picture"], json!("/pics/beach.png"));
     rig.plugin.set_config(&json!({"mode": "picture", "picture": "/pics/gone.png"})).unwrap();
-    let frame = Rgb::filled(64, 36, [200, 200, 200]);
-    assert_eq!(rig.process(&frame), frame);
+    rig.ui("edges-moved", vec![json!(0)]);
+    let frame = stripes(64, 36);
+    let out = rig.process(&frame);
+    assert_ne!(out, frame, "a picture that can't be read blurs the room instead of leaving it as it is");
+    assert_eq!(column(&out, 0, 20), column(&frame, 0, 20), "the person stays");
     rig.event(Event::StreamStopped);
     assert_eq!(rig.shown("picture-problem"), json!("Can't open that picture"));
 }
@@ -521,7 +545,7 @@ impl FrameContext for Held {
 
 fn step_in(mode: &str, blur: i64, edges: i64) -> Step {
     let mode = MODES.iter().position(|(k, _)| *k == mode).unwrap();
-    Step { settings: Settings { mode, blur, edges, picture: None }, covered: None, spares: Vec::new(), covered_yuv: None, had_mask: Arc::default(), derived: None, quarter: None }
+    Step { settings: Settings { mode, blur, edges, picture: None }, covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None }
 }
 
 fn varied_mask(w: usize, h: usize, seed: usize) -> Gray {
@@ -777,13 +801,13 @@ fn with_everyone_in_the_mask_the_frame_is_left_as_it_was() {
 }
 
 #[test]
-fn a_frame_in_yuv_waits_for_a_mask_and_then_hides_the_room_if_it_goes() {
+fn a_frame_in_yuv_is_hidden_until_a_mask_comes_and_again_if_it_goes() {
     let (scene, mask) = peek::sample_scene(480, 270);
     let frame = i420_of(&scene);
     let mut step = step_in("blur", 6, 3);
     let mut got = frame.clone();
     step.process(&mut got, &Ctx(None, Default::default()));
-    assert_eq!(got.data, frame.data, "no mask yet");
+    assert_ne!(got.data, frame.data, "no mask yet: the room stays hidden");
     step.process(&mut got, &Served::new(mask.shrink(256, 144)));
     assert_ne!(got.data, frame.data);
     let mut lost = frame.clone();

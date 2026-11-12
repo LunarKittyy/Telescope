@@ -9,7 +9,6 @@ use crate::shared::{no_pictures, thumb_of, Paired, PictureReader};
 use crate::vision_row;
 use serde_json::{json, Map, Value};
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use telescope_core::actions::{self, Choice, SliderSpec};
 use telescope_core::config::clamped_int;
@@ -150,6 +149,12 @@ struct Settings {
     picture: Option<Arc<Rgb>>,
 }
 
+/// What replaces the room.
+enum Backdrop {
+    Blur,
+    Picture(Arc<Rgb>),
+}
+
 struct Step {
     settings: Settings,
     /// The picture scaled to cover this frame's size
@@ -157,8 +162,6 @@ struct Step {
     spares: Vec<Vec<u8>>,
     /// The picture as I420 at this frame's size, for frames in YUV
     covered_yuv: Option<((usize, usize), Vec<u8>)>,
-    /// A mask has come since the app started, so vision works and having none now means it lost track: the room stays hidden.
-    had_mask: Arc<AtomicBool>,
     /// What the last mask led to, so an unchanged mask isn't feathered and shrunk again
     derived: Option<Derived>,
     /// What the last quarter-size mask led to, for frames in YUV
@@ -210,12 +213,9 @@ impl Step {
             return;
         }
         let mask = mask_shared(ctx, frame);
-        if mask.is_none() && !self.had_mask.load(Ordering::Relaxed) {
-            return;
-        }
         let Some(rgb) = Rgb::from_frame(frame) else { return };
+        // No mask yet (vision still loading, or it can't segment) is the same as having lost track: the room stays hidden
         let Some(mask) = mask else { return self.hide_all(frame, &rgb) };
-        self.had_mask.store(true, Ordering::Relaxed);
         let size = (rgb.w, rgb.h);
         let mut derived = match self.derived.take() {
             Some(d) if Arc::ptr_eq(&d.src, &mask) && d.size == size => d,
@@ -226,22 +226,28 @@ impl Step {
         if derived.soft.as_ref().is_none_or(|(e, _)| *e != self.settings.edges) {
             derived.soft = Some((self.settings.edges, whole().soften(self.settings.edges)));
         }
-        let mode = (MODES[self.settings.mode].0, self.settings.picture.clone());
-        match mode {
-            ("blur", _) => {
+        match self.backdrop() {
+            Backdrop::Blur => {
                 if derived.rest.is_none() {
                     derived.rest = Some(whole().shrink((rgb.w / BLUR_SMALL).max(1), (rgb.h / BLUR_SMALL).max(1)));
                 }
                 let edges = &derived.soft.as_ref().unwrap().1;
                 compose(&rgb, edges, &blurred_by(&rgb, self.settings.blur, derived.rest.as_ref(), rgb.w, rgb.h)).write_to(frame);
             }
-            ("picture", Some(picture)) => {
+            Backdrop::Picture(picture) => {
                 let edges = &derived.soft.as_ref().unwrap().1;
                 compose(&rgb, edges, self.covering(&picture, &rgb)).write_to(frame);
             }
-            _ => {}
         }
         self.derived = Some(derived);
+    }
+
+    /// What goes behind the person: the blur, or the picture. Picture mode with no picture to show (none chosen, or the file can't be read) blurs instead, so the room never shows.
+    fn backdrop(&self) -> Backdrop {
+        match (MODES[self.settings.mode].0, &self.settings.picture) {
+            ("picture", Some(picture)) => Backdrop::Picture(picture.clone()),
+            _ => Backdrop::Blur,
+        }
     }
 
     fn covering(&mut self, picture: &Rgb, rgb: &Rgb) -> &Rgb {
@@ -254,21 +260,19 @@ impl Step {
     /// A frame in YUV done on its planes, with no RGB picture of it made at full size: the mask comes at a quarter of the size and is feathered there, the blur is made at an eighth, and both are scaled up as they go over the frame's own planes. Where there's no one in the mask the frame is the background alone. False when this isn't a frame it does that way (the caller does it in RGB).
     fn run_planes(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) -> bool {
         let (w, h) = (frame.width as usize, frame.height as usize);
-        let blur = MODES[self.settings.mode].0 == "blur";
-        let picture = self.settings.picture.clone().filter(|_| !blur);
-        if frame.format != PixelFormat::I420 || w < 2 || h < 2 || frame.i420_planes().is_none() || (!blur && picture.is_none()) {
+        let (blur, picture) = match self.backdrop() {
+            Backdrop::Blur => (true, None),
+            Backdrop::Picture(picture) => (false, Some(picture)),
+        };
+        if frame.format != PixelFormat::I420 || w < 2 || h < 2 || frame.i420_planes().is_none() {
             return false;
         }
         let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
         let (qw, qh) = ((w / 4).max(1), (h / 4).max(1));
         let mask = ctx.person_mask_at(frame, qw, qh).filter(|m| m.len() == qw * qh);
-        if mask.is_none() && !self.had_mask.load(Ordering::Relaxed) {
-            return true;
-        }
         let edges = self.settings.edges;
         let mut quarter = None;
         if let Some(src) = mask {
-            self.had_mask.store(true, Ordering::Relaxed);
             let mut q = match self.quarter.take() {
                 Some(q) if Arc::ptr_eq(&q.src, &src) && q.size == (qw, qh) && q.full == (w, h) => q,
                 _ => Quarter { src, size: (qw, qh), full: (w, h), soft: None, rest: None, wide: None, weights: None },
@@ -325,10 +329,9 @@ impl Step {
 
     /// No telling the person from the room right now: the whole picture gets what the room would.
     fn hide_all(&mut self, frame: &mut Frame, rgb: &Rgb) {
-        match (MODES[self.settings.mode].0, self.settings.picture.clone()) {
-            ("blur", _) => blurred(rgb, self.settings.blur, None).write_to(frame),
-            ("picture", Some(picture)) => self.covering(&picture, rgb).write_to(frame),
-            _ => {}
+        match self.backdrop() {
+            Backdrop::Blur => blurred(rgb, self.settings.blur, None).write_to(frame),
+            Backdrop::Picture(picture) => self.covering(&picture, rgb).write_to(frame),
         }
     }
 }
@@ -348,7 +351,6 @@ pub struct BackgroundPlugin {
     asked: Option<RequestId>,
     /// set_config has no host: the card hears the settings with the next hook that has one.
     pending: bool,
-    had_mask: Arc<AtomicBool>,
     /// The Blur bubble is up: the sample is blurred again whenever the strength moves.
     peeking: bool,
 }
@@ -383,7 +385,6 @@ impl BackgroundPlugin {
             reader,
             asked: None,
             pending: true,
-            had_mask: Arc::default(),
             peeking: false,
         }
     }
@@ -609,7 +610,7 @@ impl Plugin for BackgroundPlugin {
             return None;
         }
         let settings = Settings { mode: self.mode, blur: self.blur, edges: self.edges, picture: self.picture.clone() };
-        Some(FrameStep::Cpu(Box::new(Step { settings, covered: None, spares: Vec::new(), covered_yuv: None, had_mask: self.had_mask.clone(), derived: None, quarter: None })))
+        Some(FrameStep::Cpu(Box::new(Step { settings, covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None })))
     }
 
     fn get_config(&self) -> Value {
