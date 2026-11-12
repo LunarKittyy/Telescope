@@ -731,6 +731,10 @@ impl ShortcutsPlugin {
     /// (problem, blocking) for the editor (_check).
     fn editor_problem(&self, e: &Editor, listed: usize) -> (String, bool) {
         let meta = keys::META_NAME;
+        // Saving a new one past the limit would drop it unseen
+        if self.bindings.len() >= MAX_BINDINGS && !self.bindings.iter().any(|b| b.id == e.id) {
+            return (tr("There can be at most {max} shortcuts. Remove one to add another.").field("max", MAX_BINDINGS), true);
+        }
         if e.action.is_none() || (listed == 0 && !e.query.is_empty() && !self.action_listed(e)) {
             return (if listed == 0 { tr("No control matches that search.") } else { tr("Pick a control.") }, true);
         }
@@ -1387,6 +1391,28 @@ mod tests {
         let saved = plugin.bindings().last().unwrap();
         assert_eq!((saved.keys.as_str(), saved.action.as_str(), saved.global), ("Ctrl+Shift+Z", "transforms.zoom", true));
         assert_eq!(Value::Object(saved.params.clone()), json!({"op": "set", "amount": 10.0, "value": 30.0}));
+    }
+
+    #[test]
+    fn a_new_shortcut_past_the_limit_is_refused_in_the_editor_while_a_saved_one_stays_editable() {
+        let full: Vec<Value> = (0..MAX_BINDINGS).map(|i| json!({"id": format!("b{i}"), "keys": "F1", "action": "camera.torch", "params": {"mode": "toggle"}})).collect();
+        let (mut plugin, mut host, _) = make(json!(full), false, true);
+        assert_eq!(plugin.bindings().len(), MAX_BINDINGS);
+        plugin.settings_sections();
+        ui(&mut plugin, &mut host, "add", json!([]));
+        ui(&mut plugin, &mut host, "key-pressed", json!(["q", false, false, false, false]));
+        let props = plugin.section_props();
+        assert_eq!(props["save-enabled"], json!(false));
+        assert!(props["problem"].as_str().unwrap().contains("at most 200"), "{}", props["problem"]);
+        ui(&mut plugin, &mut host, "save", json!([]));
+        assert_eq!(plugin.section_props()["editor-open"], json!(true), "the editor stays open instead of dropping the shortcut");
+        assert_eq!(plugin.bindings().len(), MAX_BINDINGS);
+        ui(&mut plugin, &mut host, "cancel", json!([]));
+        ui(&mut plugin, &mut host, "edit", json!([0]));
+        ui(&mut plugin, &mut host, "key-pressed", json!(["q", false, false, false, false]));
+        assert_eq!(plugin.section_props()["save-enabled"], json!(true));
+        ui(&mut plugin, &mut host, "save", json!([]));
+        assert_eq!(plugin.bindings()[0].keys, "Q");
     }
 
     #[test]
