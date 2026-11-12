@@ -37,10 +37,11 @@ pub struct Slot {
     pub defaults: Value,
     /// Its hook timer in the stats hub, looked up the first time one is timed.
     pub timer: Option<Arc<telescope_core::stats::Timer>>,
-    /// What get_config() was when its settings were last looked at for what moved (a save it asked for, a preset handed to it).
-    pub seen: Option<Value>,
-    /// When each dotted path of its config last moved, by the state's setting clock (Host::setting_revision).
-    pub moved: Vec<(String, u64)>,
+    /// What get_config() was when its settings were last looked at for what moved (a save it asked for, a preset handed to it), by camera for a
+    /// device-local plugin (see `State::setting_scope`).
+    pub seen: Vec<(Option<String>, Value)>,
+    /// When each dotted path of its config last moved, by the state's setting clock (Host::setting_revision), by camera for a device-local plugin.
+    pub moved: Vec<(Option<String>, String, u64)>,
 }
 
 /// The plugins' packet step makers by owner, in the order they came on (HostPackets).
@@ -483,11 +484,30 @@ impl State {
         }
     }
 
+    /// Whose settings plugin i holds: a device-local plugin holds the shown camera's, so what moved is told apart per camera, and any other plugin has
+    /// the one set.
+    pub fn setting_scope(&self, i: usize) -> Option<String> {
+        if self.slots.get(i).is_some_and(|s| s.info.device_local) {
+            self.streams.source_id.clone().or_else(|| self.selected.clone())
+        } else {
+            None
+        }
+    }
+
     /// Looks at what plugin i's settings are now against what they were when last looked at: whatever moved gets a new revision. The first look
     /// only remembers where they are.
     pub fn note_config(&mut self, i: usize) {
         let Some(now) = self.slots.get(i).and_then(|s| s.plugin.as_ref()).map(|p| p.get_config()).filter(Value::is_object) else { return };
-        let Some(was) = self.slots[i].seen.replace(now.clone()) else { return };
+        let scope = self.setting_scope(i);
+        let slot = &mut self.slots[i];
+        let was = match slot.seen.iter_mut().find(|(s, _)| *s == scope) {
+            Some((_, seen)) => Some(std::mem::replace(seen, now.clone())),
+            None => {
+                slot.seen.push((scope.clone(), now.clone()));
+                None
+            }
+        };
+        let Some(was) = was else { return };
         let changed = telescope_core::settings::leaf_changes(&was, &now);
         if changed.is_empty() {
             return;
@@ -496,17 +516,26 @@ impl State {
         let clock = self.setting_clock;
         let slot = &mut self.slots[i];
         for (path, _, _) in changed {
-            slot.moved.retain(|(p, _)| *p != path);
-            slot.moved.push((path, clock));
+            slot.moved.retain(|(s, p, _)| !(*s == scope && *p == path));
+            slot.moved.push((scope.clone(), path, clock));
         }
     }
 
-    /// Remembers where plugin i's settings are now, unless that is already known, so a change made next is told from what came before.
+    /// Remembers where plugin i's settings are now, unless that is already known for the camera shown, so a change made next is told from what came before.
     pub fn note_config_baseline(&mut self, i: usize) {
-        if self.slots.get(i).is_some_and(|s| s.seen.is_none()) {
-            let now = self.slots[i].plugin.as_ref().map(|p| p.get_config()).filter(Value::is_object);
-            self.slots[i].seen = now;
+        let scope = self.setting_scope(i);
+        if self.slots.get(i).is_some_and(|s| !s.seen.iter().any(|(sc, _)| *sc == scope)) {
+            self.rebaseline(i, scope);
         }
+    }
+
+    /// Takes plugin i's settings as they are as the start for `scope`, whatever was seen before: they were put there (a camera's profile coming in),
+    /// not edited.
+    fn rebaseline(&mut self, i: usize, scope: Option<String>) {
+        let Some(now) = self.slots[i].plugin.as_ref().map(|p| p.get_config()).filter(Value::is_object) else { return };
+        let seen = &mut self.slots[i].seen;
+        seen.retain(|(s, _)| *s != scope);
+        seen.push((scope, now));
     }
 
     /// The same hook on every plugin, in registration order.
@@ -520,7 +549,7 @@ impl State {
     pub fn register(&mut self, plugin: Box<dyn Plugin>) -> Result<(), String> {
         let info = plugin.info();
         let i = self.slots.len();
-        self.slots.push(Slot { plugin: Some(plugin), info: info.clone(), card: None, header: None, actions: vec![], tray: vec![], defaults: json!({}), timer: None, seen: None, moved: Vec::new() });
+        self.slots.push(Slot { plugin: Some(plugin), info: info.clone(), card: None, header: None, actions: vec![], tray: vec![], defaults: json!({}), timer: None, seen: Vec::new(), moved: Vec::new() });
         let made = self.call(i, |p, host| {
             p.setup(host);
             let card = p.card();
@@ -733,6 +762,7 @@ impl State {
                     load_config_tolerantly(p, &defaults, s);
                 }
             });
+            self.rebaseline(i, id.map(String::from));
             self.call(i, |p, host| p.on_profile_applied(host));
         }
     }
@@ -769,6 +799,7 @@ impl State {
                     load_config_tolerantly(p, &defaults, s);
                 }
             });
+            self.rebaseline(i, id.map(String::from));
             self.call(i, |p, host| p.on_profile_applied(host));
         }
     }
@@ -1050,11 +1081,6 @@ impl State {
             merge_for_save(&mut cfg, &window, &back);
         }
         self.apply_device_profile(new, &cfg);
-        // The other phone's settings coming in are not anybody's edit
-        for i in 0..self.slots.len() {
-            self.slots[i].seen = None;
-            self.note_config_baseline(i);
-        }
         self.bus.emit(Event::DeviceChanged { source_id: new.unwrap_or("").to_string() });
         if start {
             self.effects.push(Effect::Start { interactive: true });
@@ -2617,5 +2643,44 @@ mod tests {
         *cfg.lock().unwrap() = json!({"a": 2, "b": 5});
         s.call(0, |_, host| host.schedule_save());
         assert_eq!((rev(&mut s, "a"), rev(&mut s, "b") > second), (second, true));
+    }
+    #[test]
+    fn a_camera_has_its_own_revisions_so_editing_another_camera_does_not_move_them() {
+        use telescope_core::host::HostSettings;
+        struct Dial(Arc<Mutex<Value>>);
+        impl Plugin for Dial {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "dial".into(), device_local: true, ..Default::default() }
+            }
+            fn get_config(&self) -> Value {
+                self.0.lock().unwrap().clone()
+            }
+            fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
+                *self.0.lock().unwrap() = cfg.clone();
+                Ok(())
+            }
+        }
+        let cfg = Arc::new(Mutex::new(json!({"a": 1})));
+        let mut s = state();
+        s.register(Box::new(Dial(cfg.clone()))).unwrap();
+        let rev = |s: &mut State| crate::host::Ctx { state: s, me: String::new() }.setting_revision("dial", "a");
+        let switch_to = |s: &mut State, camera: &str, config: Value| {
+            s.streams.source_id = Some(camera.into());
+            *cfg.lock().unwrap() = config;
+            s.rebaseline(0, Some(camera.into()));
+        };
+        switch_to(&mut s, "cam-a", json!({"a": 1}));
+        crate::host::Ctx { state: &mut s, me: "mcp".into() }.apply_preset("dial", &json!({"a": 2}));
+        let left_by_tool = rev(&mut s);
+        assert!(left_by_tool > 0);
+        // The person edits the other camera's setting of the same name
+        switch_to(&mut s, "cam-b", json!({"a": 1}));
+        assert_eq!(rev(&mut s), 0, "nothing moved on this camera");
+        *cfg.lock().unwrap() = json!({"a": 5});
+        s.call(0, |_, host| host.schedule_save());
+        assert!(rev(&mut s) > left_by_tool);
+        // Back on the first camera its revision is as the tool left it
+        switch_to(&mut s, "cam-a", json!({"a": 2}));
+        assert_eq!(rev(&mut s), left_by_tool);
     }
 }

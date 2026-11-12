@@ -87,7 +87,8 @@ impl HostSettings for Ctx<'_> {
     }
     fn setting_revision(&self, plugin: &str, key: &str) -> u64 {
         let Some(i) = self.state.index(plugin) else { return 0 };
-        self.state.slots[i].moved.iter().filter(|(path, _)| telescope_core::settings::paths_overlap(path, key)).map(|(_, at)| *at).max().unwrap_or(0)
+        let scope = self.state.setting_scope(i);
+        self.state.slots[i].moved.iter().filter(|(s, path, _)| *s == scope && telescope_core::settings::paths_overlap(path, key)).map(|(_, _, at)| *at).max().unwrap_or(0)
     }
     fn preset_plugins(&self) -> Vec<String> {
         self.state.slots.iter().filter(|s| s.info.in_presets && !s.info.name.is_empty()).map(|s| s.info.name.clone()).collect()
