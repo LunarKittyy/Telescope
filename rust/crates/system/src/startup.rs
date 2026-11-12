@@ -43,8 +43,8 @@ pub const START_CHOICES: [(&str, &str); 3] = [
 ];
 pub const STOP_CHOICES: [(&str, &str); 3] = [
     (STOP_OFF, n_("Only when I press Stop")),
-    (STOP_OWN, n_("When no app uses the camera, if it started the stream")),
-    (STOP_ANY, n_("When no app uses the camera, even if I started it")),
+    (STOP_OWN, n_("When no app uses the camera, if Telescope started the stream")),
+    (STOP_ANY, n_("When no app uses the camera, even if I started the stream")),
 ];
 /// What the wait is counted in: (text, seconds in one).
 const UNITS: [(&str, i64); 2] = [(n_("seconds"), 1), (n_("minutes"), 60)];
@@ -505,9 +505,9 @@ impl Plugin for StartupPlugin {
     fn info(&self) -> PluginInfo {
         PluginInfo {
             name: NAME.into(),
-            title: n_("Start and stop by itself").into(),
+            title: n_("Start and stop automatically").into(),
             about: n_("Opening Telescope when you sign in, and Automatic streaming.").into(),
-            when_off: n_("Without it Automatic streaming stops and both it and the sign-in option leave Settings. Telescope still opens at sign-in if it did before.").into(),
+            when_off: n_("Without the Automatic streaming plugin, Automatic streaming stops and it and the sign-in option disappear from Settings. Telescope still opens at sign-in if it did before.").into(),
             category: "streaming".into(),
             icon: "monitor".into(),
             ..Default::default()

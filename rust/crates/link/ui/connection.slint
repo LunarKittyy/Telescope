@@ -466,7 +466,7 @@ export component ConnectionCard inherits Card {
             dismissed => { root.vcam-up = false; vcam-popup.close(); root.vcam-answered(false, false); }
             left => { if (root.vcam-going) { root.vcam-going = false; root.vcam-up = false; vcam-popup.close(); } }
             title: @tr("Set up the virtual camera");
-            Note { text: @tr("Telescope needs to switch on its virtual camera first. This asks for your password."); kind: ""; }
+            Note { text: @tr("The virtual camera has to be switched on first, which needs your password."); kind: ""; }
             HorizontalLayout {
                 spacing: Theme.u(4);
                 alignment: start;
@@ -774,8 +774,8 @@ export component ConnectionSettings inherits Card {
     RailRow {
         icon: Icons.wifi;
         label: @tr("UDP on Wi-Fi");
-        tip: @tr("Send the video over Wi-Fi with UDP, which skips a lost piece instead of waiting for it");
-        tip-detail: @tr("It can stutter more than TCP, so try it and see.");
+        tip: @tr("Send the video over Wi-Fi with UDP, which skips lost packets instead of waiting for them");
+        tip-detail: @tr("UDP can stutter more than TCP. Try both and compare.");
         named: true;
         hue: root.hue;
         keywords: @tr("search" => "udp tcp transport network lag freezes stutter wifi");
@@ -783,7 +783,7 @@ export component ConnectionSettings inherits Card {
             horizontal-stretch: 0;
             text: @tr("Experimental");
             font-weight: Theme.w-label;
-            detail: @tr("It can stutter more than TCP, so try it and see.");
+            detail: @tr("UDP can stutter more than TCP. Try both and compare.");
             horizontal: "end";
         }
         VerticalLayout {

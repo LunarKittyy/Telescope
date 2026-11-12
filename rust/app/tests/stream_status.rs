@@ -253,7 +253,7 @@ fn a_frame_rate_lowered_for_the_heat_says_so() {
     report_slow(&r);
     r.until("the tip", |r| !r.text("fps-tip").is_empty());
     report_slow(&r);
-    assert_eq!(r.text("fps-tip"), "The phone got hot and lowered the frame rate to 20 fps for now.");
+    assert_eq!(r.text("fps-tip"), "The phone got hot and lowered the frame rate to 20 fps.");
     assert!(behind_events(&r).is_empty());
     assert_eq!(r.text("net-tone"), "");
 }

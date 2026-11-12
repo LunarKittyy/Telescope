@@ -265,7 +265,7 @@ fn failed_persist_action_reverts_checkbox() {
 fn windows_setup_status() {
     for (uc, adb, uc_text, button, adb_text) in [
         ("Telescope", true, "Ready", "Reinstall", "Ready"),
-        ("", false, "Not installed", "Install driver", "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."),
+        ("", false, "Not installed", "Install driver", "Not found. Pairing and installing over USB need adb; Wi-Fi doesn't."),
     ] {
         let mut r = Rig::windows();
         r.plugin.on_win_checks(uc, adb, false, "", true); // the DLLs are there
@@ -384,7 +384,7 @@ fn the_windows_11_camera_installed_is_ready() {
 
 #[test]
 fn windows_11_offers_its_camera_over_an_older_one() {
-    for (uc, mf, text) in [("Telescope", "offer", "Some apps can't see it"), ("", "update", "Update ready")] {
+    for (uc, mf, text) in [("Telescope", "offer", "Some apps can't see the camera"), ("", "update", "Update ready")] {
         let mut r = Rig::windows();
         r.plugin.on_win_checks(uc, true, false, mf, false);
         assert_eq!(r.plugin.panel.uc.text, text);
@@ -693,7 +693,7 @@ fn the_graphics_card_row_says_what_really_happens() {
     r.plugin.show_graphics_card(Some("vaapi"), false);
     assert!(checked(&r) && r.plugin.panel.hw_line.contains("Found"));
     r.plugin.show_graphics_card(Some("vaapi"), true);
-    assert!(checked(&r) && r.plugin.panel.hw_line.contains("until you restart"));
+    assert!(checked(&r) && r.plugin.panel.hw_line.contains("until Telescope restarts"));
     r.plugin.panel.hw_slow = true;
     r.plugin.show_graphics_card(Some("vaapi"), false);
     assert!(r.plugin.panel.hw_line.contains("too slow") && !r.plugin.panel.hw_line.contains("failed"));

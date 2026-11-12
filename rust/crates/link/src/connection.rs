@@ -449,10 +449,10 @@ impl Connection {
         let kept = route_choice_label(self.route_pref);
         let hint = match preference {
             RoutePreference::Usb => format!(" {}", tr("Check the cable and the phone app.")),
-            RoutePreference::Wifi => format!(" {}", tr("Check it's on the same network.")),
+            RoutePreference::Wifi => format!(" {}", tr("Check that the phone is on the same network.")),
             RoutePreference::Auto => String::new(),
         };
-        let text = tr("Still streaming over {now}, so it stays on {kept}.").field("now", now_on).field("kept", &kept) + &hint;
+        let text = tr("Still streaming over {now}, so the connection stays on {kept}.").field("now", now_on).field("kept", &kept) + &hint;
         ProbeOutcome::Refuse { title, text, preference }
     }
 
@@ -826,7 +826,7 @@ pub fn status_line(res: Option<&Resolution>) -> (&'static str, String) {
 /// What's wrong and what to do about it, for the card note and Start failures.
 pub fn problem_text(res: &Resolution, phone: &str, adb_available: bool) -> String {
     match res.status {
-        PhoneStatus::Unreachable => with_phone(tr("Open Telescope on {phone} and keep it on screen. It needs to be on the same network as this computer, or plugged in with a USB cable."), phone),
+        PhoneStatus::Unreachable => with_phone(tr("Open Telescope on {phone} and keep the app on screen. The phone needs to be on the same network as this computer, or plugged in with a USB cable."), phone),
         // LEGACY MIGRATION PATH
         PhoneStatus::NotPaired if res.before_tls => with_phone(tr("This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add device and scan the code again."), phone),
         PhoneStatus::NotPaired => with_phone(tr("{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add device to pair it again."), phone),
@@ -872,7 +872,7 @@ pub fn busy_other_reason(computer: Option<&str>) -> String {
         Some(c) => tr("The phone is streaming to {computer}.").field("computer", c),
         None => tr("The phone is streaming to another computer."),
     };
-    format!("{text}\n\n{}", tr("Stop it there or on the phone, then try again."))
+    format!("{text}\n\n{}", tr("Stop the stream there or on the phone, then try again."))
 }
 
 pub fn start_refused_reason(error: Option<&str>, computer: Option<&str>) -> String {
@@ -884,7 +884,7 @@ pub fn start_refused_reason(error: Option<&str>, computer: Option<&str>) -> Stri
         "not_paired" => tr("The phone doesn't recognise this computer anymore.\n\nClick Add device to pair it again."),
         other => {
             let error = if other.is_empty() { tr("unknown error") } else { other.to_string() };
-            tr("The phone refused to start streaming ({error}).").field("error", &error)
+            tr("The phone rejected the request to start streaming ({error}).").field("error", &error)
         }
     }
 }
@@ -1045,7 +1045,7 @@ fn await_streaming(client: &dyn SessionCtl, progress: &dyn Fn(&str), pace: &dyn 
             if unreachable_streak >= UNREACHABLE_STREAK_LIMIT {
                 return Err(tr("Lost contact with the phone while its camera was starting."));
             }
-            progress(&tr("Phone went quiet for a moment, still waiting... ({seconds}s)").field("seconds", &seconds));
+            progress(&tr("No answer from the phone for a moment, still waiting... ({seconds}s)").field("seconds", &seconds));
             continue;
         }
         unreachable_streak = 0;
@@ -1057,7 +1057,7 @@ fn await_streaming(client: &dyn SessionCtl, progress: &dyn Fn(&str), pace: &dyn 
         let text = if started { tr("Phone's camera is opening... ({seconds}s)") } else { tr("Waiting for the phone's camera... ({seconds}s)") };
         progress(&text.field("seconds", &seconds));
     }
-    Err(tr("The phone's camera didn't finish starting in time.\n\nTry again. If it keeps happening, open Telescope on the phone."))
+    Err(tr("The phone's camera didn't finish starting in time.\n\nTry again. If the camera keeps failing to start, open Telescope on the phone."))
 }
 
 /// The opening body for a StreamRequest.
@@ -1415,7 +1415,7 @@ mod tests {
         let outcome = c.on_route_probed(probe_id, &phone.id, preference, &Resolution::new(PhoneStatus::Unreachable), true, 1.0);
         let ProbeOutcome::Refuse { title, text, .. } = outcome else { panic!("{outcome:?}") };
         assert_eq!(title, "Can't reach Pixel over Wi-Fi");
-        assert!(text.contains("Still streaming over USB, so it stays on Automatic."));
+        assert!(text.contains("Still streaming over USB, so the connection stays on Automatic."));
         assert_eq!(c.route_pref, RoutePreference::Auto);
         // Try again, on the same Wi-Fi now
         let RouteChange::Probe { probe_id, phone, preference } = c.set_route_preference(RoutePreference::Wifi, true, 2.0) else { panic!() };
@@ -1991,8 +1991,8 @@ mod tests {
 
     #[test]
     fn busy_and_refusal_reasons_read_like_pythons() {
-        assert_eq!(busy_other_reason(None), "The phone is streaming to another computer.\n\nStop it there or on the phone, then try again.");
-        assert_eq!(start_refused_reason(Some("weird"), None), "The phone refused to start streaming (weird).");
-        assert_eq!(start_refused_reason(None, None), "The phone refused to start streaming (unknown error).");
+        assert_eq!(busy_other_reason(None), "The phone is streaming to another computer.\n\nStop the stream there or on the phone, then try again.");
+        assert_eq!(start_refused_reason(Some("weird"), None), "The phone rejected the request to start streaming (weird).");
+        assert_eq!(start_refused_reason(None, None), "The phone rejected the request to start streaming (unknown error).");
     }
 }

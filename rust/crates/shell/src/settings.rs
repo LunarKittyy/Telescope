@@ -859,7 +859,7 @@ impl Settings {
         let rows: Vec<SValue> = hits.iter().map(|e| SValue::Struct(Struct::from_iter([("name".to_string(), s(&e.name)), ("path".to_string(), s(&e.path()))]))).collect();
         let _ = crate::same::set(&self.ui, "results", model(rows));
         let _ = self.ui.set_property("result", SValue::Number(0.0));
-        let _ = self.ui.set_property("results-note", s(&if partial && !hits.is_empty() { tr("Nothing matches every word. These match some of them.") } else { String::new() }));
+        let _ = self.ui.set_property("results-note", s(&if partial && !hits.is_empty() { tr("Nothing matches every word. These match some of the words.") } else { String::new() }));
         let _ = self.ui.set_property("results-empty", s(&if hits.is_empty() {
             fill(&tr("Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)."), &[("text", text)])
         } else { String::new() }));
@@ -946,8 +946,8 @@ impl Settings {
         let _ = self.ui.set_property("has-added", SValue::Bool(!panel.installed.is_empty()));
         let rows: Vec<SValue> = panel.update_rows.iter().flat_map(|u| [
             update_row("check", tr("Check for updates"),
-                       tr("Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."), "", false, u.check_on, true),
-            update_row("auto", tr("Install updates without asking"), tr("Installs new versions of the plugins you switched on and switches them on again."),
+                       tr("Check once a day for new versions of added plugins that publish releases on GitHub and show them here. Nothing is downloaded."), "", false, u.check_on, true),
+            update_row("auto", tr("Install updates without asking"), tr("Install new versions of the plugins you switched on and switch them on again."),
                        &tr("Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."), true, u.auto_on, u.auto_enabled),
         ]).collect();
         let _ = crate::same::set(&self.ui, "update-rows", model(rows));

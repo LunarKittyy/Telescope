@@ -110,7 +110,7 @@ export component OnAirSettings inherits VerticalLayout {
 
     Card {
         title: @tr("On Air sign");
-        tip: @tr("Shows the people around you that your camera or microphone is in use.");
+        tip: @tr("Show the people around you that your camera or microphone is in use.");
         icon: Icons.bell;
         hue: Theme.plugin-hue("on_screen");
         RailRow {
@@ -163,7 +163,7 @@ export component OnAirSettings inherits VerticalLayout {
                 open: problem != "";
                 RailRow {
                     has-icon: false;
-                    Status { text: @tr("The page didn't start"); detail: held-problem; kind: "err"; horizontal: "end"; }
+                    Status { text: @tr("Page failed to start"); detail: held-problem; kind: "err"; horizontal: "end"; }
                 }
             }
             Unfolding {

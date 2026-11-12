@@ -14,8 +14,8 @@ msgid "Needs {tools} (in pulseaudio-utils; PipeWire systems use it too)."
 msgstr "Потрібні {tools} (у pulseaudio-utils; системи з PipeWire також використовують їх)."
 
 #: rust/crates/audio/src/backend.rs:166
-msgid "Once VB-Cable's setup says it's done, restart the computer, then switch this off and on."
-msgstr "Коли інсталятор VB-Cable повідомить про завершення, перезавантажте комп'ютер, а потім вимкніть і знову ввімкніть це."
+msgid "When VB-Cable's setup has finished, restart the computer, then switch this off and on."
+msgstr ""
 
 #: rust/crates/audio/src/backend.rs:167
 msgid "Open setup again"
@@ -97,8 +97,8 @@ msgstr "Це джерело більше недоступне."
 
 #: rust/crates/audio/src/plugin.rs:445
 #, python-brace-format
-msgid "On for {name}. Turning it on here turns it off there."
-msgstr "Увімкнено для {name}. Увімкнення тут вимикає його там."
+msgid "On for {name}. Turning the microphone on here turns it off for {name}."
+msgstr ""
 
 #: rust/crates/audio/src/plugin.rs:474
 msgid "Mute microphone"
@@ -236,8 +236,8 @@ msgid "Using the phone's microphone on this computer."
 msgstr "Використання мікрофона телефону на цьому комп'ютері."
 
 #: rust/crates/audio/src/plugin.rs:1056
-msgid "Without it there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone."
-msgstr "Без нього картка «Мікрофон» або пункт «Вимкнути звук» у меню області сповіщень відсутні, і Telescope не створює віртуальний мікрофон."
+msgid "Without the Microphone plugin there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone."
+msgstr ""
 
 #: rust/crates/audio/src/plugin.rs:1128
 msgid "Mute or unmute"
@@ -286,8 +286,8 @@ msgid "Couldn't download VB-Cable. Try again, or get it from their site."
 msgstr "Не вдалося завантажити VB-Cable. Спробуйте знову або отримайте його з їхнього сайту."
 
 #: rust/crates/audio/src/vb_cable.rs:165
-msgid "VB-Audio's site didn't hand over VB-Cable. Try again later, or get it from their site."
-msgstr "Сайт VB-Audio не надав VB-Cable. Спробуйте знову пізніше або завантажте його з їхнього сайту."
+msgid "Couldn't download VB-Cable from VB-Audio's site. Try again later, or get it from their site."
+msgstr ""
 
 #: rust/crates/audio/src/vb_cable.rs:166
 msgid "Couldn't check vb-audio.com's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this."
@@ -306,12 +306,12 @@ msgid "Couldn't unpack VB-Cable. Try again, or get it from their site."
 msgstr "Не вдалося розпакувати VB-Cable. Спробуйте знову або отримайте його з їхнього сайту."
 
 #: rust/crates/audio/src/vb_cable.rs:193
-msgid "VB-Audio's download doesn't have the setup it used to. Get it from their site instead."
-msgstr "Завантаження VB-Audio більше не містить звичного інсталятора. Отримайте його натомість з їхнього сайту."
+msgid "VB-Audio's download no longer has the setup file. Get it from their site instead."
+msgstr ""
 
 #: rust/crates/audio/src/vb_cable.rs:239
-msgid "VB-Cable's setup changed after it was checked, so it wasn't opened."
-msgstr "Інсталятор VB-Cable змінився після перевірки, тому його не було відкрито."
+msgid "VB-Cable's setup file changed after the check, so Telescope didn't open it."
+msgstr ""
 
 #: rust/crates/audio/src/vb_cable.rs:244
 msgid "Windows didn't get permission to install VB-Cable."
@@ -339,8 +339,8 @@ msgid "Level"
 msgstr "Рівень"
 
 #: rust/crates/audio/ui/microphone.slint:95 rust/crates/audio/ui/microphone.slint:201
-msgid "Yellow: the limiter is holding peaks down. Red: it clipped."
-msgstr "Жовтий: лімітер стримує піки. Червоний: перевантаження."
+msgid "Yellow: the limiter is holding peaks down. Red: the sound clipped."
+msgstr ""
 
 #: rust/crates/audio/ui/microphone.slint:95
 msgid "Click to clear"
@@ -375,8 +375,8 @@ msgid "Download and install"
 msgstr "Завантажити та встановити"
 
 #: rust/crates/audio/ui/microphone.slint:315
-msgid "Telescope downloads VB-Cable from vb-audio.com and opens its setup, which asks for admin. Restart the computer afterwards."
-msgstr "Telescope завантажує VB-Cable із vb-audio.com і відкриває встановлювач, який запитує права адміністратора. Після цього перезапустіть комп'ютер."
+msgid "VB-Cable is downloaded from vb-audio.com and its setup opens, which asks for admin access. Restart the computer afterwards."
+msgstr ""
 
 #: rust/crates/core/src/actions.rs:177
 msgid "Raise by"
@@ -544,8 +544,8 @@ msgid "Getting ready…"
 msgstr "Підготовка…"
 
 #: rust/crates/effects/src/auto_grade.rs:19
-msgid "Looking…"
-msgstr "Аналіз…"
+msgid "Analysing…"
+msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
 #: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:27 rust/crates/effects/src/framing.rs:72 rust/crates/effects/src/fun_pack.rs:38 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:459 rust/crates/effects/ui/background.slint:46 rust/crates/effects/ui/background.slint:51 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:287 rust/crates/link/src/browser/plugin.rs:585 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:78
@@ -585,12 +585,12 @@ msgid "Background"
 msgstr "Фон"
 
 #: rust/crates/effects/src/background.rs:485
-msgid "Blurs the background behind you or swaps it for a picture."
-msgstr "Розмиває фон позаду вас або замінює його картинкою."
+msgid "Blur the background behind you or swap it for a picture."
+msgstr ""
 
 #: rust/crates/effects/src/background.rs:486
-msgid "Without it there's no Background card and the background stays as the camera sees it."
-msgstr "Без нього картка «Фон» відсутня, а фон залишається таким, яким його бачить камера."
+msgid "Without the Background plugin there's no Background card and the background stays as the camera sees it."
+msgstr ""
 
 #: rust/crates/effects/src/background.rs:580 rust/crates/effects/src/background.rs:606
 msgid "Background blur"
@@ -669,12 +669,12 @@ msgid "Start streaming to pick a colour on the preview."
 msgstr "Почніть трансляцію, щоб вибрати колір на попередньому перегляді."
 
 #: rust/crates/effects/src/chroma_key.rs:538
-msgid "Swaps a green or blue screen behind you for a colour or a picture, with no download."
-msgstr "Замінює зелений або синій екран позаду вас на колір чи картинку, без завантажень."
+msgid "Swap a green or blue screen behind you for a colour or a picture, with no download."
+msgstr ""
 
 #: rust/crates/effects/src/chroma_key.rs:539
-msgid "Without it there's no Chroma key card and a green screen stays green."
-msgstr "Без нього немає картки «Хромакей», а зелений екран залишається зеленим."
+msgid "Without the Chroma key plugin there's no Chroma key card and a green screen stays green."
+msgstr ""
 
 #: rust/crates/effects/src/chroma_key.rs:656 rust/crates/effects/src/chroma_key.rs:691
 msgid "Chroma key tolerance"
@@ -733,8 +733,8 @@ msgid "Focus peaking, zebras, false colour, scopes, framing guides and a level o
 msgstr "Фокус-пікінг, зебра, хибні кольори, відеоскопи, напрямні кадрування та рівень на попередньому перегляді для оцінки фокуса, експозиції, кадрування й рівного горизонту."
 
 #: rust/crates/effects/src/cinema.rs:318
-msgid "Without it there's no Cinema tools card and the preview shows just the picture."
-msgstr "Без нього немає картки «Кіноінструменти», а попередній перегляд показує лише зображення."
+msgid "Without the Cinema tools plugin there's no Cinema tools card and the preview shows just the picture."
+msgstr ""
 
 #: rust/crates/effects/src/cinema.rs:371
 msgctxt "search"
@@ -930,20 +930,20 @@ msgid "No picture"
 msgstr "Без картинки"
 
 #: rust/crates/effects/src/colour_grading.rs:60
-msgid "Looking at the picture…"
-msgstr "Аналіз картинки…"
+msgid "Analysing the picture…"
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:61
-msgid "Auto couldn't get a steady picture to look at. Try again while nothing moves."
-msgstr "Автокорекції не вдалося отримати стабільну картинку для аналізу. Спробуйте ще раз, коли нічого не рухається."
+msgid "No steady picture to analyse. Try again while nothing moves."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:62
 msgid "Nothing to change, the picture already looks right."
 msgstr "Міняти нічого не потрібно, картинка вже має добрий вигляд."
 
 #: rust/crates/effects/src/colour_grading.rs:63
-msgid "Nothing needs changing now, so Auto's earlier changes were taken off."
-msgstr "Зараз нічого змінювати не потрібно, тож попередні зміни автокорекції знято."
+msgid "Nothing needs changing, so Auto's earlier changes were removed."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:64
 #, python-brace-format
@@ -951,20 +951,20 @@ msgid "Auto changed {parts}."
 msgstr "Автокорекція змінила: {parts}."
 
 #: rust/crates/effects/src/colour_grading.rs:65
-msgid "No face was found, so it went by the background and the brightness."
-msgstr "Обличчя не знайдено, тож орієнтиром стали фон і яскравість."
+msgid "No face found, so Auto used the background and brightness."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:66
-msgid "The light is mixed or coloured, so white balance stayed as it was."
-msgstr "Освітлення змішане або кольорове, тож баланс білого залишився без змін."
+msgid "The light is mixed or coloured, so white balance was not changed."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:67
-msgid "Your own wheels and curves would have clipped the picture, so Auto went only part of the way."
-msgstr "Ваші власні кола та криві засвітили б або провалили картинку, тому автокорекція застосувалася лише частково."
+msgid "Your own wheels and curves would have clipped the picture, so Auto applied only part of the change."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:68
-msgid "The camera adjusts itself, so this may drift."
-msgstr "Камера сама підлаштовується, тому результат може пливти."
+msgid "The camera adjusts automatically, so the result may drift."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:69
 msgid "white balance"
@@ -1094,8 +1094,8 @@ msgid "Colour wheels, curves and LUT files for the look of the picture."
 msgstr "Колірні круги, криві та файли LUT для вигляду зображення."
 
 #: rust/crates/effects/src/colour_grading.rs:1081
-msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
-msgstr "Без нього немає картки «Корекція кольору», а зображення зберігає кольори камери."
+msgid "Without the Colour grading plugin there's no Colour grading card and the picture keeps the camera's colours."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:1175 rust/crates/effects/src/colour_grading.rs:1221
 msgid "Compare before and after"
@@ -1183,23 +1183,23 @@ msgid "Nothing's in the picture yet."
 msgstr "На картинці ще нічого немає."
 
 #: rust/crates/effects/src/composite_plugin.rs:445
-msgid "It takes over once two of its streams are running."
-msgstr "Він бере керування на себе, щойно запрацюють два його потоки."
+msgid "Active once two streams are running."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:447
 #, python-brace-format
-msgid "It goes out on {camera}, and no stream goes there now."
-msgstr "Він виводиться на {camera}, і зараз туди не надходить жоден потік."
+msgid "Set to output on {camera}, but no stream is running there."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:449
 #, python-brace-format
-msgid "It goes out on {camera} once the stream there sends a picture."
-msgstr "Він виводиться на {camera}, щойно потік там надішле зображення."
+msgid "Will output on {camera} once the stream there sends a picture."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:451
 #, python-brace-format
-msgid "Goes out on {camera}."
-msgstr "Виводиться на {camera}."
+msgid "Outputting on {camera}."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:456
 msgid "Nothing in it"
@@ -1222,12 +1222,12 @@ msgid "Several cameras in one picture"
 msgstr "Кілька камер в одному зображенні"
 
 #: rust/crates/effects/src/composite_plugin.rs:508
-msgid "Puts the streams you run side by side or one inside another, out on one virtual camera."
-msgstr "Розміщує потоки, які ви запускаєте, поруч або один в іншому і виводить на одну віртуальну камеру."
+msgid "Put the streams you run side by side or inside each other on one virtual camera."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:509
-msgid "Without it there's no One picture card and each stream only goes to its own camera."
-msgstr "Без нього немає картки «Одне зображення», а кожен потік потрапляє лише на власну камеру."
+msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:595 rust/crates/effects/src/composite_plugin.rs:619
 msgid "Picture layout"
@@ -1238,8 +1238,8 @@ msgid "This file is too big to be a LUT Telescope can use."
 msgstr "Цей файл завеликий для LUT, який Telescope може використати."
 
 #: rust/crates/effects/src/cube.rs:14
-msgid "This isn't a .cube LUT: it doesn't say its size."
-msgstr "Це не LUT .cube: у ньому не вказано розмір."
+msgid "This isn't a .cube LUT: the size is missing."
+msgstr ""
 
 #: rust/crates/effects/src/cube.rs:15
 #, python-brace-format
@@ -1344,8 +1344,8 @@ msgid "Sheet unclear"
 msgstr "Аркуш нерозбірливий"
 
 #: rust/crates/effects/src/desk.rs:200
-msgid "Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."
-msgstr "Ці кути опинилися занадто близько або на одній лінії, тому їх не було використано. Позначте аркуш знову, поставивши по точці на кожен із його кутів."
+msgid "Those corners were bunched up or in a line and weren't used. Mark the sheet again with a point on each corner."
+msgstr ""
 
 #: rust/crates/effects/src/desk.rs:202
 msgid "Sheet cut off"
@@ -1388,12 +1388,12 @@ msgid "Desk and document mode"
 msgstr "Режим столу та документів"
 
 #: rust/crates/effects/src/desk.rs:332
-msgid "Straightens a sheet of paper you mark on the preview and can make the writing on it stand out."
-msgstr "Вирівнює аркуш паперу, який ви позначили на попередньому перегляді, і може зробити текст на ньому виразнішим."
+msgid "Straighten a sheet of paper you mark on the preview and optionally make the writing on it stand out."
+msgstr ""
 
 #: rust/crates/effects/src/desk.rs:333
-msgid "Without it there's no Desk mode card and the picture stays the way the camera sees it."
-msgstr "Без нього немає картки «Режим столу», а зображення залишається таким, яким його бачить камера."
+msgid "Without the Desk and document mode plugin there's no Desk mode card and the picture stays the way the camera sees it."
+msgstr ""
 
 #: rust/crates/effects/src/desk.rs:423 rust/crates/effects/src/desk.rs:447
 msgid "Make the writing stand out"
@@ -1424,12 +1424,12 @@ msgid "This lens can't meter on a point."
 msgstr "Цей об'єктив не може заміряти експозицію за точкою."
 
 #: rust/crates/effects/src/face_exposure.rs:291
-msgid "Moves the phone's metering point to your face to keep you well lit whatever's behind you."
-msgstr "Переміщує точку заміру телефону на ваше обличчя, щоб ви були добре освітлені незалежно від того, що позаду вас."
+msgid "Move the phone's metering point to your face to keep you well lit, whatever is behind you."
+msgstr ""
 
 #: rust/crates/effects/src/face_exposure.rs:292
-msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
-msgstr "Без нього немає картки «Експозиція за обличчям», а телефон заміряє точку дотику або все зображення."
+msgid "Without the Expose for my face plugin there's no Expose for my face card and the phone meters the point you tap or the whole picture."
+msgstr ""
 
 #: rust/crates/effects/src/framing.rs:20 rust/crates/effects/ui/framing.slint:43
 msgid "Auto framing"
@@ -1551,8 +1551,8 @@ msgid "Show hands"
 msgstr "Показувати руки"
 
 #: rust/crates/effects/src/framing.rs:94
-msgid "Widens the view so your hands are in it too."
-msgstr "Розширює огляд, щоб ваші руки теж потрапляли в кадр."
+msgid "Widen the view so your hands are in it too."
+msgstr ""
 
 #: rust/crates/effects/src/framing.rs:95
 msgid "Something else is moving the zoom and pan."
@@ -1571,8 +1571,8 @@ msgid "Zooms and pans to keep you in the picture as you move."
 msgstr "Змінює масштаб і панорамує, щоб утримувати вас у кадрі під час руху."
 
 #: rust/crates/effects/src/framing.rs:876
-msgid "Without it there's no Auto framing card and the zoom stays where you put it."
-msgstr "Без нього картка «Автокадрування» відсутня, а масштаб залишається там, де ви його встановили."
+msgid "Without the Auto framing plugin there's no Auto framing card and the zoom stays where you put it."
+msgstr ""
 
 #: rust/crates/effects/src/fun_pack.rs:39
 msgid "Clone party"
@@ -1680,8 +1680,8 @@ msgstr "У якому напрямку йдуть смуги."
 
 #: rust/crates/effects/src/fun_pack.rs:392
 #, python-brace-format
-msgid "Taking it in {n}…"
-msgstr "Зйомка через {n}…"
+msgid "Taking the empty room in {n}…"
+msgstr ""
 
 #: rust/crates/effects/src/fun_pack.rs:394
 msgid "Take the empty room again"
@@ -1721,8 +1721,8 @@ msgid "Silly effects: clones, an invisibility cloak, light painting, retro looks
 msgstr "Кумедні ефекти: клони, плащ-невидимка, малювання світлом, ретро-вигляд і датамош."
 
 #: rust/crates/effects/src/fun_pack.rs:655
-msgid "Without it there's no Fun pack card and the picture has no effects."
-msgstr "Без нього немає картки «Набір розваг», а на зображенні немає ефектів."
+msgid "Without the Fun pack plugin there's no Fun pack card and the picture has no effects."
+msgstr ""
 
 #: rust/crates/effects/src/fun_pack.rs:747 rust/crates/effects/src/fun_pack.rs:803
 msgid "Datamosh smear"
@@ -1785,13 +1785,13 @@ msgstr "Необов'язковий менший рядок під вашим і
 msgid "Name tag"
 msgstr "Плашка з ім'ям"
 
-#: rust/crates/effects/src/name_tag.rs:162
-msgid "Puts your name and pronouns in the corner of the picture."
-msgstr "Розміщує ваше ім'я та займенники в кутку зображення."
+#: rust/crates/effects/src/name_tag.rs:162 rust/crates/effects/ui/name_tag.slint:66
+msgid "Show your name and pronouns in a corner of the picture."
+msgstr "Показувати ваше ім'я та займенники в кутку картинки."
 
 #: rust/crates/effects/src/name_tag.rs:163
-msgid "Without it there's no Name tag card and nothing is drawn on the picture."
-msgstr "Без нього немає картки «Плашка з ім'ям», і на зображенні нічого не відображається."
+msgid "Without the Name tag plugin there's no Name tag card and nothing is drawn on the picture."
+msgstr ""
 
 #: rust/crates/effects/src/name_tag.rs:211
 msgctxt "search"
@@ -1954,12 +1954,12 @@ msgid "Teleprompter"
 msgstr "Телесуфлер"
 
 #: rust/crates/effects/src/notes.rs:563
-msgid "Shows your script on the phone's screen right under the camera, to read while looking people in the eye."
-msgstr "Показує ваш текст на екрані телефону просто під камерою, щоб ви могли читати, дивлячись співрозмовникам у вічі."
+msgid "Show your script on the phone's screen right under the camera, to read while looking into the camera."
+msgstr ""
 
 #: rust/crates/effects/src/notes.rs:564
-msgid "Without it there's no Teleprompter card and the phone never shows a script."
-msgstr "Без нього немає картки «Телесуфлер», а телефон ніколи не показує текст."
+msgid "Without the Teleprompter plugin there's no Teleprompter card and the phone never shows a script."
+msgstr ""
 
 #: rust/crates/effects/src/notes.rs:643 rust/crates/effects/src/notes.rs:688
 msgid "Teleprompter speed"
@@ -2011,8 +2011,8 @@ msgstr "Telescope транслює"
 
 #. Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons: use the names those browsers show in your language
 #: rust/crates/effects/src/on_air_plugin.rs:43
-msgid "The browser warns that the connection isn't private: it's this computer's own certificate. On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed."
-msgstr "Браузер попереджає, що підключення не приватне: це власний сертифікат цього комп'ютера. На iPhone натисніть «Показати деталі», а потім «відвідати цей веб-сайт». У Chrome натисніть «Додатково», а потім «Перейти»."
+msgid "The browser warns that the connection isn't private: the certificate is this computer's own. On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed."
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:45
 msgid "When the sign turns on. The mic only counts while it's streaming and not muted."
@@ -2063,22 +2063,22 @@ msgid "Sending…"
 msgstr "Надсилання…"
 
 #: rust/crates/effects/src/on_air_plugin.rs:254
-msgid "It went through."
-msgstr "Успішно надіслано."
+msgid "Test request succeeded."
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:256
 #, python-brace-format
-msgid "It didn't go through: {error}"
-msgstr "Не вдалося надіслати: {error}"
+msgid "Test request failed: {error}"
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:276
-msgid "The On Air webhook didn't go through"
-msgstr "Не вдалося надіслати вебхук «В ефірі»"
+msgid "The On Air webhook failed"
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:277
 #, python-brace-format
-msgid "It answered: {error}"
-msgstr "Відповідь: {error}"
+msgid "The webhook returned: {error}"
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:459 rust/crates/shell/src/doc.rs:460 rust/crates/shell/src/doc.rs:915
 msgid "Settings"
@@ -2110,12 +2110,12 @@ msgid "On Air sign"
 msgstr "Табличка «В ефірі»"
 
 #: rust/crates/effects/src/on_air_plugin.rs:515
-msgid "Shows the people around you that your camera or microphone is in use, on another device's screen or through a smart home light."
-msgstr "Показує людям навколо, що ваша камера або мікрофон використовується - на екрані іншого пристрою чи за допомогою розумної лампи."
+msgid "Show the people around you that your camera or microphone is in use, on another device's screen or through a smart home light."
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:516
-msgid "Without it there's no On Air tab in Settings and no sign or webhook."
-msgstr "Без нього в Налаштуваннях не буде вкладки «В ефірі», а також таблички й вебхука."
+msgid "Without the On Air sign plugin there's no On Air tab in Settings and no sign or webhook."
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:626
 msgctxt "search"
@@ -2251,8 +2251,8 @@ msgid "This lens and mode have no extra noise reduction or sharpening to offer"
 msgstr "Для цього об'єктива й режиму немає додаткового шумозаглушення чи різкості"
 
 #: rust/crates/effects/src/photos.rs:56
-msgid "The camera keeps its own JPEG quality"
-msgstr "Камера використовує власну якість JPEG"
+msgid "JPEG quality is set by the camera"
+msgstr ""
 
 #: rust/crates/effects/src/photos.rs:57
 msgid "RAW photos have no quality setting"
@@ -2364,7 +2364,7 @@ msgstr "Фото збережено"
 
 #: rust/crates/effects/src/photos.rs:825
 #, python-brace-format
-msgid "It came late. Saved {name}"
+msgid "The photo arrived late. Saved {name}"
 msgstr ""
 
 #: rust/crates/effects/src/photos.rs:839
@@ -2375,13 +2375,13 @@ msgstr "Зберегти фото в"
 msgid "Photos"
 msgstr "Фото"
 
-#: rust/crates/effects/src/photos.rs:855
-msgid "Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it."
-msgstr "Робить фото в повній якості на телефон або фотоапарат, зокрема у форматі RAW, якщо камера його підтримує."
+#: rust/crates/effects/src/photos.rs:855 rust/crates/effects/ui/photos.slint:135
+msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
+msgstr "Робити фото в повній якості на телефон або фотоапарат, зокрема у форматі RAW, якщо камера його підтримує."
 
 #: rust/crates/effects/src/photos.rs:856
-msgid "Without it there's no Photos card and no Take photo shortcut."
-msgstr "Без нього не буде картки «Фото» та комбінації клавіш «Зробити фото»."
+msgid "Without the Photos plugin there's no Photos card and no Take photo shortcut."
+msgstr ""
 
 #: rust/crates/effects/src/photos.rs:974 rust/crates/effects/src/photos.rs:1012
 msgid "Photo mode"
@@ -2424,12 +2424,12 @@ msgid "Blur the picture until you click again."
 msgstr "Розмити картинку, доки ви не натиснете знову."
 
 #: rust/crates/effects/src/privacy_blur.rs:286
-msgid "Blurs the whole picture, or puts the wait screen up, when more than one person is in it. It only knows about the people the vision models find, so it can miss someone and can't guarantee privacy."
+msgid "Blurs the whole picture, or puts the wait screen up, when more than one person is in it. Only people the vision models find are detected, so someone can be missed and privacy isn't guaranteed."
 msgstr ""
 
 #: rust/crates/effects/src/privacy_blur.rs:287
-msgid "Without it there's no Privacy blur card and nothing gets hidden when someone walks in."
-msgstr "Без нього немає картки «Приватне розмиття», і нічого не приховується, коли хтось заходить."
+msgid "Without the Privacy blur plugin there's no Privacy blur card and nothing gets hidden when someone walks in."
+msgstr ""
 
 #: rust/crates/effects/src/privacy_blur.rs:403 rust/crates/effects/src/privacy_blur.rs:416 rust/crates/effects/ui/privacy_blur.slint:53 rust/crates/effects/ui/privacy_blur.slint:59 rust/crates/effects/ui/privacy_blur.slint:60
 msgid "Blur now"
@@ -2491,20 +2491,20 @@ msgid "QR code found"
 msgstr "Знайдено QR-код"
 
 #: rust/crates/effects/src/qr_reader.rs:651
-msgid "Click Copy on the QR codes card to put it on the clipboard."
-msgstr "Натисніть «Копіювати» на картці «QR-коди», щоб помістити його в буфер обміну."
+msgid "Click Copy on the QR codes card to copy the code."
+msgstr ""
 
 #: rust/crates/effects/src/qr_reader.rs:667 rust/crates/effects/src/qr_reader.rs:739
 msgid "QR code reader"
 msgstr "Зчитувач QR-кодів"
 
 #: rust/crates/effects/src/qr_reader.rs:668
-msgid "Copies a QR code you hold up to the camera, or the password from a Wi-Fi code."
-msgstr "Копіює QR-код, який ви підносите до камери, або пароль із коду Wi-Fi."
+msgid "Copy a QR code you hold up to the camera, or the password from a Wi-Fi code."
+msgstr ""
 
 #: rust/crates/effects/src/qr_reader.rs:669
-msgid "Without it there's no QR code card and codes in the picture are left alone."
-msgstr "Без нього немає картки «QR-коди», а коди на зображенні ігноруються."
+msgid "Without the QR code reader plugin there's no QR code card and codes in the picture are left alone."
+msgstr ""
 
 #: rust/crates/effects/src/qr_reader.rs:739 rust/crates/effects/src/qr_reader.rs:751
 msgid "Read QR codes"
@@ -2541,17 +2541,17 @@ msgstr "основна камера"
 
 #: rust/crates/effects/src/transforms.rs:69
 #, python-brace-format
-msgid "Panned past what {tele} can see, so it's on {live}. Pan back to switch again."
-msgstr "Панорамовано далі, ніж бачить {tele}, тому увімкнено {live}. Панорамуйте назад, щоб знову перемкнути."
+msgid "Panned past what {tele} can see, so {live} is used. Pan back to switch again."
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:72
 #, python-brace-format
-msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
-msgstr "Телефон сам залишився на {live}: найімовірніше, занадто темно або занадто близько для {tele}. Він перемкнеться, щойно зможе."
+msgid "The phone kept using {live}, probably because the scene is too dark or too close for {tele}. The phone switches to {tele} when that changes."
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:78
-msgid "It can wobble for a moment while it switches."
-msgstr "Зображення може на мить здригнутися під час перемикання."
+msgid "The picture can wobble for a moment during the switch."
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:226
 #, python-brace-format
@@ -2573,8 +2573,8 @@ msgid "Add shortcut for {action}…"
 msgstr "Додати комбінацію клавіш для {action}…"
 
 #: rust/crates/effects/src/transforms.rs:520
-msgid "Zoomed on this computer: this lens can't zoom itself"
-msgstr "Масштабовано на цьому комп'ютері: цей об'єктив не вміє масштабувати сам"
+msgid "Zoomed on this computer: this lens can't zoom"
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:520
 msgid "Zoomed on this computer"
@@ -2597,8 +2597,8 @@ msgid "Zoom, pan, flip, rotate and stretch the picture."
 msgstr "Масштабувати, панорамувати, перевертати, повертати й розтягувати зображення."
 
 #: rust/crates/effects/src/transforms.rs:553
-msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
-msgstr "Без нього картка «Трансформація» буде відсутня, а зображення транслюватиметься саме так, як його надсилає телефон."
+msgid "Without the Transforms plugin there's no Transforms card and the picture goes out exactly as the phone sends it."
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:643 rust/crates/effects/src/transforms.rs:696 rust/crates/effects/ui/composite_editor.slint:445 rust/crates/effects/ui/transforms.slint:169 rust/crates/effects/ui/transforms.slint:184 rust/crates/effects/ui/transforms.slint:185 rust/crates/effects/ui/transforms.slint:226 rust/crates/outputs/src/webcam.rs:56
 msgid "Zoom"
@@ -2789,8 +2789,8 @@ msgid "Auto colour grading"
 msgstr "Автокорекція кольору"
 
 #: rust/crates/effects/ui/colour_grading.slint:262
-msgid "Looking at the picture"
-msgstr "Аналіз картинки"
+msgid "Analysing the picture"
+msgstr ""
 
 #: rust/crates/effects/ui/colour_grading.slint:263
 msgid "Set white balance, brightness, contrast and colour from about a second of the picture. You can still adjust everything on the sliders."
@@ -3136,10 +3136,6 @@ msgstr "Впоперек"
 msgid "Not ready"
 msgstr "Не готово"
 
-#: rust/crates/effects/ui/name_tag.slint:66
-msgid "Show your name and pronouns in a corner of the picture."
-msgstr "Показувати ваше ім'я та займенники в кутку картинки."
-
 #: rust/crates/effects/ui/name_tag.slint:77 rust/crates/effects/ui/name_tag.slint:81 rust/crates/effects/ui/name_tag.slint:82 rust/crates/effects/ui/name_tag.slint:83 rust/crates/link/ui/connection.slint:647
 msgid "Name"
 msgstr "Назва"
@@ -3189,8 +3185,8 @@ msgid "Move through the script"
 msgstr "Перехід по тексту"
 
 #: rust/crates/effects/ui/on_air.slint:113
-msgid "Shows the people around you that your camera or microphone is in use."
-msgstr "Показує людям навколо, що ваша камера або мікрофон використовується."
+msgid "Show the people around you that your camera or microphone is in use."
+msgstr ""
 
 #: rust/crates/effects/ui/on_air.slint:118
 msgid "Now"
@@ -3226,8 +3222,8 @@ msgid "Open the sign in a browser on a tablet, a phone or another computer"
 msgstr ""
 
 #: rust/crates/effects/ui/on_air.slint:166
-msgid "The page didn't start"
-msgstr "Сторінка не запустилася"
+msgid "Page failed to start"
+msgstr ""
 
 #: rust/crates/effects/ui/on_air.slint:174
 msgid "Scan the code to open the sign on another device"
@@ -3382,10 +3378,6 @@ msgstr "вниз"
 msgid "Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve."
 msgstr "Клавіші зі стрілками зсувають вибрану точку, а Shift зі стрілкою - сильніше. Квадратні дужки вибирають іншу точку. Delete видаляє точку, а Home скидає криву."
 
-#: rust/crates/effects/ui/photos.slint:135
-msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
-msgstr "Робити фото в повній якості на телефон або фотоапарат, зокрема у форматі RAW, якщо камера його підтримує."
-
 #: rust/crates/effects/ui/photos.slint:166
 msgid "Higher ISO makes the photo brighter but grainier."
 msgstr "Вище значення ISO робить фото світлішим, але більш зернистим."
@@ -3491,8 +3483,8 @@ msgid "Finding the current adb…"
 msgstr "Пошук актуальної версії adb…"
 
 #: rust/crates/link/src/adb_download.rs:277
-msgid "Google's list of downloads wasn't what Telescope expected. Try again later."
-msgstr "Список завантажень Google відрізняється від очікуваного для Telescope. Спробуйте знову пізніше."
+msgid "Google's list of downloads has an unexpected format. Try again later."
+msgstr ""
 
 #: rust/crates/link/src/adb_download.rs:284 rust/crates/link/src/adb_download.rs:296 rust/crates/link/src/adb_download.rs:463
 msgid "Couldn't download adb. Try again."
@@ -3532,8 +3524,8 @@ msgid "Couldn't copy adb from there."
 msgstr "Не вдалося скопіювати adb звідти."
 
 #: rust/crates/link/src/adb_download.rs:386
-msgid "That doesn't have adb.exe in it."
-msgstr "Там немає adb.exe."
+msgid "This file doesn't contain adb.exe."
+msgstr ""
 
 #: rust/crates/link/src/adb_download.rs:396
 msgid "Couldn't check Google's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this."
@@ -3545,13 +3537,13 @@ msgstr "Не вдалося зв'язатися з Google. Перевірте з
 
 #: rust/crates/link/src/adb_download.rs:398
 #, python-brace-format
-msgid "Google wouldn't send adb to this computer (it said {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead."
-msgstr "Google відмовився надіслати adb на цей комп'ютер (код відповіді: {code}). Google блокує завантаження Android у деяких країнах. Якщо ви отримаєте platform-tools іншим шляхом, виберіть adb.exe або zip замість цього."
+msgid "Google refused the download (error {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead."
+msgstr ""
 
 #: rust/crates/link/src/adb_download.rs:400
 #, python-brace-format
-msgid "Google's server said {code}. Try again later."
-msgstr "Сервер Google відповів {code}. Спробуйте знову пізніше."
+msgid "Google's server returned error {code}. Try again later."
+msgstr ""
 
 #: rust/crates/link/src/audio.rs:43
 msgid "Can't reach the phone's microphone."
@@ -3559,8 +3551,8 @@ msgstr "Не вдалося отримати доступ до мікрофон�
 
 #: rust/crates/link/src/audio.rs:59
 #, python-brace-format
-msgid "The phone refused the microphone (HTTP {code})."
-msgstr "Телефон відхилив доступ до мікрофона (HTTP {code})."
+msgid "The phone rejected the microphone request (HTTP {code})."
+msgstr ""
 
 #. why the phone's microphone can't be used; shown next to the Microphone card
 #: rust/crates/link/src/audio.rs:67 rust/crates/link/ui/browser_camera.slint:42
@@ -3588,21 +3580,17 @@ msgid "The browser is lowering the picture to fit the connection or the bitrate 
 msgstr "Браузер погіршує зображення, щоб підлаштуватися під з'єднання або бітрейт для цієї роздільної здатності."
 
 #: rust/crates/link/src/browser/plugin.rs:52
-msgid "Browser says it isn't private?"
-msgstr "Браузер каже, що підключення не приватне?"
+msgid "Browser warns the connection isn't private?"
+msgstr ""
 
 #. Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons: use the names those browsers show in your language
 #: rust/crates/link/src/browser/plugin.rs:55
 msgid ""
-"It is this computer's own certificate.\n"
+"The certificate is this computer's own.\n"
 "iPhone: tap Show Details, then visit this website.\n"
 "Chrome: tap Advanced, then Proceed.\n"
 "Keep the page open with the screen on."
 msgstr ""
-"Це власний сертифікат цього комп'ютера.\n"
-"iPhone: торкніться «Показати деталі», а потім - «відвідати цей вебсайт».\n"
-"Chrome: торкніться «Додатково», а потім - «Перейти на сайт».\n"
-"Тримайте сторінку відкритою, а екран - увімкненим."
 
 #: rust/crates/link/src/browser/plugin.rs:63
 msgid "Waiting for the browser. Scan the code on the Browser camera card and tap Start."
@@ -3725,13 +3713,13 @@ msgid "Check the cable and the phone app."
 msgstr "Перевірте кабель і додаток на телефоні."
 
 #: rust/crates/link/src/connection.rs:452
-msgid "Check it's on the same network."
-msgstr "Перевірте, чи він у тій самій мережі."
+msgid "Check that the phone is on the same network."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:455
 #, python-brace-format
-msgid "Still streaming over {now}, so it stays on {kept}."
-msgstr "Трансляція через {now} ще триває, тому залишається {kept}."
+msgid "Still streaming over {now}, so the connection stays on {kept}."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:794
 msgid "Automatic"
@@ -3783,8 +3771,8 @@ msgstr "Цей додаток потребує оновлення"
 
 #: rust/crates/link/src/connection.rs:829
 #, python-brace-format
-msgid "Open Telescope on {phone} and keep it on screen. It needs to be on the same network as this computer, or plugged in with a USB cable."
-msgstr "Відкрийте Telescope на {phone} і тримайте його на екрані. Він має бути в тій самій мережі, що й цей комп'ютер, або підключений через USB-кабель."
+msgid "Open Telescope on {phone} and keep the app on screen. The phone needs to be on the same network as this computer, or plugged in with a USB cable."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:831
 #, python-brace-format
@@ -3843,8 +3831,8 @@ msgid "The phone is streaming to another computer."
 msgstr "Телефон транслює на інший комп'ютер."
 
 #: rust/crates/link/src/connection.rs:875
-msgid "Stop it there or on the phone, then try again."
-msgstr "Зупиніть її там або на телефоні, а потім спробуйте знову."
+msgid "Stop the stream there or on the phone, then try again."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:881
 msgid ""
@@ -3892,8 +3880,8 @@ msgstr "невідома помилка"
 
 #: rust/crates/link/src/connection.rs:887
 #, python-brace-format
-msgid "The phone refused to start streaming ({error})."
-msgstr "Телефон відмовився почати трансляцію ({error})."
+msgid "The phone rejected the request to start streaming ({error})."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:985 rust/crates/link/src/service.rs:331
 msgid "Lost the connection to the phone. Try again."
@@ -3913,8 +3901,8 @@ msgstr "Втрачено зв'язок із телефоном під час з�
 
 #: rust/crates/link/src/connection.rs:1048
 #, python-brace-format
-msgid "Phone went quiet for a moment, still waiting... ({seconds}s)"
-msgstr "Телефон на мить замовк, усе ще чекаємо... ({seconds} с)"
+msgid "No answer from the phone for a moment, still waiting... ({seconds}s)"
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:1055
 msgid ""
@@ -3940,11 +3928,8 @@ msgstr "Очікування камери телефону... ({seconds} с)"
 msgid ""
 "The phone's camera didn't finish starting in time.\n"
 "\n"
-"Try again. If it keeps happening, open Telescope on the phone."
+"Try again. If the camera keeps failing to start, open Telescope on the phone."
 msgstr ""
-"Камера телефону не запустилася вчасно.\n"
-"\n"
-"Спробуйте знову. Якщо це повторюється, відкрийте Telescope на телефоні."
 
 #: rust/crates/link/src/phones.rs:300
 msgid "adb isn't installed, so USB can't be used (Add device can get it)"
@@ -4013,8 +3998,8 @@ msgid "Getting adb from Google…"
 msgstr "Отримання adb від Google…"
 
 #: rust/crates/link/src/plugin.rs:569 rust/crates/link/src/plugin.rs:633
-msgid "Or plug it in over USB."
-msgstr "Або підключіть його через USB."
+msgid "Or plug the phone in over USB."
+msgstr ""
 
 #. keep the <a href="{link}"> link
 #: rust/crates/link/src/plugin.rs:575
@@ -4061,11 +4046,10 @@ msgstr "Виберіть телефон, щоб створити пару чер
 msgid "Allow USB debugging on the phone."
 msgstr "Дозвольте налагодження через USB на телефоні."
 
-#. keep the <a href="{url}"> link and the <br> tags
 #: rust/crates/link/src/plugin.rs:671
 #, python-brace-format
-msgid "Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it."
-msgstr "Telescope може завантажити його від Google (приблизно {size}) та зберігати для вашого користувача. Це програмне забезпечення Google, тому на нього поширюється ліцензія Android SDK: <a href=\"{url}\">прочитайте її тут</a>.<br><br>Wi-Fi працює і без нього."
+msgid "Telescope can download adb from Google (about {size}) and keep it for your user. adb is Google's software, so their Android SDK License applies: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without adb."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:677
 msgid "USB needs adb, Google's tool for talking to Android phones."
@@ -4087,11 +4071,10 @@ msgstr "adb.exe або архів platform-tools zip (adb.exe *.zip)"
 msgid "Copying adb…"
 msgstr "Копіювання adb…"
 
-#. keep both <a href="..."> links
 #: rust/crates/link/src/plugin.rs:741
 #, python-brace-format
-msgid "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick one you already have</a>."
-msgstr "<a href=\"{get}\">Спробувати знову</a> або <a href=\"{pick}\">вибрати наявний</a>."
+msgid "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick an adb you already have</a>."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:817
 msgid "Same phone?"
@@ -4104,8 +4087,8 @@ msgstr "Це знову {name}?"
 
 #: rust/crates/link/src/plugin.rs:818
 #, python-brace-format
-msgid "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry."
-msgstr "Телефон із назвою {name} створив пару як новий телефон. Це стається після перевстановлення Telescope або очищення його даних. Відповідь «Так» перенесе налаштування та пресети {name} на нього й вилучить старий запис."
+msgid "{name} paired as a new phone. This happens after Telescope is reinstalled on the phone or the app's data is cleared. Yes moves {name}'s settings and presets to the new entry and removes the old one."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1017
 msgid "Phone app updated. Open Telescope on the phone."
@@ -4185,8 +4168,8 @@ msgstr "Вилучити телефон"
 
 #: rust/crates/link/src/plugin.rs:1227
 #, python-brace-format
-msgid "Remove \"{name}\"? This deletes the settings it had on this computer. It can still connect with the code, and starts from the defaults."
-msgstr "Вилучити «{name}»? Це видалить його налаштування на цьому комп'ютері. Він усе ще зможе підключатися за кодом і починатиме з налаштувань за замовчуванням."
+msgid "Remove \"{name}\"? This deletes the settings it had on this computer. The browser can still connect with the code and starts with default settings."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1231
 msgid "Remove browser"
@@ -4198,16 +4181,16 @@ msgstr "Віртуальну камеру налаштовано інакше"
 
 #: rust/crates/link/src/plugin.rs:1533
 #, python-brace-format
-msgid "v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:"
-msgstr "v4l2loopback завантажено, але без {device}: інша програма налаштувала його з іншими параметрами. Закрийте ту програму та запустіть це, щоб передати його Telescope:"
+msgid "v4l2loopback is loaded, but without {device}: another app loaded it with other settings. Close that app and run this command to give Telescope control:"
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1543
 msgid "The virtual camera is off"
 msgstr "Віртуальну камеру вимкнено"
 
 #: rust/crates/link/src/plugin.rs:1543
-msgid "Switching it on asks for your password."
-msgstr "Для її ввімкнення знадобиться ваш пароль."
+msgid "Your password is needed to switch on the virtual camera."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1544 rust/crates/shell/src/plugins_tab.rs:621 rust/crates/shell/src/plugins_tab.rs:640
 msgid "Switch on"
@@ -4314,8 +4297,8 @@ msgid "Back"
 msgstr "Назад"
 
 #: rust/crates/link/ui/connection.slint:469
-msgid "Telescope needs to switch on its virtual camera first. This asks for your password."
-msgstr "Спочатку Telescope має увімкнути свою віртуальну камеру. Для цього потрібен ваш пароль."
+msgid "The virtual camera has to be switched on first, which needs your password."
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:477 rust/crates/link/ui/connection.slint:480
 msgid "Also switch it on at every startup"
@@ -4390,12 +4373,12 @@ msgid "UDP on Wi-Fi"
 msgstr "UDP через Wi-Fi"
 
 #: rust/crates/link/ui/connection.slint:777
-msgid "Send the video over Wi-Fi with UDP, which skips a lost piece instead of waiting for it"
+msgid "Send the video over Wi-Fi with UDP, which skips lost packets instead of waiting for them"
 msgstr ""
 
 #: rust/crates/link/ui/connection.slint:778 rust/crates/link/ui/connection.slint:786
-msgid "It can stutter more than TCP, so try it and see."
-msgstr "Може працювати менш плавно, ніж через TCP, тож спробуйте й перевірте."
+msgid "UDP can stutter more than TCP. Try both and compare."
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:781
 msgctxt "search"
@@ -4498,8 +4481,8 @@ msgid "All the way right is Dynamic, which adjusts to your connection."
 msgstr "Крайній правий - «Динамічний», що сам підлаштовується під з'єднання."
 
 #: rust/crates/outputs/src/stream_output.rs:29
-msgid "This phone's app is too old for Dynamic and uses Auto until it's updated."
-msgstr "Додаток на цьому телефоні застарілий для формату «Динамічний» і використовуватиме «Авто», доки його не буде оновлено."
+msgid "The phone app is too old for Dynamic and uses Auto until the app is updated."
+msgstr ""
 
 #: rust/crates/outputs/src/stream_output.rs:30
 msgid "H.264 from the phone's hardware encoder, with much less data than Heavy."
@@ -4591,8 +4574,8 @@ msgstr "Почати з {size}"
 
 #: rust/crates/outputs/src/stream_output.rs:574
 #, python-brace-format
-msgid "{error}. It's set back to {size}, the last size that worked."
-msgstr "{error}. Повернуто до {size}, останнього робочого розміру."
+msgid "{error}. The size is set back to {size}, the last size that worked."
+msgstr ""
 
 #: rust/crates/outputs/src/stream_output.rs:576
 #, python-brace-format
@@ -4621,8 +4604,8 @@ msgid "The resolution, frame rate and format of the stream."
 msgstr "Роздільна здатність, частота кадрів та формат трансляції."
 
 #: rust/crates/outputs/src/stream_output.rs:716
-msgid "Without it there's no Stream output card and streams use whatever size and format the phone picks."
-msgstr "Без нього картки «Вихідний потік» немає, а трансляції використовують розмір і формат, вибрані телефоном."
+msgid "Without the Stream output plugin there's no Stream output card and streams use whatever size and format the phone picks."
+msgstr ""
 
 #: rust/crates/outputs/src/stream_output.rs:781 rust/crates/outputs/src/stream_output.rs:990 rust/crates/outputs/ui/stream_output.slint:109 rust/crates/outputs/ui/stream_output.slint:113
 msgid "Heavy"
@@ -4664,16 +4647,16 @@ msgstr "Не вдалося використати це зображення"
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:504
 #, python-brace-format
-msgid "{problem}. Keeping the current wait screen."
-msgstr "{problem}. Залишається поточний екран очікування."
+msgid "{problem}. The current wait screen is kept."
+msgstr ""
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:506
 msgid "Couldn't read that image"
 msgstr "Не вдалося прочитати це зображення"
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:506
-msgid "The default screen is showing. Choose another one."
-msgstr "Показується стандартний екран. Виберіть інший."
+msgid "The default screen is showing. Choose another image."
+msgstr ""
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:509
 #, python-brace-format
@@ -4702,8 +4685,8 @@ msgid "The picture apps see on the virtual camera while nothing is streaming."
 msgstr "Зображення, яке програми бачать у віртуальній камері, коли нічого не транслюється."
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:575
-msgid "Without it Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
-msgstr "Без нього «Екран очікування» буде відсутній у «Налаштуваннях», і між трансляціями програми можуть бачити чорний екран або взагалі нічого."
+msgid "Without the Wait screen plugin Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
+msgstr ""
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:673
 msgctxt "search"
@@ -4771,8 +4754,8 @@ msgid "Brighten a face in front of a bright window."
 msgstr "Висвітлити обличчя на тлі яскравого вікна."
 
 #: rust/crates/outputs/src/webcam.rs:89
-msgid "Set it to your mains frequency to stop lights flickering or banding."
-msgstr "Виберіть частоту вашої електромережі, щоб прибрати мерехтіння освітлення та смуги на зображенні."
+msgid "Match your mains frequency to stop lights flickering or banding."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:90
 msgid "Make the picture brighter or darker than the webcam's automatic exposure."
@@ -4827,17 +4810,17 @@ msgid "60 Hz"
 msgstr "60 Гц"
 
 #: rust/crates/outputs/src/webcam.rs:320
-msgid "Check that it's plugged in."
-msgstr "Перевірте, чи її підключено."
+msgid "Check that the webcam is plugged in."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:498
-msgid "Another app may be using it. Close it there and it starts here."
-msgstr "Можливо, її використовує інший додаток. Закрийте його там, і камера запуститься тут."
+msgid "Another app may be using the webcam. Close the webcam in that app, then start streaming here."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:500
 #, python-brace-format
-msgid "{app} is using it. Close it there and it starts here."
-msgstr "Її використовує {app}. Закрийте там цей додаток, і камера запуститься тут."
+msgid "{app} is using the webcam. Close the webcam there, then start streaming here."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:502 rust/crates/outputs/src/webcam.rs:505 rust/crates/outputs/src/webcam.rs:508
 #, python-brace-format
@@ -4894,8 +4877,8 @@ msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "Трансляція з вебкамер і пристроїв відеозахоплення, підключених до цього комп'ютера."
 
 #: rust/crates/outputs/src/webcam.rs:1013
-msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
-msgstr "Без нього веб-камер немає у виборі пристроїв, а картка «Веб-камера» також зникає."
+msgid "Without the Webcams plugin webcams aren't in the device picker and the Webcam card is gone too."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:1057
 #, python-brace-format
@@ -4907,12 +4890,12 @@ msgid "Plug it in, or pick another camera."
 msgstr "Підключіть її або виберіть іншу камеру."
 
 #: rust/crates/outputs/src/webcam_capture.rs:10
-msgid "The webcam isn't plugged in. Plug it back in and it carries on."
-msgstr "Вебкамеру не підключено. Підключіть її знову, і вона продовжить роботу."
+msgid "The webcam isn't plugged in. Plug the webcam back in to continue."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture.rs:11
-msgid "Another app is using the webcam. Close it there and it starts here."
-msgstr "Вебкамеру використовує інший додаток. Закрийте його там, і вона запуститься тут."
+msgid "Another app is using the webcam. Close the webcam in that app, then start streaming here."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture.rs:12
 msgid "Windows or your security software is blocking Telescope from the webcam. Allow it there, then start the webcam again."
@@ -4951,7 +4934,7 @@ msgid "The photo was interrupted because the camera stopped."
 msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:273
-msgid "The camera took too long to take the photo. If it still arrives, it is saved and you'll be told."
+msgid "The camera took too long to take the photo. If the photo still arrives, it's saved and you get a notification."
 msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:274
@@ -4963,7 +4946,7 @@ msgid "The camera's image quality is locked to RAW, so it can't take a JPEG."
 msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:276
-msgid "The camera only sent part of the photo. What came is saved."
+msgid "The camera only sent part of the photo. The part that arrived is saved."
 msgstr ""
 
 #: rust/crates/outputs/src/wininstall.rs:256 rust/crates/setup/src/setup.rs:805
@@ -5092,55 +5075,55 @@ msgid "Focus once"
 msgstr "Сфокусувати раз"
 
 #: rust/crates/plugin-host/src/load.rs:16
-msgid "It isn't turned on."
-msgstr "Його не ввімкнено."
+msgid "The plugin isn't turned on."
+msgstr ""
 
 #: rust/crates/plugin-host/src/lua.rs:297
 #, python-brace-format
-msgid "Its {file} has to return the plugin's table at the end."
-msgstr "Його {file} наприкінці має повертати таблицю плагіна."
+msgid "{file} has to return the plugin's table at the end."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:181
-msgid "It's a link to another folder, which plugins can't be."
-msgstr "Це посилання на іншу папку, а плагіни не можуть бути посиланнями."
+msgid "The plugin is a link to another folder, which plugins can't be."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:187 rust/crates/plugin-host/src/package.rs:242
 #, python-brace-format
-msgid "It has no {file}."
-msgstr "У ньому немає {file}."
+msgid "The plugin has no {file}."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:191
 #, python-brace-format
-msgid "Its {file} isn't valid JSON."
-msgstr "Його {file} не є коректним файлом JSON."
+msgid "{file} isn't valid JSON."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:195 rust/crates/plugin-host/src/package.rs:239
 #, python-brace-format
-msgid "Its {file} isn't valid."
-msgstr "Його {file} є некоректним."
+msgid "{file} isn't valid."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:209
 #, python-brace-format
-msgid "It was made for an older Telescope (plugin API {api}) and needs an update."
-msgstr "Його було створено для старішої версії Telescope (API плагінів {api}), тому його потрібно оновити."
+msgid "The plugin was made for an older Telescope (plugin API {api}) and needs an update."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:219
-msgid "Its files couldn't be read."
-msgstr "Не вдалося прочитати його файли."
+msgid "The plugin's files couldn't be read."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:226
 #, python-brace-format
-msgid "Its {file} has to give the folder's name as \"name\"."
-msgstr "Його {file} повинен містити назву папки як \"name\"."
+msgid "{file} has to give the folder's name as \"name\"."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:233
 #, python-brace-format
-msgid "It needs a newer Telescope (plugin API {wanted}; this one has {have})."
-msgstr "Для нього потрібна новіша версія Telescope (API плагінів {wanted}; у цій версії {have})."
+msgid "The plugin needs a newer Telescope (plugin API {wanted}; this Telescope has {have})."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:273
-msgid "Its files changed since it was turned on. Turn it on again if you trust this version."
-msgstr "Його файли змінилися після ввімкнення. Увімкніть його знову, якщо ви довіряєте цій версії."
+msgid "The plugin's files changed since it was turned on. Turn the plugin on again if you trust the new version."
+msgstr ""
 
 #: rust/crates/plugin-host/src/switches.rs:33
 msgid "Couldn't save the settings."
@@ -5196,8 +5179,8 @@ msgid "{phone}: temperature is {temp} °C."
 msgstr "{phone}: температура {temp} °C."
 
 #: rust/crates/setup/src/monitoring.rs:349
-msgid "Stopped streaming to let it cool down."
-msgstr "Трансляцію зупинено, щоб телефон охолонув."
+msgid "Stopped streaming to let the phone cool down."
+msgstr ""
 
 #: rust/crates/setup/src/monitoring.rs:349
 msgid "Consider stopping charging or closing other apps."
@@ -5219,8 +5202,8 @@ msgstr "Заряд акумулятора {phone}: {level} %"
 
 #: rust/crates/setup/src/monitoring.rs:368
 #, python-brace-format
-msgid "Streaming stopped, as Monitoring stops it at {level}% or lower."
-msgstr "Трансляцію зупинено, оскільки «Моніторинг» зупиняє її на рівні {level} % або нижче."
+msgid "Streaming stopped because Monitoring stops streaming at {level}% or lower."
+msgstr ""
 
 #: rust/crates/setup/src/monitoring.rs:372
 #, python-brace-format
@@ -5234,8 +5217,8 @@ msgstr "Температура {phone}: {temp} °C"
 
 #: rust/crates/setup/src/monitoring.rs:376
 #, python-brace-format
-msgid "Streaming stopped to let it cool down, as Monitoring stops it at {temp} °C."
-msgstr "Трансляцію зупинено, щоб телефон охолонув, оскільки «Моніторинг» зупиняє її за {temp} °C."
+msgid "Streaming stopped to let the phone cool down, because Monitoring stops streaming at {temp} °C."
+msgstr ""
 
 #: rust/crates/setup/src/monitoring.rs:384
 msgid "Start anyway"
@@ -5250,12 +5233,12 @@ msgid "The phone's battery and temperature, with warnings when they get low or h
 msgstr "Рівень заряду та температура телефону з попередженнями про занизькі чи зависокі значення."
 
 #: rust/crates/setup/src/monitoring.rs:448
-msgid "Without it there's no Phone card and nothing warns you about a low battery or a hot phone."
-msgstr "Без нього картка «Телефон» відсутня, і ніщо не попереджає про низький заряд акумулятора чи перегрітий телефон."
+msgid "Without the Monitoring plugin there's no Phone card and nothing warns you about a low battery or a hot phone."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:33
-msgid "Asks for your password (pkexec or sudo): this changes system settings."
-msgstr "Запитує ваш пароль (pkexec або sudo): це змінює системні налаштування."
+msgid "Needs your password (pkexec or sudo) to change system settings."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:34
 msgid "Needs your password (pkexec or sudo) because this changes system settings."
@@ -5311,8 +5294,8 @@ msgid "Apply"
 msgstr "Застосувати"
 
 #: rust/crates/setup/src/setup.rs:389
-msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
-msgstr "Застосування перезапускає трансляцію з новим розміром. Якщо OBS втратить джерело, вилучіть його та додайте знову."
+msgid "Applying restarts the stream at the new size. If OBS loses the source, remove the source and add it again."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:416 rust/crates/shell/src/plugins/onboarding.rs:157 rust/crates/shell/src/plugins/onboarding.rs:161 rust/crates/shell/src/plugins/onboarding.rs:164
 msgid "Install over USB"
@@ -5346,12 +5329,12 @@ msgid "Copied"
 msgstr "Скопійовано"
 
 #: rust/crates/setup/src/setup.rs:522
-msgid "The graphics card failed and the processor is decoding until you restart Telescope"
-msgstr "Стався збій відеокарти, і процесор декодує, доки ви не перезапустите Telescope"
+msgid "Graphics card decoding failed, decoding on the processor until Telescope restarts"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:523
-msgid "The graphics card was too slow, so the processor is decoding for now"
-msgstr "Відеокарта виявилася надто повільною, тому поки що декодує процесор"
+msgid "Graphics card too slow, decoding on the processor until Telescope restarts"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:524
 #, python-brace-format
@@ -5441,8 +5424,8 @@ msgid "Update ready"
 msgstr "Оновлення готове"
 
 #: rust/crates/setup/src/setup.rs:648
-msgid "Some apps can't see it"
-msgstr "Деякі додатки її не бачать"
+msgid "Some apps can't see the camera"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:649 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
 msgid "Update"
@@ -5479,8 +5462,8 @@ msgid "Not installed (Install driver downloads it first)"
 msgstr "Не встановлено («Встановити драйвер» спочатку завантажує його)"
 
 #: rust/crates/setup/src/setup.rs:676
-msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
-msgstr "Не знайдено. Потрібно для створення пари та встановлення через USB; для Wi-Fi не потрібно."
+msgid "Not found. Pairing and installing over USB need adb; Wi-Fi doesn't."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:702 rust/crates/setup/src/setup.rs:866
 #, python-brace-format
@@ -5871,8 +5854,8 @@ msgid "Numbers about the stream as it runs: frames in and out, dropped frames an
 msgstr "Показники трансляції під час роботи: вхідні й вихідні кадри, пропущені кадри та їх причини, з'єднання й бітрейт, тривалість кожного кроку та ресурси, які споживає додаток."
 
 #: rust/crates/setup/src/stats.rs:780
-msgid "Without it there's no Stats card. The stream carries on the same."
-msgstr "Без нього немає картки «Статистика». Трансляція працює як і раніше."
+msgid "Without the Stats plugin there's no Stats card. The stream is not affected."
+msgstr ""
 
 #: rust/crates/setup/src/stats_phone.rs:99
 msgid "Moderate"
@@ -5957,8 +5940,8 @@ msgstr "Тротлінг"
 
 #: rust/crates/setup/src/stats_phone.rs:170
 #, python-brace-format
-msgid "stepped down to {n} for the link"
-msgstr "знижено до {n} для з'єднання"
+msgid "lowered to {n} because of the connection"
+msgstr ""
 
 #: rust/crates/setup/src/stats_phone.rs:173
 msgid "Camera frame rate"
@@ -6037,7 +6020,7 @@ msgid "Extra cameras"
 msgstr "Додаткові камери"
 
 #: rust/crates/setup/ui/setup.slint:19
-msgid "More virtual cameras, so several cameras can stream at once"
+msgid "More virtual cameras, so several cameras can stream at the same time"
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:22
@@ -6059,7 +6042,7 @@ msgid "Kernel module"
 msgstr "Модуль ядра"
 
 #: rust/crates/setup/ui/setup.slint:79
-msgid "The Linux part that makes the virtual camera exist"
+msgid "The Linux part that provides the virtual camera"
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:80
@@ -6093,7 +6076,7 @@ msgid "Driver"
 msgstr "Драйвер"
 
 #: rust/crates/setup/ui/setup.slint:124
-msgid "The Windows part that makes the virtual camera exist"
+msgid "The Windows part that provides the virtual camera"
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:127
@@ -6106,7 +6089,7 @@ msgid "Android's tool for talking to a phone over USB"
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:138
-msgid "Google's licence doesn't allow bundling it, so download it or pick your own copy."
+msgid "Google's licence doesn't allow bundling adb, so download it or pick a copy you already have."
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:141
@@ -6144,8 +6127,8 @@ msgid "Hardware acceleration"
 msgstr "Апаратне прискорення"
 
 #: rust/crates/setup/ui/setup.slint:215
-msgid "Decode the Light format on the graphics card from the next stream on. If the card fails the processor takes over until you restart Telescope."
-msgstr "Декодувати формат «Легкий» на відеокарті, починаючи з наступної трансляції. У разі збою відеокарти процесор перебере це на себе до перезапуску Telescope."
+msgid "Decode the Light format on the graphics card from the next stream on. If the graphics card fails, the processor is used until you restart Telescope."
+msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:216
 msgctxt "search"
@@ -6157,8 +6140,8 @@ msgid "Power-saving effects"
 msgstr "Енергоощадні ефекти"
 
 #: rust/crates/setup/ui/setup.slint:228
-msgid "Use less processor and battery while Background or Auto framing is on. They follow quick movement a little later."
-msgstr "Використовувати менше ресурсів процесора й батареї, коли увімкнено «Фон» або «Автокадрування». Вони трохи повільніше реагуватимуть на різкі рухи."
+msgid "Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later."
+msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:229
 msgctxt "search"
@@ -6230,8 +6213,8 @@ msgid "Limiter"
 msgstr "Лімітер"
 
 #: rust/crates/setup/ui/setup.slint:351
-msgid "Keeps loud sounds from clipping"
-msgstr "Запобігає перевантаженню гучних звуків"
+msgid "Keep loud sounds from clipping"
+msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:352
 msgctxt "search"
@@ -6361,8 +6344,8 @@ msgid "Restart to switch"
 msgstr "Перезапустіть для зміни"
 
 #: rust/crates/setup/ui/setup.slint:517
-msgid "Restart Telescope to switch to it."
-msgstr "Перезапустіть Telescope, щоб перейти на неї."
+msgid "Restart Telescope to switch to the new language."
+msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:519 rust/crates/shell/ui/settings.slint:501 rust/crates/shell/ui/settings.slint:504
 msgid "Restart now"
@@ -6416,8 +6399,8 @@ msgid "Open log"
 msgstr "Відкрити журнал"
 
 #: rust/crates/setup/ui/setup.slint:580
-msgid "Open the full log. It's kept in the temp folder, which the system clears."
-msgstr "Відкрити повний журнал. Він зберігається в тимчасовій папці, яку система очищає."
+msgid "Open the full log. The log is kept in the temp folder, which the system clears."
+msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:584
 msgid "Diagnostics"
@@ -6508,13 +6491,13 @@ msgid "{first} to {last}"
 msgstr "від {first} до {last}"
 
 #: rust/crates/shell/src/extra_cameras.rs:87
-msgid "This asks for your password."
-msgstr "Для цього потрібен ваш пароль."
+msgid "Your password is needed."
+msgstr ""
 
 #: rust/crates/shell/src/extra_cameras.rs:88
 #, python-brace-format
-msgid "To stream several cameras at once, Telescope adds more virtual cameras ({names})."
-msgstr "Щоб транслювати кілька камер одночасно, Telescope додає додаткові віртуальні камери ({names})."
+msgid "To stream several cameras at the same time, Telescope adds more virtual cameras ({names})."
+msgstr ""
 
 #: rust/crates/shell/src/extra_cameras.rs:105
 msgid "Set up more virtual cameras"
@@ -6529,8 +6512,8 @@ msgid "Couldn't add more virtual cameras"
 msgstr "Не вдалося додати додаткові віртуальні камери"
 
 #: rust/crates/shell/src/host.rs:615
-msgid "Only a phone's stream has the video this needs."
-msgstr "Потрібне відео є лише в трансляції з телефону."
+msgid "Needs video that only a phone's stream has."
+msgstr ""
 
 #: rust/crates/shell/src/host.rs:621
 msgid "Needs Light: Heavy sends whole pictures, with no keyframes to work with."
@@ -6743,8 +6726,8 @@ msgstr "Вручну"
 msgid "Sharpening"
 msgstr "Різкість"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1521 rust/crates/shell/src/plugins/camera_control.rs:1846 rust/crates/shell/ui/cards/camera.slint:369
-msgid "Stabilization"
+#: rust/crates/shell/src/plugins/camera_control.rs:1521 rust/crates/shell/src/plugins/camera_control.rs:1846 rust/crates/shell/ui/cards/camera.slint:369 rust/crates/shell/ui/cards/camera.slint:370
+msgid "Stabilisation"
 msgstr "Стабілізація"
 
 #: rust/crates/shell/src/plugins/camera_control.rs:1522 rust/crates/shell/src/plugins/camera_control.rs:1849 rust/crates/shell/ui/cards/camera.slint:394 rust/crates/shell/ui/cards/camera.slint:395
@@ -6776,8 +6759,8 @@ msgid "Checking…"
 msgstr "Перевірка…"
 
 #: rust/crates/shell/src/plugins/onboarding.rs:133
-msgid "Starting a stream may ask for your password to switch it on."
-msgstr "Під час запуску трансляції може знадобитися пароль, щоб увімкнути її."
+msgid "Starting a stream may ask for your password to switch on the virtual camera."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/onboarding.rs:134
 msgid "If Discord, Zoom or a similar app was already open, quit it fully (closing the window isn't enough if it's still in the tray) and open it again to see the camera."
@@ -6825,8 +6808,8 @@ msgid "Scan to download"
 msgstr "Скануйте, щоб завантажити"
 
 #: rust/crates/shell/src/plugins/onboarding.rs:165
-msgid "Scan this with the phone's camera app to download Telescope.apk, then open it to install. It's a download link, not the pairing code."
-msgstr "Відскануйте це додатком камери на телефоні, щоб завантажити Telescope.apk, а потім відкрийте його для встановлення. Це посилання на завантаження, а не код створення пари."
+msgid "Scan the code with the phone's camera app to download Telescope.apk, then open the file to install. The code is a download link, not the pairing code."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/onboarding.rs:170
 msgid "Paired."
@@ -6853,8 +6836,8 @@ msgid "The step by step checklist shown until the first stream works."
 msgstr "Покроковий список дій, що показується, доки не запрацює перша трансляція."
 
 #: rust/crates/shell/src/plugins/onboarding.rs:207
-msgid "Without it the setup checklist never shows, not even when nothing is set up yet."
-msgstr "Без нього список налаштування ніколи не показується, навіть коли ще нічого не налаштовано."
+msgid "Without the Setup guide plugin the setup checklist never shows, not even when nothing is set up yet."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/onboarding.rs:246
 msgid "Installed. Open Telescope on the phone for the next step."
@@ -6908,8 +6891,8 @@ msgid "Saving and loading groups of settings with one click."
 msgstr "Збереження та завантаження груп налаштувань в один клік."
 
 #: rust/crates/shell/src/plugins/presets.rs:283
-msgid "Without it there's no Presets button in the header (your saved presets aren't deleted)."
-msgstr "Без нього кнопки «Пресети» немає в заголовку (ваші збережені пресети не видаляються)."
+msgid "Without the Presets plugin there's no Presets button in the header (your saved presets aren't deleted)."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/presets.rs:330
 msgid "Apply a preset"
@@ -6956,8 +6939,8 @@ msgid "The live picture in the middle of the window, and the camera on/off butto
 msgstr "Живе зображення посередині вікна та кнопка вмикання/вимикання камери під ним."
 
 #: rust/crates/shell/src/plugins/preview.rs:340
-msgid "Without it the window doesn't show the picture but apps using the virtual camera still get it."
-msgstr "Без нього у вікні не показується зображення, але додатки, що використовують віртуальну камеру, все одно його отримують."
+msgid "Without the Preview plugin the window doesn't show the picture but apps using the virtual camera still get it."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/preview.rs:370
 msgid "Show or hide the preview"
@@ -6981,8 +6964,8 @@ msgid "plugins extensions addons add ons modules features turn off on disable en
 msgstr "плагіни розширення додатки модулі функції вимкнути увімкнути встановити zip plugins extensions addons add ons modules features turn off on disable enable install zip"
 
 #: rust/crates/shell/src/plugins_tab.rs:147
-msgid "Telescope couldn't start a new copy of itself. Close it and open it again to apply your changes."
-msgstr "Telescope не зміг запустити новий екземпляр. Закрийте його та відкрийте знову, щоб застосувати зміни."
+msgid "Telescope couldn't restart. Close Telescope and open it again to apply your changes."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:410
 msgid "Telescope needs this plugin to work, so it can't be switched off."
@@ -6994,17 +6977,17 @@ msgstr "Обов'язковий"
 
 #: rust/crates/shell/src/plugins_tab.rs:435
 #, python-brace-format
-msgid "The download didn't work. {error}"
-msgstr "Не вдалося завантажити. {error}"
+msgid "The download failed. {error}"
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:438
-msgid "There's no download of what it needs for this computer yet, so it can't be switched on."
-msgstr "Необхідних файлів для цього комп'ютера ще немає для завантаження, тому його не можна ввімкнути."
+msgid "There's no download for this computer yet, so the plugin can't be switched on."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:441
 #, python-brace-format
-msgid "Its download (about {mb} MB) isn't there anymore. Switch it off and on again to get it."
-msgstr "Його завантажених файлів (приблизно {mb} МБ) більше немає. Вимкніть його та ввімкніть знову, щоб завантажити їх."
+msgid "The plugin's download (about {mb} MB) is missing. Switch the plugin off and on again to download it."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:448
 msgid "Needs the vision download"
@@ -7016,8 +6999,8 @@ msgstr "Для цього комп'ютера ще немає завантаже
 
 #: rust/crates/shell/src/plugins_tab.rs:468
 #, python-brace-format
-msgid "Switching one of these on downloads about {mb} MB first, once for all of them."
-msgstr "Увімкнення одного з них спочатку завантажує близько {mb} МБ, один раз для всіх."
+msgid "Switching on any of these plugins downloads about {mb} MB first, shared by all of them."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:479
 #, python-brace-format
@@ -7030,19 +7013,19 @@ msgid "Updated to {version} automatically. The new version runs after Telescope 
 msgstr "Автоматично оновлено до {version}. Нова версія запуститься після перезапуску Telescope."
 
 #: rust/crates/shell/src/plugins_tab.rs:495
-msgid "Its files changed since you switched it on, so it's off for now. Switch it on again if you trust this version."
-msgstr "Його файли змінилися з моменту ввімкнення, тому зараз його вимкнено. Увімкніть його знову, якщо ви довіряєте цій версії."
+msgid "The plugin's files changed since you switched it on, so it's off. Switch it on again if you trust the new version."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:498 rust/crates/shell/src/plugins_tab.rs:538
 #, python-brace-format
-msgid "It didn't start ({problem})."
-msgstr "Не вдалося запустити ({problem})."
+msgid "Couldn't start: {problem}"
+msgstr ""
 
 #. keep the <a href="{url}"> link
 #: rust/crates/shell/src/plugins_tab.rs:507
 #, python-brace-format
-msgid "Version {version} is out. <a href=\"{url}\">Download it from its release page</a> and install it here to replace this one."
-msgstr "Вийшла версія {version}. <a href=\"{url}\">Завантажте її зі сторінки випуску</a> та встановіть сюди, щоб замінити цю версію."
+msgid "Version {version} is out. <a href=\"{url}\">Download it from the plugin's release page</a> and install it here to replace the current version."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:517
 msgid "Added"
@@ -7058,8 +7041,8 @@ msgstr "У розробці"
 
 #: rust/crates/shell/src/plugins_tab.rs:541
 #, python-brace-format
-msgid "Loaded from {folder} by telescope-rs dev. Telescope restarts by itself when you save one of its files."
-msgstr "Завантажено з {folder} за допомогою telescope-rs dev. Telescope сам перезапускається, коли ви зберігаєте один із його файлів."
+msgid "Loaded from {folder} by telescope-rs dev. Telescope restarts automatically when you save a plugin file."
+msgstr ""
 
 #. next to a group's name on the Plugins tab, how many of its plugins are switched on
 #: rust/crates/shell/src/plugins_tab.rs:555
@@ -7100,8 +7083,8 @@ msgstr "Вилучити {plugin}?"
 
 #: rust/crates/shell/src/plugins_tab.rs:605
 #, python-brace-format
-msgid "Its folder ({folder}) is deleted from the plugins folder. To use it again you'll have to add it again."
-msgstr "Його папку ({folder}) буде видалено з папки плагінів. Щоб скористатися ним знову, його доведеться додати ще раз."
+msgid "The plugin's folder ({folder}) is deleted from the plugins folder. To use the plugin again, add it again."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:609
 msgid "Remove the download?"
@@ -7109,8 +7092,8 @@ msgstr "Вилучити завантаження?"
 
 #: rust/crates/shell/src/plugins_tab.rs:610
 #, python-brace-format
-msgid "It frees about {mb} MB. Switching on one of the optional plugins downloads it again."
-msgstr "Це звільнить приблизно {mb} МБ. Увімкнення одного з додаткових плагінів завантажить його знову."
+msgid "Frees about {mb} MB. Switching on an optional plugin downloads the files again."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:619
 msgid "Install plugin updates without asking?"
@@ -7131,8 +7114,8 @@ msgid "Restart Telescope now?"
 msgstr "Перезапустити Telescope зараз?"
 
 #: rust/crates/shell/src/plugins_tab.rs:625
-msgid "Streaming stops while Telescope restarts. It takes a few seconds."
-msgstr "Трансляція зупиниться на час перезапуску Telescope. Це займе кілька секунд."
+msgid "Streaming stops while Telescope restarts. Restarting takes a few seconds."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:639
 #, python-brace-format
@@ -7149,8 +7132,8 @@ msgid "Switch off {plugin}?"
 msgstr "Вимкнути {plugin}?"
 
 #: rust/crates/shell/src/plugins_tab.rs:643
-msgid "Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch it back on."
-msgstr "Без нього все, що він додав до Telescope, зникне. Його налаштування залишаться збереженими на випадок, якщо ви знову його ввімкнете."
+msgid "Without the plugin, what it added to Telescope is gone. The plugin's settings stay saved for when you switch it back on."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:643 rust/crates/shell/src/plugins_tab.rs:663
 msgid "Switch off"
@@ -7163,8 +7146,8 @@ msgstr "Завантажити приблизно {mb} МБ?"
 
 #: rust/crates/shell/src/plugins_tab.rs:651
 #, python-brace-format
-msgid "{plugin} uses MediaPipe to find people in the picture. It comes as a separate download from Telescope's releases on GitHub, which the other optional plugins share."
-msgstr "{plugin} використовує MediaPipe для виявлення людей на зображенні. Він постачається як окреме завантаження з релізів Telescope на GitHub, спільне для інших додаткових плагінів."
+msgid "{plugin} uses MediaPipe to find people in the picture. The files are a separate download from Telescope's releases on GitHub, shared by the other optional plugins."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:652
 msgid "Download and switch on"
@@ -7180,8 +7163,8 @@ msgid "Replace {plugin}?"
 msgstr "Замінити {plugin}?"
 
 #: rust/crates/shell/src/plugins_tab.rs:678
-msgid "The version in this .zip takes its place with the same settings. Like any plugin you add it starts out switched off."
-msgstr "Версія з цього .zip замінить його зі збереженням налаштувань. Як і будь-який доданий вами плагін, спочатку він буде вимкнений."
+msgid "The version in this .zip replaces the installed version and keeps its settings. Like any added plugin, it starts switched off."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:690
 #, python-brace-format
@@ -7190,13 +7173,13 @@ msgstr "Плагін {plugin} встановлено, але він поки н�
 
 #: rust/crates/shell/src/plugins_tab.rs:692
 #, python-brace-format
-msgid "{plugin} {version} is in place but switched off for now. To use it, switch it on again and restart Telescope."
-msgstr "Плагін {plugin} {version} встановлено, але поки що вимкнено. Щоб скористатися ним, увімкніть його знову й перезапустіть Telescope."
+msgid "{plugin} {version} is installed but switched off. To use it, switch it on again and restart Telescope."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:694
 #, python-brace-format
-msgid "{plugin} is installed but switched off for now. To use it, switch it on and restart Telescope."
-msgstr "Плагін {plugin} встановлено, але поки що вимкнено. Щоб скористатися ним, увімкніть його й перезапустіть Telescope."
+msgid "{plugin} is installed but switched off. To use it, switch it on and restart Telescope."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:704
 #, python-brace-format
@@ -7223,12 +7206,12 @@ msgid "Tab"
 msgstr "Вкладка"
 
 #: rust/crates/shell/src/session.rs:218
-msgid "Check that it's still on."
-msgstr "Перевірте, чи пристрій досі увімкнено."
+msgid "Check that the device is still on."
+msgstr ""
 
 #: rust/crates/shell/src/settings.rs:862
-msgid "Nothing matches every word. These match some of them."
-msgstr "Жоден результат не містить усіх слів. Ось збіги для деяких із них."
+msgid "Nothing matches every word. These match some of the words."
+msgstr ""
 
 #: rust/crates/shell/src/settings.rs:864
 #, python-brace-format
@@ -7249,16 +7232,16 @@ msgid "Check for updates"
 msgstr "Перевіряти наявність оновлень"
 
 #: rust/crates/shell/src/settings.rs:949
-msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
-msgstr "Раз на день перевіряє наявність нових версій доданих плагінів, що публікують релізи на GitHub, і повідомляє про них тут. Нічого не завантажується."
+msgid "Check once a day for new versions of added plugins that publish releases on GitHub and show them here. Nothing is downloaded."
+msgstr ""
 
 #: rust/crates/shell/src/settings.rs:950
 msgid "Install updates without asking"
 msgstr "Встановлювати оновлення без запиту"
 
 #: rust/crates/shell/src/settings.rs:950
-msgid "Installs new versions of the plugins you switched on and switches them on again."
-msgstr "Встановлює нові версії увімкнених вами плагінів і вмикає їх знову."
+msgid "Install new versions of the plugins you switched on and switch them on again."
+msgstr ""
 
 #: rust/crates/shell/src/settings.rs:951
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
@@ -7274,26 +7257,26 @@ msgstr "Плагіни (*.zip)"
 
 #: rust/crates/shell/src/shell.rs:753
 #, python-brace-format
-msgid "{plugins} didn't start"
-msgid_plural "{plugins} didn't start"
-msgstr[0] "{plugins} не запустився"
-msgstr[1] "{plugins} не запустилися"
-msgstr[2] "{plugins} не запустилися"
+msgid "Couldn't start {plugins}"
+msgid_plural "Couldn't start {plugins}"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
 
 #: rust/crates/shell/src/shell.rs:755
 #, python-brace-format
-msgid "{n} plugin didn't start"
-msgid_plural "{n} plugins didn't start"
-msgstr[0] "{n} плагін не запустився"
-msgstr[1] "{n} плагіни не запустилися"
-msgstr[2] "{n} плагінів не запустилося"
+msgid "Couldn't start {n} plugin"
+msgid_plural "Couldn't start {n} plugins"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
 
 #: rust/crates/shell/src/shell.rs:757
-msgid "Telescope works without it. The Plugins tab in Settings says what went wrong."
-msgid_plural "Telescope works without them. The Plugins tab in Settings says what went wrong."
-msgstr[0] "Telescope працює й без нього. На вкладці «Плагіни» в Налаштуваннях зазначено, що пішло не так."
-msgstr[1] "Telescope працює й без них. На вкладці «Плагіни» в Налаштуваннях зазначено, що пішло не так."
-msgstr[2] "Telescope працює й без них. На вкладці «Плагіни» в Налаштуваннях зазначено, що пішло не так."
+msgid "Telescope works without the plugin. The Plugins tab in Settings shows what went wrong."
+msgid_plural "Telescope works without them. The Plugins tab in Settings shows what went wrong."
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
 
 #: rust/crates/shell/src/shell.rs:761 rust/crates/shell/src/shell.rs:781
 msgid "Plugins…"
@@ -7345,8 +7328,8 @@ msgid "Another app on the phone is using the camera"
 msgstr "Інша програма на телефоні використовує камеру"
 
 #: rust/crates/shell/src/sources.rs:115
-msgid "The stream comes back by itself once that app closes or lets go of it."
-msgstr "Трансляція відновиться автоматично, щойно ця програма закриється або звільнить її."
+msgid "The stream resumes automatically once the other app closes or releases the camera."
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:125
 msgid "This phone can't turn its camera off yet"
@@ -7371,8 +7354,8 @@ msgid "{phone} is streaming to {computer}"
 msgstr "{phone} транслює на {computer}"
 
 #: rust/crates/shell/src/sources.rs:176
-msgid "Stop it there or on the phone, then start again."
-msgstr "Зупиніть її там або на телефоні, а потім почніть знову."
+msgid "Stop the stream there or on the phone, then start again."
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:183
 msgid "The phone stopped streaming"
@@ -7397,13 +7380,13 @@ msgstr "Камера не ввімкнулася знову. Можливо, ї�
 
 #: rust/crates/shell/src/sources.rs:328
 #, python-brace-format
-msgid "It's streaming at {size} and {fps} fps until it cools down."
-msgstr "Транслює в {size} і {fps} fps, доки не охолоне."
+msgid "Streaming at {size} and {fps} fps until the phone cools down."
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:329
 #, python-brace-format
-msgid "It's streaming at {size} until it cools down."
-msgstr "Транслює в {size}, доки не охолоне."
+msgid "Streaming at {size} until the phone cools down."
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:846
 msgid "Open Telescope on it."
@@ -7414,8 +7397,8 @@ msgid "the device"
 msgstr "пристрій"
 
 #: rust/crates/shell/src/sources.rs:1083
-msgid "Open the Telescope page in it again."
-msgstr "Знову відкрийте в ньому сторінку Telescope."
+msgid "Open the Telescope page in the browser again."
+msgstr ""
 
 #: rust/crates/shell/src/stream_flow.rs:190
 msgid "Couldn't start streaming"
@@ -7522,8 +7505,8 @@ msgstr "У пункті «Скопіювати діагностику» є по�
 
 #: rust/crates/shell/src/streams.rs:967
 #, python-brace-format
-msgid "The phone got hot and lowered the frame rate to {fps} fps for now."
-msgstr "Телефон нагрівся і тимчасово знизив частоту кадрів до {fps} fps."
+msgid "The phone got hot and lowered the frame rate to {fps} fps."
+msgstr ""
 
 #: rust/crates/shell/src/streams.rs:969
 #, python-brace-format
@@ -7531,12 +7514,12 @@ msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connec
 msgstr "«Динамічний» знизив частоту кадрів до {fps} fps, щоб підлаштуватися під повільне з'єднання."
 
 #: rust/crates/shell/src/streams.rs:971
-msgid "The camera is making fewer frames than asked for. Dim light slows it down."
-msgstr "Камера видає менше кадрів, ніж запитано. Слабке освітлення сповільнює її."
+msgid "The camera is producing fewer frames than requested. Dim light lowers the frame rate."
+msgstr ""
 
 #: rust/crates/shell/src/streams.rs:973
-msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
-msgstr "Камера телефону створює менше кадрів, ніж потрібно. Тьмяне світло сповільнює її."
+msgid "The phone's camera is producing fewer frames than requested. Dim light lowers the frame rate."
+msgstr ""
 
 #: rust/crates/shell/src/streams.rs:1041
 msgid "Live"
@@ -7607,8 +7590,8 @@ msgid "Streaming continues in the background."
 msgstr "Трансляція продовжується у фоновому режимі."
 
 #: rust/crates/shell/src/tray.rs:229
-msgid "It starts streaming by itself when it needs to."
-msgstr "Він починає трансляцію самостійно, коли це потрібно."
+msgid "Streaming starts automatically when needed."
+msgstr ""
 
 #: rust/crates/shell/src/tray.rs:230
 msgid "Right-click the tray icon to quit."
@@ -7745,10 +7728,6 @@ msgstr "Відстань"
 msgid "Set Focus to Manual to use this"
 msgstr "Щоб скористатися цим, переведіть «Фокус» у ручний режим"
 
-#: rust/crates/shell/ui/cards/camera.slint:370
-msgid "Stabilisation"
-msgstr "Стабілізація"
-
 #: rust/crates/shell/ui/cards/camera.slint:419
 msgid "Smooth out grain in the picture."
 msgstr "Згладити зернистість на картинці."
@@ -7873,8 +7852,8 @@ msgid "Remove download"
 msgstr "Вилучити завантаження"
 
 #: rust/crates/shell/ui/settings.slint:408
-msgid "Delete the download these plugins use. Switching any of these plugins on downloads it again."
-msgstr "Видалити завантажені файли, які використовують ці плагіни. Якщо увімкнути будь-який із цих плагінів, вони завантажаться знову."
+msgid "Delete the download these plugins use. Switching on any of these plugins downloads the files again."
+msgstr ""
 
 #: rust/crates/shell/ui/settings.slint:425
 msgid "Show all plugins"
@@ -7920,13 +7899,13 @@ msgstr "Не вдалося скасувати запуск Telescope під ч�
 
 #: rust/crates/system/src/going_back.rs:113
 #, python-brace-format
-msgid "Couldn't set up the Python libraries {version} needs. That takes the internet and a folder it can write to ({folder}). Nothing was changed."
-msgstr "Не вдалося налаштувати бібліотеки Python, потрібні для {version}. Для цього потрібні інтернет і папка з дозволом на запис ({folder}). Нічого не змінено."
+msgid "Couldn't set up the Python libraries {version} needs. That needs an internet connection and a folder Telescope can write to ({folder}). Nothing was changed."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:227
 #, python-brace-format
-msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones come with it, and a copy of your current settings is saved first in {folder}."
-msgstr "Telescope перезапуститься як версія {version} - остання версія на Python. Ваші налаштування та телефони, з якими створено пару, збережуться, а копію поточних налаштувань спершу буде збережено в {folder}."
+msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones are kept, and a copy of your current settings is saved first in {folder}."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:229
 #, python-brace-format
@@ -7935,17 +7914,17 @@ msgstr "Ви втратите все нове, що з'явилося відто
 
 #: rust/crates/system/src/going_back.rs:231
 #, python-brace-format
-msgid "{version} won't check for updates by itself, so it doesn't offer this version back. You can turn that on again in its settings."
-msgstr "{version} не перевірятиме наявність оновлень самостійно, щоб не пропонувати цю версію знову. Ви можете знову увімкнути це в налаштуваннях."
+msgid "{version} doesn't check for updates automatically, so it doesn't offer this version back. You can turn that on again in its settings."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:234
 #, python-brace-format
-msgid "First it sets up the Python libraries {version} needs. That needs the internet and takes a few minutes. If that fails, nothing is changed."
-msgstr "Спершу додаток налаштує бібліотеки Python, потрібні для {version}. Для цього потрібен інтернет, і це триватиме кілька хвилин. Якщо станеться збій, нічого не зміниться."
+msgid "First the Python libraries {version} needs are set up. This needs the internet and takes a few minutes. If that fails, nothing is changed."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:236
-msgid "If it doesn't start, opening Telescope again brings this version back."
-msgstr "Якщо вона не запуститься, повторне відкриття Telescope поверне цю версію."
+msgid "If the Python version doesn't start, opening Telescope again brings this version back."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:238 rust/crates/system/src/going_back.rs:251
 msgid "Go back"
@@ -7953,8 +7932,8 @@ msgstr "Повернутися"
 
 #: rust/crates/system/src/going_back.rs:242
 #, python-brace-format
-msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack it and run start.sh in it. It needs Python 3.12 or newer and finds your settings in the same place."
-msgstr "AppImage не можна замінити на версію з Python. Завантажте Telescope-linux.tar.gz зі сторінки випуску {version}, розпакуйте його й запустіть у ньому start.sh. Йому потрібен Python 3.12 або новіший, а ваші налаштування він знайде в тому самому місці."
+msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack the archive and run start.sh in the folder. The Python version needs Python 3.12 or newer and uses the same settings folder."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:244
 #, python-brace-format
@@ -7972,8 +7951,8 @@ msgstr "Для {version} потрібен Python 3.12 або новіший із
 
 #: rust/crates/system/src/going_back.rs:262
 #, python-brace-format
-msgid "The phone app has to match. A newer one may not connect to {version}. Android won't install an older app over a newer one, so uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
-msgstr "Додаток на телефоні має відповідати версії. Новіший може не підключитися до {version}. Android не встановить старіший додаток поверх новішого, тому видаліть Telescope на телефоні, встановіть Telescope.apk із випуску {version} і створіть пару знову."
+msgid "The phone app has to match. A newer phone app may not connect to {version}. Android won't install an older app over a newer one, so uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:282
 msgid "Couldn't save a copy of your settings, so nothing was changed."
@@ -7984,8 +7963,8 @@ msgid "Not available on this desktop"
 msgstr "Недоступно в цьому графічному середовищі"
 
 #: rust/crates/system/src/hotkeys_portal.rs:118
-msgid "Waiting for you to confirm it"
-msgstr "Очікування на ваше підтвердження"
+msgid "Needs your confirmation"
+msgstr ""
 
 #: rust/crates/system/src/hotkeys_portal.rs:129
 msgid "This desktop doesn't offer global shortcuts to apps."
@@ -8001,8 +7980,8 @@ msgid "Bind a Copy command line in its own keyboard settings instead."
 msgstr "Натомість призначте команду «Скопіювати» у власних налаштуваннях клавіатури системи."
 
 #: rust/crates/system/src/hotkeys_portal.rs:134
-msgid "Your desktop asks you to confirm global shortcuts, and you can change their keys in its own settings. The key it settled on shows next to each one."
-msgstr "Графічне середовище просить підтвердити глобальні комбінації клавіш, і ви можете змінити їх у його власних налаштуваннях. Призначена клавіша відображається біля кожної з них."
+msgid "Your desktop asks you to confirm global shortcuts, and you can change their keys in the desktop's settings. The key the desktop assigned is shown next to each shortcut."
+msgstr ""
 
 #: rust/crates/system/src/hotkeys_portal.rs:143 rust/crates/system/src/hotkeys_portal.rs:178
 msgid "Not confirmed in the desktop's dialog"
@@ -8163,7 +8142,7 @@ msgstr "Скасовано зміни, внесені ШІ"
 
 #: rust/crates/system/src/mcp.rs:1186
 #, python-brace-format
-msgid "Undid what the AI changed, except {n} it couldn't put back"
+msgid "Undid what the AI changed, except {n} that couldn't be restored"
 msgstr ""
 
 #: rust/crates/system/src/mcp.rs:1187
@@ -8180,12 +8159,12 @@ msgid "MCP server"
 msgstr "Сервер MCP"
 
 #: rust/crates/system/src/mcp.rs:1469
-msgid "Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port."
-msgstr "Дозволяє ШІ-додатку, наприклад Claude Desktop, переглядати та змінювати налаштування Telescope через команду без відкриття мережевого порту."
+msgid "Let an AI app such as Claude Desktop read and change Telescope's settings, through a command that opens no network port."
+msgstr ""
 
 #: rust/crates/system/src/mcp.rs:1470
-msgid "Without it AI apps can't connect to Telescope."
-msgstr "Без нього ШІ-додатки не можуть підключитися до Telescope."
+msgid "Without the MCP server plugin AI apps can't connect to Telescope."
+msgstr ""
 
 #: rust/crates/system/src/mcp.rs:1505 rust/crates/system/ui/mcp.slint:229
 msgid "MCP"
@@ -8275,8 +8254,8 @@ msgid "{action} needs {name}=… for that."
 msgstr "Для цього {action} потребує {name}=…."
 
 #: rust/crates/system/src/remote.rs:241
-msgid "That failed; Copy diagnostics has the details."
-msgstr "Дія не вдалася; у пункті «Скопіювати діагностику» є подробиці."
+msgid "The action failed. Copy diagnostics has the details."
+msgstr ""
 
 #: rust/crates/system/src/remote.rs:254
 #, python-brace-format
@@ -8289,7 +8268,7 @@ msgid "{action} can't be used right now (no device, or the control is off)."
 msgstr "Зараз не можна використати «{action}» (немає пристрою або елемент керування вимкнено)."
 
 #: rust/crates/system/src/setup_move.rs:381
-msgid "A newer Telescope is already installed, so this copy stays as it is. Open the installed one from the Start menu."
+msgid "A newer Telescope is already installed, so this copy is left unchanged. Open the installed Telescope from the Start menu."
 msgstr ""
 
 #: rust/crates/system/src/setup_move.rs:389
@@ -8423,7 +8402,7 @@ msgstr "попередній"
 
 #: rust/crates/system/src/shortcuts.rs:765
 #, python-brace-format
-msgid "There can be at most {max} shortcuts. Remove one to add another."
+msgid "There can be at most {max} shortcuts. Remove a shortcut to add another."
 msgstr ""
 
 #: rust/crates/system/src/shortcuts.rs:768
@@ -8450,8 +8429,8 @@ msgstr "{keys} уже виконує дію «{action}». Виберіть ін�
 
 #: rust/crates/system/src/shortcuts.rs:785
 #, python-brace-format
-msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
-msgstr "Усюди {keys} завадить її введенню в інших додатках. Безпечніше додати Ctrl, Alt або {meta}."
+msgid "Everywhere, {keys} could no longer be typed in other apps. Adding Ctrl, Alt or {meta} is safer."
+msgstr ""
 
 #: rust/crates/system/src/shortcuts.rs:790
 #, python-brace-format
@@ -8465,8 +8444,8 @@ msgstr "Невідомо ({action})"
 
 #: rust/crates/system/src/shortcuts.rs:832
 #, python-brace-format
-msgid "{value} (not there now)"
-msgstr "{value} (зараз немає)"
+msgid "{value} (no longer available)"
+msgstr ""
 
 #: rust/crates/system/src/shortcuts.rs:856
 msgid "A command can't hold a key down. Pick another choice to copy its command."
@@ -8499,8 +8478,8 @@ msgid "Keys for Telescope's controls, including ones that work in other apps."
 msgstr "Клавіші для елементів керування Telescope, включно з тими, що працюють в інших додатках."
 
 #: rust/crates/system/src/shortcuts.rs:1129
-msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
-msgstr "Без нього жодна комбінація клавіш не діє, а розділ «Гарячі клавіші» зникає з «Налаштувань» (ваші комбінації зберігаються на випадок його повторного ввімкнення)."
+msgid "Without the Keyboard shortcuts plugin no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when the plugin is on again)."
+msgstr ""
 
 #: rust/crates/system/src/single_instance.rs:319
 msgid "Telescope is already running"
@@ -8533,16 +8512,16 @@ msgid "Telescope isn't running."
 msgstr "Telescope не запущено."
 
 #: rust/crates/system/src/single_instance.rs:397
-msgid "Telescope didn't understand that. Is it an older version? Update it to use --action."
-msgstr "Telescope не розпізнав цю команду. Можливо, це старіша версія? Оновіть її, щоб використовувати --action."
+msgid "Telescope didn't understand the request. Is the running Telescope an older version? Update Telescope to use --action."
+msgstr ""
 
 #: rust/crates/system/src/single_instance.rs:462
 msgid "Telescope couldn't write the key --action needs next to its settings when it started. Restart it."
 msgstr "Telescope не зміг записати ключ, потрібний для --action, поруч зі своїми налаштуваннями під час запуску. Перезапустіть його."
 
 #: rust/crates/system/src/single_instance.rs:467
-msgid "Telescope turned that down: it didn't come from this user's Telescope command."
-msgstr "Telescope відхилив запит: він надійшов не від команди Telescope цього користувача."
+msgid "Telescope rejected the request because it didn't come from this user's Telescope command."
+msgstr ""
 
 #: rust/crates/system/src/splash.rs:93
 msgid "Starting Telescope…"
@@ -8585,12 +8564,12 @@ msgid "Only when I press Stop"
 msgstr "Лише коли я натискаю «Стоп»"
 
 #: rust/crates/system/src/startup.rs:46
-msgid "When no app uses the camera, if it started the stream"
-msgstr "Коли жоден додаток не використовує камеру, якщо він і почав трансляцію"
+msgid "When no app uses the camera, if Telescope started the stream"
+msgstr ""
 
 #: rust/crates/system/src/startup.rs:47
-msgid "When no app uses the camera, even if I started it"
-msgstr "Коли жоден додаток не використовує камеру, навіть якщо її запустив я"
+msgid "When no app uses the camera, even if I started the stream"
+msgstr ""
 
 #: rust/crates/system/src/startup.rs:50
 msgid "seconds"
@@ -8633,16 +8612,16 @@ msgid "Wait before stopping"
 msgstr "Очікування перед зупинкою"
 
 #: rust/crates/system/src/startup.rs:508
-msgid "Start and stop by itself"
-msgstr "Автоматичний запуск і зупинка"
+msgid "Start and stop automatically"
+msgstr ""
 
 #: rust/crates/system/src/startup.rs:509
 msgid "Opening Telescope when you sign in, and Automatic streaming."
 msgstr "Відкриття Telescope під час входу в систему та автоматична трансляція."
 
 #: rust/crates/system/src/startup.rs:510
-msgid "Without it Automatic streaming stops and both it and the sign-in option leave Settings. Telescope still opens at sign-in if it did before."
-msgstr "Без нього автоматична трансляція зупиняється, а вона та параметр автозапуску зникають із «Налаштувань». Telescope все одно відкриватиметься під час входу, якщо робив це раніше."
+msgid "Without the Automatic streaming plugin, Automatic streaming stops and it and the sign-in option disappear from Settings. Telescope still opens at sign-in if it did before."
+msgstr ""
 
 #: rust/crates/system/src/updates.rs:198
 #, python-brace-format
@@ -8681,7 +8660,7 @@ msgstr "{file} зараз використовується, тому оновл�
 
 #: rust/crates/system/src/updates.rs:596
 #, python-brace-format
-msgid "Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a folder of its own."
+msgid "Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a separate folder."
 msgstr ""
 
 #: rust/crates/system/src/updates.rs:665 rust/crates/system/src/updates_plugin.rs:97 rust/crates/system/src/updates_plugin.rs:168 rust/crates/system/src/updates_plugin.rs:240 rust/crates/system/src/updates_plugin.rs:621 rust/crates/system/src/updates_plugin.rs:796
@@ -8714,20 +8693,20 @@ msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "Оновлено. Telescope перезапуститься, коли ви зупините трансляцію."
 
 #: rust/crates/system/src/updates_plugin.rs:470
-msgid "Going back to the Python version didn't work because it didn't start, so this version is back."
-msgstr "Не вдалося повернутися до версії на Python, бо вона не запустилася, тому відновлено цю версію."
+msgid "Going back to the Python version failed because the Python version didn't start. This version is running again."
+msgstr ""
 
 #: rust/crates/system/src/updates_plugin.rs:475
-msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along."
-msgstr "Оновлення також встановить його для вашого користувача з пунктом у меню «Пуск» і видалить цю розархівовану копію. Налаштування та телефони збережуться."
+msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and paired phones are kept."
+msgstr ""
 
 #: rust/crates/system/src/updates_plugin.rs:481
 msgid "Stop streaming to update."
 msgstr "Зупиніть трансляцію, щоб оновити."
 
 #: rust/crates/system/src/updates_plugin.rs:493
-msgid "This is a source checkout, so it doesn't update itself."
-msgstr "Це версія з вихідного коду, тому вона не оновлюється самостійно."
+msgid "This is a source checkout, so update Telescope with git."
+msgstr ""
 
 #: rust/crates/system/src/updates_plugin.rs:501
 msgid "There's no nightly release yet."
@@ -8983,7 +8962,7 @@ msgid "Tell me when it stops a stream"
 msgstr "Повідомляти мене про зупинку трансляції"
 
 #: rust/crates/system/ui/startup.slint:134
-msgid "Show a notification when streaming stops by itself"
+msgid "Show a notification when streaming stops automatically"
 msgstr ""
 
 #: rust/crates/system/ui/startup.slint:137
@@ -9195,41 +9174,9 @@ msgctxt "percentage"
 msgid "{n}%"
 msgstr "{n} %"
 
-#: rust/crates/plugin-host/src/package.rs:23
-msgid "Other users on this computer could change it, so it isn't loaded."
-msgstr "Інші користувачі цього комп'ютера можуть змінювати його, тому його не завантажено."
-
-#: rust/crates/plugin-host/src/package.rs:24
-msgid "It contains a link to somewhere else, which plugins can't have."
-msgstr "Він містить посилання на інше місце, чого в плагінах бути не може."
-
-#: rust/crates/plugin-host/src/package.rs:498
-msgid "It contains compiled code (like .pyc files). Plugins have to be source code."
-msgstr "Він містить скомпільований код (наприклад, файли .pyc). Плагіни мають бути у вигляді вихідного коду."
-
-#: rust/crates/plugin-host/src/package.rs:26
-msgid "It's too big for a plugin (over 500 files or 20 MB)."
-msgstr "Він завеликий для плагіна (понад 500 файлів або 20 МБ)."
-
 #: rust/crates/plugin-host/src/package.rs:25
 msgid "The folder has to have the same name as the plugin, using only lowercase letters, digits and _ (starting with a letter)."
 msgstr "Назва папки має збігатися з назвою плагіна й містити лише малі літери, цифри та _ (починатися з літери)."
-
-#: rust/crates/plugin-host/src/package.rs:29
-msgid "A plugin that comes with Telescope already has that name."
-msgstr "Плагін, що входить до складу Telescope, уже має таку назву."
-
-#: rust/crates/plugin-host/src/package.rs:27
-msgid "It isn't a .zip file Telescope can open."
-msgstr "Це не файл .zip, який Telescope може відкрити."
-
-#: rust/crates/plugin-host/src/package.rs:444
-msgid "It holds a file with a path that points outside the plugin."
-msgstr "Він містить файл зі шляхом, що вказує за межі плагіна."
-
-#: rust/crates/plugin-host/src/package.rs:455
-msgid "It has to hold one folder, named as the plugin."
-msgstr "Він повинен містити одну папку з назвою плагіна."
 
 #: rust/crates/plugin-host/src/package.rs:28
 msgid "That isn't a folder in the plugins folder."
@@ -9265,32 +9212,6 @@ msgid_plural "Saved {name} and {n} more"
 msgstr[0] "Збережено {name} та ще {n} знімок"
 msgstr[1] "Збережено {name} та ще {n} знімки"
 msgstr[2] "Збережено {name} та ще {n} знімків"
-
-#: rust/crates/shell/src/plugins/preview.rs:19
-msgid ""
-"Camera off\n"
-"\n"
-"The phone's mic is still streaming.\n"
-"Stop streaming ends it."
-msgstr ""
-"Камеру вимкнено\n"
-"\n"
-"Мікрофон телефону досі транслює.\n"
-"«Зупинити трансляцію» завершує її."
-
-#: rust/crates/shell/src/plugins/preview.rs:21
-msgid ""
-"Camera off\n"
-"\n"
-"No app was using the camera, so it turned off.\n"
-"The phone's mic is still streaming, and the camera\n"
-"comes back when an app opens it."
-msgstr ""
-"Камеру вимкнено\n"
-"\n"
-"Жоден додаток не використовував камеру, тому її було вимкнено.\n"
-"Мікрофон телефону досі транслює, а камера\n"
-"увімкнеться знову, коли додаток відкриє її."
 
 #: rust/crates/effects/src/transforms.rs:654
 msgctxt "search"
@@ -9375,10 +9296,6 @@ msgstr "Телефон надто довго робив фото."
 msgid "Lost the phone while it was taking the photo."
 msgstr "Зв'язок із телефоном втрачено під час зйомки фото."
 
-#: rust/crates/link/src/stills.rs:62
-msgid "The phone gave up on the photo, maybe because its stream stopped."
-msgstr "Телефон перервав зйомку фото, можливо, через зупинку трансляції."
-
 #: rust/crates/link/src/stills.rs:64
 msgid "This phone can't take photos from Telescope. Update the app on the phone."
 msgstr "Цей телефон не може робити фото з Telescope. Оновіть додаток на телефоні."
@@ -9415,33 +9332,746 @@ msgstr "Оновлення містить неочікувані файли, т�
 msgid "The download doesn't contain Telescope, so it wasn't installed."
 msgstr "Завантажений файл не містить Telescope, тому його не було встановлено."
 
-#: rust/crates/shell/src/plugins_tab.rs:728
-msgid "Couldn't remove it"
-msgstr "Не вдалося вилучити"
-
-#: rust/crates/shell/src/plugins_tab.rs:704
-msgid "Couldn't save that"
-msgstr "Не вдалося зберегти"
-
-#: rust/crates/shell/src/plugins_tab.rs:683
-msgid "Couldn't install it"
-msgstr "Не вдалося встановити"
-
-#: rust/crates/shell/src/plugins_tab.rs:690
-msgid "Installed, but it won't load"
-msgstr "Встановлено, але не завантажується"
-
 #: rust/crates/shell/src/plugins_tab.rs:692
 msgid "Replaced"
 msgstr "Замінено"
 
-#: rust/crates/shell/src/plugins_tab.rs:773
-msgid "Couldn't open it"
-msgstr "Не вдалося відкрити"
-
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "Не вдалося перезапустити"
+
+#~ msgid "Once VB-Cable's setup says it's done, restart the computer, then switch this off and on."
+#~ msgstr "Коли інсталятор VB-Cable повідомить про завершення, перезавантажте комп'ютер, а потім вимкніть і знову ввімкніть це."
+
+#, python-brace-format
+#~ msgid "On for {name}. Turning it on here turns it off there."
+#~ msgstr "Увімкнено для {name}. Увімкнення тут вимикає його там."
+
+#~ msgid "Without it there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone."
+#~ msgstr "Без нього картка «Мікрофон» або пункт «Вимкнути звук» у меню області сповіщень відсутні, і Telescope не створює віртуальний мікрофон."
+
+#~ msgid "VB-Audio's site didn't hand over VB-Cable. Try again later, or get it from their site."
+#~ msgstr "Сайт VB-Audio не надав VB-Cable. Спробуйте знову пізніше або завантажте його з їхнього сайту."
+
+#~ msgid "VB-Audio's download doesn't have the setup it used to. Get it from their site instead."
+#~ msgstr "Завантаження VB-Audio більше не містить звичного інсталятора. Отримайте його натомість з їхнього сайту."
+
+#~ msgid "VB-Cable's setup changed after it was checked, so it wasn't opened."
+#~ msgstr "Інсталятор VB-Cable змінився після перевірки, тому його не було відкрито."
+
+#~ msgid "Yellow: the limiter is holding peaks down. Red: it clipped."
+#~ msgstr "Жовтий: лімітер стримує піки. Червоний: перевантаження."
+
+#~ msgid "Telescope downloads VB-Cable from vb-audio.com and opens its setup, which asks for admin. Restart the computer afterwards."
+#~ msgstr "Telescope завантажує VB-Cable із vb-audio.com і відкриває встановлювач, який запитує права адміністратора. Після цього перезапустіть комп'ютер."
+
+#~ msgid "Looking…"
+#~ msgstr "Аналіз…"
+
+#~ msgid "Blurs the background behind you or swaps it for a picture."
+#~ msgstr "Розмиває фон позаду вас або замінює його картинкою."
+
+#~ msgid "Without it there's no Background card and the background stays as the camera sees it."
+#~ msgstr "Без нього картка «Фон» відсутня, а фон залишається таким, яким його бачить камера."
+
+#~ msgid "Swaps a green or blue screen behind you for a colour or a picture, with no download."
+#~ msgstr "Замінює зелений або синій екран позаду вас на колір чи картинку, без завантажень."
+
+#~ msgid "Without it there's no Chroma key card and a green screen stays green."
+#~ msgstr "Без нього немає картки «Хромакей», а зелений екран залишається зеленим."
+
+#~ msgid "Without it there's no Cinema tools card and the preview shows just the picture."
+#~ msgstr "Без нього немає картки «Кіноінструменти», а попередній перегляд показує лише зображення."
+
+#~ msgid "Looking at the picture…"
+#~ msgstr "Аналіз картинки…"
+
+#~ msgid "Auto couldn't get a steady picture to look at. Try again while nothing moves."
+#~ msgstr "Автокорекції не вдалося отримати стабільну картинку для аналізу. Спробуйте ще раз, коли нічого не рухається."
+
+#~ msgid "Nothing needs changing now, so Auto's earlier changes were taken off."
+#~ msgstr "Зараз нічого змінювати не потрібно, тож попередні зміни автокорекції знято."
+
+#~ msgid "No face was found, so it went by the background and the brightness."
+#~ msgstr "Обличчя не знайдено, тож орієнтиром стали фон і яскравість."
+
+#~ msgid "The light is mixed or coloured, so white balance stayed as it was."
+#~ msgstr "Освітлення змішане або кольорове, тож баланс білого залишився без змін."
+
+#~ msgid "Your own wheels and curves would have clipped the picture, so Auto went only part of the way."
+#~ msgstr "Ваші власні кола та криві засвітили б або провалили картинку, тому автокорекція застосувалася лише частково."
+
+#~ msgid "The camera adjusts itself, so this may drift."
+#~ msgstr "Камера сама підлаштовується, тому результат може пливти."
+
+#~ msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
+#~ msgstr "Без нього немає картки «Корекція кольору», а зображення зберігає кольори камери."
+
+#~ msgid "It takes over once two of its streams are running."
+#~ msgstr "Він бере керування на себе, щойно запрацюють два його потоки."
+
+#, python-brace-format
+#~ msgid "It goes out on {camera}, and no stream goes there now."
+#~ msgstr "Він виводиться на {camera}, і зараз туди не надходить жоден потік."
+
+#, python-brace-format
+#~ msgid "It goes out on {camera} once the stream there sends a picture."
+#~ msgstr "Він виводиться на {camera}, щойно потік там надішле зображення."
+
+#, python-brace-format
+#~ msgid "Goes out on {camera}."
+#~ msgstr "Виводиться на {camera}."
+
+#~ msgid "Puts the streams you run side by side or one inside another, out on one virtual camera."
+#~ msgstr "Розміщує потоки, які ви запускаєте, поруч або один в іншому і виводить на одну віртуальну камеру."
+
+#~ msgid "Without it there's no One picture card and each stream only goes to its own camera."
+#~ msgstr "Без нього немає картки «Одне зображення», а кожен потік потрапляє лише на власну камеру."
+
+#~ msgid "This isn't a .cube LUT: it doesn't say its size."
+#~ msgstr "Це не LUT .cube: у ньому не вказано розмір."
+
+#~ msgid "Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."
+#~ msgstr "Ці кути опинилися занадто близько або на одній лінії, тому їх не було використано. Позначте аркуш знову, поставивши по точці на кожен із його кутів."
+
+#~ msgid "Straightens a sheet of paper you mark on the preview and can make the writing on it stand out."
+#~ msgstr "Вирівнює аркуш паперу, який ви позначили на попередньому перегляді, і може зробити текст на ньому виразнішим."
+
+#~ msgid "Without it there's no Desk mode card and the picture stays the way the camera sees it."
+#~ msgstr "Без нього немає картки «Режим столу», а зображення залишається таким, яким його бачить камера."
+
+#~ msgid "Moves the phone's metering point to your face to keep you well lit whatever's behind you."
+#~ msgstr "Переміщує точку заміру телефону на ваше обличчя, щоб ви були добре освітлені незалежно від того, що позаду вас."
+
+#~ msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
+#~ msgstr "Без нього немає картки «Експозиція за обличчям», а телефон заміряє точку дотику або все зображення."
+
+#~ msgid "Widens the view so your hands are in it too."
+#~ msgstr "Розширює огляд, щоб ваші руки теж потрапляли в кадр."
+
+#~ msgid "Without it there's no Auto framing card and the zoom stays where you put it."
+#~ msgstr "Без нього картка «Автокадрування» відсутня, а масштаб залишається там, де ви його встановили."
+
+#, python-brace-format
+#~ msgid "Taking it in {n}…"
+#~ msgstr "Зйомка через {n}…"
+
+#~ msgid "Without it there's no Fun pack card and the picture has no effects."
+#~ msgstr "Без нього немає картки «Набір розваг», а на зображенні немає ефектів."
+
+#~ msgid "Puts your name and pronouns in the corner of the picture."
+#~ msgstr "Розміщує ваше ім'я та займенники в кутку зображення."
+
+#~ msgid "Without it there's no Name tag card and nothing is drawn on the picture."
+#~ msgstr "Без нього немає картки «Плашка з ім'ям», і на зображенні нічого не відображається."
+
+#~ msgid "Shows your script on the phone's screen right under the camera, to read while looking people in the eye."
+#~ msgstr "Показує ваш текст на екрані телефону просто під камерою, щоб ви могли читати, дивлячись співрозмовникам у вічі."
+
+#~ msgid "Without it there's no Teleprompter card and the phone never shows a script."
+#~ msgstr "Без нього немає картки «Телесуфлер», а телефон ніколи не показує текст."
+
+#~ msgid "The browser warns that the connection isn't private: it's this computer's own certificate. On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed."
+#~ msgstr "Браузер попереджає, що підключення не приватне: це власний сертифікат цього комп'ютера. На iPhone натисніть «Показати деталі», а потім «відвідати цей веб-сайт». У Chrome натисніть «Додатково», а потім «Перейти»."
+
+#~ msgid "It went through."
+#~ msgstr "Успішно надіслано."
+
+#, python-brace-format
+#~ msgid "It didn't go through: {error}"
+#~ msgstr "Не вдалося надіслати: {error}"
+
+#~ msgid "The On Air webhook didn't go through"
+#~ msgstr "Не вдалося надіслати вебхук «В ефірі»"
+
+#, python-brace-format
+#~ msgid "It answered: {error}"
+#~ msgstr "Відповідь: {error}"
+
+#~ msgid "Shows the people around you that your camera or microphone is in use, on another device's screen or through a smart home light."
+#~ msgstr "Показує людям навколо, що ваша камера або мікрофон використовується - на екрані іншого пристрою чи за допомогою розумної лампи."
+
+#~ msgid "Without it there's no On Air tab in Settings and no sign or webhook."
+#~ msgstr "Без нього в Налаштуваннях не буде вкладки «В ефірі», а також таблички й вебхука."
+
+#~ msgid "The camera keeps its own JPEG quality"
+#~ msgstr "Камера використовує власну якість JPEG"
+
+#~ msgid "Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it."
+#~ msgstr "Робить фото в повній якості на телефон або фотоапарат, зокрема у форматі RAW, якщо камера його підтримує."
+
+#~ msgid "Without it there's no Photos card and no Take photo shortcut."
+#~ msgstr "Без нього не буде картки «Фото» та комбінації клавіш «Зробити фото»."
+
+#~ msgid "Without it there's no Privacy blur card and nothing gets hidden when someone walks in."
+#~ msgstr "Без нього немає картки «Приватне розмиття», і нічого не приховується, коли хтось заходить."
+
+#~ msgid "Click Copy on the QR codes card to put it on the clipboard."
+#~ msgstr "Натисніть «Копіювати» на картці «QR-коди», щоб помістити його в буфер обміну."
+
+#~ msgid "Copies a QR code you hold up to the camera, or the password from a Wi-Fi code."
+#~ msgstr "Копіює QR-код, який ви підносите до камери, або пароль із коду Wi-Fi."
+
+#~ msgid "Without it there's no QR code card and codes in the picture are left alone."
+#~ msgstr "Без нього немає картки «QR-коди», а коди на зображенні ігноруються."
+
+#, python-brace-format
+#~ msgid "Panned past what {tele} can see, so it's on {live}. Pan back to switch again."
+#~ msgstr "Панорамовано далі, ніж бачить {tele}, тому увімкнено {live}. Панорамуйте назад, щоб знову перемкнути."
+
+#, python-brace-format
+#~ msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
+#~ msgstr "Телефон сам залишився на {live}: найімовірніше, занадто темно або занадто близько для {tele}. Він перемкнеться, щойно зможе."
+
+#~ msgid "It can wobble for a moment while it switches."
+#~ msgstr "Зображення може на мить здригнутися під час перемикання."
+
+#~ msgid "Zoomed on this computer: this lens can't zoom itself"
+#~ msgstr "Масштабовано на цьому комп'ютері: цей об'єктив не вміє масштабувати сам"
+
+#~ msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
+#~ msgstr "Без нього картка «Трансформація» буде відсутня, а зображення транслюватиметься саме так, як його надсилає телефон."
+
+#~ msgid "Looking at the picture"
+#~ msgstr "Аналіз картинки"
+
+#~ msgid "Shows the people around you that your camera or microphone is in use."
+#~ msgstr "Показує людям навколо, що ваша камера або мікрофон використовується."
+
+#~ msgid "The page didn't start"
+#~ msgstr "Сторінка не запустилася"
+
+#~ msgid "Google's list of downloads wasn't what Telescope expected. Try again later."
+#~ msgstr "Список завантажень Google відрізняється від очікуваного для Telescope. Спробуйте знову пізніше."
+
+#~ msgid "That doesn't have adb.exe in it."
+#~ msgstr "Там немає adb.exe."
+
+#, python-brace-format
+#~ msgid "Google wouldn't send adb to this computer (it said {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead."
+#~ msgstr "Google відмовився надіслати adb на цей комп'ютер (код відповіді: {code}). Google блокує завантаження Android у деяких країнах. Якщо ви отримаєте platform-tools іншим шляхом, виберіть adb.exe або zip замість цього."
+
+#, python-brace-format
+#~ msgid "Google's server said {code}. Try again later."
+#~ msgstr "Сервер Google відповів {code}. Спробуйте знову пізніше."
+
+#, python-brace-format
+#~ msgid "The phone refused the microphone (HTTP {code})."
+#~ msgstr "Телефон відхилив доступ до мікрофона (HTTP {code})."
+
+#~ msgid "Browser says it isn't private?"
+#~ msgstr "Браузер каже, що підключення не приватне?"
+
+#~ msgid ""
+"It is this computer's own certificate.\n"
+"iPhone: tap Show Details, then visit this website.\n"
+"Chrome: tap Advanced, then Proceed.\n"
+"Keep the page open with the screen on."
+#~ msgstr ""
+"Це власний сертифікат цього комп'ютера.\n"
+"iPhone: торкніться «Показати деталі», а потім - «відвідати цей вебсайт».\n"
+"Chrome: торкніться «Додатково», а потім - «Перейти на сайт».\n"
+"Тримайте сторінку відкритою, а екран - увімкненим."
+
+#~ msgid "Check it's on the same network."
+#~ msgstr "Перевірте, чи він у тій самій мережі."
+
+#, python-brace-format
+#~ msgid "Still streaming over {now}, so it stays on {kept}."
+#~ msgstr "Трансляція через {now} ще триває, тому залишається {kept}."
+
+#, python-brace-format
+#~ msgid "Open Telescope on {phone} and keep it on screen. It needs to be on the same network as this computer, or plugged in with a USB cable."
+#~ msgstr "Відкрийте Telescope на {phone} і тримайте його на екрані. Він має бути в тій самій мережі, що й цей комп'ютер, або підключений через USB-кабель."
+
+#~ msgid "Stop it there or on the phone, then try again."
+#~ msgstr "Зупиніть її там або на телефоні, а потім спробуйте знову."
+
+#, python-brace-format
+#~ msgid "The phone refused to start streaming ({error})."
+#~ msgstr "Телефон відмовився почати трансляцію ({error})."
+
+#, python-brace-format
+#~ msgid "Phone went quiet for a moment, still waiting... ({seconds}s)"
+#~ msgstr "Телефон на мить замовк, усе ще чекаємо... ({seconds} с)"
+
+#~ msgid ""
+"The phone's camera didn't finish starting in time.\n"
+"\n"
+"Try again. If it keeps happening, open Telescope on the phone."
+#~ msgstr ""
+"Камера телефону не запустилася вчасно.\n"
+"\n"
+"Спробуйте знову. Якщо це повторюється, відкрийте Telescope на телефоні."
+
+#~ msgid "Or plug it in over USB."
+#~ msgstr "Або підключіть його через USB."
+
+#, python-brace-format
+#~ msgid "Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it."
+#~ msgstr "Telescope може завантажити його від Google (приблизно {size}) та зберігати для вашого користувача. Це програмне забезпечення Google, тому на нього поширюється ліцензія Android SDK: <a href=\"{url}\">прочитайте її тут</a>.<br><br>Wi-Fi працює і без нього."
+
+#, python-brace-format
+#~ msgid "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick one you already have</a>."
+#~ msgstr "<a href=\"{get}\">Спробувати знову</a> або <a href=\"{pick}\">вибрати наявний</a>."
+
+#, python-brace-format
+#~ msgid "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry."
+#~ msgstr "Телефон із назвою {name} створив пару як новий телефон. Це стається після перевстановлення Telescope або очищення його даних. Відповідь «Так» перенесе налаштування та пресети {name} на нього й вилучить старий запис."
+
+#, python-brace-format
+#~ msgid "Remove \"{name}\"? This deletes the settings it had on this computer. It can still connect with the code, and starts from the defaults."
+#~ msgstr "Вилучити «{name}»? Це видалить його налаштування на цьому комп'ютері. Він усе ще зможе підключатися за кодом і починатиме з налаштувань за замовчуванням."
+
+#, python-brace-format
+#~ msgid "v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:"
+#~ msgstr "v4l2loopback завантажено, але без {device}: інша програма налаштувала його з іншими параметрами. Закрийте ту програму та запустіть це, щоб передати його Telescope:"
+
+#~ msgid "Switching it on asks for your password."
+#~ msgstr "Для її ввімкнення знадобиться ваш пароль."
+
+#~ msgid "Telescope needs to switch on its virtual camera first. This asks for your password."
+#~ msgstr "Спочатку Telescope має увімкнути свою віртуальну камеру. Для цього потрібен ваш пароль."
+
+#~ msgid "It can stutter more than TCP, so try it and see."
+#~ msgstr "Може працювати менш плавно, ніж через TCP, тож спробуйте й перевірте."
+
+#~ msgid "This phone's app is too old for Dynamic and uses Auto until it's updated."
+#~ msgstr "Додаток на цьому телефоні застарілий для формату «Динамічний» і використовуватиме «Авто», доки його не буде оновлено."
+
+#, python-brace-format
+#~ msgid "{error}. It's set back to {size}, the last size that worked."
+#~ msgstr "{error}. Повернуто до {size}, останнього робочого розміру."
+
+#~ msgid "Without it there's no Stream output card and streams use whatever size and format the phone picks."
+#~ msgstr "Без нього картки «Вихідний потік» немає, а трансляції використовують розмір і формат, вибрані телефоном."
+
+#, python-brace-format
+#~ msgid "{problem}. Keeping the current wait screen."
+#~ msgstr "{problem}. Залишається поточний екран очікування."
+
+#~ msgid "The default screen is showing. Choose another one."
+#~ msgstr "Показується стандартний екран. Виберіть інший."
+
+#~ msgid "Without it Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
+#~ msgstr "Без нього «Екран очікування» буде відсутній у «Налаштуваннях», і між трансляціями програми можуть бачити чорний екран або взагалі нічого."
+
+#~ msgid "Set it to your mains frequency to stop lights flickering or banding."
+#~ msgstr "Виберіть частоту вашої електромережі, щоб прибрати мерехтіння освітлення та смуги на зображенні."
+
+#~ msgid "Check that it's plugged in."
+#~ msgstr "Перевірте, чи її підключено."
+
+#~ msgid "Another app may be using it. Close it there and it starts here."
+#~ msgstr "Можливо, її використовує інший додаток. Закрийте його там, і камера запуститься тут."
+
+#, python-brace-format
+#~ msgid "{app} is using it. Close it there and it starts here."
+#~ msgstr "Її використовує {app}. Закрийте там цей додаток, і камера запуститься тут."
+
+#~ msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
+#~ msgstr "Без нього веб-камер немає у виборі пристроїв, а картка «Веб-камера» також зникає."
+
+#~ msgid "The webcam isn't plugged in. Plug it back in and it carries on."
+#~ msgstr "Вебкамеру не підключено. Підключіть її знову, і вона продовжить роботу."
+
+#~ msgid "Another app is using the webcam. Close it there and it starts here."
+#~ msgstr "Вебкамеру використовує інший додаток. Закрийте його там, і вона запуститься тут."
+
+#~ msgid "It isn't turned on."
+#~ msgstr "Його не ввімкнено."
+
+#, python-brace-format
+#~ msgid "Its {file} has to return the plugin's table at the end."
+#~ msgstr "Його {file} наприкінці має повертати таблицю плагіна."
+
+#~ msgid "It's a link to another folder, which plugins can't be."
+#~ msgstr "Це посилання на іншу папку, а плагіни не можуть бути посиланнями."
+
+#, python-brace-format
+#~ msgid "It has no {file}."
+#~ msgstr "У ньому немає {file}."
+
+#, python-brace-format
+#~ msgid "Its {file} isn't valid JSON."
+#~ msgstr "Його {file} не є коректним файлом JSON."
+
+#, python-brace-format
+#~ msgid "Its {file} isn't valid."
+#~ msgstr "Його {file} є некоректним."
+
+#, python-brace-format
+#~ msgid "It was made for an older Telescope (plugin API {api}) and needs an update."
+#~ msgstr "Його було створено для старішої версії Telescope (API плагінів {api}), тому його потрібно оновити."
+
+#~ msgid "Its files couldn't be read."
+#~ msgstr "Не вдалося прочитати його файли."
+
+#, python-brace-format
+#~ msgid "Its {file} has to give the folder's name as \"name\"."
+#~ msgstr "Його {file} повинен містити назву папки як \"name\"."
+
+#, python-brace-format
+#~ msgid "It needs a newer Telescope (plugin API {wanted}; this one has {have})."
+#~ msgstr "Для нього потрібна новіша версія Telescope (API плагінів {wanted}; у цій версії {have})."
+
+#~ msgid "Its files changed since it was turned on. Turn it on again if you trust this version."
+#~ msgstr "Його файли змінилися після ввімкнення. Увімкніть його знову, якщо ви довіряєте цій версії."
+
+#~ msgid "Stopped streaming to let it cool down."
+#~ msgstr "Трансляцію зупинено, щоб телефон охолонув."
+
+#, python-brace-format
+#~ msgid "Streaming stopped, as Monitoring stops it at {level}% or lower."
+#~ msgstr "Трансляцію зупинено, оскільки «Моніторинг» зупиняє її на рівні {level} % або нижче."
+
+#, python-brace-format
+#~ msgid "Streaming stopped to let it cool down, as Monitoring stops it at {temp} °C."
+#~ msgstr "Трансляцію зупинено, щоб телефон охолонув, оскільки «Моніторинг» зупиняє її за {temp} °C."
+
+#~ msgid "Without it there's no Phone card and nothing warns you about a low battery or a hot phone."
+#~ msgstr "Без нього картка «Телефон» відсутня, і ніщо не попереджає про низький заряд акумулятора чи перегрітий телефон."
+
+#~ msgid "Asks for your password (pkexec or sudo): this changes system settings."
+#~ msgstr "Запитує ваш пароль (pkexec або sudo): це змінює системні налаштування."
+
+#~ msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
+#~ msgstr "Застосування перезапускає трансляцію з новим розміром. Якщо OBS втратить джерело, вилучіть його та додайте знову."
+
+#~ msgid "The graphics card failed and the processor is decoding until you restart Telescope"
+#~ msgstr "Стався збій відеокарти, і процесор декодує, доки ви не перезапустите Telescope"
+
+#~ msgid "The graphics card was too slow, so the processor is decoding for now"
+#~ msgstr "Відеокарта виявилася надто повільною, тому поки що декодує процесор"
+
+#~ msgid "Some apps can't see it"
+#~ msgstr "Деякі додатки її не бачать"
+
+#~ msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
+#~ msgstr "Не знайдено. Потрібно для створення пари та встановлення через USB; для Wi-Fi не потрібно."
+
+#~ msgid "Without it there's no Stats card. The stream carries on the same."
+#~ msgstr "Без нього немає картки «Статистика». Трансляція працює як і раніше."
+
+#, python-brace-format
+#~ msgid "stepped down to {n} for the link"
+#~ msgstr "знижено до {n} для з'єднання"
+
+#~ msgid "Decode the Light format on the graphics card from the next stream on. If the card fails the processor takes over until you restart Telescope."
+#~ msgstr "Декодувати формат «Легкий» на відеокарті, починаючи з наступної трансляції. У разі збою відеокарти процесор перебере це на себе до перезапуску Telescope."
+
+#~ msgid "Use less processor and battery while Background or Auto framing is on. They follow quick movement a little later."
+#~ msgstr "Використовувати менше ресурсів процесора й батареї, коли увімкнено «Фон» або «Автокадрування». Вони трохи повільніше реагуватимуть на різкі рухи."
+
+#~ msgid "Keeps loud sounds from clipping"
+#~ msgstr "Запобігає перевантаженню гучних звуків"
+
+#~ msgid "Restart Telescope to switch to it."
+#~ msgstr "Перезапустіть Telescope, щоб перейти на неї."
+
+#~ msgid "Open the full log. It's kept in the temp folder, which the system clears."
+#~ msgstr "Відкрити повний журнал. Він зберігається в тимчасовій папці, яку система очищає."
+
+#~ msgid "This asks for your password."
+#~ msgstr "Для цього потрібен ваш пароль."
+
+#, python-brace-format
+#~ msgid "To stream several cameras at once, Telescope adds more virtual cameras ({names})."
+#~ msgstr "Щоб транслювати кілька камер одночасно, Telescope додає додаткові віртуальні камери ({names})."
+
+#~ msgid "Only a phone's stream has the video this needs."
+#~ msgstr "Потрібне відео є лише в трансляції з телефону."
+
+#~ msgid "Stabilization"
+#~ msgstr "Стабілізація"
+
+#~ msgid "Starting a stream may ask for your password to switch it on."
+#~ msgstr "Під час запуску трансляції може знадобитися пароль, щоб увімкнути її."
+
+#~ msgid "Scan this with the phone's camera app to download Telescope.apk, then open it to install. It's a download link, not the pairing code."
+#~ msgstr "Відскануйте це додатком камери на телефоні, щоб завантажити Telescope.apk, а потім відкрийте його для встановлення. Це посилання на завантаження, а не код створення пари."
+
+#~ msgid "Without it the setup checklist never shows, not even when nothing is set up yet."
+#~ msgstr "Без нього список налаштування ніколи не показується, навіть коли ще нічого не налаштовано."
+
+#~ msgid "Without it there's no Presets button in the header (your saved presets aren't deleted)."
+#~ msgstr "Без нього кнопки «Пресети» немає в заголовку (ваші збережені пресети не видаляються)."
+
+#~ msgid "Without it the window doesn't show the picture but apps using the virtual camera still get it."
+#~ msgstr "Без нього у вікні не показується зображення, але додатки, що використовують віртуальну камеру, все одно його отримують."
+
+#~ msgid "Telescope couldn't start a new copy of itself. Close it and open it again to apply your changes."
+#~ msgstr "Telescope не зміг запустити новий екземпляр. Закрийте його та відкрийте знову, щоб застосувати зміни."
+
+#, python-brace-format
+#~ msgid "The download didn't work. {error}"
+#~ msgstr "Не вдалося завантажити. {error}"
+
+#~ msgid "There's no download of what it needs for this computer yet, so it can't be switched on."
+#~ msgstr "Необхідних файлів для цього комп'ютера ще немає для завантаження, тому його не можна ввімкнути."
+
+#, python-brace-format
+#~ msgid "Its download (about {mb} MB) isn't there anymore. Switch it off and on again to get it."
+#~ msgstr "Його завантажених файлів (приблизно {mb} МБ) більше немає. Вимкніть його та ввімкніть знову, щоб завантажити їх."
+
+#, python-brace-format
+#~ msgid "Switching one of these on downloads about {mb} MB first, once for all of them."
+#~ msgstr "Увімкнення одного з них спочатку завантажує близько {mb} МБ, один раз для всіх."
+
+#~ msgid "Its files changed since you switched it on, so it's off for now. Switch it on again if you trust this version."
+#~ msgstr "Його файли змінилися з моменту ввімкнення, тому зараз його вимкнено. Увімкніть його знову, якщо ви довіряєте цій версії."
+
+#, python-brace-format
+#~ msgid "It didn't start ({problem})."
+#~ msgstr "Не вдалося запустити ({problem})."
+
+#, python-brace-format
+#~ msgid "Version {version} is out. <a href=\"{url}\">Download it from its release page</a> and install it here to replace this one."
+#~ msgstr "Вийшла версія {version}. <a href=\"{url}\">Завантажте її зі сторінки випуску</a> та встановіть сюди, щоб замінити цю версію."
+
+#, python-brace-format
+#~ msgid "Loaded from {folder} by telescope-rs dev. Telescope restarts by itself when you save one of its files."
+#~ msgstr "Завантажено з {folder} за допомогою telescope-rs dev. Telescope сам перезапускається, коли ви зберігаєте один із його файлів."
+
+#, python-brace-format
+#~ msgid "Its folder ({folder}) is deleted from the plugins folder. To use it again you'll have to add it again."
+#~ msgstr "Його папку ({folder}) буде видалено з папки плагінів. Щоб скористатися ним знову, його доведеться додати ще раз."
+
+#, python-brace-format
+#~ msgid "It frees about {mb} MB. Switching on one of the optional plugins downloads it again."
+#~ msgstr "Це звільнить приблизно {mb} МБ. Увімкнення одного з додаткових плагінів завантажить його знову."
+
+#~ msgid "Streaming stops while Telescope restarts. It takes a few seconds."
+#~ msgstr "Трансляція зупиниться на час перезапуску Telescope. Це займе кілька секунд."
+
+#~ msgid "Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch it back on."
+#~ msgstr "Без нього все, що він додав до Telescope, зникне. Його налаштування залишаться збереженими на випадок, якщо ви знову його ввімкнете."
+
+#, python-brace-format
+#~ msgid "{plugin} uses MediaPipe to find people in the picture. It comes as a separate download from Telescope's releases on GitHub, which the other optional plugins share."
+#~ msgstr "{plugin} використовує MediaPipe для виявлення людей на зображенні. Він постачається як окреме завантаження з релізів Telescope на GitHub, спільне для інших додаткових плагінів."
+
+#~ msgid "The version in this .zip takes its place with the same settings. Like any plugin you add it starts out switched off."
+#~ msgstr "Версія з цього .zip замінить його зі збереженням налаштувань. Як і будь-який доданий вами плагін, спочатку він буде вимкнений."
+
+#, python-brace-format
+#~ msgid "{plugin} {version} is in place but switched off for now. To use it, switch it on again and restart Telescope."
+#~ msgstr "Плагін {plugin} {version} встановлено, але поки що вимкнено. Щоб скористатися ним, увімкніть його знову й перезапустіть Telescope."
+
+#, python-brace-format
+#~ msgid "{plugin} is installed but switched off for now. To use it, switch it on and restart Telescope."
+#~ msgstr "Плагін {plugin} встановлено, але поки що вимкнено. Щоб скористатися ним, увімкніть його й перезапустіть Telescope."
+
+#~ msgid "Check that it's still on."
+#~ msgstr "Перевірте, чи пристрій досі увімкнено."
+
+#~ msgid "Nothing matches every word. These match some of them."
+#~ msgstr "Жоден результат не містить усіх слів. Ось збіги для деяких із них."
+
+#~ msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
+#~ msgstr "Раз на день перевіряє наявність нових версій доданих плагінів, що публікують релізи на GitHub, і повідомляє про них тут. Нічого не завантажується."
+
+#~ msgid "Installs new versions of the plugins you switched on and switches them on again."
+#~ msgstr "Встановлює нові версії увімкнених вами плагінів і вмикає їх знову."
+
+#, python-brace-format
+#~ msgid "{plugins} didn't start"
+#~ msgid_plural "{plugins} didn't start"
+#~ msgstr[0] "{plugins} не запустився"
+#~ msgstr[1] "{plugins} не запустилися"
+#~ msgstr[2] "{plugins} не запустилися"
+
+#, python-brace-format
+#~ msgid "{n} plugin didn't start"
+#~ msgid_plural "{n} plugins didn't start"
+#~ msgstr[0] "{n} плагін не запустився"
+#~ msgstr[1] "{n} плагіни не запустилися"
+#~ msgstr[2] "{n} плагінів не запустилося"
+
+#~ msgid "Telescope works without it. The Plugins tab in Settings says what went wrong."
+#~ msgid_plural "Telescope works without them. The Plugins tab in Settings says what went wrong."
+#~ msgstr[0] "Telescope працює й без нього. На вкладці «Плагіни» в Налаштуваннях зазначено, що пішло не так."
+#~ msgstr[1] "Telescope працює й без них. На вкладці «Плагіни» в Налаштуваннях зазначено, що пішло не так."
+#~ msgstr[2] "Telescope працює й без них. На вкладці «Плагіни» в Налаштуваннях зазначено, що пішло не так."
+
+#~ msgid "The stream comes back by itself once that app closes or lets go of it."
+#~ msgstr "Трансляція відновиться автоматично, щойно ця програма закриється або звільнить її."
+
+#~ msgid "Stop it there or on the phone, then start again."
+#~ msgstr "Зупиніть її там або на телефоні, а потім почніть знову."
+
+#, python-brace-format
+#~ msgid "It's streaming at {size} and {fps} fps until it cools down."
+#~ msgstr "Транслює в {size} і {fps} fps, доки не охолоне."
+
+#, python-brace-format
+#~ msgid "It's streaming at {size} until it cools down."
+#~ msgstr "Транслює в {size}, доки не охолоне."
+
+#~ msgid "Open the Telescope page in it again."
+#~ msgstr "Знову відкрийте в ньому сторінку Telescope."
+
+#, python-brace-format
+#~ msgid "The phone got hot and lowered the frame rate to {fps} fps for now."
+#~ msgstr "Телефон нагрівся і тимчасово знизив частоту кадрів до {fps} fps."
+
+#~ msgid "The camera is making fewer frames than asked for. Dim light slows it down."
+#~ msgstr "Камера видає менше кадрів, ніж запитано. Слабке освітлення сповільнює її."
+
+#~ msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
+#~ msgstr "Камера телефону створює менше кадрів, ніж потрібно. Тьмяне світло сповільнює її."
+
+#~ msgid "It starts streaming by itself when it needs to."
+#~ msgstr "Він починає трансляцію самостійно, коли це потрібно."
+
+#~ msgid "Delete the download these plugins use. Switching any of these plugins on downloads it again."
+#~ msgstr "Видалити завантажені файли, які використовують ці плагіни. Якщо увімкнути будь-який із цих плагінів, вони завантажаться знову."
+
+#, python-brace-format
+#~ msgid "Couldn't set up the Python libraries {version} needs. That takes the internet and a folder it can write to ({folder}). Nothing was changed."
+#~ msgstr "Не вдалося налаштувати бібліотеки Python, потрібні для {version}. Для цього потрібні інтернет і папка з дозволом на запис ({folder}). Нічого не змінено."
+
+#, python-brace-format
+#~ msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones come with it, and a copy of your current settings is saved first in {folder}."
+#~ msgstr "Telescope перезапуститься як версія {version} - остання версія на Python. Ваші налаштування та телефони, з якими створено пару, збережуться, а копію поточних налаштувань спершу буде збережено в {folder}."
+
+#, python-brace-format
+#~ msgid "{version} won't check for updates by itself, so it doesn't offer this version back. You can turn that on again in its settings."
+#~ msgstr "{version} не перевірятиме наявність оновлень самостійно, щоб не пропонувати цю версію знову. Ви можете знову увімкнути це в налаштуваннях."
+
+#, python-brace-format
+#~ msgid "First it sets up the Python libraries {version} needs. That needs the internet and takes a few minutes. If that fails, nothing is changed."
+#~ msgstr "Спершу додаток налаштує бібліотеки Python, потрібні для {version}. Для цього потрібен інтернет, і це триватиме кілька хвилин. Якщо станеться збій, нічого не зміниться."
+
+#~ msgid "If it doesn't start, opening Telescope again brings this version back."
+#~ msgstr "Якщо вона не запуститься, повторне відкриття Telescope поверне цю версію."
+
+#, python-brace-format
+#~ msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack it and run start.sh in it. It needs Python 3.12 or newer and finds your settings in the same place."
+#~ msgstr "AppImage не можна замінити на версію з Python. Завантажте Telescope-linux.tar.gz зі сторінки випуску {version}, розпакуйте його й запустіть у ньому start.sh. Йому потрібен Python 3.12 або новіший, а ваші налаштування він знайде в тому самому місці."
+
+#, python-brace-format
+#~ msgid "The phone app has to match. A newer one may not connect to {version}. Android won't install an older app over a newer one, so uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
+#~ msgstr "Додаток на телефоні має відповідати версії. Новіший може не підключитися до {version}. Android не встановить старіший додаток поверх новішого, тому видаліть Telescope на телефоні, встановіть Telescope.apk із випуску {version} і створіть пару знову."
+
+#~ msgid "Waiting for you to confirm it"
+#~ msgstr "Очікування на ваше підтвердження"
+
+#~ msgid "Your desktop asks you to confirm global shortcuts, and you can change their keys in its own settings. The key it settled on shows next to each one."
+#~ msgstr "Графічне середовище просить підтвердити глобальні комбінації клавіш, і ви можете змінити їх у його власних налаштуваннях. Призначена клавіша відображається біля кожної з них."
+
+#~ msgid "Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port."
+#~ msgstr "Дозволяє ШІ-додатку, наприклад Claude Desktop, переглядати та змінювати налаштування Telescope через команду без відкриття мережевого порту."
+
+#~ msgid "Without it AI apps can't connect to Telescope."
+#~ msgstr "Без нього ШІ-додатки не можуть підключитися до Telescope."
+
+#~ msgid "That failed; Copy diagnostics has the details."
+#~ msgstr "Дія не вдалася; у пункті «Скопіювати діагностику» є подробиці."
+
+#, python-brace-format
+#~ msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
+#~ msgstr "Усюди {keys} завадить її введенню в інших додатках. Безпечніше додати Ctrl, Alt або {meta}."
+
+#, python-brace-format
+#~ msgid "{value} (not there now)"
+#~ msgstr "{value} (зараз немає)"
+
+#~ msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
+#~ msgstr "Без нього жодна комбінація клавіш не діє, а розділ «Гарячі клавіші» зникає з «Налаштувань» (ваші комбінації зберігаються на випадок його повторного ввімкнення)."
+
+#~ msgid "Telescope didn't understand that. Is it an older version? Update it to use --action."
+#~ msgstr "Telescope не розпізнав цю команду. Можливо, це старіша версія? Оновіть її, щоб використовувати --action."
+
+#~ msgid "Telescope turned that down: it didn't come from this user's Telescope command."
+#~ msgstr "Telescope відхилив запит: він надійшов не від команди Telescope цього користувача."
+
+#~ msgid "When no app uses the camera, if it started the stream"
+#~ msgstr "Коли жоден додаток не використовує камеру, якщо він і почав трансляцію"
+
+#~ msgid "When no app uses the camera, even if I started it"
+#~ msgstr "Коли жоден додаток не використовує камеру, навіть якщо її запустив я"
+
+#~ msgid "Start and stop by itself"
+#~ msgstr "Автоматичний запуск і зупинка"
+
+#~ msgid "Without it Automatic streaming stops and both it and the sign-in option leave Settings. Telescope still opens at sign-in if it did before."
+#~ msgstr "Без нього автоматична трансляція зупиняється, а вона та параметр автозапуску зникають із «Налаштувань». Telescope все одно відкриватиметься під час входу, якщо робив це раніше."
+
+#~ msgid "Going back to the Python version didn't work because it didn't start, so this version is back."
+#~ msgstr "Не вдалося повернутися до версії на Python, бо вона не запустилася, тому відновлено цю версію."
+
+#~ msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along."
+#~ msgstr "Оновлення також встановить його для вашого користувача з пунктом у меню «Пуск» і видалить цю розархівовану копію. Налаштування та телефони збережуться."
+
+#~ msgid "This is a source checkout, so it doesn't update itself."
+#~ msgstr "Це версія з вихідного коду, тому вона не оновлюється самостійно."
+
+#~ msgid "Other users on this computer could change it, so it isn't loaded."
+#~ msgstr "Інші користувачі цього комп'ютера можуть змінювати його, тому його не завантажено."
+
+#~ msgid "It contains a link to somewhere else, which plugins can't have."
+#~ msgstr "Він містить посилання на інше місце, чого в плагінах бути не може."
+
+#~ msgid "It contains compiled code (like .pyc files). Plugins have to be source code."
+#~ msgstr "Він містить скомпільований код (наприклад, файли .pyc). Плагіни мають бути у вигляді вихідного коду."
+
+#~ msgid "It's too big for a plugin (over 500 files or 20 MB)."
+#~ msgstr "Він завеликий для плагіна (понад 500 файлів або 20 МБ)."
+
+#~ msgid "A plugin that comes with Telescope already has that name."
+#~ msgstr "Плагін, що входить до складу Telescope, уже має таку назву."
+
+#~ msgid "It isn't a .zip file Telescope can open."
+#~ msgstr "Це не файл .zip, який Telescope може відкрити."
+
+#~ msgid "It holds a file with a path that points outside the plugin."
+#~ msgstr "Він містить файл зі шляхом, що вказує за межі плагіна."
+
+#~ msgid "It has to hold one folder, named as the plugin."
+#~ msgstr "Він повинен містити одну папку з назвою плагіна."
+
+#~ msgid ""
+"Camera off\n"
+"\n"
+"The phone's mic is still streaming.\n"
+"Stop streaming ends it."
+#~ msgstr ""
+"Камеру вимкнено\n"
+"\n"
+"Мікрофон телефону досі транслює.\n"
+"«Зупинити трансляцію» завершує її."
+
+#~ msgid ""
+"Camera off\n"
+"\n"
+"No app was using the camera, so it turned off.\n"
+"The phone's mic is still streaming, and the camera\n"
+"comes back when an app opens it."
+#~ msgstr ""
+"Камеру вимкнено\n"
+"\n"
+"Жоден додаток не використовував камеру, тому її було вимкнено.\n"
+"Мікрофон телефону досі транслює, а камера\n"
+"увімкнеться знову, коли додаток відкриє її."
+
+#~ msgid "The phone gave up on the photo, maybe because its stream stopped."
+#~ msgstr "Телефон перервав зйомку фото, можливо, через зупинку трансляції."
+
+#~ msgid "Couldn't remove it"
+#~ msgstr "Не вдалося вилучити"
+
+#~ msgid "Couldn't save that"
+#~ msgstr "Не вдалося зберегти"
+
+#~ msgid "Couldn't install it"
+#~ msgstr "Не вдалося встановити"
+
+#~ msgid "Installed, but it won't load"
+#~ msgstr "Встановлено, але не завантажується"
+
+#~ msgid "Couldn't open it"
+#~ msgstr "Не вдалося відкрити"
 
 #~ msgid "How far the Zoom slider goes. Zoom beyond the phone's own range is cropped on this computer."
 #~ msgstr "Максимальне значення повзунка «Масштаб». Збільшення понад власний діапазон телефону обрізається на цьому комп'ютері."

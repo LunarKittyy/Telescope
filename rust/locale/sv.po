@@ -13,8 +13,8 @@ msgid "Needs {tools} (in pulseaudio-utils; PipeWire systems use it too)."
 msgstr "Behöver {tools} (i pulseaudio-utils; PipeWire-system använder det också)."
 
 #: rust/crates/audio/src/backend.rs:166
-msgid "Once VB-Cable's setup says it's done, restart the computer, then switch this off and on."
-msgstr "När VB-Cables installation säger att den är klar: starta om datorn och stäng sedan av och slå på det här igen."
+msgid "When VB-Cable's setup has finished, restart the computer, then switch this off and on."
+msgstr ""
 
 #: rust/crates/audio/src/backend.rs:167
 msgid "Open setup again"
@@ -96,8 +96,8 @@ msgstr "Den källan är inte tillgänglig längre."
 
 #: rust/crates/audio/src/plugin.rs:445
 #, python-brace-format
-msgid "On for {name}. Turning it on here turns it off there."
-msgstr "På för {name}. Slår du på den här stängs den av där."
+msgid "On for {name}. Turning the microphone on here turns it off for {name}."
+msgstr ""
 
 #: rust/crates/audio/src/plugin.rs:474
 msgid "Mute microphone"
@@ -235,8 +235,8 @@ msgid "Using the phone's microphone on this computer."
 msgstr "Använda telefonens mikrofon på den här datorn."
 
 #: rust/crates/audio/src/plugin.rs:1056
-msgid "Without it there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone."
-msgstr "Utan det finns varken kortet Mikrofon eller Tysta i menyn i meddelandefältet, och Telescope skapar ingen virtuell mikrofon."
+msgid "Without the Microphone plugin there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone."
+msgstr ""
 
 #: rust/crates/audio/src/plugin.rs:1128
 msgid "Mute or unmute"
@@ -285,8 +285,8 @@ msgid "Couldn't download VB-Cable. Try again, or get it from their site."
 msgstr "Kunde inte ladda ner VB-Cable. Försök igen, eller hämta det från deras webbplats."
 
 #: rust/crates/audio/src/vb_cable.rs:165
-msgid "VB-Audio's site didn't hand over VB-Cable. Try again later, or get it from their site."
-msgstr "VB-Audios webbplats skickade inte VB-Cable. Försök igen senare, eller hämta det från deras webbplats."
+msgid "Couldn't download VB-Cable from VB-Audio's site. Try again later, or get it from their site."
+msgstr ""
 
 #: rust/crates/audio/src/vb_cable.rs:166
 msgid "Couldn't check vb-audio.com's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this."
@@ -305,12 +305,12 @@ msgid "Couldn't unpack VB-Cable. Try again, or get it from their site."
 msgstr "Kunde inte packa upp VB-Cable. Försök igen, eller hämta det från deras webbplats."
 
 #: rust/crates/audio/src/vb_cable.rs:193
-msgid "VB-Audio's download doesn't have the setup it used to. Get it from their site instead."
-msgstr "VB-Audios nedladdning har inte samma installationsprogram som förr. Hämta det från deras webbplats i stället."
+msgid "VB-Audio's download no longer has the setup file. Get it from their site instead."
+msgstr ""
 
 #: rust/crates/audio/src/vb_cable.rs:239
-msgid "VB-Cable's setup changed after it was checked, so it wasn't opened."
-msgstr "VB-Cables installationsprogram ändrades efter att det kontrollerades, så det öppnades inte."
+msgid "VB-Cable's setup file changed after the check, so Telescope didn't open it."
+msgstr ""
 
 #: rust/crates/audio/src/vb_cable.rs:244
 msgid "Windows didn't get permission to install VB-Cable."
@@ -338,8 +338,8 @@ msgid "Level"
 msgstr "Vattenpass"
 
 #: rust/crates/audio/ui/microphone.slint:95 rust/crates/audio/ui/microphone.slint:201
-msgid "Yellow: the limiter is holding peaks down. Red: it clipped."
-msgstr "Gult: begränsaren håller nere topparna. Rött: ljudet klippte."
+msgid "Yellow: the limiter is holding peaks down. Red: the sound clipped."
+msgstr ""
 
 #: rust/crates/audio/ui/microphone.slint:95
 msgid "Click to clear"
@@ -374,8 +374,8 @@ msgid "Download and install"
 msgstr "Ladda ner och installera"
 
 #: rust/crates/audio/ui/microphone.slint:315
-msgid "Telescope downloads VB-Cable from vb-audio.com and opens its setup, which asks for admin. Restart the computer afterwards."
-msgstr "Telescope laddar ner VB-Cable från vb-audio.com och öppnar installationen, som ber om administratörsrättigheter. Starta om datorn efteråt."
+msgid "VB-Cable is downloaded from vb-audio.com and its setup opens, which asks for admin access. Restart the computer afterwards."
+msgstr ""
 
 #: rust/crates/core/src/actions.rs:177
 msgid "Raise by"
@@ -543,8 +543,8 @@ msgid "Getting ready…"
 msgstr "Förbereder…"
 
 #: rust/crates/effects/src/auto_grade.rs:19
-msgid "Looking…"
-msgstr "Tittar…"
+msgid "Analysing…"
+msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
 #: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:27 rust/crates/effects/src/framing.rs:72 rust/crates/effects/src/fun_pack.rs:38 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:459 rust/crates/effects/ui/background.slint:46 rust/crates/effects/ui/background.slint:51 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:287 rust/crates/link/src/browser/plugin.rs:585 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:78
@@ -584,12 +584,12 @@ msgid "Background"
 msgstr "Bakgrund"
 
 #: rust/crates/effects/src/background.rs:485
-msgid "Blurs the background behind you or swaps it for a picture."
-msgstr "Gör bakgrunden bakom dig oskarp eller byter ut den mot en bild."
+msgid "Blur the background behind you or swap it for a picture."
+msgstr ""
 
 #: rust/crates/effects/src/background.rs:486
-msgid "Without it there's no Background card and the background stays as the camera sees it."
-msgstr "Utan det finns inte kortet Bakgrund och bakgrunden förblir som kameran ser den."
+msgid "Without the Background plugin there's no Background card and the background stays as the camera sees it."
+msgstr ""
 
 #: rust/crates/effects/src/background.rs:580 rust/crates/effects/src/background.rs:606
 msgid "Background blur"
@@ -668,12 +668,12 @@ msgid "Start streaming to pick a colour on the preview."
 msgstr "Starta strömning för att välja en färg i förhandsvisningen."
 
 #: rust/crates/effects/src/chroma_key.rs:538
-msgid "Swaps a green or blue screen behind you for a colour or a picture, with no download."
-msgstr "Byter ut en grön eller blå skärm bakom dig mot en färg eller en bild, utan nedladdning."
+msgid "Swap a green or blue screen behind you for a colour or a picture, with no download."
+msgstr ""
 
 #: rust/crates/effects/src/chroma_key.rs:539
-msgid "Without it there's no Chroma key card and a green screen stays green."
-msgstr "Utan det finns inte kortet Chroma key och en grön skärm förblir grön."
+msgid "Without the Chroma key plugin there's no Chroma key card and a green screen stays green."
+msgstr ""
 
 #: rust/crates/effects/src/chroma_key.rs:656 rust/crates/effects/src/chroma_key.rs:691
 msgid "Chroma key tolerance"
@@ -732,8 +732,8 @@ msgid "Focus peaking, zebras, false colour, scopes, framing guides and a level o
 msgstr "Fokuspeaking, zebramönster, falska färger, scopar, hjälplinjer och ett vattenpass i förhandsvisningen, för att bedöma fokus, exponering, inramning och en rak horisont."
 
 #: rust/crates/effects/src/cinema.rs:318
-msgid "Without it there's no Cinema tools card and the preview shows just the picture."
-msgstr "Utan det finns inte kortet Filmverktyg och förhandsvisningen visar bara bilden."
+msgid "Without the Cinema tools plugin there's no Cinema tools card and the preview shows just the picture."
+msgstr ""
 
 #: rust/crates/effects/src/cinema.rs:371
 msgctxt "search"
@@ -929,20 +929,20 @@ msgid "No picture"
 msgstr "Ingen bild"
 
 #: rust/crates/effects/src/colour_grading.rs:60
-msgid "Looking at the picture…"
-msgstr "Tittar på bilden…"
+msgid "Analysing the picture…"
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:61
-msgid "Auto couldn't get a steady picture to look at. Try again while nothing moves."
-msgstr "Auto fick ingen stabil bild att titta på. Försök igen när inget rör sig."
+msgid "No steady picture to analyse. Try again while nothing moves."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:62
 msgid "Nothing to change, the picture already looks right."
 msgstr "Inget att ändra, bilden ser redan bra ut."
 
 #: rust/crates/effects/src/colour_grading.rs:63
-msgid "Nothing needs changing now, so Auto's earlier changes were taken off."
-msgstr "Inget behöver ändras nu, så Autos tidigare ändringar togs bort."
+msgid "Nothing needs changing, so Auto's earlier changes were removed."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:64
 #, python-brace-format
@@ -950,20 +950,20 @@ msgid "Auto changed {parts}."
 msgstr "Auto ändrade {parts}."
 
 #: rust/crates/effects/src/colour_grading.rs:65
-msgid "No face was found, so it went by the background and the brightness."
-msgstr "Inget ansikte hittades, så det utgick från bakgrunden och ljusstyrkan."
+msgid "No face found, so Auto used the background and brightness."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:66
-msgid "The light is mixed or coloured, so white balance stayed as it was."
-msgstr "Ljuset är blandat eller färgat, så vitbalansen lämnades som den var."
+msgid "The light is mixed or coloured, so white balance was not changed."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:67
-msgid "Your own wheels and curves would have clipped the picture, so Auto went only part of the way."
-msgstr "Dina egna hjul och kurvor skulle ha klippt bilden, så Auto gick bara en bit på vägen."
+msgid "Your own wheels and curves would have clipped the picture, so Auto applied only part of the change."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:68
-msgid "The camera adjusts itself, so this may drift."
-msgstr "Kameran justerar sig själv, så det här kan glida iväg."
+msgid "The camera adjusts automatically, so the result may drift."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:69
 msgid "white balance"
@@ -1093,8 +1093,8 @@ msgid "Colour wheels, curves and LUT files for the look of the picture."
 msgstr "Färghjul, kurvor och LUT-filer för bildens utseende."
 
 #: rust/crates/effects/src/colour_grading.rs:1081
-msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
-msgstr "Utan det finns inte kortet Färgsättning och bilden behåller kamerans färger."
+msgid "Without the Colour grading plugin there's no Colour grading card and the picture keeps the camera's colours."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:1175 rust/crates/effects/src/colour_grading.rs:1221
 msgid "Compare before and after"
@@ -1182,23 +1182,23 @@ msgid "Nothing's in the picture yet."
 msgstr "Det finns inget i bilden än."
 
 #: rust/crates/effects/src/composite_plugin.rs:445
-msgid "It takes over once two of its streams are running."
-msgstr "Den tar över så fort två av dess strömmar körs."
+msgid "Active once two streams are running."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:447
 #, python-brace-format
-msgid "It goes out on {camera}, and no stream goes there now."
-msgstr "Den går ut på {camera}, och ingen ström går dit nu."
+msgid "Set to output on {camera}, but no stream is running there."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:449
 #, python-brace-format
-msgid "It goes out on {camera} once the stream there sends a picture."
-msgstr "Den går ut på {camera} så fort strömmen där skickar en bild."
+msgid "Will output on {camera} once the stream there sends a picture."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:451
 #, python-brace-format
-msgid "Goes out on {camera}."
-msgstr "Går ut på {camera}."
+msgid "Outputting on {camera}."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:456
 msgid "Nothing in it"
@@ -1221,12 +1221,12 @@ msgid "Several cameras in one picture"
 msgstr "Flera kameror i en bild"
 
 #: rust/crates/effects/src/composite_plugin.rs:508
-msgid "Puts the streams you run side by side or one inside another, out on one virtual camera."
-msgstr "Lägger strömmarna du kör sida vid sida eller i varandra, ut på en virtuell kamera."
+msgid "Put the streams you run side by side or inside each other on one virtual camera."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:509
-msgid "Without it there's no One picture card and each stream only goes to its own camera."
-msgstr "Utan det finns inte kortet En bild och varje ström går bara till sin egen kamera."
+msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:595 rust/crates/effects/src/composite_plugin.rs:619
 msgid "Picture layout"
@@ -1237,8 +1237,8 @@ msgid "This file is too big to be a LUT Telescope can use."
 msgstr "Den här filen är för stor för att vara en LUT Telescope kan använda."
 
 #: rust/crates/effects/src/cube.rs:14
-msgid "This isn't a .cube LUT: it doesn't say its size."
-msgstr "Det här är inte en .cube-LUT: den anger inte sin storlek."
+msgid "This isn't a .cube LUT: the size is missing."
+msgstr ""
 
 #: rust/crates/effects/src/cube.rs:15
 #, python-brace-format
@@ -1343,8 +1343,8 @@ msgid "Sheet unclear"
 msgstr "Otydligt ark"
 
 #: rust/crates/effects/src/desk.rs:200
-msgid "Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."
-msgstr "Hörnen satt för tätt ihop eller på rad och användes inte. Markera arket igen med ett på varje hörn."
+msgid "Those corners were bunched up or in a line and weren't used. Mark the sheet again with a point on each corner."
+msgstr ""
 
 #: rust/crates/effects/src/desk.rs:202
 msgid "Sheet cut off"
@@ -1387,12 +1387,12 @@ msgid "Desk and document mode"
 msgstr "Bords- och dokumentläge"
 
 #: rust/crates/effects/src/desk.rs:332
-msgid "Straightens a sheet of paper you mark on the preview and can make the writing on it stand out."
-msgstr "Rätar ut ett pappersark som du markerar i förhandsvisningen och kan framhäva texten på det."
+msgid "Straighten a sheet of paper you mark on the preview and optionally make the writing on it stand out."
+msgstr ""
 
 #: rust/crates/effects/src/desk.rs:333
-msgid "Without it there's no Desk mode card and the picture stays the way the camera sees it."
-msgstr "Utan det finns inte kortet Bordsläge och bilden förblir som kameran ser den."
+msgid "Without the Desk and document mode plugin there's no Desk mode card and the picture stays the way the camera sees it."
+msgstr ""
 
 #: rust/crates/effects/src/desk.rs:423 rust/crates/effects/src/desk.rs:447
 msgid "Make the writing stand out"
@@ -1423,12 +1423,12 @@ msgid "This lens can't meter on a point."
 msgstr "Det här objektivet kan inte mäta på en punkt."
 
 #: rust/crates/effects/src/face_exposure.rs:291
-msgid "Moves the phone's metering point to your face to keep you well lit whatever's behind you."
-msgstr "Flyttar telefonens mätpunkt till ditt ansikte så att du är välupplyst oavsett vad som finns bakom dig."
+msgid "Move the phone's metering point to your face to keep you well lit, whatever is behind you."
+msgstr ""
 
 #: rust/crates/effects/src/face_exposure.rs:292
-msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
-msgstr "Utan det finns inte kortet Exponera för mitt ansikte och telefonen mäter på punkten du trycker på eller hela bilden."
+msgid "Without the Expose for my face plugin there's no Expose for my face card and the phone meters the point you tap or the whole picture."
+msgstr ""
 
 #: rust/crates/effects/src/framing.rs:20 rust/crates/effects/ui/framing.slint:43
 msgid "Auto framing"
@@ -1550,8 +1550,8 @@ msgid "Show hands"
 msgstr "Visa händer"
 
 #: rust/crates/effects/src/framing.rs:94
-msgid "Widens the view so your hands are in it too."
-msgstr "Breddar vyn så att dina händer också kommer med."
+msgid "Widen the view so your hands are in it too."
+msgstr ""
 
 #: rust/crates/effects/src/framing.rs:95
 msgid "Something else is moving the zoom and pan."
@@ -1570,8 +1570,8 @@ msgid "Zooms and pans to keep you in the picture as you move."
 msgstr "Zoomar och panorerar för att hålla dig i bild när du rör dig."
 
 #: rust/crates/effects/src/framing.rs:876
-msgid "Without it there's no Auto framing card and the zoom stays where you put it."
-msgstr "Utan det finns inte kortet Automatisk inramning och zoomen ligger kvar där du satte den."
+msgid "Without the Auto framing plugin there's no Auto framing card and the zoom stays where you put it."
+msgstr ""
 
 #: rust/crates/effects/src/fun_pack.rs:39
 msgid "Clone party"
@@ -1679,8 +1679,8 @@ msgstr "Åt vilket håll banden går."
 
 #: rust/crates/effects/src/fun_pack.rs:392
 #, python-brace-format
-msgid "Taking it in {n}…"
-msgstr "Tas om {n}…"
+msgid "Taking the empty room in {n}…"
+msgstr ""
 
 #: rust/crates/effects/src/fun_pack.rs:394
 msgid "Take the empty room again"
@@ -1720,8 +1720,8 @@ msgid "Silly effects: clones, an invisibility cloak, light painting, retro looks
 msgstr "Roliga effekter: kloner, en osynlighetsmantel, ljusmålning, retrostilar och datamosh."
 
 #: rust/crates/effects/src/fun_pack.rs:655
-msgid "Without it there's no Fun pack card and the picture has no effects."
-msgstr "Utan det finns inte kortet Fun pack och bilden har inga effekter."
+msgid "Without the Fun pack plugin there's no Fun pack card and the picture has no effects."
+msgstr ""
 
 #: rust/crates/effects/src/fun_pack.rs:747 rust/crates/effects/src/fun_pack.rs:803
 msgid "Datamosh smear"
@@ -1784,13 +1784,13 @@ msgstr "En valfri mindre rad under ditt namn, som din roll."
 msgid "Name tag"
 msgstr "Namnskylt"
 
-#: rust/crates/effects/src/name_tag.rs:162
-msgid "Puts your name and pronouns in the corner of the picture."
-msgstr "Visar ditt namn och dina pronomen i bildens hörn."
+#: rust/crates/effects/src/name_tag.rs:162 rust/crates/effects/ui/name_tag.slint:66
+msgid "Show your name and pronouns in a corner of the picture."
+msgstr "Visa ditt namn och dina pronomen i ett hörn av bilden."
 
 #: rust/crates/effects/src/name_tag.rs:163
-msgid "Without it there's no Name tag card and nothing is drawn on the picture."
-msgstr "Utan det finns inte kortet Namnskylt och inget ritas på bilden."
+msgid "Without the Name tag plugin there's no Name tag card and nothing is drawn on the picture."
+msgstr ""
 
 #: rust/crates/effects/src/name_tag.rs:211
 msgctxt "search"
@@ -1953,12 +1953,12 @@ msgid "Teleprompter"
 msgstr "Teleprompter"
 
 #: rust/crates/effects/src/notes.rs:563
-msgid "Shows your script on the phone's screen right under the camera, to read while looking people in the eye."
-msgstr "Visar ditt manus på telefonens skärm precis under kameran, så att du kan läsa medan du ser folk i ögonen."
+msgid "Show your script on the phone's screen right under the camera, to read while looking into the camera."
+msgstr ""
 
 #: rust/crates/effects/src/notes.rs:564
-msgid "Without it there's no Teleprompter card and the phone never shows a script."
-msgstr "Utan det finns inget kort för Teleprompter och telefonen visar aldrig något manus."
+msgid "Without the Teleprompter plugin there's no Teleprompter card and the phone never shows a script."
+msgstr ""
 
 #: rust/crates/effects/src/notes.rs:643 rust/crates/effects/src/notes.rs:688
 msgid "Teleprompter speed"
@@ -2010,8 +2010,8 @@ msgstr "Telescope strömmar"
 
 #. Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons: use the names those browsers show in your language
 #: rust/crates/effects/src/on_air_plugin.rs:43
-msgid "The browser warns that the connection isn't private: it's this computer's own certificate. On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed."
-msgstr "Webbläsaren varnar för att anslutningen inte är privat: det är den här datorns eget certifikat. På iPhone trycker du på Visa detaljer och sedan på besök den här webbplatsen. I Chrome trycker du på Avancerat och sedan på Fortsätt."
+msgid "The browser warns that the connection isn't private: the certificate is this computer's own. On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed."
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:45
 msgid "When the sign turns on. The mic only counts while it's streaming and not muted."
@@ -2062,22 +2062,22 @@ msgid "Sending…"
 msgstr "Skickar…"
 
 #: rust/crates/effects/src/on_air_plugin.rs:254
-msgid "It went through."
-msgstr "Det gick fram."
+msgid "Test request succeeded."
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:256
 #, python-brace-format
-msgid "It didn't go through: {error}"
-msgstr "Det gick inte fram: {error}"
+msgid "Test request failed: {error}"
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:276
-msgid "The On Air webhook didn't go through"
-msgstr "On Air-webhooken gick inte fram"
+msgid "The On Air webhook failed"
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:277
 #, python-brace-format
-msgid "It answered: {error}"
-msgstr "Den svarade: {error}"
+msgid "The webhook returned: {error}"
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:459 rust/crates/shell/src/doc.rs:460 rust/crates/shell/src/doc.rs:915
 msgid "Settings"
@@ -2109,12 +2109,12 @@ msgid "On Air sign"
 msgstr "On Air-skylt"
 
 #: rust/crates/effects/src/on_air_plugin.rs:515
-msgid "Shows the people around you that your camera or microphone is in use, on another device's screen or through a smart home light."
-msgstr "Visar personer i närheten att din kamera eller mikrofon används, på en annan enhets skärm eller via en smart lampa."
+msgid "Show the people around you that your camera or microphone is in use, on another device's screen or through a smart home light."
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:516
-msgid "Without it there's no On Air tab in Settings and no sign or webhook."
-msgstr "Utan det finns inte fliken On Air i Inställningar och ingen skylt eller webhook."
+msgid "Without the On Air sign plugin there's no On Air tab in Settings and no sign or webhook."
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:626
 msgctxt "search"
@@ -2250,8 +2250,8 @@ msgid "This lens and mode have no extra noise reduction or sharpening to offer"
 msgstr "Det här objektivet och läget har ingen extra brusreducering eller skärpning"
 
 #: rust/crates/effects/src/photos.rs:56
-msgid "The camera keeps its own JPEG quality"
-msgstr "Kameran behåller sin egen JPEG-kvalitet"
+msgid "JPEG quality is set by the camera"
+msgstr ""
 
 #: rust/crates/effects/src/photos.rs:57
 msgid "RAW photos have no quality setting"
@@ -2363,7 +2363,7 @@ msgstr "Foto sparat"
 
 #: rust/crates/effects/src/photos.rs:825
 #, python-brace-format
-msgid "It came late. Saved {name}"
+msgid "The photo arrived late. Saved {name}"
 msgstr ""
 
 #: rust/crates/effects/src/photos.rs:839
@@ -2374,13 +2374,13 @@ msgstr "Spara foton i"
 msgid "Photos"
 msgstr "Foton"
 
-#: rust/crates/effects/src/photos.rs:855
-msgid "Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it."
-msgstr "Tar foton i full kvalitet på telefonen eller en systemkamera, inklusive RAW där kameran har stöd för det."
+#: rust/crates/effects/src/photos.rs:855 rust/crates/effects/ui/photos.slint:135
+msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
+msgstr "Ta foton i full kvalitet på telefonen eller en systemkamera, inklusive RAW om kameran har stöd för det."
 
 #: rust/crates/effects/src/photos.rs:856
-msgid "Without it there's no Photos card and no Take photo shortcut."
-msgstr "Utan det finns inte kortet Foton och inget kortkommando för Ta foto."
+msgid "Without the Photos plugin there's no Photos card and no Take photo shortcut."
+msgstr ""
 
 #: rust/crates/effects/src/photos.rs:974 rust/crates/effects/src/photos.rs:1012
 msgid "Photo mode"
@@ -2423,12 +2423,12 @@ msgid "Blur the picture until you click again."
 msgstr "Gör bilden oskarp tills du klickar igen."
 
 #: rust/crates/effects/src/privacy_blur.rs:286
-msgid "Blurs the whole picture, or puts the wait screen up, when more than one person is in it. It only knows about the people the vision models find, so it can miss someone and can't guarantee privacy."
+msgid "Blurs the whole picture, or puts the wait screen up, when more than one person is in it. Only people the vision models find are detected, so someone can be missed and privacy isn't guaranteed."
 msgstr ""
 
 #: rust/crates/effects/src/privacy_blur.rs:287
-msgid "Without it there's no Privacy blur card and nothing gets hidden when someone walks in."
-msgstr "Utan det finns inte kortet Integritetsoskärpa och ingenting döljs när någon kommer in."
+msgid "Without the Privacy blur plugin there's no Privacy blur card and nothing gets hidden when someone walks in."
+msgstr ""
 
 #: rust/crates/effects/src/privacy_blur.rs:403 rust/crates/effects/src/privacy_blur.rs:416 rust/crates/effects/ui/privacy_blur.slint:53 rust/crates/effects/ui/privacy_blur.slint:59 rust/crates/effects/ui/privacy_blur.slint:60
 msgid "Blur now"
@@ -2490,20 +2490,20 @@ msgid "QR code found"
 msgstr "QR-kod hittad"
 
 #: rust/crates/effects/src/qr_reader.rs:651
-msgid "Click Copy on the QR codes card to put it on the clipboard."
-msgstr "Klicka på Kopiera på kortet QR-koder för att lägga den i urklipp."
+msgid "Click Copy on the QR codes card to copy the code."
+msgstr ""
 
 #: rust/crates/effects/src/qr_reader.rs:667 rust/crates/effects/src/qr_reader.rs:739
 msgid "QR code reader"
 msgstr "QR-kodläsare"
 
 #: rust/crates/effects/src/qr_reader.rs:668
-msgid "Copies a QR code you hold up to the camera, or the password from a Wi-Fi code."
-msgstr "Kopierar en QR-kod du håller upp mot kameran, eller lösenordet från en Wi-Fi-kod."
+msgid "Copy a QR code you hold up to the camera, or the password from a Wi-Fi code."
+msgstr ""
 
 #: rust/crates/effects/src/qr_reader.rs:669
-msgid "Without it there's no QR code card and codes in the picture are left alone."
-msgstr "Utan det finns inte kortet QR-koder och koder i bilden lämnas orörda."
+msgid "Without the QR code reader plugin there's no QR code card and codes in the picture are left alone."
+msgstr ""
 
 #: rust/crates/effects/src/qr_reader.rs:739 rust/crates/effects/src/qr_reader.rs:751
 msgid "Read QR codes"
@@ -2540,17 +2540,17 @@ msgstr "huvudkameran"
 
 #: rust/crates/effects/src/transforms.rs:69
 #, python-brace-format
-msgid "Panned past what {tele} can see, so it's on {live}. Pan back to switch again."
-msgstr "Panorerade förbi det {tele} kan se, så den använder {live}. Panorera tillbaka för att byta igen."
+msgid "Panned past what {tele} can see, so {live} is used. Pan back to switch again."
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:72
 #, python-brace-format
-msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
-msgstr "Telefonen stannade kvar på {live} av sig själv, troligen för mörkt eller för nära för {tele}. Den byter så fort den kan."
+msgid "The phone kept using {live}, probably because the scene is too dark or too close for {tele}. The phone switches to {tele} when that changes."
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:78
-msgid "It can wobble for a moment while it switches."
-msgstr "Bilden kan hoppa till ett ögonblick när den byter."
+msgid "The picture can wobble for a moment during the switch."
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:226
 #, python-brace-format
@@ -2572,8 +2572,8 @@ msgid "Add shortcut for {action}…"
 msgstr "Lägg till kortkommando för {action}…"
 
 #: rust/crates/effects/src/transforms.rs:520
-msgid "Zoomed on this computer: this lens can't zoom itself"
-msgstr "Zoomat på den här datorn: det här objektivet kan inte zooma självt"
+msgid "Zoomed on this computer: this lens can't zoom"
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:520
 msgid "Zoomed on this computer"
@@ -2596,8 +2596,8 @@ msgid "Zoom, pan, flip, rotate and stretch the picture."
 msgstr "Zooma, panorera, vänd, rotera och sträck ut bilden."
 
 #: rust/crates/effects/src/transforms.rs:553
-msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
-msgstr "Utan det finns inte kortet Vändning och zoom och bilden går ut precis som telefonen skickar den."
+msgid "Without the Transforms plugin there's no Transforms card and the picture goes out exactly as the phone sends it."
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:643 rust/crates/effects/src/transforms.rs:696 rust/crates/effects/ui/composite_editor.slint:445 rust/crates/effects/ui/transforms.slint:169 rust/crates/effects/ui/transforms.slint:184 rust/crates/effects/ui/transforms.slint:185 rust/crates/effects/ui/transforms.slint:226 rust/crates/outputs/src/webcam.rs:56
 msgid "Zoom"
@@ -2788,8 +2788,8 @@ msgid "Auto colour grading"
 msgstr "Automatisk färgkorrigering"
 
 #: rust/crates/effects/ui/colour_grading.slint:262
-msgid "Looking at the picture"
-msgstr "Tittar på bilden"
+msgid "Analysing the picture"
+msgstr ""
 
 #: rust/crates/effects/ui/colour_grading.slint:263
 msgid "Set white balance, brightness, contrast and colour from about a second of the picture. You can still adjust everything on the sliders."
@@ -3135,10 +3135,6 @@ msgstr "I sidled"
 msgid "Not ready"
 msgstr "Inte redo"
 
-#: rust/crates/effects/ui/name_tag.slint:66
-msgid "Show your name and pronouns in a corner of the picture."
-msgstr "Visa ditt namn och dina pronomen i ett hörn av bilden."
-
 #: rust/crates/effects/ui/name_tag.slint:77 rust/crates/effects/ui/name_tag.slint:81 rust/crates/effects/ui/name_tag.slint:82 rust/crates/effects/ui/name_tag.slint:83 rust/crates/link/ui/connection.slint:647
 msgid "Name"
 msgstr "Namn"
@@ -3188,8 +3184,8 @@ msgid "Move through the script"
 msgstr "Stega genom manuset"
 
 #: rust/crates/effects/ui/on_air.slint:113
-msgid "Shows the people around you that your camera or microphone is in use."
-msgstr "Visar personer i närheten att din kamera eller mikrofon används."
+msgid "Show the people around you that your camera or microphone is in use."
+msgstr ""
 
 #: rust/crates/effects/ui/on_air.slint:118
 msgid "Now"
@@ -3225,8 +3221,8 @@ msgid "Open the sign in a browser on a tablet, a phone or another computer"
 msgstr ""
 
 #: rust/crates/effects/ui/on_air.slint:166
-msgid "The page didn't start"
-msgstr "Sidan startade inte"
+msgid "Page failed to start"
+msgstr ""
 
 #: rust/crates/effects/ui/on_air.slint:174
 msgid "Scan the code to open the sign on another device"
@@ -3381,10 +3377,6 @@ msgstr "ned"
 msgid "Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve."
 msgstr "Piltangenterna flyttar den valda punkten, Shift med en piltangent flyttar den längre. Vänster och höger hakparentes väljer en annan punkt. Delete tar bort punkten och Home återställer kurvan."
 
-#: rust/crates/effects/ui/photos.slint:135
-msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
-msgstr "Ta foton i full kvalitet på telefonen eller en systemkamera, inklusive RAW om kameran har stöd för det."
-
 #: rust/crates/effects/ui/photos.slint:166
 msgid "Higher ISO makes the photo brighter but grainier."
 msgstr "Högre ISO gör fotot ljusare men kornigare."
@@ -3490,8 +3482,8 @@ msgid "Finding the current adb…"
 msgstr "Letar efter senaste adb…"
 
 #: rust/crates/link/src/adb_download.rs:277
-msgid "Google's list of downloads wasn't what Telescope expected. Try again later."
-msgstr "Googles lista över nedladdningar var inte vad Telescope väntade sig. Försök igen senare."
+msgid "Google's list of downloads has an unexpected format. Try again later."
+msgstr ""
 
 #: rust/crates/link/src/adb_download.rs:284 rust/crates/link/src/adb_download.rs:296 rust/crates/link/src/adb_download.rs:463
 msgid "Couldn't download adb. Try again."
@@ -3531,8 +3523,8 @@ msgid "Couldn't copy adb from there."
 msgstr "Kunde inte kopiera adb därifrån."
 
 #: rust/crates/link/src/adb_download.rs:386
-msgid "That doesn't have adb.exe in it."
-msgstr "Där finns ingen adb.exe."
+msgid "This file doesn't contain adb.exe."
+msgstr ""
 
 #: rust/crates/link/src/adb_download.rs:396
 msgid "Couldn't check Google's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this."
@@ -3544,13 +3536,13 @@ msgstr "Kunde inte nå Google. Kontrollera internetanslutningen och försök ige
 
 #: rust/crates/link/src/adb_download.rs:398
 #, python-brace-format
-msgid "Google wouldn't send adb to this computer (it said {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead."
-msgstr "Google ville inte skicka adb till den här datorn (svarade {code}). Google blockerar Android-nedladdningar i vissa länder. Om du skaffar platform-tools på annat sätt kan du välja dess adb.exe eller zip-fil i stället."
+msgid "Google refused the download (error {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead."
+msgstr ""
 
 #: rust/crates/link/src/adb_download.rs:400
 #, python-brace-format
-msgid "Google's server said {code}. Try again later."
-msgstr "Googles server svarade {code}. Försök igen senare."
+msgid "Google's server returned error {code}. Try again later."
+msgstr ""
 
 #: rust/crates/link/src/audio.rs:43
 msgid "Can't reach the phone's microphone."
@@ -3558,8 +3550,8 @@ msgstr "Kan inte nå telefonens mikrofon."
 
 #: rust/crates/link/src/audio.rs:59
 #, python-brace-format
-msgid "The phone refused the microphone (HTTP {code})."
-msgstr "Telefonen nekade mikrofonen (HTTP {code})."
+msgid "The phone rejected the microphone request (HTTP {code})."
+msgstr ""
 
 #. why the phone's microphone can't be used; shown next to the Microphone card
 #: rust/crates/link/src/audio.rs:67 rust/crates/link/ui/browser_camera.slint:42
@@ -3587,21 +3579,17 @@ msgid "The browser is lowering the picture to fit the connection or the bitrate 
 msgstr "Webbläsaren sänker bildkvaliteten för att passa anslutningen eller bithastigheten för den här upplösningen."
 
 #: rust/crates/link/src/browser/plugin.rs:52
-msgid "Browser says it isn't private?"
-msgstr "Säger webbläsaren att anslutningen inte är privat?"
+msgid "Browser warns the connection isn't private?"
+msgstr ""
 
 #. Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons: use the names those browsers show in your language
 #: rust/crates/link/src/browser/plugin.rs:55
 msgid ""
-"It is this computer's own certificate.\n"
+"The certificate is this computer's own.\n"
 "iPhone: tap Show Details, then visit this website.\n"
 "Chrome: tap Advanced, then Proceed.\n"
 "Keep the page open with the screen on."
 msgstr ""
-"Det är den här datorns eget certifikat.\n"
-"iPhone: tryck på Visa detaljer och sedan på Besök den här webbplatsen.\n"
-"Chrome: tryck på Avancerat och sedan på Fortsätt.\n"
-"Håll sidan öppen med skärmen på."
 
 #: rust/crates/link/src/browser/plugin.rs:63
 msgid "Waiting for the browser. Scan the code on the Browser camera card and tap Start."
@@ -3724,13 +3712,13 @@ msgid "Check the cable and the phone app."
 msgstr "Kontrollera kabeln och telefonappen."
 
 #: rust/crates/link/src/connection.rs:452
-msgid "Check it's on the same network."
-msgstr "Kontrollera att den är på samma nätverk."
+msgid "Check that the phone is on the same network."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:455
 #, python-brace-format
-msgid "Still streaming over {now}, so it stays on {kept}."
-msgstr "Strömmar fortfarande via {now}, så den stannar kvar på {kept}."
+msgid "Still streaming over {now}, so the connection stays on {kept}."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:794
 msgid "Automatic"
@@ -3782,8 +3770,8 @@ msgstr "Den här appen behöver en uppdatering"
 
 #: rust/crates/link/src/connection.rs:829
 #, python-brace-format
-msgid "Open Telescope on {phone} and keep it on screen. It needs to be on the same network as this computer, or plugged in with a USB cable."
-msgstr "Öppna Telescope på {phone} och låt appen vara öppen på skärmen. Telefonen måste vara på samma nätverk som den här datorn eller ansluten med en USB-kabel."
+msgid "Open Telescope on {phone} and keep the app on screen. The phone needs to be on the same network as this computer, or plugged in with a USB cable."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:831
 #, python-brace-format
@@ -3842,8 +3830,8 @@ msgid "The phone is streaming to another computer."
 msgstr "Telefonen strömmar till en annan dator."
 
 #: rust/crates/link/src/connection.rs:875
-msgid "Stop it there or on the phone, then try again."
-msgstr "Stoppa strömningen där eller på telefonen och försök sedan igen."
+msgid "Stop the stream there or on the phone, then try again."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:881
 msgid ""
@@ -3891,8 +3879,8 @@ msgstr "okänt fel"
 
 #: rust/crates/link/src/connection.rs:887
 #, python-brace-format
-msgid "The phone refused to start streaming ({error})."
-msgstr "Telefonen vägrade starta strömningen ({error})."
+msgid "The phone rejected the request to start streaming ({error})."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:985 rust/crates/link/src/service.rs:331
 msgid "Lost the connection to the phone. Try again."
@@ -3912,8 +3900,8 @@ msgstr "Tappade kontakten med telefonen medan kameran startade."
 
 #: rust/crates/link/src/connection.rs:1048
 #, python-brace-format
-msgid "Phone went quiet for a moment, still waiting... ({seconds}s)"
-msgstr "Telefonen tystnade ett ögonblick, väntar fortfarande... ({seconds}s)"
+msgid "No answer from the phone for a moment, still waiting... ({seconds}s)"
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:1055
 msgid ""
@@ -3939,11 +3927,8 @@ msgstr "Väntar på telefonens kamera... ({seconds}s)"
 msgid ""
 "The phone's camera didn't finish starting in time.\n"
 "\n"
-"Try again. If it keeps happening, open Telescope on the phone."
+"Try again. If the camera keeps failing to start, open Telescope on the phone."
 msgstr ""
-"Telefonens kamera hann inte starta i tid.\n"
-"\n"
-"Försök igen. Om det händer igen, öppna Telescope på telefonen."
 
 #: rust/crates/link/src/phones.rs:300
 msgid "adb isn't installed, so USB can't be used (Add device can get it)"
@@ -4012,8 +3997,8 @@ msgid "Getting adb from Google…"
 msgstr "Hämtar adb från Google…"
 
 #: rust/crates/link/src/plugin.rs:569 rust/crates/link/src/plugin.rs:633
-msgid "Or plug it in over USB."
-msgstr "Eller anslut den via USB."
+msgid "Or plug the phone in over USB."
+msgstr ""
 
 #. keep the <a href="{link}"> link
 #: rust/crates/link/src/plugin.rs:575
@@ -4060,11 +4045,10 @@ msgstr "Välj en telefon att parkoppla via USB."
 msgid "Allow USB debugging on the phone."
 msgstr "Tillåt USB-felsökning på telefonen."
 
-#. keep the <a href="{url}"> link and the <br> tags
 #: rust/crates/link/src/plugin.rs:671
 #, python-brace-format
-msgid "Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it."
-msgstr "Telescope kan ladda ner det från Google (ca {size}) och spara det för din användare. Det är Googles programvara, så deras Android SDK-licens gäller: <a href=\"{url}\">läs licensen</a>.<br><br>Wi-Fi fungerar utan det."
+msgid "Telescope can download adb from Google (about {size}) and keep it for your user. adb is Google's software, so their Android SDK License applies: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without adb."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:677
 msgid "USB needs adb, Google's tool for talking to Android phones."
@@ -4086,11 +4070,10 @@ msgstr "adb.exe eller platform-tools zip (adb.exe *.zip)"
 msgid "Copying adb…"
 msgstr "Kopierar adb…"
 
-#. keep both <a href="..."> links
 #: rust/crates/link/src/plugin.rs:741
 #, python-brace-format
-msgid "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick one you already have</a>."
-msgstr "<a href=\"{get}\">Försök igen</a> eller <a href=\"{pick}\">välj en som du redan har</a>."
+msgid "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick an adb you already have</a>."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:817
 msgid "Same phone?"
@@ -4103,8 +4086,8 @@ msgstr "Är det här {name} igen?"
 
 #: rust/crates/link/src/plugin.rs:818
 #, python-brace-format
-msgid "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry."
-msgstr "En telefon som heter {name} parkopplades som en ny telefon. Det händer när Telescope har installerats om på den eller dess data har rensats. Väljer du Ja flyttas inställningar och förinställningar för {name} över till den, och den gamla posten tas bort."
+msgid "{name} paired as a new phone. This happens after Telescope is reinstalled on the phone or the app's data is cleared. Yes moves {name}'s settings and presets to the new entry and removes the old one."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1017
 msgid "Phone app updated. Open Telescope on the phone."
@@ -4184,8 +4167,8 @@ msgstr "Ta bort telefon"
 
 #: rust/crates/link/src/plugin.rs:1227
 #, python-brace-format
-msgid "Remove \"{name}\"? This deletes the settings it had on this computer. It can still connect with the code, and starts from the defaults."
-msgstr "Vill du ta bort \"{name}\"? Det raderar inställningarna som den hade på den här datorn. Den kan fortfarande ansluta med koden och börjar om från standardinställningarna."
+msgid "Remove \"{name}\"? This deletes the settings it had on this computer. The browser can still connect with the code and starts with default settings."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1231
 msgid "Remove browser"
@@ -4197,16 +4180,16 @@ msgstr "Den virtuella kameran är inställd på ett annat sätt"
 
 #: rust/crates/link/src/plugin.rs:1533
 #, python-brace-format
-msgid "v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:"
-msgstr "v4l2loopback är laddad, men utan {device}: en annan app har ställt in den med andra inställningar. Stäng den appen och kör det här för att lämna över den till Telescope:"
+msgid "v4l2loopback is loaded, but without {device}: another app loaded it with other settings. Close that app and run this command to give Telescope control:"
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1543
 msgid "The virtual camera is off"
 msgstr "Den virtuella kameran är av"
 
 #: rust/crates/link/src/plugin.rs:1543
-msgid "Switching it on asks for your password."
-msgstr "Du behöver ange ditt lösenord för att slå på den."
+msgid "Your password is needed to switch on the virtual camera."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1544 rust/crates/shell/src/plugins_tab.rs:621 rust/crates/shell/src/plugins_tab.rs:640
 msgid "Switch on"
@@ -4313,8 +4296,8 @@ msgid "Back"
 msgstr "Tillbaka"
 
 #: rust/crates/link/ui/connection.slint:469
-msgid "Telescope needs to switch on its virtual camera first. This asks for your password."
-msgstr "Telescope behöver slå på sin virtuella kamera först. Du behöver ange ditt lösenord."
+msgid "The virtual camera has to be switched on first, which needs your password."
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:477 rust/crates/link/ui/connection.slint:480
 msgid "Also switch it on at every startup"
@@ -4389,12 +4372,12 @@ msgid "UDP on Wi-Fi"
 msgstr "UDP på Wi-Fi"
 
 #: rust/crates/link/ui/connection.slint:777
-msgid "Send the video over Wi-Fi with UDP, which skips a lost piece instead of waiting for it"
+msgid "Send the video over Wi-Fi with UDP, which skips lost packets instead of waiting for them"
 msgstr ""
 
 #: rust/crates/link/ui/connection.slint:778 rust/crates/link/ui/connection.slint:786
-msgid "It can stutter more than TCP, so try it and see."
-msgstr "Det kan hacka mer än med TCP, så prova och se."
+msgid "UDP can stutter more than TCP. Try both and compare."
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:781
 msgctxt "search"
@@ -4497,8 +4480,8 @@ msgid "All the way right is Dynamic, which adjusts to your connection."
 msgstr "Längst till höger är Dynamisk, som anpassar sig efter din anslutning."
 
 #: rust/crates/outputs/src/stream_output.rs:29
-msgid "This phone's app is too old for Dynamic and uses Auto until it's updated."
-msgstr "Appen på den här telefonen är för gammal för Dynamisk och använder Auto tills den uppdateras."
+msgid "The phone app is too old for Dynamic and uses Auto until the app is updated."
+msgstr ""
 
 #: rust/crates/outputs/src/stream_output.rs:30
 msgid "H.264 from the phone's hardware encoder, with much less data than Heavy."
@@ -4590,8 +4573,8 @@ msgstr "Starta med {size}"
 
 #: rust/crates/outputs/src/stream_output.rs:574
 #, python-brace-format
-msgid "{error}. It's set back to {size}, the last size that worked."
-msgstr "{error}. Storleken är återställd till {size}, den senaste som fungerade."
+msgid "{error}. The size is set back to {size}, the last size that worked."
+msgstr ""
 
 #: rust/crates/outputs/src/stream_output.rs:576
 #, python-brace-format
@@ -4620,8 +4603,8 @@ msgid "The resolution, frame rate and format of the stream."
 msgstr "Strömmens upplösning, bildfrekvens och format."
 
 #: rust/crates/outputs/src/stream_output.rs:716
-msgid "Without it there's no Stream output card and streams use whatever size and format the phone picks."
-msgstr "Utan det finns inte kortet Utgående ström och strömmarna använder den storlek och det format som telefonen väljer."
+msgid "Without the Stream output plugin there's no Stream output card and streams use whatever size and format the phone picks."
+msgstr ""
 
 #: rust/crates/outputs/src/stream_output.rs:781 rust/crates/outputs/src/stream_output.rs:990 rust/crates/outputs/ui/stream_output.slint:109 rust/crates/outputs/ui/stream_output.slint:113
 msgid "Heavy"
@@ -4663,16 +4646,16 @@ msgstr "Kunde inte använda den bilden"
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:504
 #, python-brace-format
-msgid "{problem}. Keeping the current wait screen."
-msgstr "{problem}. Behåller den nuvarande väntebilden."
+msgid "{problem}. The current wait screen is kept."
+msgstr ""
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:506
 msgid "Couldn't read that image"
 msgstr "Kunde inte läsa den bilden"
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:506
-msgid "The default screen is showing. Choose another one."
-msgstr "Standardbilden visas. Välj en annan."
+msgid "The default screen is showing. Choose another image."
+msgstr ""
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:509
 #, python-brace-format
@@ -4701,8 +4684,8 @@ msgid "The picture apps see on the virtual camera while nothing is streaming."
 msgstr "Bilden som appar ser på den virtuella kameran när inget strömmar."
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:575
-msgid "Without it Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
-msgstr "Utan det finns Väntebild inte i Inställningar och mellan strömmar kan appar se en svart bild eller ingenting alls."
+msgid "Without the Wait screen plugin Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
+msgstr ""
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:673
 msgctxt "search"
@@ -4770,8 +4753,8 @@ msgid "Brighten a face in front of a bright window."
 msgstr "Ljusa upp ett ansikte framför ett ljust fönster."
 
 #: rust/crates/outputs/src/webcam.rs:89
-msgid "Set it to your mains frequency to stop lights flickering or banding."
-msgstr "Ställ in elnätets frekvens för att slippa flimrande lampor och ränder i bilden."
+msgid "Match your mains frequency to stop lights flickering or banding."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:90
 msgid "Make the picture brighter or darker than the webcam's automatic exposure."
@@ -4826,17 +4809,17 @@ msgid "60 Hz"
 msgstr "60 Hz"
 
 #: rust/crates/outputs/src/webcam.rs:320
-msgid "Check that it's plugged in."
-msgstr "Kontrollera att den är inkopplad."
+msgid "Check that the webcam is plugged in."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:498
-msgid "Another app may be using it. Close it there and it starts here."
-msgstr "En annan app kanske använder den. Stäng den där så startar den här."
+msgid "Another app may be using the webcam. Close the webcam in that app, then start streaming here."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:500
 #, python-brace-format
-msgid "{app} is using it. Close it there and it starts here."
-msgstr "{app} använder den. Stäng den där så startar den här."
+msgid "{app} is using the webcam. Close the webcam there, then start streaming here."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:502 rust/crates/outputs/src/webcam.rs:505 rust/crates/outputs/src/webcam.rs:508
 #, python-brace-format
@@ -4893,8 +4876,8 @@ msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "Strömning från webbkameror och inspelningskort som är inkopplade i den här datorn."
 
 #: rust/crates/outputs/src/webcam.rs:1013
-msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
-msgstr "Utan det syns inte webbkameror i enhetsväljaren och kortet Webbkamera försvinner också."
+msgid "Without the Webcams plugin webcams aren't in the device picker and the Webcam card is gone too."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:1057
 #, python-brace-format
@@ -4906,12 +4889,12 @@ msgid "Plug it in, or pick another camera."
 msgstr "Koppla in den, eller välj en annan kamera."
 
 #: rust/crates/outputs/src/webcam_capture.rs:10
-msgid "The webcam isn't plugged in. Plug it back in and it carries on."
-msgstr "Webbkameran är inte inkopplad. Koppla in den igen så fortsätter den."
+msgid "The webcam isn't plugged in. Plug the webcam back in to continue."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture.rs:11
-msgid "Another app is using the webcam. Close it there and it starts here."
-msgstr "En annan app använder webbkameran. Stäng den där så startar den här."
+msgid "Another app is using the webcam. Close the webcam in that app, then start streaming here."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture.rs:12
 msgid "Windows or your security software is blocking Telescope from the webcam. Allow it there, then start the webcam again."
@@ -4950,7 +4933,7 @@ msgid "The photo was interrupted because the camera stopped."
 msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:273
-msgid "The camera took too long to take the photo. If it still arrives, it is saved and you'll be told."
+msgid "The camera took too long to take the photo. If the photo still arrives, it's saved and you get a notification."
 msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:274
@@ -4962,7 +4945,7 @@ msgid "The camera's image quality is locked to RAW, so it can't take a JPEG."
 msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:276
-msgid "The camera only sent part of the photo. What came is saved."
+msgid "The camera only sent part of the photo. The part that arrived is saved."
 msgstr ""
 
 #: rust/crates/outputs/src/wininstall.rs:256 rust/crates/setup/src/setup.rs:805
@@ -5091,55 +5074,55 @@ msgid "Focus once"
 msgstr "Fokusera en gång"
 
 #: rust/crates/plugin-host/src/load.rs:16
-msgid "It isn't turned on."
-msgstr "Det är inte påslaget."
+msgid "The plugin isn't turned on."
+msgstr ""
 
 #: rust/crates/plugin-host/src/lua.rs:297
 #, python-brace-format
-msgid "Its {file} has to return the plugin's table at the end."
-msgstr "Filen {file} måste returnera tilläggets tabell i slutet."
+msgid "{file} has to return the plugin's table at the end."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:181
-msgid "It's a link to another folder, which plugins can't be."
-msgstr "Det är en länk till en annan mapp, vilket tillägg inte får vara."
+msgid "The plugin is a link to another folder, which plugins can't be."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:187 rust/crates/plugin-host/src/package.rs:242
 #, python-brace-format
-msgid "It has no {file}."
-msgstr "Det har ingen {file}."
+msgid "The plugin has no {file}."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:191
 #, python-brace-format
-msgid "Its {file} isn't valid JSON."
-msgstr "Dess {file} är inte giltig JSON."
+msgid "{file} isn't valid JSON."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:195 rust/crates/plugin-host/src/package.rs:239
 #, python-brace-format
-msgid "Its {file} isn't valid."
-msgstr "Dess {file} är inte giltig."
+msgid "{file} isn't valid."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:209
 #, python-brace-format
-msgid "It was made for an older Telescope (plugin API {api}) and needs an update."
-msgstr "Det gjordes för ett äldre Telescope (tilläggs-API {api}) och behöver en uppdatering."
+msgid "The plugin was made for an older Telescope (plugin API {api}) and needs an update."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:219
-msgid "Its files couldn't be read."
-msgstr "Dess filer kunde inte läsas."
+msgid "The plugin's files couldn't be read."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:226
 #, python-brace-format
-msgid "Its {file} has to give the folder's name as \"name\"."
-msgstr "Dess {file} måste ange mappens namn som \"name\"."
+msgid "{file} has to give the folder's name as \"name\"."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:233
 #, python-brace-format
-msgid "It needs a newer Telescope (plugin API {wanted}; this one has {have})."
-msgstr "Det behöver ett nyare Telescope (tilläggs-API {wanted}; det här har {have})."
+msgid "The plugin needs a newer Telescope (plugin API {wanted}; this Telescope has {have})."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:273
-msgid "Its files changed since it was turned on. Turn it on again if you trust this version."
-msgstr "Dess filer har ändrats sedan det slogs på. Slå på det igen om du litar på den här versionen."
+msgid "The plugin's files changed since it was turned on. Turn the plugin on again if you trust the new version."
+msgstr ""
 
 #: rust/crates/plugin-host/src/switches.rs:33
 msgid "Couldn't save the settings."
@@ -5195,8 +5178,8 @@ msgid "{phone}: temperature is {temp} °C."
 msgstr "{phone}: temperaturen är {temp} °C."
 
 #: rust/crates/setup/src/monitoring.rs:349
-msgid "Stopped streaming to let it cool down."
-msgstr "Stoppade strömningen för att låta den svalna."
+msgid "Stopped streaming to let the phone cool down."
+msgstr ""
 
 #: rust/crates/setup/src/monitoring.rs:349
 msgid "Consider stopping charging or closing other apps."
@@ -5218,8 +5201,8 @@ msgstr "Batteriet i {phone} är på {level} %"
 
 #: rust/crates/setup/src/monitoring.rs:368
 #, python-brace-format
-msgid "Streaming stopped, as Monitoring stops it at {level}% or lower."
-msgstr "Strömningen stoppades, eftersom Övervakning stoppar den vid {level} % eller lägre."
+msgid "Streaming stopped because Monitoring stops streaming at {level}% or lower."
+msgstr ""
 
 #: rust/crates/setup/src/monitoring.rs:372
 #, python-brace-format
@@ -5233,8 +5216,8 @@ msgstr "{phone} är på {temp} °C"
 
 #: rust/crates/setup/src/monitoring.rs:376
 #, python-brace-format
-msgid "Streaming stopped to let it cool down, as Monitoring stops it at {temp} °C."
-msgstr "Strömningen stoppades för att låta den svalna, eftersom Övervakning stoppar den vid {temp} °C."
+msgid "Streaming stopped to let the phone cool down, because Monitoring stops streaming at {temp} °C."
+msgstr ""
 
 #: rust/crates/setup/src/monitoring.rs:384
 msgid "Start anyway"
@@ -5249,12 +5232,12 @@ msgid "The phone's battery and temperature, with warnings when they get low or h
 msgstr "Telefonens batteri och temperatur, med varningar när de blir låga eller höga."
 
 #: rust/crates/setup/src/monitoring.rs:448
-msgid "Without it there's no Phone card and nothing warns you about a low battery or a hot phone."
-msgstr "Utan det finns inte kortet Telefon och inget varnar dig om lågt batteri eller en för varm telefon."
+msgid "Without the Monitoring plugin there's no Phone card and nothing warns you about a low battery or a hot phone."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:33
-msgid "Asks for your password (pkexec or sudo): this changes system settings."
-msgstr "Frågar efter ditt lösenord (pkexec eller sudo): det här ändrar systeminställningar."
+msgid "Needs your password (pkexec or sudo) to change system settings."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:34
 msgid "Needs your password (pkexec or sudo) because this changes system settings."
@@ -5310,8 +5293,8 @@ msgid "Apply"
 msgstr "Verkställ"
 
 #: rust/crates/setup/src/setup.rs:389
-msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
-msgstr "När du verkställer startas strömmen om med den nya storleken. Om OBS tappar källan tar du bort den och lägger till den igen."
+msgid "Applying restarts the stream at the new size. If OBS loses the source, remove the source and add it again."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:416 rust/crates/shell/src/plugins/onboarding.rs:157 rust/crates/shell/src/plugins/onboarding.rs:161 rust/crates/shell/src/plugins/onboarding.rs:164
 msgid "Install over USB"
@@ -5345,12 +5328,12 @@ msgid "Copied"
 msgstr "Kopierat"
 
 #: rust/crates/setup/src/setup.rs:522
-msgid "The graphics card failed and the processor is decoding until you restart Telescope"
-msgstr "Grafikkortet slutade fungera och processorn avkodar tills du startar om Telescope"
+msgid "Graphics card decoding failed, decoding on the processor until Telescope restarts"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:523
-msgid "The graphics card was too slow, so the processor is decoding for now"
-msgstr "Grafikkortet var för långsamt, så processorn avkodar så länge"
+msgid "Graphics card too slow, decoding on the processor until Telescope restarts"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:524
 #, python-brace-format
@@ -5440,8 +5423,8 @@ msgid "Update ready"
 msgstr "Uppdatering redo"
 
 #: rust/crates/setup/src/setup.rs:648
-msgid "Some apps can't see it"
-msgstr "Vissa appar kan inte se den"
+msgid "Some apps can't see the camera"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:649 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
 msgid "Update"
@@ -5478,8 +5461,8 @@ msgid "Not installed (Install driver downloads it first)"
 msgstr "Inte installerad (Installera drivrutin laddar ner den först)"
 
 #: rust/crates/setup/src/setup.rs:676
-msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
-msgstr "Hittades inte. Parkoppling och installation via USB behöver det, men inte Wi-Fi."
+msgid "Not found. Pairing and installing over USB need adb; Wi-Fi doesn't."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:702 rust/crates/setup/src/setup.rs:866
 #, python-brace-format
@@ -5870,8 +5853,8 @@ msgid "Numbers about the stream as it runs: frames in and out, dropped frames an
 msgstr "Siffror om strömmen medan den körs: bildrutor in och ut, tappade bildrutor och varför, länk och bithastighet, hur lång tid varje steg tar och vad programmet använder."
 
 #: rust/crates/setup/src/stats.rs:780
-msgid "Without it there's no Stats card. The stream carries on the same."
-msgstr "Utan det finns inget kort för Statistik. Strömmen fortsätter som vanligt."
+msgid "Without the Stats plugin there's no Stats card. The stream is not affected."
+msgstr ""
 
 #: rust/crates/setup/src/stats_phone.rs:99
 msgid "Moderate"
@@ -5956,8 +5939,8 @@ msgstr "Strypning"
 
 #: rust/crates/setup/src/stats_phone.rs:170
 #, python-brace-format
-msgid "stepped down to {n} for the link"
-msgstr "sänkt till {n} för länken"
+msgid "lowered to {n} because of the connection"
+msgstr ""
 
 #: rust/crates/setup/src/stats_phone.rs:173
 msgid "Camera frame rate"
@@ -6036,7 +6019,7 @@ msgid "Extra cameras"
 msgstr "Extra kameror"
 
 #: rust/crates/setup/ui/setup.slint:19
-msgid "More virtual cameras, so several cameras can stream at once"
+msgid "More virtual cameras, so several cameras can stream at the same time"
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:22
@@ -6058,7 +6041,7 @@ msgid "Kernel module"
 msgstr "Kärnmodul"
 
 #: rust/crates/setup/ui/setup.slint:79
-msgid "The Linux part that makes the virtual camera exist"
+msgid "The Linux part that provides the virtual camera"
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:80
@@ -6092,7 +6075,7 @@ msgid "Driver"
 msgstr "Drivrutin"
 
 #: rust/crates/setup/ui/setup.slint:124
-msgid "The Windows part that makes the virtual camera exist"
+msgid "The Windows part that provides the virtual camera"
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:127
@@ -6105,7 +6088,7 @@ msgid "Android's tool for talking to a phone over USB"
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:138
-msgid "Google's licence doesn't allow bundling it, so download it or pick your own copy."
+msgid "Google's licence doesn't allow bundling adb, so download it or pick a copy you already have."
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:141
@@ -6143,8 +6126,8 @@ msgid "Hardware acceleration"
 msgstr "Hårdvaruacceleration"
 
 #: rust/crates/setup/ui/setup.slint:215
-msgid "Decode the Light format on the graphics card from the next stream on. If the card fails the processor takes over until you restart Telescope."
-msgstr "Avkoda formatet Lätt på grafikkortet från och med nästa ström. Om kortet misslyckas tar processorn över tills du startar om Telescope."
+msgid "Decode the Light format on the graphics card from the next stream on. If the graphics card fails, the processor is used until you restart Telescope."
+msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:216
 msgctxt "search"
@@ -6156,8 +6139,8 @@ msgid "Power-saving effects"
 msgstr "Strömsparande effekter"
 
 #: rust/crates/setup/ui/setup.slint:228
-msgid "Use less processor and battery while Background or Auto framing is on. They follow quick movement a little later."
-msgstr "Använd mindre processor och batteri när Bakgrund eller Automatisk inramning är på. De följer snabba rörelser lite senare."
+msgid "Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later."
+msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:229
 msgctxt "search"
@@ -6229,8 +6212,8 @@ msgid "Limiter"
 msgstr "Begränsare"
 
 #: rust/crates/setup/ui/setup.slint:351
-msgid "Keeps loud sounds from clipping"
-msgstr "Förhindrar att höga ljud blir förvrängda"
+msgid "Keep loud sounds from clipping"
+msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:352
 msgctxt "search"
@@ -6360,8 +6343,8 @@ msgid "Restart to switch"
 msgstr "Starta om för att byta"
 
 #: rust/crates/setup/ui/setup.slint:517
-msgid "Restart Telescope to switch to it."
-msgstr "Starta om Telescope för att byta språk."
+msgid "Restart Telescope to switch to the new language."
+msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:519 rust/crates/shell/ui/settings.slint:501 rust/crates/shell/ui/settings.slint:504
 msgid "Restart now"
@@ -6415,8 +6398,8 @@ msgid "Open log"
 msgstr "Öppna loggen"
 
 #: rust/crates/setup/ui/setup.slint:580
-msgid "Open the full log. It's kept in the temp folder, which the system clears."
-msgstr "Öppna hela loggen. Den sparas i tempmappen, som systemet rensar."
+msgid "Open the full log. The log is kept in the temp folder, which the system clears."
+msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:584
 msgid "Diagnostics"
@@ -6507,13 +6490,13 @@ msgid "{first} to {last}"
 msgstr "{first} till {last}"
 
 #: rust/crates/shell/src/extra_cameras.rs:87
-msgid "This asks for your password."
-msgstr "Du behöver ange ditt lösenord."
+msgid "Your password is needed."
+msgstr ""
 
 #: rust/crates/shell/src/extra_cameras.rs:88
 #, python-brace-format
-msgid "To stream several cameras at once, Telescope adds more virtual cameras ({names})."
-msgstr "För att strömma flera kameror samtidigt lägger Telescope till fler virtuella kameror ({names})."
+msgid "To stream several cameras at the same time, Telescope adds more virtual cameras ({names})."
+msgstr ""
 
 #: rust/crates/shell/src/extra_cameras.rs:105
 msgid "Set up more virtual cameras"
@@ -6528,8 +6511,8 @@ msgid "Couldn't add more virtual cameras"
 msgstr "Kunde inte lägga till fler virtuella kameror"
 
 #: rust/crates/shell/src/host.rs:615
-msgid "Only a phone's stream has the video this needs."
-msgstr "Bara strömmen från en telefon har videon som behövs."
+msgid "Needs video that only a phone's stream has."
+msgstr ""
 
 #: rust/crates/shell/src/host.rs:621
 msgid "Needs Light: Heavy sends whole pictures, with no keyframes to work with."
@@ -6742,8 +6725,8 @@ msgstr "Manuellt"
 msgid "Sharpening"
 msgstr "Skärpning"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1521 rust/crates/shell/src/plugins/camera_control.rs:1846 rust/crates/shell/ui/cards/camera.slint:369
-msgid "Stabilization"
+#: rust/crates/shell/src/plugins/camera_control.rs:1521 rust/crates/shell/src/plugins/camera_control.rs:1846 rust/crates/shell/ui/cards/camera.slint:369 rust/crates/shell/ui/cards/camera.slint:370
+msgid "Stabilisation"
 msgstr "Stabilisering"
 
 #: rust/crates/shell/src/plugins/camera_control.rs:1522 rust/crates/shell/src/plugins/camera_control.rs:1849 rust/crates/shell/ui/cards/camera.slint:394 rust/crates/shell/ui/cards/camera.slint:395
@@ -6775,8 +6758,8 @@ msgid "Checking…"
 msgstr "Kontrollerar…"
 
 #: rust/crates/shell/src/plugins/onboarding.rs:133
-msgid "Starting a stream may ask for your password to switch it on."
-msgstr "När du startar en ström kan du behöva ange ditt lösenord för att slå på den."
+msgid "Starting a stream may ask for your password to switch on the virtual camera."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/onboarding.rs:134
 msgid "If Discord, Zoom or a similar app was already open, quit it fully (closing the window isn't enough if it's still in the tray) and open it again to see the camera."
@@ -6824,8 +6807,8 @@ msgid "Scan to download"
 msgstr "Skanna för att ladda ner"
 
 #: rust/crates/shell/src/plugins/onboarding.rs:165
-msgid "Scan this with the phone's camera app to download Telescope.apk, then open it to install. It's a download link, not the pairing code."
-msgstr "Skanna den här med telefonens kameraapp för att ladda ner Telescope.apk och öppna den sedan för att installera. Det är en nedladdningslänk, inte parkopplingskoden."
+msgid "Scan the code with the phone's camera app to download Telescope.apk, then open the file to install. The code is a download link, not the pairing code."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/onboarding.rs:170
 msgid "Paired."
@@ -6852,8 +6835,8 @@ msgid "The step by step checklist shown until the first stream works."
 msgstr "Checklistan som visas steg för steg tills den första strömmen fungerar."
 
 #: rust/crates/shell/src/plugins/onboarding.rs:207
-msgid "Without it the setup checklist never shows, not even when nothing is set up yet."
-msgstr "Utan det visas kom igång-checklistan aldrig, inte ens när inget är inställt än."
+msgid "Without the Setup guide plugin the setup checklist never shows, not even when nothing is set up yet."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/onboarding.rs:246
 msgid "Installed. Open Telescope on the phone for the next step."
@@ -6907,8 +6890,8 @@ msgid "Saving and loading groups of settings with one click."
 msgstr "Spara och ladda grupper av inställningar med ett klick."
 
 #: rust/crates/shell/src/plugins/presets.rs:283
-msgid "Without it there's no Presets button in the header (your saved presets aren't deleted)."
-msgstr "Utan det finns ingen knapp för Förinställningar högst upp (dina sparade förinställningar raderas inte)."
+msgid "Without the Presets plugin there's no Presets button in the header (your saved presets aren't deleted)."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/presets.rs:330
 msgid "Apply a preset"
@@ -6955,8 +6938,8 @@ msgid "The live picture in the middle of the window, and the camera on/off butto
 msgstr "Livebilden i mitten av fönstret och knappen för kamera på/av under den."
 
 #: rust/crates/shell/src/plugins/preview.rs:340
-msgid "Without it the window doesn't show the picture but apps using the virtual camera still get it."
-msgstr "Utan det visar fönstret inte bilden, men appar som använder den virtuella kameran får den ändå."
+msgid "Without the Preview plugin the window doesn't show the picture but apps using the virtual camera still get it."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/preview.rs:370
 msgid "Show or hide the preview"
@@ -6980,8 +6963,8 @@ msgid "plugins extensions addons add ons modules features turn off on disable en
 msgstr "tillägg insticksprogram utökningar plugins extensions addons moduler funktioner stäng av slå på inaktivera aktivera installera zip add ons modules features disable enable install"
 
 #: rust/crates/shell/src/plugins_tab.rs:147
-msgid "Telescope couldn't start a new copy of itself. Close it and open it again to apply your changes."
-msgstr "Telescope kunde inte starta en ny instans av sig självt. Stäng det och öppna det igen för att verkställa ändringarna."
+msgid "Telescope couldn't restart. Close Telescope and open it again to apply your changes."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:410
 msgid "Telescope needs this plugin to work, so it can't be switched off."
@@ -6993,17 +6976,17 @@ msgstr "Krävs"
 
 #: rust/crates/shell/src/plugins_tab.rs:435
 #, python-brace-format
-msgid "The download didn't work. {error}"
-msgstr "Nedladdningen fungerade inte. {error}"
+msgid "The download failed. {error}"
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:438
-msgid "There's no download of what it needs for this computer yet, so it can't be switched on."
-msgstr "Det som tillägget behöver finns inte att ladda ner för den här datorn än, så det kan inte slås på."
+msgid "There's no download for this computer yet, so the plugin can't be switched on."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:441
 #, python-brace-format
-msgid "Its download (about {mb} MB) isn't there anymore. Switch it off and on again to get it."
-msgstr "Nedladdningen (ca {mb} MB) finns inte kvar längre. Stäng av och slå på det igen för att hämta den."
+msgid "The plugin's download (about {mb} MB) is missing. Switch the plugin off and on again to download it."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:448
 msgid "Needs the vision download"
@@ -7015,8 +6998,8 @@ msgstr "Det finns ingen vision-nedladdning för den här datorn än."
 
 #: rust/crates/shell/src/plugins_tab.rs:468
 #, python-brace-format
-msgid "Switching one of these on downloads about {mb} MB first, once for all of them."
-msgstr "Om du slår på ett av dem laddas ungefär {mb} MB ner först, en gång för allihop."
+msgid "Switching on any of these plugins downloads about {mb} MB first, shared by all of them."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:479
 #, python-brace-format
@@ -7029,19 +7012,19 @@ msgid "Updated to {version} automatically. The new version runs after Telescope 
 msgstr "Uppdaterades till {version} automatiskt. Den nya versionen körs efter att Telescope startar om."
 
 #: rust/crates/shell/src/plugins_tab.rs:495
-msgid "Its files changed since you switched it on, so it's off for now. Switch it on again if you trust this version."
-msgstr "Filerna har ändrats sedan du slog på det, så det är avstängt tills vidare. Slå på det igen om du litar på den här versionen."
+msgid "The plugin's files changed since you switched it on, so it's off. Switch it on again if you trust the new version."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:498 rust/crates/shell/src/plugins_tab.rs:538
 #, python-brace-format
-msgid "It didn't start ({problem})."
-msgstr "Det startade inte ({problem})."
+msgid "Couldn't start: {problem}"
+msgstr ""
 
 #. keep the <a href="{url}"> link
 #: rust/crates/shell/src/plugins_tab.rs:507
 #, python-brace-format
-msgid "Version {version} is out. <a href=\"{url}\">Download it from its release page</a> and install it here to replace this one."
-msgstr "Version {version} är ute. <a href=\"{url}\">Ladda ner den från dess releasesida</a> och installera den här för att ersätta den gamla."
+msgid "Version {version} is out. <a href=\"{url}\">Download it from the plugin's release page</a> and install it here to replace the current version."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:517
 msgid "Added"
@@ -7057,8 +7040,8 @@ msgstr "Under utveckling"
 
 #: rust/crates/shell/src/plugins_tab.rs:541
 #, python-brace-format
-msgid "Loaded from {folder} by telescope-rs dev. Telescope restarts by itself when you save one of its files."
-msgstr "Inläst från {folder} av telescope-rs dev. Telescope startar om av sig självt när du sparar en av dess filer."
+msgid "Loaded from {folder} by telescope-rs dev. Telescope restarts automatically when you save a plugin file."
+msgstr ""
 
 #. next to a group's name on the Plugins tab, how many of its plugins are switched on
 #: rust/crates/shell/src/plugins_tab.rs:555
@@ -7098,8 +7081,8 @@ msgstr "Vill du ta bort {plugin}?"
 
 #: rust/crates/shell/src/plugins_tab.rs:605
 #, python-brace-format
-msgid "Its folder ({folder}) is deleted from the plugins folder. To use it again you'll have to add it again."
-msgstr "Mappen ({folder}) raderas från tilläggsmappen. Vill du använda det igen måste du lägga till det på nytt."
+msgid "The plugin's folder ({folder}) is deleted from the plugins folder. To use the plugin again, add it again."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:609
 msgid "Remove the download?"
@@ -7107,8 +7090,8 @@ msgstr "Vill du ta bort nedladdningen?"
 
 #: rust/crates/shell/src/plugins_tab.rs:610
 #, python-brace-format
-msgid "It frees about {mb} MB. Switching on one of the optional plugins downloads it again."
-msgstr "Det frigör ca {mb} MB. Om du slår på ett av de valfria tilläggen laddas den ner igen."
+msgid "Frees about {mb} MB. Switching on an optional plugin downloads the files again."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:619
 msgid "Install plugin updates without asking?"
@@ -7129,8 +7112,8 @@ msgid "Restart Telescope now?"
 msgstr "Vill du starta om Telescope nu?"
 
 #: rust/crates/shell/src/plugins_tab.rs:625
-msgid "Streaming stops while Telescope restarts. It takes a few seconds."
-msgstr "Strömningen stoppas medan Telescope startar om. Det tar några sekunder."
+msgid "Streaming stops while Telescope restarts. Restarting takes a few seconds."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:639
 #, python-brace-format
@@ -7147,8 +7130,8 @@ msgid "Switch off {plugin}?"
 msgstr "Vill du stänga av {plugin}?"
 
 #: rust/crates/shell/src/plugins_tab.rs:643
-msgid "Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch it back on."
-msgstr "Utan det försvinner allt som det lade till i Telescope. Inställningarna sparas tills du slår på det igen."
+msgid "Without the plugin, what it added to Telescope is gone. The plugin's settings stay saved for when you switch it back on."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:643 rust/crates/shell/src/plugins_tab.rs:663
 msgid "Switch off"
@@ -7161,8 +7144,8 @@ msgstr "Vill du ladda ner ca {mb} MB?"
 
 #: rust/crates/shell/src/plugins_tab.rs:651
 #, python-brace-format
-msgid "{plugin} uses MediaPipe to find people in the picture. It comes as a separate download from Telescope's releases on GitHub, which the other optional plugins share."
-msgstr "{plugin} använder MediaPipe för att hitta personer i bilden. Det laddas ner separat från Telescopes utgåvor på GitHub, och de andra valfria tilläggen delar samma nedladdning."
+msgid "{plugin} uses MediaPipe to find people in the picture. The files are a separate download from Telescope's releases on GitHub, shared by the other optional plugins."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:652
 msgid "Download and switch on"
@@ -7178,8 +7161,8 @@ msgid "Replace {plugin}?"
 msgstr "Vill du ersätta {plugin}?"
 
 #: rust/crates/shell/src/plugins_tab.rs:678
-msgid "The version in this .zip takes its place with the same settings. Like any plugin you add it starts out switched off."
-msgstr "Versionen i den här zip-filen tar dess plats med samma inställningar. Precis som alla tillägg du lägger till är det avstängt från början."
+msgid "The version in this .zip replaces the installed version and keeps its settings. Like any added plugin, it starts switched off."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:690
 #, python-brace-format
@@ -7188,13 +7171,13 @@ msgstr "{plugin} installerades, men kan inte köras än. {problem}"
 
 #: rust/crates/shell/src/plugins_tab.rs:692
 #, python-brace-format
-msgid "{plugin} {version} is in place but switched off for now. To use it, switch it on again and restart Telescope."
-msgstr "{plugin} {version} är på plats men avstängt för tillfället. För att använda det, slå på det igen och starta om Telescope."
+msgid "{plugin} {version} is installed but switched off. To use it, switch it on again and restart Telescope."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:694
 #, python-brace-format
-msgid "{plugin} is installed but switched off for now. To use it, switch it on and restart Telescope."
-msgstr "{plugin} är installerat men avstängt för tillfället. För att använda det, slå på det och starta om Telescope."
+msgid "{plugin} is installed but switched off. To use it, switch it on and restart Telescope."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:704
 #, python-brace-format
@@ -7221,12 +7204,12 @@ msgid "Tab"
 msgstr "Flik"
 
 #: rust/crates/shell/src/session.rs:218
-msgid "Check that it's still on."
-msgstr "Kontrollera att den fortfarande är på."
+msgid "Check that the device is still on."
+msgstr ""
 
 #: rust/crates/shell/src/settings.rs:862
-msgid "Nothing matches every word. These match some of them."
-msgstr "Inget matchar alla ord. De här matchar några av dem."
+msgid "Nothing matches every word. These match some of the words."
+msgstr ""
 
 #: rust/crates/shell/src/settings.rs:864
 #, python-brace-format
@@ -7247,16 +7230,16 @@ msgid "Check for updates"
 msgstr "Sök efter uppdateringar"
 
 #: rust/crates/shell/src/settings.rs:949
-msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
-msgstr "Söker en gång om dagen efter nya versioner av tillagda tillägg som publicerar releaser på GitHub och nämner dem här. Ingenting laddas ner."
+msgid "Check once a day for new versions of added plugins that publish releases on GitHub and show them here. Nothing is downloaded."
+msgstr ""
 
 #: rust/crates/shell/src/settings.rs:950
 msgid "Install updates without asking"
 msgstr "Installera uppdateringar utan att fråga"
 
 #: rust/crates/shell/src/settings.rs:950
-msgid "Installs new versions of the plugins you switched on and switches them on again."
-msgstr "Installerar nya versioner av tilläggen du har slagit på och slår på dem igen."
+msgid "Install new versions of the plugins you switched on and switch them on again."
+msgstr ""
 
 #: rust/crates/shell/src/settings.rs:951
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
@@ -7272,23 +7255,23 @@ msgstr "Tillägg (*.zip)"
 
 #: rust/crates/shell/src/shell.rs:753
 #, python-brace-format
-msgid "{plugins} didn't start"
-msgid_plural "{plugins} didn't start"
-msgstr[0] "{plugins} startade inte"
-msgstr[1] "{plugins} startade inte"
+msgid "Couldn't start {plugins}"
+msgid_plural "Couldn't start {plugins}"
+msgstr[0] ""
+msgstr[1] ""
 
 #: rust/crates/shell/src/shell.rs:755
 #, python-brace-format
-msgid "{n} plugin didn't start"
-msgid_plural "{n} plugins didn't start"
-msgstr[0] "{n} tillägg startade inte"
-msgstr[1] "{n} tillägg startade inte"
+msgid "Couldn't start {n} plugin"
+msgid_plural "Couldn't start {n} plugins"
+msgstr[0] ""
+msgstr[1] ""
 
 #: rust/crates/shell/src/shell.rs:757
-msgid "Telescope works without it. The Plugins tab in Settings says what went wrong."
-msgid_plural "Telescope works without them. The Plugins tab in Settings says what went wrong."
-msgstr[0] "Telescope fungerar utan det. Fliken Tillägg i Inställningar visar vad som gick fel."
-msgstr[1] "Telescope fungerar utan dem. Fliken Tillägg i Inställningar visar vad som gick fel."
+msgid "Telescope works without the plugin. The Plugins tab in Settings shows what went wrong."
+msgid_plural "Telescope works without them. The Plugins tab in Settings shows what went wrong."
+msgstr[0] ""
+msgstr[1] ""
 
 #: rust/crates/shell/src/shell.rs:761 rust/crates/shell/src/shell.rs:781
 msgid "Plugins…"
@@ -7338,8 +7321,8 @@ msgid "Another app on the phone is using the camera"
 msgstr "En annan app på telefonen använder kameran"
 
 #: rust/crates/shell/src/sources.rs:115
-msgid "The stream comes back by itself once that app closes or lets go of it."
-msgstr "Strömmen kommer tillbaka av sig själv när den appen stängs eller släpper den."
+msgid "The stream resumes automatically once the other app closes or releases the camera."
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:125
 msgid "This phone can't turn its camera off yet"
@@ -7364,8 +7347,8 @@ msgid "{phone} is streaming to {computer}"
 msgstr "{phone} strömmar till {computer}"
 
 #: rust/crates/shell/src/sources.rs:176
-msgid "Stop it there or on the phone, then start again."
-msgstr "Stoppa strömningen där eller på telefonen och starta sedan igen."
+msgid "Stop the stream there or on the phone, then start again."
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:183
 msgid "The phone stopped streaming"
@@ -7390,13 +7373,13 @@ msgstr "Kameran slogs inte på igen. En annan app kanske använder den."
 
 #: rust/crates/shell/src/sources.rs:328
 #, python-brace-format
-msgid "It's streaming at {size} and {fps} fps until it cools down."
-msgstr "Den strömmar i {size} och {fps} fps tills den har svalnat."
+msgid "Streaming at {size} and {fps} fps until the phone cools down."
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:329
 #, python-brace-format
-msgid "It's streaming at {size} until it cools down."
-msgstr "Den strömmar i {size} tills den har svalnat."
+msgid "Streaming at {size} until the phone cools down."
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:846
 msgid "Open Telescope on it."
@@ -7407,8 +7390,8 @@ msgid "the device"
 msgstr "enheten"
 
 #: rust/crates/shell/src/sources.rs:1083
-msgid "Open the Telescope page in it again."
-msgstr "Öppna Telescope-sidan i den igen."
+msgid "Open the Telescope page in the browser again."
+msgstr ""
 
 #: rust/crates/shell/src/stream_flow.rs:190
 msgid "Couldn't start streaming"
@@ -7515,8 +7498,8 @@ msgstr "Detaljerna får du med Kopiera diagnostik."
 
 #: rust/crates/shell/src/streams.rs:967
 #, python-brace-format
-msgid "The phone got hot and lowered the frame rate to {fps} fps for now."
-msgstr "Telefonen blev för varm och sänkte bildfrekvensen till {fps} fps tills vidare."
+msgid "The phone got hot and lowered the frame rate to {fps} fps."
+msgstr ""
 
 #: rust/crates/shell/src/streams.rs:969
 #, python-brace-format
@@ -7524,12 +7507,12 @@ msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connec
 msgstr "Dynamisk sänkte bildfrekvensen till {fps} fps för att hinna med en långsam anslutning."
 
 #: rust/crates/shell/src/streams.rs:971
-msgid "The camera is making fewer frames than asked for. Dim light slows it down."
-msgstr "Kameran ger färre bildrutor än begärt. Svagt ljus gör den långsammare."
+msgid "The camera is producing fewer frames than requested. Dim light lowers the frame rate."
+msgstr ""
 
 #: rust/crates/shell/src/streams.rs:973
-msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
-msgstr "Telefonens kamera ger färre bildrutor än begärt. Svagt ljus gör den långsammare."
+msgid "The phone's camera is producing fewer frames than requested. Dim light lowers the frame rate."
+msgstr ""
 
 #: rust/crates/shell/src/streams.rs:1041
 msgid "Live"
@@ -7600,8 +7583,8 @@ msgid "Streaming continues in the background."
 msgstr "Strömningen fortsätter i bakgrunden."
 
 #: rust/crates/shell/src/tray.rs:229
-msgid "It starts streaming by itself when it needs to."
-msgstr "Det börjar strömma av sig självt när det behövs."
+msgid "Streaming starts automatically when needed."
+msgstr ""
 
 #: rust/crates/shell/src/tray.rs:230
 msgid "Right-click the tray icon to quit."
@@ -7738,10 +7721,6 @@ msgstr "Avstånd"
 msgid "Set Focus to Manual to use this"
 msgstr "Ställ Fokus på Manuell för att använda det här"
 
-#: rust/crates/shell/ui/cards/camera.slint:370
-msgid "Stabilisation"
-msgstr "Stabilisering"
-
 #: rust/crates/shell/ui/cards/camera.slint:419
 msgid "Smooth out grain in the picture."
 msgstr "Jämna ut kornighet i bilden."
@@ -7866,8 +7845,8 @@ msgid "Remove download"
 msgstr "Ta bort nedladdning"
 
 #: rust/crates/shell/ui/settings.slint:408
-msgid "Delete the download these plugins use. Switching any of these plugins on downloads it again."
-msgstr "Radera nedladdningen som de här tilläggen använder. Om du slår på något av tilläggen laddas den ner igen."
+msgid "Delete the download these plugins use. Switching on any of these plugins downloads the files again."
+msgstr ""
 
 #: rust/crates/shell/ui/settings.slint:425
 msgid "Show all plugins"
@@ -7913,13 +7892,13 @@ msgstr "Kunde inte stänga av att Telescope öppnas vid inloggning: {error}"
 
 #: rust/crates/system/src/going_back.rs:113
 #, python-brace-format
-msgid "Couldn't set up the Python libraries {version} needs. That takes the internet and a folder it can write to ({folder}). Nothing was changed."
-msgstr "Kunde inte ställa in Python-biblioteken som {version} behöver. Det kräver internet och en skrivbar mapp ({folder}). Inget ändrades."
+msgid "Couldn't set up the Python libraries {version} needs. That needs an internet connection and a folder Telescope can write to ({folder}). Nothing was changed."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:227
 #, python-brace-format
-msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones come with it, and a copy of your current settings is saved first in {folder}."
-msgstr "Telescope startar om som version {version}, den sista Python-versionen. Dina inställningar och parkopplade telefoner följer med, och en kopia av dina nuvarande inställningar sparas först i {folder}."
+msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones are kept, and a copy of your current settings is saved first in {folder}."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:229
 #, python-brace-format
@@ -7928,17 +7907,17 @@ msgstr "Du förlorar det som är nytt sedan dess. Tillägg skrivna i Lua fungera
 
 #: rust/crates/system/src/going_back.rs:231
 #, python-brace-format
-msgid "{version} won't check for updates by itself, so it doesn't offer this version back. You can turn that on again in its settings."
-msgstr "{version} söker inte efter uppdateringar automatiskt, så den föreslår inte den här versionen igen. Du kan slå på det igen i dess inställningar."
+msgid "{version} doesn't check for updates automatically, so it doesn't offer this version back. You can turn that on again in its settings."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:234
 #, python-brace-format
-msgid "First it sets up the Python libraries {version} needs. That needs the internet and takes a few minutes. If that fails, nothing is changed."
-msgstr "Först ställs Python-biblioteken som {version} behöver in. Det kräver internet och tar några minuter. Om det misslyckas ändras inget."
+msgid "First the Python libraries {version} needs are set up. This needs the internet and takes a few minutes. If that fails, nothing is changed."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:236
-msgid "If it doesn't start, opening Telescope again brings this version back."
-msgstr "Om den inte startar får du tillbaka den här versionen genom att öppna Telescope igen."
+msgid "If the Python version doesn't start, opening Telescope again brings this version back."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:238 rust/crates/system/src/going_back.rs:251
 msgid "Go back"
@@ -7946,8 +7925,8 @@ msgstr "Gå tillbaka"
 
 #: rust/crates/system/src/going_back.rs:242
 #, python-brace-format
-msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack it and run start.sh in it. It needs Python 3.12 or newer and finds your settings in the same place."
-msgstr "En AppImage kan inte bytas ut mot Python-versionen. Ladda ner Telescope-linux.tar.gz från utgåvan {version}, packa upp den och kör start.sh i den. Den kräver Python 3.12 eller nyare och hittar dina inställningar på samma ställe."
+msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack the archive and run start.sh in the folder. The Python version needs Python 3.12 or newer and uses the same settings folder."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:244
 #, python-brace-format
@@ -7965,8 +7944,8 @@ msgstr "{version} kräver Python 3.12 eller nyare med venv, och det finns inte p
 
 #: rust/crates/system/src/going_back.rs:262
 #, python-brace-format
-msgid "The phone app has to match. A newer one may not connect to {version}. Android won't install an older app over a newer one, so uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
-msgstr "Telefonappen måste stämma överens. En nyare app kanske inte kan ansluta till {version}. Android installerar inte en äldre app över en nyare, så avinstallera Telescope på telefonen, installera Telescope.apk från utgåvan {version} och parkoppla igen."
+msgid "The phone app has to match. A newer phone app may not connect to {version}. Android won't install an older app over a newer one, so uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:282
 msgid "Couldn't save a copy of your settings, so nothing was changed."
@@ -7977,8 +7956,8 @@ msgid "Not available on this desktop"
 msgstr "Inte tillgängligt i den här skrivbordsmiljön"
 
 #: rust/crates/system/src/hotkeys_portal.rs:118
-msgid "Waiting for you to confirm it"
-msgstr "Väntar på att du ska bekräfta det"
+msgid "Needs your confirmation"
+msgstr ""
 
 #: rust/crates/system/src/hotkeys_portal.rs:129
 msgid "This desktop doesn't offer global shortcuts to apps."
@@ -7994,8 +7973,8 @@ msgid "Bind a Copy command line in its own keyboard settings instead."
 msgstr "Lägg i stället in kommandoraden från Kopiera kommandorad i skrivbordsmiljöns egna tangentbordsinställningar."
 
 #: rust/crates/system/src/hotkeys_portal.rs:134
-msgid "Your desktop asks you to confirm global shortcuts, and you can change their keys in its own settings. The key it settled on shows next to each one."
-msgstr "Din skrivbordsmiljö ber dig bekräfta globala kortkommandon, och du kan ändra tangenterna i dess egna inställningar. Tangenten som valdes visas bredvid varje kortkommando."
+msgid "Your desktop asks you to confirm global shortcuts, and you can change their keys in the desktop's settings. The key the desktop assigned is shown next to each shortcut."
+msgstr ""
 
 #: rust/crates/system/src/hotkeys_portal.rs:143 rust/crates/system/src/hotkeys_portal.rs:178
 msgid "Not confirmed in the desktop's dialog"
@@ -8156,7 +8135,7 @@ msgstr "Ångrade vad AI:n ändrade"
 
 #: rust/crates/system/src/mcp.rs:1186
 #, python-brace-format
-msgid "Undid what the AI changed, except {n} it couldn't put back"
+msgid "Undid what the AI changed, except {n} that couldn't be restored"
 msgstr ""
 
 #: rust/crates/system/src/mcp.rs:1187
@@ -8173,12 +8152,12 @@ msgid "MCP server"
 msgstr "MCP-server"
 
 #: rust/crates/system/src/mcp.rs:1469
-msgid "Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port."
-msgstr "Låter en AI-app som Claude Desktop titta på Telescope och ändra dess inställningar, via ett kommando som inte öppnar någon nätverksport."
+msgid "Let an AI app such as Claude Desktop read and change Telescope's settings, through a command that opens no network port."
+msgstr ""
 
 #: rust/crates/system/src/mcp.rs:1470
-msgid "Without it AI apps can't connect to Telescope."
-msgstr "Utan det kan AI-appar inte ansluta till Telescope."
+msgid "Without the MCP server plugin AI apps can't connect to Telescope."
+msgstr ""
 
 #: rust/crates/system/src/mcp.rs:1505 rust/crates/system/ui/mcp.slint:229
 msgid "MCP"
@@ -8268,8 +8247,8 @@ msgid "{action} needs {name}=… for that."
 msgstr "{action} behöver {name}=… för det."
 
 #: rust/crates/system/src/remote.rs:241
-msgid "That failed; Copy diagnostics has the details."
-msgstr "Det misslyckades. Detaljerna får du med Kopiera diagnostik."
+msgid "The action failed. Copy diagnostics has the details."
+msgstr ""
 
 #: rust/crates/system/src/remote.rs:254
 #, python-brace-format
@@ -8282,7 +8261,7 @@ msgid "{action} can't be used right now (no device, or the control is off)."
 msgstr "{action} kan inte användas just nu (ingen enhet, eller så är reglaget av)."
 
 #: rust/crates/system/src/setup_move.rs:381
-msgid "A newer Telescope is already installed, so this copy stays as it is. Open the installed one from the Start menu."
+msgid "A newer Telescope is already installed, so this copy is left unchanged. Open the installed Telescope from the Start menu."
 msgstr ""
 
 #: rust/crates/system/src/setup_move.rs:389
@@ -8414,7 +8393,7 @@ msgstr "föregående"
 
 #: rust/crates/system/src/shortcuts.rs:765
 #, python-brace-format
-msgid "There can be at most {max} shortcuts. Remove one to add another."
+msgid "There can be at most {max} shortcuts. Remove a shortcut to add another."
 msgstr ""
 
 #: rust/crates/system/src/shortcuts.rs:768
@@ -8441,8 +8420,8 @@ msgstr "{keys} gör redan \"{action}\". Välj en annan tangent."
 
 #: rust/crates/system/src/shortcuts.rs:785
 #, python-brace-format
-msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
-msgstr "Med Överallt kan {keys} inte längre skrivas i andra appar. Det är säkrare att lägga till Ctrl, Alt eller {meta}."
+msgid "Everywhere, {keys} could no longer be typed in other apps. Adding Ctrl, Alt or {meta} is safer."
+msgstr ""
 
 #: rust/crates/system/src/shortcuts.rs:790
 #, python-brace-format
@@ -8456,8 +8435,8 @@ msgstr "Okänd ({action})"
 
 #: rust/crates/system/src/shortcuts.rs:832
 #, python-brace-format
-msgid "{value} (not there now)"
-msgstr "{value} (finns inte nu)"
+msgid "{value} (no longer available)"
+msgstr ""
 
 #: rust/crates/system/src/shortcuts.rs:856
 msgid "A command can't hold a key down. Pick another choice to copy its command."
@@ -8490,8 +8469,8 @@ msgid "Keys for Telescope's controls, including ones that work in other apps."
 msgstr "Tangenter för Telescopes reglage, även sådana som fungerar i andra appar."
 
 #: rust/crates/system/src/shortcuts.rs:1129
-msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
-msgstr "Utan det gör inget kortkommando något och Kortkommandon finns inte i Inställningar (dina kortkommandon sparas tills det är tillbaka)."
+msgid "Without the Keyboard shortcuts plugin no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when the plugin is on again)."
+msgstr ""
 
 #: rust/crates/system/src/single_instance.rs:319
 msgid "Telescope is already running"
@@ -8524,16 +8503,16 @@ msgid "Telescope isn't running."
 msgstr "Telescope körs inte."
 
 #: rust/crates/system/src/single_instance.rs:397
-msgid "Telescope didn't understand that. Is it an older version? Update it to use --action."
-msgstr "Telescope förstod inte det där. Är det en äldre version? Uppdatera det för att använda --action."
+msgid "Telescope didn't understand the request. Is the running Telescope an older version? Update Telescope to use --action."
+msgstr ""
 
 #: rust/crates/system/src/single_instance.rs:462
 msgid "Telescope couldn't write the key --action needs next to its settings when it started. Restart it."
 msgstr "Telescope kunde inte skriva nyckeln som --action behöver bredvid sina inställningar när det startade. Starta om det."
 
 #: rust/crates/system/src/single_instance.rs:467
-msgid "Telescope turned that down: it didn't come from this user's Telescope command."
-msgstr "Telescope avvisade det: det kom inte från den här användarens Telescope-kommando."
+msgid "Telescope rejected the request because it didn't come from this user's Telescope command."
+msgstr ""
 
 #: rust/crates/system/src/splash.rs:93
 msgid "Starting Telescope…"
@@ -8576,12 +8555,12 @@ msgid "Only when I press Stop"
 msgstr "Bara när jag trycker på Stoppa"
 
 #: rust/crates/system/src/startup.rs:46
-msgid "When no app uses the camera, if it started the stream"
-msgstr "När ingen app använder kameran, om en app startade strömmen"
+msgid "When no app uses the camera, if Telescope started the stream"
+msgstr ""
 
 #: rust/crates/system/src/startup.rs:47
-msgid "When no app uses the camera, even if I started it"
-msgstr "När ingen app använder kameran, även om jag startade den"
+msgid "When no app uses the camera, even if I started the stream"
+msgstr ""
 
 #: rust/crates/system/src/startup.rs:50
 msgid "seconds"
@@ -8624,16 +8603,16 @@ msgid "Wait before stopping"
 msgstr "Väntetid före stopp"
 
 #: rust/crates/system/src/startup.rs:508
-msgid "Start and stop by itself"
-msgstr "Starta och stoppa av sig själv"
+msgid "Start and stop automatically"
+msgstr ""
 
 #: rust/crates/system/src/startup.rs:509
 msgid "Opening Telescope when you sign in, and Automatic streaming."
 msgstr "Öppna Telescope när du loggar in, och Automatisk strömning."
 
 #: rust/crates/system/src/startup.rs:510
-msgid "Without it Automatic streaming stops and both it and the sign-in option leave Settings. Telescope still opens at sign-in if it did before."
-msgstr "Utan det stoppas Automatisk strömning och både den och inloggningsalternativet försvinner från Inställningar. Telescope öppnas fortfarande vid inloggning om det gjorde det tidigare."
+msgid "Without the Automatic streaming plugin, Automatic streaming stops and it and the sign-in option disappear from Settings. Telescope still opens at sign-in if it did before."
+msgstr ""
 
 #: rust/crates/system/src/updates.rs:198
 #, python-brace-format
@@ -8672,7 +8651,7 @@ msgstr "{file} används, så uppdateringen installerades inte. Försök igen eft
 
 #: rust/crates/system/src/updates.rs:596
 #, python-brace-format
-msgid "Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a folder of its own."
+msgid "Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a separate folder."
 msgstr ""
 
 #: rust/crates/system/src/updates.rs:665 rust/crates/system/src/updates_plugin.rs:97 rust/crates/system/src/updates_plugin.rs:168 rust/crates/system/src/updates_plugin.rs:240 rust/crates/system/src/updates_plugin.rs:621 rust/crates/system/src/updates_plugin.rs:796
@@ -8705,20 +8684,20 @@ msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "Uppdaterat. Telescope startar om när du slutar strömma."
 
 #: rust/crates/system/src/updates_plugin.rs:470
-msgid "Going back to the Python version didn't work because it didn't start, so this version is back."
-msgstr "Det gick inte att gå tillbaka till Python-versionen eftersom den inte startade, så den här versionen är tillbaka."
+msgid "Going back to the Python version failed because the Python version didn't start. This version is running again."
+msgstr ""
 
 #: rust/crates/system/src/updates_plugin.rs:475
-msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along."
-msgstr "När du uppdaterar installeras det också för din användare, med en genväg i Start-menyn, och den här uppackade kopian tas bort. Inställningar och telefoner följer med."
+msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and paired phones are kept."
+msgstr ""
 
 #: rust/crates/system/src/updates_plugin.rs:481
 msgid "Stop streaming to update."
 msgstr "Stoppa strömningen för att uppdatera."
 
 #: rust/crates/system/src/updates_plugin.rs:493
-msgid "This is a source checkout, so it doesn't update itself."
-msgstr "Det här körs från källkoden, så det uppdaterar inte sig självt."
+msgid "This is a source checkout, so update Telescope with git."
+msgstr ""
 
 #: rust/crates/system/src/updates_plugin.rs:501
 msgid "There's no nightly release yet."
@@ -8974,7 +8953,7 @@ msgid "Tell me when it stops a stream"
 msgstr "Säg till när den stoppar en ström"
 
 #: rust/crates/system/ui/startup.slint:134
-msgid "Show a notification when streaming stops by itself"
+msgid "Show a notification when streaming stops automatically"
 msgstr ""
 
 #: rust/crates/system/ui/startup.slint:137
@@ -9186,41 +9165,9 @@ msgctxt "percentage"
 msgid "{n}%"
 msgstr "{n} %"
 
-#: rust/crates/plugin-host/src/package.rs:23
-msgid "Other users on this computer could change it, so it isn't loaded."
-msgstr "Andra användare på den här datorn kan ändra det, så det laddas inte."
-
-#: rust/crates/plugin-host/src/package.rs:24
-msgid "It contains a link to somewhere else, which plugins can't have."
-msgstr "Det innehåller en länk till en annan plats, vilket tillägg inte får ha."
-
-#: rust/crates/plugin-host/src/package.rs:498
-msgid "It contains compiled code (like .pyc files). Plugins have to be source code."
-msgstr "Det innehåller kompilerad kod (som .pyc-filer). Tillägg måste vara källkod."
-
-#: rust/crates/plugin-host/src/package.rs:26
-msgid "It's too big for a plugin (over 500 files or 20 MB)."
-msgstr "Det är för stort för ett tillägg (över 500 filer eller 20 MB)."
-
 #: rust/crates/plugin-host/src/package.rs:25
 msgid "The folder has to have the same name as the plugin, using only lowercase letters, digits and _ (starting with a letter)."
 msgstr "Mappen måste ha samma namn som tillägget, med bara små bokstäver, siffror och _ (och börja med en bokstav)."
-
-#: rust/crates/plugin-host/src/package.rs:29
-msgid "A plugin that comes with Telescope already has that name."
-msgstr "Ett tillägg som följer med Telescope har redan det namnet."
-
-#: rust/crates/plugin-host/src/package.rs:27
-msgid "It isn't a .zip file Telescope can open."
-msgstr "Det är inte en .zip-fil som Telescope kan öppna."
-
-#: rust/crates/plugin-host/src/package.rs:444
-msgid "It holds a file with a path that points outside the plugin."
-msgstr "Det innehåller en fil med en sökväg som pekar utanför tillägget."
-
-#: rust/crates/plugin-host/src/package.rs:455
-msgid "It has to hold one folder, named as the plugin."
-msgstr "Det måste innehålla en mapp, med samma namn som tillägget."
 
 #: rust/crates/plugin-host/src/package.rs:28
 msgid "That isn't a folder in the plugins folder."
@@ -9255,32 +9202,6 @@ msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"
 msgstr[0] "Sparade {name} och {n} till"
 msgstr[1] "Sparade {name} och {n} till"
-
-#: rust/crates/shell/src/plugins/preview.rs:19
-msgid ""
-"Camera off\n"
-"\n"
-"The phone's mic is still streaming.\n"
-"Stop streaming ends it."
-msgstr ""
-"Kameran avstängd\n"
-"\n"
-"Telefonens mikrofon strömmar fortfarande.\n"
-"Stoppa strömning avslutar det."
-
-#: rust/crates/shell/src/plugins/preview.rs:21
-msgid ""
-"Camera off\n"
-"\n"
-"No app was using the camera, so it turned off.\n"
-"The phone's mic is still streaming, and the camera\n"
-"comes back when an app opens it."
-msgstr ""
-"Kameran avstängd\n"
-"\n"
-"Ingen app använde kameran, så den stängdes av.\n"
-"Telefonens mikrofon strömmar fortfarande, och kameran\n"
-"startar igen när en app öppnar den."
 
 #: rust/crates/effects/src/transforms.rs:654
 msgctxt "search"
@@ -9365,10 +9286,6 @@ msgstr "Det tog för lång tid för telefonen att ta fotot."
 msgid "Lost the phone while it was taking the photo."
 msgstr "Tappade kontakten med telefonen medan den tog fotot."
 
-#: rust/crates/link/src/stills.rs:62
-msgid "The phone gave up on the photo, maybe because its stream stopped."
-msgstr "Telefonen gav upp fotot, kanske för att dess ström stoppades."
-
 #: rust/crates/link/src/stills.rs:64
 msgid "This phone can't take photos from Telescope. Update the app on the phone."
 msgstr "Den här telefonen kan inte ta foton från Telescope. Uppdatera appen på telefonen."
@@ -9405,33 +9322,743 @@ msgstr "Uppdateringen innehåller oväntade filer, så den installerades inte."
 msgid "The download doesn't contain Telescope, so it wasn't installed."
 msgstr "Nedladdningen innehåller inte Telescope, så den installerades inte."
 
-#: rust/crates/shell/src/plugins_tab.rs:728
-msgid "Couldn't remove it"
-msgstr "Kunde inte ta bort den"
-
-#: rust/crates/shell/src/plugins_tab.rs:704
-msgid "Couldn't save that"
-msgstr "Kunde inte spara det"
-
-#: rust/crates/shell/src/plugins_tab.rs:683
-msgid "Couldn't install it"
-msgstr "Kunde inte installera det"
-
-#: rust/crates/shell/src/plugins_tab.rs:690
-msgid "Installed, but it won't load"
-msgstr "Installerat, men det kan inte laddas"
-
 #: rust/crates/shell/src/plugins_tab.rs:692
 msgid "Replaced"
 msgstr "Ersatt"
 
-#: rust/crates/shell/src/plugins_tab.rs:773
-msgid "Couldn't open it"
-msgstr "Kunde inte öppna den"
-
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "Kunde inte starta om"
+
+#~ msgid "Once VB-Cable's setup says it's done, restart the computer, then switch this off and on."
+#~ msgstr "När VB-Cables installation säger att den är klar: starta om datorn och stäng sedan av och slå på det här igen."
+
+#, python-brace-format
+#~ msgid "On for {name}. Turning it on here turns it off there."
+#~ msgstr "På för {name}. Slår du på den här stängs den av där."
+
+#~ msgid "Without it there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone."
+#~ msgstr "Utan det finns varken kortet Mikrofon eller Tysta i menyn i meddelandefältet, och Telescope skapar ingen virtuell mikrofon."
+
+#~ msgid "VB-Audio's site didn't hand over VB-Cable. Try again later, or get it from their site."
+#~ msgstr "VB-Audios webbplats skickade inte VB-Cable. Försök igen senare, eller hämta det från deras webbplats."
+
+#~ msgid "VB-Audio's download doesn't have the setup it used to. Get it from their site instead."
+#~ msgstr "VB-Audios nedladdning har inte samma installationsprogram som förr. Hämta det från deras webbplats i stället."
+
+#~ msgid "VB-Cable's setup changed after it was checked, so it wasn't opened."
+#~ msgstr "VB-Cables installationsprogram ändrades efter att det kontrollerades, så det öppnades inte."
+
+#~ msgid "Yellow: the limiter is holding peaks down. Red: it clipped."
+#~ msgstr "Gult: begränsaren håller nere topparna. Rött: ljudet klippte."
+
+#~ msgid "Telescope downloads VB-Cable from vb-audio.com and opens its setup, which asks for admin. Restart the computer afterwards."
+#~ msgstr "Telescope laddar ner VB-Cable från vb-audio.com och öppnar installationen, som ber om administratörsrättigheter. Starta om datorn efteråt."
+
+#~ msgid "Looking…"
+#~ msgstr "Tittar…"
+
+#~ msgid "Blurs the background behind you or swaps it for a picture."
+#~ msgstr "Gör bakgrunden bakom dig oskarp eller byter ut den mot en bild."
+
+#~ msgid "Without it there's no Background card and the background stays as the camera sees it."
+#~ msgstr "Utan det finns inte kortet Bakgrund och bakgrunden förblir som kameran ser den."
+
+#~ msgid "Swaps a green or blue screen behind you for a colour or a picture, with no download."
+#~ msgstr "Byter ut en grön eller blå skärm bakom dig mot en färg eller en bild, utan nedladdning."
+
+#~ msgid "Without it there's no Chroma key card and a green screen stays green."
+#~ msgstr "Utan det finns inte kortet Chroma key och en grön skärm förblir grön."
+
+#~ msgid "Without it there's no Cinema tools card and the preview shows just the picture."
+#~ msgstr "Utan det finns inte kortet Filmverktyg och förhandsvisningen visar bara bilden."
+
+#~ msgid "Looking at the picture…"
+#~ msgstr "Tittar på bilden…"
+
+#~ msgid "Auto couldn't get a steady picture to look at. Try again while nothing moves."
+#~ msgstr "Auto fick ingen stabil bild att titta på. Försök igen när inget rör sig."
+
+#~ msgid "Nothing needs changing now, so Auto's earlier changes were taken off."
+#~ msgstr "Inget behöver ändras nu, så Autos tidigare ändringar togs bort."
+
+#~ msgid "No face was found, so it went by the background and the brightness."
+#~ msgstr "Inget ansikte hittades, så det utgick från bakgrunden och ljusstyrkan."
+
+#~ msgid "The light is mixed or coloured, so white balance stayed as it was."
+#~ msgstr "Ljuset är blandat eller färgat, så vitbalansen lämnades som den var."
+
+#~ msgid "Your own wheels and curves would have clipped the picture, so Auto went only part of the way."
+#~ msgstr "Dina egna hjul och kurvor skulle ha klippt bilden, så Auto gick bara en bit på vägen."
+
+#~ msgid "The camera adjusts itself, so this may drift."
+#~ msgstr "Kameran justerar sig själv, så det här kan glida iväg."
+
+#~ msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
+#~ msgstr "Utan det finns inte kortet Färgsättning och bilden behåller kamerans färger."
+
+#~ msgid "It takes over once two of its streams are running."
+#~ msgstr "Den tar över så fort två av dess strömmar körs."
+
+#, python-brace-format
+#~ msgid "It goes out on {camera}, and no stream goes there now."
+#~ msgstr "Den går ut på {camera}, och ingen ström går dit nu."
+
+#, python-brace-format
+#~ msgid "It goes out on {camera} once the stream there sends a picture."
+#~ msgstr "Den går ut på {camera} så fort strömmen där skickar en bild."
+
+#, python-brace-format
+#~ msgid "Goes out on {camera}."
+#~ msgstr "Går ut på {camera}."
+
+#~ msgid "Puts the streams you run side by side or one inside another, out on one virtual camera."
+#~ msgstr "Lägger strömmarna du kör sida vid sida eller i varandra, ut på en virtuell kamera."
+
+#~ msgid "Without it there's no One picture card and each stream only goes to its own camera."
+#~ msgstr "Utan det finns inte kortet En bild och varje ström går bara till sin egen kamera."
+
+#~ msgid "This isn't a .cube LUT: it doesn't say its size."
+#~ msgstr "Det här är inte en .cube-LUT: den anger inte sin storlek."
+
+#~ msgid "Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."
+#~ msgstr "Hörnen satt för tätt ihop eller på rad och användes inte. Markera arket igen med ett på varje hörn."
+
+#~ msgid "Straightens a sheet of paper you mark on the preview and can make the writing on it stand out."
+#~ msgstr "Rätar ut ett pappersark som du markerar i förhandsvisningen och kan framhäva texten på det."
+
+#~ msgid "Without it there's no Desk mode card and the picture stays the way the camera sees it."
+#~ msgstr "Utan det finns inte kortet Bordsläge och bilden förblir som kameran ser den."
+
+#~ msgid "Moves the phone's metering point to your face to keep you well lit whatever's behind you."
+#~ msgstr "Flyttar telefonens mätpunkt till ditt ansikte så att du är välupplyst oavsett vad som finns bakom dig."
+
+#~ msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
+#~ msgstr "Utan det finns inte kortet Exponera för mitt ansikte och telefonen mäter på punkten du trycker på eller hela bilden."
+
+#~ msgid "Widens the view so your hands are in it too."
+#~ msgstr "Breddar vyn så att dina händer också kommer med."
+
+#~ msgid "Without it there's no Auto framing card and the zoom stays where you put it."
+#~ msgstr "Utan det finns inte kortet Automatisk inramning och zoomen ligger kvar där du satte den."
+
+#, python-brace-format
+#~ msgid "Taking it in {n}…"
+#~ msgstr "Tas om {n}…"
+
+#~ msgid "Without it there's no Fun pack card and the picture has no effects."
+#~ msgstr "Utan det finns inte kortet Fun pack och bilden har inga effekter."
+
+#~ msgid "Puts your name and pronouns in the corner of the picture."
+#~ msgstr "Visar ditt namn och dina pronomen i bildens hörn."
+
+#~ msgid "Without it there's no Name tag card and nothing is drawn on the picture."
+#~ msgstr "Utan det finns inte kortet Namnskylt och inget ritas på bilden."
+
+#~ msgid "Shows your script on the phone's screen right under the camera, to read while looking people in the eye."
+#~ msgstr "Visar ditt manus på telefonens skärm precis under kameran, så att du kan läsa medan du ser folk i ögonen."
+
+#~ msgid "Without it there's no Teleprompter card and the phone never shows a script."
+#~ msgstr "Utan det finns inget kort för Teleprompter och telefonen visar aldrig något manus."
+
+#~ msgid "The browser warns that the connection isn't private: it's this computer's own certificate. On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed."
+#~ msgstr "Webbläsaren varnar för att anslutningen inte är privat: det är den här datorns eget certifikat. På iPhone trycker du på Visa detaljer och sedan på besök den här webbplatsen. I Chrome trycker du på Avancerat och sedan på Fortsätt."
+
+#~ msgid "It went through."
+#~ msgstr "Det gick fram."
+
+#, python-brace-format
+#~ msgid "It didn't go through: {error}"
+#~ msgstr "Det gick inte fram: {error}"
+
+#~ msgid "The On Air webhook didn't go through"
+#~ msgstr "On Air-webhooken gick inte fram"
+
+#, python-brace-format
+#~ msgid "It answered: {error}"
+#~ msgstr "Den svarade: {error}"
+
+#~ msgid "Shows the people around you that your camera or microphone is in use, on another device's screen or through a smart home light."
+#~ msgstr "Visar personer i närheten att din kamera eller mikrofon används, på en annan enhets skärm eller via en smart lampa."
+
+#~ msgid "Without it there's no On Air tab in Settings and no sign or webhook."
+#~ msgstr "Utan det finns inte fliken On Air i Inställningar och ingen skylt eller webhook."
+
+#~ msgid "The camera keeps its own JPEG quality"
+#~ msgstr "Kameran behåller sin egen JPEG-kvalitet"
+
+#~ msgid "Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it."
+#~ msgstr "Tar foton i full kvalitet på telefonen eller en systemkamera, inklusive RAW där kameran har stöd för det."
+
+#~ msgid "Without it there's no Photos card and no Take photo shortcut."
+#~ msgstr "Utan det finns inte kortet Foton och inget kortkommando för Ta foto."
+
+#~ msgid "Without it there's no Privacy blur card and nothing gets hidden when someone walks in."
+#~ msgstr "Utan det finns inte kortet Integritetsoskärpa och ingenting döljs när någon kommer in."
+
+#~ msgid "Click Copy on the QR codes card to put it on the clipboard."
+#~ msgstr "Klicka på Kopiera på kortet QR-koder för att lägga den i urklipp."
+
+#~ msgid "Copies a QR code you hold up to the camera, or the password from a Wi-Fi code."
+#~ msgstr "Kopierar en QR-kod du håller upp mot kameran, eller lösenordet från en Wi-Fi-kod."
+
+#~ msgid "Without it there's no QR code card and codes in the picture are left alone."
+#~ msgstr "Utan det finns inte kortet QR-koder och koder i bilden lämnas orörda."
+
+#, python-brace-format
+#~ msgid "Panned past what {tele} can see, so it's on {live}. Pan back to switch again."
+#~ msgstr "Panorerade förbi det {tele} kan se, så den använder {live}. Panorera tillbaka för att byta igen."
+
+#, python-brace-format
+#~ msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
+#~ msgstr "Telefonen stannade kvar på {live} av sig själv, troligen för mörkt eller för nära för {tele}. Den byter så fort den kan."
+
+#~ msgid "It can wobble for a moment while it switches."
+#~ msgstr "Bilden kan hoppa till ett ögonblick när den byter."
+
+#~ msgid "Zoomed on this computer: this lens can't zoom itself"
+#~ msgstr "Zoomat på den här datorn: det här objektivet kan inte zooma självt"
+
+#~ msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
+#~ msgstr "Utan det finns inte kortet Vändning och zoom och bilden går ut precis som telefonen skickar den."
+
+#~ msgid "Looking at the picture"
+#~ msgstr "Tittar på bilden"
+
+#~ msgid "Shows the people around you that your camera or microphone is in use."
+#~ msgstr "Visar personer i närheten att din kamera eller mikrofon används."
+
+#~ msgid "The page didn't start"
+#~ msgstr "Sidan startade inte"
+
+#~ msgid "Google's list of downloads wasn't what Telescope expected. Try again later."
+#~ msgstr "Googles lista över nedladdningar var inte vad Telescope väntade sig. Försök igen senare."
+
+#~ msgid "That doesn't have adb.exe in it."
+#~ msgstr "Där finns ingen adb.exe."
+
+#, python-brace-format
+#~ msgid "Google wouldn't send adb to this computer (it said {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead."
+#~ msgstr "Google ville inte skicka adb till den här datorn (svarade {code}). Google blockerar Android-nedladdningar i vissa länder. Om du skaffar platform-tools på annat sätt kan du välja dess adb.exe eller zip-fil i stället."
+
+#, python-brace-format
+#~ msgid "Google's server said {code}. Try again later."
+#~ msgstr "Googles server svarade {code}. Försök igen senare."
+
+#, python-brace-format
+#~ msgid "The phone refused the microphone (HTTP {code})."
+#~ msgstr "Telefonen nekade mikrofonen (HTTP {code})."
+
+#~ msgid "Browser says it isn't private?"
+#~ msgstr "Säger webbläsaren att anslutningen inte är privat?"
+
+#~ msgid ""
+"It is this computer's own certificate.\n"
+"iPhone: tap Show Details, then visit this website.\n"
+"Chrome: tap Advanced, then Proceed.\n"
+"Keep the page open with the screen on."
+#~ msgstr ""
+"Det är den här datorns eget certifikat.\n"
+"iPhone: tryck på Visa detaljer och sedan på Besök den här webbplatsen.\n"
+"Chrome: tryck på Avancerat och sedan på Fortsätt.\n"
+"Håll sidan öppen med skärmen på."
+
+#~ msgid "Check it's on the same network."
+#~ msgstr "Kontrollera att den är på samma nätverk."
+
+#, python-brace-format
+#~ msgid "Still streaming over {now}, so it stays on {kept}."
+#~ msgstr "Strömmar fortfarande via {now}, så den stannar kvar på {kept}."
+
+#, python-brace-format
+#~ msgid "Open Telescope on {phone} and keep it on screen. It needs to be on the same network as this computer, or plugged in with a USB cable."
+#~ msgstr "Öppna Telescope på {phone} och låt appen vara öppen på skärmen. Telefonen måste vara på samma nätverk som den här datorn eller ansluten med en USB-kabel."
+
+#~ msgid "Stop it there or on the phone, then try again."
+#~ msgstr "Stoppa strömningen där eller på telefonen och försök sedan igen."
+
+#, python-brace-format
+#~ msgid "The phone refused to start streaming ({error})."
+#~ msgstr "Telefonen vägrade starta strömningen ({error})."
+
+#, python-brace-format
+#~ msgid "Phone went quiet for a moment, still waiting... ({seconds}s)"
+#~ msgstr "Telefonen tystnade ett ögonblick, väntar fortfarande... ({seconds}s)"
+
+#~ msgid ""
+"The phone's camera didn't finish starting in time.\n"
+"\n"
+"Try again. If it keeps happening, open Telescope on the phone."
+#~ msgstr ""
+"Telefonens kamera hann inte starta i tid.\n"
+"\n"
+"Försök igen. Om det händer igen, öppna Telescope på telefonen."
+
+#~ msgid "Or plug it in over USB."
+#~ msgstr "Eller anslut den via USB."
+
+#, python-brace-format
+#~ msgid "Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it."
+#~ msgstr "Telescope kan ladda ner det från Google (ca {size}) och spara det för din användare. Det är Googles programvara, så deras Android SDK-licens gäller: <a href=\"{url}\">läs licensen</a>.<br><br>Wi-Fi fungerar utan det."
+
+#, python-brace-format
+#~ msgid "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick one you already have</a>."
+#~ msgstr "<a href=\"{get}\">Försök igen</a> eller <a href=\"{pick}\">välj en som du redan har</a>."
+
+#, python-brace-format
+#~ msgid "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry."
+#~ msgstr "En telefon som heter {name} parkopplades som en ny telefon. Det händer när Telescope har installerats om på den eller dess data har rensats. Väljer du Ja flyttas inställningar och förinställningar för {name} över till den, och den gamla posten tas bort."
+
+#, python-brace-format
+#~ msgid "Remove \"{name}\"? This deletes the settings it had on this computer. It can still connect with the code, and starts from the defaults."
+#~ msgstr "Vill du ta bort \"{name}\"? Det raderar inställningarna som den hade på den här datorn. Den kan fortfarande ansluta med koden och börjar om från standardinställningarna."
+
+#, python-brace-format
+#~ msgid "v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:"
+#~ msgstr "v4l2loopback är laddad, men utan {device}: en annan app har ställt in den med andra inställningar. Stäng den appen och kör det här för att lämna över den till Telescope:"
+
+#~ msgid "Switching it on asks for your password."
+#~ msgstr "Du behöver ange ditt lösenord för att slå på den."
+
+#~ msgid "Telescope needs to switch on its virtual camera first. This asks for your password."
+#~ msgstr "Telescope behöver slå på sin virtuella kamera först. Du behöver ange ditt lösenord."
+
+#~ msgid "It can stutter more than TCP, so try it and see."
+#~ msgstr "Det kan hacka mer än med TCP, så prova och se."
+
+#~ msgid "This phone's app is too old for Dynamic and uses Auto until it's updated."
+#~ msgstr "Appen på den här telefonen är för gammal för Dynamisk och använder Auto tills den uppdateras."
+
+#, python-brace-format
+#~ msgid "{error}. It's set back to {size}, the last size that worked."
+#~ msgstr "{error}. Storleken är återställd till {size}, den senaste som fungerade."
+
+#~ msgid "Without it there's no Stream output card and streams use whatever size and format the phone picks."
+#~ msgstr "Utan det finns inte kortet Utgående ström och strömmarna använder den storlek och det format som telefonen väljer."
+
+#, python-brace-format
+#~ msgid "{problem}. Keeping the current wait screen."
+#~ msgstr "{problem}. Behåller den nuvarande väntebilden."
+
+#~ msgid "The default screen is showing. Choose another one."
+#~ msgstr "Standardbilden visas. Välj en annan."
+
+#~ msgid "Without it Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
+#~ msgstr "Utan det finns Väntebild inte i Inställningar och mellan strömmar kan appar se en svart bild eller ingenting alls."
+
+#~ msgid "Set it to your mains frequency to stop lights flickering or banding."
+#~ msgstr "Ställ in elnätets frekvens för att slippa flimrande lampor och ränder i bilden."
+
+#~ msgid "Check that it's plugged in."
+#~ msgstr "Kontrollera att den är inkopplad."
+
+#~ msgid "Another app may be using it. Close it there and it starts here."
+#~ msgstr "En annan app kanske använder den. Stäng den där så startar den här."
+
+#, python-brace-format
+#~ msgid "{app} is using it. Close it there and it starts here."
+#~ msgstr "{app} använder den. Stäng den där så startar den här."
+
+#~ msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
+#~ msgstr "Utan det syns inte webbkameror i enhetsväljaren och kortet Webbkamera försvinner också."
+
+#~ msgid "The webcam isn't plugged in. Plug it back in and it carries on."
+#~ msgstr "Webbkameran är inte inkopplad. Koppla in den igen så fortsätter den."
+
+#~ msgid "Another app is using the webcam. Close it there and it starts here."
+#~ msgstr "En annan app använder webbkameran. Stäng den där så startar den här."
+
+#~ msgid "It isn't turned on."
+#~ msgstr "Det är inte påslaget."
+
+#, python-brace-format
+#~ msgid "Its {file} has to return the plugin's table at the end."
+#~ msgstr "Filen {file} måste returnera tilläggets tabell i slutet."
+
+#~ msgid "It's a link to another folder, which plugins can't be."
+#~ msgstr "Det är en länk till en annan mapp, vilket tillägg inte får vara."
+
+#, python-brace-format
+#~ msgid "It has no {file}."
+#~ msgstr "Det har ingen {file}."
+
+#, python-brace-format
+#~ msgid "Its {file} isn't valid JSON."
+#~ msgstr "Dess {file} är inte giltig JSON."
+
+#, python-brace-format
+#~ msgid "Its {file} isn't valid."
+#~ msgstr "Dess {file} är inte giltig."
+
+#, python-brace-format
+#~ msgid "It was made for an older Telescope (plugin API {api}) and needs an update."
+#~ msgstr "Det gjordes för ett äldre Telescope (tilläggs-API {api}) och behöver en uppdatering."
+
+#~ msgid "Its files couldn't be read."
+#~ msgstr "Dess filer kunde inte läsas."
+
+#, python-brace-format
+#~ msgid "Its {file} has to give the folder's name as \"name\"."
+#~ msgstr "Dess {file} måste ange mappens namn som \"name\"."
+
+#, python-brace-format
+#~ msgid "It needs a newer Telescope (plugin API {wanted}; this one has {have})."
+#~ msgstr "Det behöver ett nyare Telescope (tilläggs-API {wanted}; det här har {have})."
+
+#~ msgid "Its files changed since it was turned on. Turn it on again if you trust this version."
+#~ msgstr "Dess filer har ändrats sedan det slogs på. Slå på det igen om du litar på den här versionen."
+
+#~ msgid "Stopped streaming to let it cool down."
+#~ msgstr "Stoppade strömningen för att låta den svalna."
+
+#, python-brace-format
+#~ msgid "Streaming stopped, as Monitoring stops it at {level}% or lower."
+#~ msgstr "Strömningen stoppades, eftersom Övervakning stoppar den vid {level} % eller lägre."
+
+#, python-brace-format
+#~ msgid "Streaming stopped to let it cool down, as Monitoring stops it at {temp} °C."
+#~ msgstr "Strömningen stoppades för att låta den svalna, eftersom Övervakning stoppar den vid {temp} °C."
+
+#~ msgid "Without it there's no Phone card and nothing warns you about a low battery or a hot phone."
+#~ msgstr "Utan det finns inte kortet Telefon och inget varnar dig om lågt batteri eller en för varm telefon."
+
+#~ msgid "Asks for your password (pkexec or sudo): this changes system settings."
+#~ msgstr "Frågar efter ditt lösenord (pkexec eller sudo): det här ändrar systeminställningar."
+
+#~ msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
+#~ msgstr "När du verkställer startas strömmen om med den nya storleken. Om OBS tappar källan tar du bort den och lägger till den igen."
+
+#~ msgid "The graphics card failed and the processor is decoding until you restart Telescope"
+#~ msgstr "Grafikkortet slutade fungera och processorn avkodar tills du startar om Telescope"
+
+#~ msgid "The graphics card was too slow, so the processor is decoding for now"
+#~ msgstr "Grafikkortet var för långsamt, så processorn avkodar så länge"
+
+#~ msgid "Some apps can't see it"
+#~ msgstr "Vissa appar kan inte se den"
+
+#~ msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
+#~ msgstr "Hittades inte. Parkoppling och installation via USB behöver det, men inte Wi-Fi."
+
+#~ msgid "Without it there's no Stats card. The stream carries on the same."
+#~ msgstr "Utan det finns inget kort för Statistik. Strömmen fortsätter som vanligt."
+
+#, python-brace-format
+#~ msgid "stepped down to {n} for the link"
+#~ msgstr "sänkt till {n} för länken"
+
+#~ msgid "Decode the Light format on the graphics card from the next stream on. If the card fails the processor takes over until you restart Telescope."
+#~ msgstr "Avkoda formatet Lätt på grafikkortet från och med nästa ström. Om kortet misslyckas tar processorn över tills du startar om Telescope."
+
+#~ msgid "Use less processor and battery while Background or Auto framing is on. They follow quick movement a little later."
+#~ msgstr "Använd mindre processor och batteri när Bakgrund eller Automatisk inramning är på. De följer snabba rörelser lite senare."
+
+#~ msgid "Keeps loud sounds from clipping"
+#~ msgstr "Förhindrar att höga ljud blir förvrängda"
+
+#~ msgid "Restart Telescope to switch to it."
+#~ msgstr "Starta om Telescope för att byta språk."
+
+#~ msgid "Open the full log. It's kept in the temp folder, which the system clears."
+#~ msgstr "Öppna hela loggen. Den sparas i tempmappen, som systemet rensar."
+
+#~ msgid "This asks for your password."
+#~ msgstr "Du behöver ange ditt lösenord."
+
+#, python-brace-format
+#~ msgid "To stream several cameras at once, Telescope adds more virtual cameras ({names})."
+#~ msgstr "För att strömma flera kameror samtidigt lägger Telescope till fler virtuella kameror ({names})."
+
+#~ msgid "Only a phone's stream has the video this needs."
+#~ msgstr "Bara strömmen från en telefon har videon som behövs."
+
+#~ msgid "Stabilization"
+#~ msgstr "Stabilisering"
+
+#~ msgid "Starting a stream may ask for your password to switch it on."
+#~ msgstr "När du startar en ström kan du behöva ange ditt lösenord för att slå på den."
+
+#~ msgid "Scan this with the phone's camera app to download Telescope.apk, then open it to install. It's a download link, not the pairing code."
+#~ msgstr "Skanna den här med telefonens kameraapp för att ladda ner Telescope.apk och öppna den sedan för att installera. Det är en nedladdningslänk, inte parkopplingskoden."
+
+#~ msgid "Without it the setup checklist never shows, not even when nothing is set up yet."
+#~ msgstr "Utan det visas kom igång-checklistan aldrig, inte ens när inget är inställt än."
+
+#~ msgid "Without it there's no Presets button in the header (your saved presets aren't deleted)."
+#~ msgstr "Utan det finns ingen knapp för Förinställningar högst upp (dina sparade förinställningar raderas inte)."
+
+#~ msgid "Without it the window doesn't show the picture but apps using the virtual camera still get it."
+#~ msgstr "Utan det visar fönstret inte bilden, men appar som använder den virtuella kameran får den ändå."
+
+#~ msgid "Telescope couldn't start a new copy of itself. Close it and open it again to apply your changes."
+#~ msgstr "Telescope kunde inte starta en ny instans av sig självt. Stäng det och öppna det igen för att verkställa ändringarna."
+
+#, python-brace-format
+#~ msgid "The download didn't work. {error}"
+#~ msgstr "Nedladdningen fungerade inte. {error}"
+
+#~ msgid "There's no download of what it needs for this computer yet, so it can't be switched on."
+#~ msgstr "Det som tillägget behöver finns inte att ladda ner för den här datorn än, så det kan inte slås på."
+
+#, python-brace-format
+#~ msgid "Its download (about {mb} MB) isn't there anymore. Switch it off and on again to get it."
+#~ msgstr "Nedladdningen (ca {mb} MB) finns inte kvar längre. Stäng av och slå på det igen för att hämta den."
+
+#, python-brace-format
+#~ msgid "Switching one of these on downloads about {mb} MB first, once for all of them."
+#~ msgstr "Om du slår på ett av dem laddas ungefär {mb} MB ner först, en gång för allihop."
+
+#~ msgid "Its files changed since you switched it on, so it's off for now. Switch it on again if you trust this version."
+#~ msgstr "Filerna har ändrats sedan du slog på det, så det är avstängt tills vidare. Slå på det igen om du litar på den här versionen."
+
+#, python-brace-format
+#~ msgid "It didn't start ({problem})."
+#~ msgstr "Det startade inte ({problem})."
+
+#, python-brace-format
+#~ msgid "Version {version} is out. <a href=\"{url}\">Download it from its release page</a> and install it here to replace this one."
+#~ msgstr "Version {version} är ute. <a href=\"{url}\">Ladda ner den från dess releasesida</a> och installera den här för att ersätta den gamla."
+
+#, python-brace-format
+#~ msgid "Loaded from {folder} by telescope-rs dev. Telescope restarts by itself when you save one of its files."
+#~ msgstr "Inläst från {folder} av telescope-rs dev. Telescope startar om av sig självt när du sparar en av dess filer."
+
+#, python-brace-format
+#~ msgid "Its folder ({folder}) is deleted from the plugins folder. To use it again you'll have to add it again."
+#~ msgstr "Mappen ({folder}) raderas från tilläggsmappen. Vill du använda det igen måste du lägga till det på nytt."
+
+#, python-brace-format
+#~ msgid "It frees about {mb} MB. Switching on one of the optional plugins downloads it again."
+#~ msgstr "Det frigör ca {mb} MB. Om du slår på ett av de valfria tilläggen laddas den ner igen."
+
+#~ msgid "Streaming stops while Telescope restarts. It takes a few seconds."
+#~ msgstr "Strömningen stoppas medan Telescope startar om. Det tar några sekunder."
+
+#~ msgid "Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch it back on."
+#~ msgstr "Utan det försvinner allt som det lade till i Telescope. Inställningarna sparas tills du slår på det igen."
+
+#, python-brace-format
+#~ msgid "{plugin} uses MediaPipe to find people in the picture. It comes as a separate download from Telescope's releases on GitHub, which the other optional plugins share."
+#~ msgstr "{plugin} använder MediaPipe för att hitta personer i bilden. Det laddas ner separat från Telescopes utgåvor på GitHub, och de andra valfria tilläggen delar samma nedladdning."
+
+#~ msgid "The version in this .zip takes its place with the same settings. Like any plugin you add it starts out switched off."
+#~ msgstr "Versionen i den här zip-filen tar dess plats med samma inställningar. Precis som alla tillägg du lägger till är det avstängt från början."
+
+#, python-brace-format
+#~ msgid "{plugin} {version} is in place but switched off for now. To use it, switch it on again and restart Telescope."
+#~ msgstr "{plugin} {version} är på plats men avstängt för tillfället. För att använda det, slå på det igen och starta om Telescope."
+
+#, python-brace-format
+#~ msgid "{plugin} is installed but switched off for now. To use it, switch it on and restart Telescope."
+#~ msgstr "{plugin} är installerat men avstängt för tillfället. För att använda det, slå på det och starta om Telescope."
+
+#~ msgid "Check that it's still on."
+#~ msgstr "Kontrollera att den fortfarande är på."
+
+#~ msgid "Nothing matches every word. These match some of them."
+#~ msgstr "Inget matchar alla ord. De här matchar några av dem."
+
+#~ msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
+#~ msgstr "Söker en gång om dagen efter nya versioner av tillagda tillägg som publicerar releaser på GitHub och nämner dem här. Ingenting laddas ner."
+
+#~ msgid "Installs new versions of the plugins you switched on and switches them on again."
+#~ msgstr "Installerar nya versioner av tilläggen du har slagit på och slår på dem igen."
+
+#, python-brace-format
+#~ msgid "{plugins} didn't start"
+#~ msgid_plural "{plugins} didn't start"
+#~ msgstr[0] "{plugins} startade inte"
+#~ msgstr[1] "{plugins} startade inte"
+
+#, python-brace-format
+#~ msgid "{n} plugin didn't start"
+#~ msgid_plural "{n} plugins didn't start"
+#~ msgstr[0] "{n} tillägg startade inte"
+#~ msgstr[1] "{n} tillägg startade inte"
+
+#~ msgid "Telescope works without it. The Plugins tab in Settings says what went wrong."
+#~ msgid_plural "Telescope works without them. The Plugins tab in Settings says what went wrong."
+#~ msgstr[0] "Telescope fungerar utan det. Fliken Tillägg i Inställningar visar vad som gick fel."
+#~ msgstr[1] "Telescope fungerar utan dem. Fliken Tillägg i Inställningar visar vad som gick fel."
+
+#~ msgid "The stream comes back by itself once that app closes or lets go of it."
+#~ msgstr "Strömmen kommer tillbaka av sig själv när den appen stängs eller släpper den."
+
+#~ msgid "Stop it there or on the phone, then start again."
+#~ msgstr "Stoppa strömningen där eller på telefonen och starta sedan igen."
+
+#, python-brace-format
+#~ msgid "It's streaming at {size} and {fps} fps until it cools down."
+#~ msgstr "Den strömmar i {size} och {fps} fps tills den har svalnat."
+
+#, python-brace-format
+#~ msgid "It's streaming at {size} until it cools down."
+#~ msgstr "Den strömmar i {size} tills den har svalnat."
+
+#~ msgid "Open the Telescope page in it again."
+#~ msgstr "Öppna Telescope-sidan i den igen."
+
+#, python-brace-format
+#~ msgid "The phone got hot and lowered the frame rate to {fps} fps for now."
+#~ msgstr "Telefonen blev för varm och sänkte bildfrekvensen till {fps} fps tills vidare."
+
+#~ msgid "The camera is making fewer frames than asked for. Dim light slows it down."
+#~ msgstr "Kameran ger färre bildrutor än begärt. Svagt ljus gör den långsammare."
+
+#~ msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
+#~ msgstr "Telefonens kamera ger färre bildrutor än begärt. Svagt ljus gör den långsammare."
+
+#~ msgid "It starts streaming by itself when it needs to."
+#~ msgstr "Det börjar strömma av sig självt när det behövs."
+
+#~ msgid "Delete the download these plugins use. Switching any of these plugins on downloads it again."
+#~ msgstr "Radera nedladdningen som de här tilläggen använder. Om du slår på något av tilläggen laddas den ner igen."
+
+#, python-brace-format
+#~ msgid "Couldn't set up the Python libraries {version} needs. That takes the internet and a folder it can write to ({folder}). Nothing was changed."
+#~ msgstr "Kunde inte ställa in Python-biblioteken som {version} behöver. Det kräver internet och en skrivbar mapp ({folder}). Inget ändrades."
+
+#, python-brace-format
+#~ msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones come with it, and a copy of your current settings is saved first in {folder}."
+#~ msgstr "Telescope startar om som version {version}, den sista Python-versionen. Dina inställningar och parkopplade telefoner följer med, och en kopia av dina nuvarande inställningar sparas först i {folder}."
+
+#, python-brace-format
+#~ msgid "{version} won't check for updates by itself, so it doesn't offer this version back. You can turn that on again in its settings."
+#~ msgstr "{version} söker inte efter uppdateringar automatiskt, så den föreslår inte den här versionen igen. Du kan slå på det igen i dess inställningar."
+
+#, python-brace-format
+#~ msgid "First it sets up the Python libraries {version} needs. That needs the internet and takes a few minutes. If that fails, nothing is changed."
+#~ msgstr "Först ställs Python-biblioteken som {version} behöver in. Det kräver internet och tar några minuter. Om det misslyckas ändras inget."
+
+#~ msgid "If it doesn't start, opening Telescope again brings this version back."
+#~ msgstr "Om den inte startar får du tillbaka den här versionen genom att öppna Telescope igen."
+
+#, python-brace-format
+#~ msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack it and run start.sh in it. It needs Python 3.12 or newer and finds your settings in the same place."
+#~ msgstr "En AppImage kan inte bytas ut mot Python-versionen. Ladda ner Telescope-linux.tar.gz från utgåvan {version}, packa upp den och kör start.sh i den. Den kräver Python 3.12 eller nyare och hittar dina inställningar på samma ställe."
+
+#, python-brace-format
+#~ msgid "The phone app has to match. A newer one may not connect to {version}. Android won't install an older app over a newer one, so uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
+#~ msgstr "Telefonappen måste stämma överens. En nyare app kanske inte kan ansluta till {version}. Android installerar inte en äldre app över en nyare, så avinstallera Telescope på telefonen, installera Telescope.apk från utgåvan {version} och parkoppla igen."
+
+#~ msgid "Waiting for you to confirm it"
+#~ msgstr "Väntar på att du ska bekräfta det"
+
+#~ msgid "Your desktop asks you to confirm global shortcuts, and you can change their keys in its own settings. The key it settled on shows next to each one."
+#~ msgstr "Din skrivbordsmiljö ber dig bekräfta globala kortkommandon, och du kan ändra tangenterna i dess egna inställningar. Tangenten som valdes visas bredvid varje kortkommando."
+
+#~ msgid "Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port."
+#~ msgstr "Låter en AI-app som Claude Desktop titta på Telescope och ändra dess inställningar, via ett kommando som inte öppnar någon nätverksport."
+
+#~ msgid "Without it AI apps can't connect to Telescope."
+#~ msgstr "Utan det kan AI-appar inte ansluta till Telescope."
+
+#~ msgid "That failed; Copy diagnostics has the details."
+#~ msgstr "Det misslyckades. Detaljerna får du med Kopiera diagnostik."
+
+#, python-brace-format
+#~ msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
+#~ msgstr "Med Överallt kan {keys} inte längre skrivas i andra appar. Det är säkrare att lägga till Ctrl, Alt eller {meta}."
+
+#, python-brace-format
+#~ msgid "{value} (not there now)"
+#~ msgstr "{value} (finns inte nu)"
+
+#~ msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
+#~ msgstr "Utan det gör inget kortkommando något och Kortkommandon finns inte i Inställningar (dina kortkommandon sparas tills det är tillbaka)."
+
+#~ msgid "Telescope didn't understand that. Is it an older version? Update it to use --action."
+#~ msgstr "Telescope förstod inte det där. Är det en äldre version? Uppdatera det för att använda --action."
+
+#~ msgid "Telescope turned that down: it didn't come from this user's Telescope command."
+#~ msgstr "Telescope avvisade det: det kom inte från den här användarens Telescope-kommando."
+
+#~ msgid "When no app uses the camera, if it started the stream"
+#~ msgstr "När ingen app använder kameran, om en app startade strömmen"
+
+#~ msgid "When no app uses the camera, even if I started it"
+#~ msgstr "När ingen app använder kameran, även om jag startade den"
+
+#~ msgid "Start and stop by itself"
+#~ msgstr "Starta och stoppa av sig själv"
+
+#~ msgid "Without it Automatic streaming stops and both it and the sign-in option leave Settings. Telescope still opens at sign-in if it did before."
+#~ msgstr "Utan det stoppas Automatisk strömning och både den och inloggningsalternativet försvinner från Inställningar. Telescope öppnas fortfarande vid inloggning om det gjorde det tidigare."
+
+#~ msgid "Going back to the Python version didn't work because it didn't start, so this version is back."
+#~ msgstr "Det gick inte att gå tillbaka till Python-versionen eftersom den inte startade, så den här versionen är tillbaka."
+
+#~ msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along."
+#~ msgstr "När du uppdaterar installeras det också för din användare, med en genväg i Start-menyn, och den här uppackade kopian tas bort. Inställningar och telefoner följer med."
+
+#~ msgid "This is a source checkout, so it doesn't update itself."
+#~ msgstr "Det här körs från källkoden, så det uppdaterar inte sig självt."
+
+#~ msgid "Other users on this computer could change it, so it isn't loaded."
+#~ msgstr "Andra användare på den här datorn kan ändra det, så det laddas inte."
+
+#~ msgid "It contains a link to somewhere else, which plugins can't have."
+#~ msgstr "Det innehåller en länk till en annan plats, vilket tillägg inte får ha."
+
+#~ msgid "It contains compiled code (like .pyc files). Plugins have to be source code."
+#~ msgstr "Det innehåller kompilerad kod (som .pyc-filer). Tillägg måste vara källkod."
+
+#~ msgid "It's too big for a plugin (over 500 files or 20 MB)."
+#~ msgstr "Det är för stort för ett tillägg (över 500 filer eller 20 MB)."
+
+#~ msgid "A plugin that comes with Telescope already has that name."
+#~ msgstr "Ett tillägg som följer med Telescope har redan det namnet."
+
+#~ msgid "It isn't a .zip file Telescope can open."
+#~ msgstr "Det är inte en .zip-fil som Telescope kan öppna."
+
+#~ msgid "It holds a file with a path that points outside the plugin."
+#~ msgstr "Det innehåller en fil med en sökväg som pekar utanför tillägget."
+
+#~ msgid "It has to hold one folder, named as the plugin."
+#~ msgstr "Det måste innehålla en mapp, med samma namn som tillägget."
+
+#~ msgid ""
+"Camera off\n"
+"\n"
+"The phone's mic is still streaming.\n"
+"Stop streaming ends it."
+#~ msgstr ""
+"Kameran avstängd\n"
+"\n"
+"Telefonens mikrofon strömmar fortfarande.\n"
+"Stoppa strömning avslutar det."
+
+#~ msgid ""
+"Camera off\n"
+"\n"
+"No app was using the camera, so it turned off.\n"
+"The phone's mic is still streaming, and the camera\n"
+"comes back when an app opens it."
+#~ msgstr ""
+"Kameran avstängd\n"
+"\n"
+"Ingen app använde kameran, så den stängdes av.\n"
+"Telefonens mikrofon strömmar fortfarande, och kameran\n"
+"startar igen när en app öppnar den."
+
+#~ msgid "The phone gave up on the photo, maybe because its stream stopped."
+#~ msgstr "Telefonen gav upp fotot, kanske för att dess ström stoppades."
+
+#~ msgid "Couldn't remove it"
+#~ msgstr "Kunde inte ta bort den"
+
+#~ msgid "Couldn't save that"
+#~ msgstr "Kunde inte spara det"
+
+#~ msgid "Couldn't install it"
+#~ msgstr "Kunde inte installera det"
+
+#~ msgid "Installed, but it won't load"
+#~ msgstr "Installerat, men det kan inte laddas"
+
+#~ msgid "Couldn't open it"
+#~ msgstr "Kunde inte öppna den"
 
 #~ msgid "How far the Zoom slider goes. Zoom beyond the phone's own range is cropped on this computer."
 #~ msgstr "Hur långt reglaget Zoom går. Zoom bortom telefonens eget omfång beskärs på den här datorn."

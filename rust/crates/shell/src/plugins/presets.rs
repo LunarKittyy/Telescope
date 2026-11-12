@@ -280,7 +280,7 @@ impl Plugin for PresetsPlugin {
             name: NAME.into(),
             title: n_("Presets").into(),
             about: n_("Saving and loading groups of settings with one click.").into(),
-            when_off: n_("Without it there's no Presets button in the header (your saved presets aren't deleted).").into(),
+            when_off: n_("Without the Presets plugin there's no Presets button in the header (your saved presets aren't deleted).").into(),
             category: "extras".into(),
             icon: "preset".into(),
             device_local: true,

@@ -394,7 +394,7 @@ pub fn send_action(address: &Address, key_path: &Path, request: &Value) -> (bool
             let text = answer["text"].as_str().map_or_else(|| answer["text"].to_string(), str::to_string);
             (answer["ok"].as_bool().unwrap_or(false), text)
         }
-        _ => (false, tr("Telescope didn't understand that. Is it an older version? Update it to use --action.")),
+        _ => (false, tr("Telescope didn't understand the request. Is the running Telescope an older version? Update Telescope to use --action.")),
     }
 }
 
@@ -464,7 +464,7 @@ pub fn answer_with(conn: &mut Conn, on_raise: &dyn Fn(), on_action: Option<&dyn 
                 request.as_object_mut().map(|o| o.remove("key"));
                 run(request)
             }
-            _ => json!({"ok": false, "text": tr("Telescope turned that down: it didn't come from this user's Telescope command.")}),
+            _ => json!({"ok": false, "text": tr("Telescope rejected the request because it didn't come from this user's Telescope command.")}),
         };
         answer.to_string().into_bytes()
     } else if message.starts_with(RAISE) && &message[RAISE.len()..] == user_token().as_bytes() {
@@ -523,7 +523,7 @@ fn answer_mcp(conn: &mut Conn, line: &[u8], after: Vec<u8>, on_mcp: Option<&McpO
                 }
             }
         },
-        _ => say(conn, false, "Telescope turned that down: it didn't come from this user's Telescope command."),
+        _ => say(conn, false, "Telescope rejected the request because it didn't come from this user's Telescope command."),
     }
 }
 
@@ -553,7 +553,7 @@ pub fn connect_mcp(address: &Address, key_path: &Path) -> Result<Conn, McpRefuse
         match c.read(&mut byte) {
             Ok(1) if byte[0] == b'\n' => break,
             Ok(1) => line.push(byte[0]),
-            _ => return Err(McpRefused::Said("Telescope didn't understand that. Is it an older version? Update it to use MCP.".into())),
+            _ => return Err(McpRefused::Said("Telescope didn't understand the request. Is the running Telescope an older version? Update Telescope to use MCP.".into())),
         }
     }
     match serde_json::from_slice::<Value>(&line) {
@@ -561,8 +561,8 @@ pub fn connect_mcp(address: &Address, key_path: &Path) -> Result<Conn, McpRefuse
             c.set_timeout(None);
             Ok(c)
         }
-        Ok(answer) => Err(McpRefused::Said(answer["text"].as_str().unwrap_or("Telescope turned that down.").to_string())),
-        Err(_) => Err(McpRefused::Said("Telescope didn't understand that. Is it an older version? Update it to use MCP.".into())),
+        Ok(answer) => Err(McpRefused::Said(answer["text"].as_str().unwrap_or("Telescope rejected the request.").to_string())),
+        Err(_) => Err(McpRefused::Said("Telescope didn't understand the request. Is the running Telescope an older version? Update Telescope to use MCP.".into())),
     }
 }
 
@@ -752,9 +752,9 @@ mod tests {
         on.store(true, std::sync::atomic::Ordering::SeqCst);
         assert!(connect_mcp(&server.run.address, &server.run.key_path()).is_ok(), "switched on, the next try gets in");
         let wrong = server.run.says(b"mcp:{\"key\":\"nope\"}\n");
-        assert!(String::from_utf8_lossy(&wrong).contains("turned that down"), "{}", String::from_utf8_lossy(&wrong));
+        assert!(String::from_utf8_lossy(&wrong).contains("rejected the request"), "{}", String::from_utf8_lossy(&wrong));
         let missing = server.run.says(b"mcp:\n");
-        assert!(String::from_utf8_lossy(&missing).contains("turned that down"));
+        assert!(String::from_utf8_lossy(&missing).contains("rejected the request"));
         // Not running at all
         assert_eq!(connect_mcp(&test_address("mcp-nobody"), &server.run.key_path()).err(), Some(McpRefused::NotRunning));
         assert_eq!(connect_mcp(&server.run.address, &server.run.dir.join("no-key")).err(), Some(McpRefused::NotRunning));
@@ -924,7 +924,7 @@ mod tests {
         let run = Running::new("action-no-key");
         std::fs::write(run.key_path(), "not-the-key").unwrap();
         let (ok, text) = send_action(&run.address, &run.key_path(), &json!({"action": "camera.torch"}));
-        assert!(!ok && text.contains("turned that down"), "{text}");
+        assert!(!ok && text.contains("rejected the request"), "{text}");
         assert!(run.actions.lock().unwrap().is_empty());
     }
 
@@ -973,7 +973,7 @@ mod tests {
         // A key that isn't this run's is turned down
         std::fs::write(&key_path, "0".repeat(64)).unwrap();
         let (ok, text) = send_action(&address, &key_path, &request);
-        assert!(!ok && text.contains("turned that down"), "{text}");
+        assert!(!ok && text.contains("rejected the request"), "{text}");
         std::fs::remove_dir_all(&dir).unwrap();
         assert_eq!(send_action(&address, &key_path, &request), (false, "Telescope isn't running.".into()));
     }

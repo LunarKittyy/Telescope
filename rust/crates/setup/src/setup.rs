@@ -30,7 +30,7 @@ pub const MAX_ZOOM_RANGE: (i64, i64) = (2, 30);
 pub const MAX_GAIN_CHOICES: [i64; 4] = [12, 24, 36, 48];
 pub const DEFAULT_MAX_GAIN: i64 = 12;
 
-const SUDO_HINT: &str = n_("Asks for your password (pkexec or sudo): this changes system settings.");
+const SUDO_HINT: &str = n_("Needs your password (pkexec or sudo) to change system settings.");
 const SUDO_NEEDS: &str = n_("Needs your password (pkexec or sudo) because this changes system settings.");
 
 pub const AUTHOR_URL: &str = "https://github.com/LunarKittyy";
@@ -386,7 +386,7 @@ impl SetupPlugin {
             let note = tr("Applying stops the stream and reloads the virtual camera. Close OBS and other apps using it first.");
             (tr("Apply and reload"), format!("{note}\n{}", tr(SUDO_HINT)))
         } else {
-            (tr("Apply"), tr("Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."))
+            (tr("Apply"), tr("Applying restarts the stream at the new size. If OBS loses the source, remove the source and add it again."))
         };
         json!({
             "hw-enabled": p.hw_enabled, "hw-checked": self.hw_decode() && (p.hw_enabled || p.hw_line.is_empty()), "hw-line": p.hw_line,
@@ -519,8 +519,8 @@ impl SetupPlugin {
     /// The line under the switch. It stays on when the card fails, since that's only for this run, and the line says so.
     fn show_hardware_failed(&mut self, failed: bool) {
         self.panel.hw_line = match &self.panel.hw_found {
-            Some(_) if failed => tr("The graphics card failed and the processor is decoding until you restart Telescope"),
-            Some(_) if self.panel.hw_slow => tr("The graphics card was too slow, so the processor is decoding for now"),
+            Some(_) if failed => tr("Graphics card decoding failed, decoding on the processor until Telescope restarts"),
+            Some(_) if self.panel.hw_slow => tr("Graphics card too slow, decoding on the processor until Telescope restarts"),
             Some(name) => tr("Found {device}").field("device", name),
             None => tr("No graphics card Telescope can use"),
         };
@@ -645,7 +645,7 @@ impl SetupPlugin {
         let (line, button, tip, primary) = if mf == "ready" {
             (Line::new(tr("Ready"), "status_ok"), tr("Reinstall"), String::new(), false)
         } else if mf == "update" || (mf == "offer" && !uc_name.is_empty()) {
-            let text = if mf == "update" { tr("Update ready") } else { tr("Some apps can't see it") };
+            let text = if mf == "update" { tr("Update ready") } else { tr("Some apps can't see the camera") };
             (Line::new(text, "status_warn"), tr("Update"), tr("Install the camera every Windows 11 app can see (Windows asks for admin access once)."), true)
         } else if !uc_name.is_empty() && in_app_folder {
             // Registered by an older Telescope from the app's own folder, which any program running as this user can write to
@@ -673,7 +673,7 @@ impl SetupPlugin {
         p.adb = if adb_ok {
             Line::new(tr("Ready"), "status_ok")
         } else {
-            Line::new(tr("Not found. Pairing and installing over USB need it; Wi-Fi doesn't."), "status_err")
+            Line::new(tr("Not found. Pairing and installing over USB need adb; Wi-Fi doesn't."), "status_err")
         };
     }
 

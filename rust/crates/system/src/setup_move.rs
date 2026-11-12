@@ -378,7 +378,7 @@ pub struct SetupEnv<'a> {
 pub fn install_with_setup(setup: &Path, old_dir: &Path, build: i64, env: &SetupEnv) -> Result<InstallResult, UpdateError> {
     if let Some(location) = (env.locate)().filter(|l| std::fs::canonicalize(l).ok() != std::fs::canonicalize(old_dir).ok()) {
         if (env.installed_build)(&location).is_some_and(|installed| installed > build) {
-            return Err(UpdateError(tr("A newer Telescope is already installed, so this copy stays as it is. Open the installed one from the Start menu.")));
+            return Err(UpdateError(tr("A newer Telescope is already installed, so this copy is left unchanged. Open the installed Telescope from the Start menu.")));
         }
     }
     let mut argv: Vec<String> = [setup.to_string_lossy().as_ref(), "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"].map(String::from).to_vec();

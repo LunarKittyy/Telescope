@@ -762,7 +762,7 @@ impl ShortcutsPlugin {
         let meta = keys::META_NAME;
         // Saving a new one past the limit would drop it unseen
         if self.bindings.len() >= MAX_BINDINGS && !self.bindings.iter().any(|b| b.id == e.id) {
-            return (tr("There can be at most {max} shortcuts. Remove one to add another.").field("max", MAX_BINDINGS), true);
+            return (tr("There can be at most {max} shortcuts. Remove a shortcut to add another.").field("max", MAX_BINDINGS), true);
         }
         if e.action.is_none() || (listed == 0 && !e.query.is_empty() && !self.action_listed(e)) {
             return (if listed == 0 { tr("No control matches that search.") } else { tr("Pick a control.") }, true);
@@ -782,7 +782,7 @@ impl ShortcutsPlugin {
             return (bare(), false);
         }
         if e.global && keys::edits_text(&e.keys) {
-            let text = tr("Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer.")
+            let text = tr("Everywhere, {keys} could no longer be typed in other apps. Adding Ctrl, Alt or {meta} is safer.")
                 .field("keys", keys::native_keys(&e.keys)).field("meta", meta);
             return (text, false);
         }
@@ -829,7 +829,7 @@ impl ShortcutsPlugin {
             let mut current = options.iter().position(|(c, _)| *c == v);
             if current.is_none() && !v.is_empty() {
                 // A preset that's gone, say: kept, so Save keeps it
-                options.push((v.clone(), tr("{value} (not there now)").field("value", &v)));
+                options.push((v.clone(), tr("{value} (no longer available)").field("value", &v)));
                 current = Some(options.len() - 1);
             }
             let items: Vec<String> = options.into_iter().map(|(_, l)| l).collect();
@@ -1126,7 +1126,7 @@ impl Plugin for ShortcutsPlugin {
             name: "shortcuts".into(),
             title: n_("Keyboard shortcuts").into(),
             about: n_("Keys for Telescope's controls, including ones that work in other apps.").into(),
-            when_off: n_("Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back).").into(),
+            when_off: n_("Without the Keyboard shortcuts plugin no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when the plugin is on again).").into(),
             category: "extras".into(),
             icon: "keyboard".into(),
             ..Default::default()
@@ -1426,7 +1426,7 @@ mod tests {
         ui(&mut plugin, &mut host, "key-pressed", json!(["q", false, false, false, false]));
         let props = plugin.section_props();
         assert_eq!(props["save-enabled"], json!(true), "allowed, with a warning, everywhere");
-        assert!(props["problem"].as_str().unwrap().contains("stop typing"), "{}", props["problem"]);
+        assert!(props["problem"].as_str().unwrap().contains("could no longer be typed"), "{}", props["problem"]);
         ui(&mut plugin, &mut host, "key-pressed", json!(["z", true, false, true, false]));
         assert!(plugin.section_props()["problem"].as_str().unwrap().contains("text boxes of other apps"), "redo is a text box's own key");
         ui(&mut plugin, &mut host, "key-pressed", json!(["w", true, false, true, false]));
@@ -1577,7 +1577,7 @@ mod tests {
         assert_eq!(props["save-enabled"], json!(false));
         ui(&mut plugin, &mut host, "key-pressed", json!(["z", false, false, false, false]));
         let props = plugin.section_props();
-        assert!(props["problem"].as_str().unwrap().starts_with("Everywhere, Z would stop typing it in other apps."));
+        assert!(props["problem"].as_str().unwrap().starts_with("Everywhere, Z could no longer be typed in other apps."));
         assert_eq!(props["save-enabled"], json!(true), "only a warning");
         ui(&mut plugin, &mut host, "global-toggled", json!([false]));
         assert_eq!(plugin.section_props()["problem"], json!(""));
@@ -1596,7 +1596,7 @@ mod tests {
         assert_eq!((props["keys-text"].clone(), props["problem"].clone()), (json!("F5"), json!("")), "F5 types nothing");
         ui(&mut plugin, &mut host, "key-pressed", json!(["q", false, false, false, false]));
         let props = plugin.section_props();
-        assert!(props["problem"].as_str().unwrap().contains("stop typing"), "{}", props["problem"]);
+        assert!(props["problem"].as_str().unwrap().contains("could no longer be typed"), "{}", props["problem"]);
         assert_eq!(props["copy-enabled"], json!(false), "a command can't hold a key");
         choose(&mut plugin, &mut host, "Does", "Switch on or off");
         assert_eq!(plugin.section_props()["copy-enabled"], json!(true));
@@ -1616,7 +1616,7 @@ mod tests {
         plugin.settings_sections();
         ui(&mut plugin, &mut host, "edit", json!([0]));
         let params = plugin.section_props()["params"].clone();
-        assert_eq!(params[0]["items"], json!(["Desk", "Gone (not there now)"]));
+        assert_eq!(params[0]["items"], json!(["Desk", "Gone (no longer available)"]));
         assert_eq!(params[0]["current"], json!(1));
         ui(&mut plugin, &mut host, "save", json!([]));
         assert_eq!(plugin.bindings()[0].params["name"], json!("Gone"));
@@ -2031,7 +2031,7 @@ mod tests {
 
     #[test]
     fn a_crash_in_a_remote_action_still_answers() {
-        assert_eq!(answered(|| panic!("boom")), json!({"ok": false, "text": "That failed; Copy diagnostics has the details."}));
+        assert_eq!(answered(|| panic!("boom")), json!({"ok": false, "text": "The action failed. Copy diagnostics has the details."}));
         assert_eq!(answered(|| json!({"ok": true})), json!({"ok": true}));
     }
 

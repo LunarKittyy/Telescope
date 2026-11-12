@@ -14,8 +14,8 @@ msgid "Needs {tools} (in pulseaudio-utils; PipeWire systems use it too)."
 msgstr "{tools} 도구가 필요해요(pulseaudio-utils 패키지 포함, PipeWire 시스템에서도 사용됨)."
 
 #: rust/crates/audio/src/backend.rs:166
-msgid "Once VB-Cable's setup says it's done, restart the computer, then switch this off and on."
-msgstr "VB-Cable 설치 완료 메시지가 나타나면 컴퓨터를 다시 시작한 다음 이 기능을 껐다가 켜세요."
+msgid "When VB-Cable's setup has finished, restart the computer, then switch this off and on."
+msgstr ""
 
 #: rust/crates/audio/src/backend.rs:167
 msgid "Open setup again"
@@ -97,8 +97,8 @@ msgstr "해당 소스를 더 이상 사용할 수 없어요."
 
 #: rust/crates/audio/src/plugin.rs:445
 #, python-brace-format
-msgid "On for {name}. Turning it on here turns it off there."
-msgstr "{name}에서 켜져 있어요. 여기서 켜면 해당 기기에서는 꺼져요."
+msgid "On for {name}. Turning the microphone on here turns it off for {name}."
+msgstr ""
 
 #: rust/crates/audio/src/plugin.rs:474
 msgid "Mute microphone"
@@ -236,8 +236,8 @@ msgid "Using the phone's microphone on this computer."
 msgstr "휴대폰 마이크를 이 컴퓨터에서 사용해요."
 
 #: rust/crates/audio/src/plugin.rs:1056
-msgid "Without it there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone."
-msgstr "이 플러그인이 없으면 마이크 카드가 표시되지 않고 시스템 트레이 메뉴에 음소거가 나타나지 않으며 Telescope가 가상 마이크를 생성하지 않아요."
+msgid "Without the Microphone plugin there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone."
+msgstr ""
 
 #: rust/crates/audio/src/plugin.rs:1128
 msgid "Mute or unmute"
@@ -286,8 +286,8 @@ msgid "Couldn't download VB-Cable. Try again, or get it from their site."
 msgstr "VB-Cable을 다운로드하지 못했어요. 다시 시도하거나 해당 사이트에서 직접 다운로드하세요."
 
 #: rust/crates/audio/src/vb_cable.rs:165
-msgid "VB-Audio's site didn't hand over VB-Cable. Try again later, or get it from their site."
-msgstr "VB-Audio 사이트에서 VB-Cable을 제공하지 않았어요. 나중에 다시 시도하거나 해당 사이트에서 직접 다운로드하세요."
+msgid "Couldn't download VB-Cable from VB-Audio's site. Try again later, or get it from their site."
+msgstr ""
 
 #: rust/crates/audio/src/vb_cable.rs:166
 msgid "Couldn't check vb-audio.com's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this."
@@ -306,12 +306,12 @@ msgid "Couldn't unpack VB-Cable. Try again, or get it from their site."
 msgstr "VB-Cable 압축을 풀지 못했어요. 다시 시도하거나 해당 사이트에서 직접 다운로드하세요."
 
 #: rust/crates/audio/src/vb_cable.rs:193
-msgid "VB-Audio's download doesn't have the setup it used to. Get it from their site instead."
-msgstr "VB-Audio 다운로드 파일에 기존 설치 프로그램이 없어요. 대신 해당 사이트에서 직접 다운로드하세요."
+msgid "VB-Audio's download no longer has the setup file. Get it from their site instead."
+msgstr ""
 
 #: rust/crates/audio/src/vb_cable.rs:239
-msgid "VB-Cable's setup changed after it was checked, so it wasn't opened."
-msgstr "VB-Cable 설치 프로그램이 확인 후 변경되어 열리지 않았어요."
+msgid "VB-Cable's setup file changed after the check, so Telescope didn't open it."
+msgstr ""
 
 #: rust/crates/audio/src/vb_cable.rs:244
 msgid "Windows didn't get permission to install VB-Cable."
@@ -339,8 +339,8 @@ msgid "Level"
 msgstr "수평계"
 
 #: rust/crates/audio/ui/microphone.slint:95 rust/crates/audio/ui/microphone.slint:201
-msgid "Yellow: the limiter is holding peaks down. Red: it clipped."
-msgstr "노란색: 리미터가 피크를 억제하고 있어요. 빨간색: 소리가 깨졌어요."
+msgid "Yellow: the limiter is holding peaks down. Red: the sound clipped."
+msgstr ""
 
 #: rust/crates/audio/ui/microphone.slint:95
 msgid "Click to clear"
@@ -375,8 +375,8 @@ msgid "Download and install"
 msgstr "다운로드 및 설치"
 
 #: rust/crates/audio/ui/microphone.slint:315
-msgid "Telescope downloads VB-Cable from vb-audio.com and opens its setup, which asks for admin. Restart the computer afterwards."
-msgstr "Telescope가 vb-audio.com에서 VB-Cable을 다운로드하고 관리자 권한을 요청하는 설치 프로그램을 열어요. 설치 후 컴퓨터를 다시 시작하세요."
+msgid "VB-Cable is downloaded from vb-audio.com and its setup opens, which asks for admin access. Restart the computer afterwards."
+msgstr ""
 
 #: rust/crates/core/src/actions.rs:177
 msgid "Raise by"
@@ -544,8 +544,8 @@ msgid "Getting ready…"
 msgstr "준비 중…"
 
 #: rust/crates/effects/src/auto_grade.rs:19
-msgid "Looking…"
-msgstr "확인 중…"
+msgid "Analysing…"
+msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
 #: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:27 rust/crates/effects/src/framing.rs:72 rust/crates/effects/src/fun_pack.rs:38 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:459 rust/crates/effects/ui/background.slint:46 rust/crates/effects/ui/background.slint:51 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:287 rust/crates/link/src/browser/plugin.rs:585 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:78
@@ -585,12 +585,12 @@ msgid "Background"
 msgstr "배경"
 
 #: rust/crates/effects/src/background.rs:485
-msgid "Blurs the background behind you or swaps it for a picture."
-msgstr "등 뒤의 배경을 흐리게 처리하거나 사진으로 교체해요."
+msgid "Blur the background behind you or swap it for a picture."
+msgstr ""
 
 #: rust/crates/effects/src/background.rs:486
-msgid "Without it there's no Background card and the background stays as the camera sees it."
-msgstr "이 플러그인이 없으면 배경 카드가 표시되지 않으며, 배경이 카메라에 보이는 그대로 유지돼요."
+msgid "Without the Background plugin there's no Background card and the background stays as the camera sees it."
+msgstr ""
 
 #: rust/crates/effects/src/background.rs:580 rust/crates/effects/src/background.rs:606
 msgid "Background blur"
@@ -669,12 +669,12 @@ msgid "Start streaming to pick a colour on the preview."
 msgstr "미리보기에서 색상을 선택하려면 스트리밍을 시작하세요."
 
 #: rust/crates/effects/src/chroma_key.rs:538
-msgid "Swaps a green or blue screen behind you for a colour or a picture, with no download."
-msgstr "별도 다운로드 없이 등 뒤의 초록색이나 파란색 스크린을 색상 또는 사진으로 바꿔 줘요."
+msgid "Swap a green or blue screen behind you for a colour or a picture, with no download."
+msgstr ""
 
 #: rust/crates/effects/src/chroma_key.rs:539
-msgid "Without it there's no Chroma key card and a green screen stays green."
-msgstr "이 플러그인이 없으면 크로마키 카드가 표시되지 않으며 초록색 스크린이 그대로 초록색으로 유지돼요."
+msgid "Without the Chroma key plugin there's no Chroma key card and a green screen stays green."
+msgstr ""
 
 #: rust/crates/effects/src/chroma_key.rs:656 rust/crates/effects/src/chroma_key.rs:691
 msgid "Chroma key tolerance"
@@ -733,8 +733,8 @@ msgid "Focus peaking, zebras, false colour, scopes, framing guides and a level o
 msgstr "초점, 노출, 프레이밍, 수평을 확인할 수 있도록 미리보기에 포커스 피킹, 지브라, 폴스 컬러, 스코프, 프레이밍 가이드, 수평계를 표시해요."
 
 #: rust/crates/effects/src/cinema.rs:318
-msgid "Without it there's no Cinema tools card and the preview shows just the picture."
-msgstr "이 플러그인이 없으면 시네마 도구 카드가 표시되지 않으며 미리보기에 화면만 표시돼요."
+msgid "Without the Cinema tools plugin there's no Cinema tools card and the preview shows just the picture."
+msgstr ""
 
 #: rust/crates/effects/src/cinema.rs:371
 msgctxt "search"
@@ -930,20 +930,20 @@ msgid "No picture"
 msgstr "사진 없음"
 
 #: rust/crates/effects/src/colour_grading.rs:60
-msgid "Looking at the picture…"
-msgstr "화면 분석 중…"
+msgid "Analysing the picture…"
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:61
-msgid "Auto couldn't get a steady picture to look at. Try again while nothing moves."
-msgstr "자동 기능이 분석할 흔들림 없는 화면을 얻지 못했어요. 움직임이 없을 때 다시 시도해 보세요."
+msgid "No steady picture to analyse. Try again while nothing moves."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:62
 msgid "Nothing to change, the picture already looks right."
 msgstr "변경할 것이 없어요. 화면이 이미 적절해 보여요."
 
 #: rust/crates/effects/src/colour_grading.rs:63
-msgid "Nothing needs changing now, so Auto's earlier changes were taken off."
-msgstr "지금은 변경할 필요가 없어서 자동 기능이 이전에 적용한 변경 사항을 해제했어요."
+msgid "Nothing needs changing, so Auto's earlier changes were removed."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:64
 #, python-brace-format
@@ -951,20 +951,20 @@ msgid "Auto changed {parts}."
 msgstr "자동 기능이 {parts} 항목을 변경했어요."
 
 #: rust/crates/effects/src/colour_grading.rs:65
-msgid "No face was found, so it went by the background and the brightness."
-msgstr "얼굴을 찾지 못해 배경과 밝기를 기준으로 조정했어요."
+msgid "No face found, so Auto used the background and brightness."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:66
-msgid "The light is mixed or coloured, so white balance stayed as it was."
-msgstr "조명이 섞여 있거나 색이 강해서 화이트 밸런스는 그대로 유지했어요."
+msgid "The light is mixed or coloured, so white balance was not changed."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:67
-msgid "Your own wheels and curves would have clipped the picture, so Auto went only part of the way."
-msgstr "직접 설정한 휠과 커브 때문에 화면이 클리핑될 수 있어서 자동 기능을 일부만 적용했어요."
+msgid "Your own wheels and curves would have clipped the picture, so Auto applied only part of the change."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:68
-msgid "The camera adjusts itself, so this may drift."
-msgstr "카메라가 자체적으로 조정 중이어서 설정이 흔들릴 수 있어요."
+msgid "The camera adjusts automatically, so the result may drift."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:69
 msgid "white balance"
@@ -1094,8 +1094,8 @@ msgid "Colour wheels, curves and LUT files for the look of the picture."
 msgstr "화면 분위기를 연출할 수 있는 컬러 휠, 커브, LUT 파일이에요."
 
 #: rust/crates/effects/src/colour_grading.rs:1081
-msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
-msgstr "이 플러그인이 없으면 컬러 그레이딩 카드가 표시되지 않으며 화면에 카메라 본래의 색상이 유지돼요."
+msgid "Without the Colour grading plugin there's no Colour grading card and the picture keeps the camera's colours."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:1175 rust/crates/effects/src/colour_grading.rs:1221
 msgid "Compare before and after"
@@ -1183,23 +1183,23 @@ msgid "Nothing's in the picture yet."
 msgstr "아직 화면에 아무것도 없어요."
 
 #: rust/crates/effects/src/composite_plugin.rs:445
-msgid "It takes over once two of its streams are running."
-msgstr "포함된 스트림 중 2개가 실행되면 이 화면으로 전환돼요."
+msgid "Active once two streams are running."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:447
 #, python-brace-format
-msgid "It goes out on {camera}, and no stream goes there now."
-msgstr "이 화면은 {camera}(으)로 나가지만, 지금은 그쪽으로 가는 스트림이 없어요."
+msgid "Set to output on {camera}, but no stream is running there."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:449
 #, python-brace-format
-msgid "It goes out on {camera} once the stream there sends a picture."
-msgstr "해당 스트림에서 화면을 전송하면 {camera}(으)로 출력돼요."
+msgid "Will output on {camera} once the stream there sends a picture."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:451
 #, python-brace-format
-msgid "Goes out on {camera}."
-msgstr "{camera}(으)로 출력돼요."
+msgid "Outputting on {camera}."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:456
 msgid "Nothing in it"
@@ -1222,12 +1222,12 @@ msgid "Several cameras in one picture"
 msgstr "여러 카메라를 한 화면에"
 
 #: rust/crates/effects/src/composite_plugin.rs:508
-msgid "Puts the streams you run side by side or one inside another, out on one virtual camera."
-msgstr "실행 중인 여러 스트림을 나란히 배치하거나 화면 속 화면으로 구성하여 하나의 가상 카메라로 내보내요."
+msgid "Put the streams you run side by side or inside each other on one virtual camera."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:509
-msgid "Without it there's no One picture card and each stream only goes to its own camera."
-msgstr "이 플러그인이 없으면 한 화면 카드가 표시되지 않으며 각 스트림이 자체 카메라로만 전송돼요."
+msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:595 rust/crates/effects/src/composite_plugin.rs:619
 msgid "Picture layout"
@@ -1238,8 +1238,8 @@ msgid "This file is too big to be a LUT Telescope can use."
 msgstr "이 파일은 너무 커서 Telescope에서 LUT로 사용할 수 없어요."
 
 #: rust/crates/effects/src/cube.rs:14
-msgid "This isn't a .cube LUT: it doesn't say its size."
-msgstr ".cube LUT 파일이 아니에요: 크기 정보가 없어요."
+msgid "This isn't a .cube LUT: the size is missing."
+msgstr ""
 
 #: rust/crates/effects/src/cube.rs:15
 #, python-brace-format
@@ -1344,8 +1344,8 @@ msgid "Sheet unclear"
 msgstr "용지 불분명"
 
 #: rust/crates/effects/src/desk.rs:200
-msgid "Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."
-msgstr "모서리 점들이 너무 뭉쳐 있거나 일직선상에 있어 적용되지 않았어요. 종이의 네 모서리에 각각 하나씩 놓이도록 다시 지정해 보세요."
+msgid "Those corners were bunched up or in a line and weren't used. Mark the sheet again with a point on each corner."
+msgstr ""
 
 #: rust/crates/effects/src/desk.rs:202
 msgid "Sheet cut off"
@@ -1388,12 +1388,12 @@ msgid "Desk and document mode"
 msgstr "데스크 및 문서 모드"
 
 #: rust/crates/effects/src/desk.rs:332
-msgid "Straightens a sheet of paper you mark on the preview and can make the writing on it stand out."
-msgstr "미리보기에서 지정한 종이를 반듯하게 펴고 글씨가 더 또렷하게 보이도록 보정해요."
+msgid "Straighten a sheet of paper you mark on the preview and optionally make the writing on it stand out."
+msgstr ""
 
 #: rust/crates/effects/src/desk.rs:333
-msgid "Without it there's no Desk mode card and the picture stays the way the camera sees it."
-msgstr "이 플러그인이 없으면 데스크 모드 카드가 표시되지 않으며 화면이 카메라에 비친 그대로 유지돼요."
+msgid "Without the Desk and document mode plugin there's no Desk mode card and the picture stays the way the camera sees it."
+msgstr ""
 
 #: rust/crates/effects/src/desk.rs:423 rust/crates/effects/src/desk.rs:447
 msgid "Make the writing stand out"
@@ -1424,12 +1424,12 @@ msgid "This lens can't meter on a point."
 msgstr "이 렌즈는 특정 지점 측광을 지원하지 않아요."
 
 #: rust/crates/effects/src/face_exposure.rs:291
-msgid "Moves the phone's metering point to your face to keep you well lit whatever's behind you."
-msgstr "배경 밝기와 상관없이 얼굴이 밝게 나오도록 휴대폰의 측광 기준을 얼굴로 이동해요."
+msgid "Move the phone's metering point to your face to keep you well lit, whatever is behind you."
+msgstr ""
 
 #: rust/crates/effects/src/face_exposure.rs:292
-msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
-msgstr "이 플러그인이 없으면 '얼굴 기준 노출' 카드가 표시되지 않으며 휴대폰이 탭한 위치나 화면 전체를 기준으로 측광해요."
+msgid "Without the Expose for my face plugin there's no Expose for my face card and the phone meters the point you tap or the whole picture."
+msgstr ""
 
 #: rust/crates/effects/src/framing.rs:20 rust/crates/effects/ui/framing.slint:43
 msgid "Auto framing"
@@ -1551,8 +1551,8 @@ msgid "Show hands"
 msgstr "손 표시"
 
 #: rust/crates/effects/src/framing.rs:94
-msgid "Widens the view so your hands are in it too."
-msgstr "손도 함께 보이도록 시야를 넓혀요."
+msgid "Widen the view so your hands are in it too."
+msgstr ""
 
 #: rust/crates/effects/src/framing.rs:95
 msgid "Something else is moving the zoom and pan."
@@ -1571,8 +1571,8 @@ msgid "Zooms and pans to keep you in the picture as you move."
 msgstr "움직여도 화면 안에 유지되도록 줌과 팬을 자동으로 조절해요."
 
 #: rust/crates/effects/src/framing.rs:876
-msgid "Without it there's no Auto framing card and the zoom stays where you put it."
-msgstr "이 플러그인이 없으면 자동 프레이밍 카드가 표시되지 않으며 줌이 설정한 위치에 그대로 고정돼요."
+msgid "Without the Auto framing plugin there's no Auto framing card and the zoom stays where you put it."
+msgstr ""
 
 #: rust/crates/effects/src/fun_pack.rs:39
 msgid "Clone party"
@@ -1680,8 +1680,8 @@ msgstr "띠가 지나가는 방향이에요."
 
 #: rust/crates/effects/src/fun_pack.rs:392
 #, python-brace-format
-msgid "Taking it in {n}…"
-msgstr "{n}초 후 촬영…"
+msgid "Taking the empty room in {n}…"
+msgstr ""
 
 #: rust/crates/effects/src/fun_pack.rs:394
 msgid "Take the empty room again"
@@ -1721,8 +1721,8 @@ msgid "Silly effects: clones, an invisibility cloak, light painting, retro looks
 msgstr "재미있는 특수 효과: 클론, 투명 망토, 라이트 페인팅, 레트로 효과, 데이터모시."
 
 #: rust/crates/effects/src/fun_pack.rs:655
-msgid "Without it there's no Fun pack card and the picture has no effects."
-msgstr "이 플러그인이 없으면 펀 팩 카드가 표시되지 않으며 화면에 특수 효과가 적용되지 않아요."
+msgid "Without the Fun pack plugin there's no Fun pack card and the picture has no effects."
+msgstr ""
 
 #: rust/crates/effects/src/fun_pack.rs:747 rust/crates/effects/src/fun_pack.rs:803
 msgid "Datamosh smear"
@@ -1785,13 +1785,13 @@ msgstr "역할처럼 이름 아래에 작게 표시할 선택적 문구예요."
 msgid "Name tag"
 msgstr "이름표"
 
-#: rust/crates/effects/src/name_tag.rs:162
-msgid "Puts your name and pronouns in the corner of the picture."
-msgstr "화면 구석에 이름과 대명사를 표시해요."
+#: rust/crates/effects/src/name_tag.rs:162 rust/crates/effects/ui/name_tag.slint:66
+msgid "Show your name and pronouns in a corner of the picture."
+msgstr "화면 모서리에 이름과 대명사를 표시해요."
 
 #: rust/crates/effects/src/name_tag.rs:163
-msgid "Without it there's no Name tag card and nothing is drawn on the picture."
-msgstr "끄면 이름표 카드가 사라지고 화면에 아무것도 표시되지 않아요."
+msgid "Without the Name tag plugin there's no Name tag card and nothing is drawn on the picture."
+msgstr ""
 
 #: rust/crates/effects/src/name_tag.rs:211
 msgctxt "search"
@@ -1954,12 +1954,12 @@ msgid "Teleprompter"
 msgstr "텔레프롬프터"
 
 #: rust/crates/effects/src/notes.rs:563
-msgid "Shows your script on the phone's screen right under the camera, to read while looking people in the eye."
-msgstr "시선을 맞추며 읽을 수 있도록 휴대폰 화면의 카메라 바로 아래에 대본을 표시해요."
+msgid "Show your script on the phone's screen right under the camera, to read while looking into the camera."
+msgstr ""
 
 #: rust/crates/effects/src/notes.rs:564
-msgid "Without it there's no Teleprompter card and the phone never shows a script."
-msgstr "이 플러그인이 없으면 텔레프롬프터 카드가 사라지고 휴대폰에 대본이 표시되지 않아요."
+msgid "Without the Teleprompter plugin there's no Teleprompter card and the phone never shows a script."
+msgstr ""
 
 #: rust/crates/effects/src/notes.rs:643 rust/crates/effects/src/notes.rs:688
 msgid "Teleprompter speed"
@@ -2011,8 +2011,8 @@ msgstr "Telescope 스트리밍 중"
 
 #. Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons: use the names those browsers show in your language
 #: rust/crates/effects/src/on_air_plugin.rs:43
-msgid "The browser warns that the connection isn't private: it's this computer's own certificate. On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed."
-msgstr "브라우저에서 연결이 비공개로 설정되지 않았다는 경고가 뜰 수 있어요. 이 컴퓨터의 자체 인증서 때문이에요. iPhone에서는 '세부사항 보기'를 탭한 다음 '이 웹사이트 방문'을 탭하세요. Chrome에서는 '고급'을 탭한 다음 '계속 진행'을 탭하세요."
+msgid "The browser warns that the connection isn't private: the certificate is this computer's own. On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed."
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:45
 msgid "When the sign turns on. The mic only counts while it's streaming and not muted."
@@ -2063,22 +2063,22 @@ msgid "Sending…"
 msgstr "전송 중…"
 
 #: rust/crates/effects/src/on_air_plugin.rs:254
-msgid "It went through."
-msgstr "전송되었어요."
+msgid "Test request succeeded."
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:256
 #, python-brace-format
-msgid "It didn't go through: {error}"
-msgstr "전송되지 않았어요: {error}"
+msgid "Test request failed: {error}"
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:276
-msgid "The On Air webhook didn't go through"
-msgstr "온에어 웹훅이 전송되지 않았어요"
+msgid "The On Air webhook failed"
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:277
 #, python-brace-format
-msgid "It answered: {error}"
-msgstr "응답: {error}"
+msgid "The webhook returned: {error}"
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:459 rust/crates/shell/src/doc.rs:460 rust/crates/shell/src/doc.rs:915
 msgid "Settings"
@@ -2110,12 +2110,12 @@ msgid "On Air sign"
 msgstr "온에어 표시"
 
 #: rust/crates/effects/src/on_air_plugin.rs:515
-msgid "Shows the people around you that your camera or microphone is in use, on another device's screen or through a smart home light."
-msgstr "다른 기기 화면이나 스마트 홈 조명을 통해 카메라나 마이크를 사용 중임을 주변 사람들에게 알려요."
+msgid "Show the people around you that your camera or microphone is in use, on another device's screen or through a smart home light."
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:516
-msgid "Without it there's no On Air tab in Settings and no sign or webhook."
-msgstr "끄면 설정에 온에어 탭이 사라지고 표시나 웹훅을 사용할 수 없어요."
+msgid "Without the On Air sign plugin there's no On Air tab in Settings and no sign or webhook."
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:626
 msgctxt "search"
@@ -2251,8 +2251,8 @@ msgid "This lens and mode have no extra noise reduction or sharpening to offer"
 msgstr "이 렌즈와 모드는 추가 노이즈 감소나 선명도를 지원하지 않아요"
 
 #: rust/crates/effects/src/photos.rs:56
-msgid "The camera keeps its own JPEG quality"
-msgstr "카메라 자체 JPEG 화질을 유지해요"
+msgid "JPEG quality is set by the camera"
+msgstr ""
 
 #: rust/crates/effects/src/photos.rs:57
 msgid "RAW photos have no quality setting"
@@ -2364,7 +2364,7 @@ msgstr "사진 저장됨"
 
 #: rust/crates/effects/src/photos.rs:825
 #, python-brace-format
-msgid "It came late. Saved {name}"
+msgid "The photo arrived late. Saved {name}"
 msgstr ""
 
 #: rust/crates/effects/src/photos.rs:839
@@ -2375,13 +2375,13 @@ msgstr "사진 저장 위치"
 msgid "Photos"
 msgstr "사진"
 
-#: rust/crates/effects/src/photos.rs:855
-msgid "Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it."
+#: rust/crates/effects/src/photos.rs:855 rust/crates/effects/ui/photos.slint:135
+msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
 msgstr "카메라가 지원하는 경우 RAW를 포함해 휴대폰이나 DSLR에서 최고 화질로 사진을 찍어요."
 
 #: rust/crates/effects/src/photos.rs:856
-msgid "Without it there's no Photos card and no Take photo shortcut."
-msgstr "끄면 사진 카드가 사라지고 사진 촬영 단축키를 사용할 수 없어요."
+msgid "Without the Photos plugin there's no Photos card and no Take photo shortcut."
+msgstr ""
 
 #: rust/crates/effects/src/photos.rs:974 rust/crates/effects/src/photos.rs:1012
 msgid "Photo mode"
@@ -2424,12 +2424,12 @@ msgid "Blur the picture until you click again."
 msgstr "다시 클릭할 때까지 화면을 흐리게 처리해요."
 
 #: rust/crates/effects/src/privacy_blur.rs:286
-msgid "Blurs the whole picture, or puts the wait screen up, when more than one person is in it. It only knows about the people the vision models find, so it can miss someone and can't guarantee privacy."
+msgid "Blurs the whole picture, or puts the wait screen up, when more than one person is in it. Only people the vision models find are detected, so someone can be missed and privacy isn't guaranteed."
 msgstr ""
 
 #: rust/crates/effects/src/privacy_blur.rs:287
-msgid "Without it there's no Privacy blur card and nothing gets hidden when someone walks in."
-msgstr "끄면 프라이버시 흐림 효과 카드가 사라지고 누군가 들어와도 화면이 가려지지 않아요."
+msgid "Without the Privacy blur plugin there's no Privacy blur card and nothing gets hidden when someone walks in."
+msgstr ""
 
 #: rust/crates/effects/src/privacy_blur.rs:403 rust/crates/effects/src/privacy_blur.rs:416 rust/crates/effects/ui/privacy_blur.slint:53 rust/crates/effects/ui/privacy_blur.slint:59 rust/crates/effects/ui/privacy_blur.slint:60
 msgid "Blur now"
@@ -2491,20 +2491,20 @@ msgid "QR code found"
 msgstr "QR 코드 찾음"
 
 #: rust/crates/effects/src/qr_reader.rs:651
-msgid "Click Copy on the QR codes card to put it on the clipboard."
-msgstr "QR 코드 카드에서 복사를 누르면 클립보드에 복사돼요."
+msgid "Click Copy on the QR codes card to copy the code."
+msgstr ""
 
 #: rust/crates/effects/src/qr_reader.rs:667 rust/crates/effects/src/qr_reader.rs:739
 msgid "QR code reader"
 msgstr "QR 코드 리더"
 
 #: rust/crates/effects/src/qr_reader.rs:668
-msgid "Copies a QR code you hold up to the camera, or the password from a Wi-Fi code."
-msgstr "카메라에 비춘 QR 코드나 Wi-Fi 코드의 비밀번호를 복사해요."
+msgid "Copy a QR code you hold up to the camera, or the password from a Wi-Fi code."
+msgstr ""
 
 #: rust/crates/effects/src/qr_reader.rs:669
-msgid "Without it there's no QR code card and codes in the picture are left alone."
-msgstr "끄면 QR 코드 카드가 사라지고 화면에 코드가 나타나도 무시해요."
+msgid "Without the QR code reader plugin there's no QR code card and codes in the picture are left alone."
+msgstr ""
 
 #: rust/crates/effects/src/qr_reader.rs:739 rust/crates/effects/src/qr_reader.rs:751
 msgid "Read QR codes"
@@ -2541,17 +2541,17 @@ msgstr "메인 카메라"
 
 #: rust/crates/effects/src/transforms.rs:69
 #, python-brace-format
-msgid "Panned past what {tele} can see, so it's on {live}. Pan back to switch again."
-msgstr "{tele}의 화각을 벗어나 팬했기 때문에 {live}(으)로 전환되었어요. 다시 전환하려면 반대로 팬하세요."
+msgid "Panned past what {tele} can see, so {live} is used. Pan back to switch again."
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:72
 #, python-brace-format
-msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
-msgstr "휴대폰이 자동으로 {live} 상태를 유지했어요. {tele}에는 너무 어둡거나 너무 가까울 가능성이 커요. 전환이 가능해지면 바로 전환돼요."
+msgid "The phone kept using {live}, probably because the scene is too dark or too close for {tele}. The phone switches to {tele} when that changes."
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:78
-msgid "It can wobble for a moment while it switches."
-msgstr "전환되는 동안 화면이 잠시 흔들릴 수 있어요."
+msgid "The picture can wobble for a moment during the switch."
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:226
 #, python-brace-format
@@ -2573,8 +2573,8 @@ msgid "Add shortcut for {action}…"
 msgstr "{action} 단축키 추가…"
 
 #: rust/crates/effects/src/transforms.rs:520
-msgid "Zoomed on this computer: this lens can't zoom itself"
-msgstr "이 컴퓨터에서 줌 적용됨: 이 렌즈 자체로는 줌을 할 수 없어요"
+msgid "Zoomed on this computer: this lens can't zoom"
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:520
 msgid "Zoomed on this computer"
@@ -2597,8 +2597,8 @@ msgid "Zoom, pan, flip, rotate and stretch the picture."
 msgstr "화면을 줌, 팬, 반전, 회전하거나 늘릴 수 있어요."
 
 #: rust/crates/effects/src/transforms.rs:553
-msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
-msgstr "이 플러그인이 없으면 화면 변형 카드가 표시되지 않으며, 화면이 휴대폰에서 전송된 그대로 출력돼요."
+msgid "Without the Transforms plugin there's no Transforms card and the picture goes out exactly as the phone sends it."
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:643 rust/crates/effects/src/transforms.rs:696 rust/crates/effects/ui/composite_editor.slint:445 rust/crates/effects/ui/transforms.slint:169 rust/crates/effects/ui/transforms.slint:184 rust/crates/effects/ui/transforms.slint:185 rust/crates/effects/ui/transforms.slint:226 rust/crates/outputs/src/webcam.rs:56
 msgid "Zoom"
@@ -2789,8 +2789,8 @@ msgid "Auto colour grading"
 msgstr "자동 색보정"
 
 #: rust/crates/effects/ui/colour_grading.slint:262
-msgid "Looking at the picture"
-msgstr "화면 분석 중"
+msgid "Analysing the picture"
+msgstr ""
 
 #: rust/crates/effects/ui/colour_grading.slint:263
 msgid "Set white balance, brightness, contrast and colour from about a second of the picture. You can still adjust everything on the sliders."
@@ -3136,10 +3136,6 @@ msgstr "가로로"
 msgid "Not ready"
 msgstr "준비되지 않음"
 
-#: rust/crates/effects/ui/name_tag.slint:66
-msgid "Show your name and pronouns in a corner of the picture."
-msgstr "화면 모서리에 이름과 대명사를 표시해요."
-
 #: rust/crates/effects/ui/name_tag.slint:77 rust/crates/effects/ui/name_tag.slint:81 rust/crates/effects/ui/name_tag.slint:82 rust/crates/effects/ui/name_tag.slint:83 rust/crates/link/ui/connection.slint:647
 msgid "Name"
 msgstr "이름"
@@ -3189,8 +3185,8 @@ msgid "Move through the script"
 msgstr "대본 이동"
 
 #: rust/crates/effects/ui/on_air.slint:113
-msgid "Shows the people around you that your camera or microphone is in use."
-msgstr "카메라나 마이크를 사용 중임을 주변 사람들에게 알려요."
+msgid "Show the people around you that your camera or microphone is in use."
+msgstr ""
 
 #: rust/crates/effects/ui/on_air.slint:118
 msgid "Now"
@@ -3226,8 +3222,8 @@ msgid "Open the sign in a browser on a tablet, a phone or another computer"
 msgstr ""
 
 #: rust/crates/effects/ui/on_air.slint:166
-msgid "The page didn't start"
-msgstr "페이지가 시작되지 않음"
+msgid "Page failed to start"
+msgstr ""
 
 #: rust/crates/effects/ui/on_air.slint:174
 msgid "Scan the code to open the sign on another device"
@@ -3382,10 +3378,6 @@ msgstr "아래"
 msgid "Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve."
 msgstr "화살표 키로 선택한 포인트를 이동하고, Shift와 화살표 키를 함께 누르면 더 많이 이동해요. 왼쪽 및 오른쪽 대괄호 키로 다른 포인트를 선택해요. Delete는 포인트를 삭제하고 Home은 커브를 초기화해요."
 
-#: rust/crates/effects/ui/photos.slint:135
-msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
-msgstr "카메라가 지원하는 경우 RAW를 포함해 휴대폰이나 DSLR에서 최고 화질로 사진을 찍어요."
-
 #: rust/crates/effects/ui/photos.slint:166
 msgid "Higher ISO makes the photo brighter but grainier."
 msgstr "ISO가 높을수록 사진이 밝아지지만 노이즈가 많아져요."
@@ -3491,8 +3483,8 @@ msgid "Finding the current adb…"
 msgstr "현재 adb 찾는 중…"
 
 #: rust/crates/link/src/adb_download.rs:277
-msgid "Google's list of downloads wasn't what Telescope expected. Try again later."
-msgstr "Google 다운로드 목록이 Telescope에서 예상한 형식과 달라요. 나중에 다시 시도해 보세요."
+msgid "Google's list of downloads has an unexpected format. Try again later."
+msgstr ""
 
 #: rust/crates/link/src/adb_download.rs:284 rust/crates/link/src/adb_download.rs:296 rust/crates/link/src/adb_download.rs:463
 msgid "Couldn't download adb. Try again."
@@ -3532,8 +3524,8 @@ msgid "Couldn't copy adb from there."
 msgstr "해당 위치에서 adb를 복사하지 못했어요."
 
 #: rust/crates/link/src/adb_download.rs:386
-msgid "That doesn't have adb.exe in it."
-msgstr "해당 경로에 adb.exe가 없어요."
+msgid "This file doesn't contain adb.exe."
+msgstr ""
 
 #: rust/crates/link/src/adb_download.rs:396
 msgid "Couldn't check Google's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this."
@@ -3545,13 +3537,13 @@ msgstr "Google에 연결할 수 없어요. 인터넷 연결을 확인하고 다�
 
 #: rust/crates/link/src/adb_download.rs:398
 #, python-brace-format
-msgid "Google wouldn't send adb to this computer (it said {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead."
-msgstr "Google에서 이 컴퓨터로 adb를 전송하지 않았어요(오류 코드: {code}). Google은 일부 국가에서 Android 다운로드를 차단해요. 다른 방법으로 platform-tools를 구했다면 해당 adb.exe나 zip 파일을 직접 선택하세요."
+msgid "Google refused the download (error {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead."
+msgstr ""
 
 #: rust/crates/link/src/adb_download.rs:400
 #, python-brace-format
-msgid "Google's server said {code}. Try again later."
-msgstr "Google 서버에서 {code} 응답을 반환했어요. 나중에 다시 시도해 보세요."
+msgid "Google's server returned error {code}. Try again later."
+msgstr ""
 
 #: rust/crates/link/src/audio.rs:43
 msgid "Can't reach the phone's microphone."
@@ -3559,8 +3551,8 @@ msgstr "휴대폰 마이크에 연결할 수 없어요."
 
 #: rust/crates/link/src/audio.rs:59
 #, python-brace-format
-msgid "The phone refused the microphone (HTTP {code})."
-msgstr "휴대폰에서 마이크 연결을 거부했어요(HTTP {code})."
+msgid "The phone rejected the microphone request (HTTP {code})."
+msgstr ""
 
 #. why the phone's microphone can't be used; shown next to the Microphone card
 #: rust/crates/link/src/audio.rs:67 rust/crates/link/ui/browser_camera.slint:42
@@ -3588,21 +3580,17 @@ msgid "The browser is lowering the picture to fit the connection or the bitrate 
 msgstr "브라우저에서 연결 속도나 이 해상도의 비트레이트에 맞추기 위해 화질을 낮추고 있어요."
 
 #: rust/crates/link/src/browser/plugin.rs:52
-msgid "Browser says it isn't private?"
-msgstr "브라우저에서 비공개 연결이 아니라고 하나요?"
+msgid "Browser warns the connection isn't private?"
+msgstr ""
 
 #. Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons: use the names those browsers show in your language
 #: rust/crates/link/src/browser/plugin.rs:55
 msgid ""
-"It is this computer's own certificate.\n"
+"The certificate is this computer's own.\n"
 "iPhone: tap Show Details, then visit this website.\n"
 "Chrome: tap Advanced, then Proceed.\n"
 "Keep the page open with the screen on."
 msgstr ""
-"이 컴퓨터 자체 인증서이기 때문이에요.\n"
-"iPhone: 상세 정보 보기를 탭한 다음 이 웹사이트 방문을 탭하세요.\n"
-"Chrome: 고급을 탭한 다음 안전하지 않음(으)로 이동을 탭하세요.\n"
-"화면을 켠 채로 페이지를 열어 두세요."
 
 #: rust/crates/link/src/browser/plugin.rs:63
 msgid "Waiting for the browser. Scan the code on the Browser camera card and tap Start."
@@ -3725,13 +3713,13 @@ msgid "Check the cable and the phone app."
 msgstr "케이블과 휴대폰 앱을 확인하세요."
 
 #: rust/crates/link/src/connection.rs:452
-msgid "Check it's on the same network."
-msgstr "같은 네트워크에 연결되어 있는지 확인하세요."
+msgid "Check that the phone is on the same network."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:455
 #, python-brace-format
-msgid "Still streaming over {now}, so it stays on {kept}."
-msgstr "여전히 {now}(으)로 스트리밍 중이어서 {kept} 연결을 유지해요."
+msgid "Still streaming over {now}, so the connection stays on {kept}."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:794
 msgid "Automatic"
@@ -3783,8 +3771,8 @@ msgstr "이 앱 업데이트 필요"
 
 #: rust/crates/link/src/connection.rs:829
 #, python-brace-format
-msgid "Open Telescope on {phone} and keep it on screen. It needs to be on the same network as this computer, or plugged in with a USB cable."
-msgstr "휴대폰({phone})에서 Telescope를 열고 화면에 띄워 두세요. 이 컴퓨터와 같은 네트워크에 있거나 USB 케이블로 연결되어 있어야 해요."
+msgid "Open Telescope on {phone} and keep the app on screen. The phone needs to be on the same network as this computer, or plugged in with a USB cable."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:831
 #, python-brace-format
@@ -3843,8 +3831,8 @@ msgid "The phone is streaming to another computer."
 msgstr "휴대폰이 다른 컴퓨터에 스트리밍 중이에요."
 
 #: rust/crates/link/src/connection.rs:875
-msgid "Stop it there or on the phone, then try again."
-msgstr "해당 컴퓨터나 휴대폰에서 스트리밍을 중지한 다음 다시 시도해 보세요."
+msgid "Stop the stream there or on the phone, then try again."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:881
 msgid ""
@@ -3892,8 +3880,8 @@ msgstr "알 수 없는 오류"
 
 #: rust/crates/link/src/connection.rs:887
 #, python-brace-format
-msgid "The phone refused to start streaming ({error})."
-msgstr "휴대폰에서 스트리밍 시작을 거부했어요({error})."
+msgid "The phone rejected the request to start streaming ({error})."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:985 rust/crates/link/src/service.rs:331
 msgid "Lost the connection to the phone. Try again."
@@ -3913,8 +3901,8 @@ msgstr "카메라를 시작하는 도중 휴대폰과의 연결이 끊어졌어�
 
 #: rust/crates/link/src/connection.rs:1048
 #, python-brace-format
-msgid "Phone went quiet for a moment, still waiting... ({seconds}s)"
-msgstr "휴대폰 응답이 일시적으로 중단되었어요. 대기 중... ({seconds}초)"
+msgid "No answer from the phone for a moment, still waiting... ({seconds}s)"
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:1055
 msgid ""
@@ -3940,11 +3928,8 @@ msgstr "휴대폰 카메라 대기 중... ({seconds}초)"
 msgid ""
 "The phone's camera didn't finish starting in time.\n"
 "\n"
-"Try again. If it keeps happening, open Telescope on the phone."
+"Try again. If the camera keeps failing to start, open Telescope on the phone."
 msgstr ""
-"휴대폰 카메라가 제시간에 시작되지 않았어요.\n"
-"\n"
-"다시 시도해 보세요. 문제가 계속되면 휴대폰에서 Telescope를 여세요."
 
 #: rust/crates/link/src/phones.rs:300
 msgid "adb isn't installed, so USB can't be used (Add device can get it)"
@@ -4013,8 +3998,8 @@ msgid "Getting adb from Google…"
 msgstr "Google에서 adb 다운로드 중…"
 
 #: rust/crates/link/src/plugin.rs:569 rust/crates/link/src/plugin.rs:633
-msgid "Or plug it in over USB."
-msgstr "또는 USB로 연결하세요."
+msgid "Or plug the phone in over USB."
+msgstr ""
 
 #. keep the <a href="{link}"> link
 #: rust/crates/link/src/plugin.rs:575
@@ -4061,11 +4046,10 @@ msgstr "USB로 페어링할 휴대폰을 선택하세요."
 msgid "Allow USB debugging on the phone."
 msgstr "휴대폰에서 USB 디버깅을 허용하세요."
 
-#. keep the <a href="{url}"> link and the <br> tags
 #: rust/crates/link/src/plugin.rs:671
 #, python-brace-format
-msgid "Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it."
-msgstr "Telescope에서 Google로부터 adb를 다운로드(약 {size})하여 사용자 계정에 보관할 수 있어요. Google 소프트웨어이므로 Android SDK 라이선스 계약이 적용돼요: <a href=\"{url}\">여기에서 확인하세요</a>.<br><br>Wi-Fi는 adb 없이도 작동해요."
+msgid "Telescope can download adb from Google (about {size}) and keep it for your user. adb is Google's software, so their Android SDK License applies: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without adb."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:677
 msgid "USB needs adb, Google's tool for talking to Android phones."
@@ -4087,11 +4071,10 @@ msgstr "adb.exe 또는 platform-tools zip (adb.exe *.zip)"
 msgid "Copying adb…"
 msgstr "adb 복사 중…"
 
-#. keep both <a href="..."> links
 #: rust/crates/link/src/plugin.rs:741
 #, python-brace-format
-msgid "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick one you already have</a>."
-msgstr "<a href=\"{get}\">다시 시도</a>하거나 <a href=\"{pick}\">이미 설치된 파일을 선택</a>하세요."
+msgid "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick an adb you already have</a>."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:817
 msgid "Same phone?"
@@ -4104,8 +4087,8 @@ msgstr "{name} 휴대폰이 맞나요?"
 
 #: rust/crates/link/src/plugin.rs:818
 #, python-brace-format
-msgid "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry."
-msgstr "'{name}'(이)라는 이름의 휴대폰이 새 휴대폰으로 페어링되었어요. Telescope를 다시 설치했거나 데이터를 삭제한 경우에 발생해요. '예'를 선택하면 {name}의 설정과 프리셋을 이전하고 이전 항목을 제거해요."
+msgid "{name} paired as a new phone. This happens after Telescope is reinstalled on the phone or the app's data is cleared. Yes moves {name}'s settings and presets to the new entry and removes the old one."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1017
 msgid "Phone app updated. Open Telescope on the phone."
@@ -4185,8 +4168,8 @@ msgstr "휴대폰 제거"
 
 #: rust/crates/link/src/plugin.rs:1227
 #, python-brace-format
-msgid "Remove \"{name}\"? This deletes the settings it had on this computer. It can still connect with the code, and starts from the defaults."
-msgstr "\"{name}\"을(를) 제거할까요? 이 컴퓨터에 저장된 설정이 삭제돼요. 코드를 사용해 다시 연결할 수 있으며, 이 경우 기본 설정으로 시작해요."
+msgid "Remove \"{name}\"? This deletes the settings it had on this computer. The browser can still connect with the code and starts with default settings."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1231
 msgid "Remove browser"
@@ -4198,16 +4181,16 @@ msgstr "가상 카메라가 다르게 설정되어 있음"
 
 #: rust/crates/link/src/plugin.rs:1533
 #, python-brace-format
-msgid "v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:"
-msgstr "v4l2loopback이 로드되었지만 {device} 디바이스가 없어요. 다른 앱에서 다른 설정으로 구성한 상태예요. 해당 앱을 닫고 다음 명령을 실행하여 Telescope로 제어권을 넘겨주세요:"
+msgid "v4l2loopback is loaded, but without {device}: another app loaded it with other settings. Close that app and run this command to give Telescope control:"
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1543
 msgid "The virtual camera is off"
 msgstr "가상 카메라가 꺼져 있음"
 
 #: rust/crates/link/src/plugin.rs:1543
-msgid "Switching it on asks for your password."
-msgstr "가상 카메라를 켜려면 비밀번호를 입력해야 해요."
+msgid "Your password is needed to switch on the virtual camera."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1544 rust/crates/shell/src/plugins_tab.rs:621 rust/crates/shell/src/plugins_tab.rs:640
 msgid "Switch on"
@@ -4314,8 +4297,8 @@ msgid "Back"
 msgstr "뒤로"
 
 #: rust/crates/link/ui/connection.slint:469
-msgid "Telescope needs to switch on its virtual camera first. This asks for your password."
-msgstr "Telescope에서 먼저 가상 카메라를 켜야 해요. 비밀번호 입력이 필요해요."
+msgid "The virtual camera has to be switched on first, which needs your password."
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:477 rust/crates/link/ui/connection.slint:480
 msgid "Also switch it on at every startup"
@@ -4390,12 +4373,12 @@ msgid "UDP on Wi-Fi"
 msgstr "Wi-Fi에서 UDP 사용"
 
 #: rust/crates/link/ui/connection.slint:777
-msgid "Send the video over Wi-Fi with UDP, which skips a lost piece instead of waiting for it"
+msgid "Send the video over Wi-Fi with UDP, which skips lost packets instead of waiting for them"
 msgstr ""
 
 #: rust/crates/link/ui/connection.slint:778 rust/crates/link/ui/connection.slint:786
-msgid "It can stutter more than TCP, so try it and see."
-msgstr "TCP보다 더 끊길 수 있으니 직접 사용해 보고 확인해 보세요."
+msgid "UDP can stutter more than TCP. Try both and compare."
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:781
 msgctxt "search"
@@ -4498,8 +4481,8 @@ msgid "All the way right is Dynamic, which adjusts to your connection."
 msgstr "맨 오른쪽은 연결 상태에 맞춰 조절되는 동적 모드예요."
 
 #: rust/crates/outputs/src/stream_output.rs:29
-msgid "This phone's app is too old for Dynamic and uses Auto until it's updated."
-msgstr "이 휴대폰 앱은 너무 이전 버전이어서 동적을 사용할 수 없으며, 업데이트할 때까지 자동을 사용해요."
+msgid "The phone app is too old for Dynamic and uses Auto until the app is updated."
+msgstr ""
 
 #: rust/crates/outputs/src/stream_output.rs:30
 msgid "H.264 from the phone's hardware encoder, with much less data than Heavy."
@@ -4591,8 +4574,8 @@ msgstr "{size}(으)로 시작"
 
 #: rust/crates/outputs/src/stream_output.rs:574
 #, python-brace-format
-msgid "{error}. It's set back to {size}, the last size that worked."
-msgstr "{error}. 정상 작동했던 마지막 크기인 {size}(으)로 다시 설정되었어요."
+msgid "{error}. The size is set back to {size}, the last size that worked."
+msgstr ""
 
 #: rust/crates/outputs/src/stream_output.rs:576
 #, python-brace-format
@@ -4621,8 +4604,8 @@ msgid "The resolution, frame rate and format of the stream."
 msgstr "스트림의 해상도, 프레임 레이트 및 포맷이에요."
 
 #: rust/crates/outputs/src/stream_output.rs:716
-msgid "Without it there's no Stream output card and streams use whatever size and format the phone picks."
-msgstr "이 플러그인이 없으면 스트림 출력 카드가 표시되지 않으며, 스트림은 휴대폰이 선택한 크기와 포맷을 그대로 사용해요."
+msgid "Without the Stream output plugin there's no Stream output card and streams use whatever size and format the phone picks."
+msgstr ""
 
 #: rust/crates/outputs/src/stream_output.rs:781 rust/crates/outputs/src/stream_output.rs:990 rust/crates/outputs/ui/stream_output.slint:109 rust/crates/outputs/ui/stream_output.slint:113
 msgid "Heavy"
@@ -4664,16 +4647,16 @@ msgstr "그 이미지를 사용할 수 없음"
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:504
 #, python-brace-format
-msgid "{problem}. Keeping the current wait screen."
-msgstr "{problem}. 현재 대기 화면을 유지해요."
+msgid "{problem}. The current wait screen is kept."
+msgstr ""
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:506
 msgid "Couldn't read that image"
 msgstr "그 이미지를 읽을 수 없음"
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:506
-msgid "The default screen is showing. Choose another one."
-msgstr "기본 화면이 표시되고 있어요. 다른 이미지를 선택하세요."
+msgid "The default screen is showing. Choose another image."
+msgstr ""
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:509
 #, python-brace-format
@@ -4702,8 +4685,8 @@ msgid "The picture apps see on the virtual camera while nothing is streaming."
 msgstr "스트리밍하지 않는 동안 앱이 가상 카메라에서 보게 되는 화면이에요."
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:575
-msgid "Without it Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
-msgstr "이 플러그인이 없으면 설정에 대기 화면이 표시되지 않으며, 스트림 사이에 앱에 검은 화면이 보이거나 아무것도 보이지 않을 수 있어요."
+msgid "Without the Wait screen plugin Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
+msgstr ""
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:673
 msgctxt "search"
@@ -4771,8 +4754,8 @@ msgid "Brighten a face in front of a bright window."
 msgstr "밝은 창문 앞에 있는 얼굴을 밝게 해요."
 
 #: rust/crates/outputs/src/webcam.rs:89
-msgid "Set it to your mains frequency to stop lights flickering or banding."
-msgstr "조명의 깜빡임이나 줄무늬 현상을 방지하려면 전원 주파수에 맞게 설정하세요."
+msgid "Match your mains frequency to stop lights flickering or banding."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:90
 msgid "Make the picture brighter or darker than the webcam's automatic exposure."
@@ -4827,17 +4810,17 @@ msgid "60 Hz"
 msgstr "60 Hz"
 
 #: rust/crates/outputs/src/webcam.rs:320
-msgid "Check that it's plugged in."
-msgstr "연결되어 있는지 확인하세요."
+msgid "Check that the webcam is plugged in."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:498
-msgid "Another app may be using it. Close it there and it starts here."
-msgstr "다른 앱에서 사용 중일 수 있어요. 해당 앱에서 닫으면 여기에서 시작돼요."
+msgid "Another app may be using the webcam. Close the webcam in that app, then start streaming here."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:500
 #, python-brace-format
-msgid "{app} is using it. Close it there and it starts here."
-msgstr "{app}에서 사용 중이에요. 해당 앱에서 닫으면 여기에서 시작돼요."
+msgid "{app} is using the webcam. Close the webcam there, then start streaming here."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:502 rust/crates/outputs/src/webcam.rs:505 rust/crates/outputs/src/webcam.rs:508
 #, python-brace-format
@@ -4894,8 +4877,8 @@ msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "이 컴퓨터에 연결된 웹캠과 캡처 카드로 스트리밍해요."
 
 #: rust/crates/outputs/src/webcam.rs:1013
-msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
-msgstr "끄면 기기 선택 목록에서 웹캠이 사라지고 웹캠 카드도 보이지 않아요."
+msgid "Without the Webcams plugin webcams aren't in the device picker and the Webcam card is gone too."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:1057
 #, python-brace-format
@@ -4907,12 +4890,12 @@ msgid "Plug it in, or pick another camera."
 msgstr "케이블을 연결하거나 다른 카메라를 선택하세요."
 
 #: rust/crates/outputs/src/webcam_capture.rs:10
-msgid "The webcam isn't plugged in. Plug it back in and it carries on."
-msgstr "웹캠이 연결되어 있지 않아요. 다시 연결하면 계속 진행돼요."
+msgid "The webcam isn't plugged in. Plug the webcam back in to continue."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture.rs:11
-msgid "Another app is using the webcam. Close it there and it starts here."
-msgstr "다른 앱에서 웹캠을 사용 중이에요. 해당 앱에서 닫으면 여기에서 시작돼요."
+msgid "Another app is using the webcam. Close the webcam in that app, then start streaming here."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture.rs:12
 msgid "Windows or your security software is blocking Telescope from the webcam. Allow it there, then start the webcam again."
@@ -4951,7 +4934,7 @@ msgid "The photo was interrupted because the camera stopped."
 msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:273
-msgid "The camera took too long to take the photo. If it still arrives, it is saved and you'll be told."
+msgid "The camera took too long to take the photo. If the photo still arrives, it's saved and you get a notification."
 msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:274
@@ -4963,7 +4946,7 @@ msgid "The camera's image quality is locked to RAW, so it can't take a JPEG."
 msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:276
-msgid "The camera only sent part of the photo. What came is saved."
+msgid "The camera only sent part of the photo. The part that arrived is saved."
 msgstr ""
 
 #: rust/crates/outputs/src/wininstall.rs:256 rust/crates/setup/src/setup.rs:805
@@ -5092,55 +5075,55 @@ msgid "Focus once"
 msgstr "초점 한 번 맞추기"
 
 #: rust/crates/plugin-host/src/load.rs:16
-msgid "It isn't turned on."
-msgstr "켜져 있지 않아요."
+msgid "The plugin isn't turned on."
+msgstr ""
 
 #: rust/crates/plugin-host/src/lua.rs:297
 #, python-brace-format
-msgid "Its {file} has to return the plugin's table at the end."
-msgstr "{file}의 마지막에서 플러그인 테이블을 반환해야 해요."
+msgid "{file} has to return the plugin's table at the end."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:181
-msgid "It's a link to another folder, which plugins can't be."
-msgstr "다른 폴더를 가리키는 링크이며, 플러그인은 링크일 수 없어요."
+msgid "The plugin is a link to another folder, which plugins can't be."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:187 rust/crates/plugin-host/src/package.rs:242
 #, python-brace-format
-msgid "It has no {file}."
-msgstr "{file} 파일이 없어요."
+msgid "The plugin has no {file}."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:191
 #, python-brace-format
-msgid "Its {file} isn't valid JSON."
-msgstr "{file} 파일이 올바른 JSON 형식이 아니에요."
+msgid "{file} isn't valid JSON."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:195 rust/crates/plugin-host/src/package.rs:239
 #, python-brace-format
-msgid "Its {file} isn't valid."
-msgstr "{file} 파일이 올바르지 않아요."
+msgid "{file} isn't valid."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:209
 #, python-brace-format
-msgid "It was made for an older Telescope (plugin API {api}) and needs an update."
-msgstr "이전 버전의 Telescope(플러그인 API {api})용으로 제작되어 업데이트가 필요해요."
+msgid "The plugin was made for an older Telescope (plugin API {api}) and needs an update."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:219
-msgid "Its files couldn't be read."
-msgstr "해당 파일을 읽을 수 없어요."
+msgid "The plugin's files couldn't be read."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:226
 #, python-brace-format
-msgid "Its {file} has to give the folder's name as \"name\"."
-msgstr "{file} 파일의 \"name\" 항목에 폴더 이름을 지정해야 해요."
+msgid "{file} has to give the folder's name as \"name\"."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:233
 #, python-brace-format
-msgid "It needs a newer Telescope (plugin API {wanted}; this one has {have})."
-msgstr "더 최신 버전의 Telescope가 필요해요(플러그인 API 요구: {wanted}, 현재: {have})."
+msgid "The plugin needs a newer Telescope (plugin API {wanted}; this Telescope has {have})."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:273
-msgid "Its files changed since it was turned on. Turn it on again if you trust this version."
-msgstr "플러그인이 켜진 이후 파일이 변경되었어요. 이 버전을 신뢰한다면 다시 켜세요."
+msgid "The plugin's files changed since it was turned on. Turn the plugin on again if you trust the new version."
+msgstr ""
 
 #: rust/crates/plugin-host/src/switches.rs:33
 msgid "Couldn't save the settings."
@@ -5196,8 +5179,8 @@ msgid "{phone}: temperature is {temp} °C."
 msgstr "{phone}: 온도가 {temp}°C예요."
 
 #: rust/crates/setup/src/monitoring.rs:349
-msgid "Stopped streaming to let it cool down."
-msgstr "기기를 식힐 수 있도록 스트리밍을 중지했어요."
+msgid "Stopped streaming to let the phone cool down."
+msgstr ""
 
 #: rust/crates/setup/src/monitoring.rs:349
 msgid "Consider stopping charging or closing other apps."
@@ -5219,8 +5202,8 @@ msgstr "{phone}의 배터리가 {level}%예요"
 
 #: rust/crates/setup/src/monitoring.rs:368
 #, python-brace-format
-msgid "Streaming stopped, as Monitoring stops it at {level}% or lower."
-msgstr "모니터링 설정에 따라 배터리가 {level}% 이하로 떨어져 스트리밍이 중지되었어요."
+msgid "Streaming stopped because Monitoring stops streaming at {level}% or lower."
+msgstr ""
 
 #: rust/crates/setup/src/monitoring.rs:372
 #, python-brace-format
@@ -5234,8 +5217,8 @@ msgstr "{phone}의 온도가 {temp}°C예요"
 
 #: rust/crates/setup/src/monitoring.rs:376
 #, python-brace-format
-msgid "Streaming stopped to let it cool down, as Monitoring stops it at {temp} °C."
-msgstr "모니터링 설정에 따라 온도가 {temp}°C에 도달하여 기기를 식히기 위해 스트리밍이 중지되었어요."
+msgid "Streaming stopped to let the phone cool down, because Monitoring stops streaming at {temp} °C."
+msgstr ""
 
 #: rust/crates/setup/src/monitoring.rs:384
 msgid "Start anyway"
@@ -5250,12 +5233,12 @@ msgid "The phone's battery and temperature, with warnings when they get low or h
 msgstr "휴대폰의 배터리와 온도를 확인하고, 너무 낮거나 높을 때 경고를 표시해요."
 
 #: rust/crates/setup/src/monitoring.rs:448
-msgid "Without it there's no Phone card and nothing warns you about a low battery or a hot phone."
-msgstr "이 플러그인이 없으면 휴대폰 카드가 표시되지 않으며 배터리 부족이나 휴대폰 발열에 대한 경고가 제공되지 않아요."
+msgid "Without the Monitoring plugin there's no Phone card and nothing warns you about a low battery or a hot phone."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:33
-msgid "Asks for your password (pkexec or sudo): this changes system settings."
-msgstr "비밀번호를 요청해요(pkexec 또는 sudo): 시스템 설정을 변경해요."
+msgid "Needs your password (pkexec or sudo) to change system settings."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:34
 msgid "Needs your password (pkexec or sudo) because this changes system settings."
@@ -5311,8 +5294,8 @@ msgid "Apply"
 msgstr "적용"
 
 #: rust/crates/setup/src/setup.rs:389
-msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
-msgstr "적용하면 새 크기로 스트림이 다시 시작돼요. OBS에서 소스를 찾을 수 없으면 제거했다가 다시 추가하세요."
+msgid "Applying restarts the stream at the new size. If OBS loses the source, remove the source and add it again."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:416 rust/crates/shell/src/plugins/onboarding.rs:157 rust/crates/shell/src/plugins/onboarding.rs:161 rust/crates/shell/src/plugins/onboarding.rs:164
 msgid "Install over USB"
@@ -5346,12 +5329,12 @@ msgid "Copied"
 msgstr "복사됨"
 
 #: rust/crates/setup/src/setup.rs:522
-msgid "The graphics card failed and the processor is decoding until you restart Telescope"
-msgstr "그래픽 카드에 오류가 발생해 Telescope를 다시 시작할 때까지 프로세서가 디코딩하고 있어요"
+msgid "Graphics card decoding failed, decoding on the processor until Telescope restarts"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:523
-msgid "The graphics card was too slow, so the processor is decoding for now"
-msgstr "그래픽 카드가 너무 느려서 지금은 프로세서가 디코딩 중이에요"
+msgid "Graphics card too slow, decoding on the processor until Telescope restarts"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:524
 #, python-brace-format
@@ -5441,8 +5424,8 @@ msgid "Update ready"
 msgstr "업데이트 준비 완료"
 
 #: rust/crates/setup/src/setup.rs:648
-msgid "Some apps can't see it"
-msgstr "일부 앱에서 감지할 수 없음"
+msgid "Some apps can't see the camera"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:649 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
 msgid "Update"
@@ -5479,8 +5462,8 @@ msgid "Not installed (Install driver downloads it first)"
 msgstr "설치되지 않음(드라이버 설치를 누르면 먼저 다운로드해요)"
 
 #: rust/crates/setup/src/setup.rs:676
-msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
-msgstr "찾을 수 없어요. USB를 통한 페어링 및 설치에는 필요하지만 Wi-Fi에는 필요하지 않아요."
+msgid "Not found. Pairing and installing over USB need adb; Wi-Fi doesn't."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:702 rust/crates/setup/src/setup.rs:866
 #, python-brace-format
@@ -5871,8 +5854,8 @@ msgid "Numbers about the stream as it runs: frames in and out, dropped frames an
 msgstr "실행 중인 스트림의 수치예요: 입출력 프레임, 드롭된 프레임과 원인, 연결 및 비트레이트, 단계별 소요 시간과 앱 리소스 사용량을 보여줘요."
 
 #: rust/crates/setup/src/stats.rs:780
-msgid "Without it there's no Stats card. The stream carries on the same."
-msgstr "끄면 통계 카드가 사라져요. 스트림은 그대로 유지돼요."
+msgid "Without the Stats plugin there's no Stats card. The stream is not affected."
+msgstr ""
 
 #: rust/crates/setup/src/stats_phone.rs:99
 msgid "Moderate"
@@ -5957,8 +5940,8 @@ msgstr "스로틀링"
 
 #: rust/crates/setup/src/stats_phone.rs:170
 #, python-brace-format
-msgid "stepped down to {n} for the link"
-msgstr "연결 상태에 맞춰 {n}로 낮춤"
+msgid "lowered to {n} because of the connection"
+msgstr ""
 
 #: rust/crates/setup/src/stats_phone.rs:173
 msgid "Camera frame rate"
@@ -6037,7 +6020,7 @@ msgid "Extra cameras"
 msgstr "추가 카메라"
 
 #: rust/crates/setup/ui/setup.slint:19
-msgid "More virtual cameras, so several cameras can stream at once"
+msgid "More virtual cameras, so several cameras can stream at the same time"
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:22
@@ -6059,7 +6042,7 @@ msgid "Kernel module"
 msgstr "커널 모듈"
 
 #: rust/crates/setup/ui/setup.slint:79
-msgid "The Linux part that makes the virtual camera exist"
+msgid "The Linux part that provides the virtual camera"
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:80
@@ -6093,7 +6076,7 @@ msgid "Driver"
 msgstr "드라이버"
 
 #: rust/crates/setup/ui/setup.slint:124
-msgid "The Windows part that makes the virtual camera exist"
+msgid "The Windows part that provides the virtual camera"
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:127
@@ -6106,7 +6089,7 @@ msgid "Android's tool for talking to a phone over USB"
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:138
-msgid "Google's licence doesn't allow bundling it, so download it or pick your own copy."
+msgid "Google's licence doesn't allow bundling adb, so download it or pick a copy you already have."
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:141
@@ -6144,8 +6127,8 @@ msgid "Hardware acceleration"
 msgstr "하드웨어 가속"
 
 #: rust/crates/setup/ui/setup.slint:215
-msgid "Decode the Light format on the graphics card from the next stream on. If the card fails the processor takes over until you restart Telescope."
-msgstr "다음 스트림부터 가볍게 포맷을 그래픽 카드에서 디코딩해요. 카드에서 실패하면 Telescope를 다시 시작할 때까지 프로세서가 대신 처리해요."
+msgid "Decode the Light format on the graphics card from the next stream on. If the graphics card fails, the processor is used until you restart Telescope."
+msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:216
 msgctxt "search"
@@ -6157,8 +6140,8 @@ msgid "Power-saving effects"
 msgstr "절전 효과"
 
 #: rust/crates/setup/ui/setup.slint:228
-msgid "Use less processor and battery while Background or Auto framing is on. They follow quick movement a little later."
-msgstr "배경 또는 자동 프레이밍이 켜져 있을 때 프로세서와 배터리를 덜 사용해요. 빠른 움직임을 따라가는 속도가 조금 느려져요."
+msgid "Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later."
+msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:229
 msgctxt "search"
@@ -6230,8 +6213,8 @@ msgid "Limiter"
 msgstr "리미터"
 
 #: rust/crates/setup/ui/setup.slint:351
-msgid "Keeps loud sounds from clipping"
-msgstr "큰 소리가 깨지지 않도록 방지해요"
+msgid "Keep loud sounds from clipping"
+msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:352
 msgctxt "search"
@@ -6361,8 +6344,8 @@ msgid "Restart to switch"
 msgstr "전환하려면 다시 시작"
 
 #: rust/crates/setup/ui/setup.slint:517
-msgid "Restart Telescope to switch to it."
-msgstr "변경하려면 Telescope를 다시 시작하세요."
+msgid "Restart Telescope to switch to the new language."
+msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:519 rust/crates/shell/ui/settings.slint:501 rust/crates/shell/ui/settings.slint:504
 msgid "Restart now"
@@ -6416,8 +6399,8 @@ msgid "Open log"
 msgstr "로그 열기"
 
 #: rust/crates/setup/ui/setup.slint:580
-msgid "Open the full log. It's kept in the temp folder, which the system clears."
-msgstr "전체 로그를 열어요. 로그는 시스템이 비우는 임시 폴더에 보관돼요."
+msgid "Open the full log. The log is kept in the temp folder, which the system clears."
+msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:584
 msgid "Diagnostics"
@@ -6508,13 +6491,13 @@ msgid "{first} to {last}"
 msgstr "{first}~{last}"
 
 #: rust/crates/shell/src/extra_cameras.rs:87
-msgid "This asks for your password."
-msgstr "비밀번호 입력이 필요해요."
+msgid "Your password is needed."
+msgstr ""
 
 #: rust/crates/shell/src/extra_cameras.rs:88
 #, python-brace-format
-msgid "To stream several cameras at once, Telescope adds more virtual cameras ({names})."
-msgstr "여러 카메라를 동시에 스트리밍하기 위해 Telescope에서 가상 카메라({names})를 추가해요."
+msgid "To stream several cameras at the same time, Telescope adds more virtual cameras ({names})."
+msgstr ""
 
 #: rust/crates/shell/src/extra_cameras.rs:105
 msgid "Set up more virtual cameras"
@@ -6529,8 +6512,8 @@ msgid "Couldn't add more virtual cameras"
 msgstr "가상 카메라를 더 추가하지 못했어요"
 
 #: rust/crates/shell/src/host.rs:615
-msgid "Only a phone's stream has the video this needs."
-msgstr "이 기능에 필요한 비디오는 휴대폰 스트림에만 있어요."
+msgid "Needs video that only a phone's stream has."
+msgstr ""
 
 #: rust/crates/shell/src/host.rs:621
 msgid "Needs Light: Heavy sends whole pictures, with no keyframes to work with."
@@ -6743,8 +6726,8 @@ msgstr "수동"
 msgid "Sharpening"
 msgstr "선명도"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1521 rust/crates/shell/src/plugins/camera_control.rs:1846 rust/crates/shell/ui/cards/camera.slint:369
-msgid "Stabilization"
+#: rust/crates/shell/src/plugins/camera_control.rs:1521 rust/crates/shell/src/plugins/camera_control.rs:1846 rust/crates/shell/ui/cards/camera.slint:369 rust/crates/shell/ui/cards/camera.slint:370
+msgid "Stabilisation"
 msgstr "손떨림 보정"
 
 #: rust/crates/shell/src/plugins/camera_control.rs:1522 rust/crates/shell/src/plugins/camera_control.rs:1849 rust/crates/shell/ui/cards/camera.slint:394 rust/crates/shell/ui/cards/camera.slint:395
@@ -6776,8 +6759,8 @@ msgid "Checking…"
 msgstr "확인 중…"
 
 #: rust/crates/shell/src/plugins/onboarding.rs:133
-msgid "Starting a stream may ask for your password to switch it on."
-msgstr "스트림을 시작할 때 가상 카메라를 켜기 위해 비밀번호를 요청할 수 있어요."
+msgid "Starting a stream may ask for your password to switch on the virtual camera."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/onboarding.rs:134
 msgid "If Discord, Zoom or a similar app was already open, quit it fully (closing the window isn't enough if it's still in the tray) and open it again to see the camera."
@@ -6825,8 +6808,8 @@ msgid "Scan to download"
 msgstr "스캔하여 다운로드"
 
 #: rust/crates/shell/src/plugins/onboarding.rs:165
-msgid "Scan this with the phone's camera app to download Telescope.apk, then open it to install. It's a download link, not the pairing code."
-msgstr "휴대폰 카메라 앱으로 스캔하여 Telescope.apk를 다운로드한 다음 열어서 설치하세요. 페어링 코드가 아니라 다운로드 링크예요."
+msgid "Scan the code with the phone's camera app to download Telescope.apk, then open the file to install. The code is a download link, not the pairing code."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/onboarding.rs:170
 msgid "Paired."
@@ -6853,8 +6836,8 @@ msgid "The step by step checklist shown until the first stream works."
 msgstr "첫 스트리밍이 작동할 때까지 표시되는 단계별 체크리스트예요."
 
 #: rust/crates/shell/src/plugins/onboarding.rs:207
-msgid "Without it the setup checklist never shows, not even when nothing is set up yet."
-msgstr "끄면 아직 아무것도 설정되지 않았더라도 설정 체크리스트가 표시되지 않아요."
+msgid "Without the Setup guide plugin the setup checklist never shows, not even when nothing is set up yet."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/onboarding.rs:246
 msgid "Installed. Open Telescope on the phone for the next step."
@@ -6908,8 +6891,8 @@ msgid "Saving and loading groups of settings with one click."
 msgstr "클릭 한 번으로 여러 설정을 저장하고 불러와요."
 
 #: rust/crates/shell/src/plugins/presets.rs:283
-msgid "Without it there's no Presets button in the header (your saved presets aren't deleted)."
-msgstr "끄면 상단 헤더에 프리셋 버튼이 사라져요(저장된 프리셋은 삭제되지 않아요)."
+msgid "Without the Presets plugin there's no Presets button in the header (your saved presets aren't deleted)."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/presets.rs:330
 msgid "Apply a preset"
@@ -6956,8 +6939,8 @@ msgid "The live picture in the middle of the window, and the camera on/off butto
 msgstr "창 중앙의 실시간 화면과 그 아래의 카메라 켬/끔 버튼이에요."
 
 #: rust/crates/shell/src/plugins/preview.rs:340
-msgid "Without it the window doesn't show the picture but apps using the virtual camera still get it."
-msgstr "끄면 창에 화면이 표시되지 않지만 가상 카메라를 사용하는 앱에는 계속 전송돼요."
+msgid "Without the Preview plugin the window doesn't show the picture but apps using the virtual camera still get it."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/preview.rs:370
 msgid "Show or hide the preview"
@@ -6981,8 +6964,8 @@ msgid "plugins extensions addons add ons modules features turn off on disable en
 msgstr "플러그인 확장 기능 애드온 모듈 기능 켜기 끄기 비활성화 활성화 설치 zip plugins extensions addons add ons modules features turn off on disable enable install zip"
 
 #: rust/crates/shell/src/plugins_tab.rs:147
-msgid "Telescope couldn't start a new copy of itself. Close it and open it again to apply your changes."
-msgstr "Telescope가 새 인스턴스를 시작하지 못했어요. 변경 사항을 적용하려면 프로그램을 닫았다가 다시 여세요."
+msgid "Telescope couldn't restart. Close Telescope and open it again to apply your changes."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:410
 msgid "Telescope needs this plugin to work, so it can't be switched off."
@@ -6994,17 +6977,17 @@ msgstr "필수"
 
 #: rust/crates/shell/src/plugins_tab.rs:435
 #, python-brace-format
-msgid "The download didn't work. {error}"
-msgstr "다운로드하지 못했어요. {error}"
+msgid "The download failed. {error}"
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:438
-msgid "There's no download of what it needs for this computer yet, so it can't be switched on."
-msgstr "이 컴퓨터에 필요한 다운로드 파일이 아직 제공되지 않아 켤 수 없어요."
+msgid "There's no download for this computer yet, so the plugin can't be switched on."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:441
 #, python-brace-format
-msgid "Its download (about {mb} MB) isn't there anymore. Switch it off and on again to get it."
-msgstr "다운로드된 파일(약 {mb} MB)이 더 이상 없어요. 파일을 다시 받으려면 껐다가 다시 켜세요."
+msgid "The plugin's download (about {mb} MB) is missing. Switch the plugin off and on again to download it."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:448
 msgid "Needs the vision download"
@@ -7016,8 +6999,8 @@ msgstr "이 컴퓨터용 비전 다운로드가 아직 제공되지 않아요."
 
 #: rust/crates/shell/src/plugins_tab.rs:468
 #, python-brace-format
-msgid "Switching one of these on downloads about {mb} MB first, once for all of them."
-msgstr "이 중 하나를 켜면 먼저 약 {mb} MB를 한 번만 다운로드하여 모두 함께 사용해요."
+msgid "Switching on any of these plugins downloads about {mb} MB first, shared by all of them."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:479
 #, python-brace-format
@@ -7030,19 +7013,19 @@ msgid "Updated to {version} automatically. The new version runs after Telescope 
 msgstr "{version}(으)로 자동 업데이트되었어요. 새 버전은 Telescope가 다시 시작된 후 실행돼요."
 
 #: rust/crates/shell/src/plugins_tab.rs:495
-msgid "Its files changed since you switched it on, so it's off for now. Switch it on again if you trust this version."
-msgstr "플러그인을 켠 이후 파일이 변경되어 지금은 꺼진 상태예요. 이 버전을 신뢰한다면 다시 켜세요."
+msgid "The plugin's files changed since you switched it on, so it's off. Switch it on again if you trust the new version."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:498 rust/crates/shell/src/plugins_tab.rs:538
 #, python-brace-format
-msgid "It didn't start ({problem})."
-msgstr "시작되지 않았어요({problem})."
+msgid "Couldn't start: {problem}"
+msgstr ""
 
 #. keep the <a href="{url}"> link
 #: rust/crates/shell/src/plugins_tab.rs:507
 #, python-brace-format
-msgid "Version {version} is out. <a href=\"{url}\">Download it from its release page</a> and install it here to replace this one."
-msgstr "{version} 버전이 출시되었어요. <a href=\"{url}\">릴리스 페이지에서 다운로드</a>하여 여기에 설치하면 기존 버전을 대체할 수 있어요."
+msgid "Version {version} is out. <a href=\"{url}\">Download it from the plugin's release page</a> and install it here to replace the current version."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:517
 msgid "Added"
@@ -7058,8 +7041,8 @@ msgstr "작성 중"
 
 #: rust/crates/shell/src/plugins_tab.rs:541
 #, python-brace-format
-msgid "Loaded from {folder} by telescope-rs dev. Telescope restarts by itself when you save one of its files."
-msgstr "telescope-rs dev를 통해 {folder}에서 로드되었어요. 관련 파일을 저장하면 Telescope가 자동으로 다시 시작돼요."
+msgid "Loaded from {folder} by telescope-rs dev. Telescope restarts automatically when you save a plugin file."
+msgstr ""
 
 #. next to a group's name on the Plugins tab, how many of its plugins are switched on
 #: rust/crates/shell/src/plugins_tab.rs:555
@@ -7098,8 +7081,8 @@ msgstr "{plugin}을(를) 제거할까요?"
 
 #: rust/crates/shell/src/plugins_tab.rs:605
 #, python-brace-format
-msgid "Its folder ({folder}) is deleted from the plugins folder. To use it again you'll have to add it again."
-msgstr "플러그인 폴더에서 해당 폴더({folder})가 삭제돼요. 다시 사용하려면 플러그인을 다시 추가해야 해요."
+msgid "The plugin's folder ({folder}) is deleted from the plugins folder. To use the plugin again, add it again."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:609
 msgid "Remove the download?"
@@ -7107,8 +7090,8 @@ msgstr "다운로드 파일을 제거할까요?"
 
 #: rust/crates/shell/src/plugins_tab.rs:610
 #, python-brace-format
-msgid "It frees about {mb} MB. Switching on one of the optional plugins downloads it again."
-msgstr "약 {mb} MB의 공간이 확보돼요. 선택적 플러그인 중 하나를 켜면 다시 다운로드돼요."
+msgid "Frees about {mb} MB. Switching on an optional plugin downloads the files again."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:619
 msgid "Install plugin updates without asking?"
@@ -7129,8 +7112,8 @@ msgid "Restart Telescope now?"
 msgstr "지금 Telescope를 다시 시작할까요?"
 
 #: rust/crates/shell/src/plugins_tab.rs:625
-msgid "Streaming stops while Telescope restarts. It takes a few seconds."
-msgstr "Telescope가 다시 시작되는 동안 스트리밍이 중지돼요. 몇 초 정도 걸려요."
+msgid "Streaming stops while Telescope restarts. Restarting takes a few seconds."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:639
 #, python-brace-format
@@ -7147,8 +7130,8 @@ msgid "Switch off {plugin}?"
 msgstr "{plugin}을(를) 끌까요?"
 
 #: rust/crates/shell/src/plugins_tab.rs:643
-msgid "Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch it back on."
-msgstr "플러그인을 끄면 Telescope에 추가된 기능이 사라져요. 설정은 다시 켤 때를 위해 그대로 저장돼요."
+msgid "Without the plugin, what it added to Telescope is gone. The plugin's settings stay saved for when you switch it back on."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:643 rust/crates/shell/src/plugins_tab.rs:663
 msgid "Switch off"
@@ -7161,8 +7144,8 @@ msgstr "약 {mb} MB를 다운로드할까요?"
 
 #: rust/crates/shell/src/plugins_tab.rs:651
 #, python-brace-format
-msgid "{plugin} uses MediaPipe to find people in the picture. It comes as a separate download from Telescope's releases on GitHub, which the other optional plugins share."
-msgstr "{plugin}은(는) 화면 속 사람을 찾기 위해 MediaPipe를 사용해요. GitHub의 Telescope 릴리스에서 별도 다운로드로 제공되며, 다른 선택적 플러그인과 공유돼요."
+msgid "{plugin} uses MediaPipe to find people in the picture. The files are a separate download from Telescope's releases on GitHub, shared by the other optional plugins."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:652
 msgid "Download and switch on"
@@ -7178,8 +7161,8 @@ msgid "Replace {plugin}?"
 msgstr "{plugin}을(를) 바꿀까요?"
 
 #: rust/crates/shell/src/plugins_tab.rs:678
-msgid "The version in this .zip takes its place with the same settings. Like any plugin you add it starts out switched off."
-msgstr "이 .zip 파일의 버전이 동일한 설정으로 대체돼요. 새로 추가하는 다른 플러그인과 마찬가지로 처음에는 꺼진 상태로 시작돼요."
+msgid "The version in this .zip replaces the installed version and keeps its settings. Like any added plugin, it starts switched off."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:690
 #, python-brace-format
@@ -7188,13 +7171,13 @@ msgstr "{plugin}이(가) 설치되었지만 아직 실행할 수 없어요. {pro
 
 #: rust/crates/shell/src/plugins_tab.rs:692
 #, python-brace-format
-msgid "{plugin} {version} is in place but switched off for now. To use it, switch it on again and restart Telescope."
-msgstr "{plugin} {version}이(가) 설치되었지만 지금은 꺼져 있어요. 사용하려면 다시 켜고 Telescope를 다시 시작하세요."
+msgid "{plugin} {version} is installed but switched off. To use it, switch it on again and restart Telescope."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:694
 #, python-brace-format
-msgid "{plugin} is installed but switched off for now. To use it, switch it on and restart Telescope."
-msgstr "{plugin}이(가) 설치되었지만 지금은 꺼져 있어요. 사용하려면 켜고 Telescope를 다시 시작하세요."
+msgid "{plugin} is installed but switched off. To use it, switch it on and restart Telescope."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:704
 #, python-brace-format
@@ -7221,12 +7204,12 @@ msgid "Tab"
 msgstr "탭"
 
 #: rust/crates/shell/src/session.rs:218
-msgid "Check that it's still on."
-msgstr "전원이 여전히 켜져 있는지 확인하세요."
+msgid "Check that the device is still on."
+msgstr ""
 
 #: rust/crates/shell/src/settings.rs:862
-msgid "Nothing matches every word. These match some of them."
-msgstr "모든 단어와 일치하는 항목이 없어요. 다음은 일부 단어와 일치하는 항목이에요."
+msgid "Nothing matches every word. These match some of the words."
+msgstr ""
 
 #: rust/crates/shell/src/settings.rs:864
 #, python-brace-format
@@ -7247,16 +7230,16 @@ msgid "Check for updates"
 msgstr "업데이트 확인"
 
 #: rust/crates/shell/src/settings.rs:949
-msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
-msgstr "GitHub에 릴리스를 게시하는 추가된 플러그인의 새 버전을 하루에 한 번 확인하여 여기에 안내해요. 파일이 자동으로 다운로드되지는 않아요."
+msgid "Check once a day for new versions of added plugins that publish releases on GitHub and show them here. Nothing is downloaded."
+msgstr ""
 
 #: rust/crates/shell/src/settings.rs:950
 msgid "Install updates without asking"
 msgstr "확인 없이 업데이트 설치"
 
 #: rust/crates/shell/src/settings.rs:950
-msgid "Installs new versions of the plugins you switched on and switches them on again."
-msgstr "켜 둔 플러그인의 새 버전을 설치하고 다시 켜 둬요."
+msgid "Install new versions of the plugins you switched on and switch them on again."
+msgstr ""
 
 #: rust/crates/shell/src/settings.rs:951
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
@@ -7272,20 +7255,20 @@ msgstr "플러그인 (*.zip)"
 
 #: rust/crates/shell/src/shell.rs:753
 #, python-brace-format
-msgid "{plugins} didn't start"
-msgid_plural "{plugins} didn't start"
-msgstr[0] "{plugins}이(가) 시작되지 않았어요"
+msgid "Couldn't start {plugins}"
+msgid_plural "Couldn't start {plugins}"
+msgstr[0] ""
 
 #: rust/crates/shell/src/shell.rs:755
 #, python-brace-format
-msgid "{n} plugin didn't start"
-msgid_plural "{n} plugins didn't start"
-msgstr[0] "{n}개 플러그인이 시작되지 않았어요"
+msgid "Couldn't start {n} plugin"
+msgid_plural "Couldn't start {n} plugins"
+msgstr[0] ""
 
 #: rust/crates/shell/src/shell.rs:757
-msgid "Telescope works without it. The Plugins tab in Settings says what went wrong."
-msgid_plural "Telescope works without them. The Plugins tab in Settings says what went wrong."
-msgstr[0] "해당 플러그인 없이도 Telescope를 사용할 수 있어요. 무엇이 잘못되었는지는 설정의 플러그인 탭에서 확인할 수 있어요."
+msgid "Telescope works without the plugin. The Plugins tab in Settings shows what went wrong."
+msgid_plural "Telescope works without them. The Plugins tab in Settings shows what went wrong."
+msgstr[0] ""
 
 #: rust/crates/shell/src/shell.rs:761 rust/crates/shell/src/shell.rs:781
 msgid "Plugins…"
@@ -7333,8 +7316,8 @@ msgid "Another app on the phone is using the camera"
 msgstr "휴대폰의 다른 앱에서 카메라를 사용 중임"
 
 #: rust/crates/shell/src/sources.rs:115
-msgid "The stream comes back by itself once that app closes or lets go of it."
-msgstr "해당 앱이 닫히거나 카메라 사용을 중단하면 스트림이 자동으로 다시 시작돼요."
+msgid "The stream resumes automatically once the other app closes or releases the camera."
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:125
 msgid "This phone can't turn its camera off yet"
@@ -7359,8 +7342,8 @@ msgid "{phone} is streaming to {computer}"
 msgstr "{phone}이(가) {computer}에 스트리밍 중임"
 
 #: rust/crates/shell/src/sources.rs:176
-msgid "Stop it there or on the phone, then start again."
-msgstr "해당 컴퓨터나 휴대폰에서 중지한 다음 다시 시작하세요."
+msgid "Stop the stream there or on the phone, then start again."
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:183
 msgid "The phone stopped streaming"
@@ -7385,13 +7368,13 @@ msgstr "카메라가 다시 켜지지 않았어요. 다른 앱에서 사용 중�
 
 #: rust/crates/shell/src/sources.rs:328
 #, python-brace-format
-msgid "It's streaming at {size} and {fps} fps until it cools down."
-msgstr "기기 온도가 내려갈 때까지 {size} 및 {fps} fps로 스트리밍해요."
+msgid "Streaming at {size} and {fps} fps until the phone cools down."
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:329
 #, python-brace-format
-msgid "It's streaming at {size} until it cools down."
-msgstr "기기 온도가 내려갈 때까지 {size}(으)로 스트리밍해요."
+msgid "Streaming at {size} until the phone cools down."
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:846
 msgid "Open Telescope on it."
@@ -7402,8 +7385,8 @@ msgid "the device"
 msgstr "기기"
 
 #: rust/crates/shell/src/sources.rs:1083
-msgid "Open the Telescope page in it again."
-msgstr "해당 브라우저에서 Telescope 페이지를 다시 여세요."
+msgid "Open the Telescope page in the browser again."
+msgstr ""
 
 #: rust/crates/shell/src/stream_flow.rs:190
 msgid "Couldn't start streaming"
@@ -7510,8 +7493,8 @@ msgstr "자세한 내용은 '진단 정보 복사'에서 확인할 수 있어요
 
 #: rust/crates/shell/src/streams.rs:967
 #, python-brace-format
-msgid "The phone got hot and lowered the frame rate to {fps} fps for now."
-msgstr "휴대폰이 뜨거워져 일시적으로 프레임 레이트를 {fps} fps로 낮췄어요."
+msgid "The phone got hot and lowered the frame rate to {fps} fps."
+msgstr ""
 
 #: rust/crates/shell/src/streams.rs:969
 #, python-brace-format
@@ -7519,12 +7502,12 @@ msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connec
 msgstr "'동적' 모드가 느린 연결에 맞춰 프레임 레이트를 {fps} fps로 낮췄어요."
 
 #: rust/crates/shell/src/streams.rs:971
-msgid "The camera is making fewer frames than asked for. Dim light slows it down."
-msgstr "카메라가 요청한 것보다 적은 프레임을 생성하고 있어요. 조명이 어두우면 속도가 느려져요."
+msgid "The camera is producing fewer frames than requested. Dim light lowers the frame rate."
+msgstr ""
 
 #: rust/crates/shell/src/streams.rs:973
-msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
-msgstr "휴대폰 카메라가 요청한 것보다 적은 프레임을 만들고 있어요. 어두운 곳에서는 속도가 느려져요."
+msgid "The phone's camera is producing fewer frames than requested. Dim light lowers the frame rate."
+msgstr ""
 
 #: rust/crates/shell/src/streams.rs:1041
 msgid "Live"
@@ -7595,8 +7578,8 @@ msgid "Streaming continues in the background."
 msgstr "백그라운드에서 스트리밍이 계속돼요."
 
 #: rust/crates/shell/src/tray.rs:229
-msgid "It starts streaming by itself when it needs to."
-msgstr "필요할 때 자동으로 스트리밍을 시작해요."
+msgid "Streaming starts automatically when needed."
+msgstr ""
 
 #: rust/crates/shell/src/tray.rs:230
 msgid "Right-click the tray icon to quit."
@@ -7733,10 +7716,6 @@ msgstr "거리"
 msgid "Set Focus to Manual to use this"
 msgstr "사용하려면 초점을 수동으로 설정하세요"
 
-#: rust/crates/shell/ui/cards/camera.slint:370
-msgid "Stabilisation"
-msgstr "손떨림 보정"
-
 #: rust/crates/shell/ui/cards/camera.slint:419
 msgid "Smooth out grain in the picture."
 msgstr "화면의 노이즈를 부드럽게 줄여요."
@@ -7861,8 +7840,8 @@ msgid "Remove download"
 msgstr "다운로드 파일 제거"
 
 #: rust/crates/shell/ui/settings.slint:408
-msgid "Delete the download these plugins use. Switching any of these plugins on downloads it again."
-msgstr "이 플러그인들이 사용하는 다운로드 파일을 삭제해요. 플러그인을 다시 켜면 새로 다운로드해요."
+msgid "Delete the download these plugins use. Switching on any of these plugins downloads the files again."
+msgstr ""
 
 #: rust/crates/shell/ui/settings.slint:425
 msgid "Show all plugins"
@@ -7908,13 +7887,13 @@ msgstr "Telescope가 로그인 시 자동 시작되지 않도록 설정하지 �
 
 #: rust/crates/system/src/going_back.rs:113
 #, python-brace-format
-msgid "Couldn't set up the Python libraries {version} needs. That takes the internet and a folder it can write to ({folder}). Nothing was changed."
-msgstr "{version}에 필요한 Python 라이브러리를 설정할 수 없어요. 인터넷 연결과 쓰기 가능한 폴더({folder})가 필요해요. 아무것도 변경되지 않았어요."
+msgid "Couldn't set up the Python libraries {version} needs. That needs an internet connection and a folder Telescope can write to ({folder}). Nothing was changed."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:227
 #, python-brace-format
-msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones come with it, and a copy of your current settings is saved first in {folder}."
-msgstr "마지막 Python 버전인 {version} 버전으로 Telescope를 다시 시작해요. 설정과 페어링된 휴대폰은 그대로 유지되며, 현재 설정의 사본을 먼저 {folder}에 저장해요."
+msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones are kept, and a copy of your current settings is saved first in {folder}."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:229
 #, python-brace-format
@@ -7923,17 +7902,17 @@ msgstr "그 이후에 추가된 새로운 기능은 사용할 수 없어요. Lua
 
 #: rust/crates/system/src/going_back.rs:231
 #, python-brace-format
-msgid "{version} won't check for updates by itself, so it doesn't offer this version back. You can turn that on again in its settings."
-msgstr "{version} 버전은 스스로 업데이트를 확인하지 않으므로 이 버전으로 다시 업그레이드하라고 권하지 않아요. 해당 버전의 설정에서 다시 켤 수 있어요."
+msgid "{version} doesn't check for updates automatically, so it doesn't offer this version back. You can turn that on again in its settings."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:234
 #, python-brace-format
-msgid "First it sets up the Python libraries {version} needs. That needs the internet and takes a few minutes. If that fails, nothing is changed."
-msgstr "먼저 {version}에 필요한 Python 라이브러리를 설정해요. 인터넷 연결이 필요하며 몇 분 정도 걸려요. 실패하더라도 아무것도 변경되지 않아요."
+msgid "First the Python libraries {version} needs are set up. This needs the internet and takes a few minutes. If that fails, nothing is changed."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:236
-msgid "If it doesn't start, opening Telescope again brings this version back."
-msgstr "만약 시작되지 않더라도 Telescope를 다시 열면 지금 이 버전으로 돌아와요."
+msgid "If the Python version doesn't start, opening Telescope again brings this version back."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:238 rust/crates/system/src/going_back.rs:251
 msgid "Go back"
@@ -7941,8 +7920,8 @@ msgstr "되돌아가기"
 
 #: rust/crates/system/src/going_back.rs:242
 #, python-brace-format
-msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack it and run start.sh in it. It needs Python 3.12 or newer and finds your settings in the same place."
-msgstr "AppImage는 Python 버전으로 교체할 수 없어요. {version} 릴리스에서 Telescope-linux.tar.gz를 다운로드해 압축을 풀고 start.sh를 실행하세요. Python 3.12 이상이 필요하며 기존 설정을 같은 위치에서 자동으로 찾아요."
+msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack the archive and run start.sh in the folder. The Python version needs Python 3.12 or newer and uses the same settings folder."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:244
 #, python-brace-format
@@ -7960,8 +7939,8 @@ msgstr "{version} 버전은 venv가 포함된 Python 3.12 이상이 필요하지
 
 #: rust/crates/system/src/going_back.rs:262
 #, python-brace-format
-msgid "The phone app has to match. A newer one may not connect to {version}. Android won't install an older app over a newer one, so uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
-msgstr "휴대폰 앱도 버전이 맞아야 해요. 더 새로운 앱은 {version} 버전에 연결되지 않을 수 있어요. Android에서는 최신 앱 위에 이전 앱을 덮어써서 설치할 수 없으므로, 휴대폰에서 Telescope를 제거하고 {version} 릴리스의 Telescope.apk를 설치한 뒤 다시 페어링하세요."
+msgid "The phone app has to match. A newer phone app may not connect to {version}. Android won't install an older app over a newer one, so uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:282
 msgid "Couldn't save a copy of your settings, so nothing was changed."
@@ -7972,8 +7951,8 @@ msgid "Not available on this desktop"
 msgstr "이 데스크톱 환경에서는 지원되지 않음"
 
 #: rust/crates/system/src/hotkeys_portal.rs:118
-msgid "Waiting for you to confirm it"
-msgstr "확인 대기 중"
+msgid "Needs your confirmation"
+msgstr ""
 
 #: rust/crates/system/src/hotkeys_portal.rs:129
 msgid "This desktop doesn't offer global shortcuts to apps."
@@ -7989,8 +7968,8 @@ msgid "Bind a Copy command line in its own keyboard settings instead."
 msgstr "대신 해당 환경의 키보드 설정에서 복사 명령줄을 지정하세요."
 
 #: rust/crates/system/src/hotkeys_portal.rs:134
-msgid "Your desktop asks you to confirm global shortcuts, and you can change their keys in its own settings. The key it settled on shows next to each one."
-msgstr "데스크톱 환경에서 전역 단축키 확인을 요청하며, 자체 설정에서 단축키를 변경할 수 있어요. 설정된 키는 각 항목 옆에 표시돼요."
+msgid "Your desktop asks you to confirm global shortcuts, and you can change their keys in the desktop's settings. The key the desktop assigned is shown next to each shortcut."
+msgstr ""
 
 #: rust/crates/system/src/hotkeys_portal.rs:143 rust/crates/system/src/hotkeys_portal.rs:178
 msgid "Not confirmed in the desktop's dialog"
@@ -8151,7 +8130,7 @@ msgstr "AI가 변경한 내용 실행 취소함"
 
 #: rust/crates/system/src/mcp.rs:1186
 #, python-brace-format
-msgid "Undid what the AI changed, except {n} it couldn't put back"
+msgid "Undid what the AI changed, except {n} that couldn't be restored"
 msgstr ""
 
 #: rust/crates/system/src/mcp.rs:1187
@@ -8168,12 +8147,12 @@ msgid "MCP server"
 msgstr "MCP 서버"
 
 #: rust/crates/system/src/mcp.rs:1469
-msgid "Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port."
-msgstr "네트워크 포트를 열지 않는 명령어를 통해 Claude Desktop 같은 AI 앱이 Telescope를 확인하고 설정을 변경할 수 있게 해요."
+msgid "Let an AI app such as Claude Desktop read and change Telescope's settings, through a command that opens no network port."
+msgstr ""
 
 #: rust/crates/system/src/mcp.rs:1470
-msgid "Without it AI apps can't connect to Telescope."
-msgstr "끄면 AI 앱이 Telescope에 연결할 수 없어요."
+msgid "Without the MCP server plugin AI apps can't connect to Telescope."
+msgstr ""
 
 #: rust/crates/system/src/mcp.rs:1505 rust/crates/system/ui/mcp.slint:229
 msgid "MCP"
@@ -8263,8 +8242,8 @@ msgid "{action} needs {name}=… for that."
 msgstr "그 동작을 수행하려면 {action}에 {name}=… 설정이 필요해요."
 
 #: rust/crates/system/src/remote.rs:241
-msgid "That failed; Copy diagnostics has the details."
-msgstr "실패했어요. 자세한 내용은 '진단 정보 복사'에서 확인할 수 있어요."
+msgid "The action failed. Copy diagnostics has the details."
+msgstr ""
 
 #: rust/crates/system/src/remote.rs:254
 #, python-brace-format
@@ -8277,7 +8256,7 @@ msgid "{action} can't be used right now (no device, or the control is off)."
 msgstr "지금은 {action} 동작을 사용할 수 없어요(기기가 없거나 컨트롤이 꺼져 있음)."
 
 #: rust/crates/system/src/setup_move.rs:381
-msgid "A newer Telescope is already installed, so this copy stays as it is. Open the installed one from the Start menu."
+msgid "A newer Telescope is already installed, so this copy is left unchanged. Open the installed Telescope from the Start menu."
 msgstr ""
 
 #: rust/crates/system/src/setup_move.rs:389
@@ -8407,7 +8386,7 @@ msgstr "이전"
 
 #: rust/crates/system/src/shortcuts.rs:765
 #, python-brace-format
-msgid "There can be at most {max} shortcuts. Remove one to add another."
+msgid "There can be at most {max} shortcuts. Remove a shortcut to add another."
 msgstr ""
 
 #: rust/crates/system/src/shortcuts.rs:768
@@ -8434,8 +8413,8 @@ msgstr "{keys} 키는 이미 \"{action}\" 동작에 사용 중이에요. 다른 
 
 #: rust/crates/system/src/shortcuts.rs:785
 #, python-brace-format
-msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
-msgstr "'모든 위치'로 설정하면 다른 앱에서 {keys} 입력이 차단될 수 있어요. Ctrl, Alt 또는 {meta} 키를 함께 추가하는 것이 안전해요."
+msgid "Everywhere, {keys} could no longer be typed in other apps. Adding Ctrl, Alt or {meta} is safer."
+msgstr ""
 
 #: rust/crates/system/src/shortcuts.rs:790
 #, python-brace-format
@@ -8449,8 +8428,8 @@ msgstr "알 수 없음({action})"
 
 #: rust/crates/system/src/shortcuts.rs:832
 #, python-brace-format
-msgid "{value} (not there now)"
-msgstr "{value}(현재 없음)"
+msgid "{value} (no longer available)"
+msgstr ""
 
 #: rust/crates/system/src/shortcuts.rs:856
 msgid "A command can't hold a key down. Pick another choice to copy its command."
@@ -8483,8 +8462,8 @@ msgid "Keys for Telescope's controls, including ones that work in other apps."
 msgstr "다른 앱에서도 작동하는 키를 포함한 Telescope 컨트롤용 키예요."
 
 #: rust/crates/system/src/shortcuts.rs:1129
-msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
-msgstr "끄면 단축키가 작동하지 않고 설정에서 키보드 단축키가 사라져요(단축키 설정은 유지돼요)."
+msgid "Without the Keyboard shortcuts plugin no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when the plugin is on again)."
+msgstr ""
 
 #: rust/crates/system/src/single_instance.rs:319
 msgid "Telescope is already running"
@@ -8517,16 +8496,16 @@ msgid "Telescope isn't running."
 msgstr "Telescope가 실행 중이 아니에요."
 
 #: rust/crates/system/src/single_instance.rs:397
-msgid "Telescope didn't understand that. Is it an older version? Update it to use --action."
-msgstr "Telescope가 요청을 인식하지 못했어요. 이전 버전인가요? --action을 사용하려면 업데이트하세요."
+msgid "Telescope didn't understand the request. Is the running Telescope an older version? Update Telescope to use --action."
+msgstr ""
 
 #: rust/crates/system/src/single_instance.rs:462
 msgid "Telescope couldn't write the key --action needs next to its settings when it started. Restart it."
 msgstr "Telescope를 시작할 때 --action에 필요한 키를 설정 옆에 저장하지 못했어요. 프로그램을 다시 시작하세요."
 
 #: rust/crates/system/src/single_instance.rs:467
-msgid "Telescope turned that down: it didn't come from this user's Telescope command."
-msgstr "Telescope가 요청을 거부했어요. 이 사용자의 Telescope 명령에서 보낸 요청이 아니에요."
+msgid "Telescope rejected the request because it didn't come from this user's Telescope command."
+msgstr ""
 
 #: rust/crates/system/src/splash.rs:93
 msgid "Starting Telescope…"
@@ -8569,12 +8548,12 @@ msgid "Only when I press Stop"
 msgstr "'중지'를 누를 때만"
 
 #: rust/crates/system/src/startup.rs:46
-msgid "When no app uses the camera, if it started the stream"
-msgstr "앱이 스트림을 시작했고 카메라를 사용하는 앱이 없을 때"
+msgid "When no app uses the camera, if Telescope started the stream"
+msgstr ""
 
 #: rust/crates/system/src/startup.rs:47
-msgid "When no app uses the camera, even if I started it"
-msgstr "직접 시작했더라도 카메라를 사용하는 앱이 없을 때"
+msgid "When no app uses the camera, even if I started the stream"
+msgstr ""
 
 #: rust/crates/system/src/startup.rs:50
 msgid "seconds"
@@ -8617,16 +8596,16 @@ msgid "Wait before stopping"
 msgstr "중지 전 대기"
 
 #: rust/crates/system/src/startup.rs:508
-msgid "Start and stop by itself"
-msgstr "자동 시작 및 중지"
+msgid "Start and stop automatically"
+msgstr ""
 
 #: rust/crates/system/src/startup.rs:509
 msgid "Opening Telescope when you sign in, and Automatic streaming."
 msgstr "로그인 시 Telescope 열기 및 자동 스트리밍 기능이에요."
 
 #: rust/crates/system/src/startup.rs:510
-msgid "Without it Automatic streaming stops and both it and the sign-in option leave Settings. Telescope still opens at sign-in if it did before."
-msgstr "끄면 자동 스트리밍이 중지되고 설정에서 자동 스트리밍 및 로그인 옵션이 사라져요. 이전에 로그인 시 열리도록 설정되어 있었다면 계속 열려요."
+msgid "Without the Automatic streaming plugin, Automatic streaming stops and it and the sign-in option disappear from Settings. Telescope still opens at sign-in if it did before."
+msgstr ""
 
 #: rust/crates/system/src/updates.rs:198
 #, python-brace-format
@@ -8665,7 +8644,7 @@ msgstr "{file}이(가) 사용 중이어서 업데이트가 설치되지 않았�
 
 #: rust/crates/system/src/updates.rs:596
 #, python-brace-format
-msgid "Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a folder of its own."
+msgid "Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a separate folder."
 msgstr ""
 
 #: rust/crates/system/src/updates.rs:665 rust/crates/system/src/updates_plugin.rs:97 rust/crates/system/src/updates_plugin.rs:168 rust/crates/system/src/updates_plugin.rs:240 rust/crates/system/src/updates_plugin.rs:621 rust/crates/system/src/updates_plugin.rs:796
@@ -8698,20 +8677,20 @@ msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "업데이트되었어요. 스트리밍을 중지하면 Telescope가 다시 시작돼요."
 
 #: rust/crates/system/src/updates_plugin.rs:470
-msgid "Going back to the Python version didn't work because it didn't start, so this version is back."
-msgstr "Python 버전이 시작되지 않아 되돌아갈 수 없어서 현재 버전으로 다시 돌아왔어요."
+msgid "Going back to the Python version failed because the Python version didn't start. This version is running again."
+msgstr ""
 
 #: rust/crates/system/src/updates_plugin.rs:475
-msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along."
-msgstr "업데이트하면 시작 메뉴 항목과 함께 사용자 계정에 설치되며, 현재 압축 해제된 복사본은 삭제돼요. 설정과 휴대폰 정보는 그대로 유지돼요."
+msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and paired phones are kept."
+msgstr ""
 
 #: rust/crates/system/src/updates_plugin.rs:481
 msgid "Stop streaming to update."
 msgstr "업데이트하려면 스트리밍을 중지하세요."
 
 #: rust/crates/system/src/updates_plugin.rs:493
-msgid "This is a source checkout, so it doesn't update itself."
-msgstr "소스 코드 체크아웃 버전이므로 자동 업데이트되지 않아요."
+msgid "This is a source checkout, so update Telescope with git."
+msgstr ""
 
 #: rust/crates/system/src/updates_plugin.rs:501
 msgid "There's no nightly release yet."
@@ -8967,7 +8946,7 @@ msgid "Tell me when it stops a stream"
 msgstr "스트림이 중지되면 알림"
 
 #: rust/crates/system/ui/startup.slint:134
-msgid "Show a notification when streaming stops by itself"
+msgid "Show a notification when streaming stops automatically"
 msgstr ""
 
 #: rust/crates/system/ui/startup.slint:137
@@ -9179,41 +9158,9 @@ msgctxt "percentage"
 msgid "{n}%"
 msgstr "{n}%"
 
-#: rust/crates/plugin-host/src/package.rs:23
-msgid "Other users on this computer could change it, so it isn't loaded."
-msgstr "이 컴퓨터의 다른 사용자가 수정할 수 있어 로드되지 않았어요."
-
-#: rust/crates/plugin-host/src/package.rs:24
-msgid "It contains a link to somewhere else, which plugins can't have."
-msgstr "플러그인에 포함할 수 없는 다른 위치를 가리키는 링크가 있어요."
-
-#: rust/crates/plugin-host/src/package.rs:498
-msgid "It contains compiled code (like .pyc files). Plugins have to be source code."
-msgstr "컴파일된 코드(.pyc 파일 등)가 포함되어 있어요. 플러그인은 소스 코드여야 해요."
-
-#: rust/crates/plugin-host/src/package.rs:26
-msgid "It's too big for a plugin (over 500 files or 20 MB)."
-msgstr "플러그인 허용 크기를 초과했어요(파일 500개 초과 또는 20MB 초과)."
-
 #: rust/crates/plugin-host/src/package.rs:25
 msgid "The folder has to have the same name as the plugin, using only lowercase letters, digits and _ (starting with a letter)."
 msgstr "폴더 이름은 영문 소문자, 숫자, _만 사용하고(문자로 시작해야 함) 플러그인과 동일한 이름이어야 해요."
-
-#: rust/crates/plugin-host/src/package.rs:29
-msgid "A plugin that comes with Telescope already has that name."
-msgstr "Telescope 기본 제공 플러그인에 이미 동일한 이름이 있어요."
-
-#: rust/crates/plugin-host/src/package.rs:27
-msgid "It isn't a .zip file Telescope can open."
-msgstr "Telescope에서 열 수 있는 .zip 파일이 아니에요."
-
-#: rust/crates/plugin-host/src/package.rs:444
-msgid "It holds a file with a path that points outside the plugin."
-msgstr "플러그인 외부를 가리키는 경로가 포함된 파일이 있어요."
-
-#: rust/crates/plugin-host/src/package.rs:455
-msgid "It has to hold one folder, named as the plugin."
-msgstr "플러그인과 같은 이름의 폴더 하나만 있어야 해요."
 
 #: rust/crates/plugin-host/src/package.rs:28
 msgid "That isn't a folder in the plugins folder."
@@ -9247,32 +9194,6 @@ msgstr "휴대폰 추가"
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"
 msgstr[0] "{name} 외 {n}장 저장됨"
-
-#: rust/crates/shell/src/plugins/preview.rs:19
-msgid ""
-"Camera off\n"
-"\n"
-"The phone's mic is still streaming.\n"
-"Stop streaming ends it."
-msgstr ""
-"카메라 꺼짐\n"
-"\n"
-"휴대폰 마이크는 계속 스트리밍 중이에요.\n"
-"스트리밍 중지를 누르면 종료돼요."
-
-#: rust/crates/shell/src/plugins/preview.rs:21
-msgid ""
-"Camera off\n"
-"\n"
-"No app was using the camera, so it turned off.\n"
-"The phone's mic is still streaming, and the camera\n"
-"comes back when an app opens it."
-msgstr ""
-"카메라 꺼짐\n"
-"\n"
-"카메라를 사용하는 앱이 없어 카메라가 꺼졌어요.\n"
-"휴대폰 마이크는 계속 스트리밍 중이며, 앱에서\n"
-"카메라를 열면 다시 켜져요."
 
 #: rust/crates/effects/src/transforms.rs:654
 msgctxt "search"
@@ -9357,10 +9278,6 @@ msgstr "휴대폰에서 사진을 촬영하는 데 시간이 너무 오래 걸�
 msgid "Lost the phone while it was taking the photo."
 msgstr "사진을 촬영하는 동안 휴대폰과의 연결이 끊어졌어요."
 
-#: rust/crates/link/src/stills.rs:62
-msgid "The phone gave up on the photo, maybe because its stream stopped."
-msgstr "스트림이 중지되었거나 다른 이유로 휴대폰에서 사진 촬영을 취소했어요."
-
 #: rust/crates/link/src/stills.rs:64
 msgid "This phone can't take photos from Telescope. Update the app on the phone."
 msgstr "이 휴대폰에서는 Telescope를 통한 사진 촬영을 지원하지 않아요. 휴대폰 앱을 업데이트하세요."
@@ -9397,33 +9314,740 @@ msgstr "업데이트에 예기치 않은 파일이 포함되어 있어 설치되
 msgid "The download doesn't contain Telescope, so it wasn't installed."
 msgstr "다운로드 파일에 Telescope가 포함되어 있지 않아 설치되지 않았어요."
 
-#: rust/crates/shell/src/plugins_tab.rs:728
-msgid "Couldn't remove it"
-msgstr "제거할 수 없음"
-
-#: rust/crates/shell/src/plugins_tab.rs:704
-msgid "Couldn't save that"
-msgstr "저장할 수 없음"
-
-#: rust/crates/shell/src/plugins_tab.rs:683
-msgid "Couldn't install it"
-msgstr "설치할 수 없음"
-
-#: rust/crates/shell/src/plugins_tab.rs:690
-msgid "Installed, but it won't load"
-msgstr "설치되었지만 로드되지 않음"
-
 #: rust/crates/shell/src/plugins_tab.rs:692
 msgid "Replaced"
 msgstr "대체됨"
 
-#: rust/crates/shell/src/plugins_tab.rs:773
-msgid "Couldn't open it"
-msgstr "열 수 없음"
-
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "다시 시작할 수 없음"
+
+#~ msgid "Once VB-Cable's setup says it's done, restart the computer, then switch this off and on."
+#~ msgstr "VB-Cable 설치 완료 메시지가 나타나면 컴퓨터를 다시 시작한 다음 이 기능을 껐다가 켜세요."
+
+#, python-brace-format
+#~ msgid "On for {name}. Turning it on here turns it off there."
+#~ msgstr "{name}에서 켜져 있어요. 여기서 켜면 해당 기기에서는 꺼져요."
+
+#~ msgid "Without it there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone."
+#~ msgstr "이 플러그인이 없으면 마이크 카드가 표시되지 않고 시스템 트레이 메뉴에 음소거가 나타나지 않으며 Telescope가 가상 마이크를 생성하지 않아요."
+
+#~ msgid "VB-Audio's site didn't hand over VB-Cable. Try again later, or get it from their site."
+#~ msgstr "VB-Audio 사이트에서 VB-Cable을 제공하지 않았어요. 나중에 다시 시도하거나 해당 사이트에서 직접 다운로드하세요."
+
+#~ msgid "VB-Audio's download doesn't have the setup it used to. Get it from their site instead."
+#~ msgstr "VB-Audio 다운로드 파일에 기존 설치 프로그램이 없어요. 대신 해당 사이트에서 직접 다운로드하세요."
+
+#~ msgid "VB-Cable's setup changed after it was checked, so it wasn't opened."
+#~ msgstr "VB-Cable 설치 프로그램이 확인 후 변경되어 열리지 않았어요."
+
+#~ msgid "Yellow: the limiter is holding peaks down. Red: it clipped."
+#~ msgstr "노란색: 리미터가 피크를 억제하고 있어요. 빨간색: 소리가 깨졌어요."
+
+#~ msgid "Telescope downloads VB-Cable from vb-audio.com and opens its setup, which asks for admin. Restart the computer afterwards."
+#~ msgstr "Telescope가 vb-audio.com에서 VB-Cable을 다운로드하고 관리자 권한을 요청하는 설치 프로그램을 열어요. 설치 후 컴퓨터를 다시 시작하세요."
+
+#~ msgid "Looking…"
+#~ msgstr "확인 중…"
+
+#~ msgid "Blurs the background behind you or swaps it for a picture."
+#~ msgstr "등 뒤의 배경을 흐리게 처리하거나 사진으로 교체해요."
+
+#~ msgid "Without it there's no Background card and the background stays as the camera sees it."
+#~ msgstr "이 플러그인이 없으면 배경 카드가 표시되지 않으며, 배경이 카메라에 보이는 그대로 유지돼요."
+
+#~ msgid "Swaps a green or blue screen behind you for a colour or a picture, with no download."
+#~ msgstr "별도 다운로드 없이 등 뒤의 초록색이나 파란색 스크린을 색상 또는 사진으로 바꿔 줘요."
+
+#~ msgid "Without it there's no Chroma key card and a green screen stays green."
+#~ msgstr "이 플러그인이 없으면 크로마키 카드가 표시되지 않으며 초록색 스크린이 그대로 초록색으로 유지돼요."
+
+#~ msgid "Without it there's no Cinema tools card and the preview shows just the picture."
+#~ msgstr "이 플러그인이 없으면 시네마 도구 카드가 표시되지 않으며 미리보기에 화면만 표시돼요."
+
+#~ msgid "Looking at the picture…"
+#~ msgstr "화면 분석 중…"
+
+#~ msgid "Auto couldn't get a steady picture to look at. Try again while nothing moves."
+#~ msgstr "자동 기능이 분석할 흔들림 없는 화면을 얻지 못했어요. 움직임이 없을 때 다시 시도해 보세요."
+
+#~ msgid "Nothing needs changing now, so Auto's earlier changes were taken off."
+#~ msgstr "지금은 변경할 필요가 없어서 자동 기능이 이전에 적용한 변경 사항을 해제했어요."
+
+#~ msgid "No face was found, so it went by the background and the brightness."
+#~ msgstr "얼굴을 찾지 못해 배경과 밝기를 기준으로 조정했어요."
+
+#~ msgid "The light is mixed or coloured, so white balance stayed as it was."
+#~ msgstr "조명이 섞여 있거나 색이 강해서 화이트 밸런스는 그대로 유지했어요."
+
+#~ msgid "Your own wheels and curves would have clipped the picture, so Auto went only part of the way."
+#~ msgstr "직접 설정한 휠과 커브 때문에 화면이 클리핑될 수 있어서 자동 기능을 일부만 적용했어요."
+
+#~ msgid "The camera adjusts itself, so this may drift."
+#~ msgstr "카메라가 자체적으로 조정 중이어서 설정이 흔들릴 수 있어요."
+
+#~ msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
+#~ msgstr "이 플러그인이 없으면 컬러 그레이딩 카드가 표시되지 않으며 화면에 카메라 본래의 색상이 유지돼요."
+
+#~ msgid "It takes over once two of its streams are running."
+#~ msgstr "포함된 스트림 중 2개가 실행되면 이 화면으로 전환돼요."
+
+#, python-brace-format
+#~ msgid "It goes out on {camera}, and no stream goes there now."
+#~ msgstr "이 화면은 {camera}(으)로 나가지만, 지금은 그쪽으로 가는 스트림이 없어요."
+
+#, python-brace-format
+#~ msgid "It goes out on {camera} once the stream there sends a picture."
+#~ msgstr "해당 스트림에서 화면을 전송하면 {camera}(으)로 출력돼요."
+
+#, python-brace-format
+#~ msgid "Goes out on {camera}."
+#~ msgstr "{camera}(으)로 출력돼요."
+
+#~ msgid "Puts the streams you run side by side or one inside another, out on one virtual camera."
+#~ msgstr "실행 중인 여러 스트림을 나란히 배치하거나 화면 속 화면으로 구성하여 하나의 가상 카메라로 내보내요."
+
+#~ msgid "Without it there's no One picture card and each stream only goes to its own camera."
+#~ msgstr "이 플러그인이 없으면 한 화면 카드가 표시되지 않으며 각 스트림이 자체 카메라로만 전송돼요."
+
+#~ msgid "This isn't a .cube LUT: it doesn't say its size."
+#~ msgstr ".cube LUT 파일이 아니에요: 크기 정보가 없어요."
+
+#~ msgid "Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."
+#~ msgstr "모서리 점들이 너무 뭉쳐 있거나 일직선상에 있어 적용되지 않았어요. 종이의 네 모서리에 각각 하나씩 놓이도록 다시 지정해 보세요."
+
+#~ msgid "Straightens a sheet of paper you mark on the preview and can make the writing on it stand out."
+#~ msgstr "미리보기에서 지정한 종이를 반듯하게 펴고 글씨가 더 또렷하게 보이도록 보정해요."
+
+#~ msgid "Without it there's no Desk mode card and the picture stays the way the camera sees it."
+#~ msgstr "이 플러그인이 없으면 데스크 모드 카드가 표시되지 않으며 화면이 카메라에 비친 그대로 유지돼요."
+
+#~ msgid "Moves the phone's metering point to your face to keep you well lit whatever's behind you."
+#~ msgstr "배경 밝기와 상관없이 얼굴이 밝게 나오도록 휴대폰의 측광 기준을 얼굴로 이동해요."
+
+#~ msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
+#~ msgstr "이 플러그인이 없으면 '얼굴 기준 노출' 카드가 표시되지 않으며 휴대폰이 탭한 위치나 화면 전체를 기준으로 측광해요."
+
+#~ msgid "Widens the view so your hands are in it too."
+#~ msgstr "손도 함께 보이도록 시야를 넓혀요."
+
+#~ msgid "Without it there's no Auto framing card and the zoom stays where you put it."
+#~ msgstr "이 플러그인이 없으면 자동 프레이밍 카드가 표시되지 않으며 줌이 설정한 위치에 그대로 고정돼요."
+
+#, python-brace-format
+#~ msgid "Taking it in {n}…"
+#~ msgstr "{n}초 후 촬영…"
+
+#~ msgid "Without it there's no Fun pack card and the picture has no effects."
+#~ msgstr "이 플러그인이 없으면 펀 팩 카드가 표시되지 않으며 화면에 특수 효과가 적용되지 않아요."
+
+#~ msgid "Puts your name and pronouns in the corner of the picture."
+#~ msgstr "화면 구석에 이름과 대명사를 표시해요."
+
+#~ msgid "Without it there's no Name tag card and nothing is drawn on the picture."
+#~ msgstr "끄면 이름표 카드가 사라지고 화면에 아무것도 표시되지 않아요."
+
+#~ msgid "Shows your script on the phone's screen right under the camera, to read while looking people in the eye."
+#~ msgstr "시선을 맞추며 읽을 수 있도록 휴대폰 화면의 카메라 바로 아래에 대본을 표시해요."
+
+#~ msgid "Without it there's no Teleprompter card and the phone never shows a script."
+#~ msgstr "이 플러그인이 없으면 텔레프롬프터 카드가 사라지고 휴대폰에 대본이 표시되지 않아요."
+
+#~ msgid "The browser warns that the connection isn't private: it's this computer's own certificate. On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed."
+#~ msgstr "브라우저에서 연결이 비공개로 설정되지 않았다는 경고가 뜰 수 있어요. 이 컴퓨터의 자체 인증서 때문이에요. iPhone에서는 '세부사항 보기'를 탭한 다음 '이 웹사이트 방문'을 탭하세요. Chrome에서는 '고급'을 탭한 다음 '계속 진행'을 탭하세요."
+
+#~ msgid "It went through."
+#~ msgstr "전송되었어요."
+
+#, python-brace-format
+#~ msgid "It didn't go through: {error}"
+#~ msgstr "전송되지 않았어요: {error}"
+
+#~ msgid "The On Air webhook didn't go through"
+#~ msgstr "온에어 웹훅이 전송되지 않았어요"
+
+#, python-brace-format
+#~ msgid "It answered: {error}"
+#~ msgstr "응답: {error}"
+
+#~ msgid "Shows the people around you that your camera or microphone is in use, on another device's screen or through a smart home light."
+#~ msgstr "다른 기기 화면이나 스마트 홈 조명을 통해 카메라나 마이크를 사용 중임을 주변 사람들에게 알려요."
+
+#~ msgid "Without it there's no On Air tab in Settings and no sign or webhook."
+#~ msgstr "끄면 설정에 온에어 탭이 사라지고 표시나 웹훅을 사용할 수 없어요."
+
+#~ msgid "The camera keeps its own JPEG quality"
+#~ msgstr "카메라 자체 JPEG 화질을 유지해요"
+
+#~ msgid "Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it."
+#~ msgstr "카메라가 지원하는 경우 RAW를 포함해 휴대폰이나 DSLR에서 최고 화질로 사진을 찍어요."
+
+#~ msgid "Without it there's no Photos card and no Take photo shortcut."
+#~ msgstr "끄면 사진 카드가 사라지고 사진 촬영 단축키를 사용할 수 없어요."
+
+#~ msgid "Without it there's no Privacy blur card and nothing gets hidden when someone walks in."
+#~ msgstr "끄면 프라이버시 흐림 효과 카드가 사라지고 누군가 들어와도 화면이 가려지지 않아요."
+
+#~ msgid "Click Copy on the QR codes card to put it on the clipboard."
+#~ msgstr "QR 코드 카드에서 복사를 누르면 클립보드에 복사돼요."
+
+#~ msgid "Copies a QR code you hold up to the camera, or the password from a Wi-Fi code."
+#~ msgstr "카메라에 비춘 QR 코드나 Wi-Fi 코드의 비밀번호를 복사해요."
+
+#~ msgid "Without it there's no QR code card and codes in the picture are left alone."
+#~ msgstr "끄면 QR 코드 카드가 사라지고 화면에 코드가 나타나도 무시해요."
+
+#, python-brace-format
+#~ msgid "Panned past what {tele} can see, so it's on {live}. Pan back to switch again."
+#~ msgstr "{tele}의 화각을 벗어나 팬했기 때문에 {live}(으)로 전환되었어요. 다시 전환하려면 반대로 팬하세요."
+
+#, python-brace-format
+#~ msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
+#~ msgstr "휴대폰이 자동으로 {live} 상태를 유지했어요. {tele}에는 너무 어둡거나 너무 가까울 가능성이 커요. 전환이 가능해지면 바로 전환돼요."
+
+#~ msgid "It can wobble for a moment while it switches."
+#~ msgstr "전환되는 동안 화면이 잠시 흔들릴 수 있어요."
+
+#~ msgid "Zoomed on this computer: this lens can't zoom itself"
+#~ msgstr "이 컴퓨터에서 줌 적용됨: 이 렌즈 자체로는 줌을 할 수 없어요"
+
+#~ msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
+#~ msgstr "이 플러그인이 없으면 화면 변형 카드가 표시되지 않으며, 화면이 휴대폰에서 전송된 그대로 출력돼요."
+
+#~ msgid "Looking at the picture"
+#~ msgstr "화면 분석 중"
+
+#~ msgid "Shows the people around you that your camera or microphone is in use."
+#~ msgstr "카메라나 마이크를 사용 중임을 주변 사람들에게 알려요."
+
+#~ msgid "The page didn't start"
+#~ msgstr "페이지가 시작되지 않음"
+
+#~ msgid "Google's list of downloads wasn't what Telescope expected. Try again later."
+#~ msgstr "Google 다운로드 목록이 Telescope에서 예상한 형식과 달라요. 나중에 다시 시도해 보세요."
+
+#~ msgid "That doesn't have adb.exe in it."
+#~ msgstr "해당 경로에 adb.exe가 없어요."
+
+#, python-brace-format
+#~ msgid "Google wouldn't send adb to this computer (it said {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead."
+#~ msgstr "Google에서 이 컴퓨터로 adb를 전송하지 않았어요(오류 코드: {code}). Google은 일부 국가에서 Android 다운로드를 차단해요. 다른 방법으로 platform-tools를 구했다면 해당 adb.exe나 zip 파일을 직접 선택하세요."
+
+#, python-brace-format
+#~ msgid "Google's server said {code}. Try again later."
+#~ msgstr "Google 서버에서 {code} 응답을 반환했어요. 나중에 다시 시도해 보세요."
+
+#, python-brace-format
+#~ msgid "The phone refused the microphone (HTTP {code})."
+#~ msgstr "휴대폰에서 마이크 연결을 거부했어요(HTTP {code})."
+
+#~ msgid "Browser says it isn't private?"
+#~ msgstr "브라우저에서 비공개 연결이 아니라고 하나요?"
+
+#~ msgid ""
+"It is this computer's own certificate.\n"
+"iPhone: tap Show Details, then visit this website.\n"
+"Chrome: tap Advanced, then Proceed.\n"
+"Keep the page open with the screen on."
+#~ msgstr ""
+"이 컴퓨터 자체 인증서이기 때문이에요.\n"
+"iPhone: 상세 정보 보기를 탭한 다음 이 웹사이트 방문을 탭하세요.\n"
+"Chrome: 고급을 탭한 다음 안전하지 않음(으)로 이동을 탭하세요.\n"
+"화면을 켠 채로 페이지를 열어 두세요."
+
+#~ msgid "Check it's on the same network."
+#~ msgstr "같은 네트워크에 연결되어 있는지 확인하세요."
+
+#, python-brace-format
+#~ msgid "Still streaming over {now}, so it stays on {kept}."
+#~ msgstr "여전히 {now}(으)로 스트리밍 중이어서 {kept} 연결을 유지해요."
+
+#, python-brace-format
+#~ msgid "Open Telescope on {phone} and keep it on screen. It needs to be on the same network as this computer, or plugged in with a USB cable."
+#~ msgstr "휴대폰({phone})에서 Telescope를 열고 화면에 띄워 두세요. 이 컴퓨터와 같은 네트워크에 있거나 USB 케이블로 연결되어 있어야 해요."
+
+#~ msgid "Stop it there or on the phone, then try again."
+#~ msgstr "해당 컴퓨터나 휴대폰에서 스트리밍을 중지한 다음 다시 시도해 보세요."
+
+#, python-brace-format
+#~ msgid "The phone refused to start streaming ({error})."
+#~ msgstr "휴대폰에서 스트리밍 시작을 거부했어요({error})."
+
+#, python-brace-format
+#~ msgid "Phone went quiet for a moment, still waiting... ({seconds}s)"
+#~ msgstr "휴대폰 응답이 일시적으로 중단되었어요. 대기 중... ({seconds}초)"
+
+#~ msgid ""
+"The phone's camera didn't finish starting in time.\n"
+"\n"
+"Try again. If it keeps happening, open Telescope on the phone."
+#~ msgstr ""
+"휴대폰 카메라가 제시간에 시작되지 않았어요.\n"
+"\n"
+"다시 시도해 보세요. 문제가 계속되면 휴대폰에서 Telescope를 여세요."
+
+#~ msgid "Or plug it in over USB."
+#~ msgstr "또는 USB로 연결하세요."
+
+#, python-brace-format
+#~ msgid "Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it."
+#~ msgstr "Telescope에서 Google로부터 adb를 다운로드(약 {size})하여 사용자 계정에 보관할 수 있어요. Google 소프트웨어이므로 Android SDK 라이선스 계약이 적용돼요: <a href=\"{url}\">여기에서 확인하세요</a>.<br><br>Wi-Fi는 adb 없이도 작동해요."
+
+#, python-brace-format
+#~ msgid "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick one you already have</a>."
+#~ msgstr "<a href=\"{get}\">다시 시도</a>하거나 <a href=\"{pick}\">이미 설치된 파일을 선택</a>하세요."
+
+#, python-brace-format
+#~ msgid "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry."
+#~ msgstr "'{name}'(이)라는 이름의 휴대폰이 새 휴대폰으로 페어링되었어요. Telescope를 다시 설치했거나 데이터를 삭제한 경우에 발생해요. '예'를 선택하면 {name}의 설정과 프리셋을 이전하고 이전 항목을 제거해요."
+
+#, python-brace-format
+#~ msgid "Remove \"{name}\"? This deletes the settings it had on this computer. It can still connect with the code, and starts from the defaults."
+#~ msgstr "\"{name}\"을(를) 제거할까요? 이 컴퓨터에 저장된 설정이 삭제돼요. 코드를 사용해 다시 연결할 수 있으며, 이 경우 기본 설정으로 시작해요."
+
+#, python-brace-format
+#~ msgid "v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:"
+#~ msgstr "v4l2loopback이 로드되었지만 {device} 디바이스가 없어요. 다른 앱에서 다른 설정으로 구성한 상태예요. 해당 앱을 닫고 다음 명령을 실행하여 Telescope로 제어권을 넘겨주세요:"
+
+#~ msgid "Switching it on asks for your password."
+#~ msgstr "가상 카메라를 켜려면 비밀번호를 입력해야 해요."
+
+#~ msgid "Telescope needs to switch on its virtual camera first. This asks for your password."
+#~ msgstr "Telescope에서 먼저 가상 카메라를 켜야 해요. 비밀번호 입력이 필요해요."
+
+#~ msgid "It can stutter more than TCP, so try it and see."
+#~ msgstr "TCP보다 더 끊길 수 있으니 직접 사용해 보고 확인해 보세요."
+
+#~ msgid "This phone's app is too old for Dynamic and uses Auto until it's updated."
+#~ msgstr "이 휴대폰 앱은 너무 이전 버전이어서 동적을 사용할 수 없으며, 업데이트할 때까지 자동을 사용해요."
+
+#, python-brace-format
+#~ msgid "{error}. It's set back to {size}, the last size that worked."
+#~ msgstr "{error}. 정상 작동했던 마지막 크기인 {size}(으)로 다시 설정되었어요."
+
+#~ msgid "Without it there's no Stream output card and streams use whatever size and format the phone picks."
+#~ msgstr "이 플러그인이 없으면 스트림 출력 카드가 표시되지 않으며, 스트림은 휴대폰이 선택한 크기와 포맷을 그대로 사용해요."
+
+#, python-brace-format
+#~ msgid "{problem}. Keeping the current wait screen."
+#~ msgstr "{problem}. 현재 대기 화면을 유지해요."
+
+#~ msgid "The default screen is showing. Choose another one."
+#~ msgstr "기본 화면이 표시되고 있어요. 다른 이미지를 선택하세요."
+
+#~ msgid "Without it Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
+#~ msgstr "이 플러그인이 없으면 설정에 대기 화면이 표시되지 않으며, 스트림 사이에 앱에 검은 화면이 보이거나 아무것도 보이지 않을 수 있어요."
+
+#~ msgid "Set it to your mains frequency to stop lights flickering or banding."
+#~ msgstr "조명의 깜빡임이나 줄무늬 현상을 방지하려면 전원 주파수에 맞게 설정하세요."
+
+#~ msgid "Check that it's plugged in."
+#~ msgstr "연결되어 있는지 확인하세요."
+
+#~ msgid "Another app may be using it. Close it there and it starts here."
+#~ msgstr "다른 앱에서 사용 중일 수 있어요. 해당 앱에서 닫으면 여기에서 시작돼요."
+
+#, python-brace-format
+#~ msgid "{app} is using it. Close it there and it starts here."
+#~ msgstr "{app}에서 사용 중이에요. 해당 앱에서 닫으면 여기에서 시작돼요."
+
+#~ msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
+#~ msgstr "끄면 기기 선택 목록에서 웹캠이 사라지고 웹캠 카드도 보이지 않아요."
+
+#~ msgid "The webcam isn't plugged in. Plug it back in and it carries on."
+#~ msgstr "웹캠이 연결되어 있지 않아요. 다시 연결하면 계속 진행돼요."
+
+#~ msgid "Another app is using the webcam. Close it there and it starts here."
+#~ msgstr "다른 앱에서 웹캠을 사용 중이에요. 해당 앱에서 닫으면 여기에서 시작돼요."
+
+#~ msgid "It isn't turned on."
+#~ msgstr "켜져 있지 않아요."
+
+#, python-brace-format
+#~ msgid "Its {file} has to return the plugin's table at the end."
+#~ msgstr "{file}의 마지막에서 플러그인 테이블을 반환해야 해요."
+
+#~ msgid "It's a link to another folder, which plugins can't be."
+#~ msgstr "다른 폴더를 가리키는 링크이며, 플러그인은 링크일 수 없어요."
+
+#, python-brace-format
+#~ msgid "It has no {file}."
+#~ msgstr "{file} 파일이 없어요."
+
+#, python-brace-format
+#~ msgid "Its {file} isn't valid JSON."
+#~ msgstr "{file} 파일이 올바른 JSON 형식이 아니에요."
+
+#, python-brace-format
+#~ msgid "Its {file} isn't valid."
+#~ msgstr "{file} 파일이 올바르지 않아요."
+
+#, python-brace-format
+#~ msgid "It was made for an older Telescope (plugin API {api}) and needs an update."
+#~ msgstr "이전 버전의 Telescope(플러그인 API {api})용으로 제작되어 업데이트가 필요해요."
+
+#~ msgid "Its files couldn't be read."
+#~ msgstr "해당 파일을 읽을 수 없어요."
+
+#, python-brace-format
+#~ msgid "Its {file} has to give the folder's name as \"name\"."
+#~ msgstr "{file} 파일의 \"name\" 항목에 폴더 이름을 지정해야 해요."
+
+#, python-brace-format
+#~ msgid "It needs a newer Telescope (plugin API {wanted}; this one has {have})."
+#~ msgstr "더 최신 버전의 Telescope가 필요해요(플러그인 API 요구: {wanted}, 현재: {have})."
+
+#~ msgid "Its files changed since it was turned on. Turn it on again if you trust this version."
+#~ msgstr "플러그인이 켜진 이후 파일이 변경되었어요. 이 버전을 신뢰한다면 다시 켜세요."
+
+#~ msgid "Stopped streaming to let it cool down."
+#~ msgstr "기기를 식힐 수 있도록 스트리밍을 중지했어요."
+
+#, python-brace-format
+#~ msgid "Streaming stopped, as Monitoring stops it at {level}% or lower."
+#~ msgstr "모니터링 설정에 따라 배터리가 {level}% 이하로 떨어져 스트리밍이 중지되었어요."
+
+#, python-brace-format
+#~ msgid "Streaming stopped to let it cool down, as Monitoring stops it at {temp} °C."
+#~ msgstr "모니터링 설정에 따라 온도가 {temp}°C에 도달하여 기기를 식히기 위해 스트리밍이 중지되었어요."
+
+#~ msgid "Without it there's no Phone card and nothing warns you about a low battery or a hot phone."
+#~ msgstr "이 플러그인이 없으면 휴대폰 카드가 표시되지 않으며 배터리 부족이나 휴대폰 발열에 대한 경고가 제공되지 않아요."
+
+#~ msgid "Asks for your password (pkexec or sudo): this changes system settings."
+#~ msgstr "비밀번호를 요청해요(pkexec 또는 sudo): 시스템 설정을 변경해요."
+
+#~ msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
+#~ msgstr "적용하면 새 크기로 스트림이 다시 시작돼요. OBS에서 소스를 찾을 수 없으면 제거했다가 다시 추가하세요."
+
+#~ msgid "The graphics card failed and the processor is decoding until you restart Telescope"
+#~ msgstr "그래픽 카드에 오류가 발생해 Telescope를 다시 시작할 때까지 프로세서가 디코딩하고 있어요"
+
+#~ msgid "The graphics card was too slow, so the processor is decoding for now"
+#~ msgstr "그래픽 카드가 너무 느려서 지금은 프로세서가 디코딩 중이에요"
+
+#~ msgid "Some apps can't see it"
+#~ msgstr "일부 앱에서 감지할 수 없음"
+
+#~ msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
+#~ msgstr "찾을 수 없어요. USB를 통한 페어링 및 설치에는 필요하지만 Wi-Fi에는 필요하지 않아요."
+
+#~ msgid "Without it there's no Stats card. The stream carries on the same."
+#~ msgstr "끄면 통계 카드가 사라져요. 스트림은 그대로 유지돼요."
+
+#, python-brace-format
+#~ msgid "stepped down to {n} for the link"
+#~ msgstr "연결 상태에 맞춰 {n}로 낮춤"
+
+#~ msgid "Decode the Light format on the graphics card from the next stream on. If the card fails the processor takes over until you restart Telescope."
+#~ msgstr "다음 스트림부터 가볍게 포맷을 그래픽 카드에서 디코딩해요. 카드에서 실패하면 Telescope를 다시 시작할 때까지 프로세서가 대신 처리해요."
+
+#~ msgid "Use less processor and battery while Background or Auto framing is on. They follow quick movement a little later."
+#~ msgstr "배경 또는 자동 프레이밍이 켜져 있을 때 프로세서와 배터리를 덜 사용해요. 빠른 움직임을 따라가는 속도가 조금 느려져요."
+
+#~ msgid "Keeps loud sounds from clipping"
+#~ msgstr "큰 소리가 깨지지 않도록 방지해요"
+
+#~ msgid "Restart Telescope to switch to it."
+#~ msgstr "변경하려면 Telescope를 다시 시작하세요."
+
+#~ msgid "Open the full log. It's kept in the temp folder, which the system clears."
+#~ msgstr "전체 로그를 열어요. 로그는 시스템이 비우는 임시 폴더에 보관돼요."
+
+#~ msgid "This asks for your password."
+#~ msgstr "비밀번호 입력이 필요해요."
+
+#, python-brace-format
+#~ msgid "To stream several cameras at once, Telescope adds more virtual cameras ({names})."
+#~ msgstr "여러 카메라를 동시에 스트리밍하기 위해 Telescope에서 가상 카메라({names})를 추가해요."
+
+#~ msgid "Only a phone's stream has the video this needs."
+#~ msgstr "이 기능에 필요한 비디오는 휴대폰 스트림에만 있어요."
+
+#~ msgid "Stabilization"
+#~ msgstr "손떨림 보정"
+
+#~ msgid "Starting a stream may ask for your password to switch it on."
+#~ msgstr "스트림을 시작할 때 가상 카메라를 켜기 위해 비밀번호를 요청할 수 있어요."
+
+#~ msgid "Scan this with the phone's camera app to download Telescope.apk, then open it to install. It's a download link, not the pairing code."
+#~ msgstr "휴대폰 카메라 앱으로 스캔하여 Telescope.apk를 다운로드한 다음 열어서 설치하세요. 페어링 코드가 아니라 다운로드 링크예요."
+
+#~ msgid "Without it the setup checklist never shows, not even when nothing is set up yet."
+#~ msgstr "끄면 아직 아무것도 설정되지 않았더라도 설정 체크리스트가 표시되지 않아요."
+
+#~ msgid "Without it there's no Presets button in the header (your saved presets aren't deleted)."
+#~ msgstr "끄면 상단 헤더에 프리셋 버튼이 사라져요(저장된 프리셋은 삭제되지 않아요)."
+
+#~ msgid "Without it the window doesn't show the picture but apps using the virtual camera still get it."
+#~ msgstr "끄면 창에 화면이 표시되지 않지만 가상 카메라를 사용하는 앱에는 계속 전송돼요."
+
+#~ msgid "Telescope couldn't start a new copy of itself. Close it and open it again to apply your changes."
+#~ msgstr "Telescope가 새 인스턴스를 시작하지 못했어요. 변경 사항을 적용하려면 프로그램을 닫았다가 다시 여세요."
+
+#, python-brace-format
+#~ msgid "The download didn't work. {error}"
+#~ msgstr "다운로드하지 못했어요. {error}"
+
+#~ msgid "There's no download of what it needs for this computer yet, so it can't be switched on."
+#~ msgstr "이 컴퓨터에 필요한 다운로드 파일이 아직 제공되지 않아 켤 수 없어요."
+
+#, python-brace-format
+#~ msgid "Its download (about {mb} MB) isn't there anymore. Switch it off and on again to get it."
+#~ msgstr "다운로드된 파일(약 {mb} MB)이 더 이상 없어요. 파일을 다시 받으려면 껐다가 다시 켜세요."
+
+#, python-brace-format
+#~ msgid "Switching one of these on downloads about {mb} MB first, once for all of them."
+#~ msgstr "이 중 하나를 켜면 먼저 약 {mb} MB를 한 번만 다운로드하여 모두 함께 사용해요."
+
+#~ msgid "Its files changed since you switched it on, so it's off for now. Switch it on again if you trust this version."
+#~ msgstr "플러그인을 켠 이후 파일이 변경되어 지금은 꺼진 상태예요. 이 버전을 신뢰한다면 다시 켜세요."
+
+#, python-brace-format
+#~ msgid "It didn't start ({problem})."
+#~ msgstr "시작되지 않았어요({problem})."
+
+#, python-brace-format
+#~ msgid "Version {version} is out. <a href=\"{url}\">Download it from its release page</a> and install it here to replace this one."
+#~ msgstr "{version} 버전이 출시되었어요. <a href=\"{url}\">릴리스 페이지에서 다운로드</a>하여 여기에 설치하면 기존 버전을 대체할 수 있어요."
+
+#, python-brace-format
+#~ msgid "Loaded from {folder} by telescope-rs dev. Telescope restarts by itself when you save one of its files."
+#~ msgstr "telescope-rs dev를 통해 {folder}에서 로드되었어요. 관련 파일을 저장하면 Telescope가 자동으로 다시 시작돼요."
+
+#, python-brace-format
+#~ msgid "Its folder ({folder}) is deleted from the plugins folder. To use it again you'll have to add it again."
+#~ msgstr "플러그인 폴더에서 해당 폴더({folder})가 삭제돼요. 다시 사용하려면 플러그인을 다시 추가해야 해요."
+
+#, python-brace-format
+#~ msgid "It frees about {mb} MB. Switching on one of the optional plugins downloads it again."
+#~ msgstr "약 {mb} MB의 공간이 확보돼요. 선택적 플러그인 중 하나를 켜면 다시 다운로드돼요."
+
+#~ msgid "Streaming stops while Telescope restarts. It takes a few seconds."
+#~ msgstr "Telescope가 다시 시작되는 동안 스트리밍이 중지돼요. 몇 초 정도 걸려요."
+
+#~ msgid "Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch it back on."
+#~ msgstr "플러그인을 끄면 Telescope에 추가된 기능이 사라져요. 설정은 다시 켤 때를 위해 그대로 저장돼요."
+
+#, python-brace-format
+#~ msgid "{plugin} uses MediaPipe to find people in the picture. It comes as a separate download from Telescope's releases on GitHub, which the other optional plugins share."
+#~ msgstr "{plugin}은(는) 화면 속 사람을 찾기 위해 MediaPipe를 사용해요. GitHub의 Telescope 릴리스에서 별도 다운로드로 제공되며, 다른 선택적 플러그인과 공유돼요."
+
+#~ msgid "The version in this .zip takes its place with the same settings. Like any plugin you add it starts out switched off."
+#~ msgstr "이 .zip 파일의 버전이 동일한 설정으로 대체돼요. 새로 추가하는 다른 플러그인과 마찬가지로 처음에는 꺼진 상태로 시작돼요."
+
+#, python-brace-format
+#~ msgid "{plugin} {version} is in place but switched off for now. To use it, switch it on again and restart Telescope."
+#~ msgstr "{plugin} {version}이(가) 설치되었지만 지금은 꺼져 있어요. 사용하려면 다시 켜고 Telescope를 다시 시작하세요."
+
+#, python-brace-format
+#~ msgid "{plugin} is installed but switched off for now. To use it, switch it on and restart Telescope."
+#~ msgstr "{plugin}이(가) 설치되었지만 지금은 꺼져 있어요. 사용하려면 켜고 Telescope를 다시 시작하세요."
+
+#~ msgid "Check that it's still on."
+#~ msgstr "전원이 여전히 켜져 있는지 확인하세요."
+
+#~ msgid "Nothing matches every word. These match some of them."
+#~ msgstr "모든 단어와 일치하는 항목이 없어요. 다음은 일부 단어와 일치하는 항목이에요."
+
+#~ msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
+#~ msgstr "GitHub에 릴리스를 게시하는 추가된 플러그인의 새 버전을 하루에 한 번 확인하여 여기에 안내해요. 파일이 자동으로 다운로드되지는 않아요."
+
+#~ msgid "Installs new versions of the plugins you switched on and switches them on again."
+#~ msgstr "켜 둔 플러그인의 새 버전을 설치하고 다시 켜 둬요."
+
+#, python-brace-format
+#~ msgid "{plugins} didn't start"
+#~ msgid_plural "{plugins} didn't start"
+#~ msgstr[0] "{plugins}이(가) 시작되지 않았어요"
+
+#, python-brace-format
+#~ msgid "{n} plugin didn't start"
+#~ msgid_plural "{n} plugins didn't start"
+#~ msgstr[0] "{n}개 플러그인이 시작되지 않았어요"
+
+#~ msgid "Telescope works without it. The Plugins tab in Settings says what went wrong."
+#~ msgid_plural "Telescope works without them. The Plugins tab in Settings says what went wrong."
+#~ msgstr[0] "해당 플러그인 없이도 Telescope를 사용할 수 있어요. 무엇이 잘못되었는지는 설정의 플러그인 탭에서 확인할 수 있어요."
+
+#~ msgid "The stream comes back by itself once that app closes or lets go of it."
+#~ msgstr "해당 앱이 닫히거나 카메라 사용을 중단하면 스트림이 자동으로 다시 시작돼요."
+
+#~ msgid "Stop it there or on the phone, then start again."
+#~ msgstr "해당 컴퓨터나 휴대폰에서 중지한 다음 다시 시작하세요."
+
+#, python-brace-format
+#~ msgid "It's streaming at {size} and {fps} fps until it cools down."
+#~ msgstr "기기 온도가 내려갈 때까지 {size} 및 {fps} fps로 스트리밍해요."
+
+#, python-brace-format
+#~ msgid "It's streaming at {size} until it cools down."
+#~ msgstr "기기 온도가 내려갈 때까지 {size}(으)로 스트리밍해요."
+
+#~ msgid "Open the Telescope page in it again."
+#~ msgstr "해당 브라우저에서 Telescope 페이지를 다시 여세요."
+
+#, python-brace-format
+#~ msgid "The phone got hot and lowered the frame rate to {fps} fps for now."
+#~ msgstr "휴대폰이 뜨거워져 일시적으로 프레임 레이트를 {fps} fps로 낮췄어요."
+
+#~ msgid "The camera is making fewer frames than asked for. Dim light slows it down."
+#~ msgstr "카메라가 요청한 것보다 적은 프레임을 생성하고 있어요. 조명이 어두우면 속도가 느려져요."
+
+#~ msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
+#~ msgstr "휴대폰 카메라가 요청한 것보다 적은 프레임을 만들고 있어요. 어두운 곳에서는 속도가 느려져요."
+
+#~ msgid "It starts streaming by itself when it needs to."
+#~ msgstr "필요할 때 자동으로 스트리밍을 시작해요."
+
+#~ msgid "Delete the download these plugins use. Switching any of these plugins on downloads it again."
+#~ msgstr "이 플러그인들이 사용하는 다운로드 파일을 삭제해요. 플러그인을 다시 켜면 새로 다운로드해요."
+
+#, python-brace-format
+#~ msgid "Couldn't set up the Python libraries {version} needs. That takes the internet and a folder it can write to ({folder}). Nothing was changed."
+#~ msgstr "{version}에 필요한 Python 라이브러리를 설정할 수 없어요. 인터넷 연결과 쓰기 가능한 폴더({folder})가 필요해요. 아무것도 변경되지 않았어요."
+
+#, python-brace-format
+#~ msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones come with it, and a copy of your current settings is saved first in {folder}."
+#~ msgstr "마지막 Python 버전인 {version} 버전으로 Telescope를 다시 시작해요. 설정과 페어링된 휴대폰은 그대로 유지되며, 현재 설정의 사본을 먼저 {folder}에 저장해요."
+
+#, python-brace-format
+#~ msgid "{version} won't check for updates by itself, so it doesn't offer this version back. You can turn that on again in its settings."
+#~ msgstr "{version} 버전은 스스로 업데이트를 확인하지 않으므로 이 버전으로 다시 업그레이드하라고 권하지 않아요. 해당 버전의 설정에서 다시 켤 수 있어요."
+
+#, python-brace-format
+#~ msgid "First it sets up the Python libraries {version} needs. That needs the internet and takes a few minutes. If that fails, nothing is changed."
+#~ msgstr "먼저 {version}에 필요한 Python 라이브러리를 설정해요. 인터넷 연결이 필요하며 몇 분 정도 걸려요. 실패하더라도 아무것도 변경되지 않아요."
+
+#~ msgid "If it doesn't start, opening Telescope again brings this version back."
+#~ msgstr "만약 시작되지 않더라도 Telescope를 다시 열면 지금 이 버전으로 돌아와요."
+
+#, python-brace-format
+#~ msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack it and run start.sh in it. It needs Python 3.12 or newer and finds your settings in the same place."
+#~ msgstr "AppImage는 Python 버전으로 교체할 수 없어요. {version} 릴리스에서 Telescope-linux.tar.gz를 다운로드해 압축을 풀고 start.sh를 실행하세요. Python 3.12 이상이 필요하며 기존 설정을 같은 위치에서 자동으로 찾아요."
+
+#, python-brace-format
+#~ msgid "The phone app has to match. A newer one may not connect to {version}. Android won't install an older app over a newer one, so uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
+#~ msgstr "휴대폰 앱도 버전이 맞아야 해요. 더 새로운 앱은 {version} 버전에 연결되지 않을 수 있어요. Android에서는 최신 앱 위에 이전 앱을 덮어써서 설치할 수 없으므로, 휴대폰에서 Telescope를 제거하고 {version} 릴리스의 Telescope.apk를 설치한 뒤 다시 페어링하세요."
+
+#~ msgid "Waiting for you to confirm it"
+#~ msgstr "확인 대기 중"
+
+#~ msgid "Your desktop asks you to confirm global shortcuts, and you can change their keys in its own settings. The key it settled on shows next to each one."
+#~ msgstr "데스크톱 환경에서 전역 단축키 확인을 요청하며, 자체 설정에서 단축키를 변경할 수 있어요. 설정된 키는 각 항목 옆에 표시돼요."
+
+#~ msgid "Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port."
+#~ msgstr "네트워크 포트를 열지 않는 명령어를 통해 Claude Desktop 같은 AI 앱이 Telescope를 확인하고 설정을 변경할 수 있게 해요."
+
+#~ msgid "Without it AI apps can't connect to Telescope."
+#~ msgstr "끄면 AI 앱이 Telescope에 연결할 수 없어요."
+
+#~ msgid "That failed; Copy diagnostics has the details."
+#~ msgstr "실패했어요. 자세한 내용은 '진단 정보 복사'에서 확인할 수 있어요."
+
+#, python-brace-format
+#~ msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
+#~ msgstr "'모든 위치'로 설정하면 다른 앱에서 {keys} 입력이 차단될 수 있어요. Ctrl, Alt 또는 {meta} 키를 함께 추가하는 것이 안전해요."
+
+#, python-brace-format
+#~ msgid "{value} (not there now)"
+#~ msgstr "{value}(현재 없음)"
+
+#~ msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
+#~ msgstr "끄면 단축키가 작동하지 않고 설정에서 키보드 단축키가 사라져요(단축키 설정은 유지돼요)."
+
+#~ msgid "Telescope didn't understand that. Is it an older version? Update it to use --action."
+#~ msgstr "Telescope가 요청을 인식하지 못했어요. 이전 버전인가요? --action을 사용하려면 업데이트하세요."
+
+#~ msgid "Telescope turned that down: it didn't come from this user's Telescope command."
+#~ msgstr "Telescope가 요청을 거부했어요. 이 사용자의 Telescope 명령에서 보낸 요청이 아니에요."
+
+#~ msgid "When no app uses the camera, if it started the stream"
+#~ msgstr "앱이 스트림을 시작했고 카메라를 사용하는 앱이 없을 때"
+
+#~ msgid "When no app uses the camera, even if I started it"
+#~ msgstr "직접 시작했더라도 카메라를 사용하는 앱이 없을 때"
+
+#~ msgid "Start and stop by itself"
+#~ msgstr "자동 시작 및 중지"
+
+#~ msgid "Without it Automatic streaming stops and both it and the sign-in option leave Settings. Telescope still opens at sign-in if it did before."
+#~ msgstr "끄면 자동 스트리밍이 중지되고 설정에서 자동 스트리밍 및 로그인 옵션이 사라져요. 이전에 로그인 시 열리도록 설정되어 있었다면 계속 열려요."
+
+#~ msgid "Going back to the Python version didn't work because it didn't start, so this version is back."
+#~ msgstr "Python 버전이 시작되지 않아 되돌아갈 수 없어서 현재 버전으로 다시 돌아왔어요."
+
+#~ msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along."
+#~ msgstr "업데이트하면 시작 메뉴 항목과 함께 사용자 계정에 설치되며, 현재 압축 해제된 복사본은 삭제돼요. 설정과 휴대폰 정보는 그대로 유지돼요."
+
+#~ msgid "This is a source checkout, so it doesn't update itself."
+#~ msgstr "소스 코드 체크아웃 버전이므로 자동 업데이트되지 않아요."
+
+#~ msgid "Other users on this computer could change it, so it isn't loaded."
+#~ msgstr "이 컴퓨터의 다른 사용자가 수정할 수 있어 로드되지 않았어요."
+
+#~ msgid "It contains a link to somewhere else, which plugins can't have."
+#~ msgstr "플러그인에 포함할 수 없는 다른 위치를 가리키는 링크가 있어요."
+
+#~ msgid "It contains compiled code (like .pyc files). Plugins have to be source code."
+#~ msgstr "컴파일된 코드(.pyc 파일 등)가 포함되어 있어요. 플러그인은 소스 코드여야 해요."
+
+#~ msgid "It's too big for a plugin (over 500 files or 20 MB)."
+#~ msgstr "플러그인 허용 크기를 초과했어요(파일 500개 초과 또는 20MB 초과)."
+
+#~ msgid "A plugin that comes with Telescope already has that name."
+#~ msgstr "Telescope 기본 제공 플러그인에 이미 동일한 이름이 있어요."
+
+#~ msgid "It isn't a .zip file Telescope can open."
+#~ msgstr "Telescope에서 열 수 있는 .zip 파일이 아니에요."
+
+#~ msgid "It holds a file with a path that points outside the plugin."
+#~ msgstr "플러그인 외부를 가리키는 경로가 포함된 파일이 있어요."
+
+#~ msgid "It has to hold one folder, named as the plugin."
+#~ msgstr "플러그인과 같은 이름의 폴더 하나만 있어야 해요."
+
+#~ msgid ""
+"Camera off\n"
+"\n"
+"The phone's mic is still streaming.\n"
+"Stop streaming ends it."
+#~ msgstr ""
+"카메라 꺼짐\n"
+"\n"
+"휴대폰 마이크는 계속 스트리밍 중이에요.\n"
+"스트리밍 중지를 누르면 종료돼요."
+
+#~ msgid ""
+"Camera off\n"
+"\n"
+"No app was using the camera, so it turned off.\n"
+"The phone's mic is still streaming, and the camera\n"
+"comes back when an app opens it."
+#~ msgstr ""
+"카메라 꺼짐\n"
+"\n"
+"카메라를 사용하는 앱이 없어 카메라가 꺼졌어요.\n"
+"휴대폰 마이크는 계속 스트리밍 중이며, 앱에서\n"
+"카메라를 열면 다시 켜져요."
+
+#~ msgid "The phone gave up on the photo, maybe because its stream stopped."
+#~ msgstr "스트림이 중지되었거나 다른 이유로 휴대폰에서 사진 촬영을 취소했어요."
+
+#~ msgid "Couldn't remove it"
+#~ msgstr "제거할 수 없음"
+
+#~ msgid "Couldn't save that"
+#~ msgstr "저장할 수 없음"
+
+#~ msgid "Couldn't install it"
+#~ msgstr "설치할 수 없음"
+
+#~ msgid "Installed, but it won't load"
+#~ msgstr "설치되었지만 로드되지 않음"
+
+#~ msgid "Couldn't open it"
+#~ msgstr "열 수 없음"
 
 #~ msgid "How far the Zoom slider goes. Zoom beyond the phone's own range is cropped on this computer."
 #~ msgstr "줌 슬라이더의 최대 범위예요. 휴대폰 자체 범위를 넘어서는 줌은 이 컴퓨터에서 화면을 잘라내어 확대해요."

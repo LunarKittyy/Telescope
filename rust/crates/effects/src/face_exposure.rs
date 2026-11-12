@@ -288,8 +288,8 @@ impl Plugin for FaceExposurePlugin {
         PluginInfo {
             name: NAME.into(),
             title: TITLE.into(),
-            about: n_("Moves the phone's metering point to your face to keep you well lit whatever's behind you.").into(),
-            when_off: n_("Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture.").into(),
+            about: n_("Move the phone's metering point to your face to keep you well lit, whatever is behind you.").into(),
+            when_off: n_("Without the Expose for my face plugin there's no Expose for my face card and the phone meters the point you tap or the whole picture.").into(),
             category: "vision".into(),
             icon: "sun".into(),
             optional: true,

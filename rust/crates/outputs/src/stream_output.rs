@@ -26,7 +26,7 @@ const MAX_BITRATE_MBPS: i64 = 100;
 const DYNAMIC_POS: i64 = MAX_BITRATE_MBPS + 1;
 const DYNAMIC: i64 = -1;
 const BITRATE_TIP: &str = n_("All the way right is Dynamic, which adjusts to your connection.");
-const NO_DYNAMIC_TIP: &str = n_("This phone's app is too old for Dynamic and uses Auto until it's updated.");
+const NO_DYNAMIC_TIP: &str = n_("The phone app is too old for Dynamic and uses Auto until the app is updated.");
 const LIGHT_TIP: &str = n_("H.264 from the phone's hardware encoder, with much less data than Heavy.");
 const HEAVY_TIP: &str = n_("Send every frame as a full JPEG (MJPEG). Sharper in fast motion but uses several times more data than Light.");
 
@@ -571,7 +571,7 @@ impl StreamOutputPlugin {
             let text = if let Some(size) = &back {
                 actions.insert(0, IssueAction { label: tr("Start at {size}").field("size", size),
                                                 does: IssueDoes::StartAgain { source_id: sid, before: None } });
-                tr("{error}. It's set back to {size}, the last size that worked.").field("error", &error).field("size", size)
+                tr("{error}. The size is set back to {size}, the last size that worked.").field("error", &error).field("size", size)
             } else {
                 tr("{error}. Try a lower resolution or FPS, or switch to Heavy.").field("error", &error)
             };
@@ -713,7 +713,7 @@ impl Plugin for StreamOutputPlugin {
             name: NAME.into(),
             title: n_("Stream output").into(),
             about: n_("The resolution, frame rate and format of the stream.").into(),
-            when_off: n_("Without it there's no Stream output card and streams use whatever size and format the phone picks.").into(),
+            when_off: n_("Without the Stream output plugin there's no Stream output card and streams use whatever size and format the phone picks.").into(),
             category: "streaming".into(),
             icon: "stream".into(),
             pinned: true,

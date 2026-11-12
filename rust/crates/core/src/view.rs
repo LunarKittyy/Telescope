@@ -206,7 +206,7 @@ pub struct PhoneZoom {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ZoomSplit {
-    /// None: this lens can't zoom itself, so the phone is left alone.
+    /// None: this lens can't zoom, so the phone is left alone.
     pub phone: Option<PhoneZoom>,
     /// (zoom, pan_x, pan_y) still to crop from the frame that arrives.
     pub desktop: (f64, f64, f64),

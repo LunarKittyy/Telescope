@@ -288,7 +288,7 @@ fn restart_now_restarts() {
     let mut asked = vec![];
     assert!(r.panel.run(Request::Restart { streaming: true }, &mut |q| { asked.push(q.clone()); true }).restart);
     assert_eq!(asked[0].title, "Restart Telescope now?");
-    assert_eq!(asked[0].text, "Streaming stops while Telescope restarts. It takes a few seconds.");
+    assert_eq!(asked[0].text, "Streaming stops while Telescope restarts. Restarting takes a few seconds.");
 }
 
 struct Named(PluginInfo);
@@ -475,7 +475,7 @@ fn a_plugin_that_didnt_start_counts_as_a_change_a_restart_applies() {
     });
     assert_eq!(r.panel.pending_changes(), 1);
     // And it says why on its tile
-    assert!(labels(&r.panel).iter().any(|t| t.contains("It didn't start (RuntimeError: no card today).")));
+    assert!(labels(&r.panel).iter().any(|t| t.contains("Couldn't start: RuntimeError: no card today")));
 }
 
 #[test]
@@ -484,7 +484,7 @@ fn a_plugin_that_didnt_start_says_why_in_the_list() {
         added(plugins, "extra", json!({}));
         admin.set_enabled("extra", true).unwrap();
     });
-    assert!(labels(&r.panel).iter().any(|t| t.contains("It didn't start (RuntimeError: no card today).")));
+    assert!(labels(&r.panel).iter().any(|t| t.contains("Couldn't start: RuntimeError: no card today")));
     assert_eq!(tile(&r.panel, "Extra").note_kind, "status_err");
 }
 
@@ -528,7 +528,7 @@ fn switching_one_on_asks_to_download_first_then_switches_it_on() {
     list.push(optional("framing", "Auto framing"));
     let mut r = rig(list, &all_running());
     let group = r.panel.groups.iter().find(|g| g.id == "vision").unwrap();
-    assert_eq!(group.status, "Switching one of these on downloads about 47 MB first, once for all of them.");
+    assert_eq!(group.status, "Switching on any of these plugins downloads about 47 MB first, shared by all of them.");
     assert_eq!(group.tiles[0].badges[0].text, "Needs the vision download");
     let mut asked = vec![];
     flip(&mut r, "framing", true, &mut |q| { asked.push(q.clone()); false });
@@ -566,14 +566,14 @@ fn a_download_that_wont_delete_says_why() {
     let mut r = rig_with(list, &["connection"], &[], |d| d.remove_error = "in use".into(), None, |_, _| {});
     let mut yes = |_: &Question| true;
     let notices = r.panel.run(Request::RemovePack, &mut yes).notices;
-    assert_eq!((notices[0].title.as_str(), notices[0].text.as_str()), ("Couldn't remove it", "Telescope couldn't delete it: in use"));
+    assert_eq!((notices[0].title.as_str(), notices[0].text.as_str()), ("Couldn't remove the plugin", "Telescope couldn't delete it: in use"));
 }
 
 #[test]
 fn a_restart_that_cant_start_a_new_copy_says_what_to_do() {
     let notice = telescope_shell::plugins_tab::restart_failed();
     assert_eq!(notice.title, "Couldn't restart");
-    assert!(notice.text.contains("Close it and open it again"));
+    assert!(notice.text.contains("Close Telescope and open it again"));
 }
 
 #[test]
@@ -583,7 +583,7 @@ fn a_failed_download_leaves_it_off_and_says_why() {
     let mut r = rig_with(list, &["connection"], &[], |d| d.error = "The download failed. Check the internet connection and try again.".into(), None, |_, _| {});
     flip(&mut r, "framing", true, &mut yes);
     assert!(r.admin.optional_on().is_empty() && !tile(&r.panel, "Auto framing").on);
-    assert!(labels(&r.panel).iter().any(|t| t.starts_with("The download didn't work. The download failed.")));
+    assert!(labels(&r.panel).iter().any(|t| t.starts_with("The download failed. The download failed.")));
 }
 
 #[test]
@@ -608,7 +608,7 @@ fn installing_a_plugin_thats_there_asks_then_replaces_it() {
 
     let mut asked = vec![];
     r.panel.run(Request::Install { path: archive.clone() }, &mut |q| { asked.push(q.clone()); false });
-    assert!(asked[0].title == "Replace Extra 1.0?" && asked[0].text.contains("same settings"));
+    assert!(asked[0].title == "Replace Extra 1.0?" && asked[0].text.contains("keeps its settings"));
     assert_eq!(r.admin.find_installed()[0].version, "1.0"); // cancelled: untouched
 
     let outcome = r.panel.run(Request::Install { path: archive }, &mut yes);
@@ -626,14 +626,14 @@ fn a_zip_that_isnt_one_says_so_and_a_new_one_says_where_it_goes() {
     let bad = r.root.join("bad.zip");
     fs::write(&bad, "not a zip").unwrap();
     let outcome = r.panel.run(Request::Install { path: bad }, &mut yes);
-    assert!(outcome.notices[0].title == "Couldn't install it" && outcome.notices[0].kind == NoticeKind::Warning);
+    assert!(outcome.notices[0].title == "Couldn't install the plugin" && outcome.notices[0].kind == NoticeKind::Warning);
     let source = scratch_dir("fresh");
     added(&source, "fresh", json!({}));
     let archive = r.root.join("fresh.zip");
     zip_of(&source, "fresh", &archive);
     let outcome = r.panel.run(Request::Install { path: archive }, &mut yes);
     assert_eq!(outcome.notices[0].title, "Installed");
-    assert_eq!(outcome.notices[0].text, "Fresh is installed but switched off for now. To use it, switch it on and restart Telescope.");
+    assert_eq!(outcome.notices[0].text, "Fresh is installed but switched off. To use it, switch it on and restart Telescope.");
     assert!(!tile(&r.panel, "Fresh").on);
 }
 
@@ -656,7 +656,7 @@ fn a_newer_release_is_mentioned_with_a_link_to_it() {
     });
     let extra = tile(&r.panel, "Extra 1.0").clone();
     assert!(extra.note.contains("Version v1.1 is out.") && extra.note_kind == "status_warn");
-    assert_eq!(extra.note_link, Some(Link { text: "Download it from its release page".into(), url: release.page }));
+    assert_eq!(extra.note_link, Some(Link { text: "Download it from the plugin's release page".into(), url: release.page }));
     r.panel.run(Request::CheckUpdates(false), &mut yes);
     assert!(!r.admin.switch(CHECK_UPDATES, true));
     assert!(!labels(&r.panel).iter().any(|t| t.contains("Version v1.1")));

@@ -482,8 +482,8 @@ impl Plugin for BackgroundPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("Background").into(),
-            about: n_("Blurs the background behind you or swaps it for a picture.").into(),
-            when_off: n_("Without it there's no Background card and the background stays as the camera sees it.").into(),
+            about: n_("Blur the background behind you or swap it for a picture.").into(),
+            when_off: n_("Without the Background plugin there's no Background card and the background stays as the camera sees it.").into(),
             category: "look".into(),
             icon: "image".into(),
             optional: true,

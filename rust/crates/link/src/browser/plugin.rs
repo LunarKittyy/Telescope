@@ -49,10 +49,10 @@ pub const HINT_AFTER: Duration = Duration::from_secs(30);
 const CAMERA_LIMITED_SHARE: f32 = 0.9;
 const CPU_LIMIT: &str = n_("The device's processor can't keep up, so the browser is sending less. Try a lower resolution or frame rate.");
 const BANDWIDTH_LIMIT: &str = n_("The browser is lowering the picture to fit the connection or the bitrate for this resolution.");
-const CERT_TITLE: &str = n_("Browser says it isn't private?");
+const CERT_TITLE: &str = n_("Browser warns the connection isn't private?");
 // Translators: Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons:
 // use the names those browsers show in your language
-const CERT_STEPS: &str = n_("It is this computer's own certificate.\niPhone: tap Show Details, then visit this website.\nChrome: tap Advanced, then Proceed.\nKeep the page open with the screen on.");
+const CERT_STEPS: &str = n_("The certificate is this computer's own.\niPhone: tap Show Details, then visit this website.\nChrome: tap Advanced, then Proceed.\nKeep the page open with the screen on.");
 const POST_CHANGED: &str = "changed";
 const POST_PREPARE: &str = "prepare";
 const POST_CANCEL: &str = "cancel";

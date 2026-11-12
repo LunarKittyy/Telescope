@@ -56,7 +56,7 @@ fn refusal(mut resp: Response) -> String {
                 .unwrap_or_else(|| format!("HTTP {status}"));
             phone_mic_reason(body.get("code").and_then(|c| c.as_str()), &english)
         }
-        Err(()) => tr("The phone refused the microphone (HTTP {code}).").field("code", status.to_string()),
+        Err(()) => tr("The phone rejected the microphone request (HTTP {code}).").field("code", status.to_string()),
     }
 }
 
@@ -127,7 +127,7 @@ mod tests {
         let unknown = serve(Some("phone"), Arc::new(|_req| (409, "application/json".into(), br#"{"code": "mic_new", "error": "Something new"}"#.to_vec())));
         assert_eq!(open_audio(&format!("{}/v1/audio", unknown.base(true)), &auth).err().unwrap(), "Something new");
         let plain = serve(Some("phone"), Arc::new(|_req| (503, "text/plain".into(), b"busy".to_vec())));
-        assert_eq!(open_audio(&format!("{}/v1/audio", plain.base(true)), &auth).err().unwrap(), "The phone refused the microphone (HTTP 503).");
+        assert_eq!(open_audio(&format!("{}/v1/audio", plain.base(true)), &auth).err().unwrap(), "The phone rejected the microphone request (HTTP 503).");
         assert_eq!(open_audio("https://127.0.0.1:1/v1/audio", &auth).err().unwrap(), "Can't reach the phone's microphone.");
     }
 }

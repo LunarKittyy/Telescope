@@ -405,7 +405,7 @@ export component PluginsPanel inherits VerticalLayout {
         has-action: g.remove-pack;
         action-icon: Icons.trash;
         action-text: @tr("Remove download");
-        action-tip-detail: @tr("Delete the download these plugins use. Switching any of these plugins on downloads it again.");
+        action-tip-detail: @tr("Delete the download these plugins use. Switching on any of these plugins downloads the files again.");
         action => { root.remove-pack(); }
         if g.status != "": Status { text: g.status; detail: g.status; }
         for t in g.tiles: PluginRow {

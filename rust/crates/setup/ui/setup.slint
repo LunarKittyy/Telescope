@@ -16,7 +16,7 @@ component ExtraCameraRows inherits UnfoldGroup {
         RailRow {
             icon: Icons.camera;
             label: @tr("Extra cameras");
-            tip: @tr("More virtual cameras, so several cameras can stream at once");
+            tip: @tr("More virtual cameras, so several cameras can stream at the same time");
             named: true;
             hue: root.hue;
             keywords: @tr("search" => "multiple second cameras add camera several streams remove virtual cameras");
@@ -76,7 +76,7 @@ export component VirtualCameraSettings inherits Card {
         RailRow {
             icon: Icons.chip;
             label: @tr("Kernel module");
-            tip: @tr("The Linux part that makes the virtual camera exist");
+            tip: @tr("The Linux part that provides the virtual camera");
             tip-detail: @tr("Only needed when the status isn't Ready.");
             named: true;
             hue: root.hue;
@@ -121,7 +121,7 @@ export component VirtualCameraSettings inherits Card {
         RailRow {
             icon: Icons.chip;
             label: @tr("Driver");
-            tip: @tr("The Windows part that makes the virtual camera exist");
+            tip: @tr("The Windows part that provides the virtual camera");
             named: true;
             hue: root.hue;
             keywords: @tr("search" => "unitycapture unity video capture windows virtual camera install reinstall rename register missing not showing obs zoom");
@@ -135,7 +135,7 @@ export component VirtualCameraSettings inherits Card {
             icon: Icons.usb;
             label: "ADB";
             tip: @tr("Android's tool for talking to a phone over USB");
-            tip-detail: @tr("Google's licence doesn't allow bundling it, so download it or pick your own copy.");
+            tip-detail: @tr("Google's licence doesn't allow bundling adb, so download it or pick a copy you already have.");
             named: true;
             hue: root.hue;
             keywords: @tr("search" => "adb android debug bridge usb pairing download get platform-tools google own cable");
@@ -212,7 +212,7 @@ export component VideoSettings inherits Card {
             icon: Icons.chip;
             label: @tr("Hardware acceleration");
             tip: @tr("Hardware acceleration");
-            tip-detail: @tr("Decode the Light format on the graphics card from the next stream on. If the card fails the processor takes over until you restart Telescope.");
+            tip-detail: @tr("Decode the Light format on the graphics card from the next stream on. If the graphics card fails, the processor is used until you restart Telescope.");
             keywords: @tr("search" => "hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu processor laptop 4k");
             hue: root.hue;
             checked <=> root.hw-checked;
@@ -225,7 +225,7 @@ export component VideoSettings inherits Card {
         icon: Icons.battery;
         label: @tr("Power-saving effects");
         tip: @tr("Power-saving effects");
-        tip-detail: @tr("Use less processor and battery while Background or Auto framing is on. They follow quick movement a little later.");
+        tip-detail: @tr("Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later.");
         keywords: @tr("search" => "battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality");
         hue: root.hue;
         checked <=> root.saving-checked;
@@ -348,7 +348,7 @@ export component MicrophoneLimits inherits Card {
         icon: Icons.level;
         label: @tr("Limiter");
         tip: @tr("Limiter");
-        tip-detail: @tr("Keeps loud sounds from clipping");
+        tip-detail: @tr("Keep loud sounds from clipping");
         keywords: @tr("search" => "microphone audio compressor distortion clipping loud peaks sound");
         hue: root.hue;
         checked <=> root.limiter-checked;
@@ -514,7 +514,7 @@ export component LookSettings inherits Card {
                 has-icon: false;
                 HorizontalLayout {
                     spacing: Theme.gap;
-                    KitStatus { text: @tr("Restart to switch"); detail: @tr("Restart Telescope to switch to it."); kind: "warn"; horizontal: "end"; }
+                    KitStatus { text: @tr("Restart to switch"); detail: @tr("Restart Telescope to switch to the new language."); kind: "warn"; horizontal: "end"; }
                     Button {
                         text: @tr("Restart now");
                         has-icon: true;
@@ -577,7 +577,7 @@ export component AboutSettings inherits Card {
         named: true;
         hue: root.hue;
         keywords: @tr("search" => "log file open show temp folder");
-        Button { text: @tr("Open"); tip: @tr("Open log"); tip-detail: @tr("Open the full log. It's kept in the temp folder, which the system clears."); clicked => { root.log-clicked(); } }
+        Button { text: @tr("Open"); tip: @tr("Open log"); tip-detail: @tr("Open the full log. The log is kept in the temp folder, which the system clears."); clicked => { root.log-clicked(); } }
     }
     RailRow {
         icon: Icons.copy;

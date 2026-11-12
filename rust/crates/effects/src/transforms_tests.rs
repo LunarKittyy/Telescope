@@ -326,7 +326,7 @@ fn lens_note_says_when_the_phone_switched() {
 fn lens_note_says_when_panning_fell_back_to_the_main_camera() {
     let (level, note) = lens_note(4.0, 1.0, Some(&tele()), "~24mm OIS", "~24mm OIS", "Tele ~85mm", true);
     assert_eq!(level, "off");
-    assert!(note.contains("Panned past what Tele ~85mm can see, so it's on ~24mm OIS"));
+    assert!(note.contains("Panned past what Tele ~85mm can see, so ~24mm OIS is used"));
     assert!(lens_note(4.0, 1.0, Some(&tele()), "", "", "", true).1.contains("the telephoto can see"));
 }
 
@@ -334,7 +334,7 @@ fn lens_note_says_when_panning_fell_back_to_the_main_camera() {
 fn lens_note_says_when_the_phone_stayed_on_the_main_camera_by_itself() {
     let (level, note) = lens_note(4.0, 3.7, Some(&tele()), "~24mm OIS", "~24mm OIS", "Tele ~85mm", true);
     assert_eq!(level, "off");
-    assert!(note.contains("The phone stayed on ~24mm OIS by itself"));
+    assert!(note.contains("The phone kept using ~24mm OIS"));
     // not while a switch may still be under way, nor when the phone doesn't say which lens it's on
     assert_eq!(lens_note(4.0, 3.7, Some(&tele()), "~24mm OIS", "~24mm OIS", "", false), ("", String::new()));
     assert_eq!(lens_note(4.0, 3.7, Some(&tele()), "", "", "", true), ("", String::new()));
@@ -399,7 +399,7 @@ fn the_dot_goes_red_once_the_phone_had_time_to_switch_and_didnt() {
     r.view_status(&status(3.7, now_s() - 3.0));
     r.event(Event::TimerFired { owner: NAME.into(), token: "settle".into() });
     assert_eq!(r.shown("dot-level"), json!("off"));
-    assert!(r.shown("dot-tip").as_str().unwrap().contains("stayed on ~24mm OIS by itself"));
+    assert!(r.shown("dot-tip").as_str().unwrap().contains("kept using ~24mm OIS"));
 }
 
 #[test]

@@ -388,7 +388,7 @@ fn the_card_says_when_a_pick_failed_or_wont_load() {
     r.event(Event::RequestDone { request, ok: true, message: String::new(), data: json!({"path": tmp.join("gone.png").to_str(), "filter": ""}) });
     let note = r.card("picture-detail");
     let gone = if cfg!(windows) { "cannot find the file specified. Keeping" } else { "No such file" };
-    assert!(note.as_str().unwrap().contains(gone) && note.as_str().unwrap().contains("Keeping"), "{note}");
+    assert!(note.as_str().unwrap().contains(gone) && note.as_str().unwrap().contains("is kept"), "{note}");
     assert_eq!(r.plugin.image_path(), None);
 
     // One that's kept but won't load shows the default screen and says so
