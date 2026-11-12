@@ -122,6 +122,34 @@ When the phone gets hot, the phone app lowers the frame rate, but some cameras o
 
 The work on Slint's interpreter continues, mainly cheaper struct field lookups and fewer allocations while the window updates. Nobody sees it except as a lighter window, like the rest of [Lighter on the processor and memory](next.md#lighter-on-the-processor-and-memory). Medium.
 
+## Appearance options
+
+Only options that scale or swap something every control already reads from the design tokens, in a few fixed steps, so a render test can cover them and nothing breaks unseen. No free colour pickers, fonts or per-card overrides.
+
+- Corner roundness: sharp, default or round
+- Text size: small, default or large. The riskiest one, since long labels and translations overflow first
+- Density: compact or comfortable
+- Card colours: each card in its category colour, or one accent for all
+- Contrast: a higher contrast mode with full colours at rest and near-white lines and text
+- Motion: full, reduced or off, following the system by default
+- Tooltip delay: a slider from instant to about 1.5 seconds, plus an "Instantly show next tooltip" toggle
+
+## Undo across the app
+
+Each card has its own Reset, but nothing goes back one step. One undo and redo for the whole app would cover a grading change, a pan or zoom, a moved overlay or a switched plugin, from Ctrl+Z or a button in the header.
+
+Plugins don't know about each other, so it can't be one list that reaches into each plugin. Each change a person makes would go through `core` as a step that says what it was and how to go back, and each plugin decides which of its changes count. A slider dragged for two seconds is one step, not a hundred. Changes from the phone, from Auto or from a shortcut need a rule too.
+
+A week or so, most of it deciding what counts as one step in each plugin.
+
+## DSLRs on Windows
+
+DSLRs only work on Linux, through libgphoto2, which needs direct USB access. On Windows that means replacing the camera's driver with another tool, too much to ask. Windows has its own driver for cameras though (the one that shows them in Explorer) and programs can send it raw PTP commands through Windows Portable Devices. digiCamControl and the makers' own SDKs work that way.
+
+So Windows needs a small PTP layer of its own on top of that driver: start and stop live view, fetch frames, read and set settings, autofocus and focus steps. Nikon and Canon each have their own commands for these, a handful per maker. Each maker and model has quirks that libgphoto2 handles on Linux, so it needs real cameras to test against. The first step is checking whether a camera can be passed through to the Windows VM, otherwise there's nothing to test on.
+
+A few days for Nikon and Canon, most of it testing.
+
 ## A guide to unusual setups
 
 A doc with tips for using Telescope in ways it wasn't built around, starting with Tailscale. Pairing over Tailscale already works (the QR code carries the Tailscale address after the LAN ones) and it doesn't matter where either device is. That covers a lot without writing any new networking code:
