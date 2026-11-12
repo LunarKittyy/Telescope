@@ -166,6 +166,8 @@ const TINT_GIVE_UP: Duration = Duration::from_millis(300);
 struct Tinted {
     epoch: u64,
     id: FrameId,
+    /// Which submit it came from: the same frame submitted again (settings changed) is a newer tint.
+    serial: u64,
     buffer: SharedPixelBuffer<Rgb8Pixel>,
 }
 
@@ -178,6 +180,7 @@ struct TintJob {
     tints: bool,
     epoch: u64,
     id: FrameId,
+    serial: u64,
     dirty: Arc<AtomicBool>,
 }
 
@@ -198,6 +201,9 @@ pub struct PassWork {
     source: u64,
     /// The frame whose tint was last handed to the window.
     shown: Option<FrameId>,
+    /// The serial of the tint last handed to the window, and the last one given out.
+    shown_serial: u64,
+    submitted: u64,
     /// Since when the window has wanted a tint and had none.
     missing_since: Option<Instant>,
     /// The last frame submitted had a pass that tints.
@@ -288,8 +294,9 @@ impl PassWork {
         let tints = passes.iter().any(|(_, p)| p.tints());
         self.tinting = tints;
         let epoch = self.epoch.load(Ordering::SeqCst);
+        self.submitted += 1;
         if let Some(tinter) = &self.tinter {
-            tinter.put(TintJob { frame: frame.clone(), size, passes: passes.to_vec(), looks, tints, epoch, id, dirty: dirty.clone() });
+            tinter.put(TintJob { frame: frame.clone(), size, passes: passes.to_vec(), looks, tints, epoch, id, serial: self.submitted, dirty: dirty.clone() });
         }
         true
     }
@@ -299,14 +306,15 @@ impl PassWork {
         let epoch = self.epoch.load(Ordering::SeqCst);
         let made = {
             let held = self.tinted.lock().unwrap_or_else(|e| e.into_inner());
-            held.as_ref().filter(|t| t.epoch == epoch && t.id.source == source && (t.buffer.width(), t.buffer.height()) == (w, h)).map(|t| (t.id, t.buffer.clone()))
+            held.as_ref().filter(|t| t.epoch == epoch && t.id.source == source && (t.buffer.width(), t.buffer.height()) == (w, h)).map(|t| (t.id, t.serial, t.buffer.clone()))
         };
-        let Some((id, buffer)) = made else {
+        let Some((id, serial, buffer)) = made else {
             self.missing_since.get_or_insert_with(Instant::now);
             return None;
         };
         self.missing_since = None;
         self.shown = Some(id);
+        self.shown_serial = serial;
         Some(Image::from_rgb8(buffer))
     }
 
@@ -315,7 +323,7 @@ impl PassWork {
     pub fn tint_newer(&self, source: u64) -> bool {
         let epoch = self.epoch.load(Ordering::SeqCst);
         let held = self.tinted.lock().unwrap_or_else(|e| e.into_inner());
-        held.as_ref().is_some_and(|t| t.epoch == epoch && t.id.source == source && self.shown.is_none_or(|s| s.source != source || t.id.number > s.number))
+        held.as_ref().is_some_and(|t| t.epoch == epoch && t.id.source == source && self.shown.is_none_or(|s| s.source != source || t.serial > self.shown_serial))
     }
 
     /// Whether the window has waited for a tint so long that the worker can't be making one (its copy failed), so the picture is
@@ -330,6 +338,7 @@ impl PassWork {
         self.epoch.fetch_add(1, Ordering::SeqCst);
         *held = None;
         self.shown = None;
+        self.shown_serial = 0;
         self.missing_since = None;
     }
 
@@ -395,7 +404,7 @@ fn run_tint(scaler: &mut dyn Scaler, scopes: &Scopes, job: TintJob, held: &Mutex
     }
     // The first picture of a run, or of a new size, is painted as soon as the window next looks
     let fresh = held.as_ref().is_none_or(|t| t.epoch != job.epoch || (t.buffer.width(), t.buffer.height()) != (w, h));
-    *held = Some(Tinted { epoch: job.epoch, id: job.id, buffer });
+    *held = Some(Tinted { epoch: job.epoch, id: job.id, serial: job.serial, buffer });
     if fresh {
         job.dirty.store(true, Ordering::SeqCst);
     }
@@ -729,6 +738,21 @@ mod tests {
         assert_eq!(grey_of(&work.tinted(4, 4, 1).unwrap()), 20);
         assert!(!work.tint_newer(1));
         assert!(!work.tint_newer(2), "another stream's isn't asked about");
+    }
+
+    #[test]
+    fn the_same_frame_tinted_again_after_a_settings_change_is_newer() {
+        let all = passes(vec![("tint", Arc::new(colours(200, 0)) as Arc<dyn PreviewPass>)]);
+        let mut work = PassWork::default();
+        let dirty = Arc::new(AtomicBool::new(false));
+        assert!(work.submit(|| Some(Box::new(Shade)), &all, &shaded(10), id(1, 1), (4, 4), &dirty));
+        wait_for("the first result", || work.tint_newer(1));
+        assert_eq!(grey_of(&work.tinted(4, 4, 1).unwrap()), 10);
+        assert!(!work.tint_newer(1));
+        // The stream stopped; a setting changed and the same frame is tinted again
+        assert!(work.submit(|| None, &all, &shaded(20), id(1, 1), (4, 4), &dirty));
+        wait_for("the redo counts as newer", || work.tint_newer(1));
+        assert_eq!(grey_of(&work.tinted(4, 4, 1).unwrap()), 20);
     }
 
     #[test]
