@@ -31,3 +31,7 @@ automation/translation/work/
 automation/release-testing/downloads/
 automation/release-testing/linux/.profile/
 rust/windows/virtualcamera/build/
+
+# Build folders, wherever they end up
+target/
+target-*/
