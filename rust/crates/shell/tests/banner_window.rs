@@ -35,6 +35,8 @@ fn opened(label: &str) -> (Rc<Window>, Heard) {
     let asker = heard.clone();
     let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), move |_| vec![Box::new(Asker(asker)) as Box<dyn Plugin>], None, None).unwrap();
     w.ui.window().set_size(slint::LogicalSize::new(1300.0, 900.0));
+    // A CI machine's own setting can be animations off, which snaps what these tests watch move
+    telescope_shell::motion::set(&w.ui, telescope_shell::motion::Motion::Full);
     (w, heard)
 }
 

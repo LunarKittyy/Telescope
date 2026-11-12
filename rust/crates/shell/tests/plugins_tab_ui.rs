@@ -137,6 +137,8 @@ fn the_restart_bar_opens_and_shuts_with_the_page_moving_with_it() {
     settings::open(&w, "plugins");
     let s = settings::current().unwrap();
     s.ui.window().set_size(slint::LogicalSize::new(1000.0, 700.0));
+    // A CI machine's own setting can be animations off, which snaps the bar
+    telescope_shell::motion::set(&s.ui, telescope_shell::motion::Motion::Full);
     let tab = s.tabs().iter().position(|t| t == "plugins").expect("the Plugins tab");
     let height = || match s.ui.get_property(&format!("page{tab}-height")).unwrap() { Value::Number(n) => n as f32, v => panic!("{v:?}") };
     let frame = |ms: u64| {

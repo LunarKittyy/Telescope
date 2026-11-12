@@ -744,9 +744,9 @@ fn layers_tint_the_preview_copy_and_not_the_frame_apps_get() {
     let frame = Frame::new(64, 36, PixelFormat::Rgba, [0, 0, 0, 255].repeat(64 * 36));
     let sent = frame.clone();
     s.show(0, frame);
-    // The tint is made on a worker, and its first picture asks for a repaint
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
-    while !s.has_frame() && std::time::Instant::now() < deadline {
+    // The tint is made on a worker, and a slow one lets the plain picture up first, so wait for the tinted one and not just a picture
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+    while !(s.has_frame() && s.pixel() == (255, 0, 0)) && std::time::Instant::now() < deadline {
         std::thread::sleep(std::time::Duration::from_millis(5));
         s.r.w.paint_preview();
     }
