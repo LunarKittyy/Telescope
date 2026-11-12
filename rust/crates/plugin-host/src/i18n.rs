@@ -135,6 +135,13 @@ fn field_names(text: &str) -> Vec<String> {
     out
 }
 
+/// The most plural forms a catalog entry may have (no language has more than six).
+const MAX_FORMS: usize = 16;
+/// The most tokens a Plural-Forms expression may have.
+const MAX_PLURAL_TOKENS: usize = 256;
+/// How deep a Plural-Forms expression may nest (parentheses, ! and ?:).
+const MAX_PLURAL_DEPTH: usize = 32;
+
 /// One entry of a .po file.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct PoEntry {
@@ -214,7 +221,13 @@ pub fn read_po(text: &str) -> Result<Vec<PoEntry>, String> {
             "msgid" => Field::Id,
             "msgid_plural" => Field::IdPlural,
             "msgstr" => Field::Str(0),
-            k if k.starts_with("msgstr[") && k.ends_with(']') => Field::Str(k[7..k.len() - 1].parse().map_err(|_| bad())?),
+            k if k.starts_with("msgstr[") && k.ends_with(']') => {
+                let i: usize = k[7..k.len() - 1].parse().map_err(|_| bad())?;
+                if i >= MAX_FORMS {
+                    return Err(format!("line {}: plural form {i} is past the {MAX_FORMS} a catalog may have", number + 1));
+                }
+                Field::Str(i)
+            }
             _ => return Err(bad()),
         };
         if matches!(next, Field::Ctx | Field::Id) && started && field.is_some_and(|f| matches!(f, Field::Str(_))) {
@@ -334,7 +347,10 @@ enum Plural {
 impl Plural {
     fn parse(expr: &str) -> Result<Plural, String> {
         let tokens = tokenize(expr)?;
-        let mut p = Parser { tokens, at: 0 };
+        if tokens.len() > MAX_PLURAL_TOKENS {
+            return Err("the plural rule is too long".into());
+        }
+        let mut p = Parser { tokens, at: 0, depth: 0 };
         let tree = p.ternary()?;
         if p.at != p.tokens.len() {
             return Err(format!("the plural rule {expr:?} has more after its end"));
@@ -398,6 +414,7 @@ fn tokenize(expr: &str) -> Result<Vec<String>, String> {
 struct Parser {
     tokens: Vec<String>,
     at: usize,
+    depth: usize,
 }
 
 impl Parser {
@@ -412,6 +429,21 @@ impl Parser {
     }
 
     fn ternary(&mut self) -> Result<Plural, String> {
+        self.nested(Self::ternary_inner)
+    }
+
+    /// Runs one nesting level of the expression, refusing to go past MAX_PLURAL_DEPTH.
+    fn nested(&mut self, f: fn(&mut Self) -> Result<Plural, String>) -> Result<Plural, String> {
+        if self.depth >= MAX_PLURAL_DEPTH {
+            return Err("the plural rule nests too deeply".into());
+        }
+        self.depth += 1;
+        let out = f(self);
+        self.depth -= 1;
+        out
+    }
+
+    fn ternary_inner(&mut self) -> Result<Plural, String> {
         let cond = self.or()?;
         if !self.eat("?") {
             return Ok(cond);
@@ -467,6 +499,10 @@ impl Parser {
     }
 
     fn unary(&mut self) -> Result<Plural, String> {
+        self.nested(Self::unary_inner)
+    }
+
+    fn unary_inner(&mut self) -> Result<Plural, String> {
         if self.eat("!") {
             return Ok(Plural::Not(Box::new(self.unary()?)));
         }
@@ -521,5 +557,17 @@ mod tests {
         assert_eq!(forms, [0, 1, 2, 2, 0, 1]);
         assert_eq!(Plural::parse("n % 0").unwrap().eval(2), None);
         assert!(Plural::parse("n +").is_err() && Plural::parse("import os").is_err());
+    }
+
+    #[test]
+    fn hostile_catalogs_are_refused_not_crashed_on() {
+        let huge_index = "msgid \"{n} cat\"\nmsgid_plural \"{n} cats\"\nmsgstr[1000000000] \"x\"\n";
+        assert!(catalog(huge_index).is_err());
+        let deep = format!("{}n{}", "(".repeat(100_000), ")".repeat(100_000));
+        assert!(Plural::parse(&deep).is_err());
+        assert!(Plural::parse(&"!".repeat(100_000)).is_err());
+        assert!(Plural::parse(&format!("n{}", "?n:n".repeat(100_000))).is_err());
+        assert!(Plural::parse(&vec!["n"; 100_000].join("+")).is_err());
+        assert!(Plural::parse("((((n))))").is_ok());
     }
 }

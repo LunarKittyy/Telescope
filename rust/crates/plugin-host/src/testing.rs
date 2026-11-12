@@ -76,6 +76,11 @@ impl PluginTest {
         f(&self.plugin.guest_ref())
     }
 
+    /// Shortens how long a hook may run, for tests that hit the limit.
+    pub fn set_hook_limit(&self, limit: std::time::Duration) {
+        self.plugin_guest(|g| g.set_hook_limit(limit));
+    }
+
     pub fn setup(&mut self) {
         self.plugin.setup(&mut self.host);
     }

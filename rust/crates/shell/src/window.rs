@@ -922,10 +922,16 @@ impl Window {
         }
     }
 
-    /// A banner's plugin button: every plugin hears it and the one that showed it knows its key.
+    /// A banner's plugin button: a banner of an added plugin is heard by that plugin alone, one of the app's by every plugin (the one
+    /// that showed it knows its key).
     pub(crate) fn tell_issue(&self, key: &str, id: &str) {
         let (key, id) = (key.to_string(), id.to_string());
-        self.state.borrow_mut().each(|p, host| p.on_issue_action(host, &key, &id));
+        let owner = telescope_core::ui::issue_owner(&key).map(|(owner, _)| owner.to_string());
+        self.state.borrow_mut().each(|p, host| {
+            if owner.as_deref().is_none_or(|owner| p.info().name == owner) {
+                p.on_issue_action(host, &key, &id);
+            }
+        });
     }
 
     /// Each piece's starting properties from its UiSpec.

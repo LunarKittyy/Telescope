@@ -28,16 +28,35 @@ impl Plugin for Asker {
     }
 }
 
+/// A plugin that did not show any banner and writes down every button it hears about.
+struct Bystander(Heard);
+
+impl Plugin for Bystander {
+    fn info(&self) -> PluginInfo {
+        PluginInfo { name: "bystander".into(), title: "Bystander".into(), ..Default::default() }
+    }
+    fn on_issue_action(&mut self, _host: &mut dyn Host, key: &str, id: &str) {
+        self.0.lock().unwrap().push((key.to_string(), id.to_string()));
+    }
+}
+
 fn opened(label: &str) -> (Rc<Window>, Heard) {
+    let (w, heard, _) = opened_with_bystander(label);
+    (w, heard)
+}
+
+fn opened_with_bystander(label: &str) -> (Rc<Window>, Heard, Heard) {
     i_slint_backend_testing::init_no_event_loop();
     let dir = telescope_core::testing::scratch_dir(label);
     let heard = Heard::default();
-    let asker = heard.clone();
-    let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), move |_| vec![Box::new(Asker(asker)) as Box<dyn Plugin>], None, None).unwrap();
+    let bystander = Heard::default();
+    let (asker, other) = (heard.clone(), bystander.clone());
+    let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)),
+                          move |_| vec![Box::new(Asker(asker)) as Box<dyn Plugin>, Box::new(Bystander(other))], None, None).unwrap();
     w.ui.window().set_size(slint::LogicalSize::new(1300.0, 900.0));
     // A CI machine's own setting can be animations off, which snaps what these tests watch move
     telescope_shell::motion::set(&w.ui, telescope_shell::motion::Motion::Full);
-    (w, heard)
+    (w, heard, bystander)
 }
 
 fn issue(title: &str, text: &str) -> Issue {
@@ -141,6 +160,20 @@ fn an_action_runs_and_takes_the_banner_with_it() {
     assert_eq!(*heard.lock().unwrap(), [("start".to_string(), "again".to_string())], "ran once");
     assert!(keys(&w).is_empty());
     assert!(drawn(&w, "Can't connect").is_empty());
+}
+
+#[test]
+fn a_button_of_an_added_plugins_banner_reaches_only_that_plugin() {
+    let (w, asker, bystander) = opened_with_bystander("banner-owner");
+    let key = telescope_core::ui::added_issue_key("asker", "k");
+    show(&w, &key, acting("Mine", "Do mine", plugin_action("mine")));
+    click_label(&w, "Do mine");
+    assert_eq!(*asker.lock().unwrap(), [(key.clone(), "mine".to_string())]);
+    assert!(bystander.lock().unwrap().is_empty(), "another plugin never hears a banner that isn't its own");
+    // The app's own banners still go to every plugin
+    show(&w, "start", acting("Theirs", "Do theirs", plugin_action("theirs")));
+    click_label(&w, "Do theirs");
+    assert_eq!(*bystander.lock().unwrap(), [("start".to_string(), "theirs".to_string())]);
 }
 
 // test_banner.py::test_an_action_that_replaces_the_issue_keeps_the_new_one
