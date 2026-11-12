@@ -204,6 +204,17 @@ pub struct PassWork {
     tinting: bool,
 }
 
+impl Drop for PassWork {
+    fn drop(&mut self) {
+        // The tint thread may be reading the picture off the graphics card: it ends before the window goes on, or the process can end under it
+        if let Some(tinter) = self.tinter.take() {
+            tinter.finish();
+        }
+        let workers = std::mem::take(&mut *self.scopes.workers.lock().unwrap_or_else(|e| e.into_inner()));
+        workers.into_values().for_each(Worker::finish);
+    }
+}
+
 /// The frame as RGBA at this size.
 fn copy_of(scaler: &mut dyn Scaler, frame: &Frame, w: u32, h: u32) -> Option<Frame> {
     let rgba = scaler.rgba(frame, w, h);
@@ -679,6 +690,30 @@ mod tests {
         assert!(work.tinted(5, 5, 1).is_none(), "a picture of another size isn't used");
         work.stop_tinting();
         assert!(work.tinted(4, 4, 1).is_none(), "once tinting stops, the old picture is stale");
+    }
+
+    /// A scaler that is slow, and says when it has finished.
+    struct Slow(Arc<AtomicBool>, Arc<AtomicBool>);
+
+    impl Scaler for Slow {
+        fn rgb(&mut self, frame: &Frame, width: u32, height: u32) -> Vec<u8> {
+            self.0.store(true, Ordering::SeqCst);
+            std::thread::sleep(Duration::from_millis(200));
+            self.1.store(true, Ordering::SeqCst);
+            vec![frame.data[0]; (width * height * 3) as usize]
+        }
+    }
+
+    #[test]
+    fn dropping_the_work_waits_for_the_frame_the_tint_thread_has_in_hand() {
+        let all = passes(vec![("tint", Arc::new(colours(200, 0)) as Arc<dyn PreviewPass>)]);
+        let (started, finished) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicBool::new(false)));
+        let mut work = PassWork::default();
+        let dirty = Arc::new(AtomicBool::new(false));
+        assert!(work.submit(|| Some(Box::new(Slow(started.clone(), finished.clone()))), &all, &shaded(1), id(1, 1), (4, 4), &dirty));
+        wait_for("the thread has the frame", || started.load(Ordering::SeqCst));
+        drop(work);
+        assert!(finished.load(Ordering::SeqCst), "nothing of it is still running once the work is gone");
     }
 
     #[test]
