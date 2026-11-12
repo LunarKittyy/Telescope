@@ -1450,6 +1450,7 @@ mod launcher_tests {
         std::fs::create_dir_all(app.join("lib")).unwrap();
         executable(&app.join("start.sh"), START_SH);
         executable(&app.join("telescope-rs"), PROGRAM);
+        std::fs::create_dir_all(app.join("lib/fallback")).unwrap();
         std::fs::write(app.join("lib/marker"), version).unwrap();
         app
     }

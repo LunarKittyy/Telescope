@@ -536,6 +536,45 @@ fn holds_telescope(entries: &[String]) -> bool {
     has("telescope-rs") || (has("main.py") && has("telescope"))
 }
 
+fn is_real_dir(p: &Path) -> bool {
+    std::fs::symlink_metadata(p).is_ok_and(|m| m.is_dir())
+}
+
+fn child_names(dir: &Path) -> Vec<String> {
+    std::fs::read_dir(dir).map(|l| l.filter_map(|e| e.ok().map(|e| e.file_name().to_string_lossy().into_owned())).collect()).unwrap_or_default()
+}
+
+/// Whether a folder already in place is Telescope's, since a swap moves it to .previous and a later clean-up deletes it. A folder with a common name
+/// has to hold what marks the release's own (lib, ui-kit); any other has to share an entry with the new one.
+fn is_ours_in_place(existing: &Path, staged: &Path, name: &str) -> bool {
+    match name {
+        "ui-kit" => existing.join("ui-kit.slint").is_file(),
+        "lib" => ["fallback", "fallback-fonts", "gphoto2"].iter().any(|n| is_real_dir(&existing.join(n))),
+        // The Python package, and the stub that takes its place in this app's tarball, are told apart by this file
+        "telescope" if existing.join("_build.py").is_file() => true,
+        _ => {
+            let new = child_names(staged);
+            child_names(existing).iter().any(|n| new.contains(n))
+        }
+    }
+}
+
+/// The first entry of the unpacked tarball whose namesake in the install folder can't be shown to be Telescope's. A tarball unpacked straight into
+/// a shared folder (Downloads) can sit beside the user's own lib or ui-kit, which the swap would move to .previous and the clean-up delete.
+fn foreign_entry(directory: &Path, staging: &Path, entries: &[String]) -> Option<String> {
+    let in_telescope_folder = holds_telescope(&child_names(directory));
+    entries.iter().find(|name| {
+        let (dst, src) = (directory.join(name), staging.join(name));
+        let Ok(meta) = std::fs::symlink_metadata(&dst) else {
+            return false; // nothing there: a new entry
+        };
+        if !in_telescope_folder || is_real_dir(&src) != meta.is_dir() || meta.file_type().is_symlink() {
+            return true;
+        }
+        meta.is_dir() && !is_ours_in_place(&dst, &src, name)
+    }).cloned()
+}
+
 pub fn install_linux(archive: &Path, directory: &Path, build: i64, mv: Mover) -> Result<InstallResult> {
     install_linux_after(archive, directory, build, mv, &|_| Ok(()))
 }
@@ -551,6 +590,10 @@ pub(crate) fn install_linux_after(archive: &Path, directory: &Path, build: i64, 
     if !holds_telescope(&entries) {
         let _ = std::fs::remove_dir_all(&staging);
         return err("The download doesn't contain Telescope, so it wasn't installed.");
+    }
+    if let Some(name) = foreign_entry(directory, &staging, &entries) {
+        let _ = std::fs::remove_dir_all(&staging);
+        return Err(UpdateError(tr("Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a folder of its own.").field("name", name)));
     }
     if let Err(e) = prepare(&staging) {
         let _ = std::fs::remove_dir_all(&staging);
@@ -1295,6 +1338,64 @@ mod tests {
         assert_eq!(result.relaunch[0], app.join("telescope-rs").to_string_lossy());
         let e = install_linux(&tarball(&root.join("x.tar.gz"), &[("readme", b"hi")]), &app, 0, &mut rename()).unwrap_err();
         assert!(e.0.contains("doesn't contain"));
+    }
+
+    const RELEASE: [(&str, &[u8]); 5] = [("telescope-rs", b"new"), ("start.sh", b"#!/bin/sh\n"), ("ui-kit/ui-kit.slint", b"new"), ("lib/fallback/libva.so.2", b"new"), ("lib/gphoto2/x.so", b"new")];
+
+    fn release_in(app: &Path) {
+        for (name, body) in [("telescope-rs", "old"), ("start.sh", "old"), ("ui-kit/ui-kit.slint", "old"), ("lib/fallback/libva.so.2", "old"), ("lib/gphoto2/gone.so", "old")] {
+            std::fs::create_dir_all(app.join(name).parent().unwrap()).unwrap();
+            std::fs::write(app.join(name), body).unwrap();
+        }
+    }
+
+    #[test]
+    fn a_tarball_unpacked_beside_a_users_lib_is_refused_and_nothing_moves() {
+        let root = tmp("linux-shared");
+        let app = root.join("app");
+        release_in(&app);
+        // A user's own lib and ui-kit sit where Telescope's would be: the first update must not take them
+        std::fs::remove_dir_all(app.join("lib")).unwrap();
+        std::fs::remove_dir_all(app.join("ui-kit")).unwrap();
+        std::fs::create_dir_all(app.join("lib")).unwrap();
+        std::fs::write(app.join("lib/libmine.so"), "mine").unwrap();
+        std::fs::create_dir_all(app.join("ui-kit")).unwrap();
+        std::fs::write(app.join("ui-kit/fonts"), "mine").unwrap();
+        let e = install_linux(&tarball(&root.join("l.tar.gz"), &RELEASE), &app, 0, &mut rename()).unwrap_err();
+        assert!(e.0.contains("lib") && e.0.contains("of yours"), "{e}");
+        assert_eq!(std::fs::read_to_string(app.join("lib/libmine.so")).unwrap(), "mine");
+        assert_eq!(std::fs::read_to_string(app.join("ui-kit/fonts")).unwrap(), "mine");
+        assert_eq!(std::fs::read_to_string(app.join("telescope-rs")).unwrap(), "old");
+        assert!(!app.join(PREVIOUS_DIR).exists() && !app.join(STAGING_DIR).exists());
+        assert!(update_guard::read_journal(&app).is_none());
+        assert!(!app.join("lib/fallback").exists());
+    }
+
+    #[test]
+    fn a_tarball_beside_a_folder_that_isnt_telescopes_at_all_is_refused() {
+        let root = tmp("linux-not-telescope");
+        let app = root.join("app");
+        std::fs::create_dir_all(app.join("lib")).unwrap();
+        std::fs::write(app.join("lib/libmine.so"), "mine").unwrap();
+        let e = install_linux(&tarball(&root.join("l.tar.gz"), &RELEASE), &app, 0, &mut rename()).unwrap_err();
+        assert!(e.0.contains("lib"), "{e}");
+        assert_eq!(std::fs::read_to_string(app.join("lib/libmine.so")).unwrap(), "mine");
+        assert!(!app.join("telescope-rs").exists());
+    }
+
+    #[test]
+    fn a_clean_install_folder_still_updates_beside_the_users_other_files() {
+        let root = tmp("linux-clean");
+        let app = root.join("app");
+        release_in(&app);
+        std::fs::create_dir_all(app.join("my-stuff")).unwrap();
+        std::fs::write(app.join("my-stuff/a.txt"), "mine").unwrap();
+        install_linux(&tarball(&root.join("l.tar.gz"), &RELEASE), &app, 0, &mut rename()).unwrap();
+        assert_eq!(std::fs::read_to_string(app.join("telescope-rs")).unwrap(), "new");
+        assert_eq!(std::fs::read_to_string(app.join("lib/gphoto2/x.so")).unwrap(), "new");
+        assert!(!app.join("lib/gphoto2/gone.so").exists());
+        assert_eq!(std::fs::read_to_string(app.join(".previous/lib/gphoto2/gone.so")).unwrap(), "old");
+        assert_eq!(std::fs::read_to_string(app.join("my-stuff/a.txt")).unwrap(), "mine");
     }
 
     #[test]
