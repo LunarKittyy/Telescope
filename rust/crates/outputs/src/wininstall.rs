@@ -126,16 +126,31 @@ foreach ($dir in @($telescope, $dst)) {{
         Set-AdminOwner $dir
     }}
 }}
-# Old copies set aside by an earlier update, once nothing has them loaded any more
+# Old copies set aside by an earlier update, once nothing has them loaded any more, and half-made new ones
 Get-ChildItem -LiteralPath $dst -Filter '*.old' -Force | Remove-Item -Force -ErrorAction SilentlyContinue
+Get-ChildItem -LiteralPath $dst -Filter '*.new' -Force | Remove-Item -Force -ErrorAction SilentlyContinue
 foreach ($name in $files.Keys) {{
     $target = Join-Path $dst $name
     # A copy already there and right is kept: a camera app may have it loaded, so it can't be overwritten
     if (-not (Test-Path -LiteralPath $target) -or (Get-Sha256 $target) -ne $files[$name]) {{
-        # A loaded one can still be renamed out of the way
-        if (Test-Path -LiteralPath $target) {{ Move-Item -LiteralPath $target -Destination ($target + '.' + [guid]::NewGuid() + '.old') -Force }}
-        Copy-Item -LiteralPath (Join-Path $src $name) -Destination $target -Force
-        Set-AdminOwner $target
+        # The new one is made whole under another name first, so a failed copy never costs the working one
+        $fresh = $target + '.' + [guid]::NewGuid() + '.new'
+        $aside = $null
+        try {{
+            Copy-Item -LiteralPath (Join-Path $src $name) -Destination $fresh -Force
+            Set-AdminOwner $fresh
+            # A loaded one can still be renamed out of the way
+            if (Test-Path -LiteralPath $target) {{
+                $aside = $target + '.' + [guid]::NewGuid() + '.old'
+                Move-Item -LiteralPath $target -Destination $aside -Force
+            }}
+            Move-Item -LiteralPath $fresh -Destination $target -Force
+        }} catch {{
+            # The working one goes back where it was
+            if ($aside -and -not (Test-Path -LiteralPath $target)) {{ Move-Item -LiteralPath $aside -Destination $target -Force }}
+            Remove-Item -LiteralPath $fresh -Force -ErrorAction SilentlyContinue
+            throw
+        }}
     }}
 }}
 # Again over the finished tree, so nothing that changed while it was being made gets registered
@@ -930,7 +945,20 @@ mod tests {
     fn an_update_renames_a_loaded_dll_out_of_the_way() {
         let script = mf_install_script(Path::new("C:/app"), &"AB".repeat(32), 1, None);
         let rename = script.find("Move-Item -LiteralPath $target").unwrap();
-        assert!(script.find("'*.old'").unwrap() < rename && rename < script.find("Copy-Item").unwrap());
+        assert!(script.find("'*.old'").unwrap() < rename);
+    }
+
+    #[test]
+    fn a_new_dll_is_copied_whole_before_the_working_one_moves_and_the_working_one_comes_back_on_failure() {
+        let script = mf_install_script(Path::new("C:/app"), &"AB".repeat(32), 1, None);
+        let copy = script.find("Copy-Item -LiteralPath (Join-Path $src $name) -Destination $fresh").unwrap();
+        let aside = script.find("Move-Item -LiteralPath $target -Destination $aside").unwrap();
+        let swap = script.find("Move-Item -LiteralPath $fresh -Destination $target").unwrap();
+        assert!(copy < aside && aside < swap, "copy, then set the old one aside, then swap");
+        assert!(script.find("Set-AdminOwner $fresh").unwrap() < aside, "the copy is checked over before the swap");
+        let restore = script.find("Move-Item -LiteralPath $aside -Destination $target").unwrap();
+        assert!(swap < restore && script[restore..].contains("throw"), "a failed swap puts the old one back and still fails the install");
+        assert!(!script.contains("Copy-Item -LiteralPath (Join-Path $src $name) -Destination $target"), "nothing is copied over the working file");
     }
 
     // test_platform_windows.py::test_unitycapture_registered_from_the_app_folder_goes_through_a_checked_copy
