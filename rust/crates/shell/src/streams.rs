@@ -381,6 +381,9 @@ impl Window {
     pub(crate) fn mic_changed(self: &Rc<Self>) {
         self.sync_camera();
         let (enabled, camera_off) = { let st = self.state.borrow(); (st.mic.0, st.streams.camera_off) };
+        // A card's callback delivered MicChanged before the camera was read again, so the Preview's button drew from the old answer
+        let muted = self.state.borrow().mic.1;
+        self.state.borrow_mut().deliver_to("preview", &Event::MicChanged { enabled, muted });
         if !enabled && camera_off {
             self.set_camera_on(true, false);
         }
