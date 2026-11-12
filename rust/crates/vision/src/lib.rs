@@ -29,8 +29,8 @@ pub type WebOpener = Box<dyn Fn(&str, Duration) -> io::Result<Box<dyn Read>> + S
 #[derive(Default)]
 struct Download {
     running: bool,
-    /// The optional plugin that gets switched on once it's done.
-    waiting: String,
+    /// The optional plugins that get switched on once it's done, in the order they asked.
+    waiting: Vec<String>,
     error: String,
     failed_for: String,
     done: u64,
@@ -186,20 +186,26 @@ impl VisionHost {
         let opener = |url: &str, t: Duration| (shared.opener)(url, t);
         let result = pack::download(&shared.info, &shared.dir, &mut progress, &|| cancel.load(Ordering::SeqCst), &opener, None);
         let error = result.err().map(|e| e.0).unwrap_or_default();
-        let name = {
+        let names = {
             let mut d = shared.download.lock().unwrap();
             d.running = false;
-            let name = std::mem::take(&mut d.waiting);
+            let names = std::mem::take(&mut d.waiting);
             if !error.is_empty() {
                 d.error = error.clone();
-                d.failed_for = name.clone();
+                d.failed_for = names.first().cloned().unwrap_or_default();
             }
-            name
+            names
         };
         if error.is_empty() {
             shared.vision.pack_downloaded();
         }
-        emit(&shared.bus, Event::VisionDownloadFinished { error, switch_on: name });
+        // One finish per plugin that asked, so each is switched on; one with no name when nothing waited
+        if names.is_empty() {
+            emit(&shared.bus, Event::VisionDownloadFinished { error: error.clone(), switch_on: String::new() });
+        }
+        for name in names {
+            emit(&shared.bus, Event::VisionDownloadFinished { error: error.clone(), switch_on: name });
+        }
     }
 }
 
@@ -403,8 +409,8 @@ impl VisionService for VisionHost {
 
     fn download(&self, switch_on: &str) {
         let mut d = self.shared.download.lock().unwrap();
-        if !switch_on.is_empty() {
-            d.waiting = switch_on.to_string();
+        if !switch_on.is_empty() && !d.waiting.iter().any(|n| n == switch_on) {
+            d.waiting.push(switch_on.to_string());
         }
         d.error.clear();
         d.failed_for.clear();

@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use telescope_core::i18n::{tr, tr_ctx};
 use telescope_core::plugin::{PluginInfo, PLUGIN_CATEGORIES};
-use telescope_core::vision::VisionService;
+use telescope_core::vision::{VisionPack, VisionService};
 use telescope_core::plugin_admin::{AddedPlugin, InstallFailure, PluginAdmin, AUTO_UPDATE, CHECK_UPDATES};
 
 pub const DOCS_URL: &str = "https://github.com/LunarKittyy/Telescope/blob/master/docs/plugins.md";
@@ -193,14 +193,41 @@ pub enum Step {
     Ask(Question, Commit),
 }
 
+/// What the banner over the restart bar shows for a pack download: its name, how far it is (None: size not known) and what went wrong.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DownloadBanner {
+    pub title: String,
+    pub percent: Option<u8>,
+    pub error: String,
+    /// The tooltip's second line.
+    pub detail: String,
+}
+
+/// The banner for one pack download: its progress while it runs, the error it reported once it has failed, nothing otherwise.
+/// A pack's download gets its banner by calling this with its own title, the tooltip's line while it runs (`detail`), the one after
+/// a failure (`retry`) and its numbers.
+pub fn download_banner(title: &str, detail: &str, retry: &str, running: bool, done: u64, size: u64, error: &str) -> Option<DownloadBanner> {
+    if running {
+        let percent = (done * 100).checked_div(size).map(|p| p.min(99) as u8);
+        Some(DownloadBanner { title: title.to_string(), percent, error: String::new(), detail: detail.to_string() })
+    } else if !error.is_empty() {
+        Some(DownloadBanner {
+            title: title.to_string(), percent: None, error: fill(&tr("The download didn't work. {error}"), &[("error", error)]),
+            detail: retry.to_string(),
+        })
+    } else {
+        None
+    }
+}
+
 /// The vision pack's download as the tab sees it (VisionDownload).
 pub trait Download {
     fn ready(&self) -> bool;
     fn available(&self) -> bool;
     fn running(&self) -> bool;
     fn size_mb(&self) -> u64;
-    /// The optional plugin that gets switched on once it's done.
-    fn waiting(&self) -> String;
+    /// This optional plugin gets switched on once the download is done.
+    fn is_waiting(&self, name: &str) -> bool;
     /// What went wrong last time, for the plugin that was waiting.
     fn error(&self) -> String;
     fn failed_for(&self) -> String;
@@ -208,17 +235,21 @@ pub trait Download {
     fn progress(&self) -> (u64, u64);
     fn start(&self, switch_on: &str);
     fn remove(&self) -> Result<(), String>;
+    /// Where the high quality cutout's download is (its own pack, with nothing to switch on).
+    fn cutout(&self) -> VisionPack {
+        VisionPack::default()
+    }
 }
 
 /// The app's one download, from the vision service.
 pub struct VisionDownload {
     service: Arc<dyn VisionService>,
-    waiting: Mutex<String>,
+    waiting: Mutex<Vec<String>>,
 }
 
 impl VisionDownload {
     pub fn new(service: Arc<dyn VisionService>) -> VisionDownload {
-        VisionDownload { service, waiting: Mutex::new(String::new()) }
+        VisionDownload { service, waiting: Mutex::new(Vec::new()) }
     }
 }
 
@@ -235,8 +266,8 @@ impl Download for VisionDownload {
     fn size_mb(&self) -> u64 {
         self.service.pack().size_mb.max(1)
     }
-    fn waiting(&self) -> String {
-        if self.running() { self.waiting.lock().unwrap_or_else(|e| e.into_inner()).clone() } else { String::new() }
+    fn is_waiting(&self, name: &str) -> bool {
+        self.running() && self.waiting.lock().unwrap_or_else(|e| e.into_inner()).iter().any(|n| n == name)
     }
     fn error(&self) -> String {
         self.service.pack().error
@@ -250,12 +281,21 @@ impl Download for VisionDownload {
     }
     fn start(&self, switch_on: &str) {
         if !switch_on.is_empty() {
-            *self.waiting.lock().unwrap_or_else(|e| e.into_inner()) = switch_on.to_string();
+            let mut waiting = self.waiting.lock().unwrap_or_else(|e| e.into_inner());
+            if !self.service.pack().downloading {
+                waiting.clear();
+            }
+            if !waiting.iter().any(|n| n == switch_on) {
+                waiting.push(switch_on.to_string());
+            }
         }
         self.service.download(switch_on);
     }
     fn remove(&self) -> Result<(), String> {
         self.service.remove_pack()
+    }
+    fn cutout(&self) -> VisionPack {
+        self.service.matting_pack()
     }
 }
 
@@ -267,7 +307,7 @@ impl Download for NoVision {
     fn available(&self) -> bool { false }
     fn running(&self) -> bool { false }
     fn size_mb(&self) -> u64 { 1 }
-    fn waiting(&self) -> String { String::new() }
+    fn is_waiting(&self, _: &str) -> bool { false }
     fn error(&self) -> String { String::new() }
     fn failed_for(&self) -> String { String::new() }
     fn progress(&self) -> (u64, u64) { (0, 0) }
@@ -332,7 +372,9 @@ impl Panel {
     pub fn download_sign(&self) -> String {
         let dl = &self.download;
         let (done, size) = dl.progress();
-        format!("{} {} {} {} {}", dl.ready(), dl.running(), (done * 100).checked_div(size).unwrap_or(0), dl.error(), dl.failed_for())
+        let cutout = dl.cutout();
+        format!("{} {} {} {} {} {} {} {}", dl.ready(), dl.running(), (done * 100).checked_div(size).unwrap_or(0), dl.error(), dl.failed_for(),
+                cutout.downloading, (cutout.done * 100).checked_div(cutout.size).unwrap_or(0), cutout.error)
     }
 
     /// How many switches, installs and removals wait for Telescope to start again.
@@ -425,7 +467,7 @@ impl Panel {
         let mut tile = self.of_builtin(p, on);
         let dl = &self.download;
         let needs = p.needs_vision && !dl.ready();
-        let downloading = p.needs_vision && dl.running() && dl.waiting() == p.name;
+        let downloading = p.needs_vision && dl.running() && dl.is_waiting(&p.name);
         let (mut note, mut kind) = (String::new(), "dim");
         if downloading {
             let (done, size) = dl.progress();
@@ -441,7 +483,7 @@ impl Panel {
             note = fill(&tr("Its download (about {mb} MB) isn't there anymore. Switch it off and on again to get it."), &[("mb", &dl.size_mb().to_string())]);
             kind = "status_warn";
         }
-        tile.enabled = !(needs && !dl.available()) && !(dl.running() && dl.waiting() == p.name);
+        tile.enabled = !(needs && !dl.available()) && !(dl.running() && dl.is_waiting(&p.name));
         tile.note = note;
         tile.note_kind = kind.into();
         if p.needs_vision {
@@ -571,6 +613,24 @@ impl Panel {
         } else {
             tr("No plugin is switched on.")
         }
+    }
+
+    /// The banner for the pack download under way or just failed, None when there is nothing to say.
+    pub fn download_banner(&self) -> Option<DownloadBanner> {
+        let dl = &self.download;
+        let (done, size) = dl.progress();
+        let vision = download_banner(
+            &tr("Downloading the vision pack"),
+            &fill(&tr("This one-time download (about {mb} MB) is shared by every plugin that finds people in the picture."), &[("mb", &dl.size_mb().to_string())]),
+            &tr("Switch on a plugin that needs the vision pack to try again."), dl.running(), done, size, &dl.error());
+        let cutout = dl.cutout();
+        let high = download_banner(
+            &tr("Downloading the high quality cutout"),
+            &fill(&tr("This one-time download (about {mb} MB) gives the Background cutout cleaner edges."), &[("mb", &cutout.size_mb.to_string())]),
+            &tr("Press Download under High quality cutout in Background to try again."), cutout.downloading, cutout.done, cutout.size, &cutout.error);
+        // One banner at a time: a download under way wins over a failure, the vision pack over the cutout
+        let running = |b: &Option<DownloadBanner>| b.as_ref().is_some_and(|b| b.error.is_empty());
+        if running(&vision) || !running(&high) && vision.is_some() { vision } else { high }
     }
 
     pub fn footer_note(&self) -> String {

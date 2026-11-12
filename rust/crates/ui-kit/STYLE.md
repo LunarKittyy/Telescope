@@ -128,6 +128,7 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | `icon` | Icon | picture, tint |
 | `outline` | FocusRing, TouchRing, Worm | radius, the picked cell's place (the inside is a `WormFill` under the text) |
 | `scrollbar` | ScrollBar, ColumnScrollbar, FlickBar | extent |
+| `progress` | ProgressBar | value (0 to 1), track and fill colours |
 | `image` | QrCode | picture |
 | `readout` | PinReadout, PinChip | a pin of the bottom bar (its icon, value and place) and the "+N" that holds the pins that did not fit |
 | `helper` | no drawing of its own (search words, `Tip`, `TipLayer`, `Peek`, `PeekLayer`, shortcut menu, `Unfolding`, `UnfoldGroup`, `RowHover`, `DialogButtons`, `LensArt`, `FineAxis`, the motions) | nothing |
