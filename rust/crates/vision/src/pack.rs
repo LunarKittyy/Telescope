@@ -262,7 +262,7 @@ pub fn install_zip(info: &PackInfo, vision_dir: &Path, archive: &Path) -> Result
     let _ = std::fs::remove_dir_all(&staging);
     match result {
         Ok(last) => {
-            let _ = remove(vision_dir, Some(&pid));
+            let _ = prune(vision_dir, &pid);
             Ok(last)
         }
         Err(Failed::Pack(e)) => Err(e),
@@ -328,7 +328,7 @@ fn download_capped(info: &PackInfo, vision_dir: &Path, progress: &mut dyn FnMut(
     let _ = std::fs::remove_dir_all(&staging);
     match result {
         Ok(last) => {
-            let _ = remove(vision_dir, Some(&pid));
+            let _ = prune(vision_dir, &pid);
             Ok(last)
         }
         Err(Failed::Pack(e)) => Err(e),
@@ -421,7 +421,7 @@ fn unpack_into(archive: &Path, staging: &Path, max_bytes: u64) -> Result<(), Fai
     Ok(())
 }
 
-/// Delete the packs (and leftovers of unfinished downloads), all but keep.
+/// Delete the packs and leftovers of unfinished downloads, all but keep.
 pub fn remove(vision_dir: &Path, keep: Option<&str>) -> Result<(), String> {
     let Ok(entries) = std::fs::read_dir(vision_dir) else { return Ok(()) };
     let mut failed = Ok(());
@@ -430,6 +430,28 @@ pub fn remove(vision_dir: &Path, keep: Option<&str>) -> Result<(), String> {
             continue;
         }
         let path = entry.path();
+        let gone = if path.is_dir() { std::fs::remove_dir_all(&path) } else { std::fs::remove_file(&path) };
+        if let Err(e) = gone {
+            log::warn!("Couldn't remove {}", path.display());
+            failed = Err(e.to_string());
+        }
+    }
+    failed
+}
+
+/// After an install or download: delete older packs and leftovers of unfinished downloads, but only what Telescope makes itself (a pack
+/// folder is named by 16 hex characters). Anything else in the folder, such as a zip the person chose to install, stays.
+fn prune(vision_dir: &Path, keep: &str) -> Result<(), String> {
+    let Ok(entries) = std::fs::read_dir(vision_dir) else { return Ok(()) };
+    let mut failed = Ok(());
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let path = entry.path();
+        let is_pack = path.is_dir() && name.len() == 16 && name.chars().all(|c| c.is_ascii_hexdigit());
+        let is_temp = name.starts_with('.') && (name.ends_with(".zip.part") || name.ends_with(".unpacking"));
+        if name == keep || !(is_pack || is_temp) {
+            continue;
+        }
         let gone = if path.is_dir() { std::fs::remove_dir_all(&path) } else { std::fs::remove_file(&path) };
         if let Err(e) = gone {
             log::warn!("Couldn't remove {}", path.display());

@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use telescope_core::i18n::{tr, tr_ctx};
 use telescope_core::plugin::{PluginInfo, PLUGIN_CATEGORIES};
-use telescope_core::vision::{VisionPack, VisionService};
+use telescope_core::vision::{PackZip, VisionPack, VisionService};
 use telescope_core::plugin_admin::{AddedPlugin, InstallFailure, PluginAdmin, AUTO_UPDATE, CHECK_UPDATES};
 
 pub const DOCS_URL: &str = "https://github.com/LunarKittyy/Telescope/blob/master/docs/plugins.md";
@@ -238,9 +238,10 @@ pub trait Download {
     fn progress(&self) -> (u64, u64);
     fn start(&self, switch_on: &str);
     fn remove(&self) -> Result<(), String>;
-    /// A pack zip chosen in Install: false when it isn't one, else it installs in the background like the download.
-    fn install_pack_zip(&self, _archive: &std::path::Path) -> bool {
-        false
+    /// A pack zip chosen in Install: NotPack when it isn't one, Busy while that pack is downloading or installing, else it installs in
+    /// the background like the download.
+    fn install_pack_zip(&self, _archive: &std::path::Path) -> PackZip {
+        PackZip::NotPack
     }
     /// Where the high quality cutout's download is (its own pack, with nothing to switch on).
     fn cutout(&self) -> VisionPack {
@@ -273,7 +274,7 @@ impl Download for VisionDownload {
     fn size_mb(&self) -> u64 {
         self.service.pack().size_mb.max(1)
     }
-    fn install_pack_zip(&self, archive: &std::path::Path) -> bool {
+    fn install_pack_zip(&self, archive: &std::path::Path) -> PackZip {
         self.service.install_pack_zip(archive)
     }
     fn is_waiting(&self, name: &str) -> bool {
@@ -737,11 +738,20 @@ impl Panel {
     }
 
     fn install(&mut self, path: PathBuf, replace: bool) -> Step {
-        if self.download.install_pack_zip(&path) {
-            self.refresh();
-            let mut outcome = Outcome::default();
-            outcome.notices.push(info("Installing the vision pack", tr("This is the vision pack, not a plugin. It's being checked and installed in the background, and the download banner shows how it goes.")));
-            return Step::Done(outcome);
+        match self.download.install_pack_zip(&path) {
+            PackZip::Started => {
+                self.refresh();
+                let mut outcome = Outcome::default();
+                outcome.notices.push(info("Installing the vision pack", tr("This is the vision pack, not a plugin. It's being checked and installed in the background, and the download banner shows how it goes.")));
+                return Step::Done(outcome);
+            }
+            PackZip::Busy => {
+                self.refresh();
+                let mut outcome = Outcome::default();
+                outcome.notices.push(warning("The vision pack is busy", tr("The vision pack is already downloading or installing, so this file wasn't used. Try again when it's done.")));
+                return Step::Done(outcome);
+            }
+            PackZip::NotPack => {}
         }
         let result = self.admin.install_zip(&path, replace);
         let mut outcome = Outcome::default();

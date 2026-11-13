@@ -22,7 +22,7 @@ use telescope_core::event::Event;
 use telescope_core::frame::Frame;
 use telescope_core::image::{frame_rgb, small_rgb};
 use telescope_core::people::PeopleTracking;
-use telescope_core::vision::{turned, Turn, Upright, VisionPack, VisionService};
+use telescope_core::vision::{turned, PackZip, Turn, Upright, VisionPack, VisionService};
 
 pub type WebOpener = Box<dyn Fn(&str, Duration) -> io::Result<Box<dyn Read>> + Send + Sync>;
 
@@ -186,6 +186,11 @@ impl VisionHost {
         let opener = |url: &str, t: Duration| (shared.opener)(url, t);
         let result = pack::download(&shared.info, &shared.dir, &mut progress, &|| cancel.load(Ordering::SeqCst), &opener, None);
         let error = result.err().map(|e| e.0).unwrap_or_default();
+        VisionHost::finish_download(&shared, error);
+    }
+
+    /// The download or zip install is over: free the slot, tell every plugin that waited, and make vision look for the pack again.
+    fn finish_download(shared: &Shared, error: String) {
         let names = {
             let mut d = shared.download.lock().unwrap();
             d.running = false;
@@ -206,6 +211,25 @@ impl VisionHost {
         for name in names {
             emit(&shared.bus, Event::VisionDownloadFinished { error: error.clone(), switch_on: name });
         }
+    }
+
+    fn finish_cutout(shared: &Shared, cutout: &CutoutPack, error: String) {
+        {
+            let mut d = cutout.download.lock().unwrap();
+            d.running = false;
+            d.error = error.clone();
+        }
+        if error.is_empty() {
+            shared.vision.cutout_downloaded();
+        }
+        emit(&shared.bus, Event::VisionDownloadFinished { error, switch_on: String::new() });
+    }
+}
+
+fn slot<'a>(shared: &'a Shared, cutout: &'a Option<Arc<CutoutPack>>) -> &'a Mutex<Download> {
+    match cutout {
+        Some(c) => &c.download,
+        None => &shared.download,
     }
 }
 
@@ -229,15 +253,7 @@ impl VisionHost {
         let opener = |url: &str, t: Duration| (shared.opener)(url, t);
         let result = pack::download(&cutout.info, &cutout.dir, &mut progress, &|| cancel.load(Ordering::SeqCst), &opener, None);
         let error = result.err().map(|e| e.0).unwrap_or_default();
-        {
-            let mut d = cutout.download.lock().unwrap();
-            d.running = false;
-            d.error = error.clone();
-        }
-        if error.is_empty() {
-            shared.vision.cutout_downloaded();
-        }
-        emit(&shared.bus, Event::VisionDownloadFinished { error, switch_on: String::new() });
+        VisionHost::finish_cutout(&shared, &cutout, error);
     }
 }
 
@@ -432,51 +448,40 @@ impl VisionService for VisionHost {
         self.shared.cancel.store(true, Ordering::SeqCst);
     }
 
-    fn install_pack_zip(&self, archive: &Path) -> bool {
-        let Some(kind) = archive.file_name().and_then(|n| pack::pack_zip_kind(&n.to_string_lossy())) else { return false };
-        let (info, dir, state, cancel, matting) = match kind {
-            pack::Kind::Vision => (self.shared.info.clone(), self.shared.dir.clone(), None, self.shared.cancel.clone(), false),
+    fn install_pack_zip(&self, archive: &Path) -> PackZip {
+        let Some(kind) = archive.file_name().and_then(|n| pack::pack_zip_kind(&n.to_string_lossy())) else { return PackZip::NotPack };
+        let (info, dir, state, cancel) = match kind {
+            pack::Kind::Vision => (self.shared.info.clone(), self.shared.dir.clone(), None, self.shared.cancel.clone()),
             pack::Kind::Matting => match self.cutout_pack() {
-                Some(c) => (c.info.clone(), c.dir.clone(), Some(c.clone()), c.cancel.clone(), true),
-                None => return false,
+                Some(c) => (c.info.clone(), c.dir.clone(), Some(c.clone()), c.cancel.clone()),
+                None => return PackZip::NotPack,
             },
         };
-        let slot = |shared: &Shared, cutout: &Option<Arc<CutoutPack>>| match cutout {
-            Some(c) => c.download.lock().unwrap().running,
-            None => shared.download.lock().unwrap().running,
-        };
-        if slot(&self.shared, &state) {
-            return true;
-        }
-        let set = |shared: &Shared, cutout: &Option<Arc<CutoutPack>>, f: &dyn Fn(&mut Download)| match cutout {
-            Some(c) => f(&mut c.download.lock().unwrap()),
-            None => f(&mut shared.download.lock().unwrap()),
-        };
-        set(&self.shared, &state, &|d| {
+        // Check and claim in one lock, so a download or another install can't slip in between
+        {
+            let mut d = slot(&self.shared, &state).lock().unwrap();
+            if d.running {
+                return PackZip::Busy;
+            }
             d.running = true;
             d.error.clear();
             d.failed_for.clear();
             d.done = 0;
             d.size = 0;
-        });
+        }
         cancel.store(false, Ordering::SeqCst);
-        let (shared, archive) = (self.shared.clone(), archive.to_path_buf());
-        let again = state.clone();
+        let (shared, archive, again) = (self.shared.clone(), archive.to_path_buf(), state.clone());
         let started = std::thread::Builder::new().name("pack-install".into()).spawn(move || {
             let error = pack::install_zip(&info, &dir, &archive).err().map(|e| e.0).unwrap_or_default();
-            set(&shared, &again, &|d| {
-                d.running = false;
-                d.error = error.clone();
-            });
-            if error.is_empty() {
-                if matting { shared.vision.cutout_downloaded() } else { shared.vision.pack_downloaded() }
+            match again {
+                Some(c) => VisionHost::finish_cutout(&shared, &c, error),
+                None => VisionHost::finish_download(&shared, error),
             }
-            emit(&shared.bus, Event::VisionDownloadFinished { error, switch_on: String::new() });
         });
         if started.is_err() {
-            set(&self.shared, &state, &|d| d.running = false);
+            slot(&self.shared, &state).lock().unwrap().running = false;
         }
-        true
+        PackZip::Started
     }
 
     fn remove_pack(&self) -> Result<(), String> {

@@ -324,3 +324,17 @@ fn a_pack_zip_for_another_version_is_refused_in_plain_words() {
     assert!(e.0.contains("didn't match"), "{e}");
     assert!(!f.info.installed(&f.folder));
 }
+
+#[test]
+fn installing_a_zip_from_inside_the_pack_folder_leaves_the_zip_alone() {
+    let f = Fixture::new();
+    std::fs::create_dir_all(&f.folder).unwrap();
+    std::fs::create_dir_all(f.folder.join("0123456789abcdef")).unwrap();
+    std::fs::write(f.folder.join(".old.zip.part"), b"x").unwrap();
+    let zip = f.folder.join("Telescope-vision-linux-0123456789abcdef.zip");
+    std::fs::write(&zip, f.served.lock().unwrap().clone()).unwrap();
+    install_zip(&f.info, &f.folder, &zip).unwrap();
+    assert!(zip.exists(), "the chosen zip must stay");
+    assert!(f.info.installed(&f.folder));
+    assert_eq!(names(&f.folder), [f.tree[..16].to_string(), "Telescope-vision-linux-0123456789abcdef.zip".to_string()]);
+}
