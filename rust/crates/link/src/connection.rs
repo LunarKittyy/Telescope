@@ -152,6 +152,8 @@ pub struct Connection {
     pub udp: bool,
     pub phones: Vec<PairedPhone>,
     pub selected_id: Option<String>,
+    /// A saved pick of a source that hasn't shown up yet (a browser or webcam); kept and saved until it does or something else is picked.
+    pub pending_pick: Option<String>,
     pub resolution: Option<Resolution>,
     pub check_id: u64,
     /// The idle check still resolving; the poll waits for it.
@@ -193,10 +195,15 @@ fn key(pid: Option<&str>) -> String {
     pid.unwrap_or("").to_string()
 }
 
+/// Ids of sources the plugins offer (the browser, webcams), as opposed to a paired phone's.
+fn is_source_id(id: &str) -> bool {
+    id == "browser" || id.contains(':')
+}
+
 impl Connection {
     pub fn new(computer_id: String, computer_name: String, tunnels: std::sync::Arc<dyn Tunnels>) -> Connection {
         Connection {
-            computer_id, computer_name, route_pref: RoutePreference::Auto, udp: false, phones: Vec::new(), selected_id: None,
+            computer_id, computer_name, route_pref: RoutePreference::Auto, udp: false, phones: Vec::new(), selected_id: None, pending_pick: None,
             resolution: None, check_id: 0, running_check: None, check_started: 0.0, udp_dynamic: HashSet::new(), holds: HashMap::new(),
             paths: HashMap::new(), prepared: HashMap::new(), usb_sat_out: -1e9, streaming: false, connected: false, lost: false,
             transport_udp: false, pending_route: None, route_probe_id: 0, watch_id: 0, usb_watch_active: false,
@@ -265,7 +272,7 @@ impl Connection {
             "route": self.route_pref.as_str(),
             "udp": self.udp,
             "phones": self.phones.iter().map(phone_to_value).collect::<Vec<_>>(),
-            "selected_phone": self.selected_id,
+            "selected_phone": self.pending_pick.as_ref().or(self.selected_id.as_ref()),
         })
     }
 
@@ -291,6 +298,8 @@ impl Connection {
         let sel = get("selected_phone").and_then(Value::as_str);
         let known = sel.is_some_and(|s| self.phone(Some(s)).is_some() || source_known(s));
         self.selected_id = if known { sel.map(str::to_string) } else { self.phones.first().map(|p| p.id.clone()) };
+        // Sources register after set_config runs, so a source pick waits instead of being dropped
+        self.pending_pick = sel.filter(|s| !known && is_source_id(s)).map(str::to_string);
         self.resolution = None;
         self.hide_names();
     }
@@ -743,6 +752,7 @@ impl Connection {
     /// pid is picked now (by hand, or the host moved the panels there).
     pub fn mark_selected(&mut self, pid: Option<&str>) {
         self.selected_id = pid.map(str::to_string);
+        self.pending_pick = None;
         self.pending_route = None; // a Connect via check under way was about the phone before
         self.route_probe_id += 1;
         self.resolution = None;
@@ -1229,6 +1239,33 @@ mod tests {
         let (mut c, _) = model();
         c.set_config(&json!({"phones": [], "selected_phone": "browser:x"}), |s| s == "browser:x");
         assert_eq!(c.selected_id.as_deref(), Some("browser:x"));
+    }
+
+    #[test]
+    fn a_saved_source_pick_waits_for_its_source_and_is_saved_back() {
+        for sid in ["browser", "browser:x", "webcam:cam1"] {
+            let (mut c, _) = model();
+            c.set_config(&json!({"phones": [{"id": "id-a", "name": "A", "token": "t"}], "selected_phone": sid}), |_| false);
+            assert_eq!(c.selected_id.as_deref(), Some("id-a"));
+            assert_eq!(c.pending_pick.as_deref(), Some(sid));
+            assert_eq!(c.get_config()["selected_phone"], sid);
+        }
+    }
+
+    #[test]
+    fn picking_something_else_drops_the_pending_source_pick() {
+        let (mut c, _) = model();
+        c.set_config(&json!({"phones": [{"id": "id-a", "name": "A", "token": "t"}], "selected_phone": "webcam:cam1"}), |_| false);
+        c.mark_selected(Some("id-a"));
+        assert_eq!(c.pending_pick, None);
+        assert_eq!(c.get_config()["selected_phone"], "id-a");
+    }
+
+    #[test]
+    fn a_forgotten_phone_id_is_not_kept_pending() {
+        let (mut c, _) = model();
+        c.set_config(&json!({"phones": [{"id": "id-a", "name": "A", "token": "t"}], "selected_phone": "gone"}), |_| false);
+        assert_eq!(c.get_config()["selected_phone"], "id-a");
     }
 
     #[test]
