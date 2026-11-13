@@ -65,6 +65,12 @@ impl Watcher {
         }
     }
 
+    /// Nothing is listening any more (stopped, or let go for a driver reload): "nobody reads" is no longer a trusted answer, and the next one is told even if it is the same.
+    pub fn unwatched(&self) {
+        self.deps.reliable.store(false, Ordering::SeqCst);
+        *self.watched.lock().unwrap() = None;
+    }
+
     pub fn scan_proc(&self, stop: &Stop) {
         self.deps.reliable.store(false, Ordering::SeqCst);
         while !stop.is_set() {
@@ -198,6 +204,7 @@ impl Job for Watcher {
     }
 
     fn suspended(&self) {
+        self.unwatched();
         self.report(false);
     }
 }
@@ -211,6 +218,7 @@ impl telescope_core::output::Held for CameraWatch {
     }
     fn stop(&self) {
         self.0.stop();
+        self.0.job().unwatched();
     }
     fn running(&self) -> bool {
         self.0.running()
@@ -388,5 +396,23 @@ mod tests {
         w.watch_mf(&stop);
         w.scan_proc(&stop);
         assert!(!d.reliable.load(Ordering::SeqCst), "the /proc scan can take seconds to see a reader");
+    }
+
+    #[test]
+    fn a_watch_that_is_stopped_or_suspended_stops_being_trusted() {
+        let d = deps();
+        let (w, seen) = watcher(d.clone());
+        let stop = Stop::default();
+        stop.set();
+        w.watch_mf(&stop);
+        w.report(false);
+        assert!(d.reliable.load(Ordering::SeqCst));
+        w.unwatched();
+        assert!(!d.reliable.load(Ordering::SeqCst), "stopped: a frozen picture is no answer to a later reader");
+        w.report(false);
+        assert_eq!(*seen.lock().unwrap(), [false, false], "the same answer is told again once it can be heard");
+        d.reliable.store(true, Ordering::SeqCst);
+        crate::held::Job::suspended(&*w);
+        assert!(!d.reliable.load(Ordering::SeqCst));
     }
 }
