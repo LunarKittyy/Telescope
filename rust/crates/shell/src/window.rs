@@ -384,6 +384,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
              opts: Option<WindowOptions>) -> Result<Rc<Window>, String> {
     let mut state = State::new(file);
     state.link = services.as_ref().map(|s| s.link.clone());
+    state.outputs = services.as_ref().map(|s| s.outputs.clone());
     state.frames = services.as_ref().and_then(|s| s.media.stream_frames()).map(|f| f as Arc<dyn telescope_core::host::FrameStore>);
     state.vision = services.as_ref().and_then(|s| s.vision.clone());
     if let Some(admin) = services.as_ref().and_then(|s| s.plugin_admin.clone()) {
@@ -1238,6 +1239,14 @@ impl Window {
     }
 
     /// Opens or closes the pop-out window as the preview card asks, and brings it forward when Pop out is pressed again.
+    /// The pop-out and a plugin's windows are places the picture is looked at, so the stream's steps keep running (idle.rs).
+    fn set_popout_open(&self, open: bool) {
+        let open = open || self.plugin_windows.borrow().iter().any(|(_, _, ui)| ui.window().is_visible());
+        let mut st = self.state.borrow_mut();
+        st.other_windows = open;
+        st.sync_idle();
+    }
+
     fn follow_popout(self: &Rc<Self>, open: bool, asks: i32) {
         let shown = self.popout.borrow().is_some();
         if open && !shown {
@@ -1277,6 +1286,7 @@ impl Window {
                     let _ = p.show();
                     crate::frame::dress(&p);
                     *self.popout.borrow_mut() = Some(p);
+                    self.set_popout_open(true);
                     self.layers_drawn.take();
                     self.painted.set(0);
                 }
@@ -1287,6 +1297,7 @@ impl Window {
             if let Some(p) = self.popout.borrow_mut().take() {
                 let _ = p.hide();
             }
+            self.set_popout_open(false);
             self.layers_drawn.take();
             self.painted.set(0);
         } else if open && asks != self.popout_asks.get() {
@@ -1872,6 +1883,7 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         if let Some(w) = weak.upgrade() {
             let seen = w.ui.window().is_visible() && !w.ui.window().is_minimized();
             w.streams.frame_unwanted.store(!(seen || w.popout.borrow().is_some()), std::sync::atomic::Ordering::SeqCst);
+            w.set_popout_open(w.popout.borrow().is_some());
             w.paint_preview();
             w.paint_pick();
             w.paint_layers();

@@ -1,3 +1,4 @@
+<!-- covers: rust/crates/shell/src/plugins_tab.rs rust/crates/core/src/plugin_admin.rs rust/crates/plugin-host/src/admin.rs rust/crates/plugin-host/src/package.rs rust/crates/plugin-host/src/updates.rs rust/crates/plugin-host/src/switches.rs; checked: 1cbb8644b -->
 # Plugins
 
 Most of the desktop app is plugins. The Camera card is one and so are Transforms, the microphone, the wait screen and keyboard shortcuts. You can switch off the ones you don't use or install plugins other people made.
@@ -16,7 +17,7 @@ Switching a plugin off deletes nothing. Its settings stay saved and everything i
 
 Some tiles carry a badge:
 
-- **Needs the vision download** is on Auto framing, Background and Expose for my face. They start out off and need a separate download the first time, see [the vision download](features.md#the-vision-download). Its **Remove download** button sits next to the **People and vision** heading
+- **Needs the vision download** is on Auto framing, Background and Expose for my face. They start out off and need a separate download the first time, see [the vision download](features/picture.md#the-vision-download). Its **Remove download** button sits next to the **People and vision** heading
 - **Required** marks Devices and connection, Advanced settings and Updates. Their switches are locked on since Telescope doesn't work without them
 - **Added** marks plugins you installed yourself
 - **Restart required** shows on every plugin whose switch changed since Telescope started

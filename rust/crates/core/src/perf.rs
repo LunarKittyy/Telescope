@@ -332,6 +332,11 @@ impl StallWatch {
         StallWatch { last_frame_ns: None, before: None, pending: None, window: 0, gap_in_window: false, window_peak: None, peaks: PeakWatch::claim(), sink }
     }
 
+    /// No frames are made on purpose for a while (the stream is paused while nobody watches): the gap before the next one is no stall.
+    pub fn rest(&mut self) {
+        self.last_frame_ns = None;
+    }
+
     /// A new frame came out at now_ns (time::monotonic_ns).
     pub fn frame(&mut self, now_ns: u64, context: Context) {
         let peak = self.peaks.as_ref().and_then(PeakWatch::take);

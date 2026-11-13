@@ -12,16 +12,18 @@ use crate::source::{quote, Interface};
 
 /// Spacing between cards in a column and between columns (app.py _build_body).
 const GAP: f32 = 14.0;
+/// Between columns: the same as the window's margins, so every gap across the window is one width.
+const COLUMN_GAP: f32 = MARGIN_RIGHT;
 /// The scrollbar's width. A side rail with a column after it keeps a gutter for its bar at its right, always, so the bar appearing
 /// moves and narrows nothing: cards, EDGE, bar, EDGE, then the next column. The last column's bar sits in the window's right margin
 /// with EDGE each side, and the stage's, which has a rail after it, in the gap before that rail. The bar's hit area is the whole
 /// gutter it sits in, so no pixel beside the handle is dead.
 const BAR: f32 = 11.0;
 /// How far a bar's handle is from what it sits between: close, the same on both sides.
-const EDGE: f32 = 2.0;
-/// The window's left margin.
-const MARGIN: f32 = 16.0;
-/// The window's right margin, where the last column's bar sits: the handle with EDGE each side (the left margin is the plain 16).
+const EDGE: f32 = 3.0;
+/// The window's left margin: the same as the right one, so the cards sit as far from either edge.
+const MARGIN: f32 = MARGIN_RIGHT;
+/// The window's right margin, where the last column's bar sits: the handle with EDGE each side (the left margin is the same).
 const MARGIN_RIGHT: f32 = BAR + 2.0 * EDGE;
 
 /// One plugin's piece of UI as the window holds it.
@@ -118,10 +120,10 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
             .map(|h| format!("                {} := {}C {{ y: (parent.height - self.height) / 2; }}\n", h.piece.id, h.piece.id))
             .collect()
     };
-    out.push_str(&HEADER.field("left", header(false)).field("right", header(true)));
+    out.push_str(&HEADER.field("margin_left", MARGIN).field("left", header(false)).field("right", header(true)));
 
     // The body: cards placed by their column in the current mode
-    out.push_str(&BODY_TOP.field("margin_right", MARGIN_RIGHT));
+    out.push_str(&BODY_TOP.field("margin_left", MARGIN).field("margin_right", MARGIN_RIGHT));
     // In the three-column order, which is the order Tab takes (Qt goes by layout order, column by column)
     let mut order: Vec<usize> = cols[0].iter().flat_map(|(list, _)| list.iter().copied()).collect();
     let rest: Vec<usize> = (0..cards.len()).filter(|i| !order.contains(i)).collect();
@@ -146,7 +148,7 @@ fn shown(cols: &[(Vec<usize>, Option<f32>); 3]) -> Vec<(usize, Option<f32>)> {
 
 /// The gap after the column at `at` in `shown`: a rail whose bar sits between it and the next column leaves just the bar's edges.
 fn gap_after(shown: &[(usize, Option<f32>)], at: usize) -> f32 {
-    if at + 1 < shown.len() && shown[at].1.is_some() { EDGE } else { GAP }
+    if at + 1 < shown.len() && shown[at].1.is_some() { EDGE } else { COLUMN_GAP }
 }
 
 fn width_of(w: Option<f32>, shown: &[(usize, Option<f32>)]) -> String {
@@ -193,7 +195,7 @@ fn bar_x(cols: &[(Vec<usize>, Option<f32>); 3], c: usize) -> String {
     } else if shown[at].1.is_some() {
         format!("{end} - {BAR}px")
     } else {
-        format!("{end} + {}px", ((GAP - BAR) / 2.0).floor())
+        format!("{end} + {}px", ((COLUMN_GAP - BAR) / 2.0).floor())
     }
 }
 
@@ -207,8 +209,8 @@ fn bar_room(cols: &[(Vec<usize>, Option<f32>); 3], c: usize) -> (f32, f32) {
     } else if shown[at].1.is_some() {
         (EDGE, EDGE)
     } else {
-        let before = ((GAP - BAR) / 2.0).floor();
-        (before, GAP - BAR - before)
+        let before = ((COLUMN_GAP - BAR) / 2.0).floor();
+        (before, COLUMN_GAP - BAR - before)
     }
 }
 
@@ -429,7 +431,7 @@ const HEADER: &str = r#"
         height: Theme.u(30);
         background: Theme.chrome;
         HorizontalLayout {
-            padding-left: Theme.pad;
+            padding-left: {margin_left}px;
             padding-right: Theme.pad;
             padding-top: Theme.u(4);
             padding-bottom: Theme.u(4);
@@ -486,6 +488,7 @@ const HEADER: &str = r#"
         }
     }
     banner-area := BannerArea {
+        margin-left: {margin_left}px;
         x: 0;
         y: 60px;
         width: root.width;
@@ -496,6 +499,7 @@ const HEADER: &str = r#"
         closed(key) => { root.banner-closed(key); }
     }
     tiles-row := StreamTiles {
+        margin-left: {margin_left}px;
         x: 0;
         y: 60px + banner-area.preferred-height;
         width: root.width;
@@ -511,7 +515,7 @@ const HEADER: &str = r#"
 // column through Reveal). It never moves itself: the viewport is as big as the view and the columns scroll by `scroll{c}`.
 const BODY_TOP: &str = r#"
     Flickable {
-        x: 16px;
+        x: {margin_left}px;
         y: body-top + 16px;
         // The window's right margin too, where the last column's scrollbar sits
         width: body-w + {margin_right}px;
@@ -714,19 +718,19 @@ export component Hinted inherits Card {
                 }
                 let (left, stage, right) = (edges("p0"), edges("p1"), edges("p2"));
                 // The left bar sits in the rail's gutter with the same small gap each side, to the cards and to the stage; the stage is a column gap from the right rail
-                let bar = num("bar0x") + 16.0;
-                assert_eq!(bar - left.1, 2.0, "left cards to the left bar at {width}");
-                assert_eq!(stage.0 - (bar + 11.0), 2.0, "left bar to the stage at {width}");
-                assert_eq!(right.0 - stage.1, 14.0, "stage to the right cards at {width}");
-                // The left margin is 16, the right 15: with the right bar's handle or without it, the handle has the same 2 px to the cards and to the window's edge
-                assert_eq!(left.0, 16.0);
-                assert_eq!(width - right.1, 15.0, "right margin at {width}, bars {bars}");
-                let handle = num("bar2x") + 16.0;
-                assert_eq!(handle - right.1, 2.0, "right cards to the right bar at {width}");
-                assert_eq!(width - (handle + 11.0), 2.0, "right bar to the window's edge at {width}");
+                let bar = num("bar0x") + 17.0;
+                assert_eq!(bar - left.1, 3.0, "left cards to the left bar at {width}");
+                assert_eq!(stage.0 - (bar + 11.0), 3.0, "left bar to the stage at {width}");
+                assert_eq!(right.0 - stage.1, 17.0, "stage to the right cards at {width}");
+                // Every gap across the window is 17: with the right bar's handle or without it, the handle has the same 2 px to the cards and to the window's edge
+                assert_eq!(left.0, 17.0);
+                assert_eq!(width - right.1, 17.0, "right margin at {width}, bars {bars}");
+                let handle = num("bar2x") + 17.0;
+                assert_eq!(handle - right.1, 3.0, "right cards to the right bar at {width}");
+                assert_eq!(width - (handle + 11.0), 3.0, "right bar to the window's edge at {width}");
                 // And the hit area is the whole gutter: from the cards to what comes next
-                assert_eq!((num("bar0-before"), num("bar0-after")), (2.0, 2.0));
-                assert_eq!((num("bar2-before"), num("bar2-after")), (2.0, 2.0));
+                assert_eq!((num("bar0-before"), num("bar0-after")), (3.0, 3.0));
+                assert_eq!((num("bar2-before"), num("bar2-after")), (3.0, 3.0));
             }
         }
     }
@@ -751,10 +755,10 @@ export component Hinted inherits Card {
         win.window().set_size(slint::LogicalSize::new(1300.0, 900.0));
         let num = |name: &str| match win.get_property(name).unwrap() { Value::Number(n) => n, v => panic!("{name}: {v:?}") };
         assert_eq!(num("mode"), 0.0);
-        // Three columns: the stage takes what the right rail leaves, one pixel wider than the Qt render since the right margin is 15 now (16..859, 873..1285)
+        // Three columns: the stage takes what the right rail leaves, narrower than the Qt render since the margins and column gap are 17 now
         assert_eq!(num("c1x"), 0.0);
-        assert_eq!(num("c1w"), 843.0);
-        assert_eq!(num("c2x"), 857.0);
+        assert_eq!(num("c1w"), 837.0);
+        assert_eq!(num("c2x"), 854.0);
         win.set_property("p1-words", Value::String("hello".into())).unwrap();
         let got = std::rc::Rc::new(std::cell::RefCell::new(0.0));
         let g = got.clone();
@@ -763,14 +767,14 @@ export component Hinted inherits Card {
         assert_eq!(*got.borrow(), 3.0);
         win.window().set_size(slint::LogicalSize::new(560.0, 900.0));
         assert_eq!(num("mode"), 2.0);
-        assert_eq!(num("c0w"), 529.0);
+        assert_eq!(num("c0w"), 526.0);
         // The scrollbar's room is always kept: the cards are the same width whether or not the bar is up
         let narrow = num("card0w");
         win.set_property("bar0", Value::Bool(true)).unwrap();
         assert_eq!(num("card0w"), narrow, "a bar appearing doesn't narrow the column");
         win.set_property("bar0", Value::Bool(false)).unwrap();
         assert_eq!(num("card0w"), narrow);
-        assert_eq!(narrow, 529.0, "the last column's bar is in the margin, so its cards take the column");
+        assert_eq!(narrow, 526.0, "the last column's bar is in the margin, so its cards take the column");
     }
 }
 
@@ -830,7 +834,7 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
         out.push_str("    }\n");
         if Some(t) == plugins_tab {
             out.push_str(&format!(
-                "    if footer-fold.value > 0 && !root.searching && root.current == {t}: PluginsFooter {{\n        x: 260px;\n        y: root.height - 16px - self.height;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: footer-fold.value;\n        note: root.footer-note;\n        restart => {{ root.restart(); }}\n    }}\n"));
+                "    if footer-fold.value > 0 && !root.searching && root.current == {t}: PluginsFooter {{\n        x: 260px;\n        y: root.height - (16px + self.height) * footer-fold.value;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: footer-fold.value;\n        note: root.footer-note;\n        restart => {{ root.restart(); }}\n        revert => {{ root.revert(); }}\n    }}\n"));
             out.push_str(&format!(
                 "    if download-fold.value > 0 && !root.searching && root.current == {t}: DownloadBanner {{\n        x: 260px;\n        y: root.height - 16px - 64px * footer-fold.value - self.height;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: download-fold.value;\n        title: root.download-title;\n        percent: root.download-percent;\n        error: root.download-error;\n        detail: root.download-detail;\n    }}\n"));
         }
@@ -907,6 +911,7 @@ export component TelescopeSettings inherits Window {
     callback open-folder;
     callback open-docs;
     callback restart;
+    callback revert;
     in property <bool> asking;
     in property <string> ask-title;
     in property <string> ask-text;

@@ -40,6 +40,36 @@ component PeekBoxFrame inherits Rectangle {
     CornerCap { corner: 3; r: Theme.r-ctl; x: 0px; y: root.height - Theme.r-ctl; fill: surround; }
 }
 
+// You, a head and shoulders, as the held bubbles that show the framing draw them
+component PeekPerson inherits Rectangle {
+    width: Theme.u(11);
+    height: Theme.u(10);
+    // The head
+    Rectangle {
+        width: Theme.u(4.5);
+        height: Theme.u(4.5);
+        x: (parent.width - self.width) / 2;
+        y: 0px;
+        border-radius: self.height / 2;
+        border-width: Theme.stroke;
+        border-color: Theme.ink2;
+    }
+    // The shoulders: a dome as wide as the mark
+    Path {
+        x: 0px;
+        y: Theme.u(5.5);
+        width: parent.width;
+        height: Theme.u(4.5);
+        viewbox-width: 100;
+        viewbox-height: 40;
+        // fitted: a decoration (the arc the target hops along), any scale will do
+        commands: "M 6 40 A 44 34 0 0 1 94 40";
+        stroke: Theme.ink2;
+        stroke-width: Theme.stroke;
+        stroke-line-cap: round;
+    }
+}
+
 // Kind "helper". Draws the bubble that is up. One goes last in a window, next to the tooltips' layer. It has no size and takes no input:
 // it only places the bubble in window coordinates.
 export component PeekLayer inherits Rectangle {
@@ -69,6 +99,7 @@ export component PeekLayer inherits Rectangle {
     property <[float]> picture-values;
     property <image> picture-photo;
     property <[float]> chase-values;
+    property <[float]> room-values;
     property <string> text-words;
     property <[float]> text-values;
     function keep() {
@@ -77,6 +108,7 @@ export component PeekLayer inherits Rectangle {
             picture-photo = photo;
         }
         if (kind == "chase") { chase-values = numbers; }
+        if (kind == "room") { room-values = numbers; }
         if (kind == "text") {
             text-values = numbers;
             text-words = words;
@@ -90,12 +122,13 @@ export component PeekLayer inherits Rectangle {
     property <bool> fresh: fade.value < 0.1;
     picture-fade := Fade { shown: Peeks.kind == "picture"; snap: root.fresh; }
     chase-fade := Fade { shown: Peeks.kind == "chase"; snap: root.fresh; }
+    room-fade := Fade { shown: Peeks.kind == "room"; snap: root.fresh; }
     text-fade := Fade { shown: Peeks.kind == "text"; snap: root.fresh; }
     // Kept read, so a drawing that is not up has its place on record (0) when its turn comes, and fades in from there
-    property <float> held-place: picture-fade.value + chase-fade.value + text-fade.value;
+    property <float> held-place: picture-fade.value + chase-fade.value + room-fade.value + text-fade.value;
     changed held-place => { }
     // How solid the drawing that is meant to be there is
-    out property <float> arrived: Peeks.kind == "picture" ? picture-fade.value : Peeks.kind == "chase" ? chase-fade.value : text-fade.value;
+    out property <float> arrived: Peeks.kind == "picture" ? picture-fade.value : Peeks.kind == "chase" ? chase-fade.value : Peeks.kind == "room" ? room-fade.value : text-fade.value;
     // A drawing is whole while it is the one being shown (as solid as its fade) or while the one coming in has not covered it yet
     function opacity-of(k: string, own: float) -> float { Peeks.kind == k ? own : arrived < 0.995 ? 1 : 0 }
     if Peeks.shown || fade.value > 0.02: BubbleFrame {
@@ -150,35 +183,41 @@ export component PeekLayer inherits Rectangle {
                     border-color: Peeks.hue.with-alpha(i == 2 ? 1.0 : i == 1 ? 0.4 : 0.18);
                 }
                 // Drawn after the frames so it is never hidden behind one
-                Rectangle {
-                    width: Theme.u(11);
-                    height: Theme.u(10);
+                PeekPerson {
                     x: round((PeekBox.frame-at(chase-values.length > 0 ? chase-values[0] : 0.5, parent.width, PeekBox.frame-w) + (PeekBox.frame-w - self.width) / 2) / 1phx) * 1phx;
                     y: round((PeekBox.frame-at(chase-values.length > 1 ? chase-values[1] : 0.5, parent.height, PeekBox.frame-h) + (PeekBox.frame-h - self.height) / 2) / 1phx) * 1phx;
-                    // The head
-                    Rectangle {
-                        width: Theme.u(4.5);
-                        height: Theme.u(4.5);
-                        x: (parent.width - self.width) / 2;
-                        y: 0px;
-                        border-radius: self.height / 2;
-                        border-width: Theme.stroke;
-                        border-color: Theme.ink2;
-                    }
-                    // The shoulders: a dome as wide as the mark
-                    Path {
-                        x: 0px;
-                        y: Theme.u(5.5);
-                        width: parent.width;
-                        height: Theme.u(4.5);
-                        viewbox-width: 100;
-                        viewbox-height: 40;
-                        // fitted: a decoration (the arc the target hops along), any scale will do
-                        commands: "M 6 40 A 44 34 0 0 1 94 40";
-                        stroke: Theme.ink2;
-                        stroke-width: Theme.stroke;
-                        stroke-line-cap: round;
-                    }
+                }
+            }
+            if Peeks.kind == "room" || room-fade.value > 0.005: room-box := PeekBoxFrame {
+                z: Peeks.kind == "room" ? 2 : 1;
+                opacity: opacity-of("room", room-fade.value);
+                background: Theme.trough;
+                // Room to move: the frame holds still while you stay inside the box round you, so the box is how far you can go (value 0..5, a step is 6% of the picture each way, drawn out from the edge of you)
+                property <float> room: room-values.length > 0 ? clamp(room-values[0], 0, 5) : 0;
+                property <length> half-w: self.room * 0.06 * PeekBox.w;
+                property <length> half-h: self.room * 0.06 * PeekBox.h;
+                Rectangle {
+                    width: PeekBox.frame-w;
+                    height: PeekBox.frame-h;
+                    x: round((parent.width - self.width) / 2 / 1phx) * 1phx;
+                    y: round((parent.height - self.height) / 2 / 1phx) * 1phx;
+                    border-radius: min(Theme.r-ctl, self.height / 2);
+                    border-width: Theme.stroke;
+                    border-color: Peeks.hue;
+                }
+                if room-box.room > 0: Rectangle {
+                    width: Theme.u(11) + 2 * room-box.half-w;
+                    height: Theme.u(10) + 2 * room-box.half-h;
+                    x: round((parent.width - self.width) / 2 / 1phx) * 1phx;
+                    y: round((parent.height - self.height) / 2 / 1phx) * 1phx;
+                    border-radius: min(Theme.r-ctl, self.height / 2);
+                    background: Peeks.hue.with-alpha(0.12);
+                    border-width: Theme.stroke;
+                    border-color: Peeks.hue.with-alpha(0.5);
+                }
+                PeekPerson {
+                    x: round((parent.width - self.width) / 2 / 1phx) * 1phx;
+                    y: round((parent.height - self.height) / 2 / 1phx) * 1phx;
                 }
             }
             if Peeks.kind == "text" || text-fade.value > 0.005: PeekBoxFrame {

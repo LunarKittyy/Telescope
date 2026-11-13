@@ -1,6 +1,7 @@
+<!-- covers: rust/crates/*/Cargo.toml rust/app/tests/architecture.rs rust/app/tests/plugin_removal.rs rust/crates/plugin-host/src rust/crates/core/src/plugin.rs rust/crates/core/src/snapshot.rs rust/app/build.rs; checked: 1cbb8644b -->
 # How the desktop app is put together
 
-How the desktop app in `rust/` is split up and which rules keep it that way, for anyone changing the code. [crates/shell/README.md](crates/shell/README.md) covers how the window is built and [docs/writing-plugins.md](../docs/writing-plugins.md) is the guide to writing a plugin. [FINDINGS.md](FINDINGS.md) has what the first prototype measured and [PLAN.md](PLAN.md) the update path from the old Python app.
+How the desktop app in `rust/` is split up and which rules keep it that way, for anyone changing the code. [crates/shell/README.md](crates/shell/README.md) covers how the window is built and [docs/writing-plugins.md](../docs/writing-plugins.md) is the guide to writing a plugin. [docs/packaging.md](../docs/packaging.md#the-update-path) has the update path from the old Python app.
 
 ## The crates
 
@@ -84,6 +85,12 @@ Each stream's worker counts into a `core::stats::SourceStats`: relaxed atomics o
 
 `Frame` holds packed planes in an `Arc`. Handing a frame to the preview, the virtual camera and other plugins (`FrameStore`) shares it. A step that changes pixels gets its own copy through `data_mut()`.
 
+## Pausing while nobody watches
+
+The main camera's frame steps and vision stop while no app has read the virtual camera for about 8 s and nothing else needs frames; decoding and the phone's link carry on, and the camera keeps sending the last picture. `shell::idle::IdleGate` holds the answer and the stream worker (`spawn_steps`) looks at it once per frame, so no plugin knows about it. The reader comes from the Wait screen plugin's `Event::CameraWatched`, so a computer with no such signal never pauses, and only slot 0 does. A reader, or anything that needs frames, ends the pause at the next frame, and the steps that keep pictures start again (`FramePipeline::forget_history`).
+
+Frames are needed while the window is on screen, the preview is popped out, a plugin window is open, a motion watch runs, or any plugin has asked with `Host::want_frames`. A plugin that reads pictures and reports what it found, or draws from other streams' frames, asks for as long as it needs them (QR code reader, Composite, Auto colour grading's look, the MCP server's watch). A script's `host.want_people` asks for it. Anything new that acts on frames with no one looking has to ask too, or it silently stops.
+
 ## Settings
 
 `core::config` reads and writes `telescope_config.json` byte for byte the way the Python app did, which is what lets an update keep everyone's phones, presets and shortcuts. Python's json module has its own float formatting, escapes and indentation, which `core::json` copies instead of using serde_json's writer. A few things Python could hold and a `serde_json::Value` can't come out differently: NaN and Infinity load as null, an integer past 64 bits becomes a float and a lone surrogate in a string turns into U+FFFD. None of them shows up in a real settings file.
@@ -98,7 +105,7 @@ A release build uses the real settings folder. A build from source keeps `~/.con
 
 Every `.slint` file imports the kit as `@ui-kit/ui-kit.slint`. Icons are in the `Icons` global, with `Icons.named()` for a plugin that names its icon in `PluginInfo`.
 
-The shell interprets every card with `slint-interpreter` at startup, built-in ones included. Measured on the 8-core Ryzen from FINDINGS.md with 30 copies of the Camera card (each renamed, so nothing is shared): 56 ms to the first painted window compiled, 212 ms interpreted (120 ms compiling, 45 ms creating, 47 ms to paint). The old Python app took about 1070 ms. 150 ms more buys one path for built-in cards and the ones Lua and WASM plugins hand over, so the built-in ones prove the API added plugins get. It also keeps the window one Slint tree, which is what makes Tab order and the screen reader tree run across cards (compiled built-ins plus interpreted added cards would need Slint's experimental `ComponentContainer`).
+The shell interprets every card with `slint-interpreter` at startup, built-in ones included. Measured on an 8-core Ryzen with 30 copies of the Camera card (each renamed, so nothing is shared): 56 ms to the first painted window compiled, 212 ms interpreted (120 ms compiling, 45 ms creating, 47 ms to paint). The old Python app took about 1070 ms. 150 ms more buys one path for built-in cards and the ones Lua and WASM plugins hand over, so the built-in ones prove the API added plugins get. It also keeps the window one Slint tree, which is what makes Tab order and the screen reader tree run across cards (compiled built-ins plus interpreted added cards would need Slint's experimental `ComponentContainer`).
 
 ## Texts
 
@@ -115,8 +122,3 @@ The English is written in the code. `python tools/i18n.py extract` in `rust/` fi
 - `app/tests/release_checklist.rs`: the release checklist names every file
 
 When you add a rule that a test could check, add the test too.
-
-## Not settled yet
-
-- Release builds unwind instead of aborting on a panic. That lets the shell catch a plugin that panics and carry on, but the catching itself isn't written yet.
-- A `needs` list in `plugin.json` naming built-in plugins a plugin can't work without, and a host registry for added plugins to share with each other.

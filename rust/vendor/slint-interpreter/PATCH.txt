@@ -63,6 +63,25 @@ Measured (release, window thread CPU over 40 s after 25 s warm-up, everything on
 
 Drop it with the rest of this folder.
 
+Fifth change, in api.rs, eval.rs and json.rs (search for "Telescope patch"): Struct keeps its fields in a Vec<(SmolStr, Value)> instead of a HashMap<SmolStr, Value> with SipHash.
+
+Why: an earlier profile put Struct::from_iter at about 13 % of the window thread. After the geometry, parent and instantiation caches the struct work that was left (HashMap insert, SipHash, RandomState,
+dropping the tables, normalize_identifier, SmolStr building) added up to roughly 3 to 4 % of it, mostly from evaluating struct literals in the UI's bindings and cloning struct property values.
+The UI's structs have a handful of fields, where a linear scan over short names is cheaper than hashing and a Vec is one allocation.
+
+What it does now: Struct(Vec<(SmolStr, Value)>), fields in insertion order (HashMap iterated in random order, so nothing could rely on one). PartialEq still ignores order and Debug still prints a map.
+set_field and FromIterator replace an existing field of the same name, as the map did. Expression::Struct and ConstantExpression::Struct (eval.rs) build the Vec at its final size straight from the compiler's field
+names, which are normalized and all different, so there is no String, no normalizing pass and no duplicate check (Struct::from_unique_normalized, key_of). The Value conversions for Point, Size, Edges and the
+declare_value_struct_conversion structs use static or borrowed names the same way. json.rs fills a Struct with insert. Public API is unchanged.
+
+Not done: field indexes resolved at compile time (the lookup is already a scan over a few short names) and sharing Expressions through Rc (Expression::clone is gone from the geometry path since the first change).
+
+Measured (release, window thread CPU over 40 s after 25 s warm-up, fake phone with the generated test pattern, headless nested KWin, no camera reader and no virtual camera device because the owner's own Telescope held /dev/video11 during the run, so the numbers are not comparable with the ones above; two runs each, base then patched back to back, other agents were building on the machine):
+  4K, everything loaded and on: 10.2 and 9.5 % -> 8.7 and 7.5 %
+  1080p, nothing loaded:         1.87 and 2.6 % -> 1.82 and 1.8 %
+At 4K everything on that is about 18 % less, but the runs of one build differ by 7 % and the other threads' load differed between runs, so read it as a clear gain of somewhere between 10 and 20 %, not as 18. At 1080p nothing loaded the gain is within noise (one base run was an outlier).
+Pixels: the main window and the Settings window (the offscreen r8_pixels comparison, SLINT_BACKEND=testing) drew byte for byte the same before and after. Tests: telescope-shell and telescope-app nextest, 1643 passed (plugin_removal skipped).
+
 Drop it when Slint stops cloning and boxing in item_geometry (nothing upstream is known yet; check the release notes after 1.18.1), then remove this folder and the
 slint-interpreter line under [patch.crates-io] in rust/Cargo.toml. Tests and the lockfile were left out of the copy, and so were the [[test]] entries for them in Cargo.toml.
 Slint's GPL-3 option is what Telescope uses; the licence files are kept in LICENSES.

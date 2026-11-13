@@ -520,7 +520,12 @@ pub fn call_host(host: &mut dyn Host, info: &PluginInfo, method: &str, args: &Va
         "steer_view" => host.steer_view(owner, arg(args, "zoom")?, arg(args, "pan_x")?, arg(args, "pan_y")?),
         "release_view" => host.release_view(owner),
         "vision_state" => return out(host.vision_state()),
-        "want_people" => host.want_people(owner, arg(args, "on")?),
+        "want_people" => {
+            let on: bool = arg(args, "on")?;
+            host.want_people(owner, on);
+            // A script that waits for people may act on them with no app reading the camera, so the frames keep coming
+            host.want_frames(owner, on);
+        }
         "tracked_people" => {
             let (tracks, count) = host.tracked_people(src);
             return Ok(json!({"tracks": tracks, "count": count}));

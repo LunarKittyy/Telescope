@@ -171,6 +171,8 @@ export component Bubble inherits Rectangle {
     out property <string> control-kind: "bubble";
     // How solid and how big it is now, for a test
     out property <float> presence: fade-state.value;
+    // Whether it opened below its control, for what is inside to grow away from the control
+    in-out property <bool> below;
     callback closed();
     public function show() {
         leaving = false;
@@ -246,6 +248,8 @@ export component Bubble inherits Rectangle {
                     window-w: popup.window-w;
                     window-h: popup.window-h;
                     takes-presses: true;
+                    init => { root.below = self.flip; }
+                    changed flip => { root.below = self.flip; }
                     @children
                 }
                 // A tooltip of a control in the bubble: the pop-up covers the window's own layer

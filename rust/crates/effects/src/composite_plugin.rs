@@ -435,6 +435,8 @@ impl CompositePlugin {
     }
 
     fn show(&mut self, host: &mut dyn Host) {
+        // While it's on it draws from other streams' frames, which only keep coming when the steps run
+        host.want_frames(NAME, self.on);
         let live = self.layout.tiles.iter().filter(|t| host.is_streaming_from(Some(&t.source_id))).count();
         let camera = self.camera_label.as_str();
         self.note = if !self.on {
@@ -526,7 +528,8 @@ impl Plugin for CompositePlugin {
         self.show(host);
     }
 
-    fn shutdown(&mut self, _host: &mut dyn Host) {
+    fn shutdown(&mut self, host: &mut dyn Host) {
+        host.want_frames(NAME, false);
         self.shared.hub().shut = true;
         self.shared.wake.notify_all();
         // so no picture goes out after quitting

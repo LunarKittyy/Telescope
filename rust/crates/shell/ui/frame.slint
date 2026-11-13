@@ -427,7 +427,9 @@ export component BannerArea inherits VerticalLayout {
     callback dismissed(string);
     // A banner has shut and its row can go
     callback closed(string);
-    padding-left: Theme.u(8);
+    // The window's left margin, so the strips start where the cards do
+    in property <length> margin-left: Theme.u(8);
+    padding-left: margin-left;
     padding-right: Theme.u(8);
     spacing: 0px;
     for b[i] in banners: Banner {
@@ -505,7 +507,8 @@ export component StreamTiles inherits HorizontalLayout {
     in property <[TileData]> tiles;
     callback focus-requested(string);
     callback stop-requested(string);
-    padding-left: Theme.u(8);
+    in property <length> margin-left: Theme.u(8);
+    padding-left: margin-left;
     padding-right: Theme.u(8);
     padding-top: tiles.length > 1 ? Theme.u(6) : 0px;
     spacing: Theme.u(5);

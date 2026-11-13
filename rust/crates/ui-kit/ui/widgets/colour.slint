@@ -60,13 +60,12 @@ component SatPad inherits Rectangle {
     accessible-value: Math.round(shown-s * 100) + "%, " + Math.round(shown-v * 100) + "%";
     forward-focus: focus;
     // The colour at full brightness, white to it across, then black over it going down
+    // Both layers are square inside one rounded clip, so no corner of the lighter one shows past the darker one
     Rectangle {
         border-radius: Theme.r-ctl;
-        background: @linear-gradient(90deg, #ffffff 0%, Hues.full(h) 100%);
-    }
-    Rectangle {
-        border-radius: Theme.r-ctl;
-        background: @linear-gradient(180deg, #00000000 0%, #000000 100%);
+        clip: true;
+        Rectangle { background: @linear-gradient(90deg, #ffffff 0%, Hues.full(h) 100%); }
+        Rectangle { background: @linear-gradient(180deg, #00000000 0%, #000000 100%); }
     }
     focus := FocusScope {
         key-pressed(e) => {
@@ -223,6 +222,49 @@ component ChannelBox inherits Rectangle {
     }
 }
 
+// The exact values: hex across the whole width, red, green and blue in three equal boxes under it. They open and close with the bubble
+// growing and shrinking round them, the fields fading in a touch behind.
+component ColourValues inherits Rectangle {
+    in property <bool> shown;
+    in property <string> hex;
+    in property <[int]> channels;
+    in property <bool> enabled;
+    callback hex-typed(string);
+    callback channel-typed(int, string);
+    values-open := Unfold { open: root.shown; }
+    values-fade := Fade { shown: root.shown; }
+    min-height: 0px;
+    preferred-height: values-open.value * values.preferred-height;
+    max-height: values-open.value > 0 ? 100000px : 0px;
+    vertical-stretch: values-open.value > 0 ? 1 : 0;
+    clip: true;
+    values := VerticalLayout {
+        y: 0px;
+        width: parent.width;
+        height: self.preferred-height;
+        opacity: values-fade.value;
+        padding-top: Theme.u(4);
+        spacing: Theme.u(2);
+        visible: values-open.value > 0;
+        NumberField {
+            value: root.hex;
+            label: @tr("Hex");
+            keeps-focus: true;
+            committed(text) => { if (root.enabled) { root.hex-typed(text); } }
+        }
+        HorizontalLayout {
+            spacing: Theme.u(2);
+            for letter[i] in [@tr("R"), @tr("G"), @tr("B")]: ChannelBox {
+                horizontal-stretch: 1;
+                letter: letter;
+                value: "\{root.channels[i]}";
+                label: [@tr("Red"), @tr("Green"), @tr("Blue")][i];
+                committed(text) => { if (root.enabled) { root.channel-typed(i, text); } }
+            }
+        }
+    }
+}
+
 // Kind "colour": a swatch as wide as its row that shows the colour itself. A click opens a bubble with a pad (saturation across,
 // brightness up), a hue strip, a pipette for picking from the preview and, behind a small switch, the exact values: hex and red,
 // green and blue. The pad and strip are fed hue, saturation and brightness as the person left them, so a grey keeps its hue.
@@ -322,6 +364,19 @@ export component ColourField inherits Rectangle {
                     label: @tr("Hue");
                     moved(h) => { if (root.enabled) { root.moved(h, root.s, root.v); } }
                 }
+            }
+            // The bubble grows away from the control it points at, so the pipette and the switch stay under the pointer: the values open
+            // between the strip and that row when the bubble sits above its control, and under it when it sits below
+            ColourValues {
+                shown: root.show-values && !bubble.below;
+                hex: root.hex;
+                channels: root.channels;
+                enabled: root.enabled;
+                hex-typed(text) => { root.hex-typed(text); }
+                channel-typed(i, text) => { root.channel-typed(i, text); }
+            }
+            VerticalLayout {
+                padding-top: Theme.u(4);
                 HorizontalLayout {
                     spacing: Theme.u(4);
                     IconButton {
@@ -352,41 +407,13 @@ export component ColourField inherits Rectangle {
                     }
                 }
             }
-            // The exact values open and close with the bubble growing and shrinking round them, the fields fading in a touch behind
-            Rectangle {
-                values-open := Unfold { open: root.show-values; }
-                values-fade := Fade { shown: root.show-values; }
-                min-height: 0px;
-                preferred-height: values-open.value * values.preferred-height;
-                max-height: values-open.value > 0 ? 100000px : 0px;
-                vertical-stretch: values-open.value > 0 ? 1 : 0;
-                clip: true;
-                values := VerticalLayout {
-                    y: 0px;
-                    width: parent.width;
-                    height: self.preferred-height;
-                    opacity: values-fade.value;
-                    padding-top: Theme.u(4);
-                    spacing: Theme.u(2);
-                    visible: values-open.value > 0;
-                    // Hex across the whole width, red, green and blue in three equal boxes under it
-                    NumberField {
-                        value: root.hex;
-                        label: @tr("Hex");
-                        keeps-focus: true;
-                        committed(text) => { if (root.enabled) { root.hex-typed(text); } }
-                    }
-                    HorizontalLayout {
-                        spacing: Theme.u(2);
-                        for letter[i] in [@tr("R"), @tr("G"), @tr("B")]: ChannelBox {
-                            horizontal-stretch: 1;
-                            letter: letter;
-                            value: "\{root.channels[i]}";
-                            label: [@tr("Red"), @tr("Green"), @tr("Blue")][i];
-                            committed(text) => { if (root.enabled) { root.channel-typed(i, text); } }
-                        }
-                    }
-                }
+            ColourValues {
+                shown: root.show-values && bubble.below;
+                hex: root.hex;
+                channels: root.channels;
+                enabled: root.enabled;
+                hex-typed(text) => { root.hex-typed(text); }
+                channel-typed(i, text) => { root.channel-typed(i, text); }
             }
         }
     }

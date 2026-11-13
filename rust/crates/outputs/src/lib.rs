@@ -63,6 +63,8 @@ pub fn slot_label(slot: u32) -> String {
 #[derive(Default)]
 pub struct VirtualCameras {
     pub device: Option<String>,
+    /// Whether the watch's last answer can be trusted to mean nobody reads (watch::WatchDeps::reliable).
+    watch_reliable: Arc<std::sync::atomic::AtomicBool>,
 }
 
 #[cfg(target_os = "linux")]
@@ -265,9 +267,14 @@ impl Outputs for VirtualCameras {
             }),
             #[cfg(not(windows))]
             uc_want: Arc::new(|| None),
+            reliable: self.watch_reliable.clone(),
         };
         let watcher = watch::Watcher::new(on_change, deps);
         Some(Box::new(watch::CameraWatch(held::Held::new(watcher, gate()))))
+    }
+
+    fn watch_reliable(&self) -> bool {
+        self.watch_reliable.load(std::sync::atomic::Ordering::SeqCst)
     }
 
     fn wait_screen(&self, slot: u32) -> Option<Box<dyn telescope_core::output::WaitScreen>> {
@@ -351,7 +358,7 @@ impl Outputs for VirtualCameras {
 impl VirtualCameras {
     /// The wait screen's ties to slot's camera.
     pub fn screen_deps(&self, slot: u32) -> wait_screen::Deps {
-        let (one, other) = (VirtualCameras { device: self.device.clone() }, VirtualCameras { device: self.device.clone() });
+        let (one, other) = (VirtualCameras { device: self.device.clone(), ..VirtualCameras::default() }, VirtualCameras { device: self.device.clone(), ..VirtualCameras::default() });
         let open = Arc::new(move |slot, w, h, fps| open_slot(&one, slot, w, h, fps));
         screen_deps_on(slot, open, Arc::new(move |slot| other.locked_size(slot)))
     }

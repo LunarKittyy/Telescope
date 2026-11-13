@@ -131,6 +131,8 @@ pub struct PrivacyBlurPlugin {
     mode: usize,
     /// Asked for people (the switch is on, or Blur now is down).
     wanting: bool,
+    /// Asked for frames to keep running (the automatic switch is on).
+    keeping_frames: bool,
     behind: HashMap<String, Trigger>,
     covered: bool,
     asked_cover: bool,
@@ -163,6 +165,7 @@ impl PrivacyBlurPlugin {
             now: false,
             mode: 0,
             wanting: false,
+            keeping_frames: false,
             behind: HashMap::new(),
             covered: false,
             asked_cover: false,
@@ -191,6 +194,11 @@ impl PrivacyBlurPlugin {
         if want != self.wanting {
             self.wanting = want;
             host.want_people(TITLE, want);
+        }
+        // A paused stream sees nobody enter, and would send clear frames on waking until people are found again
+        if self.auto != self.keeping_frames {
+            self.keeping_frames = self.auto;
+            host.want_frames(TITLE, self.auto);
         }
         let before = (self.active, self.covered && self.wants_cover());
         self.work_out();
@@ -310,6 +318,10 @@ impl Plugin for PrivacyBlurPlugin {
         }
         if self.wanting {
             host.want_people(TITLE, false);
+        }
+        if self.keeping_frames {
+            self.keeping_frames = false;
+            host.want_frames(TITLE, false);
         }
     }
 

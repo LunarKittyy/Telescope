@@ -132,7 +132,7 @@ struct Machine {
 
 impl Machine {
     fn real(device: Option<String>) -> Machine {
-        Machine { outputs: Arc::new(telescope_outputs::VirtualCameras { device }), web: Arc::new(telescope_link::web::SystemWeb), quiet: false }
+        Machine { outputs: Arc::new({ let mut cameras = telescope_outputs::VirtualCameras::default(); cameras.device = device; cameras }), web: Arc::new(telescope_link::web::SystemWeb), quiet: false }
     }
 
     /// As config_fixtures.py's quiet_system and quiet_plugin leave the Python window.

@@ -31,8 +31,17 @@ export global Fills {
     public pure function at(kind: string, fraction: float, ga: color, gb: color, gc: color) -> color {
         stop(kind, min(3, floor(clamp(fraction, 0, 1) * 4)), ga, gb, gc).mix(stop(kind, min(3, floor(clamp(fraction, 0, 1) * 4)) + 1, ga, gb, gc), 1 - (clamp(fraction, 0, 1) * 4 - min(3, floor(clamp(fraction, 0, 1) * 4))))
     }
+    // How far the edge fill has gone from its first colour to its second at the handle's centre, 0 to 1, as EdgeFill lays out its step
+    pure function edge-t(softness: float, fraction: float, width: length, height: length, inset: length) -> float {
+        clamp(((inset + clamp(fraction, 0, 1) * (width - 2 * inset) - height / 2) / max(1px, width - height) - clamp((width / 2 - max(1px, softness * width) / 2 - height / 2) / max(1px, width - height), 0, 1))
+            / max(0.0001, clamp((width / 2 + max(1px, softness * width) / 2 - height / 2) / max(1px, width - height), 0, 1) - clamp((width / 2 - max(1px, softness * width) / 2 - height / 2) / max(1px, width - height), 0, 1)), 0, 1)
+    }
+    // The edge fill's colour under the handle: the screen's colour before the step, the other after it, the blend between
+    public pure function edge-at(ga: color, gb: color, softness: float, fraction: float, width: length, height: length, inset: length) -> color {
+        ga.mix(gb, 1 - edge-t(softness, fraction, width, height, inset))
+    }
     // True where the handle takes the colour under it; a grey ramp keeps the card's colour, since black or white would vanish
-    public pure function colours-handle(kind: string) -> bool { kind == "gradient" || kind == "temperature" || kind == "tint" || kind == "vibrance" || kind == "tolerance" || kind == "spill" }
+    public pure function colours-handle(kind: string) -> bool { kind == "gradient" || kind == "temperature" || kind == "tint" || kind == "vibrance" || kind == "tolerance" || kind == "spill" || kind == "edges" }
     // The fills that are a ramp of stops: everything but plain, the zebra, the edge and the bar
     public pure function is-ramp(kind: string) -> bool { !(kind == "plain" || kind == "contrast" || kind == "edges" || kind == "threshold") }
     // The threshold bar: the track is as tall as the row and fills to a live value, and the handle sets the level it warns at

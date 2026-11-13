@@ -615,6 +615,10 @@ impl FramePipeline for Pipeline {
         self.steps.is_empty()
     }
 
+    fn forget_history(&mut self) {
+        self.forget_due = true;
+    }
+
     fn set_stats(&mut self, stats: Arc<SourceStats>) {
         self.stats = Some(stats);
         for i in 0..self.steps.len() {
@@ -731,6 +735,20 @@ pub(crate) mod tests {
         fn forget_history(&mut self, source: &str) {
             self.0.lock().unwrap().push(source.to_string());
         }
+    }
+
+    #[test]
+    fn steps_that_keep_pictures_start_again_on_the_frame_after_a_pause() {
+        let forgot = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("filters", FrameStage::Effects, Keeps(forgot.clone()))]);
+        p.process(grey(4, 2, 0), &NoContext);
+        assert!(forgot.lock().unwrap().is_empty());
+        FramePipeline::forget_history(&mut p);
+        assert!(forgot.lock().unwrap().is_empty(), "not until a frame comes");
+        p.process(grey(4, 2, 0), &NoContext);
+        p.process(grey(4, 2, 0), &NoContext);
+        assert_eq!(forgot.lock().unwrap().len(), 1, "once");
     }
 
     #[test]

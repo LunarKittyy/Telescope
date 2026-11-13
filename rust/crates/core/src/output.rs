@@ -165,6 +165,11 @@ pub trait Outputs: Send + Sync {
     fn watch(&self, _on_change: Box<dyn Fn(bool) + Send + Sync>) -> Option<Box<dyn Held>> {
         None
     }
+    /// Whether the watch can tell for sure that nobody reads the camera (v4l2loopback usage events, the Windows 11 camera's heartbeat), so
+    /// that "not watched" is safe to act on. False for the /proc fallback, UnityCapture and anything unknown.
+    fn watch_reliable(&self) -> bool {
+        false
+    }
     /// The wait screen for slot's camera (vcam.WaitScreen). Not running until shown.
     fn wait_screen(&self, _slot: u32) -> Option<Box<dyn WaitScreen>> {
         None

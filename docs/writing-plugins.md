@@ -1,3 +1,4 @@
+<!-- covers: rust/crates/plugin-host/src rust/crates/plugin-host/tests/plugin_api.txt rust/crates/plugin-host/example-plugins; checked: 1cbb8644b -->
 # Writing a plugin
 
 Plugins are written in Lua, with GPU shaders for anything that changes the picture. To switch plugins on and off or install ones other people made, see [Plugins](plugins.md). Plugins written in Python for the old Telescope (API 1) don't run any more.
@@ -227,7 +228,7 @@ Each function gets the event as a table with its fields (`e.source_id` here). Th
 | `host.show_issue(key, { title = "...", text = "..." })`, `host.clear_issue(key)` | A banner above the window's body |
 | `host.view()`, `host.set_view({ zoom = 2 })` | The window's zoom, pan, flip and rotation |
 | `host.take_view()`, `host.steer_view(zoom, pan_x, pan_y)`, `host.release_view()` | Moving the view yourself, like Auto framing does |
-| `host.want_people(true)` | Hear `people_seen` and `people_tracked` events (needs the vision download) |
+| `host.want_people(true)` | Hear `people_seen` and `people_tracked` events (needs the vision download). Also keeps the picture's frames coming while no app reads the camera, which are otherwise paused after a few seconds |
 | `host.watch_motion({ { 0.6, 0, 1, 1 } }, 5)` | Hear `motion_seen` when something moves in those parts of the picture |
 | `host.add_preview_layer({ shapes = { ... } })` | Draw on the preview only, never in the camera output |
 | `host.want_sensors({ "orientation" })`, `host.sensor_reading()` | The phone's motion and light sensors |

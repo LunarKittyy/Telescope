@@ -204,6 +204,7 @@ impl Window {
             let mut st = self.state.borrow_mut();
             let changed = st.shown != Some(shown);
             st.shown = Some(shown);
+            st.sync_idle();
             changed
         };
         if changed {

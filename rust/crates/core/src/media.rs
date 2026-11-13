@@ -271,6 +271,8 @@ pub trait FramePipeline: Send {
         None
     }
     fn is_empty(&self) -> bool;
+    /// The next frame follows a gap (the steps were not run for a while): every step that keeps pictures of its own starts again.
+    fn forget_history(&mut self) {}
     /// Where to count what each step costs while the stats ask for it (Timers::on); a pipeline that can't just doesn't.
     fn set_stats(&mut self, _stats: Arc<crate::stats::SourceStats>) {}
 }

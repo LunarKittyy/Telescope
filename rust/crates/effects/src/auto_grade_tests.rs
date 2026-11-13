@@ -618,3 +618,18 @@ fn changing_settings_through_the_host_reaches_the_card_and_keeps_what_was_not_na
     let g = r.plugin.grade();
     assert_eq!((g.contrast, g.masters[2], g.temperature), (1.4, 0.8, 12.0));
 }
+
+#[test]
+fn a_look_asks_for_frames_until_it_is_done_or_gone() {
+    let mut r = Rig::new("ready");
+    assert!(r.host.frames_wanted.is_empty());
+    r.event(Event::PictureMeasureRequested { token: "m1".into() });
+    assert!(r.host.frames_wanted.contains("Auto colour grading"), "a stream nobody watches would never bring the measurement its pictures: {:?}", r.host.frames_wanted);
+    r.show(&Scene::default(), green().as_ref(), 16);
+    assert!(r.host.frames_wanted.is_empty(), "done");
+    r.ui("auto-clicked", vec![]);
+    assert!(!r.host.frames_wanted.is_empty());
+    r.plugin.on_stream_stop(&mut r.host);
+    assert!(r.host.frames_wanted.is_empty(), "the stream ended under it");
+}
+

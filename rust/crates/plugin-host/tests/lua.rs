@@ -1129,3 +1129,19 @@ fn a_banner_button_reaches_only_the_plugin_that_showed_it() {
     }
     assert_eq!(t.call("heard", vec![]).unwrap(), json!(["k/go"]), "the app's and another plugin's banners aren't its to hear about");
 }
+
+#[test]
+fn a_plugin_that_waits_for_people_keeps_the_frames_coming() {
+    let folder = plugin("watcher_of_people", r#"
+        local plugin = { events = {} }
+        function plugin.setup() host.want_people(true) end
+        function plugin.on_stream_stop() host.want_people(false) end
+        return plugin
+    "#, json!({}));
+    let mut t = PluginTest::open(&folder).unwrap();
+    t.setup();
+    assert_eq!(t.host.frames_wanted.len(), 1, "a script can act on people with no app reading the camera");
+    t.stop_stream();
+    assert!(t.host.frames_wanted.is_empty());
+}
+

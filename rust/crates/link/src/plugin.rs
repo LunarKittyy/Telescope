@@ -910,6 +910,9 @@ impl ConnectionPlugin {
 
     /// A browser (or other source) being forgotten while picked: its settings go, so nothing is saved back under it.
     fn forget_picked_source(&mut self, host: &mut dyn Host, sid: &str) {
+        if self.conn().pending_pick.as_deref() == Some(sid) {
+            self.conn().pending_pick = None;
+        }
         if self.conn().selected_id.as_deref() != Some(sid) {
             return;
         }
@@ -925,6 +928,9 @@ impl ConnectionPlugin {
             (c.selected_id.as_deref() == pid, c.streaming)
         };
         if same && !force {
+            if pid.is_some() {
+                self.conn().pending_pick = None; // picking the phone already shown still overrules a waiting saved pick
+            }
             return;
         }
         if !same && host.pick_source(pid) {
@@ -1315,6 +1321,10 @@ impl Plugin for ConnectionPlugin {
             Event::SourceShown { source_id } => self.show_selected(host, Some(source_id.as_str()).filter(|s| !s.is_empty())),
             Event::StreamSourcesChanged { sources } => {
                 self.sources = sources.clone();
+                let pending = self.conn().pending_pick.clone().filter(|p| sources.iter().any(|s| &s.id == p));
+                if let Some(pending) = pending {
+                    self.select(host, Some(&pending), false, false);
+                }
                 self.refresh_picker(host);
                 self.render(host);
                 self.announce_source(host);
@@ -2195,6 +2205,33 @@ mod tests {
         e.ui("header", "remove", vec![json!("browser:pixel-aaaaaaaa")]);
         assert_eq!(e.host.events.iter().filter(|ev| matches!(ev, Event::ForgetSourceRequested { source_id } if source_id == "browser:pixel-aaaaaaaa")).count(), 1);
         assert_eq!(e.ids(), ["id-a"]);
+    }
+
+    #[test]
+    fn a_saved_source_pick_is_restored_when_its_source_registers_after_startup() {
+        let mut e = env();
+        let source = |id: &str, name: &str| telescope_core::event::SourceName { id: id.into(), name: name.into() };
+        let cfg = json!({"phones": [{"id": "id-a", "name": "A", "token": "t"}], "selected_phone": "webcam:cam1"});
+        e.plugin.set_config(&cfg).unwrap();
+        // Source plugin switched off or not there yet: the first phone shows and the pick stays saved
+        assert_eq!(e.shared.conn().selected_id.as_deref(), Some("id-a"));
+        assert_eq!(e.plugin.get_config()["selected_phone"], "webcam:cam1");
+        e.plugin.on_event(&mut e.host, &Event::StreamSourcesChanged { sources: vec![source("webcam:other", "Other")] });
+        assert_eq!(e.plugin.get_config()["selected_phone"], "webcam:cam1");
+        e.plugin.on_event(&mut e.host, &Event::StreamSourcesChanged { sources: vec![source("webcam:cam1", "HD Webcam")] });
+        assert_eq!(e.shared.conn().selected_id.as_deref(), Some("webcam:cam1"));
+        assert_eq!(e.plugin.get_config()["selected_phone"], "webcam:cam1");
+    }
+
+    #[test]
+    fn a_pick_made_before_the_saved_source_shows_up_wins() {
+        let mut e = env();
+        let source = |id: &str, name: &str| telescope_core::event::SourceName { id: id.into(), name: name.into() };
+        e.plugin.set_config(&json!({"phones": [{"id": "id-a", "name": "A", "token": "t"}], "selected_phone": "browser"})).unwrap();
+        e.plugin.on_event(&mut e.host, &Event::SelectSource { source_id: "id-a".into() });
+        e.plugin.on_event(&mut e.host, &Event::StreamSourcesChanged { sources: vec![source("browser", "Browser camera")] });
+        assert_eq!(e.shared.conn().selected_id.as_deref(), Some("id-a"));
+        assert_eq!(e.plugin.get_config()["selected_phone"], "id-a");
     }
 
     #[test]

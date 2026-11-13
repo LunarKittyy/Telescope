@@ -13,6 +13,7 @@ mod frame;
 #[cfg(all(unix, not(target_os = "macos")))]
 mod kde;
 pub mod handover;
+pub mod idle;
 pub mod layout;
 pub mod motion;
 pub mod notice;

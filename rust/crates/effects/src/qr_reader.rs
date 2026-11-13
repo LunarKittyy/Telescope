@@ -584,6 +584,8 @@ impl QrReaderPlugin {
         self.shared.pending.store(false, Ordering::SeqCst);
         self.outline = None;
         host.cancel_schedule(T_OUTLINE);
+        // Codes are only read from pictures that go through the steps, even while no app reads the camera
+        host.want_frames(NAME, on);
         if on {
             host.add_preview_layer(NAME, self.layer());
         } else {
@@ -684,6 +686,7 @@ impl Plugin for QrReaderPlugin {
     fn shutdown(&mut self, host: &mut dyn Host) {
         self.on = false;
         self.shared.on.store(false, Ordering::SeqCst);
+        host.want_frames(NAME, false);
         host.cancel_schedule(T_OUTLINE);
         host.cancel_schedule(T_CHECK);
         self.poster = None;
