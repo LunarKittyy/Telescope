@@ -23,7 +23,7 @@ At startup `window::build` registers the plugins into `shell::State` (settings, 
 
 ## Why interpreted
 
-Measured with `card-startup-bench` (a throwaway crate: 30 renamed copies of `ui/cards/camera.slint` in one window, compiled with `slint-build` or interpreted), release build, median of 5 on the 8-core Ryzen from `rust/FINDINGS.md`:
+Measured with `card-startup-bench` (a throwaway crate: 30 renamed copies of `ui/cards/camera.slint` in one window, compiled with `slint-build` or interpreted), release build, median of 5 on an 8-core Ryzen:
 
 | | First painted window |
 |---|---|
