@@ -508,6 +508,61 @@ fn a_colour_bubble_that_is_open_when_the_field_goes_disabled_changes_nothing() {
     assert!(!truth(&ui, "now-open"), "and it closes");
 }
 
+const COLOUR_AT: &str = r##"
+import { ColourField, WindowBox } from "@ui-kit/ui-kit.slint";
+export { WindowBox }
+export component Test inherits Window {
+    width: 340px;
+    height: 600px;
+    in property <length> fy: 500px;
+    field := ColourField {
+        x: 10px;
+        y: fy;
+        width: 200px;
+        label: "Backdrop";
+        colour: #336699;
+        h: 0.58;
+        s: 0.66;
+        v: 0.6;
+        hex: "#336699";
+    }
+}
+"##;
+
+fn values_switch(ui: &ComponentInstance) -> ElementHandle {
+    ElementHandle::find_by_accessible_label(ui, "Values").find(|e| e.accessible_checkable() == Some(true)).expect("the values switch")
+}
+
+fn let_it_run(ms: u64) {
+    for _ in 0..(ms / 16) {
+        i_slint_backend_testing::mock_elapsed_time(std::time::Duration::from_millis(16));
+    }
+}
+
+#[test]
+fn the_values_switch_stays_under_the_cursor_whichever_side_the_colour_bubble_opens_on() {
+    for fy in [500.0, 10.0] {
+        let ui = rig(COLOUR_AT, (340.0, 600.0), &[("fy", num(fy))]);
+        ui.set_global_property("WindowBox", "width", num(340.0)).unwrap();
+        ui.set_global_property("WindowBox", "height", num(600.0)).unwrap();
+        press(&ui, Key::Tab);
+        press(&ui, " ");
+        let_it_run(800);
+        let before = values_switch(&ui).absolute_position();
+        let p = values_switch(&ui).size();
+        click(&ui, at(before.x + p.width / 2.0, before.y + p.height / 2.0));
+        let_it_run(800);
+        let on = values_switch(&ui);
+        assert_eq!(on.accessible_checked(), Some(true), "values on at {fy}");
+        assert_eq!((on.absolute_position().x, on.absolute_position().y), (before.x, before.y), "the switch did not move opening, field at {fy}");
+        click(&ui, at(before.x + p.width / 2.0, before.y + p.height / 2.0));
+        let_it_run(800);
+        let off = values_switch(&ui);
+        assert_eq!(off.accessible_checked(), Some(false), "values off at {fy}");
+        assert_eq!((off.absolute_position().x, off.absolute_position().y), (before.x, before.y), "the switch did not move closing, field at {fy}");
+    }
+}
+
 const CHIP: &str = r#"
 import { PinChip } from "@ui-kit/ui-kit.slint";
 export component Test inherits Window {
