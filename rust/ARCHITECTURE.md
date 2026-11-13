@@ -1,6 +1,6 @@
 # How the desktop app is put together
 
-How the desktop app in `rust/` is split up and which rules keep it that way, for anyone changing the code. [crates/shell/README.md](crates/shell/README.md) covers how the window is built and [docs/writing-plugins.md](../docs/writing-plugins.md) is the guide to writing a plugin. [PLAN.md](PLAN.md) has the update path from the old Python app.
+How the desktop app in `rust/` is split up and which rules keep it that way, for anyone changing the code. [crates/shell/README.md](crates/shell/README.md) covers how the window is built and [docs/writing-plugins.md](../docs/writing-plugins.md) is the guide to writing a plugin. [docs/packaging.md](../docs/packaging.md#the-update-path) has the update path from the old Python app.
 
 ## The crates
 
@@ -115,8 +115,3 @@ The English is written in the code. `python tools/i18n.py extract` in `rust/` fi
 - `app/tests/release_checklist.rs`: the release checklist names every file
 
 When you add a rule that a test could check, add the test too.
-
-## Not settled yet
-
-- Release builds unwind instead of aborting on a panic. That lets the shell catch a plugin that panics and carry on, but the catching itself isn't written yet.
-- A `needs` list in `plugin.json` naming built-in plugins a plugin can't work without, and a host registry for added plugins to share with each other.
