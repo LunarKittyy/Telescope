@@ -21,7 +21,7 @@ To try a change on a real phone without touching your normal install:
 (cd rust && cargo run -p telescope-app -- dev --keep)  # a dev desktop that pairs with it
 ```
 
-[Building and CI](docs/building.md) has the details.
+[Building](docs/building.md) has the details, and [Packaging and CI](docs/packaging.md) covers the workflows.
 
 Before opening a pull request, run the checks for what you changed:
 
