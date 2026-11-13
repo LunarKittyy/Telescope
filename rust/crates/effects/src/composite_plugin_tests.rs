@@ -410,3 +410,16 @@ fn bench_clock_wakes_while_frames_arrive() {
     let wakes = r.plugin.shared.hub().ticks - before;
     println!("clock wakes per second at 30 fps: {:.1}", wakes as f64 / start.elapsed().as_secs_f64());
 }
+
+#[test]
+fn the_one_picture_needs_frames_only_while_it_is_on() {
+    let mut rig = rig();
+    assert!(rig.host.frames_wanted.is_empty());
+    rig.two_streams(0.0);
+    assert!(rig.host.frames_wanted.contains(NAME), "it draws from other streams' frames");
+    rig.switch(false);
+    assert!(rig.host.frames_wanted.is_empty());
+    rig.switch(true);
+    rig.plugin.shutdown(&mut rig.host);
+    assert!(rig.host.frames_wanted.is_empty());
+}

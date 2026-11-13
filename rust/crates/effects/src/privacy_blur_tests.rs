@@ -475,3 +475,19 @@ fn look_at_privacy_blur_old_and_new() {
         dump_look(&format!("privacy_{name}"), &old, &new);
     }
 }
+
+#[test]
+fn the_automatic_blur_keeps_frames_running_so_nobody_walks_in_unseen() {
+    let mut rig = Rig::new();
+    assert!(rig.host.frames_wanted.is_empty());
+    rig.switch_on();
+    assert!(rig.host.frames_wanted.contains("Privacy blur"), "a paused stream would send clear frames on waking");
+    rig.ui("switch-toggled-by-hand", vec![json!(false)]);
+    assert!(rig.host.frames_wanted.is_empty());
+    rig.ui("now-clicked", vec![]);
+    assert!(rig.host.frames_wanted.is_empty(), "Blur now needs no people count");
+    rig.ui("now-clicked", vec![]);
+    rig.switch_on();
+    rig.plugin.shutdown(&mut rig.host);
+    assert!(rig.host.frames_wanted.is_empty(), "switching the plugin off lets go too");
+}

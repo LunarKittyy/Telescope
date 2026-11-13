@@ -646,6 +646,7 @@ fn watch_collects_a_second_at_a_time_and_answers_when_the_time_is_up() {
             return;
         }
         step = 1;
+        assert!(r.host.frames_wanted.contains(NAME), "a watch counts the stream's frames, so one nobody reads can't be paused under it");
         for second in 1..=8 {
             let mut fps = vec![30.0; second];
             if second == 5 {
@@ -660,6 +661,7 @@ fn watch_collects_a_second_at_a_time_and_answers_when_the_time_is_up() {
     assert_eq!((received["samples"].as_u64(), received["min"].as_f64()), (Some(8), Some(8.0)), "{said}");
     assert_eq!(received["worst_moments"][0], json!({"seconds_ago": 3, "value": 8.0}));
     assert_eq!(said["streams"][0]["dropped_in_window"]["total"], json!(3));
+    assert!(r.host.frames_wanted.is_empty(), "and lets go when it's done");
 }
 
 #[test]

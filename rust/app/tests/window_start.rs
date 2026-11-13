@@ -21,7 +21,7 @@ fn the_window_comes_up_without_loading_the_vision_pack() {
         Err(LoadError::Missing("not here".into()))
     }), None, PathBuf::from("/nowhere"), PackInfo::current(), Box::new(telescope_vision::pack::web));
     let services = Arc::new(Services {
-        link: Arc::new(telescope_link::LinkService::new()), media: Arc::new(telescope_media::FfmpegMedia), outputs: Arc::new(telescope_outputs::VirtualCameras { device: None }), audio: None,
+        link: Arc::new(telescope_link::LinkService::new()), media: Arc::new(telescope_media::FfmpegMedia), outputs: Arc::new(telescope_outputs::VirtualCameras::default()), audio: None,
         notifier: None, autostart: None, updater: None, tray: None, plugins: Box::new(Vec::new), vision: Some(Arc::new(host)), plugin_problems: Default::default(), plugin_admin: None,
     });
     let plugins = |_: &_| vec![Box::new(BackgroundPlugin::new()) as Box<dyn Plugin>, Box::new(FramingPlugin::new())];

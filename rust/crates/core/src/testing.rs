@@ -203,6 +203,8 @@ pub struct FakeHost {
     pub live: Vec<String>,
     /// What frames() hands out in place of stream_frames, for a test that changes the frames as it goes.
     pub frame_store: Option<Arc<dyn FrameStore>>,
+    /// The owners that want_frames says need frames now.
+    pub frames_wanted: std::collections::BTreeSet<String>,
     /// What device_config() answers for a source id, as (source id, plugin) to settings; {} for the rest.
     pub device_configs: HashMap<(String, String), Value>,
     /// What diagnostics_report() answers.
@@ -654,6 +656,13 @@ impl HostFrames for FakeHost {
             return store.clone();
         }
         if self.stream_frames.is_empty() { Arc::new(NoFrames) } else { Arc::new(HeldFrames(self.stream_frames.clone())) }
+    }
+    fn want_frames(&mut self, owner: &str, on: bool) {
+        if on {
+            self.frames_wanted.insert(owner.to_string());
+        } else {
+            self.frames_wanted.remove(owner);
+        }
     }
 }
 

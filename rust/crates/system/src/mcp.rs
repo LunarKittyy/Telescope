@@ -605,6 +605,8 @@ pub struct McpPlugin {
     /// A nerd stats call asked for the per-plugin times a moment ago, and whether the host was last told they are wanted.
     stats_lease: bool,
     stats_wanted: bool,
+    /// Whether frames are asked for, so a watch or a nerd call sees the steps run even while no app reads the camera.
+    frames_wanted: bool,
     access: Access,
     /// The last LOG_KEPT calls, newest first.
     log: VecDeque<LogEntry>,
@@ -621,7 +623,7 @@ pub struct McpPlugin {
 impl McpPlugin {
     pub fn new(handle: McpHandle) -> McpPlugin {
         McpPlugin {
-            handle, jobs: HashMap::new(), next_job: 0, journal: Vec::new(), edited: HashSet::new(), unrestored: Vec::new(), next_seq: 0, stats_lease: false, stats_wanted: false, access: Access::default(), log: VecDeque::new(), open: HashMap::new(),
+            handle, jobs: HashMap::new(), next_job: 0, journal: Vec::new(), edited: HashSet::new(), unrestored: Vec::new(), next_seq: 0, stats_lease: false, stats_wanted: false, frames_wanted: false, access: Access::default(), log: VecDeque::new(), open: HashMap::new(),
             pending: 0, activity: Activity::Rest, snapshot: None, watches: HashMap::new(), clock: telescope_core::time::local_clock,
         }
     }
@@ -876,6 +878,11 @@ impl McpPlugin {
         if wanted != self.stats_wanted {
             self.stats_wanted = wanted;
             host.want_stats(NAME, wanted);
+        }
+        let frames = self.stats_lease || !self.watches.is_empty();
+        if frames != self.frames_wanted {
+            self.frames_wanted = frames;
+            host.want_frames(NAME, frames);
         }
     }
 
@@ -1490,6 +1497,8 @@ impl Plugin for McpPlugin {
         self.watches.clear();
         self.stats_wanted = false;
         host.want_stats(NAME, false);
+        self.frames_wanted = false;
+        host.want_frames(NAME, false);
     }
 
     fn header_widget(&mut self) -> Option<UiSpec> {

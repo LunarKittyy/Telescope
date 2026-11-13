@@ -689,3 +689,16 @@ fn bench_look_at_1080p_and_4k() {
         eprintln!("{name}: {:.2} ms a look (old, through RGB)", t.elapsed().as_secs_f64() * 50.0);
     }
 }
+
+#[test]
+fn reading_codes_asks_for_frames_while_it_is_on() {
+    let mut rig = Rig::new();
+    assert!(rig.host.frames_wanted.is_empty(), "off: nothing needs frames");
+    rig.set_config(json!({"on": true}));
+    assert!(rig.host.frames_wanted.contains(NAME), "a stream nobody watches would stop making the pictures codes are read from");
+    rig.set_config(json!({"on": false}));
+    assert!(rig.host.frames_wanted.is_empty());
+    rig.set_config(json!({"on": true}));
+    rig.plugin.shutdown(&mut rig.host);
+    assert!(rig.host.frames_wanted.is_empty(), "switching the plugin off lets go too");
+}

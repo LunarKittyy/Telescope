@@ -734,6 +734,8 @@ impl ColourGradingPlugin {
         self.auto.shared.start(&source, Geometry::from(&host.view()), hold);
         host.schedule(if hold { HOLD_TIMEOUT_MS } else { MEASURE_TIMEOUT_MS }, if hold { T_HOLD } else { T_TIMEOUT });
         self.auto.busy = true;
+        // The look is taken from frames that go through the steps, which a stream nobody watches would stop making
+        host.want_frames(AUTO_TITLE, true);
         self.say(host, tr(AUTO_LOOKING), "dim");
     }
 
@@ -757,6 +759,7 @@ impl ColourGradingPlugin {
         }
         host.schedule(MEASURE_TIMEOUT_MS, T_TIMEOUT);
         self.auto.busy = true;
+        host.want_frames(AUTO_TITLE, true);
         self.say(host, tr(AUTO_LOOKING), "dim");
     }
 
@@ -772,6 +775,7 @@ impl ColourGradingPlugin {
             host.cancel_schedule(T_TIMEOUT);
             host.cancel_schedule(T_HOLD);
             host.want_people(AUTO_TITLE, false);
+            host.want_frames(AUTO_TITLE, false);
             self.say(host, String::new(), "dim");
         }
     }
@@ -784,6 +788,7 @@ impl ColourGradingPlugin {
         host.cancel_schedule(T_TIMEOUT);
         host.cancel_schedule(T_HOLD);
         host.want_people(AUTO_TITLE, false);
+        host.want_frames(AUTO_TITLE, false);
         self.auto.busy = false;
         let lock = self.auto.lock.take().unwrap_or_default();
         let source = self.auto.shared.source();
