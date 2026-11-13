@@ -353,6 +353,14 @@ fn with_auto_framing_following_someone_the_slider_still_gets_its_bubble_with_the
     w.hold("Speed");
     assert!(w.up() && w.peek_kind() == "chase");
     w.let_go();
+    // and room to move shows the box you can move in
+    w.hold_at("Room to move", 1.0);
+    assert!(w.up() && w.peek_kind() == "room");
+    w.w.set_property("room", Value::Number(5.0)).unwrap();
+    w.draw();
+    assert_eq!(w.peek_numbers(), vec![5.0]);
+    w.let_go();
+    assert!(!w.up());
 }
 
 #[test]
@@ -471,6 +479,24 @@ fn shots() {
                 w.draw();
             }
             w.draw().save_png(&dir.join(format!("{name}-{look}-open.png"))).unwrap();
+            w.let_go();
+        }
+    }
+}
+
+/// The Room to move bubble at 0, 2 and 5: SHOTS=dir cargo test --test peek_cards room_shots
+#[test]
+fn room_shots() {
+    let Ok(dir) = std::env::var("SHOTS") else { return };
+    let dir = PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    for (look, classic) in [("new", false), ("classic", true)] {
+        for (value, along) in [(0, 0.0f32), (2, 0.4), (5, 1.0)] {
+            let mut w = framing(150.0, classic);
+            w.hold_at("Room to move", along);
+            w.w.set_property("room", Value::Number(f64::from(value))).unwrap();
+            w.draw();
+            w.draw().save_png(&dir.join(format!("room-{look}-{value}.png"))).unwrap();
             w.let_go();
         }
     }

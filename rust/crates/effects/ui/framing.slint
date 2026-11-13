@@ -146,6 +146,8 @@ export component FramingCard inherits Card {
             minimum: 0;
             maximum: 5;
             value <=> root.room;
+            peek: "room";
+            peek-values: [root.room];
             readout: room-text;
             readout-width: column;
             has-default: true;

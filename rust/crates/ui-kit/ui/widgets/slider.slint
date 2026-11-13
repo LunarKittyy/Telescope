@@ -96,7 +96,7 @@ export component Slider inherits HorizontalLayout {
     // The box was opened from the keyboard, so the focus goes back to the slider when it closes
     property <bool> typing-by-key;
     // A bubble while it is touched, for a value the main preview can't show by itself: "" for none, else what it draws ("picture" from
-    // `peek-picture`, "chase" with four numbers in `peek-values`, "text" at `peek-values[0]` with `peek-text`). The card decides when there is one.
+    // `peek-picture`, "chase" with four numbers in `peek-values`, "room" with the value at `peek-values[0]`, "text" at `peek-values[0]` with `peek-text`). The card decides when there is one.
     in property <string> peek;
     in property <[float]> peek-values;
     in property <image> peek-picture;
