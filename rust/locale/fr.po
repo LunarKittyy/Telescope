@@ -4397,17 +4397,25 @@ msgstr "Créer un nouveau code. L'ancien code cessera de fonctionner."
 msgid "Which of this computer's addresses the code points to."
 msgstr "L'adresse de cet ordinateur vers laquelle pointe le code."
 
-#: rust/crates/link/ui/browser_camera.slint:181 rust/crates/link/ui/browser_camera.slint:185 rust/crates/link/ui/browser_camera.slint:188 rust/crates/outputs/src/stream_output.rs:784 rust/crates/outputs/src/stream_output.rs:968 rust/crates/outputs/src/stream_output.rs:971 rust/crates/outputs/ui/stream_output.slint:50 rust/crates/outputs/ui/stream_output.slint:54 rust/crates/outputs/ui/stream_output.slint:55 rust/crates/outputs/ui/webcam.slint:97 rust/crates/outputs/ui/webcam.slint:102 rust/crates/outputs/ui/webcam.slint:107
+#: rust/crates/link/ui/browser_camera.slint:182
+msgid "Resolution and frame rate"
+msgstr ""
+
+#: rust/crates/link/ui/browser_camera.slint:187 rust/crates/link/ui/browser_camera.slint:190 rust/crates/outputs/src/stream_output.rs:784 rust/crates/outputs/src/stream_output.rs:968 rust/crates/outputs/src/stream_output.rs:971 rust/crates/outputs/ui/stream_output.slint:50 rust/crates/outputs/ui/stream_output.slint:54 rust/crates/outputs/ui/stream_output.slint:55 rust/crates/outputs/ui/webcam.slint:97 rust/crates/outputs/ui/webcam.slint:102 rust/crates/outputs/ui/webcam.slint:107
 msgid "Resolution"
 msgstr "Résolution"
 
-#: rust/crates/link/ui/browser_camera.slint:182 rust/crates/link/ui/browser_camera.slint:189
+#: rust/crates/link/ui/browser_camera.slint:191
 msgid "The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do."
 msgstr "La résolution envoyée par le navigateur. Si la caméra ne la prend pas en charge, le navigateur envoie ce que la caméra permet."
 
-#: rust/crates/link/ui/browser_camera.slint:196 rust/crates/link/ui/browser_camera.slint:199 rust/crates/link/ui/browser_camera.slint:200 rust/crates/outputs/ui/stream_output.slint:66 rust/crates/outputs/ui/stream_output.slint:71 rust/crates/outputs/ui/stream_output.slint:77 rust/crates/outputs/ui/webcam.slint:114 rust/crates/outputs/ui/webcam.slint:118 rust/crates/outputs/ui/webcam.slint:119 rust/crates/shell/src/window.rs:752
+#: rust/crates/link/ui/browser_camera.slint:196 rust/crates/link/ui/browser_camera.slint:199 rust/crates/outputs/ui/stream_output.slint:66 rust/crates/outputs/ui/stream_output.slint:71 rust/crates/outputs/ui/stream_output.slint:77 rust/crates/outputs/ui/webcam.slint:114 rust/crates/outputs/ui/webcam.slint:118 rust/crates/outputs/ui/webcam.slint:119 rust/crates/shell/src/window.rs:752
 msgid "Frame rate"
 msgstr "Cadence"
+
+#: rust/crates/link/ui/browser_camera.slint:200
+msgid "How many pictures a second the browser sends."
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:23 rust/crates/setup/ui/setup.slint:23 rust/crates/shell/src/plugins_tab.rs:666 rust/crates/shell/src/plugins_tab.rs:671 rust/crates/shell/ui/settings.slint:326
 msgid "Remove"

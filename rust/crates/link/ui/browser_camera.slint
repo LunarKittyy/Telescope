@@ -176,32 +176,31 @@ export component BrowserCameraCard inherits Card {
             }
         }
     }
+    // Size and rate as the two halves of one row, as Photos pairs its mode and format
     RailRow {
         icon: Icons.grid;
-        label: @tr("Resolution");
-        tip-detail: @tr("The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do.");
+        label: @tr("Resolution and frame rate");
         hue: root.hue;
-        ChoiceField {
-            name: @tr("Resolution");
-            compact: true;
-            items: ["480p", "720p", "1080p"];
-            tip: @tr("Resolution");
-            tip-detail: @tr("The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do.");
-            current: size-index;
-            picked(i) => { root.size-picked(i); }
-        }
-    }
-    RailRow {
-        icon: Icons.film;
-        label: @tr("Frame rate");
-        hue: root.hue;
-        ChoiceField {
-            name: @tr("Frame rate");
-            tip: @tr("Frame rate");
-            compact: true;
-            items: ["15 fps", "24 fps", "30 fps"];
-            current: fps-index;
-            picked(i) => { root.fps-picked(i); }
+        HorizontalLayout {
+            spacing: Theme.gap;
+            ChoiceField {
+                name: @tr("Resolution");
+                compact: true;
+                items: ["480p", "720p", "1080p"];
+                tip: @tr("Resolution");
+                tip-detail: @tr("The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do.");
+                current: size-index;
+                picked(i) => { root.size-picked(i); }
+            }
+            ChoiceField {
+                name: @tr("Frame rate");
+                compact: true;
+                items: ["15 fps", "24 fps", "30 fps"];
+                tip: @tr("Frame rate");
+                tip-detail: @tr("How many pictures a second the browser sends.");
+                current: fps-index;
+                picked(i) => { root.fps-picked(i); }
+            }
         }
     }
 }
