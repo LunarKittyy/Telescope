@@ -331,7 +331,6 @@ export component ConnectionCard inherits Card {
                 // The window's height caps the dialog, and the code is what gives way
                 height: WindowBox.cap(self.preferred-height);
                 dismissable: true;
-                keep-open: !paired && qr-size != 0;
                 // A pairing with its code showing isn't lost to a stray click: that takes Back or Done
                 dismissed => { root.add-up = false; add-popup.close(); root.add-closed(); }
                 left => { if (root.add-going) { root.add-going = false; root.add-up = false; add-popup.close(); } }
