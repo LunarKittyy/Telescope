@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">寄付・詳細はこちら</a>"
 msgid "No mic"
 msgstr "マイクなし"
 
-#: rust/crates/audio/src/plugin.rs:111 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:477 rust/crates/system/src/updates_plugin.rs:456
+#: rust/crates/audio/src/plugin.rs:111 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:479 rust/crates/system/src/updates_plugin.rs:456
 msgid "Downloading…"
 msgstr "ダウンロード中…"
 
@@ -180,7 +180,7 @@ msgstr "VB-Cableを取得"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "タイピング音、ファン音、室内のノイズを除去します。"
 
-#: rust/crates/audio/src/plugin.rs:957 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:619 rust/crates/effects/src/notes.rs:683 rust/crates/link/src/browser/plugin.rs:612 rust/crates/link/src/plugin.rs:1420 rust/crates/link/src/plugin.rs:1427 rust/crates/outputs/src/stream_output.rs:948 rust/crates/system/src/shortcuts.rs:544 rust/crates/system/src/shortcuts.rs:546
+#: rust/crates/audio/src/plugin.rs:957 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:622 rust/crates/effects/src/notes.rs:683 rust/crates/link/src/browser/plugin.rs:612 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:948 rust/crates/system/src/shortcuts.rs:544 rust/crates/system/src/shortcuts.rs:546
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -194,12 +194,12 @@ msgid "unmuted"
 msgstr "ミュート解除"
 
 #. a switch's state, as in "Phone mic: on"
-#: rust/crates/audio/src/plugin.rs:990 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1274
+#: rust/crates/audio/src/plugin.rs:990 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1281
 msgid "on"
 msgstr "オン"
 
 #. a switch's state, as in "Phone mic: on"
-#: rust/crates/audio/src/plugin.rs:990 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1275
+#: rust/crates/audio/src/plugin.rs:990 rust/crates/core/src/actions.rs:64 rust/crates/system/src/mcp.rs:1282
 msgid "off"
 msgstr "オフ"
 
@@ -223,7 +223,7 @@ msgstr "オフにする"
 msgid "Switch while held, back on release"
 msgstr "押している間切り替え、離すと戻す"
 
-#: rust/crates/audio/src/plugin.rs:1047 rust/crates/audio/src/plugin.rs:1139 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1374 rust/crates/outputs/src/stream_output.rs:618 rust/crates/outputs/src/stream_output.rs:635 rust/crates/shell/src/plugins/presets.rs:335 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
+#: rust/crates/audio/src/plugin.rs:1047 rust/crates/audio/src/plugin.rs:1139 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1384 rust/crates/outputs/src/stream_output.rs:618 rust/crates/outputs/src/stream_output.rs:635 rust/crates/shell/src/plugins/presets.rs:335 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
 msgid "Does"
 msgstr "動作"
 
@@ -396,19 +396,19 @@ msgstr "段"
 msgid " stops"
 msgstr "段"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:453 rust/crates/link/src/plugin.rs:1375 rust/crates/outputs/src/stream_output.rs:619 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:325
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:453 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:619 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:325
 msgid "Next"
 msgstr "次へ"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:453 rust/crates/link/src/plugin.rs:1375 rust/crates/outputs/src/stream_output.rs:619 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:325
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:453 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:619 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:325
 msgid "Previous"
 msgstr "前へ"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1375 rust/crates/outputs/src/stream_output.rs:619
+#: rust/crates/core/src/actions.rs:214 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:619
 msgid "Pick"
 msgstr "選択"
 
-#: rust/crates/core/src/actions.rs:215 rust/crates/link/src/plugin.rs:1376 rust/crates/outputs/src/stream_output.rs:620
+#: rust/crates/core/src/actions.rs:215 rust/crates/link/src/plugin.rs:1386 rust/crates/outputs/src/stream_output.rs:620
 msgid "Option"
 msgstr "オプション"
 
@@ -520,7 +520,7 @@ msgstr "ストリーミングとデバイス"
 msgid "Extras"
 msgstr "その他"
 
-#: rust/crates/core/src/vision.rs:114 rust/crates/core/src/vision.rs:143 rust/crates/shell/src/plugins_tab.rs:477
+#: rust/crates/core/src/vision.rs:114 rust/crates/core/src/vision.rs:143 rust/crates/shell/src/plugins_tab.rs:479
 #, python-brace-format
 msgid "Downloading… {percent}%"
 msgstr "ダウンロード中… {percent}%"
@@ -617,11 +617,11 @@ msgstr ""
 msgid "Background blur"
 msgstr "背景ぼかし"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:385
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:261
 msgid "Green"
 msgstr "グリーン"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:385
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:261
 msgid "Blue"
 msgstr "ブルー"
 
@@ -653,7 +653,7 @@ msgstr "背後のグリーンバックやブルーバックを置き換えます
 msgid "Pick the colour that goes behind you."
 msgstr "背景に表示する色を選択します。"
 
-#: rust/crates/effects/src/chroma_key.rs:284 rust/crates/ui-kit/ui/widgets/colour.slint:329
+#: rust/crates/effects/src/chroma_key.rs:284 rust/crates/ui-kit/ui/widgets/colour.slint:384
 msgid "Pick from the preview"
 msgstr "プレビューから選択"
 
@@ -665,7 +665,7 @@ msgstr "プレビューから取得した色です。クリックすると再度
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "プレビュー上の背後のスクリーンをクリックしてください。Escでキャンセルします。"
 
-#: rust/crates/effects/src/chroma_key.rs:377 rust/crates/effects/src/chroma_key.rs:413 rust/crates/effects/src/desk.rs:287 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:695 rust/crates/shell/src/streams.rs:1752 rust/crates/shell/src/window.rs:1696 rust/crates/shell/src/worker.rs:548 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:377 rust/crates/effects/src/chroma_key.rs:413 rust/crates/effects/src/desk.rs:287 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:695 rust/crates/shell/src/streams.rs:1752 rust/crates/shell/src/window.rs:1707 rust/crates/shell/src/worker.rs:553 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "ストリーミング停止中"
 
@@ -786,7 +786,7 @@ msgstr "RGBパレード"
 msgid "Vectorscope"
 msgstr "ベクトルスコープ"
 
-#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:385
+#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:261
 msgid "Red"
 msgstr "赤"
 
@@ -1101,7 +1101,7 @@ msgstr "グレーディングをエクスポート"
 msgid "{file} is already there. Replace it?"
 msgstr "{file}は既に存在します。上書きしますか？"
 
-#: rust/crates/effects/src/colour_grading.rs:663 rust/crates/effects/src/colour_grading.rs:1079 rust/crates/effects/src/colour_grading.rs:1172 rust/crates/effects/src/colour_grading.rs:1174 rust/crates/effects/src/colour_grading.rs:1216 rust/crates/effects/ui/colour_grading.slint:180
+#: rust/crates/effects/src/colour_grading.rs:663 rust/crates/effects/src/colour_grading.rs:1084 rust/crates/effects/src/colour_grading.rs:1177 rust/crates/effects/src/colour_grading.rs:1179 rust/crates/effects/src/colour_grading.rs:1221 rust/crates/effects/ui/colour_grading.slint:180
 msgid "Colour grading"
 msgstr "カラー グレーディング"
 
@@ -1110,19 +1110,19 @@ msgstr "カラー グレーディング"
 msgid "{wheel} colour"
 msgstr "{wheel}の色"
 
-#: rust/crates/effects/src/colour_grading.rs:1080
+#: rust/crates/effects/src/colour_grading.rs:1085
 msgid "Colour wheels, curves and LUT files for the look of the picture."
 msgstr "カラーホイール、トーンカーブ、LUTファイルで映像の見た目を調整します。"
 
-#: rust/crates/effects/src/colour_grading.rs:1081
+#: rust/crates/effects/src/colour_grading.rs:1086
 msgid "Without the Colour grading plugin there's no Colour grading card and the picture keeps the camera's colours."
 msgstr ""
 
-#: rust/crates/effects/src/colour_grading.rs:1175 rust/crates/effects/src/colour_grading.rs:1221
+#: rust/crates/effects/src/colour_grading.rs:1180 rust/crates/effects/src/colour_grading.rs:1226
 msgid "Compare before and after"
 msgstr "適用前後を比較"
 
-#: rust/crates/effects/src/colour_grading.rs:1199 rust/crates/effects/src/colour_grading.rs:1234
+#: rust/crates/effects/src/colour_grading.rs:1204 rust/crates/effects/src/colour_grading.rs:1239
 msgid "LUT strength"
 msgstr "LUT強度"
 
@@ -1195,62 +1195,62 @@ msgstr "実行中のストリームを1つの画像に合成します。"
 msgid "A layout you saved in the editor."
 msgstr "エディターで保存したレイアウトです。"
 
-#: rust/crates/effects/src/composite_plugin.rs:417 rust/crates/effects/src/composite_plugin.rs:590 rust/crates/effects/src/composite_plugin.rs:594 rust/crates/effects/src/composite_plugin.rs:607 rust/crates/effects/ui/composite.slint:19
+#: rust/crates/effects/src/composite_plugin.rs:417 rust/crates/effects/src/composite_plugin.rs:593 rust/crates/effects/src/composite_plugin.rs:597 rust/crates/effects/src/composite_plugin.rs:610 rust/crates/effects/ui/composite.slint:19
 msgid "One picture"
 msgstr "1画面に統合"
 
-#: rust/crates/effects/src/composite_plugin.rs:443
+#: rust/crates/effects/src/composite_plugin.rs:445
 msgid "Nothing's in the picture yet."
 msgstr "画像にはまだ何もありません。"
 
-#: rust/crates/effects/src/composite_plugin.rs:445
-msgid "Active once two streams are running."
-msgstr ""
-
 #: rust/crates/effects/src/composite_plugin.rs:447
-#, python-brace-format
-msgid "Set to output on {camera}, but no stream is running there."
+msgid "Active once two streams are running."
 msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:449
 #, python-brace-format
-msgid "Will output on {camera} once the stream there sends a picture."
+msgid "Set to output on {camera}, but no stream is running there."
 msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:451
 #, python-brace-format
+msgid "Will output on {camera} once the stream there sends a picture."
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:453
+#, python-brace-format
 msgid "Outputting on {camera}."
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:456
+#: rust/crates/effects/src/composite_plugin.rs:458
 msgid "Nothing in it"
 msgstr "中身なし"
 
-#: rust/crates/effects/src/composite_plugin.rs:458 rust/crates/effects/ui/composite_editor.slint:424
+#: rust/crates/effects/src/composite_plugin.rs:460 rust/crates/effects/ui/composite_editor.slint:424
 msgid "Needs two streams"
 msgstr "2つのストリームが必要"
 
-#: rust/crates/effects/src/composite_plugin.rs:460
+#: rust/crates/effects/src/composite_plugin.rs:462
 msgid "Not going out"
 msgstr "出力なし"
 
-#: rust/crates/effects/src/composite_plugin.rs:462
+#: rust/crates/effects/src/composite_plugin.rs:464
 msgid "Going out"
 msgstr "出力中"
 
-#: rust/crates/effects/src/composite_plugin.rs:507
+#: rust/crates/effects/src/composite_plugin.rs:509
 msgid "Several cameras in one picture"
 msgstr "複数のカメラを1つの画面に統合"
 
-#: rust/crates/effects/src/composite_plugin.rs:508
+#: rust/crates/effects/src/composite_plugin.rs:510
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:509
+#: rust/crates/effects/src/composite_plugin.rs:511
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:595 rust/crates/effects/src/composite_plugin.rs:619
+#: rust/crates/effects/src/composite_plugin.rs:598 rust/crates/effects/src/composite_plugin.rs:622
 msgid "Picture layout"
 msgstr "画面レイアウト"
 
@@ -2257,7 +2257,7 @@ msgstr ""
 msgid "The webhook returned: {error}"
 msgstr ""
 
-#: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:459 rust/crates/shell/src/doc.rs:460 rust/crates/shell/src/doc.rs:925
+#: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:461 rust/crates/shell/src/doc.rs:462 rust/crates/shell/src/doc.rs:929
 msgid "Settings"
 msgstr "設定"
 
@@ -2568,7 +2568,7 @@ msgstr "写真モード"
 msgid "Photo timer"
 msgstr "写真タイマー"
 
-#: rust/crates/effects/src/privacy_blur.rs:25 rust/crates/effects/src/privacy_blur.rs:399 rust/crates/effects/ui/privacy_blur.slint:20 rust/crates/effects/ui/privacy_blur.slint:28 rust/crates/effects/ui/privacy_blur.slint:29
+#: rust/crates/effects/src/privacy_blur.rs:25 rust/crates/effects/src/privacy_blur.rs:411 rust/crates/effects/ui/privacy_blur.slint:20 rust/crates/effects/ui/privacy_blur.slint:28 rust/crates/effects/ui/privacy_blur.slint:29
 msgid "Privacy blur"
 msgstr "プライバシーぼかし"
 
@@ -2584,39 +2584,39 @@ msgstr ""
 msgid "Show the wait screen"
 msgstr "待機画面を表示"
 
-#: rust/crates/effects/src/privacy_blur.rs:211
+#: rust/crates/effects/src/privacy_blur.rs:219
 msgid "With Wait screen switched off in Plugins the whole picture gets blurred instead."
 msgstr "「プラグイン」で待機画面がオフになっている場合、代わりに画面全体がぼかされます。"
 
-#: rust/crates/effects/src/privacy_blur.rs:229
+#: rust/crates/effects/src/privacy_blur.rs:237
 msgid "Blur automatically when more than one person is in the picture."
 msgstr ""
 
-#: rust/crates/effects/src/privacy_blur.rs:230
+#: rust/crates/effects/src/privacy_blur.rs:238
 msgid "What happens while more than one person is in the picture."
 msgstr ""
 
-#: rust/crates/effects/src/privacy_blur.rs:231
+#: rust/crates/effects/src/privacy_blur.rs:239
 msgid "Blur the picture until you click again."
 msgstr "もう一度クリックするまで画像をぼかします。"
 
-#: rust/crates/effects/src/privacy_blur.rs:286
+#: rust/crates/effects/src/privacy_blur.rs:294
 msgid "Blurs the whole picture, or puts the wait screen up, when more than one person is in it. Only people the vision models find are detected, so someone can be missed and privacy isn't guaranteed."
 msgstr ""
 
-#: rust/crates/effects/src/privacy_blur.rs:287
+#: rust/crates/effects/src/privacy_blur.rs:295
 msgid "Without the Privacy blur plugin there's no Privacy blur card and nothing gets hidden when someone walks in."
 msgstr ""
 
-#: rust/crates/effects/src/privacy_blur.rs:403 rust/crates/effects/src/privacy_blur.rs:416 rust/crates/effects/ui/privacy_blur.slint:53 rust/crates/effects/ui/privacy_blur.slint:59 rust/crates/effects/ui/privacy_blur.slint:60
+#: rust/crates/effects/src/privacy_blur.rs:415 rust/crates/effects/src/privacy_blur.rs:428 rust/crates/effects/ui/privacy_blur.slint:53 rust/crates/effects/ui/privacy_blur.slint:59 rust/crates/effects/ui/privacy_blur.slint:60
 msgid "Blur now"
 msgstr "今すぐぼかす"
 
-#: rust/crates/effects/src/privacy_blur.rs:404 rust/crates/effects/src/privacy_blur.rs:417
+#: rust/crates/effects/src/privacy_blur.rs:416 rust/crates/effects/src/privacy_blur.rs:429
 msgid "Privacy blur when someone walks in"
 msgstr "映り込み時のプライバシーぼかし"
 
-#: rust/crates/effects/src/privacy_blur.rs:405 rust/crates/effects/src/privacy_blur.rs:429 rust/crates/effects/ui/privacy_blur.slint:41 rust/crates/effects/ui/privacy_blur.slint:45
+#: rust/crates/effects/src/privacy_blur.rs:417 rust/crates/effects/src/privacy_blur.rs:441 rust/crates/effects/ui/privacy_blur.slint:41 rust/crates/effects/ui/privacy_blur.slint:45
 msgid "Privacy blur: what happens"
 msgstr "プライバシーぼかし: 動作"
 
@@ -2655,35 +2655,35 @@ msgstr "QRコード"
 msgid "Notify me when a code is read"
 msgstr "コード読み取り時に通知する"
 
-#: rust/crates/effects/src/qr_reader.rs:645
+#: rust/crates/effects/src/qr_reader.rs:647
 msgid "Found a code"
 msgstr "コードを検出"
 
-#: rust/crates/effects/src/qr_reader.rs:649
+#: rust/crates/effects/src/qr_reader.rs:651
 msgid "QR code copied"
 msgstr "QRコードをコピーしました"
 
-#: rust/crates/effects/src/qr_reader.rs:651
+#: rust/crates/effects/src/qr_reader.rs:653
 msgid "QR code found"
 msgstr "QRコードを検出しました"
 
-#: rust/crates/effects/src/qr_reader.rs:651
+#: rust/crates/effects/src/qr_reader.rs:653
 msgid "Click Copy on the QR codes card to copy the code."
 msgstr ""
 
-#: rust/crates/effects/src/qr_reader.rs:667 rust/crates/effects/src/qr_reader.rs:739
+#: rust/crates/effects/src/qr_reader.rs:669 rust/crates/effects/src/qr_reader.rs:742
 msgid "QR code reader"
 msgstr "QRコード リーダー"
 
-#: rust/crates/effects/src/qr_reader.rs:668
+#: rust/crates/effects/src/qr_reader.rs:670
 msgid "Copy a QR code you hold up to the camera, or the password from a Wi-Fi code."
 msgstr ""
 
-#: rust/crates/effects/src/qr_reader.rs:669
+#: rust/crates/effects/src/qr_reader.rs:671
 msgid "Without the QR code reader plugin there's no QR code card and codes in the picture are left alone."
 msgstr ""
 
-#: rust/crates/effects/src/qr_reader.rs:739 rust/crates/effects/src/qr_reader.rs:751
+#: rust/crates/effects/src/qr_reader.rs:742 rust/crates/effects/src/qr_reader.rs:754
 msgid "Read QR codes"
 msgstr "QRコードを読み取る"
 
@@ -3049,7 +3049,7 @@ msgstr "グレードをエクスポート"
 msgid "Save the grade and LUT as a .cube file to use in other apps."
 msgstr "他のアプリで使用できるように、グレードとLUTを.cubeファイルとして保存します。"
 
-#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:743
+#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:748
 msgid "Replace"
 msgstr "上書き"
 
@@ -3213,7 +3213,7 @@ msgstr "レイアウトを置換"
 msgid "Name:"
 msgstr "名前:"
 
-#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:425 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1016 rust/crates/shell/ui/settings.slint:625
+#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:425 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1017 rust/crates/shell/ui/settings.slint:625
 msgid "OK"
 msgstr "OK"
 
@@ -3878,148 +3878,148 @@ msgstr "USB経由でアップデート"
 msgid "Switch to Automatic"
 msgstr "「自動」に切り替え"
 
-#: rust/crates/link/src/connection.rs:444
+#: rust/crates/link/src/connection.rs:453
 #, python-brace-format
 msgid "Can't reach {phone} over USB"
 msgstr "USB経由で{phone}に接続できません"
 
-#: rust/crates/link/src/connection.rs:445
+#: rust/crates/link/src/connection.rs:454
 #, python-brace-format
 msgid "Can't reach {phone} over Wi-Fi"
 msgstr "Wi-Fi経由で{phone}に接続できません"
 
-#: rust/crates/link/src/connection.rs:446
+#: rust/crates/link/src/connection.rs:455
 #, python-brace-format
 msgid "Can't reach {phone}"
 msgstr "{phone}に接続できません"
 
-#: rust/crates/link/src/connection.rs:451
+#: rust/crates/link/src/connection.rs:460
 msgid "Check the cable and the phone app."
 msgstr "ケーブルとスマートフォン版アプリを確認してください。"
 
-#: rust/crates/link/src/connection.rs:452
+#: rust/crates/link/src/connection.rs:461
 msgid "Check that the phone is on the same network."
 msgstr ""
 
-#: rust/crates/link/src/connection.rs:455
+#: rust/crates/link/src/connection.rs:464
 #, python-brace-format
 msgid "Still streaming over {now}, so the connection stays on {kept}."
 msgstr ""
 
-#: rust/crates/link/src/connection.rs:794
+#: rust/crates/link/src/connection.rs:804
 msgid "Automatic"
 msgstr "自動"
 
-#: rust/crates/link/src/connection.rs:795
+#: rust/crates/link/src/connection.rs:805
 msgid "USB only"
 msgstr "USBのみ"
 
-#: rust/crates/link/src/connection.rs:796
+#: rust/crates/link/src/connection.rs:806
 msgid "Wi-Fi only"
 msgstr "Wi-Fiのみ"
 
-#: rust/crates/link/src/connection.rs:803
+#: rust/crates/link/src/connection.rs:813
 msgid "Computer"
 msgstr "コンピューター"
 
-#: rust/crates/link/src/connection.rs:814
+#: rust/crates/link/src/connection.rs:824
 msgid "Checking"
 msgstr "確認中"
 
-#: rust/crates/link/src/connection.rs:816 rust/crates/setup/src/setup.rs:646 rust/crates/setup/src/setup.rs:655 rust/crates/setup/src/setup.rs:674 rust/crates/setup/src/setup.rs:698
+#: rust/crates/link/src/connection.rs:826 rust/crates/setup/src/setup.rs:646 rust/crates/setup/src/setup.rs:655 rust/crates/setup/src/setup.rs:674 rust/crates/setup/src/setup.rs:698
 msgid "Ready"
 msgstr "準備完了"
 
-#: rust/crates/link/src/connection.rs:817
+#: rust/crates/link/src/connection.rs:827
 msgid "Can't reach the phone"
 msgstr "スマートフォンに接続できません"
 
-#: rust/crates/link/src/connection.rs:818
+#: rust/crates/link/src/connection.rs:828
 msgid "Needs pairing again"
 msgstr "再度ペアリングが必要です"
 
-#: rust/crates/link/src/connection.rs:819
+#: rust/crates/link/src/connection.rs:829
 msgid "Phone accepts USB only"
 msgstr "スマートフォンはUSB接続のみ受け付けます"
 
-#: rust/crates/link/src/connection.rs:820
+#: rust/crates/link/src/connection.rs:830
 msgid "USB not available"
 msgstr "USBが利用できません"
 
-#: rust/crates/link/src/connection.rs:821
+#: rust/crates/link/src/connection.rs:831
 msgid "Phone app needs an update"
 msgstr "スマートフォン版アプリのアップデートが必要です"
 
-#: rust/crates/link/src/connection.rs:822
+#: rust/crates/link/src/connection.rs:832
 msgid "This app needs an update"
 msgstr "このアプリのアップデートが必要です"
 
-#: rust/crates/link/src/connection.rs:829
+#: rust/crates/link/src/connection.rs:839
 #, python-brace-format
 msgid "Open Telescope on {phone} and keep the app on screen. The phone needs to be on the same network as this computer, or plugged in with a USB cable."
 msgstr ""
 
-#: rust/crates/link/src/connection.rs:831
+#: rust/crates/link/src/connection.rs:841
 #, python-brace-format
 msgid "This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add device and scan the code again."
 msgstr "このバージョンのTelescopeは{phone}との接続を暗号化するため、再ペアリングが必要です。「デバイスを追加」をクリックしてコードをもう一度スキャンしてください。"
 
-#: rust/crates/link/src/connection.rs:832
+#: rust/crates/link/src/connection.rs:842
 #, python-brace-format
 msgid "{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add device to pair it again."
 msgstr "{phone}がこのコンピューターを認識しなくなりました（スマートフォン側で削除されたか、アプリが再インストールされました）。「デバイスを追加」をクリックして再ペアリングしてください。"
 
-#: rust/crates/link/src/connection.rs:834
+#: rust/crates/link/src/connection.rs:844
 #, python-brace-format
 msgid "Local only is on in the phone app, so {phone} only accepts USB. Plug it in with a cable, or turn Local only off on the phone."
 msgstr "スマートフォン版アプリで「ローカルのみ」がオンになっているため、{phone}はUSB接続のみを受け付けます。ケーブルで接続するか、スマートフォンで「ローカルのみ」をオフにしてください。"
 
-#: rust/crates/link/src/connection.rs:836
+#: rust/crates/link/src/connection.rs:846
 msgid "USB needs adb, which Add device can get."
 msgstr "USB接続にはadbが必要です（「デバイスを追加」から取得できます）。"
 
-#: rust/crates/link/src/connection.rs:841
+#: rust/crates/link/src/connection.rs:851
 msgid "the phone isn't answering over USB"
 msgstr "スマートフォンがUSB経由で応答しません"
 
-#: rust/crates/link/src/connection.rs:842
+#: rust/crates/link/src/connection.rs:852
 #, python-brace-format
 msgid "The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."
 msgstr "接続が「USBのみ」に設定されています: {why}。Wi-Fiを使用するには「自動」に切り替えてください。"
 
-#: rust/crates/link/src/connection.rs:844
+#: rust/crates/link/src/connection.rs:854
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one. Update it on the phone."
 msgstr "{phone}のTelescopeアプリは、このアプリより古いバージョンです。スマートフォン側でアップデートしてください。"
 
-#: rust/crates/link/src/connection.rs:845
+#: rust/crates/link/src/connection.rs:855
 #, python-brace-format
 msgid "The Telescope app on {phone} is newer than this one. Update Telescope on this computer."
 msgstr "{phone}のTelescopeアプリは、このアプリより新しいバージョンです。このコンピューターのTelescopeをアップデートしてください。"
 
-#: rust/crates/link/src/connection.rs:855
+#: rust/crates/link/src/connection.rs:865
 #, python-brace-format
 msgid "Not using USB: {reason}."
 msgstr "USBを使用していません: {reason}。"
 
-#: rust/crates/link/src/connection.rs:864
+#: rust/crates/link/src/connection.rs:874
 msgid "USB cable"
 msgstr "USBケーブル"
 
-#: rust/crates/link/src/connection.rs:872
+#: rust/crates/link/src/connection.rs:882
 #, python-brace-format
 msgid "The phone is streaming to {computer}."
 msgstr "スマートフォンは{computer}にストリーミング中です。"
 
-#: rust/crates/link/src/connection.rs:873
+#: rust/crates/link/src/connection.rs:883
 msgid "The phone is streaming to another computer."
 msgstr "スマートフォンは他のコンピューターにストリーミング中です。"
 
-#: rust/crates/link/src/connection.rs:875
+#: rust/crates/link/src/connection.rs:885
 msgid "Stop the stream there or on the phone, then try again."
 msgstr ""
 
-#: rust/crates/link/src/connection.rs:881
+#: rust/crates/link/src/connection.rs:891
 msgid ""
 "The phone hasn't given Telescope camera access.\n"
 "\n"
@@ -4029,7 +4029,7 @@ msgstr ""
 "\n"
 "スマートフォンでアプリを開き、カメラの権限を許可してください。"
 
-#: rust/crates/link/src/connection.rs:882
+#: rust/crates/link/src/connection.rs:892
 msgid ""
 "The phone is busy starting or stopping a stream.\n"
 "\n"
@@ -4039,7 +4039,7 @@ msgstr ""
 "\n"
 "しばらくしてから再試行してください。"
 
-#: rust/crates/link/src/connection.rs:883
+#: rust/crates/link/src/connection.rs:893
 msgid ""
 "Android didn't let the camera start in the background.\n"
 "\n"
@@ -4049,7 +4049,7 @@ msgstr ""
 "\n"
 "スマートフォンでTelescopeを前面に表示して、再試行してください。"
 
-#: rust/crates/link/src/connection.rs:884 rust/crates/link/src/connection.rs:991
+#: rust/crates/link/src/connection.rs:894 rust/crates/link/src/connection.rs:1001
 msgid ""
 "The phone doesn't recognise this computer anymore.\n"
 "\n"
@@ -4059,37 +4059,37 @@ msgstr ""
 "\n"
 "「デバイスを追加」をクリックして再ペアリングしてください。"
 
-#: rust/crates/link/src/connection.rs:886
+#: rust/crates/link/src/connection.rs:896
 msgid "unknown error"
 msgstr "不明なエラー"
 
-#: rust/crates/link/src/connection.rs:887
+#: rust/crates/link/src/connection.rs:897
 #, python-brace-format
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr ""
 
-#: rust/crates/link/src/connection.rs:985 rust/crates/link/src/service.rs:331
+#: rust/crates/link/src/connection.rs:995 rust/crates/link/src/service.rs:331
 msgid "Lost the connection to the phone. Try again."
 msgstr "スマートフォンへの接続が切断されました。再試行してください。"
 
-#: rust/crates/link/src/connection.rs:992
+#: rust/crates/link/src/connection.rs:1002
 msgid "Couldn't reach the phone. Open Telescope on it and try again."
 msgstr "スマートフォンに接続できませんでした。スマートフォンでTelescopeを開いて再試行してください。"
 
-#: rust/crates/link/src/connection.rs:1002
+#: rust/crates/link/src/connection.rs:1012
 msgid "Starting the phone's camera..."
 msgstr "スマートフォンのカメラを起動中..."
 
-#: rust/crates/link/src/connection.rs:1037 rust/crates/link/src/connection.rs:1046
+#: rust/crates/link/src/connection.rs:1047 rust/crates/link/src/connection.rs:1056
 msgid "Lost contact with the phone while its camera was starting."
 msgstr "カメラの起動中にスマートフォンとの通信が切断されました。"
 
-#: rust/crates/link/src/connection.rs:1048
+#: rust/crates/link/src/connection.rs:1058
 #, python-brace-format
 msgid "No answer from the phone for a moment, still waiting... ({seconds}s)"
 msgstr ""
 
-#: rust/crates/link/src/connection.rs:1055
+#: rust/crates/link/src/connection.rs:1065
 msgid ""
 "The phone's camera stopped before it finished starting.\n"
 "\n"
@@ -4099,17 +4099,17 @@ msgstr ""
 "\n"
 "スマートフォン側で権限の確認プロンプトやエラーが表示されていないか確認してください。"
 
-#: rust/crates/link/src/connection.rs:1057
+#: rust/crates/link/src/connection.rs:1067
 #, python-brace-format
 msgid "Phone's camera is opening... ({seconds}s)"
 msgstr "スマートフォンのカメラを開いています... ({seconds}秒)"
 
-#: rust/crates/link/src/connection.rs:1057
+#: rust/crates/link/src/connection.rs:1067
 #, python-brace-format
 msgid "Waiting for the phone's camera... ({seconds}s)"
 msgstr "スマートフォンのカメラを待機中... ({seconds}秒)"
 
-#: rust/crates/link/src/connection.rs:1060
+#: rust/crates/link/src/connection.rs:1070
 msgid ""
 "The phone's camera didn't finish starting in time.\n"
 "\n"
@@ -4140,7 +4140,7 @@ msgstr "USB接続されているスマートフォンは別の端末です"
 msgid "phone plugged in, but Telescope isn't open on it"
 msgstr "スマートフォンは接続されていますが、Telescopeが開かれていません"
 
-#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1090 rust/crates/link/src/plugin.rs:1346 rust/crates/link/ui/connection.slint:566 rust/crates/link/ui/connection.slint:567
+#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1096 rust/crates/link/src/plugin.rs:1356 rust/crates/link/ui/connection.slint:566 rust/crates/link/ui/connection.slint:567
 msgid "No device yet"
 msgstr "デバイスがありません"
 
@@ -4275,109 +4275,109 @@ msgstr "これは再び「{name}」ですか？"
 msgid "{name} paired as a new phone. This happens after Telescope is reinstalled on the phone or the app's data is cleared. Yes moves {name}'s settings and presets to the new entry and removes the old one."
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:1017
+#: rust/crates/link/src/plugin.rs:1023
 msgid "Phone app updated. Open Telescope on the phone."
 msgstr "スマートフォン版アプリをアップデートしました。スマートフォンでTelescopeを開いてください。"
 
-#: rust/crates/link/src/plugin.rs:1091 rust/crates/link/src/plugin.rs:1112
+#: rust/crates/link/src/plugin.rs:1097 rust/crates/link/src/plugin.rs:1118
 msgctxt "status"
 msgid "Streaming"
 msgstr "ストリーミング中"
 
-#: rust/crates/link/src/plugin.rs:1092
+#: rust/crates/link/src/plugin.rs:1098
 #, python-brace-format
 msgid "Waiting for {source}"
 msgstr "{source}を待機中"
 
-#: rust/crates/link/src/plugin.rs:1093
+#: rust/crates/link/src/plugin.rs:1099
 #, python-brace-format
 msgid "{source}, no pairing needed"
 msgstr "{source}（ペアリング不要）"
 
-#: rust/crates/link/src/plugin.rs:1107 rust/crates/shell/src/streams.rs:1046
+#: rust/crates/link/src/plugin.rs:1113 rust/crates/shell/src/streams.rs:1046
 msgid "Reconnecting"
 msgstr "再接続中"
 
-#: rust/crates/link/src/plugin.rs:1110
+#: rust/crates/link/src/plugin.rs:1116
 msgid "Streaming over USB"
 msgstr "USB経由でストリーミング中"
 
-#: rust/crates/link/src/plugin.rs:1111
+#: rust/crates/link/src/plugin.rs:1117
 msgid "Streaming over Wi-Fi"
 msgstr "Wi-Fi経由でストリーミング中"
 
-#: rust/crates/link/src/plugin.rs:1115 rust/crates/shell/src/streams.rs:1050
+#: rust/crates/link/src/plugin.rs:1121 rust/crates/shell/src/streams.rs:1050
 msgid "Connecting"
 msgstr "接続中"
 
-#: rust/crates/link/src/plugin.rs:1131
+#: rust/crates/link/src/plugin.rs:1137
 msgid "Updating the phone app over USB…"
 msgstr "USB経由でスマートフォン版アプリをアップデート中…"
 
-#: rust/crates/link/src/plugin.rs:1135
+#: rust/crates/link/src/plugin.rs:1141
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "{phone}のTelescopeアプリは、このアプリより古いバージョンです。"
 
-#: rust/crates/link/src/plugin.rs:1210 rust/crates/setup/src/setup.rs:850 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:698 rust/crates/system/src/shortcuts.rs:855
+#: rust/crates/link/src/plugin.rs:1216 rust/crates/setup/src/setup.rs:850 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:698 rust/crates/system/src/shortcuts.rs:855
 msgid "Copy command"
 msgstr "コマンドをコピー"
 
-#: rust/crates/link/src/plugin.rs:1218 rust/crates/link/src/plugin.rs:1371 rust/crates/link/src/plugin.rs:1420 rust/crates/link/src/plugin.rs:1427 rust/crates/setup/src/monitoring.rs:322 rust/crates/setup/src/stats.rs:421 rust/crates/setup/ui/monitoring.slint:67
+#: rust/crates/link/src/plugin.rs:1224 rust/crates/link/src/plugin.rs:1381 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/setup/src/monitoring.rs:322 rust/crates/setup/src/stats.rs:421 rust/crates/setup/ui/monitoring.slint:67
 msgid "Phone"
 msgstr "スマートフォン"
 
-#: rust/crates/link/src/plugin.rs:1218
+#: rust/crates/link/src/plugin.rs:1224
 #, python-brace-format
 msgid "Phone · {ip}"
 msgstr "スマートフォン · {ip}"
 
-#: rust/crates/link/src/plugin.rs:1219
+#: rust/crates/link/src/plugin.rs:1225
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes its camera settings on this computer, and unpairs it on the phone too if Telescope can reach it."
 msgstr "「{name}」を削除しますか？このコンピューター上のカメラ設定が削除され、通信可能な場合はスマートフォン側のペアリングも解除されます。"
 
-#: rust/crates/link/src/plugin.rs:1222
+#: rust/crates/link/src/plugin.rs:1228
 #, python-brace-format
 msgid "Rename {name}"
 msgstr "{name}の名前を変更"
 
-#: rust/crates/link/src/plugin.rs:1223 rust/crates/link/src/plugin.rs:1230
+#: rust/crates/link/src/plugin.rs:1229 rust/crates/link/src/plugin.rs:1236
 #, python-brace-format
 msgid "Remove {name}"
 msgstr "{name}を削除"
 
-#: rust/crates/link/src/plugin.rs:1224
+#: rust/crates/link/src/plugin.rs:1230
 msgid "Remove phone"
 msgstr "スマートフォンを削除"
 
-#: rust/crates/link/src/plugin.rs:1227
+#: rust/crates/link/src/plugin.rs:1233
 #, python-brace-format
 msgid "Remove \"{name}\"? This deletes the settings it had on this computer. The browser can still connect with the code and starts with default settings."
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:1231
+#: rust/crates/link/src/plugin.rs:1237
 msgid "Remove browser"
 msgstr "ブラウザーを削除"
 
-#: rust/crates/link/src/plugin.rs:1532
+#: rust/crates/link/src/plugin.rs:1542
 msgid "Virtual camera is set up differently"
 msgstr "仮想カメラが異なる設定になっています"
 
-#: rust/crates/link/src/plugin.rs:1533
+#: rust/crates/link/src/plugin.rs:1543
 #, python-brace-format
 msgid "v4l2loopback is loaded, but without {device}: another app loaded it with other settings. Close that app and run this command to give Telescope control:"
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:1543
+#: rust/crates/link/src/plugin.rs:1553
 msgid "The virtual camera is off"
 msgstr "仮想カメラがオフになっています"
 
-#: rust/crates/link/src/plugin.rs:1543
+#: rust/crates/link/src/plugin.rs:1553
 msgid "Your password is needed to switch on the virtual camera."
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:1544 rust/crates/shell/src/plugins_tab.rs:684 rust/crates/shell/src/plugins_tab.rs:704
+#: rust/crates/link/src/plugin.rs:1554 rust/crates/shell/src/plugins_tab.rs:689 rust/crates/shell/src/plugins_tab.rs:709
 msgid "Switch on"
 msgstr "オンにする"
 
@@ -4409,7 +4409,7 @@ msgstr "解像度"
 msgid "The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do."
 msgstr "ブラウザーが送信するサイズです。カメラがこのサイズに対応していない場合、カメラが対応するサイズで送信されます。"
 
-#: rust/crates/link/ui/browser_camera.slint:196 rust/crates/link/ui/browser_camera.slint:199 rust/crates/outputs/ui/stream_output.slint:66 rust/crates/outputs/ui/stream_output.slint:71 rust/crates/outputs/ui/stream_output.slint:77 rust/crates/outputs/ui/webcam.slint:114 rust/crates/outputs/ui/webcam.slint:118 rust/crates/outputs/ui/webcam.slint:119 rust/crates/shell/src/window.rs:752
+#: rust/crates/link/ui/browser_camera.slint:196 rust/crates/link/ui/browser_camera.slint:199 rust/crates/outputs/ui/stream_output.slint:66 rust/crates/outputs/ui/stream_output.slint:71 rust/crates/outputs/ui/stream_output.slint:77 rust/crates/outputs/ui/webcam.slint:114 rust/crates/outputs/ui/webcam.slint:118 rust/crates/outputs/ui/webcam.slint:119 rust/crates/shell/src/window.rs:753
 msgid "Frame rate"
 msgstr "フレームレート"
 
@@ -4417,7 +4417,7 @@ msgstr "フレームレート"
 msgid "How many pictures a second the browser sends."
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:23 rust/crates/setup/ui/setup.slint:23 rust/crates/shell/src/plugins_tab.rs:669 rust/crates/shell/src/plugins_tab.rs:674 rust/crates/shell/ui/settings.slint:327
+#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:23 rust/crates/setup/ui/setup.slint:23 rust/crates/shell/src/plugins_tab.rs:674 rust/crates/shell/src/plugins_tab.rs:679 rust/crates/shell/ui/settings.slint:327
 msgid "Remove"
 msgstr "削除"
 
@@ -4906,7 +4906,7 @@ msgstr "暗所でのフレームレート低下"
 msgid "White balance"
 msgstr "ホワイト バランス"
 
-#: rust/crates/outputs/src/webcam.rs:50 rust/crates/ui-kit/ui/widgets/colour.slint:322
+#: rust/crates/outputs/src/webcam.rs:50 rust/crates/ui-kit/ui/widgets/colour.slint:364
 msgid "Hue"
 msgstr "色相"
 
@@ -5749,7 +5749,7 @@ msgstr "手持ちのadbを使用…"
 msgid "Not available yet"
 msgstr "まだ利用できません"
 
-#: rust/crates/setup/src/stats.rs:196 rust/crates/setup/src/stats_phone.rs:88 rust/crates/setup/src/stats_phone.rs:92 rust/crates/shell/src/window.rs:747
+#: rust/crates/setup/src/stats.rs:196 rust/crates/setup/src/stats_phone.rs:88 rust/crates/setup/src/stats_phone.rs:92 rust/crates/shell/src/window.rs:748
 #, python-brace-format
 msgid "{n} fps"
 msgstr "{n} fps"
@@ -5907,7 +5907,7 @@ msgstr "TCP"
 msgid "From the phone"
 msgstr "スマートフォンから"
 
-#: rust/crates/setup/src/stats.rs:427 rust/crates/setup/ui/setup.slint:69 rust/crates/shell/src/window.rs:751
+#: rust/crates/setup/src/stats.rs:427 rust/crates/setup/ui/setup.slint:69 rust/crates/shell/src/window.rs:752
 msgid "Virtual camera"
 msgstr "仮想カメラ"
 
@@ -6536,7 +6536,7 @@ msgstr ""
 msgid "Restart now"
 msgstr "今すぐ再起動"
 
-#: rust/crates/setup/ui/setup.slint:515 rust/crates/shell/src/plugins_tab.rs:689
+#: rust/crates/setup/ui/setup.slint:515 rust/crates/shell/src/plugins_tab.rs:694
 msgid "Restart"
 msgstr "再起動"
 
@@ -6666,15 +6666,15 @@ msgstr "実行中のストリームのリアルタイム数値です。"
 msgid "Stats view"
 msgstr "統計の表示"
 
-#: rust/crates/shell/src/doc.rs:469 rust/crates/shell/src/doc.rs:470
+#: rust/crates/shell/src/doc.rs:471 rust/crates/shell/src/doc.rs:472
 msgid "Add camera"
 msgstr "カメラを追加"
 
-#: rust/crates/shell/src/doc.rs:471
+#: rust/crates/shell/src/doc.rs:473
 msgid "Stream another camera at the same time on a separate virtual camera."
 msgstr "別の仮想カメラで、もう1台のカメラを同時にストリーミングします。"
 
-#: rust/crates/shell/src/doc.rs:963 rust/crates/shell/src/doc.rs:964
+#: rust/crates/shell/src/doc.rs:967 rust/crates/shell/src/doc.rs:968
 msgid "Search settings"
 msgstr "設定を検索"
 
@@ -6704,11 +6704,11 @@ msgstr "追加の仮想カメラを設定中…"
 msgid "Couldn't add more virtual cameras"
 msgstr "仮想カメラを追加できませんでした"
 
-#: rust/crates/shell/src/host.rs:626
+#: rust/crates/shell/src/host.rs:644
 msgid "Needs video that only a phone's stream has."
 msgstr ""
 
-#: rust/crates/shell/src/host.rs:632
+#: rust/crates/shell/src/host.rs:650
 msgid "Needs Light: Heavy sends whole pictures, with no keyframes to work with."
 msgstr "「軽量」が必要です: 「高品質」は画像全体を送信するため、処理に必要なキーフレームがありません。"
 
@@ -7165,163 +7165,169 @@ msgstr ""
 msgid "The download didn't work. {error}"
 msgstr "ダウンロードできませんでした。{error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:455
+#: rust/crates/shell/src/plugins_tab.rs:457
 msgid "Telescope needs this plugin to work, so it can't be switched off."
 msgstr "Telescopeの動作に必須のプラグインのため、オフにできません。"
 
-#: rust/crates/shell/src/plugins_tab.rs:456
+#: rust/crates/shell/src/plugins_tab.rs:458
 msgid "Required"
 msgstr "必須"
 
-#: rust/crates/shell/src/plugins_tab.rs:480
+#: rust/crates/shell/src/plugins_tab.rs:482
 #, python-brace-format
 msgid "The download failed. {error}"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:483
+#: rust/crates/shell/src/plugins_tab.rs:485
 msgid "There's no download for this computer yet, so the plugin can't be switched on."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:486
+#: rust/crates/shell/src/plugins_tab.rs:488
 #, python-brace-format
 msgid "The plugin's download (about {mb} MB) is missing. Switch the plugin off and on again to download it."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:493
+#: rust/crates/shell/src/plugins_tab.rs:495
 msgid "Needs the vision download"
 msgstr "ビジョン パックのダウンロードが必要"
 
-#: rust/crates/shell/src/plugins_tab.rs:511
+#: rust/crates/shell/src/plugins_tab.rs:513
 msgid "There's no vision download for this computer yet."
 msgstr "このコンピューター向けのビジョン パックのダウンロードはまだありません。"
 
-#: rust/crates/shell/src/plugins_tab.rs:513
+#: rust/crates/shell/src/plugins_tab.rs:515
 #, python-brace-format
 msgid "Switching on any of these plugins downloads about {mb} MB first, shared by all of them."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:524
+#: rust/crates/shell/src/plugins_tab.rs:526
 #, python-brace-format
 msgid "By {author}."
 msgstr "作成者: {author}"
 
-#: rust/crates/shell/src/plugins_tab.rs:534
+#: rust/crates/shell/src/plugins_tab.rs:536
 #, python-brace-format
 msgid "Updated to {version} automatically. The new version runs after Telescope restarts."
 msgstr "{version}に自動更新されました。Telescopeの再起動後に新しいバージョンが実行されます。"
 
-#: rust/crates/shell/src/plugins_tab.rs:540
+#: rust/crates/shell/src/plugins_tab.rs:542
 msgid "The plugin's files changed since you switched it on, so it's off. Switch it on again if you trust the new version."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:543 rust/crates/shell/src/plugins_tab.rs:583
+#: rust/crates/shell/src/plugins_tab.rs:545 rust/crates/shell/src/plugins_tab.rs:585
 #, python-brace-format
 msgid "Couldn't start: {problem}"
 msgstr ""
 
 #. keep the <a href="{url}"> link
-#: rust/crates/shell/src/plugins_tab.rs:552
+#: rust/crates/shell/src/plugins_tab.rs:554
 #, python-brace-format
 msgid "Version {version} is out. <a href=\"{url}\">Download it from the plugin's release page</a> and install it here to replace the current version."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:562
+#: rust/crates/shell/src/plugins_tab.rs:564
 msgid "Added"
 msgstr "追加済み"
 
-#: rust/crates/shell/src/plugins_tab.rs:579
+#: rust/crates/shell/src/plugins_tab.rs:581
 msgid "`telescope-rs dev --plugin` loads this plugin, so it's always on."
 msgstr "`telescope-rs dev --plugin`でこのプラグインが読み込まれているため、常時オンになっています。"
 
-#: rust/crates/shell/src/plugins_tab.rs:580
+#: rust/crates/shell/src/plugins_tab.rs:582
 msgid "Being written"
 msgstr "開発中"
 
-#: rust/crates/shell/src/plugins_tab.rs:586
+#: rust/crates/shell/src/plugins_tab.rs:588
 #, python-brace-format
 msgid "Loaded from {folder} by telescope-rs dev. Saving a file in that folder restarts Telescope."
 msgstr ""
 
 #. next to a group's name on the Plugins tab, how many of its plugins are switched on
-#: rust/crates/shell/src/plugins_tab.rs:600
+#: rust/crates/shell/src/plugins_tab.rs:602
 #, python-brace-format
 msgid "{on} of {total} on"
 msgstr "{total}個中{on}個がオン"
 
-#: rust/crates/shell/src/plugins_tab.rs:613
+#: rust/crates/shell/src/plugins_tab.rs:615
 #, python-brace-format
 msgid "No plugins match “{text}”."
 msgstr "「{text}」に一致するプラグインはありません。"
 
-#: rust/crates/shell/src/plugins_tab.rs:615
+#: rust/crates/shell/src/plugins_tab.rs:617
 msgid "Every plugin is switched on."
 msgstr "すべてのプラグインがオンになっています。"
 
-#: rust/crates/shell/src/plugins_tab.rs:617
+#: rust/crates/shell/src/plugins_tab.rs:619
 msgid "No plugin is switched on."
 msgstr "オンになっているプラグインはありません。"
 
-#: rust/crates/shell/src/plugins_tab.rs:626
+#: rust/crates/shell/src/plugins_tab.rs:628
 msgid "Downloading the vision pack"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:627
+#: rust/crates/shell/src/plugins_tab.rs:629
 #, python-brace-format
 msgid "This one-time download (about {mb} MB) is shared by every plugin that finds people in the picture."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:628
+#: rust/crates/shell/src/plugins_tab.rs:630
 msgid "Switch on a plugin that needs the vision pack to try again."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:631
+#: rust/crates/shell/src/plugins_tab.rs:633
 msgid "Downloading the high quality cutout"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:632
+#: rust/crates/shell/src/plugins_tab.rs:634
 #, python-brace-format
 msgid "This one-time download (about {mb} MB) gives the Background cutout cleaner edges."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:633
+#: rust/crates/shell/src/plugins_tab.rs:635
 msgid "Press Download under High quality cutout in Background to try again."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:640
+#: rust/crates/shell/src/plugins_tab.rs:643
+#, python-brace-format
+msgid "Switches are back as they were. {n} other change still needs a restart"
+msgid_plural "Switches are back as they were. {n} other changes still need a restart"
+msgstr[0] ""
+
+#: rust/crates/shell/src/plugins_tab.rs:645
 #, python-brace-format
 msgid "Restart to apply {n} change"
 msgid_plural "Restart to apply {n} changes"
 msgstr[0] "再起動して{n}件の変更を適用"
 
-#: rust/crates/shell/src/plugins_tab.rs:645
+#: rust/crates/shell/src/plugins_tab.rs:650
 #, python-brace-format
 msgid "Plugins ({n} off)"
 msgstr "プラグイン（{n}個オフ）"
 
-#: rust/crates/shell/src/plugins_tab.rs:667
+#: rust/crates/shell/src/plugins_tab.rs:672
 #, python-brace-format
 msgid "Remove {plugin}?"
 msgstr "{plugin}を削除しますか？"
 
-#: rust/crates/shell/src/plugins_tab.rs:668
+#: rust/crates/shell/src/plugins_tab.rs:673
 #, python-brace-format
 msgid "The plugin's folder ({folder}) is deleted from the plugins folder. To use the plugin again, add it again."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:672
+#: rust/crates/shell/src/plugins_tab.rs:677
 msgid "Remove the download?"
 msgstr "ダウンロードを削除しますか？"
 
-#: rust/crates/shell/src/plugins_tab.rs:673
+#: rust/crates/shell/src/plugins_tab.rs:678
 #, python-brace-format
 msgid "Frees about {mb} MB. Switching on an optional plugin downloads the files again."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:682
+#: rust/crates/shell/src/plugins_tab.rs:687
 msgid "Install plugin updates without asking?"
 msgstr "確認なしでプラグインのアップデートをインストールしますか？"
 
-#: rust/crates/shell/src/plugins_tab.rs:683
+#: rust/crates/shell/src/plugins_tab.rs:688
 msgid ""
 "Telescope will install new versions of the plugins you switched on and switch them on too, without showing them to you first.\n"
 "\n"
@@ -7331,94 +7337,94 @@ msgstr ""
 "\n"
 "GitHub上のプラグインのリポジトリを管理する人物（作者、またはそのアカウントを乗っ取った人物）がリリースを公開するたびに、このコンピューター上で新しいコードを実行できるようになります。すべての管理者を信頼できる場合のみオンにしてください。"
 
-#: rust/crates/shell/src/plugins_tab.rs:689
+#: rust/crates/shell/src/plugins_tab.rs:694
 msgid "Restart Telescope now?"
 msgstr "今すぐTelescopeを再起動しますか？"
 
-#: rust/crates/shell/src/plugins_tab.rs:689
+#: rust/crates/shell/src/plugins_tab.rs:694
 msgid "Streaming stops while Telescope restarts. Restarting takes a few seconds."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:703
+#: rust/crates/shell/src/plugins_tab.rs:708
 #, python-brace-format
 msgid "Switch on {plugin}?"
 msgstr "{plugin}をオンにしますか？"
 
-#: rust/crates/shell/src/plugins_tab.rs:704
+#: rust/crates/shell/src/plugins_tab.rs:709
 msgid "A plugin can do anything on your computer. Only switch it on if you trust its source."
 msgstr "プラグインはこのコンピューター上で何でも実行できます。配布元を信頼できる場合のみオンにしてください。"
 
-#: rust/crates/shell/src/plugins_tab.rs:706 rust/crates/shell/src/plugins_tab.rs:727
+#: rust/crates/shell/src/plugins_tab.rs:711 rust/crates/shell/src/plugins_tab.rs:732
 #, python-brace-format
 msgid "Switch off {plugin}?"
 msgstr "{plugin}をオフにしますか？"
 
-#: rust/crates/shell/src/plugins_tab.rs:707
+#: rust/crates/shell/src/plugins_tab.rs:712
 msgid "Without the plugin, what it added to Telescope is gone. The plugin's settings stay saved for when you switch it back on."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:707 rust/crates/shell/src/plugins_tab.rs:727
+#: rust/crates/shell/src/plugins_tab.rs:712 rust/crates/shell/src/plugins_tab.rs:732
 msgid "Switch off"
 msgstr "オフにする"
 
-#: rust/crates/shell/src/plugins_tab.rs:714
+#: rust/crates/shell/src/plugins_tab.rs:719
 #, python-brace-format
 msgid "Download about {mb} MB?"
 msgstr "約{mb} MBをダウンロードしますか？"
 
-#: rust/crates/shell/src/plugins_tab.rs:715
+#: rust/crates/shell/src/plugins_tab.rs:720
 #, python-brace-format
 msgid "{plugin} uses MediaPipe to find people in the picture. The files are a separate download from Telescope's releases on GitHub, shared by the other optional plugins."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:716
+#: rust/crates/shell/src/plugins_tab.rs:721
 msgid "Download and switch on"
 msgstr "ダウンロードしてオンにする"
 
-#: rust/crates/shell/src/plugins_tab.rs:726
+#: rust/crates/shell/src/plugins_tab.rs:731
 msgid "Its settings stay saved for when you switch it back on."
 msgstr "設定は再度オンにしたときのために保存されたままになります。"
 
-#: rust/crates/shell/src/plugins_tab.rs:741
+#: rust/crates/shell/src/plugins_tab.rs:746
 #, python-brace-format
 msgid "Replace {plugin}?"
 msgstr "{plugin}を置き換えますか？"
 
-#: rust/crates/shell/src/plugins_tab.rs:742
+#: rust/crates/shell/src/plugins_tab.rs:747
 msgid "The version in this .zip replaces the installed version and keeps its settings. Like any added plugin, it starts switched off."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:754
+#: rust/crates/shell/src/plugins_tab.rs:759
 #, python-brace-format
 msgid "{plugin} was installed, but it can't run yet. {problem}"
 msgstr "{plugin}はインストールされましたが、まだ実行できません。{problem}"
 
-#: rust/crates/shell/src/plugins_tab.rs:756
+#: rust/crates/shell/src/plugins_tab.rs:761
 #, python-brace-format
 msgid "{plugin} {version} is installed but switched off. To use it, switch it on again and restart Telescope."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:758
+#: rust/crates/shell/src/plugins_tab.rs:763
 #, python-brace-format
 msgid "{plugin} is installed but switched off. To use it, switch it on and restart Telescope."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:768
+#: rust/crates/shell/src/plugins_tab.rs:773
 #, python-brace-format
 msgid "Telescope couldn't save the change: {error}"
 msgstr "Telescopeで変更を保存できませんでした: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:807
+#: rust/crates/shell/src/plugins_tab.rs:820
 #, python-brace-format
 msgid "Telescope couldn't delete its folder: {error}"
 msgstr "Telescopeでフォルダーを削除できませんでした: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:815
+#: rust/crates/shell/src/plugins_tab.rs:828
 #, python-brace-format
 msgid "Telescope couldn't delete it: {error}"
 msgstr "Telescopeで削除できませんでした: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:852
+#: rust/crates/shell/src/plugins_tab.rs:865
 #, python-brace-format
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr "Telescopeでプラグイン フォルダーを作成できませんでした: {error}"
@@ -7453,89 +7459,89 @@ msgstr "検索結果"
 msgid "Remove {plugin}"
 msgstr "{plugin}を削除"
 
-#: rust/crates/shell/src/settings.rs:958
+#: rust/crates/shell/src/settings.rs:959
 msgid "Check for updates"
 msgstr "アップデートを確認"
 
-#: rust/crates/shell/src/settings.rs:959
+#: rust/crates/shell/src/settings.rs:960
 msgid "Check once a day for new versions of added plugins that publish releases on GitHub and show them here. Nothing is downloaded."
 msgstr ""
 
-#: rust/crates/shell/src/settings.rs:960
+#: rust/crates/shell/src/settings.rs:961
 msgid "Install updates without asking"
 msgstr "確認なしでアップデートをインストール"
 
-#: rust/crates/shell/src/settings.rs:960
+#: rust/crates/shell/src/settings.rs:961
 msgid "Install new versions of the plugins you switched on and switch them on again."
 msgstr ""
 
-#: rust/crates/shell/src/settings.rs:961
+#: rust/crates/shell/src/settings.rs:962
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "危険！プラグインのリポジトリを管理している人物がリリースを公開するたびに、このコンピューター上で新しいコードを実行できるようになります。"
 
-#: rust/crates/shell/src/settings.rs:1049
+#: rust/crates/shell/src/settings.rs:1050
 msgid "Install a plugin"
 msgstr "プラグインをインストール"
 
-#: rust/crates/shell/src/settings.rs:1051
+#: rust/crates/shell/src/settings.rs:1052
 msgid "Plugins (*.zip)"
 msgstr "プラグイン（*.zip）"
 
-#: rust/crates/shell/src/shell.rs:753
+#: rust/crates/shell/src/shell.rs:776
 #, python-brace-format
 msgid "Couldn't start {plugins}"
 msgid_plural "Couldn't start {plugins}"
 msgstr[0] ""
 
-#: rust/crates/shell/src/shell.rs:755
+#: rust/crates/shell/src/shell.rs:778
 #, python-brace-format
 msgid "Couldn't start {n} plugin"
 msgid_plural "Couldn't start {n} plugins"
 msgstr[0] ""
 
-#: rust/crates/shell/src/shell.rs:757
+#: rust/crates/shell/src/shell.rs:780
 msgid "Telescope works without the plugin. The Plugins tab in Settings shows what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings shows what went wrong."
 msgstr[0] ""
 
-#: rust/crates/shell/src/shell.rs:761 rust/crates/shell/src/shell.rs:781
+#: rust/crates/shell/src/shell.rs:784 rust/crates/shell/src/shell.rs:804
 msgid "Plugins…"
 msgstr "プラグイン…"
 
-#: rust/crates/shell/src/shell.rs:775
+#: rust/crates/shell/src/shell.rs:798
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
 msgstr[0] "{plugins}はオフになっています"
 
-#: rust/crates/shell/src/shell.rs:776
+#: rust/crates/shell/src/shell.rs:799
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "「プラグイン」でオフに設定されています。元に戻すには、「設定」の「プラグイン」を開いてオンにしてください。"
 
-#: rust/crates/shell/src/shell.rs:796
+#: rust/crates/shell/src/shell.rs:819
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "古いファイルのコピーが{path}にあります。"
 
-#: rust/crates/shell/src/shell.rs:798
+#: rust/crates/shell/src/shell.rs:821
 msgid "Your settings couldn't be read"
 msgstr "設定を読み込めませんでした"
 
-#: rust/crates/shell/src/shell.rs:799
+#: rust/crates/shell/src/shell.rs:822
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescopeが初期設定で起動したため、ペアリング済みのスマートフォンは再度ペアリングする必要があります。"
 
-#: rust/crates/shell/src/shell.rs:1164
+#: rust/crates/shell/src/shell.rs:1187
 msgid "Telescope - Save failed"
 msgstr "Telescope - 保存に失敗しました"
 
-#: rust/crates/shell/src/shell.rs:1165
+#: rust/crates/shell/src/shell.rs:1188
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "設定を保存できませんでした。ディスクの空き容量と権限を確認してください。"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1706 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1717 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "開始"
 
@@ -7636,7 +7642,7 @@ msgstr "スマートフォンのカメラを開始中…"
 msgid "Couldn't start the phone's camera"
 msgstr "スマートフォンのカメラを開始できませんでした"
 
-#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:932
+#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:951
 msgid "Connecting..."
 msgstr "接続中..."
 
@@ -7797,19 +7803,19 @@ msgstr "Telescope: マイクをストリーミング中、カメラはオフ"
 msgid "Quit"
 msgstr "終了"
 
-#: rust/crates/shell/src/tray.rs:229
+#: rust/crates/shell/src/tray.rs:230
 msgid "Streaming continues in the background."
 msgstr "ストリーミングはバックグラウンドで継続します。"
 
-#: rust/crates/shell/src/tray.rs:229
+#: rust/crates/shell/src/tray.rs:230
 msgid "Streaming starts automatically when needed."
 msgstr ""
 
-#: rust/crates/shell/src/tray.rs:230
+#: rust/crates/shell/src/tray.rs:231
 msgid "Right-click the tray icon to quit."
 msgstr "終了するには、システム トレイ アイコンを右クリックしてください。"
 
-#: rust/crates/shell/src/tray.rs:231
+#: rust/crates/shell/src/tray.rs:232
 msgid "Telescope is still running"
 msgstr "Telescopeは実行中です"
 
@@ -7817,72 +7823,72 @@ msgstr "Telescopeは実行中です"
 msgid "Telescope - Video Preview"
 msgstr "Telescope - 映像プレビュー"
 
-#: rust/crates/shell/src/window.rs:669
+#: rust/crates/shell/src/window.rs:670
 msgid "Telescope (dev)"
 msgstr "Telescope（開発版）"
 
-#: rust/crates/shell/src/window.rs:753
+#: rust/crates/shell/src/window.rs:754
 msgid "How much data per second reaches this computer."
 msgstr "1秒あたりにこのコンピューターに届くデータ量です。"
 
-#: rust/crates/shell/src/window.rs:753
+#: rust/crates/shell/src/window.rs:754
 msgid "Throughput"
 msgstr "スループット"
 
-#: rust/crates/shell/src/window.rs:1705 rust/crates/shell/src/window.rs:1706
+#: rust/crates/shell/src/window.rs:1716 rust/crates/shell/src/window.rs:1717
 msgid "Start mic only"
 msgstr "マイクのみ開始"
 
-#: rust/crates/shell/src/window.rs:1705
+#: rust/crates/shell/src/window.rs:1716
 msgid "Start streaming"
 msgstr "ストリーミング開始"
 
-#: rust/crates/shell/src/window.rs:1711
+#: rust/crates/shell/src/window.rs:1722
 msgid "Stop streaming"
 msgstr "ストリーミング停止"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1712 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/window.rs:1723 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "停止"
 
-#: rust/crates/shell/src/window.rs:1985 rust/crates/shell/src/worker.rs:1278
+#: rust/crates/shell/src/window.rs:1997 rust/crates/shell/src/worker.rs:1308
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{size}、{fps} fpsで{camera}にストリーミング中"
 
-#: rust/crates/shell/src/worker.rs:539
+#: rust/crates/shell/src/worker.rs:544
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "ストリーム エラー: {error}"
 
-#: rust/crates/shell/src/worker.rs:932
+#: rust/crates/shell/src/worker.rs:951
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "{url}に接続中..."
 
-#: rust/crates/shell/src/worker.rs:942
+#: rust/crates/shell/src/worker.rs:961
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "スマートフォンのストリームに接続できません。{seconds}秒後に再試行します…"
 
-#: rust/crates/shell/src/worker.rs:954
+#: rust/crates/shell/src/worker.rs:973
 msgid "Waiting for the first frame…"
 msgstr "最初のフレームを待機中…"
 
-#: rust/crates/shell/src/worker.rs:1042
+#: rust/crates/shell/src/worker.rs:1061
 msgid "Stream reconnected"
 msgstr "ストリームが再接続されました"
 
-#: rust/crates/shell/src/worker.rs:1147
+#: rust/crates/shell/src/worker.rs:1177
 msgid "The video is paused while the phone takes a photo"
 msgstr "スマートフォンが写真を撮影している間、映像は一時停止します"
 
-#: rust/crates/shell/src/worker.rs:1149 rust/crates/shell/src/worker.rs:1155
+#: rust/crates/shell/src/worker.rs:1179 rust/crates/shell/src/worker.rs:1185
 msgid "Stream dropped - reconnecting"
 msgstr "ストリームが切断されました - 再接続中"
 
-#: rust/crates/shell/src/worker.rs:1267 rust/crates/shell/src/worker.rs:1365
+#: rust/crates/shell/src/worker.rs:1297 rust/crates/shell/src/worker.rs:1399
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "仮想カメラ エラー: {error}"
@@ -8024,11 +8030,11 @@ msgstr "ピン留め解除"
 msgid "Dismiss"
 msgstr "閉じる"
 
-#: rust/crates/shell/ui/frame.slint:468
+#: rust/crates/shell/ui/frame.slint:470
 msgid "Show settings"
 msgstr "設定を表示"
 
-#: rust/crates/shell/ui/frame.slint:468
+#: rust/crates/shell/ui/frame.slint:470
 msgid "Show this stream's settings in the cards."
 msgstr "カードにこのストリームの設定を表示します。"
 
@@ -8240,170 +8246,170 @@ msgstr "別のアプリがすでにこのキーを使用しています"
 msgid "Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all, so pick another."
 msgstr "Telescopeの実行中、「すべての場所」ショートカットはWindowsから取得されます。別のアプリがすでに使用しているキーはTelescopeに届かないため、別のキーを選択してください。"
 
-#: rust/crates/system/src/mcp.rs:643 rust/crates/system/src/mcp.rs:786
+#: rust/crates/system/src/mcp.rs:645 rust/crates/system/src/mcp.rs:788
 msgid "An AI app"
 msgstr "AIアプリ"
 
-#: rust/crates/system/src/mcp.rs:649
+#: rust/crates/system/src/mcp.rs:651
 #, python-brace-format
 msgid "Refused (read only): {what}"
 msgstr "拒否（読み取り専用）: {what}"
 
-#: rust/crates/system/src/mcp.rs:678
+#: rust/crates/system/src/mcp.rs:680
 #, python-brace-format
 msgid "Failed: {what}"
 msgstr "失敗: {what}"
 
-#: rust/crates/system/src/mcp.rs:709
+#: rust/crates/system/src/mcp.rs:711
 msgid "Read status"
 msgstr "ステータスを読み取り"
 
-#: rust/crates/system/src/mcp.rs:710
+#: rust/crates/system/src/mcp.rs:712
 msgid "Read stats"
 msgstr "統計を読み取り"
 
-#: rust/crates/system/src/mcp.rs:711
+#: rust/crates/system/src/mcp.rs:713
 #, python-brace-format
 msgid "Watched stats for {n} s"
 msgstr "統計を{n}秒間監視"
 
-#: rust/crates/system/src/mcp.rs:712
+#: rust/crates/system/src/mcp.rs:714
 msgid "Read diagnostics"
 msgstr "診断情報を読み取り"
 
-#: rust/crates/system/src/mcp.rs:713
+#: rust/crates/system/src/mcp.rs:715
 msgid "Measured the picture"
 msgstr "画像を計測"
 
-#: rust/crates/system/src/mcp.rs:715
+#: rust/crates/system/src/mcp.rs:717
 #, python-brace-format
 msgid "Listed the {plugin} settings"
 msgstr "{plugin}の設定を一覧表示"
 
-#: rust/crates/system/src/mcp.rs:716
+#: rust/crates/system/src/mcp.rs:718
 msgid "Listed every setting"
 msgstr "すべての設定を一覧表示"
 
-#: rust/crates/system/src/mcp.rs:719
+#: rust/crates/system/src/mcp.rs:721
 #, python-brace-format
 msgid "Read {names}"
 msgstr "{names}を読み取り"
 
-#: rust/crates/system/src/mcp.rs:720
+#: rust/crates/system/src/mcp.rs:722
 msgid "Read every setting"
 msgstr "すべての設定を読み取り"
 
-#: rust/crates/system/src/mcp.rs:723
+#: rust/crates/system/src/mcp.rs:725
 #, python-brace-format
 msgid "Set {changes}"
 msgstr "{changes}を設定"
 
-#: rust/crates/system/src/mcp.rs:723
+#: rust/crates/system/src/mcp.rs:725
 #, python-brace-format
 msgid "{name} to {value}"
 msgstr "{name}を{value}に"
 
-#: rust/crates/system/src/mcp.rs:724
+#: rust/crates/system/src/mcp.rs:726
 msgid "Set settings"
 msgstr "設定を変更"
 
-#: rust/crates/system/src/mcp.rs:726
+#: rust/crates/system/src/mcp.rs:728
 msgid "Undid its changes"
 msgstr "変更を元に戻しました"
 
-#: rust/crates/system/src/mcp.rs:727
+#: rust/crates/system/src/mcp.rs:729
 msgid "Listed the actions"
 msgstr "アクションを一覧表示"
 
-#: rust/crates/system/src/mcp.rs:731
+#: rust/crates/system/src/mcp.rs:733
 #, python-brace-format
 msgid "Ran {action}"
 msgstr "{action}を実行"
 
-#: rust/crates/system/src/mcp.rs:772
+#: rust/crates/system/src/mcp.rs:774
 msgid "MCP server settings"
 msgstr "MCPサーバー設定"
 
-#: rust/crates/system/src/mcp.rs:773
+#: rust/crates/system/src/mcp.rs:775
 msgid "An AI app is connected."
 msgstr "AIアプリが接続されています。"
 
-#: rust/crates/system/src/mcp.rs:773
+#: rust/crates/system/src/mcp.rs:775
 msgid "No AI app is connected. Open the MCP settings."
 msgstr "AIアプリは接続されていません。MCP設定を開きます。"
 
-#: rust/crates/system/src/mcp.rs:774
+#: rust/crates/system/src/mcp.rs:776
 msgid "Undo what the AI changed"
 msgstr "AIによる変更を元に戻す"
 
-#: rust/crates/system/src/mcp.rs:775
+#: rust/crates/system/src/mcp.rs:777
 msgid "Undo what the AI changed."
 msgstr "AIによる変更を元に戻します。"
 
-#: rust/crates/system/src/mcp.rs:775
+#: rust/crates/system/src/mcp.rs:777
 msgid "The AI hasn't changed anything."
 msgstr "AIによる変更はありません。"
 
-#: rust/crates/system/src/mcp.rs:790
+#: rust/crates/system/src/mcp.rs:792
 msgid "No AI app is connected"
 msgstr "AIアプリは接続されていません"
 
-#: rust/crates/system/src/mcp.rs:791
+#: rust/crates/system/src/mcp.rs:793
 msgid "Read only"
 msgstr "読み取り専用"
 
-#: rust/crates/system/src/mcp.rs:791
+#: rust/crates/system/src/mcp.rs:793
 msgid "Read and change"
 msgstr "読み取りと変更"
 
-#: rust/crates/system/src/mcp.rs:794
+#: rust/crates/system/src/mcp.rs:796
 msgid "Copy the entry for an AI app's MCP settings."
 msgstr "AIアプリのMCP設定用の項目をコピーします。"
 
-#: rust/crates/system/src/mcp.rs:796
+#: rust/crates/system/src/mcp.rs:798
 msgid "Nothing yet"
 msgstr "まだありません"
 
-#: rust/crates/system/src/mcp.rs:1186
+#: rust/crates/system/src/mcp.rs:1193
 msgid "Undid what the AI changed"
 msgstr "AIによる変更を元に戻しました"
 
-#: rust/crates/system/src/mcp.rs:1186
+#: rust/crates/system/src/mcp.rs:1193
 #, python-brace-format
 msgid "Undid what the AI changed, except {n} that couldn't be restored"
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:1187
+#: rust/crates/system/src/mcp.rs:1194
 msgid "You"
 msgstr "自分"
 
-#: rust/crates/system/src/mcp.rs:1286
+#: rust/crates/system/src/mcp.rs:1293
 #, python-brace-format
 msgid "{list} and {n} more"
 msgstr "{list}、他{n}件"
 
-#: rust/crates/system/src/mcp.rs:1468 rust/crates/system/ui/mcp.slint:29
+#: rust/crates/system/src/mcp.rs:1475 rust/crates/system/ui/mcp.slint:29
 msgid "MCP server"
 msgstr "MCPサーバー"
 
-#: rust/crates/system/src/mcp.rs:1469
+#: rust/crates/system/src/mcp.rs:1476
 msgid "Let an AI app such as Claude Desktop read and change Telescope's settings, through a command that opens no network port."
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:1470
+#: rust/crates/system/src/mcp.rs:1477
 msgid "Without the MCP server plugin AI apps can't connect to Telescope."
 msgstr ""
 
-#: rust/crates/system/src/mcp.rs:1505 rust/crates/system/ui/mcp.slint:229
+#: rust/crates/system/src/mcp.rs:1514 rust/crates/system/ui/mcp.slint:229
 msgid "MCP"
 msgstr "MCP"
 
-#: rust/crates/system/src/mcp.rs:1506 rust/crates/system/ui/mcp.slint:31
+#: rust/crates/system/src/mcp.rs:1515 rust/crates/system/ui/mcp.slint:31
 msgctxt "search"
 msgid "mcp ai claude model assistant agent connect access read only"
 msgstr "mcp ai claude モデル アシスタント エージェント 接続 アクセス 読み取り専用 model assistant agent connect access read only"
 
-#: rust/crates/system/src/mcp.rs:1556
+#: rust/crates/system/src/mcp.rs:1565
 msgid "An AI app is connected to Telescope through the MCP server."
 msgstr "AIアプリがMCPサーバー経由でTelescopeに接続されています。"
 
@@ -9288,29 +9294,29 @@ msgstr "Python版に戻す"
 msgid "Go back to the Python version?"
 msgstr "Python版に戻しますか？"
 
-#: rust/crates/ui-kit/ui/widgets/colour.slint:317
-msgid "Saturation and brightness"
-msgstr "彩度と明るさ"
-
-#: rust/crates/ui-kit/ui/widgets/colour.slint:336 rust/crates/ui-kit/ui/widgets/colour.slint:347
-msgid "Values"
-msgstr "数値"
-
-#: rust/crates/ui-kit/ui/widgets/colour.slint:375
+#: rust/crates/ui-kit/ui/widgets/colour.slint:251
 msgid "Hex"
 msgstr "Hex"
 
-#: rust/crates/ui-kit/ui/widgets/colour.slint:381
+#: rust/crates/ui-kit/ui/widgets/colour.slint:257
 msgid "R"
 msgstr "R"
 
-#: rust/crates/ui-kit/ui/widgets/colour.slint:381
+#: rust/crates/ui-kit/ui/widgets/colour.slint:257
 msgid "G"
 msgstr "G"
 
-#: rust/crates/ui-kit/ui/widgets/colour.slint:381
+#: rust/crates/ui-kit/ui/widgets/colour.slint:257
 msgid "B"
 msgstr "B"
+
+#: rust/crates/ui-kit/ui/widgets/colour.slint:359
+msgid "Saturation and brightness"
+msgstr "彩度と明るさ"
+
+#: rust/crates/ui-kit/ui/widgets/colour.slint:391 rust/crates/ui-kit/ui/widgets/colour.slint:402
+msgid "Values"
+msgstr "数値"
 
 #: rust/crates/ui-kit/ui/widgets/field.slint:218
 msgid "Can't open this picture"
@@ -9554,7 +9560,7 @@ msgstr "アップデートに予期しないファイルが含まれていたた
 msgid "The download doesn't contain Telescope, so it wasn't installed."
 msgstr "ダウンロードにTelescopeが含まれていないため、インストールされませんでした。"
 
-#: rust/crates/shell/src/plugins_tab.rs:756
+#: rust/crates/shell/src/plugins_tab.rs:761
 msgid "Replaced"
 msgstr "置き換え完了"
 

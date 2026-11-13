@@ -345,6 +345,8 @@ pub struct Panel {
     /// Under the groups: the update switches, when something added can be updated.
     pub update_rows: Option<UpdateRows>,
     vision_group: String,
+    /// Revert just ran and left changes that are not switches (a removal, an update), which only a restart applies.
+    left_after_revert: bool,
 }
 
 /// The text with its <a href> tags taken out, and the first link in it.
@@ -365,7 +367,7 @@ impl Panel {
         let reserved = builtins.iter().map(|p| p.name.clone()).collect();
         let mut panel = Panel {
             builtins, reserved, running, problems, admin, download, installed: vec![], groups: vec![], pending: BTreeSet::new(),
-            all_on_enabled: false, update_rows: None, vision_group: String::new(),
+            all_on_enabled: false, update_rows: None, vision_group: String::new(), left_after_revert: false,
         };
         panel.refresh();
         panel
@@ -637,6 +639,9 @@ impl Panel {
     }
 
     pub fn footer_note(&self) -> String {
+        if self.left_after_revert {
+            return trn("Switches are back as they were. {n} other change still needs a restart", "Switches are back as they were. {n} other changes still need a restart", self.pending.len());
+        }
         trn("Restart to apply {n} change", "Restart to apply {n} changes", self.pending.len())
     }
 
@@ -773,6 +778,7 @@ impl Panel {
 
     /// Does what was asked, after any question was agreed to.
     pub fn commit(&mut self, commit: Commit) -> Outcome {
+        self.left_after_revert = false;
         match commit {
             Commit::Builtin { name, on } => self.save(|a| a.set_builtin_off(&name, !on)),
             Commit::Optional { name, on } => self.save(|a| a.set_optional_on(&name, on)),
@@ -786,19 +792,26 @@ impl Panel {
             }
             Commit::AllOn => self.save(|a| a.reset_to_defaults()),
             Commit::Revert => {
-                let waiting: Vec<(String, bool, bool)> = self.pending.iter().map(|n| {
-                    let optional = self.builtins.iter().any(|p| p.name == *n && p.optional);
-                    let added = self.installed.iter().any(|i| i.name == *n);
-                    (n.clone(), optional, added)
+                // Only a switch can be put back: a removed plugin has none, and an update that came in stays
+                let waiting: Vec<(String, bool, bool)> = self.pending.iter().filter_map(|n| {
+                    if let Some(item) = self.installed.iter().find(|i| i.name == *n) {
+                        let failed_start = item.enabled && self.problems.contains_key(n);
+                        let moved = item.enabled != self.running.contains(n) && !failed_start;
+                        return moved.then(|| (n.clone(), false, true));
+                    }
+                    let builtin = self.builtins.iter().find(|p| p.name == *n)?;
+                    Some((n.clone(), builtin.optional, false))
                 }).collect();
                 let running = self.running.clone();
-                self.save(|a| {
+                let outcome = self.save(|a| {
                     for (name, optional, added) in &waiting {
                         let was = running.contains(name);
                         if *added { a.set_enabled(name, was)?; } else if *optional { a.set_optional_on(name, was)?; } else { a.set_builtin_off(name, !was)?; }
                     }
                     Ok(())
-                })
+                });
+                self.left_after_revert = !self.pending.is_empty();
+                outcome
             }
             Commit::Remove { name } => {
                 let mut outcome = Outcome::default();
@@ -887,5 +900,70 @@ impl DropBatch {
     pub fn take(&self) -> Option<PathBuf> {
         let paths = std::mem::take(&mut *self.paths.borrow_mut());
         Panel::dropped_zip(&paths.iter().map(PathBuf::as_path).collect::<Vec<_>>())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io;
+    use std::sync::Mutex;
+
+    #[derive(Default)]
+    struct Admin {
+        off: Mutex<BTreeSet<String>>,
+        enabled: Mutex<BTreeMap<String, bool>>,
+        extra: Vec<AddedPlugin>,
+    }
+
+    impl PluginAdmin for Admin {
+        fn builtin_off(&self) -> BTreeSet<String> { self.off.lock().unwrap().clone() }
+        fn set_builtin_off(&self, name: &str, off: bool) -> io::Result<()> {
+            let mut set = self.off.lock().unwrap();
+            if off { set.insert(name.into()); } else { set.remove(name); }
+            Ok(())
+        }
+        fn reset_to_defaults(&self) -> io::Result<()> { Ok(()) }
+        fn optional_on(&self) -> BTreeSet<String> { BTreeSet::new() }
+        fn set_optional_on(&self, _: &str, _: bool) -> io::Result<()> { Ok(()) }
+        fn switch(&self, _: &str, default: bool) -> bool { default }
+        fn set_switch(&self, _: &str, _: bool) -> io::Result<()> { Ok(()) }
+        fn find_installed(&self) -> Vec<AddedPlugin> {
+            let enabled = self.enabled.lock().unwrap();
+            self.extra.iter().map(|p| AddedPlugin { enabled: enabled.get(&p.name).copied().unwrap_or(p.enabled), ..p.clone() }).collect()
+        }
+        fn set_enabled(&self, name: &str, on: bool) -> io::Result<()> {
+            self.enabled.lock().unwrap().insert(name.into(), on);
+            Ok(())
+        }
+        fn auto_updated(&self, name: &str) -> Option<String> { (name == "updated").then(|| "2.0".to_string()) }
+    }
+
+    fn builtin(name: &str) -> PluginInfo {
+        PluginInfo { name: name.into(), category: "extras".into(), ..PluginInfo::default() }
+    }
+
+    fn added(name: &str, enabled: bool) -> AddedPlugin {
+        AddedPlugin { name: name.into(), title: name.into(), enabled, ..AddedPlugin::default() }
+    }
+
+    #[test]
+    fn revert_undoes_the_switches_and_leaves_removals_and_updates_waiting() {
+        let admin = Arc::new(Admin { extra: vec![added("updated", true), added("flipped", false)], ..Admin::default() });
+        admin.off.lock().unwrap().insert("alpha".into());
+        let running: BTreeSet<String> = ["alpha", "beta", "updated", "flipped", "gone"].map(String::from).into();
+        let mut panel = Panel::new(vec![builtin("alpha"), builtin("beta")], running, BTreeMap::new(), admin.clone(), Box::new(NoVision));
+        let waiting: Vec<&str> = panel.pending.iter().map(String::as_str).collect();
+        assert_eq!(waiting, ["alpha", "flipped", "gone", "updated"], "a switch, a switch, a removal and an update");
+        panel.commit(Commit::Revert);
+        assert!(admin.off.lock().unwrap().is_empty(), "alpha is back on");
+        assert_eq!(admin.enabled.lock().unwrap().get("flipped"), Some(&true), "the added plugin is back on");
+        assert!(!admin.off.lock().unwrap().contains("gone"), "a removed plugin gets no switch");
+        let waiting: Vec<&str> = panel.pending.iter().map(String::as_str).collect();
+        assert_eq!(waiting, ["gone", "updated"], "removals and updates still wait");
+        assert!(panel.footer_note().contains("2 other changes still need a restart"), "{}", panel.footer_note());
+        panel.refresh();
+        panel.commit(Commit::Restart);
+        assert!(panel.footer_note().starts_with("Restart to apply"), "the next change gets the usual bar again");
     }
 }
