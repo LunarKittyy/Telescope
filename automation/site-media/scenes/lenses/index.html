@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lenses loop</title>
+<link rel="stylesheet" href="../fonts/fonts.css">
+<style>
+* { box-sizing: border-box; }
+html, body { margin: 0; background: #0f1216; }
+body { width: 1920px; height: 1080px; overflow: hidden; -webkit-font-smoothing: antialiased; }
+#stage { position: absolute; inset: 0; overflow: hidden; background: #0f1216; }
+#stars { position: absolute; inset: 0; }
+/* a close look at one part of the real window: the preview and the Camera card */
+#crop { position: absolute; overflow: hidden; border-radius: 18px;
+  box-shadow: 0 0 0 1px #2a303a, 0 40px 100px rgba(0,0,0,0.55), 0 14px 34px rgba(0,0,0,0.35);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 70px), transparent 100%); }
+#world { position: absolute; left: 0; top: 0; width: 1300px; height: 540px; transform-origin: 0 0; }
+.shot { position: absolute; left: 0; top: 0; width: 1300px; height: 540px; display: block; }
+#feedbox { position: absolute; left: 444px; top: 90px; width: 404px; height: 227px; overflow: hidden; background: #000; }
+#feedbox .feed { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#vign { position: absolute; inset: 0; background: radial-gradient(ellipse 75% 75% at 50% 50%, transparent 55%, rgba(0,0,0,0.42) 100%); opacity: 0; }
+#cursor { position: absolute; left: 0; top: 0; width: 22px; height: 32px; transform-origin: 2px 2px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.45)); }
+.click { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; background: rgba(205,196,250,0.35); opacity: 0; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <filter id="barrel" x="0" y="0" width="1" height="1" filterUnits="objectBoundingBox" primitiveUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+    <feImage id="barrelmap" x="0" y="0" width="406" height="228" preserveAspectRatio="none" result="map"/>
+    <feDisplacementMap in="SourceGraphic" in2="map" scale="60" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+<div id="stage">
+  <canvas id="stars" width="1920" height="1080"></canvas>
+  <div id="crop">
+    <div id="world">
+      <img class="shot" id="lmain" src="img/l-main.png">
+      <img class="shot" id="lultra" src="img/l-ultra.png">
+      <img class="shot" id="ltele" src="img/l-tele.png">
+      <div id="feedbox"><div id="vign"></div></div>
+      <div class="click" id="click"></div>
+      <svg id="cursor" viewBox="0 0 22 32"><path d="M2 2 L2 25.5 L7.6 20.4 L11.4 29.2 L15.3 27.5 L11.6 18.9 L19.2 18.9 Z" fill="#fff" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg>
+    </div>
+  </div>
+</div>
+<script src="../common/feed.js"></script>
+<script src="lenses.js"></script>
+</body>
+</html>

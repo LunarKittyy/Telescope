@@ -35,6 +35,13 @@ struct SceneOffer {
     pairs: std::sync::atomic::AtomicBool,
 }
 
+/// The site clip's phone is a Pixel 9 Pro where the other scenes have a Pixel 8.
+static SITE_PHONE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+fn site_phone_name() -> &'static str {
+    if SITE_PHONE.load(std::sync::atomic::Ordering::Relaxed) { "Pixel 9 Pro" } else { "Pixel 8" }
+}
+
 impl PairingOffer for SceneOffer {
     fn payload(&self) -> String {
         "telescope://pair/example".into()
@@ -51,7 +58,7 @@ impl PairingOffer for SceneOffer {
     fn poll(&self) -> Option<PairedPhone> {
         self.pairs.swap(false, std::sync::atomic::Ordering::Relaxed).then(|| PairedPhone {
             id: "phone-1".into(),
-            name: "Pixel 8".into(),
+            name: site_phone_name().into(),
             token: "token".into(),
             ips: Vec::new(),
             active_ip: None,
@@ -96,6 +103,21 @@ impl Outputs for SceneOutputs {
         while std::thread::current().name() != Some("main") {
             std::thread::park();
         }
+        vec![Slot { slot: 0, name: "Telescope".into(), device: "/dev/video11".into() }]
+    }
+    fn formats(&self) -> Vec<PixelFormat> {
+        Vec::new()
+    }
+    fn open(&self, _slot: u32, _width: u32, _height: u32, _fps: u32) -> Result<Box<dyn VideoOutput>, String> {
+        Err("no virtual camera in scenes".into())
+    }
+}
+
+/// A computer whose virtual camera is set up and answers at once, for the site clip's Get set up card.
+struct ReadyOutputs;
+
+impl Outputs for ReadyOutputs {
+    fn slots(&self) -> Vec<Slot> {
         vec![Slot { slot: 0, name: "Telescope".into(), device: "/dev/video11".into() }]
     }
     fn formats(&self) -> Vec<PixelFormat> {
@@ -354,6 +376,8 @@ struct Changes {
     on_air: bool,
     /// The Wait screen and Startup plugins are there, which put their cards on the Streaming page.
     streaming: bool,
+    /// The virtual camera is set up and the Get set up card's check answers (site clip).
+    vcam_ready: bool,
 }
 
 /// An autostart entry that is never written.
@@ -407,7 +431,7 @@ fn services_with(link: SceneLink, changes: Changes) -> Arc<Services> {
         tray: None,
         link,
         media: Arc::new(telescope_media::FfmpegMedia),
-        outputs: Arc::new(SceneOutputs),
+        outputs: if changes.vcam_ready { Arc::new(ReadyOutputs) } else { Arc::new(SceneOutputs) },
         audio: None,
         notifier: None,
         autostart: None,
@@ -1045,8 +1069,134 @@ fn list() -> Value {
     json!({"plugins": names, "scenes": all().iter().map(|s| s.id.clone()).collect::<Vec<_>>()})
 }
 
+/// `scenes OUT --card PLUGIN [--config JSON | --config-lines FILE] [--card-width N] [--window] [--scale S] [--name NAME]`: one plugin's card alone
+/// (as Page::Card draws it) with that plugin's settings (an event goes out first, so plugins that load settings quietly show them), for the site's clip tiles. A lines file holds one JSON settings object per
+/// line and gives one picture each, NAME-000.png and on (NAME is the plugin's name unless given). Dev tool, changes nothing in the app.
+fn run_card(out: &str, words: &[String]) -> Result<(), String> {
+    let value = |flag: &str| words.iter().position(|w| w == flag).and_then(|i| words.get(i + 1)).cloned();
+    let plugin = value("--card").ok_or("--card needs a plugin name")?;
+    let width = value("--card-width").map_or(Ok(CARD_WIDTH), |w| w.parse::<f32>().map_err(|_| format!("not a width: {w}")))?;
+    let scale = value("--scale").map_or(Ok(1.0), |w| w.parse::<f32>().map_err(|_| format!("not a scale: {w}")))?;
+    let name = value("--name").unwrap_or_else(|| plugin.clone());
+    let whole_window = words.iter().any(|w| w == "--window");
+    let parse = |t: &str| serde_json::from_str::<Value>(t).map_err(|e| format!("settings aren't JSON: {e}"));
+    let states: Vec<(String, Value)> = match (value("--config-lines"), value("--config")) {
+        (Some(file), _) => {
+            let text = std::fs::read_to_string(&file).map_err(|e| format!("{file}: {e}"))?;
+            let lines: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
+            lines.iter().enumerate().map(|(i, l)| parse(l).map(|v| (format!("{name}-{i:03}"), v))).collect::<Result<_, _>>()?
+        }
+        (None, Some(json)) => vec![(name, parse(&json)?)],
+        (None, None) => vec![(name, json!({}))],
+    };
+    let scenes: Vec<Scene> = states.into_iter().map(|(id, settings)| {
+        let plugin = plugin.clone();
+        let (plugin2, props, phone) = (plugin.clone(), settings.get("_props").cloned(), settings.get("_state").cloned());
+        Scene::new(id, move || {
+            let (plugin2, props, phone) = (plugin2.clone(), props.clone(), phone.clone());
+            let mut config = main_window_config(true);
+            if whole_window {
+                // the first-run checklist is done, so the video stage shows the preview
+                config["plugin_configs"]["onboarding"] = json!({"streamed": true});
+            } else {
+                config["selected_device"] = json!("phone-1");
+                config["devices"] = json!({"phone-1": {"plugin_configs": {plugin.as_str(): settings.clone()}}});
+            }
+            // a plugin that keeps one copy for the whole app reads it from here
+            config["plugin_configs"][plugin.as_str()] = settings.clone();
+            let page = if whole_window { Page::WindowTop } else { Page::Card { plugin: plugin.clone() } };
+            Setup { page, then: Some(Box::new(move |w| {
+                telescope_shell::scenes::hold_still(w);
+                w.emit(telescope_core::event::Event::PhonesChanged { count: 1 });
+                if let Some(state) = &phone {
+                    streaming_phone(w, state);
+                }
+                card_props(w, &plugin2, &props);
+            })), ..Setup::window(Some(services(quiet())), config, width, if whole_window { 900.0 } else { 400.0 }) }
+        })
+    }).collect();
+    let (n, failed) = telescope_shell::scenes::render(&scenes, &[scale], std::path::Path::new(out))?;
+    for line in &failed {
+        eprintln!("couldn't render {line}");
+    }
+    println!("{n} pictures in {out}/{scale}x");
+    if failed.is_empty() { Ok(()) } else { Err(format!("{} failed", failed.len())) }
+}
+
+/// A phone streaming with this state ("_state" in a settings line): the source live and shown, and the plugins told the stream started and
+/// what the phone says about itself, as a real start does.
+fn streaming_phone(w: &std::rc::Rc<telescope_shell::window::Window>, state: &Value) {
+    let source = "phone:a";
+    {
+        let mut st = w.state.borrow_mut();
+        st.streams.live.push(source.into());
+        st.streams.source_id = Some(source.into());
+        st.streams.phone_state = Some(state.clone());
+        let info = telescope_core::plugin::StreamInfo { source_id: source.into(), url: "url".into(), session: 1 };
+        for i in 0..st.slots.len() {
+            st.call(i, |p, host| {
+                p.on_stream_start(host, &info);
+                p.on_phone_state(host, state);
+            });
+        }
+    }
+    w.process();
+}
+
+/// Puts properties straight on a card ("_props" in a settings line), for states settings can't reach: a plugin that shows its saved
+/// settings only through its own events. Colour grading's wheel-x and wheel-y also get their wheel-colour.
+fn card_props(w: &std::rc::Rc<telescope_shell::window::Window>, plugin: &str, props: &Option<Value>) {
+    let Some(Value::Object(props)) = props else { return };
+    let mut props = props.clone();
+    if let (true, Some(x), Some(y)) = (plugin == "colour_grading", props.get("wheel-x").and_then(Value::as_array), props.get("wheel-y").and_then(Value::as_array)) {
+        let colours: Vec<Value> = x.iter().zip(y).map(|(x, y)| json!(telescope_effects::colour_grading::wheel_colour(x.as_f64().unwrap_or(0.0), y.as_f64().unwrap_or(0.0), 1.6))).collect();
+        props.insert("wheel-colour".into(), Value::Array(colours));
+    }
+    for (key, value) in &props {
+        w.set_card_property(plugin, "card", key, value);
+    }
+}
+
+/// `scenes OUT --setup-clip [--scale S]`: the Get set up stages and the Add phone dialog as the site's setup clip shows them, in a 1300 x 760 window.
+fn setup_clip_scenes() -> Vec<Scene> {
+    SITE_PHONE.store(true, std::sync::atomic::Ordering::Relaxed);
+    let window = |id: &'static str, phone: bool, vcam: bool, stream: bool| {
+        Scene::new(id, move || {
+            let mut config = main_window_config(phone);
+            if phone {
+                config["plugin_configs"]["connection"]["phones"][0]["name"] = json!("Pixel 9 Pro");
+            }
+            config["plugin_configs"]["connection"]["computer_id"] = json!("computer-id");
+            config["plugin_configs"]["connection"]["computer_name"] = json!("Studio PC");
+            if stream {
+                config["plugin_configs"]["onboarding"] = json!({"streamed": true});
+            }
+            let link = if phone { SceneLink { answer: Some(res(PhoneStatus::Ready, Some("wifi"), None)), adb: true, network: true, pairs: false } } else { quiet() };
+            Setup { page: Page::WindowTop, then: Some(Box::new(move |w| {
+                if phone {
+                    w.emit(telescope_core::event::Event::PhonesChanged { count: 1 });
+                }
+                if stream {
+                    streaming_phone(w, &json!({"name": "Pixel 9 Pro"}));
+                    w.emit(telescope_core::event::Event::StreamConnected { source_id: "phone:a".into() });
+                    w.process();
+                    telescope_shell::scenes::show_live(w, "30", "7.8 Mbps");
+                }
+            })), ..Setup::window(Some(services_with(link, Changes { vcam_ready: vcam, ..Changes::default() })), config, 1300.0, 760.0) }
+        })
+    };
+    vec![
+        window("s1-checking", false, false, false),
+        window("s2-vcam", false, true, false),
+        window("s3-paired", true, true, false),
+        window("s4-live", true, true, true),
+        Scene::new("d-add", || add_phone(true, true)),
+        Scene::new("d-paired", || add_phone_pairing(true, true, true)),
+    ]
+}
+
 /// The command: OUT, then scene ids (all of them when none), then --scale with one or more factors (1 and 1.5); or
-/// --list for what list() says.
+/// --list for what list() says; or --card (see run_card); or --setup-clip (setup_clip_scenes).
 pub fn run(words: &[String]) -> Result<(), String> {
     if words.first().map(String::as_str) == Some("--list") {
         println!("{}", list());
@@ -1055,6 +1205,18 @@ pub fn run(words: &[String]) -> Result<(), String> {
     let Some(out) = words.first() else {
         return Err("usage: telescope-rs scenes OUT [ids] [--scale 1 1.5]".into());
     };
+    if words.iter().any(|w| w == "--card") {
+        return run_card(out, &words[1..]);
+    }
+    if words.iter().any(|w| w == "--setup-clip") {
+        let scale = words.iter().position(|w| w == "--scale").and_then(|i| words.get(i + 1)).and_then(|s| s.parse::<f32>().ok()).unwrap_or(2.0);
+        let (n, failed) = telescope_shell::scenes::render(&setup_clip_scenes(), &[scale], std::path::Path::new(out))?;
+        for line in &failed {
+            eprintln!("couldn't render {line}");
+        }
+        println!("{n} pictures in {out}/{scale}x");
+        return if failed.is_empty() { Ok(()) } else { Err(format!("{} failed", failed.len())) };
+    }
     let (mut ids, mut scales, mut in_scales) = (Vec::new(), Vec::new(), false);
     for w in &words[1..] {
         if w == "--scale" {

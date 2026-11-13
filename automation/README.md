@@ -4,5 +4,6 @@ Scripts and notes for the jobs around Telescope that aren't part of either app o
 
 - [translation/](translation/README.md): translating both apps cheaply with AI models
 - [release-testing/](release-testing/README.md): going through the [release checklist](../docs/release-checklist.md) against a nightly on a Windows VM and the Android emulator
+- [site-media/](site-media/README.md): remaking the website and README clips from the current desktop app
 
 Translation leans on the repo's own tool for the desktop's catalogues, `rust/tools/i18n.py`.

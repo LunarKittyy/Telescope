@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desk shot</title>
+<link rel="stylesheet" href="../fonts/fonts.css">
+<style>
+@font-face { font-family: "Caveat"; src: url(../fonts/Caveat.woff2) format("woff2"); font-weight: 500; }
+html, body { margin: 0; background: #0f1216; }
+body { width: 1920px; height: 1080px; overflow: hidden; }
+#stage { position: absolute; inset: 0; overflow: hidden; background: #3a2b26; perspective: 1500px; perspective-origin: 50% 8%; }
+/* the desk seen from above, then tipped away from the phone */
+#plane { position: absolute; left: -340px; top: -330px; width: 2600px; height: 1700px; transform-origin: 50% 40%; transform: rotateX(38deg) rotateZ(-3deg) translateZ(-760px); }
+#wood { position: absolute; left: -1500px; top: -1400px; width: 5600px; height: 4400px; }
+#sheet { position: absolute; left: 600px; top: 40px; width: 1414px; height: 1000px; transform: rotate(-7deg); transform-origin: 50% 50%; }
+#sheet .paper { position: absolute; inset: 0; background: #ece7dc; box-shadow: 0 18px 30px rgba(0,0,0,0.38), 0 2px 4px rgba(0,0,0,0.3); }
+#sheet svg { position: absolute; inset: 0; }
+.pin { position: absolute; width: 0; height: 0; }
+#light { position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(1300px 900px at 62% 30%, rgba(255,214,160,0.22), rgba(255,214,160,0) 70%),
+              radial-gradient(1800px 1200px at 50% 45%, rgba(0,0,0,0) 45%, rgba(0,0,0,0.42) 100%); }
+#grain { position: absolute; inset: 0; opacity: 0.16; mix-blend-mode: overlay; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="plane">
+    <svg id="wood" viewBox="-1500 -1400 5600 4400"></svg>
+    <div id="pencil" style="position:absolute;left:300px;top:1110px;width:760px;height:46px;transform:rotate(-14deg);transform-origin:0 50%"></div>
+    <div id="sheet">
+      <div class="paper"></div>
+      <svg id="sketch" viewBox="0 0 1414 1000"></svg>
+      <div class="pin" style="left:0;top:0"></div><div class="pin" style="left:1414px;top:0"></div>
+      <div class="pin" style="left:1414px;top:1000px"></div><div class="pin" style="left:0;top:1000px"></div>
+    </div>
+  </div>
+  <div id="light"></div>
+  <canvas id="grain" width="1920" height="1080"></canvas>
+</div>
+<script>
+let seed = 17;
+const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const jit = a => (rand() * 2 - 1) * a;
+const NS = "http://www.w3.org/2000/svg";
+const f = v => v.toFixed(1);
+
+// wood: a warm base and long uneven grain lines
+(() => {
+  const w = document.getElementById("wood");
+  let s = `<defs><linearGradient id="wg" x1="0" y1="0" x2="1" y2="0.2"><stop offset="0" stop-color="#5d4439"/><stop offset="0.5" stop-color="#6c5045"/><stop offset="1" stop-color="#57403a"/></linearGradient></defs>`;
+  s += `<rect x="-1500" y="-1400" width="5600" height="4400" fill="url(#wg)"/>`;
+  for (let i = 0; i < 150; i++) {
+    const y0 = rand() * 4400 - 1400, amp = 4 + rand() * 18, ph = rand() * 6;
+    let d = `M-1500 ${f(y0)}`;
+    for (let x = -1500; x <= 4100; x += 80) d += ` L${x} ${f(y0 + Math.sin(x / (260 + i * 7) + ph) * amp + jit(1.5))}`;
+    const dark = rand() < 0.6;
+    s += `<path d="${d}" fill="none" stroke="${dark ? "#3f2c27" : "#7d6052"}" stroke-width="${f(1 + rand() * 3.5)}" opacity="${f(0.12 + rand() * 0.25)}"/>`;
+  }
+  w.innerHTML = s;
+})();
+
+// a pencil lying by the sheet
+document.getElementById("pencil").innerHTML = `<svg viewBox="0 0 760 46" width="760" height="46">
+  <rect x="10" y="14" width="620" height="30" rx="4" fill="#000" opacity="0.3" filter="blur(6px)"/>
+  <rect x="0" y="6" width="620" height="30" rx="3" fill="#e3b54f"/><rect x="0" y="6" width="620" height="9" fill="#efc867"/><rect x="0" y="27" width="620" height="9" fill="#c99a3a"/>
+  <rect x="-34" y="6" width="40" height="30" rx="2" fill="#c9a7b0"/><rect x="0" y="6" width="22" height="30" fill="#b8b6bd"/>
+  <path d="M620 6 L700 21 L620 36 Z" fill="#e2c49c"/><path d="M684 18 L712 21 L684 24 Z" fill="#3a3640"/></svg>`;
+
+// pencil sketch: each line drawn twice, a little off, like a hand going over it
+(() => {
+  const g = document.getElementById("sketch");
+  const pencil = "#3a3740";
+  const stroke = (pts, w = 3.2, op = 0.82) => {
+    let out = "";
+    for (let pass = 0; pass < 2; pass++) {
+      const p = pts.map(([x, y]) => [x + jit(2.2), y + jit(2.2)]);
+      let d = `M${f(p[0][0])} ${f(p[0][1])}`;
+      for (let i = 1; i < p.length; i++) d += ` L${f(p[i][0])} ${f(p[i][1])}`;
+      out += `<path d="${d}" fill="none" stroke="${pencil}" stroke-width="${f(w * (pass ? 0.7 : 1))}" stroke-linecap="round" stroke-linejoin="round" opacity="${f(op * (pass ? 0.55 : 1))}"/>`;
+    }
+    return out;
+  };
+  const line = (a, b, n = 8) => Array.from({ length: n + 1 }, (_, i) => [lerp(a[0], b[0], i / n), lerp(a[1], b[1], i / n)]);
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const text = (x, y, s, size = 64, rot = 0) => `<text x="${x}" y="${y}" font-family="Caveat" font-weight="500" font-size="${size}" fill="${pencil}" opacity="0.86" transform="rotate(${rot} ${x} ${y})">${s}</text>`;
+  let s = `<g style="filter: blur(0.35px)">`;
+  s += text(120, 150, "Pythagoras", 84, -1.5);
+  s += stroke(line([118, 172], [470, 166], 10), 2.6, 0.7);
+  // the triangle: right angle bottom left
+  const A = [210, 830], B = [800, 830], C = [210, 390];
+  s += stroke(line(A, B, 12)) + stroke(line(A, C, 12)) + stroke(line(C, B, 14));
+  s += stroke([[210, 780], [260, 780], [260, 830]], 2.4, 0.75);
+  s += text(480, 905, "4", 70) + text(140, 625, "3", 70) + text(530, 585, "c", 74);
+  s += text(840, 330, "a² + b² = c²", 78, -2);
+  s += text(840, 480, "3² + 4² = 9 + 16", 68, -1);
+  s += text(860, 600, "= 25", 68, -1);
+  s += text(840, 760, "c = 5", 82, -2.5);
+  // a loose loop round the answer
+  const loop = Array.from({ length: 34 }, (_, i) => { const a = -0.6 + i / 33 * Math.PI * 2.15; return [960 + Math.cos(a) * 150 * (1 + i * 0.004), 735 + Math.sin(a) * 66]; });
+  s += stroke(loop, 2.6, 0.7);
+  s += `</g>`;
+  g.innerHTML = s;
+})();
+
+// grain
+(() => {
+  const c = document.getElementById("grain"), q = c.getContext("2d"), im = q.createImageData(1920, 1080);
+  let sd = 5;
+  for (let i = 0; i < im.data.length; i += 4) { sd = (sd * 16807) % 2147483647; const v = 128 + ((sd % 1000) / 1000 - 0.5) * 110; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
+  q.putImageData(im, 0, 0);
+})();
+window.CFG = { kind: "desk", L: 1 };
+</script>
+<script src="feed.js"></script>
+<script>document.fonts.ready.then(() => { const s = document.createElement("script"); s.src = "tiles.js"; document.body.appendChild(s); });</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+work/
+scenes/pro/card/
+scenes/pro/states.js
+scenes/lenses/img/
+scenes/setup/img/s[0-9]-*.png
+scenes/setup/img/d-*.png

@@ -20,6 +20,8 @@ pub use crate::layout::{WIDTH_THREE_COL, WIDTH_TWO_COL};
 /// cut out of the window (Qt draws dialogs as windows of their own).
 pub enum Page {
     Window,
+    /// The main window cut off at the height asked for instead of growing to fit its columns (much quicker to draw, for the site's clips).
+    WindowTop,
     Settings(String),
     /// The settings window on a tab with this typed into its search box.
     SettingsSearch { tab: String, query: String },
@@ -176,6 +178,7 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
     }
     let picture = match &setup.page {
         Page::Window => grown(&w, setup.width, setup.height, scale),
+        Page::WindowTop => crate::offscreen::draw(w.ui.window(), setup.width, setup.height, scale),
         Page::Card { plugin } => {
             if !w.only_card(plugin) {
                 return Err(format!("{plugin} has no card"));
@@ -285,7 +288,21 @@ fn render_one(scene: &Scene, scale: f32) -> Result<crate::offscreen::Picture, St
     picture.ok_or_else(|| "nothing drawn".into())
 }
 
+/// The window as it is a moment into a stream (for the site's clips): the start button says Stop, the status bar says Live with a frame rate and throughput.
+pub fn show_live(w: &std::rc::Rc<window::Window>, fps: &str, net: &str) {
+    w.show_streaming();
+    w.set("status", telescope_core::i18n::tr("Live"));
+    w.set("status-kind", "status_ok");
+    w.set("fps", fps);
+    w.set("net", net);
+}
+
 /// Lets what plugins started on their threads come back: runs the event loop's jobs until none came for a while.
+/// Turns the window's motion off, so a picture is never caught mid-spring and the same settings always draw the same pixels.
+pub fn hold_still(w: &std::rc::Rc<window::Window>) {
+    let _ = w.ui.set_global_property("Motion", "off", slint_interpreter::Value::Bool(true));
+}
+
 fn settle(w: &std::rc::Rc<window::Window>) {
     let (start, mut quiet) = (Instant::now(), Instant::now());
     while start.elapsed() < Duration::from_secs(3) && quiet.elapsed() < Duration::from_millis(150) {
