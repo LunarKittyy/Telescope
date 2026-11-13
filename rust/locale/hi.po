@@ -3049,7 +3049,7 @@ msgstr "ग्रेड एक्सपोर्ट करें"
 msgid "Save the grade and LUT as a .cube file to use in other apps."
 msgstr "दूसरे ऐप्स में इस्तेमाल करने के लिए ग्रेड और LUT को .cube फ़ाइल के रूप में सेव करें."
 
-#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:755
+#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:752
 msgid "Replace"
 msgstr "बदलें"
 
@@ -7380,55 +7380,50 @@ msgstr "डाउनलोड करें और चालू करें"
 msgid "Its settings stay saved for when you switch it back on."
 msgstr "इसकी सेटिंग्स सुरक्षित रहती हैं ताकि जब आप इसे फिर से चालू करें तो वे काम आ सकें."
 
-#: rust/crates/shell/src/plugins_tab.rs:740
-msgid "This was the vision pack, not a plugin. Plugins that need it can be switched on now."
+#: rust/crates/shell/src/plugins_tab.rs:739
+msgid "This is the vision pack, not a plugin. It's being checked and installed in the background, and the download banner shows how it goes."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:741
-#, python-brace-format
-msgid "This is the vision pack, not a plugin. {problem}"
-msgstr ""
-
-#: rust/crates/shell/src/plugins_tab.rs:753
+#: rust/crates/shell/src/plugins_tab.rs:750
 #, python-brace-format
 msgid "Replace {plugin}?"
 msgstr "{plugin} बदलें?"
 
-#: rust/crates/shell/src/plugins_tab.rs:754
+#: rust/crates/shell/src/plugins_tab.rs:751
 msgid "The version in this .zip replaces the installed version and keeps its settings. Like any added plugin, it starts switched off."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:766
+#: rust/crates/shell/src/plugins_tab.rs:763
 #, python-brace-format
 msgid "{plugin} was installed, but it can't run yet. {problem}"
 msgstr "{plugin} इंस्टॉल हो गया था, लेकिन यह अभी चल नहीं सकता. {problem}"
 
-#: rust/crates/shell/src/plugins_tab.rs:768
+#: rust/crates/shell/src/plugins_tab.rs:765
 #, python-brace-format
 msgid "{plugin} {version} is installed but switched off. To use it, switch it on again and restart Telescope."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:770
+#: rust/crates/shell/src/plugins_tab.rs:767
 #, python-brace-format
 msgid "{plugin} is installed but switched off. To use it, switch it on and restart Telescope."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:780
+#: rust/crates/shell/src/plugins_tab.rs:777
 #, python-brace-format
 msgid "Telescope couldn't save the change: {error}"
 msgstr "Telescope बदलाव को सेव नहीं कर सका: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:804
+#: rust/crates/shell/src/plugins_tab.rs:801
 #, python-brace-format
 msgid "Telescope couldn't delete its folder: {error}"
 msgstr "Telescope इसका फ़ोल्डर मिटा नहीं सका: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:812
+#: rust/crates/shell/src/plugins_tab.rs:809
 #, python-brace-format
 msgid "Telescope couldn't delete it: {error}"
 msgstr "Telescope इसे मिटा नहीं सका: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:849
+#: rust/crates/shell/src/plugins_tab.rs:846
 #, python-brace-format
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr "Telescope इसका प्लगइन्स फ़ोल्डर नहीं बना सका: {error}"
@@ -8861,7 +8856,7 @@ msgstr ""
 msgid "Couldn't check for updates (HTTP {code})."
 msgstr "अपडेट नहीं खोजे जा सके (HTTP {code})."
 
-#: rust/crates/system/src/updates.rs:239 rust/crates/vision/src/pack.rs:334
+#: rust/crates/system/src/updates.rs:239 rust/crates/vision/src/pack.rs:337
 msgid "The download failed. Check the internet connection and try again."
 msgstr "डाउनलोड विफल रहा. इंटरनेट कनेक्शन जांचें और फिर कोशिश करें."
 
@@ -8877,7 +8872,7 @@ msgstr "Telescope खुद को अपडेट नहीं कर सकत
 msgid "Telescope's folder isn't writable, so it can't update itself."
 msgstr "Telescope के फ़ोल्डर में लिखने की अनुमति नहीं है, इसलिए यह खुद अपडेट नहीं हो सकता."
 
-#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:383
+#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:386
 msgid "The download couldn't be unpacked."
 msgstr "डाउनलोड अनपैक नहीं किया जा सका."
 
@@ -9353,31 +9348,31 @@ msgstr "कीबोर्ड शॉर्टकट जोड़ें…"
 msgid "The download didn't match what this version of Telescope expects, so it wasn't used."
 msgstr "डाउनलोड Telescope के इस वर्शन की अपेक्षा के अनुरूप नहीं था, इसलिए इसका इस्तेमाल नहीं किया गया."
 
-#: rust/crates/vision/src/pack.rs:255
+#: rust/crates/vision/src/pack.rs:258
 msgid "There's no vision pack for this computer."
 msgstr ""
 
-#: rust/crates/vision/src/pack.rs:268
+#: rust/crates/vision/src/pack.rs:271
 msgid "The vision pack couldn't be installed."
 msgstr ""
 
-#: rust/crates/vision/src/pack.rs:293
+#: rust/crates/vision/src/pack.rs:296
 msgid "There's no download for this computer yet."
 msgstr "इस कंप्यूटर के लिए अभी कोई डाउनलोड उपलब्ध नहीं है."
 
-#: rust/crates/vision/src/pack.rs:307
+#: rust/crates/vision/src/pack.rs:310
 msgid "Cancelled."
 msgstr "रद्द किया गया."
 
-#: rust/crates/vision/src/pack.rs:315
+#: rust/crates/vision/src/pack.rs:318
 msgid "The download is bigger than it should be."
 msgstr "डाउनलोड तय साइज़ से बड़ा है."
 
-#: rust/crates/vision/src/pack.rs:384
+#: rust/crates/vision/src/pack.rs:387
 msgid "The download unpacks to more than it should, so it wasn't used."
 msgstr "डाउनलोड ज़रूरत से ज़्यादा बड़ा अनपैक होता है, इसलिए इसका इस्तेमाल नहीं किया गया."
 
-#: rust/crates/vision/src/pack.rs:393
+#: rust/crates/vision/src/pack.rs:396
 msgid "The download contains unexpected paths, so it wasn't used."
 msgstr "डाउनलोड में अनपेक्षित पाथ हैं, इसलिए इसका इस्तेमाल नहीं किया गया."
 
@@ -9572,7 +9567,7 @@ msgstr "अपडेट में अनपेक्षित फ़ाइले
 msgid "The download doesn't contain Telescope, so it wasn't installed."
 msgstr "डाउनलोड में Telescope नहीं है, इसलिए इसे इंस्टॉल नहीं किया गया."
 
-#: rust/crates/shell/src/plugins_tab.rs:768
+#: rust/crates/shell/src/plugins_tab.rs:765
 msgid "Replaced"
 msgstr "बदल दिया गया"
 

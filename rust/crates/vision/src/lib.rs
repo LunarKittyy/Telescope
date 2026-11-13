@@ -432,16 +432,51 @@ impl VisionService for VisionHost {
         self.shared.cancel.store(true, Ordering::SeqCst);
     }
 
-    fn install_pack_zip(&self, archive: &Path) -> Option<Result<(), String>> {
-        let name = archive.file_name()?.to_string_lossy();
-        if !pack::is_pack_zip_name(&name) || self.shared.download.lock().unwrap().running {
-            return None;
+    fn install_pack_zip(&self, archive: &Path) -> bool {
+        let Some(kind) = archive.file_name().and_then(|n| pack::pack_zip_kind(&n.to_string_lossy())) else { return false };
+        let (info, dir, state, cancel, matting) = match kind {
+            pack::Kind::Vision => (self.shared.info.clone(), self.shared.dir.clone(), None, self.shared.cancel.clone(), false),
+            pack::Kind::Matting => match self.cutout_pack() {
+                Some(c) => (c.info.clone(), c.dir.clone(), Some(c.clone()), c.cancel.clone(), true),
+                None => return false,
+            },
+        };
+        let slot = |shared: &Shared, cutout: &Option<Arc<CutoutPack>>| match cutout {
+            Some(c) => c.download.lock().unwrap().running,
+            None => shared.download.lock().unwrap().running,
+        };
+        if slot(&self.shared, &state) {
+            return true;
         }
-        let result = pack::install_zip(&self.shared.info, &self.shared.dir, archive).map(|_| ()).map_err(|e| e.0);
-        if result.is_ok() {
-            self.shared.vision.pack_downloaded();
+        let set = |shared: &Shared, cutout: &Option<Arc<CutoutPack>>, f: &dyn Fn(&mut Download)| match cutout {
+            Some(c) => f(&mut c.download.lock().unwrap()),
+            None => f(&mut shared.download.lock().unwrap()),
+        };
+        set(&self.shared, &state, &|d| {
+            d.running = true;
+            d.error.clear();
+            d.failed_for.clear();
+            d.done = 0;
+            d.size = 0;
+        });
+        cancel.store(false, Ordering::SeqCst);
+        let (shared, archive) = (self.shared.clone(), archive.to_path_buf());
+        let again = state.clone();
+        let started = std::thread::Builder::new().name("pack-install".into()).spawn(move || {
+            let error = pack::install_zip(&info, &dir, &archive).err().map(|e| e.0).unwrap_or_default();
+            set(&shared, &again, &|d| {
+                d.running = false;
+                d.error = error.clone();
+            });
+            if error.is_empty() {
+                if matting { shared.vision.cutout_downloaded() } else { shared.vision.pack_downloaded() }
+            }
+            emit(&shared.bus, Event::VisionDownloadFinished { error, switch_on: String::new() });
+        });
+        if started.is_err() {
+            set(&self.shared, &state, &|d| d.running = false);
         }
-        Some(result)
+        true
     }
 
     fn remove_pack(&self) -> Result<(), String> {

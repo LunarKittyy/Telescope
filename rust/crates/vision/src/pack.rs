@@ -242,10 +242,13 @@ fn place(archive: &Path, staging: &Path, vision_dir: &Path, id: &str, pid: &str,
     Ok(last)
 }
 
-/// Whether a file name is a vision pack zip from the release (Telescope-vision-<platform>-<id>.zip), as a browser may have renamed it.
-pub fn is_pack_zip_name(name: &str) -> bool {
+/// Which pack a file name is the zip of (Telescope-vision-<platform>-<id>.zip or Telescope-matting-...), as a browser may have renamed it.
+pub fn pack_zip_kind(name: &str) -> Option<Kind> {
     let lower = name.to_ascii_lowercase();
-    lower.starts_with("telescope-vision-") && lower.ends_with(".zip")
+    if !lower.ends_with(".zip") {
+        return None;
+    }
+    [Kind::Vision, Kind::Matting].into_iter().find(|k| lower.starts_with(&format!("telescope-{}-", k.asset())))
 }
 
 /// Install a pack zip the person already has (downloaded from the release by hand) through the same unpack and hash check as the

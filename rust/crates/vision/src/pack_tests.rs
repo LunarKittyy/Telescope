@@ -308,7 +308,7 @@ fn a_pack_zip_downloaded_by_hand_is_installed_like_the_download() {
     let f = Fixture::new();
     let zip = f.folder.parent().unwrap().join("Telescope-vision-linux-0123456789abcdef.zip");
     std::fs::write(&zip, f.served.lock().unwrap().clone()).unwrap();
-    assert!(is_pack_zip_name("Telescope-vision-windows-ab12 (1).zip") && !is_pack_zip_name("my-plugin.zip"));
+    assert!(pack_zip_kind("Telescope-vision-windows-ab12 (1).zip") == Some(Kind::Vision) && pack_zip_kind("Telescope-matting-linux-ab.zip") == Some(Kind::Matting) && pack_zip_kind("my-plugin.zip").is_none());
     let last = install_zip(&f.info, &f.folder, &zip).unwrap();
     assert_eq!(last, f.info.folder(&f.folder));
     assert!(f.info.installed(&f.folder));

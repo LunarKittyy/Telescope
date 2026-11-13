@@ -3049,7 +3049,7 @@ msgstr "Esporta correzione"
 msgid "Save the grade and LUT as a .cube file to use in other apps."
 msgstr "Salva la correzione colore e la LUT come file .cube da usare in altre app."
 
-#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:755
+#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:752
 msgid "Replace"
 msgstr "Sostituisci"
 
@@ -7380,55 +7380,50 @@ msgstr "Scarica e attiva"
 msgid "Its settings stay saved for when you switch it back on."
 msgstr "Le sue impostazioni rimarranno salvate per quando lo riattiverai."
 
-#: rust/crates/shell/src/plugins_tab.rs:740
-msgid "This was the vision pack, not a plugin. Plugins that need it can be switched on now."
+#: rust/crates/shell/src/plugins_tab.rs:739
+msgid "This is the vision pack, not a plugin. It's being checked and installed in the background, and the download banner shows how it goes."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:741
-#, python-brace-format
-msgid "This is the vision pack, not a plugin. {problem}"
-msgstr ""
-
-#: rust/crates/shell/src/plugins_tab.rs:753
+#: rust/crates/shell/src/plugins_tab.rs:750
 #, python-brace-format
 msgid "Replace {plugin}?"
 msgstr "Vuoi sostituire {plugin}?"
 
-#: rust/crates/shell/src/plugins_tab.rs:754
+#: rust/crates/shell/src/plugins_tab.rs:751
 msgid "The version in this .zip replaces the installed version and keeps its settings. Like any added plugin, it starts switched off."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:766
+#: rust/crates/shell/src/plugins_tab.rs:763
 #, python-brace-format
 msgid "{plugin} was installed, but it can't run yet. {problem}"
 msgstr "{plugin} è stato installato, ma non può ancora essere eseguito. {problem}"
 
-#: rust/crates/shell/src/plugins_tab.rs:768
+#: rust/crates/shell/src/plugins_tab.rs:765
 #, python-brace-format
 msgid "{plugin} {version} is installed but switched off. To use it, switch it on again and restart Telescope."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:770
+#: rust/crates/shell/src/plugins_tab.rs:767
 #, python-brace-format
 msgid "{plugin} is installed but switched off. To use it, switch it on and restart Telescope."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:780
+#: rust/crates/shell/src/plugins_tab.rs:777
 #, python-brace-format
 msgid "Telescope couldn't save the change: {error}"
 msgstr "Telescope non è riuscito a salvare la modifica: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:804
+#: rust/crates/shell/src/plugins_tab.rs:801
 #, python-brace-format
 msgid "Telescope couldn't delete its folder: {error}"
 msgstr "Telescope non è riuscito a eliminare la sua cartella: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:812
+#: rust/crates/shell/src/plugins_tab.rs:809
 #, python-brace-format
 msgid "Telescope couldn't delete it: {error}"
 msgstr "Telescope non è riuscito a eliminarlo: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:849
+#: rust/crates/shell/src/plugins_tab.rs:846
 #, python-brace-format
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr "Telescope non è riuscito a creare la cartella dei plugin: {error}"
@@ -8861,7 +8856,7 @@ msgstr ""
 msgid "Couldn't check for updates (HTTP {code})."
 msgstr "Impossibile controllare gli aggiornamenti (HTTP {code})."
 
-#: rust/crates/system/src/updates.rs:239 rust/crates/vision/src/pack.rs:334
+#: rust/crates/system/src/updates.rs:239 rust/crates/vision/src/pack.rs:337
 msgid "The download failed. Check the internet connection and try again."
 msgstr "Download non riuscito. Controlla la connessione a Internet e riprova."
 
@@ -8877,7 +8872,7 @@ msgstr "Telescope non può aggiornarsi perché la cartella che contiene questo A
 msgid "Telescope's folder isn't writable, so it can't update itself."
 msgstr "La cartella di Telescope non è scrivibile, quindi non può aggiornarsi automaticamente."
 
-#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:383
+#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:386
 msgid "The download couldn't be unpacked."
 msgstr "Impossibile estrarre il file scaricato."
 
@@ -9353,31 +9348,31 @@ msgstr "Aggiungi scorciatoia da tastiera…"
 msgid "The download didn't match what this version of Telescope expects, so it wasn't used."
 msgstr "Il download non corrisponde al suo checksum, quindi non è stato installato."
 
-#: rust/crates/vision/src/pack.rs:255
+#: rust/crates/vision/src/pack.rs:258
 msgid "There's no vision pack for this computer."
 msgstr ""
 
-#: rust/crates/vision/src/pack.rs:268
+#: rust/crates/vision/src/pack.rs:271
 msgid "The vision pack couldn't be installed."
 msgstr ""
 
-#: rust/crates/vision/src/pack.rs:293
+#: rust/crates/vision/src/pack.rs:296
 msgid "There's no download for this computer yet."
 msgstr "Non è ancora disponibile un download per questo computer."
 
-#: rust/crates/vision/src/pack.rs:307
+#: rust/crates/vision/src/pack.rs:310
 msgid "Cancelled."
 msgstr "Annullato."
 
-#: rust/crates/vision/src/pack.rs:315
+#: rust/crates/vision/src/pack.rs:318
 msgid "The download is bigger than it should be."
 msgstr "Il download è più grande del previsto."
 
-#: rust/crates/vision/src/pack.rs:384
+#: rust/crates/vision/src/pack.rs:387
 msgid "The download unpacks to more than it should, so it wasn't used."
 msgstr "Il download estratto supera le dimensioni previste, quindi non è stato usato."
 
-#: rust/crates/vision/src/pack.rs:393
+#: rust/crates/vision/src/pack.rs:396
 msgid "The download contains unexpected paths, so it wasn't used."
 msgstr "Il download contiene percorsi imprevisti, quindi non è stato utilizzato."
 
@@ -9572,7 +9567,7 @@ msgstr "L'aggiornamento contiene file imprevisti, quindi non è stato installato
 msgid "The download doesn't contain Telescope, so it wasn't installed."
 msgstr "Il download non contiene Telescope, quindi non è stato installato."
 
-#: rust/crates/shell/src/plugins_tab.rs:768
+#: rust/crates/shell/src/plugins_tab.rs:765
 msgid "Replaced"
 msgstr "Sostituito"
 

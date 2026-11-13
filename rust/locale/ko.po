@@ -3049,7 +3049,7 @@ msgstr "색보정 내보내기"
 msgid "Save the grade and LUT as a .cube file to use in other apps."
 msgstr "다른 앱에서 사용할 수 있도록 색보정과 LUT를 .cube 파일로 저장해요."
 
-#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:755
+#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:752
 msgid "Replace"
 msgstr "덮어쓰기"
 
@@ -7379,55 +7379,50 @@ msgstr "다운로드 후 켜기"
 msgid "Its settings stay saved for when you switch it back on."
 msgstr "설정은 다시 켤 때를 위해 그대로 저장돼요."
 
-#: rust/crates/shell/src/plugins_tab.rs:740
-msgid "This was the vision pack, not a plugin. Plugins that need it can be switched on now."
+#: rust/crates/shell/src/plugins_tab.rs:739
+msgid "This is the vision pack, not a plugin. It's being checked and installed in the background, and the download banner shows how it goes."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:741
-#, python-brace-format
-msgid "This is the vision pack, not a plugin. {problem}"
-msgstr ""
-
-#: rust/crates/shell/src/plugins_tab.rs:753
+#: rust/crates/shell/src/plugins_tab.rs:750
 #, python-brace-format
 msgid "Replace {plugin}?"
 msgstr "{plugin}을(를) 바꿀까요?"
 
-#: rust/crates/shell/src/plugins_tab.rs:754
+#: rust/crates/shell/src/plugins_tab.rs:751
 msgid "The version in this .zip replaces the installed version and keeps its settings. Like any added plugin, it starts switched off."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:766
+#: rust/crates/shell/src/plugins_tab.rs:763
 #, python-brace-format
 msgid "{plugin} was installed, but it can't run yet. {problem}"
 msgstr "{plugin}이(가) 설치되었지만 아직 실행할 수 없어요. {problem}"
 
-#: rust/crates/shell/src/plugins_tab.rs:768
+#: rust/crates/shell/src/plugins_tab.rs:765
 #, python-brace-format
 msgid "{plugin} {version} is installed but switched off. To use it, switch it on again and restart Telescope."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:770
+#: rust/crates/shell/src/plugins_tab.rs:767
 #, python-brace-format
 msgid "{plugin} is installed but switched off. To use it, switch it on and restart Telescope."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:780
+#: rust/crates/shell/src/plugins_tab.rs:777
 #, python-brace-format
 msgid "Telescope couldn't save the change: {error}"
 msgstr "Telescope가 변경 사항을 저장하지 못했어요: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:804
+#: rust/crates/shell/src/plugins_tab.rs:801
 #, python-brace-format
 msgid "Telescope couldn't delete its folder: {error}"
 msgstr "Telescope가 해당 폴더를 삭제하지 못했어요: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:812
+#: rust/crates/shell/src/plugins_tab.rs:809
 #, python-brace-format
 msgid "Telescope couldn't delete it: {error}"
 msgstr "Telescope가 삭제하지 못했어요: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:849
+#: rust/crates/shell/src/plugins_tab.rs:846
 #, python-brace-format
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr "Telescope가 플러그인 폴더를 만들지 못했어요: {error}"
@@ -8853,7 +8848,7 @@ msgstr ""
 msgid "Couldn't check for updates (HTTP {code})."
 msgstr "업데이트를 확인할 수 없었어요(HTTP {code})."
 
-#: rust/crates/system/src/updates.rs:239 rust/crates/vision/src/pack.rs:334
+#: rust/crates/system/src/updates.rs:239 rust/crates/vision/src/pack.rs:337
 msgid "The download failed. Check the internet connection and try again."
 msgstr "다운로드하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 보세요."
 
@@ -8869,7 +8864,7 @@ msgstr "이 AppImage가 있는 폴더에 쓰기 권한이 없어 Telescope를 �
 msgid "Telescope's folder isn't writable, so it can't update itself."
 msgstr "Telescope 폴더에 쓰기 권한이 없어 자체 업데이트할 수 없어요."
 
-#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:383
+#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:386
 msgid "The download couldn't be unpacked."
 msgstr "다운로드 파일의 압축을 풀 수 없었어요."
 
@@ -9345,31 +9340,31 @@ msgstr "키보드 단축키 추가…"
 msgid "The download didn't match what this version of Telescope expects, so it wasn't used."
 msgstr "다운로드 파일이 이 Telescope 버전에서 요구하는 내용과 일치하지 않아 사용되지 않았어요."
 
-#: rust/crates/vision/src/pack.rs:255
+#: rust/crates/vision/src/pack.rs:258
 msgid "There's no vision pack for this computer."
 msgstr ""
 
-#: rust/crates/vision/src/pack.rs:268
+#: rust/crates/vision/src/pack.rs:271
 msgid "The vision pack couldn't be installed."
 msgstr ""
 
-#: rust/crates/vision/src/pack.rs:293
+#: rust/crates/vision/src/pack.rs:296
 msgid "There's no download for this computer yet."
 msgstr "이 컴퓨터용 다운로드가 아직 제공되지 않아요."
 
-#: rust/crates/vision/src/pack.rs:307
+#: rust/crates/vision/src/pack.rs:310
 msgid "Cancelled."
 msgstr "취소되었어요."
 
-#: rust/crates/vision/src/pack.rs:315
+#: rust/crates/vision/src/pack.rs:318
 msgid "The download is bigger than it should be."
 msgstr "다운로드한 파일 크기가 예상보다 커요."
 
-#: rust/crates/vision/src/pack.rs:384
+#: rust/crates/vision/src/pack.rs:387
 msgid "The download unpacks to more than it should, so it wasn't used."
 msgstr "다운로드 파일의 압축을 푼 크기가 허용치를 초과하여 사용하지 않았어요."
 
-#: rust/crates/vision/src/pack.rs:393
+#: rust/crates/vision/src/pack.rs:396
 msgid "The download contains unexpected paths, so it wasn't used."
 msgstr "다운로드 파일에 예기치 않은 경로가 포함되어 있어 사용되지 않았어요."
 
@@ -9563,7 +9558,7 @@ msgstr "업데이트에 예기치 않은 파일이 포함되어 있어 설치되
 msgid "The download doesn't contain Telescope, so it wasn't installed."
 msgstr "다운로드 파일에 Telescope가 포함되어 있지 않아 설치되지 않았어요."
 
-#: rust/crates/shell/src/plugins_tab.rs:768
+#: rust/crates/shell/src/plugins_tab.rs:765
 msgid "Replaced"
 msgstr "대체됨"
 
