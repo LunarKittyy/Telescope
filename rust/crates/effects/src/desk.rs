@@ -197,7 +197,7 @@ impl DeskPlugin {
         if self.picking {
             (String::new(), String::new(), "dim")
         } else if self.refused {
-            (tr("Sheet unclear"), tr("Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."), "status_warn")
+            (tr("Sheet unclear"), tr("Those corners were bunched up or in a line and weren't used. Mark the sheet again with a point on each corner."), "status_warn")
         } else if self.on && self.off_picture() {
             (tr("Sheet cut off"), tr("Part of the sheet is outside the picture. Zoom out or mark it again."), "status_warn")
         } else {
@@ -329,8 +329,8 @@ impl Plugin for DeskPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("Desk and document mode").into(),
-            about: n_("Straightens a sheet of paper you mark on the preview and can make the writing on it stand out.").into(),
-            when_off: n_("Without it there's no Desk mode card and the picture stays the way the camera sees it.").into(),
+            about: n_("Straighten a sheet of paper you mark on the preview and optionally make the writing on it stand out.").into(),
+            when_off: n_("Without the Desk and document mode plugin there's no Desk mode card and the picture stays the way the camera sees it.").into(),
             category: "camera".into(),
             icon: "pencil".into(),
             frame_stage: FrameStage::Geometry,

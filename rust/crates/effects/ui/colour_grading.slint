@@ -259,7 +259,7 @@ export component ColourGradingCard inherits Card {
                 icon: Icons.sparkle;
                 icon-tint: auto-label == "" ? Theme.ink2 : auto-label == @tr("Looks fine") ? Theme.ok : Theme.warn;
                 accessible-label: @tr("Auto colour grading");
-                tip: auto-busy ? @tr("Looking at the picture") : !auto-ready ? @tr("Auto") : auto-label != "" ? auto-label : @tr("Auto");
+                tip: auto-busy ? @tr("Analysing the picture") : !auto-ready ? @tr("Auto") : auto-label != "" ? auto-label : @tr("Auto");
                 tip-detail: auto-busy ? "" : !auto-ready ? @tr("Start the stream first, so Auto has a picture to look at.") : auto-label != "" ? "" : @tr("Set white balance, brightness, contrast and colour from about a second of the picture. You can still adjust everything on the sliders.");
                 clicked => { root.auto-clicked(); }
             }

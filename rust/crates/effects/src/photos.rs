@@ -53,7 +53,7 @@ const TIMER_TIP: &str = n_("Wait a few seconds before taking the photo.");
 const EXPOSURE_TIP: &str = n_("A long exposure keeps the video's ISO and the video stops while the shutter is open.");
 const BEST_TIP: &str = n_("Use extra noise reduction and sharpening on the photo only, not the video. Taking the photo takes a little longer.");
 const BEST_OFF_TIP: &str = n_("This lens and mode have no extra noise reduction or sharpening to offer");
-const QUALITY_CAMERA_TIP: &str = n_("The camera keeps its own JPEG quality");
+const QUALITY_CAMERA_TIP: &str = n_("JPEG quality is set by the camera");
 const QUALITY_RAW_TIP: &str = n_("RAW photos have no quality setting");
 const CAMERA_BUSY: &str = n_("The camera is already taking a photo.");
 const CAMERA_FAILED: &str = n_("The camera couldn't take the photo.");
@@ -820,9 +820,9 @@ impl PhotosPlugin {
         let name = Path::new(first).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         let more = files.len() - 1;
         let text = if more > 0 {
-            trn_open("It came late. Saved {name} and {n} more", "It came late. Saved {name} and {n} more", more as i64).field("name", &name)
+            trn_open("The photos arrived late. Saved {name} and {n} more", "The photos arrived late. Saved {name} and {n} more", more as i64).field("name", &name)
         } else {
-            tr("It came late. Saved {name}").field("name", &name)
+            tr("The photo arrived late. Saved {name}").field("name", &name)
         };
         self.last_saved = files;
         self.show_status(host, text.clone(), "status_ok");
@@ -852,8 +852,8 @@ impl Plugin for PhotosPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("Photos").into(),
-            about: n_("Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it.").into(),
-            when_off: n_("Without it there's no Photos card and no Take photo shortcut.").into(),
+            about: n_("Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it.").into(),
+            when_off: n_("Without the Photos plugin there's no Photos card and no Take photo shortcut.").into(),
             category: "camera".into(),
             icon: "photo".into(),
             optional: true,

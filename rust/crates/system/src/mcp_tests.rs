@@ -1336,7 +1336,7 @@ fn an_action_that_changes_nothing_saved_is_named_when_undo_cannot_put_it_back() 
     r.ask("run_action", json!({"action": "grading.reset"})).unwrap();
     r.ask("set", json!({"changes": {"grading.contrast": 1.4}})).unwrap();
     r.ui(HEADER, "undo", vec![]);
-    assert_eq!(r.plugin.log().remove(0).text, "Undid what the AI changed, except 1 it couldn't put back");
+    assert_eq!(r.plugin.log().remove(0).text, "Undid what the AI changed, except 1 that couldn't be restored");
 }
 
 #[test]

@@ -123,7 +123,7 @@ fn a_browser_gone_a_while_gets_the_wait_screen_and_a_banner() {
     r.skip(20_000);
     let banner = r.banner("stopped:browser").expect("a banner");
     assert_eq!(banner["title"], "Can't reach Browser camera");
-    assert_eq!(banner["text"], "Open the Telescope page in it again.");
+    assert_eq!(banner["text"], "Open the Telescope page in the browser again.");
     let starting = r.times_heard("microphone starting");
     r.worker(0).event(WorkerEvent::Reconnected);
     r.pump();

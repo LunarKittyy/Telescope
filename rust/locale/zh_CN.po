@@ -14,8 +14,8 @@ msgid "Needs {tools} (in pulseaudio-utils; PipeWire systems use it too)."
 msgstr "需要 {tools}（包含在 pulseaudio-utils 中，PipeWire 系统同样会用到）。"
 
 #: rust/crates/audio/src/backend.rs:166
-msgid "Once VB-Cable's setup says it's done, restart the computer, then switch this off and on."
-msgstr "VB-Cable 安装程序显示完成后，请重启电脑，然后关闭再开启此项。"
+msgid "When VB-Cable's setup has finished, restart the computer, then switch this off and on."
+msgstr ""
 
 #: rust/crates/audio/src/backend.rs:167
 msgid "Open setup again"
@@ -97,8 +97,8 @@ msgstr "所选音频源已不可用。"
 
 #: rust/crates/audio/src/plugin.rs:445
 #, python-brace-format
-msgid "On for {name}. Turning it on here turns it off there."
-msgstr "已为 {name} 开启。在这里开启后，那边会自动关闭。"
+msgid "On for {name}. Turning the microphone on here turns it off for {name}."
+msgstr ""
 
 #: rust/crates/audio/src/plugin.rs:474
 msgid "Mute microphone"
@@ -180,7 +180,7 @@ msgstr "获取 VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "消除打字声、风扇声和环境底噪。"
 
-#: rust/crates/audio/src/plugin.rs:957 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:619 rust/crates/effects/src/notes.rs:683 rust/crates/link/src/browser/plugin.rs:612 rust/crates/link/src/plugin.rs:1420 rust/crates/link/src/plugin.rs:1427 rust/crates/outputs/src/stream_output.rs:948 rust/crates/system/src/shortcuts.rs:528 rust/crates/system/src/shortcuts.rs:530
+#: rust/crates/audio/src/plugin.rs:957 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:619 rust/crates/effects/src/notes.rs:683 rust/crates/link/src/browser/plugin.rs:612 rust/crates/link/src/plugin.rs:1420 rust/crates/link/src/plugin.rs:1427 rust/crates/outputs/src/stream_output.rs:948 rust/crates/system/src/shortcuts.rs:544 rust/crates/system/src/shortcuts.rs:546
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}：{value}"
@@ -227,7 +227,7 @@ msgstr "按住时切换，松开时恢复"
 msgid "Does"
 msgstr "操作"
 
-#: rust/crates/audio/src/plugin.rs:1054 rust/crates/audio/src/plugin.rs:1127 rust/crates/audio/ui/microphone.slint:165 rust/crates/setup/ui/setup.slint:316
+#: rust/crates/audio/src/plugin.rs:1054 rust/crates/audio/src/plugin.rs:1127 rust/crates/audio/ui/microphone.slint:165 rust/crates/setup/ui/setup.slint:324
 msgid "Microphone"
 msgstr "麦克风"
 
@@ -236,8 +236,8 @@ msgid "Using the phone's microphone on this computer."
 msgstr "在这台电脑上使用手机的麦克风。"
 
 #: rust/crates/audio/src/plugin.rs:1056
-msgid "Without it there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone."
-msgstr "没有它就没有“麦克风”卡片，托盘菜单中也没有“静音”，Telescope 也不会创建虚拟麦克风。"
+msgid "Without the Microphone plugin there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone."
+msgstr ""
 
 #: rust/crates/audio/src/plugin.rs:1128
 msgid "Mute or unmute"
@@ -286,8 +286,8 @@ msgid "Couldn't download VB-Cable. Try again, or get it from their site."
 msgstr "无法下载 VB-Cable。请重试，或从其网站获取。"
 
 #: rust/crates/audio/src/vb_cable.rs:165
-msgid "VB-Audio's site didn't hand over VB-Cable. Try again later, or get it from their site."
-msgstr "VB-Audio 网站未提供 VB-Cable 下载。稍后重试，或从其官方网站获取。"
+msgid "Couldn't download VB-Cable from VB-Audio's site. Try again later, or get it from their site."
+msgstr ""
 
 #: rust/crates/audio/src/vb_cable.rs:166
 msgid "Couldn't check vb-audio.com's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this."
@@ -306,12 +306,12 @@ msgid "Couldn't unpack VB-Cable. Try again, or get it from their site."
 msgstr "无法解压 VB-Cable。请重试，或从其网站获取。"
 
 #: rust/crates/audio/src/vb_cable.rs:193
-msgid "VB-Audio's download doesn't have the setup it used to. Get it from their site instead."
-msgstr "VB-Audio 的下载内容不再包含原有的安装程序。请改为从其网站获取。"
+msgid "VB-Audio's download no longer has the setup file. Get it from their site instead."
+msgstr ""
 
 #: rust/crates/audio/src/vb_cable.rs:239
-msgid "VB-Cable's setup changed after it was checked, so it wasn't opened."
-msgstr "VB-Cable 的安装程序在校验后发生了更改，因此未打开。"
+msgid "VB-Cable's setup file changed after the check, so Telescope didn't open it."
+msgstr ""
 
 #: rust/crates/audio/src/vb_cable.rs:244
 msgid "Windows didn't get permission to install VB-Cable."
@@ -339,8 +339,8 @@ msgid "Level"
 msgstr "水平仪"
 
 #: rust/crates/audio/ui/microphone.slint:95 rust/crates/audio/ui/microphone.slint:201
-msgid "Yellow: the limiter is holding peaks down. Red: it clipped."
-msgstr "黄色：限制器正在压低峰值。红色：已削波。"
+msgid "Yellow: the limiter is holding peaks down. Red: the sound clipped."
+msgstr ""
 
 #: rust/crates/audio/ui/microphone.slint:95
 msgid "Click to clear"
@@ -366,7 +366,7 @@ msgstr "降噪"
 msgid "Noise reduction unavailable"
 msgstr "降噪不可用"
 
-#: rust/crates/audio/ui/microphone.slint:311 rust/crates/effects/src/desk.rs:215 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:488 rust/crates/link/ui/connection.slint:716 rust/crates/setup/ui/setup.slint:414 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:610 rust/crates/system/ui/shortcuts.slint:351 rust/crates/system/ui/updates.slint:247
+#: rust/crates/audio/ui/microphone.slint:311 rust/crates/effects/src/desk.rs:215 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:488 rust/crates/link/ui/connection.slint:716 rust/crates/setup/ui/setup.slint:424 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:613 rust/crates/system/ui/shortcuts.slint:356 rust/crates/system/ui/updates.slint:251
 msgid "Cancel"
 msgstr "取消"
 
@@ -375,8 +375,8 @@ msgid "Download and install"
 msgstr "下载并安装"
 
 #: rust/crates/audio/ui/microphone.slint:315
-msgid "Telescope downloads VB-Cable from vb-audio.com and opens its setup, which asks for admin. Restart the computer afterwards."
-msgstr "Telescope 会从 vb-audio.com 下载 VB-Cable 并打开安装程序（需要管理员权限）。安装后请重启电脑。"
+msgid "VB-Cable is downloaded from vb-audio.com and its setup opens, which asks for admin access. Restart the computer afterwards."
+msgstr ""
 
 #: rust/crates/core/src/actions.rs:177
 msgid "Raise by"
@@ -464,7 +464,7 @@ msgstr "常规"
 msgid "Streaming"
 msgstr "串流"
 
-#: rust/crates/core/src/plugin.rs:15 rust/crates/setup/ui/setup.slint:199
+#: rust/crates/core/src/plugin.rs:15 rust/crates/setup/ui/setup.slint:204
 msgid "Video"
 msgstr "视频"
 
@@ -476,7 +476,7 @@ msgstr "音频"
 msgid "Virtual camera & phone"
 msgstr "虚拟相机与手机"
 
-#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1111
+#: rust/crates/core/src/plugin.rs:18 rust/crates/system/src/shortcuts.rs:1127
 msgid "Keyboard shortcuts"
 msgstr "快捷键"
 
@@ -492,7 +492,7 @@ msgstr "更新与关于"
 msgid "Camera"
 msgstr "相机"
 
-#: rust/crates/core/src/plugin.rs:26 rust/crates/setup/ui/setup.slint:436
+#: rust/crates/core/src/plugin.rs:26 rust/crates/setup/ui/setup.slint:446
 msgid "Look"
 msgstr "外观"
 
@@ -557,8 +557,8 @@ msgid "Needs a one-time download (about {mb} MB). Until then the normal cutout i
 msgstr ""
 
 #: rust/crates/effects/src/auto_grade.rs:19
-msgid "Looking…"
-msgstr "正在分析…"
+msgid "Analysing…"
+msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
 #: rust/crates/effects/src/background.rs:25 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:27 rust/crates/effects/src/framing.rs:72 rust/crates/effects/src/fun_pack.rs:38 rust/crates/effects/src/photos.rs:39 rust/crates/effects/src/photos.rs:459 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:61 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:287 rust/crates/link/src/browser/plugin.rs:585 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:21 rust/crates/shell/ui/cards/camera.slint:78
@@ -606,22 +606,22 @@ msgid "Background"
 msgstr "背景"
 
 #: rust/crates/effects/src/background.rs:509
-msgid "Blurs the background behind you or swaps it for a picture."
-msgstr "虚化你身后的背景，或将其替换为画面。"
+msgid "Blur the background behind you or swap it for a picture."
+msgstr ""
 
 #: rust/crates/effects/src/background.rs:510
-msgid "Without it there's no Background card and the background stays as the camera sees it."
-msgstr "没有它就没有“背景”卡片，背景将保持相机拍摄的原始样貌。"
+msgid "Without the Background plugin there's no Background card and the background stays as the camera sees it."
+msgstr ""
 
 #: rust/crates/effects/src/background.rs:616 rust/crates/effects/src/background.rs:642
 msgid "Background blur"
 msgstr "背景虚化"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87 rust/crates/effects/ui/cinema.slint:158 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:385
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:385
 msgid "Green"
 msgstr "绿色"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87 rust/crates/effects/ui/cinema.slint:158 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:385
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:385
 msgid "Blue"
 msgstr "蓝色"
 
@@ -690,12 +690,12 @@ msgid "Start streaming to pick a colour on the preview."
 msgstr "请先开始串流，再从预览中吸取颜色。"
 
 #: rust/crates/effects/src/chroma_key.rs:538
-msgid "Swaps a green or blue screen behind you for a colour or a picture, with no download."
-msgstr "将身后的绿幕或蓝幕替换为纯色或图片，无需下载。"
+msgid "Swap a green or blue screen behind you for a colour or a picture, with no download."
+msgstr ""
 
 #: rust/crates/effects/src/chroma_key.rs:539
-msgid "Without it there's no Chroma key card and a green screen stays green."
-msgstr "没有它就没有“色度键”卡片，绿幕仍会保持绿色。"
+msgid "Without the Chroma key plugin there's no Chroma key card and a green screen stays green."
+msgstr ""
 
 #: rust/crates/effects/src/chroma_key.rs:656 rust/crates/effects/src/chroma_key.rs:691
 msgid "Chroma key tolerance"
@@ -754,8 +754,8 @@ msgid "Focus peaking, zebras, false colour, scopes, framing guides and a level o
 msgstr "在预览中显示对焦峰值、斑马纹、伪色、示波器、构图辅助线和水平仪，用于判断对焦、曝光、构图及水平线。"
 
 #: rust/crates/effects/src/cinema.rs:318
-msgid "Without it there's no Cinema tools card and the preview shows just the picture."
-msgstr "没有它就没有“影视工具”卡片，预览仅显示画面。"
+msgid "Without the Cinema tools plugin there's no Cinema tools card and the preview shows just the picture."
+msgstr ""
 
 #: rust/crates/effects/src/cinema.rs:371
 msgctxt "search"
@@ -786,11 +786,11 @@ msgstr "RGB 分量图"
 msgid "Vectorscope"
 msgstr "矢量示波器"
 
-#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:158 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:385
+#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:385
 msgid "Red"
 msgstr "红色"
 
-#: rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/cinema.slint:158 rust/crates/effects/ui/cinema.slint:159
+#: rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160
 msgid "White"
 msgstr "白色"
 
@@ -813,15 +813,15 @@ msgstr "4 × 4"
 msgid "Golden ratio"
 msgstr "黄金比例"
 
-#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:202 rust/crates/effects/ui/cinema.slint:203
+#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:204 rust/crates/effects/ui/cinema.slint:205
 msgid "Small"
 msgstr "小"
 
-#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:202 rust/crates/effects/ui/cinema.slint:203
+#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:204 rust/crates/effects/ui/cinema.slint:205
 msgid "Medium"
 msgstr "中"
 
-#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:202 rust/crates/effects/ui/cinema.slint:203
+#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:24 rust/crates/effects/ui/cinema.slint:204 rust/crates/effects/ui/cinema.slint:205
 msgid "Large"
 msgstr "大"
 
@@ -951,20 +951,20 @@ msgid "No picture"
 msgstr "无图片"
 
 #: rust/crates/effects/src/colour_grading.rs:60
-msgid "Looking at the picture…"
-msgstr "正在分析画面…"
+msgid "Analysing the picture…"
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:61
-msgid "Auto couldn't get a steady picture to look at. Try again while nothing moves."
-msgstr "自动调色无法获取稳定的画面。请在画面静止时重试。"
+msgid "No steady picture to analyse. Try again while nothing moves."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:62
 msgid "Nothing to change, the picture already looks right."
 msgstr "无需调整，画面看起来已经很合适。"
 
 #: rust/crates/effects/src/colour_grading.rs:63
-msgid "Nothing needs changing now, so Auto's earlier changes were taken off."
-msgstr "当前无需调整，已撤回先前的自动调整。"
+msgid "Nothing needs changing, so Auto's earlier changes were removed."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:64
 #, python-brace-format
@@ -972,20 +972,20 @@ msgid "Auto changed {parts}."
 msgstr "已自动调整{parts}。"
 
 #: rust/crates/effects/src/colour_grading.rs:65
-msgid "No face was found, so it went by the background and the brightness."
-msgstr "未检测到人脸，已根据背景和整体亮度调整。"
+msgid "No face found, so Auto used the background and brightness."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:66
-msgid "The light is mixed or coloured, so white balance stayed as it was."
-msgstr "光线复杂或带有色光，白平衡保持不变。"
+msgid "The light is mixed or coloured, so white balance was not changed."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:67
-msgid "Your own wheels and curves would have clipped the picture, so Auto went only part of the way."
-msgstr "为避免与你现有的色轮和曲线叠加后发生色彩溢出，自动调整已减弱幅度。"
+msgid "Your own wheels and curves would have clipped the picture, so Auto applied only part of the change."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:68
-msgid "The camera adjusts itself, so this may drift."
-msgstr "相机会自动调节，画面效果可能会随之偏移。"
+msgid "The camera adjusts automatically, so the result may drift."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:69
 msgid "white balance"
@@ -1115,8 +1115,8 @@ msgid "Colour wheels, curves and LUT files for the look of the picture."
 msgstr "使用色轮、曲线和 LUT 文件调整画面风格。"
 
 #: rust/crates/effects/src/colour_grading.rs:1081
-msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
-msgstr "没有它就没有“调色”卡片，画面将保留相机的原始色彩。"
+msgid "Without the Colour grading plugin there's no Colour grading card and the picture keeps the camera's colours."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:1175 rust/crates/effects/src/colour_grading.rs:1221
 msgid "Compare before and after"
@@ -1204,23 +1204,23 @@ msgid "Nothing's in the picture yet."
 msgstr "画面中还没有内容。"
 
 #: rust/crates/effects/src/composite_plugin.rs:445
-msgid "It takes over once two of its streams are running."
-msgstr "当其中两路串流开始运行后，便会自动生效。"
+msgid "Active once two streams are running."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:447
 #, python-brace-format
-msgid "It goes out on {camera}, and no stream goes there now."
-msgstr "其内容将通过 {camera} 输出，目前没有串流输出到此相机。"
+msgid "Set to output on {camera}, but no stream is running there."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:449
 #, python-brace-format
-msgid "It goes out on {camera} once the stream there sends a picture."
-msgstr "一旦目标串流发送画面，其内容就会通过 {camera} 输出。"
+msgid "Will output on {camera} once the stream there sends a picture."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:451
 #, python-brace-format
-msgid "Goes out on {camera}."
-msgstr "通过 {camera} 输出。"
+msgid "Outputting on {camera}."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:456
 msgid "Nothing in it"
@@ -1243,12 +1243,12 @@ msgid "Several cameras in one picture"
 msgstr "多相机同屏画面"
 
 #: rust/crates/effects/src/composite_plugin.rs:508
-msgid "Puts the streams you run side by side or one inside another, out on one virtual camera."
-msgstr "将正在运行的各路串流并排或以画中画形式组合，输出到一个虚拟相机中。"
+msgid "Put the streams you run side by side or inside each other on one virtual camera."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:509
-msgid "Without it there's no One picture card and each stream only goes to its own camera."
-msgstr "没有它就没有“合成画面”卡片，各路串流只能分别输出到各自的相机。"
+msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:595 rust/crates/effects/src/composite_plugin.rs:619
 msgid "Picture layout"
@@ -1259,8 +1259,8 @@ msgid "This file is too big to be a LUT Telescope can use."
 msgstr "此文件过大，Telescope 无法将其作为 LUT 使用。"
 
 #: rust/crates/effects/src/cube.rs:14
-msgid "This isn't a .cube LUT: it doesn't say its size."
-msgstr "这不是 .cube LUT 文件：未指明其尺寸。"
+msgid "This isn't a .cube LUT: the size is missing."
+msgstr ""
 
 #: rust/crates/effects/src/cube.rs:15
 #, python-brace-format
@@ -1365,8 +1365,8 @@ msgid "Sheet unclear"
 msgstr "纸张位置不明确"
 
 #: rust/crates/effects/src/desk.rs:200
-msgid "Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."
-msgstr "这几个角挤在一起或排成了一条线，没有采用。请在纸张的四个角上各标记一个，重新标记。"
+msgid "Those corners were bunched up or in a line and weren't used. Mark the sheet again with a point on each corner."
+msgstr ""
 
 #: rust/crates/effects/src/desk.rs:202
 msgid "Sheet cut off"
@@ -1409,12 +1409,12 @@ msgid "Desk and document mode"
 msgstr "桌面与文档模式"
 
 #: rust/crates/effects/src/desk.rs:332
-msgid "Straightens a sheet of paper you mark on the preview and can make the writing on it stand out."
-msgstr "拉直你在预览中标记的纸张，并可让纸上的字迹更醒目。"
+msgid "Straighten a sheet of paper you mark on the preview and optionally make the writing on it stand out."
+msgstr ""
 
 #: rust/crates/effects/src/desk.rs:333
-msgid "Without it there's no Desk mode card and the picture stays the way the camera sees it."
-msgstr "没有它就没有“桌面模式”卡片，画面保持相机看到的样子。"
+msgid "Without the Desk and document mode plugin there's no Desk mode card and the picture stays the way the camera sees it."
+msgstr ""
 
 #: rust/crates/effects/src/desk.rs:423 rust/crates/effects/src/desk.rs:447
 msgid "Make the writing stand out"
@@ -1445,12 +1445,12 @@ msgid "This lens can't meter on a point."
 msgstr "此镜头无法按点测光。"
 
 #: rust/crates/effects/src/face_exposure.rs:291
-msgid "Moves the phone's metering point to your face to keep you well lit whatever's behind you."
-msgstr "将手机的测光点移到你的脸上，无论你身后是什么，都能让你保持光线充足。"
+msgid "Move the phone's metering point to your face to keep you well lit, whatever is behind you."
+msgstr ""
 
 #: rust/crates/effects/src/face_exposure.rs:292
-msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
-msgstr "没有它就没有“按我的脸曝光”卡片，手机会按你点击的位置或整个画面测光。"
+msgid "Without the Expose for my face plugin there's no Expose for my face card and the phone meters the point you tap or the whole picture."
+msgstr ""
 
 #: rust/crates/effects/src/filters.rs:69
 msgid "Denoise"
@@ -1728,8 +1728,8 @@ msgid "Show hands"
 msgstr "露出双手"
 
 #: rust/crates/effects/src/framing.rs:94
-msgid "Widens the view so your hands are in it too."
-msgstr "扩大视野，让双手也保持在画面内。"
+msgid "Widen the view so your hands are in it too."
+msgstr ""
 
 #: rust/crates/effects/src/framing.rs:95
 msgid "Something else is moving the zoom and pan."
@@ -1748,8 +1748,8 @@ msgid "Zooms and pans to keep you in the picture as you move."
 msgstr "随你移动，自动缩放和平移，让你保持在画面中。"
 
 #: rust/crates/effects/src/framing.rs:876
-msgid "Without it there's no Auto framing card and the zoom stays where you put it."
-msgstr "没有它就没有“自动构图”卡片，缩放会停留在你设定的位置。"
+msgid "Without the Auto framing plugin there's no Auto framing card and the zoom stays where you put it."
+msgstr ""
 
 #: rust/crates/effects/src/fun_pack.rs:39
 msgid "Clone party"
@@ -1857,8 +1857,8 @@ msgstr "扫描条带的延伸方向。"
 
 #: rust/crates/effects/src/fun_pack.rs:392
 #, python-brace-format
-msgid "Taking it in {n}…"
-msgstr "{n} 秒后拍摄…"
+msgid "Taking the empty room in {n}…"
+msgstr ""
 
 #: rust/crates/effects/src/fun_pack.rs:394
 msgid "Take the empty room again"
@@ -1898,8 +1898,8 @@ msgid "Silly effects: clones, an invisibility cloak, light painting, retro looks
 msgstr "趣味特效：克隆、隐身斗篷、光绘、复古效果和 Datamosh。"
 
 #: rust/crates/effects/src/fun_pack.rs:655
-msgid "Without it there's no Fun pack card and the picture has no effects."
-msgstr "没有它就没有“趣味包”卡片，画面也没有特效。"
+msgid "Without the Fun pack plugin there's no Fun pack card and the picture has no effects."
+msgstr ""
 
 #: rust/crates/effects/src/fun_pack.rs:747 rust/crates/effects/src/fun_pack.rs:803
 msgid "Datamosh smear"
@@ -1922,7 +1922,7 @@ msgid "Pill"
 msgstr "胶囊"
 
 #. Light and Heavy are the names of the two stream formats
-#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:781 rust/crates/outputs/src/stream_output.rs:990 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:109 rust/crates/outputs/ui/stream_output.slint:113 rust/crates/setup/src/stats_phone.rs:98 rust/crates/setup/ui/setup.slint:451
+#: rust/crates/effects/src/name_tag.rs:19 rust/crates/outputs/src/stream_output.rs:781 rust/crates/outputs/src/stream_output.rs:990 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:109 rust/crates/outputs/ui/stream_output.slint:113 rust/crates/setup/src/stats_phone.rs:98 rust/crates/setup/ui/setup.slint:462
 msgid "Light"
 msgstr "轻量"
 
@@ -1962,13 +1962,13 @@ msgstr "姓名下方可选的小字，如职位或头衔。"
 msgid "Name tag"
 msgstr "姓名牌"
 
-#: rust/crates/effects/src/name_tag.rs:162
-msgid "Puts your name and pronouns in the corner of the picture."
-msgstr "在画面角落显示你的姓名和人称代词。"
+#: rust/crates/effects/src/name_tag.rs:162 rust/crates/effects/ui/name_tag.slint:66
+msgid "Show your name and pronouns in a corner of the picture."
+msgstr "在画面一角显示你的姓名和人称代词。"
 
 #: rust/crates/effects/src/name_tag.rs:163
-msgid "Without it there's no Name tag card and nothing is drawn on the picture."
-msgstr "关闭后将没有“姓名牌”卡片，画面上也不会绘制任何内容。"
+msgid "Without the Name tag plugin there's no Name tag card and nothing is drawn on the picture."
+msgstr ""
 
 #: rust/crates/effects/src/name_tag.rs:211
 msgctxt "search"
@@ -2131,12 +2131,12 @@ msgid "Teleprompter"
 msgstr "提词器"
 
 #: rust/crates/effects/src/notes.rs:563
-msgid "Shows your script on the phone's screen right under the camera, to read while looking people in the eye."
-msgstr "将讲稿显示在手机摄像头正下方的屏幕上，让你边读稿边自然直视对方。"
+msgid "Show your script on the phone's screen right under the camera, to read while looking into the camera."
+msgstr ""
 
 #: rust/crates/effects/src/notes.rs:564
-msgid "Without it there's no Teleprompter card and the phone never shows a script."
-msgstr "关闭后将隐藏“提词器”卡片，手机上也不会显示讲稿。"
+msgid "Without the Teleprompter plugin there's no Teleprompter card and the phone never shows a script."
+msgstr ""
 
 #: rust/crates/effects/src/notes.rs:643 rust/crates/effects/src/notes.rs:688
 msgid "Teleprompter speed"
@@ -2188,8 +2188,8 @@ msgstr "Telescope 正在串流"
 
 #. Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons: use the names those browsers show in your language
 #: rust/crates/effects/src/on_air_plugin.rs:43
-msgid "The browser warns that the connection isn't private: it's this computer's own certificate. On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed."
-msgstr "浏览器会警告连接不是私密连接：这是由于使用了这台电脑自己的证书。在 iPhone 上点击“显示详细信息”，然后点击“访问此网站”。在 Chrome 中点击“高级”，然后点击“继续前往”。"
+msgid "The browser warns that the connection isn't private: the certificate is this computer's own. On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed."
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:45
 msgid "When the sign turns on. The mic only counts while it's streaming and not muted."
@@ -2219,11 +2219,11 @@ msgstr "打开“直播中”设置。"
 msgid "Open the link in a browser on any device on the same network and tap the page to make it full screen. The link stays the same after Telescope restarts."
 msgstr "在同一网络下的任意设备上用浏览器打开此链接，点击页面即可全屏显示。Telescope 重启后链接保持不变。"
 
-#: rust/crates/effects/src/on_air_plugin.rs:200 rust/crates/effects/src/on_air_plugin.rs:456 rust/crates/effects/ui/on_air.slint:290 rust/crates/effects/ui/on_air_header.slint:14 rust/crates/effects/ui/on_air_header.slint:16
+#: rust/crates/effects/src/on_air_plugin.rs:200 rust/crates/effects/src/on_air_plugin.rs:456 rust/crates/effects/ui/on_air.slint:299 rust/crates/effects/ui/on_air_header.slint:14 rust/crates/effects/ui/on_air_header.slint:16
 msgid "On air"
 msgstr "连线中"
 
-#: rust/crates/effects/src/on_air_plugin.rs:200 rust/crates/effects/src/on_air_plugin.rs:456 rust/crates/effects/ui/on_air.slint:291
+#: rust/crates/effects/src/on_air_plugin.rs:200 rust/crates/effects/src/on_air_plugin.rs:456 rust/crates/effects/ui/on_air.slint:300
 msgid "Off air"
 msgstr "未连线"
 
@@ -2240,22 +2240,22 @@ msgid "Sending…"
 msgstr "正在发送…"
 
 #: rust/crates/effects/src/on_air_plugin.rs:254
-msgid "It went through."
-msgstr "发送成功。"
+msgid "Test request succeeded."
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:256
 #, python-brace-format
-msgid "It didn't go through: {error}"
-msgstr "发送失败：{error}"
+msgid "Test request failed: {error}"
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:276
-msgid "The On Air webhook didn't go through"
-msgstr "On Air Webhook 发送失败"
+msgid "The On Air webhook failed"
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:277
 #, python-brace-format
-msgid "It answered: {error}"
-msgstr "返回信息：{error}"
+msgid "The webhook returned: {error}"
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:278 rust/crates/shell/src/doc.rs:459 rust/crates/shell/src/doc.rs:460 rust/crates/shell/src/doc.rs:924
 msgid "Settings"
@@ -2270,7 +2270,7 @@ msgstr "无法启动：{error}"
 msgid "The address has to start with http:// or https://"
 msgstr "地址必须以 http:// 或 https:// 开头"
 
-#: rust/crates/effects/src/on_air_plugin.rs:443 rust/crates/effects/ui/on_air.slint:154
+#: rust/crates/effects/src/on_air_plugin.rs:443 rust/crates/effects/ui/on_air.slint:156
 msgid "Show the sign on a web page"
 msgstr "在网页上显示指示牌"
 
@@ -2278,7 +2278,7 @@ msgstr "在网页上显示指示牌"
 msgid "Scan"
 msgstr "扫描"
 
-#: rust/crates/effects/src/on_air_plugin.rs:444 rust/crates/effects/src/qr_reader.rs:527 rust/crates/link/ui/browser_camera.slint:171 rust/crates/link/ui/browser_camera.slint:172 rust/crates/setup/src/setup.rs:441 rust/crates/setup/ui/parts.slint:91 rust/crates/setup/ui/parts.slint:92 rust/crates/system/ui/mcp.slint:109 rust/crates/system/ui/mcp.slint:110 rust/crates/system/ui/shortcuts.slint:344
+#: rust/crates/effects/src/on_air_plugin.rs:444 rust/crates/effects/src/qr_reader.rs:527 rust/crates/link/ui/browser_camera.slint:171 rust/crates/link/ui/browser_camera.slint:172 rust/crates/setup/src/setup.rs:441 rust/crates/setup/ui/parts.slint:91 rust/crates/setup/ui/parts.slint:92 rust/crates/system/ui/mcp.slint:111 rust/crates/system/ui/mcp.slint:112 rust/crates/system/ui/shortcuts.slint:349
 msgid "Copy"
 msgstr "复制"
 
@@ -2287,12 +2287,12 @@ msgid "On Air sign"
 msgstr "On Air 提示牌"
 
 #: rust/crates/effects/src/on_air_plugin.rs:515
-msgid "Shows the people around you that your camera or microphone is in use, on another device's screen or through a smart home light."
-msgstr "通过另一台设备的屏幕或智能家居灯光，向周围的人提示你的相机或麦克风正在使用中。"
+msgid "Show the people around you that your camera or microphone is in use, on another device's screen or through a smart home light."
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:516
-msgid "Without it there's no On Air tab in Settings and no sign or webhook."
-msgstr "关闭后设置中将没有“On Air”标签页，也没有指示牌或 Webhook。"
+msgid "Without the On Air sign plugin there's no On Air tab in Settings and no sign or webhook."
+msgstr ""
 
 #: rust/crates/effects/src/on_air_plugin.rs:626
 msgctxt "search"
@@ -2428,8 +2428,8 @@ msgid "This lens and mode have no extra noise reduction or sharpening to offer"
 msgstr "此镜头和模式不支持额外的降噪或锐化"
 
 #: rust/crates/effects/src/photos.rs:56
-msgid "The camera keeps its own JPEG quality"
-msgstr "相机将使用自身的 JPEG 质量设置"
+msgid "JPEG quality is set by the camera"
+msgstr ""
 
 #: rust/crates/effects/src/photos.rs:57
 msgid "RAW photos have no quality setting"
@@ -2541,7 +2541,7 @@ msgstr "照片已保存"
 
 #: rust/crates/effects/src/photos.rs:825
 #, python-brace-format
-msgid "It came late. Saved {name}"
+msgid "The photo arrived late. Saved {name}"
 msgstr ""
 
 #: rust/crates/effects/src/photos.rs:839
@@ -2552,13 +2552,13 @@ msgstr "将照片保存至"
 msgid "Photos"
 msgstr "照片"
 
-#: rust/crates/effects/src/photos.rs:855
-msgid "Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it."
+#: rust/crates/effects/src/photos.rs:855 rust/crates/effects/ui/photos.slint:135
+msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
 msgstr "使用手机或单反/微单拍摄全画质照片，若相机支持也可拍摄 RAW 格式。"
 
 #: rust/crates/effects/src/photos.rs:856
-msgid "Without it there's no Photos card and no Take photo shortcut."
-msgstr "关闭后将没有“照片”卡片，也没有“拍照”快捷键。"
+msgid "Without the Photos plugin there's no Photos card and no Take photo shortcut."
+msgstr ""
 
 #: rust/crates/effects/src/photos.rs:974 rust/crates/effects/src/photos.rs:1012
 msgid "Photo mode"
@@ -2601,12 +2601,12 @@ msgid "Blur the picture until you click again."
 msgstr "虚化画面，直到再次点击。"
 
 #: rust/crates/effects/src/privacy_blur.rs:286
-msgid "Blurs the whole picture, or puts the wait screen up, when more than one person is in it. It only knows about the people the vision models find, so it can miss someone and can't guarantee privacy."
+msgid "Blurs the whole picture, or puts the wait screen up, when more than one person is in it. Only people the vision models find are detected, so someone can be missed and privacy isn't guaranteed."
 msgstr ""
 
 #: rust/crates/effects/src/privacy_blur.rs:287
-msgid "Without it there's no Privacy blur card and nothing gets hidden when someone walks in."
-msgstr "关闭后将没有“隐私虚化”卡片，且有人走入画面时不会隐藏任何内容。"
+msgid "Without the Privacy blur plugin there's no Privacy blur card and nothing gets hidden when someone walks in."
+msgstr ""
 
 #: rust/crates/effects/src/privacy_blur.rs:403 rust/crates/effects/src/privacy_blur.rs:416 rust/crates/effects/ui/privacy_blur.slint:53 rust/crates/effects/ui/privacy_blur.slint:59 rust/crates/effects/ui/privacy_blur.slint:60
 msgid "Blur now"
@@ -2668,20 +2668,20 @@ msgid "QR code found"
 msgstr "发现二维码"
 
 #: rust/crates/effects/src/qr_reader.rs:651
-msgid "Click Copy on the QR codes card to put it on the clipboard."
-msgstr "点击“二维码”卡片上的“复制”即可复制到剪贴板。"
+msgid "Click Copy on the QR codes card to copy the code."
+msgstr ""
 
 #: rust/crates/effects/src/qr_reader.rs:667 rust/crates/effects/src/qr_reader.rs:739
 msgid "QR code reader"
 msgstr "二维码识别"
 
 #: rust/crates/effects/src/qr_reader.rs:668
-msgid "Copies a QR code you hold up to the camera, or the password from a Wi-Fi code."
-msgstr "复制向相机展示的二维码内容，或提取 Wi-Fi 二维码中的密码。"
+msgid "Copy a QR code you hold up to the camera, or the password from a Wi-Fi code."
+msgstr ""
 
 #: rust/crates/effects/src/qr_reader.rs:669
-msgid "Without it there's no QR code card and codes in the picture are left alone."
-msgstr "关闭后将没有“二维码”卡片，也不会识别画面中的二维码。"
+msgid "Without the QR code reader plugin there's no QR code card and codes in the picture are left alone."
+msgstr ""
 
 #: rust/crates/effects/src/qr_reader.rs:739 rust/crates/effects/src/qr_reader.rs:751
 msgid "Read QR codes"
@@ -2722,17 +2722,17 @@ msgstr "主摄"
 
 #: rust/crates/effects/src/transforms.rs:72
 #, python-brace-format
-msgid "Panned past what {tele} can see, so it's on {live}. Pan back to switch again."
-msgstr "平移范围超出了 {tele} 的视野，因此已切至 {live}。移回原位即可再次切换。"
+msgid "Panned past what {tele} can see, so {live} is used. Pan back to switch again."
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:75
 #, python-brace-format
-msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
-msgstr "手机自动保持在 {live}，很可能是因为环境太暗或距离太近不适合 {tele}。一旦条件允许便会切换。"
+msgid "The phone kept using {live}, probably because the scene is too dark or too close for {tele}. The phone switches to {tele} when that changes."
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:81
-msgid "It can wobble for a moment while it switches."
-msgstr "切换过程中画面可能会轻微晃动。"
+msgid "The picture can wobble for a moment during the switch."
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:238
 #, python-brace-format
@@ -2754,8 +2754,8 @@ msgid "Add shortcut for {action}…"
 msgstr "为 {action} 添加快捷键…"
 
 #: rust/crates/effects/src/transforms.rs:543
-msgid "Zoomed on this computer: this lens can't zoom itself"
-msgstr "在这台电脑上缩放：此镜头本身无法缩放"
+msgid "Zoomed on this computer: this lens can't zoom"
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:543
 msgid "Zoomed on this computer"
@@ -2778,8 +2778,8 @@ msgid "Zoom, pan, flip, rotate and stretch the picture."
 msgstr "缩放、平移、翻转、旋转和拉伸画面。"
 
 #: rust/crates/effects/src/transforms.rs:576
-msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
-msgstr "关闭后将没有“变换”卡片，画面将完全按手机发送的原样输出。"
+msgid "Without the Transforms plugin there's no Transforms card and the picture goes out exactly as the phone sends it."
+msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:670 rust/crates/effects/src/transforms.rs:725 rust/crates/effects/ui/composite_editor.slint:445 rust/crates/effects/ui/transforms.slint:173 rust/crates/effects/ui/transforms.slint:188 rust/crates/effects/ui/transforms.slint:189 rust/crates/effects/ui/transforms.slint:230 rust/crates/outputs/src/webcam.rs:56
 msgid "Zoom"
@@ -2897,21 +2897,29 @@ msgstr "水平仪不可用"
 msgid "Which scope is drawn on the preview."
 msgstr "选择在预览上绘制的示波器。"
 
-#: rust/crates/effects/ui/cinema.slint:152 rust/crates/effects/ui/cinema.slint:163
+#: rust/crates/effects/ui/cinema.slint:152 rust/crates/effects/ui/cinema.slint:164
 msgid "Peaking colour"
 msgstr "峰值颜色"
 
-#: rust/crates/effects/ui/cinema.slint:170
+#: rust/crates/effects/ui/cinema.slint:153
+msgid "The colour that marks the sharp parts of the picture"
+msgstr ""
+
+#: rust/crates/effects/ui/cinema.slint:171
 msgid "Peaking sensitivity"
 msgstr "峰值灵敏度"
 
-#: rust/crates/effects/ui/cinema.slint:183
+#: rust/crates/effects/ui/cinema.slint:184
 msgid "Zebras from"
 msgstr "斑马纹阈值"
 
-#: rust/crates/effects/ui/cinema.slint:196 rust/crates/effects/ui/cinema.slint:207
+#: rust/crates/effects/ui/cinema.slint:197 rust/crates/effects/ui/cinema.slint:209
 msgid "Scope size"
 msgstr "示波器大小"
+
+#: rust/crates/effects/ui/cinema.slint:198
+msgid "How big the scope is on the preview"
+msgstr ""
 
 #: rust/crates/effects/ui/colour_grading.slint:140
 msgid "No LUT loaded"
@@ -2974,8 +2982,8 @@ msgid "Auto colour grading"
 msgstr "自动调色"
 
 #: rust/crates/effects/ui/colour_grading.slint:262
-msgid "Looking at the picture"
-msgstr "正在分析画面"
+msgid "Analysing the picture"
+msgstr ""
 
 #: rust/crates/effects/ui/colour_grading.slint:263
 msgid "Set white balance, brightness, contrast and colour from about a second of the picture. You can still adjust everything on the sliders."
@@ -3001,11 +3009,11 @@ msgstr "曲线"
 msgid "All"
 msgstr "全部"
 
-#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/system/ui/updates.slint:165 rust/crates/system/ui/updates.slint:173
+#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/system/ui/updates.slint:166 rust/crates/system/ui/updates.slint:175
 msgid "Channel"
 msgstr "通道"
 
-#: rust/crates/effects/ui/colour_grading.slint:408 rust/crates/setup/ui/setup.slint:86 rust/crates/setup/ui/setup.slint:86
+#: rust/crates/effects/ui/colour_grading.slint:408 rust/crates/setup/ui/setup.slint:88 rust/crates/setup/ui/setup.slint:88
 msgid "Load"
 msgstr "加载"
 
@@ -3205,7 +3213,7 @@ msgstr "替换布局"
 msgid "Name:"
 msgstr "名称："
 
-#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:490 rust/crates/link/ui/connection.slint:718 rust/crates/setup/ui/setup.slint:415 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1015 rust/crates/shell/ui/settings.slint:611
+#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:490 rust/crates/link/ui/connection.slint:718 rust/crates/setup/ui/setup.slint:425 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1015 rust/crates/shell/ui/settings.slint:614
 msgid "OK"
 msgstr "确定"
 
@@ -3285,7 +3293,7 @@ msgstr "分身、隐身斗篷、光绘、复古滤镜和故障艺术（Datamosh�
 msgid "Effect"
 msgstr "特效"
 
-#: rust/crates/effects/ui/fun_pack.slint:107 rust/crates/effects/ui/fun_pack.slint:108 rust/crates/system/ui/shortcuts.slint:124 rust/crates/ui-kit/ui/widgets/field.slint:129
+#: rust/crates/effects/ui/fun_pack.slint:107 rust/crates/effects/ui/fun_pack.slint:108 rust/crates/system/ui/shortcuts.slint:126 rust/crates/ui-kit/ui/widgets/field.slint:129
 msgid "Clear"
 msgstr "清除"
 
@@ -3316,10 +3324,6 @@ msgstr "横向"
 #: rust/crates/effects/ui/fun_pack.slint:224
 msgid "Not ready"
 msgstr "未就绪"
-
-#: rust/crates/effects/ui/name_tag.slint:66
-msgid "Show your name and pronouns in a corner of the picture."
-msgstr "在画面一角显示你的姓名和人称代词。"
 
 #: rust/crates/effects/ui/name_tag.slint:77 rust/crates/effects/ui/name_tag.slint:81 rust/crates/effects/ui/name_tag.slint:82 rust/crates/effects/ui/name_tag.slint:83 rust/crates/link/ui/connection.slint:647
 msgid "Name"
@@ -3366,70 +3370,102 @@ msgid "Move through the script"
 msgstr "翻阅讲稿"
 
 #: rust/crates/effects/ui/on_air.slint:113
-msgid "Shows the people around you that your camera or microphone is in use."
-msgstr "向周围的人提示你的相机或麦克风正在使用中。"
+msgid "Show the people around you that your camera or microphone is in use."
+msgstr ""
 
 #: rust/crates/effects/ui/on_air.slint:118
 msgid "Now"
 msgstr "当前"
 
-#: rust/crates/effects/ui/on_air.slint:125 rust/crates/effects/ui/on_air.slint:131 rust/crates/effects/ui/on_air.slint:134
+#: rust/crates/effects/ui/on_air.slint:119
+msgid "Whether the sign is on air right now"
+msgstr ""
+
+#: rust/crates/effects/ui/on_air.slint:126 rust/crates/effects/ui/on_air.slint:133 rust/crates/effects/ui/on_air.slint:136
 msgid "On air when"
 msgstr "触发条件"
 
-#: rust/crates/effects/ui/on_air.slint:141
+#: rust/crates/effects/ui/on_air.slint:127
+msgid "What puts the sign on air"
+msgstr ""
+
+#: rust/crates/effects/ui/on_air.slint:143
 msgid "Sign on another device"
 msgstr "在其他设备上显示指示牌"
 
-#: rust/crates/effects/ui/on_air.slint:142
+#: rust/crates/effects/ui/on_air.slint:144
 msgctxt "search"
 msgid "tablet phone screen page link qr code"
 msgstr "平板 手机 屏幕 网页 页面 链接 二维码 tablet phone screen page link qr code"
 
-#: rust/crates/effects/ui/on_air.slint:148 rust/crates/link/ui/browser_camera.slint:76
+#: rust/crates/effects/ui/on_air.slint:150 rust/crates/link/ui/browser_camera.slint:76
 msgid "New link"
 msgstr "新链接"
 
-#: rust/crates/effects/ui/on_air.slint:163
-msgid "The page didn't start"
-msgstr "页面未能启动"
+#: rust/crates/effects/ui/on_air.slint:157
+msgid "Open the sign in a browser on a tablet, a phone or another computer"
+msgstr ""
 
-#: rust/crates/effects/ui/on_air.slint:183 rust/crates/effects/ui/on_air.slint:189 rust/crates/effects/ui/on_air.slint:192 rust/crates/effects/ui/on_air.slint:233 rust/crates/link/ui/browser_camera.slint:160 rust/crates/link/ui/browser_camera.slint:163
+#: rust/crates/effects/ui/on_air.slint:166
+msgid "Page failed to start"
+msgstr ""
+
+#: rust/crates/effects/ui/on_air.slint:174
+msgid "Scan the code to open the sign on another device"
+msgstr ""
+
+#: rust/crates/effects/ui/on_air.slint:187 rust/crates/effects/ui/on_air.slint:194 rust/crates/effects/ui/on_air.slint:197 rust/crates/effects/ui/on_air.slint:238 rust/crates/link/ui/browser_camera.slint:160 rust/crates/link/ui/browser_camera.slint:163
 msgid "Address"
 msgstr "地址"
 
-#: rust/crates/effects/ui/on_air.slint:203 rust/crates/link/ui/browser_camera.slint:142 rust/crates/setup/src/stats.rs:400
+#: rust/crates/effects/ui/on_air.slint:188
+msgid "Which of this computer's addresses the link uses"
+msgstr ""
+
+#: rust/crates/effects/ui/on_air.slint:208 rust/crates/link/ui/browser_camera.slint:142 rust/crates/setup/src/stats.rs:400
 msgid "Link"
 msgstr "链接"
 
-#: rust/crates/effects/ui/on_air.slint:225
+#: rust/crates/effects/ui/on_air.slint:230
 msgid "Webhook"
 msgstr "Webhook"
 
-#: rust/crates/effects/ui/on_air.slint:226
+#: rust/crates/effects/ui/on_air.slint:231
 msgctxt "search"
 msgid "smart home light home assistant url http request automation"
 msgstr "智能家居 灯光 自动化 请求 网址 smart home light home assistant url http request automation"
 
-#: rust/crates/effects/ui/on_air.slint:248 rust/crates/effects/ui/on_air.slint:256
+#: rust/crates/effects/ui/on_air.slint:239
+msgid "The web address that gets a request when the sign goes on or off air"
+msgstr ""
+
+#: rust/crates/effects/ui/on_air.slint:254 rust/crates/effects/ui/on_air.slint:264
 msgid "Method"
 msgstr "方法"
 
-#: rust/crates/effects/ui/on_air.slint:255 rust/crates/effects/ui/on_air.slint:255
+#: rust/crates/effects/ui/on_air.slint:255
+msgid "How the request is sent"
+msgstr ""
+
+#: rust/crates/effects/ui/on_air.slint:256 rust/crates/effects/ui/on_air.slint:263 rust/crates/effects/ui/on_air.slint:263
 msgid "POST sends the text as the request body and GET adds it to the address."
 msgstr "POST 会将文本作为请求正文发送，GET 会将其附加到网址末尾。"
 
-#: rust/crates/effects/ui/on_air.slint:264 rust/crates/effects/ui/on_air.slint:266
+#: rust/crates/effects/ui/on_air.slint:272 rust/crates/effects/ui/on_air.slint:274
 msgid "Going on air"
 msgstr "进入连线"
 
-#: rust/crates/effects/ui/on_air.slint:274 rust/crates/effects/ui/on_air.slint:276
+#: rust/crates/effects/ui/on_air.slint:282 rust/crates/effects/ui/on_air.slint:284
 msgid "Going off air"
 msgstr "退出连线"
 
-#: rust/crates/effects/ui/on_air.slint:284
+#: rust/crates/effects/ui/on_air.slint:292
 msgid "Send a test"
 msgstr "发送测试"
+
+#: rust/crates/effects/ui/on_air.slint:293
+msgid "Send the request now to check that it works"
+msgstr ""
 
 #: rust/crates/effects/ui/parts.slint:237
 msgid "pink"
@@ -3527,10 +3563,6 @@ msgstr "下"
 msgid "Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve."
 msgstr "方向键可微调所选控制点，按住 Shift 加方向键可大幅移动。左右方括号键可切换控制点。Delete 删除控制点，Home 重置曲线。"
 
-#: rust/crates/effects/ui/photos.slint:135
-msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
-msgstr "使用手机或单反/微单拍摄全画质照片，若相机支持也可拍摄 RAW 格式。"
-
 #: rust/crates/effects/ui/photos.slint:166
 msgid "Higher ISO makes the photo brighter but grainier."
 msgstr "提高 ISO 会让照片更亮，但噪点更多。"
@@ -3579,6 +3611,10 @@ msgstr "触发效果"
 msgid "Copy QR codes held up to the camera to the clipboard."
 msgstr "将举到镜头前的二维码内容复制到剪贴板。"
 
+#: rust/crates/effects/ui/qr_reader.slint:65
+msgid "Show a notification when a QR code is read"
+msgstr ""
+
 #: rust/crates/effects/ui/transforms.slint:119
 msgid "Flip"
 msgstr "翻转"
@@ -3611,7 +3647,7 @@ msgstr "双击以重置"
 msgid "Needs a download"
 msgstr "需要下载组件"
 
-#: rust/crates/effects/ui/vision_status.slint:28 rust/crates/setup/ui/setup.slint:143
+#: rust/crates/effects/ui/vision_status.slint:28 rust/crates/setup/ui/setup.slint:148
 msgid "Download"
 msgstr "下载"
 
@@ -3632,8 +3668,8 @@ msgid "Finding the current adb…"
 msgstr "正在查找当前版本的 adb…"
 
 #: rust/crates/link/src/adb_download.rs:277
-msgid "Google's list of downloads wasn't what Telescope expected. Try again later."
-msgstr "Google 的下载列表与 Telescope 预期的不符。请稍后重试。"
+msgid "Google's list of downloads has an unexpected format. Try again later."
+msgstr ""
 
 #: rust/crates/link/src/adb_download.rs:284 rust/crates/link/src/adb_download.rs:296 rust/crates/link/src/adb_download.rs:463
 msgid "Couldn't download adb. Try again."
@@ -3673,8 +3709,8 @@ msgid "Couldn't copy adb from there."
 msgstr "无法从此处复制 adb。"
 
 #: rust/crates/link/src/adb_download.rs:386
-msgid "That doesn't have adb.exe in it."
-msgstr "其中不包含 adb.exe。"
+msgid "This file doesn't contain adb.exe."
+msgstr ""
 
 #: rust/crates/link/src/adb_download.rs:396
 msgid "Couldn't check Google's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this."
@@ -3686,13 +3722,13 @@ msgstr "无法连接 Google。请检查网络连接并重试。"
 
 #: rust/crates/link/src/adb_download.rs:398
 #, python-brace-format
-msgid "Google wouldn't send adb to this computer (it said {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead."
-msgstr "Google 拒绝向这台电脑发送 adb（返回 {code}）。Google 在部分国家/地区会阻止 Android 下载。如果你通过其他方式获取了 platform-tools，可选择其中的 adb.exe 或 zip 文件。"
+msgid "Google refused the download (error {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead."
+msgstr ""
 
 #: rust/crates/link/src/adb_download.rs:400
 #, python-brace-format
-msgid "Google's server said {code}. Try again later."
-msgstr "Google 服务器返回了 {code}。请稍后重试。"
+msgid "Google's server returned error {code}. Try again later."
+msgstr ""
 
 #: rust/crates/link/src/audio.rs:43
 msgid "Can't reach the phone's microphone."
@@ -3700,8 +3736,8 @@ msgstr "无法连接手机麦克风。"
 
 #: rust/crates/link/src/audio.rs:59
 #, python-brace-format
-msgid "The phone refused the microphone (HTTP {code})."
-msgstr "手机拒绝了麦克风请求（HTTP {code}）。"
+msgid "The phone rejected the microphone request (HTTP {code})."
+msgstr ""
 
 #. why the phone's microphone can't be used; shown next to the Microphone card
 #: rust/crates/link/src/audio.rs:67 rust/crates/link/ui/browser_camera.slint:42
@@ -3729,21 +3765,17 @@ msgid "The browser is lowering the picture to fit the connection or the bitrate 
 msgstr "浏览器正在降低画面质量，以适应网络连接或此分辨率下的码率。"
 
 #: rust/crates/link/src/browser/plugin.rs:52
-msgid "Browser says it isn't private?"
-msgstr "浏览器提示连接不是私密连接？"
+msgid "Browser warns the connection isn't private?"
+msgstr ""
 
 #. Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons: use the names those browsers show in your language
 #: rust/crates/link/src/browser/plugin.rs:55
 msgid ""
-"It is this computer's own certificate.\n"
+"The certificate is this computer's own.\n"
 "iPhone: tap Show Details, then visit this website.\n"
 "Chrome: tap Advanced, then Proceed.\n"
 "Keep the page open with the screen on."
 msgstr ""
-"这是因为使用了这台电脑自签名的证书。\n"
-"iPhone：轻点“显示详细信息”，然后轻点“访问此网站”。\n"
-"Chrome：点按“高级”，然后点按“继续前往”。\n"
-"请保持页面打开且屏幕常亮。"
 
 #: rust/crates/link/src/browser/plugin.rs:63
 msgid "Waiting for the browser. Scan the code on the Browser camera card and tap Start."
@@ -3809,7 +3841,7 @@ msgstr "无法跟上"
 msgid "Browser"
 msgstr "浏览器"
 
-#: rust/crates/link/src/browser/plugin.rs:928 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:741 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1706 rust/crates/system/ui/updates.slint:158
+#: rust/crates/link/src/browser/plugin.rs:928 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:741 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1706 rust/crates/system/ui/updates.slint:159
 msgid "Try again"
 msgstr "重试"
 
@@ -3866,13 +3898,13 @@ msgid "Check the cable and the phone app."
 msgstr "请检查数据线和手机应用。"
 
 #: rust/crates/link/src/connection.rs:452
-msgid "Check it's on the same network."
-msgstr "请确认手机与电脑在同一网络下。"
+msgid "Check that the phone is on the same network."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:455
 #, python-brace-format
-msgid "Still streaming over {now}, so it stays on {kept}."
-msgstr "当前正在通过 {now} 串流，因此继续保持 {kept}。"
+msgid "Still streaming over {now}, so the connection stays on {kept}."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:794
 msgid "Automatic"
@@ -3924,8 +3956,8 @@ msgstr "此应用需要更新"
 
 #: rust/crates/link/src/connection.rs:829
 #, python-brace-format
-msgid "Open Telescope on {phone} and keep it on screen. It needs to be on the same network as this computer, or plugged in with a USB cable."
-msgstr "在 {phone} 上打开 Telescope 并保持屏幕亮着。它需要与这台电脑处于同一网络，或用 USB 线连接。"
+msgid "Open Telescope on {phone} and keep the app on screen. The phone needs to be on the same network as this computer, or plugged in with a USB cable."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:831
 #, python-brace-format
@@ -3984,8 +4016,8 @@ msgid "The phone is streaming to another computer."
 msgstr "手机正在向另一台电脑串流。"
 
 #: rust/crates/link/src/connection.rs:875
-msgid "Stop it there or on the phone, then try again."
-msgstr "请在那台电脑或手机上停止串流，然后重试。"
+msgid "Stop the stream there or on the phone, then try again."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:881
 msgid ""
@@ -4033,8 +4065,8 @@ msgstr "未知错误"
 
 #: rust/crates/link/src/connection.rs:887
 #, python-brace-format
-msgid "The phone refused to start streaming ({error})."
-msgstr "手机拒绝开始串流（{error}）。"
+msgid "The phone rejected the request to start streaming ({error})."
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:985 rust/crates/link/src/service.rs:331
 msgid "Lost the connection to the phone. Try again."
@@ -4054,8 +4086,8 @@ msgstr "手机相机启动时与手机失去联系。"
 
 #: rust/crates/link/src/connection.rs:1048
 #, python-brace-format
-msgid "Phone went quiet for a moment, still waiting... ({seconds}s)"
-msgstr "手机暂时没有响应，仍在等待...（{seconds} 秒）"
+msgid "No answer from the phone for a moment, still waiting... ({seconds}s)"
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:1055
 msgid ""
@@ -4081,11 +4113,8 @@ msgstr "正在等待手机相机...（{seconds} 秒）"
 msgid ""
 "The phone's camera didn't finish starting in time.\n"
 "\n"
-"Try again. If it keeps happening, open Telescope on the phone."
+"Try again. If the camera keeps failing to start, open Telescope on the phone."
 msgstr ""
-"手机相机未能及时启动完成。\n"
-"\n"
-"请重试。如果仍然出现，请在手机上打开 Telescope。"
 
 #: rust/crates/link/src/phones.rs:300
 msgid "adb isn't installed, so USB can't be used (Add device can get it)"
@@ -4154,8 +4183,8 @@ msgid "Getting adb from Google…"
 msgstr "正在从 Google 获取 adb…"
 
 #: rust/crates/link/src/plugin.rs:569 rust/crates/link/src/plugin.rs:633
-msgid "Or plug it in over USB."
-msgstr "或通过 USB 数据线连接。"
+msgid "Or plug the phone in over USB."
+msgstr ""
 
 #. keep the <a href="{link}"> link
 #: rust/crates/link/src/plugin.rs:575
@@ -4202,11 +4231,10 @@ msgstr "选择要通过 USB 配对的手机。"
 msgid "Allow USB debugging on the phone."
 msgstr "请在手机上允许 USB 调试。"
 
-#. keep the <a href="{url}"> link and the <br> tags
 #: rust/crates/link/src/plugin.rs:671
 #, python-brace-format
-msgid "Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it."
-msgstr "Telescope 可以从 Google 下载它（约 {size}）并保存在你的用户目录下。它是 Google 的软件，因此适用其 Android SDK 许可协议：<a href=\"{url}\">在此阅读</a>。<br><br>不使用它也能通过 Wi-Fi 正常工作。"
+msgid "Telescope can download adb from Google (about {size}) and keep it for your user. adb is Google's software, so their Android SDK License applies: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without adb."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:677
 msgid "USB needs adb, Google's tool for talking to Android phones."
@@ -4228,11 +4256,10 @@ msgstr "adb.exe 或 platform-tools zip 压缩包 (adb.exe *.zip)"
 msgid "Copying adb…"
 msgstr "正在复制 adb…"
 
-#. keep both <a href="..."> links
 #: rust/crates/link/src/plugin.rs:741
 #, python-brace-format
-msgid "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick one you already have</a>."
-msgstr "<a href=\"{get}\">重试</a>，或<a href=\"{pick}\">选择你已有的 adb</a>。"
+msgid "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick an adb you already have</a>."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:817
 msgid "Same phone?"
@@ -4245,8 +4272,8 @@ msgstr "这还是 {name} 吗？"
 
 #: rust/crates/link/src/plugin.rs:818
 #, python-brace-format
-msgid "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry."
-msgstr "名为 {name} 的手机作为新手机完成了配对。在手机上重装 Telescope 或清除数据后会出现这种情况。选择“是”会把 {name} 的设置和预设移到新配对的手机上，并移除旧条目。"
+msgid "{name} paired as a new phone. This happens after Telescope is reinstalled on the phone or the app's data is cleared. Yes moves {name}'s settings and presets to the new entry and removes the old one."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1017
 msgid "Phone app updated. Open Telescope on the phone."
@@ -4292,7 +4319,7 @@ msgstr "正在通过 USB 更新手机应用…"
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "{phone} 上的 Telescope 应用比此应用旧。"
 
-#: rust/crates/link/src/plugin.rs:1210 rust/crates/setup/src/setup.rs:850 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:691 rust/crates/system/src/shortcuts.rs:839
+#: rust/crates/link/src/plugin.rs:1210 rust/crates/setup/src/setup.rs:850 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:691 rust/crates/system/src/shortcuts.rs:855
 msgid "Copy command"
 msgstr "复制命令"
 
@@ -4326,8 +4353,8 @@ msgstr "移除手机"
 
 #: rust/crates/link/src/plugin.rs:1227
 #, python-brace-format
-msgid "Remove \"{name}\"? This deletes the settings it had on this computer. It can still connect with the code, and starts from the defaults."
-msgstr "移除“{name}”？这会删除它在这台电脑上的设置。它仍可以用配对码连接，并从默认设置开始。"
+msgid "Remove \"{name}\"? This deletes the settings it had on this computer. The browser can still connect with the code and starts with default settings."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1231
 msgid "Remove browser"
@@ -4339,16 +4366,16 @@ msgstr "虚拟相机的设置不同"
 
 #: rust/crates/link/src/plugin.rs:1533
 #, python-brace-format
-msgid "v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:"
-msgstr "v4l2loopback 已加载，但没有 {device}：其他应用用不同设置配置了它。请关闭该应用，然后运行以下命令把它交给 Telescope："
+msgid "v4l2loopback is loaded, but without {device}: another app loaded it with other settings. Close that app and run this command to give Telescope control:"
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1543
 msgid "The virtual camera is off"
 msgstr "虚拟相机已关闭"
 
 #: rust/crates/link/src/plugin.rs:1543
-msgid "Switching it on asks for your password."
-msgstr "开启时需要输入密码。"
+msgid "Your password is needed to switch on the virtual camera."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1544 rust/crates/shell/src/plugins_tab.rs:681 rust/crates/shell/src/plugins_tab.rs:700
 msgid "Switch on"
@@ -4390,7 +4417,7 @@ msgstr "帧率"
 msgid "How many pictures a second the browser sends."
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:22 rust/crates/setup/ui/setup.slint:22 rust/crates/shell/src/plugins_tab.rs:666 rust/crates/shell/src/plugins_tab.rs:671 rust/crates/shell/ui/settings.slint:323
+#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:23 rust/crates/setup/ui/setup.slint:23 rust/crates/shell/src/plugins_tab.rs:666 rust/crates/shell/src/plugins_tab.rs:671 rust/crates/shell/ui/settings.slint:326
 msgid "Remove"
 msgstr "移除"
 
@@ -4463,8 +4490,8 @@ msgid "Back"
 msgstr "返回"
 
 #: rust/crates/link/ui/connection.slint:469
-msgid "Telescope needs to switch on its virtual camera first. This asks for your password."
-msgstr "Telescope 需要先开启其虚拟相机。这需要输入密码。"
+msgid "The virtual camera has to be switched on first, which needs your password."
+msgstr ""
 
 #: rust/crates/link/ui/connection.slint:477 rust/crates/link/ui/connection.slint:480
 msgid "Also switch it on at every startup"
@@ -4534,20 +4561,24 @@ msgstr "重命名这台电脑"
 msgid "Name your phones show (applies to phones you pair from now on)"
 msgstr "手机显示的名称（仅对之后配对的手机生效）"
 
-#: rust/crates/link/ui/connection.slint:776 rust/crates/link/ui/connection.slint:793
+#: rust/crates/link/ui/connection.slint:776 rust/crates/link/ui/connection.slint:794
 msgid "UDP on Wi-Fi"
 msgstr "Wi-Fi 上使用 UDP"
 
-#: rust/crates/link/ui/connection.slint:777 rust/crates/link/ui/connection.slint:785
-msgid "It can stutter more than TCP, so try it and see."
-msgstr "可能比 TCP 更容易卡顿，不妨试试看。"
+#: rust/crates/link/ui/connection.slint:777
+msgid "Send the video over Wi-Fi with UDP, which skips lost packets instead of waiting for them"
+msgstr ""
 
-#: rust/crates/link/ui/connection.slint:780
+#: rust/crates/link/ui/connection.slint:778 rust/crates/link/ui/connection.slint:786
+msgid "UDP can stutter more than TCP. Try both and compare."
+msgstr ""
+
+#: rust/crates/link/ui/connection.slint:781
 msgctxt "search"
 msgid "udp tcp transport network lag freezes stutter wifi"
 msgstr "udp tcp transport network lag freezes stutter wifi 传输 网络 延迟 卡顿 卡住 无线"
 
-#: rust/crates/link/ui/connection.slint:783
+#: rust/crates/link/ui/connection.slint:784
 msgid "Experimental"
 msgstr "实验性"
 
@@ -4643,8 +4674,8 @@ msgid "All the way right is Dynamic, which adjusts to your connection."
 msgstr "滑到最右侧为“动态”，会根据连接状况自动调节。"
 
 #: rust/crates/outputs/src/stream_output.rs:29
-msgid "This phone's app is too old for Dynamic and uses Auto until it's updated."
-msgstr "此手机的应用版本过低，不支持“动态”，更新前将使用“自动”。"
+msgid "The phone app is too old for Dynamic and uses Auto until the app is updated."
+msgstr ""
 
 #: rust/crates/outputs/src/stream_output.rs:30
 msgid "H.264 from the phone's hardware encoder, with much less data than Heavy."
@@ -4736,8 +4767,8 @@ msgstr "以 {size} 开始"
 
 #: rust/crates/outputs/src/stream_output.rs:574
 #, python-brace-format
-msgid "{error}. It's set back to {size}, the last size that worked."
-msgstr "{error}。已恢复为上一次正常工作的尺寸 {size}。"
+msgid "{error}. The size is set back to {size}, the last size that worked."
+msgstr ""
 
 #: rust/crates/outputs/src/stream_output.rs:576
 #, python-brace-format
@@ -4766,8 +4797,8 @@ msgid "The resolution, frame rate and format of the stream."
 msgstr "串流的分辨率、帧率和格式。"
 
 #: rust/crates/outputs/src/stream_output.rs:716
-msgid "Without it there's no Stream output card and streams use whatever size and format the phone picks."
-msgstr "关闭后将没有“串流输出”卡片，串流将使用手机自行选择的尺寸和格式。"
+msgid "Without the Stream output plugin there's no Stream output card and streams use whatever size and format the phone picks."
+msgstr ""
 
 #: rust/crates/outputs/src/stream_output.rs:781 rust/crates/outputs/src/stream_output.rs:990 rust/crates/outputs/ui/stream_output.slint:109 rust/crates/outputs/ui/stream_output.slint:113
 msgid "Heavy"
@@ -4809,16 +4840,16 @@ msgstr "无法使用此图片"
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:504
 #, python-brace-format
-msgid "{problem}. Keeping the current wait screen."
-msgstr "{problem}。将继续使用当前的等待画面。"
+msgid "{problem}. The current wait screen is kept."
+msgstr ""
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:506
 msgid "Couldn't read that image"
 msgstr "无法读取此图片"
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:506
-msgid "The default screen is showing. Choose another one."
-msgstr "当前显示默认画面。请另选一张图片。"
+msgid "The default screen is showing. Choose another image."
+msgstr ""
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:509
 #, python-brace-format
@@ -4847,8 +4878,8 @@ msgid "The picture apps see on the virtual camera while nothing is streaming."
 msgstr "未串流时其他应用在虚拟相机上看到的画面。"
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:575
-msgid "Without it Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
-msgstr "关闭后“设置”中将没有“等待画面”，在两次串流之间其他应用可能会看到黑屏或完全没有画面。"
+msgid "Without the Wait screen plugin Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
+msgstr ""
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:673
 msgctxt "search"
@@ -4916,8 +4947,8 @@ msgid "Brighten a face in front of a bright window."
 msgstr "在背靠明亮窗户逆光时提亮人脸。"
 
 #: rust/crates/outputs/src/webcam.rs:89
-msgid "Set it to your mains frequency to stop lights flickering or banding."
-msgstr "设置为当地电网工频以消除灯光闪烁或条纹。"
+msgid "Match your mains frequency to stop lights flickering or banding."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:90
 msgid "Make the picture brighter or darker than the webcam's automatic exposure."
@@ -4972,17 +5003,17 @@ msgid "60 Hz"
 msgstr "60 Hz"
 
 #: rust/crates/outputs/src/webcam.rs:320
-msgid "Check that it's plugged in."
-msgstr "请检查是否已插好。"
+msgid "Check that the webcam is plugged in."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:498
-msgid "Another app may be using it. Close it there and it starts here."
-msgstr "可能有其他应用正在使用它。在对应应用中将其关闭即可在此启动。"
+msgid "Another app may be using the webcam. Close the webcam in that app, then start streaming here."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:500
 #, python-brace-format
-msgid "{app} is using it. Close it there and it starts here."
-msgstr "{app} 正在使用它。在对应应用中将其关闭即可在此启动。"
+msgid "{app} is using the webcam. Close the webcam there, then start streaming here."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:502 rust/crates/outputs/src/webcam.rs:505 rust/crates/outputs/src/webcam.rs:508
 #, python-brace-format
@@ -5039,8 +5070,8 @@ msgid "Streaming from webcams and capture cards plugged into this computer."
 msgstr "从插入这台电脑的摄像头和采集卡串流。"
 
 #: rust/crates/outputs/src/webcam.rs:1013
-msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
-msgstr "关闭后，设备选择器中不会显示网络摄像头，“网络摄像头”卡片也会消失。"
+msgid "Without the Webcams plugin webcams aren't in the device picker and the Webcam card is gone too."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam.rs:1057
 #, python-brace-format
@@ -5052,12 +5083,12 @@ msgid "Plug it in, or pick another camera."
 msgstr "请将其插入，或选择其他相机。"
 
 #: rust/crates/outputs/src/webcam_capture.rs:10
-msgid "The webcam isn't plugged in. Plug it back in and it carries on."
-msgstr "摄像头未连接。重新插好后即可继续。"
+msgid "The webcam isn't plugged in. Plug the webcam back in to continue."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture.rs:11
-msgid "Another app is using the webcam. Close it there and it starts here."
-msgstr "其他应用正在使用摄像头。在对应应用中将其关闭即可在此启动。"
+msgid "Another app is using the webcam. Close the webcam in that app, then start streaming here."
+msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture.rs:12
 msgid "Windows or your security software is blocking Telescope from the webcam. Allow it there, then start the webcam again."
@@ -5096,7 +5127,7 @@ msgid "The photo was interrupted because the camera stopped."
 msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:273
-msgid "The camera took too long to take the photo. If it still arrives, it is saved and you'll be told."
+msgid "The camera took too long to take the photo. If the photo still arrives, it's saved and you get a notification."
 msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:274
@@ -5108,7 +5139,7 @@ msgid "The camera's image quality is locked to RAW, so it can't take a JPEG."
 msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:276
-msgid "The camera only sent part of the photo. What came is saved."
+msgid "The camera only sent part of the photo. The part that arrived is saved."
 msgstr ""
 
 #: rust/crates/outputs/src/wininstall.rs:256 rust/crates/setup/src/setup.rs:805
@@ -5204,6 +5235,10 @@ msgstr "使用默认"
 msgid "Mirror it, for apps that flip the camera"
 msgstr "镜像画面，适用于翻转相机的应用"
 
+#: rust/crates/outputs/ui/wait_screen.slint:73
+msgid "Flip the wait screen so it shows the right way round in apps that mirror the camera"
+msgstr ""
+
 #: rust/crates/outputs/ui/webcam.slint:65
 msgid "Set the webcam's picture settings back to default."
 msgstr "将网络摄像头的画面设置恢复为默认值。"
@@ -5233,55 +5268,55 @@ msgid "Focus once"
 msgstr "单次对焦"
 
 #: rust/crates/plugin-host/src/load.rs:16
-msgid "It isn't turned on."
-msgstr "它未开启。"
+msgid "The plugin isn't turned on."
+msgstr ""
 
 #: rust/crates/plugin-host/src/lua.rs:297
 #, python-brace-format
-msgid "Its {file} has to return the plugin's table at the end."
-msgstr "{file} 的末尾必须返回插件表。"
+msgid "{file} has to return the plugin's table at the end."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:181
-msgid "It's a link to another folder, which plugins can't be."
-msgstr "它是一个指向其他文件夹的链接，插件不能是链接。"
+msgid "The plugin is a link to another folder, which plugins can't be."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:187 rust/crates/plugin-host/src/package.rs:242
 #, python-brace-format
-msgid "It has no {file}."
-msgstr "缺少 {file}。"
+msgid "The plugin has no {file}."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:191
 #, python-brace-format
-msgid "Its {file} isn't valid JSON."
-msgstr "它的 {file} 不是有效的 JSON。"
+msgid "{file} isn't valid JSON."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:195 rust/crates/plugin-host/src/package.rs:239
 #, python-brace-format
-msgid "Its {file} isn't valid."
-msgstr "它的 {file} 无效。"
+msgid "{file} isn't valid."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:209
 #, python-brace-format
-msgid "It was made for an older Telescope (plugin API {api}) and needs an update."
-msgstr "它是针对旧版 Telescope（插件 API {api}）制作的，需要更新。"
+msgid "The plugin was made for an older Telescope (plugin API {api}) and needs an update."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:219
-msgid "Its files couldn't be read."
-msgstr "无法读取它的文件。"
+msgid "The plugin's files couldn't be read."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:226
 #, python-brace-format
-msgid "Its {file} has to give the folder's name as \"name\"."
-msgstr "它的 {file} 必须将文件夹名称指定为 \"name\"。"
+msgid "{file} has to give the folder's name as \"name\"."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:233
 #, python-brace-format
-msgid "It needs a newer Telescope (plugin API {wanted}; this one has {have})."
-msgstr "它需要更新版本的 Telescope（需要插件 API {wanted}；当前版本为 {have}）。"
+msgid "The plugin needs a newer Telescope (plugin API {wanted}; this Telescope has {have})."
+msgstr ""
 
 #: rust/crates/plugin-host/src/package.rs:273
-msgid "Its files changed since it was turned on. Turn it on again if you trust this version."
-msgstr "它的文件自开启后发生了更改。如果你信任此版本，请重新开启。"
+msgid "The plugin's files changed since it was turned on. Turn the plugin on again if you trust the new version."
+msgstr ""
 
 #: rust/crates/plugin-host/src/switches.rs:33
 msgid "Couldn't save the settings."
@@ -5337,8 +5372,8 @@ msgid "{phone}: temperature is {temp} °C."
 msgstr "{phone}：温度为 {temp}°C。"
 
 #: rust/crates/setup/src/monitoring.rs:349
-msgid "Stopped streaming to let it cool down."
-msgstr "已停止串流，让手机降温。"
+msgid "Stopped streaming to let the phone cool down."
+msgstr ""
 
 #: rust/crates/setup/src/monitoring.rs:349
 msgid "Consider stopping charging or closing other apps."
@@ -5360,8 +5395,8 @@ msgstr "{phone} 电量为 {level}%"
 
 #: rust/crates/setup/src/monitoring.rs:368
 #, python-brace-format
-msgid "Streaming stopped, as Monitoring stops it at {level}% or lower."
-msgstr "串流已停止，因为“监控”设定电量降到 {level}% 或以下时停止串流。"
+msgid "Streaming stopped because Monitoring stops streaming at {level}% or lower."
+msgstr ""
 
 #: rust/crates/setup/src/monitoring.rs:372
 #, python-brace-format
@@ -5375,8 +5410,8 @@ msgstr "{phone} 温度为 {temp}°C"
 
 #: rust/crates/setup/src/monitoring.rs:376
 #, python-brace-format
-msgid "Streaming stopped to let it cool down, as Monitoring stops it at {temp} °C."
-msgstr "串流已停止，让手机降温：“监控”设定温度达到 {temp}°C 时停止串流。"
+msgid "Streaming stopped to let the phone cool down, because Monitoring stops streaming at {temp} °C."
+msgstr ""
 
 #: rust/crates/setup/src/monitoring.rs:384
 msgid "Start anyway"
@@ -5391,12 +5426,12 @@ msgid "The phone's battery and temperature, with warnings when they get low or h
 msgstr "手机的电量和温度，电量过低或温度过高时发出警告。"
 
 #: rust/crates/setup/src/monitoring.rs:448
-msgid "Without it there's no Phone card and nothing warns you about a low battery or a hot phone."
-msgstr "没有它就没有“手机”卡片，也不会提醒你电量低或手机过热。"
+msgid "Without the Monitoring plugin there's no Phone card and nothing warns you about a low battery or a hot phone."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:33
-msgid "Asks for your password (pkexec or sudo): this changes system settings."
-msgstr "需要输入你的密码（pkexec 或 sudo）：此操作将修改系统设置。"
+msgid "Needs your password (pkexec or sudo) to change system settings."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:34
 msgid "Needs your password (pkexec or sudo) because this changes system settings."
@@ -5452,8 +5487,8 @@ msgid "Apply"
 msgstr "应用"
 
 #: rust/crates/setup/src/setup.rs:389
-msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
-msgstr "应用此设置将按新分辨率重新开始串流。如果 OBS 丢失视频源，请将其移除后重新添加。"
+msgid "Applying restarts the stream at the new size. If OBS loses the source, remove the source and add it again."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:416 rust/crates/shell/src/plugins/onboarding.rs:157 rust/crates/shell/src/plugins/onboarding.rs:161 rust/crates/shell/src/plugins/onboarding.rs:164
 msgid "Install over USB"
@@ -5482,7 +5517,7 @@ msgstr "开发者：<a href=\"{url}\">LunarKittyy</a>"
 msgid "Version {version}"
 msgstr "版本 {version}"
 
-#: rust/crates/setup/src/setup.rs:441 rust/crates/system/src/shortcuts.rs:839
+#: rust/crates/setup/src/setup.rs:441 rust/crates/system/src/shortcuts.rs:855
 msgid "Copied"
 msgstr "已复制"
 
@@ -5582,8 +5617,8 @@ msgid "Update ready"
 msgstr "更新就绪"
 
 #: rust/crates/setup/src/setup.rs:648
-msgid "Some apps can't see it"
-msgstr "部分应用无法识别"
+msgid "Some apps can't see the camera"
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:649 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
 msgid "Update"
@@ -5620,8 +5655,8 @@ msgid "Not installed (Install driver downloads it first)"
 msgstr "未安装（“安装驱动程序”会先下载文件）"
 
 #: rust/crates/setup/src/setup.rs:676
-msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
-msgstr "未找到。通过 USB 配对和安装需要此组件；通过 Wi-Fi 则不需要。"
+msgid "Not found. Pairing and installing over USB need adb; Wi-Fi doesn't."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:702 rust/crates/setup/src/setup.rs:866
 #, python-brace-format
@@ -5872,7 +5907,7 @@ msgstr "TCP"
 msgid "From the phone"
 msgstr "来自手机"
 
-#: rust/crates/setup/src/stats.rs:427 rust/crates/setup/ui/setup.slint:68 rust/crates/shell/src/window.rs:751
+#: rust/crates/setup/src/stats.rs:427 rust/crates/setup/ui/setup.slint:69 rust/crates/shell/src/window.rs:751
 msgid "Virtual camera"
 msgstr "虚拟相机"
 
@@ -6012,8 +6047,8 @@ msgid "Numbers about the stream as it runs: frames in and out, dropped frames an
 msgstr "串流运行时的各项数值：收发帧率、丢帧数及原因、连接方式与码率、各步骤耗时以及应用资源占用。"
 
 #: rust/crates/setup/src/stats.rs:780
-msgid "Without it there's no Stats card. The stream carries on the same."
-msgstr "关闭后将不显示“统计”卡片，串流本身不受影响。"
+msgid "Without the Stats plugin there's no Stats card. The stream is not affected."
+msgstr ""
 
 #: rust/crates/setup/src/stats_phone.rs:99
 msgid "Moderate"
@@ -6098,8 +6133,8 @@ msgstr "过热降频"
 
 #: rust/crates/setup/src/stats_phone.rs:170
 #, python-brace-format
-msgid "stepped down to {n} for the link"
-msgstr "因连接受限已降至 {n}"
+msgid "lowered to {n} because of the connection"
+msgstr ""
 
 #: rust/crates/setup/src/stats_phone.rs:173
 msgid "Camera frame rate"
@@ -6177,377 +6212,449 @@ msgstr "复制命令以粘贴到终端中。"
 msgid "Extra cameras"
 msgstr "额外相机"
 
-#: rust/crates/setup/ui/setup.slint:21
+#: rust/crates/setup/ui/setup.slint:19
+msgid "More virtual cameras, so several cameras can stream at the same time"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:22
 msgctxt "search"
 msgid "multiple second cameras add camera several streams remove virtual cameras"
 msgstr "多个 第二相机 添加相机 多路串流 移除 虚拟相机 multiple second cameras add camera several streams remove virtual cameras"
 
-#: rust/crates/setup/ui/setup.slint:69
+#: rust/crates/setup/ui/setup.slint:70
 msgid "Set up the virtual camera that other apps see."
 msgstr "设置供其他应用使用的虚拟相机。"
 
-#: rust/crates/setup/ui/setup.slint:70
+#: rust/crates/setup/ui/setup.slint:71
 msgctxt "search"
 msgid "obs zoom teams discord webcam driver output device loopback"
 msgstr "摄像头 驱动 驱动程序 输出设备 回环 obs zoom teams discord webcam driver output device loopback"
 
-#: rust/crates/setup/ui/setup.slint:77
+#: rust/crates/setup/ui/setup.slint:78
 msgid "Kernel module"
 msgstr "内核模块"
 
-#: rust/crates/setup/ui/setup.slint:78
+#: rust/crates/setup/ui/setup.slint:79
+msgid "The Linux part that provides the virtual camera"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:80
 msgid "Only needed when the status isn't Ready."
 msgstr "仅在状态不是“就绪”时需要。"
 
-#: rust/crates/setup/ui/setup.slint:81
+#: rust/crates/setup/ui/setup.slint:83
 msgctxt "search"
 msgid "v4l2loopback linux virtual camera driver load unload check status not ready /dev/video missing fix modprobe"
 msgstr "虚拟相机 驱动 驱动程序 内核模块 加载 卸载 检查 状态 就绪 未就绪 缺失 修复 v4l2loopback linux virtual camera driver load unload check status not ready /dev/video missing fix modprobe"
 
-#: rust/crates/setup/ui/setup.slint:85
+#: rust/crates/setup/ui/setup.slint:87
 msgid "Check"
 msgstr "检查"
 
-#: rust/crates/setup/ui/setup.slint:87 rust/crates/setup/ui/setup.slint:87
+#: rust/crates/setup/ui/setup.slint:89 rust/crates/setup/ui/setup.slint:89
 msgid "Unload"
 msgstr "卸载"
 
-#: rust/crates/setup/ui/setup.slint:96 rust/crates/setup/ui/setup.slint:97
+#: rust/crates/setup/ui/setup.slint:98 rust/crates/setup/ui/setup.slint:99
 msgid "Load when the computer starts"
 msgstr "开机时自动加载"
 
-#: rust/crates/setup/ui/setup.slint:99
+#: rust/crates/setup/ui/setup.slint:101
 msgctxt "search"
 msgid "boot startup reboot persist permanent every start modprobe v4l2loopback driver survive restart"
 msgstr "开机 自启 重启 持久化 每次启动 驱动 重启保留 boot startup reboot persist permanent every start modprobe v4l2loopback driver survive restart"
 
-#: rust/crates/setup/ui/setup.slint:121 rust/crates/setup/ui/setup.slint:125
+#: rust/crates/setup/ui/setup.slint:123 rust/crates/setup/ui/setup.slint:128
 msgid "Driver"
 msgstr "驱动程序"
 
 #: rust/crates/setup/ui/setup.slint:124
+msgid "The Windows part that provides the virtual camera"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:127
 msgctxt "search"
 msgid "unitycapture unity video capture windows virtual camera install reinstall rename register missing not showing obs zoom"
 msgstr "虚拟相机 安装 重新安装 重命名 注册 缺失 未显示 unitycapture unity video capture windows virtual camera install reinstall rename register missing not showing obs zoom"
 
-#: rust/crates/setup/ui/setup.slint:136
+#: rust/crates/setup/ui/setup.slint:137
+msgid "Android's tool for talking to a phone over USB"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:138
+msgid "Google's licence doesn't allow bundling adb, so download it or pick a copy you already have."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:141
 msgctxt "search"
 msgid "adb android debug bridge usb pairing download get platform-tools google own cable"
 msgstr "配对 下载 获取 自定义 数据线 调试 线连 adb android debug bridge usb pairing download get platform-tools google own cable"
 
-#: rust/crates/setup/ui/setup.slint:144
+#: rust/crates/setup/ui/setup.slint:149
 msgid "Download adb from Google for pairing and installing over USB."
 msgstr "从 Google 下载 adb，用于通过 USB 配对和安装应用。"
 
-#: rust/crates/setup/ui/setup.slint:148
+#: rust/crates/setup/ui/setup.slint:153
 msgid "Use my own adb"
 msgstr "使用我自己的 adb"
 
-#: rust/crates/setup/ui/setup.slint:150
+#: rust/crates/setup/ui/setup.slint:155
 msgid "Use my own"
 msgstr "使用自己的"
 
-#: rust/crates/setup/ui/setup.slint:151
+#: rust/crates/setup/ui/setup.slint:156
 msgid "Pick an adb.exe or platform-tools zip you already have."
 msgstr "选择你已有的 adb.exe 或 platform-tools 压缩包。"
 
-#: rust/crates/setup/ui/setup.slint:200
+#: rust/crates/setup/ui/setup.slint:205
 msgid "Hardware acceleration, power saving, zoom range and the virtual camera's size."
 msgstr "硬件加速、省电、缩放范围及虚拟相机尺寸。"
 
-#: rust/crates/setup/ui/setup.slint:201
+#: rust/crates/setup/ui/setup.slint:206
 msgctxt "search"
 msgid "picture quality image stream camera output"
 msgstr "画质 画面质量 图像 串流 相机输出 视频流 picture quality image stream camera output"
 
-#: rust/crates/setup/ui/setup.slint:208 rust/crates/setup/ui/setup.slint:209
+#: rust/crates/setup/ui/setup.slint:213 rust/crates/setup/ui/setup.slint:214
 msgid "Hardware acceleration"
 msgstr "硬件加速"
 
-#: rust/crates/setup/ui/setup.slint:210
-msgid "Decode the Light format on the graphics card from the next stream on. If the card fails the processor takes over until you restart Telescope."
-msgstr "从下次串流起使用显卡解码“轻量”格式。若显卡解码失败，将改由处理器接管，直至重启 Telescope。"
+#: rust/crates/setup/ui/setup.slint:215
+msgid "Decode the Light format on the graphics card from the next stream on. If the graphics card fails, the processor is used until you restart Telescope."
+msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:211
+#: rust/crates/setup/ui/setup.slint:216
 msgctxt "search"
 msgid "hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu processor laptop 4k"
 msgstr "硬解 硬件加速 显卡 解码 更快 处理器 笔记本 hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu processor laptop 4k"
 
-#: rust/crates/setup/ui/setup.slint:221 rust/crates/setup/ui/setup.slint:222
+#: rust/crates/setup/ui/setup.slint:226 rust/crates/setup/ui/setup.slint:227
 msgid "Power-saving effects"
 msgstr "节能特效"
 
-#: rust/crates/setup/ui/setup.slint:223
-msgid "Use less processor and battery while Background or Auto framing is on. They follow quick movement a little later."
-msgstr "开启“背景”或“自动构图”时减少处理器和电量消耗。快速移动时跟随会略微延后。"
+#: rust/crates/setup/ui/setup.slint:228
+msgid "Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later."
+msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:224
+#: rust/crates/setup/ui/setup.slint:229
 msgctxt "search"
 msgid "battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
 msgstr "电池 电量 功耗 笔记本 处理器 占用 风扇 发热 虚化 构图 特效 质量 省电 降温 battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
 
-#: rust/crates/setup/ui/setup.slint:231 rust/crates/setup/ui/setup.slint:239
+#: rust/crates/setup/ui/setup.slint:236 rust/crates/setup/ui/setup.slint:245
 msgid "Max zoom"
 msgstr "最大缩放"
 
-#: rust/crates/setup/ui/setup.slint:232
-msgid "How far the Zoom slider goes. Zoom beyond the phone's own range is cropped on this computer."
-msgstr "“缩放”滑块的最大范围。超出手机自身变焦范围的部分将在这台电脑上裁剪。"
+#: rust/crates/setup/ui/setup.slint:237
+msgid "How far the Zoom slider goes"
+msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:235
+#: rust/crates/setup/ui/setup.slint:238
+msgid "Zoom beyond the phone's own range is cropped on this computer."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:241
 msgctxt "search"
 msgid "zoom limit magnify telephoto digital crop 10x 30x slider range"
 msgstr "缩放 限制 放大 长焦 数码裁切 裁切 滑块 范围 zoom limit magnify telephoto digital crop 10x 30x slider range"
 
-#: rust/crates/setup/ui/setup.slint:248 rust/crates/setup/ui/setup.slint:256 rust/crates/setup/ui/setup.slint:271 rust/crates/setup/ui/setup.slint:279
+#: rust/crates/setup/ui/setup.slint:254 rust/crates/setup/ui/setup.slint:264 rust/crates/setup/ui/setup.slint:279 rust/crates/setup/ui/setup.slint:287
 msgid "Canvas size"
 msgstr "画布大小"
 
-#: rust/crates/setup/ui/setup.slint:251
+#: rust/crates/setup/ui/setup.slint:255
+msgid "The size of the picture other apps get from the virtual camera"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:256
+msgid "On Linux the virtual camera is reloaded for this, so close OBS and other apps using it first."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:259
 msgctxt "search"
 msgid "resolution output size 1080p 720p 4k portrait landscape aspect ratio custom width height pixels apply reload"
 msgstr "分辨率 输出大小 竖屏 横屏 宽高比 自定义 宽度 高度 像素 应用 重新加载 resolution output size 1080p 720p 4k portrait landscape aspect ratio custom width height pixels apply reload"
 
-#: rust/crates/setup/ui/setup.slint:317
+#: rust/crates/setup/ui/setup.slint:325
 msgid "Maximum microphone gain and the limiter."
 msgstr "麦克风最大增益与限制器。"
 
-#: rust/crates/setup/ui/setup.slint:318
+#: rust/crates/setup/ui/setup.slint:326
 msgctxt "search"
 msgid "audio sound voice input volume"
 msgstr "音频 声音 语音 输入 音量 audio sound voice input volume"
 
-#: rust/crates/setup/ui/setup.slint:324 rust/crates/setup/ui/setup.slint:332
+#: rust/crates/setup/ui/setup.slint:332 rust/crates/setup/ui/setup.slint:341
 msgid "Max gain"
 msgstr "最大增益"
 
-#: rust/crates/setup/ui/setup.slint:325
-msgid "How far the Gain slider goes. Less range gives finer steps and more range helps a quiet phone."
-msgstr "“增益”滑块的最大范围。范围越小调节越精细，范围越大越适合声音较轻的手机。"
+#: rust/crates/setup/ui/setup.slint:333
+msgid "How far the Gain slider goes"
+msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:328
+#: rust/crates/setup/ui/setup.slint:334
+msgid "Less range gives finer steps. More range helps a quiet phone."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:337
 msgctxt "search"
 msgid "microphone volume loudness boost amplify quiet decibel db slider range"
 msgstr "麦克风 音量 响度 增强 放大 静音 分贝 滑块 范围 microphone volume loudness boost amplify quiet decibel db slider range"
 
-#: rust/crates/setup/ui/setup.slint:340 rust/crates/setup/ui/setup.slint:341
+#: rust/crates/setup/ui/setup.slint:349 rust/crates/setup/ui/setup.slint:350
 msgid "Limiter"
 msgstr "限制器"
 
-#: rust/crates/setup/ui/setup.slint:342
-msgid "Keeps loud sounds from clipping"
-msgstr "防止过大声音削波失真"
+#: rust/crates/setup/ui/setup.slint:351
+msgid "Keep loud sounds from clipping"
+msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:343
+#: rust/crates/setup/ui/setup.slint:352
 msgctxt "search"
 msgid "microphone audio compressor distortion clipping loud peaks sound"
 msgstr "麦克风 音频 压限器 压缩器 畸变 破音 削波 峰值 声音 限制器 microphone audio compressor distortion clipping loud peaks sound"
 
-#: rust/crates/setup/ui/setup.slint:363
+#: rust/crates/setup/ui/setup.slint:372
 msgid "Phone app"
 msgstr "手机应用"
 
-#: rust/crates/setup/ui/setup.slint:364
+#: rust/crates/setup/ui/setup.slint:373
 msgid "Install the Telescope app on a phone over USB."
 msgstr "通过 USB 在手机上安装 Telescope 应用。"
 
-#: rust/crates/setup/ui/setup.slint:365
+#: rust/crates/setup/ui/setup.slint:374
 msgctxt "search"
 msgid "android install apk usb"
 msgstr "安卓 安装 线连 android install apk usb"
 
-#: rust/crates/setup/ui/setup.slint:375
+#: rust/crates/setup/ui/setup.slint:382
+msgid "The phone app that streams the camera to this computer"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:385
 msgctxt "search"
 msgid "phone app install usb android reinstall newer version sideload cable"
 msgstr "手机应用 安装 安卓 重新安装 新版本 侧载 数据线 phone app install usb android reinstall newer version sideload cable"
 
-#: rust/crates/setup/ui/setup.slint:382 rust/crates/shell/ui/settings.slint:434 rust/crates/shell/ui/settings.slint:435
+#: rust/crates/setup/ui/setup.slint:392 rust/crates/shell/ui/settings.slint:437 rust/crates/shell/ui/settings.slint:438
 msgid "Install"
 msgstr "安装"
 
-#: rust/crates/setup/ui/setup.slint:383
+#: rust/crates/setup/ui/setup.slint:393
 msgid "Install the Telescope.apk that came with this app, or an APK you pick, on a phone plugged in over USB."
 msgstr "通过 USB 在已连接的手机上安装此应用附带的 Telescope.apk 或你选择的 APK。"
 
-#: rust/crates/setup/ui/setup.slint:393 rust/crates/setup/ui/setup.slint:400
+#: rust/crates/setup/ui/setup.slint:403 rust/crates/setup/ui/setup.slint:410
 msgid "Select device"
 msgstr "选择设备"
 
-#: rust/crates/setup/ui/setup.slint:394
-msgid "More than one phone is plugged in. Which one should get the app?"
-msgstr "连接了多台手机。要在哪台手机上安装此应用？"
+#: rust/crates/setup/ui/setup.slint:404
+msgid "Pick which phone gets the app when more than one is plugged in"
+msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:437
+#: rust/crates/setup/ui/setup.slint:447
 msgid "Theme, card colours and language."
 msgstr "主题、卡片颜色与语言。"
 
-#: rust/crates/setup/ui/setup.slint:438
+#: rust/crates/setup/ui/setup.slint:448
 msgctxt "search"
 msgid "appearance theme colors colours interface"
 msgstr "外观 主题 颜色 色彩 界面 appearance theme colors colours interface"
 
-#: rust/crates/setup/ui/setup.slint:443 rust/crates/setup/ui/setup.slint:450
+#: rust/crates/setup/ui/setup.slint:453 rust/crates/setup/ui/setup.slint:461
 msgid "Theme"
 msgstr "主题"
 
-#: rust/crates/setup/ui/setup.slint:446
+#: rust/crates/setup/ui/setup.slint:454
+msgid "Dark, classic, OLED black or light for the whole app"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:457
 msgctxt "search"
 msgid "theme classic dark blue appearance look old oled black light white"
 msgstr "主题 经典 深色 暗色 蓝色 外观 界面 旧版 纯黑 黑色 浅色 亮色 白色 theme classic dark blue appearance look old oled black light white"
 
-#: rust/crates/setup/ui/setup.slint:451
+#: rust/crates/setup/ui/setup.slint:462
 msgid "Dark"
 msgstr "深色"
 
-#: rust/crates/setup/ui/setup.slint:451
+#: rust/crates/setup/ui/setup.slint:462
 msgid "Classic"
 msgstr "经典"
 
-#: rust/crates/setup/ui/setup.slint:451
+#: rust/crates/setup/ui/setup.slint:462
 msgid "OLED"
 msgstr "OLED"
 
-#: rust/crates/setup/ui/setup.slint:458 rust/crates/setup/ui/setup.slint:459 rust/crates/setup/ui/setup.slint:467
+#: rust/crates/setup/ui/setup.slint:469 rust/crates/setup/ui/setup.slint:470 rust/crates/setup/ui/setup.slint:478
 msgid "Card colours"
 msgstr "卡片配色"
 
-#: rust/crates/setup/ui/setup.slint:460
+#: rust/crates/setup/ui/setup.slint:471
 msgid "Give every card in the main window a different colour."
 msgstr "为主窗口中的每张卡片设置不同的颜色。"
 
-#: rust/crates/setup/ui/setup.slint:463
+#: rust/crates/setup/ui/setup.slint:474
 msgctxt "search"
 msgid "color colour theme appearance monochrome colourful purple hue accent look"
 msgstr "色彩 颜色 主题 外观 单色 彩色 紫色 色调 强调色 样式 color colour theme appearance monochrome colourful purple hue accent look"
 
-#: rust/crates/setup/ui/setup.slint:468
+#: rust/crates/setup/ui/setup.slint:479
 msgid "Colourful"
 msgstr "彩色"
 
-#: rust/crates/setup/ui/setup.slint:468
+#: rust/crates/setup/ui/setup.slint:479
 msgid "Monochrome"
 msgstr "单色"
 
-#: rust/crates/setup/ui/setup.slint:476 rust/crates/setup/ui/setup.slint:483
+#: rust/crates/setup/ui/setup.slint:487 rust/crates/setup/ui/setup.slint:496
 msgid "Language"
 msgstr "语言"
 
-#: rust/crates/setup/ui/setup.slint:479
+#: rust/crates/setup/ui/setup.slint:488
+msgid "The language of every text in the app"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:489
+msgid "Switching needs a restart."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:492
 msgctxt "search"
 msgid "language translation translate locale"
 msgstr "语言 翻译 界面语言 区域 language translation translate locale"
 
-#: rust/crates/setup/ui/setup.slint:496
+#: rust/crates/setup/ui/setup.slint:509
 msgid "Restart to switch"
 msgstr "重启以切换"
 
-#: rust/crates/setup/ui/setup.slint:496
-msgid "Restart Telescope to switch to it."
-msgstr "重启 Telescope 即可切换。"
+#: rust/crates/setup/ui/setup.slint:509
+msgid "Restart Telescope to switch to the new language."
+msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:498 rust/crates/shell/ui/settings.slint:501 rust/crates/shell/ui/settings.slint:504
+#: rust/crates/setup/ui/setup.slint:511 rust/crates/shell/ui/settings.slint:504 rust/crates/shell/ui/settings.slint:507
 msgid "Restart now"
 msgstr "立即重启"
 
-#: rust/crates/setup/ui/setup.slint:502 rust/crates/shell/src/plugins_tab.rs:685
+#: rust/crates/setup/ui/setup.slint:515 rust/crates/shell/src/plugins_tab.rs:685
 msgid "Restart"
 msgstr "重启"
 
-#: rust/crates/setup/ui/setup.slint:503
+#: rust/crates/setup/ui/setup.slint:516
 msgid "Restart Telescope in the language you picked."
 msgstr "以所选语言重启 Telescope。"
 
-#: rust/crates/setup/ui/setup.slint:516 rust/crates/setup/ui/setup.slint:520
+#: rust/crates/setup/ui/setup.slint:529 rust/crates/setup/ui/setup.slint:533
 msgid "Help translate"
 msgstr "参与翻译"
 
-#: rust/crates/setup/ui/setup.slint:521
+#: rust/crates/setup/ui/setup.slint:534
 msgid "Fix a text or add a language, no coding needed."
 msgstr "修正文本或添加语言，无需编写代码。"
 
-#: rust/crates/setup/ui/setup.slint:542
+#: rust/crates/setup/ui/setup.slint:555
 msgid "About"
 msgstr "关于"
 
-#: rust/crates/setup/ui/setup.slint:543
+#: rust/crates/setup/ui/setup.slint:556
 msgid "Version, log, bug reports and help."
 msgstr "版本、日志、问题报告与帮助。"
 
-#: rust/crates/setup/ui/setup.slint:544
+#: rust/crates/setup/ui/setup.slint:557
 msgctxt "search"
 msgid "info version help support credits"
 msgstr "信息 版本 帮助 支持 制作人员 致谢 info version help support credits"
 
-#: rust/crates/setup/ui/setup.slint:555
+#: rust/crates/setup/ui/setup.slint:568
 msgctxt "search"
 msgid "about author credits made by version number build"
 msgstr "关于 作者 致谢 制作人员 版本号 构建版本 about author credits made by version number build"
 
-#: rust/crates/setup/ui/setup.slint:570
+#: rust/crates/setup/ui/setup.slint:583
 msgid "Log"
 msgstr "日志"
 
-#: rust/crates/setup/ui/setup.slint:573
+#: rust/crates/setup/ui/setup.slint:584
+msgid "A record of what the app did, useful for tracking down a problem"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:587
 msgctxt "search"
 msgid "log file open show temp folder"
 msgstr "日志 文件 打开 显示 临时 文件夹 目录 log file open show temp folder"
 
-#: rust/crates/setup/ui/setup.slint:574 rust/crates/system/ui/shortcuts.slint:218
+#: rust/crates/setup/ui/setup.slint:588 rust/crates/system/ui/shortcuts.slint:221
 msgid "Open"
 msgstr "打开"
 
-#: rust/crates/setup/ui/setup.slint:574
+#: rust/crates/setup/ui/setup.slint:588
 msgid "Open log"
 msgstr "打开日志"
 
-#: rust/crates/setup/ui/setup.slint:574
-msgid "Open the full log. It's kept in the temp folder, which the system clears."
-msgstr "打开完整日志。日志保存在临时文件夹中，系统会自动清理。"
+#: rust/crates/setup/ui/setup.slint:588
+msgid "Open the full log. The log is kept in the temp folder, which the system clears."
+msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:578
+#: rust/crates/setup/ui/setup.slint:592
 msgid "Diagnostics"
 msgstr "诊断信息"
 
-#: rust/crates/setup/ui/setup.slint:581
+#: rust/crates/setup/ui/setup.slint:593
+msgid "Info about your setup, for a bug report"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:594
+msgid "Pairing tokens, addresses and file paths are left out."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:597
 msgctxt "search"
 msgid "copy diagnostics info system details"
 msgstr "复制 诊断 信息 系统 详情 故障 copy diagnostics info system details"
 
-#: rust/crates/setup/ui/setup.slint:584
+#: rust/crates/setup/ui/setup.slint:600
 msgid "Copy diagnostics"
 msgstr "复制诊断信息"
 
-#: rust/crates/setup/ui/setup.slint:585
+#: rust/crates/setup/ui/setup.slint:601
 msgid "Copy info for a bug report without pairing tokens, addresses or file paths."
 msgstr "复制用于问题报告的信息，不含配对令牌、地址或文件路径。"
 
-#: rust/crates/setup/ui/setup.slint:591
+#: rust/crates/setup/ui/setup.slint:607
 msgid "Bug reports"
 msgstr "问题报告"
 
-#: rust/crates/setup/ui/setup.slint:594
+#: rust/crates/setup/ui/setup.slint:608
+msgid "Report a problem on GitHub"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:611
 msgctxt "search"
 msgid "bug report diagnostics logs debug support problem issue help copy log file"
 msgstr "问题报告 诊断信息 日志 调试 支持 问题 故障 帮助 复制日志文件 bug report diagnostics logs debug support problem issue help copy log file"
 
-#: rust/crates/setup/ui/setup.slint:595 rust/crates/setup/ui/setup.slint:595
+#: rust/crates/setup/ui/setup.slint:612 rust/crates/setup/ui/setup.slint:612
 msgid "Report a bug"
 msgstr "反馈问题"
 
-#: rust/crates/setup/ui/setup.slint:595
+#: rust/crates/setup/ui/setup.slint:612
 msgid "Copy the diagnostics and open the bug form on GitHub."
 msgstr "复制诊断信息并在 GitHub 上打开反馈表单。"
 
-#: rust/crates/setup/ui/setup.slint:599
+#: rust/crates/setup/ui/setup.slint:616
 msgid "Need help?"
 msgstr "需要帮助？"
 
-#: rust/crates/setup/ui/setup.slint:602
+#: rust/crates/setup/ui/setup.slint:617
+msgid "Fixes for the common problems"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:620
 msgctxt "search"
 msgid "help support troubleshooting question faq problem not working stuck ask"
 msgstr "帮助 支持 故障排除 常见问题 疑问 故障 无法使用 卡住 提问 help support troubleshooting question faq problem not working stuck ask"
 
-#: rust/crates/setup/ui/setup.slint:603
+#: rust/crates/setup/ui/setup.slint:621
 msgid "Troubleshooting"
 msgstr "故障排除"
 
@@ -6577,13 +6684,13 @@ msgid "{first} to {last}"
 msgstr "{first} 到 {last}"
 
 #: rust/crates/shell/src/extra_cameras.rs:87
-msgid "This asks for your password."
-msgstr "此操作需要输入你的密码。"
+msgid "Your password is needed."
+msgstr ""
 
 #: rust/crates/shell/src/extra_cameras.rs:88
 #, python-brace-format
-msgid "To stream several cameras at once, Telescope adds more virtual cameras ({names})."
-msgstr "为同时串流多个相机，Telescope 会添加更多虚拟相机（{names}）。"
+msgid "To stream several cameras at the same time, Telescope adds more virtual cameras ({names})."
+msgstr ""
 
 #: rust/crates/shell/src/extra_cameras.rs:105
 msgid "Set up more virtual cameras"
@@ -6598,8 +6705,8 @@ msgid "Couldn't add more virtual cameras"
 msgstr "无法添加更多虚拟相机"
 
 #: rust/crates/shell/src/host.rs:626
-msgid "Only a phone's stream has the video this needs."
-msgstr "仅手机串流包含此功能所需的视频。"
+msgid "Needs video that only a phone's stream has."
+msgstr ""
 
 #: rust/crates/shell/src/host.rs:632
 msgid "Needs Light: Heavy sends whole pictures, with no keyframes to work with."
@@ -6812,8 +6919,8 @@ msgstr "手动"
 msgid "Sharpening"
 msgstr "锐化"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:1521 rust/crates/shell/src/plugins/camera_control.rs:1846 rust/crates/shell/ui/cards/camera.slint:369
-msgid "Stabilization"
+#: rust/crates/shell/src/plugins/camera_control.rs:1521 rust/crates/shell/src/plugins/camera_control.rs:1846 rust/crates/shell/ui/cards/camera.slint:369 rust/crates/shell/ui/cards/camera.slint:370
+msgid "Stabilisation"
 msgstr "防抖"
 
 #: rust/crates/shell/src/plugins/camera_control.rs:1522 rust/crates/shell/src/plugins/camera_control.rs:1849 rust/crates/shell/ui/cards/camera.slint:394 rust/crates/shell/ui/cards/camera.slint:395
@@ -6845,8 +6952,8 @@ msgid "Checking…"
 msgstr "正在检查…"
 
 #: rust/crates/shell/src/plugins/onboarding.rs:133
-msgid "Starting a stream may ask for your password to switch it on."
-msgstr "开始串流时可能需要输入密码以将其开启。"
+msgid "Starting a stream may ask for your password to switch on the virtual camera."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/onboarding.rs:134
 msgid "If Discord, Zoom or a similar app was already open, quit it fully (closing the window isn't enough if it's still in the tray) and open it again to see the camera."
@@ -6894,8 +7001,8 @@ msgid "Scan to download"
 msgstr "扫码下载"
 
 #: rust/crates/shell/src/plugins/onboarding.rs:165
-msgid "Scan this with the phone's camera app to download Telescope.apk, then open it to install. It's a download link, not the pairing code."
-msgstr "扫码下载并安装 Telescope.apk。这是下载链接，不是配对码。"
+msgid "Scan the code with the phone's camera app to download Telescope.apk, then open the file to install. The code is a download link, not the pairing code."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/onboarding.rs:170
 msgid "Paired."
@@ -6922,8 +7029,8 @@ msgid "The step by step checklist shown until the first stream works."
 msgstr "首次成功串流前显示的分步检查清单。"
 
 #: rust/crates/shell/src/plugins/onboarding.rs:207
-msgid "Without it the setup checklist never shows, not even when nothing is set up yet."
-msgstr "关闭后将永不显示设置检查清单，即使尚未完成任何设置也是如此。"
+msgid "Without the Setup guide plugin the setup checklist never shows, not even when nothing is set up yet."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/onboarding.rs:246
 msgid "Installed. Open Telescope on the phone for the next step."
@@ -6958,7 +7065,7 @@ msgstr "重命名预设"
 msgid "Save preset"
 msgstr "保存预设"
 
-#: rust/crates/shell/src/plugins/presets.rs:216 rust/crates/system/ui/shortcuts.slint:352
+#: rust/crates/shell/src/plugins/presets.rs:216 rust/crates/system/ui/shortcuts.slint:357
 msgid "Save"
 msgstr "保存"
 
@@ -6977,8 +7084,8 @@ msgid "Saving and loading groups of settings with one click."
 msgstr "一键保存和加载一组设置。"
 
 #: rust/crates/shell/src/plugins/presets.rs:283
-msgid "Without it there's no Presets button in the header (your saved presets aren't deleted)."
-msgstr "关闭后标题栏中将没有“预设”按钮（已保存的预设仍会保留）。"
+msgid "Without the Presets plugin there's no Presets button in the header (your saved presets aren't deleted)."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/presets.rs:330
 msgid "Apply a preset"
@@ -7004,7 +7111,7 @@ msgstr "关闭手机相机，仅继续串流麦克风。"
 msgid "Start with the phone's camera off and stream only its mic."
 msgstr "启动时不开启手机相机，仅串流麦克风。"
 
-#: rust/crates/shell/src/plugins/preview.rs:138 rust/crates/shell/src/tray.rs:76 rust/crates/shell/ui/settings.slint:387
+#: rust/crates/shell/src/plugins/preview.rs:138 rust/crates/shell/src/tray.rs:76 rust/crates/shell/ui/settings.slint:390
 msgid "Show"
 msgstr "显示"
 
@@ -7025,8 +7132,8 @@ msgid "The live picture in the middle of the window, and the camera on/off butto
 msgstr "窗口中间的实时画面，以及其下方的相机开关按钮。"
 
 #: rust/crates/shell/src/plugins/preview.rs:340
-msgid "Without it the window doesn't show the picture but apps using the virtual camera still get it."
-msgstr "关闭后窗口内不显示画面，但使用虚拟相机的应用仍可正常获取画面。"
+msgid "Without the Preview plugin the window doesn't show the picture but apps using the virtual camera still get it."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/preview.rs:370
 msgid "Show or hide the preview"
@@ -7050,10 +7157,10 @@ msgid "plugins extensions addons add ons modules features turn off on disable en
 msgstr "插件 扩展 附加组件 模块 功能 关闭 开启 禁用 启用 安装 zip plugins extensions addons add ons modules features turn off on disable enable install zip"
 
 #: rust/crates/shell/src/plugins_tab.rs:147
-msgid "Telescope couldn't start a new copy of itself. Close it and open it again to apply your changes."
-msgstr "Telescope 无法启动自身的新实例。请将其关闭并重新打开以应用更改。"
+msgid "Telescope couldn't restart. Close Telescope and open it again to apply your changes."
+msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:215 rust/crates/shell/src/plugins_tab.rs:477
+#: rust/crates/shell/src/plugins_tab.rs:215
 #, python-brace-format
 msgid "The download didn't work. {error}"
 msgstr "下载失败。{error}"
@@ -7066,14 +7173,19 @@ msgstr "Telescope 需要此插件才能正常工作，因此无法关闭。"
 msgid "Required"
 msgstr "必需"
 
+#: rust/crates/shell/src/plugins_tab.rs:477
+#, python-brace-format
+msgid "The download failed. {error}"
+msgstr ""
+
 #: rust/crates/shell/src/plugins_tab.rs:480
-msgid "There's no download of what it needs for this computer yet, so it can't be switched on."
-msgstr "尚无可用于这台电脑的所需下载项，因此无法开启。"
+msgid "There's no download for this computer yet, so the plugin can't be switched on."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:483
 #, python-brace-format
-msgid "Its download (about {mb} MB) isn't there anymore. Switch it off and on again to get it."
-msgstr "其下载文件（约 {mb} MB）已不存在。将其关闭后重新开启即可重新获取。"
+msgid "The plugin's download (about {mb} MB) is missing. Switch the plugin off and on again to download it."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:490
 msgid "Needs the vision download"
@@ -7085,8 +7197,8 @@ msgstr "尚无适用于这台电脑的视觉组件下载。"
 
 #: rust/crates/shell/src/plugins_tab.rs:510
 #, python-brace-format
-msgid "Switching one of these on downloads about {mb} MB first, once for all of them."
-msgstr "开启其中任意一个插件都需要先下载约 {mb} MB 内容，所有此类插件只需下载一次。"
+msgid "Switching on any of these plugins downloads about {mb} MB first, shared by all of them."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:521
 #, python-brace-format
@@ -7099,19 +7211,19 @@ msgid "Updated to {version} automatically. The new version runs after Telescope 
 msgstr "已自动更新至 {version}。新版本将在 Telescope 重启后运行。"
 
 #: rust/crates/shell/src/plugins_tab.rs:537
-msgid "Its files changed since you switched it on, so it's off for now. Switch it on again if you trust this version."
-msgstr "自开启以来，其文件发生了更改，因此当前已关闭。若信任此版本，请重新开启。"
+msgid "The plugin's files changed since you switched it on, so it's off. Switch it on again if you trust the new version."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:540 rust/crates/shell/src/plugins_tab.rs:580
 #, python-brace-format
-msgid "It didn't start ({problem})."
-msgstr "启动失败（{problem}）。"
+msgid "Couldn't start: {problem}"
+msgstr ""
 
 #. keep the <a href="{url}"> link
 #: rust/crates/shell/src/plugins_tab.rs:549
 #, python-brace-format
-msgid "Version {version} is out. <a href=\"{url}\">Download it from its release page</a> and install it here to replace this one."
-msgstr "版本 {version} 已发布。<a href=\"{url}\">从其发布页面下载</a>并在此安装以替换此版本。"
+msgid "Version {version} is out. <a href=\"{url}\">Download it from the plugin's release page</a> and install it here to replace the current version."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:559
 msgid "Added"
@@ -7127,8 +7239,8 @@ msgstr "正在开发中"
 
 #: rust/crates/shell/src/plugins_tab.rs:583
 #, python-brace-format
-msgid "Loaded from {folder} by telescope-rs dev. Telescope restarts by itself when you save one of its files."
-msgstr "由 telescope-rs dev 从 {folder} 加载。保存其中的文件时，Telescope 会自动重启。"
+msgid "Loaded from {folder} by telescope-rs dev. Saving a file in that folder restarts Telescope."
+msgstr ""
 
 #. next to a group's name on the Plugins tab, how many of its plugins are switched on
 #: rust/crates/shell/src/plugins_tab.rs:597
@@ -7193,8 +7305,8 @@ msgstr "是否要移除 {plugin}？"
 
 #: rust/crates/shell/src/plugins_tab.rs:665
 #, python-brace-format
-msgid "Its folder ({folder}) is deleted from the plugins folder. To use it again you'll have to add it again."
-msgstr "其文件夹（{folder}）将从插件文件夹中删除。若要再次使用，需要重新添加。"
+msgid "The plugin's folder ({folder}) is deleted from the plugins folder. To use the plugin again, add it again."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:669
 msgid "Remove the download?"
@@ -7202,8 +7314,8 @@ msgstr "是否要移除下载内容？"
 
 #: rust/crates/shell/src/plugins_tab.rs:670
 #, python-brace-format
-msgid "It frees about {mb} MB. Switching on one of the optional plugins downloads it again."
-msgstr "这将释放约 {mb} MB 空间。开启任一可选插件即可重新下载。"
+msgid "Frees about {mb} MB. Switching on an optional plugin downloads the files again."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:679
 msgid "Install plugin updates without asking?"
@@ -7224,8 +7336,8 @@ msgid "Restart Telescope now?"
 msgstr "是否要立即重启 Telescope？"
 
 #: rust/crates/shell/src/plugins_tab.rs:685
-msgid "Streaming stops while Telescope restarts. It takes a few seconds."
-msgstr "Telescope 重启时串流会停止。需要几秒钟时间。"
+msgid "Streaming stops while Telescope restarts. Restarting takes a few seconds."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:699
 #, python-brace-format
@@ -7242,8 +7354,8 @@ msgid "Switch off {plugin}?"
 msgstr "是否要关闭 {plugin}？"
 
 #: rust/crates/shell/src/plugins_tab.rs:703
-msgid "Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch it back on."
-msgstr "关闭后，此插件添加到 Telescope 的所有功能都将停用。其设置将保持保存状态，以便在重新开启时使用。"
+msgid "Without the plugin, what it added to Telescope is gone. The plugin's settings stay saved for when you switch it back on."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:703 rust/crates/shell/src/plugins_tab.rs:723
 msgid "Switch off"
@@ -7256,8 +7368,8 @@ msgstr "是否要下载约 {mb} MB？"
 
 #: rust/crates/shell/src/plugins_tab.rs:711
 #, python-brace-format
-msgid "{plugin} uses MediaPipe to find people in the picture. It comes as a separate download from Telescope's releases on GitHub, which the other optional plugins share."
-msgstr "{plugin} 使用 MediaPipe 检测画面中的人物。它作为单独的下载项随 Telescope 在 GitHub 上的发布版本提供，并与其他可选插件共享。"
+msgid "{plugin} uses MediaPipe to find people in the picture. The files are a separate download from Telescope's releases on GitHub, shared by the other optional plugins."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:712
 msgid "Download and switch on"
@@ -7273,8 +7385,8 @@ msgid "Replace {plugin}?"
 msgstr "是否要替换 {plugin}？"
 
 #: rust/crates/shell/src/plugins_tab.rs:738
-msgid "The version in this .zip takes its place with the same settings. Like any plugin you add it starts out switched off."
-msgstr "此 .zip 中的版本将替换原插件并沿用相同设置。与你添加的其他插件一样，它初始为关闭状态。"
+msgid "The version in this .zip replaces the installed version and keeps its settings. Like any added plugin, it starts switched off."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:750
 #, python-brace-format
@@ -7283,13 +7395,13 @@ msgstr "{plugin} 已安装，但目前无法运行。{problem}"
 
 #: rust/crates/shell/src/plugins_tab.rs:752
 #, python-brace-format
-msgid "{plugin} {version} is in place but switched off for now. To use it, switch it on again and restart Telescope."
-msgstr "{plugin} {version} 已就绪，但目前处于关闭状态。若要使用，请重新开启并重启 Telescope。"
+msgid "{plugin} {version} is installed but switched off. To use it, switch it on again and restart Telescope."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:754
 #, python-brace-format
-msgid "{plugin} is installed but switched off for now. To use it, switch it on and restart Telescope."
-msgstr "{plugin} 已安装，但目前处于关闭状态。若要使用，请将其开启并重启 Telescope。"
+msgid "{plugin} is installed but switched off. To use it, switch it on and restart Telescope."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:764
 #, python-brace-format
@@ -7316,12 +7428,12 @@ msgid "Tab"
 msgstr "标签页"
 
 #: rust/crates/shell/src/session.rs:218
-msgid "Check that it's still on."
-msgstr "请检查其是否仍处于开启状态。"
+msgid "Check that the device is still on."
+msgstr ""
 
 #: rust/crates/shell/src/settings.rs:862
-msgid "Nothing matches every word. These match some of them."
-msgstr "没有与所有词匹配的结果。以下结果匹配部分词。"
+msgid "Nothing matches every word. These match some of the words."
+msgstr ""
 
 #: rust/crates/shell/src/settings.rs:864
 #, python-brace-format
@@ -7342,16 +7454,16 @@ msgid "Check for updates"
 msgstr "检查更新"
 
 #: rust/crates/shell/src/settings.rs:958
-msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
-msgstr "每天检查一次在 GitHub 上发布版本的已添加插件是否有新版本，并在此处提醒。不会自动下载任何内容。"
+msgid "Check once a day for new versions of added plugins that publish releases on GitHub and show them here. Nothing is downloaded."
+msgstr ""
 
 #: rust/crates/shell/src/settings.rs:959
 msgid "Install updates without asking"
 msgstr "无需询问直接安装更新"
 
 #: rust/crates/shell/src/settings.rs:959
-msgid "Installs new versions of the plugins you switched on and switches them on again."
-msgstr "安装已开启插件的新版本并重新开启它们。"
+msgid "Install new versions of the plugins you switched on and switch them on again."
+msgstr ""
 
 #: rust/crates/shell/src/settings.rs:960
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
@@ -7367,20 +7479,20 @@ msgstr "插件 (*.zip)"
 
 #: rust/crates/shell/src/shell.rs:753
 #, python-brace-format
-msgid "{plugins} didn't start"
-msgid_plural "{plugins} didn't start"
-msgstr[0] "{plugins} 未启动"
+msgid "Couldn't start {plugins}"
+msgid_plural "Couldn't start {plugins}"
+msgstr[0] ""
 
 #: rust/crates/shell/src/shell.rs:755
 #, python-brace-format
-msgid "{n} plugin didn't start"
-msgid_plural "{n} plugins didn't start"
-msgstr[0] "{n} 个插件未启动"
+msgid "Couldn't start {n} plugin"
+msgid_plural "Couldn't start {n} plugins"
+msgstr[0] ""
 
 #: rust/crates/shell/src/shell.rs:757
-msgid "Telescope works without it. The Plugins tab in Settings says what went wrong."
-msgid_plural "Telescope works without them. The Plugins tab in Settings says what went wrong."
-msgstr[0] "没有它们 Telescope 也能运行。“设置”中的“插件”标签页说明了出错原因。"
+msgid "Telescope works without the plugin. The Plugins tab in Settings shows what went wrong."
+msgid_plural "Telescope works without them. The Plugins tab in Settings shows what went wrong."
+msgstr[0] ""
 
 #: rust/crates/shell/src/shell.rs:761 rust/crates/shell/src/shell.rs:781
 msgid "Plugins…"
@@ -7428,8 +7540,8 @@ msgid "Another app on the phone is using the camera"
 msgstr "手机上的其他应用正在使用相机"
 
 #: rust/crates/shell/src/sources.rs:115
-msgid "The stream comes back by itself once that app closes or lets go of it."
-msgstr "一旦对应应用关闭或释放相机，串流将自动恢复。"
+msgid "The stream resumes automatically once the other app closes or releases the camera."
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:125
 msgid "This phone can't turn its camera off yet"
@@ -7454,8 +7566,8 @@ msgid "{phone} is streaming to {computer}"
 msgstr "{phone} 正在串流至 {computer}"
 
 #: rust/crates/shell/src/sources.rs:176
-msgid "Stop it there or on the phone, then start again."
-msgstr "请在对应电脑或手机上停止串流，然后重试。"
+msgid "Stop the stream there or on the phone, then start again."
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:183
 msgid "The phone stopped streaming"
@@ -7480,13 +7592,13 @@ msgstr "相机未能重新开启。可能有其他应用正在使用。"
 
 #: rust/crates/shell/src/sources.rs:328
 #, python-brace-format
-msgid "It's streaming at {size} and {fps} fps until it cools down."
-msgstr "正在以 {size} 和 {fps} fps 串流，直至降温。"
+msgid "Streaming at {size} and {fps} fps until the phone cools down."
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:329
 #, python-brace-format
-msgid "It's streaming at {size} until it cools down."
-msgstr "正在以 {size} 串流，直至降温。"
+msgid "Streaming at {size} until the phone cools down."
+msgstr ""
 
 #: rust/crates/shell/src/sources.rs:846
 msgid "Open Telescope on it."
@@ -7497,8 +7609,8 @@ msgid "the device"
 msgstr "设备"
 
 #: rust/crates/shell/src/sources.rs:1083
-msgid "Open the Telescope page in it again."
-msgstr "请在其中重新打开 Telescope 页面。"
+msgid "Open the Telescope page in the browser again."
+msgstr ""
 
 #: rust/crates/shell/src/stream_flow.rs:190
 msgid "Couldn't start streaming"
@@ -7605,8 +7717,8 @@ msgstr "复制诊断信息可查看详情。"
 
 #: rust/crates/shell/src/streams.rs:967
 #, python-brace-format
-msgid "The phone got hot and lowered the frame rate to {fps} fps for now."
-msgstr "手机发热，已暂时将帧率降至 {fps} fps。"
+msgid "The phone got hot and lowered the frame rate to {fps} fps."
+msgstr ""
 
 #: rust/crates/shell/src/streams.rs:969
 #, python-brace-format
@@ -7614,12 +7726,12 @@ msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connec
 msgstr "动态模式已将帧率降至 {fps} fps，以适应较慢的连接。"
 
 #: rust/crates/shell/src/streams.rs:971
-msgid "The camera is making fewer frames than asked for. Dim light slows it down."
-msgstr "相机输出的帧数低于设定值。光线不足会降低帧率。"
+msgid "The camera is producing fewer frames than requested. Dim light lowers the frame rate."
+msgstr ""
 
 #: rust/crates/shell/src/streams.rs:973
-msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
-msgstr "手机相机输出的帧数低于设定值。光线较暗会拖慢帧率。"
+msgid "The phone's camera is producing fewer frames than requested. Dim light lowers the frame rate."
+msgstr ""
 
 #: rust/crates/shell/src/streams.rs:1041
 msgid "Live"
@@ -7690,8 +7802,8 @@ msgid "Streaming continues in the background."
 msgstr "串流将在后台继续。"
 
 #: rust/crates/shell/src/tray.rs:229
-msgid "It starts streaming by itself when it needs to."
-msgstr "需要时它会自动开始串流。"
+msgid "Streaming starts automatically when needed."
+msgstr ""
 
 #: rust/crates/shell/src/tray.rs:230
 msgid "Right-click the tray icon to quit."
@@ -7828,10 +7940,6 @@ msgstr "距离"
 msgid "Set Focus to Manual to use this"
 msgstr "将“对焦”设为“手动”后方可使用"
 
-#: rust/crates/shell/ui/cards/camera.slint:370
-msgid "Stabilisation"
-msgstr "防抖"
-
 #: rust/crates/shell/ui/cards/camera.slint:419
 msgid "Smooth out grain in the picture."
 msgstr "平滑画面中的噪点。"
@@ -7904,15 +8012,15 @@ msgstr "更多"
 msgid "Unpin"
 msgstr "取消固定"
 
-#: rust/crates/shell/ui/frame.slint:415 rust/crates/shell/ui/frame.slint:416
+#: rust/crates/shell/ui/frame.slint:416 rust/crates/shell/ui/frame.slint:417
 msgid "Dismiss"
 msgstr "忽略"
 
-#: rust/crates/shell/ui/frame.slint:467
+#: rust/crates/shell/ui/frame.slint:468
 msgid "Show settings"
 msgstr "显示设置"
 
-#: rust/crates/shell/ui/frame.slint:467
+#: rust/crates/shell/ui/frame.slint:468
 msgid "Show this stream's settings in the cards."
 msgstr "在卡片中显示此串流的设置。"
 
@@ -7920,70 +8028,70 @@ msgstr "在卡片中显示此串流的设置。"
 msgid "Settings tabs"
 msgstr "设置标签页"
 
-#: rust/crates/shell/ui/settings.slint:324
+#: rust/crates/shell/ui/settings.slint:327
 msgid "Delete this plugin's folder from the plugins folder."
 msgstr "从插件文件夹中删除此插件的文件夹。"
 
-#: rust/crates/shell/ui/settings.slint:371 rust/crates/shell/ui/settings.slint:372
+#: rust/crates/shell/ui/settings.slint:374 rust/crates/shell/ui/settings.slint:375
 msgid "Search plugins"
 msgstr "搜索插件"
 
-#: rust/crates/shell/ui/settings.slint:383
+#: rust/crates/shell/ui/settings.slint:386
 msgctxt "plugins"
 msgid "All"
 msgstr "全部"
 
-#: rust/crates/shell/ui/settings.slint:383
+#: rust/crates/shell/ui/settings.slint:386
 msgctxt "plugins"
 msgid "On"
 msgstr "已开启"
 
-#: rust/crates/shell/ui/settings.slint:383
+#: rust/crates/shell/ui/settings.slint:386
 msgctxt "plugins"
 msgid "Off"
 msgstr "已关闭"
 
-#: rust/crates/shell/ui/settings.slint:393 rust/crates/shell/ui/settings.slint:395
+#: rust/crates/shell/ui/settings.slint:396 rust/crates/shell/ui/settings.slint:398
 msgid "Reset to defaults"
 msgstr "重置为默认设置"
 
-#: rust/crates/shell/ui/settings.slint:396
+#: rust/crates/shell/ui/settings.slint:399
 msgid "Switch the optional built-in plugins off and the rest on."
 msgstr "关闭可选的内置插件，并开启其余内置插件。"
 
-#: rust/crates/shell/ui/settings.slint:407
+#: rust/crates/shell/ui/settings.slint:410
 msgid "Remove download"
 msgstr "移除下载内容"
 
-#: rust/crates/shell/ui/settings.slint:408
-msgid "Delete the download these plugins use. Switching any of these plugins on downloads it again."
-msgstr "删除这些插件使用的下载文件。开启其中任一插件时会重新下载。"
+#: rust/crates/shell/ui/settings.slint:411
+msgid "Delete the download these plugins use. Switching on any of these plugins downloads the files again."
+msgstr ""
 
-#: rust/crates/shell/ui/settings.slint:425
+#: rust/crates/shell/ui/settings.slint:428
 msgid "Show all plugins"
 msgstr "显示所有插件"
 
-#: rust/crates/shell/ui/settings.slint:429
+#: rust/crates/shell/ui/settings.slint:432
 msgid "Added plugins"
 msgstr "已添加的插件"
 
-#: rust/crates/shell/ui/settings.slint:436
+#: rust/crates/shell/ui/settings.slint:439
 msgid "Pick a plugin's .zip file. You can also drop the file onto this window."
 msgstr "选择插件的 .zip 文件，也可以将文件拖入此窗口。"
 
-#: rust/crates/shell/ui/settings.slint:442
+#: rust/crates/shell/ui/settings.slint:445
 msgid "No plugins added yet"
 msgstr "尚未添加插件"
 
-#: rust/crates/shell/ui/settings.slint:472
+#: rust/crates/shell/ui/settings.slint:475
 msgid "How plugins work"
 msgstr "插件使用说明"
 
-#: rust/crates/shell/ui/settings.slint:473
+#: rust/crates/shell/ui/settings.slint:476
 msgid "Open plugins folder"
 msgstr "打开插件文件夹"
 
-#: rust/crates/shell/ui/settings.slint:505
+#: rust/crates/shell/ui/settings.slint:508
 msgid "Restart Telescope to apply your changes."
 msgstr "重启 Telescope 以应用更改。"
 
@@ -8003,13 +8111,13 @@ msgstr "无法取消 Telescope 登录时自动打开：{error}"
 
 #: rust/crates/system/src/going_back.rs:113
 #, python-brace-format
-msgid "Couldn't set up the Python libraries {version} needs. That takes the internet and a folder it can write to ({folder}). Nothing was changed."
-msgstr "无法配置 {version} 所需的 Python 库。这需要联网以及可写入的文件夹（{folder}）。未做任何更改。"
+msgid "Couldn't set up the Python libraries {version} needs. That needs an internet connection and a folder Telescope can write to ({folder}). Nothing was changed."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:227
 #, python-brace-format
-msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones come with it, and a copy of your current settings is saved first in {folder}."
-msgstr "Telescope 将重启为最后一个 Python 版本 {version}。你的设置和已配对手机都会保留，当前设置也会先备份到 {folder}。"
+msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones are kept, and a copy of your current settings is saved first in {folder}."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:229
 #, python-brace-format
@@ -8018,17 +8126,17 @@ msgstr "此后的新功能将无法使用。用 Lua 编写的插件无法在 {ve
 
 #: rust/crates/system/src/going_back.rs:231
 #, python-brace-format
-msgid "{version} won't check for updates by itself, so it doesn't offer this version back. You can turn that on again in its settings."
-msgstr "{version} 不会自动检查更新，以免提示你升回当前版本。你可以在它的设置中重新开启自动检查。"
+msgid "{version} doesn't check for updates automatically, so it doesn't offer this version back. You can turn that on again in its settings."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:234
 #, python-brace-format
-msgid "First it sets up the Python libraries {version} needs. That needs the internet and takes a few minutes. If that fails, nothing is changed."
-msgstr "它会先配置 {version} 所需的 Python 库。这需要联网并耗时几分钟。如果失败，则不会做任何更改。"
+msgid "First the Python libraries {version} needs are set up. This needs the internet and takes a few minutes. If that fails, nothing is changed."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:236
-msgid "If it doesn't start, opening Telescope again brings this version back."
-msgstr "如果它未能启动，再次打开 Telescope 即可恢复到当前版本。"
+msgid "If the Python version doesn't start, opening Telescope again brings this version back."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:238 rust/crates/system/src/going_back.rs:251
 msgid "Go back"
@@ -8036,8 +8144,8 @@ msgstr "回退"
 
 #: rust/crates/system/src/going_back.rs:242
 #, python-brace-format
-msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack it and run start.sh in it. It needs Python 3.12 or newer and finds your settings in the same place."
-msgstr "AppImage 无法直接替换为 Python 版本。请从 {version} 发布页面下载 Telescope-linux.tar.gz，解压并运行其中的 start.sh。这需要 Python 3.12 或更高版本，并且会在同一位置读取你的设置。"
+msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack the archive and run start.sh in the folder. The Python version needs Python 3.12 or newer and uses the same settings folder."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:244
 #, python-brace-format
@@ -8055,8 +8163,8 @@ msgstr "{version} 需要带 venv 的 Python 3.12 或更高版本，而这台电�
 
 #: rust/crates/system/src/going_back.rs:262
 #, python-brace-format
-msgid "The phone app has to match. A newer one may not connect to {version}. Android won't install an older app over a newer one, so uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
-msgstr "手机应用版本必须匹配。较新的手机应用可能无法连接到 {version}。Android 不允许用旧版本直接覆盖安装新版本，因此请先在手机上卸载 Telescope，再安装 {version} 发布版本中的 Telescope.apk 并重新配对。"
+msgid "The phone app has to match. A newer phone app may not connect to {version}. Android won't install an older app over a newer one, so uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
+msgstr ""
 
 #: rust/crates/system/src/going_back.rs:282
 msgid "Couldn't save a copy of your settings, so nothing was changed."
@@ -8067,8 +8175,8 @@ msgid "Not available on this desktop"
 msgstr "在此桌面环境下不可用"
 
 #: rust/crates/system/src/hotkeys_portal.rs:118
-msgid "Waiting for you to confirm it"
-msgstr "等待你确认"
+msgid "Needs your confirmation"
+msgstr ""
 
 #: rust/crates/system/src/hotkeys_portal.rs:129
 msgid "This desktop doesn't offer global shortcuts to apps."
@@ -8084,8 +8192,8 @@ msgid "Bind a Copy command line in its own keyboard settings instead."
 msgstr "请改在系统自己的键盘设置里绑定“复制命令行”。"
 
 #: rust/crates/system/src/hotkeys_portal.rs:134
-msgid "Your desktop asks you to confirm global shortcuts, and you can change their keys in its own settings. The key it settled on shows next to each one."
-msgstr "你的桌面环境会请求确认全局快捷键，你可以在其系统设置中更改按键。最终生效的按键会显示在每项旁边。"
+msgid "Your desktop asks you to confirm global shortcuts, and you can change their keys in the desktop's settings. The key the desktop assigned is shown next to each shortcut."
+msgstr ""
 
 #: rust/crates/system/src/hotkeys_portal.rs:143 rust/crates/system/src/hotkeys_portal.rs:178
 msgid "Not confirmed in the desktop's dialog"
@@ -8104,7 +8212,7 @@ msgstr "全局：{keys}"
 msgid "Windows can't use this key everywhere"
 msgstr "Windows 无法在全局使用此按键"
 
-#: rust/crates/system/src/hotkeys_windows.rs:61 rust/crates/system/ui/shortcuts.slint:206
+#: rust/crates/system/src/hotkeys_windows.rs:61 rust/crates/system/ui/shortcuts.slint:208
 msgid "Everywhere"
 msgstr "全局"
 
@@ -8246,7 +8354,7 @@ msgstr "已撤销 AI 的更改"
 
 #: rust/crates/system/src/mcp.rs:1186
 #, python-brace-format
-msgid "Undid what the AI changed, except {n} it couldn't put back"
+msgid "Undid what the AI changed, except {n} that couldn't be restored"
 msgstr ""
 
 #: rust/crates/system/src/mcp.rs:1187
@@ -8263,14 +8371,14 @@ msgid "MCP server"
 msgstr "MCP 服务器"
 
 #: rust/crates/system/src/mcp.rs:1469
-msgid "Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port."
-msgstr "允许 Claude Desktop 等 AI 应用通过无需开放网络端口的命令查看 Telescope 并更改其设置。"
+msgid "Let an AI app such as Claude Desktop read and change Telescope's settings, through a command that opens no network port."
+msgstr ""
 
 #: rust/crates/system/src/mcp.rs:1470
-msgid "Without it AI apps can't connect to Telescope."
-msgstr "关闭后，AI 应用将无法连接到 Telescope。"
+msgid "Without the MCP server plugin AI apps can't connect to Telescope."
+msgstr ""
 
-#: rust/crates/system/src/mcp.rs:1505 rust/crates/system/ui/mcp.slint:227
+#: rust/crates/system/src/mcp.rs:1505 rust/crates/system/ui/mcp.slint:229
 msgid "MCP"
 msgstr "MCP"
 
@@ -8358,8 +8466,8 @@ msgid "{action} needs {name}=… for that."
 msgstr "{action} 需要为此设置 {name}=…。"
 
 #: rust/crates/system/src/remote.rs:241
-msgid "That failed; Copy diagnostics has the details."
-msgstr "操作失败。复制诊断信息可查看详情。"
+msgid "The action failed. Copy diagnostics has the details."
+msgstr ""
 
 #: rust/crates/system/src/remote.rs:254
 #, python-brace-format
@@ -8372,7 +8480,7 @@ msgid "{action} can't be used right now (no device, or the control is off)."
 msgstr "当前无法使用 {action}（无设备或控件已关闭）。"
 
 #: rust/crates/system/src/setup_move.rs:381
-msgid "A newer Telescope is already installed, so this copy stays as it is. Open the installed one from the Start menu."
+msgid "A newer Telescope is already installed, so this copy is left unchanged. Open the installed Telescope from the Start menu."
 msgstr ""
 
 #: rust/crates/system/src/setup_move.rs:389
@@ -8426,136 +8534,160 @@ msgstr "全局（正在设置）"
 msgid "In Telescope: {status}"
 msgstr "在 Telescope 内：{status}"
 
-#: rust/crates/system/src/shortcuts.rs:491 rust/crates/system/src/shortcuts.rs:504
+#: rust/crates/system/src/shortcuts.rs:467
+msgid "What the shortcut does"
+msgstr ""
+
+#: rust/crates/system/src/shortcuts.rs:468
+msgid "How much each press changes it"
+msgstr ""
+
+#: rust/crates/system/src/shortcuts.rs:469
+msgid "The exact value to set"
+msgstr ""
+
+#: rust/crates/system/src/shortcuts.rs:470
+msgid "How many stops each press moves"
+msgstr ""
+
+#: rust/crates/system/src/shortcuts.rs:471
+msgid "Which option the shortcut picks"
+msgstr ""
+
+#: rust/crates/system/src/shortcuts.rs:472
+msgid "The preset the shortcut applies"
+msgstr ""
+
+#: rust/crates/system/src/shortcuts.rs:507 rust/crates/system/src/shortcuts.rs:520
 #, python-brace-format
 msgid "{label}: set to {value}"
 msgstr "{label}：设为 {value}"
 
-#: rust/crates/system/src/shortcuts.rs:492
+#: rust/crates/system/src/shortcuts.rs:508
 #, python-brace-format
 msgid "{label}: reset to default"
 msgstr "{label}：恢复默认值"
 
-#: rust/crates/system/src/shortcuts.rs:499
+#: rust/crates/system/src/shortcuts.rs:515
 #, python-brace-format
 msgid "{label}: increase by {amount}"
 msgstr "{label}：增加 {amount}"
 
-#: rust/crates/system/src/shortcuts.rs:499
+#: rust/crates/system/src/shortcuts.rs:515
 #, python-brace-format
 msgid "{label}: decrease by {amount}"
 msgstr "{label}：减少 {amount}"
 
-#: rust/crates/system/src/shortcuts.rs:512
+#: rust/crates/system/src/shortcuts.rs:528
 #, python-brace-format
 msgid "{label}: raise by {n} stop"
 msgid_plural "{label}: raise by {n} stops"
 msgstr[0] "{label}：提高 {n} 档"
 
-#: rust/crates/system/src/shortcuts.rs:514
+#: rust/crates/system/src/shortcuts.rs:530
 #, python-brace-format
 msgid "{label}: lower by {n} stop"
 msgid_plural "{label}: lower by {n} stops"
 msgstr[0] "{label}：降低 {n} 档"
 
-#: rust/crates/system/src/shortcuts.rs:519
+#: rust/crates/system/src/shortcuts.rs:535
 #, python-brace-format
 msgid "{label}: raise by {stops} stops"
 msgstr "{label}：提高 {stops} 档"
 
-#: rust/crates/system/src/shortcuts.rs:519
+#: rust/crates/system/src/shortcuts.rs:535
 #, python-brace-format
 msgid "{label}: lower by {stops} stops"
 msgstr "{label}：降低 {stops} 档"
 
-#: rust/crates/system/src/shortcuts.rs:530
+#: rust/crates/system/src/shortcuts.rs:546
 msgid "next"
 msgstr "下一项"
 
-#: rust/crates/system/src/shortcuts.rs:530
+#: rust/crates/system/src/shortcuts.rs:546
 msgid "previous"
 msgstr "上一项"
 
-#: rust/crates/system/src/shortcuts.rs:749
+#: rust/crates/system/src/shortcuts.rs:765
 #, python-brace-format
-msgid "There can be at most {max} shortcuts. Remove one to add another."
+msgid "There can be at most {max} shortcuts. Remove a shortcut to add another."
 msgstr ""
 
-#: rust/crates/system/src/shortcuts.rs:752
+#: rust/crates/system/src/shortcuts.rs:768
 msgid "No control matches that search."
 msgstr "没有匹配此搜索的控件。"
 
-#: rust/crates/system/src/shortcuts.rs:752
+#: rust/crates/system/src/shortcuts.rs:768
 msgid "Pick a control."
 msgstr "请选择一个控件。"
 
-#: rust/crates/system/src/shortcuts.rs:754
+#: rust/crates/system/src/shortcuts.rs:770
 msgid "A modifier can't be a shortcut on its own. Add a key to it."
 msgstr "修饰键不能单独作为快捷键。请为其添加一个按键。"
 
-#: rust/crates/system/src/shortcuts.rs:756
+#: rust/crates/system/src/shortcuts.rs:772
 #, python-brace-format
 msgid "Press a key, with Ctrl, Alt, Shift or {meta} if you like."
 msgstr "按下按键，也可根据需要配合 Ctrl、Alt、Shift 或 {meta}。"
 
-#: rust/crates/system/src/shortcuts.rs:760
+#: rust/crates/system/src/shortcuts.rs:776
 #, python-brace-format
 msgid "{keys} already does \"{action}\". Pick another key."
 msgstr "{keys} 已用于“{action}”。请选择其他按键。"
 
-#: rust/crates/system/src/shortcuts.rs:769
+#: rust/crates/system/src/shortcuts.rs:785
 #, python-brace-format
-msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
-msgstr "在全局模式下，{keys} 会导致无法在其他应用中正常键入。建议加上 Ctrl、Alt 或 {meta}。"
+msgid "Everywhere, {keys} could no longer be typed in other apps. Adding Ctrl, Alt or {meta} is safer."
+msgstr ""
 
-#: rust/crates/system/src/shortcuts.rs:774
+#: rust/crates/system/src/shortcuts.rs:790
 #, python-brace-format
 msgid "Everywhere, {keys} would stop working in the text boxes of other apps. Adding Alt or {meta} is safer."
 msgstr ""
 
-#: rust/crates/system/src/shortcuts.rs:795
+#: rust/crates/system/src/shortcuts.rs:811
 #, python-brace-format
 msgid "Unknown ({action})"
 msgstr "未知（{action}）"
 
-#: rust/crates/system/src/shortcuts.rs:816
+#: rust/crates/system/src/shortcuts.rs:832
 #, python-brace-format
-msgid "{value} (not there now)"
-msgstr "{value}（当前不可用）"
+msgid "{value} (no longer available)"
+msgstr ""
 
-#: rust/crates/system/src/shortcuts.rs:840
+#: rust/crates/system/src/shortcuts.rs:856
 msgid "A command can't hold a key down. Pick another choice to copy its command."
 msgstr "命令无法执行长按按键操作。请选择其他选项以复制其命令。"
 
-#: rust/crates/system/src/shortcuts.rs:841
+#: rust/crates/system/src/shortcuts.rs:857
 msgid "A command line that does the same, for your desktop's own keyboard settings"
 msgstr "具有相同效果的命令行，用于桌面环境自带的键盘设置"
 
-#: rust/crates/system/src/shortcuts.rs:851
+#: rust/crates/system/src/shortcuts.rs:867
 #, python-brace-format
 msgid "Edit {shortcut}"
 msgstr "编辑 {shortcut}"
 
-#: rust/crates/system/src/shortcuts.rs:852
+#: rust/crates/system/src/shortcuts.rs:868
 #, python-brace-format
 msgid "Remove {shortcut}"
 msgstr "移除 {shortcut}"
 
-#: rust/crates/system/src/shortcuts.rs:857
+#: rust/crates/system/src/shortcuts.rs:873
 msgid "Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings."
 msgstr "当前桌面环境不支持全局快捷键，因此这些按键仅在 Telescope 内生效。如需全局生效，请复制快捷键的命令行并在桌面环境的键盘设置中绑定。"
 
-#: rust/crates/system/src/shortcuts.rs:960
+#: rust/crates/system/src/shortcuts.rs:976
 msgid "Couldn't open your desktop's shortcut settings. Look for Shortcuts in its System Settings."
 msgstr "无法打开桌面环境的快捷键设置。请在其“系统设置”中查找“快捷键”。"
 
-#: rust/crates/system/src/shortcuts.rs:1112
+#: rust/crates/system/src/shortcuts.rs:1128
 msgid "Keys for Telescope's controls, including ones that work in other apps."
 msgstr "用于控制 Telescope 各项控件的按键，包括在其他应用中也可生效的全局快捷键。"
 
-#: rust/crates/system/src/shortcuts.rs:1113
-msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
-msgstr "关闭后所有快捷键将失效，且“设置”中不会显示“快捷键”（已配置的快捷键仍会保留）。"
+#: rust/crates/system/src/shortcuts.rs:1129
+msgid "Without the Keyboard shortcuts plugin no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when the plugin is on again)."
+msgstr ""
 
 #: rust/crates/system/src/single_instance.rs:319
 msgid "Telescope is already running"
@@ -8588,16 +8720,16 @@ msgid "Telescope isn't running."
 msgstr "Telescope 未在运行。"
 
 #: rust/crates/system/src/single_instance.rs:397
-msgid "Telescope didn't understand that. Is it an older version? Update it to use --action."
-msgstr "Telescope 无法识别此命令。是否为较旧版本？请更新以使用 --action。"
+msgid "Telescope didn't understand the request. Is the running Telescope an older version? Update Telescope to use --action."
+msgstr ""
 
 #: rust/crates/system/src/single_instance.rs:462
 msgid "Telescope couldn't write the key --action needs next to its settings when it started. Restart it."
 msgstr "Telescope 启动时无法在其设置旁写入 --action 所需的密钥。请将其重启。"
 
 #: rust/crates/system/src/single_instance.rs:467
-msgid "Telescope turned that down: it didn't come from this user's Telescope command."
-msgstr "Telescope 拒绝了此请求：它并非来自当前用户的 Telescope 命令。"
+msgid "Telescope rejected the request because it didn't come from this user's Telescope command."
+msgstr ""
 
 #: rust/crates/system/src/splash.rs:93
 msgid "Starting Telescope…"
@@ -8640,12 +8772,12 @@ msgid "Only when I press Stop"
 msgstr "仅在点击“停止”时"
 
 #: rust/crates/system/src/startup.rs:46
-msgid "When no app uses the camera, if it started the stream"
-msgstr "当没有应用使用相机时（如果是应用启动了串流）"
+msgid "When no app uses the camera, if Telescope started the stream"
+msgstr ""
 
 #: rust/crates/system/src/startup.rs:47
-msgid "When no app uses the camera, even if I started it"
-msgstr "当没有应用使用相机时（即使由我手动启动）"
+msgid "When no app uses the camera, even if I started the stream"
+msgstr ""
 
 #: rust/crates/system/src/startup.rs:50
 msgid "seconds"
@@ -8688,16 +8820,16 @@ msgid "Wait before stopping"
 msgstr "停止前等待"
 
 #: rust/crates/system/src/startup.rs:508
-msgid "Start and stop by itself"
-msgstr "自动启动和停止"
+msgid "Start and stop automatically"
+msgstr ""
 
 #: rust/crates/system/src/startup.rs:509
 msgid "Opening Telescope when you sign in, and Automatic streaming."
 msgstr "登录时打开 Telescope，以及自动串流。"
 
 #: rust/crates/system/src/startup.rs:510
-msgid "Without it Automatic streaming stops and both it and the sign-in option leave Settings. Telescope still opens at sign-in if it did before."
-msgstr "关闭后自动串流将停止，且自动串流与开机登录选项都会从“设置”中移除。若此前已设置登录时打开 Telescope，则仍会保持打开。"
+msgid "Without the Automatic streaming plugin, Automatic streaming stops and it and the sign-in option disappear from Settings. Telescope still opens at sign-in if it did before."
+msgstr ""
 
 #: rust/crates/system/src/updates.rs:198
 #, python-brace-format
@@ -8736,7 +8868,7 @@ msgstr "{file} 正在使用中，因此未安装更新。请重启后重试。"
 
 #: rust/crates/system/src/updates.rs:596
 #, python-brace-format
-msgid "Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a folder of its own."
+msgid "Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a separate folder."
 msgstr ""
 
 #: rust/crates/system/src/updates.rs:665 rust/crates/system/src/updates_plugin.rs:97 rust/crates/system/src/updates_plugin.rs:168 rust/crates/system/src/updates_plugin.rs:240 rust/crates/system/src/updates_plugin.rs:621 rust/crates/system/src/updates_plugin.rs:796
@@ -8751,7 +8883,7 @@ msgstr "此更新未安装，因为它无法在这台电脑上启动。"
 msgid "Stable"
 msgstr "稳定版"
 
-#: rust/crates/system/src/updates_plugin.rs:30 rust/crates/system/ui/updates.slint:177
+#: rust/crates/system/src/updates_plugin.rs:30 rust/crates/system/ui/updates.slint:179
 msgid "Nightly"
 msgstr "Nightly"
 
@@ -8769,20 +8901,20 @@ msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "已更新。Telescope 会在你停止串流后重启。"
 
 #: rust/crates/system/src/updates_plugin.rs:470
-msgid "Going back to the Python version didn't work because it didn't start, so this version is back."
-msgstr "回退到 Python 版本失败，由于未能启动，已恢复为当前版本。"
+msgid "Going back to the Python version failed because the Python version didn't start. This version is running again."
+msgstr ""
 
 #: rust/crates/system/src/updates_plugin.rs:475
-msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along."
-msgstr "更新还会为你的用户安装此应用并添加开始菜单项，同时移除此解压副本。设置与已添加手机都会保留。"
+msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and paired phones are kept."
+msgstr ""
 
 #: rust/crates/system/src/updates_plugin.rs:481
 msgid "Stop streaming to update."
 msgstr "停止串流以更新。"
 
 #: rust/crates/system/src/updates_plugin.rs:493
-msgid "This is a source checkout, so it doesn't update itself."
-msgstr "这是源码检出版本，无法自动更新。"
+msgid "This is a source checkout, so update Telescope with git."
+msgstr ""
 
 #: rust/crates/system/src/updates_plugin.rs:501
 msgid "There's no nightly release yet."
@@ -8834,126 +8966,142 @@ msgstr "检查并安装 Telescope 的新版本。"
 msgid "Let an AI app read and change Telescope's settings."
 msgstr "允许 AI 应用读取和修改 Telescope 的设置。"
 
-#: rust/crates/system/ui/mcp.slint:64 rust/crates/system/ui/mcp.slint:70
+#: rust/crates/system/ui/mcp.slint:37
+msgid "The AI apps connected right now"
+msgstr ""
+
+#: rust/crates/system/ui/mcp.slint:65 rust/crates/system/ui/mcp.slint:72
 msgid "Access"
 msgstr "权限"
 
-#: rust/crates/system/ui/mcp.slint:82
+#: rust/crates/system/ui/mcp.slint:66
+msgid "Whether AI apps can only look at your settings or change them too"
+msgstr ""
+
+#: rust/crates/system/ui/mcp.slint:84
 msgid "Command"
 msgstr "命令"
 
-#: rust/crates/system/ui/mcp.slint:120
+#: rust/crates/system/ui/mcp.slint:122
 msgid "Recent activity"
 msgstr "最近活动"
 
-#: rust/crates/system/ui/mcp.slint:121
+#: rust/crates/system/ui/mcp.slint:123
 msgctxt "search"
 msgid "mcp ai log history what the ai did refused"
 msgstr "mcp ai 日志 历史 记录 操作 拒绝 log history what the ai did refused"
 
-#: rust/crates/system/ui/mcp.slint:251
+#: rust/crates/system/ui/mcp.slint:253
 msgid "Undo"
 msgstr "撤销"
 
-#: rust/crates/system/ui/shortcuts.slint:39
+#: rust/crates/system/ui/shortcuts.slint:41
 msgid "Copy command line"
 msgstr "复制命令行"
 
-#: rust/crates/system/ui/shortcuts.slint:62
+#: rust/crates/system/ui/shortcuts.slint:64
 msgid "Edit"
 msgstr "编辑"
 
-#: rust/crates/system/ui/shortcuts.slint:63
+#: rust/crates/system/ui/shortcuts.slint:65
 msgid "Change the keys of this shortcut."
 msgstr "修改此快捷键的按键。"
 
-#: rust/crates/system/ui/shortcuts.slint:89 rust/crates/system/ui/shortcuts.slint:314
+#: rust/crates/system/ui/shortcuts.slint:91 rust/crates/system/ui/shortcuts.slint:318
 msgid "Key"
 msgstr "按键"
 
-#: rust/crates/system/ui/shortcuts.slint:110
+#: rust/crates/system/ui/shortcuts.slint:112
 msgid "Press a key"
 msgstr "请按键"
 
-#: rust/crates/system/ui/shortcuts.slint:110
+#: rust/crates/system/ui/shortcuts.slint:112
 msgid "Press shortcut"
 msgstr "按下快捷键"
 
-#: rust/crates/system/ui/shortcuts.slint:187
+#: rust/crates/system/ui/shortcuts.slint:189
 msgid "Shortcuts"
 msgstr "快捷键"
 
-#: rust/crates/system/ui/shortcuts.slint:188
+#: rust/crates/system/ui/shortcuts.slint:190
 msgctxt "search"
 msgid "hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove"
 msgstr "热键 快捷键 按键绑定 一键对讲 静音 添加 移除 hotkey hotkeys keybind keybinding key bindings keys push to talk mute add remove"
 
-#: rust/crates/system/ui/shortcuts.slint:193
+#: rust/crates/system/ui/shortcuts.slint:195
 msgid "Pick a control and the key for it"
 msgstr "选择控件及其对应按键"
 
-#: rust/crates/system/ui/shortcuts.slint:194
+#: rust/crates/system/ui/shortcuts.slint:196
 msgid "Add"
 msgstr "添加"
 
-#: rust/crates/system/ui/shortcuts.slint:202
+#: rust/crates/system/ui/shortcuts.slint:204
 msgid "No shortcuts yet"
 msgstr "尚无快捷键"
 
-#: rust/crates/system/ui/shortcuts.slint:207
+#: rust/crates/system/ui/shortcuts.slint:209
 msgctxt "search"
 msgid "global system wide hotkeys background other apps"
 msgstr "全局 系统级 热键 后台 其他应用 global system wide hotkeys background other apps"
 
-#: rust/crates/system/ui/shortcuts.slint:212
+#: rust/crates/system/ui/shortcuts.slint:214
 msgid "Desktop shortcut settings"
 msgstr "系统快捷键设置"
 
-#: rust/crates/system/ui/shortcuts.slint:216
+#: rust/crates/system/ui/shortcuts.slint:215
+msgid "Change the keys of global shortcuts in your desktop's own settings"
+msgstr ""
+
+#: rust/crates/system/ui/shortcuts.slint:219
 msgctxt "search"
 msgid "global hotkeys portal kde plasma gnome desktop keys rebind"
 msgstr "全局热键 快捷键 桌面环境 按键 重新绑定 global hotkeys portal kde plasma gnome desktop keys rebind"
 
-#: rust/crates/system/ui/shortcuts.slint:219
+#: rust/crates/system/ui/shortcuts.slint:222
 msgid "Global shortcuts"
 msgstr "全局快捷键"
 
-#: rust/crates/system/ui/shortcuts.slint:220
+#: rust/crates/system/ui/shortcuts.slint:223
 msgid "Where your desktop lets you change the keys of global shortcuts."
 msgstr "在桌面环境的设置中修改全局快捷键的按键。"
 
-#: rust/crates/system/ui/shortcuts.slint:226 rust/crates/system/ui/shortcuts.slint:227
+#: rust/crates/system/ui/shortcuts.slint:229 rust/crates/system/ui/shortcuts.slint:230
 msgid "Notify when one runs"
 msgstr "执行快捷键时发送通知"
 
-#: rust/crates/system/ui/shortcuts.slint:228
+#: rust/crates/system/ui/shortcuts.slint:231
 msgid "While Telescope is in the background"
 msgstr "当 Telescope 处于后台时"
 
-#: rust/crates/system/ui/shortcuts.slint:229
+#: rust/crates/system/ui/shortcuts.slint:232
 msgctxt "search"
 msgid "notification notify toast confirmation popup"
 msgstr "通知 提示 气泡 确认 弹窗 notification notify toast confirmation popup"
 
-#: rust/crates/system/ui/shortcuts.slint:254
+#: rust/crates/system/ui/shortcuts.slint:257
 msgid "Keyboard shortcut"
 msgstr "快捷键"
 
-#: rust/crates/system/ui/shortcuts.slint:259 rust/crates/system/ui/shortcuts.slint:269
+#: rust/crates/system/ui/shortcuts.slint:262 rust/crates/system/ui/shortcuts.slint:272
 msgid "Find"
 msgstr "查找"
 
-#: rust/crates/system/ui/shortcuts.slint:268
+#: rust/crates/system/ui/shortcuts.slint:271
 msgid "Search"
 msgstr "搜索"
 
-#: rust/crates/system/ui/shortcuts.slint:276 rust/crates/system/ui/shortcuts.slint:282
+#: rust/crates/system/ui/shortcuts.slint:279 rust/crates/system/ui/shortcuts.slint:285
 msgid "Control"
 msgstr "控件"
 
-#: rust/crates/system/ui/shortcuts.slint:326
+#: rust/crates/system/ui/shortcuts.slint:330
 msgid "Also works while another app is in front"
 msgstr "其他应用位于前台时同样生效"
+
+#: rust/crates/system/ui/shortcuts.slint:331
+msgid "Keep the shortcut working when another app is in front"
+msgstr ""
 
 #: rust/crates/system/ui/startup.slint:12
 msgid "Startup"
@@ -8990,26 +9138,42 @@ msgctxt "search"
 msgid "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 msgstr "自动 开始 停止 相机 摄像头 应用 打开 手机 设备 就绪 空闲 免动手 auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free"
 
-#: rust/crates/system/ui/startup.slint:63
+#: rust/crates/system/ui/startup.slint:61
+msgid "When to start streaming automatically"
+msgstr ""
+
+#: rust/crates/system/ui/startup.slint:64
 msgctxt "search"
 msgid "automatically begin streaming when phone device ready app opens the camera auto start"
 msgstr "自动 开始 串流 手机 设备 就绪 应用 打开 相机 摄像头 automatically begin streaming when phone device ready app opens the camera auto start"
 
-#: rust/crates/system/ui/startup.slint:78
+#: rust/crates/system/ui/startup.slint:77
+msgid "When to stop streaming automatically"
+msgstr ""
+
+#: rust/crates/system/ui/startup.slint:80
 msgctxt "search"
 msgid "automatically end streaming idle no app uses the camera auto stop"
 msgstr "自动结束串流 空闲 没有应用使用相机 自动停止 automatically end streaming idle no app uses the camera auto stop"
 
-#: rust/crates/system/ui/startup.slint:95
+#: rust/crates/system/ui/startup.slint:93
+msgid "How long to wait after the last app stops using the camera"
+msgstr ""
+
+#: rust/crates/system/ui/startup.slint:98
 msgctxt "search"
 msgid "delay timeout idle seconds minutes how long grace period auto stop"
 msgstr "延迟 超时 空闲 秒 分钟 多久 缓冲期 宽限期 自动停止 delay timeout idle seconds minutes how long grace period auto stop"
 
-#: rust/crates/system/ui/startup.slint:130
+#: rust/crates/system/ui/startup.slint:133
 msgid "Tell me when it stops a stream"
 msgstr "停止串流时通知我"
 
-#: rust/crates/system/ui/startup.slint:133
+#: rust/crates/system/ui/startup.slint:134
+msgid "Show a notification when streaming stops automatically"
+msgstr ""
+
+#: rust/crates/system/ui/startup.slint:137
 msgctxt "search"
 msgid "notification notify alert popup message"
 msgstr "通知 提醒 弹窗 消息 notification notify alert popup message"
@@ -9035,60 +9199,76 @@ msgstr "检查是否有新版本的 Telescope。"
 msgid "This version"
 msgstr "当前版本"
 
-#: rust/crates/system/ui/updates.slint:122
+#: rust/crates/system/ui/updates.slint:120
+msgid "The version of Telescope you're running"
+msgstr ""
+
+#: rust/crates/system/ui/updates.slint:123
 msgctxt "search"
 msgid "current build number"
 msgstr "当前版本号 构建号 内部版本号 current build number"
 
-#: rust/crates/system/ui/updates.slint:147
+#: rust/crates/system/ui/updates.slint:148
 msgid "What's new"
 msgstr "新功能"
 
-#: rust/crates/system/ui/updates.slint:168
+#: rust/crates/system/ui/updates.slint:167
+msgid "Stable is tested more, nightly gets fixes first"
+msgstr ""
+
+#: rust/crates/system/ui/updates.slint:170
 msgctxt "search"
 msgid "stable nightly beta release track builds testing"
 msgstr "稳定版 nightly 测试版 发布 通道 构建 测试 stable nightly beta release track builds testing"
 
-#: rust/crates/system/ui/updates.slint:178
+#: rust/crates/system/ui/updates.slint:180
 msgid "Built from every change. Gets fixes first but is less tested."
 msgstr "每次代码更改后构建。能第一时间获得修复，但测试较少。"
 
-#: rust/crates/system/ui/updates.slint:184
+#: rust/crates/system/ui/updates.slint:186
 msgid "Check daily"
 msgstr "每天检查"
 
-#: rust/crates/system/ui/updates.slint:185
+#: rust/crates/system/ui/updates.slint:187
+msgid "Look for a new version once a day"
+msgstr ""
+
+#: rust/crates/system/ui/updates.slint:188
 msgctxt "search"
 msgid "automatic updates auto check every day background"
 msgstr "自动更新 自动检查 每天检查 后台 automatic updates auto check every day background"
 
-#: rust/crates/system/ui/updates.slint:192 rust/crates/system/ui/updates.slint:194
+#: rust/crates/system/ui/updates.slint:195 rust/crates/system/ui/updates.slint:197
 msgid "Keep this copy where it is"
 msgstr "将此副本保留在原位"
 
-#: rust/crates/system/ui/updates.slint:193
+#: rust/crates/system/ui/updates.slint:196
 msgctxt "search"
 msgid "portable keep this copy where it is zip folder in place windows unzipped"
 msgstr "便携版 绿色版 保持原位 压缩包 文件夹 就地更新 解压 portable keep this copy where it is zip folder in place windows unzipped"
 
-#: rust/crates/system/ui/updates.slint:195
+#: rust/crates/system/ui/updates.slint:198
 msgid "Update this unzipped folder in place instead of installing Telescope for your user."
 msgstr "直接在此解压文件夹中就地更新，而不是为当前用户安装 Telescope。"
 
-#: rust/crates/system/ui/updates.slint:202
+#: rust/crates/system/ui/updates.slint:205
 msgid "Older version"
 msgstr "旧版本"
 
-#: rust/crates/system/ui/updates.slint:205
+#: rust/crates/system/ui/updates.slint:206
+msgid "Go back to the older Python version of Telescope"
+msgstr ""
+
+#: rust/crates/system/ui/updates.slint:209
 msgctxt "search"
 msgid "go back downgrade python previous old version revert undo rust"
 msgstr "回退 降级 旧版本 上一版本 恢复 撤销 go back downgrade python previous old version revert undo rust"
 
-#: rust/crates/system/ui/updates.slint:209 rust/crates/system/ui/updates.slint:210
+#: rust/crates/system/ui/updates.slint:213 rust/crates/system/ui/updates.slint:214
 msgid "Go back to the Python version"
 msgstr "回退到 Python 版本"
 
-#: rust/crates/system/ui/updates.slint:235
+#: rust/crates/system/ui/updates.slint:239
 msgid "Go back to the Python version?"
 msgstr "要回退到 Python 版本吗？"
 
@@ -9202,41 +9382,9 @@ msgctxt "percentage"
 msgid "{n}%"
 msgstr "{n}%"
 
-#: rust/crates/plugin-host/src/package.rs:23
-msgid "Other users on this computer could change it, so it isn't loaded."
-msgstr "这台电脑上的其他用户可以更改它，因此未加载。"
-
-#: rust/crates/plugin-host/src/package.rs:24
-msgid "It contains a link to somewhere else, which plugins can't have."
-msgstr "它包含指向其他位置的链接，插件不允许包含此类链接。"
-
-#: rust/crates/plugin-host/src/package.rs:498
-msgid "It contains compiled code (like .pyc files). Plugins have to be source code."
-msgstr "它包含已编译的代码（例如 .pyc 文件）。插件必须为源代码。"
-
-#: rust/crates/plugin-host/src/package.rs:26
-msgid "It's too big for a plugin (over 500 files or 20 MB)."
-msgstr "它对于插件来说过大（超过 500 个文件或 20 MB）。"
-
 #: rust/crates/plugin-host/src/package.rs:25
 msgid "The folder has to have the same name as the plugin, using only lowercase letters, digits and _ (starting with a letter)."
 msgstr "文件夹名称必须与插件同名，且只能使用小写字母、数字和 _（必须以字母开头）。"
-
-#: rust/crates/plugin-host/src/package.rs:29
-msgid "A plugin that comes with Telescope already has that name."
-msgstr "Telescope 自带的插件已使用此名称。"
-
-#: rust/crates/plugin-host/src/package.rs:27
-msgid "It isn't a .zip file Telescope can open."
-msgstr "它不是 Telescope 能打开的 .zip 文件。"
-
-#: rust/crates/plugin-host/src/package.rs:444
-msgid "It holds a file with a path that points outside the plugin."
-msgstr "它包含路径指向插件外部的文件。"
-
-#: rust/crates/plugin-host/src/package.rs:455
-msgid "It has to hold one folder, named as the plugin."
-msgstr "它必须仅包含一个以插件命名的文件夹。"
 
 #: rust/crates/plugin-host/src/package.rs:28
 msgid "That isn't a folder in the plugins folder."
@@ -9270,32 +9418,6 @@ msgstr "添加手机"
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"
 msgstr[0] "已保存 {name} 和另外 {n} 张"
-
-#: rust/crates/shell/src/plugins/preview.rs:19
-msgid ""
-"Camera off\n"
-"\n"
-"The phone's mic is still streaming.\n"
-"Stop streaming ends it."
-msgstr ""
-"相机已关闭\n"
-"\n"
-"手机麦克风仍在串流。\n"
-"点击“停止串流”即可结束。"
-
-#: rust/crates/shell/src/plugins/preview.rs:21
-msgid ""
-"Camera off\n"
-"\n"
-"No app was using the camera, so it turned off.\n"
-"The phone's mic is still streaming, and the camera\n"
-"comes back when an app opens it."
-msgstr ""
-"相机已关闭\n"
-"\n"
-"由于没有应用使用相机，相机已自动关闭。\n"
-"手机麦克风仍在串流，当有应用打开相机时，\n"
-"画面将自动恢复。"
 
 #: rust/crates/effects/src/transforms.rs:682
 msgctxt "search"
@@ -9380,10 +9502,6 @@ msgstr "手机拍照超时。"
 msgid "Lost the phone while it was taking the photo."
 msgstr "拍照时与手机断开连接。"
 
-#: rust/crates/link/src/stills.rs:62
-msgid "The phone gave up on the photo, maybe because its stream stopped."
-msgstr "手机放弃了拍照，可能是因为串流已停止。"
-
 #: rust/crates/link/src/stills.rs:64
 msgid "This phone can't take photos from Telescope. Update the app on the phone."
 msgstr "此手机不支持通过 Telescope 拍照。请更新手机上的应用。"
@@ -9420,33 +9538,739 @@ msgstr "更新包含异常文件，因此未安装。"
 msgid "The download doesn't contain Telescope, so it wasn't installed."
 msgstr "下载的内容中不包含 Telescope，因此未安装。"
 
-#: rust/crates/shell/src/plugins_tab.rs:788
-msgid "Couldn't remove it"
-msgstr "无法移除"
-
-#: rust/crates/shell/src/plugins_tab.rs:764
-msgid "Couldn't save that"
-msgstr "无法保存更改"
-
-#: rust/crates/shell/src/plugins_tab.rs:743
-msgid "Couldn't install it"
-msgstr "无法安装"
-
-#: rust/crates/shell/src/plugins_tab.rs:750
-msgid "Installed, but it won't load"
-msgstr "已安装，但无法加载"
-
 #: rust/crates/shell/src/plugins_tab.rs:752
 msgid "Replaced"
 msgstr "已替换"
 
-#: rust/crates/shell/src/plugins_tab.rs:833
-msgid "Couldn't open it"
-msgstr "无法打开"
-
 #: rust/crates/shell/src/plugins_tab.rs:147
 msgid "Couldn't restart"
 msgstr "无法重启"
+
+#~ msgid "Once VB-Cable's setup says it's done, restart the computer, then switch this off and on."
+#~ msgstr "VB-Cable 安装程序显示完成后，请重启电脑，然后关闭再开启此项。"
+
+#, python-brace-format
+#~ msgid "On for {name}. Turning it on here turns it off there."
+#~ msgstr "已为 {name} 开启。在这里开启后，那边会自动关闭。"
+
+#~ msgid "Without it there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone."
+#~ msgstr "没有它就没有“麦克风”卡片，托盘菜单中也没有“静音”，Telescope 也不会创建虚拟麦克风。"
+
+#~ msgid "VB-Audio's site didn't hand over VB-Cable. Try again later, or get it from their site."
+#~ msgstr "VB-Audio 网站未提供 VB-Cable 下载。稍后重试，或从其官方网站获取。"
+
+#~ msgid "VB-Audio's download doesn't have the setup it used to. Get it from their site instead."
+#~ msgstr "VB-Audio 的下载内容不再包含原有的安装程序。请改为从其网站获取。"
+
+#~ msgid "VB-Cable's setup changed after it was checked, so it wasn't opened."
+#~ msgstr "VB-Cable 的安装程序在校验后发生了更改，因此未打开。"
+
+#~ msgid "Yellow: the limiter is holding peaks down. Red: it clipped."
+#~ msgstr "黄色：限制器正在压低峰值。红色：已削波。"
+
+#~ msgid "Telescope downloads VB-Cable from vb-audio.com and opens its setup, which asks for admin. Restart the computer afterwards."
+#~ msgstr "Telescope 会从 vb-audio.com 下载 VB-Cable 并打开安装程序（需要管理员权限）。安装后请重启电脑。"
+
+#~ msgid "Looking…"
+#~ msgstr "正在分析…"
+
+#~ msgid "Blurs the background behind you or swaps it for a picture."
+#~ msgstr "虚化你身后的背景，或将其替换为画面。"
+
+#~ msgid "Without it there's no Background card and the background stays as the camera sees it."
+#~ msgstr "没有它就没有“背景”卡片，背景将保持相机拍摄的原始样貌。"
+
+#~ msgid "Swaps a green or blue screen behind you for a colour or a picture, with no download."
+#~ msgstr "将身后的绿幕或蓝幕替换为纯色或图片，无需下载。"
+
+#~ msgid "Without it there's no Chroma key card and a green screen stays green."
+#~ msgstr "没有它就没有“色度键”卡片，绿幕仍会保持绿色。"
+
+#~ msgid "Without it there's no Cinema tools card and the preview shows just the picture."
+#~ msgstr "没有它就没有“影视工具”卡片，预览仅显示画面。"
+
+#~ msgid "Looking at the picture…"
+#~ msgstr "正在分析画面…"
+
+#~ msgid "Auto couldn't get a steady picture to look at. Try again while nothing moves."
+#~ msgstr "自动调色无法获取稳定的画面。请在画面静止时重试。"
+
+#~ msgid "Nothing needs changing now, so Auto's earlier changes were taken off."
+#~ msgstr "当前无需调整，已撤回先前的自动调整。"
+
+#~ msgid "No face was found, so it went by the background and the brightness."
+#~ msgstr "未检测到人脸，已根据背景和整体亮度调整。"
+
+#~ msgid "The light is mixed or coloured, so white balance stayed as it was."
+#~ msgstr "光线复杂或带有色光，白平衡保持不变。"
+
+#~ msgid "Your own wheels and curves would have clipped the picture, so Auto went only part of the way."
+#~ msgstr "为避免与你现有的色轮和曲线叠加后发生色彩溢出，自动调整已减弱幅度。"
+
+#~ msgid "The camera adjusts itself, so this may drift."
+#~ msgstr "相机会自动调节，画面效果可能会随之偏移。"
+
+#~ msgid "Without it there's no Colour grading card and the picture keeps the camera's colours."
+#~ msgstr "没有它就没有“调色”卡片，画面将保留相机的原始色彩。"
+
+#~ msgid "It takes over once two of its streams are running."
+#~ msgstr "当其中两路串流开始运行后，便会自动生效。"
+
+#, python-brace-format
+#~ msgid "It goes out on {camera}, and no stream goes there now."
+#~ msgstr "其内容将通过 {camera} 输出，目前没有串流输出到此相机。"
+
+#, python-brace-format
+#~ msgid "It goes out on {camera} once the stream there sends a picture."
+#~ msgstr "一旦目标串流发送画面，其内容就会通过 {camera} 输出。"
+
+#, python-brace-format
+#~ msgid "Goes out on {camera}."
+#~ msgstr "通过 {camera} 输出。"
+
+#~ msgid "Puts the streams you run side by side or one inside another, out on one virtual camera."
+#~ msgstr "将正在运行的各路串流并排或以画中画形式组合，输出到一个虚拟相机中。"
+
+#~ msgid "Without it there's no One picture card and each stream only goes to its own camera."
+#~ msgstr "没有它就没有“合成画面”卡片，各路串流只能分别输出到各自的相机。"
+
+#~ msgid "This isn't a .cube LUT: it doesn't say its size."
+#~ msgstr "这不是 .cube LUT 文件：未指明其尺寸。"
+
+#~ msgid "Those corners were bunched up or in a line and weren't used. Mark the sheet again with one on each of its corners."
+#~ msgstr "这几个角挤在一起或排成了一条线，没有采用。请在纸张的四个角上各标记一个，重新标记。"
+
+#~ msgid "Straightens a sheet of paper you mark on the preview and can make the writing on it stand out."
+#~ msgstr "拉直你在预览中标记的纸张，并可让纸上的字迹更醒目。"
+
+#~ msgid "Without it there's no Desk mode card and the picture stays the way the camera sees it."
+#~ msgstr "没有它就没有“桌面模式”卡片，画面保持相机看到的样子。"
+
+#~ msgid "Moves the phone's metering point to your face to keep you well lit whatever's behind you."
+#~ msgstr "将手机的测光点移到你的脸上，无论你身后是什么，都能让你保持光线充足。"
+
+#~ msgid "Without it there's no Expose for my face card and the phone meters the point you tap or the whole picture."
+#~ msgstr "没有它就没有“按我的脸曝光”卡片，手机会按你点击的位置或整个画面测光。"
+
+#~ msgid "Widens the view so your hands are in it too."
+#~ msgstr "扩大视野，让双手也保持在画面内。"
+
+#~ msgid "Without it there's no Auto framing card and the zoom stays where you put it."
+#~ msgstr "没有它就没有“自动构图”卡片，缩放会停留在你设定的位置。"
+
+#, python-brace-format
+#~ msgid "Taking it in {n}…"
+#~ msgstr "{n} 秒后拍摄…"
+
+#~ msgid "Without it there's no Fun pack card and the picture has no effects."
+#~ msgstr "没有它就没有“趣味包”卡片，画面也没有特效。"
+
+#~ msgid "Puts your name and pronouns in the corner of the picture."
+#~ msgstr "在画面角落显示你的姓名和人称代词。"
+
+#~ msgid "Without it there's no Name tag card and nothing is drawn on the picture."
+#~ msgstr "关闭后将没有“姓名牌”卡片，画面上也不会绘制任何内容。"
+
+#~ msgid "Shows your script on the phone's screen right under the camera, to read while looking people in the eye."
+#~ msgstr "将讲稿显示在手机摄像头正下方的屏幕上，让你边读稿边自然直视对方。"
+
+#~ msgid "Without it there's no Teleprompter card and the phone never shows a script."
+#~ msgstr "关闭后将隐藏“提词器”卡片，手机上也不会显示讲稿。"
+
+#~ msgid "The browser warns that the connection isn't private: it's this computer's own certificate. On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed."
+#~ msgstr "浏览器会警告连接不是私密连接：这是由于使用了这台电脑自己的证书。在 iPhone 上点击“显示详细信息”，然后点击“访问此网站”。在 Chrome 中点击“高级”，然后点击“继续前往”。"
+
+#~ msgid "It went through."
+#~ msgstr "发送成功。"
+
+#, python-brace-format
+#~ msgid "It didn't go through: {error}"
+#~ msgstr "发送失败：{error}"
+
+#~ msgid "The On Air webhook didn't go through"
+#~ msgstr "On Air Webhook 发送失败"
+
+#, python-brace-format
+#~ msgid "It answered: {error}"
+#~ msgstr "返回信息：{error}"
+
+#~ msgid "Shows the people around you that your camera or microphone is in use, on another device's screen or through a smart home light."
+#~ msgstr "通过另一台设备的屏幕或智能家居灯光，向周围的人提示你的相机或麦克风正在使用中。"
+
+#~ msgid "Without it there's no On Air tab in Settings and no sign or webhook."
+#~ msgstr "关闭后设置中将没有“On Air”标签页，也没有指示牌或 Webhook。"
+
+#~ msgid "The camera keeps its own JPEG quality"
+#~ msgstr "相机将使用自身的 JPEG 质量设置"
+
+#~ msgid "Takes full-quality photos on the phone or a DSLR, RAW included where the camera has it."
+#~ msgstr "使用手机或单反/微单拍摄全画质照片，若相机支持也可拍摄 RAW 格式。"
+
+#~ msgid "Without it there's no Photos card and no Take photo shortcut."
+#~ msgstr "关闭后将没有“照片”卡片，也没有“拍照”快捷键。"
+
+#~ msgid "Without it there's no Privacy blur card and nothing gets hidden when someone walks in."
+#~ msgstr "关闭后将没有“隐私虚化”卡片，且有人走入画面时不会隐藏任何内容。"
+
+#~ msgid "Click Copy on the QR codes card to put it on the clipboard."
+#~ msgstr "点击“二维码”卡片上的“复制”即可复制到剪贴板。"
+
+#~ msgid "Copies a QR code you hold up to the camera, or the password from a Wi-Fi code."
+#~ msgstr "复制向相机展示的二维码内容，或提取 Wi-Fi 二维码中的密码。"
+
+#~ msgid "Without it there's no QR code card and codes in the picture are left alone."
+#~ msgstr "关闭后将没有“二维码”卡片，也不会识别画面中的二维码。"
+
+#, python-brace-format
+#~ msgid "Panned past what {tele} can see, so it's on {live}. Pan back to switch again."
+#~ msgstr "平移范围超出了 {tele} 的视野，因此已切至 {live}。移回原位即可再次切换。"
+
+#, python-brace-format
+#~ msgid "The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can."
+#~ msgstr "手机自动保持在 {live}，很可能是因为环境太暗或距离太近不适合 {tele}。一旦条件允许便会切换。"
+
+#~ msgid "It can wobble for a moment while it switches."
+#~ msgstr "切换过程中画面可能会轻微晃动。"
+
+#~ msgid "Zoomed on this computer: this lens can't zoom itself"
+#~ msgstr "在这台电脑上缩放：此镜头本身无法缩放"
+
+#~ msgid "Without it there's no Transforms card and the picture goes out exactly as the phone sends it."
+#~ msgstr "关闭后将没有“变换”卡片，画面将完全按手机发送的原样输出。"
+
+#~ msgid "Looking at the picture"
+#~ msgstr "正在分析画面"
+
+#~ msgid "Shows the people around you that your camera or microphone is in use."
+#~ msgstr "向周围的人提示你的相机或麦克风正在使用中。"
+
+#~ msgid "The page didn't start"
+#~ msgstr "页面未能启动"
+
+#~ msgid "Google's list of downloads wasn't what Telescope expected. Try again later."
+#~ msgstr "Google 的下载列表与 Telescope 预期的不符。请稍后重试。"
+
+#~ msgid "That doesn't have adb.exe in it."
+#~ msgstr "其中不包含 adb.exe。"
+
+#, python-brace-format
+#~ msgid "Google wouldn't send adb to this computer (it said {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead."
+#~ msgstr "Google 拒绝向这台电脑发送 adb（返回 {code}）。Google 在部分国家/地区会阻止 Android 下载。如果你通过其他方式获取了 platform-tools，可选择其中的 adb.exe 或 zip 文件。"
+
+#, python-brace-format
+#~ msgid "Google's server said {code}. Try again later."
+#~ msgstr "Google 服务器返回了 {code}。请稍后重试。"
+
+#, python-brace-format
+#~ msgid "The phone refused the microphone (HTTP {code})."
+#~ msgstr "手机拒绝了麦克风请求（HTTP {code}）。"
+
+#~ msgid "Browser says it isn't private?"
+#~ msgstr "浏览器提示连接不是私密连接？"
+
+#~ msgid ""
+"It is this computer's own certificate.\n"
+"iPhone: tap Show Details, then visit this website.\n"
+"Chrome: tap Advanced, then Proceed.\n"
+"Keep the page open with the screen on."
+#~ msgstr ""
+"这是因为使用了这台电脑自签名的证书。\n"
+"iPhone：轻点“显示详细信息”，然后轻点“访问此网站”。\n"
+"Chrome：点按“高级”，然后点按“继续前往”。\n"
+"请保持页面打开且屏幕常亮。"
+
+#~ msgid "Check it's on the same network."
+#~ msgstr "请确认手机与电脑在同一网络下。"
+
+#, python-brace-format
+#~ msgid "Still streaming over {now}, so it stays on {kept}."
+#~ msgstr "当前正在通过 {now} 串流，因此继续保持 {kept}。"
+
+#, python-brace-format
+#~ msgid "Open Telescope on {phone} and keep it on screen. It needs to be on the same network as this computer, or plugged in with a USB cable."
+#~ msgstr "在 {phone} 上打开 Telescope 并保持屏幕亮着。它需要与这台电脑处于同一网络，或用 USB 线连接。"
+
+#~ msgid "Stop it there or on the phone, then try again."
+#~ msgstr "请在那台电脑或手机上停止串流，然后重试。"
+
+#, python-brace-format
+#~ msgid "The phone refused to start streaming ({error})."
+#~ msgstr "手机拒绝开始串流（{error}）。"
+
+#, python-brace-format
+#~ msgid "Phone went quiet for a moment, still waiting... ({seconds}s)"
+#~ msgstr "手机暂时没有响应，仍在等待...（{seconds} 秒）"
+
+#~ msgid ""
+"The phone's camera didn't finish starting in time.\n"
+"\n"
+"Try again. If it keeps happening, open Telescope on the phone."
+#~ msgstr ""
+"手机相机未能及时启动完成。\n"
+"\n"
+"请重试。如果仍然出现，请在手机上打开 Telescope。"
+
+#~ msgid "Or plug it in over USB."
+#~ msgstr "或通过 USB 数据线连接。"
+
+#, python-brace-format
+#~ msgid "Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it."
+#~ msgstr "Telescope 可以从 Google 下载它（约 {size}）并保存在你的用户目录下。它是 Google 的软件，因此适用其 Android SDK 许可协议：<a href=\"{url}\">在此阅读</a>。<br><br>不使用它也能通过 Wi-Fi 正常工作。"
+
+#, python-brace-format
+#~ msgid "<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick one you already have</a>."
+#~ msgstr "<a href=\"{get}\">重试</a>，或<a href=\"{pick}\">选择你已有的 adb</a>。"
+
+#, python-brace-format
+#~ msgid "A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry."
+#~ msgstr "名为 {name} 的手机作为新手机完成了配对。在手机上重装 Telescope 或清除数据后会出现这种情况。选择“是”会把 {name} 的设置和预设移到新配对的手机上，并移除旧条目。"
+
+#, python-brace-format
+#~ msgid "Remove \"{name}\"? This deletes the settings it had on this computer. It can still connect with the code, and starts from the defaults."
+#~ msgstr "移除“{name}”？这会删除它在这台电脑上的设置。它仍可以用配对码连接，并从默认设置开始。"
+
+#, python-brace-format
+#~ msgid "v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:"
+#~ msgstr "v4l2loopback 已加载，但没有 {device}：其他应用用不同设置配置了它。请关闭该应用，然后运行以下命令把它交给 Telescope："
+
+#~ msgid "Switching it on asks for your password."
+#~ msgstr "开启时需要输入密码。"
+
+#~ msgid "Telescope needs to switch on its virtual camera first. This asks for your password."
+#~ msgstr "Telescope 需要先开启其虚拟相机。这需要输入密码。"
+
+#~ msgid "It can stutter more than TCP, so try it and see."
+#~ msgstr "可能比 TCP 更容易卡顿，不妨试试看。"
+
+#~ msgid "This phone's app is too old for Dynamic and uses Auto until it's updated."
+#~ msgstr "此手机的应用版本过低，不支持“动态”，更新前将使用“自动”。"
+
+#, python-brace-format
+#~ msgid "{error}. It's set back to {size}, the last size that worked."
+#~ msgstr "{error}。已恢复为上一次正常工作的尺寸 {size}。"
+
+#~ msgid "Without it there's no Stream output card and streams use whatever size and format the phone picks."
+#~ msgstr "关闭后将没有“串流输出”卡片，串流将使用手机自行选择的尺寸和格式。"
+
+#, python-brace-format
+#~ msgid "{problem}. Keeping the current wait screen."
+#~ msgstr "{problem}。将继续使用当前的等待画面。"
+
+#~ msgid "The default screen is showing. Choose another one."
+#~ msgstr "当前显示默认画面。请另选一张图片。"
+
+#~ msgid "Without it Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
+#~ msgstr "关闭后“设置”中将没有“等待画面”，在两次串流之间其他应用可能会看到黑屏或完全没有画面。"
+
+#~ msgid "Set it to your mains frequency to stop lights flickering or banding."
+#~ msgstr "设置为当地电网工频以消除灯光闪烁或条纹。"
+
+#~ msgid "Check that it's plugged in."
+#~ msgstr "请检查是否已插好。"
+
+#~ msgid "Another app may be using it. Close it there and it starts here."
+#~ msgstr "可能有其他应用正在使用它。在对应应用中将其关闭即可在此启动。"
+
+#, python-brace-format
+#~ msgid "{app} is using it. Close it there and it starts here."
+#~ msgstr "{app} 正在使用它。在对应应用中将其关闭即可在此启动。"
+
+#~ msgid "Without it webcams aren't in the device picker and the Webcam card is gone too."
+#~ msgstr "关闭后，设备选择器中不会显示网络摄像头，“网络摄像头”卡片也会消失。"
+
+#~ msgid "The webcam isn't plugged in. Plug it back in and it carries on."
+#~ msgstr "摄像头未连接。重新插好后即可继续。"
+
+#~ msgid "Another app is using the webcam. Close it there and it starts here."
+#~ msgstr "其他应用正在使用摄像头。在对应应用中将其关闭即可在此启动。"
+
+#~ msgid "It isn't turned on."
+#~ msgstr "它未开启。"
+
+#, python-brace-format
+#~ msgid "Its {file} has to return the plugin's table at the end."
+#~ msgstr "{file} 的末尾必须返回插件表。"
+
+#~ msgid "It's a link to another folder, which plugins can't be."
+#~ msgstr "它是一个指向其他文件夹的链接，插件不能是链接。"
+
+#, python-brace-format
+#~ msgid "It has no {file}."
+#~ msgstr "缺少 {file}。"
+
+#, python-brace-format
+#~ msgid "Its {file} isn't valid JSON."
+#~ msgstr "它的 {file} 不是有效的 JSON。"
+
+#, python-brace-format
+#~ msgid "Its {file} isn't valid."
+#~ msgstr "它的 {file} 无效。"
+
+#, python-brace-format
+#~ msgid "It was made for an older Telescope (plugin API {api}) and needs an update."
+#~ msgstr "它是针对旧版 Telescope（插件 API {api}）制作的，需要更新。"
+
+#~ msgid "Its files couldn't be read."
+#~ msgstr "无法读取它的文件。"
+
+#, python-brace-format
+#~ msgid "Its {file} has to give the folder's name as \"name\"."
+#~ msgstr "它的 {file} 必须将文件夹名称指定为 \"name\"。"
+
+#, python-brace-format
+#~ msgid "It needs a newer Telescope (plugin API {wanted}; this one has {have})."
+#~ msgstr "它需要更新版本的 Telescope（需要插件 API {wanted}；当前版本为 {have}）。"
+
+#~ msgid "Its files changed since it was turned on. Turn it on again if you trust this version."
+#~ msgstr "它的文件自开启后发生了更改。如果你信任此版本，请重新开启。"
+
+#~ msgid "Stopped streaming to let it cool down."
+#~ msgstr "已停止串流，让手机降温。"
+
+#, python-brace-format
+#~ msgid "Streaming stopped, as Monitoring stops it at {level}% or lower."
+#~ msgstr "串流已停止，因为“监控”设定电量降到 {level}% 或以下时停止串流。"
+
+#, python-brace-format
+#~ msgid "Streaming stopped to let it cool down, as Monitoring stops it at {temp} °C."
+#~ msgstr "串流已停止，让手机降温：“监控”设定温度达到 {temp}°C 时停止串流。"
+
+#~ msgid "Without it there's no Phone card and nothing warns you about a low battery or a hot phone."
+#~ msgstr "没有它就没有“手机”卡片，也不会提醒你电量低或手机过热。"
+
+#~ msgid "Asks for your password (pkexec or sudo): this changes system settings."
+#~ msgstr "需要输入你的密码（pkexec 或 sudo）：此操作将修改系统设置。"
+
+#~ msgid "Applying restarts the stream at the new size. If OBS loses the source, remove it and add it again."
+#~ msgstr "应用此设置将按新分辨率重新开始串流。如果 OBS 丢失视频源，请将其移除后重新添加。"
+
+#~ msgid "Some apps can't see it"
+#~ msgstr "部分应用无法识别"
+
+#~ msgid "Not found. Pairing and installing over USB need it; Wi-Fi doesn't."
+#~ msgstr "未找到。通过 USB 配对和安装需要此组件；通过 Wi-Fi 则不需要。"
+
+#~ msgid "Without it there's no Stats card. The stream carries on the same."
+#~ msgstr "关闭后将不显示“统计”卡片，串流本身不受影响。"
+
+#, python-brace-format
+#~ msgid "stepped down to {n} for the link"
+#~ msgstr "因连接受限已降至 {n}"
+
+#~ msgid "Decode the Light format on the graphics card from the next stream on. If the card fails the processor takes over until you restart Telescope."
+#~ msgstr "从下次串流起使用显卡解码“轻量”格式。若显卡解码失败，将改由处理器接管，直至重启 Telescope。"
+
+#~ msgid "Use less processor and battery while Background or Auto framing is on. They follow quick movement a little later."
+#~ msgstr "开启“背景”或“自动构图”时减少处理器和电量消耗。快速移动时跟随会略微延后。"
+
+#~ msgid "How far the Zoom slider goes. Zoom beyond the phone's own range is cropped on this computer."
+#~ msgstr "“缩放”滑块的最大范围。超出手机自身变焦范围的部分将在这台电脑上裁剪。"
+
+#~ msgid "How far the Gain slider goes. Less range gives finer steps and more range helps a quiet phone."
+#~ msgstr "“增益”滑块的最大范围。范围越小调节越精细，范围越大越适合声音较轻的手机。"
+
+#~ msgid "Keeps loud sounds from clipping"
+#~ msgstr "防止过大声音削波失真"
+
+#~ msgid "More than one phone is plugged in. Which one should get the app?"
+#~ msgstr "连接了多台手机。要在哪台手机上安装此应用？"
+
+#~ msgid "Restart Telescope to switch to it."
+#~ msgstr "重启 Telescope 即可切换。"
+
+#~ msgid "Open the full log. It's kept in the temp folder, which the system clears."
+#~ msgstr "打开完整日志。日志保存在临时文件夹中，系统会自动清理。"
+
+#~ msgid "This asks for your password."
+#~ msgstr "此操作需要输入你的密码。"
+
+#, python-brace-format
+#~ msgid "To stream several cameras at once, Telescope adds more virtual cameras ({names})."
+#~ msgstr "为同时串流多个相机，Telescope 会添加更多虚拟相机（{names}）。"
+
+#~ msgid "Only a phone's stream has the video this needs."
+#~ msgstr "仅手机串流包含此功能所需的视频。"
+
+#~ msgid "Stabilization"
+#~ msgstr "防抖"
+
+#~ msgid "Starting a stream may ask for your password to switch it on."
+#~ msgstr "开始串流时可能需要输入密码以将其开启。"
+
+#~ msgid "Scan this with the phone's camera app to download Telescope.apk, then open it to install. It's a download link, not the pairing code."
+#~ msgstr "扫码下载并安装 Telescope.apk。这是下载链接，不是配对码。"
+
+#~ msgid "Without it the setup checklist never shows, not even when nothing is set up yet."
+#~ msgstr "关闭后将永不显示设置检查清单，即使尚未完成任何设置也是如此。"
+
+#~ msgid "Without it there's no Presets button in the header (your saved presets aren't deleted)."
+#~ msgstr "关闭后标题栏中将没有“预设”按钮（已保存的预设仍会保留）。"
+
+#~ msgid "Without it the window doesn't show the picture but apps using the virtual camera still get it."
+#~ msgstr "关闭后窗口内不显示画面，但使用虚拟相机的应用仍可正常获取画面。"
+
+#~ msgid "Telescope couldn't start a new copy of itself. Close it and open it again to apply your changes."
+#~ msgstr "Telescope 无法启动自身的新实例。请将其关闭并重新打开以应用更改。"
+
+#~ msgid "There's no download of what it needs for this computer yet, so it can't be switched on."
+#~ msgstr "尚无可用于这台电脑的所需下载项，因此无法开启。"
+
+#, python-brace-format
+#~ msgid "Its download (about {mb} MB) isn't there anymore. Switch it off and on again to get it."
+#~ msgstr "其下载文件（约 {mb} MB）已不存在。将其关闭后重新开启即可重新获取。"
+
+#, python-brace-format
+#~ msgid "Switching one of these on downloads about {mb} MB first, once for all of them."
+#~ msgstr "开启其中任意一个插件都需要先下载约 {mb} MB 内容，所有此类插件只需下载一次。"
+
+#~ msgid "Its files changed since you switched it on, so it's off for now. Switch it on again if you trust this version."
+#~ msgstr "自开启以来，其文件发生了更改，因此当前已关闭。若信任此版本，请重新开启。"
+
+#, python-brace-format
+#~ msgid "It didn't start ({problem})."
+#~ msgstr "启动失败（{problem}）。"
+
+#, python-brace-format
+#~ msgid "Version {version} is out. <a href=\"{url}\">Download it from its release page</a> and install it here to replace this one."
+#~ msgstr "版本 {version} 已发布。<a href=\"{url}\">从其发布页面下载</a>并在此安装以替换此版本。"
+
+#, python-brace-format
+#~ msgid "Loaded from {folder} by telescope-rs dev. Telescope restarts by itself when you save one of its files."
+#~ msgstr "由 telescope-rs dev 从 {folder} 加载。保存其中的文件时，Telescope 会自动重启。"
+
+#, python-brace-format
+#~ msgid "Its folder ({folder}) is deleted from the plugins folder. To use it again you'll have to add it again."
+#~ msgstr "其文件夹（{folder}）将从插件文件夹中删除。若要再次使用，需要重新添加。"
+
+#, python-brace-format
+#~ msgid "It frees about {mb} MB. Switching on one of the optional plugins downloads it again."
+#~ msgstr "这将释放约 {mb} MB 空间。开启任一可选插件即可重新下载。"
+
+#~ msgid "Streaming stops while Telescope restarts. It takes a few seconds."
+#~ msgstr "Telescope 重启时串流会停止。需要几秒钟时间。"
+
+#~ msgid "Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch it back on."
+#~ msgstr "关闭后，此插件添加到 Telescope 的所有功能都将停用。其设置将保持保存状态，以便在重新开启时使用。"
+
+#, python-brace-format
+#~ msgid "{plugin} uses MediaPipe to find people in the picture. It comes as a separate download from Telescope's releases on GitHub, which the other optional plugins share."
+#~ msgstr "{plugin} 使用 MediaPipe 检测画面中的人物。它作为单独的下载项随 Telescope 在 GitHub 上的发布版本提供，并与其他可选插件共享。"
+
+#~ msgid "The version in this .zip takes its place with the same settings. Like any plugin you add it starts out switched off."
+#~ msgstr "此 .zip 中的版本将替换原插件并沿用相同设置。与你添加的其他插件一样，它初始为关闭状态。"
+
+#, python-brace-format
+#~ msgid "{plugin} {version} is in place but switched off for now. To use it, switch it on again and restart Telescope."
+#~ msgstr "{plugin} {version} 已就绪，但目前处于关闭状态。若要使用，请重新开启并重启 Telescope。"
+
+#, python-brace-format
+#~ msgid "{plugin} is installed but switched off for now. To use it, switch it on and restart Telescope."
+#~ msgstr "{plugin} 已安装，但目前处于关闭状态。若要使用，请将其开启并重启 Telescope。"
+
+#~ msgid "Check that it's still on."
+#~ msgstr "请检查其是否仍处于开启状态。"
+
+#~ msgid "Nothing matches every word. These match some of them."
+#~ msgstr "没有与所有词匹配的结果。以下结果匹配部分词。"
+
+#~ msgid "Looks once a day for new versions of added plugins that publish releases on GitHub and mentions them here. Nothing gets downloaded."
+#~ msgstr "每天检查一次在 GitHub 上发布版本的已添加插件是否有新版本，并在此处提醒。不会自动下载任何内容。"
+
+#~ msgid "Installs new versions of the plugins you switched on and switches them on again."
+#~ msgstr "安装已开启插件的新版本并重新开启它们。"
+
+#, python-brace-format
+#~ msgid "{plugins} didn't start"
+#~ msgid_plural "{plugins} didn't start"
+#~ msgstr[0] "{plugins} 未启动"
+
+#, python-brace-format
+#~ msgid "{n} plugin didn't start"
+#~ msgid_plural "{n} plugins didn't start"
+#~ msgstr[0] "{n} 个插件未启动"
+
+#~ msgid "Telescope works without it. The Plugins tab in Settings says what went wrong."
+#~ msgid_plural "Telescope works without them. The Plugins tab in Settings says what went wrong."
+#~ msgstr[0] "没有它们 Telescope 也能运行。“设置”中的“插件”标签页说明了出错原因。"
+
+#~ msgid "The stream comes back by itself once that app closes or lets go of it."
+#~ msgstr "一旦对应应用关闭或释放相机，串流将自动恢复。"
+
+#~ msgid "Stop it there or on the phone, then start again."
+#~ msgstr "请在对应电脑或手机上停止串流，然后重试。"
+
+#, python-brace-format
+#~ msgid "It's streaming at {size} and {fps} fps until it cools down."
+#~ msgstr "正在以 {size} 和 {fps} fps 串流，直至降温。"
+
+#, python-brace-format
+#~ msgid "It's streaming at {size} until it cools down."
+#~ msgstr "正在以 {size} 串流，直至降温。"
+
+#~ msgid "Open the Telescope page in it again."
+#~ msgstr "请在其中重新打开 Telescope 页面。"
+
+#, python-brace-format
+#~ msgid "The phone got hot and lowered the frame rate to {fps} fps for now."
+#~ msgstr "手机发热，已暂时将帧率降至 {fps} fps。"
+
+#~ msgid "The camera is making fewer frames than asked for. Dim light slows it down."
+#~ msgstr "相机输出的帧数低于设定值。光线不足会降低帧率。"
+
+#~ msgid "The phone's camera is making fewer frames than asked for. Dim light slows it down."
+#~ msgstr "手机相机输出的帧数低于设定值。光线较暗会拖慢帧率。"
+
+#~ msgid "It starts streaming by itself when it needs to."
+#~ msgstr "需要时它会自动开始串流。"
+
+#~ msgid "Delete the download these plugins use. Switching any of these plugins on downloads it again."
+#~ msgstr "删除这些插件使用的下载文件。开启其中任一插件时会重新下载。"
+
+#, python-brace-format
+#~ msgid "Couldn't set up the Python libraries {version} needs. That takes the internet and a folder it can write to ({folder}). Nothing was changed."
+#~ msgstr "无法配置 {version} 所需的 Python 库。这需要联网以及可写入的文件夹（{folder}）。未做任何更改。"
+
+#, python-brace-format
+#~ msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones come with it, and a copy of your current settings is saved first in {folder}."
+#~ msgstr "Telescope 将重启为最后一个 Python 版本 {version}。你的设置和已配对手机都会保留，当前设置也会先备份到 {folder}。"
+
+#, python-brace-format
+#~ msgid "{version} won't check for updates by itself, so it doesn't offer this version back. You can turn that on again in its settings."
+#~ msgstr "{version} 不会自动检查更新，以免提示你升回当前版本。你可以在它的设置中重新开启自动检查。"
+
+#, python-brace-format
+#~ msgid "First it sets up the Python libraries {version} needs. That needs the internet and takes a few minutes. If that fails, nothing is changed."
+#~ msgstr "它会先配置 {version} 所需的 Python 库。这需要联网并耗时几分钟。如果失败，则不会做任何更改。"
+
+#~ msgid "If it doesn't start, opening Telescope again brings this version back."
+#~ msgstr "如果它未能启动，再次打开 Telescope 即可恢复到当前版本。"
+
+#, python-brace-format
+#~ msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack it and run start.sh in it. It needs Python 3.12 or newer and finds your settings in the same place."
+#~ msgstr "AppImage 无法直接替换为 Python 版本。请从 {version} 发布页面下载 Telescope-linux.tar.gz，解压并运行其中的 start.sh。这需要 Python 3.12 或更高版本，并且会在同一位置读取你的设置。"
+
+#, python-brace-format
+#~ msgid "The phone app has to match. A newer one may not connect to {version}. Android won't install an older app over a newer one, so uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
+#~ msgstr "手机应用版本必须匹配。较新的手机应用可能无法连接到 {version}。Android 不允许用旧版本直接覆盖安装新版本，因此请先在手机上卸载 Telescope，再安装 {version} 发布版本中的 Telescope.apk 并重新配对。"
+
+#~ msgid "Waiting for you to confirm it"
+#~ msgstr "等待你确认"
+
+#~ msgid "Your desktop asks you to confirm global shortcuts, and you can change their keys in its own settings. The key it settled on shows next to each one."
+#~ msgstr "你的桌面环境会请求确认全局快捷键，你可以在其系统设置中更改按键。最终生效的按键会显示在每项旁边。"
+
+#~ msgid "Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port."
+#~ msgstr "允许 Claude Desktop 等 AI 应用通过无需开放网络端口的命令查看 Telescope 并更改其设置。"
+
+#~ msgid "Without it AI apps can't connect to Telescope."
+#~ msgstr "关闭后，AI 应用将无法连接到 Telescope。"
+
+#~ msgid "That failed; Copy diagnostics has the details."
+#~ msgstr "操作失败。复制诊断信息可查看详情。"
+
+#, python-brace-format
+#~ msgid "Everywhere, {keys} would stop typing it in other apps. Adding Ctrl, Alt or {meta} is safer."
+#~ msgstr "在全局模式下，{keys} 会导致无法在其他应用中正常键入。建议加上 Ctrl、Alt 或 {meta}。"
+
+#, python-brace-format
+#~ msgid "{value} (not there now)"
+#~ msgstr "{value}（当前不可用）"
+
+#~ msgid "Without it no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when it's back)."
+#~ msgstr "关闭后所有快捷键将失效，且“设置”中不会显示“快捷键”（已配置的快捷键仍会保留）。"
+
+#~ msgid "Telescope didn't understand that. Is it an older version? Update it to use --action."
+#~ msgstr "Telescope 无法识别此命令。是否为较旧版本？请更新以使用 --action。"
+
+#~ msgid "Telescope turned that down: it didn't come from this user's Telescope command."
+#~ msgstr "Telescope 拒绝了此请求：它并非来自当前用户的 Telescope 命令。"
+
+#~ msgid "When no app uses the camera, if it started the stream"
+#~ msgstr "当没有应用使用相机时（如果是应用启动了串流）"
+
+#~ msgid "When no app uses the camera, even if I started it"
+#~ msgstr "当没有应用使用相机时（即使由我手动启动）"
+
+#~ msgid "Start and stop by itself"
+#~ msgstr "自动启动和停止"
+
+#~ msgid "Without it Automatic streaming stops and both it and the sign-in option leave Settings. Telescope still opens at sign-in if it did before."
+#~ msgstr "关闭后自动串流将停止，且自动串流与开机登录选项都会从“设置”中移除。若此前已设置登录时打开 Telescope，则仍会保持打开。"
+
+#~ msgid "Going back to the Python version didn't work because it didn't start, so this version is back."
+#~ msgstr "回退到 Python 版本失败，由于未能启动，已恢复为当前版本。"
+
+#~ msgid "Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along."
+#~ msgstr "更新还会为你的用户安装此应用并添加开始菜单项，同时移除此解压副本。设置与已添加手机都会保留。"
+
+#~ msgid "This is a source checkout, so it doesn't update itself."
+#~ msgstr "这是源码检出版本，无法自动更新。"
+
+#~ msgid "Other users on this computer could change it, so it isn't loaded."
+#~ msgstr "这台电脑上的其他用户可以更改它，因此未加载。"
+
+#~ msgid "It contains a link to somewhere else, which plugins can't have."
+#~ msgstr "它包含指向其他位置的链接，插件不允许包含此类链接。"
+
+#~ msgid "It contains compiled code (like .pyc files). Plugins have to be source code."
+#~ msgstr "它包含已编译的代码（例如 .pyc 文件）。插件必须为源代码。"
+
+#~ msgid "It's too big for a plugin (over 500 files or 20 MB)."
+#~ msgstr "它对于插件来说过大（超过 500 个文件或 20 MB）。"
+
+#~ msgid "A plugin that comes with Telescope already has that name."
+#~ msgstr "Telescope 自带的插件已使用此名称。"
+
+#~ msgid "It isn't a .zip file Telescope can open."
+#~ msgstr "它不是 Telescope 能打开的 .zip 文件。"
+
+#~ msgid "It holds a file with a path that points outside the plugin."
+#~ msgstr "它包含路径指向插件外部的文件。"
+
+#~ msgid "It has to hold one folder, named as the plugin."
+#~ msgstr "它必须仅包含一个以插件命名的文件夹。"
+
+#~ msgid ""
+"Camera off\n"
+"\n"
+"The phone's mic is still streaming.\n"
+"Stop streaming ends it."
+#~ msgstr ""
+"相机已关闭\n"
+"\n"
+"手机麦克风仍在串流。\n"
+"点击“停止串流”即可结束。"
+
+#~ msgid ""
+"Camera off\n"
+"\n"
+"No app was using the camera, so it turned off.\n"
+"The phone's mic is still streaming, and the camera\n"
+"comes back when an app opens it."
+#~ msgstr ""
+"相机已关闭\n"
+"\n"
+"由于没有应用使用相机，相机已自动关闭。\n"
+"手机麦克风仍在串流，当有应用打开相机时，\n"
+"画面将自动恢复。"
+
+#~ msgid "The phone gave up on the photo, maybe because its stream stopped."
+#~ msgstr "手机放弃了拍照，可能是因为串流已停止。"
+
+#~ msgid "Couldn't remove it"
+#~ msgstr "无法移除"
+
+#~ msgid "Couldn't save that"
+#~ msgstr "无法保存更改"
+
+#~ msgid "Couldn't install it"
+#~ msgstr "无法安装"
+
+#~ msgid "Installed, but it won't load"
+#~ msgstr "已安装，但无法加载"
+
+#~ msgid "Couldn't open it"
+#~ msgstr "无法打开"
 
 #~ msgid "Set flip, rotation, zoom, pan and stretch back to default."
 #~ msgstr "将翻转、旋转、缩放、平移和拉伸恢复为默认值。"

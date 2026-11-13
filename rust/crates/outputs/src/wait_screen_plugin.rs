@@ -501,9 +501,9 @@ impl WaitScreenPlugin {
         let (w, h) = self.size(host);
         // A short line under the picture, with the sentence as its tooltip
         let (note, detail, kind) = if !pick_error.is_empty() {
-            (tr("Couldn't use that image"), tr("{problem}. Keeping the current wait screen.").field("problem", pick_error), "status_err")
+            (tr("Couldn't use that image"), tr("{problem}. The current wait screen is kept.").field("problem", pick_error), "status_err")
         } else if unreadable {
-            (tr("Couldn't read that image"), tr("The default screen is showing. Choose another one."), "status_err")
+            (tr("Couldn't read that image"), tr("The default screen is showing. Choose another image."), "status_err")
         } else {
             (
                 tr("Shown at {size}").field("size", format!("{w} \u{d7} {h}")),
@@ -572,7 +572,7 @@ impl Plugin for WaitScreenPlugin {
             name: NAME.into(),
             title: n_("Wait screen").into(),
             about: n_("The picture apps see on the virtual camera while nothing is streaming.").into(),
-            when_off: n_("Without it Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all.").into(),
+            when_off: n_("Without the Wait screen plugin Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all.").into(),
             category: "on_screen".into(),
             icon: "moon".into(),
             frame_stage: FrameStage::Cover,

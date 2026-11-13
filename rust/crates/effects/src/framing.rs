@@ -91,7 +91,7 @@ const FRAMING_TIP: &str = n_("How much of you is in the picture, from just your 
 const SPEED_TIP: &str = n_("How quickly the framing follows when you move.");
 const ROOM_TIP: &str = n_("How much you can move before the framing follows you, from a fidget to walking around.");
 const HAND_NAME: &str = n_("Show hands");
-const HAND_DETAIL: &str = n_("Widens the view so your hands are in it too.");
+const HAND_DETAIL: &str = n_("Widen the view so your hands are in it too.");
 const VIEW_TAKEN: &str = n_("Something else is moving the zoom and pan.");
 const HOW_MUCH: &str = n_("Auto framing: how much of you");
 const SPEED_LABEL: &str = n_("Auto framing speed");
@@ -873,7 +873,7 @@ impl Plugin for FramingPlugin {
             name: NAME.into(),
             title: TITLE.into(),
             about: n_("Zooms and pans to keep you in the picture as you move.").into(),
-            when_off: n_("Without it there's no Auto framing card and the zoom stays where you put it.").into(),
+            when_off: n_("Without the Auto framing plugin there's no Auto framing card and the zoom stays where you put it.").into(),
             category: "vision".into(),
             icon: "framing".into(),
             optional: true,

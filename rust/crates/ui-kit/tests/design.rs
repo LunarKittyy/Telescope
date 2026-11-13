@@ -477,3 +477,145 @@ fn icons_exported_in_v5_0_5_still_resolve() {
     let missing: Vec<_> = V5_0_5.iter().filter(|n| !table.contains(&format!("out property <image> {n}:"))).collect();
     assert!(missing.is_empty(), "icons a v5.0.5 plugin could use are gone, alias them: {missing:?}");
 }
+
+/// Files whose rows are never hovered by a person: the specimen sheet draws rows only to be photographed for the design review.
+const TIPLESS_FILES: &[&str] = &["shell/ui/specimen.slint"];
+
+/// Rows that show a label and have no `tip:` of their own, as (file, label, why): each has a tooltip some other way.
+const TIPLESS_ROWS: &[(&str, &str, &str)] =
+    &[("shell/ui/settings.slint", "tile.title", "a plugin's row sits inside a Tip over the whole row, which carries its description, byline, badges and note")];
+
+/// `text` with the comments blanked (strings are kept, so a URL's `//` stays).
+fn without_comments(text: &str) -> String {
+    let (mut out, mut in_string, mut chars) = (String::new(), false, text.chars().peekable());
+    while let Some(c) = chars.next() {
+        if in_string {
+            out.push(c);
+            if c == '\\' {
+                out.extend(chars.next());
+            } else if c == '"' {
+                in_string = false;
+            }
+        } else if c == '"' {
+            in_string = true;
+            out.push(c);
+        } else if c == '/' && chars.peek() == Some(&'/') {
+            while chars.peek().is_some_and(|&n| n != '\n') {
+                chars.next();
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
+/// The properties an element sets itself (not what its children set), as (name, value), from the `{` at `open`.
+fn own_properties(text: &str, open: usize) -> Vec<(String, String)> {
+    let (mut depth, mut in_string, mut buf, mut out) = (0, false, String::new(), Vec::new());
+    let mut chars = text[open..].chars();
+    while let Some(c) = chars.next() {
+        if in_string {
+            buf.push(c);
+            if c == '\\' {
+                buf.extend(chars.next());
+            } else if c == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match c {
+            '"' => {
+                in_string = true;
+                buf.push(c);
+            }
+            '{' => {
+                depth += 1;
+                buf.clear();
+            }
+            '}' => {
+                depth -= 1;
+                buf.clear();
+                if depth == 0 {
+                    break;
+                }
+            }
+            ';' if depth == 1 => {
+                if let Some((name, value)) = buf.split_once(':') {
+                    let name = name.trim();
+                    if !name.is_empty() && name.chars().all(|c| c.is_ascii_lowercase() || c == '-') {
+                        out.push((name.to_string(), value.trim().to_string()));
+                    }
+                }
+                buf.clear();
+            }
+            _ if depth == 1 => buf.push(c),
+            _ => {}
+        }
+    }
+    out
+}
+
+/// A row that shows its label as text (a named RailRow, a SwitchRow, a component that inherits one) has a tooltip with a `tip:` line. A
+/// `tip-detail:` alone never shows, so it doesn't count: a row without a tooltip next to rows that have one looks broken.
+#[test]
+fn every_row_that_shows_a_label_has_a_tooltip() {
+    let mut files = Vec::new();
+    slint_files(&crates(), &mut files);
+    files.sort();
+    let texts: Vec<(String, String)> = files
+        .iter()
+        .map(|f| (f.strip_prefix(crates()).unwrap().to_string_lossy().replace('\\', "/"), without_comments(&std::fs::read_to_string(f).unwrap())))
+        .filter(|(rel, _)| !TIPLESS_FILES.contains(&rel.as_str()))
+        .collect();
+    // Components built on a row: name -> whether the component itself makes the row show its label
+    let mut derived: BTreeMap<String, bool> = BTreeMap::new();
+    for (_, text) in &texts {
+        for (at, _) in text.match_indices(" inherits ") {
+            let rest = &text[at + " inherits ".len()..];
+            let base = rest.split(|c: char| !c.is_alphanumeric()).next().unwrap();
+            if base == "RailRow" || base == "SwitchRow" || derived.contains_key(base) {
+                let name = text[..at].rsplit(|c: char| !c.is_alphanumeric()).next().unwrap().to_string();
+                let open = at + " inherits ".len() + base.len();
+                let props = own_properties(text, open + text[open..].find('{').unwrap());
+                let named = base != "RailRow" || props.iter().any(|(n, v)| n == "named" && v == "true") || derived.get(base) == Some(&true);
+                derived.insert(name, named);
+            }
+        }
+    }
+    assert!(derived.contains_key("UrlRow"), "the scan sees components built on a row: {derived:?}");
+    let (mut rows, mut problems) = (0, Vec::new());
+    for (rel, text) in &texts {
+        let mut names: Vec<&str> = vec!["RailRow", "SwitchRow"];
+        names.extend(derived.keys().map(String::as_str));
+        for name in names {
+            let key = format!("{name} {{");
+            for (at, _) in text.match_indices(&key) {
+                if text[..at].chars().next_back().is_some_and(|c| c.is_alphanumeric() || c == '-') || text[..at].ends_with("inherits ") {
+                    continue;
+                }
+                let props = own_properties(text, at + name.len() + 1);
+                let get = |p: &str| props.iter().find(|(n, _)| n == p).map(|(_, v)| v.as_str());
+                // A SwitchRow always names itself; a RailRow only when `named` (an icon alone shows its label as its tip already)
+                let shows_label = match name {
+                    "RailRow" => get("named") == Some("true"),
+                    "SwitchRow" => true,
+                    _ => derived[name] || get("named") == Some("true"),
+                };
+                if !shows_label || get("label").is_none_or(|l| l.is_empty() || l == "\"\"") {
+                    continue;
+                }
+                rows += 1;
+                if TIPLESS_ROWS.iter().any(|(f, l, _)| f == rel && Some(*l) == get("label")) {
+                    continue;
+                }
+                if get("tip").is_none_or(|t| t.is_empty() || t == "\"\"") {
+                    let line = text[..at].matches('\n').count() + 1;
+                    problems.push(format!("{rel}:{line}: {name} {} has no tip", get("label").unwrap()));
+                }
+            }
+        }
+    }
+    assert!(rows > 40, "the scan finds the rows ({rows})");
+    assert!(problems.is_empty(), "rows that show a label need a `tip:` line (tip-detail alone never shows):\n{}", problems.join("\n"));
+}

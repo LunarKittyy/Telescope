@@ -566,7 +566,7 @@ impl ConnectionPlugin {
             // Reopened mid-download: its progress shows on the next step
             add.usb_text = tr("Getting adb from Google…");
         } else if adb {
-            add.usb_text = tr("Or plug it in over USB.");
+            add.usb_text = tr("Or plug the phone in over USB.");
             add.usb_kind = "status_dim";
             host.schedule(PAIR_USB_POLL.as_millis() as u64, T_PAIR_USB);
             self.poll_usb();
@@ -630,7 +630,7 @@ impl ConnectionPlugin {
             add.usb_text = tr("Allow USB debugging on the phone.");
             add.usb_kind = "status_warn";
         } else {
-            add.usb_text = tr("Or plug it in over USB.");
+            add.usb_text = tr("Or plug the phone in over USB.");
             add.usb_kind = "status_dim";
         }
         self.render_add(host, true);
@@ -668,7 +668,7 @@ impl ConnectionPlugin {
         if !add.confirming {
             // confirm(): Google's software, so their licence applies. Slint's Text has no links, so it's cut around its link
             add.confirming = true;
-            let question = tr("Telescope can download it from Google (about {size}) and keep it for your user. It's Google's software, so their Android SDK License applies to it: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without it.")
+            let question = tr("Telescope can download adb from Google (about {size}) and keep it for your user. adb is Google's software, so their Android SDK License applies: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without adb.")
                 .field("size", adb_download::APPROX_SIZE).field("url", adb_download::LICENSE_URL);
             let (before, licence) = match around_link(&question, adb_download::LICENSE_URL) {
                 Some((before, link, tail, after)) => (before, Some((link, tail, after))),
@@ -738,7 +738,7 @@ impl ConnectionPlugin {
             self.start_usb(host);
         } else if let Some(add) = self.add.as_mut() {
             // Python's two links, as buttons
-            let links = tr("<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick one you already have</a>.");
+            let links = tr("<a href=\"{get}\">Try again</a> or <a href=\"{pick}\">pick an adb you already have</a>.");
             add.usb_text = data["detail"].as_str().unwrap_or_default().to_string();
             add.usb_kind = "status_err";
             add.usb_action = link_label(&links, "{get}").unwrap_or_else(|| tr("Try again"));
@@ -815,7 +815,7 @@ impl ConnectionPlugin {
         let name = old.name.clone();
         let issue = Issue {
             title: tr("Same phone?"),
-            text: tr("Is this {name} again?").field("name", &name) + " " + &tr("A phone called {name} paired as a new phone. That happens after Telescope is reinstalled on it or its data is cleared. Yes moves {name}'s settings and presets over to it and removes the old entry.").field("name", &name),
+            text: tr("Is this {name} again?").field("name", &name) + " " + &tr("{name} paired as a new phone. This happens after Telescope is reinstalled on the phone or the app's data is cleared. Yes moves {name}'s settings and presets to the new entry and removes the old one.").field("name", &name),
             actions: vec![IssueAction { label: tr("Yes"), does: IssueDoes::Plugin { id: "same_phone:yes".into() } },
                           IssueAction { label: tr("No"), does: IssueDoes::Plugin { id: "same_phone:no".into() } }],
             kind: "info".into(), details: String::new(), tell_dismiss: true,
@@ -1224,7 +1224,7 @@ pub fn phone_rows(phones: &[PairedPhone], remembered: &[RememberedSource]) -> Ve
                          "confirm-title": tr("Remove phone"), "confirm": confirm}));
     }
     for source in remembered {
-        let confirm = tr("Remove \"{name}\"? This deletes the settings it had on this computer. It can still connect with the code, and starts from the defaults.")
+        let confirm = tr("Remove \"{name}\"? This deletes the settings it had on this computer. The browser can still connect with the code and starts with default settings.")
             .field("name", &source.name);
         rows.push(json!({"id": source.id, "name": source.name, "sub": source.detail, "renamable": false,
                          "remove-label": tr("Remove {name}").field("name", &source.name),
@@ -1530,7 +1530,7 @@ impl Plugin for ConnectionPlugin {
             let command = "sudo modprobe -r v4l2loopback";
             host.show_issue("start", Issue {
                 title: tr("Virtual camera is set up differently"),
-                text: tr("v4l2loopback is loaded, but without {device}: another app set it up with other settings. Close that app and run this to hand it over to Telescope:")
+                text: tr("v4l2loopback is loaded, but without {device}: another app loaded it with other settings. Close that app and run this command to give Telescope control:")
                     .field("device", V4L2_PHONE_DEV),
                 actions: vec![copy_action(command)], kind: "err".into(), details: command.into(), tell_dismiss: false,
             });
@@ -1540,7 +1540,7 @@ impl Plugin for ConnectionPlugin {
             // Started by itself (nobody at the keyboard asked): no password prompt out of nowhere
             let again = IssueDoes::StartAgain { source_id: source_id.map(str::to_string), before: None };
             host.show_issue("start", Issue {
-                title: tr("The virtual camera is off"), text: tr("Switching it on asks for your password."),
+                title: tr("The virtual camera is off"), text: tr("Your password is needed to switch on the virtual camera."),
                 actions: vec![IssueAction { label: tr("Switch on"), does: again }],
                 kind: "warn".into(), details: String::new(), tell_dismiss: false,
             });
@@ -2767,7 +2767,7 @@ mod tests {
         assert_eq!(e.props("card")["route-current"], 0);
         let issue = e.issue("route").unwrap();
         assert_eq!(issue.title, "Can't reach Pixel over Wi-Fi");
-        assert!(issue.text.contains("Still streaming over USB, so it stays on Automatic."));
+        assert!(issue.text.contains("Still streaming over USB, so the connection stays on Automatic."));
         e.link.answer(ready(wifi())); // on the same Wi-Fi now
         e.press("route", 0);
         std::thread::sleep(Duration::from_millis(50));
@@ -3085,7 +3085,7 @@ mod tests {
         usb_state(&mut e, json!([{"serial": "s1", "state": "device", "model": "Pixel 8"}]));
         e.ui("card", "pick", vec![json!("s1")]);
         usb_state(&mut e, json!([]));
-        assert_eq!(e.props("card")["usb-text"], "Or plug it in over USB.");
+        assert_eq!(e.props("card")["usb-text"], "Or plug the phone in over USB.");
         usb_state(&mut e, json!([{"serial": "s1", "state": "device", "model": "Pixel 8"}]));
         assert_eq!(e.props("card")["usb-text"], "Pick a phone to pair over USB.");
     }
@@ -3131,7 +3131,7 @@ mod tests {
         assert_eq!(e.props("card")["usb-text"], "Couldn't reach Google.");
         assert_eq!(e.props("card")["usb-kind"], "status_err");
         assert_eq!(e.props("card")["usb-action"], "Try again");
-        assert_eq!(e.props("card")["usb-pick-action"], "Pick one you already have");
+        assert_eq!(e.props("card")["usb-pick-action"], "Pick an adb you already have");
         assert!(!e.host.is_scheduled(T_PAIR_USB));
 
         // An adb.exe the person has already, which doesn't work out here
@@ -3175,8 +3175,8 @@ mod tests {
         e.ui("card", "usb-action-clicked", vec![]);
         assert_eq!(e.props("card")["usb-action"], "Agree and download");
         let props = e.props("card");
-        assert!(props["usb-text"].as_str().unwrap().ends_with("their Android SDK License applies to it:"), "{}", props["usb-text"]);
-        assert_eq!((props["usb-link-text"].as_str(), props["usb-link-tail"].as_str(), props["usb-after"].as_str()), (Some("read it here"), Some("."), Some("Wi-Fi works without it.")));
+        assert!(props["usb-text"].as_str().unwrap().ends_with("their Android SDK License applies:"), "{}", props["usb-text"]);
+        assert_eq!((props["usb-link-text"].as_str(), props["usb-link-tail"].as_str(), props["usb-after"].as_str()), (Some("read it here"), Some("."), Some("Wi-Fi works without adb.")));
         assert!(!format!("{props:?}").contains("<a") && !format!("{props:?}").contains("<br"));
         e.ui("card", "usb-link-clicked", vec![]);
         assert!(e.host.calls.iter().any(|c| c == &format!("open_url {}", adb_download::LICENSE_URL)));
@@ -3186,7 +3186,7 @@ mod tests {
         *e.link.adb.lock().unwrap() = true;
         release.send(()).unwrap();
         e.settle_until(|e| e.host.is_scheduled(T_PAIR_USB));
-        assert_eq!(e.props("card")["usb-text"], "Or plug it in over USB.");
+        assert_eq!(e.props("card")["usb-text"], "Or plug the phone in over USB.");
     }
 
     // test_adb_widget.py::test_asking_while_a_download_runs_doesn_t_ask_or_start_another

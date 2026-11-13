@@ -238,7 +238,7 @@ pub(crate) fn list_text(actions: &[(Option<String>, ActionSpec)]) -> String {
 pub(crate) fn answered(run: impl FnOnce() -> Value) -> Value {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(run)).unwrap_or_else(|_| {
         log::error!("A --action request failed");
-        json!({"ok": false, "text": tr("That failed; Copy diagnostics has the details.")})
+        json!({"ok": false, "text": tr("The action failed. Copy diagnostics has the details.")})
     })
 }
 

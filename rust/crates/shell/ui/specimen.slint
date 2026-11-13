@@ -95,7 +95,7 @@ export component Cell inherits Window {
         // The controls the card redesigns need (STYLE.md: Toggle tile, Picture segmented, Pad, Threshold bar, Dial, Icon rail)
         if kind == "toggle-tile": HorizontalLayout {
             spacing: Theme.gap;
-            ToggleTile { text: long ? "Automatische Benachrichtigung bei Verbindungsabbruch" : "Stabilization"; icon: Icons.stabilize; checked: lit; hue: hue; enabled: !off; }
+            ToggleTile { text: long ? "Automatische Benachrichtigung bei Verbindungsabbruch" : "Stabilisation"; icon: Icons.stabilize; checked: lit; hue: hue; enabled: !off; }
             ToggleTile { text: "Torch"; icon: Icons.torch; hue: hue; enabled: !off; }
         }
         if kind == "toggle-icons": HorizontalLayout {

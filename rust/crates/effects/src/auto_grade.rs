@@ -16,7 +16,7 @@ use telescope_core::pose::Person;
 use telescope_core::time::monotonic_ns;
 use telescope_core::view::Geometry;
 
-const LOOKING_LABEL: &str = n_("Looking…");
+const LOOKING_LABEL: &str = n_("Analysing…");
 
 /// What the step posts once it has enough frames.
 pub const POST_MEASURED: &str = "auto_measured";

@@ -110,12 +110,13 @@ export component OnAirSettings inherits VerticalLayout {
 
     Card {
         title: @tr("On Air sign");
-        tip: @tr("Shows the people around you that your camera or microphone is in use.");
+        tip: @tr("Show the people around you that your camera or microphone is in use.");
         icon: Icons.bell;
         hue: Theme.plugin-hue("on_screen");
         RailRow {
             icon: Icons.bell;
             label: @tr("Now");
+            tip: @tr("Whether the sign is on air right now");
             named: true;
             hue: Theme.plugin-hue("on_screen");
             Status { text: state-text; kind: SignKind.of(state-kind); horizontal: "end"; }
@@ -123,6 +124,7 @@ export component OnAirSettings inherits VerticalLayout {
         RailRow {
             icon: Icons.bolt;
             label: @tr("On air when");
+            tip: @tr("What puts the sign on air");
             named: true;
             hue: Theme.plugin-hue("on_screen");
             ChoiceField {
@@ -152,6 +154,7 @@ export component OnAirSettings inherits VerticalLayout {
             SwitchRow {
                 icon: Icons.monitor;
                 label: @tr("Show the sign on a web page");
+                tip: @tr("Open the sign in a browser on a tablet, a phone or another computer");
                 hue: Theme.plugin-hue("on_screen");
                 checked: page;
                 toggled(v) => { root.page-toggled(v); }
@@ -160,7 +163,7 @@ export component OnAirSettings inherits VerticalLayout {
                 open: problem != "";
                 RailRow {
                     has-icon: false;
-                    Status { text: @tr("The page didn't start"); detail: held-problem; kind: "err"; horizontal: "end"; }
+                    Status { text: @tr("Page failed to start"); detail: held-problem; kind: "err"; horizontal: "end"; }
                 }
             }
             Unfolding {
@@ -168,6 +171,7 @@ export component OnAirSettings inherits VerticalLayout {
                 RailRow {
                     icon: Icons.qr;
                     label: qr-label;
+                    tip: @tr("Scan the code to open the sign on another device");
                     named: true;
                     hue: Theme.plugin-hue("on_screen");
                     HorizontalLayout {
@@ -181,6 +185,7 @@ export component OnAirSettings inherits VerticalLayout {
                 RailRow {
                     icon: Icons.wifi;
                     label: @tr("Address");
+                    tip: @tr("Which of this computer's addresses the link uses");
                     named: true;
                     hue: Theme.plugin-hue("on_screen");
                     ChoiceField {
@@ -231,6 +236,7 @@ export component OnAirSettings inherits VerticalLayout {
                 icon: Icons.link;
                 hue: Theme.plugin-hue("on_screen");
                 label: @tr("Address");
+                tip: @tr("The web address that gets a request when the sign goes on or off air");
                 placeholder: "http://homeassistant.local:8123/api/webhook/…";
                 text <=> root.webhook-url;
                 edited(t) => { root.url-edited(t); }
@@ -246,6 +252,8 @@ export component OnAirSettings inherits VerticalLayout {
         RailRow {
             icon: Icons.send-phone;
             label: @tr("Method");
+            tip: @tr("How the request is sent");
+            tip-detail: @tr("POST sends the text as the request body and GET adds it to the address.");
             named: true;
             hue: Theme.plugin-hue("on_screen");
             Segmented {
@@ -282,6 +290,7 @@ export component OnAirSettings inherits VerticalLayout {
             RailRow {
                 icon: Icons.play;
                 label: @tr("Send a test");
+                tip: @tr("Send the request now to check that it works");
                 named: true;
                 hue: Theme.plugin-hue("on_screen");
                 HorizontalLayout {

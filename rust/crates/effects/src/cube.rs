@@ -11,7 +11,7 @@ pub const MAX_CUBE_SIZE: usize = 65;
 const MAX_FILE_BYTES: u64 = 64 * 1024 * 1024;
 
 pub const TOO_BIG: &str = n_("This file is too big to be a LUT Telescope can use.");
-pub const NO_SIZE: &str = n_("This isn't a .cube LUT: it doesn't say its size.");
+pub const NO_SIZE: &str = n_("This isn't a .cube LUT: the size is missing.");
 pub const BAD_LINE: &str = n_("Line {line} of the file can't be read.");
 pub const NOT_A_COLOUR: &str = n_("Line {line} of the file isn't a colour (three numbers).");
 pub const TOO_MANY_POINTS: &str = n_("This LUT has {size} points per side. Telescope takes up to {most}.");
@@ -387,7 +387,7 @@ mod tests {
     #[test]
     fn files_telescope_cant_use_say_why() {
         for (text, problem) in [
-            ("TITLE x\n0 0 0\n", "doesn't say its size"),
+            ("TITLE x\n0 0 0\n", "the size is missing"),
             ("LUT_3D_SIZE 129\n", "129 points per side"),
             ("LUT_3D_SIZE 2\n0 0 0\n", "should have 8 colours but has 1"),
             ("LUT_1D_SIZE 2\n0 0 0\nnope\n1 1 1\n", "Line 3"),

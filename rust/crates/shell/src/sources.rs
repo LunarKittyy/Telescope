@@ -112,7 +112,7 @@ pub fn on_phone_state(host: &dyn SourceHost, source: &SourceRef, state: &Value) 
     if truthy(state, "camera_taken") {
         // Android gives the camera to the app on screen; the phone opens it again once that app lets go
         host.show_issue(&key, &tr("Another app on the phone is using the camera"),
-                        &tr("The stream comes back by itself once that app closes or lets go of it."), vec![]);
+                        &tr("The stream resumes automatically once the other app closes or releases the camera."), vec![]);
     } else {
         host.clear_issue(&key);
     }
@@ -173,7 +173,7 @@ pub fn recovery_probed(host: &dyn SourceHost, source: &SourceRef, session_id: u6
             } else {
                 sentence(&fill(&tr("{phone} is streaming to {computer}"), &[("phone", &source.kind.name()), ("computer", &res.streaming_for)]))
             };
-            host.show_issue(&stopped_key, &title, &tr("Stop it there or on the phone, then start again."), vec![start_action(source.id.clone())]);
+            host.show_issue(&stopped_key, &title, &tr("Stop the stream there or on the phone, then start again."), vec![start_action(source.id.clone())]);
             return;
         }
         PhoneStatus::Ready if !res.streaming && !res.busy => {
@@ -325,8 +325,8 @@ pub fn heat_text(state: &Value) -> Option<String> {
     let (w, h) = (int("heat_width")?, int("heat_height")?);
     let size = format!("{w} × {h}");
     Some(match int("heat_fps") {
-        Some(fps) => fill(&tr("It's streaming at {size} and {fps} fps until it cools down."), &[("size", &size), ("fps", &fps.to_string())]),
-        None => fill(&tr("It's streaming at {size} until it cools down."), &[("size", &size)]),
+        Some(fps) => fill(&tr("Streaming at {size} and {fps} fps until the phone cools down."), &[("size", &size), ("fps", &fps.to_string())]),
+        None => fill(&tr("Streaming at {size} until the phone cools down."), &[("size", &size)]),
     })
 }
 
@@ -1080,7 +1080,7 @@ impl SourceKind for PluginKind {
         self.source().stills()
     }
     fn lost_hint(&self) -> String {
-        Some(self.source().lost_hint()).filter(|h| !h.is_empty()).unwrap_or_else(|| tr("Open the Telescope page in it again."))
+        Some(self.source().lost_hint()).filter(|h| !h.is_empty()).unwrap_or_else(|| tr("Open the Telescope page in the browser again."))
     }
     fn start_lost_clock(&self, source: &Source) {
         let Some(hook) = &self.on_timer else { return };
@@ -1201,9 +1201,9 @@ mod tests {
     #[test]
     fn the_heat_note_names_the_size_and_rate() {
         assert_eq!(heat_text(&json!({"heat_width": 1280, "heat_height": 720, "heat_fps": 24})).unwrap(),
-                   "It's streaming at 1280 × 720 and 24 fps until it cools down.");
+                   "Streaming at 1280 × 720 and 24 fps until the phone cools down.");
         assert_eq!(heat_text(&json!({"heat_width": 1280, "heat_height": 720, "heat_fps": true})).unwrap(),
-                   "It's streaming at 1280 × 720 until it cools down.");
+                   "Streaming at 1280 × 720 until the phone cools down.");
         assert!(heat_text(&json!({"heat_width": 0, "heat_height": 720})).is_none());
     }
 
@@ -1857,10 +1857,10 @@ mod tests {
                 Rc::new(NoClient)
             }
         }
-        assert_eq!(Plain.lost_hint(), "Check that it's still on.");
+        assert_eq!(Plain.lost_hint(), "Check that the device is still on.");
         let (source, ..) = streaming();
         assert_eq!(source.kind.lost_hint(), "Open Telescope on it.");
         let browser = PluginKind::new(Arc::new(Mutex::new(Arc::new(Offered("x")))), None);
-        assert_eq!(browser.lost_hint(), "Open the Telescope page in it again.");
+        assert_eq!(browser.lost_hint(), "Open the Telescope page in the browser again.");
     }
 }

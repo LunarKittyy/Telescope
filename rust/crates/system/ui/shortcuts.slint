@@ -16,6 +16,8 @@ export struct BindingRow {
 // One setting of the action being bound: a choice (items, current) or a number typed as text
 export struct ParamRow {
     label: string,
+    // What the setting is, its row's tooltip
+    tip: string,
     number: bool,
     items: [string],
     current: int,
@@ -210,6 +212,7 @@ callback param-committed(int, string);
         RailRow {
             icon: Icons.monitor;
             label: @tr("Desktop shortcut settings");
+            tip: @tr("Change the keys of global shortcuts in your desktop's own settings");
             tip-detail: note-text;
             named: true;
             hue: Theme.plugin-hue("extras");
@@ -290,6 +293,7 @@ callback param-committed(int, string);
                     has-icon: false;
                     named: true;
                     label: p.label;
+                    tip: p.tip;
                     if !p.number: ChoiceField {
                         compact: true;
                         y: (parent.height - self.height) / 2;
@@ -324,6 +328,7 @@ callback param-committed(int, string);
                 SwitchRow {
                     icon: Icons.monitor;
                     label: @tr("Also works while another app is in front");
+                    tip: @tr("Keep the shortcut working when another app is in front");
                     hue: Theme.plugin-hue("extras");
                     checked: global;
                     toggled(on) => { root.global-toggled(on); }

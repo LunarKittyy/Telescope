@@ -40,7 +40,7 @@ const TRIGGER_TEXTS: [(&str, &str); 4] = [
 ];
 /// Translators: Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons:
 /// use the names those browsers show in your language
-const CERT_NOTE: &str = n_("The browser warns that the connection isn't private: it's this computer's own certificate. \
+const CERT_NOTE: &str = n_("The browser warns that the connection isn't private: the certificate is this computer's own. \
                             On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed.");
 const TRIGGER_TIP: &str = n_("When the sign turns on. The mic only counts while it's streaming and not muted.");
 const ADDRESS_TIP: &str = n_("The address of this computer that the link uses.");
@@ -251,9 +251,9 @@ impl OnAirPlugin {
         }
         if tag == "test" {
             self.test_result = if error.is_empty() {
-                (tr("It went through."), "status_ok")
+                (tr("Test request succeeded."), "status_ok")
             } else {
-                (tr("It didn't go through: {error}").field("error", error), "status_err")
+                (tr("Test request failed: {error}").field("error", error), "status_err")
             };
         }
         self.refresh(host);
@@ -273,8 +273,8 @@ impl OnAirPlugin {
             self.webhook_failing = true;
             log::warn!("On Air webhook didn't go through: {error}");
             host.show_issue(ISSUE, Issue {
-                title: tr("The On Air webhook didn't go through"),
-                text: tr("It answered: {error}").field("error", error),
+                title: tr("The On Air webhook failed"),
+                text: tr("The webhook returned: {error}").field("error", error),
                 actions: vec![IssueAction { label: tr("Settings"), does: IssueDoes::OpenSettings { tab: TAB.into() } }],
                 kind: "warn".into(),
                 details: String::new(),
@@ -512,8 +512,8 @@ impl Plugin for OnAirPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("On Air sign").into(),
-            about: n_("Shows the people around you that your camera or microphone is in use, on another device's screen or through a smart home light.").into(),
-            when_off: n_("Without it there's no On Air tab in Settings and no sign or webhook.").into(),
+            about: n_("Show the people around you that your camera or microphone is in use, on another device's screen or through a smart home light.").into(),
+            when_off: n_("Without the On Air sign plugin there's no On Air tab in Settings and no sign or webhook.").into(),
             category: "on_screen".into(),
             icon: "bell".into(),
             optional: true,
