@@ -147,6 +147,7 @@
     <string name="status_quality">At %1$dp %2$d fps</string>
     <string name="status_waiting_for_computer">Waiting for the computer</string>
     <string name="status_mic_only">Streaming the mic, camera off</string>
+    <string name="status_too_hot">The phone is too hot, so the stream is paused. It carries on by itself once the phone has cooled down.</string>
     <string name="status_camera_taken">Another app is using the camera. Streaming goes on when it\'s free.</string>
     <string name="streaming_started_remotely">Streaming started from your computer</string>
 

@@ -166,6 +166,8 @@ class CameraSessionController(
     @Volatile private var turningOn = false
     // Another app has the camera: waiting for it to be free again (cameraTaken).
     @Volatile private var taken = false
+    // Too hot: the camera is closed (the stream and mic carry on) until the phone has cooled; see HeatStep.paused.
+    @Volatile private var heatPaused = false
     // The camera has made frames for this stream at least once; a camera taken before then fails the start instead.
     @Volatile private var streamedOnce = false
     // Why the camera didn't come back on; cleared on the next try.
@@ -182,6 +184,7 @@ class CameraSessionController(
     fun getCurrentCamera(): CameraEntry? = currentCamera
     fun isCameraOff(): Boolean = cameraOff
     fun isCameraTaken(): Boolean = taken
+    fun isHeatPaused(): Boolean = heatPaused
     fun getStreamSize(): android.util.Size = android.util.Size(streamWidth, streamHeight)
     // What the computer picked, which the heat may have dropped the stream below
     fun getAskedSize(): android.util.Size = android.util.Size(askedWidth, askedHeight)
@@ -230,7 +233,8 @@ class CameraSessionController(
     private fun effectiveSize(): Pair<Int, Int> {
         val asked = askedWidth to askedHeight
         val sizes = currentCamera?.supportedSizes?.map { it.width to it.height } ?: return asked
-        return HeatStep.effective(thermalStatus, asked, sizes) { w, h ->
+        val fpsLeft = heatCap()?.let { it < (frameRate?.cap ?: currentPhoneFps) } == true
+        return HeatStep.effective(thermalStatus, asked, sizes, fpsLeft) { w, h ->
             codec != H264Stream.CODEC_H264 || H264Encoder.supportsSize(w, h)
         }
     }
@@ -362,6 +366,25 @@ class CameraSessionController(
         if (photoHold.hold("thermal") { applyThermalStatus(status) }) return
         val before = cameraFps() to streamFps()
         thermalStatus = status
+        val pause = HeatStep.paused(status, heatPaused)
+        if (pause != heatPaused) {
+            heatPaused = pause
+            android.util.Log.i(TAG, "Thermal status $status: ${if (pause) "paused" else "resumed"}")
+            if (pause) {
+                if (cameraOff) return  // already closed
+                taken = false
+                unwatchAvailability()
+                teardown()
+                onStateChanged(StreamState.Streaming, "heatPause", null)
+            } else {
+                val (rw, rh) = effectiveSize()
+                streamWidth = rw
+                streamHeight = rh
+                reopen("heatResume")
+            }
+            return
+        }
+        if (heatPaused) return  // the size and rate are worked out when it resumes
         // A new size needs a new reader or encoder, so the camera reopens, which picks up the new rate too
         val (w, h) = effectiveSize()
         if (w != streamWidth || h != streamHeight) {
@@ -1361,7 +1384,7 @@ class CameraSessionController(
         val resized = w != streamWidth || h != streamHeight
         streamWidth = w
         streamHeight = h
-        if (cameraOff) return  // the lens it opens with when the camera comes back on
+        if (cameraOff || heatPaused) return  // the lens it opens with when the camera comes back on
         onStateChanged(StreamState.Recovering, "switchCameraTo", null)
         stillRebuilding(StillRebuild.Cause.LENS)
 
@@ -1427,7 +1450,7 @@ class CameraSessionController(
     // Same lens, new output (size or codec): the reader or encoder is rebuilt, which needs a reopen.
     // tries: how many more times to try, REOPEN_RETRY_MS apart, while the camera can't be opened yet.
     private fun reopen(op: String, tries: Int = 0) {
-        if (cameraOff) return  // a new size or codec is simply what it opens with later
+        if (cameraOff || heatPaused) return  // a new size or codec is simply what it opens with later
         onStateChanged(StreamState.Recovering, op, null)
         stillRebuilding(StillRebuild.Cause.REOPEN)
 

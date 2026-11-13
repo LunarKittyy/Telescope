@@ -188,4 +188,37 @@ class HeatStepTest {
         assertEquals(1920 to 1080, HeatStep.effective(HeatStep.CRITICAL, 1920 to 1080, without720))
         assertEquals(1920 to 1080, HeatStep.effective(HeatStep.SEVERE, 1920 to 1080, sizes))
     }
+
+    @Test
+    fun `severe drops the size only once the rate has no lower step left`() {
+        assertEquals(null, HeatStep.size(HeatStep.SEVERE, 1920 to 1080, sizes, fpsLeft = true))
+        assertEquals(1280 to 720, HeatStep.size(HeatStep.SEVERE, 1920 to 1080, sizes, fpsLeft = false))
+        assertEquals(null, HeatStep.size(2, 1920 to 1080, sizes, fpsLeft = false))  // moderate is no reason
+        assertEquals(1920 to 1080, HeatStep.effective(HeatStep.SEVERE, 1920 to 1080, sizes, fpsLeft = true))
+        assertEquals(1280 to 720, HeatStep.effective(HeatStep.SEVERE, 1920 to 1080, sizes, fpsLeft = false))
+    }
+
+    @Test
+    fun `it steps back up as it cools, size first back once the rate is capped again`() {
+        // Asked 24 fps: severe has no rate step, so it drops the size; at moderate both are back
+        assertEquals(1280 to 720, HeatStep.effective(HeatStep.SEVERE, 1920 to 1080, sizes, fpsLeft = HeatStep.cap(HeatStep.SEVERE, 24) != null))
+        assertEquals(1920 to 1080, HeatStep.effective(2, 1920 to 1080, sizes, fpsLeft = HeatStep.cap(2, 24) != null))
+    }
+
+    @Test
+    fun `it pauses at critical and resumes only once cooled to severe`() {
+        assertEquals(false, HeatStep.paused(HeatStep.SEVERE, false))
+        assertEquals(true, HeatStep.paused(HeatStep.CRITICAL, false))
+        assertEquals(true, HeatStep.paused(6, false))  // shutdown is past critical
+        // Hysteresis: still paused at critical, resumed at severe or cooler
+        assertEquals(true, HeatStep.paused(HeatStep.CRITICAL, true))
+        assertEquals(false, HeatStep.paused(HeatStep.SEVERE, true))
+        assertEquals(false, HeatStep.paused(0, true))
+    }
+
+    @Test
+    fun `after resuming at severe it is capped, not at full again`() {
+        assertEquals(false, HeatStep.paused(HeatStep.SEVERE, true))
+        assertEquals(24, HeatStep.cap(HeatStep.SEVERE, 30))
+    }
 }
