@@ -16,6 +16,15 @@ pub trait WantEvent: Send {
     fn wait(&self, timeout: Duration) -> bool;
 }
 
+/// Whether a poll() result on the usage subscription means it is no longer working (an error, or the device went away); an interrupted call is not one.
+#[cfg(target_os = "linux")]
+fn poll_failed(n: i32, revents: i16, err: std::io::ErrorKind) -> bool {
+    if n < 0 {
+        return err != std::io::ErrorKind::Interrupted;
+    }
+    n > 0 && revents & (libc::POLLERR | libc::POLLHUP | libc::POLLNVAL) != 0
+}
+
 /// What the watch reads, so tests can stand in for the system.
 #[derive(Clone)]
 pub struct WatchDeps {
@@ -108,7 +117,7 @@ impl Watcher {
                 let mut pfd = libc::pollfd { fd, events: libc::POLLPRI, revents: 0 };
                 // SAFETY: one pollfd for an open descriptor
                 let n = unsafe { libc::poll(&mut pfd, 1, 500) };
-                if n > 0 && pfd.revents & (libc::POLLERR | libc::POLLHUP | libc::POLLNVAL) != 0 {
+                if poll_failed(n, pfd.revents, std::io::Error::last_os_error().kind()) {
                     break;
                 }
                 if n > 0 {
@@ -123,6 +132,8 @@ impl Watcher {
                 }
             }
             drop(file);
+            // The subscription is gone: until a new one delivers its first state, a stale "nobody reads" must not be trusted
+            self.unwatched();
             stop.wait(self.deps.retry_open);
         }
     }
@@ -414,5 +425,28 @@ mod tests {
         d.reliable.store(true, Ordering::SeqCst);
         crate::held::Job::suspended(&*w);
         assert!(!d.reliable.load(Ordering::SeqCst));
+    }
+
+    #[test]
+    fn a_failed_subscription_stops_being_trusted_until_a_new_one_answers() {
+        #[cfg(target_os = "linux")]
+        {
+            use std::io::ErrorKind::{Interrupted, Other};
+            assert!(poll_failed(1, libc::POLLHUP, Other));
+            assert!(poll_failed(1, libc::POLLERR, Other));
+            assert!(poll_failed(1, libc::POLLNVAL, Other));
+            assert!(poll_failed(-1, 0, Other), "a failing poll is a failed subscription too");
+            assert!(!poll_failed(-1, 0, Interrupted));
+            assert!(!poll_failed(0, 0, Other));
+            assert!(!poll_failed(1, libc::POLLPRI, Other));
+        }
+        let d = deps();
+        let (w, seen) = watcher(d.clone());
+        d.reliable.store(true, Ordering::SeqCst);
+        w.report(false);
+        w.unwatched();
+        assert!(!d.reliable.load(Ordering::SeqCst) && !w.watched());
+        w.report(true);
+        assert_eq!(*seen.lock().unwrap(), [false, true], "a reader that opens during recovery is heard");
     }
 }

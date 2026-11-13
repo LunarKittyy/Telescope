@@ -537,7 +537,7 @@ impl State {
     }
 
     /// Tells the idle gate whether anything needs the main camera's frames: a window someone can see (the preview, the tiles, the cards that
-    /// read frames, all painted from the stream's newest picture), the pop-out, a plugin that asked (the costly stats count as asking, under `stats:` and the owner), or a motion watch.
+    /// read frames, all painted from the stream's newest picture), the pop-out, a plugin that asked (the costly stats count as asking, under `stats:` and the owner, people finding under `people:`), or a motion watch.
     /// A window that hasn't said yet counts as seen.
     pub fn sync_idle(&self) {
         let wanted = self.shown != Some(false) || self.other_windows || !self.frame_wants.is_empty() || self.motion.watching();
@@ -3113,6 +3113,12 @@ mod tests {
         let mut ctx = crate::host::Ctx { state: &mut s, me: "motion".into() };
         ctx.watch_motion("motion", &[], 5);
         assert!(s.idle.idle());
+        let mut ctx = crate::host::Ctx { state: &mut s, me: "auto_frame".into() };
+        telescope_core::host::HostVision::want_people(&mut ctx, "auto_frame", true);
+        assert!(!s.idle.idle(), "finding people reads frames");
+        let mut ctx = crate::host::Ctx { state: &mut s, me: "auto_frame".into() };
+        ctx.release_everything();
+        assert!(s.idle.idle(), "and a plugin that goes away lets go of that too");
     }
 
     #[test]
