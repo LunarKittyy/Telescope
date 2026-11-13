@@ -26,6 +26,8 @@ export component DialogFrame inherits Rectangle {
     in property <string> title;
     in property <string> subtitle;
     in property <bool> dismissable;
+    // True: a press beside the dialog does nothing (it stays up); `dismiss()` still closes it
+    in property <bool> keep-open;
     callback dismissed();
     // A dialog pops in from a little under its size and fades in when it is made, and goes the same way: a card that closes it calls
     // `leave()` (instead of closing its pop-up) and closes the pop-up in `left`, which comes once the fade is over. A press on the window
@@ -40,6 +42,12 @@ export component DialogFrame inherits Rectangle {
         if (leaving) { return; }
         sync();
         leaving = true;
+    }
+    // Eases out and then says `dismissed`, as a press beside it does
+    public function dismiss() {
+        if (leaving) { return; }
+        from-outside = true;
+        leave();
     }
     function sync() {
         fade.sync();
@@ -82,7 +90,7 @@ export component DialogFrame inherits Rectangle {
         width: 10000px;
         height: 10000px;
         pointer-event(e) => {
-            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left && !root.leaving) { root.from-outside = true; root.leave(); }
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left && !root.leaving && !root.keep-open) { root.dismiss(); }
         }
     }
     // The dialog's own face takes its clicks, so the one behind it only gets what lands beside the dialog
