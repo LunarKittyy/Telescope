@@ -11,6 +11,9 @@ The next release follows 5.0.5. Everything ticked here is merged and not release
 - [x] [Lighter on the processor and memory](#lighter-on-the-processor-and-memory)
 - [x] [Hardware decoding on by default](#hardware-decoding-on-by-default)
 - [x] [A simpler Privacy blur](#a-simpler-privacy-blur)
+- [x] [Filters and lens correction](#filters-and-lens-correction)
+- [x] [High quality cutout and Cut-in](#high-quality-cutout-and-cut-in)
+- [x] [The download banner](#the-download-banner)
 
 ## Auto colour grading
 
@@ -119,3 +122,21 @@ On Linux it's on by default when the card is VA-API, including for a config that
 ## A simpler Privacy blur
 
 With more than one person in the picture it blurs all of it or shows the wait screen. **Blur the others** and **Blur all but me** are gone and count as **Blur the whole picture**, including on keys bound to them.
+
+## Filters and lens correction
+
+A Filters card for finishing the picture the way a photo editor would. It's optional and switched on under Look in the Plugins tab, like the other picture cards. Denoise, dehaze, skin smoothing, sharpen, clarity, vignette, glow and film grain sit on it, and a filter at 0 is off and costs nothing. Denoise has an over-time option that averages the parts of the picture that hold still, which cleans up a dim room far better than blurring does. Skin smoothing uses the face model from the vision download and is greyed out until that's there.
+
+The card points to the phone's own Sharpening and Noise reduction on the Camera card instead of repeating them, since using both looks worse than using one.
+
+Transforms gets a Lens correction slider that straightens the curved lines a wide or long lens makes. Faces near the edge stop looking stretched. Edges are cropped or pulled in just enough to keep the picture filled.
+
+## High quality cutout and Cut-in
+
+Background gets a **High quality cutout** switch that uses Robust Video Matting for cleaner edges around hair and hands. It's off by default. The model is its own optional download and runs through ONNX Runtime, which is loaded at runtime rather than linked. While the model is missing, still loading, has failed or is running behind, the normal MediaPipe mask is used, so the picture never waits for it. The Windows package ships the C++ runtime DLLs ONNX Runtime needs.
+
+Cut-in sits next to Edges and pulls the cutout's border in. Less of the room shows around the outline. 0 is the old behaviour, and it works with both masks.
+
+## The download banner
+
+Downloads of the vision pack and the high quality cutout show a banner with a progress bar. If one fails, the banner turns red and shows the error.

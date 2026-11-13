@@ -57,7 +57,7 @@ Big. It needs capture times through the phone app and the protocol, the calibrat
 
 A maybe. A plugin could bundle a small `.onnx` model and use it as a frame stage the same way it uses a shader now, with Telescope running it on the GPU. The model is only data, so plugins still can't reach files, programs or the network. Real-time models fit here, for example low-light boost (Zero-DCE is tiny and suits weak laptop cameras), denoising, light upscaling and style transfer.
 
-It needs a model runtime like ONNX Runtime, which is large with GPU support, so it would be an optional download like the vision pack. Live captions below would need one too. Running the model after auto framing's crop keeps it cheaper, and edits made frame by frame need smoothing so faces don't shimmer.
+ONNX Runtime already ships in the high quality cutout download, but only the CPU build, so a GPU build would be new. Live captions below would need a runtime too. Running the model after auto framing's crop keeps it cheaper, and edits made frame by frame need smoothing so faces don't shimmer.
 
 Heavy generative edits (StreamDiffusion and the like) would need Telescope to send frames to a program the user runs themselves. That crosses the line plugins aren't allowed to cross and mostly needs a high-end GPU, so it's not part of this.
 
@@ -85,10 +85,6 @@ With several people in view, Auto framing frames the whole group. A choice of on
 ### Cleaner edges for Background
 
 Background replacement can eat the edges of things that aren't a person. A chair back or light clothing against a bright wall partly dissolves into the new background. Tuning the mask threshold and edge softening on those cases should help, and so might smoothing the mask over a few frames. The hard part is finding settings that fix this without making hair and hands worse. Small to medium.
-
-### A sharper cutout for Background
-
-A **High quality cutout** option in Background, using a video matting model (RVM) instead of the selfie segmenter. In tests it was clearly better on edges and hair, with fewer leaks from the background and a mask about ten times steadier on still areas. It can drop a hand or part of the body in a hard clip where the current one keeps them. It costs about 0.4 of a core at 15 masks a second, against about 0.03 now, and it needs an optional download of about 26 MB (the runtime and the model). Medium. Not decided yet.
 
 ### Background blur on the GPU
 
