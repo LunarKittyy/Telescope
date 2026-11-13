@@ -17,7 +17,7 @@ pub trait WantEvent: Send {
 }
 
 /// Whether a poll() result on the usage subscription means it is no longer working (an error, or the device went away); an interrupted call is not one.
-#[cfg(any(target_os = "linux", test))]
+#[cfg(target_os = "linux")]
 fn poll_failed(n: i32, revents: i16, err: std::io::ErrorKind) -> bool {
     if n < 0 {
         return err != std::io::ErrorKind::Interrupted;
@@ -429,14 +429,17 @@ mod tests {
 
     #[test]
     fn a_failed_subscription_stops_being_trusted_until_a_new_one_answers() {
-        use std::io::ErrorKind::{Interrupted, Other};
-        assert!(poll_failed(1, libc::POLLHUP, Other));
-        assert!(poll_failed(1, libc::POLLERR, Other));
-        assert!(poll_failed(1, libc::POLLNVAL, Other));
-        assert!(poll_failed(-1, 0, Other), "a failing poll is a failed subscription too");
-        assert!(!poll_failed(-1, 0, Interrupted));
-        assert!(!poll_failed(0, 0, Other));
-        assert!(!poll_failed(1, libc::POLLPRI, Other));
+        #[cfg(target_os = "linux")]
+        {
+            use std::io::ErrorKind::{Interrupted, Other};
+            assert!(poll_failed(1, libc::POLLHUP, Other));
+            assert!(poll_failed(1, libc::POLLERR, Other));
+            assert!(poll_failed(1, libc::POLLNVAL, Other));
+            assert!(poll_failed(-1, 0, Other), "a failing poll is a failed subscription too");
+            assert!(!poll_failed(-1, 0, Interrupted));
+            assert!(!poll_failed(0, 0, Other));
+            assert!(!poll_failed(1, libc::POLLPRI, Other));
+        }
         let d = deps();
         let (w, seen) = watcher(d.clone());
         d.reliable.store(true, Ordering::SeqCst);
