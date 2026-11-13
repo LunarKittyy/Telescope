@@ -1,3 +1,4 @@
+<!-- covers: LICENSE rust/crates/ui-kit/ui/fonts rust/windows/unitycapture rust/tools/write_notices.py rust/tools/build_ffmpeg.sh; checked: 1cbb8644b -->
 # Licenses
 
 Telescope is licensed under the [GNU Affero General Public License v3.0](https://www.gnu.org/licenses/agpl-3.0.html). The full text is in [LICENSE](../LICENSE).

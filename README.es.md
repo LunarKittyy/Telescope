@@ -1,3 +1,4 @@
+<!-- covers: rust/crates/setup/src rust/crates/outputs/src/linux_setup.rs rust/crates/link/src/pairing.rs rust/crates/shell/src/plugins installer; checked: 1cbb8644b -->
 <p align="center"><img src="docs/assets/banner.png" alt="Telescope: usa tu teléfono como cámara web, con todas sus lentes y control manual completo. La app de escritorio muestra el video de un teléfono, con la app del teléfono al lado." width="720"></p>
 
 <p align="center"><a href="README.md">English</a> · Español · <a href="README.ru.md">Русский</a></p>
@@ -34,7 +35,7 @@
 La [guía de configuración manual](docs/setup.md#linux) explica el resto.
 </details>
 
-¿No tienes un teléfono Android? La [cámara del navegador](docs/features.md#browser-camera) transmite desde un iPhone, una tablet o una laptop vieja directamente desde su navegador, sin instalar nada.
+¿No tienes un teléfono Android? La [cámara del navegador](docs/features/sources.md#browser-camera) transmite desde un iPhone, una tablet o una laptop vieja directamente desde su navegador, sin instalar nada.
 
 ## Más que una cámara web
 
@@ -70,7 +71,7 @@ Sí. Todas las funciones, todas las resoluciones, sin marcas de agua ni anuncios
 <details>
 <summary><b>¿Mi video pasa por el servidor de alguien?</b></summary>
 
-No. Va directamente del teléfono a tu computadora, por USB o por tu propia red, cifrado con TLS. No hay cuentas ni nube. Las apps solo se conectan a Internet para buscar actualizaciones en GitHub o para descargar adb de Google o VB-Cable de VB-Audio cuando se lo pides. Úsalo solo en una red de confianza o activa **Solo local - USB** en la app de Android. Más detalles en [Privacidad](docs/features.md#privacy).
+No. Va directamente del teléfono a tu computadora, por USB o por tu propia red, cifrado con TLS. No hay cuentas ni nube. Las apps solo se conectan a Internet para buscar actualizaciones en GitHub o para descargar adb de Google o VB-Cable de VB-Audio cuando se lo pides. Úsalo solo en una red de confianza o activa **Solo local - USB** en la app de Android. Más detalles en [Privacidad](docs/features/connection.md#privacy).
 </details>
 
 <details>
@@ -82,7 +83,7 @@ Si la app o el navegador permite usar una cámara web, sí. Telescope aparece co
 <details>
 <summary><b>Tengo un iPhone o una Mac.</b></summary>
 
-La app del teléfono es solo para Android, pero la [cámara del navegador](docs/features.md#browser-camera) transmite desde el navegador de un iPhone sin instalar nada. La app de escritorio funciona en Windows y Linux, no en macOS.
+La app del teléfono es solo para Android, pero la [cámara del navegador](docs/features/sources.md#browser-camera) transmite desde el navegador de un iPhone sin instalar nada. La app de escritorio funciona en Windows y Linux, no en macOS.
 </details>
 
 <details>

@@ -1,3 +1,4 @@
+<!-- covers: rust/Cargo.toml android/app/src/main/AndroidManifest.xml rust/crates/*/src/lib.rs rust/windows/virtualcamera; checked: 1cbb8644b -->
 # Architecture
 
 How Telescope fits together, for contributors. The wire format is in [protocol.md](protocol.md), and the desktop's crates and plugin rules in [rust/ARCHITECTURE.md](../rust/ARCHITECTURE.md).

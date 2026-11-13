@@ -1,10 +1,11 @@
+<!-- covers: ; checked: 1cbb8644b -->
 # Telescope docs
 
 New here? The [Quick Start](../README.md#up-and-running-in-about-two-minutes) is all most people need.
 
 ## For users
 
-- [Features](features.md): everything the apps can do
+- [Features](features.md): everything the apps can do, split by area in [features/](features/camera.md)
 - [Troubleshooting](troubleshooting.md): common problems and their fixes
 - [Plugins](plugins.md): switching parts of the app off and installing plugins other people made
 - [MCP server](mcp.md): letting an AI app like Claude Desktop read and change Telescope's settings
@@ -21,7 +22,8 @@ New here? The [Quick Start](../README.md#up-and-running-in-about-two-minutes) is
 - [Control API](protocol.md): the phone's endpoints, the pairing QR code and the Browser camera messages
 - [Writing a plugin](writing-plugins.md): a guide with examples, in Lua
 - [Translating](translating.md): adding a language to either app, and keeping new texts translatable
-- [Building and CI](building.md): building the apps, trying a change with a dev app and what each workflow does
+- [Building](building.md): building the apps and trying a change with a dev app
+- [Packaging and CI](packaging.md): how the desktop app is packaged, the update path from the Python app and what each workflow does
 - [Release checklist](release-checklist.md): what to test by hand before tagging a release
 - [Automation](../automation/README.md): translating with AI models and release testing in a VM and the emulator
 - [Upstream bugs](upstream-bugs.md): dependency bugs we work around, where the workaround is and when to drop it
