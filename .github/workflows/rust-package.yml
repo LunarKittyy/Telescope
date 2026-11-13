@@ -1,6 +1,6 @@
 name: Rust packages
 
-# The desktop packages, in the same shape as the Python release so the Python app's updater can install them (rust/PLAN.md, "The update path").
+# The desktop packages, in the same shape as the Python release so the Python app's updater can install them (docs/packaging.md, "The update path").
 # Checks pull requests that touch the packaging; release.yml calls it with a build number and channel to make the release bundles.
 on:
   pull_request:

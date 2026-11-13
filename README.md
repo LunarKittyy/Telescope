@@ -1,3 +1,4 @@
+<!-- covers: rust/crates/setup/src rust/crates/outputs/src/linux_setup.rs rust/crates/link/src/pairing.rs rust/crates/shell/src/plugins installer; checked: 1cbb8644b -->
 <p align="center"><img src="docs/assets/banner.png" alt="Telescope: use your phone as a webcam, with every lens and full manual control. The desktop app streaming from a phone, with the phone app next to it." width="720"></p>
 
 <p align="center">English · <a href="README.es.md">Español</a> · <a href="README.ru.md">Русский</a></p>
@@ -34,7 +35,7 @@
 [Manual setup](docs/setup.md#linux) has the rest.
 </details>
 
-No Android phone? [Browser camera](docs/features.md#browser-camera) streams from an iPhone, a tablet or an old laptop straight from its browser with nothing to install.
+No Android phone? [Browser camera](docs/features/sources.md#browser-camera) streams from an iPhone, a tablet or an old laptop straight from its browser with nothing to install.
 
 ## More than a webcam
 
@@ -70,7 +71,7 @@ Yes. Every feature, every resolution, no watermark, no ads. If you'd like to chi
 <details>
 <summary><b>Does my video go through someone's server?</b></summary>
 
-No. It goes straight from the phone to your computer, over USB or your own network, encrypted with TLS. There's no account and no cloud, and the apps only go online to check GitHub for updates, or to fetch adb or VB-Cable from Google or VB-Audio when you ask for them. Use it only on a network you trust or switch on **Local only - USB** in the Android app. Details in [Privacy](docs/features.md#privacy).
+No. It goes straight from the phone to your computer, over USB or your own network, encrypted with TLS. There's no account and no cloud, and the apps only go online to check GitHub for updates, or to fetch adb or VB-Cable from Google or VB-Audio when you ask for them. Use it only on a network you trust or switch on **Local only - USB** in the Android app. Details in [Privacy](docs/features/connection.md#privacy).
 </details>
 
 <details>
@@ -82,7 +83,7 @@ If it can use a webcam, yes. Telescope shows up there as an ordinary camera and 
 <details>
 <summary><b>I have an iPhone or a Mac.</b></summary>
 
-The phone app is Android only, but [Browser camera](docs/features.md#browser-camera) streams from an iPhone's browser with nothing to install. The desktop app runs on Windows and Linux, not macOS.
+The phone app is Android only, but [Browser camera](docs/features/sources.md#browser-camera) streams from an iPhone's browser with nothing to install. The desktop app runs on Windows and Linux, not macOS.
 </details>
 
 <details>

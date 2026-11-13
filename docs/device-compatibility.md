@@ -1,3 +1,4 @@
+<!-- covers: ; checked: 1cbb8644b -->
 # Device compatibility
 
 Phones Telescope has been tested on, and what worked on each. Android 8 or newer is needed.

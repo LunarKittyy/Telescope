@@ -1,6 +1,6 @@
 # Telescope
 
-Android app (`android/`, Kotlin) streams the phone camera to a Rust/Slint desktop app (`rust/`) that feeds a virtual webcam. README.md is the landing page and Quick Start; everything else for users and contributors (features, troubleshooting, protocol, architecture, CI) is in `docs/`, indexed by `docs/README.md`.
+Android app (`android/`, Kotlin) streams the phone camera to a Rust/Slint desktop app (`rust/`) that feeds a virtual webcam. README.md is the landing page and Quick Start; everything else for users and contributors (features in `docs/features/`, troubleshooting, protocol, architecture, packaging and CI) is in `docs/`, indexed by `docs/README.md`.
 
 Before changing how desktop plugins, sources or the window talk to each other, read `rust/ARCHITECTURE.md`. It explains why plugins don't depend on each other and why every plugin but Connection has to cope with being switched off. `rust/app/tests/architecture.rs` and `rust/app/tests/plugin_removal.rs` check both.
 

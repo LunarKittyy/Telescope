@@ -1,3 +1,4 @@
+<!-- covers: rust/crates/system/src/mcp*.rs; checked: 1cbb8644b -->
 # MCP server
 
 The MCP server lets an AI app like Claude Desktop look at Telescope and change its settings. Someone whose picture lags can switch it on and ask the model what's going on. Someone else can describe the look they want and let the model set the colour grading, or ask where a setting is.

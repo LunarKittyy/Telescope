@@ -21,7 +21,7 @@ To try a change on a real phone without touching your normal install:
 (cd rust && cargo run -p telescope-app -- dev --keep)  # a dev desktop that pairs with it
 ```
 
-[Building and CI](docs/building.md) has the details.
+[Building](docs/building.md) has the details, and [Packaging and CI](docs/packaging.md) covers the workflows.
 
 Before opening a pull request, run the checks for what you changed:
 
@@ -29,5 +29,17 @@ Before opening a pull request, run the checks for what you changed:
 - Android: `./gradlew lintDebug testDebugUnitTest` in `android/`
 
 Pull requests get read by a person, so keep them easy to skim. Commit subjects should say what changed in plain words. Fill in the [template](.github/pull_request_template.md) in a few lines, including what still needs trying on a real phone. If something users see changes, update `docs/` in the same pull request.
+
+## Keeping docs fresh
+
+Every doc starts with a hidden line naming the code it describes and the commit it was last checked against:
+
+```
+<!-- covers: rust/crates/link/src/pairing.rs android/app/src/main/kotlin/com/telescope/Pairing.kt; checked: 1cbb8644b -->
+```
+
+`python3 tools/docs_fresh.py` lists the docs whose covered code changed since then, with the commits. If you changed code a doc talks about, read that doc. Fix what's out of date, then run `python3 tools/docs_fresh.py --bump docs/the-doc.md` to move `checked` up to the current commit. Do that when the doc was already right too, so the next person doesn't re-read it for nothing. Bump after committing the code, because it uses the current commit, then commit the doc with its new line.
+
+A new doc needs its line (`covers` can be empty if no code stands behind it). `python3 tools/docs_fresh.py --paths` checks the lines and that every file a doc mentions exists, and CI runs it. The flagged list shows up in the pull request's job summary and never fails a pull request.
 
 Telescope is [AGPL-3.0](LICENSE) and contributions are under the same license.

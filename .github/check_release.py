@@ -21,7 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from write_manifest import sha256  # noqa: E402
 
-# The release key's certificate. Without that key no future APK installs as an update (docs/building.md#ci)
+# The release key's certificate. Without that key no future APK installs as an update (docs/packaging.md#ci)
 APK_CERT_SHA256 = "f26c7c9a76e51d3f3789dc25ce7301994b24b53292d24db39d432e084a4d7a99"
 BUNDLE_FILES = ("THIRD_PARTY_NOTICES.txt", "Telescope.apk")
 
