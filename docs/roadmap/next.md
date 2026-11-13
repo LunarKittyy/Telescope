@@ -133,7 +133,7 @@ Transforms gets a Lens correction slider that straightens the curved lines a wid
 
 ## High quality cutout and Cut-in
 
-Background gets a **High quality** switch that uses Robust Video Matting for cleaner edges around hair and hands. It's off by default. The model is its own optional download and runs through ONNX Runtime, which is loaded at runtime rather than linked. While the model is missing, still loading, has failed or is running behind, the normal MediaPipe mask is used, so the picture never waits for it. The Windows package ships the C++ runtime DLLs ONNX Runtime needs.
+Background gets a **High quality cutout** switch that uses Robust Video Matting for cleaner edges around hair and hands. It's off by default. The model is its own optional download and runs through ONNX Runtime, which is loaded at runtime rather than linked. While the model is missing, still loading, has failed or is running behind, the normal MediaPipe mask is used, so the picture never waits for it. The Windows package ships the C++ runtime DLLs ONNX Runtime needs.
 
 Cut-in sits next to Edges and pulls the cutout's border in. Less of the room shows around the outline. 0 is the old behaviour, and it works with both masks.
 
