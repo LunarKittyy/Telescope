@@ -453,6 +453,14 @@ impl HostVision for Ctx<'_> {
         if let Some(vision) = &self.state.vision {
             vision.want_people(owner, on);
         }
+        // Finding people reads frames: a call starting after an idle stop must not open with Auto framing blind
+        let key = format!("people:{owner}");
+        if on {
+            self.state.frame_wants.insert(key);
+        } else {
+            self.state.frame_wants.remove(&key);
+        }
+        self.state.sync_idle();
     }
     fn tracked_people(&self, source_id: Option<&str>) -> (Vec<Value>, u32) {
         let Some(vision) = &self.state.vision else { return (Vec::new(), 0) };
