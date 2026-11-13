@@ -287,7 +287,7 @@ macro_rules! declare_value_struct_conversion {
         impl From<$name> for Value {
             fn from($name { $($field),* , .. }: $name) -> Self {
                 let mut struct_ = Struct::default();
-                $(struct_.set_field(stringify!($field).into(), $field.into());)*
+                $(struct_.set_field_str(stringify!($field), $field.into());)*
                 Value::Struct(struct_)
             }
         }
@@ -319,7 +319,7 @@ macro_rules! declare_value_struct_conversion {
             impl From<$Name> for Value {
                 fn from(item: $Name) -> Self {
                     let mut struct_ = Struct::default();
-                    $(struct_.set_field(stringify!($field).into(), item.$field.into());)*
+                    $(struct_.set_field_str(stringify!($field), item.$field.into());)*
                     Value::Struct(struct_)
                 }
             }
@@ -450,10 +450,7 @@ impl TryFrom<Value> for i_slint_core::lengths::LogicalLength {
 impl From<i_slint_core::lengths::LogicalPoint> for Value {
     #[inline]
     fn from(pt: i_slint_core::lengths::LogicalPoint) -> Self {
-        Value::Struct(Struct::from_iter([
-            ("x".to_owned(), Value::Number(pt.x as _)),
-            ("y".to_owned(), Value::Number(pt.y as _)),
-        ]))
+        Value::Struct(Struct::from_unique_normalized([(SmolStr::new_static("x"), Value::Number(pt.x as _)), (SmolStr::new_static("y"), Value::Number(pt.y as _))].into_iter()))
     }
 }
 impl TryFrom<Value> for i_slint_core::lengths::LogicalPoint {
@@ -482,10 +479,7 @@ impl TryFrom<Value> for i_slint_core::lengths::LogicalPoint {
 impl From<i_slint_core::lengths::LogicalSize> for Value {
     #[inline]
     fn from(s: i_slint_core::lengths::LogicalSize) -> Self {
-        Value::Struct(Struct::from_iter([
-            ("width".to_owned(), Value::Number(s.width as _)),
-            ("height".to_owned(), Value::Number(s.height as _)),
-        ]))
+        Value::Struct(Struct::from_unique_normalized([(SmolStr::new_static("width"), Value::Number(s.width as _)), (SmolStr::new_static("height"), Value::Number(s.height as _))].into_iter()))
     }
 }
 impl TryFrom<Value> for i_slint_core::lengths::LogicalSize {
@@ -514,12 +508,7 @@ impl TryFrom<Value> for i_slint_core::lengths::LogicalSize {
 impl From<i_slint_core::lengths::LogicalEdges> for Value {
     #[inline]
     fn from(s: i_slint_core::lengths::LogicalEdges) -> Self {
-        Value::Struct(Struct::from_iter([
-            ("left".to_owned(), Value::Number(s.left as _)),
-            ("right".to_owned(), Value::Number(s.right as _)),
-            ("top".to_owned(), Value::Number(s.top as _)),
-            ("bottom".to_owned(), Value::Number(s.bottom as _)),
-        ]))
+        Value::Struct(Struct::from_unique_normalized([(SmolStr::new_static("left"), Value::Number(s.left as _)), (SmolStr::new_static("right"), Value::Number(s.right as _)), (SmolStr::new_static("top"), Value::Number(s.top as _)), (SmolStr::new_static("bottom"), Value::Number(s.bottom as _))].into_iter()))
     }
 }
 impl TryFrom<Value> for i_slint_core::lengths::LogicalEdges {
@@ -660,20 +649,81 @@ pub(crate) fn normalize_identifier(ident: &str) -> SmolStr {
 /// let s : Struct = value.try_into().unwrap();
 /// assert_eq!(s.get_field("foo").cloned().unwrap().try_into(), Ok(45u32));
 /// ```
-#[derive(Clone, PartialEq, Debug, Default)]
-pub struct Struct(pub(crate) HashMap<SmolStr, Value>);
+// Telescope patch: the fields live in a Vec in insertion order, not a HashMap with SipHash (see PATCH.txt)
+#[derive(Clone, Default)]
+pub struct Struct(pub(crate) Vec<(SmolStr, Value)>);
+
+impl PartialEq for Struct {
+    // Same as HashMap's: equal when both hold the same fields, whatever their order
+    fn eq(&self, other: &Self) -> bool {
+        self.0.len() == other.0.len()
+            && self.0.iter().all(|(k, v)| other.field(k.as_str()) == Some(v))
+    }
+}
+
+impl std::fmt::Debug for Struct {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        struct Fields<'a>(&'a [(SmolStr, Value)]);
+        impl std::fmt::Debug for Fields<'_> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.debug_map().entries(self.0.iter().map(|(k, v)| (k, v))).finish()
+            }
+        }
+        f.debug_tuple("Struct").field(&Fields(&self.0)).finish()
+    }
+}
+
 impl Struct {
+    /// The field with this already normalized name
+    #[inline]
+    pub(crate) fn field(&self, name: &str) -> Option<&Value> {
+        self.0.iter().find(|(k, _)| k.as_str() == name).map(|(_, v)| v)
+    }
+
+    /// Set a field whose name is already normalized
+    pub(crate) fn insert(&mut self, name: SmolStr, value: Value) {
+        match self.0.iter_mut().find(|(k, _)| *k == name) {
+            Some(slot) => slot.1 = value,
+            None => self.0.push((name, value)),
+        }
+    }
+
+    /// A struct from fields whose names are already normalized and all different, as the compiler's
+    /// are. No duplicate check and no growing: the Vec is made at the right size.
+    pub(crate) fn from_unique_normalized(
+        fields: impl ExactSizeIterator<Item = (SmolStr, Value)>,
+    ) -> Self {
+        let mut v = Vec::with_capacity(fields.len());
+        v.extend(fields);
+        Self(v)
+    }
+
+    /// A compiler-given field name as a key: cloned when it is normalized already (SmolStr clones don't allocate for short names)
+    #[inline]
+    pub(crate) fn key_of(name: &SmolStr) -> SmolStr {
+        if i_slint_compiler::parser::is_identifier_normalized(name) {
+            name.clone()
+        } else {
+            normalize_identifier(name)
+        }
+    }
+
+    /// Set a field by a name that may need normalizing, without allocating when it doesn't
+    pub(crate) fn set_field_str(&mut self, name: &str, value: Value) {
+        self.insert(normalize_identifier(name), value);
+    }
+
     /// Get the value for a given struct field
     pub fn get_field(&self, name: &str) -> Option<&Value> {
         if i_slint_compiler::parser::is_identifier_normalized(name) {
-            self.0.get(name)
+            self.field(name)
         } else {
-            self.0.get(&*normalize_identifier(name))
+            self.field(&normalize_identifier(name))
         }
     }
     /// Set the value of a given struct field
     pub fn set_field(&mut self, name: String, value: Value) {
-        self.0.insert(normalize_identifier(&name), value);
+        self.insert(normalize_identifier(&name), value);
     }
 
     /// Iterate over all the fields in this struct
@@ -684,7 +734,12 @@ impl Struct {
 
 impl FromIterator<(String, Value)> for Struct {
     fn from_iter<T: IntoIterator<Item = (String, Value)>>(iter: T) -> Self {
-        Self(iter.into_iter().map(|(s, v)| (normalize_identifier(&s), v)).collect())
+        let iter = iter.into_iter();
+        let mut s = Self(Vec::with_capacity(iter.size_hint().0));
+        for (name, value) in iter {
+            s.insert(normalize_identifier(&name), value);
+        }
+        s
     }
 }
 
