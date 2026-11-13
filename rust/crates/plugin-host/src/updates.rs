@@ -45,7 +45,7 @@ impl Fetch for Https {
     fn get(&self, url: &str, headers: &[(&str, &str)]) -> Result<Reply, String> {
         // The system's certificate store, as every download of Telescope's own (telescope.web.urlopen)
         let tls = ureq::tls::TlsConfig::builder().root_certs(ureq::tls::RootCerts::PlatformVerifier).build();
-        let config = ureq::Agent::config_builder().tls_config(tls).timeout_global(Some(REQUEST_TIMEOUT)).http_status_as_error(false)
+        let config = ureq::Agent::config_builder().tls_config(tls).timeout_resolve(Some(REQUEST_TIMEOUT)).timeout_connect(Some(REQUEST_TIMEOUT)).timeout_send_request(Some(REQUEST_TIMEOUT)).timeout_recv_response(Some(REQUEST_TIMEOUT)).timeout_per_read(Some(REQUEST_TIMEOUT)).http_status_as_error(false)
             .user_agent(format!("Telescope/{}", env!("CARGO_PKG_VERSION"))).build();
         let agent = ureq::Agent::new_with_config(config);
         let mut request = agent.get(url);

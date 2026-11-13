@@ -158,6 +158,14 @@ pub fn matting_text(on: bool, state: &str, pack: &VisionPack) -> (String, bool) 
     (tr("Needs a one-time download (about {mb} MB). Until then the normal cutout is used.").field("mb", pack.size_mb.max(1).to_string()), true)
 }
 
+/// What became of a zip chosen in Install (see VisionService::install_pack_zip).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PackZip {
+    NotPack,
+    Started,
+    Busy,
+}
+
 /// The vision service the shell runs, one for the whole app. Every call is safe before it's ready (None, nothing).
 pub trait VisionService: Send + Sync {
     /// Where people_seen, people_tracked, vision_state_changed and the download's events go from now on.
@@ -216,6 +224,12 @@ pub trait VisionService: Send + Sync {
     /// Download in the background, then vision_download_finished names switch_on (the optional plugin to switch on, or "").
     fn download(&self, switch_on: &str);
     fn cancel_download(&self);
+    /// A pack zip (vision or high quality cutout) the person downloaded themselves: NotPack when the file isn't one (by its name), Busy
+    /// while that pack is already downloading or installing, else it's unpacked and checked in the background like the download, and the
+    /// same state, events and errors say how it goes.
+    fn install_pack_zip(&self, _archive: &std::path::Path) -> PackZip {
+        PackZip::NotPack
+    }
     /// Delete the downloaded packs.
     fn remove_pack(&self) -> Result<(), String>;
     /// What went wrong after the download itself, shown like its own failure on the waiting plugin's tile.

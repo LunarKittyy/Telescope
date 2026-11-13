@@ -167,6 +167,18 @@ fn the_pack_folder_is_the_python_apps() {
     }
 }
 
+#[test]
+fn a_dev_profile_keeps_its_packs_in_its_own_folder() {
+    let env = |vars: &'static [(&'static str, &'static str)]| move |name: &str| vars.iter().find(|(k, _)| *k == name).map(|(_, v)| std::ffi::OsString::from(v));
+    let dev = env(&[("TELESCOPE_DEV_PROFILE", "/tmp/dev-profile"), ("XDG_DATA_HOME", "/real/share"), ("HOME", "/real")]);
+    assert_eq!(dir_in("vision", &dev), PathBuf::from("/tmp/dev-profile/vision"));
+    assert_eq!(dir_in("matting", &dev), PathBuf::from("/tmp/dev-profile/matting"));
+    if cfg!(not(windows)) {
+        let real = env(&[("XDG_DATA_HOME", "/real/share"), ("HOME", "/real")]);
+        assert_eq!(dir_in("vision", &real), PathBuf::from("/real/share/telescope/vision"));
+    }
+}
+
 /// A deflated zip of one file of zeros, which is a few KB for megabytes.
 fn zeros_zipped(megabytes: usize) -> Vec<u8> {
     let mut z = zip::ZipWriter::new(Cursor::new(Vec::new()));
@@ -189,7 +201,7 @@ fn claiming(mut data: Vec<u8>, claim: u32) -> Vec<u8> {
 fn download_capped_with(f: &mut Fixture, served: Vec<u8>, cap: u64) -> Result<PathBuf, PackError> {
     f.info.size = served.len() as u64;
     let opener = move |_url: &str, _t: Duration| -> io::Result<Box<dyn Read>> { Ok(Box::new(Cursor::new(served.clone()))) };
-    download_capped(&f.info, &f.folder, &mut |_, _| {}, &|| false, &opener, Some("http://x"), cap)
+    download_capped(&f.info, &f.folder, &mut |_, _| {}, &|| false, &opener, Some("http://x"), cap, TIMEOUT)
 }
 
 #[test]
@@ -254,4 +266,104 @@ fn the_cutouts_download_is_named_and_kept_apart_from_the_vision_pack() {
     assert_eq!(default_dir().parent(), matting_dir().parent());
     // a build for another computer has none, and says so
     assert!(PackInfo::from_json_for(Kind::Matting, &info, None).asset_name().is_none());
+}
+
+/// Serves its bytes a few at a time, waiting before each piece; fails with `fail_after` pieces if set (a connection that went quiet).
+struct Trickle {
+    data: Cursor<Vec<u8>>,
+    pause: Duration,
+    pieces: usize,
+    fail_after: Option<usize>,
+}
+
+impl Read for Trickle {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        std::thread::sleep(self.pause);
+        if self.fail_after == Some(self.pieces) {
+            return Err(io::Error::new(io::ErrorKind::TimedOut, "no bytes"));
+        }
+        self.pieces += 1;
+        let n = buf.len().min(48);
+        self.data.read(&mut buf[..n])
+    }
+}
+
+fn trickle_download(f: &Fixture, fail_after: Option<usize>, timeout: Duration) -> (Result<PathBuf, PackError>, Duration) {
+    let served = f.served.lock().unwrap().clone();
+    let opener = move |_url: &str, _t: Duration| -> io::Result<Box<dyn Read>> {
+        Ok(Box::new(Trickle { data: Cursor::new(served.clone()), pause: Duration::from_millis(15), pieces: 0, fail_after }))
+    };
+    let start = std::time::Instant::now();
+    let result = download_capped(&f.info, &f.folder, &mut |_, _| {}, &|| false, &opener, Some("http://x"), MAX_UNPACKED, timeout);
+    (result, start.elapsed())
+}
+
+#[test]
+fn a_slow_download_that_keeps_moving_finishes_even_past_the_timeout() {
+    let f = Fixture::new();
+    let timeout = Duration::from_millis(40);
+    let (result, took) = trickle_download(&f, None, timeout);
+    assert!(took > timeout * 3, "the download should outlast the timeout, took {took:?}");
+    assert!(result.is_ok(), "{result:?}");
+}
+
+#[test]
+fn a_download_that_goes_quiet_fails_as_a_connection_problem_and_leaves_nothing() {
+    let f = Fixture::new();
+    let (result, _) = trickle_download(&f, Some(2), Duration::from_millis(40));
+    assert!(result.unwrap_err().0.contains("internet connection"));
+    assert!(!f.folder.join(f.info.pack_id().unwrap()).exists());
+}
+
+#[test]
+fn a_pack_zip_downloaded_by_hand_is_installed_like_the_download() {
+    let f = Fixture::new();
+    let zip = f.folder.parent().unwrap().join("Telescope-vision-linux-0123456789abcdef.zip");
+    std::fs::write(&zip, f.served.lock().unwrap().clone()).unwrap();
+    assert!(pack_zip_kind("Telescope-vision-windows-ab12 (1).zip") == Some(Kind::Vision) && pack_zip_kind("Telescope-matting-linux-ab.zip") == Some(Kind::Matting) && pack_zip_kind("my-plugin.zip").is_none());
+    let last = install_zip(&f.info, &f.folder, &zip).unwrap();
+    assert_eq!(last, f.info.folder(&f.folder));
+    assert!(f.info.installed(&f.folder));
+}
+
+#[test]
+fn a_pack_zip_for_another_version_is_refused_in_plain_words() {
+    let f = Fixture::new();
+    let other = zipped(&[("site/x.py", b"other")]);
+    let zip = f.folder.parent().unwrap().join("Telescope-vision-linux-fedcba9876543210.zip");
+    std::fs::write(&zip, other).unwrap();
+    let e = install_zip(&f.info, &f.folder, &zip).unwrap_err();
+    assert!(e.0.contains("didn't match"), "{e}");
+    assert!(!f.info.installed(&f.folder));
+}
+
+#[test]
+fn a_corrupted_pack_zip_is_refused_in_plain_words_and_leaves_nothing() {
+    let f = Fixture::new();
+    let mut bytes = f.served.lock().unwrap().clone();
+    let mid = bytes.len() / 2;
+    for b in &mut bytes[mid..mid + 16] {
+        *b ^= 0xff;
+    }
+    let zip = f.folder.parent().unwrap().join("Telescope-vision-linux-0123456789abcdef.zip");
+    std::fs::write(&zip, bytes).unwrap();
+    let e = install_zip(&f.info, &f.folder, &zip).unwrap_err();
+    eprintln!("corrupt zip error: {e}");
+    assert!(!e.0.is_empty() && !f.info.installed(&f.folder));
+    assert!(!f.folder.join(f.info.pack_id().unwrap()).exists());
+    assert!(zip.exists());
+}
+
+#[test]
+fn installing_a_zip_from_inside_the_pack_folder_leaves_the_zip_alone() {
+    let f = Fixture::new();
+    std::fs::create_dir_all(&f.folder).unwrap();
+    std::fs::create_dir_all(f.folder.join("0123456789abcdef")).unwrap();
+    std::fs::write(f.folder.join(".old.zip.part"), b"x").unwrap();
+    let zip = f.folder.join("Telescope-vision-linux-0123456789abcdef.zip");
+    std::fs::write(&zip, f.served.lock().unwrap().clone()).unwrap();
+    install_zip(&f.info, &f.folder, &zip).unwrap();
+    assert!(zip.exists(), "the chosen zip must stay");
+    assert!(f.info.installed(&f.folder));
+    assert_eq!(names(&f.folder), [f.tree[..16].to_string(), "Telescope-vision-linux-0123456789abcdef.zip".to_string()]);
 }

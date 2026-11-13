@@ -431,3 +431,58 @@ fn a_pack_file_swapped_after_the_marker_was_written_is_not_loaded() {
         _ => panic!("expected a refusal"),
     }
 }
+
+fn pack_zip_for(h: &VisionHost, name: &str) -> PathBuf {
+    let zip = h.shared.dir.parent().unwrap().join(name);
+    std::fs::write(&zip, crate::pack::tests::zipped(&[("models/a.task", b"model")])).unwrap();
+    zip
+}
+
+#[test]
+fn a_zip_install_and_a_download_cannot_both_hold_the_pack_folder() {
+    let gate = Arc::new(AtomicBool::new(false));
+    let (opened, g) = (Arc::new(std::sync::atomic::AtomicU64::new(0)), gate.clone());
+    let o = opened.clone();
+    let zipped = crate::pack::tests::zipped(&[("models/a.task", b"model")]);
+    let (h, bus) = host(Box::new(move |_, _| {
+        o.fetch_add(1, Ordering::SeqCst);
+        wait(|| g.load(Ordering::SeqCst));
+        Ok(Box::new(Cursor::new(zipped.clone())) as Box<dyn Read>)
+    }));
+    let zip = pack_zip_for(&h, &format!("Telescope-vision-linux-{}.zip", &h.shared.info.pack_id().unwrap()));
+    h.download("");
+    wait(|| opened.load(Ordering::SeqCst) == 1);
+    assert_eq!(h.install_pack_zip(&zip), PackZip::Busy);
+    gate.store(true, Ordering::SeqCst);
+    assert_eq!(finished(&bus).len(), 1);
+    assert_eq!(h.install_pack_zip(&zip), PackZip::Started);
+    assert_eq!(h.install_pack_zip(&zip), PackZip::Busy, "a second install while the first runs");
+    assert_eq!(finished(&bus).len(), 1);
+    assert_eq!(h.install_pack_zip(Path::new("my-plugin.zip")), PackZip::NotPack);
+}
+
+fn install_with_a_plugin_waiting(content: &[(&str, &[u8])]) -> (Vec<(String, String)>, VisionPack) {
+    let (h, bus) = host(Box::new(|_, _| Err(io::Error::other("unused"))));
+    let id = h.shared.info.pack_id().unwrap();
+    let zip = h.shared.dir.parent().unwrap().join(format!("Telescope-vision-linux-{id}.zip"));
+    std::fs::write(&zip, crate::pack::tests::zipped(content)).unwrap();
+    // a plugin switched on while the install runs is in the waiting list the same way
+    h.shared.download.lock().unwrap().waiting.push("framing".into());
+    assert_eq!(h.install_pack_zip(&zip), PackZip::Started);
+    (finished(&bus), h.pack())
+}
+
+#[test]
+fn a_plugin_waiting_during_a_zip_install_is_switched_on_when_it_finishes() {
+    let (done, pack) = install_with_a_plugin_waiting(&[("models/a.task", b"model")]);
+    assert_eq!(done, [(String::new(), "framing".to_string())]);
+    assert!(pack.ready && !pack.downloading);
+}
+
+#[test]
+fn a_plugin_waiting_during_a_failed_zip_install_is_told_why() {
+    let (done, pack) = install_with_a_plugin_waiting(&[("models/a.task", b"other")]);
+    assert_eq!(done.len(), 1);
+    assert!(done[0].0.contains("didn't match") && done[0].1 == "framing", "{done:?}");
+    assert!(!pack.ready && pack.failed_for == "framing" && !pack.downloading);
+}
