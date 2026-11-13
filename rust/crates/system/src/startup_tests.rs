@@ -261,7 +261,7 @@ fn diagnostics_say_what_is_on_and_who_owns_the_stream() {
     r.event(Event::StreamStarted { url: "u".into() });
     let lines: Vec<(&str, &str)> = vec![
         ("Start streaming", "When an app opens the camera"),
-        ("Stop streaming", "When no app uses the camera, if it started the stream"),
+        ("Stop streaming", "When no app uses the camera, if Telescope started the stream"),
         ("Wait before stopping", "15 s"),
         ("Tell me when it stops a stream", "on"),
         ("Stream started automatically", "yes"),
@@ -759,7 +759,7 @@ fn start_and_stop_choices_reflect_and_change_the_settings() {
     r.ui("automatic", "shown", vec![]);
     let (start, stop) = (r.shown("automatic", "start-items"), r.shown("automatic", "stop-items"));
     assert_eq!(start[r.shown("automatic", "start-current").as_u64().unwrap() as usize], "Only when I press Start");
-    assert_eq!(stop[r.shown("automatic", "stop-current").as_u64().unwrap() as usize], "When no app uses the camera, if it started the stream");
+    assert_eq!(stop[r.shown("automatic", "stop-current").as_u64().unwrap() as usize], "When no app uses the camera, if Telescope started the stream");
     assert_eq!(r.shown("automatic", "stops"), json!(true));
 
     r.ui("automatic", "start-picked", vec![json!(2)]);

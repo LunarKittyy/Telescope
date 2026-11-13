@@ -13,7 +13,7 @@ pub type LuaPlugin = GuestPlugin<LuaGuest>;
 /// Runs a plugin's main.lua and wraps it as a core Plugin; lang picks its locale/<lang>.po. Says what went wrong otherwise.
 pub fn load(plugin: &Installed, lang: &str) -> Result<LuaPlugin, String> {
     if !plugin.problem.is_empty() || !plugin.enabled {
-        return Err(if plugin.problem.is_empty() { tr("It isn't turned on.", &[]) } else { plugin.problem.clone() });
+        return Err(if plugin.problem.is_empty() { tr("The plugin isn't turned on.", &[]) } else { plugin.problem.clone() });
     }
     load_unchecked(plugin, lang)
 }

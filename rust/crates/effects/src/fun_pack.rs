@@ -389,7 +389,7 @@ impl FunPackPlugin {
         let counting = self.counting;
         let n = self.countdown.to_string();
         let plate_text = if counting == Some(Grab::Plate) {
-            tr("Taking it in {n}…").field("n", &n)
+            tr("Taking the empty room in {n}…").field("n", &n)
         } else if self.plate.is_some() {
             tr("Take the empty room again")
         } else {
@@ -652,7 +652,7 @@ impl Plugin for FunPackPlugin {
             name: NAME.into(),
             title: n_("Fun pack").into(),
             about: n_("Silly effects: clones, an invisibility cloak, light painting, retro looks and datamosh.").into(),
-            when_off: n_("Without it there's no Fun pack card and the picture has no effects.").into(),
+            when_off: n_("Without the Fun pack plugin there's no Fun pack card and the picture has no effects.").into(),
             category: "look".into(),
             icon: "sparkle".into(),
             optional: true,

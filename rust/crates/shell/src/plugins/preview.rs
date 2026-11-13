@@ -16,9 +16,9 @@ const IDLE_BROWSER_TEXT: &str = "Not streaming";
 const IDLE_WEBCAM_TEXT: &str = "Not streaming";
 const IDLE_MIC_TEXT: &str = "Not streaming";
 const WAITING_TEXT: &str = "Waiting for the first frame\u{2026}";
-const CAMERA_OFF_TEXT: &str = "Camera off\n\nThe phone's mic is still streaming.\nStop streaming ends it.";
+const CAMERA_OFF_TEXT: &str = "Camera off\n\nThe phone's mic is still streaming.\nStopping the stream ends the mic too.";
 // Broken by hand like the rest: the stage doesn't wrap, and these are its longest lines
-const CAMERA_OFF_AUTO_TEXT: &str = "Camera off\n\nNo app was using the camera, so it turned off.\nThe phone's mic is still streaming, and the camera\ncomes back when an app opens it.";
+const CAMERA_OFF_AUTO_TEXT: &str = "Camera off\n\nNo app was using the camera,\nso Telescope turned the camera off.\nThe phone's mic is still streaming, and the camera\nturns on again when an app opens it.";
 
 /// px the mouse has to move before a press is a drag, not a click.
 const DRAG_START: f64 = 4.0;
@@ -337,7 +337,7 @@ impl Plugin for Preview {
             name: "preview".into(),
             title: n_("Preview").into(),
             about: n_("The live picture in the middle of the window, and the camera on/off button under it.").into(),
-            when_off: n_("Without it the window doesn't show the picture but apps using the virtual camera still get it.").into(),
+            when_off: n_("Without the Preview plugin the window doesn't show the picture but apps using the virtual camera still get it.").into(),
             category: "preview".into(),
             icon: "eye".into(),
             ..Default::default()

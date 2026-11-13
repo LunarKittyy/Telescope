@@ -226,7 +226,7 @@ impl Window {
         let first = !std::mem::replace(&mut self.state.borrow_mut().tray_close_notified, true);
         if first {
             let streaming = self.state.borrow().streams.streaming;
-            let body = if streaming { tr("Streaming continues in the background.") } else { tr("It starts streaming by itself when it needs to.") }
+            let body = if streaming { tr("Streaming continues in the background.") } else { tr("Streaming starts automatically when needed.") }
                 + " " + &tr("Right-click the tray icon to quit.");
             self.state.borrow_mut().effects.push(Effect::Notify { title: tr("Telescope is still running"), body, urgent: false });
         }

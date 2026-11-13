@@ -289,7 +289,7 @@ fn a_photo_that_comes_late_is_announced_after_its_request_has_ended() {
     assert!(rig.plugin.taking.is_empty());
     rig.event(Event::RequestProgress { request: id, data: json!({"state": "late", "files": ["/tmp/photos/IMG_9.nef"]}) });
     let p = rig.props();
-    assert_eq!((p["status"].as_str(), p["status-kind"].as_str()), (Some("It came late. Saved IMG_9.nef"), Some("status_ok")));
+    assert_eq!((p["status"].as_str(), p["status-kind"].as_str()), (Some("The photo arrived late. Saved IMG_9.nef"), Some("status_ok")));
     assert!(rig.host.calls.iter().any(|c| c == "send_notification Photo saved"), "told even with the window in front");
 }
 
@@ -526,7 +526,7 @@ fn the_card_offers_the_cameras_own_iso_and_shutter_lists_and_no_quality() {
     assert_eq!((iso.0, iso.1), (["100", "200", "400", "800"].map(String::from).to_vec(), 2));
     assert_eq!((shutter.0, shutter.1), (["1/1000", "1/40", "30 s"].map(String::from).to_vec(), 1));
     assert_eq!(p["quality-enabled"], false, "a camera keeps its own JPEG quality");
-    assert!(p["quality-tip"].as_str().unwrap().contains("own JPEG quality"), "and the tooltip says so");
+    assert!(p["quality-tip"].as_str().unwrap().contains("set by the camera"), "and the tooltip says so");
     assert_eq!(tile(&p, "format").unwrap().0, ["JPEG", "RAW (DNG)", "RAW and JPEG"]);
     assert_eq!(keys(&p), ["iso", "shutter", "format"], "the dials first, then the named choice");
     assert_eq!(p["best-enabled"], false);

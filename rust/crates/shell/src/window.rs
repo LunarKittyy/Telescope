@@ -971,7 +971,9 @@ impl Window {
                 self.apply(next);
             }
         }
-        self.sync_camera();
+        if self.sync_camera() {
+            self.process(); // the Preview's redraw is an effect still to carry out
+        }
         self.show_add_button();
         self.show_banners();
         self.show_bar();

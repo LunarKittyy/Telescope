@@ -312,14 +312,21 @@ impl Window {
     }
 
     /// What the camera can do now, as plugins read it, and the Start button that goes with it.
-    pub(crate) fn sync_camera(self: &Rc<Self>) {
-        let Ok(flow) = self.streams.flow.try_borrow() else { return };
+    /// True when whether the camera can go off changed: the Preview drew its button from the old answer, so it draws again.
+    pub(crate) fn sync_camera(self: &Rc<Self>) -> bool {
+        let Ok(flow) = self.streams.flow.try_borrow() else { return false };
+        let before = self.state.borrow().streams.can_turn_off.clone();
         let off = self.camera_snapshot(&flow);
         let idle = flow.sessions.streams.is_empty() && !flow.sessions.waking;
         drop(flow);
         if self.streams.idle_camera_off.replace(off) != off && idle {
             self.show_idle_button();
         }
+        let changed = self.state.borrow().streams.can_turn_off != before;
+        if changed {
+            self.state.borrow_mut().deliver_to("preview", &Event::CameraOnChanged { on: !off });
+        }
+        changed
     }
 
     /// What plugins read about the camera, as the flow has it now; whether it's off.
@@ -964,13 +971,13 @@ impl Window {
         let tip = if !slow || !camera_limited {
             String::new()
         } else if rates.heat > 0 && (rates.dynamic == 0 || rates.heat <= rates.dynamic) {
-            fill(&tr("The phone got hot and lowered the frame rate to {fps} fps for now."), &[("fps", &rates.heat.to_string())])
+            fill(&tr("The phone got hot and lowered the frame rate to {fps} fps."), &[("fps", &rates.heat.to_string())])
         } else if rates.dynamic > 0 {
             fill(&tr("Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."), &[("fps", &rates.dynamic.to_string())])
         } else if source.kind.as_phone().is_none() {
-            tr("The camera is making fewer frames than asked for. Dim light slows it down.")
+            tr("The camera is producing fewer frames than requested. Dim light lowers the frame rate.")
         } else {
-            tr("The phone's camera is making fewer frames than asked for. Dim light slows it down.")
+            tr("The phone's camera is producing fewer frames than requested. Dim light lowers the frame rate.")
         };
         self.set("fps-tip", tip);
         self.note_throughput(source, behind);

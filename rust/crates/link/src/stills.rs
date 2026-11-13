@@ -59,7 +59,7 @@ pub fn reason_text(code: &str, english: &str) -> String {
         "timeout" => "The phone took too long to take the photo.",
         "failed" => "The phone couldn't take the photo.",
         "lost" => "Lost the phone while it was taking the photo.",
-        "dropped" => "The phone gave up on the photo, maybe because its stream stopped.",
+        "dropped" => "The phone cancelled the photo, possibly because its stream stopped.",
         "save" => "Telescope couldn't save the photo.",
         "no_photos" => "This phone can't take photos from Telescope. Update the app on the phone.",
         _ if english.is_empty() => "The phone couldn't take the photo.",
@@ -994,7 +994,7 @@ mod tests {
     #[test]
     fn a_photo_the_phone_let_go_of_ends_at_once() {
         let (r, progress, _) = timed(Phone { dropped: true, ..Phone::default() }, Timings { lost_after: Duration::from_secs(60), ..quick() }, json!({}), None);
-        assert!(r.code == "dropped" && r.error.contains("gave up") && progress.len() == 1);
+        assert!(r.code == "dropped" && r.error.contains("cancelled") && progress.len() == 1);
     }
 
     #[test]

@@ -139,7 +139,7 @@ fn waiting_to_start_by_itself_keeps_running_in_the_tray() {
     let before = quits();
     close(&r);
     assert_eq!(quits(), before);
-    assert!(r.notes.0.lock().unwrap()[0].1.contains("starts streaming by itself"));
+    assert!(r.notes.0.lock().unwrap()[0].1.contains("Streaming starts automatically"));
 }
 
 #[test]

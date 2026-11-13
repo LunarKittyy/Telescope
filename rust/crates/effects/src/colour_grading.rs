@@ -57,15 +57,15 @@ const AUTO_NO_STREAM: &str = n_("Start the stream first, so Auto has a picture t
 const AUTO_LABEL_FINE: &str = n_("Looks fine");
 const AUTO_LABEL_NO_STREAM: &str = n_("No stream");
 const AUTO_LABEL_NO_PICTURE: &str = n_("No picture");
-const AUTO_LOOKING: &str = n_("Looking at the picture…");
-const AUTO_NO_PICTURE: &str = n_("Auto couldn't get a steady picture to look at. Try again while nothing moves.");
+const AUTO_LOOKING: &str = n_("Analysing the picture…");
+const AUTO_NO_PICTURE: &str = n_("No steady picture to analyse. Try again while nothing moves.");
 const AUTO_NOTHING: &str = n_("Nothing to change, the picture already looks right.");
-const AUTO_TAKEN_OFF: &str = n_("Nothing needs changing now, so Auto's earlier changes were taken off.");
+const AUTO_TAKEN_OFF: &str = n_("Nothing needs changing, so Auto's earlier changes were removed.");
 const AUTO_CHANGED: &str = n_("Auto changed {parts}.");
-const AUTO_NO_FACE: &str = n_("No face was found, so it went by the background and the brightness.");
-const AUTO_CONFLICT: &str = n_("The light is mixed or coloured, so white balance stayed as it was.");
-const AUTO_BACKED_OFF: &str = n_("Your own wheels and curves would have clipped the picture, so Auto went only part of the way.");
-const AUTO_DRIFTS: &str = n_("The camera adjusts itself, so this may drift.");
+const AUTO_NO_FACE: &str = n_("No face found, so Auto used the background and brightness.");
+const AUTO_CONFLICT: &str = n_("The light is mixed or coloured, so white balance was not changed.");
+const AUTO_BACKED_OFF: &str = n_("Your own wheels and curves would have clipped the picture, so Auto applied only part of the change.");
+const AUTO_DRIFTS: &str = n_("The camera adjusts automatically, so the result may drift.");
 const AUTO_PARTS: [&str; 5] = [n_("white balance"), n_("brightness"), n_("contrast and blacks"), n_("highlights"), n_("saturation")];
 /// .cube files kept parsed, so switching phones doesn't read a 65-point LUT again.
 const KEEP_PARSED: usize = 4;
@@ -1078,7 +1078,7 @@ impl Plugin for ColourGradingPlugin {
             name: NAME.into(),
             title: n_("Colour grading").into(),
             about: n_("Colour wheels, curves and LUT files for the look of the picture.").into(),
-            when_off: n_("Without it there's no Colour grading card and the picture keeps the camera's colours.").into(),
+            when_off: n_("Without the Colour grading plugin there's no Colour grading card and the picture keeps the camera's colours.").into(),
             category: "look".into(),
             icon: "colour".into(),
             // Auto reads the picture clean, before the other steps change it

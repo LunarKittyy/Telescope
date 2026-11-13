@@ -136,12 +136,12 @@ fn the_confirmation_says_what_happens_what_is_lost_and_what_the_phone_needs() {
     let folder = Path::new("/home/me/.config/telescope");
     let text = dialog(Plan::Swap { python_setup: false }, folder).text;
     for wanted in ["4.4.2", "/home/me/.config/telescope", "copy of your current settings", "Lua", "ignored", "phone app has to match", "Telescope.apk",
-                   "uninstall Telescope on the phone", "won't check for updates", "brings this version back"] {
+                   "uninstall Telescope on the phone", "doesn't check for updates", "brings this version back"] {
         assert!(text.contains(wanted), "missing {wanted:?}: {text}");
     }
     assert!(!text.contains("Python libraries"));
     let first_start = dialog(Plan::Swap { python_setup: true }, folder);
-    assert!(first_start.text.contains("sets up the Python libraries 4.4.2 needs") && first_start.text.contains("nothing is changed") && first_start.enabled && first_start.action == "Go back");
+    assert!(first_start.text.contains("the Python libraries 4.4.2 needs are set up") && first_start.text.contains("nothing is changed") && first_start.enabled && first_start.action == "Go back");
     let appimage = dialog(Plan::Download { appimage: true }, folder);
     assert!(appimage.text.contains("Telescope-linux.tar.gz") && appimage.text.contains("Python 3.12") && appimage.text.contains("phone app has to match"));
     assert!(appimage.enabled && appimage.action == "Open download page");

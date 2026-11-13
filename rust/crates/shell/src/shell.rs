@@ -750,12 +750,12 @@ impl State {
         let titles: Vec<String> = problems.iter().map(|p| tr(&p.title)).collect();
         let n = titles.len();
         let title = if n < 4 {
-            crate::texts::trn("{plugins} didn't start", "{plugins} didn't start", n).field("plugins", crate::texts::and_list(&titles))
+            crate::texts::trn("Couldn't start {plugins}", "Couldn't start {plugins}", n).field("plugins", crate::texts::and_list(&titles))
         } else {
-            crate::texts::trn("{n} plugin didn't start", "{n} plugins didn't start", n)
+            crate::texts::trn("Couldn't start {n} plugin", "Couldn't start {n} plugins", n)
         };
-        let text = crate::texts::trn("Telescope works without it. The Plugins tab in Settings says what went wrong.",
-                                     "Telescope works without them. The Plugins tab in Settings says what went wrong.", n);
+        let text = crate::texts::trn("Telescope works without the plugin. The Plugins tab in Settings shows what went wrong.",
+                                     "Telescope works without them. The Plugins tab in Settings shows what went wrong.", n);
         self.banners.show("plugins", Issue {
             title, text, kind: "warn".into(), details: String::new(), tell_dismiss: false,
             actions: vec![IssueAction { label: tr("Plugins…"), does: IssueDoes::OpenSettings { tab: "plugins".into() } }],
@@ -2302,7 +2302,7 @@ mod tests {
         added_folder(&mut s, "quitter");
         s.load_builtins(vec![stub("setup", json!({}), false).0, Box::new(Quitter)]).unwrap();
         assert!(s.index("quitter").is_none() && s.index("setup").is_some());
-        assert_eq!(s.banners.issue("plugins").unwrap().title, "Quitter didn't start");
+        assert_eq!(s.banners.issue("plugins").unwrap().title, "Couldn't start Quitter");
         assert!(s.problems["quitter"].contains("quitter"));
         assert_eq!(s.diagnostics().into_iter().find(|(k, _)| k == "Added plugins").unwrap().1, "quitter (didn't start)");
     }
@@ -2329,17 +2329,17 @@ mod tests {
         assert!(s.banners.issue("plugins").is_none());
         s.set_plugin_problems(&[broken("a", "Alpha")]);
         let issue = s.banners.issue("plugins").unwrap().clone();
-        assert_eq!(issue.title, "Alpha didn't start");
-        assert_eq!(issue.text, "Telescope works without it. The Plugins tab in Settings says what went wrong.");
+        assert_eq!(issue.title, "Couldn't start Alpha");
+        assert_eq!(issue.text, "Telescope works without the plugin. The Plugins tab in Settings shows what went wrong.");
         assert_eq!(issue.kind, "warn");
         assert_eq!(issue.actions, vec![IssueAction { label: "Plugins…".into(), does: IssueDoes::OpenSettings { tab: "plugins".into() } }]);
         assert_eq!(s.problems.get("a").map(String::as_str), Some("a broke"));
         s.set_plugin_problems(&[broken("a", "Alpha"), broken("b", "Beta"), broken("c", "Gamma")]);
         let issue = s.banners.issue("plugins").unwrap();
-        assert_eq!(issue.title, "Alpha, Beta and Gamma didn't start");
-        assert_eq!(issue.text, "Telescope works without them. The Plugins tab in Settings says what went wrong.");
+        assert_eq!(issue.title, "Couldn't start Alpha, Beta and Gamma");
+        assert_eq!(issue.text, "Telescope works without them. The Plugins tab in Settings shows what went wrong.");
         s.set_plugin_problems(&[broken("a", "A"), broken("b", "B"), broken("c", "C"), broken("d", "D")]);
-        assert_eq!(s.banners.issue("plugins").unwrap().title, "4 plugins didn't start");
+        assert_eq!(s.banners.issue("plugins").unwrap().title, "Couldn't start 4 plugins");
     }
 
     #[test]

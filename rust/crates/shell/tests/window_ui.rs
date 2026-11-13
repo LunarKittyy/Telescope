@@ -11,7 +11,7 @@ fn controls_are_named_and_cards_fold_from_the_keyboard() {
     let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), |bus| telescope_shell::plugins::builtins(None, bus), None, None).unwrap();
     w.ui.window().set_size(slint::LogicalSize::new(1300.0, 900.0));
 
-    for label in ["Settings", "Start streaming", "Exposure", "Stabilization", "Get set up"] {
+    for label in ["Settings", "Start streaming", "Exposure", "Stabilisation", "Get set up"] {
         assert!(ElementHandle::find_by_accessible_label(&w.ui, label).next().is_some(), "nothing named {label}");
     }
     let camera: Vec<ElementHandle> = ElementHandle::find_by_accessible_label(&w.ui, "Camera").collect();

@@ -442,7 +442,7 @@ impl MicrophonePlugin {
         let (mut text, mut kind, mut action) = (text.to_string(), kind.to_string(), action);
         if let Some((_, name)) = &self.elsewhere {
             // this card is about another stream's mic: it says where this one is
-            text = if self.enabled { tr("On for {name}. Turning it on here turns it off there.").field("name", name) } else { String::new() };
+            text = if self.enabled { tr("On for {name}. Turning the microphone on here turns it off for {name}.").field("name", name) } else { String::new() };
             kind = "dim".into();
             action = None;
         }
@@ -1053,7 +1053,7 @@ impl Plugin for MicrophonePlugin {
             name: NAME.into(),
             title: n_("Microphone").into(),
             about: n_("Using the phone's microphone on this computer.").into(),
-            when_off: n_("Without it there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone.").into(),
+            when_off: n_("Without the Microphone plugin there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone.").into(),
             category: "sound".into(),
             icon: "mic".into(),
             device_local: true,

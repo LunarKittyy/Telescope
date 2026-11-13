@@ -115,7 +115,7 @@ impl HotkeyBackend for PortalHotkeys {
         let i = self.shared.inner.lock().unwrap();
         match i.state {
             State::Unavailable => Some(HotkeyStatus::new(false, tr("Not available on this desktop"))),
-            State::Asking => Some(HotkeyStatus::new(false, tr("Waiting for you to confirm it"))),
+            State::Asking => Some(HotkeyStatus::new(false, tr("Needs your confirmation"))),
             _ => i.statuses.get(id).cloned(),
         }
     }
@@ -131,7 +131,7 @@ impl HotkeyBackend for PortalHotkeys {
             };
             return first + " " + &tr("Bind a Copy command line in its own keyboard settings instead.");
         }
-        tr("Your desktop asks you to confirm global shortcuts, and you can change their keys in its own settings. The key it settled on shows next to each one.")
+        tr("Your desktop asks you to confirm global shortcuts, and you can change their keys in the desktop's settings. The key the desktop assigned is shown next to each shortcut.")
     }
 
     fn system_picks_keys(&self) -> bool {

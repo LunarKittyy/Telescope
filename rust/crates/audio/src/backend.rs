@@ -163,7 +163,7 @@ impl MicBackend for WindowsMic {
             return None;
         }
         if self.setup_opened.load(Ordering::SeqCst) {
-            return Some((tr("Once VB-Cable's setup says it's done, restart the computer, then switch this off and on."),
+            return Some((tr("When VB-Cable's setup has finished, restart the computer, then switch this off and on."),
                          Some((tr("Open setup again"), INSTALL.into()))));
         }
         Some((tr("Needs VB-Audio Virtual Cable, a free virtual audio cable by VB-Audio."), Some((tr("Install VB-Cable"), INSTALL.into()))))

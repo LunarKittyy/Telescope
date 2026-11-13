@@ -162,7 +162,7 @@ pub fn download_vb_cable(folder: Option<&Path>, temp: &Path, fetch: Fetch, pins:
     if let Err(e) = fetched {
         log::warn!("VB-Cable download: {e:?}");
         return Err(match e {
-            FetchError::Http(_) => tr("VB-Audio's site didn't hand over VB-Cable. Try again later, or get it from their site."),
+            FetchError::Http(_) => tr("Couldn't download VB-Cable from VB-Audio's site. Try again later, or get it from their site."),
             FetchError::Certificate(_) => tr("Couldn't check vb-audio.com's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this."),
             FetchError::Offline(_) => tr("Couldn't reach vb-audio.com. Check the internet connection and try again."),
             FetchError::Other(_) => tr("Couldn't download VB-Cable. Try again, or get it from their site."),
@@ -190,7 +190,7 @@ pub fn download_vb_cable(folder: Option<&Path>, temp: &Path, fetch: Fetch, pins:
     }
     let setup = folder.join(VB_CABLE_SETUP);
     if !setup.exists() {
-        return Err(tr("VB-Audio's download doesn't have the setup it used to. Get it from their site instead."));
+        return Err(tr("VB-Audio's download no longer has the setup file. Get it from their site instead."));
     }
     Ok(setup)
 }
@@ -236,7 +236,7 @@ pub type Start<'a> = &'a dyn Fn(&Path, &str, &Path) -> Result<(), i32>;
 pub fn run_vb_cable_setup(setup: &Path, start: Start, pins: &Pins) -> String {
     let folder = setup.parent().unwrap_or(Path::new("."));
     if sha256(setup).ok().as_deref() != Some(pins.setup_sha256.as_str()) || !folder_is_the_pack(folder, pins) {
-        return tr("VB-Cable's setup changed after it was checked, so it wasn't opened.");
+        return tr("VB-Cable's setup file changed after the check, so Telescope didn't open it.");
     }
     // the setup's own folder, wherever it looks for its files
     match start(setup, "runas", folder) {
@@ -384,7 +384,7 @@ pub(crate) mod tests {
     fn a_refused_download_doesnt_blame_the_internet() {
         let dir = scratch("refused");
         let err = download_vb_cable(Some(&dir), &dir, &failing(|| FetchError::Http(404)), &Pins::default()).unwrap_err();
-        assert!(err.contains("didn't hand over"));
+        assert!(err.contains("Couldn't download VB-Cable"));
         assert!(matches!(fetch_error(ureq::Error::StatusCode(404)), FetchError::Http(404)));
     }
 

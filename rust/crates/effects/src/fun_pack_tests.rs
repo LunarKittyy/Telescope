@@ -204,7 +204,7 @@ fn the_empty_room_and_a_clone_are_taken_from_the_next_frame() {
     r.pick("clones");
     let room = room();
     r.ui("plate-clicked", vec![]);
-    assert_eq!(r.shown("plate-text"), json!("Taking it in 3…"));
+    assert_eq!(r.shown("plate-text"), json!("Taking the empty room in 3…"));
     assert!(r.host.is_scheduled("tick"));
     for _ in 0..3 {
         r.event(Event::TimerFired { owner: NAME.into(), token: "tick".into() });

@@ -274,7 +274,7 @@ fn download(web: &dyn Fetch, dest: &Path, say: &dyn Fn(&str), rename: Rename) ->
         Ok(archive) => archive,
         Err(failed) => {
             log::warn!("adb index: {}", describe(&failed));
-            return Err(offline(&failed).unwrap_or_else(|| tr("Google's list of downloads wasn't what Telescope expected. Try again later.")));
+            return Err(offline(&failed).unwrap_or_else(|| tr("Google's list of downloads has an unexpected format. Try again later.")));
         }
     };
 
@@ -383,7 +383,7 @@ pub fn use_own_adb(source: &Path, dest: Option<&Path>) -> Result<String, String>
         return Err(tr("Couldn't copy adb from there."));
     }
     if !unpacked.join("adb.exe").is_file() {
-        return Err(tr("That doesn't have adb.exe in it."));
+        return Err(tr("This file doesn't contain adb.exe."));
     }
     put_in_place(&unpacked, &dest, &work.0, &rename)?;
     Ok(downloaded_revision(Some(&dest)))
@@ -395,9 +395,9 @@ fn offline(failed: &Failed) -> Option<String> {
     Some(match e {
         FetchError::Certificate(_) => tr("Couldn't check Google's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this."),
         FetchError::Offline(_) => tr("Couldn't reach Google. Check the internet connection and try again."),
-        FetchError::Http(code @ (403 | 404 | 451)) => tr("Google wouldn't send adb to this computer (it said {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead.")
+        FetchError::Http(code @ (403 | 404 | 451)) => tr("Google refused the download (error {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead.")
             .field("code", code.to_string()),
-        FetchError::Http(code) => tr("Google's server said {code}. Try again later.").field("code", code.to_string()),
+        FetchError::Http(code) => tr("Google's server returned error {code}. Try again later.").field("code", code.to_string()),
         FetchError::Other(_) => return None,
     })
 }
@@ -752,7 +752,7 @@ mod tests {
     #[test]
     fn a_server_error_says_so() {
         let failing = Failing(|_| FetchError::Http(503));
-        assert_eq!(download_adb(&failing, Some(&tmp().join("pt")), &quiet), Err("Google's server said 503. Try again later.".into()));
+        assert_eq!(download_adb(&failing, Some(&tmp().join("pt")), &quiet), Err("Google's server returned error 503. Try again later.".into()));
     }
 
     #[test]
@@ -791,7 +791,7 @@ mod tests {
         let mut google = Google::new();
         google.index = index_for(MAX_ZIP + 1, &"00".repeat(20), ZIP_NAME);
         let why = download_adb(&google, Some(&tmp().join("platform-tools")), &quiet).unwrap_err();
-        assert!(why.contains("wasn't what Telescope expected"));
+        assert!(why.contains("has an unexpected format"));
         assert_eq!(google.urls(), vec![INDEX_URL.to_string()]);
     }
 
@@ -863,7 +863,7 @@ mod tests {
                 404 => download_adb(&Failing(|_| FetchError::Http(404)), Some(&tmp().join("pt")), &quiet),
                 _ => download_adb(&Failing(|_| FetchError::Http(451)), Some(&tmp().join("pt")), &quiet),
             }.unwrap_err();
-            assert!(why.contains(&format!("said {code}")) && why.contains("some countries") && why.contains("adb.exe or zip"), "{why}");
+            assert!(why.contains(&format!("error {code}")) && why.contains("some countries") && why.contains("adb.exe or zip"), "{why}");
         }
     }
 
@@ -902,7 +902,7 @@ mod tests {
         let zip_path = root.join("other.zip");
         std::fs::write(&zip_path, zip_of(&["readme.txt"], "", false)).unwrap();
         let dest = root.join("Telescope").join("platform-tools");
-        assert_eq!(use_own_adb(&zip_path, Some(&dest)), Err("That doesn't have adb.exe in it.".into()));
+        assert_eq!(use_own_adb(&zip_path, Some(&dest)), Err("This file doesn't contain adb.exe.".into()));
         assert!(!dest.exists());
         std::fs::write(root.join("broken.zip"), b"not a zip").unwrap();
         assert_eq!(use_own_adb(&root.join("broken.zip"), Some(&dest)), Err("Couldn't copy adb from there.".into()));

@@ -167,7 +167,7 @@ pub fn rows(p: &PhoneReading, nerd: bool, delay: &[f32], period_ms: f32) -> Vec<
         if let Some(camera) = p.camera_fps {
             let mut note = p.asked_fps.map(|a| tr("asked for {n}").field("n", fps(a))).unwrap_or_default();
             if let Some(cap) = p.dynamic_fps {
-                let stepped = tr("stepped down to {n} for the link").field("n", whole_fps(cap));
+                let stepped = tr("lowered to {n} because of the connection").field("n", whole_fps(cap));
                 note = if note.is_empty() { stepped } else { format!("{note}, {stepped}") };
             }
             out.push(Row::line(&tr("Camera frame rate"), fps(camera)).note(note).pin(PIN_CAMERA_FPS));

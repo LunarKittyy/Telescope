@@ -166,7 +166,7 @@ fn monitoring_watches_a_stream_behind_the_panels_by_its_own_settings() {
     assert!(r.host.notifications.is_empty()); // 15% is fine by its own 10% threshold
     r.other("phone-b", json!({"battery": 50, "charging": true, "battery_temp_c": 50}));
     assert_eq!(r.host.notifications, vec![("Telescope - Phone Running Hot".to_string(),
-                                           "Pixel: temperature is 50.0 °C. Stopped streaming to let it cool down.".to_string(), false)]);
+                                           "Pixel: temperature is 50.0 °C. Stopped streaming to let the phone cool down.".to_string(), false)]);
     assert_eq!(r.stopped(), vec!["stop_stream Some(\"phone-b\")"]); // that one, not the one on screen
 
     r.host.background.clear(); // stopped meanwhile: a late reading is dropped

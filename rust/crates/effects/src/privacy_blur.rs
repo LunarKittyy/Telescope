@@ -283,8 +283,8 @@ impl Plugin for PrivacyBlurPlugin {
         PluginInfo {
             name: NAME.into(),
             title: TITLE.into(),
-            about: n_("Blurs the whole picture, or puts the wait screen up, when more than one person is in it. It only knows about the people the vision models find, so it can miss someone and can't guarantee privacy.").into(),
-            when_off: n_("Without it there's no Privacy blur card and nothing gets hidden when someone walks in.").into(),
+            about: n_("Blurs the whole picture, or puts the wait screen up, when more than one person is in it. Only people the vision models find are detected, so someone can be missed and privacy isn't guaranteed.").into(),
+            when_off: n_("Without the Privacy blur plugin there's no Privacy blur card and nothing gets hidden when someone walks in.").into(),
             category: "vision".into(),
             icon: "eye_off".into(),
             optional: true,
