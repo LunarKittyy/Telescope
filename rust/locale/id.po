@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">Berdonasi atau baca selengkapnya</a>"
 msgid "No mic"
 msgstr "Tanpa mikrofon"
 
-#: rust/crates/audio/src/plugin.rs:111 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:479 rust/crates/system/src/updates_plugin.rs:456
+#: rust/crates/audio/src/plugin.rs:111 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:487 rust/crates/system/src/updates_plugin.rs:456
 msgid "Downloading…"
 msgstr "Mengunduh…"
 
@@ -281,43 +281,43 @@ msgctxt "search"
 msgid "volume loudness"
 msgstr "volume kelantangan kekerasan volume loudness"
 
-#: rust/crates/audio/src/vb_cable.rs:140 rust/crates/audio/src/vb_cable.rs:168
+#: rust/crates/audio/src/vb_cable.rs:141 rust/crates/audio/src/vb_cable.rs:169
 msgid "Couldn't download VB-Cable. Try again, or get it from their site."
 msgstr "Tidak dapat mengunduh VB-Cable. Coba lagi, atau dapatkan dari situs mereka."
 
-#: rust/crates/audio/src/vb_cable.rs:165
+#: rust/crates/audio/src/vb_cable.rs:166
 msgid "Couldn't download VB-Cable from VB-Audio's site. Try again later, or get it from their site."
 msgstr ""
 
-#: rust/crates/audio/src/vb_cable.rs:166
+#: rust/crates/audio/src/vb_cable.rs:167
 msgid "Couldn't check vb-audio.com's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this."
 msgstr "Tidak dapat memeriksa sertifikat vb-audio.com, jadi tidak ada yang diunduh. Perangkat lunak keamanan atau jaringan yang memeriksa HTTPS dapat menyebabkan masalah ini."
 
-#: rust/crates/audio/src/vb_cable.rs:167
+#: rust/crates/audio/src/vb_cable.rs:168
 msgid "Couldn't reach vb-audio.com. Check the internet connection and try again."
 msgstr "Tidak dapat menjangkau vb-audio.com. Periksa koneksi internet dan coba lagi."
 
-#: rust/crates/audio/src/vb_cable.rs:172
+#: rust/crates/audio/src/vb_cable.rs:173
 msgid "VB-Audio's download has changed since this version of Telescope. Get it from their site instead."
 msgstr "Unduhan VB-Audio telah berubah sejak versi Telescope ini. Dapatkan dari situs mereka sebagai gantinya."
 
-#: rust/crates/audio/src/vb_cable.rs:189
+#: rust/crates/audio/src/vb_cable.rs:190
 msgid "Couldn't unpack VB-Cable. Try again, or get it from their site."
 msgstr "Tidak dapat mengekstrak VB-Cable. Coba lagi, atau dapatkan dari situs mereka."
 
-#: rust/crates/audio/src/vb_cable.rs:193
+#: rust/crates/audio/src/vb_cable.rs:194
 msgid "VB-Audio's download no longer has the setup file. Get it from their site instead."
 msgstr ""
 
-#: rust/crates/audio/src/vb_cable.rs:239
+#: rust/crates/audio/src/vb_cable.rs:240
 msgid "VB-Cable's setup file changed after the check, so Telescope didn't open it."
 msgstr ""
 
-#: rust/crates/audio/src/vb_cable.rs:244
+#: rust/crates/audio/src/vb_cable.rs:245
 msgid "Windows didn't get permission to install VB-Cable."
 msgstr "Windows tidak mendapatkan izin untuk menginstal VB-Cable."
 
-#: rust/crates/audio/src/vb_cable.rs:247
+#: rust/crates/audio/src/vb_cable.rs:248
 msgid "Couldn't open VB-Cable's setup. Try again, or get it from their site."
 msgstr "Tidak dapat membuka penginstal VB-Cable. Coba lagi, atau dapatkan dari situs mereka."
 
@@ -520,7 +520,7 @@ msgstr "Streaming dan perangkat"
 msgid "Extras"
 msgstr "Ekstra"
 
-#: rust/crates/core/src/vision.rs:114 rust/crates/core/src/vision.rs:143 rust/crates/shell/src/plugins_tab.rs:479
+#: rust/crates/core/src/vision.rs:114 rust/crates/core/src/vision.rs:143 rust/crates/shell/src/plugins_tab.rs:487
 #, python-brace-format
 msgid "Downloading… {percent}%"
 msgstr "Mengunduh… {percent}%"
@@ -3049,7 +3049,7 @@ msgstr "Ekspor warna"
 msgid "Save the grade and LUT as a .cube file to use in other apps."
 msgstr "Simpan koreksi warna dan LUT sebagai file .cube untuk digunakan di aplikasi lain."
 
-#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:748
+#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:771
 msgid "Replace"
 msgstr "Ganti"
 
@@ -3663,69 +3663,69 @@ msgstr "Ponsel sudah memiliki aplikasi Telescope yang lebih baru."
 msgid "adb install failed"
 msgstr "adb install gagal"
 
-#: rust/crates/link/src/adb_download.rs:264
+#: rust/crates/link/src/adb_download.rs:265
 msgid "Finding the current adb…"
 msgstr "Mencari adb terbaru…"
 
-#: rust/crates/link/src/adb_download.rs:277
+#: rust/crates/link/src/adb_download.rs:278
 msgid "Google's list of downloads has an unexpected format. Try again later."
 msgstr ""
 
-#: rust/crates/link/src/adb_download.rs:284 rust/crates/link/src/adb_download.rs:296 rust/crates/link/src/adb_download.rs:463
+#: rust/crates/link/src/adb_download.rs:285 rust/crates/link/src/adb_download.rs:297 rust/crates/link/src/adb_download.rs:464
 msgid "Couldn't download adb. Try again."
 msgstr "Tidak dapat mengunduh adb. Coba lagi."
 
-#: rust/crates/link/src/adb_download.rs:288
+#: rust/crates/link/src/adb_download.rs:289
 msgid "Downloading adb from Google…"
 msgstr "Mengunduh adb dari Google…"
 
-#: rust/crates/link/src/adb_download.rs:290
+#: rust/crates/link/src/adb_download.rs:291
 #, python-brace-format
 msgid "Downloading adb {version} from Google…"
 msgstr "Mengunduh adb {version} dari Google…"
 
-#: rust/crates/link/src/adb_download.rs:300
+#: rust/crates/link/src/adb_download.rs:301
 msgid "The download didn't match Google's checksum, so it wasn't used. Try again."
 msgstr "Unduhan tidak cocok dengan checksum Google, jadi tidak digunakan. Coba lagi."
 
-#: rust/crates/link/src/adb_download.rs:302
+#: rust/crates/link/src/adb_download.rs:303
 msgid "Unpacking…"
 msgstr "Mengekstrak…"
 
-#: rust/crates/link/src/adb_download.rs:306
+#: rust/crates/link/src/adb_download.rs:307
 msgid "Couldn't unpack adb. Try again."
 msgstr "Tidak dapat mengekstrak adb. Coba lagi."
 
-#: rust/crates/link/src/adb_download.rs:309
+#: rust/crates/link/src/adb_download.rs:310
 msgid "Google's download doesn't have adb.exe in it anymore."
 msgstr "Unduhan Google tidak lagi berisi adb.exe."
 
-#: rust/crates/link/src/adb_download.rs:353
+#: rust/crates/link/src/adb_download.rs:354
 msgid "Couldn't put adb in place. Is another program using it? Try again."
 msgstr "Tidak dapat menempatkan adb. Apakah program lain sedang menggunakannya? Coba lagi."
 
-#: rust/crates/link/src/adb_download.rs:366 rust/crates/link/src/adb_download.rs:383
+#: rust/crates/link/src/adb_download.rs:367 rust/crates/link/src/adb_download.rs:384
 msgid "Couldn't copy adb from there."
 msgstr "Tidak dapat menyalin adb dari sana."
 
-#: rust/crates/link/src/adb_download.rs:386
+#: rust/crates/link/src/adb_download.rs:387
 msgid "This file doesn't contain adb.exe."
 msgstr ""
 
-#: rust/crates/link/src/adb_download.rs:396
+#: rust/crates/link/src/adb_download.rs:397
 msgid "Couldn't check Google's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this."
 msgstr "Tidak dapat memeriksa sertifikat Google, jadi tidak ada yang diunduh. Perangkat lunak keamanan atau jaringan yang memeriksa HTTPS dapat menyebabkan masalah ini."
 
-#: rust/crates/link/src/adb_download.rs:397
+#: rust/crates/link/src/adb_download.rs:398
 msgid "Couldn't reach Google. Check the internet connection and try again."
 msgstr "Tidak dapat menjangkau Google. Periksa koneksi internet dan coba lagi."
 
-#: rust/crates/link/src/adb_download.rs:398
+#: rust/crates/link/src/adb_download.rs:399
 #, python-brace-format
 msgid "Google refused the download (error {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead."
 msgstr ""
 
-#: rust/crates/link/src/adb_download.rs:400
+#: rust/crates/link/src/adb_download.rs:401
 #, python-brace-format
 msgid "Google's server returned error {code}. Try again later."
 msgstr ""
@@ -4377,7 +4377,7 @@ msgstr "Kamera virtual nonaktif"
 msgid "Your password is needed to switch on the virtual camera."
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:1554 rust/crates/shell/src/plugins_tab.rs:689 rust/crates/shell/src/plugins_tab.rs:709
+#: rust/crates/link/src/plugin.rs:1554 rust/crates/shell/src/plugins_tab.rs:697 rust/crates/shell/src/plugins_tab.rs:717
 msgid "Switch on"
 msgstr "Aktifkan"
 
@@ -4417,7 +4417,7 @@ msgstr "Frame rate"
 msgid "How many pictures a second the browser sends."
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:23 rust/crates/setup/ui/setup.slint:23 rust/crates/shell/src/plugins_tab.rs:674 rust/crates/shell/src/plugins_tab.rs:679 rust/crates/shell/ui/settings.slint:327
+#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:23 rust/crates/setup/ui/setup.slint:23 rust/crates/shell/src/plugins_tab.rs:682 rust/crates/shell/src/plugins_tab.rs:687 rust/crates/shell/ui/settings.slint:327
 msgid "Remove"
 msgstr "Hapus"
 
@@ -6536,7 +6536,7 @@ msgstr ""
 msgid "Restart now"
 msgstr "Mulai ulang sekarang"
 
-#: rust/crates/setup/ui/setup.slint:515 rust/crates/shell/src/plugins_tab.rs:694
+#: rust/crates/setup/ui/setup.slint:515 rust/crates/shell/src/plugins_tab.rs:702
 msgid "Restart"
 msgstr "Mulai ulang"
 
@@ -7165,169 +7165,169 @@ msgstr ""
 msgid "The download didn't work. {error}"
 msgstr "Unduhan gagal. {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:457
+#: rust/crates/shell/src/plugins_tab.rs:465
 msgid "Telescope needs this plugin to work, so it can't be switched off."
 msgstr "Telescope memerlukan plugin ini agar dapat berfungsi, jadi tidak dapat dinonaktifkan."
 
-#: rust/crates/shell/src/plugins_tab.rs:458
+#: rust/crates/shell/src/plugins_tab.rs:466
 msgid "Required"
 msgstr "Wajib"
 
-#: rust/crates/shell/src/plugins_tab.rs:482
+#: rust/crates/shell/src/plugins_tab.rs:490
 #, python-brace-format
 msgid "The download failed. {error}"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:485
+#: rust/crates/shell/src/plugins_tab.rs:493
 msgid "There's no download for this computer yet, so the plugin can't be switched on."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:488
+#: rust/crates/shell/src/plugins_tab.rs:496
 #, python-brace-format
 msgid "The plugin's download (about {mb} MB) is missing. Switch the plugin off and on again to download it."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:495
+#: rust/crates/shell/src/plugins_tab.rs:503
 msgid "Needs the vision download"
 msgstr "Perlu unduhan vision"
 
-#: rust/crates/shell/src/plugins_tab.rs:513
+#: rust/crates/shell/src/plugins_tab.rs:521
 msgid "There's no vision download for this computer yet."
 msgstr "Belum ada unduhan vision untuk komputer ini."
 
-#: rust/crates/shell/src/plugins_tab.rs:515
+#: rust/crates/shell/src/plugins_tab.rs:523
 #, python-brace-format
 msgid "Switching on any of these plugins downloads about {mb} MB first, shared by all of them."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:526
+#: rust/crates/shell/src/plugins_tab.rs:534
 #, python-brace-format
 msgid "By {author}."
 msgstr "Oleh {author}."
 
-#: rust/crates/shell/src/plugins_tab.rs:536
+#: rust/crates/shell/src/plugins_tab.rs:544
 #, python-brace-format
 msgid "Updated to {version} automatically. The new version runs after Telescope restarts."
 msgstr "Diperbarui ke {version} secara otomatis. Versi baru akan berjalan setelah Telescope dimulai ulang."
 
-#: rust/crates/shell/src/plugins_tab.rs:542
+#: rust/crates/shell/src/plugins_tab.rs:550
 msgid "The plugin's files changed since you switched it on, so it's off. Switch it on again if you trust the new version."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:545 rust/crates/shell/src/plugins_tab.rs:585
+#: rust/crates/shell/src/plugins_tab.rs:553 rust/crates/shell/src/plugins_tab.rs:593
 #, python-brace-format
 msgid "Couldn't start: {problem}"
 msgstr ""
 
 #. keep the <a href="{url}"> link
-#: rust/crates/shell/src/plugins_tab.rs:554
+#: rust/crates/shell/src/plugins_tab.rs:562
 #, python-brace-format
 msgid "Version {version} is out. <a href=\"{url}\">Download it from the plugin's release page</a> and install it here to replace the current version."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:564
+#: rust/crates/shell/src/plugins_tab.rs:572
 msgid "Added"
 msgstr "Ditambahkan"
 
-#: rust/crates/shell/src/plugins_tab.rs:581
+#: rust/crates/shell/src/plugins_tab.rs:589
 msgid "`telescope-rs dev --plugin` loads this plugin, so it's always on."
 msgstr "`telescope-rs dev --plugin` memuat plugin ini, jadi selalu aktif."
 
-#: rust/crates/shell/src/plugins_tab.rs:582
+#: rust/crates/shell/src/plugins_tab.rs:590
 msgid "Being written"
 msgstr "Sedang ditulis"
 
-#: rust/crates/shell/src/plugins_tab.rs:588
+#: rust/crates/shell/src/plugins_tab.rs:596
 #, python-brace-format
 msgid "Loaded from {folder} by telescope-rs dev. Saving a file in that folder restarts Telescope."
 msgstr ""
 
 #. next to a group's name on the Plugins tab, how many of its plugins are switched on
-#: rust/crates/shell/src/plugins_tab.rs:602
+#: rust/crates/shell/src/plugins_tab.rs:610
 #, python-brace-format
 msgid "{on} of {total} on"
 msgstr "{on} dari {total} aktif"
 
-#: rust/crates/shell/src/plugins_tab.rs:615
+#: rust/crates/shell/src/plugins_tab.rs:623
 #, python-brace-format
 msgid "No plugins match “{text}”."
 msgstr "Tidak ada plugin yang cocok dengan “{text}”."
 
-#: rust/crates/shell/src/plugins_tab.rs:617
+#: rust/crates/shell/src/plugins_tab.rs:625
 msgid "Every plugin is switched on."
 msgstr "Semua plugin aktif."
 
-#: rust/crates/shell/src/plugins_tab.rs:619
+#: rust/crates/shell/src/plugins_tab.rs:627
 msgid "No plugin is switched on."
 msgstr "Tidak ada plugin yang aktif."
 
-#: rust/crates/shell/src/plugins_tab.rs:628
+#: rust/crates/shell/src/plugins_tab.rs:636
 msgid "Downloading the vision pack"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:629
+#: rust/crates/shell/src/plugins_tab.rs:637
 #, python-brace-format
 msgid "This one-time download (about {mb} MB) is shared by every plugin that finds people in the picture."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:630
+#: rust/crates/shell/src/plugins_tab.rs:638
 msgid "Switch on a plugin that needs the vision pack to try again."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:633
+#: rust/crates/shell/src/plugins_tab.rs:641
 msgid "Downloading the high quality cutout"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:634
+#: rust/crates/shell/src/plugins_tab.rs:642
 #, python-brace-format
 msgid "This one-time download (about {mb} MB) gives the Background cutout cleaner edges."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:635
+#: rust/crates/shell/src/plugins_tab.rs:643
 msgid "Press Download under High quality cutout in Background to try again."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:643
+#: rust/crates/shell/src/plugins_tab.rs:651
 #, python-brace-format
 msgid "Switches are back as they were. {n} other change still needs a restart"
 msgid_plural "Switches are back as they were. {n} other changes still need a restart"
 msgstr[0] ""
 
-#: rust/crates/shell/src/plugins_tab.rs:645
+#: rust/crates/shell/src/plugins_tab.rs:653
 #, python-brace-format
 msgid "Restart to apply {n} change"
 msgid_plural "Restart to apply {n} changes"
 msgstr[0] "Mulai ulang untuk menerapkan {n} perubahan"
 
-#: rust/crates/shell/src/plugins_tab.rs:650
+#: rust/crates/shell/src/plugins_tab.rs:658
 #, python-brace-format
 msgid "Plugins ({n} off)"
 msgstr "Plugin ({n} nonaktif)"
 
-#: rust/crates/shell/src/plugins_tab.rs:672
+#: rust/crates/shell/src/plugins_tab.rs:680
 #, python-brace-format
 msgid "Remove {plugin}?"
 msgstr "Ingin menghapus {plugin}?"
 
-#: rust/crates/shell/src/plugins_tab.rs:673
+#: rust/crates/shell/src/plugins_tab.rs:681
 #, python-brace-format
 msgid "The plugin's folder ({folder}) is deleted from the plugins folder. To use the plugin again, add it again."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:677
+#: rust/crates/shell/src/plugins_tab.rs:685
 msgid "Remove the download?"
 msgstr "Ingin menghapus unduhan?"
 
-#: rust/crates/shell/src/plugins_tab.rs:678
+#: rust/crates/shell/src/plugins_tab.rs:686
 #, python-brace-format
 msgid "Frees about {mb} MB. Switching on an optional plugin downloads the files again."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:687
+#: rust/crates/shell/src/plugins_tab.rs:695
 msgid "Install plugin updates without asking?"
 msgstr "Ingin menginstal pembaruan plugin tanpa bertanya?"
 
-#: rust/crates/shell/src/plugins_tab.rs:688
+#: rust/crates/shell/src/plugins_tab.rs:696
 msgid ""
 "Telescope will install new versions of the plugins you switched on and switch them on too, without showing them to you first.\n"
 "\n"
@@ -7337,94 +7337,102 @@ msgstr ""
 "\n"
 "Siapa pun yang mengontrol repo plugin di GitHub (pembuatnya, atau siapa pun yang dapat mengakses akun mereka) dapat menjalankan kode baru di komputer ini setiap kali mereka memublikasikan rilis. Hanya aktifkan opsi ini jika Anda memercayai mereka semua."
 
-#: rust/crates/shell/src/plugins_tab.rs:694
+#: rust/crates/shell/src/plugins_tab.rs:702
 msgid "Restart Telescope now?"
 msgstr "Ingin mulai ulang Telescope sekarang?"
 
-#: rust/crates/shell/src/plugins_tab.rs:694
+#: rust/crates/shell/src/plugins_tab.rs:702
 msgid "Streaming stops while Telescope restarts. Restarting takes a few seconds."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:708
+#: rust/crates/shell/src/plugins_tab.rs:716
 #, python-brace-format
 msgid "Switch on {plugin}?"
 msgstr "Ingin mengaktifkan {plugin}?"
 
-#: rust/crates/shell/src/plugins_tab.rs:709
+#: rust/crates/shell/src/plugins_tab.rs:717
 msgid "A plugin can do anything on your computer. Only switch it on if you trust its source."
 msgstr "Plugin dapat melakukan apa saja di komputer Anda. Hanya aktifkan jika Anda mempercayai sumbernya."
 
-#: rust/crates/shell/src/plugins_tab.rs:711 rust/crates/shell/src/plugins_tab.rs:732
+#: rust/crates/shell/src/plugins_tab.rs:719 rust/crates/shell/src/plugins_tab.rs:740
 #, python-brace-format
 msgid "Switch off {plugin}?"
 msgstr "Ingin menonaktifkan {plugin}?"
 
-#: rust/crates/shell/src/plugins_tab.rs:712
+#: rust/crates/shell/src/plugins_tab.rs:720
 msgid "Without the plugin, what it added to Telescope is gone. The plugin's settings stay saved for when you switch it back on."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:712 rust/crates/shell/src/plugins_tab.rs:732
+#: rust/crates/shell/src/plugins_tab.rs:720 rust/crates/shell/src/plugins_tab.rs:740
 msgid "Switch off"
 msgstr "Nonaktifkan"
 
-#: rust/crates/shell/src/plugins_tab.rs:719
+#: rust/crates/shell/src/plugins_tab.rs:727
 #, python-brace-format
 msgid "Download about {mb} MB?"
 msgstr "Ingin mengunduh sekitar {mb} MB?"
 
-#: rust/crates/shell/src/plugins_tab.rs:720
+#: rust/crates/shell/src/plugins_tab.rs:728
 #, python-brace-format
 msgid "{plugin} uses MediaPipe to find people in the picture. The files are a separate download from Telescope's releases on GitHub, shared by the other optional plugins."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:721
+#: rust/crates/shell/src/plugins_tab.rs:729
 msgid "Download and switch on"
 msgstr "Unduh dan aktifkan"
 
-#: rust/crates/shell/src/plugins_tab.rs:731
+#: rust/crates/shell/src/plugins_tab.rs:739
 msgid "Its settings stay saved for when you switch it back on."
 msgstr "Pengaturannya tetap tersimpan untuk saat Anda mengaktifkannya kembali."
 
-#: rust/crates/shell/src/plugins_tab.rs:746
+#: rust/crates/shell/src/plugins_tab.rs:750
+msgid "This is the vision pack, not a plugin. It's being checked and installed in the background, and the download banner shows how it goes."
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:756
+msgid "The vision pack is already downloading or installing, so this file wasn't used. Try again when it's done."
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:769
 #, python-brace-format
 msgid "Replace {plugin}?"
 msgstr "Ingin mengganti {plugin}?"
 
-#: rust/crates/shell/src/plugins_tab.rs:747
+#: rust/crates/shell/src/plugins_tab.rs:770
 msgid "The version in this .zip replaces the installed version and keeps its settings. Like any added plugin, it starts switched off."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:759
+#: rust/crates/shell/src/plugins_tab.rs:782
 #, python-brace-format
 msgid "{plugin} was installed, but it can't run yet. {problem}"
 msgstr "{plugin} telah diinstal, tetapi belum dapat dijalankan. {problem}"
 
-#: rust/crates/shell/src/plugins_tab.rs:761
+#: rust/crates/shell/src/plugins_tab.rs:784
 #, python-brace-format
 msgid "{plugin} {version} is installed but switched off. To use it, switch it on again and restart Telescope."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:763
+#: rust/crates/shell/src/plugins_tab.rs:786
 #, python-brace-format
 msgid "{plugin} is installed but switched off. To use it, switch it on and restart Telescope."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:773
+#: rust/crates/shell/src/plugins_tab.rs:796
 #, python-brace-format
 msgid "Telescope couldn't save the change: {error}"
 msgstr "Telescope tidak dapat menyimpan perubahan: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:820
+#: rust/crates/shell/src/plugins_tab.rs:843
 #, python-brace-format
 msgid "Telescope couldn't delete its folder: {error}"
 msgstr "Telescope tidak dapat menghapus foldernya: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:828
+#: rust/crates/shell/src/plugins_tab.rs:851
 #, python-brace-format
 msgid "Telescope couldn't delete it: {error}"
 msgstr "Telescope tidak dapat menghapusnya: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:865
+#: rust/crates/shell/src/plugins_tab.rs:888
 #, python-brace-format
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr "Telescope tidak dapat membuat folder plugin-nya: {error}"
@@ -8858,7 +8866,7 @@ msgstr ""
 msgid "Couldn't check for updates (HTTP {code})."
 msgstr "Tidak dapat memeriksa pembaruan (HTTP {code})."
 
-#: rust/crates/system/src/updates.rs:239 rust/crates/vision/src/pack.rs:299
+#: rust/crates/system/src/updates.rs:239 rust/crates/vision/src/pack.rs:340
 msgid "The download failed. Check the internet connection and try again."
 msgstr "Unduhan gagal. Periksa koneksi internet dan coba lagi."
 
@@ -8874,7 +8882,7 @@ msgstr "Telescope tidak dapat memperbarui dirinya karena folder tempat AppImage 
 msgid "Telescope's folder isn't writable, so it can't update itself."
 msgstr "Folder Telescope tidak dapat ditulisi, sehingga tidak dapat memperbarui dirinya sendiri."
 
-#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:348
+#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:389
 msgid "The download couldn't be unpacked."
 msgstr "Unduhan tidak dapat diekstrak."
 
@@ -9346,27 +9354,35 @@ msgstr "Sematkan ke bilah bawah"
 msgid "Add keyboard shortcut…"
 msgstr "Tambahkan pintasan keyboard…"
 
-#: rust/crates/vision/src/pack.rs:248
-msgid "There's no download for this computer yet."
-msgstr "Belum ada unduhan untuk komputer ini."
-
-#: rust/crates/vision/src/pack.rs:262
-msgid "Cancelled."
-msgstr "Dibatalkan."
-
-#: rust/crates/vision/src/pack.rs:270
-msgid "The download is bigger than it should be."
-msgstr "Ukuran unduhan lebih besar dari yang seharusnya."
-
-#: rust/crates/vision/src/pack.rs:278
+#: rust/crates/vision/src/pack.rs:237
 msgid "The download didn't match what this version of Telescope expects, so it wasn't used."
 msgstr "Unduhan tidak sesuai dengan yang diharapkan versi Telescope ini, sehingga tidak digunakan."
 
-#: rust/crates/vision/src/pack.rs:349
+#: rust/crates/vision/src/pack.rs:261
+msgid "There's no vision pack for this computer."
+msgstr ""
+
+#: rust/crates/vision/src/pack.rs:274
+msgid "The vision pack couldn't be installed."
+msgstr ""
+
+#: rust/crates/vision/src/pack.rs:299
+msgid "There's no download for this computer yet."
+msgstr "Belum ada unduhan untuk komputer ini."
+
+#: rust/crates/vision/src/pack.rs:313
+msgid "Cancelled."
+msgstr "Dibatalkan."
+
+#: rust/crates/vision/src/pack.rs:321
+msgid "The download is bigger than it should be."
+msgstr "Ukuran unduhan lebih besar dari yang seharusnya."
+
+#: rust/crates/vision/src/pack.rs:390
 msgid "The download unpacks to more than it should, so it wasn't used."
 msgstr "Hasil ekstrak unduhan melebihi ukuran seharusnya, sehingga tidak digunakan."
 
-#: rust/crates/vision/src/pack.rs:358
+#: rust/crates/vision/src/pack.rs:399
 msgid "The download contains unexpected paths, so it wasn't used."
 msgstr "Unduhan berisi jalur yang tidak terduga, sehingga tidak digunakan."
 
@@ -9560,7 +9576,7 @@ msgstr "Pembaruan berisi file yang tidak terduga, sehingga tidak diinstal."
 msgid "The download doesn't contain Telescope, so it wasn't installed."
 msgstr "Unduhan tidak memuat Telescope, sehingga tidak diinstal."
 
-#: rust/crates/shell/src/plugins_tab.rs:761
+#: rust/crates/shell/src/plugins_tab.rs:784
 msgid "Replaced"
 msgstr "Diganti"
 

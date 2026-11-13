@@ -463,7 +463,7 @@ mod real {
             crate::win::system_dir()
         }
         fn open_url(&self, url: &str, timeout: Duration) -> std::io::Result<Box<dyn Read>> {
-            let agent: ureq::Agent = ureq::Agent::config_builder().timeout_global(Some(timeout)).build().into();
+            let agent: ureq::Agent = ureq::Agent::config_builder().timeout_resolve(Some(timeout)).timeout_connect(Some(timeout)).timeout_send_request(Some(timeout)).timeout_recv_response(Some(timeout)).timeout_per_read(Some(timeout)).build().into();
             let response = agent.get(url).call().map_err(std::io::Error::other)?;
             Ok(Box::new(response.into_body().into_reader()))
         }

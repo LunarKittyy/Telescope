@@ -12,6 +12,7 @@ pub const SEGMENTER_MODEL: &str = "selfie_segmenter_landscape.tflite";
 pub const POSE_MODEL: &str = "pose_landmarker_lite.task";
 /// Written last, holding the pack's id: a folder without it is a download that didn't finish.
 pub const DONE: &str = ".verified";
+/// How long connecting, the server's answer and each wait for more bytes may take: it bounds a dead connection, never the whole download.
 const TIMEOUT: Duration = Duration::from_secs(30);
 /// Zips of the same files can come out a little bigger on another machine's zlib.
 const SLACK: f64 = 1.1;
@@ -64,8 +65,11 @@ pub fn matting_dir() -> PathBuf {
 }
 
 fn dir_for(kind: Kind) -> PathBuf {
-    let folder = kind.asset();
-    let env = |name: &str| std::env::var_os(name).filter(|v| !v.is_empty());
+    dir_in(kind.asset(), &|name| std::env::var_os(name).filter(|v| !v.is_empty()))
+}
+
+/// dir_for with the environment passed in: a dev profile keeps its packs in its own folder, so a dev run never touches the real ones.
+fn dir_in(folder: &str, env: &dyn Fn(&str) -> Option<std::ffi::OsString>) -> PathBuf {
     if let Some(dev) = env(telescope_core::config::DEV_PROFILE_ENV) {
         return PathBuf::from(dev).join(folder);
     }
@@ -217,12 +221,59 @@ pub fn web(url: &str, timeout: Duration) -> io::Result<Box<dyn Read>> {
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .tls_config(tls)
         .https_only(true)
-        .timeout_global(Some(timeout))
+        // Not timeout_global: that capped the whole download, so anything slower than ~7.5 Mbit/s failed. A stall times out instead
+        .timeout_resolve(Some(timeout)).timeout_connect(Some(timeout)).timeout_send_request(Some(timeout)).timeout_recv_response(Some(timeout)).timeout_per_read(Some(timeout))
         .user_agent(format!("Telescope/{}", telescope_core::version::version()))
         .build()
         .into();
     let response = agent.get(url).call().map_err(io::Error::other)?;
     Ok(Box::new(response.into_body().into_reader()))
+}
+
+/// Unpacks the archive into staging, checks it against the pack's id and moves it to its folder.
+fn place(archive: &Path, staging: &Path, vision_dir: &Path, id: &str, pid: &str, max_unpacked: u64) -> Result<PathBuf, Failed> {
+    unpack(archive, staging, max_unpacked)?;
+    if tree_hash(staging)? != id {
+        return Err(Failed::Pack(PackError(tr("The download didn't match what this version of Telescope expects, so it wasn't used."))));
+    }
+    std::fs::write(staging.join(DONE), pid)?;
+    let last = vision_dir.join(pid);
+    if last.exists() {
+        std::fs::remove_dir_all(&last)?;
+    }
+    std::fs::rename(staging, &last)?;
+    Ok(last)
+}
+
+/// Which pack a file name is the zip of (Telescope-vision-<platform>-<id>.zip or Telescope-matting-...), as a browser may have renamed it.
+pub fn pack_zip_kind(name: &str) -> Option<Kind> {
+    let lower = name.to_ascii_lowercase();
+    if !lower.ends_with(".zip") {
+        return None;
+    }
+    [Kind::Vision, Kind::Matting].into_iter().find(|k| lower.starts_with(&format!("telescope-{}-", k.asset())))
+}
+
+/// Install a pack zip the person already has (downloaded from the release by hand) through the same unpack and hash check as the
+/// download, so only this version's pack is accepted; older packs go.
+pub fn install_zip(info: &PackInfo, vision_dir: &Path, archive: &Path) -> Result<PathBuf, PackError> {
+    let (Some(id), Some(pid)) = (info.id.clone(), info.pack_id()) else {
+        return Err(PackError(tr("There's no vision pack for this computer.")));
+    };
+    let staging = vision_dir.join(format!(".{pid}.unpacking"));
+    let result = std::fs::create_dir_all(vision_dir).map_err(Failed::from).and_then(|_| place(archive, &staging, vision_dir, &id, &pid, MAX_UNPACKED));
+    let _ = std::fs::remove_dir_all(&staging);
+    match result {
+        Ok(last) => {
+            let _ = prune(vision_dir, &pid);
+            Ok(last)
+        }
+        Err(Failed::Pack(e)) => Err(e),
+        Err(Failed::Io(e)) => {
+            log::warn!("Vision pack install failed: {e}");
+            Err(PackError(tr("The vision pack couldn't be installed.")))
+        }
+    }
 }
 
 enum Failed {
@@ -239,11 +290,11 @@ impl From<io::Error> for Failed {
 /// Download this version's pack, check it and unpack it; older packs go.
 pub fn download(info: &PackInfo, vision_dir: &Path, progress: &mut dyn FnMut(u64, u64), cancelled: &dyn Fn() -> bool,
                 opener: Opener, url: Option<&str>) -> Result<PathBuf, PackError> {
-    download_capped(info, vision_dir, progress, cancelled, opener, url, MAX_UNPACKED)
+    download_capped(info, vision_dir, progress, cancelled, opener, url, MAX_UNPACKED, TIMEOUT)
 }
 
 fn download_capped(info: &PackInfo, vision_dir: &Path, progress: &mut dyn FnMut(u64, u64), cancelled: &dyn Fn() -> bool,
-                   opener: Opener, url: Option<&str>, max_unpacked: u64) -> Result<PathBuf, PackError> {
+                   opener: Opener, url: Option<&str>, max_unpacked: u64, timeout: Duration) -> Result<PathBuf, PackError> {
     let (Some(id), Some(name), Some(pid)) = (info.id.clone(), info.asset_name(), info.pack_id()) else {
         return Err(PackError(tr("There's no download for this computer yet.")));
     };
@@ -253,7 +304,7 @@ fn download_capped(info: &PackInfo, vision_dir: &Path, progress: &mut dyn FnMut(
     let staging = vision_dir.join(format!(".{pid}.unpacking"));
     let mut run = || -> Result<PathBuf, Failed> {
         std::fs::create_dir_all(vision_dir)?;
-        let mut r = opener(&url, TIMEOUT)?;
+        let mut r = opener(&url, timeout)?;
         let mut f = std::fs::File::create(&archive)?;
         let mut buf = vec![0u8; CHUNK];
         let mut done = 0u64;
@@ -273,24 +324,14 @@ fn download_capped(info: &PackInfo, vision_dir: &Path, progress: &mut dyn FnMut(
             progress(done, size);
         }
         drop(f);
-        unpack(&archive, &staging, max_unpacked)?;
-        if tree_hash(&staging)? != id {
-            return Err(Failed::Pack(PackError(tr("The download didn't match what this version of Telescope expects, so it wasn't used."))));
-        }
-        std::fs::write(staging.join(DONE), &pid)?;
-        let last = vision_dir.join(&pid);
-        if last.exists() {
-            std::fs::remove_dir_all(&last)?;
-        }
-        std::fs::rename(&staging, &last)?;
-        Ok(last)
+        place(&archive, &staging, vision_dir, &id, &pid, max_unpacked)
     };
     let result = run();
     let _ = std::fs::remove_file(&archive);
     let _ = std::fs::remove_dir_all(&staging);
     match result {
         Ok(last) => {
-            let _ = remove(vision_dir, Some(&pid));
+            let _ = prune(vision_dir, &pid);
             Ok(last)
         }
         Err(Failed::Pack(e)) => Err(e),
@@ -383,7 +424,7 @@ fn unpack_into(archive: &Path, staging: &Path, max_bytes: u64) -> Result<(), Fai
     Ok(())
 }
 
-/// Delete the packs (and leftovers of unfinished downloads), all but keep.
+/// Delete the packs and leftovers of unfinished downloads, all but keep.
 pub fn remove(vision_dir: &Path, keep: Option<&str>) -> Result<(), String> {
     let Ok(entries) = std::fs::read_dir(vision_dir) else { return Ok(()) };
     let mut failed = Ok(());
@@ -392,6 +433,28 @@ pub fn remove(vision_dir: &Path, keep: Option<&str>) -> Result<(), String> {
             continue;
         }
         let path = entry.path();
+        let gone = if path.is_dir() { std::fs::remove_dir_all(&path) } else { std::fs::remove_file(&path) };
+        if let Err(e) = gone {
+            log::warn!("Couldn't remove {}", path.display());
+            failed = Err(e.to_string());
+        }
+    }
+    failed
+}
+
+/// After an install or download: delete older packs and leftovers of unfinished downloads, but only what Telescope makes itself (a pack
+/// folder is named by 16 hex characters). Anything else in the folder, such as a zip the person chose to install, stays.
+fn prune(vision_dir: &Path, keep: &str) -> Result<(), String> {
+    let Ok(entries) = std::fs::read_dir(vision_dir) else { return Ok(()) };
+    let mut failed = Ok(());
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        let path = entry.path();
+        let is_pack = path.is_dir() && name.len() == 16 && name.chars().all(|c| c.is_ascii_hexdigit());
+        let is_temp = name.starts_with('.') && (name.ends_with(".zip.part") || name.ends_with(".unpacking"));
+        if name == keep || !(is_pack || is_temp) {
+            continue;
+        }
         let gone = if path.is_dir() { std::fs::remove_dir_all(&path) } else { std::fs::remove_file(&path) };
         if let Err(e) = gone {
             log::warn!("Couldn't remove {}", path.display());

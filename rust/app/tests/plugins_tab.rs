@@ -18,7 +18,7 @@ use telescope_core::config::ConfigFile;
 use telescope_core::plugin::{Plugin, PluginInfo};
 use telescope_core::plugin_admin::{AddedPlugin, InstallFailure, NewerRelease, PluginAdmin, AUTO_UPDATE, CHECK_UPDATES};
 use telescope_core::testing::scratch_dir;
-use telescope_core::vision::{VisionPack, VisionService};
+use telescope_core::vision::{PackZip, VisionPack, VisionService};
 use telescope_plugin_host::admin::Admin;
 use telescope_plugin_host::package::PluginFolder;
 use telescope_plugin_host::switches::Switches;
@@ -98,6 +98,14 @@ impl Download for FakeDownload {
             self.ready.set(true);
             self.admin.set_optional_on(switch_on, true).unwrap();
         }
+    }
+    fn install_pack_zip(&self, archive: &Path) -> PackZip {
+        let name = archive.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        if !name.starts_with("Telescope-vision-") { return PackZip::NotPack; }
+        // A file with "busy" in its name stands for a download that's already running
+        if name.contains("busy") { return PackZip::Busy; }
+        if self.error.is_empty() { self.ready.set(true); }
+        PackZip::Started
     }
     fn remove(&self) -> Result<(), String> {
         self.removed.set(self.removed.get() + 1);
@@ -618,6 +626,27 @@ fn installing_a_plugin_thats_there_asks_then_replaces_it() {
     assert!(note.kind == NoticeKind::Info && note.title == "Replaced" && note.text.contains("Extra 1.1"));
     assert!(!tile(&r.panel, "Extra 1.1").on);
     assert!(!labels(&r.panel).contains(&"Restart required".to_string()) && r.panel.pending_changes() == 1); // the old one still runs
+}
+
+#[test]
+fn a_vision_pack_zip_given_to_install_goes_to_the_vision_pack_not_the_plugins() {
+    let mut r = rig(builtins(), &all_running());
+    let pack = r.root.join("Telescope-vision-windows-0123456789abcdef.zip");
+    fs::write(&pack, "x").unwrap();
+    let outcome = r.panel.run(Request::Install { path: pack }, &mut yes);
+    assert_eq!(outcome.notices[0].title, "Installing the vision pack");
+    assert!(r.download.ready.get());
+}
+
+#[test]
+fn a_vision_pack_zip_while_the_pack_is_downloading_says_it_was_not_used() {
+    let mut r = rig(builtins(), &all_running());
+    let pack = r.root.join("Telescope-vision-busy-windows-0123456789abcdef.zip");
+    fs::write(&pack, "x").unwrap();
+    let outcome = r.panel.run(Request::Install { path: pack }, &mut yes);
+    let note = &outcome.notices[0];
+    assert!(note.kind == NoticeKind::Warning && note.text.contains("already downloading") && note.text.contains("Try again"), "{}", note.text);
+    assert!(!r.download.ready.get());
 }
 
 #[test]
