@@ -60,13 +60,12 @@ component SatPad inherits Rectangle {
     accessible-value: Math.round(shown-s * 100) + "%, " + Math.round(shown-v * 100) + "%";
     forward-focus: focus;
     // The colour at full brightness, white to it across, then black over it going down
+    // Both layers are square inside one rounded clip, so no corner of the lighter one shows past the darker one
     Rectangle {
         border-radius: Theme.r-ctl;
-        background: @linear-gradient(90deg, #ffffff 0%, Hues.full(h) 100%);
-    }
-    Rectangle {
-        border-radius: Theme.r-ctl;
-        background: @linear-gradient(180deg, #00000000 0%, #000000 100%);
+        clip: true;
+        Rectangle { background: @linear-gradient(90deg, #ffffff 0%, Hues.full(h) 100%); }
+        Rectangle { background: @linear-gradient(180deg, #00000000 0%, #000000 100%); }
     }
     focus := FocusScope {
         key-pressed(e) => {
