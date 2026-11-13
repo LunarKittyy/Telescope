@@ -23,7 +23,8 @@ export struct TileView {
     name: string,
     title: string,
     about: string,
-    icon: image,
+    // The name a plugin gives (Icons.named picks the picture, the same table everywhere)
+    icon: string,
     hue: color,
     on: bool,
     locked: bool,
@@ -301,7 +302,7 @@ component PluginRow inherits Rectangle {
     Tip { says: tile.title; detail: tile.about; hint: lines(lines(lines(tile.byline, tile.badges.length > 0 ? tile.badges[0].text : ""), tile.note), tile.tooltip); inert: true; }
     lay := RailRow {
         width: parent.width;
-        icon: tile.icon;
+        icon: Icons.named(tile.icon);
         label: tile.title;
         named: true;
         // The row carries the marker itself (its description, the whole row)
