@@ -487,6 +487,7 @@ export component PluginsFooter inherits Rectangle {
     in property <string> note;
     in property <float> amount: 1;
     callback restart;
+    callback revert;
     height: Theme.u(27);
     border-radius: Theme.r-card;
     background: Theme.warn;
@@ -501,6 +502,14 @@ export component PluginsFooter inherits Rectangle {
         padding-bottom: Theme.u(5);
         spacing: Theme.u(6);
         Text { horizontal-stretch: 1; text: note; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; color: Theme.stage; vertical-alignment: center; }
+        Button {
+            text: @tr("Revert");
+            role: "quiet";
+            enabled: root.amount >= 1;
+            clicked => { root.revert(); }
+            tip: @tr("Revert");
+            tip-detail: @tr("Put the plugins back the way they are in the running app, so nothing needs a restart.");
+        }
         Button {
             text: @tr("Restart now");
             enabled: root.amount >= 1;

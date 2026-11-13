@@ -186,3 +186,22 @@ fn the_restart_bar_opens_and_shuts_with_the_page_moving_with_it() {
     assert!(labelled(&s.ui, "Restart now").is_empty(), "the bar is gone once it has shut");
     settings::forget();
 }
+
+// Revert on the restart bar puts every switch that waits on a restart back, and the bar has nothing left to ask for.
+#[test]
+fn revert_puts_the_waiting_switches_back_and_the_bar_goes() {
+    let (w, dir) = built("plugins-tab-revert");
+    settings::open(&w, "plugins");
+    let s = settings::current().unwrap();
+    let switch = labelled(&s.ui, "Presets").into_iter().find(|e| e.accessible_checkable() == Some(true)).expect("a switch named Presets");
+    switch.invoke_accessible_default_action();
+    s.ui.invoke("answered", &[Value::Bool(true)]).unwrap();
+    assert_eq!(s.ui.get_property("footer-shown").unwrap(), Value::Bool(true));
+    s.ui.invoke("revert", &[]).unwrap();
+    assert_eq!(s.ui.get_property("footer-shown").unwrap(), Value::Bool(false));
+    let saved = ConfigFile::at(dir.join(CONFIG_FILENAME)).load();
+    assert!(saved.pointer("/plugins/off").is_none_or(|o| o.as_array().is_some_and(|a| a.is_empty())), "{saved}");
+    let switch = labelled(&s.ui, "Presets").into_iter().find(|e| e.accessible_checkable() == Some(true)).unwrap();
+    assert_eq!(switch.accessible_checked(), Some(true));
+    settings::forget();
+}

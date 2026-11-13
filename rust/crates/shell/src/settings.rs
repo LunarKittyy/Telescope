@@ -623,6 +623,7 @@ impl Settings {
         });
         cb(self, "answered", |s, a| s.answered(matches!(a.first(), Some(SValue::Bool(true)))));
         cb(self, "all-on", |s, _| s.request(Request::AllOn));
+        cb(self, "revert", |s, _| s.request(Request::Revert));
         cb(self, "restart", |s, _| {
             let streaming = s.window.upgrade().is_some_and(|w| w.is_streaming());
             s.request(Request::Restart { streaming });
