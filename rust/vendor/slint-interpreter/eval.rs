@@ -694,12 +694,13 @@ fn eval_constant_expression(expr: &ConstantExpression) -> Value {
                 (sub, _) => panic!("unsupported {op} {sub:?}"),
             }
         }
-        ConstantExpression::Struct { values, .. } => Value::Struct(
-            values
-                .iter()
-                .map(|(k, v)| (k.to_string(), eval_constant_expression(v)))
-                .collect::<crate::api::Struct>(),
-        ),
+        ConstantExpression::Struct { values, .. } => {
+            Value::Struct(crate::api::Struct::from_unique_normalized(
+                values
+                    .iter()
+                    .map(|(k, v)| (crate::api::Struct::key_of(k), eval_constant_expression(v))),
+            ))
+        }
         ConstantExpression::Array { values, .. } => {
             Value::Model(ModelRc::new(SharedVectorModel::from(
                 values.iter().map(eval_constant_expression).collect::<SharedVector<_>>(),
@@ -922,9 +923,10 @@ pub fn eval_expression(ctx: &mut EvalContext, expression: &Expression) -> Value 
         Expression::Array { values, .. } => Value::Model(ModelRc::new(SharedVectorModel::from(
             values.iter().map(|e| eval_expression(ctx, e)).collect::<SharedVector<_>>(),
         ))),
-        Expression::Struct { values, .. } => Value::Struct(
-            values.iter().map(|(k, v)| (k.to_string(), eval_expression(ctx, v))).collect(),
-        ),
+        // Telescope patch: the compiler's field names are all different and normalized, so no String, no hashing
+        Expression::Struct { values, .. } => Value::Struct(crate::api::Struct::from_unique_normalized(
+            values.iter().map(|(k, v)| (crate::api::Struct::key_of(k), eval_expression(ctx, v))),
+        )),
         Expression::EasingCurve(curve) => {
             use i_slint_compiler::expression_tree::EasingCurve as EC;
             use i_slint_core::animations::EasingCurve as Core;
