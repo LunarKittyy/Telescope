@@ -178,7 +178,7 @@ export component Slider inherits HorizontalLayout {
         // Held: the finger or key is on it, and it takes its full colour
         property <bool> held: dragging && touch.pressed;
         // The colour under the handle: the card's, or the gradient's at that spot
-        property <color> under: Fills.colours-handle(fill) ? Fills.at(fill, fraction, grad-a, grad-b, grad-c) : hue;
+        property <color> under: Fills.colours-handle(fill) ? (fill == "edges" ? Fills.edge-at(grad-a, grad-b, fraction, fraction, track.width, Theme.track, inset) : Fills.at(fill, fraction, grad-a, grad-b, grad-c)) : hue;
         property <float> target: (shown - minimum) / max(0.0001, maximum - minimum);
         // Where the handle is drawn: it glides to a value that something other than the person changed
         property <float> fraction: glide.value;
