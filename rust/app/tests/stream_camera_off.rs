@@ -456,3 +456,52 @@ fn a_camera_off_stream_on_an_extra_camera_gets_its_wait_screen() {
     assert!(!idle(&r).contains(&1), "the camera has it back: {}", r.idle_outputs());
     assert!(count(&screens.stopped) > stops);
 }
+
+#[test]
+fn the_mic_switched_on_from_its_card_enables_the_camera_button_at_once() {
+    let r = previewing("camera-mic-card", false);
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    assert!(!r.flag("p0-camera-enabled"));
+    {
+        let mut state = r.w.state.borrow_mut();
+        let mic = state.index("microphone").unwrap();
+        state.slots[mic].plugin.as_mut().unwrap().set_config(&json!({"enabled": true})).unwrap();
+    }
+    // A card's callback delivers its events straight away, before the window reads the camera again
+    r.w.state.borrow_mut().bus.emit(Event::MicChanged { enabled: true, muted: false });
+    r.w.state.borrow_mut().deliver_events();
+    r.w.process();
+    r.pump();
+    assert!(r.flag("p0-camera-enabled"), "the button stayed disabled with the mic on");
+}
+
+#[test]
+fn the_preview_button_follows_the_camera_off_and_on_with_the_mic_running() {
+    let r = previewing("camera-button-cycle", true);
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    assert!(r.flag("p0-camera-enabled") && r.flag("p0-camera-on"));
+    r.w.set_camera_on(false, false);
+    r.pump();
+    assert!(r.flag("p0-camera-enabled") && !r.flag("p0-camera-on"), "off stays clickable so the camera can come back");
+    r.w.set_camera_on(true, false);
+    r.pump();
+    assert!(r.flag("p0-camera-enabled") && r.flag("p0-camera-on"));
+    assert_eq!(r.streaming(), ["pixel"]);
+    assert!(r.source("pixel").session().unwrap().worker.is_some());
+}
+
+#[test]
+fn the_preview_button_follows_a_second_camera_starting() {
+    let r = previewing("camera-button-two", true);
+    r.start();
+    r.worker(0).says("ok", "Streaming");
+    r.pump();
+    assert!(r.flag("p0-camera-enabled"));
+    r.add("oneplus");
+    r.pump();
+    assert!(!r.flag("p0-camera-enabled"), "only while one camera streams");
+}

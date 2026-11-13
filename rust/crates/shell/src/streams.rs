@@ -312,14 +312,21 @@ impl Window {
     }
 
     /// What the camera can do now, as plugins read it, and the Start button that goes with it.
-    pub(crate) fn sync_camera(self: &Rc<Self>) {
-        let Ok(flow) = self.streams.flow.try_borrow() else { return };
+    /// True when whether the camera can go off changed: the Preview drew its button from the old answer, so it draws again.
+    pub(crate) fn sync_camera(self: &Rc<Self>) -> bool {
+        let Ok(flow) = self.streams.flow.try_borrow() else { return false };
+        let before = self.state.borrow().streams.can_turn_off.clone();
         let off = self.camera_snapshot(&flow);
         let idle = flow.sessions.streams.is_empty() && !flow.sessions.waking;
         drop(flow);
         if self.streams.idle_camera_off.replace(off) != off && idle {
             self.show_idle_button();
         }
+        let changed = self.state.borrow().streams.can_turn_off != before;
+        if changed {
+            self.state.borrow_mut().deliver_to("preview", &Event::CameraOnChanged { on: !off });
+        }
+        changed
     }
 
     /// What plugins read about the camera, as the flow has it now; whether it's off.

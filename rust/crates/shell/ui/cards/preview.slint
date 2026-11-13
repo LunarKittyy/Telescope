@@ -245,9 +245,9 @@ export component PreviewCard inherits Rectangle {
                     icon: camera-on ? Icons.camera : Icons.camera-off;
                     name: @tr("Device camera");
                     hue: Theme.plugin-hue("preview");
-                    checked: !camera-on;
+                    checked: camera-on;
                     enabled: camera-enabled;
-                    tip: @tr("Camera");
+                    tip: camera-on ? @tr("Camera on") : @tr("Camera off");
                     tip-detail: camera-tip;
                     shortcut: "streaming.camera";
                     toggled(on) => { root.camera-clicked(); }
