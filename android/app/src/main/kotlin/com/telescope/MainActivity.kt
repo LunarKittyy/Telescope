@@ -673,15 +673,17 @@ class MainActivity : LookActivity() {
             // The camera stays on while the computer reconnects; say so rather than claim it's getting video.
             val viewed = service?.hasViewer == true
             val taken = service?.cameraTaken == true
+            val tooHot = service?.heatPaused == true
             tvStatus.setText(when {
+                tooHot -> R.string.status_too_hot
                 taken -> R.string.status_camera_taken
                 !viewed -> R.string.status_waiting_for_computer
                 service?.cameraOff == true -> R.string.status_mic_only
                 else -> R.string.status_streaming
             })
-            val tone = if (viewed && !taken) R.attr.tsOk else R.attr.tsWarn
+            val tone = if (viewed && !taken && !tooHot) R.attr.tsOk else R.attr.tsWarn
             tvStatus.setTextColor(attrColor(tone))
-            showStatusDetail(if (viewed && !taken) statusDetail() else emptyList(), tone)
+            showStatusDetail(if (viewed && !taken && !tooHot) statusDetail() else emptyList(), tone)
         } else {
             tvStatus.setText(if (busy) R.string.status_starting else R.string.status_not_streaming)
             tvStatus.setTextColor(attrColor(R.attr.tsInk2))

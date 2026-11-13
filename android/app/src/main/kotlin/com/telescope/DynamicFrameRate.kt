@@ -88,14 +88,21 @@ object HeatStep {
         return RUNGS.filter { it <= limit && canCapAt(it) }.maxOrNull()
     }
 
-    // At critical the picture drops to this (its short side), on top of the frame rate
+    // The picture drops to this (its short side) once the rate has nowhere lower to go
     const val CRITICAL_SHORT_SIDE = 720
 
-    /** The size to stream at for this status instead of [asked], or null when it needn't change: at critical, the largest
-     *  of [sizes] with the same shape whose short side is at most [CRITICAL_SHORT_SIDE] (and [fits], for Light). */
-    fun size(status: Int, asked: Pair<Int, Int>, sizes: List<Pair<Int, Int>>,
+    /** Whether the stream is held back entirely: from critical up, and then until it has cooled to severe (the rate
+     *  and size caps carry on from there, and lift as it cools further), so it doesn't flip at the edge. */
+    fun paused(status: Int, wasPaused: Boolean): Boolean =
+        if (wasPaused) status > SEVERE else status >= CRITICAL
+
+    /** The size to stream at for this status instead of [asked], or null when it needn't change: when it's hot (severe up)
+     *  and the rate has no lower step left ([fpsLeft] false), or at critical, the largest of [sizes] with the same shape
+     *  whose short side is at most [CRITICAL_SHORT_SIDE] (and [fits], for Light). */
+    fun size(status: Int, asked: Pair<Int, Int>, sizes: List<Pair<Int, Int>>, fpsLeft: Boolean = true,
              fits: (Int, Int) -> Boolean = { _, _ -> true }): Pair<Int, Int>? {
-        if (status < CRITICAL || minOf(asked.first, asked.second) <= CRITICAL_SHORT_SIDE) return null
+        val hot = status >= CRITICAL || (status >= SEVERE && !fpsLeft)
+        if (!hot || minOf(asked.first, asked.second) <= CRITICAL_SHORT_SIDE) return null
         val shape = asked.first.toFloat() / asked.second
         return sizes.filter { (w, h) ->
             minOf(w, h) <= CRITICAL_SHORT_SIDE && kotlin.math.abs(w.toFloat() / h - shape) < 0.01f && fits(w, h)
@@ -103,9 +110,9 @@ object HeatStep {
     }
 
     /** What the stream runs at on a lens offering [sizes]: the heat's smaller size if it has one, else [asked] as it is. */
-    fun effective(status: Int, asked: Pair<Int, Int>, sizes: List<Pair<Int, Int>>,
+    fun effective(status: Int, asked: Pair<Int, Int>, sizes: List<Pair<Int, Int>>, fpsLeft: Boolean = true,
                   fits: (Int, Int) -> Boolean = { _, _ -> true }): Pair<Int, Int> =
-        size(status, asked, sizes, fits) ?: asked
+        size(status, asked, sizes, fpsLeft, fits) ?: asked
 
     const val FORECAST_S = 30  // how far ahead to ask Android about (Android 11 and newer)
     const val FORECAST_EVERY_MS = 10_000L  // Android wants at most one ask a second; this is plenty

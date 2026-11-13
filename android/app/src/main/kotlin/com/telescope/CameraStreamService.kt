@@ -534,6 +534,7 @@ class CameraStreamService : Service() {
     val cameraOff: Boolean get() = controller?.isCameraOff() == true
     // Another app has the camera; the stream waits for it.
     val cameraTaken: Boolean get() = controller?.isCameraTaken() == true
+    val heatPaused: Boolean get() = controller?.isHeatPaused() == true
     val port: Int get() = DEFAULT_PORT
 
     // True when this session was started by the desktop rather than the button on this phone; MainActivity uses it to tell the user where an unrequested stream came from.
