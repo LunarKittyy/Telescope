@@ -432,6 +432,18 @@ impl VisionService for VisionHost {
         self.shared.cancel.store(true, Ordering::SeqCst);
     }
 
+    fn install_pack_zip(&self, archive: &Path) -> Option<Result<(), String>> {
+        let name = archive.file_name()?.to_string_lossy();
+        if !pack::is_pack_zip_name(&name) || self.shared.download.lock().unwrap().running {
+            return None;
+        }
+        let result = pack::install_zip(&self.shared.info, &self.shared.dir, archive).map(|_| ()).map_err(|e| e.0);
+        if result.is_ok() {
+            self.shared.vision.pack_downloaded();
+        }
+        Some(result)
+    }
+
     fn remove_pack(&self) -> Result<(), String> {
         let cutout = self.cutout_pack().map(|c| pack::remove(&c.dir, None));
         pack::remove(&self.shared.dir, None).and(cutout.unwrap_or(Ok(())))

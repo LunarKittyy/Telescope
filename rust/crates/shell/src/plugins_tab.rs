@@ -235,6 +235,10 @@ pub trait Download {
     fn progress(&self) -> (u64, u64);
     fn start(&self, switch_on: &str);
     fn remove(&self) -> Result<(), String>;
+    /// A vision pack zip chosen in Install: None when it isn't one, else whether it could be installed.
+    fn install_pack_zip(&self, _archive: &std::path::Path) -> Option<Result<(), String>> {
+        None
+    }
     /// Where the high quality cutout's download is (its own pack, with nothing to switch on).
     fn cutout(&self) -> VisionPack {
         VisionPack::default()
@@ -265,6 +269,9 @@ impl Download for VisionDownload {
     }
     fn size_mb(&self) -> u64 {
         self.service.pack().size_mb.max(1)
+    }
+    fn install_pack_zip(&self, archive: &std::path::Path) -> Option<Result<(), String>> {
+        self.service.install_pack_zip(archive)
     }
     fn is_waiting(&self, name: &str) -> bool {
         self.running() && self.waiting.lock().unwrap_or_else(|e| e.into_inner()).iter().any(|n| n == name)
@@ -726,6 +733,15 @@ impl Panel {
     }
 
     fn install(&mut self, path: PathBuf, replace: bool) -> Step {
+        if let Some(result) = self.download.install_pack_zip(&path) {
+            self.refresh();
+            let mut outcome = Outcome::default();
+            outcome.notices.push(match result {
+                Ok(()) => info("Vision pack installed", tr("This was the vision pack, not a plugin. Plugins that need it can be switched on now.")),
+                Err(why) => warning("Couldn't install the vision pack", fill(&tr("This is the vision pack, not a plugin. {problem}"), &[("problem", &why)])),
+            });
+            return Step::Done(outcome);
+        }
         let result = self.admin.install_zip(&path, replace);
         let mut outcome = Outcome::default();
         let item = match result {

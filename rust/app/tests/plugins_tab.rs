@@ -99,6 +99,10 @@ impl Download for FakeDownload {
             self.admin.set_optional_on(switch_on, true).unwrap();
         }
     }
+    fn install_pack_zip(&self, archive: &Path) -> Option<Result<(), String>> {
+        let name = archive.file_name()?.to_string_lossy().to_string();
+        name.starts_with("Telescope-vision-").then(|| if self.error.is_empty() { self.ready.set(true); Ok(()) } else { Err(self.error.clone()) })
+    }
     fn remove(&self) -> Result<(), String> {
         self.removed.set(self.removed.get() + 1);
         if !self.remove_error.is_empty() {
@@ -618,6 +622,19 @@ fn installing_a_plugin_thats_there_asks_then_replaces_it() {
     assert!(note.kind == NoticeKind::Info && note.title == "Replaced" && note.text.contains("Extra 1.1"));
     assert!(!tile(&r.panel, "Extra 1.1").on);
     assert!(!labels(&r.panel).contains(&"Restart required".to_string()) && r.panel.pending_changes() == 1); // the old one still runs
+}
+
+#[test]
+fn a_vision_pack_zip_given_to_install_goes_to_the_vision_pack_not_the_plugins() {
+    let mut r = rig(builtins(), &all_running());
+    let pack = r.root.join("Telescope-vision-windows-0123456789abcdef.zip");
+    fs::write(&pack, "x").unwrap();
+    let outcome = r.panel.run(Request::Install { path: pack.clone() }, &mut yes);
+    assert_eq!(outcome.notices[0].title, "Vision pack installed");
+    assert!(r.download.ready.get());
+    let mut bad = rig_with(builtins(), &all_running(), &[], |d| d.error = "The download didn't match.".into(), None, |_, _| {});
+    let outcome = bad.panel.run(Request::Install { path: pack }, &mut yes);
+    assert!(outcome.notices[0].title == "Couldn't install the vision pack" && outcome.notices[0].text.contains("vision pack, not a plugin. The download didn't match."));
 }
 
 #[test]

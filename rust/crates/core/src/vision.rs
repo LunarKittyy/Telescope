@@ -216,6 +216,11 @@ pub trait VisionService: Send + Sync {
     /// Download in the background, then vision_download_finished names switch_on (the optional plugin to switch on, or "").
     fn download(&self, switch_on: &str);
     fn cancel_download(&self);
+    /// A vision pack zip the person downloaded themselves: None when the file isn't one (by its name), else it's checked and installed
+    /// like the download, with what went wrong in plain words.
+    fn install_pack_zip(&self, _archive: &std::path::Path) -> Option<Result<(), String>> {
+        None
+    }
     /// Delete the downloaded packs.
     fn remove_pack(&self) -> Result<(), String>;
     /// What went wrong after the download itself, shown like its own failure on the waiting plugin's tile.

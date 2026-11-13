@@ -227,6 +227,49 @@ pub fn web(url: &str, timeout: Duration) -> io::Result<Box<dyn Read>> {
     Ok(Box::new(response.into_body().into_reader()))
 }
 
+/// Unpacks the archive into staging, checks it against the pack's id and moves it to its folder.
+fn place(archive: &Path, staging: &Path, vision_dir: &Path, id: &str, pid: &str, max_unpacked: u64) -> Result<PathBuf, Failed> {
+    unpack(archive, staging, max_unpacked)?;
+    if tree_hash(staging)? != id {
+        return Err(Failed::Pack(PackError(tr("The download didn't match what this version of Telescope expects, so it wasn't used."))));
+    }
+    std::fs::write(staging.join(DONE), pid)?;
+    let last = vision_dir.join(pid);
+    if last.exists() {
+        std::fs::remove_dir_all(&last)?;
+    }
+    std::fs::rename(staging, &last)?;
+    Ok(last)
+}
+
+/// Whether a file name is a vision pack zip from the release (Telescope-vision-<platform>-<id>.zip), as a browser may have renamed it.
+pub fn is_pack_zip_name(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    lower.starts_with("telescope-vision-") && lower.ends_with(".zip")
+}
+
+/// Install a pack zip the person already has (downloaded from the release by hand) through the same unpack and hash check as the
+/// download, so only this version's pack is accepted; older packs go.
+pub fn install_zip(info: &PackInfo, vision_dir: &Path, archive: &Path) -> Result<PathBuf, PackError> {
+    let (Some(id), Some(pid)) = (info.id.clone(), info.pack_id()) else {
+        return Err(PackError(tr("There's no vision pack for this computer.")));
+    };
+    let staging = vision_dir.join(format!(".{pid}.unpacking"));
+    let result = std::fs::create_dir_all(vision_dir).map_err(Failed::from).and_then(|_| place(archive, &staging, vision_dir, &id, &pid, MAX_UNPACKED));
+    let _ = std::fs::remove_dir_all(&staging);
+    match result {
+        Ok(last) => {
+            let _ = remove(vision_dir, Some(&pid));
+            Ok(last)
+        }
+        Err(Failed::Pack(e)) => Err(e),
+        Err(Failed::Io(e)) => {
+            log::warn!("Vision pack install failed: {e}");
+            Err(PackError(tr("The vision pack couldn't be installed.")))
+        }
+    }
+}
+
 enum Failed {
     Pack(PackError),
     Io(io::Error),
@@ -275,17 +318,7 @@ fn download_capped(info: &PackInfo, vision_dir: &Path, progress: &mut dyn FnMut(
             progress(done, size);
         }
         drop(f);
-        unpack(&archive, &staging, max_unpacked)?;
-        if tree_hash(&staging)? != id {
-            return Err(Failed::Pack(PackError(tr("The download didn't match what this version of Telescope expects, so it wasn't used."))));
-        }
-        std::fs::write(staging.join(DONE), &pid)?;
-        let last = vision_dir.join(&pid);
-        if last.exists() {
-            std::fs::remove_dir_all(&last)?;
-        }
-        std::fs::rename(&staging, &last)?;
-        Ok(last)
+        place(&archive, &staging, vision_dir, &id, &pid, max_unpacked)
     };
     let result = run();
     let _ = std::fs::remove_file(&archive);

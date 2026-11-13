@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">दान करें या अधिक पढ़�
 msgid "No mic"
 msgstr "माइक नहीं है"
 
-#: rust/crates/audio/src/plugin.rs:111 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:474 rust/crates/system/src/updates_plugin.rs:456
+#: rust/crates/audio/src/plugin.rs:111 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:481 rust/crates/system/src/updates_plugin.rs:456
 msgid "Downloading…"
 msgstr "डाउनलोड हो रहा है…"
 
@@ -281,43 +281,43 @@ msgctxt "search"
 msgid "volume loudness"
 msgstr "वॉल्यूम आवाज़ लाउडनेस volume loudness"
 
-#: rust/crates/audio/src/vb_cable.rs:140 rust/crates/audio/src/vb_cable.rs:168
+#: rust/crates/audio/src/vb_cable.rs:141 rust/crates/audio/src/vb_cable.rs:169
 msgid "Couldn't download VB-Cable. Try again, or get it from their site."
 msgstr "VB-Cable डाउनलोड नहीं हो सका. फिर कोशिश करें, या उनकी साइट से इसे प्राप्त करें."
 
-#: rust/crates/audio/src/vb_cable.rs:165
+#: rust/crates/audio/src/vb_cable.rs:166
 msgid "Couldn't download VB-Cable from VB-Audio's site. Try again later, or get it from their site."
 msgstr ""
 
-#: rust/crates/audio/src/vb_cable.rs:166
+#: rust/crates/audio/src/vb_cable.rs:167
 msgid "Couldn't check vb-audio.com's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this."
 msgstr "vb-audio.com के सर्टिफ़िकेट की जांच नहीं हो सकी, इसलिए कुछ भी डाउनलोड नहीं हुआ. सुरक्षा सॉफ़्टवेयर या HTTPS की जांच करने वाला नेटवर्क इसका कारण हो सकता है."
 
-#: rust/crates/audio/src/vb_cable.rs:167
+#: rust/crates/audio/src/vb_cable.rs:168
 msgid "Couldn't reach vb-audio.com. Check the internet connection and try again."
 msgstr "vb-audio.com से संपर्क नहीं हो सका. इंटरनेट कनेक्शन जांचें और फिर कोशिश करें."
 
-#: rust/crates/audio/src/vb_cable.rs:172
+#: rust/crates/audio/src/vb_cable.rs:173
 msgid "VB-Audio's download has changed since this version of Telescope. Get it from their site instead."
 msgstr "Telescope के इस वर्शन के बाद से VB-Audio का डाउनलोड बदल गया है. इसके बजाय इसे उनकी साइट से प्राप्त करें."
 
-#: rust/crates/audio/src/vb_cable.rs:189
+#: rust/crates/audio/src/vb_cable.rs:190
 msgid "Couldn't unpack VB-Cable. Try again, or get it from their site."
 msgstr "VB-Cable अनपैक नहीं हो सका. फिर कोशिश करें, या उनकी साइट से इसे प्राप्त करें."
 
-#: rust/crates/audio/src/vb_cable.rs:193
+#: rust/crates/audio/src/vb_cable.rs:194
 msgid "VB-Audio's download no longer has the setup file. Get it from their site instead."
 msgstr ""
 
-#: rust/crates/audio/src/vb_cable.rs:239
+#: rust/crates/audio/src/vb_cable.rs:240
 msgid "VB-Cable's setup file changed after the check, so Telescope didn't open it."
 msgstr ""
 
-#: rust/crates/audio/src/vb_cable.rs:244
+#: rust/crates/audio/src/vb_cable.rs:245
 msgid "Windows didn't get permission to install VB-Cable."
 msgstr "Windows को VB-Cable इंस्टॉल करने की अनुमति नहीं मिली."
 
-#: rust/crates/audio/src/vb_cable.rs:247
+#: rust/crates/audio/src/vb_cable.rs:248
 msgid "Couldn't open VB-Cable's setup. Try again, or get it from their site."
 msgstr "VB-Cable का सेटअप नहीं खोला जा सका. फिर कोशिश करें, या उनकी साइट से इसे प्राप्त करें."
 
@@ -366,7 +366,7 @@ msgstr "नॉइज़ रिडक्शन"
 msgid "Noise reduction unavailable"
 msgstr "नॉइज़ रिडक्शन उपलब्ध नहीं है"
 
-#: rust/crates/audio/ui/microphone.slint:311 rust/crates/effects/src/desk.rs:215 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:488 rust/crates/link/ui/connection.slint:716 rust/crates/setup/ui/setup.slint:424 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:613 rust/crates/system/ui/shortcuts.slint:356 rust/crates/system/ui/updates.slint:251
+#: rust/crates/audio/ui/microphone.slint:311 rust/crates/effects/src/desk.rs:215 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/link/src/browser/plugin.rs:937 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:424 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:613 rust/crates/system/ui/shortcuts.slint:356 rust/crates/system/ui/updates.slint:251
 msgid "Cancel"
 msgstr "रद्द करें"
 
@@ -520,7 +520,7 @@ msgstr "स्ट्रीमिंग और डिवाइस"
 msgid "Extras"
 msgstr "अतिरिक्त"
 
-#: rust/crates/core/src/vision.rs:114 rust/crates/core/src/vision.rs:143 rust/crates/shell/src/plugins_tab.rs:474
+#: rust/crates/core/src/vision.rs:114 rust/crates/core/src/vision.rs:143 rust/crates/shell/src/plugins_tab.rs:481
 #, python-brace-format
 msgid "Downloading… {percent}%"
 msgstr "डाउनलोड हो रहा है… {percent}%"
@@ -1380,7 +1380,7 @@ msgstr "कागज़ का कुछ हिस्सा तस्वीर �
 msgid "Desk mode"
 msgstr "डेस्क मोड"
 
-#: rust/crates/effects/src/desk.rs:214 rust/crates/link/ui/connection.slint:435
+#: rust/crates/effects/src/desk.rs:214 rust/crates/link/ui/connection.slint:442
 msgid "Done"
 msgstr "हो गया"
 
@@ -3049,7 +3049,7 @@ msgstr "ग्रेड एक्सपोर्ट करें"
 msgid "Save the grade and LUT as a .cube file to use in other apps."
 msgstr "दूसरे ऐप्स में इस्तेमाल करने के लिए ग्रेड और LUT को .cube फ़ाइल के रूप में सेव करें."
 
-#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:739
+#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:755
 msgid "Replace"
 msgstr "बदलें"
 
@@ -3201,7 +3201,7 @@ msgstr "बैकग्राउंड का रंग"
 msgid "Show a picture behind the streams instead of the colour."
 msgstr "रंग के बजाय स्ट्रीम के पीछे कोई तस्वीर दिखाएं."
 
-#: rust/crates/effects/ui/composite_editor.slint:569 rust/crates/link/ui/connection.slint:678
+#: rust/crates/effects/ui/composite_editor.slint:569 rust/crates/link/ui/connection.slint:686
 msgid "Close"
 msgstr "बंद करें"
 
@@ -3213,15 +3213,15 @@ msgstr "लेआउट बदलें"
 msgid "Name:"
 msgstr "नाम:"
 
-#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:490 rust/crates/link/ui/connection.slint:718 rust/crates/setup/ui/setup.slint:425 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1015 rust/crates/shell/ui/settings.slint:614
+#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:425 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1015 rust/crates/shell/ui/settings.slint:614
 msgid "OK"
 msgstr "ठीक है"
 
-#: rust/crates/effects/ui/composite_editor.slint:603 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:760 rust/crates/setup/src/stats_phone.rs:158
+#: rust/crates/effects/ui/composite_editor.slint:603 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
 msgid "No"
 msgstr "नहीं"
 
-#: rust/crates/effects/ui/composite_editor.slint:604 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:753 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
+#: rust/crates/effects/ui/composite_editor.slint:604 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
 msgid "Yes"
 msgstr "हाँ"
 
@@ -3325,7 +3325,7 @@ msgstr "दाएं-बाएं"
 msgid "Not ready"
 msgstr "तैयार नहीं"
 
-#: rust/crates/effects/ui/name_tag.slint:77 rust/crates/effects/ui/name_tag.slint:81 rust/crates/effects/ui/name_tag.slint:82 rust/crates/effects/ui/name_tag.slint:83 rust/crates/link/ui/connection.slint:647
+#: rust/crates/effects/ui/name_tag.slint:77 rust/crates/effects/ui/name_tag.slint:81 rust/crates/effects/ui/name_tag.slint:82 rust/crates/effects/ui/name_tag.slint:83 rust/crates/link/ui/connection.slint:655
 msgid "Name"
 msgstr "नाम"
 
@@ -3663,69 +3663,69 @@ msgstr "फ़ोन पर पहले से नया Telescope ऐप ह�
 msgid "adb install failed"
 msgstr "adb install विफल रहा"
 
-#: rust/crates/link/src/adb_download.rs:264
+#: rust/crates/link/src/adb_download.rs:265
 msgid "Finding the current adb…"
 msgstr "मौजूदा adb खोजा जा रहा है…"
 
-#: rust/crates/link/src/adb_download.rs:277
+#: rust/crates/link/src/adb_download.rs:278
 msgid "Google's list of downloads has an unexpected format. Try again later."
 msgstr ""
 
-#: rust/crates/link/src/adb_download.rs:284 rust/crates/link/src/adb_download.rs:296 rust/crates/link/src/adb_download.rs:463
+#: rust/crates/link/src/adb_download.rs:285 rust/crates/link/src/adb_download.rs:297 rust/crates/link/src/adb_download.rs:464
 msgid "Couldn't download adb. Try again."
 msgstr "adb डाउनलोड नहीं किया जा सका. फिर कोशिश करें."
 
-#: rust/crates/link/src/adb_download.rs:288
+#: rust/crates/link/src/adb_download.rs:289
 msgid "Downloading adb from Google…"
 msgstr "Google से adb डाउनलोड हो रहा है…"
 
-#: rust/crates/link/src/adb_download.rs:290
+#: rust/crates/link/src/adb_download.rs:291
 #, python-brace-format
 msgid "Downloading adb {version} from Google…"
 msgstr "Google से adb {version} डाउनलोड हो रहा है…"
 
-#: rust/crates/link/src/adb_download.rs:300
+#: rust/crates/link/src/adb_download.rs:301
 msgid "The download didn't match Google's checksum, so it wasn't used. Try again."
 msgstr "डाउनलोड Google के चेकसम से मेल नहीं खाया, इसलिए इसका उपयोग नहीं हुआ. फिर कोशिश करें."
 
-#: rust/crates/link/src/adb_download.rs:302
+#: rust/crates/link/src/adb_download.rs:303
 msgid "Unpacking…"
 msgstr "अनपैक किया जा रहा है…"
 
-#: rust/crates/link/src/adb_download.rs:306
+#: rust/crates/link/src/adb_download.rs:307
 msgid "Couldn't unpack adb. Try again."
 msgstr "adb अनपैक नहीं किया जा सका. फिर कोशिश करें."
 
-#: rust/crates/link/src/adb_download.rs:309
+#: rust/crates/link/src/adb_download.rs:310
 msgid "Google's download doesn't have adb.exe in it anymore."
 msgstr "Google के डाउनलोड में अब adb.exe नहीं है."
 
-#: rust/crates/link/src/adb_download.rs:353
+#: rust/crates/link/src/adb_download.rs:354
 msgid "Couldn't put adb in place. Is another program using it? Try again."
 msgstr "adb को सही जगह नहीं रखा जा सका. क्या कोई दूसरा प्रोग्राम इसे इस्तेमाल कर रहा है? फिर कोशिश करें."
 
-#: rust/crates/link/src/adb_download.rs:366 rust/crates/link/src/adb_download.rs:383
+#: rust/crates/link/src/adb_download.rs:367 rust/crates/link/src/adb_download.rs:384
 msgid "Couldn't copy adb from there."
 msgstr "वहां से adb कॉपी नहीं किया जा सका."
 
-#: rust/crates/link/src/adb_download.rs:386
+#: rust/crates/link/src/adb_download.rs:387
 msgid "This file doesn't contain adb.exe."
 msgstr ""
 
-#: rust/crates/link/src/adb_download.rs:396
+#: rust/crates/link/src/adb_download.rs:397
 msgid "Couldn't check Google's certificate, so nothing was downloaded. Security software or a network that inspects HTTPS can cause this."
 msgstr "Google के सर्टिफ़िकेट की जांच नहीं हो सकी, इसलिए कुछ भी डाउनलोड नहीं हुआ. सुरक्षा सॉफ़्टवेयर या HTTPS की जांच करने वाला नेटवर्क इसका कारण हो सकता है."
 
-#: rust/crates/link/src/adb_download.rs:397
+#: rust/crates/link/src/adb_download.rs:398
 msgid "Couldn't reach Google. Check the internet connection and try again."
 msgstr "Google से संपर्क नहीं हो सका. इंटरनेट कनेक्शन जांचें और फिर कोशिश करें."
 
-#: rust/crates/link/src/adb_download.rs:398
+#: rust/crates/link/src/adb_download.rs:399
 #, python-brace-format
 msgid "Google refused the download (error {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead."
 msgstr ""
 
-#: rust/crates/link/src/adb_download.rs:400
+#: rust/crates/link/src/adb_download.rs:401
 #, python-brace-format
 msgid "Google's server returned error {code}. Try again later."
 msgstr ""
@@ -3862,7 +3862,7 @@ msgstr "ब्राउज़र, पिछली बार {date} को कन
 msgid "This computer couldn't set up the video connection."
 msgstr "यह कंप्यूटर वीडियो कनेक्शन सेट नहीं कर सका."
 
-#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:361 rust/crates/link/ui/connection.slint:195 rust/crates/link/ui/connection.slint:623 rust/crates/shell/src/plugins/onboarding.rs:172
+#: rust/crates/link/src/connection.rs:129 rust/crates/link/src/plugin.rs:361 rust/crates/link/ui/connection.slint:195 rust/crates/link/ui/connection.slint:631 rust/crates/shell/src/plugins/onboarding.rs:172
 msgid "Add device"
 msgstr "डिवाइस जोड़ें"
 
@@ -4140,7 +4140,7 @@ msgstr "USB पर कनेक्ट फ़ोन कोई दूसरा ह
 msgid "phone plugged in, but Telescope isn't open on it"
 msgstr "फ़ोन कनेक्ट है, लेकिन उस पर Telescope खुला नहीं है"
 
-#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1090 rust/crates/link/src/plugin.rs:1346 rust/crates/link/ui/connection.slint:558 rust/crates/link/ui/connection.slint:559
+#: rust/crates/link/src/plugin.rs:360 rust/crates/link/src/plugin.rs:1090 rust/crates/link/src/plugin.rs:1346 rust/crates/link/ui/connection.slint:566 rust/crates/link/ui/connection.slint:567
 msgid "No device yet"
 msgstr "अभी कोई डिवाइस नहीं है"
 
@@ -4156,7 +4156,7 @@ msgstr "फ़ोन से कनेक्ट नहीं हो पा रह
 msgid "adb couldn't open a connection to the phone. Unplug it, plug it back in and try again."
 msgstr "adb फ़ोन से कनेक्शन नहीं खोल सका. इसे अनप्लग करें, फिर से लगाएं और फिर कोशिश करें."
 
-#: rust/crates/link/src/plugin.rs:406 rust/crates/link/ui/connection.slint:468
+#: rust/crates/link/src/plugin.rs:406 rust/crates/link/ui/connection.slint:476
 msgid "Set up the virtual camera"
 msgstr "वर्चुअल कैमरा सेट करें"
 
@@ -4377,7 +4377,7 @@ msgstr "वर्चुअल कैमरा बंद है"
 msgid "Your password is needed to switch on the virtual camera."
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:1544 rust/crates/shell/src/plugins_tab.rs:681 rust/crates/shell/src/plugins_tab.rs:700
+#: rust/crates/link/src/plugin.rs:1544 rust/crates/shell/src/plugins_tab.rs:688 rust/crates/shell/src/plugins_tab.rs:707
 msgid "Switch on"
 msgstr "चालू करें"
 
@@ -4417,7 +4417,7 @@ msgstr "फ़्रेम रेट"
 msgid "How many pictures a second the browser sends."
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:23 rust/crates/setup/ui/setup.slint:23 rust/crates/shell/src/plugins_tab.rs:666 rust/crates/shell/src/plugins_tab.rs:671 rust/crates/shell/ui/settings.slint:326
+#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:23 rust/crates/setup/ui/setup.slint:23 rust/crates/shell/src/plugins_tab.rs:673 rust/crates/shell/src/plugins_tab.rs:678 rust/crates/shell/ui/settings.slint:326
 msgid "Remove"
 msgstr "हटाएं"
 
@@ -4425,7 +4425,7 @@ msgstr "हटाएं"
 msgid "Forget this device."
 msgstr "इस डिवाइस को भूल जाएं."
 
-#: rust/crates/link/ui/connection.slint:189 rust/crates/link/ui/connection.slint:771 rust/crates/setup/src/stats.rs:412
+#: rust/crates/link/ui/connection.slint:189 rust/crates/link/ui/connection.slint:779 rust/crates/setup/src/stats.rs:412
 msgid "Connection"
 msgstr "कनेक्शन"
 
@@ -4465,120 +4465,120 @@ msgstr "USB या Wi-Fi इस्तेमाल करें, या Telescope
 msgid "Automatic: USB when the phone's plugged in, Wi-Fi otherwise."
 msgstr "ऑटोमैटिक: फ़ोन कनेक्ट होने पर USB, अन्यथा Wi-Fi."
 
-#: rust/crates/link/ui/connection.slint:331
+#: rust/crates/link/ui/connection.slint:338
 msgid "Add a phone"
 msgstr "एक फ़ोन जोड़ें"
 
-#: rust/crates/link/ui/connection.slint:334
+#: rust/crates/link/ui/connection.slint:341
 msgid "What to add"
 msgstr "क्या जोड़ना है"
 
-#: rust/crates/link/ui/connection.slint:354
+#: rust/crates/link/ui/connection.slint:361
 msgid "Stream from any browser: no app on the phone, just a link or a code to open there"
 msgstr "किसी भी ब्राउज़र से स्ट्रीम करें: फ़ोन पर ऐप की ज़रूरत नहीं, बस वहाँ एक लिंक या कोड खोलें"
 
-#: rust/crates/link/ui/connection.slint:376
+#: rust/crates/link/ui/connection.slint:383
 msgid "Pairing code"
 msgstr "पेयरिंग कोड"
 
-#: rust/crates/link/ui/connection.slint:378
+#: rust/crates/link/ui/connection.slint:385
 msgid "Pair over Wi-Fi"
 msgstr "Wi-Fi से पेयर करें"
 
-#: rust/crates/link/ui/connection.slint:435
+#: rust/crates/link/ui/connection.slint:442
 msgid "Back"
 msgstr "वापस"
 
-#: rust/crates/link/ui/connection.slint:469
+#: rust/crates/link/ui/connection.slint:477
 msgid "The virtual camera has to be switched on first, which needs your password."
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:477 rust/crates/link/ui/connection.slint:480
+#: rust/crates/link/ui/connection.slint:485 rust/crates/link/ui/connection.slint:488
 msgid "Also switch it on at every startup"
 msgstr "हर स्टार्टअप पर भी इसे चालू करें"
 
-#: rust/crates/link/ui/connection.slint:559
+#: rust/crates/link/ui/connection.slint:567
 msgid "Pick a device"
 msgstr "कोई डिवाइस चुनें"
 
-#: rust/crates/link/ui/connection.slint:563
+#: rust/crates/link/ui/connection.slint:571
 msgid "Device"
 msgstr "डिवाइस"
 
-#: rust/crates/link/ui/connection.slint:564
+#: rust/crates/link/ui/connection.slint:572
 msgid "Which device to stream from"
 msgstr "किस डिवाइस से स्ट्रीम करना है"
 
-#: rust/crates/link/ui/connection.slint:581 rust/crates/link/ui/connection.slint:614
+#: rust/crates/link/ui/connection.slint:589 rust/crates/link/ui/connection.slint:622
 msgid "Devices"
 msgstr "डिवाइस"
 
-#: rust/crates/link/ui/connection.slint:582
+#: rust/crates/link/ui/connection.slint:590
 msgid "Add, rename or remove the phones you've paired."
 msgstr "पेयर किए गए फ़ोन जोड़ें, उनका नाम बदलें या उन्हें हटाएं."
 
-#: rust/crates/link/ui/connection.slint:583 rust/crates/link/ui/connection.slint:608
+#: rust/crates/link/ui/connection.slint:591 rust/crates/link/ui/connection.slint:616
 msgid "Your devices"
 msgstr "आपके डिवाइस"
 
-#: rust/crates/link/ui/connection.slint:627
+#: rust/crates/link/ui/connection.slint:635
 msgid "Add another device"
 msgstr "दूसरा डिवाइस जोड़ें"
 
-#: rust/crates/link/ui/connection.slint:637
+#: rust/crates/link/ui/connection.slint:645
 msgid "No devices yet"
 msgstr "अभी कोई डिवाइस नहीं है"
 
-#: rust/crates/link/ui/connection.slint:647
+#: rust/crates/link/ui/connection.slint:655
 msgid "Rename phone"
 msgstr "फ़ोन का नाम बदलें"
 
-#: rust/crates/link/ui/connection.slint:656 rust/crates/setup/src/stats.rs:404
+#: rust/crates/link/ui/connection.slint:664 rust/crates/setup/src/stats.rs:404
 msgid "This computer"
 msgstr "यह कंप्यूटर"
 
-#: rust/crates/link/ui/connection.slint:665
+#: rust/crates/link/ui/connection.slint:673
 msgid "What your phones call it"
 msgstr "आपके फ़ोन इसे जिस नाम से दिखाते हैं"
 
-#: rust/crates/link/ui/connection.slint:667 rust/crates/link/ui/connection.slint:668
+#: rust/crates/link/ui/connection.slint:675 rust/crates/link/ui/connection.slint:676
 msgid "Change name"
 msgstr "नाम बदलें"
 
-#: rust/crates/link/ui/connection.slint:669
+#: rust/crates/link/ui/connection.slint:677
 msgid "Change the name your phones show for this computer."
 msgstr "इस कंप्यूटर के लिए आपके फ़ोन जो नाम दिखाते हैं उसे बदलें."
 
-#: rust/crates/link/ui/connection.slint:670
+#: rust/crates/link/ui/connection.slint:678
 msgid "Change this computer's name"
 msgstr "इस कंप्यूटर का नाम बदलें"
 
-#: rust/crates/link/ui/connection.slint:672
+#: rust/crates/link/ui/connection.slint:680
 msgid "Rename this computer"
 msgstr "इस कंप्यूटर का नाम बदलें"
 
-#: rust/crates/link/ui/connection.slint:672
+#: rust/crates/link/ui/connection.slint:680
 msgid "Name your phones show (applies to phones you pair from now on)"
 msgstr "आपके फ़ोन पर दिखने वाला नाम (यह अब से पेयर किए जाने वाले फ़ोन पर लागू होगा)"
 
-#: rust/crates/link/ui/connection.slint:776 rust/crates/link/ui/connection.slint:794
+#: rust/crates/link/ui/connection.slint:784 rust/crates/link/ui/connection.slint:802
 msgid "UDP on Wi-Fi"
 msgstr "Wi-Fi पर UDP"
 
-#: rust/crates/link/ui/connection.slint:777
+#: rust/crates/link/ui/connection.slint:785
 msgid "Send the video over Wi-Fi with UDP, which skips lost packets instead of waiting for them"
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:778 rust/crates/link/ui/connection.slint:786
+#: rust/crates/link/ui/connection.slint:786 rust/crates/link/ui/connection.slint:794
 msgid "UDP can stutter more than TCP. Try both and compare."
 msgstr ""
 
-#: rust/crates/link/ui/connection.slint:781
+#: rust/crates/link/ui/connection.slint:789
 msgctxt "search"
 msgid "udp tcp transport network lag freezes stutter wifi"
 msgstr "नेटवर्क लैग अटकना फ़्रीज़ वाई-फ़ाई वाईफ़ाई ट्रांसपोर्ट यूडीपी टीसीपी रुकावट udp tcp transport network lag freezes stutter wifi"
 
-#: rust/crates/link/ui/connection.slint:784
+#: rust/crates/link/ui/connection.slint:792
 msgid "Experimental"
 msgstr "प्रायोगिक"
 
@@ -6536,7 +6536,7 @@ msgstr ""
 msgid "Restart now"
 msgstr "अभी रीस्टार्ट करें"
 
-#: rust/crates/setup/ui/setup.slint:515 rust/crates/shell/src/plugins_tab.rs:685
+#: rust/crates/setup/ui/setup.slint:515 rust/crates/shell/src/plugins_tab.rs:692
 msgid "Restart"
 msgstr "रीस्टार्ट करें"
 
@@ -7165,164 +7165,164 @@ msgstr ""
 msgid "The download didn't work. {error}"
 msgstr "डाउनलोड काम नहीं कर पाया. {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:452
+#: rust/crates/shell/src/plugins_tab.rs:459
 msgid "Telescope needs this plugin to work, so it can't be switched off."
 msgstr "Telescope को काम करने के लिए इस प्लगइन की ज़रूरत है, इसलिए इसे बंद नहीं किया जा सकता."
 
-#: rust/crates/shell/src/plugins_tab.rs:453
+#: rust/crates/shell/src/plugins_tab.rs:460
 msgid "Required"
 msgstr "ज़रूरी"
 
-#: rust/crates/shell/src/plugins_tab.rs:477
+#: rust/crates/shell/src/plugins_tab.rs:484
 #, python-brace-format
 msgid "The download failed. {error}"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:480
+#: rust/crates/shell/src/plugins_tab.rs:487
 msgid "There's no download for this computer yet, so the plugin can't be switched on."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:483
+#: rust/crates/shell/src/plugins_tab.rs:490
 #, python-brace-format
 msgid "The plugin's download (about {mb} MB) is missing. Switch the plugin off and on again to download it."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:490
+#: rust/crates/shell/src/plugins_tab.rs:497
 msgid "Needs the vision download"
 msgstr "विज़न डाउनलोड की ज़रूरत है"
 
-#: rust/crates/shell/src/plugins_tab.rs:508
+#: rust/crates/shell/src/plugins_tab.rs:515
 msgid "There's no vision download for this computer yet."
 msgstr "इस कंप्यूटर के लिए अभी कोई विज़न डाउनलोड उपलब्ध नहीं है."
 
-#: rust/crates/shell/src/plugins_tab.rs:510
+#: rust/crates/shell/src/plugins_tab.rs:517
 #, python-brace-format
 msgid "Switching on any of these plugins downloads about {mb} MB first, shared by all of them."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:521
+#: rust/crates/shell/src/plugins_tab.rs:528
 #, python-brace-format
 msgid "By {author}."
 msgstr "{author} द्वारा."
 
-#: rust/crates/shell/src/plugins_tab.rs:531
+#: rust/crates/shell/src/plugins_tab.rs:538
 #, python-brace-format
 msgid "Updated to {version} automatically. The new version runs after Telescope restarts."
 msgstr "अपने आप {version} पर अपडेट हो गया. नया वर्ज़न Telescope के रीस्टार्ट होने के बाद चलेगा."
 
-#: rust/crates/shell/src/plugins_tab.rs:537
+#: rust/crates/shell/src/plugins_tab.rs:544
 msgid "The plugin's files changed since you switched it on, so it's off. Switch it on again if you trust the new version."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:540 rust/crates/shell/src/plugins_tab.rs:580
+#: rust/crates/shell/src/plugins_tab.rs:547 rust/crates/shell/src/plugins_tab.rs:587
 #, python-brace-format
 msgid "Couldn't start: {problem}"
 msgstr ""
 
 #. keep the <a href="{url}"> link
-#: rust/crates/shell/src/plugins_tab.rs:549
+#: rust/crates/shell/src/plugins_tab.rs:556
 #, python-brace-format
 msgid "Version {version} is out. <a href=\"{url}\">Download it from the plugin's release page</a> and install it here to replace the current version."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:559
+#: rust/crates/shell/src/plugins_tab.rs:566
 msgid "Added"
 msgstr "जोड़े गए"
 
-#: rust/crates/shell/src/plugins_tab.rs:576
+#: rust/crates/shell/src/plugins_tab.rs:583
 msgid "`telescope-rs dev --plugin` loads this plugin, so it's always on."
 msgstr "`telescope-rs dev --plugin` इस प्लगइन को लोड करता है, इसलिए यह हमेशा चालू रहता है."
 
-#: rust/crates/shell/src/plugins_tab.rs:577
+#: rust/crates/shell/src/plugins_tab.rs:584
 msgid "Being written"
 msgstr "लिखा जा रहा है"
 
-#: rust/crates/shell/src/plugins_tab.rs:583
+#: rust/crates/shell/src/plugins_tab.rs:590
 #, python-brace-format
 msgid "Loaded from {folder} by telescope-rs dev. Saving a file in that folder restarts Telescope."
 msgstr ""
 
 #. next to a group's name on the Plugins tab, how many of its plugins are switched on
-#: rust/crates/shell/src/plugins_tab.rs:597
+#: rust/crates/shell/src/plugins_tab.rs:604
 #, python-brace-format
 msgid "{on} of {total} on"
 msgstr "{total} में से {on} चालू"
 
-#: rust/crates/shell/src/plugins_tab.rs:610
+#: rust/crates/shell/src/plugins_tab.rs:617
 #, python-brace-format
 msgid "No plugins match “{text}”."
 msgstr "“{text}” से कोई प्लगइन मेल नहीं खाता."
 
-#: rust/crates/shell/src/plugins_tab.rs:612
+#: rust/crates/shell/src/plugins_tab.rs:619
 msgid "Every plugin is switched on."
 msgstr "सभी प्लगइन चालू हैं."
 
-#: rust/crates/shell/src/plugins_tab.rs:614
+#: rust/crates/shell/src/plugins_tab.rs:621
 msgid "No plugin is switched on."
 msgstr "कोई भी प्लगइन चालू नहीं है."
 
-#: rust/crates/shell/src/plugins_tab.rs:623
+#: rust/crates/shell/src/plugins_tab.rs:630
 msgid "Downloading the vision pack"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:624
+#: rust/crates/shell/src/plugins_tab.rs:631
 #, python-brace-format
 msgid "This one-time download (about {mb} MB) is shared by every plugin that finds people in the picture."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:625
+#: rust/crates/shell/src/plugins_tab.rs:632
 msgid "Switch on a plugin that needs the vision pack to try again."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:628
+#: rust/crates/shell/src/plugins_tab.rs:635
 msgid "Downloading the high quality cutout"
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:629
+#: rust/crates/shell/src/plugins_tab.rs:636
 #, python-brace-format
 msgid "This one-time download (about {mb} MB) gives the Background cutout cleaner edges."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:630
+#: rust/crates/shell/src/plugins_tab.rs:637
 msgid "Press Download under High quality cutout in Background to try again."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:637
+#: rust/crates/shell/src/plugins_tab.rs:644
 #, python-brace-format
 msgid "Restart to apply {n} change"
 msgid_plural "Restart to apply {n} changes"
 msgstr[0] "{n} बदलाव लागू करने के लिए रीस्टार्ट करें"
 msgstr[1] "{n} बदलाव लागू करने के लिए रीस्टार्ट करें"
 
-#: rust/crates/shell/src/plugins_tab.rs:642
+#: rust/crates/shell/src/plugins_tab.rs:649
 #, python-brace-format
 msgid "Plugins ({n} off)"
 msgstr "प्लगइन ({n} बंद)"
 
-#: rust/crates/shell/src/plugins_tab.rs:664
+#: rust/crates/shell/src/plugins_tab.rs:671
 #, python-brace-format
 msgid "Remove {plugin}?"
 msgstr "क्या आप {plugin} को हटाना चाहते हैं?"
 
-#: rust/crates/shell/src/plugins_tab.rs:665
+#: rust/crates/shell/src/plugins_tab.rs:672
 #, python-brace-format
 msgid "The plugin's folder ({folder}) is deleted from the plugins folder. To use the plugin again, add it again."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:669
+#: rust/crates/shell/src/plugins_tab.rs:676
 msgid "Remove the download?"
 msgstr "क्या आप डाउनलोड हटाना चाहते हैं?"
 
-#: rust/crates/shell/src/plugins_tab.rs:670
+#: rust/crates/shell/src/plugins_tab.rs:677
 #, python-brace-format
 msgid "Frees about {mb} MB. Switching on an optional plugin downloads the files again."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:679
+#: rust/crates/shell/src/plugins_tab.rs:686
 msgid "Install plugin updates without asking?"
 msgstr "क्या आप बिना पूछे प्लगइन अपडेट इंस्टॉल करना चाहते हैं?"
 
-#: rust/crates/shell/src/plugins_tab.rs:680
+#: rust/crates/shell/src/plugins_tab.rs:687
 msgid ""
 "Telescope will install new versions of the plugins you switched on and switch them on too, without showing them to you first.\n"
 "\n"
@@ -7332,97 +7332,110 @@ msgstr ""
 "\n"
 "GitHub पर प्लगइन के रेपो को नियंत्रित करने वाला कोई भी व्यक्ति (उसका लेखक, या उसके खाते का एक्सेस पाने वाला कोई भी व्यक्ति) हर बार रिलीज़ पब्लिश करने पर इस कंप्यूटर पर नया कोड चला सकता है. इसे तभी चालू करें जब आप इस मामले में उन सभी पर भरोसा करते हों."
 
-#: rust/crates/shell/src/plugins_tab.rs:685
+#: rust/crates/shell/src/plugins_tab.rs:692
 msgid "Restart Telescope now?"
 msgstr "क्या आप अभी Telescope को रीस्टार्ट करना चाहते हैं?"
 
-#: rust/crates/shell/src/plugins_tab.rs:685
+#: rust/crates/shell/src/plugins_tab.rs:692
 msgid "Streaming stops while Telescope restarts. Restarting takes a few seconds."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:699
+#: rust/crates/shell/src/plugins_tab.rs:706
 #, python-brace-format
 msgid "Switch on {plugin}?"
 msgstr "क्या आप {plugin} को चालू करना चाहते हैं?"
 
-#: rust/crates/shell/src/plugins_tab.rs:700
+#: rust/crates/shell/src/plugins_tab.rs:707
 msgid "A plugin can do anything on your computer. Only switch it on if you trust its source."
 msgstr "एक प्लगइन आपके कंप्यूटर पर कुछ भी कर सकता है. इसे तभी चालू करें जब आपको इसके स्रोत पर भरोसा हो."
 
-#: rust/crates/shell/src/plugins_tab.rs:702 rust/crates/shell/src/plugins_tab.rs:723
+#: rust/crates/shell/src/plugins_tab.rs:709 rust/crates/shell/src/plugins_tab.rs:730
 #, python-brace-format
 msgid "Switch off {plugin}?"
 msgstr "क्या आप {plugin} को बंद करना चाहते हैं?"
 
-#: rust/crates/shell/src/plugins_tab.rs:703
+#: rust/crates/shell/src/plugins_tab.rs:710
 msgid "Without the plugin, what it added to Telescope is gone. The plugin's settings stay saved for when you switch it back on."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:703 rust/crates/shell/src/plugins_tab.rs:723
+#: rust/crates/shell/src/plugins_tab.rs:710 rust/crates/shell/src/plugins_tab.rs:730
 msgid "Switch off"
 msgstr "बंद करें"
 
-#: rust/crates/shell/src/plugins_tab.rs:710
+#: rust/crates/shell/src/plugins_tab.rs:717
 #, python-brace-format
 msgid "Download about {mb} MB?"
 msgstr "लगभग {mb} MB डाउनलोड करें?"
 
-#: rust/crates/shell/src/plugins_tab.rs:711
+#: rust/crates/shell/src/plugins_tab.rs:718
 #, python-brace-format
 msgid "{plugin} uses MediaPipe to find people in the picture. The files are a separate download from Telescope's releases on GitHub, shared by the other optional plugins."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:712
+#: rust/crates/shell/src/plugins_tab.rs:719
 msgid "Download and switch on"
 msgstr "डाउनलोड करें और चालू करें"
 
-#: rust/crates/shell/src/plugins_tab.rs:722
+#: rust/crates/shell/src/plugins_tab.rs:729
 msgid "Its settings stay saved for when you switch it back on."
 msgstr "इसकी सेटिंग्स सुरक्षित रहती हैं ताकि जब आप इसे फिर से चालू करें तो वे काम आ सकें."
 
-#: rust/crates/shell/src/plugins_tab.rs:737
+#: rust/crates/shell/src/plugins_tab.rs:740
+msgid "This was the vision pack, not a plugin. Plugins that need it can be switched on now."
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:741
+#, python-brace-format
+msgid "This is the vision pack, not a plugin. {problem}"
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:753
 #, python-brace-format
 msgid "Replace {plugin}?"
 msgstr "{plugin} बदलें?"
 
-#: rust/crates/shell/src/plugins_tab.rs:738
+#: rust/crates/shell/src/plugins_tab.rs:754
 msgid "The version in this .zip replaces the installed version and keeps its settings. Like any added plugin, it starts switched off."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:750
+#: rust/crates/shell/src/plugins_tab.rs:766
 #, python-brace-format
 msgid "{plugin} was installed, but it can't run yet. {problem}"
 msgstr "{plugin} इंस्टॉल हो गया था, लेकिन यह अभी चल नहीं सकता. {problem}"
 
-#: rust/crates/shell/src/plugins_tab.rs:752
+#: rust/crates/shell/src/plugins_tab.rs:768
 #, python-brace-format
 msgid "{plugin} {version} is installed but switched off. To use it, switch it on again and restart Telescope."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:754
+#: rust/crates/shell/src/plugins_tab.rs:770
 #, python-brace-format
 msgid "{plugin} is installed but switched off. To use it, switch it on and restart Telescope."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:764
+#: rust/crates/shell/src/plugins_tab.rs:780
 #, python-brace-format
 msgid "Telescope couldn't save the change: {error}"
 msgstr "Telescope बदलाव को सेव नहीं कर सका: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:788
+#: rust/crates/shell/src/plugins_tab.rs:804
 #, python-brace-format
 msgid "Telescope couldn't delete its folder: {error}"
 msgstr "Telescope इसका फ़ोल्डर मिटा नहीं सका: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:796
+#: rust/crates/shell/src/plugins_tab.rs:812
 #, python-brace-format
 msgid "Telescope couldn't delete it: {error}"
 msgstr "Telescope इसे मिटा नहीं सका: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:833
+#: rust/crates/shell/src/plugins_tab.rs:849
 #, python-brace-format
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr "Telescope इसका प्लगइन्स फ़ोल्डर नहीं बना सका: {error}"
+
+#: rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1048
+msgid "Live"
+msgstr "लाइव"
 
 #: rust/crates/shell/src/search.rs:31
 msgid "Tab"
@@ -7738,10 +7751,6 @@ msgstr ""
 #: rust/crates/shell/src/streams.rs:980
 msgid "The phone's camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr ""
-
-#: rust/crates/shell/src/streams.rs:1048
-msgid "Live"
-msgstr "लाइव"
 
 #: rust/crates/shell/src/streams.rs:1060
 msgid "Starting"
@@ -8852,7 +8861,7 @@ msgstr ""
 msgid "Couldn't check for updates (HTTP {code})."
 msgstr "अपडेट नहीं खोजे जा सके (HTTP {code})."
 
-#: rust/crates/system/src/updates.rs:239 rust/crates/vision/src/pack.rs:299
+#: rust/crates/system/src/updates.rs:239 rust/crates/vision/src/pack.rs:334
 msgid "The download failed. Check the internet connection and try again."
 msgstr "डाउनलोड विफल रहा. इंटरनेट कनेक्शन जांचें और फिर कोशिश करें."
 
@@ -8868,7 +8877,7 @@ msgstr "Telescope खुद को अपडेट नहीं कर सकत
 msgid "Telescope's folder isn't writable, so it can't update itself."
 msgstr "Telescope के फ़ोल्डर में लिखने की अनुमति नहीं है, इसलिए यह खुद अपडेट नहीं हो सकता."
 
-#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:348
+#: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:383
 msgid "The download couldn't be unpacked."
 msgstr "डाउनलोड अनपैक नहीं किया जा सका."
 
@@ -9340,27 +9349,35 @@ msgstr "नीचे के बार में पिन करें"
 msgid "Add keyboard shortcut…"
 msgstr "कीबोर्ड शॉर्टकट जोड़ें…"
 
-#: rust/crates/vision/src/pack.rs:248
-msgid "There's no download for this computer yet."
-msgstr "इस कंप्यूटर के लिए अभी कोई डाउनलोड उपलब्ध नहीं है."
-
-#: rust/crates/vision/src/pack.rs:262
-msgid "Cancelled."
-msgstr "रद्द किया गया."
-
-#: rust/crates/vision/src/pack.rs:270
-msgid "The download is bigger than it should be."
-msgstr "डाउनलोड तय साइज़ से बड़ा है."
-
-#: rust/crates/vision/src/pack.rs:278
+#: rust/crates/vision/src/pack.rs:234
 msgid "The download didn't match what this version of Telescope expects, so it wasn't used."
 msgstr "डाउनलोड Telescope के इस वर्शन की अपेक्षा के अनुरूप नहीं था, इसलिए इसका इस्तेमाल नहीं किया गया."
 
-#: rust/crates/vision/src/pack.rs:349
+#: rust/crates/vision/src/pack.rs:255
+msgid "There's no vision pack for this computer."
+msgstr ""
+
+#: rust/crates/vision/src/pack.rs:268
+msgid "The vision pack couldn't be installed."
+msgstr ""
+
+#: rust/crates/vision/src/pack.rs:293
+msgid "There's no download for this computer yet."
+msgstr "इस कंप्यूटर के लिए अभी कोई डाउनलोड उपलब्ध नहीं है."
+
+#: rust/crates/vision/src/pack.rs:307
+msgid "Cancelled."
+msgstr "रद्द किया गया."
+
+#: rust/crates/vision/src/pack.rs:315
+msgid "The download is bigger than it should be."
+msgstr "डाउनलोड तय साइज़ से बड़ा है."
+
+#: rust/crates/vision/src/pack.rs:384
 msgid "The download unpacks to more than it should, so it wasn't used."
 msgstr "डाउनलोड ज़रूरत से ज़्यादा बड़ा अनपैक होता है, इसलिए इसका इस्तेमाल नहीं किया गया."
 
-#: rust/crates/vision/src/pack.rs:358
+#: rust/crates/vision/src/pack.rs:393
 msgid "The download contains unexpected paths, so it wasn't used."
 msgstr "डाउनलोड में अनपेक्षित पाथ हैं, इसलिए इसका इस्तेमाल नहीं किया गया."
 
@@ -9382,7 +9399,7 @@ msgid "Light"
 msgstr "रोशनी"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:428
+#: rust/app/src/main.rs:431
 msgid ", "
 msgstr ", "
 
@@ -9555,7 +9572,7 @@ msgstr "अपडेट में अनपेक्षित फ़ाइले
 msgid "The download doesn't contain Telescope, so it wasn't installed."
 msgstr "डाउनलोड में Telescope नहीं है, इसलिए इसे इंस्टॉल नहीं किया गया."
 
-#: rust/crates/shell/src/plugins_tab.rs:752
+#: rust/crates/shell/src/plugins_tab.rs:768
 msgid "Replaced"
 msgstr "बदल दिया गया"
 

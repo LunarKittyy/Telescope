@@ -302,3 +302,25 @@ fn a_download_that_goes_quiet_fails_as_a_connection_problem_and_leaves_nothing()
     assert!(result.unwrap_err().0.contains("internet connection"));
     assert!(!f.folder.join(f.info.pack_id().unwrap()).exists());
 }
+
+#[test]
+fn a_pack_zip_downloaded_by_hand_is_installed_like_the_download() {
+    let f = Fixture::new();
+    let zip = f.folder.parent().unwrap().join("Telescope-vision-linux-0123456789abcdef.zip");
+    std::fs::write(&zip, f.served.lock().unwrap().clone()).unwrap();
+    assert!(is_pack_zip_name("Telescope-vision-windows-ab12 (1).zip") && !is_pack_zip_name("my-plugin.zip"));
+    let last = install_zip(&f.info, &f.folder, &zip).unwrap();
+    assert_eq!(last, f.info.folder(&f.folder));
+    assert!(f.info.installed(&f.folder));
+}
+
+#[test]
+fn a_pack_zip_for_another_version_is_refused_in_plain_words() {
+    let f = Fixture::new();
+    let other = zipped(&[("site/x.py", b"other")]);
+    let zip = f.folder.parent().unwrap().join("Telescope-vision-linux-fedcba9876543210.zip");
+    std::fs::write(&zip, other).unwrap();
+    let e = install_zip(&f.info, &f.folder, &zip).unwrap_err();
+    assert!(e.0.contains("didn't match"), "{e}");
+    assert!(!f.info.installed(&f.folder));
+}
