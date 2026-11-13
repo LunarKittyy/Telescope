@@ -100,7 +100,7 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | `card` | Card | title, icon, hue, header action or switch |
 | `row` | FormRow, RailRow, SwitchRow | label, or an icon and its tooltip word (FormRow only in Settings' pages, where the rows are named) |
 | `section` | SectionHeading, Section | title, folding |
-| `button` | Button | text, icon, role (plain, primary, danger, quiet) |
+| `button` | Button | text, icon, role (plain, primary, danger, quiet, outline: no fill and a thin dark line, only for a button on a coloured bar) |
 | `icon-button` | IconButton | icon (a raised square at rest; `bare` only for an icon inside a field) |
 | `link` | LinkText | text, address |
 | `switch` | Switch | hue, danger |

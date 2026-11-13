@@ -505,7 +505,7 @@ export component PluginsFooter inherits Rectangle {
         Text { horizontal-stretch: 1; text: note; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; color: Theme.stage; vertical-alignment: center; }
         Button {
             text: @tr("Revert");
-            role: "quiet";
+            role: "outline";
             enabled: root.amount >= 1;
             clicked => { root.revert(); }
             tip: @tr("Revert");
