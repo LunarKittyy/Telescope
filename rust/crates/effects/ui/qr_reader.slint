@@ -62,6 +62,7 @@ export component QrReaderCard inherits Card {
             SwitchRow {
                 icon: Icons.bell;
                 label: @tr("Notify me when a code is read");
+                tip: @tr("Show a notification when a QR code is read");
                 hue: root.hue;
                 enabled: active;
                 checked: notify;

@@ -305,7 +305,7 @@ fn a_test_send_shows_its_result_but_never_a_banner() {
     assert!(p["test-text"].as_str().unwrap().contains("HTTP 404") && p["test-kind"] == "status_err" && rig.issue().is_none());
     rig.ui("test-clicked", vec![json!(false)]);
     rig.answer("test", "");
-    assert_eq!((rig.props(TAB)["test-text"].as_str(), rig.props(TAB)["test-kind"].as_str()), (Some("It went through."), Some("status_ok")));
+    assert_eq!((rig.props(TAB)["test-text"].as_str(), rig.props(TAB)["test-kind"].as_str()), (Some("Test request succeeded."), Some("status_ok")));
     // Without a usable address there's nothing to send
     rig.ui("url-edited", vec![json!("nope")]);
     let before = rig.sent_count();

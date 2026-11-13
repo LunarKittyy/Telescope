@@ -215,7 +215,7 @@ pub trait SourceKind {
     }
     /// What to do when it can't be reached for a while.
     fn lost_hint(&self) -> String {
-        tr("Check that it's still on.")
+        tr("Check that the device is still on.")
     }
     /// The stream is back or over: what start_lost_clock started stops.
     fn end_recovery(&self, source: &Source) {

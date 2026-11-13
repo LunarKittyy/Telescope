@@ -92,7 +92,7 @@ component LevelMeter inherits Rectangle {
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
     }
-    Tip { says: @tr("Level"); detail: @tr("Yellow: the limiter is holding peaks down. Red: it clipped."); hint: @tr("Click to clear"); hover: touch.has-hover; }
+    Tip { says: @tr("Level"); detail: @tr("Yellow: the limiter is holding peaks down. Red: the sound clipped."); hint: @tr("Click to clear"); hover: touch.has-hover; }
 }
 
 export component MicrophoneCard inherits Card {
@@ -198,7 +198,7 @@ export component MicrophoneCard inherits Card {
                 icon: Icons.mic;
                 label: mic-label;
                 tip: @tr("Level");
-                tip-detail: @tr("Yellow: the limiter is holding peaks down. Red: it clipped.");
+                tip-detail: @tr("Yellow: the limiter is holding peaks down. Red: the sound clipped.");
                 hue: root.hue;
                 HorizontalLayout {
                     // The slider's own spacing and readout width, so the two tracks and their numbers line up
@@ -312,7 +312,7 @@ export component MicrophoneCard inherits Card {
                 Button {
                     text: @tr("Download and install");
                     tip: @tr("Download and install");
-                    tip-detail: @tr("Telescope downloads VB-Cable from vb-audio.com and opens its setup, which asks for admin. Restart the computer afterwards.");
+                    tip-detail: @tr("VB-Cable is downloaded from vb-audio.com and its setup opens, which asks for admin access. Restart the computer afterwards.");
                     role: "primary";
                     dialog: true;
                     hue: root.hue;

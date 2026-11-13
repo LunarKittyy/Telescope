@@ -593,7 +593,7 @@ pub(crate) fn install_linux_after(archive: &Path, directory: &Path, build: i64, 
     }
     if let Some(name) = foreign_entry(directory, &staging, &entries) {
         let _ = std::fs::remove_dir_all(&staging);
-        return Err(UpdateError(tr("Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a folder of its own.").field("name", name)));
+        return Err(UpdateError(tr("Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a separate folder.").field("name", name)));
     }
     if let Err(e) = prepare(&staging) {
         let _ = std::fs::remove_dir_all(&staging);

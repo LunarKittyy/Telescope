@@ -16,6 +16,7 @@ component ExtraCameraRows inherits UnfoldGroup {
         RailRow {
             icon: Icons.camera;
             label: @tr("Extra cameras");
+            tip: @tr("More virtual cameras, so several cameras can stream at the same time");
             named: true;
             hue: root.hue;
             keywords: @tr("search" => "multiple second cameras add camera several streams remove virtual cameras");
@@ -75,6 +76,7 @@ export component VirtualCameraSettings inherits Card {
         RailRow {
             icon: Icons.chip;
             label: @tr("Kernel module");
+            tip: @tr("The Linux part that provides the virtual camera");
             tip-detail: @tr("Only needed when the status isn't Ready.");
             named: true;
             hue: root.hue;
@@ -119,6 +121,7 @@ export component VirtualCameraSettings inherits Card {
         RailRow {
             icon: Icons.chip;
             label: @tr("Driver");
+            tip: @tr("The Windows part that provides the virtual camera");
             named: true;
             hue: root.hue;
             keywords: @tr("search" => "unitycapture unity video capture windows virtual camera install reinstall rename register missing not showing obs zoom");
@@ -131,6 +134,8 @@ export component VirtualCameraSettings inherits Card {
         RailRow {
             icon: Icons.usb;
             label: "ADB";
+            tip: @tr("Android's tool for talking to a phone over USB");
+            tip-detail: @tr("Google's licence doesn't allow bundling adb, so download it or pick a copy you already have.");
             named: true;
             hue: root.hue;
             keywords: @tr("search" => "adb android debug bridge usb pairing download get platform-tools google own cable");
@@ -207,7 +212,7 @@ export component VideoSettings inherits Card {
             icon: Icons.chip;
             label: @tr("Hardware acceleration");
             tip: @tr("Hardware acceleration");
-            tip-detail: @tr("Decode the Light format on the graphics card from the next stream on. If the card fails the processor takes over until you restart Telescope.");
+            tip-detail: @tr("Decode the Light format on the graphics card from the next stream on. If the graphics card fails, the processor is used until you restart Telescope.");
             keywords: @tr("search" => "hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu processor laptop 4k");
             hue: root.hue;
             checked <=> root.hw-checked;
@@ -220,7 +225,7 @@ export component VideoSettings inherits Card {
         icon: Icons.battery;
         label: @tr("Power-saving effects");
         tip: @tr("Power-saving effects");
-        tip-detail: @tr("Use less processor and battery while Background or Auto framing is on. They follow quick movement a little later.");
+        tip-detail: @tr("Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later.");
         keywords: @tr("search" => "battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality");
         hue: root.hue;
         checked <=> root.saving-checked;
@@ -229,7 +234,8 @@ export component VideoSettings inherits Card {
     RailRow {
         icon: Icons.zoom;
         label: @tr("Max zoom");
-        tip-detail: @tr("How far the Zoom slider goes. Zoom beyond the phone's own range is cropped on this computer.");
+        tip: @tr("How far the Zoom slider goes");
+        tip-detail: @tr("Zoom beyond the phone's own range is cropped on this computer.");
         named: true;
         hue: root.hue;
         keywords: @tr("search" => "zoom limit magnify telephoto digital crop 10x 30x slider range");
@@ -246,6 +252,8 @@ export component VideoSettings inherits Card {
         RailRow {
             icon: Icons.aspect;
             label: @tr("Canvas size");
+            tip: @tr("The size of the picture other apps get from the virtual camera");
+            tip-detail: @tr("On Linux the virtual camera is reloaded for this, so close OBS and other apps using it first.");
             named: true;
             hue: root.hue;
             keywords: @tr("search" => "resolution output size 1080p 720p 4k portrait landscape aspect ratio custom width height pixels apply reload");
@@ -322,7 +330,8 @@ export component MicrophoneLimits inherits Card {
     RailRow {
         icon: Icons.volume;
         label: @tr("Max gain");
-        tip-detail: @tr("How far the Gain slider goes. Less range gives finer steps and more range helps a quiet phone.");
+        tip: @tr("How far the Gain slider goes");
+        tip-detail: @tr("Less range gives finer steps. More range helps a quiet phone.");
         named: true;
         hue: root.hue;
         keywords: @tr("search" => "microphone volume loudness boost amplify quiet decibel db slider range");
@@ -339,7 +348,7 @@ export component MicrophoneLimits inherits Card {
         icon: Icons.level;
         label: @tr("Limiter");
         tip: @tr("Limiter");
-        tip-detail: @tr("Keeps loud sounds from clipping");
+        tip-detail: @tr("Keep loud sounds from clipping");
         keywords: @tr("search" => "microphone audio compressor distortion clipping loud peaks sound");
         hue: root.hue;
         checked <=> root.limiter-checked;
@@ -370,6 +379,7 @@ export component PhoneAppSettings inherits Card {
         RailRow {
             icon: Icons.phone;
             label: "Telescope.apk";
+            tip: @tr("The phone app that streams the camera to this computer");
             named: true;
             hue: root.hue;
             keywords: @tr("search" => "phone app install usb android reinstall newer version sideload cable");
@@ -391,7 +401,7 @@ export component PhoneAppSettings inherits Card {
             RailRow {
                 icon: Icons.usb;
                 label: @tr("Select device");
-                tip-detail: @tr("More than one phone is plugged in. Which one should get the app?");
+                tip: @tr("Pick which phone gets the app when more than one is plugged in");
                 named: true;
                 hue: root.hue;
                 ChoiceField {
@@ -441,6 +451,7 @@ export component LookSettings inherits Card {
     RailRow {
         icon: Icons.sun;
         label: @tr("Theme");
+        tip: @tr("Dark, classic, OLED black or light for the whole app");
         named: true;
         hue: root.hue;
         keywords: @tr("search" => "theme classic dark blue appearance look old oled black light white");
@@ -474,6 +485,8 @@ export component LookSettings inherits Card {
         RailRow {
             icon: Icons.chat;
             label: @tr("Language");
+            tip: @tr("The language of every text in the app");
+            tip-detail: @tr("Switching needs a restart.");
             named: true;
             hue: root.hue;
             keywords: @tr("search" => "language translation translate locale");
@@ -493,7 +506,7 @@ export component LookSettings inherits Card {
                 has-icon: false;
                 HorizontalLayout {
                     spacing: Theme.gap;
-                    KitStatus { text: @tr("Restart to switch"); detail: @tr("Restart Telescope to switch to it."); kind: "warn"; horizontal: "end"; }
+                    KitStatus { text: @tr("Restart to switch"); detail: @tr("Restart Telescope to switch to the new language."); kind: "warn"; horizontal: "end"; }
                     Button {
                         text: @tr("Restart now");
                         has-icon: true;
@@ -568,14 +581,17 @@ export component AboutSettings inherits Card {
     if log-shown: RailRow {
         icon: Icons.notes;
         label: @tr("Log");
+        tip: @tr("A record of what the app did, useful for tracking down a problem");
         named: true;
         hue: root.hue;
         keywords: @tr("search" => "log file open show temp folder");
-        Button { text: @tr("Open"); tip: @tr("Open log"); tip-detail: @tr("Open the full log. It's kept in the temp folder, which the system clears."); clicked => { root.log-clicked(); } }
+        Button { text: @tr("Open"); tip: @tr("Open log"); tip-detail: @tr("Open the full log. The log is kept in the temp folder, which the system clears."); clicked => { root.log-clicked(); } }
     }
     RailRow {
         icon: Icons.copy;
         label: @tr("Diagnostics");
+        tip: @tr("Info about your setup, for a bug report");
+        tip-detail: @tr("Pairing tokens, addresses and file paths are left out.");
         named: true;
         hue: root.hue;
         keywords: @tr("search" => "copy diagnostics info system details");
@@ -589,6 +605,7 @@ export component AboutSettings inherits Card {
     RailRow {
         icon: Icons.alert;
         label: @tr("Bug reports");
+        tip: @tr("Report a problem on GitHub");
         named: true;
         hue: root.hue;
         keywords: @tr("search" => "bug report diagnostics logs debug support problem issue help copy log file");
@@ -597,6 +614,7 @@ export component AboutSettings inherits Card {
     RailRow {
         icon: Icons.help;
         label: @tr("Need help?");
+        tip: @tr("Fixes for the common problems");
         named: true;
         hue: root.hue;
         keywords: @tr("search" => "help support troubleshooting question faq problem not working stuck ask");

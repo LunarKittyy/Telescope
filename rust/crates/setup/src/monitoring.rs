@@ -346,7 +346,7 @@ impl MonitoringPlugin {
                 } else {
                     tr("{phone}: temperature is {temp} °C.").field("phone", name).field("temp", &temp)
                 };
-                let then = if stop_hot { tr("Stopped streaming to let it cool down.") } else { tr("Consider stopping charging or closing other apps.") };
+                let then = if stop_hot { tr("Stopped streaming to let the phone cool down.") } else { tr("Consider stopping charging or closing other apps.") };
                 notes.push((tr("Telescope - Phone Running Hot"), format!("{text} {then}")));
             }
         } else if temp_c < (temp_thresh - 5) as f64 {
@@ -365,7 +365,7 @@ impl MonitoringPlugin {
                 } else {
                     tr("{phone}'s battery is at {level}%").field("phone", name).field("level", level.to_string())
                 };
-                (title, tr("Streaming stopped, as Monitoring stops it at {level}% or lower.").field("level", batt_thresh.to_string()))
+                (title, tr("Streaming stopped because Monitoring stops streaming at {level}% or lower.").field("level", batt_thresh.to_string()))
             } else {
                 let temp = number(temp_c, 1, false);
                 let title = if name.is_empty() {
@@ -373,7 +373,7 @@ impl MonitoringPlugin {
                 } else {
                     tr("{phone} is at {temp} °C").field("phone", name).field("temp", &temp)
                 };
-                (title, tr("Streaming stopped to let it cool down, as Monitoring stops it at {temp} °C.").field("temp", temp_thresh.to_string()))
+                (title, tr("Streaming stopped to let the phone cool down, because Monitoring stops streaming at {temp} °C.").field("temp", temp_thresh.to_string()))
             };
             let issue_key = format!("stopped:{}", key.as_deref().unwrap_or("None"));
             self.stops.insert(issue_key.clone(), (key.clone(), stop_low, stop_hot));
@@ -445,7 +445,7 @@ impl Plugin for MonitoringPlugin {
             name: NAME.into(),
             title: n_("Monitoring").into(),
             about: n_("The phone's battery and temperature, with warnings when they get low or high.").into(),
-            when_off: n_("Without it there's no Phone card and nothing warns you about a low battery or a hot phone.").into(),
+            when_off: n_("Without the Monitoring plugin there's no Phone card and nothing warns you about a low battery or a hot phone.").into(),
             category: "streaming".into(),
             icon: "phone".into(),
             device_local: true,

@@ -120,7 +120,7 @@ fn a_python_plugin_says_it_needs_an_update() {
     fs::create_dir(&folder).unwrap();
     fs::write(folder.join(MANIFEST), r#"{"name": "old_one", "api": 1, "class": "P"}"#).unwrap();
     fs::write(folder.join("__init__.py"), "").unwrap();
-    assert_eq!(one(&p).problem, "It was made for an older Telescope (plugin API 1) and needs an update.");
+    assert_eq!(one(&p).problem, "The plugin was made for an older Telescope (plugin API 1) and needs an update.");
 }
 
 #[test]
@@ -128,7 +128,7 @@ fn a_built_in_name_cant_be_taken() {
     let mut p = plugins();
     p.reserved.insert("camera_control".into());
     plugin(&p.folder, "camera_control", SIMPLE, json!({}));
-    assert!(one(&p).problem.contains("comes with Telescope"));
+    assert!(one(&p).problem.contains("included in Telescope"));
 }
 
 #[test]
@@ -529,7 +529,7 @@ fn a_built_in_name_cant_be_installed() {
     let mut p = plugins();
     p.reserved.insert("presets".into());
     let archive = zip_of(&scratch(&p).join("p.zip"), &example_files("presets/"));
-    assert!(matches!(p.install_zip(&archive, false), Err(InstallError::Invalid(why)) if why.contains("comes with Telescope")));
+    assert!(matches!(p.install_zip(&archive, false), Err(InstallError::Invalid(why)) if why.contains("included in Telescope")));
 }
 
 #[test]
@@ -590,7 +590,7 @@ fn a_plugin_being_written_that_cant_load_says_why() {
     assert!(loaded.is_empty());
     let errors: BTreeMap<String, String> = failed.into_iter().map(|f| (f.name, f.error)).collect();
     assert_eq!(errors["broken"], "no module named shiny");
-    assert_eq!(errors["wrong"], "It needs a newer Telescope (plugin API 99; this one has 2).");
+    assert_eq!(errors["wrong"], "The plugin needs a newer Telescope (plugin API 99; this Telescope has 2).");
 }
 
 #[test]

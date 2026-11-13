@@ -34,6 +34,7 @@ export component McpSettings inherits VerticalLayout {
         RailRow {
             icon: Icons.devices;
             label: @tr("Connected");
+            tip: @tr("The AI apps connected right now");
             named: true;
             hue: Theme.plugin-hue("extras");
             VerticalLayout {
@@ -62,6 +63,7 @@ export component McpSettings inherits VerticalLayout {
         RailRow {
             icon: Icons.lock;
             label: @tr("Access");
+            tip: @tr("Whether AI apps can only look at your settings or change them too");
             named: true;
             hue: Theme.plugin-hue("extras");
             Segmented {

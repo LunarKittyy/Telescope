@@ -86,7 +86,7 @@ fn tip(name: &str) -> String {
         "exposure_time" => tr("Longer exposure times make the picture brighter but blur movement."),
         "gain" => tr("Higher gain makes the picture brighter but grainier."),
         "backlight" => tr("Brighten a face in front of a bright window."),
-        "anti_flicker" => tr("Set it to your mains frequency to stop lights flickering or banding."),
+        "anti_flicker" => tr("Match your mains frequency to stop lights flickering or banding."),
         "dslr_exposure_comp" => tr("Make the picture brighter or darker than the webcam's automatic exposure."),
         "frame_rate_drop" => tr("Let the webcam lower its frame rate in dim light for a brighter picture."),
         "white_balance" => tr("Make colours warmer or cooler."),
@@ -317,7 +317,7 @@ impl StreamSource for WebcamSource {
         }
     }
     fn lost_hint(&self) -> String {
-        tr("Check that it's plugged in.")
+        tr("Check that the webcam is plugged in.")
     }
     fn waiting_text(&self) -> String {
         self.waiting.lock().unwrap().clone()
@@ -495,9 +495,9 @@ impl WebcamPlugin {
         let issue_key = format!("webcam:{key}");
         if state == "busy" && host.is_streaming_from(Some(&src.id())) {
             let text = if detail.is_empty() {
-                tr("Another app may be using it. Close it there and it starts here.")
+                tr("Another app may be using the webcam. Close the webcam in that app, then start streaming here.")
             } else {
-                tr("{app} is using it. Close it there and it starts here.").field("app", detail)
+                tr("{app} is using the webcam. Close the webcam there, then start streaming here.").field("app", detail)
             };
             host.show_issue(&issue_key, Issue { title: tr("Can't open {name}").field("name", src.name()), text, actions: Vec::new(),
                                                 kind: "warn".into(), details: String::new(), tell_dismiss: false });
@@ -1010,7 +1010,7 @@ impl Plugin for WebcamPlugin {
             name: NAME.into(),
             title: n_("Webcams").into(),
             about: n_("Streaming from webcams and capture cards plugged into this computer.").into(),
-            when_off: n_("Without it webcams aren't in the device picker and the Webcam card is gone too.").into(),
+            when_off: n_("Without the Webcams plugin webcams aren't in the device picker and the Webcam card is gone too.").into(),
             category: "streaming".into(),
             icon: "video".into(),
             pinned: true,

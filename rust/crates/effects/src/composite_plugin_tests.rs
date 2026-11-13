@@ -180,7 +180,7 @@ fn the_picture_goes_out_on_the_telescope_camera_at_its_size() {
     r.host.cameras.clear();
     r.plugin.on_stream_stop(&mut r.host);
     let frame = solid([0, 0, 255], (180, 320));
-    assert!(same(&r.process(&frame, "b"), &frame) && r.plugin.note.contains("no stream goes there"));
+    assert!(same(&r.process(&frame, "b"), &frame) && r.plugin.note.contains("no stream is running there"));
     // b restarts onto Telescope, in landscape: the picture is drawn there at its new size
     r.host.cameras = vec![(0, "b".into(), Some(320), Some(180))];
     r.opened("b", 0, 320, 180);
@@ -348,10 +348,10 @@ fn the_card_says_where_the_picture_goes() {
     r.switch(true);
     assert!(r.plugin.note.starts_with("Nothing's in the picture yet"));
     r.two_streams(0.0);
-    assert_eq!(r.plugin.note, format!("Goes out on {}.", r.plugin.camera_label));
+    assert_eq!(r.plugin.note, format!("Outputting on {}.", r.plugin.camera_label));
     r.host.live = vec!["a".into()];
     r.plugin.on_event(&mut r.host, &Event::StreamsChanged { count: 1 });
-    assert_eq!(r.plugin.note, "It takes over once two of its streams are running.");
+    assert_eq!(r.plugin.note, "Active once two streams are running.");
     r.switch(false);
     assert!(r.plugin.note.is_empty());
     assert_eq!(r.plugin.diagnostics(), [("One picture".to_string(), "off".to_string())]);

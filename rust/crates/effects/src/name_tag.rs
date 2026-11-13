@@ -159,8 +159,8 @@ impl Plugin for NameTagPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("Name tag").into(),
-            about: n_("Puts your name and pronouns in the corner of the picture.").into(),
-            when_off: n_("Without it there's no Name tag card and nothing is drawn on the picture.").into(),
+            about: n_("Show your name and pronouns in a corner of the picture.").into(),
+            when_off: n_("Without the Name tag plugin there's no Name tag card and nothing is drawn on the picture.").into(),
             category: "on_screen".into(),
             icon: "bookmark".into(),
             frame_stage: FrameStage::Overlay,

@@ -20,13 +20,13 @@ pub const MAX_BYTES: u64 = 20 * 1024 * 1024;
 /// TELESCOPE_DEV_PLUGINS: folders `telescope-rs dev --plugin` loads straight from where they're written, only in a dev profile.
 pub const DEV_PLUGINS_ENV: &str = "TELESCOPE_DEV_PLUGINS";
 
-const SHARED: &str = "Other users on this computer could change it, so it isn't loaded.";
-const LINK: &str = "It contains a link to somewhere else, which plugins can't have.";
+const SHARED: &str = "Other users on this computer could change the plugin, so it isn't loaded.";
+const LINK: &str = "The plugin contains a link to somewhere else, which plugins can't have.";
 const BAD_NAME: &str = "The folder has to have the same name as the plugin, using only lowercase letters, digits and _ (starting with a letter).";
-const TOO_BIG: &str = "It's too big for a plugin (over 500 files or 20 MB).";
-const NOT_A_ZIP: &str = "It isn't a .zip file Telescope can open.";
+const TOO_BIG: &str = "The plugin is too big (over 500 files or 20 MB).";
+const NOT_A_ZIP: &str = "The file isn't a .zip file Telescope can open.";
 const NOT_IN_FOLDER: &str = "That isn't a folder in the plugins folder.";
-const TAKEN: &str = "A plugin that comes with Telescope already has that name.";
+const TAKEN: &str = "A plugin included in Telescope already has that name.";
 /// Files that are compiled code: never in a plugin people can read before they switch it on.
 const COMPILED: &[&str] = &[".pyc", ".pyo", ".so", ".pyd", ".dll", ".dylib", ".luac", ".exe"];
 
@@ -178,21 +178,21 @@ impl PluginFolder {
             plugin
         };
         if is_link(path) {
-            return problem(plugin, tr("It's a link to another folder, which plugins can't be.", &[]));
+            return problem(plugin, tr("The plugin is a link to another folder, which plugins can't be.", &[]));
         }
         if !manifest::valid_name(&name) {
             return problem(plugin, tr(BAD_NAME, &[]));
         }
         let raw = match fs::read(path.join(MANIFEST)) {
-            Err(_) => return problem(plugin, tr("It has no {file}.", &[("file", &MANIFEST)])),
+            Err(_) => return problem(plugin, tr("The plugin has no {file}.", &[("file", &MANIFEST)])),
             Ok(raw) => raw,
         };
         let parsed: Value = match std::str::from_utf8(&raw).ok().and_then(|t| serde_json::from_str(t.trim_start_matches('\u{feff}')).ok()) {
-            None => return problem(plugin, tr("Its {file} isn't valid JSON.", &[("file", &MANIFEST)])),
+            None => return problem(plugin, tr("{file} isn't valid JSON.", &[("file", &MANIFEST)])),
             Some(v) => v,
         };
         if !parsed.is_object() {
-            return problem(plugin, tr("Its {file} isn't valid.", &[("file", &MANIFEST)]));
+            return problem(plugin, tr("{file} isn't valid.", &[("file", &MANIFEST)]));
         }
         let m = Manifest::new(parsed);
         plugin.title = Some(manifest::text(m.get("title"))).filter(|t| !t.is_empty()).unwrap_or_else(|| name.clone());
@@ -206,7 +206,7 @@ impl PluginFolder {
         plugin.manifest = m.clone();
         let too_old = |api: i64| {
             let api: &dyn std::fmt::Display = if api == 0 { &"?" } else { &api };
-            tr("It was made for an older Telescope (plugin API {api}) and needs an update.", &[("api", api)])
+            tr("The plugin was made for an older Telescope (plugin API {api}) and needs an update.", &[("api", api)])
         };
         match digest(path, dev) {
             Ok(d) => plugin.digest = d,
@@ -216,30 +216,30 @@ impl PluginFolder {
                 plugin.enabled = dev;
                 // A plugin for the Python app has a __pycache__ next to it, and that isn't what's wrong with it
                 let why = if plugin.api < OLDEST_PLUGIN_API { too_old(plugin.api) }
-                    else if e.kind() == io::ErrorKind::InvalidData { e.to_string() } else { tr("Its files couldn't be read.", &[]) };
+                    else if e.kind() == io::ErrorKind::InvalidData { e.to_string() } else { tr("The plugin's files couldn't be read.", &[]) };
                 return problem(plugin, why);
             }
         }
         plugin.enabled = dev || enabled.get(&name) == Some(&plugin.digest);
         plugin.changed = !dev && enabled.contains_key(&name) && !plugin.enabled;
         if m.get("name").and_then(Value::as_str) != Some(name.as_str()) {
-            return problem(plugin, tr("Its {file} has to give the folder's name as \"name\".", &[("file", &MANIFEST)]));
+            return problem(plugin, tr("{file} has to give the folder's name as \"name\".", &[("file", &MANIFEST)]));
         }
         if self.reserved.contains(&name) {
             return problem(plugin, tr(TAKEN, &[]));
         }
         let api = plugin.api;
         if api > PLUGIN_API {
-            return problem(plugin, tr("It needs a newer Telescope (plugin API {wanted}; this one has {have}).", &[("wanted", &api), ("have", &PLUGIN_API)]));
+            return problem(plugin, tr("The plugin needs a newer Telescope (plugin API {wanted}; this Telescope has {have}).", &[("wanted", &api), ("have", &PLUGIN_API)]));
         }
         if api < OLDEST_PLUGIN_API {
             return problem(plugin, too_old(api));
         }
         let Some(main) = m.main() else {
-            return problem(plugin, tr("Its {file} isn't valid.", &[("file", &MANIFEST)]));
+            return problem(plugin, tr("{file} isn't valid.", &[("file", &MANIFEST)]));
         };
         if !path.join(&main).is_file() {
-            return problem(plugin, tr("It has no {file}.", &[("file", &main)]));
+            return problem(plugin, tr("The plugin has no {file}.", &[("file", &main)]));
         }
         plugin.main = main;
         if shared || unsafe_permissions(path) {
@@ -270,7 +270,7 @@ impl PluginFolder {
                 failed.push(plugin);
             } else if plugin.changed {
                 plugin.error = if plugin.problem.is_empty() {
-                    tr("Its files changed since it was turned on. Turn it on again if you trust this version.", &[])
+                    tr("The plugin's files changed since it was turned on. Turn the plugin on again if you trust the new version.", &[])
                 } else {
                     plugin.problem.clone()
                 };
@@ -441,7 +441,7 @@ fn zip_name<R: io::Read + io::Seek>(zip: &mut zip::ZipArchive<R>) -> Result<Stri
         let name = entry.name().map_err(|_| invalid(NOT_A_ZIP))?.to_string();
         let parts = entry_parts(&name);
         if parts.is_empty() || name.starts_with(['/', '\\']) || name.contains('\\') || parts.iter().any(|p| *p == ".." || p.contains(':')) {
-            return Err(invalid("It holds a file with a path that points outside the plugin."));
+            return Err(invalid("The .zip holds a file with a path that points outside the plugin."));
         }
         if entry.unix_mode().is_some_and(|m| m & 0o170000 == 0o120000) {
             return Err(invalid(LINK));
@@ -452,7 +452,7 @@ fn zip_name<R: io::Read + io::Seek>(zip: &mut zip::ZipArchive<R>) -> Result<Stri
         return Err(invalid(TOO_BIG));
     }
     if tops.len() != 1 {
-        return Err(invalid("It has to hold one folder, named as the plugin."));
+        return Err(invalid("The .zip has to hold one folder, named as the plugin."));
     }
     let name = tops.into_iter().next().unwrap();
     if !manifest::valid_name(&name) {
@@ -495,7 +495,7 @@ fn walk(root: &Path, here: &Path, skip_hidden: bool, found: &mut Vec<PathBuf>, t
     for path in names {
         let lower = file_name(&path).to_lowercase();
         if COMPILED.iter().any(|ext| lower.ends_with(ext)) {
-            return Err(refuse("It contains compiled code (like .pyc files). Plugins have to be source code."));
+            return Err(refuse("The plugin contains compiled code (like .pyc files). Plugins have to be source code."));
         }
         if unsafe_permissions(&path) {
             return Err(refuse(SHARED));

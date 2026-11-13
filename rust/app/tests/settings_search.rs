@@ -175,7 +175,7 @@ fn when_no_entry_has_every_word_the_ones_with_some_are_offered_and_say_so() {
     let (_r, win) = opened("search-partial");
     assert_eq!(names(&win, "zoom meeting")[..1], ["Max zoom"]);
     typed(&win, "zoom meeting");
-    assert_eq!(text(&win, "results-note"), "Nothing matches every word. These match some of them.");
+    assert_eq!(text(&win, "results-note"), "Nothing matches every word. These match some of the words.");
     assert!(!results(&win).is_empty());
     cleared(&win);
     typed(&win, "max zoom");

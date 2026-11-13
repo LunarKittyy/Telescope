@@ -117,6 +117,7 @@ export component UpdatesSettings inherits Card {
         RailRow {
             icon: Icons.check;
             label: @tr("This version");
+            tip: @tr("The version of Telescope you're running");
             named: true;
             hue: root.hue;
             keywords: @tr("search" => "current build number");
@@ -163,6 +164,7 @@ export component UpdatesSettings inherits Card {
     RailRow {
         icon: Icons.layers;
         label: @tr("Channel");
+        tip: @tr("Stable is tested more, nightly gets fixes first");
         named: true;
         hue: root.hue;
         keywords: @tr("search" => "stable nightly beta release track builds testing");
@@ -182,6 +184,7 @@ export component UpdatesSettings inherits Card {
     SwitchRow {
         icon: Icons.timer;
         label: @tr("Check daily");
+        tip: @tr("Look for a new version once a day");
         keywords: @tr("search" => "automatic updates auto check every day background");
         hue: root.hue;
         checked: auto;
@@ -200,6 +203,7 @@ export component UpdatesSettings inherits Card {
     if back-shown: RailRow {
         icon: Icons.reset;
         label: @tr("Older version");
+        tip: @tr("Go back to the older Python version of Telescope");
         named: true;
         hue: root.hue;
         keywords: @tr("search" => "go back downgrade python previous old version revert undo rust");

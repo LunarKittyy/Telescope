@@ -48,7 +48,7 @@ fn row(key: &str, title: &str, text: &str, open: bool, rev: i32) -> Value {
 }
 
 const SHORT: &str = "Open Telescope on the phone and keep it on screen.";
-const LONG: &str = "Open Telescope on the phone and keep it on screen. It needs to be on the same network as this computer, or plugged in with a USB cable, and it has to stay awake the whole time you stream. If the phone sleeps the picture stops until you wake it.";
+const LONG: &str = "Open Telescope on the phone and keep the app on screen. The phone needs to be on the same network as this computer, or plugged in with a USB cable, and it has to stay awake the whole time you stream. If the phone sleeps the picture stops until you wake it.";
 
 fn up() -> (slint_interpreter::ComponentInstance, Rc<VecModel<Value>>) {
     let ui = make(DOC, 900.0, 300.0);

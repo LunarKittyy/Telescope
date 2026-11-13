@@ -555,10 +555,10 @@ fn a_critically_hot_phone_says_the_smaller_size_until_it_cools() {
     r.pump();
     let banner = r.banner("heat:pixel").expect("a banner");
     assert_eq!(banner["title"], "The phone is very hot");
-    assert_eq!(banner["text"], "It's streaming at 1280 × 720 and 15 fps until it cools down.");
+    assert_eq!(banner["text"], "Streaming at 1280 × 720 and 15 fps until the phone cools down.");
     r.phone_says("pixel", hot(0)); // asked for 15 fps or less: only the size dropped
     r.pump();
-    assert_eq!(r.banner("heat:pixel").unwrap()["text"], "It's streaming at 1280 × 720 until it cools down.");
+    assert_eq!(r.banner("heat:pixel").unwrap()["text"], "Streaming at 1280 × 720 until the phone cools down.");
     r.phone_says("pixel", state_with(json!({})));
     r.pump();
     assert!(r.banner("heat:pixel").is_none());

@@ -73,7 +73,7 @@ fn the_camera_card_dials_tiles_and_segments_say_what_they_picked() {
     find(&ui, "Shutter", is_dial).invoke_accessible_decrement_action();
     assert_eq!((said(&heard, "iso-picked"), said(&heard, "shutter-picked")), (vec![vec!["3".to_string()]], vec![vec!["0".to_string()]]));
     let tile = |label: &str| find(&ui, label, |e| e.accessible_checkable() == Some(true));
-    tile("Stabilization").invoke_accessible_default_action();
+    tile("Stabilisation").invoke_accessible_default_action();
     tile("Low light").invoke_accessible_default_action();
     tile("Torch").invoke_accessible_default_action();
     assert_eq!(said(&heard, "ois-toggled"), [["false"]]);

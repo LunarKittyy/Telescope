@@ -69,16 +69,16 @@ pub fn lens_note(zoom: f64, sent_ratio: f64, caps: Option<&PhoneZoomCaps>, live:
         let tele_name = || if tele.is_empty() { tr("the telephoto") } else { lens_name(tele) };
         if centred > sent_ratio + 1e-3 {
             let live_name = if live.is_empty() { tr("the main camera") } else { lens_name(live) };
-            lines.push(tr("Panned past what {tele} can see, so it's on {live}. Pan back to switch again.").field("tele", tele_name()).field("live", &live_name));
+            lines.push(tr("Panned past what {tele} can see, so {live} is used. Pan back to switch again.").field("tele", tele_name()).field("live", &live_name));
             level = "off";
         } else if sent_ratio > 1.0 + 1e-3 && settled && !live.is_empty() && live == default {
-            lines.push(tr("The phone stayed on {live} by itself, most likely too dark or too close for {tele}. It switches once it can.")
+            lines.push(tr("The phone kept using {live}, probably because the scene is too dark or too close for {tele}. The phone switches to {tele} when that changes.")
                 .field("live", lens_name(live)).field("tele", tele_name()));
             level = "off";
         }
     }
     if !lines.is_empty() {
-        lines.push(tr("It can wobble for a moment while it switches."));
+        lines.push(tr("The picture can wobble for a moment during the switch."));
     }
     (level, lines.join("\n"))
 }
@@ -540,7 +540,7 @@ impl TransformsPlugin {
             self.show_lens_outlines(host);
         }
         self.zoom_where = if status.sent.is_none() {
-            if status.streaming { tr("Zoomed on this computer: this lens can't zoom itself") } else { tr("Zoomed on this computer") }
+            if status.streaming { tr("Zoomed on this computer: this lens can't zoom") } else { tr("Zoomed on this computer") }
         } else if status.desktop_zoom > 1.0 {
             tr("Zoomed on the phone's sensor as far as this lens allows, the rest on this computer")
         } else {
@@ -573,7 +573,7 @@ impl Plugin for TransformsPlugin {
             name: NAME.into(),
             title: n_("Transforms").into(),
             about: n_("Zoom, pan, flip, rotate and stretch the picture.").into(),
-            when_off: n_("Without it there's no Transforms card and the picture goes out exactly as the phone sends it.").into(),
+            when_off: n_("Without the Transforms plugin there's no Transforms card and the picture goes out exactly as the phone sends it.").into(),
             category: "camera".into(),
             icon: "crop".into(),
             pinned: true,

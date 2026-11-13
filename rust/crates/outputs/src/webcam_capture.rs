@@ -7,8 +7,8 @@ use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::media::{Decoded, Decoder, FeedEnd, Packet};
 
-pub const GONE_TEXT: &str = n_("The webcam isn't plugged in. Plug it back in and it carries on.");
-pub const BUSY_TEXT: &str = n_("Another app is using the webcam. Close it there and it starts here.");
+pub const GONE_TEXT: &str = n_("The webcam isn't plugged in. Plug the webcam back in to continue.");
+pub const BUSY_TEXT: &str = n_("Another app is using the webcam. Close the webcam in that app, then start streaming here.");
 pub const DENIED_TEXT: &str = n_("Windows or your security software is blocking Telescope from the webcam. Allow it there, then start the webcam again.");
 pub const CLAIMED_TEXT: &str = n_("Something else has the camera mounted as a drive. Unmount it in your file manager, then start the webcam again.");
 pub const NO_FRAMES_TEXT: &str = n_("The webcam isn't sending anything. Try another resolution or frame rate.");

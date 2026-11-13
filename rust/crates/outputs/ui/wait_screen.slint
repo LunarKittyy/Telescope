@@ -70,6 +70,7 @@ export component WaitScreenSettings inherits Card {
     SwitchRow {
         icon: Icons.mirror;
         label: @tr("Mirror it, for apps that flip the camera");
+        tip: @tr("Flip the wait screen so it shows the right way round in apps that mirror the camera");
         hue: root.hue;
         checked <=> root.mirror-checked;
         toggled(on) => { root.mirror-toggled(on); }

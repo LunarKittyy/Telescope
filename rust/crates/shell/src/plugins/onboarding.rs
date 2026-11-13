@@ -130,7 +130,7 @@ impl Onboarding {
         let vcam = if !self.vcam_checked {
             step("Virtual camera", tr("Checking…"), "status_dim", false, String::new(), false)
         } else if self.vcam_ready {
-            let tip = if self.linux { tr("Starting a stream may ask for your password to switch it on.") } else {
+            let tip = if self.linux { tr("Starting a stream may ask for your password to switch on the virtual camera.") } else {
                 tr("If Discord, Zoom or a similar app was already open, quit it fully (closing the window isn't enough if it's still in the tray) and open it again to see the camera.")
             };
             tipped(step("Virtual camera", tr("Installed."), "status_dim", true, String::new(), false), tip)
@@ -162,7 +162,7 @@ impl Onboarding {
         } else {
             let usb = self.installers.as_ref().is_some_and(|i| (i.usb_ready)());
             tipped(step("Phone app", tr("Scan to download"), "status_dim", false, if usb { tr("Install over USB") } else { String::new() }, false),
-                   tr("Scan this with the phone's camera app to download Telescope.apk, then open it to install. It's a download link, not the pairing code."))
+                   tr("Scan the code with the phone's camera app to download Telescope.apk, then open the file to install. The code is a download link, not the pairing code."))
         };
         let pair = if no_phone {
             not_needed("Add your phone")
@@ -204,7 +204,7 @@ impl Plugin for Onboarding {
             name: "onboarding".into(),
             title: n_("Setup guide").into(),
             about: n_("The step by step checklist shown until the first stream works.").into(),
-            when_off: n_("Without it the setup checklist never shows, not even when nothing is set up yet.").into(),
+            when_off: n_("Without the Setup guide plugin the setup checklist never shows, not even when nothing is set up yet.").into(),
             category: "extras".into(),
             icon: "check".into(),
             ..Default::default()
@@ -600,7 +600,7 @@ mod tests {
         assert_eq!(step_of(&o, 1)["text"], "Installed. Open Telescope on the phone for the next step.");
         assert_eq!(step_of(&o, 1)["kind"], "status_ok");
         event(&mut o, &mut host, Event::StreamStopped);
-        assert!(step_of(&o, 1)["tip"].as_str().unwrap().starts_with("Scan this"));
+        assert!(step_of(&o, 1)["tip"].as_str().unwrap().starts_with("Scan the code"));
     }
 
     #[test]

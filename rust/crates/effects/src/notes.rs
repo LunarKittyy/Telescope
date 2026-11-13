@@ -560,8 +560,8 @@ impl Plugin for NotesPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("Teleprompter").into(),
-            about: n_("Shows your script on the phone's screen right under the camera, to read while looking people in the eye.").into(),
-            when_off: n_("Without it there's no Teleprompter card and the phone never shows a script.").into(),
+            about: n_("Show your script on the phone's screen right under the camera, to read while looking into the camera.").into(),
+            when_off: n_("Without the Teleprompter plugin there's no Teleprompter card and the phone never shows a script.").into(),
             category: "on_screen".into(),
             icon: "notes".into(),
             optional: true,
