@@ -167,6 +167,18 @@ fn the_pack_folder_is_the_python_apps() {
     }
 }
 
+#[test]
+fn a_dev_profile_keeps_its_packs_in_its_own_folder() {
+    let env = |vars: &'static [(&'static str, &'static str)]| move |name: &str| vars.iter().find(|(k, _)| *k == name).map(|(_, v)| std::ffi::OsString::from(v));
+    let dev = env(&[("TELESCOPE_DEV_PROFILE", "/tmp/dev-profile"), ("XDG_DATA_HOME", "/real/share"), ("HOME", "/real")]);
+    assert_eq!(dir_in("vision", &dev), PathBuf::from("/tmp/dev-profile/vision"));
+    assert_eq!(dir_in("matting", &dev), PathBuf::from("/tmp/dev-profile/matting"));
+    if cfg!(not(windows)) {
+        let real = env(&[("XDG_DATA_HOME", "/real/share"), ("HOME", "/real")]);
+        assert_eq!(dir_in("vision", &real), PathBuf::from("/real/share/telescope/vision"));
+    }
+}
+
 /// A deflated zip of one file of zeros, which is a few KB for megabytes.
 fn zeros_zipped(megabytes: usize) -> Vec<u8> {
     let mut z = zip::ZipWriter::new(Cursor::new(Vec::new()));
@@ -323,6 +335,23 @@ fn a_pack_zip_for_another_version_is_refused_in_plain_words() {
     let e = install_zip(&f.info, &f.folder, &zip).unwrap_err();
     assert!(e.0.contains("didn't match"), "{e}");
     assert!(!f.info.installed(&f.folder));
+}
+
+#[test]
+fn a_corrupted_pack_zip_is_refused_in_plain_words_and_leaves_nothing() {
+    let f = Fixture::new();
+    let mut bytes = f.served.lock().unwrap().clone();
+    let mid = bytes.len() / 2;
+    for b in &mut bytes[mid..mid + 16] {
+        *b ^= 0xff;
+    }
+    let zip = f.folder.parent().unwrap().join("Telescope-vision-linux-0123456789abcdef.zip");
+    std::fs::write(&zip, bytes).unwrap();
+    let e = install_zip(&f.info, &f.folder, &zip).unwrap_err();
+    eprintln!("corrupt zip error: {e}");
+    assert!(!e.0.is_empty() && !f.info.installed(&f.folder));
+    assert!(!f.folder.join(f.info.pack_id().unwrap()).exists());
+    assert!(zip.exists());
 }
 
 #[test]

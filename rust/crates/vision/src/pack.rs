@@ -65,8 +65,11 @@ pub fn matting_dir() -> PathBuf {
 }
 
 fn dir_for(kind: Kind) -> PathBuf {
-    let folder = kind.asset();
-    let env = |name: &str| std::env::var_os(name).filter(|v| !v.is_empty());
+    dir_in(kind.asset(), &|name| std::env::var_os(name).filter(|v| !v.is_empty()))
+}
+
+/// dir_for with the environment passed in: a dev profile keeps its packs in its own folder, so a dev run never touches the real ones.
+fn dir_in(folder: &str, env: &dyn Fn(&str) -> Option<std::ffi::OsString>) -> PathBuf {
     if let Some(dev) = env(telescope_core::config::DEV_PROFILE_ENV) {
         return PathBuf::from(dev).join(folder);
     }
