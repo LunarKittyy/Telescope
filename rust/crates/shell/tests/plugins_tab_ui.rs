@@ -168,10 +168,19 @@ fn the_restart_bar_opens_and_shuts_with_the_page_moving_with_it() {
     switch.invoke_accessible_default_action();
     assert_eq!(s.ui.get_property("footer-shown").unwrap(), Value::Bool(false), "back as it was: nothing to restart for");
     let mut shut = vec![height()];
+    // Where the button's top is while the bar goes: it has to travel all the way off the bottom edge before the bar is dropped
+    let button_top = || labelled(&s.ui, "Restart now").iter().filter(|e| e.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::Button)).map(|e| e.absolute_position().y).next();
+    let mut tops = vec![button_top()];
     for _ in 0..40 {
         frame(16);
         shut.push(height());
+        tops.push(button_top());
     }
+    let window_bottom = s.ui.window().size().to_logical(s.ui.window().scale_factor()).height;
+    let seen: Vec<f32> = tops.iter().flatten().copied().collect();
+    assert!(seen.len() > 5 && seen.windows(2).all(|p| p[1] >= p[0] - 0.001), "the bar only moves down: {tops:?}");
+    assert!(seen.last().unwrap() > &(window_bottom - 20.0), "the bar slides to the bottom edge before it goes: {tops:?} of {window_bottom}");
+    assert!(seen.windows(2).map(|p| p[1] - p[0]).fold(0.0, f32::max) < 60.0, "and does not jump out: {tops:?}");
     assert!((shut.last().unwrap() - full).abs() < 0.5, "and gives it back: {shut:?}");
     assert!(shut.windows(2).all(|p| p[1] >= p[0] - 0.001), "{shut:?}");
     assert!(labelled(&s.ui, "Restart now").is_empty(), "the bar is gone once it has shut");

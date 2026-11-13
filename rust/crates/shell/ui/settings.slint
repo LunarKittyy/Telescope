@@ -481,12 +481,13 @@ export component PluginsPanel inherits VerticalLayout {
 
 // The restart bar kept under the Plugins tab's page: in the warning colour so it is noticed, and the one place a pending restart shows.
 // `amount` (0 to 1) is how far it has opened, from the window's own Unfold: the page above it gives up the same room as it grows, so
-// the bar opens and shuts with everything round it moving, and the words fade up as it opens.
+// the bar opens and shuts with everything round it moving, and the words fade up as it opens. The bar keeps its size and the window
+// moves it (it slides down past the bottom edge as it shuts, not shrinks into a line above it).
 export component PluginsFooter inherits Rectangle {
     in property <string> note;
     in property <float> amount: 1;
     callback restart;
-    height: Theme.u(27) * amount;
+    height: Theme.u(27);
     border-radius: Theme.r-card;
     background: Theme.warn;
     clip: true;
