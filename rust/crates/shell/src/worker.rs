@@ -109,6 +109,8 @@ pub struct WorkerSetup {
     pub steps: Vec<StagedStep>,
     /// Which crop each frame gets while the phone's share changes.
     pub gate: Option<Arc<crate::handover::ViewGate>>,
+    /// Says when nobody reads the camera and nothing else needs the frames, so the main camera's steps can pause; None never pauses.
+    pub idle: Option<Arc<crate::idle::IdleGate>>,
 }
 
 /// What a worker hands the vision service: its frames before the view, turned as the window's view says.
@@ -346,6 +348,9 @@ struct Shared {
     source_id: String,
     vision: Option<VisionFeed>,
     gate: Option<Arc<crate::handover::ViewGate>>,
+    /// See WorkerSetup::idle, and when this worker started: a stream is never paused in its first moments.
+    idle: Option<Arc<crate::idle::IdleGate>>,
+    born: Instant,
     hardware: bool,
     hardware_default: bool,
     plugin_source: bool,
@@ -520,7 +525,7 @@ impl StreamWorker {
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
-            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), next_colour: Mutex::new(None), gate: setup.gate,
+            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), next_colour: Mutex::new(None), gate: setup.gate, idle: setup.idle, born: Instant::now(),
             seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), frames_shed: AtomicU64::new(0), published: Mutex::new(0), sent_through: Mutex::new(None), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
             last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), fps_cell: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
@@ -911,6 +916,20 @@ impl Shared {
         pipeline.process(frame, &ctx)
     }
 
+    /// Whether the frame steps and vision are paused: only the main camera's stream, once an app has not read the camera and nothing has
+    /// needed frames for a while (idle.rs), and never in a stream's first moments. Decoding goes on, and the camera keeps sending the last
+    /// picture, which an app that opens it sees until the next frame is made, a frame time or so after it appears.
+    fn paused(&self) -> bool {
+        let Some(gate) = self.idle.as_ref().filter(|_| self.slot_number == 0) else { return false };
+        gate.idle() && self.born.elapsed().as_nanos() as u64 >= gate.quiet_needed_ns() && !self.stopped()
+    }
+
+    /// The first frame after a pause: the steps that keep pictures of their own start again, since what they hold is from before the gap.
+    fn resume(&self) {
+        log::info!("An app is reading the camera again (or something needs frames): the frame steps and vision carry on");
+        self.publish.lock().unwrap().0.forget_history();
+    }
+
     fn next_seq(&self) -> u64 {
         self.seq.fetch_add(1, Ordering::SeqCst)
     }
@@ -1050,7 +1069,18 @@ impl Shared {
         std::thread::Builder::new().name("stream-steps".into()).spawn(move || {
             let _counting = telescope_core::stats::bind(&s.stats);
             let _priority = telescope_core::system::prioritise_thread("frame steps");
+            let mut was_paused = false;
             while let Some((seq, frame)) = frames.take() {
+                if s.paused() {
+                    if !std::mem::replace(&mut was_paused, true) {
+                        log::info!("No app is reading the camera: the frame steps and vision pause, the stream stays up");
+                    }
+                    // Dropped before any step sees it: decoding went on, which is what keeps the picture coming back at once
+                    continue;
+                }
+                if std::mem::replace(&mut was_paused, false) {
+                    s.resume();
+                }
                 s.publish(seq, frame);
             }
         }).expect("a thread for the frame steps")
@@ -1301,6 +1331,10 @@ impl Shared {
             // A new frame goes out as soon as it's ready. The last one is resent only after two periods without one,
             // so a frame that's a little late isn't held back behind a resend.
             // Frames are picked up while the pacing runs, so a burst isn't thinned down to its last frame
+            // The gap while the steps are paused isn't a stall of the stream
+            if self.paused() {
+                watch.rest();
+            }
             let wait = pacer.wait(Instant::now(), !queued.is_empty());
             if queued.is_empty() || !wait.is_zero() {
                 self.slot.wait_newer(seen, wait.min(Duration::from_millis(100)).max(Duration::from_millis(1)));
@@ -2003,7 +2037,7 @@ mod tests {
     fn setup(opener: Opener) -> WorkerSetup {
         WorkerSetup { url: "http://phone/v1/video".into(), opener, width: None, height: None, fps: 30,
                       canvas: (None, None), slot: 0, source_id: "p".into(), hardware_decode: false, hardware_default: false, waiting_text: None, vision: None,
-                      plugin_source: false, steps: Vec::new(), gate: None }
+                      plugin_source: false, steps: Vec::new(), gate: None, idle: None }
     }
 
     fn start(setup: WorkerSetup, media: Arc<dyn Media>, cams: &Arc<Cams>, log: &Log) -> StreamWorker {
@@ -3312,6 +3346,8 @@ mod tests {
         /// Each tap this media handed out, and whether a decoder got the first, which is the one the worker keeps.
         tap: Mutex<Vec<Arc<dyn PacketTap>>>,
         tap_was_its_own: Mutex<Vec<bool>>,
+        /// How many times the pipeline was told to forget what it kept (after a pause).
+        forgotten: AtomicU32,
     }
 
     struct Tap;
@@ -3355,6 +3391,9 @@ mod tests {
             self.0.sources.lock().unwrap().push(ctx.source_id().to_string());
             self.0.numbers.lock().unwrap().push(frame.number);
             frame
+        }
+        fn forget_history(&mut self) {
+            self.0.forgotten.fetch_add(1, Ordering::SeqCst);
         }
         fn is_empty(&self) -> bool {
             false
@@ -3400,7 +3439,7 @@ mod tests {
             Ok((codec, Box::new(Feed { packets: Arc::new(Mutex::new(VecDeque::from([Some(5)]))), stop: Arc::default(), endless: None }) as Box<dyn VideoFeed>).into())
         });
         let setup = WorkerSetup { url: url.into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0, waiting_text: None,
-                                  source_id: source.into(), hardware_decode: false, hardware_default: false, plugin_source: false, vision: None, steps: Vec::new(), gate: None };
+                                  source_id: source.into(), hardware_decode: false, hardware_default: false, plugin_source: false, vision: None, steps: Vec::new(), gate: None, idle: None };
         let cams = Arc::new(Cams::default());
         let w = StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(cams.clone())),
                                     telescope_media_free_slot(Duration::ZERO), Arc::new(|_| {})).unwrap();
@@ -3485,9 +3524,114 @@ mod tests {
             Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }) as Box<dyn VideoFeed>).into())
         });
         let setup = WorkerSetup { url: "https://phone/v1/video".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0,
-                                  waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, hardware_default: false, plugin_source: false, vision, steps, gate };
+                                  waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, hardware_default: false, plugin_source: false, vision, steps, gate, idle: None };
         StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(Arc::new(Cams::default()))),
                             telescope_media_free_slot(Duration::ZERO), Arc::new(|_| {})).unwrap()
+    }
+
+    /// A worker on an endless feed whose steps pause once `gate` says nobody reads the camera (it waits no time to start).
+    fn running_with_idle(seen: &Arc<Seen>, gate: Arc<crate::idle::IdleGate>, slot: u32) -> StreamWorker {
+        let opener: Opener = Arc::new(|_| {
+            Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }) as Box<dyn VideoFeed>).into())
+        });
+        let setup = WorkerSetup { url: "https://phone/v1/video".into(), opener, width: None, height: None, fps: 60, canvas: (None, None), slot,
+                                  waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, hardware_default: false, plugin_source: false,
+                                  vision: None, steps: Vec::new(), gate: None, idle: Some(gate) };
+        StreamWorker::start(setup, Arc::new(Watching(seen.clone())), Arc::new(FakeOutputs(Arc::new(Cams::default()))),
+                            telescope_media_free_slot(Duration::ZERO), Arc::new(|_| {})).unwrap()
+    }
+
+    fn made(seen: &Arc<Seen>) -> usize {
+        seen.numbers.lock().unwrap().len()
+    }
+
+    #[test]
+    fn no_frame_goes_through_the_steps_while_nobody_reads_the_camera_and_they_carry_on_when_someone_does() {
+        let (seen, gate) = (Arc::new(Seen::default()), Arc::new(crate::idle::IdleGate::after(0)));
+        let w = running_with_idle(&seen, gate.clone(), 0);
+        wait_for(|| made(&seen) >= 3);
+        gate.watched(false);
+        std::thread::sleep(Duration::from_millis(100));
+        let held = made(&seen);
+        std::thread::sleep(Duration::from_millis(300));
+        assert_eq!(made(&seen), held, "paused: the steps ran on nothing");
+        assert_eq!(seen.forgotten.load(Ordering::SeqCst), 0);
+        // The camera still has its last picture to send, and the stream went on arriving
+        assert!(w.slot().latest().is_some());
+        gate.watched(true);
+        wait_for(|| made(&seen) > held);
+        assert_eq!(seen.forgotten.load(Ordering::SeqCst), 1, "what the steps kept from before the pause is dropped, once");
+        w.stop();
+    }
+
+    #[test]
+    fn a_pause_never_ends_with_a_frame_that_was_made_before_it() {
+        let (seen, gate) = (Arc::new(Seen::default()), Arc::new(crate::idle::IdleGate::after(0)));
+        let w = running_with_idle(&seen, gate.clone(), 0);
+        wait_for(|| made(&seen) >= 3);
+        gate.watched(false);
+        std::thread::sleep(Duration::from_millis(100));
+        let before = seen.numbers.lock().unwrap().last().copied().unwrap();
+        std::thread::sleep(Duration::from_millis(200));
+        gate.watched(true);
+        wait_for(|| seen.numbers.lock().unwrap().last().copied().unwrap() > before);
+        // Frames were arriving all through the pause, so the first made after it is a new one, not one kept from before
+        let after = seen.numbers.lock().unwrap().iter().copied().find(|n| *n > before).unwrap();
+        assert!(after > before + 5, "frame {after} came after {before}: the pause skipped what arrived meanwhile");
+        w.stop();
+    }
+
+    #[test]
+    fn something_that_wants_frames_keeps_the_steps_running() {
+        let (seen, gate) = (Arc::new(Seen::default()), Arc::new(crate::idle::IdleGate::after(0)));
+        gate.watched(false);
+        gate.wanted(true);
+        let w = running_with_idle(&seen, gate.clone(), 0);
+        wait_for(|| made(&seen) >= 5);
+        gate.wanted(false);
+        std::thread::sleep(Duration::from_millis(100));
+        let held = made(&seen);
+        std::thread::sleep(Duration::from_millis(200));
+        assert_eq!(made(&seen), held);
+        w.stop();
+    }
+
+    #[test]
+    fn a_camera_nobody_can_say_is_read_is_never_paused() {
+        let (seen, gate) = (Arc::new(Seen::default()), Arc::new(crate::idle::IdleGate::after(0)));
+        let w = running_with_idle(&seen, gate, 0);
+        wait_for(|| made(&seen) >= 3);
+        let held = made(&seen);
+        wait_for(|| made(&seen) >= held + 5);
+        w.stop();
+    }
+
+    #[test]
+    fn only_the_main_camera_is_paused() {
+        let (seen, gate) = (Arc::new(Seen::default()), Arc::new(crate::idle::IdleGate::after(0)));
+        gate.watched(false);
+        let w = running_with_idle(&seen, gate, 1);
+        wait_for(|| made(&seen) >= 5);
+        w.stop();
+    }
+
+    #[test]
+    fn a_stream_is_not_paused_in_its_first_moments() {
+        let (seen, gate) = (Arc::new(Seen::default()), Arc::new(crate::idle::IdleGate::after(60_000_000_000)));
+        gate.watched_at(false, 1);
+        let w = running_with_idle(&seen, gate, 0);
+        wait_for(|| made(&seen) >= 5);
+        w.stop();
+    }
+
+    #[test]
+    fn a_stream_that_starts_while_paused_still_gets_its_first_frame_out() {
+        let (seen, gate) = (Arc::new(Seen::default()), Arc::new(crate::idle::IdleGate::after(0)));
+        gate.watched(false);
+        let w = running_with_idle(&seen, gate, 0);
+        wait_for(|| w.slot().latest().is_some());
+        wait_for(|| made(&seen) >= 1);
+        w.stop();
     }
 
     #[test]
@@ -3497,7 +3641,7 @@ mod tests {
         });
         let vision = VisionFeed { service: Arc::<Masks>::default(), upright: Arc::default(), frame_sizes: Arc::default(), motion: None, owners: Arc::default(), owner: 1 };
         let setup = WorkerSetup { url: "https://phone/v1/video".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0,
-                                  waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, hardware_default: false, plugin_source: false, vision: Some(vision), steps: Vec::new(), gate: None };
+                                  waiting_text: None, source_id: "phone-1".into(), hardware_decode: false, hardware_default: false, plugin_source: false, vision: Some(vision), steps: Vec::new(), gate: None, idle: None };
         let (seen, log) = (Arc::new(Seen::default()), Arc::new(Mutex::new(Vec::new())));
         let sink = log.clone();
         let events: Events = Arc::new(move |e| {

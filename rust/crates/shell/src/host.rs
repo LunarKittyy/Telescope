@@ -30,6 +30,7 @@ impl Ctx<'_> {
         self.set_preview_warp(&me, None);
         self.want_sensors(&me, &[]);
         self.want_stats(&me, false);
+        self.want_frames(&me, false);
         self.state.colour.remove_owner(&me);
         if self.state.packet_makers.0.iter().any(|(o, _)| *o == me) {
             self.change_packets(&me, None);
@@ -483,11 +484,20 @@ impl HostFrames for Ctx<'_> {
     fn frames(&self) -> Arc<dyn FrameStore> {
         self.state.frames.clone().unwrap_or_else(|| Arc::new(NoFrames))
     }
+    fn want_frames(&mut self, owner: &str, on: bool) {
+        if on {
+            self.state.frame_wants.insert(owner.to_string());
+        } else {
+            self.state.frame_wants.remove(owner);
+        }
+        self.state.sync_idle();
+    }
 }
 
 impl HostMotion for Ctx<'_> {
     fn watch_motion(&mut self, owner: &str, zones: &[[f32; 4]], sensitivity: u32) {
         self.state.motion.watch(owner, &telescope_core::motion::widen(zones), i64::from(sensitivity));
+        self.state.sync_idle();
     }
     fn motion(&self, owner: &str) -> Vec<u32> {
         self.focused_source_id().map(|id| self.state.motion.moving(&id, owner)).unwrap_or_default()
@@ -664,6 +674,14 @@ impl Host for Ctx<'_> {
     }
     fn want_stats(&mut self, owner: &str, on: bool) {
         telescope_core::stats::Hub::shared().want(owner, on);
+        // Measuring every plugin's time is no use on a stream that has stopped making frames
+        let key = format!("stats:{owner}");
+        if on {
+            self.state.frame_wants.insert(key);
+        } else {
+            self.state.frame_wants.remove(&key);
+        }
+        self.state.sync_idle();
     }
 }
 

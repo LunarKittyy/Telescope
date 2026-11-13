@@ -246,7 +246,7 @@ impl Worker {
         let (w, s) = (waiting.clone(), stopped.clone());
         let opener: Opener = Arc::new(move |_| Ok((Codec::Mjpeg, Box::new(Feed(w.clone(), s.clone())) as Box<dyn VideoFeed>).into()));
         let setup = WorkerSetup { url: "url".into(), opener, width: None, height: None, fps: 30, canvas: (None, None), slot: 0, source_id: sid.into(),
-                                  hardware_decode: false, hardware_default: false, plugin_source: false, waiting_text: None, vision: None, steps, gate: None };
+                                  hardware_decode: false, hardware_default: false, plugin_source: false, waiting_text: None, vision: None, steps, gate: None, idle: None };
         let worker = StreamWorker::start(setup, Arc::new(TestMedia(waiting.clone())), Arc::new(NoCameras), slot.clone() as Arc<dyn FrameSlot>, Arc::new(|_| {})).unwrap();
         Worker { worker, waiting, stopped, slot }
     }

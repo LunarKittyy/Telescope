@@ -518,6 +518,11 @@ pub trait HostVision {
 pub trait HostFrames {
     /// A handle to keep and use from any thread.
     fn frames(&self) -> Arc<dyn FrameStore>;
+    /// owner needs the stream's frames to keep going through the frame steps even while no app reads the virtual camera and nobody looks at the
+    /// window: a step that reads pictures and reports what it found (the QR code reader), or a plugin that draws from other streams' frames. While
+    /// any owner wants them nothing is paused; without one the host may stop running the steps and vision on frames nobody sees, and carries on at
+    /// once when an app opens the camera. Ask only while the work is needed and let go after.
+    fn want_frames(&mut self, _owner: &str, _on: bool) {}
 }
 
 /// Something moving in parts of the shown stream's picture.

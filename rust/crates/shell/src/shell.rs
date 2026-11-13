@@ -437,6 +437,12 @@ pub struct State {
     pub camera_on_shown: bool,
     /// Whether the plugins last heard the window is on screen (WindowShown), and whether closing to the tray was said.
     pub shown: Option<bool>,
+    /// Whether the preview is popped out, or a plugin has a window open (the composite editor draws from the streams' frames): places the picture is looked at.
+    pub other_windows: bool,
+    /// The owners that asked for frames with Host::want_frames.
+    pub frame_wants: std::collections::BTreeSet<String>,
+    /// Whether the main camera's frame steps can pause while nobody reads it (idle.rs), which the stream's worker looks at.
+    pub idle: Arc<crate::idle::IdleGate>,
     pub tray_close_notified: bool,
     /// Host::set_shortcut_menu: the plugin behind the controls' right-click menu, and the shortcuts it lists.
     pub shortcut_menu: Option<(String, Vec<telescope_core::ui::ShortcutEntry>)>,
@@ -515,6 +521,9 @@ impl State {
             mic: (false, false),
             camera_on_shown: true,
             shown: None,
+            other_windows: false,
+            frame_wants: Default::default(),
+            idle: Arc::default(),
             tray_close_notified: false,
             shortcut_menu: None, stills: Vec::new(), source_stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false, setting_clock: 0, saved_in_call: Vec::new(),
         }
@@ -522,6 +531,14 @@ impl State {
 
     pub fn index(&self, name: &str) -> Option<usize> {
         self.slots.iter().position(|s| s.info.name == name)
+    }
+
+    /// Tells the idle gate whether anything needs the main camera's frames: a window someone can see (the preview, the tiles, the cards that
+    /// read frames, all painted from the stream's newest picture), the pop-out, a plugin that asked (the costly stats count as asking, under `stats:` and the owner), or a motion watch.
+    /// A window that hasn't said yet counts as seen.
+    pub fn sync_idle(&self) {
+        let wanted = self.shown != Some(false) || self.other_windows || !self.frame_wants.is_empty() || self.motion.watching();
+        self.idle.wanted(wanted);
     }
 
     pub fn request_id(&mut self) -> RequestId {
@@ -1258,6 +1275,11 @@ impl State {
                 }
                 if let Event::CameraOnChanged { on } = event {
                     self.camera_on_shown = on;
+                }
+                if let Event::CameraWatched { watched } = event {
+                    // What needs frames is told first, so a quiet that starts here isn't counted from before it was known
+                    self.sync_idle();
+                    self.idle.watched(watched);
                 }
                 if let Event::SettingsTouched { ids, changed } = &event {
                     self.effects.push(Effect::TouchSettings { ids: ids.clone(), changed: *changed });
@@ -3043,5 +3065,75 @@ mod tests {
         // Back on the first camera its revision is as the tool left it
         switch_to(&mut s, "cam-a", json!({"a": 2}));
         assert_eq!(rev(&mut s), left_by_tool);
+    }
+
+    fn quiet_state() -> State {
+        let mut s = state();
+        s.idle = Arc::new(crate::idle::IdleGate::after(0));
+        s.shown = Some(false);
+        s.sync_idle();
+        s.idle.watched(false);
+        s
+    }
+
+    #[test]
+    fn the_main_camera_goes_quiet_only_with_the_window_out_of_sight_and_nothing_asking_for_frames() {
+        use telescope_core::host::{HostFrames, HostMotion};
+        let mut s = quiet_state();
+        assert!(s.idle.idle(), "nobody reads it, nobody looks, nothing asked");
+        s.shown = Some(true);
+        s.sync_idle();
+        assert!(!s.idle.idle(), "the window shows the picture");
+        s.shown = None;
+        s.sync_idle();
+        assert!(!s.idle.idle(), "a window that hasn't said yet counts as seen");
+        s.shown = Some(false);
+        s.other_windows = true;
+        s.sync_idle();
+        assert!(!s.idle.idle(), "a pop-out or plugin window shows it too");
+        s.other_windows = false;
+        s.sync_idle();
+        assert!(s.idle.idle());
+        let mut ctx = crate::host::Ctx { state: &mut s, me: "qr_reader".into() };
+        ctx.want_frames("qr_reader", true);
+        assert!(!s.idle.idle(), "a plugin that reads pictures asked");
+        let mut ctx = crate::host::Ctx { state: &mut s, me: "qr_reader".into() };
+        ctx.want_frames("qr_reader", false);
+        assert!(s.idle.idle());
+        let mut ctx = crate::host::Ctx { state: &mut s, me: "motion".into() };
+        ctx.watch_motion("motion", &[[0.0, 0.0, 1.0, 1.0]], 5);
+        assert!(!s.idle.idle(), "a motion watch needs frames");
+        let mut ctx = crate::host::Ctx { state: &mut s, me: "motion".into() };
+        ctx.watch_motion("motion", &[], 5);
+        assert!(s.idle.idle());
+    }
+
+    #[test]
+    fn costly_stats_and_a_plugin_that_goes_away_keep_the_count_honest() {
+        use telescope_core::host::{Host, HostFrames};
+        let mut s = quiet_state();
+        let mut ctx = crate::host::Ctx { state: &mut s, me: "idle-test-stats".into() };
+        ctx.want_stats("idle-test-stats", true);
+        assert!(!s.idle.idle(), "the Nerd view measures frame steps, which need frames");
+        let mut ctx = crate::host::Ctx { state: &mut s, me: "idle-test-stats".into() };
+        ctx.want_stats("idle-test-stats", false);
+        ctx.want_frames("composite", true);
+        ctx.release_everything();
+        assert!(!s.frame_wants.contains("stats:idle-test-stats") && s.frame_wants.contains("composite"), "release gives back what that plugin held only");
+        let mut ctx = crate::host::Ctx { state: &mut s, me: "composite".into() };
+        ctx.release_everything();
+        assert!(s.idle.idle());
+    }
+
+    #[test]
+    fn an_app_opening_the_camera_ends_the_quiet_through_the_event_bus() {
+        let mut s = quiet_state();
+        assert!(s.idle.idle());
+        s.bus.emit(Event::CameraWatched { watched: true });
+        s.deliver_events();
+        assert!(!s.idle.idle());
+        s.bus.emit(Event::CameraWatched { watched: false });
+        s.deliver_events();
+        assert!(s.idle.idle());
     }
 }
