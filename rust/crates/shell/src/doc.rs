@@ -19,9 +19,9 @@ const GAP: f32 = 14.0;
 const BAR: f32 = 11.0;
 /// How far a bar's handle is from what it sits between: close, the same on both sides.
 const EDGE: f32 = 2.0;
-/// The window's left margin.
-const MARGIN: f32 = 16.0;
-/// The window's right margin, where the last column's bar sits: the handle with EDGE each side (the left margin is the plain 16).
+/// The window's left margin: the same as the right one, so the cards sit as far from either edge.
+const MARGIN: f32 = MARGIN_RIGHT;
+/// The window's right margin, where the last column's bar sits: the handle with EDGE each side (the left margin is the same).
 const MARGIN_RIGHT: f32 = BAR + 2.0 * EDGE;
 
 /// One plugin's piece of UI as the window holds it.
@@ -121,7 +121,7 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
     out.push_str(&HEADER.field("left", header(false)).field("right", header(true)));
 
     // The body: cards placed by their column in the current mode
-    out.push_str(&BODY_TOP.field("margin_right", MARGIN_RIGHT));
+    out.push_str(&BODY_TOP.field("margin_left", MARGIN).field("margin_right", MARGIN_RIGHT));
     // In the three-column order, which is the order Tab takes (Qt goes by layout order, column by column)
     let mut order: Vec<usize> = cols[0].iter().flat_map(|(list, _)| list.iter().copied()).collect();
     let rest: Vec<usize> = (0..cards.len()).filter(|i| !order.contains(i)).collect();
@@ -511,7 +511,7 @@ const HEADER: &str = r#"
 // column through Reveal). It never moves itself: the viewport is as big as the view and the columns scroll by `scroll{c}`.
 const BODY_TOP: &str = r#"
     Flickable {
-        x: 16px;
+        x: {margin_left}px;
         y: body-top + 16px;
         // The window's right margin too, where the last column's scrollbar sits
         width: body-w + {margin_right}px;
@@ -714,14 +714,14 @@ export component Hinted inherits Card {
                 }
                 let (left, stage, right) = (edges("p0"), edges("p1"), edges("p2"));
                 // The left bar sits in the rail's gutter with the same small gap each side, to the cards and to the stage; the stage is a column gap from the right rail
-                let bar = num("bar0x") + 16.0;
+                let bar = num("bar0x") + 15.0;
                 assert_eq!(bar - left.1, 2.0, "left cards to the left bar at {width}");
                 assert_eq!(stage.0 - (bar + 11.0), 2.0, "left bar to the stage at {width}");
                 assert_eq!(right.0 - stage.1, 14.0, "stage to the right cards at {width}");
-                // The left margin is 16, the right 15: with the right bar's handle or without it, the handle has the same 2 px to the cards and to the window's edge
-                assert_eq!(left.0, 16.0);
+                // Both margins are 15: with the right bar's handle or without it, the handle has the same 2 px to the cards and to the window's edge
+                assert_eq!(left.0, 15.0);
                 assert_eq!(width - right.1, 15.0, "right margin at {width}, bars {bars}");
-                let handle = num("bar2x") + 16.0;
+                let handle = num("bar2x") + 15.0;
                 assert_eq!(handle - right.1, 2.0, "right cards to the right bar at {width}");
                 assert_eq!(width - (handle + 11.0), 2.0, "right bar to the window's edge at {width}");
                 // And the hit area is the whole gutter: from the cards to what comes next
@@ -751,10 +751,10 @@ export component Hinted inherits Card {
         win.window().set_size(slint::LogicalSize::new(1300.0, 900.0));
         let num = |name: &str| match win.get_property(name).unwrap() { Value::Number(n) => n, v => panic!("{name}: {v:?}") };
         assert_eq!(num("mode"), 0.0);
-        // Three columns: the stage takes what the right rail leaves, one pixel wider than the Qt render since the right margin is 15 now (16..859, 873..1285)
+        // Three columns: the stage takes what the right rail leaves, two pixels wider than the Qt render since both margins are 15 now (15..859, 873..1285)
         assert_eq!(num("c1x"), 0.0);
-        assert_eq!(num("c1w"), 843.0);
-        assert_eq!(num("c2x"), 857.0);
+        assert_eq!(num("c1w"), 844.0);
+        assert_eq!(num("c2x"), 858.0);
         win.set_property("p1-words", Value::String("hello".into())).unwrap();
         let got = std::rc::Rc::new(std::cell::RefCell::new(0.0));
         let g = got.clone();
@@ -763,14 +763,14 @@ export component Hinted inherits Card {
         assert_eq!(*got.borrow(), 3.0);
         win.window().set_size(slint::LogicalSize::new(560.0, 900.0));
         assert_eq!(num("mode"), 2.0);
-        assert_eq!(num("c0w"), 529.0);
+        assert_eq!(num("c0w"), 530.0);
         // The scrollbar's room is always kept: the cards are the same width whether or not the bar is up
         let narrow = num("card0w");
         win.set_property("bar0", Value::Bool(true)).unwrap();
         assert_eq!(num("card0w"), narrow, "a bar appearing doesn't narrow the column");
         win.set_property("bar0", Value::Bool(false)).unwrap();
         assert_eq!(num("card0w"), narrow);
-        assert_eq!(narrow, 529.0, "the last column's bar is in the margin, so its cards take the column");
+        assert_eq!(narrow, 530.0, "the last column's bar is in the margin, so its cards take the column");
     }
 }
 
