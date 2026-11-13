@@ -1,4 +1,4 @@
-<!-- covers: .github/workflows .github/check_release.py rust/tools installer rust/windows rust/crates/system/src/update_guard.rs rust/crates/vision/src/pack.rs rust/crates/vision/vision_pack.json rust/crates/vision/matting_pack.json; checked: b7f3c283e -->
+<!-- covers: .github/workflows .github/check_release.py rust/tools installer rust/windows rust/crates/system/src/update_guard.rs rust/crates/vision/src/pack.rs rust/crates/vision/vision_pack.json rust/crates/vision/matting_pack.json; checked: 02e18abdc -->
 # Packaging and CI
 
 How the desktop app is packaged and what each workflow does. [Building](building.md) covers building and trying a change.
@@ -75,6 +75,7 @@ These run on pull requests without publishing. `release.yml` calls them for the 
 | `build-apk.yml` | `android/**` | `./gradlew lintDebug testDebugUnitTest`, then `assembleRelease`. In a release it checks the APK isn't debug-signed |
 | `rust.yml` | `rust/**` | The `linux` and `windows` checks: builds the workspace and runs its tests with `cargo nextest`, and any compiler warning fails them. Its `changes` job also checks `VERSION` and that the release checklist names every file. On `master` it runs inside `release.yml` and doesn't start a second time |
 | `rust-package.yml` | `rust/tools/**`, `rust/windows/**`, `installer/**` | Builds both FFmpegs and both packages and an AppImage and runs `check_package.py` on them. On pull requests it also builds a quick `TelescopeSetup.exe` and checks the installer, update and uninstall paths and an unzipped copy moving to the installed one. A release does those on the setup it publishes, in `release.yml` |
+| `docs.yml` | every pull request | Lists the docs whose code changed since they were checked in the job summary (it never fails on that) and fails when a doc mentions a file that doesn't exist. See [Keeping docs fresh](../CONTRIBUTING.md#keeping-docs-fresh) |
 
 The Windows setup (`installer/Telescope.iss`) is per-user: it installs to `%LOCALAPPDATA%\Programs\Telescope` without admin, because the app updates itself in place and needs its folder writable. It doesn't touch the camera driver (the first-run checklist installs that). Uninstalling closes a running Telescope, deletes the log, the downloaded adb and the vision download, asks before deleting settings and pairings, and offers to remove the camera driver and firewall rules (one UAC prompt). Keep its `AppId` as it is since Windows finds an existing install by it.
 
