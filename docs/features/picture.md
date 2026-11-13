@@ -1,3 +1,4 @@
+<!-- covers: rust/crates/effects/src/framing* rust/crates/effects/src/auto_* rust/crates/effects/src/background* rust/crates/effects/src/face_exposure* rust/crates/effects/src/privacy_blur* rust/crates/effects/src/chroma_key* rust/crates/effects/src/desk* rust/crates/vision/src; checked: 1cbb8644b -->
 # Framing and background
 
 Keeping you in frame, and changing or hiding what is behind you.

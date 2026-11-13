@@ -1,3 +1,4 @@
+<!-- covers: rust/crates/link/src/browser rust/crates/link/web rust/crates/outputs/src/webcam* rust/crates/shell/src/sources.rs rust/crates/shell/src/extra_cameras.rs rust/crates/effects/src/composite* rust/crates/effects/src/compositor*; checked: 1cbb8644b -->
 # Sources and layouts
 
 Other cameras and the browser, and putting several cameras on screen.

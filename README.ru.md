@@ -1,3 +1,4 @@
+<!-- covers: rust/crates/setup/src rust/crates/outputs/src/linux_setup.rs rust/crates/link/src/pairing.rs rust/crates/shell/src/plugins installer; checked: 1cbb8644b -->
 <p align="center"><img src="docs/assets/banner.png" alt="Telescope: используй телефон как веб-камеру с любым из его объективов и полным ручным управлением. Приложение на компьютере принимает видео с телефона, рядом показано приложение на телефоне." width="720"></p>
 
 <p align="center"><a href="README.md">English</a> · <a href="README.es.md">Español</a> · Русский</p>

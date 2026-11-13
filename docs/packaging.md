@@ -1,3 +1,4 @@
+<!-- covers: .github/workflows .github/check_release.py rust/tools installer rust/windows rust/crates/system/src/update_guard.rs rust/crates/vision/src/pack.rs rust/crates/vision/vision_pack.json rust/crates/vision/matting_pack.json; checked: b7f3c283e -->
 # Packaging and CI
 
 How the desktop app is packaged and what each workflow does. [Building](building.md) covers building and trying a change.

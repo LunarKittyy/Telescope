@@ -1,3 +1,4 @@
+<!-- covers: rust/Cargo.toml rust/app/src/dev.rs rust/crates/media/build.rs android/build.gradle android/app/build.gradle rust/tools/build_windows.ps1 rust/tools/fake_phone.py rust/tools/measure.py rust/tools/stress rust/windows/virtualcamera; checked: 1cbb8644b -->
 # Building
 
 ## Build the Android app

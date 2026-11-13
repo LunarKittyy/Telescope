@@ -1,3 +1,4 @@
+<!-- covers: rust/crates/setup/src rust/crates/outputs/src/linux_setup.rs rust/crates/link/src/pairing.rs rust/crates/shell/src/plugins installer; checked: 1cbb8644b -->
 <p align="center"><img src="docs/assets/banner.png" alt="Telescope: usa tu teléfono como cámara web, con todas sus lentes y control manual completo. La app de escritorio muestra el video de un teléfono, con la app del teléfono al lado." width="720"></p>
 
 <p align="center"><a href="README.md">English</a> · Español · <a href="README.ru.md">Русский</a></p>

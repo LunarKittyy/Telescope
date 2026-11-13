@@ -1,3 +1,4 @@
+<!-- covers: ; checked: 1cbb8644b -->
 # Telescope docs
 
 New here? The [Quick Start](../README.md#up-and-running-in-about-two-minutes) is all most people need.

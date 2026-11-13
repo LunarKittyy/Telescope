@@ -1,3 +1,4 @@
+<!-- covers: rust/crates/link/src/pairing.rs rust/crates/link/src/connection.rs rust/crates/link/src/discovery.rs rust/crates/link/src/phones.rs rust/crates/link/src/https.rs rust/crates/link/src/session_client.rs rust/crates/system/src/updates* android/app/src/main/kotlin/com/telescope/Pairing.kt android/app/src/main/kotlin/com/telescope/PairedComputers.kt android/app/src/main/kotlin/com/telescope/PhoneTls.kt android/app/src/main/kotlin/com/telescope/TlsIdentity.kt android/app/src/main/kotlin/com/telescope/Updater.kt android/app/src/main/kotlin/com/telescope/UpdateLogic.kt; checked: 1cbb8644b -->
 # Connection and privacy
 
 Pairing phones, what the apps send where, and updates.

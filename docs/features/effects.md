@@ -1,3 +1,4 @@
+<!-- covers: rust/crates/effects/src/fun_* rust/crates/effects/src/cinema* rust/crates/effects/src/mosh.rs rust/crates/effects/src/peek* rust/crates/effects/src/light_planes* rust/crates/effects/src/slit_planes* rust/crates/effects/src/qr_reader* rust/crates/effects/src/photos* rust/crates/effects/src/colour_grading* rust/crates/effects/src/cube.rs rust/crates/effects/src/filter* rust/crates/effects/src/notes* rust/crates/effects/src/name_tag* rust/crates/effects/src/tag* rust/crates/effects/src/scopes* rust/crates/effects/src/*.wgsl android/app/src/main/kotlin/com/telescope/Notes.kt android/app/src/main/kotlin/com/telescope/Tag.kt; checked: 1cbb8644b -->
 # Effects and overlays
 
 Fun effects, looks, and things drawn on top of the picture.

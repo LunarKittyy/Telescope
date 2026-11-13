@@ -1,3 +1,4 @@
+<!-- covers: rust/crates/shell/src/plugins_tab.rs rust/crates/core/src/plugin_admin.rs rust/crates/plugin-host/src/admin.rs rust/crates/plugin-host/src/package.rs rust/crates/plugin-host/src/updates.rs rust/crates/plugin-host/src/switches.rs; checked: 1cbb8644b -->
 # Plugins
 
 Most of the desktop app is plugins. The Camera card is one and so are Transforms, the microphone, the wait screen and keyboard shortcuts. You can switch off the ones you don't use or install plugins other people made.

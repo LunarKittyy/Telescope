@@ -1,3 +1,4 @@
+<!-- covers: ; checked: 1cbb8644b -->
 # Features
 
 Everything the apps can do, split by area. Each heading below points to the page that now holds it, so older links keep working.

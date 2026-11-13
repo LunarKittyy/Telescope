@@ -1,3 +1,4 @@
+<!-- covers: .github/checklist_due.py .github/check_release.py rust/app/tests/release_checklist.rs automation/release-testing; checked: b7f3c283e -->
 # Release checklist
 
 Everything that has to hold before a version gets tagged. Most of it is checked by something other than a person now:

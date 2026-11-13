@@ -1,3 +1,4 @@
+<!-- covers: rust/crates/setup/src rust/crates/outputs/src/linux_setup.rs rust/crates/link/src/pairing.rs rust/crates/shell/src/plugins installer; checked: 1cbb8644b -->
 <p align="center"><img src="docs/assets/banner.png" alt="Telescope: use your phone as a webcam, with every lens and full manual control. The desktop app streaming from a phone, with the phone app next to it." width="720"></p>
 
 <p align="center">English · <a href="README.es.md">Español</a> · <a href="README.ru.md">Русский</a></p>

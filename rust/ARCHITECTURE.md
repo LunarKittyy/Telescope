@@ -1,3 +1,4 @@
+<!-- covers: rust/crates/*/Cargo.toml rust/app/tests/architecture.rs rust/app/tests/plugin_removal.rs rust/crates/plugin-host/src rust/crates/core/src/plugin.rs rust/crates/core/src/snapshot.rs rust/app/build.rs; checked: 1cbb8644b -->
 # How the desktop app is put together
 
 How the desktop app in `rust/` is split up and which rules keep it that way, for anyone changing the code. [crates/shell/README.md](crates/shell/README.md) covers how the window is built and [docs/writing-plugins.md](../docs/writing-plugins.md) is the guide to writing a plugin. [docs/packaging.md](../docs/packaging.md#the-update-path) has the update path from the old Python app.
