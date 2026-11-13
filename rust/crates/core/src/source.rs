@@ -105,7 +105,7 @@ pub trait StreamSource: Send + Sync {
     }
     /// What to check when it can't be reached for a while.
     fn lost_hint(&self) -> String {
-        tr("Open the Telescope page in it again.")
+        tr("Open the Telescope page in the browser again.")
     }
     /// A decoder for packets only the source itself understands (a webcam's raw frames); None: media decodes them as
     /// open_feed's codec says. Asked each time a feed opens, after open_feed.

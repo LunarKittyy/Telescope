@@ -295,7 +295,10 @@ component PluginRow inherits Rectangle {
     accessible-label: tile.title;
     accessible-description: tile.about;
     accessible-id: "setting";
-    Tip { says: tile.title; detail: tile.about + (tile.byline != "" ? "\n" + tile.byline : "") + (tile.badges.length > 0 ? "\n" + tile.badges[0].text : "") + (tile.note != "" ? "\n" + tile.note : "") + (tile.tooltip != "" ? "\n" + tile.tooltip : ""); inert: true; }
+    // Two texts on separate lines, without an empty line when one is missing
+    pure function lines(a: string, b: string) -> string { a == "" ? b : b == "" ? a : a + "\n" + b }
+    // What it does is the detail; who made it, what it needs and how it's doing go in the footer
+    Tip { says: tile.title; detail: tile.about; hint: lines(lines(lines(tile.byline, tile.badges.length > 0 ? tile.badges[0].text : ""), tile.note), tile.tooltip); inert: true; }
     lay := RailRow {
         width: parent.width;
         icon: tile.icon;
@@ -405,7 +408,7 @@ export component PluginsPanel inherits VerticalLayout {
         has-action: g.remove-pack;
         action-icon: Icons.trash;
         action-text: @tr("Remove download");
-        action-tip-detail: @tr("Delete the download these plugins use. Switching any of these plugins on downloads it again.");
+        action-tip-detail: @tr("Delete the download these plugins use. Switching on any of these plugins downloads the files again.");
         action => { root.remove-pack(); }
         if g.status != "": Status { text: g.status; detail: g.status; }
         for t in g.tiles: PluginRow {
@@ -445,7 +448,7 @@ export component PluginsPanel inherits VerticalLayout {
         for r in update-rows: RailRow {
             icon: Icons.update;
             label: r.title;
-            tip-detail: r.about;
+            tip: r.about;
             named: true;
             hue: r.danger ? Theme.err : Theme.accent;
             HorizontalLayout {

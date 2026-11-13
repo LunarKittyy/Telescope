@@ -467,12 +467,12 @@ impl UpdatesPlugin {
             return (self.error.clone(), "status_err");
         }
         if self.back_failed {
-            return (tr("Going back to the Python version didn't work because it didn't start, so this version is back."), "status_warn");
+            return (tr("Going back to the Python version failed because the Python version didn't start. This version is running again."), "status_warn");
         }
         if let Some(m) = &self.available {
             let mut text = with_version("Telescope {version} is available.", m);
             if self.moves_on_update() {
-                text = format!("{text} {}", tr("Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and phones come along."));
+                text = format!("{text} {}", tr("Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and paired phones are kept."));
             }
             if let Some(blocker) = self.update_blocker() {
                 return (format!("{text} {blocker}"), "status_warn");
@@ -490,7 +490,7 @@ impl UpdatesPlugin {
         }
         let nightly = self.channel == "nightly";
         if self.built_channel == "dev" {
-            let mut text = tr("This is a source checkout, so it doesn't update itself.");
+            let mut text = tr("This is a source checkout, so update Telescope with git.");
             if let Some(m) = &self.latest {
                 let latest = if nightly { "The latest nightly build is {version}." } else { "The latest stable build is {version}." };
                 text = format!("{text} {}", with_version(latest, m));
@@ -1896,7 +1896,7 @@ mod tests {
         plugin.on_plugins_ready(&mut host);
         assert_eq!((plugin.channel.as_str(), plugin.auto_check), ("nightly", true));
         let (text, kind) = plugin.status_while(false);
-        assert!(text.contains("didn't start") && text.contains("this version is back"), "{text}");
+        assert!(text.contains("didn't start") && text.contains("This version is running again"), "{text}");
         assert_eq!(kind, "status_warn");
         assert!(host.calls.iter().any(|c| c == "schedule_save"));
         // Starting again later finds nothing to settle

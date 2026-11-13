@@ -110,7 +110,7 @@ pub fn prepare_python(staging: &Path, data_home: &Path, check: &dyn Fn(&str, &st
     let venv = folder.join("venv");
     let failed = || {
         let _ = update_guard::remove(&venv);
-        UpdateError(tr("Couldn't set up the Python libraries {version} needs. That takes the internet and a folder it can write to ({folder}). Nothing was changed.")
+        UpdateError(tr("Couldn't set up the Python libraries {version} needs. That needs an internet connection and a folder Telescope can write to ({folder}). Nothing was changed.")
             .field("version", VERSION).field("folder", folder.display().to_string()))
     };
     let Some(python) = launcher_python(check) else { return Err(UpdateError(no_python())) };
@@ -224,22 +224,22 @@ pub fn dialog(plan: Plan, settings_folder: &Path) -> Dialog {
         }
         Plan::Swap { python_setup } => {
             let mut text = vec![
-                tr("Telescope restarts as version {version}, the last Python version. Your settings and paired phones come with it, and a copy of your current settings is saved first in {folder}.")
+                tr("Telescope restarts as version {version}, the last Python version. Your settings and paired phones are kept, and a copy of your current settings is saved first in {folder}.")
                     .field("version", version()).field("folder", settings_folder.display().to_string()),
                 tr("You lose what's new since then. Plugins written in Lua don't run in {version}, and settings that didn't exist then are ignored.").field("version", version()),
                 phone_note(),
-                tr("{version} won't check for updates by itself, so it doesn't offer this version back. You can turn that on again in its settings.").field("version", version()),
+                tr("{version} doesn't check for updates automatically, so it doesn't offer this version back. You can turn that on again in its settings.").field("version", version()),
             ];
             if python_setup {
-                text.push(tr("First it sets up the Python libraries {version} needs. That needs the internet and takes a few minutes. If that fails, nothing is changed.").field("version", version()));
+                text.push(tr("First the Python libraries {version} needs are set up. This needs the internet and takes a few minutes. If that fails, nothing is changed.").field("version", version()));
             }
-            text.push(tr("If it doesn't start, opening Telescope again brings this version back."));
+            text.push(tr("If the Python version doesn't start, opening Telescope again brings this version back."));
             paragraphs = text;
             (tr("Go back"), true)
         }
         Plan::Download { appimage } => {
             let first = if appimage {
-                tr("An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack it and run start.sh in it. It needs Python 3.12 or newer and finds your settings in the same place.")
+                tr("An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack the archive and run start.sh in the folder. The Python version needs Python 3.12 or newer and uses the same settings folder.")
             } else {
                 tr("Telescope can't swap its own files here, because its folder isn't writable. Download {version} from its release page and install it yourself.")
             };
@@ -259,7 +259,7 @@ pub fn no_python() -> String {
 }
 
 fn phone_note() -> String {
-    tr("The phone app has to match. A newer one may not connect to {version}. Android won't install an older app over a newer one, so uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again.").field("version", VERSION)
+    tr("The phone app has to match. A newer phone app may not connect to {version}. Android won't install an older app over a newer one, so uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again.").field("version", VERSION)
 }
 
 // ── Installing ────────────────────────────────────────────────────────────────

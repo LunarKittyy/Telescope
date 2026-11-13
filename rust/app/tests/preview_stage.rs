@@ -758,8 +758,8 @@ fn layers_tint_the_preview_copy_and_not_the_frame_apps_get() {
 const IDLE: &str = "Not streaming";
 const IDLE_MIC: &str = "Not streaming";
 const WAITING: &str = "Waiting for the first frame\u{2026}";
-const CAMERA_OFF: &str = "Camera off\n\nThe phone's mic is still streaming.\nStop streaming ends it.";
-const CAMERA_OFF_AUTO: &str = "Camera off\n\nNo app was using the camera, so it turned off.\nThe phone's mic is still streaming, and the camera\ncomes back when an app opens it.";
+const CAMERA_OFF: &str = "Camera off\n\nThe phone's mic is still streaming.\nStopping the stream ends the mic too.";
+const CAMERA_OFF_AUTO: &str = "Camera off\n\nNo app was using the camera,\nso Telescope turned the camera off.\nThe phone's mic is still streaming, and the camera\nturns on again when an app opens it.";
 
 /// A stage with a Microphone stand-in that's on or off.
 fn with_mic(name: &str, on: bool) -> Stage {

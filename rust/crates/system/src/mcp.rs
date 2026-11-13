@@ -1183,7 +1183,7 @@ impl McpPlugin {
         self.resync(host, &reverted, &rev_before);
         let ids: Vec<String> = reverted.iter().filter_map(|c| c["id"].as_str().map(String::from)).collect();
         let skipped = left.len() + not_restored.len();
-        let text = if skipped == 0 { tr("Undid what the AI changed") } else { tr("Undid what the AI changed, except {n} it couldn't put back").field("n", skipped) };
+        let text = if skipped == 0 { tr("Undid what the AI changed") } else { tr("Undid what the AI changed, except {n} that couldn't be restored").field("n", skipped) };
         self.push_log(tr("You"), text, false);
         if !ids.is_empty() {
             host.emit(Event::SettingsTouched { ids, changed: true });
@@ -1466,8 +1466,8 @@ impl Plugin for McpPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("MCP server").into(),
-            about: n_("Lets an AI app such as Claude Desktop look at Telescope and change its settings, through a command that opens no network port.").into(),
-            when_off: n_("Without it AI apps can't connect to Telescope.").into(),
+            about: n_("Let an AI app such as Claude Desktop read and change Telescope's settings, through a command that opens no network port.").into(),
+            when_off: n_("Without the MCP server plugin AI apps can't connect to Telescope.").into(),
             category: "extras".into(),
             icon: "sliders".into(),
             optional: true,

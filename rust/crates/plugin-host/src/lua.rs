@@ -294,7 +294,7 @@ impl LuaGuest {
             lua.load(source.as_str()).set_name(format!("@{main}")).set_mode(ChunkMode::Text).call::<mlua::Value>(())
         })?;
         let mlua::Value::Table(table) = returned else {
-            return Err(crate::text::tr("Its {file} has to return the plugin's table at the end.", &[("file", &main)]));
+            return Err(crate::text::tr("{file} has to return the plugin's table at the end.", &[("file", &main)]));
         };
         guest.plugin = guest.lua.create_registry_value(table).map_err(|e| message(&e))?;
         Ok(guest)

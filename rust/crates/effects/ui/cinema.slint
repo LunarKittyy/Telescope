@@ -150,6 +150,7 @@ export component CinemaSettings inherits Card {
     RailRow {
         icon: Icons.colour;
         label: @tr("Peaking colour");
+        tip: @tr("The colour that marks the sharp parts of the picture");
         named: true;
         hue: root.hue;
         Segmented {
@@ -194,6 +195,7 @@ export component CinemaSettings inherits Card {
     RailRow {
         icon: Icons.aspect;
         label: @tr("Scope size");
+        tip: @tr("How big the scope is on the preview");
         named: true;
         hue: root.hue;
         Segmented {

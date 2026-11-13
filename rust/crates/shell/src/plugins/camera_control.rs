@@ -1518,7 +1518,7 @@ impl CameraControl {
 
     fn toggle(&mut self, id: &str, params: &Value) -> Option<String> {
         let (which, label, tile) = match id {
-            "camera.stabilization" => (0, tr("Stabilization"), &self.ois),
+            "camera.stabilization" => (0, tr("Stabilisation"), &self.ois),
             "camera.black_level_lock" => (1, tr("Black level lock"), &self.bll),
             "camera.low_light" => (2, tr("Low light"), &self.low_light),
             _ => (3, tr("Torch"), &self.torch),
@@ -1843,7 +1843,7 @@ impl Plugin for CameraControl {
             actions::choice_action("camera.focus_mode", &tr("Focus mode"), &g, "", &focus),
             slider("camera.focus", &tr("Focus distance"), &search("manual focus"), 0.0, 100.0, 5.0, 1, "%", false,
                    self.focus_slider.value as f64 * 0.1),
-            actions::toggle_action("camera.stabilization", &tr("Stabilization"), &g, "ois", &[]),
+            actions::toggle_action("camera.stabilization", &tr("Stabilisation"), &g, "ois", &[]),
             actions::choice_action("camera.noise_reduction", &tr("Noise reduction"), &g, "", &modes),
             actions::choice_action("camera.sharpening", &tr("Sharpening"), &g, &search("edge"), &modes),
             actions::toggle_action("camera.black_level_lock", &tr("Black level lock"), &g, "", &[]),

@@ -144,7 +144,7 @@ fn warning(title: &str, text: String) -> Notice {
 
 /// A new copy wouldn't start, so this one carries on.
 pub fn restart_failed() -> Notice {
-    warning("Couldn't restart", tr("Telescope couldn't start a new copy of itself. Close it and open it again to apply your changes."))
+    warning("Couldn't restart", tr("Telescope couldn't restart. Close Telescope and open it again to apply your changes."))
 }
 
 fn info(title: &str, text: String) -> Notice {
@@ -474,13 +474,13 @@ impl Panel {
             note = (done * 100).checked_div(size).map_or_else(|| tr("Downloading…"), |percent| fill(&tr("Downloading… {percent}%"), &[("percent", &percent.min(99).to_string())]));
             kind = "status_warn";
         } else if dl.failed_for() == p.name && !dl.error().is_empty() {
-            note = fill(&tr("The download didn't work. {error}"), &[("error", &dl.error())]);
+            note = fill(&tr("The download failed. {error}"), &[("error", &dl.error())]);
             kind = "status_err";
         } else if needs && !dl.available() {
-            note = tr("There's no download of what it needs for this computer yet, so it can't be switched on.");
+            note = tr("There's no download for this computer yet, so the plugin can't be switched on.");
             kind = "status_err";
         } else if on && needs {
-            note = fill(&tr("Its download (about {mb} MB) isn't there anymore. Switch it off and on again to get it."), &[("mb", &dl.size_mb().to_string())]);
+            note = fill(&tr("The plugin's download (about {mb} MB) is missing. Switch the plugin off and on again to download it."), &[("mb", &dl.size_mb().to_string())]);
             kind = "status_warn";
         }
         tile.enabled = !(needs && !dl.available()) && !(dl.running() && dl.is_waiting(&p.name));
@@ -507,7 +507,7 @@ impl Panel {
         } else if !dl.available() {
             tr("There's no vision download for this computer yet.")
         } else {
-            fill(&tr("Switching one of these on downloads about {mb} MB first, once for all of them."), &[("mb", &dl.size_mb().to_string())])
+            fill(&tr("Switching on any of these plugins downloads about {mb} MB first, shared by all of them."), &[("mb", &dl.size_mb().to_string())])
         }
     }
 
@@ -534,10 +534,10 @@ impl Panel {
             note = item.problem.clone();
             kind = "status_err";
         } else if item.changed {
-            note = tr("Its files changed since you switched it on, so it's off for now. Switch it on again if you trust this version.");
+            note = tr("The plugin's files changed since you switched it on, so it's off. Switch it on again if you trust the new version.");
             kind = "status_warn";
         } else if item.enabled && self.problems.contains_key(&item.name) {
-            note = fill(&tr("It didn't start ({problem})."), &[("problem", self.problems[&item.name].trim_end_matches('.'))]);
+            note = fill(&tr("Couldn't start: {problem}"), &[("problem", self.problems[&item.name].trim_end_matches('.'))]);
             kind = "status_err";
             pending = true; // a restart tries it again
         } else if item.enabled != self.running.contains(&item.name) {
@@ -546,7 +546,7 @@ impl Panel {
         if note.is_empty() {
             if let Some(release) = release {
                 // Translators: keep the <a href="{url}"> link
-                let text = fill(&tr("Version {version} is out. <a href=\"{url}\">Download it from its release page</a> and install it here to replace this one."),
+                let text = fill(&tr("Version {version} is out. <a href=\"{url}\">Download it from the plugin's release page</a> and install it here to replace the current version."),
                                 &[("version", &release.tag), ("url", &release.page)]);
                 let (plain, link) = split_link(&text);
                 note = plain;
@@ -577,10 +577,10 @@ impl Panel {
         tile.badges.push(Badge { text: tr("Being written"), kind: "added".into() });
         if !item.problem.is_empty() || self.problems.contains_key(&item.name) {
             let why = if item.problem.is_empty() { &self.problems[&item.name] } else { &item.problem };
-            tile.note = fill(&tr("It didn't start ({problem})."), &[("problem", why.trim_end_matches('.'))]);
+            tile.note = fill(&tr("Couldn't start: {problem}"), &[("problem", why.trim_end_matches('.'))]);
             tile.note_kind = "status_err".into();
         } else {
-            tile.note = fill(&tr("Loaded from {folder} by telescope-rs dev. Telescope restarts by itself when you save one of its files."), &[("folder", &item.folder.to_string_lossy())]);
+            tile.note = fill(&tr("Loaded from {folder} by telescope-rs dev. Saving a file in that folder restarts Telescope."), &[("folder", &item.folder.to_string_lossy())]);
         }
         tile
     }
@@ -662,12 +662,12 @@ impl Panel {
                 let folder = item.folder.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
                 Step::Ask(question(
                     fill(&tr("Remove {plugin}?"), &[("plugin", &item.title)]),
-                    fill(&tr("Its folder ({folder}) is deleted from the plugins folder. To use it again you'll have to add it again."), &[("folder", &folder)]),
+                    fill(&tr("The plugin's folder ({folder}) is deleted from the plugins folder. To use the plugin again, add it again."), &[("folder", &folder)]),
                     tr("Remove"), true), Commit::Remove { name })
             }
             Request::RemovePack => Step::Ask(question(
                 tr("Remove the download?"),
-                fill(&tr("It frees about {mb} MB. Switching on one of the optional plugins downloads it again."), &[("mb", &self.download.size_mb().to_string())]),
+                fill(&tr("Frees about {mb} MB. Switching on an optional plugin downloads the files again."), &[("mb", &self.download.size_mb().to_string())]),
                 tr("Remove"), false), Commit::RemovePack),
             Request::Install { path } => self.install(path, false),
             Request::CheckUpdates(on) => Step::Done(self.commit(Commit::Updates { key: CHECK_UPDATES, on })),
@@ -682,7 +682,7 @@ impl Panel {
             }
             Request::Restart { streaming } => {
                 if streaming {
-                    Step::Ask(question(tr("Restart Telescope now?"), tr("Streaming stops while Telescope restarts. It takes a few seconds."), tr("Restart"), false), Commit::Restart)
+                    Step::Ask(question(tr("Restart Telescope now?"), tr("Streaming stops while Telescope restarts. Restarting takes a few seconds."), tr("Restart"), false), Commit::Restart)
                 } else {
                     Step::Done(self.commit(Commit::Restart))
                 }
@@ -700,7 +700,7 @@ impl Panel {
                          tr("A plugin can do anything on your computer. Only switch it on if you trust its source."), tr("Switch on"), true)
             } else {
                 question(fill(&tr("Switch off {plugin}?"), &[("plugin", &title)]),
-                         tr("Without it whatever it added to Telescope is gone. Its settings stay saved for when you switch it back on."), tr("Switch off"), false)
+                         tr("Without the plugin, what it added to Telescope is gone. The plugin's settings stay saved for when you switch it back on."), tr("Switch off"), false)
             }, Commit::Added { name: name.into(), on });
         }
         if tile.optional {
@@ -708,7 +708,7 @@ impl Panel {
             if on && needs {
                 return Step::Ask(question(
                     fill(&tr("Download about {mb} MB?"), &[("mb", &self.download.size_mb().to_string())]),
-                    fill(&tr("{plugin} uses MediaPipe to find people in the picture. It comes as a separate download from Telescope's releases on GitHub, which the other optional plugins share."), &[("plugin", &tile.title)]),
+                    fill(&tr("{plugin} uses MediaPipe to find people in the picture. The files are a separate download from Telescope's releases on GitHub, shared by the other optional plugins."), &[("plugin", &tile.title)]),
                     tr("Download and switch on"), false), Commit::DownloadThenOn { name: name.into() });
             }
             return Step::Done(self.commit(Commit::Optional { name: name.into(), on }));
@@ -735,23 +735,23 @@ impl Panel {
                 self.refresh();
                 return Step::Ask(question(
                     fill(&tr("Replace {plugin}?"), &[("plugin", &title)]),
-                    tr("The version in this .zip takes its place with the same settings. Like any plugin you add it starts out switched off."),
+                    tr("The version in this .zip replaces the installed version and keeps its settings. Like any added plugin, it starts switched off."),
                     tr("Replace"), false), Commit::Install { path, replace: true });
             }
             Err(InstallFailure::Failed(why)) => {
                 self.refresh();
-                outcome.notices.push(warning("Couldn't install it", why));
+                outcome.notices.push(warning("Couldn't install the plugin", why));
                 return Step::Done(outcome);
             }
             Ok(item) => item,
         };
         self.refresh();
         outcome.notices.push(if !item.problem.is_empty() {
-            warning("Installed, but it won't load", fill(&tr("{plugin} was installed, but it can't run yet. {problem}"), &[("plugin", &item.title), ("problem", &item.problem)]))
+            warning("Installed, but not loaded", fill(&tr("{plugin} was installed, but it can't run yet. {problem}"), &[("plugin", &item.title), ("problem", &item.problem)]))
         } else if replace {
-            info("Replaced", fill(&tr("{plugin} {version} is in place but switched off for now. To use it, switch it on again and restart Telescope."), &[("plugin", &item.title), ("version", &item.version)]))
+            info("Replaced", fill(&tr("{plugin} {version} is installed but switched off. To use it, switch it on again and restart Telescope."), &[("plugin", &item.title), ("version", &item.version)]))
         } else {
-            info("Installed", fill(&tr("{plugin} is installed but switched off for now. To use it, switch it on and restart Telescope."), &[("plugin", &item.title)]))
+            info("Installed", fill(&tr("{plugin} is installed but switched off. To use it, switch it on and restart Telescope."), &[("plugin", &item.title)]))
         });
         Step::Done(outcome)
     }
@@ -761,7 +761,7 @@ impl Panel {
         let mut outcome = Outcome::default();
         if let Err(e) = change(self.admin.as_ref()) {
             log::error!("Couldn't save a plugin switch: {e}");
-            outcome.notices.push(warning("Couldn't save that", fill(&tr("Telescope couldn't save the change: {error}"), &[("error", &e.to_string())])));
+            outcome.notices.push(warning("Couldn't save the change", fill(&tr("Telescope couldn't save the change: {error}"), &[("error", &e.to_string())])));
         }
         self.refresh();
         outcome
@@ -785,7 +785,7 @@ impl Panel {
                 let mut outcome = Outcome::default();
                 if let Err(e) = self.admin.remove(&name) {
                     log::error!("Couldn't remove plugin {name}: {e}");
-                    outcome.notices.push(warning("Couldn't remove it", fill(&tr("Telescope couldn't delete its folder: {error}"), &[("error", &e)])));
+                    outcome.notices.push(warning("Couldn't remove the plugin", fill(&tr("Telescope couldn't delete its folder: {error}"), &[("error", &e)])));
                 }
                 self.refresh();
                 outcome
@@ -793,7 +793,7 @@ impl Panel {
             Commit::RemovePack => {
                 let mut outcome = Outcome::default();
                 if let Err(e) = self.download.remove() {
-                    outcome.notices.push(warning("Couldn't remove it", fill(&tr("Telescope couldn't delete it: {error}"), &[("error", &e)])));
+                    outcome.notices.push(warning("Couldn't remove the plugin", fill(&tr("Telescope couldn't delete it: {error}"), &[("error", &e)])));
                 }
                 self.refresh();
                 outcome
@@ -830,7 +830,7 @@ impl Panel {
     /// The folder for the "Open plugins folder" button: made when it isn't there yet.
     pub fn make_plugins_dir(&self) -> Result<PathBuf, Notice> {
         let folder = self.admin.plugins_dir();
-        std::fs::create_dir_all(&folder).map(|_| folder).map_err(|e| warning("Couldn't open it", fill(&tr("Telescope couldn't make its plugins folder: {error}"), &[("error", &e.to_string())])))
+        std::fs::create_dir_all(&folder).map(|_| folder).map_err(|e| warning("Couldn't open the plugins folder", fill(&tr("Telescope couldn't make its plugins folder: {error}"), &[("error", &e.to_string())])))
     }
 
     /// The folder the Downloads of this computer is in, where picking a .zip starts (Downloads if there is one, else home).

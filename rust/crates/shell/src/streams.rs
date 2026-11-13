@@ -964,13 +964,13 @@ impl Window {
         let tip = if !slow || !camera_limited {
             String::new()
         } else if rates.heat > 0 && (rates.dynamic == 0 || rates.heat <= rates.dynamic) {
-            fill(&tr("The phone got hot and lowered the frame rate to {fps} fps for now."), &[("fps", &rates.heat.to_string())])
+            fill(&tr("The phone got hot and lowered the frame rate to {fps} fps."), &[("fps", &rates.heat.to_string())])
         } else if rates.dynamic > 0 {
             fill(&tr("Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."), &[("fps", &rates.dynamic.to_string())])
         } else if source.kind.as_phone().is_none() {
-            tr("The camera is making fewer frames than asked for. Dim light slows it down.")
+            tr("The camera is producing fewer frames than requested. Dim light lowers the frame rate.")
         } else {
-            tr("The phone's camera is making fewer frames than asked for. Dim light slows it down.")
+            tr("The phone's camera is producing fewer frames than requested. Dim light lowers the frame rate.")
         };
         self.set("fps-tip", tip);
         self.note_throughput(source, behind);

@@ -442,13 +442,13 @@ impl CompositePlugin {
         } else if self.layout.tiles.is_empty() {
             tr("Nothing's in the picture yet.")
         } else if live < 2 {
-            tr("It takes over once two of its streams are running.")
+            tr("Active once two streams are running.")
         } else if self.target.is_none() {
-            tr("It goes out on {camera}, and no stream goes there now.").field("camera", camera)
+            tr("Set to output on {camera}, but no stream is running there.").field("camera", camera)
         } else if self.shared.store().stream_frame(self.target.as_deref()).is_none() {
-            tr("It goes out on {camera} once the stream there sends a picture.").field("camera", camera)
+            tr("Will output on {camera} once the stream there sends a picture.").field("camera", camera)
         } else {
-            tr("Goes out on {camera}.").field("camera", camera)
+            tr("Outputting on {camera}.").field("camera", camera)
         };
         self.note_short = if !self.on {
             String::new()
@@ -505,8 +505,8 @@ impl Plugin for CompositePlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("Several cameras in one picture").into(),
-            about: n_("Puts the streams you run side by side or one inside another, out on one virtual camera.").into(),
-            when_off: n_("Without it there's no One picture card and each stream only goes to its own camera.").into(),
+            about: n_("Put the streams you run side by side or inside each other on one virtual camera.").into(),
+            when_off: n_("Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera.").into(),
             category: "streaming".into(),
             icon: "layout".into(),
             frame_stage: FrameStage::Combine,

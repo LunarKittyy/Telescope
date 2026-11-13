@@ -648,7 +648,7 @@ impl QrReaderPlugin {
             if reached {
                 host.send_notification(&tr("QR code copied"), &note, false);
             } else {
-                host.send_notification(&tr("QR code found"), &tr("Click Copy on the QR codes card to put it on the clipboard."), false);
+                host.send_notification(&tr("QR code found"), &tr("Click Copy on the QR codes card to copy the code."), false);
             }
         }
     }
@@ -665,8 +665,8 @@ impl Plugin for QrReaderPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("QR code reader").into(),
-            about: n_("Copies a QR code you hold up to the camera, or the password from a Wi-Fi code.").into(),
-            when_off: n_("Without it there's no QR code card and codes in the picture are left alone.").into(),
+            about: n_("Copy a QR code you hold up to the camera, or the password from a Wi-Fi code.").into(),
+            when_off: n_("Without the QR code reader plugin there's no QR code card and codes in the picture are left alone.").into(),
             category: "preview".into(),
             icon: "qr".into(),
             frame_stage: FrameStage::Reading,

@@ -39,7 +39,7 @@ mod tests {
 
     #[test]
     fn fields_fill_like_str_format() {
-        assert_eq!(fill("It has no {file}.", &[("file", &"plugin.json")]).unwrap(), "It has no plugin.json.");
+        assert_eq!(fill("The plugin has no {file}.", &[("file", &"plugin.json")]).unwrap(), "The plugin has no plugin.json.");
         assert_eq!(fill("{{n}} is {n}", &[("n", &3)]).unwrap(), "{n} is 3");
         assert!(fill("Hi {who}", &[]).is_err());
         assert_eq!(tr("Hi {who}", &[]), "Hi {who}");

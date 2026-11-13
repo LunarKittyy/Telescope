@@ -235,7 +235,7 @@ fn without_a_person_it_says_so_and_still_does_what_it_can() {
     r.ui("auto-clicked", vec![]);
     assert!(r.host.is_scheduled("auto_timeout") && !r.host.is_scheduled("auto_hold"), "no waiting for people that cannot come");
     r.show(&scene, cast([1.15, 1.0, 0.85]).as_ref(), 16);
-    assert!(r.note().contains("No face was found"), "{}", r.note());
+    assert!(r.note().contains("No face found"), "{}", r.note());
     assert!(r.plugin.grade().temperature < -3.0, "{}", r.plugin.grade().temperature);
 }
 
@@ -299,7 +299,7 @@ fn people_who_are_too_old_for_the_frame_leave_no_face() {
             r.event(Event::Posted { owner: "colour_grading".into(), token, data });
         }
     }
-    assert!(r.note().contains("No face was found"), "{}", r.note());
+    assert!(r.note().contains("No face found"), "{}", r.note());
 }
 
 #[test]
@@ -346,7 +346,7 @@ fn a_picture_that_needs_nothing_now_takes_off_what_auto_set_before() {
     assert!(r.plugin.grade().tint > 5.0);
     // the lighting is put right, and Auto is pressed again
     r.press_and_measure(&Scene::default(), right().as_ref());
-    assert!(r.note().contains("taken off"), "{}", r.note());
+    assert!(r.note().contains("removed"), "{}", r.note());
     assert!(r.plugin.grade().is_identity(), "{:?}", r.plugin.grade().tint);
 }
 
@@ -527,7 +527,7 @@ fn no_vision_pack_starts_the_download_once_and_still_grades() {
 fn a_press_that_changes_nothing_shows_it_on_the_button_for_a_moment() {
     let mut r = Rig::new("ready");
     r.ui("auto-clicked", vec![]);
-    assert_eq!(r.shown("auto-label"), json!("Looking…"));
+    assert_eq!(r.shown("auto-label"), json!("Analysing…"));
     r.show(&Scene::default(), right().as_ref(), 16);
     assert_eq!(r.shown("auto-label"), json!("Looks fine"));
     r.event(Event::TimerFired { owner: "colour_grading".into(), token: "auto_label".into() });
