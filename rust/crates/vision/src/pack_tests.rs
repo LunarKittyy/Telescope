@@ -189,7 +189,7 @@ fn claiming(mut data: Vec<u8>, claim: u32) -> Vec<u8> {
 fn download_capped_with(f: &mut Fixture, served: Vec<u8>, cap: u64) -> Result<PathBuf, PackError> {
     f.info.size = served.len() as u64;
     let opener = move |_url: &str, _t: Duration| -> io::Result<Box<dyn Read>> { Ok(Box::new(Cursor::new(served.clone()))) };
-    download_capped(&f.info, &f.folder, &mut |_, _| {}, &|| false, &opener, Some("http://x"), cap)
+    download_capped(&f.info, &f.folder, &mut |_, _| {}, &|| false, &opener, Some("http://x"), cap, TIMEOUT)
 }
 
 #[test]
@@ -254,4 +254,51 @@ fn the_cutouts_download_is_named_and_kept_apart_from_the_vision_pack() {
     assert_eq!(default_dir().parent(), matting_dir().parent());
     // a build for another computer has none, and says so
     assert!(PackInfo::from_json_for(Kind::Matting, &info, None).asset_name().is_none());
+}
+
+/// Serves its bytes a few at a time, waiting before each piece; fails with `fail_after` pieces if set (a connection that went quiet).
+struct Trickle {
+    data: Cursor<Vec<u8>>,
+    pause: Duration,
+    pieces: usize,
+    fail_after: Option<usize>,
+}
+
+impl Read for Trickle {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        std::thread::sleep(self.pause);
+        if self.fail_after == Some(self.pieces) {
+            return Err(io::Error::new(io::ErrorKind::TimedOut, "no bytes"));
+        }
+        self.pieces += 1;
+        let n = buf.len().min(48);
+        self.data.read(&mut buf[..n])
+    }
+}
+
+fn trickle_download(f: &Fixture, fail_after: Option<usize>, timeout: Duration) -> (Result<PathBuf, PackError>, Duration) {
+    let served = f.served.lock().unwrap().clone();
+    let opener = move |_url: &str, _t: Duration| -> io::Result<Box<dyn Read>> {
+        Ok(Box::new(Trickle { data: Cursor::new(served.clone()), pause: Duration::from_millis(15), pieces: 0, fail_after }))
+    };
+    let start = std::time::Instant::now();
+    let result = download_capped(&f.info, &f.folder, &mut |_, _| {}, &|| false, &opener, Some("http://x"), MAX_UNPACKED, timeout);
+    (result, start.elapsed())
+}
+
+#[test]
+fn a_slow_download_that_keeps_moving_finishes_even_past_the_timeout() {
+    let f = Fixture::new();
+    let timeout = Duration::from_millis(40);
+    let (result, took) = trickle_download(&f, None, timeout);
+    assert!(took > timeout * 3, "the download should outlast the timeout, took {took:?}");
+    assert!(result.is_ok(), "{result:?}");
+}
+
+#[test]
+fn a_download_that_goes_quiet_fails_as_a_connection_problem_and_leaves_nothing() {
+    let f = Fixture::new();
+    let (result, _) = trickle_download(&f, Some(2), Duration::from_millis(40));
+    assert!(result.unwrap_err().0.contains("internet connection"));
+    assert!(!f.folder.join(f.info.pack_id().unwrap()).exists());
 }

@@ -56,7 +56,8 @@ pub fn web(url: &str, timeout: Duration) -> Result<Box<dyn Read>, FetchError> {
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .tls_config(tls)
         .https_only(true)
-        .timeout_global(Some(timeout))
+        // Not timeout_global: that would cap the whole download, so a slow but moving one would fail. A stall is what times out
+        .timeout_resolve(Some(timeout)).timeout_connect(Some(timeout)).timeout_send_request(Some(timeout)).timeout_recv_response(Some(timeout)).timeout_per_read(Some(timeout))
         .user_agent(concat!("Telescope/", env!("CARGO_PKG_VERSION")))
         .build()
         .into();

@@ -12,6 +12,7 @@ pub const SEGMENTER_MODEL: &str = "selfie_segmenter_landscape.tflite";
 pub const POSE_MODEL: &str = "pose_landmarker_lite.task";
 /// Written last, holding the pack's id: a folder without it is a download that didn't finish.
 pub const DONE: &str = ".verified";
+/// How long connecting, the server's answer and each wait for more bytes may take: it bounds a dead connection, never the whole download.
 const TIMEOUT: Duration = Duration::from_secs(30);
 /// Zips of the same files can come out a little bigger on another machine's zlib.
 const SLACK: f64 = 1.1;
@@ -217,7 +218,8 @@ pub fn web(url: &str, timeout: Duration) -> io::Result<Box<dyn Read>> {
     let agent: ureq::Agent = ureq::Agent::config_builder()
         .tls_config(tls)
         .https_only(true)
-        .timeout_global(Some(timeout))
+        // Not timeout_global: that capped the whole download, so anything slower than ~7.5 Mbit/s failed. A stall times out instead
+        .timeout_resolve(Some(timeout)).timeout_connect(Some(timeout)).timeout_send_request(Some(timeout)).timeout_recv_response(Some(timeout)).timeout_per_read(Some(timeout))
         .user_agent(format!("Telescope/{}", telescope_core::version::version()))
         .build()
         .into();
@@ -239,11 +241,11 @@ impl From<io::Error> for Failed {
 /// Download this version's pack, check it and unpack it; older packs go.
 pub fn download(info: &PackInfo, vision_dir: &Path, progress: &mut dyn FnMut(u64, u64), cancelled: &dyn Fn() -> bool,
                 opener: Opener, url: Option<&str>) -> Result<PathBuf, PackError> {
-    download_capped(info, vision_dir, progress, cancelled, opener, url, MAX_UNPACKED)
+    download_capped(info, vision_dir, progress, cancelled, opener, url, MAX_UNPACKED, TIMEOUT)
 }
 
 fn download_capped(info: &PackInfo, vision_dir: &Path, progress: &mut dyn FnMut(u64, u64), cancelled: &dyn Fn() -> bool,
-                   opener: Opener, url: Option<&str>, max_unpacked: u64) -> Result<PathBuf, PackError> {
+                   opener: Opener, url: Option<&str>, max_unpacked: u64, timeout: Duration) -> Result<PathBuf, PackError> {
     let (Some(id), Some(name), Some(pid)) = (info.id.clone(), info.asset_name(), info.pack_id()) else {
         return Err(PackError(tr("There's no download for this computer yet.")));
     };
@@ -253,7 +255,7 @@ fn download_capped(info: &PackInfo, vision_dir: &Path, progress: &mut dyn FnMut(
     let staging = vision_dir.join(format!(".{pid}.unpacking"));
     let mut run = || -> Result<PathBuf, Failed> {
         std::fs::create_dir_all(vision_dir)?;
-        let mut r = opener(&url, TIMEOUT)?;
+        let mut r = opener(&url, timeout)?;
         let mut f = std::fs::File::create(&archive)?;
         let mut buf = vec![0u8; CHUNK];
         let mut done = 0u64;
