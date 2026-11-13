@@ -623,6 +623,7 @@ impl Settings {
         });
         cb(self, "answered", |s, a| s.answered(matches!(a.first(), Some(SValue::Bool(true)))));
         cb(self, "all-on", |s, _| s.request(Request::AllOn));
+        cb(self, "revert", |s, _| s.request(Request::Revert));
         cb(self, "restart", |s, _| {
             let streaming = s.window.upgrade().is_some_and(|w| w.is_streaming());
             s.request(Request::Restart { streaming });
@@ -920,7 +921,7 @@ impl Settings {
                 let (byline_link, byline_url) = link(&t.byline_link);
                 SValue::Struct(Struct::from_iter([
                     ("name".to_string(), s(&t.name)), ("title".to_string(), s(&t.title)), ("about".to_string(), s(&t.about)),
-                    ("icon".to_string(), SValue::Image(icon(&t.icon))), ("hue".to_string(), SValue::Brush(slint::Brush::SolidColor(hue_of(&t.group)))),
+                    ("icon".to_string(), s(&t.icon)), ("hue".to_string(), SValue::Brush(slint::Brush::SolidColor(hue_of(&t.group)))),
                     ("on".to_string(), SValue::Bool(t.on)), ("locked".to_string(), SValue::Bool(t.locked)), ("enabled".to_string(), SValue::Bool(t.enabled)),
                     ("tooltip".to_string(), s(&t.tooltip)), ("note".to_string(), s(&t.note)), ("note-kind".to_string(), s(&t.note_kind)),
                     ("note-link".to_string(), s(&note_link)), ("note-url".to_string(), s(&note_url)),
@@ -937,7 +938,8 @@ impl Settings {
                 ("remove-pack".to_string(), SValue::Bool(g.remove_pack)), ("status".to_string(), s(&g.status)),
             ]))
         }).collect();
-        let _ = crate::same::set(&self.ui, "groups", model(groups));
+        // Always set, so a switch that was flipped and then cancelled is bound to its tile again (equal rows would be skipped)
+        let _ = self.ui.set_property("groups", model(groups));
         let _ = self.ui.set_property("narrowed", SValue::Bool(!query.trim().is_empty() || filter != Filter::All));
         let _ = self.ui.set_property("empty-note", s(&Panel::empty_note(&query, filter)));
         let _ = self.ui.set_property("all-on-enabled", SValue::Bool(panel.all_on_enabled));

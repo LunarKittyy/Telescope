@@ -834,7 +834,7 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
         out.push_str("    }\n");
         if Some(t) == plugins_tab {
             out.push_str(&format!(
-                "    if footer-fold.value > 0 && !root.searching && root.current == {t}: PluginsFooter {{\n        x: 260px;\n        y: root.height - 16px - self.height;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: footer-fold.value;\n        note: root.footer-note;\n        restart => {{ root.restart(); }}\n    }}\n"));
+                "    if footer-fold.value > 0 && !root.searching && root.current == {t}: PluginsFooter {{\n        x: 260px;\n        y: root.height - (16px + self.height) * footer-fold.value;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: footer-fold.value;\n        note: root.footer-note;\n        restart => {{ root.restart(); }}\n        revert => {{ root.revert(); }}\n    }}\n"));
             out.push_str(&format!(
                 "    if download-fold.value > 0 && !root.searching && root.current == {t}: DownloadBanner {{\n        x: 260px;\n        y: root.height - 16px - 64px * footer-fold.value - self.height;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: download-fold.value;\n        title: root.download-title;\n        percent: root.download-percent;\n        error: root.download-error;\n        detail: root.download-detail;\n    }}\n"));
         }
@@ -911,6 +911,7 @@ export component TelescopeSettings inherits Window {
     callback open-folder;
     callback open-docs;
     callback restart;
+    callback revert;
     in property <bool> asking;
     in property <string> ask-title;
     in property <string> ask-text;

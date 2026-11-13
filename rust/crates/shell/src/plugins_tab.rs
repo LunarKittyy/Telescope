@@ -164,6 +164,8 @@ pub enum Request {
     AutoUpdate(bool),
     /// Restart now; streaming is whether a stream is running.
     Restart { streaming: bool },
+    /// Puts every switch that waits on a restart back to how it is in the running app.
+    Revert,
 }
 
 /// What happens once any question is agreed to.
@@ -178,6 +180,7 @@ pub enum Commit {
     RemovePack,
     Install { path: PathBuf, replace: bool },
     Updates { key: &'static str, on: bool },
+    Revert,
     Restart,
 }
 
@@ -680,6 +683,7 @@ impl Panel {
                     tr("Telescope will install new versions of the plugins you switched on and switch them on too, without showing them to you first.\n\nWhoever controls a plugin's repo on GitHub (its author, or anyone who gets into their account) can then run new code on this computer every time they publish a release. Only switch this on if you trust all of them with that."),
                     tr("Switch on"), true), Commit::Updates { key: AUTO_UPDATE, on })
             }
+            Request::Revert => Step::Done(self.commit(Commit::Revert)),
             Request::Restart { streaming } => {
                 if streaming {
                     Step::Ask(question(tr("Restart Telescope now?"), tr("Streaming stops while Telescope restarts. Restarting takes a few seconds."), tr("Restart"), false), Commit::Restart)
@@ -781,6 +785,21 @@ impl Panel {
                 self.save(|a| a.set_enabled(&name, on))
             }
             Commit::AllOn => self.save(|a| a.reset_to_defaults()),
+            Commit::Revert => {
+                let waiting: Vec<(String, bool, bool)> = self.pending.iter().map(|n| {
+                    let optional = self.builtins.iter().any(|p| p.name == *n && p.optional);
+                    let added = self.installed.iter().any(|i| i.name == *n);
+                    (n.clone(), optional, added)
+                }).collect();
+                let running = self.running.clone();
+                self.save(|a| {
+                    for (name, optional, added) in &waiting {
+                        let was = running.contains(name);
+                        if *added { a.set_enabled(name, was)?; } else if *optional { a.set_optional_on(name, was)?; } else { a.set_builtin_off(name, !was)?; }
+                    }
+                    Ok(())
+                })
+            }
             Commit::Remove { name } => {
                 let mut outcome = Outcome::default();
                 if let Err(e) = self.admin.remove(&name) {
