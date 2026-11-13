@@ -384,6 +384,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
              opts: Option<WindowOptions>) -> Result<Rc<Window>, String> {
     let mut state = State::new(file);
     state.link = services.as_ref().map(|s| s.link.clone());
+    state.outputs = services.as_ref().map(|s| s.outputs.clone());
     state.frames = services.as_ref().and_then(|s| s.media.stream_frames()).map(|f| f as Arc<dyn telescope_core::host::FrameStore>);
     state.vision = services.as_ref().and_then(|s| s.vision.clone());
     if let Some(admin) = services.as_ref().and_then(|s| s.plugin_admin.clone()) {

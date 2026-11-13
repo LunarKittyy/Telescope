@@ -417,6 +417,8 @@ pub struct State {
     pub keep_in_tray: bool,
     /// Link, for what the host has to answer from it straight away (hand_over_stream's prepared route).
     pub link: Option<Arc<dyn telescope_core::link::Link>>,
+    /// The virtual cameras, asked whether the watch's "nobody reads" can be trusted (idle.rs).
+    pub outputs: Option<Arc<dyn telescope_core::output::Outputs>>,
     /// Every running stream's newest frame, for plugins that use other streams' pictures (host.frames).
     pub frames: Option<Arc<dyn telescope_core::host::FrameStore>>,
     /// Person masks and people (HostVision), None without the vision crate.
@@ -517,6 +519,7 @@ impl State {
             state_owners: Arc::default(),
             keep_in_tray: false,
             link: None,
+            outputs: None,
             window_active: false,
             mic: (false, false),
             camera_on_shown: true,
@@ -539,6 +542,9 @@ impl State {
     pub fn sync_idle(&self) {
         let wanted = self.shown != Some(false) || self.other_windows || !self.frame_wants.is_empty() || self.motion.watching();
         self.idle.wanted(wanted);
+        if let Some(outputs) = &self.outputs {
+            self.idle.reliable(outputs.watch_reliable());
+        }
     }
 
     pub fn request_id(&mut self) -> RequestId {
@@ -3072,6 +3078,7 @@ mod tests {
         s.idle = Arc::new(crate::idle::IdleGate::after(0));
         s.shown = Some(false);
         s.sync_idle();
+        s.idle.reliable(true);
         s.idle.watched(false);
         s
     }
@@ -3135,5 +3142,32 @@ mod tests {
         s.bus.emit(Event::CameraWatched { watched: false });
         s.deliver_events();
         assert!(s.idle.idle());
+    }
+
+    #[test]
+    fn an_unreliable_watch_never_pauses_and_the_outputs_decide_which_it_is() {
+        struct Cams(std::sync::atomic::AtomicBool);
+        impl telescope_core::output::Outputs for Cams {
+            fn slots(&self) -> Vec<telescope_core::output::Slot> {
+                Vec::new()
+            }
+            fn formats(&self) -> Vec<telescope_core::PixelFormat> {
+                Vec::new()
+            }
+            fn open(&self, _: u32, _: u32, _: u32, _: u32) -> Result<Box<dyn telescope_core::output::VideoOutput>, String> {
+                Err(String::new())
+            }
+            fn watch_reliable(&self) -> bool {
+                self.0.load(std::sync::atomic::Ordering::SeqCst)
+            }
+        }
+        let cams = Arc::new(Cams(false.into()));
+        let mut s = quiet_state();
+        s.outputs = Some(cams.clone());
+        s.sync_idle();
+        assert!(!s.idle.idle(), "the /proc scan or UnityCapture may have missed a reader");
+        cams.0.store(true, std::sync::atomic::Ordering::SeqCst);
+        s.sync_idle();
+        assert!(s.idle.idle(), "usage events or the Windows 11 heartbeat say nobody reads");
     }
 }

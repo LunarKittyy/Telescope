@@ -7,6 +7,7 @@
 
 use crate::held::{Job, Stop};
 use crate::mf::SharedView;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -31,6 +32,9 @@ pub struct WatchDeps {
     pub linger: Duration,
     /// Windows: UnityCapture's Want event, once an app's filter (or a sender) has made it.
     pub uc_want: Arc<dyn Fn() -> Option<Box<dyn WantEvent>> + Send + Sync>,
+    /// Set while the watch's answer can be trusted to mean nobody reads (v4l2loopback usage events, the Windows 11 camera's heartbeat),
+    /// cleared on the /proc scan and UnityCapture, which can miss a reader.
+    pub reliable: Arc<AtomicBool>,
 }
 
 pub struct Watcher {
@@ -62,6 +66,7 @@ impl Watcher {
     }
 
     pub fn scan_proc(&self, stop: &Stop) {
+        self.deps.reliable.store(false, Ordering::SeqCst);
         while !stop.is_set() {
             self.report(!(self.deps.holders)().is_empty());
             stop.wait(self.deps.proc_scan);
@@ -83,6 +88,7 @@ impl Watcher {
                 continue;
             };
             let fd = file.as_raw_fd();
+            self.deps.reliable.store(false, Ordering::SeqCst);
             let mut sub = [V4L2_EVENT_CLIENT_USAGE, 0, SEND_INITIAL, 0, 0, 0, 0, 0];
             // SAFETY: the ioctl reads a 32-byte v4l2_event_subscription from sub
             if unsafe { libc::ioctl(fd, VIDIOC_SUBSCRIBE_EVENT, sub.as_mut_ptr()) } < 0 {
@@ -91,6 +97,7 @@ impl Watcher {
                 self.scan_proc(stop);
                 return;
             }
+            self.deps.reliable.store(true, Ordering::SeqCst);
             while !stop.is_set() {
                 let mut pfd = libc::pollfd { fd, events: libc::POLLPRI, revents: 0 };
                 // SAFETY: one pollfd for an open descriptor
@@ -126,6 +133,7 @@ impl Watcher {
     }
 
     pub fn watch_mf(&self, stop: &Stop) {
+        self.deps.reliable.store(true, Ordering::SeqCst);
         let (mut beat, mut beat_at) = (None, Instant::now());
         while !stop.is_set() {
             match crate::mf::peek(&*self.deps.mf_open) {
@@ -150,6 +158,7 @@ impl Watcher {
     }
 
     pub fn watch_uc(&self, stop: &Stop) {
+        self.deps.reliable.store(false, Ordering::SeqCst);
         let mut event: Option<Box<dyn WantEvent>> = None;
         let mut last_seen: Option<Instant> = None;
         while !stop.is_set() {
@@ -230,6 +239,7 @@ mod tests {
             device: "/nonexistent/video99".into(), retry_open: Duration::from_millis(10), proc_scan: Duration::from_millis(10),
             holders: Arc::new(Vec::new), use_mf: Arc::new(|| true), mf_open: Arc::new(|| None),
             mf_period: Duration::from_millis(10), linger: Duration::from_secs(3), uc_want: Arc::new(|| None),
+            reliable: Arc::default(),
         }
     }
 
@@ -362,5 +372,21 @@ mod tests {
         wait_for(|| *seen.lock().unwrap() == [true, false]);
         stop.set();
         t.join().unwrap();
+    }
+
+    #[test]
+    fn only_the_usage_events_and_the_windows_11_heartbeat_count_as_a_reliable_signal() {
+        let d = deps();
+        let (w, _seen) = watcher(d.clone());
+        assert!(!d.reliable.load(Ordering::SeqCst), "nothing is known before the watch runs");
+        let stop = Stop::default();
+        stop.set();
+        w.watch_mf(&stop);
+        assert!(d.reliable.load(Ordering::SeqCst), "the Windows 11 camera's heartbeat");
+        w.watch_uc(&stop);
+        assert!(!d.reliable.load(Ordering::SeqCst), "UnityCapture's readers can be invisible");
+        w.watch_mf(&stop);
+        w.scan_proc(&stop);
+        assert!(!d.reliable.load(Ordering::SeqCst), "the /proc scan can take seconds to see a reader");
     }
 }

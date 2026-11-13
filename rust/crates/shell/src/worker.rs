@@ -3531,6 +3531,7 @@ mod tests {
 
     /// A worker on an endless feed whose steps pause once `gate` says nobody reads the camera (it waits no time to start).
     fn running_with_idle(seen: &Arc<Seen>, gate: Arc<crate::idle::IdleGate>, slot: u32) -> StreamWorker {
+        gate.reliable(true);
         let opener: Opener = Arc::new(|_| {
             Ok((Codec::Mjpeg, Box::new(Feed { packets: Arc::default(), stop: Arc::default(), endless: Some(5) }) as Box<dyn VideoFeed>).into())
         });
