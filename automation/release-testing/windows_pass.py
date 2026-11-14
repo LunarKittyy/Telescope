@@ -552,7 +552,7 @@ def driver_row(a) -> str:
     """Settings, Virtual camera & phone: what the Driver row says, read fresh."""
     out = a.win.desktop(r"""
 Open-Settings "Virtual camera & phone"
-$known = "Ready", "Reinstall for a security fix", "Some apps can't see it", "Update ready", "Not installed"
+$known = "Ready", "Reinstall for a security fix", "Some apps can't see the camera", "Update ready", "Not installed"
 # The row says something else for a moment while the page checks the driver
 $texts = @()
 for ($i = 0; $i -lt 25; $i++) {
@@ -617,7 +617,7 @@ Get-ChildItem $dir -Filter "UnityCaptureFilter*.dll" | ForEach-Object { "$($_.Na
             need(len(copied.split()) == 4, f"couldn't copy UnityCapture into Program Files: {copied or 'nothing there'}")
         register_driver(a, folder, name)
         row = driver_row(a)
-        need(row == "Some apps can't see it",
+        need(row == "Some apps can't see the camera",
              f"with UnityCapture registered {note} the row says {row!r} and apps see {a.win.admin(CAMERAS).splitlines()}")
         since = win_now(a)
         a.win.desktop('Press-Driver; Wait-Until { (Driver-Texts) -contains "Ready" } 120 1 | Out-Null')
