@@ -128,7 +128,8 @@ impl Gpu {
             desc.backends = backends;
             let instance = wgpu::Instance::new(desc.with_env());
             match pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
+                // None keeps the OS order (Windows per-app choice, Mesa default); WGPU_POWER_PREF still overrides
+                power_preference: wgpu::PowerPreference::from_env().unwrap_or_default(),
                 ..Default::default()
             })) {
                 Ok(adapter) => {

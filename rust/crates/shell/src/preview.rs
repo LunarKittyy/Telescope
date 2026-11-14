@@ -68,7 +68,8 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
         desc.backends = wgpu::Backends::PRIMARY;
         let instance = wgpu::Instance::new(desc.with_env());
         let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
+            // None keeps the OS order (Windows per-app choice, Mesa default); WGPU_POWER_PREF still overrides
+            power_preference: wgpu::PowerPreference::from_env().unwrap_or_default(),
             ..Default::default()
         })).map_err(|e| e.to_string())?;
         // WGPU_BACKEND can still pick it
