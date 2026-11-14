@@ -100,7 +100,7 @@ def main() -> int:
         return check_map(shared, ignored, sections)
 
     since = args.since or git("describe", "--tags", "--abbrev=0", "--match", "v*", args.until).strip()
-    files = git("diff", "--name-only", since, args.until).splitlines()
+    files = git("diff", "--name-only", "--diff-filter=d", since, args.until).splitlines()
     sizes = {}
     for line in git("diff", "--numstat", since, args.until).splitlines():
         added, removed, path = line.split("\t", 2)
