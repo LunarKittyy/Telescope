@@ -514,6 +514,8 @@ fn a_pixel_or_two_of_jitter_is_still_a_rest_but_a_slow_creep_is_not() {
 #[test]
 fn passing_over_controls_while_warm_does_not_flash_a_chain_of_tips() {
     let (w, _) = open();
+    // Real time must not leak into the 100 ms warm rest on a loaded machine
+    let _still = telescope_shell::offscreen::freeze_clock();
     warm(&w);
     for p in [(28.0, 70.0), (130.0, 70.0), (245.0, 24.0), (160.0, 178.0), (160.0, 234.0)] {
         move_to(&w, at(p.0, p.1));
