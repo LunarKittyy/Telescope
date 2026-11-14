@@ -153,8 +153,8 @@ Task managers count memory in different ways (Windows Task Manager, for one, lea
 **"No graphics card Telescope can use" in Video settings**
 On Linux the decoder is VA-API or NVIDIA's CUDA. On Windows it's Direct3D 11. Without a usable card Light still decodes on the processor.
 
-**Telescope says it switched graphics card**
-The last start closed while Telescope was opening that card, so it now leaves it out and uses another one (or the processor). It tries the card again after a driver update. To undo it sooner, delete `gpu_skipped.json` from Telescope's settings folder (`%APPDATA%\Telescope` on Windows, `~/.config/telescope` on Linux) and start Telescope again.
+**Telescope switched graphics card**
+The last start closed while Telescope was opening that card. Telescope now leaves it out and uses another one, or the processor if none is left. It tries the card again after a driver update. To undo it sooner, delete `gpu_skipped.json` from Telescope's settings folder (`%APPDATA%\Telescope` on Windows, `~/.config/telescope` on Linux) and start Telescope again.
 
 ## Camera controls
 
