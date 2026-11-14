@@ -443,7 +443,9 @@ msgid ""
 "\n"
 "What went wrong: {reason}\n"
 "\n"
-"The log is at {path}"
+"The log is at {path}\n"
+"\n"
+"Open the log?"
 msgstr ""
 
 #: rust/crates/core/src/gpu_marker.rs:125

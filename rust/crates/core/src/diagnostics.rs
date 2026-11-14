@@ -508,7 +508,7 @@ pub fn set_starting(on: bool) {
 pub fn start_failed_text(reason: &str, log: &Path) -> (String, String) {
     (
         tr("Telescope can't start"),
-        tr("Telescope ran into a problem while starting and has to close.\n\nWhat went wrong: {reason}\n\nThe log is at {path}").field("reason", reason).field("path", log.display()),
+        tr("Telescope ran into a problem while starting and has to close.\n\nWhat went wrong: {reason}\n\nThe log is at {path}\n\nOpen the log?").field("reason", reason).field("path", log.display()),
     )
 }
 
@@ -519,7 +519,9 @@ pub fn show_start_failure(events: &EventLog, reason: &str) {
     }
     let log = events.path().unwrap_or_else(|| log_dir().join("telescope.log"));
     let (title, text) = start_failed_text(reason, &log);
-    crate::system::message_box(&title, &text);
+    if crate::system::ask_box(&title, &text) {
+        crate::launch::open_url(&log.to_string_lossy());
+    }
 }
 
 /// Log to the file from here on, including panics (in any thread), and link it into app_dir. `version` is what START says.
@@ -534,7 +536,12 @@ pub fn start(events: &'static EventLog, dir: &Path, app_dir: Option<&Path>, vers
     std::panic::set_hook(Box::new(move |info| {
         let what = describe_panic(info);
         events.add("CRASH", &what);
-        show_start_failure(events, &what);
+        // Only the main thread's panic ends the start; a worker's is caught and logged
+        if std::thread::current().name() == Some("main") {
+            // A panic has its reason in hand, so it isn't blamed on the graphics card
+            crate::gpu_marker::clear();
+            show_start_failure(events, &what);
+        }
         previous(info);
     }));
     events.add("START", &format!("Telescope {version}"));

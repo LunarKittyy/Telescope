@@ -99,6 +99,15 @@ pub fn file_url_for(path: &str, windows: bool) -> String {
 /// Windows: a message box with an OK button and a warning icon, for when there is no window to say it in (a release build has no
 /// console either). Waits until it's closed. Does nothing elsewhere.
 pub fn message_box(title: &str, text: &str) {
+    let _ = show_box(title, text, false);
+}
+
+/// Like message_box with Yes and No buttons (in the system's language); true when Yes was picked. Always false outside Windows.
+pub fn ask_box(title: &str, text: &str) -> bool {
+    show_box(title, text, true)
+}
+
+fn show_box(title: &str, text: &str, yes_no: bool) -> bool {
     #[cfg(windows)]
     {
         #[link(name = "user32")]
@@ -107,11 +116,16 @@ pub fn message_box(title: &str, text: &str) {
         }
         let wide = |s: &str| -> Vec<u16> { s.encode_utf16().chain(std::iter::once(0)).collect() };
         let (text, caption) = (wide(text), wide(title));
-        // SAFETY: both strings are NUL-terminated and outlive the call; 0x30 is MB_ICONWARNING
-        unsafe { MessageBoxW(std::ptr::null_mut(), text.as_ptr(), caption.as_ptr(), 0x30) };
+        // MB_ICONWARNING | MB_SETFOREGROUND | MB_TOPMOST, so it isn't hidden behind the splash; MB_YESNO adds the buttons
+        let kind = 0x30 | 0x1_0000 | 0x4_0000 | if yes_no { 0x4 } else { 0 };
+        // SAFETY: both strings are NUL-terminated and outlive the call; 6 is IDYES
+        unsafe { MessageBoxW(std::ptr::null_mut(), text.as_ptr(), caption.as_ptr(), kind) == 6 }
     }
     #[cfg(not(windows))]
-    let _ = (title, text);
+    {
+        let _ = (title, text, yes_no);
+        false
+    }
 }
 
 #[cfg(test)]

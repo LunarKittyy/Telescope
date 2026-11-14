@@ -488,7 +488,7 @@ fn the_final_pass_hides_what_a_section_let_through() {
 fn a_failed_start_names_the_reason_and_the_log() {
     let (title, text) = start_failed_text("panic: no window at main.rs:3", Path::new("C:\\Temp\\Telescope\\telescope.log"));
     assert_eq!(title, "Telescope can't start");
-    assert!(text.contains("What went wrong: panic: no window at main.rs:3") && text.ends_with("C:\\Temp\\Telescope\\telescope.log"), "{text}");
+    assert!(text.contains("What went wrong: panic: no window at main.rs:3") && text.contains("The log is at C:\\Temp\\Telescope\\telescope.log") && text.ends_with("Open the log?"), "{text}");
 }
 
 #[test]
