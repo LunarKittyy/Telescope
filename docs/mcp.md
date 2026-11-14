@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/system/src/mcp*.rs; checked: 1cbb8644b -->
+<!-- covers: rust/crates/system/src/mcp*.rs; checked: 141b7ea82 -->
 # MCP server
 
 The MCP server lets an AI app like Claude Desktop look at Telescope and change its settings. Someone whose picture lags can switch it on and ask the model what's going on. Someone else can describe the look they want and let the model set the colour grading, or ask where a setting is.
@@ -61,7 +61,7 @@ Settings are declared by plugins. Colour grading and Transforms declare theirs s
 - **stats** gives the numbers the Stats panel shows (frame rates in and out, drops with their reasons, bitrate, decode and frame step times) over the last minute, each as min, average and max with the worst moments and how long ago they were. `level: nerd` adds the stage times, the balancer's moves and the app's CPU and memory
 - **watch** collects the same numbers for 5 to 120 seconds while you reproduce a problem, then answers
 
-Both read the numbers core already keeps, so they work with the Stats panel switched off. They need a stream running.
+Both read the numbers core already keeps, so they work with the Stats panel switched off. They need a stream running. A `watch` and a `stats` call at `level: nerd` keep the frame steps running while they collect, even when no app reads the camera.
 
 **Not here yet:** frames from the camera are never sent.
 

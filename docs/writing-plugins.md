@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/plugin-host/src rust/crates/plugin-host/tests/plugin_api.txt rust/crates/plugin-host/example-plugins; checked: 1cbb8644b -->
+<!-- covers: rust/crates/plugin-host/src rust/crates/plugin-host/tests/plugin_api.txt rust/crates/plugin-host/example-plugins; checked: 141b7ea82 -->
 # Writing a plugin
 
 Plugins are written in Lua, with GPU shaders for anything that changes the picture. To switch plugins on and off or install ones other people made, see [Plugins](plugins.md). Plugins written in Python for the old Telescope (API 1) don't run any more.

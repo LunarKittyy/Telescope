@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/effects/src/framing* rust/crates/effects/src/auto_* rust/crates/effects/src/background* rust/crates/effects/src/face_exposure* rust/crates/effects/src/privacy_blur* rust/crates/effects/src/chroma_key* rust/crates/effects/src/desk* rust/crates/vision/src; checked: 1cbb8644b -->
+<!-- covers: rust/crates/effects/src/framing* rust/crates/effects/src/auto_* rust/crates/effects/src/background* rust/crates/effects/src/face_exposure* rust/crates/effects/src/privacy_blur* rust/crates/effects/src/chroma_key* rust/crates/effects/src/desk* rust/crates/vision/src; checked: 141b7ea82 -->
 # Framing and background
 
 Keeping you in frame, and changing or hiding what is behind you.
@@ -28,7 +28,7 @@ Picking a point on the preview or a focus mode on the Camera card takes over fro
 
 ## Privacy blur
 
-Optional. When more than one person is in the picture it hides all of it, in one of two ways picked on its card. **Blur the whole picture** blurs everything and **Show the wait screen** puts the wait screen up instead. It doesn't try to tell you from anyone else. Blurring starts as soon as one update from the people finder sees two or more people, and it only stops once there has been only one person (or nobody) for 4 seconds, so the finder losing a person for a moment doesn't make it flicker.
+Optional. When more than one person is in the picture it hides all of it, in one of two ways picked on its card. **Blur the whole picture** blurs everything and **Show the wait screen** puts the wait screen up instead. It doesn't try to tell you from anyone else. Blurring starts as soon as one update from the people finder sees two or more people, and it only stops once there has been only one person (or nobody) for 4 seconds, so the finder losing a person for a moment doesn't make it flicker. While the automatic blur is on the picture keeps running even when no app reads the camera, so it can see someone walk in.
 
 It only knows about the people MediaPipe finds. It can miss someone (a person turned away, small or half out of the frame), and it takes a moment to react. Don't count on it to keep anything private.
 

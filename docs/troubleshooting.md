@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/link/src rust/crates/outputs/src rust/crates/system/src/hotkeys* rust/crates/system/src/updates* rust/crates/shell/src/plugins_tab.rs rust/crates/vision/src/pack.rs; checked: 1cbb8644b -->
+<!-- covers: rust/crates/link/src rust/crates/outputs/src rust/crates/system/src/hotkeys* rust/crates/system/src/updates* rust/crates/shell/src/plugins_tab.rs rust/crates/vision/src/pack.rs; checked: 141b7ea82 -->
 # Troubleshooting
 
 Find your problem below. Nothing there? Ask in [Q&A](https://github.com/LunarKittyy/Telescope/discussions/categories/q-a), or open an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml) with your **Copy diagnostics** report if something is broken.
@@ -131,7 +131,7 @@ Background and Auto framing cost the most. On a test laptop, a 720p stream witho
 - Use the Light format and turn on **Hardware acceleration** if your graphics card supports it
 - On battery, unplug the phone: over USB it runs off the laptop's power. On the test laptop it drew about 2.4 W even while not streaming. Use Wi-Fi, or charge the phone from the wall
 
-Minimizing the window barely helps, since drawing the preview is cheap.
+Minimizing the window or putting it in the tray only saves power when no app is reading the virtual camera. Then Telescope pauses the effects and vision after about 8 seconds, provided the Wait screen plugin is on and it can tell that nobody reads the camera (on Linux with v4l2loopback 0.13 or newer, and on Windows 11 with Telescope's own camera, not on Windows 10 with UnityCapture). An app that opens the camera brings them back on the next frame.
 
 **Telescope uses a lot of RAM**
 Most of it isn't Telescope's own. Measured on a Linux laptop, streaming 1080p at 30 fps:
@@ -212,7 +212,7 @@ Your desktop has no global shortcuts portal (only Plasma 5.27+, GNOME 48+ and Hy
 That part of Telescope is switched off in **Plugins**. Open Settings and go to the Plugins tab (it reads **Plugins (N off)** when something is off), switch it back on or click **Reset to defaults** (every built-in plugin goes on and the optional ones go off), then click **Restart now**.
 
 **A plugin that finds people asks for a one-time download**
-The vision download hasn't happened yet or was removed. A new Telescope version can need a newer one too. Click **Download** on the card. If it fails check that GitHub is reachable from this computer.
+The vision download hasn't happened yet or was removed. A new Telescope version can need a newer one too. Click **Download** on the card. If it fails check that GitHub is reachable from this computer, or download the vision pack zip from the release page and install it with **Install** on the Plugins tab ([Plugins](plugins.md#installing-a-plugin-someone-made)).
 
 **A plugin that finds people says MediaPipe didn't load**
 The download is there but MediaPipe won't start here (it only works on 64-bit Intel and AMD). On Linux it also needs the EGL and OpenGL ES libraries, which graphics drivers normally bring. If **Copy diagnostics** says `libEGL.so.1 missing` or `libGLESv2.so.2 missing`, install `libegl1` and `libgles2` (Debian and Ubuntu) or `libglvnd-egl` and `libglvnd-gles` (Fedora) and restart Telescope. Otherwise open an issue with your **Copy diagnostics** report.

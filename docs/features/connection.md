@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/link/src/pairing.rs rust/crates/link/src/connection.rs rust/crates/link/src/discovery.rs rust/crates/link/src/phones.rs rust/crates/link/src/https.rs rust/crates/link/src/session_client.rs rust/crates/system/src/updates* android/app/src/main/kotlin/com/telescope/Pairing.kt android/app/src/main/kotlin/com/telescope/PairedComputers.kt android/app/src/main/kotlin/com/telescope/PhoneTls.kt android/app/src/main/kotlin/com/telescope/TlsIdentity.kt android/app/src/main/kotlin/com/telescope/Updater.kt android/app/src/main/kotlin/com/telescope/UpdateLogic.kt; checked: 1cbb8644b -->
+<!-- covers: rust/crates/link/src/pairing.rs rust/crates/link/src/connection.rs rust/crates/link/src/discovery.rs rust/crates/link/src/phones.rs rust/crates/link/src/https.rs rust/crates/link/src/session_client.rs rust/crates/system/src/updates* android/app/src/main/kotlin/com/telescope/Pairing.kt android/app/src/main/kotlin/com/telescope/PairedComputers.kt android/app/src/main/kotlin/com/telescope/PhoneTls.kt android/app/src/main/kotlin/com/telescope/TlsIdentity.kt android/app/src/main/kotlin/com/telescope/Updater.kt android/app/src/main/kotlin/com/telescope/UpdateLogic.kt; checked: 141b7ea82 -->
 # Connection and privacy
 
 Pairing phones, what the apps send where, and updates.
@@ -14,6 +14,7 @@ Pairing phones, what the apps send where, and updates.
 - The phone's screen stays on while the app is open because Android only runs Wi-Fi at full speed with the screen on. You can press the power button and the stream keeps going
 - **Black screen** next to Preview in the phone app turns the screen black while the stream carries on, and turns the brightness all the way down once its status text has faded. It saves battery on an OLED screen and some phones are less likely to close Telescope while it's on screen than with the screen off. Double tap or press Back to get the app back. A single tap shows the stream's status for a few seconds, at normal brightness so it's readable
 - Camera, output, transform and alert settings are saved per phone and so are picture effects like Background or the Fun pack. Connection settings and the canvas are shared
+- A Browser camera or webcam you picked is remembered when Telescope starts, even if it isn't there yet. Until it turns up a phone shows instead, and picking something else forgets the pick
 
 ## Privacy
 
