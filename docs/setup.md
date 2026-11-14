@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/outputs/src/linux_setup.rs rust/crates/outputs/src/v4l2.rs rust/crates/outputs/src/wininstall.rs rust/crates/link/src/adb.rs rust/crates/link/src/adb_download.rs rust/windows; checked: 1cbb8644b -->
+<!-- covers: rust/crates/outputs/src/linux_setup.rs rust/crates/outputs/src/v4l2.rs rust/crates/outputs/src/wininstall.rs rust/crates/link/src/adb.rs rust/crates/link/src/adb_download.rs rust/windows; checked: 141b7ea82 -->
 # Manual setup
 
 The first-run checklist covers this for most people. This page is for doing it by hand or fixing an unusual setup.
