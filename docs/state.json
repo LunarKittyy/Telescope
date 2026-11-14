@@ -119,6 +119,7 @@
     "heat_fps": 15,
     "heat_width": 1280,
     "heat_height": 720,
+    "heat_paused": true,
     "low_light": true,
     "low_light_toggle": true,
     "h264_profile": "high",

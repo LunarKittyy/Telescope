@@ -319,8 +319,11 @@ pub fn camera_error_text(state: &Value) -> String {
     state.get("camera_error").map(|e| e.as_str().map_or_else(|| e.to_string(), String::from)).unwrap_or_default()
 }
 
-/// The heat banner's text while the phone streams smaller than asked because it's critically hot, or None.
+/// The heat banner's text while the phone has paused its camera, or streams smaller than asked, because it's critically hot, or None.
 pub fn heat_text(state: &Value) -> Option<String> {
+    if truthy(state, "heat_paused") {
+        return Some(tr("The camera is paused and the picture is frozen until the phone cools down."));
+    }
     let int = |k: &str| state.get(k).filter(|v| !v.is_boolean()).and_then(Value::as_i64).filter(|n| *n > 0);
     let (w, h) = (int("heat_width")?, int("heat_height")?);
     let size = format!("{w} × {h}");

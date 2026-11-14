@@ -7615,25 +7615,29 @@ msgstr "La caméra ne s'est pas rallumée"
 msgid "The camera didn't turn back on. Another app may be using it."
 msgstr "La caméra ne s'est pas rallumée. Une autre application l'utilise peut-être."
 
-#: rust/crates/shell/src/sources.rs:328
+#: rust/crates/shell/src/sources.rs:325
+msgid "The camera is paused and the picture is frozen until the phone cools down."
+msgstr ""
+
+#: rust/crates/shell/src/sources.rs:331
 #, python-brace-format
 msgid "Streaming at {size} and {fps} fps until the phone cools down."
 msgstr ""
 
-#: rust/crates/shell/src/sources.rs:329
+#: rust/crates/shell/src/sources.rs:332
 #, python-brace-format
 msgid "Streaming at {size} until the phone cools down."
 msgstr ""
 
-#: rust/crates/shell/src/sources.rs:846
+#: rust/crates/shell/src/sources.rs:849
 msgid "Open Telescope on it."
 msgstr "Ouvrez Telescope dessus."
 
-#: rust/crates/shell/src/sources.rs:849 rust/crates/shell/src/streams.rs:1634
+#: rust/crates/shell/src/sources.rs:852 rust/crates/shell/src/streams.rs:1634
 msgid "the device"
 msgstr "l'appareil"
 
-#: rust/crates/shell/src/sources.rs:1083
+#: rust/crates/shell/src/sources.rs:1086
 msgid "Open the Telescope page in the browser again."
 msgstr ""
 
