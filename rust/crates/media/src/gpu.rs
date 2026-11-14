@@ -7,6 +7,7 @@ use crate::pool::Pool;
 use crate::transfers;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
+use telescope_core::gpu_pick::{self, Api, Candidate, Kind};
 use telescope_core::frame::{Frame, PixelFormat, ShaderStep};
 use telescope_core::image::spare_bytes;
 use telescope_core::shader;
@@ -104,6 +105,42 @@ fn aligned_row(bytes: u32) -> u32 {
 /// What to ask for, in order: just looking for GL loads Mesa's big GL libraries, about 25 MB, so it waits until there's no Vulkan.
 const BACKENDS: [wgpu::Backends; 2] = [wgpu::Backends::PRIMARY, wgpu::Backends::PRIMARY.union(wgpu::Backends::GL)];
 
+/// The adapters of one instance in the order to try them. WGPU_POWER_PREF set: wgpu's own pick for it. Otherwise real GPUs first in
+/// the OS's order (which carries the Windows per-app choice), and software or odd adapters last; wgpu's no-preference request would
+/// take whatever is listed first, Vulkan before DX12 and software adapters included.
+fn adapters_to_try(instance: &wgpu::Instance, backends: wgpu::Backends, preference: Option<wgpu::PowerPreference>) -> Vec<wgpu::Adapter> {
+    if let Some(power_preference) = preference {
+        let picked = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference, ..Default::default() }));
+        return picked.into_iter().inspect(|a| log::info!("Graphics card {} ({:?}) picked by WGPU_POWER_PREF", a.get_info().name, a.get_info().backend)).collect();
+    }
+    let listed = pollster::block_on(instance.enumerate_adapters(backends));
+    let candidates: Vec<Candidate> = listed.iter().enumerate().filter_map(|(index, a)| {
+        let info = a.get_info();
+        let api = match info.backend {
+            wgpu::Backend::Vulkan => Api::Vulkan,
+            wgpu::Backend::Dx12 => Api::Dx12,
+            wgpu::Backend::Metal => Api::Metal,
+            wgpu::Backend::Gl => Api::Gl,
+            _ => return None,
+        };
+        let kind = match info.device_type {
+            wgpu::DeviceType::IntegratedGpu => Kind::Integrated,
+            wgpu::DeviceType::DiscreteGpu => Kind::Discrete,
+            wgpu::DeviceType::VirtualGpu => Kind::Virtual,
+            wgpu::DeviceType::Cpu => Kind::Cpu,
+            wgpu::DeviceType::Other => Kind::Other,
+        };
+        Some(Candidate { api, kind, index })
+    }).collect();
+    let mut listed: Vec<Option<wgpu::Adapter>> = listed.into_iter().map(Some).collect();
+    let ordered: Vec<wgpu::Adapter> = gpu_pick::order(&candidates, cfg!(windows)).into_iter().filter_map(|i| listed[i].take()).collect();
+    let name = |a: &wgpu::Adapter| format!("{} ({:?}, {:?})", a.get_info().name, a.get_info().backend, a.get_info().device_type);
+    if let Some(first) = ordered.first() {
+        log::info!("Graphics card picked: {}; also listed: {}", name(first), ordered.iter().skip(1).map(name).collect::<Vec<_>>().join(", "));
+    }
+    ordered
+}
+
 impl Gpu {
     /// The app's one graphics card connection, opened on first use; None when there's no card wgpu can use or
     /// TELESCOPE_NO_GPU is set (for a driver that misbehaves, and for comparing).
@@ -122,31 +159,35 @@ impl Gpu {
     }
 
     pub(crate) fn open() -> Result<Gpu, String> {
-        let (mut found, mut why) = (None, String::new());
+        let mut why = String::from("no graphics card found");
         for backends in BACKENDS {
             let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
             desc.backends = backends;
             let instance = wgpu::Instance::new(desc.with_env());
-            match pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-                // None keeps the OS order (Windows per-app choice, Mesa default); WGPU_POWER_PREF still overrides
-                power_preference: wgpu::PowerPreference::from_env().unwrap_or_default(),
-                ..Default::default()
-            })) {
-                Ok(adapter) => {
-                    found = Some(adapter);
-                    break;
+            for adapter in adapters_to_try(&instance, backends, wgpu::PowerPreference::from_env()) {
+                match Gpu::open_on(&adapter) {
+                    Ok(gpu) => return Ok(gpu),
+                    Err(e) => {
+                        log::warn!("Graphics card {} ({:?}) can't be used: {e}", adapter.get_info().name, adapter.get_info().backend);
+                        why = e;
+                    }
                 }
-                Err(e) => why = e.to_string(),
             }
         }
-        let adapter = found.ok_or(why)?;
+        // Nothing enumerated worked: the plain high performance request, as before 5.1.1
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle().with_env());
+        let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, ..Default::default() })).map_err(|e| format!("{why}; {e}"))?;
+        Gpu::open_on(&adapter)
+    }
+
+    fn open_on(adapter: &wgpu::Adapter) -> Result<Gpu, String> {
         let info = adapter.get_info();
-        telescope_core::machine::set_gpu(info.vendor, &format!("{:?}", info.device_type), &info.name, &format!("{:?}", info.backend), &format!("{} {}", info.driver, info.driver_info));
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("telescope frames"),
             required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
             ..Default::default()
         })).map_err(|e| e.to_string())?;
+        telescope_core::machine::set_gpu(info.vendor, &format!("{:?}", info.device_type), &info.name, &format!("{:?}", info.backend), &format!("{} {}", info.driver, info.driver_info));
         Ok(Gpu::on(device, queue, format!("{} ({:?})", info.name, info.backend)))
     }
 
