@@ -1,5 +1,6 @@
 //! The desktop log and Copy diagnostics (diagnostics.py): every line is sanitized first, so no tokens, addresses or home paths.
 
+use crate::i18n::{tr, Fields};
 use crate::redact::{self, Hidden, Who};
 use regex::bytes::Regex as Bytes;
 use regex::Regex;
@@ -495,6 +496,32 @@ fn describe_panic(info: &std::panic::PanicHookInfo) -> String {
     }
 }
 
+static STARTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// The window is being started: a failure now ends in a message box (Windows), since nothing else would say what happened. Called
+/// with true before the window starts and with false once it has shown.
+pub fn set_starting(on: bool) {
+    STARTING.store(on, std::sync::atomic::Ordering::SeqCst);
+}
+
+/// The title and words of the box for a start that failed: what went wrong, and where the log is.
+pub fn start_failed_text(reason: &str, log: &Path) -> (String, String) {
+    (
+        tr("Telescope can't start"),
+        tr("Telescope ran into a problem while starting and has to close.\n\nWhat went wrong: {reason}\n\nThe log is at {path}").field("reason", reason).field("path", log.display()),
+    )
+}
+
+/// Says a start failed in a message box, once and only while the window is starting (Windows; elsewhere the terminal has it).
+pub fn show_start_failure(events: &EventLog, reason: &str) {
+    if !STARTING.swap(false, std::sync::atomic::Ordering::SeqCst) {
+        return;
+    }
+    let log = events.path().unwrap_or_else(|| log_dir().join("telescope.log"));
+    let (title, text) = start_failed_text(reason, &log);
+    crate::system::message_box(&title, &text);
+}
+
 /// Log to the file from here on, including panics (in any thread), and link it into app_dir. `version` is what START says.
 pub fn start(events: &'static EventLog, dir: &Path, app_dir: Option<&Path>, version: &str) {
     if events.open(&dir.join("telescope.log")) {
@@ -505,7 +532,9 @@ pub fn start(events: &'static EventLog, dir: &Path, app_dir: Option<&Path>, vers
     }
     let previous = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
-        events.add("CRASH", &describe_panic(info));
+        let what = describe_panic(info);
+        events.add("CRASH", &what);
+        show_start_failure(events, &what);
         previous(info);
     }));
     events.add("START", &format!("Telescope {version}"));

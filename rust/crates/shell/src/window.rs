@@ -1917,6 +1917,8 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     if opts.minimized {
         window.start_hidden();
     } else {
+        // A window that can't be shown ends the start with its reason, not with an empty process (show_window ignores the result)
+        window.ui.show().map_err(|e| format!("The window couldn't be shown: {e}"))?;
         window.show_window();
     }
     if let Some(hook) = &opts.on_shown {

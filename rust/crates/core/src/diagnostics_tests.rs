@@ -483,3 +483,21 @@ fn the_final_pass_hides_what_a_section_let_through() {
     let out = sanitize_lines(report);
     assert!(out.contains("<email>") && out.contains("<user>"), "{out}");
 }
+
+#[test]
+fn a_failed_start_names_the_reason_and_the_log() {
+    let (title, text) = start_failed_text("panic: no window at main.rs:3", Path::new("C:\\Temp\\Telescope\\telescope.log"));
+    assert_eq!(title, "Telescope can't start");
+    assert!(text.contains("What went wrong: panic: no window at main.rs:3") && text.ends_with("C:\\Temp\\Telescope\\telescope.log"), "{text}");
+}
+
+#[test]
+fn the_failure_box_is_for_the_start_only_and_only_once() {
+    let events = EventLog::new();
+    set_starting(false);
+    show_start_failure(&events, "later");
+    assert!(!STARTING.load(std::sync::atomic::Ordering::SeqCst));
+    set_starting(true);
+    show_start_failure(&events, "early");
+    assert!(!STARTING.load(std::sync::atomic::Ordering::SeqCst), "the box is shown once, then the start counts as over");
+}

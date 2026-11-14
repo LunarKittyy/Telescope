@@ -96,6 +96,24 @@ pub fn file_url_for(path: &str, windows: bool) -> String {
     out
 }
 
+/// Windows: a message box with an OK button and a warning icon, for when there is no window to say it in (a release build has no
+/// console either). Waits until it's closed. Does nothing elsewhere.
+pub fn message_box(title: &str, text: &str) {
+    #[cfg(windows)]
+    {
+        #[link(name = "user32")]
+        extern "system" {
+            fn MessageBoxW(window: *mut std::ffi::c_void, text: *const u16, caption: *const u16, kind: u32) -> i32;
+        }
+        let wide = |s: &str| -> Vec<u16> { s.encode_utf16().chain(std::iter::once(0)).collect() };
+        let (text, caption) = (wide(text), wide(title));
+        // SAFETY: both strings are NUL-terminated and outlive the call; 0x30 is MB_ICONWARNING
+        unsafe { MessageBoxW(std::ptr::null_mut(), text.as_ptr(), caption.as_ptr(), 0x30) };
+    }
+    #[cfg(not(windows))]
+    let _ = (title, text);
+}
+
 #[cfg(test)]
 mod tests {
     use super::file_url_for;

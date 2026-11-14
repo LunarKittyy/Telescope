@@ -432,6 +432,29 @@ msgstr "720p 16:9 Dọc - 720 x 1280"
 msgid "4K 16:9 Portrait - 2160 x 3840"
 msgstr "4K 16:9 Dọc - 2160 x 3840"
 
+#: rust/crates/core/src/diagnostics.rs:510 rust/crates/system/src/single_instance.rs:326
+msgid "Telescope can't start"
+msgstr "Telescope không thể khởi động"
+
+#: rust/crates/core/src/diagnostics.rs:511
+#, python-brace-format
+msgid ""
+"Telescope ran into a problem while starting and has to close.\n"
+"\n"
+"What went wrong: {reason}\n"
+"\n"
+"The log is at {path}"
+msgstr ""
+
+#: rust/crates/core/src/gpu_marker.rs:125
+msgid "Telescope switched graphics card"
+msgstr ""
+
+#: rust/crates/core/src/gpu_marker.rs:126
+#, python-brace-format
+msgid "The last start of Telescope closed while it was opening {card}. Telescope now uses another graphics card, or the processor if there is none left."
+msgstr ""
+
 #. part of a camera lens name on a lens button, like "Auto 24mm" (the multi-lens camera itself)
 #: rust/crates/core/src/lens.rs:46
 msgctxt "lens"
@@ -617,11 +640,11 @@ msgstr ""
 msgid "Background blur"
 msgstr "Làm mờ nền"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:261
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Green"
 msgstr "Xanh lục"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:261
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Blue"
 msgstr "Xanh lam"
 
@@ -653,7 +676,7 @@ msgstr "Thay thế phông xanh lá hoặc xanh dương phía sau bạn."
 msgid "Pick the colour that goes behind you."
 msgstr "Chọn màu làm nền phía sau bạn."
 
-#: rust/crates/effects/src/chroma_key.rs:284 rust/crates/ui-kit/ui/widgets/colour.slint:384
+#: rust/crates/effects/src/chroma_key.rs:284 rust/crates/ui-kit/ui/widgets/colour.slint:392
 msgid "Pick from the preview"
 msgstr "Chọn từ khung xem trước"
 
@@ -786,7 +809,7 @@ msgstr "RGB parade"
 msgid "Vectorscope"
 msgstr "Vectorscope"
 
-#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:261
+#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Red"
 msgstr "Đỏ"
 
@@ -4906,7 +4929,7 @@ msgstr "Giảm tốc độ trong bóng tối"
 msgid "White balance"
 msgstr "Cân bằng trắng"
 
-#: rust/crates/outputs/src/webcam.rs:50 rust/crates/ui-kit/ui/widgets/colour.slint:364
+#: rust/crates/outputs/src/webcam.rs:50 rust/crates/ui-kit/ui/widgets/colour.slint:371
 msgid "Hue"
 msgstr "Sắc độ"
 
@@ -7864,7 +7887,7 @@ msgstr "Dừng truyền phát"
 msgid "Stop"
 msgstr "Dừng"
 
-#: rust/crates/shell/src/window.rs:1997 rust/crates/shell/src/worker.rs:1308
+#: rust/crates/shell/src/window.rs:1999 rust/crates/shell/src/worker.rs:1308
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Đang truyền phát {size} ở tốc độ {fps} fps tới {camera}"
@@ -8740,10 +8763,6 @@ msgstr "cổng {port}"
 msgid "a local socket"
 msgstr "một socket cục bộ"
 
-#: rust/crates/system/src/single_instance.rs:326
-msgid "Telescope can't start"
-msgstr "Telescope không thể khởi động"
-
 #: rust/crates/system/src/single_instance.rs:327
 #, python-brace-format
 msgid "Telescope couldn't start because something else is holding its single-instance lock ({where}), or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again."
@@ -9306,27 +9325,27 @@ msgstr "Quay lại phiên bản Python"
 msgid "Go back to the Python version?"
 msgstr "Quay lại phiên bản Python?"
 
-#: rust/crates/ui-kit/ui/widgets/colour.slint:251
+#: rust/crates/ui-kit/ui/widgets/colour.slint:253
 msgid "Hex"
 msgstr "Hex"
 
-#: rust/crates/ui-kit/ui/widgets/colour.slint:257
+#: rust/crates/ui-kit/ui/widgets/colour.slint:259
 msgid "R"
 msgstr "R"
 
-#: rust/crates/ui-kit/ui/widgets/colour.slint:257
+#: rust/crates/ui-kit/ui/widgets/colour.slint:259
 msgid "G"
 msgstr "G"
 
-#: rust/crates/ui-kit/ui/widgets/colour.slint:257
+#: rust/crates/ui-kit/ui/widgets/colour.slint:259
 msgid "B"
 msgstr "B"
 
-#: rust/crates/ui-kit/ui/widgets/colour.slint:359
+#: rust/crates/ui-kit/ui/widgets/colour.slint:366
 msgid "Saturation and brightness"
 msgstr "Độ bão hòa và độ sáng"
 
-#: rust/crates/ui-kit/ui/widgets/colour.slint:391 rust/crates/ui-kit/ui/widgets/colour.slint:402
+#: rust/crates/ui-kit/ui/widgets/colour.slint:399 rust/crates/ui-kit/ui/widgets/colour.slint:410
 msgid "Values"
 msgstr "Giá trị"
 
