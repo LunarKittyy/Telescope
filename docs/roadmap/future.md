@@ -63,7 +63,7 @@ Heavy generative edits (StreamDiffusion and the like) would need Telescope to se
 
 ### More for the MCP server
 
-The MCP server is built (see [next.md](next.md#an-mcp-server)). What's left of the idea:
+The MCP server is built (see [5.1](5.1.md#an-mcp-server)). What's left of the idea:
 
 - `frame` sending a small frame, only when the user allows it, and off by default. A middle step could blur the person out with the vision mask, so the model sees the room and the light but not them. Telescope would show when a model is connected and separately when it's getting frames
 - `show` opening the right tab and highlighting a setting, for when someone asks where something is
@@ -112,7 +112,7 @@ When the phone gets hot, the phone app lowers the frame rate, but some cameras o
 
 ### A faster interface underneath
 
-The work on Slint's interpreter continues, mainly cheaper struct field lookups and fewer allocations while the window updates. Nobody sees it except as a lighter window, like the rest of [Lighter on the processor and memory](next.md#lighter-on-the-processor-and-memory). Medium.
+The work on Slint's interpreter continues, mainly cheaper struct field lookups and fewer allocations while the window updates. Nobody sees it except as a lighter window, like the rest of [Lighter on the processor and memory](5.1.md#lighter-on-the-processor-and-memory). Medium.
 
 ## Appearance options
 
