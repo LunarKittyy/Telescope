@@ -108,6 +108,10 @@ pub fn ask_box(title: &str, text: &str) -> bool {
 }
 
 fn show_box(title: &str, text: &str, yes_no: bool) -> bool {
+    // A box in a test run waits forever for a click nobody makes
+    if cfg!(test) {
+        return false;
+    }
     #[cfg(windows)]
     {
         #[link(name = "user32")]
