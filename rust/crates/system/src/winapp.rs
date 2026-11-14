@@ -57,16 +57,9 @@ pub fn left_its_folder(app_dir: &Path, channel: &str) -> bool {
 /// Says so in a message box, since there is no window yet to say it in.
 #[cfg(windows)]
 pub fn warn_running_from_archive() {
-    #[link(name = "user32")]
-    extern "system" {
-        fn MessageBoxW(window: *mut std::ffi::c_void, text: *const u16, caption: *const u16, kind: u32) -> i32;
-    }
-    let wide = |s: &str| -> Vec<u16> { s.encode_utf16().chain(std::iter::once(0)).collect() };
     // The launcher's words in the person's language (the language is loaded by now)
     let (title, text) = crate::splash::extract_first();
-    let (text, caption) = (wide(&text), wide(&title));
-    // SAFETY: both strings are NUL-terminated and outlive the call; 0x30 is MB_ICONWARNING
-    unsafe { MessageBoxW(std::ptr::null_mut(), text.as_ptr(), caption.as_ptr(), 0x30) };
+    telescope_core::system::message_box(&title, &text);
 }
 
 #[cfg(test)]

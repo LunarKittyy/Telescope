@@ -670,6 +670,7 @@ fn main() {
         Some(other) => Err(format!("Unknown command {other}")),
         None => match own_the_lock(|| take_lock(wait_for_lock, &remote, &splash), remove_stale_mic) {
             Some(()) => {
+                begin_window_start();
                 watch_dev_plugins(telescope_plugin_host::package::dev_plugin_folders(), std::time::Duration::from_millis(700), telescope_shell::window::restart);
                 let confirm: Arc<dyn Fn() + Send + Sync> = Arc::new(started_fine);
                 confirm::run_confirming(STARTED_FINE, confirm, |shown| {
@@ -677,6 +678,7 @@ fn main() {
                     let (inner, gone) = (shown.0.clone(), splash.clone());
                     let shown = telescope_shell::ShownHook(Arc::new(move || {
                         close_splash(&gone);
+                        window_shown();
                         inner();
                     }));
                     telescope_shell::run(services(Machine::real(args.device.clone()), remote, true), args.window(None, minimized, Some(shown)))
@@ -692,9 +694,37 @@ fn main() {
     }
     if let Err(e) = result {
         eprintln!("{e}");
+        // A start that failed with its reason in hand isn't a driver crash, so the card isn't blamed (this does nothing once the window has shown)
+        telescope_core::gpu_marker::clear();
+        telescope_core::diagnostics::show_start_failure(telescope_core::diagnostics::events(), &e);
         leave(1);
     }
     leave(telescope_shell::window::exit_code());
+}
+
+/// The window's start begins: panics and errors now end in a message box, and the graphics card about to be opened is noted until
+/// the window has shown. A card the last start closed on is left out from now on, and the window says so once it is up.
+fn begin_window_start() {
+    telescope_core::diagnostics::set_starting(true);
+    let folder = telescope_core::config::config_path().parent().map(PathBuf::from).unwrap_or_default();
+    *CRASHED_ON.lock().unwrap_or_else(|e| e.into_inner()) = telescope_core::gpu_marker::begin_start(&folder);
+}
+
+/// The graphics card the last start closed on, to say so once the window is up.
+static CRASHED_ON: std::sync::Mutex<Option<telescope_core::gpu_marker::Card>> = std::sync::Mutex::new(None);
+
+/// The window has shown: the start worked, so the card isn't blamed and a failure from here on has the window to say it.
+fn window_shown() {
+    telescope_core::gpu_marker::clear();
+    telescope_core::diagnostics::set_starting(false);
+    let crashed = CRASHED_ON.lock().unwrap_or_else(|e| e.into_inner()).take();
+    if let Some(card) = crashed.filter(|_| cfg!(windows)) {
+        // Its own thread: the box waits for OK, and the window must keep drawing meanwhile
+        std::thread::spawn(move || {
+            let (title, text) = telescope_core::gpu_marker::crash_text(&card);
+            telescope_core::system::message_box(&title, &text);
+        });
+    }
 }
 
 /// Ends the process once the window is gone. A debug build skips the thread-local destructors, since wgpu's debug-only lock trace is destroyed before Slint's graphics queue drops and the exit aborts.

@@ -432,6 +432,31 @@ msgstr "720p 16:9 verticale - 720 x 1280"
 msgid "4K 16:9 Portrait - 2160 x 3840"
 msgstr "4K 16:9 verticale - 2160 x 3840"
 
+#: rust/crates/core/src/diagnostics.rs:510 rust/crates/system/src/single_instance.rs:326
+msgid "Telescope can't start"
+msgstr "Impossibile avviare Telescope"
+
+#: rust/crates/core/src/diagnostics.rs:511
+#, python-brace-format
+msgid ""
+"Telescope ran into a problem while starting and has to close.\n"
+"\n"
+"What went wrong: {reason}\n"
+"\n"
+"The log is at {path}\n"
+"\n"
+"Open the log?"
+msgstr ""
+
+#: rust/crates/core/src/gpu_marker.rs:125
+msgid "Telescope switched graphics card"
+msgstr ""
+
+#: rust/crates/core/src/gpu_marker.rs:126
+#, python-brace-format
+msgid "The last start of Telescope closed while it was opening {card}. Telescope now uses another graphics card, or the processor if there is none left."
+msgstr ""
+
 #. part of a camera lens name on a lens button, like "Auto 24mm" (the multi-lens camera itself)
 #: rust/crates/core/src/lens.rs:46
 msgctxt "lens"
@@ -617,11 +642,11 @@ msgstr ""
 msgid "Background blur"
 msgstr "Sfocatura dello sfondo"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:261
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Green"
 msgstr "Verde"
 
-#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:261
+#: rust/crates/effects/src/chroma_key.rs:28 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:82 rust/crates/effects/ui/chroma_key.slint:87 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Blue"
 msgstr "Blu"
 
@@ -653,7 +678,7 @@ msgstr "Sostituisce il telo verde o blu dietro di te."
 msgid "Pick the colour that goes behind you."
 msgstr "Scegli il colore da mettere dietro di te."
 
-#: rust/crates/effects/src/chroma_key.rs:284 rust/crates/ui-kit/ui/widgets/colour.slint:384
+#: rust/crates/effects/src/chroma_key.rs:284 rust/crates/ui-kit/ui/widgets/colour.slint:392
 msgid "Pick from the preview"
 msgstr "Scegli dall'anteprima"
 
@@ -786,7 +811,7 @@ msgstr "Parade RGB"
 msgid "Vectorscope"
 msgstr "Vettorscopio"
 
-#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:261
+#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:159 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Red"
 msgstr "Rosso"
 
@@ -4906,7 +4931,7 @@ msgstr "Rallenta al buio"
 msgid "White balance"
 msgstr "Bilanciamento del bianco"
 
-#: rust/crates/outputs/src/webcam.rs:50 rust/crates/ui-kit/ui/widgets/colour.slint:364
+#: rust/crates/outputs/src/webcam.rs:50 rust/crates/ui-kit/ui/widgets/colour.slint:371
 msgid "Hue"
 msgstr "Tonalità"
 
@@ -7871,7 +7896,7 @@ msgstr "Interrompi streaming"
 msgid "Stop"
 msgstr "Interrompi"
 
-#: rust/crates/shell/src/window.rs:1997 rust/crates/shell/src/worker.rs:1308
+#: rust/crates/shell/src/window.rs:1999 rust/crates/shell/src/worker.rs:1308
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "In streaming a {size}, {fps} fps su {camera}"
@@ -8749,10 +8774,6 @@ msgstr "porta {port}"
 msgid "a local socket"
 msgstr "un socket locale"
 
-#: rust/crates/system/src/single_instance.rs:326
-msgid "Telescope can't start"
-msgstr "Impossibile avviare Telescope"
-
 #: rust/crates/system/src/single_instance.rs:327
 #, python-brace-format
 msgid "Telescope couldn't start because something else is holding its single-instance lock ({where}), or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again."
@@ -9315,27 +9336,27 @@ msgstr "Torna alla versione Python"
 msgid "Go back to the Python version?"
 msgstr "Vuoi tornare alla versione Python?"
 
-#: rust/crates/ui-kit/ui/widgets/colour.slint:251
+#: rust/crates/ui-kit/ui/widgets/colour.slint:253
 msgid "Hex"
 msgstr "Hex"
 
-#: rust/crates/ui-kit/ui/widgets/colour.slint:257
+#: rust/crates/ui-kit/ui/widgets/colour.slint:259
 msgid "R"
 msgstr "R"
 
-#: rust/crates/ui-kit/ui/widgets/colour.slint:257
+#: rust/crates/ui-kit/ui/widgets/colour.slint:259
 msgid "G"
 msgstr "G"
 
-#: rust/crates/ui-kit/ui/widgets/colour.slint:257
+#: rust/crates/ui-kit/ui/widgets/colour.slint:259
 msgid "B"
 msgstr "B"
 
-#: rust/crates/ui-kit/ui/widgets/colour.slint:359
+#: rust/crates/ui-kit/ui/widgets/colour.slint:366
 msgid "Saturation and brightness"
 msgstr "Saturazione e luminosità"
 
-#: rust/crates/ui-kit/ui/widgets/colour.slint:391 rust/crates/ui-kit/ui/widgets/colour.slint:402
+#: rust/crates/ui-kit/ui/widgets/colour.slint:399 rust/crates/ui-kit/ui/widgets/colour.slint:410
 msgid "Values"
 msgstr "Valori"
 
