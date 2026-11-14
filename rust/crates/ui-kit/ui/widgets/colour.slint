@@ -229,6 +229,8 @@ component ColourValues inherits Rectangle {
     in property <string> hex;
     in property <[int]> channels;
     in property <bool> enabled;
+        // How much of its height it has now, so the bubble can count the rest
+    out property <length> grown: values-open.value * values.preferred-height;
     callback hex-typed(string);
     callback channel-typed(int, string);
     values-open := Unfold { open: root.shown; }
@@ -300,6 +302,9 @@ export component ColourField inherits Rectangle {
     changed enabled => { if (!enabled) { bubble.close(); } }
     // Whether the exact values show in the bubble
     property <bool> show-values;
+    // How tall each of the two places for the values is now
+    property <length> grown-above;
+    property <length> grown-below;
     height: Theme.row;
     horizontal-stretch: 1;
     border-radius: Theme.r-ctl;
@@ -347,6 +352,8 @@ export component ColourField inherits Rectangle {
         hue: root.hue;
         content-width: Theme.u(122);
         label: root.label;
+        // The values add their rows later, and the bubble keeps to one side as they do: the padding, hex and the three boxes row
+        reserve: max(0px, Theme.u(4) + 2 * Theme.row + Theme.u(2) - max(grown-above, grown-below));
         VerticalLayout {
             spacing: 0px;
             VerticalLayout {
@@ -369,6 +376,7 @@ export component ColourField inherits Rectangle {
             // between the strip and that row when the bubble sits above its control, and under it when it sits below
             ColourValues {
                 shown: root.show-values && !bubble.below;
+                changed grown => { root.grown-above = self.grown; }
                 hex: root.hex;
                 channels: root.channels;
                 enabled: root.enabled;
@@ -409,6 +417,7 @@ export component ColourField inherits Rectangle {
             }
             ColourValues {
                 shown: root.show-values && bubble.below;
+                changed grown => { root.grown-below = self.grown; }
                 hex: root.hex;
                 channels: root.channels;
                 enabled: root.enabled;
