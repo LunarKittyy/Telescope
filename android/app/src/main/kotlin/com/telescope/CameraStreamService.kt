@@ -1019,6 +1019,7 @@ class CameraStreamService : Service() {
             heat_fps = snap?.heatFps ?: 0,
             heat_width = snap?.heatWidth ?: 0,
             heat_height = snap?.heatHeight ?: 0,
+            heat_paused = controller?.isHeatPaused() ?: false,
             low_light_toggle = true,
             codec_error = snap?.codecFailure?.text,
             codec_error_code = snap?.codecFailure?.code,

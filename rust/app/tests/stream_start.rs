@@ -565,6 +565,19 @@ fn a_critically_hot_phone_says_the_smaller_size_until_it_cools() {
 }
 
 #[test]
+fn a_phone_paused_for_heat_says_so_until_it_resumes() {
+    let r = on_air("heat-paused");
+    r.phone_says("pixel", state_with(json!({"heat_paused": true})));
+    r.pump();
+    let banner = r.banner("heat:pixel").expect("a banner");
+    assert_eq!(banner["title"], "The phone is very hot");
+    assert_eq!(banner["text"], "The camera is paused and the picture is frozen until the phone cools down.");
+    r.phone_says("pixel", state_with(json!({})));
+    r.pump();
+    assert!(r.banner("heat:pixel").is_none());
+}
+
+#[test]
 fn heat_that_comes_mid_stream_shows_and_goes_with_the_regular_check() {
     let r = on_air("heat-regular");
     let session_id = r.session_id("pixel");

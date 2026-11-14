@@ -129,6 +129,7 @@ data class V1State(
     val heat_fps: Int = 0,  // the rate Android's thermal status capped the camera at; 0 = not capped
     val heat_width: Int = 0,  // the size Android's thermal status dropped the stream to, below stream_width; 0 = not
     val heat_height: Int = 0,
+    val heat_paused: Boolean = false,  // too hot: the camera is closed (the stream and mic carry on) until the phone has cooled
     val low_light: Boolean = false,  // auto exposure may slow the camera down in the dark (and noise reduction is high)
     val low_light_toggle: Boolean = false,  // takes low_light; set by every phone that can
     val h264_profile: String? = null,  // "high", "baseline" or "auto" while H.264 runs
