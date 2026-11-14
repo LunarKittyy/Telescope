@@ -4,6 +4,8 @@
 
 pub use slint::wgpu_30::wgpu;
 use std::sync::{Arc, OnceLock};
+use telescope_core::gpu_marker::{self, Card};
+use telescope_core::gpu_pick::{self, Api, Candidate, Kind};
 use telescope_core::media::Scaler;
 use telescope_core::Frame;
 
@@ -54,6 +56,53 @@ pub fn use_gpu_painter(factory: GpuPainterFactory) {
     let _ = GPU_PAINTER.set(factory);
 }
 
+/// The adapter as the crash marker and the skip list name it: the driver version is part of it, so an updated driver is tried again.
+fn card_of(adapter: &wgpu::Adapter) -> Card {
+    let i = adapter.get_info();
+    Card::new(&i.name, &format!("{:?}", i.backend), &format!("{} {}", i.driver, i.driver_info))
+}
+
+/// The adapters to try for the window, best first. WGPU_POWER_PREF set: wgpu's own pick for it. Otherwise real GPUs first, Vulkan before DX12
+/// as in 5.1.0, and software or odd adapters last; wgpu's no-preference request would take whatever is listed first, software
+/// adapters included.
+fn adapters_to_try(instance: &wgpu::Instance, preference: Option<wgpu::PowerPreference>) -> Vec<wgpu::Adapter> {
+    if let Some(power_preference) = preference {
+        let picked = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference, ..Default::default() }));
+        return picked.into_iter().inspect(|a| log::info!("Window graphics card {} ({:?}) picked by WGPU_POWER_PREF", a.get_info().name, a.get_info().backend)).collect();
+    }
+    let listed = block_on(instance.enumerate_adapters(wgpu::Backends::PRIMARY));
+    let candidates: Vec<Candidate> = listed.iter().enumerate().filter_map(|(index, a)| {
+        let info = a.get_info();
+        let api = match info.backend {
+            wgpu::Backend::Vulkan => Api::Vulkan,
+            wgpu::Backend::Dx12 => Api::Dx12,
+            wgpu::Backend::Metal => Api::Metal,
+            wgpu::Backend::Gl => Api::Gl,
+            _ => return None,
+        };
+        let kind = match info.device_type {
+            wgpu::DeviceType::IntegratedGpu => Kind::Integrated,
+            wgpu::DeviceType::DiscreteGpu => Kind::Discrete,
+            wgpu::DeviceType::VirtualGpu => Kind::Virtual,
+            wgpu::DeviceType::Cpu => Kind::Cpu,
+            wgpu::DeviceType::Other => Kind::Other,
+        };
+        Some(Candidate { api, kind, index })
+    }).collect();
+    let mut listed: Vec<Option<wgpu::Adapter>> = listed.into_iter().map(Some).collect();
+    let ordered: Vec<wgpu::Adapter> = gpu_pick::order(&candidates).into_iter().filter_map(|i| listed[i].take()).collect();
+    let skipped = gpu_marker::skipped();
+    for a in ordered.iter().filter(|a| skipped.contains(&card_of(a))) {
+        log::warn!("Graphics card {} is skipped, the last start closed while opening it", card_of(a));
+    }
+    let ordered = gpu_marker::without_skipped(ordered, card_of, &skipped);
+    let name = |a: &wgpu::Adapter| { let i = a.get_info(); format!("{} ({:?}, {:?}, driver {} {})", i.name, i.backend, i.device_type, i.driver, i.driver_info) };
+    if let Some(first) = ordered.first() {
+        log::info!("Window graphics card picked: {}; also listed: {}", name(first), ordered.iter().skip(1).map(name).collect::<Vec<_>>().join(", "));
+    }
+    ordered
+}
+
 /// Opens a graphics card for Slint's wgpu renderer when there's a GPU painter to share it with, and makes the painter on
 /// the same device: every window (the pop-out too) then renders with it, so their textures go anywhere. None keeps the
 /// default renderer (no painter, TELESCOPE_NO_GPU set, or no card wgpu can use).
@@ -67,15 +116,42 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
         let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
         desc.backends = wgpu::Backends::PRIMARY;
         let instance = wgpu::Instance::new(desc.with_env());
-        let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
-            // None keeps the OS order (Windows per-app choice, Mesa default); WGPU_POWER_PREF still overrides
-            power_preference: wgpu::PowerPreference::from_env().unwrap_or_default(),
-            ..Default::default()
-        })).map_err(|e| e.to_string())?;
-        // WGPU_BACKEND can still pick it
+        let mut why = String::from("no graphics card found");
+        for adapter in adapters_to_try(&instance, wgpu::PowerPreference::from_env()) {
+            let info = adapter.get_info();
+            // WGPU_BACKEND can still pick it
+            if info.backend == wgpu::Backend::Gl {
+                why = "GL can't draw this window".to_string();
+                continue;
+            }
+            let tried = (|| {
+                gpu_marker::mark(&card_of(&adapter));
+                let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+                    label: Some("telescope window"),
+                    required_limits: adapter.limits(),
+                    ..Default::default()
+                })).map_err(|e| e.to_string())?;
+                let config = slint::wgpu_30::WGPUConfiguration::Manual { instance: instance.clone(), adapter: adapter.clone(), device: device.clone(), queue: queue.clone() };
+                crate::parent::selector().require_wgpu_30(config).select().map_err(|e| e.to_string())?;
+                Ok::<_, String>((device, queue))
+            })();
+            match tried {
+                Ok(opened) => return Ok(opened),
+                Err(e) => {
+                    log::warn!("Graphics card {} ({:?}) can't draw the window: {e}", info.name, info.backend);
+                    why = e;
+                }
+            }
+        }
+        // Nothing enumerated worked: the plain high performance request, as before 5.1.1
+        let adapter = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, ..Default::default() })).map_err(|e| format!("{why}; {e}"))?;
         if adapter.get_info().backend == wgpu::Backend::Gl {
             return Err("GL can't draw this window".to_string());
         }
+        if gpu_marker::is_skipped(&card_of(&adapter)) {
+            return Err(format!("{why}; the only card left is skipped"));
+        }
+        gpu_marker::mark(&card_of(&adapter));
         let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("telescope window"),
             required_limits: adapter.limits(),

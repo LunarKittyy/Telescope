@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/link/src rust/crates/outputs/src rust/crates/system/src/hotkeys* rust/crates/system/src/updates* rust/crates/shell/src/plugins_tab.rs rust/crates/vision/src/pack.rs; checked: 141b7ea82 -->
+<!-- covers: rust/crates/link/src rust/crates/outputs/src rust/crates/system/src/hotkeys* rust/crates/system/src/updates* rust/crates/shell/src/plugins_tab.rs rust/crates/vision/src/pack.rs rust/crates/core/src/gpu_marker.rs; checked: 0087a9560 -->
 # Troubleshooting
 
 Find your problem below. Nothing there? Ask in [Q&A](https://github.com/LunarKittyy/Telescope/discussions/categories/q-a), or open an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml) with your **Copy diagnostics** report if something is broken.
@@ -152,6 +152,9 @@ Task managers count memory in different ways (Windows Task Manager, for one, lea
 
 **"No graphics card Telescope can use" in Video settings**
 On Linux the decoder is VA-API or NVIDIA's CUDA. On Windows it's Direct3D 11. Without a usable card Light still decodes on the processor.
+
+**Telescope says it switched graphics card**
+The last start closed while Telescope was opening that card, so it now leaves it out and uses another one (or the processor). It tries the card again after a driver update. To undo it sooner, delete `gpu_skipped.json` from Telescope's settings folder (`%APPDATA%\Telescope` on Windows, `~/.config/telescope` on Linux) and start Telescope again.
 
 ## Camera controls
 
