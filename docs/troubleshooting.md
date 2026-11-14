@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/link/src rust/crates/outputs/src rust/crates/system/src/hotkeys* rust/crates/system/src/updates* rust/crates/shell/src/plugins_tab.rs rust/crates/vision/src/pack.rs rust/crates/core/src/gpu_marker.rs; checked: 141b7ea82 -->
+<!-- covers: rust/crates/link/src rust/crates/outputs/src rust/crates/system/src/hotkeys* rust/crates/system/src/updates* rust/crates/shell/src/plugins_tab.rs rust/crates/vision/src/pack.rs rust/crates/core/src/gpu_marker.rs; checked: 0087a9560 -->
 # Troubleshooting
 
 Find your problem below. Nothing there? Ask in [Q&A](https://github.com/LunarKittyy/Telescope/discussions/categories/q-a), or open an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml) with your **Copy diagnostics** report if something is broken.
