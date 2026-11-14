@@ -134,7 +134,7 @@ fn adapters_to_try(instance: &wgpu::Instance, backends: wgpu::Backends, preferen
     }).collect();
     let mut listed: Vec<Option<wgpu::Adapter>> = listed.into_iter().map(Some).collect();
     let ordered: Vec<wgpu::Adapter> = gpu_pick::order(&candidates, cfg!(windows)).into_iter().filter_map(|i| listed[i].take()).collect();
-    let name = |a: &wgpu::Adapter| format!("{} ({:?}, {:?})", a.get_info().name, a.get_info().backend, a.get_info().device_type);
+    let name = |a: &wgpu::Adapter| { let i = a.get_info(); format!("{} ({:?}, {:?}, driver {} {})", i.name, i.backend, i.device_type, i.driver, i.driver_info) };
     if let Some(first) = ordered.first() {
         log::info!("Graphics card picked: {}; also listed: {}", name(first), ordered.iter().skip(1).map(name).collect::<Vec<_>>().join(", "));
     }
