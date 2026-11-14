@@ -57,7 +57,9 @@ export component BubbleFrame inherits Rectangle {
     out property <length> frame-w: round(min(content-width + 2 * inner, window-w - 2 * BubbleSpot.margin) / 1phx) * 1phx;
     out property <length> frame-h: round(body.preferred-height / 1phx) * 1phx;
     out property <length> total-h: frame-h + Theme.pointer-h;
-    out property <bool> flip: BubbleSpot.below(ay, ah, total-h, window-h);
+    // Height that may be added later (fields opening inside): counted in choosing the side, so the bubble doesn't change sides as it grows
+    in property <length> reserve: 0px;
+    out property <bool> flip: BubbleSpot.below(ay, ah, total-h + reserve, window-h);
     out property <length> bx: round(BubbleSpot.left(ax, aw, frame-w, window-w) / 1phx) * 1phx;
     out property <length> by: round(BubbleSpot.top(ay, ah, total-h, flip, window-h) / 1phx) * 1phx;
     transform-scale: pop-scale;
@@ -173,6 +175,8 @@ export component Bubble inherits Rectangle {
     out property <float> presence: fade-state.value;
     // Whether it opened below its control, for what is inside to grow away from the control
     in-out property <bool> below;
+    // Height that may be added inside later, counted in choosing the side
+    in property <length> reserve: 0px;
     callback closed();
     public function show() {
         leaving = false;
@@ -248,6 +252,7 @@ export component Bubble inherits Rectangle {
                     window-w: popup.window-w;
                     window-h: popup.window-h;
                     takes-presses: true;
+                    reserve: root.reserve;
                     init => { root.below = self.flip; }
                     changed flip => { root.below = self.flip; }
                     @children

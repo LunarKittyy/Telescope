@@ -513,8 +513,8 @@ import { ColourField, WindowBox } from "@ui-kit/ui-kit.slint";
 export { WindowBox }
 export component Test inherits Window {
     width: 340px;
-    height: 600px;
-    in property <length> fy: 500px;
+    height: 800px;
+    in property <length> fy: 700px;
     field := ColourField {
         x: 10px;
         y: fy;
@@ -541,10 +541,11 @@ fn let_it_run(ms: u64) {
 
 #[test]
 fn the_values_switch_stays_under_the_cursor_whichever_side_the_colour_bubble_opens_on() {
-    for fy in [500.0, 10.0] {
-        let ui = rig(COLOUR_AT, (340.0, 600.0), &[("fy", num(fy))]);
+    for fy in (0..16).map(|i| 10.0 + 25.0 * i as f64).chain([700.0]) {
+        // the window is tall enough for the bubble with Values on to fit on one side whatever the height; where the bubble sits above with Values off, it must not change sides when Values grows it
+        let ui = rig(COLOUR_AT, (340.0, 800.0), &[("fy", num(fy))]);
         ui.set_global_property("WindowBox", "width", num(340.0)).unwrap();
-        ui.set_global_property("WindowBox", "height", num(600.0)).unwrap();
+        ui.set_global_property("WindowBox", "height", num(800.0)).unwrap();
         press(&ui, Key::Tab);
         press(&ui, " ");
         let_it_run(800);
