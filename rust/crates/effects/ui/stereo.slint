@@ -1,0 +1,118 @@
+// The 3D card. Joined after parts.slint, which has the imports.
+
+export component StereoCard inherits Card {
+    in property <bool> on;
+    in property <string> switch-name;
+    in property <string> switch-help;
+    in property <[string]> look-items;
+    in property <int> look-current;
+    in property <string> look-tip;
+    in property <float> depth;
+    in property <string> depth-text;
+    in property <string> depth-tip;
+    in property <float> height-shift;
+    in property <string> height-text;
+    in property <string> height-tip;
+    in-out property <bool> swap;
+    in property <string> swap-tip;
+    in property <bool> link-enabled;
+    in property <string> link-tip;
+    in property <string> status;
+    in property <string> status-kind: "status_dim";
+    in property <string> status-detail;
+    callback switch-toggled-by-hand(bool);
+    callback look-picked(int);
+    callback depth-moved(float);
+    callback height-moved(float);
+    callback swap-toggled(bool);
+    callback link-clicked;
+
+    title: @tr("3D");
+    tip: @tr("Make one 3D picture from two phones.");
+    icon: Icons.cube;
+    has-switch: true;
+    switch-shortcut: "stereo.on";
+    switch-checked: on;
+    switch-label: switch-name;
+    switch-tip: switch-name;
+    switch-tip-detail: switch-help;
+    switch-toggled(v) => { root.switch-toggled-by-hand(v); }
+
+    RailRow {
+        icon: Icons.eye;
+        label: @tr("Look");
+        tip: @tr("Look");
+        tip-detail: look-tip;
+        hue: root.hue;
+        changed: look-current != 0;
+        ChoiceField {
+            compact: true;
+            caption: @tr("Look");
+            items: look-items;
+            current: look-current;
+            tip: @tr("Look");
+            tip-detail: look-tip;
+            picked(i) => { root.look-picked(i); }
+        }
+    }
+    RailSlider {
+        icon: Icons.stretch;
+        label: @tr("Depth");
+        tip-detail: depth-tip;
+        minimum: -5;
+        maximum: 5;
+        step: 0.1;
+        value: depth;
+        readout: depth-text;
+        hue: root.hue;
+        has-default: true;
+        default-value: 0;
+        moved(v) => { root.depth-moved(v); }
+    }
+    RailSlider {
+        icon: Icons.stretch-tall;
+        label: @tr("Height");
+        tip-detail: height-tip;
+        minimum: -5;
+        maximum: 5;
+        step: 0.1;
+        value: height-shift;
+        readout: height-text;
+        hue: root.hue;
+        has-default: true;
+        default-value: 0;
+        moved(v) => { root.height-moved(v); }
+    }
+    SwitchRow {
+        icon: Icons.mirror;
+        label: @tr("Swap eyes");
+        tip: @tr("Swap eyes");
+        tip-detail: swap-tip;
+        hue: root.hue;
+        changed: swap;
+        checked: root.swap;
+        toggled(v) => {
+            root.swap = v;
+            root.swap-toggled(v);
+        }
+    }
+    RailRow {
+        icon: Icons.link;
+        label: @tr("Link exposure");
+        tip: @tr("Link exposure");
+        tip-detail: link-tip;
+        hue: root.hue;
+        enabled: link-enabled;
+        Button {
+            horizontal-stretch: 1;
+            enabled: link-enabled;
+            text: @tr("Link exposure");
+            tip: @tr("Link exposure");
+            tip-detail: link-tip;
+            clicked => { root.link-clicked(); }
+        }
+    }
+    UnfoldGroup {
+        StatusUnfold { text: status; kind: status-kind; detail: status-detail; }
+    }
+}

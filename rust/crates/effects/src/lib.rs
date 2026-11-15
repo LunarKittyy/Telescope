@@ -48,6 +48,8 @@ pub mod colour_grading;
 pub mod shared;
 pub mod scopes;
 pub mod sheet;
+pub mod stereo;
+pub mod stereo_plugin;
 pub mod tag;
 pub mod transforms;
 pub mod vision_row;

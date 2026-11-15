@@ -19,6 +19,7 @@ use telescope_effects::on_air_plugin::OnAirPlugin;
 use telescope_effects::photos::PhotosPlugin;
 use telescope_effects::privacy_blur::PrivacyBlurPlugin;
 use telescope_effects::qr_reader::QrReaderPlugin;
+use telescope_effects::stereo_plugin::StereoPlugin;
 use telescope_effects::transforms::TransformsPlugin;
 
 fn spin_on<F: std::future::Future>(f: F) -> F::Output {
@@ -118,6 +119,9 @@ fn the_cards_have_what_their_plugins_use() {
     compile(&mut composite);
     has_what_the_plugin_uses(&mut composite, &["switch-toggled-by-hand", "layout-picked", "edit-clicked", "reset-clicked"]);
     compile_editor();
+    let mut stereo = StereoPlugin::new();
+    compile(&mut stereo);
+    has_what_the_plugin_uses(&mut stereo, &["switch-toggled-by-hand", "look-picked", "depth-moved", "height-moved", "swap-toggled", "link-clicked"]);
     let mut qr = QrReaderPlugin::new();
     compile(&mut qr);
     has_what_the_plugin_uses(&mut qr, &["switch-toggled-by-hand", "notify-toggled", "copy-clicked"]);

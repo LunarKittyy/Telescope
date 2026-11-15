@@ -205,6 +205,8 @@ pub struct FakeHost {
     pub frame_store: Option<Arc<dyn FrameStore>>,
     /// The owners that want_frames says need frames now.
     pub frames_wanted: std::collections::BTreeSet<String>,
+    /// What phone_state() answers for any stream: the last /v1/state, or None.
+    pub phone_state: Option<Value>,
     /// How many frames of history each owner asked for with want_frame_history (owners asking for 0 are left out).
     pub history_wanted: std::collections::BTreeMap<String, usize>,
     /// What device_config() answers for a source id, as (source id, plugin) to settings; {} for the rest.
@@ -405,7 +407,7 @@ impl HostStreams for FakeHost {
         self.note(format!("phone_control {source_id:?} {body}"));
     }
     fn phone_state(&self, _source_id: Option<&str>) -> Option<Value> {
-        None
+        self.phone_state.clone()
     }
     fn request_phone_state(&mut self, source_id: Option<&str>) {
         self.note(format!("request_phone_state {source_id:?}"));
