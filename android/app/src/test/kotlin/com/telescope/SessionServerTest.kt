@@ -116,11 +116,15 @@ class SessionServerTest {
                 localOnly = true,
                 phoneId = "phone-1",
                 phoneName = "Test phone",
+                clockBootNs = 123L,
+                clockMonoNs = 456L,
             ),
         )
         withServer(commands = commands) { port, _ ->
             val response = get(port, "/v1/ping", "secret-token")
             assertEquals(200, response.status)
+            assertTrue(response.body.contains("\"clock_boot_ns\":123"), response.body)
+            assertTrue(response.body.contains("\"clock_mono_ns\":456"), response.body)
             assertTrue(response.body.contains("\"streaming\":true"), response.body)
             assertTrue(response.body.contains("\"localOnly\":true"), response.body)
             assertTrue(
