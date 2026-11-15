@@ -1452,3 +1452,94 @@ fn when_both_feeds_stall_the_rings_are_dropped_after_three_seconds() {
     let hub = r.plugin.shared.hub();
     assert!(hub.ring.is_empty() && hub.other.is_none(), "neither eye's old frames wait for the next pair");
 }
+
+// ── Third review: the epoch a frame was made under, a fallback from the other eye alone, whose picture the clock replaces ──
+
+#[test]
+fn a_target_frame_from_before_the_epoch_changed_is_not_drawn_next_to_the_other_eye() {
+    let (r, _) = quiet_rig(500);
+    // a Blur came on for the other stream after a's last frame was kept
+    r.store.epoch.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    assert!(r.plugin.draw_stalled(monotonic_ns()));
+    let frame = r.replaced().pop().expect("a picture went out").1;
+    assert_eq!((left_pixel(&frame), right_pixel(&frame)), (BLUE, BLUE), "the clear red eye isn't on show, the other eye alone is");
+}
+
+#[test]
+fn the_other_eye_alone_goes_on_both_sides_after_both_feeds_stalled_and_only_it_came_back() {
+    let (r, _) = quiet_rig(4_000);
+    let old = monotonic_ns() - 4_000 * MS;
+    for f in r.store.frames.lock().unwrap().iter_mut() {
+        f.frame.time_ns = old;
+    }
+    assert!(!r.plugin.draw_stalled(monotonic_ns()));
+    assert!(r.plugin.shared.hub().ring.is_empty(), "the rings were let go");
+    // b comes back, a doesn't
+    let mut b = shot(GREEN, Some(500));
+    b.number = 88;
+    r.store.frames.lock().unwrap()[1].frame = b;
+    assert!(r.plugin.draw_stalled(monotonic_ns()), "the camera doesn't stay frozen");
+    let frame = r.replaced().pop().expect("a picture went out").1;
+    assert_eq!((left_pixel(&frame), right_pixel(&frame)), (GREEN, GREEN));
+}
+
+#[test]
+fn the_clock_does_not_overwrite_a_picture_put_out_between_its_check_and_its_write() {
+    let (r, _) = quiet_rig(500);
+    let store = r.store.clone();
+    // while the picture is made, another plugin replaces what the camera sends
+    *r.store.while_drawing.lock().unwrap() = Some(Arc::new(move || {
+        *store.outgoing.lock().unwrap() = Some(shot([1, 2, 3], Some(100)));
+    }));
+    assert!(!r.plugin.draw_stalled(monotonic_ns()));
+    assert!(r.replaced().is_empty());
+}
+
+#[test]
+fn a_step_that_was_rendering_while_3d_was_switched_off_or_reset_leaves_its_frame_alone() {
+    for what in ["off", "reset"] {
+        let mut r = rig();
+        r.show_frames(shot(RED, Some(100)), shot(BLUE, Some(100)));
+        r.switch(true);
+        let shared = r.plugin.shared.clone();
+        *r.store.while_drawing.lock().unwrap() = Some(Arc::new(move || {
+            let mut hub = shared.hub();
+            if what == "off" {
+                hub.on = false;
+            }
+            hub.generation += 1;
+        }));
+        r.store.errors.lock().unwrap().insert("a".into(), MS);
+        let frame = shot(RED, Some(100));
+        assert!(same(&r.process(&frame, "a"), &frame), "{what}: the stale picture was installed");
+    }
+}
+
+#[test]
+fn the_ring_marks_a_frame_with_the_epoch_the_pipeline_gave_it() {
+    let mut r = rig();
+    r.show_frames(shot(RED, Some(100)), shot(BLUE, Some(100)));
+    r.switch(true);
+    let frame = shot(RED, Some(100));
+    r.store.epoch.fetch_add(4, std::sync::atomic::Ordering::SeqCst);
+    struct Entered(String, u64);
+    impl FrameContext for Entered {
+        fn source_id(&self) -> &str {
+            &self.0
+        }
+        fn entry_epoch(&self) -> Option<u64> {
+            Some(self.1)
+        }
+        fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
+            None
+        }
+        fn colour_preview(&self, frame: &Frame) -> Frame {
+            frame.clone()
+        }
+    }
+    r.new_step();
+    let mut out = frame.clone();
+    // the steps began under epoch 1, and the host is at 4 by the time they get here
+    r.step.as_mut().unwrap().process(&mut out, &Entered("a".into(), 1));
+    assert_eq!(r.plugin.shared.hub().ring.back().map(|(_, e)| *e), Some(1));
+}

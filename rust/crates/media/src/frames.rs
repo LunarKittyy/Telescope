@@ -67,8 +67,9 @@ impl Slot {
     }
 }
 
-impl FrameSlot for Slot {
-    fn publish(&self, mut frame: Frame) -> u64 {
+impl Slot {
+    /// Numbers and keeps a frame; `entered` is the epoch its steps began under, None for the epoch now.
+    fn put_out(&self, mut frame: Frame, entered: Option<u64>) -> u64 {
         let mut st = self.state.lock().unwrap();
         // Numbered under the lock, so a stream's numbers only go up in the order its frames come out
         let number = FRAME_NUMBERS.fetch_add(1, Ordering::SeqCst);
@@ -79,7 +80,7 @@ impl FrameSlot for Slot {
             st.past.clear();
         } else {
             // read under the lock, so a bump that comes after is told from this frame
-            st.past.push_back((frame.clone(), self.epoch.load(Ordering::SeqCst)));
+            st.past.push_back((frame.clone(), entered.unwrap_or_else(|| self.epoch.load(Ordering::SeqCst))));
             while st.past.len() > keep {
                 st.past.pop_front();
             }
@@ -91,13 +92,13 @@ impl FrameSlot for Slot {
         number
     }
 
-    fn published(&self) -> Option<Frame> {
-        self.state.lock().unwrap().published.clone()
-    }
-
-    fn replace(&self, mut frame: Frame, number: u64) -> bool {
+    /// `replace`, and when `expected` is given only while the camera's frame still has those pixels, checked under the same lock.
+    fn replace_when(&self, mut frame: Frame, number: u64, expected: Option<&Arc<Vec<u8>>>) -> bool {
         let mut st = self.state.lock().unwrap();
         if st.latest.is_none() || st.published.as_ref().map(|f| f.number) != Some(number) {
+            return false;
+        }
+        if expected.is_some_and(|e| st.latest.as_ref().is_none_or(|f| !Arc::ptr_eq(&f.data, e))) {
             return false;
         }
         // Still the frame that went out under this number, so a stream counting what it sends doesn't take it for a new one
@@ -106,6 +107,32 @@ impl FrameSlot for Slot {
         st.version += 1;
         self.changed.notify_all();
         true
+    }
+}
+
+impl FrameSlot for Slot {
+    fn publish(&self, frame: Frame) -> u64 {
+        self.put_out(frame, None)
+    }
+
+    fn publish_at(&self, frame: Frame, epoch: u64) -> u64 {
+        self.put_out(frame, Some(epoch))
+    }
+
+    fn epoch(&self) -> u64 {
+        self.epoch.load(Ordering::SeqCst)
+    }
+
+    fn published(&self) -> Option<Frame> {
+        self.state.lock().unwrap().published.clone()
+    }
+
+    fn replace(&self, frame: Frame, number: u64) -> bool {
+        self.replace_when(frame, number, None)
+    }
+
+    fn replace_if(&self, frame: Frame, number: u64, expected: &Arc<Vec<u8>>) -> bool {
+        self.replace_when(frame, number, Some(expected))
     }
 
     fn latest(&self) -> Option<(Frame, u64)> {
@@ -195,6 +222,11 @@ impl FrameStore for Frames {
     fn replace_frame(&self, source_id: Option<&str>, frame: Frame, number: u64) -> bool {
         let sid = source_id.unwrap_or("");
         self.streams().iter().find(|e| e.0 == sid).is_some_and(|e| e.2.replace(frame, number))
+    }
+
+    fn replace_frame_if(&self, source_id: Option<&str>, expected: &Arc<Vec<u8>>, frame: Frame, number: u64) -> bool {
+        let sid = source_id.unwrap_or("");
+        self.streams().iter().find(|e| e.0 == sid).is_some_and(|e| e.2.replace_if(frame, number, expected))
     }
 
     fn stream_frame_near(&self, source_id: Option<&str>, capture_ns: u64) -> Option<StreamFrame> {
@@ -323,6 +355,35 @@ mod tests {
         slot.forget_history();
         assert!(slot.near(100_000_000).is_none(), "a frame from before the steps changed isn't handed out");
         assert!(slot.published().is_some(), "the newest frame is still the stream's");
+    }
+
+    #[test]
+    fn a_frame_is_told_by_the_epoch_it_was_made_under_not_the_one_it_comes_out_in() {
+        let frames = Frames::new();
+        frames.set_history(4);
+        let (a, b) = (frames.new_slot(), frames.new_slot());
+        frames.set_streams(vec![("a".into(), "A".into(), a.clone()), ("b".into(), "B".into(), b.clone())]);
+        // a's steps began on this frame, then b's steps were handed out, then a's frame came out
+        let entered = a.epoch();
+        b.forget_history();
+        a.publish_at(taken_at(1, Some(100)), entered);
+        assert!(frames.stream_frame_near(Some("a"), 100).is_none(), "made before the change, so it isn't handed out");
+        a.publish_at(taken_at(2, Some(133)), a.epoch());
+        assert_eq!(frames.stream_frame_near(Some("a"), 100).map(|f| f.frame.data[0]), Some(2));
+    }
+
+    #[test]
+    fn replace_if_only_replaces_the_picture_it_was_told_about() {
+        let slot = Slot::new();
+        let number = slot.publish(frame(1));
+        let (shown, _) = slot.latest().unwrap();
+        // another plugin put its own picture out in place of it
+        assert!(slot.replace(frame(2), number));
+        assert!(!slot.replace_if(frame(3), number, &shown.data), "it isn't the one that was meant");
+        assert_eq!(slot.latest().unwrap().0.data[0], 2);
+        let (now, _) = slot.latest().unwrap();
+        assert!(slot.replace_if(frame(4), number, &now.data));
+        assert_eq!(slot.latest().unwrap().0.data[0], 4);
     }
 
     #[test]

@@ -306,6 +306,33 @@ fn a_poll_answer_cannot_put_the_card_back_after_a_newer_edit_of_its_own() {
 }
 
 #[test]
+fn a_poll_answer_dropped_for_the_quiet_is_asked_for_again_once_it_is_over() {
+    let mut r = Rig::new();
+    r.streaming();
+    let phone = |iso: i64| json!({
+        "cameras": [{"id": "wide", "current": true, "isoMin": 100, "isoMax": 1600, "shutterMinNs": 200_000, "shutterMaxNs": 500_000_000, "supportsManualSensor": true}],
+        "auto": false, "iso": iso, "shutter_ns": 8_000_000,
+    });
+    let poll = |iso: i64| Event::PhonePolled { source_id: String::new(), session: 1, shown: true, state: phone(iso) };
+    r.state(phone(100));
+    assert!(r.cam.set_dial_value(true, 400.0));
+    r.event(poll(200));
+    assert!(close(r.cam.iso.get_value(), 400.0, 0.01));
+    assert!(r.host.is_scheduled("repoll"), "the dropped answer is asked for again when the quiet is over");
+    // a poll with nothing new schedules nothing
+    let mut calm = Rig::new();
+    calm.streaming();
+    calm.state(phone(100));
+    calm.cam.last_edit = Some(std::time::Instant::now());
+    calm.event(poll(100));
+    assert!(!calm.host.is_scheduled("repoll"));
+    // the timer asks the phone for its state
+    r.host.calls.clear();
+    r.event(Event::TimerFired { owner: "camera_control".into(), token: "repoll".into() });
+    assert!(r.host.calls.iter().any(|c| c.starts_with("request_phone_state")), "{:?}", r.host.calls);
+}
+
+#[test]
 fn empty_phone_state_and_stop_clear_camera_ui() {
     let mut r = Rig::new();
     r.state(json!({}));

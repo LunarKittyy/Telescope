@@ -290,6 +290,10 @@ pub trait FrameSlot: Send + Sync {
     fn published(&self) -> Option<Frame>;
     /// Sends frame out in place of the newest one unless a newer one came since (number isn't published's); published keeps the stream's own.
     fn replace(&self, frame: Frame, number: u64) -> bool;
+    /// The same as `replace`, but only while the camera's frame still has the pixels `expected`: another plugin may have put its own out since.
+    fn replace_if(&self, frame: Frame, number: u64, expected: &Arc<Vec<u8>>) -> bool {
+        self.latest().is_some_and(|(f, _)| Arc::ptr_eq(&f.data, expected)) && self.replace(frame, number)
+    }
     /// The frame for the virtual camera and a count that goes up whenever it changes.
     fn latest(&self) -> Option<(Frame, u64)>;
     /// Waits until latest's count passes seen, or timeout; true if it did.
@@ -304,6 +308,15 @@ pub trait FrameSlot: Send + Sync {
     /// or none of it has a capture time.
     fn near(&self, _capture_ns: u64) -> Option<Frame> {
         None
+    }
+    /// The pipeline epoch (FrameStore::pipeline_epoch) as this slot sees it now; 0 for a slot that has none.
+    fn epoch(&self) -> u64 {
+        0
+    }
+    /// Like `publish`, for a frame the steps started on while the pipeline epoch was `epoch`: if it has gone up since, the frame is told from
+    /// the ones made after, whatever the epoch is when it comes out.
+    fn publish_at(&self, frame: Frame, _epoch: u64) -> u64 {
+        self.publish(frame)
     }
     /// The steps of this stream's pipeline were just handed out again: lets go of the frames `near` would hand out and starts a new epoch for
     /// every stream (FrameStore::pipeline_epoch), so one that went out before a Blur came on is never handed to a plugin that puts stream

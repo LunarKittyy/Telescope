@@ -187,6 +187,11 @@ pub trait FrameStore: Send + Sync {
     fn outgoing_frame(&self, source_id: Option<&str>) -> Option<StreamFrame> {
         self.stream_frame(source_id)
     }
+    /// The same as replace_frame, but only while what the camera sends is still the picture whose pixels are `expected` (outgoing_frame's frame.data):
+    /// something else put another one out since, and this must not undo that. A store that can do both at once should; this one looks first.
+    fn replace_frame_if(&self, source_id: Option<&str>, expected: &Arc<Vec<u8>>, frame: Frame, number: u64) -> bool {
+        self.outgoing_frame(source_id).is_some_and(|s| Arc::ptr_eq(&s.frame.data, expected)) && self.replace_frame(source_id, frame, number)
+    }
     /// Goes up whenever any stream's frame steps are handed out again (a Blur came on, a plugin changed its step), for every stream at once:
     /// what a plugin kept of a stream's frames from an earlier epoch may have missed a step that hides things, so it must not be put on show.
     fn pipeline_epoch(&self) -> u64 {

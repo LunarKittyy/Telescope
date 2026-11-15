@@ -16,6 +16,8 @@ use telescope_core::{FrameStage, Host};
 const FOCUS_STEPS: i64 = 1000;
 /// How long after one of its own edits the card ignores what a poll finds, since the answer may be from before the edit.
 const POLL_QUIET: std::time::Duration = std::time::Duration::from_secs(2);
+/// The timer that asks the phone again after a poll answer was ignored for the quiet.
+const REPOLL: &str = "repoll";
 /// LogSliderRow.STEPS
 const LOG_STEPS: f64 = 2000.0;
 /// (the name saved shortcuts pick a mode by, the phone's value) of the noise reduction and sharpening modes.
@@ -1715,6 +1717,16 @@ impl Plugin for CameraControl {
             // that find nothing new leave the card alone, or it would reload from the phone every time. Nor does one that may have been taken before
             // the person's own latest edit: it would put the card back to what they just moved away from.
             Event::PhonePolled { shown: true, state, .. } if !self.edited_lately() && self.exposure_moved(state) => self.phone_state(state),
+            // one that came in the quiet after an edit and found something new is asked for again once the quiet is over, so the card isn't left behind
+            Event::PhonePolled { shown: true, state, .. } if self.edited_lately() && self.exposure_moved(state) => {
+                let left = self.last_edit.map_or(0, |at| POLL_QUIET.saturating_sub(at.elapsed()).as_millis() as u64);
+                host.schedule(left + 100, REPOLL);
+                return;
+            }
+            Event::TimerFired { owner, token } if owner == "camera_control" && token == REPOLL => {
+                host.request_phone_state(None);
+                return;
+            }
             _ => return,
         }
         self.refresh(host);

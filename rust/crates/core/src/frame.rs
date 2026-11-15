@@ -257,6 +257,11 @@ impl FrameStage {
 pub trait FrameContext {
     /// The source id of the stream this frame is from.
     fn source_id(&self) -> &str;
+    /// The pipeline epoch (FrameStore::pipeline_epoch) when the steps began on this frame, None where the host doesn't say: a step that keeps
+    /// frames for later marks them with it, not with the epoch of the moment it runs, since a change of steps may have come in between.
+    fn entry_epoch(&self) -> Option<u64> {
+        None
+    }
     /// How sure the vision service is each pixel is a person (0..255, the frame's size), or None while it can't say. It hardly ever waits for
     /// the model, so this is the newest mask there is, about a frame behind the picture. None also means the last one got too old, and a step
     /// that hides things has to stay safe on it.

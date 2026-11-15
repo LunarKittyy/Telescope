@@ -1921,11 +1921,26 @@ impl FrameSlot for WakingSlot {
         self.wake();
         number
     }
+    fn publish_at(&self, frame: telescope_core::frame::Frame, epoch: u64) -> u64 {
+        let number = self.inner.publish_at(frame, epoch);
+        self.wake();
+        number
+    }
+    fn epoch(&self) -> u64 {
+        self.inner.epoch()
+    }
     fn published(&self) -> Option<telescope_core::frame::Frame> {
         self.inner.published()
     }
     fn replace(&self, frame: telescope_core::frame::Frame, number: u64) -> bool {
         let done = self.inner.replace(frame, number);
+        if done {
+            self.wake();
+        }
+        done
+    }
+    fn replace_if(&self, frame: telescope_core::frame::Frame, number: u64, expected: &Arc<Vec<u8>>) -> bool {
+        let done = self.inner.replace_if(frame, number, expected);
         if done {
             self.wake();
         }

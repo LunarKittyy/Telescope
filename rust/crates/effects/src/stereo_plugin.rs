@@ -337,18 +337,19 @@ impl Shared {
     }
 
     /// The frame step of whichever stream source_id is: the 3D picture in place of the target stream's frame.
-    fn step(&self, frame: &mut Frame, source_id: &str) {
+    fn step(&self, frame: &mut Frame, source_id: &str, entered: Option<u64>) {
         let now = monotonic_ns();
         let store = self.store();
-        // read before anything is kept, so a change of steps during this frame leaves it marked as from before
-        let epoch = store.pipeline_epoch();
-        let (swap, mut make) = {
+        // the epoch the steps began on this frame under (the pipeline's), else read before anything is kept: either way a change of steps during
+        // this frame leaves it marked as from before
+        let epoch = entered.unwrap_or_else(|| store.pipeline_epoch());
+        let (swap, mut make, generation) = {
             let mut hub = self.hub();
             if !hub.on || hub.target.as_deref() != Some(source_id) {
                 return;
             }
             hub.take_in(frame, now, epoch);
-            (hub.swap, Self::make(&hub, epoch))
+            (hub.swap, Self::make(&hub, epoch), hub.generation)
         };
         // the pictures are worked on without holding the hub, so the card never waits for them
         let Some(eyes) = eyes_of(&*store, frame, source_id, swap, now) else {
@@ -361,6 +362,10 @@ impl Shared {
         make.other = self.feed_other(&eyes, source_id, epoch);
         let made = Self::picture(&*store, &eyes, source_id, &make, frame);
         let mut hub = self.hub();
+        // the render took a while: if 3D was switched off, reset or moved to another stream meanwhile, this picture isn't for the camera any more
+        if !hub.on || hub.target.as_deref() != Some(source_id) || hub.generation != generation {
+            return;
+        }
         let Some((mut out, sync, taken)) = made else {
             hub.seen = None;
             return;
@@ -382,21 +387,25 @@ impl Shared {
     pub(crate) fn draw_stalled(&self, now: u64) -> bool {
         let store = self.store();
         let epoch = store.pipeline_epoch();
-        let (target, mine, swap, generation) = {
+        let (target, kept, swap, generation) = {
             let hub = self.hub();
-            let (Some(target), Some(at), Some((mine, _))) = (hub.target.clone(), hub.last_in, hub.ring.back().cloned()) else { return false };
+            let (Some(target), Some(at)) = (hub.target.clone(), hub.last_in) else { return false };
             if !hub.on || now.saturating_sub(at) < stall_ns(hub.frame_ns) {
                 return false;
             }
-            (target, mine, hub.swap, hub.generation)
+            (target, hub.ring.back().cloned(), hub.swap, hub.generation)
         };
+        // the target's last frame is its eye only if it was made under the current epoch: else it may be clear where a step now hides things
+        let mine = kept.filter(|(_, e)| *e >= epoch).map(|(f, _)| f);
         // its camera is off, or it hasn't sent a frame yet
         let Some(sent) = store.outgoing_frame(Some(&target)) else { return false };
         // a later step or another plugin changed what it sends (the wait screen covers it): drawing would undo that
         if !self.hub().is_ours(&sent.frame) {
             return false;
         }
-        let list: Vec<(String, Frame)> = eye_list(&*store, Some(&target), false, now).into_iter().map(|(id, f)| (id, f.unwrap_or_else(|| mine.clone()))).collect();
+        // the format the picture is made in: the target's last frame, or what it sends now when none of its frames can be used or are left
+        let like = mine.clone().unwrap_or_else(|| sent.frame.clone());
+        let list: Vec<(String, Frame)> = eye_list(&*store, Some(&target), false, now).into_iter().filter_map(|(id, f)| Some((id, f.or_else(|| mine.clone())?))).collect();
         if list.is_empty() {
             // neither feed has sent for as long as a stream stays an eye: what was kept of them is too old to pair with anything that comes next
             self.hub().drop_frames();
@@ -416,12 +425,12 @@ impl Shared {
         }
         let made = if flat {
             let make = Self::make(&self.hub(), epoch);
-            stereo::render_measured(&eyes.frames[0], &eyes.frames[1], make.look, make.size, &make.tune, &mine, false).map(|r| (r, None))
+            stereo::render_measured(&eyes.frames[0], &eyes.frames[1], make.look, make.size, &make.tune, &like, false).map(|r| (r, None))
         } else {
             // the other eye's new frames go in the ring here too, or without capture times both eyes would stay as they were until the three seconds are up
             let other = self.feed_other(&eyes, &target, epoch);
             let make = Make { other, ..Self::make(&self.hub(), epoch) };
-            Self::picture(&*store, &eyes, &target, &make, &mine).map(|(r, sync, _)| (r, Some(sync)))
+            Self::picture(&*store, &eyes, &target, &make, &like).map(|(r, sync, _)| (r, Some(sync)))
         };
         let Some((out, sync)) = made else { return false };
         // the render took a while: if it was switched off, reset or moved to another stream meanwhile, it must not go out, and the check and the
@@ -430,8 +439,8 @@ impl Shared {
         if !hub.on || hub.target.as_deref() != Some(target.as_str()) || hub.generation != generation {
             return false;
         }
-        // not if the stream sent a frame in the meantime: that one has the newer picture
-        if !store.replace_frame(Some(&target), out.frame.clone(), sent.frame.number) {
+        // not if the stream sent a frame in the meantime, that one has the newer picture, nor if another plugin put its own on the camera since
+        if !store.replace_frame_if(Some(&target), &sent.frame.data, out.frame.clone(), sent.frame.number) {
             return false;
         }
         hub.drawn = Some(out.frame);
@@ -486,7 +495,7 @@ impl CpuStep for StereoStep {
     }
 
     fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
-        self.0.step(frame, ctx.source_id());
+        self.0.step(frame, ctx.source_id(), ctx.entry_epoch());
     }
 }
 

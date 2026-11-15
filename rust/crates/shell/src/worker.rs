@@ -293,11 +293,16 @@ struct Ctx {
     vision: Option<Arc<dyn telescope_core::vision::VisionService>>,
     /// How many times the view had turned when the steps these frames go through were handed over: their pictures are of that view.
     view_epoch: u64,
+    /// The pipeline epoch when the steps began on this frame (FrameContext::entry_epoch).
+    entry_epoch: u64,
 }
 
 impl FrameContext for Ctx {
     fn source_id(&self) -> &str {
         &self.source_id
+    }
+    fn entry_epoch(&self) -> Option<u64> {
+        Some(self.entry_epoch)
     }
     fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
         self.vision.as_ref()?.person_mask_in(&self.source_id, frame, frame.width as usize, frame.height as usize, self.view_epoch)
@@ -843,7 +848,7 @@ impl Shared {
         }
         let pipeline = publish.0.as_mut();
         let arrived = frame.time_ns;
-        let Ok(out) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.prepare(pipeline, seq, frame))) else {
+        let Ok((out, entered)) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.prepare(pipeline, seq, frame))) else {
             log::error!("Frame processing failed; dropping this frame");
             self.stats.dropped(DropReason::StepFailed, 1);
             return false;
@@ -851,7 +856,8 @@ impl Shared {
         self.newest_arrival.store(arrived, Ordering::Relaxed);
         {
             let mut published = self.published.lock().unwrap();
-            self.slot.publish(out);
+            // stamped with the epoch it was made under, not the one it comes out in
+            self.slot.publish_at(out, entered);
             *published += 1;
         }
         publish.1 = seq;
@@ -872,7 +878,8 @@ impl Shared {
         self.slot.forget_history();
         let pipeline = publish.0.as_mut();
         pipeline.set_steps(steps);
-        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: epoch };
+        let entered = self.slot.epoch();
+        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: epoch, entry_epoch: entered };
         let hidden = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pipeline.hide_again(cached, &ctx))).unwrap_or_else(|_| {
             log::error!("Hiding the frame on the camera failed");
             None
@@ -881,13 +888,14 @@ impl Shared {
             let mut published = self.published.lock().unwrap();
             // Counted under the lock the camera reads frames with, so a frame it already has queued is known to be from before
             self.hidings.fetch_add(1, Ordering::SeqCst);
-            self.slot.publish(out);
+            self.slot.publish_at(out, entered);
             *published += 1;
         }
     }
 
     /// _prepare: the steps as they are now, the frame at its size, and the frame through the steps.
-    fn prepare(&self, pipeline: &mut dyn FramePipeline, seq: u64, frame: Frame) -> Frame {
+    /// Hands back the epoch the pipeline was in when the steps began on the frame too.
+    fn prepare(&self, pipeline: &mut dyn FramePipeline, seq: u64, frame: Frame) -> (Frame, u64) {
         let next_steps = self.next_steps.lock().unwrap().take();
         let replaced = next_steps.is_some() | self.steps_replaced.swap(false, Ordering::SeqCst);
         if let Some((steps, epoch)) = next_steps {
@@ -932,8 +940,10 @@ impl Shared {
             let upright = self.vision.as_ref().map(|f| f.upright.lock().unwrap().for_frame(frame.width, frame.height)).expect("a feed");
             motion.feed(&frame, &self.source_id, Some(&upright), telescope_core::time::monotonic_ns() as f64 / 1e9);
         }
-        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: self.view_epoch.load(Ordering::SeqCst) };
-        pipeline.process(frame, &ctx)
+        // read before the steps run: a change of steps while they do leaves this frame marked as from before it
+        let entered = self.slot.epoch();
+        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: self.view_epoch.load(Ordering::SeqCst), entry_epoch: entered };
+        (pipeline.process(frame, &ctx), entered)
     }
 
     /// Whether the frame steps and vision are paused: only the main camera's stream, once an app has not read the camera and nothing has
@@ -2706,8 +2716,17 @@ mod tests {
         fn published(&self) -> Option<Frame> {
             self.0.published()
         }
+        fn publish_at(&self, frame: Frame, epoch: u64) -> u64 {
+            self.0.publish_at(frame, epoch)
+        }
+        fn epoch(&self) -> u64 {
+            self.0.epoch()
+        }
         fn replace(&self, frame: Frame, number: u64) -> bool {
             self.0.replace(frame, number)
+        }
+        fn replace_if(&self, frame: Frame, number: u64, expected: &Arc<Vec<u8>>) -> bool {
+            self.0.replace_if(frame, number, expected)
         }
         fn latest(&self) -> Option<(Frame, u64)> {
             self.0.latest()
