@@ -14,6 +14,8 @@ use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 use telescope_core::{FrameStage, Host};
 
 const FOCUS_STEPS: i64 = 1000;
+/// How long after one of its own edits the card ignores what a poll finds, since the answer may be from before the edit.
+const POLL_QUIET: std::time::Duration = std::time::Duration::from_secs(2);
 /// LogSliderRow.STEPS
 const LOG_STEPS: f64 = 2000.0;
 /// (the name saved shortcuts pick a mode by, the phone's value) of the noise reduction and sharpening modes.
@@ -636,6 +638,8 @@ pub struct CameraControl {
     held: [Option<bool>; 4],
     /// What the handlers sent and said since the host last heard (refresh hands it over).
     out: Outbox,
+    /// When this card last sent the phone something, for polls: an answer that was asked for before it may carry the value from before.
+    last_edit: Option<std::time::Instant>,
 }
 
 /// Bodies for the phone, events for the bus and saves asked for, in order.
@@ -700,6 +704,7 @@ impl CameraControl {
             torch_on: false,
             held: [None; 4],
             out: Outbox::default(),
+            last_edit: None,
         };
         card.actions_made_from = card.actions_key();
         card
@@ -708,7 +713,14 @@ impl CameraControl {
     fn send(&mut self, body: Value) {
         if self.stream.is_some() {
             self.out.bodies.push(body);
+            self.last_edit = Some(std::time::Instant::now());
         }
+    }
+
+    /// Whether this card sent the phone something less than POLL_QUIET ago: a poll's answer doesn't say when it was asked for, so one that comes now
+    /// may have sampled the phone before that and must not put the card back.
+    fn edited_lately(&self) -> bool {
+        self.last_edit.is_some_and(|at| at.elapsed() < POLL_QUIET)
     }
 
     fn card_on(&self) -> bool {
@@ -1700,8 +1712,9 @@ impl Plugin for CameraControl {
             Event::FocusPoint { x, y } => self.on_focus_point(f64::from(*x), f64::from(*y)),
             Event::MeterPoint { x, y } => self.on_meter_point(f64::from(*x), f64::from(*y)),
             // Something else set the phone's exposure (3D's Match): a poll that finds it other than the card has it brings the card up to date. Polls
-            // that find nothing new leave the card alone, or it would reload from the phone every time.
-            Event::PhonePolled { shown: true, state, .. } if self.exposure_moved(state) => self.phone_state(state),
+            // that find nothing new leave the card alone, or it would reload from the phone every time. Nor does one that may have been taken before
+            // the person's own latest edit: it would put the card back to what they just moved away from.
+            Event::PhonePolled { shown: true, state, .. } if !self.edited_lately() && self.exposure_moved(state) => self.phone_state(state),
             _ => return,
         }
         self.refresh(host);

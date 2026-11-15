@@ -286,6 +286,26 @@ fn a_poll_that_finds_the_exposure_changed_updates_the_card_and_one_that_doesnt_l
 }
 
 #[test]
+fn a_poll_answer_cannot_put_the_card_back_after_a_newer_edit_of_its_own() {
+    let mut r = Rig::new();
+    r.streaming();
+    let phone = |iso: i64| json!({
+        "cameras": [{"id": "wide", "current": true, "isoMin": 100, "isoMax": 1600, "shutterMinNs": 200_000, "shutterMaxNs": 500_000_000, "supportsManualSensor": true}],
+        "auto": false, "iso": iso, "shutter_ns": 8_000_000,
+    });
+    let poll = |iso: i64| Event::PhonePolled { source_id: String::new(), session: 1, shown: true, state: phone(iso) };
+    r.state(phone(100));
+    // the person picks 400 and the poll that was asked for while it was 200 answers after
+    assert!(r.cam.set_dial_value(true, 400.0));
+    r.event(poll(200));
+    assert!(close(r.cam.iso.get_value(), 400.0, 0.01), "the answer from before the edit doesn't roll it back");
+    // a while later the same answer is news again: Match (or another card) really changed the phone
+    r.cam.last_edit = Some(std::time::Instant::now() - POLL_QUIET - std::time::Duration::from_millis(100));
+    r.event(poll(200));
+    assert!(close(r.cam.iso.get_value(), 200.0, 0.01), "once the quiet is over the card follows the phone again");
+}
+
+#[test]
 fn empty_phone_state_and_stop_clear_camera_ui() {
     let mut r = Rig::new();
     r.state(json!({}));
