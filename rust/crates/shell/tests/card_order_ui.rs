@@ -147,3 +147,32 @@ fn settings_has_a_row_search_finds_that_opens_the_dialog() {
     assert_eq!(rows(&w).len(), 3, "the dialog has its rows");
     telescope_shell::settings::forget();
 }
+
+
+#[test]
+fn the_restart_bar_shuts_all_the_way_to_nothing_while_it_still_moves() {
+    let (w, _file) = build("card-order-bar");
+    w.open_card_order();
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(500));
+    w.process();
+    w.ui.invoke("order-moved", &[SValue::String("one".into()), SValue::Number(1.0), SValue::Number(0.0)]).unwrap();
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(1500));
+    w.process();
+    w.ui.invoke("order-revert", &[]).unwrap();
+    let room = || match w.ui.get_property("order-bar-room") { Ok(SValue::Number(v)) => v, other => panic!("{other:?}") };
+    let (mut last, mut last_step) = (room(), 0.0);
+    for frame in 1..60 {
+        telescope_shell::offscreen::skip(std::time::Duration::from_millis(8));
+        w.process();
+        let now = room();
+        assert!(now <= last, "frame {frame}: the bar grew again");
+        if now == 0.0 {
+            // It was still moving a fair way each frame when it reached 0, not creeping
+            assert!(last_step > 0.004, "frame {frame}: the last steps before shut were only {last_step}");
+            return;
+        }
+        last_step = last - now;
+        last = now;
+    }
+    panic!("the bar didn't shut within 480 ms: {last}");
+}

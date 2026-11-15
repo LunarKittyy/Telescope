@@ -4,7 +4,7 @@ import { Theme } from "../theme.slint";
 import { Icon, FocusRing } from "basics.slint";
 import { Settle, Tone } from "motion.slint";
 
-// Kind "list-row": a raised strip like a list row: the plugin's colour as a bar, the card's icon and title, and a grip at the right. Held, it follows
+// Kind "list-row": a raised strip like a list row: the card's icon in its plugin's colour and its title, and a grip at the right. Held, it follows
 // the pointer (up and down) and the owner says where the others go; let go, it glides into its place. Alt with an arrow key moves it too.
 export component DragRow inherits Rectangle {
     out property <string> control-kind: "list-row";
@@ -52,14 +52,6 @@ export component DragRow inherits Rectangle {
         }
     }
     FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
-    Rectangle {
-        x: Theme.u(3);
-        y: Theme.u(3);
-        width: Theme.u(2);
-        height: parent.height - Theme.u(6);
-        border-radius: self.width / 2;
-        background: root.hue;
-    }
     Icon {
         x: Theme.u(9);
         y: (parent.height - self.height) / 2;

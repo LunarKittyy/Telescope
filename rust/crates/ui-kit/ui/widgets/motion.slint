@@ -205,6 +205,8 @@ export component Unfold {
     in property <duration> open-for: Motion.unfold-open;
     in property <duration> close-for: Motion.unfold-close;
     out property <float> value: clamp(bar.border-width / 1px, 0, 1);
+    // `value` aimed a little past shut: a bar that shrinks or slides away lands on 0 while it still moves, not crawling through its last pixels on the spring's tail
+    out property <float> lands: max(0, root.value * 1.1 - 0.1);
     // See Settle.sync
     public function sync() { value; }
     bar := Rectangle {
