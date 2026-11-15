@@ -1022,6 +1022,71 @@ fn nothing_goes_out_after_quitting() {
     assert_eq!(r.plugin.get_config()["on"], json!(true), "but what's saved stays on");
 }
 
+impl Rig {
+    /// What the plugin last asked the preview to follow, as (stream shown, stream drawn).
+    fn follows(&self) -> Option<(String, String)> {
+        self.host.follows.get(NAME).cloned()
+    }
+}
+
+#[test]
+fn the_preview_follows_the_picture_from_the_other_eyes_tile_while_it_is_on_with_two_streams() {
+    let mut r = rig();
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    assert_eq!(r.follows(), None, "nothing while it's off");
+    r.switch(true);
+    assert_eq!(r.follows(), Some(("b".into(), "a".into())));
+    r.switch(false);
+    assert_eq!(r.follows(), None);
+}
+
+#[test]
+fn the_preview_follows_nothing_once_the_pair_breaks() {
+    let mut r = rig();
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    r.switch(true);
+    // b stops sending: it is no eye any more, which the status timer notices
+    let mut old = shot(BLUE, None);
+    old.time_ns = monotonic_ns() - 10_000 * MS;
+    r.show_frames(shot(RED, None), old);
+    r.tick_status();
+    assert_eq!(r.follows(), None);
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    r.tick_status();
+    assert_eq!(r.follows(), Some(("b".into(), "a".into())), "and it comes back with the pair");
+}
+
+#[test]
+fn the_preview_follows_the_new_target_when_the_telescope_camera_moves_to_the_other_phone() {
+    let mut r = rig();
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    r.switch(true);
+    r.host.cameras = vec![(0, "b".into(), None, None)];
+    r.plugin.follow_camera(&mut r.host);
+    assert_eq!(r.follows(), Some(("a".into(), "b".into())));
+}
+
+#[test]
+fn the_preview_follows_nothing_when_a_stream_goes_and_no_pair_is_left() {
+    let mut r = rig();
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    r.switch(true);
+    r.store.frames.lock().unwrap().retain(|f| f.source_id == "a");
+    r.host.streams = Some(1);
+    r.host.live = vec!["a".into()];
+    r.plugin.on_stream_stop(&mut r.host);
+    assert_eq!(r.follows(), None);
+}
+
+#[test]
+fn quitting_lets_the_preview_go() {
+    let mut r = rig();
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    r.switch(true);
+    r.plugin.shutdown(&mut r.host);
+    assert_eq!(r.follows(), None);
+}
+
 // ── Review fixes: pipeline changes, stalls, who the eyes are, Match's clock, Reset ───
 
 impl Rig {

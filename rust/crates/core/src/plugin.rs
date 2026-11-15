@@ -50,6 +50,8 @@ pub struct PluginInfo {
     pub optional: bool,
     /// It uses person masks or people: switching it on downloads the vision pack first.
     pub needs_vision: bool,
+    /// A proof of concept or public preview, not a finished feature: the Plugins tab tags it "Lab".
+    pub lab: bool,
     /// An id from PLUGIN_CATEGORIES.
     pub category: String,
     pub icon: String,
@@ -81,6 +83,7 @@ impl Default for PluginInfo {
             when_off: String::new(),
             required: false,
             optional: false,
+            lab: false,
             needs_vision: false,
             category: "extras".into(),
             icon: "plug".into(),

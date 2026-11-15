@@ -744,6 +744,17 @@ impl Window {
         self.process();
     }
 
+    /// The camera and size the bar names while the preview draws another stream than the one the panels show (Host::preview_follows): the camera
+    /// that stream goes out on, so the footer names what the picture is.
+    fn followed_camera(&self) -> Option<(String, String)> {
+        let st = self.state.try_borrow().ok()?;
+        let focus = self.preview_focus_id()?;
+        let target = st.preview_target(&focus)?;
+        let cam = st.streams.cameras.iter().find(|c| c.source_id == target && !c.label.is_empty())?;
+        let size = cam.size.map(|(w, h)| format!("{w} \u{d7} {h}")).unwrap_or_default();
+        Some((cam.label.clone(), size))
+    }
+
     /// The bar's own readouts, from what the shown stream reported, and the pins as bar.rs lays them out now.
     pub fn show_bar(self: &Rc<Self>) {
         let text = |name: &str| match self.ui.get_property(name) { Ok(SValue::String(s)) => s.to_string(), _ => String::new() };
@@ -752,9 +763,12 @@ impl Window {
         // The frame rate is said with its unit like the other readouts
         let rate = |value: String| if value == "-" || value.is_empty() { String::new() } else { tr("{n} fps").field("n", value) };
         let tone = |name: &str| match text(name).as_str() { "warn" => "warn", "err" => "err", _ => "" }.to_string();
-        let camera = text("status-camera");
+        let (camera, size) = match self.followed_camera() {
+            Some(shown) if !text("status-camera").is_empty() => shown,
+            _ => (text("status-camera"), text("status-size")),
+        };
         let own = vec![
-            BarStat { sub: text("status-size"), tip: camera.clone(), ..BarStat::new(bar::CAMERA, &tr("Virtual camera"), "", &camera) },
+            BarStat { sub: size, tip: camera.clone(), ..BarStat::new(bar::CAMERA, &tr("Virtual camera"), "", &camera) },
             BarStat { tip: text("fps-tip"), tone: tone("fps-tone"), ..BarStat::new(bar::FPS, &tr("Frame rate"), "film", &rate(text("fps"))) },
             BarStat { tip: tr("How much data per second reaches this computer."), tone: tone("net-tone"), ..BarStat::new(bar::THROUGHPUT, &tr("Throughput"), "gauge", &reading(text("net"))) },
         ];

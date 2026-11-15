@@ -453,6 +453,9 @@ export component RailRow inherits HorizontalLayout {
     in property <bool> named;
     // False for a row that is found by a marker of its own around it (a plugin's row), so the search never lists it twice
     in property <bool> searchable: true;
+    // A small label right after the name ("Lab"), with its tooltip sentence in `tag-detail`. Blank shows none.
+    in property <string> tag;
+    in property <string> tag-detail;
     out property <string> control-kind: "row";
     spacing: Theme.u(4);
     min-height: Theme.row;
@@ -486,7 +489,7 @@ export component RailRow inherits HorizontalLayout {
         if has-icon && named && tip != "": Tip { says: tip; detail: tip-detail; hint: tip-hint; inert: true; }
     }
     if named: Text {
-        horizontal-stretch: 1;
+        horizontal-stretch: tag == "" ? 1 : 0;
         min-width: 0px;
         text: label;
         font-family: Theme.font;
@@ -499,6 +502,11 @@ export component RailRow inherits HorizontalLayout {
         accessible-role: none;
         if tip != "": Tip { says: tip; detail: tip-detail; hint: tip-hint; inert: true; }
     }
+    if named && tag != "": VerticalLayout {
+        alignment: center;
+        Tag { text: tag; detail: tag-detail; tint: Theme.accent; }
+    }
+    if named && tag != "": Rectangle { horizontal-stretch: 1; min-width: 0px; }
     @children
 }
 

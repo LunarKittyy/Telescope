@@ -28,6 +28,7 @@ impl Ctx<'_> {
         self.remove_preview_layer(&me);
         self.cancel_pick(&me);
         self.set_preview_warp(&me, None);
+        self.preview_follows(&me, None, None);
         self.want_sensors(&me, &[]);
         self.want_stats(&me, false);
         self.want_frames(&me, false);
@@ -560,6 +561,17 @@ impl HostPreview for Ctx<'_> {
     }
     fn unwarp(&self, u: f64, v: f64) -> (f64, f64) {
         self.state.overlays.unwarp(u, v)
+    }
+    fn preview_follows(&mut self, owner: &str, source_id: Option<&str>, target: Option<&str>) {
+        let now = source_id.zip(target).map(|(s, t)| (s.to_string(), t.to_string()));
+        let before = match &now {
+            Some(pair) => self.state.preview_follows.insert(owner.to_string(), pair.clone()),
+            None => self.state.preview_follows.remove(owner),
+        };
+        if before != now {
+            // the picture the preview draws is another stream's from now on, or its own again
+            self.state.preview_dirty.store(true, std::sync::atomic::Ordering::SeqCst);
+        }
     }
 }
 

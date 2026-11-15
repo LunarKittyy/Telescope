@@ -827,8 +827,19 @@ impl StereoPlugin {
             host.cancel_schedule(MATCH_TIMER);
         }
         self.wake_clock();
+        self.follow_preview(host);
         let props = self.card_props(Some(host));
         host.set_ui_props("card", &props);
+    }
+
+    /// While 3D makes a picture, picking the other eye's tile still shows it on the preview; with no pair, or off, the preview is as it was.
+    fn follow_preview(&self, host: &mut dyn Host) {
+        let follows = self.target.clone().filter(|_| self.on).and_then(|t| {
+            let [a, b] = self.eyes(host)?;
+            let other = if a == t { b } else if b == t { a } else { return None };
+            Some((other, t))
+        });
+        host.preview_follows(NAME, follows.as_ref().map(|f| f.0.as_str()), follows.as_ref().map(|f| f.1.as_str()));
     }
 
     fn catch_up(&mut self, host: &mut dyn Host) {
@@ -1177,6 +1188,7 @@ impl Plugin for StereoPlugin {
     }
 
     fn shutdown(&mut self, host: &mut dyn Host) {
+        host.preview_follows(NAME, None, None);
         host.want_frames(NAME, false);
         host.want_frame_history(NAME, 0);
         host.cancel_schedule(STATUS_TIMER);
