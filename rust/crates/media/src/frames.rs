@@ -4,7 +4,7 @@
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Condvar, Mutex, RwLock};
+use std::sync::{Arc, Condvar, Mutex, RwLock, Weak};
 use std::time::{Duration, Instant};
 use telescope_core::clock::{ClockSync, PhoneClock};
 use telescope_core::frame::{Frame, StreamFrame};
@@ -43,6 +43,15 @@ impl Slot {
     /// A slot that keeps as many past frames as `history` says, now and later.
     pub fn with_history(history: Arc<AtomicUsize>) -> Arc<Slot> {
         Arc::new(Slot { history, ..Slot::default() })
+    }
+
+    /// Lets go of past frames beyond what history allows now, so asking for fewer (or none) frees them without waiting for the next frame.
+    fn trim_history(&self) {
+        let keep = self.history.load(Ordering::Relaxed);
+        let mut st = self.state.lock().unwrap();
+        while st.past.len() > keep {
+            st.past.pop_front();
+        }
     }
 
     /// How many past frames it holds right now.
@@ -100,8 +109,11 @@ impl FrameSlot for Slot {
         *self.clock.lock().unwrap() = clock;
     }
 
+    /// The phone clock, only while the stream's newest frame carries a capture time: a stream without the phone's stamps (MJPEG, H.264 with no
+    /// SEI) has no capture times to be off by anything.
     fn phone_clock(&self) -> Option<Arc<PhoneClock>> {
-        self.clock.lock().unwrap().clone()
+        let stamped = self.state.lock().unwrap().published.as_ref().is_some_and(|f| f.capture_ns.is_some());
+        stamped.then(|| self.clock.lock().unwrap().clone()).flatten()
     }
 
     fn near(&self, capture_ns: u64) -> Option<Frame> {
@@ -133,6 +145,8 @@ pub struct Frames {
     streams: RwLock<Streams>,
     /// How many past frames each stream's slot keeps (StreamFrames::set_history).
     history: Arc<AtomicUsize>,
+    /// The slots made so far, to trim when history shrinks.
+    slots: Mutex<Vec<Weak<Slot>>>,
 }
 
 impl Frames {
@@ -180,11 +194,19 @@ impl FrameStore for Frames {
 
 impl StreamFrames for Frames {
     fn new_slot(&self) -> Arc<dyn FrameSlot> {
-        Slot::with_history(self.history.clone())
+        let slot = Slot::with_history(self.history.clone());
+        let mut slots = self.slots.lock().unwrap();
+        slots.retain(|w| w.strong_count() > 0);
+        slots.push(Arc::downgrade(&slot));
+        slot
     }
 
     fn set_history(&self, frames: usize) {
         self.history.store(frames, Ordering::Relaxed);
+        let slots: Vec<_> = self.slots.lock().unwrap().iter().filter_map(Weak::upgrade).collect();
+        for slot in slots {
+            slot.trim_history();
+        }
     }
 
     fn set_streams(&self, streams: Vec<(String, String, Arc<dyn FrameSlot>)>) {
@@ -376,6 +398,18 @@ mod tests {
     }
 
     #[test]
+    fn asking_for_no_history_frees_what_was_held_at_once() {
+        let (frames, slot) = one_stream(4);
+        for i in 0..4u8 {
+            slot.publish(taken_at(i, Some(u64::from(i))));
+        }
+        let held = frames.slots.lock().unwrap()[0].upgrade().unwrap();
+        assert_eq!(held.held(), 4);
+        frames.set_history(0);
+        assert_eq!(held.held(), 0, "no publish needed");
+    }
+
+    #[test]
     fn no_history_is_kept_when_nobody_asked() {
         let (frames, slot) = one_stream(0);
         let first = taken_at(1, Some(1_000));
@@ -406,6 +440,10 @@ mod tests {
         slot.set_phone_clock(Some(clock.clone()));
         assert_eq!(frames.clock_sync(Some("a")), None, "no round trip yet");
         clock.set(telescope_core::clock::ClockOffset { boot_ns: Some(5), mono_ns: None, error_ns: 1_500_000 });
+        assert_eq!(frames.clock_sync(Some("a")), None, "no frame with a capture time yet");
+        slot.publish(taken_at(1, None));
+        assert_eq!(frames.clock_sync(Some("a")), None, "frames without a capture time");
+        slot.publish(taken_at(2, Some(10)));
         assert_eq!(frames.clock_sync(Some("a")), Some(telescope_core::clock::ClockSync { error_ns: 1_500_000 }));
         assert_eq!(frames.clock_sync(Some("b")), None);
         slot.set_phone_clock(None);
