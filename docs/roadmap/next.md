@@ -8,6 +8,7 @@ The next release follows 5.1.1. Ticked here means merged and not released yet.
 - [ ] [A flaky tooltip test](#a-flaky-tooltip-test)
 - [ ] [A writing pass over docs](#a-writing-pass-over-docs)
 - [ ] [Deleted files in the checklist check](#deleted-files-in-the-checklist-check)
+- [ ] [A Reset on every card and one for all settings](#a-reset-on-every-card-and-one-for-all-settings)
 
 ## Auto colour grading: whole look and always on
 
@@ -34,3 +35,9 @@ A pass over everything in `docs/` against the writing rules: plain and short, Br
 ## Deleted files in the checklist check
 
 `.github/checklist_due.py` asks for a section when a deleted file isn't named in one. Line 103 uses `git diff --name-only`, which lists deletions, so it should skip them. Small.
+
+## A Reset on every card and one for all settings
+
+Only a few cards have a Reset in their header today (Transforms, Colour grading, Desk, Webcam and the wait screen). Every built-in card that holds settings should get one, lit only while something on it is off its default, and so should the Settings window's sections where it helps. Things people would hate to lose stay put: paired phones, downloads, a loaded LUT. Settings also gets one button that puts every setting back to its default after asking, keeps the paired phones and restarts Telescope.
+
+The card button is already in the kit (`has-reset` in `rust/crates/ui-kit/ui/widgets/card.slint`), so most of the work is each plugin putting its own defaults back and refreshing its card. Medium, spread over many small files.
