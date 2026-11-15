@@ -28,7 +28,7 @@ Picking a point on the preview or a focus mode on the Camera card takes over fro
 
 ## Privacy blur
 
-Optional. When more than one person is in the picture it hides all of it, in one of two ways picked on its card. **Blur the whole picture** blurs everything and **Show the wait screen** puts the wait screen up instead. It doesn't try to tell you from anyone else. Blurring starts as soon as one update from the people finder sees two or more people, and it only stops once there has been only one person (or nobody) for 4 seconds, so the finder losing a person for a moment doesn't make it flicker. While the automatic blur is on the picture keeps running even when no app reads the camera, so it can see someone walk in.
+Optional, and tagged **Limited** in the Plugins tab. It can only blur someone once they have been found in the frame, so it can't promise nobody is ever shown. When more than one person is in the picture it hides all of it, in one of two ways picked on its card. **Blur the whole picture** blurs everything and **Show the wait screen** puts the wait screen up instead. It doesn't try to tell you from anyone else. Blurring starts as soon as one update from the people finder sees two or more people, and it only stops once there has been only one person (or nobody) for 4 seconds, so the finder losing a person for a moment doesn't make it flicker. While the automatic blur is on the picture keeps running even when no app reads the camera, so it can see someone walk in.
 
 It only knows about the people MediaPipe finds. It can miss someone (a person turned away, small or half out of the frame), and it takes a moment to react. Don't count on it to keep anything private.
 

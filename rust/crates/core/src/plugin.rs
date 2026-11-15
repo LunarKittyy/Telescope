@@ -52,6 +52,8 @@ pub struct PluginInfo {
     pub needs_vision: bool,
     /// A proof of concept or public preview, not a finished feature: the Plugins tab tags it "Lab".
     pub lab: bool,
+    /// It has technical limits that won't go away: the Plugins tab tags it "Limited".
+    pub limited: bool,
     /// An id from PLUGIN_CATEGORIES.
     pub category: String,
     pub icon: String,
@@ -84,6 +86,7 @@ impl Default for PluginInfo {
             required: false,
             optional: false,
             lab: false,
+            limited: false,
             needs_vision: false,
             category: "extras".into(),
             icon: "plug".into(),

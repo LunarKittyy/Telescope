@@ -931,8 +931,15 @@ impl Settings {
             let tall = g.tiles.iter().map(tile_extra).max().unwrap_or(0);
             let tiles: Vec<SValue> = g.tiles.iter().map(|t| {
                 let badges: Vec<SValue> = t.badges.iter().map(|b| SValue::Struct(Struct::from_iter([("text".to_string(), s(&b.text)), ("kind".to_string(), s(&b.kind))]))).collect();
-                let lab = t.badges.iter().find(|b| b.kind == "lab");
-                let (tag, tag_detail) = lab.map(|b| (b.text.clone(), tr("This plugin is an early version, so it may change or behave oddly."))).unwrap_or_default();
+                let tags: Vec<SValue> = t.badges.iter().filter_map(|b| {
+                    let (detail, group) = match b.kind.as_str() {
+                        "lab" => (tr("This plugin is an early version. It may change or behave oddly."), "vision"),
+                        "limited" => (tr("This plugin has technical limitations that will likely never get resolved. Do not expect it to work perfectly."), "preview"),
+                        _ => return None,
+                    };
+                    let tint = SValue::Brush(slint::Brush::SolidColor(hue_of(group)));
+                    Some(SValue::Struct(Struct::from_iter([("text".to_string(), s(&b.text)), ("detail".to_string(), s(&detail)), ("tint".to_string(), tint)])))
+                }).collect();
                 let (note_link, note_url) = link(&t.note_link);
                 let (byline_link, byline_url) = link(&t.byline_link);
                 SValue::Struct(Struct::from_iter([
@@ -944,7 +951,7 @@ impl Settings {
                     ("byline".to_string(), s(&t.byline)), ("byline-link".to_string(), s(&byline_link)), ("byline-url".to_string(), s(&byline_url)),
                     ("removable".to_string(), SValue::Bool(t.added)),
                     ("remove-label".to_string(), s(&if t.added { fill(&tr("Remove {plugin}"), &[("plugin", &t.title)]) } else { String::new() })),
-                    ("badges".to_string(), model(badges)), ("tag".to_string(), s(&tag)), ("tag-detail".to_string(), s(&tag_detail)),
+                    ("badges".to_string(), model(badges)), ("tags".to_string(), model(tags)),
                 ]))
             }).collect();
             SValue::Struct(Struct::from_iter([
@@ -1145,7 +1152,7 @@ impl Settings {
 /// How much taller than the plain tile this one has to be: its byline, its note, its link and its badges.
 fn tile_extra(t: &plugins_tab::Tile) -> i32 {
     let note = if t.note.is_empty() { 0 } else { 6 + 16 * (t.note.chars().count() as i32 / 44 + 1) };
-    (if t.badges.is_empty() { 0 } else { 24 }) + (if t.byline.is_empty() && t.byline_link.is_none() { 0 } else { 22 }) + note
+    (if t.badges.iter().all(|b| b.kind == "lab" || b.kind == "limited") { 0 } else { 24 }) + (if t.byline.is_empty() && t.byline_link.is_none() { 0 } else { 22 }) + note
         + (if t.note_link.is_some() { 22 } else { 0 })
 }
 

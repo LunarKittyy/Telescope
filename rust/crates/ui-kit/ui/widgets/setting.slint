@@ -102,9 +102,16 @@ export component SettingMark inherits Rectangle {
 
 // Tag: a small raised label in a colour at 14% under its text in that colour ("Experimental"), with `r-ctl` corners like every control.
 // `detail` is its tooltip body, where the word alone needs a sentence.
+// One tag on a row: its word, the sentence of its tooltip and its colour
+export struct TagData {
+    text: string,
+    detail: string,
+    tint: color,
+}
+
 export component Tag inherits Rectangle {
     // One physical pixel: how far a centred word is lifted so its capitals sit on the middle (see Theme.font)
-    property <length> lift: 1phx;
+    in property <length> lift: 1phx;
     in property <string> text;
     in property <string> detail;
     in property <color> tint: Theme.warn;

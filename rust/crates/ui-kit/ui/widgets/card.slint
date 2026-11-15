@@ -6,7 +6,7 @@ import { Icons } from "../icons.slint";
 import { Folds, FoldText, Reveal, CardOrder } from "folds.slint";
 import { Switch } from "switch.slint";
 import { Tip, Tips } from "tip.slint";
-import { SearchWords, SettingMark, ProblemMark, Tag } from "setting.slint";
+import { SearchWords, SettingMark, ProblemMark, Tag, TagData } from "setting.slint";
 import { Motion, Unfold, Fade } from "motion.slint";
 import { Grip } from "fine.slint";
 
@@ -453,9 +453,8 @@ export component RailRow inherits HorizontalLayout {
     in property <bool> named;
     // False for a row that is found by a marker of its own around it (a plugin's row), so the search never lists it twice
     in property <bool> searchable: true;
-    // A small label right after the name ("Lab"), with its tooltip sentence in `tag-detail`. Blank shows none.
-    in property <string> tag;
-    in property <string> tag-detail;
+    // Small labels right after the name ("Lab", "Limited"), each with its tooltip sentence and colour
+    in property <[TagData]> tags;
     out property <string> control-kind: "row";
     spacing: Theme.u(4);
     min-height: Theme.row;
@@ -489,7 +488,7 @@ export component RailRow inherits HorizontalLayout {
         if has-icon && named && tip != "": Tip { says: tip; detail: tip-detail; hint: tip-hint; inert: true; }
     }
     if named: Text {
-        horizontal-stretch: tag == "" ? 1 : 0;
+        horizontal-stretch: tags.length == 0 ? 1 : 0;
         min-width: 0px;
         text: label;
         font-family: Theme.font;
@@ -502,11 +501,15 @@ export component RailRow inherits HorizontalLayout {
         accessible-role: none;
         if tip != "": Tip { says: tip; detail: tip-detail; hint: tip-hint; inert: true; }
     }
-    if named && tag != "": VerticalLayout {
-        alignment: center;
-        Tag { text: tag; detail: tag-detail; tint: Theme.accent; }
+    if named && tags.length > 0: HorizontalLayout {
+        spacing: Theme.u(2);
+        for t in tags: VerticalLayout {
+            alignment: center;
+            // The name is centred by its line box without a lift, so the tag's word takes none either and both sit on the same middle
+            Tag { text: t.text; detail: t.detail; tint: t.tint; lift: 0phx; }
+        }
     }
-    if named && tag != "": Rectangle { horizontal-stretch: 1; min-width: 0px; }
+    if named && tags.length > 0: Rectangle { horizontal-stretch: 1; min-width: 0px; }
     @children
 }
 
