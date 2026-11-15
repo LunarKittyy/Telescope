@@ -263,6 +263,29 @@ fn phone_state_populates_camera_capabilities_and_controls() {
 }
 
 #[test]
+fn a_poll_that_finds_the_exposure_changed_updates_the_card_and_one_that_doesnt_leaves_it() {
+    let mut r = Rig::new();
+    let phone = |auto: bool, iso: i64, shutter: i64| json!({
+        "cameras": [{"id": "wide", "current": true, "isoMin": 100, "isoMax": 1600, "shutterMinNs": 200_000, "shutterMaxNs": 500_000_000, "supportsManualSensor": true}],
+        "auto": auto, "iso": iso, "shutter_ns": shutter,
+    });
+    let poll = |state: Value, shown: bool| Event::PhonePolled { source_id: String::new(), session: 1, shown, state };
+    r.state(phone(true, 0, 0));
+    assert!(!r.cam.manual_exp);
+    // Match put the phone on a manual exposure: the card follows
+    r.event(poll(phone(false, 640, 8_000_000), true));
+    assert!(r.cam.manual_exp, "the card shows manual now");
+    assert!(close(r.cam.iso.get_value(), 640.0, 0.01) && close(r.cam.shutter.get_value(), 8_000_000.0, 0.01));
+    // the same exposure again changes nothing, even with a value the card was moved to meanwhile
+    r.cam.iso.set_value(900.0);
+    r.event(poll(phone(false, 640, 8_000_000), true));
+    assert!(close(r.cam.iso.get_value(), 900.0, 0.01), "a poll with nothing new doesn't reload the card");
+    // and a stream behind the panels isn't the card's
+    r.event(poll(phone(false, 100, 1_000_000), false));
+    assert!(close(r.cam.iso.get_value(), 900.0, 0.01));
+}
+
+#[test]
 fn empty_phone_state_and_stop_clear_camera_ui() {
     let mut r = Rig::new();
     r.state(json!({}));

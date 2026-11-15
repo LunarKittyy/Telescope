@@ -874,6 +874,12 @@ impl CameraControl {
         self.low_light.visible = low_light;
     }
 
+    /// Whether a phone's state has a different exposure (automatic or manual, ISO, shutter) from the one the card last loaded.
+    fn exposure_moved(&self, state: &Value) -> bool {
+        let exposure = |s: &Value| [s.get("auto"), s.get("iso"), s.get("shutter_ns")].map(|v| v.cloned());
+        self.last_state.as_ref().is_some_and(|last| exposure(last) != exposure(state))
+    }
+
     fn phone_state(&mut self, state: &Value) {
         let Some(view) = derive_camera_control_view(state) else {
             self.lenses.set_placeholder(tr("Unavailable"));
@@ -1693,6 +1699,9 @@ impl Plugin for CameraControl {
             Event::SourceSelected { source_id } => self.source = source_id.clone(),
             Event::FocusPoint { x, y } => self.on_focus_point(f64::from(*x), f64::from(*y)),
             Event::MeterPoint { x, y } => self.on_meter_point(f64::from(*x), f64::from(*y)),
+            // Something else set the phone's exposure (3D's Match): a poll that finds it other than the card has it brings the card up to date. Polls
+            // that find nothing new leave the card alone, or it would reload from the phone every time.
+            Event::PhonePolled { shown: true, state, .. } if self.exposure_moved(state) => self.phone_state(state),
             _ => return,
         }
         self.refresh(host);
