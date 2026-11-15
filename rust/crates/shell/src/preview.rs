@@ -96,7 +96,7 @@ fn adapters_to_try(instance: &wgpu::Instance, preference: Option<wgpu::PowerPref
         Some(Candidate { api, kind, index, vendor: info.vendor, windows: cfg!(windows) })
     }).collect();
     let mut listed: Vec<Option<wgpu::Adapter>> = listed.into_iter().map(Some).collect();
-    let ordered: Vec<(wgpu::Adapter, Card)> = gpu_pick::order(&candidates).into_iter().filter_map(|i| listed[i].take()).map(|a| { let card = card_of(&a.get_info(), &all); (a, card) }).collect();
+    let ordered: Vec<(wgpu::Adapter, Card)> = gpu_pick::order(&candidates, gpu_pick::system_preference()).into_iter().filter_map(|i| listed[i].take()).map(|a| { let card = card_of(&a.get_info(), &all); (a, card) }).collect();
     let skipped = gpu_marker::skipped();
     for (_, card) in ordered.iter().filter(|(_, card)| skipped.iter().any(|s| card.is_listed_as(s))) {
         log::warn!("Graphics card {card} is skipped, the last start closed while opening it");
