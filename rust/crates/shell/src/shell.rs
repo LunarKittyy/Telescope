@@ -451,6 +451,8 @@ pub struct State {
     pub other_windows: bool,
     /// The owners that asked for frames with Host::want_frames.
     pub frame_wants: std::collections::BTreeSet<String>,
+    /// Host::preview_follows by owner: (the stream the panels show, the stream whose output the preview draws instead).
+    pub preview_follows: std::collections::BTreeMap<String, (String, String)>,
     /// Whether the main camera's frame steps can pause while nobody reads it (idle.rs), which the stream's worker looks at.
     pub idle: Arc<crate::idle::IdleGate>,
     pub tray_close_notified: bool,
@@ -538,6 +540,7 @@ impl State {
             shown: None,
             other_windows: false,
             frame_wants: Default::default(),
+            preview_follows: Default::default(),
             idle: Arc::default(),
             tray_close_notified: false,
             shortcut_menu: None, stills: Vec::new(), source_stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false, setting_clock: 0, saved_in_call: Vec::new(),
@@ -553,6 +556,11 @@ impl State {
         if let Some(frames) = &self.stream_frames {
             frames.set_history(self.frame_history.values().copied().max().unwrap_or(0));
         }
+    }
+
+    /// The stream whose output the preview draws while source is the one the panels show, when a plugin asked for another (Host::preview_follows).
+    pub fn preview_target(&self, source: &str) -> Option<&str> {
+        self.preview_follows.values().find(|(shown, _)| shown == source).map(|(_, target)| target.as_str())
     }
 
     /// Tells the idle gate whether anything needs the main camera's frames: a window someone can see (the preview, the tiles, the cards that
@@ -3274,6 +3282,27 @@ mod tests {
         crate::host::Ctx { state: &mut s, me: "other".into() }.want_frame_history("other", 0);
         crate::host::Ctx { state: &mut s, me: "stereo".into() }.release_everything();
         assert_eq!(*told.0.lock().unwrap(), [6, 10, 6, 0]);
+    }
+
+    #[test]
+    fn a_plugins_preview_redirect_is_kept_per_owner_asks_for_a_repaint_and_goes_with_the_plugin() {
+        use std::sync::atomic::Ordering::SeqCst;
+        use telescope_core::host::HostPreview;
+        let mut s = quiet_state();
+        assert_eq!(s.preview_target("b"), None);
+        s.preview_dirty.store(false, SeqCst);
+        crate::host::Ctx { state: &mut s, me: "stereo".into() }.preview_follows("stereo", Some("b"), Some("a"));
+        assert_eq!((s.preview_target("b"), s.preview_target("a")), (Some("a"), None), "only the stream it names");
+        assert!(s.preview_dirty.swap(false, SeqCst), "the preview draws another picture now");
+        crate::host::Ctx { state: &mut s, me: "stereo".into() }.preview_follows("stereo", Some("b"), Some("a"));
+        assert!(!s.preview_dirty.load(SeqCst), "the same again changes nothing");
+        crate::host::Ctx { state: &mut s, me: "stereo".into() }.preview_follows("stereo", Some("a"), None);
+        assert_eq!(s.preview_target("b"), None, "no target takes the owner's redirect off");
+        crate::host::Ctx { state: &mut s, me: "stereo".into() }.preview_follows("stereo", Some("b"), Some("a"));
+        crate::host::Ctx { state: &mut s, me: "other".into() }.release_everything();
+        assert_eq!(s.preview_target("b"), Some("a"), "another plugin going away leaves it");
+        crate::host::Ctx { state: &mut s, me: "stereo".into() }.release_everything();
+        assert_eq!(s.preview_target("b"), None, "and its own owner going away takes it off");
     }
 
     #[test]
