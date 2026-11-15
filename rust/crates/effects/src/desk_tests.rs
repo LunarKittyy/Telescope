@@ -191,7 +191,25 @@ fn the_stretch_sliders_save_and_reset_and_wait_while_the_sheet_fills_the_picture
     r.ui("stretch-moved", vec![json!(1), json!(70.0)]);
     r.ui("shape-picked", vec![json!(4)]);
     assert_eq!(r.plugin.get_config()["shape"], json!("fill"));
-    assert_eq!((r.shown("stretch-enabled"), r.shown("reset-shown")), (json!(false), json!(false)));
+    // the shape is off its default now, so the Reset still has something to do
+    assert_eq!((r.shown("stretch-enabled"), r.shown("reset-shown")), (json!(false), json!(true)));
+}
+
+#[test]
+fn reset_puts_the_whole_card_back_but_keeps_the_corners_and_the_switch() {
+    let mut r = Rig::new(true);
+    r.config(json!({"on": true, "corners": corners_json()}));
+    r.ui("clean-picked", vec![json!(1)]);
+    r.ui("shape-picked", vec![json!(2)]);
+    r.ui("stretch-moved", vec![json!(0), json!(150.0)]);
+    let marked = corners_json();
+    assert_eq!(r.shown("reset-shown"), json!(true));
+    r.ui("reset-clicked", vec![]);
+    let config = r.plugin.get_config();
+    assert_eq!((config["cleanup"].clone(), config["shape"].clone(), config["stretch"].clone()), (json!("off"), json!("auto"), json!([100, 100])));
+    assert_eq!(config["corners"], marked);
+    assert_eq!(config["on"], json!(true));
+    assert_eq!(r.shown("reset-shown"), json!(false));
 }
 
 #[test]

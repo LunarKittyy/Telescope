@@ -10,6 +10,7 @@ use telescope_core::event::Event;
 use telescope_core::host::{Host, View};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::pose::{arm, body, hands_out, upright, Person, ARM_SEEN, SEEN, SIDES};
 use telescope_core::time::monotonic_ns;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
@@ -586,7 +587,25 @@ impl FramingPlugin {
 
     fn state_props(&self) -> Value {
         json!({"framing-peek": "picture", "on": self.switch, "hand": self.hand, "active": self.paired.on(), "framing": self.framing, "speed": self.speed, "room": self.room,
-               "framing-text": self.framing_text(), "speed-text": self.speed_text(), "room-text": self.room_text()})
+               "framing-text": self.framing_text(), "speed-text": self.speed_text(), "room-text": self.room_text(), "reset-shown": self.reset_shown()})
+    }
+
+    /// The card's own switch is not part of its Reset.
+    const RESET_KEPT: &'static [&'static str] = &["on"];
+
+    fn reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &FramingPlugin::new().get_config(), Self::RESET_KEPT)
+    }
+
+    fn show_reset(&self, host: &mut dyn Host) {
+        host.set_ui_props("card", &json!({"reset-shown": self.reset_shown()}));
+    }
+
+    fn reset(&mut self, host: &mut dyn Host) {
+        let cfg = reset_config(&self.get_config(), &FramingPlugin::new().get_config(), Self::RESET_KEPT);
+        if self.apply_preset(host, &cfg).is_ok() {
+            host.schedule_save();
+        }
     }
 
     fn all_props(&self) -> Value {
@@ -715,6 +734,7 @@ impl FramingPlugin {
         if value != self.framing {
             self.framing = value;
             host.set_ui_props("card", &json!({"framing": value, "framing-text": self.framing_text()}));
+            self.show_reset(host);
             host.schedule_save();
             // The bubble crops what it has, so a drag shows its crop at once and doesn't wait for the next picture
             if self.peeking {
@@ -728,6 +748,7 @@ impl FramingPlugin {
             self.speed = value;
             // The dots' hops keep their own clock whatever the slider does: a new Speed is seen in the next hop, never by skipping the pause
             host.set_ui_props("card", &json!({"speed": value, "speed-text": self.speed_text()}));
+            self.show_reset(host);
             host.schedule_save();
         }
     }
@@ -736,6 +757,7 @@ impl FramingPlugin {
         if value != self.room {
             self.room = value;
             host.set_ui_props("card", &json!({"room": value, "room-text": self.room_text()}));
+            self.show_reset(host);
             host.schedule_save();
         }
     }
@@ -963,8 +985,10 @@ impl Plugin for FramingPlugin {
             "hand-toggled" => {
                 self.hand = on;
                 host.set_ui_props("card", &json!({"hand": on}));
+                self.show_reset(host);
                 host.schedule_save();
             }
+            "reset-clicked" => self.reset(host),
             "download-clicked" => {
                 host.download_vision();
                 self.show_status(host);

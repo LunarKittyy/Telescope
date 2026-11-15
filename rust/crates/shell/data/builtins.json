@@ -220,6 +220,17 @@
   "icon": "notes"
  },
  {
+  "name": "stereo",
+  "title": "3D",
+  "about": "Turn two phones into one 3D picture, side by side for a headset or red and cyan for glasses.",
+  "when_off": "Without the 3D plugin there's no 3D card and two streams only go to their own cameras.",
+  "required": false,
+  "optional": true,
+  "needs_vision": false,
+  "category": "streaming",
+  "icon": "cube"
+ },
+ {
   "name": "composite",
   "title": "Several cameras in one picture",
   "about": "Puts the streams you run side by side or one inside another, out on one virtual camera.",

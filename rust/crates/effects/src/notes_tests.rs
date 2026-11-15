@@ -507,3 +507,19 @@ fn sent_notes_are_followed_by_asking_the_phone_its_state() {
 fn a_set_is_named_by_python_line_breaks() {
     assert_eq!(set_name("\u{2028}\u{b}  Talk\u{2029}second"), "Talk");
 }
+
+#[test]
+fn reset_puts_the_look_back_and_keeps_the_scripts() {
+    let mut rig = Rig::new();
+    rig.type_text("Hello there");
+    rig.ui("size-moved", vec![json!(60)]);
+    rig.ui("speed-moved", vec![json!(8)]);
+    assert!(rig.plugin.reset_shown());
+    rig.click("reset-clicked");
+    let mut want = NotesPlugin::new().get_config();
+    want["sets"] = json!(["Hello there"]);
+    assert_eq!(rig.plugin.get_config(), want);
+    assert!(!rig.plugin.reset_shown());
+    assert!(rig.host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
+    assert!(rig.host.calls.iter().any(|c| c == "schedule_save"));
+}

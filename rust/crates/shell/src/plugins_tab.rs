@@ -142,6 +142,16 @@ fn warning(title: &str, text: String) -> Notice {
     Notice { kind: NoticeKind::Warning, title: tr(title), text }
 }
 
+/// The settings couldn't be reset, and are as they were.
+pub fn reset_failed(error: &str) -> Notice {
+    warning("Couldn't reset", fill(&tr("Telescope couldn't reset the settings: {error}"), &[("error", error)]))
+}
+
+/// A reset didn't go through because a new copy wouldn't start: the old settings are back.
+pub fn reset_not_restarted() -> Notice {
+    warning("Couldn't reset", tr("Telescope couldn't restart, so your settings are as they were. Try again, or close Telescope and open it again."))
+}
+
 /// A new copy wouldn't start, so this one carries on.
 pub fn restart_failed() -> Notice {
     warning("Couldn't restart", tr("Telescope couldn't restart. Close Telescope and open it again to apply your changes."))
@@ -166,6 +176,8 @@ pub enum Request {
     Restart { streaming: bool },
     /// Puts every switch that waits on a restart back to how it is in the running app.
     Revert,
+    /// Reset all settings (General tab); streaming is whether a stream is running.
+    ResetAll { streaming: bool },
 }
 
 /// What happens once any question is agreed to.
@@ -182,6 +194,7 @@ pub enum Commit {
     Updates { key: &'static str, on: bool },
     Revert,
     Restart,
+    ResetAll,
 }
 
 /// What a request did: what to tell the person, and whether Telescope is to start again.
@@ -189,6 +202,8 @@ pub enum Commit {
 pub struct Outcome {
     pub notices: Vec<Notice>,
     pub restart: bool,
+    /// The settings are to be reset first (the window does that, then restarts).
+    pub reset_settings: bool,
 }
 
 pub enum Step {
@@ -697,6 +712,14 @@ impl Panel {
                     tr("Switch on"), true), Commit::Updates { key: AUTO_UPDATE, on })
             }
             Request::Revert => Step::Done(self.commit(Commit::Revert)),
+            Request::ResetAll { streaming } => Step::Ask(question(
+                tr("Reset all settings?"),
+                if streaming {
+                    tr("Every setting goes back to its default and Telescope restarts, so the stream stops. Your paired phones, presets and notes stay.")
+                } else {
+                    tr("Every setting goes back to its default and Telescope restarts. Your paired phones, presets and notes stay.")
+                },
+                tr("Reset"), true), Commit::ResetAll),
             Request::Restart { streaming } => {
                 if streaming {
                     Step::Ask(question(tr("Restart Telescope now?"), tr("Streaming stops while Telescope restarts. Restarting takes a few seconds."), tr("Restart"), false), Commit::Restart)
@@ -864,7 +887,8 @@ impl Panel {
                 }
                 outcome
             }
-            Commit::Restart => Outcome { notices: vec![], restart: true },
+            Commit::Restart => Outcome { restart: true, ..Outcome::default() },
+            Commit::ResetAll => Outcome { restart: true, reset_settings: true, ..Outcome::default() },
         }
     }
 
@@ -988,5 +1012,41 @@ mod tests {
         panel.refresh();
         panel.commit(Commit::Restart);
         assert!(panel.footer_note().starts_with("Restart to apply"), "the next change gets the usual bar again");
+    }
+
+    fn plain_panel() -> Panel {
+        Panel::new(vec![builtin("alpha")], ["alpha"].map(String::from).into(), BTreeMap::new(), Arc::new(Admin::default()), Box::new(NoVision))
+    }
+
+    #[test]
+    fn resetting_all_settings_asks_first_with_a_warning_and_then_restarts() {
+        let mut panel = plain_panel();
+        let Step::Ask(q, commit) = panel.request(Request::ResetAll { streaming: false }) else { panic!("it must ask") };
+        assert_eq!((q.title.as_str(), q.yes.as_str(), q.danger), ("Reset all settings?", "Reset", true));
+        assert!(q.text.contains("goes back to its default"), "{}", q.text);
+        assert!(q.text.contains("paired phones, presets and notes stay"), "{}", q.text);
+        assert!(!q.text.contains("stream stops"));
+        assert_eq!(commit, Commit::ResetAll);
+        let outcome = panel.commit(commit);
+        assert!(outcome.restart && outcome.reset_settings && outcome.notices.is_empty());
+    }
+
+    #[test]
+    fn the_reset_question_says_so_when_a_stream_is_running() {
+        let mut panel = plain_panel();
+        let Step::Ask(q, _) = panel.request(Request::ResetAll { streaming: true }) else { panic!("it must ask") };
+        assert!(q.text.contains("the stream stops"), "{}", q.text);
+    }
+
+    #[test]
+    fn saying_no_to_the_reset_changes_nothing() {
+        let mut panel = plain_panel();
+        let mut asked = Vec::new();
+        let outcome = panel.run(Request::ResetAll { streaming: false }, &mut |q| { asked.push(q.title.clone()); false });
+        assert_eq!(asked, ["Reset all settings?"]);
+        assert_eq!(outcome, Outcome::default());
+        let outcome = panel.run(Request::ResetAll { streaming: false }, &mut |_| true);
+        assert!(outcome.restart && outcome.reset_settings);
+        assert!(!panel.commit(Commit::Restart).reset_settings, "a plain restart doesn't reset anything");
     }
 }

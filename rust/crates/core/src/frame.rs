@@ -41,6 +41,9 @@ pub struct Frame {
     pub number: u64,
     /// When the stream made it, monotonic nanoseconds (crate::time::monotonic_ns).
     pub time_ns: u64,
+    /// When the camera took the picture, on this computer's monotonic clock (crate::time::monotonic_ns), for a stream whose phone says so and whose
+    /// clock offset is known; None otherwise. Every step that makes a new frame from another keeps it.
+    pub capture_ns: Option<u64>,
     decoded: Option<Decoded>,
 }
 
@@ -135,7 +138,7 @@ impl PartialEq for Decoded {
 impl Frame {
     pub fn new(width: u32, height: u32, format: PixelFormat, data: Vec<u8>) -> Frame {
         debug_assert_eq!(data.len(), format.size(width, height));
-        Frame { width, height, format, data: Arc::new(data), number: 0, time_ns: crate::time::monotonic_ns(), decoded: None }
+        Frame { width, height, format, data: Arc::new(data), number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, decoded: None }
     }
 
     /// The pixels to change, copied first if anything else still holds them.
@@ -254,6 +257,11 @@ impl FrameStage {
 pub trait FrameContext {
     /// The source id of the stream this frame is from.
     fn source_id(&self) -> &str;
+    /// The pipeline epoch (FrameStore::pipeline_epoch) when the steps began on this frame, None where the host doesn't say: a step that keeps
+    /// frames for later marks them with it, not with the epoch of the moment it runs, since a change of steps may have come in between.
+    fn entry_epoch(&self) -> Option<u64> {
+        None
+    }
     /// How sure the vision service is each pixel is a person (0..255, the frame's size), or None while it can't say. It hardly ever waits for
     /// the model, so this is the newest mask there is, about a frame behind the picture. None also means the last one got too old, and a step
     /// that hides things has to stay safe on it.

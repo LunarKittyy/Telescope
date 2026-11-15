@@ -11,6 +11,7 @@ System integration, keyboard shortcuts, the MCP server and plugins.
 - Closing the window while streaming hides Telescope to the tray
 - When Start can't go ahead a banner says why and has a button that fixes it
 - While the window is in the tray Telescope checks on the phone less often to save its battery
+- **Reset all settings** (General in Settings) puts every setting back to its default and restarts Telescope. Paired phones, presets, notes and saved layouts stay, and a copy of the old settings file is kept next to it
 
 <details>
 <summary><b>Folding cards</b></summary>
@@ -18,6 +19,12 @@ System integration, keyboard shortcuts, the MCP server and plugins.
 Click a card's title to fold it down to its header and click again to open it. Section titles inside a card work the same way. Folds are remembered after a restart and saved for the whole app, not per phone. Shortcuts keep working on folded controls. Tab reaches the titles and Space or Enter folds them.
 
 The **Look** section of General in Settings picks the window's look (**Dark**, **Classic**, **OLED** or **Light**) and the **Card colours**. **Monochrome** puts every card in the app's purple instead of its own colour.
+</details>
+
+<details>
+<summary><b>Reordering cards</b></summary>
+
+Right-click a card's header and pick **Reorder cards**, or open **Layout** in General in Settings. The **Card order** window lists the cards in a **Left rail** and a **Right rail**. Drag a card up or down, or into the other rail. With a row focused, Alt+Up and Alt+Down move it and Alt+Left and Alt+Right send it to the other rail. **Reset order** goes back to the default. The new order applies after a restart, and the bar at the bottom has **Revert** and **Restart now**.
 </details>
 
 ## Keyboard shortcuts

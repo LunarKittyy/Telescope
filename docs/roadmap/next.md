@@ -5,6 +5,7 @@ The next release follows 5.1.2. Ticked here means merged and not released yet.
 - [ ] [Auto colour grading: whole look and always on](#auto-colour-grading-whole-look-and-always-on)
 - [ ] [Graphics card choice on laptops with two cards](#graphics-card-choice-on-laptops-with-two-cards)
 - [ ] [A writing pass over docs](#a-writing-pass-over-docs)
+- [x] [A Reset on every card and one for all settings](#a-reset-on-every-card-and-one-for-all-settings)
 
 ## Auto colour grading: whole look and always on
 
@@ -21,3 +22,10 @@ Still open is whether DirectX 12 works on that Intel card, which the reporter ca
 ## A writing pass over docs
 
 A pass over everything in `docs/` against the writing rules: plain and short, British spelling, no AI tells, and each file's `covers` line still right. Docs only, but many files. Medium.
+
+
+## A Reset on every card and one for all settings
+
+Only a few cards have a Reset in their header today (Transforms, Colour grading, Desk, Webcam and the wait screen). Every built-in card that holds settings should get one, lit only while something on it is off its default, and so should the Settings window's sections where it helps. Things people would hate to lose stay put: paired phones, downloads, a loaded LUT. Settings also gets one button that puts every setting back to its default after asking, keeps the paired phones and restarts Telescope.
+
+The card button is already in the kit (`has-reset` in `rust/crates/ui-kit/ui/widgets/card.slint`), so most of the work is each plugin putting its own defaults back and refreshing its card. Medium, spread over many small files.

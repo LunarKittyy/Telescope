@@ -70,6 +70,10 @@ export component OnAirSettings inherits VerticalLayout {
     callback on-edited(string);
     callback off-edited(string);
     callback test-clicked(bool);
+    in property <bool> sign-reset-shown;
+    in property <bool> webhook-reset-shown;
+    callback sign-reset-clicked;
+    callback webhook-reset-clicked;
 
     // What the rows that come and go said last, kept while they fold away
     property <string> held-problem;
@@ -113,6 +117,11 @@ export component OnAirSettings inherits VerticalLayout {
         tip: @tr("Show the people around you that your camera or microphone is in use.");
         icon: Icons.bell;
         hue: Theme.plugin-hue("on_screen");
+        has-reset: true;
+        reset-lit: sign-reset-shown;
+        reset-label: @tr("Reset");
+        reset-detail: @tr("Puts what puts the sign on air back. Your link, address and webhook stay.");
+        reset => { root.sign-reset-clicked(); }
         RailRow {
             icon: Icons.bell;
             label: @tr("Now");
@@ -145,7 +154,7 @@ export component OnAirSettings inherits VerticalLayout {
         icon: Icons.qr;
         hue: Theme.plugin-hue("on_screen");
         has-action: true;
-        action-icon: Icons.reset;
+        action-icon: Icons.link;
         action-tip-detail: new-link-tip;
         action-text: @tr("New link");
         action-enabled: page;
@@ -231,6 +240,11 @@ export component OnAirSettings inherits VerticalLayout {
         keywords: @tr("search" => "smart home light home assistant url http request automation");
         icon: Icons.plug;
         hue: Theme.plugin-hue("on_screen");
+        has-reset: true;
+        reset-lit: webhook-reset-shown;
+        reset-label: @tr("Reset");
+        reset-detail: @tr("Puts the method and the going on and off air texts back. The webhook's address stays.");
+        reset => { root.webhook-reset-clicked(); }
         UnfoldGroup {
             UrlRow {
                 icon: Icons.link;

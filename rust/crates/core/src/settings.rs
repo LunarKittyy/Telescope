@@ -190,6 +190,23 @@ pub fn merge_changes(specs: &[SettingSpec], config: &Value, changes: &Map<String
     if problems.is_empty() { Ok(merged) } else { Err(problems) }
 }
 
+/// What a card's Reset puts back: the defaults, with each spot in `kept` (dotted paths, like "sets" or "masters.gain") taken from the
+/// current config instead, so a reset never throws away what people made or paired.
+pub fn reset_config(config: &Value, defaults: &Value, kept: &[&str]) -> Value {
+    let mut out = if defaults.is_object() { defaults.clone() } else { Value::Object(Map::new()) };
+    for key in kept {
+        if let Some(value) = get_path(config, key) {
+            put_path(&mut out, key, value.clone());
+        }
+    }
+    out
+}
+
+/// Whether a card's Reset would change anything: some spot of the config differs from the defaults, leaving out the spots in `kept`.
+pub fn off_default(config: &Value, defaults: &Value, kept: &[&str]) -> bool {
+    leaf_changes(defaults, config).iter().any(|(path, _, _)| !kept.iter().any(|k| paths_overlap(path, k)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -268,5 +285,16 @@ mod tests {
         assert_eq!(specs[2].describe(&json!({}))["value"], json!(1.0));
         assert_eq!(specs[3].describe(&json!({}))["choices"]["fine"], json!("Careful"));
         assert_eq!(specs[3].describe(&json!({}))["unit"], json!("x"));
+    }
+
+    #[test]
+    fn a_reset_keeps_what_it_is_told_to_and_puts_back_the_rest() {
+        let defaults = json!({"size": 20, "speed": 1.0, "sets": []});
+        let now = json!({"size": 32, "speed": 1.0, "sets": ["my notes"]});
+        assert!(off_default(&now, &defaults, &["sets"]));
+        let back = reset_config(&now, &defaults, &["sets"]);
+        assert_eq!(back, json!({"size": 20, "speed": 1.0, "sets": ["my notes"]}));
+        assert!(!off_default(&back, &defaults, &["sets"]), "only kept spots differ now");
+        assert!(off_default(&back, &defaults, &[]), "without keeping, the notes count as a change");
     }
 }

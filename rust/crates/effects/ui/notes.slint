@@ -59,11 +59,18 @@ export component NotesCard inherits Card {
     callback next-clicked;
     callback send-clicked;
     callback clear-clicked;
+    in property <bool> reset-shown;
+    callback reset-clicked;
 
     title: @tr("Teleprompter");
     tip: @tr("Show your script on the phone's screen so you can read it while looking into the camera.");
     icon: Icons.notes;
     enabled: active;
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Puts the text size, scroll mode and speed back. Your scripts stay.");
+    reset => { root.reset-clicked(); }
 
     RailRow {
         icon: Icons.notes;

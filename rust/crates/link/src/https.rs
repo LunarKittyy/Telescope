@@ -256,6 +256,9 @@ enum Body {
 pub struct Response {
     pub status: u16,
     pub headers: Vec<(String, String)>,
+    /// Monotonic nanoseconds (telescope_core::time::monotonic_ns) just before the request went out, after the connection and its handshake, and
+    /// when the answer's head had come in: the stretch a time the other side read for its answer is somewhere in.
+    pub exchange_ns: (u64, u64),
     reader: BufReader<Box<dyn Stream>>,
     body: Body,
     aborter: Aborter,
@@ -458,6 +461,7 @@ impl PhoneAuth {
             head += &format!("Content-Type: application/json\r\nContent-Length: {}\r\n", body.len());
         }
         head += "\r\n";
+        let sent_ns = telescope_core::time::monotonic_ns();
         stream.write_all(head.as_bytes())?;
         if let Some(body) = req.body {
             stream.write_all(body)?;
@@ -495,7 +499,8 @@ impl PhoneAuth {
         } else {
             Body::UntilClose
         };
-        Ok(Response { status, headers, reader, body, aborter, _socket: shared })
+        let exchange_ns = (sent_ns, telescope_core::time::monotonic_ns());
+        Ok(Response { status, headers, exchange_ns, reader, body, aborter, _socket: shared })
     }
 
     /// A GET or POST whose answer is a capped JSON body.

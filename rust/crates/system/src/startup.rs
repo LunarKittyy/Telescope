@@ -19,6 +19,7 @@ use telescope_core::event::Event;
 use telescope_core::host::Host;
 use telescope_core::i18n::{n_, tr, tr_ctx};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
+use telescope_core::settings::off_default;
 use telescope_core::system::Autostart;
 use telescope_core::ui::{Issue, SettingsSection, SlintSource, UiEvent, UiSpec};
 
@@ -215,6 +216,31 @@ impl StartupPlugin {
             Ok(()) => host.clear_issue(Some(ISSUE), None),
             Err(detail) => host.show_issue(ISSUE, Issue { title: detail, text: String::new(), actions: Vec::new(), kind: "err".into(), details: String::new(), tell_dismiss: false }),
         }
+    }
+
+    /// A fresh plugin's settings: what the Automatic card's Reset goes back to.
+    fn defaults(&self) -> Value {
+        StartupPlugin::new(self.autostart.clone()).get_config()
+    }
+
+    fn automatic_off_default(&self) -> bool {
+        off_default(&self.get_config(), &self.defaults(), &[])
+    }
+
+    /// Automatic's Reset goes through the setters, so the tray, the phone check and the idle timer hear it like any other change.
+    fn reset_automatic(&mut self, host: &mut dyn Host) {
+        let fresh = StartupPlugin::new(self.autostart.clone());
+        self.set_start_on(host, fresh.start_on);
+        self.set_stop_idle(host, fresh.stop_idle);
+        self.set_stop_delay(host, fresh.stop_delay_s);
+        self.set_notify_stop(host, fresh.notify_stop);
+        self.refresh(host);
+    }
+
+    /// The sign-in entry isn't in the settings file, so its Reset runs the same change as the switch does.
+    fn reset_sign_in(&mut self, host: &mut dyn Host) {
+        self.set_open_at_sign_in(host, false);
+        self.refresh(host);
     }
 
     // ── Starting when the phone is ready ──────────────────────────────
@@ -437,6 +463,7 @@ impl StartupPlugin {
             "open-checked": self.autostart.enabled(),
             "open-enabled": !dev,
             "open-tip": if dev { tr("Not available in a dev profile.") } else { String::new() },
+            "reset-shown": !dev && self.autostart.enabled(),
         })
     }
 
@@ -456,6 +483,7 @@ impl StartupPlugin {
             "unit-items": UNITS.iter().map(|(t, _)| tr(t)).collect::<Vec<_>>(),
             "unit-current": self.unit,
             "notify-checked": self.notify_stop,
+            "reset-shown": self.automatic_off_default(),
         })
     }
 
@@ -560,7 +588,12 @@ impl Plugin for StartupPlugin {
         let index = event.args.first().and_then(Value::as_u64).map(|i| i as usize);
         let on = event.args.first().and_then(Value::as_bool).unwrap_or(false);
         match (event.ui.as_str(), event.callback.as_str()) {
-            ("sign-in", "open-toggled") => self.set_open_at_sign_in(host, on),
+            ("sign-in", "open-toggled") => {
+                self.set_open_at_sign_in(host, on);
+                host.set_ui_props("sign-in", &self.sign_in_props());
+            }
+            ("sign-in", "reset-clicked") => self.reset_sign_in(host),
+            ("automatic", "reset-clicked") => self.reset_automatic(host),
             ("sign-in", "shown") | ("automatic", "shown") => self.refresh(host),
             ("automatic", "start-picked") => {
                 if let Some((mode, _)) = index.and_then(|i| START_CHOICES.get(i)) {
@@ -592,6 +625,9 @@ impl Plugin for StartupPlugin {
             }
             ("automatic", "notify-toggled") => self.set_notify_stop(host, on),
             _ => {}
+        }
+        if event.ui == "automatic" && event.callback != "shown" && event.callback != "reset-clicked" {
+            self.show_automatic(host); // the Reset lights while something is off its default
         }
     }
 

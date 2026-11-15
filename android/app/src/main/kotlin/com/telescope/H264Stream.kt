@@ -36,6 +36,35 @@ object H264Stream {
 
     fun withDelimiter(packet: ByteArray): ByteArray = packet + AUD
 
+    // "TELESCOPE-TIME11": the user_data_unregistered UUID that marks the capture time SEI
+    private val TIME_UUID = "TELESCOPE-TIME11".toByteArray(Charsets.US_ASCII)
+
+    /**
+     * An SEI NAL unit carrying the frame's capture time, to go in front of its packet. [realtime] says which clock
+     * [timeNs] is on: true = elapsed realtime (clock byte 0), false = System.nanoTime (1); null sends none.
+     */
+    fun captureTimeSei(realtime: Boolean?, timeNs: Long): ByteArray {
+        if (realtime == null) return ByteArray(0)
+        val payload = ByteArray(9)
+        payload[0] = if (realtime) 0 else 1
+        for (i in 0 until 8) payload[1 + i] = (timeNs ushr (56 - 8 * i)).toByte()
+        val escaped = java.io.ByteArrayOutputStream()
+        var zeros = 0
+        for (b in payload) {
+            if (zeros >= 2 && (b.toInt() and 0xFF) <= 3) { escaped.write(3); zeros = 0 }
+            escaped.write(b.toInt())
+            zeros = if (b.toInt() == 0) zeros + 1 else 0
+        }
+        // Payload size 25 counts the UUID and the unescaped bytes, as the reader sees them after removing emulation prevention
+        val head = byteArrayOf(0, 0, 0, 1, 0x06, 0x05, 25)
+        // The UUID has no zero bytes, so the escape state starts clean at the clock byte
+        return head + TIME_UUID + escaped.toByteArray() + byteArrayOf(0x80.toByte())
+    }
+
+    /** [packet] with its capture time SEI in front, or as it is when the clock is unknown. */
+    fun withCaptureTime(packet: ByteArray, realtime: Boolean?, timeNs: Long): ByteArray =
+        if (realtime == null) packet else captureTimeSei(realtime, timeNs) + packet
+
     // 0 asks for the default; anything else is clamped to what the desktop's slider offers.
     fun bitrateFor(requested: Int, width: Int, height: Int, fps: Int): Int =
         if (requested <= 0) defaultBitrate(width, height, fps) else requested.coerceIn(MIN_BPS, MAX_BPS)

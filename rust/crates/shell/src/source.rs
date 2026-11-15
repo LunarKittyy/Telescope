@@ -15,6 +15,8 @@ pub struct Interface {
     /// `out` properties, which the window can read but not set.
     pub outs: Vec<String>,
     pub callbacks: Vec<String>,
+    /// It is declared `inherits Card`, so it has the card's own properties (title, icon, reorderable).
+    pub card: bool,
 }
 
 /// Every `@tr("...")` and `@tr("context" => "...")` swapped for its translation, so the interpreter needs no gettext of its
@@ -178,6 +180,7 @@ pub fn scan(source: &str, component: &str) -> Interface {
     let mut iface = Interface::default();
     let Some(start) = find_component(&text, component) else { return iface };
     let Some(open) = text[start..].find('{').map(|o| start + o) else { return iface };
+    iface.card = text[start..open].split_whitespace().skip_while(|w| *w != "inherits").nth(1) == Some("Card");
     let mut depth = 0;
     let mut stmt = String::new();
     for c in text[open..].chars() {

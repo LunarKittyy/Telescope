@@ -20,6 +20,7 @@ use telescope_core::link::Link;
 use telescope_core::media::Media;
 use telescope_core::output::{Outputs, SetupAction, SetupResult};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::ui::{Issue, IssueAction, IssueDoes, SettingsSection, SlintSource, UiEvent, UiSpec};
 
 pub const NAME: &str = "setup";
@@ -397,6 +398,7 @@ impl SetupPlugin {
             "custom-w-text": format!("{} px", p.custom_w), "custom-h-text": format!("{} px", p.custom_h),
             "canvas-status": status.text, "canvas-status-kind": status.kind, "canvas-status-shown": p.canvas_status.is_some(),
             "apply-enabled": p.apply_enabled, "apply-text": apply, "apply-tip": tip, "canvas-command": p.canvas_command,
+            "reset-shown": self.reset_shown("video"),
         })
     }
 
@@ -407,6 +409,7 @@ impl SetupPlugin {
             "gain-items": MAX_GAIN_CHOICES.iter().map(|db| format!("+{db} dB")).collect::<Vec<_>>(),
             "gain-current": gain,
             "limiter-checked": self.limiter,
+            "reset-shown": self.reset_shown("microphone"),
         })
     }
 
@@ -426,6 +429,7 @@ impl SetupPlugin {
             "theme-current": self.look.index(),
             "lang-items": self.language_items(), "lang-current": self.panel.lang_current,
             "lang-restart": self.restart_needed(),
+            "reset-shown": self.reset_shown("look"),
             "help-text": if draft { tr("This translation is a first draft and some texts might read a bit oddly.") }
                          else { tr("Missing your language, or spotted a text that reads wrong?") },
         })
@@ -867,6 +871,47 @@ impl SetupPlugin {
         });
     }
 
+    // ── Reset ─────────────────────────────────────────────────────────
+
+    /// What each section's Reset leaves alone: every setting the other sections own. Video also keeps the canvas that is applied, since only Apply changes it.
+    fn reset_kept(section: &str) -> &'static [&'static str] {
+        match section {
+            "video" => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_gain", "limiter", "look", "plugin_hues", "language"],
+            "microphone" => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_zoom", "hw_decode", "hw_decode_chosen", "power_saving", "look", "plugin_hues", "language"],
+            _ => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_zoom", "hw_decode", "hw_decode_chosen", "power_saving", "max_gain", "limiter"],
+        }
+    }
+
+    /// A fresh plugin's settings: what a Reset goes back to.
+    fn defaults(&self) -> Value {
+        SetupPlugin::new(self.outputs.clone(), self.link.clone(), self.media.clone(), &self.version, self.languages.clone()).get_config()
+    }
+
+    /// The picker the canvas starts on, and its custom size.
+    fn canvas_default_current() -> usize {
+        canvas::PRESETS.iter().position(|(l, _)| *l == canvas::AUTO).unwrap_or(0)
+    }
+
+    fn reset_shown(&self, section: &str) -> bool {
+        let canvas_off = section == "video"
+            && (self.panel.canvas_current != Self::canvas_default_current()
+                || (self.panel.custom_w, self.panel.custom_h) != canvas::CUSTOM_DEFAULT);
+        canvas_off || off_default(&self.get_config(), &self.defaults(), Self::reset_kept(section))
+    }
+
+    fn reset(&mut self, host: &mut dyn Host, section: &str) {
+        let cfg = reset_config(&self.get_config(), &self.defaults(), Self::reset_kept(section));
+        if self.set_config(&cfg).is_ok() {
+            self.sync_panel();
+            if section == "video" {
+                // The applied canvas stays until Apply, so only the picker goes back
+                (self.panel.canvas_current, self.panel.custom_w, self.panel.custom_h) = (Self::canvas_default_current(), canvas::CUSTOM_DEFAULT.0, canvas::CUSTOM_DEFAULT.1);
+            }
+            self.catch_up(host);
+            host.schedule_save();
+        }
+    }
+
     // ── Changes from the cards ────────────────────────────────────────
 
     pub fn on_max_zoom(&mut self, host: &mut dyn Host, value: i64) {
@@ -1201,6 +1246,7 @@ impl Plugin for SetupPlugin {
                 }
             }
             ("video", "apply-clicked") => self.apply_canvas(host),
+            ("video" | "microphone" | "look", "reset-clicked") => self.reset(host, id),
             ("microphone", "gain-picked") => {
                 if let Some(db) = MAX_GAIN_CHOICES.get(index.max(0) as usize) {
                     self.on_max_gain(host, *db);

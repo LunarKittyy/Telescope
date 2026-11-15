@@ -1,0 +1,130 @@
+// A row that is dragged up and down a list to put it in another place, as the Card order dialog does.
+
+import { Theme } from "../theme.slint";
+import { Icon, FocusRing } from "basics.slint";
+import { Settle, Tone } from "motion.slint";
+
+// Kind "list-row": a raised strip like a list row: the plugin's colour as a bar, the card's icon and title, and a grip at the right. Held, it follows
+// the pointer (up and down) and the owner says where the others go; let go, it glides into its place. Alt with an arrow key moves it too.
+export component DragRow inherits Rectangle {
+    out property <string> control-kind: "list-row";
+    in property <string> title;
+    // The dim line a screen reader adds (which group the row is in)
+    in property <string> detail;
+    in property <image> icon;
+    in property <color> hue;
+    // Where it goes, from the list's top, when nothing holds it
+    in property <length> to;
+    // This is the row under the pointer, and where the pointer has it
+    in property <bool> held;
+    in property <length> held-y;
+    // Some row is held, so the others take no hover
+    in property <bool> any-held;
+    callback drag-started(length);
+    callback drag-moved(length, length);
+    callback drag-ended;
+    // Alt and an arrow key: which way (-1, 0 or 1 across and down)
+    callback nudge(int, int);
+    place := Settle { to: (root.held ? root.held-y : root.to) / 1px; snap: root.held; }
+    y: round(place.value * 1px / 1phx) * 1phx;
+    z: root.held ? 10 : 0;
+    tone := Tone { on: (touch.has-hover && !root.any-held) || root.held; }
+    background: Theme.raise.mix(Theme.hover, tone.value);
+    border-radius: Theme.r-ctl;
+    border-width: Theme.ctl-outline-w(touch.has-hover && !root.any-held, root.held);
+    border-color: Theme.ctl-outline(touch.has-hover && !root.any-held, root.held);
+    drop-shadow-blur: root.held ? Theme.u(4) : 0px;
+    drop-shadow-offset-y: root.held ? Theme.u(1) : 0px;
+    drop-shadow-color: root.held ? Theme.shadow : transparent;
+    accessible-role: button;
+    accessible-label: root.title;
+    accessible-description: root.detail;
+    forward-focus: focus;
+    focus := FocusScope {
+        key-pressed(e) => {
+            if (e.modifiers.alt) {
+                if (e.text == Key.UpArrow) { root.nudge(0, -1); return accept; }
+                if (e.text == Key.DownArrow) { root.nudge(0, 1); return accept; }
+                if (e.text == Key.LeftArrow) { root.nudge(-1, 0); return accept; }
+                if (e.text == Key.RightArrow) { root.nudge(1, 0); return accept; }
+            }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    Rectangle {
+        x: Theme.u(3);
+        y: Theme.u(3);
+        width: Theme.u(2);
+        height: parent.height - Theme.u(6);
+        border-radius: self.width / 2;
+        background: root.hue;
+    }
+    Icon {
+        x: Theme.u(9);
+        y: (parent.height - self.height) / 2;
+        source: root.icon;
+        tint: root.hue;
+        width: Theme.icon;
+        height: Theme.icon;
+        accessible-role: none;
+    }
+    Text {
+        x: Theme.u(9) + Theme.icon + Theme.u(4);
+        y: -1phx;
+        width: parent.width - self.x - Theme.u(16);
+        height: parent.height;
+        text: root.title;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        font-weight: Theme.w-value;
+        color: Theme.ink;
+        vertical-alignment: center;
+        overflow: elide;
+        accessible-role: none;
+    }
+    // The grip: two columns of three dots
+    Rectangle {
+        x: parent.width - Theme.u(10);
+        y: (parent.height - Theme.u(7)) / 2;
+        width: Theme.u(4.5);
+        height: Theme.u(7);
+        accessible-role: none;
+        for i in 6: Rectangle {
+            x: Math.mod(i, 2) * Theme.u(3);
+            y: Math.floor(i / 2) * Theme.u(3);
+            width: Theme.u(1.5);
+            height: Theme.u(1.5);
+            border-radius: self.width / 2;
+            background: Theme.faint;
+        }
+    }
+    touch := TouchArea {
+        property <length> grab;
+        property <bool> down;
+        property <bool> dragging;
+        mouse-cursor: MouseCursor.grab;
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                down = true;
+                grab = self.mouse-y;
+                focus.focus();
+            } else if (e.kind == PointerEventKind.up || e.kind == PointerEventKind.cancel) {
+                down = false;
+                if (dragging) {
+                    dragging = false;
+                    root.drag-ended();
+                }
+            }
+        }
+        moved => {
+            if (down && !dragging && abs(self.mouse-y - grab) > Theme.u(2)) {
+                dragging = true;
+                root.drag-started(root.y);
+            }
+            if (dragging) {
+                root.drag-moved(root.y + self.mouse-y - grab, grab);
+            }
+        }
+    }
+}

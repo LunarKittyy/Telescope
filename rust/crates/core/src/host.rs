@@ -175,6 +175,33 @@ pub trait FrameStore: Send + Sync {
     fn stream_frame(&self, source_id: Option<&str>) -> Option<StreamFrame>;
     /// Sends frame out on source_id's virtual camera in place of the stream's newest one, numbered number; false once it's newer.
     fn replace_frame(&self, source_id: Option<&str>, frame: Frame, number: u64) -> bool;
+    /// The frame of source_id's stream (None: the one with no phone picked) from its recent history whose Frame::capture_ns is nearest
+    /// to capture_ns (this computer's monotonic clock; the newer one when two are as near). None when the stream has no frames with a capture
+    /// time, or nothing asked to keep any (HostFrames::want_frame_history): without that only its newest frame is held. Frames made before the
+    /// latest pipeline_epoch change are never handed out: they may have gone out before a step that hides things came on.
+    fn stream_frame_near(&self, _source_id: Option<&str>, _capture_ns: u64) -> Option<StreamFrame> {
+        None
+    }
+    /// What source_id's virtual camera is sending right now: the stream's own newest frame, or what replace_frame put in its place. None until
+    /// the stream has sent one. The number is what replace_frame wants.
+    fn outgoing_frame(&self, source_id: Option<&str>) -> Option<StreamFrame> {
+        self.stream_frame(source_id)
+    }
+    /// The same as replace_frame, but only while what the camera sends is still the picture whose pixels are `expected` (outgoing_frame's frame.data):
+    /// something else put another one out since, and this must not undo that. A store that can do both at once should; this one looks first.
+    fn replace_frame_if(&self, source_id: Option<&str>, expected: &Arc<Vec<u8>>, frame: Frame, number: u64) -> bool {
+        self.outgoing_frame(source_id).is_some_and(|s| Arc::ptr_eq(&s.frame.data, expected)) && self.replace_frame(source_id, frame, number)
+    }
+    /// Goes up whenever any stream's frame steps are handed out again (a Blur came on, a plugin changed its step), for every stream at once:
+    /// what a plugin kept of a stream's frames from an earlier epoch may have missed a step that hides things, so it must not be put on show.
+    fn pipeline_epoch(&self) -> u64 {
+        0
+    }
+    /// How well source_id's capture times line up with this computer's clock, None while that isn't known: the stream has no capture times,
+    /// or its phone hasn't answered a round trip yet.
+    fn clock_sync(&self, _source_id: Option<&str>) -> Option<crate::clock::ClockSync> {
+        None
+    }
 }
 
 /// Changes a stream's H.264 access units before they're decoded (HostPackets); one per stream, on its thread.
@@ -523,6 +550,10 @@ pub trait HostFrames {
     /// any owner wants them nothing is paused; without one the host may stop running the steps and vision on frames nobody sees, and carries on at
     /// once when an app opens the camera. Ask only while the work is needed and let go after.
     fn want_frames(&mut self, _owner: &str, _on: bool) {}
+    /// owner needs each stream's last `frames` frames kept, so FrameStore::stream_frame_near can find the one taken at a given moment (pairing the
+    /// pictures of two cameras). Frames are shared, not copied, so a few cost nothing to hold, but they aren't recycled while held: ask only while
+    /// the work is needed and let go with 0. The host keeps as many as the biggest ask, and none while nobody asks.
+    fn want_frame_history(&mut self, _owner: &str, _frames: usize) {}
 }
 
 /// Something moving in parts of the shown stream's picture.

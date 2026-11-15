@@ -403,6 +403,7 @@ fn an_icon_takes_no_tooltip_of_its_own() {
 const DRAGS_THAT_ARE_NOT_VALUES: &[(&str, &str)] = &[
     ("ui-kit/ui/widgets/menu.slint", "the pointer only hovers a row"),
     ("ui-kit/ui/widgets/pins.slint", "a pin is carried along the bar by the pointer, it sets no number"),
+    ("ui-kit/ui/widgets/reorder.slint", "a row is carried up and down its list by the pointer, it sets no number"),
     ("ui-kit/ui/widgets/wheel.slint", "it reports Shift and the owner takes the pace from the same tenth (WHEEL_FINE in effects/src/editors.rs)"),
     ("effects/ui/composite_editor.slint", "Shift there already means stretch, and Alt crop"),
 ];

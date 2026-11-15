@@ -49,7 +49,7 @@ pub fn builtins(services: Option<&Services>, bus: &BusSender) -> Vec<Box<dyn Plu
 pub const ORDER: &[&str] = &[
     "setup", "connection", "camera_control", "browser_camera", "webcam", "cinema", "face_exposure", "background",
     "chroma_key", "fun_pack", "privacy_blur", "photos", "colour_grading", "filters", "stream_output", "transforms", "framing",
-    "desk", "name_tag", "notes", "composite", "microphone", "presets", "qr_reader", "preview", "onboarding",
+    "desk", "name_tag", "notes", "stereo", "composite", "microphone", "presets", "qr_reader", "preview", "onboarding",
     "monitoring", "stats", "updates", "wait_screen", "on_air", "shortcuts", "startup", "mcp",
 ];
 

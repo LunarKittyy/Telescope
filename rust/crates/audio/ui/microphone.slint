@@ -157,6 +157,8 @@ export component MicrophoneCard inherits Card {
     callback gain-moved(float);
     callback auto-toggled(bool);
     callback nr-toggled(bool);
+    in property <bool> reset-shown;
+    callback reset-clicked;
     callback fix-clicked;
     callback meter-clicked;
     callback confirm-answered(bool);
@@ -183,6 +185,11 @@ export component MicrophoneCard inherits Card {
     switch-tip: toggle-name;
     switch-tip-detail: toggle-tip;
     switch-toggled(v) => { root.toggled(v); }
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Puts the gain, auto level and noise reduction back. The switch and mute stay as they are.");
+    reset => { root.reset-clicked(); }
 
     changed confirm-asked => {
         question.show();

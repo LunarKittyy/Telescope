@@ -194,6 +194,23 @@ A plain photo goes into the stream's own camera session next to the video and th
 
 The desktop gives up on a photo whose status hasn't moved for 45 s plus its exposures (`timeout`, and it tells the phone to forget it), and ends one as `interrupted` as soon as its own stream to that phone stops or restarts, rather than waiting to lose the phone.
 
+## Capture time in H.264
+
+Every H.264 frame packet, on `/v1/video.h264` and on `/v1/video.udp`, starts with one SEI NAL unit (not the SPS/PPS config packet) that says when the camera captured the frame:
+
+```
+00 00 00 01   start code
+06            NAL header: SEI
+05            payload type 5, user_data_unregistered
+19            payload size, 25
+54 45 4C 45 53 43 4F 50 45 2D 54 49 4D 45 31 31   "TELESCOPE-TIME11"
+cc            clock: 0 = elapsedRealtimeNanos (clock_boot_ns), 1 = System.nanoTime (clock_mono_ns)
+tt x 8        capture time in nanoseconds on that clock, big endian
+80            trailing bits
+```
+
+The clock and time bytes carry the usual H.264 emulation prevention (a `03` goes in after `00 00` when the next byte is `00` to `03`), which a reader removes. The packet after the SEI is exactly what the encoder made, so the access unit reads `AUD [SPS PPS] SEI slice`. Decoders that don't know the UUID skip it. The phone picks the clock per frame from the timestamp itself (the one that puts it 0 to 2 s before now, the smaller gap if both do), because the camera's declared timestamp source isn't always what the encoder sees; a frame that fits neither gets no SEI.
+
 ## `GET /v1/video.udp` (experimental)
 
 The same H.264 as `/v1/video.h264`, but the frames come over UDP, so one lost packet on a busy Wi-Fi doesn't hold up everything behind it the way TCP does. The desktop only asks for it on a Wi-Fi route with the Light format and **UDP on Wi-Fi** switched on in Settings (off by default). With Dynamic it also needs `udpDynamic` in the phone's `/v1/ping` (an older phone gets Dynamic over TCP as before). Changing the switch, or entering Dynamic with an older phone, reconnects onto the appropriate transport.
@@ -245,9 +262,13 @@ Served on port 8766 by `SessionServer` - unlike the endpoints above, it exists w
   "localOnly": true,
   "phoneId": "3f9c…",
   "phoneName": "Pixel 8 Pro",
-  "udpDynamic": true
+  "udpDynamic": true,
+  "clock_boot_ns": 812345678901234,
+  "clock_mono_ns": 812345012345678
 }
 ```
+
+`clock_boot_ns` (`SystemClock.elapsedRealtimeNanos()`) and `clock_mono_ns` (`System.nanoTime()`) are the phone's two clocks, read just before the answer is written. With the round trip time, the desktop can turn the capture times in the H.264 stream (see [Capture time](#capture-time-in-h264)) into its own clock. An older phone leaves both out. They're optional, so `protocol` stays as it is.
 
 `udpDynamic` is true on a phone that runs Dynamic over UDP from the desktop's reports (an older phone leaves it out). `streaming` is a live stream, `busy` is a start in flight (camera opening, session configuring), and `localOnly` mirrors the app's **Local only - USB** setting, so the desktop can name that mismatch instead of timing out against an address nothing is listening on. `streamingFor` is the name of another paired computer that stream or start belongs to (see [One computer per stream](#one-computer-per-stream)); it's left out when the stream is the asking computer's, or nobody's. An older phone never sends it.
 

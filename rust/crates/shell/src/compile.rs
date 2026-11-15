@@ -18,6 +18,8 @@ pub fn shell_files() -> Vec<(String, String)> {
         ("shell/frame.slint".into(), include_str!("../ui/frame.slint").into()),
         ("shell/settings.slint".into(), include_str!("../ui/settings.slint").into()),
         ("shell/preview.slint".into(), include_str!("../ui/preview.slint").into()),
+        ("shell/restart-bar.slint".into(), include_str!("../ui/restart-bar.slint").into()),
+        ("shell/card-order.slint".into(), include_str!("../ui/card-order.slint").into()),
     ]
 }
 

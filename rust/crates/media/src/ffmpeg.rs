@@ -307,17 +307,27 @@ impl Codec {
 
     /// Decodes one access unit (or one whole JPEG); every frame it finishes goes to done.
     pub fn decode(&mut self, unit: &[u8], mut done: impl FnMut(Frame)) -> Result<u32, Fault> {
-        self.feed(unit, Some(&mut done))
+        self.feed(unit, None, Some(&mut done))
     }
 
     /// Decodes one access unit, keeping the newest picture it finishes on the decoder's side for take_newest. A picture that a
     /// later one replaces is never downloaded or converted.
     pub fn decode_newest(&mut self, unit: &[u8]) -> Result<u32, Fault> {
-        self.feed(unit, None)
+        self.feed(unit, None, None)
+    }
+
+    /// decode_newest with a pts on the packet, which comes back on the picture it decodes (take_newest_stamped) whatever the decoder holds back or reorders.
+    pub fn decode_newest_at(&mut self, unit: &[u8], pts: Option<i64>) -> Result<u32, Fault> {
+        self.feed(unit, pts, None)
     }
 
     /// The newest picture decode_newest kept, as a frame, and nothing is kept after it.
     pub fn take_newest(&mut self) -> Result<Option<Frame>, Fault> {
+        Ok(self.take_newest_stamped()?.map(|(frame, _)| frame))
+    }
+
+    /// take_newest, with the pts the packet that made the picture had been given (None when it had none).
+    pub fn take_newest_stamped(&mut self) -> Result<Option<(Frame, Option<i64>)>, Fault> {
         // SAFETY: held and frame are this codec's own frames; move_ref leaves held empty, and take_frame reads the picture in frame
         unsafe {
             if (*self.held).buf[0].is_null() {
@@ -326,9 +336,9 @@ impl Codec {
             ff::av_frame_unref(self.frame);
             ff::av_frame_move_ref(self.frame, self.held);
             let began = monotonic_ns();
-            let frame = self.take_frame()?;
+            let taken = self.take_frame()?;
             span("take_frame", began);
-            Ok(Some(frame))
+            Ok(Some(taken))
         }
     }
 
@@ -338,7 +348,7 @@ impl Codec {
         unsafe { ff::av_frame_unref(self.held) }
     }
 
-    fn feed(&mut self, unit: &[u8], mut done: Option<&mut dyn FnMut(Frame)>) -> Result<u32, Fault> {
+    fn feed(&mut self, unit: &[u8], pts: Option<i64>, mut done: Option<&mut dyn FnMut(Frame)>) -> Result<u32, Fault> {
         #[cfg(test)]
         if self.refusals > 0 {
             self.refusals -= 1;
@@ -357,11 +367,16 @@ impl Codec {
         unsafe {
             (*self.packet).data = input as *mut u8;
             (*self.packet).size = unit.len() as i32;
+            // A picture is shown in the order it's decoded, but a decoder that holds some back keeps each one's own pts with it
+            (*self.packet).pts = pts.unwrap_or(ff::AV_NOPTS_VALUE);
+            (*self.packet).dts = pts.unwrap_or(ff::AV_NOPTS_VALUE);
             let began = monotonic_ns();
             let r = ff::avcodec_send_packet(self.ctx, self.packet);
             span("decode", began);
             (*self.packet).data = ptr::null_mut();
             (*self.packet).size = 0;
+            (*self.packet).pts = ff::AV_NOPTS_VALUE;
+            (*self.packet).dts = ff::AV_NOPTS_VALUE;
             if r == ff::AVERROR_INVALIDDATA {
                 return Err(Fault::Invalid);
             }
@@ -385,7 +400,7 @@ impl Codec {
                 match done.as_mut() {
                     Some(done) => {
                         let began = monotonic_ns();
-                        let frame = self.take_frame()?;
+                        let (frame, _) = self.take_frame()?;
                         span("take_frame", began);
                         done(frame);
                     }
@@ -441,8 +456,10 @@ impl Codec {
         Ok(())
     }
 
-    /// The decoded picture as one packed I420 frame (NV12 from the card is split into U and V).
-    unsafe fn take_frame(&mut self) -> Result<Frame, Fault> {
+    /// The decoded picture as one packed I420 frame (NV12 from the card is split into U and V), and the pts its packet had.
+    unsafe fn take_frame(&mut self) -> Result<(Frame, Option<i64>), Fault> {
+        // Read off the decoder's own frame (on a card that's the surface, which the copy to memory leaves be)
+        let pts = Some((*self.frame).pts).filter(|&p| p != ff::AV_NOPTS_VALUE);
         let mut src = self.frame;
         if Hw::from_pixel_format((*src).format).is_some() {
             self.copy_off_the_card()?;
@@ -523,10 +540,10 @@ impl Codec {
         ff::av_frame_unref(self.frame);
         self.pictures = self.pictures.saturating_add(1);
         let frame = Frame::new(w as u32, h as u32, PixelFormat::I420, i420);
-        Ok(match bgr {
+        Ok((match bgr {
             Some(bgr) => frame.with_lazy_bgr(bgr),
             None => frame,
-        })
+        }, pts))
     }
 }
 
@@ -1194,7 +1211,7 @@ mod extract_tests {
                 unsafe {
                     load(&mut codec, fmt, w, h, matrix, full, n as u32 + 1);
                     let want = reference(expected(&codec, w, h), w, h, matrix, full);
-                    let got = codec.take_frame().unwrap();
+                    let got = codec.take_frame().unwrap().0;
                     assert_eq!((got.width as usize, got.height as usize), (w, h), "{name} {w}x{h}");
                     assert!(*got.data == want, "{name} {w}x{h} differs from its definition");
                 }
@@ -1216,7 +1233,7 @@ mod extract_tests {
                     unsafe {
                         load(&mut codec, fmt, w, h, matrix, full, n as u32 + 1);
                         let began = Instant::now();
-                        let frame = codec.take_frame().unwrap();
+                        let frame = codec.take_frame().unwrap().0;
                         times.push(began.elapsed().as_nanos() as u64);
                         if round == 0 {
                             hash = frame.data.iter().fold(1469598103934665603u64, |a, &b| (a ^ b as u64).wrapping_mul(1099511628211));

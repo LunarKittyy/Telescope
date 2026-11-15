@@ -1248,3 +1248,16 @@ fn cut_in_on_yuv_planes_looks_like_the_one_in_rgb() {
         assert!(psnr > 44.0 && off < 0.03, "cut-in {cut}: {psnr:.1} dB, {:.3}% off by more than 3, worst {worst}", off * 100.0);
     }
 }
+
+#[test]
+fn reset_puts_the_settings_back_and_goes_dark() {
+    let mut rig = Rig::new(None, "ready");
+    rig.set_mode("blur");
+    rig.ui("blur-moved", vec![json!(9)]);
+    rig.ui("edges-moved", vec![json!(7)]);
+    assert_eq!(rig.shown("reset-shown"), json!(true));
+    rig.ui("reset-clicked", vec![]);
+    assert_eq!(rig.plugin.get_config(), BackgroundPlugin::new().get_config());
+    assert_eq!(rig.shown("reset-shown"), json!(false));
+    assert!(rig.host.calls.iter().any(|c| c == "schedule_save"));
+}

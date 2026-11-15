@@ -940,3 +940,37 @@ fn the_credit_link_splits_around_its_name() {
     assert_eq!(split_link("Made by <a href=\"{url}\">LunarKittyy</a>"), ("Made by ".into(), "LunarKittyy".into(), String::new()));
     assert_eq!(split_link("Von <a href=\"x\">LunarKittyy</a> gemacht"), ("Von ".into(), "LunarKittyy".into(), " gemacht".into()));
 }
+
+#[test]
+fn each_reset_puts_back_only_its_own_section() {
+    let mut r = Rig::linux();
+    let fresh = r.plugin.defaults();
+    r.ui("video", "zoom-committed", vec![json!("20×")]);
+    r.ui("video", "saving-toggled", vec![json!(true)]);
+    r.ui("video", "hw-toggled", vec![json!(false)]);
+    r.ui("video", "canvas-picked", vec![json!(2)]);
+    r.ui("microphone", "gain-picked", vec![json!(2)]);
+    r.ui("microphone", "limiter-toggled", vec![json!(false)]);
+    r.ui("look", "hues-picked", vec![json!(1)]);
+    r.ui("look", "theme-picked", vec![json!(1)]);
+    r.ui("look", "lang-picked", vec![json!(2)]);
+    assert!(r.plugin.reset_shown("video") && r.plugin.reset_shown("microphone") && r.plugin.reset_shown("look"));
+
+    r.ui("video", "reset-clicked", vec![]);
+    let cfg = r.plugin.get_config();
+    assert_eq!((cfg["max_zoom"].clone(), cfg["power_saving"].clone(), cfg.get("hw_decode_chosen").cloned()), (fresh["max_zoom"].clone(), fresh["power_saving"].clone(), None));
+    assert_eq!((cfg["max_gain"].clone(), cfg["limiter"].clone(), cfg["plugin_hues"].clone(), cfg["language"].clone()), (json!(36), json!(false), json!(false), json!("sv")));
+    assert!(!r.plugin.reset_shown("video") && r.plugin.reset_shown("microphone") && r.plugin.reset_shown("look"));
+    assert!(r.host.calls.iter().any(|c| c.starts_with("set_ui_props video") && c.contains("\"reset-shown\":false")));
+
+    r.ui("microphone", "reset-clicked", vec![]);
+    assert!(!r.plugin.reset_shown("microphone") && r.plugin.reset_shown("look"));
+    assert_eq!(r.plugin.get_config()["language"], json!("sv"));
+
+    r.ui("look", "reset-clicked", vec![]);
+    assert_eq!(r.plugin.get_config(), fresh);
+    assert!(!r.plugin.reset_shown("look"));
+    assert_eq!(r.host.plugin_hues, Some(true));
+    assert_eq!(r.plugin.look_props()["lang-restart"], json!(false));
+    assert!(r.host.calls.iter().any(|c| c == "schedule_save"));
+}

@@ -99,6 +99,8 @@ export component CameraCard inherits Card {
     callback torch-toggled(bool);
     callback nr-picked(int);
     callback edge-picked(int);
+    in property <bool> reset-shown;
+    callback reset-clicked;
 
     title: @tr("Camera");
     tip: @tr("Exposure, white balance, focus, lenses and the phone camera's other settings.");
@@ -106,6 +108,11 @@ export component CameraCard inherits Card {
     // dim_until_paired: faded and disabled until there's a phone
     enabled: active;
     visible: !phone-only-hidden;
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Goes back to automatic exposure, focus and white balance, and puts the other settings back. The lens stays.");
+    reset => { root.reset-clicked(); }
 
     // The lens tiles: dim ones before the phone has told its lenses, and the row reflows with motion when the real count arrives or changes. Up to five
     // tiles are the kit's LensRow; more than five lenses, or fewer columns than lenses, go in rows of a PictureSegmented (one outline that goes across and down).

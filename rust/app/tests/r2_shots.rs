@@ -12,6 +12,7 @@ use telescope_effects::colour_grading::ColourGradingPlugin;
 use telescope_effects::face_exposure::FaceExposurePlugin;
 use telescope_effects::fun_pack::FunPackPlugin;
 use telescope_effects::name_tag::NameTagPlugin;
+use telescope_effects::stereo_plugin::StereoPlugin;
 use telescope_shell::plugins::camera_control::CameraControl;
 use telescope_shell::offscreen;
 use telescope_shell::source::to_property;
@@ -462,4 +463,37 @@ fn desk_tile_shots() {
     let card = card_of(&mut telescope_effects::desk::DeskPlugin::new(), "extras");
     shoot(&dir, "desk", &card, 406.0, &[json!({"active": true, "on": true, "clean-current": 1, "shape-current": 0})], &nothing);
     shoot(&dir, "desk-shape-a4", &card, 406.0, &[json!({"active": true, "on": true, "clean-current": 2, "shape-current": 2})], &nothing);
+}
+
+#[test]
+fn stereo_shots() {
+    let Some(dir) = out() else { return };
+    let card = card_of(&mut StereoPlugin::new(), "streaming");
+    shoot(&dir, "stereo-off", &card, 406.0, &[], &nothing);
+    let sync = json!({"status": "In sync", "status-kind": "status_ok", "status-detail": "The two pictures were taken within half a frame of each other."});
+    let on = json!({"on": true, "match-enabled": true});
+    // Fine tune shut (the card as it opens), with two phones running
+    shoot(&dir, "stereo-on-in-sync", &card, 406.0, &[on.clone(), sync.clone()], &nothing);
+    // Fine tune open, nothing changed yet
+    shoot(&dir, "stereo-on-fine-tune-open", &card, 406.0, &[on.clone(), sync.clone(), json!({"fine-open": true})], &nothing);
+    // Fine tune open with every slider moved, and again shut (the icon shows that something is set)
+    let moved = json!({
+        "depth": 1.5, "depth-text": "+1.5%", "height-shift": -0.8, "height-text": "-0.8%", "size-percent": 108.3, "size-text": "108.3%", "tilt": 1.2,
+        "tilt-text": "+1.2°", "timing": 45.0, "timing-text": "+45 ms", "reset-shown": true,
+    });
+    shoot(&dir, "stereo-on-fine-tune-open-moved", &card, 406.0, &[on.clone(), sync.clone(), moved.clone(), json!({"fine-open": true})], &nothing);
+    shoot(&dir, "stereo-on-fine-tune-shut-moved", &card, 406.0, &[on.clone(), sync.clone(), moved.clone()], &nothing);
+    // Match running, finished, partly finished and failed
+    let matching = json!({"match-enabled": false, "reset-enabled": true, "reset-shown": true, "match-status": "Matching", "match-status-kind": "status_dim", "match-status-detail": "x"});
+    shoot(&dir, "stereo-match-running", &card, 406.0, &[on.clone(), sync.clone(), matching], &nothing);
+    let matched = json!({"reset-enabled": true, "reset-shown": true, "match-status": "Matched", "match-status-kind": "status_ok", "match-status-detail": "x"});
+    shoot(&dir, "stereo-match-done", &card, 406.0, &[on.clone(), sync.clone(), matched.clone()], &nothing);
+    shoot(&dir, "stereo-match-done-fine-tune-open", &card, 406.0, &[on.clone(), sync.clone(), moved, matched, json!({"fine-open": true})], &nothing);
+    let partly = json!({"reset-enabled": true, "reset-shown": true, "match-status": "Partly matched", "match-status-kind": "status_warn", "match-status-detail": "x"});
+    shoot(&dir, "stereo-match-partly", &card, 406.0, &[on.clone(), json!({"status": "Rough sync", "status-kind": "status_warn", "status-detail": "x"}), partly], &nothing);
+    let failed = json!({"match-status": "Match failed", "match-status-kind": "status_warn", "match-status-detail": "x"});
+    shoot(&dir, "stereo-match-failed", &card, 406.0, &[on, sync, failed], &nothing);
+    // red/cyan, swapped, rough sync
+    shoot(&dir, "stereo-on-rough-red-cyan-swapped", &card, 406.0, &[json!({"on": true, "match-enabled": true, "look-current": 1, "swap": true, "status": "Rough sync", "status-kind": "status_warn", "status-detail": "x"})], &nothing);
+    shoot(&dir, "stereo-on-one-stream", &card, 406.0, &[json!({"on": true, "status": "Needs two streams", "status-kind": "status_dim", "status-detail": "x"})], &nothing);
 }

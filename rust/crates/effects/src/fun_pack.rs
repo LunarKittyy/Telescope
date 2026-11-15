@@ -22,6 +22,7 @@ use telescope_core::host::{Host, Poster, View};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::image::with_spares;
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::pose::{Person, BONES, SEEN};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 use telescope_core::view::{upright_to_shown, Geometry};
@@ -429,7 +430,36 @@ impl FunPackPlugin {
             "show-direction": effect == "slit",
             "direction": self.across as i32,
             "problem": problem,
+            "reset-shown": self.reset_shown(),
         })
+    }
+
+    /// What a fresh card has: no effect, the bands down and every slider at its own default.
+    fn defaults() -> Value {
+        let mut cfg = Map::new();
+        cfg.insert("effect".into(), json!("off"));
+        cfg.insert("across".into(), json!(false));
+        for d in &SLIDERS {
+            cfg.insert(d.key.into(), json!(d.default));
+        }
+        Value::Object(cfg)
+    }
+
+    fn reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &Self::defaults(), &[])
+    }
+
+    fn reset(&mut self, host: &mut dyn Host) {
+        let cfg = reset_config(&self.get_config(), &Self::defaults(), &[]);
+        // The effect that was running stops as it does when another is picked
+        host.cancel_schedule(T_TICK);
+        self.counting = None;
+        self.hub.state.lock().unwrap().grab = None;
+        if self.set_config(&cfg).is_ok() {
+            self.pending = false;
+            self.apply(host, true);
+            host.schedule_save();
+        }
     }
 
     fn show(&self, host: &mut dyn Host) {
@@ -728,6 +758,7 @@ impl Plugin for FunPackPlugin {
             "clone-clicked" => self.start_countdown(host, Grab::Clone),
             "clean-clicked" => self.clean_up(host),
             "clear-clicked" => self.clear(host),
+            "reset-clicked" => self.reset(host),
             "download-clicked" => host.download_vision(),
             "slider-moved" => self.set_slider(host, (n(0) as usize).min(4), n(1).round() as i64),
             "direction-picked" => {

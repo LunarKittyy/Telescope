@@ -27,6 +27,7 @@ pub fn fit_frame(frame: &Frame, width: u32, height: u32) -> Frame {
     let mut fitted = Frame::new(width, height, PixelFormat::I420, out);
     fitted.number = frame.number;
     fitted.time_ns = frame.time_ns;
+    fitted.capture_ns = frame.capture_ns;
     fitted
 }
 

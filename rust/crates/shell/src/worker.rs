@@ -76,11 +76,20 @@ pub struct Opened {
     pub codec: Codec,
     pub feed: Box<dyn VideoFeed>,
     pub own_decoder: Option<Box<dyn Decoder>>,
+    /// Where the phone's clock offset is kept, for turning the capture times in its video into this computer's clock.
+    pub clock: Option<Arc<telescope_core::clock::PhoneClock>>,
 }
 
 impl From<(Codec, Box<dyn VideoFeed>)> for Opened {
     fn from((codec, feed): (Codec, Box<dyn VideoFeed>)) -> Opened {
-        Opened { codec, feed, own_decoder: None }
+        Opened { codec, feed, own_decoder: None, clock: None }
+    }
+}
+
+impl Opened {
+    /// What a phone session's video gave, with the session's clock.
+    pub fn of_session(session: &dyn telescope_core::link::PhoneSession, opened: (Codec, Box<dyn VideoFeed>)) -> Opened {
+        Opened { clock: session.phone_clock(), ..Opened::from(opened) }
     }
 }
 
@@ -259,6 +268,7 @@ pub fn fit_frame(frame: &Frame, width: u32, height: u32) -> Frame {
     let mut fitted = Frame::new(width, height, PixelFormat::I420, out);
     fitted.number = frame.number;
     fitted.time_ns = frame.time_ns;
+    fitted.capture_ns = frame.capture_ns;
     fitted
 }
 
@@ -273,6 +283,7 @@ pub fn to_nv12(frame: &Frame) -> Frame {
     }
     let mut nv = Frame::new(frame.width, frame.height, PixelFormat::Nv12, out);
     nv.number = frame.number;
+    nv.capture_ns = frame.capture_ns;
     nv
 }
 
@@ -282,11 +293,16 @@ struct Ctx {
     vision: Option<Arc<dyn telescope_core::vision::VisionService>>,
     /// How many times the view had turned when the steps these frames go through were handed over: their pictures are of that view.
     view_epoch: u64,
+    /// The pipeline epoch when the steps began on this frame (FrameContext::entry_epoch).
+    entry_epoch: u64,
 }
 
 impl FrameContext for Ctx {
     fn source_id(&self) -> &str {
         &self.source_id
+    }
+    fn entry_epoch(&self) -> Option<u64> {
+        Some(self.entry_epoch)
     }
     fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
         self.vision.as_ref()?.person_mask_in(&self.source_id, frame, frame.width as usize, frame.height as usize, self.view_epoch)
@@ -406,7 +422,7 @@ struct Shared {
     preview_size: AtomicU64,
     handover_busy: AtomicBool,
     /// A hand_over()'s reader, healthy and waiting to take over: (cap, url, taken).
-    handover_ready: Mutex<Option<(Cap, String, Arc<Flag>)>>,
+    handover_ready: Mutex<Option<(Cap, String, Arc<Flag>, Option<Arc<telescope_core::clock::PhoneClock>>)>>,
     handover_thread: Mutex<Option<std::thread::JoinHandle<()>>>,
 }
 
@@ -758,7 +774,8 @@ impl Shared {
         }
     }
 
-    fn open_cap_with(&self, opener: &Opener) -> Result<Cap, String> {
+    /// The reader the opener makes and the clock its capture times are read against (the slot takes it once the reader is the stream's).
+    fn open_cap_with(&self, opener: &Opener) -> Result<(Cap, Option<Arc<telescope_core::clock::PhoneClock>>), String> {
         // Listed before the stop flag is looked at, so a stop either sees this open in the list or is seen here
         let open = telescope_core::media::OpenStop::default();
         self.opening.lock().unwrap().push(open.clone());
@@ -767,20 +784,23 @@ impl Shared {
         }
         let opened = opener(&open);
         self.opening.lock().unwrap().retain(|o| !o.is(&open));
-        let Opened { codec, feed, own_decoder } = opened?;
+        let Opened { codec, feed, own_decoder, clock } = opened?;
         let options = DecodeOptions { hardware: self.hardware };
         // Packets only the source understands go through its decoder, one at a time like JPEGs, newest first
         if let Some(decoder) = own_decoder {
-            return Ok(Cap::Jpegs { feed, decoder, own: true });
+            return Ok((Cap::Jpegs { feed, decoder, own: true }, clock));
         }
         match codec {
-            Codec::Mjpeg => Ok(Cap::Jpegs { feed, decoder: self.media.decoder(codec, &options)?, own: false }),
+            Codec::Mjpeg => Ok((Cap::Jpegs { feed, decoder: self.media.decoder(codec, &options)?, own: false }, clock)),
             _ => {
                 let options = DecodeOptions { hardware: self.hardware || self.default_card() };
                 let mut decoder = match &self.tap {
                     Some(tap) => self.media.decoder_with_tap(codec, &options, tap.clone())?,
                     None => self.media.decoder(codec, &options)?,
                 };
+                if let Some(clock) = clock.clone() {
+                    decoder.set_phone_clock(clock);
+                }
                 let events = self.events.clone();
                 decoder.on_keyframe_needed(Box::new(move || events(WorkerEvent::NeedsKeyframe)));
                 let cell = decoder.target_fps_cell();
@@ -789,14 +809,15 @@ impl Shared {
                 }
                 *self.fps_cell.lock().unwrap() = cell;
                 *self.timing_probe.lock().unwrap() = decoder.timing_probe();
-                Ok(Cap::Frames(self.media.frame_reader(feed, decoder)?))
+                Ok((Cap::Frames(self.media.frame_reader(feed, decoder)?), clock))
             }
         }
     }
 
     fn open_cap(&self) -> Result<Cap, String> {
         let opener = self.opener.lock().unwrap().clone();
-        let cap = self.open_cap_with(&opener)?;
+        let (cap, clock) = self.open_cap_with(&opener)?;
+        self.slot.set_phone_clock(clock);
         *self.stopper.lock().unwrap() = Some(cap.stopper());
         if self.stopped() {
             cap.stopper().stop();
@@ -827,7 +848,7 @@ impl Shared {
         }
         let pipeline = publish.0.as_mut();
         let arrived = frame.time_ns;
-        let Ok(out) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.prepare(pipeline, seq, frame))) else {
+        let Ok((out, entered)) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.prepare(pipeline, seq, frame))) else {
             log::error!("Frame processing failed; dropping this frame");
             self.stats.dropped(DropReason::StepFailed, 1);
             return false;
@@ -835,7 +856,8 @@ impl Shared {
         self.newest_arrival.store(arrived, Ordering::Relaxed);
         {
             let mut published = self.published.lock().unwrap();
-            self.slot.publish(out);
+            // stamped with the epoch it was made under, not the one it comes out in
+            self.slot.publish_at(out, entered);
             *published += 1;
         }
         publish.1 = seq;
@@ -852,9 +874,12 @@ impl Shared {
         let Some((steps, epoch)) = self.next_steps.lock().unwrap().take() else { return };
         self.steps_replaced.store(true, Ordering::SeqCst);
         self.view_epoch.store(epoch, Ordering::SeqCst);
+        // what the history holds went out under the old steps: a plugin pairing frames must not get one that was clear before a Blur came on
+        self.slot.forget_history();
         let pipeline = publish.0.as_mut();
         pipeline.set_steps(steps);
-        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: epoch };
+        let entered = self.slot.epoch();
+        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: epoch, entry_epoch: entered };
         let hidden = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pipeline.hide_again(cached, &ctx))).unwrap_or_else(|_| {
             log::error!("Hiding the frame on the camera failed");
             None
@@ -863,18 +888,21 @@ impl Shared {
             let mut published = self.published.lock().unwrap();
             // Counted under the lock the camera reads frames with, so a frame it already has queued is known to be from before
             self.hidings.fetch_add(1, Ordering::SeqCst);
-            self.slot.publish(out);
+            self.slot.publish_at(out, entered);
             *published += 1;
         }
     }
 
     /// _prepare: the steps as they are now, the frame at its size, and the frame through the steps.
-    fn prepare(&self, pipeline: &mut dyn FramePipeline, seq: u64, frame: Frame) -> Frame {
+    /// Hands back the epoch the pipeline was in when the steps began on the frame too.
+    fn prepare(&self, pipeline: &mut dyn FramePipeline, seq: u64, frame: Frame) -> (Frame, u64) {
         let next_steps = self.next_steps.lock().unwrap().take();
         let replaced = next_steps.is_some() | self.steps_replaced.swap(false, Ordering::SeqCst);
         if let Some((steps, epoch)) = next_steps {
             pipeline.set_steps(steps);
             self.view_epoch.store(epoch, Ordering::SeqCst);
+            // what was published before went out under the old steps (hide_cached did this too when there was a frame to hide)
+            self.slot.forget_history();
         }
         if let Some(steps) = self.next_colour.lock().unwrap().take() {
             pipeline.replace_steps("colour", telescope_core::frame::FrameStage::Colour, steps);
@@ -912,8 +940,10 @@ impl Shared {
             let upright = self.vision.as_ref().map(|f| f.upright.lock().unwrap().for_frame(frame.width, frame.height)).expect("a feed");
             motion.feed(&frame, &self.source_id, Some(&upright), telescope_core::time::monotonic_ns() as f64 / 1e9);
         }
-        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: self.view_epoch.load(Ordering::SeqCst) };
-        pipeline.process(frame, &ctx)
+        // read before the steps run: a change of steps while they do leaves this frame marked as from before it
+        let entered = self.slot.epoch();
+        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: self.view_epoch.load(Ordering::SeqCst), entry_epoch: entered };
+        (pipeline.process(frame, &ctx), entered)
     }
 
     /// Whether the frame steps and vision are paused: only the main camera's stream, once an app has not read the camera and nothing has
@@ -1223,9 +1253,9 @@ impl Shared {
             self.open_cap_with(&opener)
         };
         match opened {
-            Ok(mut cap) => {
+            Ok((mut cap, clock)) => {
                 if self.healthy(&mut cap) {
-                    *self.handover_ready.lock().unwrap() = Some((cap, url.clone(), taken.clone()));
+                    *self.handover_ready.lock().unwrap() = Some((cap, url.clone(), taken.clone(), clock));
                     let give_up = Instant::now() + HANDOVER_TAKE;
                     while !taken.wait(Duration::from_millis(100)) {
                         if self.stopped() || Instant::now() >= give_up {
@@ -1269,8 +1299,9 @@ impl Shared {
 
     /// The new route's reader, if one is ready to take over; the stream moves to it.
     fn take_handover(&self) -> Option<Cap> {
-        let (cap, url, taken) = self.handover_ready.lock().unwrap().take()?;
+        let (cap, url, taken, clock) = self.handover_ready.lock().unwrap().take()?;
         taken.set();
+        self.slot.set_phone_clock(clock);
         *self.url.lock().unwrap() = url.clone();
         self.stats.set_link(&url, self.plugin_source);
         *self.stopper.lock().unwrap() = Some(cap.stopper());
@@ -1634,6 +1665,7 @@ fn stretch(frame: &Frame, width: u32, height: u32) -> Frame {
     let mut f = Frame::new(width, height, PixelFormat::I420, out);
     f.number = frame.number;
     f.time_ns = frame.time_ns;
+    f.capture_ns = frame.capture_ns;
     f
 }
 
@@ -1647,6 +1679,7 @@ fn fit_inside(w: u32, h: u32, fw: u32, fh: u32) -> (u32, u32) {
 mod tests {
     use super::*;
     use std::collections::VecDeque;
+    use std::sync::atomic::AtomicUsize;
     use telescope_core::media::{Decoded, Packet, ReadFrame, Scaler};
     use telescope_core::output::Slot as OutSlot;
 
@@ -2152,6 +2185,7 @@ mod tests {
             codec: Codec::Mjpeg,
             feed: Box::new(Feed { packets: Arc::new(Mutex::new(VecDeque::from([Some(40)]))), stop: Arc::default(), endless: None }),
             own_decoder: Some(Box::new(Raw)),
+            clock: None,
         }));
         let w = worker_with(opener, None, cams.clone(), log, true);
         wait_for(|| cams.sent.lock().unwrap().contains(&40));
@@ -2672,6 +2706,59 @@ mod tests {
         w.stop();
     }
 
+    /// A slot that counts how often its history was let go of (FrameSlot::forget_history), the rest being the plain one's.
+    struct Forgets(Arc<dyn FrameSlot>, Arc<AtomicUsize>);
+
+    impl FrameSlot for Forgets {
+        fn publish(&self, frame: Frame) -> u64 {
+            self.0.publish(frame)
+        }
+        fn published(&self) -> Option<Frame> {
+            self.0.published()
+        }
+        fn publish_at(&self, frame: Frame, epoch: u64) -> u64 {
+            self.0.publish_at(frame, epoch)
+        }
+        fn epoch(&self) -> u64 {
+            self.0.epoch()
+        }
+        fn replace(&self, frame: Frame, number: u64) -> bool {
+            self.0.replace(frame, number)
+        }
+        fn replace_if(&self, frame: Frame, number: u64, expected: &Arc<Vec<u8>>) -> bool {
+            self.0.replace_if(frame, number, expected)
+        }
+        fn latest(&self) -> Option<(Frame, u64)> {
+            self.0.latest()
+        }
+        fn wait_newer(&self, seen: u64, timeout: Duration) -> bool {
+            self.0.wait_newer(seen, timeout)
+        }
+        fn forget_history(&self) {
+            self.1.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    #[test]
+    fn handing_out_steps_while_a_frame_is_out_lets_go_of_the_slots_history() {
+        let cams = Arc::new(Cams::default());
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(200), Step::Pause(Duration::from_secs(30))])]);
+        let media = WithPipeline(Box::new({
+            let asked = Arc::new(AtomicBool::new(false));
+            move || Box::new(HidesWhenAsked(asked.clone()))
+        }));
+        let forgot = Arc::new(AtomicUsize::new(0));
+        let slot: Arc<dyn FrameSlot> = Arc::new(Forgets(telescope_media_free_slot(Duration::ZERO), forgot.clone()));
+        let events: Events = Arc::new(|_| {});
+        let w = StreamWorker::start(setup(opener), Arc::new(media), Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap();
+        wait_for(|| cams.sent.lock().unwrap().contains(&200));
+        assert_eq!(forgot.load(Ordering::SeqCst), 0, "nothing was handed out yet");
+        w.set_steps(vec![StagedStep { owner: "privacy".into(), stage: telescope_core::frame::FrameStage::Privacy, step: FrameStep::Cpu(Box::new(Nothing)) }]);
+        // hide_cached runs inside set_steps, on the frame that was out
+        assert!(forgot.load(Ordering::SeqCst) >= 1, "frames that went out under the old steps are still in the history");
+        w.stop();
+    }
+
     #[test]
     fn what_is_queued_before_the_steps_that_hide_things_ran_on_the_frame_out_never_goes_out() {
         let mut queued: VecDeque<(Frame, u64)> = VecDeque::from([(grey(4, 2, 200), 1), (grey(4, 2, 201), 2)]);
@@ -2956,7 +3043,7 @@ mod tests {
         let steps = Mutex::new(Some(steps));
         let opener: Opener = Arc::new(move |_| {
             let steps = steps.lock().unwrap().take().unwrap_or_default();
-            Ok(Opened { codec: Codec::Mjpeg, feed: Box::new(Script { steps, stop: Arc::default(), gone: Arc::default() }), own_decoder: Some(Box::new(Slow)) })
+            Ok(Opened { codec: Codec::Mjpeg, feed: Box::new(Script { steps, stop: Arc::default(), gone: Arc::default() }), own_decoder: Some(Box::new(Slow)), clock: None })
         });
         let (cams, log) = (Arc::new(Cams::default()), Log::default());
         let w = started(setup(opener), &cams, &log);
@@ -4365,7 +4452,7 @@ mod tests {
         let b = busy.clone();
         let opener: Opener = Arc::new(move |_| {
             let feed = Stamped { gaps: gaps.lock().unwrap().take().unwrap_or_default().into(), stop: Arc::default() };
-            Ok(Opened { codec: Codec::Mjpeg, feed: Box::new(feed), own_decoder: own_decoder.then(|| Box::new(Timed(decode_ms, b.clone())) as Box<dyn Decoder>) })
+            Ok(Opened { codec: Codec::Mjpeg, feed: Box::new(feed), own_decoder: own_decoder.then(|| Box::new(Timed(decode_ms, b.clone())) as Box<dyn Decoder>), clock: None })
         });
         let (cams, log) = (Arc::new(Cams::default()), Log::default());
         cams.send_cost_ms.store(send_ms, Ordering::Relaxed);

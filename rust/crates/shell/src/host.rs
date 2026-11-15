@@ -31,6 +31,7 @@ impl Ctx<'_> {
         self.want_sensors(&me, &[]);
         self.want_stats(&me, false);
         self.want_frames(&me, false);
+        self.want_frame_history(&me, 0);
         self.state.colour.remove_owner(&me);
         if self.state.packet_makers.0.iter().any(|(o, _)| *o == me) {
             self.change_packets(&me, None);
@@ -499,6 +500,14 @@ impl HostFrames for Ctx<'_> {
             self.state.frame_wants.remove(owner);
         }
         self.state.sync_idle();
+    }
+    fn want_frame_history(&mut self, owner: &str, frames: usize) {
+        if frames > 0 {
+            self.state.frame_history.insert(owner.to_string(), frames);
+        } else {
+            self.state.frame_history.remove(owner);
+        }
+        self.state.sync_history();
     }
 }
 

@@ -4,6 +4,8 @@
 import { Theme, Icons, Card, SwitchRow, RailRow, ChoiceField, NumberField } from "@ui-kit/ui-kit.slint";
 
 export component StartupSettings inherits Card {
+    in property <bool> reset-shown;
+    callback reset-clicked;
     in-out property <bool> open-checked;
     // Off in a dev profile, whose sign-in entry would be the real app's
     in property <bool> open-enabled: true;
@@ -11,6 +13,11 @@ export component StartupSettings inherits Card {
     callback open-toggled(bool);
     title: @tr("Startup");
     tip: @tr("Open Telescope when you sign in.");
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Stops Telescope opening when you sign in.");
+    reset => { root.reset-clicked(); }
     keywords: @tr("search" => "login boot autostart run on startup tray minimized");
     icon: Icons.monitor;
     SwitchRow {
@@ -27,6 +34,8 @@ export component StartupSettings inherits Card {
 }
 
 export component AutomaticSettings inherits Card {
+    in property <bool> reset-shown;
+    callback reset-clicked;
     // What a row's list offers is found by the row too, as the old rows found it by their controls
     pure function words(items: [string]) -> string {
         items[0] + " " + items[1] + " " + items[2]
@@ -53,6 +62,11 @@ export component AutomaticSettings inherits Card {
     callback notify-toggled(bool);
     title: @tr("Automatic streaming");
     tip: @tr("Start and stop the stream automatically when an app uses the virtual camera.");
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Puts when to start and stop, the wait and the notice back to their usual choices.");
+    reset => { root.reset-clicked(); }
     keywords: @tr("search" => "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free");
     icon: Icons.bolt;
     RailRow {

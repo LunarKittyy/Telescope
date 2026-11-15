@@ -32,6 +32,8 @@ export component FiltersCard inherits Card {
     callback switch-toggled-by-hand(bool);
     callback slider-moved(int, float);
     callback download-clicked;
+    in property <bool> reset-shown;
+    callback reset-clicked;
 
     title: @tr("Filters");
     tip: @tr("Sharpen, clean up and finish the picture like a photo editor.");
@@ -46,6 +48,11 @@ export component FiltersCard inherits Card {
     switch-tip: switch-name;
     switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Puts every filter slider back to neutral. The switch stays as it is.");
+    reset => { root.reset-clicked(); }
 
     Status { text: camera-note; detail: camera-note-detail; }
     for i in slider-mains: VerticalLayout {

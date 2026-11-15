@@ -1,0 +1,23 @@
+// The Settings row that opens the Card order dialog (General tab). The shell lists it itself, so it is no plugin's.
+
+import { Theme, Icons, Card, RailRow, Button } from "@ui-kit/ui-kit.slint";
+
+export component CardOrderSettings inherits Card {
+    callback open;
+    title: @tr("Layout");
+    tip: @tr("Where the cards sit in the window.");
+    keywords: @tr("search" => "window layout arrange rails columns");
+    icon: Icons.layout;
+    RailRow {
+        icon: Icons.layout;
+        label: @tr("Card order");
+        named: true;
+        tip: @tr("Choose which rail each card sits on, and in what order.");
+        keywords: @tr("search" => "order arrange move cards rails");
+        hue: root.hue;
+        Button {
+            text: @tr("Reorder cards");
+            clicked => { root.open(); }
+        }
+    }
+}

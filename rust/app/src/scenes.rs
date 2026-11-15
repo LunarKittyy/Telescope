@@ -960,6 +960,30 @@ pub fn all() -> Vec<Scene> {
             ..Setup::window(Some(services(quiet())), config, 1240.0, 760.0)
         }
     }));
+    // The Card order dialog as it opens, after one card moved rail (restart bar up), and with every card on the left rail
+    for (id, how) in [("dialog-card-order", 0), ("dialog-card-order-changed", 1), ("dialog-card-order-one-rail", 2)] {
+        scenes.push(Scene::new(id, move || Setup {
+            page: Page::Dialog { frame: "DialogFrame".into(), owner: "CardOrderDialog".into() },
+            then: Some(Box::new(move |w| telescope_shell::scenes::arrange_card_order(w, how))),
+            ..Setup::window(Some(services(quiet())), main_window_config(true), WIDTH_THREE_COL, 900.0)
+        }));
+    }
+    // The Plugins tab with a plugin switched off, so its restart bar is up
+    scenes.push(Scene::new("settings-plugins-restart", || Setup {
+        page: Page::Settings("plugins".into()),
+        then: Some(Box::new(|w| {
+            telescope_shell::scenes::switch_plugin_off(w, "monitoring");
+        })),
+        ..Setup::window(Some(services(quiet())), main_window_config(true), SETTINGS_SIZE.0, SETTINGS_SIZE.1)
+    }));
+    // The main window as it starts with a saved custom order: microphone moved from the left rail to the right, the phone card to the left
+    for (id, width) in [("main-card-order-wide", WIDTH_THREE_COL), ("main-card-order-medium", WIDTH_TWO_COL), ("main-card-order-narrow", 560.0)] {
+        scenes.push(Scene::new(id, move || {
+            let mut config = main_window_config(true);
+            config["card_layout"] = json!({"left": ["monitoring", "connection", "transforms"], "right": ["microphone", "camera_control"]});
+            Setup::window(Some(services(quiet())), config, width, 900.0)
+        }));
+    }
     // translation_scenes.shortcut_editor: a new shortcut, nothing picked yet
     scenes.push(Scene::new("dialog-shortcut", || Setup {
         page: Page::SettingsDialog {

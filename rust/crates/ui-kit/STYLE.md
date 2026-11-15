@@ -119,7 +119,7 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | `status` | Status | one coloured word or short phrase, kind (quiet, ok, warn, err), detail (tooltip) |
 | `well` | Well | what is in it: a recessed box for a command, an empty slot, a meter's track (outlined in OLED) |
 | `ghost` | Ghost | a row on no fill that answers the pointer (a tab, a search result) |
-| `list-row` | ListRow | name, a dim line, icon, the row's buttons: a raised strip in a list (dialogs, devices) |
+| `list-row` | ListRow, DragRow | name, a dim line, icon, the row's buttons: a raised strip in a list (dialogs, devices); a DragRow is one that is dragged to another place |
 | `dialog` | DialogFrame | title |
 | `menu` | MenuSurface, MenuItem | the rows: a context menu, the Presets menu |
 | `bubble` | Bubble, BubbleFrame | what is inside, width |
@@ -131,7 +131,7 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | `progress` | ProgressBar | value (0 to 1), track and fill colours |
 | `image` | QrCode | picture |
 | `readout` | PinReadout, PinChip | a pin of the bottom bar (its icon, value and place) and the "+N" that holds the pins that did not fit |
-| `helper` | no drawing of its own (search words, `Tip`, `TipLayer`, `Peek`, `PeekLayer`, shortcut menu, `Unfolding`, `UnfoldGroup`, `RowHover`, `DialogButtons`, `LensArt`, `FineAxis`, the motions) | nothing |
+| `helper` | no drawing of its own (search words, `Tip`, `TipLayer`, `Peek`, `PeekLayer`, shortcut menu, `Unfolding`, `UnfoldGroup`, `RowHover`, `FlickWheel`, `DialogButtons`, `LensArt`, `FineAxis`, the motions) | nothing |
 
 A menu button is always a `picker`: the value and a chevron, never "..." in a label. Glyphs inside controls (the chevron, a clear cross, a tick, a plus, the stepper's arrows) are heavier than the card icons: a 2px stroke against the icons' 1.4px, and the picker's chevron is 16px.
 
@@ -239,7 +239,7 @@ The cost rule: a live picture in a bubble is a small, low-frame-rate copy (about
 
 - `Status` (kind `status`): what a card is doing as one coloured word or short phrase (`kind` quiet, ok, warn, err), one line, ellipsis, no surface; the sentence goes in `detail`, its tooltip. `Tag` is a small raised label (`r-ctl` corners, no pills) with the same `detail`.
 - Every button has a surface at rest: `Button` (every role) and `IconButton` are raised squares; only an icon inside a field is `bare`. `Button.reserve` lists every text a label can be, so the button never changes width; `Button.dialog` gives an even floor for a dialog's button row (`DialogButtons`).
-- `Card`: the header's one reset button (`has-reset`, `reset-lit`, `reset-label`: icon only, lit only while something is off its default), `idle` (fades to the disabled look and back), a card with nothing under its header is no fold (no hover, no cursor), `action-reserve` for a header action whose text changes.
+- `Card`: the header's one reset button (`has-reset`, `reset-lit`, `reset-label`: icon only, as tall as the header switch and a little narrower so the two sit as a pair, lit only while something is off its default), `idle` (fades to the disabled look and back), a card with nothing under its header is no fold (no hover, no cursor), `action-reserve` for a header action whose text changes.
 - `ListRow` (kind `list-row`): a raised strip in a list, name and a dim line on the left, its buttons on the right; a dialog is a title, section headings with ListRows or controls, and a `DialogButtons` row, never a Card inside a Card.
 - `SwitchRow.problem`: the round red "!" (`ProblemMark`) before the switch (a pixel above the middle), tooltip name and body from `problem-title` and `problem`. `SwitchRow.word` is a short dim word next to the switch, where a second line of text under the row would have said it: one word or two, never a sentence.
 - `PictureField` (kind `picker`): a file a card takes (the picture behind you, a LUT) as a raised slot with its thumbnail or an empty glyph and its name; a file that can't be opened gets a `ProblemMark` with the reason. The state is in the control, never in a line of text beside it.

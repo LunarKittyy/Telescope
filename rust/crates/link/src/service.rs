@@ -1,6 +1,7 @@
 //! The link crate behind core's Link, PhoneSession and PairingOffer traits.
 
 use crate::adb::{self, Adb};
+use crate::clock_sync::Syncer;
 use crate::connection::{self, opening_of, with_session, RealPace, SessionCtl, VIDEO_H264};
 use crate::discovery::LanDiscovery;
 use crate::https::PhoneAuth;
@@ -94,7 +95,7 @@ impl LinkService {
         if let Some(c) = controls {
             let _ = carried.set(c);
         }
-        Ok(Session { phone: phone.clone(), route: route.clone(), video_url, base, auth, forward, controls: carried, tunnels: self.tunnels.clone() })
+        Ok(Session { phone: phone.clone(), route: route.clone(), video_url, base, auth, forward, controls: carried, clock: OnceLock::new(), tunnels: self.tunnels.clone() })
     }
 }
 
@@ -275,6 +276,8 @@ pub struct Session {
     /// Made when first asked for, so a start whose wake fails leaves no control thread behind (Python makes the
     /// client after the wake).
     controls: OnceLock<Arc<dyn PhoneControl>>,
+    /// Measures the phone's clock offset once the stream asks for it, until the session is released.
+    clock: OnceLock<Syncer>,
     tunnels: Arc<UsbTunnels>,
 }
 
@@ -341,6 +344,9 @@ impl PhoneSession for Session {
     }
 
     fn release(&self) {
+        if let Some(clock) = self.clock.get() {
+            clock.stop();
+        }
         if let Some(serial) = &self.forward {
             self.tunnels.release(serial, STREAM_PORT);
         }
@@ -360,6 +366,10 @@ impl PhoneSession for Session {
 
     fn controls(&self) -> Option<Arc<dyn PhoneControl>> {
         Some(self.the_controls().clone())
+    }
+
+    fn phone_clock(&self) -> Option<Arc<telescope_core::clock::PhoneClock>> {
+        Some(self.clock.get_or_init(|| Syncer::start(self.auth.clone(), self.route.clone(), self.tunnels.clone())).clock())
     }
 }
 

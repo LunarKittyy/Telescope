@@ -510,7 +510,7 @@ impl Gpu {
         let (a, b) = (self.texture(w, h, WORK), self.texture(w, h, WORK));
         self.convert_pass_with(&mut enc, &planes.views, planes.mode, &a, 1, (planes.width, planes.height), block_chroma);
         span("upload", began);
-        Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, waited_ns: 0 })
+        Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0 })
     }
 
     /// One shader step on the held picture. Nothing runs yet; land sends it all to the card in one go.
@@ -560,6 +560,7 @@ impl Gpu {
         let mut result = Frame::new(w, h, held.format, out);
         result.number = held.number;
         result.time_ns = held.time_ns;
+        result.capture_ns = held.capture_ns;
         Ok(result)
     }
 
@@ -723,6 +724,7 @@ pub struct Held {
     format: PixelFormat,
     number: u64,
     time_ns: u64,
+    capture_ns: Option<u64>,
     /// What reading it back has waited for the card since this was last asked.
     waited_ns: u64,
 }

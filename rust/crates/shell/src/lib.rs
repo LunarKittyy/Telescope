@@ -3,6 +3,7 @@
 pub mod admin;
 pub mod banners;
 pub mod bar;
+pub mod card_order;
 pub mod collapse;
 pub mod compile;
 pub mod doc;
@@ -30,6 +31,7 @@ mod screen;
 pub mod same;
 pub mod search;
 pub mod profiles;
+pub mod reset;
 pub mod snapshot;
 pub mod specimen;
 pub mod source;

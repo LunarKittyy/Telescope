@@ -16,6 +16,7 @@ use telescope_core::image::{planes_up_to_420, rgb_planes, small_rgb, spare_bytes
 use telescope_core::frame::PixelFormat;
 use telescope_core::people;
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::pose::Person;
 use telescope_core::time::monotonic_ns;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
@@ -229,7 +230,21 @@ impl PrivacyBlurPlugin {
     }
 
     fn all_props(&self) -> Value {
-        json!({"active": self.paired.on(), "on": self.auto, "mode": self.mode, "now": self.now})
+        json!({"active": self.paired.on(), "on": self.auto, "mode": self.mode, "now": self.now, "reset-shown": self.reset_shown()})
+    }
+
+    /// The card's own switch is not part of its Reset.
+    const RESET_KEPT: &'static [&'static str] = &["on"];
+
+    fn reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &PrivacyBlurPlugin::new().get_config(), Self::RESET_KEPT)
+    }
+
+    fn reset(&mut self, host: &mut dyn Host) {
+        let cfg = reset_config(&self.get_config(), &PrivacyBlurPlugin::new().get_config(), Self::RESET_KEPT);
+        if self.apply_preset(host, &cfg).is_ok() {
+            host.schedule_save();
+        }
     }
 
     fn fixed_props() -> Value {
@@ -399,6 +414,7 @@ impl Plugin for PrivacyBlurPlugin {
                 }
             }
             "now-clicked" => self.set_now(host, !self.now),
+            "reset-clicked" => self.reset(host),
             "download-clicked" => {
                 host.download_vision();
                 self.show(host);

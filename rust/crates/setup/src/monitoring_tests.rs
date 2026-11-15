@@ -503,3 +503,17 @@ fn the_bars_on_the_card_are_the_live_readings() {
     r.plugin.on_stream_stop(&mut r.host);
     assert_eq!(r.plugin.props()["battery-has-level"], json!(false), "no stream, no reading: the bar stays, empty");
 }
+
+#[test]
+fn reset_puts_the_alerts_back() {
+    let mut r = Rig::new();
+    r.ui("batt-moved", vec![json!(40)]);
+    r.ui("temp-moved", vec![json!(55)]);
+    r.ui("alert-toggled", vec![json!("batt-stop"), json!(true)]);
+    assert!(r.plugin.reset_shown());
+    r.ui("reset-clicked", vec![]);
+    assert_eq!(r.plugin.get_config(), MonitoringPlugin::new().get_config());
+    assert!(!r.plugin.reset_shown());
+    assert!(r.host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
+    assert!(r.host.calls.iter().any(|c| c == "schedule_save"));
+}

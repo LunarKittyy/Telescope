@@ -263,6 +263,76 @@ fn phone_state_populates_camera_capabilities_and_controls() {
 }
 
 #[test]
+fn a_poll_that_finds_the_exposure_changed_updates_the_card_and_one_that_doesnt_leaves_it() {
+    let mut r = Rig::new();
+    let phone = |auto: bool, iso: i64, shutter: i64| json!({
+        "cameras": [{"id": "wide", "current": true, "isoMin": 100, "isoMax": 1600, "shutterMinNs": 200_000, "shutterMaxNs": 500_000_000, "supportsManualSensor": true}],
+        "auto": auto, "iso": iso, "shutter_ns": shutter,
+    });
+    let poll = |state: Value, shown: bool| Event::PhonePolled { source_id: String::new(), session: 1, shown, state };
+    r.state(phone(true, 0, 0));
+    assert!(!r.cam.manual_exp);
+    // Match put the phone on a manual exposure: the card follows
+    r.event(poll(phone(false, 640, 8_000_000), true));
+    assert!(r.cam.manual_exp, "the card shows manual now");
+    assert!(close(r.cam.iso.get_value(), 640.0, 0.01) && close(r.cam.shutter.get_value(), 8_000_000.0, 0.01));
+    // the same exposure again changes nothing, even with a value the card was moved to meanwhile
+    r.cam.iso.set_value(900.0);
+    r.event(poll(phone(false, 640, 8_000_000), true));
+    assert!(close(r.cam.iso.get_value(), 900.0, 0.01), "a poll with nothing new doesn't reload the card");
+    // and a stream behind the panels isn't the card's
+    r.event(poll(phone(false, 100, 1_000_000), false));
+    assert!(close(r.cam.iso.get_value(), 900.0, 0.01));
+}
+
+#[test]
+fn a_poll_answer_cannot_put_the_card_back_after_a_newer_edit_of_its_own() {
+    let mut r = Rig::new();
+    r.streaming();
+    let phone = |iso: i64| json!({
+        "cameras": [{"id": "wide", "current": true, "isoMin": 100, "isoMax": 1600, "shutterMinNs": 200_000, "shutterMaxNs": 500_000_000, "supportsManualSensor": true}],
+        "auto": false, "iso": iso, "shutter_ns": 8_000_000,
+    });
+    let poll = |iso: i64| Event::PhonePolled { source_id: String::new(), session: 1, shown: true, state: phone(iso) };
+    r.state(phone(100));
+    // the person picks 400 and the poll that was asked for while it was 200 answers after
+    assert!(r.cam.set_dial_value(true, 400.0));
+    r.event(poll(200));
+    assert!(close(r.cam.iso.get_value(), 400.0, 0.01), "the answer from before the edit doesn't roll it back");
+    // a while later the same answer is news again: Match (or another card) really changed the phone
+    r.cam.last_edit = Some(std::time::Instant::now() - POLL_QUIET - std::time::Duration::from_millis(100));
+    r.event(poll(200));
+    assert!(close(r.cam.iso.get_value(), 200.0, 0.01), "once the quiet is over the card follows the phone again");
+}
+
+#[test]
+fn a_poll_answer_dropped_for_the_quiet_is_asked_for_again_once_it_is_over() {
+    let mut r = Rig::new();
+    r.streaming();
+    let phone = |iso: i64| json!({
+        "cameras": [{"id": "wide", "current": true, "isoMin": 100, "isoMax": 1600, "shutterMinNs": 200_000, "shutterMaxNs": 500_000_000, "supportsManualSensor": true}],
+        "auto": false, "iso": iso, "shutter_ns": 8_000_000,
+    });
+    let poll = |iso: i64| Event::PhonePolled { source_id: String::new(), session: 1, shown: true, state: phone(iso) };
+    r.state(phone(100));
+    assert!(r.cam.set_dial_value(true, 400.0));
+    r.event(poll(200));
+    assert!(close(r.cam.iso.get_value(), 400.0, 0.01));
+    assert!(r.host.is_scheduled("repoll"), "the dropped answer is asked for again when the quiet is over");
+    // a poll with nothing new schedules nothing
+    let mut calm = Rig::new();
+    calm.streaming();
+    calm.state(phone(100));
+    calm.cam.last_edit = Some(std::time::Instant::now());
+    calm.event(poll(100));
+    assert!(!calm.host.is_scheduled("repoll"));
+    // the timer asks the phone for its state
+    r.host.calls.clear();
+    r.event(Event::TimerFired { owner: "camera_control".into(), token: "repoll".into() });
+    assert!(r.host.calls.iter().any(|c| c.starts_with("request_phone_state")), "{:?}", r.host.calls);
+}
+
+#[test]
 fn empty_phone_state_and_stop_clear_camera_ui() {
     let mut r = Rig::new();
     r.state(json!({}));
@@ -1255,4 +1325,26 @@ fn a_focus_slider_that_is_off_takes_nothing_typed() {
     r.ui("focus-typed", vec![json!("0.5")]);
     assert!(r.sent().is_empty());
     assert_eq!(r.props()["focus-pos"], 0);
+}
+
+#[test]
+fn reset_goes_back_to_automatic_and_keeps_the_lens() {
+    let mut r = Rig::new();
+    r.streaming();
+    r.cam.lens_id = Some("back".into());
+    r.ui("exposure-picked", vec![json!(1)]);
+    r.ui("wb-picked", vec![json!(1)]);
+    r.ui("ae-moved", vec![json!(3)]);
+    r.ui("nr-picked", vec![json!(2)]);
+    assert!(r.props()["reset-shown"] == true);
+    r.clear();
+    r.ui("reset-clicked", vec![]);
+    let mut want = CameraControl::new().config();
+    want["lens"] = json!("back");
+    assert_eq!(r.cam.get_config(), want);
+    let sent = r.actions_sent();
+    assert!(sent.contains(&"auto".to_string()) && sent.contains(&"wb_auto".to_string()), "the phone is told to go automatic: {sent:?}");
+    assert_eq!(r.props()["reset-shown"], false);
+    assert!(r.host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
+    assert!(r.saves() >= 1);
 }

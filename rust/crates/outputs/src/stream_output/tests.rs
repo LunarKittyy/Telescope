@@ -914,3 +914,23 @@ fn size_shortcuts_are_listed_again_when_a_ratio_pick_or_a_ratio_shortcut_changes
     p.run_action(&mut host, "stream.aspect_ratio", &json!({"op": "set", "option": "16:9"}));
     assert_eq!(asked(&host), after_report + 2, "picked by a shortcut");
 }
+
+#[test]
+fn reset_puts_fps_quality_and_bitrate_back_and_keeps_the_size() {
+    let mut p = plugin();
+    let mut host = FakeHost::new();
+    started(&mut p, &mut host);
+    pick_fps(&mut p, &mut host, 60);
+    pick(&mut p, &mut host, "bitrate-moved", json!(8));
+    let size = p.get_config().get("resolution").cloned();
+    assert!(p.reset_shown());
+    pick(&mut p, &mut host, "reset-clicked", json!(null));
+    let mut want = plugin().get_config();
+    if let Some(r) = size.clone() {
+        want["resolution"] = r;
+    }
+    assert_eq!(p.get_config(), want);
+    assert!(!p.reset_shown());
+    assert!(host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
+    assert!(saves(&host) >= 1);
+}

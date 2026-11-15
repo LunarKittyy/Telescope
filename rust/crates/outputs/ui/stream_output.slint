@@ -37,6 +37,8 @@ export component StreamOutputCard inherits Card {
     callback format-picked(bool);
     callback quality-moved(float);
     callback bitrate-moved(float);
+    in property <bool> reset-shown;
+    callback reset-clicked;
 
     title: @tr("Stream output");
     tip: @tr("The resolution, frame rate and format of the stream.");
@@ -44,6 +46,11 @@ export component StreamOutputCard inherits Card {
     enabled: active;
     blocked: !active;
     visible: !phone-only-hidden;
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Puts the frame rate, format, quality and bitrate back. The size stays as it is.");
+    reset => { root.reset-clicked(); }
 
     RailRow {
         icon: Icons.grid;

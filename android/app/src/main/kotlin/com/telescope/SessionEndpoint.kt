@@ -1,6 +1,8 @@
 package com.telescope
 
 import android.content.Context
+import android.os.SystemClock
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 // What `GET /v1/ping` answers with: the 200/401 status is the pairing verdict, this body is what the phone is doing.
@@ -19,6 +21,9 @@ data class SessionSnapshot(
     val streamingFor: String? = null,
     // Runs Dynamic over UDP from the desktop's reports (UdpLink); a desktop keeps Dynamic on TCP for a phone without it.
     val udpDynamic: Boolean = false,
+    // The phone's two clocks sampled as the answer is made, so the desktop can turn frame capture times into its own clock.
+    @SerialName("clock_boot_ns") val clockBootNs: Long? = null,
+    @SerialName("clock_mono_ns") val clockMonoNs: Long? = null,
 )
 
 // appVersion/build: lets the desktop say which app needs updating instead of just "unreachable".
@@ -306,6 +311,8 @@ private class ServiceSessionCommands(private val context: Context) : SessionComm
             phoneName = PairedComputers.phoneName(context),
             streamingFor = service?.otherOwner(computer)?.name,
             udpDynamic = true,
+            clockBootNs = SystemClock.elapsedRealtimeNanos(),
+            clockMonoNs = System.nanoTime(),
         )
     }
 

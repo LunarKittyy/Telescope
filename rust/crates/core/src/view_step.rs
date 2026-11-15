@@ -84,6 +84,7 @@ pub fn turn_frame(frame: &Frame, quarters: u32) -> Frame {
     let mut out = Frame::new(frame.height, frame.width, frame.format, data);
     out.number = frame.number;
     out.time_ns = frame.time_ns;
+    out.capture_ns = frame.capture_ns;
     out
 }
 

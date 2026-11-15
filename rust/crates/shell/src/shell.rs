@@ -4,7 +4,7 @@
 use telescope_core::i18n::Fields;
 use crate::banners::Banners;
 use crate::collapse::Collapsing;
-use crate::layout::{Panels, Region};
+use crate::layout::{CardLayout, Panels, Region};
 use crate::{profiles, switches};
 use serde_json::{json, Map, Value};
 use std::cell::RefCell;
@@ -367,6 +367,8 @@ pub fn now_s() -> f64 {
 pub struct State {
     pub slots: Vec<Slot>,
     pub panels: Panels,
+    /// The custom card order the settings file holds. The running order only follows it from the next start.
+    saved_layout: Option<CardLayout>,
     pub collapse: Collapsing,
     pub banners: Banners,
     /// The pins in the bottom bar and what plugins offer it (bar.rs).
@@ -398,6 +400,8 @@ pub struct State {
     /// Sources only remembered once their settings change (a browser).
     pub changes_only: Vec<String>,
     pub save_failure_notified: bool,
+    /// A reset has written the settings file and saving is shut until the restart: the copy it set aside first (None: there was no file).
+    pub(crate) reset_pending: Option<Option<std::path::PathBuf>>,
     /// Settings of phones that were switched away from while the file couldn't be written: saved again with the next save, and handed back if their phone comes back first.
     unsaved_profiles: Vec<PluginSection>,
     /// Posts from plugins' threads (host.poster), delivered to their owner after the bus's events.
@@ -421,6 +425,10 @@ pub struct State {
     pub outputs: Option<Arc<dyn telescope_core::output::Outputs>>,
     /// Every running stream's newest frame, for plugins that use other streams' pictures (host.frames).
     pub frames: Option<Arc<dyn telescope_core::host::FrameStore>>,
+    /// The same frames from the window's side, which is told how many past frames to keep (Host::want_frame_history).
+    pub stream_frames: Option<Arc<dyn telescope_core::media::StreamFrames>>,
+    /// How many frames of history each plugin asked for, by plugin.
+    pub frame_history: BTreeMap<String, usize>,
     /// Person masks and people (HostVision), None without the vision crate.
     pub vision: Option<Arc<dyn telescope_core::vision::VisionService>>,
     /// How the workers turn frames upright for vision, kept up with the view.
@@ -474,6 +482,7 @@ impl State {
         State {
             slots: Vec::new(),
             panels: Panels::default(),
+            saved_layout: None,
             collapse: Collapsing::default(),
             banners: Banners::default(),
             bar: crate::bar::Bar::new(),
@@ -501,6 +510,7 @@ impl State {
             slot_memory: Rc::default(),
             changes_only: Vec::new(),
             save_failure_notified: false,
+            reset_pending: None,
             unsaved_profiles: Vec::new(),
             posts: Arc::default(),
             off: Vec::new(),
@@ -510,6 +520,8 @@ impl State {
             added: Vec::new(),
             admin,
             frames: None,
+            stream_frames: None,
+            frame_history: BTreeMap::new(),
             vision: None,
             upright: Arc::default(),
             motion: Arc::new(telescope_core::motion::Motion::new(Box::new(move |key, owner, zones| {
@@ -534,6 +546,13 @@ impl State {
 
     pub fn index(&self, name: &str) -> Option<usize> {
         self.slots.iter().position(|s| s.info.name == name)
+    }
+
+    /// Tells the streams how many past frames to keep: as many as the plugin that wants the most.
+    pub fn sync_history(&self) {
+        if let Some(frames) = &self.stream_frames {
+            frames.set_history(self.frame_history.values().copied().max().unwrap_or(0));
+        }
     }
 
     /// Tells the idle gate whether anything needs the main camera's frames: a window someone can see (the preview, the tiles, the cards that
@@ -668,7 +687,7 @@ impl State {
         };
         if let Some(card) = &card {
             let region = Region::from_name(&card.region);
-            self.panels.place(region, i, info.pinned, &info.category);
+            self.panels.place_named(region, i, info.pinned, &info.category, &info.name);
         }
         let slot = &mut self.slots[i];
         (slot.card, slot.header, slot.tray, slot.defaults) = (card, header, tray, defaults);
@@ -738,7 +757,7 @@ impl State {
         }
         for s in &sections {
             let (place, files) = crate::settings::section_place(name, s, 0, 0, &slot.info.category);
-            let text = crate::doc::settings(1, None, &[place]);
+            let text = crate::doc::settings(1, None, None, &[place]);
             let ui = format!("settings {}{}", s.id, if s.footer.is_some() { " (or its footer)" } else { "" });
             tried.push((ui, crate::compile::compile("settings.slint", &text, files, "TelescopeSettings").map(drop)));
         }
@@ -814,6 +833,9 @@ impl State {
     pub fn apply_saved_config(&mut self) {
         let mut cfg = self.file.load_at_start();
         self.apply_config(&mut cfg);
+        if let Some(layout) = self.saved_layout.clone() {
+            self.panels.apply_layout(&layout);
+        }
         self.each(|p, host| p.on_plugins_ready(host));
         if let Some(backup) = self.file.take_reset_notice() {
             let where_ = if backup.is_empty() { String::new() } else { format!(" {}", tr("A copy of the old file is at {path}.").field("path", &backup)) };
@@ -825,6 +847,38 @@ impl State {
         }
     }
 
+    /// The side cards as they are on screen now, by plugin name.
+    pub fn running_card_layout(&self) -> CardLayout {
+        self.panels.layout()
+    }
+
+    /// The order the next start will give: the saved one as it will land on the loaded cards, or the default.
+    pub fn saved_card_layout(&self) -> CardLayout {
+        self.panels.layout_for(self.saved_layout.as_ref())
+    }
+
+    /// The saved card order as the settings file holds it, with the names of plugins that aren't loaded too (None: the default order).
+    pub fn stored_card_layout(&self) -> Option<&CardLayout> {
+        self.saved_layout.as_ref()
+    }
+
+    /// Keep a card order for the next start (the running order doesn't change).
+    pub fn set_saved_card_layout(&mut self, layout: CardLayout) {
+        self.saved_layout = Some(layout);
+        self.save_now();
+    }
+
+    /// Go back to the default order at the next start.
+    pub fn clear_saved_card_layout(&mut self) {
+        self.saved_layout = None;
+        self.save_now();
+    }
+
+    /// Whether the next start will order the cards differently from now.
+    pub fn card_layout_restart_pending(&self) -> bool {
+        self.saved_card_layout() != self.running_card_layout()
+    }
+
     fn apply_config(&mut self, cfg: &mut Value) {
         let window = WindowState::from_config(cfg);
         self.collapse.load(cfg.get("collapsed"));
@@ -834,6 +888,7 @@ impl State {
         *self.slot_memory.borrow_mut() = window.output_slots.iter().filter_map(|(id, slot)| Some((id.clone(), u32::try_from(slot.as_u64()?).ok()?))).collect();
         self.selected = window.selected_device.clone();
         self.bar.load(window.bar_pins.clone());
+        self.saved_layout = window.card_layout.clone();
         if let Some(ids) = self.bar.pins_changed() {
             self.bus.emit(Event::BarPinsChanged { pinned: ids });
         }
@@ -1165,7 +1220,7 @@ impl State {
             }).collect();
         sections.extend(self.unsaved_profiles.iter().cloned());
         sections.extend(self.profile_sections(&cfg, self.selected.as_deref()));
-        let window = WindowState { selected_device: self.selected.clone(), collapsed: self.collapse.keys(), output_slots: self.slot_memory.borrow().iter().map(|(id, slot)| (id.clone(), json!(slot))).collect(), bar_pins: Some(self.bar.persisted()) };
+        let window = WindowState { selected_device: self.selected.clone(), collapsed: self.collapse.keys(), output_slots: self.slot_memory.borrow().iter().map(|(id, slot)| (id.clone(), json!(slot))).collect(), bar_pins: Some(self.bar.persisted()), card_layout: self.saved_layout.clone() };
         merge_for_save(&mut cfg, &window, &sections);
         profiles::drop_unchanged(&mut cfg, &self.changes_only, &self.defaults());
         if self.file.save(&mut cfg) {
@@ -2241,6 +2296,70 @@ mod tests {
         assert_eq!(saved["devices"]["B"]["plugin_configs"], json!({"fun_pack": {"effect": "crt"}}));
     }
 
+    struct Side(&'static str, &'static str);
+    impl Plugin for Side {
+        fn info(&self) -> PluginInfo {
+            PluginInfo { name: self.0.into(), ..Default::default() }
+        }
+        fn card(&mut self) -> Option<CardSpec> {
+            Some(card_in(self.1))
+        }
+    }
+
+    fn with_side_cards() -> State {
+        let mut s = state();
+        for (name, region) in [("one", "left"), ("two", "left"), ("three", "right")] {
+            s.register(Box::new(Side(name, region))).unwrap();
+        }
+        s
+    }
+
+    fn names(list: &[&str]) -> Vec<String> {
+        list.iter().map(|n| n.to_string()).collect()
+    }
+
+    #[test]
+    fn a_saved_card_order_comes_back_at_the_next_start_and_not_before() {
+        let mut s = with_side_cards();
+        assert!(!s.card_layout_restart_pending());
+        s.set_saved_card_layout(CardLayout { left: names(&["three", "one"]), right: names(&["gone", "two"]) });
+        assert_eq!(s.running_card_layout(), CardLayout { left: names(&["one", "two"]), right: names(&["three"]) });
+        assert_eq!(s.saved_card_layout(), CardLayout { left: names(&["three", "one"]), right: names(&["two"]) });
+        assert!(s.card_layout_restart_pending());
+        assert_eq!(s.file.load()["card_layout"], json!({"left": ["three", "one"], "right": ["gone", "two"]}));
+        let mut t = State::new(ConfigFile::at(s.file.path()));
+        for (name, region) in [("one", "left"), ("two", "left"), ("three", "right")] {
+            t.register(Box::new(Side(name, region))).unwrap();
+        }
+        t.apply_saved_config();
+        assert_eq!(t.running_card_layout(), CardLayout { left: names(&["three", "one"]), right: names(&["two"]) });
+        assert!(!t.card_layout_restart_pending());
+        assert_eq!(t.saved_layout.as_ref().unwrap().right, names(&["gone", "two"]));
+    }
+
+    #[test]
+    fn clearing_the_saved_card_order_goes_back_to_the_default() {
+        let mut s = with_side_cards();
+        s.set_saved_card_layout(CardLayout { left: names(&["two"]), right: names(&["one", "three"]) });
+        s.clear_saved_card_layout();
+        assert!(s.file.load().get("card_layout").is_none());
+        assert_eq!(s.saved_card_layout(), s.running_card_layout());
+        assert!(!s.card_layout_restart_pending());
+        // A running custom order with nothing saved is a pending change back to the default
+        s.panels.apply_layout(&CardLayout { left: names(&["two"]), right: names(&["one", "three"]) });
+        assert!(s.card_layout_restart_pending());
+    }
+
+    #[test]
+    fn an_old_config_without_a_card_order_gives_the_default() {
+        let mut s = with_side_cards();
+        s.file.save(&mut json!({"collapsed": []}));
+        s.apply_saved_config();
+        assert!(s.saved_layout.is_none());
+        assert_eq!((s.panels.left.clone(), s.panels.right.clone()), (vec![0, 1], vec![2]));
+        assert!(!s.card_layout_restart_pending());
+    }
+
     #[test]
     fn folds_are_saved_and_come_back() {
         let mut s = state();
@@ -3119,6 +3238,42 @@ mod tests {
         let mut ctx = crate::host::Ctx { state: &mut s, me: "auto_frame".into() };
         ctx.release_everything();
         assert!(s.idle.idle(), "and a plugin that goes away lets go of that too");
+    }
+
+    #[test]
+    fn frame_history_is_kept_as_long_as_the_plugin_that_wants_the_most_asks() {
+        use telescope_core::host::HostFrames;
+        use telescope_core::media::{FrameSlot, StreamFrames};
+        #[derive(Default)]
+        struct Told(Mutex<Vec<usize>>);
+        impl telescope_core::host::FrameStore for Told {
+            fn stream_frames(&self) -> Vec<telescope_core::frame::StreamFrame> {
+                Vec::new()
+            }
+            fn stream_frame(&self, _: Option<&str>) -> Option<telescope_core::frame::StreamFrame> {
+                None
+            }
+            fn replace_frame(&self, _: Option<&str>, _: telescope_core::Frame, _: u64) -> bool {
+                false
+            }
+        }
+        impl StreamFrames for Told {
+            fn new_slot(&self) -> Arc<dyn FrameSlot> {
+                unreachable!("no streams here")
+            }
+            fn set_streams(&self, _: Vec<(String, String, Arc<dyn FrameSlot>)>) {}
+            fn set_history(&self, frames: usize) {
+                self.0.lock().unwrap().push(frames);
+            }
+        }
+        let told = Arc::new(Told::default());
+        let mut s = quiet_state();
+        s.stream_frames = Some(told.clone());
+        crate::host::Ctx { state: &mut s, me: "stereo".into() }.want_frame_history("stereo", 6);
+        crate::host::Ctx { state: &mut s, me: "other".into() }.want_frame_history("other", 10);
+        crate::host::Ctx { state: &mut s, me: "other".into() }.want_frame_history("other", 0);
+        crate::host::Ctx { state: &mut s, me: "stereo".into() }.release_everything();
+        assert_eq!(*told.0.lock().unwrap(), [6, 10, 6, 0]);
     }
 
     #[test]

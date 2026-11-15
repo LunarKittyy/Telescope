@@ -24,6 +24,8 @@ mod range;
 pub mod reader;
 #[cfg(ffmpeg)]
 mod slow;
+#[cfg(ffmpeg)]
+mod stamp;
 pub mod transfers;
 #[cfg(ffmpeg)]
 mod yuv;

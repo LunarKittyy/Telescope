@@ -491,3 +491,19 @@ fn the_automatic_blur_keeps_frames_running_so_nobody_walks_in_unseen() {
     rig.plugin.shutdown(&mut rig.host);
     assert!(rig.host.frames_wanted.is_empty(), "switching the plugin off lets go too");
 }
+
+#[test]
+fn reset_puts_the_mode_back_and_keeps_the_switch() {
+    let mut rig = Rig::new();
+    let ui = |rig: &mut Rig, cb: &str, args: Vec<Value>| rig.plugin.on_ui(&mut rig.host, &UiEvent { ui: "card".into(), callback: cb.into(), args });
+    ui(&mut rig, "switch-toggled-by-hand", vec![json!(true)]);
+    ui(&mut rig, "mode-picked", vec![json!(1)]);
+    assert!(rig.plugin.reset_shown());
+    ui(&mut rig, "reset-clicked", vec![]);
+    let mut want = PrivacyBlurPlugin::new().get_config();
+    want["on"] = json!(true);
+    assert_eq!(rig.plugin.get_config(), want);
+    assert!(!rig.plugin.reset_shown());
+    assert!(rig.host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
+    assert!(rig.host.calls.iter().any(|c| c == "schedule_save"));
+}

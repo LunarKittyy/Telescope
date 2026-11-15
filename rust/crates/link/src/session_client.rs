@@ -39,12 +39,24 @@ pub struct Ping {
     pub streaming_for: Option<String>,
     /// Runs Dynamic over UDP from this desktop's reports; an older phone leaves it out.
     pub udp_dynamic: bool,
+    /// The phone's `SystemClock.elapsedRealtimeNanos()` and `System.nanoTime()` as it answered (clock_boot_ns, clock_mono_ns), and when the request went
+    /// out and the answer came in on this computer's monotonic clock. An older phone leaves the clocks out.
+    pub clocks: Option<PhoneClocks>,
+}
+
+/// A phone's clocks and the round trip they were read in (see Ping::clocks).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PhoneClocks {
+    pub boot_ns: Option<i64>,
+    pub mono_ns: Option<i64>,
+    pub sent_ns: u64,
+    pub got_ns: u64,
 }
 
 impl Ping {
     pub fn status(status: PingStatus) -> Ping {
         Ping { status, streaming: false, busy: false, local_only: false, phone_id: None, phone_name: None,
-               streaming_for: None, udp_dynamic: false }
+               streaming_for: None, udp_dynamic: false, clocks: None }
     }
 
     pub fn paired(&self) -> bool {
@@ -169,7 +181,14 @@ impl SessionClient {
         let url = format!("{}/v1/ping", self.base);
         match self.auth.open(Request::get(&url, REQUEST_TIMEOUT)) {
             Ok(mut r) if r.status == 200 => match r.read_capped(MAX_REPLY_BYTES) {
-                Ok(raw) => parse_ping(&raw),
+                Ok(raw) => {
+                    let mut ping = parse_ping(&raw);
+                    // Timed from the request going out, not from the connecting before it: a clock the phone read is somewhere in that stretch
+                    if let Some(clocks) = &mut ping.clocks {
+                        (clocks.sent_ns, clocks.got_ns) = r.exchange_ns;
+                    }
+                    ping
+                }
                 Err(_) => Ping::status(PingStatus::Unreachable),
             },
             Err(Error::Http(401)) => Ping::status(PingStatus::NotPaired),
@@ -260,7 +279,14 @@ pub fn parse_ping(raw: &[u8]) -> Ping {
         phone_name: body.get("phoneName").and_then(Value::as_str).map(clean_name),
         streaming_for: computer_name(body.get("streamingFor")),
         udp_dynamic: body.get("udpDynamic") == Some(&Value::Bool(true)),
+        clocks: parse_clocks(&body),
     }
+}
+
+/// The phone's clocks in a ping body (clock_boot_ns, clock_mono_ns), None when it gave neither as a whole number; the times of the round trip are the caller's.
+fn parse_clocks(body: &Map<String, Value>) -> Option<PhoneClocks> {
+    let (boot_ns, mono_ns) = (body.get("clock_boot_ns").and_then(Value::as_i64), body.get("clock_mono_ns").and_then(Value::as_i64));
+    (boot_ns.is_some() || mono_ns.is_some()).then_some(PhoneClocks { boot_ns, mono_ns, sent_ns: 0, got_ns: 0 })
 }
 
 #[cfg(test)]
@@ -360,6 +386,25 @@ mod tests {
     fn ping_says_whether_the_phone_runs_dynamic_over_udp() {
         assert!(phone(200, br#"{"udpDynamic": true}"#).1.ping().udp_dynamic);
         assert!(!phone(200, br#"{"streaming": true}"#).1.ping().udp_dynamic);
+    }
+
+    #[test]
+    fn ping_carries_the_phones_clocks_with_the_round_trip_they_were_read_in() {
+        let before = telescope_core::time::monotonic_ns();
+        let ping = phone(200, br#"{"streaming": true, "clock_boot_ns": 812345678901234, "clock_mono_ns": 812345012345678}"#).1.ping();
+        let after = telescope_core::time::monotonic_ns();
+        let clocks = ping.clocks.expect("both clocks came");
+        assert_eq!((clocks.boot_ns, clocks.mono_ns), (Some(812345678901234), Some(812345012345678)));
+        assert!(before <= clocks.sent_ns && clocks.sent_ns <= clocks.got_ns && clocks.got_ns <= after, "{before} {clocks:?} {after}");
+    }
+
+    #[test]
+    fn a_ping_with_one_clock_or_none_says_so() {
+        let one = phone(200, br#"{"clock_mono_ns": 5}"#).1.ping().clocks.unwrap();
+        assert_eq!((one.boot_ns, one.mono_ns), (None, Some(5)));
+        assert_eq!(phone(200, br#"{"streaming": true}"#).1.ping().clocks, None);
+        // Not whole numbers: no clock
+        assert_eq!(phone(200, br#"{"clock_boot_ns": "soon", "clock_mono_ns": 1.5}"#).1.ping().clocks, None);
     }
 
     #[test]

@@ -40,18 +40,19 @@ People clip phones to telescopes. Lucky imaging for the moon and planets grabs a
 
 ### 3D from two phones
 
-Two phones side by side make a stereo camera. One plugin shows it as red/cyan for glasses on any screen or side by side for a headset. For a Quest or similar the Browser camera server can serve a WebXR page that shows each half to one eye. Nothing has to be installed on the headset.
+Two phones side by side make a stereo camera. One plugin shows it as red/cyan for glasses on any screen or side by side for a headset, either squeezed into a normal 16:9 picture that every app takes or at full width for OBS. Through OBS that works on Twitch and YouTube too, since 3D streams there are just side by side pictures. A YouTube upload plays as real 3D once the file has stereo metadata. For a Quest or similar the Browser camera server can serve a WebXR page that shows each half to one eye. Nothing has to be installed on the headset.
+
+Two phones of the same model work best. Two different ones can be matched too, but they never look quite the same.
 
 Getting the two pictures to match is most of the work:
 
-- **Timing.** Frames get paired by when they were captured and not when they arrived. Each phone sends its sensor's capture time with every frame and the desktop works out each phone's clock offset from round trips over the connection it already has. The faster stream then waits for the slower one. That takes network and processing delay out of it. Two separate phones can't fire their shutters together though. The best case is within half a frame (about 16 ms at 30 fps), fine for talking with a little ghosting on fast moves
+- **Timing.** Frames get paired by when they were captured and not when they arrived. Each phone sends its sensor's capture time with every frame (it already stamps them for its encoder, so this costs next to nothing) and the desktop works out each phone's clock offset from round trips over the connection it already has. The faster stream then waits for the slower one. That takes network and processing delay out of it. Two separate phones can't fire their shutters together though. The best case is within half a frame (about 16 ms at 30 fps), fine for talking with a little ghosting on fast moves
+- **Exposure.** One switch sends the same ISO, shutter, white balance and focus to both phones and locks them there. With two of the same phone that does most of the matching on its own
 - **Alignment.** A sheet to print with a ChArUco board on it (a chessboard with codes in the squares that OpenCV finds out of the box). Hold it up, both phones find the same corners and the plugin works out how the phones sit compared to each other. It then shows how to turn or tilt one of them until they're close and straightens the rest with a warp on each stream. That warp is a rectifying one that turns the whole picture (Desk mode's only flattens the sheet) but it can go through the same warp code
-- **Colour.** Grey and colour patches on the same sheet let colour matching between phones even the two out (see Colour grading)
+- **Colour.** Grey and colour patches on the same sheet even out what's left between the two (see Colour grading)
 - **Checking the timing.** Paper can't show time but the desktop screen can. A fast changing code on the monitor filmed by both phones shows the real offset between them, a good test of the clock sync
 
-Some phones can stream two of their own rear cameras at once from one camera session, with the frames hardware synced. The cameras sit only a centimetre or two apart and the depth comes out subtle. In return there's no clock to sync and nothing to align. Worth offering where the phone has it.
-
-Big. It needs capture times through the phone app and the protocol, the calibration sheet and its guidance, the rectifying warp and the WebXR page (frames from other streams are there now).
+Big. It needs capture times through the phone app and the protocol, the linked exposure, the calibration sheet and its guidance, the rectifying warp and the WebXR page (frames from other streams are there now).
 
 ### AI models in plugins
 

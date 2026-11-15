@@ -46,6 +46,8 @@ export component UpdateButton inherits Rectangle {
 }
 
 export component UpdatesSettings inherits Card {
+    in property <bool> reset-shown;
+    callback reset-clicked;
     in property <string> version-text;
     in property <[string]> channels;
     in property <int> channel;
@@ -107,11 +109,16 @@ export component UpdatesSettings inherits Card {
     icon: Icons.v-update;
     hue: Theme.plugin-hue("extras");
     has-action: true;
-    action-icon: Icons.reset;
+    action-icon: Icons.search;
     action-label: @tr("Check now");
     action-text: @tr("Check now");
     action-tip-detail: @tr("Look for a new version of Telescope.");
     action => { if (!busy) { root.check-now(); } }
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Puts the update channel and automatic checking back to their usual choices.");
+    reset => { root.reset-clicked(); }
     // The rows that are there only in some states unfold in and out under the row they belong to
     UnfoldGroup {
         RailRow {
@@ -201,7 +208,7 @@ export component UpdatesSettings inherits Card {
         toggled(on) => { root.portable-toggled(on); }
     }
     if back-shown: RailRow {
-        icon: Icons.reset;
+        icon: Icons.skip-back;
         label: @tr("Older version");
         tip: @tr("Go back to the older Python version of Telescope");
         named: true;

@@ -14,6 +14,12 @@ fn encode(name: &str, values: &[u8], chroma: (u8, u8), w: u32, h: u32, fmt: ff::
 /// Encodes `count` frames whose planes fill(frame, plane, plane width, plane height) hands out.
 fn encode_with(name: &str, count: usize, w: u32, h: u32, fmt: ff::AVPixelFormat, opts: &[(&str, &str)],
                fill: &dyn Fn(usize, usize, usize, usize) -> Vec<u8>) -> Option<Vec<Vec<u8>>> {
+    encode_with_pts(name, count, w, h, fmt, opts, fill).map(|packets| packets.into_iter().map(|(p, _)| p).collect())
+}
+
+/// encode_with, each packet with the index of the picture in it (the pts the encoder gave it), which differs from the packet's place when the encoder reorders.
+fn encode_with_pts(name: &str, count: usize, w: u32, h: u32, fmt: ff::AVPixelFormat, opts: &[(&str, &str)],
+                   fill: &dyn Fn(usize, usize, usize, usize) -> Vec<u8>) -> Option<Vec<(Vec<u8>, i64)>> {
     // SAFETY: plain libavcodec encoding; everything allocated here is freed before returning
     unsafe {
         let cname = CString::new(name).unwrap();
@@ -60,13 +66,13 @@ fn encode_with(name: &str, count: usize, w: u32, h: u32, fmt: ff::AVPixelFormat,
             (*frame).pts = i as i64;
             ff::avcodec_send_frame(ctx, frame);
             while ff::avcodec_receive_packet(ctx, pkt) == 0 {
-                out.push(std::slice::from_raw_parts((*pkt).data, (*pkt).size as usize).to_vec());
+                out.push((std::slice::from_raw_parts((*pkt).data, (*pkt).size as usize).to_vec(), (*pkt).pts));
                 ff::av_packet_unref(pkt);
             }
         }
         ff::avcodec_send_frame(ctx, ptr::null());
         while ff::avcodec_receive_packet(ctx, pkt) == 0 {
-            out.push(std::slice::from_raw_parts((*pkt).data, (*pkt).size as usize).to_vec());
+            out.push((std::slice::from_raw_parts((*pkt).data, (*pkt).size as usize).to_vec(), (*pkt).pts));
             ff::av_packet_unref(pkt);
         }
         ff::av_packet_free(&mut pkt);
@@ -85,6 +91,16 @@ pub fn h264(values: &[u8], w: u32, h: u32, gop: u32) -> Option<Vec<Vec<u8>>> {
     let packets = encode("libx264", &limited, (128, 128), w, h, ff::AVPixelFormat::AV_PIX_FMT_YUV420P,
                          &[("tune", "zerolatency"), ("g", &g), ("bf", "0"), ("preset", "ultrafast")])?;
     Some(packets.into_iter().map(|p| [p, AUD.to_vec()].concat()).collect())
+}
+
+/// Greys as h264() has them, but encoded with B-frames, so the packets come in decoding order, which isn't the order the pictures were taken in:
+/// each with the index of its picture in values, framed like the phone sends them (a delimiter after each). None without libx264.
+pub fn h264_reordered(values: &[u8], w: u32, h: u32) -> Option<Vec<(Vec<u8>, usize)>> {
+    let limited: Vec<u8> = values.iter().map(|&v| (16.0 + v as f64 * 219.0 / 255.0).round() as u8).collect();
+    let packets = encode_with_pts("libx264", limited.len(), w, h, ff::AVPixelFormat::AV_PIX_FMT_YUV420P,
+                                  &[("bf", "2"), ("b-adapt", "0"), ("b-pyramid", "none"), ("scenecut", "0"), ("g", "100"), ("preset", "veryfast")],
+                                  &|i, plane, pw, ph| vec![[limited[i], 128, 128][plane]; pw * ph])?;
+    Some(packets.into_iter().map(|(p, pts)| ([p, AUD.to_vec()].concat(), pts as usize)).collect())
 }
 
 /// Opus packets of 20 ms each, mono at 48 kHz, of a tone peaking at `peak`: what a browser's mic sends. None without libopus.

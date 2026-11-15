@@ -480,47 +480,6 @@ export component PluginsPanel inherits VerticalLayout {
     }
 }
 
-// The restart bar kept under the Plugins tab's page: in the warning colour so it is noticed, and the one place a pending restart shows.
-// `amount` (0 to 1) is how far it has opened, from the window's own Unfold: the page above it gives up the same room as it grows, so
-// the bar opens and shuts with everything round it moving, and the words fade up as it opens. The bar keeps its size and the window
-// moves it (it slides down past the bottom edge as it shuts, not shrinks into a line above it).
-export component PluginsFooter inherits Rectangle {
-    in property <string> note;
-    in property <float> amount: 1;
-    callback restart;
-    callback revert;
-    height: Theme.u(27);
-    border-radius: Theme.r-card;
-    background: Theme.warn;
-    clip: true;
-    HorizontalLayout {
-        y: 0px;
-        height: Theme.u(27);
-        opacity: clamp(root.amount * 1.4 - 0.2, 0, 1);
-        padding-left: Theme.u(8);
-        padding-right: Theme.u(5);
-        padding-top: Theme.u(5);
-        padding-bottom: Theme.u(5);
-        spacing: Theme.u(6);
-        Text { horizontal-stretch: 1; text: note; wrap: word-wrap; line-height-factor: Theme.line-factor(self.font-size); font-family: Theme.font; font-size: Theme.body; font-weight: Theme.w-value; color: Theme.stage; vertical-alignment: center; }
-        Button {
-            text: @tr("Revert");
-            role: "outline";
-            enabled: root.amount >= 1;
-            clicked => { root.revert(); }
-            tip: @tr("Revert");
-            tip-detail: @tr("Put the plugins back the way they are in the running app, so nothing needs a restart.");
-        }
-        Button {
-            text: @tr("Restart now");
-            enabled: root.amount >= 1;
-            clicked => { root.restart(); }
-            tip: @tr("Restart now");
-            tip-detail: @tr("Restart Telescope to apply your changes.");
-        }
-    }
-}
-
 // The banner over the restart bar while a pack downloads (the vision pack, and any later one): its name, a bar and the percentage on the
 // right. `percent` is -1 while the size isn't known (the bar stays empty and no number shows). With an `error` it says what went wrong
 // instead, in the error colour. `amount` is how far it has opened, from the window's own Unfold, the same way the restart bar's is.
@@ -623,6 +582,31 @@ export component Ask inherits Rectangle {
             DialogButtons {
                 if !info: Button { text: @tr("Cancel"); dialog: true; clicked => { root.answer = false; dlg.leave(); } }
                 Button { text: info ? @tr("OK") : yes; dialog: true; role: danger && !info ? "" : "primary"; clicked => { root.answer = true; dlg.leave(); } }
+            }
+        }
+    }
+}
+
+// The General tab's last card: every setting back to its default. The window asks first, then restarts.
+export component ResetSettings inherits Card {
+    callback reset-all;
+    title: @tr("Reset");
+    tip: @tr("Put every setting back to its default.");
+    keywords: @tr("search" => "defaults factory restore clear start over");
+    icon: Icons.reset;
+    RailRow {
+        icon: Icons.sliders;
+        named: true;
+        label: @tr("All settings");
+        tip: @tr("Puts every setting back to its default and restarts Telescope.");
+        keywords: @tr("search" => "defaults factory restore clear start over");
+        hue: root.hue;
+        HorizontalLayout {
+            alignment: end;
+            Button {
+                text: @tr("Reset all settings");
+                tip: @tr("Puts every setting back to its default and restarts Telescope.");
+                clicked => { root.reset-all(); }
             }
         }
     }

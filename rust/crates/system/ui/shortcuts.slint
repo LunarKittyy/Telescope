@@ -133,7 +133,9 @@ export component ShortcutsSettings inherits VerticalLayout {
     in property <[BindingRow]> rows;
     in property <string> note-text;
     in property <bool> system-shown;
-    in property <bool> notify;
+    in-out property <bool> notify;
+    in property <bool> reset-shown;
+    callback reset-clicked;
     // The editor
     in property <bool> editor-open;
     in property <string> query;
@@ -209,6 +211,11 @@ callback param-committed(int, string);
         keywords: @tr("search" => "global system wide hotkeys background other apps");
         icon: Icons.monitor;
         hue: Theme.plugin-hue("extras");
+        has-reset: true;
+        reset-lit: reset-shown;
+        reset-label: @tr("Reset");
+        reset-detail: @tr("Turns the notice when a shortcut runs back off. Your shortcuts stay.");
+        reset => { root.reset-clicked(); }
         RailRow {
             icon: Icons.monitor;
             label: @tr("Desktop shortcut settings");
@@ -231,7 +238,7 @@ callback param-committed(int, string);
             tip-detail: @tr("While Telescope is in the background");
             keywords: @tr("search" => "notification notify toast confirmation popup");
             hue: Theme.plugin-hue("extras");
-            checked: notify;
+            checked <=> root.notify;
             toggled(on) => { root.notify-toggled(on); }
         }
     }

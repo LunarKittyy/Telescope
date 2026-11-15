@@ -37,11 +37,18 @@ export component BackgroundCard inherits Card {
     callback download-clicked;
     callback high-quality-toggled(bool);
     callback cutout-download-clicked;
+    in property <bool> reset-shown;
+    callback reset-clicked;
 
     title: @tr("Background");
     tip: @tr("Blur the background or replace it with a picture.");
     icon: Icons.image;
     enabled: active;
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Puts the background, blur, edges and picture choice back. Your picture file stays where it is.");
+    reset => { root.reset-clicked(); }
 
     UnfoldGroup {
         RailRow {

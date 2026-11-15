@@ -201,4 +201,42 @@ class H264StreamTest {
         now = 2_600
         assertTrue(q.offer(p(5), key = false))   // the rest still waiting after that: real lag
     }
+
+    private fun hex(vararg v: Int) = ByteArray(v.size) { v[it].toByte() }
+    private val seiHead = hex(0, 0, 0, 1, 0x06, 0x05, 25, 0x54, 0x45, 0x4C, 0x45, 0x53, 0x43, 0x4F, 0x50, 0x45, 0x2D, 0x54, 0x49, 0x4D, 0x45, 0x31, 0x31)
+
+    @Test
+    fun `capture time SEI has the exact bytes for a plain value`() {
+        val sei = H264Stream.captureTimeSei(false, 0x0102030405060708L)
+        assertArrayEquals(seiHead + hex(1, 1, 2, 3, 4, 5, 6, 7, 8, 0x80), sei)
+    }
+
+    @Test
+    fun `capture time SEI escapes zero runs in the payload`() {
+        val sei = H264Stream.captureTimeSei(true, 0x0000000300000000L)
+        assertArrayEquals(seiHead + hex(0, 0, 3, 0, 0, 3, 3, 0, 0, 3, 0, 0, 0x80), sei)
+        // Removing emulation prevention gives the clock byte and time back
+        val body = sei.copyOfRange(seiHead.size, sei.size - 1)
+        val raw = ArrayList<Byte>()
+        var zeros = 0
+        for (b in body) {
+            if (zeros >= 2 && b.toInt() == 3) { zeros = 0; continue }
+            raw.add(b)
+            zeros = if (b.toInt() == 0) zeros + 1 else 0
+        }
+        assertArrayEquals(hex(0, 0, 0, 0, 3, 0, 0, 0, 0), raw.toByteArray())
+        // No start-code lookalike inside the escaped payload
+        for (i in 0 until body.size - 2) assertFalse(body[i].toInt() == 0 && body[i + 1].toInt() == 0 && body[i + 2].toInt() in 0..2)
+    }
+
+    @Test
+    fun `the packet after the SEI is unchanged and an unknown clock adds nothing`() {
+        val packet = hex(0, 0, 0, 1, 0x65, 0x88, 0x84, 0, 0, 1, 9)
+        val out = H264Stream.withCaptureTime(packet, true, 5_000L)
+        val sei = H264Stream.captureTimeSei(true, 5_000L)
+        assertArrayEquals(sei, out.copyOfRange(0, sei.size))
+        assertArrayEquals(packet, out.copyOfRange(sei.size, out.size))
+        assertArrayEquals(packet, H264Stream.withCaptureTime(packet, null, 5_000L))
+        assertEquals(0, H264Stream.captureTimeSei(null, 1).size)
+    }
 }

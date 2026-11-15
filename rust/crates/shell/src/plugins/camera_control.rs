@@ -9,10 +9,15 @@ use telescope_core::event::Event;
 use telescope_core::i18n::{n_, number, tr, tr_ctx};
 use telescope_core::lens::{lens_label, lens_name, shorten_lens_label};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo, StreamsBehind};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 use telescope_core::{FrameStage, Host};
 
 const FOCUS_STEPS: i64 = 1000;
+/// How long after one of its own edits the card ignores what a poll finds, since the answer may be from before the edit.
+const POLL_QUIET: std::time::Duration = std::time::Duration::from_secs(2);
+/// The timer that asks the phone again after a poll answer was ignored for the quiet.
+const REPOLL: &str = "repoll";
 /// LogSliderRow.STEPS
 const LOG_STEPS: f64 = 2000.0;
 /// (the name saved shortcuts pick a mode by, the phone's value) of the noise reduction and sharpening modes.
@@ -635,6 +640,8 @@ pub struct CameraControl {
     held: [Option<bool>; 4],
     /// What the handlers sent and said since the host last heard (refresh hands it over).
     out: Outbox,
+    /// When this card last sent the phone something, for polls: an answer that was asked for before it may carry the value from before.
+    last_edit: Option<std::time::Instant>,
 }
 
 /// Bodies for the phone, events for the bus and saves asked for, in order.
@@ -699,6 +706,7 @@ impl CameraControl {
             torch_on: false,
             held: [None; 4],
             out: Outbox::default(),
+            last_edit: None,
         };
         card.actions_made_from = card.actions_key();
         card
@@ -707,7 +715,14 @@ impl CameraControl {
     fn send(&mut self, body: Value) {
         if self.stream.is_some() {
             self.out.bodies.push(body);
+            self.last_edit = Some(std::time::Instant::now());
         }
+    }
+
+    /// Whether this card sent the phone something less than POLL_QUIET ago: a poll's answer doesn't say when it was asked for, so one that comes now
+    /// may have sampled the phone before that and must not put the card back.
+    fn edited_lately(&self) -> bool {
+        self.last_edit.is_some_and(|at| at.elapsed() < POLL_QUIET)
     }
 
     fn card_on(&self) -> bool {
@@ -871,6 +886,12 @@ impl CameraControl {
 
     fn place_switch_tiles(&mut self, low_light: bool) {
         self.low_light.visible = low_light;
+    }
+
+    /// Whether a phone's state has a different exposure (automatic or manual, ISO, shutter) from the one the card last loaded.
+    fn exposure_moved(&self, state: &Value) -> bool {
+        let exposure = |s: &Value| [s.get("auto"), s.get("iso"), s.get("shutter_ns")].map(|v| v.cloned());
+        self.last_state.as_ref().is_some_and(|last| exposure(last) != exposure(state))
     }
 
     fn phone_state(&mut self, state: &Value) {
@@ -1331,6 +1352,20 @@ impl CameraControl {
         loaded
     }
 
+    /// The lens is the phone's to offer and the person's to pick, so a Reset leaves it.
+    const RESET_KEPT: &'static [&'static str] = &["lens"];
+
+    fn reset_shown(&self) -> bool {
+        off_default(&self.config(), &CameraControl::new().config(), Self::RESET_KEPT)
+    }
+
+    /// Back to the phone's automatic exposure, focus and white balance and the defaults for the rest, sent like a preset.
+    fn reset(&mut self) {
+        let cfg = reset_config(&self.config(), &CameraControl::new().config(), Self::RESET_KEPT);
+        let _ = self.preset(&cfg);
+        self.out.saves += 1;
+    }
+
     // ── What the card shows ──
 
     /// Low light is always on the card: greyed out, with the reason, until a streaming phone says it takes it.
@@ -1392,6 +1427,7 @@ impl CameraControl {
             "torch": tile(&self.torch),
             "noise-reduction": self.nr,
             "sharpening": self.edge,
+            "reset-shown": self.reset_shown(),
         });
         // Apart from the rest: json! gives up on one this long
         props["lens-columns"] = json!(lens_columns(self.lenses.cameras.len()));
@@ -1677,6 +1713,20 @@ impl Plugin for CameraControl {
             Event::SourceSelected { source_id } => self.source = source_id.clone(),
             Event::FocusPoint { x, y } => self.on_focus_point(f64::from(*x), f64::from(*y)),
             Event::MeterPoint { x, y } => self.on_meter_point(f64::from(*x), f64::from(*y)),
+            // Something else set the phone's exposure (3D's Match): a poll that finds it other than the card has it brings the card up to date. Polls
+            // that find nothing new leave the card alone, or it would reload from the phone every time. Nor does one that may have been taken before
+            // the person's own latest edit: it would put the card back to what they just moved away from.
+            Event::PhonePolled { shown: true, state, .. } if !self.edited_lately() && self.exposure_moved(state) => self.phone_state(state),
+            // one that came in the quiet after an edit and found something new is asked for again once the quiet is over, so the card isn't left behind
+            Event::PhonePolled { shown: true, state, .. } if self.edited_lately() && self.exposure_moved(state) => {
+                let left = self.last_edit.map_or(0, |at| POLL_QUIET.saturating_sub(at.elapsed()).as_millis() as u64);
+                host.schedule(left + 100, REPOLL);
+                return;
+            }
+            Event::TimerFired { owner, token } if owner == "camera_control" && token == REPOLL => {
+                host.request_phone_state(None);
+                return;
+            }
             _ => return,
         }
         self.refresh(host);
@@ -1735,6 +1785,7 @@ impl Plugin for CameraControl {
         let b = |i: usize| event.args.get(i).and_then(Value::as_bool).unwrap_or(false);
         match event.callback.as_str() {
             "lens-picked" => self.on_ui_lens(n(0) as usize),
+            "reset-clicked" => self.reset(),
             "exposure-picked" => {
                 if self.exp.enabled.get(n(0) as usize) == Some(&true) {
                     self.set_exp(n(0) as usize == 1);

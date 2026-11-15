@@ -174,6 +174,8 @@ export component VirtualCameraSettings inherits Card {
 
 // Video: hardware decoding, power-saving effects, the Zoom slider's reach and the canvas size
 export component VideoSettings inherits Card {
+    in property <bool> reset-shown;
+    callback reset-clicked;
     in property <bool> hw-enabled;
     in-out property <bool> hw-checked;
     in property <string> hw-line;
@@ -203,6 +205,11 @@ export component VideoSettings inherits Card {
 
     title: @tr("Video");
     tip: @tr("Hardware acceleration, power saving, zoom range and the virtual camera's size.");
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Puts hardware acceleration, power saving and the zoom range back to how they started, and picks the automatic canvas size, which Apply then uses.");
+    reset => { root.reset-clicked(); }
     keywords: @tr("search" => "picture quality image stream camera output");
     icon: Icons.chip;
     hue: Theme.plugin-hue("streaming");
@@ -314,6 +321,8 @@ export component VideoSettings inherits Card {
 
 // Microphone, on Audio: the Gain slider's reach and the limiter
 export component MicrophoneLimits inherits Card {
+    in property <bool> reset-shown;
+    callback reset-clicked;
     in property <string> card-group: "sound";
     in property <[string]> gain-items;
     in-out property <int> gain-current;
@@ -323,6 +332,11 @@ export component MicrophoneLimits inherits Card {
 
     title: @tr("Microphone");
     tip: @tr("Maximum microphone gain and the limiter.");
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Puts the gain range and the limiter back to their usual settings.");
+    reset => { root.reset-clicked(); }
     keywords: @tr("search" => "audio sound voice input volume");
     icon: Icons.mic;
     hue: Theme.plugin-hue("sound");
@@ -431,6 +445,8 @@ export component PhoneAppSettings inherits Card {
 
 // Look, on General: card colours and the language
 export component LookSettings inherits Card {
+    in property <bool> reset-shown;
+    callback reset-clicked;
     in-out property <int> hues-current;
     in-out property <int> theme-current;
     in property <[string]> lang-items;
@@ -445,6 +461,11 @@ export component LookSettings inherits Card {
 
     title: @tr("Look");
     tip: @tr("Theme, card colours and language.");
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Puts the theme, card colours and language back to their usual choices.");
+    reset => { root.reset-clicked(); }
     keywords: @tr("search" => "appearance theme colors colours interface");
     icon: Icons.sliders;
     hue: Theme.plugin-hue("streaming");
@@ -510,7 +531,7 @@ export component LookSettings inherits Card {
                     Button {
                         text: @tr("Restart now");
                         has-icon: true;
-                        icon: Icons.reset;
+                        icon: Icons.repeat;
                         icon-tint: Theme.ink2;
                         tip: @tr("Restart");
                         tip-detail: @tr("Restart Telescope in the language you picked.");

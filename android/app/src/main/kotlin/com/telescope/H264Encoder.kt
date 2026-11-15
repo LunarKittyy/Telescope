@@ -122,7 +122,7 @@ class H264Encoder(
                 if (buf != null && info.size > 0) {
                     buf.position(info.offset)
                     buf.limit(info.offset + info.size)
-                    val bytes = ByteArray(info.size).also { buf.get(it) }
+                    var bytes = ByteArray(info.size).also { buf.get(it) }
                     val config = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
                     val key = info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0
                     if (!config) {
@@ -132,6 +132,7 @@ class H264Encoder(
                             PhoneStats.delayMs(info.presentationTimeUs, System.nanoTime(), SystemClock.elapsedRealtimeNanos(), PhoneStats.shared.realtimeStamps)?.let { PhoneStats.shared.addEncode(it) }
                         }
                     }
+                    if (!config) bytes = H264Stream.withCaptureTime(bytes, PhoneStats.stampClock(info.presentationTimeUs, System.nanoTime(), SystemClock.elapsedRealtimeNanos(), PhoneStats.shared.realtimeStamps), info.presentationTimeUs * 1000)
                     onPacket(bytes, key, config)
                 }
                 mc.releaseOutputBuffer(index, false)

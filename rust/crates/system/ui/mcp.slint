@@ -22,6 +22,8 @@ export component McpSettings inherits VerticalLayout {
     in property <string> copy-tip;
     in property <[McpLogRow]> log;
     in property <string> log-empty;
+    in property <bool> reset-shown;
+    callback reset-clicked;
     callback access-picked(int);
     callback copy-clicked;
 
@@ -31,6 +33,11 @@ export component McpSettings inherits VerticalLayout {
         keywords: @tr("search" => "mcp ai claude model assistant agent connect access read only");
         icon: Icons.plug;
         hue: Theme.plugin-hue("extras");
+        has-reset: true;
+        reset-lit: reset-shown;
+        reset-label: @tr("Reset");
+        reset-detail: @tr("Puts what an AI app may do back to its usual level. The activity log and undo history stay.");
+        reset => { root.reset-clicked(); }
         RailRow {
             icon: Icons.devices;
             label: @tr("Connected");

@@ -350,6 +350,8 @@ fn plan(window: &Rc<Window>) -> Result<Plan, String> {
             }
         }
     }
+    // The window's own row, which no plugin lists
+    sections.push((crate::card_order::SHELL.to_string(), crate::card_order::settings_section()));
     let (panel, off, categories) = {
         let state = window.state.borrow();
         let categories: std::collections::HashMap<String, String> = state.slots.iter().map(|s| (s.info.name.clone(), s.info.category.clone())).collect();
@@ -383,7 +385,8 @@ fn plan(window: &Rc<Window>) -> Result<Plan, String> {
             tab_sections[place.tab].push((plugin.clone(), id.clone()));
         }
     }
-    let text = doc::settings(tabs.len(), plugins_tab, &places);
+    let general_tab = tabs.iter().position(|(id, _, _)| id == "general");
+    let text = doc::settings(tabs.len(), plugins_tab, general_tab, &places);
     let def = crate::compile::compile("settings.slint", &text, files, "TelescopeSettings")?;
     Ok(Plan { sections, places, tabs, plugins_tab, pieces, tab_sections, section_words, panel, def })
 }
@@ -550,6 +553,13 @@ impl Settings {
                     let (plugin, section_id, callback, weak) = (plugin.clone(), section_id.clone(), cb.clone(), Rc::downgrade(self));
                     let _ = ui.set_callback(&format!("{}-{cb}", piece.id), move |args| {
                         if let Some((s, w)) = weak.upgrade().and_then(|s| s.window.upgrade().map(|w| (s, w))) {
+                            if plugin == crate::card_order::SHELL {
+                                // The dialog is the main window's, so this window gives way to it
+                                s.tell_hidden();
+                                let _ = s.ui.hide();
+                                w.open_card_order();
+                                return SValue::Void;
+                            }
                             let event = UiEvent { ui: section_id.clone(), callback: callback.clone(), args: args.iter().map(to_json).collect() };
                             crate::input::tips(&s.ui, "changed", &[]);
                             w.state.borrow_mut().ui_event(&plugin, event);
@@ -624,6 +634,10 @@ impl Settings {
         cb(self, "answered", |s, a| s.answered(matches!(a.first(), Some(SValue::Bool(true)))));
         cb(self, "all-on", |s, _| s.request(Request::AllOn));
         cb(self, "revert", |s, _| s.request(Request::Revert));
+        cb(self, "reset-all", |s, _| {
+            let streaming = s.window.upgrade().is_some_and(|w| w.is_streaming());
+            s.request(Request::ResetAll { streaming });
+        });
         cb(self, "restart", |s, _| {
             let streaming = s.window.upgrade().is_some_and(|w| w.is_streaming());
             s.request(Request::Restart { streaming });
@@ -998,12 +1012,37 @@ impl Settings {
         self.next_notice();
         if outcome.restart {
             if let Some(w) = self.window.upgrade() {
-                if !w.restart_app() {
-                    self.notices.borrow_mut().push_back(crate::plugins_tab::restart_failed());
-                    self.next_notice();
-                }
+                self.restart(&w, outcome.reset_settings);
             }
         }
+    }
+
+    /// Restarts Telescope; with `reset` the settings file is reset first and put back if the restart doesn't happen.
+    fn restart(&self, w: &Rc<Window>, reset: bool) {
+        if reset {
+            let reset = w.state.borrow_mut().reset_all_settings();
+            if let Err(e) = reset {
+                log::error!("Couldn't reset the settings: {e}");
+                self.notices.borrow_mut().push_back(plugins_tab::reset_failed(&e.to_string()));
+                self.next_notice();
+                return;
+            }
+        }
+        if w.restart_app() {
+            if reset {
+                w.state.borrow_mut().reset_sign_in();
+                w.process();
+            }
+            return;
+        }
+        let notice = if reset {
+            w.state.borrow_mut().undo_reset();
+            plugins_tab::reset_not_restarted()
+        } else {
+            plugins_tab::restart_failed()
+        };
+        self.notices.borrow_mut().push_back(notice);
+        self.next_notice();
     }
 
     /// The next message waits for the question or message before it to be dismissed.

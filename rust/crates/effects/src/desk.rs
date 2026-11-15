@@ -15,6 +15,7 @@ use telescope_core::host::{Host, PickKind, Poster, View};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::image::{keep_bytes, with_spares};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 use telescope_core::view::{view_to_shown, Geometry};
 
@@ -33,7 +34,9 @@ const SHAPE_VALUES: [&str; 5] = ["Auto", "A4", "Letter", "Square", "Fill the pic
 
 const SWITCH_TIP: &str = n_("Straighten the marked sheet.");
 const MARK_TIP: &str = n_("Drag the four corners of the sheet into place on the preview.");
-const RESET_TIP: &str = n_("Set the width and height back to 100%.");
+const RESET_TIP: &str = n_("Puts the writing, shape and stretch back. The marked corners and the switch stay.");
+/// What a Reset leaves alone: the switch and the marked paper.
+const RESET_KEPT: &[&str] = &["on", "corners"];
 const CLEAN_TIP: &str = n_("Make the writing on the sheet stand out.");
 const SHAPE_TIP: &str = n_("Work out the shape from the corners.");
 const SHAPE_FILL_TIP: &str = n_("Fill the whole picture with the sheet.");
@@ -224,7 +227,7 @@ impl DeskPlugin {
         json!({
             "active": self.paired.on(), "on": self.on, "picking": self.picking,
             "mark-text": if self.corners.is_some() { tr("Mark the sheet again") } else { tr("Mark the sheet") },
-            "reset-shown": !fill && self.stretch != [100, 100],
+            "reset-shown": self.reset_shown(),
             "clean-current": index_of(&CLEANUPS, &self.cleanup), "shape-current": index_of(&SHAPES, &self.shape),
             "stretch-enabled": !fill, "stretch": self.stretch, "stretch-text": self.stretch.map(|v| format!("{v}%")),
             "status": status, "status-detail": detail, "status-kind": if kind == "dim" { "status_dim" } else { kind },
@@ -237,6 +240,23 @@ impl DeskPlugin {
             a.extend(s);
         }
         all
+    }
+
+    /// What a fresh card has: no writing clean-up, the shape picked for you and the sheet at its own size.
+    fn defaults() -> Value {
+        json!({"on": false, "corners": null, "cleanup": "off", "shape": "auto", "stretch": [100, 100]})
+    }
+
+    fn reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &Self::defaults(), RESET_KEPT)
+    }
+
+    fn reset(&mut self, host: &mut dyn Host) {
+        let cfg = reset_config(&self.get_config(), &Self::defaults(), RESET_KEPT);
+        if self.set_config(&cfg).is_ok() {
+            self.pending = false;
+            self.changed(host, true);
+        }
     }
 
     fn show(&self, host: &mut dyn Host) {
@@ -399,10 +419,7 @@ impl Plugin for DeskPlugin {
                 host.finish_pick(NAME);
             }
             "cancel-clicked" => host.cancel_pick(NAME),
-            "reset-clicked" => {
-                self.stretch = [100, 100];
-                self.changed(host, true);
-            }
+            "reset-clicked" => self.reset(host),
             "clean-picked" => self.set_cleanup(host, n(0).max(0.0) as usize),
             "shape-picked" => self.set_shape(host, n(0).max(0.0) as usize),
             "stretch-moved" => self.set_stretch(host, n(0) as usize, n(1)),

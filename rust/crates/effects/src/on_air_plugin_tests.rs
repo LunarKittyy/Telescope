@@ -553,3 +553,23 @@ fn what_it_says_in_diagnostics() {
     assert_eq!((d["On Air"].as_str(), d["On Air when"].as_str()), ("off", "camera"));
     assert_eq!((d["On Air sign page"].as_str(), d["On Air webhook"].as_str()), ("on, port 8768", "set (GET)"));
 }
+
+#[test]
+fn each_reset_puts_back_its_own_card_and_keeps_the_link_and_address() {
+    let mut r = Rig::new(json!({"trigger": "mic", "webhook_url": "http://hub.local/hook", "webhook_method": "GET", "webhook_on": "lit", "webhook_off": "dark"}));
+    let token = r.plugin.token().to_string();
+    assert!(r.plugin.sign_reset_shown() && r.plugin.webhook_reset_shown());
+    r.ui("sign-reset-clicked", vec![]);
+    let config = r.plugin.get_config();
+    assert_eq!(config["trigger"], DEFAULT_TRIGGER);
+    assert_eq!(config["webhook_method"], "GET", "the webhook card is not touched");
+    assert!(!r.plugin.sign_reset_shown() && r.plugin.webhook_reset_shown());
+    r.ui("webhook-reset-clicked", vec![]);
+    let config = r.plugin.get_config();
+    assert_eq!((config["webhook_method"].as_str(), config["webhook_on"].as_str(), config["webhook_off"].as_str()), (Some("POST"), Some(""), Some("")));
+    assert_eq!(config["webhook_url"], "http://hub.local/hook");
+    assert_eq!(r.plugin.token(), token);
+    assert!(!r.plugin.webhook_reset_shown());
+    assert!(r.host.calls.iter().any(|c| c.starts_with("set_ui_props on_air") && c.contains("\"webhook-reset-shown\":false")));
+    assert!(r.host.calls.iter().any(|c| c == "schedule_save"));
+}

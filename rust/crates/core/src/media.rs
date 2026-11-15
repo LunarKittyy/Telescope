@@ -148,6 +148,11 @@ pub trait Decoder: Send {
     fn timing_probe(&self) -> Option<TimingProbe> {
         None
     }
+    /// Where this stream's phone clock offset is kept up to date, for a decoder that reads the capture time the phone stamps on each frame:
+    /// it turns it into this computer's clock (Frame::capture_ns). Set before the first packet; a decoder with no capture times ignores it.
+    fn set_phone_clock(&mut self, clock: std::sync::Arc<crate::clock::PhoneClock>) {
+        let _ = clock;
+    }
 }
 
 /// What a Decoder's timing_probe gives: callable from another thread while the decoder runs.
@@ -285,10 +290,38 @@ pub trait FrameSlot: Send + Sync {
     fn published(&self) -> Option<Frame>;
     /// Sends frame out in place of the newest one unless a newer one came since (number isn't published's); published keeps the stream's own.
     fn replace(&self, frame: Frame, number: u64) -> bool;
+    /// The same as `replace`, but only while the camera's frame still has the pixels `expected`: another plugin may have put its own out since.
+    fn replace_if(&self, frame: Frame, number: u64, expected: &Arc<Vec<u8>>) -> bool {
+        self.latest().is_some_and(|(f, _)| Arc::ptr_eq(&f.data, expected)) && self.replace(frame, number)
+    }
     /// The frame for the virtual camera and a count that goes up whenever it changes.
     fn latest(&self) -> Option<(Frame, u64)>;
     /// Waits until latest's count passes seen, or timeout; true if it did.
     fn wait_newer(&self, seen: u64, timeout: Duration) -> bool;
+    /// The stream's phone clock, which is what its frames' capture times were read against (None for a stream with no phone clock), so
+    /// FrameStore::clock_sync can say how good they are. Set again whenever the stream opens a new connection.
+    fn set_phone_clock(&self, _clock: Option<Arc<crate::clock::PhoneClock>>) {}
+    fn phone_clock(&self) -> Option<Arc<crate::clock::PhoneClock>> {
+        None
+    }
+    /// The frame in the recent history (see StreamFrames::set_history) whose capture time is nearest to capture_ns, None when there's no history
+    /// or none of it has a capture time.
+    fn near(&self, _capture_ns: u64) -> Option<Frame> {
+        None
+    }
+    /// The pipeline epoch (FrameStore::pipeline_epoch) as this slot sees it now; 0 for a slot that has none.
+    fn epoch(&self) -> u64 {
+        0
+    }
+    /// Like `publish`, for a frame the steps started on while the pipeline epoch was `epoch`: if it has gone up since, the frame is told from
+    /// the ones made after, whatever the epoch is when it comes out.
+    fn publish_at(&self, frame: Frame, _epoch: u64) -> u64 {
+        self.publish(frame)
+    }
+    /// The steps of this stream's pipeline were just handed out again: lets go of the frames `near` would hand out and starts a new epoch for
+    /// every stream (FrameStore::pipeline_epoch), so one that went out before a Blur came on is never handed to a plugin that puts stream
+    /// frames together afterwards, and frames published from now on are told from the ones before.
+    fn forget_history(&self) {}
 }
 
 /// The FrameStore plugins read, plus what the window tells it (Frames.set_streams).
@@ -297,6 +330,9 @@ pub trait StreamFrames: FrameStore {
     fn new_slot(&self) -> Arc<dyn FrameSlot>;
     /// The streams running now as (source id, name, slot), in the order they started; a stream with the camera off is left out.
     fn set_streams(&self, streams: Vec<(String, String, Arc<dyn FrameSlot>)>);
+    /// How many of each stream's newest frames are kept for FrameStore::stream_frame_near; 0, the default, keeps none (the stream's newest
+    /// frame is the only one held). Takes effect from the next frame each stream publishes.
+    fn set_history(&self, _frames: usize) {}
 }
 
 /// What Setup's saved settings say about decoding on the graphics card: Some for a choice made there, None for one never made. Older

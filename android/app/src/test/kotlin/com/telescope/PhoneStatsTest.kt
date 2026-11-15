@@ -123,4 +123,33 @@ class PhoneStatsTest {
         assertEquals(report, json.decodeFromString<PhoneStatsReport>(text))
         assertEquals(report, json.decodeFromString<PhoneStatsReport>("""{"encode_ms":8.5,"thermal":2,"future":1}"""))
     }
+
+    @Test
+    fun `stamp clock is read from the timestamp itself`() {
+        val monoNs = 5_000_000_000_000L
+        val realNs = 9_000_000_000_000L
+        assertEquals(true, PhoneStats.stampClock((realNs - 25_000_000L) / 1000, monoNs, realNs), "realtime stamp")
+        assertEquals(false, PhoneStats.stampClock((monoNs - 25_000_000L) / 1000, monoNs, realNs), "monotonic stamp")
+        assertNull(PhoneStats.stampClock(1_000_000L, monoNs, realNs), "neither")
+        assertNull(PhoneStats.stampClock(0, monoNs, realNs), "no stamp")
+    }
+
+    @Test
+    fun `stamp clock takes the smaller delay when both fit`() {
+        val monoNs = 5_000_000_000_000L
+        val realNs = monoNs + 100_000_000L
+        assertEquals(false, PhoneStats.stampClock((monoNs - 10_000_000L) / 1000, monoNs, realNs))
+        assertEquals(true, PhoneStats.stampClock((realNs - 10_000_000L) / 1000, monoNs, realNs))
+    }
+
+    @Test
+    fun `stamp clock follows the camera's source when both fit`() {
+        val monoNs = 5_000_000_000_000L
+        val realNs = monoNs + 100_000_000L
+        // A realtime stamp older than the clocks' difference looks monotonic by delay alone
+        val old = (realNs - 150_000_000L) / 1000
+        assertEquals(false, PhoneStats.stampClock(old, monoNs, realNs), "unknown: smaller delay")
+        assertEquals(true, PhoneStats.stampClock(old, monoNs, realNs, true), "camera says realtime")
+        assertEquals(false, PhoneStats.stampClock((monoNs - 10_000_000L) / 1000, monoNs, realNs, false), "camera says monotonic")
+    }
 }

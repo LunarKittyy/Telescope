@@ -15,6 +15,7 @@ use telescope_core::event::Event;
 use telescope_core::host::{Host, Poster};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::ui::{SettingsSection, SlintSource, UiEvent, UiSpec};
 
 use crate::going_back::{self, Plan};
@@ -533,6 +534,7 @@ impl UpdatesPlugin {
             "back-open": self.back_asked.is_some(),
             "back-text": self.back_asked.as_ref().map(|(_, d)| d.text.clone()).unwrap_or_default(),
             "back-action": self.back_asked.as_ref().map(|(_, d)| d.action.clone()).unwrap_or_default(),
+            "reset-shown": self.reset_shown(),
             "back-action-enabled": self.back_asked.as_ref().is_some_and(|(_, d)| d.enabled),
         })
     }
@@ -640,6 +642,27 @@ impl UpdatesPlugin {
         if !self.checked && !self.checking {
             self.check(host, true);
         }
+    }
+
+    /// What a Reset goes back to: the channel this build starts on, checking on and no portable copy. When the last check was stays.
+    const RESET_KEPT: &'static [&'static str] = &["last_check"];
+
+    fn defaults(&self) -> Value {
+        json!({"channel": Self::default_channel_for(&self.built_channel), "auto_check": true, "last_check": self.last_check, "keep_portable": false})
+    }
+
+    fn reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &self.defaults(), Self::RESET_KEPT)
+    }
+
+    pub fn reset(&mut self, host: &mut dyn Host) {
+        let cfg = reset_config(&self.get_config(), &self.defaults(), Self::RESET_KEPT);
+        self.auto_check = cfg["auto_check"] != Value::Bool(false);
+        self.keep_portable = cfg["keep_portable"] == Value::Bool(true);
+        host.schedule_save();
+        // A different channel looks for its newest version, as picking it does
+        self.set_channel(host, cfg["channel"].as_str().unwrap_or("stable"));
+        self.refresh(host);
     }
 
     pub fn set_channel(&mut self, host: &mut dyn Host, channel: &str) {
@@ -960,6 +983,7 @@ impl Plugin for UpdatesPlugin {
         match (event.ui.as_str(), event.callback.as_str()) {
             ("header", "clicked") => self.open_updates(host),
             (SECTION, "check-now") => self.check(host, true),
+            (SECTION, "reset-clicked") => self.reset(host),
             (SECTION, "channel-picked") => {
                 let i = event.args.first().and_then(Value::as_u64).unwrap_or(0) as usize;
                 if let Some((key, _)) = CHANNEL_LABELS.get(i) {
@@ -970,6 +994,7 @@ impl Plugin for UpdatesPlugin {
             (SECTION, "auto-toggled") => {
                 self.auto_check = event.args.first().and_then(Value::as_bool).unwrap_or(true);
                 host.schedule_save();
+                self.refresh(host);
             }
             (SECTION, "portable-toggled") => {
                 self.keep_portable = event.args.first().and_then(Value::as_bool).unwrap_or(false);
@@ -1170,6 +1195,20 @@ mod tests {
         assert_eq!(*fake.channels.lock().unwrap(), vec!["nightly"]);
         assert!(button_shown(&host));
         assert!(last_props(&host, "header")["tip"].as_str().unwrap().contains("0.6.0 nightly 200"));
+    }
+
+    #[test]
+    fn reset_puts_the_channel_and_checking_back_and_keeps_the_last_check() {
+        let (mut plugin, mut host, _fake) = env();
+        plugin.set_config(&json!({"channel": "stable", "auto_check": false, "keep_portable": true, "last_check": 1234.0})).unwrap();
+        assert!(plugin.reset_shown());
+        plugin.reset(&mut host);
+        let default = plugin.built_channel.clone();
+        assert_eq!(plugin.get_config(), json!({"channel": default, "auto_check": true, "last_check": plugin.last_check, "keep_portable": false}));
+        assert!(plugin.last_check >= 1234.0);
+        assert!(!plugin.reset_shown());
+        assert_eq!(last_props(&host, SECTION)["reset-shown"], false);
+        assert!(host.calls.iter().any(|c| c == "schedule_save"));
     }
 
     #[test]
