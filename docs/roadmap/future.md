@@ -114,6 +114,10 @@ When the phone gets hot, the phone app lowers the frame rate, but some cameras o
 
 The work on Slint's interpreter continues, mainly cheaper struct field lookups and fewer allocations while the window updates. Nobody sees it except as a lighter window, like the rest of [Lighter on the processor and memory](5.1.md#lighter-on-the-processor-and-memory). Medium.
 
+### USB without adb
+
+USB pairing and the USB route need adb on the computer, which Windows downloads from Google after asking, and USB debugging switched on in the phone's Developer options. Android's Open Accessory mode would let the phone talk to the computer over the cable with neither: the computer asks a plugged-in phone to switch into accessory mode and the Telescope app opens on its own. The catch is that it needs a libusb-style driver on Windows, and the phone app has to handle a second kind of connection beside adb's reverse port (`rust/crates/link/src/adb.rs` and `service.rs` on the desktop). Big, and it needs real phones from several makers to try.
+
 ## Appearance options
 
 Only options that scale or swap something every control already reads from the design tokens, in a few fixed steps, so a render test can cover them and nothing breaks unseen. No free colour pickers, fonts or per-card overrides.
@@ -171,6 +175,14 @@ The card isn't always the faster place though. 5.0.2 and 5.0.3 moved mirroring, 
 A view between two plugin shaders now costs a trip down and back up though. Making the view a step that can run either way would only help with one more rule: such a step goes to the card only when the frame is already up there. Right now the balancer picks the card or the CPU for every such step in a frame at once (colour grading is the other one), so with the card picked a lone view or grade sends the frame up just for itself.
 
 Measure first. The pipeline already counts its transfers (`crates/media/src/transfers.rs`), so run a heavy stack on a weak laptop and see where the time goes before moving anything. Laptops whose GPU shares memory with the CPU copy almost for free and they're also the ones whose CPU struggles first.
+
+Three ideas for making the chain cheaper, none of them measured yet:
+
+- **One shared working frame.** A step on the CPU that needs RGB converts the frame from I420 or NV12 and writes it back afterwards (`rust/crates/effects/src/pixels.rs`) for each of them. Converting once at the start and once at the end would do it for the whole chain
+- **Longer runs on the GPU.** Moving the steps listed above into runs that stay on the card, so the frame goes up once and comes down once
+- **Effects on the YUV planes directly.** Steps that only change brightness or colour (grading, some of Filters) could work on the Y and UV planes as they come out of the decoder. That's half the bytes of RGB with no conversion
+
+Medium each, and worth measuring with the transfer counter first.
 
 ## ARM64
 

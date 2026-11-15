@@ -1,4 +1,4 @@
-<!-- covers: LICENSE rust/crates/ui-kit/ui/fonts rust/windows/unitycapture rust/tools/write_notices.py rust/tools/build_ffmpeg.sh; checked: 1cbb8644b -->
+<!-- covers: LICENSE BRANDING.md rust/crates/ui-kit/ui/fonts rust/windows/unitycapture rust/tools/write_notices.py rust/tools/build_ffmpeg.sh; checked: bbce71b6d -->
 # Licenses
 
 Telescope is licensed under the [GNU Affero General Public License v3.0](https://www.gnu.org/licenses/agpl-3.0.html). The full text is in [LICENSE](../LICENSE).
@@ -16,6 +16,10 @@ Telescope is licensed under the [GNU Affero General Public License v3.0](https:/
     GNU Affero General Public License for more details.
 
 You are free to use, modify, and redistribute it, including for commercial purposes, provided derivative works remain under the AGPL-3.0 and you make the corresponding source available - including to users who interact with a modified version over a network.
+
+## Name and artwork
+
+The AGPL-3.0 covers the code. The Telescope name, logo, app icons, banner, website design and screenshots are not under it, and forks need their own. [BRANDING.md](../BRANDING.md) lists what's reserved and what you can do with it.
 
 ## Third-party components
 
