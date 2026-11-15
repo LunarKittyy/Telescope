@@ -1,7 +1,7 @@
-<!-- covers: rust/crates/link/src/browser rust/crates/link/web rust/crates/outputs/src/webcam* rust/crates/shell/src/sources.rs rust/crates/shell/src/extra_cameras.rs rust/crates/effects/src/composite* rust/crates/effects/src/compositor*; checked: 141b7ea82 -->
+<!-- covers: rust/crates/link/src/browser rust/crates/link/web rust/crates/outputs/src/webcam* rust/crates/shell/src/sources.rs rust/crates/shell/src/extra_cameras.rs rust/crates/effects/src/composite* rust/crates/effects/src/compositor* rust/crates/effects/src/stereo*; checked: 141b7ea82 -->
 # Sources and layouts
 
-Other cameras and the browser, and putting several cameras on screen.
+Other cameras and the browser, putting several cameras on screen and making 3D from two phones.
 
 ## Browser camera
 
@@ -64,3 +64,16 @@ Optional (switch it on under **Streaming and devices** in the Plugins tab of Set
 - The picture goes out on the **Telescope** camera, the one call apps use, whichever stream goes there (usually the first you started). The other streams still go to their own cameras as well, for OBS scenes that use them one by one. While no stream goes to Telescope, or the one there has its camera off, the picture waits
 - It only takes over while at least two of its streams are running. A stream that drops leaves the picture after 3 seconds and is back in it once it reconnects. The others don't freeze with it, even when it's the one on Telescope
 - The picture runs at the frame rate of the stream going to Telescope. Its size is the canvas size under Video in Settings, or on Auto the size the Telescope camera opened at
+
+## 3D from two phones
+
+Optional (switch it on under **Streaming and devices** in the Plugins tab of Settings). It turns two phones streaming at the same time into one 3D picture on the **Telescope** camera. Both phones need the newer phone app for the timing to match. Two phones of the same model work best, since different models differ in field of view, colour and frame rate.
+
+- The switch on the **3D** card turns it on. It only takes over the Telescope camera while two streams run. The first stream you started is the left eye and **Swap eyes** exchanges them when the picture looks inside out
+- **Look** is **Side by side** (for a headset or a 3D screen) or **Red/cyan** (for glasses, mixed with the Dubois matrices so colours stay closer to the original than with a plain red and cyan split)
+- Side by side gives each eye half of the picture's width. On a 16:9 canvas that squeezes each eye sideways, which is how half side by side works. Set a 32:9 canvas (3840x1080 for example) under Video in Settings for full side by side with nothing squeezed
+- **Depth** slides the two pictures against each other (up to 5 % of the width) to change how far forward the 3D reaches. **Height** lifts or lowers the right eye (up to 5 %) for phones that don't sit level. Double-click a slider to put it back to 0
+- **Link exposure** copies the shown phone's ISO, shutter, white balance and focus to both phones so the two pictures match. A phone on automatic puts both back to automatic. It needs two phones running
+- Pictures are paired by when the cameras took them and not by when they arrived. The badge says **In sync** when the two are within half a frame of each other (counting how well the phone and computer clocks agree), **Rough sync** when they're a bit further apart and **Not synced** when it can't tell, like with an older phone app, a webcam or the Browser camera. Then the newest picture of each goes together
+- The picture is made at the frame rate of the stream going to Telescope and at the canvas size under Video in Settings (on Auto, the size the Telescope camera opened at). Two pictures get scaled and packed for every frame, which costs some processor time
+- Keep **One picture** off while 3D is on. 3D runs first and One picture then draws its layout from what 3D made. The first stream's tile in it is the finished 3D picture next to the others, instead of 3D on its own

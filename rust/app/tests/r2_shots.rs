@@ -12,6 +12,7 @@ use telescope_effects::colour_grading::ColourGradingPlugin;
 use telescope_effects::face_exposure::FaceExposurePlugin;
 use telescope_effects::fun_pack::FunPackPlugin;
 use telescope_effects::name_tag::NameTagPlugin;
+use telescope_effects::stereo_plugin::StereoPlugin;
 use telescope_shell::plugins::camera_control::CameraControl;
 use telescope_shell::offscreen;
 use telescope_shell::source::to_property;
@@ -462,4 +463,15 @@ fn desk_tile_shots() {
     let card = card_of(&mut telescope_effects::desk::DeskPlugin::new(), "extras");
     shoot(&dir, "desk", &card, 406.0, &[json!({"active": true, "on": true, "clean-current": 1, "shape-current": 0})], &nothing);
     shoot(&dir, "desk-shape-a4", &card, 406.0, &[json!({"active": true, "on": true, "clean-current": 2, "shape-current": 2})], &nothing);
+}
+
+#[test]
+fn stereo_shots() {
+    let Some(dir) = out() else { return };
+    let card = card_of(&mut StereoPlugin::new(), "streaming");
+    shoot(&dir, "stereo-off", &card, 406.0, &[], &nothing);
+    let running = json!({"on": true, "depth": 1.5, "depth-text": "+1.5%", "height-shift": -0.8, "height-text": "-0.8%", "link-enabled": true});
+    shoot(&dir, "stereo-on-in-sync", &card, 406.0, &[running.clone(), json!({"status": "In sync", "status-kind": "status_ok", "status-detail": "The two pictures were taken within half a frame of each other."})], &nothing);
+    shoot(&dir, "stereo-on-rough-red-cyan-swapped", &card, 406.0, &[running, json!({"look-current": 1, "swap": true, "status": "Rough sync", "status-kind": "status_warn", "status-detail": "x"})], &nothing);
+    shoot(&dir, "stereo-on-one-stream", &card, 406.0, &[json!({"on": true, "status": "Needs two streams", "status-kind": "status_dim", "status-detail": "x"})], &nothing);
 }

@@ -153,6 +153,7 @@ fn every_plugin(bus: &telescope_core::BusSender) -> Vec<Box<dyn Plugin>> {
         Box::new(telescope_effects::desk::DeskPlugin::new()),
         Box::new(telescope_effects::name_tag::NameTagPlugin::new()),
         Box::new(telescope_effects::notes::NotesPlugin::new()),
+        Box::new(telescope_effects::stereo_plugin::StereoPlugin::new()),
         Box::new(telescope_effects::composite_plugin::CompositePlugin::with(pictures, Some(outputs.clone()))),
         Box::new(telescope_audio::plugin::MicrophonePlugin::new(Arc::new(TestMic), None).with_denoise_problem(Box::new(String::new))),
         Box::new(UpdatesPlugin::new(Arc::new(NoUpdates), "stable")),
