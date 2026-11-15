@@ -417,7 +417,7 @@ struct Shared {
     preview_size: AtomicU64,
     handover_busy: AtomicBool,
     /// A hand_over()'s reader, healthy and waiting to take over: (cap, url, taken).
-    handover_ready: Mutex<Option<(Cap, String, Arc<Flag>)>>,
+    handover_ready: Mutex<Option<(Cap, String, Arc<Flag>, Option<Arc<telescope_core::clock::PhoneClock>>)>>,
     handover_thread: Mutex<Option<std::thread::JoinHandle<()>>>,
 }
 
@@ -769,7 +769,8 @@ impl Shared {
         }
     }
 
-    fn open_cap_with(&self, opener: &Opener) -> Result<Cap, String> {
+    /// The reader the opener makes and the clock its capture times are read against (the slot takes it once the reader is the stream's).
+    fn open_cap_with(&self, opener: &Opener) -> Result<(Cap, Option<Arc<telescope_core::clock::PhoneClock>>), String> {
         // Listed before the stop flag is looked at, so a stop either sees this open in the list or is seen here
         let open = telescope_core::media::OpenStop::default();
         self.opening.lock().unwrap().push(open.clone());
@@ -779,21 +780,20 @@ impl Shared {
         let opened = opener(&open);
         self.opening.lock().unwrap().retain(|o| !o.is(&open));
         let Opened { codec, feed, own_decoder, clock } = opened?;
-        self.slot.set_phone_clock(clock.clone());
         let options = DecodeOptions { hardware: self.hardware };
         // Packets only the source understands go through its decoder, one at a time like JPEGs, newest first
         if let Some(decoder) = own_decoder {
-            return Ok(Cap::Jpegs { feed, decoder, own: true });
+            return Ok((Cap::Jpegs { feed, decoder, own: true }, clock));
         }
         match codec {
-            Codec::Mjpeg => Ok(Cap::Jpegs { feed, decoder: self.media.decoder(codec, &options)?, own: false }),
+            Codec::Mjpeg => Ok((Cap::Jpegs { feed, decoder: self.media.decoder(codec, &options)?, own: false }, clock)),
             _ => {
                 let options = DecodeOptions { hardware: self.hardware || self.default_card() };
                 let mut decoder = match &self.tap {
                     Some(tap) => self.media.decoder_with_tap(codec, &options, tap.clone())?,
                     None => self.media.decoder(codec, &options)?,
                 };
-                if let Some(clock) = clock {
+                if let Some(clock) = clock.clone() {
                     decoder.set_phone_clock(clock);
                 }
                 let events = self.events.clone();
@@ -804,14 +804,15 @@ impl Shared {
                 }
                 *self.fps_cell.lock().unwrap() = cell;
                 *self.timing_probe.lock().unwrap() = decoder.timing_probe();
-                Ok(Cap::Frames(self.media.frame_reader(feed, decoder)?))
+                Ok((Cap::Frames(self.media.frame_reader(feed, decoder)?), clock))
             }
         }
     }
 
     fn open_cap(&self) -> Result<Cap, String> {
         let opener = self.opener.lock().unwrap().clone();
-        let cap = self.open_cap_with(&opener)?;
+        let (cap, clock) = self.open_cap_with(&opener)?;
+        self.slot.set_phone_clock(clock);
         *self.stopper.lock().unwrap() = Some(cap.stopper());
         if self.stopped() {
             cap.stopper().stop();
@@ -1238,9 +1239,9 @@ impl Shared {
             self.open_cap_with(&opener)
         };
         match opened {
-            Ok(mut cap) => {
+            Ok((mut cap, clock)) => {
                 if self.healthy(&mut cap) {
-                    *self.handover_ready.lock().unwrap() = Some((cap, url.clone(), taken.clone()));
+                    *self.handover_ready.lock().unwrap() = Some((cap, url.clone(), taken.clone(), clock));
                     let give_up = Instant::now() + HANDOVER_TAKE;
                     while !taken.wait(Duration::from_millis(100)) {
                         if self.stopped() || Instant::now() >= give_up {
@@ -1284,8 +1285,9 @@ impl Shared {
 
     /// The new route's reader, if one is ready to take over; the stream moves to it.
     fn take_handover(&self) -> Option<Cap> {
-        let (cap, url, taken) = self.handover_ready.lock().unwrap().take()?;
+        let (cap, url, taken, clock) = self.handover_ready.lock().unwrap().take()?;
         taken.set();
+        self.slot.set_phone_clock(clock);
         *self.url.lock().unwrap() = url.clone();
         self.stats.set_link(&url, self.plugin_source);
         *self.stopper.lock().unwrap() = Some(cap.stopper());
