@@ -17,7 +17,7 @@ pub enum Keep {
     Only(&'static [&'static str]),
 }
 
-/// The one table of what survives a reset, by plugin: paired phones, presets, notes, layouts, the journal and the links and names people typed. Everything else goes back to its default.
+/// The one table of what survives a reset, by plugin: paired phones, presets, notes, layouts, the journal, the links and names people typed, files people picked (LUT, photo folder), the marked desk and the guide's progress. Everything else goes back to its default.
 pub const KEPT: &[(&str, Keep)] = &[
     ("connection", Keep::Whole),
     ("presets", Keep::Whole),
@@ -27,6 +27,11 @@ pub const KEPT: &[(&str, Keep)] = &[
     ("browser_camera", Keep::Only(&["known", "address"])),
     ("on_air", Keep::Only(&["token", "address", "webhook_url"])),
     ("name_tag", Keep::Only(&["name", "pronouns", "second"])),
+    ("colour_grading", Keep::Only(&["lut", "lut_strength"])),
+    ("desk", Keep::Only(&["corners"])),
+    ("photos", Keep::Only(&["folder"])),
+    ("onboarding", Keep::Only(&["streamed"])),
+    ("updates", Keep::Only(&["last_check"])),
 ];
 
 /// The plugin that holds the "Open Telescope when I sign in" switch, which lives in the operating system and not in the settings file.
