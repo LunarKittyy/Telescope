@@ -11,6 +11,7 @@ System integration, keyboard shortcuts, the MCP server and plugins.
 - Closing the window while streaming hides Telescope to the tray
 - When Start can't go ahead a banner says why and has a button that fixes it
 - While the window is in the tray Telescope checks on the phone less often to save its battery
+- **Reset all settings** (General in Settings) puts every setting back to its default and restarts Telescope. Paired phones, presets, notes and saved layouts stay, and a copy of the old settings file is kept next to it
 
 <details>
 <summary><b>Folding cards</b></summary>
