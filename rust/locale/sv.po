@@ -8273,17 +8273,21 @@ msgstr "Starta om Telescope för att verkställa ändringarna."
 msgid "Put every setting back to its default."
 msgstr ""
 
-#: rust/crates/shell/ui/settings.slint:636 rust/crates/shell/ui/settings.slint:642
+#: rust/crates/shell/ui/settings.slint:636 rust/crates/shell/ui/settings.slint:643
 msgctxt "search"
 msgid "defaults factory restore clear start over"
 msgstr ""
 
-#: rust/crates/shell/ui/settings.slint:640 rust/crates/shell/ui/settings.slint:647
-msgid "Reset all settings"
+#: rust/crates/shell/ui/settings.slint:641
+msgid "All settings"
 msgstr ""
 
-#: rust/crates/shell/ui/settings.slint:641 rust/crates/shell/ui/settings.slint:648
+#: rust/crates/shell/ui/settings.slint:642 rust/crates/shell/ui/settings.slint:649
 msgid "Puts every setting back to its default and restarts Telescope."
+msgstr ""
+
+#: rust/crates/shell/ui/settings.slint:648
+msgid "Reset all settings"
 msgstr ""
 
 #: rust/crates/system/src/autostart.rs:226

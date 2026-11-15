@@ -636,8 +636,9 @@ export component ResetSettings inherits Card {
     keywords: @tr("search" => "defaults factory restore clear start over");
     icon: Icons.reset;
     RailRow {
-        icon: Icons.reset;
-        label: @tr("Reset all settings");
+        icon: Icons.sliders;
+        named: true;
+        label: @tr("All settings");
         tip: @tr("Puts every setting back to its default and restarts Telescope.");
         keywords: @tr("search" => "defaults factory restore clear start over");
         hue: root.hue;

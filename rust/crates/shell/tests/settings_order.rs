@@ -60,7 +60,7 @@ fn reset_all_settings_ends_the_general_tab_and_asks_before_doing_anything() {
         .find(|e| e.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::Button)).expect("a button named Reset all settings");
     assert!(button.absolute_position().y > find("first")[0].absolute_position().y, "after the plugins' own sections");
     let found = shown.search_results("reset all settings");
-    assert!(found.iter().any(|e| e.tab == "general" && e.name == "Reset all settings"), "the search finds it: {found:?}");
+    assert!(found.iter().any(|e| e.tab == "general" && e.name == "All settings"), "the search finds it: {found:?}");
     let before = std::fs::read(dir.join(CONFIG_FILENAME)).ok();
     button.invoke_accessible_default_action();
     assert_eq!(shown.ui.get_property("asking").unwrap(), Value::Bool(true));
