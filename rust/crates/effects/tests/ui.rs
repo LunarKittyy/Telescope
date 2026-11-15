@@ -121,7 +121,10 @@ fn the_cards_have_what_their_plugins_use() {
     compile_editor();
     let mut stereo = StereoPlugin::new();
     compile(&mut stereo);
-    has_what_the_plugin_uses(&mut stereo, &["switch-toggled-by-hand", "look-picked", "depth-moved", "height-moved", "swap-toggled", "link-clicked"]);
+    has_what_the_plugin_uses(&mut stereo, &[
+        "switch-toggled-by-hand", "look-picked", "depth-moved", "height-moved", "size-moved", "tilt-moved", "timing-moved", "fine-toggled", "swap-toggled",
+        "match-clicked", "reset-match-clicked",
+    ]);
     let mut qr = QrReaderPlugin::new();
     compile(&mut qr);
     has_what_the_plugin_uses(&mut qr, &["switch-toggled-by-hand", "notify-toggled", "copy-clicked"]);

@@ -1,6 +1,7 @@
 //! The 3D plugin through a fake host: when it takes over, what it asks the host to keep, which frames it pairs and what the card says.
 
 use super::*;
+use crate::stereo::HISTORY_FRAMES;
 use std::collections::BTreeMap;
 use telescope_core::clock::ClockSync;
 use telescope_core::frame::PixelFormat;
@@ -388,10 +389,10 @@ fn the_badge_asks_for_two_streams() {
     r.host.streams = Some(1);
     r.plugin.on_stream_stop(&mut r.host);
     assert_eq!(r.status(), "Needs two streams");
-    assert_eq!(r.props()["link-enabled"], json!(false));
+    assert_eq!(r.props()["match-enabled"], json!(false));
     r.host.streams = Some(2);
     r.plugin.on_event(&mut r.host, &Event::StreamsChanged { count: 2 });
-    assert_eq!(r.props()["link-enabled"], json!(true));
+    assert_eq!(r.props()["match-enabled"], json!(true));
 }
 
 #[test]
@@ -405,44 +406,471 @@ fn the_badge_forgets_a_pair_once_the_pictures_stop() {
     assert_eq!(r.status(), "Waiting");
 }
 
-// ── Link exposure ─────────────────────────────────────────────────────────
+// ── Timing ────────────────────────────────────────────────────────────────
+
+/// Frame number `n` of a stream that came in `ago` milliseconds before now.
+fn arrived(mut frame: Frame, n: u64, ago: u64) -> Frame {
+    frame.number = n;
+    frame.time_ns = monotonic_ns() - ago * MS;
+    frame
+}
+
+fn left_pixel(out: &Frame) -> [u8; 3] {
+    px(out, 5, 10)
+}
+
+fn right_pixel(out: &Frame) -> [u8; 3] {
+    px(out, 58, 10)
+}
+
+#[test]
+fn timing_moves_the_pairing_target_and_the_sync_follows_it() {
+    let mut r = rig();
+    r.switch(true);
+    r.store.errors.lock().unwrap().extend([("a".to_string(), 2 * MS), ("b".to_string(), 2 * MS)]);
+    let (b90, b133, b166) = (shot(CYAN, Some(90)), shot(GREEN, Some(133)), shot(YELLOW, Some(166)));
+    let a = shot(RED, Some(100));
+    r.show_frames(a.clone(), b166.clone());
+    r.store.history.lock().unwrap().insert("b".into(), vec![b90, b133, b166]);
+    assert_eq!(right_pixel(&r.process(&a, "a")), CYAN, "nearest to 100 ms");
+    // the right eye 33 ms later than the left: nearest to 133 ms, and that is in sync
+    r.card("timing-moved", json!(33.0));
+    assert_eq!(right_pixel(&r.process(&a, "a")), GREEN);
+    assert_eq!(r.status(), "In sync", "the offset counts against the gap, so 33 ms apart is what was asked for");
+    r.card("timing-moved", json!(66.0));
+    assert_eq!(right_pixel(&r.process(&a, "a")), YELLOW);
+    // earlier than the left eye: 100 less 33 is 67 ms
+    r.card("timing-moved", json!(-33.0));
+    assert_eq!(right_pixel(&r.process(&a, "a")), CYAN);
+    // back to nothing, and the sync is measured without it
+    r.card("timing-moved", json!(0.0));
+    assert_eq!(right_pixel(&r.process(&a, "a")), CYAN);
+    // and only the pair that is really 33 ms apart, with nothing asked for, is a rough sync
+    r.store.history.lock().unwrap().insert("b".into(), vec![shot(GREEN, Some(133))]);
+    r.show_frames(a.clone(), shot(GREEN, Some(133)));
+    r.process(&a, "a");
+    assert_eq!(r.status(), "Rough sync", "33 ms apart without asking for it");
+}
+
+#[test]
+fn the_history_asked_for_follows_the_timing() {
+    let mut r = rig();
+    r.switch(true);
+    assert_eq!(r.host.history_wanted.get(NAME), Some(&HISTORY_FRAMES));
+    // 200 ms at the default 30 fps is 7 frames and 3 to spare
+    r.card("timing-moved", json!(200.0));
+    assert_eq!(r.host.history_wanted.get(NAME), Some(&10));
+    r.card("timing-moved", json!(-200.0));
+    assert_eq!(r.host.history_wanted.get(NAME), Some(&10));
+    r.card("timing-moved", json!(0.0));
+    assert_eq!(r.host.history_wanted.get(NAME), Some(&HISTORY_FRAMES));
+    assert_eq!(r.plugin.shared.hub().history, HISTORY_FRAMES, "the frames kept here follow it too");
+}
+
+#[test]
+fn without_capture_times_a_positive_timing_holds_the_left_eye_back_by_arrival() {
+    let mut r = rig();
+    r.switch(true);
+    r.card("timing-moved", json!(66.0));
+    // the target's frames arrive 33 ms apart; the newest is 66 ms after the one that goes out
+    for (n, (colour, ago)) in [(RED, 99), (GREEN, 66), (YELLOW, 33), (CYAN, 0)].into_iter().enumerate() {
+        let a = arrived(shot(colour, None), n as u64, ago);
+        r.show_frames(a.clone(), arrived(shot(BLUE, None), n as u64, ago));
+        let out = r.process(&a, "a");
+        if n == 3 {
+            assert_eq!((left_pixel(&out), right_pixel(&out)), (GREEN, BLUE));
+        }
+    }
+    assert_eq!(r.status(), "Not synced");
+}
+
+#[test]
+fn without_capture_times_a_negative_timing_holds_the_right_eye_back_by_arrival() {
+    let mut r = rig();
+    r.switch(true);
+    r.card("timing-moved", json!(-66.0));
+    // the other stream isn't the target, so its frames are kept here as they are seen
+    for (n, (colour, ago)) in [(GREEN, 99), (YELLOW, 66), (CYAN, 33), (BLUE, 0)].into_iter().enumerate() {
+        let a = arrived(shot(RED, None), n as u64, ago);
+        r.show_frames(a.clone(), arrived(shot(colour, None), n as u64, ago));
+        let out = r.process(&a, "a");
+        if n == 3 {
+            assert_eq!((left_pixel(&out), right_pixel(&out)), (RED, YELLOW));
+        }
+    }
+}
+
+#[test]
+fn without_a_timing_the_newest_of_each_still_go_together() {
+    let mut r = rig();
+    r.switch(true);
+    for (n, (colour, ago)) in [(GREEN, 66), (YELLOW, 33), (CYAN, 0)].into_iter().enumerate() {
+        let a = arrived(shot(colour, None), n as u64, ago);
+        r.show_frames(a.clone(), arrived(shot(BLUE, None), n as u64, ago));
+        let out = r.process(&a, "a");
+        if n == 2 {
+            assert_eq!((left_pixel(&out), right_pixel(&out)), (CYAN, BLUE));
+        }
+    }
+}
+
+// ── Size from the lenses ──────────────────────────────────────────────────
+
+/// A phone's state with one lens of this 35 mm equivalent focal length.
+fn lens(auto: bool, iso: Option<i64>, shutter: Option<i64>, focal: i64) -> Value {
+    json!({
+        "cameras": [{
+            "id": "0", "current": true, "focalMm": focal, "isoMin": 50, "isoMax": 12800, "shutterMinNs": 100_000, "shutterMaxNs": 500_000_000,
+            "supportsManualSensor": true,
+        }],
+        "active_lens": "0", "auto": auto, "iso": iso, "shutter_ns": shutter, "phone_fps": 30,
+    })
+}
+
+impl Rig {
+    /// A phone's state arriving, as every stream's does.
+    fn state(&mut self, id: &str, state: Value) {
+        self.plugin.on_event(&mut self.host, &Event::StreamState { source_id: id.into(), state });
+    }
+
+    /// The status timer going off, which is when Size looks at the lenses.
+    fn tick_status(&mut self) {
+        self.plugin.on_event(&mut self.host, &Event::TimerFired { owner: NAME.into(), token: STATUS_TIMER.into() });
+    }
+
+    fn size(&self) -> f64 {
+        self.plugin.get_config()["size"].as_f64().unwrap()
+    }
+}
+
+#[test]
+fn size_starts_from_the_two_lenses_once_for_each_pair() {
+    let mut r = rig();
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    r.switch(true);
+    // one phone has said which lens it is on: not enough
+    r.state("a", lens(true, None, None, 26));
+    r.tick_status();
+    assert_eq!(r.size(), 100.0);
+    // the right lens (24 mm) sees more than the left one's (26 mm), so its picture is enlarged
+    r.state("b", lens(true, None, None, 24));
+    r.tick_status();
+    assert_eq!(r.size(), 108.3);
+    assert_eq!(r.props()["size-text"], json!("108.3%"));
+    assert!(r.host.calls.iter().any(|c| c == "schedule_save"));
+    // what a person sets stays, and it isn't looked at again for this pair
+    r.card("size-moved", json!(100.0));
+    r.tick_status();
+    assert_eq!(r.size(), 100.0);
+    r.card("size-moved", json!(97.0));
+    r.card("swap-toggled", json!(true));
+    r.tick_status();
+    assert_eq!(r.size(), 97.0, "a size somebody chose isn't touched");
+}
+
+#[test]
+fn swapping_the_eyes_turns_the_size_it_chose_round() {
+    let mut r = rig();
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    r.switch(true);
+    r.state("a", lens(true, None, None, 26));
+    r.state("b", lens(true, None, None, 24));
+    r.tick_status();
+    assert_eq!(r.size(), 108.3);
+    r.card("swap-toggled", json!(true));
+    assert_eq!(r.size(), 92.3, "the other way round it is the reverse");
+    r.card("swap-toggled", json!(false));
+    assert_eq!(r.size(), 108.3);
+}
+
+#[test]
+fn size_isnt_set_for_lenses_too_far_apart_or_phones_that_dont_say() {
+    let mut r = rig();
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    r.switch(true);
+    // a wide lens against a long one is off the slider
+    r.state("a", lens(true, None, None, 24));
+    r.state("b", lens(true, None, None, 52));
+    r.tick_status();
+    assert_eq!(r.size(), 100.0);
+    // a phone that doesn't report its lens
+    let mut r = rig();
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    r.switch(true);
+    r.state("a", lens(true, None, None, 24));
+    r.state("b", json!({"battery": 80}));
+    r.tick_status();
+    assert_eq!(r.size(), 100.0);
+}
+
+#[test]
+fn size_waits_for_the_plugin_to_be_on() {
+    let mut r = rig();
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    r.state("a", lens(true, None, None, 26));
+    r.state("b", lens(true, None, None, 24));
+    r.tick_status();
+    assert_eq!(r.size(), 100.0);
+    r.switch(true);
+    r.tick_status();
+    assert_eq!(r.size(), 108.3);
+}
+
+// ── Match ─────────────────────────────────────────────────────────────────
+
+/// A 64x36 picture whose every channel runs from black to `top` across its width: the middle half averages about half of it.
+fn gradient(top: u8) -> Frame {
+    let mut f = Frame::new(64, 36, PixelFormat::Rgba, (0..64 * 36).flat_map(|i| {
+        let v = ((i % 64) as f64 * top as f64 / 63.0).round() as u8;
+        [v, v, v, 255]
+    }).collect());
+    f.time_ns = monotonic_ns();
+    f
+}
 
 fn control(id: &str, body: Value) -> String {
     format!("phone_control {:?} {}", Some(id), body)
 }
 
-#[test]
-fn link_exposure_sends_the_shown_phones_values_to_both_phones() {
-    let mut r = rig();
-    r.show_frames(shot(RED, None), shot(BLUE, None));
-    r.host.phone_state = Some(json!({
-        "auto": false, "iso": 400, "shutter_ns": 8_000_000, "wb_manual": true, "wb_r": 2.0, "wb_ge": 1.0, "wb_go": 1.0, "wb_b": 1.5,
-        "focus_mode": "manual", "focus_distance": 2.5,
-    }));
-    r.card("link-clicked", json!(null));
-    let sent: Vec<&String> = r.host.calls.iter().filter(|c| c.starts_with("phone_control")).collect();
-    let bodies = [
-        json!({"action": "iso", "value": 400}),
-        json!({"action": "shutter", "value": 8_000_000}),
-        json!({"action": "wb_gains", "r": 2.0, "ge": 1.0, "go": 1.0, "b": 1.5}),
-        json!({"action": "focus_mode", "value": "manual"}),
-        json!({"action": "focus_distance", "value": 2.5}),
-    ];
-    let want: Vec<String> = bodies.iter().flat_map(|b| [control("a", b.clone()), control("b", b.clone())]).collect();
-    assert_eq!(sent, want.iter().collect::<Vec<_>>());
+impl Rig {
+    fn polled(&mut self, id: &str, state: Value) {
+        self.plugin.on_event(&mut self.host, &Event::PhonePolled { source_id: id.into(), session: 1, shown: false, state });
+    }
+
+    fn controls(&self) -> Vec<String> {
+        self.host.calls.iter().filter(|c| c.starts_with("phone_control")).cloned().collect()
+    }
+
+    /// The last ISO sent to a phone.
+    fn iso_sent(&self, id: &str) -> Option<i64> {
+        let prefix = format!("phone_control {:?} ", Some(id));
+        self.host.calls.iter().rev().filter_map(|c| c.strip_prefix(&prefix)).filter_map(|b| serde_json::from_str::<Value>(b).ok()).find(|b| b["action"] == "iso").and_then(|b| b["value"].as_i64())
+    }
+
+    fn match_badge(&self) -> String {
+        self.props()["match-status"].as_str().unwrap().to_string()
+    }
+
+    /// One look at the pictures `at` (the computer's clock) and one tick of Match's timer.
+    fn match_tick(&mut self, left: &Frame, right: &Frame, at: u64) {
+        self.show_frames(left.clone(), right.clone());
+        self.process(left, "a");
+        if let Some(reading) = self.plugin.shared.hub().reading.as_mut() {
+            reading.at = at;
+        }
+        self.plugin.match_tick_at(&mut self.host, at);
+    }
 }
 
 #[test]
-fn link_exposure_does_nothing_without_two_phones_or_a_state() {
+fn match_sets_both_phones_nudges_the_right_iso_and_makes_the_colour_curves() {
     let mut r = rig();
-    r.host.phone_state = Some(json!({"iso": 400, "shutter_ns": 8_000_000}));
-    *r.store.frames.lock().unwrap() = vec![StreamFrame { source_id: "a".into(), name: "A".into(), frame: shot(RED, None) }];
-    r.card("link-clicked", json!(null));
-    assert!(!r.host.calls.iter().any(|c| c.starts_with("phone_control")), "one phone");
-    r.show_frames(shot(RED, None), shot(BLUE, None));
-    r.host.phone_state = None;
-    r.card("link-clicked", json!(null));
-    assert!(!r.host.calls.iter().any(|c| c.starts_with("phone_control")), "no state yet");
+    r.switch(true);
+    // the right phone is a stop darker at the same ISO, and its picture follows the ISO it is sent
+    let right = |iso: i64| gradient((120.0 * (iso as f64 / 400.0).powf(1.0 / 2.2)).min(255.0) as u8);
+    let left = gradient(240);
+    r.show_frames(left.clone(), right(400));
+    assert_eq!(r.props()["match-enabled"], json!(true));
+    r.card("match-clicked", json!(null));
+    assert!(r.host.calls.contains(&"request_phone_state Some(\"a\")".to_string()));
+    assert!(r.host.calls.contains(&"request_phone_state Some(\"b\")".to_string()));
+    assert_eq!(r.match_badge(), "Matching");
+    assert_eq!((r.props()["match-enabled"].clone(), r.props()["reset-enabled"].clone()), (json!(false), json!(true)));
+    // nothing is sent until both phones have answered
+    r.polled("a", lens(false, Some(400), Some(8_000_000), 24));
+    assert!(r.controls().is_empty());
+    r.polled("b", lens(true, None, None, 26));
+    // both go to the left phone's shutter and ISO
+    assert_eq!(r.controls(), vec![
+        control("a", json!({"action": "iso", "value": 400})),
+        control("a", json!({"action": "shutter", "value": 8_000_000})),
+        control("b", json!({"action": "iso", "value": 400})),
+        control("b", json!({"action": "shutter", "value": 8_000_000})),
+    ]);
+    assert!(r.plugin.shared.hub().measure, "the step now reads the pictures");
+    // a few looks: only the right phone's ISO moves, and each look waits for the last change to show
+    let (mut at, mut iso) = (monotonic_ns(), 400);
+    let mut steps = 0;
+    while r.match_badge() == "Matching" {
+        at += 800 * MS;
+        r.match_tick(&left, &right(iso), at);
+        let sent = r.iso_sent("b").unwrap();
+        if sent != iso {
+            (iso, steps) = (sent, steps + 1);
+        }
+        assert!(steps <= 6, "it keeps nudging");
+    }
+    assert!((2..=4).contains(&steps), "a few steps: {steps}");
+    assert!(iso > 400, "the darker phone went up");
+    assert_eq!(r.iso_sent("a"), Some(400), "the left phone was left alone");
+    assert_eq!(r.match_badge(), "Matched");
+    assert_eq!(r.props()["match-status-kind"], json!("status_ok"));
+    assert!(r.plugin.lut.is_some());
+    assert!(!r.plugin.shared.hub().measure, "the step stops reading");
+}
+
+#[test]
+fn the_colour_curves_are_applied_while_packing_and_only_to_the_right_eye() {
+    let mut r = rig();
+    r.switch(true);
+    r.show_frames(gradient(240), gradient(120));
+    r.card("match-clicked", json!(null));
+    // phones that take no manual exposure only get their colour matched
+    r.polled("a", json!({"cameras": []}));
+    r.polled("b", json!({"cameras": []}));
+    assert!(r.controls().is_empty());
+    let (left, dark) = (gradient(240), gradient(120));
+    r.show_frames(left.clone(), dark.clone());
+    let before = r.process(&left, "a");
+    assert!(px(&before, 16, 18)[0].abs_diff(px(&before, 48, 18)[0]) > 40, "the right eye is much darker: {:?} {:?}", px(&before, 16, 18), px(&before, 48, 18));
+    r.match_tick(&left, &dark, monotonic_ns() + 800 * MS);
+    assert_eq!(r.match_badge(), "Matched");
+    let after = r.process(&left, "a");
+    assert_eq!(px(&after, 16, 18), px(&before, 16, 18), "the left eye is as it was");
+    for x in [8, 16, 24] {
+        let (l, rr) = (px(&after, x, 18), px(&after, 32 + x, 18));
+        assert!(l[0].abs_diff(rr[0]) <= 8 && l[1].abs_diff(rr[1]) <= 8 && l[2].abs_diff(rr[2]) <= 8, "x {x}: {l:?} {rr:?}");
+    }
+}
+
+#[test]
+fn match_reads_the_pictures_only_while_it_runs() {
+    let mut r = rig();
+    r.switch(true);
+    r.show_frames(gradient(200), gradient(100));
+    r.process(&gradient(200), "a");
+    assert!(r.plugin.shared.hub().reading.is_none());
+}
+
+#[test]
+fn reset_match_drops_the_curves_and_leaves_the_phones_alone() {
+    let mut r = rig();
+    r.switch(true);
+    r.show_frames(gradient(240), gradient(120));
+    r.card("match-clicked", json!(null));
+    r.polled("a", json!({"cameras": []}));
+    r.polled("b", json!({"cameras": []}));
+    let (left, dark) = (gradient(240), gradient(120));
+    r.match_tick(&left, &dark, monotonic_ns() + 800 * MS);
+    assert!(r.plugin.lut.is_some());
+    let sent = r.controls().len();
+    r.card("reset-match-clicked", json!(null));
+    assert!(r.plugin.lut.is_none());
+    assert_eq!(r.match_badge(), "");
+    assert_eq!(r.props()["reset-enabled"], json!(false));
+    assert_eq!(r.controls().len(), sent, "the phones keep their exposure");
+    let out = r.process(&left, "a");
+    assert!(px(&out, 16, 18)[0].abs_diff(px(&out, 48, 18)[0]) > 40, "the right eye is as dark as it was");
+    // and it stops a run that is going
+    r.card("match-clicked", json!(null));
+    r.card("reset-match-clicked", json!(null));
+    assert_eq!(r.match_badge(), "");
+    assert_eq!(r.props()["match-enabled"], json!(true));
+}
+
+#[test]
+fn match_fails_when_the_phones_dont_answer() {
+    let mut r = rig();
+    r.switch(true);
+    r.show_frames(gradient(240), gradient(120));
+    r.card("match-clicked", json!(null));
+    r.polled("a", lens(false, Some(400), Some(8_000_000), 24));
+    r.plugin.match_tick_at(&mut r.host, monotonic_ns() + 1_000 * MS);
+    assert_eq!(r.match_badge(), "Matching", "still waiting for b");
+    r.plugin.match_tick_at(&mut r.host, monotonic_ns() + 6_000 * MS);
+    assert_eq!(r.match_badge(), "Match failed");
+    assert_eq!(r.props()["match-status-kind"], json!("status_warn"));
+    assert!(r.controls().is_empty(), "nothing was changed");
+    assert!(r.props()["match-enabled"].as_bool().unwrap(), "and it can be tried again");
+}
+
+#[test]
+fn match_ends_as_partly_matched_when_the_pictures_cant_be_brought_together() {
+    let mut r = rig();
+    r.switch(true);
+    r.show_frames(gradient(240), gradient(120));
+    r.card("match-clicked", json!(null));
+    r.polled("a", lens(false, Some(400), Some(8_000_000), 24));
+    r.polled("b", lens(false, Some(400), Some(8_000_000), 24));
+    // the pictures don't change with the ISO, so the steps run out
+    let (left, dark) = (gradient(240), gradient(120));
+    let mut at = monotonic_ns();
+    for _ in 0..30 {
+        at += 800 * MS;
+        r.match_tick(&left, &dark, at);
+        if r.match_badge() != "Matching" {
+            break;
+        }
+    }
+    assert_eq!(r.match_badge(), "Partly matched");
+    assert_eq!(r.props()["match-status-kind"], json!("status_warn"));
+    assert!(r.plugin.lut.is_some(), "the colour is still matched");
+}
+
+#[test]
+fn the_curves_belong_to_the_pair_so_swapping_the_eyes_drops_them() {
+    let mut r = rig();
+    r.switch(true);
+    r.show_frames(gradient(240), gradient(120));
+    r.card("match-clicked", json!(null));
+    r.polled("a", json!({"cameras": []}));
+    r.polled("b", json!({"cameras": []}));
+    r.match_tick(&gradient(240), &gradient(120), monotonic_ns() + 800 * MS);
+    assert!(r.plugin.lut.is_some());
+    r.card("swap-toggled", json!(true));
+    assert!(r.plugin.lut.is_none());
+    assert_eq!(r.match_badge(), "");
+}
+
+#[test]
+fn the_curves_go_when_a_stream_stops_and_match_needs_two() {
+    let mut r = rig();
+    r.switch(true);
+    r.show_frames(gradient(240), gradient(120));
+    r.card("match-clicked", json!(null));
+    r.polled("a", json!({"cameras": []}));
+    r.polled("b", json!({"cameras": []}));
+    r.match_tick(&gradient(240), &gradient(120), monotonic_ns() + 800 * MS);
+    r.host.streams = Some(1);
+    r.plugin.on_stream_stop(&mut r.host);
+    assert!(r.plugin.lut.is_none());
+    assert_eq!(r.props()["match-enabled"], json!(false));
+    r.card("match-clicked", json!(null));
+    assert_eq!(r.match_badge(), "", "nothing to match");
+}
+
+#[test]
+fn match_waits_for_the_plugin_to_be_on() {
+    let mut r = rig();
+    r.show_frames(gradient(240), gradient(120));
+    r.card("match-clicked", json!(null));
+    assert!(!r.host.calls.iter().any(|c| c.starts_with("request_phone_state")));
+    // switching it off ends a run too
+    r.switch(true);
+    r.card("match-clicked", json!(null));
+    r.switch(false);
+    assert_eq!(r.match_badge(), "");
+}
+
+#[test]
+fn the_fine_tune_group_opens_and_shuts_without_touching_the_picture() {
+    let mut r = rig();
+    assert_eq!(r.props()["fine-open"], json!(false));
+    r.card("fine-toggled", json!(true));
+    assert_eq!(r.props()["fine-open"], json!(true));
+    r.card("fine-toggled", json!(false));
+    assert_eq!(r.props()["fine-open"], json!(false));
+    assert!(!r.host.calls.iter().any(|c| c == "schedule_save"), "it's not a setting");
+}
+
+#[test]
+fn every_new_row_has_a_one_sentence_tooltip() {
+    let r = rig();
+    let props = r.props();
+    for key in ["size-tip", "tilt-tip", "timing-tip", "fine-tip", "match-tip", "reset-tip"] {
+        let tip = props[key].as_str().unwrap();
+        assert!(tip.ends_with('.') && tip.matches(". ").count() == 0 && !tip.contains('\u{2014}') && !tip.contains('\u{2013}'), "{key}: {tip}");
+    }
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────
@@ -450,10 +878,10 @@ fn link_exposure_does_nothing_without_two_phones_or_a_state() {
 #[test]
 fn the_settings_come_back_and_are_held_to_the_sliders() {
     let mut r = rig();
-    r.plugin.set_config(&json!({"on": true, "look": "red_cyan", "depth": 1.26, "height": -40.0, "swap": true})).unwrap();
-    assert_eq!(r.plugin.get_config(), json!({"on": true, "look": "red_cyan", "depth": 1.3, "height": -5.0, "swap": true}));
+    r.plugin.set_config(&json!({"on": true, "look": "red_cyan", "depth": 1.26, "height": -40.0, "size": 140.0, "tilt": 2.34, "timing": -250.4, "swap": true})).unwrap();
+    assert_eq!(r.plugin.get_config(), json!({"on": true, "look": "red_cyan", "depth": 1.3, "height": -5.0, "size": 125.0, "tilt": 2.3, "timing": -200.0, "swap": true}));
     r.plugin.set_config(&json!({"look": "nonsense", "depth": "far"})).unwrap();
-    assert_eq!(r.plugin.get_config(), json!({"on": false, "look": "side_by_side", "depth": 0.0, "height": 0.0, "swap": false}));
+    assert_eq!(r.plugin.get_config(), json!({"on": false, "look": "side_by_side", "depth": 0.0, "height": 0.0, "size": 100.0, "tilt": 0.0, "timing": 0.0, "swap": false}));
     // a preset brings them back too
     r.plugin.apply_preset(&mut r.host, &json!({"on": true, "look": "red_cyan"})).unwrap();
     assert_eq!(r.plugin.get_config()["look"], json!("red_cyan"));
@@ -466,11 +894,21 @@ fn the_card_callbacks_change_the_settings_and_save_them() {
     r.card("look-picked", json!(1));
     r.card("depth-moved", json!(9.0));
     r.card("height-moved", json!(-1.5));
+    r.card("size-moved", json!(92.46));
+    r.card("tilt-moved", json!(-9.0));
+    r.card("timing-moved", json!(35.4));
     r.card("swap-toggled", json!(true));
-    assert_eq!(r.plugin.get_config(), json!({"on": false, "look": "red_cyan", "depth": 5.0, "height": -1.5, "swap": true}));
+    assert_eq!(
+        r.plugin.get_config(),
+        json!({"on": false, "look": "red_cyan", "depth": 5.0, "height": -1.5, "size": 92.5, "tilt": -5.0, "timing": 35.0, "swap": true})
+    );
     assert!(r.host.calls.iter().any(|c| c == "schedule_save"));
     let props = r.props();
     assert_eq!((props["look-current"].clone(), props["depth-text"].clone(), props["height-text"].clone()), (json!(1), json!("+5.0%"), json!("-1.5%")));
+    assert_eq!((props["size-text"].clone(), props["tilt-text"].clone(), props["timing-text"].clone()), (json!("92.5%"), json!("-5.0°"), json!("+35 ms")));
+    // the sliders sit at their defaults at first
+    let fresh = rig().props();
+    assert_eq!((fresh["size-text"].clone(), fresh["tilt-text"].clone(), fresh["timing-text"].clone()), (json!("100.0%"), json!("0.0°"), json!("0 ms")));
     // a look that isn't there is ignored
     r.card("look-picked", json!(7));
     assert_eq!(r.plugin.get_config()["look"], json!("red_cyan"));
