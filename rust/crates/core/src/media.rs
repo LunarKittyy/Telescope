@@ -305,8 +305,9 @@ pub trait FrameSlot: Send + Sync {
     fn near(&self, _capture_ns: u64) -> Option<Frame> {
         None
     }
-    /// Lets go of the frames `near` would hand out: the steps that made them have just been replaced, so one that went out before a Blur
-    /// came on must never be handed to a plugin that puts stream frames together afterwards.
+    /// The steps of this stream's pipeline were just handed out again: lets go of the frames `near` would hand out and starts a new epoch for
+    /// every stream (FrameStore::pipeline_epoch), so one that went out before a Blur came on is never handed to a plugin that puts stream
+    /// frames together afterwards, and frames published from now on are told from the ones before.
     fn forget_history(&self) {}
 }
 

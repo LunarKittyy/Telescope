@@ -893,6 +893,8 @@ impl Shared {
         if let Some((steps, epoch)) = next_steps {
             pipeline.set_steps(steps);
             self.view_epoch.store(epoch, Ordering::SeqCst);
+            // what was published before went out under the old steps (hide_cached did this too when there was a frame to hide)
+            self.slot.forget_history();
         }
         if let Some(steps) = self.next_colour.lock().unwrap().take() {
             pipeline.replace_steps("colour", telescope_core::frame::FrameStage::Colour, steps);
@@ -1667,6 +1669,7 @@ fn fit_inside(w: u32, h: u32, fw: u32, fh: u32) -> (u32, u32) {
 mod tests {
     use super::*;
     use std::collections::VecDeque;
+    use std::sync::atomic::AtomicUsize;
     use telescope_core::media::{Decoded, Packet, ReadFrame, Scaler};
     use telescope_core::output::Slot as OutSlot;
 
@@ -2690,6 +2693,50 @@ mod tests {
         w.set_steps(vec![StagedStep { owner: "privacy".into(), stage: telescope_core::frame::FrameStage::Privacy, step: FrameStep::Cpu(Box::new(Nothing)) }]);
         wait_for(|| cams.sent.lock().unwrap().last() == Some(&7));
         assert!(asked.load(Ordering::SeqCst));
+        w.stop();
+    }
+
+    /// A slot that counts how often its history was let go of (FrameSlot::forget_history), the rest being the plain one's.
+    struct Forgets(Arc<dyn FrameSlot>, Arc<AtomicUsize>);
+
+    impl FrameSlot for Forgets {
+        fn publish(&self, frame: Frame) -> u64 {
+            self.0.publish(frame)
+        }
+        fn published(&self) -> Option<Frame> {
+            self.0.published()
+        }
+        fn replace(&self, frame: Frame, number: u64) -> bool {
+            self.0.replace(frame, number)
+        }
+        fn latest(&self) -> Option<(Frame, u64)> {
+            self.0.latest()
+        }
+        fn wait_newer(&self, seen: u64, timeout: Duration) -> bool {
+            self.0.wait_newer(seen, timeout)
+        }
+        fn forget_history(&self) {
+            self.1.fetch_add(1, Ordering::SeqCst);
+        }
+    }
+
+    #[test]
+    fn handing_out_steps_while_a_frame_is_out_lets_go_of_the_slots_history() {
+        let cams = Arc::new(Cams::default());
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(200), Step::Pause(Duration::from_secs(30))])]);
+        let media = WithPipeline(Box::new({
+            let asked = Arc::new(AtomicBool::new(false));
+            move || Box::new(HidesWhenAsked(asked.clone()))
+        }));
+        let forgot = Arc::new(AtomicUsize::new(0));
+        let slot: Arc<dyn FrameSlot> = Arc::new(Forgets(telescope_media_free_slot(Duration::ZERO), forgot.clone()));
+        let events: Events = Arc::new(|_| {});
+        let w = StreamWorker::start(setup(opener), Arc::new(media), Arc::new(FakeOutputs(cams.clone())), slot, events).unwrap();
+        wait_for(|| cams.sent.lock().unwrap().contains(&200));
+        assert_eq!(forgot.load(Ordering::SeqCst), 0, "nothing was handed out yet");
+        w.set_steps(vec![StagedStep { owner: "privacy".into(), stage: telescope_core::frame::FrameStage::Privacy, step: FrameStep::Cpu(Box::new(Nothing)) }]);
+        // hide_cached runs inside set_steps, on the frame that was out
+        assert!(forgot.load(Ordering::SeqCst) >= 1, "frames that went out under the old steps are still in the history");
         w.stop();
     }
 

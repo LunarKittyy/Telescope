@@ -22,6 +22,8 @@ pub struct Slot {
     changed: Condvar,
     /// How many of the newest published frames are kept, shared by every slot of one Frames: 0 keeps none.
     history: Arc<AtomicUsize>,
+    /// The pipeline epoch shared by every slot of one Frames (FrameStore::pipeline_epoch): a past frame made under an older one isn't handed out.
+    epoch: Arc<AtomicU64>,
     /// What this stream's capture times were read against.
     clock: Mutex<Option<Arc<PhoneClock>>>,
 }
@@ -31,8 +33,8 @@ struct SlotState {
     published: Option<Frame>,
     latest: Option<Frame>,
     version: u64,
-    /// The last few published frames, oldest first, held only while something asked for history (they're shared, not copies).
-    past: VecDeque<Frame>,
+    /// The last few published frames and the epoch each was published under, oldest first, held only while something asked for history (they're shared, not copies).
+    past: VecDeque<(Frame, u64)>,
 }
 
 impl Slot {
@@ -43,6 +45,11 @@ impl Slot {
     /// A slot that keeps as many past frames as `history` says, now and later.
     pub fn with_history(history: Arc<AtomicUsize>) -> Arc<Slot> {
         Arc::new(Slot { history, ..Slot::default() })
+    }
+
+    /// A slot that also shares the pipeline epoch of the Frames it belongs to.
+    fn with_shared(history: Arc<AtomicUsize>, epoch: Arc<AtomicU64>) -> Arc<Slot> {
+        Arc::new(Slot { history, epoch, ..Slot::default() })
     }
 
     /// Lets go of past frames beyond what history allows now, so asking for fewer (or none) frees them without waiting for the next frame.
@@ -71,7 +78,8 @@ impl FrameSlot for Slot {
         if keep == 0 {
             st.past.clear();
         } else {
-            st.past.push_back(frame.clone());
+            // read under the lock, so a bump that comes after is told from this frame
+            st.past.push_back((frame.clone(), self.epoch.load(Ordering::SeqCst)));
             while st.past.len() > keep {
                 st.past.pop_front();
             }
@@ -117,13 +125,17 @@ impl FrameSlot for Slot {
     }
 
     fn forget_history(&self) {
-        self.state.lock().unwrap().past.clear();
+        let mut st = self.state.lock().unwrap();
+        // bumped before the frames go, so a lookup that races this one never sees an older one pass as current
+        self.epoch.fetch_add(1, Ordering::SeqCst);
+        st.past.clear();
     }
 
     fn near(&self, capture_ns: u64) -> Option<Frame> {
         let st = self.state.lock().unwrap();
+        let epoch = self.epoch.load(Ordering::SeqCst);
         // Newest first, so of two as near the newer one is the first and wins
-        st.past.iter().rev().filter_map(|f| f.capture_ns.map(|c| (c.abs_diff(capture_ns), f))).min_by_key(|(gap, _)| *gap).map(|(_, f)| f.clone())
+        st.past.iter().rev().filter(|(_, e)| *e >= epoch).filter_map(|(f, _)| f.capture_ns.map(|c| (c.abs_diff(capture_ns), f))).min_by_key(|(gap, _)| *gap).map(|(_, f)| f.clone())
     }
 
     fn wait_newer(&self, seen: u64, timeout: Duration) -> bool {
@@ -151,6 +163,8 @@ pub struct Frames {
     history: Arc<AtomicUsize>,
     /// The slots made so far, to trim when history shrinks.
     slots: Mutex<Vec<Weak<Slot>>>,
+    /// Goes up whenever any stream's steps are handed out again (Slot::forget_history), for all of them at once.
+    epoch: Arc<AtomicU64>,
 }
 
 impl Frames {
@@ -190,6 +204,17 @@ impl FrameStore for Frames {
         slot.near(capture_ns).map(|frame| StreamFrame { source_id: sid.clone(), name: name.clone(), frame })
     }
 
+    fn outgoing_frame(&self, source_id: Option<&str>) -> Option<StreamFrame> {
+        let sid = source_id.unwrap_or("");
+        let streams = self.streams();
+        let (sid, name, slot) = streams.iter().find(|e| e.0 == sid)?;
+        slot.latest().map(|(frame, _)| StreamFrame { source_id: sid.clone(), name: name.clone(), frame })
+    }
+
+    fn pipeline_epoch(&self) -> u64 {
+        self.epoch.load(Ordering::SeqCst)
+    }
+
     fn clock_sync(&self, source_id: Option<&str>) -> Option<ClockSync> {
         let sid = source_id.unwrap_or("");
         self.streams().iter().find(|e| e.0 == sid).and_then(|e| e.2.phone_clock()).and_then(|c| c.sync())
@@ -198,7 +223,7 @@ impl FrameStore for Frames {
 
 impl StreamFrames for Frames {
     fn new_slot(&self) -> Arc<dyn FrameSlot> {
-        let slot = Slot::with_history(self.history.clone());
+        let slot = Slot::with_shared(self.history.clone(), self.epoch.clone());
         let mut slots = self.slots.lock().unwrap();
         slots.retain(|w| w.strong_count() > 0);
         slots.push(Arc::downgrade(&slot));
@@ -298,6 +323,44 @@ mod tests {
         slot.forget_history();
         assert!(slot.near(100_000_000).is_none(), "a frame from before the steps changed isn't handed out");
         assert!(slot.published().is_some(), "the newest frame is still the stream's");
+    }
+
+    #[test]
+    fn a_change_of_steps_on_any_stream_hides_every_streams_older_history() {
+        let frames = Frames::new();
+        frames.set_history(4);
+        let (a, b) = (frames.new_slot(), frames.new_slot());
+        frames.set_streams(vec![("a".into(), "A".into(), a.clone()), ("b".into(), "B".into(), b.clone())]);
+        for (slot, base) in [(&a, 100u64), (&b, 200)] {
+            slot.publish(taken_at(1, Some(base)));
+            slot.publish(taken_at(2, Some(base + 33)));
+        }
+        let epoch = frames.pipeline_epoch();
+        assert_eq!(frames.stream_frame_near(Some("a"), 100).map(|f| f.frame.data[0]), Some(1));
+        assert_eq!(frames.stream_frame_near(Some("b"), 200).map(|f| f.frame.data[0]), Some(1));
+        // Only B's steps are handed out again, but A may blur too (a flag they share), so A's clear history can't stay
+        b.forget_history();
+        assert!(frames.pipeline_epoch() > epoch);
+        assert!(frames.stream_frame_near(Some("a"), 100).is_none() && frames.stream_frame_near(Some("a"), 133).is_none());
+        assert!(frames.stream_frame_near(Some("b"), 200).is_none());
+        assert_eq!(frames.stream_frame(Some("a")).unwrap().frame.data[0], 2, "the newest frame is still there to fall back to");
+        // Frames published after it are of the new epoch and come back, next to none of the old ones
+        a.publish(taken_at(3, Some(166)));
+        assert_eq!(frames.stream_frame_near(Some("a"), 100).map(|f| f.frame.data[0]), Some(3), "never one of the older ones, even if they were nearer");
+        assert!(frames.stream_frame_near(Some("b"), 200).is_none());
+    }
+
+    #[test]
+    fn what_goes_out_is_the_replaced_frame_when_there_is_one() {
+        let slot = Slot::new();
+        let frames = Frames::default();
+        frames.set_streams(streams(&[("", "Main", &slot)]));
+        assert!(frames.outgoing_frame(None).is_none());
+        let n = slot.publish(frame(1));
+        assert_eq!(frames.outgoing_frame(None).map(|f| (f.frame.data[0], f.frame.number)), Some((1, n)));
+        assert!(frames.replace_frame(None, frame(9), n));
+        assert_eq!(frames.outgoing_frame(None).map(|f| (f.frame.data[0], f.frame.number)), Some((9, n)), "the replacement, under the number it replaced");
+        assert_eq!(frames.stream_frame(None).unwrap().frame.data[0], 1, "the stream's own frame is what plugins read");
     }
 
     #[test]
