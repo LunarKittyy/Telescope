@@ -28,6 +28,7 @@ component BadgeUnfold inherits Unfolding {
         }
     }
     open: any;
+    max-height: self.preferred-height;
     init => { keep(); }
     changed first => { keep(); }
     changed first-kind => { keep(); }
@@ -188,6 +189,8 @@ export component StereoCard inherits Card {
         }
         Unfolding {
             open: root.fine-open;
+            // never taller than its rows, so spare height in the card isn't left as a gap above the badges
+            max-height: self.preferred-height;
             RailSlider {
                 icon: Icons.stretch;
                 label: @tr("Depth");

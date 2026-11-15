@@ -17,6 +17,12 @@ struct Store {
     errors: Mutex<BTreeMap<String, u64>>,
     /// Every frame put out in place of a stream's, as (stream, frame, number it was for).
     replaced: Mutex<Vec<(String, Frame, u64)>>,
+    /// The host's pipeline epoch, which goes up when any stream's steps are handed out again.
+    epoch: std::sync::atomic::AtomicU64,
+    /// What the camera of every stream sends when it isn't the stream's own newest frame (another plugin replaced it).
+    outgoing: Mutex<Option<Frame>>,
+    /// Run whenever the sync of a stream is asked, which a picture does while it's being made: the moment to change things under it.
+    while_drawing: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
 }
 
 impl FrameStore for Store {
@@ -38,7 +44,20 @@ impl FrameStore for Store {
         let frame = list[stereo::nearest_capture(&captures, capture_ns)?].clone();
         Some(StreamFrame { source_id: id.into(), name: id.into(), frame })
     }
+    fn outgoing_frame(&self, source_id: Option<&str>) -> Option<StreamFrame> {
+        match self.outgoing.lock().unwrap().clone() {
+            Some(frame) => Some(StreamFrame { source_id: source_id?.into(), name: String::new(), frame }),
+            None => self.stream_frame(source_id),
+        }
+    }
+    fn pipeline_epoch(&self) -> u64 {
+        self.epoch.load(std::sync::atomic::Ordering::SeqCst)
+    }
     fn clock_sync(&self, source_id: Option<&str>) -> Option<ClockSync> {
+        let hook = self.while_drawing.lock().unwrap().clone();
+        if let Some(hook) = hook {
+            hook();
+        }
         self.errors.lock().unwrap().get(source_id?).map(|e| ClockSync { error_ns: *e })
     }
 }
@@ -972,39 +991,64 @@ impl Rig {
     }
 }
 
-#[test]
-fn frames_kept_before_the_steps_were_handed_out_again_are_not_paired() {
-    let mut r = rig();
-    r.switch(true);
-    // b is behind at 110 ms, so a's own earlier frame (100 ms) is the one that goes with it
+/// A (the target) kept frames at 100, 133 and 166 ms, and b is behind at 110 ms.
+fn kept_three(r: &mut Rig) -> Frame {
     let b1 = shot(YELLOW, Some(110));
     for (colour, at) in [(RED, 100), (GREEN, 133), (BLUE, 166)] {
         let frame = shot(colour, Some(at));
         r.show_frames(frame.clone(), b1.clone());
         let out = r.process(&frame, "a");
         if at == 166 {
+            // b is behind at 110 ms, so a's own earlier frame (100 ms) is the one that goes with it
             assert_eq!(left_pixel(&out), RED, "before anything changed");
         }
     }
-    // a Blur comes on: the pipeline asks for the step again, and the red frame was a clear one
-    r.new_step();
+    b1
+}
+
+#[test]
+fn frames_kept_before_the_epoch_moved_are_not_paired_even_when_this_streams_step_stayed() {
+    let mut r = rig();
+    r.switch(true);
+    let b1 = kept_three(&mut r);
+    // a Blur comes on for b only: a's own step is the same one, but the red frame was a clear one
+    r.store.epoch.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     let frame = shot(BLUE, Some(200));
     r.show_frames(frame.clone(), b1.clone());
     let out = r.process(&frame, "a");
     assert_eq!((left_pixel(&out), right_pixel(&out)), (BLUE, YELLOW), "only the frame that came after the change");
-    assert_eq!(r.plugin.shared.hub().ring.len(), 1);
+    let hub = r.plugin.shared.hub();
+    assert_eq!(hub.current_ring(r.store.pipeline_epoch()).len(), 1);
 }
 
 #[test]
-fn the_other_streams_ring_goes_with_the_steps_too() {
+fn a_new_step_alone_does_not_drop_what_the_epoch_still_allows() {
+    let mut r = rig();
+    r.switch(true);
+    let b1 = kept_three(&mut r);
+    // the host bumps the epoch whenever it hands steps out, so a step handed out without it is nothing to forget
+    r.new_step();
+    let frame = shot(BLUE, Some(200));
+    r.show_frames(frame.clone(), b1.clone());
+    let out = r.process(&frame, "a");
+    assert_eq!((left_pixel(&out), right_pixel(&out)), (RED, YELLOW));
+}
+
+#[test]
+fn the_other_streams_ring_is_stamped_and_older_frames_are_left_out() {
     let mut r = rig();
     r.switch(true);
     r.show_frames(shot(RED, None), shot(BLUE, None));
     r.process(&shot(RED, None), "a");
     assert!(r.plugin.shared.hub().other.is_some());
-    r.new_step();
+    r.store.epoch.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let mut b2 = shot(GREEN, None);
+    b2.number = 9;
+    r.show_frames(shot(RED, None), b2);
     r.process(&shot(RED, None), "a");
-    assert_eq!(r.plugin.shared.hub().other.as_ref().map(|(_, ring)| ring.len()), Some(1));
+    let hub = r.plugin.shared.hub();
+    assert_eq!(hub.other.as_ref().map(|(_, ring)| ring.len()), Some(2), "both are kept");
+    assert_eq!(hub.current_other(r.store.pipeline_epoch()).len(), 1, "only the one after the change is paired from");
 }
 
 #[test]
@@ -1061,10 +1105,12 @@ fn a_match_is_dropped_when_the_eye_pair_changes_without_the_streams_changing() {
     r.plugin.shared.hub().reading.as_mut().unwrap().at = monotonic_ns() + 800 * MS;
     r.plugin.match_tick_at(&mut r.host, monotonic_ns() + 800 * MS);
     assert!(r.plugin.lut.is_some(), "matched for a and c");
+    assert!(r.plugin.shared.hub().tune.lut.is_some(), "and the step is applying them");
     // b starts sending again: it is the second stream, so the pair is a and b now and the curves were for another
     r.show_three(gradient(240), gradient(100), gradient(120));
     r.tick_status();
     assert!(r.plugin.lut.is_none());
+    assert!(r.plugin.shared.hub().tune.lut.is_none(), "the step stops applying them at once, not with the next slider move");
     assert_eq!(r.match_badge(), "");
 }
 
@@ -1291,4 +1337,118 @@ fn the_clock_draws_on_its_own_while_the_stream_stalls_and_stops_with_the_plugin(
     assert!(!r.replaced().is_empty(), "the clock drew without being asked");
     r.plugin.shutdown(&mut r.host);
     assert!(r.plugin.clock.is_none());
+}
+
+// ── Second review: Privacy on the other stream, a render in flight, whose frame the clock may replace, late answers, Match's curves ──
+
+/// Like stalled_rig, without the clock thread, so a test is the only one drawing.
+fn quiet_rig(quiet: u64) -> (Rig, Frame) {
+    let mut r = rig();
+    r.switch(true);
+    r.plugin.shared.hub().shut = true;
+    let a = shot(RED, Some(100));
+    r.show_frames(a.clone(), shot(BLUE, Some(100)));
+    let out = r.process(&a, "a");
+    r.publish_picture(&out);
+    r.plugin.shared.hub().last_in = Some(monotonic_ns() - quiet * MS);
+    (r, out)
+}
+
+#[test]
+fn a_picture_in_flight_is_not_sent_after_3d_went_off_was_reset_or_moved_to_another_stream() {
+    for what in ["off", "reset", "target"] {
+        let (r, _) = quiet_rig(500);
+        let shared = r.plugin.shared.clone();
+        *r.store.while_drawing.lock().unwrap() = Some(Arc::new(move || {
+            let mut hub = shared.hub();
+            match what {
+                "off" => {
+                    hub.on = false;
+                    hub.forget();
+                }
+                "reset" => hub.generation += 1,
+                _ => {
+                    hub.target = Some("b".into());
+                    hub.forget();
+                }
+            }
+        }));
+        assert!(!r.plugin.draw_stalled(monotonic_ns()), "{what}");
+        assert!(r.replaced().is_empty(), "{what}: it went out anyway");
+    }
+}
+
+#[test]
+fn the_clock_never_overwrites_a_frame_another_plugin_put_out_in_its_place() {
+    let (r, _) = quiet_rig(500);
+    // what the camera sends isn't the picture the step made, and isn't the stream's own newest frame either
+    *r.store.outgoing.lock().unwrap() = Some(shot([1, 2, 3], Some(100)));
+    assert!(!r.plugin.draw_stalled(monotonic_ns()));
+    assert!(r.replaced().is_empty());
+    // nobody replaced it: the clock draws, and its own picture on the camera is still its own for the next one
+    *r.store.outgoing.lock().unwrap() = None;
+    assert!(r.plugin.draw_stalled(monotonic_ns()));
+    *r.store.outgoing.lock().unwrap() = Some(r.replaced().pop().unwrap().1);
+    let mut b = shot(GREEN, Some(133));
+    b.number = 77;
+    r.store.frames.lock().unwrap()[1].frame = b;
+    assert!(r.plugin.draw_stalled(monotonic_ns()), "its own earlier picture is not someone else's");
+}
+
+#[test]
+fn a_late_answer_for_phones_that_are_not_the_eyes_any_more_sends_them_nothing() {
+    let mut r = rig();
+    r.switch(true);
+    r.show_frames(gradient(240), gradient(120));
+    r.card("match-clicked", json!(null));
+    // b stops sending while the phones are being asked: the eyes are a and c now
+    let mut stale_b = gradient(120);
+    stale_b.time_ns = monotonic_ns() - 10_000 * MS;
+    r.show_three(gradient(240), stale_b, gradient(120));
+    r.polled("a", lens(false, Some(400), Some(8_000_000), 24));
+    r.polled("b", lens(true, None, None, 26));
+    assert!(r.controls().is_empty(), "nothing went to a or b: {:?}", r.controls());
+    assert_eq!(r.match_badge(), "", "and the match is dropped, not left running");
+    assert!(!r.plugin.shared.hub().measure);
+}
+
+#[test]
+fn a_stalled_redraw_without_capture_times_still_takes_in_the_other_eyes_new_frames() {
+    let mut r = rig();
+    r.switch(true);
+    r.plugin.shared.hub().shut = true;
+    r.card("timing-moved", json!(-66.0));
+    let mut last = None;
+    for (n, (colour, ago)) in [(GREEN, 99), (YELLOW, 66), (CYAN, 33), (BLUE, 0)].into_iter().enumerate() {
+        let a = arrived(shot(RED, None), n as u64, ago);
+        let b = arrived(shot(colour, None), n as u64, ago);
+        r.show_frames(a.clone(), b.clone());
+        let out = r.process(&a, "a");
+        r.publish_picture(&out);
+        last = Some(b);
+    }
+    // the target stalls and the other eye sends one more, a frame time after the last
+    r.plugin.shared.hub().last_in = Some(monotonic_ns() - 500 * MS);
+    let mut next = arrived(shot(GREEN, None), 4, 0);
+    next.time_ns = last.unwrap().time_ns + 33 * MS;
+    r.store.frames.lock().unwrap()[1].frame = next;
+    assert!(r.plugin.draw_stalled(monotonic_ns()));
+    let frame = r.replaced().pop().expect("a picture went out").1;
+    assert_eq!((left_pixel(&frame), right_pixel(&frame)), (RED, CYAN), "held back 66 ms from the new frame, which only works if it was added to the ring");
+}
+
+#[test]
+fn when_both_feeds_stall_the_rings_are_dropped_after_three_seconds() {
+    let (r, _) = quiet_rig(4_000);
+    {
+        let hub = r.plugin.shared.hub();
+        assert!(!hub.ring.is_empty() && hub.other.is_some());
+    }
+    let old = monotonic_ns() - 4_000 * MS;
+    for f in r.store.frames.lock().unwrap().iter_mut() {
+        f.frame.time_ns = old;
+    }
+    assert!(!r.plugin.draw_stalled(monotonic_ns()));
+    let hub = r.plugin.shared.hub();
+    assert!(hub.ring.is_empty() && hub.other.is_none(), "neither eye's old frames wait for the next pair");
 }
