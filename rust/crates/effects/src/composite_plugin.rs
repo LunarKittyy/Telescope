@@ -123,7 +123,7 @@ impl Shared {
             hub.handed = Some(frame.clone());
             return;
         };
-        (out.number, out.time_ns) = (frame.number, frame.time_ns);
+        (out.number, out.time_ns, out.capture_ns) = (frame.number, frame.time_ns, frame.capture_ns);
         hub.handed = Some(out.clone());
         hub.last_picture_at = Some(now);
         hub.fallback_key = None;

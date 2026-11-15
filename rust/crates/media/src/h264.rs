@@ -6,10 +6,12 @@
 use crate::ffmpeg::{Codec, Fault, Forced, Hw};
 use crate::packets::{Steps, Tap};
 use crate::slow::{self, Timings};
+use crate::stamp::{self, Stamp};
 use std::time::Instant;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
+use telescope_core::clock::PhoneClock;
 use telescope_core::frame::Frame;
 use telescope_core::media::{Decoded, Decoder, DecodingStatus, Packet, TimingProbe};
 
@@ -74,7 +76,7 @@ fn count_live(hw: Option<Hw>, by: isize) {
 }
 
 /// Where each Annex-B start code is: (start, end) of the 00 00 01 or 00 00 00 01, left to right without overlap.
-fn start_codes(data: &[u8]) -> Vec<(usize, usize)> {
+pub(crate) fn start_codes(data: &[u8]) -> Vec<(usize, usize)> {
     let mut out = Vec::new();
     let mut p = 0;
     while p + 2 < data.len() {
@@ -174,6 +176,8 @@ pub struct H264 {
     retry_hw: Option<Hw>,
     /// Tells the stream to ask for a keyframe after a change of decoder.
     ask_keyframe: Option<Box<dyn Fn() + Send>>,
+    /// The phone's clock offset, which turns the capture times in the stream into this computer's clock.
+    clock: Option<Arc<PhoneClock>>,
     /// When the card gave up, until software has a picture.
     swapped_at: Option<std::time::Instant>,
     /// Tests: the next feed fails as a broken driver would.
@@ -246,6 +250,7 @@ impl H264 {
             target_fps: Arc::new(AtomicU32::new(30)),
             retry_hw: None,
             ask_keyframe: None,
+            clock: None,
             swapped_at: None,
             #[cfg(test)]
             break_next: false,
@@ -278,10 +283,10 @@ impl H264 {
         let result = if std::mem::take(&mut self.break_next) {
             Err("the driver failed after receiving setup".to_string())
         } else {
-            decode(&mut self.codec, self.steps.as_ref(), &data, strict)
+            decode(&mut self.codec, self.steps.as_ref(), &data, strict, self.clock.as_deref())
         };
         #[cfg(not(test))]
-        let result = decode(&mut self.codec, self.steps.as_ref(), &data, strict);
+        let result = decode(&mut self.codec, self.steps.as_ref(), &data, strict, self.clock.as_deref());
         match result {
             Ok(fed) if self.codec.hw.is_none() => {
                 self.note_picture_back(fed.count);
@@ -376,7 +381,7 @@ impl H264 {
         self.restart_steps();
         // A fresh decoder can't start from a keyframe alone, and TCP sends SPS and PPS only when joining
         let setup = [&self.headers.setup(), data].concat();
-        Some(decode(&mut self.codec, self.steps.as_ref(), &setup, false).map_or((None, 0), |fed| (fed.newest, fed.count)))
+        Some(decode(&mut self.codec, self.steps.as_ref(), &setup, false, self.clock.as_deref()).map_or((None, 0), |fed| (fed.newest, fed.count)))
     }
 
     /// Steps of its own for a new decoder: the old ones have already seen this data.
@@ -408,7 +413,7 @@ impl H264 {
         // A fresh decoder can't start from a keyframe alone, and TCP sends SPS and PPS only when joining
         let setup = [&self.headers.setup(), data].concat();
         self.swapped_at = Some(std::time::Instant::now());
-        let fed = decode(&mut self.codec, self.steps.as_ref(), &setup, false).map_or((None, 0), |fed| (fed.newest, fed.count));
+        let fed = decode(&mut self.codec, self.steps.as_ref(), &setup, false, self.clock.as_deref()).map_or((None, 0), |fed| (fed.newest, fed.count));
         self.note_picture_back(fed.1);
         fed
     }
@@ -465,8 +470,10 @@ struct Fed {
 }
 
 /// Parses data into access units, runs them through the packet steps and decodes them. strict: data the decoder
-/// refuses is the decoder's fault (a card that can't take the stream), not something to skip.
-fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool) -> Result<Fed, String> {
+/// refuses is the decoder's fault (a card that can't take the stream), not something to skip. Each access unit's capture time
+/// (the SEI the phone puts in front of a picture) is read before the steps change the unit and goes with it as the packet's pts, so the
+/// picture that comes out has its own time however the decoder delays or reorders; clock turns it into this computer's.
+fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool, clock: Option<&PhoneClock>) -> Result<Fed, String> {
     let mut newest = None;
     let mut count = 0;
     let mut units_in = 0;
@@ -476,6 +483,7 @@ fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool) -
         if fault.is_some() {
             return;
         }
+        let pts = stamp::find(unit).and_then(Stamp::to_pts);
         let units = match steps {
             Some(s) => s.step(unit),
             None => vec![unit.to_vec()],
@@ -485,7 +493,7 @@ fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool) -
                 mark_constrained_baseline(&mut u);
             }
             units_in += 1;
-            match codec.decode_newest(&u) {
+            match codec.decode_newest_at(&u, pts) {
                 Ok(n) => count += n,
                 // Joined mid-GOP, say: skip until a keyframe
                 Err(Fault::Invalid) if !strict => {}
@@ -499,8 +507,13 @@ fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool) -
     });
     // Only the newest picture is downloaded and converted; the ones it replaced never were
     if fault.is_none() {
-        match codec.take_newest() {
-            Ok(frame) => newest = frame,
+        match codec.take_newest_stamped() {
+            Ok(taken) => {
+                newest = taken.map(|(mut frame, pts)| {
+                    frame.capture_ns = pts.and_then(Stamp::from_pts).and_then(|s| clock?.to_desktop(s.clock, s.ns));
+                    frame
+                })
+            }
             // A picture that couldn't be taken doesn't count as finished
             Err(Fault::Invalid) if !strict => count = count.saturating_sub(1),
             Err(Fault::Invalid) => fault = Some("the decoder refused the stream".to_string()),
@@ -525,6 +538,10 @@ impl Decoder for H264 {
 
     fn hardware(&self) -> bool {
         self.codec.hw.is_some()
+    }
+
+    fn set_phone_clock(&mut self, clock: Arc<PhoneClock>) {
+        self.clock = Some(clock);
     }
 
     fn on_keyframe_needed(&mut self, ask: Box<dyn Fn() + Send>) {
@@ -1191,6 +1208,164 @@ pub(crate) mod tests {
         let mut new = H264::new(false, Some(tap)).unwrap();
         running.feed(&stream);
         assert!(new.feed(&stream).1 > 0);
+    }
+
+    // ── The capture time each picture comes out with ──
+
+    /// How far the fake phone's boot clock is ahead of this computer's.
+    const AHEAD_NS: i64 = 7_000_000_000_000;
+
+    /// When picture i was taken on the phone's boot clock, and on this computer's once the offset is taken off.
+    fn phone_ns(i: usize) -> u64 {
+        9_000_000_000_000 + i as u64 * 33_333_333
+    }
+
+    fn desktop_ns(i: usize) -> u64 {
+        (phone_ns(i) as i64 - AHEAD_NS) as u64
+    }
+
+    fn known_clock() -> Arc<PhoneClock> {
+        let clock = Arc::new(PhoneClock::default());
+        clock.set(telescope_core::clock::ClockOffset { boot_ns: Some(AHEAD_NS), mono_ns: Some(AHEAD_NS + 5), error_ns: 1_000 });
+        clock
+    }
+
+    /// The packet with a capture time SEI in front of its first slice, as the phone sends it (after any SPS and PPS).
+    fn stamped(packet: &[u8], clock: u8, ns: u64) -> Vec<u8> {
+        let at = start_codes(packet).into_iter().find(|&(_, e)| matches!(packet[e] & 31, 1 | 5)).map(|(s, _)| s).expect("a slice");
+        [&packet[..at], &crate::stamp::sei(clock, ns), &packet[at..]].concat()
+    }
+
+    /// Which of the flat greys in values a frame shows (they're far enough apart to tell).
+    fn which(frame: &Frame, values: &[u8]) -> usize {
+        let m = mean(frame);
+        values.iter().position(|&v| (luma(v) - m).abs() <= 8.0).unwrap_or_else(|| panic!("no grey is {m}"))
+    }
+
+    const GREYS: [u8; 6] = [20, 60, 100, 140, 180, 220];
+
+    fn stamped_greys() -> Option<Vec<Vec<u8>>> {
+        let packets = testenc::h264(&GREYS, 64, 48, 5)?;
+        Some(packets.iter().enumerate().map(|(i, p)| stamped(p, 0, phone_ns(i))).collect())
+    }
+
+    #[test]
+    fn each_frame_comes_out_with_the_time_its_packet_was_stamped_with() {
+        let Some(packets) = stamped_greys() else { return };
+        let mut dec = software();
+        dec.set_phone_clock(known_clock());
+        for (i, p) in packets.iter().enumerate() {
+            let frame = dec.decode(&Packet { data: p.clone(), time_ns: 5 }).newest.expect("a frame for every packet");
+            assert_eq!((which(&frame, &GREYS), frame.capture_ns), (i, Some(desktop_ns(i))));
+            assert_eq!(frame.time_ns, 5, "the time it arrived is its own");
+        }
+    }
+
+    #[test]
+    fn pieces_of_any_size_give_every_frame_its_own_time_in_order() {
+        let Some(packets) = stamped_greys() else { return };
+        let mut dec = software();
+        dec.set_phone_clock(known_clock());
+        let got: Vec<(usize, Option<u64>)> = packets.concat().chunks(97).filter_map(|c| dec.feed(c).0).map(|f| (which(&f, &GREYS), f.capture_ns)).collect();
+        assert!(got.len() >= 5, "{got:?}");
+        assert!(got.iter().all(|&(i, t)| t == Some(desktop_ns(i))), "{got:?}");
+        assert!(got.windows(2).all(|w| w[0].0 < w[1].0));
+    }
+
+    #[test]
+    fn a_burst_keeps_the_time_of_the_newest_frame_it_shows() {
+        let Some(packets) = stamped_greys() else { return };
+        let mut dec = software();
+        dec.set_phone_clock(known_clock());
+        let (frame, count) = dec.feed(&packets.concat());
+        let frame = frame.unwrap();
+        assert_eq!((count, which(&frame, &GREYS), frame.capture_ns), (6, 5, Some(desktop_ns(5))));
+    }
+
+    #[test]
+    fn the_phones_other_clock_is_read_against_its_own_offset() {
+        let Some(packets) = testenc::h264(&[60, 120], 64, 48, 5) else { return };
+        let mut dec = software();
+        dec.set_phone_clock(known_clock());
+        let times: Vec<_> = packets.iter().map(|p| dec.feed(&stamped(p, 1, 9_000_000_000_000)).0.unwrap().capture_ns).collect();
+        assert_eq!(times, [Some(9_000_000_000_000 - AHEAD_NS as u64 - 5); 2]);
+    }
+
+    #[test]
+    fn without_a_stamp_or_a_known_offset_a_frame_has_no_capture_time() {
+        let Some(packets) = stamped_greys() else { return };
+        let Some(plain) = testenc::h264(&GREYS, 64, 48, 5) else { return };
+        // Stamped, but the phone hasn't answered a round trip yet
+        let mut waiting = software();
+        waiting.set_phone_clock(Arc::new(PhoneClock::default()));
+        assert!(waiting.feed(&packets[0]).0.unwrap().capture_ns.is_none());
+        // An older phone: no stamps at all
+        let mut old = software();
+        old.set_phone_clock(known_clock());
+        assert!(plain.iter().all(|p| old.feed(p).0.unwrap().capture_ns.is_none()));
+        // And a decoder nobody gave a clock
+        assert!(software().feed(&packets[0]).0.unwrap().capture_ns.is_none());
+    }
+
+    #[test]
+    fn a_stream_without_delimiters_between_packets_keeps_times_with_their_pictures() {
+        let Some(packets) = testenc::h264(&GREYS, 64, 48, 5) else { return };
+        let mut dec = software();
+        dec.set_phone_clock(known_clock());
+        // As UDP delivers them: a whole frame a packet and no delimiter, so the parser only knows a picture is over when the next one starts
+        let got: Vec<(usize, Option<u64>)> = packets.iter().enumerate()
+            .filter_map(|(i, p)| dec.feed(&stamped(&p[..p.len() - AUD.len()], 0, phone_ns(i))).0)
+            .map(|f| (which(&f, &GREYS), f.capture_ns)).collect();
+        assert!(got.len() >= 4, "{got:?}");
+        assert!(got.iter().all(|&(i, t)| t == Some(desktop_ns(i))), "{got:?}");
+    }
+
+    #[test]
+    fn a_decoder_that_holds_pictures_back_still_hands_each_one_its_own_time() {
+        let Some(packets) = stamped_greys() else { return };
+        // Whole-picture threads: a picture comes out two packets after the one that made it
+        let codec = Codec::h264_threaded(crate::ffmpeg::Threads { count: 3, whole_frames: true }).unwrap();
+        let mut dec = H264::with_codec(codec, None);
+        dec.set_phone_clock(known_clock());
+        let got: Vec<(usize, usize, Option<u64>)> = packets.iter().enumerate()
+            .filter_map(|(fed, p)| dec.feed(p).0.map(|f| (fed, which(&f, &GREYS), f.capture_ns))).collect();
+        assert!(got.iter().any(|&(fed, shown, _)| shown < fed), "the decoder held pictures back: {got:?}");
+        assert!(got.iter().all(|&(_, shown, t)| t == Some(desktop_ns(shown))), "a time went to the wrong picture: {got:?}");
+    }
+
+    #[test]
+    fn pictures_decoded_out_of_taking_order_keep_the_time_they_were_taken_at() {
+        let values = [20, 60, 100, 140, 180, 220, 40, 80, 120, 160];
+        let Some(packets) = testenc::h264_reordered(&values, 64, 48) else { return };
+        // The fixture has B-frames: packets aren't in the order the pictures were taken
+        assert!(packets.windows(2).any(|w| w[1].1 < w[0].1), "no reordering in {:?}", packets.iter().map(|p| p.1).collect::<Vec<_>>());
+        let mut dec = software();
+        dec.set_phone_clock(known_clock());
+        let mut seen = Vec::new();
+        // The phone stamps each packet with the time its picture was taken, which is what the packet's pts is
+        for (p, taken) in &packets {
+            if let Some(f) = dec.feed(&stamped(p, 0, phone_ns(*taken))).0 {
+                seen.push((which(&f, &values), f.capture_ns));
+            }
+        }
+        assert!(seen.len() >= packets.len() - 3, "{seen:?}");
+        assert!(seen.iter().all(|&(shown, t)| t == Some(desktop_ns(shown))), "a time went to the wrong picture: {seen:?}");
+    }
+
+    #[test]
+    fn a_card_decoder_gives_each_frame_its_time_too() {
+        let Some(packets) = testenc::h264(&GREYS, 320, 240, 5) else { return };
+        let _turn = card_test();
+        let mut card = H264::new(true, None).unwrap();
+        if card.hw().is_none() {
+            return eprintln!("no graphics card decoder; skipped");
+        }
+        card.set_phone_clock(known_clock());
+        for (i, p) in packets.iter().enumerate() {
+            let frame = card.feed(&stamped(p, 0, phone_ns(i))).0.expect("a frame");
+            assert_eq!(frame.capture_ns, Some(desktop_ns(i)), "picture {i} on {:?}", card.hw());
+        }
+        assert!(card.hw().is_some(), "still on the card");
     }
 }
 

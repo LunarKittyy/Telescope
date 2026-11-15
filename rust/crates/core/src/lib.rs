@@ -5,6 +5,7 @@ pub mod audio;
 pub mod bar;
 pub mod bus;
 pub mod canvas;
+pub mod clock;
 pub mod balance;
 pub mod colour;
 pub mod colour_cpu;

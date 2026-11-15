@@ -4,6 +4,7 @@ pub mod browser;
 pub mod adb;
 pub mod adb_download;
 pub mod audio;
+pub mod clock_sync;
 pub mod connection;
 pub mod controls;
 pub mod discovery;

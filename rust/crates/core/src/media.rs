@@ -148,6 +148,11 @@ pub trait Decoder: Send {
     fn timing_probe(&self) -> Option<TimingProbe> {
         None
     }
+    /// Where this stream's phone clock offset is kept up to date, for a decoder that reads the capture time the phone stamps on each frame:
+    /// it turns it into this computer's clock (Frame::capture_ns). Set before the first packet; a decoder with no capture times ignores it.
+    fn set_phone_clock(&mut self, clock: std::sync::Arc<crate::clock::PhoneClock>) {
+        let _ = clock;
+    }
 }
 
 /// What a Decoder's timing_probe gives: callable from another thread while the decoder runs.
@@ -289,6 +294,17 @@ pub trait FrameSlot: Send + Sync {
     fn latest(&self) -> Option<(Frame, u64)>;
     /// Waits until latest's count passes seen, or timeout; true if it did.
     fn wait_newer(&self, seen: u64, timeout: Duration) -> bool;
+    /// The stream's phone clock, which is what its frames' capture times were read against (None for a stream with no phone clock), so
+    /// FrameStore::clock_sync can say how good they are. Set again whenever the stream opens a new connection.
+    fn set_phone_clock(&self, _clock: Option<Arc<crate::clock::PhoneClock>>) {}
+    fn phone_clock(&self) -> Option<Arc<crate::clock::PhoneClock>> {
+        None
+    }
+    /// The frame in the recent history (see StreamFrames::set_history) whose capture time is nearest to capture_ns, None when there's no history
+    /// or none of it has a capture time.
+    fn near(&self, _capture_ns: u64) -> Option<Frame> {
+        None
+    }
 }
 
 /// The FrameStore plugins read, plus what the window tells it (Frames.set_streams).
@@ -297,6 +313,9 @@ pub trait StreamFrames: FrameStore {
     fn new_slot(&self) -> Arc<dyn FrameSlot>;
     /// The streams running now as (source id, name, slot), in the order they started; a stream with the camera off is left out.
     fn set_streams(&self, streams: Vec<(String, String, Arc<dyn FrameSlot>)>);
+    /// How many of each stream's newest frames are kept for FrameStore::stream_frame_near; 0, the default, keeps none (the stream's newest
+    /// frame is the only one held). Takes effect from the next frame each stream publishes.
+    fn set_history(&self, _frames: usize) {}
 }
 
 /// What Setup's saved settings say about decoding on the graphics card: Some for a choice made there, None for one never made. Older

@@ -425,6 +425,10 @@ pub struct State {
     pub outputs: Option<Arc<dyn telescope_core::output::Outputs>>,
     /// Every running stream's newest frame, for plugins that use other streams' pictures (host.frames).
     pub frames: Option<Arc<dyn telescope_core::host::FrameStore>>,
+    /// The same frames from the window's side, which is told how many past frames to keep (Host::want_frame_history).
+    pub stream_frames: Option<Arc<dyn telescope_core::media::StreamFrames>>,
+    /// How many frames of history each plugin asked for, by plugin.
+    pub frame_history: BTreeMap<String, usize>,
     /// Person masks and people (HostVision), None without the vision crate.
     pub vision: Option<Arc<dyn telescope_core::vision::VisionService>>,
     /// How the workers turn frames upright for vision, kept up with the view.
@@ -516,6 +520,8 @@ impl State {
             added: Vec::new(),
             admin,
             frames: None,
+            stream_frames: None,
+            frame_history: BTreeMap::new(),
             vision: None,
             upright: Arc::default(),
             motion: Arc::new(telescope_core::motion::Motion::new(Box::new(move |key, owner, zones| {
@@ -540,6 +546,13 @@ impl State {
 
     pub fn index(&self, name: &str) -> Option<usize> {
         self.slots.iter().position(|s| s.info.name == name)
+    }
+
+    /// Tells the streams how many past frames to keep: as many as the plugin that wants the most.
+    pub fn sync_history(&self) {
+        if let Some(frames) = &self.stream_frames {
+            frames.set_history(self.frame_history.values().copied().max().unwrap_or(0));
+        }
     }
 
     /// Tells the idle gate whether anything needs the main camera's frames: a window someone can see (the preview, the tiles, the cards that
@@ -3225,6 +3238,42 @@ mod tests {
         let mut ctx = crate::host::Ctx { state: &mut s, me: "auto_frame".into() };
         ctx.release_everything();
         assert!(s.idle.idle(), "and a plugin that goes away lets go of that too");
+    }
+
+    #[test]
+    fn frame_history_is_kept_as_long_as_the_plugin_that_wants_the_most_asks() {
+        use telescope_core::host::HostFrames;
+        use telescope_core::media::{FrameSlot, StreamFrames};
+        #[derive(Default)]
+        struct Told(Mutex<Vec<usize>>);
+        impl telescope_core::host::FrameStore for Told {
+            fn stream_frames(&self) -> Vec<telescope_core::frame::StreamFrame> {
+                Vec::new()
+            }
+            fn stream_frame(&self, _: Option<&str>) -> Option<telescope_core::frame::StreamFrame> {
+                None
+            }
+            fn replace_frame(&self, _: Option<&str>, _: telescope_core::Frame, _: u64) -> bool {
+                false
+            }
+        }
+        impl StreamFrames for Told {
+            fn new_slot(&self) -> Arc<dyn FrameSlot> {
+                unreachable!("no streams here")
+            }
+            fn set_streams(&self, _: Vec<(String, String, Arc<dyn FrameSlot>)>) {}
+            fn set_history(&self, frames: usize) {
+                self.0.lock().unwrap().push(frames);
+            }
+        }
+        let told = Arc::new(Told::default());
+        let mut s = quiet_state();
+        s.stream_frames = Some(told.clone());
+        crate::host::Ctx { state: &mut s, me: "stereo".into() }.want_frame_history("stereo", 6);
+        crate::host::Ctx { state: &mut s, me: "other".into() }.want_frame_history("other", 10);
+        crate::host::Ctx { state: &mut s, me: "other".into() }.want_frame_history("other", 0);
+        crate::host::Ctx { state: &mut s, me: "stereo".into() }.release_everything();
+        assert_eq!(*told.0.lock().unwrap(), [6, 10, 6, 0]);
     }
 
     #[test]

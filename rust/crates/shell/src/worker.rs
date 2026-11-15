@@ -76,11 +76,20 @@ pub struct Opened {
     pub codec: Codec,
     pub feed: Box<dyn VideoFeed>,
     pub own_decoder: Option<Box<dyn Decoder>>,
+    /// Where the phone's clock offset is kept, for turning the capture times in its video into this computer's clock.
+    pub clock: Option<Arc<telescope_core::clock::PhoneClock>>,
 }
 
 impl From<(Codec, Box<dyn VideoFeed>)> for Opened {
     fn from((codec, feed): (Codec, Box<dyn VideoFeed>)) -> Opened {
-        Opened { codec, feed, own_decoder: None }
+        Opened { codec, feed, own_decoder: None, clock: None }
+    }
+}
+
+impl Opened {
+    /// What a phone session's video gave, with the session's clock.
+    pub fn of_session(session: &dyn telescope_core::link::PhoneSession, opened: (Codec, Box<dyn VideoFeed>)) -> Opened {
+        Opened { clock: session.phone_clock(), ..Opened::from(opened) }
     }
 }
 
@@ -259,6 +268,7 @@ pub fn fit_frame(frame: &Frame, width: u32, height: u32) -> Frame {
     let mut fitted = Frame::new(width, height, PixelFormat::I420, out);
     fitted.number = frame.number;
     fitted.time_ns = frame.time_ns;
+    fitted.capture_ns = frame.capture_ns;
     fitted
 }
 
@@ -273,6 +283,7 @@ pub fn to_nv12(frame: &Frame) -> Frame {
     }
     let mut nv = Frame::new(frame.width, frame.height, PixelFormat::Nv12, out);
     nv.number = frame.number;
+    nv.capture_ns = frame.capture_ns;
     nv
 }
 
@@ -767,7 +778,8 @@ impl Shared {
         }
         let opened = opener(&open);
         self.opening.lock().unwrap().retain(|o| !o.is(&open));
-        let Opened { codec, feed, own_decoder } = opened?;
+        let Opened { codec, feed, own_decoder, clock } = opened?;
+        self.slot.set_phone_clock(clock.clone());
         let options = DecodeOptions { hardware: self.hardware };
         // Packets only the source understands go through its decoder, one at a time like JPEGs, newest first
         if let Some(decoder) = own_decoder {
@@ -781,6 +793,9 @@ impl Shared {
                     Some(tap) => self.media.decoder_with_tap(codec, &options, tap.clone())?,
                     None => self.media.decoder(codec, &options)?,
                 };
+                if let Some(clock) = clock {
+                    decoder.set_phone_clock(clock);
+                }
                 let events = self.events.clone();
                 decoder.on_keyframe_needed(Box::new(move || events(WorkerEvent::NeedsKeyframe)));
                 let cell = decoder.target_fps_cell();
@@ -1634,6 +1649,7 @@ fn stretch(frame: &Frame, width: u32, height: u32) -> Frame {
     let mut f = Frame::new(width, height, PixelFormat::I420, out);
     f.number = frame.number;
     f.time_ns = frame.time_ns;
+    f.capture_ns = frame.capture_ns;
     f
 }
 
@@ -2152,6 +2168,7 @@ mod tests {
             codec: Codec::Mjpeg,
             feed: Box::new(Feed { packets: Arc::new(Mutex::new(VecDeque::from([Some(40)]))), stop: Arc::default(), endless: None }),
             own_decoder: Some(Box::new(Raw)),
+            clock: None,
         }));
         let w = worker_with(opener, None, cams.clone(), log, true);
         wait_for(|| cams.sent.lock().unwrap().contains(&40));
@@ -2956,7 +2973,7 @@ mod tests {
         let steps = Mutex::new(Some(steps));
         let opener: Opener = Arc::new(move |_| {
             let steps = steps.lock().unwrap().take().unwrap_or_default();
-            Ok(Opened { codec: Codec::Mjpeg, feed: Box::new(Script { steps, stop: Arc::default(), gone: Arc::default() }), own_decoder: Some(Box::new(Slow)) })
+            Ok(Opened { codec: Codec::Mjpeg, feed: Box::new(Script { steps, stop: Arc::default(), gone: Arc::default() }), own_decoder: Some(Box::new(Slow)), clock: None })
         });
         let (cams, log) = (Arc::new(Cams::default()), Log::default());
         let w = started(setup(opener), &cams, &log);
@@ -4365,7 +4382,7 @@ mod tests {
         let b = busy.clone();
         let opener: Opener = Arc::new(move |_| {
             let feed = Stamped { gaps: gaps.lock().unwrap().take().unwrap_or_default().into(), stop: Arc::default() };
-            Ok(Opened { codec: Codec::Mjpeg, feed: Box::new(feed), own_decoder: own_decoder.then(|| Box::new(Timed(decode_ms, b.clone())) as Box<dyn Decoder>) })
+            Ok(Opened { codec: Codec::Mjpeg, feed: Box::new(feed), own_decoder: own_decoder.then(|| Box::new(Timed(decode_ms, b.clone())) as Box<dyn Decoder>), clock: None })
         });
         let (cams, log) = (Arc::new(Cams::default()), Log::default());
         cams.send_cost_ms.store(send_ms, Ordering::Relaxed);

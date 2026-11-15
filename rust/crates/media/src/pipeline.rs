@@ -306,13 +306,13 @@ impl Pipeline {
             Ok(()) if sound(frame) => entry.fails = 0,
             Ok(()) => {
                 entry.failed(&format!("handed back {}x{} {:?} with {} bytes", frame.width, frame.height, frame.format, frame.data.len()));
-                *frame = before.clone().unwrap_or_else(|| neutral(size, format, frame.number, frame.time_ns));
+                *frame = before.clone().unwrap_or_else(|| neutral(size, format, &frame));
             }
             Err(_) => {
                 entry.failed("it panicked");
                 match &before {
                     Some(before) => *frame = before.clone(),
-                    None if hides || !sound(frame) => *frame = neutral(size, format, frame.number, frame.time_ns),
+                    None if hides || !sound(frame) => *frame = neutral(size, format, &frame),
                     None => {}
                 }
             }
@@ -467,14 +467,14 @@ impl Drop for Trial {
 }
 
 /// A flat dark picture of this size, for a step that broke the frame it was given when there is no copy to go back to.
-fn neutral((w, h): (u32, u32), format: PixelFormat, number: u64, time_ns: u64) -> Frame {
+fn neutral((w, h): (u32, u32), format: PixelFormat, stands_for: &Frame) -> Frame {
     let (luma, rest) = (w as usize * h as usize, format.size(w, h));
     let data = match format {
         PixelFormat::I420 | PixelFormat::Nv12 => [vec![16; luma], vec![128; rest - luma]].concat(),
         _ => [0, 0, 0, 255].repeat(luma),
     };
     let mut out = Frame::new(w, h, format, data);
-    (out.number, out.time_ns) = (number, time_ns);
+    (out.number, out.time_ns, out.capture_ns) = (stands_for.number, stands_for.time_ns, stands_for.capture_ns);
     out
 }
 
@@ -519,8 +519,8 @@ impl FramePipeline for Pipeline {
         self.background_added = false;
         let started = *self.started_ns.get_or_insert_with(monotonic_ns);
         let time = monotonic_ns().saturating_sub(started) as f32 / 1e9;
-        // A step that builds a new frame stays on this one: person masks are worked out once per number
-        let number = frame.number;
+        // A step that builds a new frame stays on this one: person masks are worked out once per number, and the camera's time is the same picture's
+        let (number, capture_ns) = (frame.number, frame.capture_ns);
         let began = monotonic_ns();
         if std::mem::take(&mut self.forget_due) {
             self.forget_histories(ctx.source_id());
@@ -537,7 +537,7 @@ impl FramePipeline for Pipeline {
                 if self.steps[i].hides() {
                     // Skipped for failing too often, which can't mean the room shows: the card's copy goes with the picture
                     let size = (frame.width, frame.height);
-                    frame = neutral(size, frame.format, frame.number, frame.time_ns);
+                    frame = neutral(size, frame.format, &frame);
                     // Dropped, not brought down: the card's copy has the picture this one stands in for, and landing it would put that back
                     self.drop_card_work(&mut chain);
                     self.tell_withheld(i, ctx);
@@ -561,9 +561,11 @@ impl FramePipeline for Pipeline {
                 timer.add(monotonic_ns().saturating_sub(began).saturating_sub(chain.down_ns - down_before));
             }
             frame.number = number;
+            frame.capture_ns = capture_ns;
         }
         self.bring_down(&mut chain, &mut frame, ctx, false);
         frame.number = number;
+        frame.capture_ns = capture_ns;
         self.last_readback_ns = chain.down_ns;
         if chain.downs > 0 {
             self.balance.note_wait(chain.waited_ns);
@@ -587,7 +589,7 @@ impl FramePipeline for Pipeline {
             }
             if self.steps[i].skipped() {
                 if self.steps[i].hides() {
-                    frame = neutral((frame.width, frame.height), frame.format, frame.number, frame.time_ns);
+                    frame = neutral((frame.width, frame.height), frame.format, &frame);
                     self.tell_withheld(i, ctx);
                     hid = true;
                 }
@@ -596,7 +598,7 @@ impl FramePipeline for Pipeline {
             if stage == FrameStage::Background {
                 // The picture in hand went out without it and has been through the stages after it, so it can't be done again: a new one makes the whole frame dark until a frame comes to do it properly
                 if new_background && self.steps[i].hides() {
-                    frame = neutral((frame.width, frame.height), frame.format, frame.number, frame.time_ns);
+                    frame = neutral((frame.width, frame.height), frame.format, &frame);
                     hid = true;
                 }
                 continue;

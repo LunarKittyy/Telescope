@@ -205,6 +205,8 @@ pub struct FakeHost {
     pub frame_store: Option<Arc<dyn FrameStore>>,
     /// The owners that want_frames says need frames now.
     pub frames_wanted: std::collections::BTreeSet<String>,
+    /// How many frames of history each owner asked for with want_frame_history (owners asking for 0 are left out).
+    pub history_wanted: std::collections::BTreeMap<String, usize>,
     /// What device_config() answers for a source id, as (source id, plugin) to settings; {} for the rest.
     pub device_configs: HashMap<(String, String), Value>,
     /// What diagnostics_report() answers.
@@ -662,6 +664,13 @@ impl HostFrames for FakeHost {
             self.frames_wanted.insert(owner.to_string());
         } else {
             self.frames_wanted.remove(owner);
+        }
+    }
+    fn want_frame_history(&mut self, owner: &str, frames: usize) {
+        if frames > 0 {
+            self.history_wanted.insert(owner.to_string(), frames);
+        } else {
+            self.history_wanted.remove(owner);
         }
     }
 }

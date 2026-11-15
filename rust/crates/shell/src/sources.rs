@@ -575,7 +575,10 @@ impl PhoneKind {
             });
             return None;
         }
-        Some(Arc::new(move |stop| open()?.open_video_stoppable(stop).map(Opened::from)))
+        Some(Arc::new(move |stop| {
+            let session = open()?;
+            session.open_video_stoppable(stop).map(|o| Opened::of_session(&*session, o))
+        }))
     }
 
     /// The hand-over to url worked for session_id: the session it opened is the stream's now, and link lets the old
@@ -1001,7 +1004,7 @@ impl SourceKind for PhoneKind {
 
     fn opener(&self) -> Option<Opener> {
         let session = self.session()?;
-        Some(Arc::new(move |stop| session.open_video_stoppable(stop).map(Opened::from)))
+        Some(Arc::new(move |stop| session.open_video_stoppable(stop).map(|o| Opened::of_session(&*session, o))))
     }
 
     fn mic_alone(&self) -> bool {
@@ -1117,7 +1120,7 @@ impl SourceKind for PluginKind {
         Some(Arc::new(move |stop| {
             let source = shared.lock().unwrap().clone();
             let (codec, feed) = source.open_feed_stoppable(stop)?;
-            Ok(Opened { codec, feed, own_decoder: source.decoder() })
+            Ok(Opened { codec, feed, own_decoder: source.decoder(), clock: None })
         }))
     }
     fn waiting_text(&self) -> Option<crate::worker::WaitingText> {

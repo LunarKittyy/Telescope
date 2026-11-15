@@ -1255,7 +1255,7 @@ impl Window {
                     return;
                 }
                 let url = session.video_url();
-                let opener: crate::worker::Opener = { let s = session.clone(); Arc::new(move |stop| s.open_video_stoppable(stop).map(crate::worker::Opened::from)) };
+                let opener: crate::worker::Opener = { let s = session.clone(); Arc::new(move |stop| s.open_video_stoppable(stop).map(|o| crate::worker::Opened::of_session(&*s, o))) };
                 let tries = current.worker.as_ref().map_or(0, |w| w.failed_tries());
                 phone.moved(route, session, tries);
                 let worker = current.worker.as_ref().and_then(|w| self.shell_worker(w));
@@ -1317,7 +1317,7 @@ impl Window {
         log::info!("{} moved to {url}", source.kind.name());
         if let Some(worker) = worker {
             let s = session.clone();
-            worker.inner.set_opener(Arc::new(move |stop| s.open_video_stoppable(stop).map(crate::worker::Opened::from)));
+            worker.inner.set_opener(Arc::new(move |stop| s.open_video_stoppable(stop).map(|o| crate::worker::Opened::of_session(&*s, o))));
         }
         let mut moved = current.clone();
         moved.url = session.video_url();

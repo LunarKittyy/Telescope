@@ -69,6 +69,11 @@ pub trait PhoneSession: ControlClient {
     fn controls(&self) -> Option<std::sync::Arc<dyn PhoneControl>> {
         None
     }
+    /// How this phone's clocks stand against this computer's, kept up to date by round trips to the phone for as long as the session isn't released
+    /// (the first call starts them). None for a session that can't say.
+    fn phone_clock(&self) -> Option<std::sync::Arc<crate::clock::PhoneClock>> {
+        None
+    }
     /// The phone's microphone (/v1/audio: 48 kHz mono s16le) on this route. The error is the text to show next to the
     /// Microphone card (the phone's own reason when it gives one).
     fn open_audio(&self) -> Result<Box<dyn crate::audio::AudioFeed>, String> {

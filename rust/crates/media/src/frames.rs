@@ -2,9 +2,11 @@
 //! The window says which streams run and plugins ask from any thread, often from inside another stream's frame steps.
 //! A stream swaps in its newest frame whole and never changes it after, so handing one out shares it: no copy.
 
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::collections::VecDeque;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::time::{Duration, Instant};
+use telescope_core::clock::{ClockSync, PhoneClock};
 use telescope_core::frame::{Frame, StreamFrame};
 use telescope_core::host::FrameStore;
 use telescope_core::media::{FrameSlot, StreamFrames};
@@ -18,6 +20,10 @@ static FRAME_NUMBERS: AtomicU64 = AtomicU64::new(1);
 pub struct Slot {
     state: Mutex<SlotState>,
     changed: Condvar,
+    /// How many of the newest published frames are kept, shared by every slot of one Frames: 0 keeps none.
+    history: Arc<AtomicUsize>,
+    /// What this stream's capture times were read against.
+    clock: Mutex<Option<Arc<PhoneClock>>>,
 }
 
 #[derive(Default)]
@@ -25,11 +31,23 @@ struct SlotState {
     published: Option<Frame>,
     latest: Option<Frame>,
     version: u64,
+    /// The last few published frames, oldest first, held only while something asked for history (they're shared, not copies).
+    past: VecDeque<Frame>,
 }
 
 impl Slot {
     pub fn new() -> Arc<Slot> {
         Arc::new(Slot::default())
+    }
+
+    /// A slot that keeps as many past frames as `history` says, now and later.
+    pub fn with_history(history: Arc<AtomicUsize>) -> Arc<Slot> {
+        Arc::new(Slot { history, ..Slot::default() })
+    }
+
+    /// How many past frames it holds right now.
+    pub fn held(&self) -> usize {
+        self.state.lock().unwrap().past.len()
     }
 }
 
@@ -40,6 +58,15 @@ impl FrameSlot for Slot {
         let number = FRAME_NUMBERS.fetch_add(1, Ordering::SeqCst);
         frame.number = number;
         frame.time_ns = monotonic_ns();
+        let keep = self.history.load(Ordering::Relaxed);
+        if keep == 0 {
+            st.past.clear();
+        } else {
+            st.past.push_back(frame.clone());
+            while st.past.len() > keep {
+                st.past.pop_front();
+            }
+        }
         st.published = Some(frame.clone());
         st.latest = Some(frame);
         st.version += 1;
@@ -69,6 +96,20 @@ impl FrameSlot for Slot {
         st.latest.clone().map(|f| (f, st.version))
     }
 
+    fn set_phone_clock(&self, clock: Option<Arc<PhoneClock>>) {
+        *self.clock.lock().unwrap() = clock;
+    }
+
+    fn phone_clock(&self) -> Option<Arc<PhoneClock>> {
+        self.clock.lock().unwrap().clone()
+    }
+
+    fn near(&self, capture_ns: u64) -> Option<Frame> {
+        let st = self.state.lock().unwrap();
+        // Newest first, so of two as near the newer one is the first and wins
+        st.past.iter().rev().filter_map(|f| f.capture_ns.map(|c| (c.abs_diff(capture_ns), f))).min_by_key(|(gap, _)| *gap).map(|(_, f)| f.clone())
+    }
+
     fn wait_newer(&self, seen: u64, timeout: Duration) -> bool {
         let end = Instant::now() + timeout;
         let mut st = self.state.lock().unwrap();
@@ -90,6 +131,8 @@ type Streams = Arc<Vec<(String, String, Arc<dyn FrameSlot>)>>;
 pub struct Frames {
     // Replaced whole, so readers never see it half done
     streams: RwLock<Streams>,
+    /// How many past frames each stream's slot keeps (StreamFrames::set_history).
+    history: Arc<AtomicUsize>,
 }
 
 impl Frames {
@@ -121,11 +164,27 @@ impl FrameStore for Frames {
         let sid = source_id.unwrap_or("");
         self.streams().iter().find(|e| e.0 == sid).is_some_and(|e| e.2.replace(frame, number))
     }
+
+    fn stream_frame_near(&self, source_id: Option<&str>, capture_ns: u64) -> Option<StreamFrame> {
+        let sid = source_id.unwrap_or("");
+        let streams = self.streams();
+        let (sid, name, slot) = streams.iter().find(|e| e.0 == sid)?;
+        slot.near(capture_ns).map(|frame| StreamFrame { source_id: sid.clone(), name: name.clone(), frame })
+    }
+
+    fn clock_sync(&self, source_id: Option<&str>) -> Option<ClockSync> {
+        let sid = source_id.unwrap_or("");
+        self.streams().iter().find(|e| e.0 == sid).and_then(|e| e.2.phone_clock()).and_then(|c| c.sync())
+    }
 }
 
 impl StreamFrames for Frames {
     fn new_slot(&self) -> Arc<dyn FrameSlot> {
-        Slot::new()
+        Slot::with_history(self.history.clone())
+    }
+
+    fn set_history(&self, frames: usize) {
+        self.history.store(frames, Ordering::Relaxed);
     }
 
     fn set_streams(&self, streams: Vec<(String, String, Arc<dyn FrameSlot>)>) {
@@ -231,6 +290,126 @@ mod tests {
         assert!(slot.wait_newer(0, Duration::from_secs(5)));
         t.join().unwrap();
         assert!(!slot.wait_newer(1, Duration::from_millis(10)));
+    }
+
+    fn taken_at(value: u8, capture_ns: Option<u64>) -> Frame {
+        let mut f = frame(value);
+        f.capture_ns = capture_ns;
+        f
+    }
+
+    /// A Frames with one stream "a" in a slot that keeps `history` frames.
+    fn one_stream(history: usize) -> (Arc<Frames>, Arc<dyn FrameSlot>) {
+        let frames = Frames::new();
+        frames.set_history(history);
+        let slot = frames.new_slot();
+        frames.set_streams(vec![("a".into(), "Phone A".into(), slot.clone())]);
+        (frames, slot)
+    }
+
+    #[test]
+    fn the_capture_time_survives_publishing_and_replacing() {
+        let slot = Slot::new();
+        let n = slot.publish(taken_at(1, Some(1_234)));
+        assert_eq!(slot.published().unwrap().capture_ns, Some(1_234));
+        assert_eq!(slot.latest().unwrap().0.capture_ns, Some(1_234));
+        // A replacement made from that frame carries its own, as a step that builds a new picture hands on
+        assert!(slot.replace(taken_at(2, Some(1_234)), n));
+        assert_eq!(slot.latest().unwrap().0.capture_ns, Some(1_234));
+        assert_eq!(slot.published().unwrap().capture_ns, Some(1_234));
+    }
+
+    #[test]
+    fn the_frame_nearest_a_capture_time_comes_from_the_history() {
+        let (frames, slot) = one_stream(6);
+        for (value, at) in [(1, 1_000), (2, 1_034), (3, 1_066), (4, 1_100)] {
+            slot.publish(taken_at(value, Some(at)));
+        }
+        let near = |at: u64| frames.stream_frame_near(Some("a"), at).map(|f| (f.frame.data[0], f.source_id, f.name));
+        assert_eq!(near(1_040), Some((2, "a".into(), "Phone A".into())));
+        assert_eq!(near(1_060).map(|f| f.0), Some(3));
+        assert_eq!(near(0).map(|f| f.0), Some(1), "before all of them it's the first");
+        assert_eq!(near(9_999).map(|f| f.0), Some(4), "after all of them it's the newest");
+        // Right between two, the newer
+        assert_eq!(near(1_049).map(|f| f.0), Some(2));
+        assert_eq!(near(1_050).map(|f| f.0), Some(3));
+        assert!(frames.stream_frame_near(Some("nobody"), 1_000).is_none());
+    }
+
+    #[test]
+    fn it_looks_at_capture_times_not_when_frames_were_published() {
+        let (frames, slot) = one_stream(6);
+        // Published in this order, taken in another
+        slot.publish(taken_at(1, Some(5_000)));
+        slot.publish(taken_at(2, Some(1_000)));
+        slot.publish(taken_at(3, None));
+        assert_eq!(frames.stream_frame_near(Some("a"), 1_100).map(|f| f.frame.data[0]), Some(2));
+        assert_eq!(frames.stream_frame_near(Some("a"), 4_000).map(|f| f.frame.data[0]), Some(1));
+    }
+
+    #[test]
+    fn a_stream_with_no_capture_times_has_nothing_near() {
+        let (frames, slot) = one_stream(6);
+        slot.publish(taken_at(1, None));
+        slot.publish(taken_at(2, None));
+        assert!(frames.stream_frame_near(Some("a"), 1_000).is_none());
+    }
+
+    #[test]
+    fn the_history_holds_as_many_frames_as_asked_and_no_more() {
+        let frames = Frames::new();
+        frames.set_history(3);
+        let slot = Slot::with_history(frames.history.clone());
+        for i in 0..10u8 {
+            slot.publish(taken_at(i, Some(u64::from(i) * 100)));
+        }
+        assert_eq!(slot.held(), 3);
+        assert_eq!(slot.near(0).unwrap().data[0], 7, "the oldest kept is the 8th");
+        // Asking for fewer takes effect with the next frame, and asking for none empties it
+        frames.set_history(1);
+        slot.publish(taken_at(10, Some(1_000)));
+        assert_eq!(slot.held(), 1);
+        frames.set_history(0);
+        slot.publish(taken_at(11, Some(1_100)));
+        assert_eq!(slot.held(), 0);
+        assert!(slot.near(1_100).is_none());
+    }
+
+    #[test]
+    fn no_history_is_kept_when_nobody_asked() {
+        let (frames, slot) = one_stream(0);
+        let first = taken_at(1, Some(1_000));
+        let watch = Arc::downgrade(&first.data);
+        slot.publish(first);
+        for i in 2..6u8 {
+            slot.publish(taken_at(i, Some(u64::from(i) * 1_000)));
+        }
+        // Only the newest is held: the first one's pixels are gone, and a lookup has nothing to find
+        assert!(watch.upgrade().is_none(), "an older frame is still held");
+        assert!(frames.stream_frame_near(Some("a"), 1_000).is_none());
+        assert_eq!(frames.stream_frame(Some("a")).unwrap().frame.data[0], 5);
+    }
+
+    #[test]
+    fn the_replaced_picture_for_the_camera_is_not_what_the_history_holds() {
+        let (frames, slot) = one_stream(4);
+        let n = slot.publish(taken_at(1, Some(1_000)));
+        assert!(slot.replace(taken_at(9, Some(1_000)), n));
+        assert_eq!(frames.stream_frame_near(Some("a"), 1_000).unwrap().frame.data[0], 1, "the stream's own frame");
+    }
+
+    #[test]
+    fn a_streams_sync_error_comes_from_its_phone_clock() {
+        let (frames, slot) = one_stream(0);
+        assert_eq!(frames.clock_sync(Some("a")), None, "no clock yet");
+        let clock = Arc::new(PhoneClock::default());
+        slot.set_phone_clock(Some(clock.clone()));
+        assert_eq!(frames.clock_sync(Some("a")), None, "no round trip yet");
+        clock.set(telescope_core::clock::ClockOffset { boot_ns: Some(5), mono_ns: None, error_ns: 1_500_000 });
+        assert_eq!(frames.clock_sync(Some("a")), Some(telescope_core::clock::ClockSync { error_ns: 1_500_000 }));
+        assert_eq!(frames.clock_sync(Some("b")), None);
+        slot.set_phone_clock(None);
+        assert_eq!(frames.clock_sync(Some("a")), None, "a stream with no phone clock says nothing");
     }
 
     #[test]
