@@ -19,7 +19,7 @@ use telescope_core::event::Event;
 use telescope_core::host::{Host, PluginSettings, Poster};
 use telescope_core::i18n::{n_, tr, tr_ctx, Fields};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
-use telescope_core::settings::{get_path, leaf_changes, merge_changes, put_path, SettingSpec};
+use telescope_core::settings::{get_path, leaf_changes, merge_changes, off_default, put_path, reset_config, SettingSpec};
 use telescope_core::stats::Snapshot;
 use telescope_core::ui::{SettingsSection, SlintSource, UiEvent, UiSpec};
 use crate::mcp_stats::{Collected, Level, WATCH_MAX_SECONDS, WINDOW_MAX};
@@ -796,7 +796,25 @@ impl McpPlugin {
             "copy-tip": tr("Copy the entry for an AI app's MCP settings."),
             "log": log,
             "log-empty": tr("Nothing yet"),
+            "reset-shown": self.reset_shown(),
         })
+    }
+
+    /// The undo journal is never part of a Reset: it is what lets the AI's changes be undone after a restart.
+    const RESET_KEPT: &'static [&'static str] = &["journal"];
+
+    fn reset_defaults() -> Value {
+        json!({"access": Access::default().name()})
+    }
+
+    fn reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &Self::reset_defaults(), Self::RESET_KEPT)
+    }
+
+    fn reset(&mut self, host: &mut dyn Host) {
+        let cfg = reset_config(&self.get_config(), &Self::reset_defaults(), Self::RESET_KEPT);
+        let access = cfg.get("access").and_then(Value::as_str).and_then(Access::from_name).unwrap_or_default();
+        self.set_access(host, access);
     }
 
     fn push_header(&self, host: &mut dyn Host) {
@@ -1545,6 +1563,7 @@ impl Plugin for McpPlugin {
                 let access = if event.args.first().and_then(Value::as_u64) == Some(0) { Access::ReadOnly } else { Access::ReadAndChange };
                 self.set_access(host, access);
             }
+            (TAB, "reset-clicked") => self.reset(host),
             (TAB, "copy-clicked") => host.copy_text(&Self::connect_entry()),
             _ => {}
         }

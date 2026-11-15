@@ -875,3 +875,29 @@ fn stopping_a_stream_it_started_is_the_default_and_a_saved_choice_wins() {
         assert_eq!(r.plugin.stop_idle, stop_idle, "{saved}");
     }
 }
+
+#[test]
+fn reset_puts_the_automatic_settings_back() {
+    let mut r = Rig::new();
+    r.ui("automatic", "start-picked", vec![json!(1)]);
+    r.ui("automatic", "notify-toggled", vec![json!(false)]);
+    r.plugin.set_stop_delay(&mut r.host, 600);
+    assert_eq!(r.shown("automatic", "reset-shown"), json!(true));
+    r.ui("automatic", "reset-clicked", vec![]);
+    assert_eq!(r.plugin.get_config(), StartupPlugin::new(r.autostart.clone()).get_config());
+    assert_eq!(r.shown("automatic", "reset-shown"), json!(false));
+    assert_eq!(r.keep(), Some(false));
+    assert!(r.host.calls.iter().any(|c| c == "schedule_save"));
+}
+
+#[test]
+fn reset_of_the_sign_in_switch_turns_the_autostart_entry_off() {
+    let mut r = Rig::new();
+    r.ui("sign-in", "open-toggled", vec![json!(true)]);
+    assert!(r.autostart.enabled());
+    assert_eq!(r.shown("sign-in", "reset-shown"), json!(true));
+    r.ui("sign-in", "reset-clicked", vec![]);
+    assert!(!r.autostart.enabled());
+    assert_eq!(*r.autostart.calls.lock().unwrap(), ["on true", "off true"]);
+    assert_eq!(r.shown("sign-in", "reset-shown"), json!(false));
+}

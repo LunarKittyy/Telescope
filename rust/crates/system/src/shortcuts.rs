@@ -27,6 +27,7 @@ use telescope_core::fuzzy::{self, Doc};
 use telescope_core::host::{Host, Poster};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{Plugin, PluginInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::ui::{ActionSpec, KeyInput, SettingsSection, ShortcutEntry, SlintSource, UiEvent, UiSpec};
 
 const REMOTE: &str = "remote";
@@ -873,11 +874,29 @@ impl ShortcutsPlugin {
             (None, None) => tr("Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings."),
         };
         let system_shown = cfg!(target_os = "linux") && self.backend.as_ref().is_none_or(|b| b.system_picks_keys());
-        let mut props = json!({"rows": rows, "note-text": note, "system-shown": system_shown, "notify": self.notify});
+        let mut props = json!({"rows": rows, "note-text": note, "system-shown": system_shown, "notify": self.notify, "reset-shown": self.reset_shown()});
         if let (Value::Object(p), Value::Object(e)) = (&mut props, self.editor_props()) {
             p.extend(e);
         }
         props
+    }
+
+    /// The bindings are the user's own work and are never part of a Reset: only the notice goes back.
+    const RESET_KEPT: &'static [&'static str] = &["bindings"];
+
+    fn reset_defaults() -> Value {
+        json!({"notify": false})
+    }
+
+    fn reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &Self::reset_defaults(), Self::RESET_KEPT)
+    }
+
+    fn reset(&mut self, host: &mut dyn Host) {
+        let cfg = reset_config(&self.get_config(), &Self::reset_defaults(), Self::RESET_KEPT);
+        self.notify = cfg["notify"] == true;
+        host.schedule_save();
+        self.refresh(host);
     }
 
     fn refresh(&mut self, host: &mut dyn Host) {
@@ -979,7 +998,9 @@ impl ShortcutsPlugin {
             "notify-toggled" => {
                 self.notify = flag(0);
                 host.schedule_save();
+                self.refresh(host);
             }
+            "reset-clicked" => self.reset(host),
             "search" => {
                 let query = text(0);
                 let first = self.shown_actions(&query).first().map(|a| a.id.clone());
@@ -1826,6 +1847,18 @@ mod tests {
         plugin.on_hotkey(&mut host, &json!({"kind": "pressed", "id": "a"}));
         assert_eq!(host.notifications.len(), 1);
         assert_eq!(ran(&host).iter().filter(|r| r.starts_with("run_action")).count(), 2, "it still ran");
+    }
+
+    #[test]
+    fn reset_turns_the_notice_off_and_keeps_the_bindings() {
+        let bindings = json!([b("a", "Ctrl+F1", "camera.torch", json!({}), true)]);
+        let (mut plugin, mut host, _) = make(bindings.clone(), true, false);
+        assert!(plugin.reset_shown());
+        ui(&mut plugin, &mut host, "reset-clicked", json!([]));
+        assert_eq!(plugin.get_config(), json!({"bindings": bindings, "notify": false}));
+        assert!(!plugin.reset_shown());
+        assert_eq!(plugin.section_props()["reset-shown"], false);
+        assert!(host.calls.iter().any(|c| c == "schedule_save"));
     }
 
     #[test]

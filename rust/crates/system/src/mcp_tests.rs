@@ -1609,3 +1609,19 @@ fn a_change_for_a_plugin_that_is_switched_off_is_kept_until_it_is_back() {
     r.ask("revert", json!({})).unwrap();
     assert_eq!(r.config()["contrast"], json!(1.0));
 }
+
+#[test]
+fn reset_puts_access_back_and_keeps_the_journal() {
+    let mut r = Rig::new();
+    set_contrast(&mut r, 0, 1.4);
+    r.read_only();
+    assert!(r.plugin.reset_shown());
+    let journal = r.plugin.get_config()["journal"].clone();
+    assert!(!journal.as_array().unwrap().is_empty());
+    r.ui(TAB, "reset-clicked", vec![]);
+    assert_eq!(r.plugin.access(), Access::ReadAndChange);
+    assert_eq!(r.plugin.get_config()["journal"], journal);
+    assert!(!r.plugin.reset_shown());
+    assert_eq!(r.props(TAB)["reset-shown"], json!(false));
+    assert!(r.host.calls.iter().any(|c| c == "schedule_save"));
+}
