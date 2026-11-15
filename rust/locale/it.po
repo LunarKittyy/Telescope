@@ -350,7 +350,7 @@ msgstr "Fai clic per azzerare"
 msgid "Use the phone's microphone on this computer."
 msgstr "Usa il microfono del telefono su questo computer."
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:59 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:210 rust/crates/setup/ui/setup.slint:337 rust/crates/setup/ui/setup.slint:466 rust/crates/shell/src/plugins_tab.rs:722 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:634 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:59 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:210 rust/crates/setup/ui/setup.slint:337 rust/crates/setup/ui/setup.slint:466 rust/crates/shell/src/plugins_tab.rs:722 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:593 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "Ripristina"
 
@@ -374,7 +374,7 @@ msgstr "Riduzione del rumore"
 msgid "Noise reduction unavailable"
 msgstr "Riduzione del rumore non disponibile"
 
-#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:438 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:624 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:258
+#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:438 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:583 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:258
 msgid "Cancel"
 msgstr "Annulla"
 
@@ -698,7 +698,7 @@ msgstr "Il colore scelto dall'anteprima. Clicca per sceglierne un altro."
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Fai clic sullo schermo dietro di te nell'anteprima. Esc annulla."
 
-#: rust/crates/effects/src/chroma_key.rs:394 rust/crates/effects/src/chroma_key.rs:430 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:695 rust/crates/shell/src/streams.rs:1752 rust/crates/shell/src/window.rs:1707 rust/crates/shell/src/worker.rs:553 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:394 rust/crates/effects/src/chroma_key.rs:430 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:695 rust/crates/shell/src/streams.rs:1752 rust/crates/shell/src/window.rs:1711 rust/crates/shell/src/worker.rs:553 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Non in streaming"
 
@@ -1413,7 +1413,7 @@ msgstr "Una parte del foglio è fuori dall'immagine. Riduci lo zoom o segna di n
 msgid "Desk mode"
 msgstr "Modalità scrivania"
 
-#: rust/crates/effects/src/desk.rs:217 rust/crates/link/ui/connection.slint:442
+#: rust/crates/effects/src/desk.rs:217 rust/crates/link/ui/connection.slint:442 rust/crates/shell/ui/card-order.slint:377
 msgid "Done"
 msgstr "Fatto"
 
@@ -2286,7 +2286,7 @@ msgstr ""
 msgid "The webhook returned: {error}"
 msgstr ""
 
-#: rust/crates/effects/src/on_air_plugin.rs:284 rust/crates/shell/src/doc.rs:461 rust/crates/shell/src/doc.rs:462 rust/crates/shell/src/doc.rs:933
+#: rust/crates/effects/src/on_air_plugin.rs:284 rust/crates/shell/src/doc.rs:482 rust/crates/shell/src/doc.rs:483 rust/crates/shell/src/doc.rs:971
 msgid "Settings"
 msgstr "Impostazioni"
 
@@ -3102,7 +3102,7 @@ msgstr "Sostituisci"
 msgid "Clears the picture's current layout. Your saved layouts and the switch stay."
 msgstr ""
 
-#: rust/crates/effects/ui/composite.slint:40 rust/crates/effects/ui/composite.slint:47 rust/crates/effects/ui/composite.slint:51 rust/crates/effects/ui/composite_editor.slint:373 rust/crates/effects/ui/composite_editor.slint:385
+#: rust/crates/effects/ui/composite.slint:40 rust/crates/effects/ui/composite.slint:47 rust/crates/effects/ui/composite.slint:51 rust/crates/effects/ui/composite_editor.slint:373 rust/crates/effects/ui/composite_editor.slint:385 rust/crates/shell/ui/card-order-settings.slint:7
 msgid "Layout"
 msgstr "Layout"
 
@@ -3262,7 +3262,7 @@ msgstr "Sostituisci layout"
 msgid "Name:"
 msgstr "Nome:"
 
-#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:439 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1047 rust/crates/shell/ui/settings.slint:625
+#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:439 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1056 rust/crates/shell/ui/settings.slint:584
 msgid "OK"
 msgstr "OK"
 
@@ -4498,7 +4498,7 @@ msgstr "Risoluzione"
 msgid "The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do."
 msgstr "La risoluzione inviata dal browser. Se la fotocamera non la supporta, il browser invia quella disponibile."
 
-#: rust/crates/link/ui/browser_camera.slint:203 rust/crates/link/ui/browser_camera.slint:206 rust/crates/outputs/ui/stream_output.slint:73 rust/crates/outputs/ui/stream_output.slint:78 rust/crates/outputs/ui/stream_output.slint:84 rust/crates/outputs/ui/webcam.slint:114 rust/crates/outputs/ui/webcam.slint:118 rust/crates/outputs/ui/webcam.slint:119 rust/crates/shell/src/window.rs:753
+#: rust/crates/link/ui/browser_camera.slint:203 rust/crates/link/ui/browser_camera.slint:206 rust/crates/outputs/ui/stream_output.slint:73 rust/crates/outputs/ui/stream_output.slint:78 rust/crates/outputs/ui/stream_output.slint:84 rust/crates/outputs/ui/webcam.slint:114 rust/crates/outputs/ui/webcam.slint:118 rust/crates/outputs/ui/webcam.slint:119 rust/crates/shell/src/window.rs:757
 msgid "Frame rate"
 msgstr "Frame rate"
 
@@ -5842,7 +5842,7 @@ msgstr "Usa il mio adb…"
 msgid "Not available yet"
 msgstr "Non ancora disponibile"
 
-#: rust/crates/setup/src/stats.rs:196 rust/crates/setup/src/stats_phone.rs:88 rust/crates/setup/src/stats_phone.rs:92 rust/crates/shell/src/window.rs:748
+#: rust/crates/setup/src/stats.rs:196 rust/crates/setup/src/stats_phone.rs:88 rust/crates/setup/src/stats_phone.rs:92 rust/crates/shell/src/window.rs:752
 #, python-brace-format
 msgid "{n} fps"
 msgstr "{n} fps"
@@ -6000,7 +6000,7 @@ msgstr "TCP"
 msgid "From the phone"
 msgstr "Dal telefono"
 
-#: rust/crates/setup/src/stats.rs:427 rust/crates/setup/ui/setup.slint:69 rust/crates/shell/src/window.rs:752
+#: rust/crates/setup/src/stats.rs:427 rust/crates/setup/ui/setup.slint:69 rust/crates/shell/src/window.rs:756
 msgid "Virtual camera"
 msgstr "Fotocamera virtuale"
 
@@ -6641,11 +6641,11 @@ msgstr "Riavvia per cambiare"
 msgid "Restart Telescope to switch to the new language."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:532 rust/crates/shell/ui/settings.slint:515 rust/crates/shell/ui/settings.slint:518
+#: rust/crates/setup/ui/setup.slint:532 rust/crates/shell/ui/card-order.slint:388 rust/crates/shell/ui/restart-bar.slint:15 rust/crates/shell/ui/restart-bar.slint:45
 msgid "Restart now"
 msgstr "Riavvia ora"
 
-#: rust/crates/setup/ui/setup.slint:536 rust/crates/shell/src/plugins_tab.rs:725
+#: rust/crates/setup/ui/setup.slint:536 rust/crates/shell/src/plugins_tab.rs:725 rust/crates/shell/ui/card-order.slint:388
 msgid "Restart"
 msgstr "Riavvia"
 
@@ -6775,15 +6775,23 @@ msgstr "Valori in tempo reale sullo streaming in corso."
 msgid "Stats view"
 msgstr "Vista statistiche"
 
-#: rust/crates/shell/src/doc.rs:471 rust/crates/shell/src/doc.rs:472
+#: rust/crates/shell/src/card_order.rs:226 rust/crates/shell/src/plugins_tab.rs:725
+msgid "Streaming stops while Telescope restarts. Restarting takes a few seconds."
+msgstr ""
+
+#: rust/crates/shell/src/card_order.rs:226
+msgid "Restart Telescope to see the new card order."
+msgstr ""
+
+#: rust/crates/shell/src/doc.rs:492 rust/crates/shell/src/doc.rs:493
 msgid "Add camera"
 msgstr "Aggiungi fotocamera"
 
-#: rust/crates/shell/src/doc.rs:473
+#: rust/crates/shell/src/doc.rs:494
 msgid "Stream another camera at the same time on a separate virtual camera."
 msgstr "Trasmetti in streaming un'altra fotocamera contemporaneamente su una fotocamera virtuale separata."
 
-#: rust/crates/shell/src/doc.rs:971 rust/crates/shell/src/doc.rs:972
+#: rust/crates/shell/src/doc.rs:1009 rust/crates/shell/src/doc.rs:1010
 msgid "Search settings"
 msgstr "Cerca nelle impostazioni"
 
@@ -7473,10 +7481,6 @@ msgstr ""
 msgid "Restart Telescope now?"
 msgstr "Vuoi riavviare Telescope ora?"
 
-#: rust/crates/shell/src/plugins_tab.rs:725
-msgid "Streaming stops while Telescope restarts. Restarting takes a few seconds."
-msgstr ""
-
 #: rust/crates/shell/src/plugins_tab.rs:739
 #, python-brace-format
 msgid "Switch on {plugin}?"
@@ -7581,112 +7585,112 @@ msgstr "Scheda"
 msgid "Check that the device is still on."
 msgstr ""
 
-#: rust/crates/shell/src/settings.rs:868
+#: rust/crates/shell/src/settings.rs:877
 msgid "Nothing matches every word. These match some of the words."
 msgstr ""
 
-#: rust/crates/shell/src/settings.rs:870
+#: rust/crates/shell/src/settings.rs:879
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)."
 msgstr "Nessun risultato corrisponde a “{text}”. Prova con meno parole oppure descrivi la funzionalità (risoluzione, microfono, avvio)."
 
-#: rust/crates/shell/src/settings.rs:872 rust/crates/shell/ui/settings.slint:258
+#: rust/crates/shell/src/settings.rs:881 rust/crates/shell/ui/settings.slint:258
 msgid "Search results"
 msgstr "Risultati della ricerca"
 
-#: rust/crates/shell/src/settings.rs:935
+#: rust/crates/shell/src/settings.rs:944
 #, python-brace-format
 msgid "Remove {plugin}"
 msgstr "Rimuovi {plugin}"
 
-#: rust/crates/shell/src/settings.rs:964
+#: rust/crates/shell/src/settings.rs:973
 msgid "Check for updates"
 msgstr "Controlla aggiornamenti"
 
-#: rust/crates/shell/src/settings.rs:965
+#: rust/crates/shell/src/settings.rs:974
 msgid "Check once a day for new versions of added plugins that publish releases on GitHub and show them here. Nothing is downloaded."
 msgstr ""
 
-#: rust/crates/shell/src/settings.rs:966
+#: rust/crates/shell/src/settings.rs:975
 msgid "Install updates without asking"
 msgstr "Installa aggiornamenti senza chiedere"
 
-#: rust/crates/shell/src/settings.rs:966
+#: rust/crates/shell/src/settings.rs:975
 msgid "Install new versions of the plugins you switched on and switch them on again."
 msgstr ""
 
-#: rust/crates/shell/src/settings.rs:967
+#: rust/crates/shell/src/settings.rs:976
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "Pericoloso! Chiunque controlli il repository di un plugin potrà eseguire nuovo codice su questo computer ogni volta che pubblica una release."
 
-#: rust/crates/shell/src/settings.rs:1080
+#: rust/crates/shell/src/settings.rs:1089
 msgid "Install a plugin"
 msgstr "Installa un plugin"
 
-#: rust/crates/shell/src/settings.rs:1082
+#: rust/crates/shell/src/settings.rs:1091
 msgid "Plugins (*.zip)"
 msgstr "Plugin (*.zip)"
 
-#: rust/crates/shell/src/shell.rs:779
+#: rust/crates/shell/src/shell.rs:782
 #, python-brace-format
 msgid "Couldn't start {plugins}"
 msgid_plural "Couldn't start {plugins}"
 msgstr[0] ""
 msgstr[1] ""
 
-#: rust/crates/shell/src/shell.rs:781
+#: rust/crates/shell/src/shell.rs:784
 #, python-brace-format
 msgid "Couldn't start {n} plugin"
 msgid_plural "Couldn't start {n} plugins"
 msgstr[0] ""
 msgstr[1] ""
 
-#: rust/crates/shell/src/shell.rs:783
+#: rust/crates/shell/src/shell.rs:786
 msgid "Telescope works without the plugin. The Plugins tab in Settings shows what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings shows what went wrong."
 msgstr[0] ""
 msgstr[1] ""
 
-#: rust/crates/shell/src/shell.rs:787 rust/crates/shell/src/shell.rs:807
+#: rust/crates/shell/src/shell.rs:790 rust/crates/shell/src/shell.rs:810
 msgid "Plugins…"
 msgstr "Plugin…"
 
-#: rust/crates/shell/src/shell.rs:801
+#: rust/crates/shell/src/shell.rs:804
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
 msgstr[0] "{plugins} è disattivato"
 msgstr[1] "{plugins} sono disattivati"
 
-#: rust/crates/shell/src/shell.rs:802
+#: rust/crates/shell/src/shell.rs:805
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "Hai disattivato questo elemento in Plugin. Per riattivarlo, apri Plugin nelle Impostazioni e attivalo."
 msgstr[1] "Hai disattivato questi elementi in Plugin. Per riattivarli, apri Plugin nelle Impostazioni e attivali."
 
-#: rust/crates/shell/src/shell.rs:822
+#: rust/crates/shell/src/shell.rs:828
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "Una copia del vecchio file si trova in {path}."
 
-#: rust/crates/shell/src/shell.rs:824
+#: rust/crates/shell/src/shell.rs:830
 msgid "Your settings couldn't be read"
 msgstr "Impossibile leggere le tue impostazioni"
 
-#: rust/crates/shell/src/shell.rs:825
+#: rust/crates/shell/src/shell.rs:831
 msgid "Telescope started with its defaults, so paired phones need pairing again."
 msgstr "Telescope è stato avviato con le impostazioni predefinite, quindi devi associare di nuovo i telefoni."
 
-#: rust/crates/shell/src/shell.rs:1190
+#: rust/crates/shell/src/shell.rs:1229
 msgid "Telescope - Save failed"
 msgstr "Telescope - Salvataggio non riuscito"
 
-#: rust/crates/shell/src/shell.rs:1191
+#: rust/crates/shell/src/shell.rs:1230
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "Impossibile salvare le impostazioni. Controlla lo spazio su disco e i permessi."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1717 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1721 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "Avvia"
 
@@ -7968,40 +7972,40 @@ msgstr "Fai clic con il tasto destro sull'icona nell'area di notifica per uscire
 msgid "Telescope is still running"
 msgstr "Telescope è ancora in esecuzione"
 
-#: rust/crates/shell/src/window.rs:132
+#: rust/crates/shell/src/window.rs:134
 msgid "Telescope - Video Preview"
 msgstr "Telescope - Anteprima video"
 
-#: rust/crates/shell/src/window.rs:670
+#: rust/crates/shell/src/window.rs:674
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: rust/crates/shell/src/window.rs:754
+#: rust/crates/shell/src/window.rs:758
 msgid "How much data per second reaches this computer."
 msgstr "Quanti dati al secondo arrivano a questo computer."
 
-#: rust/crates/shell/src/window.rs:754
+#: rust/crates/shell/src/window.rs:758
 msgid "Throughput"
 msgstr "Velocità"
 
-#: rust/crates/shell/src/window.rs:1716 rust/crates/shell/src/window.rs:1717
+#: rust/crates/shell/src/window.rs:1720 rust/crates/shell/src/window.rs:1721
 msgid "Start mic only"
 msgstr "Avvia solo microfono"
 
-#: rust/crates/shell/src/window.rs:1716
+#: rust/crates/shell/src/window.rs:1720
 msgid "Start streaming"
 msgstr "Avvia streaming"
 
-#: rust/crates/shell/src/window.rs:1722
+#: rust/crates/shell/src/window.rs:1726
 msgid "Stop streaming"
 msgstr "Interrompi streaming"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1723 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/window.rs:1727 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "Interrompi"
 
-#: rust/crates/shell/src/window.rs:1999 rust/crates/shell/src/worker.rs:1308
+#: rust/crates/shell/src/window.rs:2003 rust/crates/shell/src/worker.rs:1308
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "In streaming a {size}, {fps} fps su {camera}"
@@ -8041,6 +8045,52 @@ msgstr "Streaming interrotto - riconnessione in corso"
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "Errore fotocamera virtuale: {error}"
+
+#: rust/crates/shell/ui/card-order-settings.slint:8
+msgid "Where the cards sit in the window."
+msgstr ""
+
+#: rust/crates/shell/ui/card-order-settings.slint:9
+msgctxt "search"
+msgid "window layout arrange rails columns"
+msgstr ""
+
+#: rust/crates/shell/ui/card-order-settings.slint:13 rust/crates/shell/ui/card-order.slint:231
+msgid "Card order"
+msgstr ""
+
+#: rust/crates/shell/ui/card-order-settings.slint:15
+msgid "Choose which rail each card sits on, and in what order."
+msgstr ""
+
+#: rust/crates/shell/ui/card-order-settings.slint:16
+msgctxt "search"
+msgid "order arrange move cards rails"
+msgstr ""
+
+#: rust/crates/shell/ui/card-order-settings.slint:19 rust/crates/ui-kit/ui/widgets/card.slint:25
+msgid "Reorder cards"
+msgstr ""
+
+#: rust/crates/shell/ui/card-order.slint:48 rust/crates/shell/ui/card-order.slint:257
+msgid "Left rail"
+msgstr ""
+
+#: rust/crates/shell/ui/card-order.slint:48 rust/crates/shell/ui/card-order.slint:271
+msgid "Right rail"
+msgstr ""
+
+#: rust/crates/shell/ui/card-order.slint:286 rust/crates/shell/ui/card-order.slint:301
+msgid "Drop a card here"
+msgstr ""
+
+#: rust/crates/shell/ui/card-order.slint:375
+msgid "Reset order"
+msgstr ""
+
+#: rust/crates/shell/ui/card-order.slint:387
+msgid "Put the cards back in the order they have in the running app, so nothing needs a restart."
+msgstr ""
 
 #: rust/crates/shell/ui/cards/camera.slint:106
 msgid "Exposure, white balance, focus, lenses and the phone camera's other settings."
@@ -8191,6 +8241,18 @@ msgstr "Mostra impostazioni"
 msgid "Show this stream's settings in the cards."
 msgstr "Mostra le impostazioni di questo streaming nelle schede."
 
+#: rust/crates/shell/ui/restart-bar.slint:13
+msgid "Put the plugins back the way they are in the running app, so nothing needs a restart."
+msgstr ""
+
+#: rust/crates/shell/ui/restart-bar.slint:34 rust/crates/shell/ui/restart-bar.slint:38
+msgid "Revert"
+msgstr ""
+
+#: rust/crates/shell/ui/restart-bar.slint:46
+msgid "Restart Telescope to apply your changes."
+msgstr "Riavvia Telescope per applicare le modifiche."
+
 #: rust/crates/shell/ui/settings.slint:125
 msgid "Settings tabs"
 msgstr "Schede delle impostazioni"
@@ -8258,36 +8320,24 @@ msgstr "Come funzionano i plugin"
 msgid "Open plugins folder"
 msgstr "Apri cartella dei plugin"
 
-#: rust/crates/shell/ui/settings.slint:507 rust/crates/shell/ui/settings.slint:511
-msgid "Revert"
-msgstr ""
-
-#: rust/crates/shell/ui/settings.slint:512
-msgid "Put the plugins back the way they are in the running app, so nothing needs a restart."
-msgstr ""
-
-#: rust/crates/shell/ui/settings.slint:519
-msgid "Restart Telescope to apply your changes."
-msgstr "Riavvia Telescope per applicare le modifiche."
-
-#: rust/crates/shell/ui/settings.slint:635
+#: rust/crates/shell/ui/settings.slint:594
 msgid "Put every setting back to its default."
 msgstr ""
 
-#: rust/crates/shell/ui/settings.slint:636 rust/crates/shell/ui/settings.slint:643
+#: rust/crates/shell/ui/settings.slint:595 rust/crates/shell/ui/settings.slint:602
 msgctxt "search"
 msgid "defaults factory restore clear start over"
 msgstr ""
 
-#: rust/crates/shell/ui/settings.slint:641
+#: rust/crates/shell/ui/settings.slint:600
 msgid "All settings"
 msgstr ""
 
-#: rust/crates/shell/ui/settings.slint:642 rust/crates/shell/ui/settings.slint:649
+#: rust/crates/shell/ui/settings.slint:601 rust/crates/shell/ui/settings.slint:608
 msgid "Puts every setting back to its default and restarts Telescope."
 msgstr ""
 
-#: rust/crates/shell/ui/settings.slint:648
+#: rust/crates/shell/ui/settings.slint:607
 msgid "Reset all settings"
 msgstr ""
 
