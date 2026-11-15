@@ -123,7 +123,7 @@ fn the_cards_have_what_their_plugins_use() {
     compile(&mut stereo);
     has_what_the_plugin_uses(&mut stereo, &[
         "switch-toggled-by-hand", "look-picked", "depth-moved", "height-moved", "size-moved", "tilt-moved", "timing-moved", "fine-toggled", "swap-toggled",
-        "match-clicked", "reset-match-clicked",
+        "match-clicked", "reset-match-clicked", "reset-clicked",
     ]);
     let mut qr = QrReaderPlugin::new();
     compile(&mut qr);

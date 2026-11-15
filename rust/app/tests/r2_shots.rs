@@ -479,17 +479,17 @@ fn stereo_shots() {
     // Fine tune open with every slider moved, and again shut (the icon shows that something is set)
     let moved = json!({
         "depth": 1.5, "depth-text": "+1.5%", "height-shift": -0.8, "height-text": "-0.8%", "size-percent": 108.3, "size-text": "108.3%", "tilt": 1.2,
-        "tilt-text": "+1.2°", "timing": 45.0, "timing-text": "+45 ms",
+        "tilt-text": "+1.2°", "timing": 45.0, "timing-text": "+45 ms", "reset-shown": true,
     });
     shoot(&dir, "stereo-on-fine-tune-open-moved", &card, 406.0, &[on.clone(), sync.clone(), moved.clone(), json!({"fine-open": true})], &nothing);
     shoot(&dir, "stereo-on-fine-tune-shut-moved", &card, 406.0, &[on.clone(), sync.clone(), moved.clone()], &nothing);
     // Match running, finished, partly finished and failed
-    let matching = json!({"match-enabled": false, "reset-enabled": true, "match-status": "Matching", "match-status-kind": "status_dim", "match-status-detail": "x"});
+    let matching = json!({"match-enabled": false, "reset-enabled": true, "reset-shown": true, "match-status": "Matching", "match-status-kind": "status_dim", "match-status-detail": "x"});
     shoot(&dir, "stereo-match-running", &card, 406.0, &[on.clone(), sync.clone(), matching], &nothing);
-    let matched = json!({"reset-enabled": true, "match-status": "Matched", "match-status-kind": "status_ok", "match-status-detail": "x"});
+    let matched = json!({"reset-enabled": true, "reset-shown": true, "match-status": "Matched", "match-status-kind": "status_ok", "match-status-detail": "x"});
     shoot(&dir, "stereo-match-done", &card, 406.0, &[on.clone(), sync.clone(), matched.clone()], &nothing);
     shoot(&dir, "stereo-match-done-fine-tune-open", &card, 406.0, &[on.clone(), sync.clone(), moved, matched, json!({"fine-open": true})], &nothing);
-    let partly = json!({"reset-enabled": true, "match-status": "Partly matched", "match-status-kind": "status_warn", "match-status-detail": "x"});
+    let partly = json!({"reset-enabled": true, "reset-shown": true, "match-status": "Partly matched", "match-status-kind": "status_warn", "match-status-detail": "x"});
     shoot(&dir, "stereo-match-partly", &card, 406.0, &[on.clone(), json!({"status": "Rough sync", "status-kind": "status_warn", "status-detail": "x"}), partly], &nothing);
     let failed = json!({"match-status": "Match failed", "match-status-kind": "status_warn", "match-status-detail": "x"});
     shoot(&dir, "stereo-match-failed", &card, 406.0, &[on, sync, failed], &nothing);

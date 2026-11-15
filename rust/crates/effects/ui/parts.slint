@@ -1,7 +1,7 @@
 // What both cards of this crate are built from. The plugins join this file and their card into one source (Rust's concat!),
 // so it holds the only import line.
 
-import { Theme, Icons, Icon, FocusRing, KeyFocus, TouchRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, Stepper, SwitchTile, ToggleTile, PictureSegmented, Dial, RailRow, SwitchRow, TextField, NumberField, FlickBar, Tip, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu, Reveal, ColourField, WindowBox, TipLayer, Pad, PadMark, ColourWheel, Motion, Status, SectionHeading, UnfoldGroup, Unfolding, Page, PageGroup, PictureField, FineAxis, Grip, Hold } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, FocusRing, KeyFocus, TouchRing, Button, IconButton, Card, FormRow, Slider, Switch, Segmented, ChoiceField, Stepper, SwitchTile, ToggleTile, PictureSegmented, Dial, RailRow, SwitchRow, TextField, NumberField, FlickBar, Tip, TipBody, TipUse, QrCode, DialogFrame, ShortcutEntry, ShortcutMenu, Reveal, ColourField, WindowBox, TipLayer, Pad, PadMark, ColourWheel, Motion, Status, Tag, SectionHeading, UnfoldGroup, Unfolding, Page, PageGroup, PictureField, FineAxis, Grip, Hold } from "@ui-kit/ui-kit.slint";
 
 global StatusInk {
     public pure function color(kind: string) -> color {
@@ -160,6 +160,10 @@ component RailSlider inherits Rectangle {
     in property <bool> enabled: true;
     in property <bool> has-default;
     in property <float> default-value;
+    // The tick at the slider's neutral point: where it is by default is the middle, or 0 when the range crosses it. A slider whose default sits elsewhere
+    // (Size at 100 %) turns it on and says where.
+    in property <bool> two-way: minimum < 0 && maximum > 0;
+    in property <float> centre: minimum < 0 && maximum > 0 ? 0 : (minimum + maximum) / 2;
     in property <[float]> marks;
     in property <string> fill: "plain";
     in property <color> grad-a: Theme.ink2;
@@ -210,6 +214,8 @@ component RailSlider inherits Rectangle {
                 readout-width: root.readout-width;
                 has-default: root.has-default;
                 default-value: root.default-value;
+                two-way: root.two-way;
+                centre: root.centre;
                 marks: root.marks;
                 fill: root.fill;
                 grad-a: root.grad-a;
