@@ -4,7 +4,7 @@
 use telescope_core::i18n::Fields;
 use crate::banners::Banners;
 use crate::collapse::Collapsing;
-use crate::layout::{Panels, Region};
+use crate::layout::{CardLayout, Panels, Region};
 use crate::{profiles, switches};
 use serde_json::{json, Map, Value};
 use std::cell::RefCell;
@@ -367,6 +367,8 @@ pub fn now_s() -> f64 {
 pub struct State {
     pub slots: Vec<Slot>,
     pub panels: Panels,
+    /// The custom card order the settings file holds. The running order only follows it from the next start.
+    saved_layout: Option<CardLayout>,
     pub collapse: Collapsing,
     pub banners: Banners,
     /// The pins in the bottom bar and what plugins offer it (bar.rs).
@@ -476,6 +478,7 @@ impl State {
         State {
             slots: Vec::new(),
             panels: Panels::default(),
+            saved_layout: None,
             collapse: Collapsing::default(),
             banners: Banners::default(),
             bar: crate::bar::Bar::new(),
@@ -671,7 +674,7 @@ impl State {
         };
         if let Some(card) = &card {
             let region = Region::from_name(&card.region);
-            self.panels.place(region, i, info.pinned, &info.category);
+            self.panels.place_named(region, i, info.pinned, &info.category, &info.name);
         }
         let slot = &mut self.slots[i];
         (slot.card, slot.header, slot.tray, slot.defaults) = (card, header, tray, defaults);
@@ -817,6 +820,9 @@ impl State {
     pub fn apply_saved_config(&mut self) {
         let mut cfg = self.file.load_at_start();
         self.apply_config(&mut cfg);
+        if let Some(layout) = self.saved_layout.clone() {
+            self.panels.apply_layout(&layout);
+        }
         self.each(|p, host| p.on_plugins_ready(host));
         if let Some(backup) = self.file.take_reset_notice() {
             let where_ = if backup.is_empty() { String::new() } else { format!(" {}", tr("A copy of the old file is at {path}.").field("path", &backup)) };
@@ -828,6 +834,33 @@ impl State {
         }
     }
 
+    /// The side cards as they are on screen now, by plugin name.
+    pub fn running_card_layout(&self) -> CardLayout {
+        self.panels.layout()
+    }
+
+    /// The order the next start will give: the saved one as it will land on the loaded cards, or the default.
+    pub fn saved_card_layout(&self) -> CardLayout {
+        self.panels.layout_for(self.saved_layout.as_ref())
+    }
+
+    /// Keep a card order for the next start (the running order doesn't change).
+    pub fn set_saved_card_layout(&mut self, layout: CardLayout) {
+        self.saved_layout = Some(layout);
+        self.save_now();
+    }
+
+    /// Go back to the default order at the next start.
+    pub fn clear_saved_card_layout(&mut self) {
+        self.saved_layout = None;
+        self.save_now();
+    }
+
+    /// Whether the next start will order the cards differently from now.
+    pub fn card_layout_restart_pending(&self) -> bool {
+        self.saved_card_layout() != self.running_card_layout()
+    }
+
     fn apply_config(&mut self, cfg: &mut Value) {
         let window = WindowState::from_config(cfg);
         self.collapse.load(cfg.get("collapsed"));
@@ -837,6 +870,7 @@ impl State {
         *self.slot_memory.borrow_mut() = window.output_slots.iter().filter_map(|(id, slot)| Some((id.clone(), u32::try_from(slot.as_u64()?).ok()?))).collect();
         self.selected = window.selected_device.clone();
         self.bar.load(window.bar_pins.clone());
+        self.saved_layout = window.card_layout.clone();
         if let Some(ids) = self.bar.pins_changed() {
             self.bus.emit(Event::BarPinsChanged { pinned: ids });
         }
@@ -1168,7 +1202,7 @@ impl State {
             }).collect();
         sections.extend(self.unsaved_profiles.iter().cloned());
         sections.extend(self.profile_sections(&cfg, self.selected.as_deref()));
-        let window = WindowState { selected_device: self.selected.clone(), collapsed: self.collapse.keys(), output_slots: self.slot_memory.borrow().iter().map(|(id, slot)| (id.clone(), json!(slot))).collect(), bar_pins: Some(self.bar.persisted()) };
+        let window = WindowState { selected_device: self.selected.clone(), collapsed: self.collapse.keys(), output_slots: self.slot_memory.borrow().iter().map(|(id, slot)| (id.clone(), json!(slot))).collect(), bar_pins: Some(self.bar.persisted()), card_layout: self.saved_layout.clone() };
         merge_for_save(&mut cfg, &window, &sections);
         profiles::drop_unchanged(&mut cfg, &self.changes_only, &self.defaults());
         if self.file.save(&mut cfg) {
@@ -2242,6 +2276,70 @@ mod tests {
         assert!(saved["plugin_configs"].get("fun_pack").is_none());
         assert_eq!(saved["devices"]["Phone"]["plugin_configs"], json!({"transforms": {"zoom": 2}, "fun_pack": {"effect": "vhs"}}));
         assert_eq!(saved["devices"]["B"]["plugin_configs"], json!({"fun_pack": {"effect": "crt"}}));
+    }
+
+    struct Side(&'static str, &'static str);
+    impl Plugin for Side {
+        fn info(&self) -> PluginInfo {
+            PluginInfo { name: self.0.into(), ..Default::default() }
+        }
+        fn card(&mut self) -> Option<CardSpec> {
+            Some(card_in(self.1))
+        }
+    }
+
+    fn with_side_cards() -> State {
+        let mut s = state();
+        for (name, region) in [("one", "left"), ("two", "left"), ("three", "right")] {
+            s.register(Box::new(Side(name, region))).unwrap();
+        }
+        s
+    }
+
+    fn names(list: &[&str]) -> Vec<String> {
+        list.iter().map(|n| n.to_string()).collect()
+    }
+
+    #[test]
+    fn a_saved_card_order_comes_back_at_the_next_start_and_not_before() {
+        let mut s = with_side_cards();
+        assert!(!s.card_layout_restart_pending());
+        s.set_saved_card_layout(CardLayout { left: names(&["three", "one"]), right: names(&["gone", "two"]) });
+        assert_eq!(s.running_card_layout(), CardLayout { left: names(&["one", "two"]), right: names(&["three"]) });
+        assert_eq!(s.saved_card_layout(), CardLayout { left: names(&["three", "one"]), right: names(&["two"]) });
+        assert!(s.card_layout_restart_pending());
+        assert_eq!(s.file.load()["card_layout"], json!({"left": ["three", "one"], "right": ["gone", "two"]}));
+        let mut t = State::new(ConfigFile::at(s.file.path()));
+        for (name, region) in [("one", "left"), ("two", "left"), ("three", "right")] {
+            t.register(Box::new(Side(name, region))).unwrap();
+        }
+        t.apply_saved_config();
+        assert_eq!(t.running_card_layout(), CardLayout { left: names(&["three", "one"]), right: names(&["two"]) });
+        assert!(!t.card_layout_restart_pending());
+        assert_eq!(t.saved_layout.as_ref().unwrap().right, names(&["gone", "two"]));
+    }
+
+    #[test]
+    fn clearing_the_saved_card_order_goes_back_to_the_default() {
+        let mut s = with_side_cards();
+        s.set_saved_card_layout(CardLayout { left: names(&["two"]), right: names(&["one", "three"]) });
+        s.clear_saved_card_layout();
+        assert!(s.file.load().get("card_layout").is_none());
+        assert_eq!(s.saved_card_layout(), s.running_card_layout());
+        assert!(!s.card_layout_restart_pending());
+        // A running custom order with nothing saved is a pending change back to the default
+        s.panels.apply_layout(&CardLayout { left: names(&["two"]), right: names(&["one", "three"]) });
+        assert!(s.card_layout_restart_pending());
+    }
+
+    #[test]
+    fn an_old_config_without_a_card_order_gives_the_default() {
+        let mut s = with_side_cards();
+        s.file.save(&mut json!({"collapsed": []}));
+        s.apply_saved_config();
+        assert!(s.saved_layout.is_none());
+        assert_eq!((s.panels.left.clone(), s.panels.right.clone()), (vec![0, 1], vec![2]));
+        assert!(!s.card_layout_restart_pending());
     }
 
     #[test]

@@ -549,6 +549,15 @@ fn python_int(value: &Value) -> Option<i64> {
     }
 }
 
+/// The side cards' saved order: plugin names, top to bottom, for each rail. Names of plugins that aren't loaded stay in the lists.
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct CardLayout {
+    #[serde(default)]
+    pub left: Vec<String>,
+    #[serde(default)]
+    pub right: Vec<String>,
+}
+
 /// What the window keeps outside the plugins' own sections, as TelescopeWindow.save_now() writes it.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct WindowState {
@@ -560,6 +569,8 @@ pub struct WindowState {
     /// The readouts pinned to the bottom bar, as (left side, right side) in the order they are drawn. None is the default pins, which
     /// a settings file doesn't spell out (so one written by the Python app, or by a version before the pins, stays as it was).
     pub bar_pins: Option<(Vec<String>, Vec<String>)>,
+    /// The custom card order. None is the default order, which a settings file doesn't spell out.
+    pub card_layout: Option<CardLayout>,
 }
 
 impl WindowState {
@@ -579,6 +590,7 @@ impl WindowState {
             collapsed,
             output_slots,
             bar_pins: bar_pins_from(cfg.get("bar_pins")),
+            card_layout: cfg.get("card_layout").and_then(|v| serde_json::from_value(v.clone()).ok()),
         }
     }
 }
@@ -643,6 +655,14 @@ pub fn merge_for_save(cfg: &mut Value, window: &WindowState, sections: &[PluginS
         }
         _ => {
             map.shift_remove("bar_pins");
+        }
+    }
+    match &window.card_layout {
+        Some(layout) => {
+            map.insert("card_layout".into(), json!({"left": layout.left, "right": layout.right}));
+        }
+        None => {
+            map.shift_remove("card_layout");
         }
     }
 }

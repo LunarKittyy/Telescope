@@ -1,5 +1,6 @@
 //! Where the cards go as the window changes width (app.py _refresh_layout and _place_panel).
 
+pub use telescope_core::config::CardLayout;
 use telescope_core::plugin::PLUGIN_CATEGORIES;
 
 /// The window's mode changes here (the generated document reads these).
@@ -42,41 +43,110 @@ pub fn order_key(pinned: bool, category: &str) -> (u8, usize) {
     if pinned { (0, 0) } else { (1, group) }
 }
 
+/// One side card as it was registered: where its plugin puts it by default, and what to sort it by.
+#[derive(Clone, Debug, PartialEq)]
+struct Entry {
+    card: usize,
+    name: String,
+    region: Region,
+    key: (u8, usize),
+}
+
 /// The cards of each region in the order they show, by index into whatever list the caller keeps.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Panels {
     pub left: Vec<usize>,
     pub center: Vec<usize>,
     pub right: Vec<usize>,
-    keys: Vec<(usize, (u8, usize))>,
+    entries: Vec<Entry>,
 }
 
 impl Panels {
     /// Pinned cards at the top of a side column, then the others by group, each group in the order registered; the
     /// stage's column keeps the order registered.
     pub fn place(&mut self, region: Region, card: usize, pinned: bool, category: &str) {
-        let list = match region {
-            Region::Center => {
-                self.center.push(card);
-                return;
-            }
-            Region::Left => &mut self.left,
-            Region::Right => &mut self.right,
-        };
-        let key = order_key(pinned, category);
-        self.keys.push((card, key));
-        let last = (1, PLUGIN_CATEGORIES.len());
-        let keys = &self.keys;
-        let key_of = |c: usize| keys.iter().find(|(k, _)| *k == c).map_or(last, |(_, v)| *v);
-        let at = list.iter().position(|&c| key_of(c) > key).unwrap_or(list.len());
-        list.insert(at, card);
+        self.place_named(region, card, pinned, category, "");
+    }
+
+    /// As place, for a card whose plugin has a name a saved layout can use.
+    pub fn place_named(&mut self, region: Region, card: usize, pinned: bool, category: &str, name: &str) {
+        if region == Region::Center {
+            self.center.push(card);
+            return;
+        }
+        self.entries.push(Entry { card, name: name.to_string(), region, key: order_key(pinned, category) });
+        let (left, right) = self.arranged(None);
+        (self.left, self.right) = (left, right);
     }
 
     pub fn remove(&mut self, card: usize) {
         for list in [&mut self.left, &mut self.center, &mut self.right] {
             list.retain(|&c| c != card);
         }
-        self.keys.retain(|(c, _)| *c != card);
+        self.entries.retain(|e| e.card != card);
+    }
+
+    /// Follow a saved layout from now on (call it once the cards are placed). Cards it doesn't list keep their default place.
+    pub fn apply_layout(&mut self, layout: &CardLayout) {
+        let (left, right) = self.arranged(Some(layout));
+        (self.left, self.right) = (left, right);
+    }
+
+    /// The two rails as they show now, by plugin name (cards without a name are left out).
+    pub fn layout(&self) -> CardLayout {
+        self.named(&self.left, &self.right)
+    }
+
+    /// The rails a saved layout (None: the default order) would give these cards, by plugin name.
+    pub fn layout_for(&self, saved: Option<&CardLayout>) -> CardLayout {
+        let (left, right) = self.arranged(saved);
+        self.named(&left, &right)
+    }
+
+    fn named(&self, left: &[usize], right: &[usize]) -> CardLayout {
+        let names = |cards: &[usize]| {
+            cards.iter().filter_map(|c| self.entries.iter().find(|e| e.card == *c)).filter(|e| !e.name.is_empty()).map(|e| e.name.clone()).collect()
+        };
+        CardLayout { left: names(left), right: names(right) }
+    }
+
+    /// The side rails: the default order, or the saved layout with each card it lacks put after its default neighbour.
+    fn arranged(&self, saved: Option<&CardLayout>) -> (Vec<usize>, Vec<usize>) {
+        let rail = |region: Region| {
+            let mut cards: Vec<&Entry> = self.entries.iter().filter(|e| e.region == region).collect();
+            cards.sort_by_key(|e| e.key);
+            cards.into_iter().map(|e| e.card).collect::<Vec<_>>()
+        };
+        let (default_left, default_right) = (rail(Region::Left), rail(Region::Right));
+        let Some(saved) = saved else { return (default_left, default_right) };
+        let mut rails = [Vec::new(), Vec::new()];
+        let mut placed = std::collections::BTreeSet::new();
+        for (side, names) in [&saved.left, &saved.right].into_iter().enumerate() {
+            for name in names.iter().filter(|n| !n.is_empty()) {
+                if let Some(e) = self.entries.iter().find(|e| e.name == *name) {
+                    if placed.insert(e.card) {
+                        rails[side].push(e.card);
+                    }
+                }
+            }
+        }
+        let listed = placed.clone();
+        let default_order: Vec<usize> = default_left.iter().chain(&default_right).copied().collect();
+        for (i, &card) in default_order.iter().enumerate() {
+            if listed.contains(&card) {
+                continue;
+            }
+            let after = default_order[..i].iter().rev().find(|c| placed.contains(c));
+            let spot = after.and_then(|a| rails.iter().enumerate().find_map(|(side, r)| Some((side, r.iter().position(|c| c == a)? + 1))));
+            let (side, at) = spot.unwrap_or_else(|| {
+                let side = usize::from(default_right.contains(&card));
+                (side, rails[side].len())
+            });
+            rails[side].insert(at, card);
+            placed.insert(card);
+        }
+        let [left, right] = rails;
+        (left, right)
     }
 
     /// The three columns for a mode: their cards and fixed width (None: it takes the rest).
@@ -125,6 +195,93 @@ mod tests {
         let mut p = Panels::default();
         p.place(Region::from_name("nowhere"), 0, false, "camera");
         assert_eq!(p.columns(Mode::Three)[0].0, [0]);
+    }
+
+    // Cards 0..5 named a..e, default left [0, 1, 2], right [3, 4]
+    fn named() -> Panels {
+        let mut p = Panels::default();
+        for (card, (name, region)) in [("a", Region::Left), ("b", Region::Left), ("c", Region::Left), ("d", Region::Right), ("e", Region::Right)].into_iter().enumerate() {
+            p.place_named(region, card, false, "camera", name);
+        }
+        p
+    }
+
+    fn saved(left: &[&str], right: &[&str]) -> CardLayout {
+        let own = |names: &[&str]| names.iter().map(|n| n.to_string()).collect();
+        CardLayout { left: own(left), right: own(right) }
+    }
+
+    #[test]
+    fn no_saved_layout_is_the_default_order() {
+        let p = named();
+        assert_eq!((p.left.clone(), p.right.clone()), (vec![0, 1, 2], vec![3, 4]));
+        assert_eq!(p.layout(), saved(&["a", "b", "c"], &["d", "e"]));
+        assert_eq!(p.layout_for(None), p.layout());
+    }
+
+    #[test]
+    fn a_saved_layout_is_followed_and_can_move_a_card_to_the_other_rail() {
+        let mut p = named();
+        p.apply_layout(&saved(&["c", "d", "a"], &["e", "b"]));
+        assert_eq!((p.left.clone(), p.right.clone()), (vec![2, 3, 0], vec![4, 1]));
+        assert_eq!(p.layout(), saved(&["c", "d", "a"], &["e", "b"]));
+    }
+
+    #[test]
+    fn the_preview_is_never_moved() {
+        let mut p = named();
+        p.place_named(Region::Center, 5, false, "preview", "preview");
+        p.apply_layout(&saved(&["preview", "a"], &["b"]));
+        assert_eq!(p.center, [5]);
+        assert!(!p.left.contains(&5) && !p.right.contains(&5));
+    }
+
+    #[test]
+    fn names_of_plugins_that_are_not_loaded_are_ignored() {
+        let mut p = named();
+        p.apply_layout(&saved(&["ghost", "b", "a", "c"], &["e", "gone", "d"]));
+        assert_eq!((p.left.clone(), p.right.clone()), (vec![1, 0, 2], vec![4, 3]));
+        assert_eq!(p.layout(), saved(&["b", "a", "c"], &["e", "d"]));
+    }
+
+    #[test]
+    fn a_card_the_layout_lacks_goes_after_its_default_neighbour() {
+        let mut p = named();
+        p.apply_layout(&saved(&["c", "a"], &["d", "e"]));
+        // b follows a (the card before it in the default order), wherever a is
+        assert_eq!((p.left.clone(), p.right.clone()), (vec![2, 0, 1], vec![3, 4]));
+    }
+
+    #[test]
+    fn a_new_card_follows_its_neighbour_into_the_other_rail() {
+        let mut p = named();
+        p.apply_layout(&saved(&["c"], &["d", "a", "e"]));
+        assert_eq!((p.left.clone(), p.right.clone()), (vec![2], vec![3, 0, 1, 4]));
+    }
+
+    #[test]
+    fn new_cards_in_a_row_keep_their_default_order() {
+        let mut p = named();
+        p.apply_layout(&saved(&["a"], &["e"]));
+        assert_eq!((p.left.clone(), p.right.clone()), (vec![0, 1, 2, 3], vec![4]));
+    }
+
+    #[test]
+    fn a_new_card_with_no_known_neighbour_goes_to_the_bottom_of_its_own_rail() {
+        let mut p = named();
+        p.apply_layout(&saved(&["e"], &["b"]));
+        // a has nothing before it: bottom of the left rail. c follows b (right rail), d follows c
+        assert_eq!((p.left.clone(), p.right.clone()), (vec![4, 0], vec![1, 2, 3]));
+        let mut q = named();
+        q.apply_layout(&saved(&[], &["e", "d"]));
+        assert_eq!((q.left.clone(), q.right.clone()), (vec![0, 1, 2], vec![4, 3]));
+    }
+
+    #[test]
+    fn layout_for_says_what_a_saved_layout_would_give_without_changing_anything() {
+        let p = named();
+        assert_eq!(p.layout_for(Some(&saved(&["b"], &["a"]))), saved(&["b", "c", "d", "e"], &["a"]));
+        assert_eq!(p.layout(), saved(&["a", "b", "c"], &["d", "e"]));
     }
 
     #[test]
