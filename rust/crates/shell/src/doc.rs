@@ -790,10 +790,10 @@ pub struct SectionPlace {
 }
 
 /// The settings window's document: tabs in order (plugins_tab is the index of the Plugins tab, if shown) and every
-/// plugin's sections on them.
-pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlace]) -> String {
+/// plugin's sections on them. The General tab (general_tab) ends with the Reset card, which is the shell's own.
+pub fn settings(tabs: usize, plugins_tab: Option<usize>, general_tab: Option<usize>, sections: &[SectionPlace]) -> String {
     let mut out = String::from("import { Theme, Icons, Folds, Reveal, TextField, WindowBox, KeyFocus, TipLayer, Tips, Motion, Unfold } from \"@ui-kit/ui-kit.slint\";\n");
-    out.push_str("import { SettingsNav, ScrollPage, SettingsLayout, ResultsList, PluginsPanel, PluginsFooter, DownloadBanner, Ask, NavTab, Result, GroupView, UpdateRowView } from \"shell/settings.slint\";\n");
+    out.push_str("import { SettingsNav, ScrollPage, SettingsLayout, ResultsList, PluginsPanel, PluginsFooter, DownloadBanner, Ask, NavTab, Result, GroupView, UpdateRowView, ResetSettings } from \"shell/settings.slint\";\n");
     let mut imported = Vec::new();
     for piece in sections.iter().flat_map(|s| std::iter::once(&s.piece).chain(s.footer.as_ref())) {
         let line = format!("import {{ {} as {}C }} from {};\n", piece.component, piece.id, quote(&piece.file));
@@ -830,6 +830,9 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, sections: &[SectionPlac
         }
         if Some(t) == plugins_tab {
             out.push_str(PLUGINS_PANEL);
+        }
+        if Some(t) == general_tab {
+            out.push_str("        ResetSettings {\n            hue: Theme.accent;\n            reset-all => { root.reset-all(); }\n        }\n");
         }
         out.push_str("    }\n");
         if Some(t) == plugins_tab {
@@ -912,6 +915,7 @@ export component TelescopeSettings inherits Window {
     callback open-docs;
     callback restart;
     callback revert;
+    callback reset-all;
     in property <bool> asking;
     in property <string> ask-title;
     in property <string> ask-text;

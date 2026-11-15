@@ -627,3 +627,27 @@ export component Ask inherits Rectangle {
         }
     }
 }
+
+// The General tab's last card: every setting back to its default. The window asks first, then restarts.
+export component ResetSettings inherits Card {
+    callback reset-all;
+    title: @tr("Reset");
+    tip: @tr("Put every setting back to its default.");
+    keywords: @tr("search" => "defaults factory restore clear start over");
+    icon: Icons.reset;
+    RailRow {
+        icon: Icons.reset;
+        label: @tr("Reset all settings");
+        tip: @tr("Puts every setting back to its default and restarts Telescope.");
+        keywords: @tr("search" => "defaults factory restore clear start over");
+        hue: root.hue;
+        HorizontalLayout {
+            alignment: end;
+            Button {
+                text: @tr("Reset all settings");
+                tip: @tr("Puts every setting back to its default and restarts Telescope.");
+                clicked => { root.reset-all(); }
+            }
+        }
+    }
+}

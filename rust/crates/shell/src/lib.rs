@@ -30,6 +30,7 @@ mod screen;
 pub mod same;
 pub mod search;
 pub mod profiles;
+pub mod reset;
 pub mod snapshot;
 pub mod specimen;
 pub mod source;

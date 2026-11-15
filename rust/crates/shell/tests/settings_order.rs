@@ -44,3 +44,31 @@ fn sections_sit_in_order_then_registration_order() {
     assert!(second < third && third < first, "{second} {third} {first}");
     settings::forget();
 }
+
+// Reset all settings ends the General tab, asks before doing anything, and no leaves the file alone.
+#[test]
+fn reset_all_settings_ends_the_general_tab_and_asks_before_doing_anything() {
+    use slint_interpreter::Value;
+    i_slint_backend_testing::init_no_event_loop();
+    let dir = telescope_core::testing::scratch_dir("settings-reset");
+    let w = window::build(ConfigFile::at(dir.join(CONFIG_FILENAME)), |_| vec![Box::new(Sections) as Box<dyn Plugin>], None, None).unwrap();
+    settings::open(&w, "general");
+    let shown = settings::current().expect("the settings window");
+    shown.ui.window().set_size(slint::LogicalSize::new(940.0, 680.0));
+    let find = |label: &str| -> Vec<ElementHandle> { ElementHandle::find_by_accessible_label(&shown.ui, label).collect() };
+    let button = find("Reset all settings").into_iter()
+        .find(|e| e.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::Button)).expect("a button named Reset all settings");
+    assert!(button.absolute_position().y > find("first")[0].absolute_position().y, "after the plugins' own sections");
+    let found = shown.search_results("reset all settings");
+    assert!(found.iter().any(|e| e.tab == "general" && e.name == "Reset all settings"), "the search finds it: {found:?}");
+    let before = std::fs::read(dir.join(CONFIG_FILENAME)).ok();
+    button.invoke_accessible_default_action();
+    assert_eq!(shown.ui.get_property("asking").unwrap(), Value::Bool(true));
+    assert_eq!(shown.ui.get_property("ask-title").unwrap(), Value::String("Reset all settings?".into()));
+    assert_eq!(shown.ui.get_property("ask-yes").unwrap(), Value::String("Reset".into()));
+    assert_eq!(shown.ui.get_property("ask-danger").unwrap(), Value::Bool(true));
+    shown.ui.invoke("answered", &[Value::Bool(false)]).unwrap();
+    assert_eq!(shown.ui.get_property("asking").unwrap(), Value::Bool(false));
+    assert_eq!(std::fs::read(dir.join(CONFIG_FILENAME)).ok(), before, "no: nothing was touched");
+    settings::forget();
+}
