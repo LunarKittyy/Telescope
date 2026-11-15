@@ -21,6 +21,12 @@ Click a card's title to fold it down to its header and click again to open it. S
 The **Look** section of General in Settings picks the window's look (**Dark**, **Classic**, **OLED** or **Light**) and the **Card colours**. **Monochrome** puts every card in the app's purple instead of its own colour.
 </details>
 
+<details>
+<summary><b>Reordering cards</b></summary>
+
+Right-click a card's header and pick **Reorder cards**, or open **Layout** in General in Settings. The **Card order** window lists the cards in a **Left rail** and a **Right rail**. Drag a card up or down, or into the other rail. With a row focused, Alt+Up and Alt+Down move it and Alt+Left and Alt+Right send it to the other rail. **Reset order** goes back to the default. The new order applies after a restart, and the bar at the bottom has **Revert** and **Restart now**.
+</details>
+
 ## Keyboard shortcuts
 
 - The **Keyboard shortcuts** tab in Settings binds a key to almost any control. You can also right-click a control in the main window to add one for it

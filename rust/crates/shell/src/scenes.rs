@@ -396,3 +396,45 @@ fn grown(w: &window::Window, width: f32, height: f32, scale: f32) -> Option<crat
     let height = (60.0 + 32.0 + content + 40.0).max(height);
     crate::offscreen::draw(w.ui.window(), width, height, scale)
 }
+
+/// Opens the Card order dialog and moves cards as a drop would: 1 sends the first left card to the top of the right rail, 2 puts every card on the left rail.
+pub fn arrange_card_order(w: &std::rc::Rc<window::Window>, how: u8) {
+    use slint::Model;
+    use slint_interpreter::Value as V;
+    w.open_card_order();
+    let mut rows: Vec<(String, f64)> = Vec::new();
+    if let Ok(V::Model(m)) = w.ui.get_property("order-rows") {
+        for i in 0..m.row_count() {
+            if let Some(V::Struct(r)) = m.row_data(i) {
+                if let (Some(V::String(n)), Some(V::Number(side))) = (r.get_field("name"), r.get_field("side")) {
+                    rows.push((n.to_string(), *side));
+                }
+            }
+        }
+    }
+    let to = |name: &str, side: f64, at: f64| {
+        let _ = w.ui.invoke("order-moved", &[V::String(name.into()), V::Number(side), V::Number(at)]);
+    };
+    match how {
+        1 => {
+            if let Some((name, _)) = rows.iter().find(|r| r.1 == 0.0) {
+                to(name, 1.0, 0.0);
+            }
+        }
+        2 => {
+            for (name, _) in rows.iter().filter(|r| r.1 == 1.0) {
+                to(name, 0.0, 99.0);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Switches a plugin off in the Plugins tab, so the tab's restart bar comes up.
+pub fn switch_plugin_off(w: &std::rc::Rc<window::Window>, name: &str) {
+    use slint_interpreter::Value as V;
+    crate::settings::open(w, "plugins");
+    if let Some(settings) = crate::settings::current() {
+        let _ = settings.ui.invoke("plugin-switched", &[V::String(name.into()), V::Bool(false)]);
+    }
+}
