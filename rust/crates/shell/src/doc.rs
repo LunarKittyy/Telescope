@@ -56,8 +56,9 @@ pub struct HeaderPlace {
 /// The window's document. cards are in registration order; panels says where each one shows.
 pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> String {
     let mut out = String::new();
-    out.push_str("import { Theme, Icons, Folds, Reveal, Shortcuts, TextCap, WindowBox, ColumnScrollbar, KeyFocus, Touched, Tips, TipLayer, PeekLayer, Motion, BarPin } from \"@ui-kit/ui-kit.slint\";\n");
+    out.push_str("import { Theme, Icons, Folds, Reveal, Shortcuts, TextCap, WindowBox, ColumnScrollbar, KeyFocus, Touched, Tips, TipLayer, PeekLayer, Motion, BarPin, CardOrder } from \"@ui-kit/ui-kit.slint\";\n");
     out.push_str("import { Footer, BannerArea, StreamTiles, HeaderIconButton, StartButton, BannerData, TileData } from \"shell/frame.slint\";\n");
+    out.push_str("import { CardOrderDialog, OrderRow } from \"shell/card-order.slint\";\n");
     let mut imported = Vec::new();
     for piece in cards.iter().map(|c| &c.piece).chain(headers.iter().map(|h| &h.piece)) {
         let line = format!("import {{ {} as {}C }} from {};\n", piece.component, piece.id, quote(&piece.file));
@@ -66,7 +67,7 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
             out.push_str(&line);
         }
     }
-    out.push_str("export { Folds, Theme, Reveal, Shortcuts, TextCap, WindowBox, KeyFocus, Touched, Tips, Motion }\n");
+    out.push_str("export { Folds, Theme, Reveal, Shortcuts, TextCap, WindowBox, KeyFocus, Touched, Tips, Motion, CardOrder }\n");
     out.push_str(&FRAME_TOP.field("three", WIDTH_THREE_COL).field("two", WIDTH_TWO_COL).field("margin_sum", MARGIN + MARGIN_RIGHT));
 
     // Column geometry for each mode, relative to the body's left edge
@@ -112,6 +113,11 @@ pub fn window(cards: &[CardPlace], panels: &Panels, headers: &[HeaderPlace]) -> 
     // Aliases the shell reaches each piece by
     for piece in cards.iter().map(|c| &c.piece).chain(headers.iter().map(|h| &h.piece)) {
         out.push_str(&aliases(piece));
+    }
+    // What a card calls itself, for the Card order dialog
+    for card in cards.iter().filter(|c| c.piece.iface.card) {
+        let id = &card.piece.id;
+        out.push_str(&format!("    out property <string> {id}-card-title: {id}.title;\n    out property <image> {id}-card-icon: {id}.icon;\n"));
     }
 
     // The header
@@ -283,8 +289,10 @@ fn card_element(i: usize, card: &CardPlace, cards: &[CardPlace], cols: &[[(Vec<u
     });
     let extra = if card.region == Region::Center { mode_expr(|m| format!("root.extra{}", place(m).0)) } else { "0px".into() };
     let cache = if caches(card) { "                cache-rendering-hint: true;\n" } else { "" };
+    // The stage's card isn't one of the cards the Card order dialog lists
+    let reorderable = if card.region == Region::Center || !card.piece.iface.card { "" } else { "                reorderable: true;\n" };
     format!(
-        "            {id} := {id}C {{\n                x: {x};\n                y: {y};\n                width: {w};\n                height: self.preferred-height + {extra};\n                fold-key: root.card-folds ? {key} : \"\";\n                hue: Theme.plugin-hue({cat});\n{cache}            }}\n",
+        "            {id} := {id}C {{\n                x: {x};\n                y: {y};\n                width: {w};\n                height: self.preferred-height + {extra};\n                fold-key: root.card-folds ? {key} : \"\";\n                hue: Theme.plugin-hue({cat});\n{reorderable}{cache}            }}\n",
         key = quote(&card.fold_key),
         cat = quote(&card.category),
     )
@@ -339,6 +347,19 @@ export component TelescopeWindow inherits Window {
     callback bar-drag-moved(string, length);
     callback bar-drag-ended(string);
     callback bar-unpin(string);
+    // The Card order dialog (card-order.slint): its rows, how many each rail has, whether a restart is waiting and what the bar says, and what
+    // the person does in it
+    in property <[OrderRow]> order-rows;
+    in property <int> order-left-count;
+    in property <int> order-right-count;
+    in property <bool> order-pending;
+    in property <string> order-note;
+    in property <bool> order-confirming;
+    callback order-moved(string, int, int);
+    callback order-reset;
+    callback order-revert;
+    callback order-restart;
+    public function open-card-order() { card-order.open(); }
     callback start-clicked;
     callback settings-clicked;
     callback add-picked(string);
@@ -561,6 +582,22 @@ const BODY_BOTTOM: &str = r#"        }
         drag-ended(id) => { root.bar-drag-ended(id); }
         unpin(id) => { root.bar-unpin(id); }
     }
+    }
+    card-order := CardOrderDialog {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.height;
+        rows: root.order-rows;
+        left-count: root.order-left-count;
+        right-count: root.order-right-count;
+        pending: root.order-pending;
+        note: root.order-note;
+        confirming: root.order-confirming;
+        moved(name, side, at) => { root.order-moved(name, side, at); }
+        reset => { root.order-reset(); }
+        revert => { root.order-revert(); }
+        restart => { root.order-restart(); }
     }
     // Last, so a tooltip draws over everything
     TipLayer { }
@@ -793,7 +830,8 @@ pub struct SectionPlace {
 /// plugin's sections on them. The General tab (general_tab) ends with the Reset card, which is the shell's own.
 pub fn settings(tabs: usize, plugins_tab: Option<usize>, general_tab: Option<usize>, sections: &[SectionPlace]) -> String {
     let mut out = String::from("import { Theme, Icons, Folds, Reveal, TextField, WindowBox, KeyFocus, TipLayer, Tips, Motion, Unfold } from \"@ui-kit/ui-kit.slint\";\n");
-    out.push_str("import { SettingsNav, ScrollPage, SettingsLayout, ResultsList, PluginsPanel, PluginsFooter, DownloadBanner, Ask, NavTab, Result, GroupView, UpdateRowView, ResetSettings } from \"shell/settings.slint\";\n");
+    out.push_str("import { SettingsNav, ScrollPage, SettingsLayout, ResultsList, PluginsPanel, DownloadBanner, Ask, NavTab, Result, GroupView, UpdateRowView, ResetSettings } from \"shell/settings.slint\";\n");
+    out.push_str("import { RestartBar } from \"shell/restart-bar.slint\";\n");
     let mut imported = Vec::new();
     for piece in sections.iter().flat_map(|s| std::iter::once(&s.piece).chain(s.footer.as_ref())) {
         let line = format!("import {{ {} as {}C }} from {};\n", piece.component, piece.id, quote(&piece.file));
@@ -837,7 +875,7 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, general_tab: Option<usi
         out.push_str("    }\n");
         if Some(t) == plugins_tab {
             out.push_str(&format!(
-                "    if footer-fold.value > 0 && !root.searching && root.current == {t}: PluginsFooter {{\n        x: 260px;\n        y: root.height - (16px + self.height) * footer-fold.value;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: footer-fold.value;\n        note: root.footer-note;\n        restart => {{ root.restart(); }}\n        revert => {{ root.revert(); }}\n    }}\n"));
+                "    if footer-fold.value > 0 && !root.searching && root.current == {t}: RestartBar {{\n        x: 260px;\n        y: root.height - (16px + self.height) * footer-fold.value;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: footer-fold.value;\n        note: root.footer-note;\n        restart => {{ root.restart(); }}\n        revert => {{ root.revert(); }}\n    }}\n"));
             out.push_str(&format!(
                 "    if download-fold.value > 0 && !root.searching && root.current == {t}: DownloadBanner {{\n        x: 260px;\n        y: root.height - 16px - 64px * footer-fold.value - self.height;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: download-fold.value;\n        title: root.download-title;\n        percent: root.download-percent;\n        error: root.download-error;\n        detail: root.download-detail;\n    }}\n"));
         }

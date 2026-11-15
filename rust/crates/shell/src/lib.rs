@@ -3,6 +3,7 @@
 pub mod admin;
 pub mod banners;
 pub mod bar;
+pub mod card_order;
 pub mod collapse;
 pub mod compile;
 pub mod doc;

@@ -1,0 +1,397 @@
+// The Card order dialog: the side cards in two groups, Left rail and Right rail, dragged up and down and into the other group. The window
+// puts it over itself (doc.rs) and card_order.rs keeps the rows. A new order applies from the next start, which the restart bar says.
+
+import { Theme, Icon, FocusRing, KeyFocus, Button, Well, Tone, Settle, Unfold, Motion, DialogFrame, DialogButtons, FlickBar } from "@ui-kit/ui-kit.slint";
+import { RestartBar } from "restart-bar.slint";
+
+// One card as the dialog lists it. `side` is 0 for the left rail and 1 for the right, `at` its place in that rail.
+export struct OrderRow {
+    name: string,
+    title: string,
+    icon: image,
+    category: string,
+    side: int,
+    at: int,
+}
+
+// Kind "row": a raised strip like a list row: the plugin's colour as a bar, the card's icon and title, and a grip at the right. Held, it follows
+// the pointer (up and down) and the owner says where the others go; let go, it glides into its place. Alt with an arrow key moves it too.
+component OrderItem inherits Rectangle {
+    out property <string> control-kind: "list-row";
+    in property <OrderRow> card;
+    // Where it goes, from the list's top, when nothing holds it
+    in property <length> to;
+    // This is the row under the pointer, and where the pointer has it
+    in property <bool> held;
+    in property <length> held-y;
+    // Some row is held, so the others take no hover
+    in property <bool> any-held;
+    callback drag-started(length);
+    callback drag-moved(length, length);
+    callback drag-ended;
+    // Alt and an arrow key: which way (-1, 0 or 1 across and down)
+    callback nudge(int, int);
+    property <color> hue: Theme.plugin-hue(card.category);
+    place := Settle { to: (root.held ? root.held-y : root.to) / 1px; snap: root.held; }
+    y: round(place.value * 1px / 1phx) * 1phx;
+    z: root.held ? 10 : 0;
+    tone := Tone { on: (touch.has-hover && !root.any-held) || root.held; }
+    background: Theme.raise.mix(Theme.hover, tone.value);
+    border-radius: Theme.r-ctl;
+    border-width: Theme.ctl-outline-w(touch.has-hover && !root.any-held, root.held);
+    border-color: Theme.ctl-outline(touch.has-hover && !root.any-held, root.held);
+    drop-shadow-blur: root.held ? Theme.u(4) : 0px;
+    drop-shadow-offset-y: root.held ? Theme.u(1) : 0px;
+    drop-shadow-color: root.held ? Theme.shadow : transparent;
+    accessible-role: button;
+    accessible-label: card.title;
+    accessible-description: card.side == 0 ? @tr("Left rail") : @tr("Right rail");
+    forward-focus: focus;
+    focus := FocusScope {
+        key-pressed(e) => {
+            if (e.modifiers.alt) {
+                if (e.text == Key.UpArrow) { root.nudge(0, -1); return accept; }
+                if (e.text == Key.DownArrow) { root.nudge(0, 1); return accept; }
+                if (e.text == Key.LeftArrow) { root.nudge(-1, 0); return accept; }
+                if (e.text == Key.RightArrow) { root.nudge(1, 0); return accept; }
+            }
+            reject
+        }
+    }
+    FocusRing { shown: focus.has-focus; radius: Theme.r-ctl; width: parent.width + 2 * Theme.stroke; height: parent.height + 2 * Theme.stroke; }
+    Rectangle {
+        x: Theme.u(3);
+        y: Theme.u(3);
+        width: Theme.u(2);
+        height: parent.height - Theme.u(6);
+        border-radius: self.width / 2;
+        background: root.hue;
+    }
+    Icon {
+        x: Theme.u(9);
+        y: (parent.height - self.height) / 2;
+        source: root.card.icon;
+        tint: root.hue;
+        width: Theme.icon;
+        height: Theme.icon;
+        accessible-role: none;
+    }
+    Text {
+        x: Theme.u(9) + Theme.icon + Theme.u(4);
+        y: -1phx;
+        width: parent.width - self.x - Theme.u(16);
+        height: parent.height;
+        text: root.card.title;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        font-weight: Theme.w-value;
+        color: Theme.ink;
+        vertical-alignment: center;
+        overflow: elide;
+        accessible-role: none;
+    }
+    // The grip: two columns of three dots
+    Rectangle {
+        x: parent.width - Theme.u(10);
+        y: (parent.height - Theme.u(7)) / 2;
+        width: Theme.u(4.5);
+        height: Theme.u(7);
+        accessible-role: none;
+        for i in 6: Rectangle {
+            x: Math.mod(i, 2) * Theme.u(3);
+            y: Math.floor(i / 2) * Theme.u(3);
+            width: Theme.u(1.5);
+            height: Theme.u(1.5);
+            border-radius: self.width / 2;
+            background: Theme.faint;
+        }
+    }
+    touch := TouchArea {
+        property <length> grab;
+        property <bool> down;
+        property <bool> dragging;
+        mouse-cursor: MouseCursor.grab;
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left) {
+                down = true;
+                grab = self.mouse-y;
+                focus.focus();
+            } else if (e.kind == PointerEventKind.up || e.kind == PointerEventKind.cancel) {
+                down = false;
+                if (dragging) {
+                    dragging = false;
+                    root.drag-ended();
+                }
+            }
+        }
+        moved => {
+            if (down && !dragging && abs(self.mouse-y - grab) > Theme.u(2)) {
+                dragging = true;
+                root.drag-started(root.y);
+            }
+            if (dragging) {
+                root.drag-moved(root.y + self.mouse-y - grab, grab);
+            }
+        }
+    }
+}
+
+// The dialog. It is a pop-up the size of the window, see-through, with the frame in it, as the shortcut editor is.
+export component CardOrderDialog inherits Rectangle {
+    in property <[OrderRow]> rows;
+    in property <int> left-count;
+    in property <int> right-count;
+    // A new order is waiting for a restart, and what the bar says about it
+    in property <bool> pending;
+    in property <string> note;
+    // Restart now was pressed while streaming: the bar asks once more
+    in property <bool> confirming;
+    // A card went to (side, index among that side's other cards); the owner updates the rows
+    callback moved(string, int, int);
+    callback reset;
+    callback revert;
+    callback restart;
+    public function open() { popup.show(); }
+
+    // The strips and what they take: a strip, the gap after it, a group's heading, the gap between the groups
+    property <length> row-h: Theme.row + Theme.u(2);
+    property <length> pitch: row-h + Theme.u(2);
+    property <length> head-h: Theme.u(14);
+    property <length> between: Theme.u(2);
+    // How much of the window the lists take before they scroll
+    property <length> cap: max(Theme.u(60), root.height - Theme.u(120));
+
+    // The row under the pointer: its name (blank while none is), where it came from, where it would land, and where the pointer has it
+    property <string> held-name;
+    property <int> held-side;
+    property <int> held-at;
+    property <int> drop-side;
+    property <int> drop-at;
+    property <length> held-y;
+    property <length> grab-off;
+    property <bool> holding: held-name != "";
+
+    // The cards of a side without the held one, and the room a side takes: its cards, the hole the held one would leave there, at least one empty slot
+    pure function others(side: int) -> int {
+        (side == 0 ? root.left-count : root.right-count) - (root.holding && root.held-side == side ? 1 : 0)
+    }
+    pure function slots(side: int) -> int {
+        max(1, root.others(side) + (root.holding && root.drop-side == side ? 1 : 0))
+    }
+    property <length> left-top: head-h;
+    property <length> right-head-t: left-top + root.slots(0) * pitch + between;
+    property <length> right-top: right-head-t + head-h;
+    property <length> total: right-top + root.slots(1) * pitch;
+    // Where a card goes in the list: the others slide over for the hole under the held one
+    pure function slot-y(r: OrderRow) -> length {
+        let e = r.at - (root.holding && r.side == root.held-side && r.at > root.held-at ? 1 : 0);
+        let shown = e + (root.holding && r.side == root.drop-side && e >= root.drop-at ? 1 : 0);
+        return (r.side == 0 ? root.left-top : root.right-top) + shown * pitch;
+    }
+    // The side and place the held row's middle is over. The side is read from the layout as it is, and the places from the layout it gives
+    function update-drop() {
+        let centre = root.held-y + row-h / 2;
+        root.drop-side = centre < root.right-head-t ? 0 : 1;
+        let top = root.drop-side == 0 ? root.left-top : root.right-top;
+        root.drop-at = max(0, min(root.others(root.drop-side), Math.floor((centre - top) / pitch)));
+    }
+    function hold-at(top: length) {
+        root.held-y = clamp(top, 0px, max(0px, root.total - row-h));
+        root.update-drop();
+    }
+    function nudge(r: OrderRow, dx: int, dy: int) {
+        if (dx == 0) {
+            let at = r.at + dy;
+            if (at >= 0 && at < (r.side == 0 ? root.left-count : root.right-count)) { root.moved(r.name, r.side, at); }
+        } else {
+            let side = 1 - r.side;
+            root.moved(r.name, side, min(r.at, side == 0 ? root.left-count : root.right-count));
+        }
+    }
+
+    popup := PopupWindow {
+        close-policy: no-auto-close;
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        FocusScope {
+            init => { self.focus(); }
+            key-pressed(e) => {
+                if (e.text == Key.Escape) { frame.leave(); return accept; }
+                reject
+            }
+            frame := DialogFrame {
+                width: min(root.width - Theme.u(16), Theme.u(220));
+                height: min(self.preferred-height, root.height - Theme.u(16));
+                x: (root.width - self.width) / 2;
+                // By its height without the restart bar, so the bar opening doesn't move the dialog
+                y: max(Theme.u(8), (root.height - min(self.preferred-height - bar-room.height - bottom.spacing, root.height - Theme.u(16))) / 2);
+                dismissable: true;
+                title: @tr("Card order");
+                left => { popup.close(); }
+                scroller := Rectangle {
+                    min-height: Theme.u(40);
+                    preferred-height: min(root.total, root.cap);
+                    vertical-stretch: 1;
+                    clip: true;
+                    property <bool> scrolls: root.total > self.height;
+                    property <length> list-w: self.width - (scrolls ? Theme.u(7) : 0px);
+                    changed height => { flick.viewport-y = max(flick.viewport-y, min(0px, self.height - root.total)); }
+                    flick := Flickable {
+                        interactive: false;
+                        viewport-height: root.total;
+                        TouchArea {
+                            width: parent.width;
+                            height: root.total;
+                            scroll-event(e) => {
+                                flick.viewport-y = clamp(flick.viewport-y + e.delta-y, min(0px, scroller.height - root.total), 0px);
+                                accept
+                            }
+                        }
+                        Text {
+                            x: 0px;
+                            y: Theme.u(4);
+                            width: scroller.list-w;
+                            height: root.head-h - Theme.u(4);
+                            text: @tr("Left rail");
+                            font-family: Theme.font;
+                            font-size: Theme.small;
+                            font-weight: Theme.w-value;
+                            color: Theme.ink2;
+                            vertical-alignment: center;
+                            accessible-role: none;
+                        }
+                        right-head := Settle { to: root.right-head-t / 1px; }
+                        Text {
+                            x: 0px;
+                            y: right-head.value * 1px + Theme.u(4);
+                            width: scroller.list-w;
+                            height: root.head-h - Theme.u(4);
+                            text: @tr("Right rail");
+                            font-family: Theme.font;
+                            font-size: Theme.small;
+                            font-weight: Theme.w-value;
+                            color: Theme.ink2;
+                            vertical-alignment: center;
+                            accessible-role: none;
+                        }
+                        // An empty group still takes a drop
+                        if root.others(0) == 0: Well {
+                            x: 0px;
+                            y: root.left-top;
+                            width: scroller.list-w;
+                            height: root.row-h;
+                            Text {
+                                text: @tr("Drop a card here");
+                                font-family: Theme.font;
+                                font-size: Theme.body;
+                                color: Theme.faint;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                                accessible-role: none;
+                            }
+                        }
+                        if root.others(1) == 0: Well {
+                            x: 0px;
+                            y: right-head.value * 1px + root.head-h;
+                            width: scroller.list-w;
+                            height: root.row-h;
+                            Text {
+                                text: @tr("Drop a card here");
+                                font-family: Theme.font;
+                                font-size: Theme.body;
+                                color: Theme.faint;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                                accessible-role: none;
+                            }
+                        }
+                        for r in root.rows: OrderItem {
+                            card: r;
+                            x: 0px;
+                            width: scroller.list-w;
+                            height: root.row-h;
+                            to: root.slot-y(r);
+                            held: root.held-name == r.name;
+                            held-y: root.held-y;
+                            any-held: root.holding;
+                            drag-started(top) => {
+                                root.held-name = r.name;
+                                root.held-side = r.side;
+                                root.held-at = r.at;
+                                root.drop-side = r.side;
+                                root.drop-at = r.at;
+                                root.held-y = top;
+                            }
+                            drag-moved(top, grab) => {
+                                root.grab-off = grab;
+                                root.hold-at(top);
+                            }
+                            drag-ended => {
+                                let name = root.held-name;
+                                let side = root.drop-side;
+                                let at = root.drop-at;
+                                if (side != root.held-side || at != root.held-at) { root.moved(name, side, at); }
+                                root.held-name = "";
+                            }
+                            nudge(dx, dy) => { root.nudge(r, dx, dy); }
+                        }
+                    }
+                    // Near the top or bottom edge, a held row takes the list with it
+                    Timer {
+                        interval: 16ms;
+                        running: root.holding && scroller.scrolls;
+                        triggered => {
+                            let pointer = root.held-y + root.grab-off + flick.viewport-y;
+                            let edge = Theme.u(12);
+                            let step = Theme.u(4);
+                            let before = flick.viewport-y;
+                            if (pointer < edge) {
+                                flick.viewport-y = min(0px, flick.viewport-y + step);
+                            } else if (pointer > scroller.height - edge) {
+                                flick.viewport-y = max(min(0px, scroller.height - root.total), flick.viewport-y - step);
+                            }
+                            if (flick.viewport-y != before) {
+                                root.hold-at(pointer - flick.viewport-y - root.grab-off);
+                            }
+                        }
+                    }
+                    if scrolls: FlickBar {
+                        x: parent.width - self.width;
+                        width: Theme.u(3);
+                        height: flick.height;
+                        content: flick.viewport-height;
+                        viewport: flick.height;
+                        position <=> flick.viewport-y;
+                        least-thumb: Theme.u(12);
+                        thumb-radius: Theme.u(1.5);
+                        pages: false;
+                    }
+                }
+                bottom := VerticalLayout {
+                    spacing: bar-fold.value * Theme.u(7);
+                    DialogButtons {
+                        Button { text: @tr("Reset order"); dialog: true; clicked => { root.reset(); } }
+                        Rectangle { horizontal-stretch: 1; }
+                        Button { text: @tr("Done"); dialog: true; role: "primary"; clicked => { frame.leave(); } }
+                    }
+                    bar-room := Rectangle {
+                        height: bar-fold.value * Theme.u(27);
+                        clip: true;
+                        bar-fold := Unfold { open: root.pending; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
+                        RestartBar {
+                            width: parent.width;
+                            amount: bar-fold.value;
+                            note: root.note;
+                            revert-tip: @tr("Put the cards back in the order they have in the running app, so nothing needs a restart.");
+                            restart-text: root.confirming ? @tr("Restart") : @tr("Restart now");
+                            restart => { root.restart(); }
+                            revert => { root.revert(); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

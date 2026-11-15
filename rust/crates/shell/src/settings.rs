@@ -350,6 +350,8 @@ fn plan(window: &Rc<Window>) -> Result<Plan, String> {
             }
         }
     }
+    // The window's own row, which no plugin lists
+    sections.push((crate::card_order::SHELL.to_string(), crate::card_order::settings_section()));
     let (panel, off, categories) = {
         let state = window.state.borrow();
         let categories: std::collections::HashMap<String, String> = state.slots.iter().map(|s| (s.info.name.clone(), s.info.category.clone())).collect();
@@ -551,6 +553,13 @@ impl Settings {
                     let (plugin, section_id, callback, weak) = (plugin.clone(), section_id.clone(), cb.clone(), Rc::downgrade(self));
                     let _ = ui.set_callback(&format!("{}-{cb}", piece.id), move |args| {
                         if let Some((s, w)) = weak.upgrade().and_then(|s| s.window.upgrade().map(|w| (s, w))) {
+                            if plugin == crate::card_order::SHELL {
+                                // The dialog is the main window's, so this window gives way to it
+                                s.tell_hidden();
+                                let _ = s.ui.hide();
+                                w.open_card_order();
+                                return SValue::Void;
+                            }
                             let event = UiEvent { ui: section_id.clone(), callback: callback.clone(), args: args.iter().map(to_json).collect() };
                             crate::input::tips(&s.ui, "changed", &[]);
                             w.state.borrow_mut().ui_event(&plugin, event);

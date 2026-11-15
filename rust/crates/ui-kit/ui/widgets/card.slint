@@ -3,12 +3,30 @@
 import { Theme } from "../theme.slint";
 import { Icon, FocusRing, Button, IconButton, KeyFocus } from "basics.slint";
 import { Icons } from "../icons.slint";
-import { Folds, FoldText, Reveal } from "folds.slint";
+import { Folds, FoldText, Reveal, CardOrder } from "folds.slint";
 import { Switch } from "switch.slint";
 import { Tip, Tips } from "tip.slint";
 import { SearchWords, SettingMark, ProblemMark } from "setting.slint";
 import { Motion, Unfold, Fade } from "motion.slint";
 import { Grip } from "fine.slint";
+
+// A right-click on a card's header, where no button answers with a menu of its own (the buttons keep theirs): "Reorder cards". Laid over what it
+// covers (after its other children); other clicks go through.
+component HeaderMenu inherits ContextMenuArea {
+    out property <string> control-kind: "helper";
+    in property <bool> reorderable;
+    x: 0;
+    y: 0;
+    width: 100%;
+    height: 100%;
+    enabled: root.reorderable;
+    Menu {
+        MenuItem {
+            title: @tr("Reorder cards");
+            activated => { CardOrder.open(); }
+        }
+    }
+}
 
 // collapse.py's _FoldButton: the title as a named keyboard toggle that folds what's under it. A blank key: no folding.
 component FoldTitle inherits Rectangle {
@@ -25,6 +43,8 @@ component FoldTitle inherits Rectangle {
     in property <bool> hovered-elsewhere;
     // A title in a dimmed card never looks hovered, though it still folds
     in property <bool> card-enabled: true;
+    // The card's header offers "Reorder cards" on a right-click
+    in property <bool> reorderable;
     property <bool> foldable: key != "";
     out property <bool> hot: foldable && card-enabled && (touch.has-hover || hovered-elsewhere);
     out property <string> control-kind: "fold-title";
@@ -71,6 +91,7 @@ component FoldTitle inherits Rectangle {
         // The button around it already says it
         accessible-role: none;
     }
+    HeaderMenu { reorderable: root.reorderable; }
 }
 
 // The standard card: QFrame#card with card_layout's margins and add_card_header's icon chip and title.
@@ -93,6 +114,8 @@ export component Card inherits Rectangle {
     in property <string> note;
     // "<plugin>/<title in English>", set by the window; blank leaves the card unfoldable
     in property <string> fold-key;
+    // The window lists the card in its Card order dialog: a right-click on the header offers "Reorder cards"
+    in property <bool> reorderable;
     // A card with nothing under its header is not a fold: no fold, no hover that suggests one, no click
     out property <bool> has-body: rows.preferred-height > 0px;
     property <bool> foldable: fold-key != "" && has-body;
@@ -197,6 +220,7 @@ export component Card inherits Rectangle {
                 Icon { source: icon; tint: enabled ? hue : Theme.dis; width: Theme.u(9); height: Theme.u(9); accessible-role: none; }
                 // The icon is part of the header: it shows the title's tooltip, not nothing and not a name of its own
                 Tip { says: root.tip != "" ? root.title : ""; detail: root.tip; hover: chip-touch.has-hover; }
+                HeaderMenu { reorderable: root.reorderable; }
             }
             fold-title := FoldTitle {
                 key: foldable ? fold-key : "";
@@ -208,10 +232,14 @@ export component Card inherits Rectangle {
                 hot-color: Theme.hot;
                 folded: root.folded;
                 card-enabled: root.enabled;
+                reorderable: root.reorderable;
                 hovered-elsewhere: chip-touch.has-hover;
                 toggling => { person-folds(); }
             }
-            Rectangle { horizontal-stretch: 1; }
+            Rectangle {
+                horizontal-stretch: 1;
+                HeaderMenu { reorderable: root.reorderable; }
+            }
             if has-extra: Button {
                 width: Theme.row;
                 role: "quiet";

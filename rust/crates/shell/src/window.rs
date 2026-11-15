@@ -61,16 +61,16 @@ pub struct WindowOptions {
 }
 
 /// Which element of the document a plugin's piece of UI is.
-struct PieceRef {
-    plugin: String,
-    ui: String,
-    id: String,
+pub(crate) struct PieceRef {
+    pub plugin: String,
+    pub ui: String,
+    pub id: String,
 }
 
 pub struct Window {
     pub state: Rc<RefCell<State>>,
     pub ui: ComponentInstance,
-    pieces: Vec<PieceRef>,
+    pub(crate) pieces: Vec<PieceRef>,
     fold_version: Cell<i32>,
     save_timer: slint::Timer,
     /// The controls an outside caller just touched (touched.rs), and the timers that fade and clear their outlines.
@@ -118,6 +118,8 @@ pub struct Window {
     /// has gone keeps its row until its strip has shut (banners.rs `View`).
     banner_view: RefCell<crate::banners::View>,
     banner_rows: Rc<VecModel<SValue>>,
+    /// The Card order dialog's rows (card_order.rs). Changed in place so a row that is dragged keeps its element.
+    pub(crate) order_rows: Rc<VecModel<SValue>>,
 }
 
 /// _PopoutWindow: the picture alone on black, in a window of its own.
@@ -469,6 +471,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         bar_rows: Rc::new(VecModel::default()),
         banner_view: RefCell::default(),
         banner_rows: Rc::new(VecModel::default()),
+        order_rows: Rc::new(VecModel::default()),
     });
     WINDOW.with(|w| *w.borrow_mut() = Some(window.clone()));
     window.streams.flow.borrow_mut().slot_memory = window.state.borrow().slot_memory.clone();
@@ -659,6 +662,7 @@ impl Window {
             SValue::Bool(w.key(&input))
         });
         self.wire_bar();
+        self.wire_card_order();
         let weak = Rc::downgrade(self);
         let _ = ui.set_callback("settings-clicked", move |_| {
             if let Some(w) = weak.upgrade() {

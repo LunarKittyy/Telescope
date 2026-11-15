@@ -844,6 +844,11 @@ impl State {
         self.panels.layout_for(self.saved_layout.as_ref())
     }
 
+    /// The saved card order as the settings file holds it, with the names of plugins that aren't loaded too (None: the default order).
+    pub fn stored_card_layout(&self) -> Option<&CardLayout> {
+        self.saved_layout.as_ref()
+    }
+
     /// Keep a card order for the next start (the running order doesn't change).
     pub fn set_saved_card_layout(&mut self, layout: CardLayout) {
         self.saved_layout = Some(layout);
