@@ -42,4 +42,4 @@ Every doc starts with a hidden line naming the code it describes and the commit 
 
 A new doc needs its line (`covers` can be empty if no code stands behind it). `python3 tools/docs_fresh.py --paths` checks the lines and that every file a doc mentions exists, and CI runs it. The flagged list shows up in the pull request's job summary and never fails a pull request.
 
-Telescope is [AGPL-3.0](LICENSE) and contributions are under the same license.
+Telescope is [AGPL-3.0](LICENSE) and code contributions are under the same license. The name, logo and artwork are covered by [BRANDING.md](BRANDING.md), so please talk to me before sending changes to those.

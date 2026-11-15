@@ -110,7 +110,7 @@ Stuck, or have an idea? Ask in [Discussions](../../discussions). Found a bug? Op
 
 Device reports, bug reports with a diagnostics report and pull requests are all welcome. [CONTRIBUTING.md](CONTRIBUTING.md) has the details and [the docs](docs/README.md) explain how it's built.
 
-Telescope is licensed under the [GNU Affero General Public License v3.0](LICENSE). [Licenses](docs/licenses.md) explains what that means for you and lists the third-party parts it uses.
+Telescope is licensed under the [GNU Affero General Public License v3.0](LICENSE). The name, logo and artwork are not part of that, see [BRANDING.md](BRANDING.md). [Licenses](docs/licenses.md) explains what that means for you and lists the third-party parts it uses.
 
 <a href="https://www.star-history.com/?repos=LunarKittyy%2FTelescope&type=date&releases=&legend=top-left">
   <picture>
