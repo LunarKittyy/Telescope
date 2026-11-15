@@ -355,22 +355,45 @@ fn a_manual_phone_gives_its_values_and_an_automatic_one_gives_none() {
 fn both_phones_get_the_same_shutter_the_frame_rate_allows() {
     let manual = phone(false, Some(400), Some(8_000_000), 24, 30);
     let auto = phone(true, None, None, 24, 30);
-    assert_eq!(pick_shutter(&manual, &auto, 33_333_333), 8_000_000, "the left phone's");
-    assert_eq!(pick_shutter(&auto, &manual, 33_333_333), 8_000_000, "else the right phone's");
-    assert_eq!(pick_shutter(&auto, &auto, 33_333_333), DEFAULT_SHUTTER_NS, "else 1/60 s");
+    assert_eq!(pick_shutter(&manual, &auto, 33_333_333), Some(8_000_000), "the left phone's");
+    assert_eq!(pick_shutter(&auto, &manual, 33_333_333), Some(8_000_000), "else the right phone's");
+    assert_eq!(pick_shutter(&auto, &auto, 33_333_333), Some(DEFAULT_SHUTTER_NS), "else 1/60 s");
     // a long shutter is cut to a frame at 30 fps, and to less at 60
     let slow = phone(false, Some(100), Some(200_000_000), 24, 30);
-    assert_eq!(pick_shutter(&slow, &auto, 33_333_333), 30_000_000);
+    assert_eq!(pick_shutter(&slow, &auto, 33_333_333), Some(30_000_000));
     let fast = phone(false, Some(100), Some(200_000_000), 24, 60);
-    assert_eq!(pick_shutter(&fast, &auto, 33_333_333), 15_000_000);
+    assert_eq!(pick_shutter(&fast, &auto, 33_333_333), Some(15_000_000));
     // with no rate from the phone the stream's own frame time is used
     let mut no_fps = slow.clone();
     no_fps["phone_fps"] = Value::Null;
-    assert_eq!(pick_shutter(&no_fps, &auto, 16_666_667), 15_000_000);
+    assert_eq!(pick_shutter(&no_fps, &auto, 16_666_667), Some(15_000_000));
     // and what both lenses take: this one stops at 100 us
     let mut short = phone(false, Some(100), Some(60_000), 24, 30);
     short["cameras"][1]["shutterMinNs"] = json!(100_000);
-    assert_eq!(pick_shutter(&short, &auto, 33_333_333), 100_000);
+    assert_eq!(pick_shutter(&short, &auto, 33_333_333), Some(100_000));
+    // the faster phone sets the frame time for both, whichever side it is on
+    let fast_right = phone(false, Some(100), Some(200_000_000), 24, 60);
+    assert_eq!(pick_shutter(&auto, &fast_right, 33_333_333), Some(15_000_000));
+    assert_eq!(pick_shutter(&slow, &fast_right, 33_333_333), Some(15_000_000), "a slow left phone doesn't let the fast right one go over its frame");
+    // the two lenses' ranges are intersected, not clamped one after the other
+    let mut narrow = phone(true, None, None, 24, 30);
+    narrow["cameras"][1]["shutterMinNs"] = json!(20_000_000);
+    narrow["cameras"][1]["shutterMaxNs"] = json!(25_000_000);
+    let mut wide = phone(false, Some(100), Some(8_000_000), 24, 30);
+    wide["cameras"][1]["shutterMaxNs"] = json!(22_000_000);
+    assert_eq!(pick_shutter(&wide, &narrow, 33_333_333), Some(20_000_000), "inside both: 20 to 22 ms");
+    wide["cameras"][1]["shutterMaxNs"] = json!(10_000_000);
+    assert_eq!(pick_shutter(&wide, &narrow, 33_333_333), None, "no shutter both take");
+    let mut only_long = phone(true, None, None, 24, 30);
+    only_long["cameras"][1]["shutterMinNs"] = json!(40_000_000);
+    assert_eq!(pick_shutter(&only_long, &auto, 33_333_333), None, "longer than the frame the rate allows");
+}
+
+#[test]
+fn a_colour_only_run_is_partly_matched_when_the_phones_had_no_exposure_in_common() {
+    let look = Some((SETTLE_NS + 1, [100.0, 100.0]));
+    assert_eq!(Run::new([0, 0], [(0, 0); 2], false, false, 0).tick(2 * SETTLE_NS, look), Act::Fit(Outcome::Matched));
+    assert_eq!(Run::new([0, 0], [(0, 0); 2], false, false, 0).limited().tick(2 * SETTLE_NS, look), Act::Fit(Outcome::Limited));
 }
 
 #[test]
@@ -379,7 +402,7 @@ fn the_start_holds_each_phones_iso_to_its_lens_and_says_if_the_left_one_was_a_gu
     let mut right = phone(true, None, None, 26, 30);
     right["cameras"][1]["isoMax"] = json!(3200);
     let start = plan(&left, &right, 33_333_333).unwrap();
-    assert_eq!(start.shutter, 8_000_000);
+    assert_eq!(start.shutter, Some(8_000_000));
     assert_eq!(start.iso, [5000, 3200], "the right lens stops at 3200");
     assert!(!start.tune_left);
     // a left phone on automatic starts from the default and has to be brought to a decent brightness

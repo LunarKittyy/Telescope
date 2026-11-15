@@ -218,6 +218,12 @@ impl Run {
         Run { iso, limits, left_done: !tune_left, brightness, steps: 0, changed_at: now, limited: false }
     }
 
+    /// The same run, ending as partly matched whatever the brightness does: the phones had no exposure in common to be set to.
+    pub fn limited(mut self) -> Run {
+        self.limited = true;
+        self
+    }
+
     pub fn iso(&self) -> [i64; 2] {
         self.iso
     }
@@ -237,7 +243,7 @@ impl Run {
             return Act::Wait;
         }
         if !self.brightness {
-            return Act::Fit(Outcome::Matched);
+            return Act::Fit(self.outcome());
         }
         if !self.left_done {
             let step = if self.steps >= MAX_ISO_STEPS { IsoStep::Limit } else { iso_step(self.iso[0], luma[0], TARGET_LUMA, self.limits[0]) };
@@ -307,26 +313,26 @@ pub fn manual_exposure(state: &Value) -> Option<(i64, i64)> {
     Some((whole("iso")?, whole("shutter_ns")?))
 }
 
-/// The shutter both phones are set to (nanoseconds): the left phone's if it is manual, else the right phone's, else 1/60 s; held under the frame
-/// time (from the phone's `phone_fps`, else `frame_ns`) and inside what both lenses take.
-pub fn pick_shutter(left: &Value, right: &Value, frame_ns: u64) -> i64 {
+/// The shutter both phones are set to (nanoseconds): the left phone's if it is manual, else the right phone's, else 1/60 s; held under the shorter
+/// of the two phones' frame times (from each one's `phone_fps`, else `frame_ns`) and inside what both lenses take together. None when those leave
+/// no shutter at all, so nothing out of a lens's range is ever sent.
+pub fn pick_shutter(left: &Value, right: &Value, frame_ns: u64) -> Option<i64> {
     let wanted = manual_exposure(left).or_else(|| manual_exposure(right)).map_or(DEFAULT_SHUTTER_NS, |m| m.1);
-    let fps = left.get("phone_fps").and_then(Value::as_f64).filter(|f| *f > 0.0);
-    let frame = fps.map_or(frame_ns as f64, |f| 1e9 / f);
-    let mut ns = wanted.min(((frame * SHUTTER_OF_FRAME).round() as i64).max(1));
+    let frame_of = |state: &Value| state.get("phone_fps").and_then(Value::as_f64).filter(|f| *f > 0.0).map_or(frame_ns as f64, |f| 1e9 / f);
+    let (mut lo, mut hi) = (1, ((frame_of(left).min(frame_of(right)) * SHUTTER_OF_FRAME).round() as i64).max(1));
     for state in [left, right] {
         if let Some((min, max)) = shutter_range(state) {
-            ns = ns.clamp(min, max);
+            (lo, hi) = (lo.max(min), hi.min(max));
         }
     }
-    ns
+    (lo <= hi).then(|| wanted.clamp(lo, hi))
 }
 
 /// What Match starts a pair of phones with.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Start {
-    /// The shutter both phones get, nanoseconds.
-    pub shutter: i64,
+    /// The shutter both phones get, nanoseconds; None when the two lenses and the frame rates leave none in common.
+    pub shutter: Option<i64>,
     /// The ISO each phone gets (left, right), held to its lens.
     pub iso: [i64; 2],
     pub limits: [(i64, i64); 2],

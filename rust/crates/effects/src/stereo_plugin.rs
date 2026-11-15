@@ -8,18 +8,27 @@
 //! Match (stereo_match) works on two different phones: it sets both to the same shutter, nudges the right phone's ISO until the middle of its
 //! picture is as bright as the left's, and fits colour curves that the packing applies to the right eye. The step reads the pictures for it
 //! while it runs; the card's timer reads what the step saw and sends the ISO changes.
+//!
+//! The frames this plugin keeps itself (the target stream's last few, the other eye's by arrival) are dropped whenever the frame steps are handed
+//! out again, which is when a Blur comes on or any other step changes, so a picture is never made from a frame that went out before that. The host
+//! does the same with the history it keeps for the other stream. When the stream on the Telescope camera stalls, a clock of its own keeps the
+//! picture going from its last frame for a few seconds, then from the other eye alone, so the camera never sits on one frozen picture.
 
 use crate::stereo::{self, Eye, Look, SyncStatus, Tune, DEFAULT_FRAME_NS, SHIFT_LIMIT, TILT_LIMIT, TIMING_LIMIT_MS};
 use crate::stereo_match::{self, Act, Lut, Outcome, Run, Stats, SIZE_MAX, SIZE_MIN};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, VecDeque};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::thread::JoinHandle;
+use std::time::Duration;
 use telescope_core::actions;
 use telescope_core::event::Event;
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, StreamFrame, Touch};
 use telescope_core::host::{FrameStore, Host};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::time::monotonic_ns;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
@@ -52,6 +61,8 @@ const FINE_TIP: &str = n_("Show the sliders that line the two pictures up by han
 const SWAP_TIP: &str = n_("Swap which phone is the left eye and which is the right if the 3D looks inside out.");
 const MATCH_TIP: &str = n_("Even out two different phones with the same shutter, similar brightness and a colour curve that makes the right picture look like the left.");
 const RESET_TIP: &str = n_("Drop the colour curve Match made and leave the phones' exposure as it is.");
+/// How often the picture is drawn while the stream it goes out on stalls.
+const FALLBACK_FPS: u64 = 30;
 
 /// What the frame step of every stream and the plugin share.
 pub(crate) struct Hub {
@@ -82,10 +93,18 @@ pub(crate) struct Hub {
     /// Whether the step reads the middle of both eyes (while Match runs), and what it read last.
     pub(crate) measure: bool,
     pub(crate) reading: Option<Reading>,
+    /// Which instance of the step last filled the rings: the pipeline hands out a new one whenever its steps change.
+    instance: u64,
+    /// What the step last handed on in the target stream, and what the clock last drew from (so it doesn't draw the same picture again).
+    handed: Option<Frame>,
+    stalled_key: Option<Vec<(String, u64)>>,
+    shut: bool,
 }
 
 /// What the step read from the two eyes of a picture, and when.
 pub(crate) struct Reading {
+    /// When the two pictures were taken (the later of the two's capture time, or arrival where there is none), computer clock nanoseconds: a cached
+    /// picture is as old as it is, however recently it was put in a pair.
     pub(crate) at: u64,
     /// Left, right.
     pub(crate) stats: [Stats; 2],
@@ -93,7 +112,10 @@ pub(crate) struct Reading {
 
 pub(crate) struct Shared {
     pub(crate) hub: Mutex<Hub>,
+    wake: Condvar,
     store: Mutex<Arc<dyn FrameStore>>,
+    /// Counts the steps handed out.
+    instances: AtomicU64,
 }
 
 struct NoFrames;
@@ -116,35 +138,47 @@ pub(crate) struct Eyes {
     pub(crate) frames: [Frame; 2],
 }
 
-/// The left and the right eye from the running streams: the first two that started (swapped on request), each with its newest frame; the target
-/// stream's is `frame`, the one the step is handling, since its published frame is the picture itself.
-pub(crate) fn eyes_of(store: &dyn FrameStore, frame: &Frame, target: &str, swap: bool, now: u64) -> Option<Eyes> {
-    let mut eyes: Vec<(String, Frame)> = Vec::new();
+/// The streams that count as eyes: the first two that have a picture less than three seconds old, in the order they started. The target
+/// stream's own frame is never in the list (its published frame is the 3D picture), so it comes back as None for the caller to fill in; `in_step`
+/// says its step is running, which is a frame of its own now whatever it published.
+fn eye_list(store: &dyn FrameStore, target: Option<&str>, in_step: bool, now: u64) -> Vec<(String, Option<Frame>)> {
+    let mut eyes: Vec<(String, Option<Frame>)> = Vec::new();
     for sf in store.stream_frames() {
-        if sf.source_id == target {
-            eyes.push((sf.source_id, frame.clone()));
-        } else if sf.age(now) < STALE_NS {
-            eyes.push((sf.source_id, sf.frame));
+        let own = Some(sf.source_id.as_str()) == target;
+        if sf.age(now) < STALE_NS || (own && in_step) {
+            eyes.push((sf.source_id, if own { None } else { Some(sf.frame) }));
         }
     }
     // it has no published frame yet, but this is one
-    if !eyes.iter().any(|(id, _)| id == target) {
-        eyes.push((target.to_string(), frame.clone()));
+    if let Some(t) = target.filter(|t| in_step && !eyes.iter().any(|(id, _)| id == t)) {
+        eyes.push((t.to_string(), None));
     }
     eyes.truncate(2);
-    if eyes.len() < 2 {
+    eyes
+}
+
+/// Two streams' frames as the left and the right eye (swapped on request).
+fn into_eyes(mut list: Vec<(String, Frame)>, swap: bool) -> Option<Eyes> {
+    if list.len() < 2 {
         return None;
     }
+    list.truncate(2);
     if swap {
-        eyes.swap(0, 1);
+        list.swap(0, 1);
     }
-    let (b, a) = (eyes.pop()?, eyes.pop()?);
+    let (b, a) = (list.pop()?, list.pop()?);
     Some(Eyes { ids: [a.0, b.0], frames: [a.1, b.1] })
 }
 
-/// The ids of the two eyes from the streams that have a picture, left first; what Match talks to.
-fn eye_ids(store: &dyn FrameStore, swap: bool) -> Option<[String; 2]> {
-    let mut ids: Vec<String> = store.stream_frames().into_iter().map(|s| s.source_id).take(2).collect();
+/// The left and the right eye from the running streams: the first two that started and are still sending (swapped on request), each with its
+/// newest frame; the target stream's is `frame`, the one the step is handling.
+pub(crate) fn eyes_of(store: &dyn FrameStore, frame: &Frame, target: &str, swap: bool, now: u64) -> Option<Eyes> {
+    into_eyes(eye_list(store, Some(target), true, now).into_iter().map(|(id, f)| (id, f.unwrap_or_else(|| frame.clone()))).collect(), swap)
+}
+
+/// The ids of the two eyes, left first: the same two `eyes_of` picks, seen from outside the step, which is what Match talks to.
+fn eye_ids(store: &dyn FrameStore, target: Option<&str>, swap: bool, now: u64) -> Option<[String; 2]> {
+    let mut ids: Vec<String> = eye_list(store, target, false, now).into_iter().map(|(id, _)| id).collect();
     if ids.len() < 2 {
         return None;
     }
@@ -224,9 +258,32 @@ impl Hub {
         }
     }
 
-    fn forget(&mut self) {
-        (self.ring, self.other, self.last_in, self.seen, self.reading) = (VecDeque::new(), None, None, None, None);
+    /// Lets go of the frames kept for pairing.
+    fn drop_frames(&mut self) {
+        (self.ring, self.other, self.stalled_key) = (VecDeque::new(), None, None);
     }
+
+    fn forget(&mut self) {
+        self.drop_frames();
+        (self.last_in, self.seen, self.reading, self.handed) = (None, None, None, None);
+    }
+}
+
+/// What a picture is made from besides the two eyes' newest frames.
+struct Make {
+    look: Look,
+    tune: Tune,
+    timing_ns: i64,
+    size: (u32, u32),
+    ring: Vec<Frame>,
+    other: Vec<Frame>,
+    frame_ns: u64,
+    measure: bool,
+}
+
+/// How long the target stream has to be quiet before it counts as stalled: two frame times, never under 2/30 s.
+fn stall_ns(frame_ns: u64) -> u64 {
+    (2 * frame_ns).max(2_000_000_000 / FALLBACK_FPS)
 }
 
 impl Shared {
@@ -238,48 +295,155 @@ impl Shared {
         self.store.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
-    /// The frame step of whichever stream source_id is: the 3D picture in place of the target stream's frame.
-    fn step(&self, frame: &mut Frame, source_id: &str) {
-        let (look, tune, timing_ns, swap, size, ring, frame_ns, measure) = {
+    fn make(hub: &Hub) -> Make {
+        Make {
+            look: hub.look, tune: hub.tune.clone(), timing_ns: hub.timing_ns, size: hub.size, ring: hub.ring.iter().cloned().collect(),
+            other: hub.other.iter().flat_map(|(_, r)| r.iter().cloned()).collect(), frame_ns: hub.frame_ns, measure: hub.measure,
+        }
+    }
+
+    /// The picture of a pair of eyes in the format of `like`, how well they line up, and when the older of the two pictures was taken.
+    fn picture(store: &dyn FrameStore, eyes: &Eyes, target: &str, make: &Make, like: &Frame) -> Option<(stereo::Rendered, SyncStatus, u64)> {
+        let chosen = choose(store, eyes, target, &Rings { target: &make.ring, other: &make.other }, make.timing_ns, make.frame_ns);
+        let out = stereo::render_measured(&chosen.pair.left, &chosen.pair.right, make.look, make.size, &make.tune, like, make.measure)?;
+        let taken = [&chosen.pair.left, &chosen.pair.right].iter().map(|f| f.capture_ns.unwrap_or(f.time_ns)).min().unwrap_or(0);
+        Some((out, chosen.sync, taken))
+    }
+
+    /// The frame step of whichever stream source_id is: the 3D picture in place of the target stream's frame. `instance` is the step's own number.
+    fn step(&self, frame: &mut Frame, source_id: &str, instance: u64) {
+        let now = monotonic_ns();
+        let (swap, mut make) = {
             let mut hub = self.hub();
             if !hub.on || hub.target.as_deref() != Some(source_id) {
                 return;
             }
-            hub.take_in(frame, monotonic_ns());
-            (hub.look, hub.tune.clone(), hub.timing_ns, hub.swap, hub.size, hub.ring.iter().cloned().collect::<Vec<_>>(), hub.frame_ns, hub.measure)
+            // a step that is not the one that kept these frames means the steps were handed out again (a Blur came on, say): they went out under the old ones
+            if hub.instance != instance {
+                hub.drop_frames();
+                hub.instance = instance;
+            }
+            hub.take_in(frame, now);
+            (hub.swap, Self::make(&hub))
         };
         // the pictures are worked on without holding the hub, so the card never waits for them
-        let now = monotonic_ns();
         let store = self.store();
-        let eyes = eyes_of(&*store, frame, source_id, swap, now);
-        let other: Vec<Frame> = match &eyes {
-            Some(eyes) => {
-                let at = if eyes.ids[0] == source_id { 1 } else { 0 };
-                let mut hub = self.hub();
-                hub.take_other(&eyes.ids[at], &eyes.frames[at]);
-                hub.other.iter().flat_map(|(_, r)| r.iter().cloned()).collect()
-            }
-            None => Vec::new(),
+        let Some(eyes) = eyes_of(&*store, frame, source_id, swap, now) else {
+            // the pair is gone: neither eye's frames are kept for the next one
+            let mut hub = self.hub();
+            hub.drop_frames();
+            hub.seen = None;
+            return;
         };
-        let chosen = eyes.as_ref().map(|e| choose(&*store, e, source_id, &Rings { target: &ring, other: &other }, timing_ns, frame_ns));
-        let out = chosen.as_ref().and_then(|c| stereo::render_measured(&c.pair.left, &c.pair.right, look, size, &tune, frame, measure));
+        make.other = {
+            let at = if eyes.ids[0] == source_id { 1 } else { 0 };
+            let mut hub = self.hub();
+            hub.take_other(&eyes.ids[at], &eyes.frames[at]);
+            hub.other.iter().flat_map(|(_, r)| r.iter().cloned()).collect()
+        };
+        let made = Self::picture(&*store, &eyes, source_id, &make, frame);
         let mut hub = self.hub();
-        let (Some(chosen), Some(mut out)) = (chosen, out) else {
+        let Some((mut out, sync, taken)) = made else {
             hub.seen = None;
             return;
         };
         (out.frame.number, out.frame.time_ns, out.frame.capture_ns) = (frame.number, frame.time_ns, frame.capture_ns);
-        hub.seen = Some((chosen.sync, now));
+        hub.seen = Some((sync, now));
         hub.pictures += 1;
+        hub.stalled_key = None;
         if let Some(stats) = out.stats.filter(|_| hub.measure) {
-            hub.reading = Some(Reading { at: now, stats });
+            hub.reading = Some(Reading { at: taken, stats });
         }
+        hub.handed = Some(out.frame.clone());
         *frame = out.frame;
+    }
+
+    /// Draws the picture while the stream on the Telescope camera stalls, if the other eye moved since. For three seconds the stalled stream's last
+    /// frame is its eye; after that only the other eye is left, and it goes on both sides, so the camera keeps moving instead of sitting on a frozen
+    /// picture. True if a picture went out.
+    pub(crate) fn draw_stalled(&self, now: u64) -> bool {
+        let (target, mine, swap, make) = {
+            let hub = self.hub();
+            let (Some(target), Some(at), Some(mine)) = (hub.target.clone(), hub.last_in, hub.ring.back().cloned()) else { return false };
+            if !hub.on || now.saturating_sub(at) < stall_ns(hub.frame_ns) {
+                return false;
+            }
+            (target, mine, hub.swap, Self::make(&hub))
+        };
+        let store = self.store();
+        // its camera is off, or it hasn't sent a frame yet
+        let Some(current) = store.stream_frame(Some(&target)) else { return false };
+        // a later step changed what it sent (the wait screen covers it): drawing would undo that
+        if !self.hub().handed.as_ref().is_some_and(|h| Arc::ptr_eq(&h.data, &current.frame.data)) {
+            return false;
+        }
+        let list: Vec<(String, Frame)> = eye_list(&*store, Some(&target), false, now).into_iter().map(|(id, f)| (id, f.unwrap_or_else(|| mine.clone()))).collect();
+        // only the stalled stream is left, or nothing: nothing else is moving
+        let (eyes, flat) = match list.as_slice() {
+            [(id, f)] if *id != target => (Eyes { ids: [id.clone(), id.clone()], frames: [f.clone(), f.clone()] }, true),
+            _ => match into_eyes(list, swap) {
+                Some(eyes) => (eyes, false),
+                None => return false,
+            },
+        };
+        let key: Vec<(String, u64)> = eyes.ids.iter().cloned().zip(eyes.frames.iter().map(|f| f.number)).collect();
+        if self.hub().stalled_key.as_ref() == Some(&key) {
+            return false;
+        }
+        let made = if flat {
+            stereo::render_measured(&eyes.frames[0], &eyes.frames[1], make.look, make.size, &make.tune, &mine, false).map(|r| (r, None))
+        } else {
+            Self::picture(&*store, &eyes, &target, &make, &mine).map(|(r, sync, _)| (r, Some(sync)))
+        };
+        let Some((out, sync)) = made else { return false };
+        // not if the stream sent a frame in the meantime: that one has the newer picture
+        if !store.replace_frame(Some(&target), out.frame, current.frame.number) {
+            return false;
+        }
+        let mut hub = self.hub();
+        hub.stalled_key = Some(key);
+        hub.seen = sync.map(|s| (s, now));
+        true
+    }
+
+    /// The clock: rests until there's a stream on the camera to keep moving, then draws while that stream stalls. While frames arrive it sleeps
+    /// until the newest one would count as stalled, instead of looking every frame time.
+    fn run_clock(&self) {
+        let period = 1_000_000_000 / FALLBACK_FPS;
+        loop {
+            {
+                let hub = self.hub();
+                if hub.shut {
+                    return;
+                }
+                if !hub.on || hub.target.is_none() {
+                    let _rested = self.wake.wait(hub).unwrap_or_else(|e| e.into_inner());
+                    continue;
+                }
+                let wait = Self::clock_wait(hub.last_in, monotonic_ns(), stall_ns(hub.frame_ns), period);
+                // the wake lets shutdown cut the sleep short
+                let (hub, _) = self.wake.wait_timeout(hub, Duration::from_nanos(wait)).unwrap_or_else(|e| e.into_inner());
+                if hub.shut {
+                    return;
+                }
+            }
+            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.draw_stalled(monotonic_ns()))).is_err() {
+                log::error!("Drawing the 3D picture while its stream stalls failed");
+            }
+        }
+    }
+
+    /// How long the clock sleeps (ns): a frame time while the stream is stalled or unheard from, else until its newest frame counts as stalled.
+    fn clock_wait(last_frame: Option<u64>, now: u64, stall: u64, period: u64) -> u64 {
+        match last_frame {
+            Some(at) if now.saturating_sub(at) < stall => stall - now.saturating_sub(at),
+            _ => period,
+        }
     }
 }
 
-/// The step every stream gets; only the target stream's does anything.
-struct StereoStep(Arc<Shared>);
+/// The step every stream gets; only the target stream's does anything. Each one is numbered, so the pictures kept under an older one can be told.
+struct StereoStep(Arc<Shared>, u64);
 
 impl CpuStep for StereoStep {
     fn touch(&self, ctx: &dyn FrameContext) -> Touch {
@@ -288,7 +452,7 @@ impl CpuStep for StereoStep {
     }
 
     fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
-        self.0.step(frame, ctx.source_id());
+        self.0.step(frame, ctx.source_id(), self.1);
     }
 }
 
@@ -342,6 +506,8 @@ pub struct StereoPlugin {
     /// The pair of streams Size was last decided for, and the size that came from the lenses (to tell it from one a person set).
     sized_for: Option<[String; 2]>,
     auto_size: Option<f64>,
+    /// The clock that draws while the target stream stalls.
+    clock: Option<JoinHandle<()>>,
 }
 
 impl Default for StereoPlugin {
@@ -398,14 +564,33 @@ impl StereoPlugin {
         let hub = Hub {
             on: false, target: None, look: Look::default(), tune: Tune::default(), timing_ns: 0, swap: false, size: DEFAULT_SIZE,
             history: stereo::HISTORY_FRAMES, ring: VecDeque::new(), other: None, frame_ns: DEFAULT_FRAME_NS, last_in: None, seen: None, pictures: 0,
-            measure: false, reading: None,
+            measure: false, reading: None, instance: 0, handed: None, stalled_key: None, shut: false,
         };
-        let shared = Arc::new(Shared { hub: Mutex::new(hub), store: Mutex::new(Arc::new(NoFrames)) });
+        let shared = Arc::new(Shared { hub: Mutex::new(hub), wake: Condvar::new(), store: Mutex::new(Arc::new(NoFrames)), instances: AtomicU64::new(0) });
         StereoPlugin {
             on: false, look: Look::default(), depth: 0.0, height: 0.0, size_percent: 100.0, tilt: 0.0, timing: 0.0, swap: false, target: None,
             camera_size: None, canvas: (None, None), shared, pending: false, held: None, fine: false, matching: MatchState::Idle, lut: None,
-            focal: BTreeMap::new(), sized_for: None, auto_size: None,
+            focal: BTreeMap::new(), sized_for: None, auto_size: None, clock: None,
         }
+    }
+
+    /// draw_stalled at now (monotonic nanoseconds): what the clock does while the target stream stalls.
+    pub fn draw_stalled(&self, now: u64) -> bool {
+        self.shared.draw_stalled(now)
+    }
+
+    fn wake_clock(&mut self) {
+        if !self.on || self.shared.hub().shut {
+            return;
+        }
+        if self.clock.is_none() {
+            let shared = self.shared.clone();
+            match std::thread::Builder::new().name("stereo-clock".into()).spawn(move || shared.run_clock()) {
+                Ok(handle) => self.clock = Some(handle),
+                Err(e) => log::error!("The clock that draws the 3D picture while its stream stalls didn't start: {e}"),
+            }
+        }
+        self.shared.wake.notify_all();
     }
 
     // ── The picture ───────────────────────────────────────────────────
@@ -448,6 +633,10 @@ impl StereoPlugin {
         }
         if size.is_some() && size != self.camera_size {
             self.camera_size = size;
+        }
+        // with fewer than two streams there's no pair to keep frames for
+        if host.stream_count() < 2 {
+            self.shared.hub().drop_frames();
         }
         self.check_match(host);
         self.prepare();
@@ -514,6 +703,7 @@ impl StereoPlugin {
         let reset = self.lut.is_some() || !matches!(self.matching, MatchState::Idle);
         if let Value::Object(o) = &mut props {
             o.extend([
+                ("reset-shown".to_string(), json!(self.reset_shown())),
                 ("on".to_string(), json!(self.on)),
                 ("look-current".to_string(), json!(self.look.index())),
                 ("depth".to_string(), json!(self.depth)),
@@ -561,6 +751,7 @@ impl StereoPlugin {
         } else {
             host.cancel_schedule(MATCH_TIMER);
         }
+        self.wake_clock();
         let props = self.card_props(Some(host));
         host.set_ui_props("card", &props);
     }
@@ -591,9 +782,9 @@ impl StereoPlugin {
 
     // ── Size from the lenses ──────────────────────────────────────────
 
-    /// The ids of the two eyes, left first.
+    /// The ids of the two eyes, left first: what the step makes the picture from, as it sees the streams.
     fn eyes(&self, host: &dyn Host) -> Option<[String; 2]> {
-        eye_ids(&*host.frames(), self.swap)
+        eye_ids(&*host.frames(), self.target.as_deref(), self.swap, monotonic_ns())
     }
 
     /// Once for each pair of streams, sets Size from the two lenses' fields of view when it is still at 100 % (or at what this set for the other
@@ -676,14 +867,18 @@ impl StereoPlugin {
         let now = monotonic_ns();
         let frame_ns = self.shared.hub().frame_ns;
         let run = match stereo_match::plan(&left, &right, frame_ns) {
-            Some(start) => {
-                for (id, iso) in ids.iter().zip(start.iso) {
-                    for body in stereo_match::exposure_bodies(iso, start.shutter) {
-                        host.phone_control(Some(id), &body);
+            Some(start) => match start.shutter {
+                Some(shutter) => {
+                    for (id, iso) in ids.iter().zip(start.iso) {
+                        for body in stereo_match::exposure_bodies(iso, shutter) {
+                            host.phone_control(Some(id), &body);
+                        }
                     }
+                    Run::new(start.iso, start.limits, start.tune_left, true, now)
                 }
-                Run::new(start.iso, start.limits, start.tune_left, true, now)
-            }
+                // no shutter both lenses and both frame rates allow: nothing out of a lens's range is sent, and the colours are matched as far as they go
+                None => Run::new([0, 0], [(0, 0); 2], false, false, now).limited(),
+            },
             // phones that don't take a manual exposure still get their colours matched
             None => Run::new([0, 0], [(0, 0); 2], false, false, now),
         };
@@ -703,6 +898,8 @@ impl StereoPlugin {
     }
 
     fn match_tick_at(&mut self, host: &mut dyn Host, now: u64) {
+        // a stream that stalled changes who the eyes are, and what was matched is for the pair it was matched for
+        self.check_match(host);
         match std::mem::replace(&mut self.matching, MatchState::Idle) {
             MatchState::Polling { ids, states, since } => {
                 self.matching = if now.saturating_sub(since) > POLL_NS { MatchState::Failed } else { MatchState::Polling { ids, states, since } };
@@ -710,13 +907,17 @@ impl StereoPlugin {
             MatchState::Running { ids, mut run, since } => {
                 let reading = self.shared.hub().reading.as_ref().map(|r| (r.at, [r.stats[0].luma, r.stats[1].luma]));
                 self.matching = match run.tick(now, reading) {
-                    Act::Wait if now.saturating_sub(since) > RUN_NS => MatchState::Failed,
+                    Act::Wait if now.saturating_sub(since) > RUN_NS => {
+                        Self::refresh_phones(host, &ids);
+                        MatchState::Failed
+                    }
                     Act::Wait => MatchState::Running { ids, run, since },
                     Act::SetIso { eye, iso } => {
                         host.phone_control(Some(&ids[if eye == Eye::Left { 0 } else { 1 }]), &stereo_match::iso_body(iso));
                         MatchState::Running { ids, run, since }
                     }
                     Act::Fit(outcome) => {
+                        Self::refresh_phones(host, &ids);
                         let lut = self.shared.hub().reading.as_ref().map(|r| stereo_match::fit_lut(&r.stats[1].hist, &r.stats[0].hist));
                         match lut {
                             Some(lut) => {
@@ -733,10 +934,35 @@ impl StereoPlugin {
         self.changed_without_save(host);
     }
 
+    /// Asks both phones for their state again, so whoever shows their exposure (the Camera card) hears what Match left it at.
+    fn refresh_phones(host: &mut dyn Host, ids: &[String; 2]) {
+        for id in ids {
+            host.request_phone_state(Some(id));
+        }
+    }
+
     /// Reset match: the colour curves go and a run stops. The phones keep the exposure Match gave them.
     fn reset_match(&mut self, host: &mut dyn Host) {
         self.drop_match();
         self.changed_without_save(host);
+    }
+
+    /// The card's own switch is not part of its Reset.
+    const RESET_KEPT: &'static [&'static str] = &["on"];
+
+    /// Whether the card's Reset would change anything: the look, the eyes or a slider is off its default, or a match is there.
+    fn reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &StereoPlugin::new().get_config(), Self::RESET_KEPT) || self.lut.is_some() || !matches!(self.matching, MatchState::Idle)
+    }
+
+    /// The card's Reset: look, eye order and sliders back to their defaults and the match dropped. The phones keep the exposure Match gave them.
+    fn reset(&mut self, host: &mut dyn Host) {
+        let cfg = reset_config(&self.get_config(), &StereoPlugin::new().get_config(), Self::RESET_KEPT);
+        if self.apply_preset(host, &cfg).is_ok() {
+            // Size was put back by hand, so the lenses don't pick it again for this pair
+            self.sized_for = self.eyes(host);
+            host.schedule_save();
+        }
     }
 
     /// Whether it's on and how it looks, from settings or a preset.
@@ -785,11 +1011,18 @@ impl Plugin for StereoPlugin {
         host.want_frame_history(NAME, 0);
         host.cancel_schedule(STATUS_TIMER);
         host.cancel_schedule(MATCH_TIMER);
-        // so no picture goes out after quitting, and the settings stay as they were
-        let mut hub = self.shared.hub();
-        hub.on = false;
-        hub.measure = false;
-        hub.forget();
+        {
+            // so no picture goes out after quitting, and the settings stay as they were
+            let mut hub = self.shared.hub();
+            hub.on = false;
+            hub.measure = false;
+            hub.shut = true;
+            hub.forget();
+        }
+        self.shared.wake.notify_all();
+        if let Some(clock) = self.clock.take() {
+            let _ = clock.join();
+        }
     }
 
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
@@ -803,6 +1036,8 @@ impl Plugin for StereoPlugin {
                 self.polled(host, source_id, state);
             }
             Event::TimerFired { owner, token } if owner == NAME && token == STATUS_TIMER => {
+                // a stream that stalled or came back may have changed who the eyes are
+                self.check_match(host);
                 self.size_from_lenses(host);
                 self.show(host);
             }
@@ -870,6 +1105,7 @@ impl Plugin for StereoPlugin {
                 self.changed(host);
                 self.size_from_lenses(host);
             }
+            "reset-clicked" => self.reset(host),
             "match-clicked" => self.start_match(host),
             "reset-match-clicked" => self.reset_match(host),
             _ => {}
@@ -905,7 +1141,8 @@ impl Plugin for StereoPlugin {
 
     fn frame_step(&mut self) -> Option<FrameStep> {
         // the settings are the app's, not the stream's, so it stays live behind the panels too
-        Some(FrameStep::Cpu(Box::new(StereoStep(self.shared.clone()))))
+        let instance = self.shared.instances.fetch_add(1, Ordering::SeqCst) + 1;
+        Some(FrameStep::Cpu(Box::new(StereoStep(self.shared.clone(), instance))))
     }
 
     fn get_config(&self) -> Value {

@@ -15,6 +15,8 @@ struct Store {
     frames: Mutex<Vec<StreamFrame>>,
     history: Mutex<BTreeMap<String, Vec<Frame>>>,
     errors: Mutex<BTreeMap<String, u64>>,
+    /// Every frame put out in place of a stream's, as (stream, frame, number it was for).
+    replaced: Mutex<Vec<(String, Frame, u64)>>,
 }
 
 impl FrameStore for Store {
@@ -24,8 +26,9 @@ impl FrameStore for Store {
     fn stream_frame(&self, source_id: Option<&str>) -> Option<StreamFrame> {
         self.frames.lock().unwrap().iter().find(|f| Some(f.source_id.as_str()) == source_id).cloned()
     }
-    fn replace_frame(&self, _source_id: Option<&str>, _frame: Frame, _number: u64) -> bool {
-        false
+    fn replace_frame(&self, source_id: Option<&str>, frame: Frame, number: u64) -> bool {
+        self.replaced.lock().unwrap().push((source_id.unwrap_or("").to_string(), frame, number));
+        true
     }
     fn stream_frame_near(&self, source_id: Option<&str>, capture_ns: u64) -> Option<StreamFrame> {
         let id = source_id?;
@@ -77,6 +80,8 @@ struct Rig {
     plugin: StereoPlugin,
     host: FakeHost,
     store: Arc<Store>,
+    /// The step the pipeline holds: it stays the same until the steps are handed out again (new_step).
+    step: Option<Box<dyn CpuStep>>,
 }
 
 fn rig() -> Rig {
@@ -92,7 +97,7 @@ fn rig() -> Rig {
     let mut plugin = StereoPlugin::new();
     plugin.setup(&mut host);
     plugin.on_stream_start(&mut host, &StreamInfo { source_id: "a".into(), url: "a".into(), session: 0 });
-    Rig { plugin, host, store }
+    Rig { plugin, host, store, step: None }
 }
 
 impl Drop for Rig {
@@ -121,10 +126,18 @@ impl Rig {
 
     /// The frame as the plugin's step in source_id's stream hands it on.
     fn process(&mut self, frame: &Frame, source_id: &str) -> Frame {
-        let Some(FrameStep::Cpu(mut step)) = self.plugin.frame_step() else { panic!("a CPU step") };
+        if self.step.is_none() {
+            self.new_step();
+        }
         let mut out = frame.clone();
-        step.process(&mut out, &Ctx(source_id.into()));
+        self.step.as_mut().expect("a step").process(&mut out, &Ctx(source_id.into()));
         out
+    }
+
+    /// The pipeline asking the plugin for its step again, as it does whenever any plugin changes its own (a Blur coming on).
+    fn new_step(&mut self) {
+        let Some(FrameStep::Cpu(step)) = self.plugin.frame_step() else { panic!("a CPU step") };
+        self.step = Some(step);
     }
 
     fn props(&self) -> Value {
@@ -934,4 +947,348 @@ fn nothing_goes_out_after_quitting() {
     let frame = shot(RED, None);
     assert!(same(&r.process(&frame, "a"), &frame));
     assert_eq!(r.plugin.get_config()["on"], json!(true), "but what's saved stays on");
+}
+
+// ── Review fixes: pipeline changes, stalls, who the eyes are, Match's clock, Reset ───
+
+impl Rig {
+    /// Streams a, b and c show these frames now (and their history is just that frame).
+    fn show_three(&self, a: Frame, b: Frame, c: Frame) {
+        let list = [("a", "Phone A", a), ("b", "Phone B", b), ("c", "Phone C", c)];
+        *self.store.frames.lock().unwrap() = list.iter().map(|(id, name, f)| StreamFrame { source_id: id.to_string(), name: name.to_string(), frame: f.clone() }).collect();
+        *self.store.history.lock().unwrap() = list.iter().map(|(id, _, f)| (id.to_string(), vec![f.clone()])).collect();
+    }
+
+    /// What stream a goes out with now: the picture the step made, as the host holds it.
+    fn publish_picture(&self, out: &Frame) {
+        let mut frames = self.store.frames.lock().unwrap();
+        if let Some(a) = frames.iter_mut().find(|f| f.source_id == "a") {
+            a.frame = out.clone();
+        }
+    }
+
+    fn replaced(&self) -> Vec<(String, Frame, u64)> {
+        self.store.replaced.lock().unwrap().clone()
+    }
+}
+
+#[test]
+fn frames_kept_before_the_steps_were_handed_out_again_are_not_paired() {
+    let mut r = rig();
+    r.switch(true);
+    // b is behind at 110 ms, so a's own earlier frame (100 ms) is the one that goes with it
+    let b1 = shot(YELLOW, Some(110));
+    for (colour, at) in [(RED, 100), (GREEN, 133), (BLUE, 166)] {
+        let frame = shot(colour, Some(at));
+        r.show_frames(frame.clone(), b1.clone());
+        let out = r.process(&frame, "a");
+        if at == 166 {
+            assert_eq!(left_pixel(&out), RED, "before anything changed");
+        }
+    }
+    // a Blur comes on: the pipeline asks for the step again, and the red frame was a clear one
+    r.new_step();
+    let frame = shot(BLUE, Some(200));
+    r.show_frames(frame.clone(), b1.clone());
+    let out = r.process(&frame, "a");
+    assert_eq!((left_pixel(&out), right_pixel(&out)), (BLUE, YELLOW), "only the frame that came after the change");
+    assert_eq!(r.plugin.shared.hub().ring.len(), 1);
+}
+
+#[test]
+fn the_other_streams_ring_goes_with_the_steps_too() {
+    let mut r = rig();
+    r.switch(true);
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    r.process(&shot(RED, None), "a");
+    assert!(r.plugin.shared.hub().other.is_some());
+    r.new_step();
+    r.process(&shot(RED, None), "a");
+    assert_eq!(r.plugin.shared.hub().other.as_ref().map(|(_, ring)| ring.len()), Some(1));
+}
+
+#[test]
+fn the_rings_go_when_the_pair_breaks() {
+    let mut r = rig();
+    r.switch(true);
+    let a = shot(RED, Some(100));
+    r.show_frames(a.clone(), shot(BLUE, Some(100)));
+    r.process(&a, "a");
+    r.process(&a, "a");
+    assert!(r.plugin.shared.hub().ring.len() >= 2 && r.plugin.shared.hub().other.is_some());
+    // b stops: what a's step sees next has one stream, and neither eye's frames are kept
+    *r.store.frames.lock().unwrap() = vec![StreamFrame { source_id: "a".into(), name: "Phone A".into(), frame: a.clone() }];
+    assert!(same(&r.process(&a, "a"), &a));
+    {
+        let hub = r.plugin.shared.hub();
+        assert!(hub.ring.is_empty() && hub.other.is_none());
+    }
+    // and with no pictures coming at all, the plugin hearing that a stream stopped lets go too
+    r.show_frames(a.clone(), shot(BLUE, Some(100)));
+    r.process(&a, "a");
+    assert!(!r.plugin.shared.hub().ring.is_empty());
+    r.host.streams = Some(1);
+    r.plugin.on_stream_stop(&mut r.host);
+    assert!(r.plugin.shared.hub().ring.is_empty());
+}
+
+#[test]
+fn a_stalled_stream_isnt_an_eye_for_the_step_or_for_match() {
+    let mut r = rig();
+    r.switch(true);
+    let mut stale_b = shot(GREEN, None);
+    stale_b.time_ns = monotonic_ns() - 10_000 * MS;
+    r.show_three(shot(RED, None), stale_b, shot(BLUE, None));
+    let out = r.process(&shot(RED, None), "a");
+    assert_eq!((left_pixel(&out), right_pixel(&out)), (RED, BLUE), "a and c, since b stopped sending");
+    assert_eq!(r.plugin.eyes(&r.host), Some(["a".to_string(), "c".to_string()]), "and that is who Match talks to");
+    r.card("match-clicked", json!(null));
+    let asked: Vec<&String> = r.host.calls.iter().filter(|c| c.starts_with("request_phone_state")).collect();
+    assert_eq!(asked, ["request_phone_state Some(\"a\")", "request_phone_state Some(\"c\")"]);
+}
+
+#[test]
+fn a_match_is_dropped_when_the_eye_pair_changes_without_the_streams_changing() {
+    let mut r = rig();
+    r.switch(true);
+    let mut stale_b = shot(GREEN, None);
+    stale_b.time_ns = monotonic_ns() - 10_000 * MS;
+    r.show_three(gradient(240), stale_b, gradient(120));
+    r.card("match-clicked", json!(null));
+    r.polled("a", json!({"cameras": []}));
+    r.polled("c", json!({"cameras": []}));
+    r.process(&gradient(240), "a");
+    r.plugin.shared.hub().reading.as_mut().unwrap().at = monotonic_ns() + 800 * MS;
+    r.plugin.match_tick_at(&mut r.host, monotonic_ns() + 800 * MS);
+    assert!(r.plugin.lut.is_some(), "matched for a and c");
+    // b starts sending again: it is the second stream, so the pair is a and b now and the curves were for another
+    r.show_three(gradient(240), gradient(100), gradient(120));
+    r.tick_status();
+    assert!(r.plugin.lut.is_none());
+    assert_eq!(r.match_badge(), "");
+}
+
+#[test]
+fn match_only_takes_a_look_from_pictures_taken_after_the_change_and_its_settling() {
+    let mut r = rig();
+    r.switch(true);
+    r.show_frames(gradient(240), gradient(120));
+    r.card("match-clicked", json!(null));
+    r.polled("a", json!({"cameras": []}));
+    r.polled("b", json!({"cameras": []}));
+    let now = monotonic_ns();
+    // a right eye that was cached: it was taken long before the change, whenever the pair was put together
+    let (left, mut right) = (gradient(240), gradient(120));
+    right.capture_ns = Some(now - 5_000 * MS);
+    r.show_frames(left.clone(), right.clone());
+    let mut left_new = left.clone();
+    left_new.capture_ns = Some(now + 5_000 * MS);
+    r.process(&left_new, "a");
+    assert_eq!(r.plugin.shared.hub().reading.as_ref().map(|x| x.at), Some(now - 5_000 * MS), "the older of the two pictures");
+    r.plugin.match_tick_at(&mut r.host, now + 2_000 * MS);
+    assert_eq!(r.match_badge(), "Matching", "a picture from before the change tells nothing");
+    // both taken after the settling time
+    right.capture_ns = Some(now + 5_000 * MS);
+    r.show_frames(left_new.clone(), right.clone());
+    r.process(&left_new, "a");
+    r.plugin.match_tick_at(&mut r.host, now + 5_100 * MS);
+    assert_eq!(r.match_badge(), "Matched");
+}
+
+#[test]
+fn match_without_capture_times_goes_by_arrival() {
+    let mut r = rig();
+    r.switch(true);
+    r.show_frames(gradient(240), gradient(120));
+    r.card("match-clicked", json!(null));
+    r.polled("a", json!({"cameras": []}));
+    r.polled("b", json!({"cameras": []}));
+    let (mut left, mut right) = (gradient(240), gradient(120));
+    right.time_ns = monotonic_ns() - 2_000 * MS;
+    left.time_ns = monotonic_ns() + 1_500 * MS;
+    r.show_frames(left.clone(), right.clone());
+    r.process(&left, "a");
+    r.plugin.match_tick_at(&mut r.host, monotonic_ns() + 2_000 * MS);
+    assert_eq!(r.match_badge(), "Matching", "the right picture arrived before the change");
+}
+
+#[test]
+fn match_asks_the_phones_again_when_it_is_done_so_the_camera_card_hears_the_exposure() {
+    let mut r = rig();
+    r.switch(true);
+    r.show_frames(gradient(240), gradient(120));
+    r.card("match-clicked", json!(null));
+    r.polled("a", json!({"cameras": []}));
+    r.polled("b", json!({"cameras": []}));
+    let asked = |r: &Rig, id: &str| r.host.calls.iter().filter(|c| **c == format!("request_phone_state Some(\"{id}\")")).count();
+    assert_eq!((asked(&r, "a"), asked(&r, "b")), (1, 1));
+    r.match_tick(&gradient(240), &gradient(120), monotonic_ns() + 800 * MS);
+    assert_eq!(r.match_badge(), "Matched");
+    assert_eq!((asked(&r, "a"), asked(&r, "b")), (2, 2));
+}
+
+#[test]
+fn phones_with_no_shutter_in_common_are_left_alone_and_the_match_is_partly_done() {
+    let mut r = rig();
+    r.switch(true);
+    r.show_frames(gradient(240), gradient(120));
+    r.card("match-clicked", json!(null));
+    r.polled("a", lens(false, Some(400), Some(8_000_000), 24));
+    let mut other = lens(true, None, None, 26);
+    other["cameras"][0]["shutterMinNs"] = json!(600_000_000);
+    other["cameras"][0]["shutterMaxNs"] = json!(900_000_000);
+    r.polled("b", other);
+    assert!(r.controls().is_empty(), "nothing out of a lens's range is sent");
+    r.match_tick(&gradient(240), &gradient(120), monotonic_ns() + 800 * MS);
+    assert_eq!(r.match_badge(), "Partly matched");
+    assert!(r.plugin.lut.is_some(), "the colours are still matched");
+}
+
+/// The card with Reset's things moved: look, swap, a slider and a match.
+fn moved_rig() -> Rig {
+    let mut r = rig();
+    r.switch(true);
+    r.card("look-picked", json!(1));
+    r.card("swap-toggled", json!(true));
+    r.card("depth-moved", json!(1.5));
+    r.card("timing-moved", json!(40.0));
+    r.show_frames(gradient(240), gradient(120));
+    r.card("match-clicked", json!(null));
+    r.polled("a", json!({"cameras": []}));
+    r.polled("b", json!({"cameras": []}));
+    r.match_tick(&gradient(240), &gradient(120), monotonic_ns() + 800 * MS);
+    r
+}
+
+#[test]
+fn reset_is_lit_for_a_moved_look_swap_slider_or_a_match_and_not_otherwise() {
+    let mut r = rig();
+    assert_eq!(r.props()["reset-shown"], json!(false));
+    r.switch(true);
+    assert_eq!(r.props()["reset-shown"], json!(false), "the switch isn't part of it");
+    for (callback, arg) in [("look-picked", json!(1)), ("swap-toggled", json!(true)), ("depth-moved", json!(1.0)), ("height-moved", json!(1.0)), ("size-moved", json!(110.0)), ("tilt-moved", json!(1.0)), ("timing-moved", json!(10.0))] {
+        let back = match callback { "look-picked" => json!(0), "swap-toggled" => json!(false), "size-moved" => json!(100.0), _ => json!(0.0) };
+        r.card(callback, arg);
+        assert_eq!(r.props()["reset-shown"], json!(true), "{callback}");
+        r.card(callback, back);
+        assert_eq!(r.props()["reset-shown"], json!(false), "{callback} back");
+    }
+    r.show_frames(gradient(240), gradient(120));
+    r.card("match-clicked", json!(null));
+    assert_eq!(r.props()["reset-shown"], json!(true), "a match is under way");
+}
+
+#[test]
+fn reset_puts_everything_back_drops_the_match_and_leaves_the_phones_and_the_switch() {
+    let mut r = moved_rig();
+    assert_eq!(r.props()["reset-shown"], json!(true));
+    assert!(r.plugin.lut.is_some());
+    let sent = r.controls();
+    r.host.calls.clear();
+    r.card("reset-clicked", json!(null));
+    let cfg = r.plugin.get_config();
+    assert_eq!(cfg, json!({"on": true, "look": "side_by_side", "depth": 0.0, "height": 0.0, "size": 100.0, "tilt": 0.0, "timing": 0.0, "swap": false}));
+    assert!(r.plugin.lut.is_none());
+    assert_eq!(r.match_badge(), "");
+    assert_eq!(r.props()["reset-shown"], json!(false));
+    assert!(r.controls().is_empty() && sent.is_empty(), "no word to the phones");
+    assert!(r.host.calls.contains(&"schedule_save".to_string()));
+}
+
+#[test]
+fn reset_keeps_size_at_a_hundred_even_with_two_different_lenses() {
+    let mut r = rig();
+    r.switch(true);
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    r.state("a", lens(true, None, None, 24));
+    r.state("b", lens(true, None, None, 28));
+    r.tick_status();
+    assert!(r.size() != 100.0, "chosen from the lenses");
+    r.card("reset-clicked", json!(null));
+    assert_eq!(r.size(), 100.0);
+    r.tick_status();
+    assert_eq!(r.size(), 100.0, "the lenses don't take it back for the same two phones");
+}
+
+// ── A stalled target stream ───────────────────────────────────────────────
+
+/// A running pair whose a stream (the target) made `out` and then stopped sending `quiet` milliseconds ago.
+fn stalled_rig(quiet: u64) -> (Rig, Frame) {
+    let mut r = rig();
+    r.switch(true);
+    let a = shot(RED, Some(100));
+    r.show_frames(a.clone(), shot(BLUE, Some(100)));
+    let out = r.process(&a, "a");
+    r.publish_picture(&out);
+    r.plugin.shared.hub().last_in = Some(monotonic_ns() - quiet * MS);
+    (r, out)
+}
+
+#[test]
+fn while_the_target_stalls_the_picture_goes_on_from_its_last_frame_and_the_other_eye() {
+    let (r, _) = stalled_rig(500);
+    assert!(r.plugin.draw_stalled(monotonic_ns()), "drawn from a's last frame and b's newest");
+    let (id, frame, number) = r.replaced().pop().expect("a picture went out");
+    assert_eq!(id, "a");
+    assert_eq!(number, r.store.frames.lock().unwrap()[0].frame.number);
+    assert_eq!((left_pixel(&frame), right_pixel(&frame)), (RED, BLUE));
+    // nothing moved since: no new picture
+    assert!(!r.plugin.draw_stalled(monotonic_ns()));
+    // the other eye sent a new one
+    let mut b = shot(GREEN, Some(133));
+    b.number = 77;
+    let a = r.store.frames.lock().unwrap()[0].frame.clone();
+    *r.store.frames.lock().unwrap() = vec![
+        StreamFrame { source_id: "a".into(), name: "Phone A".into(), frame: a },
+        StreamFrame { source_id: "b".into(), name: "Phone B".into(), frame: b.clone() },
+    ];
+    *r.store.history.lock().unwrap().get_mut("b").unwrap() = vec![b];
+    assert!(r.plugin.draw_stalled(monotonic_ns()));
+    let frame = r.replaced().pop().unwrap().1;
+    assert_eq!((left_pixel(&frame), right_pixel(&frame)), (RED, GREEN));
+}
+
+#[test]
+fn a_target_that_is_still_sending_isnt_drawn_over() {
+    let (r, _) = stalled_rig(5);
+    assert!(!r.plugin.draw_stalled(monotonic_ns()));
+    assert!(r.replaced().is_empty());
+}
+
+#[test]
+fn after_three_seconds_the_stalled_eye_is_dropped_and_the_live_one_goes_on_both_sides() {
+    let (r, _) = stalled_rig(4_000);
+    // what the host holds of a is as old as the stream's last frame
+    r.store.frames.lock().unwrap()[0].frame.time_ns = monotonic_ns() - 4_000 * MS;
+    assert!(r.plugin.draw_stalled(monotonic_ns()));
+    let frame = r.replaced().pop().expect("a picture went out").1;
+    assert_eq!((left_pixel(&frame), right_pixel(&frame)), (BLUE, BLUE), "the picture is moving, not frozen on the red eye");
+    assert_eq!(r.status(), "Waiting", "and it isn't called 3D");
+}
+
+#[test]
+fn nothing_is_drawn_when_nothing_else_is_moving_or_a_later_step_covered_the_picture() {
+    // the other stream is gone too
+    let (r, _) = stalled_rig(4_000);
+    r.store.frames.lock().unwrap().truncate(1);
+    r.store.frames.lock().unwrap()[0].frame.time_ns = monotonic_ns() - 4_000 * MS;
+    assert!(!r.plugin.draw_stalled(monotonic_ns()));
+    // a wait screen (or anything after the step) changed what a sends
+    let (r, _) = stalled_rig(500);
+    r.store.frames.lock().unwrap()[0].frame = shot([1, 2, 3], Some(100));
+    assert!(!r.plugin.draw_stalled(monotonic_ns()));
+    assert!(r.replaced().is_empty());
+}
+
+#[test]
+fn the_clock_draws_on_its_own_while_the_stream_stalls_and_stops_with_the_plugin() {
+    let (mut r, _) = stalled_rig(500);
+    r.plugin.on_event(&mut r.host, &Event::StreamsChanged { count: 2 });
+    let start = std::time::Instant::now();
+    while r.replaced().is_empty() && start.elapsed() < Duration::from_secs(3) {
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(!r.replaced().is_empty(), "the clock drew without being asked");
+    r.plugin.shutdown(&mut r.host);
+    assert!(r.plugin.clock.is_none());
 }
