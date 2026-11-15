@@ -4,10 +4,9 @@
 use crate::connection::with_session;
 use crate::https::PhoneAuth;
 use crate::phones::UsbTunnels;
-use crate::session_client::SessionClient;
 use std::collections::VecDeque;
 use std::sync::{mpsc, Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use telescope_core::clock::{ClockOffset, PhoneClock};
 use telescope_core::source::RouteSpec;
 
@@ -18,7 +17,7 @@ pub const BURST: usize = 5;
 const BURST_GAP: Duration = Duration::from_millis(100);
 /// Round trips after the burst come this far apart.
 pub const EVERY: Duration = Duration::from_secs(2);
-/// Another try at reaching the phone when its forward wouldn't open.
+/// Another try at reaching the phone when a ping got no answer.
 const RETRY: Duration = Duration::from_secs(2);
 
 /// What a phone's clocks said over one round trip: the request went out at `sent_ns` and the answer came in at `got_ns` (this computer's
@@ -48,6 +47,13 @@ impl Sample {
     }
 }
 
+/// Round trips older than this (against the newest one) are forgotten, so a long sleep of this computer can't leave an old sample winning.
+const MAX_AGE_NS: u64 = 20_000_000_000;
+/// Without a successful ping for this long the clock is cleared, so nothing reports a bound that isn't known to hold anymore.
+const STALE_AFTER: Duration = Duration::from_secs(10);
+/// A new offset this far from the best one (besides ten times its own error) means a clock jumped, and the old samples are dropped.
+const JUMP_NS: u64 = 50_000_000;
+
 /// The best offset of the last few round trips: the one with the shortest round trip, since its error bound is the smallest (a slow answer
 /// says as much about the network as about the phone).
 #[derive(Debug, Default)]
@@ -55,10 +61,24 @@ pub struct Estimator {
     samples: VecDeque<Sample>,
 }
 
+/// Whether two offsets disagree by more than the new one's error allows (on the first clock both tell).
+fn jumped(best: &ClockOffset, new: &ClockOffset) -> bool {
+    let limit = new.error_ns.saturating_mul(10).max(JUMP_NS);
+    [(best.boot_ns, new.boot_ns), (best.mono_ns, new.mono_ns)]
+        .into_iter()
+        .find_map(|(a, b)| Some(a?.abs_diff(b?)))
+        .is_some_and(|d| d > limit)
+}
+
 impl Estimator {
-    /// Takes in a round trip and gives the best offset of the last KEPT, or None while no round trip had a phone clock in it (an older phone).
+    /// Takes in a round trip and gives the best offset of the last KEPT within MAX_AGE_NS, or None while no round trip had a phone clock in it
+    /// (an older phone). An offset that jumps away from the best one starts the estimate over from the new one.
     pub fn add(&mut self, sample: Sample) -> Option<ClockOffset> {
-        if sample.offset().is_some() {
+        if let Some(new) = sample.offset() {
+            if self.best().is_some_and(|best| jumped(&best, &new)) {
+                self.samples.clear();
+            }
+            self.samples.retain(|s| sample.got_ns.saturating_sub(s.got_ns) <= MAX_AGE_NS);
             if self.samples.len() == KEPT {
                 self.samples.pop_front();
             }
@@ -78,17 +98,29 @@ fn gap(taken: usize) -> Duration {
     if taken < BURST { BURST_GAP } else { EVERY }
 }
 
-/// Pings through client until stop says to end (a message, or its sender gone), keeping clock up to date.
-fn run(client: &SessionClient, clock: &PhoneClock, estimator: &mut Estimator, stop: &mpsc::Receiver<()>) {
-    let mut taken = 0;
+/// Pings through ping until stop says to end (a message, or its sender gone), keeping clock up to date. Without an answer for stale_after the clock
+/// is cleared, and a ping that got none is tried again after retry.
+fn run(ping: &mut dyn FnMut() -> Option<Sample>, clock: &PhoneClock, estimator: &mut Estimator, stop: &mpsc::Receiver<()>,
+       retry: Duration, stale_after: Duration) {
+    let (mut taken, mut last_ok) = (0, Instant::now());
     loop {
-        if let Some(c) = client.ping().clocks {
-            if let Some(offset) = estimator.add(Sample { sent_ns: c.sent_ns, got_ns: c.got_ns, boot_ns: c.boot_ns, mono_ns: c.mono_ns }) {
-                clock.set(offset);
+        let wait = match ping() {
+            Some(sample) => {
+                last_ok = Instant::now();
+                if let Some(offset) = estimator.add(sample) {
+                    clock.set(offset);
+                }
+                taken += 1;
+                gap(taken)
             }
-        }
-        taken += 1;
-        if !matches!(stop.recv_timeout(gap(taken)), Err(mpsc::RecvTimeoutError::Timeout)) {
+            None => {
+                if last_ok.elapsed() > stale_after {
+                    clock.clear();
+                }
+                retry
+            }
+        };
+        if !matches!(stop.recv_timeout(wait), Err(mpsc::RecvTimeoutError::Timeout)) {
             return;
         }
     }
@@ -101,26 +133,18 @@ pub struct Syncer {
 }
 
 impl Syncer {
-    /// Starts measuring the phone at route (holding the forward to its session port over USB for as long as it runs).
+    /// Starts measuring the phone at route. Each ping opens its own session (and so its own USB forward, held only for that ping), the way other
+    /// periodic calls do, so a replugged cable is found again.
     pub fn start(auth: PhoneAuth, route: RouteSpec, tunnels: Arc<UsbTunnels>) -> Syncer {
         let clock = Arc::new(PhoneClock::default());
         let (tx, rx) = mpsc::channel::<()>();
         let (shared, mine) = (clock.clone(), Syncer { clock: clock.clone(), stop: Mutex::new(Some(tx)) });
         let spawned = std::thread::Builder::new().name("clock-sync".into()).spawn(move || {
-            let mut estimator = Estimator::default();
-            loop {
-                let ended = with_session(Some(&auth), Some(&route), &*tunnels, |client| match client {
-                    Some(client) => {
-                        run(client, &shared, &mut estimator, &rx);
-                        true
-                    }
-                    // The forward didn't open: another go in a while
-                    None => !matches!(rx.recv_timeout(RETRY), Err(mpsc::RecvTimeoutError::Timeout)),
-                });
-                if ended {
-                    return;
-                }
-            }
+            let mut ping = || {
+                with_session(Some(&auth), Some(&route), &*tunnels, |client| client.and_then(|c| c.ping().clocks))
+                    .map(|c| Sample { sent_ns: c.sent_ns, got_ns: c.got_ns, boot_ns: c.boot_ns, mono_ns: c.mono_ns })
+            };
+            run(&mut ping, &shared, &mut Estimator::default(), &rx, RETRY, STALE_AFTER);
         });
         if let Err(e) = spawned {
             log::warn!("Couldn't start measuring the phone's clock: {e}");
@@ -143,7 +167,7 @@ impl Syncer {
 mod tests {
     use super::*;
     use crate::https::testing::serve;
-    use std::time::Instant;
+    use crate::session_client::SessionClient;
 
     fn sample(sent: u64, got: u64, boot: i64) -> Sample {
         Sample { sent_ns: sent, got_ns: got, boot_ns: Some(boot), mono_ns: None }
@@ -216,6 +240,53 @@ mod tests {
     }
 
     #[test]
+    fn samples_older_than_twenty_seconds_are_forgotten() {
+        let mut e = Estimator::default();
+        e.add(sample(0, 100, 1_050));
+        // 25 s later the old, better round trip is gone
+        let at = 25_000_000_000u64;
+        let after = e.add(sample(at, at + 1_000, at as i64 + 1_500)).unwrap();
+        assert_eq!(after.error_ns, 500);
+    }
+
+    #[test]
+    fn a_jump_in_the_offset_starts_over_from_the_new_sample() {
+        let mut e = Estimator::default();
+        e.add(sample(0, 100, 1_050));
+        // The phone's clock is 1 s ahead of what it was (a suspend): a slower round trip still replaces the old, better one
+        let at = 2_000_000_000u64;
+        let after = e.add(sample(at, at + 2_000, at as i64 + 1_000_001_000)).unwrap();
+        assert_eq!((after.error_ns, after.boot_ns), (1_000, Some(1_000_000_000)));
+        // A wobble of a few milliseconds is no jump, and the better sample stays
+        let wobble = e.add(sample(at + 10_000, at + 14_000, at as i64 + 1_000_010_000 + 5_000_000)).unwrap();
+        assert_eq!(wobble, after);
+    }
+
+    #[test]
+    fn pings_that_keep_failing_clear_the_clock() {
+        let (tx, rx) = mpsc::channel::<()>();
+        let clock = Arc::new(PhoneClock::default());
+        let mine = clock.clone();
+        let mut answered = false;
+        let mut ping = move || {
+            let first = !std::mem::replace(&mut answered, true);
+            first.then(|| sample(0, 100, 1_050))
+        };
+        let t = std::thread::spawn(move || run(&mut ping, &mine, &mut Estimator::default(), &rx, Duration::from_millis(10), Duration::from_millis(100)));
+        let began = Instant::now();
+        while clock.sync().is_none() && began.elapsed() < Duration::from_secs(5) {
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(clock.sync().is_some(), "the answer sets it");
+        while clock.sync().is_some() && began.elapsed() < Duration::from_secs(5) {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        assert!(clock.sync().is_none(), "no answers for a while clears it");
+        drop(tx);
+        t.join().unwrap();
+    }
+
+    #[test]
     fn a_phone_that_answers_gives_the_clock_an_offset_within_a_burst_and_stopping_ends_it() {
         let phone_now = |at: u64| 7_000_000_000_000i64 + at as i64;
         let server = serve(None, Arc::new(move |_req| {
@@ -223,9 +294,10 @@ mod tests {
             (200, "application/json".into(), body.into_bytes())
         }));
         let client = SessionClient::new(&server.base(false), PhoneAuth::new("tok", ""));
+        let mut ping = move || client.ping().clocks.map(|c| Sample { sent_ns: c.sent_ns, got_ns: c.got_ns, boot_ns: c.boot_ns, mono_ns: c.mono_ns });
         let (clock, (tx, rx)) = (Arc::new(PhoneClock::default()), mpsc::channel::<()>());
         let mine = clock.clone();
-        let t = std::thread::spawn(move || run(&client, &mine, &mut Estimator::default(), &rx));
+        let t = std::thread::spawn(move || run(&mut ping, &mine, &mut Estimator::default(), &rx, RETRY, STALE_AFTER));
         let began = Instant::now();
         while clock.offset().is_none() && began.elapsed() < Duration::from_secs(10) {
             std::thread::sleep(Duration::from_millis(5));

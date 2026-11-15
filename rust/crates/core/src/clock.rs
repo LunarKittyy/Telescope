@@ -39,6 +39,11 @@ impl PhoneClock {
         *self.offset.lock().unwrap_or_else(|e| e.into_inner()) = Some(offset);
     }
 
+    /// Forgets the measurement, for when it can't be kept up to date.
+    pub fn clear(&self) {
+        *self.offset.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    }
+
     /// The latest measurement, None until the first one.
     pub fn offset(&self) -> Option<ClockOffset> {
         *self.offset.lock().unwrap_or_else(|e| e.into_inner())
