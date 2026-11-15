@@ -3,8 +3,10 @@
 
 use crate::cpu::Rgb;
 use crate::stereo_match::{centre_stats, Lut, Stats, SIZE_MAX, SIZE_MIN};
+use std::borrow::Cow;
 use std::sync::Arc;
 use telescope_core::frame::Frame;
+use telescope_core::image::{over_rows, resample_linear, rint, Tap};
 
 /// How many frames of each stream the host keeps for pairing (HostFrames::want_frame_history).
 pub const HISTORY_FRAMES: usize = 6;
@@ -141,14 +143,14 @@ pub fn shift_px(percent: f64, extent: usize) -> i64 {
     (percent.clamp(-SHIFT_LIMIT, SHIFT_LIMIT) / 100.0 * extent as f64).round() as i64
 }
 
-/// The eye scaled to w x h: averaged down where it gets smaller, interpolated where it gets bigger.
-fn scale(rgb: &Rgb, w: usize, h: usize) -> Rgb {
+/// The eye scaled to w x h: averaged down where it gets smaller, interpolated where it gets bigger; the eye itself when it is that size already.
+fn scale(rgb: &Rgb, w: usize, h: usize) -> Cow<'_, Rgb> {
     if (rgb.w, rgb.h) == (w, h) {
-        rgb.clone()
+        Cow::Borrowed(rgb)
     } else if w <= rgb.w && h <= rgb.h {
-        rgb.shrink(w, h)
+        Cow::Owned(rgb.shrink(w, h))
     } else {
-        rgb.linear(w, h)
+        Cow::Owned(rgb.linear(w, h))
     }
 }
 
@@ -194,7 +196,7 @@ pub struct Tune {
     pub depth: f64,
     /// Percent of the height, positive lifts the right eye.
     pub height: f64,
-    /// The right eye's size in percent, 100 for as it is.
+    /// The right eye's size against the left's in percent, 100 for as they are: over 100 the right eye is zoomed in, under it the left one is.
     pub size: f64,
     /// The right eye's roll in degrees, positive turns it clockwise.
     pub tilt: f64,
@@ -208,70 +210,122 @@ impl Default for Tune {
     }
 }
 
-impl Tune {
-    /// The right eye needs more than moving: a size or a roll.
-    fn warps(&self) -> bool {
-        (self.size - 100.0).abs() > 0.05 || self.tilt.abs() > 0.05
+/// How much of an eye is zoomed into its box, shifted and turned.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Place {
+    /// 1 for the whole eye, more to cut the edges off and enlarge what is left.
+    pub zoom: f64,
+    /// How far the picture moves, in pixels of the box.
+    pub dx: f64,
+    pub dy: f64,
+    /// The turn in degrees, clockwise.
+    pub tilt: f64,
+    /// How much narrower than its own shape the eye is drawn (1: not at all).
+    pub squeeze: f64,
+}
+
+impl Place {
+    /// Whether the eye goes into its box as it is.
+    fn is_plain(&self) -> bool {
+        (self.zoom - 1.0).abs() < 1e-6 && self.dx == 0.0 && self.dy == 0.0 && self.tilt.abs() < 0.005
+    }
+
+    /// The zoom that keeps the whole box inside the eye once it is shifted and turned: the box grown by the shifts, turned back, must fit in the
+    /// eye (an eye of `w` x `h` in its own shape, `squeeze` narrower).
+    fn cover(w: f64, h: f64, (dx, dy): (f64, f64), tilt: f64, squeeze: f64) -> f64 {
+        let (sin, cos) = tilt.to_radians().sin_cos();
+        let (own_w, own_h) = (w / squeeze, h);
+        let (grown_w, grown_h) = (own_w + 2.0 * dx.abs() / squeeze, own_h + 2.0 * dy.abs());
+        ((grown_w * cos.abs() + grown_h * sin.abs()) / own_w).max((grown_w * sin.abs() + grown_h * cos.abs()) / own_h).max(1.0)
     }
 }
 
-/// Bilinear value of `src` at the fractional pixel (x, y); None where it's more than half a pixel outside.
-fn sample(src: &Rgb, x: f32, y: f32) -> Option<[u8; 3]> {
-    let (w, h) = (src.w as f32, src.h as f32);
-    if !(x >= -0.5 && x <= w - 0.5 && y >= -0.5 && y <= h - 0.5) {
-        return None;
-    }
-    let (x, y) = (x.clamp(0.0, w - 1.0), y.clamp(0.0, h - 1.0));
-    let (x0, y0) = (x as usize, y as usize);
-    let (x1, y1) = ((x0 + 1).min(src.w - 1), (y0 + 1).min(src.h - 1));
-    let (fx, fy) = (x - x0 as f32, y - y0 as f32);
-    let at = |x: usize, y: usize| {
-        let i = (y * src.w + x) * 3;
-        [src.data[i] as f32, src.data[i + 1] as f32, src.data[i + 2] as f32]
-    };
-    let (a, b, c, d) = (at(x0, y0), at(x1, y0), at(x0, y1), at(x1, y1));
-    Some(std::array::from_fn(|i| {
-        let top = a[i] + (b[i] - a[i]) * fx;
-        let bottom = c[i] + (d[i] - c[i]) * fx;
-        (top + (bottom - top) * fy + 0.5) as u8
-    }))
+/// How both eyes sit in their boxes (`boxes`: each eye's width and height, `squeeze` as in `Place`), left and right. The eye of the wider view is
+/// zoomed in to the narrower one's (Size, so neither is ever shrunk into borders), and both are zoomed by as much more as the shifts and the roll
+/// need so that no black shows at an edge or corner, so the two stay the same size as each other.
+fn places(tune: &Tune, boxes: [(usize, usize); 2], offsets: [(i64, i64); 2], squeeze: [f64; 2]) -> [Place; 2] {
+    let size = tune.size.clamp(SIZE_MIN, SIZE_MAX) / 100.0;
+    let tilt = tune.tilt.clamp(-TILT_LIMIT, TILT_LIMIT);
+    let tilts = [0.0, tilt];
+    let need = (0..2).map(|i| Place::cover(boxes[i].0 as f64, boxes[i].1 as f64, (offsets[i].0 as f64, offsets[i].1 as f64), tilts[i], squeeze[i])).fold(1.0, f64::max);
+    let sizes = [(1.0 / size).max(1.0), size.max(1.0)];
+    std::array::from_fn(|i| Place { zoom: sizes[i] * need, dx: offsets[i].0 as f64, dy: offsets[i].1 as f64, tilt: tilts[i], squeeze: squeeze[i] })
 }
 
-/// The eye enlarged by `scale` (1.1: a tenth bigger) and turned clockwise by `tilt` degrees about its middle, in a picture of the same size; what it
-/// leaves uncovered is black. `squeeze` is how much narrower than its own shape the eye is drawn (half side by side on 16:9 squeezes each eye to
-/// half), so the turn is a turn of the eye's own shape and not a shear of the squeezed one: 1 for an eye drawn at its shape.
-pub fn warp(src: &Rgb, scale: f64, tilt: f64, squeeze: f64) -> Rgb {
-    let mut out = Rgb::new(src.w, src.h);
-    if src.w == 0 || src.h == 0 || scale <= 0.0 || squeeze <= 0.0 {
-        return out;
-    }
-    let (sin, cos) = tilt.to_radians().sin_cos();
-    let (cx, cy, inv) = (src.w as f64 / 2.0, src.h as f64 / 2.0, 1.0 / scale);
-    // each output pixel looks up where it came from: the way back is the opposite turn and a shrink
-    let (dsx, dsy) = ((cos * inv) as f32, (-sin / squeeze * inv) as f32);
-    for y in 0..src.h {
-        let dy = y as f64 + 0.5 - cy;
-        let dx = 0.5 - cx;
-        let mut sx = (cx + (cos * dx + squeeze * sin * dy) * inv - 0.5) as f32;
-        let mut sy = (cy + (-sin * dx / squeeze + cos * dy) * inv - 0.5) as f32;
-        let row = &mut out.data[y * src.w * 3..(y + 1) * src.w * 3];
-        for px in row.as_chunks_mut::<3>().0 {
-            if let Some(v) = sample(src, sx, sy) {
-                *px = v;
-            }
-            sx += dsx;
-            sy += dsy;
+/// The taps of one axis of n pixels: each place samples the eye `zoom` times enlarged about its middle and moved `shift` pixels.
+fn taps(n: usize, zoom: f64, shift: f64) -> Vec<Tap> {
+    let (last, middle) = (n.saturating_sub(1), n as f64 / 2.0);
+    (0..n)
+        .map(|d| {
+            let at = ((d as f64 + 0.5 - middle - shift) / zoom + middle - 0.5).clamp(0.0, last as f64);
+            let first = at.floor();
+            let second = rint(((at - first) * 2048.0).min(2048.0)).clamp(0, 2048);
+            (first as usize, (first as usize + 1).min(last), 2048 - second, second)
+        })
+        .collect()
+}
+
+/// The fixed-point step of the turned sampler: sixteen bits after the point.
+const FIX: i64 = 1 << 16;
+
+/// The eye (already the size of its box) put in its place: zoomed, shifted and turned clockwise about its middle, in a picture of the same size.
+/// Nothing is left uncovered as long as the zoom is at least what `Place::cover` gives. Without a turn the rows and the columns are blended
+/// separately (fast); a turn samples each pixel from the four around where it came from.
+pub fn place<'a>(src: &'a Rgb, p: &Place, lut: Option<&Lut>) -> Cow<'a, Rgb> {
+    let curved = |eye: Cow<'a, Rgb>| match (eye, lut) {
+        (eye, None) => eye,
+        (Cow::Owned(mut eye), Some(lut)) => {
+            lut.apply(&mut eye);
+            Cow::Owned(eye)
         }
+        (Cow::Borrowed(eye), Some(lut)) => Cow::Owned(lut.mapped(eye)),
+    };
+    if src.w == 0 || src.h == 0 || p.zoom <= 0.0 || p.squeeze <= 0.0 {
+        return curved(Cow::Borrowed(src));
     }
-    out
-}
-
-/// The right eye, already scaled into its place, through the colour curves and then the size and roll. `squeeze` as in `warp`.
-fn fix_right(mut eye: Rgb, tune: &Tune, squeeze: f64) -> Rgb {
-    if let Some(lut) = &tune.lut {
-        lut.apply(&mut eye);
+    if p.is_plain() {
+        return curved(Cow::Borrowed(src));
     }
-    if tune.warps() { warp(&eye, tune.size.clamp(SIZE_MIN, SIZE_MAX) / 100.0, tune.tilt.clamp(-TILT_LIMIT, TILT_LIMIT), squeeze) } else { eye }
+    if p.tilt.abs() < 0.005 {
+        let data = resample_linear(&src.data, src.w, src.h, 3, &taps(src.w, p.zoom, p.dx), &taps(src.h, p.zoom, p.dy));
+        return curved(Cow::Owned(Rgb { w: src.w, h: src.h, data }));
+    }
+    let mut out = Rgb::scratch(src.w, src.h);
+    let (sin, cos) = p.tilt.to_radians().sin_cos();
+    let (cx, cy, inv) = (src.w as f64 / 2.0, src.h as f64 / 2.0, 1.0 / p.zoom);
+    // each output pixel looks up where it came from: the way back is the opposite turn and a shrink
+    let fixed = |v: f64| (v * FIX as f64).round() as i64;
+    let (ax, ay) = (fixed(cos * inv), fixed(-sin / p.squeeze * inv));
+    let (last_x, last_y) = ((src.w as i64 - 1) * FIX, (src.h as i64 - 1) * FIX);
+    let (w, row_bytes) = (src.w, src.w * 3);
+    let data = &src.data;
+    let draw = |y: usize, line: &mut [u8], finish: &dyn Fn([u8; 3]) -> [u8; 3]| {
+        let dy = y as f64 + 0.5 - cy - p.dy;
+        let dx = 0.5 - cx - p.dx;
+        let mut sx = fixed(cx - 0.5 + (cos * dx + p.squeeze * sin * dy) * inv);
+        let mut sy = fixed(cy - 0.5 + (-sin * dx / p.squeeze + cos * dy) * inv);
+        for px in line.as_chunks_mut::<3>().0 {
+            let (x, y) = (sx.clamp(0, last_x), sy.clamp(0, last_y));
+            let (x0, y0) = ((x >> 16) as usize, (y >> 16) as usize);
+            let (fx, fy) = (((x >> 8) & 255) as u32, ((y >> 8) & 255) as u32);
+            let (x1, y1) = ((x0 + 1).min(w - 1), (y0 + 1).min(src.h - 1));
+            let (top, bottom) = (&data[y0 * row_bytes..], &data[y1 * row_bytes..]);
+            let mut v = [0u8; 3];
+            for (c, o) in v.iter_mut().enumerate() {
+                let above = top[x0 * 3 + c] as u32 * (256 - fx) + top[x1 * 3 + c] as u32 * fx;
+                let below = bottom[x0 * 3 + c] as u32 * (256 - fx) + bottom[x1 * 3 + c] as u32 * fx;
+                *o = ((above * (256 - fy) + below * fy + 32768) >> 16) as u8;
+            }
+            *px = finish(v);
+            sx += ax;
+            sy += ay;
+        }
+    };
+    match lut {
+        None => over_rows(&mut out.data, row_bytes, |y, line| draw(y, line, &|v| v)),
+        Some(lut) => over_rows(&mut out.data, row_bytes, |y, line| draw(y, line, &|v| [lut.0[0][v[0] as usize], lut.0[1][v[1] as usize], lut.0[2][v[2] as usize]])),
+    }
+    Cow::Owned(out)
 }
 
 /// How much narrower than its own shape an eye of `src`'s shape is drawn at w x h.
@@ -283,19 +337,28 @@ fn squeeze_of(src: &Rgb, w: usize, h: usize) -> f64 {
 }
 
 /// Side by side: each eye is stretched to its half of the picture, which is how a headset or a 3D screen takes half side by side (on a canvas twice
-/// as wide as the eyes' own shape that's no stretch at all). What a shift uncovers stays black.
+/// as wide as the eyes' own shape that's no stretch at all). Shifts, size and roll cut into the eyes instead of leaving anything black.
 pub fn side_by_side(left: &Rgb, right: &Rgb, w: usize, h: usize, tune: &Tune) -> Rgb {
     let (lw, rw) = (w / 2, w - w / 2);
+    let mut out = Rgb::scratch(w, h);
+    if w == 0 || h == 0 {
+        return out;
+    }
     let (a, b) = eye_offsets(shift_px(tune.depth, lw), shift_px(tune.height, h));
-    let mut out = Rgb::new(w, h);
+    let (lw_eye, rw_eye) = (lw.max(1), rw.max(1));
+    let squeeze = [squeeze_of(left, lw_eye, h), squeeze_of(right, rw_eye, h)];
+    let [pl, pr] = places(tune, [(lw_eye, h), (rw_eye, h)], [a, b], squeeze);
     // a picture one pixel wide has no room for the left eye
-    if lw > 0 && h > 0 {
-        paste(&mut out, &scale(left, lw, h), a.0, a.1, (0, 0, lw, h));
-    }
-    if rw > 0 && h > 0 {
-        let eye = fix_right(scale(right, rw, h), tune, squeeze_of(right, rw, h));
-        paste(&mut out, &eye, lw as i64 + b.0, b.1, (lw, 0, rw, h));
-    }
+    let (scaled_left, scaled_right) = (scale(left, lw, h), scale(right, rw, h));
+    let l = (lw > 0).then(|| place(&scaled_left, &pl, None));
+    let r = place(&scaled_right, &pr, tune.lut.as_deref());
+    over_rows(&mut out.data, w * 3, |y, line| {
+        let (to_left, to_right) = line.split_at_mut(lw * 3);
+        if let Some(l) = &l {
+            to_left.copy_from_slice(&l.data[y * lw * 3..(y + 1) * lw * 3]);
+        }
+        to_right.copy_from_slice(&r.data[y * rw * 3..(y + 1) * rw * 3]);
+    });
     out
 }
 
@@ -313,22 +376,33 @@ pub fn dubois(left: [u8; 3], right: [u8; 3]) -> [u8; 3] {
     [channel(0), channel(1), channel(2)]
 }
 
+/// The eye on a canvas of the picture's size: as it is when it fills it, else in the middle of black.
+fn on_canvas<'a>(eye: Cow<'a, Rgb>, (x, y, fw, fh): (usize, usize, usize, usize), (w, h): (usize, usize)) -> Cow<'a, Rgb> {
+    if (fw, fh) == (w, h) {
+        return eye;
+    }
+    let mut canvas = Rgb::new(w, h);
+    paste(&mut canvas, &eye, x as i64, y as i64, (0, 0, w, h));
+    Cow::Owned(canvas)
+}
+
 /// Red/cyan: each eye is fitted whole into the picture (bars where its shape differs), shifted, and the two are mixed through the Dubois matrices.
 pub fn red_cyan(left: &Rgb, right: &Rgb, w: usize, h: usize, tune: &Tune) -> Rgb {
-    let (a, b) = eye_offsets(shift_px(tune.depth, w), shift_px(tune.height, h));
-    let eye = |src: &Rgb, (dx, dy): (i64, i64), right_eye: bool| {
-        let (x, y, fw, fh) = contain(src.w, src.h, w, h);
-        let mut canvas = Rgb::new(w, h);
-        let scaled = scale(src, fw, fh);
-        let scaled = if right_eye { fix_right(scaled, tune, 1.0) } else { scaled };
-        paste(&mut canvas, &scaled, x as i64 + dx, y as i64 + dy, (0, 0, w, h));
-        canvas
-    };
-    let (l, r) = (eye(left, a, false), eye(right, b, true));
     let mut out = Rgb::scratch(w, h);
-    for ((o, l), r) in out.data.as_chunks_mut::<3>().0.iter_mut().zip(l.data.as_chunks::<3>().0).zip(r.data.as_chunks::<3>().0) {
-        *o = dubois(*l, *r);
+    if w == 0 || h == 0 {
+        return out;
     }
+    let (a, b) = eye_offsets(shift_px(tune.depth, w), shift_px(tune.height, h));
+    let (lbox, rbox) = (contain(left.w, left.h, w, h), contain(right.w, right.h, w, h));
+    let [pl, pr] = places(tune, [(lbox.2, lbox.3), (rbox.2, rbox.3)], [a, b], [1.0, 1.0]);
+    let (scaled_left, scaled_right) = (scale(left, lbox.2, lbox.3), scale(right, rbox.2, rbox.3));
+    let (l, r) = (on_canvas(place(&scaled_left, &pl, None), lbox, (w, h)), on_canvas(place(&scaled_right, &pr, tune.lut.as_deref()), rbox, (w, h)));
+    over_rows(&mut out.data, w * 3, |y, line| {
+        let (l, r) = (&l.data[y * w * 3..(y + 1) * w * 3], &r.data[y * w * 3..(y + 1) * w * 3]);
+        for ((o, l), r) in line.as_chunks_mut::<3>().0.iter_mut().zip(l.as_chunks::<3>().0).zip(r.as_chunks::<3>().0) {
+            *o = dubois(*l, *r);
+        }
+    });
     out
 }
 
@@ -364,3 +438,7 @@ pub fn render(left: &Frame, right: &Frame, look: Look, size: (u32, u32), tune: &
 #[cfg(test)]
 #[path = "stereo_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "stereo_speed_tests.rs"]
+mod speed_tests;
