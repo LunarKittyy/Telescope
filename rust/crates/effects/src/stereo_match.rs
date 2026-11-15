@@ -277,20 +277,20 @@ pub fn active_lens(state: &Value) -> Option<&Value> {
         .or_else(|| cameras.first())
 }
 
-fn lens_range(state: &Value, min: &str, max: &str) -> Option<(i64, i64)> {
-    let lens = active_lens(state)?;
+fn lens_range(phone: &Value, min: &str, max: &str) -> Option<(i64, i64)> {
+    let lens = active_lens(phone)?;
     let get = |key: &str| lens.get(key).and_then(Value::as_i64).filter(|v| *v > 0);
     Some((get(min)?, get(max)?)).filter(|(a, b)| a <= b)
 }
 
 /// The ISO range of the lens a phone is streaming from.
-pub fn iso_range(state: &Value) -> Option<(i64, i64)> {
-    lens_range(state, "isoMin", "isoMax")
+pub fn iso_range(phone: &Value) -> Option<(i64, i64)> {
+    lens_range(phone, "isoMin", "isoMax")
 }
 
 /// The shutter range (nanoseconds) of the lens a phone is streaming from.
-pub fn shutter_range(state: &Value) -> Option<(i64, i64)> {
-    lens_range(state, "shutterMinNs", "shutterMaxNs")
+pub fn shutter_range(phone: &Value) -> Option<(i64, i64)> {
+    lens_range(phone, "shutterMinNs", "shutterMaxNs")
 }
 
 /// Whether the lens a phone streams from takes a manual ISO and shutter.
