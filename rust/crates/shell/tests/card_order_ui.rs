@@ -167,8 +167,9 @@ fn the_restart_bar_shuts_all_the_way_to_nothing_while_it_still_moves() {
         let now = room();
         assert!(now <= last, "frame {frame}: the bar grew again");
         if now == 0.0 {
-            // It was still moving a fair way each frame when it reached 0, not creeping
-            assert!(last_step > 0.004, "frame {frame}: the last steps before shut were only {last_step}");
+            // It was still moving a fair way each frame when it reached 0, not creeping. The clock runs on real time too, so a machine slow
+            // enough to be shut by the first look has nothing to measure
+            assert!(frame == 1 || last_step > 0.004, "frame {frame}: the last steps before shut were only {last_step}");
             return;
         }
         last_step = last - now;
