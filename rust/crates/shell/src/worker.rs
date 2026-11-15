@@ -868,6 +868,8 @@ impl Shared {
         let Some((steps, epoch)) = self.next_steps.lock().unwrap().take() else { return };
         self.steps_replaced.store(true, Ordering::SeqCst);
         self.view_epoch.store(epoch, Ordering::SeqCst);
+        // what the history holds went out under the old steps: a plugin pairing frames must not get one that was clear before a Blur came on
+        self.slot.forget_history();
         let pipeline = publish.0.as_mut();
         pipeline.set_steps(steps);
         let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: epoch };

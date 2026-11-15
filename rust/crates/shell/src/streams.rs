@@ -1937,6 +1937,18 @@ impl FrameSlot for WakingSlot {
     fn wait_newer(&self, seen: u64, timeout: Duration) -> bool {
         self.inner.wait_newer(seen, timeout)
     }
+    fn set_phone_clock(&self, clock: Option<Arc<telescope_core::clock::PhoneClock>>) {
+        self.inner.set_phone_clock(clock);
+    }
+    fn phone_clock(&self) -> Option<Arc<telescope_core::clock::PhoneClock>> {
+        self.inner.phone_clock()
+    }
+    fn near(&self, capture_ns: u64) -> Option<telescope_core::frame::Frame> {
+        self.inner.near(capture_ns)
+    }
+    fn forget_history(&self) {
+        self.inner.forget_history();
+    }
 }
 
 /// A frame slot for a media that keeps none (tests, builds without media): the newest frame only.
@@ -1976,6 +1988,53 @@ mod wake_tests {
 
     fn waking() -> WakingSlot {
         WakingSlot { inner: local_slot(), pending: Arc::new(AtomicBool::new(false)), unwanted: Arc::new(AtomicBool::new(false)) }
+    }
+
+    /// A slot that answers the timing questions, to see them get through the wrapper.
+    #[derive(Default)]
+    struct Timed(std::sync::Mutex<Option<Arc<telescope_core::clock::PhoneClock>>>);
+
+    impl FrameSlot for Timed {
+        fn publish(&self, _frame: telescope_core::frame::Frame) -> u64 {
+            0
+        }
+        fn published(&self) -> Option<telescope_core::frame::Frame> {
+            None
+        }
+        fn replace(&self, _frame: telescope_core::frame::Frame, _number: u64) -> bool {
+            false
+        }
+        fn latest(&self) -> Option<(telescope_core::frame::Frame, u64)> {
+            None
+        }
+        fn wait_newer(&self, _seen: u64, _timeout: Duration) -> bool {
+            false
+        }
+        fn set_phone_clock(&self, clock: Option<Arc<telescope_core::clock::PhoneClock>>) {
+            *self.0.lock().unwrap() = clock;
+        }
+        fn phone_clock(&self) -> Option<Arc<telescope_core::clock::PhoneClock>> {
+            self.0.lock().unwrap().clone()
+        }
+        fn forget_history(&self) {
+            *self.0.lock().unwrap() = None;
+        }
+        fn near(&self, capture_ns: u64) -> Option<telescope_core::frame::Frame> {
+            let mut frame = telescope_core::frame::Frame::new(1, 1, telescope_core::frame::PixelFormat::Rgba, vec![0; 4]);
+            frame.capture_ns = Some(capture_ns);
+            Some(frame)
+        }
+    }
+
+    #[test]
+    fn the_wake_wrapper_passes_history_and_the_phone_clock_through() {
+        let slot = WakingSlot { inner: Arc::new(Timed::default()), pending: Arc::new(AtomicBool::new(false)), unwanted: Arc::new(AtomicBool::new(false)) };
+        assert_eq!(slot.near(42).and_then(|f| f.capture_ns), Some(42), "history questions reach the real slot");
+        assert!(slot.phone_clock().is_none());
+        slot.set_phone_clock(Some(Arc::new(telescope_core::clock::PhoneClock::default())));
+        assert!(slot.phone_clock().is_some(), "the phone clock is kept in the real slot");
+        slot.forget_history();
+        assert!(slot.phone_clock().is_none(), "forgetting history reaches the real slot too");
     }
 
     #[test]

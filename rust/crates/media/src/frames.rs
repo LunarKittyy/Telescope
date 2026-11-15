@@ -116,6 +116,10 @@ impl FrameSlot for Slot {
         stamped.then(|| self.clock.lock().unwrap().clone()).flatten()
     }
 
+    fn forget_history(&self) {
+        self.state.lock().unwrap().past.clear();
+    }
+
     fn near(&self, capture_ns: u64) -> Option<Frame> {
         let st = self.state.lock().unwrap();
         // Newest first, so of two as near the newer one is the first and wins
@@ -280,6 +284,20 @@ mod tests {
         assert_eq!(seen.age(seen.frame.time_ns + 5_000_000_000), 5_000_000_000);
         assert_eq!(frames.stream_frame(Some("a")).unwrap().frame.number, seen.frame.number);
         assert_eq!(frames.stream_frame(Some("a")).unwrap().frame.time_ns, seen.frame.time_ns, "reading it again doesn't freshen it");
+    }
+
+    #[test]
+    fn forgetting_history_leaves_nothing_for_near_to_hand_back() {
+        let slot = Slot::with_history(Arc::new(AtomicUsize::new(4)));
+        for ms in [100u64, 133] {
+            let mut f = frame(1);
+            f.capture_ns = Some(ms * 1_000_000);
+            slot.publish(f);
+        }
+        assert_eq!(slot.near(100_000_000).and_then(|f| f.capture_ns), Some(100_000_000));
+        slot.forget_history();
+        assert!(slot.near(100_000_000).is_none(), "a frame from before the steps changed isn't handed out");
+        assert!(slot.published().is_some(), "the newest frame is still the stream's");
     }
 
     #[test]
