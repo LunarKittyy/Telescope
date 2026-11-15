@@ -1173,6 +1173,7 @@ impl Plugin for StereoPlugin {
             icon: "cube".into(),
             frame_stage: FrameStage::Combine,
             optional: true,
+            lab: true,
             in_presets: true,
             // it's about the Telescope camera's stream, whichever one the panels show
             follows_focus: false,
