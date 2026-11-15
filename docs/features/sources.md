@@ -67,7 +67,7 @@ Optional (switch it on under **Streaming and devices** in the Plugins tab of Set
 
 ## 3D from two phones
 
-Optional (switch it on under **Streaming and devices** in the Plugins tab of Settings). It turns two phones streaming at the same time into one 3D picture on the **Telescope** camera. Both phones need the newer phone app for the timing to match. Two phones of the same model work best, since different models differ in field of view, colour and frame rate.
+Optional and still in Lab, so it's an early version (switch it on under **Streaming and devices** in the Plugins tab of Settings). It turns two phones streaming at the same time into one 3D picture on the **Telescope** camera. Both phones need the newer phone app for the timing to match. Two phones of the same model work best, since different models differ in field of view, colour and frame rate.
 
 - The switch on the **3D** card turns it on. It only takes over the Telescope camera while two streams run. The first stream you started is the left eye and **Swap eyes** exchanges them when the picture looks inside out
 - **Look** is **Side by side** (for a headset or a 3D screen) or **Red/cyan** (for glasses, mixed with the Dubois matrices so colours stay closer to the original than with a plain red and cyan split)

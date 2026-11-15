@@ -228,6 +228,7 @@
   "optional": true,
   "needs_vision": false,
   "category": "streaming",
+  "lab": true,
   "icon": "cube"
  },
  {

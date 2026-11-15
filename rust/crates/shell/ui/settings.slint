@@ -43,6 +43,9 @@ export struct TileView {
     removable: bool,
     remove-label: string,
     badges: [BadgeData],
+    // The tag after the name ("Lab") and its tooltip sentence, blank for none
+    tag: string,
+    tag-detail: string,
 }
 
 export struct UpdateRowView {
@@ -299,12 +302,14 @@ component PluginRow inherits Rectangle {
     // Two texts on separate lines, without an empty line when one is missing
     pure function lines(a: string, b: string) -> string { a == "" ? b : b == "" ? a : a + "\n" + b }
     // What it does is the detail; who made it, what it needs and how it's doing go in the footer
-    Tip { says: tile.title; detail: tile.about; hint: lines(lines(lines(tile.byline, tile.badges.length > 0 ? tile.badges[0].text : ""), tile.note), tile.tooltip); inert: true; }
+    Tip { says: tile.title; detail: tile.about; hint: lines(lines(lines(tile.byline, tile.badges.length > 0 && tile.badges[0].kind != "lab" ? tile.badges[0].text : ""), tile.note), tile.tooltip); inert: true; }
     lay := RailRow {
         width: parent.width;
         icon: Icons.named(tile.icon);
         label: tile.title;
         named: true;
+        tag: tile.tag;
+        tag-detail: tile.tag-detail;
         // The row carries the marker itself (its description, the whole row)
         searchable: false;
         hue: tile.on ? tile.hue : Theme.dis;

@@ -931,6 +931,8 @@ impl Settings {
             let tall = g.tiles.iter().map(tile_extra).max().unwrap_or(0);
             let tiles: Vec<SValue> = g.tiles.iter().map(|t| {
                 let badges: Vec<SValue> = t.badges.iter().map(|b| SValue::Struct(Struct::from_iter([("text".to_string(), s(&b.text)), ("kind".to_string(), s(&b.kind))]))).collect();
+                let lab = t.badges.iter().find(|b| b.kind == "lab");
+                let (tag, tag_detail) = lab.map(|b| (b.text.clone(), tr("This plugin is an early version, so it may change or behave oddly."))).unwrap_or_default();
                 let (note_link, note_url) = link(&t.note_link);
                 let (byline_link, byline_url) = link(&t.byline_link);
                 SValue::Struct(Struct::from_iter([
@@ -942,7 +944,7 @@ impl Settings {
                     ("byline".to_string(), s(&t.byline)), ("byline-link".to_string(), s(&byline_link)), ("byline-url".to_string(), s(&byline_url)),
                     ("removable".to_string(), SValue::Bool(t.added)),
                     ("remove-label".to_string(), s(&if t.added { fill(&tr("Remove {plugin}"), &[("plugin", &t.title)]) } else { String::new() })),
-                    ("badges".to_string(), model(badges)),
+                    ("badges".to_string(), model(badges)), ("tag".to_string(), s(&tag)), ("tag-detail".to_string(), s(&tag_detail)),
                 ]))
             }).collect();
             SValue::Struct(Struct::from_iter([
