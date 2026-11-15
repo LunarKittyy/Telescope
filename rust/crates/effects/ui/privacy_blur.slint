@@ -16,6 +16,8 @@ export component PrivacyBlurCard inherits Card {
     callback mode-picked(int);
     callback now-clicked;
     callback download-clicked;
+    in property <bool> reset-shown;
+    callback reset-clicked;
 
     title: @tr("Privacy blur");
     tip: @tr("Blur the whole picture or show the wait screen when more than one person is in it.");
@@ -29,6 +31,11 @@ export component PrivacyBlurCard inherits Card {
     switch-tip: @tr("Privacy blur");
     switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Puts what happens with more than one person back to blurring the picture. The switch stays as it is.");
+    reset => { root.reset-clicked(); }
 
     RailRow {
         icon: Icons.eye-off;

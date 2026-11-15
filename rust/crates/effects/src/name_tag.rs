@@ -11,6 +11,7 @@ use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep}
 use telescope_core::host::Host;
 use telescope_core::i18n::{n_, tr, tr_ctx};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
 pub const NAME: &str = "name_tag";
@@ -103,9 +104,26 @@ impl NameTagPlugin {
                 ("style-current".to_string(), json!(index_of(&STYLES, &self.spec.style, DEFAULT_STYLE))),
                 ("position-current".to_string(), json!(index_of(&POSITIONS, &self.spec.position, DEFAULT_POSITION))),
                 ("size-current".to_string(), json!(index_of(&SIZES.map(|(k, _)| k), &self.spec.size, DEFAULT_SIZE))),
+                ("reset-shown".to_string(), json!(self.reset_shown())),
             ]);
         }
         all
+    }
+
+    /// What a Reset leaves alone: the switch and what was typed.
+    const RESET_KEPT: &'static [&'static str] = &["on", "name", "pronouns", "second"];
+
+    fn reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &NameTagPlugin::new().get_config(), Self::RESET_KEPT)
+    }
+
+    fn reset(&mut self, host: &mut dyn Host) {
+        let cfg = reset_config(&self.get_config(), &NameTagPlugin::new().get_config(), Self::RESET_KEPT);
+        if self.set_config(&cfg).is_ok() {
+            self.pending = false;
+            host.set_ui_props("card", &self.all_props());
+            self.changed(host);
+        }
     }
 
     fn catch_up(&mut self, host: &mut dyn Host) {
@@ -118,6 +136,7 @@ impl NameTagPlugin {
 
     /// The settings changed: the frames get a new step, and the file a save.
     fn changed(&mut self, host: &mut dyn Host) {
+        host.set_ui_props("card", &json!({"reset-shown": self.reset_shown()}));
         host.refresh_frame_step();
         host.schedule_save();
     }
@@ -202,6 +221,7 @@ impl Plugin for NameTagPlugin {
                 self.edit(host, n(0) as usize, &text);
             }
             "choice-picked" => self.pick(host, n(0) as usize, n(1).max(0.0) as usize),
+            "reset-clicked" => self.reset(host),
             _ => {}
         }
     }

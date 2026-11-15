@@ -99,11 +99,11 @@ fn the_cards_have_what_their_plugins_use() {
     compile(&mut notes);
     has_what_the_plugin_uses(&mut notes, &[
         "set-picked", "new-clicked", "delete-clicked", "text-edited", "size-moved", "scroll-picked", "speed-moved", "back-clicked",
-        "play-toggled", "next-clicked", "send-clicked", "clear-clicked",
+        "play-toggled", "next-clicked", "send-clicked", "clear-clicked", "reset-clicked",
     ]);
     let mut tag = NameTagPlugin::new();
     compile(&mut tag);
-    has_what_the_plugin_uses(&mut tag, &["switch-toggled-by-hand", "text-edited", "choice-picked"]);
+    has_what_the_plugin_uses(&mut tag, &["switch-toggled-by-hand", "text-edited", "choice-picked", "reset-clicked"]);
     let mut desk = DeskPlugin::new();
     compile(&mut desk);
     has_what_the_plugin_uses(&mut desk, &[
@@ -112,28 +112,28 @@ fn the_cards_have_what_their_plugins_use() {
     let mut photos = PhotosPlugin::new();
     compile(&mut photos);
     has_what_the_plugin_uses(&mut photos, &[
-        "take-clicked", "open-clicked", "tile-picked", "tile-step", "tile-hold-down", "tile-hold-up", "quality-moved", "timer-picked", "best-toggled", "folder-clicked",
+        "take-clicked", "open-clicked", "tile-picked", "tile-step", "tile-hold-down", "tile-hold-up", "quality-moved", "timer-picked", "best-toggled", "folder-clicked", "reset-clicked",
     ]);
     let mut composite = CompositePlugin::new();
     compile(&mut composite);
-    has_what_the_plugin_uses(&mut composite, &["switch-toggled-by-hand", "layout-picked", "edit-clicked"]);
+    has_what_the_plugin_uses(&mut composite, &["switch-toggled-by-hand", "layout-picked", "edit-clicked", "reset-clicked"]);
     compile_editor();
     let mut qr = QrReaderPlugin::new();
     compile(&mut qr);
     has_what_the_plugin_uses(&mut qr, &["switch-toggled-by-hand", "notify-toggled", "copy-clicked"]);
     let mut background = BackgroundPlugin::new();
     compile(&mut background);
-    has_what_the_plugin_uses(&mut background, &["mode-picked", "blur-moved", "edges-moved", "picture-clicked", "download-clicked"]);
+    has_what_the_plugin_uses(&mut background, &["mode-picked", "blur-moved", "edges-moved", "picture-clicked", "download-clicked", "reset-clicked"]);
     let mut privacy = PrivacyBlurPlugin::new();
     compile(&mut privacy);
-    has_what_the_plugin_uses(&mut privacy, &["switch-toggled-by-hand", "mode-picked", "now-clicked", "download-clicked"]);
+    has_what_the_plugin_uses(&mut privacy, &["switch-toggled-by-hand", "mode-picked", "now-clicked", "download-clicked", "reset-clicked"]);
     let mut filters = telescope_effects::filters::FiltersPlugin::new();
     compile(&mut filters);
-    has_what_the_plugin_uses(&mut filters, &["switch-toggled-by-hand", "slider-moved", "download-clicked"]);
+    has_what_the_plugin_uses(&mut filters, &["switch-toggled-by-hand", "slider-moved", "download-clicked", "reset-clicked"]);
     let mut framing = FramingPlugin::new();
     compile(&mut framing);
     has_what_the_plugin_uses(&mut framing, &[
-        "switch-toggled-by-hand", "framing-moved", "speed-moved", "room-moved", "hand-toggled", "download-clicked",
+        "switch-toggled-by-hand", "framing-moved", "speed-moved", "room-moved", "hand-toggled", "download-clicked", "reset-clicked",
     ]);
     let mut face = FaceExposurePlugin::new();
     compile(&mut face);
@@ -141,27 +141,31 @@ fn the_cards_have_what_their_plugins_use() {
     // Cinema tools has a card, and its colours and sliders in the Video tab
     let mut cinema = CinemaPlugin::new();
     compile(&mut cinema);
-    has_what_the_plugin_uses(&mut cinema, &["tool-toggled", "guide-picked", "scope-picked"]);
+    has_what_the_plugin_uses(&mut cinema, &["tool-toggled", "guide-picked", "scope-picked", "reset-clicked"]);
     let section = cinema.settings_sections().remove(0);
-    ui_has(&section.ui, &["colour-picked", "peaking-moved", "zebra-moved", "size-picked"]);
+    ui_has(&section.ui, &["colour-picked", "peaking-moved", "zebra-moved", "size-picked", "reset-clicked"]);
     // On Air has no card: a button in the header and its tab in Settings
     let mut on_air = OnAirPlugin::new(std::sync::Arc::new(telescope_core::testing::FakeWeb::default()), None);
     ui_has(&on_air.header_widget().expect("a header button"), &["clicked"]);
     let section = on_air.settings_sections().remove(0);
     ui_has(&section.ui, &[
         "trigger-picked", "page-toggled", "new-link-clicked", "address-picked", "copy-clicked", "url-edited", "method-picked", "on-edited",
-        "off-edited", "test-clicked",
+        "off-edited", "test-clicked", "sign-reset-clicked", "webhook-reset-clicked",
     ]);
 }
 
 #[test]
 fn the_chroma_key_card_compiles() {
-    compile(&mut ChromaKeyPlugin::new());
+    let mut chroma = ChromaKeyPlugin::new();
+    compile(&mut chroma);
+    has_what_the_plugin_uses(&mut chroma, &["reset-clicked"]);
 }
 
 #[test]
 fn the_fun_pack_card_compiles() {
-    compile(&mut FunPackPlugin::new());
+    let mut fun = FunPackPlugin::new();
+    compile(&mut fun);
+    has_what_the_plugin_uses(&mut fun, &["reset-clicked"]);
 }
 
 /// One picture's editor, a window of its own: it compiles against ui-kit like a card.

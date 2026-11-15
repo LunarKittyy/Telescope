@@ -1074,3 +1074,22 @@ fn a_cpu_step_that_stays_too_slow_does_not_flash_on_a_frame_now_and_then() {
     }
     assert_eq!(filtered, 1, "only the first slow frame shows the filter; the tries after a rest are dropped while it is still too slow");
 }
+
+#[test]
+fn reset_puts_the_sliders_back_and_keeps_the_switch() {
+    let mut p = FiltersPlugin::new();
+    let mut host = FakeHost::new();
+    p.setup(&mut host);
+    let ui = |p: &mut FiltersPlugin, host: &mut FakeHost, cb: &str, args: Vec<Value>| p.on_ui(host, &UiEvent { ui: "card".into(), callback: cb.into(), args });
+    ui(&mut p, &mut host, "switch-toggled-by-hand", vec![json!(false)]);
+    ui(&mut p, &mut host, "slider-moved", vec![json!(0), json!(60)]);
+    assert!(p.reset_shown());
+    ui(&mut p, &mut host, "reset-clicked", vec![]);
+    assert!(!p.is_on(), "the switch stays");
+    let mut want = FiltersPlugin::new().get_config();
+    want["on"] = json!(false);
+    assert_eq!(p.get_config(), want);
+    assert!(!p.reset_shown());
+    assert!(host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
+    assert!(host.calls.iter().any(|c| c == "schedule_save"));
+}

@@ -39,6 +39,8 @@ export component FramingCard inherits Card {
     callback framing-peek-open(bool);
     callback speed-peek-open(bool);
     callback download-clicked;
+    in property <bool> reset-shown;
+    callback reset-clicked;
 
     title: @tr("Auto framing");
     tip: @tr("Zoom and pan automatically to keep you in the picture.");
@@ -52,6 +54,11 @@ export component FramingCard inherits Card {
     switch-tip: switch-name;
     switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Puts the framing, speed, room and hand settings back. The switch stays as it is.");
+    reset => { root.reset-clicked(); }
 
     property <length> column: max(Theme.u(28), ceil(widest.preferred-width / 1px) * 1px + Theme.u(1));
 

@@ -842,3 +842,20 @@ fn a_camera_that_streams_again_brings_the_card_back_even_if_nobody_told_the_card
     rig.event(Event::StreamConnected { source_id: "webcam:cam".into() });
     assert_eq!((rig.props()["shown"].clone(), rig.props()["take-enabled"].clone()), (json!(true), json!(true)));
 }
+
+#[test]
+fn reset_puts_the_picks_back_and_keeps_the_folder() {
+    let mut p = PhotosPlugin::new();
+    let mut host = FakeHost::new();
+    p.setup(&mut host);
+    p.set_config(&json!({"quality": 70, "timer": 3, "best": false, "folder": "/home/me/shots"})).unwrap();
+    p.catch_up(&mut host);
+    assert!(p.reset_shown());
+    p.on_ui(&mut host, &UiEvent { ui: "card".into(), callback: "reset-clicked".into(), args: vec![] });
+    let mut want = Value::Object(defaults());
+    want["folder"] = json!("/home/me/shots");
+    assert_eq!(p.get_config(), want);
+    assert!(!p.reset_shown());
+    assert!(host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
+    assert!(host.calls.iter().any(|c| c == "schedule_save"));
+}

@@ -423,3 +423,18 @@ fn the_one_picture_needs_frames_only_while_it_is_on() {
     rig.plugin.shutdown(&mut rig.host);
     assert!(rig.host.frames_wanted.is_empty());
 }
+
+#[test]
+fn reset_clears_the_picture_and_keeps_the_switch_and_saved_layouts() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    r.plugin.save_layout(&mut r.host, "Two");
+    assert!(r.plugin.reset_shown());
+    r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: "reset-clicked".into(), args: vec![] });
+    assert!(r.plugin.layout().tiles.is_empty());
+    assert_eq!(r.plugin.get_config()["on"], true);
+    assert_eq!(r.plugin.names(), ["Two"]);
+    assert!(!r.plugin.reset_shown());
+    assert!(r.host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
+    assert!(r.host.calls.iter().any(|c| c == "schedule_save"));
+}

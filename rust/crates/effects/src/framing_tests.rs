@@ -1319,3 +1319,20 @@ fn lowering_the_ceiling_moves_a_roaming_slow_framing_down_to_it() {
     }
     assert!(zoom < 9.05, "settled at the new ceiling: {zoom}");
 }
+
+#[test]
+fn reset_puts_the_settings_back_and_keeps_the_switch() {
+    let mut rig = Rig::new();
+    rig.switch(true);
+    rig.ui("framing-moved", json!(3));
+    rig.ui("speed-moved", json!(9));
+    rig.ui("hand-toggled", json!(true));
+    assert!(rig.plugin.reset_shown());
+    rig.ui("reset-clicked", json!(null));
+    let mut want = FramingPlugin::new().get_config();
+    want["on"] = json!(true);
+    assert_eq!(rig.plugin.get_config(), want);
+    assert!(!rig.plugin.reset_shown());
+    assert!(rig.host.calls.iter().rev().find_map(|c| c.strip_prefix("set_ui_props card ").filter(|j| j.contains("reset-shown"))).is_some_and(|j| j.contains("\"reset-shown\":false")));
+    assert!(rig.host.calls.iter().any(|c| c == "schedule_save"));
+}

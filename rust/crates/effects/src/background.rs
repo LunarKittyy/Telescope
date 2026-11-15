@@ -18,6 +18,7 @@ use telescope_core::host::{FileDialog, FileDialogKind, Host, RequestId};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::image::{over_rows, planes_up_to_420, resize_linear_fixed, rgb_planes, rgb_to_420, small_rgb, spare_bytes, with_spares};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
 pub const NAME: &str = "background";
@@ -437,6 +438,7 @@ impl BackgroundPlugin {
             "picture-problem": self.picture_problem,
             "high-quality": self.high_quality,
             "picture-tip": self.picture_path,
+            "reset-shown": off_default(&self.get_config(), &BackgroundPlugin::new().get_config(), &[]),
         })
     }
 
@@ -598,6 +600,12 @@ impl Plugin for BackgroundPlugin {
                 self.changed(host);
             }
             "picture-clicked" => self.choose_picture(host),
+            "reset-clicked" => {
+                let cfg = reset_config(&self.get_config(), &BackgroundPlugin::new().get_config(), &[]);
+                if self.apply_preset(host, &cfg).is_ok() {
+                    host.schedule_save();
+                }
+            }
             "download-clicked" => {
                 host.download_vision();
                 self.show(host);

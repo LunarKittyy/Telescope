@@ -21,10 +21,17 @@ export component CinemaCard inherits Card {
     callback tool-toggled(int, bool);
     callback guide-picked(int);
     callback scope-picked(int);
+    in property <bool> reset-shown;
+    callback reset-clicked;
 
     title: @tr("Cinema tools");
     tip: @tr("Show focus peaking, zebras, false colour, scopes, guides and a level on the preview.");
     icon: Icons.focus;
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Switches the tools off and puts guides and scope back. The options in Settings stay.");
+    reset => { root.reset-clicked(); }
 
     UnfoldGroup {
         RailRow {
@@ -142,10 +149,17 @@ export component CinemaSettings inherits Card {
     callback peaking-moved(float);
     callback zebra-moved(float);
     callback size-picked(int);
+    in property <bool> reset-shown;
+    callback reset-clicked;
 
     title: @tr("Cinema tools");
     icon: Icons.focus;
     hue: Theme.plugin-hue("preview");
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Puts the peaking colour, sensitivity, zebra level and scope size back. The tools on the card stay as they are.");
+    reset => { root.reset-clicked(); }
 
     RailRow {
         icon: Icons.colour;
