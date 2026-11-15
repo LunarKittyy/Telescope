@@ -209,7 +209,7 @@ tt x 8        capture time in nanoseconds on that clock, big endian
 80            trailing bits
 ```
 
-The clock and time bytes carry the usual H.264 emulation prevention (a `03` goes in after `00 00` when the next byte is `00` to `03`), which a reader removes. The packet after the SEI is exactly what the encoder made, so the access unit reads `AUD [SPS PPS] SEI slice`. Decoders that don't know the UUID skip it. A phone that can't tell which clock its camera uses sends no SEI.
+The clock and time bytes carry the usual H.264 emulation prevention (a `03` goes in after `00 00` when the next byte is `00` to `03`), which a reader removes. The packet after the SEI is exactly what the encoder made, so the access unit reads `AUD [SPS PPS] SEI slice`. Decoders that don't know the UUID skip it. The phone picks the clock per frame from the timestamp itself (the one that puts it 0 to 2 s before now, the smaller gap if both do), because the camera's declared timestamp source isn't always what the encoder sees; a frame that fits neither gets no SEI.
 
 ## `GET /v1/video.udp` (experimental)
 
