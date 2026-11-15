@@ -259,14 +259,22 @@ export component Card inherits Rectangle {
                 shortcut: root.action-shortcut;
                 clicked => { root.action(); }
             }
-            if has-reset: IconButton {
-                icon: Icons.reset;
-                label: reset-label;
-                tip: reset-label;
-                tip-detail: reset-detail;
-                shortcut: root.reset-shortcut;
-                enabled: live && reset-lit;
-                clicked => { root.reset(); }
+            // As tall as the switch beside it and a little narrower, so the two read as a pair rather than a big square next to a flat switch
+            if has-reset: Rectangle {
+                width: Theme.u(16);
+                IconButton {
+                    y: (parent.height - self.height) / 2;
+                    width: parent.width;
+                    height: Theme.switch-h;
+                    icon-size: Theme.icon-small;
+                    icon: Icons.reset;
+                    label: reset-label;
+                    tip: reset-label;
+                    tip-detail: reset-detail;
+                    shortcut: root.reset-shortcut;
+                    enabled: live && reset-lit;
+                    clicked => { root.reset(); }
+                }
             }
             if has-switch: Rectangle {
                 width: Theme.switch-w;
