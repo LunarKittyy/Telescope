@@ -1256,3 +1256,25 @@ fn a_focus_slider_that_is_off_takes_nothing_typed() {
     assert!(r.sent().is_empty());
     assert_eq!(r.props()["focus-pos"], 0);
 }
+
+#[test]
+fn reset_goes_back_to_automatic_and_keeps_the_lens() {
+    let mut r = Rig::new();
+    r.streaming();
+    r.cam.lens_id = Some("back".into());
+    r.ui("exposure-picked", vec![json!(1)]);
+    r.ui("wb-picked", vec![json!(1)]);
+    r.ui("ae-moved", vec![json!(3)]);
+    r.ui("nr-picked", vec![json!(2)]);
+    assert!(r.props()["reset-shown"] == true);
+    r.clear();
+    r.ui("reset-clicked", vec![]);
+    let mut want = CameraControl::new().config();
+    want["lens"] = json!("back");
+    assert_eq!(r.cam.get_config(), want);
+    let sent = r.actions_sent();
+    assert!(sent.contains(&"auto".to_string()) && sent.contains(&"wb_auto".to_string()), "the phone is told to go automatic: {sent:?}");
+    assert_eq!(r.props()["reset-shown"], false);
+    assert!(r.host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
+    assert!(r.saves() >= 1);
+}

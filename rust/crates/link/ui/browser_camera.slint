@@ -54,6 +54,8 @@ export component BrowserCameraCard inherits Card {
     callback copy;
     callback size-picked(int);
     callback fps-picked(int);
+    in property <bool> reset-shown;
+    callback reset-clicked;
 
     // It has the code to scan, and the column can be scrolled away from the top when Browser camera is picked in the header
     changed shown => { reveal = shown; }
@@ -72,11 +74,16 @@ export component BrowserCameraCard inherits Card {
     tip: @tr("Stream from any device's web browser by scanning a code.");
     icon: Icons.wifi;
     has-action: true;
-    action-icon: Icons.reset;
+    action-icon: Icons.link;
     action-text: @tr("New link");
     action-tip-detail: @tr("Make a new code. The old code stops working.");
     action-enabled: new-link-enabled;
     action => { root.new-link(); }
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Puts the size and frame rate back. The remembered browsers and the address stay.");
+    reset => { root.reset-clicked(); }
 
     // The code is the card: centred, with what the browser is doing in one quiet line under it. The certificate steps are its tooltip.
     Rectangle {

@@ -9,6 +9,7 @@ use telescope_core::event::Event;
 use telescope_core::i18n::{n_, number, tr, tr_ctx};
 use telescope_core::lens::{lens_label, lens_name, shorten_lens_label};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo, StreamsBehind};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 use telescope_core::{FrameStage, Host};
 
@@ -1331,6 +1332,20 @@ impl CameraControl {
         loaded
     }
 
+    /// The lens is the phone's to offer and the person's to pick, so a Reset leaves it.
+    const RESET_KEPT: &'static [&'static str] = &["lens"];
+
+    fn reset_shown(&self) -> bool {
+        off_default(&self.config(), &CameraControl::new().config(), Self::RESET_KEPT)
+    }
+
+    /// Back to the phone's automatic exposure, focus and white balance and the defaults for the rest, sent like a preset.
+    fn reset(&mut self) {
+        let cfg = reset_config(&self.config(), &CameraControl::new().config(), Self::RESET_KEPT);
+        let _ = self.preset(&cfg);
+        self.out.saves += 1;
+    }
+
     // ── What the card shows ──
 
     /// Low light is always on the card: greyed out, with the reason, until a streaming phone says it takes it.
@@ -1392,6 +1407,7 @@ impl CameraControl {
             "torch": tile(&self.torch),
             "noise-reduction": self.nr,
             "sharpening": self.edge,
+            "reset-shown": self.reset_shown(),
         });
         // Apart from the rest: json! gives up on one this long
         props["lens-columns"] = json!(lens_columns(self.lenses.cameras.len()));
@@ -1735,6 +1751,7 @@ impl Plugin for CameraControl {
         let b = |i: usize| event.args.get(i).and_then(Value::as_bool).unwrap_or(false);
         match event.callback.as_str() {
             "lens-picked" => self.on_ui_lens(n(0) as usize),
+            "reset-clicked" => self.reset(),
             "exposure-picked" => {
                 if self.exp.enabled.get(n(0) as usize) == Some(&true) {
                     self.set_exp(n(0) as usize == 1);

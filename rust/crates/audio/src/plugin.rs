@@ -18,6 +18,7 @@ use telescope_core::event::Event;
 use telescope_core::host::{Host, Poster};
 use telescope_core::i18n::{n_, tr, tr_ctx};
 use telescope_core::link::{Link, PhoneSession};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::media::FeedEnd;
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::source::RouteSpec;
@@ -467,7 +468,37 @@ impl MicrophonePlugin {
 
     fn show_gain(&mut self, h: &mut dyn MicHost) {
         h.set_card(&json!({"gain": self.gain_db, "gain-max": self.max_gain_db, "gain-min": GAIN_MIN_DB,
-                           "gain-text": format!("{} dB", signed_db(self.gain_db))}));
+                           "gain-text": format!("{} dB", signed_db(self.gain_db)),
+                           "reset-shown": self.reset_shown()}));
+    }
+
+    /// The switch and the mute state are not part of the card's Reset.
+    const RESET_KEPT: &'static [&'static str] = &["enabled"];
+
+    fn defaults() -> Value {
+        json!({"enabled": false, "gain_db": 0, "auto_level": false, "noise_reduction": false})
+    }
+
+    fn reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &Self::defaults(), Self::RESET_KEPT)
+    }
+
+    fn reset(&mut self, h: &mut dyn MicHost) {
+        let cfg = reset_config(&self.get_config(), &Self::defaults(), Self::RESET_KEPT);
+        let on = |k: &str| cfg.get(k).and_then(Value::as_bool).unwrap_or(false);
+        self.auto_level = on("auto_level");
+        self.noise_reduction = on("noise_reduction");
+        if let Some(w) = &self.worker {
+            w.set_auto_level(self.auto_level);
+            w.set_noise_reduction(self.noise_reduction && self.nr_problem.is_empty());
+        }
+        h.set_card(&json!({"auto-level": self.auto_level, "nr": self.noise_reduction && self.nr_problem.is_empty()}));
+        self.gain_db = cfg.get("gain_db").and_then(Value::as_i64).unwrap_or(0) as i32;
+        if let Some(w) = &self.worker {
+            w.set_gain(10f32.powf(self.gain_db as f32 / 20.0));
+        }
+        self.show_gain(h);
+        h.schedule_save();
     }
 
     fn tray(&self) -> TrayAction {
@@ -533,7 +564,7 @@ impl MicrophonePlugin {
         if let Some(w) = &self.worker {
             w.set_auto_level(on);
         }
-        h.set_card(&json!({"auto-level": on}));
+        h.set_card(&json!({"auto-level": on, "reset-shown": self.reset_shown()}));
         h.schedule_save();
     }
 
@@ -545,7 +576,7 @@ impl MicrophonePlugin {
         if let Some(w) = &self.worker {
             w.set_noise_reduction(on);
         }
-        h.set_card(&json!({"nr": on}));
+        h.set_card(&json!({"nr": on, "reset-shown": self.reset_shown()}));
         h.schedule_save();
     }
 
@@ -934,6 +965,7 @@ impl MicrophonePlugin {
             }
             "auto-toggled" => self.set_auto_level(h, b(0)),
             "nr-toggled" => self.set_noise_reduction(h, b(0)),
+            "reset-clicked" => self.reset(h),
             "fix-clicked" => self.open_action(h),
             "meter-clicked" => {
                 self.meter.click();

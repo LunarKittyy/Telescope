@@ -17,6 +17,7 @@ use super::feed::{BrowserFeed, BrowserHub, BrowserVideo, Sent};
 use super::rtc::{RtcMaker, RtcSession, StrSession};
 use super::server::{BrowserServer, BROWSER_PORT};
 use serde_json::{json, Map, Value};
+use telescope_core::settings::{off_default, reset_config};
 use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, Ordering};
@@ -640,6 +641,7 @@ impl BrowserCameraPlugin {
             "note-text": tr(CERT_STEPS),
             "url-short": short_url(&url),
             "new-link-enabled": server.is_some(),
+            "reset-shown": self.reset_shown(),
         })
     }
 
@@ -998,6 +1000,24 @@ impl BrowserCameraPlugin {
         h.schedule_save();
     }
 
+    /// Browsers remembered and the address picked are not part of the card's Reset.
+    const RESET_KEPT: &'static [&'static str] = &["known", "address"];
+
+    fn defaults() -> Value {
+        json!({"size": DEFAULT_SIZE, "fps": DEFAULT_FPS, "address": "", "known": {}})
+    }
+
+    fn reset_shown(&self) -> bool {
+        off_default(&self.config(), &Self::defaults(), Self::RESET_KEPT)
+    }
+
+    fn reset(&mut self, h: &mut dyn BrowserHost) {
+        let cfg = reset_config(&self.config(), &Self::defaults(), Self::RESET_KEPT);
+        let size = cfg.get("size").and_then(Value::as_str).unwrap_or(DEFAULT_SIZE).to_string();
+        let fps = cfg.get("fps").and_then(Value::as_u64).map_or(DEFAULT_FPS, |f| f as u32);
+        self.set_capture(h, Some(&size), Some(fps));
+    }
+
     fn apply_capture(&self) {
         let (_, w, h) = SIZES.iter().find(|s| s.0 == self.size).copied().unwrap_or(SIZES[1]);
         self.hub.set_capture(w, h, self.fps);
@@ -1154,6 +1174,7 @@ impl BrowserCameraPlugin {
         let i = args.first().and_then(Value::as_f64).map_or(0, |v| v.max(0.0) as usize);
         match callback {
             "new-link" => self.new_link(h),
+            "reset-clicked" => self.reset(h),
             "copy" => {
                 let url = self.url();
                 h.copy_text(&url);

@@ -745,3 +745,19 @@ fn a_browser_stays_off_the_graphics_card() {
     r.arrive("pixel-aaaaaaaa", "Pixel");
     assert!(!r.host.sources["browser:pixel-aaaaaaaa"].card_decoding());
 }
+
+#[test]
+fn reset_puts_size_and_fps_back_and_keeps_the_address_and_known_browsers() {
+    let mut r = Rig::new();
+    r.select(SOURCE_ID);
+    r.arrive("pixel-aaaaaaaa", "");
+    r.plugin.ui(&mut r.host, "fps-picked", &[json!(0)]);
+    r.plugin.ui(&mut r.host, "size-picked", &[json!(2)]);
+    assert_eq!(r.host.card["reset-shown"], true);
+    let before = r.plugin.get_config();
+    r.plugin.ui(&mut r.host, "reset-clicked", &[]);
+    let cfg = r.plugin.get_config();
+    assert_eq!((cfg["size"].clone(), cfg["fps"].clone()), (json!("720p"), json!(30)));
+    assert_eq!((cfg["address"].clone(), cfg["known"].clone()), (before["address"].clone(), before["known"].clone()));
+    assert_eq!(r.host.card["reset-shown"], false);
+}

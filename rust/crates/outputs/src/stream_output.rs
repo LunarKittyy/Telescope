@@ -9,6 +9,7 @@ use telescope_core::event::Event;
 use telescope_core::host::{Host, OutputChange};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::ui::{ActionSpec, CardSpec, Issue, IssueAction, IssueDoes, SlintSource, UiEvent, UiSpec};
 
 pub const NAME: &str = "stream_output";
@@ -301,6 +302,13 @@ impl StreamOutputPlugin {
         }
     }
 
+    /// The size picked is the phone's and this camera's to offer, so a Reset leaves it.
+    const RESET_KEPT: &'static [&'static str] = &["resolution"];
+
+    fn reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &StreamOutputPlugin::new(self.h264_available).get_config(), Self::RESET_KEPT)
+    }
+
     pub fn props(&self) -> Value {
         let (res_items, ar_items) = if self.sizes.ratios.is_empty() {
             (vec!["-".to_string()], vec!["-".to_string()])
@@ -323,6 +331,7 @@ impl StreamOutputPlugin {
             "light-tip": self.light_tip(), "heavy-tip": tr(HEAVY_TIP),
             "quality": self.quality, "quality-readout": format!("{}%", self.quality), "quality-tip": self.quality_tip(),
             "bitrate": self.bitrate, "bitrate-readout": self.bitrate_text(), "bitrate-tip": bitrate_tip,
+            "reset-shown": self.reset_shown(),
         })
     }
 
@@ -923,6 +932,12 @@ impl StreamOutputPlugin {
             "bitrate-moved" => {
                 let Some(b) = arg(0).as_f64() else { return };
                 self.set_bitrate(host, b.round() as i64);
+            }
+            "reset-clicked" => {
+                let cfg = reset_config(&self.get_config(), &StreamOutputPlugin::new(self.h264_available).get_config(), Self::RESET_KEPT);
+                if self.apply_preset_inner(host, &cfg).is_ok() {
+                    host.schedule_save();
+                }
             }
             _ => return,
         }

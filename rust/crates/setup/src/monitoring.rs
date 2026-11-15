@@ -11,6 +11,7 @@ use telescope_core::event::Event;
 use telescope_core::host::Host;
 use telescope_core::i18n::{n_, number, percent, tr, tr_ctx};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::ui::{CardSpec, Issue, IssueAction, IssueDoes, SlintSource, UiEvent, UiSpec};
 
 pub const NAME: &str = "monitoring";
@@ -181,11 +182,27 @@ impl MonitoringPlugin {
             "temp-text": Self::spin_text(self.temp_alert, " °C"),
             "batt-notify": self.battery_notify, "batt-stop": self.battery_stop,
             "temp-notify": self.temp_notify, "temp-stop": self.temp_stop,
+            "reset-shown": self.reset_shown(),
         })
     }
 
     fn show(&self, host: &mut dyn Host) {
         host.set_ui_props("card", &self.props());
+    }
+
+    /// Every setting on the card is an alert, so a Reset puts all of them back.
+    const RESET_KEPT: &'static [&'static str] = &[];
+
+    fn reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &MonitoringPlugin::new().get_config(), Self::RESET_KEPT)
+    }
+
+    fn reset(&mut self, host: &mut dyn Host) {
+        let cfg = reset_config(&self.get_config(), &MonitoringPlugin::new().get_config(), Self::RESET_KEPT);
+        if self.set_config(&cfg).is_ok() {
+            host.schedule_save();
+        }
+        self.show(host);
     }
 
     fn start_polling(&mut self, host: &mut dyn Host) {
@@ -533,6 +550,7 @@ impl Plugin for MonitoringPlugin {
         match event.callback.as_str() {
             "batt-moved" => self.set_battery_alert(host, level),
             "temp-moved" => self.set_temp_alert(host, level),
+            "reset-clicked" => self.reset(host),
             "alert-toggled" => {
                 let on = event.args.get(1).and_then(Value::as_bool).unwrap_or(false);
                 self.set_switch(host, text, on);

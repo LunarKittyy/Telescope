@@ -922,3 +922,19 @@ fn the_compact_label_follows_the_status_in_any_language() {
     assert_eq!(short_of(&tr(CONNECTING), "dim", None), tr(CONNECTING));
     assert_eq!(short_of("something else", "dim", None), tr("On elsewhere"));
 }
+
+#[test]
+fn reset_puts_the_sound_settings_back_and_keeps_the_switch_and_mute() {
+    let mut r = Rig::new(backend());
+    r.set_config(json!({"enabled": true, "gain_db": 6, "auto_level": true}));
+    r.start("phone");
+    r.ui("mute-toggled", vec![json!(true)]);
+    r.ui("gain-moved", vec![json!(5)]);
+    assert!(r.p.reset_shown() && r.h.on("reset-shown"));
+    r.ui("reset-clicked", vec![]);
+    assert_eq!(r.p.get_config(), config(true, 0, false, false));
+    assert!(r.p.muted, "mute stays");
+    let w = r.worker();
+    assert!(w.lock().unwrap().gain == 1.0 && !w.lock().unwrap().auto_level);
+    assert!(!r.p.reset_shown() && !r.h.on("reset-shown"));
+}
