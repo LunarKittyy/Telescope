@@ -61,6 +61,8 @@ export component NameTagCard inherits Card {
     callback switch-toggled-by-hand(bool);
     callback text-edited(int, string);
     callback choice-picked(int, int);
+    in property <bool> reset-shown;
+    callback reset-clicked;
 
     title: @tr("Name tag");
     tip: @tr("Show your name and pronouns in a corner of the picture.");
@@ -71,6 +73,11 @@ export component NameTagCard inherits Card {
     switch-label: switch-name;
     switch-tip: switch-name;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Puts the style, position and size back. Your name, pronouns and second line stay.");
+    reset => { root.reset-clicked(); }
 
     RailRow {
         icon: Icons.person;

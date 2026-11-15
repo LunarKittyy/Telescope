@@ -13,6 +13,7 @@ use telescope_core::event::Event;
 use telescope_core::host::Host;
 use telescope_core::i18n::{n_, tr, tr_ctx};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::ui::{ActionSpec, CardSpec, SettingsSection, SlintSource, UiEvent, UiSpec};
 
 pub const NAME: &str = "cinema";
@@ -37,6 +38,11 @@ const SWITCHES: [(&str, &str); 4] = [
     ("cinema.false_colour", n_("False colour")),
     ("cinema.level", n_("Level")),
 ];
+
+/// What the card's Reset leaves alone: the options of the Settings section.
+const CARD_KEPT: &[&str] = &["peaking_colour", "peaking_level", "zebra_level", "scope_size"];
+/// What the section's Reset leaves alone: the tools of the card.
+const SECTION_KEPT: &[&str] = &["peaking", "zebras", "false_colour", "level", "scope", "guides"];
 
 pub struct CinemaPlugin {
     layer: Arc<CinemaLayer>,
@@ -130,6 +136,7 @@ impl CinemaPlugin {
             "scope-current": SCOPES.iter().position(|(k, _)| *k == look.scope).unwrap_or(0),
             "level-note": self.level_note,
             "level-note-shown": !self.level_note.is_empty(),
+            "reset-shown": self.reset_shown(CARD_KEPT),
         })
     }
 
@@ -152,7 +159,22 @@ impl CinemaPlugin {
             "zebra-readout": format!("{}%", look.zebra_level),
             "peaking-tip": tr(SENSITIVITY_TIP),
             "zebra-tip": tr(ZEBRA_FROM_TIP),
+            "reset-shown": self.reset_shown(SECTION_KEPT),
         })
+    }
+
+    fn reset_shown(&self, kept: &[&str]) -> bool {
+        off_default(&self.get_config(), &CinemaPlugin::new().get_config(), kept)
+    }
+
+    /// Each Reset puts back its own half of the settings: the tools on the card, or the options in Settings.
+    fn reset(&mut self, host: &mut dyn Host, kept: &[&str]) {
+        let cfg = reset_config(&self.get_config(), &CinemaPlugin::new().get_config(), kept);
+        if self.set_config(&cfg).is_ok() {
+            self.pending = false;
+            let look = self.look.clone();
+            self.changed(host, look);
+        }
     }
 
     fn show(&self, host: &mut dyn Host) {
@@ -383,6 +405,8 @@ impl Plugin for CinemaPlugin {
             }
             ("card", "guide-picked") => self.guide_picked(host, number as usize),
             ("card", "scope-picked") => self.scope_picked(host, number as usize),
+            ("card", "reset-clicked") => self.reset(host, CARD_KEPT),
+            (NAME, "reset-clicked") => self.reset(host, SECTION_KEPT),
             (NAME, "shown") => host.set_ui_props(NAME, &self.section_props()),
             (NAME, callback) => {
                 let mut look = self.look.clone();

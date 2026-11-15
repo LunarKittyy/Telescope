@@ -14,6 +14,7 @@ use telescope_core::host::{Host, Poster};
 use telescope_core::i18n::{n_, tr, tr_ctx};
 use telescope_core::output::{Held, Outputs};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::time::monotonic_ns;
 use telescope_core::ui::{CardSpec, Issue, IssueAction, IssueDoes, SettingsSection, SlintSource, UiEvent, UiSpec};
 use telescope_core::web::{Serve, Web, WebServer};
@@ -111,6 +112,11 @@ pub struct OnAirPlugin {
     pending: bool,
     save_token: bool,
 }
+
+/// What the sign card's Reset leaves alone: everything but what puts the sign on air.
+const SIGN_KEPT: &[&str] = &["page", "token", "address", "webhook_url", "webhook_method", "webhook_on", "webhook_off"];
+/// What the webhook card's Reset leaves alone: the webhook's address, and all the rest.
+const WEBHOOK_KEPT: &[&str] = &["trigger", "page", "token", "address", "webhook_url"];
 
 impl OnAirPlugin {
     /// `outputs` is what the camera is watched through when Wait screen isn't there to say (None: not at all).
@@ -421,6 +427,40 @@ impl OnAirPlugin {
         host.schedule_save();
     }
 
+    // ── Reset ─────────────────────────────────────────────────────────
+
+    /// What the settings are before anyone sets them (the link and the addresses are made, not set).
+    fn defaults() -> Value {
+        json!({"trigger": DEFAULT_TRIGGER, "page": true, "token": "", "address": "", "webhook_url": "", "webhook_method": "POST", "webhook_on": "", "webhook_off": ""})
+    }
+
+    fn sign_reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &Self::defaults(), SIGN_KEPT)
+    }
+
+    fn webhook_reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &Self::defaults(), WEBHOOK_KEPT)
+    }
+
+    /// The first card's Reset: what puts the sign on air goes back, whatever else is set stays.
+    fn reset_sign(&mut self, host: &mut dyn Host) {
+        let cfg = reset_config(&self.get_config(), &Self::defaults(), SIGN_KEPT);
+        if let Some(trigger) = cfg.get("trigger").and_then(Value::as_str) {
+            self.set_trigger(host, trigger);
+        }
+        self.refresh(host);
+    }
+
+    /// The webhook card's Reset: the method and the two texts go back, the address stays.
+    fn reset_webhook(&mut self, host: &mut dyn Host) {
+        let cfg = reset_config(&self.get_config(), &Self::defaults(), WEBHOOK_KEPT);
+        let text = |key: &str| cfg.get(key).and_then(Value::as_str).map(String::from).unwrap_or_default();
+        self.set_webhook(host, Some(&text("webhook_url")), Some(&text("webhook_method")), Some(&text("webhook_on")), Some(&text("webhook_off")));
+        // The boxes own what's typed in them, so they are told
+        host.set_ui_props(TAB, &self.typed_props());
+        self.refresh(host);
+    }
+
     // ── UI ────────────────────────────────────────────────────────────
 
     fn url_problem(&self) -> String {
@@ -464,6 +504,7 @@ impl OnAirPlugin {
             "method-current": METHODS.iter().position(|m| *m == self.webhook_method).unwrap_or(0),
             "on-placeholder": on_placeholder, "off-placeholder": off_placeholder,
             "test-text": self.test_result.0, "test-kind": if self.test_result.1.is_empty() { "status_dim" } else { self.test_result.1 },
+            "sign-reset-shown": self.sign_reset_shown(), "webhook-reset-shown": self.webhook_reset_shown(),
         });
         if with_qr || url != self.qr_url {
             let (cells, size) = if url.is_empty() { (Vec::new(), 0) } else { telescope_core::qr::encode(&url) };
@@ -650,8 +691,11 @@ impl Plugin for OnAirPlugin {
             "trigger-picked" => {
                 if let Some(trigger) = TRIGGERS.get(index(0)) {
                     self.set_trigger(host, trigger);
+                    self.refresh(host);
                 }
             }
+            "sign-reset-clicked" => self.reset_sign(host),
+            "webhook-reset-clicked" => self.reset_webhook(host),
             "page-toggled" => {
                 let on = event.args.first().and_then(Value::as_bool).unwrap_or(false);
                 self.set_page(host, on);
@@ -676,8 +720,14 @@ impl Plugin for OnAirPlugin {
                     self.refresh(host);
                 }
             }
-            "on-edited" => self.set_webhook(host, None, None, Some(&text(0)), None),
-            "off-edited" => self.set_webhook(host, None, None, None, Some(&text(0))),
+            "on-edited" => {
+                self.set_webhook(host, None, None, Some(&text(0)), None);
+                self.refresh(host);
+            }
+            "off-edited" => {
+                self.set_webhook(host, None, None, None, Some(&text(0)));
+                self.refresh(host);
+            }
             "test-clicked" => {
                 let on = event.args.first().and_then(Value::as_bool).unwrap_or(false);
                 self.send_test(host, on);

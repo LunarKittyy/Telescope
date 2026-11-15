@@ -16,6 +16,7 @@ use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep,
 use telescope_core::host::{FileDialog, FileDialogKind, Host, PickKind, Poster, RequestId};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
 pub const NAME: &str = "chroma_key";
@@ -311,6 +312,7 @@ impl ChromaKeyPlugin {
             "has-picture": self.has_picture,
             "picture-problem": self.picture_problem,
             "picture-tip": self.picture_path,
+            "reset-shown": self.reset_shown(),
             "status": text,
             "status-detail": self.status.as_ref().map(|s| s.1.clone()).unwrap_or_default(),
             "status-kind": if self.status_text().is_empty() { "status_dim" } else { "status_warn" },
@@ -330,6 +332,21 @@ impl ChromaKeyPlugin {
             self.thumb_sent = true;
             let empty = Frame::new(0, 0, telescope_core::frame::PixelFormat::Rgba, Vec::new());
             host.set_ui_image("card", "picture-thumb", self.thumb.as_ref().unwrap_or(&empty));
+        }
+    }
+
+    /// The card's own switch is not part of its Reset.
+    const RESET_KEPT: &'static [&'static str] = &["on"];
+
+    fn reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &ChromaKeyPlugin::new().get_config(), Self::RESET_KEPT)
+    }
+
+    fn reset(&mut self, host: &mut dyn Host) {
+        let cfg = reset_config(&self.get_config(), &ChromaKeyPlugin::new().get_config(), Self::RESET_KEPT);
+        if self.set_config(&cfg).is_ok() {
+            self.pending = false;
+            self.changed(host);
         }
     }
 
@@ -608,6 +625,7 @@ impl Plugin for ChromaKeyPlugin {
                     self.set_screen(host, screen);
                 }
             }
+            "reset-clicked" => self.reset(host),
             "slider-moved" => {
                 let i = (n(0) as usize).min(2);
                 self.sliders[i] = (n(1).round() as i64).clamp(0, 100);

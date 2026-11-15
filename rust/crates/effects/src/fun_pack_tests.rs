@@ -593,3 +593,22 @@ fn bench_game_boy() {
         }
     }
 }
+
+#[test]
+fn reset_switches_the_effect_off_and_puts_the_sliders_back() {
+    let mut p = FunPackPlugin::new();
+    let mut host = FakeHost::new();
+    p.setup(&mut host);
+    let ui = |p: &mut FunPackPlugin, host: &mut FakeHost, cb: &str, args: Vec<Value>| p.on_ui(host, &UiEvent { ui: "card".into(), callback: cb.into(), args });
+    let slit = EFFECTS.iter().position(|(k, _)| *k == "slit").unwrap();
+    ui(&mut p, &mut host, "effect-picked", vec![json!(slit)]);
+    ui(&mut p, &mut host, "slider-moved", vec![json!(3), json!(7)]);
+    ui(&mut p, &mut host, "direction-picked", vec![json!(1)]);
+    assert!(p.reset_shown());
+    ui(&mut p, &mut host, "reset-clicked", vec![]);
+    assert_eq!(p.effect(), "off");
+    assert_eq!(p.get_config(), FunPackPlugin::defaults());
+    assert!(!p.reset_shown());
+    assert!(host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
+    assert!(host.calls.iter().any(|c| c == "schedule_save"));
+}

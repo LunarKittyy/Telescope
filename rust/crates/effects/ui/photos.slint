@@ -130,12 +130,19 @@ export component PhotosCard inherits Card {
     callback timer-picked(int);
     callback best-toggled(bool);
     callback folder-clicked;
+    in property <bool> reset-shown;
+    callback reset-clicked;
 
     title: @tr("Photos");
     tip: @tr("Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it.");
     icon: Icons.photo;
     visible: shown;
     enabled: active;
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Puts the photo mode, format, quality, timer and the rest back. The folder your photos go to stays.");
+    reset => { root.reset-clicked(); }
 
     UnfoldGroup {
         RailRow {

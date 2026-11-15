@@ -239,3 +239,26 @@ fn the_limit_counts_as_qts_does() {
     assert_eq!(cut(&"\u{1f319}".repeat(50)).chars().count(), MAX_CHARS / 2);
     assert_eq!(cut(&"a".repeat(90)).len(), MAX_CHARS);
 }
+
+#[test]
+fn reset_puts_the_look_back_and_keeps_what_was_typed() {
+    let mut rig = Rig::new();
+    let ui = |rig: &mut Rig, cb: &str, args: Vec<Value>| rig.plugin.on_ui(&mut rig.host, &UiEvent { ui: "card".into(), callback: cb.into(), args });
+    ui(&mut rig, "switch-toggled-by-hand", vec![json!(true)]);
+    ui(&mut rig, "text-edited", vec![json!(0), json!("Ada")]);
+    ui(&mut rig, "text-edited", vec![json!(1), json!("she/her")]);
+    ui(&mut rig, "text-edited", vec![json!(2), json!("Engineer")]);
+    ui(&mut rig, "choice-picked", vec![json!(1), json!(1)]);
+    ui(&mut rig, "choice-picked", vec![json!(2), json!(2)]);
+    assert!(rig.plugin.reset_shown());
+    ui(&mut rig, "reset-clicked", vec![]);
+    let mut want = NameTagPlugin::new().get_config();
+    want["on"] = json!(true);
+    want["name"] = json!("Ada");
+    want["pronouns"] = json!("she/her");
+    want["second"] = json!("Engineer");
+    assert_eq!(rig.plugin.get_config(), want);
+    assert!(!rig.plugin.reset_shown());
+    assert!(rig.host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
+    assert!(rig.host.calls.iter().any(|c| c == "schedule_save"));
+}

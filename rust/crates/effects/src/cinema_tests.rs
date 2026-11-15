@@ -345,3 +345,23 @@ fn shortcuts_wait_for_a_phone_like_the_card() {
     assert_eq!(p.run_action(&mut host, "cinema.zebras", &json!({"mode": "on"})), None);
     assert!(!p.layer().look().zebras);
 }
+
+#[test]
+fn each_reset_puts_back_its_own_half() {
+    let mut p = CinemaPlugin::new();
+    let mut host = FakeHost::new();
+    p.setup(&mut host);
+    let fire = |p: &mut CinemaPlugin, host: &mut FakeHost, ui: &str, cb: &str, args: Vec<Value>| p.on_ui(host, &UiEvent { ui: ui.into(), callback: cb.into(), args });
+    fire(&mut p, &mut host, "card", "tool-toggled", vec![json!(0), json!(true)]);
+    fire(&mut p, &mut host, NAME, "peaking-moved", vec![json!(9)]);
+    assert!(p.reset_shown(CARD_KEPT) && p.reset_shown(SECTION_KEPT));
+    fire(&mut p, &mut host, "card", "reset-clicked", vec![]);
+    assert!(!p.look().peaking, "the tool is back off");
+    assert_eq!(p.look().peaking_level, 9, "the Settings options stay");
+    assert!(!p.reset_shown(CARD_KEPT) && p.reset_shown(SECTION_KEPT));
+    fire(&mut p, &mut host, NAME, "reset-clicked", vec![]);
+    assert_eq!(p.get_config(), CinemaPlugin::new().get_config());
+    assert!(!p.reset_shown(SECTION_KEPT));
+    assert!(host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
+    assert!(host.calls.iter().any(|c| c == "schedule_save"));
+}

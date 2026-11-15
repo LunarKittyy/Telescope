@@ -16,6 +16,7 @@ use telescope_core::hold::{self, Hold, Tick, TICK_MS};
 use telescope_core::host::{FileDialog, FileDialogKind, Host, RequestId};
 use telescope_core::i18n::{n_, tr, trn_open};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
 pub const NAME: &str = "photos";
@@ -565,7 +566,32 @@ impl PhotosPlugin {
             "best": c.get("best") == Some(&json!(true)), "best-enabled": best, "best-tip": tr(if best { BEST_TIP } else { BEST_OFF_TIP }),
             "folder-name": Path::new(&self.folder).file_name().map(|n| n.to_string_lossy().into_owned()).filter(|n| !n.is_empty()).unwrap_or_else(|| self.folder.clone()),
             "folder-tip": self.folder, "folder-changed": self.folder != self.default_folder,
+            "reset-shown": self.reset_shown(),
         })
+    }
+
+    /// What a Reset leaves alone: where the photos go.
+    const RESET_KEPT: &'static [&'static str] = &["folder"];
+
+    /// A config with every number as a float, so a saved 95 and a default 95.0 are the same pick.
+    fn alike(config: Value) -> Value {
+        match config {
+            Value::Number(n) => n.as_f64().map_or(Value::Number(n), |f| json!(f)),
+            Value::Object(map) => Value::Object(map.into_iter().map(|(k, v)| (k, Self::alike(v))).collect()),
+            other => other,
+        }
+    }
+
+    fn reset_shown(&self) -> bool {
+        off_default(&Self::alike(self.get_config()), &Self::alike(Value::Object(defaults())), Self::RESET_KEPT)
+    }
+
+    fn reset(&mut self, host: &mut dyn Host) {
+        let cfg = reset_config(&self.get_config(), &Value::Object(defaults()), Self::RESET_KEPT);
+        if self.set_config(&cfg).is_ok() {
+            self.catch_up(host);
+            host.schedule_save();
+        }
     }
 
     /// The lists the card's controls have, which a held arrow has to see unchanged.
@@ -964,6 +990,7 @@ impl Plugin for PhotosPlugin {
             }
             "best-toggled" => self.pick_value(host, "best", json!(event.args.first().and_then(Value::as_bool).unwrap_or(false))),
             "folder-clicked" => self.choose_folder(host),
+            "reset-clicked" => self.reset(host),
             _ => {}
         }
     }

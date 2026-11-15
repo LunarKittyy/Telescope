@@ -13,6 +13,7 @@ use telescope_core::host::Host;
 use telescope_core::i18n::{n_, tr, tr_ctx};
 use telescope_core::json::{dumps, Style};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::text::{py_lines, py_space, py_strip};
 use telescope_core::time::monotonic_ns;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
@@ -331,7 +332,28 @@ impl NotesPlugin {
             "playing": self.playing, "play-text": if self.playing { tr("Pause") } else { tr("Play") },
             "send-enabled": self.send_enabled(), "clear-enabled": sent, "nav-enabled": sent,
             "status": status, "status-detail": say.detail(), "status-kind": if kind == "dim" { "status_dim" } else { kind },
+            "reset-shown": self.reset_shown(),
         })
+    }
+
+    /// What a Reset leaves alone: the scripts and which one is open.
+    const RESET_KEPT: &'static [&'static str] = &["sets", "current"];
+
+    fn reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &NotesPlugin::new().get_config(), Self::RESET_KEPT)
+    }
+
+    fn reset(&mut self, host: &mut dyn Host) {
+        let cfg = reset_config(&self.get_config(), &NotesPlugin::new().get_config(), Self::RESET_KEPT);
+        if self.set_config(&cfg).is_ok() {
+            self.pending = false;
+            if !self.scroll_auto {
+                self.set_playing(host, false);
+            }
+            self.send_style(host);
+            self.show(host);
+            host.schedule_save();
+        }
     }
 
     /// Every property the card has.
@@ -621,6 +643,7 @@ impl Plugin for NotesPlugin {
                 let text = event.args.first().and_then(Value::as_str).unwrap_or("").to_string();
                 self.edited(host, &text);
             }
+            "reset-clicked" => self.reset(host),
             "size-moved" => self.set_size(host, n(0).round() as i64),
             "scroll-picked" => self.set_scroll(host, n(0) as usize == 0),
             "speed-moved" => self.set_speed(host, n(0).round() as i64),

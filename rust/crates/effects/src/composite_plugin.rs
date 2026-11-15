@@ -23,6 +23,7 @@ use telescope_core::host::{FrameStore, Host};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::output::Outputs;
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::time::monotonic_ns;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
@@ -429,9 +430,24 @@ impl CompositePlugin {
                 ("layout-enabled".to_string(), json!(!names.is_empty())),
                 ("status".to_string(), json!(self.note_short)),
                 ("status-detail".to_string(), json!(self.note)),
+                ("reset-shown".to_string(), json!(self.reset_shown())),
             ]);
         }
         props
+    }
+
+    /// What a Reset leaves alone: the switch and the saved layouts.
+    const RESET_KEPT: &'static [&'static str] = &["on", "layouts"];
+
+    fn reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &CompositePlugin::new().get_config(), Self::RESET_KEPT)
+    }
+
+    fn reset(&mut self, host: &mut dyn Host) {
+        let cfg = reset_config(&self.get_config(), &CompositePlugin::new().get_config(), Self::RESET_KEPT);
+        if self.apply_preset(host, &cfg).is_ok() {
+            host.schedule_save();
+        }
     }
 
     fn show(&mut self, host: &mut dyn Host) {
@@ -575,6 +591,7 @@ impl Plugin for CompositePlugin {
         self.catch_up(host);
         match event.callback.as_str() {
             "edit-clicked" => self.open_editor(host),
+            "reset-clicked" => self.reset(host),
             "switch-toggled-by-hand" => {
                 let on = event.args.first().and_then(Value::as_bool).unwrap_or(false);
                 self.set_on(host, on);

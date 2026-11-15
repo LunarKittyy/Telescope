@@ -44,11 +44,18 @@ export component FunPackCard inherits Card {
     callback clear-clicked;
     callback slider-moved(int, float);
     callback direction-picked(int);
+    in property <bool> reset-shown;
+    callback reset-clicked;
 
     title: @tr("Fun pack");
     tip: @tr("Silly effects like clones, an invisibility cloak, light painting, retro looks and datamosh.");
     icon: Icons.sparkle;
     enabled: active;
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Switches the effect off and puts every slider back.");
+    reset => { root.reset-clicked(); }
 
     UnfoldGroup {
         RailRow {
