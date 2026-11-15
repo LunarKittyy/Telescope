@@ -383,7 +383,8 @@ fn plan(window: &Rc<Window>) -> Result<Plan, String> {
             tab_sections[place.tab].push((plugin.clone(), id.clone()));
         }
     }
-    let text = doc::settings(tabs.len(), plugins_tab, &places);
+    let general_tab = tabs.iter().position(|(id, _, _)| id == "general");
+    let text = doc::settings(tabs.len(), plugins_tab, general_tab, &places);
     let def = crate::compile::compile("settings.slint", &text, files, "TelescopeSettings")?;
     Ok(Plan { sections, places, tabs, plugins_tab, pieces, tab_sections, section_words, panel, def })
 }
@@ -624,6 +625,10 @@ impl Settings {
         cb(self, "answered", |s, a| s.answered(matches!(a.first(), Some(SValue::Bool(true)))));
         cb(self, "all-on", |s, _| s.request(Request::AllOn));
         cb(self, "revert", |s, _| s.request(Request::Revert));
+        cb(self, "reset-all", |s, _| {
+            let streaming = s.window.upgrade().is_some_and(|w| w.is_streaming());
+            s.request(Request::ResetAll { streaming });
+        });
         cb(self, "restart", |s, _| {
             let streaming = s.window.upgrade().is_some_and(|w| w.is_streaming());
             s.request(Request::Restart { streaming });
@@ -998,12 +1003,37 @@ impl Settings {
         self.next_notice();
         if outcome.restart {
             if let Some(w) = self.window.upgrade() {
-                if !w.restart_app() {
-                    self.notices.borrow_mut().push_back(crate::plugins_tab::restart_failed());
-                    self.next_notice();
-                }
+                self.restart(&w, outcome.reset_settings);
             }
         }
+    }
+
+    /// Restarts Telescope; with `reset` the settings file is reset first and put back if the restart doesn't happen.
+    fn restart(&self, w: &Rc<Window>, reset: bool) {
+        if reset {
+            let reset = w.state.borrow_mut().reset_all_settings();
+            if let Err(e) = reset {
+                log::error!("Couldn't reset the settings: {e}");
+                self.notices.borrow_mut().push_back(plugins_tab::reset_failed(&e.to_string()));
+                self.next_notice();
+                return;
+            }
+        }
+        if w.restart_app() {
+            if reset {
+                w.state.borrow_mut().reset_sign_in();
+                w.process();
+            }
+            return;
+        }
+        let notice = if reset {
+            w.state.borrow_mut().undo_reset();
+            plugins_tab::reset_not_restarted()
+        } else {
+            plugins_tab::restart_failed()
+        };
+        self.notices.borrow_mut().push_back(notice);
+        self.next_notice();
     }
 
     /// The next message waits for the question or message before it to be dismissed.

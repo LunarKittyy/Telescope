@@ -398,6 +398,8 @@ pub struct State {
     /// Sources only remembered once their settings change (a browser).
     pub changes_only: Vec<String>,
     pub save_failure_notified: bool,
+    /// A reset has written the settings file and saving is shut until the restart: the copy it set aside first (None: there was no file).
+    pub(crate) reset_pending: Option<Option<std::path::PathBuf>>,
     /// Settings of phones that were switched away from while the file couldn't be written: saved again with the next save, and handed back if their phone comes back first.
     unsaved_profiles: Vec<PluginSection>,
     /// Posts from plugins' threads (host.poster), delivered to their owner after the bus's events.
@@ -501,6 +503,7 @@ impl State {
             slot_memory: Rc::default(),
             changes_only: Vec::new(),
             save_failure_notified: false,
+            reset_pending: None,
             unsaved_profiles: Vec::new(),
             posts: Arc::default(),
             off: Vec::new(),
@@ -738,7 +741,7 @@ impl State {
         }
         for s in &sections {
             let (place, files) = crate::settings::section_place(name, s, 0, 0, &slot.info.category);
-            let text = crate::doc::settings(1, None, &[place]);
+            let text = crate::doc::settings(1, None, None, &[place]);
             let ui = format!("settings {}{}", s.id, if s.footer.is_some() { " (or its footer)" } else { "" });
             tried.push((ui, crate::compile::compile("settings.slint", &text, files, "TelescopeSettings").map(drop)));
         }

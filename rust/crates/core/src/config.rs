@@ -103,6 +103,8 @@ struct SetAside {
     notice: Option<String>,
     /// The file was there but never read, so what the app holds is defaults and must not be saved over it.
     unread: bool,
+    /// A reset wrote the file and the app is about to restart, so nothing saves over it.
+    discarding: bool,
 }
 
 /// How a read treats a file that stays unreadable: an error, an empty start, or an empty start that closes saving.
@@ -222,6 +224,11 @@ impl ConfigFile {
 
     /// save, with what went wrong for a caller that shows it.
     pub fn try_save(&self, cfg: &mut Value) -> io::Result<()> {
+        if with_set_aside(&self.path, |s| s.discarding) {
+            // Counts as saved, so nothing retries or complains while the app shuts down
+            log::info!("Not saving to {}: a reset is waiting for the restart", self.path.display());
+            return Ok(());
+        }
         if let Value::Object(map) = cfg {
             map.insert("version".into(), CONFIG_VERSION.into());
         }
@@ -261,6 +268,27 @@ impl ConfigFile {
                 log::error!("Couldn't read the settings file; not saving over it: {e}");
                 false
             }
+        }
+    }
+
+    /// Every save to this path (by any ConfigFile) does nothing and counts as done until resume_saves(), so a reset that is restarting isn't written over on the way out.
+    pub fn discard_saves(&self) {
+        with_set_aside(&self.path, |s| s.discarding = true);
+    }
+
+    /// Saving works again after discard_saves().
+    pub fn resume_saves(&self) {
+        with_set_aside(&self.path, |s| s.discarding = false);
+    }
+
+    /// Puts a copy_aside() copy back as the file (None: there was no file then), whatever discard_saves() says.
+    pub fn restore_copy(&self, copy: Option<&Path>) -> io::Result<()> {
+        match copy {
+            Some(copy) => self.write_atomically(&fs::read(copy)?),
+            None => match fs::remove_file(&self.path) {
+                Err(e) if e.kind() != io::ErrorKind::NotFound => Err(e),
+                _ => Ok(()),
+            },
         }
     }
 
@@ -772,6 +800,36 @@ mod tests {
         merge_for_save(&mut out, &w, &[PluginSection { plugin: "t".into(), device: Some("p".into()), config: json!({"k": 1}) }]);
         assert_eq!(out["devices"], json!({"p": {"plugin_configs": {"t": {"k": 1}}}}));
         assert_eq!(out["output_slots"], json!({"x": 1, "z": true}));
+    }
+
+    #[test]
+    fn discarded_saves_count_as_done_and_change_nothing_until_resumed() {
+        let (dir, file) = file_with(br#"{"version": 3, "plugin_configs": {"a": {"k": 1}}}"#);
+        let other = ConfigFile::at(file.path());
+        let before = fs::read(file.path()).unwrap();
+        file.discard_saves();
+        assert!(file.save(&mut json!({"plugin_configs": {"a": {"k": 2}}})));
+        assert!(other.update(|cfg| cfg["plugin_configs"]["a"]["k"] = json!(3)), "a ConfigFile on the same path is held too");
+        assert_eq!(fs::read(file.path()).unwrap(), before);
+        file.resume_saves();
+        assert!(other.update(|cfg| cfg["plugin_configs"]["a"]["k"] = json!(4)));
+        assert_eq!(file.load()["plugin_configs"]["a"]["k"], json!(4));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_copy_comes_back_as_the_file_even_while_saves_are_discarded() {
+        let (dir, file) = file_with(br#"{"version": 3, "plugin_configs": {"a": {"k": 1}}}"#);
+        let copy = file.copy_aside("before-reset").unwrap().unwrap();
+        fs::write(file.path(), b"changed").unwrap();
+        file.discard_saves();
+        file.restore_copy(Some(&copy)).unwrap();
+        assert_eq!(file.load()["plugin_configs"]["a"]["k"], json!(1));
+        file.restore_copy(None).unwrap();
+        assert!(!file.path().exists(), "no file then, none now");
+        file.restore_copy(None).unwrap();
+        file.resume_saves();
+        let _ = fs::remove_dir_all(dir);
     }
 }
 
