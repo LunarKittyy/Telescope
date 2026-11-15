@@ -6,7 +6,7 @@ import { Icons } from "../icons.slint";
 import { Folds, FoldText, Reveal, CardOrder } from "folds.slint";
 import { Switch } from "switch.slint";
 import { Tip, Tips } from "tip.slint";
-import { SearchWords, SettingMark, ProblemMark } from "setting.slint";
+import { SearchWords, SettingMark, ProblemMark, Tag } from "setting.slint";
 import { Motion, Unfold, Fade } from "motion.slint";
 import { Grip } from "fine.slint";
 
@@ -112,6 +112,10 @@ export component Card inherits Rectangle {
     // No longer drawn (a card gave the header a loose word of state: "Full manual control"); a state is a `Status` or a `Tag`. Kept so a card that still
     // passes it compiles, and to be deleted with the last of them.
     in property <string> note;
+    // A small tag right after the title (a card's state: "In sync"), blank for none. `tag-detail` is its tooltip body.
+    in property <string> tag;
+    in property <string> tag-detail;
+    in property <color> tag-tint: Theme.ink2;
     // "<plugin>/<title in English>", set by the window; blank leaves the card unfoldable
     in property <string> fold-key;
     // The window lists the card in its Card order dialog: a right-click on the header offers "Reorder cards"
@@ -235,6 +239,10 @@ export component Card inherits Rectangle {
                 reorderable: root.reorderable;
                 hovered-elsewhere: chip-touch.has-hover;
                 toggling => { person-folds(); }
+            }
+            if tag != "": Rectangle {
+                width: header-tag.width;
+                header-tag := Tag { y: (parent.height - self.height) / 2; text: root.tag; detail: root.tag-detail; tint: root.tag-tint; }
             }
             Rectangle {
                 horizontal-stretch: 1;

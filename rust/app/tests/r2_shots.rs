@@ -470,7 +470,7 @@ fn stereo_shots() {
     let Some(dir) = out() else { return };
     let card = card_of(&mut StereoPlugin::new(), "streaming");
     shoot(&dir, "stereo-off", &card, 406.0, &[], &nothing);
-    let sync = json!({"status": "In sync", "status-kind": "status_ok", "status-detail": "The two pictures were taken within half a frame of each other."});
+    let sync = json!({"badge": "In sync", "badge-kind": "status_ok", "badge-detail": "The two pictures were taken within half a frame of each other."});
     let on = json!({"on": true, "match-enabled": true});
     // Fine tune shut (the card as it opens), with two phones running
     shoot(&dir, "stereo-on-in-sync", &card, 406.0, &[on.clone(), sync.clone()], &nothing);
@@ -483,17 +483,18 @@ fn stereo_shots() {
     });
     shoot(&dir, "stereo-on-fine-tune-open-moved", &card, 406.0, &[on.clone(), sync.clone(), moved.clone(), json!({"fine-open": true})], &nothing);
     shoot(&dir, "stereo-on-fine-tune-shut-moved", &card, 406.0, &[on.clone(), sync.clone(), moved.clone()], &nothing);
-    // Match running, finished, partly finished and failed
-    let matching = json!({"match-enabled": false, "reset-enabled": true, "reset-shown": true, "match-status": "Matching", "match-status-kind": "status_dim", "match-status-detail": "x"});
+    // Match running, finished (Brightness on, moved a stop), partly finished and failed
+    let matching = json!({"match-enabled": false, "reset-enabled": true, "reset-shown": true, "badge": "Matching", "badge-kind": "status_dim", "badge-detail": "x"});
     shoot(&dir, "stereo-match-running", &card, 406.0, &[on.clone(), sync.clone(), matching], &nothing);
-    let matched = json!({"reset-enabled": true, "reset-shown": true, "match-status": "Matched", "match-status-kind": "status_ok", "match-status-detail": "x"});
+    let matched = json!({"reset-enabled": true, "reset-shown": true, "badge": "Matched", "badge-kind": "status_ok", "badge-detail": "x", "brightness-enabled": true});
     shoot(&dir, "stereo-match-done", &card, 406.0, &[on.clone(), sync.clone(), matched.clone()], &nothing);
-    shoot(&dir, "stereo-match-done-fine-tune-open", &card, 406.0, &[on.clone(), sync.clone(), moved, matched, json!({"fine-open": true})], &nothing);
-    let partly = json!({"reset-enabled": true, "reset-shown": true, "match-status": "Partly matched", "match-status-kind": "status_warn", "match-status-detail": "x"});
-    shoot(&dir, "stereo-match-partly", &card, 406.0, &[on.clone(), json!({"status": "Rough sync", "status-kind": "status_warn", "status-detail": "x"}), partly], &nothing);
-    let failed = json!({"match-status": "Match failed", "match-status-kind": "status_warn", "match-status-detail": "x"});
-    shoot(&dir, "stereo-match-failed", &card, 406.0, &[on, sync, failed], &nothing);
+    let brighter = json!({"brightness": 1.0, "brightness-text": "+1.0 EV"});
+    shoot(&dir, "stereo-match-done-fine-tune-open", &card, 406.0, &[on.clone(), sync.clone(), moved, matched, brighter, json!({"fine-open": true})], &nothing);
+    let partly = json!({"reset-enabled": true, "reset-shown": true, "badge": "Partly matched", "badge-kind": "status_warn", "badge-detail": "x"});
+    shoot(&dir, "stereo-match-partly", &card, 406.0, &[on.clone(), partly], &nothing);
+    let failed = json!({"badge": "Match failed", "badge-kind": "status_warn", "badge-detail": "x"});
+    shoot(&dir, "stereo-match-failed", &card, 406.0, &[on, failed], &nothing);
     // red/cyan, swapped, rough sync
-    shoot(&dir, "stereo-on-rough-red-cyan-swapped", &card, 406.0, &[json!({"on": true, "match-enabled": true, "look-current": 1, "swap": true, "status": "Rough sync", "status-kind": "status_warn", "status-detail": "x"})], &nothing);
-    shoot(&dir, "stereo-on-one-stream", &card, 406.0, &[json!({"on": true, "status": "Needs two streams", "status-kind": "status_dim", "status-detail": "x"})], &nothing);
+    shoot(&dir, "stereo-on-rough-red-cyan-swapped", &card, 406.0, &[json!({"on": true, "match-enabled": true, "look-current": 1, "swap": true, "badge": "Rough sync", "badge-kind": "status_warn", "badge-detail": "x"})], &nothing);
+    shoot(&dir, "stereo-on-one-stream", &card, 406.0, &[json!({"on": true, "badge": "Needs two streams", "badge-kind": "status_dim", "badge-detail": "x"})], &nothing);
 }

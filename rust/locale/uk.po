@@ -350,7 +350,7 @@ msgstr "Натисніть, щоб скинути"
 msgid "Use the phone's microphone on this computer."
 msgstr "Використовувати мікрофон телефону на цьому комп'ютері."
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:59 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:118 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:210 rust/crates/setup/ui/setup.slint:337 rust/crates/setup/ui/setup.slint:466 rust/crates/shell/src/plugins_tab.rs:722 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:593 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:59 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:210 rust/crates/setup/ui/setup.slint:337 rust/crates/setup/ui/setup.slint:466 rust/crates/shell/src/plugins_tab.rs:722 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:593 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "Скинути"
 
@@ -525,7 +525,7 @@ msgstr "Оновлення та відомості"
 msgid "Camera"
 msgstr "Камера"
 
-#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/stereo.slint:124 rust/crates/effects/ui/stereo.slint:125 rust/crates/effects/ui/stereo.slint:131 rust/crates/effects/ui/stereo.slint:134 rust/crates/setup/ui/setup.slint:462
+#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:462
 msgid "Look"
 msgstr "Вигляд"
 
@@ -1259,7 +1259,7 @@ msgstr ""
 msgid "Nothing in it"
 msgstr "Порожньо"
 
-#: rust/crates/effects/src/composite_plugin.rs:476 rust/crates/effects/src/stereo_plugin.rs:707 rust/crates/effects/ui/composite_editor.slint:424
+#: rust/crates/effects/src/composite_plugin.rs:476 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
 msgid "Needs two streams"
 msgstr "Потрібно два потоки"
 
@@ -1565,7 +1565,7 @@ msgstr ""
 msgid "Finish"
 msgstr ""
 
-#: rust/crates/effects/src/filters.rs:79 rust/crates/effects/ui/name_tag.slint:174 rust/crates/effects/ui/name_tag.slint:178 rust/crates/effects/ui/stereo.slint:224
+#: rust/crates/effects/src/filters.rs:79 rust/crates/effects/ui/name_tag.slint:174 rust/crates/effects/ui/name_tag.slint:178 rust/crates/effects/ui/stereo.slint:191
 msgid "Size"
 msgstr "Розмір"
 
@@ -2716,135 +2716,139 @@ msgstr ""
 msgid "Read QR codes"
 msgstr "Зчитувати QR-коди"
 
-#: rust/crates/effects/src/stereo_plugin.rs:53
+#: rust/crates/effects/src/stereo_plugin.rs:56
 msgid "Turn two running streams into one 3D picture."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:54
+#: rust/crates/effects/src/stereo_plugin.rs:57
 msgid "Side by side suits a headset or a 3D screen and red and cyan suits glasses."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:55
+#: rust/crates/effects/src/stereo_plugin.rs:58
 msgid "Slide the two pictures apart or together to change how far forward the 3D reaches."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:56
+#: rust/crates/effects/src/stereo_plugin.rs:59
 msgid "Lift or lower the right picture when the phones don't sit level."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:57
-msgid "Make the right picture bigger or smaller when its lens sees more or less than the left one's."
-msgstr ""
-
-#: rust/crates/effects/src/stereo_plugin.rs:58
-msgid "Roll the right picture a little when one phone is tilted against the other."
-msgstr ""
-
-#: rust/crates/effects/src/stereo_plugin.rs:59
-msgid "Move the right picture earlier or later in time when it moves ahead of or behind the left one."
-msgstr ""
-
 #: rust/crates/effects/src/stereo_plugin.rs:60
-msgid "Show the sliders that line the two pictures up by hand."
+msgid "Zoom in on the phone that sees the wider view, the right one over 100% and the left one under it, so both show the same thing."
 msgstr ""
 
 #: rust/crates/effects/src/stereo_plugin.rs:61
-msgid "Swap which phone is the left eye and which is the right if the 3D looks inside out."
+msgid "Roll the right picture a little when one phone is tilted against the other."
 msgstr ""
 
 #: rust/crates/effects/src/stereo_plugin.rs:62
-msgid "Even out two different phones with the same shutter, similar brightness and a colour curve that makes the right picture look like the left."
+msgid "Move the right picture earlier or later in time when it moves ahead of or behind the left one."
 msgstr ""
 
 #: rust/crates/effects/src/stereo_plugin.rs:63
+msgid "Show the sliders that line the two pictures up by hand."
+msgstr ""
+
+#: rust/crates/effects/src/stereo_plugin.rs:64
+msgid "Swap which phone is the left eye and which is the right if the 3D looks inside out."
+msgstr ""
+
+#: rust/crates/effects/src/stereo_plugin.rs:65
+msgid "Even out two different phones with the same shutter, similar brightness and a colour curve that makes the right picture look like the left."
+msgstr ""
+
+#: rust/crates/effects/src/stereo_plugin.rs:66
+msgid "Make both phones brighter or darker together after Match, keeping them matched."
+msgstr ""
+
+#: rust/crates/effects/src/stereo_plugin.rs:67
 msgid "Drop the colour curve Match made and leave the phones' exposure as it is."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:693 rust/crates/effects/src/stereo_plugin.rs:1046 rust/crates/effects/src/stereo_plugin.rs:1174 rust/crates/effects/src/stereo_plugin.rs:1174 rust/crates/effects/src/stereo_plugin.rs:1186 rust/crates/effects/ui/stereo.slint:106
+#: rust/crates/effects/src/stereo_plugin.rs:719 rust/crates/effects/src/stereo_plugin.rs:1158 rust/crates/effects/src/stereo_plugin.rs:1296 rust/crates/effects/src/stereo_plugin.rs:1296 rust/crates/effects/src/stereo_plugin.rs:1308 rust/crates/effects/ui/stereo.slint:55
 msgid "3D"
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:694 rust/crates/effects/ui/composite_editor.slint:351
+#: rust/crates/effects/src/stereo_plugin.rs:720 rust/crates/effects/ui/composite_editor.slint:351
 msgid "Side by side"
 msgstr "Поруч"
 
-#: rust/crates/effects/src/stereo_plugin.rs:694
+#: rust/crates/effects/src/stereo_plugin.rs:720
 msgid "Red/cyan"
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:707
+#: rust/crates/effects/src/stereo_plugin.rs:733
 msgid "Start a second stream to get the 3D picture."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:711 rust/crates/shell/src/streams.rs:1063
+#: rust/crates/effects/src/stereo_plugin.rs:737 rust/crates/shell/src/streams.rs:1063
 msgid "Waiting"
 msgstr "Очікування"
 
-#: rust/crates/effects/src/stereo_plugin.rs:711
+#: rust/crates/effects/src/stereo_plugin.rs:737
 msgid "Both streams have to send a picture, and one of them has to be on the Telescope camera."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:712
+#: rust/crates/effects/src/stereo_plugin.rs:738
 msgid "In sync"
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:712
+#: rust/crates/effects/src/stereo_plugin.rs:738
 msgid "The two pictures were taken within half a frame of each other."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:713
+#: rust/crates/effects/src/stereo_plugin.rs:739
 msgid "Rough sync"
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:713
+#: rust/crates/effects/src/stereo_plugin.rs:739
 msgid "The two pictures were taken a little apart, so fast movement can look doubled."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:715
+#: rust/crates/effects/src/stereo_plugin.rs:741
 msgid "Not synced"
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:717
+#: rust/crates/effects/src/stereo_plugin.rs:743
 msgid "Telescope can't match the pictures by when they were taken (both phones need the newer phone app), so it uses the newest of each."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:727
+#: rust/crates/effects/src/stereo_plugin.rs:753
 msgid "Matching"
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:729
+#: rust/crates/effects/src/stereo_plugin.rs:755
 msgid "Telescope is evening out the two phones' brightness and colour, which takes a few seconds."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:731
+#: rust/crates/effects/src/stereo_plugin.rs:757
 msgid "Matched"
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:731
+#: rust/crates/effects/src/stereo_plugin.rs:757
 msgid "The right picture's brightness and colour now follow the left one's."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:733
+#: rust/crates/effects/src/stereo_plugin.rs:759
 msgid "Partly matched"
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:735
+#: rust/crates/effects/src/stereo_plugin.rs:761
 msgid "A phone ran out of ISO range, or the two phones have no shutter speed in common, so the match is as close as it got."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:737
+#: rust/crates/effects/src/stereo_plugin.rs:763
 msgid "Match failed"
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:737
+#: rust/crates/effects/src/stereo_plugin.rs:763
 msgid "Telescope couldn't read both phones and their pictures, so nothing was matched."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:1047
+#: rust/crates/effects/src/stereo_plugin.rs:1159
 msgid "Turn two phones into one 3D picture, side by side for a headset or red and cyan for glasses."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:1048
+#: rust/crates/effects/src/stereo_plugin.rs:1160
 msgid "Without the 3D plugin there's no 3D card and two streams only go to their own cameras."
 msgstr ""
 
@@ -2958,7 +2962,7 @@ msgstr "Панорамувати вгору/вниз"
 msgid "Width"
 msgstr "Ширина"
 
-#: rust/crates/effects/src/transforms.rs:674 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/stereo.slint:210 rust/crates/effects/ui/transforms.slint:279 rust/crates/effects/ui/transforms.slint:280
+#: rust/crates/effects/src/transforms.rs:674 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/stereo.slint:177 rust/crates/effects/ui/transforms.slint:279 rust/crates/effects/ui/transforms.slint:280
 msgid "Height"
 msgstr "Висота"
 
@@ -3490,7 +3494,7 @@ msgstr "Очистити"
 msgid "Trails"
 msgstr "Сліди"
 
-#: rust/crates/effects/ui/fun_pack.slint:163 rust/crates/outputs/src/webcam.rs:47 rust/crates/shell/ui/cards/camera.slint:238 rust/crates/shell/ui/cards/camera.slint:245 rust/crates/shell/ui/cards/camera.slint:256
+#: rust/crates/effects/ui/fun_pack.slint:163 rust/crates/effects/ui/stereo.slint:130 rust/crates/outputs/src/webcam.rs:47 rust/crates/shell/ui/cards/camera.slint:238 rust/crates/shell/ui/cards/camera.slint:245 rust/crates/shell/ui/cards/camera.slint:256
 msgid "Brightness"
 msgstr "Яскравість"
 
@@ -3828,39 +3832,39 @@ msgstr "Копіювати в буфер обміну QR-коди, піднес�
 msgid "Show a notification when a QR code is read"
 msgstr ""
 
-#: rust/crates/effects/ui/stereo.slint:107
+#: rust/crates/effects/ui/stereo.slint:56
 msgid "Make one 3D picture from two phones."
 msgstr ""
 
-#: rust/crates/effects/ui/stereo.slint:119
+#: rust/crates/effects/ui/stereo.slint:71
 msgid "Puts the look, the eye order and the fine tune sliders back and drops the match. The switch stays as it is and the phones keep their exposure."
 msgstr ""
 
-#: rust/crates/effects/ui/stereo.slint:141 rust/crates/effects/ui/stereo.slint:142
+#: rust/crates/effects/ui/stereo.slint:93 rust/crates/effects/ui/stereo.slint:94
 msgid "Swap eyes"
 msgstr ""
 
-#: rust/crates/effects/ui/stereo.slint:154 rust/crates/effects/ui/stereo.slint:155 rust/crates/effects/ui/stereo.slint:162 rust/crates/effects/ui/stereo.slint:163
+#: rust/crates/effects/ui/stereo.slint:106 rust/crates/effects/ui/stereo.slint:107 rust/crates/effects/ui/stereo.slint:114 rust/crates/effects/ui/stereo.slint:115
 msgid "Match"
 msgstr ""
 
-#: rust/crates/effects/ui/stereo.slint:170 rust/crates/effects/ui/stereo.slint:171
+#: rust/crates/effects/ui/stereo.slint:122 rust/crates/effects/ui/stereo.slint:123
 msgid "Reset match"
 msgstr ""
 
-#: rust/crates/effects/ui/stereo.slint:179 rust/crates/effects/ui/stereo.slint:180
+#: rust/crates/effects/ui/stereo.slint:146 rust/crates/effects/ui/stereo.slint:147
 msgid "Fine tune"
 msgstr ""
 
-#: rust/crates/effects/ui/stereo.slint:196
+#: rust/crates/effects/ui/stereo.slint:163
 msgid "Depth"
 msgstr ""
 
-#: rust/crates/effects/ui/stereo.slint:240 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/ui/stereo.slint:207 rust/crates/outputs/src/webcam.rs:56
 msgid "Tilt"
 msgstr "Нахил"
 
-#: rust/crates/effects/ui/stereo.slint:254
+#: rust/crates/effects/ui/stereo.slint:221
 msgid "Timing"
 msgstr ""
 

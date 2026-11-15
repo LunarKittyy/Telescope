@@ -164,7 +164,7 @@ impl Rig {
     }
 
     fn status(&self) -> String {
-        self.props()["status"].as_str().unwrap().to_string()
+        self.plugin.status(&self.host).0
     }
 }
 
@@ -281,16 +281,16 @@ fn the_sliders_move_the_eyes() {
     let mut r = rig();
     r.show_frames(shot(RED, None), shot(BLUE, None));
     r.switch(true);
-    // each eye is 32 wide: 5 % is 2 pixels, the left goes right by one and the right goes left by one
+    // each eye is 32 wide: 5 % is 2 pixels, the left goes right by one and the right goes left by one, and the eyes are cropped so no black edge shows
     r.card("depth-moved", json!(5.0));
     let out = r.process(&shot(RED, None), "a");
-    assert_eq!((px(&out, 0, 10), px(&out, 1, 10), px(&out, 31, 10)), ([0, 0, 0], RED, RED));
-    assert_eq!((px(&out, 32, 10), px(&out, 62, 10), px(&out, 63, 10)), (BLUE, BLUE, [0, 0, 0]));
+    assert_eq!((px(&out, 0, 10), px(&out, 1, 10), px(&out, 31, 10)), (RED, RED, RED));
+    assert_eq!((px(&out, 32, 10), px(&out, 62, 10), px(&out, 63, 10)), (BLUE, BLUE, BLUE));
     r.card("depth-moved", json!(0.0));
     // 5 % of 36 rows is 2: the right eye goes up
     r.card("height-moved", json!(5.0));
     let out = r.process(&shot(RED, None), "a");
-    assert_eq!((px(&out, 40, 0), px(&out, 40, 34), px(&out, 40, 35)), (BLUE, [0, 0, 0], [0, 0, 0]));
+    assert_eq!((px(&out, 40, 0), px(&out, 40, 34), px(&out, 40, 35)), (BLUE, BLUE, BLUE));
     assert_eq!(px(&out, 10, 35), RED, "the left eye stays");
 }
 
@@ -400,18 +400,18 @@ fn the_badge_says_how_well_the_pair_is_synced() {
     r.process(&shot(RED, Some(100)), "a");
     // worst error 3 ms and a gap of 5 ms are under half a frame
     assert_eq!(r.status(), "In sync");
-    assert_eq!(r.props()["status-kind"], json!("status_ok"));
+    assert_eq!(r.plugin.status(&r.host).1, "status_ok");
     // the worse of the two bounds counts
     r.store.errors.lock().unwrap().insert("b".into(), 14 * MS);
     r.process(&shot(RED, Some(100)), "a");
     assert_eq!(r.status(), "Rough sync");
-    assert_eq!(r.props()["status-kind"], json!("status_warn"));
+    assert_eq!(r.plugin.status(&r.host).1, "status_warn");
     // a phone with no clock offset yet
     r.store.errors.lock().unwrap().remove("b");
     r.process(&shot(RED, Some(100)), "a");
     assert_eq!(r.status(), "Not synced");
     // the details are sentences for the tooltip
-    assert!(r.props()["status-detail"].as_str().unwrap().ends_with('.'));
+    assert!(r.plugin.status(&r.host).2.ends_with('.'));
 }
 
 #[test]
@@ -597,7 +597,61 @@ fn size_starts_from_the_two_lenses_once_for_each_pair() {
     r.card("size-moved", json!(97.0));
     r.card("swap-toggled", json!(true));
     r.tick_status();
-    assert_eq!(r.size(), 97.0, "a size somebody chose isn't touched");
+    assert_eq!(r.size(), 103.1, "a size somebody chose is turned round with the eyes, not looked up again");
+    r.card("swap-toggled", json!(false));
+    assert_eq!(r.size(), 97.0);
+}
+
+/// The zoom each phone gets (a, b) from the size the picture is made with: the left eye's is 100 / size and the right eye's is size / 100.
+fn zooms(r: &Rig) -> [f64; 2] {
+    let (size, swap) = (r.plugin.shared.hub().tune.size, r.plugin.get_config()["swap"] == json!(true));
+    let (left, right) = ((100.0 / size).max(1.0), (size / 100.0).max(1.0));
+    if swap { [right, left] } else { [left, right] }
+}
+
+#[test]
+fn swapping_the_eyes_any_number_of_times_keeps_each_phone_at_the_zoom_it_had() {
+    let mut r = rig();
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    r.switch(true);
+    let (a, b) = (lens(true, None, None, 26), lens(true, None, None, 24));
+    r.state("a", a.clone());
+    r.state("b", b.clone());
+    r.tick_status();
+    assert_eq!(r.size(), 108.3);
+    let before = zooms(&r);
+    assert!(before[0] == 1.0 && (before[1] - 1.083).abs() < 1e-9, "the 24 mm phone is zoomed: {before:?}");
+    for n in 1..=5 {
+        r.card("swap-toggled", json!(n % 2 == 1));
+        // the phones report again and the status timer looks at the lenses, as they do all the time
+        r.state("a", a.clone());
+        r.state("b", b.clone());
+        r.tick_status();
+        assert_eq!(r.size(), if n % 2 == 1 { 92.3 } else { 108.3 }, "after {n} swaps");
+        let now = zooms(&r);
+        assert!((now[0] - before[0]).abs() < 1e-3 && (now[1] - before[1]).abs() < 1e-3, "after {n} swaps: {now:?} against {before:?}");
+    }
+}
+
+#[test]
+fn a_size_set_by_hand_comes_back_exactly_after_two_or_three_swaps() {
+    let mut r = rig();
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    r.switch(true);
+    for size in [91.7, 82.3, 123.4, 97.0] {
+        r.card("size-moved", json!(size));
+        r.card("swap-toggled", json!(true));
+        let turned = r.size();
+        assert!((turned - 10_000.0 / size).abs() < 0.06, "{size} turned to {turned}");
+        r.card("swap-toggled", json!(false));
+        assert_eq!(r.size(), size);
+        for (n, want) in [(1, turned), (2, size), (3, turned)] {
+            r.card("swap-toggled", json!(n % 2 == 1));
+            assert_eq!(r.size(), want, "{size} after {n} more swaps");
+        }
+        r.card("swap-toggled", json!(false));
+        assert_eq!(r.size(), size);
+    }
 }
 
 #[test]
@@ -680,7 +734,7 @@ impl Rig {
     }
 
     fn match_badge(&self) -> String {
-        self.props()["match-status"].as_str().unwrap().to_string()
+        self.plugin.match_status().0
     }
 
     /// One look at the pictures `at` (the computer's clock) and one tick of Match's timer.
@@ -736,7 +790,7 @@ fn match_sets_both_phones_nudges_the_right_iso_and_makes_the_colour_curves() {
     assert!(iso > 400, "the darker phone went up");
     assert_eq!(r.iso_sent("a"), Some(400), "the left phone was left alone");
     assert_eq!(r.match_badge(), "Matched");
-    assert_eq!(r.props()["match-status-kind"], json!("status_ok"));
+    assert_eq!(r.plugin.match_status().1, "status_ok");
     assert!(r.plugin.lut.is_some());
     assert!(!r.plugin.shared.hub().measure, "the step stops reading");
 }
@@ -811,7 +865,7 @@ fn match_fails_when_the_phones_dont_answer() {
     assert_eq!(r.match_badge(), "Matching", "still waiting for b");
     r.plugin.match_tick_at(&mut r.host, monotonic_ns() + 6_000 * MS);
     assert_eq!(r.match_badge(), "Match failed");
-    assert_eq!(r.props()["match-status-kind"], json!("status_warn"));
+    assert_eq!(r.plugin.match_status().1, "status_warn");
     assert!(r.controls().is_empty(), "nothing was changed");
     assert!(r.props()["match-enabled"].as_bool().unwrap(), "and it can be tried again");
 }
@@ -835,7 +889,7 @@ fn match_ends_as_partly_matched_when_the_pictures_cant_be_brought_together() {
         }
     }
     assert_eq!(r.match_badge(), "Partly matched");
-    assert_eq!(r.props()["match-status-kind"], json!("status_warn"));
+    assert_eq!(r.plugin.match_status().1, "status_warn");
     assert!(r.plugin.lut.is_some(), "the colour is still matched");
 }
 
@@ -899,7 +953,7 @@ fn the_fine_tune_group_opens_and_shuts_without_touching_the_picture() {
 fn every_new_row_has_a_one_sentence_tooltip() {
     let r = rig();
     let props = r.props();
-    for key in ["size-tip", "tilt-tip", "timing-tip", "fine-tip", "match-tip", "reset-tip"] {
+    for key in ["size-tip", "tilt-tip", "timing-tip", "fine-tip", "match-tip", "reset-tip", "brightness-tip"] {
         let tip = props[key].as_str().unwrap();
         assert!(tip.ends_with('.') && tip.matches(". ").count() == 0 && !tip.contains('\u{2014}') && !tip.contains('\u{2013}'), "{key}: {tip}");
     }
@@ -926,10 +980,10 @@ fn the_card_callbacks_change_the_settings_and_save_them() {
     r.card("look-picked", json!(1));
     r.card("depth-moved", json!(9.0));
     r.card("height-moved", json!(-1.5));
+    r.card("swap-toggled", json!(true));
     r.card("size-moved", json!(92.46));
     r.card("tilt-moved", json!(-9.0));
     r.card("timing-moved", json!(35.4));
-    r.card("swap-toggled", json!(true));
     assert_eq!(
         r.plugin.get_config(),
         json!({"on": false, "look": "red_cyan", "depth": 5.0, "height": -1.5, "size": 92.5, "tilt": -5.0, "timing": 35.0, "swap": true})
@@ -1542,4 +1596,138 @@ fn the_ring_marks_a_frame_with_the_epoch_the_pipeline_gave_it() {
     // the steps began under epoch 1, and the host is at 4 by the time they get here
     r.step.as_mut().unwrap().process(&mut out, &Entered("a".into(), 1));
     assert_eq!(r.plugin.shared.hub().ring.back().map(|(_, e)| *e), Some(1));
+}
+
+// ── Match from the left phone's own brightness, and Brightness ────────────
+
+#[test]
+fn a_left_phone_on_automatic_is_matched_to_the_brightness_it_had_before_match() {
+    let mut r = rig();
+    r.switch(true);
+    // the left picture is dark as its own automatic exposure left it: its mean is about 60, not the stock 118
+    let (left, right) = (gradient(120), gradient(60));
+    r.show_frames(left.clone(), right.clone());
+    r.card("match-clicked", json!(null));
+    assert!(r.plugin.shared.hub().measure, "the pictures are read while the phones are asked, before they are changed");
+    r.process(&left, "a");
+    r.polled("a", lens(true, None, None, 24));
+    r.polled("b", lens(true, None, None, 26));
+    assert!(!r.controls().is_empty());
+    r.match_tick(&left, &right, monotonic_ns() + 800 * MS);
+    assert_eq!(r.iso_sent("a"), Some(400), "the left phone is already at its own brightness");
+    assert!(r.iso_sent("b").unwrap() > 400, "the darker right phone was brought up to it");
+}
+
+#[test]
+fn match_waits_for_a_reading_of_the_left_phone_before_it_changes_an_automatic_one() {
+    let mut r = rig();
+    r.switch(true);
+    let (left, right) = (gradient(120), gradient(60));
+    r.show_frames(left.clone(), right.clone());
+    r.card("match-clicked", json!(null));
+    r.polled("a", lens(true, None, None, 24));
+    r.polled("b", lens(true, None, None, 26));
+    assert!(r.controls().is_empty(), "nothing is changed before its own picture is known");
+    r.match_tick(&left, &right, monotonic_ns());
+    assert!(!r.controls().is_empty());
+}
+
+/// A finished match of two phones on manual exposure, the left at ISO 400 and 8 ms, with the right phone's ISO limit as given.
+fn matched_rig(right_max: i64) -> Rig {
+    let mut r = rig();
+    r.switch(true);
+    let (left, right) = (gradient(120), gradient(120));
+    r.show_frames(left.clone(), right.clone());
+    r.card("match-clicked", json!(null));
+    let mut b = lens(true, None, None, 26);
+    b["cameras"][0]["isoMax"] = json!(right_max);
+    r.polled("a", lens(false, Some(400), Some(8_000_000), 24));
+    r.polled("b", b);
+    r.match_tick(&left, &right, monotonic_ns() + 800 * MS);
+    assert_eq!(r.match_badge(), "Matched");
+    r
+}
+
+#[test]
+fn brightness_moves_both_phones_together_and_is_sent_at_most_every_150_ms() {
+    let mut r = matched_rig(12_800);
+    assert_eq!(r.props()["brightness-enabled"], json!(true));
+    assert_eq!((r.props()["brightness"].clone(), r.props()["brightness-text"].clone()), (json!(0.0), json!("0.0 EV")));
+    r.card("brightness-moved", json!(1.0));
+    assert_eq!((r.iso_sent("a"), r.iso_sent("b")), (Some(800), Some(800)), "a stop is double the ISO on both");
+    assert_eq!(r.props()["brightness-text"], json!("+1.0 EV"));
+    // a drag goes on: the next values wait for the timer and only the last one is sent
+    let sent = r.controls().len();
+    r.card("brightness-moved", json!(1.5));
+    r.card("brightness-moved", json!(-1.0));
+    assert_eq!(r.controls().len(), sent, "too soon after the last send");
+    assert!(r.host.is_scheduled(BRIGHTNESS_TIMER));
+    r.plugin.on_event(&mut r.host, &Event::TimerFired { owner: NAME.into(), token: BRIGHTNESS_TIMER.into() });
+    assert_eq!((r.iso_sent("a"), r.iso_sent("b")), (Some(200), Some(200)), "the last value, from Match's ISO and not from the one before");
+    // the slider reaches 2 stops either way
+    r.card("brightness-moved", json!(9.0));
+    assert_eq!(r.props()["brightness"], json!(2.0));
+}
+
+#[test]
+fn brightness_stops_where_one_phone_runs_out_of_iso() {
+    let mut r = matched_rig(500);
+    r.card("brightness-moved", json!(2.0));
+    // 400 to 500 is 0.3 of a stop
+    assert_eq!(r.props()["brightness"], json!(0.3));
+    let (a, b) = (r.iso_sent("a").unwrap(), r.iso_sent("b").unwrap());
+    assert_eq!(a, b);
+    assert!((480..=500).contains(&a), "{a}");
+}
+
+#[test]
+fn brightness_is_off_until_a_match_with_manual_exposure_and_reset_puts_it_back() {
+    let mut r = rig();
+    r.switch(true);
+    assert_eq!(r.props()["brightness-enabled"], json!(false));
+    r.card("brightness-moved", json!(1.0));
+    assert!(r.controls().is_empty(), "nothing to move before a match");
+    // phones that take no manual exposure have no ISO to move
+    r.show_frames(gradient(240), gradient(120));
+    r.card("match-clicked", json!(null));
+    r.polled("a", json!({"cameras": []}));
+    r.polled("b", json!({"cameras": []}));
+    r.match_tick(&gradient(240), &gradient(120), monotonic_ns() + 800 * MS);
+    assert_eq!(r.match_badge(), "Matched");
+    assert_eq!(r.props()["brightness-enabled"], json!(false));
+    // with a manual match it is on, and Reset sends the phones back to the ISO Match gave them
+    let mut r = matched_rig(12_800);
+    r.card("brightness-moved", json!(1.0));
+    assert_eq!(r.iso_sent("b"), Some(800));
+    r.card("reset-clicked", json!(null));
+    assert_eq!((r.iso_sent("a"), r.iso_sent("b")), (Some(400), Some(400)));
+    assert_eq!((r.props()["brightness"].clone(), r.props()["brightness-enabled"].clone()), (json!(0.0), json!(false)));
+    // and Reset match leaves the phones where they are
+    let mut r = matched_rig(12_800);
+    r.card("brightness-moved", json!(1.0));
+    r.card("reset-match-clicked", json!(null));
+    assert_eq!(r.iso_sent("b"), Some(800));
+    assert_eq!(r.props()["brightness-enabled"], json!(false));
+}
+
+#[test]
+fn the_header_shows_one_badge_with_what_needs_a_look_first() {
+    let mut r = rig();
+    assert_eq!(r.props()["badge"], json!(""), "nothing while off");
+    r.switch(true);
+    r.show_frames(shot(RED, Some(100)), shot(BLUE, Some(105)));
+    r.store.errors.lock().unwrap().extend([("a".to_string(), 2 * MS), ("b".to_string(), 3 * MS)]);
+    r.process(&shot(RED, Some(100)), "a");
+    assert_eq!(r.props()["badge"], json!("In sync"));
+    // a match in progress or partly done outranks the sync, a plain Matched doesn't outrank a sync that needs a look
+    r.card("match-clicked", json!(null));
+    assert_eq!(r.props()["badge"], json!("Matching"));
+    // these pictures have no capture times, so the sync needs a look and shows over a good match
+    let mut r = matched_rig(12_800);
+    assert_eq!((r.props()["badge"].clone(), r.props()["badge-kind"].clone()), (json!("Not synced"), json!("status_warn")));
+    // with the pictures in sync a good match is what the badge says
+    r.show_frames(shot(RED, Some(100)), shot(BLUE, Some(105)));
+    r.store.errors.lock().unwrap().extend([("a".to_string(), 2 * MS), ("b".to_string(), 3 * MS)]);
+    r.process(&shot(RED, Some(100)), "a");
+    assert_eq!((r.props()["badge"].clone(), r.props()["badge-kind"].clone()), (json!("Matched"), json!("status_ok")));
 }
