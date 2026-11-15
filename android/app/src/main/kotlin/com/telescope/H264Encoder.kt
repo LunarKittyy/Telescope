@@ -132,7 +132,7 @@ class H264Encoder(
                             PhoneStats.delayMs(info.presentationTimeUs, System.nanoTime(), SystemClock.elapsedRealtimeNanos(), PhoneStats.shared.realtimeStamps)?.let { PhoneStats.shared.addEncode(it) }
                         }
                     }
-                    if (!config) bytes = H264Stream.withCaptureTime(bytes, PhoneStats.stampClock(info.presentationTimeUs, System.nanoTime(), SystemClock.elapsedRealtimeNanos()), info.presentationTimeUs * 1000)
+                    if (!config) bytes = H264Stream.withCaptureTime(bytes, PhoneStats.stampClock(info.presentationTimeUs, System.nanoTime(), SystemClock.elapsedRealtimeNanos(), PhoneStats.shared.realtimeStamps), info.presentationTimeUs * 1000)
                     onPacket(bytes, key, config)
                 }
                 mc.releaseOutputBuffer(index, false)

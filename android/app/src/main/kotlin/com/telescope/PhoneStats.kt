@@ -35,14 +35,15 @@ class PhoneStats(private val clock: () -> Long = ::monotonicMs) {
         }
 
         // Which clock an encoder output timestamp is on, read from the timestamp itself: true = realtime, false = monotonic, null = neither fits
-        fun stampClock(timestampUs: Long, monotonicNs: Long, realtimeNs: Long): Boolean? {
+        // When both clocks fit (a phone that slept only briefly) the camera's own word (realtime) decides, else the smaller delay
+        fun stampClock(timestampUs: Long, monotonicNs: Long, realtimeNs: Long, realtime: Boolean? = null): Boolean? {
             val mono = delayMs(timestampUs, monotonicNs)
             val real = delayMs(timestampUs, realtimeNs)
             return when {
                 mono == null && real == null -> null
                 mono == null -> true
                 real == null -> false
-                else -> real < mono
+                else -> realtime ?: (real < mono)
             }
         }
     }
