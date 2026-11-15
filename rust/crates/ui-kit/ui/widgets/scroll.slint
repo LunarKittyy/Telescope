@@ -103,3 +103,16 @@ export component FlickBar {
         scrolled(to) => { root.position = -to; }
     }
 }
+
+// Kind "helper". The mouse wheel for a Flickable that has no bar of its own to take it: put it first inside the Flickable, as wide as the Flickable and
+// as tall as its content, and it moves `position` (the Flickable's viewport-y, which counts down from 0) by the wheel, kept inside the content.
+export component FlickWheel inherits TouchArea {
+    out property <string> control-kind: "helper";
+    in property <length> content;
+    in property <length> viewport;
+    in-out property <length> position;
+    scroll-event(e) => {
+        root.position = clamp(root.position + e.delta-y, min(0px, root.viewport - root.content), 0px);
+        accept
+    }
+}

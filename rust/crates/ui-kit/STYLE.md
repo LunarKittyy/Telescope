@@ -119,7 +119,7 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | `status` | Status | one coloured word or short phrase, kind (quiet, ok, warn, err), detail (tooltip) |
 | `well` | Well | what is in it: a recessed box for a command, an empty slot, a meter's track (outlined in OLED) |
 | `ghost` | Ghost | a row on no fill that answers the pointer (a tab, a search result) |
-| `list-row` | ListRow | name, a dim line, icon, the row's buttons: a raised strip in a list (dialogs, devices) |
+| `list-row` | ListRow, DragRow | name, a dim line, icon, the row's buttons: a raised strip in a list (dialogs, devices); a DragRow is one that is dragged to another place |
 | `dialog` | DialogFrame | title |
 | `menu` | MenuSurface, MenuItem | the rows: a context menu, the Presets menu |
 | `bubble` | Bubble, BubbleFrame | what is inside, width |
@@ -131,7 +131,7 @@ Each exported widget says its kind in code: `out property <string> control-kind`
 | `progress` | ProgressBar | value (0 to 1), track and fill colours |
 | `image` | QrCode | picture |
 | `readout` | PinReadout, PinChip | a pin of the bottom bar (its icon, value and place) and the "+N" that holds the pins that did not fit |
-| `helper` | no drawing of its own (search words, `Tip`, `TipLayer`, `Peek`, `PeekLayer`, shortcut menu, `Unfolding`, `UnfoldGroup`, `RowHover`, `DialogButtons`, `LensArt`, `FineAxis`, the motions) | nothing |
+| `helper` | no drawing of its own (search words, `Tip`, `TipLayer`, `Peek`, `PeekLayer`, shortcut menu, `Unfolding`, `UnfoldGroup`, `RowHover`, `FlickWheel`, `DialogButtons`, `LensArt`, `FineAxis`, the motions) | nothing |
 
 A menu button is always a `picker`: the value and a chevron, never "..." in a label. Glyphs inside controls (the chevron, a clear cross, a tick, a plus, the stepper's arrows) are heavier than the card icons: a 2px stroke against the icons' 1.4px, and the picker's chevron is 16px.
 
