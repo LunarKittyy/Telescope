@@ -115,7 +115,7 @@ impl HotkeyBackend for PortalHotkeys {
         let i = self.shared.inner.lock().unwrap();
         match i.state {
             State::Unavailable => Some(HotkeyStatus::new(false, tr("Not available on this desktop"))),
-            State::Asking => Some(HotkeyStatus::new(false, tr("Needs your confirmation"))),
+            State::Asking => Some(HotkeyStatus::new(false, tr("Confirmation required"))),
             _ => i.statuses.get(id).cloned(),
         }
     }

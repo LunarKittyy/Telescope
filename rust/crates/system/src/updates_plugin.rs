@@ -883,7 +883,7 @@ impl Plugin for UpdatesPlugin {
         PluginInfo {
             name: "updates".into(),
             title: n_("Updates").into(),
-            about: n_("Checking for new versions of Telescope and installing them.").into(),
+            about: n_("Check for new versions of Telescope and install them.").into(),
             category: "extras".into(),
             icon: "update".into(),
             required: true,

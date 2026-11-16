@@ -46,7 +46,7 @@ mod tests {
         assert_eq!(props(&host, false, ""), json!({"vision-text": "", "vision-download": false}));
         host.vision = Some(MISSING.into());
         host.pack = VisionPack { available: true, size_mb: 47, ..VisionPack::default() };
-        assert_eq!(props(&host, true, ""), json!({"vision-text": "Needs a one-time download (about 47 MB).", "vision-download": true}));
+        assert_eq!(props(&host, true, ""), json!({"vision-text": "One-time download required (about 47 MB).", "vision-download": true}));
         assert!(changes_it(&Event::VisionDownloadProgress { done: 1, size: 2 }) && !changes_it(&Event::StreamStopped));
     }
 
@@ -55,7 +55,7 @@ mod tests {
         let mut host = FakeHost::new();
         host.matting = Some(MISSING.into());
         host.matting_pack = VisionPack { available: true, size_mb: 26, ..VisionPack::default() };
-        assert_eq!(cutout_props(&host, true), json!({"cutout-text": "Needs a one-time download (about 26 MB). Until then the normal cutout is used.", "cutout-download": true}));
+        assert_eq!(cutout_props(&host, true), json!({"cutout-text": "One-time download required (about 26 MB). Until then the normal cutout is used.", "cutout-download": true}));
         assert_eq!(cutout_props(&host, false), json!({"cutout-text": "", "cutout-download": false}));
         host.matting_pack.ready = true;
         host.matting = Some("ready".into());

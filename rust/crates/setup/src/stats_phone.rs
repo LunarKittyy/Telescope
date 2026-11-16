@@ -126,7 +126,7 @@ pub fn rows(p: &PhoneReading, nerd: bool, delay: &[f32], period_ms: f32) -> Vec<
     } else if p.takes_stats {
         out.push(Row::line(&tr("Delay on the phone"), tr("Measuring")).kind("status_dim"));
     } else {
-        out.push(Row::line(&tr("Delay on the phone"), tr("Needs a newer phone app")).kind("status_dim"));
+        out.push(Row::line(&tr("Delay on the phone"), tr("Phone app update required")).kind("status_dim"));
     }
     if let Some(rssi) = p.wifi_rssi {
         let value = match &p.wifi_band {

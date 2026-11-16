@@ -242,7 +242,7 @@ fn switching_off_asks_first_names_what_goes_and_waits_for_a_restart() {
     flip(&mut r, "presets", false, &mut |q| { asked.push(q.clone()); true });
     assert_eq!(off(&r), ["presets"]);
     let last = asked.last().unwrap();
-    assert!(last.title == "Switch off Presets?" && last.text.contains("The Presets card goes away.") && last.text.contains("settings stay saved"));
+    assert!(last.title == "Switch off Presets?" && last.text.contains("The Presets card goes away.") && last.text.contains("settings are saved"));
     assert_eq!(r.panel.pending_changes(), 1);
     assert_eq!(r.panel.footer_note(), "Restart to apply 1 change");
     assert!(!labels(&r.panel).contains(&"Restart required".to_string()));
@@ -537,7 +537,7 @@ fn switching_one_on_asks_to_download_first_then_switches_it_on() {
     let mut r = rig(list, &all_running());
     let group = r.panel.groups.iter().find(|g| g.id == "vision").unwrap();
     assert_eq!(group.status, "Switching on any of these plugins downloads about 47 MB first, shared by all of them.");
-    assert_eq!(group.tiles[0].badges[0].text, "Needs the vision download");
+    assert_eq!(group.tiles[0].badges[0].text, "Vision download required");
     let mut asked = vec![];
     flip(&mut r, "framing", true, &mut |q| { asked.push(q.clone()); false });
     assert!(r.download.started.borrow().is_empty() && r.admin.optional_on().is_empty());

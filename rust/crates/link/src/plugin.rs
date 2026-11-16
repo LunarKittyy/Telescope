@@ -572,10 +572,10 @@ impl ConnectionPlugin {
             self.poll_usb();
         } else if crate::platform::windows() {
             // A button stands in for Python's link, which Slint's Text can't show
-            add.usb_text = without_links(&tr("Needs adb, which Telescope can <a href=\"{link}\">get from Google</a>. Wi-Fi works without it."));
+            add.usb_text = without_links(&tr("adb is required for USB and Telescope can <a href=\"{link}\">get it from Google</a>. Wi-Fi works without it."));
             add.usb_action = tr("Get adb from Google");
         } else {
-            add.usb_text = tr("Needs adb, which isn't installed. Wi-Fi works without it.");
+            add.usb_text = tr("adb is required for USB but isn't installed. Wi-Fi works without it.");
         }
     }
 
@@ -2443,7 +2443,7 @@ mod tests {
         let mut e = env();
         e.add("id-a", "Pixel");
         e.resolve(Resolution::new(PhoneStatus::NotPaired));
-        assert!(e.status().contains("Needs pairing again"), "{}", e.status());
+        assert!(e.status().contains("Pairing required"), "{}", e.status());
         assert!(e.props("card")["note-text"].as_str().unwrap().contains("Add device"));
     }
 
@@ -2804,7 +2804,7 @@ mod tests {
         assert_eq!(e.props("card")["route-current"], 0);
         let issue = e.issue("route").unwrap();
         assert_eq!(issue.title, "Can't reach Pixel over Wi-Fi");
-        assert!(issue.text.contains("Still streaming over USB, so the connection stays on Automatic."));
+        assert!(issue.text.contains("The stream is still running over USB and Connect via is still set to Automatic."));
         e.link.answer(ready(wifi())); // on the same Wi-Fi now
         e.press("route", 0);
         std::thread::sleep(Duration::from_millis(50));
@@ -3154,7 +3154,7 @@ mod tests {
         *e.link.adb.lock().unwrap() = false;
         e.ui("card", "add-phone", vec![]);
         let text = e.props("card")["usb-text"].as_str().unwrap().to_string();
-        assert!(text.starts_with("Needs adb"), "{text}");
+        assert!(text.starts_with("adb is required for USB"), "{text}");
         assert!(!e.host.is_scheduled(T_PAIR_USB));
     }
 
@@ -3184,9 +3184,9 @@ mod tests {
 
     #[test]
     fn links_become_plain_text_and_button_labels() {
-        let text = "Needs adb, which Telescope can <a href=\"{link}\">get from Google</a>. Wi-Fi works without it.";
-        assert_eq!(without_links(text), "Needs adb, which Telescope can get from Google. Wi-Fi works without it.");
-        assert_eq!(link_label(text, "{link}").as_deref(), Some("get from Google"));
+        let text = "adb is required for USB and Telescope can <a href=\"{link}\">get it from Google</a>. Wi-Fi works without it.";
+        assert_eq!(without_links(text), "adb is required for USB and Telescope can get it from Google. Wi-Fi works without it.");
+        assert_eq!(link_label(text, "{link}").as_deref(), Some("get it from Google"));
         assert_eq!(link_label(text, "{pick}"), None);
     }
 

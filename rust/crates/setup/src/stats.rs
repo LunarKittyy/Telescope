@@ -776,7 +776,7 @@ impl Plugin for StatsPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("Stats").into(),
-            about: n_("Numbers about the stream as it runs: frames in and out, dropped frames and why, the link and bitrate, how long each step takes and what the app uses.").into(),
+            about: n_("See numbers about the stream as it runs: frames in and out, dropped frames and why, the link and bitrate, how long each step takes and what the app uses.").into(),
             when_off: n_("Without the Stats plugin there's no Stats card. The stream is not affected.").into(),
             optional: true,
             category: "streaming".into(),

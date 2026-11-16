@@ -31,7 +31,7 @@ export component CompositeCard inherits Card {
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Clears the picture's current layout. Your saved layouts and the switch stay.");
+    reset-detail: @tr("Clear the current layout. Saved layouts aren't affected.");
     reset => { root.reset-clicked(); }
 
     UnfoldGroup {

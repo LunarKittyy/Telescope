@@ -10,8 +10,8 @@ msgstr ""
 
 #: rust/crates/audio/src/backend.rs:80
 #, python-brace-format
-msgid "Needs {tools} (in pulseaudio-utils; PipeWire systems use it too)."
-msgstr "{tools} 도구가 필요해요(pulseaudio-utils 패키지 포함, PipeWire 시스템에서도 사용됨)."
+msgid "{tools} required. It's in pulseaudio-utils, which works on PipeWire too."
+msgstr ""
 
 #: rust/crates/audio/src/backend.rs:166
 msgid "When VB-Cable's setup has finished, restart the computer, then switch this off and on."
@@ -22,8 +22,8 @@ msgid "Open setup again"
 msgstr "설치 프로그램 다시 열기"
 
 #: rust/crates/audio/src/backend.rs:169
-msgid "Needs VB-Audio Virtual Cable, a free virtual audio cable by VB-Audio."
-msgstr "VB-Audio에서 제공하는 무료 가상 오디오 케이블인 VB-Audio Virtual Cable이 필요해요."
+msgid "VB-Audio Virtual Cable required. It's a free virtual audio cable by VB-Audio."
+msgstr ""
 
 #: rust/crates/audio/src/backend.rs:169 rust/crates/audio/ui/microphone.slint:307
 msgid "Install VB-Cable"
@@ -76,8 +76,8 @@ msgid "Downloading…"
 msgstr "다운로드 중…"
 
 #: rust/crates/audio/src/plugin.rs:114
-msgid "Needs VB-Cable"
-msgstr "VB-Cable 필요"
+msgid "VB-Cable required"
+msgstr ""
 
 #: rust/crates/audio/src/plugin.rs:116
 msgid "Problem"
@@ -231,9 +231,9 @@ msgstr "동작"
 msgid "Microphone"
 msgstr "마이크"
 
-#: rust/crates/audio/src/plugin.rs:1087
-msgid "Using the phone's microphone on this computer."
-msgstr "휴대폰 마이크를 이 컴퓨터에서 사용해요."
+#: rust/crates/audio/src/plugin.rs:1087 rust/crates/audio/ui/microphone.slint:168
+msgid "Use the phone's microphone on this computer."
+msgstr "이 컴퓨터에서 휴대폰의 마이크를 사용해요."
 
 #: rust/crates/audio/src/plugin.rs:1088
 msgid "Without the Microphone plugin there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone."
@@ -346,16 +346,12 @@ msgstr ""
 msgid "Click to clear"
 msgstr "클릭하여 지우기"
 
-#: rust/crates/audio/ui/microphone.slint:168
-msgid "Use the phone's microphone on this computer."
-msgstr "이 컴퓨터에서 휴대폰의 마이크를 사용해요."
-
 #: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:59 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:210 rust/crates/setup/ui/setup.slint:337 rust/crates/setup/ui/setup.slint:466 rust/crates/shell/src/plugins_tab.rs:728 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "초기화"
 
 #: rust/crates/audio/ui/microphone.slint:191
-msgid "Puts the gain, auto level and noise reduction back. The switch and mute stay as they are."
+msgid "Set the gain, auto level and noise reduction back to default."
 msgstr ""
 
 #: rust/crates/audio/ui/microphone.slint:249 rust/crates/audio/ui/microphone.slint:253
@@ -565,8 +561,8 @@ msgstr "한 번만 다운로드(약 {mb} MB)하면 가장자리가 더 깔끔해
 
 #: rust/crates/core/src/vision.rs:122
 #, python-brace-format
-msgid "Needs a one-time download (about {mb} MB)."
-msgstr "1회성 다운로드(약 {mb} MB)가 필요해요."
+msgid "One-time download required (about {mb} MB)."
+msgstr ""
 
 #: rust/crates/core/src/vision.rs:126
 msgid "MediaPipe didn't load on this computer. Copy diagnostics has the details."
@@ -586,7 +582,7 @@ msgstr ""
 
 #: rust/crates/core/src/vision.rs:158
 #, python-brace-format
-msgid "Needs a one-time download (about {mb} MB). Until then the normal cutout is used."
+msgid "One-time download required (about {mb} MB). Until then the normal cutout is used."
 msgstr ""
 
 #: rust/crates/effects/src/auto_grade.rs:19
@@ -643,7 +639,7 @@ msgid "Blur the background behind you or swap it for a picture."
 msgstr ""
 
 #: rust/crates/effects/src/background.rs:512
-msgid "Without the Background plugin there's no Background card and the background stays as the camera sees it."
+msgid "Without the Background plugin there's no Background card and the background is shown the way the camera sees it."
 msgstr ""
 
 #: rust/crates/effects/src/background.rs:624 rust/crates/effects/src/background.rs:650
@@ -727,7 +723,7 @@ msgid "Swap a green or blue screen behind you for a colour or a picture, with no
 msgstr ""
 
 #: rust/crates/effects/src/chroma_key.rs:556
-msgid "Without the Chroma key plugin there's no Chroma key card and a green screen stays green."
+msgid "Without the Chroma key plugin there's no Chroma key card and a green screen isn't replaced."
 msgstr ""
 
 #: rust/crates/effects/src/chroma_key.rs:674 rust/crates/effects/src/chroma_key.rs:709
@@ -783,8 +779,8 @@ msgid "Cinema tools"
 msgstr "시네마 도구"
 
 #: rust/crates/effects/src/cinema.rs:339
-msgid "Focus peaking, zebras, false colour, scopes, framing guides and a level on the preview, for judging focus, exposure, framing and a straight horizon."
-msgstr "초점, 노출, 프레이밍, 수평을 확인할 수 있도록 미리보기에 포커스 피킹, 지브라, 폴스 컬러, 스코프, 프레이밍 가이드, 수평계를 표시해요."
+msgid "Judge focus, exposure, framing and a straight horizon with focus peaking, zebras, false colour, scopes, framing guides and a level on the preview."
+msgstr ""
 
 #: rust/crates/effects/src/cinema.rs:340
 msgid "Without the Cinema tools plugin there's no Cinema tools card and the preview shows just the picture."
@@ -1144,8 +1140,8 @@ msgid "{wheel} colour"
 msgstr "{wheel} 색상"
 
 #: rust/crates/effects/src/colour_grading.rs:1085
-msgid "Colour wheels, curves and LUT files for the look of the picture."
-msgstr "화면 분위기를 연출할 수 있는 컬러 휠, 커브, LUT 파일이에요."
+msgid "Change the look of the picture with colour wheels, curves and LUT files."
+msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:1086
 msgid "Without the Colour grading plugin there's no Colour grading card and the picture keeps the camera's colours."
@@ -1260,8 +1256,8 @@ msgid "Nothing in it"
 msgstr "비어 있음"
 
 #: rust/crates/effects/src/composite_plugin.rs:476 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
-msgid "Needs two streams"
-msgstr "스트림 2개 필요"
+msgid "Two streams required"
+msgstr ""
 
 #: rust/crates/effects/src/composite_plugin.rs:478
 msgid "Not going out"
@@ -1366,7 +1362,7 @@ msgid "Drag the four corners of the sheet into place on the preview."
 msgstr "미리보기에서 용지의 네 모서리를 제자리로 드래그하세요."
 
 #: rust/crates/effects/src/desk.rs:37
-msgid "Puts the writing, shape and stretch back. The marked corners and the switch stay."
+msgid "Set the writing, shape and stretch back to default. The marked corners aren't reset."
 msgstr ""
 
 #: rust/crates/effects/src/desk.rs:40
@@ -1442,7 +1438,7 @@ msgid "Straighten a sheet of paper you mark on the preview and optionally make t
 msgstr ""
 
 #: rust/crates/effects/src/desk.rs:353
-msgid "Without the Desk and document mode plugin there's no Desk mode card and the picture stays the way the camera sees it."
+msgid "Without the Desk and document mode plugin there's no Desk mode card and the picture is shown the way the camera sees it."
 msgstr ""
 
 #: rust/crates/effects/src/desk.rs:440 rust/crates/effects/src/desk.rs:464
@@ -1514,7 +1510,7 @@ msgid "Skin smoothing"
 msgstr ""
 
 #: rust/crates/effects/src/filters.rs:73
-msgid "Soften skin inside the person mask while eyes, brows, hair and edges stay sharp."
+msgid "Soften skin inside the person mask without blurring eyes, brows, hair and edges."
 msgstr ""
 
 #: rust/crates/effects/src/filters.rs:74
@@ -1570,7 +1566,7 @@ msgid "Size"
 msgstr "크기"
 
 #: rust/crates/effects/src/filters.rs:79
-msgid "Set how much of the picture stays clear of the vignette."
+msgid "Set the size of the clear area in the middle."
 msgstr ""
 
 #: rust/crates/effects/src/filters.rs:80
@@ -1630,7 +1626,7 @@ msgid "Turn every filter off to see the picture without them."
 msgstr ""
 
 #: rust/crates/effects/src/filters.rs:473
-msgid "Sharpen, clarity, dehaze, denoise, skin smoothing, vignette, glow and film grain, like the filters of a photo editor."
+msgid "Add photo editor filters like sharpen, clarity, dehaze, denoise, skin smoothing, vignette, glow and film grain."
 msgstr ""
 
 #: rust/crates/effects/src/filters.rs:474
@@ -1773,11 +1769,11 @@ msgid "Auto framing speed"
 msgstr "자동 프레이밍 속도"
 
 #: rust/crates/effects/src/framing.rs:897
-msgid "Zooms and pans to keep you in the picture as you move."
-msgstr "움직여도 화면 안에 유지되도록 줌과 팬을 자동으로 조절해요."
+msgid "Zoom and pan to keep you in the picture as you move."
+msgstr ""
 
 #: rust/crates/effects/src/framing.rs:898
-msgid "Without the Auto framing plugin there's no Auto framing card and the zoom stays where you put it."
+msgid "Without the Auto framing plugin there's no Auto framing card and the zoom only changes when you change it."
 msgstr ""
 
 #: rust/crates/effects/src/fun_pack.rs:40
@@ -1923,8 +1919,8 @@ msgid "Fun pack"
 msgstr "펀 팩"
 
 #: rust/crates/effects/src/fun_pack.rs:684
-msgid "Silly effects: clones, an invisibility cloak, light painting, retro looks and datamosh."
-msgstr "재미있는 특수 효과: 클론, 투명 망토, 라이트 페인팅, 레트로 효과, 데이터모시."
+msgid "Add silly effects like clones, an invisibility cloak, light painting, retro looks and datamosh."
+msgstr ""
 
 #: rust/crates/effects/src/fun_pack.rs:685
 msgid "Without the Fun pack plugin there's no Fun pack card and the picture has no effects."
@@ -2630,7 +2626,7 @@ msgid "Blur the picture until you click again."
 msgstr "다시 클릭할 때까지 화면을 흐리게 처리해요."
 
 #: rust/crates/effects/src/privacy_blur.rs:309
-msgid "Blurs the whole picture, or puts the wait screen up, when more than one person is in it. Only people the vision models find are detected, so someone can be missed and privacy isn't guaranteed."
+msgid "Blur the whole picture or show the wait screen when more than one person is in it. Privacy isn't guaranteed because the vision models can miss someone."
 msgstr ""
 
 #: rust/crates/effects/src/privacy_blur.rs:310
@@ -2869,7 +2865,7 @@ msgid "Stretch or squeeze the picture vertically."
 msgstr "화면을 세로로 늘리거나 좁혀요."
 
 #: rust/crates/effects/src/transforms.rs:40
-msgid "Straighten the curved lines of a wide lens (right) or a long lens (left), with the edges cropped or pulled in to stay filled."
+msgid "Straighten the curved lines of a wide lens (right) or a long lens (left). The edges get cropped or pulled in to fill the empty corners."
 msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:64
@@ -2991,7 +2987,7 @@ msgid "Blur the background or replace it with a picture."
 msgstr "배경을 흐리게 하거나 사진으로 바꿔요."
 
 #: rust/crates/effects/ui/background.slint:50
-msgid "Puts the background, blur, edges and picture choice back. Your picture file stays where it is."
+msgid "Set the background, blur, edges and picture choice back to default."
 msgstr ""
 
 #: rust/crates/effects/ui/background.slint:57
@@ -3023,7 +3019,7 @@ msgid "Replace a green or blue screen behind you with a colour or a picture."
 msgstr "뒤의 그린 스크린이나 블루 스크린을 색상이나 사진으로 바꿔요."
 
 #: rust/crates/effects/ui/chroma_key.slint:74
-msgid "Puts the screen, sliders and what goes behind you back. The switch stays as it is."
+msgid "Set the screen colour, sliders and background back to default."
 msgstr ""
 
 #: rust/crates/effects/ui/chroma_key.slint:79 rust/crates/effects/ui/chroma_key.slint:93
@@ -3059,7 +3055,7 @@ msgid "Show focus peaking, zebras, false colour, scopes, guides and a level on t
 msgstr "미리보기에 포커스 피킹, 지브라, 폴스 컬러, 스코프, 가이드, 수평계를 표시해요."
 
 #: rust/crates/effects/ui/cinema.slint:33
-msgid "Switches the tools off and puts guides and scope back. The options in Settings stay."
+msgid "Turn the tools off and set the guides and scope back to default."
 msgstr ""
 
 #: rust/crates/effects/ui/cinema.slint:39
@@ -3075,7 +3071,7 @@ msgid "Which scope is drawn on the preview."
 msgstr "미리보기에 표시할 스코프를 선택해요."
 
 #: rust/crates/effects/ui/cinema.slint:161
-msgid "Puts the peaking colour, sensitivity, zebra level and scope size back. The tools on the card stay as they are."
+msgid "Set the peaking colour, sensitivity, zebra level and scope size back to default."
 msgstr ""
 
 #: rust/crates/effects/ui/cinema.slint:166 rust/crates/effects/ui/cinema.slint:178
@@ -3235,7 +3231,7 @@ msgid "Replace"
 msgstr "덮어쓰기"
 
 #: rust/crates/effects/ui/composite.slint:34
-msgid "Clears the picture's current layout. Your saved layouts and the switch stay."
+msgid "Clear the current layout. Saved layouts aren't affected."
 msgstr ""
 
 #: rust/crates/effects/ui/composite.slint:40 rust/crates/effects/ui/composite.slint:47 rust/crates/effects/ui/composite.slint:51 rust/crates/effects/ui/composite_editor.slint:373 rust/crates/effects/ui/composite_editor.slint:385 rust/crates/shell/ui/card-order-settings.slint:7
@@ -3451,7 +3447,7 @@ msgid "Sharpen, clean up and finish the picture like a photo editor."
 msgstr ""
 
 #: rust/crates/effects/ui/filters.slint:54
-msgid "Puts every filter slider back to neutral. The switch stays as it is."
+msgid "Set every filter back to neutral."
 msgstr ""
 
 #: rust/crates/effects/ui/framing.slint:46
@@ -3459,7 +3455,7 @@ msgid "Zoom and pan automatically to keep you in the picture."
 msgstr "화면 안에 계속 나오도록 줌과 팬을 자동으로 조절해요."
 
 #: rust/crates/effects/ui/framing.slint:60
-msgid "Puts the framing, speed, room and hand settings back. The switch stays as it is."
+msgid "Set the framing, speed, room and hand settings back to default."
 msgstr ""
 
 #: rust/crates/effects/ui/framing.slint:71 rust/crates/effects/ui/framing.slint:78 rust/crates/effects/ui/framing.slint:79 rust/crates/outputs/src/webcam.rs:80
@@ -3479,7 +3475,7 @@ msgid "Silly effects like clones, an invisibility cloak, light painting, retro l
 msgstr "복제, 투명 망토, 라이트 페인팅, 레트로 효과, 데이터모시 같은 재미있는 효과예요."
 
 #: rust/crates/effects/ui/fun_pack.slint:57
-msgid "Switches the effect off and puts every slider back."
+msgid "Turn the effect off and set every slider back to default."
 msgstr ""
 
 #: rust/crates/effects/ui/fun_pack.slint:63 rust/crates/effects/ui/fun_pack.slint:71 rust/crates/effects/ui/fun_pack.slint:72
@@ -3519,7 +3515,7 @@ msgid "Not ready"
 msgstr "준비되지 않음"
 
 #: rust/crates/effects/ui/name_tag.slint:79
-msgid "Puts the style, position and size back. Your name, pronouns and second line stay."
+msgid "Set the style, position and size back to default. Your name, pronouns and second line aren't reset."
 msgstr ""
 
 #: rust/crates/effects/ui/name_tag.slint:84 rust/crates/effects/ui/name_tag.slint:88 rust/crates/effects/ui/name_tag.slint:89 rust/crates/effects/ui/name_tag.slint:90 rust/crates/link/ui/connection.slint:655
@@ -3555,7 +3551,7 @@ msgid "Show your script on the phone's screen so you can read it while looking i
 msgstr "카메라를 보면서 읽을 수 있도록 휴대폰 화면에 대본을 표시해요."
 
 #: rust/crates/effects/ui/notes.slint:72
-msgid "Puts the text size, scroll mode and speed back. Your scripts stay."
+msgid "Set the text size, scroll mode and speed back to default. Your scripts aren't reset."
 msgstr ""
 
 #: rust/crates/effects/ui/notes.slint:128 rust/crates/effects/ui/notes.slint:134 rust/crates/effects/ui/notes.slint:135
@@ -3575,7 +3571,7 @@ msgid "Show the people around you that your camera or microphone is in use."
 msgstr ""
 
 #: rust/crates/effects/ui/on_air.slint:123
-msgid "Puts what puts the sign on air back. Your link, address and webhook stay."
+msgid "Set what turns the sign on air back to default. Your link, address and webhook aren't reset."
 msgstr ""
 
 #: rust/crates/effects/ui/on_air.slint:127
@@ -3591,7 +3587,7 @@ msgid "On air when"
 msgstr "온에어 조건"
 
 #: rust/crates/effects/ui/on_air.slint:136
-msgid "What puts the sign on air"
+msgid "Choose what turns the sign on."
 msgstr ""
 
 #: rust/crates/effects/ui/on_air.slint:152
@@ -3641,7 +3637,7 @@ msgid "smart home light home assistant url http request automation"
 msgstr "스마트홈 조명 홈어시스턴트 url http 요청 자동화 smart home light home assistant url http request automation"
 
 #: rust/crates/effects/ui/on_air.slint:246
-msgid "Puts the method and the going on and off air texts back. The webhook's address stays."
+msgid "Set the method and the on air and off air texts back to default. The webhook address isn't reset."
 msgstr ""
 
 #: rust/crates/effects/ui/on_air.slint:253
@@ -3773,7 +3769,7 @@ msgid "Arrow keys move the picked point, Shift with an arrow moves it further. L
 msgstr "화살표 키로 선택한 포인트를 이동하고, Shift와 화살표 키를 함께 누르면 더 많이 이동해요. 왼쪽 및 오른쪽 대괄호 키로 다른 포인트를 선택해요. Delete는 포인트를 삭제하고 Home은 커브를 초기화해요."
 
 #: rust/crates/effects/ui/photos.slint:144
-msgid "Puts the photo mode, format, quality, timer and the rest back. The folder your photos go to stays."
+msgid "Set every photo setting except the folder back to default."
 msgstr ""
 
 #: rust/crates/effects/ui/photos.slint:173
@@ -3817,7 +3813,7 @@ msgid "Blur the whole picture or show the wait screen when more than one person 
 msgstr ""
 
 #: rust/crates/effects/ui/privacy_blur.slint:37
-msgid "Puts what happens with more than one person back to blurring the picture. The switch stays as it is."
+msgid "Set what happens with more than one person back to default."
 msgstr ""
 
 #: rust/crates/effects/ui/privacy_blur.slint:42
@@ -3837,7 +3833,7 @@ msgid "Make one 3D picture from two phones."
 msgstr ""
 
 #: rust/crates/effects/ui/stereo.slint:71
-msgid "Puts the look, the eye order and the fine tune sliders back and drops the match. The switch stays as it is and the phones keep their exposure."
+msgid "Set the look, eye order and fine tune sliders back to default and clear the match."
 msgstr ""
 
 #: rust/crates/effects/ui/stereo.slint:93 rust/crates/effects/ui/stereo.slint:94
@@ -3897,8 +3893,8 @@ msgid "Double-click to reset"
 msgstr "더블 클릭하여 초기화"
 
 #: rust/crates/effects/ui/vision_status.slint:24
-msgid "Needs a download"
-msgstr "다운로드 필요"
+msgid "Download required"
+msgstr ""
 
 #: rust/crates/effects/ui/vision_status.slint:28 rust/crates/setup/ui/setup.slint:148
 msgid "Download"
@@ -4156,7 +4152,7 @@ msgstr ""
 
 #: rust/crates/link/src/connection.rs:464
 #, python-brace-format
-msgid "Still streaming over {now}, so the connection stays on {kept}."
+msgid "The stream is still running over {now} and Connect via is still set to {kept}."
 msgstr ""
 
 #: rust/crates/link/src/connection.rs:804
@@ -4188,8 +4184,8 @@ msgid "Can't reach the phone"
 msgstr "휴대폰에 연결할 수 없음"
 
 #: rust/crates/link/src/connection.rs:828
-msgid "Needs pairing again"
-msgstr "다시 페어링 필요"
+msgid "Pairing required"
+msgstr ""
 
 #: rust/crates/link/src/connection.rs:829
 msgid "Phone accepts USB only"
@@ -4439,19 +4435,18 @@ msgstr "Google에서 adb 다운로드 중…"
 msgid "Or plug the phone in over USB."
 msgstr ""
 
-#. keep the <a href="{link}"> link
 #: rust/crates/link/src/plugin.rs:575
 #, python-brace-format
-msgid "Needs adb, which Telescope can <a href=\"{link}\">get from Google</a>. Wi-Fi works without it."
-msgstr "adb가 필요하며, Telescope에서 <a href=\"{link}\">Google을 통해 설치</a>할 수 있어요. Wi-Fi 연결은 adb 없이도 작동해요."
+msgid "adb is required for USB and Telescope can <a href=\"{link}\">get it from Google</a>. Wi-Fi works without it."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:576
 msgid "Get adb from Google"
 msgstr "Google에서 adb 설치"
 
 #: rust/crates/link/src/plugin.rs:578
-msgid "Needs adb, which isn't installed. Wi-Fi works without it."
-msgstr "설치되지 않은 adb가 필요해요. Wi-Fi 연결은 adb 없이도 작동해요."
+msgid "adb is required for USB but isn't installed. Wi-Fi works without it."
+msgstr ""
 
 #: rust/crates/link/src/plugin.rs:593
 #, python-brace-format
@@ -4647,7 +4642,7 @@ msgid "Make a new code. The old code stops working."
 msgstr "새 코드를 만들어요. 기존 코드는 더 이상 작동하지 않아요."
 
 #: rust/crates/link/ui/browser_camera.slint:85
-msgid "Puts the size and frame rate back. The remembered browsers and the address stay."
+msgid "Set the size and frame rate back to default."
 msgstr ""
 
 #: rust/crates/link/ui/browser_camera.slint:171
@@ -5050,8 +5045,8 @@ msgid "Stream output"
 msgstr "스트림 출력"
 
 #: rust/crates/outputs/src/stream_output.rs:724 rust/crates/outputs/ui/stream_output.slint:44
-msgid "The resolution, frame rate and format of the stream."
-msgstr "스트림의 해상도, 프레임 레이트 및 포맷이에요."
+msgid "Set the resolution, frame rate and format of the stream."
+msgstr ""
 
 #: rust/crates/outputs/src/stream_output.rs:725
 msgid "Without the Stream output plugin there's no Stream output card and streams use whatever size and format the phone picks."
@@ -5131,8 +5126,8 @@ msgid "Wait screen"
 msgstr "대기 화면"
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:575
-msgid "The picture apps see on the virtual camera while nothing is streaming."
-msgstr "스트리밍하지 않는 동안 앱이 가상 카메라에서 보게 되는 화면이에요."
+msgid "Choose the picture apps see on the virtual camera while nothing is streaming."
+msgstr ""
 
 #: rust/crates/outputs/src/wait_screen_plugin.rs:576
 msgid "Without the Wait screen plugin Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
@@ -5318,8 +5313,8 @@ msgstr "웹캠이 보내는 크기예요. 자동은 프레임 레이트를 유�
 msgid "Webcams"
 msgstr "웹캠"
 
-#: rust/crates/outputs/src/webcam.rs:1012
-msgid "Streaming from webcams and capture cards plugged into this computer."
+#: rust/crates/outputs/src/webcam.rs:1012 rust/crates/outputs/ui/webcam.slint:80
+msgid "Stream from webcams and capture cards plugged into this computer."
 msgstr "이 컴퓨터에 연결된 웹캠과 캡처 카드로 스트리밍해요."
 
 #: rust/crates/outputs/src/webcam.rs:1013
@@ -5465,7 +5460,7 @@ msgid "Downloading driver files..."
 msgstr "드라이버 파일 다운로드 중..."
 
 #: rust/crates/outputs/ui/stream_output.slint:52
-msgid "Puts the frame rate, format, quality and bitrate back. The size stays as it is."
+msgid "Set the frame rate, format, quality and bitrate back to default."
 msgstr ""
 
 #: rust/crates/outputs/ui/stream_output.slint:92 rust/crates/outputs/ui/stream_output.slint:98
@@ -5503,10 +5498,6 @@ msgstr "웹캠의 화면 설정을 기본값으로 되돌려요."
 #: rust/crates/outputs/ui/webcam.slint:79
 msgid "Webcam"
 msgstr "웹캠"
-
-#: rust/crates/outputs/ui/webcam.slint:80
-msgid "Stream from webcams and capture cards plugged into this computer."
-msgstr "이 컴퓨터에 연결된 웹캠과 캡처 카드로 스트리밍해요."
 
 #: rust/crates/outputs/ui/webcam.slint:139 rust/crates/outputs/ui/webcam.slint:147 rust/crates/outputs/ui/webcam.slint:147
 msgid "Let the webcam pick or set it yourself."
@@ -5679,20 +5670,20 @@ msgid "Monitoring"
 msgstr "모니터링"
 
 #: rust/crates/setup/src/monitoring.rs:464
-msgid "The phone's battery and temperature, with warnings when they get low or high."
-msgstr "휴대폰의 배터리와 온도를 확인하고, 너무 낮거나 높을 때 경고를 표시해요."
+msgid "Watch the phone's battery and temperature and get a warning when they get too low or too high."
+msgstr ""
 
 #: rust/crates/setup/src/monitoring.rs:465
 msgid "Without the Monitoring plugin there's no Phone card and nothing warns you about a low battery or a hot phone."
 msgstr ""
 
 #: rust/crates/setup/src/setup.rs:34
-msgid "Needs your password (pkexec or sudo) to change system settings."
+msgid "Your password (pkexec or sudo) is required to change system settings."
 msgstr ""
 
 #: rust/crates/setup/src/setup.rs:35
-msgid "Needs your password (pkexec or sudo) because this changes system settings."
-msgstr "시스템 설정을 변경하므로 비밀번호(pkexec 또는 sudo)가 필요해요."
+msgid "Your password (pkexec or sudo) is required because this changes system settings."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:172 rust/crates/setup/src/setup.rs:184 rust/crates/setup/src/setup.rs:190
 msgid "Checking..."
@@ -5728,8 +5719,8 @@ msgid "Write the setting to /etc/modprobe.d/ and /etc/modules-load.d/ so the mod
 msgstr "재부팅 후에도 커널 모듈이 로드되도록 /etc/modprobe.d/ 및 /etc/modules-load.d/에 설정을 저장해요."
 
 #: rust/crates/setup/src/setup.rs:374
-msgid "Needs your password (pkexec or sudo)."
-msgstr "비밀번호(pkexec 또는 sudo)가 필요해요."
+msgid "Your password (pkexec or sudo) is required."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:387
 msgid "Applying stops the stream and reloads the virtual camera. Close OBS and other apps using it first."
@@ -5845,8 +5836,8 @@ msgid "Go back to one camera. Use Add camera to set up the others again."
 msgstr "카메라 1개로 돌아가요. 다른 카메라를 다시 설정하려면 카메라 추가를 사용하세요."
 
 #: rust/crates/setup/src/setup.rs:611
-msgid "Needs your password."
-msgstr "비밀번호가 필요해요."
+msgid "Your password is required."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:611 rust/crates/shell/src/extra_cameras.rs:87
 msgid "Windows asks for permission."
@@ -5995,8 +5986,8 @@ msgid "Advanced settings"
 msgstr "고급 설정"
 
 #: rust/crates/setup/src/setup.rs:1112
-msgid "The virtual camera, its size, extra cameras, video and microphone limits, and the Updates & About tab."
-msgstr "가상 카메라와 크기, 추가 카메라, 동영상 및 마이크 제한, 업데이트 및 정보 탭이에요."
+msgid "Set up the virtual camera, its size, extra cameras and the video and microphone limits, and check for updates."
+msgstr ""
 
 #: rust/crates/setup/src/setup.rs:1211
 msgid "Use my own adb…"
@@ -6300,8 +6291,8 @@ msgid "Stats"
 msgstr "통계"
 
 #: rust/crates/setup/src/stats.rs:779
-msgid "Numbers about the stream as it runs: frames in and out, dropped frames and why, the link and bitrate, how long each step takes and what the app uses."
-msgstr "실행 중인 스트림의 수치예요: 입출력 프레임, 드롭된 프레임과 원인, 연결 및 비트레이트, 단계별 소요 시간과 앱 리소스 사용량을 보여줘요."
+msgid "See numbers about the stream as it runs: frames in and out, dropped frames and why, the link and bitrate, how long each step takes and what the app uses."
+msgstr ""
 
 #: rust/crates/setup/src/stats.rs:780
 msgid "Without the Stats plugin there's no Stats card. The stream is not affected."
@@ -6338,8 +6329,8 @@ msgid "Delay on the phone"
 msgstr "휴대폰 지연 시간"
 
 #: rust/crates/setup/src/stats_phone.rs:129
-msgid "Needs a newer phone app"
-msgstr "더 새로운 휴대폰 앱 필요"
+msgid "Phone app update required"
+msgstr ""
 
 #: rust/crates/setup/src/stats_phone.rs:133
 #, python-brace-format
@@ -6430,7 +6421,7 @@ msgid "Get a warning or stop the stream when the phone's battery is low or the p
 msgstr "휴대폰 배터리가 부족하거나 휴대폰이 너무 뜨거울 때 경고를 받거나 스트림을 중지해요."
 
 #: rust/crates/setup/ui/monitoring.slint:77
-msgid "Puts the battery and temperature alerts back to their usual levels and switches."
+msgid "Set the battery and temperature alerts back to default."
 msgstr ""
 
 #: rust/crates/setup/ui/monitoring.slint:83 rust/crates/setup/ui/monitoring.slint:89 rust/crates/setup/ui/monitoring.slint:105 rust/crates/setup/ui/monitoring.slint:114
@@ -6572,7 +6563,7 @@ msgid "Hardware acceleration, power saving, zoom range and the virtual camera's 
 msgstr "하드웨어 가속, 절전, 줌 범위 및 가상 카메라 크기예요."
 
 #: rust/crates/setup/ui/setup.slint:211
-msgid "Puts hardware acceleration, power saving and the zoom range back to how they started, and picks the automatic canvas size, which Apply then uses."
+msgid "Set hardware acceleration, power saving, zoom range and canvas size back to default. The canvas size changes when you press Apply."
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:213
@@ -6645,7 +6636,7 @@ msgid "Maximum microphone gain and the limiter."
 msgstr "최대 마이크 게인 및 리미터예요."
 
 #: rust/crates/setup/ui/setup.slint:338
-msgid "Puts the gain range and the limiter back to their usual settings."
+msgid "Set the gain range and limiter back to default."
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:340
@@ -6726,7 +6717,7 @@ msgid "Theme, card colours and language."
 msgstr "테마, 카드 색상 및 언어예요."
 
 #: rust/crates/setup/ui/setup.slint:467
-msgid "Puts the theme, card colours and language back to their usual choices."
+msgid "Set the theme, card colours and language back to default."
 msgstr ""
 
 #: rust/crates/setup/ui/setup.slint:469
@@ -6986,12 +6977,12 @@ msgid "Couldn't add more virtual cameras"
 msgstr "가상 카메라를 더 추가하지 못했어요"
 
 #: rust/crates/shell/src/host.rs:665
-msgid "Needs video that only a phone's stream has."
+msgid "Phone stream required."
 msgstr ""
 
 #: rust/crates/shell/src/host.rs:671
-msgid "Needs Light: Heavy sends whole pictures, with no keyframes to work with."
-msgstr "'가볍게'가 필요해요. '무겁게'는 키프레임 없이 프레임 전체를 보내요."
+msgid "Light format required. Heavy sends whole pictures with no keyframes to work with."
+msgstr ""
 
 #: rust/crates/shell/src/overlays.rs:365
 msgid "Click a point on the picture. Esc cancels."
@@ -7306,8 +7297,8 @@ msgid "Click Start streaming in the top right corner of this window."
 msgstr "이 창 오른쪽 위에 있는 스트리밍 시작을 누르세요."
 
 #: rust/crates/shell/src/plugins/onboarding.rs:206
-msgid "The step by step checklist shown until the first stream works."
-msgstr "첫 스트리밍이 작동할 때까지 표시되는 단계별 체크리스트예요."
+msgid "Follow a step by step checklist until the first stream works."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/onboarding.rs:207
 msgid "Without the Setup guide plugin the setup checklist never shows, not even when nothing is set up yet."
@@ -7361,8 +7352,8 @@ msgid "Preset: {name}"
 msgstr "프리셋: {name}"
 
 #: rust/crates/shell/src/plugins/presets.rs:282
-msgid "Saving and loading groups of settings with one click."
-msgstr "클릭 한 번으로 여러 설정을 저장하고 불러와요."
+msgid "Save and load groups of settings with one click."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/presets.rs:283
 msgid "Without the Presets plugin there's no Presets button in the header (your saved presets aren't deleted)."
@@ -7409,8 +7400,8 @@ msgid "Preview"
 msgstr "미리보기"
 
 #: rust/crates/shell/src/plugins/preview.rs:339
-msgid "The live picture in the middle of the window, and the camera on/off button under it."
-msgstr "창 중앙의 실시간 화면과 그 아래의 카메라 켬/끔 버튼이에요."
+msgid "See the live picture in the middle of the window and turn the camera on and off with the button under it."
+msgstr ""
 
 #: rust/crates/shell/src/plugins/preview.rs:340
 msgid "Without the Preview plugin the window doesn't show the picture but apps using the virtual camera still get it."
@@ -7482,8 +7473,8 @@ msgid "The plugin's download (about {mb} MB) is missing. Switch the plugin off a
 msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:524
-msgid "Needs the vision download"
-msgstr "비전 다운로드 필요"
+msgid "Vision download required"
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:542
 msgid "There's no vision download for this computer yet."
@@ -7636,11 +7627,11 @@ msgid "Reset all settings?"
 msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:724
-msgid "Every setting goes back to its default and Telescope restarts, so the stream stops. Your paired phones, presets and notes stay."
+msgid "Every setting will go back to default. Telescope will restart and the stream will stop. Your paired phones, presets and notes aren't reset."
 msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:726
-msgid "Every setting goes back to its default and Telescope restarts. Your paired phones, presets and notes stay."
+msgid "Every setting will go back to default and Telescope will restart. Your paired phones, presets and notes aren't reset."
 msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:731
@@ -7662,7 +7653,7 @@ msgid "Switch off {plugin}?"
 msgstr "{plugin}을(를) 끌까요?"
 
 #: rust/crates/shell/src/plugins_tab.rs:749
-msgid "Without the plugin, what it added to Telescope is gone. The plugin's settings stay saved for when you switch it back on."
+msgid "Without the plugin, what it added to Telescope is gone. Its settings are saved for when you switch it back on."
 msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:749 rust/crates/shell/src/plugins_tab.rs:769
@@ -7684,8 +7675,8 @@ msgid "Download and switch on"
 msgstr "다운로드 후 켜기"
 
 #: rust/crates/shell/src/plugins_tab.rs:768
-msgid "Its settings stay saved for when you switch it back on."
-msgstr "설정은 다시 켤 때를 위해 그대로 저장돼요."
+msgid "Its settings are saved for when you switch it back on."
+msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:779
 msgid "This is the vision pack, not a plugin. It's being checked and installed in the background, and the download banner shows how it goes."
@@ -8262,7 +8253,7 @@ msgid "Exposure, white balance, focus, lenses and the phone camera's other setti
 msgstr "노출, 화이트 밸런스, 초점, 렌즈 및 휴대폰 카메라의 기타 설정이에요."
 
 #: rust/crates/shell/ui/cards/camera.slint:114
-msgid "Goes back to automatic exposure, focus and white balance, and puts the other settings back. The lens stays."
+msgid "Set every camera setting except the lens back to default."
 msgstr ""
 
 #: rust/crates/shell/ui/cards/camera.slint:167
@@ -8499,7 +8490,7 @@ msgid "All settings"
 msgstr ""
 
 #: rust/crates/shell/ui/settings.slint:604 rust/crates/shell/ui/settings.slint:611
-msgid "Puts every setting back to its default and restarts Telescope."
+msgid "Set every setting back to default and restart Telescope."
 msgstr ""
 
 #: rust/crates/shell/ui/settings.slint:610
@@ -8586,7 +8577,7 @@ msgid "Not available on this desktop"
 msgstr "이 데스크톱 환경에서는 지원되지 않음"
 
 #: rust/crates/system/src/hotkeys_portal.rs:118
-msgid "Needs your confirmation"
+msgid "Confirmation required"
 msgstr ""
 
 #: rust/crates/system/src/hotkeys_portal.rs:129
@@ -8895,8 +8886,8 @@ msgid "A newer Telescope is already installed, so this copy is left unchanged. O
 msgstr ""
 
 #: rust/crates/system/src/setup_move.rs:389
-msgid "The installer took too long, so this copy stays as it is."
-msgstr "설치 프로그램 실행 시간이 너무 오래 걸려 현재 설치본이 그대로 유지돼요."
+msgid "The installer took too long. This copy of Telescope wasn't changed."
+msgstr ""
 
 #: rust/crates/system/src/setup_move.rs:391
 #, python-brace-format
@@ -8905,8 +8896,8 @@ msgstr "설치 프로그램을 시작할 수 없었어요: {error}"
 
 #: rust/crates/system/src/setup_move.rs:395
 #, python-brace-format
-msgid "The installer stopped (code {code}), so this copy stays as it is."
-msgstr "설치 프로그램이 중단되어(코드 {code}) 현재 설치본이 그대로 유지돼요."
+msgid "The installer stopped (code {code}). This copy of Telescope wasn't changed."
+msgstr ""
 
 #: rust/crates/system/src/setup_move.rs:399
 msgid "Telescope was installed, but its folder wasn't where expected. Open it from the Start menu."
@@ -9093,8 +9084,8 @@ msgid "Couldn't open your desktop's shortcut settings. Look for Shortcuts in its
 msgstr "데스크톱의 단축키 설정을 열 수 없었어요. 시스템 설정에서 '단축키'를 찾아보세요."
 
 #: rust/crates/system/src/shortcuts.rs:1149
-msgid "Keys for Telescope's controls, including ones that work in other apps."
-msgstr "다른 앱에서도 작동하는 키를 포함한 Telescope 컨트롤용 키예요."
+msgid "Set keys for Telescope's controls, including ones that work in other apps."
+msgstr ""
 
 #: rust/crates/system/src/shortcuts.rs:1150
 msgid "Without the Keyboard shortcuts plugin no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when the plugin is on again)."
@@ -9231,8 +9222,8 @@ msgid "Start and stop automatically"
 msgstr ""
 
 #: rust/crates/system/src/startup.rs:537
-msgid "Opening Telescope when you sign in, and Automatic streaming."
-msgstr "로그인 시 Telescope 열기 및 자동 스트리밍 기능이에요."
+msgid "Open Telescope when you sign in and set up Automatic streaming."
+msgstr ""
 
 #: rust/crates/system/src/startup.rs:538
 msgid "Without the Automatic streaming plugin, Automatic streaming stops and it and the sign-in option disappear from Settings. Telescope still opens at sign-in if it did before."
@@ -9366,15 +9357,15 @@ msgid "Updates"
 msgstr "업데이트"
 
 #: rust/crates/system/src/updates_plugin.rs:886
-msgid "Checking for new versions of Telescope and installing them."
-msgstr "Telescope의 새 버전을 확인하고 설치해요."
+msgid "Check for new versions of Telescope and install them."
+msgstr ""
 
 #: rust/crates/system/ui/mcp.slint:32
 msgid "Let an AI app read and change Telescope's settings."
 msgstr "AI 앱이 Telescope의 설정을 읽고 변경할 수 있게 허용해요."
 
 #: rust/crates/system/ui/mcp.slint:39
-msgid "Puts what an AI app may do back to its usual level. The activity log and undo history stay."
+msgid "Set what AI apps are allowed to do back to default. The activity log and undo history aren't reset."
 msgstr ""
 
 #: rust/crates/system/ui/mcp.slint:44
@@ -9457,7 +9448,7 @@ msgid "global system wide hotkeys background other apps"
 msgstr "전역 시스템 전체 단축키 백그라운드 다른 앱 global system wide hotkeys background other apps"
 
 #: rust/crates/system/ui/shortcuts.slint:217
-msgid "Turns the notice when a shortcut runs back off. Your shortcuts stay."
+msgid "Set the shortcut notice back to default. Your shortcuts aren't reset."
 msgstr ""
 
 #: rust/crates/system/ui/shortcuts.slint:221
@@ -9527,7 +9518,7 @@ msgid "Open Telescope when you sign in."
 msgstr "로그인할 때 Telescope를 열어요."
 
 #: rust/crates/system/ui/startup.slint:19
-msgid "Stops Telescope opening when you sign in."
+msgid "Stop Telescope from opening when you sign in."
 msgstr ""
 
 #: rust/crates/system/ui/startup.slint:21
@@ -9553,7 +9544,7 @@ msgid "Start and stop the stream automatically when an app uses the virtual came
 msgstr "앱이 가상 카메라를 사용할 때 스트림을 자동으로 시작하고 중지해요."
 
 #: rust/crates/system/ui/startup.slint:68
-msgid "Puts when to start and stop, the wait and the notice back to their usual choices."
+msgid "Set when to start and stop, the wait and the notice back to default."
 msgstr ""
 
 #: rust/crates/system/ui/startup.slint:70
@@ -9619,7 +9610,7 @@ msgid "Look for a new version of Telescope."
 msgstr "Telescope의 새 버전을 찾아요."
 
 #: rust/crates/system/ui/updates.slint:120
-msgid "Puts the update channel and automatic checking back to their usual choices."
+msgid "Set the update channel and automatic checking back to default."
 msgstr ""
 
 #: rust/crates/system/ui/updates.slint:126
@@ -9980,6 +9971,115 @@ msgstr "대체됨"
 #: rust/crates/shell/src/plugins_tab.rs:157
 msgid "Couldn't restart"
 msgstr "다시 시작할 수 없음"
+
+#, python-brace-format
+#~ msgid "Needs {tools} (in pulseaudio-utils; PipeWire systems use it too)."
+#~ msgstr "{tools} 도구가 필요해요(pulseaudio-utils 패키지 포함, PipeWire 시스템에서도 사용됨)."
+
+#~ msgid "Needs VB-Audio Virtual Cable, a free virtual audio cable by VB-Audio."
+#~ msgstr "VB-Audio에서 제공하는 무료 가상 오디오 케이블인 VB-Audio Virtual Cable이 필요해요."
+
+#~ msgid "Needs VB-Cable"
+#~ msgstr "VB-Cable 필요"
+
+#~ msgid "Using the phone's microphone on this computer."
+#~ msgstr "휴대폰 마이크를 이 컴퓨터에서 사용해요."
+
+#, python-brace-format
+#~ msgid "Needs a one-time download (about {mb} MB)."
+#~ msgstr "1회성 다운로드(약 {mb} MB)가 필요해요."
+
+#~ msgid "Focus peaking, zebras, false colour, scopes, framing guides and a level on the preview, for judging focus, exposure, framing and a straight horizon."
+#~ msgstr "초점, 노출, 프레이밍, 수평을 확인할 수 있도록 미리보기에 포커스 피킹, 지브라, 폴스 컬러, 스코프, 프레이밍 가이드, 수평계를 표시해요."
+
+#~ msgid "Colour wheels, curves and LUT files for the look of the picture."
+#~ msgstr "화면 분위기를 연출할 수 있는 컬러 휠, 커브, LUT 파일이에요."
+
+#~ msgid "Needs two streams"
+#~ msgstr "스트림 2개 필요"
+
+#~ msgid "Zooms and pans to keep you in the picture as you move."
+#~ msgstr "움직여도 화면 안에 유지되도록 줌과 팬을 자동으로 조절해요."
+
+#~ msgid "Silly effects: clones, an invisibility cloak, light painting, retro looks and datamosh."
+#~ msgstr "재미있는 특수 효과: 클론, 투명 망토, 라이트 페인팅, 레트로 효과, 데이터모시."
+
+#~ msgid "Needs a download"
+#~ msgstr "다운로드 필요"
+
+#~ msgid "Needs pairing again"
+#~ msgstr "다시 페어링 필요"
+
+#, python-brace-format
+#~ msgid "Needs adb, which Telescope can <a href=\"{link}\">get from Google</a>. Wi-Fi works without it."
+#~ msgstr "adb가 필요하며, Telescope에서 <a href=\"{link}\">Google을 통해 설치</a>할 수 있어요. Wi-Fi 연결은 adb 없이도 작동해요."
+
+#~ msgid "Needs adb, which isn't installed. Wi-Fi works without it."
+#~ msgstr "설치되지 않은 adb가 필요해요. Wi-Fi 연결은 adb 없이도 작동해요."
+
+#~ msgid "The resolution, frame rate and format of the stream."
+#~ msgstr "스트림의 해상도, 프레임 레이트 및 포맷이에요."
+
+#~ msgid "The picture apps see on the virtual camera while nothing is streaming."
+#~ msgstr "스트리밍하지 않는 동안 앱이 가상 카메라에서 보게 되는 화면이에요."
+
+#~ msgid "Streaming from webcams and capture cards plugged into this computer."
+#~ msgstr "이 컴퓨터에 연결된 웹캠과 캡처 카드로 스트리밍해요."
+
+#~ msgid "The phone's battery and temperature, with warnings when they get low or high."
+#~ msgstr "휴대폰의 배터리와 온도를 확인하고, 너무 낮거나 높을 때 경고를 표시해요."
+
+#~ msgid "Needs your password (pkexec or sudo) because this changes system settings."
+#~ msgstr "시스템 설정을 변경하므로 비밀번호(pkexec 또는 sudo)가 필요해요."
+
+#~ msgid "Needs your password (pkexec or sudo)."
+#~ msgstr "비밀번호(pkexec 또는 sudo)가 필요해요."
+
+#~ msgid "Needs your password."
+#~ msgstr "비밀번호가 필요해요."
+
+#~ msgid "The virtual camera, its size, extra cameras, video and microphone limits, and the Updates & About tab."
+#~ msgstr "가상 카메라와 크기, 추가 카메라, 동영상 및 마이크 제한, 업데이트 및 정보 탭이에요."
+
+#~ msgid "Numbers about the stream as it runs: frames in and out, dropped frames and why, the link and bitrate, how long each step takes and what the app uses."
+#~ msgstr "실행 중인 스트림의 수치예요: 입출력 프레임, 드롭된 프레임과 원인, 연결 및 비트레이트, 단계별 소요 시간과 앱 리소스 사용량을 보여줘요."
+
+#~ msgid "Needs a newer phone app"
+#~ msgstr "더 새로운 휴대폰 앱 필요"
+
+#~ msgid "Needs Light: Heavy sends whole pictures, with no keyframes to work with."
+#~ msgstr "'가볍게'가 필요해요. '무겁게'는 키프레임 없이 프레임 전체를 보내요."
+
+#~ msgid "The step by step checklist shown until the first stream works."
+#~ msgstr "첫 스트리밍이 작동할 때까지 표시되는 단계별 체크리스트예요."
+
+#~ msgid "Saving and loading groups of settings with one click."
+#~ msgstr "클릭 한 번으로 여러 설정을 저장하고 불러와요."
+
+#~ msgid "The live picture in the middle of the window, and the camera on/off button under it."
+#~ msgstr "창 중앙의 실시간 화면과 그 아래의 카메라 켬/끔 버튼이에요."
+
+#~ msgid "Needs the vision download"
+#~ msgstr "비전 다운로드 필요"
+
+#~ msgid "Its settings stay saved for when you switch it back on."
+#~ msgstr "설정은 다시 켤 때를 위해 그대로 저장돼요."
+
+#~ msgid "The installer took too long, so this copy stays as it is."
+#~ msgstr "설치 프로그램 실행 시간이 너무 오래 걸려 현재 설치본이 그대로 유지돼요."
+
+#, python-brace-format
+#~ msgid "The installer stopped (code {code}), so this copy stays as it is."
+#~ msgstr "설치 프로그램이 중단되어(코드 {code}) 현재 설치본이 그대로 유지돼요."
+
+#~ msgid "Keys for Telescope's controls, including ones that work in other apps."
+#~ msgstr "다른 앱에서도 작동하는 키를 포함한 Telescope 컨트롤용 키예요."
+
+#~ msgid "Opening Telescope when you sign in, and Automatic streaming."
+#~ msgstr "로그인 시 Telescope 열기 및 자동 스트리밍 기능이에요."
+
+#~ msgid "Checking for new versions of Telescope and installing them."
+#~ msgstr "Telescope의 새 버전을 확인하고 설치해요."
 
 #~ msgid "Set the width and height back to 100%."
 #~ msgstr "너비와 높이를 다시 100%로 되돌려요."

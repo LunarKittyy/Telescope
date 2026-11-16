@@ -730,7 +730,7 @@ impl StereoPlugin {
             return none;
         }
         if host.stream_count() < 2 {
-            return (tr("Needs two streams"), "status_dim", tr("Start a second stream to get the 3D picture."));
+            return (tr("Two streams required"), "status_dim", tr("Start a second stream to get the 3D picture."));
         }
         let seen = self.shared.hub().seen.filter(|(_, at)| monotonic_ns().saturating_sub(*at) < SEEN_NS);
         match seen {

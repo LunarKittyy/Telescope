@@ -203,7 +203,7 @@ impl Plugin for Onboarding {
         PluginInfo {
             name: "onboarding".into(),
             title: n_("Setup guide").into(),
-            about: n_("The step by step checklist shown until the first stream works.").into(),
+            about: n_("Follow a step by step checklist until the first stream works.").into(),
             when_off: n_("Without the Setup guide plugin the setup checklist never shows, not even when nothing is set up yet.").into(),
             category: "extras".into(),
             icon: "check".into(),

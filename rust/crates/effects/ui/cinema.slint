@@ -30,7 +30,7 @@ export component CinemaCard inherits Card {
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Switches the tools off and puts guides and scope back. The options in Settings stay.");
+    reset-detail: @tr("Turn the tools off and set the guides and scope back to default.");
     reset => { root.reset-clicked(); }
 
     UnfoldGroup {
@@ -158,7 +158,7 @@ export component CinemaSettings inherits Card {
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Puts the peaking colour, sensitivity, zebra level and scope size back. The tools on the card stay as they are.");
+    reset-detail: @tr("Set the peaking colour, sensitivity, zebra level and scope size back to default.");
     reset => { root.reset-clicked(); }
 
     RailRow {

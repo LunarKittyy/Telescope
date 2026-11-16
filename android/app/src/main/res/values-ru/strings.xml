@@ -36,13 +36,10 @@
     <string name="setup_camera">Камера</string>
     <string name="setup_camera_reason">Для трансляции с камер этого телефона.</string>
     <string name="setup_local_network">Локальная сеть</string>
-    <string name="setup_local_network_reason">Позволяет компьютеру находить этот телефон и подключаться к нему по Wi-Fi. Не нужно для USB.</string>
     <string name="setup_notifications">Уведомления</string>
-    <string name="setup_notifications_reason">Показывает, когда идет трансляция с камеры, и позволяет остановить ее оттуда.</string>
     <string name="setup_microphone">Микрофон</string>
     <string name="setup_microphone_reason">Для микрофона Telescope на твоем компьютере.</string>
     <string name="setup_battery">Батарея</string>
-    <string name="setup_battery_reason">Не дает Android остановить трансляцию при выключенном экране.</string>
     <string name="setup_allowed">Разрешено</string>
     <string name="allow">Разрешить</string>
     <string name="open_settings">Открыть настройки</string>
@@ -85,7 +82,6 @@
     <string name="local_only">Только локально - USB</string>
     <string name="local_only_hint">К камере можно подключиться только по USB.</string>
     <string name="wait_for_computer">Ждать мой компьютер</string>
-    <string name="wait_for_computer_hint">Позволяет сопряженному компьютеру запустить камеру при выключенном экране.</string>
     <string name="stop_streaming">Остановить трансляцию</string>
     <string name="status_title">Статус</string>
     <string name="status_not_streaming">Нет трансляции</string>

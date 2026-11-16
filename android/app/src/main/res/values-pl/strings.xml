@@ -36,13 +36,10 @@
     <string name="setup_camera">Kamera</string>
     <string name="setup_camera_reason">Aby strumieniować obraz z kamer tego telefonu.</string>
     <string name="setup_local_network">Sieć lokalna</string>
-    <string name="setup_local_network_reason">Pozwala komputerowi znaleźć ten telefon i połączyć się z nim przez Wi-Fi. Niepotrzebne w przypadku USB.</string>
     <string name="setup_notifications">Powiadomienia</string>
-    <string name="setup_notifications_reason">Pokazuje, kiedy kamera strumieniuje, i pozwala zatrzymać ją z tego poziomu.</string>
     <string name="setup_microphone">Mikrofon</string>
     <string name="setup_microphone_reason">Dla mikrofonu Telescope na twoim komputerze.</string>
     <string name="setup_battery">Bateria</string>
-    <string name="setup_battery_reason">Zapobiega zatrzymaniu strumienia przez Androida, gdy ekran jest wyłączony.</string>
     <string name="setup_allowed">Zezwolono</string>
     <string name="allow">Zezwól</string>
     <string name="open_settings">Otwórz ustawienia</string>
@@ -85,7 +82,6 @@
     <string name="local_only">Tylko lokalnie - USB</string>
     <string name="local_only_hint">Z kamerą można połączyć się tylko przez USB.</string>
     <string name="wait_for_computer">Czekaj na mój komputer</string>
-    <string name="wait_for_computer_hint">Pozwala sparowanemu komputerowi włączyć kamerę przy wyłączonym ekranie.</string>
     <string name="stop_streaming">Zatrzymaj strumieniowanie</string>
     <string name="status_title">Status</string>
     <string name="status_not_streaming">Nie przesyła</string>

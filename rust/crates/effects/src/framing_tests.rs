@@ -613,7 +613,7 @@ fn the_status_row_offers_the_download_and_says_how_far_it_got() {
     r.host.vision = Some(vision::MISSING.into());
     r.host.pack = VisionPack { available: true, size_mb: 47, ..VisionPack::default() };
     r.switch(true);
-    assert_eq!((r.prop("vision-text"), r.prop("vision-download")), (json!("Needs a one-time download (about 47 MB)."), json!(true)));
+    assert_eq!((r.prop("vision-text"), r.prop("vision-download")), (json!("One-time download required (about 47 MB)."), json!(true)));
     r.ui("download-clicked", Value::Null);
     assert!(r.host.calls.iter().any(|c| c == "download_vision"));
     r.host.pack = VisionPack { downloading: true, done: 10, size: 40, ..r.host.pack.clone() };

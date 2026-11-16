@@ -219,5 +219,5 @@ fn datamosh_puts_its_packet_step_on_the_stream_and_says_why_on_heavy() {
     assert!(packet_owners(&st).is_empty());
     let i = st.index("fun_pack").unwrap();
     let problem = st.call(i, |_, host| telescope_core::host::HostPackets::packets_problem(host)).unwrap();
-    assert!(problem.starts_with("Needs Light"), "{problem}");
+    assert!(problem.starts_with("Light format required"), "{problem}");
 }

@@ -21,7 +21,7 @@ component VisionStatus inherits Unfolding {
         HorizontalLayout {
             spacing: Theme.u(4);
             StatusLine {
-                text: root.held-download ? @tr("Needs a download") : root.held-text;
+                text: root.held-download ? @tr("Download required") : root.held-text;
                 kind: "status_warn";
                 detail: root.held-download ? root.held-text : "";
             }

@@ -461,7 +461,7 @@ impl Connection {
             RoutePreference::Wifi => format!(" {}", tr("Check that the phone is on the same network.")),
             RoutePreference::Auto => String::new(),
         };
-        let text = tr("Still streaming over {now}, so the connection stays on {kept}.").field("now", now_on).field("kept", &kept) + &hint;
+        let text = tr("The stream is still running over {now} and Connect via is still set to {kept}.").field("now", now_on).field("kept", &kept) + &hint;
         ProbeOutcome::Refuse { title, text, preference }
     }
 
@@ -825,7 +825,7 @@ pub fn status_line(res: Option<&Resolution>) -> (&'static str, String) {
     match res.status {
         PhoneStatus::Ready => ("status_ok", tr("Ready")),
         PhoneStatus::Unreachable => ("status_warn", tr("Can't reach the phone")),
-        PhoneStatus::NotPaired => ("status_err", tr("Needs pairing again")),
+        PhoneStatus::NotPaired => ("status_err", tr("Pairing required")),
         PhoneStatus::LocalOnly => ("status_warn", tr("Phone accepts USB only")),
         PhoneStatus::UsbNeedsAttention => ("status_warn", tr("USB not available")),
         PhoneStatus::PhoneOutdated => ("status_warn", tr("Phone app needs an update")),
@@ -1452,7 +1452,7 @@ mod tests {
         let outcome = c.on_route_probed(probe_id, &phone.id, preference, &Resolution::new(PhoneStatus::Unreachable), true, 1.0);
         let ProbeOutcome::Refuse { title, text, .. } = outcome else { panic!("{outcome:?}") };
         assert_eq!(title, "Can't reach Pixel over Wi-Fi");
-        assert!(text.contains("Still streaming over USB, so the connection stays on Automatic."));
+        assert!(text.contains("The stream is still running over USB and Connect via is still set to Automatic."));
         assert_eq!(c.route_pref, RoutePreference::Auto);
         // Try again, on the same Wi-Fi now
         let RouteChange::Probe { probe_id, phone, preference } = c.set_route_preference(RoutePreference::Wifi, true, 2.0) else { panic!() };

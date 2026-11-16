@@ -1082,7 +1082,7 @@ impl Plugin for ColourGradingPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("Colour grading").into(),
-            about: n_("Colour wheels, curves and LUT files for the look of the picture.").into(),
+            about: n_("Change the look of the picture with colour wheels, curves and LUT files.").into(),
             when_off: n_("Without the Colour grading plugin there's no Colour grading card and the picture keeps the camera's colours.").into(),
             category: "look".into(),
             icon: "colour".into(),

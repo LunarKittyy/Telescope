@@ -36,13 +36,10 @@
     <string name="setup_camera">Camera</string>
     <string name="setup_camera_reason">Để truyền phát từ các camera của điện thoại này.</string>
     <string name="setup_local_network">Mạng cục bộ</string>
-    <string name="setup_local_network_reason">Cho phép máy tính tìm và kết nối với điện thoại này qua Wi-Fi. Không cần khi dùng USB.</string>
     <string name="setup_notifications">Thông báo</string>
-    <string name="setup_notifications_reason">Hiển thị khi camera đang truyền phát và dừng truyền phát từ đó.</string>
     <string name="setup_microphone">Micrô</string>
     <string name="setup_microphone_reason">Dành cho micrô Telescope trên máy tính của bạn.</string>
     <string name="setup_battery">Pin</string>
-    <string name="setup_battery_reason">Giữ cho Android không dừng luồng phát khi tắt màn hình.</string>
     <string name="setup_allowed">Đã cho phép</string>
     <string name="allow">Cho phép</string>
     <string name="open_settings">Mở cài đặt</string>
@@ -82,7 +79,6 @@
     <string name="local_only">Chỉ nội bộ - USB</string>
     <string name="local_only_hint">Chỉ có thể truy cập camera qua kết nối USB.</string>
     <string name="wait_for_computer">Chờ máy tính của tôi</string>
-    <string name="wait_for_computer_hint">Cho phép máy tính đã ghép đôi bật camera khi màn hình tắt.</string>
     <string name="stop_streaming">Dừng truyền phát</string>
     <string name="status_title">Trạng thái</string>
     <string name="status_not_streaming">Không truyền phát</string>

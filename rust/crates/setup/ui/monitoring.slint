@@ -74,7 +74,7 @@ export component MonitoringCard inherits Card {
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Puts the battery and temperature alerts back to their usual levels and switches.");
+    reset-detail: @tr("Set the battery and temperature alerts back to default.");
     reset => { root.reset-clicked(); }
 
     // Each bar is the live reading, and its handle is the level to warn at

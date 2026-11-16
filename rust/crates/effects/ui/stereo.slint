@@ -68,7 +68,7 @@ export component StereoCard inherits Card {
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Puts the look, the eye order and the fine tune sliders back and drops the match. The switch stays as it is and the phones keep their exposure.");
+    reset-detail: @tr("Set the look, eye order and fine tune sliders back to default and clear the match.");
     reset => { root.reset-clicked(); }
 
     RailRow {

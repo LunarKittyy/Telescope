@@ -553,7 +553,7 @@ impl Plugin for ChromaKeyPlugin {
             name: NAME.into(),
             title: n_("Chroma key").into(),
             about: n_("Swap a green or blue screen behind you for a colour or a picture, with no download.").into(),
-            when_off: n_("Without the Chroma key plugin there's no Chroma key card and a green screen stays green.").into(),
+            when_off: n_("Without the Chroma key plugin there's no Chroma key card and a green screen isn't replaced.").into(),
             category: "look".into(),
             icon: "eyedropper".into(),
             optional: true,

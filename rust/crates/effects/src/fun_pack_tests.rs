@@ -442,7 +442,7 @@ fn the_card_uses_the_vision_pack_as_soon_as_it_is_downloaded() {
         let status = |r: &Rig| (r.shown("vision-text").as_str().unwrap().to_string(), r.shown("vision-download"));
         // Wanting people looks for the pack and finds none
         r.pick("stick");
-        assert_eq!(status(&r), ("Needs a one-time download (about 47 MB).".to_string(), json!(true)), "{download_from}");
+        assert_eq!(status(&r), ("One-time download required (about 47 MB).".to_string(), json!(true)), "{download_from}");
         r.pick("cloak");
         assert_eq!(status(&r), ("Cleaner edges with a one-time download (about 47 MB).".to_string(), json!(true)), "the cloak works without it");
         if download_from == "this card" {

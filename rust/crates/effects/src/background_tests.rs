@@ -279,7 +279,7 @@ fn without_the_download_the_card_offers_it() {
     let mut rig = Rig::new(None, vision::MISSING);
     rig.host.pack = VisionPack { available: true, size_mb: 47, ..VisionPack::default() };
     rig.set_mode("blur");
-    assert!(rig.shown("vision-text").as_str().unwrap().starts_with("Needs a one-time download (about "));
+    assert!(rig.shown("vision-text").as_str().unwrap().starts_with("One-time download required (about "));
     assert_eq!(rig.shown("vision-download"), json!(true));
     rig.ui("download-clicked", vec![]);
     assert!(rig.host.calls.iter().any(|c| c == "download_vision"));
@@ -1142,7 +1142,7 @@ fn the_card_offers_the_cutouts_download_and_says_the_normal_one_is_used_meanwhil
     rig.ui("edges-moved", vec![json!(0)]);
     assert_eq!(rig.shown("cutout-text"), json!(""), "nothing while the switch is off");
     rig.ui("high-quality-toggled", vec![json!(true)]);
-    assert_eq!(rig.shown("cutout-text"), json!("Needs a one-time download (about 26 MB). Until then the normal cutout is used."));
+    assert_eq!(rig.shown("cutout-text"), json!("One-time download required (about 26 MB). Until then the normal cutout is used."));
     assert_eq!(rig.shown("cutout-download"), json!(true));
     assert!(rig.shown("quality-tip").as_str().unwrap().contains("40% of a CPU core"));
     // the picture is not held up meanwhile

@@ -36,13 +36,10 @@
     <string name="setup_camera">Kamera</string>
     <string name="setup_camera_reason">Bu telefonun kameralarından yayın yapmak için.</string>
     <string name="setup_local_network">Yerel ağ</string>
-    <string name="setup_local_network_reason">Bilgisayarının bu telefonu Wi-Fi üzerinden bulmasını ve bağlanmasını sağlar. USB için gerekmez.</string>
     <string name="setup_notifications">Bildirimler</string>
-    <string name="setup_notifications_reason">Kamera yayın yaparken bunu gösterir ve yayını oradan durdurmanı sağlar.</string>
     <string name="setup_microphone">Mikrofon</string>
     <string name="setup_microphone_reason">Bilgisayarındaki Telescope mikrofonu için.</string>
     <string name="setup_battery">Pil</string>
-    <string name="setup_battery_reason">Ekran kapalıyken Android\'in yayını durdurmasını engeller.</string>
     <string name="setup_allowed">İzin verildi</string>
     <string name="allow">İzin ver</string>
     <string name="open_settings">Ayarları aç</string>
@@ -83,7 +80,6 @@
     <string name="local_only">Sadece yerel - USB</string>
     <string name="local_only_hint">Kameraya sadece USB üzerinden erişilebilir.</string>
     <string name="wait_for_computer">Bilgisayarımı bekle</string>
-    <string name="wait_for_computer_hint">Eşleştirilmiş bir bilgisayarın ekran kapalıyken kamerayı başlatmasını sağlar.</string>
     <string name="stop_streaming">Yayını durdur</string>
     <string name="status_title">Durum</string>
     <string name="status_not_streaming">Yayın yapmıyor</string>

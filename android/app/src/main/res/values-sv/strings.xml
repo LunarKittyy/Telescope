@@ -36,13 +36,10 @@
     <string name="setup_camera">Kamera</string>
     <string name="setup_camera_reason">För att strömma från den här telefonens kameror.</string>
     <string name="setup_local_network">Lokalt nätverk</string>
-    <string name="setup_local_network_reason">Låter datorn hitta och ansluta till den här telefonen via Wi-Fi. Behövs inte för USB.</string>
     <string name="setup_notifications">Aviseringar</string>
-    <string name="setup_notifications_reason">Visar när kameran strömmar och låter dig stoppa den därifrån.</string>
     <string name="setup_microphone">Mikrofon</string>
     <string name="setup_microphone_reason">För Telescope-mikrofonen på din dator.</string>
     <string name="setup_battery">Batteri</string>
-    <string name="setup_battery_reason">Hindrar Android från att stoppa strömmen när skärmen är av.</string>
     <string name="setup_allowed">Tillåtet</string>
     <string name="allow">Tillåt</string>
     <string name="open_settings">Öppna inställningar</string>
@@ -83,7 +80,6 @@
     <string name="local_only">Bara lokalt - USB</string>
     <string name="local_only_hint">Bara en USB-anslutning kan komma åt kameran.</string>
     <string name="wait_for_computer">Vänta på min dator</string>
-    <string name="wait_for_computer_hint">Låter en parkopplad dator starta kameran medan skärmen är avstängd.</string>
     <string name="stop_streaming">Stoppa strömning</string>
     <string name="status_title">Status</string>
     <string name="status_not_streaming">Strömmar inte</string>

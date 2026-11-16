@@ -1146,7 +1146,7 @@ impl Plugin for ShortcutsPlugin {
         PluginInfo {
             name: "shortcuts".into(),
             title: n_("Keyboard shortcuts").into(),
-            about: n_("Keys for Telescope's controls, including ones that work in other apps.").into(),
+            about: n_("Set keys for Telescope's controls, including ones that work in other apps.").into(),
             when_off: n_("Without the Keyboard shortcuts plugin no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when the plugin is on again).").into(),
             category: "extras".into(),
             icon: "keyboard".into(),

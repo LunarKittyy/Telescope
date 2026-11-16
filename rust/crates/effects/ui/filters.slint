@@ -51,7 +51,7 @@ export component FiltersCard inherits Card {
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Puts every filter slider back to neutral. The switch stays as it is.");
+    reset-detail: @tr("Set every filter back to neutral.");
     reset => { root.reset-clicked(); }
 
     Status { text: camera-note; detail: camera-note-detail; }

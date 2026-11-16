@@ -721,7 +721,7 @@ impl Plugin for StreamOutputPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("Stream output").into(),
-            about: n_("The resolution, frame rate and format of the stream.").into(),
+            about: n_("Set the resolution, frame rate and format of the stream.").into(),
             when_off: n_("Without the Stream output plugin there's no Stream output card and streams use whatever size and format the phone picks.").into(),
             category: "streaming".into(),
             icon: "stream".into(),

@@ -119,7 +119,7 @@ pub fn status_text(active: bool, problem: &str, optional: bool, state: &str, pac
     } else if state == MISSING && optional {
         (tr("Cleaner edges with a one-time download (about {mb} MB).").field("mb", &mb), pack.available)
     } else if state == MISSING {
-        (tr("Needs a one-time download (about {mb} MB).").field("mb", &mb), pack.available)
+        (tr("One-time download required (about {mb} MB).").field("mb", &mb), pack.available)
     } else if optional {
         (String::new(), false)
     } else if state == FAILED {
@@ -155,7 +155,7 @@ pub fn matting_text(on: bool, state: &str, pack: &VisionPack) -> (String, bool) 
     if !pack.error.is_empty() {
         return (pack.error.clone(), true);
     }
-    (tr("Needs a one-time download (about {mb} MB). Until then the normal cutout is used.").field("mb", pack.size_mb.max(1).to_string()), true)
+    (tr("One-time download required (about {mb} MB). Until then the normal cutout is used.").field("mb", pack.size_mb.max(1).to_string()), true)
 }
 
 /// What became of a zip chosen in Install (see VisionService::install_pack_zip).
@@ -270,7 +270,7 @@ mod tests {
         let pack = VisionPack { available: true, size_mb: 47, ..VisionPack::default() };
         assert_eq!(status_text(false, "", false, MISSING, &pack), (String::new(), false));
         assert_eq!(status_text(true, "Mine", false, MISSING, &pack), ("Mine".into(), false));
-        assert_eq!(status_text(true, "", false, MISSING, &pack), ("Needs a one-time download (about 47 MB).".into(), true));
+        assert_eq!(status_text(true, "", false, MISSING, &pack), ("One-time download required (about 47 MB).".into(), true));
         assert_eq!(status_text(true, "", true, MISSING, &pack).0, "Cleaner edges with a one-time download (about 47 MB).");
         assert_eq!(status_text(true, "", true, FAILED, &pack).0, "");
         assert_eq!(status_text(true, "", false, LOADING, &pack).0, "Getting ready…");
@@ -283,7 +283,7 @@ mod tests {
     fn the_cutout_note_says_the_normal_one_is_used_while_it_isnt_there() {
         let pack = VisionPack { available: true, size_mb: 26, ..VisionPack::default() };
         assert_eq!(matting_text(false, MISSING, &pack), (String::new(), false));
-        assert_eq!(matting_text(true, MISSING, &pack), ("Needs a one-time download (about 26 MB). Until then the normal cutout is used.".into(), true));
+        assert_eq!(matting_text(true, MISSING, &pack), ("One-time download required (about 26 MB). Until then the normal cutout is used.".into(), true));
         assert!(matting_text(true, OFF, &pack).1);
         assert_eq!(matting_text(true, MISSING, &VisionPack { available: false, ..pack.clone() }).0, "There's no high quality cutout for this computer yet, so the normal one is used.");
         assert_eq!(matting_text(true, MISSING, &VisionPack { error: "The download failed.".into(), ..pack.clone() }), ("The download failed.".into(), true));

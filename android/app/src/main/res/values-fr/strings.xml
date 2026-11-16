@@ -36,13 +36,10 @@
     <string name="setup_camera">Caméra</string>
     <string name="setup_camera_reason">Pour diffuser depuis les caméras de ce téléphone.</string>
     <string name="setup_local_network">Réseau local</string>
-    <string name="setup_local_network_reason">Permet à votre ordinateur de trouver ce téléphone et de s\'y connecter via Wi-Fi. Inutile pour l\'USB.</string>
     <string name="setup_notifications">Notifications</string>
-    <string name="setup_notifications_reason">Indique quand la caméra diffuse et permet de l\'arrêter.</string>
     <string name="setup_microphone">Microphone</string>
     <string name="setup_microphone_reason">Pour le microphone Telescope sur votre ordinateur.</string>
     <string name="setup_battery">Batterie</string>
-    <string name="setup_battery_reason">Empêche Android d\'arrêter le flux lorsque l\'écran est éteint.</string>
     <string name="setup_allowed">Autorisé</string>
     <string name="allow">Autoriser</string>
     <string name="open_settings">Ouvrir les paramètres</string>
@@ -83,7 +80,6 @@
     <string name="local_only">Local uniquement - USB</string>
     <string name="local_only_hint">Seule une connexion USB peut accéder à la caméra.</string>
     <string name="wait_for_computer">Attendre mon ordinateur</string>
-    <string name="wait_for_computer_hint">Permet à un ordinateur associé de démarrer la caméra lorsque l\'écran est éteint.</string>
     <string name="stop_streaming">Arrêter la diffusion</string>
     <string name="status_title">État</string>
     <string name="status_not_streaming">Ne diffuse pas</string>

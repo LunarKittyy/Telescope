@@ -601,14 +601,14 @@ export component ResetSettings inherits Card {
         icon: Icons.sliders;
         named: true;
         label: @tr("All settings");
-        tip: @tr("Puts every setting back to its default and restarts Telescope.");
+        tip: @tr("Set every setting back to default and restart Telescope.");
         keywords: @tr("search" => "defaults factory restore clear start over");
         hue: root.hue;
         HorizontalLayout {
             alignment: end;
             Button {
                 text: @tr("Reset all settings");
-                tip: @tr("Puts every setting back to its default and restarts Telescope.");
+                tip: @tr("Set every setting back to default and restart Telescope.");
                 clicked => { root.reset-all(); }
             }
         }

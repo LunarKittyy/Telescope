@@ -31,8 +31,8 @@ pub const MAX_ZOOM_RANGE: (i64, i64) = (2, 30);
 pub const MAX_GAIN_CHOICES: [i64; 4] = [12, 24, 36, 48];
 pub const DEFAULT_MAX_GAIN: i64 = 12;
 
-const SUDO_HINT: &str = n_("Needs your password (pkexec or sudo) to change system settings.");
-const SUDO_NEEDS: &str = n_("Needs your password (pkexec or sudo) because this changes system settings.");
+const SUDO_HINT: &str = n_("Your password (pkexec or sudo) is required to change system settings.");
+const SUDO_NEEDS: &str = n_("Your password (pkexec or sudo) is required because this changes system settings.");
 
 pub const AUTHOR_URL: &str = "https://github.com/LunarKittyy";
 pub const BUG_REPORT_URL: &str = "https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml";
@@ -371,7 +371,7 @@ impl SetupPlugin {
             "load-tip": tr(SUDO_NEEDS),
             "persist-checked": p.persist_checked, "persist-enabled": p.persist_enabled,
             "persist-text": persist.text, "persist-kind": persist.kind, "persist-command": p.persist_command,
-            "persist-tip": format!("{} {}", tr("Write the setting to /etc/modprobe.d/ and /etc/modules-load.d/ so the module loads after a reboot."), tr("Needs your password (pkexec or sudo).")),
+            "persist-tip": format!("{} {}", tr("Write the setting to /etc/modprobe.d/ and /etc/modules-load.d/ so the module loads after a reboot."), tr("Your password (pkexec or sudo) is required.")),
             "extras-shown": p.extras_shown, "extras-text": p.extras.text, "extras-kind": p.extras.kind,
             "extras-button": p.extras_button, "extras-enabled": p.extras_enabled, "extras-tip": busy_tip,
             "uc-text": p.uc.text, "uc-kind": p.uc.kind, "uc-button": p.uc_button, "uc-tip": p.uc_tip, "uc-primary": p.uc_primary,
@@ -608,7 +608,7 @@ impl SetupPlugin {
             tr("Stop the streams going to them first.")
         } else {
             format!("{} {}", tr("Go back to one camera. Use Add camera to set up the others again."),
-                    if self.linux { tr("Needs your password.") } else { tr("Windows asks for permission.") })
+                    if self.linux { tr("Your password is required.") } else { tr("Windows asks for permission.") })
         };
     }
 
@@ -1109,7 +1109,7 @@ impl Plugin for SetupPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("Advanced settings").into(),
-            about: n_("The virtual camera, its size, extra cameras, video and microphone limits, and the Updates & About tab.").into(),
+            about: n_("Set up the virtual camera, its size, extra cameras and the video and microphone limits, and check for updates.").into(),
             category: "streaming".into(),
             icon: "chip".into(),
             required: true,

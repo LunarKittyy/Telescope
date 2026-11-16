@@ -77,7 +77,7 @@ impl MicBackend for LinuxMic {
             return None;
         }
         // LINUX_TOOLS is one tool, so the list never needs an "and"
-        Some((tr("Needs {tools} (in pulseaudio-utils; PipeWire systems use it too).").field("tools", missing.join(", ")), None))
+        Some((tr("{tools} required. It's in pulseaudio-utils, which works on PipeWire too.").field("tools", missing.join(", ")), None))
     }
 
     fn prepare(&self) -> String {
@@ -166,7 +166,7 @@ impl MicBackend for WindowsMic {
             return Some((tr("When VB-Cable's setup has finished, restart the computer, then switch this off and on."),
                          Some((tr("Open setup again"), INSTALL.into()))));
         }
-        Some((tr("Needs VB-Audio Virtual Cable, a free virtual audio cable by VB-Audio."), Some((tr("Install VB-Cable"), INSTALL.into()))))
+        Some((tr("VB-Audio Virtual Cable required. It's a free virtual audio cable by VB-Audio."), Some((tr("Install VB-Cable"), INSTALL.into()))))
     }
 
     fn install(&self) -> String {
