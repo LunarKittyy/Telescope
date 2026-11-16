@@ -223,7 +223,7 @@ impl Window {
             self.order_rows.remove(self.order_rows.row_count() - 1);
         }
         let confirming = matches!(self.ui.get_property("order-confirming"), Ok(SValue::Bool(true))) && pending;
-        let note = if confirming { tr("Streaming stops while Telescope restarts. Restarting takes a few seconds.") } else { tr("Restart Telescope to see the new card order.") };
+        let note = if confirming { tr("Streaming stops while Telescope restarts. Restarting takes a few seconds.") } else { tr("Restart to apply changes.") };
         let ui = &self.ui;
         let _ = crate::same::set(ui, "order-left-count", SValue::Number(next.left.len() as f64));
         let _ = crate::same::set(ui, "order-right-count", SValue::Number(next.right.len() as f64));

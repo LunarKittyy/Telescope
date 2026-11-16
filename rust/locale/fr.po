@@ -456,11 +456,11 @@ msgid ""
 "Open the log?"
 msgstr ""
 
-#: rust/crates/core/src/gpu_marker.rs:125
+#: rust/crates/core/src/gpu_marker.rs:133
 msgid "Telescope switched graphics card"
 msgstr ""
 
-#: rust/crates/core/src/gpu_marker.rs:126
+#: rust/crates/core/src/gpu_marker.rs:134
 #, python-brace-format
 msgid "The last start of Telescope closed while it was opening {card}. Telescope now uses another graphics card, or the processor if there is none left."
 msgstr ""
@@ -1413,7 +1413,7 @@ msgstr "Une partie de la feuille est hors de l'image. Dézoomez ou repérez-la �
 msgid "Desk mode"
 msgstr "Mode bureau"
 
-#: rust/crates/effects/src/desk.rs:217 rust/crates/link/ui/connection.slint:442 rust/crates/shell/ui/card-order.slint:251
+#: rust/crates/effects/src/desk.rs:217 rust/crates/link/ui/connection.slint:442 rust/crates/shell/ui/card-order.slint:254
 msgid "Done"
 msgstr "Terminé"
 
@@ -2286,7 +2286,7 @@ msgstr ""
 msgid "The webhook returned: {error}"
 msgstr ""
 
-#: rust/crates/effects/src/on_air_plugin.rs:284 rust/crates/shell/src/doc.rs:482 rust/crates/shell/src/doc.rs:483 rust/crates/shell/src/doc.rs:971
+#: rust/crates/effects/src/on_air_plugin.rs:284 rust/crates/shell/src/doc.rs:483 rust/crates/shell/src/doc.rs:484 rust/crates/shell/src/doc.rs:972
 msgid "Settings"
 msgstr "Paramètres"
 
@@ -6805,11 +6805,11 @@ msgstr "Redémarrer pour changer"
 msgid "Restart Telescope to switch to the new language."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:532 rust/crates/shell/ui/card-order.slint:262 rust/crates/shell/ui/restart-bar.slint:15 rust/crates/shell/ui/restart-bar.slint:45
+#: rust/crates/setup/ui/setup.slint:532 rust/crates/shell/ui/card-order.slint:265 rust/crates/shell/ui/restart-bar.slint:15 rust/crates/shell/ui/restart-bar.slint:45
 msgid "Restart now"
 msgstr "Redémarrer maintenant"
 
-#: rust/crates/setup/ui/setup.slint:536 rust/crates/shell/src/plugins_tab.rs:731 rust/crates/shell/ui/card-order.slint:262
+#: rust/crates/setup/ui/setup.slint:536 rust/crates/shell/src/plugins_tab.rs:731 rust/crates/shell/ui/card-order.slint:265
 msgid "Restart"
 msgstr "Redémarrer"
 
@@ -6944,18 +6944,18 @@ msgid "Streaming stops while Telescope restarts. Restarting takes a few seconds.
 msgstr ""
 
 #: rust/crates/shell/src/card_order.rs:226
-msgid "Restart Telescope to see the new card order."
+msgid "Restart to apply changes."
 msgstr ""
 
-#: rust/crates/shell/src/doc.rs:492 rust/crates/shell/src/doc.rs:493
+#: rust/crates/shell/src/doc.rs:493 rust/crates/shell/src/doc.rs:494
 msgid "Add camera"
 msgstr "Ajouter une caméra"
 
-#: rust/crates/shell/src/doc.rs:494
+#: rust/crates/shell/src/doc.rs:495
 msgid "Stream another camera at the same time on a separate virtual camera."
 msgstr "Diffusez une autre caméra en même temps sur une caméra virtuelle séparée."
 
-#: rust/crates/shell/src/doc.rs:1009 rust/crates/shell/src/doc.rs:1010
+#: rust/crates/shell/src/doc.rs:1010 rust/crates/shell/src/doc.rs:1011
 msgid "Search settings"
 msgstr "Rechercher dans les paramètres"
 
@@ -8227,7 +8227,7 @@ msgctxt "search"
 msgid "window layout arrange rails columns"
 msgstr ""
 
-#: rust/crates/shell/ui/card-order-settings.slint:13 rust/crates/shell/ui/card-order.slint:109
+#: rust/crates/shell/ui/card-order-settings.slint:13 rust/crates/shell/ui/card-order.slint:112
 msgid "Card order"
 msgstr ""
 
@@ -8244,23 +8244,23 @@ msgstr ""
 msgid "Reorder cards"
 msgstr ""
 
-#: rust/crates/shell/ui/card-order.slint:128 rust/crates/shell/ui/card-order.slint:183
+#: rust/crates/shell/ui/card-order.slint:131 rust/crates/shell/ui/card-order.slint:186
 msgid "Left rail"
 msgstr ""
 
-#: rust/crates/shell/ui/card-order.slint:142 rust/crates/shell/ui/card-order.slint:183
+#: rust/crates/shell/ui/card-order.slint:145 rust/crates/shell/ui/card-order.slint:186
 msgid "Right rail"
 msgstr ""
 
-#: rust/crates/shell/ui/card-order.slint:157 rust/crates/shell/ui/card-order.slint:172
+#: rust/crates/shell/ui/card-order.slint:160 rust/crates/shell/ui/card-order.slint:175
 msgid "Drop a card here"
 msgstr ""
 
-#: rust/crates/shell/ui/card-order.slint:249
+#: rust/crates/shell/ui/card-order.slint:252
 msgid "Reset order"
 msgstr ""
 
-#: rust/crates/shell/ui/card-order.slint:261
+#: rust/crates/shell/ui/card-order.slint:264
 msgid "Put the cards back in the order they have in the running app, so nothing needs a restart."
 msgstr ""
 
@@ -8417,7 +8417,7 @@ msgstr "Afficher les paramètres de ce flux dans les cartes."
 msgid "Put the plugins back the way they are in the running app, so nothing needs a restart."
 msgstr ""
 
-#: rust/crates/shell/ui/restart-bar.slint:34 rust/crates/shell/ui/restart-bar.slint:38
+#: rust/crates/shell/ui/restart-bar.slint:36 rust/crates/shell/ui/restart-bar.slint:39
 msgid "Revert"
 msgstr ""
 

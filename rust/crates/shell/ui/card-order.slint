@@ -30,6 +30,9 @@ export component CardOrderDialog inherits Rectangle {
     callback revert;
     callback restart;
     public function open() { popup.show(); }
+    // How far the restart bar is open, 0 to 1, for a test
+    out property <float> bar-room: bar-fold.lands;
+    bar-fold := Unfold { open: root.pending; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
 
     // The strips and what they take: a strip, the gap after it, a group's heading, the gap between the groups
     property <length> row-h: Theme.row + Theme.u(2);
@@ -104,7 +107,7 @@ export component CardOrderDialog inherits Rectangle {
                 height: min(self.preferred-height, root.height - Theme.u(16));
                 x: (root.width - self.width) / 2;
                 // By its height without the restart bar, so the bar opening doesn't move the dialog
-                y: max(Theme.u(8), (root.height - min(self.preferred-height - bar-room.height - bottom.spacing, root.height - Theme.u(16))) / 2);
+                y: max(Theme.u(8), (root.height - min(self.preferred-height - bar-space.height - bottom.spacing, root.height - Theme.u(16))) / 2);
                 dismissable: true;
                 title: @tr("Card order");
                 left => { popup.close(); }
@@ -244,19 +247,19 @@ export component CardOrderDialog inherits Rectangle {
                     }
                 }
                 bottom := VerticalLayout {
-                    spacing: bar-fold.value * Theme.u(7);
+                    spacing: root.bar-room * Theme.u(7);
                     DialogButtons {
                         Button { text: @tr("Reset order"); dialog: true; clicked => { root.reset(); } }
                         Rectangle { horizontal-stretch: 1; }
                         Button { text: @tr("Done"); dialog: true; role: "primary"; clicked => { frame.leave(); } }
                     }
-                    bar-room := Rectangle {
-                        height: bar-fold.value * Theme.u(27);
+                    bar-space := Rectangle {
+                        height: root.bar-room * Theme.u(27);
                         clip: true;
-                        bar-fold := Unfold { open: root.pending; open-for: Motion.reflow-open; close-for: Motion.reflow-close; }
                         RestartBar {
                             width: parent.width;
-                            amount: bar-fold.value;
+                            amount: root.bar-room;
+                            open: root.pending;
                             note: root.note;
                             revert-tip: @tr("Put the cards back in the order they have in the running app, so nothing needs a restart.");
                             restart-text: root.confirming ? @tr("Restart") : @tr("Restart now");

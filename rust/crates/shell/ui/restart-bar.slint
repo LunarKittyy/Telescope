@@ -14,6 +14,8 @@ export component RestartBar inherits Rectangle {
     // The restart button's words, for an owner that asks once more before it goes ahead
     in property <string> restart-text: @tr("Restart now");
     in property <float> amount: 1;
+    // Whether a restart is still waiting: a bar on its way out looks the same but its buttons do nothing
+    in property <bool> open: true;
     callback restart;
     callback revert;
     height: Theme.u(27);
@@ -33,15 +35,13 @@ export component RestartBar inherits Rectangle {
         Button {
             text: @tr("Revert");
             role: "outline";
-            enabled: root.amount >= 1;
-            clicked => { root.revert(); }
+            clicked => { if (root.open) { root.revert(); } }
             tip: @tr("Revert");
             tip-detail: root.revert-tip;
         }
         Button {
             text: root.restart-text;
-            enabled: root.amount >= 1;
-            clicked => { root.restart(); }
+            clicked => { if (root.open) { root.restart(); } }
             tip: @tr("Restart now");
             tip-detail: @tr("Restart Telescope to apply your changes.");
         }

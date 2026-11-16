@@ -317,6 +317,7 @@ Two families. Spatial motions (a place, a size) may overshoot a little when they
 | `Flick` | A switch's handle | 260 ms spring, bounce 0.22 (about 2% overshoot, so it never touches the track's border): a short move takes at least 220 ms, so its first frame moves under 1.5 px and its peak is about 3 px a frame |
 | `Worm` | The picked option's outline in a one-of choice (segments, picture tiles, corner picker, tabs, the settings nav) | the leading edge on a 110 ms critical spring, the trailing edge on a 280 ms spring with bounce 0.3 that starts at the same moment (no delay); on a grid the second axis is 1.3x longer and the first 0.9x |
 | `Unfolding` | Rows that come and go with a state (the blur sliders after Blur) | the `Unfold` spring drives height and opacity together, both ways |
+| Restart bars, the download banner | A bar whose room opens and shuts with it | the `Unfold` spring through its `lands`, which aims a little past shut, so the bar reaches 0 px while it still moves instead of creeping through its last pixels |
 | `Page` | The contents of a tabbed or optioned place (Primaries, Curves, LUT; Off, Blur, Picture): the picked page and the one that goes share one period both ways, so their heights always add up to one page's and the card goes straight from one height to the other; they overlap and cross-fade (`PageGroup`) | `Motion.reflow-open`, both ways |
 | `ClickWait` | How long a first click waits for a double-click (a reset) | 350 ms, shared by sliders and the pan map |
 | `Pop` | A bubble's size coming in, from 0.9 | 150 ms, bounce 0.4 |

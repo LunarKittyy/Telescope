@@ -359,6 +359,7 @@ export component TelescopeWindow inherits Window {
     callback order-reset;
     callback order-revert;
     callback order-restart;
+    out property <float> order-bar-room: card-order.bar-room;
     public function open-card-order() { card-order.open(); }
     callback start-clicked;
     callback settings-clicked;
@@ -856,7 +857,7 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, general_tab: Option<usi
     for t in 0..tabs {
         let footers: Vec<&Piece> = sections.iter().filter(|s| s.tab == t).filter_map(|s| s.footer.as_ref()).collect();
         let footer_h = if Some(t) == plugins_tab {
-            "(64px * footer-fold.value) + (64px * download-fold.value)".to_string()
+            "(64px * footer-fold.lands) + (64px * download-fold.lands)".to_string()
         } else {
             footers.iter().map(|f| format!("({}.preferred-height + 10px)", f.id)).chain(std::iter::once("0px".to_string())).collect::<Vec<_>>().join(" + ")
         };
@@ -875,9 +876,9 @@ pub fn settings(tabs: usize, plugins_tab: Option<usize>, general_tab: Option<usi
         out.push_str("    }\n");
         if Some(t) == plugins_tab {
             out.push_str(&format!(
-                "    if footer-fold.value > 0 && !root.searching && root.current == {t}: RestartBar {{\n        x: 260px;\n        y: root.height - (16px + self.height) * footer-fold.value;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: footer-fold.value;\n        note: root.footer-note;\n        restart => {{ root.restart(); }}\n        revert => {{ root.revert(); }}\n    }}\n"));
+                "    if footer-fold.lands > 0 && !root.searching && root.current == {t}: RestartBar {{\n        x: 260px;\n        y: root.height - (16px + self.height) * footer-fold.lands;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: footer-fold.lands;\n        open: root.footer-shown;\n        note: root.footer-note;\n        restart => {{ root.restart(); }}\n        revert => {{ root.revert(); }}\n    }}\n"));
             out.push_str(&format!(
-                "    if download-fold.value > 0 && !root.searching && root.current == {t}: DownloadBanner {{\n        x: 260px;\n        y: root.height - 16px - 64px * footer-fold.value - self.height;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: download-fold.value;\n        title: root.download-title;\n        percent: root.download-percent;\n        error: root.download-error;\n        detail: root.download-detail;\n    }}\n"));
+                "    if download-fold.lands > 0 && !root.searching && root.current == {t}: DownloadBanner {{\n        x: 260px;\n        y: root.height - 16px - 64px * footer-fold.lands - self.height;\n        width: min(root.width - 284px, SettingsLayout.content-max);\n        amount: download-fold.lands;\n        title: root.download-title;\n        percent: root.download-percent;\n        error: root.download-error;\n        detail: root.download-detail;\n    }}\n"));
         }
         let mut below = String::from("root.height - 16px");
         for f in footers.iter().rev() {
