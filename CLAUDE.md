@@ -5,7 +5,7 @@ Android app (`android/`, Kotlin) streams the phone camera to a Rust/Slint deskto
 Before changing how desktop plugins, sources or the window talk to each other, read `rust/ARCHITECTURE.md`. It explains why plugins don't depend on each other and why every plugin but Connection has to cope with being switched off. `rust/app/tests/architecture.rs` and `rust/app/tests/plugin_removal.rs` check both.
 
 ## Texts people see
-Both apps are translatable: new UI text goes in `android/.../res/values/strings.xml` on the phone and through `tr()` (or `@tr()` in Slint) on the desktop, then `python tools/i18n.py extract` in `rust/`. `docs/translating.md` has the rules. Don't translate new texts, even though the `.po` and `values-*` entries look unfinished. They wait for the next translation pass (`automation/translation/`), which only runs when the owner asks for one. When you change an English text, its old translations must not keep showing the old meaning: on the phone delete that string from every `values-*/strings.xml` so it falls back to English (the desktop's `extract` already does this, since a changed text is a new entry and the old one stays behind as an obsolete entry).
+Both apps are translatable. New UI text goes in `android/.../res/values/strings.xml` on the phone and through `tr()` (or `@tr()` in Slint) on the desktop, then `python tools/i18n.py extract` in `rust/`. `docs/translating.md` has the rules. Don't translate new texts, even though the `.po` and `values-*` entries look unfinished. They wait for the next translation pass (`automation/translation/`), which only runs when the owner asks for one. Old translations must stop showing the old meaning of an English text that changed. Delete that string from every `values-*/strings.xml` on the phone so it falls back to English (the desktop's `extract` already does this, since a changed text is a new entry and the old one remains as an obsolete entry).
 
 ## Trying a change on a real phone
 `./gradlew installDev` in `android/` and `cargo run -p telescope-app -- dev --keep` in `rust/` give a dev app and dev desktop that pair with each other and leave the real installs alone (see `docs/building.md`).
@@ -19,7 +19,7 @@ Every PR and commit gets read by a person. Write them to be skimmed, not to prov
 
 Before anything goes out (a PR, commit messages, docs, release notes, UI text), go through your own writing checks and content rules in full, don't be lazy about it, even for a one-line change. Whatever text is visible to others is checked first.
 
-Never write that an agent or a tool did something ("an agent reviewed this", "generated with..."). The work belongs to you and the person you work for, and you're both responsible for it.
+Never write that an agent or a tool did something ("an agent reviewed this", "generated with..."). The work belongs to you and the person you work for and you're both responsible for it.
 
 **Commit messages:** one short line in the imperative saying what the commit does ("Fix the preview freezing after a Wi-Fi drop"), under about 72 characters. No body, no Conventional Commits prefixes. If the why needs more than a line, it goes in the PR.
 
@@ -32,4 +32,4 @@ Never write that an agent or a tool did something ("an agent reviewed this", "ge
 Plain, casual English. No em dashes. For PR descriptions, release notes, README and `docs/` edits and other prose people will read, use the `slopbeth` skill if it can be found locally.
 
 ## Watching PRs
-React to what GitHub sends (CI results, review comments), but don't schedule recurring check-ins just to look at a PR. At most one check-in about 10 minutes after pushing, to see whether it's green and ready to merge.
+React to what GitHub sends (CI results, review comments) but don't schedule recurring check-ins only to look at a PR. At most one check-in about 10 minutes after pushing, to see whether it's green and ready to merge.

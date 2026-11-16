@@ -1,6 +1,6 @@
 ## Why
 <!-- What someone using the app saw or was missing, then the cause in plain words, then why this fix.
-Example: "The video turned into grey smears after a Wi-Fi drop. The decoder kept going without a keyframe, so this asks the phone for a new one."
+Example: "The video turned into grey smears after a Wi-Fi drop. The decoder carried on without a keyframe. This asks the phone for a new one."
 Technical detail can come after, kept short. If it fixes an issue, write "Closes #123". -->
 
 

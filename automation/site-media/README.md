@@ -1,6 +1,6 @@
 # Site media
 
-The tooling behind the clips on the website and in the README: setup, pro, lenses, framing, chroma, desk, fun, grading and one-picture. None of them are screen recordings. Each one is a small web page that can be seeked to any moment, photographed frame by frame in Chromium, then encoded. The app's own windows and cards come from `telescope-rs scenes`, and the effects (chroma key, desk straightening, colour grading) run through the real plugins with `telescope-rs effect`, so a clip shows what the current build does. The cat is drawn on a canvas in `scenes/common/feed.js`. There's no stock or face footage.
+The tooling behind the clips on the website and in the README (setup, pro, lenses, framing, chroma, desk, fun, grading and one-picture). None of them are screen recordings. Each one is a small web page that can be seeked to any moment, photographed frame by frame in Chromium, then encoded. The app's own windows and cards come from `telescope-rs scenes`. The effects (chroma key, desk straightening, colour grading) run through the real plugins with `telescope-rs effect`, to show what the current build does. The cat is drawn on a canvas in `scenes/common/feed.js`. There's no stock or face footage.
 
 ## You need
 
@@ -29,7 +29,7 @@ cp work/setup-win/2x/*.png scenes/setup/img/
 python render.py scenes/setup/index.html work/setup --prefix c
 ```
 
-The phone's own screens are the three small pictures in `scenes/setup/img` (`p-home`, `p-paired`, `p-scan-clock`). They're crops of the Android app on an emulator, so redo them if the phone app's home screen changes.
+The phone's own screens are the three small pictures in `scenes/setup/img` (`p-home`, `p-paired`, `p-scan-clock`). They're crops of the Android app on an emulator. Redo them if the phone app's home screen changes.
 
 **pro and lenses.** The Camera card with a pretend phone attached, drawn once per state:
 
@@ -59,13 +59,13 @@ python shoot.py scenes/tiles/shot_grading.html work/seq/grading
 python clips/grading.py
 ```
 
-`chroma.py`, `desk.py` and `grading.py` write `work/NAME/c%05d.png` directly, so skip `render.py` and go to `encode.sh`.
+`chroma.py`, `desk.py` and `grading.py` write `work/NAME/c%05d.png` directly. Skip `render.py` and go to `encode.sh`.
 
-**framing.** Just the page, no effect: `python shoot.py scenes/tiles/shot_framing.html work/framing --prefix c`.
+**framing.** Only the page, no effect: `python shoot.py scenes/tiles/shot_framing.html work/framing --prefix c`.
 
 **fun and one-picture.** Not scripted yet. They need the Fun looks and the several-cameras layouts, and `telescope-rs effect` only does chroma key, desk and colour grading. `scenes/tiles/shot_fun.html` and `shot_camA.html` are the pictures underneath them.
 
-**The README banner.** `python banner.py WINDOW.png OUT_DIR PHONE.png` writes `banner.png` and `banner@2x.png` into `OUT_DIR`. `WINDOW.png` is a 1600x900 window picture at 2x from `telescope-rs scenes`, `PHONE.png` a 1080x2400 phone screenshot. The logo and tagline are cut from the current `docs/assets/banner.png`, so write to a different folder first and copy it over once you like it. No window or phone pictures are kept in the repo.
+**The README banner.** `python banner.py WINDOW.png OUT_DIR PHONE.png` writes `banner.png` and `banner@2x.png` into `OUT_DIR`. `WINDOW.png` is a 1600x900 window picture at 2x from `telescope-rs scenes`, `PHONE.png` a 1080x2400 phone screenshot. The logo and tagline are cut from the current `docs/assets/banner.png`. Write to a different folder first and copy it over once you like it. No window or phone pictures are stored in the repo.
 
 ## What's in here
 
@@ -79,4 +79,4 @@ Generated pictures such as `scenes/pro/card/`, `scenes/lenses/img/` and the app 
 
 All fonts are free to redistribute under the SIL Open Font License 1.1 and come from Google Fonts: Bricolage Grotesque, Instrument Sans, Inter, JetBrains Mono and Caveat.
 
-The three phone pictures are crops of Telescope's own Android app with the emulator's clock showing 9:41. Everything else (the cat, the call window, the stars) is drawn in code, and the names in the scenes (Pixel 9 Pro, Studio PC, Sam) are made up.
+The three phone pictures are crops of Telescope's own Android app with the emulator's clock showing 9:41. Everything else (the cat, the call window, the stars) is drawn in code. The names in the scenes (Pixel 9 Pro, Studio PC, Sam) are made up.
