@@ -318,7 +318,9 @@ impl Setup<'_> {
             return Vec::new();
         }
         let line = options_line(shape);
-        if self.own_conf_text().as_deref().and_then(options_in) == Some(line.trim_end()) {
+        // One we can't read might ask for the extras, so it's left alone rather than guessed over
+        let Some(text) = self.own_conf_text() else { return Vec::new() };
+        if options_in(&text) == Some(line.trim_end()) {
             return Vec::new();
         }
         vec![Step::Write(PERSIST_MODPROBE_CONF.into(), line.trim_end().into())]
@@ -853,5 +855,13 @@ mod tests {
         for f in [with_boot_file(options_line(Shape::Base).trim_end()), with_boot_file(OLD_BOOT_FILE), Fake::default(), unreadable] {
             assert_eq!(setup(&f).boot_shape(), Shape::Base);
         }
+    }
+
+    #[test]
+    fn a_boot_file_that_cant_be_read_is_never_rewritten() {
+        let mut f = with_boot_file("");
+        f.confs = vec![(PERSIST_MODPROBE_CONF.into(), None)];
+        assert!(setup(&f).reload().ok);
+        assert!(!script_of(&f).contains(PERSIST_MODPROBE_CONF), "{}", script_of(&f));
     }
 }
