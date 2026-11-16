@@ -143,7 +143,7 @@ pub fn order(candidates: &[Candidate], prefer: Prefer) -> Vec<usize> {
         Kind::Virtual => 2,
         Kind::Cpu => 3,
     };
-    // Intel's Windows Vulkan driver crashes while opening the card, its DX12 one doesn't
+    // Intel's Windows Vulkan driver crashes while opening the card, its DX12 one doesn't (gfx-rs/wgpu#9845)
     let dx12_first = |c: &Candidate| c.windows && c.vendor == VENDOR_INTEL;
     let api = |c: &Candidate| match c.api {
         Api::Vulkan if dx12_first(c) => 1,
@@ -154,6 +154,7 @@ pub fn order(candidates: &[Candidate], prefer: Prefer) -> Vec<usize> {
         Api::Gl => 3,
     };
     let mut sorted = candidates.to_vec();
+    // gfx-rs/wgpu#9845
     let crashy = |c: &Candidate| prefer != Prefer::Unchanged && dx12_first(c) && c.api == Api::Vulkan;
     let kind_rank = |k: Kind| match (prefer, k) {
         (Prefer::HighPerformance, Kind::Integrated) | (Prefer::PowerSaving, Kind::Discrete) => 1,
