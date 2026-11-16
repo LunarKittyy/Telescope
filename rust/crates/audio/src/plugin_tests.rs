@@ -837,7 +837,7 @@ fn the_card_offers_the_install_and_asks_first() {
     assert_eq!(r.h.prop("confirm-asked"), 2, "asks again each time");
     r.ui("confirm-answered", vec![json!(true)]);
     assert_eq!(*calls.lock().unwrap(), vec!["download".to_string(), "run setup.exe".into()]);
-    assert!(r.h.status().contains("restart the computer"));
+    assert!(r.h.status().contains("Restart the computer"));
     assert_eq!(r.h.text("fix-text"), "Open setup again"); // in case it was closed without installing
     r.ui("fix-clicked", vec![]);
     r.ui("confirm-answered", vec![json!(true)]);

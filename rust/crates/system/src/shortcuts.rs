@@ -1716,7 +1716,7 @@ mod tests {
         assert_eq!(props["rows"][0]["does"], json!("Mute: switch while held, back on release"));
         assert_eq!(props["rows"][0]["copy-ok"], json!(false));
         assert_eq!(props["rows"][1]["where"], json!("In Telescope"));
-        assert!(props["note-text"].as_str().unwrap().starts_with("Global shortcuts aren't available on this desktop"));
+        assert!(props["note-text"].as_str().unwrap().starts_with("These shortcuts only work inside Telescope"));
         ui(&mut plugin, &mut host, "remove", json!([0]));
         assert_eq!(plugin.bindings().len(), 1);
         ui(&mut plugin, &mut host, "copy-line", json!([0]));
@@ -2128,7 +2128,7 @@ mod tests {
         };
         let given = json!({"value": "9000"}).as_object().unwrap().clone();
         assert_eq!(checked_params(&spec, &given, false).unwrap()["value"], json!(3200.0));
-        assert_eq!(checked_params(&spec, &given, true).unwrap_err(), "value goes from 50 to 3200, so 9000 is out of range.");
+        assert_eq!(checked_params(&spec, &given, true).unwrap_err(), "9000 is out of range because value goes from 50 to 3200.");
         assert_eq!(checked_params(&spec, &json!({"valeu": 1}).as_object().unwrap().clone(), true).unwrap_err(), "camera.iso has no setting 'valeu'.");
     }
 

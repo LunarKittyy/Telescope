@@ -376,7 +376,7 @@ pub(crate) mod tests {
     fn an_unchecked_certificate_says_so() {
         let dir = scratch("cert");
         let err = download_vb_cable(Some(&dir), &dir, &failing(|| FetchError::Certificate("unable to get local issuer certificate".into())), &Pins::default()).unwrap_err();
-        assert!(err.starts_with("Couldn't check vb-audio.com's certificate"));
+        assert!(err.starts_with("Nothing was downloaded because vb-audio.com's certificate"));
         let bad = rustls::Error::InvalidCertificate(rustls::CertificateError::UnknownIssuer);
         assert!(matches!(fetch_error(ureq::Error::Rustls(bad)), FetchError::Certificate(_)));
     }

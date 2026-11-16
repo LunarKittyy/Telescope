@@ -673,7 +673,7 @@ mod tests {
     fn an_unchecked_certificate_isnt_blamed_on_the_internet() {
         let untrusted = Failing(|_| FetchError::Certificate("unable to get local issuer certificate".into()));
         let why = download_adb(&untrusted, Some(&tmp().join("platform-tools")), &quiet).unwrap_err();
-        assert!(why.starts_with("Couldn't check Google's certificate") && !why.contains("internet connection"));
+        assert!(why.starts_with("Nothing was downloaded because Google's certificate") && !why.contains("internet connection"));
     }
 
     #[test]

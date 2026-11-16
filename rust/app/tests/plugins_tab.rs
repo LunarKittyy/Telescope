@@ -616,7 +616,7 @@ fn installing_a_plugin_thats_there_asks_then_replaces_it() {
 
     let mut asked = vec![];
     r.panel.run(Request::Install { path: archive.clone() }, &mut |q| { asked.push(q.clone()); false });
-    assert!(asked[0].title == "Replace Extra 1.0?" && asked[0].text.contains("keeps its settings"));
+    assert!(asked[0].title == "Replace Extra 1.0?" && asked[0].text.contains("settings carry over"));
     assert_eq!(r.admin.find_installed()[0].version, "1.0"); // cancelled: untouched
 
     let outcome = r.panel.run(Request::Install { path: archive }, &mut yes);

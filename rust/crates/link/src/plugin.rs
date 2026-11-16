@@ -3212,8 +3212,8 @@ mod tests {
         e.ui("card", "usb-action-clicked", vec![]);
         assert_eq!(e.props("card")["usb-action"], "Agree and download");
         let props = e.props("card");
-        assert!(props["usb-text"].as_str().unwrap().ends_with("their Android SDK License applies:"), "{}", props["usb-text"]);
-        assert_eq!((props["usb-link-text"].as_str(), props["usb-link-tail"].as_str(), props["usb-after"].as_str()), (Some("read it here"), Some("."), Some("Wi-Fi works without adb.")));
+        assert!(props["usb-text"].as_str().unwrap().ends_with("their Android SDK License applies ("), "{}", props["usb-text"]);
+        assert_eq!((props["usb-link-text"].as_str(), props["usb-link-tail"].as_str(), props["usb-after"].as_str()), (Some("read it here"), Some(")."), Some("Wi-Fi works without adb.")));
         assert!(!format!("{props:?}").contains("<a") && !format!("{props:?}").contains("<br"));
         e.ui("card", "usb-link-clicked", vec![]);
         assert!(e.host.calls.iter().any(|c| c == &format!("open_url {}", adb_download::LICENSE_URL)));

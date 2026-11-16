@@ -223,7 +223,7 @@ fn a_picture_that_is_fine_leaves_the_sliders_the_person_set_alone() {
     r.ui("slider-moved", vec![json!(0), json!(-20.0)]);
     let published = r.published();
     r.press_and_measure(&Scene::default(), right().as_ref());
-    assert!(r.note().starts_with("Nothing to change"), "{}", r.note());
+    assert!(r.note().starts_with("The picture already looks right"), "{}", r.note());
     assert_eq!(r.plugin.grade().temperature, -20.0);
     assert_eq!(r.published(), published);
 }
@@ -235,7 +235,7 @@ fn without_a_person_it_says_so_and_still_does_what_it_can() {
     r.ui("auto-clicked", vec![]);
     assert!(r.host.is_scheduled("auto_timeout") && !r.host.is_scheduled("auto_hold"), "no waiting for people that cannot come");
     r.show(&scene, cast([1.15, 1.0, 0.85]).as_ref(), 16);
-    assert!(r.note().contains("No face found"), "{}", r.note());
+    assert!(r.note().contains("no face was found"), "{}", r.note());
     assert!(r.plugin.grade().temperature < -3.0, "{}", r.plugin.grade().temperature);
 }
 
@@ -299,7 +299,7 @@ fn people_who_are_too_old_for_the_frame_leave_no_face() {
             r.event(Event::Posted { owner: "colour_grading".into(), token, data });
         }
     }
-    assert!(r.note().contains("No face found"), "{}", r.note());
+    assert!(r.note().contains("no face was found"), "{}", r.note());
 }
 
 #[test]

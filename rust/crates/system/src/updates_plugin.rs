@@ -1751,7 +1751,7 @@ mod tests {
         std::fs::write(&marker, r#"{"build": 200}"#).unwrap();
         plugin.check(&mut host, true);
         let (text, kind) = plugin.status_text(&host);
-        assert!(text.contains("0.6.0 nightly 200 didn't start after updating, so it's held back"), "{text}");
+        assert!(text.contains("0.6.0 nightly 200 is held back because it didn't start after updating"), "{text}");
         assert_eq!(kind, "status_warn");
         assert!(plugin.available.is_none() && !button_shown(&host));
         assert_eq!(last_props(&host, SECTION)["retry-shown"], true);
@@ -1865,7 +1865,7 @@ mod tests {
         ui(&mut plugin, &mut host, "back-asked", vec![]);
         answer_yes(&mut plugin, &mut host);
         assert_eq!(back_events(&fake), ["backup"]);
-        assert!(plugin.status_while(false).0.contains("nothing was changed"));
+        assert!(plugin.status_while(false).0.contains("Nothing was changed"));
         assert_eq!((plugin.channel.as_str(), plugin.auto_check, plugin.busy()), ("nightly", true, false));
         assert_eq!(quits(&host), 0);
     }
