@@ -194,6 +194,15 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] The Webcam card shows only the settings the camera has. Exposure on Manual makes Exposure time work, the change shows in the picture and after an unplug and replug (or a Stop and Start) the camera has it again. Reset restores the defaults.
 - [ ] Windows: the same, plus a camera with a built-in webcam mode or an HDMI capture card shows up and streams.
 
+### Spout capture
+
+<!-- due: rust/crates/outputs/src/spout/** rust/crates/outputs/src/spout_shared/** rust/crates/outputs/src/pipewire/** rust/crates/outputs/ui/spout.slint -->
+
+- [ ] Windows with Spout capture switched on. A Spout sender (OBS with its Spout output, or Spout2's demo sender) shows in the device picker under its own name. Start streams it at the frame rate on the card with the right colours. Background works on it.
+- [ ] Closing the sender mid-stream shows the wait screen and opening it again picks the stream up. Stop is instant.
+- [ ] On Linux a Windows game or program sending Spout under Proton with Spout2PW shows in the picker and streams the same way. With PipeWire stopped when Telescope starts and started later, the sender still shows up.
+- [ ] Linux, from the AppImage on a machine without libpipewire. Telescope starts and Spout capture lists nothing.
+
 ### On Air sign
 
 <!-- due: rust/crates/effects/src/on_air*.rs rust/crates/link/src/web.rs -->

@@ -151,8 +151,20 @@ pub fn rgb_to_i420(pixels: &[u8], width: u32, height: u32, channels: usize, mirr
     Frame::new(width, height, PixelFormat::I420, out)
 }
 
+/// BGRA (or BGRx) pixels as an I420 frame, read in that order without swapping them first.
+pub fn bgra_to_i420(pixels: &[u8], width: u32, height: u32) -> Frame {
+    let mut out = Vec::new();
+    to_i420_into(pixels, width, height, 4, false, [2, 1, 0], &mut out);
+    Frame::new(width, height, PixelFormat::I420, out)
+}
+
 /// The I420 planes of rgb_to_i420 in out, which keeps its allocation from one call to the next.
 pub fn rgb_to_i420_into(pixels: &[u8], width: u32, height: u32, channels: usize, mirror: bool, out: &mut Vec<u8>) {
+    to_i420_into(pixels, width, height, channels, mirror, [0, 1, 2], out);
+}
+
+/// rgb_to_i420_into with the red, green and blue bytes at `order` within each pixel.
+fn to_i420_into(pixels: &[u8], width: u32, height: u32, channels: usize, mirror: bool, order: [usize; 3], out: &mut Vec<u8>) {
     let (w, h) = (width as usize, height as usize);
     let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
     out.clear();
@@ -167,18 +179,18 @@ pub fn rgb_to_i420_into(pixels: &[u8], width: u32, height: u32, channels: usize,
     let mut bands: Vec<_> = luma.chunks_mut(2 * per_band * w).zip(us.chunks_mut(per_band * cw)).zip(vs.chunks_mut(per_band * cw)).map(|((l, u), v)| (l, u, v)).collect();
     telescope_core::workers::each_part(&mut bands, |band, (luma, us, vs)| {
         let first = band * per_band;
-        rgb_band_to_i420(pixels, (w, h), channels, mirror, first, luma, us, vs);
+        rgb_band_to_i420(pixels, (w, h), channels, order, mirror, first, luma, us, vs);
     });
 }
 
 /// The row pairs of rgb_to_i420 from `first` on that fit in the planes' parts (each starting at that row pair).
 #[allow(clippy::too_many_arguments)]
-fn rgb_band_to_i420(pixels: &[u8], (w, h): (usize, usize), channels: usize, mirror: bool, first: usize, luma: &mut [u8], us: &mut [u8], vs: &mut [u8]) {
+fn rgb_band_to_i420(pixels: &[u8], (w, h): (usize, usize), channels: usize, [ro, go, bo]: [usize; 3], mirror: bool, first: usize, luma: &mut [u8], us: &mut [u8], vs: &mut [u8]) {
     let (t, cw) = (terms(), w.div_ceil(2));
     // Each pixel's U and V, and its luma written, from the pixel at output column x of row y (luma starting at row `first` * 2)
     let yuv = |x: usize, y: usize, luma: &mut [u8]| {
         let i = (y * w + if mirror { w - 1 - x } else { x }) * channels;
-        let (r, g, b) = (pixels[i] as usize, pixels[i + 1] as usize, pixels[i + 2] as usize);
+        let (r, g, b) = (pixels[i + ro] as usize, pixels[i + go] as usize, pixels[i + bo] as usize);
         luma[x] = round_byte(((16.0 + t.y_of[0][r]) + t.y_of[1][g]) + t.y_of[2][b]);
         let u = ((128.0 - t.u_of[0][r]) - t.u_of[1][g]) + t.u_of[2][b];
         let v = ((128.0 + t.v_of[0][r]) - t.v_of[1][g]) - t.v_of[2][b];
@@ -234,6 +246,14 @@ pub(crate) fn grey(w: u32, h: u32, y: u8) -> Frame {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bgra_converts_like_the_same_pixels_in_rgba() {
+        let (w, h) = (37u32, 21u32);
+        let bgra: Vec<u8> = (0..w * h).flat_map(|i| [(i * 7) as u8, (i * 13) as u8, (i * 29) as u8, 255]).collect();
+        let rgba: Vec<u8> = bgra.chunks_exact(4).flat_map(|p| [p[2], p[1], p[0], 255]).collect();
+        assert_eq!(bgra_to_i420(&bgra, w, h).data, rgb_to_i420(&rgba, w, h, 4, false).data);
+    }
 
     #[test]
     fn a_frame_that_fits_is_the_same_frame() {
