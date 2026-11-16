@@ -43,7 +43,7 @@
     }
     others[0].before(Object.assign(document.createElement("span"), { className: "dl-or", textContent: "or" }));
   }
-  if (os === "android") note.textContent = "That's the phone half. Telescope itself runs on a Linux or Windows computer, so open this page there too (the desktop app can also put the phone app on your phone for you).";
+  if (os === "android") note.remove();
   if (os === "apple") note.textContent = "The desktop app needs a Linux or Windows computer (there's no Mac version). An iPhone or iPad works as the camera straight from its browser with nothing to install.";
   for (const slot of $$("[data-clone=downloads]")) slot.innerHTML = downloads.innerHTML;
 

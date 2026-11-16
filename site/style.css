@@ -80,11 +80,12 @@ h1, h2, h3 { text-wrap: balance; }
 
 /* hero */
 .hero { min-height: 100svh; display: flex; align-items: center; padding-top: 110px; padding-bottom: 80px; }
-.hero .copy { position: relative; max-width: 640px; }
+.hero .copy { position: relative; display: inline-block; max-width: 100%; }
+/* the text lines share the title's width instead of each wrapping at its own */
+.hero .copy > p, .hero .dl-note { width: 0; min-width: 100%; }
 .hero .copy::before { content: ""; position: absolute; inset: -60px -100px; z-index: -1; background: radial-gradient(closest-side, rgba(15, 18, 22, 0.7), rgba(15, 18, 22, 0.35) 65%, transparent); pointer-events: none; }
 .hero h1 { font-size: clamp(4rem, 11vw, 9.5rem); font-weight: 800; line-height: 0.9; letter-spacing: -0.045em; }
 .tagline { margin-top: var(--s3); font-size: var(--t-lead); line-height: 1.35; color: var(--ink); }
-.tagline { max-width: 22em; text-wrap: balance; }
 .free { margin-top: var(--s1); font-size: var(--t-md); color: var(--ink-muted); }
 .flat-lens { display: none; }
 body.static .flat-lens { display: block; position: absolute; width: min(64vh, 600px, 48vw); right: max(-40px, calc(50% - 680px)); top: 50%; translate: 0 -50%; pointer-events: none; }
@@ -108,7 +109,7 @@ body:not(.at-top) .scroll-hint { opacity: 0; pointer-events: none; }
 .dl.other:hover { background: none; color: var(--ink); text-decoration-color: currentColor; }
 .dl.other + .dl.other::before { content: "·"; margin-right: var(--s2); color: var(--ink-faint); display: inline-block; text-decoration: none; }
 .dl-or { color: var(--ink-faint); font-size: var(--t-md); margin-right: -8px; }
-.dl-note { margin-top: var(--s2); font-size: var(--t-sm); color: var(--ink-faint); max-width: 40em; }
+.dl-note { margin-top: var(--s2); font-size: var(--t-sm); color: var(--ink-faint); }
 .dl-note a { color: var(--ink-muted); }
 .dl-note a:hover { color: var(--ink); }
 
@@ -173,7 +174,6 @@ details[open] > summary::before { rotate: 45deg; }
 .also { margin-top: var(--s4); max-width: 46em; color: var(--ink-muted); }
 
 /* set and forget */
-.quiet { min-height: 60svh; }
 .facts { margin: var(--s4) 0 0; display: grid; grid-template-columns: repeat(2, minmax(0, 26em)); gap: var(--s4) var(--s4); }
 .facts dd { margin: var(--s1) 0 0; color: var(--ink-muted); font-size: var(--t-sm); }
 
@@ -196,7 +196,7 @@ details[open] > summary::before { rotate: 45deg; }
 
 /* flat version, for reduced motion or no WebGL */
 body.static { background-repeat: repeat; }
-body.static .band, body.static .quiet, body.static .landing { min-height: 0; }
+body.static .band, body.static .landing { min-height: 0; }
 
 @media (max-width: 860px) {
   .hero { align-items: flex-end; padding-top: 52svh; }
@@ -217,7 +217,6 @@ body.static .band, body.static .quiet, body.static .landing { min-height: 0; }
   .tile.big { grid-column: span 2; grid-row: auto; }
   .tile.big .tile-media { aspect-ratio: 16 / 9; }
   .facts { grid-template-columns: minmax(0, 1fr); }
-  .quiet { min-height: 0; padding-top: 24svh; }
   .landing { padding-top: 120px; }
   /* Centred above the title, the same size and place as the 3D lens */
   body.static .flat-lens { width: min(160vw, 72svh); right: auto; left: 50%; top: 25svh; translate: -50% -50%; }
