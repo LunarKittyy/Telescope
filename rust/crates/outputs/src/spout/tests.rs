@@ -1,4 +1,5 @@
 use super::*;
+use std::sync::atomic::AtomicU32;
 use telescope_core::frame::PixelFormat;
 use telescope_core::testing::FakeHost;
 
@@ -57,8 +58,9 @@ fn env_with(senders: Vec<Sender>) -> Env {
     let mut plugin = SpoutPlugin::new(Some(backend.clone()));
     let mut host = FakeHost::new();
     plugin.setup(&mut host);
-    plugin.on_event(&mut host, &Event::TimerFired { owner: NAME.into(), token: T_SCAN.into() });
-    Env { plugin, host, backend }
+    let mut env = Env { plugin, host, backend };
+    scan(&mut env);
+    env
 }
 
 fn env() -> Env {
@@ -79,6 +81,22 @@ fn status(env: &Env) -> String {
     env.plugin.props(env.host.streaming)["status-text"].as_str().unwrap().to_string()
 }
 
+/// Waits for the scanning thread's listing to be posted, up to a few seconds.
+fn wait_for_scan(env: &Env) {
+    let end = Instant::now() + Duration::from_secs(5);
+    while !env.host.posted.lock().unwrap().iter().any(|(token, _)| token == P_SCANNED) {
+        assert!(Instant::now() < end, "the scan never reported");
+        std::thread::sleep(Duration::from_millis(2));
+    }
+}
+
+/// One look at the senders as the app does it: the timer fires, the thread looks, its posts are delivered.
+fn scan(env: &mut Env) {
+    env.plugin.on_event(&mut env.host, &Event::TimerFired { owner: NAME.into(), token: T_SCAN.into() });
+    wait_for_scan(env);
+    deliver(env);
+}
+
 fn deliver(env: &mut Env) {
     for (token, data) in env.host.take_posted() {
         env.plugin.on_event(&mut env.host, &Event::Posted { owner: NAME.into(), token, data });
@@ -97,10 +115,10 @@ fn senders_are_listed_by_name() {
 fn a_sender_that_starts_joins_the_picker_and_one_that_stops_leaves() {
     let mut env = env();
     env.backend.senders.lock().unwrap().push(Sender { key: "OBS".into(), name: "OBS".into(), width: 2, height: 2 });
-    env.plugin.rescan(&mut env.host);
+    scan(&mut env);
     assert!(env.plugin.sources.contains_key("OBS"));
     env.backend.senders.lock().unwrap().retain(|s| s.key != "OBS");
-    env.plugin.rescan(&mut env.host);
+    scan(&mut env);
     assert!(!env.plugin.sources.contains_key("OBS"));
     assert!(env.host.calls.contains(&"remove_stream_source spout:OBS".to_string()), "{:?}", env.host.calls);
 }
@@ -111,14 +129,14 @@ fn a_streaming_sender_that_stops_waits_for_it_and_carries_on() {
     stream(&mut env, "Cam");
     pick(&mut env, Some("Cam"));
     env.backend.senders.lock().unwrap().clear();
-    env.plugin.rescan(&mut env.host);
+    scan(&mut env);
     assert!(env.plugin.sources.contains_key("Cam"));
     assert_eq!(status(&env), "Sender not running");
     let src = env.plugin.sources["Cam"].clone();
     assert!(src.open_feed().is_err());
     assert!(src.waiting_text().contains("isn't running"), "{}", src.waiting_text());
     env.backend.senders.lock().unwrap().push(cam());
-    env.plugin.rescan(&mut env.host);
+    scan(&mut env);
     assert!(!env.plugin.states.contains_key("Cam"));
     assert!(env.host.calls.iter().filter(|c| *c == "add_stream_source spout:Cam").count() == 1, "it keeps its source");
 }
@@ -128,7 +146,7 @@ fn a_sender_that_stopped_leaves_once_its_stream_stops() {
     let mut env = env();
     stream(&mut env, "Cam");
     env.backend.senders.lock().unwrap().clear();
-    env.plugin.rescan(&mut env.host);
+    scan(&mut env);
     env.host.streaming = false;
     env.plugin.on_event(&mut env.host, &Event::StreamsChanged { count: 0 });
     assert!(!env.plugin.sources.contains_key("Cam"));
@@ -153,6 +171,7 @@ fn a_system_with_no_backend_lists_nothing() {
     let mut host = FakeHost::new();
     plugin.setup(&mut host);
     plugin.on_event(&mut host, &Event::TimerFired { owner: NAME.into(), token: T_SCAN.into() });
+    assert!(plugin.scanner.is_none() && !plugin.scanning, "with nothing to read there is nothing to scan with");
     assert!(plugin.sources.is_empty());
     assert!(!host.calls.iter().any(|c| c.starts_with("add_stream_source")));
 }
@@ -319,4 +338,129 @@ fn a_broken_packet_gives_no_frame() {
     for data in [Vec::new(), vec![0; 11], good, packet_of(&picture(2, 2, "XXXX", [0; 4]))] {
         assert!(decoder.decode(&Packet { data, time_ns: 0 }).newest.is_none());
     }
+}
+
+/// A backend whose look at the senders waits until the test lets it go.
+struct SlowBackend {
+    gate: Mutex<mpsc::Receiver<()>>,
+    looks: AtomicU32,
+    senders: Vec<Sender>,
+}
+
+impl Backend for SlowBackend {
+    fn senders(&self) -> Vec<Sender> {
+        self.looks.fetch_add(1, Ordering::SeqCst);
+        let _ = self.gate.lock().unwrap().recv_timeout(Duration::from_secs(10));
+        self.senders.clone()
+    }
+    fn open(&self, _key: &str) -> Result<Box<dyn Reader>, String> {
+        Err("not for this test".into())
+    }
+}
+
+fn slow() -> (Arc<SlowBackend>, mpsc::Sender<()>, SpoutPlugin, FakeHost) {
+    let (release, gate) = mpsc::channel();
+    let backend = Arc::new(SlowBackend { gate: Mutex::new(gate), looks: AtomicU32::new(0), senders: vec![cam()] });
+    let mut plugin = SpoutPlugin::new(Some(backend.clone()));
+    let mut host = FakeHost::new();
+    plugin.setup(&mut host);
+    (backend, release, plugin, host)
+}
+
+fn tick(plugin: &mut SpoutPlugin, host: &mut FakeHost) {
+    plugin.on_event(host, &Event::TimerFired { owner: NAME.into(), token: T_SCAN.into() });
+}
+
+fn looks_reach(backend: &SlowBackend, count: u32) {
+    let end = Instant::now() + Duration::from_secs(5);
+    while backend.looks.load(Ordering::SeqCst) < count {
+        assert!(Instant::now() < end, "the backend was never asked ({count})");
+        std::thread::sleep(Duration::from_millis(2));
+    }
+}
+
+#[test]
+fn a_slow_look_at_the_senders_never_holds_up_the_timer_hook() {
+    let (backend, release, mut plugin, mut host) = slow();
+    let started = Instant::now();
+    tick(&mut plugin, &mut host);
+    looks_reach(&backend, 1);
+    tick(&mut plugin, &mut host);
+    tick(&mut plugin, &mut host);
+    assert!(started.elapsed() < Duration::from_secs(2), "the hook waited on the backend ({:?})", started.elapsed());
+    assert!(host.is_scheduled(T_SCAN), "the next look stays scheduled");
+    // Still waiting on the first look: the other ticks started no second one
+    std::thread::sleep(Duration::from_millis(50));
+    assert_eq!(backend.looks.load(Ordering::SeqCst), 1);
+    assert!(plugin.sources.is_empty());
+    release.send(()).unwrap();
+    let end = Instant::now() + Duration::from_secs(5);
+    let posted = loop {
+        let posted = host.take_posted();
+        if !posted.is_empty() {
+            break posted;
+        }
+        assert!(Instant::now() < end, "the listing never came back");
+        std::thread::sleep(Duration::from_millis(2));
+    };
+    for (token, data) in posted {
+        plugin.on_event(&mut host, &Event::Posted { owner: NAME.into(), token, data });
+    }
+    assert!(plugin.sources.contains_key("Cam"), "the listing is applied once it arrives");
+    // With the look done, the next tick starts the next
+    tick(&mut plugin, &mut host);
+    looks_reach(&backend, 2);
+}
+
+#[test]
+fn a_plugin_that_is_switched_off_or_dropped_stops_its_scanning_thread() {
+    let (backend, release, mut plugin, mut host) = slow();
+    tick(&mut plugin, &mut host);
+    looks_reach(&backend, 1);
+    plugin.shutdown(&mut host);
+    assert!(plugin.scanner.is_none());
+    release.send(()).unwrap();
+    // The look that was under way ends, and its listing is not applied
+    let end = Instant::now() + Duration::from_secs(5);
+    while host.posted.lock().unwrap().is_empty() {
+        assert!(Instant::now() < end, "the look never finished");
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    for (token, data) in host.take_posted() {
+        plugin.on_event(&mut host, &Event::Posted { owner: NAME.into(), token, data });
+    }
+    assert!(plugin.sources.is_empty());
+    tick(&mut plugin, &mut host);
+    std::thread::sleep(Duration::from_millis(50));
+    assert_eq!(backend.looks.load(Ordering::SeqCst), 1, "no look starts after switching off");
+    // The thread held a copy of the backend and lets it go when it ends
+    drop(plugin);
+    let end = Instant::now() + Duration::from_secs(5);
+    while Arc::strong_count(&backend) > 1 {
+        assert!(Instant::now() < end, "the scanning thread is still running");
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}
+
+#[test]
+fn what_the_backend_says_is_wrong_shows_in_the_diagnostics() {
+    struct Down;
+    impl Backend for Down {
+        fn senders(&self) -> Vec<Sender> {
+            Vec::new()
+        }
+        fn open(&self, _key: &str) -> Result<Box<dyn Reader>, String> {
+            Err("down".into())
+        }
+        fn problem(&self) -> Option<String> {
+            Some("PipeWire isn't running".into())
+        }
+    }
+    let mut plugin = SpoutPlugin::new(Some(Arc::new(Down)));
+    let mut host = FakeHost::new();
+    plugin.setup(&mut host);
+    assert_eq!(plugin.diagnostics()[0].1, "0 found");
+    let mut env = Env { plugin, host, backend: Arc::default() };
+    scan(&mut env);
+    assert_eq!(env.plugin.diagnostics()[0].1, "PipeWire isn't running");
 }

@@ -5,6 +5,9 @@
 //! that goes away while it streams keeps its place, apps see the wait screen and the stream carries on when it's back; one that isn't
 //! streaming just leaves the picker. What reads the senders is a `Backend` (Windows reads Spout's shared textures itself), so this part
 //! knows nothing of the system. The card shows while a sender is picked and holds its frame rate, kept per sender.
+//!
+//! Looking for senders can wait on the system (a sender's lock, a PipeWire daemon that is slow to answer), so a thread of its own does it,
+//! one look at a time, and posts what it found back to the plugin.
 
 #[cfg(any(windows, test))]
 mod frame_count;
@@ -17,7 +20,7 @@ use crate::convert::{bgra_to_i420, rgb_to_i420};
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
 use telescope_core::frame::Frame;
 use telescope_core::host::{Host, Poster};
@@ -39,6 +42,7 @@ pub const FPS_CHOICES: [u32; 4] = [15, 24, 30, 60];
 const T_SCAN: &str = "scan";
 const P_REPORTED: &str = "reported";
 const P_GONE: &str = "gone";
+const P_SCANNED: &str = "scanned";
 /// How long opening a sender waits for its first picture.
 const FIRST_PICTURE: Duration = Duration::from_secs(5);
 /// A sender that's idle gets its last picture sent again this often, so the stream doesn't take it for gone.
@@ -60,6 +64,17 @@ pub struct Sender {
     pub height: u32,
 }
 
+impl Sender {
+    fn to_json(&self) -> Value {
+        json!({"key": self.key, "name": self.name, "width": self.width, "height": self.height})
+    }
+
+    fn from_json(value: &Value) -> Option<Sender> {
+        let number = |field: &str| value.get(field).and_then(Value::as_u64).and_then(|n| u32::try_from(n).ok());
+        Some(Sender { key: value.get("key")?.as_str()?.into(), name: value.get("name")?.as_str()?.into(), width: number("width")?, height: number("height")? })
+    }
+}
+
 /// One picture from a sender, rows packed with no padding.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Picture {
@@ -72,9 +87,14 @@ pub struct Picture {
 
 /// Where senders come from on this system.
 pub trait Backend: Send + Sync {
-    /// The senders there are now; cheap enough to ask every 2 s.
+    /// The senders there are now, asked every 2 s from a thread of the plugin's own, so it may wait. A backend that can't reach what
+    /// it reads yet (PipeWire not started) tries again here each time and lists nothing until it can.
     fn senders(&self) -> Vec<Sender>;
     fn open(&self, key: &str) -> Result<Box<dyn Reader>, String>;
+    /// Why there are no senders to see right now, for the diagnostics; None when nothing is wrong.
+    fn problem(&self) -> Option<String> {
+        None
+    }
 }
 
 /// One sender opened for reading.
@@ -88,7 +108,7 @@ fn system_backend() -> Option<Arc<dyn Backend>> {
     #[cfg(windows)]
     return self::windows::backend().map(Arc::from);
     #[cfg(target_os = "linux")]
-    return pipewire::backend().map(Arc::from);
+    return Some(Arc::from(pipewire::backend()));
     #[cfg(not(any(windows, target_os = "linux")))]
     None
 }
@@ -367,12 +387,40 @@ pub struct SpoutPlugin {
     states: HashMap<String, (String, String)>,
     selected_key: String,
     stopped: bool,
+    /// Asks the scanning thread for a look; the thread ends when this is dropped.
+    scanner: Option<mpsc::Sender<()>>,
+    /// Whether a look is under way, so there is never a second one beside it.
+    scanning: bool,
+    /// What the backend said last time it found nothing to read, for the diagnostics.
+    problem: Option<String>,
+}
+
+/// Runs `backend.senders()` for each request on a thread of its own and posts the listing; it ends once `asked` has no sender left.
+fn spawn_scanner(backend: Arc<dyn Backend>, poster: Arc<dyn Poster>) -> Option<mpsc::Sender<()>> {
+    let (ask, asked) = mpsc::channel::<()>();
+    let run = move || {
+        while asked.recv().is_ok() {
+            let found = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| (backend.senders(), backend.problem())));
+            let data = match found {
+                Ok((senders, problem)) => json!({"senders": senders.iter().map(Sender::to_json).collect::<Vec<_>>(), "problem": problem}),
+                Err(_) => {
+                    log::error!("Looking for Spout senders failed");
+                    json!({"senders": [], "problem": "looking for senders failed"})
+                }
+            };
+            poster.post(P_SCANNED, data);
+        }
+    };
+    std::thread::Builder::new().name("spout-scan".into()).spawn(run).ok()?;
+    Some(ask)
 }
 
 impl SpoutPlugin {
     /// The plugin reading senders through `backend`; None for a system that has no way to.
     pub fn new(backend: Option<Arc<dyn Backend>>) -> SpoutPlugin {
-        SpoutPlugin { backend, shared: Arc::default(), poster: None, sources: HashMap::new(), states: HashMap::new(), selected_key: String::new(), stopped: false }
+        SpoutPlugin { backend, shared: Arc::default(), poster: None, sources: HashMap::new(), states: HashMap::new(), selected_key: String::new(), stopped: false,
+            scanner: None, scanning: false, problem: None,
+        }
     }
 
     /// The plugin as the app runs it: this system's backend, if it has one.
@@ -380,8 +428,28 @@ impl SpoutPlugin {
         SpoutPlugin::new(system_backend())
     }
 
-    pub fn rescan(&mut self, host: &mut dyn Host) {
-        let found = self.backend.as_ref().map(|b| b.senders()).unwrap_or_default();
+    /// Asks for a look at the senders, unless one is still under way.
+    fn request_scan(&mut self) {
+        if self.scanning {
+            return;
+        }
+        if self.scanner.as_ref().is_some_and(|ask| ask.send(()).is_ok()) {
+            self.scanning = true;
+        }
+    }
+
+    /// The senders as the scanning thread found them.
+    fn on_scanned(&mut self, host: &mut dyn Host, data: &Value) {
+        self.scanning = false;
+        if self.stopped {
+            return;
+        }
+        let found: Vec<Sender> = data.get("senders").and_then(Value::as_array).map(|list| list.iter().filter_map(Sender::from_json).collect()).unwrap_or_default();
+        self.problem = data.get("problem").and_then(Value::as_str).map(String::from);
+        self.apply_senders(host, found);
+    }
+
+    fn apply_senders(&mut self, host: &mut dyn Host, found: Vec<Sender>) {
         *self.shared.senders.lock().unwrap() = found.iter().map(|s| (s.key.clone(), s.clone())).collect();
         for sender in &found {
             match self.sources.get(&sender.key) {
@@ -507,11 +575,15 @@ impl Plugin for SpoutPlugin {
 
     fn setup(&mut self, host: &mut dyn Host) {
         self.poster = host.poster();
+        if let (Some(backend), Some(poster)) = (self.backend.clone(), self.poster.clone()) {
+            self.scanner = spawn_scanner(backend, poster);
+        }
         host.schedule(0, T_SCAN); // after the window is up
     }
 
     fn shutdown(&mut self, host: &mut dyn Host) {
         self.stopped = true;
+        self.scanner = None; // ends the thread once the look it may be in the middle of is done
         host.cancel_schedule(T_SCAN);
     }
 
@@ -523,12 +595,14 @@ impl Plugin for SpoutPlugin {
         match event {
             Event::TimerFired { owner, token } if owner == NAME && token == T_SCAN => {
                 if !self.stopped {
-                    self.rescan(host);
+                    self.request_scan();
                     host.schedule(SCAN_MS, T_SCAN);
                 }
             }
             Event::Posted { owner, token, data } if owner == NAME => {
-                if token == P_REPORTED {
+                if token == P_SCANNED {
+                    self.on_scanned(host, data);
+                } else if token == P_REPORTED {
                     let s = |i: usize| data.get(i).and_then(Value::as_str).unwrap_or("").to_string();
                     let key = s(0);
                     if self.sources.contains_key(&key) {
@@ -565,7 +639,12 @@ impl Plugin for SpoutPlugin {
 
     fn diagnostics(&self) -> Vec<(String, String)> {
         let found = self.shared.senders.lock().unwrap().len();
-        vec![("Spout senders".to_string(), if self.backend.is_none() { "no way to read them here".to_string() } else { format!("{found} found") })]
+        let text = match (&self.backend, &self.problem) {
+            (None, _) => "no way to read them here".to_string(),
+            (Some(_), Some(problem)) => problem.clone(),
+            (Some(_), None) => format!("{found} found"),
+        };
+        vec![("Spout senders".to_string(), text)]
     }
 
     fn get_config(&self) -> Value {

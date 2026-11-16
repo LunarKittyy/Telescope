@@ -11,24 +11,49 @@ const CLIENT_NAME: &str = "Telescope Spout capture";
 /// Spout2PW names its nodes "<app id>.<sender>", with its app id "spout2pw" (or "spout2pw.<name>" when SPOUT2PW_APPNAME is set).
 const NODE_PREFIX: &str = "spout2pw";
 
-/// The PipeWire side of Spout capture, or None when PipeWire can't be reached.
-pub fn backend() -> Option<Box<dyn Backend>> {
-    let connection = Connection::shared().ok()?;
-    Some(Box::new(PipeWireBackend { connection: Mutex::new(connection) }))
+/// The PipeWire side of Spout capture. PipeWire not running yet isn't the end of it: the connection is tried again with each look for senders.
+pub fn backend() -> Box<dyn Backend> {
+    Box::new(PipeWireBackend::new(Box::new(Connection::shared)))
 }
 
+/// Makes a connection to PipeWire.
+type Connect = Box<dyn Fn() -> Result<Arc<Connection>, String> + Send + Sync>;
+
 struct PipeWireBackend {
-    connection: Mutex<Arc<Connection>>,
+    connect: Connect,
+    link: Mutex<Link>,
+}
+
+#[derive(Default)]
+struct Link {
+    connection: Option<Arc<Connection>>,
+    /// Why the last try to connect failed.
+    error: Option<String>,
 }
 
 impl PipeWireBackend {
-    /// The connection, made again if PipeWire was restarted since.
-    fn connection(&self) -> Option<Arc<Connection>> {
-        let mut held = self.connection.lock().ok()?;
-        if held.is_dead() {
-            *held = Connection::shared().ok()?;
+    fn new(connect: Connect) -> PipeWireBackend {
+        PipeWireBackend { connect, link: Mutex::new(Link::default()) }
+    }
+
+    /// The connection, made if there is none yet or made again if PipeWire was restarted since.
+    fn connection(&self) -> Result<Arc<Connection>, String> {
+        let mut link = self.link.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(connection) = link.connection.clone().filter(|c| !c.is_dead()) {
+            return Ok(connection);
         }
-        Some(held.clone())
+        link.connection = None;
+        match (self.connect)() {
+            Ok(connection) => {
+                link.error = None;
+                link.connection = Some(connection.clone());
+                Ok(connection)
+            }
+            Err(why) => {
+                link.error = Some(why.clone());
+                Err(why)
+            }
+        }
     }
 }
 
@@ -51,7 +76,7 @@ fn sender_name(node: &Node) -> String {
 
 impl Backend for PipeWireBackend {
     fn senders(&self) -> Vec<Sender> {
-        let Some(connection) = self.connection() else { return Vec::new() };
+        let Ok(connection) = self.connection() else { return Vec::new() };
         let mut senders: Vec<Sender> = Vec::new();
         for node in connection.nodes().iter().filter(|n| is_spout2pw(n)) {
             let key = node.name().to_string();
@@ -64,8 +89,12 @@ impl Backend for PipeWireBackend {
         senders
     }
 
+    fn problem(&self) -> Option<String> {
+        self.link.lock().unwrap_or_else(|e| e.into_inner()).error.clone()
+    }
+
     fn open(&self, key: &str) -> Result<Box<dyn Reader>, String> {
-        let connection = self.connection().ok_or("PipeWire isn't running")?;
+        let connection = self.connection()?;
         let node = connection.nodes().into_iter().find(|n| is_spout2pw(n) && n.name() == key).ok_or_else(|| "the sender isn't running".to_string())?;
         let consumer = VideoConsumer::open(&connection, node.id, CLIENT_NAME)?;
         Ok(Box::new(PipeWireReader { consumer }))
@@ -110,6 +139,12 @@ mod tests {
         SourceSpec { name: sender.to_string(), props: props.into_iter().map(|(k, v)| (k.to_string(), v)).collect(), width: WIDTH, height: HEIGHT, format, memory }
     }
 
+    /// The backend, or None when this machine has no PipeWire to reach.
+    fn live_backend() -> Option<Box<dyn Backend>> {
+        Connection::shared().ok()?;
+        Some(backend())
+    }
+
     fn wait_for<T>(timeout: Duration, mut check: impl FnMut() -> Option<T>) -> Option<T> {
         let end = Instant::now() + timeout;
         loop {
@@ -125,7 +160,7 @@ mod tests {
 
     /// Runs a fake Spout2PW sender through the backend and checks the listing, the colours and the sender going away. Skips with a note when this machine can't.
     fn round_trip(memory: Memory, format: VideoFormat) {
-        let Some(backend) = backend() else { return eprintln!("skipped: PipeWire isn't running") };
+        let Some(backend) = live_backend() else { return eprintln!("skipped: PipeWire isn't running") };
         let connection = Connection::shared().unwrap();
         let sender = format!("Telescope test {} {:?} {:?}", std::process::id(), memory, format);
         let source = match FakeSource::start(&connection, spout2pw_node(&sender, memory, format)) {
@@ -183,7 +218,7 @@ mod tests {
 
     /// Reads a fake sender for a while, then drops the reader on the same thread and says how long the drop took.
     fn drop_time_while_flowing(memory: Memory) -> Option<Duration> {
-        let backend = backend()?;
+        let backend = live_backend()?;
         let connection = Connection::shared().unwrap();
         let sender = format!("Telescope drop test {} {:?}", std::process::id(), memory);
         let source = FakeSource::start(&connection, spout2pw_node(&sender, memory, VideoFormat::Bgra)).ok()?;
@@ -214,6 +249,71 @@ mod tests {
     }
 
     #[test]
+    fn a_backend_that_started_before_pipewire_finds_senders_once_it_is_up() {
+        use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+        let Ok(connection) = Connection::shared() else { return eprintln!("skipped: PipeWire isn't running") };
+        let (up, tries) = (Arc::new(AtomicBool::new(false)), Arc::new(AtomicU32::new(0)));
+        let backend = {
+            let (up, tries) = (up.clone(), tries.clone());
+            PipeWireBackend::new(Box::new(move || {
+                tries.fetch_add(1, Ordering::SeqCst);
+                if up.load(Ordering::SeqCst) { Connection::shared() } else { Err("PipeWire isn't running".into()) }
+            }))
+        };
+        let sender = format!("Telescope late test {}", std::process::id());
+        let source = match FakeSource::start(&connection, spout2pw_node(&sender, Memory::MemFd, VideoFormat::Bgra)) {
+            Ok(source) => source,
+            Err(why) => return eprintln!("skipped: {why}"),
+        };
+        // PipeWire "isn't running": nothing is listed, the reason is given and each look tries again
+        assert!(backend.senders().is_empty());
+        assert!(backend.senders().is_empty());
+        assert_eq!(backend.problem().as_deref(), Some("PipeWire isn't running"));
+        assert!(backend.open("anything").is_err());
+        assert_eq!(tries.load(Ordering::SeqCst), 3, "every look and open should have tried to connect");
+        // PipeWire starts: the same backend finds the sender, which opens and gives pictures, and the problem is gone
+        up.store(true, Ordering::SeqCst);
+        let listed = wait_for(Duration::from_secs(5), || backend.senders().into_iter().find(|s| s.name == sender && s.width != 0)).expect("the sender should be listed once PipeWire is up");
+        assert_eq!(backend.problem(), None);
+        let mut reader = backend.open(&listed.key).expect("the sender should open");
+        let picture = wait_for(Duration::from_secs(8), || reader.next(Duration::from_millis(500)).expect("reading shouldn't fail"));
+        assert!(picture.is_some(), "a picture should arrive");
+        drop(source);
+    }
+
+    #[test]
+    fn frames_held_for_reading_keep_descriptors_closed_on_exec() {
+        let Some(backend) = live_backend() else { return eprintln!("skipped: PipeWire isn't running") };
+        let connection = Connection::shared().unwrap();
+        for memory in [Memory::DmaBuf, Memory::MemFd] {
+            let sender = format!("Telescope cloexec test {} {:?}", std::process::id(), memory);
+            let Ok(source) = FakeSource::start(&connection, spout2pw_node(&sender, memory, VideoFormat::Bgra)) else { return eprintln!("skipped: PipeWire or its DMA-BUF heap isn't there") };
+            let key = wait_for(Duration::from_secs(5), || backend.senders().into_iter().find(|s| s.name == sender && s.width != 0)).expect("the sender should be listed").key;
+            let mut reader = backend.open(&key).expect("the sender should open");
+            // One picture read, then none asked for, so the next one stays parked holding its descriptor
+            wait_for(Duration::from_secs(8), || reader.next(Duration::from_millis(500)).expect("reading shouldn't fail")).expect("a picture should arrive");
+            std::thread::sleep(Duration::from_millis(500));
+            let mut checked = 0;
+            for entry in std::fs::read_dir("/proc/self/fd").unwrap().flatten() {
+                let target = std::fs::read_link(entry.path()).map(|t| t.to_string_lossy().into_owned()).unwrap_or_default();
+                if !(target.starts_with("/dmabuf:") || target.starts_with("/memfd:")) {
+                    continue;
+                }
+                let fd: i32 = entry.file_name().to_string_lossy().parse().unwrap();
+                // SAFETY: F_GETFD only reads the flags of a descriptor number; one that closed meanwhile just fails
+                let flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+                if flags >= 0 {
+                    assert_ne!(flags & libc::FD_CLOEXEC, 0, "descriptor {fd} ({target}) would leak into a child process ({memory:?})");
+                    checked += 1;
+                }
+            }
+            assert!(checked > 0, "no memory descriptors were open to check ({memory:?})");
+            drop(reader);
+            drop(source);
+        }
+    }
+
+    #[test]
     fn spout2pw_nodes_are_told_from_others() {
         let node = |pairs: &[(&str, &str)]| Node { id: 1, serial: 1, props: pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(), video_size: None };
         assert!(is_spout2pw(&node(&[("media.class", "Stream/Output/Video"), ("node.name", "spout2pw.Cam")])));
@@ -231,7 +331,7 @@ mod tests {
     #[test]
     #[ignore = "needs a Spout2PW sender running"]
     fn probe_real_sender() {
-        let backend = backend().expect("PipeWire isn't running");
+        let backend = live_backend().expect("PipeWire isn't running");
         let wait = Instant::now();
         let sender = loop {
             if let Some(sender) = backend.senders().into_iter().next() {
