@@ -84,7 +84,10 @@ h1, h2, h3 { text-wrap: balance; }
 /* the text lines share the title's width instead of each wrapping at its own */
 .hero .copy > p, .hero .dl-note { width: 0; min-width: 100%; }
 .hero .copy::before { content: ""; position: absolute; inset: -60px -100px; z-index: -1; background: radial-gradient(closest-side, rgba(15, 18, 22, 0.7), rgba(15, 18, 22, 0.35) 65%, transparent); pointer-events: none; }
-.hero h1 { font-size: clamp(4rem, 11vw, 9.5rem); font-weight: 800; line-height: 0.9; letter-spacing: -0.045em; }
+.hero { --title: clamp(4rem, 11vw, 9.5rem); }
+.hero h1 { font-size: var(--title); font-weight: 800; line-height: 0.9; letter-spacing: -0.045em; }
+/* the two lines under the title start at the T's stem, not at the end of its bar */
+.tagline, .free { padding-left: calc(var(--title) * 0.17); }
 .tagline { margin-top: var(--s3); font-size: var(--t-lead); line-height: 1.35; color: var(--ink); }
 .free { margin-top: var(--s1); font-size: var(--t-md); color: var(--ink-muted); }
 .flat-lens { display: none; }
