@@ -6,6 +6,8 @@
 //! streaming just leaves the picker. What reads the senders is a `Backend` (Windows reads Spout's shared textures itself), so this part
 //! knows nothing of the system. The card shows while a sender is picked and holds its frame rate, kept per sender.
 
+#[cfg(any(windows, test))]
+mod frame_count;
 #[cfg(windows)]
 mod windows;
 #[cfg(target_os = "linux")]

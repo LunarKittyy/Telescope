@@ -1,5 +1,6 @@
 //! Reading Spout senders on Windows: the sender list and each sender's texture through the shared Spout pieces, copied out as packed pixels.
 
+use super::frame_count::FrameTracker;
 use super::{Backend, Picture, Reader, Sender};
 use crate::spout_shared::protocol::ChannelOrder;
 use crate::spout_shared::win::{self as shared, AccessLock, FrameCounter, Gpu, Info, SharedTexture, Staging};
@@ -51,7 +52,7 @@ struct SpoutReader {
     lock: AccessLock,
     order: ChannelOrder,
     counter: Option<FrameCounter>,
-    last_count: Option<i32>,
+    tracker: FrameTracker,
     checked: Instant,
 }
 
@@ -70,20 +71,12 @@ impl SpoutReader {
         let staging = gpu.staging(&texture, 4)?;
         let lock = AccessLock::for_texture(key, &texture);
         log::info!("Spout sender {key}: {}x{} on {}", texture.width, texture.height, gpu.adapter);
-        Ok(SpoutReader { key: key.into(), handle, gpu, texture, staging, lock, order, counter: FrameCounter::open(key), last_count: None, checked: Instant::now() })
+        Ok(SpoutReader { key: key.into(), handle, gpu, texture, staging, lock, order, counter: FrameCounter::open(key), tracker: FrameTracker::default(), checked: Instant::now() })
     }
 
-    /// Whether the sender has made a picture since the last one read. A sender that doesn't count frames has made one every time.
-    fn is_new(&mut self) -> bool {
-        let Some(counter) = &self.counter else { return true };
-        match counter.read() {
-            Some(count) if count != 0 => {
-                let new = self.last_count != Some(count);
-                self.last_count = Some(count);
-                new
-            }
-            _ => true,
-        }
+    /// The sender's frame count now, None for one that doesn't count.
+    fn count(&self) -> Option<i32> {
+        self.counter.as_ref().and_then(FrameCounter::read)
     }
 
     /// Follows the sender to a new texture when it restarted or changed size.
@@ -109,14 +102,17 @@ impl SpoutReader {
         Ok(())
     }
 
-    /// The sender's picture now, or None while it's holding the texture.
+    /// The sender's picture now, or None while it's holding the texture. The count is read while the texture is locked, so it belongs to the
+    /// picture copied, and only a picture that was read is marked as read.
     fn grab(&mut self) -> Result<Option<Picture>, String> {
         if !self.lock.acquire() {
             return Ok(None);
         }
+        let count = self.count();
         self.gpu.copy(&self.staging, &self.texture);
         self.lock.release();
         let data = self.gpu.read(&self.staging)?;
+        self.tracker.read(count);
         Ok(Some(Picture { width: self.texture.width, height: self.texture.height, fourcc: fourcc(self.order), data }))
     }
 }
@@ -126,7 +122,7 @@ impl Reader for SpoutReader {
         let end = Instant::now() + timeout;
         loop {
             self.follow()?;
-            if self.is_new() {
+            if self.tracker.may_be_new(self.count()) {
                 return self.grab();
             }
             if Instant::now() >= end {
