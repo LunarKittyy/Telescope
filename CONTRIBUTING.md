@@ -6,7 +6,7 @@ Thanks for looking! You don't need to write code to help.
 
 - **Try it on your phone and let me know how it went.** Every phone behaves a bit differently and I only have a few to test on. Post in [Device compatibility](https://github.com/LunarKittyy/Telescope/discussions/new?category=device-compatibility), even if all you tried was one stream.
 - **Report bugs** in an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml). **Report a bug** under Updates & About in Settings (and in the phone app's About card) copies the diagnostics for you to paste in. Addresses, tokens and your home folder are stripped out of it.
-- **Translate.** Both apps are in a few languages already and most of them are first drafts nobody who speaks the language has read yet. [Translating](docs/translating.md) shows how to fix texts right on GitHub without any setup, and how to start a new language.
+- **Translate.** Both apps are in a few languages already and most of them are first drafts nobody who speaks the language has read yet. [Translating](docs/translating.md) shows how to fix texts right on GitHub without any setup and how to start a new language.
 - **Ideas and questions** go in [Discussions](https://github.com/LunarKittyy/Telescope/discussions).
 - **Docs** that confused you are bugs too. A pull request that fixes a sentence is very welcome.
 
@@ -28,7 +28,7 @@ To try a change on a real phone without touching your normal install:
 (cd rust && cargo run -p telescope-app -- dev --keep)  # a dev desktop that pairs with it
 ```
 
-[Building](docs/building.md) has the details, and [Packaging and CI](docs/packaging.md) covers the workflows.
+[Building](docs/building.md) has the details and [Packaging and CI](docs/packaging.md) covers the workflows.
 
 ### Before you start
 
@@ -76,8 +76,8 @@ Every doc starts with a hidden line naming the code it describes and the commit 
 <!-- covers: rust/crates/link/src/pairing.rs android/app/src/main/kotlin/com/telescope/Pairing.kt; checked: 1cbb8644b -->
 ```
 
-`python3 tools/docs_fresh.py` lists the docs whose covered code changed since then, with the commits. If you changed code a doc talks about, read that doc. Fix what's out of date, then run `python3 tools/docs_fresh.py --bump docs/the-doc.md` to move `checked` up to the current commit. Do that when the doc was already right too, so the next person doesn't re-read it for nothing. Bump after committing the code, because it uses the current commit, then commit the doc with its new line.
+`python3 tools/docs_fresh.py` lists the docs whose covered code changed since then, with the commits. If you changed code a doc talks about, read that doc. Fix what's out of date, then run `python3 tools/docs_fresh.py --bump docs/the-doc.md` to move `checked` up to the current commit. Do that when the doc was already right too, to save the next person from re-reading it for nothing. Bump after committing the code because it uses the current commit, then commit the doc with its new line.
 
-A new doc needs its line (`covers` can be empty if no code stands behind it). `python3 tools/docs_fresh.py --paths` checks the lines and that every file a doc mentions exists, and CI runs it. The flagged list shows up in the pull request's job summary and never fails a pull request.
+A new doc needs its line (`covers` can be empty if no code stands behind it). `python3 tools/docs_fresh.py --paths` checks the lines and that every file a doc mentions exists and CI runs it. The flagged list shows up in the pull request's job summary and never fails a pull request.
 
-Telescope is [AGPL-3.0](LICENSE) and code contributions are under the same license. The name, logo and artwork are covered by [BRANDING.md](BRANDING.md), so please talk to me before sending changes to those.
+Telescope is [AGPL-3.0](LICENSE) and code contributions are under the same licence. The name, logo and artwork are covered by [BRANDING.md](BRANDING.md). Please talk to me before sending changes to those.
