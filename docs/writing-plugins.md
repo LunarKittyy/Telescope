@@ -36,7 +36,7 @@ cargo run -p telescope-plugin-host --bin check-plugin -- path/to/my_plugin
 
 It loads your plugin outside Telescope with a stand-in for the window, builds its card, compiles its shaders the way the GPU will, saves and restores its settings and takes it through a stream starting, dropping and stopping. Every problem gets a line with the file and line number it came from. It also gives you a note about your `repo` and `version` when update checks can't follow them.
 
-Telescope loads a plugin you're working on straight from its folder when it runs with a dev profile (`TELESCOPE_DEV_PROFILE` set to a throwaway folder) and `TELESCOPE_DEV_PLUGINS` pointing at your plugin's folder. Several folders go in one variable separated like `PATH`. A plugin loaded that way is always on and stays on when you change its files.
+Telescope loads a plugin you're working on straight from its folder when it runs with a dev profile (`TELESCOPE_DEV_PROFILE` set to a throwaway folder) and `TELESCOPE_DEV_PLUGINS` pointing at your plugin's folder. Several folders go in one variable separated like `PATH`. A plugin loaded that way is always on and remains on when you change its files.
 
 ## plugin.json
 
@@ -116,7 +116,7 @@ return plugin
 
 `get_config()` returns a plain table of what you want remembered and `set_config()` gets it back on the next start. It might also get a table saved by an older version of your plugin or edited by hand. Check each value the way the example checks `cfg.on == true`. Raising an error in `set_config()` turns those settings down and Telescope keeps the values that do load on their own, with your defaults for the rest. Call `host.schedule_save()` after something changes and Telescope saves a moment later along with everything else.
 
-Lua's own `table`, `string`, `math`, `utf8` and `coroutine` libraries are there, along with `os.time`, `os.clock`, `os.date` and `os.difftime`. Your plugin can't open files, start programs or reach the network. Lua's own pattern matching can get stuck backtracking for hours, and nothing can stop it halfway. So `string.find`, `string.match`, `string.gmatch` and `string.gsub` use a copy of Lua 5.4's matcher that counts its work. It gives the same results as Lua's, until one call has used up about a third of a second of work. Then it stops with an error that says the pattern took too many steps. Only a pattern with a lot of `*`, `+`, `-` or `?` in it, or `%b` on a long text, gets there. Use a simpler pattern or cut the text down first. Ordinary patterns on ordinary texts never get near it. A `gsub` with a function calls it as usual, and the time that function takes counts towards the hook's own time limit. On top of Lua's own you get:
+Lua's own `table`, `string`, `math`, `utf8` and `coroutine` libraries are there, along with `os.time`, `os.clock`, `os.date` and `os.difftime`. Your plugin can't open files, start programs or reach the network. Lua's own pattern matching can get stuck backtracking for hours and nothing can stop it halfway. So `string.find`, `string.match`, `string.gmatch` and `string.gsub` use a copy of Lua 5.4's matcher that counts its work. It gives the same results as Lua's, until one call has used up about a third of a second of work. Then it stops with an error saying the pattern took too many steps. Only a pattern with a lot of `*`, `+`, `-` or `?` in it, or `%b` on a long text, gets there. Use a simpler pattern or cut the text down first. Ordinary patterns on ordinary texts never get near it. A `gsub` with a function calls it as usual. The time that function takes counts towards the hook's own time limit. On top of Lua's own you get:
 
 - `host`, Telescope's side of things (see [Events and the host](#events-and-the-host))
 - `tr`, `trn` and `N_` for texts people read
@@ -216,7 +216,7 @@ function plugin.events.stream_lost(e)
 end
 ```
 
-Each function gets the event as a table with its fields (`e.source_id` here). The names and fields are the ones listed as `event` in [`tests/plugin_api.txt`](../rust/crates/plugin-host/tests/plugin_api.txt), from `stream_started` and `phone_state_updated` to `people_tracked` and `still_saved`. Your plugin can also send events of its own with `host.emit("my_plugin.something", { ... })` and listen for them under the same name, as long as the name starts with your plugin's name and a dot. The app's own events (`stream_stopped` and the like) are the app's to send, so `host.emit` refuses them.
+Each function gets the event as a table with its fields (`e.source_id` here). The names and fields are the ones listed as `event` in [`tests/plugin_api.txt`](../rust/crates/plugin-host/tests/plugin_api.txt), from `stream_started` and `phone_state_updated` to `people_tracked` and `still_saved`. Your plugin can also send its own events with `host.emit("my_plugin.something", { ... })` and listen for them under the same name, as long as the name starts with your plugin's name and a dot. The app's own events (`stream_stopped` and the like) are the app's to send and `host.emit` refuses them.
 
 `host` has everything else a plugin may ask of Telescope. The full list with each function's arguments is in [`tests/plugin_api.txt`](../rust/crates/plugin-host/tests/plugin_api.txt). A few you'll use most:
 
@@ -268,9 +268,9 @@ cargo run -p telescope-plugin-host --bin plugin-texts -- extract path/to/my_plug
 cargo run -p telescope-plugin-host --bin plugin-texts -- new sv path/to/my_plugin      # starts locale/sv.po
 ```
 
-Run `extract` again after changing a text. New texts are added to every `.po` file and translations still in use stay as they are. `status` shows how far each language is. A text is looked up in your plugin's catalog first, then in Telescope's own (common words like "Camera" arrive translated already) and then it stays as you wrote it. `sv_SE` uses `sv.po` when there's no `sv_SE.po`. Texts in your `.slint` file use Slint's `@tr()`. [Translating](translating.md) explains the `.po` format.
+Run `extract` again after changing a text. New texts are added to every `.po` file and translations still in use remain as they are. `status` shows how far each language is. A text is looked up in your plugin's catalog first, then in Telescope's own (common words like "Camera" arrive translated already) and then it remains as you wrote it. `sv_SE` uses `sv.po` when there's no `sv_SE.po`. Texts in your `.slint` file use Slint's `@tr()`. [Translating](translating.md) explains the `.po` format.
 
-A `.po` file that can't be read never stops your plugin from loading. The plugin stays in English and the log names the file. `check-plugin` lists broken catalogs, along with translations that have a `{field}` the English doesn't (those show in English). Catalogs count as part of your plugin's files, so people have to switch it on again after you change one.
+A `.po` file that can't be read never stops your plugin from loading. The plugin remains in English and the log names the file. `check-plugin` lists broken catalogs, along with translations that have a `{field}` the English doesn't (those show in English). Catalogs count as part of your plugin's files. People have to switch it on again after you change one.
 
 ## Testing it
 
@@ -296,8 +296,8 @@ fn a_drop_shows_one_notification() {
 
 - **Don't reach into other plugins.** Use events and the host. Other plugins can be switched off and yours has to work without them.
 - **Keep your functions quick.** They run on the window's thread. One that takes longer than 3 seconds is stopped with an error. A plugin can use up to 64 MB of memory.
-- **Don't count on the order of a table's keys.** Lua doesn't keep it and neither does `json.encode`.
-- **Don't write files into your plugin's folder.** Telescope doesn't let your code do that anyway. If you or anyone else changes a file there by hand it counts as a new version, which stays off until it's switched on again.
+- **Don't count on the order of a table's keys.** Lua doesn't preserve it and neither does `json.encode`.
+- **Don't write files into your plugin's folder.** Telescope doesn't let your code do that anyway. If you or anyone else changes a file there by hand it counts as a new version, which remains off until it's switched on again.
 - **Ship source code.** A plugin with compiled files in it (Lua bytecode, `.so`, `.dll` and the like) isn't loaded.
 
 When something in your plugin raises an error Telescope logs it with the file and line and carries on. The other plugins still hear about everything. An error while loading shows on your plugin's tile on the Plugins tab.
