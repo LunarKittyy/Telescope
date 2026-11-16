@@ -10,9 +10,16 @@ Thanks for looking! You don't need to write code to help.
 - **Ideas and questions** go in [Discussions](https://github.com/LunarKittyy/Telescope/discussions).
 - **Docs** that confused you are bugs too. A pull request that fixes a sentence is very welcome.
 
+Security problems go through a private report instead, see [SECURITY.md](SECURITY.md).
+
 ## With code
 
-The Android app is in `android/` (Kotlin, Camera2) and the desktop app in `rust/` (Rust, Slint). [Architecture](docs/architecture.md) introduces the code and links to the detailed references. Start with [the desktop development setup](docs/building.md#run-the-desktop-app-from-source) to get Rust and the libraries it builds against.
+The Android app is in `android/` (Kotlin, Camera2) and the desktop app in `rust/` (Rust, Slint). [Architecture](docs/architecture.md) introduces the code and links to the detailed references.
+
+### Setup
+
+- **Desktop:** a recent stable Rust from [rustup](https://rustup.rs). On Linux you also need FFmpeg's headers, `clang`, fontconfig and a few fonts. [Building](docs/building.md#run-the-desktop-app-from-source) has the package list.
+- **Android:** JDK 21 and the Android SDK with `platform-tools`, `platforms;android-34` and `build-tools;34.0.0`.
 
 To try a change on a real phone without touching your normal install:
 
@@ -23,12 +30,43 @@ To try a change on a real phone without touching your normal install:
 
 [Building](docs/building.md) has the details, and [Packaging and CI](docs/packaging.md) covers the workflows.
 
-Before opening a pull request, run the checks for what you changed:
+### Before you start
+
+For anything bigger than a small fix, open an issue or comment on one first to agree on the idea before you spend time on it. A few things are decided already:
+
+- Telescope is for Linux and Windows. macOS isn't planned.
+- No workarounds for a single phone model or a small brand. A problem that hits most phones of a major brand is worth fixing.
+- Optional plugins don't have to work with each other, as long as a clash fails gracefully and is documented.
+
+### Checks
+
+Run the checks for what you changed before opening a pull request:
 
 - Desktop: `cargo nextest run --workspace --locked` in `rust/`
 - Android: `./gradlew lintDebug testDebugUnitTest` in `android/`
 
-Pull requests get read by a person, so keep them easy to skim. Commit subjects should say what changed in plain words. Fill in the [template](.github/pull_request_template.md) in a few lines, including what still needs trying on a real phone. If something users see changes, update `docs/` in the same pull request.
+Keep the diff to your change. Don't reformat lines you didn't touch and only write comments that explain a non-obvious why. If something users see changes, update `docs/` in the same pull request.
+
+### Commits
+
+One short line that says what the commit does, in the imperative, like "Fix the preview freezing after a Wi-Fi drop". No description under it and no prefixes like `fix:` or `feat(desktop):`. Someone scrolling the history should get the idea from that line alone. If you need more than a line to explain why, that goes in the pull request.
+
+### Pull requests
+
+Fill in the [template](.github/pull_request_template.md). The comments in it explain each part. Anything that doesn't help a reviewer understand or check the change can go.
+
+### Texts in the app
+
+New texts go through `strings.xml` on the phone and `tr()` on the desktop so they can be translated ([Translating](docs/translating.md) has the details). Write them the way the rest of the app does:
+
+- Tooltips and descriptions say what you can do with a control, in the imperative ("Set the gain back to default", not "Puts the gain back").
+- Statuses say what's true or what's needed ("Restart required", not "Waits for a restart").
+- One sentence is usually enough. Explanations and edge cases go in `docs/`.
+- British spelling (colour, centre).
+
+### Using AI tools
+
+You can use whatever tools you like but you're responsible for what you submit. Read it, test it and make it as short and clear as if you'd written it by hand. You should be able to answer questions about your change yourself. Pull requests that are clearly generated with no effort behind them get closed. (And if you can, please don't use Gemini for coding, it causes more harm than good.)
 
 ## Keeping docs fresh
 
