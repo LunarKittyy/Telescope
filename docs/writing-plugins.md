@@ -165,7 +165,7 @@ export component BlackAndWhiteCard inherits Card {
 }
 ```
 
-Inherit `Card` and give it a `title` and an `icon` from the kit's `Icons`, the way the example does. Telescope sets the card's colour from your plugin's group and makes it foldable. A control's `label` is only what screen readers announce, so name a row with a `RailRow` (its `icon` and `label`, the label showing as the icon's tooltip) or use a `SwitchTile`. Each `callback` your component declares reaches `on_ui()` with the callback's name and its arguments, written with `_` instead of `-` (`strength-moved` arrives as `strength_moved`). To change what the card shows later, set its properties with `host.set_ui_props("card", { on = true })`.
+Inherit `Card` and give it a `title` and an `icon` from the kit's `Icons`, the way the example does. Telescope sets the card's colour from your plugin's group and makes it foldable. A control's `label` is only what screen readers announce. Name a row with a `RailRow` (its `icon` and `label`, the label showing as the icon's tooltip) or use a `SwitchTile`. Each `callback` your component declares reaches `on_ui()` with the callback's name and its arguments, written with `_` instead of `-` (`strength-moved` arrives as `strength_moved`). To change what the card shows later, set its properties with `host.set_ui_props("card", { on = true })`.
 
 `header_widget()` and each entry of `settings_sections()` work the same way. A settings section also takes an `id` (used as `event.ui` and in `set_ui_props`), a `tab` (`general`, `streaming`, `video`, `audio`, `devices`, `shortcuts`, `about` or a new one with a `tab_title`), `order` and `keywords` for the Settings search.
 

@@ -85,14 +85,14 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] USB with the debugging prompt not yet accepted: Add phone asks to allow it and pairs once it's accepted.
 - [ ] One phone paired with two computers: both stream (one at a time) and removing one computer on the phone leaves the other working.
 - [ ] Offline router (no WAN uplink at all): pairing still works and the QR code lists the LAN address.
-- [ ] Desktop VPN only (LAN access permitted): pairing works over the LAN address (QR lists it, not just the VPN).
+- [ ] Desktop VPN only (LAN access permitted): pairing works over the LAN address (QR lists it, not only the VPN).
 - [ ] Phone VPN only (LAN access permitted): pairing works (tests the Wi-Fi-bound first attempt).
 - [ ] Both devices on a VPN (both LAN-accessible): pairing works.
 - [ ] Tailscale on both (no shared LAN): pairing works over `100.64/10`.
 - [ ] VPN blocking local-network traffic: pairing fails (the phone's dialog lists each address) and USB pairing works.
 - [ ] Desktop with Docker, libvirt or VirtualBox installed: the QR code doesn't advertise `docker0`/`virbr0`/`vboxnet0` addresses.
 - [ ] Phone on a tailnet the desktop isn't on: after Wi-Fi pairing the line under the Connection status shows the phone's Wi-Fi address (not `100.64/10`) and the stream works.
-- [ ] Automatic route: plugged in uses USB, unplugged uses Wi-Fi. Plugged in with the app closed, or with a different phone on the cable, uses Wi-Fi and the card says why.
+- [ ] Automatic route: plugged in uses USB, unplugged uses Wi-Fi. Plugged in with the app closed, or with a different phone on the cable, uses Wi-Fi and the card explains why.
 - [ ] Pulling the cable mid-stream on USB carries on over Wi-Fi and plugging it back in can use USB again.
 - [ ] Connect via USB only / Wi-Fi only is honoured, including reporting a missing cable instead of falling back (the banner's Switch to Automatic works).
 - [ ] Local only on, no cable: the desktop shows that the phone accepts USB only and Start doesn't open the camera. Plug in and it streams over USB. A second machine on the network can't reach the phone.
@@ -163,7 +163,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Start set to "When the phone is ready": opening the phone app (or plugging it in) starts the stream, Stop keeps it stopped until the phone leaves and comes back and closing the window keeps it in the tray.
 - [ ] Start set to "When an app opens the camera" and Stop to "When no app uses the camera, if it started the stream" (Linux and Windows): opening the camera in OBS or a call starts the stream and closing it stops it 15 s later.
 - [ ] Windows, Stop set to "when no app uses the camera, even if you started it": a stream started by hand before any app opened the camera stops after the wait.
-- [ ] Camera off: in a call using both Telescope devices, press the camera button under the preview. The call shows the wait screen and still hears the mic, the phone's camera light goes out and the tray icon loses its red dot. Press it again and the picture comes back.
+- [ ] Camera off: in a call using both Telescope devices, press the camera button under the preview. The call shows the wait screen and still hears the mic, the phone's camera light goes out and the tray icon loses its red dot. Press it again and the picture returns.
 - [ ] Mic only from the start: with the mic on, press the camera button, then **Start mic only**. The phone opens no camera and the call hears the mic.
 - [ ] With the mic on and Stop set to "when no app uses the camera": turn the camera off in the call. After the wait only the camera turns off and turning it back on in the call brings the picture back.
 - [ ] Camera off on a phone in the background (screen off, **Wait for my computer** on): turn it off and on again. It resumes and if another app holds the camera it remains off with a banner explaining why.
@@ -200,14 +200,14 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 - [ ] With On Air sign switched on, a tablet or phone opens the sign from its code, taps through the certificate warning and goes full screen with the screen remaining on. Joining a call turns it red within about a second and leaving turns it back about six seconds later.
 - [ ] A webhook to Home Assistant (or any hub) switches a light on and off with the default POST and with a GET payload. Stopping the hub gives one banner, not one per change.
-- [ ] Windows: the firewall prompt (or a rule) lets port 8768 through. New link makes an open sign say its link doesn't work any more.
+- [ ] Windows: the firewall prompt (or a rule) lets port 8768 through. New link makes an open sign show that its link doesn't work any more.
 
 ### Settings, keyboard and folding
 
 <!-- due: rust/crates/system/src/shortcuts.rs rust/crates/system/ui/shortcuts.slint rust/crates/system/src/hotkeys*.rs rust/crates/system/src/keys.rs rust/crates/system/src/tray*.rs rust/crates/system/src/icon.rs rust/crates/system/src/memory.rs rust/crates/system/src/lib.rs rust/crates/system/src/version.rs rust/crates/system/src/test_bus.rs rust/crates/setup/** -->
 
 - [ ] Every Settings tab opens and the settings button brings the window back on the tab it was left on.
-- [ ] Folding: clicking a card title and a section title folds and unfolds them, Tab reaches the titles and Space or Enter toggles them. A shortcut for a control in a folded card still works. Folds come back after a restart.
+- [ ] Folding: clicking a card title and a section title folds and unfolds them, Tab reaches the titles and Space or Enter toggles them. A shortcut for a control in a folded card still works. Folds return after a restart.
 - [ ] Tab through the tiles and switches, use rotation and pan shortcuts saved before this release, pan with arrow keys and Home on the pan pad, open and pick from a dropdown with the keyboard and inspect labels with a screen reader.
 - [ ] Your devices: Rename works, Change name changes what a newly paired phone shows and saved browsers are listed with the phones.
 - [ ] Plugins: installing a newer `.zip` of an added plugin asks, replaces it with its settings kept and leaves it switched off. One with a GitHub `repo` shows its link and, once a release is newer, a line about it on its tile. **Install updates without asking** asks before it goes on.
@@ -216,9 +216,9 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 <!-- due: rust/crates/system/src/mcp.rs rust/crates/system/src/mcp_bridge.rs rust/crates/system/src/mcp_stats.rs rust/crates/system/src/remote.rs rust/crates/system/ui/mcp.slint rust/crates/shell/src/touched.rs rust/crates/system/src/single_instance.rs rust/crates/core/src/settings.rs docs/mcp.md -->
 
-- [ ] With the plugin off, `telescope mcp` started by an AI app still starts and says where to switch it on. After switching **MCP server** on and restarting, the same app connects without restarting it, and Telescope shows a notification for the first connection.
+- [ ] With the plugin off, `telescope mcp` started by an AI app still starts and shows where to switch it on. After switching **MCP server** on and restarting, the same app connects without restarting it and Telescope shows a notification for the first connection.
 - [ ] In Claude Desktop and one other MCP client (set up as in `docs/mcp.md`): `status`, `describe` and `get` answer and `set` with Colour grading's Contrast moves the slider in the card and the picture at once. A wrong value names the problem and changes nothing. `revert` restores the old value and leaves a slider moved by hand untouched.
-- [ ] With a phone streaming and Colour grading on, `measure` gives numbers while sitting still and says why when the stream is off. Asking a model to colour grade the picture ends with sensible sliders and nothing outside the ranges.
+- [ ] With a phone streaming and Colour grading on, `measure` gives numbers while sitting still and explains why when the stream is off. Asking a model to colour grade the picture ends with sensible sliders and nothing outside the ranges.
 - [ ] With a phone streaming, `stats` and `watch` give the numbers the Stats panel shows (also with the Stats plugin off), and the stream and phone camera actions are refused.
 - [ ] The **MCP** button in the top bar: the dot shows when an AI app is connected, it lights while the AI reads or changes something, the left side opens the MCP tab and the right side undoes what the AI changed (greyed out with nothing to undo). On the MCP tab, **Read only** makes `set`, `revert` and `run_action` refuse with a line in the activity list marked as refused, and the last 30 calls are listed newest first.
 - [ ] When the AI sets Colour grading's Contrast and Temperature, those two sliders get an outline for about a second and a half. With the card folded nothing opens.
@@ -235,7 +235,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 <!-- due: rust/crates/effects/src/stereo*.rs rust/crates/effects/ui/stereo.slint -->
 
 - [ ] Two real phones of the same model, both on the newest phone app: switching on **3D** under **Streaming and devices** shows the 3D card. With both streaming the Telescope camera shows **Side by side** in a call app, the badge shows **In sync** or **Rough sync** and moving a hand quickly in front of both shows little ghosting. **Swap eyes**, **Depth** and **Height** (inside **Fine tune**) change the picture as the card describes and the reset in the card's header restores them all. **Red/cyan** looks right through glasses, with greys remaining grey.
-- [ ] Two phones of different models: **Match** puts both on manual exposure with the same shutter (check the Camera card on each), moves the right phone's ISO within a few seconds until the two pictures are about as bright, and the badge ends on **Matched** (or **Partly matched** on a scene one phone can't reach). The colours of the two eyes look closer afterwards and **Reset match** takes the colour curve off again. With one phone running the button is greyed out. **Size** starts from the lenses (a phone with a different lens on each side), and **Timing** and **Tilt** inside **Fine tune** move the right eye as the card says.
+- [ ] Two phones of different models: **Match** puts both on manual exposure with the same shutter (check the Camera card on each), moves the right phone's ISO within a few seconds until the two pictures are about as bright and the badge ends on **Matched** (or **Partly matched** on a scene one phone can't reach). The colours of the two eyes look closer afterwards and **Reset match** takes the colour curve off again. With one phone running the button is greyed out. **Size** starts from the lenses (a phone with a different lens on each side) and **Timing** and **Tilt** inside **Fine tune** move the right eye as the card describes.
 - [ ] With one phone on an older phone app or a webcam, the badge shows **Not synced** and the picture still goes out. Stopping one phone returns the other to the Telescope camera alone within 3 seconds and switching 3D off does the same. A phone whose picture freezes while it remains connected makes the badge show **Waiting** and the camera goes on moving from the other phone.
 
 ### Vision effects
@@ -244,7 +244,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 - [ ] Auto framing and Background (Linux and Windows): switching one on under **People** asks before downloading, shows the progress and after **Restart now** its card shows. Auto framing follows you while streaming from a real phone, widens when you hold a hand out and zooms back out when you leave, also at 90, 180 and 270 degrees and flipped. Zoom and Pan in Transforms grey out while it's on. Background blurs and puts a picture behind you. With both off **Remove download** deletes the download.
 - [ ] Background's **High quality** (Linux and Windows): off by default. Switching it on offers its own download with a note about the processor, and until it has finished the normal cutout keeps working. Afterwards hair and edges are cleaner and the mask holds still in a still room. Switching the camera, the resolution or the stream off and on doesn't leave a ghost of the old picture in the cutout. **Remove download** deletes it too.
-- [ ] Fun pack with a real phone: clones, the cloak and the stick figure follow you, light painting draws with a torch, and the retro looks hold 30 fps at 1080p. Datamosh on Light smears when you move, **Clean up** and switching it off bring the picture back within a second, and on Heavy the card says it needs Light.
+- [ ] Fun pack with a real phone: clones, the cloak and the stick figure follow you, light painting draws with a torch and the retro looks hold 30 fps at 1080p. Datamosh on Light smears when you move, **Clean up** and switching it off bring the picture back within a second and on Heavy the card states it needs Light.
 - [ ] Expose for my face with a real phone and a bright window behind you: the face gets lit right within a couple of seconds, a small head move doesn't change the exposure, walking out holds it and a tap on the preview takes over until **Follow my face**.
 - [ ] Privacy blur with a real phone: a second person walking in blurs the whole picture within a second and it stops about 4 seconds after they leave. Try each choice in the dropdown (**Show the wait screen** with your own wait screen image too) and **Blur now** from a keyboard shortcut.
 
@@ -279,7 +279,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 <!-- due: rust/crates/effects/src/filters.rs rust/crates/effects/src/filters_cpu.rs rust/crates/effects/src/filter_*.wgsl -->
 
 - [ ] Linux and Windows, streaming 1080p60 from a real phone in a dim room: Denoise and Over time clean up the noise without a ghost behind a hand waved in front, Sharpen and Clarity make the picture crisper with no white outline, and Vignette, Glow and Film grain show in a call after the grade. The frame rate in the footer stays at 60 and a game in front (the card busy) keeps the filters working.
-- [ ] Skin smoothing with the vision download softens a face and leaves the eyes, brows and hair sharp. Without the download the card says why it can't. A preset brings the filters back, and two phones keep their own.
+- [ ] Skin smoothing with the vision download softens a face and leaves the eyes, brows and hair sharp. Without the download the card explains why it can't. A preset brings the filters back and two phones each have their own.
 
 ### Notes next to the lens
 

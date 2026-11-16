@@ -43,7 +43,7 @@ Crates only meet through traits in `core`. The shell never names `link` or `medi
 
 **Cards fold without plugins knowing.** The window folds cards from what the kit's widgets built. A plugin builds its card completely and never lists titles or calls fold code.
 
-**Each hook means one thing.** `on_stream_start` and `on_stream_stop` are for a stream that really starts or ends. `on_focus_gained` and `on_focus_lost` are for the panels moving between streams that keep running. Events about a stream carry its source id, so a card about the shown stream compares it with the focused one.
+**Each hook means one thing.** `on_stream_start` and `on_stream_stop` are for a stream that really starts or ends. `on_focus_gained` and `on_focus_lost` are for the panels moving between streams that continue running. Events about a stream carry its source id. A card about the shown stream compares it with the focused one.
 
 **Text is translated where it's shown.** Wrap what people see in `tr()` at the place it's shown, never in a `const` or `static` that runs before the language loads. A table of texts holds `n_("...")`, which marks the text and gets its `tr()` where it's displayed. Anything used as an identity or saved (a fold key, a canvas preset, a shortcut's choice) remains in English. Diagnostics remain in English for bug reports. Slint texts use `@tr()`. [docs/translating.md](../docs/translating.md) has the details.
 
@@ -51,7 +51,7 @@ Crates only meet through traits in `core`. The shell never names `link` or `medi
 
 ## Plain data across the plugin boundary
 
-Built-in plugins are Rust but plugins people add are Lua scripts, and a WASM module could be next. Neither can hold a Rust reference, so everything a plugin and the host hand each other is data that could be written out as JSON:
+Built-in plugins are Rust but plugins people add are Lua scripts and a WASM module could be next. Neither can hold a Rust reference. Everything a plugin and the host hand each other is data that could be written out as JSON:
 
 - Hooks get `&mut dyn Host` for the length of the call and nothing to hold on to. Host methods take strings, `serde_json::Value` and small serialisable structs from `core::host`.
 - Requests that finish later give a `RequestId` and an `Event::RequestDone`. Picks on the preview arrive as `Event::PreviewPicked`.
