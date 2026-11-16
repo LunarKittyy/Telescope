@@ -250,7 +250,8 @@ struct Errors(Mutex<Vec<String>>);
 
 impl log::Log for Errors {
     fn enabled(&self, metadata: &log::Metadata) -> bool {
-        metadata.level() <= log::Level::Error
+        // wgpu logs a missing Vulkan driver (as on CI runners) at error level; that's the machine, not a plugin
+        metadata.level() <= log::Level::Error && !metadata.target().starts_with("wgpu")
     }
     fn log(&self, record: &log::Record) {
         if self.enabled(record.metadata()) {
