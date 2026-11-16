@@ -17,6 +17,10 @@ Both apps are translatable: new UI text goes in `android/.../res/values/strings.
 ## Commits and PRs
 Every PR and commit gets read by a person. Write them to be skimmed, not to prove effort.
 
+Before anything goes out (a PR, commit messages, docs, release notes, UI text), go through your own writing checks and content rules in full, don't be lazy about it, even for a one-line change. Whatever text is visible to others is checked first.
+
+Never write that an agent or a tool did something ("an agent reviewed this", "generated with..."). The work belongs to you and the person you work for, and you're both responsible for it.
+
 **Commit messages:** one short line in the imperative saying what the commit does ("Fix the preview freezing after a Wi-Fi drop"), under about 72 characters. No body, no Conventional Commits prefixes. If the why needs more than a line, it goes in the PR.
 
 **PR descriptions:** follow `.github/pull_request_template.md` and the rules in `CONTRIBUTING.md`.
