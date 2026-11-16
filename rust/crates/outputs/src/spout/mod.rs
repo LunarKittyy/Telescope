@@ -245,7 +245,7 @@ impl StreamSource for SpoutSource {
         let stop = Arc::new(AtomicBool::new(false));
         let feed = SpoutFeed {
             reader, first: Some(first), stop, shared: self.shared.clone(), key: self.key.clone(), poster: self.poster.clone(), waiting: self.waiting.clone(),
-            last: None, last_sent: Instant::now(),
+            last: None, last_sent: Instant::now(), asked: Instant::now(),
         };
         Ok((Codec::Mjpeg, Box::new(feed)))
     }
@@ -278,6 +278,8 @@ struct SpoutFeed {
     /// The last picture's packet and its size, for a sender that goes quiet.
     last: Option<(Vec<u8>, (u32, u32))>,
     last_sent: Instant,
+    /// When the reader was asked for the last picture it gave, which the rate counts from so the copy's time isn't added to each frame's.
+    asked: Instant,
 }
 
 struct Stop(Arc<AtomicBool>);
@@ -321,13 +323,17 @@ impl VideoFeed for SpoutFeed {
                 return Ok(self.send(first));
             }
             let interval = Duration::from_secs_f64(1.0 / self.shared.fps(&self.key).max(1) as f64);
-            let wait = interval.saturating_sub(self.last_sent.elapsed());
+            let wait = interval.saturating_sub(self.asked.elapsed());
             if !wait.is_zero() {
                 std::thread::sleep(wait.min(Duration::from_millis(20)));
                 continue;
             }
+            let asked = Instant::now();
             match self.reader.next(Duration::from_millis(50)) {
-                Ok(Some(picture)) => return Ok(self.send(picture)),
+                Ok(Some(picture)) => {
+                    self.asked = asked;
+                    return Ok(self.send(picture));
+                }
                 Ok(None) if self.last_sent.elapsed() >= KEEP_ALIVE => {
                     if let Some((data, _)) = self.last.clone() {
                         return Ok(self.packet(data));
