@@ -240,7 +240,7 @@ fn a_headset_gets_the_jpeg_made_from_both_eyes_side_by_side() {
     assert_eq!(opcode, BINARY);
     assert_eq!(&payload[..2], &[0xFF, 0xD8], "a JPEG");
     let picture = decode(&payload);
-    assert_eq!((picture.0, picture.1), (128, 36), "each eye at its own size, side by side");
+    assert_eq!((picture.0, picture.1), (128, 36), "two small eyes side by side, whole");
     assert!(near(px(&picture, 20, 18), RED) && near(px(&picture, 108, 18), BLUE));
     assert_eq!(feed.built(), 1);
     feed.close();
@@ -372,16 +372,16 @@ fn a_ping_is_answered_and_a_close_ends_the_viewer_and_gives_its_place_back() {
 }
 
 #[test]
-fn an_eye_is_sent_whole_at_its_own_size_up_to_the_cap() {
-    assert_eq!(eye_size(1920, 1080, MAX_EYE), (1920, 1080));
-    assert_eq!(eye_size(1280, 720, MAX_EYE), (1280, 720));
-    assert_eq!(eye_size(3840, 2160, MAX_EYE), (1920, 1080));
-    assert_eq!(eye_size(1080, 1920, MAX_EYE), (608, 1080), "its own shape, shrunk to fit and even");
-    assert_eq!(eye_size(0, 0, MAX_EYE), (2, 2));
-    assert_eq!(eye_size(1920, 1080, (960, 540)), (960, 540), "the cap is one number to turn down");
+fn the_packed_picture_is_two_eyes_wide_up_to_the_cap() {
+    assert_eq!(packed_size(1920, 1080, MAX_PACKED), (1920, 1080), "two 1080p eyes get half their width each");
+    assert_eq!(packed_size(640, 360, MAX_PACKED), (1280, 360), "small eyes are sent whole");
+    assert_eq!(packed_size(3840, 2160, MAX_PACKED), (1920, 1080));
+    assert_eq!(packed_size(1081, 607, MAX_PACKED), (1920, 606), "both sides even");
+    assert_eq!(packed_size(0, 0, MAX_PACKED), (2, 2));
+    assert_eq!(packed_size(1920, 1080, (3840, 1080)), (3840, 1080), "the cap is one number to turn up");
 }
 
-/// How long one 3840x1080 picture takes to pack and encode, for `cargo test --release -p telescope-effects headset_speed -- --ignored --nocapture`.
+/// How long one 3840x1080 and one 1920x1080 picture take to pack and encode, for `cargo test --release -p telescope-effects headset_speed -- --ignored --nocapture`.
 #[test]
 #[ignore]
 fn headset_speed() {
@@ -401,7 +401,7 @@ fn headset_speed() {
     let (left, right) = (Rgb::from_frame(&l).unwrap(), Rgb::from_frame(&r).unwrap());
     let tune = Tune { depth: 1.0, height: 0.5, size: 92.3, tilt: 1.2, lut: None };
     for (name, tune) in [("plain", Tune::default()), ("fine tune", tune)] {
-        for (label, size) in [("3840x1080", (3840, 1080)), ("1920x540", (1920, 540))] {
+        for (label, size) in [("3840x1080", (3840, 1080)), ("1920x1080", (1920, 1080))] {
             let mut pack = Vec::new();
             let mut encoded = Vec::new();
             let mut bytes = 0;

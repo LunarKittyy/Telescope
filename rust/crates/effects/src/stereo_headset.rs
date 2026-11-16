@@ -1,7 +1,7 @@
 //! The 3D plugin's headset viewer: a page and a WebSocket that send the side by side picture to a headset's browser as JPEG messages.
 //!
-//! The 3D step hands each pair of eyes it made a picture from to the Feed (only while a headset is connected). One worker thread packs the pair at
-//! each eye's own size, with the card's Fine tune and Match, into one wide picture, encodes it and publishes it as the newest message. Each headset
+//! The 3D step hands each pair of eyes it made a picture from to the Feed (only while a headset is connected). One worker thread packs the pair side by
+//! side at up to 1920x1080, with the card's Fine tune and Match, into one picture, encodes it and publishes it as the newest message. Each headset
 //! has a thread of its own that sends the newest message it hasn't sent yet, so nothing queues: a headset that can't keep up skips pictures. The
 //! picture is made from the same frames the camera's picture is, so Privacy blur and every step before the pair apply, and a cover (the Wait
 //! screen) on the camera's frame covers the headset's too.
@@ -26,8 +26,9 @@ pub const HEADSET_PORT: u16 = 8769;
 pub const MAX_VIEWERS: usize = 2;
 /// The fewest milliseconds between two pictures: 30 a second.
 const MIN_GAP: Duration = Duration::from_millis(33);
-/// The biggest an eye is sent at; both eyes side by side make 3840x1080.
-pub const MAX_EYE: (u32, u32) = (1920, 1080);
+/// The biggest the packed picture is sent at: two 1080p eyes get half their width each, as the camera's side by side does. Both eyes at their full
+/// width (3840x1080) take about 49 ms a picture to pack and encode, which can't hold 30 a second.
+pub const MAX_PACKED: (u32, u32) = (1920, 1080);
 const QUALITY: u8 = 80;
 /// A picture this old isn't shown any more: the headset goes black until a new one comes.
 const STALE: Duration = Duration::from_secs(3);
@@ -87,7 +88,7 @@ pub struct Feed {
     token_gen: AtomicU64,
     /// How many pictures were built, for the tests.
     built: AtomicU64,
-    max_eye: (u32, u32),
+    max_size: (u32, u32),
 }
 
 /// Holds one of the places for a headset until it's dropped.
@@ -99,14 +100,14 @@ impl Drop for Slot {
     }
 }
 
-/// The size an eye is sent at: its own, shrunk to fit `max` keeping its shape, both sides even.
-pub fn eye_size(w: usize, h: usize, (max_w, max_h): (u32, u32)) -> (usize, usize) {
+/// The size of the packed picture for eyes of w x h: twice the width and the height of an eye, the width shrunk to fit `max` and the height too.
+/// Each eye is stretched to its half, which the page puts back to its own shape. Both sides even.
+pub fn packed_size(w: usize, h: usize, (max_w, max_h): (u32, u32)) -> (usize, usize) {
     if w == 0 || h == 0 {
         return (2, 2);
     }
-    let scale = (max_w as f64 / w as f64).min(max_h as f64 / h as f64).min(1.0);
-    let even = |v: usize| (((v as f64 * scale).round() as usize).max(2)) & !1;
-    (even(w), even(h))
+    let even = |v: usize, max: u32| v.min(max as usize).max(2) & !1;
+    (even(w * 2, max_w), even(h, max_h))
 }
 
 /// The picture as a JPEG.
@@ -118,10 +119,10 @@ pub fn encode(rgb: &Rgb, quality: u8) -> Option<Vec<u8>> {
 
 impl Feed {
     pub fn new(token: &str) -> Feed {
-        Feed::with_max_eye(token, MAX_EYE)
+        Feed::with_max_size(token, MAX_PACKED)
     }
 
-    pub fn with_max_eye(token: &str, max_eye: (u32, u32)) -> Feed {
+    pub fn with_max_size(token: &str, max_size: (u32, u32)) -> Feed {
         Feed {
             state: Mutex::new(State { job: None, shown: None, seq: 0, open: false, token: token.into() }),
             job_ready: Condvar::new(),
@@ -129,7 +130,7 @@ impl Feed {
             viewers: AtomicUsize::new(0),
             token_gen: AtomicU64::new(0),
             built: AtomicU64::new(0),
-            max_eye,
+            max_size,
         }
     }
 
@@ -271,7 +272,7 @@ impl Feed {
         }
     }
 
-    /// The picture for a pair as a JPEG: the eyes side by side, each at its own size. Where something after the 3D step replaced the camera's
+    /// The picture for a pair as a JPEG: the eyes side by side, at up to MAX_PACKED. Where something after the 3D step replaced the camera's
     /// picture (the Wait screen) that is what both eyes get.
     pub fn picture(&self, job: &Job, store: &dyn FrameStore, was_ours: &dyn Fn(&Frame) -> bool) -> Option<Vec<u8>> {
         let covered = store
@@ -291,8 +292,8 @@ impl Feed {
                 (left, right, tune) = (&one, &two, job.tune.clone());
             }
         }
-        let (w, h) = eye_size(left.w, left.h, self.max_eye);
-        let packed = stereo::side_by_side(left, right, w * 2, h, &tune);
+        let (w, h) = packed_size(left.w, left.h, self.max_size);
+        let packed = stereo::side_by_side(left, right, w, h, &tune);
         let jpeg = encode(&packed, QUALITY);
         self.built.fetch_add(1, Ordering::SeqCst);
         jpeg
