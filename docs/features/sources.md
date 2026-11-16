@@ -83,3 +83,18 @@ Optional and still in Lab, so it's an early version (switch it on under **Stream
 - Pictures are paired by when the cameras took them and not by when they arrived. The badge says **In sync** when the two are within half a frame of each other (counting how well the phone and computer clocks agree), **Rough sync** when they're a bit further apart and **Not synced** when it can't tell, like with an older phone app, a webcam or the Browser camera. Then the newest picture of each goes together
 - The picture is made at the frame rate of the stream going to Telescope and at the canvas size under Video in Settings (on Auto, the size the Telescope camera opened at). Two pictures get scaled and packed for every frame, which costs some processor time
 - Keep **One picture** off while 3D is on. 3D runs first and One picture then draws its layout from what 3D made. The first stream's tile in it is the finished 3D picture next to the others, instead of 3D on its own
+
+### In a headset
+
+The **Headset** switch on the 3D card (off by default) shows the 3D picture in a headset's browser, with each eye getting its own half. It needs 3D on and two streams running.
+
+1. Switch on **Headset**. The card shows a code, the link and its address
+2. On the headset, on the same Wi-Fi as this computer, open the link in the browser (type it in, or send it to the headset from a phone). The browser warns that the connection isn't private because the certificate is this computer's own. Accept it once
+3. Press **Enter VR**
+
+The picture hangs about 2 metres in front of you, at 16:9 and about 2.5 metres wide. Before you press Enter VR the page shows the same picture flat, with a line saying whether it is connected.
+
+- Both eyes are packed into one JPEG up to 1920 x 1080, each squeezed to half the width as the camera's side by side does and stretched back by the page, at up to 30 frames a second. That is roughly 30 to 60 Mbit/s depending on the picture, so Wi-Fi 5 or newer, and nothing is made while no headset is connected
+- It is the same picture the Telescope camera gets, with Fine tune and Match, so Privacy blur and the Wait screen apply. A headset that can't keep up skips pictures instead of falling behind. Two headsets can watch at once
+- The link has a secret in it, so others on the network can't watch. **New link** makes another and disconnects the old one. The link stays the same after Telescope restarts, but the switch is off again
+- It listens on port 8769 while the switch is on, 3D is on and the plugin is running. A firewall has to let it through
