@@ -6,6 +6,8 @@ pub mod convert;
 pub mod held;
 pub mod linux_setup;
 pub mod mf;
+pub mod spout;
+pub mod spout_shared;
 pub mod stream_output;
 pub mod unitycapture;
 pub mod wait_screen;

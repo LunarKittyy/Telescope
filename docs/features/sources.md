@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/link/src/browser rust/crates/link/web rust/crates/outputs/src/webcam* rust/crates/shell/src/sources.rs rust/crates/shell/src/extra_cameras.rs rust/crates/effects/src/composite* rust/crates/effects/src/compositor* rust/crates/effects/src/stereo*; checked: 0d35dc883 -->
+<!-- covers: rust/crates/link/src/browser rust/crates/link/web rust/crates/outputs/src/webcam* rust/crates/outputs/src/spout* rust/crates/shell/src/sources.rs rust/crates/shell/src/extra_cameras.rs rust/crates/effects/src/composite* rust/crates/effects/src/compositor* rust/crates/effects/src/stereo*; checked: 0d35dc883 -->
 # Sources and layouts
 
 Other cameras and the browser, putting several cameras on screen and making 3D from two phones.
@@ -35,6 +35,19 @@ A webcam plugged into the computer streams just like a phone. It shows up in the
 - Telescope's own virtual cameras are never listed, which keeps a stream from looping back into itself. Other virtual cameras (OBS Virtual Camera and similar) are left out too
 - A webcam's microphone isn't passed through the Microphone card. Pick it in your call app instead
 - The phone's Camera card, Stream output and the phone's alerts don't apply to webcams. Switching off **Webcams** in Plugins takes them out of the picker
+
+## Spout capture
+
+Optional (switch it on under **Streaming and devices** in the Plugins tab of Settings). It streams from programs that share their picture through Spout, like games with a stream camera, OBS, VTuber programs and 3D tools. Each sender shows up in the device picker under the name it shares itself with, and every effect works on it like on a phone or a webcam. The result goes out on Telescope's virtual camera.
+
+- **Windows only for now.** Telescope reads Spout's shared textures directly. Linux has no reader yet, so the plugin finds no senders there
+- **Senders coming and going** is noticed within a couple of seconds. A sender that stops while it streams keeps its place, apps see the wait screen and the stream carries on once the sender is back. One that isn't streaming just leaves the picker. Starting a stream on a sender that has stopped since you picked it shows a banner
+- **Frame rate** is on the Spout capture card (30 by default) and kept for each sender. Senders don't say how fast they run, so this is the most pictures a second Telescope takes from one. A sender that sends nothing new, like a paused scene, has its last picture sent again about once a second so the stream isn't taken for lost. The card also shows the size the sender shares
+- **Colours:** Spout shares ordinary 8-bit pictures, which Telescope reads in any byte order. Transparency is dropped, so a see-through sender shows whatever colour sits under its clear parts (often black). Senders that share 10-bit or floating point pictures aren't read and the stream says it can't read the picture
+- **A sender that changes size** is followed without restarting the stream
+- **Two graphics cards:** on a laptop with two, Telescope finds the one the sender draws on
+- Sender names that aren't plain text (an old program using a legacy code page for accents) aren't listed
+- Switching off **Spout capture** in Plugins takes the senders out of the picker
 
 ## Several cameras at once
 

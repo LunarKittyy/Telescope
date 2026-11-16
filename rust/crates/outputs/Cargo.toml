@@ -5,6 +5,10 @@ edition.workspace = true
 version.workspace = true
 publish.workspace = true
 
+# The Spout capture plugin turns on its PipeWire reader with this cfg once that reader is there
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(spout_pipewire)'] }
+
 [dependencies]
 telescope-core.workspace = true
 log.workspace = true
@@ -20,11 +24,11 @@ libc.workspace = true
 # libgphoto2 for DSLRs, loaded at run time so a system without it still starts
 libloading.workspace = true
 
-# Webcams through Media Foundation (windows is already in the tree through Slint's winit backend); downloading and
-# checking UnityCapture for the camera install
+# Webcams through Media Foundation (windows is already in the tree through Slint's winit backend), Spout senders through Direct3D 11 and
+# shared memory; downloading and checking UnityCapture for the camera install
 [target.'cfg(windows)'.dependencies]
 ureq.workspace = true
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Media_DirectShow", "Win32_Media_MediaFoundation", "Win32_System_Com"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_Graphics_Direct3D", "Win32_Graphics_Direct3D11", "Win32_Graphics_Dxgi", "Win32_Graphics_Dxgi_Common", "Win32_Media_DirectShow", "Win32_Media_MediaFoundation", "Win32_System_Com", "Win32_System_Memory", "Win32_System_Threading"] }
 
 [dev-dependencies]
 i-slint-backend-testing = "=1.18.1"

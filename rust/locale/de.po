@@ -694,7 +694,7 @@ msgstr "Die aus der Vorschau gewählte Farbe. Klicken, um erneut auszuwählen."
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Klicke in der Vorschau auf den Screen hinter dir. Esc bricht ab."
 
-#: rust/crates/effects/src/chroma_key.rs:394 rust/crates/effects/src/chroma_key.rs:430 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:709 rust/crates/shell/src/streams.rs:1766 rust/crates/shell/src/window.rs:1726 rust/crates/shell/src/worker.rs:569 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:394 rust/crates/effects/src/chroma_key.rs:430 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:476 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:709 rust/crates/shell/src/streams.rs:1766 rust/crates/shell/src/window.rs:1726 rust/crates/shell/src/worker.rs:569 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Streamt nicht"
 
@@ -4661,7 +4661,7 @@ msgstr "Auflösung"
 msgid "The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do."
 msgstr "Die Auflösung, die der Browser sendet. Wenn die Kamera diese Größe nicht unterstützt, sendet der Browser das, was die Kamera kann."
 
-#: rust/crates/link/ui/browser_camera.slint:203 rust/crates/link/ui/browser_camera.slint:206 rust/crates/outputs/ui/stream_output.slint:73 rust/crates/outputs/ui/stream_output.slint:78 rust/crates/outputs/ui/stream_output.slint:84 rust/crates/outputs/ui/webcam.slint:114 rust/crates/outputs/ui/webcam.slint:118 rust/crates/outputs/ui/webcam.slint:119 rust/crates/shell/src/window.rs:772
+#: rust/crates/link/ui/browser_camera.slint:203 rust/crates/link/ui/browser_camera.slint:206 rust/crates/outputs/ui/spout.slint:31 rust/crates/outputs/ui/spout.slint:36 rust/crates/outputs/ui/spout.slint:37 rust/crates/outputs/ui/stream_output.slint:73 rust/crates/outputs/ui/stream_output.slint:78 rust/crates/outputs/ui/stream_output.slint:84 rust/crates/outputs/ui/webcam.slint:114 rust/crates/outputs/ui/webcam.slint:118 rust/crates/outputs/ui/webcam.slint:119 rust/crates/shell/src/window.rs:772
 msgid "Frame rate"
 msgstr "Framerate"
 
@@ -4920,6 +4920,59 @@ msgstr "Entfernen der Konfigurationsdateien fehlgeschlagen"
 #, python-brace-format
 msgid "Removed {paths}"
 msgstr "{paths} entfernt"
+
+#: rust/crates/outputs/src/spout/mod.rs:46
+msgid "The sender isn't running. Start it again to continue."
+msgstr ""
+
+#: rust/crates/outputs/src/spout/mod.rs:47
+msgid "The sender isn't sharing a picture. Check that it's running and sending."
+msgstr ""
+
+#: rust/crates/outputs/src/spout/mod.rs:48
+msgid "Telescope can't read this sender's picture. Try another sender, or check the sender's output settings."
+msgstr ""
+
+#: rust/crates/outputs/src/spout/mod.rs:270
+msgid "Check that the sender is still running."
+msgstr ""
+
+#: rust/crates/outputs/src/spout/mod.rs:470
+msgid "Sender not running"
+msgstr ""
+
+#: rust/crates/outputs/src/spout/mod.rs:472 rust/crates/outputs/src/webcam.rs:961
+msgid "Not sending anything"
+msgstr "Sendet nichts"
+
+#: rust/crates/outputs/src/spout/mod.rs:474 rust/crates/outputs/src/webcam.rs:963
+msgid "Starting…"
+msgstr "Startet…"
+
+#: rust/crates/outputs/src/spout/mod.rs:483
+msgid "How many pictures a second to take. Spout senders don't say their own rate."
+msgstr ""
+
+#: rust/crates/outputs/src/spout/mod.rs:497 rust/crates/outputs/ui/spout.slint:14
+msgid "Spout capture"
+msgstr ""
+
+#: rust/crates/outputs/src/spout/mod.rs:498
+msgid "Stream from Spout senders: games, OBS and other programs on this computer that share their picture through Spout."
+msgstr ""
+
+#: rust/crates/outputs/src/spout/mod.rs:499
+msgid "Without Spout capture the senders aren't in the device picker and the Spout capture card is gone too."
+msgstr ""
+
+#: rust/crates/outputs/src/spout/mod.rs:540
+#, python-brace-format
+msgid "{name} isn't running"
+msgstr ""
+
+#: rust/crates/outputs/src/spout/mod.rs:540
+msgid "Start it, or pick another source."
+msgstr ""
 
 #: rust/crates/outputs/src/stream_output.rs:29
 msgid "All the way right is Dynamic, which adjusts to your connection."
@@ -5297,14 +5350,6 @@ msgstr "Wird von {app} verwendet"
 msgid "Mounted as a drive"
 msgstr "Als Laufwerk eingebunden"
 
-#: rust/crates/outputs/src/webcam.rs:961
-msgid "Not sending anything"
-msgstr "Sendet nichts"
-
-#: rust/crates/outputs/src/webcam.rs:963
-msgid "Starting…"
-msgstr "Startet…"
-
 #: rust/crates/outputs/src/webcam.rs:976
 msgid "The size the webcam sends. Auto takes the largest up to 1080p that keeps the frame rate."
 msgstr "Die Größe, die die Webcam sendet. Auto wählt die größte bis 1080p, bei der die Bildwiederholrate bleibt."
@@ -5458,6 +5503,14 @@ msgstr "Kamerazugriff ist in Windows deaktiviert (Einstellungen > Datenschutz un
 #: rust/crates/outputs/src/wininstall.rs:352
 msgid "Downloading driver files..."
 msgstr "Treiberdateien werden heruntergeladen..."
+
+#: rust/crates/outputs/ui/spout.slint:15
+msgid "Stream from programs on this computer that share their picture through Spout."
+msgstr ""
+
+#: rust/crates/outputs/ui/spout.slint:25
+msgid "Sender"
+msgstr ""
 
 #: rust/crates/outputs/ui/stream_output.slint:52
 msgid "Set the frame rate, format, quality and bitrate back to default."
@@ -9801,7 +9854,7 @@ msgid "Light"
 msgstr "Licht"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:432
+#: rust/app/src/main.rs:437
 msgid ", "
 msgstr ", "
 

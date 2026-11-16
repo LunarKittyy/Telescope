@@ -1,0 +1,46 @@
+// The Spout capture card: which frame rate the picked Spout sender is taken at, and what it's sending now.
+
+import { Theme, Icons, Card, RailRow, ChoiceField } from "@ui-kit/ui-kit.slint";
+
+export component SpoutCard inherits Card {
+    in property <string> status-text;
+    in property <string> status-kind: "status_dim";
+    in property <[string]> fps-items;
+    in-out property <int> fps-current;
+    in property <bool> fps-enabled;
+    in property <string> fps-tip;
+    callback fps-picked(int);
+
+    title: @tr("Spout capture");
+    tip: @tr("Stream from programs on this computer that share their picture through Spout.");
+    icon: Icons.screen;
+
+    Text {
+        height: Theme.u(9);
+        text: root.status-text;
+        overflow: elide;
+        vertical-alignment: center;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        accessible-label: @tr("Sender");
+        color: root.status-kind == "status_ok" ? Theme.ok : root.status-kind == "status_warn" ? Theme.warn
+            : root.status-kind == "status_err" ? Theme.err : Theme.ink2;
+    }
+    RailRow {
+        icon: Icons.film;
+        label: @tr("Frame rate");
+        tip-detail: root.fps-tip;
+        hue: root.hue;
+        enabled: root.fps-enabled;
+        ChoiceField {
+            caption: @tr("Frame rate");
+            tip: @tr("Frame rate");
+            tip-detail: root.fps-tip;
+            compact: true;
+            items: root.fps-items;
+            current <=> root.fps-current;
+            enabled: root.fps-enabled;
+            picked(i) => { root.fps-current = i; root.fps-picked(i); }
+        }
+    }
+}
