@@ -115,6 +115,14 @@ When the phone gets hot, the phone app lowers the frame rate, but some cameras o
 
 The work on Slint's interpreter continues, mainly cheaper struct field lookups and fewer allocations while the window updates. Nobody sees it except as a lighter window, like the rest of [Lighter on the processor and memory](5.1.md#lighter-on-the-processor-and-memory). Medium.
 
+### Spout capture at full speed
+
+Spout capture copies every frame out of the graphics card's memory, then turns it into the picture format the rest of Telescope uses, one step after the other. At 1080p that's close to the 33 ms a frame gets at 30 fps, and a 4K or 60 fps sender won't keep up. Three steps, each faster than the last:
+
+- **Overlap the steps.** Copy the next frame while the last one is converted. Small, and probably enough for a steady 30 fps at 1080p
+- **Convert on the GPU** instead of the processor. Medium
+- **Zero-copy.** Hand the sender's GPU buffer straight to the picture work on the GPU, so the frame never leaves the graphics card (a DMA-BUF on Linux, a shared D3D11 texture on Windows). Big, and part of [Doing the picture work on the GPU](#doing-the-picture-work-on-the-gpu)
+
 ### USB without adb
 
 USB pairing and the USB route need adb on the computer, which Windows downloads from Google after asking, and USB debugging switched on in the phone's Developer options. Android's Open Accessory mode would let the phone talk to the computer over the cable with neither: the computer asks a plugged-in phone to switch into accessory mode and the Telescope app opens on its own. The catch is that it needs a libusb-style driver on Windows, and the phone app has to handle a second kind of connection beside adb's reverse port (`rust/crates/link/src/adb.rs` and `service.rs` on the desktop). Big, and it needs real phones from several makers to try.
