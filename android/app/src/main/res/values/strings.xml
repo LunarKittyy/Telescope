@@ -40,7 +40,7 @@
     <string name="update_error_http">The download failed (HTTP %1$d).</string>
     <string name="update_error_too_big">The download is bigger than it should be.</string>
     <string name="update_error_cut_short">The download was cut short. Check the internet connection and try again.</string>
-    <string name="update_error_checksum">The download wasn\'t installed because it didn\'t match its checksum.</string>
+    <string name="update_error_checksum">The download didn\'t match its checksum and wasn\'t installed.</string>
     <string name="update_error_save">Couldn\'t save the download.</string>
     <string name="update_error_not_an_app">The download isn\'t a valid app.</string>
     <string name="update_error_not_telescope">The download isn\'t Telescope.</string>
@@ -147,7 +147,7 @@
     <string name="status_quality">At %1$dp %2$d fps</string>
     <string name="status_waiting_for_computer">Waiting for the computer</string>
     <string name="status_mic_only">Streaming the mic, camera off</string>
-    <string name="status_too_hot">The stream is paused because the phone is too hot. It resumes once the phone has cooled down.</string>
+    <string name="status_too_hot">The phone is too hot. The stream is paused until it has cooled down.</string>
     <string name="status_camera_taken">Another app is using the camera. Streaming goes on when it\'s free.</string>
     <string name="streaming_started_remotely">Streaming started from your computer</string>
 
@@ -171,7 +171,7 @@
     <string name="report_bug">Report a bug</string>
     <string name="troubleshooting">Troubleshooting</string>
     <string name="nightly_updates">Nightly updates</string>
-    <string name="nightly_updates_hint">Fixes arrive sooner because it\'s built from every change, with less testing.</string>
+    <string name="nightly_updates_hint">Built from every change for sooner fixes with less testing.</string>
     <!-- Spoken by a screen reader after a choice in a row of choices is picked. %1$s is the choice -->
     <string name="choice_selected">%1$s selected</string>
     <string name="updates_section">Updates</string>
