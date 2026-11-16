@@ -24,7 +24,7 @@ The APK signing key lives in the repository secrets (see [Packaging and CI](pack
 ## Every release
 
 - [ ] `windows_pass.py` passes against the nightly on a VM restored to a clean snapshot.
-- [ ] With the dev app and `telescope-rs dev --keep` on a real phone, a 5 second Wi-Fi drop while streaming recovers by itself and plugging in the cable moves the stream to USB without a gap.
+- [ ] With the dev app and `telescope-rs dev --keep` on a real phone, a 5 second Wi-Fi drop while streaming recovers and plugging in the cable moves the stream to USB without a gap.
 - [ ] What this release's notes promise works on a real phone and on both desktops.
 - [ ] Camera controls (lens, exposure, WB, OIS) apply live on a real phone and match what the desktop shows.
 - [ ] A call or OBS on Linux and on Windows picks up the Telescope camera and the Telescope microphone and still has them after a Stop and Start.
@@ -66,13 +66,13 @@ The APK signing key lives in the repository secrets (see [Packaging and CI](pack
 
 <!-- due: android/app/src/main/kotlin/com/telescope/Updater.kt android/app/src/main/kotlin/com/telescope/UpdateLogic.kt android/app/src/main/kotlin/com/telescope/UpdateHttp.kt android/app/src/main/kotlin/com/telescope/UpdateInstall.kt .github/write_manifest.py .github/workflows/release.yml installer/** rust/crates/system/src/updates.rs rust/crates/system/src/updates_plugin.rs rust/crates/system/ui/updates.slint rust/crates/system/src/update_guard.rs rust/crates/system/src/going_back.rs rust/crates/system/src/going_back_tests.rs rust/crates/system/src/going_back_python_tests.rs -->
 
-- [ ] Desktop on the previous nightly on Linux: the Update button appears, Update and restart replaces the app and it comes back on the new version with the stream working. On Windows `windows_pass.py` does the update and what's left is checking that the stream works after it.
-- [ ] AppImage on the previous nightly: Update and restart replaces the file in place, it comes back on the new version and the app menu entry still starts it.
+- [ ] Desktop on the previous nightly on Linux: the Update button appears, Update and restart replaces the app and it reopens on the new version with the stream working. On Windows `windows_pass.py` does the update and what's left is checking that the stream works after it.
+- [ ] AppImage on the previous nightly: Update and restart replaces the file in place, it reopens on the new version and the app menu entry still starts it.
 - [ ] Update is refused while streaming, on both apps.
 - [ ] Go back to the Python version, on a Linux tarball, on an installed Windows copy and on an unzipped one: the question names what's lost, Go back restarts into 4.4.2 with the stream and a phone working, a dated copy of the settings sits next to the settings and Check daily is off in 4.4.2. A source build doesn't show the button, an AppImage only opens the 4.4.2 page, and a Linux box without Python 3.12 gets the question with Go back switched off.
 - [ ] Phone on the previous nightly: the update card offers the new build, asks once to allow installs from Telescope and the installed app shows the new version.
-- [ ] Phone app older than the desktop with a different session protocol, plugged in: the Connection panel says so and Update over USB installs the bundled APK.
-- [ ] Settings stay across a restart, including each phone's own after switching between phones. A config from the previous version keeps the global settings and asks to pair again.
+- [ ] Phone app older than the desktop with a different session protocol, plugged in: the Connection panel shows the mismatch and Update over USB installs the bundled APK.
+- [ ] Settings are preserved across a restart, including each phone's own after switching between phones. A config from the previous version carries over the global settings and asks to pair again.
 
 ### Pairing and networks
 
@@ -82,7 +82,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 - [ ] Add phone by QR over Wi-Fi on Linux and on Windows and by plugging in over USB on Windows.
 - [ ] The setup guide ticks each step as it's done and the video stage replaces it after the first stream. The APK installs through its QR download link and through its own Install over USB button.
-- [ ] USB with the debugging prompt not yet accepted: Add phone says to allow it and pairs once it's accepted.
+- [ ] USB with the debugging prompt not yet accepted: Add phone asks to allow it and pairs once it's accepted.
 - [ ] One phone paired with two computers: both stream (one at a time) and removing one computer on the phone leaves the other working.
 - [ ] Offline router (no WAN uplink at all): pairing still works and the QR code lists the LAN address.
 - [ ] Desktop VPN only (LAN access permitted): pairing works over the LAN address (QR lists it, not just the VPN).
@@ -95,7 +95,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Automatic route: plugged in uses USB, unplugged uses Wi-Fi. Plugged in with the app closed, or with a different phone on the cable, uses Wi-Fi and the card says why.
 - [ ] Pulling the cable mid-stream on USB carries on over Wi-Fi and plugging it back in can use USB again.
 - [ ] Connect via USB only / Wi-Fi only is honoured, including reporting a missing cable instead of falling back (the banner's Switch to Automatic works).
-- [ ] Local only on, no cable: the desktop says the phone accepts USB only and Start doesn't open the camera. Plug in and it streams over USB. A second machine on the network can't reach the phone.
+- [ ] Local only on, no cable: the desktop shows that the phone accepts USB only and Start doesn't open the camera. Plug in and it streams over USB. A second machine on the network can't reach the phone.
 - [ ] Phone gets a new IP from the router: the desktop finds it again (mDNS) without re-pairing.
 - [ ] USB-only viewers hold no Wi-Fi performance lock.
 - [ ] Close the window to the tray with a phone waiting and Automatic streaming off: the phone stops getting checked (no new `/v1/ping` in its logs) and opening the window checks it straight away.
@@ -105,14 +105,14 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 <!-- due: android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/StreamStateMachine.kt android/app/src/main/kotlin/com/telescope/StreamLauncher.kt android/app/src/main/kotlin/com/telescope/H264Encoder.kt android/app/src/main/kotlin/com/telescope/H264Stream.kt android/app/src/main/kotlin/com/telescope/CodecFailure.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt android/app/src/main/kotlin/com/telescope/UdpVideo.kt android/app/src/main/kotlin/com/telescope/HttpWire.kt android/app/src/main/kotlin/com/telescope/DynamicBitrate.kt android/app/src/main/kotlin/com/telescope/DynamicFrameRate.kt android/app/src/main/kotlin/com/telescope/FrameRate.kt android/app/src/main/kotlin/com/telescope/FrameGate.kt android/app/src/main/kotlin/com/telescope/PendingLimiter.kt android/app/src/main/kotlin/com/telescope/RecentRuns.kt android/app/src/main/kotlin/com/telescope/PhoneStats.kt rust/crates/media/** rust/crates/outputs/src/lib.rs rust/crates/outputs/src/convert.rs rust/crates/outputs/src/held.rs rust/crates/outputs/src/stream_output.rs rust/crates/outputs/src/stream_output/** rust/crates/outputs/src/ui_check.rs rust/crates/outputs/src/watch.rs rust/crates/outputs/ui/stream_output.slint -->
 
 - [ ] H.264 on a real phone: a fresh phone starts on Light and switching Format between Light and Heavy reconnects and streams on Wi-Fi and USB. Compare latency (a clock on screen) and the Mbps readout with MJPEG at the same size. A 30-minute run stays smooth, a reconnect (unplug, Wi-Fi off and on) recovers and changing resolution or lens mid-stream keeps working.
-- [ ] H.264 fallback: a size the encoder refuses (4:3 4K on most phones) stops with a banner to try a lower resolution or FPS and its Switch to Heavy button streams on Heavy. A phone without an encoder switches to Heavy automatically, with no banner.
-- [ ] FPS: the dropdown greys out rates the camera doesn't list. On a phone that lists 60, picking 60 shows about 60 in the footer and Copy diagnostics shows what the camera actually did.
+- [ ] H.264 fallback: a size the encoder refuses (4:3 4K on most phones) stops with a banner to try a lower resolution or FPS and its Switch to Heavy button streams on Heavy. A phone without an encoder switches to Heavy without a banner.
+- [ ] FPS: the dropdown greys out rates the camera doesn't list. On a phone that lists 60, picking 60 shows about 60 in the footer and Copy diagnostics shows what the camera did.
 - [ ] Plugging in mid-stream over Wi-Fi (Connect via Automatic) moves the stream to USB a few seconds later without a gap in the video and the mic moves with it.
-- [ ] UDP, mic off: the phone says Streaming. Removing the computer on the phone stops its video within a second and a lost desktop releases its UDP session within 5 seconds.
+- [ ] UDP, mic off: the phone shows Streaming. Removing the computer on the phone stops its video within a second and a lost desktop releases its UDP session within 5 seconds.
 - [ ] UDP to Dynamic and the UDP switch both reconnect onto the right transport and changing to Heavy leaves no UDP session behind.
-- [ ] Linux, AMD or Intel card: with Hardware acceleration on, the card decodes the stream and Copy diagnostics says it found VA-API.
+- [ ] Linux, AMD or Intel card: with Hardware acceleration on, the card decodes the stream and Copy diagnostics reports it found VA-API.
 - [ ] Hardware acceleration: a driver failure resumes in software without missing setup headers and Copy diagnostics reflects the decoder still running if the preference changes mid-stream.
-- [ ] On a phone that runs hot (Android 11+) stream for 15 minutes or more. The frame rate drops to 24 fps shortly before Android itself reports severe heat, the FPS readout's tooltip says the phone got hot and it goes back up once the phone cools.
+- [ ] On a phone that runs hot (Android 11+) stream for 15 minutes or more. The frame rate drops to 24 fps shortly before Android itself reports severe heat, the FPS readout's tooltip shows the phone got hot and it rises again once the phone cools.
 - [ ] Battery and temperature alerts fire once per threshold cross, not repeatedly.
 - [ ] Canvas size change (Linux and Windows) restarts cleanly.
 
@@ -120,7 +120,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 <!-- due: android/app/src/main/kotlin/com/telescope/CameraCatalog.kt android/app/src/main/kotlin/com/telescope/LensLabel.kt android/app/src/main/kotlin/com/telescope/PreviewActivity.kt android/app/src/main/kotlin/com/telescope/PreviewTransform.kt rust/crates/effects/src/transforms.rs -->
 
-- [ ] Phone in the foreground: the desktop's Start and Stop control the camera, also with the screen dark. A lens, size and OIS setting picked on the desktop come back after Stop and Start and the phone's Stop streaming stops the stream.
+- [ ] Phone in the foreground: the desktop's Start and Stop control the camera, also with the screen dark. A lens, size and OIS setting picked on the desktop return after Stop and Start and the phone's Stop streaming stops the stream.
 - [ ] Zoom on the Auto lens: the lens marks on the zoom slider switch to the telephoto (the dot turns lavender) and panning out of its view falls back (red dot). Sliding the zoom back and forth quickly on the telephoto never turns the dot red. Scrolling the preview zooms around the mouse, dragging pans and the lens outlines show and fade.
 - [ ] Zoom and Brightness sliders and the pan pad stick at their neutral spots and marks when dragged, never with the arrow keys and Temperature and Tint never stick. A double-click resets them all.
 - [ ] Point focus: clicking a near and a far object in the preview focuses each (with and without zoom, flip and rotation), exposure follows the point in auto and Auto returns to continuous. The pop-out works the same.
@@ -130,12 +130,12 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 <!-- due: android/app/src/main/kotlin/com/telescope/StillCapture.kt android/app/src/main/kotlin/com/telescope/StillCatalog.kt android/app/src/main/kotlin/com/telescope/StillJobs.kt android/app/src/main/kotlin/com/telescope/StillOptions.kt android/app/src/main/kotlin/com/telescope/StillRebuild.kt android/app/src/main/kotlin/com/telescope/CameraSessionController.kt android/app/src/main/kotlin/com/telescope/MjpegServer.kt rust/crates/effects/src/photos.rs -->
 
-- [ ] A JPEG while streaming on Light: the video keeps going (a short hitch the first time only). On Heavy it pauses for about two seconds and comes back on its own. Either way the photo is the lens's full size, upright with the desktop's rotation.
+- [ ] A JPEG while streaming on Light: the video continues (a short hitch the first time only). On Heavy it pauses for about two seconds and recovers. Either way the photo is the lens's full size, upright with the desktop's rotation.
 - [ ] RAW and JPEG together on a phone that lists RAW: the DNG opens in a raw editor with the right colours and orientation. The same with full resolution on a 50 MP or 200 MP phone, where the file is the sensor's real size.
 - [ ] Night, HDR and Bokeh on a phone whose maker offers them: the video pauses for a few seconds and picks up again without a reconnect, and the photo looks like the phone's own camera app.
-- [ ] A 10 s long exposure in the dark, an exposure bracket and a focus bracket: the brackets really step (brightness, then near to far) and the stream comes back after each.
+- [ ] A 10 s long exposure in the dark, an exposure bracket and a focus bracket: the brackets really step (brightness, then near to far) and the stream returns after each.
 - [ ] Switching the lens or the size during a timer, and turning the camera off during one: the photo fails or goes ahead cleanly and the next one works.
-- [ ] The Photos card on a phone and on a DSLR in M mode: ISO, Shutter and How many step with their arrows, the mouse wheel and Left and Right, holding an arrow keeps going (in threes on a long list) and stops on release, and clicking the value opens the whole list. The tiles wrap cleanly when the card is narrow and Timer and Save in stay on one line.
+- [ ] The Photos card on a phone and on a DSLR in M mode: ISO, Shutter and How many step with their arrows, the mouse wheel and Left and Right, holding an arrow repeats (in threes on a long list) and stops on release. Clicking the value opens the whole list. The tiles wrap cleanly when the card is narrow and Timer and Save in remain on one line.
 
 ### Microphone
 
@@ -144,7 +144,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Linux (PipeWire): switching it on while streaming makes "Telescope Microphone" appear, a call records the phone and switching off or quitting removes it. Lip-sync looks right by eye. A 30-minute run doesn't drift and unplugging and replugging recovers.
 - [ ] Windows: without VB-Cable the card offers Install VB-Cable. It asks first (naming VB-Audio), opens VB-Audio's setup through UAC and after a restart and an off/on apps record from CABLE Output.
 - [ ] The meter moves with your voice even when no app is recording and its dot goes yellow on a loud clap (red with the limiter off under Audio). Mute (card and tray) gives silence without the mic disappearing from the call app. Gain changes and typed values are audible without crackle and Max gain changes the slider's range. On Windows too.
-- [ ] Permission: the first request makes the phone's Get set up card show Microphone and allowing it there starts the audio within a few seconds without restarting the stream. Recording keeps going with the phone's screen off.
+- [ ] Permission: the first request makes the phone's Get set up card show Microphone and allowing it there starts the audio within a few seconds without restarting the stream. Recording continues with the phone's screen off.
 - [ ] Automatic routing, mic only: plugging in USB moves the microphone too and rapid mic off and on leaves no recording held.
 - [ ] Auto level: beginning in silence or recovering from a gap doesn't turn up steady room noise.
 - [ ] Noise reduction, on Linux and Windows: with a fan going and some typing a call recording loses both while speech still sounds natural and switching it mid-sentence doesn't click.
@@ -166,7 +166,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Camera off: in a call using both Telescope devices, press the camera button under the preview. The call shows the wait screen and still hears the mic, the phone's camera light goes out and the tray icon loses its red dot. Press it again and the picture comes back.
 - [ ] Mic only from the start: with the mic on, press the camera button, then **Start mic only**. The phone opens no camera and the call hears the mic.
 - [ ] With the mic on and Stop set to "when no app uses the camera": turn the camera off in the call. After the wait only the camera turns off and turning it back on in the call brings the picture back.
-- [ ] Camera off on a phone in the background (screen off, **Wait for my computer** on): turn it off and on again. It comes back and if another app holds the camera it stays off with a banner saying so.
+- [ ] Camera off on a phone in the background (screen off, **Wait for my computer** on): turn it off and on again. It resumes and if another app holds the camera it remains off with a banner explaining why.
 - [ ] Wait screen: a chosen image and a GIF reach apps and Mirror flips them. Starting and stopping a stream while a call has the camera open keeps the picture in the call.
 - [ ] Tray minimise and restore work.
 - [ ] Phone app Black screen: while streaming, tap it next to Preview. The screen goes pure black at the lowest brightness without the status and nav bars and the stream doesn't stutter going in or out. One tap shows the hint, a double tap or Back brings the app back and the brightness returns. Stopping the stream from the computer, the power button or the Home button also bring it back.
@@ -175,7 +175,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 <!-- due: rust/crates/link/src/browser/** rust/crates/link/web/** -->
 
-- [ ] iPhone in Safari: scan the code, tap through the certificate warning, Start. Video and mic reach the virtual camera and mic, the screen stays on and after locking the phone and coming back to the page the stream picks up again. Flip camera flips lenses.
+- [ ] iPhone in Safari: scan the code, tap through the certificate warning, Start. Video and mic reach the virtual camera and mic, the screen remains on and after locking the phone and returning to the page the stream picks up again. Flip camera flips lenses.
 - [ ] Black screen (portrait and landscape): the page goes black and, on Android, full screen without the status and nav bars. One tap shows the hint and fades again, a double tap brings the page back and the stream keeps going the whole time.
 - [ ] Black screen on iPhone: a black video opens in the system player and hides the status bar, the stream keeps going behind it and closing the player brings the page back.
 - [ ] Android in Chrome and a second computer's browser: the same. Resolution and Frame rate on the card change what arrives. New link drops the browser and the old code stops working. Opening the link in a second tab takes over from the first.
@@ -189,16 +189,16 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 - [ ] Resolution and Frame rate on the Webcam card change what arrives. 1080p at 30 fps on a USB 2 webcam shows MJPEG on the card.
 - [ ] With the webcam open in another app (a browser's camera test page will do) Start gives a banner naming the app on Linux. Closing it there lets the stream start without pressing anything.
 - [ ] Unplugging the webcam mid-stream shows the wait screen and plugging it back in picks the stream up again. Plugging one in while Telescope runs adds it to the picker within a few seconds.
-- [ ] Linux, from the AppImage or tarball on a machine without libgphoto2 installed: an older DSLR in live-view mode shows in the picker and streams. When it ends live view after a few minutes the stream carries on, and with the camera mounted in the file manager the stream says to unmount it.
+- [ ] Linux, from the AppImage or tarball on a machine without libgphoto2 installed: an older DSLR in live-view mode shows in the picker and streams. When it ends live view after a few minutes the stream carries on. With the camera mounted in the file manager the stream asks you to unmount it.
 - [ ] On the same DSLR set to M, the Webcam card has a focus jog with a Focus button beside it, Aperture and Exposure dials and White balance, and each changes the live picture (Aperture on a D5100 about a second after the last click, when live view restarts once). Zooming the lens changes the aperture and the apertures offered, and the card follows within a couple of seconds. Dragging the jog toward Near or Far keeps moving the focus (the further out the handle, the bigger the steps), a click beside the handle is one small step, and letting go springs the handle back and stops the focus at once, with no steps left running afterwards. The arrows and the mouse wheel step Aperture and Exposure, and clicking the value opens the whole list. Turning the dial to a scene mode empties the list within a couple of seconds.
-- [ ] The Webcam card shows only the settings the camera has. Exposure on Manual makes Exposure time work, the change shows in the picture, and after an unplug and replug (or a Stop and Start) the camera has it again. Reset puts the defaults back.
+- [ ] The Webcam card shows only the settings the camera has. Exposure on Manual makes Exposure time work, the change shows in the picture and after an unplug and replug (or a Stop and Start) the camera has it again. Reset restores the defaults.
 - [ ] Windows: the same, plus a camera with a built-in webcam mode or an HDMI capture card shows up and streams.
 
 ### On Air sign
 
 <!-- due: rust/crates/effects/src/on_air*.rs rust/crates/link/src/web.rs -->
 
-- [ ] With On Air sign switched on, a tablet or phone opens the sign from its code, taps through the certificate warning and goes full screen with the screen staying on. Joining a call turns it red within about a second and leaving turns it back about six seconds later.
+- [ ] With On Air sign switched on, a tablet or phone opens the sign from its code, taps through the certificate warning and goes full screen with the screen remaining on. Joining a call turns it red within about a second and leaving turns it back about six seconds later.
 - [ ] A webhook to Home Assistant (or any hub) switches a light on and off with the default POST and with a GET payload. Stopping the hub gives one banner, not one per change.
 - [ ] Windows: the firewall prompt (or a rule) lets port 8768 through. New link makes an open sign say its link doesn't work any more.
 
@@ -217,7 +217,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 <!-- due: rust/crates/system/src/mcp.rs rust/crates/system/src/mcp_bridge.rs rust/crates/system/src/mcp_stats.rs rust/crates/system/src/remote.rs rust/crates/system/ui/mcp.slint rust/crates/shell/src/touched.rs rust/crates/system/src/single_instance.rs rust/crates/core/src/settings.rs docs/mcp.md -->
 
 - [ ] With the plugin off, `telescope mcp` started by an AI app still starts and says where to switch it on. After switching **MCP server** on and restarting, the same app connects without restarting it, and Telescope shows a notification for the first connection.
-- [ ] In Claude Desktop and one other MCP client (set up as in `docs/mcp.md`): `status`, `describe` and `get` answer, and `set` with Colour grading's Contrast moves the slider in the card and the picture at once. A wrong value names the problem and changes nothing. `revert` puts it back and leaves a slider moved by hand alone.
+- [ ] In Claude Desktop and one other MCP client (set up as in `docs/mcp.md`): `status`, `describe` and `get` answer and `set` with Colour grading's Contrast moves the slider in the card and the picture at once. A wrong value names the problem and changes nothing. `revert` restores the old value and leaves a slider moved by hand untouched.
 - [ ] With a phone streaming and Colour grading on, `measure` gives numbers while sitting still and says why when the stream is off. Asking a model to colour grade the picture ends with sensible sliders and nothing outside the ranges.
 - [ ] With a phone streaming, `stats` and `watch` give the numbers the Stats panel shows (also with the Stats plugin off), and the stream and phone camera actions are refused.
 - [ ] The **MCP** button in the top bar: the dot shows when an AI app is connected, it lights while the AI reads or changes something, the left side opens the MCP tab and the right side undoes what the AI changed (greyed out with nothing to undo). On the MCP tab, **Read only** makes `set`, `revert` and `run_action` refuse with a line in the activity list marked as refused, and the last 30 calls are listed newest first.
@@ -234,9 +234,9 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 <!-- due: rust/crates/effects/src/stereo*.rs rust/crates/effects/ui/stereo.slint -->
 
-- [ ] Two real phones of the same model, both on the newest phone app: switching on **3D** under **Streaming and devices** shows the 3D card. With both streaming the Telescope camera shows **Side by side** in a call app, the badge says **In sync** or **Rough sync** and moving a hand quickly in front of both shows little ghosting. **Swap eyes**, **Depth** and **Height** (inside **Fine tune**) change the picture as the card says, and the reset in the card's header puts them all back. **Red/cyan** looks right through glasses, with greys staying grey.
+- [ ] Two real phones of the same model, both on the newest phone app: switching on **3D** under **Streaming and devices** shows the 3D card. With both streaming the Telescope camera shows **Side by side** in a call app, the badge shows **In sync** or **Rough sync** and moving a hand quickly in front of both shows little ghosting. **Swap eyes**, **Depth** and **Height** (inside **Fine tune**) change the picture as the card describes and the reset in the card's header restores them all. **Red/cyan** looks right through glasses, with greys remaining grey.
 - [ ] Two phones of different models: **Match** puts both on manual exposure with the same shutter (check the Camera card on each), moves the right phone's ISO within a few seconds until the two pictures are about as bright, and the badge ends on **Matched** (or **Partly matched** on a scene one phone can't reach). The colours of the two eyes look closer afterwards and **Reset match** takes the colour curve off again. With one phone running the button is greyed out. **Size** starts from the lenses (a phone with a different lens on each side), and **Timing** and **Tilt** inside **Fine tune** move the right eye as the card says.
-- [ ] With one phone on an older phone app or a webcam, the badge says **Not synced** and the picture still goes out. Stopping one phone puts the other back on the Telescope camera alone within 3 seconds and switching 3D off does the same. A phone whose picture freezes while it stays connected makes the badge say **Waiting** and the camera goes on moving from the other phone.
+- [ ] With one phone on an older phone app or a webcam, the badge shows **Not synced** and the picture still goes out. Stopping one phone returns the other to the Telescope camera alone within 3 seconds and switching 3D off does the same. A phone whose picture freezes while it remains connected makes the badge show **Waiting** and the camera goes on moving from the other phone.
 
 ### Vision effects
 
@@ -271,7 +271,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 <!-- due: rust/crates/effects/src/colour_grading.rs rust/crates/effects/src/grade.rs rust/crates/effects/src/cube.rs -->
 
 - [ ] Linux and Windows, streaming 1080p60 from a real phone: switch Colour grading on under **Look**, drag the wheels and curves and load a `.cube` LUT. The frame rate in the footer stays at 60 and Copy diagnostics shows the colour pipeline's time a frame.
-- [ ] Compare shows the ungraded picture left of the line on the preview while a call sees the whole picture graded. The header switch takes the grade off and puts it back.
+- [ ] Compare shows the ungraded picture left of the line on the preview while a call sees the whole picture graded. The header switch switches the grade off and on again.
 - [ ] Export grade… writes a `.cube` that gives the same look in another program (OBS's LUT filter or Resolve). Two phones keep their own grades and a preset brings its grade back.
 
 ### Filters
