@@ -478,8 +478,8 @@ fn stereo_shots() {
     shoot(&dir, "stereo-on-fine-tune-open", &card, 406.0, &[on.clone(), sync.clone(), json!({"fine-open": true})], &nothing);
     // Fine tune open with every slider moved, and again shut (the icon shows that something is set)
     let moved = json!({
-        "depth": 1.5, "depth-text": "+1.5%", "height-shift": -0.8, "height-text": "-0.8%", "size-percent": 108.3, "size-text": "108.3%", "tilt": 1.2,
-        "tilt-text": "+1.2°", "timing": 45.0, "timing-text": "+45 ms", "reset-shown": true,
+        "depth": 1.5, "depth-text": "+1.5%", "height-shift": -0.8, "height-text": "-0.8%", "size-percent": 108.3, "size-text": "108.3%", "tilt-left": -0.8,
+        "tilt-left-text": "-0.8°", "tilt-right": 1.2, "tilt-right-text": "+1.2°", "timing": 45.0, "timing-text": "+45 ms", "reset-shown": true,
     });
     shoot(&dir, "stereo-on-fine-tune-open-moved", &card, 406.0, &[on.clone(), sync.clone(), moved.clone(), json!({"fine-open": true})], &nothing);
     shoot(&dir, "stereo-on-fine-tune-shut-moved", &card, 406.0, &[on.clone(), sync.clone(), moved.clone()], &nothing);

@@ -62,7 +62,8 @@ const LOOK_TIP: &str = n_("Side by side suits a headset or a 3D screen and red a
 const DEPTH_TIP: &str = n_("Slide the two pictures apart or together to change how far forward the 3D reaches.");
 const HEIGHT_TIP: &str = n_("Lift or lower the right picture when the phones don't sit level.");
 const SIZE_TIP: &str = n_("Zoom in on the phone that sees the wider view, the right one over 100% and the left one under it, so both show the same thing.");
-const TILT_TIP: &str = n_("Roll the right picture a little when one phone is tilted against the other.");
+const TILT_LEFT_TIP: &str = n_("Turn the left eye's picture to line it up with the right.");
+const TILT_RIGHT_TIP: &str = n_("Turn the right eye's picture to line it up with the left.");
 const TIMING_TIP: &str = n_("Move the right picture earlier or later in time when it moves ahead of or behind the left one.");
 const FINE_TIP: &str = n_("Show the sliders that line the two pictures up by hand.");
 const SWAP_TIP: &str = n_("Swap which phone is the left eye and which is the right if the 3D looks inside out.");
@@ -86,7 +87,7 @@ pub(crate) struct Hub {
     /// The source id of the stream going to the Telescope camera, where the picture goes out.
     pub(crate) target: Option<String>,
     pub(crate) look: Look,
-    /// The right eye's fixing: depth, height, size, tilt and the colour curves.
+    /// The right eye's fixing: depth, height, size, the tilts and the colour curves.
     pub(crate) tune: Tune,
     /// How much later the right eye's moment is than the left's, nanoseconds.
     pub(crate) timing_ns: i64,
@@ -573,7 +574,8 @@ pub struct StereoPlugin {
     height: f64,
     /// The right eye's size in percent, and its roll in degrees.
     size_percent: f64,
-    tilt: f64,
+    tilt_left: f64,
+    tilt_right: f64,
     /// Milliseconds the right eye's moment is later than the left's.
     timing: f64,
     swap: bool,
@@ -715,7 +717,7 @@ impl StereoPlugin {
         let token = new_token();
         let shared = Arc::new(Shared { hub: Mutex::new(hub), wake: Condvar::new(), store: Mutex::new(Arc::new(NoFrames)), headset: Arc::new(Feed::new(&token)) });
         StereoPlugin {
-            on: false, look: Look::default(), depth: 0.0, height: 0.0, size_percent: 100.0, tilt: 0.0, timing: 0.0, swap: false, target: None,
+            on: false, look: Look::default(), depth: 0.0, height: 0.0, size_percent: 100.0, tilt_left: 0.0, tilt_right: 0.0, timing: 0.0, swap: false, target: None,
             camera_size: None, canvas: (None, None), shared, pending: false, held: None, fine: false, matching: MatchState::Idle, lut: None,
             focal: BTreeMap::new(), sized_for: None, auto_size: None, exposure: None, brightness: 0.0, brightness_sent: None, brightness_waits: false, size_swapped: None,
             clock: None, web: None, cert_folder: None, headset: false, headset_token: token, headset_address: String::new(), headset_server: None,
@@ -767,7 +769,7 @@ impl StereoPlugin {
         let size = self.size();
         let mut hub = self.shared.hub();
         hub.on = self.on;
-        hub.tune = Tune { depth: self.depth, height: self.height, size: self.size_percent, tilt: self.tilt, lut: self.lut.clone() };
+        hub.tune = Tune { depth: self.depth, height: self.height, size: self.size_percent, tilt_left: self.tilt_left, tilt_right: self.tilt_right, lut: self.lut.clone() };
         (hub.look, hub.swap, hub.size, hub.timing_ns) = (self.look, self.swap, size, (self.timing * 1e6) as i64);
         // the left phone's own picture is read while Match asks for the phones' states, before it changes anything
         hub.measure = self.on && self.matching.busy();
@@ -952,7 +954,7 @@ impl StereoPlugin {
         json!({
             "switch-name": tr("3D"), "switch-help": tr(SWITCH_TIP),
             "look-items": [tr("Side by side"), tr("Red/cyan")], "look-tip": tr(LOOK_TIP),
-            "depth-tip": tr(DEPTH_TIP), "height-tip": tr(HEIGHT_TIP), "size-tip": tr(SIZE_TIP), "tilt-tip": tr(TILT_TIP), "timing-tip": tr(TIMING_TIP),
+            "depth-tip": tr(DEPTH_TIP), "height-tip": tr(HEIGHT_TIP), "size-tip": tr(SIZE_TIP), "tilt-left-tip": tr(TILT_LEFT_TIP), "tilt-right-tip": tr(TILT_RIGHT_TIP), "timing-tip": tr(TIMING_TIP),
             "fine-tip": tr(FINE_TIP), "swap-tip": tr(SWAP_TIP), "match-tip": tr(MATCH_TIP), "reset-tip": tr(RESET_TIP), "brightness-tip": tr(BRIGHTNESS_TIP),
             "headset-name": tr("Headset"), "headset-tip": tr(HEADSET_TIP), "headset-qr-label": tr("Scan"), "headset-qr-tip": tr(HEADSET_QR_TIP),
             "headset-address-tip": tr(HEADSET_ADDRESS_TIP), "headset-link-tip": tr(HEADSET_LINK_TIP), "headset-copy-text": tr("Copy"),
@@ -1024,8 +1026,10 @@ impl StereoPlugin {
                 ("height-text".to_string(), json!(percent_text(self.height))),
                 ("size-percent".to_string(), json!(self.size_percent)),
                 ("size-text".to_string(), json!(size_text(self.size_percent))),
-                ("tilt".to_string(), json!(self.tilt)),
-                ("tilt-text".to_string(), json!(tilt_text(self.tilt))),
+                ("tilt-left".to_string(), json!(self.tilt_left)),
+                ("tilt-left-text".to_string(), json!(tilt_text(self.tilt_left))),
+                ("tilt-right".to_string(), json!(self.tilt_right)),
+                ("tilt-right-text".to_string(), json!(tilt_text(self.tilt_right))),
                 ("timing".to_string(), json!(self.timing)),
                 ("timing-text".to_string(), json!(timing_text(self.timing))),
                 ("fine-open".to_string(), json!(self.fine)),
@@ -1390,7 +1394,10 @@ impl StereoPlugin {
         self.on = cfg.get("on") == Some(&Value::Bool(true));
         self.look = cfg.get("look").and_then(Value::as_str).and_then(Look::from_name).unwrap_or_default();
         let number = |key: &str| cfg.get(key).and_then(Value::as_f64).unwrap_or(0.0);
-        (self.depth, self.height, self.tilt) = (clean_shift(number("depth")), clean_shift(number("height")), clean_tilt(number("tilt")));
+        (self.depth, self.height) = (clean_shift(number("depth")), clean_shift(number("height")));
+        // a setup saved with the one Tilt, which only ever turned the right eye, keeps that turn on the right eye
+        let right = cfg.get("tilt-right").or_else(|| cfg.get("tilt")).and_then(Value::as_f64).unwrap_or(0.0);
+        (self.tilt_left, self.tilt_right) = (clean_tilt(number("tilt-left")), clean_tilt(right));
         self.size_percent = clean_size(cfg.get("size").and_then(Value::as_f64).unwrap_or(100.0));
         self.timing = clean_timing(number("timing"));
         self.swap = cfg.get("swap") == Some(&Value::Bool(true));
@@ -1516,8 +1523,12 @@ impl Plugin for StereoPlugin {
                 self.size_percent = clean_size(number.unwrap_or(100.0));
                 self.changed(host);
             }
-            "tilt-moved" => {
-                self.tilt = clean_tilt(number.unwrap_or(0.0));
+            "tilt-left-moved" => {
+                self.tilt_left = clean_tilt(number.unwrap_or(0.0));
+                self.changed(host);
+            }
+            "tilt-right-moved" => {
+                self.tilt_right = clean_tilt(number.unwrap_or(0.0));
                 self.changed(host);
             }
             "brightness-moved" => self.move_brightness(host, number.unwrap_or(0.0)),
@@ -1533,6 +1544,8 @@ impl Plugin for StereoPlugin {
                 let before = self.swap;
                 self.swap = event.args.first().and_then(Value::as_bool).unwrap_or(false);
                 if self.swap != before {
+                    // each phone keeps the roll it had
+                    std::mem::swap(&mut self.tilt_left, &mut self.tilt_right);
                     self.turn_size_round(host);
                 }
                 // the colour curves were made for the other way round
@@ -1596,7 +1609,7 @@ impl Plugin for StereoPlugin {
 
     fn get_config(&self) -> Value {
         json!({
-            "on": self.on, "look": self.look.name(), "depth": self.depth, "height": self.height, "size": self.size_percent, "tilt": self.tilt,
+            "on": self.on, "look": self.look.name(), "depth": self.depth, "height": self.height, "size": self.size_percent, "tilt-left": self.tilt_left, "tilt-right": self.tilt_right,
             "timing": self.timing, "swap": self.swap,
         })
     }

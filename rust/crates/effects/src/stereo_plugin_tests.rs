@@ -963,7 +963,7 @@ fn the_fine_tune_group_opens_and_shuts_without_touching_the_picture() {
 fn every_new_row_has_a_one_sentence_tooltip() {
     let r = rig();
     let props = r.props();
-    for key in ["size-tip", "tilt-tip", "timing-tip", "fine-tip", "match-tip", "reset-tip", "brightness-tip"] {
+    for key in ["size-tip", "tilt-left-tip", "tilt-right-tip", "timing-tip", "fine-tip", "match-tip", "reset-tip", "brightness-tip"] {
         let tip = props[key].as_str().unwrap();
         assert!(tip.ends_with('.') && tip.matches(". ").count() == 0 && !tip.contains('\u{2014}') && !tip.contains('\u{2013}'), "{key}: {tip}");
     }
@@ -974,10 +974,10 @@ fn every_new_row_has_a_one_sentence_tooltip() {
 #[test]
 fn the_settings_come_back_and_are_held_to_the_sliders() {
     let mut r = rig();
-    r.plugin.set_config(&json!({"on": true, "look": "red_cyan", "depth": 1.26, "height": -40.0, "size": 140.0, "tilt": 2.34, "timing": -250.4, "swap": true})).unwrap();
-    assert_eq!(plain(r.plugin.get_config()), json!({"on": true, "look": "red_cyan", "depth": 1.3, "height": -5.0, "size": 125.0, "tilt": 2.3, "timing": -200.0, "swap": true}));
+    r.plugin.set_config(&json!({"on": true, "look": "red_cyan", "depth": 1.26, "height": -40.0, "size": 140.0, "tilt": 2.34, "tilt-left": -9.0, "timing": -250.4, "swap": true})).unwrap();
+    assert_eq!(plain(r.plugin.get_config()), json!({"on": true, "look": "red_cyan", "depth": 1.3, "height": -15.0, "size": 125.0, "tilt-left": -5.0, "tilt-right": 2.3, "timing": -200.0, "swap": true}));
     r.plugin.set_config(&json!({"look": "nonsense", "depth": "far"})).unwrap();
-    assert_eq!(plain(r.plugin.get_config()), json!({"on": false, "look": "side_by_side", "depth": 0.0, "height": 0.0, "size": 100.0, "tilt": 0.0, "timing": 0.0, "swap": false}));
+    assert_eq!(plain(r.plugin.get_config()), json!({"on": false, "look": "side_by_side", "depth": 0.0, "height": 0.0, "size": 100.0, "tilt-left": 0.0, "tilt-right": 0.0, "timing": 0.0, "swap": false}));
     // a preset brings them back too
     r.plugin.apply_preset(&mut r.host, &json!({"on": true, "look": "red_cyan"})).unwrap();
     assert_eq!(r.plugin.get_config()["look"], json!("red_cyan"));
@@ -988,23 +988,24 @@ fn the_settings_come_back_and_are_held_to_the_sliders() {
 fn the_card_callbacks_change_the_settings_and_save_them() {
     let mut r = rig();
     r.card("look-picked", json!(1));
-    r.card("depth-moved", json!(9.0));
+    r.card("depth-moved", json!(20.0));
     r.card("height-moved", json!(-1.5));
     r.card("swap-toggled", json!(true));
     r.card("size-moved", json!(92.46));
-    r.card("tilt-moved", json!(-9.0));
+    r.card("tilt-left-moved", json!(-9.0));
+    r.card("tilt-right-moved", json!(2.46));
     r.card("timing-moved", json!(35.4));
     assert_eq!(
         plain(r.plugin.get_config()),
-        json!({"on": false, "look": "red_cyan", "depth": 5.0, "height": -1.5, "size": 92.5, "tilt": -5.0, "timing": 35.0, "swap": true})
+        json!({"on": false, "look": "red_cyan", "depth": 15.0, "height": -1.5, "size": 92.5, "tilt-left": -5.0, "tilt-right": 2.5, "timing": 35.0, "swap": true})
     );
     assert!(r.host.calls.iter().any(|c| c == "schedule_save"));
     let props = r.props();
-    assert_eq!((props["look-current"].clone(), props["depth-text"].clone(), props["height-text"].clone()), (json!(1), json!("+5.0%"), json!("-1.5%")));
-    assert_eq!((props["size-text"].clone(), props["tilt-text"].clone(), props["timing-text"].clone()), (json!("92.5%"), json!("-5.0°"), json!("+35 ms")));
+    assert_eq!((props["look-current"].clone(), props["depth-text"].clone(), props["height-text"].clone()), (json!(1), json!("+15.0%"), json!("-1.5%")));
+    assert_eq!((props["size-text"].clone(), props["tilt-left-text"].clone(), props["tilt-right-text"].clone(), props["timing-text"].clone()), (json!("92.5%"), json!("-5.0°"), json!("+2.5°"), json!("+35 ms")));
     // the sliders sit at their defaults at first
     let fresh = rig().props();
-    assert_eq!((fresh["size-text"].clone(), fresh["tilt-text"].clone(), fresh["timing-text"].clone()), (json!("100.0%"), json!("0.0°"), json!("0 ms")));
+    assert_eq!((fresh["size-text"].clone(), fresh["tilt-left-text"].clone(), fresh["tilt-right-text"].clone(), fresh["timing-text"].clone()), (json!("100.0%"), json!("0.0°"), json!("0.0°"), json!("0 ms")));
     // a look that isn't there is ignored
     r.card("look-picked", json!(7));
     assert_eq!(r.plugin.get_config()["look"], json!("red_cyan"));
@@ -1341,7 +1342,7 @@ fn reset_is_lit_for_a_moved_look_swap_slider_or_a_match_and_not_otherwise() {
     assert_eq!(r.props()["reset-shown"], json!(false));
     r.switch(true);
     assert_eq!(r.props()["reset-shown"], json!(false), "the switch isn't part of it");
-    for (callback, arg) in [("look-picked", json!(1)), ("swap-toggled", json!(true)), ("depth-moved", json!(1.0)), ("height-moved", json!(1.0)), ("size-moved", json!(110.0)), ("tilt-moved", json!(1.0)), ("timing-moved", json!(10.0))] {
+    for (callback, arg) in [("look-picked", json!(1)), ("swap-toggled", json!(true)), ("depth-moved", json!(1.0)), ("height-moved", json!(1.0)), ("size-moved", json!(110.0)), ("tilt-left-moved", json!(1.0)), ("tilt-right-moved", json!(1.0)), ("timing-moved", json!(10.0))] {
         let back = match callback { "look-picked" => json!(0), "swap-toggled" => json!(false), "size-moved" => json!(100.0), _ => json!(0.0) };
         r.card(callback, arg);
         assert_eq!(r.props()["reset-shown"], json!(true), "{callback}");
@@ -1362,7 +1363,7 @@ fn reset_puts_everything_back_drops_the_match_and_leaves_the_phones_and_the_swit
     r.host.calls.clear();
     r.card("reset-clicked", json!(null));
     let cfg = plain(r.plugin.get_config());
-    assert_eq!(cfg, json!({"on": true, "look": "side_by_side", "depth": 0.0, "height": 0.0, "size": 100.0, "tilt": 0.0, "timing": 0.0, "swap": false}));
+    assert_eq!(cfg, json!({"on": true, "look": "side_by_side", "depth": 0.0, "height": 0.0, "size": 100.0, "tilt-left": 0.0, "tilt-right": 0.0, "timing": 0.0, "swap": false}));
     assert!(r.plugin.lut.is_none());
     assert_eq!(r.match_badge(), "");
     assert_eq!(r.props()["reset-shown"], json!(false));
@@ -1975,4 +1976,30 @@ fn the_headset_gets_the_picture_the_step_made_through_the_worker() {
     let Message::Jpeg(jpeg) = message else { panic!("a picture, not black") };
     assert_eq!(&jpeg[..2], &[0xFF, 0xD8]);
     assert_eq!(feed.built(), 1);
+}
+
+#[test]
+fn an_old_single_tilt_becomes_the_right_eyes_tilt() {
+    let mut r = rig();
+    r.plugin.set_config(&json!({"tilt": -3.2})).unwrap();
+    let cfg = r.plugin.get_config();
+    assert_eq!((cfg["tilt-left"].clone(), cfg["tilt-right"].clone(), cfg.get("tilt").cloned()), (json!(0.0), json!(-3.2), None));
+    assert_eq!(r.plugin.shared.hub().tune.tilt_right, -3.2);
+    // the new keys win over an old one
+    r.plugin.set_config(&json!({"tilt": 4.0, "tilt-right": 1.0, "tilt-left": 2.0})).unwrap();
+    let cfg = r.plugin.get_config();
+    assert_eq!((cfg["tilt-left"].clone(), cfg["tilt-right"].clone()), (json!(2.0), json!(1.0)));
+}
+
+#[test]
+fn swapping_the_eyes_hands_each_phone_its_own_tilt() {
+    let mut r = rig();
+    r.card("tilt-left-moved", json!(1.5));
+    r.card("tilt-right-moved", json!(-2.0));
+    r.card("swap-toggled", json!(true));
+    let cfg = r.plugin.get_config();
+    assert_eq!((cfg["tilt-left"].clone(), cfg["tilt-right"].clone()), (json!(-2.0), json!(1.5)));
+    r.card("swap-toggled", json!(false));
+    let cfg = r.plugin.get_config();
+    assert_eq!((cfg["tilt-left"].clone(), cfg["tilt-right"].clone()), (json!(1.5), json!(-2.0)));
 }
