@@ -1,14 +1,14 @@
 <!-- covers: ; checked: 1cbb8644b -->
 # Features
 
-Everything the apps can do, split by area. Each heading below points to the page that now holds it, so older links keep working.
+Everything the apps can do, split by area. Each heading below points to the page that now holds it, to avoid breaking older links.
 
 - [Camera and quality](features/camera.md): lenses, exposure, the picture format and how much bandwidth it uses.
-- [Framing and background](features/picture.md): keeping you in frame, and changing or hiding what is behind you.
-- [Effects and overlays](features/effects.md): fun effects, looks, and things drawn on top of the picture.
-- [Sources and layouts](features/sources.md): other cameras and the browser, and putting several cameras on screen.
+- [Framing and background](features/picture.md): keeping you in frame and changing or hiding what is behind you.
+- [Effects and overlays](features/effects.md): fun effects, looks and things drawn on top of the picture.
+- [Sources and layouts](features/sources.md): other cameras and the browser plus putting several cameras on screen.
 - [Sound, sign and monitoring](features/output.md): the microphone, the On Air sign and keeping an eye on the stream.
-- [Connection and privacy](features/connection.md): pairing phones, what the apps send where, and updates.
+- [Connection and privacy](features/connection.md): pairing phones, what the apps send where and updates.
 - [The desktop app](features/app.md): system integration, keyboard shortcuts, the MCP server and plugins.
 
 ## Camera control
