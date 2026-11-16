@@ -53,7 +53,7 @@ pub fn params(shape: Shape) -> [(&'static str, String); 4] {
     let labels: Vec<String> = std::iter::once(OBS_LABEL.to_string()).chain((0..shape.slots()).map(slot_label)).collect();
     [
         ("devices", labels.len().to_string()),
-        ("video_nr", "10,11".into()),
+        ("video_nr", (10..10 + labels.len()).map(|n| n.to_string()).collect::<Vec<_>>().join(",")),
         ("card_label", labels.join(",")),
         ("exclusive_caps", "1".into()),
     ]
@@ -482,7 +482,7 @@ mod tests {
         assert_eq!(options_line(Shape::Base),
                    "options v4l2loopback devices=2 video_nr=10,11 card_label=\"OBS Virtual Camera,Telescope\" exclusive_caps=1\n");
         assert_eq!(options_line(Shape::Extras),
-                   "options v4l2loopback devices=5 video_nr=10,11 card_label=\"OBS Virtual Camera,Telescope,Telescope #2,Telescope #3,Telescope #4\" exclusive_caps=1\n");
+                   "options v4l2loopback devices=5 video_nr=10,11,12,13,14 card_label=\"OBS Virtual Camera,Telescope,Telescope #2,Telescope #3,Telescope #4\" exclusive_caps=1\n");
         assert_eq!((old_slot_label(0), old_slot_label(3)), ("Phone Camera".to_string(), "Phone Camera 4".to_string()));
     }
 
@@ -843,7 +843,7 @@ mod tests {
         let f = with_boot_file(options_line(Shape::Extras).trim_end());
         assert_eq!(setup(&f).boot_shape(), Shape::Extras);
         assert!(setup(&f).reload().ok);
-        assert!(script_of(&f).contains("modprobe v4l2loopback devices=5 video_nr=10,11 card_label='OBS Virtual Camera,Telescope,Telescope #2,Telescope #3,Telescope #4' exclusive_caps=1"));
+        assert!(script_of(&f).contains("modprobe v4l2loopback devices=5 video_nr=10,11,12,13,14 card_label='OBS Virtual Camera,Telescope,Telescope #2,Telescope #3,Telescope #4' exclusive_caps=1"));
         let f = with_boot_file(options_line(Shape::Extras).trim_end());
         assert!(setup(&f).setup(false).ok);
         assert!(script_of(&f).contains("devices=5"));
