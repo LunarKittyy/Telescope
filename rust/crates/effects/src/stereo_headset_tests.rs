@@ -234,6 +234,19 @@ fn the_script_never_shows_a_picture_that_was_decoding_when_black_came() {
     }
 }
 
+#[test]
+fn the_script_leaves_vr_on_b_y_or_a_grip_and_not_on_the_trigger() {
+    let script = concat!(env!("CARGO_MANIFEST_DIR"), "/web/headset.js");
+    let check = std::env::temp_dir().join(format!("telescope-headset-leave-{}.js", std::process::id()));
+    std::fs::write(&check, include_str!("stereo_headset_leave_test.js")).unwrap();
+    let ran = Command::new("node").arg(&check).arg(script).output();
+    let _ = std::fs::remove_file(&check);
+    match ran {
+        Ok(out) => assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr)),
+        Err(_) => assert!(std::env::var_os("CI").is_none(), "the script check needs Node.js, and CI is set"),
+    }
+}
+
 // ── What a headset is sent ────────────────────────────────────────────────
 
 #[test]
@@ -552,7 +565,7 @@ fn headset_speed() {
     };
     let (l, r) = (eye(1), eye(2));
     let (left, right) = (Rgb::from_frame(&l).unwrap(), Rgb::from_frame(&r).unwrap());
-    let tune = Tune { depth: 1.0, height: 0.5, size: 92.3, tilt: 1.2, lut: None };
+    let tune = Tune { depth: 1.0, height: 0.5, size: 92.3, tilt_left: -0.8, tilt_right: 1.2, lut: None };
     for (name, tune) in [("plain", Tune::default()), ("fine tune", tune)] {
         for (label, size) in [("3840x1080", (3840, 1080)), ("1920x1080", (1920, 1080))] {
             let mut pack = Vec::new();

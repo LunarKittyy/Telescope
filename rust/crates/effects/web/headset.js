@@ -166,10 +166,50 @@ function multiply(a, b) {
   return out;
 }
 
-// The picture's own place: 2 m ahead, scaled to its size
-const MODEL = new Float32Array([WIDTH, 0, 0, 0, 0, HEIGHT, 0, 0, 0, 0, 1, 0, 0, 0, -DISTANCE, 1]);
+// The picture's own place, scaled to its size: 2 m ahead until the first pose comes and then wherever it was last put
+let model = new Float32Array([WIDTH, 0, 0, 0, 0, HEIGHT, 0, 0, 0, 0, 1, 0, 0, 0, -DISTANCE, 1]);
+let recentre = true;
+
+// Puts the picture straight ahead of where the head looks (its heading only, not up or down or roll), at the head's height
+function placeAhead(matrix) {
+  const yaw = Math.atan2(matrix[8], matrix[10]);
+  const sin = Math.sin(yaw);
+  const cos = Math.cos(yaw);
+  model = new Float32Array([WIDTH * cos, 0, -WIDTH * sin, 0, 0, HEIGHT, 0, 0, sin, 0, cos, 0,
+    matrix[12] - DISTANCE * sin, matrix[13], matrix[14] - DISTANCE * cos, 1]);
+}
+
+// B or Y and the grips take you out of VR, the trigger alone doesn't (too easy to hit); a button already down when VR starts waits to be let go first
+const LEAVE_BUTTONS = [1, 5];
+let leaveHeld = true;
+let recentreHeld = true;
+
+function leave() {
+  if (session) session.end().catch(() => {});
+}
+
+function leavePressed() {
+  let pressed = false;
+  let recentred = false;
+  for (const source of session.inputSources) {
+    const buttons = source.gamepad ? source.gamepad.buttons : [];
+    if (LEAVE_BUTTONS.some((i) => buttons[i] && buttons[i].pressed)) pressed = true;
+    if (buttons[4] && buttons[4].pressed) recentred = true;
+  }
+  // A or X brings the picture back in front of you
+  if (recentred && !recentreHeld) recentre = true;
+  recentreHeld = recentred;
+  const rising = pressed && !leaveHeld;
+  leaveHeld = pressed;
+  return rising;
+}
 
 function onFrame(time, frame) {
+  if (!session) return;
+  if (leavePressed()) {
+    leave();
+    return;
+  }
   session.requestAnimationFrame(onFrame);
   const layer = session.renderState.baseLayer;
   const pose = frame.getViewerPose(glState.space);
@@ -177,6 +217,10 @@ function onFrame(time, frame) {
   gl.clearColor(0, 0, 0, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
   if (!pose) return;
+  if (recentre) {
+    recentre = false;
+    placeAhead(pose.transform.matrix);
+  }
   upload();
   const ready = bitmap && glState.size[0] > 0;
   pose.views.forEach((view, index) => {
@@ -185,7 +229,7 @@ function onFrame(time, frame) {
     if (!ready) return;
     const right = view.eye === "right" || (view.eye === "none" && index === 1);
     gl.useProgram(glState.program);
-    gl.uniformMatrix4fv(glState.mvp, false, multiply(multiply(view.projectionMatrix, view.transform.inverse.matrix), MODEL));
+    gl.uniformMatrix4fv(glState.mvp, false, multiply(multiply(view.projectionMatrix, view.transform.inverse.matrix), model));
     gl.uniform2f(glState.shift, right ? 0.5 : 0, 0);
     gl.bindTexture(gl.TEXTURE_2D, glState.texture);
     gl.bindBuffer(gl.ARRAY_BUFFER, glState.buffer);
@@ -204,6 +248,11 @@ async function enterVr() {
     session = await navigator.xr.requestSession("immersive-vr");
     glState.space = await session.requestReferenceSpace("local");
     session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl, { antialias: false }) });
+    leaveHeld = true;
+    recentreHeld = true;
+    recentre = true;
+    glState.space.addEventListener("reset", () => { recentre = true; });
+    session.addEventListener("squeeze", leave);
     session.addEventListener("end", () => {
       session = null;
       enter.disabled = false;
