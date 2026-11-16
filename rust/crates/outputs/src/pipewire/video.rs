@@ -2,7 +2,7 @@
 //! gives (shared memory, or a DMA-BUF it allocated in a layout the CPU can read) and copying the picture out row by row.
 
 use super::connection::Connection;
-use super::ffi::{self, PwBuffer, SpaData, StreamState};
+use super::ffi::{self, PwBuffer, StreamState};
 use super::pod::{self, Choice, ObjectPod, Pod, Prop, Scalar, Value};
 use super::stream::{Stream, StreamConfig, StreamHandler, StreamRef, PW_DIRECTION_INPUT, PW_STREAM_FLAG_AUTOCONNECT};
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
@@ -286,11 +286,11 @@ unsafe fn take_shot(buffer: *mut PwBuffer, negotiated: Negotiated) -> Result<Tak
     let buffer = unsafe { buffer.as_ref() }.ok_or("a buffer is missing")?;
     // SAFETY: a dequeued pw_buffer points at its spa_buffer or holds null
     let spa = unsafe { buffer.buffer.as_ref() }.ok_or("a buffer has no data")?;
-    if spa.n_datas == 0 || spa.datas.is_null() {
+    if spa.n_datas == 0 {
         return Ok(Taken::Nothing);
     }
-    // SAFETY: datas holds n_datas entries
-    let data: &SpaData = unsafe { &*spa.datas };
+    // SAFETY: datas is null or holds n_datas entries
+    let Some(data) = (unsafe { spa.datas.as_ref() }) else { return Ok(Taken::Nothing) };
     // SAFETY: the chunk is null or the buffer's own
     let Some(chunk) = (unsafe { data.chunk.as_ref() }) else { return Ok(Taken::Nothing) };
     // A chunk flagged corrupted (bit 0) or empty is no picture
