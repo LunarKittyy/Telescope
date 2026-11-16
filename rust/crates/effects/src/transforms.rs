@@ -37,7 +37,7 @@ const T_SETTLE: &str = "settle";
 const RESET_TIP: &str = n_("Set flip, rotation, zoom, pan, stretch and lens correction back to default.");
 const PAN_TIP: &str = n_("Drag to move. Double-click to centre.");
 const STRETCH_TIPS: [&str; 2] = [n_("Stretch or squeeze the picture horizontally."), n_("Stretch or squeeze the picture vertically.")];
-const LENS_TIP: &str = n_("Straighten the curved lines of a wide lens (right) or a long lens (left), with the edges cropped or pulled in to stay filled.");
+const LENS_TIP: &str = n_("Straighten the curved lines of a wide lens (right) or a long lens (left). The edges get cropped or pulled in to fill the empty corners.");
 
 /// A hand-edited or damaged config value becomes the default instead of breaking every frame.
 fn number_of(value: Option<&Value>, default: f64, lo: f64, hi: f64) -> f64 {

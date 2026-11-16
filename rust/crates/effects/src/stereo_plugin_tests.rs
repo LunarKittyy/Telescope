@@ -420,7 +420,7 @@ fn the_badge_asks_for_two_streams() {
     r.switch(true);
     r.host.streams = Some(1);
     r.plugin.on_stream_stop(&mut r.host);
-    assert_eq!(r.status(), "Needs two streams");
+    assert_eq!(r.status(), "Two streams required");
     assert_eq!(r.props()["match-enabled"], json!(false));
     r.host.streams = Some(2);
     r.plugin.on_event(&mut r.host, &Event::StreamsChanged { count: 2 });

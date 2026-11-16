@@ -208,7 +208,7 @@ export component VideoSettings inherits Card {
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Puts hardware acceleration, power saving and the zoom range back to how they started, and picks the automatic canvas size, which Apply then uses.");
+    reset-detail: @tr("Set hardware acceleration, power saving, zoom range and canvas size back to default. The canvas size changes when you press Apply.");
     reset => { root.reset-clicked(); }
     keywords: @tr("search" => "picture quality image stream camera output");
     icon: Icons.chip;
@@ -335,7 +335,7 @@ export component MicrophoneLimits inherits Card {
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Puts the gain range and the limiter back to their usual settings.");
+    reset-detail: @tr("Set the gain range and limiter back to default.");
     reset => { root.reset-clicked(); }
     keywords: @tr("search" => "audio sound voice input volume");
     icon: Icons.mic;
@@ -464,7 +464,7 @@ export component LookSettings inherits Card {
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Puts the theme, card colours and language back to their usual choices.");
+    reset-detail: @tr("Set the theme, card colours and language back to default.");
     reset => { root.reset-clicked(); }
     keywords: @tr("search" => "appearance theme colors colours interface");
     icon: Icons.sliders;

@@ -69,7 +69,7 @@ export component NotesCard inherits Card {
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Puts the text size, scroll mode and speed back. Your scripts stay.");
+    reset-detail: @tr("Set the text size, scroll mode and speed back to default. Your scripts aren't reset.");
     reset => { root.reset-clicked(); }
 
     RailRow {

@@ -36,13 +36,10 @@
     <string name="setup_camera">कैमरा</string>
     <string name="setup_camera_reason">इस फ़ोन के कैमरों से स्ट्रीम करने के लिए.</string>
     <string name="setup_local_network">लोकल नेटवर्क</string>
-    <string name="setup_local_network_reason">इससे आपका कंप्यूटर Wi-Fi पर इस फ़ोन को ढूंढकर उससे कनेक्ट कर पाता है. USB के लिए इसकी ज़रूरत नहीं है.</string>
     <string name="setup_notifications">नोटिफ़िकेशन</string>
-    <string name="setup_notifications_reason">कैमरा स्ट्रीम होने पर दिखाता है, और वहीं से इसे रोकता है.</string>
     <string name="setup_microphone">माइक्रोफ़ोन</string>
     <string name="setup_microphone_reason">आपके कंप्यूटर पर Telescope माइक्रोफ़ोन के लिए.</string>
     <string name="setup_battery">बैटरी</string>
-    <string name="setup_battery_reason">स्क्रीन बंद होने पर Android को स्ट्रीम रोकने से रोकता है.</string>
     <string name="setup_allowed">अनुमति दी गई</string>
     <string name="allow">अनुमति दें</string>
     <string name="open_settings">सेटिंग्स खोलें</string>
@@ -83,7 +80,6 @@
     <string name="local_only">सिर्फ़ लोकल - USB</string>
     <string name="local_only_hint">सिर्फ़ USB कनेक्शन ही कैमरे तक पहुंच सकता है.</string>
     <string name="wait_for_computer">कंप्यूटर का इंतज़ार करें</string>
-    <string name="wait_for_computer_hint">स्क्रीन बंद होने पर भी पेयर किए गए कंप्यूटर को कैमरा शुरू करने देता है.</string>
     <string name="stop_streaming">स्ट्रीमिंग रोकें</string>
     <string name="status_title">स्थिति</string>
     <string name="status_not_streaming">स्ट्रीम नहीं हो रहा है</string>

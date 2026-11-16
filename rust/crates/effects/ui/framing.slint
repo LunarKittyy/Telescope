@@ -57,7 +57,7 @@ export component FramingCard inherits Card {
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Puts the framing, speed, room and hand settings back. The switch stays as it is.");
+    reset-detail: @tr("Set the framing, speed, room and hand settings back to default.");
     reset => { root.reset-clicked(); }
 
     property <length> column: max(Theme.u(28), ceil(widest.preferred-width / 1px) * 1px + Theme.u(1));

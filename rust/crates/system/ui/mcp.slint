@@ -36,7 +36,7 @@ export component McpSettings inherits VerticalLayout {
         has-reset: true;
         reset-lit: reset-shown;
         reset-label: @tr("Reset");
-        reset-detail: @tr("Puts what an AI app may do back to its usual level. The activity log and undo history stay.");
+        reset-detail: @tr("Set what AI apps are allowed to do back to default. The activity log and undo history aren't reset.");
         reset => { root.reset-clicked(); }
         RailRow {
             icon: Icons.devices;

@@ -188,7 +188,7 @@ export component MicrophoneCard inherits Card {
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Puts the gain, auto level and noise reduction back. The switch and mute stay as they are.");
+    reset-detail: @tr("Set the gain, auto level and noise reduction back to default.");
     reset => { root.reset-clicked(); }
 
     changed confirm-asked => {

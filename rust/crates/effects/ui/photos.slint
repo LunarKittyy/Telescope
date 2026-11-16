@@ -141,7 +141,7 @@ export component PhotosCard inherits Card {
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Puts the photo mode, format, quality, timer and the rest back. The folder your photos go to stays.");
+    reset-detail: @tr("Set every photo setting except the folder back to default.");
     reset => { root.reset-clicked(); }
 
     UnfoldGroup {

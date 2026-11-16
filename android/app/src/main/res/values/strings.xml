@@ -62,13 +62,13 @@
     <string name="setup_camera">Camera</string>
     <string name="setup_camera_reason">To stream from this phone\'s cameras.</string>
     <string name="setup_local_network">Local network</string>
-    <string name="setup_local_network_reason">Lets your computer find and connect to this phone over Wi-Fi. Not needed for USB.</string>
+    <string name="setup_local_network_reason">Let your computer find and connect to this phone over Wi-Fi. You don\'t need it for USB.</string>
     <string name="setup_notifications">Notifications</string>
-    <string name="setup_notifications_reason">Shows when the camera is streaming, and stops it from there.</string>
+    <string name="setup_notifications_reason">See when the camera is streaming and stop it from the notification.</string>
     <string name="setup_microphone">Microphone</string>
     <string name="setup_microphone_reason">For the Telescope microphone on your computer.</string>
     <string name="setup_battery">Battery</string>
-    <string name="setup_battery_reason">Keeps Android from stopping the stream when the screen is off.</string>
+    <string name="setup_battery_reason">Keep Android from stopping the stream when the screen is off.</string>
     <string name="setup_allowed">Allowed</string>
     <string name="allow">Allow</string>
     <string name="open_settings">Open settings</string>
@@ -135,7 +135,7 @@
     <string name="local_only">Local only - USB</string>
     <string name="local_only_hint">Only a USB connection can reach the camera.</string>
     <string name="wait_for_computer">Wait for my computer</string>
-    <string name="wait_for_computer_hint">Lets a paired computer start the camera while the screen is off.</string>
+    <string name="wait_for_computer_hint">Let a paired computer start the camera while the screen is off.</string>
 
     <!-- Status card. Keep the ● (streaming) or ○ (not streaming) at the start. -->
     <string name="stop_streaming">Stop streaming</string>

@@ -111,7 +111,7 @@ export component CameraCard inherits Card {
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Goes back to automatic exposure, focus and white balance, and puts the other settings back. The lens stays.");
+    reset-detail: @tr("Set every camera setting except the lens back to default.");
     reset => { root.reset-clicked(); }
 
     // The lens tiles: dim ones before the phone has told its lenses, and the row reflows with motion when the real count arrives or changes. Up to five

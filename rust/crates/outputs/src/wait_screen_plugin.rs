@@ -572,7 +572,7 @@ impl Plugin for WaitScreenPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("Wait screen").into(),
-            about: n_("The picture apps see on the virtual camera while nothing is streaming.").into(),
+            about: n_("Choose the picture apps see on the virtual camera while nothing is streaming.").into(),
             when_off: n_("Without the Wait screen plugin Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all.").into(),
             category: "on_screen".into(),
             icon: "moon".into(),

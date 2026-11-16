@@ -41,7 +41,7 @@ export component StreamOutputCard inherits Card {
     callback reset-clicked;
 
     title: @tr("Stream output");
-    tip: @tr("The resolution, frame rate and format of the stream.");
+    tip: @tr("Set the resolution, frame rate and format of the stream.");
     icon: Icons.v-stream;
     enabled: active;
     blocked: !active;
@@ -49,7 +49,7 @@ export component StreamOutputCard inherits Card {
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Puts the frame rate, format, quality and bitrate back. The size stays as it is.");
+    reset-detail: @tr("Set the frame rate, format, quality and bitrate back to default.");
     reset => { root.reset-clicked(); }
 
     RailRow {

@@ -461,7 +461,7 @@ fn nerd_adds_the_encoder_and_the_camera() {
 #[test]
 fn an_older_phone_says_it_needs_an_update_for_the_delay_and_skips_what_it_cant_give() {
     let p = phone_props(json!({"camera_fps": 30.0, "battery_temp_c": 31.0}), false);
-    assert_eq!(row(&p, "Delay on the phone")["value"], "Needs a newer phone app");
+    assert_eq!(row(&p, "Delay on the phone")["value"], "Phone app update required");
     assert!(!has_row(&p, "Phone's Wi-Fi") && !has_row(&p, "Throttling"), "no Wi-Fi on USB and no thermal status before Android 10");
     assert_eq!(row(&p, "Temperature")["value"], "31.0 °C");
 }

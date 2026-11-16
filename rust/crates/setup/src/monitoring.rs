@@ -461,7 +461,7 @@ impl Plugin for MonitoringPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("Monitoring").into(),
-            about: n_("The phone's battery and temperature, with warnings when they get low or high.").into(),
+            about: n_("Watch the phone's battery and temperature and get a warning when they get too low or too high.").into(),
             when_off: n_("Without the Monitoring plugin there's no Phone card and nothing warns you about a low battery or a hot phone.").into(),
             category: "streaming".into(),
             icon: "phone".into(),

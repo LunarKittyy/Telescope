@@ -36,13 +36,10 @@
     <string name="setup_camera">カメラ</string>
     <string name="setup_camera_reason">このスマートフォンのカメラからストリーミングするため。</string>
     <string name="setup_local_network">ローカル ネットワーク</string>
-    <string name="setup_local_network_reason">コンピューターがWi-Fi経由でこのスマートフォンを検出して接続できるようにします。USB接続では不要です。</string>
     <string name="setup_notifications">通知</string>
-    <string name="setup_notifications_reason">カメラがストリーミング中であることを表示し、そこから停止できるようにします。</string>
     <string name="setup_microphone">マイク</string>
     <string name="setup_microphone_reason">コンピューター上のTelescopeマイクに使用します。</string>
     <string name="setup_battery">バッテリー</string>
-    <string name="setup_battery_reason">画面がオフのときに、Androidがストリームを停止しないようにします。</string>
     <string name="setup_allowed">許可済み</string>
     <string name="allow">許可</string>
     <string name="open_settings">設定を開く</string>
@@ -82,7 +79,6 @@
     <string name="local_only">ローカルのみ - USB</string>
     <string name="local_only_hint">USB接続でのみカメラに接続できます。</string>
     <string name="wait_for_computer">コンピューターを待機</string>
-    <string name="wait_for_computer_hint">画面がオフでも、ペアリング済みのコンピューターからカメラを開始できるようにします。</string>
     <string name="stop_streaming">ストリーミング停止</string>
     <string name="status_title">ステータス</string>
     <string name="status_not_streaming">ストリーミング停止中</string>

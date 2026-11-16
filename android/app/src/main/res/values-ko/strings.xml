@@ -36,13 +36,10 @@
     <string name="setup_camera">카메라</string>
     <string name="setup_camera_reason">이 휴대폰의 카메라에서 스트리밍하기 위해 필요해요.</string>
     <string name="setup_local_network">로컬 네트워크</string>
-    <string name="setup_local_network_reason">컴퓨터가 Wi-Fi를 통해 이 휴대폰을 찾고 연결할 수 있게 해 줘요. USB 연결에는 필요하지 않아요.</string>
     <string name="setup_notifications">알림</string>
-    <string name="setup_notifications_reason">카메라가 스트리밍 중일 때 표시되며, 알림에서 바로 중지할 수 있어요.</string>
     <string name="setup_microphone">마이크</string>
     <string name="setup_microphone_reason">컴퓨터의 Telescope 마이크에 사용돼요.</string>
     <string name="setup_battery">배터리</string>
-    <string name="setup_battery_reason">화면이 꺼졌을 때 Android가 스트림을 중지하지 않도록 유지해요.</string>
     <string name="setup_allowed">허용됨</string>
     <string name="allow">허용</string>
     <string name="open_settings">설정 열기</string>
@@ -82,7 +79,6 @@
     <string name="local_only">로컬 전용 - USB</string>
     <string name="local_only_hint">USB 연결로만 카메라에 접근할 수 있어요.</string>
     <string name="wait_for_computer">내 컴퓨터 기다리기</string>
-    <string name="wait_for_computer_hint">화면이 꺼져 있어도 페어링된 컴퓨터가 카메라를 시작할 수 있게 해요.</string>
     <string name="stop_streaming">스트리밍 중지</string>
     <string name="status_title">상태</string>
     <string name="status_not_streaming">스트리밍 중 아님</string>

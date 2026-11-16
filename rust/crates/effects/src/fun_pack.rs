@@ -681,7 +681,7 @@ impl Plugin for FunPackPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("Fun pack").into(),
-            about: n_("Silly effects: clones, an invisibility cloak, light painting, retro looks and datamosh.").into(),
+            about: n_("Add silly effects like clones, an invisibility cloak, light painting, retro looks and datamosh.").into(),
             when_off: n_("Without the Fun pack plugin there's no Fun pack card and the picture has no effects.").into(),
             category: "look".into(),
             icon: "sparkle".into(),

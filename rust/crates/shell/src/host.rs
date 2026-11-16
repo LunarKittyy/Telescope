@@ -662,13 +662,13 @@ impl HostSensors for Ctx<'_> {
 impl HostPackets for Ctx<'_> {
     fn packets_problem(&self) -> String {
         if self.state.streams.plugin_source {
-            return telescope_core::i18n::tr("Needs video that only a phone's stream has.");
+            return telescope_core::i18n::tr("Phone stream required.");
         }
         let heavy = match &self.state.streams.url {
             Some(url) => url.ends_with(".mjpeg"),
             None => self.state.plugin_config("stream_output").is_some_and(|c| c["format"] == "mjpeg"),
         };
-        if heavy { telescope_core::i18n::tr("Needs Light: Heavy sends whole pictures, with no keyframes to work with.") } else { String::new() }
+        if heavy { telescope_core::i18n::tr("Light format required. Heavy sends whole pictures with no keyframes to work with.") } else { String::new() }
     }
     /// Each change reaches the stream on its own, so taking a step off and on again gives it a fresh one.
     fn change_packets(&mut self, owner: &str, factory: Option<Arc<dyn PacketStepFactory>>) {

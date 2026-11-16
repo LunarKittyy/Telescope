@@ -473,7 +473,7 @@ impl CompositePlugin {
         } else if self.layout.tiles.is_empty() {
             tr("Nothing in it")
         } else if live < 2 {
-            tr("Needs two streams")
+            tr("Two streams required")
         } else if self.target.is_none() || self.shared.store().stream_frame(self.target.as_deref()).is_none() {
             tr("Not going out")
         } else {

@@ -34,7 +34,7 @@ const SHAPE_VALUES: [&str; 5] = ["Auto", "A4", "Letter", "Square", "Fill the pic
 
 const SWITCH_TIP: &str = n_("Straighten the marked sheet.");
 const MARK_TIP: &str = n_("Drag the four corners of the sheet into place on the preview.");
-const RESET_TIP: &str = n_("Puts the writing, shape and stretch back. The marked corners and the switch stay.");
+const RESET_TIP: &str = n_("Set the writing, shape and stretch back to default. The marked corners aren't reset.");
 /// What a Reset leaves alone: the switch and the marked paper.
 const RESET_KEPT: &[&str] = &["on", "corners"];
 const CLEAN_TIP: &str = n_("Make the writing on the sheet stand out.");
@@ -350,7 +350,7 @@ impl Plugin for DeskPlugin {
             name: NAME.into(),
             title: n_("Desk and document mode").into(),
             about: n_("Straighten a sheet of paper you mark on the preview and optionally make the writing on it stand out.").into(),
-            when_off: n_("Without the Desk and document mode plugin there's no Desk mode card and the picture stays the way the camera sees it.").into(),
+            when_off: n_("Without the Desk and document mode plugin there's no Desk mode card and the picture is shown the way the camera sees it.").into(),
             category: "camera".into(),
             icon: "pencil".into(),
             frame_stage: FrameStage::Geometry,

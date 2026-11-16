@@ -120,7 +120,7 @@ export component OnAirSettings inherits VerticalLayout {
         has-reset: true;
         reset-lit: sign-reset-shown;
         reset-label: @tr("Reset");
-        reset-detail: @tr("Puts what puts the sign on air back. Your link, address and webhook stay.");
+        reset-detail: @tr("Set what turns the sign on air back to default. Your link, address and webhook aren't reset.");
         reset => { root.sign-reset-clicked(); }
         RailRow {
             icon: Icons.bell;
@@ -133,7 +133,7 @@ export component OnAirSettings inherits VerticalLayout {
         RailRow {
             icon: Icons.bolt;
             label: @tr("On air when");
-            tip: @tr("What puts the sign on air");
+            tip: @tr("Choose what turns the sign on.");
             named: true;
             hue: Theme.plugin-hue("on_screen");
             ChoiceField {
@@ -243,7 +243,7 @@ export component OnAirSettings inherits VerticalLayout {
         has-reset: true;
         reset-lit: webhook-reset-shown;
         reset-label: @tr("Reset");
-        reset-detail: @tr("Puts the method and the going on and off air texts back. The webhook's address stays.");
+        reset-detail: @tr("Set the method and the on air and off air texts back to default. The webhook address isn't reset.");
         reset => { root.webhook-reset-clicked(); }
         UnfoldGroup {
             UrlRow {

@@ -111,7 +111,7 @@ fn short_of(text: &str, kind: &str, action_url: Option<&str>) -> String {
     } else if text == tr(DOWNLOADING) {
         tr("Downloading…")
     } else if action_url == Some(INSTALL) {
-        tr("Needs VB-Cable")
+        tr("VB-Cable required")
     } else if kind == "err" {
         tr("Problem")
     } else if kind == "warn" {
@@ -1084,7 +1084,7 @@ impl Plugin for MicrophonePlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("Microphone").into(),
-            about: n_("Using the phone's microphone on this computer.").into(),
+            about: n_("Use the phone's microphone on this computer.").into(),
             when_off: n_("Without the Microphone plugin there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone.").into(),
             category: "sound".into(),
             icon: "mic".into(),

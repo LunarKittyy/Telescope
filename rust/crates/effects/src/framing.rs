@@ -894,8 +894,8 @@ impl Plugin for FramingPlugin {
         PluginInfo {
             name: NAME.into(),
             title: TITLE.into(),
-            about: n_("Zooms and pans to keep you in the picture as you move.").into(),
-            when_off: n_("Without the Auto framing plugin there's no Auto framing card and the zoom stays where you put it.").into(),
+            about: n_("Zoom and pan to keep you in the picture as you move.").into(),
+            when_off: n_("Without the Auto framing plugin there's no Auto framing card and the zoom only changes when you change it.").into(),
             category: "vision".into(),
             icon: "framing".into(),
             optional: true,

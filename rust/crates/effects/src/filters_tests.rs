@@ -494,7 +494,7 @@ fn skin_smoothing_says_why_it_cant_work_without_the_vision_pack() {
     host.vision = Some(MISSING.into());
     host.pack = VisionPack { available: true, size_mb: 47, ..VisionPack::default() };
     p.on_event(&mut host, &Event::VisionStateChanged { state: MISSING.into() });
-    assert_eq!(shown(&host, "vision-text"), json!("Needs a one-time download (about 47 MB)."));
+    assert_eq!(shown(&host, "vision-text"), json!("One-time download required (about 47 MB)."));
     assert_eq!(shown(&host, "vision-download"), json!(true));
     assert_eq!(shown(&host, "skin-available"), json!(false));
     p.on_ui(&mut host, &UiEvent { ui: "card".into(), callback: "download-clicked".into(), args: vec![] });

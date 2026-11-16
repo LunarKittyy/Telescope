@@ -521,7 +521,7 @@ impl Panel {
         tile.note = note;
         tile.note_kind = kind.into();
         if p.needs_vision {
-            tile.badges.push(Badge { text: tr("Needs the vision download"), kind: "vision".into() });
+            tile.badges.push(Badge { text: tr("Vision download required"), kind: "vision".into() });
         }
         if on != self.running.contains(&p.name) && !needs {
             self.waits(&mut tile);
@@ -721,9 +721,9 @@ impl Panel {
             Request::ResetAll { streaming } => Step::Ask(question(
                 tr("Reset all settings?"),
                 if streaming {
-                    tr("Every setting goes back to its default and Telescope restarts, so the stream stops. Your paired phones, presets and notes stay.")
+                    tr("Every setting will go back to default. Telescope will restart and the stream will stop. Your paired phones, presets and notes aren't reset.")
                 } else {
-                    tr("Every setting goes back to its default and Telescope restarts. Your paired phones, presets and notes stay.")
+                    tr("Every setting will go back to default and Telescope will restart. Your paired phones, presets and notes aren't reset.")
                 },
                 tr("Reset"), true), Commit::ResetAll),
             Request::Restart { streaming } => {
@@ -746,7 +746,7 @@ impl Panel {
                          tr("A plugin can do anything on your computer. Only switch it on if you trust its source."), tr("Switch on"), true)
             } else {
                 question(fill(&tr("Switch off {plugin}?"), &[("plugin", &title)]),
-                         tr("Without the plugin, what it added to Telescope is gone. The plugin's settings stay saved for when you switch it back on."), tr("Switch off"), false)
+                         tr("Without the plugin, what it added to Telescope is gone. Its settings are saved for when you switch it back on."), tr("Switch off"), false)
             }, Commit::Added { name: name.into(), on });
         }
         if tile.optional {
@@ -765,7 +765,7 @@ impl Panel {
                 text.push_str(&tile.when_off);
                 text.push_str("\n\n");
             }
-            text.push_str(&tr("Its settings stay saved for when you switch it back on."));
+            text.push_str(&tr("Its settings are saved for when you switch it back on."));
             return Step::Ask(question(fill(&tr("Switch off {plugin}?"), &[("plugin", &tile.title)]), text, tr("Switch off"), false), Commit::Builtin { name: name.into(), on });
         }
         Step::Done(self.commit(Commit::Builtin { name: name.into(), on }))
@@ -1065,9 +1065,9 @@ mod tests {
         let mut panel = plain_panel();
         let Step::Ask(q, commit) = panel.request(Request::ResetAll { streaming: false }) else { panic!("it must ask") };
         assert_eq!((q.title.as_str(), q.yes.as_str(), q.danger), ("Reset all settings?", "Reset", true));
-        assert!(q.text.contains("goes back to its default"), "{}", q.text);
-        assert!(q.text.contains("paired phones, presets and notes stay"), "{}", q.text);
-        assert!(!q.text.contains("stream stops"));
+        assert!(q.text.contains("will go back to default"), "{}", q.text);
+        assert!(q.text.contains("paired phones, presets and notes aren't reset"), "{}", q.text);
+        assert!(!q.text.contains("stream will stop"));
         assert_eq!(commit, Commit::ResetAll);
         let outcome = panel.commit(commit);
         assert!(outcome.restart && outcome.reset_settings && outcome.notices.is_empty());
@@ -1077,7 +1077,7 @@ mod tests {
     fn the_reset_question_says_so_when_a_stream_is_running() {
         let mut panel = plain_panel();
         let Step::Ask(q, _) = panel.request(Request::ResetAll { streaming: true }) else { panic!("it must ask") };
-        assert!(q.text.contains("the stream stops"), "{}", q.text);
+        assert!(q.text.contains("the stream will stop"), "{}", q.text);
     }
 
     #[test]

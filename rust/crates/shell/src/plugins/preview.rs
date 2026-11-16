@@ -336,7 +336,7 @@ impl Plugin for Preview {
         PluginInfo {
             name: "preview".into(),
             title: n_("Preview").into(),
-            about: n_("The live picture in the middle of the window, and the camera on/off button under it.").into(),
+            about: n_("See the live picture in the middle of the window and turn the camera on and off with the button under it.").into(),
             when_off: n_("Without the Preview plugin the window doesn't show the picture but apps using the virtual camera still get it.").into(),
             category: "preview".into(),
             icon: "eye".into(),

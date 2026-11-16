@@ -16,7 +16,7 @@ export component StartupSettings inherits Card {
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Stops Telescope opening when you sign in.");
+    reset-detail: @tr("Stop Telescope from opening when you sign in.");
     reset => { root.reset-clicked(); }
     keywords: @tr("search" => "login boot autostart run on startup tray minimized");
     icon: Icons.monitor;
@@ -65,7 +65,7 @@ export component AutomaticSettings inherits Card {
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Puts when to start and stop, the wait and the notice back to their usual choices.");
+    reset-detail: @tr("Set when to start and stop, the wait and the notice back to default.");
     reset => { root.reset-clicked(); }
     keywords: @tr("search" => "auto start stop camera app opens discord obs zoom meet teams phone device ready idle hands free");
     icon: Icons.bolt;

@@ -36,13 +36,10 @@
     <string name="setup_camera">Kamera</string>
     <string name="setup_camera_reason">Um mit den Kameras des Smartphones zu streamen.</string>
     <string name="setup_local_network">Lokales Netzwerk</string>
-    <string name="setup_local_network_reason">Ermöglicht deinem Computer, das Smartphone über Wi-Fi zu finden und sich damit zu verbinden. Für USB nicht erforderlich.</string>
     <string name="setup_notifications">Benachrichtigungen</string>
-    <string name="setup_notifications_reason">Zeigt an, wenn die Kamera streamt, und beendet das Streaming von dort aus.</string>
     <string name="setup_microphone">Mikrofon</string>
     <string name="setup_microphone_reason">Für das Telescope-Mikrofon auf deinem Computer.</string>
     <string name="setup_battery">Akku</string>
-    <string name="setup_battery_reason">Verhindert, dass Android den Stream stoppt, wenn der Bildschirm aus ist.</string>
     <string name="setup_allowed">Erlaubt</string>
     <string name="allow">Erlauben</string>
     <string name="open_settings">Einstellungen öffnen</string>
@@ -83,7 +80,6 @@
     <string name="local_only">Nur lokal - USB</string>
     <string name="local_only_hint">Die Kamera ist nur über eine USB-Verbindung erreichbar.</string>
     <string name="wait_for_computer">Auf meinen Computer warten</string>
-    <string name="wait_for_computer_hint">Ermöglicht einem gekoppelten Computer, die Kamera bei ausgeschaltetem Bildschirm zu starten.</string>
     <string name="stop_streaming">Streaming stoppen</string>
     <string name="status_title">Status</string>
     <string name="status_not_streaming">Streamt nicht</string>

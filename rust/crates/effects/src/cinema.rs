@@ -336,7 +336,7 @@ impl Plugin for CinemaPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("Cinema tools").into(),
-            about: n_("Focus peaking, zebras, false colour, scopes, framing guides and a level on the preview, for judging focus, exposure, framing and a straight horizon.").into(),
+            about: n_("Judge focus, exposure, framing and a straight horizon with focus peaking, zebras, false colour, scopes, framing guides and a level on the preview.").into(),
             when_off: n_("Without the Cinema tools plugin there's no Cinema tools card and the preview shows just the picture.").into(),
             category: "preview".into(),
             icon: "focus".into(),

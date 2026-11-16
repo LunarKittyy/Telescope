@@ -509,7 +509,7 @@ impl Plugin for BackgroundPlugin {
             name: NAME.into(),
             title: n_("Background").into(),
             about: n_("Blur the background behind you or swap it for a picture.").into(),
-            when_off: n_("Without the Background plugin there's no Background card and the background stays as the camera sees it.").into(),
+            when_off: n_("Without the Background plugin there's no Background card and the background is shown the way the camera sees it.").into(),
             category: "look".into(),
             icon: "image".into(),
             optional: true,
