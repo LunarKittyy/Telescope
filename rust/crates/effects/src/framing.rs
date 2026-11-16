@@ -88,7 +88,7 @@ const T_TICK: &str = "tick";
 /// The Speed bubble's timer: its dots run only while it is up.
 const T_CHASE: &str = "chase";
 const SWITCH_TIP: &str = n_("Zoom and pan to follow you.");
-const FRAMING_TIP: &str = n_("How much of you is in the picture, from just your head to all of you.");
+const FRAMING_TIP: &str = n_("Set how much of you is in the picture, from only your head to all of you.");
 const SPEED_TIP: &str = n_("How quickly the framing follows when you move.");
 const ROOM_TIP: &str = n_("How much you can move before the framing follows you, from a fidget to walking around.");
 const HAND_NAME: &str = n_("Show hands");

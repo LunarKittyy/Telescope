@@ -147,10 +147,10 @@ pub fn matting_text(on: bool, state: &str, pack: &VisionPack) -> (String, bool) 
         return (text, false);
     }
     if state == FAILED {
-        return (tr("The high quality cutout didn't load on this computer, so the normal one is used."), false);
+        return (tr("The normal cutout is used because the high quality one didn't load on this computer."), false);
     }
     if !pack.available {
-        return (tr("There's no high quality cutout for this computer yet, so the normal one is used."), false);
+        return (tr("The normal cutout is used because there's no high quality one for this computer yet."), false);
     }
     if !pack.error.is_empty() {
         return (pack.error.clone(), true);
@@ -285,7 +285,7 @@ mod tests {
         assert_eq!(matting_text(false, MISSING, &pack), (String::new(), false));
         assert_eq!(matting_text(true, MISSING, &pack), ("One-time download required (about 26 MB). Until then the normal cutout is used.".into(), true));
         assert!(matting_text(true, OFF, &pack).1);
-        assert_eq!(matting_text(true, MISSING, &VisionPack { available: false, ..pack.clone() }).0, "There's no high quality cutout for this computer yet, so the normal one is used.");
+        assert_eq!(matting_text(true, MISSING, &VisionPack { available: false, ..pack.clone() }).0, "The normal cutout is used because there's no high quality one for this computer yet.");
         assert_eq!(matting_text(true, MISSING, &VisionPack { error: "The download failed.".into(), ..pack.clone() }), ("The download failed.".into(), true));
         assert_eq!(matting_text(true, MISSING, &VisionPack { downloading: true, done: 1, size: 4, ..pack.clone() }).0, "Downloading… 25%");
         let ready = VisionPack { ready: true, ..pack };
@@ -293,6 +293,6 @@ mod tests {
         for state in [OFF, LOADING, READY] {
             assert_eq!(matting_text(true, state, &ready), (String::new(), false), "{state}");
         }
-        assert_eq!(matting_text(true, FAILED, &ready).0, "The high quality cutout didn't load on this computer, so the normal one is used.");
+        assert_eq!(matting_text(true, FAILED, &ready).0, "The normal cutout is used because the high quality one didn't load on this computer.");
     }
 }

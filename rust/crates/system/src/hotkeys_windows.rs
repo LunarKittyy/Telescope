@@ -281,7 +281,7 @@ mod real {
             self.send(Cmd::Suspend(on));
         }
         fn note(&self) -> String {
-            tr("Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all, so pick another.")
+            tr("Everywhere shortcuts are taken from Windows while Telescope runs. A key another app already took doesn't reach Telescope at all. Pick another.")
         }
         fn name(&self) -> &'static str {
             "WindowsHotkeys"

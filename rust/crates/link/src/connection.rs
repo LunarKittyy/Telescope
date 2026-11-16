@@ -841,7 +841,7 @@ pub fn problem_text(res: &Resolution, phone: &str, adb_available: bool) -> Strin
         PhoneStatus::NotPaired if res.before_tls => with_phone(tr("This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add device and scan the code again."), phone),
         PhoneStatus::NotPaired => with_phone(tr("{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add device to pair it again."), phone),
         PhoneStatus::LocalOnly => {
-            let mut text = with_phone(tr("Local only is on in the phone app, so {phone} only accepts USB. Plug it in with a cable, or turn Local only off on the phone."), phone);
+            let mut text = with_phone(tr("{phone} only accepts USB because Local only is on in the phone app. Plug it in with a cable, or turn Local only off on the phone."), phone);
             if crate::platform::windows() && !adb_available {
                 text += &format!(" {}", tr("USB needs adb, which Add device can get."));
             }
@@ -1067,7 +1067,7 @@ fn await_streaming(client: &dyn SessionCtl, progress: &dyn Fn(&str), pace: &dyn 
         let text = if started { tr("Phone's camera is opening... ({seconds}s)") } else { tr("Waiting for the phone's camera... ({seconds}s)") };
         progress(&text.field("seconds", &seconds));
     }
-    Err(tr("The phone's camera didn't finish starting in time.\n\nTry again. If the camera keeps failing to start, open Telescope on the phone."))
+    Err(tr("The phone's camera didn't finish starting in time.\n\nTry again. If the camera still fails to start, open Telescope on the phone."))
 }
 
 /// The opening body for a StreamRequest.
@@ -1305,7 +1305,7 @@ mod tests {
     #[test]
     fn a_cable_that_is_not_used_gets_explained() {
         let res = Resolution { usb_note: Some(UsbNote::AppClosed), ..ready(wifi()) };
-        assert_eq!(not_using_usb(&res).unwrap(), "Not using USB: phone plugged in, but Telescope isn't open on it.");
+        assert_eq!(not_using_usb(&res).unwrap(), "Not using USB: phone plugged in but Telescope isn't open on it.");
     }
 
     #[test]

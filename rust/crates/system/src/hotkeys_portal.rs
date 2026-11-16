@@ -131,7 +131,7 @@ impl HotkeyBackend for PortalHotkeys {
             };
             return first + " " + &tr("Bind a Copy command line in its own keyboard settings instead.");
         }
-        tr("Your desktop asks you to confirm global shortcuts, and you can change their keys in the desktop's settings. The key the desktop assigned is shown next to each shortcut.")
+        tr("Your desktop asks you to confirm global shortcuts and you can change their keys in the desktop's settings. The key the desktop assigned is shown next to each shortcut.")
     }
 
     fn system_picks_keys(&self) -> bool {

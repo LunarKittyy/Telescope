@@ -270,9 +270,9 @@ impl Failure {
             Failure::Camera(_) => n_("The camera couldn't take the photo."),
             Failure::Save => n_("Telescope couldn't save the photo."),
             Failure::Interrupted => n_("The photo was interrupted because the camera stopped."),
-            Failure::Timeout => n_("The camera took too long to take the photo. If the photo still arrives, it's saved and you get a notification."),
-            Failure::Locked(Class::Both) => n_("The camera's image quality is locked to RAW and JPEG together, so it can't take a JPEG on its own."),
-            Failure::Locked(_) => n_("The camera's image quality is locked to RAW, so it can't take a JPEG."),
+            Failure::Timeout => n_("The camera took too long to take the photo. The photo is saved and you get a notification if it still arrives."),
+            Failure::Locked(Class::Both) => n_("The camera can't take a JPEG alone because its image quality is locked to RAW and JPEG together."),
+            Failure::Locked(_) => n_("The camera can't take a JPEG because its image quality is locked to RAW."),
             Failure::Partial(_) => n_("The camera only sent part of the photo. The part that arrived is saved."),
         })
     }

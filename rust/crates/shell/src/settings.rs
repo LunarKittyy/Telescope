@@ -876,7 +876,7 @@ impl Settings {
         let _ = self.ui.set_property("result", SValue::Number(0.0));
         let _ = self.ui.set_property("results-note", s(&if partial && !hits.is_empty() { tr("Nothing matches every word. These match some of the words.") } else { String::new() }));
         let _ = self.ui.set_property("results-empty", s(&if hits.is_empty() {
-            fill(&tr("Nothing matches “{text}”. Try fewer words, or say what it does (resolution, microphone, startup)."), &[("text", text)])
+            fill(&tr("Nothing matches “{text}”. Try fewer words, or describe what it does (resolution, microphone, startup)."), &[("text", text)])
         } else { String::new() }));
         let _ = self.ui.set_property("page-title", s(&tr("Search results")));
         let _ = self.ui.set_property("searching", SValue::Bool(true));

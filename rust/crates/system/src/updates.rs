@@ -188,7 +188,7 @@ impl Updates<'_> {
     pub fn fetch_manifest(&self, channel: &str) -> Result<Option<Manifest>> {
         let reply = match self.opener.open(&manifest_url(channel)) {
             Ok(r) => r,
-            Err(NetError::Certificate) => return err("Couldn't check GitHub's certificate, so updates weren't checked. Security software or a network that inspects HTTPS can cause this."),
+            Err(NetError::Certificate) => return err("Updates weren't checked because GitHub's certificate couldn't be verified. Security software or a network that inspects HTTPS can cause this."),
             Err(NetError::Other(_)) => return err("Couldn't check for updates. Check the internet connection."),
         };
         if reply.status == 404 {
@@ -272,7 +272,7 @@ impl Updates<'_> {
             }
             let hex: String = digest.finish().as_ref().iter().map(|b| format!("{b:02x}")).collect();
             if hex != asset.sha256 {
-                return err("The download didn't match its checksum, so it wasn't installed.");
+                return err("The download wasn't installed because it didn't match its checksum.");
             }
             Ok(done)
         })();
@@ -347,7 +347,7 @@ pub fn self_update_blocker(directory: &Path, channel: &str) -> Option<String> {
         return Some(if telescope_core::system::appimage().is_some() {
             tr("Telescope can't update itself because the folder holding this AppImage isn't writable.")
         } else {
-            tr("Telescope's folder isn't writable, so it can't update itself.")
+            tr("Telescope can't update itself because its folder isn't writable.")
         });
     }
     None
@@ -356,7 +356,7 @@ pub fn self_update_blocker(directory: &Path, channel: &str) -> Option<String> {
 // ── Install ───────────────────────────────────────────────────────────────────
 
 fn unexpected_paths<T>() -> Result<T> {
-    err("The update contains unexpected paths, so it wasn't installed.")
+    err("The update wasn't installed because it contains unexpected paths.")
 }
 
 /// A member name that stays inside the folder it's unpacked to.
@@ -408,7 +408,7 @@ pub fn extract(archive: &Path, staging: &Path) -> Result<()> {
             }
             let kind = entry.header().entry_type();
             if !(kind.is_file() || kind.is_dir()) {
-                return err("The update contains unexpected files, so it wasn't installed.");
+                return err("The update wasn't installed because it contains unexpected files.");
             }
         }
         let mut unpacking = open()?;
@@ -504,7 +504,7 @@ pub(crate) fn install_windows_if(archive: &Path, directory: &Path, build: i64, m
     extract(archive, &staging)?;
     if !staging.join(EXE_NAME).is_file() {
         let _ = std::fs::remove_dir_all(&staging);
-        return err("The download doesn't contain Telescope, so it wasn't installed.");
+        return err("The download wasn't installed because it doesn't contain Telescope.");
     }
     if !loads(&staging.join(EXE_NAME)) {
         let _ = std::fs::remove_dir_all(&staging);
@@ -521,7 +521,7 @@ pub(crate) fn install_windows_if(archive: &Path, directory: &Path, build: i64, m
         match std::fs::remove_file(directory.join(leftover)) {
             Err(e) if e.kind() != io::ErrorKind::NotFound => {
                 let _ = std::fs::remove_dir_all(&staging);
-                return Err(UpdateError(tr("{file} is in use, so the update wasn't installed. Try again after a restart.").field("file", leftover)));
+                return Err(UpdateError(tr("The update wasn't installed because {file} is in use. Try again after a restart.").field("file", leftover)));
             }
             _ => {}
         }
@@ -589,7 +589,7 @@ pub(crate) fn install_linux_after(archive: &Path, directory: &Path, build: i64, 
     entries.sort();
     if !holds_telescope(&entries) {
         let _ = std::fs::remove_dir_all(&staging);
-        return err("The download doesn't contain Telescope, so it wasn't installed.");
+        return err("The download wasn't installed because it doesn't contain Telescope.");
     }
     if let Some(name) = foreign_entry(directory, &staging, &entries) {
         let _ = std::fs::remove_dir_all(&staging);
@@ -665,7 +665,7 @@ pub fn install_appimage(new: &Path, current: &Path, extracted: bool, build: i64,
     let failed = || UpdateError(tr("The update failed."));
     let (Some(directory), Some(name)) = (current.parent(), current.file_name()) else { return Err(failed()) };
     if !is_appimage(new) {
-        return err("The download doesn't contain Telescope, so it wasn't installed.");
+        return err("The download wasn't installed because it doesn't contain Telescope.");
     }
     let name = name.to_string_lossy().into_owned();
     // Installing would take the backup and journal another AppImage here may still need to roll back

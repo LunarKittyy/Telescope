@@ -10,7 +10,7 @@ import { Theme, Button } from "@ui-kit/ui-kit.slint";
 export component RestartBar inherits Rectangle {
     in property <string> note;
     // What Revert does, the tooltip's body under its name
-    in property <string> revert-tip: @tr("Put the plugins back the way they are in the running app, so nothing needs a restart.");
+    in property <string> revert-tip: @tr("Restore the plugins to how they are in the running app without needing a restart.");
     // The restart button's words, for an owner that asks once more before it goes ahead
     in property <string> restart-text: @tr("Restart now");
     in property <float> amount: 1;

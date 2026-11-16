@@ -178,7 +178,7 @@ fn a_settings_file_that_cant_be_copied_stops_everything_before_a_file_is_touched
     // A folder where the file should be: reading it fails, as a locked or unreadable file does
     std::fs::create_dir_all(dir.join("telescope_config.json")).unwrap();
     let e = back_up_settings(&ConfigFile::at(dir.join("telescope_config.json"))).unwrap_err();
-    assert!(e.0.contains("nothing was changed"), "{e}");
+    assert!(e.0.contains("Nothing was changed"), "{e}");
 }
 
 #[test]

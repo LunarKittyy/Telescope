@@ -502,7 +502,7 @@ impl WaitScreenPlugin {
         let (w, h) = self.size(host);
         // A short line under the picture, with the sentence as its tooltip
         let (note, detail, kind) = if !pick_error.is_empty() {
-            (tr("Couldn't use that image"), tr("{problem}. The current wait screen is kept.").field("problem", pick_error), "status_err")
+            (tr("Couldn't use that image"), tr("{problem}. The current wait screen is still used.").field("problem", pick_error), "status_err")
         } else if unreadable {
             (tr("Couldn't read that image"), tr("The default screen is showing. Choose another image."), "status_err")
         } else {

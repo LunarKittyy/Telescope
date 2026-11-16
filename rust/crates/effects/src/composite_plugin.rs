@@ -462,7 +462,7 @@ impl CompositePlugin {
         } else if live < 2 {
             tr("Active once two streams are running.")
         } else if self.target.is_none() {
-            tr("Set to output on {camera}, but no stream is running there.").field("camera", camera)
+            tr("Set to output on {camera} but no stream is running there.").field("camera", camera)
         } else if self.shared.store().stream_frame(self.target.as_deref()).is_none() {
             tr("Will output on {camera} once the stream there sends a picture.").field("camera", camera)
         } else {

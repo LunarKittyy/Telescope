@@ -473,7 +473,7 @@ impl UpdatesPlugin {
         if let Some(m) = &self.available {
             let mut text = with_version("Telescope {version} is available.", m);
             if self.moves_on_update() {
-                text = format!("{text} {}", tr("Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and paired phones are kept."));
+                text = format!("{text} {}", tr("Updating also installs it for your user with a Start menu entry and removes this unzipped copy. Settings and paired phones carry over."));
             }
             if let Some(blocker) = self.update_blocker() {
                 return (format!("{text} {blocker}"), "status_warn");
@@ -487,11 +487,11 @@ impl UpdatesPlugin {
             return (String::new(), "status_dim");
         }
         if let Some(m) = &self.rolled_back {
-            return (with_version("Telescope {version} didn't start after updating, so it's held back. Try again?", m), "status_warn");
+            return (with_version("Telescope {version} is held back because it didn't start after updating. Try again?", m), "status_warn");
         }
         let nightly = self.channel == "nightly";
         if self.built_channel == "dev" {
-            let mut text = tr("This is a source checkout, so update Telescope with git.");
+            let mut text = tr("This is a source checkout. Update Telescope with git.");
             if let Some(m) = &self.latest {
                 let latest = if nightly { "The latest nightly build is {version}." } else { "The latest stable build is {version}." };
                 text = format!("{text} {}", with_version(latest, m));
@@ -1145,7 +1145,7 @@ mod tests {
         fn back_up_settings(&self) -> Result<Option<PathBuf>, String> {
             self.back_events.lock().unwrap().push("backup".into());
             if self.backup_fails.load(Ordering::SeqCst) {
-                return Err("Couldn't save a copy of your settings, so nothing was changed.".into());
+                return Err("Nothing was changed because a copy of your settings couldn't be saved.".into());
             }
             Ok(Some(PathBuf::from("/settings/telescope_config.json.rust-1")))
         }

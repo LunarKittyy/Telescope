@@ -41,7 +41,7 @@ const TRIGGER_TEXTS: [(&str, &str); 4] = [
 ];
 /// Translators: Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons:
 /// use the names those browsers show in your language
-const CERT_NOTE: &str = n_("The browser warns that the connection isn't private: the certificate is this computer's own. \
+const CERT_NOTE: &str = n_("The browser warns that the connection isn't private because the certificate is this computer's own. \
                             On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed.");
 const TRIGGER_TIP: &str = n_("When the sign turns on. The mic only counts while it's streaming and not muted.");
 const ADDRESS_TIP: &str = n_("The address of this computer that the link uses.");
@@ -50,7 +50,7 @@ const NEW_LINK_TIP: &str = n_("Make a new link. The old link stops working.");
 const PAYLOAD_TIP: &str = n_("What is sent when the sign turns on or off.");
 const HEADER_TIP: &str = n_("Open the On Air settings.");
 const PAGE_NOTE: &str = n_("Open the link in a browser on any device on the same network and tap the page to make it full screen. \
-                            The link stays the same after Telescope restarts.");
+                            The link is the same after Telescope restarts.");
 
 /// secrets.token_urlsafe(18): 24 characters of the URL-safe alphabet.
 fn new_token() -> String {

@@ -113,7 +113,7 @@ export component MonitoringCard inherits Card {
         AlertTiles {
             label: @tr("Battery under");
             notify-tip: @tr("Show a notification when the battery is low.");
-            stop-tip: @tr("Stop the stream when the battery is low, and again after each restart until the battery is no longer low.");
+            stop-tip: @tr("Stop the stream when the battery is low and again after each restart until the battery is no longer low.");
             enabled: active;
             hue: root.hue;
             notify <=> root.batt-notify;
@@ -155,7 +155,7 @@ export component MonitoringCard inherits Card {
         AlertTiles {
             label: @tr("Hotter than");
             notify-tip: @tr("Show a notification when the phone is too hot.");
-            stop-tip: @tr("Stop the stream when the phone is too hot, and again after each restart until the phone cools down.");
+            stop-tip: @tr("Stop the stream when the phone is too hot and again after each restart until the phone cools down.");
             enabled: active;
             hue: root.hue;
             notify <=> root.temp-notify;

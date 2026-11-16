@@ -149,7 +149,7 @@ pub fn reset_failed(error: &str) -> Notice {
 
 /// A reset didn't go through because a new copy wouldn't start: the old settings are back.
 pub fn reset_not_restarted() -> Notice {
-    warning("Couldn't reset", tr("Telescope couldn't restart, so your settings are as they were. Try again, or close Telescope and open it again."))
+    warning("Couldn't reset", tr("Telescope couldn't restart and your settings are as they were. Try again, or close Telescope and open it again."))
 }
 
 /// A new copy wouldn't start, so this one carries on.
@@ -483,7 +483,7 @@ impl Panel {
             tile.on = true;
             tile.locked = true;
             tile.enabled = false;
-            tile.tooltip = tr("Telescope needs this plugin to work, so it can't be switched off.");
+            tile.tooltip = tr("This plugin can't be switched off because Telescope needs it to work.");
             tile.badges.push(Badge { text: tr("Required"), kind: "lock".into() });
             return tile;
         }
@@ -511,7 +511,7 @@ impl Panel {
             note = fill(&tr("The download failed. {error}"), &[("error", &dl.error())]);
             kind = "status_err";
         } else if needs && !dl.available() {
-            note = tr("There's no download for this computer yet, so the plugin can't be switched on.");
+            note = tr("The plugin can't be switched on because there's no download for this computer yet.");
             kind = "status_err";
         } else if on && needs {
             note = fill(&tr("The plugin's download (about {mb} MB) is missing. Switch the plugin off and on again to download it."), &[("mb", &dl.size_mb().to_string())]);
@@ -566,7 +566,7 @@ impl Panel {
             note = item.problem.clone();
             kind = "status_err";
         } else if item.changed {
-            note = tr("The plugin's files changed since you switched it on, so it's off. Switch it on again if you trust the new version.");
+            note = tr("The plugin is off because its files changed since you switched it on. Switch it on again if you trust the new version.");
             kind = "status_warn";
         } else if item.enabled && self.problems.contains_key(&item.name) {
             note = fill(&tr("Couldn't start: {problem}"), &[("problem", self.problems[&item.name].trim_end_matches('.'))]);
@@ -605,7 +605,7 @@ impl Panel {
         tile.locked = true;
         tile.enabled = false;
         tile.added = false;
-        tile.tooltip = tr("`telescope-rs dev --plugin` loads this plugin, so it's always on.");
+        tile.tooltip = tr("This plugin is always on because `telescope-rs dev --plugin` loads it.");
         tile.badges.push(Badge { text: tr("Being written"), kind: "added".into() });
         if !item.problem.is_empty() || self.problems.contains_key(&item.name) {
             let why = if item.problem.is_empty() { &self.problems[&item.name] } else { &item.problem };
@@ -774,13 +774,13 @@ impl Panel {
             PackZip::Started => {
                 self.refresh();
                 let mut outcome = Outcome::default();
-                outcome.notices.push(info("Installing the vision pack", tr("This is the vision pack, not a plugin. It's being checked and installed in the background, and the download banner shows how it goes.")));
+                outcome.notices.push(info("Installing the vision pack", tr("This is the vision pack, not a plugin. It's being checked and installed in the background and the download banner shows how it goes.")));
                 return Step::Done(outcome);
             }
             PackZip::Busy => {
                 self.refresh();
                 let mut outcome = Outcome::default();
-                outcome.notices.push(warning("The vision pack is busy", tr("The vision pack is already downloading or installing, so this file wasn't used. Try again when it's done.")));
+                outcome.notices.push(warning("The vision pack is busy", tr("This file wasn't used because the vision pack is already downloading or installing. Try again when it's done.")));
                 return Step::Done(outcome);
             }
             PackZip::NotPack => {}
@@ -794,7 +794,7 @@ impl Panel {
                 self.refresh();
                 return Step::Ask(question(
                     fill(&tr("Replace {plugin}?"), &[("plugin", &title)]),
-                    tr("The version in this .zip replaces the installed version and keeps its settings. Like any added plugin, it starts switched off."),
+                    tr("The version in this .zip replaces the installed version and its settings carry over. Like any added plugin, it's switched off at first."),
                     tr("Replace"), false), Commit::Install { path, replace: true });
             }
             Err(InstallFailure::Failed(why)) => {
@@ -806,7 +806,7 @@ impl Panel {
         };
         self.refresh();
         outcome.notices.push(if !item.problem.is_empty() {
-            warning("Installed, but not loaded", fill(&tr("{plugin} was installed, but it can't run yet. {problem}"), &[("plugin", &item.title), ("problem", &item.problem)]))
+            warning("Installed, but not loaded", fill(&tr("{plugin} was installed but it can't run yet. {problem}"), &[("plugin", &item.title), ("problem", &item.problem)]))
         } else if replace {
             info("Replaced", fill(&tr("{plugin} {version} is installed but switched off. To use it, switch it on again and restart Telescope."), &[("plugin", &item.title), ("version", &item.version)]))
         } else {

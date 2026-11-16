@@ -57,7 +57,7 @@ const SWITCH_TIP: &str = n_("Turn two running streams into one 3D picture.");
 const LOOK_TIP: &str = n_("Side by side suits a headset or a 3D screen and red and cyan suits glasses.");
 const DEPTH_TIP: &str = n_("Slide the two pictures apart or together to change how far forward the 3D reaches.");
 const HEIGHT_TIP: &str = n_("Lift or lower the right picture when the phones don't sit level.");
-const SIZE_TIP: &str = n_("Zoom in on the phone that sees the wider view, the right one over 100% and the left one under it, so both show the same thing.");
+const SIZE_TIP: &str = n_("Zoom in on the phone that sees the wider view (the right one over 100%, the left one under it) to make both show the same thing.");
 const TILT_TIP: &str = n_("Roll the right picture a little when one phone is tilted against the other.");
 const TIMING_TIP: &str = n_("Move the right picture earlier or later in time when it moves ahead of or behind the left one.");
 const FINE_TIP: &str = n_("Show the sliders that line the two pictures up by hand.");
@@ -734,13 +734,13 @@ impl StereoPlugin {
         }
         let seen = self.shared.hub().seen.filter(|(_, at)| monotonic_ns().saturating_sub(*at) < SEEN_NS);
         match seen {
-            None => (tr("Waiting"), "status_dim", tr("Both streams have to send a picture, and one of them has to be on the Telescope camera.")),
+            None => (tr("Waiting"), "status_dim", tr("Both streams have to send a picture and one of them has to be on the Telescope camera.")),
             Some((SyncStatus::InSync, _)) => (tr("In sync"), "status_ok", tr("The two pictures were taken within half a frame of each other.")),
-            Some((SyncStatus::Rough, _)) => (tr("Rough sync"), "status_warn", tr("The two pictures were taken a little apart, so fast movement can look doubled.")),
+            Some((SyncStatus::Rough, _)) => (tr("Rough sync"), "status_warn", tr("Fast movement can look doubled because the two pictures were taken a little apart.")),
             Some((SyncStatus::NotSynced, _)) => (
                 tr("Not synced"),
                 "status_warn",
-                tr("Telescope can't match the pictures by when they were taken (both phones need the newer phone app), so it uses the newest of each."),
+                tr("The newest picture of each is used because Telescope can't match the pictures by when they were taken (both phones need the newer phone app)."),
             ),
         }
     }
@@ -758,9 +758,9 @@ impl StereoPlugin {
             MatchState::Done(Outcome::Limited, _) => (
                 tr("Partly matched"),
                 "status_warn",
-                tr("A phone ran out of ISO range, or the two phones have no shutter speed in common, so the match is as close as it got."),
+                tr("The match is as close as it got because a phone ran out of ISO range or the two phones have no shutter speed in common."),
             ),
-            MatchState::Failed => (tr("Match failed"), "status_warn", tr("Telescope couldn't read both phones and their pictures, so nothing was matched.")),
+            MatchState::Failed => (tr("Match failed"), "status_warn", tr("Nothing was matched because Telescope couldn't read both phones and their pictures.")),
         }
     }
 
