@@ -308,7 +308,8 @@ function Scroll-To([string] $Name, [string] $Type = "", [int] $Notches = 4) {
     Start-Sleep -Milliseconds 500
     for ($i = 0; $i -lt 40; $i++) {
         $found = Find-Control $Name $Type 1
-        if ($found -and -not $found.Current.IsOffscreen) { return $found }
+        # Wholly inside the page, not just touching its bottom edge, so a press in its middle lands on it
+        if ($found -and -not $found.Current.IsOffscreen -and $found.Current.BoundingRectangle.Bottom -le $page.Bottom) { return $found }
         [Watch]::Wheel($x, $y, $Notches)
         Start-Sleep -Milliseconds 300
     }
