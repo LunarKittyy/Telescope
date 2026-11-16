@@ -282,8 +282,10 @@ enum Taken {
 
 /// Notes where the picture of a dequeued buffer is. Needs a valid dequeued pw_buffer.
 unsafe fn take_shot(buffer: *mut PwBuffer, negotiated: Negotiated) -> Result<Taken, String> {
-    // SAFETY: a dequeued pw_buffer points at its spa_buffer
-    let spa = unsafe { (*buffer).buffer.as_ref() }.ok_or("a buffer has no data")?;
+    // SAFETY: the caller hands a dequeued pw_buffer or null, which is turned away here
+    let buffer = unsafe { buffer.as_ref() }.ok_or("a buffer is missing")?;
+    // SAFETY: a dequeued pw_buffer points at its spa_buffer or holds null
+    let spa = unsafe { buffer.buffer.as_ref() }.ok_or("a buffer has no data")?;
     if spa.n_datas == 0 || spa.datas.is_null() {
         return Ok(Taken::Nothing);
     }
