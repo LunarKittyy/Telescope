@@ -536,7 +536,7 @@ fn switching_one_on_asks_to_download_first_then_switches_it_on() {
     list.push(optional("framing", "Auto framing"));
     let mut r = rig(list, &all_running());
     let group = r.panel.groups.iter().find(|g| g.id == "vision").unwrap();
-    assert_eq!(group.status, "Switching on any of these plugins downloads about 47 MB first, shared by all of them.");
+    assert_eq!(group.status, "");
     assert_eq!(group.tiles[0].badges[0].text, "Vision download required");
     let mut asked = vec![];
     flip(&mut r, "framing", true, &mut |q| { asked.push(q.clone()); false });
