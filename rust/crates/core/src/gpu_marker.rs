@@ -2,6 +2,7 @@
 //! file is removed once the window has shown. A file still there at the next start means that card (with that driver version) took
 //! the last start down, and it is left out of the order from then on. Both files sit in the settings folder, a dev profile's own.
 
+use crate::gpu_pick::has_version;
 use crate::i18n::{tr, Fields};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -16,6 +17,13 @@ pub struct Card {
 }
 
 impl Card {
+    /// Whether `self`, a card on the skip list, is this card. An old entry written without a driver version (the driver said none) still
+    /// matches the same card once a version is found for it.
+    pub fn is_listed_as(&self, listed: &Card) -> bool {
+        self.name == listed.name && self.backend == listed.backend
+            && (self.driver == listed.driver || (!has_version(&listed.driver) && self.driver.strip_prefix(listed.driver.as_str()).is_some_and(|rest| rest.starts_with(' '))))
+    }
+
     pub fn new(name: &str, backend: &str, driver: &str) -> Card {
         Card { name: name.trim().into(), backend: backend.into(), driver: driver.trim().into() }
     }
@@ -38,7 +46,7 @@ const MAX_SKIPPED: usize = 8;
 /// the last start closed on, if anything.
 pub fn after_start(marker: Option<Card>, mut skipped: Vec<Card>) -> (Vec<Card>, Option<Card>) {
     let Some(card) = marker else { return (skipped, None) };
-    if !skipped.contains(&card) {
+    if !skipped.iter().any(|s| card.is_listed_as(s)) {
         skipped.push(card.clone());
     }
     let extra = skipped.len().saturating_sub(MAX_SKIPPED);
@@ -48,7 +56,7 @@ pub fn after_start(marker: Option<Card>, mut skipped: Vec<Card>) -> (Vec<Card>, 
 
 /// What is left of a list of adapters after the skipped cards go, in the same order.
 pub fn without_skipped<T>(list: Vec<T>, card_of: impl Fn(&T) -> Card, skipped: &[Card]) -> Vec<T> {
-    list.into_iter().filter(|item| !skipped.contains(&card_of(item))).collect()
+    list.into_iter().filter(|item| !skipped.iter().any(|s| card_of(item).is_listed_as(s))).collect()
 }
 
 #[derive(Default)]
@@ -92,7 +100,7 @@ pub fn begin_start(folder: &Path) -> Option<Card> {
 
 /// Whether the card is on the skip list (always false before `begin_start`).
 pub fn is_skipped(card: &Card) -> bool {
-    state().skipped.contains(card)
+    state().skipped.iter().any(|s| card.is_listed_as(s))
 }
 
 /// The skip list as it stands.
@@ -161,6 +169,21 @@ mod tests {
     fn a_new_driver_version_is_another_card() {
         let skipped = [card("A", "21.5.2")];
         assert_eq!(without_skipped(vec![card("A", "21.5.2"), card("A", "22.1.0"), card("B", "21.5.2")], |c| c.clone(), &skipped), [card("A", "22.1.0"), card("B", "21.5.2")]);
+    }
+
+    #[test]
+    fn an_old_entry_without_a_version_still_skips_the_card_once_a_version_is_found() {
+        let skipped = [card("A", "Intel driver")];
+        let list = vec![card("A", "Intel driver 31.0.101.2141"), card("A", "Other 31.0.101.2141"), card("A", "Intel driver"), card("B", "Intel driver 1.2")];
+        assert_eq!(without_skipped(list, |c| c.clone(), &skipped), [card("A", "Other 31.0.101.2141"), card("B", "Intel driver 1.2")]);
+        let (list, _) = after_start(Some(card("A", "Intel driver 31.0.101.2141")), skipped.to_vec());
+        assert_eq!(list.len(), 1);
+    }
+
+    #[test]
+    fn an_entry_with_a_version_does_not_match_a_newer_one_that_starts_the_same() {
+        let skipped = [card("A", "Intel driver 31.0.1")];
+        assert_eq!(without_skipped(vec![card("A", "Intel driver 31.0.1 b")], |c| c.clone(), &skipped).len(), 1);
     }
 
     #[test]
