@@ -5,6 +5,7 @@ use serde_json::Value;
 use std::sync::Arc;
 use telescope_core::frame::{Frame, FrameContext};
 use telescope_core::media::Media;
+use telescope_core::time::monotonic_ns;
 use telescope_core::Event;
 
 /// The person mask of this frame as a picture of its own size, when the stream has one that fits.
@@ -251,4 +252,27 @@ mod tests {
         assert_eq!(p.hear(&Event::SourceSelected { source_id: "browser".into() }), Some(true));
         assert_eq!(p.hear(&Event::StreamStopped), None);
     }
+}
+
+/// secrets.token_urlsafe(18): 24 characters of the URL-safe alphabet, the token in a link to a page this computer serves.
+pub(crate) fn new_token() -> String {
+    use base64::Engine;
+    use ring::rand::SecureRandom;
+    let mut bytes = [0u8; 18];
+    if ring::rand::SystemRandom::new().fill(&mut bytes).is_err() {
+        // No randomness from the system: the clock and the process make a link nobody could guess from outside the house
+        let seed = monotonic_ns() ^ ((std::process::id() as u64) << 32);
+        bytes.iter_mut().enumerate().for_each(|(i, b)| *b = (seed.rotate_left(i as u32 * 7) >> 3) as u8);
+    }
+    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
+}
+
+/// A link's token as a plugin takes it back from its settings: 16 to 64 characters of the URL-safe alphabet.
+pub(crate) fn token_ok(token: &str) -> bool {
+    (16..=64).contains(&token.chars().count()) && token.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+}
+
+/// hmac.compare_digest
+pub(crate) fn same(a: &str, b: &str) -> bool {
+    a.len() == b.len() && a.bytes().zip(b.bytes()).fold(0u8, |diff, (x, y)| diff | (x ^ y)) == 0
 }

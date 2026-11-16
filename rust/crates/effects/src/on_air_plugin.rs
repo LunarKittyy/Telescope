@@ -4,6 +4,7 @@
 //! camera_watched comes from Wait screen; without it this plugin watches the camera itself.
 
 use telescope_core::i18n::Fields;
+use crate::shared::{new_token, token_ok};
 use crate::on_air::{self, Debounce, Sign, WebhookRequest, WebhookSender, DEFAULT_TRIGGER, METHODS, ON_AIR_PORT, RETRY_S, TRIGGERS};
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -51,24 +52,6 @@ const PAYLOAD_TIP: &str = n_("What is sent when the sign turns on or off.");
 const HEADER_TIP: &str = n_("Open the On Air settings.");
 const PAGE_NOTE: &str = n_("Open the link in a browser on any device on the same network and tap the page to make it full screen. \
                             The link stays the same after Telescope restarts.");
-
-/// secrets.token_urlsafe(18): 24 characters of the URL-safe alphabet.
-fn new_token() -> String {
-    use base64::Engine;
-    use ring::rand::SecureRandom;
-    let mut bytes = [0u8; 18];
-    if ring::rand::SystemRandom::new().fill(&mut bytes).is_err() {
-        // No randomness from the system: the clock and the process make a link nobody could guess from outside the house
-        let seed = monotonic_ns() ^ ((std::process::id() as u64) << 32);
-        bytes.iter_mut().enumerate().for_each(|(i, b)| *b = (seed.rotate_left(i as u32 * 7) >> 3) as u8);
-    }
-    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes)
-}
-
-/// A link's token as the plugin takes it back: 16 to 64 characters of the URL-safe alphabet.
-fn token_ok(token: &str) -> bool {
-    (16..=64).contains(&token.chars().count()) && token.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
-}
 
 pub struct OnAirPlugin {
     web: Arc<dyn Web>,
