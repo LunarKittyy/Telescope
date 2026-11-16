@@ -5,13 +5,18 @@
 use crate::cpu::Rgb;
 use crate::stereo::Eye;
 use serde_json::{json, Value};
+use telescope_core::image::over_rows;
 
 /// How close the two pictures' mean brightness has to get, as a part of the left one's.
 pub const LUMA_TOLERANCE: f64 = 0.03;
 /// How many times the ISO is changed in all before Match settles for what it got.
 pub const MAX_ISO_STEPS: u32 = 6;
-/// The mean brightness (0 to 255) a phone is nudged to when it is left on its own, a bit under the middle.
+/// The mean brightness (0 to 255) the left phone is nudged to when its own picture wasn't read before Match changed it, a bit under the middle.
 pub const TARGET_LUMA: f64 = 118.0;
+/// How old a reading of the left phone's own picture can be and still say what it looked like on automatic, nanoseconds.
+pub const OWN_LOOK_NS: u64 = 3_000_000_000;
+/// What the Brightness slider reaches, in stops (EV) either way.
+pub const BRIGHTNESS_LIMIT: f64 = 2.0;
 /// How long a change takes to show in the pictures (the phone applies it, encodes it, and the pairing hands it on), nanoseconds.
 pub const SETTLE_NS: u64 = 700_000_000;
 /// The ISO a phone on automatic starts from, since automatic doesn't say what it chose.
@@ -82,11 +87,23 @@ impl Lut {
 
     /// The picture through the curves, in place.
     pub fn apply(&self, rgb: &mut Rgb) {
-        for px in rgb.data.as_chunks_mut::<3>().0 {
-            px[0] = self.0[0][px[0] as usize];
-            px[1] = self.0[1][px[1] as usize];
-            px[2] = self.0[2][px[2] as usize];
-        }
+        over_rows(&mut rgb.data, rgb.w * 3, |_, line| {
+            for px in line.as_chunks_mut::<3>().0 {
+                *px = [self.0[0][px[0] as usize], self.0[1][px[1] as usize], self.0[2][px[2] as usize]];
+            }
+        });
+    }
+
+    /// The picture through the curves, as a new one.
+    pub fn mapped(&self, rgb: &Rgb) -> Rgb {
+        let mut out = Rgb::scratch(rgb.w, rgb.h);
+        over_rows(&mut out.data, rgb.w * 3, |y, line| {
+            let from = &rgb.data[y * rgb.w * 3..(y + 1) * rgb.w * 3];
+            for (o, p) in line.as_chunks_mut::<3>().0.iter_mut().zip(from.as_chunks::<3>().0) {
+                *o = [self.0[0][p[0] as usize], self.0[1][p[1] as usize], self.0[2][p[2] as usize]];
+            }
+        });
+        out
     }
 }
 
@@ -209,13 +226,29 @@ pub struct Run {
     steps: u32,
     changed_at: u64,
     limited: bool,
+    target: f64,
 }
 
 impl Run {
     /// A run from the ISOs both phones were just set to. `tune_left`: the left phone's ISO is a guess and needs a brightness of its own.
     /// `brightness` false skips straight to the colour (phones that can't take a manual exposure).
     pub fn new(iso: [i64; 2], limits: [(i64, i64); 2], tune_left: bool, brightness: bool, now: u64) -> Run {
-        Run { iso, limits, left_done: !tune_left, brightness, steps: 0, changed_at: now, limited: false }
+        Run { iso, limits, left_done: !tune_left, brightness, steps: 0, changed_at: now, limited: false, target: TARGET_LUMA }
+    }
+
+    /// The same run, bringing the left phone to this brightness (its own picture before Match, on automatic) instead of the stock one.
+    pub fn with_target(mut self, luma: f64) -> Run {
+        self.target = luma;
+        self
+    }
+
+    /// Whether the run sets the phones' ISO at all (a run for phones with no manual exposure only fits the colour).
+    pub fn manual(&self) -> bool {
+        self.brightness
+    }
+
+    pub fn limits(&self) -> [(i64, i64); 2] {
+        self.limits
     }
 
     /// The same run, ending as partly matched whatever the brightness does: the phones had no exposure in common to be set to.
@@ -246,7 +279,7 @@ impl Run {
             return Act::Fit(self.outcome());
         }
         if !self.left_done {
-            let step = if self.steps >= MAX_ISO_STEPS { IsoStep::Limit } else { iso_step(self.iso[0], luma[0], TARGET_LUMA, self.limits[0]) };
+            let step = if self.steps >= MAX_ISO_STEPS { IsoStep::Limit } else { iso_step(self.iso[0], luma[0], self.target, self.limits[0]) };
             match step {
                 IsoStep::Set(iso) => return self.set(Eye::Left, iso, now),
                 IsoStep::Limit => (self.left_done, self.limited) = (true, true),
@@ -350,6 +383,29 @@ pub fn plan(left: &Value, right: &Value, frame_ns: u64) -> Option<Start> {
     let first = from_left.unwrap_or(START_ISO);
     let iso = [first.clamp(limits[0].0, limits[0].1), first.clamp(limits[1].0, limits[1].1)];
     Some(Start { shutter: pick_shutter(left, right, frame_ns), iso, limits, tune_left: from_left.is_none() })
+}
+
+/// The range of the Brightness slider, in stops, for phones Match left at the ISOs `base` inside `limits`: the slider's own reach held to what both
+/// lenses take, so neither phone is asked for an ISO it hasn't got.
+pub fn brightness_range(base: [i64; 2], limits: [(i64, i64); 2]) -> (f64, f64) {
+    let (mut lo, mut hi) = (-BRIGHTNESS_LIMIT, BRIGHTNESS_LIMIT);
+    for (iso, (min, max)) in base.into_iter().zip(limits) {
+        if iso > 0 {
+            lo = lo.max((min.max(1) as f64 / iso as f64).log2());
+            hi = hi.min((max.max(1) as f64 / iso as f64).log2());
+        }
+    }
+    (lo.min(0.0), hi.max(0.0))
+}
+
+/// The ISOs both phones go to for `ev` stops brighter than the ones Match left (both scaled by the same factor), and the stops that gave, which stops
+/// short of `ev` where a phone ran out of range.
+pub fn brightness_isos(base: [i64; 2], limits: [(i64, i64); 2], ev: f64) -> ([i64; 2], f64) {
+    let (lo, hi) = brightness_range(base, limits);
+    let ev = if ev.is_finite() { ev.clamp(lo, hi) } else { 0.0 };
+    let factor = ev.exp2();
+    let isos = std::array::from_fn(|i| ((base[i] as f64 * factor).round() as i64).clamp(limits[i].0.min(limits[i].1), limits[i].1.max(limits[i].0)));
+    (isos, ev)
 }
 
 /// The /v1/control bodies that put a phone on a manual ISO and shutter (it goes manual once it has both).

@@ -582,6 +582,10 @@ pub trait HostPreview {
     fn unwarp(&self, u: f64, v: f64) -> (f64, f64) {
         (u, v)
     }
+    /// While source_id's stream is the one the panels show, the preview draws target's output (what its virtual camera sends) instead of its own:
+    /// the cards still act on source_id's stream. None as the target takes the owner's redirect off, and so does the owner going away. An owner
+    /// has one at a time; a host without a preview ignores it.
+    fn preview_follows(&mut self, _owner: &str, _source_id: Option<&str>, _target: Option<&str>) {}
 }
 
 /// Full-quality photos taken on the phone.

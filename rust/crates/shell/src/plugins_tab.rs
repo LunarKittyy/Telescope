@@ -57,7 +57,7 @@ pub enum Filter {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Badge {
     pub text: String,
-    /// "lock", "vision" or "added".
+    /// "lock", "vision", "added", "lab" or "limited".
     pub kind: String,
 }
 
@@ -463,6 +463,12 @@ impl Panel {
         tile.name = p.name.clone();
         tile.optional = p.optional;
         tile.when_off = if p.when_off.is_empty() { String::new() } else { tr(&p.when_off) };
+        if p.lab {
+            tile.badges.push(Badge { text: tr("Lab"), kind: "lab".into() });
+        }
+        if p.limited {
+            tile.badges.push(Badge { text: tr("Limited"), kind: "limited".into() });
+        }
         tile
     }
 
@@ -1012,6 +1018,42 @@ mod tests {
         panel.refresh();
         panel.commit(Commit::Restart);
         assert!(panel.footer_note().starts_with("Restart to apply"), "the next change gets the usual bar again");
+    }
+
+    #[test]
+    fn a_lab_plugin_gets_the_lab_badge_and_others_do_not() {
+        let lab = PluginInfo { lab: true, ..builtin("preview") };
+        let mut panel = Panel::new(vec![lab, builtin("plain")], BTreeSet::new(), BTreeMap::new(), Arc::new(Admin::default()), Box::new(NoVision));
+        panel.refresh();
+        let kinds = |name: &str| -> Vec<String> {
+            let tile = panel.shown("", Filter::All).into_iter().flat_map(|(g, _)| g.tiles).find(|t| t.name == name).unwrap();
+            tile.badges.into_iter().map(|b| b.kind).collect()
+        };
+        assert_eq!(kinds("preview"), ["lab"]);
+        assert!(kinds("plain").is_empty());
+    }
+
+    #[test]
+    fn only_the_3d_plugin_is_lab_in_builtins_json() {
+        let infos: Vec<PluginInfo> = serde_json::from_str(include_str!("../data/builtins.json")).unwrap();
+        let lab: Vec<&str> = infos.iter().filter(|p| p.lab).map(|p| p.name.as_str()).collect();
+        assert_eq!(lab, ["stereo"]);
+    }
+
+    #[test]
+    fn only_privacy_blur_is_limited_in_builtins_json() {
+        let infos: Vec<PluginInfo> = serde_json::from_str(include_str!("../data/builtins.json")).unwrap();
+        let limited: Vec<&str> = infos.iter().filter(|p| p.limited).map(|p| p.name.as_str()).collect();
+        assert_eq!(limited, ["privacy_blur"]);
+    }
+
+    #[test]
+    fn a_plugin_with_both_flags_gets_lab_first_then_limited() {
+        let both = PluginInfo { lab: true, limited: true, ..builtin("both") };
+        let mut panel = Panel::new(vec![both, builtin("plain")], BTreeSet::new(), BTreeMap::new(), Arc::new(Admin::default()), Box::new(NoVision));
+        panel.refresh();
+        let tile = panel.shown("", Filter::All).into_iter().flat_map(|(g, _)| g.tiles).find(|t| t.name == "both").unwrap();
+        assert_eq!(tile.badges.into_iter().map(|b| b.kind).collect::<Vec<_>>(), ["lab", "limited"]);
     }
 
     fn plain_panel() -> Panel {

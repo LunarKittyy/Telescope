@@ -312,6 +312,7 @@ impl Plugin for PrivacyBlurPlugin {
             icon: "eye_off".into(),
             optional: true,
             needs_vision: true,
+            limited: true,
             in_presets: true,
             frame_stage: FrameStage::Privacy,
             ..Default::default()

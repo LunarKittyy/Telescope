@@ -507,3 +507,9 @@ fn reset_puts_the_mode_back_and_keeps_the_switch() {
     assert!(rig.host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
     assert!(rig.host.calls.iter().any(|c| c == "schedule_save"));
 }
+
+#[test]
+fn privacy_blur_is_tagged_limited_and_not_lab() {
+    let info = PrivacyBlurPlugin::new().info();
+    assert!(info.limited && !info.lab);
+}
