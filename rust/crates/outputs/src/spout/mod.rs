@@ -566,6 +566,7 @@ impl Plugin for SpoutPlugin {
             about: n_("Stream from Spout senders: games, OBS and other programs on this computer that share their picture through Spout.").into(),
             when_off: n_("Without Spout capture the senders aren't in the device picker and the Spout capture card is gone too.").into(),
             optional: true,
+            lab: true,
             category: "streaming".into(),
             icon: "monitor".into(),
             pinned: true,
