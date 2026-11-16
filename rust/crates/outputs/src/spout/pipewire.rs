@@ -89,6 +89,10 @@ mod tests {
     use crate::pipewire::VideoFormat;
     use std::time::Instant;
 
+    /// Not a multiple of 64 pixels, so the producers' rows have padding the reader must drop.
+    const WIDTH: u32 = 300;
+    const HEIGHT: u32 = 180;
+
     /// What libfunnel gives a Spout2PW node for the sender called `sender` (checked against its source).
     fn spout2pw_node(sender: &str, memory: Memory, format: VideoFormat) -> SourceSpec {
         let sanitized: String = sender.chars().map(|c| if c.is_ascii_alphanumeric() || "-_.".contains(c) { c } else { '_' }).collect();
@@ -103,7 +107,7 @@ mod tests {
             ("application.name", "Spout2PW".to_string()),
             ("application.id", "spout2pw".to_string()),
         ];
-        SourceSpec { name: sender.to_string(), props: props.into_iter().map(|(k, v)| (k.to_string(), v)).collect(), width: 320, height: 180, format, memory }
+        SourceSpec { name: sender.to_string(), props: props.into_iter().map(|(k, v)| (k.to_string(), v)).collect(), width: WIDTH, height: HEIGHT, format, memory }
     }
 
     fn wait_for<T>(timeout: Duration, mut check: impl FnMut() -> Option<T>) -> Option<T> {
@@ -140,17 +144,17 @@ mod tests {
 
         let listed = wait_for(Duration::from_secs(5), || backend.senders().into_iter().find(|s| s.name == sender && s.width != 0));
         let listed = listed.expect("the sender should be listed with its size");
-        assert_eq!((listed.width, listed.height), (320, 180));
+        assert_eq!((listed.width, listed.height), (WIDTH, HEIGHT));
         assert_eq!(listed.key, format!("spout2pw.{}", sender.replace(' ', "_")));
         assert!(backend.senders().iter().all(|s| s.name != "Webcam thing"), "only Spout2PW's nodes are senders");
 
         let mut reader = backend.open(&listed.key).expect("the sender should open");
         let picture = wait_for(Duration::from_secs(8), || reader.next(Duration::from_millis(500)).expect("reading shouldn't fail")).expect("a picture should arrive");
-        assert_eq!((picture.width, picture.height, picture.fourcc), (320, 180, format.fourcc()));
-        assert_eq!(picture.data.len(), 320 * 180 * 4);
-        for (x, y) in [(0, 0), (319, 0), (159, 100), (160, 100), (0, 179), (319, 179), (10, 140)] {
-            let at = (y * 320 + x) as usize * 4;
-            let expected = test_pixel(format, 320, 180, x, y);
+        assert_eq!((picture.width, picture.height, picture.fourcc), (WIDTH, HEIGHT, format.fourcc()));
+        assert_eq!(picture.data.len(), (WIDTH * HEIGHT * 4) as usize);
+        for (x, y) in [(0, 0), (WIDTH - 1, 0), (WIDTH / 2 - 1, 100), (WIDTH / 2, 100), (0, HEIGHT - 1), (WIDTH - 1, HEIGHT - 1), (10, 140)] {
+            let at = (y * WIDTH + x) as usize * 4;
+            let expected = test_pixel(format, WIDTH, HEIGHT, x, y);
             // The X formats' fourth byte is whatever the producer left there
             let compared = if matches!(format, VideoFormat::Bgrx | VideoFormat::Rgbx) { 3 } else { 4 };
             assert_eq!(&picture.data[at..at + compared], &expected[..compared], "pixel ({x}, {y})");

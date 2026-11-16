@@ -206,7 +206,9 @@ impl FakeSource {
         }
         let spec = Arc::new(spec);
         let props: Vec<(&str, &str)> = spec.props.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
-        let config = StreamConfig { name: &spec.name, props: &props, direction: PW_DIRECTION_OUTPUT, target: SPA_ID_INVALID, flags: PW_STREAM_FLAG_DRIVER | PW_STREAM_FLAG_ALLOC_BUFFERS | PW_STREAM_FLAG_MAP_BUFFERS };
+        // The application allocates the DMA-BUFs itself, and shared memory is left to the stream
+        let flags = PW_STREAM_FLAG_DRIVER | PW_STREAM_FLAG_MAP_BUFFERS | if spec.memory == Memory::DmaBuf { PW_STREAM_FLAG_ALLOC_BUFFERS } else { 0 };
+        let config = StreamConfig { name: &spec.name, props: &props, direction: PW_DIRECTION_OUTPUT, target: SPA_ID_INVALID, flags };
         let stream = Arc::new(Stream::connect(connection, &config, &[enum_format(&spec, false)], Box::new(Producer { spec: spec.clone() }))?);
         let running = Arc::new(AtomicBool::new(true));
         let ticker = {
