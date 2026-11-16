@@ -43,7 +43,7 @@
     others[0].before(Object.assign(document.createElement("span"), { className: "dl-or", textContent: "or" }));
   }
   // Only a Mac or iPhone gets a note, since neither can run the desktop app
-  if (os === "apple") downloads.append(Object.assign(document.createElement("p"), { className: "dl-note", textContent: "The desktop app needs a Linux or Windows computer (there's no Mac version). An iPhone or iPad works as the camera straight from its browser with nothing to install." }));
+  if (os === "apple") downloads.append(Object.assign(document.createElement("p"), { className: "dl-note", textContent: "The desktop app requires a Linux or Windows computer (currently no Mac version). An iPhone or iPad works as the camera using the Browser camera feature." }));
   for (const slot of $$("[data-clone=downloads]")) slot.innerHTML = downloads.innerHTML;
 
   document.addEventListener("click", e => {
