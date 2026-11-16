@@ -694,7 +694,7 @@ msgstr "A cor escolhida na pré-visualização. Clique para escolher novamente."
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Clique na tela atrás de você na pré-visualização. Esc cancela."
 
-#: rust/crates/effects/src/chroma_key.rs:394 rust/crates/effects/src/chroma_key.rs:430 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:476 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:709 rust/crates/shell/src/streams.rs:1766 rust/crates/shell/src/window.rs:1726 rust/crates/shell/src/worker.rs:569 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:394 rust/crates/effects/src/chroma_key.rs:430 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:475 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:709 rust/crates/shell/src/streams.rs:1766 rust/crates/shell/src/window.rs:1726 rust/crates/shell/src/worker.rs:569 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Não está transmitindo"
 
@@ -4921,56 +4921,56 @@ msgstr "Falha ao remover arquivos de persistência"
 msgid "Removed {paths}"
 msgstr "Removido {paths}"
 
-#: rust/crates/outputs/src/spout/mod.rs:46
+#: rust/crates/outputs/src/spout/mod.rs:45
 msgid "The sender isn't running. Start it again to continue."
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:47
+#: rust/crates/outputs/src/spout/mod.rs:46
 msgid "The sender isn't sharing a picture. Check that it's running and sending."
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:48
+#: rust/crates/outputs/src/spout/mod.rs:47
 msgid "Telescope can't read this sender's picture. Try another sender, or check the sender's output settings."
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:270
+#: rust/crates/outputs/src/spout/mod.rs:269
 msgid "Check that the sender is still running."
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:470
+#: rust/crates/outputs/src/spout/mod.rs:469
 msgid "Sender not running"
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:472 rust/crates/outputs/src/webcam.rs:961
+#: rust/crates/outputs/src/spout/mod.rs:471 rust/crates/outputs/src/webcam.rs:961
 msgid "Not sending anything"
 msgstr "Não está enviando nada"
 
-#: rust/crates/outputs/src/spout/mod.rs:474 rust/crates/outputs/src/webcam.rs:963
+#: rust/crates/outputs/src/spout/mod.rs:473 rust/crates/outputs/src/webcam.rs:963
 msgid "Starting…"
 msgstr "Iniciando…"
 
-#: rust/crates/outputs/src/spout/mod.rs:483
+#: rust/crates/outputs/src/spout/mod.rs:482
 msgid "How many pictures a second to take. Spout senders don't say their own rate."
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:497 rust/crates/outputs/ui/spout.slint:14
+#: rust/crates/outputs/src/spout/mod.rs:496 rust/crates/outputs/ui/spout.slint:14
 msgid "Spout capture"
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:498
+#: rust/crates/outputs/src/spout/mod.rs:497
 msgid "Stream from Spout senders: games, OBS and other programs on this computer that share their picture through Spout."
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:499
+#: rust/crates/outputs/src/spout/mod.rs:498
 msgid "Without Spout capture the senders aren't in the device picker and the Spout capture card is gone too."
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:540
+#: rust/crates/outputs/src/spout/mod.rs:539
 #, python-brace-format
 msgid "{name} isn't running"
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:540
+#: rust/crates/outputs/src/spout/mod.rs:539
 msgid "Start it, or pick another source."
 msgstr ""
 

@@ -8,8 +8,7 @@
 
 #[cfg(windows)]
 mod windows;
-// TODO: turn the cfg into `target_os = "linux"` once pipewire.rs is here, which gives Linux its backend
-#[cfg(all(target_os = "linux", spout_pipewire))]
+#[cfg(target_os = "linux")]
 mod pipewire;
 
 use crate::convert::rgb_to_i420;
@@ -86,9 +85,9 @@ pub trait Reader: Send {
 fn system_backend() -> Option<Arc<dyn Backend>> {
     #[cfg(windows)]
     return self::windows::backend().map(Arc::from);
-    #[cfg(all(target_os = "linux", spout_pipewire))]
+    #[cfg(target_os = "linux")]
     return pipewire::backend().map(Arc::from);
-    #[cfg(not(any(windows, all(target_os = "linux", spout_pipewire))))]
+    #[cfg(not(any(windows, target_os = "linux")))]
     None
 }
 
