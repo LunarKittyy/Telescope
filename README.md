@@ -24,7 +24,7 @@
 
 1. **Get the desktop app.** On Windows run `TelescopeSetup.exe` (it installs only for your user and needs no admin). On Linux allow `Telescope-x86_64.AppImage` to run as a program (in its Properties, or `chmod +x`) and open it. The tarball on the [releases page](../../releases) works too: extract it and run `./start.sh`.
 2. **Follow the checklist it opens with.** It sets up the virtual camera, puts the phone app on your phone with a QR code and pairs the two.
-3. **Pick the camera in your app.** It's called **Telescope** on Windows and **Phone Camera** on Linux, in Discord, Zoom, OBS or anything else that takes a webcam.
+3. **Pick the camera in your app.** It's called **Telescope**, in Discord, Zoom, OBS or anything else that takes a webcam.
 
 <details>
 <summary>What Linux needs</summary>

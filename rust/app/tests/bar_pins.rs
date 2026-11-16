@@ -90,11 +90,11 @@ fn the_camera_the_frame_rate_and_the_throughput_are_pinned_to_begin_with() {
     assert_eq!(r.text("status"), "Not streaming");
     assert!(pins(&r).iter().all(|p| p["state"] == "2"), "nothing to read while idle");
     r.start();
-    reports(&r, 0, "Phone Camera", 30, "12.4 Mbps");
+    reports(&r, 0, "Telescope", 30, "12.4 Mbps");
     assert!(!r.flag("bar-status-shown"), "streaming: the pins say it, not a sentence");
     assert_eq!(shown_ids(&r), ["camera", "fps", "throughput"]);
     let (camera, fps, net) = (pin(&r, "camera"), pin(&r, "fps"), pin(&r, "throughput"));
-    assert_eq!((camera["value"].as_str(), camera["sub"].as_str(), camera["side"].as_str()), ("Phone Camera", "1920 \u{d7} 1080", "0"));
+    assert_eq!((camera["value"].as_str(), camera["sub"].as_str(), camera["side"].as_str()), ("Telescope", "1920 \u{d7} 1080", "0"));
     assert_eq!((fps["value"].as_str(), fps["side"].as_str(), net["value"].as_str(), net["side"].as_str()), ("30 fps", "1", "12.4 Mbps", "1"));
     let x = |p: &Row| p["x"].parse::<f32>().unwrap();
     assert!(x(&camera) < x(&fps) && x(&fps) < x(&net), "left side from the left edge, right side from the right");
@@ -160,7 +160,7 @@ fn the_camera_pin_cannot_be_taken_off_while_two_streams_run() {
 fn a_pin_its_side_and_its_order_are_kept_and_the_defaults_are_not_written() {
     let r = with_stats("bar-persist");
     r.start();
-    reports(&r, 0, "Phone Camera", 30, "12.4 Mbps");
+    reports(&r, 0, "Telescope", 30, "12.4 Mbps");
     r.emit(Event::StatsUpdated { snapshot: Hub::new().snapshot_at(telescope_core::time::monotonic_ns(), None, Some(200 << 20)) });
     assert!(saved(&r).is_null(), "the defaults stay out of the file");
     // Pin from the card, which puts it at the inner end of the right side
@@ -228,7 +228,7 @@ fn with_the_stats_plugin_switched_off_the_bar_works_and_its_pins_vanish_quietly(
         st.bar.load(Some((vec!["camera".into()], vec!["stats.cpu".into(), "fps".into(), "throughput".into()])));
     }
     r.start();
-    reports(&r, 0, "Phone Camera", 30, "12.4 Mbps");
+    reports(&r, 0, "Telescope", 30, "12.4 Mbps");
     assert_eq!(shown_ids(&r), ["camera", "fps", "throughput"], "the window's own readouts are the window's");
     assert_eq!(pin(&r, "stats.cpu")["state"], "2", "the missing plugin's pin takes no room and says nothing");
     // And it stays in the file for when the plugin is back
@@ -240,7 +240,7 @@ fn with_the_stats_plugin_switched_off_the_bar_works_and_its_pins_vanish_quietly(
 fn the_bar_adds_no_redraws_to_a_window_that_is_sitting_there() {
     let r = with_stats("bar-idle");
     r.start();
-    reports(&r, 0, "Phone Camera", 30, "12.4 Mbps");
+    reports(&r, 0, "Telescope", 30, "12.4 Mbps");
     let mut count = 0;
     for step in 0..100 {
         r.skip(100);
@@ -263,7 +263,7 @@ fn full_bar(name: &str) -> Rig {
     let r = Rig::seeded(name, serde_json::from_str(SIDE_PINS).unwrap(), |_, heard| vec![Box::new(Listener::new("panel", heard)) as Box<dyn Plugin>, Box::new(StatsPlugin::new())]);
     shown(&r);
     r.start();
-    reports(&r, 0, "Phone Camera", 30, "12.4 Mbps");
+    reports(&r, 0, "Telescope", 30, "12.4 Mbps");
     let hub = Hub::new();
     let s = hub.register("pixel", 0);
     s.received(30, 1000);
@@ -343,7 +343,7 @@ fn a_full_side_folds_alone_and_the_other_keeps_every_pin() {
     });
     shown(&r);
     r.start();
-    reports(&r, 0, "Phone Camera", 30, "12.4 Mbps");
+    reports(&r, 0, "Telescope", 30, "12.4 Mbps");
     let hub = Hub::new();
     let s = hub.register("pixel", 0);
     s.received(30, 1000);
@@ -371,7 +371,7 @@ fn a_pin_dragged_across_the_bar_lands_on_the_other_side_and_the_others_make_room
     let r = Rig::seeded("bar-drag", json!({"plugins": {"on": ["stats"]}}), |_, heard| vec![Box::new(Listener::new("panel", heard)) as Box<dyn Plugin>, Box::new(StatsPlugin::new())]);
     shown(&r);
     r.start();
-    reports(&r, 0, "Phone Camera", 30, "12.4 Mbps");
+    reports(&r, 0, "Telescope", 30, "12.4 Mbps");
     let y = 700.0 - 20.0;
     let (fps, camera) = (pin(&r, "fps"), pin(&r, "camera"));
     let centre = |p: &Row| slint::LogicalPosition::new(num(p, "x") + num(p, "w") / 2.0, y);
@@ -404,7 +404,7 @@ fn a_press_that_does_not_move_is_not_a_drag() {
     use slint::platform::{PointerEventButton, WindowEvent};
     let r = with_stats("bar-click");
     r.start();
-    reports(&r, 0, "Phone Camera", 30, "12.4 Mbps");
+    reports(&r, 0, "Telescope", 30, "12.4 Mbps");
     let p = pin(&r, "fps");
     let at = slint::LogicalPosition::new(num(&p, "x") + 4.0, 680.0);
     pointer(&r, WindowEvent::PointerMoved { position: at });
@@ -440,7 +440,7 @@ fn frames(r: &Rig, name: &str, steps: u32, each_ms: u64) -> Vec<(f32, f32)> {
 fn an_unpinned_pin_fades_where_it_was_and_the_one_beside_it_glides_over() {
     let r = with_stats("bar-motion-unpin");
     r.start();
-    reports(&r, 0, "Phone Camera", 30, "12.4 Mbps");
+    reports(&r, 0, "Telescope", 30, "12.4 Mbps");
     let (fps_before, _) = on_screen(&r, "Frame rate");
     let (net_before, net_alpha) = on_screen(&r, "Throughput");
     assert_eq!(net_alpha, 1.0);
@@ -463,7 +463,7 @@ fn an_unpinned_pin_fades_where_it_was_and_the_one_beside_it_glides_over() {
 fn pinning_again_while_a_pin_is_going_turns_it_round_from_where_it_is() {
     let r = with_stats("bar-motion-turn");
     r.start();
-    reports(&r, 0, "Phone Camera", 30, "12.4 Mbps");
+    reports(&r, 0, "Telescope", 30, "12.4 Mbps");
     r.w.unpin_from_bar("fps");
     offscreen::skip(std::time::Duration::from_millis(40));
     offscreen::redraw(r.w.ui.window());

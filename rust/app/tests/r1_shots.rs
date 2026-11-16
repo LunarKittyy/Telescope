@@ -195,8 +195,8 @@ fn file_card_shots() {
     let idle = json!({"stage-text": "Start streaming to see the picture", "camera-on": true, "camera-enabled": true, "toggle-text": "Hide", "lenses-enabled": true});
     shoot(&dir, "preview-idle", &preview, 520.0, &[idle], &nothing);
     // The bar under the window, streaming and not
-    file_card(&dir, "footer-streaming", "crates/shell/ui/frame.slint", "Footer", "status: \"Streaming 1920 \u{d7} 1080 at 30 fps to Phone Camera\"; camera: \"Phone Camera\"; size: \"1920 \u{d7} 1080\"; fps: \"30\"; net: \"12.4 Mbps\";", (900.0, 56.0));
-    file_card(&dir, "footer-slow", "crates/shell/ui/frame.slint", "Footer", "status: \"Streaming 1920 \u{d7} 1080 at 30 fps to Phone Camera\"; camera: \"Phone Camera\"; size: \"1920 \u{d7} 1080\"; fps: \"18\"; fps-color: Theme.warn; net: \"3.1 Mbps\"; net-color: Theme.warn;", (900.0, 56.0));
+    file_card(&dir, "footer-streaming", "crates/shell/ui/frame.slint", "Footer", "status: \"Streaming 1920 \u{d7} 1080 at 30 fps to Telescope\"; camera: \"Telescope\"; size: \"1920 \u{d7} 1080\"; fps: \"30\"; net: \"12.4 Mbps\";", (900.0, 56.0));
+    file_card(&dir, "footer-slow", "crates/shell/ui/frame.slint", "Footer", "status: \"Streaming 1920 \u{d7} 1080 at 30 fps to Telescope\"; camera: \"Telescope\"; size: \"1920 \u{d7} 1080\"; fps: \"18\"; fps-color: Theme.warn; net: \"3.1 Mbps\"; net-color: Theme.warn;", (900.0, 56.0));
     file_card(&dir, "footer-idle", "crates/shell/ui/frame.slint", "Footer", "status: \"Not streaming\"; fps: \"-\"; net: \"-\";", (900.0, 56.0));
 }
 

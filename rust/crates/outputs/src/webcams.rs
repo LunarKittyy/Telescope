@@ -168,10 +168,10 @@ pub fn choose(modes: &[Mode], size: Option<(u32, u32)>, fps: f64) -> Option<Choi
 
 // ── Which devices are cameras of our own ─────────────────────────────────────
 
-/// What Telescope's own virtual cameras are called on this system.
+/// What Telescope's own virtual cameras are called on this system (on Linux also what older versions called them).
 pub fn own_names(linux: bool) -> Vec<String> {
-    let mut names: Vec<String> = (0..crate::MAX_SLOTS).map(|s| {
-        if linux { format!("Phone Camera{}", if s == 0 { String::new() } else { format!(" {}", s + 1) }) } else { crate::wincam::slot_label(s) }
+    let mut names: Vec<String> = (0..crate::MAX_SLOTS).flat_map(|s| {
+        if linux { crate::linux_setup::slot_labels(s).to_vec() } else { vec![crate::wincam::slot_label(s)] }
     }).collect();
     if !linux {
         names.push(UC_OLD_NAME.into());

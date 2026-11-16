@@ -85,7 +85,7 @@ fn stats_card_shots() {
     let mut host = FakeHost::new();
     host.focused = Some("phone".into());
     host.bar_pinned = vec!["camera".into(), "fps".into(), "throughput".into(), "stats.frames_in".into()];
-    host.bar_own = vec![telescope_core::bar::BarStat::new("camera", "Virtual camera", "", "Phone Camera")];
+    host.bar_own = vec![telescope_core::bar::BarStat::new("camera", "Virtual camera", "", "Telescope")];
     let mut plugin = StatsPlugin::new();
     plugin.on_event(&mut host, &Event::StatsUpdated { snapshot: snap });
     let props = card_props(&mut plugin, &mut host);
@@ -105,7 +105,7 @@ fn rig() -> Rig {
     r.w.process();
     r.start();
     let w = r.worker(0);
-    w.says("ok", "Streaming 1920 \u{d7} 1080 at 30 fps to Phone Camera");
+    w.says("ok", "Streaming 1920 \u{d7} 1080 at 30 fps to Telescope");
     w.says("fps", "30 fps  1920x1080");
     w.says("net", "12.4 Mbps");
     r.pump();
