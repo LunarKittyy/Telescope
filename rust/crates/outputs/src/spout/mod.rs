@@ -11,7 +11,7 @@ mod windows;
 #[cfg(target_os = "linux")]
 mod pipewire;
 
-use crate::convert::rgb_to_i420;
+use crate::convert::{bgra_to_i420, rgb_to_i420};
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -106,10 +106,7 @@ fn packet_of(picture: &Picture) -> Vec<u8> {
 
 /// Turns the packets of `packet_of` into I420 frames, alpha dropped.
 #[derive(Default)]
-struct SpoutDecoder {
-    /// The pixels of a packet in RGBA order, for the formats that aren't
-    swapped: Vec<u8>,
-}
+struct SpoutDecoder;
 
 impl Decoder for SpoutDecoder {
     fn decode(&mut self, packet: &Packet) -> Decoded {
@@ -124,7 +121,7 @@ impl Decoder for SpoutDecoder {
 }
 
 impl SpoutDecoder {
-    fn frame(&mut self, bytes: &[u8]) -> Option<Frame> {
+    fn frame(&self, bytes: &[u8]) -> Option<Frame> {
         let (head, pixels) = bytes.split_at_checked(12)?;
         let (width, height) = (u32::from_le_bytes(head[..4].try_into().ok()?), u32::from_le_bytes(head[4..8].try_into().ok()?));
         if width == 0 || height == 0 || pixels.len() != width as usize * height as usize * 4 {
@@ -132,11 +129,7 @@ impl SpoutDecoder {
         }
         match &head[8..12] {
             b"RGBA" | b"RGBx" => Some(rgb_to_i420(pixels, width, height, 4, false)),
-            b"BGRA" | b"BGRx" => {
-                self.swapped.clear();
-                self.swapped.extend(pixels.chunks_exact(4).flat_map(|p| [p[2], p[1], p[0], 255]));
-                Some(rgb_to_i420(&self.swapped, width, height, 4, false))
-            }
+            b"BGRA" | b"BGRx" => Some(bgra_to_i420(pixels, width, height)),
             _ => None,
         }
     }
