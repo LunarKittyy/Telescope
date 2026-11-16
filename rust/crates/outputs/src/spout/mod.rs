@@ -85,7 +85,7 @@ pub trait Reader: Send {
 /// The backend this system has, if any.
 fn system_backend() -> Option<Arc<dyn Backend>> {
     #[cfg(windows)]
-    return windows::backend().map(Arc::from);
+    return self::windows::backend().map(Arc::from);
     #[cfg(all(target_os = "linux", spout_pipewire))]
     return pipewire::backend().map(Arc::from);
     #[cfg(not(any(windows, all(target_os = "linux", spout_pipewire))))]

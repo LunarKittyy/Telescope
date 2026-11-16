@@ -180,4 +180,28 @@ mod tests {
             image::save_buffer(path, &rgba, picture.width, picture.height, image::ColorType::Rgba8).unwrap();
         }
     }
+
+    /// Needs a Spout sender that is closed while this runs: the reader ends with an error and the sender leaves the list.
+    #[test]
+    #[ignore = "needs a Spout sender that gets closed during the test"]
+    fn a_sender_that_closes_ends_the_reader_and_leaves_the_list() {
+        let backend = backend().unwrap();
+        let sender = backend.senders().into_iter().next().expect("no Spout sender is running");
+        let mut reader = backend.open(&sender.key).unwrap();
+        let started = Instant::now();
+        let why = loop {
+            assert!(started.elapsed() < Duration::from_secs(30), "the reader never ended");
+            if let Err(why) = reader.next(Duration::from_millis(200)) {
+                break why;
+            }
+        };
+        println!("reader ended after {:?}: {why}", started.elapsed());
+        let listed = || backend.senders().iter().any(|s| s.key == sender.key);
+        let waited = Instant::now();
+        while listed() && waited.elapsed() < Duration::from_secs(5) {
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        println!("still listed after {:?}: {}", waited.elapsed(), listed());
+        assert!(!listed());
+    }
 }

@@ -74,7 +74,7 @@ impl SharedMemory {
         let mut memory = SharedMemory { _map: map, view: view.Value, size: 0, mutex: None };
         let mut info = MEMORY_BASIC_INFORMATION::default();
         // SAFETY: info is an out buffer of the size given and the view is mapped
-        let filled = unsafe { VirtualQuery(Some(view.Value), &mut info, std::mem::size_of::<MEMORY_BASIC_INFORMATION>()) };
+        let filled = unsafe { VirtualQuery(Some(view.Value as *const c_void), &mut info, std::mem::size_of::<MEMORY_BASIC_INFORMATION>()) };
         if filled == 0 {
             return None;
         }
@@ -282,7 +282,7 @@ impl Gpu {
         let (mut device, mut context) = (None, None);
         // SAFETY: the out pointers are valid Options, the adapter (if any) is alive for the call
         unsafe {
-            D3D11CreateDevice(chosen.as_ref(), driver, HMODULE::default(), D3D11_CREATE_DEVICE_BGRA_SUPPORT, Some(&levels), D3D11_SDK_VERSION, Some(&mut device), None, Some(&mut context))
+            D3D11CreateDevice(chosen.as_ref(), driver, HMODULE(std::ptr::null_mut()), D3D11_CREATE_DEVICE_BGRA_SUPPORT, Some(&levels), D3D11_SDK_VERSION, Some(&mut device), None, Some(&mut context))
                 .map_err(|e| format!("Direct3D on {name}: {e}"))?;
         }
         match (device, context) {
