@@ -29,7 +29,6 @@
   const os = /Android/i.test(ua) ? "android" : /Windows/i.test(ua) ? "windows" : /Linux|X11|CrOS/i.test(ua) ? "linux" : /Mac|iPhone|iPad/i.test(ua) ? "apple" : "windows";
   const downloads = $("#downloads");
   const row = $(".dl-row", downloads);
-  const note = $(".dl-note", downloads);
   const pick = $(`[data-os="${os}"]`, row);
   // The visitor's own download is the one big button and the rest become small links next to it
   if (pick) {
@@ -43,8 +42,8 @@
     }
     others[0].before(Object.assign(document.createElement("span"), { className: "dl-or", textContent: "or" }));
   }
-  if (os === "android") note.remove();
-  if (os === "apple") note.textContent = "The desktop app needs a Linux or Windows computer (there's no Mac version). An iPhone or iPad works as the camera straight from its browser with nothing to install.";
+  // Only a Mac or iPhone gets a note, since neither can run the desktop app
+  if (os === "apple") downloads.append(Object.assign(document.createElement("p"), { className: "dl-note", textContent: "The desktop app needs a Linux or Windows computer (there's no Mac version). An iPhone or iPad works as the camera straight from its browser with nothing to install." }));
   for (const slot of $$("[data-clone=downloads]")) slot.innerHTML = downloads.innerHTML;
 
   document.addEventListener("click", e => {
