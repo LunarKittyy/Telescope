@@ -82,11 +82,19 @@ pub fn system_preference() -> Prefer {
     {
         static ANSWER: std::sync::OnceLock<Prefer> = std::sync::OnceLock::new();
         *ANSWER.get_or_init(|| {
-            let found = windows_gpu_preference();
-            let (prefer, said) = match found.as_deref().map(parse_gpu_preference) {
-                Some(Prefer::PowerSaving) => (Prefer::PowerSaving, "power saving"),
-                Some(_) => (Prefer::HighPerformance, "high performance"),
-                None => (Prefer::HighPerformance, "none, preferring high performance"),
+            let (prefer, said) = match windows_gpu_preference() {
+                Ok(Some(data)) => {
+                    let prefer = parse_gpu_preference(&data);
+                    let what = match data.trim() {
+                        "GpuPreference=0;" => "Let Windows decide",
+                        "GpuPreference=1;" => "power saving",
+                        "GpuPreference=2;" => "high performance",
+                        other => other,
+                    };
+                    (prefer, format!("{what}, so {}", if prefer == Prefer::PowerSaving { "power saving" } else { "high performance" }))
+                }
+                Ok(None) => (Prefer::HighPerformance, "none, so high performance".to_string()),
+                Err(code) => (Prefer::HighPerformance, format!("couldn't read it (error {code}), so high performance")),
             };
             log::info!("Windows graphics setting for this app: {said}");
             prefer
@@ -102,23 +110,26 @@ pub fn parse_gpu_preference(data: &str) -> Prefer {
     if one { Prefer::PowerSaving } else { Prefer::HighPerformance }
 }
 
-/// The data Windows keeps for this exe's graphics setting, None when there is none or it can't be read.
+/// The data Windows keeps for this exe's graphics setting, None when there is none, the error code when it can't be read.
 #[cfg(windows)]
-fn windows_gpu_preference() -> Option<String> {
+fn windows_gpu_preference() -> Result<Option<String>, u32> {
     use windows::core::{w, HSTRING};
     use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_SZ};
-    let exe = std::env::current_exe().ok()?;
+    let exe = std::env::current_exe().map_err(|e| e.raw_os_error().unwrap_or(0) as u32)?;
     // value names are matched without regard to case by the registry itself
     let name = HSTRING::from(exe.as_os_str());
     let mut buf = [0u16; 512];
     let mut bytes = std::mem::size_of_val(&buf) as u32;
     // SAFETY: buf is valid for `bytes` bytes and RegGetValueW writes at most that many
     let status = unsafe { RegGetValueW(HKEY_CURRENT_USER, w!("Software\\Microsoft\\DirectX\\UserGpuPreferences"), &name, RRF_RT_REG_SZ, None, Some(buf.as_mut_ptr().cast()), Some(&mut bytes)) };
-    if status.0 != 0 {
-        return None;
+    // 2 is ERROR_FILE_NOT_FOUND: no setting for this exe, or no key at all
+    match status.0 {
+        0 => {}
+        2 => return Ok(None),
+        code => return Err(code),
     }
     let len = (bytes as usize / 2).min(buf.len());
-    Some(String::from_utf16_lossy(&buf[..len]).trim_end_matches('\0').to_string())
+    Ok(Some(String::from_utf16_lossy(&buf[..len]).trim_end_matches('\0').to_string()))
 }
 
 /// Indices (`Candidate::index`) in the order to try them: real GPUs first, then Other, Virtual, Cpu. Between the real ones `prefer`
