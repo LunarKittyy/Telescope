@@ -200,8 +200,8 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 - [ ] Windows with Spout capture switched on. A Spout sender (OBS with its Spout output, or Spout2's demo sender) shows in the device picker under its own name. Start streams it at the frame rate on the card with the right colours. Background works on it.
 - [ ] Closing the sender mid-stream shows the wait screen and opening it again picks the stream up. Stop is instant.
-- [ ] Linux: a Windows game or program sending Spout under Proton with Spout2PW shows in the picker and streams the same way. With PipeWire stopped when Telescope starts and started later, the sender still shows up.
-- [ ] Linux, from the AppImage on a machine without libpipewire: Telescope starts and Spout capture lists nothing.
+- [ ] On Linux a Windows game or program sending Spout under Proton with Spout2PW shows in the picker and streams the same way. With PipeWire stopped when Telescope starts and started later, the sender still shows up.
+- [ ] Linux, from the AppImage on a machine without libpipewire. Telescope starts and Spout capture lists nothing.
 
 ### On Air sign
 
