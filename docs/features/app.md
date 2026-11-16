@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/system/src/autostart.rs rust/crates/system/src/hotkeys* rust/crates/system/src/shortcuts.rs rust/crates/system/src/keys.rs rust/crates/system/src/tray* rust/crates/system/src/single_instance.rs rust/crates/system/src/mcp*.rs rust/crates/shell/src/keys.rs rust/crates/shell/src/tray.rs rust/crates/shell/src/settings.rs rust/crates/shell/src/plugins_tab.rs rust/crates/outputs/src/wait_screen.rs; checked: 141b7ea82 -->
+<!-- covers: rust/crates/system/src/autostart.rs rust/crates/system/src/hotkeys* rust/crates/system/src/shortcuts.rs rust/crates/system/src/keys.rs rust/crates/system/src/tray* rust/crates/system/src/single_instance.rs rust/crates/system/src/mcp*.rs rust/crates/shell/src/keys.rs rust/crates/shell/src/tray.rs rust/crates/shell/src/settings.rs rust/crates/shell/src/plugins_tab.rs rust/crates/outputs/src/wait_screen.rs; checked: 0d35dc883 -->
 # The desktop app
 
 System integration, keyboard shortcuts, the MCP server and plugins.
@@ -11,7 +11,8 @@ System integration, keyboard shortcuts, the MCP server and plugins.
 - Closing the window while streaming hides Telescope to the tray
 - When Start can't go ahead a banner says why and has a button that fixes it
 - While the window is in the tray Telescope checks on the phone less often to save its battery
-- **Reset all settings** (General in Settings) puts every setting back to its default and restarts Telescope. Paired phones, presets, notes and saved layouts stay, and a copy of the old settings file is kept next to it
+- **Reset all settings** (General in Settings) puts every setting back to its default and restarts Telescope. The plugin switches go back to the standard selection. Paired phones, presets, notes, saved layouts, files you picked (a LUT, the photo folder) and plugins you installed stay, and a copy of the old settings file is kept next to it
+- Every card has a Reset button in its header, and so do the sections in Settings. It puts just that card or section back to its defaults and lights up only once something on it differs from the default. Things you made or paired, like notes and layouts, stay
 
 <details>
 <summary><b>Folding cards</b></summary>

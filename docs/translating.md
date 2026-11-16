@@ -1,4 +1,4 @@
-<!-- covers: rust/locale/telescope.pot rust/tools/i18n.py rust/crates/core/src/i18n* rust/crates/core/tests/i18n.rs rust/app/tests/texts_in_code.rs rust/app/tests/text_fits.rs android/app/src/main/res/values/strings.xml automation/translation; checked: 141b7ea82 -->
+<!-- covers: rust/locale/telescope.pot rust/tools/i18n.py rust/crates/core/src/i18n* rust/crates/core/tests/i18n.rs rust/app/tests/texts_in_code.rs rust/app/tests/text_fits.rs android/app/src/main/res/values/strings.xml automation/translation; checked: 0d35dc883 -->
 # Translating Telescope
 
 ## Helping without any tools
