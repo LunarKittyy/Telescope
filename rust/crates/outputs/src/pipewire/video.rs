@@ -318,15 +318,10 @@ unsafe fn take_shot(buffer: *mut PwBuffer, negotiated: Negotiated) -> Result<Tak
             Ok(Taken::Frame(VideoFrame { width: negotiated.width, height: negotiated.height, format: negotiated.format, data: packed }))
         }
         ffi::SPA_DATA_MEM_FD | ffi::SPA_DATA_DMA_BUF => {
-            // SAFETY: the descriptor is the buffer's own and open while it is dequeued; dup gives a descriptor that is ours
-            let fd = unsafe { libc::dup(data.fd as i32) };
-            if fd < 0 {
-                return Err(format!("a buffer's memory couldn't be held on to ({})", std::io::Error::last_os_error()));
-            }
+            let fd = dup_cloexec(data.fd as i32).map_err(|e| format!("a buffer's memory couldn't be held on to ({e})"))?;
             Ok(Taken::Shot(Shot {
                 negotiated,
-                // SAFETY: a fresh descriptor nothing else owns
-                fd: unsafe { OwnedFd::from_raw_fd(fd) },
+                fd,
                 dma_buf: data.kind == ffi::SPA_DATA_DMA_BUF,
                 map_offset: data.mapoffset as usize,
                 max_size: data.maxsize as usize,
@@ -338,10 +333,27 @@ unsafe fn take_shot(buffer: *mut PwBuffer, negotiated: Negotiated) -> Result<Tak
     }
 }
 
+/// A descriptor of our own for the same open file as `fd`, closed on exec so it can't leak into a child process while it's parked.
+fn dup_cloexec(fd: i32) -> std::io::Result<OwnedFd> {
+    // SAFETY: F_DUPFD_CLOEXEC only reads the descriptor number, and fails cleanly when it isn't open
+    let copy = unsafe { libc::fcntl(fd, libc::F_DUPFD_CLOEXEC, 0) };
+    if copy < 0 {
+        return Err(std::io::Error::last_os_error());
+    }
+    // SAFETY: a fresh descriptor nothing else owns
+    Ok(unsafe { OwnedFd::from_raw_fd(copy) })
+}
+
+/// What reading a shot came to.
+enum Copied {
+    Frame(VideoFrame),
+    /// The kernel wouldn't sync the DMA-BUF for a CPU read, so the picture can't be trusted and is dropped.
+    Skipped(std::io::Error),
+}
+
 /// Copies the picture a shot noted out into packed rows. Takes no lock of the loop's, and may wait on the producer's GPU work.
-fn copy_shot(shot: &Shot) -> Result<VideoFrame, String> {
+fn copy_shot(shot: &Shot) -> Result<Copied, String> {
     let Negotiated { width, height, format } = shot.negotiated;
-    let row = width as usize * 4;
     let length = shot.map_offset + shot.max_size;
     let fd = shot.fd.as_raw_fd();
     // SAFETY: a read-only shared mapping of the shot's own descriptor, unmapped below
@@ -349,11 +361,23 @@ fn copy_shot(shot: &Shot) -> Result<VideoFrame, String> {
     if map == libc::MAP_FAILED {
         return Err(format!("a buffer couldn't be mapped ({})", std::io::Error::last_os_error()));
     }
+    let copied = copy_rows(shot, map.cast::<u8>().wrapping_add(shot.map_offset), fd);
+    // SAFETY: the mapping made above, with its length
+    unsafe { libc::munmap(map, length) };
+    Ok(match copied {
+        Ok(data) => Copied::Frame(VideoFrame { width, height, format, data }),
+        Err(why) => Copied::Skipped(why),
+    })
+}
+
+/// Reads the shot's rows from the mapping `base` points into (the DMA-BUF synced around the read), packed. Needs the whole shot to lie inside the mapping.
+fn copy_rows(shot: &Shot, base: *const u8, fd: i32) -> std::io::Result<Vec<u8>> {
+    let Negotiated { width, height, .. } = shot.negotiated;
+    let row = width as usize * 4;
     if shot.dma_buf {
-        dma_buf_sync(fd, SYNC_START);
+        dma_buf_sync(fd, SYNC_START)?;
     }
     let mut packed = vec![0u8; row * height as usize];
-    let base = map.cast::<u8>().wrapping_add(shot.map_offset);
     for (y, out) in packed.chunks_exact_mut(row).enumerate() {
         // SAFETY: take_shot checked that every row lies inside max_size, which the mapping covers
         let src = unsafe { base.add(shot.offset + y * shot.stride) };
@@ -366,11 +390,9 @@ fn copy_shot(shot: &Shot) -> Result<VideoFrame, String> {
         }
     }
     if shot.dma_buf {
-        dma_buf_sync(fd, SYNC_END);
+        dma_buf_sync(fd, SYNC_END)?;
     }
-    // SAFETY: the mapping made above, with its length
-    unsafe { libc::munmap(map, length) };
-    Ok(VideoFrame { width, height, format, data: packed })
+    Ok(packed)
 }
 
 /// Copies out.len() bytes from src, which may be GPU memory mapped write-combined, where plain loads crawl (about 50 MB/s from a
@@ -420,12 +442,37 @@ unsafe fn stream_copy(src: *const u8, out: &mut [u8]) {
 const SYNC_START: u64 = 1;
 const SYNC_END: u64 = 1 | (1 << 2);
 
-/// Tells the kernel the CPU is about to read (or is done reading) a DMA-BUF, which also waits for the producer's pending writes.
-fn dma_buf_sync(fd: i32, flags: u64) {
+/// How often a sync is tried again when the kernel says to.
+const SYNC_TRIES: u32 = 100;
+/// How many pictures in a row may be dropped for want of a sync before the reader gives up on the producer.
+const MAX_SKIPPED: u32 = 30;
+
+/// Tells the kernel the CPU is about to read (or is done reading) a DMA-BUF, which also waits for the producer's pending writes. The
+/// kernel may break the wait off (EINTR, EAGAIN), which means ask again.
+fn dma_buf_sync(fd: i32, flags: u64) -> std::io::Result<()> {
     // _IOW('b', 0, struct dma_buf_sync)
     const DMA_BUF_IOCTL_SYNC: libc::c_ulong = 0x4008_6200;
-    // SAFETY: the ioctl takes a pointer to one u64 of flags, and a descriptor that isn't a DMA-BUF just fails
-    unsafe { libc::ioctl(fd, DMA_BUF_IOCTL_SYNC, &flags as *const u64) };
+    retrying(|| {
+        // SAFETY: the ioctl takes a pointer to one u64 of flags, and a descriptor that isn't a DMA-BUF just fails
+        if unsafe { libc::ioctl(fd, DMA_BUF_IOCTL_SYNC, &flags as *const u64) } < 0 {
+            return Err(std::io::Error::last_os_error());
+        }
+        Ok(())
+    })
+}
+
+/// Runs `call` again while it fails with EINTR or EAGAIN, up to SYNC_TRIES times; any other error ends it.
+fn retrying(mut call: impl FnMut() -> std::io::Result<()>) -> std::io::Result<()> {
+    let mut retries = 0;
+    loop {
+        match call() {
+            Err(e) if retries < SYNC_TRIES && matches!(e.kind(), std::io::ErrorKind::Interrupted | std::io::ErrorKind::WouldBlock) => {
+                retries += 1;
+                std::thread::yield_now();
+            }
+            result => return result,
+        }
+    }
 }
 
 /// A video node being read.
@@ -435,6 +482,8 @@ pub struct VideoConsumer {
     watch_node: bool,
     slot: Arc<Slot>,
     stream: Stream,
+    /// How many pictures in a row were dropped because the DMA-BUF couldn't be synced.
+    skipped: u32,
 }
 
 impl VideoConsumer {
@@ -445,7 +494,7 @@ impl VideoConsumer {
         let props = [("media.type", "Video"), ("media.category", "Capture"), ("media.role", "Production"), ("media.class", "Stream/Input/Video"), ("node.dont-reconnect", "true")];
         let config = StreamConfig { name: client, props: &props, direction: PW_DIRECTION_INPUT, target: node, flags: PW_STREAM_FLAG_AUTOCONNECT };
         let stream = Stream::connect(connection, &config, &format_offers(), Box::new(handler))?;
-        Ok(VideoConsumer { connection: connection.clone(), node, watch_node: connection.node(node).is_some(), slot, stream })
+        Ok(VideoConsumer { connection: connection.clone(), node, watch_node: connection.node(node).is_some(), slot, stream, skipped: 0 })
     }
 
     /// The next picture that arrives within `timeout`: Ok(None) when nothing came, Err once the node is gone or the stream failed.
@@ -464,7 +513,21 @@ impl VideoConsumer {
                 self.give_back(parked.buffer);
                 state = self.slot.state.lock().map_err(|_| broke())?;
                 match copied {
-                    Ok(frame) => return Ok(Some(frame)),
+                    Ok(Copied::Frame(frame)) => {
+                        self.skipped = 0;
+                        return Ok(Some(frame));
+                    }
+                    Ok(Copied::Skipped(why)) => {
+                        // This picture is dropped and the next one tried, unless it keeps happening
+                        if self.skipped == 0 {
+                            log::warn!("A DMA-BUF couldn't be synced for reading, so its picture was dropped: {why}");
+                        }
+                        self.skipped += 1;
+                        if self.skipped >= MAX_SKIPPED {
+                            state.error.get_or_insert(format!("the producer's pictures can't be read safely ({why})"));
+                        }
+                        continue;
+                    }
                     Err(message) => {
                         state.error.get_or_insert(message);
                         continue;
@@ -500,5 +563,93 @@ impl VideoConsumer {
                 stream.queue(buffer);
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{Error, ErrorKind, Write};
+    use std::os::fd::AsFd;
+
+    fn memfd(name: &str, bytes: &[u8]) -> OwnedFd {
+        let name = std::ffi::CString::new(name).unwrap();
+        // SAFETY: a NUL-terminated name; the flags ask for a close-on-exec descriptor
+        let raw = unsafe { libc::memfd_create(name.as_ptr(), libc::MFD_CLOEXEC) };
+        assert!(raw >= 0, "memfd_create failed: {}", Error::last_os_error());
+        // SAFETY: a fresh descriptor nothing else owns
+        let fd = unsafe { OwnedFd::from_raw_fd(raw) };
+        let mut file = std::fs::File::from(fd.as_fd().try_clone_to_owned().unwrap());
+        file.write_all(bytes).unwrap();
+        fd
+    }
+
+    fn flags_of(fd: i32) -> i32 {
+        // SAFETY: F_GETFD only reads the descriptor's flags
+        unsafe { libc::fcntl(fd, libc::F_GETFD) }
+    }
+
+    fn shot(fd: OwnedFd, dma_buf: bool) -> Shot {
+        Shot { negotiated: Negotiated { width: 4, height: 2, format: VideoFormat::Bgra }, fd, dma_buf, map_offset: 0, max_size: 32, offset: 0, stride: 16 }
+    }
+
+    #[test]
+    fn a_held_descriptor_is_closed_on_exec_even_when_the_original_is_not() {
+        // SAFETY: a plain /dev/null descriptor opened without close-on-exec, owned here
+        let plain = unsafe { OwnedFd::from_raw_fd(libc::open(c"/dev/null".as_ptr(), libc::O_RDONLY)) };
+        assert_eq!(flags_of(plain.as_raw_fd()) & libc::FD_CLOEXEC, 0, "the test's original should lack close-on-exec");
+        let held = dup_cloexec(plain.as_raw_fd()).unwrap();
+        assert_ne!(held.as_raw_fd(), plain.as_raw_fd());
+        assert_ne!(flags_of(held.as_raw_fd()) & libc::FD_CLOEXEC, 0, "a parked frame's descriptor must not leak into child processes");
+        assert!(dup_cloexec(-1).is_err());
+    }
+
+    #[test]
+    fn a_sync_the_kernel_breaks_off_is_asked_again() {
+        for kind in [libc::EINTR, libc::EAGAIN] {
+            let mut calls = 0;
+            let result = retrying(|| {
+                calls += 1;
+                if calls < 3 { Err(Error::from_raw_os_error(kind)) } else { Ok(()) }
+            });
+            assert!(result.is_ok() && calls == 3, "errno {kind}: {result:?} after {calls} calls");
+        }
+    }
+
+    #[test]
+    fn a_sync_that_keeps_being_broken_off_gives_up_and_other_errors_end_it_at_once() {
+        let mut calls = 0;
+        let result = retrying(|| {
+            calls += 1;
+            Err(Error::from(ErrorKind::Interrupted))
+        });
+        assert!(result.is_err());
+        assert_eq!(calls, SYNC_TRIES + 1);
+        let mut calls = 0;
+        let result = retrying(|| {
+            calls += 1;
+            Err(Error::from_raw_os_error(libc::EINVAL))
+        });
+        assert_eq!((result.is_err(), calls), (true, 1));
+    }
+
+    #[test]
+    fn a_dma_buf_that_wont_sync_drops_the_picture_and_still_unmaps() {
+        // A memfd is no DMA-BUF, so the sync ioctl fails for good
+        let name = format!("telescope-sync-test-{}", std::process::id());
+        let fd = memfd(&name, &[7u8; 32]);
+        let copied = copy_shot(&shot(fd, true)).expect("a sync failure isn't an error of the reader");
+        assert!(matches!(copied, Copied::Skipped(_)));
+        let maps = std::fs::read_to_string("/proc/self/maps").unwrap();
+        assert!(!maps.contains(&name), "the mapping was left behind");
+    }
+
+    #[test]
+    fn a_memory_picture_is_copied_row_by_row() {
+        let bytes: Vec<u8> = (0u8..32).collect();
+        let fd = memfd(&format!("telescope-copy-test-{}", std::process::id()), &bytes);
+        let Copied::Frame(frame) = copy_shot(&shot(fd, false)).unwrap() else { panic!("a plain picture should copy") };
+        assert_eq!((frame.width, frame.height), (4, 2));
+        assert_eq!(frame.data, bytes);
     }
 }
