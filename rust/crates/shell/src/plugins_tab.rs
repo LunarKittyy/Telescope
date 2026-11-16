@@ -536,12 +536,10 @@ impl Panel {
 
     fn vision_status(&self) -> String {
         let dl = &self.download;
-        if dl.ready() || dl.running() {
+        if dl.ready() || dl.running() || dl.available() {
             String::new()
-        } else if !dl.available() {
-            tr("There's no vision download for this computer yet.")
         } else {
-            fill(&tr("Switching on any of these plugins downloads about {mb} MB first, shared by all of them."), &[("mb", &dl.size_mb().to_string())])
+            tr("There's no vision download for this computer yet.")
         }
     }
 

@@ -8,20 +8,20 @@ Want to write one? That's in [Writing a plugin](writing-plugins.md).
 ## Switching plugins on and off
 
 1. Click the settings button next to **Start streaming** and open the **Plugins** tab
-2. Flip the switch on a plugin's tile. Telescope asks first and tells you what will be missing
+2. Flip the switch on a plugin's tile. Telescope asks first and lists what will be missing
 3. Click **Restart now** in the bar at the bottom of the tab (a running stream stops for the few seconds it takes)
 
-The tiles are grouped by what the plugins are for: Camera, Look, People, Preview tools, On screen, Sound, Streaming and devices and Extras. Each group has its own colour, and its plugins' cards in the main window take that colour too. Within a group they're in alphabetical order. Type in **Search plugins** to find one by its name or description. **All**, **On** and **Off** next to it show every plugin, only the ones switched on or only the ones switched off.
+The tiles are grouped by what the plugins are for (Camera, Look, People, Preview tools, On screen, Sound, Streaming and devices and Extras). Each group has its own colour and its plugins' cards in the main window take that colour too. Within a group they're in alphabetical order. Type in **Search plugins** to find one by its name or description. **All**, **On** and **Off** next to it show every plugin, only the ones switched on or only the ones switched off.
 
-Switching a plugin off deletes nothing. Its settings stay saved and everything is back once you switch it on again. **Reset to defaults** puts the built-in plugins back to the standard selection, with the optional ones off and the rest on. The restart bar counts every change still waiting, which lets you flip several switches and restart just once. **Revert** in that bar puts the switches back the way they are in the running app, so they need no restart. Removals and updates still wait for one, and the bar says how many.
+Switching a plugin off deletes nothing. Everything is back, settings included, once you switch it on again. **Reset to defaults** resets the built-in plugins to the standard selection, with the optional ones off and the rest on. The restart bar counts every change still waiting. You can flip several switches and restart only once. **Revert** in that bar sets the switches to how they are in the running app, without needing a restart. Removals and updates still wait for one and the bar shows how many.
 
 Some tiles carry a badge:
 
 - **Needs the vision download** is on Auto framing, Background and Expose for my face. They start out off and need a separate download the first time, see [the vision download](features/picture.md#the-vision-download). Its **Remove download** button sits next to the **People and vision** heading
 - **Required** marks Devices and connection, Advanced settings and Updates. Their switches are locked on since Telescope doesn't work without them
 - **Added** marks plugins you installed yourself
-- **Lab** sits next to a plugin's name when it's an early version. It works, but it may change or behave oddly while it's being finished
-- **Limited** sits next to a plugin's name when it has technical limits that will likely never go away, so don't expect it to work perfectly. A plugin can carry both
+- **Lab** sits next to a plugin's name when it's an early version. It works but may change or behave oddly while it's being finished
+- **Limited** sits next to a plugin's name when it has technical limits that will likely never go away. Don't expect it to work perfectly. A plugin can carry both
 - **Restart required** shows on every plugin whose switch changed since Telescope started
 
 **A card or setting is gone?** Check the Plugins tab. When some are off its name reads **Plugins (2 off)** and right after a restart a banner at the top names them. **Off** in the filter lists them all.
@@ -36,15 +36,15 @@ Shared plugins come as a `.zip` file.
 4. Click **Restart now** in the bar at the bottom
 
 > [!WARNING]
-> A plugin is a Lua script that runs inside Telescope. It can't open files, start programs or reach the network, but it can change what your camera shows, control the phone and show notifications. Only install plugins from a source you trust.
+> A plugin is a Lua script that runs inside Telescope. It can't open files, start programs or reach the network but it can change what your camera shows, control the phone and show notifications. Only install plugins from a source you trust.
 
 Good to know:
 
-- **Updating:** install the new `.zip` the same way. Telescope asks before it replaces the old version and the plugin's settings stay as they were. The new version starts out switched off like any plugin you add (you decide again whether to trust it)
+- **Updating:** install the new `.zip` the same way. Telescope asks before it replaces the old version and the plugin's settings are left as they were. The new version starts out switched off like any plugin you add (you decide again whether to trust it)
 - **Changed files:** if anything in a plugin's folder changes after you switched it on, Telescope won't run it until you switch it on again. Plugins never update themselves behind your back
 - **Broken plugins:** if one fails to start, Telescope starts without it and shows a banner. Its tile on the Plugins tab shows what went wrong and **Copy diagnostics** lists it
-- **Vision pack zips:** Install also takes the vision pack (`Telescope-vision-<system>-<id>.zip`, or `Telescope-matting-<system>-<id>.zip` for Background's High quality). That isn't a plugin, so Telescope checks it and installs it in the background, and the download banner shows how it goes. If that pack is already downloading or installing, the file isn't used and you can try again once it's done
-- **The folder:** installed plugins live in `~/.config/telescope/plugins` on Linux and `%APPDATA%\Telescope\plugins` on Windows. **Open plugins folder** on the tab takes you there, and copying a plugin's folder in by hand works too
+- **Vision pack zips:** Install also takes the vision pack (`Telescope-vision-<system>-<id>.zip`, or `Telescope-matting-<system>-<id>.zip` for Background's High quality). That isn't a plugin. Telescope checks it and installs it in the background and the download banner shows how it goes. If that pack is already downloading or installing, the file isn't used and you can try again once it's done
+- **The folder:** installed plugins live in `~/.config/telescope/plugins` on Linux and `%APPDATA%\Telescope\plugins` on Windows. **Open plugins folder** on the tab takes you there and copying a plugin's folder in by hand works too
 
 ### Updates
 
@@ -59,7 +59,7 @@ An update installed this way runs from the next time Telescope starts and the re
 
 ### When an added plugin won't switch on
 
-Its tile on the Plugins tab says why:
+Its tile on the Plugins tab shows the reason:
 
 | It says | What to do |
 |---|---|

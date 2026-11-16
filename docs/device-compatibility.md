@@ -1,7 +1,7 @@
 <!-- covers: ; checked: 1cbb8644b -->
 # Device compatibility
 
-Phones Telescope has been tested on, and what worked on each. Android 8 or newer is needed.
+Phones Telescope has been tested on and what worked on each. Android 8 or newer is needed.
 
 Tried Telescope on a phone that isn't here? [Tell me how it went](https://github.com/LunarKittyy/Telescope/discussions/new?category=device-compatibility). Even one stream helps.
 
@@ -16,7 +16,7 @@ Tried Telescope on a phone that isn't here? [Tell me how it went](https://github
 
 ## Notes
 
-- **Samsung Galaxy S10+:** the 2x telephoto isn't exposed through Camera2, so only the main, ultrawide and both front lenses show up. All four work
+- **Samsung Galaxy S10+:** Camera2 doesn't expose the 2x telephoto. Only the main, ultrawide and both front lenses show up. All four work
 - **Samsung Galaxy S25 Ultra:** Auto covers the main camera plus both telephotos (they kick in at about 3x and 5x). The ultrawide and both front cameras show up as their own lenses. Tested over USB only
 - **Xiaomi Poco M6 Pro:** the ultrawide and macro lenses don't show up because Camera2 only exposes the main back camera and the front camera. Xiaomi's own camera app records 1080p at 60 fps but other apps get 30 at most, since Android offers 60 fps and up only as 720p high-speed mode, which Telescope doesn't use
 
