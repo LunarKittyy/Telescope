@@ -140,40 +140,94 @@ fn side_by_side_works_on_a_canvas_of_any_size() {
     assert_eq!((out.at(2, 0), out.at(3, 0), out.at(6, 3)), ([255, 0, 0], [0, 255, 0], [0, 255, 0]));
 }
 
+/// A black picture with a white block from column x0 to x1 and row y0 to y1 (exclusive).
+fn block(w: usize, h: usize, (x0, x1): (usize, usize), (y0, y1): (usize, usize)) -> Rgb {
+    let mut rgb = solid(w, h, [0, 0, 0]);
+    for y in y0..y1 {
+        for x in x0..x1 {
+            rgb.set(x, y, [255, 255, 255]);
+        }
+    }
+    rgb
+}
+
+/// Where the white of the left half and of the right half of a side by side picture are, each from its half's middle.
+fn halves_lit(out: &Rgb) -> [(f64, f64); 2] {
+    let half = out.w / 2;
+    let part = |from: usize| {
+        let mut p = Rgb::new(half, out.h);
+        for y in 0..out.h {
+            for x in 0..half {
+                p.set(x, y, out.at(from + x, y));
+            }
+        }
+        lit_offset(&p)
+    };
+    [part(0), part(half)]
+}
+
 #[test]
 fn depth_moves_the_eyes_against_each_other_inside_their_halves() {
     // each eye is 80 wide, so 5 % is 4 pixels: the left one goes 2 to the right and the right one 2 to the left
-    let eye = ramp(80, 4);
-    let out = side_by_side(&eye, &eye, 160, 4, &shift(5.0, 0.0));
-    assert_eq!(out.at(0, 0), [0, 0, 0], "uncovered, so black");
-    assert_eq!(out.at(1, 0), [0, 0, 0]);
-    assert_eq!(out.at(2, 0), eye.at(0, 0));
-    assert_eq!(out.at(79, 0), eye.at(77, 0));
-    assert_eq!(out.at(80, 0), eye.at(2, 0));
-    assert_eq!(out.at(80 + 77, 0), eye.at(79, 0));
-    assert_eq!(out.at(80 + 78, 0), [0, 0, 0]);
+    let eye = block(80, 20, (38, 42), (0, 20));
+    let blank = solid(80, 20, [0, 0, 0]);
+    let [l, _] = halves_lit(&side_by_side(&eye, &blank, 160, 20, &shift(5.0, 0.0)));
+    let [_, r] = halves_lit(&side_by_side(&blank, &eye, 160, 20, &shift(5.0, 0.0)));
+    assert!((l.0 - 2.0).abs() < 0.3 && (r.0 + 2.0).abs() < 0.3, "{l:?} {r:?}");
     // the other way round
-    let out = side_by_side(&eye, &eye, 160, 4, &shift(-5.0, 0.0));
-    assert_eq!(out.at(0, 0), eye.at(2, 0));
-    assert_eq!(out.at(80, 0), [0, 0, 0], "the right eye's first columns are black");
-    assert_eq!(out.at(82, 0), eye.at(0, 0));
-    // nothing leaks across the middle
-    assert_eq!(out.at(79, 0), [0, 0, 0]);
+    let [l, _] = halves_lit(&side_by_side(&eye, &blank, 160, 20, &shift(-5.0, 0.0)));
+    let [_, r] = halves_lit(&side_by_side(&blank, &eye, 160, 20, &shift(-5.0, 0.0)));
+    assert!((l.0 + 2.0).abs() < 0.3 && (r.0 - 2.0).abs() < 0.3, "{l:?} {r:?}");
 }
 
 #[test]
 fn height_moves_only_the_right_eye() {
     // 5 % of 40 rows is 2: up for a positive value
-    let eye = ramp(20, 40);
+    let eye = block(20, 40, (0, 20), (19, 21));
     let out = side_by_side(&eye, &eye, 40, 40, &shift(0.0, 5.0));
-    assert_eq!(out.at(3, 10), eye.at(3, 10), "the left eye stays");
-    assert_eq!(out.at(20 + 3, 10), eye.at(3, 12));
-    assert_eq!(out.at(20 + 3, 38), [0, 0, 0]);
-    assert_eq!(out.at(20 + 3, 39), [0, 0, 0]);
-    let out = side_by_side(&eye, &eye, 40, 40, &shift(0.0, -5.0));
-    assert_eq!(out.at(20 + 3, 0), [0, 0, 0]);
-    assert_eq!(out.at(20 + 3, 12), eye.at(3, 10));
-    assert_eq!(out.at(3, 12), eye.at(3, 12));
+    let [l, r] = halves_lit(&out);
+    assert!(l.1.abs() < 0.3, "the left eye stays: {l:?}");
+    assert!((r.1 + 2.0).abs() < 0.3, "{r:?}");
+    let [l, r] = halves_lit(&side_by_side(&eye, &eye, 40, 40, &shift(0.0, -5.0)));
+    assert!(l.1.abs() < 0.3 && (r.1 - 2.0).abs() < 0.3, "{l:?} {r:?}");
+}
+
+/// Whether a corner of the box looks outside the eye that is in it: where each corner of a box of w x h comes from, in the eye's own pixels.
+fn looks_outside(p: &Place, w: usize, h: usize) -> bool {
+    let (sin, cos) = p.tilt.to_radians().sin_cos();
+    let (cx, cy, inv) = (w as f64 / 2.0, h as f64 / 2.0, 1.0 / p.zoom);
+    [(0.0, 0.0), (w as f64, 0.0), (0.0, h as f64), (w as f64, h as f64)].into_iter().any(|(x, y)| {
+        let (px, py) = ((x - cx - p.dx) * inv, (y - cy - p.dy) * inv);
+        let (sx, sy) = (cx + cos * px + p.squeeze * sin * py, cy - sin / p.squeeze * px + cos * py);
+        sx < -1e-6 || sx > w as f64 + 1e-6 || sy < -1e-6 || sy > h as f64 + 1e-6
+    })
+}
+
+#[test]
+fn nothing_the_sliders_do_leaves_black_at_an_edge_or_corner() {
+    let sliders = [(5.0, 5.0, 100.0, 0.0), (-5.0, -5.0, 100.0, 0.0), (0.0, 0.0, 80.0, 0.0), (0.0, 0.0, 125.0, 0.0), (0.0, 0.0, 100.0, 5.0), (0.0, 0.0, 100.0, -5.0), (5.0, -5.0, 85.0, 5.0), (-5.0, 5.0, 120.0, -5.0), (3.3, 1.7, 92.3, -1.2)];
+    for (depth, height, size, tilt) in sliders {
+        let tune = Tune { depth, height, size, tilt, lut: None };
+        // side by side on 16:9 (each eye squeezed to half), on a 32:9 canvas and as a square half, then the same fitted for red/cyan
+        for (w, h, squeeze) in [(960usize, 1080usize, 0.5), (1920, 1080, 1.0), (500, 500, 1.0 / 1.0)] {
+            let (a, b) = eye_offsets(shift_px(depth, w), shift_px(height, h));
+            let placed = places(&tune, [(w, h), (w, h)], [a, b], [squeeze, squeeze]);
+            for (i, p) in placed.iter().enumerate() {
+                assert!(!looks_outside(p, w, h), "eye {i} at depth {depth} height {height} size {size} tilt {tilt} in {w}x{h}: {p:?}");
+            }
+        }
+    }
+}
+
+#[test]
+fn both_eyes_keep_the_same_size_as_each_other_whatever_the_shifts_and_the_roll() {
+    // the only difference in zoom between the eyes is the size, in whichever eye the wider view is
+    let tune = Tune { depth: 4.0, height: -3.0, size: 92.0, tilt: 3.0, lut: None };
+    let (a, b) = eye_offsets(shift_px(4.0, 960), shift_px(-3.0, 1080));
+    let [l, r] = places(&tune, [(960, 1080); 2], [a, b], [0.5; 2]);
+    assert!((l.zoom / r.zoom - 100.0 / 92.0).abs() < 1e-9, "{l:?} {r:?}");
+    let [l, r] = places(&Tune { size: 100.0, ..tune.clone() }, [(960, 1080); 2], [a, b], [0.5; 2]);
+    assert_eq!(l.zoom, r.zoom);
 }
 
 #[test]
@@ -220,15 +274,16 @@ fn red_cyan_fits_an_eye_of_another_shape_with_bars() {
 #[test]
 fn red_cyan_shifts_the_eyes_as_side_by_side_does() {
     // the canvas is 40 wide so 5 % is 2 pixels: the left eye goes one to the right
-    let out = red_cyan(&solid(40, 10, [255, 255, 255]), &solid(40, 10, [0, 0, 0]), 40, 10, &shift(5.0, 0.0));
-    assert_eq!(out.at(0, 5), [0, 0, 0]);
-    assert_eq!(out.at(1, 5), [255, 0, 0]);
+    let eye = block(40, 10, (19, 21), (0, 10));
+    let out = red_cyan(&eye, &solid(40, 10, [0, 0, 0]), 40, 10, &shift(5.0, 0.0));
+    assert!((lit_offset(&out).0 - 1.0).abs() < 0.3, "{:?}", lit_offset(&out));
     // and the right eye one up when it's lifted by 5 % of the height of 20
-    let eye = ramp(40, 20);
-    let lifted = red_cyan(&solid(40, 20, [0, 0, 0]), &eye, 40, 20, &shift(0.0, 5.0));
-    let flat = red_cyan(&solid(40, 20, [0, 0, 0]), &eye, 40, 20, &shift(0.0, 0.0));
-    assert_eq!(lifted.at(10, 5), flat.at(10, 6));
+    let bar = block(40, 20, (0, 40), (9, 11));
+    let out = red_cyan(&solid(40, 20, [0, 0, 0]), &bar, 40, 20, &shift(0.0, 5.0));
+    let lit = (0..20).filter(|y| out.at(20, *y)[2] > 128).collect::<Vec<_>>();
+    assert!(!lit.is_empty() && lit.iter().all(|y| *y < 10), "{lit:?}");
 }
+
 
 fn frame(w: u32, h: u32, format: PixelFormat, rgb: [u8; 3]) -> Frame {
     let mut f = Frame::new(w, h, format, vec![0; format.size(w, h)]);
@@ -329,32 +384,28 @@ fn an_eye_held_back_by_arrival_time_gives_the_frame_that_came_in_that_long_ago()
     assert_eq!(delayed_index(&[], 5), None);
 }
 
-#[test]
-fn a_warp_of_nothing_leaves_the_eye_as_it_was() {
-    let eye = ramp(24, 16);
-    assert_eq!(warp(&eye, 1.0, 0.0, 1.0), eye);
+/// The eye zoomed and turned in its place, as the packing does it.
+fn turned(eye: &Rgb, zoom: f64, tilt: f64, squeeze: f64) -> Rgb {
+    place(eye, &Place { zoom, dx: 0.0, dy: 0.0, tilt, squeeze }, None).into_owned()
 }
 
 #[test]
-fn size_enlarges_about_the_middle_and_shrinking_leaves_a_border() {
+fn placing_an_eye_as_it_is_leaves_it_as_it_was() {
+    let eye = ramp(24, 16);
+    assert_eq!(turned(&eye, 1.0, 0.0, 1.0), eye);
+}
+
+#[test]
+fn zooming_enlarges_about_the_middle_and_fills_the_picture() {
     let eye = solid(40, 40, [200, 100, 50]);
-    let bigger = warp(&eye, 1.25, 0.0, 1.0);
+    let bigger = turned(&eye, 1.25, 0.0, 1.0);
     assert_eq!((bigger.at(0, 0), bigger.at(39, 39)), ([200, 100, 50], [200, 100, 50]), "it still fills the picture");
-    let smaller = warp(&eye, 0.8, 0.0, 1.0);
-    assert_eq!(smaller.at(20, 20), [200, 100, 50]);
-    // 0.8 of 40 is 32: a border of 4 pixels all round
-    assert_eq!([smaller.at(0, 20), smaller.at(39, 20), smaller.at(20, 0), smaller.at(20, 39)], [[0, 0, 0]; 4]);
-    assert_eq!(smaller.at(5, 20), [200, 100, 50]);
-    // a mark 10 pixels right of the middle goes to 5 when the eye is halved
+    // a mark 10 pixels right of the middle goes to 20 when the eye is doubled, the very edge of the picture
     let mut marked = solid(40, 40, [0, 0, 0]);
     for (x, y) in (29..31).flat_map(|x| (0..40).map(move |y| (x, y))) {
         marked.set(x, y, [255, 255, 255]);
     }
-    let shrunk = warp(&marked, 0.5, 0.0, 1.0);
-    let lit: Vec<usize> = (0..40).filter(|x| shrunk.at(*x, 20)[0] > 100).collect();
-    assert!(!lit.is_empty() && lit.iter().all(|x| (24..=26).contains(x)), "{lit:?}");
-    // doubled, it goes out to about 20 pixels from the middle, the very edge of the picture
-    let grown = warp(&marked, 2.0, 0.0, 1.0);
+    let grown = turned(&marked, 2.0, 0.0, 1.0);
     let lit: Vec<usize> = (0..40).filter(|x| grown.at(*x, 20)[0] > 100).collect();
     assert!(!lit.is_empty() && lit.iter().all(|x| *x >= 37), "{lit:?}");
 }
@@ -382,12 +433,12 @@ fn tilt_turns_the_eye_clockwise_about_its_middle() {
         }
     }
     // a quarter turn clockwise takes the top to the right
-    let (x, y) = lit_offset(&warp(&eye, 1.0, 90.0, 1.0));
+    let (x, y) = lit_offset(&turned(&eye, 1.0, 90.0, 1.0));
     assert!((x - 10.0).abs() < 1.0 && y.abs() < 1.0, "({x}, {y})");
     // five degrees moves it right by 10 sin 5 degrees, about 0.9 of a pixel
-    let (x, y) = lit_offset(&warp(&eye, 1.0, 5.0, 1.0));
+    let (x, y) = lit_offset(&turned(&eye, 1.0, 5.0, 1.0));
     assert!(x > 0.5 && x < 1.5 && (y + 10.0).abs() < 0.6, "({x}, {y})");
-    let (x, _) = lit_offset(&warp(&eye, 1.0, -5.0, 1.0));
+    let (x, _) = lit_offset(&turned(&eye, 1.0, -5.0, 1.0));
     assert!(x < -0.5, "the other way: {x}");
 }
 
@@ -400,7 +451,7 @@ fn a_squeezed_eye_is_turned_in_its_own_shape() {
             eye.set(x, y, [255, 255, 255]);
         }
     }
-    let (x, _) = lit_offset(&warp(&eye, 1.0, 90.0, 0.5));
+    let (x, _) = lit_offset(&turned(&eye, 1.0, 90.0, 0.5));
     assert!((x - 5.0).abs() < 1.0, "{x}");
 }
 
@@ -418,18 +469,25 @@ fn the_right_eye_goes_through_the_colour_curves_and_the_left_does_not() {
 }
 
 #[test]
-fn size_reaches_the_right_eye_only_and_is_held_to_the_slider() {
-    let white = solid(40, 20, [255, 255, 255]);
-    let out = side_by_side(&white, &white, 40, 20, &Tune { size: 90.0, ..Tune::default() });
-    assert_eq!(out.at(0, 0), [255, 255, 255], "the left eye fills its half");
-    assert_eq!(out.at(20, 0), [0, 0, 0], "the right eye shrank away from its corner");
-    assert_eq!(out.at(30, 10), [255, 255, 255]);
+fn size_zooms_the_eye_of_the_wider_view_and_is_held_to_the_slider() {
+    // a mark 4 pixels right of the middle of each eye, in halves of 40 wide
+    let eye = block(40, 20, (23, 25), (0, 20));
+    let blank = solid(40, 20, [0, 0, 0]);
+    let at = |left: &Rgb, right: &Rgb, size: f64| halves_lit(&side_by_side(left, right, 80, 20, &Tune { size, ..Tune::default() }));
+    // 125 %: the right eye is zoomed a quarter, the left one is as it was
+    let [l, _] = at(&eye, &blank, 125.0);
+    let [_, r] = at(&blank, &eye, 125.0);
+    assert!((l.0 - 4.0).abs() < 0.3 && (r.0 - 5.0).abs() < 0.4, "{l:?} {r:?}");
+    // 80 %: the left eye is zoomed instead and the right one is as it was
+    let [l, _] = at(&eye, &blank, 80.0);
+    let [_, r] = at(&blank, &eye, 80.0);
+    assert!((l.0 - 5.0).abs() < 0.4 && (r.0 - 4.0).abs() < 0.3, "{l:?} {r:?}");
     // a size and a tilt of nothing is the plain picture
     let plain = side_by_side(&ramp(40, 20), &ramp(40, 20), 80, 20, &Tune::default());
     assert_eq!(plain, side_by_side(&ramp(40, 20), &ramp(40, 20), 80, 20, &Tune { size: 100.0, tilt: 0.0, ..Tune::default() }));
     // out-of-range values are held to the sliders
-    let wild = side_by_side(&white, &white, 40, 20, &Tune { size: 10.0, ..Tune::default() });
-    assert_eq!(wild, side_by_side(&white, &white, 40, 20, &Tune { size: 80.0, ..Tune::default() }));
+    let white = solid(40, 20, [255, 255, 255]);
+    assert_eq!(side_by_side(&white, &white, 80, 20, &Tune { size: 10.0, ..Tune::default() }), side_by_side(&white, &white, 80, 20, &Tune { size: 80.0, ..Tune::default() }));
 }
 
 #[test]

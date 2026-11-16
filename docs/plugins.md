@@ -20,6 +20,8 @@ Some tiles carry a badge:
 - **Needs the vision download** is on Auto framing, Background and Expose for my face. They start out off and need a separate download the first time, see [the vision download](features/picture.md#the-vision-download). Its **Remove download** button sits next to the **People and vision** heading
 - **Required** marks Devices and connection, Advanced settings and Updates. Their switches are locked on since Telescope doesn't work without them
 - **Added** marks plugins you installed yourself
+- **Lab** sits next to a plugin's name when it's an early version. It works, but it may change or behave oddly while it's being finished
+- **Limited** sits next to a plugin's name when it has technical limits that will likely never go away, so don't expect it to work perfectly. A plugin can carry both
 - **Restart required** shows on every plugin whose switch changed since Telescope started
 
 **A card or setting is gone?** Check the Plugins tab. When some are off its name reads **Plugins (2 off)** and right after a restart a banner at the top names them. **Off** in the filter lists them all.

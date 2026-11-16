@@ -537,15 +537,29 @@ impl Window {
         self.refresh_tiles();
     }
 
-    /// The newest frame of the stream the panels show (its worker is the live one), and its number.
-    pub fn preview_frame(&self) -> Option<(telescope_core::Frame, u64)> {
+    /// The worker whose picture the preview draws: the one the panels show, or the stream a plugin asked it to follow (Host::preview_follows)
+    /// while that stream runs.
+    fn preview_worker(&self) -> Option<Rc<ShellWorker>> {
         let workers = self.streams.workers.borrow();
-        workers.iter().find(|w| w.live.get()).and_then(|w| w.inner.slot().latest())
+        let shown = workers.iter().find(|w| w.live.get())?;
+        let target = shown.inner.source_id().and_then(|id| self.state.borrow().preview_target(id).map(str::to_string));
+        let followed = target.and_then(|t| workers.iter().find(|w| w.inner.source_id() == Some(t.as_str())));
+        Some(followed.unwrap_or(shown).clone())
     }
 
-    /// The id of the stream the panels show, so what's made from its frames isn't taken for another's.
-    pub fn preview_source(&self) -> Option<String> {
+    /// The id of the stream the panels show.
+    pub(crate) fn preview_focus_id(&self) -> Option<String> {
         self.streams.workers.borrow().iter().find(|w| w.live.get()).and_then(|w| w.inner.source_id().map(str::to_string))
+    }
+
+    /// The newest frame of the stream the preview draws (the one the panels show, or the one it follows), and its number.
+    pub fn preview_frame(&self) -> Option<(telescope_core::Frame, u64)> {
+        self.preview_worker().and_then(|w| w.inner.slot().latest())
+    }
+
+    /// The id of the stream the preview draws, so what's made from its frames isn't taken for another's.
+    pub fn preview_source(&self) -> Option<String> {
+        self.preview_worker().and_then(|w| w.inner.source_id().map(str::to_string))
     }
 
     /// The worker a source's session streams through, while it has one.

@@ -1,58 +1,5 @@
 // The 3D card. Joined after parts.slint, which has the imports.
 
-// Up to two state badges side by side on one row that unfolds in and out with their words, each one keeping its last words while the row shuts.
-component BadgeUnfold inherits Unfolding {
-    in property <string> first;
-    in property <string> first-kind: "status_dim";
-    in property <string> first-detail;
-    in property <string> second;
-    in property <string> second-kind: "status_dim";
-    in property <string> second-detail;
-    property <string> held-first;
-    property <string> held-first-kind;
-    property <string> held-first-detail;
-    property <string> held-second;
-    property <string> held-second-kind;
-    property <string> held-second-detail;
-    property <bool> any: first != "" || second != "";
-    function keep() {
-        if (root.first != "") {
-            held-first = root.first;
-            held-first-kind = root.first-kind;
-            held-first-detail = root.first-detail;
-        }
-        if (root.second != "") {
-            held-second = root.second;
-            held-second-kind = root.second-kind;
-            held-second-detail = root.second-detail;
-        }
-    }
-    open: any;
-    max-height: self.preferred-height;
-    init => { keep(); }
-    changed first => { keep(); }
-    changed first-kind => { keep(); }
-    changed first-detail => { keep(); }
-    changed second => { keep(); }
-    changed second-kind => { keep(); }
-    changed second-detail => { keep(); }
-    RailRow {
-        has-icon: false;
-        HorizontalLayout {
-            alignment: start;
-            spacing: Theme.u(4);
-            if held-first != "" && (root.first != "" || !root.any): Rectangle {
-                width: first-badge.width;
-                first-badge := Tag { y: (parent.height - self.height) / 2; text: held-first; detail: held-first-detail; tint: StatusInk.color(held-first-kind); }
-            }
-            if held-second != "" && (root.second != "" || !root.any): Rectangle {
-                width: second-badge.width;
-                second-badge := Tag { y: (parent.height - self.height) / 2; text: held-second; detail: held-second-detail; tint: StatusInk.color(held-second-kind); }
-            }
-        }
-    }
-}
-
 export component StereoCard inherits Card {
     in property <bool> on;
     in property <string> switch-name;
@@ -84,12 +31,13 @@ export component StereoCard inherits Card {
     in property <bool> reset-enabled;
     in property <string> reset-tip;
     in property <bool> reset-shown;
-    in property <string> status;
-    in property <string> status-kind: "status_dim";
-    in property <string> status-detail;
-    in property <string> match-status;
-    in property <string> match-status-kind: "status_dim";
-    in property <string> match-status-detail;
+    in property <string> badge;
+    in property <string> badge-kind: "status_dim";
+    in property <string> badge-detail;
+    in property <float> brightness;
+    in property <string> brightness-text;
+    in property <string> brightness-tip;
+    in property <bool> brightness-enabled;
     callback switch-toggled-by-hand(bool);
     callback look-picked(int);
     callback depth-moved(float);
@@ -97,6 +45,7 @@ export component StereoCard inherits Card {
     callback size-moved(float);
     callback tilt-moved(float);
     callback timing-moved(float);
+    callback brightness-moved(float);
     callback fine-toggled(bool);
     callback swap-toggled(bool);
     callback match-clicked;
@@ -113,6 +62,9 @@ export component StereoCard inherits Card {
     switch-tip: switch-name;
     switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
+    tag: badge;
+    tag-detail: badge-detail;
+    tag-tint: StatusInk.color(badge-kind);
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
@@ -172,6 +124,21 @@ export component StereoCard inherits Card {
             tip-detail: reset-tip;
             clicked => { root.reset-match-clicked(); }
         }
+    }
+    RailSlider {
+        icon: Icons.sun;
+        label: @tr("Brightness");
+        tip-detail: brightness-tip;
+        enabled: brightness-enabled;
+        minimum: -2;
+        maximum: 2;
+        step: 0.1;
+        value: brightness;
+        readout: brightness-text;
+        hue: root.hue;
+        has-default: true;
+        default-value: 0;
+        moved(v) => { root.brightness-moved(v); }
     }
     UnfoldGroup {
         SwitchRow {
@@ -263,14 +230,6 @@ export component StereoCard inherits Card {
                 default-value: 0;
                 moved(v) => { root.timing-moved(v); }
             }
-        }
-        BadgeUnfold {
-            first: status;
-            first-kind: status-kind;
-            first-detail: status-detail;
-            second: match-status;
-            second-kind: match-status-kind;
-            second-detail: match-status-detail;
         }
     }
 }

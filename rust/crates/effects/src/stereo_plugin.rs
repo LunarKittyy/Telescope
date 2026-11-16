@@ -16,7 +16,7 @@
 //! picture going from its last frame for a few seconds, then from the other eye alone, so the camera never sits on one frozen picture.
 
 use crate::stereo::{self, Eye, Look, SyncStatus, Tune, DEFAULT_FRAME_NS, SHIFT_LIMIT, TILT_LIMIT, TIMING_LIMIT_MS};
-use crate::stereo_match::{self, Act, Lut, Outcome, Run, Stats, SIZE_MAX, SIZE_MIN};
+use crate::stereo_match::{self, Act, Lut, Outcome, Run, Stats, BRIGHTNESS_LIMIT, OWN_LOOK_NS, SIZE_MAX, SIZE_MIN};
 use serde_json::{json, Value};
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
@@ -49,17 +49,21 @@ const MATCH_MS: u64 = 400;
 /// How long Match waits for both phones to answer, and for the whole run, nanoseconds.
 const POLL_NS: u64 = 4_000_000_000;
 const RUN_NS: u64 = 30_000_000_000;
+/// The timer that sends the Brightness slider's last value, and the least time between two sends, milliseconds.
+const BRIGHTNESS_TIMER: &str = "brightness";
+const BRIGHTNESS_MS: u64 = 150;
 
 const SWITCH_TIP: &str = n_("Turn two running streams into one 3D picture.");
 const LOOK_TIP: &str = n_("Side by side suits a headset or a 3D screen and red and cyan suits glasses.");
 const DEPTH_TIP: &str = n_("Slide the two pictures apart or together to change how far forward the 3D reaches.");
 const HEIGHT_TIP: &str = n_("Lift or lower the right picture when the phones don't sit level.");
-const SIZE_TIP: &str = n_("Make the right picture bigger or smaller when its lens sees more or less than the left one's.");
+const SIZE_TIP: &str = n_("Zoom in on the phone that sees the wider view, the right one over 100% and the left one under it, so both show the same thing.");
 const TILT_TIP: &str = n_("Roll the right picture a little when one phone is tilted against the other.");
 const TIMING_TIP: &str = n_("Move the right picture earlier or later in time when it moves ahead of or behind the left one.");
 const FINE_TIP: &str = n_("Show the sliders that line the two pictures up by hand.");
 const SWAP_TIP: &str = n_("Swap which phone is the left eye and which is the right if the 3D looks inside out.");
 const MATCH_TIP: &str = n_("Even out two different phones with the same shutter, similar brightness and a colour curve that makes the right picture look like the left.");
+const BRIGHTNESS_TIP: &str = n_("Make both phones brighter or darker together after Match, keeping them matched.");
 const RESET_TIP: &str = n_("Drop the colour curve Match made and leave the phones' exposure as it is.");
 /// How often the picture is drawn while the stream it goes out on stalls.
 const FALLBACK_FPS: u64 = 30;
@@ -549,8 +553,23 @@ pub struct StereoPlugin {
     /// The pair of streams Size was last decided for, and the size that came from the lenses (to tell it from one a person set).
     sized_for: Option<[String; 2]>,
     auto_size: Option<f64>,
+    /// What Match left the phones at, while Brightness can move them together.
+    exposure: Option<Exposure>,
+    /// The Brightness slider in stops, when its ISOs were last sent and what was sent, and whether a later value waits for the timer.
+    brightness: f64,
+    brightness_sent: Option<(u64, [i64; 2])>,
+    brightness_waits: bool,
+    /// The size a swap turned round and the one it came from, so swapping back is exact.
+    size_swapped: Option<(f64, f64)>,
     /// The clock that draws while the target stream stalls.
     clock: Option<JoinHandle<()>>,
+}
+
+/// The two phones' ISOs as Match left them, which Brightness scales.
+struct Exposure {
+    ids: [String; 2],
+    base: [i64; 2],
+    limits: [(i64, i64); 2],
 }
 
 impl Default for StereoPlugin {
@@ -572,6 +591,11 @@ fn size_text(v: f64) -> String {
 /// The roll as the card reads it out: 0.0°, +1.5°, -2.0°.
 fn tilt_text(v: f64) -> String {
     if v.abs() < 0.05 { "0.0°".to_string() } else { format!("{v:+.1}°") }
+}
+
+/// The brightness as the card reads it out: 0.0 EV, +1.0 EV, -0.5 EV.
+fn brightness_text(v: f64) -> String {
+    if v.abs() < 0.05 { "0.0 EV".to_string() } else { format!("{v:+.1} EV") }
 }
 
 /// The timing as the card reads it out: 0 ms, +25 ms, -120 ms.
@@ -613,7 +637,8 @@ impl StereoPlugin {
         StereoPlugin {
             on: false, look: Look::default(), depth: 0.0, height: 0.0, size_percent: 100.0, tilt: 0.0, timing: 0.0, swap: false, target: None,
             camera_size: None, canvas: (None, None), shared, pending: false, held: None, fine: false, matching: MatchState::Idle, lut: None,
-            focal: BTreeMap::new(), sized_for: None, auto_size: None, clock: None,
+            focal: BTreeMap::new(), sized_for: None, auto_size: None, exposure: None, brightness: 0.0, brightness_sent: None, brightness_waits: false, size_swapped: None,
+            clock: None,
         }
     }
 
@@ -653,7 +678,8 @@ impl StereoPlugin {
         hub.on = self.on;
         hub.tune = Tune { depth: self.depth, height: self.height, size: self.size_percent, tilt: self.tilt, lut: self.lut.clone() };
         (hub.look, hub.swap, hub.size, hub.timing_ns) = (self.look, self.swap, size, (self.timing * 1e6) as i64);
-        hub.measure = self.on && matches!(self.matching, MatchState::Running { .. });
+        // the left phone's own picture is read while Match asks for the phones' states, before it changes anything
+        hub.measure = self.on && self.matching.busy();
         if !self.on {
             hub.forget();
         }
@@ -693,7 +719,7 @@ impl StereoPlugin {
             "switch-name": tr("3D"), "switch-help": tr(SWITCH_TIP),
             "look-items": [tr("Side by side"), tr("Red/cyan")], "look-tip": tr(LOOK_TIP),
             "depth-tip": tr(DEPTH_TIP), "height-tip": tr(HEIGHT_TIP), "size-tip": tr(SIZE_TIP), "tilt-tip": tr(TILT_TIP), "timing-tip": tr(TIMING_TIP),
-            "fine-tip": tr(FINE_TIP), "swap-tip": tr(SWAP_TIP), "match-tip": tr(MATCH_TIP), "reset-tip": tr(RESET_TIP),
+            "fine-tip": tr(FINE_TIP), "swap-tip": tr(SWAP_TIP), "match-tip": tr(MATCH_TIP), "reset-tip": tr(RESET_TIP), "brightness-tip": tr(BRIGHTNESS_TIP),
         })
     }
 
@@ -742,6 +768,12 @@ impl StereoPlugin {
         let mut props = Self::fixed_props();
         let (status, kind, detail) = host.map_or((String::new(), "status_dim", String::new()), |h| self.status(h));
         let (matching, match_kind, match_detail) = if self.on { self.match_status() } else { (String::new(), "status_dim", String::new()) };
+        // the header has room for one badge: what needs a look comes first, then what Match did, then that the pictures are in sync
+        let (badge, badge_kind, badge_detail) = if matching.is_empty() || (match_kind == "status_ok" && kind != "status_ok") {
+            (status, kind, detail)
+        } else {
+            (matching, match_kind, match_detail)
+        };
         let two = host.is_some_and(|h| h.stream_count() >= 2);
         let reset = self.lut.is_some() || !matches!(self.matching, MatchState::Idle);
         if let Value::Object(o) = &mut props {
@@ -763,12 +795,12 @@ impl StereoPlugin {
                 ("swap".to_string(), json!(self.swap)),
                 ("match-enabled".to_string(), json!(two && !self.matching.busy())),
                 ("reset-enabled".to_string(), json!(reset)),
-                ("status".to_string(), json!(status)),
-                ("status-kind".to_string(), json!(kind)),
-                ("status-detail".to_string(), json!(detail)),
-                ("match-status".to_string(), json!(matching)),
-                ("match-status-kind".to_string(), json!(match_kind)),
-                ("match-status-detail".to_string(), json!(match_detail)),
+                ("badge".to_string(), json!(badge)),
+                ("badge-kind".to_string(), json!(badge_kind)),
+                ("badge-detail".to_string(), json!(badge_detail)),
+                ("brightness".to_string(), json!(self.brightness)),
+                ("brightness-text".to_string(), json!(brightness_text(self.brightness))),
+                ("brightness-enabled".to_string(), json!(self.on && self.exposure.is_some() && matches!(self.matching, MatchState::Done(..)))),
             ]);
         }
         props
@@ -795,8 +827,19 @@ impl StereoPlugin {
             host.cancel_schedule(MATCH_TIMER);
         }
         self.wake_clock();
+        self.follow_preview(host);
         let props = self.card_props(Some(host));
         host.set_ui_props("card", &props);
+    }
+
+    /// While 3D makes a picture, picking the other eye's tile still shows it on the preview; with no pair, or off, the preview is as it was.
+    fn follow_preview(&self, host: &mut dyn Host) {
+        let follows = self.target.clone().filter(|_| self.on).and_then(|t| {
+            let [a, b] = self.eyes(host)?;
+            let other = if a == t { b } else if b == t { a } else { return None };
+            Some((other, t))
+        });
+        host.preview_follows(NAME, follows.as_ref().map(|f| f.0.as_str()), follows.as_ref().map(|f| f.1.as_str()));
     }
 
     fn catch_up(&mut self, host: &mut dyn Host) {
@@ -857,6 +900,25 @@ impl StereoPlugin {
         }
     }
 
+    /// Swap eyes: Size is the right eye against the left, so with the phones the other way round it is the reverse (125 % becomes 80 %) and each
+    /// phone keeps the zoom it had. The way back gives the exact size it came from, however often the eyes swap. The lenses aren't asked again for
+    /// the pair once they had decided.
+    fn turn_size_round(&mut self, host: &dyn Host) {
+        if (self.size_percent - 100.0).abs() >= 0.05 {
+            let auto = self.auto_size == Some(self.size_percent);
+            let turned = match self.size_swapped {
+                Some((now, before)) if now == self.size_percent => before,
+                _ => clean_size(10_000.0 / self.size_percent),
+            };
+            self.size_swapped = Some((turned, self.size_percent));
+            self.size_percent = turned;
+            self.auto_size = auto.then_some(turned);
+        }
+        if self.sized_for.is_some() {
+            self.sized_for = self.eyes(host);
+        }
+    }
+
     /// A phone's state as it came in: its lens is kept for Size.
     fn note_state(&mut self, host: &mut dyn Host, source_id: &str, state: &Value) {
         match stereo_match::focal_mm(state) {
@@ -872,6 +934,8 @@ impl StereoPlugin {
     fn drop_match(&mut self) {
         self.lut = None;
         self.matching = MatchState::Idle;
+        // with no match there is no exposure to move together
+        (self.exposure, self.brightness, self.brightness_sent, self.brightness_waits) = (None, 0.0, None, false);
         // the step applies what it was handed, so the curves go from there too, whoever dropped the match and whether or not a prepare follows
         let mut hub = self.shared.hub();
         (hub.tune.lut, hub.measure, hub.reading) = (None, false, None);
@@ -896,7 +960,11 @@ impl StereoPlugin {
             host.request_phone_state(Some(id));
         }
         self.lut = None;
+        self.exposure = None;
+        self.brightness = 0.0;
         self.matching = MatchState::Polling { ids, states: [None, None], since: monotonic_ns() };
+        // what the left phone looks like on its own is read from now until it is changed
+        self.shared.hub().reading = None;
         self.changed_without_save(host);
     }
 
@@ -912,17 +980,28 @@ impl StereoPlugin {
             self.changed_without_save(host);
             return;
         }
-        let MatchState::Polling { ids, states, since } = &mut self.matching else { return };
+        let MatchState::Polling { ids, states, .. } = &mut self.matching else { return };
         let Some(at) = ids.iter().position(|id| id == source_id) else { return };
         states[at] = Some(state.clone());
-        if states.iter().any(Option::is_none) {
+        self.begin(host);
+    }
+
+    /// With both phones' states in: sets them to the same exposure and starts the run. A left phone on automatic is brought back to the brightness
+    /// it had before, read from its own picture, so that waits (for a moment) until there is such a reading.
+    fn begin(&mut self, host: &mut dyn Host) {
+        let MatchState::Polling { ids, states, since } = &self.matching else { return };
+        let [Some(left), Some(right)] = states else { return };
+        let (ids, since, now) = (ids.clone(), *since, monotonic_ns());
+        let (left, right) = (left.clone(), right.clone());
+        let (frame_ns, own) = {
+            let hub = self.shared.hub();
+            (hub.frame_ns, hub.reading.as_ref().filter(|r| now.saturating_sub(r.at) < OWN_LOOK_NS).map(|r| r.stats[0].luma))
+        };
+        let start = stereo_match::plan(&left, &right, frame_ns);
+        if start.as_ref().is_some_and(|s| s.tune_left && s.shutter.is_some()) && own.is_none() && now.saturating_sub(since) < POLL_NS / 2 {
             return;
         }
-        let (ids, since) = (ids.clone(), *since);
-        let [Some(left), Some(right)] = std::mem::take(states) else { return };
-        let now = monotonic_ns();
-        let frame_ns = self.shared.hub().frame_ns;
-        let run = match stereo_match::plan(&left, &right, frame_ns) {
+        let run = match start {
             Some(start) => match start.shutter {
                 Some(shutter) => {
                     for (id, iso) in ids.iter().zip(start.iso) {
@@ -930,7 +1009,11 @@ impl StereoPlugin {
                             host.phone_control(Some(id), &body);
                         }
                     }
-                    Run::new(start.iso, start.limits, start.tune_left, true, now)
+                    let run = Run::new(start.iso, start.limits, start.tune_left, true, now);
+                    match own.filter(|_| start.tune_left) {
+                        Some(luma) => run.with_target(luma),
+                        None => run,
+                    }
                 }
                 // no shutter both lenses and both frame rates allow: nothing out of a lens's range is sent, and the colours are matched as far as they go
                 None => Run::new([0, 0], [(0, 0); 2], false, false, now).limited(),
@@ -959,6 +1042,8 @@ impl StereoPlugin {
         match std::mem::replace(&mut self.matching, MatchState::Idle) {
             MatchState::Polling { ids, states, since } => {
                 self.matching = if now.saturating_sub(since) > POLL_NS { MatchState::Failed } else { MatchState::Polling { ids, states, since } };
+                // both phones answered but the left one's own picture wasn't read yet
+                self.begin(host);
             }
             MatchState::Running { ids, mut run, since } => {
                 let reading = self.shared.hub().reading.as_ref().map(|r| (r.at, [r.stats[0].luma, r.stats[1].luma]));
@@ -978,6 +1063,8 @@ impl StereoPlugin {
                         match lut {
                             Some(lut) => {
                                 self.lut = Some(Arc::new(lut));
+                                self.exposure = run.manual().then(|| Exposure { ids: ids.clone(), base: run.iso(), limits: run.limits() });
+                                self.brightness = 0.0;
                                 MatchState::Done(outcome, ids)
                             }
                             None => MatchState::Failed,
@@ -997,6 +1084,37 @@ impl StereoPlugin {
         }
     }
 
+    /// The Brightness slider: both phones' ISOs move by the same number of stops from what Match left them at, no further than either lens takes. It
+    /// goes out at most every 150 ms while it is dragged, and the last value always goes out.
+    fn move_brightness(&mut self, host: &mut dyn Host, ev: f64) {
+        let Some(x) = &self.exposure else { return };
+        let (_, ev) = stereo_match::brightness_isos(x.base, x.limits, clean_tenths(ev, BRIGHTNESS_LIMIT));
+        self.brightness = (ev * 10.0).round() / 10.0;
+        let (now, sent) = (monotonic_ns(), self.brightness_sent.map_or(0, |s| s.0));
+        let due = sent.saturating_add(BRIGHTNESS_MS * 1_000_000);
+        if self.brightness_sent.is_none() || now >= due {
+            self.push_brightness(host, now);
+        } else {
+            self.brightness_waits = true;
+            host.schedule((due - now).div_ceil(1_000_000), BRIGHTNESS_TIMER);
+        }
+        self.changed_without_save(host);
+    }
+
+    /// Sends both phones the ISO the Brightness slider stands for, when it is not the one they have.
+    fn push_brightness(&mut self, host: &mut dyn Host, now: u64) {
+        self.brightness_waits = false;
+        let Some(x) = &self.exposure else { return };
+        let (isos, _) = stereo_match::brightness_isos(x.base, x.limits, self.brightness);
+        if self.brightness_sent.is_some_and(|s| s.1 == isos) || (self.brightness_sent.is_none() && isos == x.base) {
+            return;
+        }
+        for (id, iso) in x.ids.iter().zip(isos) {
+            host.phone_control(Some(id), &stereo_match::iso_body(iso));
+        }
+        self.brightness_sent = Some((now, isos));
+    }
+
     /// Reset match: the colour curves go and a run stops. The phones keep the exposure Match gave them.
     fn reset_match(&mut self, host: &mut dyn Host) {
         self.drop_match();
@@ -1013,6 +1131,11 @@ impl StereoPlugin {
 
     /// The card's Reset: look, eye order and sliders back to their defaults and the match dropped. The phones keep the exposure Match gave them.
     fn reset(&mut self, host: &mut dyn Host) {
+        // Brightness goes back to what Match gave the phones before the match is dropped
+        if self.exposure.is_some() && self.brightness != 0.0 {
+            self.brightness = 0.0;
+            self.push_brightness(host, monotonic_ns());
+        }
         let cfg = reset_config(&self.get_config(), &StereoPlugin::new().get_config(), Self::RESET_KEPT);
         if self.apply_preset(host, &cfg).is_ok() {
             // Size was put back by hand, so the lenses don't pick it again for this pair
@@ -1050,6 +1173,7 @@ impl Plugin for StereoPlugin {
             icon: "cube".into(),
             frame_stage: FrameStage::Combine,
             optional: true,
+            lab: true,
             in_presets: true,
             // it's about the Telescope camera's stream, whichever one the panels show
             follows_focus: false,
@@ -1065,6 +1189,7 @@ impl Plugin for StereoPlugin {
     }
 
     fn shutdown(&mut self, host: &mut dyn Host) {
+        host.preview_follows(NAME, None, None);
         host.want_frames(NAME, false);
         host.want_frame_history(NAME, 0);
         host.cancel_schedule(STATUS_TIMER);
@@ -1100,6 +1225,11 @@ impl Plugin for StereoPlugin {
                 self.show(host);
             }
             Event::TimerFired { owner, token } if owner == NAME && token == MATCH_TIMER => self.match_tick(host),
+            Event::TimerFired { owner, token } if owner == NAME && token == BRIGHTNESS_TIMER => {
+                if self.brightness_waits {
+                    self.push_brightness(host, monotonic_ns());
+                }
+            }
             _ => {}
         }
     }
@@ -1148,6 +1278,7 @@ impl Plugin for StereoPlugin {
                 self.tilt = clean_tilt(number.unwrap_or(0.0));
                 self.changed(host);
             }
+            "brightness-moved" => self.move_brightness(host, number.unwrap_or(0.0)),
             "timing-moved" => {
                 self.timing = clean_timing(number.unwrap_or(0.0));
                 self.changed(host);
@@ -1157,7 +1288,11 @@ impl Plugin for StereoPlugin {
                 self.show(host);
             }
             "swap-toggled" => {
+                let before = self.swap;
                 self.swap = event.args.first().and_then(Value::as_bool).unwrap_or(false);
+                if self.swap != before {
+                    self.turn_size_round(host);
+                }
                 // the colour curves were made for the other way round
                 self.check_match(host);
                 self.changed(host);

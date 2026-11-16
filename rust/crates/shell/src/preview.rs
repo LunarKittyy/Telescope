@@ -56,21 +56,27 @@ pub fn use_gpu_painter(factory: GpuPainterFactory) {
     let _ = GPU_PAINTER.set(factory);
 }
 
-/// The adapter as the crash marker and the skip list name it: the driver version is part of it, so an updated driver is tried again.
-fn card_of(adapter: &wgpu::Adapter) -> Card {
-    let i = adapter.get_info();
-    Card::new(&i.name, &format!("{:?}", i.backend), &format!("{} {}", i.driver, i.driver_info))
+/// The adapter as the crash marker and the skip list name it: the driver version is part of it (borrowed from the same card on another API
+/// when its own driver says none), so an updated driver is tried again.
+fn card_of(info: &wgpu::AdapterInfo, all: &[gpu_pick::Info]) -> Card {
+    let own = gpu_pick::Info { vendor: info.vendor, device: info.device, driver: info.driver.clone(), driver_info: info.driver_info.clone() };
+    Card::new(&info.name, &format!("{:?}", info.backend), &gpu_pick::driver_text(&own, all))
+}
+
+fn infos_of(adapters: &[wgpu::Adapter]) -> Vec<gpu_pick::Info> {
+    adapters.iter().map(|a| { let i = a.get_info(); gpu_pick::Info { vendor: i.vendor, device: i.device, driver: i.driver, driver_info: i.driver_info } }).collect()
 }
 
 /// The adapters to try for the window, best first. WGPU_POWER_PREF set: wgpu's own pick for it. Otherwise real GPUs first, Vulkan before DX12
 /// as in 5.1.0, and software or odd adapters last; wgpu's no-preference request would take whatever is listed first, software
 /// adapters included.
-fn adapters_to_try(instance: &wgpu::Instance, preference: Option<wgpu::PowerPreference>) -> Vec<wgpu::Adapter> {
+fn adapters_to_try(instance: &wgpu::Instance, preference: Option<wgpu::PowerPreference>) -> Vec<(wgpu::Adapter, Card)> {
+    let listed = block_on(instance.enumerate_adapters(wgpu::Backends::PRIMARY));
+    let all = infos_of(&listed);
     if let Some(power_preference) = preference {
         let picked = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference, ..Default::default() }));
-        return picked.into_iter().inspect(|a| log::info!("Window graphics card {} ({:?}) picked by WGPU_POWER_PREF", a.get_info().name, a.get_info().backend)).collect();
+        return picked.into_iter().inspect(|a| log::info!("Window graphics card {} ({:?}) picked by WGPU_POWER_PREF", a.get_info().name, a.get_info().backend)).map(|a| { let card = card_of(&a.get_info(), &all); (a, card) }).collect();
     }
-    let listed = block_on(instance.enumerate_adapters(wgpu::Backends::PRIMARY));
     let candidates: Vec<Candidate> = listed.iter().enumerate().filter_map(|(index, a)| {
         let info = a.get_info();
         let api = match info.backend {
@@ -87,16 +93,16 @@ fn adapters_to_try(instance: &wgpu::Instance, preference: Option<wgpu::PowerPref
             wgpu::DeviceType::Cpu => Kind::Cpu,
             wgpu::DeviceType::Other => Kind::Other,
         };
-        Some(Candidate { api, kind, index })
+        Some(Candidate { api, kind, index, vendor: info.vendor, windows: cfg!(windows) })
     }).collect();
     let mut listed: Vec<Option<wgpu::Adapter>> = listed.into_iter().map(Some).collect();
-    let ordered: Vec<wgpu::Adapter> = gpu_pick::order(&candidates).into_iter().filter_map(|i| listed[i].take()).collect();
+    let ordered: Vec<(wgpu::Adapter, Card)> = gpu_pick::order(&candidates).into_iter().filter_map(|i| listed[i].take()).map(|a| { let card = card_of(&a.get_info(), &all); (a, card) }).collect();
     let skipped = gpu_marker::skipped();
-    for a in ordered.iter().filter(|a| skipped.contains(&card_of(a))) {
-        log::warn!("Graphics card {} is skipped, the last start closed while opening it", card_of(a));
+    for (_, card) in ordered.iter().filter(|(_, card)| skipped.iter().any(|s| card.is_listed_as(s))) {
+        log::warn!("Graphics card {card} is skipped, the last start closed while opening it");
     }
-    let ordered = gpu_marker::without_skipped(ordered, card_of, &skipped);
-    let name = |a: &wgpu::Adapter| { let i = a.get_info(); format!("{} ({:?}, {:?}, driver {} {})", i.name, i.backend, i.device_type, i.driver, i.driver_info) };
+    let ordered = gpu_marker::without_skipped(ordered, |(_, card)| card.clone(), &skipped);
+    let name = |(a, card): &(wgpu::Adapter, Card)| { let i = a.get_info(); format!("{} ({:?}, {:?}, driver {})", i.name, i.backend, i.device_type, card.driver) };
     if let Some(first) = ordered.first() {
         log::info!("Window graphics card picked: {}; also listed: {}", name(first), ordered.iter().skip(1).map(name).collect::<Vec<_>>().join(", "));
     }
@@ -117,7 +123,7 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
         desc.backends = wgpu::Backends::PRIMARY;
         let instance = wgpu::Instance::new(desc.with_env());
         let mut why = String::from("no graphics card found");
-        for adapter in adapters_to_try(&instance, wgpu::PowerPreference::from_env()) {
+        for (adapter, card) in adapters_to_try(&instance, wgpu::PowerPreference::from_env()) {
             let info = adapter.get_info();
             // WGPU_BACKEND can still pick it
             if info.backend == wgpu::Backend::Gl {
@@ -125,7 +131,7 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
                 continue;
             }
             let tried = (|| {
-                gpu_marker::mark(&card_of(&adapter));
+                gpu_marker::mark(&card);
                 let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
                     label: Some("telescope window"),
                     required_limits: adapter.limits(),
@@ -148,10 +154,11 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
         if adapter.get_info().backend == wgpu::Backend::Gl {
             return Err("GL can't draw this window".to_string());
         }
-        if gpu_marker::is_skipped(&card_of(&adapter)) {
+        let card = card_of(&adapter.get_info(), &infos_of(&block_on(instance.enumerate_adapters(wgpu::Backends::PRIMARY))));
+        if gpu_marker::is_skipped(&card) {
             return Err(format!("{why}; the only card left is skipped"));
         }
-        gpu_marker::mark(&card_of(&adapter));
+        gpu_marker::mark(&card);
         let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("telescope window"),
             required_limits: adapter.limits(),

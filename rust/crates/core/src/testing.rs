@@ -145,6 +145,8 @@ pub struct FakeHost {
     pub picks: Vec<Option<[[f32; 2]; 4]>>,
     /// The warp the preview was last told about.
     pub warp: Option<[f32; 9]>,
+    /// What each owner last asked the preview to follow, as (stream shown, stream drawn).
+    pub follows: HashMap<String, (String, String)>,
     /// What can_turn_camera_off() answers instead of (false, "Not streaming").
     pub can_turn_off: Option<(bool, String)>,
     /// What vision_state() answers instead of "off".
@@ -717,6 +719,12 @@ impl HostPreview for FakeHost {
     fn set_preview_warp(&mut self, owner: &str, matrix: Option<[f32; 9]>) {
         self.warp = matrix;
         self.note(format!("set_preview_warp {owner} {}", matrix.is_some()));
+    }
+    fn preview_follows(&mut self, owner: &str, source_id: Option<&str>, target: Option<&str>) {
+        match (source_id, target) {
+            (Some(source), Some(target)) => self.follows.insert(owner.to_string(), (source.to_string(), target.to_string())),
+            _ => self.follows.remove(owner),
+        };
     }
 }
 
