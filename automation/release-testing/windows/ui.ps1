@@ -206,13 +206,30 @@ function Click($Element) {
 
 Add-Type -AssemblyName System.Windows.Forms
 
+# Whether rectangle $r lies wholly inside $outer
+function Inside($r, $outer) {
+    $r.Left -ge $outer.Left -and $r.Top -ge $outer.Top -and $r.Right -le $outer.Right -and $r.Bottom -le $outer.Bottom
+}
+
+# The top-level window a control is in: a control its window cuts off still counts as on screen, but a click on it can miss
+function Top-Window($Element) {
+    $walker = [Windows.Automation.TreeWalker]::ControlViewWalker
+    $root = [Windows.Automation.AutomationElement]::RootElement
+    $e = $Element
+    while ($true) {
+        $parent = $walker.GetParent($e)
+        if (-not $parent -or [Windows.Automation.Automation]::Compare($parent, $root)) { return $e }
+        $e = $parent
+    }
+}
+
 # Press a control: a real click when it's on screen, like a user (pressing through UI Automation doesn't switch Qt's
 # settings pages, and a switch that opens a question from inside that call has crashed Qt), otherwise its pattern
 function Press($Element) {
     $r = $Element.Current.BoundingRectangle
     $screen = [Windows.Forms.Screen]::PrimaryScreen.WorkingArea
-    if (-not $Element.Current.IsOffscreen -and $r.Width -gt 0 -and $r.Left -ge $screen.Left -and $r.Top -ge $screen.Top -and
-        $r.Right -le $screen.Right -and $r.Bottom -le $screen.Bottom) { Click $Element; return }
+    $window = (Top-Window $Element).Current.BoundingRectangle
+    if (-not $Element.Current.IsOffscreen -and $r.Width -gt 0 -and (Inside $r $screen) -and (Inside $r $window)) { Click $Element; return }
     foreach ($p in $Element.GetSupportedPatterns()) {
         switch ($p.ProgrammaticName) {
             "InvokePatternIdentifiers.Pattern" { $Element.GetCurrentPattern($p).Invoke(); return }
@@ -327,7 +344,8 @@ function Scroll-Main-To([string] $Name, [string] $Type = "", [int] $Notches = 4)
     Start-Sleep -Milliseconds 500
     for ($i = 0; $i -lt 40; $i++) {
         $found = Find-Control $Name $Type 1
-        if ($found -and -not $found.Current.IsOffscreen) { return $found }
+        # Wholly inside the window, not just touching its edge, so a press in its middle lands on it
+        if ($found -and -not $found.Current.IsOffscreen -and (Inside $found.Current.BoundingRectangle $r)) { return $found }
         [Watch]::Wheel($x, $y, $Notches)
         Start-Sleep -Milliseconds 300
     }
