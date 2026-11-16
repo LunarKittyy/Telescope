@@ -5808,6 +5808,7 @@ version = "0.1.0"
 dependencies = [
  "base64",
  "i-slint-backend-testing",
+ "image",
  "log",
  "ring",
  "rqrr",

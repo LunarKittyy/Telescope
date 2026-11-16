@@ -2,10 +2,11 @@
 
 use super::*;
 use crate::stereo::HISTORY_FRAMES;
+use crate::stereo_headset::Message;
 use std::collections::BTreeMap;
 use telescope_core::clock::ClockSync;
 use telescope_core::frame::PixelFormat;
-use telescope_core::testing::FakeHost;
+use telescope_core::testing::{scratch_dir, FakeHost, FakeWeb};
 
 const MS: u64 = 1_000_000;
 
@@ -104,6 +105,10 @@ struct Rig {
 }
 
 fn rig() -> Rig {
+    rig_with(StereoPlugin::new())
+}
+
+fn rig_with(mut plugin: StereoPlugin) -> Rig {
     let store = Arc::new(Store::default());
     let mut host = FakeHost::new();
     host.frame_store = Some(store.clone());
@@ -113,7 +118,6 @@ fn rig() -> Rig {
     host.streaming = true;
     host.streams = Some(2);
     host.live = vec!["a".into(), "b".into()];
-    let mut plugin = StereoPlugin::new();
     plugin.setup(&mut host);
     plugin.on_stream_start(&mut host, &StreamInfo { source_id: "a".into(), url: "a".into(), session: 0 });
     Rig { plugin, host, store, step: None }
@@ -166,6 +170,12 @@ impl Rig {
     fn status(&self) -> String {
         self.plugin.status(&self.host).0
     }
+}
+
+/// The settings without the headset's link and address, which are made and not set.
+fn plain(mut cfg: Value) -> Value {
+    cfg.as_object_mut().unwrap().retain(|k, _| !k.starts_with("headset"));
+    cfg
 }
 
 fn same(a: &Frame, b: &Frame) -> bool {
@@ -965,9 +975,9 @@ fn every_new_row_has_a_one_sentence_tooltip() {
 fn the_settings_come_back_and_are_held_to_the_sliders() {
     let mut r = rig();
     r.plugin.set_config(&json!({"on": true, "look": "red_cyan", "depth": 1.26, "height": -40.0, "size": 140.0, "tilt": 2.34, "timing": -250.4, "swap": true})).unwrap();
-    assert_eq!(r.plugin.get_config(), json!({"on": true, "look": "red_cyan", "depth": 1.3, "height": -5.0, "size": 125.0, "tilt": 2.3, "timing": -200.0, "swap": true}));
+    assert_eq!(plain(r.plugin.get_config()), json!({"on": true, "look": "red_cyan", "depth": 1.3, "height": -5.0, "size": 125.0, "tilt": 2.3, "timing": -200.0, "swap": true}));
     r.plugin.set_config(&json!({"look": "nonsense", "depth": "far"})).unwrap();
-    assert_eq!(r.plugin.get_config(), json!({"on": false, "look": "side_by_side", "depth": 0.0, "height": 0.0, "size": 100.0, "tilt": 0.0, "timing": 0.0, "swap": false}));
+    assert_eq!(plain(r.plugin.get_config()), json!({"on": false, "look": "side_by_side", "depth": 0.0, "height": 0.0, "size": 100.0, "tilt": 0.0, "timing": 0.0, "swap": false}));
     // a preset brings them back too
     r.plugin.apply_preset(&mut r.host, &json!({"on": true, "look": "red_cyan"})).unwrap();
     assert_eq!(r.plugin.get_config()["look"], json!("red_cyan"));
@@ -985,7 +995,7 @@ fn the_card_callbacks_change_the_settings_and_save_them() {
     r.card("tilt-moved", json!(-9.0));
     r.card("timing-moved", json!(35.4));
     assert_eq!(
-        r.plugin.get_config(),
+        plain(r.plugin.get_config()),
         json!({"on": false, "look": "red_cyan", "depth": 5.0, "height": -1.5, "size": 92.5, "tilt": -5.0, "timing": 35.0, "swap": true})
     );
     assert!(r.host.calls.iter().any(|c| c == "schedule_save"));
@@ -1351,7 +1361,7 @@ fn reset_puts_everything_back_drops_the_match_and_leaves_the_phones_and_the_swit
     let sent = r.controls();
     r.host.calls.clear();
     r.card("reset-clicked", json!(null));
-    let cfg = r.plugin.get_config();
+    let cfg = plain(r.plugin.get_config());
     assert_eq!(cfg, json!({"on": true, "look": "side_by_side", "depth": 0.0, "height": 0.0, "size": 100.0, "tilt": 0.0, "timing": 0.0, "swap": false}));
     assert!(r.plugin.lut.is_none());
     assert_eq!(r.match_badge(), "");
@@ -1795,4 +1805,140 @@ fn the_header_shows_one_badge_with_what_needs_a_look_first() {
     r.store.errors.lock().unwrap().extend([("a".to_string(), 2 * MS), ("b".to_string(), 3 * MS)]);
     r.process(&shot(RED, Some(100)), "a");
     assert_eq!((r.props()["badge"].clone(), r.props()["badge-kind"].clone()), (json!("Matched"), json!("status_ok")));
+}
+
+// ── The headset ───────────────────────────────────────────────────────────
+
+fn headset_rig() -> (Rig, Arc<FakeWeb>) {
+    let web = Arc::new(FakeWeb::default());
+    web.addresses.lock().unwrap().push("192.168.1.7".into());
+    (rig_with(StereoPlugin::for_test(web.clone(), scratch_dir("headset"))), web)
+}
+
+fn stopped(web: &FakeWeb, at: usize) -> u64 {
+    web.served.lock().unwrap()[at].stopped.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+#[test]
+fn the_headset_page_is_served_only_while_3d_and_the_headset_switch_are_both_on() {
+    let (mut r, web) = headset_rig();
+    assert!(web.served.lock().unwrap().is_empty() && r.plugin.headset_url().is_empty());
+    r.switch(true);
+    assert!(web.served.lock().unwrap().is_empty(), "the headset switch is off by default");
+    r.card("headset-toggled", json!(true));
+    {
+        let served = web.served.lock().unwrap();
+        assert_eq!((served.len(), served[0].serve.port, served[0].serve.label.as_str()), (1, stereo_headset::HEADSET_PORT, "3D headset"));
+    }
+    let url = r.plugin.headset_url();
+    let token = r.plugin.get_config()["headset_token"].as_str().unwrap().to_string();
+    assert_eq!(url, format!("https://192.168.1.7:8769/#{token}"));
+    let props = r.plugin.headset_props();
+    assert_eq!((props["headset"].clone(), props["headset-url-text"].clone(), props["headset-url-shown"].clone()), (json!(true), json!(url), json!(true)));
+    assert_eq!(r.plugin.headset_qr_url, url, "the code is drawn for the link");
+    // staying on doesn't start another
+    r.plugin.show(&mut r.host);
+    assert_eq!(web.served.lock().unwrap().len(), 1);
+    // 3D off: the page goes, and comes back with 3D
+    r.switch(false);
+    assert_eq!((stopped(&web, 0), r.plugin.headset_url()), (1, String::new()));
+    assert!(!r.plugin.shared.headset.is_open());
+    r.switch(true);
+    assert_eq!(web.served.lock().unwrap().len(), 2);
+    // the headset switch off
+    r.card("headset-toggled", json!(false));
+    assert_eq!(stopped(&web, 1), 1);
+    // and the plugin switched off or the app quitting
+    r.card("headset-toggled", json!(true));
+    assert_eq!(web.served.lock().unwrap().len(), 3);
+    r.plugin.shutdown(&mut r.host);
+    assert_eq!(stopped(&web, 2), 1);
+    assert!(r.plugin.headset_url().is_empty());
+    r.plugin.show(&mut r.host);
+    assert_eq!(web.served.lock().unwrap().len(), 3, "nothing starts after quitting");
+}
+
+#[test]
+fn a_headset_page_that_cannot_start_says_why_and_is_not_tried_again_until_asked() {
+    let (mut r, web) = headset_rig();
+    *web.serve_error.lock().unwrap() = Some("address in use".into());
+    r.switch(true);
+    r.card("headset-toggled", json!(true));
+    let props = r.plugin.headset_props();
+    assert_eq!((props["headset-problem"].clone(), props["headset-url-shown"].clone()), (json!("Couldn't start: address in use"), json!(false)));
+    r.plugin.show(&mut r.host);
+    r.plugin.show(&mut r.host);
+    assert_eq!(web.certificates.lock().unwrap().len(), 1, "the status timer doesn't retry");
+    *web.serve_error.lock().unwrap() = None;
+    r.card("headset-toggled", json!(false));
+    r.card("headset-toggled", json!(true));
+    assert_eq!(web.served.lock().unwrap().len(), 1);
+    assert_eq!(r.plugin.headset_props()["headset-problem"], json!(""));
+}
+
+#[test]
+fn the_link_is_kept_across_restarts_and_a_new_one_stops_the_old() {
+    let (mut r, _web) = headset_rig();
+    let first = r.plugin.get_config()["headset_token"].as_str().unwrap().to_string();
+    assert!(crate::shared::token_ok(&first));
+    assert_eq!(r.plugin.get_config()["headset_address"], json!(""), "nothing chosen until it starts");
+    r.plugin.set_config(&json!({"headset_token": "abcdefghijklmnopqrstuvwx", "headset_address": "192.168.1.7"})).unwrap();
+    assert_eq!(r.plugin.get_config()["headset_token"], json!("abcdefghijklmnopqrstuvwx"));
+    assert!(r.plugin.shared.headset.token_ok("abcdefghijklmnopqrstuvwx"));
+    // a token that isn't one is replaced and saved
+    r.plugin.set_config(&json!({"headset_token": "short"})).unwrap();
+    assert!(crate::shared::token_ok(r.plugin.get_config()["headset_token"].as_str().unwrap()));
+    r.host.calls.clear();
+    r.switch(true);
+    assert!(r.host.calls.contains(&"schedule_save".to_string()));
+    r.host.calls.clear();
+    let before = r.plugin.get_config()["headset_token"].as_str().unwrap().to_string();
+    r.card("headset-new-link-clicked", json!(null));
+    let after = r.plugin.get_config()["headset_token"].as_str().unwrap().to_string();
+    assert_ne!(before, after);
+    assert!(!r.plugin.shared.headset.token_ok(&before) && r.plugin.shared.headset.token_ok(&after));
+    assert!(r.host.calls.contains(&"schedule_save".to_string()));
+    // the switch and the link aren't part of what Reset or a preset puts back
+    r.card("depth-moved", json!(2.0));
+    r.card("reset-clicked", json!(null));
+    assert_eq!(r.plugin.get_config()["headset_token"], json!(after));
+    assert_eq!(r.props()["reset-shown"], json!(false));
+    // and it's off at start whatever was saved
+    r.plugin.set_config(&json!({"on": true, "headset": true})).unwrap();
+    assert!(!r.plugin.headset);
+}
+
+#[test]
+fn the_step_hands_a_pair_over_only_while_a_headset_is_connected() {
+    let (mut r, _web) = headset_rig();
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    r.switch(true);
+    let feed = r.plugin.shared.headset.clone();
+    feed.open();
+    r.process(&shot(RED, None), "a");
+    assert!(!feed.pending(), "no headset, nothing kept");
+    let _slot = feed.claim().expect("a place");
+    let out = r.process(&shot(RED, None), "a");
+    let job = feed.take_job(Duration::ZERO).expect("the pair");
+    assert_eq!((px(&job.left, 5, 5), px(&job.right, 5, 5)), (RED, BLUE), "the eyes as the camera's picture was made from them");
+    assert!(Arc::ptr_eq(&job.handed, &out.data) && job.target == "a");
+    assert!(r.plugin.shared.hub().was_ours(&out));
+    assert_eq!(feed.built(), 0);
+}
+
+#[test]
+fn the_headset_gets_the_picture_the_step_made_through_the_worker() {
+    let (mut r, _web) = headset_rig();
+    r.show_frames(shot(RED, None), shot(BLUE, None));
+    r.switch(true);
+    r.card("headset-toggled", json!(true));
+    let feed = r.plugin.shared.headset.clone();
+    let _slot = feed.claim().expect("a place");
+    // the pipeline publishes what the step made, which is what the camera then sends
+    let out = r.process(&shot(RED, None), "a");
+    *r.store.outgoing.lock().unwrap() = Some(out);
+    let (_, message) = feed.next(0, Duration::from_secs(10)).expect("a picture");
+    let Message::Jpeg(jpeg) = message else { panic!("a picture, not black") };
+    assert_eq!(&jpeg[..2], &[0xFF, 0xD8]);
+    assert_eq!(feed.built(), 1);
 }

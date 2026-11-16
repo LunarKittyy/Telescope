@@ -350,7 +350,7 @@ msgstr "클릭하여 지우기"
 msgid "Use the phone's microphone on this computer."
 msgstr "이 컴퓨터에서 휴대폰의 마이크를 사용해요."
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:59 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:210 rust/crates/setup/ui/setup.slint:337 rust/crates/setup/ui/setup.slint:466 rust/crates/shell/src/plugins_tab.rs:728 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:59 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:120 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:210 rust/crates/setup/ui/setup.slint:337 rust/crates/setup/ui/setup.slint:466 rust/crates/shell/src/plugins_tab.rs:728 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "초기화"
 
@@ -525,7 +525,7 @@ msgstr "업데이트 및 정보"
 msgid "Camera"
 msgstr "카메라"
 
-#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:462
+#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/stereo.slint:126 rust/crates/effects/ui/stereo.slint:127 rust/crates/effects/ui/stereo.slint:133 rust/crates/effects/ui/stereo.slint:136 rust/crates/setup/ui/setup.slint:462
 msgid "Look"
 msgstr "화면 효과"
 
@@ -1259,7 +1259,7 @@ msgstr ""
 msgid "Nothing in it"
 msgstr "비어 있음"
 
-#: rust/crates/effects/src/composite_plugin.rs:476 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
+#: rust/crates/effects/src/composite_plugin.rs:476 rust/crates/effects/src/stereo_plugin.rs:910 rust/crates/effects/ui/composite_editor.slint:424
 msgid "Needs two streams"
 msgstr "스트림 2개 필요"
 
@@ -1565,7 +1565,7 @@ msgstr ""
 msgid "Finish"
 msgstr ""
 
-#: rust/crates/effects/src/filters.rs:79 rust/crates/effects/ui/name_tag.slint:174 rust/crates/effects/ui/name_tag.slint:178 rust/crates/effects/ui/stereo.slint:191
+#: rust/crates/effects/src/filters.rs:79 rust/crates/effects/ui/name_tag.slint:174 rust/crates/effects/ui/name_tag.slint:178 rust/crates/effects/ui/stereo.slint:241
 msgid "Size"
 msgstr "크기"
 
@@ -2199,131 +2199,131 @@ msgstr "재생 중"
 msgid "paused"
 msgstr "일시 정지됨"
 
-#: rust/crates/effects/src/on_air_plugin.rs:37
+#: rust/crates/effects/src/on_air_plugin.rs:38
 msgid "An app is using the camera"
 msgstr "앱에서 카메라를 사용하는 중"
 
-#: rust/crates/effects/src/on_air_plugin.rs:38
+#: rust/crates/effects/src/on_air_plugin.rs:39
 msgid "An app is using the camera or the mic is live"
 msgstr "앱에서 카메라를 사용하는 중이거나 마이크가 켜져 있음"
 
-#: rust/crates/effects/src/on_air_plugin.rs:39
+#: rust/crates/effects/src/on_air_plugin.rs:40
 msgid "Telescope's mic is live"
 msgstr "Telescope 마이크 켜짐"
 
-#: rust/crates/effects/src/on_air_plugin.rs:40
+#: rust/crates/effects/src/on_air_plugin.rs:41
 msgid "Telescope is streaming"
 msgstr "Telescope 스트리밍 중"
 
 #. Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons: use the names those browsers show in your language
-#: rust/crates/effects/src/on_air_plugin.rs:44
+#: rust/crates/effects/src/on_air_plugin.rs:45
 msgid "The browser warns that the connection isn't private: the certificate is this computer's own. On iPhone tap Show Details, then visit this website. In Chrome tap Advanced, then Proceed."
 msgstr ""
 
-#: rust/crates/effects/src/on_air_plugin.rs:46
+#: rust/crates/effects/src/on_air_plugin.rs:47
 msgid "When the sign turns on. The mic only counts while it's streaming and not muted."
 msgstr "표시등이 켜지는 조건이에요. 마이크는 스트리밍 중이고 음소거되지 않았을 때만 해당돼요."
 
-#: rust/crates/effects/src/on_air_plugin.rs:47
+#: rust/crates/effects/src/on_air_plugin.rs:48 rust/crates/effects/src/stereo_plugin.rs:73
 msgid "The address of this computer that the link uses."
 msgstr "링크가 사용하는 이 컴퓨터의 주소예요."
 
-#: rust/crates/effects/src/on_air_plugin.rs:48 rust/crates/link/ui/browser_camera.slint:180
+#: rust/crates/effects/src/on_air_plugin.rs:49 rust/crates/link/ui/browser_camera.slint:180
 msgid "Copy the link to open it on a device that can't scan the code."
 msgstr "코드를 스캔할 수 없는 기기에서 열 수 있도록 링크를 복사해요."
 
-#: rust/crates/effects/src/on_air_plugin.rs:49
+#: rust/crates/effects/src/on_air_plugin.rs:50
 msgid "Make a new link. The old link stops working."
 msgstr "새 링크를 만들어요. 기존 링크는 더 이상 작동하지 않아요."
 
-#: rust/crates/effects/src/on_air_plugin.rs:50
+#: rust/crates/effects/src/on_air_plugin.rs:51
 msgid "What is sent when the sign turns on or off."
 msgstr "표시등이 켜지거나 꺼질 때 전송되는 내용이에요."
 
-#: rust/crates/effects/src/on_air_plugin.rs:51
+#: rust/crates/effects/src/on_air_plugin.rs:52
 msgid "Open the On Air settings."
 msgstr "온에어 설정을 열어요."
 
-#: rust/crates/effects/src/on_air_plugin.rs:52
+#: rust/crates/effects/src/on_air_plugin.rs:53
 msgid "Open the link in a browser on any device on the same network and tap the page to make it full screen. The link stays the same after Telescope restarts."
 msgstr "동일한 네트워크에 있는 아무 기기의 브라우저에서 링크를 열고 페이지를 탭하여 전체 화면으로 만드세요. 링크는 Telescope를 다시 시작해도 유지돼요."
 
-#: rust/crates/effects/src/on_air_plugin.rs:206 rust/crates/effects/src/on_air_plugin.rs:496 rust/crates/effects/ui/on_air.slint:313 rust/crates/effects/ui/on_air_header.slint:14 rust/crates/effects/ui/on_air_header.slint:16
+#: rust/crates/effects/src/on_air_plugin.rs:189 rust/crates/effects/src/on_air_plugin.rs:479 rust/crates/effects/ui/on_air.slint:313 rust/crates/effects/ui/on_air_header.slint:14 rust/crates/effects/ui/on_air_header.slint:16
 msgid "On air"
 msgstr "온에어"
 
-#: rust/crates/effects/src/on_air_plugin.rs:206 rust/crates/effects/src/on_air_plugin.rs:496 rust/crates/effects/ui/on_air.slint:314
+#: rust/crates/effects/src/on_air_plugin.rs:189 rust/crates/effects/src/on_air_plugin.rs:479 rust/crates/effects/ui/on_air.slint:314
 msgid "Off air"
 msgstr "온에어 꺼짐"
 
-#: rust/crates/effects/src/on_air_plugin.rs:206 rust/crates/effects/src/on_air_plugin.rs:666
+#: rust/crates/effects/src/on_air_plugin.rs:189 rust/crates/effects/src/on_air_plugin.rs:649
 msgid "On Air"
 msgstr "온에어"
 
-#: rust/crates/effects/src/on_air_plugin.rs:242
+#: rust/crates/effects/src/on_air_plugin.rs:225
 msgid "Enter an address starting with http:// or https:// first."
 msgstr "먼저 http:// 또는 https://로 시작하는 주소를 입력하세요."
 
-#: rust/crates/effects/src/on_air_plugin.rs:246
+#: rust/crates/effects/src/on_air_plugin.rs:229
 msgid "Sending…"
 msgstr "전송 중…"
 
-#: rust/crates/effects/src/on_air_plugin.rs:260
+#: rust/crates/effects/src/on_air_plugin.rs:243
 msgid "Test request succeeded."
 msgstr ""
 
-#: rust/crates/effects/src/on_air_plugin.rs:262
+#: rust/crates/effects/src/on_air_plugin.rs:245
 #, python-brace-format
 msgid "Test request failed: {error}"
 msgstr ""
 
-#: rust/crates/effects/src/on_air_plugin.rs:282
+#: rust/crates/effects/src/on_air_plugin.rs:265
 msgid "The On Air webhook failed"
 msgstr ""
 
-#: rust/crates/effects/src/on_air_plugin.rs:283
+#: rust/crates/effects/src/on_air_plugin.rs:266
 #, python-brace-format
 msgid "The webhook returned: {error}"
 msgstr ""
 
-#: rust/crates/effects/src/on_air_plugin.rs:284 rust/crates/shell/src/doc.rs:483 rust/crates/shell/src/doc.rs:484 rust/crates/shell/src/doc.rs:972
+#: rust/crates/effects/src/on_air_plugin.rs:267 rust/crates/shell/src/doc.rs:483 rust/crates/shell/src/doc.rs:484 rust/crates/shell/src/doc.rs:972
 msgid "Settings"
 msgstr "설정"
 
-#: rust/crates/effects/src/on_air_plugin.rs:326 rust/crates/link/src/browser/plugin.rs:866 rust/crates/link/src/browser/plugin.rs:872
+#: rust/crates/effects/src/on_air_plugin.rs:309 rust/crates/effects/src/stereo_plugin.rs:841 rust/crates/link/src/browser/plugin.rs:866 rust/crates/link/src/browser/plugin.rs:872
 #, python-brace-format
 msgid "Couldn't start: {error}"
 msgstr "시작하지 못했어요: {error}"
 
-#: rust/crates/effects/src/on_air_plugin.rs:468
+#: rust/crates/effects/src/on_air_plugin.rs:451
 msgid "The address has to start with http:// or https://"
 msgstr "주소는 http:// 또는 https://로 시작해야 해요"
 
-#: rust/crates/effects/src/on_air_plugin.rs:483 rust/crates/effects/ui/on_air.slint:165
+#: rust/crates/effects/src/on_air_plugin.rs:466 rust/crates/effects/ui/on_air.slint:165
 msgid "Show the sign on a web page"
 msgstr "웹 페이지로 표시"
 
-#: rust/crates/effects/src/on_air_plugin.rs:483
+#: rust/crates/effects/src/on_air_plugin.rs:466 rust/crates/effects/src/stereo_plugin.rs:897
 msgid "Scan"
 msgstr "스캔"
 
-#: rust/crates/effects/src/on_air_plugin.rs:484 rust/crates/effects/src/qr_reader.rs:527 rust/crates/link/ui/browser_camera.slint:178 rust/crates/link/ui/browser_camera.slint:179 rust/crates/setup/src/setup.rs:445 rust/crates/setup/ui/parts.slint:91 rust/crates/setup/ui/parts.slint:92 rust/crates/system/ui/mcp.slint:118 rust/crates/system/ui/mcp.slint:119 rust/crates/system/ui/shortcuts.slint:356
+#: rust/crates/effects/src/on_air_plugin.rs:467 rust/crates/effects/src/qr_reader.rs:527 rust/crates/effects/src/stereo_plugin.rs:898 rust/crates/link/ui/browser_camera.slint:178 rust/crates/link/ui/browser_camera.slint:179 rust/crates/setup/src/setup.rs:445 rust/crates/setup/ui/parts.slint:91 rust/crates/setup/ui/parts.slint:92 rust/crates/system/ui/mcp.slint:118 rust/crates/system/ui/mcp.slint:119 rust/crates/system/ui/shortcuts.slint:356
 msgid "Copy"
 msgstr "복사"
 
-#: rust/crates/effects/src/on_air_plugin.rs:555 rust/crates/effects/ui/on_air.slint:116
+#: rust/crates/effects/src/on_air_plugin.rs:538 rust/crates/effects/ui/on_air.slint:116
 msgid "On Air sign"
 msgstr "온에어 표시"
 
-#: rust/crates/effects/src/on_air_plugin.rs:556
+#: rust/crates/effects/src/on_air_plugin.rs:539
 msgid "Show the people around you that your camera or microphone is in use, on another device's screen or through a smart home light."
 msgstr ""
 
-#: rust/crates/effects/src/on_air_plugin.rs:557
+#: rust/crates/effects/src/on_air_plugin.rs:540
 msgid "Without the On Air sign plugin there's no On Air tab in Settings and no sign or webhook."
 msgstr ""
 
-#: rust/crates/effects/src/on_air_plugin.rs:667
+#: rust/crates/effects/src/on_air_plugin.rs:650
 msgctxt "search"
 msgid "on air sign busy light call meeting do not disturb webhook home assistant smart home"
 msgstr "온에어 표시 통화 중 회의 중 방해 금지 조명 스마트홈 웹훅 홈어시스턴트 on air sign busy light call meeting do not disturb webhook home assistant smart home"
@@ -2716,139 +2716,167 @@ msgstr ""
 msgid "Read QR codes"
 msgstr "QR 코드 읽기"
 
-#: rust/crates/effects/src/stereo_plugin.rs:56
+#: rust/crates/effects/src/stereo_plugin.rs:60
 msgid "Turn two running streams into one 3D picture."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:57
+#: rust/crates/effects/src/stereo_plugin.rs:61
 msgid "Side by side suits a headset or a 3D screen and red and cyan suits glasses."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:58
+#: rust/crates/effects/src/stereo_plugin.rs:62
 msgid "Slide the two pictures apart or together to change how far forward the 3D reaches."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:59
+#: rust/crates/effects/src/stereo_plugin.rs:63
 msgid "Lift or lower the right picture when the phones don't sit level."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:60
+#: rust/crates/effects/src/stereo_plugin.rs:64
 msgid "Zoom in on the phone that sees the wider view, the right one over 100% and the left one under it, so both show the same thing."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:61
+#: rust/crates/effects/src/stereo_plugin.rs:65
 msgid "Roll the right picture a little when one phone is tilted against the other."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:62
+#: rust/crates/effects/src/stereo_plugin.rs:66
 msgid "Move the right picture earlier or later in time when it moves ahead of or behind the left one."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:63
+#: rust/crates/effects/src/stereo_plugin.rs:67
 msgid "Show the sliders that line the two pictures up by hand."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:64
+#: rust/crates/effects/src/stereo_plugin.rs:68
 msgid "Swap which phone is the left eye and which is the right if the 3D looks inside out."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:65
+#: rust/crates/effects/src/stereo_plugin.rs:69
 msgid "Even out two different phones with the same shutter, similar brightness and a colour curve that makes the right picture look like the left."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:66
+#: rust/crates/effects/src/stereo_plugin.rs:70
 msgid "Make both phones brighter or darker together after Match, keeping them matched."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:67
+#: rust/crates/effects/src/stereo_plugin.rs:71
+msgid "Watch the 3D picture in a headset's browser on the same Wi-Fi."
+msgstr ""
+
+#: rust/crates/effects/src/stereo_plugin.rs:72
+msgid "Scan the code with a phone, or type the link into the headset's browser."
+msgstr ""
+
+#: rust/crates/effects/src/stereo_plugin.rs:74
+msgid "Open the link in the headset's browser on the same Wi-Fi and accept the certificate warning once, then press Enter VR."
+msgstr ""
+
+#: rust/crates/effects/src/stereo_plugin.rs:75
+msgid "Copy the link to open it in a browser that can't scan the code."
+msgstr ""
+
+#: rust/crates/effects/src/stereo_plugin.rs:76
+msgid "Make a new link. The old link stops working and headsets on it are disconnected."
+msgstr ""
+
+#: rust/crates/effects/src/stereo_plugin.rs:77
 msgid "Drop the colour curve Match made and leave the phones' exposure as it is."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:719 rust/crates/effects/src/stereo_plugin.rs:1169 rust/crates/effects/src/stereo_plugin.rs:1309 rust/crates/effects/src/stereo_plugin.rs:1309 rust/crates/effects/src/stereo_plugin.rs:1321 rust/crates/effects/ui/stereo.slint:55
+#: rust/crates/effects/src/stereo_plugin.rs:893 rust/crates/effects/src/stereo_plugin.rs:1354 rust/crates/effects/src/stereo_plugin.rs:1509 rust/crates/effects/src/stereo_plugin.rs:1509 rust/crates/effects/src/stereo_plugin.rs:1521 rust/crates/effects/ui/stereo.slint:105
 msgid "3D"
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:720 rust/crates/effects/ui/composite_editor.slint:351
+#: rust/crates/effects/src/stereo_plugin.rs:894 rust/crates/effects/ui/composite_editor.slint:351
 msgid "Side by side"
 msgstr "나란히"
 
-#: rust/crates/effects/src/stereo_plugin.rs:720
+#: rust/crates/effects/src/stereo_plugin.rs:894
 msgid "Red/cyan"
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:733
+#: rust/crates/effects/src/stereo_plugin.rs:897
+msgid "Headset"
+msgstr ""
+
+#: rust/crates/effects/src/stereo_plugin.rs:899 rust/crates/effects/ui/on_air.slint:159 rust/crates/link/ui/browser_camera.slint:78
+msgid "New link"
+msgstr "새 링크"
+
+#: rust/crates/effects/src/stereo_plugin.rs:910
 msgid "Start a second stream to get the 3D picture."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:737 rust/crates/shell/src/streams.rs:1077
+#: rust/crates/effects/src/stereo_plugin.rs:914 rust/crates/shell/src/streams.rs:1077
 msgid "Waiting"
 msgstr "대기 중"
 
-#: rust/crates/effects/src/stereo_plugin.rs:737
+#: rust/crates/effects/src/stereo_plugin.rs:914
 msgid "Both streams have to send a picture, and one of them has to be on the Telescope camera."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:738
+#: rust/crates/effects/src/stereo_plugin.rs:915
 msgid "In sync"
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:738
+#: rust/crates/effects/src/stereo_plugin.rs:915
 msgid "The two pictures were taken within half a frame of each other."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:739
+#: rust/crates/effects/src/stereo_plugin.rs:916
 msgid "Rough sync"
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:739
+#: rust/crates/effects/src/stereo_plugin.rs:916
 msgid "The two pictures were taken a little apart, so fast movement can look doubled."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:741
+#: rust/crates/effects/src/stereo_plugin.rs:918
 msgid "Not synced"
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:743
+#: rust/crates/effects/src/stereo_plugin.rs:920
 msgid "Telescope can't match the pictures by when they were taken (both phones need the newer phone app), so it uses the newest of each."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:753
+#: rust/crates/effects/src/stereo_plugin.rs:930
 msgid "Matching"
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:755
+#: rust/crates/effects/src/stereo_plugin.rs:932
 msgid "Telescope is evening out the two phones' brightness and colour, which takes a few seconds."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:757
+#: rust/crates/effects/src/stereo_plugin.rs:934
 msgid "Matched"
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:757
+#: rust/crates/effects/src/stereo_plugin.rs:934
 msgid "The right picture's brightness and colour now follow the left one's."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:759
+#: rust/crates/effects/src/stereo_plugin.rs:936
 msgid "Partly matched"
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:761
+#: rust/crates/effects/src/stereo_plugin.rs:938
 msgid "A phone ran out of ISO range, or the two phones have no shutter speed in common, so the match is as close as it got."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:763
+#: rust/crates/effects/src/stereo_plugin.rs:940
 msgid "Match failed"
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:763
+#: rust/crates/effects/src/stereo_plugin.rs:940
 msgid "Telescope couldn't read both phones and their pictures, so nothing was matched."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:1170
+#: rust/crates/effects/src/stereo_plugin.rs:1355
 msgid "Turn two phones into one 3D picture, side by side for a headset or red and cyan for glasses."
 msgstr ""
 
-#: rust/crates/effects/src/stereo_plugin.rs:1171
+#: rust/crates/effects/src/stereo_plugin.rs:1356
 msgid "Without the 3D plugin there's no 3D card and two streams only go to their own cameras."
 msgstr ""
 
@@ -2962,7 +2990,7 @@ msgstr "상하 팬"
 msgid "Width"
 msgstr "너비"
 
-#: rust/crates/effects/src/transforms.rs:674 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/stereo.slint:177 rust/crates/effects/ui/transforms.slint:279 rust/crates/effects/ui/transforms.slint:280
+#: rust/crates/effects/src/transforms.rs:674 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/stereo.slint:227 rust/crates/effects/ui/transforms.slint:279 rust/crates/effects/ui/transforms.slint:280
 msgid "Height"
 msgstr "높이"
 
@@ -3494,7 +3522,7 @@ msgstr "지우기"
 msgid "Trails"
 msgstr "잔상"
 
-#: rust/crates/effects/ui/fun_pack.slint:163 rust/crates/effects/ui/stereo.slint:130 rust/crates/outputs/src/webcam.rs:47 rust/crates/shell/ui/cards/camera.slint:238 rust/crates/shell/ui/cards/camera.slint:245 rust/crates/shell/ui/cards/camera.slint:256
+#: rust/crates/effects/ui/fun_pack.slint:163 rust/crates/effects/ui/stereo.slint:180 rust/crates/outputs/src/webcam.rs:47 rust/crates/shell/ui/cards/camera.slint:238 rust/crates/shell/ui/cards/camera.slint:245 rust/crates/shell/ui/cards/camera.slint:256
 msgid "Brightness"
 msgstr "밝기"
 
@@ -3603,10 +3631,6 @@ msgctxt "search"
 msgid "tablet phone screen page link qr code"
 msgstr "태블릿 휴대폰 화면 페이지 링크 qr 코드 tablet phone screen page link qr code"
 
-#: rust/crates/effects/ui/on_air.slint:159 rust/crates/link/ui/browser_camera.slint:78
-msgid "New link"
-msgstr "새 링크"
-
 #: rust/crates/effects/ui/on_air.slint:166
 msgid "Open the sign in a browser on a tablet, a phone or another computer"
 msgstr ""
@@ -3619,7 +3643,7 @@ msgstr ""
 msgid "Scan the code to open the sign on another device"
 msgstr ""
 
-#: rust/crates/effects/ui/on_air.slint:196 rust/crates/effects/ui/on_air.slint:203 rust/crates/effects/ui/on_air.slint:206 rust/crates/effects/ui/on_air.slint:252 rust/crates/link/ui/browser_camera.slint:167 rust/crates/link/ui/browser_camera.slint:170
+#: rust/crates/effects/ui/on_air.slint:196 rust/crates/effects/ui/on_air.slint:203 rust/crates/effects/ui/on_air.slint:206 rust/crates/effects/ui/on_air.slint:252 rust/crates/effects/ui/stereo.slint:320 rust/crates/effects/ui/stereo.slint:321 rust/crates/effects/ui/stereo.slint:326 rust/crates/effects/ui/stereo.slint:329 rust/crates/link/ui/browser_camera.slint:167 rust/crates/link/ui/browser_camera.slint:170
 msgid "Address"
 msgstr "주소"
 
@@ -3627,7 +3651,7 @@ msgstr "주소"
 msgid "Which of this computer's addresses the link uses"
 msgstr ""
 
-#: rust/crates/effects/ui/on_air.slint:217 rust/crates/link/ui/browser_camera.slint:149 rust/crates/setup/src/stats.rs:400
+#: rust/crates/effects/ui/on_air.slint:217 rust/crates/effects/ui/stereo.slint:339 rust/crates/effects/ui/stereo.slint:340 rust/crates/link/ui/browser_camera.slint:149 rust/crates/setup/src/stats.rs:400
 msgid "Link"
 msgstr "링크"
 
@@ -3832,40 +3856,44 @@ msgstr "카메라에 비춘 QR 코드를 클립보드에 복사해요."
 msgid "Show a notification when a QR code is read"
 msgstr ""
 
-#: rust/crates/effects/ui/stereo.slint:56
+#: rust/crates/effects/ui/stereo.slint:106
 msgid "Make one 3D picture from two phones."
 msgstr ""
 
-#: rust/crates/effects/ui/stereo.slint:71
+#: rust/crates/effects/ui/stereo.slint:121
 msgid "Puts the look, the eye order and the fine tune sliders back and drops the match. The switch stays as it is and the phones keep their exposure."
 msgstr ""
 
-#: rust/crates/effects/ui/stereo.slint:93 rust/crates/effects/ui/stereo.slint:94
+#: rust/crates/effects/ui/stereo.slint:143 rust/crates/effects/ui/stereo.slint:144
 msgid "Swap eyes"
 msgstr ""
 
-#: rust/crates/effects/ui/stereo.slint:106 rust/crates/effects/ui/stereo.slint:107 rust/crates/effects/ui/stereo.slint:114 rust/crates/effects/ui/stereo.slint:115
+#: rust/crates/effects/ui/stereo.slint:156 rust/crates/effects/ui/stereo.slint:157 rust/crates/effects/ui/stereo.slint:164 rust/crates/effects/ui/stereo.slint:165
 msgid "Match"
 msgstr ""
 
-#: rust/crates/effects/ui/stereo.slint:122 rust/crates/effects/ui/stereo.slint:123
+#: rust/crates/effects/ui/stereo.slint:172 rust/crates/effects/ui/stereo.slint:173
 msgid "Reset match"
 msgstr ""
 
-#: rust/crates/effects/ui/stereo.slint:146 rust/crates/effects/ui/stereo.slint:147
+#: rust/crates/effects/ui/stereo.slint:196 rust/crates/effects/ui/stereo.slint:197
 msgid "Fine tune"
 msgstr ""
 
-#: rust/crates/effects/ui/stereo.slint:163
+#: rust/crates/effects/ui/stereo.slint:213
 msgid "Depth"
 msgstr ""
 
-#: rust/crates/effects/ui/stereo.slint:207 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/ui/stereo.slint:257 rust/crates/outputs/src/webcam.rs:56
 msgid "Tilt"
 msgstr "틸트"
 
-#: rust/crates/effects/ui/stereo.slint:221
+#: rust/crates/effects/ui/stereo.slint:271
 msgid "Timing"
+msgstr ""
+
+#: rust/crates/effects/ui/stereo.slint:299
+msgid "Headset failed to start"
 msgstr ""
 
 #: rust/crates/effects/ui/transforms.slint:119

@@ -213,7 +213,7 @@ fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions
                 Box::new(telescope_effects::desk::DeskPlugin::new()),
                 Box::new(telescope_effects::name_tag::NameTagPlugin::new()),
                 Box::new(telescope_effects::notes::NotesPlugin::new()),
-                Box::new(telescope_effects::stereo_plugin::StereoPlugin::new()),
+                Box::new(telescope_effects::stereo_plugin::StereoPlugin::with_web(machine.web.clone())),
                 Box::new(telescope_effects::composite_plugin::CompositePlugin::with(pictures.clone(), Some(outputs.clone()))),
                 Box::new(telescope_audio::plugin::MicrophonePlugin::with_link(mic_link.clone()).with_source_audio(browser_mics)),
                 Box::new(updates_plugin()),

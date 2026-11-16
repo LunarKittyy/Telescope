@@ -493,8 +493,17 @@ fn stereo_shots() {
     let partly = json!({"reset-enabled": true, "reset-shown": true, "badge": "Partly matched", "badge-kind": "status_warn", "badge-detail": "x"});
     shoot(&dir, "stereo-match-partly", &card, 406.0, &[on.clone(), partly], &nothing);
     let failed = json!({"badge": "Match failed", "badge-kind": "status_warn", "badge-detail": "x"});
-    shoot(&dir, "stereo-match-failed", &card, 406.0, &[on, failed], &nothing);
+    shoot(&dir, "stereo-match-failed", &card, 406.0, &[on.clone(), failed], &nothing);
     // red/cyan, swapped, rough sync
     shoot(&dir, "stereo-on-rough-red-cyan-swapped", &card, 406.0, &[json!({"on": true, "match-enabled": true, "look-current": 1, "swap": true, "badge": "Rough sync", "badge-kind": "status_warn", "badge-detail": "x"})], &nothing);
     shoot(&dir, "stereo-on-one-stream", &card, 406.0, &[json!({"on": true, "badge": "Needs two streams", "badge-kind": "status_dim", "badge-detail": "x"})], &nothing);
+    // the headset: off, on with its link, with two addresses to pick from, and one that couldn't start
+    shoot(&dir, "stereo-headset-off", &card, 406.0, &[on.clone()], &nothing);
+    let url = "https://192.168.1.23:8769/#q7Xk2mP9aRt4VbN8cLw3YdZe";
+    let (cells, size) = telescope_core::qr::encode(url);
+    let link = json!({"headset": true, "headset-url-shown": true, "headset-url-text": url, "headset-qr-cells": cells, "headset-qr-size": size});
+    shoot(&dir, "stereo-headset-on", &card, 406.0, &[on.clone(), sync.clone(), link.clone()], &nothing);
+    let addresses = json!({"headset-address-shown": true, "headset-addresses": ["192.168.1.23", "10.0.0.5"], "headset-address-current": 0});
+    shoot(&dir, "stereo-headset-on-addresses", &card, 406.0, &[on.clone(), sync.clone(), link, addresses], &nothing);
+    shoot(&dir, "stereo-headset-failed", &card, 406.0, &[on, sync, json!({"headset": true, "headset-problem": "Couldn't start: address already in use"})], &nothing);
 }
