@@ -3,6 +3,7 @@
 
 #[cfg(ffmpeg)]
 pub mod ffmpeg;
+mod decode_card;
 pub mod frames;
 pub mod gpu;
 #[cfg(ffmpeg)]

@@ -244,7 +244,23 @@ impl Codec {
             }
             match hw {
                 Some(h) => {
-                    let r = ff::av_hwdevice_ctx_create(&mut c.hw_device, h.device_type(), ptr::null(), ptr::null_mut(), 0);
+                    // On Windows D3D11VA opens the card the frame steps picked (by its DXGI adapter number), not Windows' default one
+                    #[cfg(all(windows, ffmpeg))]
+                    let chosen = if h == Hw::D3d11va {
+                        let (device, say) = crate::decode_card::d3d11va_device();
+                        log::info!("{say}");
+                        device
+                    } else {
+                        None
+                    };
+                    #[cfg(not(all(windows, ffmpeg)))]
+                    let chosen: Option<std::ffi::CString> = None;
+                    let name = chosen.as_ref().map_or(ptr::null(), |c| c.as_ptr());
+                    let mut r = ff::av_hwdevice_ctx_create(&mut c.hw_device, h.device_type(), name, ptr::null_mut(), 0);
+                    if r < 0 && !name.is_null() {
+                        log::warn!("{} didn't open on the picked card ({}), trying the default one", h.name(), err_text(r));
+                        r = ff::av_hwdevice_ctx_create(&mut c.hw_device, h.device_type(), ptr::null(), ptr::null_mut(), 0);
+                    }
                     if r < 0 {
                         return Err(format!("{} didn't open: {}", h.name(), err_text(r)));
                     }
