@@ -38,7 +38,7 @@ A webcam plugged into the computer streams just like a phone. It shows up in the
 
 ## Spout capture
 
-Optional and still in Lab, so it's an early version (switch it on under **Streaming and devices** in the Plugins tab of Settings). It streams from programs that share their picture through Spout, like games with a stream camera, OBS, VTuber programs and 3D tools. Each sender shows up in the device picker under the name it shares itself with, and every effect works on it like on a phone or a webcam. The result goes out on Telescope's virtual camera.
+An optional early version that's still in Lab (switch it on under **Streaming and devices** in the Plugins tab of Settings). It streams from programs that share their picture through Spout, like games with a stream camera, OBS, VTuber programs and 3D tools. Each sender shows up in the device picker under the name it shares itself with. Every effect works on it like on a phone or a webcam. The result goes out on Telescope's virtual camera.
 
 - **On Windows** Telescope reads Spout's shared pictures directly, so any program sending through Spout shows up
 - **On Linux** Spout only exists inside Proton, for Windows games and programs. [Spout2PW](https://github.com/tasokait/spout2pw) passes their senders out to PipeWire, and Telescope lists the ones it passes on. Its own page says which Proton versions it works with. Telescope needs nothing extra for it, as long as PipeWire is running
