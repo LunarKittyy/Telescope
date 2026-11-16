@@ -25,9 +25,8 @@ pub(crate) fn find(adapters: &[(u32, u32, u32, bool)], vendor: u32, device: u32)
 #[cfg(all(windows, ffmpeg))]
 pub(crate) fn d3d11va_device() -> (Option<std::ffi::CString>, String) {
     let default = |why: &str| (None, format!("Hardware decode uses Windows' default graphics card ({why})"));
-    // The frame steps may not have opened their card yet, and this waits for them to pick
-    let _ = crate::gpu::Gpu::shared();
-    let Some((vendor, device)) = picked() else { return default("no card picked for frame steps") };
+    // Never opens the card here: the decode probe runs on the window's thread, and opening a card can take seconds
+    let Some((vendor, device)) = picked() else { return default("no card picked for frame steps yet") };
     let listed = match adapters() {
         Ok(listed) => listed,
         Err(e) => return default(&format!("couldn't list the cards: {e}")),
