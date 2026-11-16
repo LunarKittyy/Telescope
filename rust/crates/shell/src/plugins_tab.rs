@@ -483,7 +483,7 @@ impl Panel {
             tile.on = true;
             tile.locked = true;
             tile.enabled = false;
-            tile.tooltip = tr("This plugin can't be switched off because Telescope needs it to work.");
+            tile.tooltip = tr("This plugin can't be switched off. Telescope needs it to work.");
             tile.badges.push(Badge { text: tr("Required"), kind: "lock".into() });
             return tile;
         }
@@ -511,7 +511,7 @@ impl Panel {
             note = fill(&tr("The download failed. {error}"), &[("error", &dl.error())]);
             kind = "status_err";
         } else if needs && !dl.available() {
-            note = tr("The plugin can't be switched on because there's no download for this computer yet.");
+            note = tr("The plugin can't be switched on until there's a download for this computer.");
             kind = "status_err";
         } else if on && needs {
             note = fill(&tr("The plugin's download (about {mb} MB) is missing. Switch the plugin off and on again to download it."), &[("mb", &dl.size_mb().to_string())]);
@@ -566,7 +566,7 @@ impl Panel {
             note = item.problem.clone();
             kind = "status_err";
         } else if item.changed {
-            note = tr("The plugin is off because its files changed since you switched it on. Switch it on again if you trust the new version.");
+            note = tr("Off since the plugin's files changed after you switched it on. Switch it on again if you trust the new version.");
             kind = "status_warn";
         } else if item.enabled && self.problems.contains_key(&item.name) {
             note = fill(&tr("Couldn't start: {problem}"), &[("problem", self.problems[&item.name].trim_end_matches('.'))]);
@@ -605,7 +605,7 @@ impl Panel {
         tile.locked = true;
         tile.enabled = false;
         tile.added = false;
-        tile.tooltip = tr("This plugin is always on because `telescope-rs dev --plugin` loads it.");
+        tile.tooltip = tr("This plugin is always on while `telescope-rs dev --plugin` loads it.");
         tile.badges.push(Badge { text: tr("Being written"), kind: "added".into() });
         if !item.problem.is_empty() || self.problems.contains_key(&item.name) {
             let why = if item.problem.is_empty() { &self.problems[&item.name] } else { &item.problem };
@@ -780,7 +780,7 @@ impl Panel {
             PackZip::Busy => {
                 self.refresh();
                 let mut outcome = Outcome::default();
-                outcome.notices.push(warning("The vision pack is busy", tr("This file wasn't used because the vision pack is already downloading or installing. Try again when it's done.")));
+                outcome.notices.push(warning("The vision pack is busy", tr("This file wasn't used while the vision pack is downloading or installing. Try again when it's done.")));
                 return Step::Done(outcome);
             }
             PackZip::NotPack => {}

@@ -60,12 +60,12 @@ const AUTO_LABEL_NO_PICTURE: &str = n_("No picture");
 const AUTO_LOOKING: &str = n_("Analysing the picture…");
 const AUTO_NO_PICTURE: &str = n_("No steady picture to analyse. Try again while nothing moves.");
 const AUTO_NOTHING: &str = n_("The picture already looks right and needs no changes.");
-const AUTO_TAKEN_OFF: &str = n_("Auto's earlier changes were removed because nothing needs changing.");
+const AUTO_TAKEN_OFF: &str = n_("Nothing needs changing. Auto's earlier changes were removed.");
 const AUTO_CHANGED: &str = n_("Auto changed {parts}.");
-const AUTO_NO_FACE: &str = n_("Auto used the background and brightness because no face was found.");
-const AUTO_CONFLICT: &str = n_("White balance was not changed because the light is mixed or coloured.");
-const AUTO_BACKED_OFF: &str = n_("Auto applied only part of the change because your own wheels and curves would have clipped the picture.");
-const AUTO_DRIFTS: &str = n_("The result may drift because the camera is set to auto.");
+const AUTO_NO_FACE: &str = n_("No face found. Auto used the background and brightness.");
+const AUTO_CONFLICT: &str = n_("The light is mixed or coloured. White balance was not changed.");
+const AUTO_BACKED_OFF: &str = n_("Your own wheels and curves would have clipped the picture. Auto applied only part of the change.");
+const AUTO_DRIFTS: &str = n_("The result may drift with the camera set to auto.");
 const AUTO_PARTS: [&str; 5] = [n_("white balance"), n_("brightness"), n_("contrast and blacks"), n_("highlights"), n_("saturation")];
 /// .cube files kept parsed, so switching phones doesn't read a 65-point LUT again.
 const KEEP_PARSED: usize = 4;

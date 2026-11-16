@@ -1540,7 +1540,7 @@ impl Plugin for ConnectionPlugin {
             let command = "sudo modprobe -r v4l2loopback";
             host.show_issue("start", Issue {
                 title: tr("Virtual camera is set up differently"),
-                text: tr("v4l2loopback is loaded but without {device} because another app loaded it with other settings. Close that app and run this command to give Telescope control:")
+                text: tr("Another app loaded v4l2loopback with other settings and without {device}. Close that app and run this command to give Telescope control:")
                     .field("device", V4L2_PHONE_DEV),
                 actions: vec![copy_action(command)], kind: "err".into(), details: command.into(), tell_dismiss: false,
             });

@@ -69,7 +69,7 @@ pub fn lens_note(zoom: f64, sent_ratio: f64, caps: Option<&PhoneZoomCaps>, live:
         let tele_name = || if tele.is_empty() { tr("the telephoto") } else { lens_name(tele) };
         if centred > sent_ratio + 1e-3 {
             let live_name = if live.is_empty() { tr("the main camera") } else { lens_name(live) };
-            lines.push(tr("{live} is used because the picture is panned past what {tele} can see. Pan back to switch again.").field("tele", tele_name()).field("live", &live_name));
+            lines.push(tr("Panned past what {tele} can see ({live} is used). Pan back to switch again.").field("tele", tele_name()).field("live", &live_name));
             level = "off";
         } else if sent_ratio > 1.0 + 1e-3 && settled && !live.is_empty() && live == default {
             lines.push(tr("The phone is still using {live}, probably because the scene is too dark or too close for {tele}. The phone switches to {tele} when that changes.")
@@ -540,7 +540,7 @@ impl TransformsPlugin {
             self.show_lens_outlines(host);
         }
         self.zoom_where = if status.sent.is_none() {
-            if status.streaming { tr("Zoomed on this computer because this lens can't zoom") } else { tr("Zoomed on this computer") }
+            if status.streaming { tr("Zoomed on this computer since this lens can't zoom") } else { tr("Zoomed on this computer") }
         } else if status.desktop_zoom > 1.0 {
             tr("Zoomed on the phone's sensor as far as this lens allows, the rest on this computer")
         } else {

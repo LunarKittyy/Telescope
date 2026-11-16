@@ -487,7 +487,7 @@ impl UpdatesPlugin {
             return (String::new(), "status_dim");
         }
         if let Some(m) = &self.rolled_back {
-            return (with_version("Telescope {version} is held back because it didn't start after updating. Try again?", m), "status_warn");
+            return (with_version("Telescope {version} didn't start after updating and is held back. Try again?", m), "status_warn");
         }
         let nightly = self.channel == "nightly";
         if self.built_channel == "dev" {
@@ -1145,7 +1145,7 @@ mod tests {
         fn back_up_settings(&self) -> Result<Option<PathBuf>, String> {
             self.back_events.lock().unwrap().push("backup".into());
             if self.backup_fails.load(Ordering::SeqCst) {
-                return Err("Nothing was changed because a copy of your settings couldn't be saved.".into());
+                return Err("A copy of your settings couldn't be saved. Nothing was changed.".into());
             }
             Ok(Some(PathBuf::from("/settings/telescope_config.json.rust-1")))
         }
@@ -1751,7 +1751,7 @@ mod tests {
         std::fs::write(&marker, r#"{"build": 200}"#).unwrap();
         plugin.check(&mut host, true);
         let (text, kind) = plugin.status_text(&host);
-        assert!(text.contains("0.6.0 nightly 200 is held back because it didn't start after updating"), "{text}");
+        assert!(text.contains("0.6.0 nightly 200 didn't start after updating and is held back"), "{text}");
         assert_eq!(kind, "status_warn");
         assert!(plugin.available.is_none() && !button_shown(&host));
         assert_eq!(last_props(&host, SECTION)["retry-shown"], true);

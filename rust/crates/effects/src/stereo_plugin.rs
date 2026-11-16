@@ -740,7 +740,7 @@ impl StereoPlugin {
             Some((SyncStatus::NotSynced, _)) => (
                 tr("Not synced"),
                 "status_warn",
-                tr("The newest picture of each is used because Telescope can't match the pictures by when they were taken (both phones need the newer phone app)."),
+                tr("Telescope can't match the pictures by when they were taken (both phones need the newer phone app). The newest of each is used."),
             ),
         }
     }
@@ -758,9 +758,9 @@ impl StereoPlugin {
             MatchState::Done(Outcome::Limited, _) => (
                 tr("Partly matched"),
                 "status_warn",
-                tr("The match is as close as it got because a phone ran out of ISO range or the two phones have no shutter speed in common."),
+                tr("A phone ran out of ISO range or the two phones have no shutter speed in common. The match is as close as it got."),
             ),
-            MatchState::Failed => (tr("Match failed"), "status_warn", tr("Nothing was matched because Telescope couldn't read both phones and their pictures.")),
+            MatchState::Failed => (tr("Match failed"), "status_warn", tr("Telescope couldn't read both phones and their pictures. Nothing was matched.")),
         }
     }
 

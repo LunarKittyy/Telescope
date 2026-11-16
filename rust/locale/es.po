@@ -290,7 +290,7 @@ msgid "Couldn't download VB-Cable from VB-Audio's site. Try again later, or get 
 msgstr ""
 
 #: rust/crates/audio/src/vb_cable.rs:167
-msgid "Nothing was downloaded because vb-audio.com's certificate couldn't be verified. Security software or a network that inspects HTTPS can cause this."
+msgid "Telescope couldn't verify vb-audio.com's certificate. Nothing was downloaded. Security software or a network that inspects HTTPS can cause this."
 msgstr ""
 
 #: rust/crates/audio/src/vb_cable.rs:168
@@ -310,7 +310,7 @@ msgid "VB-Audio's download no longer has the setup file. Get it from their site 
 msgstr ""
 
 #: rust/crates/audio/src/vb_cable.rs:240
-msgid "Telescope didn't open VB-Cable's setup file because it changed after the check."
+msgid "VB-Cable's setup file changed after the check. Telescope didn't open it."
 msgstr ""
 
 #: rust/crates/audio/src/vb_cable.rs:245
@@ -573,11 +573,11 @@ msgid "Getting ready…"
 msgstr "Preparando…"
 
 #: rust/crates/core/src/vision.rs:150
-msgid "The normal cutout is used because the high quality one didn't load on this computer."
+msgid "The high quality cutout didn't load on this computer. The normal one is used instead."
 msgstr ""
 
 #: rust/crates/core/src/vision.rs:153
-msgid "The normal cutout is used because there's no high quality one for this computer yet."
+msgid "There's no high quality cutout for this computer yet. The normal one is used instead."
 msgstr ""
 
 #: rust/crates/core/src/vision.rs:158
@@ -992,7 +992,7 @@ msgid "The picture already looks right and needs no changes."
 msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:63
-msgid "Auto's earlier changes were removed because nothing needs changing."
+msgid "Nothing needs changing. Auto's earlier changes were removed."
 msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:64
@@ -1001,19 +1001,19 @@ msgid "Auto changed {parts}."
 msgstr "Auto ajustó {parts}."
 
 #: rust/crates/effects/src/colour_grading.rs:65
-msgid "Auto used the background and brightness because no face was found."
+msgid "No face found. Auto used the background and brightness."
 msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:66
-msgid "White balance was not changed because the light is mixed or coloured."
+msgid "The light is mixed or coloured. White balance was not changed."
 msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:67
-msgid "Auto applied only part of the change because your own wheels and curves would have clipped the picture."
+msgid "Your own wheels and curves would have clipped the picture. Auto applied only part of the change."
 msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:68
-msgid "The result may drift because the camera is set to auto."
+msgid "The result may drift with the camera set to auto."
 msgstr ""
 
 #: rust/crates/effects/src/colour_grading.rs:69
@@ -1903,7 +1903,7 @@ msgid "Add a clone"
 msgstr "Agregar un clon"
 
 #: rust/crates/effects/src/fun_pack.rs:405
-msgid "Take the empty room again because the picture changed."
+msgid "The picture changed. Take the empty room again."
 msgstr ""
 
 #: rust/crates/effects/src/fun_pack.rs:407
@@ -2805,7 +2805,7 @@ msgid "Not synced"
 msgstr ""
 
 #: rust/crates/effects/src/stereo_plugin.rs:743
-msgid "The newest picture of each is used because Telescope can't match the pictures by when they were taken (both phones need the newer phone app)."
+msgid "Telescope can't match the pictures by when they were taken (both phones need the newer phone app). The newest of each is used."
 msgstr ""
 
 #: rust/crates/effects/src/stereo_plugin.rs:753
@@ -2829,7 +2829,7 @@ msgid "Partly matched"
 msgstr ""
 
 #: rust/crates/effects/src/stereo_plugin.rs:761
-msgid "The match is as close as it got because a phone ran out of ISO range or the two phones have no shutter speed in common."
+msgid "A phone ran out of ISO range or the two phones have no shutter speed in common. The match is as close as it got."
 msgstr ""
 
 #: rust/crates/effects/src/stereo_plugin.rs:763
@@ -2837,7 +2837,7 @@ msgid "Match failed"
 msgstr ""
 
 #: rust/crates/effects/src/stereo_plugin.rs:763
-msgid "Nothing was matched because Telescope couldn't read both phones and their pictures."
+msgid "Telescope couldn't read both phones and their pictures. Nothing was matched."
 msgstr ""
 
 #: rust/crates/effects/src/stereo_plugin.rs:1170
@@ -2883,7 +2883,7 @@ msgstr "la cámara principal"
 
 #: rust/crates/effects/src/transforms.rs:72
 #, python-brace-format
-msgid "{live} is used because the picture is panned past what {tele} can see. Pan back to switch again."
+msgid "Panned past what {tele} can see ({live} is used). Pan back to switch again."
 msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:75
@@ -2915,7 +2915,7 @@ msgid "Add shortcut for {action}…"
 msgstr "Agregar atajo para {action}…"
 
 #: rust/crates/effects/src/transforms.rs:543
-msgid "Zoomed on this computer because this lens can't zoom"
+msgid "Zoomed on this computer since this lens can't zoom"
 msgstr ""
 
 #: rust/crates/effects/src/transforms.rs:543
@@ -3934,7 +3934,7 @@ msgid "Downloading adb {version} from Google…"
 msgstr "Descargando adb {version} desde Google…"
 
 #: rust/crates/link/src/adb_download.rs:301
-msgid "The download wasn't used because it didn't match Google's checksum. Try again."
+msgid "The download didn't match Google's checksum and wasn't used. Try again."
 msgstr ""
 
 #: rust/crates/link/src/adb_download.rs:303
@@ -3962,7 +3962,7 @@ msgid "This file doesn't contain adb.exe."
 msgstr ""
 
 #: rust/crates/link/src/adb_download.rs:397
-msgid "Nothing was downloaded because Google's certificate couldn't be verified. Security software or a network that inspects HTTPS can cause this."
+msgid "Telescope couldn't verify Google's certificate. Nothing was downloaded. Security software or a network that inspects HTTPS can cause this."
 msgstr ""
 
 #: rust/crates/link/src/adb_download.rs:398
@@ -4006,7 +4006,7 @@ msgid "The phone's microphone is in use"
 msgstr "El micrófono del teléfono está en uso"
 
 #: rust/crates/link/src/browser/plugin.rs:51
-msgid "The browser is sending less because the device's processor is too slow. Try a lower resolution or frame rate."
+msgid "The browser is sending less since the device's processor is too slow. Try a lower resolution or frame rate."
 msgstr ""
 
 #: rust/crates/link/src/browser/plugin.rs:52
@@ -4220,7 +4220,7 @@ msgstr "{phone} ya no reconoce esta computadora (se quitó en el teléfono o se 
 
 #: rust/crates/link/src/connection.rs:844
 #, python-brace-format
-msgid "{phone} only accepts USB because Local only is on in the phone app. Plug it in with a cable, or turn Local only off on the phone."
+msgid "{phone} only accepts USB while Local only is on in the phone app. Plug it in with a cable, or turn Local only off on the phone."
 msgstr ""
 
 #: rust/crates/link/src/connection.rs:846
@@ -4362,15 +4362,15 @@ msgstr "Esperando la cámara del teléfono... ({seconds}s)"
 msgid ""
 "The phone's camera didn't finish starting in time.\n"
 "\n"
-"Try again. If the camera still fails to start, open Telescope on the phone."
+"Try again. If the camera repeatedly fails to start, open Telescope on the phone."
 msgstr ""
 
 #: rust/crates/link/src/phones.rs:300
-msgid "USB can't be used because adb isn't installed (Add device can get it)"
+msgid "USB can't be used until adb is installed (Add device can get it)"
 msgstr ""
 
 #: rust/crates/link/src/phones.rs:301
-msgid "USB can't be used because adb isn't installed"
+msgid "USB can't be used until adb is installed"
 msgstr ""
 
 #: rust/crates/link/src/phones.rs:302
@@ -4614,7 +4614,7 @@ msgstr "La cámara virtual está configurada de otra manera"
 
 #: rust/crates/link/src/plugin.rs:1543
 #, python-brace-format
-msgid "v4l2loopback is loaded but without {device} because another app loaded it with other settings. Close that app and run this command to give Telescope control:"
+msgid "Another app loaded v4l2loopback with other settings and without {device}. Close that app and run this command to give Telescope control:"
 msgstr ""
 
 #: rust/crates/link/src/plugin.rs:1553
@@ -4852,7 +4852,7 @@ msgstr "error al recargar"
 
 #: rust/crates/outputs/src/linux_setup.rs:173
 #, python-brace-format
-msgid "{device} isn't there because v4l2loopback is already loaded with other settings. Close any app using a virtual camera, click Unload and then Load."
+msgid "{device} is missing since v4l2loopback is already loaded with other settings. Close any app using a virtual camera, click Unload and then Load."
 msgstr ""
 
 #: rust/crates/outputs/src/linux_setup.rs:178
@@ -5424,11 +5424,11 @@ msgid "The camera took too long to take the photo. The photo is saved and you ge
 msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:274
-msgid "The camera can't take a JPEG alone because its image quality is locked to RAW and JPEG together."
+msgid "The camera can't take a JPEG alone with its image quality locked to RAW and JPEG together."
 msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:275
-msgid "The camera can't take a JPEG because its image quality is locked to RAW."
+msgid "The camera can't take a JPEG with its image quality locked to RAW."
 msgstr ""
 
 #: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:276
@@ -7504,7 +7504,7 @@ msgid "Lab"
 msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:486
-msgid "This plugin can't be switched off because Telescope needs it to work."
+msgid "This plugin can't be switched off. Telescope needs it to work."
 msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:487
@@ -7517,7 +7517,7 @@ msgid "The download failed. {error}"
 msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:514
-msgid "The plugin can't be switched on because there's no download for this computer yet."
+msgid "The plugin can't be switched on until there's a download for this computer."
 msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:517
@@ -7544,7 +7544,7 @@ msgid "Updated to {version} automatically. The new version runs after Telescope 
 msgstr "Se actualizó automáticamente a {version}. La nueva versión se ejecutará después de que Telescope se reinicie."
 
 #: rust/crates/shell/src/plugins_tab.rs:569
-msgid "The plugin is off because its files changed since you switched it on. Switch it on again if you trust the new version."
+msgid "Off since the plugin's files changed after you switched it on. Switch it on again if you trust the new version."
 msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:572 rust/crates/shell/src/plugins_tab.rs:612
@@ -7563,7 +7563,7 @@ msgid "Added"
 msgstr "Agregados"
 
 #: rust/crates/shell/src/plugins_tab.rs:608
-msgid "This plugin is always on because `telescope-rs dev --plugin` loads it."
+msgid "This plugin is always on while `telescope-rs dev --plugin` loads it."
 msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:609
@@ -7733,7 +7733,7 @@ msgid "This is the vision pack, not a plugin. It's being checked and installed i
 msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:783
-msgid "This file wasn't used because the vision pack is already downloading or installing. Try again when it's done."
+msgid "This file wasn't used while the vision pack is downloading or installing. Try again when it's done."
 msgstr ""
 
 #: rust/crates/shell/src/plugins_tab.rs:796
@@ -8553,7 +8553,7 @@ msgid "Reset all settings"
 msgstr ""
 
 #: rust/crates/system/src/autostart.rs:226
-msgid "Couldn't set Telescope to open at sign-in because its folder path is too long for Windows. Move Telescope somewhere shorter."
+msgid "Couldn't set Telescope to open at sign-in. Its folder path is too long for Windows. Move Telescope somewhere shorter."
 msgstr ""
 
 #: rust/crates/system/src/autostart.rs:231
@@ -8624,7 +8624,7 @@ msgid "The phone app has to match. A newer phone app may not connect to {version
 msgstr ""
 
 #: rust/crates/system/src/going_back.rs:282
-msgid "Nothing was changed because a copy of your settings couldn't be saved."
+msgid "A copy of your settings couldn't be saved. Nothing was changed."
 msgstr ""
 
 #: rust/crates/system/src/hotkeys_portal.rs:117
@@ -8900,7 +8900,7 @@ msgstr "{name} tiene que ser un número, no {value}."
 
 #: rust/crates/system/src/remote.rs:185
 #, python-brace-format
-msgid "{value} is out of range because {name} goes from {low} to {high}."
+msgid "{name} goes from {low} to {high}. {value} is out of range."
 msgstr ""
 
 #: rust/crates/system/src/remote.rs:191
@@ -8937,7 +8937,7 @@ msgid "{action} can't be used right now (no device, or the control is off)."
 msgstr "No se puede usar {action} ahora mismo (no hay dispositivo o el control está desactivado)."
 
 #: rust/crates/system/src/setup_move.rs:381
-msgid "This copy is left unchanged because a newer Telescope is already installed. Open the installed Telescope from the Start menu."
+msgid "A newer Telescope is already installed. This copy is left unchanged. Open the installed Telescope from the Start menu."
 msgstr ""
 
 #: rust/crates/system/src/setup_move.rs:389
@@ -9133,7 +9133,7 @@ msgid "Remove {shortcut}"
 msgstr "Quitar {shortcut}"
 
 #: rust/crates/system/src/shortcuts.rs:874
-msgid "These shortcuts only work inside Telescope because global shortcuts aren't available on this desktop. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings."
+msgid "Global shortcuts aren't available on this desktop. These shortcuts only work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings."
 msgstr ""
 
 #: rust/crates/system/src/shortcuts.rs:995
@@ -9301,7 +9301,7 @@ msgid "Telescope can't update itself because the folder holding this AppImage is
 msgstr "Telescope no puede actualizarse porque la carpeta que contiene este AppImage no tiene permisos de escritura."
 
 #: rust/crates/system/src/updates.rs:350
-msgid "Telescope can't update itself because its folder isn't writable."
+msgid "Telescope can't update itself in a folder that isn't writable."
 msgstr ""
 
 #: rust/crates/system/src/updates.rs:382 rust/crates/vision/src/pack.rs:389
@@ -9315,7 +9315,7 @@ msgstr "No se pudieron reemplazar los archivos de Telescope: {error}"
 
 #: rust/crates/system/src/updates.rs:524
 #, python-brace-format
-msgid "The update wasn't installed because {file} is in use. Try again after a restart."
+msgid "The update wasn't installed while {file} is in use. Try again after a restart."
 msgstr ""
 
 #: rust/crates/system/src/updates.rs:596
@@ -9797,7 +9797,7 @@ msgid "Add keyboard shortcut…"
 msgstr "Agregar atajo de teclado…"
 
 #: rust/crates/vision/src/pack.rs:237
-msgid "The download wasn't used because it didn't match what this version of Telescope expects."
+msgid "The download didn't match what this version of Telescope expects and wasn't used."
 msgstr ""
 
 #: rust/crates/vision/src/pack.rs:261
@@ -9821,11 +9821,11 @@ msgid "The download is bigger than it should be."
 msgstr "La descarga es más grande de lo que debería ser."
 
 #: rust/crates/vision/src/pack.rs:390
-msgid "The download wasn't used because it unpacks to more than it should."
+msgid "The download unpacks to more than it should and wasn't used."
 msgstr ""
 
 #: rust/crates/vision/src/pack.rs:399
-msgid "The download wasn't used because it contains unexpected paths."
+msgid "The download contains unexpected paths and wasn't used."
 msgstr ""
 
 #: rust/crates/shell/ui/specimen.slint:303

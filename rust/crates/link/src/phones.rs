@@ -297,8 +297,8 @@ impl RouteResolver {
 /// Why the connection isn't using USB, in the words the window shows.
 pub fn usb_note_text(note: Option<UsbNote>) -> String {
     match note {
-        Some(UsbNote::NoAdb) if crate::platform::windows() => tr("USB can't be used because adb isn't installed (Add device can get it)"),
-        Some(UsbNote::NoAdb) => tr("USB can't be used because adb isn't installed"),
+        Some(UsbNote::NoAdb) if crate::platform::windows() => tr("USB can't be used until adb is installed (Add device can get it)"),
+        Some(UsbNote::NoAdb) => tr("USB can't be used until adb is installed"),
         Some(UsbNote::NoCable) => tr("no phone plugged in over USB"),
         Some(UsbNote::Unauthorized) => tr("phone plugged in but USB debugging isn't allowed yet (accept the prompt on the phone)"),
         Some(UsbNote::OtherPhone) => tr("the phone plugged in over USB is a different one"),

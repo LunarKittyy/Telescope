@@ -298,7 +298,7 @@ fn download(web: &dyn Fetch, dest: &Path, say: &dyn Fn(&str), rename: Rename) ->
     }
     let size = std::fs::metadata(&zip_path).map(|m| m.len()).unwrap_or(0);
     if size != archive.size || sha1_of(&zip_path).as_deref() != Some(archive.sha1.as_str()) {
-        return Err(tr("The download wasn't used because it didn't match Google's checksum. Try again."));
+        return Err(tr("The download didn't match Google's checksum and wasn't used. Try again."));
     }
     say(&tr("Unpacking…"));
     let unpacked = work.0.join("platform-tools");
@@ -394,7 +394,7 @@ pub fn use_own_adb(source: &Path, dest: Option<&Path>) -> Result<String, String>
 fn offline(failed: &Failed) -> Option<String> {
     let Failed::Fetch(e) = failed else { return None };
     Some(match e {
-        FetchError::Certificate(_) => tr("Nothing was downloaded because Google's certificate couldn't be verified. Security software or a network that inspects HTTPS can cause this."),
+        FetchError::Certificate(_) => tr("Telescope couldn't verify Google's certificate. Nothing was downloaded. Security software or a network that inspects HTTPS can cause this."),
         FetchError::Offline(_) => tr("Couldn't reach Google. Check the internet connection and try again."),
         FetchError::Http(code @ (403 | 404 | 451)) => tr("Google refused the download (error {code}). Google blocks Android downloads in some countries. If you get platform-tools another way, pick its adb.exe or zip instead.")
             .field("code", code.to_string()),
@@ -673,7 +673,7 @@ mod tests {
     fn an_unchecked_certificate_isnt_blamed_on_the_internet() {
         let untrusted = Failing(|_| FetchError::Certificate("unable to get local issuer certificate".into()));
         let why = download_adb(&untrusted, Some(&tmp().join("platform-tools")), &quiet).unwrap_err();
-        assert!(why.starts_with("Nothing was downloaded because Google's certificate") && !why.contains("internet connection"));
+        assert!(why.starts_with("Telescope couldn't verify Google's certificate") && !why.contains("internet connection"));
     }
 
     #[test]
@@ -782,7 +782,7 @@ mod tests {
         let (real, dest) = (zip_of(&ALL, "platform-tools/", true), root.join("platform-tools"));
         let mut google = Google::serving(real.clone(), None, ZIP_NAME);
         google.index = index_for(real.len() as u64 + 10, &sha1(&real), ZIP_NAME);
-        assert_eq!(download_adb(&google, Some(&dest), &quiet), Err("The download wasn't used because it didn't match Google's checksum. Try again.".into()));
+        assert_eq!(download_adb(&google, Some(&dest), &quiet), Err("The download didn't match Google's checksum and wasn't used. Try again.".into()));
         assert!(!dest.exists());
         assert!(names(&root).is_empty());
     }

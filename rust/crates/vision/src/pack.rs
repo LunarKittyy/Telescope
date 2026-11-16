@@ -234,7 +234,7 @@ pub fn web(url: &str, timeout: Duration) -> io::Result<Box<dyn Read>> {
 fn place(archive: &Path, staging: &Path, vision_dir: &Path, id: &str, pid: &str, max_unpacked: u64) -> Result<PathBuf, Failed> {
     unpack(archive, staging, max_unpacked)?;
     if tree_hash(staging)? != id {
-        return Err(Failed::Pack(PackError(tr("The download wasn't used because it didn't match what this version of Telescope expects."))));
+        return Err(Failed::Pack(PackError(tr("The download didn't match what this version of Telescope expects and wasn't used."))));
     }
     std::fs::write(staging.join(DONE), pid)?;
     let last = vision_dir.join(pid);
@@ -387,7 +387,7 @@ fn unpack_into(archive: &Path, staging: &Path, max_bytes: u64) -> Result<(), Fai
     let _ = std::fs::remove_dir_all(staging);
     std::fs::create_dir_all(staging)?;
     let broken = |_| Failed::Pack(PackError(tr("The download couldn't be unpacked.")));
-    let too_big = || Failed::Pack(PackError(tr("The download wasn't used because it unpacks to more than it should.")));
+    let too_big = || Failed::Pack(PackError(tr("The download unpacks to more than it should and wasn't used.")));
     let mut zip = zip::ZipArchive::new(std::fs::File::open(archive)?).map_err(broken)?;
     let mut targets = Vec::new();
     let mut claimed = 0u64;
@@ -396,7 +396,7 @@ fn unpack_into(archive: &Path, staging: &Path, max_bytes: u64) -> Result<(), Fai
         let name = entry.name().map_err(broken)?.to_string();
         claimed = claimed.saturating_add(entry.size());
         let Some(rel) = inside(&name) else {
-            return Err(Failed::Pack(PackError(tr("The download wasn't used because it contains unexpected paths."))));
+            return Err(Failed::Pack(PackError(tr("The download contains unexpected paths and wasn't used."))));
         };
         targets.push((rel, name.ends_with('/')));
     }

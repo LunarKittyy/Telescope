@@ -48,7 +48,7 @@ const MAX_SLOTS: i64 = 4;
 pub const HINT_AFTER: Duration = Duration::from_secs(30);
 /// How much of what the page sends has to arrive for the link to be fine (sources.rs has the same for a phone).
 const CAMERA_LIMITED_SHARE: f32 = 0.9;
-const CPU_LIMIT: &str = n_("The browser is sending less because the device's processor is too slow. Try a lower resolution or frame rate.");
+const CPU_LIMIT: &str = n_("The browser is sending less since the device's processor is too slow. Try a lower resolution or frame rate.");
 const BANDWIDTH_LIMIT: &str = n_("The browser is lowering the picture to fit the connection or the bitrate for this resolution.");
 const CERT_TITLE: &str = n_("Browser warns the connection isn't private?");
 // Translators: Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons:

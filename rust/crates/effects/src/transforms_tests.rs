@@ -357,7 +357,7 @@ fn lens_note_says_when_the_phone_switched() {
 fn lens_note_says_when_panning_fell_back_to_the_main_camera() {
     let (level, note) = lens_note(4.0, 1.0, Some(&tele()), "~24mm OIS", "~24mm OIS", "Tele ~85mm", true);
     assert_eq!(level, "off");
-    assert!(note.contains("~24mm OIS is used because the picture is panned past what Tele ~85mm can see"));
+    assert!(note.contains("Panned past what Tele ~85mm can see (~24mm OIS is used)"));
     assert!(lens_note(4.0, 1.0, Some(&tele()), "", "", "", true).1.contains("the telephoto can see"));
 }
 
@@ -408,7 +408,7 @@ fn the_dot_shows_only_when_the_phone_switched_or_fell_back() {
     r.plugin.on_pan_changed(&mut r.host);
     r.view_status(&status(1.0, now_s() - 3.0));
     r.plugin.on_phone_state(&mut r.host, &lens_state("2"));
-    assert!(r.shown("dot-tip").as_str().unwrap().contains("panned past what Tele ~85mm OIS can see"));
+    assert!(r.shown("dot-tip").as_str().unwrap().contains("Panned past what Tele ~85mm OIS can see"));
     assert_eq!(r.shown("dot-level"), json!("off"));
     r.zoom(200);
     assert_eq!(r.shown("dot-level"), json!(""));

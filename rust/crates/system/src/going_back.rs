@@ -279,7 +279,7 @@ pub fn install_from(archive: &Path, directory: &Path, windows: bool, prepare: &d
 pub fn back_up_settings(file: &telescope_core::config::ConfigFile) -> Result<Option<PathBuf>, UpdateError> {
     file.copy_aside(BACKUP_LABEL).map_err(|e| {
         log::error!("Couldn't copy the settings aside: {e}");
-        UpdateError(tr("Nothing was changed because a copy of your settings couldn't be saved."))
+        UpdateError(tr("A copy of your settings couldn't be saved. Nothing was changed."))
     })
 }
 
