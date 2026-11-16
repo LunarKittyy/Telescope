@@ -58,7 +58,7 @@ The APK signing key lives in the repository secrets (see [Packaging and CI](pack
 <!-- due: .github/workflows/rust-package.yml rust/tools/package_linux.sh rust/tools/package_appimage.sh rust/tools/bundle_gphoto2.sh rust/tools/AppRun rust/tools/fonts.conf rust/tools/start.sh rust/tools/main_stub.py rust/tools/build_ffmpeg.sh rust/crates/outputs/src/linux_setup.rs rust/crates/outputs/src/v4l2.rs rust/crates/system/src/autostart.rs rust/crates/system/src/hotkeys_portal.rs -->
 
 - [ ] Module not loaded: Start asks once with the startup box ticked and after a reboot Start doesn't ask. Unticked, it asks again after a reboot.
-- [ ] Extra cameras with the startup box ticked: after adding them and a reboot, Telescope #2 to #4 are still there. Removing them and rebooting leaves only Telescope. A setup from before the rename shows Telescope after Unload and Load, and after a reboot too.
+- [ ] With the startup box ticked, the extra cameras Telescope #2 to #4 are still there after adding them and rebooting. Removing them and rebooting leaves only Telescope. A setup from before the rename shows Telescope after Unload and Load, and after a reboot too.
 - [ ] Without pkexec (or with no polkit agent): Start shows the command banner, Copy command works and running it then Start streams.
 - [ ] Open Telescope when I sign in (Linux and Windows): after a real sign-out and sign-in Telescope is in the tray.
 - [ ] AppImage on a real desktop: a double click starts it, the app menu entry and icon work, and the password prompt for the virtual camera appears and loads it.
