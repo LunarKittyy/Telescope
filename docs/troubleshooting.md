@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/link/src rust/crates/outputs/src rust/crates/system/src/hotkeys* rust/crates/system/src/updates* rust/crates/shell/src/plugins_tab.rs rust/crates/vision/src/pack.rs rust/crates/core/src/gpu_marker.rs; checked: 0087a9560 -->
+<!-- covers: rust/crates/link/src rust/crates/outputs/src rust/crates/system/src/hotkeys* rust/crates/system/src/updates* rust/crates/shell/src/plugins_tab.rs rust/crates/vision/src/pack.rs rust/crates/core/src/gpu_marker.rs; checked: 0d35dc883 -->
 # Troubleshooting
 
 Find your problem below. Nothing there? Ask in [Q&A](https://github.com/LunarKittyy/Telescope/discussions/categories/q-a), or open an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml) with your **Copy diagnostics** report if something is broken.
@@ -155,6 +155,9 @@ On Linux the decoder is VA-API or NVIDIA's CUDA. On Windows it's Direct3D 11. Wi
 
 **Telescope switched graphics card**
 The last start closed while Telescope was opening that card. Telescope now leaves it out and uses another one, or the processor if none is left. It tries the card again after a driver update. To undo it sooner, delete `gpu_skipped.json` from Telescope's settings folder (`%APPDATA%\Telescope` on Windows, `~/.config/telescope` on Linux) and start Telescope again.
+
+**Windows: Telescope uses the other graphics card**
+Telescope follows the graphics setting for its own app in Windows Settings > System > Display > Graphics. With no setting, or with **Let Windows decide**, it uses the high performance card, which on a laptop with two is the discrete one. **Power saving** runs everything on the integrated card, hardware decode included, so try it when a laptop with two cards runs hot or drains the battery. The log says which setting Telescope found. On Intel cards it tries DirectX 12 before Vulkan, because an old Intel Vulkan driver crashed while opening the card.
 
 ## Camera controls
 
