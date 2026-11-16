@@ -694,7 +694,7 @@ msgstr "미리보기에서 선택한 색상이에요. 다시 선택하려면 클
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "미리보기에서 등 뒤의 스크린을 클릭해 보세요. Esc를 누르면 취소돼요."
 
-#: rust/crates/effects/src/chroma_key.rs:394 rust/crates/effects/src/chroma_key.rs:430 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:475 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:709 rust/crates/shell/src/streams.rs:1766 rust/crates/shell/src/window.rs:1726 rust/crates/shell/src/worker.rs:569 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:394 rust/crates/effects/src/chroma_key.rs:430 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:544 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:709 rust/crates/shell/src/streams.rs:1766 rust/crates/shell/src/window.rs:1726 rust/crates/shell/src/worker.rs:569 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "스트리밍 중 아님"
 
@@ -4921,57 +4921,57 @@ msgstr "영구 설정 파일 제거 실패"
 msgid "Removed {paths}"
 msgstr "{paths} 제거됨"
 
-#: rust/crates/outputs/src/spout/mod.rs:45
+#: rust/crates/outputs/src/spout/mod.rs:51
 msgid "The sender isn't running. Start it again to continue."
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:46
+#: rust/crates/outputs/src/spout/mod.rs:52
 msgid "The sender isn't sharing a picture. Check that it's running and sending."
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:47
+#: rust/crates/outputs/src/spout/mod.rs:53
 msgid "Telescope can't read this sender's picture. Try another sender, or check the sender's output settings."
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:269
+#: rust/crates/outputs/src/spout/mod.rs:284
 msgid "Check that the sender is still running."
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:469
+#: rust/crates/outputs/src/spout/mod.rs:538
 msgid "Sender not running"
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:471 rust/crates/outputs/src/webcam.rs:961
+#: rust/crates/outputs/src/spout/mod.rs:540 rust/crates/outputs/src/webcam.rs:961
 msgid "Not sending anything"
 msgstr "아무것도 전송하지 않음"
 
-#: rust/crates/outputs/src/spout/mod.rs:473 rust/crates/outputs/src/webcam.rs:963
+#: rust/crates/outputs/src/spout/mod.rs:542 rust/crates/outputs/src/webcam.rs:963
 msgid "Starting…"
 msgstr "시작 중…"
 
-#: rust/crates/outputs/src/spout/mod.rs:482
-msgid "How many pictures a second to take. Spout senders don't say their own rate."
+#: rust/crates/outputs/src/spout/mod.rs:551
+msgid "Set how many pictures a second to take. Spout senders don't share their own rate."
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:496 rust/crates/outputs/ui/spout.slint:14
+#: rust/crates/outputs/src/spout/mod.rs:565 rust/crates/outputs/ui/spout.slint:14
 msgid "Spout capture"
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:497
-msgid "Stream from Spout senders: games, OBS and other programs on this computer that share their picture through Spout."
+#: rust/crates/outputs/src/spout/mod.rs:566
+msgid "Stream from games, OBS and other programs on this computer that share their picture through Spout."
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:498
+#: rust/crates/outputs/src/spout/mod.rs:567
 msgid "Without Spout capture the senders aren't in the device picker and the Spout capture card is gone too."
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:539
+#: rust/crates/outputs/src/spout/mod.rs:615
 #, python-brace-format
 msgid "{name} isn't running"
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:539
-msgid "Start it, or pick another source."
+#: rust/crates/outputs/src/spout/mod.rs:615
+msgid "Start it again or pick another source."
 msgstr ""
 
 #: rust/crates/outputs/src/stream_output.rs:29

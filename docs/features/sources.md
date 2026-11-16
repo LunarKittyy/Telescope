@@ -40,11 +40,11 @@ A webcam plugged into the computer streams just like a phone. It shows up in the
 
 An optional early version that's still in Lab (switch it on under **Streaming and devices** in the Plugins tab of Settings). It streams from programs that share their picture through Spout, like games with a stream camera, OBS, VTuber programs and 3D tools. Each sender shows up in the device picker under the name it shares itself with. Every effect works on it like on a phone or a webcam. The result goes out on Telescope's virtual camera.
 
-- **On Windows** Telescope reads Spout's shared pictures directly, so any program sending through Spout shows up
-- **On Linux** Spout only exists inside Proton, for Windows games and programs. [Spout2PW](https://github.com/tasokait/spout2pw) passes their senders out to PipeWire, and Telescope lists the ones it passes on. Its own page says which Proton versions it works with. Telescope needs nothing extra for it, as long as PipeWire is running
-- **Senders coming and going** is noticed within a couple of seconds. A sender that stops while it streams keeps its place, apps see the wait screen and the stream carries on once the sender is back. One that isn't streaming just leaves the picker. Starting a stream on a sender that has stopped since you picked it shows a banner
-- **Frame rate** is on the Spout capture card (30 by default) and kept for each sender. Senders don't say how fast they run, so this is the most pictures a second Telescope takes from one. A sender that sends nothing new, like a paused scene, has its last picture sent again about once a second so the stream isn't taken for lost. The card also shows the size the sender shares
-- **Colours:** Spout shares ordinary 8-bit pictures, which Telescope reads in any byte order. Transparency is dropped, so a see-through sender shows whatever colour sits under its clear parts (often black). Senders that share 10-bit or floating point pictures aren't read and the stream says it can't read the picture
+- **On Windows** Telescope reads Spout's shared pictures directly. Any program sending through Spout shows up
+- **On Linux** Spout only exists inside Proton, for Windows games and programs. [Spout2PW](https://github.com/tasokait/spout2pw) passes their senders out to PipeWire and Telescope lists the ones it passes on. Its own page lists the Proton versions it works with. Telescope needs nothing extra for it, as long as PipeWire is running
+- **Senders coming and going** is noticed within a couple of seconds. A sender that stops while it streams holds its place, apps see the wait screen and the stream carries on once the sender is back. One that isn't streaming leaves the picker. Starting a stream on a sender that has stopped since you picked it shows a banner
+- **Frame rate** is on the Spout capture card (30 by default) and saved for each sender. Senders don't share how fast they run. This is the most pictures a second Telescope takes from one. A sender that sends nothing new, like a paused scene, has its last picture sent again about once a second so the stream isn't taken for lost. The card also shows the size the sender shares
+- **Colours:** Spout shares ordinary 8-bit pictures, which Telescope reads in any byte order. Transparency is dropped. A see-through sender shows whatever colour sits under its clear parts (often black). Senders that share 10-bit or floating point pictures aren't read and the stream shows that it can't read the picture
 - **A sender that changes size** is followed without restarting the stream
 - **Two graphics cards:** on a Windows laptop with two, Telescope finds the one the sender draws on
 - Sender names that aren't plain text (an old program using a legacy code page for accents) aren't listed
@@ -81,7 +81,7 @@ Optional (switch it on under **Streaming and devices** in the Plugins tab of Set
 
 ## 3D from two phones
 
-Optional and still in Lab, so it's an early version (switch it on under **Streaming and devices** in the Plugins tab of Settings). It turns two phones streaming at the same time into one 3D picture on the **Telescope** camera. Both phones need the newer phone app for the timing to match. Two phones of the same model work best, since different models differ in field of view, colour and frame rate.
+An optional early version that's still in Lab (switch it on under **Streaming and devices** in the Plugins tab of Settings). It turns two phones streaming at the same time into one 3D picture on the **Telescope** camera. Both phones need the newer phone app for the timing to match. Two phones of the same model work best, since different models differ in field of view, colour and frame rate.
 
 - The switch on the **3D** card turns it on. It only takes over the Telescope camera while two streams run. The first stream you started is the left eye and **Swap eyes** exchanges them when the picture looks inside out
 - **Look** is **Side by side** (for a headset or a 3D screen) or **Red/cyan** (for glasses, mixed with the Dubois matrices so colours stay closer to the original than with a plain red and cyan split)

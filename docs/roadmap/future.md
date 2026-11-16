@@ -117,11 +117,11 @@ The work on Slint's interpreter continues, mainly cheaper struct field lookups a
 
 ### Spout capture at full speed
 
-Spout capture copies every frame out of the graphics card's memory, then turns it into the picture format the rest of Telescope uses, one step after the other. At 1080p that's close to the 33 ms a frame gets at 30 fps, and a 4K or 60 fps sender won't keep up. Three steps, each faster than the last:
+Spout capture copies every frame out of the graphics card's memory, then turns it into the picture format the rest of Telescope uses, one step after the other. At 1080p that's close to the 33 ms a frame gets at 30 fps. A 4K or 60 fps sender would fall behind. Three steps, each faster than the last:
 
-- **Overlap the steps.** Copy the next frame while the last one is converted. Small, and probably enough for a steady 30 fps at 1080p
+- **Overlap the steps.** Copy the next frame while the last one is converted. Small. Probably enough for a steady 30 fps at 1080p
 - **Convert on the GPU** instead of the processor. Medium
-- **Zero-copy.** Hand the sender's GPU buffer straight to the picture work on the GPU, so the frame never leaves the graphics card (a DMA-BUF on Linux, a shared D3D11 texture on Windows). Big, and part of [Doing the picture work on the GPU](#doing-the-picture-work-on-the-gpu)
+- **Zero-copy.** Hand the sender's GPU buffer straight to the picture work on the GPU. The frame then never leaves the graphics card (a DMA-BUF on Linux, a shared D3D11 texture on Windows). Big. It belongs with [Doing the picture work on the GPU](#doing-the-picture-work-on-the-gpu)
 
 ### USB without adb
 

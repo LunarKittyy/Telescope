@@ -548,7 +548,7 @@ impl SpoutPlugin {
             "visible": !key.is_empty(),
             "status-text": text, "status-kind": kind,
             "fps-items": fps.iter().map(|f| format!("{f} fps")).collect::<Vec<_>>(), "fps-current": fps_i, "fps-enabled": !key.is_empty(),
-            "fps-tip": tr("How many pictures a second to take. Spout senders don't say their own rate."),
+            "fps-tip": tr("Set how many pictures a second to take. Spout senders don't share their own rate."),
         })
     }
 
@@ -563,7 +563,7 @@ impl Plugin for SpoutPlugin {
         PluginInfo {
             name: NAME.into(),
             title: n_("Spout capture").into(),
-            about: n_("Stream from Spout senders: games, OBS and other programs on this computer that share their picture through Spout.").into(),
+            about: n_("Stream from games, OBS and other programs on this computer that share their picture through Spout.").into(),
             when_off: n_("Without Spout capture the senders aren't in the device picker and the Spout capture card is gone too.").into(),
             optional: true,
             lab: true,
@@ -612,7 +612,7 @@ impl Plugin for SpoutPlugin {
                     }
                 } else if token == P_GONE {
                     let name = data.as_str().unwrap_or("");
-                    host.show_issue("start", Issue { title: tr("{name} isn't running").field("name", name), text: tr("Start it, or pick another source."),
+                    host.show_issue("start", Issue { title: tr("{name} isn't running").field("name", name), text: tr("Start it again or pick another source."),
                                                      actions: Vec::new(), kind: "warn".into(), details: String::new(), tell_dismiss: false });
                 }
             }
