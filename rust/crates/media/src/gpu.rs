@@ -211,6 +211,7 @@ impl Gpu {
             ..Default::default()
         })).map_err(|e| e.to_string())?;
         telescope_core::machine::set_gpu(info.vendor, &format!("{:?}", info.device_type), &info.name, &format!("{:?}", info.backend), &card.driver);
+        crate::decode_card::set_picked(info.vendor, info.device);
         Ok(Gpu::on(device, queue, format!("{} ({:?})", info.name, info.backend)))
     }
 
