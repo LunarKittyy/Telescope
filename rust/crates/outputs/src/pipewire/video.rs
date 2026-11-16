@@ -5,6 +5,7 @@ use super::connection::Connection;
 use super::ffi::{self, PwBuffer, SpaData, StreamState};
 use super::pod::{self, Choice, ObjectPod, Pod, Prop, Scalar, Value};
 use super::stream::{Stream, StreamConfig, StreamHandler, StreamRef, PW_DIRECTION_INPUT, PW_STREAM_FLAG_AUTOCONNECT};
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
@@ -60,8 +61,43 @@ pub struct VideoFrame {
     pub data: Vec<u8>,
 }
 
+/// A buffer taken off the stream to be read later, with everything the read needs so it never touches the pw_buffer itself.
+struct Parked {
+    buffer: *mut PwBuffer,
+    shot: Shot,
+}
+
+// SAFETY: the pointer is only handed back to the stream (with the loop locked), never read through
+unsafe impl Send for Parked {}
+
+/// What a buffer held when it was taken: where the picture is and how its rows lie.
+struct Shot {
+    negotiated: Negotiated,
+    /// A descriptor of our own for the buffer's memory, so the copy outlives the stream letting go of the buffer.
+    fd: OwnedFd,
+    dma_buf: bool,
+    map_offset: usize,
+    max_size: usize,
+    offset: usize,
+    stride: usize,
+}
+
+/// The buffer a copy is reading: given back to the stream afterwards, unless the stream took it away in the meantime.
+struct InFlight {
+    buffer: *mut PwBuffer,
+    removed: bool,
+}
+
+// SAFETY: as Parked
+unsafe impl Send for InFlight {}
+
 #[derive(Default)]
 struct SlotState {
+    /// The newest picture the loop thread has parked, not yet copied out.
+    parked: Option<Parked>,
+    /// The picture being copied right now on the reader's thread.
+    in_flight: Option<InFlight>,
+    /// A picture the loop thread had to copy itself (plain memory), ready to hand out.
     frame: Option<VideoFrame>,
     error: Option<String>,
 }
@@ -175,6 +211,16 @@ impl StreamHandler for Handler {
         stream.update_params(&[buffers_request(negotiated, dma_buf)]);
     }
 
+    fn remove_buffer(&mut self, _stream: &StreamRef, buffer: *mut PwBuffer) {
+        let Ok(mut state) = self.slot.state.lock() else { return };
+        // A copy under way owns a descriptor of its own, so it can finish; it just must not give the buffer back
+        if let Some(in_flight) = state.in_flight.as_mut().filter(|f| f.buffer == buffer && !f.removed) {
+            in_flight.removed = true;
+        } else if state.parked.as_ref().is_some_and(|p| p.buffer == buffer) {
+            state.parked = None;
+        }
+    }
+
     fn process(&mut self, stream: &StreamRef) {
         // The newest buffer is the picture, any older one is given back unread
         let mut newest: *mut PwBuffer = std::ptr::null_mut();
@@ -195,84 +241,179 @@ impl StreamHandler for Handler {
             stream.queue(newest);
             return;
         };
-        // SAFETY: the buffer was dequeued from the stream and stays valid until it is queued again below
-        let read = unsafe { read_buffer(newest, negotiated) };
-        stream.queue(newest);
-        match read {
-            Ok(Some(data)) => {
-                let frame = VideoFrame { width: negotiated.width, height: negotiated.height, format: negotiated.format, data };
+        // This runs with the loop locked, so nothing here may take long: the picture is only noted, and the reader's thread copies it
+        // SAFETY: the buffer was dequeued from the stream and stays valid until it is queued again
+        match unsafe { take_shot(newest, negotiated) } {
+            Ok(Taken::Shot(shot)) => {
+                let Ok(mut state) = self.slot.state.lock() else {
+                    stream.queue(newest);
+                    return;
+                };
+                if let Some(older) = state.parked.replace(Parked { buffer: newest, shot }) {
+                    stream.queue(older.buffer);
+                }
+                drop(state);
+                self.slot.arrived.notify_all();
+            }
+            Ok(Taken::Frame(frame)) => {
+                stream.queue(newest);
                 if let Ok(mut state) = self.slot.state.lock() {
                     state.frame = Some(frame);
                 }
                 self.slot.arrived.notify_all();
             }
-            Ok(None) => {}
-            Err(message) => self.slot.fail(message),
+            Ok(Taken::Nothing) => stream.queue(newest),
+            Err(message) => {
+                stream.queue(newest);
+                self.slot.fail(message);
+            }
         }
     }
 }
 
-/// Copies the picture out of a buffer into packed rows: None when the buffer carries no picture this time. Needs a valid dequeued pw_buffer.
-unsafe fn read_buffer(buffer: *mut PwBuffer, negotiated: Negotiated) -> Result<Option<Vec<u8>>, String> {
+enum Taken {
+    /// A picture in memory a descriptor leads to, to be copied by the reader.
+    Shot(Shot),
+    /// A picture in the stream's own memory, which the stream may unmap once the buffer is given back, so it is copied right away.
+    Frame(VideoFrame),
+    /// The buffer carries no picture this time.
+    Nothing,
+}
+
+/// Notes where the picture of a dequeued buffer is. Needs a valid dequeued pw_buffer.
+unsafe fn take_shot(buffer: *mut PwBuffer, negotiated: Negotiated) -> Result<Taken, String> {
     // SAFETY: a dequeued pw_buffer points at its spa_buffer
     let spa = unsafe { (*buffer).buffer.as_ref() }.ok_or("a buffer has no data")?;
     if spa.n_datas == 0 || spa.datas.is_null() {
-        return Ok(None);
+        return Ok(Taken::Nothing);
     }
     // SAFETY: datas holds n_datas entries
     let data: &SpaData = unsafe { &*spa.datas };
     // SAFETY: the chunk is null or the buffer's own
-    let Some(chunk) = (unsafe { data.chunk.as_ref() }) else { return Ok(None) };
+    let Some(chunk) = (unsafe { data.chunk.as_ref() }) else { return Ok(Taken::Nothing) };
     // A chunk flagged corrupted (bit 0) or empty is no picture
     if chunk.size == 0 || chunk.flags & 1 != 0 {
-        return Ok(None);
+        return Ok(Taken::Nothing);
     }
     let row = negotiated.width as usize * 4;
     let stride = if chunk.stride > 0 { chunk.stride as usize } else { row };
     let height = negotiated.height as usize;
     if height == 0 {
-        return Ok(None);
+        return Ok(Taken::Nothing);
     }
-    let needed = chunk.offset as usize + stride * (height - 1) + row;
-    if row > stride || needed > data.maxsize as usize {
+    let offset = chunk.offset as usize;
+    if row > stride || offset + stride * (height - 1) + row > data.maxsize as usize {
         return Err(format!("a buffer is too small for its picture ({} bytes for {}x{} at stride {})", data.maxsize, negotiated.width, negotiated.height, stride));
     }
-    let mut packed = Vec::with_capacity(row * height);
-    let mut copy = |base: *const u8| {
-        for y in 0..height {
-            // SAFETY: the bounds check above keeps every row inside the mapping
-            packed.extend_from_slice(unsafe { std::slice::from_raw_parts(base.add(chunk.offset as usize + y * stride), row) });
-        }
-    };
     match data.kind {
         ffi::SPA_DATA_MEM_PTR => {
             if data.data.is_null() {
-                return Ok(None);
+                return Ok(Taken::Nothing);
             }
-            copy(data.data as *const u8);
+            let mut packed = vec![0u8; row * height];
+            for (y, out) in packed.chunks_exact_mut(row).enumerate() {
+                // SAFETY: the bounds check above keeps every row inside the buffer's memory
+                out.copy_from_slice(unsafe { std::slice::from_raw_parts((data.data as *const u8).add(offset + y * stride), row) });
+            }
+            Ok(Taken::Frame(VideoFrame { width: negotiated.width, height: negotiated.height, format: negotiated.format, data: packed }))
         }
         ffi::SPA_DATA_MEM_FD | ffi::SPA_DATA_DMA_BUF => {
-            let dma_buf = data.kind == ffi::SPA_DATA_DMA_BUF;
-            let fd = data.fd as i32;
-            let length = data.mapoffset as usize + data.maxsize as usize;
-            // SAFETY: a read-only shared mapping of the buffer's own descriptor, unmapped below
-            let map = unsafe { libc::mmap(std::ptr::null_mut(), length, libc::PROT_READ, libc::MAP_SHARED, fd, 0) };
-            if map == libc::MAP_FAILED {
-                return Err(format!("a buffer couldn't be mapped ({})", std::io::Error::last_os_error()));
+            // SAFETY: the descriptor is the buffer's own and open while it is dequeued; dup gives a descriptor that is ours
+            let fd = unsafe { libc::dup(data.fd as i32) };
+            if fd < 0 {
+                return Err(format!("a buffer's memory couldn't be held on to ({})", std::io::Error::last_os_error()));
             }
-            if dma_buf {
-                dma_buf_sync(fd, SYNC_START);
-            }
-            copy(map.cast::<u8>().wrapping_add(data.mapoffset as usize));
-            if dma_buf {
-                dma_buf_sync(fd, SYNC_END);
-            }
-            // SAFETY: the mapping made above, with its length
-            unsafe { libc::munmap(map, length) };
+            Ok(Taken::Shot(Shot {
+                negotiated,
+                // SAFETY: a fresh descriptor nothing else owns
+                fd: unsafe { OwnedFd::from_raw_fd(fd) },
+                dma_buf: data.kind == ffi::SPA_DATA_DMA_BUF,
+                map_offset: data.mapoffset as usize,
+                max_size: data.maxsize as usize,
+                offset,
+                stride,
+            }))
         }
-        other => return Err(format!("a buffer has memory of a kind that isn't read (type {other})")),
+        other => Err(format!("a buffer has memory of a kind that isn't read (type {other})")),
     }
-    Ok(Some(packed))
+}
+
+/// Copies the picture a shot noted out into packed rows. Takes no lock of the loop's, and may wait on the producer's GPU work.
+fn copy_shot(shot: &Shot) -> Result<VideoFrame, String> {
+    let Negotiated { width, height, format } = shot.negotiated;
+    let row = width as usize * 4;
+    let length = shot.map_offset + shot.max_size;
+    let fd = shot.fd.as_raw_fd();
+    // SAFETY: a read-only shared mapping of the shot's own descriptor, unmapped below
+    let map = unsafe { libc::mmap(std::ptr::null_mut(), length, libc::PROT_READ, libc::MAP_SHARED, fd, 0) };
+    if map == libc::MAP_FAILED {
+        return Err(format!("a buffer couldn't be mapped ({})", std::io::Error::last_os_error()));
+    }
+    if shot.dma_buf {
+        dma_buf_sync(fd, SYNC_START);
+    }
+    let mut packed = vec![0u8; row * height as usize];
+    let base = map.cast::<u8>().wrapping_add(shot.map_offset);
+    for (y, out) in packed.chunks_exact_mut(row).enumerate() {
+        // SAFETY: take_shot checked that every row lies inside max_size, which the mapping covers
+        let src = unsafe { base.add(shot.offset + y * shot.stride) };
+        if shot.dma_buf {
+            // SAFETY: src holds row readable bytes (checked above) and out is row bytes long
+            unsafe { copy_from_gpu(src, out) };
+        } else {
+            // SAFETY: as above
+            out.copy_from_slice(unsafe { std::slice::from_raw_parts(src, row) });
+        }
+    }
+    if shot.dma_buf {
+        dma_buf_sync(fd, SYNC_END);
+    }
+    // SAFETY: the mapping made above, with its length
+    unsafe { libc::munmap(map, length) };
+    Ok(VideoFrame { width, height, format, data: packed })
+}
+
+/// Copies out.len() bytes from src, which may be GPU memory mapped write-combined, where plain loads crawl (about 50 MB/s from a
+/// Radeon's VRAM); SSE4.1 streaming loads read it in full lines. Needs src to hold out.len() readable bytes.
+unsafe fn copy_from_gpu(src: *const u8, out: &mut [u8]) {
+    #[cfg(target_arch = "x86_64")]
+    if std::arch::is_x86_feature_detected!("sse4.1") {
+        // SAFETY: the CPU has SSE4.1 and the caller vouches for src
+        unsafe { stream_copy(src, out) };
+        return;
+    }
+    // SAFETY: the caller vouches for src
+    out.copy_from_slice(unsafe { std::slice::from_raw_parts(src, out.len()) });
+}
+
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "sse4.1")]
+unsafe fn stream_copy(src: *const u8, out: &mut [u8]) {
+    use std::arch::x86_64::{__m128i, _mm_storeu_si128, _mm_stream_load_si128};
+    let len = out.len();
+    let dst = out.as_mut_ptr();
+    let head = src.align_offset(16).min(len);
+    // SAFETY: all reads stay below src + len and writes below dst + len, and the streaming loads are 16-byte aligned past head
+    unsafe {
+        std::ptr::copy_nonoverlapping(src, dst, head);
+        let mut i = head;
+        while i + 64 <= len {
+            let a = _mm_stream_load_si128(src.add(i) as *const __m128i);
+            let b = _mm_stream_load_si128(src.add(i + 16) as *const __m128i);
+            let c = _mm_stream_load_si128(src.add(i + 32) as *const __m128i);
+            let d = _mm_stream_load_si128(src.add(i + 48) as *const __m128i);
+            _mm_storeu_si128(dst.add(i) as *mut __m128i, a);
+            _mm_storeu_si128(dst.add(i + 16) as *mut __m128i, b);
+            _mm_storeu_si128(dst.add(i + 32) as *mut __m128i, c);
+            _mm_storeu_si128(dst.add(i + 48) as *mut __m128i, d);
+            i += 64;
+        }
+        while i + 16 <= len {
+            _mm_storeu_si128(dst.add(i) as *mut __m128i, _mm_stream_load_si128(src.add(i) as *const __m128i));
+            i += 16;
+        }
+        std::ptr::copy_nonoverlapping(src.add(i), dst.add(i), len - i);
+    }
 }
 
 /// DMA_BUF_IOCTL_SYNC's flags for a CPU read.
@@ -293,7 +434,7 @@ pub struct VideoConsumer {
     node: u32,
     watch_node: bool,
     slot: Arc<Slot>,
-    _stream: Stream,
+    stream: Stream,
 }
 
 impl VideoConsumer {
@@ -304,16 +445,31 @@ impl VideoConsumer {
         let props = [("media.type", "Video"), ("media.category", "Capture"), ("media.role", "Production"), ("media.class", "Stream/Input/Video"), ("node.dont-reconnect", "true")];
         let config = StreamConfig { name: client, props: &props, direction: PW_DIRECTION_INPUT, target: node, flags: PW_STREAM_FLAG_AUTOCONNECT };
         let stream = Stream::connect(connection, &config, &format_offers(), Box::new(handler))?;
-        Ok(VideoConsumer { connection: connection.clone(), node, watch_node: connection.node(node).is_some(), slot, _stream: stream })
+        Ok(VideoConsumer { connection: connection.clone(), node, watch_node: connection.node(node).is_some(), slot, stream })
     }
 
     /// The next picture that arrives within `timeout`: Ok(None) when nothing came, Err once the node is gone or the stream failed.
     pub fn next(&mut self, timeout: Duration) -> Result<Option<VideoFrame>, String> {
         let deadline = Instant::now() + timeout;
-        let mut state = self.slot.state.lock().map_err(|_| "the frame slot broke".to_string())?;
+        let broke = || "the frame slot broke".to_string();
+        let mut state = self.slot.state.lock().map_err(|_| broke())?;
         loop {
             if let Some(frame) = state.frame.take() {
                 return Ok(Some(frame));
+            }
+            if let Some(parked) = state.parked.take() {
+                state.in_flight = Some(InFlight { buffer: parked.buffer, removed: false });
+                drop(state);
+                let copied = copy_shot(&parked.shot);
+                self.give_back(parked.buffer);
+                state = self.slot.state.lock().map_err(|_| broke())?;
+                match copied {
+                    Ok(frame) => return Ok(Some(frame)),
+                    Err(message) => {
+                        state.error.get_or_insert(message);
+                        continue;
+                    }
+                }
             }
             if let Some(error) = state.error.clone() {
                 return Err(error);
@@ -328,7 +484,21 @@ impl VideoConsumer {
             if now >= deadline {
                 return Ok(None);
             }
-            state = self.slot.arrived.wait_timeout(state, (deadline - now).min(GONE_CHECK)).map_err(|_| "the frame slot broke".to_string())?.0;
+            state = self.slot.arrived.wait_timeout(state, (deadline - now).min(GONE_CHECK)).map_err(|_| broke())?.0;
         }
+    }
+
+    /// Hands the buffer that was just copied back to the stream, unless the stream has taken it away since.
+    fn give_back(&self, buffer: *mut PwBuffer) {
+        // The slot is looked at with the loop locked, so a buffer can't be removed between the look and the queueing
+        self.stream.locked(|stream| {
+            let removed = match self.slot.state.lock() {
+                Ok(mut state) => state.in_flight.take().is_none_or(|f| f.removed),
+                Err(_) => true,
+            };
+            if !removed {
+                stream.queue(buffer);
+            }
+        });
     }
 }

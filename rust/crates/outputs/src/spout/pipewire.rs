@@ -181,6 +181,38 @@ mod tests {
         round_trip(Memory::MemFd, VideoFormat::Bgrx);
     }
 
+    /// Reads a fake sender for a while, then drops the reader on the same thread and says how long the drop took.
+    fn drop_time_while_flowing(memory: Memory) -> Option<Duration> {
+        let backend = backend()?;
+        let connection = Connection::shared().unwrap();
+        let sender = format!("Telescope drop test {} {:?}", std::process::id(), memory);
+        let source = FakeSource::start(&connection, spout2pw_node(&sender, memory, VideoFormat::Bgra)).ok()?;
+        let key = wait_for(Duration::from_secs(5), || backend.senders().into_iter().find(|s| s.name == sender && s.width != 0))?.key;
+        let reading = std::thread::spawn(move || {
+            let mut reader = backend.open(&key).expect("the sender should open");
+            let mut frames = 0;
+            let end = Instant::now() + Duration::from_secs(2);
+            while Instant::now() < end {
+                frames += reader.next(Duration::from_millis(200)).expect("reading shouldn't fail").is_some() as u32;
+            }
+            assert!(frames > 5, "frames should have been flowing ({frames})");
+            let started = Instant::now();
+            drop(reader);
+            started.elapsed()
+        });
+        let took = reading.join().expect("the reading thread should finish");
+        drop(source);
+        Some(took)
+    }
+
+    #[test]
+    fn dropping_a_reader_while_frames_flow_is_quick() {
+        for memory in [Memory::DmaBuf, Memory::MemFd] {
+            let Some(took) = drop_time_while_flowing(memory) else { return eprintln!("skipped: PipeWire or its DMA-BUF heap isn't there") };
+            assert!(took < Duration::from_secs(1), "dropping the reader took {took:?} ({memory:?})");
+        }
+    }
+
     #[test]
     fn spout2pw_nodes_are_told_from_others() {
         let node = |pairs: &[(&str, &str)]| Node { id: 1, serial: 1, props: pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(), video_size: None };
@@ -193,5 +225,53 @@ mod tests {
         assert!(!is_spout2pw(&node(&[("media.class", "Stream/Output/Video"), ("node.name", "obs.screen")])));
         let named = node(&[("node.name", "spout2pw.My_Cam"), ("node.description", "Spout2PW: My Cam")]);
         assert_eq!(sender_name(&named), "My Cam");
+    }
+
+    /// Manual check against a live Spout2PW sender: prints the frame rate over 5 s, how long open and drop took, and writes the last frame to PROBE_OUT (a PPM path) if that is set.
+    #[test]
+    #[ignore = "needs a Spout2PW sender running"]
+    fn probe_real_sender() {
+        let backend = backend().expect("PipeWire isn't running");
+        let wait = Instant::now();
+        let sender = loop {
+            if let Some(sender) = backend.senders().into_iter().next() {
+                break sender;
+            }
+            assert!(wait.elapsed() < Duration::from_secs(120), "no sender showed up in 120 s");
+            std::thread::sleep(Duration::from_secs(2));
+        };
+        eprintln!("sender {} ({}x{})", sender.name, sender.width, sender.height);
+        let opened = Instant::now();
+        let mut reader = backend.open(&sender.key).expect("the sender should open");
+        eprintln!("open took {:?}", opened.elapsed());
+
+        let (mut frames, mut slowest, mut last) = (0u32, Duration::ZERO, None);
+        let run = Instant::now();
+        while run.elapsed() < Duration::from_secs(5) {
+            let asked = Instant::now();
+            match reader.next(Duration::from_secs(2)).expect("reading shouldn't fail") {
+                Some(picture) => {
+                    frames += 1;
+                    slowest = slowest.max(asked.elapsed());
+                    last = Some(picture);
+                }
+                None => eprintln!("no frame within 2 s"),
+            }
+        }
+        eprintln!("{frames} frames in 5 s ({:.1} per second), the longest wait for one was {slowest:?}", f64::from(frames) / 5.0);
+        let dropped = Instant::now();
+        drop(reader);
+        eprintln!("drop took {:?}", dropped.elapsed());
+
+        let picture = last.expect("no frame arrived");
+        eprintln!("last frame {}x{} {}", picture.width, picture.height, picture.fourcc);
+        if let Ok(path) = std::env::var("PROBE_OUT") {
+            let (r, b) = if picture.fourcc.starts_with('B') { (2, 0) } else { (0, 2) };
+            let mut out = format!("P6\n{} {}\n255\n", picture.width, picture.height).into_bytes();
+            for px in picture.data.chunks_exact(4) {
+                out.extend_from_slice(&[px[r], px[1], px[b]]);
+            }
+            std::fs::write(path, out).expect("the picture should be written");
+        }
     }
 }

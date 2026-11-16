@@ -131,6 +131,7 @@ pub struct StreamConfig<'a> {
 pub struct Stream {
     connection: Arc<Connection>,
     raw: *mut c_void,
+    handle: StreamRef,
     _hook: Box<SpaHook>,
     _inner: Box<Inner>,
 }
@@ -166,8 +167,13 @@ impl Stream {
                 unsafe { (lib.stream_destroy)(raw) };
                 return Err(format!("PipeWire wouldn't connect the stream ({})", std::io::Error::from_raw_os_error(-result)));
             }
-            Ok(Stream { connection: connection.clone(), raw, _hook: hook, _inner: inner })
+            Ok(Stream { connection: connection.clone(), raw, handle: StreamRef { lib, raw }, _hook: hook, _inner: inner })
         })
+    }
+
+    /// Runs `body` with the loop locked and the stream to call into, for a short moment: the loop thread's callbacks wait while it runs.
+    pub fn locked<R>(&self, body: impl FnOnce(&StreamRef) -> R) -> R {
+        self.connection.locked(|| body(&self.handle))
     }
 
     /// Asks a driving stream for a cycle (what a lazy or timed producer does when it has a frame).
