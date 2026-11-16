@@ -4,7 +4,6 @@
     <string name="preview_button">Önizleme</string>
     <string name="close_preview">Önizlemeyi kapat</string>
     <string name="black_screen_button">Siyah ekran</string>
-    <string name="black_screen_description">Kamera çalışmaya devam ederken ekranı karart</string>
     <string name="black_screen_hint">Uyandırmak için çift dokun</string>
     <string name="update_available">Güncelleme mevcut</string>
     <string name="update_failed_title">Güncelleme tamamlanamadı</string>
@@ -15,12 +14,10 @@
     <string name="update_installing">%1$s · yükleniyor</string>
     <string name="update_stop_streaming_first">%1$s. Güncellemek için yayını durdur.</string>
     <string name="allow_installs_title">Telescope\'un güncellemeleri yüklemesine izin ver</string>
-    <string name="allow_installs_message">Sonraki ekranda Bu kaynaktan izin ver ayarını aç, ardından geri dön.</string>
     <string name="update_error_offline">İndirme başarısız oldu. İnternet bağlantını kontrol et ve tekrar dene.</string>
     <string name="update_error_http">İndirme başarısız oldu (HTTP %1$d).</string>
     <string name="update_error_too_big">İndirilen dosya olması gerekenden daha büyük.</string>
     <string name="update_error_cut_short">İndirme yarıda kesildi. İnternet bağlantını kontrol et ve tekrar dene.</string>
-    <string name="update_error_checksum">İndirilen dosya sağlama toplamıyla eşleşmedi, bu nedenle yüklenmedi.</string>
     <string name="update_error_save">İndirilen dosya kaydedilemedi.</string>
     <string name="update_error_not_an_app">İndirilen dosya geçerli bir uygulama değil.</string>
     <string name="update_error_not_telescope">İndirilen dosya Telescope değil.</string>
@@ -71,7 +68,6 @@
         <item quantity="one">• %1$d adres daha denenmedi - %2$d saniye sonra vazgeçildi</item>
         <item quantity="other">• %1$d adres daha denenmedi - %2$d saniye sonra vazgeçildi</item>
     </plurals>
-    <string name="pairing_advice">Telefon ve bilgisayarın aynı Wi-Fi ağında olduğunu kontrol et. VPN açıksa yerel ağ erişimini engelliyor olabilir: LAN erişimi seçeneğini aç veya VPN\'i duraklat. Veya telefonu USB ile bağla; tarama yapmadan eşleşir.</string>
     <string name="network_timed_out">zaman aşımına uğradı</string>
     <string name="network_no_route">ana bilgisayara rota yok</string>
     <string name="network_refused">bağlantı reddedildi</string>
@@ -106,7 +102,6 @@
     <string name="report_bug">Hata bildir</string>
     <string name="troubleshooting">Sorun giderme</string>
     <string name="nightly_updates">Nightly güncellemeleri</string>
-    <string name="nightly_updates_hint">Her değişiklikten derlenir: düzeltmeler daha az testle daha erken ulaşır.</string>
     <string name="updates_section">Güncellemeler</string>
     <string name="check_for_updates">Güncellemeleri denetle</string>
     <string name="translation_draft">Bu çeviri ilk taslaktır ve bazı metinler biraz tuhaf gelebilir.</string>
@@ -125,7 +120,6 @@
     <string name="notif_channel_streaming">Yayın</string>
     <string name="notif_channel_streaming_desc">Kamera bilgisayarına yayın yaparken gösterilir</string>
     <string name="notif_channel_waiting">Bilgisayar bekleniyor</string>
-    <string name="notif_channel_waiting_desc">Telescope kamerayı başlatmak için eşleştirilen bir bilgisayarı beklerken gösterilir</string>
     <string name="notif_streaming_title">Yayın yapıyor</string>
     <string name="notif_camera_streaming">Kamera yayın yapıyor</string>
     <string name="notif_streaming_usb">USB üzerinden %1$s bilgisayarına</string>

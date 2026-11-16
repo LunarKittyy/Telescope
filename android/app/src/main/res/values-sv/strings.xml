@@ -4,7 +4,6 @@
     <string name="preview_button">Förhandsvisning</string>
     <string name="close_preview">Stäng förhandsvisning</string>
     <string name="black_screen_button">Svart skärm</string>
-    <string name="black_screen_description">Gör skärmen svart medan kameran fortsätter gå</string>
     <string name="black_screen_hint">Dubbeltryck för att väcka</string>
     <string name="update_available">Uppdatering tillgänglig</string>
     <string name="update_failed_title">Uppdateringen blev inte klar</string>
@@ -15,12 +14,10 @@
     <string name="update_installing">%1$s · installerar</string>
     <string name="update_stop_streaming_first">%1$s. Stoppa strömningen för att uppdatera.</string>
     <string name="allow_installs_title">Tillåt Telescope att installera uppdateringar</string>
-    <string name="allow_installs_message">Slå på Tillåt från den här källan på nästa skärm och kom sedan tillbaka.</string>
     <string name="update_error_offline">Nedladdningen misslyckades. Kontrollera internetanslutningen och försök igen.</string>
     <string name="update_error_http">Nedladdningen misslyckades (HTTP %1$d).</string>
     <string name="update_error_too_big">Nedladdningen är större än den ska vara.</string>
     <string name="update_error_cut_short">Nedladdningen avbröts innan den var klar. Kontrollera internetanslutningen och försök igen.</string>
-    <string name="update_error_checksum">Nedladdningen stämde inte med kontrollsumman, så den installerades inte.</string>
     <string name="update_error_save">Kunde inte spara nedladdningen.</string>
     <string name="update_error_not_an_app">Nedladdningen är inte en giltig app.</string>
     <string name="update_error_not_telescope">Nedladdningen är inte Telescope.</string>
@@ -71,7 +68,6 @@
         <item quantity="one">• %1$d till hann inte provas - gav upp efter %2$d sekunder</item>
         <item quantity="other">• %1$d till hann inte provas - gav upp efter %2$d sekunder</item>
     </plurals>
-    <string name="pairing_advice">Kontrollera att telefonen och datorn är på samma Wi-Fi. Om en VPN är på kan den blockera åtkomst till det lokala nätverket: slå på dess inställning för LAN-åtkomst eller pausa den. Eller anslut telefonen via USB så parkopplas den utan skanning.</string>
     <string name="network_timed_out">tidsgränsen överskreds</string>
     <string name="network_no_route">ingen väg till värden</string>
     <string name="network_refused">anslutningen nekades</string>
@@ -106,7 +102,6 @@
     <string name="report_bug">Rapportera ett fel</string>
     <string name="troubleshooting">Felsökning</string>
     <string name="nightly_updates">Nightly-uppdateringar</string>
-    <string name="nightly_updates_hint">Byggs vid varje ändring: rättningar kommer snabbare men är mindre testade.</string>
     <string name="updates_section">Uppdateringar</string>
     <string name="check_for_updates">Sök efter uppdateringar</string>
     <string name="translation_draft">Den här översättningen är ett första utkast och vissa texter kan låta lite konstiga.</string>
@@ -125,7 +120,6 @@
     <string name="notif_channel_streaming">Strömning</string>
     <string name="notif_channel_streaming_desc">Visas medan kameran strömmar till din dator</string>
     <string name="notif_channel_waiting">Väntar på datorn</string>
-    <string name="notif_channel_waiting_desc">Visas medan Telescope väntar på att en parkopplad dator ska starta kameran</string>
     <string name="notif_streaming_title">Strömmar</string>
     <string name="notif_camera_streaming">Kameran strömmar</string>
     <string name="notif_streaming_usb">Till %1$s via USB</string>

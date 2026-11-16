@@ -4,7 +4,6 @@
     <string name="preview_button">Перегляд</string>
     <string name="close_preview">Закрити попередній перегляд</string>
     <string name="black_screen_button">Чорний екран</string>
-    <string name="black_screen_description">Зробити екран чорним, поки камера продовжує працювати</string>
     <string name="black_screen_hint">Двічі торкніться, щоб розбудити</string>
     <string name="update_available">Доступне оновлення</string>
     <string name="update_failed_title">Оновлення не завершилося</string>
@@ -15,12 +14,10 @@
     <string name="update_installing">%1$s · встановлення</string>
     <string name="update_stop_streaming_first">%1$s. Зупиніть трансляцію, щоб оновити.</string>
     <string name="allow_installs_title">Дозволити Telescope встановлювати оновлення</string>
-    <string name="allow_installs_message">На наступному екрані увімкніть «Дозволити для цього джерела», а потім поверніться.</string>
     <string name="update_error_offline">Не вдалося завантажити. Перевірте з\'єднання з інтернетом і спробуйте знову.</string>
     <string name="update_error_http">Не вдалося завантажити (HTTP %1$d).</string>
     <string name="update_error_too_big">Завантажений файл більший, ніж має бути.</string>
     <string name="update_error_cut_short">Завантаження обірвалося. Перевірте з\'єднання з інтернетом і спробуйте знову.</string>
-    <string name="update_error_checksum">Завантажений файл не збігся з контрольною сумою, тому його не було встановлено.</string>
     <string name="update_error_save">Не вдалося зберегти завантажений файл.</string>
     <string name="update_error_not_an_app">Завантажений файл не є дійсним додатком.</string>
     <string name="update_error_not_telescope">Завантажений файл не є Telescope.</string>
@@ -73,7 +70,6 @@
         <item quantity="many">• ще %1$d не перевірено - спроби припинено через %2$d с</item>
         <item quantity="other">• ще %1$d не перевірено - спроби припинено через %2$d с</item>
     </plurals>
-    <string name="pairing_advice">Перевірте, чи телефон і комп\'ютер підключені до однієї мережі Wi-Fi. Якщо ввімкнено VPN, він може блокувати доступ до локальної мережі: увімкніть у ньому доступ до LAN або призупиніть його. Або підключіть телефон через USB, і пара створиться без сканування.</string>
     <string name="network_timed_out">час очікування вичерпано</string>
     <string name="network_no_route">немає маршруту до вузла</string>
     <string name="network_refused">з\'єднання відхилено</string>
@@ -108,7 +104,6 @@
     <string name="report_bug">Повідомити про помилку</string>
     <string name="troubleshooting">Усунення несправностей</string>
     <string name="nightly_updates">Оновлення Nightly</string>
-    <string name="nightly_updates_hint">Збирається з кожної зміни: виправлення надходять швидше, але з меншим тестуванням.</string>
     <string name="updates_section">Оновлення</string>
     <string name="check_for_updates">Перевірити наявність оновлень</string>
     <string name="translation_draft">Це перша чернетка перекладу, тому деякі тексти можуть звучати дивно.</string>
@@ -127,7 +122,6 @@
     <string name="notif_channel_streaming">Трансляція</string>
     <string name="notif_channel_streaming_desc">Показується, коли камера транслює на комп\'ютер</string>
     <string name="notif_channel_waiting">Очікування на комп\'ютер</string>
-    <string name="notif_channel_waiting_desc">Показується, поки Telescope очікує, доки підключений у парі комп\'ютер запустить камеру</string>
     <string name="notif_streaming_title">Трансляція</string>
     <string name="notif_camera_streaming">Камера транслює</string>
     <string name="notif_streaming_usb">На %1$s через USB</string>

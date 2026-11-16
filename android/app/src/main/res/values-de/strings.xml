@@ -4,7 +4,6 @@
     <string name="preview_button">Vorschau</string>
     <string name="close_preview">Vorschau schließen</string>
     <string name="black_screen_button">Schwarzer Bildschirm</string>
-    <string name="black_screen_description">Schaltet den Bildschirm schwarz, während die Kamera weiterläuft</string>
     <string name="black_screen_hint">Zum Aufwecken doppelt tippen</string>
     <string name="update_available">Update verfügbar</string>
     <string name="update_failed_title">Update wurde nicht abgeschlossen</string>
@@ -15,12 +14,10 @@
     <string name="update_installing">%1$s · wird installiert</string>
     <string name="update_stop_streaming_first">%1$s. Streaming stoppen, um zu aktualisieren.</string>
     <string name="allow_installs_title">Telescope die Installation von Updates erlauben</string>
-    <string name="allow_installs_message">Schalte im nächsten Bildschirm „Aus dieser Quelle zulassen“ ein und kehre dann zurück.</string>
     <string name="update_error_offline">Der Download ist fehlgeschlagen. Prüfe die Internetverbindung und versuche es erneut.</string>
     <string name="update_error_http">Der Download ist fehlgeschlagen (HTTP %1$d).</string>
     <string name="update_error_too_big">Der Download ist größer als erwartet.</string>
     <string name="update_error_cut_short">Der Download wurde unterbrochen. Prüfe die Internetverbindung und versuche es erneut.</string>
-    <string name="update_error_checksum">Der Download stimmt nicht mit der Prüfsumme überein und wurde daher nicht installiert.</string>
     <string name="update_error_save">Der Download konnte nicht gespeichert werden.</string>
     <string name="update_error_not_an_app">Der Download ist keine gültige App.</string>
     <string name="update_error_not_telescope">Der Download ist nicht Telescope.</string>
@@ -71,7 +68,6 @@
         <item quantity="one">• %1$d weitere nicht versucht - nach %2$d Sekunden abgebrochen</item>
         <item quantity="other">• %1$d weitere nicht versucht - nach %2$d Sekunden abgebrochen</item>
     </plurals>
-    <string name="pairing_advice">Prüfe, ob Smartphone und Computer im selben Wi-Fi sind. Falls ein VPN aktiv ist, blockiert es möglicherweise den lokalen Netzwerkzugriff: Aktiviere darin die LAN-Zugriffsoption oder pausiere es. Oder schließe das Smartphone über USB an, dann koppelt es sich ohne Scannen.</string>
     <string name="network_timed_out">Zeitüberschreitung</string>
     <string name="network_no_route">Keine Route zum Host</string>
     <string name="network_refused">Verbindung abgelehnt</string>
@@ -106,7 +102,6 @@
     <string name="report_bug">Fehler melden</string>
     <string name="troubleshooting">Problembehandlung</string>
     <string name="nightly_updates">Nightly-Updates</string>
-    <string name="nightly_updates_hint">Wird aus jeder Änderung erstellt: Fehlerbehebungen kommen früher, aber mit weniger Tests.</string>
     <string name="updates_section">Updates</string>
     <string name="check_for_updates">Nach Updates suchen</string>
     <string name="translation_draft">Diese Übersetzung ist ein erster Entwurf und einige Texte könnten noch holprig klingen.</string>
@@ -125,7 +120,6 @@
     <string name="notif_channel_streaming">Streaming</string>
     <string name="notif_channel_streaming_desc">Wird angezeigt, während die Kamera zu deinem Computer streamt</string>
     <string name="notif_channel_waiting">Wartet auf den Computer</string>
-    <string name="notif_channel_waiting_desc">Wird angezeigt, während Telescope darauf wartet, dass ein gekoppelter Computer die Kamera startet</string>
     <string name="notif_streaming_title">Streaming</string>
     <string name="notif_camera_streaming">Kamera streamt</string>
     <string name="notif_streaming_usb">An %1$s über USB</string>
