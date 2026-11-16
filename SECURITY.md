@@ -9,4 +9,4 @@ Things I'd especially like to hear about:
 - Ports Telescope opens on your network
 - Updates, for example a way to get a modified update installed
 
-Only the latest release gets fixes. I usually reply within a few days, but since Telescope is a hobby project I can't promise when a fix will be out. Once a fix is out, I'll mention it in the release notes and credit you if you'd like.
+Only the latest release gets fixes. I usually reply within a few days but since Telescope is a hobby project I can't promise when a fix will be out. Once a fix is out I'll mention it in the release notes and credit you if you want me to.

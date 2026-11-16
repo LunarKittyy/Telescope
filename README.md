@@ -22,7 +22,7 @@
 
 <p align="center"><img src="site/media/setup.avif" alt="The desktop app's checklist, the phone scanning the pairing code and a video call picking Telescope as its camera" width="800"></p>
 
-1. **Get the desktop app.** On Windows run `TelescopeSetup.exe` (it installs only for your user and needs no admin). On Linux allow `Telescope-x86_64.AppImage` to run as a program (in its Properties, or `chmod +x`) and open it. The tarball on the [releases page](../../releases) works too: extract it and run `./start.sh`.
+1. **Get the desktop app.** On Windows run `TelescopeSetup.exe` (it installs only for your user and needs no admin). On Linux allow `Telescope-x86_64.AppImage` to run as a program (in its Properties, or `chmod +x`) and open it. The tarball on the [releases page](../../releases) works too. Extract it and run `./start.sh`.
 2. **Follow the checklist it opens with.** It sets up the virtual camera, puts the phone app on your phone with a QR code and pairs the two.
 3. **Pick the camera in your app.** It's called **Telescope**, in Discord, Zoom, OBS or anything else that takes a webcam.
 
@@ -49,7 +49,7 @@ Plug the phone in or use Wi-Fi and run up to four phones at once, each as its ow
   </tr>
   <tr>
     <td valign="top"><img src="site/media/one-picture.avif" alt="Two cameras combined into one picture"><br><b>Several cameras in one picture</b><br>Put the cameras you run side by side, in a grid or in your own layout, for apps that take only one camera.</td>
-    <td valign="top"><img src="site/media/desk.avif" alt="A sheet of paper on a desk straightened to face the camera"><br><b>Desk mode</b><br>Straighten anything flat the phone looks at, like a page or a drawing, so it faces the camera head-on.</td>
+    <td valign="top"><img src="site/media/desk.avif" alt="A sheet of paper on a desk straightened to face the camera"><br><b>Desk mode</b><br>Straighten anything flat the phone looks at, like a page or a drawing, to make it face the camera head-on.</td>
     <td valign="top"><img src="site/media/fun.avif" alt="Retro looks like VHS and Game Boy on the camera picture"><br><b>Fun pack</b><br>Add clones, an invisibility cloak, VHS, a 1998 webcam and lots more.</td>
   </tr>
 </table>
@@ -65,13 +65,13 @@ The [docs](docs/README.md) have [everything Telescope can do](docs/features.md),
 <details>
 <summary><b>Is it actually free?</b></summary>
 
-Yes. Every feature, every resolution, no watermark, no ads. If you'd like to chip in anyway, there's [Ko-fi](https://ko-fi.com/lunarkittyy).
+Yes. Every feature and every resolution without a watermark or ads. There's [Ko-fi](https://ko-fi.com/lunarkittyy) if you want to chip in anyway.
 </details>
 
 <details>
 <summary><b>Does my video go through someone's server?</b></summary>
 
-No. It goes straight from the phone to your computer, over USB or your own network, encrypted with TLS. There's no account and no cloud, and the apps only go online to check GitHub for updates, or to fetch adb or VB-Cable from Google or VB-Audio when you ask for them. Use it only on a network you trust or switch on **Local only - USB** in the Android app. Details in [Privacy](docs/features/connection.md#privacy).
+No. It goes straight from the phone to your computer, over USB or your own network, encrypted with TLS. It needs no account and no cloud. The apps only go online to check GitHub for updates or to fetch adb or VB-Cable from Google or VB-Audio when you ask for them. Use it only on a network you trust or switch on **Local only - USB** in the Android app. Details in [Privacy](docs/features/connection.md#privacy).
 </details>
 
 <details>
@@ -83,7 +83,7 @@ If it can use a webcam, yes. Telescope shows up there as an ordinary camera and 
 <details>
 <summary><b>I have an iPhone or a Mac.</b></summary>
 
-The phone app is Android only, but [Browser camera](docs/features/sources.md#browser-camera) streams from an iPhone's browser with nothing to install. The desktop app runs on Windows and Linux, not macOS.
+The phone app is Android only but [Browser camera](docs/features/sources.md#browser-camera) streams from an iPhone's browser with nothing to install. The desktop app runs on Windows and Linux, not macOS.
 </details>
 
 <details>
@@ -101,7 +101,7 @@ It needs Android 8 or newer. [Device compatibility](docs/device-compatibility.md
 <details>
 <summary><b>Is it made with AI?</b></summary>
 
-Yes, I use AI agents for a big part of the project. The code is generated but what Telescope does and how it should behave is my design, and testing on real hardware is also mostly done by me (automated tests aside).
+Yes, I use AI agents for a big part of the project. The code is generated but what Telescope does and how it should behave is my design. Testing on real hardware is also mostly done by me (automated tests aside).
 </details>
 
 Stuck, or have an idea? Ask in [Discussions](../../discussions). Found a bug? Open an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml) with your **Copy diagnostics** report. [Troubleshooting](docs/troubleshooting.md) covers the common problems.

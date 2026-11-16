@@ -15,11 +15,11 @@ Telescope is licensed under the [GNU Affero General Public License v3.0](https:/
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
-You are free to use, modify, and redistribute it, including for commercial purposes, provided derivative works remain under the AGPL-3.0 and you make the corresponding source available - including to users who interact with a modified version over a network.
+You are free to use, modify and redistribute it, including for commercial purposes, provided derivative works remain under the AGPL-3.0 and you make the corresponding source available (including to users who interact with a modified version over a network).
 
 ## Name and artwork
 
-The AGPL-3.0 covers the code. The Telescope name, logo, app icons, banner, website design and screenshots are not under it, and forks need their own. [BRANDING.md](../BRANDING.md) lists what's reserved and what you can do with it.
+The AGPL-3.0 covers the code. The Telescope name, logo, app icons, banner, website design and screenshots are not under it and forks need their own. [BRANDING.md](../BRANDING.md) lists what's reserved and what you can do with it.
 
 ## Third-party components
 
@@ -44,7 +44,7 @@ Source: https://github.com/google-ai-edge/mediapipe
 **Robust Video Matting** and **ONNX Runtime** - not included. Telescope downloads them from its own GitHub releases when you switch on High quality in Background. The model is by Peter Lin under the GNU GPL v3 and ONNX Runtime is by Microsoft under the MIT license. The download carries both licence texts, ONNX Runtime's own third-party notices and a notices file (`NOTICES.txt`).
 Sources: https://github.com/PeterL1n/RobustVideoMatting and https://github.com/microsoft/onnxruntime
 
-**FFmpeg** (libavcodec, libavutil, libswresample, libswscale) - a decoder-only build under the LGPL v2.1 or later, in every package. `rust/tools/build_ffmpeg.sh` is the exact recipe, and you can swap in your own build of the same major version.
+**FFmpeg** (libavcodec, libavutil, libswresample, libswscale) - a decoder-only build under the LGPL v2.1 or later, in every package. `rust/tools/build_ffmpeg.sh` is the exact recipe and you can swap in your own build of the same major version.
 
 **IBM Plex Sans** (`rust/crates/ui-kit/ui/fonts/`) - the typeface of the window, in four weights. Copyright (c) 2017 IBM Corp., with Reserved Font Name "Plex". SIL Open Font License 1.1, the text is in `OFL.txt` next to the fonts.
 Source: https://github.com/IBM/plex

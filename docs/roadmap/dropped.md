@@ -1,6 +1,6 @@
 # Dropped ideas
 
-Ideas that got talked through and left, with why and when. Not a promise they'll never happen. If the reason stops being true one can move back to [future.md](future.md).
+Ideas that got talked through and left, with why and when. Not a promise they'll never happen. If the reason stops being true an idea can move back to [future.md](future.md).
 
 ## A see-through background in One picture (October 2026)
 
@@ -16,4 +16,4 @@ The limit itself is a few constants (`vcam.MAX_SLOTS`, `composite.MAX_TILES` and
 
 ## The decoder in a child process (November 2026)
 
-The idea was to run the video decoder in a separate process so hardware decoding could come back without a game on the graphics card stalling the app. It didn't fix the stall. The stall came from the driver's I420 conversion queuing behind the game's work, and asking the card for NV12 and splitting it on the processor did. Hardware decoding is on by default with VA-API again without it.
+The idea was to run the video decoder in a separate process so hardware decoding could return without a game on the graphics card stalling the app. It didn't fix the stall. The stall came from the driver's I420 conversion queuing behind the game's work. Asking the card for NV12 and splitting it on the processor fixed that. Hardware decoding is on by default with VA-API again without it.

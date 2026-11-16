@@ -11,7 +11,7 @@ You need the `v4l2loopback` package. `adb` is optional.
 
 `Telescope-x86_64.AppImage` is one file that holds the whole app. Make it executable (`chmod +x Telescope-x86_64.AppImage`, or Properties in your file manager) and run it. It needs Ubuntu 22.04, Debian 12, Fedora 36 or something newer. `libfuse2` doesn't have to be installed. The first start adds Telescope to your app menu and starting the file from a new place points the entry there.
 
-Put it somewhere you can write to, like `~/Applications`. Updating replaces the file in that folder and keeps the old one until the new one has started. In a folder you can't write to, Update opens the download page instead.
+Put it somewhere you can write to, like `~/Applications`. Updating replaces the file in that folder, removing the old one only once the new one has started. In a folder you can't write to, Update opens the download page instead.
 
 ### 1. The virtual camera package
 
@@ -28,7 +28,7 @@ sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-releas
 sudo dnf install v4l2loopback
 ```
 
-Once it's installed Telescope loads the module when you start streaming. A dialog says it needs your password, and **Also switch it on at every startup** is ticked there by default so later boots won't ask again. Without a graphical password prompt (no pkexec or polkit agent) it shows the command to run in a terminal, with a Copy button.
+Once it's installed Telescope loads the module when you start streaming. A dialog asks for your password and **Also switch it on at every startup** is ticked there by default so later boots won't ask again. Without a graphical password prompt (no pkexec or polkit agent) it shows the command to run in a terminal, with a Copy button.
 
 **Virtual camera & phone** in Settings can load and unload the module too. To do it yourself:
 
@@ -51,7 +51,7 @@ sudo pacman -S android-tools     # Arch
 
 ### Loading the virtual camera at boot
 
-Switch on **Load when the computer starts** under Virtual camera & phone in Settings. It writes the module options to `/etc/modprobe.d/99-telescope-v4l2loopback.conf` and `/etc/modules-load.d/99-telescope-v4l2loopback.conf`, and unticking it removes them again. It refuses to write if another config already sets `v4l2loopback` options. If you add the [extra cameras](features/sources.md#several-cameras-at-once) while it's on, the file asks for them too and they're there again after a restart.
+Switch on **Load when the computer starts** under Virtual camera & phone in Settings. It writes the module options to `/etc/modprobe.d/99-telescope-v4l2loopback.conf` and `/etc/modules-load.d/99-telescope-v4l2loopback.conf`. Unticking it removes them again. It refuses to write if another config already sets `v4l2loopback` options. If you add the [extra cameras](features/sources.md#several-cameras-at-once) while it's on, the file asks for them too and they're there again after a restart.
 
 <details>
 <summary><b>The same thing by hand (Fedora, Nobara and other dracut distros)</b></summary>
