@@ -10,7 +10,7 @@
   <a href="https://ko-fi.com/lunarkittyy"><img src="https://img.shields.io/badge/Ko--fi-support-FF5E5B?logo=ko-fi&logoColor=white" alt="Ko-fi"></a>
 </p>
 
-<p align="center">Telescope turns your Android phone into a webcam for your Linux or Windows computer.<br>Every lens on it works, from the ultra-wide to the telephoto, and it's free with no watermark, no ads and no account.</p>
+<p align="center">Telescope turns your Android phone into a webcam for your Linux or Windows computer.<br>Every lens on it works, from the ultra-wide to the telephoto. It's free and open source, without a watermark or the other paywall annoyances.</p>
 
 <p align="center">
   <a href="https://github.com/LunarKittyy/Telescope/releases/latest/download/TelescopeSetup.exe"><img src="docs/assets/download-windows.svg" alt="Download for Windows" height="56"></a>
@@ -43,14 +43,14 @@ Plug the phone in or use Wi-Fi and run up to four phones at once, each as its ow
 
 <table>
   <tr>
-    <td width="33%" valign="top"><img src="site/media/pro.avif" alt="ISO, shutter, focus and white balance set by hand from the desktop app"><br><b>Pro controls</b><br>ISO, shutter, focus and white balance by hand, like the Pro mode in your phone's camera app.</td>
-    <td width="33%" valign="top"><img src="site/media/framing.avif" alt="Auto framing keeping the subject in the shot"><br><b>Auto framing</b><br>Zooms and pans to keep you in the shot.</td>
+    <td width="33%" valign="top"><img src="site/media/pro.avif" alt="ISO, shutter, focus and white balance set by hand from the desktop app"><br><b>Pro controls</b><br>Set ISO, shutter, focus and white balance by hand, like the Pro mode in your phone's camera app.</td>
+    <td width="33%" valign="top"><img src="site/media/framing.avif" alt="Auto framing keeping the subject in the shot"><br><b>Auto framing</b><br>Zoom and pan to keep you in the shot.</td>
     <td width="33%" valign="top"><img src="site/media/chroma.avif" alt="A green screen swapped for a picture"><br><b>Background and Chroma key</b><br>Blur the room or swap it out, with or without a green screen.</td>
   </tr>
   <tr>
-    <td valign="top"><img src="site/media/one-picture.avif" alt="Two cameras combined into one picture"><br><b>Several cameras in one picture</b><br>Side by side, in a grid or in your own layout, for apps that take only one camera.</td>
-    <td valign="top"><img src="site/media/desk.avif" alt="A sheet of paper on a desk straightened to face the camera"><br><b>Desk mode</b><br>Straightens anything flat the phone looks at, like a page or a drawing, so calls see it head-on.</td>
-    <td valign="top"><img src="site/media/fun.avif" alt="Retro looks like VHS and Game Boy on the camera picture"><br><b>Fun pack</b><br>Clone party, an invisibility cloak, VHS, a 1998 webcam and lots more.</td>
+    <td valign="top"><img src="site/media/one-picture.avif" alt="Two cameras combined into one picture"><br><b>Several cameras in one picture</b><br>Put the cameras you run side by side, in a grid or in your own layout, for apps that take only one camera.</td>
+    <td valign="top"><img src="site/media/desk.avif" alt="A sheet of paper on a desk straightened to face the camera"><br><b>Desk mode</b><br>Straighten anything flat the phone looks at, like a page or a drawing, so it faces the camera head-on.</td>
+    <td valign="top"><img src="site/media/fun.avif" alt="Retro looks like VHS and Game Boy on the camera picture"><br><b>Fun pack</b><br>Add clones, an invisibility cloak, VHS, a 1998 webcam and lots more.</td>
   </tr>
 </table>
 
@@ -89,7 +89,7 @@ The phone app is Android only, but [Browser camera](docs/features/sources.md#bro
 <details>
 <summary><b>Will it work on my phone?</b></summary>
 
-It needs Android 8 or newer. [Device compatibility](docs/device-compatibility.md) lists what's been tested. If you try it on a phone that isn't there, [let me know how it went](https://github.com/LunarKittyy/Telescope/discussions/new?category=device-compatibility). That's one of the most useful things you can do for the project.
+It needs Android 8 or newer. [Device compatibility](docs/device-compatibility.md) lists what's been tested. If you try it on a phone that isn't there, [let me know how it went](https://github.com/LunarKittyy/Telescope/discussions/new?category=device-compatibility).
 </details>
 
 <details>
