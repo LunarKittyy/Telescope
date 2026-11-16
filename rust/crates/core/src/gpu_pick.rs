@@ -64,10 +64,79 @@ pub fn driver_text(own: &Info, all: &[Info]) -> String {
         .unwrap_or(mine)
 }
 
-/// Indices (`Candidate::index`) in the order to try them: real GPUs first, then Other, Virtual, Cpu. Inside a group Vulkan goes first
-/// on every OS (every Windows install so far ran on it) except for Intel on Windows, whose Vulkan driver crashes, then DX12, Metal and GL, and inside an API the driver's own order stays,
-/// since that is what the OS's choice shows up in.
-pub fn order(candidates: &[Candidate]) -> Vec<usize> {
+/// Which kind of real card to try first.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Prefer {
+    /// Discrete cards before integrated ones.
+    HighPerformance,
+    /// Integrated cards before discrete ones.
+    PowerSaving,
+    /// Neither: the enumeration's own order decides between the two kinds.
+    Unchanged,
+}
+
+/// What to prefer on this machine. On Windows that is the user's per-app graphics setting (Settings > System > Display > Graphics),
+/// power saving only when it says so and high performance otherwise. Elsewhere nothing changes. Logs the answer once.
+pub fn system_preference() -> Prefer {
+    #[cfg(windows)]
+    {
+        static ANSWER: std::sync::OnceLock<Prefer> = std::sync::OnceLock::new();
+        *ANSWER.get_or_init(|| {
+            let (prefer, said) = match windows_gpu_preference() {
+                Ok(Some(data)) => {
+                    let prefer = parse_gpu_preference(&data);
+                    let what = match data.trim() {
+                        "GpuPreference=0;" => "Let Windows decide",
+                        "GpuPreference=1;" => "power saving",
+                        "GpuPreference=2;" => "high performance",
+                        other => other,
+                    };
+                    (prefer, format!("{what}, so {}", if prefer == Prefer::PowerSaving { "power saving" } else { "high performance" }))
+                }
+                Ok(None) => (Prefer::HighPerformance, "none, so high performance".to_string()),
+                Err(code) => (Prefer::HighPerformance, format!("couldn't read it (error {code}), so high performance")),
+            };
+            log::info!("Windows graphics setting for this app: {said}");
+            prefer
+        })
+    }
+    #[cfg(not(windows))]
+    Prefer::Unchanged
+}
+
+/// What a `UserGpuPreferences` value like `GpuPreference=1;` asks for: 1 is power saving, anything else high performance.
+pub fn parse_gpu_preference(data: &str) -> Prefer {
+    let one = data.split(';').filter_map(|part| part.trim().split_once('=')).any(|(k, v)| k.trim().eq_ignore_ascii_case("GpuPreference") && v.trim() == "1");
+    if one { Prefer::PowerSaving } else { Prefer::HighPerformance }
+}
+
+/// The data Windows keeps for this exe's graphics setting, None when there is none, the error code when it can't be read.
+#[cfg(windows)]
+fn windows_gpu_preference() -> Result<Option<String>, u32> {
+    use windows::core::{w, HSTRING};
+    use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_SZ};
+    let exe = std::env::current_exe().map_err(|e| e.raw_os_error().unwrap_or(0) as u32)?;
+    // value names are matched without regard to case by the registry itself
+    let name = HSTRING::from(exe.as_os_str());
+    let mut buf = [0u16; 512];
+    let mut bytes = std::mem::size_of_val(&buf) as u32;
+    // SAFETY: buf is valid for `bytes` bytes and RegGetValueW writes at most that many
+    let status = unsafe { RegGetValueW(HKEY_CURRENT_USER, w!("Software\\Microsoft\\DirectX\\UserGpuPreferences"), &name, RRF_RT_REG_SZ, None, Some(buf.as_mut_ptr().cast()), Some(&mut bytes)) };
+    // 2 is ERROR_FILE_NOT_FOUND: no setting for this exe, or no key at all
+    match status.0 {
+        0 => {}
+        2 => return Ok(None),
+        code => return Err(code),
+    }
+    let len = (bytes as usize / 2).min(buf.len());
+    Ok(Some(String::from_utf16_lossy(&buf[..len]).trim_end_matches('\0').to_string()))
+}
+
+/// Indices (`Candidate::index`) in the order to try them: real GPUs first, then Other, Virtual, Cpu. Between the real ones `prefer`
+/// decides which kind goes first (Intel's Windows Vulkan driver crashes, so with a preference it goes after every other real card).
+/// Inside a group Vulkan goes first on every OS (every Windows install so far ran on it) except for Intel on Windows, then DX12,
+/// Metal and GL, and inside an API the driver's own order stays.
+pub fn order(candidates: &[Candidate], prefer: Prefer) -> Vec<usize> {
     let tier = |k: Kind| match k {
         Kind::Integrated | Kind::Discrete => 0,
         Kind::Other => 1,
@@ -85,7 +154,12 @@ pub fn order(candidates: &[Candidate]) -> Vec<usize> {
         Api::Gl => 3,
     };
     let mut sorted = candidates.to_vec();
-    sorted.sort_by_key(|c| (tier(c.kind), api(c), c.index));
+    let crashy = |c: &Candidate| prefer != Prefer::Unchanged && dx12_first(c) && c.api == Api::Vulkan;
+    let kind_rank = |k: Kind| match (prefer, k) {
+        (Prefer::HighPerformance, Kind::Integrated) | (Prefer::PowerSaving, Kind::Discrete) => 1,
+        _ => 0,
+    };
+    sorted.sort_by_key(|c| (tier(c.kind), crashy(c), kind_rank(c.kind), api(c), c.index));
     sorted.into_iter().map(|c| c.index).collect()
 }
 
@@ -108,15 +182,15 @@ mod tests {
     #[test]
     fn intel_on_windows_tries_dx12_before_vulkan() {
         let list = [intel(Api::Vulkan, 0, true), intel(Api::Dx12, 1, true), c(Api::Vulkan, Kind::Discrete, 2)];
-        assert_eq!(order(&list), [1, 2, 0]);
+        assert_eq!(order(&list, Prefer::Unchanged), [1, 2, 0]);
     }
 
     #[test]
     fn intel_elsewhere_and_other_vendors_on_windows_keep_vulkan_first() {
         let list = [intel(Api::Dx12, 0, false), intel(Api::Vulkan, 1, false)];
-        assert_eq!(order(&list), [1, 0]);
+        assert_eq!(order(&list, Prefer::Unchanged), [1, 0]);
         let nvidia = |api, index| Candidate { api, kind: Kind::Discrete, index, vendor: 0x10de, windows: true };
-        assert_eq!(order(&[nvidia(Api::Dx12, 0), nvidia(Api::Vulkan, 1)]), [1, 0]);
+        assert_eq!(order(&[nvidia(Api::Dx12, 0), nvidia(Api::Vulkan, 1)], Prefer::Unchanged), [1, 0]);
     }
 
     #[test]
@@ -139,31 +213,67 @@ mod tests {
     #[test]
     fn real_gpus_come_before_software_and_odd_ones() {
         let list = [c(Api::Vulkan, Kind::Cpu, 0), c(Api::Vulkan, Kind::Other, 1), c(Api::Vulkan, Kind::Virtual, 2), c(Api::Vulkan, Kind::Integrated, 3)];
-        assert_eq!(order(&list), [3, 1, 2, 0]);
+        assert_eq!(order(&list, Prefer::Unchanged), [3, 1, 2, 0]);
     }
 
     #[test]
     fn the_drivers_order_among_real_gpus_stays() {
         let list = [c(Api::Vulkan, Kind::Integrated, 0), c(Api::Vulkan, Kind::Discrete, 1)];
-        assert_eq!(order(&list), [0, 1]);
+        assert_eq!(order(&list, Prefer::Unchanged), [0, 1]);
         let list = [c(Api::Vulkan, Kind::Discrete, 0), c(Api::Vulkan, Kind::Integrated, 1)];
-        assert_eq!(order(&list), [0, 1]);
+        assert_eq!(order(&list, Prefer::Unchanged), [0, 1]);
     }
 
     #[test]
     fn vulkan_goes_before_dx12() {
         let list = [c(Api::Dx12, Kind::Integrated, 0), c(Api::Dx12, Kind::Discrete, 1), c(Api::Vulkan, Kind::Discrete, 2)];
-        assert_eq!(order(&list), [2, 0, 1]);
+        assert_eq!(order(&list, Prefer::Unchanged), [2, 0, 1]);
     }
 
     #[test]
     fn a_real_vulkan_gpu_beats_a_dx12_software_adapter() {
         let list = [c(Api::Dx12, Kind::Cpu, 0), c(Api::Vulkan, Kind::Integrated, 1)];
-        assert_eq!(order(&list), [1, 0]);
+        assert_eq!(order(&list, Prefer::Unchanged), [1, 0]);
+    }
+
+    fn laptop() -> [Candidate; 4] {
+        let gtx = |api, index| Candidate { api, kind: Kind::Discrete, index, vendor: 0x10de, windows: true };
+        [gtx(Api::Vulkan, 0), intel(Api::Vulkan, 1, true), intel(Api::Dx12, 2, true), gtx(Api::Dx12, 3)]
+    }
+
+    #[test]
+    fn high_performance_puts_the_discrete_card_before_intel_dx12() {
+        assert_eq!(order(&laptop(), Prefer::HighPerformance), [0, 3, 2, 1]);
+    }
+
+    #[test]
+    fn power_saving_puts_intel_dx12_first_and_intel_vulkan_last() {
+        assert_eq!(order(&laptop(), Prefer::PowerSaving), [2, 0, 3, 1]);
+    }
+
+    #[test]
+    fn unchanged_keeps_the_old_order() {
+        assert_eq!(order(&laptop(), Prefer::Unchanged), [0, 2, 1, 3]);
+    }
+
+    #[test]
+    fn a_preference_still_keeps_software_cards_last() {
+        let list = [c(Api::Vulkan, Kind::Cpu, 0), c(Api::Vulkan, Kind::Integrated, 1), c(Api::Vulkan, Kind::Discrete, 2)];
+        assert_eq!(order(&list, Prefer::HighPerformance), [2, 1, 0]);
+        assert_eq!(order(&list, Prefer::PowerSaving), [1, 2, 0]);
+    }
+
+    #[test]
+    fn the_windows_setting_text_is_read() {
+        assert_eq!(parse_gpu_preference("GpuPreference=1;"), Prefer::PowerSaving);
+        assert_eq!(parse_gpu_preference("SwapEffectUpgradeEnable=1;GpuPreference=1;"), Prefer::PowerSaving);
+        assert_eq!(parse_gpu_preference("GpuPreference=2;"), Prefer::HighPerformance);
+        assert_eq!(parse_gpu_preference("GpuPreference=0;"), Prefer::HighPerformance);
+        assert_eq!(parse_gpu_preference(""), Prefer::HighPerformance);
     }
 
     #[test]
     fn nothing_in_nothing_out() {
-        assert!(order(&[]).is_empty());
+        assert!(order(&[], Prefer::Unchanged).is_empty());
     }
 }
