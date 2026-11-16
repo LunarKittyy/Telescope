@@ -620,8 +620,8 @@ pub struct StereoPlugin {
     headset_problem: String,
     /// The link the QR code on the card was drawn for.
     headset_qr_url: String,
-    /// set_config has no host: a link made fresh is saved with the next hook that has one.
-    save_token: bool,
+    /// Whether the link kept in its own file has been read.
+    link_read: bool,
 }
 
 /// The two phones' ISOs as Match left them, which Brightness scales.
@@ -685,6 +685,26 @@ fn clean_size(v: f64) -> f64 {
     if v.is_finite() { (v.clamp(SIZE_MIN, SIZE_MAX) * 10.0).round() / 10.0 } else { 100.0 }
 }
 
+/// The file in the settings folder that keeps the headset's link and address.
+const LINK_FILE: &str = "3d-headset-link.json";
+
+/// Written beside the file and moved over it, readable by this user only: the link lets anyone on the network watch.
+fn write_private(path: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut name = path.file_name().map(|n| n.to_os_string()).unwrap_or_default();
+    name.push(".tmp");
+    let tmp = path.with_file_name(name);
+    if let Some(folder) = path.parent() {
+        std::fs::create_dir_all(folder)?;
+    }
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    options.open(&tmp)?.write_all(data)?;
+    std::fs::rename(&tmp, path)
+}
+
 impl StereoPlugin {
     pub fn new() -> StereoPlugin {
         let hub = Hub {
@@ -699,7 +719,7 @@ impl StereoPlugin {
             camera_size: None, canvas: (None, None), shared, pending: false, held: None, fine: false, matching: MatchState::Idle, lut: None,
             focal: BTreeMap::new(), sized_for: None, auto_size: None, exposure: None, brightness: 0.0, brightness_sent: None, brightness_waits: false, size_swapped: None,
             clock: None, web: None, cert_folder: None, headset: false, headset_token: token, headset_address: String::new(), headset_server: None,
-            headset_worker: None, headset_problem: String::new(), headset_qr_url: String::new(), save_token: false,
+            headset_worker: None, headset_problem: String::new(), headset_qr_url: String::new(), link_read: false,
         }
     }
 
@@ -793,6 +813,44 @@ impl StereoPlugin {
         let candidates = self.headset_addresses();
         if !candidates.contains(&self.headset_address) {
             self.headset_address = candidates.first().cloned().unwrap_or_default();
+            self.save_link();
+        }
+    }
+
+    /// Where the settings and the certificate are kept.
+    fn folder(&self) -> PathBuf {
+        self.cert_folder.clone().or_else(|| telescope_core::config::config_path().parent().map(PathBuf::from)).unwrap_or_default()
+    }
+
+    /// The link and address live in a file of their own and never in the settings, which Presets copy and share.
+    fn link_file(&self) -> Option<PathBuf> {
+        self.web.as_ref().map(|_| self.folder().join(LINK_FILE))
+    }
+
+    /// Takes the saved link on first use; one that's missing or isn't a link is kept as the one made at start and saved.
+    fn read_link(&mut self) {
+        if std::mem::replace(&mut self.link_read, true) {
+            return;
+        }
+        let Some(path) = self.link_file() else { return };
+        let saved: Value = std::fs::read(&path).ok().and_then(|bytes| serde_json::from_slice(&bytes).ok()).unwrap_or(Value::Null);
+        match saved.get("token").and_then(Value::as_str).filter(|t| token_ok(t)) {
+            Some(token) => {
+                self.headset_token = token.into();
+                self.headset_address = saved.get("address").and_then(Value::as_str).unwrap_or("").into();
+                if self.shared.headset.token() != self.headset_token {
+                    self.shared.headset.set_token(&self.headset_token);
+                }
+            }
+            None => self.save_link(),
+        }
+    }
+
+    fn save_link(&self) {
+        let Some(path) = self.link_file() else { return };
+        let text = json!({"token": self.headset_token, "address": self.headset_address}).to_string();
+        if let Err(e) = write_private(&path, text.as_bytes()) {
+            log::warn!("The 3D headset's link couldn't be saved: {e}");
         }
     }
 
@@ -817,8 +875,9 @@ impl StereoPlugin {
 
     fn start_headset(&mut self) {
         let Some(web) = self.web.clone() else { return };
+        self.read_link();
         self.fill_headset_address();
-        let folder = self.cert_folder.clone().or_else(|| telescope_core::config::config_path().parent().map(PathBuf::from)).unwrap_or_default();
+        let folder = self.folder();
         let feed = self.shared.headset.clone();
         feed.open();
         let started = web.certificate(&folder, &web.addresses()).and_then(|certificate| {
@@ -880,9 +939,10 @@ impl StereoPlugin {
 
     /// The old link stops working: headsets on it are disconnected.
     fn new_headset_link(&mut self, host: &mut dyn Host) {
+        self.read_link();
         self.headset_token = new_token();
         self.shared.headset.set_token(&self.headset_token);
-        host.schedule_save();
+        self.save_link();
         self.show(host);
     }
 
@@ -1026,10 +1086,6 @@ impl StereoPlugin {
     fn catch_up(&mut self, host: &mut dyn Host) {
         if self.pending {
             self.pending = false;
-            if std::mem::take(&mut self.save_token) {
-                // the link made in setup has to survive a restart
-                host.schedule_save();
-            }
             self.canvas = host.canvas_size();
             self.prepare();
             self.show(host);
@@ -1307,7 +1363,7 @@ impl StereoPlugin {
     }
 
     /// The card's own switch is not part of its Reset.
-    const RESET_KEPT: &'static [&'static str] = &["on", "headset_token", "headset_address"];
+    const RESET_KEPT: &'static [&'static str] = &["on"];
 
     /// Whether the card's Reset would change anything: the look, the eyes or a slider is off its default, or a match is there.
     fn reset_shown(&self) -> bool {
@@ -1488,8 +1544,9 @@ impl Plugin for StereoPlugin {
             "headset-address-picked" => {
                 let at = number.filter(|i| *i >= 0.0).map_or(0, |i| i as usize);
                 if let Some(ip) = self.headset_addresses().get(at).cloned().filter(|ip| *ip != self.headset_address) {
+                    self.read_link();
                     self.headset_address = ip;
-                    host.schedule_save();
+                    self.save_link();
                     self.show(host);
                 }
             }
@@ -1540,20 +1597,12 @@ impl Plugin for StereoPlugin {
     fn get_config(&self) -> Value {
         json!({
             "on": self.on, "look": self.look.name(), "depth": self.depth, "height": self.height, "size": self.size_percent, "tilt": self.tilt,
-            "timing": self.timing, "swap": self.swap, "headset_token": self.headset_token, "headset_address": self.headset_address,
+            "timing": self.timing, "swap": self.swap,
         })
     }
 
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
         self.apply(cfg);
-        match cfg.get("headset_token").and_then(Value::as_str).filter(|t| token_ok(t)) {
-            Some(token) => self.headset_token = token.into(),
-            None => self.save_token = true,
-        }
-        if self.shared.headset.token() != self.headset_token {
-            self.shared.headset.set_token(&self.headset_token);
-        }
-        self.headset_address = cfg.get("headset_address").and_then(Value::as_str).unwrap_or("").into();
         self.pending = true;
         Ok(())
     }

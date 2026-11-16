@@ -1831,7 +1831,7 @@ fn the_headset_page_is_served_only_while_3d_and_the_headset_switch_are_both_on()
         assert_eq!((served.len(), served[0].serve.port, served[0].serve.label.as_str()), (1, stereo_headset::HEADSET_PORT, "3D headset"));
     }
     let url = r.plugin.headset_url();
-    let token = r.plugin.get_config()["headset_token"].as_str().unwrap().to_string();
+    let token = r.plugin.headset_token.clone();
     assert_eq!(url, format!("https://192.168.1.7:8769/#{token}"));
     let props = r.plugin.headset_props();
     assert_eq!((props["headset"].clone(), props["headset-url-text"].clone(), props["headset-url-shown"].clone()), (json!(true), json!(url), json!(true)));
@@ -1877,35 +1877,69 @@ fn a_headset_page_that_cannot_start_says_why_and_is_not_tried_again_until_asked(
 }
 
 #[test]
-fn the_link_is_kept_across_restarts_and_a_new_one_stops_the_old() {
-    let (mut r, _web) = headset_rig();
-    let first = r.plugin.get_config()["headset_token"].as_str().unwrap().to_string();
+fn the_link_is_kept_across_restarts_in_a_file_of_its_own_and_a_new_one_stops_the_old() {
+    let (mut r, web) = headset_rig();
+    let folder = r.plugin.cert_folder.clone().unwrap();
+    let first = r.plugin.headset_token.clone();
     assert!(crate::shared::token_ok(&first));
-    assert_eq!(r.plugin.get_config()["headset_address"], json!(""), "nothing chosen until it starts");
-    r.plugin.set_config(&json!({"headset_token": "abcdefghijklmnopqrstuvwx", "headset_address": "192.168.1.7"})).unwrap();
-    assert_eq!(r.plugin.get_config()["headset_token"], json!("abcdefghijklmnopqrstuvwx"));
-    assert!(r.plugin.shared.headset.token_ok("abcdefghijklmnopqrstuvwx"));
-    // a token that isn't one is replaced and saved
-    r.plugin.set_config(&json!({"headset_token": "short"})).unwrap();
-    assert!(crate::shared::token_ok(r.plugin.get_config()["headset_token"].as_str().unwrap()));
-    r.host.calls.clear();
+    assert_eq!(r.plugin.headset_address, "", "nothing chosen until it starts");
     r.switch(true);
-    assert!(r.host.calls.contains(&"schedule_save".to_string()));
-    r.host.calls.clear();
-    let before = r.plugin.get_config()["headset_token"].as_str().unwrap().to_string();
+    r.card("headset-toggled", json!(true));
+    assert_eq!(r.plugin.headset_address, "192.168.1.7");
+    let saved: Value = serde_json::from_slice(&std::fs::read(folder.join(LINK_FILE)).unwrap()).unwrap();
+    assert_eq!(saved, json!({"token": first, "address": "192.168.1.7"}), "the link is saved as soon as it is up");
+    // a restart: the next run takes the saved link, and the link the plugin made for itself isn't the one served
+    let mut again = rig_with(StereoPlugin::for_test(web.clone(), folder.clone()));
+    assert_ne!(again.plugin.headset_token, first);
+    again.switch(true);
+    again.card("headset-toggled", json!(true));
+    assert_eq!((again.plugin.headset_token.clone(), again.plugin.headset_address.clone()), (first.clone(), "192.168.1.7".to_string()));
+    assert!(again.plugin.shared.headset.token_ok(&first));
+    drop(again);
+    // a file that isn't a link is replaced
+    std::fs::write(folder.join(LINK_FILE), b"{\"token\": \"short\"}").unwrap();
+    let mut third = rig_with(StereoPlugin::for_test(web.clone(), folder.clone()));
+    third.switch(true);
+    third.card("headset-toggled", json!(true));
+    assert!(crate::shared::token_ok(&third.plugin.headset_token) && third.plugin.headset_token != "short");
+    let saved: Value = serde_json::from_slice(&std::fs::read(folder.join(LINK_FILE)).unwrap()).unwrap();
+    assert_eq!(saved["token"], json!(third.plugin.headset_token));
+    drop(third);
+    // a new link is saved and stops the old
+    let before = r.plugin.headset_token.clone();
     r.card("headset-new-link-clicked", json!(null));
-    let after = r.plugin.get_config()["headset_token"].as_str().unwrap().to_string();
+    let after = r.plugin.headset_token.clone();
     assert_ne!(before, after);
     assert!(!r.plugin.shared.headset.token_ok(&before) && r.plugin.shared.headset.token_ok(&after));
-    assert!(r.host.calls.contains(&"schedule_save".to_string()));
-    // the switch and the link aren't part of what Reset or a preset puts back
+    let saved: Value = serde_json::from_slice(&std::fs::read(folder.join(LINK_FILE)).unwrap()).unwrap();
+    assert_eq!(saved["token"], json!(after));
+    // the link isn't a setting at all, so Reset and a preset neither put back nor copy it
     r.card("depth-moved", json!(2.0));
     r.card("reset-clicked", json!(null));
-    assert_eq!(r.plugin.get_config()["headset_token"], json!(after));
+    assert_eq!(r.plugin.headset_token, after);
     assert_eq!(r.props()["reset-shown"], json!(false));
-    // and it's off at start whatever was saved
-    r.plugin.set_config(&json!({"on": true, "headset": true})).unwrap();
-    assert!(!r.plugin.headset);
+    // and the switch is off at start whatever was saved
+    let (mut fresh, _web) = headset_rig();
+    fresh.plugin.set_config(&json!({"on": true, "headset": true})).unwrap();
+    assert!(!fresh.plugin.headset);
+}
+
+#[test]
+fn what_presets_save_has_no_link_or_address() {
+    let (mut r, _web) = headset_rig();
+    r.switch(true);
+    r.card("headset-toggled", json!(true));
+    let (token, address) = (r.plugin.headset_token.clone(), r.plugin.headset_address.clone());
+    assert!(!address.is_empty());
+    let saved = r.plugin.get_config().to_string();
+    assert!(!saved.contains(&token) && !saved.contains(&address) && !saved.contains("headset"), "{saved}");
+    // a preset that carries a link (from an older build) changes nothing
+    let mut cfg = r.plugin.get_config();
+    cfg["headset_token"] = json!("abcdefghijklmnopqrstuvwx");
+    cfg["headset_address"] = json!("10.0.0.9");
+    r.plugin.apply_preset(&mut r.host, &cfg).unwrap();
+    r.plugin.set_config(&cfg).unwrap();
+    assert_eq!((r.plugin.headset_token.clone(), r.plugin.headset_address.clone()), (token, address));
 }
 
 #[test]

@@ -4,7 +4,11 @@
 //! side at up to 1920x1080, with the card's Fine tune and Match, into one picture, encodes it and publishes it as the newest message. Each headset
 //! has a thread of its own that sends the newest message it hasn't sent yet, so nothing queues: a headset that can't keep up skips pictures. The
 //! picture is made from the same frames the camera's picture is, so Privacy blur and every step before the pair apply, and a cover (the Wait
-//! screen) on the camera's frame covers the headset's too.
+//! screen) on the camera's frame covers the headset's too. The pair is handed over before the camera's frame is finished, so nothing is sent until
+//! that finished frame is out and shows whether a cover came on it: an unfinished or missing frame never lets the pair through.
+//!
+//! Every time the feed is opened it is a new run with its own places for headsets, and a headset belongs to the run and the link it connected under:
+//! once either is gone it is disconnected and no longer takes up a place.
 
 use crate::cpu::Rgb;
 use crate::shared::same;
@@ -38,6 +42,9 @@ const JOB_STALE: Duration = Duration::from_millis(500);
 const IDLE_WAIT: Duration = Duration::from_millis(250);
 const SEND_WAIT: Duration = Duration::from_millis(30);
 const PING_EVERY: Duration = Duration::from_secs(5);
+/// How long a pair waits for the camera's finished frame to be out before it's dropped for the next.
+const PROOF_WAIT: Duration = Duration::from_millis(150);
+const PROOF_POLL: Duration = Duration::from_millis(2);
 
 const PAGE: &[u8] = include_bytes!("../web/headset.html");
 const SCRIPT: &[u8] = include_bytes!("../web/headset.js");
@@ -76,7 +83,13 @@ struct State {
     shown: Option<Shown>,
     seq: u64,
     open: bool,
+    /// Goes up every time the feed is opened, so what belonged to an earlier run is told apart from this one.
+    run: u64,
     token: String,
+    /// Goes up with every new token. Read together with the token, under the same lock.
+    token_gen: u64,
+    /// The headsets of this run; a new run counts from none, whatever the last one's are doing.
+    viewers: Arc<AtomicUsize>,
 }
 
 /// Pictures from the 3D step to the headsets watching.
@@ -84,20 +97,33 @@ pub struct Feed {
     state: Mutex<State>,
     job_ready: Condvar,
     shown_changed: Condvar,
-    viewers: AtomicUsize,
-    token_gen: AtomicU64,
     /// How many pictures were built, for the tests.
     built: AtomicU64,
     max_size: (u32, u32),
+    proof_wait: Duration,
 }
 
-/// Holds one of the places for a headset until it's dropped.
-pub struct Slot(Arc<Feed>);
+/// Holds one of the places for a headset until it's dropped, and says which run and link it was given under.
+pub struct Slot {
+    viewers: Arc<AtomicUsize>,
+    run: u64,
+    generation: u64,
+}
 
 impl Drop for Slot {
     fn drop(&mut self) {
-        self.0.viewers.fetch_sub(1, Ordering::SeqCst);
+        self.viewers.fetch_sub(1, Ordering::SeqCst);
     }
+}
+
+/// What the camera's frame says about a pair.
+enum Proof {
+    /// The finished frame is the pair's own: nothing covers it.
+    Clear,
+    /// Something covered the frame: this is what both eyes get.
+    Covered(Rgb),
+    /// The finished frame isn't out yet (or can't be read): nothing may be sent.
+    Missing,
 }
 
 /// The size of the packed picture for eyes of w x h: twice the width and the height of an eye, the width shrunk to fit `max` and the height too.
@@ -124,13 +150,14 @@ impl Feed {
 
     pub fn with_max_size(token: &str, max_size: (u32, u32)) -> Feed {
         Feed {
-            state: Mutex::new(State { job: None, shown: None, seq: 0, open: false, token: token.into() }),
+            state: Mutex::new(State {
+                job: None, shown: None, seq: 0, open: false, run: 0, token: token.into(), token_gen: 0, viewers: Arc::new(AtomicUsize::new(0)),
+            }),
             job_ready: Condvar::new(),
             shown_changed: Condvar::new(),
-            viewers: AtomicUsize::new(0),
-            token_gen: AtomicU64::new(0),
             built: AtomicU64::new(0),
             max_size,
+            proof_wait: PROOF_WAIT,
         }
     }
 
@@ -138,10 +165,14 @@ impl Feed {
         self.state.lock().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// Ready for a worker and headsets.
+    /// A new run, ready for a worker and headsets. Headsets of an earlier run are over, and don't hold places in this one.
     pub fn open(&self) {
         let mut state = self.lock();
         (state.open, state.job, state.shown) = (true, None, None);
+        state.run += 1;
+        state.viewers = Arc::new(AtomicUsize::new(0));
+        drop(state);
+        self.shown_changed.notify_all();
     }
 
     /// Ends the worker and every headset's thread.
@@ -165,20 +196,30 @@ impl Feed {
         !token.is_empty() && same(token, &self.lock().token)
     }
 
-    /// A new link: headsets on the old one are disconnected.
+    /// A new link: headsets on the old one are disconnected. The token and its generation change in one step.
     pub fn set_token(&self, token: &str) {
-        self.lock().token = token.into();
-        self.token_gen.fetch_add(1, Ordering::SeqCst);
+        let mut state = self.lock();
+        state.token = token.into();
+        state.token_gen += 1;
+        drop(state);
         self.shown_changed.notify_all();
     }
 
+    /// How many headsets this run has.
     pub fn viewers(&self) -> usize {
-        self.viewers.load(Ordering::SeqCst)
+        self.lock().viewers.load(Ordering::SeqCst)
     }
 
     /// Whether anything needs pictures: a headset is connected. Without one the step builds nothing.
     pub fn wanted(&self) -> bool {
-        self.viewers() > 0
+        let state = self.lock();
+        state.open && state.viewers.load(Ordering::SeqCst) > 0
+    }
+
+    /// Whether a headset holding this place is still wanted: its run is on and its link is the current one.
+    fn current(&self, slot: &Slot) -> bool {
+        let state = self.lock();
+        state.open && state.run == slot.run && state.token_gen == slot.generation
     }
 
     /// Whether a pair waits for the worker.
@@ -191,18 +232,28 @@ impl Feed {
         self.built.load(Ordering::SeqCst)
     }
 
-    /// A place for one more headset, None when MAX_VIEWERS are watching.
-    pub fn claim(self: &Arc<Self>) -> Option<Slot> {
-        let mut n = self.viewers.load(Ordering::SeqCst);
-        loop {
-            if n >= MAX_VIEWERS {
-                return None;
-            }
-            match self.viewers.compare_exchange(n, n + 1, Ordering::SeqCst, Ordering::SeqCst) {
-                Ok(_) => return Some(Slot(self.clone())),
-                Err(now) => n = now,
-            }
+    /// A place for one more headset in this run, None when MAX_VIEWERS are watching or the feed is closed.
+    pub fn claim(&self) -> Option<Slot> {
+        let state = self.lock();
+        Self::claim_in(&state)
+    }
+
+    /// A place for a headset with this link: the check of the link and the generation it is on are one step, so a new link can't slip between them.
+    pub fn admit(&self, token: &str) -> Option<Slot> {
+        let state = self.lock();
+        if token.is_empty() || !same(token, &state.token) {
+            return None;
         }
+        Self::claim_in(&state)
+    }
+
+    fn claim_in(state: &State) -> Option<Slot> {
+        // places are only given out under the lock, so counting and taking one can't be raced
+        if !state.open || state.viewers.load(Ordering::SeqCst) >= MAX_VIEWERS {
+            return None;
+        }
+        state.viewers.fetch_add(1, Ordering::SeqCst);
+        Some(Slot { viewers: state.viewers.clone(), run: state.run, generation: state.token_gen })
     }
 
     /// The pair for the next picture. Only the newest waits: an older one that wasn't taken yet is replaced. False without a headset.
@@ -247,10 +298,15 @@ impl Feed {
 
     /// The newest message if it's newer than `seen`, waiting up to `timeout` for one.
     pub fn next(&self, seen: u64, timeout: Duration) -> Option<(u64, Message)> {
+        self.next_where(seen, timeout, &|_| true)
+    }
+
+    /// next(), for a headset that stops getting anything the moment `valid` says its run or link is over.
+    fn next_where(&self, seen: u64, timeout: Duration, valid: &dyn Fn(&State) -> bool) -> Option<(u64, Message)> {
         let deadline = Instant::now() + timeout;
         let mut state = self.lock();
         loop {
-            if !state.open {
+            if !state.open || !valid(&state) {
                 return None;
             }
             if let Some(shown) = state.shown.as_ref().filter(|s| s.seq > seen) {
@@ -272,21 +328,49 @@ impl Feed {
         }
     }
 
+    /// What the camera's frame says about the pair. Only a finished frame at least as new as the pair counts: it is either the pair's own or
+    /// something that came after it, and anything less (no frame out yet, the one before the pair, one that can't be read) proves nothing.
+    fn proof(&self, job: &Job, store: &dyn FrameStore, was_ours: &dyn Fn(&Frame) -> bool) -> Proof {
+        let Some(out) = store.outgoing_frame(Some(job.target.as_str())).filter(|o| o.frame.number >= job.number) else { return Proof::Missing };
+        if Arc::ptr_eq(&out.frame.data, &job.handed) || was_ours(&out.frame) {
+            return Proof::Clear;
+        }
+        Rgb::from_frame(&out.frame).map_or(Proof::Missing, Proof::Covered)
+    }
+
+    /// Waits for the proof, up to `proof_wait`, and for as long as nothing newer is waiting and the feed is open.
+    fn proven(&self, job: &Job, store: &dyn FrameStore, was_ours: &dyn Fn(&Frame) -> bool) -> Option<Proof> {
+        let deadline = Instant::now() + self.proof_wait;
+        loop {
+            match self.proof(job, store, was_ours) {
+                Proof::Missing => {}
+                found => return Some(found),
+            }
+            if Instant::now() >= deadline {
+                return None;
+            }
+            {
+                let state = self.lock();
+                if !state.open || state.job.is_some() {
+                    return None;
+                }
+            }
+            std::thread::sleep(PROOF_POLL);
+        }
+    }
+
     /// The picture for a pair as a JPEG: the eyes side by side, at up to MAX_PACKED. Where something after the 3D step replaced the camera's
-    /// picture (the Wait screen) that is what both eyes get.
+    /// picture (the Wait screen) that is what both eyes get. None when the camera's finished frame isn't out to say which it is.
     pub fn picture(&self, job: &Job, store: &dyn FrameStore, was_ours: &dyn Fn(&Frame) -> bool) -> Option<Vec<u8>> {
-        let covered = store
-            .outgoing_frame(Some(job.target.as_str()))
-            .filter(|o| o.frame.number >= job.number && !Arc::ptr_eq(&o.frame.data, &job.handed) && !was_ours(&o.frame))
-            .and_then(|o| Rgb::from_frame(&o.frame));
+        let proof = self.proven(job, store, was_ours)?;
         let (left, right, tune);
         let (one, two);
-        match covered {
-            Some(rgb) => {
+        match proof {
+            Proof::Covered(rgb) => {
                 one = rgb;
                 (left, right, tune) = (&one, &one, Tune::default());
             }
-            None => {
+            _ => {
                 one = Rgb::from_frame(&job.left)?;
                 two = Rgb::from_frame(&job.right)?;
                 (left, right, tune) = (&one, &two, job.tune.clone());
@@ -404,16 +488,16 @@ fn client_frames(buf: &mut Vec<u8>, sock: &mut dyn Socket) -> bool {
 }
 
 /// One headset: sends the newest picture it hasn't had, never more than one waiting, until it leaves, the link changes or the feed closes.
-fn serve_viewer(feed: Arc<Feed>, mut sock: Box<dyn Socket>, generation: u64, _slot: Slot) {
+fn serve_viewer(feed: Arc<Feed>, mut sock: Box<dyn Socket>, slot: Slot) {
     let _ = sock.set_read_timeout(Some(Duration::from_millis(2)));
     let (mut seen, mut pinged, mut incoming) = (0u64, Instant::now(), Vec::new());
     let mut chunk = [0u8; 1024];
     loop {
-        if !feed.is_open() || feed.token_gen.load(Ordering::SeqCst) != generation {
+        if !feed.current(&slot) {
             let _ = send(&mut *sock, CLOSE, &1001u16.to_be_bytes());
             return;
         }
-        if let Some((seq, message)) = feed.next(seen, SEND_WAIT) {
+        if let Some((seq, message)) = feed.next_where(seen, SEND_WAIT, &|state| state.run == slot.run && state.token_gen == slot.generation) {
             seen = seq;
             let sent = match &message {
                 Message::Jpeg(jpeg) => send(&mut *sock, BINARY, jpeg),
@@ -473,16 +557,16 @@ impl PageHandler for Headset {
     }
 
     fn upgrade(&self, request: &Request, stats: &ServerStats) -> Option<Upgrade> {
-        if request.path() != "/ws" || !websocket_request(request) || !self.0.token_ok(request.param("token").unwrap_or("")) {
+        if request.path() != "/ws" || !websocket_request(request) {
             return None;
         }
         let key = request.header("Sec-WebSocket-Key")?;
-        let slot = self.0.claim()?;
+        let slot = self.0.admit(request.param("token").unwrap_or(""))?;
         stats.note(Step::Browsers);
-        let (feed, generation) = (self.0.clone(), self.0.token_gen.load(Ordering::SeqCst));
+        let feed = self.0.clone();
         Some(Upgrade {
             headers: vec![("Upgrade".into(), "websocket".into()), ("Connection".into(), "Upgrade".into()), ("Sec-WebSocket-Accept".into(), accept_key(key))],
-            run: Box::new(move |sock| serve_viewer(feed, sock, generation, slot)),
+            run: Box::new(move |sock| serve_viewer(feed, sock, slot)),
         })
     }
 }

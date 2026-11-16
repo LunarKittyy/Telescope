@@ -31,6 +31,14 @@ function show(next) {
 // Decodes one picture at a time, off the main thread; a picture that arrives meanwhile replaces the one waiting.
 let decoding = false;
 let waiting = null;
+// Bumped when the picture is blanked or the socket closes: a decode that started before it must not bring the old picture back.
+let generation = 0;
+
+function blank() {
+  generation++;
+  waiting = null;
+  show(null);
+}
 
 async function decode(blob) {
   if (decoding) {
@@ -38,8 +46,11 @@ async function decode(blob) {
     return;
   }
   decoding = true;
+  const started = generation;
   try {
-    show(await createImageBitmap(blob));
+    const decoded = await createImageBitmap(blob);
+    if (started === generation) show(decoded);
+    else decoded.close();
   } catch (e) {
     // a damaged picture is skipped
   }
@@ -60,16 +71,14 @@ function connect() {
   };
   socket.onmessage = (event) => {
     if (typeof event.data === "string") {
-      waiting = null;
-      show(null);
+      blank();
     } else {
       decode(event.data);
     }
   };
   socket.onclose = () => {
     // the last picture doesn't stay up while Telescope is away
-    waiting = null;
-    show(null);
+    blank();
     if (!session) say("Waiting for Telescope…");
     setTimeout(connect, 1500);
   };

@@ -221,6 +221,19 @@ fn the_script_has_no_syntax_errors() {
     }
 }
 
+#[test]
+fn the_script_never_shows_a_picture_that_was_decoding_when_black_came() {
+    let script = concat!(env!("CARGO_MANIFEST_DIR"), "/web/headset.js");
+    let check = std::env::temp_dir().join(format!("telescope-headset-decode-{}.js", std::process::id()));
+    std::fs::write(&check, include_str!("stereo_headset_decode_test.js")).unwrap();
+    let ran = Command::new("node").arg(&check).arg(script).output();
+    let _ = std::fs::remove_file(&check);
+    match ran {
+        Ok(out) => assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr)),
+        Err(_) => assert!(std::env::var_os("CI").is_none(), "the script check needs Node.js, and CI is set"),
+    }
+}
+
 // ── What a headset is sent ────────────────────────────────────────────────
 
 #[test]
@@ -235,7 +248,13 @@ fn a_headset_gets_the_jpeg_made_from_both_eyes_side_by_side() {
         let (feed, store) = (feed.clone(), store.clone());
         std::thread::spawn(move || feed.run(&*store, &|_| false))
     };
-    assert!(feed.submit(job(RED, BLUE, 1)));
+    // the camera's frame for the pair is out: it is the pair's own
+    let pair = job(RED, BLUE, 1);
+    let mut made = shot(GREEN);
+    made.data = pair.handed.clone();
+    made.number = 1;
+    *store.outgoing.lock().unwrap() = Some(made);
+    assert!(feed.submit(pair));
     let (opcode, payload) = message(&sent);
     assert_eq!(opcode, BINARY);
     assert_eq!(&payload[..2], &[0xFF, 0xD8], "a JPEG");
@@ -298,16 +317,23 @@ fn a_viewer_asks_only_for_what_is_newer_than_what_it_had() {
     assert!(feed.next(seq, Duration::from_millis(5)).is_none());
 }
 
+/// An open feed that gives up on a missing camera frame after 30 ms instead of 150.
+fn quick_feed() -> Feed {
+    let mut feed = Feed::new(TOKEN);
+    feed.proof_wait = Duration::from_millis(30);
+    feed.open();
+    feed
+}
+
 #[test]
 fn a_cover_on_the_camera_covers_the_headset_too() {
-    let feed = Feed::new(TOKEN);
+    let feed = quick_feed();
     let store = Store::new();
     let pair = job(RED, BLUE, 5);
-    let plain = decode(&feed.picture(&pair, &store, &|_| false).expect("a picture"));
-    assert!(near(px(&plain, 20, 18), RED) && near(px(&plain, 108, 18), BLUE), "no outgoing picture to go by");
-    // the camera sends what this made: nothing covers it
+    // the camera's frame for the pair is out and is what the step made: nothing covers it
     let mut made = shot(GREEN);
     made.data = pair.handed.clone();
+    made.number = 5;
     *store.outgoing.lock().unwrap() = Some(made);
     let ours = decode(&feed.picture(&pair, &store, &|_| false).unwrap());
     assert!(near(px(&ours, 20, 18), RED) && near(px(&ours, 108, 18), BLUE));
@@ -320,6 +346,73 @@ fn a_cover_on_the_camera_covers_the_headset_too() {
     // unless it's one of the last this plugin made, which a newer picture has gone out over since
     let kept = decode(&feed.picture(&pair, &store, &|_| true).unwrap());
     assert!(near(px(&kept, 20, 18), RED) && near(px(&kept, 108, 18), BLUE));
+}
+
+#[test]
+fn a_pair_is_never_sent_without_the_camera_frame_that_shows_whether_it_was_covered() {
+    let feed = quick_feed();
+    let store = Store::new();
+    let pair = job(RED, BLUE, 5);
+    // no frame out at all: the first frame of a stream
+    assert!(feed.picture(&pair, &store, &|_| false).is_none(), "no frame out, nothing is sent");
+    // the frame before the pair is out, and a cover is on it: the pair's own frame isn't out to say it has none
+    let mut before = shot(GREEN);
+    before.number = 4;
+    *store.outgoing.lock().unwrap() = Some(before);
+    assert!(feed.picture(&pair, &store, &|_| false).is_none(), "an older frame proves nothing");
+    // a covered frame that can't be read is no proof either
+    let mut unreadable = Frame::new(64, 36, PixelFormat::I420, vec![0; 64 * 36 * 3 / 2]);
+    unreadable.data = Arc::new(Vec::new());
+    unreadable.number = 5;
+    *store.outgoing.lock().unwrap() = Some(unreadable);
+    assert!(feed.picture(&pair, &store, &|_| false).is_none(), "a frame that can't be read isn't sent as the pair");
+    assert_eq!(feed.built(), 0);
+}
+
+#[test]
+fn a_pair_waits_for_its_frame_to_come_out_and_gets_the_cover_that_came_on_it() {
+    let feed = Arc::new(Feed::new(TOKEN));
+    feed.open();
+    let store = Arc::new(Store::new());
+    let pair = job(RED, BLUE, 5);
+    // the pipeline finishes the frame a little after the pair was handed over, and the Wait screen came on it
+    let late = {
+        let store = store.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(40));
+            let mut wait_screen = shot(GREEN);
+            wait_screen.number = 5;
+            *store.outgoing.lock().unwrap() = Some(wait_screen);
+        })
+    };
+    let picture = decode(&feed.picture(&pair, &*store, &|_| false).expect("a picture once the frame is out"));
+    assert!(near(px(&picture, 20, 18), GREEN) && near(px(&picture, 108, 18), GREEN), "the pair never goes out clear");
+    late.join().unwrap();
+}
+
+#[test]
+fn the_worker_publishes_nothing_while_the_camera_frame_is_missing() {
+    let feed = Arc::new(quick_feed());
+    feed.open();
+    let store = Arc::new(Store::new());
+    let _slot = feed.claim().expect("a place");
+    let worker = {
+        let (feed, store) = (feed.clone(), store.clone());
+        std::thread::spawn(move || feed.run(&*store, &|_| false))
+    };
+    assert!(feed.submit(job(RED, BLUE, 1)));
+    assert!(feed.next(0, Duration::from_millis(300)).is_none(), "nothing sent without the frame");
+    assert_eq!(feed.built(), 0);
+    // a later pair whose frame is out is sent
+    let next = job(RED, BLUE, 2);
+    let mut made = shot(GREEN);
+    made.data = next.handed.clone();
+    made.number = 2;
+    *store.outgoing.lock().unwrap() = Some(made);
+    assert!(feed.submit(next));
+    assert!(matches!(feed.next(0, Duration::from_secs(10)), Some((_, Message::Jpeg(_)))));
+    feed.close();
+    worker.join().unwrap();
 }
 
 #[test]
@@ -355,6 +448,66 @@ fn a_new_link_disconnects_the_headsets_on_the_old_one() {
     viewer.join().unwrap();
     assert!(!feed.token_ok(TOKEN) && feed.token_ok("zyxwvutsrqponmlkjihgfedc"));
     assert!(handler.upgrade(&ws_request(TOKEN), &stats()).is_none(), "the old link gets nothing");
+}
+
+#[test]
+fn the_link_and_its_generation_are_taken_together_while_links_change() {
+    let feed = Arc::new(Feed::new("token-0000000000000000000"));
+    feed.open();
+    let rotating = {
+        let feed = feed.clone();
+        std::thread::spawn(move || {
+            for n in 1..=2000u64 {
+                feed.set_token(&format!("token-{n:019}"));
+            }
+        })
+    };
+    let mut admitted = 0;
+    while !rotating.is_finished() {
+        let token = feed.lock().token.clone();
+        if let Some(slot) = feed.admit(&token) {
+            admitted += 1;
+            // link number n is the nth one made, so the generation a headset holds is its own link's number whatever rotated meanwhile
+            let n: u64 = token[6..].parse().unwrap();
+            assert_eq!(slot.generation, n);
+        }
+    }
+    rotating.join().unwrap();
+    assert!(admitted > 0);
+    // exactly: the token passed in is the one the generation belongs to
+    feed.set_token("token-fixed-link-123456");
+    let slot = feed.admit("token-fixed-link-123456").expect("a place");
+    assert!(feed.current(&slot));
+    assert!(feed.admit("token-0000000000000000000").is_none(), "an old link gets nothing");
+    feed.set_token("token-newer-link-1234567");
+    assert!(!feed.current(&slot), "a headset on the old link is over");
+}
+
+#[test]
+fn a_headset_stuck_in_a_write_does_not_survive_the_feed_being_closed_and_opened_again() {
+    let feed = open_feed();
+    let handler = Headset(feed.clone());
+    // every write waits for this side to read it: a headset that has stopped taking pictures
+    let (socket, sent, _typed) = pipe(0);
+    let upgrade = handler.upgrade(&ws_request(TOKEN), &stats()).expect("an upgrade");
+    let viewer = std::thread::spawn(move || (upgrade.run)(socket));
+    feed.publish(Message::Jpeg(Arc::new(vec![1; 300])), 0);
+    // it has the picture and is stopped in its write
+    assert_eq!(sent.recv_timeout(Duration::from_secs(10)).unwrap()[0] & 0x0F, BINARY);
+    assert_eq!(feed.viewers(), 1);
+    feed.close();
+    feed.open();
+    // the new run has its places, and the old headset is no part of it
+    assert_eq!((feed.viewers(), feed.wanted()), (0, false));
+    let (first, second) = (feed.claim().expect("a place"), feed.claim().expect("a second place"));
+    assert!(feed.claim().is_none() && feed.viewers() == MAX_VIEWERS);
+    // it can't be sent what the new run publishes, and it leaves once its write goes through
+    feed.publish(Message::Jpeg(Arc::new(vec![2; 300])), 0);
+    while sent.recv_timeout(Duration::from_secs(10)).is_ok() {}
+    viewer.join().unwrap();
+    assert_eq!(feed.viewers(), MAX_VIEWERS, "the old headset giving up its place doesn't take one of the new run's");
+    drop((first, second));
+    assert_eq!(feed.viewers(), 0);
 }
 
 #[test]
