@@ -1,6 +1,6 @@
 # Release testing
 
-Tools and notes for going through [the release checklist](../../docs/release-checklist.md) against a nightly without touching your own install: a Windows 11 VM and the Android emulator. They don't replace the real phone and desktop part of the checklist (see the end of this page).
+Tools and notes for going through [the release checklist](../../docs/release-checklist.md) against a nightly without touching your own install, on a Windows 11 VM and the Android emulator. They don't replace the real phone and desktop part of the checklist (see the end of this page).
 
 `fetch_nightly.sh [tag]` downloads a release's assets (the nightly by default) with `gh` into `downloads/n<build>` and checks each one against the manifest's sha256. Set `NIGHTLY_DIR` to put them somewhere else, such as a folder your Windows VM can see. `downloads/` is ignored by git.
 
@@ -17,15 +17,15 @@ python3 windows_pass.py downloads/n932 --previous downloads/n838 --ssh "-p 2222 
 What the VM needs:
 - OpenSSH server with key login for an administrator account that's also signed in on the desktop (the checks run as a scheduled task in that session).
 - A snapshot to go back to. The run uninstalls Telescope, deletes its settings, registers and removes the camera and creates a share called TelescopeTest.
-- UAC at its default. For the run the script switches the prompt off (the prompts sit on the secure desktop where nothing can press them) and counts elevations from the security log instead, then puts both settings back.
+- UAC at its default. For the run the script switches the prompt off (the prompts sit on the secure desktop where nothing can press them) and counts elevations from the security log instead, then restores both settings.
 
 Things to know:
 - First start times only mean something on a fresh snapshot. Defender scans files the first time they run, which is most of the slowness the first start check is about. A VM that already ran nearly the same files (any other Telescope build) starts it in a couple of seconds. That's why the first start comes right after the install, before the update checks bring in other builds.
 - On a freshly restored snapshot the first start check sometimes never gets past finding Telescope's window, though the window is up and responding (more often than not). The desktop job is stuck in UI Automation, not Telescope. Run `--only clean_install first_start` again.
 - The update checks land on whatever the channel's newest build is, which isn't necessarily the build being checked once newer nightlies are out. A run that overlaps a nightly being published can fail them; run those checks again with `--only`.
 - On Windows 11 the camera checks expect Telescope's own camera (`rust/windows/virtualcamera`), not UnityCapture. The older-driver check registers UnityCapture the way older versions did and expects Update to replace it. On Windows 10 they check UnityCapture as before.
-- The checks move the main window inside the screen before clicking it, after `window_fits_screen` has read where it opened. Controls scrolled out of view aren't in UI Automation's tree at all, so the checks turn the mouse wheel until they appear.
-- **Get adb** stays skipped unless you pass `--agree-adb-licence`, since it means accepting Google's SDK licence in the app.
+- The checks move the main window inside the screen before clicking it, after `window_fits_screen` has read where it opened. Because controls scrolled out of view aren't in UI Automation's tree at all, the checks turn the mouse wheel until they appear.
+- **Get adb** is skipped unless you pass `--agree-adb-licence`, because it means accepting Google's SDK licence in the app.
 - Windows' firewall question can't be reached through UI Automation and it swallows clicks elsewhere. The script closes it whenever it comes up, like dismissing it would.
 
 ## Windows

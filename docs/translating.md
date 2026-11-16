@@ -38,7 +38,7 @@ The rest of this page is for people working on the files themselves.
 
 ## The files
 
-Both apps keep every text they show in one file per language. English lives in the code and in the source files below, and anything a translation leaves out shows in English, so a language can ship half done.
+Both apps store every text they show in one file per language. English lives in the code and in the source files below. Anything a translation leaves out shows in English. A language can ship half done.
 
 | | Source (English) | A translation |
 |---|---|---|
@@ -51,12 +51,12 @@ Both apps follow the system language. To try a desktop translation without chang
 
 ## Phone app
 
-Copy `values/strings.xml` to `values-<lang>/strings.xml` and translate the text between the tags. Keep each `name` as it is, and leave out anything you haven't translated yet rather than copying the English. Don't copy `app_name`: it's marked `translatable="false"`.
+Copy `values/strings.xml` to `values-<lang>/strings.xml` and translate the text between the tags. Don't change any `name` and leave out anything you haven't translated yet rather than copying the English. Don't copy `app_name` as it's marked `translatable="false"`.
 
-- `%1$s` and `%1$d` are filled in by the app. Keep them, though they can move within the sentence
+- `%1$s` and `%1$d` are filled in by the app. Leave them in, though they can move within the sentence
 - `<plurals>` has one `<item>` per form your language needs (`one`, `few`, `many`, `other`...). Android's [plurals guide](https://developer.android.com/guide/topics/resources/string-resource#Plurals) lists them
 - Write an apostrophe as `\'` and a percent sign before a placeholder as `%%`
-- The comment above a string says where it shows or what fills it in
+- The comment above a string explains where it shows or what fills it in
 
 `./gradlew lintDebug` in `android/` catches a placeholder that doesn't match the English.
 
@@ -69,7 +69,7 @@ cd rust
 python tools/i18n.py new sv
 ```
 
-That writes `locale/sv.po` with every text and an empty `msgstr` under each. Fill in the `msgstr` lines and leave the rest alone. Check the `Plural-Forms` line in its header: the script knows the common languages and says when it doesn't know yours.
+That writes `locale/sv.po` with every text and an empty `msgstr` under each. Fill in the `msgstr` lines and leave the rest alone. Check the `Plural-Forms` line in its header. The script knows the common languages and reports when it doesn't know yours.
 
 ```
 #. what a translator should know, from the code
@@ -79,24 +79,24 @@ msgid "Paired with {name}"
 msgstr "Parkopplad med {name}"
 ```
 
-- `{name}`, `{n}` and the like are filled in by the app. Keep the word inside the braces exactly as it is, though the field can move. A translation with a field the English doesn't have shows the English instead
+- `{name}`, `{n}` and the like are filled in by the app. Leave the word inside the braces exactly as it is, though the field can move. A translation with a field the English doesn't have shows the English instead
 - `msgid_plural` entries take one `msgstr[0]`, `msgstr[1]`... per plural form in your header
-- `msgctxt "search"` marks the words the settings search looks for, not a sentence. Put in the words people would type in your language, and keep names like OBS, adb or VA-API
-- `\n` is a line break. Keep the breaks where the English has them and the lines about as long
-- `#, fuzzy` means the English changed since it was translated. The app ignores fuzzy entries, so check the translation and remove the flag
+- `msgctxt "search"` marks the words the settings search looks for, not a sentence. Put in the words people would type in your language and leave names like OBS, adb or VA-API as they are
+- `\n` is a line break. Put the breaks where the English has them and make the lines about as long
+- `#, fuzzy` means the English changed since it was translated. The app ignores fuzzy entries. Check the translation and remove the flag
 
-To see what's left, and to check for broken fields:
+To see what's left and to check for broken fields:
 
 ```
 python tools/i18n.py todo sv      # the untranslated entries, ready to paste in
 python tools/i18n.py status       # how far along each language is
 ```
 
-Some texts stay in English on purpose: Copy diagnostics (it goes into bug reports), the Browser camera web page, the command line, VB-Audio's two license lines. The phone's own camera, codec and microphone messages reach the desktop as codes the desktop words itself (see [the protocol](protocol.md#texts-the-desktop-words-itself)), so they're translated there.
+Some texts remain in English on purpose: Copy diagnostics (it goes into bug reports), the Browser camera web page, the command line, VB-Audio's two license lines. The phone's own camera, codec and microphone messages reach the desktop as codes the desktop words itself (see [the protocol](protocol.md#texts-the-desktop-words-itself)). They're translated there.
 
 ## Checking that texts fit
 
-A translation longer than the English can end up cut off or pushed out of its row. The desktop's buttons and rows take their width from their text, so a longer translation mostly widens what holds it, but the window and some fixed-width pieces still have limits. Start the desktop in the language (`TELESCOPE_LANG=sv`) and go through the cards, the Settings tabs and the dialogs. `cargo run -p telescope-app -- scenes OUT` in `rust/` draws every card, dialog and Settings page as a picture for a quicker look.
+A translation longer than the English can end up cut off or pushed out of its row. The desktop's buttons and rows take their width from their text. A longer translation mostly widens what holds it. The window and some fixed-width pieces still have limits. Start the desktop in the language (`TELESCOPE_LANG=sv`) and go through the cards, the Settings tabs and the dialogs. `cargo run -p telescope-app -- scenes OUT` in `rust/` draws every card, dialog and Settings page as a picture for a quicker look.
 
 To try a layout before any real translation exists, start the desktop with `TELESCOPE_LANG=pseudo`. That's a made-up language where every text is about 40% longer and accented ("[Šţàŕţ šţŕéàɱîñĝ ~~~~ ~~]"). Any plain English left on screen in it never went through `tr()`.
 
@@ -115,14 +115,14 @@ For bigger runs, [automation/translation](../automation/translation/README.md) h
 
 ## First drafts
 
-A translation nobody who speaks the language has checked yet can still ship, marked as a first draft. The desktop's Language list puts "(beta)" after its name, and both apps say it's a first draft (in Settings > General on the desktop, in About on the phone). Two things mark it, and both come off once someone has read it through:
+A translation nobody who speaks the language has checked yet can still ship, marked as a first draft. The desktop's Language list puts "(beta)" after its name. Both apps state that it's a first draft (in Settings > General on the desktop, in About on the phone). Two things mark it and both come off once someone has read it through:
 
 - the line `"X-Telescope-Draft: yes\n"` in the header of the desktop's `<lang>.po`
 - `android/app/src/main/res/values-<lang>/translation.xml` with `<bool name="translation_is_draft">true</bool>`
 
 ## Plugins
 
-Plugins people add can ship their own translations as `locale/<lang>.po` inside the plugin's folder. A plugin's texts are looked up there first, then in Telescope's own `<lang>.po` and then they stay in English, so a plugin never has to translate everything. [Writing a plugin](writing-plugins.md#translating-your-plugin) covers the author's side.
+Plugins people add can ship their own translations as `locale/<lang>.po` inside the plugin's folder. A plugin's texts are looked up there first, then in Telescope's own `<lang>.po` and then remain in English. A plugin never has to translate everything. [Writing a plugin](writing-plugins.md#translating-your-plugin) covers the author's side.
 
 To translate someone's plugin, use the `.pot` in its `locale` folder or run the plugin tool on a copy of it, from `rust/`:
 
@@ -147,6 +147,6 @@ label.set_text(trn("{n} phone", "{n} phones", count));
 const TITLE: &str = n_("Camera");                                              // in a const or table: mark it, then tr(TITLE) where it shows
 ```
 
-A `// Translators:` comment right above the call goes into the `.po` file, and `tr_ctx("search", "...")` gives a text a context. When a text a keyboard shortcut can pick is translated (a segment button, a list entry), keep its English as the value, so a saved shortcut still finds it in another language.
+A `// Translators:` comment right above the call goes into the `.po` file. `tr_ctx("search", "...")` gives a text a context. When a text a keyboard shortcut can pick is translated (a segment button, a list entry), use its English as the value. A saved shortcut then still finds it in another language.
 
 Then run `python tools/i18n.py extract` in `rust/` and commit `locale`. `app/tests/texts_in_code.rs` fails when the template is out of date or when a text is built from pieces, and `core/tests/i18n.rs` fails when a catalogue is missing a text or a translation has a field the English doesn't.

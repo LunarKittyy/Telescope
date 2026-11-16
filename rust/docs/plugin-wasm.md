@@ -24,11 +24,11 @@ A `WasmGuest` in a new `wasm.rs`, about the size of `lua.rs`, using wasmtime or 
 
 - **Loading.** `plugin.json` names the module with `"main": "plugin.wasm"`. `Manifest::main()` learns to accept `.wasm` next to `.lua` and `load.rs` picks the runtime by extension. Compiled code is refused today (`package::COMPILED`). `.wasm` would be the one exception because a module can only do what its imports allow.
 - **Calling hooks.** The module exports `telescope_call(hook_ptr, hook_len, args_ptr, args_len) -> u64` (a pointer and length to the JSON answer, packed into one value), plus `telescope_alloc` for the host to write strings into its memory. `defines` and `listens` read an exported list of hook and event names once at load instead of calling into the module to find out.
-- **Calling the host.** The module imports `telescope.call(method_ptr, method_len, args_ptr, args_len) -> u64`, which goes straight to `HostCalls::call` for anything in `HOST_API`. A second import, `telescope.local`, covers what Lua's bridge handles without the host (`tr`, `trn`, reading the plugin's own files, logging). Those answers come from `PluginContext` through `HostCalls::context()`, so the two runtimes share that code too.
+- **Calling the host.** The module imports `telescope.call(method_ptr, method_len, args_ptr, args_len) -> u64`, which goes straight to `HostCalls::call` for anything in `HOST_API`. A second import, `telescope.local`, covers what Lua's bridge handles without the host (`tr`, `trn`, reading the plugin's own files, logging). Those answers come from `PluginContext` through `HostCalls::context()`. The two runtimes share that code too.
 - **The sandbox.** No WASI filesystem, sockets or clock beyond a monotonic one. Fuel or epoch interruption stands in for Lua's instruction hook with the same 3 second limit per hook. A memory limit on the store stands in for Lua's 64 MB.
 - **A small guest library** per language (a Rust crate first) wrapping the JSON calls in typed functions. That's the only new thing plugin authors see.
 
-Shaders, cards and `plugin.json` stay exactly as they are for Lua. A WASM plugin hands over its frame step as the same `{ shader, uniforms }` table. Moving a plugin from Lua to WASM means rewriting `main.lua` and nothing else.
+Shaders, cards and `plugin.json` remain exactly as they are for Lua. A WASM plugin hands over its frame step as the same `{ shader, uniforms }` table. Moving a plugin from Lua to WASM means rewriting `main.lua` and nothing else.
 
 ## Keeping the boundary clean
 
@@ -37,5 +37,5 @@ While Lua is the only runtime these rules keep the WASM path open.
 - Nothing in `guest.rs`, `GuestPlugin` or `HOST_API` mentions Lua or takes a Lua type. Arguments and answers are `serde_json::Value`.
 - A new host method goes into `HOST_API` with its arguments named, never as a Lua-only global. Lua's `host` table is built from `HOST_API` at load and picks up the new method without a change.
 - Plugin-local services (translations, the plugin's own files) live on `PluginContext`, which every runtime reaches through `HostCalls::context()`.
-- Hooks never hand a guest anything it could hold on to, like a handle or a callback. Requests that finish later come back as `request_done` events.
+- Hooks never hand a guest anything it could hold on to, like a handle or a callback. Requests that finish later arrive as `request_done` events.
 - `tests/plugin_api.txt` freezes the hooks, host methods, events, permissions and shader names. A WASM host has to pass the same list.
