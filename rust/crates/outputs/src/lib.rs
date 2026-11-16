@@ -6,6 +6,8 @@ pub mod convert;
 pub mod held;
 pub mod linux_setup;
 pub mod mf;
+#[cfg(target_os = "linux")]
+pub mod pipewire;
 pub mod spout;
 pub mod spout_shared;
 pub mod stream_output;
