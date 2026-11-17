@@ -4,20 +4,24 @@
     <string name="preview_button">Önizleme</string>
     <string name="close_preview">Önizlemeyi kapat</string>
     <string name="black_screen_button">Siyah ekran</string>
+    <string name="black_screen_description">Kamera çalışmaya devam ederken ekranı karart</string>
     <string name="black_screen_hint">Uyandırmak için çift dokun</string>
     <string name="update_available">Güncelleme mevcut</string>
     <string name="update_failed_title">Güncelleme tamamlanamadı</string>
     <string name="update">Güncelle</string>
+    <string name="update_found">%1$s mevcut.</string>
     <string name="updating">Güncelleniyor…</string>
     <string name="try_again">Tekrar dene</string>
     <string name="update_downloading">%1$s · %%%2$d indiriliyor</string>
     <string name="update_installing">%1$s · yükleniyor</string>
     <string name="update_stop_streaming_first">%1$s. Güncellemek için yayını durdur.</string>
     <string name="allow_installs_title">Telescope\'un güncellemeleri yüklemesine izin ver</string>
+    <string name="allow_installs_message">Bir sonraki ekranda Bu kaynaktan izin ver seçeneğini aç ve Telescope\'a dön.</string>
     <string name="update_error_offline">İndirme başarısız oldu. İnternet bağlantını kontrol et ve tekrar dene.</string>
     <string name="update_error_http">İndirme başarısız oldu (HTTP %1$d).</string>
     <string name="update_error_too_big">İndirilen dosya olması gerekenden daha büyük.</string>
     <string name="update_error_cut_short">İndirme yarıda kesildi. İnternet bağlantını kontrol et ve tekrar dene.</string>
+    <string name="update_error_checksum">İndirilen dosya sağlama toplamıyla eşleşmedi ve yüklenmedi.</string>
     <string name="update_error_save">İndirilen dosya kaydedilemedi.</string>
     <string name="update_error_not_an_app">İndirilen dosya geçerli bir uygulama değil.</string>
     <string name="update_error_not_telescope">İndirilen dosya Telescope değil.</string>
@@ -33,14 +37,28 @@
     <string name="setup_camera">Kamera</string>
     <string name="setup_camera_reason">Bu telefonun kameralarından yayın yapmak için.</string>
     <string name="setup_local_network">Yerel ağ</string>
+    <string name="setup_local_network_reason">Bilgisayarının bu telefonu Wi-Fi üzerinden bulup bağlanmasını sağla. USB için buna gerek yok.</string>
     <string name="setup_notifications">Bildirimler</string>
+    <string name="setup_notifications_reason">Kameranın ne zaman yayın yaptığını gör ve yayını bildirimden durdur.</string>
     <string name="setup_microphone">Mikrofon</string>
     <string name="setup_microphone_reason">Bilgisayarındaki Telescope mikrofonu için.</string>
     <string name="setup_battery">Pil</string>
+    <string name="setup_battery_reason">Ekran kapalıyken Android\'in yayını durdurmasını engelle.</string>
     <string name="setup_allowed">İzin verildi</string>
     <string name="allow">İzin ver</string>
     <string name="open_settings">Ayarları aç</string>
+    <string name="pairing_title">Eşleştirme</string>
+    <string name="pair_intro">Bu telefonun kamerasını kullanabilmesi için bilgisayarındaki Telescope ile eşleştir.</string>
+    <string name="pair_a_computer">Bir bilgisayar eşleştir</string>
+    <string name="manage">Yönet</string>
+    <string name="pair_new">Yeni eşleştir</string>
+    <plurals name="computers_paired">
+        <item quantity="one">%1$d bilgisayar eşleştirildi</item>
+        <item quantity="other">%1$d bilgisayar eşleştirildi</item>
+    </plurals>
+    <string name="manage_computers">Bilgisayarları yönet</string>
     <string name="paired_computers_title">Eşleştirilen bilgisayarlar</string>
+    <string name="no_computers_paired">Eşleştirilmiş bilgisayar yok.</string>
     <string name="paired_on">%1$s tarihinde eşleştirildi</string>
     <string name="remove">Kaldır</string>
     <string name="cancel">İptal</string>
@@ -68,6 +86,7 @@
         <item quantity="one">• %1$d adres daha denenmedi - %2$d saniye sonra vazgeçildi</item>
         <item quantity="other">• %1$d adres daha denenmedi - %2$d saniye sonra vazgeçildi</item>
     </plurals>
+    <string name="pairing_advice">Telefonun ve bilgisayarın aynı Wi-Fi ağında olduğunu kontrol et. Açık bir VPN yerel ağ erişimini engelliyor olabilir. VPN\'in yerel ağ (LAN) erişim seçeneğini aç veya VPN\'i duraklat. Ya da tarama yapmadan eşleştirmek için telefonu USB ile bağla.</string>
     <string name="network_timed_out">zaman aşımına uğradı</string>
     <string name="network_no_route">ana bilgisayara rota yok</string>
     <string name="network_refused">bağlantı reddedildi</string>
@@ -76,6 +95,7 @@
     <string name="local_only">Sadece yerel - USB</string>
     <string name="local_only_hint">Kameraya sadece USB üzerinden erişilebilir.</string>
     <string name="wait_for_computer">Bilgisayarımı bekle</string>
+    <string name="wait_for_computer_hint">Eşleştirilmiş bir bilgisayarın ekran kapalıyken kamerayı başlatmasına izin ver.</string>
     <string name="stop_streaming">Yayını durdur</string>
     <string name="status_title">Durum</string>
     <string name="status_not_streaming">Yayın yapmıyor</string>
@@ -84,6 +104,7 @@
     <string name="status_quality">%1$dp %2$d fps</string>
     <string name="status_waiting_for_computer">Bilgisayar bekleniyor</string>
     <string name="status_mic_only">Kamera kapalı, mikrofon yayın yapıyor</string>
+    <string name="status_too_hot">Telefon çok sıcak. Yayın, telefon soğuyana kadar duraklatıldı.</string>
     <string name="status_camera_taken">Kamerayı başka bir uygulama kullanıyor. Kamera serbest kaldığında yayın devam eder.</string>
     <string name="streaming_started_remotely">Yayın bilgisayarından başlatıldı</string>
     <string name="settings">Ayarlar</string>
@@ -102,6 +123,8 @@
     <string name="report_bug">Hata bildir</string>
     <string name="troubleshooting">Sorun giderme</string>
     <string name="nightly_updates">Nightly güncellemeleri</string>
+    <string name="nightly_updates_hint">Daha az testle daha hızlı düzeltmeler için her değişiklikten derlenir.</string>
+    <string name="choice_selected">%1$s seçildi</string>
     <string name="updates_section">Güncellemeler</string>
     <string name="check_for_updates">Güncellemeleri denetle</string>
     <string name="translation_draft">Bu çeviri ilk taslaktır ve bazı metinler biraz tuhaf gelebilir.</string>
@@ -120,11 +143,13 @@
     <string name="notif_channel_streaming">Yayın</string>
     <string name="notif_channel_streaming_desc">Kamera bilgisayarına yayın yaparken gösterilir</string>
     <string name="notif_channel_waiting">Bilgisayar bekleniyor</string>
+    <string name="notif_channel_waiting_desc">Telescope, eşleştirilmiş bir bilgisayarın kamerayı başlatmasını beklerken gösterilir</string>
     <string name="notif_streaming_title">Yayın yapıyor</string>
     <string name="notif_camera_streaming">Kamera yayın yapıyor</string>
     <string name="notif_streaming_usb">USB üzerinden %1$s bilgisayarına</string>
     <string name="notif_streaming_wifi">Wi-Fi üzerinden %1$s bilgisayarına</string>
     <string name="notif_mic_streaming">Mikrofon yayın yapıyor, kamera kapalı</string>
+    <string name="notif_camera_off">Kamera kapalı</string>
     <string name="notif_waiting">Bilgisayarın bekleniyor</string>
     <string name="notif_stop_waiting">Beklemeyi durdur</string>
 </resources>
