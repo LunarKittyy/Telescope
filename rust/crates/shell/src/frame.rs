@@ -9,7 +9,7 @@ pub(crate) fn dress(ui: &ComponentInstance) {
     #[cfg(windows)]
     {
         let colours = (colour(ui, "chrome"), colour(ui, "ink"));
-        crate::screen::when_made(ui, |w| hwnd_of(w), move |_, hwnd| windows_frame(hwnd, colours));
+        crate::screen::when_made(ui, hwnd_of, move |_, hwnd| windows_frame(hwnd, colours));
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     crate::kde::dress(ui);
@@ -69,7 +69,7 @@ fn windows_frame(hwnd: isize, (caption, text): (Option<u32>, Option<u32>)) {
     unsafe {
         let Ok(module) = GetModuleHandleW(PCWSTR::null()) else { return };
         for (kind, w, h) in [(ICON_SMALL, SM_CXSMICON, SM_CYSMICON), (ICON_BIG, SM_CXICON, SM_CYICON)] {
-            if let Ok(icon) = LoadImageW(Some(module.into()), PCWSTR(1 as *const u16), IMAGE_ICON, GetSystemMetrics(w), GetSystemMetrics(h), LR_DEFAULTCOLOR) {
+            if let Ok(icon) = LoadImageW(Some(module.into()), PCWSTR(std::ptr::without_provenance(1)), IMAGE_ICON, GetSystemMetrics(w), GetSystemMetrics(h), LR_DEFAULTCOLOR) {
                 SendMessageW(hwnd, WM_SETICON, Some(WPARAM(kind as usize)), Some(LPARAM(icon.0 as isize)));
             }
         }

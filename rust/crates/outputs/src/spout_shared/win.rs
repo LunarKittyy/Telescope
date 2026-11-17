@@ -128,6 +128,7 @@ pub fn sender_names() -> Option<Vec<String>> {
 
 /// What looking up a sender's info found.
 #[derive(Debug, PartialEq, Eq)]
+#[allow(clippy::large_enum_variant)] // made once per look at a sender and used at once, never stored
 pub enum Info {
     /// Nothing is published under that name: the sender is gone.
     Gone,

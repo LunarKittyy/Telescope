@@ -133,7 +133,7 @@ jobs:
           tool: cargo-nextest@0.9.150
 
       - name: Clippy
-        run: cargo clippy --workspace --locked --all-targets --keep-going --features telescope-app/ffmpeg-windows
+        run: cargo clippy --workspace --locked --all-targets --features telescope-app/ffmpeg-windows -- -D warnings
 
       - name: Test
         run: cargo nextest run --workspace --locked --features telescope-app/ffmpeg-windows
