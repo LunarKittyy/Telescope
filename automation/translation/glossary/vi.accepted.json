@@ -49,5 +49,7 @@
  "d:24c4cb28cf much longer than the English": "Tiện ích bổ sung đã thêm",
  "d:54cf95a948 much longer than the English": "Biên dịch một bản tại đây",
  "a:setup_camera same as the English": "Camera",
- "a:pairing_failed much longer than the English": "Ghép đôi không thành công"
+ "a:pairing_failed much longer than the English": "Ghép đôi không thành công",
+ "d:e81db31cad same as the English": "{n} Mbps",
+ "d:85d9ec5e37 same as the English": "{band} GHz, {n} dBm"
 }
