@@ -173,7 +173,7 @@ fn wide(s: &str) -> Vec<u16> {
 
 /// The app icon blended onto the background, in the order GDI wants (blue, green, red, unused).
 fn icon_pixels() -> Vec<u8> {
-    let bg = [0x0f as u32, 0x12, 0x16];
+    let bg = [0x0f_u32, 0x12, 0x16];
     crate::autostart::app_icon_rgba(ICON as u32).chunks(4).flat_map(|p| {
         let a = p[3] as u32;
         let mix = |channel: usize| ((p[channel] as u32 * a + bg[channel] * (255 - a) + 127) / 255) as u8;
