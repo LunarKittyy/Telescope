@@ -4,20 +4,24 @@
     <string name="preview_button">Aperçu</string>
     <string name="close_preview">Fermer l\'aperçu</string>
     <string name="black_screen_button">Écran noir</string>
+    <string name="black_screen_description">Rendre l\'écran noir pendant que la caméra fonctionne toujours</string>
     <string name="black_screen_hint">Touchez deux fois pour réactiver</string>
     <string name="update_available">Mise à jour disponible</string>
     <string name="update_failed_title">La mise à jour n\'a pas abouti</string>
     <string name="update">Mettre à jour</string>
+    <string name="update_found">%1$s est disponible.</string>
     <string name="updating">Mise à jour…</string>
     <string name="try_again">Réessayer</string>
     <string name="update_downloading">%1$s · téléchargement %2$d %%</string>
     <string name="update_installing">%1$s · installation</string>
     <string name="update_stop_streaming_first">%1$s. Arrêtez la diffusion pour mettre à jour.</string>
     <string name="allow_installs_title">Autoriser Telescope à installer des mises à jour</string>
+    <string name="allow_installs_message">Sur l\'écran suivant, activez « Autoriser cette source » et revenez à Telescope.</string>
     <string name="update_error_offline">Échec du téléchargement. Vérifiez la connexion Internet et réessayez.</string>
     <string name="update_error_http">Échec du téléchargement (HTTP %1$d).</string>
     <string name="update_error_too_big">Le fichier téléchargé est plus volumineux que prévu.</string>
     <string name="update_error_cut_short">Le téléchargement a été interrompu. Vérifiez la connexion Internet et réessayez.</string>
+    <string name="update_error_checksum">Le fichier téléchargé ne correspondait pas à sa somme de contrôle et n\'a pas été installé.</string>
     <string name="update_error_save">Impossible d\'enregistrer le fichier téléchargé.</string>
     <string name="update_error_not_an_app">Le fichier téléchargé n\'est pas une application valide.</string>
     <string name="update_error_not_telescope">Le fichier téléchargé n\'est pas Telescope.</string>
@@ -33,14 +37,28 @@
     <string name="setup_camera">Caméra</string>
     <string name="setup_camera_reason">Pour diffuser depuis les caméras de ce téléphone.</string>
     <string name="setup_local_network">Réseau local</string>
+    <string name="setup_local_network_reason">Permet à votre ordinateur de trouver ce téléphone et de s\'y connecter via Wi-Fi. Inutile pour l\'USB.</string>
     <string name="setup_notifications">Notifications</string>
+    <string name="setup_notifications_reason">Voir quand la caméra diffuse et l\'arrêter depuis la notification.</string>
     <string name="setup_microphone">Microphone</string>
     <string name="setup_microphone_reason">Pour le microphone Telescope sur votre ordinateur.</string>
     <string name="setup_battery">Batterie</string>
+    <string name="setup_battery_reason">Empêcher Android d\'interrompre le flux lorsque l\'écran est éteint.</string>
     <string name="setup_allowed">Autorisé</string>
     <string name="allow">Autoriser</string>
     <string name="open_settings">Ouvrir les paramètres</string>
+    <string name="pairing_title">Association</string>
+    <string name="pair_intro">Associez ce téléphone à Telescope sur votre ordinateur pour qu\'il puisse utiliser sa caméra.</string>
+    <string name="pair_a_computer">Associer un ordinateur</string>
+    <string name="manage">Gérer</string>
+    <string name="pair_new">Associer un nouvel appareil</string>
+    <plurals name="computers_paired">
+        <item quantity="one">%1$d ordinateur associé</item>
+        <item quantity="other">%1$d ordinateurs associés</item>
+    </plurals>
+    <string name="manage_computers">Gérer les ordinateurs</string>
     <string name="paired_computers_title">Ordinateurs associés</string>
+    <string name="no_computers_paired">Aucun ordinateur associé.</string>
     <string name="paired_on">Associé le %1$s</string>
     <string name="remove">Retirer</string>
     <string name="cancel">Annuler</string>
@@ -68,6 +86,7 @@
         <item quantity="one">• %1$d autre non essayée - abandon après %2$d secondes</item>
         <item quantity="other">• %1$d autres non essayées - abandon après %2$d secondes</item>
     </plurals>
+    <string name="pairing_advice">Vérifiez que le téléphone et l\'ordinateur sont sur le même réseau Wi-Fi. Un VPN actif peut bloquer l\'accès au réseau local. Activez son option d\'accès au réseau local (LAN) ou suspendez-le. Vous pouvez aussi brancher le téléphone via USB pour l\'associer sans scanner.</string>
     <string name="network_timed_out">délai d\'attente dépassé</string>
     <string name="network_no_route">aucun chemin d\'accès vers l\'hôte</string>
     <string name="network_refused">connexion refusée</string>
@@ -76,6 +95,7 @@
     <string name="local_only">Local uniquement - USB</string>
     <string name="local_only_hint">Seule une connexion USB peut accéder à la caméra.</string>
     <string name="wait_for_computer">Attendre mon ordinateur</string>
+    <string name="wait_for_computer_hint">Permet à un ordinateur associé de démarrer la caméra lorsque l\'écran est éteint.</string>
     <string name="stop_streaming">Arrêter la diffusion</string>
     <string name="status_title">État</string>
     <string name="status_not_streaming">Ne diffuse pas</string>
@@ -84,6 +104,7 @@
     <string name="status_quality">À %1$dp %2$d fps</string>
     <string name="status_waiting_for_computer">En attente de l\'ordinateur</string>
     <string name="status_mic_only">Diffusion du micro, caméra désactivée</string>
+    <string name="status_too_hot">Le téléphone est trop chaud. Le flux est suspendu jusqu\'à ce qu\'il refroidisse.</string>
     <string name="status_camera_taken">Une autre application utilise la caméra. La diffusion reprendra dès qu\'elle sera libérée.</string>
     <string name="streaming_started_remotely">Diffusion démarrée depuis votre ordinateur</string>
     <string name="settings">Paramètres</string>
@@ -102,6 +123,8 @@
     <string name="report_bug">Signaler un problème</string>
     <string name="troubleshooting">Dépannage</string>
     <string name="nightly_updates">Mises à jour Nightly</string>
+    <string name="nightly_updates_hint">Compilé à partir de chaque modification pour des correctifs plus rapides, mais moins testés.</string>
+    <string name="choice_selected">%1$s sélectionné</string>
     <string name="updates_section">Mises à jour</string>
     <string name="check_for_updates">Rechercher des mises à jour</string>
     <string name="translation_draft">Cette traduction est une première ébauche et certains textes peuvent sembler inhabituels.</string>
@@ -120,11 +143,13 @@
     <string name="notif_channel_streaming">Diffusion</string>
     <string name="notif_channel_streaming_desc">S\'affiche pendant que la caméra diffuse vers votre ordinateur</string>
     <string name="notif_channel_waiting">En attente de l\'ordinateur</string>
+    <string name="notif_channel_waiting_desc">Affiché pendant que Telescope attend qu\'un ordinateur associé démarre la caméra</string>
     <string name="notif_streaming_title">Diffusion</string>
     <string name="notif_camera_streaming">La caméra diffuse</string>
     <string name="notif_streaming_usb">Vers %1$s via USB</string>
     <string name="notif_streaming_wifi">Vers %1$s via Wi-Fi</string>
     <string name="notif_mic_streaming">Le microphone diffuse, caméra désactivée</string>
+    <string name="notif_camera_off">Caméra éteinte</string>
     <string name="notif_waiting">En attente de votre ordinateur</string>
     <string name="notif_stop_waiting">Arrêter d\'attendre</string>
 </resources>
