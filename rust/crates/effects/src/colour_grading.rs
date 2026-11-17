@@ -868,11 +868,10 @@ impl ColourGradingPlugin {
     }
 
     fn hear_people(&mut self, host: &mut dyn Host, source_id: &str, people: &[Value]) {
-        if self.auto.busy && self.auto.shared.source().is_some_and(|s| s == source_id) && host.focused_source_id().is_some_and(|f| f == source_id) {
-            if self.auto.shared.hear_people(people.iter().filter_map(Person::from_value).collect(), (self.auto.now)()) {
+        if self.auto.busy && self.auto.shared.source().is_some_and(|s| s == source_id) && host.focused_source_id().is_some_and(|f| f == source_id)
+            && self.auto.shared.hear_people(people.iter().filter_map(Person::from_value).collect(), (self.auto.now)()) {
                 self.auto_released(host);
             }
-        }
     }
 
     fn hear_tracks(&mut self, source_id: &str, tracks: &[Value]) {
@@ -1132,11 +1131,10 @@ impl Plugin for ColourGradingPlugin {
                 self.show_auto(host);
             }
             Event::TimerFired { owner, token } if owner == NAME && token == T_TIMEOUT => self.auto_measured(host),
-            Event::TimerFired { owner, token } if owner == NAME && token == T_HOLD && self.auto.busy => {
-                if self.auto.shared.release() {
+            Event::TimerFired { owner, token } if owner == NAME && token == T_HOLD && self.auto.busy
+                && self.auto.shared.release() => {
                     self.auto_released(host);
                 }
-            }
             _ => {}
         }
         if let Event::RequestDone { request, ok, data, .. } = event {

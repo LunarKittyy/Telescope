@@ -349,16 +349,16 @@ fn timing_moves_the_pairing_target_by_the_offset() {
     let times = |s: &Shot| s.1.map(|t| t * 1_000_000);
     let near_ns = |eye, at: u64| near(eye, at / 1_000_000);
     // the right eye 33 ms later than the left: l3 (166) goes with the right frame nearest to 199, which is r4 (209)
-    let pair = pair_frames(&left_history[2], &right_history[3], times, &near_ns, ms(33));
+    let pair = pair_frames(&left_history[2], &right_history[3], times, near_ns, ms(33));
     assert_eq!((pair.left.0, pair.right.0), ("l3", "r4"));
     // the right eye 33 ms earlier: nearest to 133 is r2 (143)
-    let pair = pair_frames(&left_history[2], &right_history[3], times, &near_ns, ms(-33));
+    let pair = pair_frames(&left_history[2], &right_history[3], times, near_ns, ms(-33));
     assert_eq!((pair.left.0, pair.right.0), ("l3", "r2"));
     // with the right eye later, the left one can be the one that is ahead: r4 less 66 ms is 143, which l2 (133) is nearest to
-    let pair = pair_frames(&left_history[2], &right_history[3], times, &near_ns, ms(66));
+    let pair = pair_frames(&left_history[2], &right_history[3], times, near_ns, ms(66));
     assert_eq!((pair.left.0, pair.right.0), ("l2", "r4"));
     // no offset is the plain pairing
-    let pair = pair_frames(&left_history[2], &right_history[3], times, &near_ns, 0);
+    let pair = pair_frames(&left_history[2], &right_history[3], times, near_ns, 0);
     assert_eq!((pair.left.0, pair.right.0), ("l3", "r3"));
 }
 

@@ -81,7 +81,7 @@ pub fn run(words: &[String]) -> Result<(), String> {
         }
         if name == "colour_grading" {
             if let Some(g) = &grade {
-                for px in buf.chunks_exact_mut(4) {
+                for px in buf.as_chunks_mut::<4>().0 {
                     let mut rgb = [f32::from(px[0]) / 255.0, f32::from(px[1]) / 255.0, f32::from(px[2]) / 255.0];
                     g(&mut rgb);
                     for c in 0..3 {

@@ -342,11 +342,11 @@ fn test_tag(x: usize, y: usize, width: usize, height: usize) -> Tag {
 
 fn yuv_frame(w: usize, h: usize, format: PixelFormat) -> Frame {
     let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
-    let mut data: Vec<u8> = (0..w * h).map(|i| (i * 7 >> 2) as u8).collect();
+    let mut data: Vec<u8> = (0..w * h).map(|i| ((i * 7) >> 2) as u8).collect();
     if format == PixelFormat::Nv12 {
-        data.extend((0..cw * ch * 2).map(|i| (i * 13 >> 1) as u8));
+        data.extend((0..cw * ch * 2).map(|i| ((i * 13) >> 1) as u8));
     } else {
-        data.extend((0..cw * ch * 2).map(|i| (i * 11 >> 1) as u8));
+        data.extend((0..cw * ch * 2).map(|i| ((i * 11) >> 1) as u8));
     }
     Frame::new(w as u32, h as u32, format, data)
 }

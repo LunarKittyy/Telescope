@@ -246,7 +246,7 @@ fn unpack_cleans_up_after_itself_and_takes_what_fits_under_the_ceiling() {
 #[test]
 fn the_ceiling_leaves_room_for_the_real_packs() {
     // The Linux pack unpacks to 135,048,734 bytes
-    assert!(MAX_UNPACKED > 135_048_734 && MAX_UNPACKED < 256 * 1024 * 1024);
+    const { assert!(MAX_UNPACKED > 135_048_734 && MAX_UNPACKED < 256 * 1024 * 1024) };
 }
 
 #[test]

@@ -231,7 +231,7 @@ impl Pipeline {
                 }
                 Err(why) => {
                     // The frame in hand is the last good one, and what the card did after it is lost with it
-                    let lost: Vec<usize> = chain.ahead.drain(..).collect();
+                    let lost: Vec<usize> = std::mem::take(&mut chain.ahead);
                     for &i in &lost {
                         if matches!(self.steps[i].kind, Kind::Shader(_)) {
                             self.steps[i].failed(&why);
@@ -306,13 +306,13 @@ impl Pipeline {
             Ok(()) if sound(frame) => entry.fails = 0,
             Ok(()) => {
                 entry.failed(&format!("handed back {}x{} {:?} with {} bytes", frame.width, frame.height, frame.format, frame.data.len()));
-                *frame = before.clone().unwrap_or_else(|| neutral(size, format, &frame));
+                *frame = before.clone().unwrap_or_else(|| neutral(size, format, frame));
             }
             Err(_) => {
                 entry.failed("it panicked");
                 match &before {
                     Some(before) => *frame = before.clone(),
-                    None if hides || !sound(frame) => *frame = neutral(size, format, &frame),
+                    None if hides || !sound(frame) => *frame = neutral(size, format, frame),
                     None => {}
                 }
             }

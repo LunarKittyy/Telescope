@@ -209,7 +209,7 @@ fn desk_shots() {
     let _english = language("en");
     let desk = card_of(&mut DeskPlugin::new(), "camera");
     let on = json!({"on": true, "active": true});
-    shoot(&dir, "desk-default", &desk, &[on.clone()]);
+    shoot(&dir, "desk-default", &desk, std::slice::from_ref(&on));
     shoot(&dir, "desk-changed", &desk, &[json!({"on": true, "active": true, "stretch": [120, 90], "stretch-text": ["120%", "90%"], "reset-shown": true, "clean-current": 1, "shape-current": 2})]);
     shoot_marked(&dir, "desk-changed", &desk, &[json!({"on": true, "active": true, "stretch": [120, 90], "stretch-text": ["120%", "90%"], "reset-shown": true, "clean-current": 1, "shape-current": 2})], true);
     shoot(&dir, "desk-picking", &desk, &[json!({"on": true, "active": true, "picking": true, "stretch": [100, 100]})]);
@@ -223,7 +223,7 @@ fn framing_shots() {
     let _english = language("en");
     let framing = card_of(&mut FramingPlugin::new(), "vision");
     let on = json!({"on": true, "active": true});
-    shoot(&dir, "framing-default", &framing, &[on.clone()]);
+    shoot(&dir, "framing-default", &framing, std::slice::from_ref(&on));
     shoot(&dir, "framing-changed", &framing, &[json!({"on": true, "active": true, "framing": 20, "speed": 8, "room": 4, "hand": true, "framing-text": "Waist", "speed-text": "Snappy", "room-text": "Step"})]);
     shoot_marked(&dir, "framing-changed", &framing, &[json!({"on": true, "active": true, "framing": 20, "speed": 8, "room": 4, "hand": true, "framing-text": "Waist", "speed-text": "Snappy", "room-text": "Step"})], true);
     shoot(&dir, "framing-unpaired", &framing, &[json!({"on": false, "active": false})]);

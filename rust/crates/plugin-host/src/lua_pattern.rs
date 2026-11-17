@@ -23,7 +23,7 @@ const SPECIALS: &[u8] = b"^$*+?.([%-";
 
 /// Why a match stopped: Lua's own error text, the budget, or the memory a result may take.
 enum Fail {
-    Message(Box<String>),
+    Message(String),
     Budget,
     Memory,
 }
@@ -56,7 +56,7 @@ const NO_MEMORY: &str = "not enough memory";
 type Found = Result<Option<usize>, Fail>;
 
 fn bad<T>(message: impl Into<String>) -> Result<T, Fail> {
-    Err(Fail::Message(Box::new(message.into())))
+    Err(Fail::Message(message.into()))
 }
 
 #[derive(Clone, Copy)]
@@ -474,7 +474,7 @@ fn raise(lua: &Lua, message: impl std::fmt::Display) -> Stop {
 
 fn failed(lua: &Lua, function: &str, fail: Fail) -> Stop {
     match fail {
-        Fail::Message(m) => raise(lua, *m),
+        Fail::Message(m) => raise(lua, m),
         Fail::Budget => raise(
             lua,
             format!("string.{function}: this pattern took too many steps on this text and was stopped. Use a simpler pattern (fewer *, +, - and ? with more pattern after them), cut the text down first, or look for plain text with string.find(text, what, 1, true)"),

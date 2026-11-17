@@ -30,6 +30,7 @@ Then from the repository root:
 cd rust
 cargo run -p telescope-app                      # the app (a build from source keeps its settings in a profile of its own)
 cargo nextest run --workspace --locked          # the tests, run side by side as CI does (cargo install cargo-nextest)
+cargo clippy --workspace --all-targets -- -D warnings   # the lints CI checks
 python tools/i18n.py extract                    # after adding or changing a text, see translating.md
 ```
 

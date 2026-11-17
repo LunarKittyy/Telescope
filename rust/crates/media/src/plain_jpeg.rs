@@ -45,7 +45,7 @@ fn to_i420(w: usize, h: usize, step: usize, pixels: &[u8]) -> Vec<u8> {
             let under = (cy * 2 + 1 < h).then(|| &pixels[(cy * 2 + 1) * w * 3..][..w * 3]);
             match under {
                 Some(under) => {
-                    for (((u, v), a), b) in u.iter_mut().zip(v.iter_mut()).zip(top.chunks_exact(6)).zip(under.chunks_exact(6)) {
+                    for (((u, v), a), b) in u.iter_mut().zip(v.iter_mut()).zip(top.as_chunks::<6>().0).zip(under.as_chunks::<6>().0) {
                         *u = ((a[1] as u32 + a[4] as u32 + b[1] as u32 + b[4] as u32 + 2) >> 2) as u8;
                         *v = ((a[2] as u32 + a[5] as u32 + b[2] as u32 + b[5] as u32 + 2) >> 2) as u8;
                     }
@@ -56,7 +56,7 @@ fn to_i420(w: usize, h: usize, step: usize, pixels: &[u8]) -> Vec<u8> {
                     }
                 }
                 None => {
-                    for ((u, v), a) in u.iter_mut().zip(v.iter_mut()).zip(top.chunks_exact(6)) {
+                    for ((u, v), a) in u.iter_mut().zip(v.iter_mut()).zip(top.as_chunks::<6>().0) {
                         *u = ((a[1] as u32 + a[4] as u32 + 1) >> 1) as u8;
                         *v = ((a[2] as u32 + a[5] as u32 + 1) >> 1) as u8;
                     }

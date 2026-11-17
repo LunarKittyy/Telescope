@@ -100,7 +100,7 @@ fn a_dragged_thumb_stays_under_the_cursor_all_the_way() {
         let y = 20.0 + step as f32 * 8.0;
         move_to(ui, y);
         settle(ui);
-        assert!((thumb_top(&ui) - (y - 20.0)).abs() < 0.01, "cursor at {y}: thumb top {}", thumb_top(&ui));
+        assert!((thumb_top(ui) - (y - 20.0)).abs() < 0.01, "cursor at {y}: thumb top {}", thumb_top(ui));
     }
     // Past the end it waits at the end, and coming back it's under the cursor again
     move_to(ui, 470.0);
@@ -109,7 +109,7 @@ fn a_dragged_thumb_stays_under_the_cursor_all_the_way() {
         let y = 470.0 - step as f32 * 15.0;
         move_to(ui, y);
         let wanted = (y - 20.0).clamp(0.0, TRAVEL);
-        assert!((thumb_top(&ui) - wanted).abs() < 0.01, "cursor at {y}: thumb top {}", thumb_top(&ui));
+        assert!((thumb_top(ui) - wanted).abs() < 0.01, "cursor at {y}: thumb top {}", thumb_top(ui));
     }
     release(ui, AT.x, 20.0);
 }
@@ -251,7 +251,7 @@ fn focus_rings_show_for_the_keyboard_and_not_after_a_click() {
     let ui = &window(RING);
     click(ui, 50.0, 75.0);
     assert_eq!(num(ui, "ring"), 0.0, "focused by a click: no ring");
-    input::focus_key(&ui);
+    input::focus_key(ui);
     assert_eq!(num(ui, "ring"), 2.0, "the keyboard came into it");
     click(ui, 500.0, 400.0);
     assert_eq!(num(ui, "ring"), 0.0, "and a click anywhere ends that");

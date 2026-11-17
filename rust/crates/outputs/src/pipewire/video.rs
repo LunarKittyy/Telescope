@@ -230,7 +230,8 @@ impl StreamHandler for Handler {
                 break;
             }
             if !newest.is_null() {
-                stream.queue(newest);
+                // SAFETY: the buffer was dequeued from this stream and is queued once here
+                unsafe { stream.queue(newest) };
             }
             newest = next;
         }
@@ -238,7 +239,8 @@ impl StreamHandler for Handler {
             return;
         }
         let Some(negotiated) = self.negotiated else {
-            stream.queue(newest);
+            // SAFETY: the buffer was dequeued from this stream and is queued once here
+            unsafe { stream.queue(newest) };
             return;
         };
         // This runs with the loop locked, so nothing here may take long: the picture is only noted, and the reader's thread copies it
@@ -246,25 +248,32 @@ impl StreamHandler for Handler {
         match unsafe { take_shot(newest, negotiated) } {
             Ok(Taken::Shot(shot)) => {
                 let Ok(mut state) = self.slot.state.lock() else {
-                    stream.queue(newest);
+                    // SAFETY: the buffer was dequeued from this stream and is queued once here
+                    unsafe { stream.queue(newest) };
                     return;
                 };
                 if let Some(older) = state.parked.replace(Parked { buffer: newest, shot }) {
-                    stream.queue(older.buffer);
+                    // SAFETY: the buffer was dequeued from this stream and is queued once here
+                    unsafe { stream.queue(older.buffer) };
                 }
                 drop(state);
                 self.slot.arrived.notify_all();
             }
             Ok(Taken::Frame(frame)) => {
-                stream.queue(newest);
+                // SAFETY: the buffer was dequeued from this stream and is queued once here
+                unsafe { stream.queue(newest) };
                 if let Ok(mut state) = self.slot.state.lock() {
                     state.frame = Some(frame);
                 }
                 self.slot.arrived.notify_all();
             }
-            Ok(Taken::Nothing) => stream.queue(newest),
+            Ok(Taken::Nothing) => {
+                // SAFETY: the buffer was dequeued from this stream and is queued once here
+                unsafe { stream.queue(newest) };
+            }
             Err(message) => {
-                stream.queue(newest);
+                // SAFETY: the buffer was dequeued from this stream and is queued once here
+                unsafe { stream.queue(newest) };
                 self.slot.fail(message);
             }
         }
@@ -562,7 +571,8 @@ impl VideoConsumer {
                 Err(_) => true,
             };
             if !removed {
-                stream.queue(buffer);
+                // SAFETY: the buffer was dequeued from this stream and is queued once here
+                unsafe { stream.queue(buffer) };
             }
         });
     }

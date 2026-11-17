@@ -2096,7 +2096,7 @@ mod tests {
                 self.1.notify_all();
                 let number = st.1;
                 drop(st);
-                if number % 2 == 0 {
+                if number.is_multiple_of(2) {
                     std::thread::sleep(self.2);
                 }
                 number
@@ -3203,8 +3203,8 @@ mod tests {
         let (on, looks, here) = card_asked(Some("vaapi"), false, true);
         assert_eq!((on, looks > 0, here), (cfg!(target_os = "linux"), cfg!(target_os = "linux"), false));
         // Another kind of card, or none, stays in software until it's turned on
-        assert_eq!(card_asked(Some("cuda"), false, true).0, false);
-        assert_eq!(card_asked(None, false, true).0, false);
+        assert!(!card_asked(Some("cuda"), false, true).0);
+        assert!(!card_asked(None, false, true).0);
         // A choice made in Setup is not second-guessed, and costs no look for the card
         assert_eq!(card_asked(Some("vaapi"), false, false), (false, 0, false));
         assert_eq!(card_asked(None, true, false), (true, 0, false));
@@ -4061,7 +4061,7 @@ mod tests {
         let (received, delivered, paced) = run_with_gaps("five-test", &five);
         assert_eq!((received, delivered + paced), (90, 90), "every frame went out or was counted as skipped");
         // Windows timers tick every 15.6 ms and CI runners stall too, so the camera can fall behind a clump of five and skip some
-        assert!(paced <= if cfg!(windows) { 9 } else { 0 }, "a clump of five dropped {paced} of 90 frames");
+        assert!(if cfg!(windows) { paced <= 9 } else { paced == 0 }, "a clump of five dropped {paced} of 90 frames");
         // Three 4 ms apart, then 92 ms
         let three: Vec<u64> = (0..90).map(|i| if i % 3 == 2 { 92 } else { 4 }).collect();
         assert_eq!(run_with_gaps("three-test", &three), (90, 90, 0));

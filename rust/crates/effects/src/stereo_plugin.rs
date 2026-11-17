@@ -1225,11 +1225,10 @@ impl Plugin for StereoPlugin {
                 self.show(host);
             }
             Event::TimerFired { owner, token } if owner == NAME && token == MATCH_TIMER => self.match_tick(host),
-            Event::TimerFired { owner, token } if owner == NAME && token == BRIGHTNESS_TIMER => {
-                if self.brightness_waits {
+            Event::TimerFired { owner, token } if owner == NAME && token == BRIGHTNESS_TIMER
+                && self.brightness_waits => {
                     self.push_brightness(host, monotonic_ns());
                 }
-            }
             _ => {}
         }
     }

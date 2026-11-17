@@ -189,7 +189,7 @@ impl Canvas {
             let row = rows.start + i;
             let from = &image.data[(row * image.w + cols.start) * 4..(row * image.w + cols.end) * 4];
             let to = (x + cols.start as i64) as usize * 4;
-            for (d, p) in line[to..to + from.len()].chunks_exact_mut(4).zip(from.chunks_exact(4)) {
+            for (d, p) in line[to..to + from.len()].as_chunks_mut::<4>().0.iter_mut().zip(from.as_chunks::<4>().0) {
                 blend_pixel(d, [p[2], p[1], p[0]], p[3] as f32 / 255.0);
             }
         });
@@ -525,7 +525,7 @@ fn paint_moving(canvas: &mut Canvas, look: &Look, level: Option<(Level, f64)>, s
 fn smooth_scale(src: &[u8], w: usize, h: usize, tw: usize, th: usize) -> Vec<u8> {
     // The source's colour already multiplied by its alpha, once for each pixel instead of for every time it's read
     let premultiplied: Vec<[f32; 4]> = src
-        .chunks_exact(4)
+        .as_chunks::<4>().0.iter()
         .take(w * h)
         .map(|p| {
             let a = p[3] as f32 / 255.0;
@@ -546,7 +546,7 @@ fn smooth_scale(src: &[u8], w: usize, h: usize, tw: usize, th: usize) -> Vec<u8>
         let (y0, fy) = (sy.floor() as usize, sy.fract());
         let y1 = (y0 + 1).min(h - 1);
         let (upper, lower) = (&premultiplied[y0 * w..][..w], &premultiplied[y1 * w..][..w]);
-        for (o, &(x0, x1, fx)) in line.chunks_exact_mut(4).zip(&columns) {
+        for (o, &(x0, x1, fx)) in line.as_chunks_mut::<4>().0.iter_mut().zip(&columns) {
             let (a, b, c, d) = (&upper[x0], &upper[x1], &lower[x0], &lower[x1]);
             let mix: [f32; 4] = std::array::from_fn(|i| (a[i] * (1.0 - fx) + b[i] * fx) * (1.0 - fy) + (c[i] * (1.0 - fx) + d[i] * fx) * fy);
             let alpha = mix[3] / 255.0;

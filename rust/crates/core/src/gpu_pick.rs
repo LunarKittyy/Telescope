@@ -200,7 +200,7 @@ mod tests {
         let dx12 = info(0x8086, 0x591b, "Intel", "31.0.101.2141");
         let other = info(0x8086, 0x1234, "Intel", "1.2.3.4");
         assert_eq!(driver_text(&vulkan, &[vulkan.clone(), other, dx12.clone()]), "Intel Corporation 31.0.101.2141");
-        assert_eq!(driver_text(&vulkan, &[vulkan.clone()]), "Intel Corporation Intel driver");
+        assert_eq!(driver_text(&vulkan, std::slice::from_ref(&vulkan)), "Intel Corporation Intel driver");
         assert_eq!(driver_text(&dx12, &[vulkan, dx12.clone()]), "Intel 31.0.101.2141");
     }
 

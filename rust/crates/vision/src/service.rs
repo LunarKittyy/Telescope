@@ -568,7 +568,7 @@ impl Vision {
                 n = sv.mask_done.wait_timeout(n, left).unwrap().0;
             }
         }
-        let Some(made) = n.mask.as_ref().filter(|m| m.epoch == epoch && m.usable(w, h)) else { return None };
+        let made = n.mask.as_ref().filter(|m| m.epoch == epoch && m.usable(w, h))?;
         if (made.w, made.h) == (w, h) {
             return Some(made.mask.clone());
         }

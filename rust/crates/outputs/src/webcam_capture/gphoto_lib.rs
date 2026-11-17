@@ -923,7 +923,7 @@ mod tests {
             cap.read().unwrap();
         }
         // The dial turned to a scene mode: the list empties without anyone asking for it
-        for (_, (ro, _, _)) in state.lock().unwrap().settings.iter_mut() {
+        for (ro, _, _) in state.lock().unwrap().settings.values_mut() {
             *ro = true;
         }
         wait_for("the list to empty", || controls.list().is_empty());

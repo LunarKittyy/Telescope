@@ -15,7 +15,7 @@ Check them first: no pairing QR codes, phone names, IP addresses or home folder 
 
 ## Checks
 <!-- Tick what you ran, delete what doesn't apply. -->
-- [ ] Desktop: `cargo nextest run --workspace --locked` in `rust/`
+- [ ] Desktop: `cargo nextest run --workspace --locked` and `cargo clippy --workspace --locked --all-targets -- -D warnings` in `rust/`
 - [ ] Android: `./gradlew lintDebug testDebugUnitTest` in `android/`
 - [ ] README, `docs/` or `rust/ARCHITECTURE.md` updated, if something users see, the protocol or a crate's job changed
 

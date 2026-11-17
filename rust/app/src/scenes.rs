@@ -1450,7 +1450,8 @@ mod tests {
         let size = (940.0, 300.0);
         let scene = Scene::new("tab-settings", move || Setup {
             then: Some(Box::new(move |w| {
-                for tab in ["video"] {
+                {
+                    let tab = "video";
                     telescope_shell::settings::open(w, tab);
                     let settings = telescope_shell::settings::current().expect("the settings window");
                     settings.ui.window().set_size(slint::LogicalSize::new(size.0, size.1));

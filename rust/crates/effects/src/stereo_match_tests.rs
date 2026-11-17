@@ -130,12 +130,8 @@ fn a_narrow_middle_doesnt_crush_the_blacks_or_clip_the_whites() {
     // the middle of both pictures only has values from 100 to 150 (left) and 80 to 120 (right), but the rest of the right picture has more
     let (mut from, mut to): (Hist, Hist) = ([[0; 256]; 3], [[0; 256]; 3]);
     for c in 0..3 {
-        for v in 80..=120 {
-            from[c][v] = 10;
-        }
-        for v in 100..=150 {
-            to[c][v] = 10;
-        }
+        from[c][80..=120].fill(10);
+        to[c][100..=150].fill(10);
     }
     let lut = fit_lut(&from, &to);
     for line in &lut.0 {

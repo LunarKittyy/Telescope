@@ -34,7 +34,7 @@ fn cards() -> Vec<(String, String)> {
         .collect()
 }
 
-fn lines<'a>(text: &'a str) -> impl Iterator<Item = (usize, &'a str)> {
+fn lines(text: &str) -> impl Iterator<Item = (usize, &str)> {
     text.lines().enumerate().map(|(i, l)| (i + 1, l)).filter(|(_, l)| !l.trim_start().starts_with("//"))
 }
 

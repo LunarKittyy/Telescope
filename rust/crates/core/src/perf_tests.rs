@@ -46,7 +46,7 @@ fn stage_times_are_summed_up_over_the_latest_ones() {
 
 #[test]
 fn milliseconds_are_short() {
-    assert_eq!((ms(0.04), ms(3.14159), ms(9.96), ms(10.4), ms(2010.0)), ("0.0".into(), "3.1".into(), "10.0".into(), "10".into(), "2010".into()));
+    assert_eq!((ms(0.04), ms(3.12159), ms(9.96), ms(10.4), ms(2010.0)), ("0.0".into(), "3.1".into(), "10.0".into(), "10".into(), "2010".into()));
 }
 
 #[test]

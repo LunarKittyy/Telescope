@@ -277,7 +277,7 @@ impl Codec {
                 None if parse => {
                     (*c.ctx).thread_count = threads.count;
                     if threads.whole_frames {
-                        (*c.ctx).thread_type = ff::FF_THREAD_FRAME as i32;
+                        (*c.ctx).thread_type = ff::FF_THREAD_FRAME;
                     }
                 }
                 None => {}
@@ -1142,7 +1142,7 @@ pub(crate) mod decode_bench {
                     let maxlag = r.lag.iter().copied().max().unwrap_or(0);
                     let row = (per, pct(&r.per_packet_ms, 0.5), pct(&r.per_packet_ms, 0.99), maxlag, r.frames.len(), digest(&r.frames), active.0);
                     let _ = active.1;
-                    if best.map_or(true, |b| row.0 < b.0) {
+                    if best.is_none_or(|b| row.0 < b.0) {
                         best = Some(row);
                     }
                 }

@@ -273,7 +273,7 @@ fn the_held_bubbles_top_edge_is_one_pixel_row_from_end_to_end_at_every_scale() {
         }
         let pic = offscreen::draw(ui.window(), w, h, scale).unwrap();
         let accent = [0xaa, 0x9c, 0xf5];
-        let near = |i: usize| (0..3).all(|c| (pic.rgba[i + c] as i32 - accent[c] as i32).abs() < 40);
+        let near = |i: usize| (0..3).all(|c| (pic.rgba[i + c] as i32 - accent[c]).abs() < 40);
         let width = pic.width as usize;
         // For each column, the first row (from the top of the bubble area) that is the outline's colour
         let mut tops = Vec::new();

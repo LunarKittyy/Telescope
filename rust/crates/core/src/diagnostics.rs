@@ -627,7 +627,7 @@ fn windows_version() -> (u32, u32, u32) {
 
 /// A line the report keeps however old it is: a warning, an error, a crash or the start of a run.
 fn matters(line: &str) -> bool {
-    matches!(line.splitn(4, ' ').nth(2), Some("WARNING" | "ERROR" | "CRASH" | "START"))
+    matches!(line.split(' ').nth(2), Some("WARNING" | "ERROR" | "CRASH" | "START"))
 }
 
 /// The lines (oldest first) the report keeps: the last `tail` and every one that matters, within room bytes by dropping the oldest ordinary ones first.

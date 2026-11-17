@@ -615,7 +615,7 @@ fn click_wait(press_elsewhere: bool) {
     let ui = make(WAIT_DOC, 300.0, 200.0);
     step(500);
     offscreen::draw(ui.window(), 300.0, 200.0, 1.0);
-    let find = |label: &str| ElementHandle::find_by_accessible_label(&ui, label).filter(|e| e.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::Slider)).next().unwrap_or_else(|| panic!("no {label}"));
+    let find = |label: &str| ElementHandle::find_by_accessible_label(&ui, label).find(|e| e.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::Slider)).unwrap_or_else(|| panic!("no {label}"));
     let (a, b) = (find("Level"), find("Elsewhere"));
     let (pa, sa) = (a.absolute_position(), a.size());
     let (pb, sb) = (b.absolute_position(), b.size());

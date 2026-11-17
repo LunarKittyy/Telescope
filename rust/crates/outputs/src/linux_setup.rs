@@ -474,7 +474,7 @@ mod tests {
             let line = options_line(shape);
             assert!(line.starts_with("options v4l2loopback ") && line.ends_with('\n'));
             for (k, v) in params(shape) {
-                assert!(line.contains(&k) && line.contains(&v));
+                assert!(line.contains(k) && line.contains(&v));
             }
         }
     }

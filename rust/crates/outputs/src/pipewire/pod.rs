@@ -142,7 +142,7 @@ fn header(out: &mut Vec<u8>, size: u32, kind: u32) {
 }
 
 fn pad(out: &mut Vec<u8>) {
-    while out.len() % 8 != 0 {
+    while !out.len().is_multiple_of(8) {
         out.push(0);
     }
 }
@@ -191,6 +191,9 @@ impl ObjectPod {
     }
 
     /// The pod at `pod`, which libpipewire hands to a callback. Needs null or a whole valid pod for the length of the call.
+    ///
+    /// # Safety
+    /// `pod` must be null or point at a whole valid pod that stays readable for the length of the call.
     pub unsafe fn from_ptr(pod: *const u8) -> Option<ObjectPod> {
         if pod.is_null() {
             return None;

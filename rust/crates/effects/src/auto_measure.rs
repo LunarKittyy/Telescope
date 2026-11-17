@@ -412,6 +412,8 @@ fn tone(rgb: &Rgb, background: &[bool]) -> ToneFrame {
     let n = rgb.w * rgb.h;
     let (mut all, mut bg) = ([0u32; 256], [0u32; 256]);
     let (mut white, mut black, mut near, mut chroma_sum, mut chroma_n) = (0usize, 0usize, 0usize, 0.0f32, 0usize);
+    // i also indexes the pixels through px_at
+    #[allow(clippy::needless_range_loop)]
     for i in 0..n {
         let p = px_at(rgb, i);
         let top = p[0].max(p[1]).max(p[2]);

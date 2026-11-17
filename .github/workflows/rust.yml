@@ -84,6 +84,10 @@ jobs:
         with:
           tool: cargo-nextest@0.9.150
 
+      # Lints switched off on purpose are in rust/Cargo.toml under [workspace.lints.clippy]
+      - name: Clippy
+        run: cargo clippy --workspace --locked --all-targets -- -D warnings
+
       # Tests run side by side and only failures print. rust/.config/nextest.toml has what can't share a machine
       - name: Test
         run: cargo nextest run --workspace --locked
@@ -127,6 +131,9 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest@0.9.150
+
+      - name: Clippy
+        run: cargo clippy --workspace --locked --all-targets --features telescope-app/ffmpeg-windows -- -D warnings
 
       - name: Test
         run: cargo nextest run --workspace --locked --features telescope-app/ffmpeg-windows

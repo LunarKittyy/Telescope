@@ -49,3 +49,6 @@ i-slint-core = "=1.18.1"
 slint-interpreter.workspace = true
 slint.workspace = true
 telescope-ui-kit.workspace = true
+
+[lints]
+workspace = true

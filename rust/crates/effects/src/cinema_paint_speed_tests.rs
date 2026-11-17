@@ -20,7 +20,7 @@ fn a_scope_scales_to_the_byte_as_it_did_before_it_was_sped_up() {
     for (w, h, tw, th, seed) in [(8, 4, 5, 3, 1), (256, 100, 1382, 540, 2), (256, 256, 90, 120, 3), (1, 1, 7, 7, 4), (3, 9, 1, 1, 5), (64, 48, 64, 48, 6)] {
         let mut src = noise(w * h * 4, seed);
         // Runs of clear and solid pixels as scopes have, between the in-between ones
-        for (i, p) in src.chunks_exact_mut(4).enumerate() {
+        for (i, p) in src.as_chunks_mut::<4>().0.iter_mut().enumerate() {
             p[3] = match i % 5 {
                 0 => 0,
                 1 => 255,
@@ -48,7 +48,7 @@ fn blend_before(d: &mut [u8], rgb: [u8; 3], alpha: f32) {
 fn blending_a_pixel_gives_the_bytes_it_always_did() {
     let bytes = noise(4 * 4000, 7);
     let mut checked = 0;
-    for (n, d) in bytes.chunks_exact(4).enumerate() {
+    for (n, d) in bytes.as_chunks::<4>().0.iter().enumerate() {
         for alpha in [1.0f32, 1e-9, 0.003, 0.25, 0.5, 0.999, (n % 256) as f32 / 255.0, (n * 7 % 256) as f32 * 0.7 / 255.0] {
             if alpha <= 0.0 {
                 continue;

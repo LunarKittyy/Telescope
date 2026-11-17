@@ -11,7 +11,7 @@ Both apps are translatable. New UI text goes in `android/.../res/values/strings.
 `./gradlew installDev` in `android/` and `cargo run -p telescope-app -- dev --keep` in `rust/` give a dev app and dev desktop that pair with each other and leave the real installs alone (see `docs/building.md`).
 
 ## Checks
-- Desktop: `cargo nextest run --workspace --locked` in `rust/`
+- Desktop: `cargo nextest run --workspace --locked` and `cargo clippy --workspace --locked --all-targets -- -D warnings` in `rust/`
 - Android: `./gradlew lintDebug testDebugUnitTest` in `android/`
 
 ## Commits and PRs

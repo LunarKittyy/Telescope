@@ -42,7 +42,7 @@ For anything bigger than a small fix, open an issue or comment on one first to a
 
 Run the checks for what you changed before opening a pull request:
 
-- Desktop: `cargo nextest run --workspace --locked` in `rust/`
+- Desktop: `cargo nextest run --workspace --locked` and `cargo clippy --workspace --locked --all-targets -- -D warnings` in `rust/`
 - Android: `./gradlew lintDebug testDebugUnitTest` in `android/`
 
 Keep the diff to your change. Don't reformat lines you didn't touch and only write comments that explain a non-obvious why. If something users see changes, update `docs/` in the same pull request.

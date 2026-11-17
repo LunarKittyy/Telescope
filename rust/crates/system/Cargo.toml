@@ -30,3 +30,6 @@ telescope-ui-kit.workspace = true
 [[test]]
 name = "terminate"
 harness = false
+
+[lints]
+workspace = true

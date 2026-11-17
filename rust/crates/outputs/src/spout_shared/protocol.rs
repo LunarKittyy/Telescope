@@ -86,7 +86,7 @@ impl ChannelOrder {
         match format {
             0 | 87 | 90 | 91 => Some(ChannelOrder::Bgra),
             88 | 92 | 93 => Some(ChannelOrder::Bgrx),
-            27 | 28 | 29 => Some(ChannelOrder::Rgba),
+            27..=29 => Some(ChannelOrder::Rgba),
             _ => None,
         }
     }

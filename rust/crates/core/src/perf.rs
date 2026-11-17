@@ -49,10 +49,10 @@ pub struct PeakWatch(usize);
 impl PeakWatch {
     /// None when every slot is taken.
     pub fn claim() -> Option<PeakWatch> {
-        for w in 0..WATCHERS {
+        for (w, peaks) in PEAKS.iter().enumerate() {
             let bit = 1u32 << w;
             if ACTIVE.fetch_or(bit, Ordering::AcqRel) & bit == 0 {
-                for p in &PEAKS[w] {
+                for p in peaks {
                     p.store(0, Ordering::Relaxed);
                 }
                 return Some(PeakWatch(w));

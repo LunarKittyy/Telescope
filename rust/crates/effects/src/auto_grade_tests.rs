@@ -423,6 +423,8 @@ fn fitted_results_run_the_same_through_the_real_pipeline_and_the_cpu_step() {
         let (mut worst_cpu, mut worst_math) = (0i32, 0i32);
         for i in (0..W * H).step_by(53) {
             let want = grade.eval([frame.data[i * 4], frame.data[i * 4 + 1], frame.data[i * 4 + 2]].map(|v| v as f32 / 255.0));
+            // c also picks the channel in the pixel data
+            #[allow(clippy::needless_range_loop)]
             for c in 0..3 {
                 worst_cpu = worst_cpu.max((through.data[i * 4 + c] as i32 - cpu.data[i * 4 + c] as i32).abs());
                 worst_math = worst_math.max((through.data[i * 4 + c] as i32 - (want[c] * 255.0).round() as i32).abs());
