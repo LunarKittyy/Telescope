@@ -476,7 +476,7 @@ impl SpoutPlugin {
         self.render(host);
     }
 
-    /// Senders that are gone leave the picker, unless they stream: those wait to be back.
+    /// Senders that are gone leave the picker, unless they stream or are picked: those wait to be back.
     fn drop_gone(&mut self, host: &mut dyn Host) {
         let keys: Vec<String> = self.sources.keys().cloned().collect();
         for key in keys {
@@ -484,7 +484,8 @@ impl SpoutPlugin {
                 continue;
             }
             let id = self.sources[&key].id();
-            if host.is_streaming_from(Some(&id)) {
+            // A picked one stays, or the picker would jump to another source by itself
+            if host.is_streaming_from(Some(&id)) || key == self.selected_key {
                 self.states.insert(key, ("gone".into(), String::new()));
                 continue;
             }
@@ -620,6 +621,7 @@ impl Plugin for SpoutPlugin {
                 let key = source_id.strip_prefix(SOURCE_PREFIX).unwrap_or("").to_string();
                 if key != self.selected_key {
                     self.selected_key = key;
+                    self.drop_gone(host); // the one picked before may be waiting for a sender that's gone
                     self.render(host);
                 }
             }

@@ -153,6 +153,24 @@ fn a_sender_that_stopped_leaves_once_its_stream_stops() {
 }
 
 #[test]
+fn a_picked_sender_that_stops_stays_picked_until_another_source_is() {
+    let mut env = env();
+    pick(&mut env, Some("Cam"));
+    env.backend.senders.lock().unwrap().clear();
+    scan(&mut env);
+    assert!(env.plugin.sources.contains_key("Cam"), "the picker keeps it");
+    assert_eq!(status(&env), "Sender not running");
+    env.backend.senders.lock().unwrap().push(cam());
+    scan(&mut env);
+    assert!(env.host.calls.iter().filter(|c| *c == "add_stream_source spout:Cam").count() == 1, "it keeps its source");
+    env.backend.senders.lock().unwrap().clear();
+    scan(&mut env);
+    pick(&mut env, Some("other"));
+    assert!(!env.plugin.sources.contains_key("Cam"));
+    assert!(env.host.calls.contains(&"remove_stream_source spout:Cam".to_string()), "{:?}", env.host.calls);
+}
+
+#[test]
 fn start_on_a_sender_that_stopped_since_it_was_picked_says_so() {
     let mut env = env();
     let src = env.plugin.sources["Cam"].clone();
