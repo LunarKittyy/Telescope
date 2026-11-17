@@ -52,9 +52,9 @@ An optional early version that's still in Lab (switch it on under **Streaming an
 
 ## Several cameras at once
 
-Click the **+** next to Stop while streaming to add another phone (or Browser camera, or a webcam), up to four in total. Each gets its own virtual camera: **Phone Camera 2** to **4** on Linux and **Telescope #2** to **#4** on Windows.
+Click the **+** next to Stop while streaming to add another phone (or Browser camera, or a webcam), up to four in total. Each gets its own virtual camera, called **Telescope #2** to **#4**.
 
-- Telescope adds those cameras the first time and asks for your password (Linux) or permission (Windows). **Extra cameras** under Virtual camera & phone in Settings removes them again
+- Telescope adds those cameras the first time and asks for your password (Linux) or permission (Windows). **Extra cameras** under Virtual camera & phone in Settings removes them again. On Linux, if **Load when the computer starts** is on, they're there again after a restart too
 - A row of tiles shows every stream, which camera it goes to and whether it's live. Click a tile to bring its settings into the panels. The **x** on a tile stops only that stream and Stop stops them all
 - Picture effects belong to the camera you set them on. Turning on a Fun pack look, Background, Chroma key, Auto framing, Expose for my face or a Name tag for one stream leaves the others as they were, like Transforms, Desk mode and Colour grading always did
 - A phone gets the same virtual camera slot as last time if it's free, to lower the need for redoing OBS scenes

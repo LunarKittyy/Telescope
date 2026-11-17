@@ -24,7 +24,7 @@
 
 1. **Descarga la app de escritorio.** En Windows ejecuta `TelescopeSetup.exe` (se instala solo para tu usuario y no necesita permisos de administrador). En Linux descomprime el archivo y ejecuta `./start.sh`.
 2. **Sigue la lista de pasos que aparece al abrirla.** Te guía para configurar la cámara virtual, instalar la app en tu teléfono mediante un código QR y vincular ambas apps.
-3. **Elige la cámara en tu app.** En Discord, Zoom, OBS o cualquier otra app que use una cámara web, la encontrarás como **Telescope** en Windows y **Phone Camera** en Linux.
+3. **Elige la cámara en tu app.** En Discord, Zoom, OBS o cualquier otra app que use una cámara web, la encontrarás como **Telescope**.
 
 <details>
 <summary>Qué necesita Linux</summary>

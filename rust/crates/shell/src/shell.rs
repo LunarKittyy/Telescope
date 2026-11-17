@@ -2651,9 +2651,9 @@ mod tests {
         use telescope_core::host::{HostStreams, OutputChange};
         let mut s = state();
         s.register(Box::new(Hears("stream_output".into(), Arc::default()))).unwrap();
-        s.streams.cameras = vec![CameraUse { source_id: "phone-1".into(), slot: 0, label: "Phone Camera".into(), size: Some((1920, 1080)) }];
+        s.streams.cameras = vec![CameraUse { source_id: "phone-1".into(), slot: 0, label: "Telescope".into(), size: Some((1920, 1080)) }];
         let answers = s.call(0, |_, host| (host.stream_output("phone-1"), host.stream_on_camera(0), host.stream_on_camera(1)));
-        assert_eq!(answers, Some(("Phone Camera".to_string(), Some(("phone-1".to_string(), Some(1920), Some(1080))), None)));
+        assert_eq!(answers, Some(("Telescope".to_string(), Some(("phone-1".to_string(), Some(1920), Some(1080))), None)));
         let change = OutputChange { width: None, height: None, fps: Some(Some(60)) };
         s.call(0, |_, host| host.update_stream_output(change, None));
         assert!(s.effects.iter().any(|e| matches!(e, Effect::UpdateOutput { change: c, source_id: None } if c.fps == Some(Some(60)))));

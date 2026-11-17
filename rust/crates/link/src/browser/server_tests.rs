@@ -595,8 +595,8 @@ fn the_page_hears_which_camera_it_streams_to() {
     let (run, hub) = hub_server();
     let mut b = run.browser("pixel-aaaaaaaa");
     assert!(b.recv_json().get("camera").is_none());
-    hub.feed("pixel-aaaaaaaa").unwrap().set_camera("Phone Camera 2");
-    assert_eq!(b.recv_json()["camera"], "Phone Camera 2");
+    hub.feed("pixel-aaaaaaaa").unwrap().set_camera("Telescope #2");
+    assert_eq!(b.recv_json()["camera"], "Telescope #2");
     drop(b);
     assert!(wait(|| !hub.feed("pixel-aaaaaaaa").unwrap().connected(), FIVE));
     hub.drop_feed("pixel-aaaaaaaa");

@@ -19,8 +19,6 @@ pub const SYSFS: &str = "/sys/class/video4linux";
 pub use telescope_core::output::V4L2_PHONE_DEV as PHONE_DEV;
 /// The other node the setup makes, for OBS.
 pub const OBS_DEV: &str = "/dev/video10";
-/// Its card_label, which is how other apps list it.
-pub const PHONE_LABEL: &str = "Phone Camera";
 
 #[repr(C)]
 struct PixFormat {
@@ -79,10 +77,7 @@ pub fn wire_format(width: u32, height: u32) -> (u32, u32, u32) {
     }
 }
 
-/// What apps list slot's camera as on Linux.
-pub fn slot_label(slot: u32) -> String {
-    if slot == 0 { PHONE_LABEL.into() } else { format!("{PHONE_LABEL} {}", slot + 1) }
-}
+pub use crate::linux_setup::slot_label;
 
 /// The first device under sysfs whose name is label, else None.
 pub fn find_by_label_in(sysfs: &str, label: &str) -> Option<String> {
@@ -101,12 +96,12 @@ pub fn find_by_label(label: &str) -> Option<String> {
 }
 
 /// slot's /dev/video node, or None if it isn't set up (vcam.slot_device). The extra ones took whatever number was
-/// free, so they're found by their label.
+/// free, so they're found by their label, the current one first and then the one older setups still have.
 pub fn slot_device_in(sysfs: &str, slot: u32) -> Option<String> {
     if slot == 0 {
         return Some(PHONE_DEV.into());
     }
-    find_by_label_in(sysfs, &slot_label(slot))
+    crate::linux_setup::slot_labels(slot).iter().find_map(|label| find_by_label_in(sysfs, label))
 }
 
 /// Whether slot's camera is set up to stream to (the first one is whenever Telescope is).
@@ -228,22 +223,33 @@ mod tests {
     // test_vcam.py::test_extra_slots_are_found_by_their_label
     #[test]
     fn extra_slots_are_found_by_their_label() {
-        let dir = sysfs(&[("video11", "Phone Camera", ""), ("video20", "Phone Camera 3", ""), ("video21", "Other", "")]);
+        let dir = sysfs(&[("video11", "Telescope", ""), ("video20", "Telescope #3", ""), ("video21", "Other", "")]);
         let root = dir.to_string_lossy();
         assert_eq!(slot_device_in(&root, 0).as_deref(), Some(PHONE_DEV));
         assert_eq!(slot_device_in(&root, 2).as_deref(), Some("/dev/video20"));
         assert_eq!(slot_device_in(&root, 1), None);
         assert!(slot_ready_in(&root, 2) && !slot_ready_in(&root, 1) && slot_ready_in(&root, 0));
         let Err(why) = crate::open_node(slot_device_in(&root, 1), 1, 4, 4, 30) else { panic!("an unset slot opened") };
-        assert!(why.contains("Phone Camera 2"), "{why}");
-        assert_eq!(slot_label(0), "Phone Camera");
-        assert_eq!(slot_label(3), "Phone Camera 4");
+        assert!(why.contains("Telescope #2"), "{why}");
+        assert_eq!(slot_label(0), "Telescope");
+        assert_eq!(slot_label(3), "Telescope #4");
+    }
+
+    #[test]
+    fn extra_slots_are_found_under_either_name() {
+        let dir = sysfs(&[("video20", "Phone Camera 3", ""), ("video21", "Telescope #4", ""), ("video22", "Phone Camera 2", ""), ("video23", "Telescope #2", "")]);
+        let root = dir.to_string_lossy();
+        assert_eq!(slot_device_in(&root, 2).as_deref(), Some("/dev/video20"));
+        assert_eq!(slot_device_in(&root, 3).as_deref(), Some("/dev/video21"));
+        assert_eq!(slot_device_in(&root, 1).as_deref(), Some("/dev/video23"), "the new name wins over the old one");
+        let old_only = sysfs(&[("video20", "Phone Camera 2", "")]);
+        assert_eq!(slot_device_in(&old_only.to_string_lossy(), 1).as_deref(), Some("/dev/video20"));
     }
 
     // test_stream.py::test_another_slot_opens_its_own_camera, the Linux half
     #[test]
     fn another_slot_opens_its_own_device() {
-        let dir = sysfs(&[("video9942", "Phone Camera 3", "")]);
+        let dir = sysfs(&[("video9942", "Telescope #3", "")]);
         let device = slot_device_in(&dir.to_string_lossy(), 2);
         assert_eq!(device.as_deref(), Some("/dev/video9942"));
         let Err(why) = crate::open_node(device, 2, 4, 4, 30) else { panic!("no such device here") };
@@ -254,7 +260,7 @@ mod tests {
     #[test]
     fn locked_size_reads_the_drivers_format() {
         for (text, size) in [("YU12:1280x720@30", Some((1280, 720))), ("", None), ("garbage", None), ("YU12:axb@30", None)] {
-            let dir = sysfs(&[("video11", "Phone Camera", text)]);
+            let dir = sysfs(&[("video11", "Telescope", text)]);
             assert_eq!(locked_size_in(&dir.to_string_lossy(), "/dev/video11"), size, "{text}");
         }
         assert_eq!(locked_size_in("/nonexistent", "/dev/video11"), None);

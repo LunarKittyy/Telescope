@@ -40,8 +40,6 @@ use telescope_core::output::{Outputs, Released, SetupAction, SetupResult, SetupS
 
 /// Virtual cameras streams can go to at once: the usual one and up to three more.
 pub const MAX_SLOTS: u32 = 4;
-/// The label the Linux setup gives slot 0's v4l2loopback device.
-pub const SLOT0_LABEL: &str = "Phone Camera";
 /// Seconds before trying a camera that wouldn't open again.
 pub const RETRY_OPEN: Duration = Duration::from_secs(3);
 /// Old-driver fallback: how often to look for readers in /proc.
@@ -116,8 +114,8 @@ impl VirtualCameras {
             if std::path::Path::new(v4l2::PHONE_DEV).exists() {
                 return Some(v4l2::PHONE_DEV.into());
             }
-            // Set up by hand, or by the prototype, under its label
-            return v4l2::find_by_label(SLOT0_LABEL);
+            // Set up by hand, or by the prototype, under its label (the old one on a setup from before the rename)
+            return linux_setup::slot_labels(0).iter().find_map(|label| v4l2::find_by_label(label));
         }
         v4l2::slot_device_in(v4l2::SYSFS, slot)
     }
@@ -331,7 +329,7 @@ impl Outputs for VirtualCameras {
                     let _released = self.release_devices();
                     setup.unload()
                 }
-                SetupAction::Persist { on: true } => setup.persist_enable(),
+                SetupAction::Persist { on: true } => setup.persist_enable((1..MAX_SLOTS).any(|n| self.slot_ready(n))),
                 SetupAction::Persist { on: false } => setup.persist_disable(),
                 SetupAction::AddSlots => {
                     let labels: Vec<String> = (1..MAX_SLOTS).filter(|n| !self.slot_ready(*n)).map(slot_label).collect();
@@ -638,7 +636,7 @@ mod tests {
         let cams = VirtualCameras::default();
         assert_eq!(cams.max_slots(), 4);
         #[cfg(target_os = "linux")]
-        assert_eq!((cams.slot_label(0), cams.slot_label(1)), ("Phone Camera".to_string(), "Phone Camera 2".to_string()));
+        assert_eq!((cams.slot_label(0), cams.slot_label(1)), ("Telescope".to_string(), "Telescope #2".to_string()));
         assert!(cams.slot_ready(0));
     }
 

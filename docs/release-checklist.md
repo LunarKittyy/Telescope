@@ -58,6 +58,7 @@ The APK signing key lives in the repository secrets (see [Packaging and CI](pack
 <!-- due: .github/workflows/rust-package.yml rust/tools/package_linux.sh rust/tools/package_appimage.sh rust/tools/bundle_gphoto2.sh rust/tools/AppRun rust/tools/fonts.conf rust/tools/start.sh rust/tools/main_stub.py rust/tools/build_ffmpeg.sh rust/crates/outputs/src/linux_setup.rs rust/crates/outputs/src/v4l2.rs rust/crates/system/src/autostart.rs rust/crates/system/src/hotkeys_portal.rs -->
 
 - [ ] Module not loaded: Start asks once with the startup box ticked and after a reboot Start doesn't ask. Unticked, it asks again after a reboot.
+- [ ] With the startup box ticked, the extra cameras Telescope #2 to #4 are still there after adding them and rebooting. Removing them and rebooting leaves only Telescope. A setup from before the rename shows Telescope after Unload and Load, and after a reboot too.
 - [ ] Without pkexec (or with no polkit agent): Start shows the command banner, Copy command works and running it then Start streams.
 - [ ] Open Telescope when I sign in (Linux and Windows): after a real sign-out and sign-in Telescope is in the tray.
 - [ ] AppImage on a real desktop: a double click starts it, the app menu entry and icon work, and the password prompt for the virtual camera appears and loads it.
@@ -185,7 +186,7 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 <!-- due: rust/crates/outputs/src/webcam*.rs rust/crates/outputs/src/webcam/** rust/crates/outputs/src/webcam_capture/** rust/crates/outputs/src/webcams/** rust/crates/outputs/ui/webcam.slint -->
 
-- [ ] A USB webcam shows in the device picker under its own name, and Telescope's own cameras (Phone Camera, Telescope, OBS Virtual Camera) never do. Start streams it to the virtual camera and Background, Chroma key and Transforms work on it.
+- [ ] A USB webcam shows in the device picker under its own name, and Telescope's own cameras (Telescope, OBS Virtual Camera) never do. Start streams it to the virtual camera and Background, Chroma key and Transforms work on it.
 - [ ] Resolution and Frame rate on the Webcam card change what arrives. 1080p at 30 fps on a USB 2 webcam shows MJPEG on the card.
 - [ ] With the webcam open in another app (a browser's camera test page will do) Start gives a banner naming the app on Linux. Closing it there lets the stream start without pressing anything.
 - [ ] Unplugging the webcam mid-stream shows the wait screen and plugging it back in picks the stream up again. Plugging one in while Telescope runs adds it to the picker within a few seconds.

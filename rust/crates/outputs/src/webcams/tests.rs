@@ -120,7 +120,10 @@ fn a_choice_describes_itself() {
 // test_webcams.py::test_telescopes_own_and_loopback_cameras_are_virtual
 #[test]
 fn telescopes_own_and_loopback_cameras_are_virtual() {
-    assert!(is_virtual_on("Phone Camera", "", true) && is_virtual_on("Phone Camera 3", "", true));
+    assert!(is_virtual_on("Telescope", "", true) && is_virtual_on("Telescope #3", "", true));
+    assert!(is_virtual_on("Phone Camera", "", true) && is_virtual_on("Phone Camera 3", "", true), "setups from before the rename");
+    let names = own_names(true);
+    assert!(["Telescope", "Telescope #4", "Phone Camera", "Phone Camera 4"].iter().all(|n| names.iter().any(|o| o == n)), "{names:?}");
     assert!(is_virtual_on("Anything", "v4l2 loopback", true));
     assert!(!is_virtual_on("HD Pro Webcam C920", "uvcvideo", true));
 }
@@ -283,7 +286,7 @@ fn scanning_lists_capture_nodes_and_skips_the_rest() {
     node(&root, "video1", "HD Webcam", false);
     node(&root, "video2", "Encoder", false);
     node(&root, "video10", "OBS Virtual Camera", true);
-    node(&root, "video11", "Phone Camera", true);
+    node(&root, "video11", "Telescope", true);
     let (mut s, rig) = scanner(&root, false);
     rig.answers.lock().unwrap().extend([("video0".into(), webcam()), ("video1".into(), answer("uvcvideo", "HD Webcam", false, vec![])),
                                          ("video2".into(), answer("encoder", "Encoder", true, vec![]))]);
@@ -384,13 +387,13 @@ fn a_node_that_cant_be_opened_is_tried_again() {
 fn other_loopback_cameras_can_be_let_in_for_testing_but_never_virtual_ones() {
     let root = sysfs();
     node(&root, "video10", "Fake Webcam", true);
-    node(&root, "video11", "Phone Camera", true);
+    node(&root, "video11", "Telescope", true);
     node(&root, "video12", "OBS Virtual Camera", true);
     let (mut s, rig) = scanner(&root, true);
     rig.answers.lock().unwrap().extend([
         ("video10".into(), answer("v4l2 loopback", "Fake Webcam", true, webcam().1)),
         ("video12".into(), answer("v4l2 loopback", "OBS Virtual Camera", true, webcam().1)),
-        ("video11".into(), answer("v4l2 loopback", "Phone Camera", true, webcam().1)),
+        ("video11".into(), answer("v4l2 loopback", "Telescope", true, webcam().1)),
     ]);
     assert_eq!(s.scan().iter().map(|d| d.name.clone()).collect::<Vec<_>>(), ["Fake Webcam"]);
     assert_eq!(*rig.opened.lock().unwrap(), ["video10"]);

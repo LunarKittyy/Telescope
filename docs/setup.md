@@ -34,8 +34,10 @@ Once it's installed Telescope loads the module when you start streaming. A dialo
 
 ```bash
 sudo modprobe v4l2loopback devices=2 video_nr=10,11 \
-  card_label="OBS Virtual Camera,Phone Camera" exclusive_caps=1
+  card_label="OBS Virtual Camera,Telescope" exclusive_caps=1
 ```
+
+Setups from before the camera was renamed still call it **Phone Camera** until you click **Unload** and then **Load** under Virtual camera & phone in Settings. Apps like Discord may need the camera picked again afterwards.
 
 ### 2. adb (optional)
 
@@ -49,13 +51,13 @@ sudo pacman -S android-tools     # Arch
 
 ### Loading the virtual camera at boot
 
-Switch on **Load when the computer starts** under Virtual camera & phone in Settings. It writes the module options to `/etc/modprobe.d/99-telescope-v4l2loopback.conf` and `/etc/modules-load.d/99-telescope-v4l2loopback.conf`. Unticking it removes them again. It refuses to write if another config already sets `v4l2loopback` options.
+Switch on **Load when the computer starts** under Virtual camera & phone in Settings. It writes the module options to `/etc/modprobe.d/99-telescope-v4l2loopback.conf` and `/etc/modules-load.d/99-telescope-v4l2loopback.conf`. Unticking it removes them again. It refuses to write if another config already sets `v4l2loopback` options. If you add the [extra cameras](features/sources.md#several-cameras-at-once) while it's on, the file asks for them too and they're there again after a restart.
 
 <details>
 <summary><b>The same thing by hand (Fedora, Nobara and other dracut distros)</b></summary>
 
 ```bash
-echo 'options v4l2loopback devices=2 video_nr=10,11 card_label="OBS Virtual Camera,Phone Camera" exclusive_caps=1' \
+echo 'options v4l2loopback devices=2 video_nr=10,11 card_label="OBS Virtual Camera,Telescope" exclusive_caps=1' \
   | sudo tee /etc/modprobe.d/98-v4l2loopback.conf
 
 sudo rm -f /etc/modprobe.d/v4l2loopback.conf

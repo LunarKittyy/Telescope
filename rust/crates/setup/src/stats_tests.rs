@@ -711,11 +711,11 @@ fn the_bar_stops_hearing_from_the_card_when_the_stream_ends_or_the_plugin_stops(
 fn the_camera_has_a_line_and_is_locked_while_several_streams_run() {
     let hub = Hub::new();
     let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
-    host.bar_own = vec![BarStat::new("camera", "Virtual camera", "", "Phone Camera")];
+    host.bar_own = vec![BarStat::new("camera", "Virtual camera", "", "Telescope")];
     host.bar_pinned = vec!["camera".into()];
     plugin.on_event(&mut host, &Event::BarPinsChanged { pinned: vec!["camera".into()] });
     let p = props(&host);
-    assert_eq!((row(&p, "Camera")["value"].as_str(), row(&p, "Camera")["pin"].as_str(), row(&p, "Camera")["pinned"].as_bool()), (Some("Phone Camera"), Some("camera"), Some(true)));
+    assert_eq!((row(&p, "Camera")["value"].as_str(), row(&p, "Camera")["pin"].as_str(), row(&p, "Camera")["pinned"].as_bool()), (Some("Telescope"), Some("camera"), Some(true)));
     assert_eq!(row(&p, "Camera")["locked"], false);
     host.streaming = true;
     host.streams = Some(2);
@@ -755,7 +755,7 @@ fn hub_one() -> Snapshot {
 fn the_cards_stars_match_what_is_pinned_the_camera_included() {
     let hub = Hub::new();
     let (mut plugin, mut host) = set_up(snapshot(&hub, "phone"));
-    host.bar_own = vec![BarStat::new("camera", "Virtual camera", "", "Phone Camera")];
+    host.bar_own = vec![BarStat::new("camera", "Virtual camera", "", "Telescope")];
     // What a fresh settings file pins
     host.bar_pinned = vec!["camera".into(), "fps".into(), "throughput".into()];
     let pinned = host.bar_pinned.clone();

@@ -30,8 +30,10 @@ The AppImage needs `fusermount` or `fusermount3`, which nearly every desktop has
 
 ## Virtual camera
 
-**Telescope or Phone Camera isn't listed in OBS, Discord or Zoom**
+**Telescope isn't listed in OBS, Discord or Zoom**
 Apps only look for cameras when they start. Restart the app if it was already open when the camera was set up. On Windows Discord remains in the tray when you close its window. Quit it from the tray icon (right-click, Quit) and open it again. Restarting the computer works too.
+
+On Linux, a setup from before the rename still shows the camera as **Phone Camera**. Click **Unload** and then **Load** under Virtual camera & phone in Settings to get **Telescope**, then pick it again in apps like Discord.
 
 **Linux: the virtual camera won't open**
 The `v4l2loopback` package isn't installed or loaded. Install it (`v4l2loopback-dkms` on Debian, Ubuntu and Arch, `v4l2loopback` on Fedora and Nobara through RPM Fusion, see [Manual setup](setup.md#linux)) and click **Start streaming** again. **Virtual camera & phone** in Settings can load it by hand.

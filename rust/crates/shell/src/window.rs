@@ -2056,7 +2056,7 @@ mod streaming_parts_tests {
 
     #[test]
     fn the_camera_and_size_come_out_of_the_streaming_sentence() {
-        assert_eq!(streaming_parts("Streaming 1920 \u{d7} 1080 at 30 fps to Phone Camera"), Some(("Phone Camera".into(), "1920 \u{d7} 1080".into())));
+        assert_eq!(streaming_parts("Streaming 1920 \u{d7} 1080 at 30 fps to Telescope"), Some(("Telescope".into(), "1920 \u{d7} 1080".into())));
         assert_eq!(streaming_parts("Streaming 4 \u{d7} 4 at 24 fps to Telescope"), Some(("Telescope".into(), "4 \u{d7} 4".into())));
         // a camera whose own name has the words in it
         assert_eq!(streaming_parts("Streaming 640 \u{d7} 480 at 15 fps to Cam to go"), Some(("Cam to go".into(), "640 \u{d7} 480".into())));
