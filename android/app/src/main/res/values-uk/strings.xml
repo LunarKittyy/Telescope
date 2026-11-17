@@ -4,20 +4,24 @@
     <string name="preview_button">Перегляд</string>
     <string name="close_preview">Закрити попередній перегляд</string>
     <string name="black_screen_button">Чорний екран</string>
+    <string name="black_screen_description">Зробити екран чорним, поки камера все ще працює</string>
     <string name="black_screen_hint">Двічі торкніться, щоб розбудити</string>
     <string name="update_available">Доступне оновлення</string>
     <string name="update_failed_title">Оновлення не завершилося</string>
     <string name="update">Оновити</string>
+    <string name="update_found">Доступне оновлення %1$s.</string>
     <string name="updating">Оновлення…</string>
     <string name="try_again">Спробувати знову</string>
     <string name="update_downloading">%1$s · завантаження %2$d %%</string>
     <string name="update_installing">%1$s · встановлення</string>
     <string name="update_stop_streaming_first">%1$s. Зупиніть трансляцію, щоб оновити.</string>
     <string name="allow_installs_title">Дозволити Telescope встановлювати оновлення</string>
+    <string name="allow_installs_message">На наступному екрані увімкніть «Дозволити для цього джерела» та поверніться до Telescope.</string>
     <string name="update_error_offline">Не вдалося завантажити. Перевірте з\'єднання з інтернетом і спробуйте знову.</string>
     <string name="update_error_http">Не вдалося завантажити (HTTP %1$d).</string>
     <string name="update_error_too_big">Завантажений файл більший, ніж має бути.</string>
     <string name="update_error_cut_short">Завантаження обірвалося. Перевірте з\'єднання з інтернетом і спробуйте знову.</string>
+    <string name="update_error_checksum">Завантажений файл не збігся з контрольною сумою й не був встановлений.</string>
     <string name="update_error_save">Не вдалося зберегти завантажений файл.</string>
     <string name="update_error_not_an_app">Завантажений файл не є дійсним додатком.</string>
     <string name="update_error_not_telescope">Завантажений файл не є Telescope.</string>
@@ -33,14 +37,30 @@
     <string name="setup_camera">Камера</string>
     <string name="setup_camera_reason">Щоб транслювати відео з камер цього телефону.</string>
     <string name="setup_local_network">Локальна мережа</string>
+    <string name="setup_local_network_reason">Дозвольте комп\'ютеру знайти цей телефон і підключитися до нього через Wi-Fi. Для USB це не потрібно.</string>
     <string name="setup_notifications">Сповіщення</string>
+    <string name="setup_notifications_reason">Дізнавайтеся, коли камера транслює, і зупиняйте її зі сповіщення.</string>
     <string name="setup_microphone">Мікрофон</string>
     <string name="setup_microphone_reason">Для мікрофона Telescope на вашому комп\'ютері.</string>
     <string name="setup_battery">Батарея</string>
+    <string name="setup_battery_reason">Не дозволяйте Android зупиняти трансляцію, коли екран вимкнено.</string>
     <string name="setup_allowed">Дозволено</string>
     <string name="allow">Дозволити</string>
     <string name="open_settings">Відкрити налаштування</string>
+    <string name="pairing_title">Створення пари</string>
+    <string name="pair_intro">Створіть пару з Telescope на комп\'ютері, щоб він міг використовувати камеру цього телефону.</string>
+    <string name="pair_a_computer">Створити пару з комп\'ютером</string>
+    <string name="manage">Керувати</string>
+    <string name="pair_new">Створити нову пару</string>
+    <plurals name="computers_paired">
+        <item quantity="one">Пару створено з %1$d комп\'ютером</item>
+        <item quantity="few">Пару створено з %1$d комп\'ютерами</item>
+        <item quantity="many">Пару створено з %1$d комп\'ютерами</item>
+        <item quantity="other">Пару створено з %1$d комп\'ютерами</item>
+    </plurals>
+    <string name="manage_computers">Керування комп\'ютерами</string>
     <string name="paired_computers_title">Комп\'ютери, з якими створено пару</string>
+    <string name="no_computers_paired">Не створено пари з жодним комп\'ютером.</string>
     <string name="paired_on">Пару створено %1$s</string>
     <string name="remove">Вилучити</string>
     <string name="cancel">Скасувати</string>
@@ -70,6 +90,7 @@
         <item quantity="many">• ще %1$d не перевірено - спроби припинено через %2$d с</item>
         <item quantity="other">• ще %1$d не перевірено - спроби припинено через %2$d с</item>
     </plurals>
+    <string name="pairing_advice">Перевірте, чи телефон і комп\'ютер підключені до однієї мережі Wi-Fi. Увімкнений VPN може блокувати доступ до локальної мережі. Увімкніть у ньому параметр доступу до локальної мережі (LAN) або призупиніть його. Або підключіть телефон через USB, щоб створити пару без сканування.</string>
     <string name="network_timed_out">час очікування вичерпано</string>
     <string name="network_no_route">немає маршруту до вузла</string>
     <string name="network_refused">з\'єднання відхилено</string>
@@ -78,6 +99,7 @@
     <string name="local_only">Лише локально - USB</string>
     <string name="local_only_hint">Доступ до камери можливий лише через підключення USB.</string>
     <string name="wait_for_computer">Очікувати на комп\'ютер</string>
+    <string name="wait_for_computer_hint">Дозволити комп\'ютеру, з яким створено пару, запускати камеру, коли екран вимкнено.</string>
     <string name="stop_streaming">Зупинити трансляцію</string>
     <string name="status_title">Стан</string>
     <string name="status_not_streaming">Не транслює</string>
@@ -86,6 +108,7 @@
     <string name="status_quality">У %1$dp, %2$d fps</string>
     <string name="status_waiting_for_computer">Очікування на комп\'ютер</string>
     <string name="status_mic_only">Транслює мікрофон, камеру вимкнено</string>
+    <string name="status_too_hot">Телефон занадто гарячий. Трансляцію призупинено, поки він не охолоне.</string>
     <string name="status_camera_taken">Інший додаток використовує камеру. Трансляція продовжиться, щойно вона звільниться.</string>
     <string name="streaming_started_remotely">Трансляцію запущено з вашого комп\'ютера</string>
     <string name="settings">Налаштування</string>
@@ -104,6 +127,8 @@
     <string name="report_bug">Повідомити про помилку</string>
     <string name="troubleshooting">Усунення несправностей</string>
     <string name="nightly_updates">Оновлення Nightly</string>
+    <string name="nightly_updates_hint">Збірка з кожної зміни для швидшого отримання виправлень за меншого обсягу тестування.</string>
+    <string name="choice_selected">Вибрано %1$s</string>
     <string name="updates_section">Оновлення</string>
     <string name="check_for_updates">Перевірити наявність оновлень</string>
     <string name="translation_draft">Це перша чернетка перекладу, тому деякі тексти можуть звучати дивно.</string>
@@ -122,11 +147,13 @@
     <string name="notif_channel_streaming">Трансляція</string>
     <string name="notif_channel_streaming_desc">Показується, коли камера транслює на комп\'ютер</string>
     <string name="notif_channel_waiting">Очікування на комп\'ютер</string>
+    <string name="notif_channel_waiting_desc">Відображається, коли Telescope очікує на комп\'ютер, з яким створено пару, щоб запустити камеру</string>
     <string name="notif_streaming_title">Трансляція</string>
     <string name="notif_camera_streaming">Камера транслює</string>
     <string name="notif_streaming_usb">На %1$s через USB</string>
     <string name="notif_streaming_wifi">На %1$s через Wi-Fi</string>
     <string name="notif_mic_streaming">Мікрофон транслює, камеру вимкнено</string>
+    <string name="notif_camera_off">Камеру вимкнено</string>
     <string name="notif_waiting">Очікування на комп\'ютер</string>
     <string name="notif_stop_waiting">Припинити очікування</string>
 </resources>

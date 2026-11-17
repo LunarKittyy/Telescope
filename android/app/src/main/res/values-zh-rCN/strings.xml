@@ -4,20 +4,24 @@
     <string name="preview_button">预览</string>
     <string name="close_preview">关闭预览</string>
     <string name="black_screen_button">黑屏</string>
+    <string name="black_screen_description">在相机仍在运行时将屏幕变黑</string>
     <string name="black_screen_hint">双击唤醒</string>
     <string name="update_available">有可用更新</string>
     <string name="update_failed_title">更新未完成</string>
     <string name="update">更新</string>
+    <string name="update_found">%1$s 现已可用。</string>
     <string name="updating">正在更新…</string>
     <string name="try_again">重试</string>
     <string name="update_downloading">%1$s · 正在下载 %2$d%%</string>
     <string name="update_installing">%1$s · 正在安装</string>
     <string name="update_stop_streaming_first">%1$s。停止串流以更新。</string>
     <string name="allow_installs_title">允许 Telescope 安装更新</string>
+    <string name="allow_installs_message">在下一个屏幕中开启“允许来自此来源的应用”，然后返回 Telescope。</string>
     <string name="update_error_offline">下载失败。请检查网络连接并重试。</string>
     <string name="update_error_http">下载失败（HTTP %1$d）。</string>
     <string name="update_error_too_big">下载的文件超出预期大小。</string>
     <string name="update_error_cut_short">下载意外中断。请检查网络连接并重试。</string>
+    <string name="update_error_checksum">下载的文件与校验和不匹配，未安装。</string>
     <string name="update_error_save">无法保存下载的文件。</string>
     <string name="update_error_not_an_app">下载的文件不是有效的应用。</string>
     <string name="update_error_not_telescope">下载的文件不是 Telescope。</string>
@@ -33,14 +37,27 @@
     <string name="setup_camera">相机</string>
     <string name="setup_camera_reason">从这台手机的相机串流。</string>
     <string name="setup_local_network">本地网络</string>
+    <string name="setup_local_network_reason">允许电脑通过 Wi-Fi 查找并连接此手机。使用 USB 则不需要。</string>
     <string name="setup_notifications">通知</string>
+    <string name="setup_notifications_reason">查看相机是否正在串流，并通过通知停止串流。</string>
     <string name="setup_microphone">麦克风</string>
     <string name="setup_microphone_reason">用于电脑上的 Telescope 麦克风。</string>
     <string name="setup_battery">电池</string>
+    <string name="setup_battery_reason">防止 Android 在屏幕关闭时停止串流。</string>
     <string name="setup_allowed">已允许</string>
     <string name="allow">允许</string>
     <string name="open_settings">打开设置</string>
+    <string name="pairing_title">配对</string>
+    <string name="pair_intro">与电脑上的 Telescope 配对，让电脑使用此手机的相机。</string>
+    <string name="pair_a_computer">配对电脑</string>
+    <string name="manage">管理</string>
+    <string name="pair_new">配对新电脑</string>
+    <plurals name="computers_paired">
+        <item quantity="other">已配对 %1$d 台电脑</item>
+    </plurals>
+    <string name="manage_computers">管理电脑</string>
     <string name="paired_computers_title">已配对的电脑</string>
+    <string name="no_computers_paired">未配对任何电脑。</string>
     <string name="paired_on">已于 %1$s 配对</string>
     <string name="remove">移除</string>
     <string name="cancel">取消</string>
@@ -67,6 +84,7 @@
     <plurals name="pairing_untried">
         <item quantity="other">• 还有 %1$d 个未尝试 - 在 %2$d 秒后放弃</item>
     </plurals>
+    <string name="pairing_advice">检查手机和电脑是否连接到同一个 Wi-Fi。开启的 VPN 可能会阻止局域网访问，请开启其局域网访问选项或将其暂停。也可以通过 USB 连接手机，无需扫描即可配对。</string>
     <string name="network_timed_out">超时</string>
     <string name="network_no_route">无到主机的路由</string>
     <string name="network_refused">连接被拒绝</string>
@@ -75,6 +93,7 @@
     <string name="local_only">仅限本地 - USB</string>
     <string name="local_only_hint">只有通过 USB 连接才能访问相机。</string>
     <string name="wait_for_computer">等待我的电脑</string>
+    <string name="wait_for_computer_hint">允许已配对的电脑在屏幕关闭时启动相机。</string>
     <string name="stop_streaming">停止串流</string>
     <string name="status_title">状态</string>
     <string name="status_not_streaming">未串流</string>
@@ -83,6 +102,7 @@
     <string name="status_quality">%1$dp %2$d fps</string>
     <string name="status_waiting_for_computer">正在等待电脑</string>
     <string name="status_mic_only">仅串流麦克风，相机已关闭</string>
+    <string name="status_too_hot">手机过热。串流已暂停，直至降温。</string>
     <string name="status_camera_taken">其他应用正在使用相机。相机空闲后将继续串流。</string>
     <string name="streaming_started_remotely">已从电脑端启动串流</string>
     <string name="settings">设置</string>
@@ -101,6 +121,8 @@
     <string name="report_bug">反馈问题</string>
     <string name="troubleshooting">故障排除</string>
     <string name="nightly_updates">Nightly 更新</string>
+    <string name="nightly_updates_hint">基于每次更改构建，可更快获取修复，但测试较少。</string>
+    <string name="choice_selected">已选择 %1$s</string>
     <string name="updates_section">更新</string>
     <string name="check_for_updates">检查更新</string>
     <string name="translation_draft">此翻译为初稿，部分文字读起来可能有点别扭。</string>
@@ -119,11 +141,13 @@
     <string name="notif_channel_streaming">串流</string>
     <string name="notif_channel_streaming_desc">在相机向电脑串流时显示</string>
     <string name="notif_channel_waiting">正在等待电脑</string>
+    <string name="notif_channel_waiting_desc">当 Telescope 正在等待已配对的电脑启动相机时显示</string>
     <string name="notif_streaming_title">正在串流</string>
     <string name="notif_camera_streaming">相机正在串流</string>
     <string name="notif_streaming_usb">通过 USB 传输至 %1$s</string>
     <string name="notif_streaming_wifi">通过 Wi-Fi 传输至 %1$s</string>
     <string name="notif_mic_streaming">麦克风正在串流，相机已关闭</string>
+    <string name="notif_camera_off">相机已关闭</string>
     <string name="notif_waiting">正在等待电脑</string>
     <string name="notif_stop_waiting">停止等待</string>
 </resources>

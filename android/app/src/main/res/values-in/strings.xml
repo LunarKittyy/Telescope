@@ -4,20 +4,24 @@
     <string name="preview_button">Pratinjau</string>
     <string name="close_preview">Tutup pratinjau</string>
     <string name="black_screen_button">Layar hitam</string>
+    <string name="black_screen_description">Ubah layar menjadi hitam saat kamera tetap berjalan</string>
     <string name="black_screen_hint">Ketuk dua kali untuk mengaktifkan layar</string>
     <string name="update_available">Pembaruan tersedia</string>
     <string name="update_failed_title">Pembaruan tidak selesai</string>
     <string name="update">Perbarui</string>
+    <string name="update_found">%1$s tersedia.</string>
     <string name="updating">Memperbarui…</string>
     <string name="try_again">Coba lagi</string>
     <string name="update_downloading">%1$s · mengunduh %2$d%%</string>
     <string name="update_installing">%1$s · menginstal</string>
     <string name="update_stop_streaming_first">%1$s. Hentikan streaming untuk memperbarui.</string>
     <string name="allow_installs_title">Izinkan Telescope menginstal pembaruan</string>
+    <string name="allow_installs_message">Di layar berikutnya, aktifkan Izinkan dari sumber ini lalu kembali ke Telescope.</string>
     <string name="update_error_offline">Unduhan gagal. Periksa koneksi internet dan coba lagi.</string>
     <string name="update_error_http">Unduhan gagal (HTTP %1$d).</string>
     <string name="update_error_too_big">Ukuran unduhan lebih besar dari yang seharusnya.</string>
     <string name="update_error_cut_short">Unduhan terputus. Periksa koneksi internet dan coba lagi.</string>
+    <string name="update_error_checksum">Unduhan tidak cocok dengan checksum-nya dan tidak diinstal.</string>
     <string name="update_error_save">Tidak dapat menyimpan unduhan.</string>
     <string name="update_error_not_an_app">Unduhan bukan aplikasi yang valid.</string>
     <string name="update_error_not_telescope">Unduhan bukan Telescope.</string>
@@ -33,14 +37,27 @@
     <string name="setup_camera">Kamera</string>
     <string name="setup_camera_reason">Untuk streaming dari kamera ponsel ini.</string>
     <string name="setup_local_network">Jaringan lokal</string>
+    <string name="setup_local_network_reason">Izinkan komputer Anda menemukan dan terhubung ke ponsel ini via Wi-Fi. Anda tidak memerlukannya untuk USB.</string>
     <string name="setup_notifications">Notifikasi</string>
+    <string name="setup_notifications_reason">Lihat saat kamera sedang streaming dan hentikan dari notifikasi.</string>
     <string name="setup_microphone">Mikrofon</string>
     <string name="setup_microphone_reason">Untuk mikrofon Telescope di komputer Anda.</string>
     <string name="setup_battery">Baterai</string>
+    <string name="setup_battery_reason">Cegah Android menghentikan stream saat layar nonaktif.</string>
     <string name="setup_allowed">Diizinkan</string>
     <string name="allow">Izinkan</string>
     <string name="open_settings">Buka pengaturan</string>
+    <string name="pairing_title">Penyandingan</string>
+    <string name="pair_intro">Sandingkan dengan Telescope di komputer agar komputer dapat menggunakan kamera ponsel ini.</string>
+    <string name="pair_a_computer">Sandingkan komputer</string>
+    <string name="manage">Kelola</string>
+    <string name="pair_new">Sandingkan baru</string>
+    <plurals name="computers_paired">
+        <item quantity="other">%1$d komputer tersanding</item>
+    </plurals>
+    <string name="manage_computers">Kelola komputer</string>
     <string name="paired_computers_title">Komputer tersanding</string>
+    <string name="no_computers_paired">Tidak ada komputer tersanding.</string>
     <string name="paired_on">Tersanding %1$s</string>
     <string name="remove">Hapus</string>
     <string name="cancel">Batal</string>
@@ -67,6 +84,7 @@
     <plurals name="pairing_untried">
         <item quantity="other">• %1$d lagi tidak dicoba - berhenti setelah %2$d detik</item>
     </plurals>
+    <string name="pairing_advice">Pastikan ponsel dan komputer berada di Wi-Fi yang sama. VPN yang aktif mungkin memblokir akses jaringan lokal. Aktifkan opsi akses LAN-nya atau jeda VPN. Atau hubungkan ponsel via USB untuk menyandingkan tanpa memindai.</string>
     <string name="network_timed_out">waktu habis</string>
     <string name="network_no_route">tidak ada rute ke host</string>
     <string name="network_refused">koneksi ditolak</string>
@@ -75,6 +93,7 @@
     <string name="local_only">Hanya lokal - USB</string>
     <string name="local_only_hint">Kamera hanya dapat diakses melalui koneksi USB.</string>
     <string name="wait_for_computer">Tunggu komputer saya</string>
+    <string name="wait_for_computer_hint">Izinkan komputer yang tersanding memulai kamera saat layar nonaktif.</string>
     <string name="stop_streaming">Hentikan streaming</string>
     <string name="status_title">Status</string>
     <string name="status_not_streaming">Tidak streaming</string>
@@ -83,6 +102,7 @@
     <string name="status_quality">Pada %1$dp %2$d fps</string>
     <string name="status_waiting_for_computer">Menunggu komputer</string>
     <string name="status_mic_only">Streaming mikrofon, kamera nonaktif</string>
+    <string name="status_too_hot">Ponsel terlalu panas. Stream dijeda hingga mendingin.</string>
     <string name="status_camera_taken">Aplikasi lain sedang menggunakan kamera. Streaming akan dilanjutkan saat kamera bebas.</string>
     <string name="streaming_started_remotely">Streaming dimulai dari komputer Anda</string>
     <string name="settings">Pengaturan</string>
@@ -101,6 +121,8 @@
     <string name="report_bug">Laporkan bug</string>
     <string name="troubleshooting">Pemecahan masalah</string>
     <string name="nightly_updates">Pembaruan Nightly</string>
+    <string name="nightly_updates_hint">Dibuat dari setiap perubahan untuk perbaikan lebih cepat dengan pengujian yang lebih sedikit.</string>
+    <string name="choice_selected">%1$s dipilih</string>
     <string name="updates_section">Pembaruan</string>
     <string name="check_for_updates">Periksa pembaruan</string>
     <string name="translation_draft">Terjemahan ini masih draf pertama dan beberapa teks mungkin terdengar agak aneh.</string>
@@ -119,11 +141,13 @@
     <string name="notif_channel_streaming">Streaming</string>
     <string name="notif_channel_streaming_desc">Ditampilkan saat kamera sedang streaming ke komputer Anda</string>
     <string name="notif_channel_waiting">Menunggu komputer</string>
+    <string name="notif_channel_waiting_desc">Ditampilkan saat Telescope sedang menunggu komputer yang tersanding untuk memulai kamera</string>
     <string name="notif_streaming_title">Streaming</string>
     <string name="notif_camera_streaming">Kamera sedang streaming</string>
     <string name="notif_streaming_usb">Ke %1$s via USB</string>
     <string name="notif_streaming_wifi">Ke %1$s via Wi-Fi</string>
     <string name="notif_mic_streaming">Mikrofon sedang streaming, kamera nonaktif</string>
+    <string name="notif_camera_off">Kamera nonaktif</string>
     <string name="notif_waiting">Menunggu komputer Anda</string>
     <string name="notif_stop_waiting">Berhenti menunggu</string>
 </resources>

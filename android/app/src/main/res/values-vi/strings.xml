@@ -4,20 +4,24 @@
     <string name="preview_button">Xem trước</string>
     <string name="close_preview">Đóng xem trước</string>
     <string name="black_screen_button">Màn hình đen</string>
+    <string name="black_screen_description">Chuyển màn hình sang màu đen khi camera vẫn đang chạy</string>
     <string name="black_screen_hint">Chạm hai lần để đánh thức</string>
     <string name="update_available">Có bản cập nhật mới</string>
     <string name="update_failed_title">Bản cập nhật chưa hoàn tất</string>
     <string name="update">Cập nhật</string>
+    <string name="update_found">Đã có %1$s.</string>
     <string name="updating">Đang cập nhật…</string>
     <string name="try_again">Thử lại</string>
     <string name="update_downloading">%1$s · đang tải về %2$d %%</string>
     <string name="update_installing">%1$s · đang cài đặt</string>
     <string name="update_stop_streaming_first">%1$s. Dừng truyền phát để cập nhật.</string>
     <string name="allow_installs_title">Cho phép Telescope cài đặt bản cập nhật</string>
+    <string name="allow_installs_message">Ở màn hình tiếp theo, hãy bật Cho phép từ nguồn này rồi quay lại Telescope.</string>
     <string name="update_error_offline">Tải về không thành công. Kiểm tra kết nối Internet và thử lại.</string>
     <string name="update_error_http">Tải về không thành công (HTTP %1$d).</string>
     <string name="update_error_too_big">Bản tải về có dung lượng lớn hơn bình thường.</string>
     <string name="update_error_cut_short">Bản tải về bị gián đoạn. Kiểm tra kết nối Internet và thử lại.</string>
+    <string name="update_error_checksum">Bản tải về không khớp checksum nên chưa được cài đặt.</string>
     <string name="update_error_save">Không thể lưu bản tải về.</string>
     <string name="update_error_not_an_app">Bản tải về không phải là ứng dụng hợp lệ.</string>
     <string name="update_error_not_telescope">Bản tải về không phải là Telescope.</string>
@@ -33,14 +37,27 @@
     <string name="setup_camera">Camera</string>
     <string name="setup_camera_reason">Để truyền phát từ các camera của điện thoại này.</string>
     <string name="setup_local_network">Mạng cục bộ</string>
+    <string name="setup_local_network_reason">Cho phép máy tính của bạn tìm và kết nối với điện thoại này qua Wi-Fi. Bạn không cần quyền này khi dùng USB.</string>
     <string name="setup_notifications">Thông báo</string>
+    <string name="setup_notifications_reason">Xem khi nào camera đang truyền phát và dừng truyền phát từ thông báo.</string>
     <string name="setup_microphone">Micrô</string>
     <string name="setup_microphone_reason">Dành cho micrô Telescope trên máy tính của bạn.</string>
     <string name="setup_battery">Pin</string>
+    <string name="setup_battery_reason">Ngăn Android dừng luồng phát khi màn hình tắt.</string>
     <string name="setup_allowed">Đã cho phép</string>
     <string name="allow">Cho phép</string>
     <string name="open_settings">Mở cài đặt</string>
+    <string name="pairing_title">Ghép đôi</string>
+    <string name="pair_intro">Ghép đôi với Telescope trên máy tính để có thể dùng camera của điện thoại này.</string>
+    <string name="pair_a_computer">Ghép đôi một máy tính</string>
+    <string name="manage">Quản lý</string>
+    <string name="pair_new">Ghép đôi mới</string>
+    <plurals name="computers_paired">
+        <item quantity="other">Đã ghép đôi %1$d máy tính</item>
+    </plurals>
+    <string name="manage_computers">Quản lý máy tính</string>
     <string name="paired_computers_title">Các máy tính đã ghép đôi</string>
+    <string name="no_computers_paired">Chưa ghép đôi máy tính nào.</string>
     <string name="paired_on">Đã ghép đôi %1$s</string>
     <string name="remove">Gỡ bỏ</string>
     <string name="cancel">Hủy</string>
@@ -67,6 +84,7 @@
     <plurals name="pairing_untried">
         <item quantity="other">• còn %1$d mục chưa thử - đã dừng sau %2$d giây</item>
     </plurals>
+    <string name="pairing_advice">Kiểm tra xem điện thoại và máy tính có kết nối cùng mạng Wi-Fi không. VPN đang bật có thể đang chặn truy cập mạng cục bộ. Hãy bật tùy chọn truy cập mạng LAN của VPN hoặc tạm dừng VPN. Hoặc cắm điện thoại qua USB để ghép đôi mà không cần quét.</string>
     <string name="network_timed_out">hết thời gian chờ</string>
     <string name="network_no_route">không có tuyến đường đến máy chủ</string>
     <string name="network_refused">kết nối bị từ chối</string>
@@ -75,6 +93,7 @@
     <string name="local_only">Chỉ nội bộ - USB</string>
     <string name="local_only_hint">Chỉ có thể truy cập camera qua kết nối USB.</string>
     <string name="wait_for_computer">Chờ máy tính của tôi</string>
+    <string name="wait_for_computer_hint">Cho phép máy tính đã ghép đôi bật camera khi màn hình tắt.</string>
     <string name="stop_streaming">Dừng truyền phát</string>
     <string name="status_title">Trạng thái</string>
     <string name="status_not_streaming">Không truyền phát</string>
@@ -83,6 +102,7 @@
     <string name="status_quality">Ở mức %1$dp %2$d fps</string>
     <string name="status_waiting_for_computer">Đang chờ máy tính</string>
     <string name="status_mic_only">Đang truyền phát mic, đã tắt camera</string>
+    <string name="status_too_hot">Điện thoại quá nóng. Luồng phát tạm dừng cho đến khi máy nguội bớt.</string>
     <string name="status_camera_taken">Một ứng dụng khác đang dùng camera. Quá trình truyền phát sẽ tiếp tục khi camera rảnh.</string>
     <string name="streaming_started_remotely">Quá trình truyền phát đã bắt đầu từ máy tính của bạn</string>
     <string name="settings">Cài đặt</string>
@@ -101,6 +121,8 @@
     <string name="report_bug">Báo lỗi</string>
     <string name="troubleshooting">Khắc phục sự cố</string>
     <string name="nightly_updates">Bản cập nhật Nightly</string>
+    <string name="nightly_updates_hint">Được tạo từ mọi thay đổi để có bản sửa lỗi sớm hơn, đổi lại ít được kiểm thử hơn.</string>
+    <string name="choice_selected">Đã chọn %1$s</string>
     <string name="updates_section">Bản cập nhật</string>
     <string name="check_for_updates">Kiểm tra bản cập nhật</string>
     <string name="translation_draft">Bản dịch này là bản thảo đầu tiên và một số đoạn văn có thể chưa được tự nhiên.</string>
@@ -119,11 +141,13 @@
     <string name="notif_channel_streaming">Truyền phát</string>
     <string name="notif_channel_streaming_desc">Hiển thị trong khi camera đang truyền phát đến máy tính của bạn</string>
     <string name="notif_channel_waiting">Đang chờ máy tính</string>
+    <string name="notif_channel_waiting_desc">Hiển thị trong khi Telescope đang chờ máy tính đã ghép đôi bật camera</string>
     <string name="notif_streaming_title">Truyền phát</string>
     <string name="notif_camera_streaming">Camera đang truyền phát</string>
     <string name="notif_streaming_usb">Tới %1$s qua USB</string>
     <string name="notif_streaming_wifi">Tới %1$s qua Wi-Fi</string>
     <string name="notif_mic_streaming">Micrô đang truyền phát, đã tắt camera</string>
+    <string name="notif_camera_off">Camera đang tắt</string>
     <string name="notif_waiting">Đang chờ máy tính của bạn</string>
     <string name="notif_stop_waiting">Dừng chờ</string>
 </resources>

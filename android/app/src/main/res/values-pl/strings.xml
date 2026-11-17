@@ -4,20 +4,24 @@
     <string name="preview_button">Podgląd</string>
     <string name="close_preview">Zamknij podgląd</string>
     <string name="black_screen_button">Czarny ekran</string>
+    <string name="black_screen_description">Włącz czarny ekran, gdy kamera nadal działa</string>
     <string name="black_screen_hint">Dotknij dwukrotnie, aby wybudzić</string>
     <string name="update_available">Dostępna aktualizacja</string>
     <string name="update_failed_title">Aktualizacja nie została ukończona</string>
     <string name="update">Zaktualizuj</string>
+    <string name="update_found">Dostępna jest wersja %1$s.</string>
     <string name="updating">Aktualizowanie…</string>
     <string name="try_again">Spróbuj ponownie</string>
     <string name="update_downloading">%1$s · pobieranie %2$d %%</string>
     <string name="update_installing">%1$s · instalowanie</string>
     <string name="update_stop_streaming_first">%1$s. Zatrzymaj strumieniowanie, aby zaktualizować.</string>
     <string name="allow_installs_title">Zezwól Telescope na instalowanie aktualizacji</string>
+    <string name="allow_installs_message">Na następnym ekranie włącz „Zezwalaj z tego źródła” i wróć do Telescope.</string>
     <string name="update_error_offline">Pobieranie nie powiodło się. Sprawdź połączenie z internetem i spróbuj ponownie.</string>
     <string name="update_error_http">Pobieranie nie powiodło się (HTTP %1$d).</string>
     <string name="update_error_too_big">Pobrany plik jest większy, niż powinien.</string>
     <string name="update_error_cut_short">Pobieranie zostało przerwane. Sprawdź połączenie z internetem i spróbuj ponownie.</string>
+    <string name="update_error_checksum">Pobrany plik nie zgadzał się z sumą kontrolną i nie został zainstalowany.</string>
     <string name="update_error_save">Nie udało się zapisać pobranego pliku.</string>
     <string name="update_error_not_an_app">Pobrany plik nie jest prawidłową aplikacją.</string>
     <string name="update_error_not_telescope">Pobrany plik to nie Telescope.</string>
@@ -33,14 +37,30 @@
     <string name="setup_camera">Kamera</string>
     <string name="setup_camera_reason">Aby strumieniować obraz z kamer tego telefonu.</string>
     <string name="setup_local_network">Sieć lokalna</string>
+    <string name="setup_local_network_reason">Pozwól komputerowi znaleźć ten telefon i połączyć się z nim przez Wi-Fi. Nie jest to potrzebne w przypadku USB.</string>
     <string name="setup_notifications">Powiadomienia</string>
+    <string name="setup_notifications_reason">Sprawdzaj, kiedy kamera przesyła obraz, i zatrzymuj przesyłanie z powiadomienia.</string>
     <string name="setup_microphone">Mikrofon</string>
     <string name="setup_microphone_reason">Dla mikrofonu Telescope na twoim komputerze.</string>
     <string name="setup_battery">Bateria</string>
+    <string name="setup_battery_reason">Zapobiegaj zatrzymywaniu strumienia przez system Android, gdy ekran jest wyłączony.</string>
     <string name="setup_allowed">Zezwolono</string>
     <string name="allow">Zezwól</string>
     <string name="open_settings">Otwórz ustawienia</string>
+    <string name="pairing_title">Parowanie</string>
+    <string name="pair_intro">Sparuj z programem Telescope na komputerze, aby mógł używać kamery tego telefonu.</string>
+    <string name="pair_a_computer">Sparuj komputer</string>
+    <string name="manage">Zarządzaj</string>
+    <string name="pair_new">Sparuj nowy</string>
+    <plurals name="computers_paired">
+        <item quantity="one">%1$d sparowany komputer</item>
+        <item quantity="few">%1$d sparowane komputery</item>
+        <item quantity="many">%1$d sparowanych komputerów</item>
+        <item quantity="other">%1$d sparowanych komputerów</item>
+    </plurals>
+    <string name="manage_computers">Zarządzaj komputerami</string>
     <string name="paired_computers_title">Sparowane komputery</string>
+    <string name="no_computers_paired">Brak sparowanych komputerów.</string>
     <string name="paired_on">Sparowano %1$s</string>
     <string name="remove">Usuń</string>
     <string name="cancel">Anuluj</string>
@@ -70,6 +90,7 @@
         <item quantity="many">• Jeszcze %1$d niesprawdzonych - przerwano po %2$d sekundach</item>
         <item quantity="other">• Jeszcze %1$d niesprawdzonych - przerwano po %2$d sekundach</item>
     </plurals>
+    <string name="pairing_advice">Upewnij się, że telefon i komputer są w tej samej sieci Wi-Fi. Włączony VPN może blokować dostęp do sieci lokalnej. Włącz w nim opcję dostępu do sieci LAN lub wstrzymaj go. Możesz też podłączyć telefon przez USB, aby sparować go bez skanowania.</string>
     <string name="network_timed_out">przekroczono limit czasu</string>
     <string name="network_no_route">brak trasy do hosta</string>
     <string name="network_refused">połączenie odrzucone</string>
@@ -78,6 +99,7 @@
     <string name="local_only">Tylko lokalnie - USB</string>
     <string name="local_only_hint">Z kamerą można połączyć się tylko przez USB.</string>
     <string name="wait_for_computer">Czekaj na mój komputer</string>
+    <string name="wait_for_computer_hint">Pozwól sparowanemu komputerowi uruchamiać kamerę, gdy ekran jest wyłączony.</string>
     <string name="stop_streaming">Zatrzymaj strumieniowanie</string>
     <string name="status_title">Status</string>
     <string name="status_not_streaming">Nie przesyła</string>
@@ -86,6 +108,7 @@
     <string name="status_quality">%1$dp, %2$d fps</string>
     <string name="status_waiting_for_computer">Oczekiwanie na komputer</string>
     <string name="status_mic_only">Strumieniowanie mikrofonu, kamera wyłączona</string>
+    <string name="status_too_hot">Telefon jest zbyt gorący. Strumień jest wstrzymany, dopóki telefon nie ostygnie.</string>
     <string name="status_camera_taken">Inna aplikacja używa kamery. Strumieniowanie zostanie wznowione, gdy kamera będzie wolna.</string>
     <string name="streaming_started_remotely">Strumieniowanie uruchomione z twojego komputera</string>
     <string name="settings">Ustawienia</string>
@@ -104,6 +127,8 @@
     <string name="report_bug">Zgłoś błąd</string>
     <string name="troubleshooting">Rozwiązywanie problemów</string>
     <string name="nightly_updates">Aktualizacje Nightly</string>
+    <string name="nightly_updates_hint">Kompilowane po każdej zmianie: szybsze poprawki, ale mniej testów.</string>
+    <string name="choice_selected">Wybrano: %1$s</string>
     <string name="updates_section">Aktualizacje</string>
     <string name="check_for_updates">Sprawdź aktualizacje</string>
     <string name="translation_draft">To tłumaczenie jest wersją roboczą i niektóre teksty mogą brzmieć nieco osobliwie.</string>
@@ -122,11 +147,13 @@
     <string name="notif_channel_streaming">Przesyłanie</string>
     <string name="notif_channel_streaming_desc">Wyświetlane, gdy kamera strumieniuje obraz do komputera</string>
     <string name="notif_channel_waiting">Oczekiwanie na komputer</string>
+    <string name="notif_channel_waiting_desc">Wyświetlane, gdy Telescope czeka, aż sparowany komputer uruchomi kamerę</string>
     <string name="notif_streaming_title">Przesyłanie</string>
     <string name="notif_camera_streaming">Kamera strumieniuje</string>
     <string name="notif_streaming_usb">Do %1$s przez USB</string>
     <string name="notif_streaming_wifi">Do %1$s przez Wi-Fi</string>
     <string name="notif_mic_streaming">Mikrofon strumieniuje, kamera wyłączona</string>
+    <string name="notif_camera_off">Kamera jest wyłączona</string>
     <string name="notif_waiting">Oczekiwanie na twój komputer</string>
     <string name="notif_stop_waiting">Przestań czekać</string>
 </resources>

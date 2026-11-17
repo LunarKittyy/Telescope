@@ -4,20 +4,24 @@
     <string name="preview_button">Förhandsvisning</string>
     <string name="close_preview">Stäng förhandsvisning</string>
     <string name="black_screen_button">Svart skärm</string>
+    <string name="black_screen_description">Gör skärmen svart medan kameran fortfarande är igång</string>
     <string name="black_screen_hint">Dubbeltryck för att väcka</string>
     <string name="update_available">Uppdatering tillgänglig</string>
     <string name="update_failed_title">Uppdateringen blev inte klar</string>
     <string name="update">Uppdatera</string>
+    <string name="update_found">%1$s är tillgänglig.</string>
     <string name="updating">Uppdaterar…</string>
     <string name="try_again">Försök igen</string>
     <string name="update_downloading">%1$s · laddar ner %2$d %%</string>
     <string name="update_installing">%1$s · installerar</string>
     <string name="update_stop_streaming_first">%1$s. Stoppa strömningen för att uppdatera.</string>
     <string name="allow_installs_title">Tillåt Telescope att installera uppdateringar</string>
+    <string name="allow_installs_message">På nästa skärm slår du på Tillåt från den här källan och återgår till Telescope.</string>
     <string name="update_error_offline">Nedladdningen misslyckades. Kontrollera internetanslutningen och försök igen.</string>
     <string name="update_error_http">Nedladdningen misslyckades (HTTP %1$d).</string>
     <string name="update_error_too_big">Nedladdningen är större än den ska vara.</string>
     <string name="update_error_cut_short">Nedladdningen avbröts innan den var klar. Kontrollera internetanslutningen och försök igen.</string>
+    <string name="update_error_checksum">Nedladdningen matchade inte kontrollsumman och installerades inte.</string>
     <string name="update_error_save">Kunde inte spara nedladdningen.</string>
     <string name="update_error_not_an_app">Nedladdningen är inte en giltig app.</string>
     <string name="update_error_not_telescope">Nedladdningen är inte Telescope.</string>
@@ -33,14 +37,28 @@
     <string name="setup_camera">Kamera</string>
     <string name="setup_camera_reason">För att strömma från den här telefonens kameror.</string>
     <string name="setup_local_network">Lokalt nätverk</string>
+    <string name="setup_local_network_reason">Låt din dator hitta och ansluta till den här telefonen via Wi-Fi. Du behöver det inte för USB.</string>
     <string name="setup_notifications">Aviseringar</string>
+    <string name="setup_notifications_reason">Se när kameran strömmar och stoppa den från aviseringen.</string>
     <string name="setup_microphone">Mikrofon</string>
     <string name="setup_microphone_reason">För Telescope-mikrofonen på din dator.</string>
     <string name="setup_battery">Batteri</string>
+    <string name="setup_battery_reason">Hindra Android från att stoppa strömmen när skärmen är avstängd.</string>
     <string name="setup_allowed">Tillåtet</string>
     <string name="allow">Tillåt</string>
     <string name="open_settings">Öppna inställningar</string>
+    <string name="pairing_title">Parkoppling</string>
+    <string name="pair_intro">Parkoppla med Telescope på din dator så att det kan använda den här telefonens kamera.</string>
+    <string name="pair_a_computer">Parkoppla en dator</string>
+    <string name="manage">Hantera</string>
+    <string name="pair_new">Parkoppla ny</string>
+    <plurals name="computers_paired">
+        <item quantity="one">%1$d dator parkopplad</item>
+        <item quantity="other">%1$d datorer parkopplade</item>
+    </plurals>
+    <string name="manage_computers">Hantera datorer</string>
     <string name="paired_computers_title">Parkopplade datorer</string>
+    <string name="no_computers_paired">Inga datorer parkopplade.</string>
     <string name="paired_on">Parkopplad %1$s</string>
     <string name="remove">Ta bort</string>
     <string name="cancel">Avbryt</string>
@@ -68,6 +86,7 @@
         <item quantity="one">• %1$d till hann inte provas - gav upp efter %2$d sekunder</item>
         <item quantity="other">• %1$d till hann inte provas - gav upp efter %2$d sekunder</item>
     </plurals>
+    <string name="pairing_advice">Kontrollera att telefonen och datorn är på samma Wi-Fi. Ett aktivt VPN kan blockera åtkomst till det lokala nätverket. Slå på VPN-tjänstens alternativ för LAN-åtkomst eller pausa VPN:et. Du kan också ansluta telefonen via USB för att parkoppla utan att skanna.</string>
     <string name="network_timed_out">tidsgränsen överskreds</string>
     <string name="network_no_route">ingen väg till värden</string>
     <string name="network_refused">anslutningen nekades</string>
@@ -76,6 +95,7 @@
     <string name="local_only">Bara lokalt - USB</string>
     <string name="local_only_hint">Bara en USB-anslutning kan komma åt kameran.</string>
     <string name="wait_for_computer">Vänta på min dator</string>
+    <string name="wait_for_computer_hint">Låt en parkopplad dator starta kameran medan skärmen är avstängd.</string>
     <string name="stop_streaming">Stoppa strömning</string>
     <string name="status_title">Status</string>
     <string name="status_not_streaming">Strömmar inte</string>
@@ -84,6 +104,7 @@
     <string name="status_quality">I %1$dp och %2$d fps</string>
     <string name="status_waiting_for_computer">Väntar på datorn</string>
     <string name="status_mic_only">Strömmar mikrofonen, kameran avstängd</string>
+    <string name="status_too_hot">Telefonen är för varm. Strömmen är pausad tills den har svalnat.</string>
     <string name="status_camera_taken">En annan app använder kameran. Strömningen fortsätter när den är ledig.</string>
     <string name="streaming_started_remotely">Strömningen startades från din dator</string>
     <string name="settings">Inställningar</string>
@@ -102,6 +123,8 @@
     <string name="report_bug">Rapportera ett fel</string>
     <string name="troubleshooting">Felsökning</string>
     <string name="nightly_updates">Nightly-uppdateringar</string>
+    <string name="nightly_updates_hint">Byggs från varje ändring för snabbare felkorrigeringar med mindre testning.</string>
+    <string name="choice_selected">%1$s vald</string>
     <string name="updates_section">Uppdateringar</string>
     <string name="check_for_updates">Sök efter uppdateringar</string>
     <string name="translation_draft">Den här översättningen är ett första utkast och vissa texter kan låta lite konstiga.</string>
@@ -120,11 +143,13 @@
     <string name="notif_channel_streaming">Strömning</string>
     <string name="notif_channel_streaming_desc">Visas medan kameran strömmar till din dator</string>
     <string name="notif_channel_waiting">Väntar på datorn</string>
+    <string name="notif_channel_waiting_desc">Visas medan Telescope väntar på att en parkopplad dator ska starta kameran</string>
     <string name="notif_streaming_title">Strömmar</string>
     <string name="notif_camera_streaming">Kameran strömmar</string>
     <string name="notif_streaming_usb">Till %1$s via USB</string>
     <string name="notif_streaming_wifi">Till %1$s via Wi-Fi</string>
     <string name="notif_mic_streaming">Mikrofonen strömmar, kameran avstängd</string>
+    <string name="notif_camera_off">Kameran är av</string>
     <string name="notif_waiting">Väntar på din dator</string>
     <string name="notif_stop_waiting">Sluta vänta</string>
 </resources>
