@@ -126,7 +126,7 @@ fn stress_case(pick: &mut impl FnMut(usize) -> usize) -> (Vec<u8>, Vec<u8>, usiz
         0 => vec![b'a'; n],
         1 => b"ab".iter().copied().cycle().take(n).collect(),
         2 => vec![b'('; n],
-        3 => std::iter::repeat_n(b'a', n - 1).chain([b'b']).collect(),
+        3 => std::iter::repeat_n(b'a', n - 1).chain(*b"b").collect(),
         4 => (0..n).map(|_| b"ab (x\n"[pick(6)]).collect(),
         _ => b"word ".iter().copied().cycle().take(n).collect(),
     };
@@ -1067,7 +1067,7 @@ fn what_a_plugin_hands_the_host_is_held_to_a_size_in_text_too() {
     assert!(err.contains("too big"), "{err}");
     assert_eq!(stopped_soon("bytes_one", &format!("{big} return #json.encode({{ big }})")).unwrap(), json!(6 * 1024 * 1024 + 4));
     // and a call's arguments together
-    let err = stopped_soon("bytes_call", &format!("local big = string.rep('x', 9 * 1024 * 1024) host.set_ui_props(big, {{ big }})")).unwrap_err();
+    let err = stopped_soon("bytes_call", "local big = string.rep('x', 9 * 1024 * 1024) host.set_ui_props(big, { big })").unwrap_err();
     assert!(err.contains("too big"), "{err}");
     let err = stopped_soon("bytes_decode", "return json.decode(string.rep('1,', 9 * 1024 * 1024))").unwrap_err();
     assert!(err.contains("too big"), "{err}");
@@ -1106,7 +1106,7 @@ const BANNERS: &str = r#"
 
 #[test]
 fn a_plugins_banner_keys_are_its_own() {
-    let mut t = PluginTest::open(&plugin("banner_a", BANNERS, json!({}))).unwrap();
+    let mut t = PluginTest::open(plugin("banner_a", BANNERS, json!({}))).unwrap();
     // The app's banner, under a key the plugin knows
     t.host.show_issue("start", telescope_core::ui::Issue { title: "App's".into(), text: String::new(), actions: vec![], kind: "err".into(), details: String::new(), tell_dismiss: false });
     t.call("show", vec![json!("start")]).unwrap();
@@ -1123,7 +1123,7 @@ fn a_plugins_banner_keys_are_its_own() {
 
 #[test]
 fn a_banner_button_reaches_only_the_plugin_that_showed_it() {
-    let mut t = PluginTest::open(&plugin("banner_b", BANNERS, json!({}))).unwrap();
+    let mut t = PluginTest::open(plugin("banner_b", BANNERS, json!({}))).unwrap();
     for (key, id) in [("switch_auto", "x"), (added_issue_key("someone_else", "k").as_str(), "switch_auto"), (added_issue_key("banner_b", "k").as_str(), "go")] {
         t.plugin.on_issue_action(&mut t.host, key, id);
     }

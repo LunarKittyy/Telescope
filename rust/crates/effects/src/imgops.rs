@@ -823,7 +823,7 @@ unsafe fn remap_row_avx2(src: &[u8], stride: usize, spots: &[Spot], out: &mut [u
     let side_by_side = _mm256_broadcastsi128_si256(_mm_setr_epi8(0, 3, 1, 4, 2, 5, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1));
     let bytes = _mm256_broadcastsi128_si256(_mm_setr_epi8(0, 4, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1));
     let round = _mm256_set1_epi32(512);
-    for (i, pair) in spots[..done].chunks_exact(2).enumerate() {
+    for (i, pair) in spots[..done].as_chunks::<2>().0.iter().enumerate() {
         let (a, b) = (&pair[0], &pair[1]);
         let (fx_a, fx_b) = (a.fx as i16, b.fx as i16);
         let across = lanes(_mm_set1_epi16((fx_a << 8) | (32 - fx_a)), _mm_set1_epi16((fx_b << 8) | (32 - fx_b)));

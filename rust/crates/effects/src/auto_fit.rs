@@ -162,9 +162,7 @@ pub fn decide(m: &Measurement) -> Targets {
     let ranged = high - low >= LEVELS_MIN_SPREAD;
     let black = if !ranged {
         None
-    } else if low > BLACK_HIGH {
-        Some(BLACK_TARGET)
-    } else if low < BLACK_LOW && t.black_clipped <= BLACK_CLIP_MAX && lift_up > 0.0 {
+    } else if low > BLACK_HIGH || (low < BLACK_LOW && t.black_clipped <= BLACK_CLIP_MAX && lift_up > 0.0) {
         Some(BLACK_TARGET)
     } else {
         None

@@ -327,7 +327,7 @@ fn oled_is_black_where_the_dark_look_layers_and_light_layers_the_other_way_up() 
     // A card's outline and a control's differ, so a control inside a card doesn't merge with the card's edge
     assert!(luminance(colour(&theme, "card-outline", 2)) < luminance(edge));
     // The other looks have no outline tokens to draw: the fill does the telling
-    let line = |name: &str| theme.lines().find(|l| l.contains(&format!("property <")) && l.contains(&format!(" {name}:"))).unwrap().to_string();
+    let line = |name: &str| theme.lines().find(|l| l.contains(&"property <".to_string()) && l.contains(&format!(" {name}:"))).unwrap().to_string();
     for name in ["outline", "outline-hover", "outline-press", "card-outline", "pop-outline", "dis-outline"] {
         let args = pick_args(&line(name), 0);
         assert!(args[0] == "transparent" && args[1] == "transparent" && args[3] == "transparent" && args[2] != "transparent", "{name} is transparent outside OLED: {}", line(name));

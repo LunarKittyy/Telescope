@@ -14,3 +14,6 @@ serde_json.workspace = true
 i-slint-backend-testing = "=1.18.1"
 slint-interpreter.workspace = true
 telescope-ui-kit.workspace = true
+
+[lints]
+workspace = true

@@ -187,7 +187,8 @@ impl StreamHandler for Producer {
                 }
             }
         }
-        stream.queue(buffer);
+        // SAFETY: the buffer was dequeued from this stream and is queued once here
+        unsafe { stream.queue(buffer) };
     }
 }
 

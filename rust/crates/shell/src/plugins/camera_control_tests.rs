@@ -956,7 +956,8 @@ fn back_on_a_after_b_nothing_is_sent_and_a_keeps_its_own_range() {
 #[test]
 fn iso_shutter_and_focus_move_a_position_at_a_time() {
     let card = include_str!("../../ui/cards/camera.slint");
-    for label in ["shortcut: \"camera.focus\";"] {
+    {
+        let label = "shortcut: \"camera.focus\";";
         let at = card.find(label).unwrap_or_else(|| panic!("no {label}"));
         let slider = &card[at..at + card[at..].find("moved(v)").unwrap()];
         assert!(slider.contains("step: 1;"), "{label}: {slider}");
@@ -1075,7 +1076,7 @@ fn a_value_between_two_ticks_is_a_place_on_the_dial_and_back() {
     assert!(off > 0.4 && off <= 0.5, "{off}");
     let (i, off) = dial_place(&stops, 360.0);
     assert_eq!(i, at("400"));
-    assert!(off < 0.0 && off >= -0.5, "{off}");
+    assert!((-0.5..0.0).contains(&off), "{off}");
     // And back: the place gives the value again
     let (i, off) = dial_place(&stops, 430.0);
     let back = dial_value(&stops, i, off).unwrap();

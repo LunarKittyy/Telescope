@@ -330,7 +330,7 @@ fn stopping_ends_the_feed() {
 
 fn decode(p: &Picture) -> Frame {
     let packet = Packet { data: packet_of(p), time_ns: 0 };
-    SpoutDecoder::default().decode(&packet).newest.expect("a frame")
+    SpoutDecoder.decode(&packet).newest.expect("a frame")
 }
 
 #[test]
@@ -350,7 +350,7 @@ fn every_byte_order_decodes_to_the_same_colours_with_alpha_dropped() {
 
 #[test]
 fn a_broken_packet_gives_no_frame() {
-    let mut decoder = SpoutDecoder::default();
+    let mut decoder = SpoutDecoder;
     let mut good = packet_of(&picture(2, 2, "RGBA", [0; 4]));
     good.pop();
     for data in [Vec::new(), vec![0; 11], good, packet_of(&picture(2, 2, "XXXX", [0; 4]))] {

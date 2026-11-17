@@ -256,7 +256,6 @@ mod tests {
             series: SourceSeries {
                 received_fps: fps.clone(), delivered_fps: fps.clone(), decoded_fps: fps, dropped_fps: vec![0.0; n], mbps: vec![8.0; n],
                 decode_ms: vec![4.0; n], step_ms: vec![2.0; n], camera_ms: vec![1.0; n], repeated_fps: vec![0.0; n], drop_totals: drops,
-                ..SourceSeries::default()
             },
             ..SourceSnapshot::default()
         }

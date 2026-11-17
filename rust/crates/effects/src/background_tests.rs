@@ -928,7 +928,7 @@ fn bench_background_at_the_vision_rate() {
         let mut n = 0usize;
         let mut run = || {
             n += 1;
-            if n % 3 == 0 {
+            if n.is_multiple_of(3) {
                 for (_, m) in served.made.borrow_mut().iter_mut() {
                     *m = Arc::new(m.to_vec());
                 }

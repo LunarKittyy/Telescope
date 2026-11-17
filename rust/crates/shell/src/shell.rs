@@ -1623,7 +1623,7 @@ mod tests {
     fn a_plugin_left_out_for_its_ui_gives_back_what_its_setup_took() {
         let mut s = state();
         s.register(Box::new(Grabber)).unwrap();
-        assert!(s.vc.take("other").0 == false && s.effects.iter().any(|e| e.plugin() == Some("grabber")) && s.layers.contains_key("grabber"));
+        assert!(!s.vc.take("other").0 && s.effects.iter().any(|e| e.plugin() == Some("grabber")) && s.layers.contains_key("grabber"));
         assert!(s.take_out_if_ui_broken().is_err());
         assert!(s.slots.is_empty());
         assert!(s.vc.take("other").0, "the view is free again");

@@ -233,7 +233,7 @@ fn with_the_stats_plugin_switched_off_the_bar_works_and_its_pins_vanish_quietly(
     assert_eq!(pin(&r, "stats.cpu")["state"], "2", "the missing plugin's pin takes no room and says nothing");
     // And it stays in the file for when the plugin is back
     assert_eq!(saved(&r)["right"], json!(["stats.cpu", "fps", "throughput"]));
-    assert!(r.flag("bar-status-shown") == false);
+    assert!(!r.flag("bar-status-shown"));
 }
 
 #[test]
@@ -302,7 +302,7 @@ fn check_bar(r: &Rig, width: f32) -> (Vec<String>, Vec<String>) {
     }
     // No pin changed side
     let side = |id: &str| if ["camera", "stats.frames_in", "stats.repeated"].contains(&id) { "0" } else { "1" };
-    for p in all.iter().filter(|p| p["state"] != "2" && p["id"] != "") {
+    for p in all.iter().filter(|p| p["state"] != "2" && !p["id"].is_empty()) {
         assert_eq!(p["side"], side(&p["id"]), "{} stays on its side at {width}", p["id"]);
     }
     // The chips hold what the fold left

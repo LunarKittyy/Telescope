@@ -299,7 +299,7 @@ fn the_cutouts_download_is_its_own_and_finishes_with_no_plugin_to_switch_on() {
     assert_eq!(finished(&bus), [(String::new(), String::new())]);
     let pack = h.matting_pack();
     assert!(pack.ready && pack.error.is_empty() && !pack.downloading, "{pack:?}");
-    assert!(dir.join(&h.cutout_pack().unwrap().info.pack_id().unwrap()).join("models/rvm.onnx").is_file());
+    assert!(dir.join(h.cutout_pack().unwrap().info.pack_id().unwrap()).join("models/rvm.onnx").is_file());
     // Remove download deletes both
     h.remove_pack().unwrap();
     assert!(!h.matting_pack().ready);
@@ -449,7 +449,7 @@ fn a_zip_install_and_a_download_cannot_both_hold_the_pack_folder() {
         wait(|| g.load(Ordering::SeqCst));
         Ok(Box::new(Cursor::new(zipped.clone())) as Box<dyn Read>)
     }));
-    let zip = pack_zip_for(&h, &format!("Telescope-vision-linux-{}.zip", &h.shared.info.pack_id().unwrap()));
+    let zip = pack_zip_for(&h, &format!("Telescope-vision-linux-{}.zip", h.shared.info.pack_id().unwrap()));
     h.download("");
     wait(|| opened.load(Ordering::SeqCst) == 1);
     assert_eq!(h.install_pack_zip(&zip), PackZip::Busy);

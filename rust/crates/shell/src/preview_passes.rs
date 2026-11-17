@@ -490,7 +490,7 @@ mod tests {
         };
         let (mut below, mut top) = (noise(4 * 5000), noise(4 * 5000));
         // Plenty of clear and solid pixels among the in-between ones, on both
-        for (i, (b, t)) in below.chunks_exact_mut(4).zip(top.chunks_exact_mut(4)).enumerate() {
+        for (i, (b, t)) in below.as_chunks_mut::<4>().0.iter_mut().zip(top.as_chunks_mut::<4>().0).enumerate() {
             b[3] = [0, 255, b[3], b[3]][i % 4];
             t[3] = [t[3], 0, 255, t[3], 0][i % 5];
         }

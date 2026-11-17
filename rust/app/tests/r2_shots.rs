@@ -132,9 +132,9 @@ fn grading_header_shots() {
     let Some(dir) = out() else { return };
     let card = card_of(&mut ColourGradingPlugin::new(), "look");
     let on = json!({"active": true, "on": true, "page": 0, "auto-ready": true});
-    shoot(&dir, "grading-header", &card, 406.0, &[on.clone()], &nothing);
-    shoot(&dir, "grading-header-narrow", &card, 387.0, &[on.clone()], &nothing);
-    shoot(&dir, "grading-header-icon-only", &card, 336.0, &[on.clone()], &nothing);
+    shoot(&dir, "grading-header", &card, 406.0, std::slice::from_ref(&on), &nothing);
+    shoot(&dir, "grading-header-narrow", &card, 387.0, std::slice::from_ref(&on), &nothing);
+    shoot(&dir, "grading-header-icon-only", &card, 336.0, std::slice::from_ref(&on), &nothing);
     shoot(&dir, "grading-header-busy", &card, 406.0, &[on.clone(), json!({"auto-busy": true, "auto-label": "Looking\u{2026}"})], &nothing);
     shoot(&dir, "grading-header-nostream", &card, 406.0, &[on.clone(), json!({"auto-ready": false})], &nothing);
     shoot(&dir, "grading-header-nostream-narrow", &card, 387.0, &[on, json!({"auto-ready": false})], &nothing);
@@ -230,7 +230,7 @@ fn lens_and_name_tag_shots() {
         {"id": "wide", "number": "0.6", "unit": "x", "rest": "Wide", "name": "Wide"},
         {"id": "main", "number": "1", "unit": "x", "rest": "Main", "name": "Main"},
         {"id": "tele", "number": "2", "unit": "x", "rest": "Zoom", "name": "Zoom"}]});
-    shoot(&dir, "camera-lenses", &camera, 406.0, &[lenses.clone()], &nothing);
+    shoot(&dir, "camera-lenses", &camera, 406.0, std::slice::from_ref(&lenses), &nothing);
     shoot(&dir, "camera-lenses-four", &camera, 406.0, &[lenses, json!({"lens-columns": 2, "lens-names": ["Wide", "Main", "Zoom", "Macro"], "lenses": [
         {"id": "wide", "number": "0.6", "unit": "x", "rest": "Wide", "name": "Wide"}, {"id": "main", "number": "1", "unit": "x", "rest": "Main", "name": "Main"},
         {"id": "tele", "number": "2", "unit": "x", "rest": "Zoom", "name": "Zoom"}, {"id": "macro", "number": "3", "unit": "x", "rest": "Macro", "name": "Macro"}]})], &nothing);

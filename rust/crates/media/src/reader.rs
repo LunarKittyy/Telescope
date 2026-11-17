@@ -538,7 +538,7 @@ mod bench {
             }
             self.next += self.period;
             self.left -= 1;
-            let key = self.index % KEY_EVERY == 0 || std::mem::take(&mut self.key_wanted);
+            let key = self.index.is_multiple_of(KEY_EVERY) || std::mem::take(&mut self.key_wanted);
             self.index += 1;
             let mut data = vec![0u8; self.size];
             data[..5].copy_from_slice(&[0, 0, 0, 1, if key { 0x65 } else { 0x41 }]);

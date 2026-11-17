@@ -335,7 +335,7 @@ fn problems(ui: &slint_interpreter::ComponentInstance, window: &str) -> Vec<Stri
         if role == AccessibleRole::Slider && value.trim().is_empty() {
             found.push(format!("{at}: a slider with no value to speak"));
         }
-        if role == AccessibleRole::Slider && value.trim().is_empty() == false && only_a_value(&value) && e.accessible_value_minimum().is_none() {
+        if role == AccessibleRole::Slider && !value.trim().is_empty() && only_a_value(&value) && e.accessible_value_minimum().is_none() {
             found.push(format!("{at}: a number with no range"));
         }
     }

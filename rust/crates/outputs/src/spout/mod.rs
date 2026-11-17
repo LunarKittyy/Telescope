@@ -272,7 +272,7 @@ impl StreamSource for SpoutSource {
         Ok((Codec::Mjpeg, Box::new(feed)))
     }
     fn decoder(&self) -> Option<Box<dyn Decoder>> {
-        Some(Box::new(SpoutDecoder::default()))
+        Some(Box::new(SpoutDecoder))
     }
     fn control_client(&self) -> Option<Box<dyn ControlClient>> {
         Some(Box::new(NoControl))

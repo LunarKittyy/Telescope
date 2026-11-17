@@ -160,7 +160,7 @@ mod tests {
         // Per channel means of the colour bytes, in RGB order
         let order = if picture.fourcc.starts_with("BGR") { [2, 1, 0] } else { [0, 1, 2] };
         let pixels = picture.data.len() as u64 / 4;
-        let means: Vec<u64> = order.iter().map(|c| picture.data.chunks_exact(4).map(|p| p[*c] as u64).sum::<u64>() / pixels).collect();
+        let means: Vec<u64> = order.iter().map(|c| picture.data.as_chunks::<4>().0.iter().map(|p| p[*c] as u64).sum::<u64>() / pixels).collect();
         println!("picture {}x{} {} mean RGB {means:?}", picture.width, picture.height, picture.fourcc);
         // A second picture comes at the sender's pace, not at once (frame counting) or at least still arrives
         let started = Instant::now();
@@ -172,7 +172,7 @@ mod tests {
         }
         println!("{more} more pictures in 2 s");
         if let Ok(path) = std::env::var("SPOUT_TEST_PNG") {
-            let rgba: Vec<u8> = picture.data.chunks_exact(4).flat_map(|p| [p[order[0]], p[order[1]], p[order[2]], 255]).collect();
+            let rgba: Vec<u8> = picture.data.as_chunks::<4>().0.iter().flat_map(|p| [p[order[0]], p[order[1]], p[order[2]], 255]).collect();
             image::save_buffer(path, &rgba, picture.width, picture.height, image::ColorType::Rgba8).unwrap();
         }
     }

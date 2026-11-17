@@ -31,7 +31,10 @@ impl StreamRef {
     }
 
     /// Hands a buffer back.
-    pub fn queue(&self, buffer: *mut PwBuffer) {
+    ///
+    /// # Safety
+    /// The buffer must have been dequeued from this stream and not queued since.
+    pub unsafe fn queue(&self, buffer: *mut PwBuffer) {
         // SAFETY: raw is the live stream, and the buffer came from it
         unsafe { (self.lib.stream_queue_buffer)(self.raw, buffer) };
     }

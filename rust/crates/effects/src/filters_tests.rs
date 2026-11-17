@@ -618,7 +618,7 @@ fn grain_moves_every_frame_stays_the_same_in_a_frame_and_is_strongest_in_the_mid
     assert_ne!(a.data, b.data, "a new frame, new grain");
     assert_eq!(a.data, a_again.data, "the same frame, the same grain");
     // brightness only: the three colours of a pixel move together
-    assert!(a.data.chunks_exact(4).all(|p| p[0] == p[1] && p[1] == p[2]));
+    assert!(a.data.as_chunks::<4>().0.iter().all(|p| p[0] == p[1] && p[1] == p[2]));
     let (ms, ds) = (spread(&a, (0, 0, 64, 64)), spread(&at(&mut cpu_step, &dark, 1), (0, 0, 64, 64)));
     assert!(ms > 4.0 && ms > ds * 1.5, "mid-tones {ms} against shadows {ds}");
 }

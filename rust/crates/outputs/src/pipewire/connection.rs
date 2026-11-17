@@ -75,6 +75,8 @@ pub struct Connection {
     core: *mut c_void,
     registry: *mut c_void,
     shared: Box<Shared>,
+    // boxed so each hook keeps its address, which libpipewire holds on to
+    #[allow(clippy::vec_box)]
     hooks: Mutex<Vec<Box<SpaHook>>>,
 }
 

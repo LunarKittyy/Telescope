@@ -97,7 +97,7 @@ fn luma(img: &Rgb) -> Vec<f32> {
     let mut out = vec![0f32; img.w * img.h];
     in_bands(&mut out, w, |first, band| {
         for (r, row) in band.chunks_exact_mut(w).enumerate() {
-            for (o, p) in row.iter_mut().zip(img.data[(first + r) * w * 3..][..w * 3].chunks_exact(3)) {
+            for (o, p) in row.iter_mut().zip(img.data[(first + r) * w * 3..][..w * 3].as_chunks::<3>().0) {
                 *o = luma_of(p[0] as f32, p[1] as f32, p[2] as f32) / 255.0;
             }
         }
@@ -110,7 +110,7 @@ fn add_luma(img: &mut Rgb, changes: &[f32]) {
     let w = img.w;
     in_bands(&mut img.data, w * 3, |first, band| {
         for (r, row) in band.chunks_exact_mut(w * 3).enumerate() {
-            for (p, d) in row.chunks_exact_mut(3).zip(&changes[(first + r) * w..][..w]) {
+            for (p, d) in row.as_chunks_mut::<3>().0.iter_mut().zip(&changes[(first + r) * w..][..w]) {
                 if *d != 0.0 {
                     for c in p.iter_mut() {
                         *c = to_u8(*c as f32 / 255.0 + d);
@@ -190,8 +190,8 @@ pub fn sharpen(img: &mut Rgb, p: &Sharpen) {
 /// What sharpen changes the brightness of each pixel by, from the brightness plane (0..1).
 pub fn sharpen_changes(y: &[f32], w: usize, h: usize, p: &Sharpen) -> Vec<f32> {
     let sigma = (p.sigma * scale_of(h)).max(0.4);
-    let blur = gaussian(&y, w, h, sigma);
-    let (lo, hi) = min_max_3x3(&y, w, h);
+    let blur = gaussian(y, w, h, sigma);
+    let (lo, hi) = min_max_3x3(y, w, h);
     let mut changes = vec![0f32; w * h];
     in_bands(&mut changes, w, |first, band| {
         for (o, i) in band.iter_mut().zip(first * w..) {
@@ -389,7 +389,7 @@ pub fn dehaze(img: &mut Rgb, p: &Dehaze) {
     let mut lowest = vec![0u8; w * h];
     in_bands(&mut lowest, w, |first, band| {
         for (r, row) in band.chunks_exact_mut(w).enumerate() {
-            for (o, c) in row.iter_mut().zip(img.data[(first + r) * w * 3..][..w * 3].chunks_exact(3)) {
+            for (o, c) in row.iter_mut().zip(img.data[(first + r) * w * 3..][..w * 3].as_chunks::<3>().0) {
                 *o = c[0].min(c[1]).min(c[2]);
             }
         }
@@ -404,7 +404,7 @@ pub fn dehaze(img: &mut Rgb, p: &Dehaze) {
     let encode: Vec<u8> = (0..=4096).map(|i| to_u8((i as f32 / 4096.0).powf(2.0 / GAMMA))).collect();
     in_bands(&mut img.data, w * 3, |first, band| {
         for (r, row) in band.chunks_exact_mut(w * 3).enumerate() {
-            for (c, d) in row.chunks_exact_mut(3).zip(&dark[(first + r) * w..][..w]) {
+            for (c, d) in row.as_chunks_mut::<3>().0.iter_mut().zip(&dark[(first + r) * w..][..w]) {
                 let t = through[*d as usize];
                 for v in c.iter_mut() {
                     let j = ((linear[*v as usize] - air) / t + air).clamp(0.0, 1.0);
@@ -553,7 +553,7 @@ pub fn denoise_time(img: &mut Rgb, memory: &mut Memory, p: &DenoiseTime, source:
     });
     let width = w * 3;
     for ((row, last), k) in img.data.chunks_exact_mut(width).zip(memory.last.chunks_exact_mut(width)).zip(weights.chunks_exact(w)) {
-        for ((c, l), k) in row.chunks_exact_mut(3).zip(last.chunks_exact_mut(3)).zip(k) {
+        for ((c, l), k) in row.as_chunks_mut::<3>().0.iter_mut().zip(last.as_chunks_mut::<3>().0).zip(k) {
             for i in 0..3 {
                 let out = c[i] as f32 / 255.0 * (1.0 - k) + l[i] * k;
                 l[i] = out;
@@ -644,7 +644,7 @@ pub fn skin(img: &mut Rgb, mask: &Gray, p: &Skin) {
         in_bands(&mut blurred, sw * 3, |first, band| {
             for (r, row) in band.chunks_exact_mut(sw * 3).enumerate() {
                 let sy = first + r;
-                for (sx, o) in row.chunks_exact_mut(3).enumerate() {
+                for (sx, o) in row.as_chunks_mut::<3>().0.iter_mut().enumerate() {
                     if near(sx, sy) {
                         o.copy_from_slice(&skin_blur(&shrunk, sw, sh, 1, sx as isize, sy as isize, &spatial, &range));
                     }
@@ -740,7 +740,7 @@ pub fn finish(img: &mut Rgb, p: &Finish, number: u32) {
         in_bands(&mut small, sw * 3, |first, band| {
             for (r, row) in band.chunks_exact_mut(sw * 3).enumerate() {
                 let sy = first + r;
-                for (sx, o) in row.chunks_exact_mut(3).enumerate() {
+                for (sx, o) in row.as_chunks_mut::<3>().0.iter_mut().enumerate() {
                     let mut sum = [0f32; 3];
                     let mut n = 0.0;
                     for y in sy * f..((sy + 1) * f).min(h) {
@@ -795,16 +795,16 @@ pub fn finish(img: &mut Rgb, p: &Finish, number: u32) {
                 }
                 if p.vignette != 0.0 {
                     let v = vignette_at(x as f32 + 0.5, y as f32 + 0.5, wf, hf, p.vignette_inner, p.vignette_round);
-                    for t in 0..3 {
-                        c[t] = if p.vignette > 0.0 { c[t] * (1.0 - p.vignette * v) } else { c[t] + (1.0 - c[t]) * (-p.vignette * v * 0.6) };
+                    for ch in &mut c {
+                        *ch = if p.vignette > 0.0 { *ch * (1.0 - p.vignette * v) } else { *ch + (1.0 - *ch) * (-p.vignette * v * 0.6) };
                     }
                 }
                 if p.grain > 0.0 {
                     let (cx, cy) = (((x as f32 + 0.5) / cell) as u32, ((y as f32 + 0.5) / cell) as u32);
                     let tones = 0.25 + 0.75 * 4.0 * luma_of(c[0], c[1], c[2]).clamp(0.0, 1.0) * (1.0 - luma_of(c[0], c[1], c[2]).clamp(0.0, 1.0));
                     let n = grain_at(cx, cy, number) * p.grain * 0.12 * tones;
-                    for t in 0..3 {
-                        c[t] += n;
+                    for ch in &mut c {
+                        *ch += n;
                     }
                 }
                 for t in 0..3 {

@@ -139,7 +139,7 @@ fn luma_floor(level: u8) -> u8 {
         most
     });
     // One level of room, so a rounding step in the real path never leaves a lit pixel out
-    (0..255usize).rev().find(|&y| most[y] as u32 + 1 <= level as u32).unwrap_or(0) as u8
+    (0..255usize).rev().find(|&y| (most[y] as u32) < level as u32).unwrap_or(0) as u8
 }
 
 fn per_band(strips: usize) -> usize {

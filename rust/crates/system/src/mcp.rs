@@ -362,7 +362,7 @@ pub fn handle_message(message: &Value, call: &dyn Fn(&str, Value) -> Reply) -> O
     let Some(method) = fields.get("method").and_then(Value::as_str) else {
         return Some(error(&id_of(fields), -32600, "That isn't a request: it has no method."));
     };
-    let Some(id) = fields.get("id") else { return None };
+    let id = fields.get("id")?;
     if !valid_id(id) {
         return Some(error(&Value::Null, -32600, "That isn't a request: its id has to be a string or a whole number."));
     }

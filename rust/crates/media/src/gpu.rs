@@ -1205,7 +1205,7 @@ mod tests {
             // Hard edges in the colour, the last column and row included, so any shifted chroma cell shows
             let mut rgba = vec![255u8; w * h * 4];
             let mut n = 7u32;
-            for (i, p) in rgba.chunks_exact_mut(4).enumerate() {
+            for (i, p) in rgba.as_chunks_mut::<4>().0.iter_mut().enumerate() {
                 let (x, y) = (i % w, i / w);
                 n = n.wrapping_mul(1664525).wrapping_add(1013904223);
                 let edge = if (x / 3 + y / 5) % 2 == 0 { 220 } else { 30 };

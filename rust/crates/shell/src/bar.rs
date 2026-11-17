@@ -329,7 +329,7 @@ impl Bar {
             }
         }
         let held_left = fit.left.iter().filter(|f| **f).count();
-        let left_chip = (held_left > 0).then(|| Chip { count: held_left, x: cursor });
+        let left_chip = (held_left > 0).then_some(Chip { count: held_left, x: cursor });
         for (i, (id, w, _)) in l.iter().enumerate() {
             if fit.left[i] {
                 placed.insert(id.clone(), (State::Folded, Side::Left, left_chip.map_or(m.pad, |c| c.x), *w));
@@ -348,7 +348,7 @@ impl Bar {
         // The left edge of the pins that stay, or the right edge of the bar when none does
         let inner = if any_right_shown { cursor + m.gap } else { m.width - m.pad };
         let held_right = fit.right.iter().filter(|f| **f).count();
-        let right_chip = (held_right > 0).then(|| Chip { count: held_right, x: inner - m.chip - if any_right_shown { m.gap } else { 0.0 } });
+        let right_chip = (held_right > 0).then_some(Chip { count: held_right, x: inner - m.chip - if any_right_shown { m.gap } else { 0.0 } });
         for (i, (id, w, _)) in r.iter().enumerate() {
             if fit.right[i] {
                 placed.insert(id.clone(), (State::Folded, Side::Right, right_chip.map_or(m.width - m.pad - w, |c| c.x), *w));

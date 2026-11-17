@@ -141,7 +141,7 @@ mod tests {
     fn a_plugins_files_cant_import_another_plugins_or_any_other_file() {
         let (mine, other) = folders();
         let other_helper = other.join("helper.slint");
-        for bad in [format!("import {{ Helper }} from \"../other/helper.slint\";\nexport component Probe inherits Rectangle {{ Helper {{ }} }}\n"),
+        for bad in ["import { Helper } from \"../other/helper.slint\";\nexport component Probe inherits Rectangle { Helper { } }\n".to_string(),
                     format!("import {{ Helper }} from {:?};\nexport component Probe inherits Rectangle {{ Helper {{ }} }}\n", other_helper.to_string_lossy()),
                     "import { Helper } from \"/etc/helper.slint\";\nexport component Probe inherits Rectangle { Helper { } }\n".to_string()] {
             let error = card(&mine, &bad).unwrap_err();

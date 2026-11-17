@@ -368,7 +368,7 @@ mod tests {
         if let Ok(path) = std::env::var("PROBE_OUT") {
             let (r, b) = if picture.fourcc.starts_with('B') { (2, 0) } else { (0, 2) };
             let mut out = format!("P6\n{} {}\n255\n", picture.width, picture.height).into_bytes();
-            for px in picture.data.chunks_exact(4) {
+            for px in picture.data.as_chunks::<4>().0 {
                 out.extend_from_slice(&[px[r], px[1], px[b]]);
             }
             std::fs::write(path, out).expect("the picture should be written");

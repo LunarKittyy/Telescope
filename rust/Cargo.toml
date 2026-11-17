@@ -16,6 +16,10 @@ members = [
     "crates/vision",
 ]
 
+[workspace.lints.clippy]
+type_complexity = "allow"
+too_many_arguments = "allow"
+
 [workspace.package]
 edition = "2021"
 version = "0.1.0"

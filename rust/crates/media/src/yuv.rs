@@ -143,7 +143,7 @@ impl Offsets {
     /// Spread over the pixels: each sample's offsets for both of the pair it colours (an odd width's last sample has one pixel).
     fn spread(&self, to: &mut Offsets) {
         for (from, to) in [(&self.red, &mut to.red), (&self.green, &mut to.green), (&self.blue, &mut to.blue)] {
-            for (pair, &a) in to.chunks_exact_mut(2).zip(from) {
+            for (pair, &a) in to.as_chunks_mut::<2>().0.iter_mut().zip(from) {
                 pair.fill(a);
             }
         }
@@ -162,7 +162,7 @@ struct Scratch {
 #[inline(always)]
 fn colour(gain: i16, black: i16, y: u8, offsets: [i16; 3]) -> [i16; 3] {
     // 5 fractional bits
-    let base = (((y as i16 - black) << 7) as i32 * gain as i32 >> 16) as i16;
+    let base = ((((y as i16 - black) << 7) as i32 * gain as i32) >> 16) as i16;
     offsets.map(|off| ((base + off) >> 5).clamp(0, 255))
 }
 
@@ -209,7 +209,7 @@ fn matrix_rows(m: &Matrix, src: &[u8], out: &mut [u8], scratch: &mut Scratch, wi
         // The chroma out of the top left pixel of each block
         let top = &y_in[cy * 2 * width..(cy * 2 + 1) * width];
         let (us_out, vs_out) = (&mut u_out[cy * cw..(cy + 1) * cw], &mut v_out[cy * cw..(cy + 1) * cw]);
-        let whole = top.chunks_exact(2).zip(&chroma.red).zip(&chroma.green).zip(&chroma.blue);
+        let whole = top.as_chunks::<2>().0.iter().zip(&chroma.red).zip(&chroma.green).zip(&chroma.blue);
         for ((((y, &r), &g), &b), (uo, vo)) in whole.zip(us_out.iter_mut().zip(vs_out.iter_mut())) {
             let rgb = colour(gain, black, y[0], [r, g, b]);
             *uo = weigh(128 << 6, rgb, BLUE_DIFF) as u8;

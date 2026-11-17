@@ -499,13 +499,13 @@ mod tests {
         let mut input = vec![0x00, 0xFF, 0xD9, 0x12, 0xFF, 0xD8, 0x00];
         input.extend(&a);
         input.extend([0xAA, 0xFF]);
-        assert_eq!(split_all(&[&input]), [a.clone()]);
+        assert_eq!(split_all(&[&input]), std::slice::from_ref(&a));
         assert!(split_all(&[&[1, 2, 3, 0xFF, 0xD9, 0xFF, 0xD8, 0x00]]).is_empty());
         assert!(split_all(&[&[]]).is_empty());
         // A start that turns out not to be a JPEG (a segment length of 1) doesn't swallow the frame after it
         let mut input = vec![0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x01, 9, 9];
         input.extend(&a);
-        assert_eq!(split_all(&[&input]), [a.clone()]);
+        assert_eq!(split_all(&[&input]), std::slice::from_ref(&a));
         // A half-sent frame is waited for
         let mut s = JpegSplitter::new(1024);
         assert!(s.push(&a[..9]).is_empty());
@@ -802,7 +802,7 @@ while :; do sleep 0.05; done
         let device = found.first().expect("no camera listed");
         eprintln!("listed: {} at {} modes {}", device.name, device.location, device.modes.len());
         let started = Instant::now();
-        let mut cap = open(&"gphoto2", device).unwrap_or_else(|e| panic!("{e:?}"));
+        let mut cap = open("gphoto2", device).unwrap_or_else(|e| panic!("{e:?}"));
         let mut times = Vec::new();
         let mut size = None;
         while started.elapsed() < Duration::from_secs(secs) {

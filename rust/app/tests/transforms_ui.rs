@@ -344,7 +344,7 @@ fn auto_framing_visibly_disables_the_zoom_handle_and_value() {
         (12..=16).contains(&(x1 - x0 + 1)) && (22..=26).contains(&(y1 - y0 + 1)) && all.len() >= 50
     });
     assert_eq!(grey_handle, Some(true), "no handle went grey: {:?}", groups.iter().map(|g| g.len()).collect::<Vec<_>>());
-    assert!(recoloured(&free, &taken, HUE_CAMERA, TEXT_DISABLED).iter().any(|g| g.len() >= 1), "the value's text went grey too");
+    assert!(recoloured(&free, &taken, HUE_CAMERA, TEXT_DISABLED).iter().any(|g| !g.is_empty()), "the value's text went grey too");
     assert!(groups.concat().iter().any(|p| p.0 <= 40), "and so did the row's icon");
 
     plugin.on_event(&mut host, &Event::ViewTaken { owner: String::new() });

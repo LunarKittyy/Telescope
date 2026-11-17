@@ -154,13 +154,13 @@ fn fit_channel(from: &[u32; 256], to: &[u32; 256]) -> [u8; 256] {
     }
     let mut out = [0u8; 256];
     let mut floor = 0.0f32;
-    for v in 0..256usize {
+    for (v, o) in out.iter_mut().enumerate() {
         // narrower towards the ends, so black and white stay where they are
         let radius = SMOOTH_RADIUS.min(v).min(255 - v);
         let (lo, hi) = (v - radius, v + radius);
         let mean = raw[lo..=hi].iter().sum::<f32>() / (hi - lo + 1) as f32;
         floor = floor.max(mean);
-        out[v] = floor.round().clamp(0.0, 255.0) as u8;
+        *o = floor.round().clamp(0.0, 255.0) as u8;
     }
     out
 }

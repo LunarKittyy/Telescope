@@ -148,12 +148,12 @@ fn chroma_key_picker_shots() {
     let Some(dir) = out() else { return };
     let card = card_of(&mut ChromaKeyPlugin::new(), "look");
     let base = json!({"active": true, "on": true, "behind": 0, "colour-hex": "#1e2228", "channel-value": [30, 34, 40], "colour-h": 0.6, "colour-s": 0.25, "colour-v": 0.16});
-    shoot(&dir, "chroma-card", &card, 406.0, &[base.clone()], &nothing);
+    shoot(&dir, "chroma-card", &card, 406.0, std::slice::from_ref(&base), &nothing);
     let open = |ui: &slint_interpreter::ComponentInstance| {
         let field = ElementHandle::find_by_element_type_name(ui, "ColourField").next().expect("the colour field");
         click(ui, &field);
     };
-    shoot(&dir, "chroma-picker", &card, 406.0, &[base.clone()], &open);
+    shoot(&dir, "chroma-picker", &card, 406.0, std::slice::from_ref(&base), &open);
     let values = |ui: &slint_interpreter::ComponentInstance| {
         open(ui);
         let sw = ElementHandle::find_by_accessible_label(ui, "Values").find(|e| e.accessible_checkable() == Some(true)).expect("the values switch");

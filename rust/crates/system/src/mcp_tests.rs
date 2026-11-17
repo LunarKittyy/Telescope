@@ -560,7 +560,7 @@ fn snapshot_of(fps: Vec<f32>, lost: u64) -> Snapshot {
             drops: drops.last().copied().unwrap_or_default(), now: Rates { received_fps: *fps.last().unwrap_or(&0.0), ..Rates::default() },
             series: SourceSeries {
                 received_fps: fps.clone(), delivered_fps: fps.clone(), decoded_fps: fps, mbps: vec![9.0; n], dropped_fps: vec![0.0; n], repeated_fps: vec![0.0; n],
-                decode_ms: vec![5.0; n], step_ms: vec![2.0; n], camera_ms: vec![1.0; n], drop_totals: drops, ..SourceSeries::default()
+                decode_ms: vec![5.0; n], step_ms: vec![2.0; n], camera_ms: vec![1.0; n], drop_totals: drops
             },
             ..SourceSnapshot::default()
         }],

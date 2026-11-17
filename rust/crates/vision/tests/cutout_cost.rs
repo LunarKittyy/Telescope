@@ -21,7 +21,7 @@ fn clip_frames(count: usize) -> Vec<Frame> {
         .output()
         .expect("ffmpeg");
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-    out.stdout.chunks_exact(W * H * 3 / 2).enumerate().map(|(i, data)| {
+    out.stdout.as_chunks::<{ W * H * 3 / 2 }>().0.iter().enumerate().map(|(i, data)| {
         let mut frame = Frame::new(W as u32, H as u32, PixelFormat::I420, data.to_vec());
         frame.number = i as u64;
         frame

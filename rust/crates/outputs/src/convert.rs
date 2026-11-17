@@ -98,7 +98,7 @@ fn terms() -> &'static Terms {
 fn yuv_row_to_rgba(t: &Terms, y: &[u8], u: &[u8], v: &[u8], out: &mut [u8]) {
     for ((ys, os), (u, v)) in y.chunks(2).zip(out.chunks_mut(8)).zip(u.iter().zip(v)) {
         let (red, green_v, green_u, blue) = (t.v_red[*v as usize], t.v_green[*v as usize], t.u_green[*u as usize], t.u_blue[*u as usize]);
-        for (y, o) in ys.iter().zip(os.chunks_exact_mut(4)) {
+        for (y, o) in ys.iter().zip(os.as_chunks_mut::<4>().0.iter_mut()) {
             let c = t.luma[*y as usize];
             o.copy_from_slice(&[round_byte(c + red), round_byte(c - green_u - green_v), round_byte(c + blue), 255]);
         }
@@ -251,7 +251,7 @@ mod tests {
     fn bgra_converts_like_the_same_pixels_in_rgba() {
         let (w, h) = (37u32, 21u32);
         let bgra: Vec<u8> = (0..w * h).flat_map(|i| [(i * 7) as u8, (i * 13) as u8, (i * 29) as u8, 255]).collect();
-        let rgba: Vec<u8> = bgra.chunks_exact(4).flat_map(|p| [p[2], p[1], p[0], 255]).collect();
+        let rgba: Vec<u8> = bgra.as_chunks::<4>().0.iter().flat_map(|p| [p[2], p[1], p[0], 255]).collect();
         assert_eq!(bgra_to_i420(&bgra, w, h).data, rgb_to_i420(&rgba, w, h, 4, false).data);
     }
 
