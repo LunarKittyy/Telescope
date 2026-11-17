@@ -4,7 +4,6 @@
     <string name="preview_button">预览</string>
     <string name="close_preview">关闭预览</string>
     <string name="black_screen_button">黑屏</string>
-    <string name="black_screen_description">屏幕变黑，相机继续运行</string>
     <string name="black_screen_hint">双击唤醒</string>
     <string name="update_available">有可用更新</string>
     <string name="update_failed_title">更新未完成</string>
@@ -15,12 +14,10 @@
     <string name="update_installing">%1$s · 正在安装</string>
     <string name="update_stop_streaming_first">%1$s。停止串流以更新。</string>
     <string name="allow_installs_title">允许 Telescope 安装更新</string>
-    <string name="allow_installs_message">在下一屏幕中开启“允许来自此来源的应用”，然后返回。</string>
     <string name="update_error_offline">下载失败。请检查网络连接并重试。</string>
     <string name="update_error_http">下载失败（HTTP %1$d）。</string>
     <string name="update_error_too_big">下载的文件超出预期大小。</string>
     <string name="update_error_cut_short">下载意外中断。请检查网络连接并重试。</string>
-    <string name="update_error_checksum">下载的文件校验和不匹配，因此未安装。</string>
     <string name="update_error_save">无法保存下载的文件。</string>
     <string name="update_error_not_an_app">下载的文件不是有效的应用。</string>
     <string name="update_error_not_telescope">下载的文件不是 Telescope。</string>
@@ -70,7 +67,6 @@
     <plurals name="pairing_untried">
         <item quantity="other">• 还有 %1$d 个未尝试 - 在 %2$d 秒后放弃</item>
     </plurals>
-    <string name="pairing_advice">请确认手机和电脑连的是同一个 Wi-Fi。如果开着 VPN，它可能拦截了本地网络访问，请开启 VPN 的局域网访问选项，或先暂停 VPN。也可以用 USB 连接手机，无需扫描即可配对。</string>
     <string name="network_timed_out">超时</string>
     <string name="network_no_route">无到主机的路由</string>
     <string name="network_refused">连接被拒绝</string>
@@ -105,7 +101,6 @@
     <string name="report_bug">反馈问题</string>
     <string name="troubleshooting">故障排除</string>
     <string name="nightly_updates">Nightly 更新</string>
-    <string name="nightly_updates_hint">基于每次代码更改构建：更快获取修复，但测试较少。</string>
     <string name="updates_section">更新</string>
     <string name="check_for_updates">检查更新</string>
     <string name="translation_draft">此翻译为初稿，部分文字读起来可能有点别扭。</string>
@@ -124,7 +119,6 @@
     <string name="notif_channel_streaming">串流</string>
     <string name="notif_channel_streaming_desc">在相机向电脑串流时显示</string>
     <string name="notif_channel_waiting">正在等待电脑</string>
-    <string name="notif_channel_waiting_desc">在 Telescope 持续等待已配对电脑启动相机时显示</string>
     <string name="notif_streaming_title">正在串流</string>
     <string name="notif_camera_streaming">相机正在串流</string>
     <string name="notif_streaming_usb">通过 USB 传输至 %1$s</string>

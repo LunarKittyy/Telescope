@@ -4,7 +4,6 @@
     <string name="preview_button">Anteprima</string>
     <string name="close_preview">Chiudi anteprima</string>
     <string name="black_screen_button">Schermo nero</string>
-    <string name="black_screen_description">Oscura lo schermo mentre la fotocamera continua a funzionare</string>
     <string name="black_screen_hint">Tocca due volte per riattivare</string>
     <string name="update_available">Aggiornamento disponibile</string>
     <string name="update_failed_title">Aggiornamento non completato</string>
@@ -15,12 +14,10 @@
     <string name="update_installing">%1$s · installazione in corso</string>
     <string name="update_stop_streaming_first">%1$s. Interrompi lo streaming per aggiornare.</string>
     <string name="allow_installs_title">Consenti a Telescope di installare gli aggiornamenti</string>
-    <string name="allow_installs_message">Nella schermata successiva attiva Consenti da questa fonte, poi torna qui.</string>
     <string name="update_error_offline">Download non riuscito. Controlla la connessione a Internet e riprova.</string>
     <string name="update_error_http">Il download non è riuscito (HTTP %1$d).</string>
     <string name="update_error_too_big">Il download è più grande del previsto.</string>
     <string name="update_error_cut_short">Il download è stato interrotto. Controlla la connessione a Internet e riprova.</string>
-    <string name="update_error_checksum">Il download non corrisponde al suo checksum, quindi non è stato installato.</string>
     <string name="update_error_save">Impossibile salvare il download.</string>
     <string name="update_error_not_an_app">Il download non è un\'app valida.</string>
     <string name="update_error_not_telescope">Il download non è Telescope.</string>
@@ -71,7 +68,6 @@
         <item quantity="one">• %1$d altro non provato - interrotto dopo %2$d secondi</item>
         <item quantity="other">• %1$d altri non provati - interrotto dopo %2$d secondi</item>
     </plurals>
-    <string name="pairing_advice">Verifica che il telefono e il computer siano sulla stessa rete Wi-Fi. Se è attiva una VPN, potrebbe bloccare l\'accesso alla rete locale: attiva l\'opzione di accesso LAN o mettila in pausa. Oppure collega il telefono tramite USB e si assocerà senza scansionare.</string>
     <string name="network_timed_out">tempo scaduto</string>
     <string name="network_no_route">nessun instradamento verso l\'host</string>
     <string name="network_refused">connessione rifiutata</string>
@@ -106,7 +102,6 @@
     <string name="report_bug">Segnala un bug</string>
     <string name="troubleshooting">Risoluzione dei problemi</string>
     <string name="nightly_updates">Aggiornamenti Nightly</string>
-    <string name="nightly_updates_hint">Creati a ogni modifica: le correzioni arrivano prima, ma con meno test.</string>
     <string name="updates_section">Aggiornamenti</string>
     <string name="check_for_updates">Controlla aggiornamenti</string>
     <string name="translation_draft">Questa traduzione è una prima bozza e alcuni testi potrebbero sembrare un po\' strani.</string>
@@ -125,7 +120,6 @@
     <string name="notif_channel_streaming">Streaming</string>
     <string name="notif_channel_streaming_desc">Mostrato mentre la fotocamera sta trasmettendo al tuo computer</string>
     <string name="notif_channel_waiting">In attesa del computer</string>
-    <string name="notif_channel_waiting_desc">Mostrato mentre Telescope attende che un computer associato avvii la fotocamera</string>
     <string name="notif_streaming_title">In streaming</string>
     <string name="notif_camera_streaming">La fotocamera sta trasmettendo</string>
     <string name="notif_streaming_usb">A %1$s tramite USB</string>

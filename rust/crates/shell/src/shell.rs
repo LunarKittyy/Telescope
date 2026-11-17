@@ -849,7 +849,7 @@ impl State {
             let where_ = if backup.is_empty() { String::new() } else { format!(" {}", tr("A copy of the old file is at {path}.").field("path", &backup)) };
             self.banners.show("config", Issue {
                 title: tr("Your settings couldn't be read"),
-                text: tr("Telescope started with its defaults, so paired phones need pairing again.") + &where_,
+                text: tr("Telescope started with its defaults and paired phones need pairing again.") + &where_,
                 actions: vec![], kind: "warn".into(), details: String::new(), tell_dismiss: false,
             });
         }

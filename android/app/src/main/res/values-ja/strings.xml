@@ -4,7 +4,6 @@
     <string name="preview_button">プレビュー</string>
     <string name="close_preview">プレビューを閉じる</string>
     <string name="black_screen_button">黒画面</string>
-    <string name="black_screen_description">カメラを動かしたまま画面を真っ黒にします</string>
     <string name="black_screen_hint">ダブルタップで復帰</string>
     <string name="update_available">アップデートが利用可能</string>
     <string name="update_failed_title">アップデートが完了しませんでした</string>
@@ -15,12 +14,10 @@
     <string name="update_installing">%1$s · インストール中</string>
     <string name="update_stop_streaming_first">%1$s。アップデートするにはストリーミングを停止してください。</string>
     <string name="allow_installs_title">Telescopeにアップデートのインストールを許可</string>
-    <string name="allow_installs_message">次の画面で「この提供元のアプリを許可」をオンにしてから、戻ってください。</string>
     <string name="update_error_offline">ダウンロードに失敗しました。インターネット接続を確認して再試行してください。</string>
     <string name="update_error_http">ダウンロードに失敗しました（HTTP %1$d）。</string>
     <string name="update_error_too_big">ダウンロードのサイズが想定を超えています。</string>
     <string name="update_error_cut_short">ダウンロードが途中で途切れました。インターネット接続を確認して再試行してください。</string>
-    <string name="update_error_checksum">ダウンロードのチェックサムが一致しなかったため、インストールされませんでした。</string>
     <string name="update_error_save">ダウンロードを保存できませんでした。</string>
     <string name="update_error_not_an_app">ダウンロードしたファイルは有効なアプリではありません。</string>
     <string name="update_error_not_telescope">ダウンロードしたファイルはTelescopeではありません。</string>
@@ -70,7 +67,6 @@
     <plurals name="pairing_untried">
         <item quantity="other">• 他の%1$d件は未試行 - %2$d秒後に中止しました</item>
     </plurals>
-    <string name="pairing_advice">スマートフォンとコンピューターが同じWi-Fiに接続されているか確認してください。VPNがオンの場合、ローカル ネットワークへのアクセスがブロックされている可能性があります。LANアクセスのオプションをオンにするか、VPNを一時停止してください。または、USBでスマートフォンを接続すれば、スキャンなしでペアリングされます。</string>
     <string name="network_timed_out">タイムアウト</string>
     <string name="network_no_route">ホストへのルートがありません</string>
     <string name="network_refused">接続が拒否されました</string>
@@ -105,7 +101,6 @@
     <string name="report_bug">バグを報告</string>
     <string name="troubleshooting">トラブルシューティング</string>
     <string name="nightly_updates">Nightlyアップデート</string>
-    <string name="nightly_updates_hint">変更ごとにビルドされます。テストは少なくなりますが、修正がいち早く届きます。</string>
     <string name="updates_section">アップデート</string>
     <string name="check_for_updates">アップデートを確認</string>
     <string name="translation_draft">この翻訳は初稿のため、一部不自然な表現が含まれている場合があります。</string>
@@ -124,7 +119,6 @@
     <string name="notif_channel_streaming">ストリーミング</string>
     <string name="notif_channel_streaming_desc">カメラがコンピューターへストリーミング中に表示されます</string>
     <string name="notif_channel_waiting">コンピューターを待機中</string>
-    <string name="notif_channel_waiting_desc">ペアリング済みのコンピューターがカメラを開始するのをTelescopeが待機している間に表示されます</string>
     <string name="notif_streaming_title">ストリーミング中</string>
     <string name="notif_camera_streaming">カメラがストリーミング中</string>
     <string name="notif_streaming_usb">USB経由で%1$sへ</string>

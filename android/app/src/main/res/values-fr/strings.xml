@@ -4,7 +4,6 @@
     <string name="preview_button">Aperçu</string>
     <string name="close_preview">Fermer l\'aperçu</string>
     <string name="black_screen_button">Écran noir</string>
-    <string name="black_screen_description">Passer l\'écran au noir pendant que la caméra continue de diffuser</string>
     <string name="black_screen_hint">Touchez deux fois pour réactiver</string>
     <string name="update_available">Mise à jour disponible</string>
     <string name="update_failed_title">La mise à jour n\'a pas abouti</string>
@@ -15,12 +14,10 @@
     <string name="update_installing">%1$s · installation</string>
     <string name="update_stop_streaming_first">%1$s. Arrêtez la diffusion pour mettre à jour.</string>
     <string name="allow_installs_title">Autoriser Telescope à installer des mises à jour</string>
-    <string name="allow_installs_message">Sur l\'écran suivant, activez « Autoriser cette source », puis revenez.</string>
     <string name="update_error_offline">Échec du téléchargement. Vérifiez la connexion Internet et réessayez.</string>
     <string name="update_error_http">Échec du téléchargement (HTTP %1$d).</string>
     <string name="update_error_too_big">Le fichier téléchargé est plus volumineux que prévu.</string>
     <string name="update_error_cut_short">Le téléchargement a été interrompu. Vérifiez la connexion Internet et réessayez.</string>
-    <string name="update_error_checksum">Le fichier téléchargé ne correspond pas à sa somme de contrôle, il n\'a donc pas été installé.</string>
     <string name="update_error_save">Impossible d\'enregistrer le fichier téléchargé.</string>
     <string name="update_error_not_an_app">Le fichier téléchargé n\'est pas une application valide.</string>
     <string name="update_error_not_telescope">Le fichier téléchargé n\'est pas Telescope.</string>
@@ -71,7 +68,6 @@
         <item quantity="one">• %1$d autre non essayée - abandon après %2$d secondes</item>
         <item quantity="other">• %1$d autres non essayées - abandon après %2$d secondes</item>
     </plurals>
-    <string name="pairing_advice">Vérifiez que le téléphone et l\'ordinateur sont sur le même réseau Wi-Fi. Si un VPN est activé, il bloque peut-être l\'accès au réseau local : activez son option d\'accès au réseau local (LAN) ou mettez-le en pause. Vous pouvez aussi brancher le téléphone en USB : il s\'associe sans scanner.</string>
     <string name="network_timed_out">délai d\'attente dépassé</string>
     <string name="network_no_route">aucun chemin d\'accès vers l\'hôte</string>
     <string name="network_refused">connexion refusée</string>
@@ -106,7 +102,6 @@
     <string name="report_bug">Signaler un problème</string>
     <string name="troubleshooting">Dépannage</string>
     <string name="nightly_updates">Mises à jour Nightly</string>
-    <string name="nightly_updates_hint">Compilé à partir de chaque modification : les correctifs arrivent plus vite, avec moins de tests.</string>
     <string name="updates_section">Mises à jour</string>
     <string name="check_for_updates">Rechercher des mises à jour</string>
     <string name="translation_draft">Cette traduction est une première ébauche et certains textes peuvent sembler inhabituels.</string>
@@ -125,7 +120,6 @@
     <string name="notif_channel_streaming">Diffusion</string>
     <string name="notif_channel_streaming_desc">S\'affiche pendant que la caméra diffuse vers votre ordinateur</string>
     <string name="notif_channel_waiting">En attente de l\'ordinateur</string>
-    <string name="notif_channel_waiting_desc">S\'affiche lorsque Telescope attend qu\'un ordinateur associé démarre la caméra</string>
     <string name="notif_streaming_title">Diffusion</string>
     <string name="notif_camera_streaming">La caméra diffuse</string>
     <string name="notif_streaming_usb">Vers %1$s via USB</string>

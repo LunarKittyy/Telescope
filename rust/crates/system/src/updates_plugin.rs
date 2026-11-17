@@ -473,7 +473,7 @@ impl UpdatesPlugin {
         if let Some(m) = &self.available {
             let mut text = with_version("Telescope {version} is available.", m);
             if self.moves_on_update() {
-                text = format!("{text} {}", tr("Updating also installs it for your user, with a Start menu entry, and removes this unzipped copy. Settings and paired phones are kept."));
+                text = format!("{text} {}", tr("Updating also installs it for your user with a Start menu entry and removes this unzipped copy. Settings and paired phones carry over."));
             }
             if let Some(blocker) = self.update_blocker() {
                 return (format!("{text} {blocker}"), "status_warn");
@@ -487,11 +487,11 @@ impl UpdatesPlugin {
             return (String::new(), "status_dim");
         }
         if let Some(m) = &self.rolled_back {
-            return (with_version("Telescope {version} didn't start after updating, so it's held back. Try again?", m), "status_warn");
+            return (with_version("Telescope {version} didn't start after updating and is held back. Try again?", m), "status_warn");
         }
         let nightly = self.channel == "nightly";
         if self.built_channel == "dev" {
-            let mut text = tr("This is a source checkout, so update Telescope with git.");
+            let mut text = tr("This is a source checkout. Update Telescope with git.");
             if let Some(m) = &self.latest {
                 let latest = if nightly { "The latest nightly build is {version}." } else { "The latest stable build is {version}." };
                 text = format!("{text} {}", with_version(latest, m));
@@ -1145,7 +1145,7 @@ mod tests {
         fn back_up_settings(&self) -> Result<Option<PathBuf>, String> {
             self.back_events.lock().unwrap().push("backup".into());
             if self.backup_fails.load(Ordering::SeqCst) {
-                return Err("Couldn't save a copy of your settings, so nothing was changed.".into());
+                return Err("A copy of your settings couldn't be saved. Nothing was changed.".into());
             }
             Ok(Some(PathBuf::from("/settings/telescope_config.json.rust-1")))
         }
@@ -1751,7 +1751,7 @@ mod tests {
         std::fs::write(&marker, r#"{"build": 200}"#).unwrap();
         plugin.check(&mut host, true);
         let (text, kind) = plugin.status_text(&host);
-        assert!(text.contains("0.6.0 nightly 200 didn't start after updating, so it's held back"), "{text}");
+        assert!(text.contains("0.6.0 nightly 200 didn't start after updating and is held back"), "{text}");
         assert_eq!(kind, "status_warn");
         assert!(plugin.available.is_none() && !button_shown(&host));
         assert_eq!(last_props(&host, SECTION)["retry-shown"], true);
@@ -1865,7 +1865,7 @@ mod tests {
         ui(&mut plugin, &mut host, "back-asked", vec![]);
         answer_yes(&mut plugin, &mut host);
         assert_eq!(back_events(&fake), ["backup"]);
-        assert!(plugin.status_while(false).0.contains("nothing was changed"));
+        assert!(plugin.status_while(false).0.contains("Nothing was changed"));
         assert_eq!((plugin.channel.as_str(), plugin.auto_check, plugin.busy()), ("nightly", true, false));
         assert_eq!(quits(&host), 0);
     }

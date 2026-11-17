@@ -51,7 +51,7 @@ const FOCUS_TIP: &str = n_("Number of photos from the nearest focus to the farth
 const BURST_TIP: &str = n_("Number of photos in the burst.");
 const SHOTS_TIP: &str = n_("Take one photo, a burst or a set at different exposures or focus distances.");
 const TIMER_TIP: &str = n_("Wait a few seconds before taking the photo.");
-const EXPOSURE_TIP: &str = n_("A long exposure keeps the video's ISO and the video stops while the shutter is open.");
+const EXPOSURE_TIP: &str = n_("A long exposure uses the video's ISO and the video stops while the shutter is open.");
 const BEST_TIP: &str = n_("Use extra noise reduction and sharpening on the photo only, not the video. Taking the photo takes a little longer.");
 const BEST_OFF_TIP: &str = n_("This lens and mode have no extra noise reduction or sharpening to offer");
 const QUALITY_CAMERA_TIP: &str = n_("JPEG quality is set by the camera");
@@ -809,7 +809,7 @@ impl PhotosPlugin {
         } else if shots > 1 {
             tr("Photo {n} of {total}").field("n", shots.min(taken + 1).to_string()).field("total", shots.to_string())
         } else if p.get("paused").and_then(Value::as_bool) == Some(true) {
-            tr("Taking the photo, the video is paused…")
+            tr("The video is paused while the photo is taken…")
         } else {
             tr("Taking the photo…")
         };

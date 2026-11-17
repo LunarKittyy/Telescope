@@ -53,19 +53,19 @@ const SAVED: &str = n_("Saved {file}.");
 const SWITCH_TIP: &str = n_("Turn the grade off to see the camera's original colours.");
 /// What vision is asked for under while Auto looks at the picture.
 const AUTO_TITLE: &str = "Auto colour grading";
-const AUTO_NO_STREAM: &str = n_("Start the stream first, so Auto has a picture to look at.");
+const AUTO_NO_STREAM: &str = n_("Start the stream first so Auto has a picture to look at.");
 const AUTO_LABEL_FINE: &str = n_("Looks fine");
 const AUTO_LABEL_NO_STREAM: &str = n_("No stream");
 const AUTO_LABEL_NO_PICTURE: &str = n_("No picture");
 const AUTO_LOOKING: &str = n_("Analysing the picture…");
 const AUTO_NO_PICTURE: &str = n_("No steady picture to analyse. Try again while nothing moves.");
-const AUTO_NOTHING: &str = n_("Nothing to change, the picture already looks right.");
-const AUTO_TAKEN_OFF: &str = n_("Nothing needs changing, so Auto's earlier changes were removed.");
+const AUTO_NOTHING: &str = n_("The picture already looks right and needs no changes.");
+const AUTO_TAKEN_OFF: &str = n_("Nothing needs changing. Auto's earlier changes were removed.");
 const AUTO_CHANGED: &str = n_("Auto changed {parts}.");
-const AUTO_NO_FACE: &str = n_("No face found, so Auto used the background and brightness.");
-const AUTO_CONFLICT: &str = n_("The light is mixed or coloured, so white balance was not changed.");
-const AUTO_BACKED_OFF: &str = n_("Your own wheels and curves would have clipped the picture, so Auto applied only part of the change.");
-const AUTO_DRIFTS: &str = n_("The camera adjusts automatically, so the result may drift.");
+const AUTO_NO_FACE: &str = n_("No face found. Auto used the background and brightness.");
+const AUTO_CONFLICT: &str = n_("The light is mixed or coloured. White balance was not changed.");
+const AUTO_BACKED_OFF: &str = n_("Your own wheels and curves would have clipped the picture. Auto applied only part of the change.");
+const AUTO_DRIFTS: &str = n_("The result may drift with the camera set to auto.");
 const AUTO_PARTS: [&str; 5] = [n_("white balance"), n_("brightness"), n_("contrast and blacks"), n_("highlights"), n_("saturation")];
 /// .cube files kept parsed, so switching phones doesn't read a 65-point LUT again.
 const KEEP_PARSED: usize = 4;
@@ -1083,7 +1083,7 @@ impl Plugin for ColourGradingPlugin {
             name: NAME.into(),
             title: n_("Colour grading").into(),
             about: n_("Change the look of the picture with colour wheels, curves and LUT files.").into(),
-            when_off: n_("Without the Colour grading plugin there's no Colour grading card and the picture keeps the camera's colours.").into(),
+            when_off: n_("Without the Colour grading plugin there's no Colour grading card and the picture has the camera's colours.").into(),
             category: "look".into(),
             icon: "colour".into(),
             // Auto reads the picture clean, before the other steps change it

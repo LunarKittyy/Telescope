@@ -449,7 +449,7 @@ const FINDS: &[(&str, &str, usize)] = &[
     ("limitr", "Limiter", 1),
     ("zomm", "Max zoom", 2),
     ("notificaton", "Tell me when it stops a stream", 3),
-    ("mirorr", "Mirror it, for apps that flip the camera", 2),
+    ("mirorr", "Mirror it for apps that flip the camera", 2),
     ("web page", "Show the sign on a web page", 3),
     // what it does, in other words
     ("gpu", "Hardware acceleration", 1),
@@ -479,7 +479,7 @@ const FINDS: &[(&str, &str, usize)] = &[
     ("black screen", "Wait screen", 2),
     ("custom image", "Wait screen", 3),
     ("placeholder", "Wait screen", 2),
-    ("flip", "Mirror it, for apps that flip the camera", 3),
+    ("flip", "Mirror it for apps that flip the camera", 3),
     ("theme", "Card colours", 2),
     ("monochrome", "Card colours", 1),
     ("purple", "Card colours", 2),

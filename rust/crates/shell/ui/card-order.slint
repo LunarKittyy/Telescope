@@ -261,7 +261,7 @@ export component CardOrderDialog inherits Rectangle {
                             amount: root.bar-room;
                             open: root.pending;
                             note: root.note;
-                            revert-tip: @tr("Put the cards back in the order they have in the running app, so nothing needs a restart.");
+                            revert-tip: @tr("Restore the order the cards have in the running app without needing a restart.");
                             restart-text: root.confirming ? @tr("Restart") : @tr("Restart now");
                             restart => { root.restart(); }
                             revert => { root.revert(); }

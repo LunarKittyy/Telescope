@@ -182,7 +182,7 @@ pub(crate) fn param_problem(action: &ActionSpec, params: &Map<String, Value>, st
             let n = number(value).unwrap_or_default();
             let (lo, hi) = (p["minimum"].as_f64().unwrap_or(f64::NEG_INFINITY), p["maximum"].as_f64().unwrap_or(f64::INFINITY));
             if strict_range && (n < lo || n > hi) {
-                return Some(tr("{name} goes from {low} to {high}, so {value} is out of range.").field("name", name).field("low", fmt_number(lo))
+                return Some(tr("{name} goes from {low} to {high}. {value} is out of range.").field("name", name).field("low", fmt_number(lo))
                     .field("high", fmt_number(hi)).field("value", fmt_number(n)));
             }
         } else {

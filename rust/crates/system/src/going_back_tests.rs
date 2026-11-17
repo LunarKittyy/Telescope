@@ -136,12 +136,12 @@ fn the_confirmation_says_what_happens_what_is_lost_and_what_the_phone_needs() {
     let folder = Path::new("/home/me/.config/telescope");
     let text = dialog(Plan::Swap { python_setup: false }, folder).text;
     for wanted in ["4.4.2", "/home/me/.config/telescope", "copy of your current settings", "Lua", "ignored", "phone app has to match", "Telescope.apk",
-                   "uninstall Telescope on the phone", "doesn't check for updates", "brings this version back"] {
+                   "Uninstall Telescope on the phone", "has no automatic update check", "brings this version back"] {
         assert!(text.contains(wanted), "missing {wanted:?}: {text}");
     }
     assert!(!text.contains("Python libraries"));
     let first_start = dialog(Plan::Swap { python_setup: true }, folder);
-    assert!(first_start.text.contains("the Python libraries 4.4.2 needs are set up") && first_start.text.contains("nothing is changed") && first_start.enabled && first_start.action == "Go back");
+    assert!(first_start.text.contains("the Python libraries 4.4.2 needs are set up") && first_start.text.contains("Nothing is changed") && first_start.enabled && first_start.action == "Go back");
     let appimage = dialog(Plan::Download { appimage: true }, folder);
     assert!(appimage.text.contains("Telescope-linux.tar.gz") && appimage.text.contains("Python 3.12") && appimage.text.contains("phone app has to match"));
     assert!(appimage.enabled && appimage.action == "Open download page");
@@ -178,7 +178,7 @@ fn a_settings_file_that_cant_be_copied_stops_everything_before_a_file_is_touched
     // A folder where the file should be: reading it fails, as a locked or unreadable file does
     std::fs::create_dir_all(dir.join("telescope_config.json")).unwrap();
     let e = back_up_settings(&ConfigFile::at(dir.join("telescope_config.json"))).unwrap_err();
-    assert!(e.0.contains("nothing was changed"), "{e}");
+    assert!(e.0.contains("Nothing was changed"), "{e}");
 }
 
 #[test]

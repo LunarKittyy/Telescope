@@ -402,7 +402,7 @@ impl FunPackPlugin {
         let problem = if effect == "mosh" {
             packets_problem.clone()
         } else if fx::PLATE.contains(&effect) && self.stale && self.plate.is_none() {
-            tr("The picture changed, so take the empty room again.")
+            tr("The picture changed. Take the empty room again.")
         } else if effect == "cloak" && self.plate.is_none() {
             tr("Take the empty room first.")
         } else if effect == "clones" {
@@ -536,7 +536,7 @@ impl FunPackPlugin {
             }
             Taken::Clone(None) => false,
         };
-        self.problem = if value { String::new() } else { tr("Take the empty room first, so you can be cut out.") };
+        self.problem = if value { String::new() } else { tr("Take the empty room first so you can be cut out.") };
         self.apply(host, true);
     }
 

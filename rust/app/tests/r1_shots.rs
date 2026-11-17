@@ -245,7 +245,7 @@ export component W inherits Window {
     width: 330px;
     height: 250px;
     background: Theme.bg;
-    TipBody { x: 10px; y: 10px; width: self.preferred-width; height: self.preferred-height; says: "Auto framing"; detail: "Zoom and pan automatically to keep you in the picture."; }
+    TipBody { x: 10px; y: 10px; width: self.preferred-width; height: self.preferred-height; says: "Auto framing"; detail: "Zoom and pan to follow you as you move."; }
     TipBody { x: 10px; y: 80px; width: self.preferred-width; height: self.preferred-height; says: "Speed"; detail: "How quickly the framing follows when you move."; hint: "Double-click to reset"; }
     TipBody { x: 10px; y: 150px; width: self.preferred-width; height: self.preferred-height; says: "Mirror"; }
     TipBody { x: 10px; y: 190px; width: self.preferred-width; height: self.preferred-height; says: "ISO"; detail: "Set Exposure to Manual to use this"; }

@@ -44,8 +44,8 @@ pub const START_CHOICES: [(&str, &str); 3] = [
 ];
 pub const STOP_CHOICES: [(&str, &str); 3] = [
     (STOP_OFF, n_("Only when I press Stop")),
-    (STOP_OWN, n_("When no app uses the camera, if Telescope started the stream")),
-    (STOP_ANY, n_("When no app uses the camera, even if I started the stream")),
+    (STOP_OWN, n_("When no app uses the camera (only if Telescope started the stream)")),
+    (STOP_ANY, n_("When no app uses the camera (even if I started the stream)")),
 ];
 /// What the wait is counted in: (text, seconds in one).
 const UNITS: [(&str, i64); 2] = [(n_("seconds"), 1), (n_("minutes"), 60)];

@@ -616,7 +616,7 @@ fn installing_a_plugin_thats_there_asks_then_replaces_it() {
 
     let mut asked = vec![];
     r.panel.run(Request::Install { path: archive.clone() }, &mut |q| { asked.push(q.clone()); false });
-    assert!(asked[0].title == "Replace Extra 1.0?" && asked[0].text.contains("keeps its settings"));
+    assert!(asked[0].title == "Replace Extra 1.0?" && asked[0].text.contains("settings carry over"));
     assert_eq!(r.admin.find_installed()[0].version, "1.0"); // cancelled: untouched
 
     let outcome = r.panel.run(Request::Install { path: archive }, &mut yes);
@@ -645,7 +645,7 @@ fn a_vision_pack_zip_while_the_pack_is_downloading_says_it_was_not_used() {
     fs::write(&pack, "x").unwrap();
     let outcome = r.panel.run(Request::Install { path: pack }, &mut yes);
     let note = &outcome.notices[0];
-    assert!(note.kind == NoticeKind::Warning && note.text.contains("already downloading") && note.text.contains("Try again"), "{}", note.text);
+    assert!(note.kind == NoticeKind::Warning && note.text.contains("downloading or installing") && note.text.contains("Try again"), "{}", note.text);
     assert!(!r.download.ready.get());
 }
 

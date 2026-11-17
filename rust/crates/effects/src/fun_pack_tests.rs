@@ -246,7 +246,7 @@ fn a_clone_without_the_empty_room_or_vision_says_what_to_do() {
     r.count_down("clone", 3);
     r.stream("phone", &room());
     assert!(r.look().clones.is_none());
-    assert_eq!(r.shown("problem"), json!("Take the empty room first, so you can be cut out."));
+    assert_eq!(r.shown("problem"), json!("Take the empty room first so you can be cut out."));
 }
 
 #[test]

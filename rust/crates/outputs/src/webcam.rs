@@ -973,7 +973,7 @@ impl WebcamPlugin {
             "visible": !key.is_empty(),
             "status-text": text, "status-kind": kind, "status-tip": src.map(|s| s.name()).unwrap_or_default(),
             "size-items": size_items, "size-current": size_i, "size-enabled": !key.is_empty(),
-            "size-tip": tr("The size the webcam sends. Auto takes the largest up to 1080p that keeps the frame rate."),
+            "size-tip": tr("The size the webcam sends. Auto takes the largest up to 1080p that still reaches the frame rate."),
             "fps-items": fps.iter().map(|f| format!("{f} fps")).collect::<Vec<_>>(), "fps-current": fps_i, "fps-enabled": !key.is_empty(),
             // Reset has nothing to put back on a DSLR, whose settings the camera holds
             "has-controls": self.controls(key).values().any(|c| !c.transient),

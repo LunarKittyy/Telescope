@@ -184,7 +184,7 @@ pub fn recovery_probed(host: &dyn SourceHost, source: &SourceRef, session_id: u6
             } else {
                 sentence(&fill(&tr("{phone} stopped streaming"), &[("phone", &source.kind.name())]))
             };
-            host.show_issue(&stopped_key, &title, &tr("Start again when you're ready."), vec![start_action(source.id.clone())]);
+            host.show_issue(&stopped_key, &title, &tr("Start again to continue streaming."), vec![start_action(source.id.clone())]);
             return;
         }
         PhoneStatus::Ready if res.streaming => {

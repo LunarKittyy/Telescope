@@ -4,7 +4,6 @@
     <string name="preview_button">Podgląd</string>
     <string name="close_preview">Zamknij podgląd</string>
     <string name="black_screen_button">Czarny ekran</string>
-    <string name="black_screen_description">Wygaś ekran, podczas gdy kamera nadal działa</string>
     <string name="black_screen_hint">Dotknij dwukrotnie, aby wybudzić</string>
     <string name="update_available">Dostępna aktualizacja</string>
     <string name="update_failed_title">Aktualizacja nie została ukończona</string>
@@ -15,12 +14,10 @@
     <string name="update_installing">%1$s · instalowanie</string>
     <string name="update_stop_streaming_first">%1$s. Zatrzymaj strumieniowanie, aby zaktualizować.</string>
     <string name="allow_installs_title">Zezwól Telescope na instalowanie aktualizacji</string>
-    <string name="allow_installs_message">Na następnym ekranie włącz opcję „Zezwalaj z tego źródła”, a następnie wróć.</string>
     <string name="update_error_offline">Pobieranie nie powiodło się. Sprawdź połączenie z internetem i spróbuj ponownie.</string>
     <string name="update_error_http">Pobieranie nie powiodło się (HTTP %1$d).</string>
     <string name="update_error_too_big">Pobrany plik jest większy, niż powinien.</string>
     <string name="update_error_cut_short">Pobieranie zostało przerwane. Sprawdź połączenie z internetem i spróbuj ponownie.</string>
-    <string name="update_error_checksum">Pobrany plik nie zgadza się z sumą kontrolną, więc nie został zainstalowany.</string>
     <string name="update_error_save">Nie udało się zapisać pobranego pliku.</string>
     <string name="update_error_not_an_app">Pobrany plik nie jest prawidłową aplikacją.</string>
     <string name="update_error_not_telescope">Pobrany plik to nie Telescope.</string>
@@ -73,7 +70,6 @@
         <item quantity="many">• Jeszcze %1$d niesprawdzonych - przerwano po %2$d sekundach</item>
         <item quantity="other">• Jeszcze %1$d niesprawdzonych - przerwano po %2$d sekundach</item>
     </plurals>
-    <string name="pairing_advice">Upewnij się, że telefon i komputer są w tej samej sieci Wi-Fi. Jeśli włączony jest VPN, może blokować dostęp do sieci lokalnej: włącz w nim opcję dostępu do sieci LAN lub wstrzymaj go. Możesz też podłączyć telefon przez USB - wtedy sparuje się bez skanowania.</string>
     <string name="network_timed_out">przekroczono limit czasu</string>
     <string name="network_no_route">brak trasy do hosta</string>
     <string name="network_refused">połączenie odrzucone</string>
@@ -108,7 +104,6 @@
     <string name="report_bug">Zgłoś błąd</string>
     <string name="troubleshooting">Rozwiązywanie problemów</string>
     <string name="nightly_updates">Aktualizacje Nightly</string>
-    <string name="nightly_updates_hint">Kompilowane przy każdej zmianie: poprawki pojawiają się szybciej, ale są mniej przetestowane.</string>
     <string name="updates_section">Aktualizacje</string>
     <string name="check_for_updates">Sprawdź aktualizacje</string>
     <string name="translation_draft">To tłumaczenie jest wersją roboczą i niektóre teksty mogą brzmieć nieco osobliwie.</string>
@@ -127,7 +122,6 @@
     <string name="notif_channel_streaming">Przesyłanie</string>
     <string name="notif_channel_streaming_desc">Wyświetlane, gdy kamera strumieniuje obraz do komputera</string>
     <string name="notif_channel_waiting">Oczekiwanie na komputer</string>
-    <string name="notif_channel_waiting_desc">Wyświetlane, gdy Telescope czeka, aż sparowany komputer uruchomi kamerę</string>
     <string name="notif_streaming_title">Przesyłanie</string>
     <string name="notif_camera_streaming">Kamera strumieniuje</string>
     <string name="notif_streaming_usb">Do %1$s przez USB</string>

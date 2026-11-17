@@ -131,7 +131,7 @@ impl Onboarding {
             step("Virtual camera", tr("Checking…"), "status_dim", false, String::new(), false)
         } else if self.vcam_ready {
             let tip = if self.linux { tr("Starting a stream may ask for your password to switch on the virtual camera.") } else {
-                tr("If Discord, Zoom or a similar app was already open, quit it fully (closing the window isn't enough if it's still in the tray) and open it again to see the camera.")
+                tr("Quit Discord, Zoom or a similar app fully if it was already open (closing the window isn't enough if it's still in the tray) and open it again to see the camera.")
             };
             tipped(step("Virtual camera", tr("Installed."), "status_dim", true, String::new(), false), tip)
         } else if self.linux {

@@ -387,7 +387,7 @@ impl SetupPlugin {
             let note = tr("Applying stops the stream and reloads the virtual camera. Close OBS and other apps using it first.");
             (tr("Apply and reload"), format!("{note}\n{}", tr(SUDO_HINT)))
         } else {
-            (tr("Apply"), tr("Applying restarts the stream at the new size. If OBS loses the source, remove the source and add it again."))
+            (tr("Apply"), tr("Applying restarts the stream at the new size. Remove the source and add it again if OBS loses it."))
         };
         json!({
             "hw-enabled": p.hw_enabled, "hw-checked": self.hw_decode() && (p.hw_enabled || p.hw_line.is_empty()), "hw-line": p.hw_line,

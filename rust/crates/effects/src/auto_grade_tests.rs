@@ -223,7 +223,7 @@ fn a_picture_that_is_fine_leaves_the_sliders_the_person_set_alone() {
     r.ui("slider-moved", vec![json!(0), json!(-20.0)]);
     let published = r.published();
     r.press_and_measure(&Scene::default(), right().as_ref());
-    assert!(r.note().starts_with("Nothing to change"), "{}", r.note());
+    assert!(r.note().starts_with("The picture already looks right"), "{}", r.note());
     assert_eq!(r.plugin.grade().temperature, -20.0);
     assert_eq!(r.published(), published);
 }

@@ -184,7 +184,7 @@ class PairingTest {
             • 192.168.1.42 over Wi-Fi: timed out
             • 100.90.12.34 over the default network: unreachable
 
-            Check that the phone and computer are on the same Wi-Fi. If a VPN is on, it may be blocking local network access: turn on its LAN access option or pause it. Or plug the phone in over USB, and it pairs without scanning.
+            Check that the phone and computer are on the same Wi-Fi. A VPN that's on may be blocking local network access. Turn on its LAN access option or pause it. Or plug the phone in over USB to pair without scanning.
             """.trimIndent(),
             message,
         )

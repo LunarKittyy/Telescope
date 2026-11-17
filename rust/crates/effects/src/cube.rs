@@ -11,7 +11,7 @@ pub const MAX_CUBE_SIZE: usize = 65;
 const MAX_FILE_BYTES: u64 = 64 * 1024 * 1024;
 
 pub const TOO_BIG: &str = n_("This file is too big to be a LUT Telescope can use.");
-pub const NO_SIZE: &str = n_("This isn't a .cube LUT: the size is missing.");
+pub const NO_SIZE: &str = n_("This isn't a .cube LUT because the size is missing.");
 pub const BAD_LINE: &str = n_("Line {line} of the file can't be read.");
 pub const NOT_A_COLOUR: &str = n_("Line {line} of the file isn't a colour (three numbers).");
 pub const TOO_MANY_POINTS: &str = n_("This LUT has {size} points per side. Telescope takes up to {most}.");

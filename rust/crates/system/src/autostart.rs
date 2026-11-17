@@ -223,7 +223,7 @@ pub fn enable(command: &[String], place: &Place) -> Result<(), String> {
         Place::Registry(key) => {
             let line = run_line(command);
             if line.encode_utf16().count() > RUN_LINE_MAX {
-                return Err(tr("Couldn't set Telescope to open at sign-in: its folder path is too long for Windows. Move Telescope somewhere shorter."));
+                return Err(tr("Couldn't set Telescope to open at sign-in. Its folder path is too long for Windows. Move Telescope somewhere shorter."));
             }
             key.set(&line)
         }

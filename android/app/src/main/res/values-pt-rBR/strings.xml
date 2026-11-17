@@ -4,7 +4,6 @@
     <string name="preview_button">Prévia</string>
     <string name="close_preview">Fechar pré-visualização</string>
     <string name="black_screen_button">Tela preta</string>
-    <string name="black_screen_description">Deixe a tela preta enquanto a câmera continua funcionando</string>
     <string name="black_screen_hint">Toque duas vezes para reativar a tela</string>
     <string name="update_available">Atualização disponível</string>
     <string name="update_failed_title">A atualização não terminou</string>
@@ -15,12 +14,10 @@
     <string name="update_installing">%1$s · instalando</string>
     <string name="update_stop_streaming_first">%1$s. Pare a transmissão para atualizar.</string>
     <string name="allow_installs_title">Permitir que o Telescope instale atualizações</string>
-    <string name="allow_installs_message">Na próxima tela, ative Permitir desta fonte e volte.</string>
     <string name="update_error_offline">O download falhou. Verifique a conexão com a internet e tente novamente.</string>
     <string name="update_error_http">O download falhou (HTTP %1$d).</string>
     <string name="update_error_too_big">O download é maior do que deveria ser.</string>
     <string name="update_error_cut_short">O download foi interrompido. Verifique a conexão com a internet e tente novamente.</string>
-    <string name="update_error_checksum">O download não correspondeu ao checksum e não foi instalado.</string>
     <string name="update_error_save">Não foi possível salvar o download.</string>
     <string name="update_error_not_an_app">O download não é um app válido.</string>
     <string name="update_error_not_telescope">O download não é o Telescope.</string>
@@ -71,7 +68,6 @@
         <item quantity="one">• mais %1$d não tentado - desistiu após %2$d segundos</item>
         <item quantity="other">• mais %1$d não tentados - desistiu após %2$d segundos</item>
     </plurals>
-    <string name="pairing_advice">Verifique se o celular e o computador estão no mesmo Wi-Fi. Se uma VPN estiver ativa, ela pode estar bloqueando o acesso à rede local: ative sua opção de acesso à LAN ou pause-a. Ou conecte o celular via USB para parear sem escanear.</string>
     <string name="network_timed_out">tempo esgotado</string>
     <string name="network_no_route">sem rota para o host</string>
     <string name="network_refused">conexão recusada</string>
@@ -106,7 +102,6 @@
     <string name="report_bug">Relatar um problema</string>
     <string name="troubleshooting">Solução de problemas</string>
     <string name="nightly_updates">Atualizações Nightly</string>
-    <string name="nightly_updates_hint">Compilado a cada alteração: correções chegam mais rápido, com menos testes.</string>
     <string name="updates_section">Atualizações</string>
     <string name="check_for_updates">Verificar atualizações</string>
     <string name="translation_draft">Esta tradução é um primeiro rascunho e alguns textos podem soar um pouco estranhos.</string>
@@ -125,7 +120,6 @@
     <string name="notif_channel_streaming">Transmissão</string>
     <string name="notif_channel_streaming_desc">Exibido enquanto a câmera está transmitindo para o seu computador</string>
     <string name="notif_channel_waiting">Aguardando o computador</string>
-    <string name="notif_channel_waiting_desc">Exibido enquanto o Telescope aguarda um computador pareado iniciar a câmera</string>
     <string name="notif_streaming_title">Transmitindo</string>
     <string name="notif_camera_streaming">A câmera está transmitindo</string>
     <string name="notif_streaming_usb">Para %1$s via USB</string>

@@ -12,7 +12,7 @@
     <string name="close_preview">Close preview</string>
     <!-- The header button next to Preview that turns the screen black while streaming, kept short -->
     <string name="black_screen_button">Black screen</string>
-    <string name="black_screen_description">Turn the screen black while the camera keeps going</string>
+    <string name="black_screen_description">Turn the screen black while the camera is still running</string>
     <!-- Shown on the black screen for a few seconds, then it fades -->
     <string name="black_screen_hint">Double tap to wake</string>
 
@@ -32,7 +32,7 @@
     <string name="update_stop_streaming_first">%1$s. Stop streaming to update.</string>
     <string name="allow_installs_title">Allow Telescope to install updates</string>
     <!-- "Allow from this source" is the name of Android's own setting: use the name Android shows in this language -->
-    <string name="allow_installs_message">In the next screen, turn on Allow from this source, then come back.</string>
+    <string name="allow_installs_message">In the next screen, turn on Allow from this source and return to Telescope.</string>
 
     <!-- Update errors, shown on the update card -->
     <string name="update_error_offline">The download failed. Check the internet connection and try again.</string>
@@ -40,7 +40,7 @@
     <string name="update_error_http">The download failed (HTTP %1$d).</string>
     <string name="update_error_too_big">The download is bigger than it should be.</string>
     <string name="update_error_cut_short">The download was cut short. Check the internet connection and try again.</string>
-    <string name="update_error_checksum">The download didn\'t match its checksum, so it wasn\'t installed.</string>
+    <string name="update_error_checksum">The download didn\'t match its checksum and wasn\'t installed.</string>
     <string name="update_error_save">Couldn\'t save the download.</string>
     <string name="update_error_not_an_app">The download isn\'t a valid app.</string>
     <string name="update_error_not_telescope">The download isn\'t Telescope.</string>
@@ -123,7 +123,7 @@
         <item quantity="one">• %1$d more not tried - gave up after %2$d seconds</item>
         <item quantity="other">• %1$d more not tried - gave up after %2$d seconds</item>
     </plurals>
-    <string name="pairing_advice">Check that the phone and computer are on the same Wi-Fi. If a VPN is on, it may be blocking local network access: turn on its LAN access option or pause it. Or plug the phone in over USB, and it pairs without scanning.</string>
+    <string name="pairing_advice">Check that the phone and computer are on the same Wi-Fi. A VPN that\'s on may be blocking local network access. Turn on its LAN access option or pause it. Or plug the phone in over USB to pair without scanning.</string>
     <!-- What went wrong reaching one address, the end of a pairing_attempt line -->
     <string name="network_timed_out">timed out</string>
     <string name="network_no_route">no route to host</string>
@@ -147,7 +147,7 @@
     <string name="status_quality">At %1$dp %2$d fps</string>
     <string name="status_waiting_for_computer">Waiting for the computer</string>
     <string name="status_mic_only">Streaming the mic, camera off</string>
-    <string name="status_too_hot">The phone is too hot, so the stream is paused. It carries on by itself once the phone has cooled down.</string>
+    <string name="status_too_hot">The phone is too hot. The stream is paused until it has cooled down.</string>
     <string name="status_camera_taken">Another app is using the camera. Streaming goes on when it\'s free.</string>
     <string name="streaming_started_remotely">Streaming started from your computer</string>
 
@@ -171,7 +171,7 @@
     <string name="report_bug">Report a bug</string>
     <string name="troubleshooting">Troubleshooting</string>
     <string name="nightly_updates">Nightly updates</string>
-    <string name="nightly_updates_hint">Built from every change: fixes arrive sooner, with less testing.</string>
+    <string name="nightly_updates_hint">Built from every change for sooner fixes with less testing.</string>
     <!-- Spoken by a screen reader after a choice in a row of choices is picked. %1$s is the choice -->
     <string name="choice_selected">%1$s selected</string>
     <string name="updates_section">Updates</string>
@@ -204,7 +204,7 @@
     <string name="notif_channel_streaming">Streaming</string>
     <string name="notif_channel_streaming_desc">Shown while the camera is streaming to your computer</string>
     <string name="notif_channel_waiting">Waiting for the computer</string>
-    <string name="notif_channel_waiting_desc">Shown while Telescope keeps waiting for a paired computer to start the camera</string>
+    <string name="notif_channel_waiting_desc">Shown while Telescope is waiting for a paired computer to start the camera</string>
     <string name="notif_streaming_title">Streaming</string>
     <string name="notif_camera_streaming">Camera is streaming</string>
     <string name="notif_streaming_usb">To %1$s over USB</string>

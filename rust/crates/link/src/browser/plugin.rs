@@ -48,7 +48,7 @@ const MAX_SLOTS: i64 = 4;
 pub const HINT_AFTER: Duration = Duration::from_secs(30);
 /// How much of what the page sends has to arrive for the link to be fine (sources.rs has the same for a phone).
 const CAMERA_LIMITED_SHARE: f32 = 0.9;
-const CPU_LIMIT: &str = n_("The device's processor can't keep up, so the browser is sending less. Try a lower resolution or frame rate.");
+const CPU_LIMIT: &str = n_("The browser is sending less since the device's processor is too slow. Try a lower resolution or frame rate.");
 const BANDWIDTH_LIMIT: &str = n_("The browser is lowering the picture to fit the connection or the bitrate for this resolution.");
 const CERT_TITLE: &str = n_("Browser warns the connection isn't private?");
 // Translators: Show Details, visit this website, Advanced and Proceed are what Safari and Chrome call their buttons:
@@ -100,7 +100,7 @@ pub fn waiting_hint(stats: Option<&ServerStats>, connected: bool, now: Instant) 
     }
     if stats.nothing_arrived() && now.saturating_duration_since(stats.started) >= HINT_AFTER {
         return tr("Nothing has reached this computer yet. Check that the device is on the same network as the address in the \
-                   code, and that the firewall allows port {port}.").field("port", stats.port.to_string());
+                   code and that the firewall allows port {port}.").field("port", stats.port.to_string());
     }
     String::new()
 }

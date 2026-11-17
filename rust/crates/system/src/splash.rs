@@ -111,7 +111,7 @@ pub fn show_text(splash: Option<Arc<dyn SplashWindow>>, chosen_language: impl Fn
 pub fn extract_first() -> (String, String) {
     // Translators: title of a message box shown when Telescope is opened straight from its zip without extracting it
     let title = tr("Extract Telescope first");
-    let text = tr("Telescope can't start from inside the zip.\n\nRight-click the zip, choose Extract All, and open Telescope from the extracted folder.");
+    let text = tr("Telescope can't start from inside the zip.\n\nRight-click the zip, choose Extract All and open Telescope from the extracted folder.");
     (title, text)
 }
 

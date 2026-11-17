@@ -768,9 +768,9 @@ impl ShortcutsPlugin {
         if e.action.is_none() || (listed == 0 && !e.query.is_empty() && !self.action_listed(e)) {
             return (if listed == 0 { tr("No control matches that search.") } else { tr("Pick a control.") }, true);
         }
-        let bare = || tr("A modifier can't be a shortcut on its own. Add a key to it.");
+        let bare = || tr("A modifier can't be a shortcut alone. Add a key to it.");
         if e.keys.is_empty() {
-            let text = if e.bare_modifier { bare() } else { tr("Press a key, with Ctrl, Alt, Shift or {meta} if you like.").field("meta", meta) };
+            let text = if e.bare_modifier { bare() } else { tr("Press a key, optionally with Ctrl, Alt, Shift or {meta}.").field("meta", meta) };
             return (text, true);
         }
         if let Some(other) = self.bindings.iter().find(|b| b.keys == e.keys && b.id != e.id) {
@@ -871,7 +871,7 @@ impl ShortcutsPlugin {
         let note = match (&self.note_override, &self.backend) {
             (Some(text), _) => text.clone(),
             (None, Some(backend)) => backend.note(),
-            (None, None) => tr("Global shortcuts aren't available on this desktop, so these work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings."),
+            (None, None) => tr("Global shortcuts aren't available on this desktop. These shortcuts only work inside Telescope. For keys that work everywhere, bind a shortcut's Copy command line in your desktop's keyboard settings."),
         };
         let system_shown = cfg!(target_os = "linux") && self.backend.as_ref().is_none_or(|b| b.system_picks_keys());
         let mut props = json!({"rows": rows, "note-text": note, "system-shown": system_shown, "notify": self.notify, "reset-shown": self.reset_shown()});
@@ -1147,7 +1147,7 @@ impl Plugin for ShortcutsPlugin {
             name: "shortcuts".into(),
             title: n_("Keyboard shortcuts").into(),
             about: n_("Set keys for Telescope's controls, including ones that work in other apps.").into(),
-            when_off: n_("Without the Keyboard shortcuts plugin no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are kept for when the plugin is on again).").into(),
+            when_off: n_("Without the Keyboard shortcuts plugin no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are saved for when the plugin is on again).").into(),
             category: "extras".into(),
             icon: "keyboard".into(),
             ..Default::default()
@@ -1548,7 +1548,7 @@ mod tests {
         ui(&mut plugin, &mut host, "key-pressed", json!(["\u{11}", true, false, false, false]));
         let props = plugin.section_props();
         assert_eq!((props["keys-text"].clone(), props["save-enabled"].clone()), (json!("Ctrl+T"), json!(true)));
-        assert_eq!(props["problem"], json!("A modifier can't be a shortcut on its own. Add a key to it."));
+        assert_eq!(props["problem"], json!("A modifier can't be a shortcut alone. Add a key to it."));
         ui(&mut plugin, &mut host, "key-pressed", json!(["k", true, false, false, false]));
         let props = plugin.section_props();
         assert_eq!((props["keys-text"].clone(), props["problem"].clone()), (json!("Ctrl+K"), json!("")));
@@ -1568,13 +1568,13 @@ mod tests {
         let mute = row_of(&plugin, "Microphone", "Mute");
         ui(&mut plugin, &mut host, "control-picked", json!([mute]));
         let meta = if cfg!(windows) { "Win" } else { "Meta" };
-        assert_eq!(plugin.section_props()["problem"], json!(format!("Press a key, with Ctrl, Alt, Shift or {meta} if you like.")));
+        assert_eq!(plugin.section_props()["problem"], json!(format!("Press a key, optionally with Ctrl, Alt, Shift or {meta}.")));
         ui(&mut plugin, &mut host, "param-picked", json!([0, 3]));
         assert_eq!(plugin.section_props()["copy-enabled"], json!(false), "a command can't hold a key down");
         ui(&mut plugin, &mut host, "key-pressed", json!(["\u{11}", true, false, false, false]));
         let props = plugin.section_props();
         assert_eq!(props["keys-text"], json!(""), "a bare modifier waits for its key");
-        assert_eq!((props["problem"].clone(), props["save-enabled"].clone()), (json!("A modifier can't be a shortcut on its own. Add a key to it."), json!(false)));
+        assert_eq!((props["problem"].clone(), props["save-enabled"].clone()), (json!("A modifier can't be a shortcut alone. Add a key to it."), json!(false)));
         ui(&mut plugin, &mut host, "key-pressed", json!([" ", true, false, false, false]));
         let props = plugin.section_props();
         assert_eq!((props["keys-text"].clone(), props["problem"].clone(), props["save-enabled"].clone()), (json!("Ctrl+Space"), json!(""), json!(true)));
@@ -2128,7 +2128,7 @@ mod tests {
         };
         let given = json!({"value": "9000"}).as_object().unwrap().clone();
         assert_eq!(checked_params(&spec, &given, false).unwrap()["value"], json!(3200.0));
-        assert_eq!(checked_params(&spec, &given, true).unwrap_err(), "value goes from 50 to 3200, so 9000 is out of range.");
+        assert_eq!(checked_params(&spec, &given, true).unwrap_err(), "value goes from 50 to 3200. 9000 is out of range.");
         assert_eq!(checked_params(&spec, &json!({"valeu": 1}).as_object().unwrap().clone(), true).unwrap_err(), "camera.iso has no setting 'valeu'.");
     }
 

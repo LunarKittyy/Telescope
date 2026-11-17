@@ -270,7 +270,7 @@ fn take_photo_sends_the_options_with_the_views_rotation() {
     rig.event(Event::RequestProgress { request: id, data: json!({"state": "capturing", "shots": 5, "taken": 1}) });
     assert!(rig.props()["status"].as_str().unwrap().contains("2 of 5"));
     rig.event(Event::RequestProgress { request: id, data: json!({"state": "capturing", "paused": true}) });
-    assert_eq!(rig.props()["status"], "Taking the photo, the video is paused…");
+    assert_eq!(rig.props()["status"], "The video is paused while the photo is taken…");
     rig.event(Event::RequestDone { request: id, ok: true, message: String::new(), data: json!({"ok": true, "files": ["/tmp/photos/IMG_1.jpg", "/tmp/photos/IMG_1.dng"]}) });
     let p = rig.props();
     assert!(p["status"].as_str().unwrap().contains("IMG_1.jpg") && p["status"].as_str().unwrap().contains("1 more"));

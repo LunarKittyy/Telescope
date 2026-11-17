@@ -159,7 +159,7 @@ export component WebcamCard inherits Card {
                 far-text: row.options[2];
                 label: row.label;
                 tip: row.label;
-                tip-hint: @tr("Drag to focus, the further the faster.");
+                tip-hint: @tr("Drag to focus. The further you drag, the faster it focuses.");
                 hue: root.hue;
                 enabled: row.enabled;
                 moved(v) => { root.jog(row.name, v); }

@@ -4,7 +4,6 @@
     <string name="preview_button">Xem trước</string>
     <string name="close_preview">Đóng xem trước</string>
     <string name="black_screen_button">Màn hình đen</string>
-    <string name="black_screen_description">Để màn hình đen trong khi camera vẫn tiếp tục hoạt động</string>
     <string name="black_screen_hint">Chạm hai lần để đánh thức</string>
     <string name="update_available">Có bản cập nhật mới</string>
     <string name="update_failed_title">Bản cập nhật chưa hoàn tất</string>
@@ -15,12 +14,10 @@
     <string name="update_installing">%1$s · đang cài đặt</string>
     <string name="update_stop_streaming_first">%1$s. Dừng truyền phát để cập nhật.</string>
     <string name="allow_installs_title">Cho phép Telescope cài đặt bản cập nhật</string>
-    <string name="allow_installs_message">Ở màn hình tiếp theo, hãy bật Cho phép từ nguồn này rồi quay lại.</string>
     <string name="update_error_offline">Tải về không thành công. Kiểm tra kết nối Internet và thử lại.</string>
     <string name="update_error_http">Tải về không thành công (HTTP %1$d).</string>
     <string name="update_error_too_big">Bản tải về có dung lượng lớn hơn bình thường.</string>
     <string name="update_error_cut_short">Bản tải về bị gián đoạn. Kiểm tra kết nối Internet và thử lại.</string>
-    <string name="update_error_checksum">Bản tải về không khớp mã kiểm tra checksum nên không được cài đặt.</string>
     <string name="update_error_save">Không thể lưu bản tải về.</string>
     <string name="update_error_not_an_app">Bản tải về không phải là ứng dụng hợp lệ.</string>
     <string name="update_error_not_telescope">Bản tải về không phải là Telescope.</string>
@@ -70,7 +67,6 @@
     <plurals name="pairing_untried">
         <item quantity="other">• còn %1$d mục chưa thử - đã dừng sau %2$d giây</item>
     </plurals>
-    <string name="pairing_advice">Kiểm tra xem điện thoại và máy tính có dùng chung mạng Wi-Fi không. Nếu đang bật VPN, VPN có thể chặn truy cập mạng cục bộ: hãy bật tùy chọn truy cập mạng LAN hoặc tạm dừng VPN. Hoặc cắm điện thoại qua USB để ghép đôi mà không cần quét.</string>
     <string name="network_timed_out">hết thời gian chờ</string>
     <string name="network_no_route">không có tuyến đường đến máy chủ</string>
     <string name="network_refused">kết nối bị từ chối</string>
@@ -105,7 +101,6 @@
     <string name="report_bug">Báo lỗi</string>
     <string name="troubleshooting">Khắc phục sự cố</string>
     <string name="nightly_updates">Bản cập nhật Nightly</string>
-    <string name="nightly_updates_hint">Được xây dựng từ mọi thay đổi: các bản sửa lỗi đến sớm hơn nhưng ít qua kiểm thử hơn.</string>
     <string name="updates_section">Bản cập nhật</string>
     <string name="check_for_updates">Kiểm tra bản cập nhật</string>
     <string name="translation_draft">Bản dịch này là bản thảo đầu tiên và một số đoạn văn có thể chưa được tự nhiên.</string>
@@ -124,7 +119,6 @@
     <string name="notif_channel_streaming">Truyền phát</string>
     <string name="notif_channel_streaming_desc">Hiển thị trong khi camera đang truyền phát đến máy tính của bạn</string>
     <string name="notif_channel_waiting">Đang chờ máy tính</string>
-    <string name="notif_channel_waiting_desc">Hiển thị trong khi Telescope tiếp tục chờ máy tính đã ghép đôi bật camera</string>
     <string name="notif_streaming_title">Truyền phát</string>
     <string name="notif_camera_streaming">Camera đang truyền phát</string>
     <string name="notif_streaming_usb">Tới %1$s qua USB</string>

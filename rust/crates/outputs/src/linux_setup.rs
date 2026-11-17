@@ -170,7 +170,7 @@ impl Setup<'_> {
     /// Never unloads an already-running module, since that could break other setups.
     pub fn setup(&self, persist: bool) -> SetupResult {
         if self.module_loaded() {
-            return failed(tr("v4l2loopback is already loaded with other settings, so {device} isn't there. Close any app using a virtual camera, click Unload and then Load.")
+            return failed(tr("{device} is missing since v4l2loopback is already loaded with other settings. Close any app using a virtual camera, click Unload and then Load.")
                 .field("device", PHONE_DEV));
         }
         for dev in [PHONE_DEV, OBS_DEV] {

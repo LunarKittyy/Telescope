@@ -537,7 +537,7 @@ impl ConnectionPlugin {
                     }
                 }
                 if offer.addresses().is_empty() {
-                    add.wifi_text = tr("This computer isn't on a network right now, so pair over USB.");
+                    add.wifi_text = tr("This computer isn't on a network right now. Pair over USB.");
                 } else {
                     add.qr = qr(&offer.payload());
                     // "Scan pairing code" is a button in the phone app
@@ -548,7 +548,7 @@ impl ConnectionPlugin {
             }
             Err(why) => {
                 log::warn!("Couldn't start pairing: {why}");
-                add.wifi_text = tr("This computer isn't on a network right now, so pair over USB.");
+                add.wifi_text = tr("This computer isn't on a network right now. Pair over USB.");
             }
         }
         self.add = Some(add);
@@ -668,7 +668,7 @@ impl ConnectionPlugin {
         if !add.confirming {
             // confirm(): Google's software, so their licence applies. Slint's Text has no links, so it's cut around its link
             add.confirming = true;
-            let question = tr("Telescope can download adb from Google (about {size}) and keep it for your user. adb is Google's software, so their Android SDK License applies: <a href=\"{url}\">read it here</a>.<br><br>Wi-Fi works without adb.")
+            let question = tr("Telescope can download adb from Google (about {size}) and save it for your user. adb is Google's software and their Android SDK License applies (<a href=\"{url}\">read it here</a>).<br><br>Wi-Fi works without adb.")
                 .field("size", adb_download::APPROX_SIZE).field("url", adb_download::LICENSE_URL);
             let (before, licence) = match around_link(&question, adb_download::LICENSE_URL) {
                 Some((before, link, tail, after)) => (before, Some((link, tail, after))),
@@ -1222,7 +1222,7 @@ pub fn phone_rows(phones: &[PairedPhone], remembered: &[RememberedSource]) -> Ve
     for phone in phones {
         let ip = phone.active_ip.clone().or_else(|| phone.ips.first().cloned()).unwrap_or_default();
         let sub = if ip.is_empty() { tr("Phone") } else { tr("Phone · {ip}").field("ip", &ip) };
-        let confirm = tr("Remove \"{name}\"? This deletes its camera settings on this computer, and unpairs it on the phone too if Telescope can reach it.")
+        let confirm = tr("Remove \"{name}\"? This deletes its camera settings on this computer and unpairs it on the phone too if Telescope can reach it.")
             .field("name", &phone.name);
         rows.push(json!({"id": phone.id, "name": phone.name, "sub": sub, "renamable": true,
                          "rename-label": tr("Rename {name}").field("name", &phone.name),
@@ -1540,7 +1540,7 @@ impl Plugin for ConnectionPlugin {
             let command = "sudo modprobe -r v4l2loopback";
             host.show_issue("start", Issue {
                 title: tr("Virtual camera is set up differently"),
-                text: tr("v4l2loopback is loaded, but without {device}: another app loaded it with other settings. Close that app and run this command to give Telescope control:")
+                text: tr("Another app loaded v4l2loopback with other settings and without {device}. Close that app and run this command to give Telescope control:")
                     .field("device", V4L2_PHONE_DEV),
                 actions: vec![copy_action(command)], kind: "err".into(), details: command.into(), tell_dismiss: false,
             });
@@ -2469,7 +2469,7 @@ mod tests {
         let mut e = env();
         e.add("id-a", "Pixel");
         e.resolve(Resolution { usb_note: Some(telescope_core::link::UsbNote::AppClosed), ..ready(wifi()) });
-        assert_eq!(e.props("card")["note-text"], "Not using USB: phone plugged in, but Telescope isn't open on it.");
+        assert_eq!(e.props("card")["note-text"], "Not using USB: phone plugged in but Telescope isn't open on it.");
     }
 
     #[test]
@@ -3144,7 +3144,7 @@ mod tests {
         let mut e = env();
         *e.link.offline.lock().unwrap() = true;
         e.ui("card", "add-phone", vec![]);
-        assert_eq!(e.props("card")["wifi-text"], "This computer isn't on a network right now, so pair over USB.");
+        assert_eq!(e.props("card")["wifi-text"], "This computer isn't on a network right now. Pair over USB.");
         assert_eq!(e.props("card")["qr-size"], 0);
     }
 
@@ -3212,8 +3212,8 @@ mod tests {
         e.ui("card", "usb-action-clicked", vec![]);
         assert_eq!(e.props("card")["usb-action"], "Agree and download");
         let props = e.props("card");
-        assert!(props["usb-text"].as_str().unwrap().ends_with("their Android SDK License applies:"), "{}", props["usb-text"]);
-        assert_eq!((props["usb-link-text"].as_str(), props["usb-link-tail"].as_str(), props["usb-after"].as_str()), (Some("read it here"), Some("."), Some("Wi-Fi works without adb.")));
+        assert!(props["usb-text"].as_str().unwrap().ends_with("their Android SDK License applies ("), "{}", props["usb-text"]);
+        assert_eq!((props["usb-link-text"].as_str(), props["usb-link-tail"].as_str(), props["usb-after"].as_str()), (Some("read it here"), Some(")."), Some("Wi-Fi works without adb.")));
         assert!(!format!("{props:?}").contains("<a") && !format!("{props:?}").contains("<br"));
         e.ui("card", "usb-link-clicked", vec![]);
         assert!(e.host.calls.iter().any(|c| c == &format!("open_url {}", adb_download::LICENSE_URL)));

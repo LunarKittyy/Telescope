@@ -4,7 +4,6 @@
     <string name="preview_button">미리보기</string>
     <string name="close_preview">미리보기 닫기</string>
     <string name="black_screen_button">화면 끄기</string>
-    <string name="black_screen_description">카메라는 계속 켜 둔 채 화면만 검게 해요</string>
     <string name="black_screen_hint">두 번 탭하여 화면 켜기</string>
     <string name="update_available">업데이트 사용 가능</string>
     <string name="update_failed_title">업데이트를 완료하지 못했어요</string>
@@ -15,12 +14,10 @@
     <string name="update_installing">%1$s · 설치 중</string>
     <string name="update_stop_streaming_first">%1$s. 업데이트하려면 스트리밍을 중지하세요.</string>
     <string name="allow_installs_title">Telescope의 업데이트 설치 허용</string>
-    <string name="allow_installs_message">다음 화면에서 \'이 출처 허용\'을 켠 다음 다시 돌아오세요.</string>
     <string name="update_error_offline">다운로드하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 보세요.</string>
     <string name="update_error_http">다운로드하지 못했어요(HTTP %1$d).</string>
     <string name="update_error_too_big">다운로드한 파일 크기가 예상보다 커요.</string>
     <string name="update_error_cut_short">다운로드가 중간에 중단되었어요. 인터넷 연결을 확인하고 다시 시도해 보세요.</string>
-    <string name="update_error_checksum">다운로드한 파일의 체크섬이 일치하지 않아 설치되지 않았어요.</string>
     <string name="update_error_save">다운로드한 파일을 저장하지 못했어요.</string>
     <string name="update_error_not_an_app">다운로드한 파일이 올바른 앱이 아니에요.</string>
     <string name="update_error_not_telescope">다운로드한 파일이 Telescope가 아니에요.</string>
@@ -70,7 +67,6 @@
     <plurals name="pairing_untried">
         <item quantity="other">• %1$d개는 시도하지 않음 - %2$d초 후 중단됨</item>
     </plurals>
-    <string name="pairing_advice">휴대폰과 컴퓨터가 동일한 Wi-Fi에 연결되어 있는지 확인하세요. VPN이 켜져 있으면 로컬 네트워크 접근이 차단될 수 있으니, VPN의 LAN 접근 옵션을 켜거나 일시 중지해 보세요. 또는 휴대폰을 USB로 연결하면 스캔 없이 페어링돼요.</string>
     <string name="network_timed_out">시간 초과</string>
     <string name="network_no_route">호스트로 가는 경로 없음</string>
     <string name="network_refused">연결이 거부됨</string>
@@ -105,7 +101,6 @@
     <string name="report_bug">버그 신고</string>
     <string name="troubleshooting">문제 해결</string>
     <string name="nightly_updates">Nightly 업데이트</string>
-    <string name="nightly_updates_hint">변경될 때마다 빌드해요. 수정이 더 빨리 오지만 테스트는 덜 거쳐요.</string>
     <string name="updates_section">업데이트</string>
     <string name="check_for_updates">업데이트 확인</string>
     <string name="translation_draft">이 번역은 초안이므로 일부 문구가 다소 어색할 수 있어요.</string>
@@ -124,7 +119,6 @@
     <string name="notif_channel_streaming">스트리밍</string>
     <string name="notif_channel_streaming_desc">카메라가 컴퓨터로 스트리밍 중일 때 표시돼요</string>
     <string name="notif_channel_waiting">컴퓨터 기다리는 중</string>
-    <string name="notif_channel_waiting_desc">Telescope가 페어링된 컴퓨터의 카메라 시작 신호를 기다리는 동안 표시돼요</string>
     <string name="notif_streaming_title">스트리밍 중</string>
     <string name="notif_camera_streaming">카메라 스트리밍 중</string>
     <string name="notif_streaming_usb">USB로 %1$s에 전송 중</string>
