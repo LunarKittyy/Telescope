@@ -178,7 +178,7 @@ fn live_stack_counts_frames_and_stops_when_the_size_changes() {
     assert!(!rig.host.frames_wanted.contains(NAME));
     assert_eq!((rig.plugin.count, rig.plugin.refused), (6, 0));
     let props = rig.props();
-    assert!(props["status"].as_str().unwrap().starts_with("The picture size changed"), "{}", props["status"]);
+    assert!(props["status"].as_str().unwrap().starts_with("Stopped because the picture size changed"), "{}", props["status"]);
     assert!(props["tally"].as_str().unwrap().contains("6"));
     assert_eq!(props["save-enabled"], true);
     assert!(rig.pngs().is_empty(), "a live stack is saved on Save");
@@ -211,7 +211,7 @@ fn lucky_and_trails_end_on_a_size_change_with_what_they_have() {
     lucky.feed(sky(80, 80, &SKY, 2.0));
     assert_eq!(lucky.plugin.phase, Phase::Idle);
     assert_eq!(lucky.pngs().len(), 1, "stacked and saved from the frames of one size");
-    assert!(lucky.props()["status"].as_str().unwrap().starts_with("The picture size changed"));
+    assert!(lucky.props()["status"].as_str().unwrap().starts_with("Stopped because the picture size changed"));
 
     let mut trails = Rig::new("size-trails", config("trails"));
     trails.click("run-clicked", Value::Null);
