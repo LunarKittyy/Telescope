@@ -886,14 +886,20 @@ export component CompositeEditor inherits Window {
                                     }
                                 }
                             }
-                            SwitchRow {
-                                icon: Icons.person;
+                            LabelRow {
+                                label-width: Theme.u(36);
                                 label: @tr("Cut out");
-                                tip: @tr("Cut out");
-                                tip-detail: @tr("Show only the person, using this stream's Background or Chroma key");
-                                hue: Theme.plugin-hue("streaming");
-                                checked: tile-cut-out;
-                                toggled(v) => { root.cut-out-toggled(v); }
+                                HorizontalLayout {
+                                    alignment: start;
+                                    Switch {
+                                        label: @tr("Cut out");
+                                        tip: @tr("Cut out");
+                                        tip-detail: @tr("Show only the person, using this stream's Background or Chroma key");
+                                        hue: Theme.plugin-hue("streaming");
+                                        checked: tile-cut-out;
+                                        toggled(v) => { root.cut-out-toggled(v); }
+                                    }
+                                }
                             }
                         }
                     }
