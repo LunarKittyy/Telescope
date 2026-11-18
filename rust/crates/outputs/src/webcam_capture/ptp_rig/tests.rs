@@ -410,10 +410,25 @@ fn nikon_lets_go_of_what_it_held_in_memory_and_stops_asking_when_it_doesnt_know_
     assert!(mock.state().log.iter().any(|(op, p, _)| *op == 0x100B && p == &[0xFFFF_0001, 0]));
     let mock = Mock::nikon();
     mock.state().delete_code = Some(0x2009);
+    mock.state().photo_files.push(("DSC_0001.NEF".into(), vec![1, 2, 3]));
     let mut rig = open(&mock);
-    rig.capture(1).unwrap();
-    rig.capture(1).unwrap();
-    assert_eq!(mock.ops().iter().filter(|o| **o == 0x100B).count(), 1, "asked once, then never");
+    rig.capture(2).unwrap();
+    assert_eq!(mock.ops().iter().filter(|o| **o == 0x100B).count(), 1, "asked once for the photo, not for each file");
+    // The next photo asks again
+    rig.capture(2).unwrap();
+    assert_eq!(mock.ops().iter().filter(|o| **o == 0x100B).count(), 2);
+}
+
+#[test]
+fn a_file_the_nikon_put_on_its_card_is_fetched_and_never_deleted() {
+    let mock = Mock::nikon();
+    mock.state().to_card = true;
+    mock.state().folder_first = true;
+    let mut rig = open(&mock);
+    let shots = rig.capture(1).unwrap();
+    assert_eq!(shots[0].name, "DSC_0001.JPG");
+    assert!(!mock.ops().contains(&0x100B) && !mock.ops().contains(&0x90C3), "nothing on the card or its folders is deleted: {:x?}", mock.ops());
+    assert!(mock.state().objects.contains_key(&0xFFFF_0001) && mock.state().objects.contains_key(&0x10));
 }
 
 #[test]

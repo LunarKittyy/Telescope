@@ -81,6 +81,8 @@ impl PtpCamera {
         let mut until = Instant::now() + self.photo_wait;
         self.nikon_added.clear();
         self.nikon_seen.clear();
+        self.nikon_memory.clear();
+        self.nikon_delete_fails = false;
         // A live view that wouldn't stop (a busy camera) would leave the shutter unable to fire
         if self.live {
             self.end_live_view();
@@ -227,6 +229,10 @@ impl PtpCamera {
                             if !self.nikon_seen.contains(&handle) {
                                 self.nikon_seen.push(handle);
                                 self.nikon_added.push_back(handle);
+                                // Only a picture in the camera's memory is ours to delete afterwards; a file on the card is the user's
+                                if code == NIKON_EVENT_OBJECT_IN_MEMORY {
+                                    self.nikon_memory.push(handle);
+                                }
                             }
                         }
                     }
@@ -288,9 +294,10 @@ impl PtpCamera {
     }
 
     /// Lets go of the pictures a Nikon camera holds in its memory for this photo: the standard delete, and Nikon's own for a camera that
-    /// refuses it. A camera that says it doesn't know the handle isn't asked again.
+    /// refuses it. A camera that says it doesn't know the handle isn't asked again for this photo.
     fn nikon_release(&mut self) {
-        let handles = std::mem::take(&mut self.nikon_seen);
+        let handles = std::mem::take(&mut self.nikon_memory);
+        self.nikon_seen.clear();
         self.nikon_added.clear();
         if self.maker != Maker::Nikon || self.nikon_delete_fails {
             return;

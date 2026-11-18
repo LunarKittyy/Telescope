@@ -39,6 +39,8 @@ pub struct State {
     pub objects: HashMap<u32, (String, Vec<u8>)>,
     /// Canon's file announcements not yet read: handle, name and whether it is an offer to send.
     pub canon_announced: Vec<(u32, String, bool)>,
+    /// The Nikon puts its photo on the card and announces it as a file added there.
+    pub to_card: bool,
     /// A folder the Nikon announces before its photo.
     pub folder_first: bool,
     /// Handles that are folders.
@@ -279,7 +281,8 @@ impl Transport for Mock {
                     for (i, (name, data)) in s.photo_files.clone().into_iter().enumerate() {
                         let handle = 0xFFFF_0001 + i as u32;
                         s.objects.insert(handle, (name, data));
-                        s.nikon_events.push((0xC101, handle));
+                        let code = if s.to_card { 0x4002 } else { 0xC101 };
+                        s.nikon_events.push((code, handle));
                     }
                     s.nikon_events.push((0xC102, 0));
                 }

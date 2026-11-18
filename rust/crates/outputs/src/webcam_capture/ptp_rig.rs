@@ -93,6 +93,8 @@ pub struct PtpCamera {
     /// Photos a Nikon camera said are waiting (their handles), and the handles already taken from it for this photo.
     nikon_added: VecDeque<u32>,
     nikon_seen: Vec<u32>,
+    /// The pictures Nikon said it holds in its memory, which are the only ones this deletes. Files on the card and folders are never touched.
+    nikon_memory: Vec<u32>,
     /// A camera that doesn't know the handles of its memory pictures when asked to delete them isn't asked again.
     nikon_delete_fails: bool,
     /// Set when the camera's thread is asked to end.
@@ -112,7 +114,7 @@ impl PtpCamera {
         }
         let info = DeviceInfo::parse(&ptp::run(t.as_mut(), ptp::OP_GET_DEVICE_INFO, &[], None)?.data).ok_or("the camera's description didn't make sense")?;
         let maker = info.maker();
-        let mut camera = PtpCamera { t, info, maker, pacing, live: false, canon: HashMap::new(), canon_events: Instant::now(), canon_added: VecDeque::new(), nikon_added: VecDeque::new(), nikon_seen: Vec::new(), nikon_delete_fails: false, stop: None, photo_wait: capture::PHOTO_WAIT, closed: false };
+        let mut camera = PtpCamera { t, info, maker, pacing, live: false, canon: HashMap::new(), canon_events: Instant::now(), canon_added: VecDeque::new(), nikon_added: VecDeque::new(), nikon_seen: Vec::new(), nikon_memory: Vec::new(), nikon_delete_fails: false, stop: None, photo_wait: capture::PHOTO_WAIT, closed: false };
         if maker == Maker::Canon {
             // Remote mode lets the computer drive the camera, and the event mode is how it reports back
             ptp::run(camera.t.as_mut(), CANON_SET_REMOTE_MODE, &[1], None)?;
