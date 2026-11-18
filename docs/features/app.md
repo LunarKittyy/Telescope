@@ -21,7 +21,7 @@ Click a card's title to fold it down to its header and click again to open it. S
 
 The **Look** section of General in Settings picks the window's look (**Dark**, **Classic**, **OLED** or **Light**) and the **Card colours**. **Monochrome** puts every card in the app's purple instead of its own colour.
 
-The rest of the Look section changes how the window is built. **Corners** is **Sharp**, **Default** or **Round**, **Text size** is **Small**, **Default** or **Large** and **Density** is **Compact**, **Default** or **Comfortable**. **Higher contrast** brightens text and lines in all four looks. **Motion** follows the system or is forced to **Full**, **Reduced** or **Off**. **Tooltip delay** goes from instant to 1.5 seconds and **Show the next tooltip sooner** cuts the wait for the one after. Long card titles and slider values end in "…" at large text instead of running past the card.
+The rest of the Look section changes how the window is built. **Corners** is **Sharp**, **Default** or **Round**, **Text size** is **Small**, **Default** or **Large** and **Density** is **Compact**, **Default** or **Comfortable**. **Higher contrast** brightens text and lines in all four looks. **Motion** follows the system or is forced to **Full**, **Reduced** or **Off**. **Tooltip delay** goes from instant to 1.5 seconds and **Show the next tooltip sooner** cuts the wait for the one after. Long card titles and slider values end in "…" at large text instead of running past the card. The main window and Settings stay inside the screen's usable area, also after a change of display scale or a move to another monitor, and Settings scrolls instead of running under the taskbar.
 </details>
 
 <details>
