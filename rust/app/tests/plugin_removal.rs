@@ -193,10 +193,7 @@ const NOT_IN_PRESETS: &[(&str, &str)] = &[
     ("qr_reader", "a tool that starts nothing a look needs"),
     ("wait_screen", "an image path and a size cache, both machine-bound"),
     ("notes", "the teleprompter's text and display are people's own content, kept out on purpose"),
-    ("browser_camera", "address and known browsers are per machine, and size and fps are source options with no look"),
-    ("webcam", "USB camera options are not covered by presets yet, decided on their own"),
-    ("spout", "per-sender frame rate, low value"),
-    ("microphone", "audio options are not covered by presets yet, decided on their own"),
+    ("browser_camera", "its address and known browsers belong to one computer"),
 ];
 
 #[test]

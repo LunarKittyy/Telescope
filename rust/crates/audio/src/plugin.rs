@@ -1089,6 +1089,7 @@ impl Plugin for MicrophonePlugin {
             category: "sound".into(),
             icon: "mic".into(),
             device_local: true,
+            in_presets: true,
             // stays on one stream (the first, until another one's card takes it) whichever the panels show
             follows_focus: false,
             ..Default::default()
@@ -1239,6 +1240,26 @@ impl Plugin for MicrophonePlugin {
             w.set_noise_reduction(self.noise_reduction && self.nr_problem.is_empty());
         }
         self.pending = Some(truthy("enabled"));
+        Ok(())
+    }
+
+    /// A preset brings back the sound settings (gain, auto level, noise reduction) and leaves the microphone on or off as it is. A preset
+    /// that lacks one of them leaves it as it is too.
+    fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
+        // The microphone follows its own stream. A preset of another source's isn't about it, and would change another phone's sound
+        if let (Some(on), Some(focused)) = (&self.stream, host.focused_source_id()) {
+            if *on != focused {
+                return Ok(());
+            }
+        }
+        let mut merged = self.get_config();
+        for key in ["gain_db", "auto_level", "noise_reduction"] {
+            if let Some(v) = cfg.get(key) {
+                merged[key] = v.clone();
+            }
+        }
+        self.set_config(&merged)?;
+        self.render(&mut Hosted(host));
         Ok(())
     }
 

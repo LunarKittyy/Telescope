@@ -100,8 +100,8 @@ impl HostSettings for Ctx<'_> {
     fn plugin_config(&self, name: &str) -> Option<Value> {
         self.state.plugin_config(name)
     }
-    fn preset_config(&self, name: &str) -> Option<Value> {
-        self.state.preset_config(name)
+    fn plugin_preset_config(&self, name: &str) -> Option<Value> {
+        self.state.plugin_preset_config(name)
     }
     fn apply_preset(&mut self, name: &str, cfg: &Value) {
         if let Some(i) = self.state.index(name) {

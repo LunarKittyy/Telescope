@@ -227,7 +227,7 @@ pub trait Plugin: Send {
     fn set_config(&mut self, _cfg: &Value) -> Result<(), ConfigRejected> {
         Ok(())
     }
-    /// What a preset stores: get_config() unless some settings (a folder, a path) stay out of presets.
+    /// What a preset saves of this plugin: its get_config() unless some of that is not for presets (a folder, content people made like saved layouts).
     fn preset_config(&self) -> Value {
         self.get_config()
     }

@@ -106,7 +106,7 @@ impl PresetsPlugin {
         let existing = self.index(&name);
         let mut entry = existing.map_or_else(|| Preset::from_iter([("name".to_string(), Value::String(name.clone()))]), |i| self.presets[i].clone());
         for section in host.preset_plugins() {
-            if let Some(cfg) = host.preset_config(&section) {
+            if let Some(cfg) = host.plugin_preset_config(&section) {
                 entry.insert(key_of(&section).to_string(), cfg);
             }
         }

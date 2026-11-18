@@ -748,6 +748,19 @@ impl State {
         }
     }
 
+    /// What plugin i leaves for a preset, read like read_config.
+    fn read_preset_config(&self, i: usize) -> Option<Value> {
+        let slot = self.slots.get(i).filter(|s| s.stopped.is_none() && !self.stop_queued(i))?;
+        let plugin = slot.plugin.as_ref()?;
+        match telescope_core::diagnostics::catch_plugin(|| plugin.preset_config()) {
+            Ok(v) => Some(v),
+            Err(panic) => {
+                self.stop_later(i, format!("preset_config: {}", panic_text(panic.as_ref())));
+                None
+            }
+        }
+    }
+
     /// Plugin i panicked in a read and is about to be stopped: nothing reads or saves its settings from now on.
     fn stop_queued(&self, i: usize) -> bool {
         self.late_stops.borrow().iter().any(|(s, _)| *s == i)
@@ -1884,11 +1897,9 @@ impl State {
         self.read_config(i).filter(Value::is_object)
     }
 
-    /// What a preset stores for a plugin, if it's running.
-    pub fn preset_config(&self, name: &str) -> Option<Value> {
-        let slot = self.slots.get(self.index(name)?).filter(|s| s.stopped.is_none())?;
-        let plugin = slot.plugin.as_ref()?;
-        telescope_core::diagnostics::catch_plugin(|| plugin.preset_config()).ok().filter(Value::is_object)
+    pub fn plugin_preset_config(&self, name: &str) -> Option<Value> {
+        let i = self.index(name)?;
+        self.read_preset_config(i).filter(Value::is_object)
     }
 
     /// The built-in plugins off this run, the way the Plugins tab and diagnostics count them.
@@ -1974,6 +1985,14 @@ mod tests {
         }
         fn get_config(&self) -> Value {
             self.config.clone()
+        }
+        // what a preset saves leaves out "content", as a plugin with saved layouts does
+        fn preset_config(&self) -> Value {
+            let mut cfg = self.config.clone();
+            if let Some(map) = cfg.as_object_mut() {
+                map.remove("content");
+            }
+            cfg
         }
         fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
             if cfg.get("zoom").is_some_and(|z| !z.is_number()) {
@@ -2099,6 +2118,17 @@ mod tests {
     fn locked(s: &State, mode: u32) {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(s.file.path(), std::fs::Permissions::from_mode(mode)).unwrap();
+    }
+
+    #[test]
+    fn a_preset_takes_what_the_plugin_leaves_for_it_where_settings_take_all_of_it() {
+        use telescope_core::host::HostSettings;
+        let mut s = state();
+        s.register(stub("composite", json!({"on": true, "content": [1, 2]}), false).0).unwrap();
+        assert_eq!(s.plugin_config("composite"), Some(json!({"on": true, "content": [1, 2]})));
+        assert_eq!(s.plugin_preset_config("composite"), Some(json!({"on": true})));
+        assert_eq!(crate::host::Ctx { state: &mut s, me: "presets".into() }.plugin_preset_config("composite"), Some(json!({"on": true})));
+        assert_eq!(s.plugin_preset_config("nothing"), None);
     }
 
     #[cfg(unix)]
