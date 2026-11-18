@@ -180,7 +180,7 @@ msgstr "VB-Cable पाएं"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "टाइपिंग, पंखे का शोर और कमरे की सरसराहट हटाएं."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:748 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:785 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -436,7 +436,7 @@ msgstr "720p 16:9 पोर्ट्रेट - 720 x 1280"
 msgid "4K 16:9 Portrait - 2160 x 3840"
 msgstr "4K 16:9 पोर्ट्रेट - 2160 x 3840"
 
-#: rust/crates/core/src/diagnostics.rs:510 rust/crates/system/src/single_instance.rs:326
+#: rust/crates/core/src/diagnostics.rs:510 rust/crates/system/src/single_instance.rs:328
 msgid "Telescope can't start"
 msgstr "Telescope शुरू नहीं हो सकता"
 
@@ -459,11 +459,15 @@ msgstr ""
 "\n"
 "क्या आप लॉग खोलना चाहते हैं?"
 
-#: rust/crates/core/src/gpu_marker.rs:142
+#: rust/crates/core/src/gpu_marker.rs:292 rust/crates/core/src/gpu_marker.rs:297
 msgid "Telescope switched graphics card"
 msgstr "Telescope ने ग्राफ़िक्स कार्ड बदल दिया"
 
-#: rust/crates/core/src/gpu_marker.rs:143
+#: rust/crates/core/src/gpu_marker.rs:293
+msgid "The last start of Telescope closed while it was looking for graphics cards. Telescope now draws on the processor and doesn't look again until it is updated."
+msgstr ""
+
+#: rust/crates/core/src/gpu_marker.rs:298
 #, python-brace-format
 msgid "The last start of Telescope closed while it was opening {card}. Telescope now uses another graphics card, or the processor if there is none left."
 msgstr "Telescope का पिछला स्टार्ट {card} खोलते समय बंद हो गया था. Telescope अब दूसरे ग्राफ़िक्स कार्ड का इस्तेमाल करता है, या कोई न बचने पर प्रोसेसर का."
@@ -1239,62 +1243,62 @@ msgstr ""
 msgid "A layout you saved in the editor."
 msgstr "एडिटर में सेव किया गया लेआउट."
 
-#: rust/crates/effects/src/composite_plugin.rs:497 rust/crates/effects/src/composite_plugin.rs:719 rust/crates/effects/src/composite_plugin.rs:723 rust/crates/effects/src/composite_plugin.rs:736 rust/crates/effects/ui/composite.slint:26
+#: rust/crates/effects/src/composite_plugin.rs:531 rust/crates/effects/src/composite_plugin.rs:755 rust/crates/effects/src/composite_plugin.rs:759 rust/crates/effects/src/composite_plugin.rs:772 rust/crates/effects/ui/composite.slint:26
 msgid "One picture"
 msgstr "एक तस्वीर"
 
-#: rust/crates/effects/src/composite_plugin.rs:545
+#: rust/crates/effects/src/composite_plugin.rs:579
 msgid "Nothing's in the picture yet."
 msgstr "तस्वीर में अभी कुछ नहीं है."
 
-#: rust/crates/effects/src/composite_plugin.rs:547
+#: rust/crates/effects/src/composite_plugin.rs:581
 msgid "Active once two streams are running."
 msgstr "दो स्ट्रीम चलने पर सक्रिय होता है."
 
-#: rust/crates/effects/src/composite_plugin.rs:549
+#: rust/crates/effects/src/composite_plugin.rs:583
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "{camera} पर आउटपुट के लिए सेट है लेकिन वहां कोई स्ट्रीम नहीं चल रही है."
 
-#: rust/crates/effects/src/composite_plugin.rs:551
+#: rust/crates/effects/src/composite_plugin.rs:585
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "{camera} पर स्ट्रीम द्वारा तस्वीर भेजने के बाद वहां आउटपुट देगा."
 
-#: rust/crates/effects/src/composite_plugin.rs:553
+#: rust/crates/effects/src/composite_plugin.rs:587
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "{camera} पर आउटपुट हो रहा है."
 
-#: rust/crates/effects/src/composite_plugin.rs:558
+#: rust/crates/effects/src/composite_plugin.rs:592
 msgid "Nothing in it"
 msgstr "इसमें कुछ नहीं है"
 
-#: rust/crates/effects/src/composite_plugin.rs:560 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
+#: rust/crates/effects/src/composite_plugin.rs:594 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
 msgid "Two streams required"
 msgstr "दो स्ट्रीम ज़रूरी हैं"
 
-#: rust/crates/effects/src/composite_plugin.rs:562
+#: rust/crates/effects/src/composite_plugin.rs:596
 msgid "Not going out"
 msgstr "आउटपुट बंद है"
 
-#: rust/crates/effects/src/composite_plugin.rs:564
+#: rust/crates/effects/src/composite_plugin.rs:598
 msgid "Going out"
 msgstr "आउटपुट चालू है"
 
-#: rust/crates/effects/src/composite_plugin.rs:611
+#: rust/crates/effects/src/composite_plugin.rs:647
 msgid "Several cameras in one picture"
 msgstr "एक ही तस्वीर में कई कैमरे"
 
-#: rust/crates/effects/src/composite_plugin.rs:612
+#: rust/crates/effects/src/composite_plugin.rs:648
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "अपनी चलाई जाने वाली स्ट्रीम्स को एक वर्चुअल कैमरे पर अगल-बगल या एक-दूसरे के अंदर रखें."
 
-#: rust/crates/effects/src/composite_plugin.rs:613
+#: rust/crates/effects/src/composite_plugin.rs:649
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "कई कैमरे एक तस्वीर में प्लगइन के बिना कोई 'एक तस्वीर' कार्ड नहीं होता और हर स्ट्रीम सिर्फ़ अपने कैमरे पर जाती है."
 
-#: rust/crates/effects/src/composite_plugin.rs:724 rust/crates/effects/src/composite_plugin.rs:748
+#: rust/crates/effects/src/composite_plugin.rs:760 rust/crates/effects/src/composite_plugin.rs:785
 msgid "Picture layout"
 msgstr "तस्वीर का लेआउट"
 
@@ -8713,19 +8717,19 @@ msgstr "Telescope: माइक स्ट्रीम हो रहा है, �
 msgid "Quit"
 msgstr "बंद करें"
 
-#: rust/crates/shell/src/tray.rs:230
+#: rust/crates/shell/src/tray.rs:232
 msgid "Streaming continues in the background."
 msgstr "स्ट्रीमिंग बैकग्राउंड में जारी रहती है."
 
-#: rust/crates/shell/src/tray.rs:230
+#: rust/crates/shell/src/tray.rs:232
 msgid "Streaming starts automatically when needed."
 msgstr "ज़रूरत पड़ने पर स्ट्रीमिंग अपने आप शुरू हो जाती है."
 
-#: rust/crates/shell/src/tray.rs:231
+#: rust/crates/shell/src/tray.rs:233
 msgid "Right-click the tray icon to quit."
 msgstr "बंद करने के लिए सिस्टम ट्रे आइकन पर राइट-क्लिक करें."
 
-#: rust/crates/shell/src/tray.rs:232
+#: rust/crates/shell/src/tray.rs:234
 msgid "Telescope is still running"
 msgstr "Telescope अभी भी चल रहा है"
 
@@ -8757,7 +8761,7 @@ msgstr "स्ट्रीमिंग शुरू करें"
 msgid "Stop streaming"
 msgstr "स्ट्रीमिंग रोकें"
 
-#: rust/crates/shell/src/window.rs:2066 rust/crates/shell/src/worker.rs:1348
+#: rust/crates/shell/src/window.rs:2096 rust/crates/shell/src/worker.rs:1348
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{camera} पर {fps} fps पर {size} स्ट्रीम हो रहा है"
@@ -9689,41 +9693,41 @@ msgstr "Telescope के कंट्रोल्स के लिए कुं�
 msgid "Without the Keyboard shortcuts plugin no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are saved for when the plugin is on again)."
 msgstr "कीबोर्ड शॉर्टकट प्लगइन के बिना कोई भी शॉर्टकट कुछ नहीं करता और कीबोर्ड शॉर्टकट सेटिंग्स में नहीं होता (प्लगइन फिर से चालू होने पर आपके शॉर्टकट सुरक्षित रहते हैं)."
 
-#: rust/crates/system/src/single_instance.rs:319
+#: rust/crates/system/src/single_instance.rs:321
 msgid "Telescope is already running"
 msgstr "Telescope पहले से चल रहा है"
 
-#: rust/crates/system/src/single_instance.rs:320
+#: rust/crates/system/src/single_instance.rs:322
 msgid "Telescope is already running for another user on this computer. Close it there, then open it again here."
 msgstr "Telescope इस कंप्यूटर पर किसी अन्य यूज़र के लिए पहले से चल रहा है. वहां इसे बंद करें, फिर यहां दोबारा खोलें."
 
-#: rust/crates/system/src/single_instance.rs:323
+#: rust/crates/system/src/single_instance.rs:325
 #, python-brace-format
 msgid "port {port}"
 msgstr "पोर्ट {port}"
 
-#: rust/crates/system/src/single_instance.rs:324
+#: rust/crates/system/src/single_instance.rs:326
 msgid "a local socket"
 msgstr "एक लोकल सॉकेट"
 
-#: rust/crates/system/src/single_instance.rs:327
+#: rust/crates/system/src/single_instance.rs:329
 #, python-brace-format
 msgid "Telescope couldn't start because something else is holding its single-instance lock ({where}), or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again."
 msgstr "Telescope शुरू नहीं हो सका क्योंकि कोई अन्य प्रोग्राम इसके सिंगल-इंस्टेंस लॉक ({where}) को रोके हुए है, या कोई दूसरा Telescope अटका हुआ है. उस प्रोग्राम को बंद करें, या कंप्यूटर रीस्टार्ट करें, फिर Telescope को दोबारा खोलें."
 
-#: rust/crates/system/src/single_instance.rs:372
+#: rust/crates/system/src/single_instance.rs:374
 msgid "Telescope isn't running."
 msgstr "Telescope नहीं चल रहा है."
 
-#: rust/crates/system/src/single_instance.rs:397
+#: rust/crates/system/src/single_instance.rs:399
 msgid "Telescope didn't understand the request. Is the running Telescope an older version? Update Telescope to use --action."
 msgstr "Telescope अनुरोध को समझ नहीं सका. क्या चल रहा Telescope कोई पुराना वर्ज़न है? --action का इस्तेमाल करने के लिए Telescope को अपडेट करें."
 
-#: rust/crates/system/src/single_instance.rs:462
+#: rust/crates/system/src/single_instance.rs:464
 msgid "Telescope couldn't write the key --action needs next to its settings when it started. Restart it."
 msgstr "Telescope शुरू होते समय अपनी सेटिंग्स के पास वह की (key) नहीं लिख सका जिसकी --action को ज़रूरत है. इसे रीस्टार्ट करें."
 
-#: rust/crates/system/src/single_instance.rs:467
+#: rust/crates/system/src/single_instance.rs:469
 msgid "Telescope rejected the request because it didn't come from this user's Telescope command."
 msgstr "Telescope ने अनुरोध को अस्वीकार कर दिया क्योंकि यह इस यूज़र के Telescope कमांड से नहीं आया था."
 

@@ -180,7 +180,7 @@ msgstr "VB-Cable 다운로드"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "타이핑 소리, 팬 소음, 실내 잡음을 제거해요."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:748 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:785 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -436,7 +436,7 @@ msgstr "720p 16:9 세로 - 720 x 1280"
 msgid "4K 16:9 Portrait - 2160 x 3840"
 msgstr "4K 16:9 세로 - 2160 x 3840"
 
-#: rust/crates/core/src/diagnostics.rs:510 rust/crates/system/src/single_instance.rs:326
+#: rust/crates/core/src/diagnostics.rs:510 rust/crates/system/src/single_instance.rs:328
 msgid "Telescope can't start"
 msgstr "Telescope를 시작할 수 없음"
 
@@ -459,11 +459,15 @@ msgstr ""
 "\n"
 "로그를 열까요?"
 
-#: rust/crates/core/src/gpu_marker.rs:142
+#: rust/crates/core/src/gpu_marker.rs:292 rust/crates/core/src/gpu_marker.rs:297
 msgid "Telescope switched graphics card"
 msgstr "Telescope 그래픽 카드 전환됨"
 
-#: rust/crates/core/src/gpu_marker.rs:143
+#: rust/crates/core/src/gpu_marker.rs:293
+msgid "The last start of Telescope closed while it was looking for graphics cards. Telescope now draws on the processor and doesn't look again until it is updated."
+msgstr ""
+
+#: rust/crates/core/src/gpu_marker.rs:298
 #, python-brace-format
 msgid "The last start of Telescope closed while it was opening {card}. Telescope now uses another graphics card, or the processor if there is none left."
 msgstr "Telescope가 지난번 실행 시 {card}을(를) 여는 중에 종료되었어요. 이제 Telescope는 다른 그래픽 카드를 사용하거나 남은 카드가 없으면 프로세서를 사용해요."
@@ -1239,62 +1243,62 @@ msgstr ""
 msgid "A layout you saved in the editor."
 msgstr "편집기에서 저장한 레이아웃이에요."
 
-#: rust/crates/effects/src/composite_plugin.rs:497 rust/crates/effects/src/composite_plugin.rs:719 rust/crates/effects/src/composite_plugin.rs:723 rust/crates/effects/src/composite_plugin.rs:736 rust/crates/effects/ui/composite.slint:26
+#: rust/crates/effects/src/composite_plugin.rs:531 rust/crates/effects/src/composite_plugin.rs:755 rust/crates/effects/src/composite_plugin.rs:759 rust/crates/effects/src/composite_plugin.rs:772 rust/crates/effects/ui/composite.slint:26
 msgid "One picture"
 msgstr "한 화면"
 
-#: rust/crates/effects/src/composite_plugin.rs:545
+#: rust/crates/effects/src/composite_plugin.rs:579
 msgid "Nothing's in the picture yet."
 msgstr "아직 화면에 아무것도 없어요."
 
-#: rust/crates/effects/src/composite_plugin.rs:547
+#: rust/crates/effects/src/composite_plugin.rs:581
 msgid "Active once two streams are running."
 msgstr "두 개의 스트림이 실행되면 활성화돼요."
 
-#: rust/crates/effects/src/composite_plugin.rs:549
+#: rust/crates/effects/src/composite_plugin.rs:583
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "{camera}로 출력하도록 설정되었지만 실행 중인 스트림이 없어요."
 
-#: rust/crates/effects/src/composite_plugin.rs:551
+#: rust/crates/effects/src/composite_plugin.rs:585
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "해당 스트림이 화면을 전송하면 {camera}로 출력돼요."
 
-#: rust/crates/effects/src/composite_plugin.rs:553
+#: rust/crates/effects/src/composite_plugin.rs:587
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "{camera}로 출력 중이에요."
 
-#: rust/crates/effects/src/composite_plugin.rs:558
+#: rust/crates/effects/src/composite_plugin.rs:592
 msgid "Nothing in it"
 msgstr "비어 있음"
 
-#: rust/crates/effects/src/composite_plugin.rs:560 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
+#: rust/crates/effects/src/composite_plugin.rs:594 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
 msgid "Two streams required"
 msgstr "두 개의 스트림 필요"
 
-#: rust/crates/effects/src/composite_plugin.rs:562
+#: rust/crates/effects/src/composite_plugin.rs:596
 msgid "Not going out"
 msgstr "송출 안 함"
 
-#: rust/crates/effects/src/composite_plugin.rs:564
+#: rust/crates/effects/src/composite_plugin.rs:598
 msgid "Going out"
 msgstr "송출 중"
 
-#: rust/crates/effects/src/composite_plugin.rs:611
+#: rust/crates/effects/src/composite_plugin.rs:647
 msgid "Several cameras in one picture"
 msgstr "여러 카메라를 한 화면에"
 
-#: rust/crates/effects/src/composite_plugin.rs:612
+#: rust/crates/effects/src/composite_plugin.rs:648
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "실행 중인 여러 스트림을 하나의 가상 카메라에 나란히 배치하거나 겹쳐서 배치해요."
 
-#: rust/crates/effects/src/composite_plugin.rs:613
+#: rust/crates/effects/src/composite_plugin.rs:649
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "한 화면에 여러 카메라 플러그인이 없으면 한 화면 카드가 표시되지 않으며, 각 스트림은 해당 카메라로만 전송돼요."
 
-#: rust/crates/effects/src/composite_plugin.rs:724 rust/crates/effects/src/composite_plugin.rs:748
+#: rust/crates/effects/src/composite_plugin.rs:760 rust/crates/effects/src/composite_plugin.rs:785
 msgid "Picture layout"
 msgstr "화면 레이아웃"
 
@@ -8701,19 +8705,19 @@ msgstr "Telescope: 마이크 스트리밍 중, 카메라 끔"
 msgid "Quit"
 msgstr "종료"
 
-#: rust/crates/shell/src/tray.rs:230
+#: rust/crates/shell/src/tray.rs:232
 msgid "Streaming continues in the background."
 msgstr "백그라운드에서 스트리밍이 계속돼요."
 
-#: rust/crates/shell/src/tray.rs:230
+#: rust/crates/shell/src/tray.rs:232
 msgid "Streaming starts automatically when needed."
 msgstr "필요할 때 스트리밍이 자동으로 시작돼요."
 
-#: rust/crates/shell/src/tray.rs:231
+#: rust/crates/shell/src/tray.rs:233
 msgid "Right-click the tray icon to quit."
 msgstr "종료하려면 시스템 트레이 아이콘을 우클릭하세요."
 
-#: rust/crates/shell/src/tray.rs:232
+#: rust/crates/shell/src/tray.rs:234
 msgid "Telescope is still running"
 msgstr "Telescope가 계속 실행 중이에요"
 
@@ -8745,7 +8749,7 @@ msgstr "스트리밍 시작"
 msgid "Stop streaming"
 msgstr "스트리밍 중지"
 
-#: rust/crates/shell/src/window.rs:2066 rust/crates/shell/src/worker.rs:1348
+#: rust/crates/shell/src/window.rs:2096 rust/crates/shell/src/worker.rs:1348
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{camera}에 {size}, {fps} fps로 스트리밍 중"
@@ -9675,41 +9679,41 @@ msgstr "다른 앱에서 작동하는 단축키를 포함하여 Telescope 컨트
 msgid "Without the Keyboard shortcuts plugin no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are saved for when the plugin is on again)."
 msgstr "키보드 단축키 플러그인이 없으면 어떤 단축키도 동작하지 않으며 설정에 키보드 단축키가 표시되지 않아요(단축키는 플러그인을 다시 켤 때를 위해 저장돼요)."
 
-#: rust/crates/system/src/single_instance.rs:319
+#: rust/crates/system/src/single_instance.rs:321
 msgid "Telescope is already running"
 msgstr "Telescope가 이미 실행 중임"
 
-#: rust/crates/system/src/single_instance.rs:320
+#: rust/crates/system/src/single_instance.rs:322
 msgid "Telescope is already running for another user on this computer. Close it there, then open it again here."
 msgstr "이 컴퓨터의 다른 사용자 계정에서 Telescope가 이미 실행 중이에요. 해당 계정에서 프로그램을 닫은 후 여기에서 다시 여세요."
 
-#: rust/crates/system/src/single_instance.rs:323
+#: rust/crates/system/src/single_instance.rs:325
 #, python-brace-format
 msgid "port {port}"
 msgstr "포트 {port}"
 
-#: rust/crates/system/src/single_instance.rs:324
+#: rust/crates/system/src/single_instance.rs:326
 msgid "a local socket"
 msgstr "로컬 소켓"
 
-#: rust/crates/system/src/single_instance.rs:327
+#: rust/crates/system/src/single_instance.rs:329
 #, python-brace-format
 msgid "Telescope couldn't start because something else is holding its single-instance lock ({where}), or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again."
 msgstr "다른 프로그램이 단일 인스턴스 잠금({where})을 점유 중이거나 다른 Telescope 인스턴스가 멈춰 있어 시작할 수 없었어요. 해당 프로그램을 닫거나 컴퓨터를 다시 시작한 다음 Telescope를 다시 여세요."
 
-#: rust/crates/system/src/single_instance.rs:372
+#: rust/crates/system/src/single_instance.rs:374
 msgid "Telescope isn't running."
 msgstr "Telescope가 실행 중이 아니에요."
 
-#: rust/crates/system/src/single_instance.rs:397
+#: rust/crates/system/src/single_instance.rs:399
 msgid "Telescope didn't understand the request. Is the running Telescope an older version? Update Telescope to use --action."
 msgstr "Telescope에서 요청을 이해하지 못했어요. 실행 중인 Telescope가 이전 버전인가요? --action을 사용하려면 Telescope를 업데이트하세요."
 
-#: rust/crates/system/src/single_instance.rs:462
+#: rust/crates/system/src/single_instance.rs:464
 msgid "Telescope couldn't write the key --action needs next to its settings when it started. Restart it."
 msgstr "Telescope를 시작할 때 --action에 필요한 키를 설정 옆에 저장하지 못했어요. 프로그램을 다시 시작하세요."
 
-#: rust/crates/system/src/single_instance.rs:467
+#: rust/crates/system/src/single_instance.rs:469
 msgid "Telescope rejected the request because it didn't come from this user's Telescope command."
 msgstr "이 사용자의 Telescope 명령에서 시작된 요청이 아니므로 Telescope가 요청을 거부했어요."
 

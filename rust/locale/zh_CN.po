@@ -180,7 +180,7 @@ msgstr "获取 VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "消除打字声、风扇声和环境底噪。"
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:748 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:785 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}：{value}"
@@ -436,7 +436,7 @@ msgstr "720p 16:9 竖屏 - 720 x 1280"
 msgid "4K 16:9 Portrait - 2160 x 3840"
 msgstr "4K 16:9 竖屏 - 2160 x 3840"
 
-#: rust/crates/core/src/diagnostics.rs:510 rust/crates/system/src/single_instance.rs:326
+#: rust/crates/core/src/diagnostics.rs:510 rust/crates/system/src/single_instance.rs:328
 msgid "Telescope can't start"
 msgstr "Telescope 无法启动"
 
@@ -459,11 +459,15 @@ msgstr ""
 "\n"
 "是否打开日志？"
 
-#: rust/crates/core/src/gpu_marker.rs:142
+#: rust/crates/core/src/gpu_marker.rs:292 rust/crates/core/src/gpu_marker.rs:297
 msgid "Telescope switched graphics card"
 msgstr "Telescope 已切换显卡"
 
-#: rust/crates/core/src/gpu_marker.rs:143
+#: rust/crates/core/src/gpu_marker.rs:293
+msgid "The last start of Telescope closed while it was looking for graphics cards. Telescope now draws on the processor and doesn't look again until it is updated."
+msgstr ""
+
+#: rust/crates/core/src/gpu_marker.rs:298
 #, python-brace-format
 msgid "The last start of Telescope closed while it was opening {card}. Telescope now uses another graphics card, or the processor if there is none left."
 msgstr "上次启动 Telescope 时在打开 {card} 期间意外退出。Telescope 现已改用另一张显卡；若无其他显卡，则使用处理器。"
@@ -1239,62 +1243,62 @@ msgstr ""
 msgid "A layout you saved in the editor."
 msgstr "你在编辑器中保存的布局。"
 
-#: rust/crates/effects/src/composite_plugin.rs:497 rust/crates/effects/src/composite_plugin.rs:719 rust/crates/effects/src/composite_plugin.rs:723 rust/crates/effects/src/composite_plugin.rs:736 rust/crates/effects/ui/composite.slint:26
+#: rust/crates/effects/src/composite_plugin.rs:531 rust/crates/effects/src/composite_plugin.rs:755 rust/crates/effects/src/composite_plugin.rs:759 rust/crates/effects/src/composite_plugin.rs:772 rust/crates/effects/ui/composite.slint:26
 msgid "One picture"
 msgstr "合成画面"
 
-#: rust/crates/effects/src/composite_plugin.rs:545
+#: rust/crates/effects/src/composite_plugin.rs:579
 msgid "Nothing's in the picture yet."
 msgstr "画面中还没有内容。"
 
-#: rust/crates/effects/src/composite_plugin.rs:547
+#: rust/crates/effects/src/composite_plugin.rs:581
 msgid "Active once two streams are running."
 msgstr "两个串流运行后生效。"
 
-#: rust/crates/effects/src/composite_plugin.rs:549
+#: rust/crates/effects/src/composite_plugin.rs:583
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "已设为输出到 {camera}，但那里未运行任何串流。"
 
-#: rust/crates/effects/src/composite_plugin.rs:551
+#: rust/crates/effects/src/composite_plugin.rs:585
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "一旦那里的串流发送画面，便会输出到 {camera}。"
 
-#: rust/crates/effects/src/composite_plugin.rs:553
+#: rust/crates/effects/src/composite_plugin.rs:587
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "正在输出到 {camera}。"
 
-#: rust/crates/effects/src/composite_plugin.rs:558
+#: rust/crates/effects/src/composite_plugin.rs:592
 msgid "Nothing in it"
 msgstr "内容为空"
 
-#: rust/crates/effects/src/composite_plugin.rs:560 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
+#: rust/crates/effects/src/composite_plugin.rs:594 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
 msgid "Two streams required"
 msgstr "需要两个串流"
 
-#: rust/crates/effects/src/composite_plugin.rs:562
+#: rust/crates/effects/src/composite_plugin.rs:596
 msgid "Not going out"
 msgstr "未输出"
 
-#: rust/crates/effects/src/composite_plugin.rs:564
+#: rust/crates/effects/src/composite_plugin.rs:598
 msgid "Going out"
 msgstr "正在输出"
 
-#: rust/crates/effects/src/composite_plugin.rs:611
+#: rust/crates/effects/src/composite_plugin.rs:647
 msgid "Several cameras in one picture"
 msgstr "多相机同屏画面"
 
-#: rust/crates/effects/src/composite_plugin.rs:612
+#: rust/crates/effects/src/composite_plugin.rs:648
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "将运行的串流并排或以画中画形式呈现在一个虚拟相机中。"
 
-#: rust/crates/effects/src/composite_plugin.rs:613
+#: rust/crates/effects/src/composite_plugin.rs:649
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "若没有“多相机同屏”插件，将没有“单画面”卡片，每个串流只能输出到各自的相机。"
 
-#: rust/crates/effects/src/composite_plugin.rs:724 rust/crates/effects/src/composite_plugin.rs:748
+#: rust/crates/effects/src/composite_plugin.rs:760 rust/crates/effects/src/composite_plugin.rs:785
 msgid "Picture layout"
 msgstr "画面布局"
 
@@ -8701,19 +8705,19 @@ msgstr "Telescope：仅串流麦克风，相机已关闭"
 msgid "Quit"
 msgstr "退出"
 
-#: rust/crates/shell/src/tray.rs:230
+#: rust/crates/shell/src/tray.rs:232
 msgid "Streaming continues in the background."
 msgstr "串流将在后台继续。"
 
-#: rust/crates/shell/src/tray.rs:230
+#: rust/crates/shell/src/tray.rs:232
 msgid "Streaming starts automatically when needed."
 msgstr "串流会在需要时自动开始。"
 
-#: rust/crates/shell/src/tray.rs:231
+#: rust/crates/shell/src/tray.rs:233
 msgid "Right-click the tray icon to quit."
 msgstr "右键点击系统托盘图标以退出。"
 
-#: rust/crates/shell/src/tray.rs:232
+#: rust/crates/shell/src/tray.rs:234
 msgid "Telescope is still running"
 msgstr "Telescope 仍在运行"
 
@@ -8745,7 +8749,7 @@ msgstr "开始串流"
 msgid "Stop streaming"
 msgstr "停止串流"
 
-#: rust/crates/shell/src/window.rs:2066 rust/crates/shell/src/worker.rs:1348
+#: rust/crates/shell/src/window.rs:2096 rust/crates/shell/src/worker.rs:1348
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "正在以 {size}、{fps} fps 串流至 {camera}"
@@ -9675,41 +9679,41 @@ msgstr "为 Telescope 的控件设置快捷键，包括在其他应用中可用�
 msgid "Without the Keyboard shortcuts plugin no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are saved for when the plugin is on again)."
 msgstr "没有“快捷键”插件，所有快捷键都将失效，“快捷键”也不会出现在“设置”中（你设置的快捷键已保存，以备重新开启插件时使用）。"
 
-#: rust/crates/system/src/single_instance.rs:319
+#: rust/crates/system/src/single_instance.rs:321
 msgid "Telescope is already running"
 msgstr "Telescope 已在运行"
 
-#: rust/crates/system/src/single_instance.rs:320
+#: rust/crates/system/src/single_instance.rs:322
 msgid "Telescope is already running for another user on this computer. Close it there, then open it again here."
 msgstr "Telescope 已在这台电脑的另一个用户下运行。请在对应用户中将其关闭，然后在此重新打开。"
 
-#: rust/crates/system/src/single_instance.rs:323
+#: rust/crates/system/src/single_instance.rs:325
 #, python-brace-format
 msgid "port {port}"
 msgstr "端口 {port}"
 
-#: rust/crates/system/src/single_instance.rs:324
+#: rust/crates/system/src/single_instance.rs:326
 msgid "a local socket"
 msgstr "本地套接字"
 
-#: rust/crates/system/src/single_instance.rs:327
+#: rust/crates/system/src/single_instance.rs:329
 #, python-brace-format
 msgid "Telescope couldn't start because something else is holding its single-instance lock ({where}), or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again."
 msgstr "Telescope 无法启动，因为有其他程序占用了单实例锁（{where}），或者另一个 Telescope 进程卡死。请关闭对应程序，或重启电脑，然后再次打开 Telescope。"
 
-#: rust/crates/system/src/single_instance.rs:372
+#: rust/crates/system/src/single_instance.rs:374
 msgid "Telescope isn't running."
 msgstr "Telescope 未在运行。"
 
-#: rust/crates/system/src/single_instance.rs:397
+#: rust/crates/system/src/single_instance.rs:399
 msgid "Telescope didn't understand the request. Is the running Telescope an older version? Update Telescope to use --action."
 msgstr "Telescope 无法识别此请求。当前运行的 Telescope 是旧版本吗？请更新 Telescope 以使用 --action。"
 
-#: rust/crates/system/src/single_instance.rs:462
+#: rust/crates/system/src/single_instance.rs:464
 msgid "Telescope couldn't write the key --action needs next to its settings when it started. Restart it."
 msgstr "Telescope 启动时无法在其设置旁写入 --action 所需的密钥。请将其重启。"
 
-#: rust/crates/system/src/single_instance.rs:467
+#: rust/crates/system/src/single_instance.rs:469
 msgid "Telescope rejected the request because it didn't come from this user's Telescope command."
 msgstr "Telescope 拒绝了请求，因为此请求并非来自当前用户的 Telescope 命令。"
 

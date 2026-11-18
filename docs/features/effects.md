@@ -11,8 +11,8 @@ Optional, off until you switch it on under **Extras** in the Plugins tab. Its ca
 - **Invisibility cloak** fills in the empty room wherever you are. Take the empty room, step back in and you're gone. A plain wall behind you works better than one the same colour as your clothes. Edges are cleaner with the vision download
 - **Light painting** leaves trails behind anything bright. Wave a torch or a phone screen around in a dark room. **Trails** sets how long they hang around and **Brightness** how bright a light has to be to paint
 - **Slit-scan** shows each band of the picture a little later than the one before, which stretches and bends anything that moves. **Spread** is how many frames the picture spans from one end to the other
-- **Stick figure** draws you as a stick figure on the empty room, or on paper if you haven't taken one. It needs the vision download
-- **Game Boy**, **1998 webcam**, **VHS**, **CRT** and **ASCII** are retro looks with nothing to set
+- **Stick figure** draws you as a stick figure on the empty room, or on paper if you haven't taken one. Crossed legs no longer swap sides and in a close-up the head is sized to your shoulders and nothing is drawn below the picture. It needs the vision download
+- **Game Boy**, **1998 webcam**, **VHS**, **CRT** and **ASCII** are retro looks with nothing to set. The 1998 webcam works on a picture 320 pixels wide and costs little processor even at 4K
 - **Datamosh** drops keyframes from the video before it's decoded. The motion in the frames after them then smears over the old picture instead of refreshing it. **Smear** plays each frame's motion up to three extra times and **Clean up** lets one keyframe through to get a clear picture back. It only works on Light (Heavy sends whole pictures with no keyframes to drop) and not with Browser camera. Phones that refresh the picture gradually instead of sending keyframes heal a mosh within about a second and the effect is more of a flicker there
 
 The empty room isn't saved and needs taking again after the phone moves. Switching the effect off or to another one gets the phone to send a keyframe and the picture is back right away.
