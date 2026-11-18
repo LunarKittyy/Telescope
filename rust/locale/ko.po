@@ -180,7 +180,7 @@ msgstr "VB-Cable 다운로드"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "타이핑 소리, 팬 소음, 실내 잡음을 제거해요."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:697 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:900 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -346,7 +346,7 @@ msgstr "노란색: 리미터가 피크를 억제 중이에요. 빨간색: 소리
 msgid "Click to clear"
 msgstr "클릭하여 지우기"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:48 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "초기화"
 
@@ -370,7 +370,7 @@ msgstr "노이즈 감소"
 msgid "Noise reduction unavailable"
 msgstr "노이즈 감소 사용 불가"
 
-#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:977 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:191 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:260
+#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:983 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:191 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:260
 msgid "Cancel"
 msgstr "취소"
 
@@ -625,7 +625,7 @@ msgstr "끔"
 msgid "Blur"
 msgstr "흐림 효과"
 
-#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/chroma_key.rs:31 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/background.slint:101 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:181 rust/crates/effects/ui/composite_editor.slint:579 rust/crates/effects/ui/composite_editor.slint:931 rust/crates/effects/ui/composite_editor.slint:933 rust/crates/effects/ui/composite_editor.slint:933
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/chroma_key.rs:31 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/background.slint:101 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:181 rust/crates/effects/ui/composite_editor.slint:579 rust/crates/effects/ui/composite_editor.slint:937 rust/crates/effects/ui/composite_editor.slint:939 rust/crates/effects/ui/composite_editor.slint:939
 msgid "Picture"
 msgstr "사진"
 
@@ -657,7 +657,7 @@ msgstr "사진 선택"
 msgid "Can't open that picture"
 msgstr "그 사진을 열 수 없음"
 
-#: rust/crates/effects/src/background.rs:714 rust/crates/effects/src/background.rs:847 rust/crates/effects/src/background.rs:850 rust/crates/effects/src/background.rs:869 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:901
+#: rust/crates/effects/src/background.rs:714 rust/crates/effects/src/background.rs:847 rust/crates/effects/src/background.rs:850 rust/crates/effects/src/background.rs:869 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:907
 msgid "Background"
 msgstr "배경"
 
@@ -673,11 +673,11 @@ msgstr "배경 플러그인이 없으면 배경 카드가 표시되지 않으며
 msgid "Background blur"
 msgstr "배경 흐림"
 
-#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:877 rust/crates/effects/ui/composite_editor.slint:917 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:877 rust/crates/effects/ui/composite_editor.slint:923 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Green"
 msgstr "녹색"
 
-#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:877 rust/crates/effects/ui/composite_editor.slint:917 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:877 rust/crates/effects/ui/composite_editor.slint:923 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Blue"
 msgstr "파란색"
 
@@ -685,7 +685,7 @@ msgstr "파란색"
 msgid "Picked"
 msgstr "선택한 색"
 
-#: rust/crates/effects/src/chroma_key.rs:31 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:153 rust/crates/effects/ui/chroma_key.slint:166 rust/crates/effects/ui/composite_editor.slint:865 rust/crates/effects/ui/composite_editor.slint:905
+#: rust/crates/effects/src/chroma_key.rs:31 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:153 rust/crates/effects/ui/chroma_key.slint:166 rust/crates/effects/ui/composite_editor.slint:865 rust/crates/effects/ui/composite_editor.slint:911
 msgid "Colour"
 msgstr "색상"
 
@@ -842,7 +842,7 @@ msgstr "RGB 퍼레이드"
 msgid "Vectorscope"
 msgstr "벡터스코프"
 
-#: rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:877 rust/crates/effects/ui/composite_editor.slint:917 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:877 rust/crates/effects/ui/composite_editor.slint:923 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Red"
 msgstr "빨간색"
 
@@ -1002,7 +1002,7 @@ msgstr "적절함"
 msgid "No stream"
 msgstr "스트림 없음"
 
-#: rust/crates/effects/src/colour_grading.rs:59 rust/crates/effects/ui/composite_editor.slint:934
+#: rust/crates/effects/src/colour_grading.rs:59 rust/crates/effects/ui/composite_editor.slint:940
 msgid "No picture"
 msgstr "사진 없음"
 
@@ -1225,95 +1225,151 @@ msgstr "{name}이(가) 스트리밍 중이 아님"
 msgid "None"
 msgstr "없음"
 
-#: rust/crates/effects/src/composite_editor.rs:748
+#: rust/crates/effects/src/composite_editor.rs:747
 msgid "Rename layout"
 msgstr "레이아웃 이름 바꾸기"
 
-#: rust/crates/effects/src/composite_editor.rs:748
+#: rust/crates/effects/src/composite_editor.rs:747
 msgid "Save layout"
 msgstr "레이아웃 저장"
 
-#: rust/crates/effects/src/composite_editor.rs:751
+#: rust/crates/effects/src/composite_editor.rs:750
 #, python-brace-format
 msgid "There's already a layout called \"{name}\". Replace it?"
 msgstr "이미 \"{name}\" 레이아웃이 있어요. 바꿀까요?"
 
-#: rust/crates/effects/src/composite_plugin.rs:37 rust/crates/effects/ui/composite.slint:22
+#: rust/crates/effects/src/composite_plugin.rs:38 rust/crates/effects/ui/composite.slint:37
 msgid "Combine the running streams into one picture."
 msgstr "실행 중인 스트림들을 하나의 화면으로 합쳐요."
 
-#: rust/crates/effects/src/composite_plugin.rs:38
+#: rust/crates/effects/src/composite_plugin.rs:39
+msgid "Auto director"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:40
+msgid "Swaps between your saved layouts as people move. Hands held in view of another stream bring in the layout that shows that stream biggest. The layout you picked is shown again after the hands leave."
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:41
 msgid "A layout you saved in the editor."
 msgstr "편집기에서 저장한 레이아웃이에요."
 
-#: rust/crates/effects/src/composite_plugin.rs:436 rust/crates/effects/src/composite_plugin.rs:668 rust/crates/effects/src/composite_plugin.rs:672 rust/crates/effects/src/composite_plugin.rs:685 rust/crates/effects/ui/composite.slint:21
+#: rust/crates/effects/src/composite_plugin.rs:46
+msgid "Cut"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:47
+msgid "Crossfade"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:48
+msgid "Slide"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:49
+msgid "Push"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:50 rust/crates/effects/src/transforms.rs:670 rust/crates/effects/src/transforms.rs:725 rust/crates/effects/ui/composite_editor.slint:829 rust/crates/effects/ui/transforms.slint:173 rust/crates/effects/ui/transforms.slint:188 rust/crates/effects/ui/transforms.slint:189 rust/crates/effects/ui/transforms.slint:230 rust/crates/outputs/src/webcam.rs:56
+msgid "Zoom"
+msgstr "줌"
+
+#: rust/crates/effects/src/composite_plugin.rs:51
+msgid "Wipe"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:52
+msgid "Glide"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:53
+msgid "Shuffle"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:59
+msgid "Springy"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:60 rust/crates/shell/ui/cards/preview.slint:290 rust/crates/shell/ui/cards/preview.slint:294
+msgid "Smooth"
+msgstr "부드럽게"
+
+#: rust/crates/effects/src/composite_plugin.rs:61
+msgid "Bouncy"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:62
+msgid "Even"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:585 rust/crates/effects/src/composite_plugin.rs:870 rust/crates/effects/src/composite_plugin.rs:874 rust/crates/effects/src/composite_plugin.rs:887 rust/crates/effects/ui/composite.slint:36
 msgid "One picture"
 msgstr "한 화면"
 
-#: rust/crates/effects/src/composite_plugin.rs:504
+#: rust/crates/effects/src/composite_plugin.rs:663
 msgid "Nothing's in the picture yet."
 msgstr "아직 화면에 아무것도 없어요."
 
-#: rust/crates/effects/src/composite_plugin.rs:506
+#: rust/crates/effects/src/composite_plugin.rs:665
 msgid "Active once two streams are running."
 msgstr "두 개의 스트림이 실행되면 활성화돼요."
 
-#: rust/crates/effects/src/composite_plugin.rs:508
+#: rust/crates/effects/src/composite_plugin.rs:667
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "{camera}로 출력하도록 설정되었지만 실행 중인 스트림이 없어요."
 
-#: rust/crates/effects/src/composite_plugin.rs:510
+#: rust/crates/effects/src/composite_plugin.rs:669
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "해당 스트림이 화면을 전송하면 {camera}로 출력돼요."
 
-#: rust/crates/effects/src/composite_plugin.rs:512
+#: rust/crates/effects/src/composite_plugin.rs:671
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "{camera}로 출력 중이에요."
 
-#: rust/crates/effects/src/composite_plugin.rs:517
+#: rust/crates/effects/src/composite_plugin.rs:676
 msgid "Nothing in it"
 msgstr "비어 있음"
 
-#: rust/crates/effects/src/composite_plugin.rs:519 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:705
+#: rust/crates/effects/src/composite_plugin.rs:678 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:705
 msgid "Two streams required"
 msgstr "두 개의 스트림 필요"
 
-#: rust/crates/effects/src/composite_plugin.rs:521
+#: rust/crates/effects/src/composite_plugin.rs:680
 msgid "Not going out"
 msgstr "송출 안 함"
 
-#: rust/crates/effects/src/composite_plugin.rs:523
+#: rust/crates/effects/src/composite_plugin.rs:682
 msgid "Going out"
 msgstr "송출 중"
 
-#: rust/crates/effects/src/composite_plugin.rs:568
+#: rust/crates/effects/src/composite_plugin.rs:739
 msgid "Several cameras in one picture"
 msgstr "여러 카메라를 한 화면에"
 
-#: rust/crates/effects/src/composite_plugin.rs:569
+#: rust/crates/effects/src/composite_plugin.rs:740
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "실행 중인 여러 스트림을 하나의 가상 카메라에 나란히 배치하거나 겹쳐서 배치해요."
 
-#: rust/crates/effects/src/composite_plugin.rs:570
+#: rust/crates/effects/src/composite_plugin.rs:741
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "한 화면에 여러 카메라 플러그인이 없으면 한 화면 카드가 표시되지 않으며, 각 스트림은 해당 카메라로만 전송돼요."
 
-#: rust/crates/effects/src/composite_plugin.rs:673 rust/crates/effects/src/composite_plugin.rs:697
+#: rust/crates/effects/src/composite_plugin.rs:875 rust/crates/effects/src/composite_plugin.rs:900
 msgid "Picture layout"
 msgstr "화면 레이아웃"
 
-#: rust/crates/effects/src/composite_plugin.rs:746
+#: rust/crates/effects/src/composite_plugin.rs:965
 msgid "One picture layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:747
+#: rust/crates/effects/src/composite_plugin.rs:966
 msgid "Bring this layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:747
+#: rust/crates/effects/src/composite_plugin.rs:966
 msgid "Leave the layout"
 msgstr ""
 
@@ -2546,7 +2602,7 @@ msgstr "RAW 사진에는 화질 설정이 없어요"
 msgid "The camera is already taking a photo."
 msgstr "카메라가 이미 사진을 찍고 있어요."
 
-#: rust/crates/effects/src/photos.rs:62 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:273
+#: rust/crates/effects/src/photos.rs:62 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:278
 msgid "The camera couldn't take the photo."
 msgstr "카메라가 사진을 찍지 못했어요."
 
@@ -3319,10 +3375,6 @@ msgstr "화면을 줌, 팬, 반전, 회전하거나 늘릴 수 있어요."
 msgid "Without the Transforms plugin there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "화면 변형 플러그인이 없으면 화면 변형 카드가 표시되지 않으며, 휴대폰이 전송한 그대로 화면이 출력돼요."
 
-#: rust/crates/effects/src/transforms.rs:670 rust/crates/effects/src/transforms.rs:725 rust/crates/effects/ui/composite_editor.slint:829 rust/crates/effects/ui/transforms.slint:173 rust/crates/effects/ui/transforms.slint:188 rust/crates/effects/ui/transforms.slint:189 rust/crates/effects/ui/transforms.slint:230 rust/crates/outputs/src/webcam.rs:56
-msgid "Zoom"
-msgstr "줌"
-
 #: rust/crates/effects/src/transforms.rs:671 rust/crates/effects/src/transforms.rs:735
 msgid "Pan left/right"
 msgstr "좌우 팬"
@@ -3607,25 +3659,49 @@ msgstr "다른 앱에서 사용할 수 있도록 색보정과 LUT를 .cube 파�
 msgid "Replace"
 msgstr "덮어쓰기"
 
-#: rust/crates/effects/ui/composite.slint:34
+#: rust/crates/effects/ui/composite.slint:49
 msgid "Clear the current layout without touching saved layouts."
 msgstr "저장된 레이아웃은 그대로 두고 현재 레이아웃을 지워요."
 
-#: rust/crates/effects/ui/composite.slint:40 rust/crates/effects/ui/composite.slint:47 rust/crates/effects/ui/composite.slint:51 rust/crates/effects/ui/composite_editor.slint:630 rust/crates/effects/ui/composite_editor.slint:642 rust/crates/shell/ui/card-order-settings.slint:7
+#: rust/crates/effects/ui/composite.slint:55 rust/crates/effects/ui/composite.slint:62 rust/crates/effects/ui/composite.slint:66 rust/crates/effects/ui/composite_editor.slint:630 rust/crates/effects/ui/composite_editor.slint:642 rust/crates/shell/ui/card-order-settings.slint:7
 msgid "Layout"
 msgstr "레이아웃"
 
-#: rust/crates/effects/ui/composite.slint:60 rust/crates/effects/ui/composite_editor.slint:643
+#: rust/crates/effects/ui/composite.slint:75 rust/crates/effects/ui/composite_editor.slint:643
 msgid "Not saved"
 msgstr "저장되지 않음"
 
-#: rust/crates/effects/ui/composite.slint:72 rust/crates/effects/ui/composite.slint:73 rust/crates/effects/ui/composite_editor.slint:461 rust/crates/effects/ui/composite_editor.slint:571
+#: rust/crates/effects/ui/composite.slint:90 rust/crates/effects/ui/composite.slint:91 rust/crates/effects/ui/composite_editor.slint:461 rust/crates/effects/ui/composite_editor.slint:571
 msgid "Edit picture"
 msgstr "화면 편집"
 
-#: rust/crates/effects/ui/composite.slint:74
+#: rust/crates/effects/ui/composite.slint:92
 msgid "Open the editor for the layout."
 msgstr "레이아웃 편집기를 열어요."
+
+#: rust/crates/effects/ui/composite.slint:115 rust/crates/effects/ui/composite.slint:120 rust/crates/effects/ui/composite.slint:123
+msgid "Transition"
+msgstr ""
+
+#: rust/crates/effects/ui/composite.slint:124
+msgid "How the picture goes from one layout to the next. Glide moves the tiles to their new places and the rest mix the two pictures."
+msgstr ""
+
+#: rust/crates/effects/ui/composite.slint:134
+msgid "Length"
+msgstr ""
+
+#: rust/crates/effects/ui/composite.slint:139
+msgid "How long a transition takes."
+msgstr ""
+
+#: rust/crates/effects/ui/composite.slint:149 rust/crates/effects/ui/composite.slint:154 rust/crates/effects/ui/composite.slint:157
+msgid "Easing"
+msgstr ""
+
+#: rust/crates/effects/ui/composite.slint:158
+msgid "Springy and Bouncy overshoot a little and settle, Smooth glides without overshooting and Even goes at one speed."
+msgstr ""
 
 #: rust/crates/effects/ui/composite_editor.slint:99
 msgid "Picture preview"
@@ -3895,43 +3971,43 @@ msgstr "테두리의 두께예요."
 msgid "Border colour"
 msgstr "테두리 색상"
 
-#: rust/crates/effects/ui/composite_editor.slint:891 rust/crates/effects/ui/composite_editor.slint:892
+#: rust/crates/effects/ui/composite_editor.slint:891 rust/crates/effects/ui/composite_editor.slint:895 rust/crates/effects/ui/composite_editor.slint:896
 msgid "Cut out"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:893
+#: rust/crates/effects/ui/composite_editor.slint:897
 msgid "Show only the person, using this stream's Background or Chroma key"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:907
+#: rust/crates/effects/ui/composite_editor.slint:913
 msgid "Background colour"
 msgstr "배경 색상"
 
-#: rust/crates/effects/ui/composite_editor.slint:933
+#: rust/crates/effects/ui/composite_editor.slint:939
 msgid "Show a picture behind the streams instead of the colour."
 msgstr "스트림 뒤에 색상 대신 사진을 표시해요."
 
-#: rust/crates/effects/ui/composite_editor.slint:953 rust/crates/link/ui/connection.slint:686
+#: rust/crates/effects/ui/composite_editor.slint:959 rust/crates/link/ui/connection.slint:686
 msgid "Close"
 msgstr "닫기"
 
-#: rust/crates/effects/ui/composite_editor.slint:964
+#: rust/crates/effects/ui/composite_editor.slint:970
 msgid "Replace layout"
 msgstr "레이아웃 바꾸기"
 
-#: rust/crates/effects/ui/composite_editor.slint:967 rust/crates/effects/ui/composite_editor.slint:970
+#: rust/crates/effects/ui/composite_editor.slint:973 rust/crates/effects/ui/composite_editor.slint:976
 msgid "Name:"
 msgstr "이름:"
 
-#: rust/crates/effects/ui/composite_editor.slint:978 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1105 rust/crates/shell/ui/settings.slint:587
+#: rust/crates/effects/ui/composite_editor.slint:984 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1105 rust/crates/shell/ui/settings.slint:587
 msgid "OK"
 msgstr "확인"
 
-#: rust/crates/effects/ui/composite_editor.slint:987 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
+#: rust/crates/effects/ui/composite_editor.slint:993 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
 msgid "No"
 msgstr "아니요"
 
-#: rust/crates/effects/ui/composite_editor.slint:988 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
+#: rust/crates/effects/ui/composite_editor.slint:994 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
 msgid "Yes"
 msgstr "예"
 
@@ -6105,47 +6181,47 @@ msgstr "다른 프로그램이 카메라를 드라이브로 마운트했어요. 
 msgid "The webcam isn't sending anything. Try another resolution or frame rate."
 msgstr "웹캠에서 아무것도 전송하지 않고 있어요. 다른 해상도나 프레임 레이트를 시도해 보세요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:269
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:274
 msgid "The camera is busy. Try again in a moment."
 msgstr "카메라가 사용 중이에요. 잠시 후 다시 시도해 보세요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:270
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:275
 msgid "The camera's mode doesn't allow that setting."
 msgstr "카메라 모드에서 지원하지 않는 설정이에요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:271
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:276
 msgid "The camera is on Bulb. Pick a shutter speed first."
 msgstr "카메라가 벌브 모드로 설정되어 있어요. 먼저 셔터 속도를 선택하세요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:272
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:277
 msgid "This camera can't take that kind of photo."
 msgstr "이 카메라로는 해당 유형의 사진을 촬영할 수 없어요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:274
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:279
 msgid "Telescope couldn't save the photo."
 msgstr "Telescope가 사진을 저장하지 못했어요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:275
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:280
 msgid "The photo was interrupted because the camera stopped."
 msgstr "카메라가 중지되어 사진 촬영이 중단되었어요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:276
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:281
 msgid "The camera took too long to take the photo. The photo is saved and you get a notification if it still arrives."
 msgstr "카메라의 사진 촬영 시간이 너무 오래 걸렸어요. 사진이 나중에라도 전송되면 저장되고 알림을 받게 돼요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:277 rust/crates/shell/src/streams.rs:797
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:282 rust/crates/shell/src/streams.rs:797
 msgid "No photo was taken while part of the picture is hidden."
 msgstr ""
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:278
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:283
 msgid "The camera can't take a JPEG alone with its image quality locked to RAW and JPEG together."
 msgstr "카메라의 화질 설정이 RAW 및 JPEG 동시 저장으로 고정되어 있어 JPEG만 단독으로 촬영할 수 없어요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:279
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:284
 msgid "The camera can't take a JPEG with its image quality locked to RAW."
 msgstr "카메라의 화질 설정이 RAW로 고정되어 있어 JPEG를 촬영할 수 없어요."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:280
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:285
 msgid "The camera only sent part of the photo. The part that arrived is saved."
 msgstr "카메라에서 사진의 일부만 전송했어요. 수신된 부분만 저장돼요."
 
@@ -7904,11 +7980,11 @@ msgstr "추가 가상 카메라 설정 중…"
 msgid "Couldn't add more virtual cameras"
 msgstr "가상 카메라를 더 추가하지 못했어요"
 
-#: rust/crates/shell/src/host.rs:726
+#: rust/crates/shell/src/host.rs:730
 msgid "Phone stream required."
 msgstr "휴대폰 스트림이 필요해요."
 
-#: rust/crates/shell/src/host.rs:732
+#: rust/crates/shell/src/host.rs:736
 msgid "Light format required. Heavy sends whole pictures with no keyframes to work with."
 msgstr "'가볍게' 형식이 필요해요. '무겁게' 형식은 참조할 키프레임 없이 전체 화면을 전송해요."
 
@@ -9312,10 +9388,6 @@ msgstr "MediaPipe가 찾은 골격을 카메라 출력이 아닌 미리보기에
 #: rust/crates/shell/ui/cards/preview.slint:281
 msgid "Always outline what the phone's longer lenses see. This only shows on the preview, not in the camera output."
 msgstr "휴대폰의 망원 렌즈가 보는 영역을 항상 윤곽선으로 표시해요. 카메라 출력이 아닌 미리보기에만 보여요."
-
-#: rust/crates/shell/ui/cards/preview.slint:290 rust/crates/shell/ui/cards/preview.slint:294
-msgid "Smooth"
-msgstr "부드럽게"
 
 #: rust/crates/shell/ui/cards/preview.slint:295
 msgid "Show every frame in the preview at the cost of a bit more CPU."

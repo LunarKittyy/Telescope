@@ -449,7 +449,8 @@ impl Rig for GpCamera {
         // malloc'd by the library, read as the file path it is for a file event and freed here once
         unsafe {
             let mut path = FilePath { name: [0; 128], folder: [0; 1024] };
-            check(api, (api.capture)(self.cam, CAPTURE_IMAGE, &mut path, self.ctx))?;
+            // A camera that says it is busy hasn't started the shot
+            check(api, (api.capture)(self.cam, CAPTURE_IMAGE, &mut path, self.ctx)).map_err(|why| if why.to_lowercase().contains("busy") { Incomplete::refused(why) } else { Incomplete::from(why) })?;
             // A long exposure ends here: if the picture went hidden during it, nothing is fetched from the camera
             if stop() {
                 return Err("stopped: the picture is hidden".into());

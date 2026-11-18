@@ -440,6 +440,128 @@ fn reset_clears_the_picture_and_keeps_the_switch_and_saved_layouts() {
 }
 
 #[test]
+fn the_auto_director_works_only_while_on_and_switches_layouts_on_hands() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    let two = |big: &str, small: &str| Layout::of(vec![Tile::boxed(big, "", 0.0, 0.0, 0.7, 1.0), Tile::boxed(small, "", 0.7, 0.0, 0.3, 0.4)]);
+    r.plugin.set_layout(&mut r.host, two("a", "b"));
+    r.plugin.save_layout(&mut r.host, "A big");
+    r.plugin.set_layout(&mut r.host, two("b", "a"));
+    r.plugin.save_layout(&mut r.host, "B big");
+    r.plugin.pick(&mut r.host, "A big");
+    assert_eq!(r.plugin.card_props()["director"], false, "off by default");
+    assert!(!r.host.calls.iter().any(|c| c == "want_people composite true"));
+    r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: "director-toggled".into(), args: vec![json!(true)] });
+    assert!(r.host.calls.iter().any(|c| c == "want_people composite true"), "asks for people on every stream");
+    assert_eq!(r.plugin.get_config()["director"], true);
+    // hands on b for long enough: B big goes on; the pick at the start is long past
+    r.plugin.director.picked(0.0, "A big");
+    for t in 0..8 {
+        r.plugin.director.hear(10.0 + t as f64 * 0.5, "b", true);
+        r.plugin.direct(&mut r.host, 10.0 + t as f64 * 0.5);
+    }
+    assert_eq!(r.plugin.layout().name, "B big");
+    // the director's own switch is not a hand pick: A big stays home
+    assert_eq!(r.plugin.director.home(), "A big");
+    // off: nothing asked for any more
+    r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: "director-toggled".into(), args: vec![json!(false)] });
+    assert_eq!(r.host.calls.iter().rev().find(|c| c.starts_with("want_people composite")).map(String::as_str), Some("want_people composite false"));
+    r.plugin.direct(&mut r.host, 100.0);
+    assert_eq!(r.plugin.layout().name, "A big", "off puts the layout picked by hand back, and it changes nothing after that");
+}
+
+/// A stand-in picture: a flat colour with a few filled shapes, (x, y, w, h, colour) as fractions.
+fn scene(background: [u8; 3], shapes: &[(f64, f64, f64, f64, [u8; 3])]) -> Frame {
+    let (w, h) = (640usize, 360usize);
+    let mut data = Vec::with_capacity(w * h * 4);
+    for y in 0..h {
+        for x in 0..w {
+            let (fx, fy) = (x as f64 / w as f64, y as f64 / h as f64);
+            let c = shapes.iter().rev().find(|(sx, sy, sw, sh, _)| fx >= *sx && fx < sx + sw && fy >= *sy && fy < sy + sh).map_or(background, |s| s.4);
+            data.extend([c[0], c[1], c[2], 255]);
+        }
+    }
+    Frame::new(w as u32, h as u32, PixelFormat::Bgra, data)
+}
+
+/// Not part of the suite: writes the layouts the director picks over a scripted minute as PPM files into TELESCOPE_DIRECTOR_OUT (a folder),
+/// drawn by the real compositor on stand-in pictures, with nothing on screen. `cargo nextest run -p telescope-effects --run-ignored only render_the_director`.
+#[test]
+#[ignore]
+fn render_the_director_over_a_scripted_minute() {
+    let Ok(out) = std::env::var("TELESCOPE_DIRECTOR_OUT") else { return };
+    let mut r = rig();
+    r.two_streams(0.0);
+    let face = scene([40, 60, 90], &[(0.38, 0.12, 0.24, 0.42, [150, 190, 230]), (0.22, 0.58, 0.56, 0.42, [200, 90, 60])]);
+    let desk = scene([90, 70, 50], &[(0.15, 0.2, 0.7, 0.6, [60, 140, 90]), (0.3, 0.35, 0.12, 0.2, [240, 230, 220])]);
+    let desk_hands = scene([90, 70, 50], &[(0.15, 0.2, 0.7, 0.6, [60, 140, 90]), (0.3, 0.35, 0.12, 0.2, [240, 230, 220]), (0.45, 0.4, 0.25, 0.3, [190, 150, 130])]);
+    let now = monotonic_ns();
+    let two = |big: &str, small: &str| Layout::of(vec![Tile::boxed(big, "", 0.0, 0.0, 0.72, 1.0), Tile::boxed(small, "", 0.72, 0.0, 0.28, 0.4)]);
+    r.plugin.set_layout(&mut r.host, two("a", "b"));
+    r.plugin.save_layout(&mut r.host, "Face big");
+    r.plugin.set_layout(&mut r.host, two("b", "a"));
+    r.plugin.save_layout(&mut r.host, "Desk big");
+    r.plugin.pick(&mut r.host, "Face big");
+    r.plugin.director.picked(0.0, "Face big");
+    r.plugin.director_on = true;
+    std::fs::create_dir_all(&out).unwrap();
+    let mut log = String::new();
+    // hands on the desk from 10 s to 25 s, then gone
+    for step in 0..=70 {
+        let t = 8.0 + step as f64 * 0.5;
+        let hands = (10.0..25.0).contains(&t);
+        r.plugin.director.hear(t, "b", hands);
+        let before = r.plugin.layout().name.clone();
+        r.plugin.direct(&mut r.host, t);
+        let name = r.plugin.layout().name.clone();
+        if name != before || step == 0 {
+            log += &format!("{t:5.1} s: {name}\n");
+            let mut frames = crate::compositor::Frames::new();
+            frames.insert("a".into(), (numbered(face.clone(), 1, now), Some(1)));
+            frames.insert("b".into(), (numbered(if hands { desk_hands.clone() } else { desk.clone() }, 2, now), Some(2)));
+            let mut compositor = crate::compositor::Compositor::new(no_pictures());
+            compositor.prepare(r.plugin.layout(), (960, 540));
+            let picture = compositor.render(&frames, PixelFormat::Bgra).expect("a picture");
+            let mut ppm = format!("P6\n{} {}\n255\n", picture.width, picture.height).into_bytes();
+            picture.data.chunks(4).for_each(|p| ppm.extend([p[2], p[1], p[0]]));
+            std::fs::write(format!("{out}/{:04.1}-{}.ppm", t, name.replace(' ', "-")), ppm).unwrap();
+        }
+    }
+    std::fs::write(format!("{out}/log.txt"), log).unwrap();
+}
+
+#[test]
+fn the_auto_director_saves_the_layout_picked_by_hand_follows_a_rename_and_puts_it_back_when_off() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    let two = |big: &str, small: &str| Layout::of(vec![Tile::boxed(big, "", 0.0, 0.0, 0.7, 1.0), Tile::boxed(small, "", 0.7, 0.0, 0.3, 0.4)]);
+    r.plugin.set_layout(&mut r.host, two("a", "b"));
+    r.plugin.save_layout(&mut r.host, "A big");
+    r.plugin.set_layout(&mut r.host, two("b", "a"));
+    r.plugin.save_layout(&mut r.host, "B big");
+    r.plugin.pick(&mut r.host, "A big");
+    r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: "director-toggled".into(), args: vec![json!(true)] });
+    r.plugin.director.picked(0.0, "A big");
+    for t in 0..8 {
+        r.plugin.director.hear(10.0 + t as f64 * 0.5, "b", true);
+        r.plugin.direct(&mut r.host, 10.0 + t as f64 * 0.5);
+    }
+    assert_eq!(r.plugin.layout().name, "B big");
+    assert_eq!(r.plugin.get_config()["layout"]["name"], "A big", "a cut isn't what is saved");
+    // renaming home keeps the director working
+    r.plugin.rename_layout(&mut r.host, "A big", "Talking");
+    assert_eq!(r.plugin.director.home(), "Talking");
+    // off while cut: the picture is back on the one picked by hand
+    r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: "director-toggled".into(), args: vec![json!(false)] });
+    assert_eq!(r.plugin.layout().name, "Talking");
+    // a card with one layout left can still switch it off
+    r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: "director-toggled".into(), args: vec![json!(true)] });
+    r.plugin.delete_layout(&mut r.host, "B big");
+    assert_eq!(r.plugin.card_props()["director-enabled"], true);
+    assert_eq!(r.host.calls.iter().rev().find(|c| c.starts_with("want_people composite")).map(String::as_str), Some("want_people composite false"), "no pose work without two layouts");
+}
+
+#[test]
 fn the_declared_settings_round_trip() {
     telescope_core::testing::settings_round_trip(&mut CompositePlugin::new(), &mut telescope_core::testing::FakeHost::new());
 }
@@ -458,6 +580,106 @@ fn a_preset_saves_the_picture_but_not_the_saved_layouts() {
     other.plugin.save_layout(&mut other.host, "Mine");
     other.plugin.apply_preset(&mut other.host, &saved).unwrap();
     assert_eq!(other.plugin.names(), ["Mine"]);
+}
+
+// ── Transitions ───────────────────────────────────────────────────────────
+
+/// Whether the transition is still going `after_ms` from now. It starts with the first picture drawn, so one is drawn first.
+fn goes(r: &Rig, after_ms: u64) -> bool {
+    let mut hub = r.plugin.shared.hub();
+    hub.compositor.render_at(&Frames::new(), PixelFormat::Bgra, STARTED);
+    hub.compositor.transitioning(STARTED + after_ms * 1_000_000)
+}
+
+/// When the pictures of these tests are drawn.
+const STARTED: u64 = 1_000_000_000;
+
+/// A rig with a saved layout "Big" that differs from the one on.
+fn with_saved_layout() -> Rig {
+    let mut r = rig();
+    r.two_streams(0.0);
+    r.plugin.set_layout(&mut r.host, Layout::of(vec![Tile::boxed("a", "Phone A", 0.0, 0.0, 1.0, 1.0), Tile::boxed("b", "Phone B", 0.7, 0.7, 0.25, 0.25)]));
+    r.plugin.save_layout(&mut r.host, "Big");
+    r.plugin.set_layout(&mut r.host, Layout::of(vec![Tile::boxed("a", "Phone A", 0.0, 0.0, 0.5, 1.0), Tile::boxed("b", "Phone B", 0.5, 0.0, 0.5, 1.0)]));
+    r
+}
+
+#[test]
+fn a_picked_layout_goes_there_the_way_the_transition_says_and_an_edit_takes_effect_at_once() {
+    let mut r = with_saved_layout();
+    assert!(!goes(&r, 0), "an edit in the editor is not a transition");
+    assert!(r.plugin.pick(&mut r.host, "Big"));
+    assert!(goes(&r, 0) && goes(&r, 400) && !goes(&r, 1500));
+    r.plugin.set_layout(&mut r.host, Layout::of(vec![Tile::boxed("a", "Phone A", 0.0, 0.0, 0.5, 1.0), Tile::boxed("b", "Phone B", 0.5, 0.0, 0.5, 1.0)]));
+    assert!(goes(&r, 400), "an edit mid-way is gone to on the way, not jumped to");
+}
+
+#[test]
+fn a_stream_joining_in_the_middle_of_a_transition_does_not_end_it() {
+    let mut r = with_saved_layout();
+    r.plugin.pick(&mut r.host, "Big");
+    assert!(goes(&r, 100));
+    // what follow_camera does when the streams change
+    r.plugin.on_event(&mut r.host, &Event::StreamsChanged { count: 2 });
+    assert!(goes(&r, 200), "it goes on");
+}
+
+#[test]
+fn a_preset_without_a_transition_leaves_the_cards_alone_and_one_with_its_own_uses_it() {
+    let mut r = with_saved_layout();
+    let ui = |r: &mut Rig, callback: &str, arg: f64| r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: callback.into(), args: vec![json!(arg)] });
+    ui(&mut r, "transition-picked", 3.0);
+    let old = json!({"on": true, "layout": {"name": "Big", "tiles": [{"source_id": "a", "x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0}]}});
+    r.plugin.apply_preset(&mut r.host, &old).unwrap();
+    assert_eq!(r.plugin.get_config()["transition"]["kind"], "slide", "an older preset has none");
+    let mut own = old.clone();
+    own["transition"] = json!({"kind": "wipe", "ms": 400, "ease": "even"});
+    r.plugin.apply_preset(&mut r.host, &own).unwrap();
+    assert_eq!(r.plugin.get_config()["transition"], json!({"kind": "wipe", "ms": 400, "ease": "even"}));
+}
+
+#[test]
+fn reduced_motion_fades_briefly_and_off_cuts() {
+    let mut r = with_saved_layout();
+    r.host.reduced_motion = (true, false);
+    r.plugin.pick(&mut r.host, "Big");
+    assert!(goes(&r, 100) && !goes(&r, 400), "a short fade");
+    let mut r = with_saved_layout();
+    r.host.reduced_motion = (false, true);
+    r.plugin.pick(&mut r.host, "Big");
+    assert!(!goes(&r, 0), "a cut");
+}
+
+#[test]
+fn the_transition_is_set_from_the_card_saved_and_clamped() {
+    let mut r = rig();
+    let ui = |r: &mut Rig, callback: &str, arg: f64| r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: callback.into(), args: vec![json!(arg)] });
+    assert_eq!(r.plugin.get_config()["transition"], json!({"kind": "glide", "ms": 600, "ease": "springy"}));
+    ui(&mut r, "transition-picked", 3.0);
+    ui(&mut r, "ease-picked", 2.0);
+    ui(&mut r, "transition-length-moved", 99999.0);
+    assert_eq!(r.plugin.get_config()["transition"], json!({"kind": "slide", "ms": 3000, "ease": "bouncy"}));
+    ui(&mut r, "transition-picked", 99.0);
+    assert_eq!(r.plugin.get_config()["transition"]["kind"], "slide", "an unknown pick changes nothing");
+    let saved = r.plugin.preset_config();
+    let mut other = rig();
+    other.plugin.apply_preset(&mut other.host, &saved).unwrap();
+    assert_eq!(other.plugin.get_config()["transition"], saved["transition"], "a preset carries the transition");
+}
+
+#[test]
+fn a_transition_keeps_being_drawn_while_the_telescope_stream_stalls() {
+    let mut r = with_saved_layout();
+    r.plugin.shutdown(&mut r.host);
+    let main = solid([255, 0, 0], (90, 160));
+    let t0 = monotonic_ns();
+    let sent = numbered(r.process(&main, "a"), 1, t0);
+    r.store.set(0, stream("a", "Phone A", sent));
+    r.set_main(&main, t0);
+    r.plugin.pick(&mut r.host, "Big");
+    // no new frame from anyone, yet each tick draws the next picture of the transition
+    assert!(r.draw_stalled(t0 + SECOND / 5));
+    assert!(r.draw_stalled(t0 + SECOND * 3 / 10), "the same frames, drawn again for the transition");
 }
 
 #[test]

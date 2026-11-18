@@ -29,6 +29,10 @@ pub struct State {
     /// Answer every live view frame with this response instead (the camera ended live view).
     pub frame_code: Option<u16>,
     pub unreachable: bool,
+    /// This operation fails in the transport (a timeout or an IO error), after it was sent.
+    pub transport_error_on: Option<u16>,
+    /// This operation is answered with this response code instead of working.
+    pub refuse: Option<(u16, u16)>,
     /// How many viewfinder requests answer Canon's not-ready code before one works.
     pub not_ready_frames: u32,
     /// The files a photo makes: name and bytes. One JPEG unless a test sets more.
@@ -157,6 +161,14 @@ impl Transport for Mock {
             return Err("the camera isn't there".into());
         }
         s.log.push((op, params.to_vec(), data_out.map(<[u8]>::to_vec).unwrap_or_default()));
+        if s.transport_error_on == Some(op) {
+            return Err("the link dropped".into());
+        }
+        if let Some((refused, code)) = s.refuse {
+            if refused == op {
+                return reply(code, Vec::new());
+            }
+        }
         if op != OP_OPEN_SESSION && !s.session && op != OP_GET_DEVICE_INFO {
             return reply(0x2003, Vec::new());
         }

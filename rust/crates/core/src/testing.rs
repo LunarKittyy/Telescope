@@ -185,6 +185,8 @@ pub struct FakeHost {
     pub notifications: Vec<(String, String, bool)>,
     /// What preset_plugins() lists, in order; apply_preset hands each one's config to the plugin_configs entry.
     pub preset_plugins: Vec<String>,
+    /// What reduced_motion() says: (reduced, off).
+    pub reduced_motion: (bool, bool),
     /// The Save preset questions for a plugin; saving adds the answers to its config as "picks".
     pub preset_options: Vec<(String, crate::plugin::PresetOption)>,
     /// What's on the clipboard: copy_text puts text there unless the clipboard is deaf (Wayland ignores a copy from a window
@@ -316,6 +318,9 @@ impl HostSettings for FakeHost {
     }
     fn setting_revision(&self, plugin: &str, key: &str) -> u64 {
         self.revisions.iter().filter(|(p, k, _)| p == plugin && crate::settings::paths_overlap(k, key)).map(|(_, _, at)| *at).max().unwrap_or(0)
+    }
+    fn reduced_motion(&self) -> (bool, bool) {
+        self.reduced_motion
     }
     fn preset_plugins(&self) -> Vec<String> {
         self.preset_plugins.clone()

@@ -104,6 +104,10 @@ impl HostSettings for Ctx<'_> {
     fn plugin_config(&self, name: &str) -> Option<Value> {
         self.state.plugin_config(name)
     }
+    fn reduced_motion(&self) -> (bool, bool) {
+        let motion = crate::appearance::motion_of(&crate::appearance::current());
+        (motion == crate::motion::Motion::Reduced, motion == crate::motion::Motion::Off)
+    }
     fn plugin_preset_config(&self, name: &str) -> Option<Value> {
         self.state.plugin_preset_config(name)
     }
