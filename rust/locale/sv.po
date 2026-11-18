@@ -369,7 +369,7 @@ msgstr "Brusreducering"
 msgid "Noise reduction unavailable"
 msgstr "Brusreducering inte tillgänglig"
 
-#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:260
+#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:696 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:260
 msgid "Cancel"
 msgstr "Avbryt"
 
@@ -547,7 +547,7 @@ msgstr "Uppdateringar & Om"
 msgid "Camera"
 msgstr "Kamera"
 
-#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:530
+#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/composite_editor.slint:553 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:530
 msgid "Look"
 msgstr "Utseende"
 
@@ -624,7 +624,7 @@ msgstr "Av"
 msgid "Blur"
 msgstr "Oskärpa"
 
-#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/background.slint:101 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:181 rust/crates/effects/ui/composite_editor.slint:323 rust/crates/effects/ui/composite_editor.slint:547 rust/crates/effects/ui/composite_editor.slint:549 rust/crates/effects/ui/composite_editor.slint:549
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/background.slint:101 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:181 rust/crates/effects/ui/composite_editor.slint:372 rust/crates/effects/ui/composite_editor.slint:650 rust/crates/effects/ui/composite_editor.slint:652 rust/crates/effects/ui/composite_editor.slint:652
 msgid "Picture"
 msgstr "Bild"
 
@@ -656,7 +656,7 @@ msgstr "Välj en bild"
 msgid "Can't open that picture"
 msgstr "Kan inte öppna den bilden"
 
-#: rust/crates/effects/src/background.rs:643 rust/crates/effects/src/background.rs:768 rust/crates/effects/src/background.rs:771 rust/crates/effects/src/background.rs:789 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:517
+#: rust/crates/effects/src/background.rs:643 rust/crates/effects/src/background.rs:768 rust/crates/effects/src/background.rs:771 rust/crates/effects/src/background.rs:789 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:620
 msgid "Background"
 msgstr "Bakgrund"
 
@@ -672,11 +672,11 @@ msgstr "Utan tillägget Bakgrund finns inte kortet Bakgrund och bakgrunden visas
 msgid "Background blur"
 msgstr "Bakgrundsoskärpa"
 
-#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:605 rust/crates/effects/ui/composite_editor.slint:636 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Green"
 msgstr "Grön"
 
-#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:605 rust/crates/effects/ui/composite_editor.slint:636 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Blue"
 msgstr "Blå"
 
@@ -684,7 +684,7 @@ msgstr "Blå"
 msgid "Picked"
 msgstr "Vald"
 
-#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:153 rust/crates/effects/ui/chroma_key.slint:166 rust/crates/effects/ui/composite_editor.slint:469 rust/crates/effects/ui/composite_editor.slint:521
+#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:153 rust/crates/effects/ui/chroma_key.slint:166 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/effects/ui/composite_editor.slint:624
 msgid "Colour"
 msgstr "Färg"
 
@@ -841,7 +841,7 @@ msgstr "RGB-parad"
 msgid "Vectorscope"
 msgstr "Vektorskop"
 
-#: rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:605 rust/crates/effects/ui/composite_editor.slint:636 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Red"
 msgstr "Röd"
 
@@ -1001,7 +1001,7 @@ msgstr "Ser bra ut"
 msgid "No stream"
 msgstr "Ingen ström"
 
-#: rust/crates/effects/src/colour_grading.rs:59 rust/crates/effects/ui/composite_editor.slint:550
+#: rust/crates/effects/src/colour_grading.rs:59 rust/crates/effects/ui/composite_editor.slint:653
 msgid "No picture"
 msgstr "Ingen bild"
 
@@ -1206,38 +1206,38 @@ msgstr "Panorera"
 msgid "{mode}, no snapping"
 msgstr "{mode}, utan fästning"
 
-#: rust/crates/effects/src/composite_editor.rs:364
+#: rust/crates/effects/src/composite_editor.rs:415
 #, python-brace-format
 msgid "Layout {n}"
 msgstr "Layout {n}"
 
-#: rust/crates/effects/src/composite_editor.rs:482
+#: rust/crates/effects/src/composite_editor.rs:533
 msgid "Background picture"
 msgstr "Bakgrundsbild"
 
-#: rust/crates/effects/src/composite_editor.rs:531
+#: rust/crates/effects/src/composite_editor.rs:582
 #, python-brace-format
 msgid "{name} isn't streaming"
 msgstr "{name} strömmar inte"
 
-#: rust/crates/effects/src/composite_editor.rs:542
+#: rust/crates/effects/src/composite_editor.rs:593
 #, python-brace-format
 msgid "{name} (not streaming)"
 msgstr "{name} (strömmar inte)"
 
-#: rust/crates/effects/src/composite_editor.rs:546 rust/crates/setup/src/stats.rs:389
+#: rust/crates/effects/src/composite_editor.rs:597 rust/crates/setup/src/stats.rs:389
 msgid "None"
 msgstr "Ingen"
 
-#: rust/crates/effects/src/composite_editor.rs:600
+#: rust/crates/effects/src/composite_editor.rs:657
 msgid "Rename layout"
 msgstr "Byt namn på layout"
 
-#: rust/crates/effects/src/composite_editor.rs:600
+#: rust/crates/effects/src/composite_editor.rs:657
 msgid "Save layout"
 msgstr "Spara layout"
 
-#: rust/crates/effects/src/composite_editor.rs:603
+#: rust/crates/effects/src/composite_editor.rs:660
 #, python-brace-format
 msgid "There's already a layout called \"{name}\". Replace it?"
 msgstr "Det finns redan en layout som heter \"{name}\". Vill du ersätta den?"
@@ -1266,7 +1266,7 @@ msgstr ""
 msgid "Push"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:48 rust/crates/effects/src/transforms.rs:670 rust/crates/effects/src/transforms.rs:725 rust/crates/effects/ui/composite_editor.slint:445 rust/crates/effects/ui/transforms.slint:173 rust/crates/effects/ui/transforms.slint:188 rust/crates/effects/ui/transforms.slint:189 rust/crates/effects/ui/transforms.slint:230 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/composite_plugin.rs:48 rust/crates/effects/src/transforms.rs:670 rust/crates/effects/src/transforms.rs:725 rust/crates/effects/ui/composite_editor.slint:557 rust/crates/effects/ui/transforms.slint:173 rust/crates/effects/ui/transforms.slint:188 rust/crates/effects/ui/transforms.slint:189 rust/crates/effects/ui/transforms.slint:230 rust/crates/outputs/src/webcam.rs:56
 msgid "Zoom"
 msgstr "Zoom"
 
@@ -1329,7 +1329,7 @@ msgstr "Matar ut på {camera}."
 msgid "Nothing in it"
 msgstr "Inget innehåll"
 
-#: rust/crates/effects/src/composite_plugin.rs:546 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
+#: rust/crates/effects/src/composite_plugin.rs:546 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:474
 msgid "Two streams required"
 msgstr "Två strömmar krävs"
 
@@ -2486,7 +2486,7 @@ msgstr "Exponeringsgaffling"
 msgid "Focus bracket"
 msgstr "Fokusgaffling"
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:709 rust/crates/effects/src/photos.rs:841 rust/crates/effects/ui/photos.slint:146 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304 rust/crates/effects/ui/phototrap.slint:99
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:709 rust/crates/effects/src/photos.rs:842 rust/crates/effects/ui/photos.slint:146 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304 rust/crates/effects/ui/phototrap.slint:99
 msgid "Photos"
 msgstr "Foton"
 
@@ -2594,12 +2594,12 @@ msgstr "Kameran kunde inte ta fotot."
 msgid "Like the video"
 msgstr "Som videon"
 
-#: rust/crates/effects/src/photos.rs:66 rust/crates/effects/src/photos.rs:201 rust/crates/effects/src/phototrap.rs:313 rust/crates/effects/src/phototrap.rs:685 rust/crates/effects/src/stargazer.rs:828 rust/crates/effects/src/stargazer.rs:1155 rust/crates/setup/src/setup.rs:493
+#: rust/crates/effects/src/photos.rs:66 rust/crates/effects/src/photos.rs:201 rust/crates/effects/src/phototrap.rs:313 rust/crates/effects/src/phototrap.rs:686 rust/crates/effects/src/stargazer.rs:828 rust/crates/effects/src/stargazer.rs:1162 rust/crates/setup/src/setup.rs:493
 #, python-brace-format
 msgid "{seconds} s"
 msgstr "{seconds} s"
 
-#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/photos.rs:850 rust/crates/effects/src/photos.rs:866 rust/crates/effects/ui/photos.slint:160
+#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/photos.rs:851 rust/crates/effects/src/photos.rs:867 rust/crates/effects/ui/photos.slint:160
 msgid "Take photo"
 msgstr "Ta foto"
 
@@ -2651,7 +2651,7 @@ msgstr "Exponering"
 msgid "Distortion fix"
 msgstr "Distorsionskorrigering"
 
-#: rust/crates/effects/src/photos.rs:353 rust/crates/effects/src/photos.rs:785
+#: rust/crates/effects/src/photos.rs:353 rust/crates/effects/src/photos.rs:786
 msgid "Start streaming to take photos."
 msgstr "Starta strömning för att ta foton."
 
@@ -2743,11 +2743,11 @@ msgstr "Ta foton i full kvalitet på telefonen eller en systemkamera, inklusive 
 msgid "Without the Photos plugin there's no Photos card and no Take photo shortcut."
 msgstr "Utan tillägget Foton finns inte kortet Foton och inget kortkommando för Ta foto."
 
-#: rust/crates/effects/src/photos.rs:843 rust/crates/effects/src/photos.rs:881
+#: rust/crates/effects/src/photos.rs:844 rust/crates/effects/src/photos.rs:882
 msgid "Photo mode"
 msgstr "Fotoläge"
 
-#: rust/crates/effects/src/photos.rs:848 rust/crates/effects/src/photos.rs:891
+#: rust/crates/effects/src/photos.rs:849 rust/crates/effects/src/photos.rs:892
 msgid "Photo timer"
 msgstr "Fototimer"
 
@@ -2787,7 +2787,7 @@ msgstr ""
 msgid "This lens takes one photo at a time"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:267 rust/crates/effects/src/phototrap.rs:684
+#: rust/crates/effects/src/phototrap.rs:267 rust/crates/effects/src/phototrap.rs:685
 msgid "Not armed"
 msgstr ""
 
@@ -2819,15 +2819,15 @@ msgstr ""
 msgid "Nothing has set it off yet"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:295 rust/crates/effects/src/phototrap.rs:682
+#: rust/crates/effects/src/phototrap.rs:295 rust/crates/effects/src/phototrap.rs:683
 msgid "Armed"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:295 rust/crates/effects/src/phototrap.rs:682
+#: rust/crates/effects/src/phototrap.rs:295 rust/crates/effects/src/phototrap.rs:683
 msgid "Draw zone"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:296 rust/crates/effects/src/phototrap.rs:683
+#: rust/crates/effects/src/phototrap.rs:296 rust/crates/effects/src/phototrap.rs:684
 msgid "Clear zones"
 msgstr ""
 
@@ -3008,7 +3008,7 @@ msgid_plural "Stacking the sharpest {n} frames"
 msgstr[0] ""
 msgstr[1] ""
 
-#: rust/crates/effects/src/stargazer.rs:791 rust/crates/effects/src/stargazer.rs:810 rust/crates/effects/src/stargazer.rs:1156 rust/crates/effects/src/stargazer.rs:1156
+#: rust/crates/effects/src/stargazer.rs:791 rust/crates/effects/src/stargazer.rs:810 rust/crates/effects/src/stargazer.rs:1163 rust/crates/effects/src/stargazer.rs:1163
 msgid "Waiting for the picture"
 msgstr ""
 
@@ -3046,13 +3046,13 @@ msgstr "Spara"
 msgid "Show the stack on the camera"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:826 rust/crates/effects/src/stargazer.rs:1154
+#: rust/crates/effects/src/stargazer.rs:826 rust/crates/effects/src/stargazer.rs:1161
 #, python-brace-format
 msgid "{n} frames"
 msgstr ""
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/effects/src/stargazer.rs:829 rust/crates/effects/src/stargazer.rs:1156 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1825 rust/crates/system/src/remote.rs:19
+#: rust/crates/effects/src/stargazer.rs:829 rust/crates/effects/src/stargazer.rs:1163 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1825 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "Starta"
 
@@ -3106,15 +3106,15 @@ msgstr[1] ""
 msgid "Stopped because the picture size changed"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:1058 rust/crates/effects/ui/stargazer.slint:45
+#: rust/crates/effects/src/stargazer.rs:1064 rust/crates/effects/ui/stargazer.slint:45
 msgid "Stargazer"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:1059
+#: rust/crates/effects/src/stargazer.rs:1065
 msgid "Stack frames from a phone clipped to a telescope into a sharper moon or planet, a clearer faint sky or a star trail."
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:1060
+#: rust/crates/effects/src/stargazer.rs:1066
 msgid "Without the Stargazer plugin there's no Stargazer card and no frames are stacked."
 msgstr ""
 
@@ -3170,7 +3170,7 @@ msgstr "Ta bort färgkurvan som Matcha skapade och lämna telefonernas exponerin
 msgid "3D"
 msgstr "3D"
 
-#: rust/crates/effects/src/stereo_plugin.rs:720 rust/crates/effects/ui/composite_editor.slint:351
+#: rust/crates/effects/src/stereo_plugin.rs:720 rust/crates/effects/ui/composite_editor.slint:401
 msgid "Side by side"
 msgstr "Sida vid sida"
 
@@ -3372,11 +3372,11 @@ msgstr "Panorera vänster/höger"
 msgid "Pan up/down"
 msgstr "Panorera upp/ned"
 
-#: rust/crates/effects/src/transforms.rs:673 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/desk.slint:165 rust/crates/effects/ui/desk.slint:172 rust/crates/effects/ui/desk.slint:173 rust/crates/effects/ui/transforms.slint:262 rust/crates/effects/ui/transforms.slint:263
+#: rust/crates/effects/src/transforms.rs:673 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/composite_editor.slint:522 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/desk.slint:165 rust/crates/effects/ui/desk.slint:172 rust/crates/effects/ui/desk.slint:173 rust/crates/effects/ui/transforms.slint:262 rust/crates/effects/ui/transforms.slint:263
 msgid "Width"
 msgstr "Bredd"
 
-#: rust/crates/effects/src/transforms.rs:674 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/stereo.slint:177 rust/crates/effects/ui/transforms.slint:279 rust/crates/effects/ui/transforms.slint:280
+#: rust/crates/effects/src/transforms.rs:674 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/composite_editor.slint:530 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/stereo.slint:177 rust/crates/effects/ui/transforms.slint:279 rust/crates/effects/ui/transforms.slint:280
 msgid "Height"
 msgstr "Höjd"
 
@@ -3652,15 +3652,15 @@ msgstr "Ersätt"
 msgid "Clear the current layout without touching saved layouts."
 msgstr "Rensa den aktuella layouten utan att påverka sparade layouter."
 
-#: rust/crates/effects/ui/composite.slint:50 rust/crates/effects/ui/composite.slint:57 rust/crates/effects/ui/composite.slint:61 rust/crates/effects/ui/composite_editor.slint:373 rust/crates/effects/ui/composite_editor.slint:385 rust/crates/shell/ui/card-order-settings.slint:7
+#: rust/crates/effects/ui/composite.slint:50 rust/crates/effects/ui/composite.slint:57 rust/crates/effects/ui/composite.slint:61 rust/crates/effects/ui/composite_editor.slint:423 rust/crates/effects/ui/composite_editor.slint:435 rust/crates/shell/ui/card-order-settings.slint:7
 msgid "Layout"
 msgstr "Layout"
 
-#: rust/crates/effects/ui/composite.slint:70 rust/crates/effects/ui/composite_editor.slint:386
+#: rust/crates/effects/ui/composite.slint:70 rust/crates/effects/ui/composite_editor.slint:436
 msgid "Not saved"
 msgstr "Inte sparad"
 
-#: rust/crates/effects/ui/composite.slint:82 rust/crates/effects/ui/composite.slint:83 rust/crates/effects/ui/composite_editor.slint:229 rust/crates/effects/ui/composite_editor.slint:315
+#: rust/crates/effects/ui/composite.slint:82 rust/crates/effects/ui/composite.slint:83 rust/crates/effects/ui/composite_editor.slint:269 rust/crates/effects/ui/composite_editor.slint:364
 msgid "Edit picture"
 msgstr "Redigera bild"
 
@@ -3692,155 +3692,207 @@ msgstr ""
 msgid "Springy and Bouncy overshoot a little and settle, Smooth glides without overshooting and Even goes at one speed."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:87
+#: rust/crates/effects/ui/composite_editor.slint:91
 msgid "Picture preview"
 msgstr "Bildförhandsvisning"
 
-#: rust/crates/effects/ui/composite_editor.slint:88
+#: rust/crates/effects/ui/composite_editor.slint:92
 msgid "no picture picked"
 msgstr "ingen bild vald"
 
-#: rust/crates/effects/ui/composite_editor.slint:88
+#: rust/crates/effects/ui/composite_editor.slint:92
 msgid "picked"
 msgstr "vald"
 
-#: rust/crates/effects/ui/composite_editor.slint:88
+#: rust/crates/effects/ui/composite_editor.slint:92
 msgid "from the left"
 msgstr "från vänster"
 
-#: rust/crates/effects/ui/composite_editor.slint:88
+#: rust/crates/effects/ui/composite_editor.slint:92
 msgid "from the top"
 msgstr "uppifrån"
 
-#: rust/crates/effects/ui/composite_editor.slint:89
+#: rust/crates/effects/ui/composite_editor.slint:93
 msgid "Arrow keys move the picked picture a little, Shift with an arrow moves it further."
 msgstr "Piltangenterna flyttar den valda bilden lite, Shift med en piltangent flyttar den längre."
 
-#: rust/crates/effects/ui/composite_editor.slint:350
+#: rust/crates/effects/ui/composite_editor.slint:373
+msgid "Drag a stream to move it. Hold Ctrl to move it without snapping. The arrow keys move it a pixel and Shift with them ten."
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:400
 msgid "Start from"
 msgstr "Utgå från"
 
-#: rust/crates/effects/ui/composite_editor.slint:351
+#: rust/crates/effects/ui/composite_editor.slint:401
 msgid "Big and small"
 msgstr "Stor och liten"
 
-#: rust/crates/effects/ui/composite_editor.slint:351
+#: rust/crates/effects/ui/composite_editor.slint:401
 msgid "Grid"
 msgstr "Rutnät"
 
-#: rust/crates/effects/ui/composite_editor.slint:355
+#: rust/crates/effects/ui/composite_editor.slint:405
 msgid "Start a new layout with the running streams arranged like this."
 msgstr "Starta en ny layout med de aktiva strömmarna ordnade så här."
 
-#: rust/crates/effects/ui/composite_editor.slint:377
+#: rust/crates/effects/ui/composite_editor.slint:427
 msgid "Save as"
 msgstr "Spara som"
 
-#: rust/crates/effects/ui/composite_editor.slint:378
+#: rust/crates/effects/ui/composite_editor.slint:428
 msgid "Save this layout under a new name."
 msgstr "Spara den här layouten under ett nytt namn."
 
-#: rust/crates/effects/ui/composite_editor.slint:392 rust/crates/effects/ui/composite_editor.slint:392 rust/crates/link/ui/connection.slint:116 rust/crates/setup/src/setup.rs:721 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/src/plugins/presets.rs:215
+#: rust/crates/effects/ui/composite_editor.slint:442 rust/crates/effects/ui/composite_editor.slint:442 rust/crates/link/ui/connection.slint:116 rust/crates/setup/src/setup.rs:721 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/src/plugins/presets.rs:215
 msgid "Rename"
 msgstr "Byt namn"
 
-#: rust/crates/effects/ui/composite_editor.slint:392
+#: rust/crates/effects/ui/composite_editor.slint:442
 msgid "Rename this layout."
 msgstr "Byt namn på den här layouten."
 
-#: rust/crates/effects/ui/composite_editor.slint:393 rust/crates/effects/ui/composite_editor.slint:393 rust/crates/shell/src/plugins/presets.rs:185
+#: rust/crates/effects/ui/composite_editor.slint:443 rust/crates/effects/ui/composite_editor.slint:443 rust/crates/shell/src/plugins/presets.rs:185
 msgid "Delete"
 msgstr "Radera"
 
-#: rust/crates/effects/ui/composite_editor.slint:393
+#: rust/crates/effects/ui/composite_editor.slint:443
 msgid "Delete this layout."
 msgstr "Radera den här layouten."
 
-#: rust/crates/effects/ui/composite_editor.slint:397
+#: rust/crates/effects/ui/composite_editor.slint:447
 msgid "Streams"
 msgstr "Strömmar"
 
-#: rust/crates/effects/ui/composite_editor.slint:427
+#: rust/crates/effects/ui/composite_editor.slint:477
 msgid "Picked stream"
 msgstr "Vald ström"
 
-#: rust/crates/effects/ui/composite_editor.slint:431
+#: rust/crates/effects/ui/composite_editor.slint:481
 msgid "Fit its shape"
 msgstr "Anpassa formen"
 
-#: rust/crates/effects/ui/composite_editor.slint:432
+#: rust/crates/effects/ui/composite_editor.slint:482
 msgid "Give the box the stream's original shape again, without cropping or stretching."
 msgstr "Ge rutan strömmens ursprungliga form igen, utan att beskära eller sträcka ut."
 
-#: rust/crates/effects/ui/composite_editor.slint:439
-msgid "Stream"
-msgstr "Ström"
+#: rust/crates/effects/ui/composite_editor.slint:498
+msgid "Place"
+msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:446
-msgid "Scroll to zoom and drag with the right mouse button to move. Double-click to reset."
-msgstr "Rulla för att zooma och dra med höger musknapp för att flytta. Dubbelklicka för att återställa."
+#: rust/crates/effects/ui/composite_editor.slint:502
+msgid "X"
+msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:458
-msgid "Border"
-msgstr "Ram"
+#: rust/crates/effects/ui/composite_editor.slint:503
+msgid "Left"
+msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:462
-msgid "How thick the border is."
-msgstr "Hur tjock ramen är."
-
-#: rust/crates/effects/ui/composite_editor.slint:471
-msgid "Border colour"
-msgstr "Ramfärg"
-
-#: rust/crates/effects/ui/composite_editor.slint:496 rust/crates/setup/ui/setup.slint:589 rust/crates/setup/ui/setup.slint:599
-msgid "Corners"
-msgstr "Hörn"
-
-#: rust/crates/effects/ui/composite_editor.slint:500
-msgid "How round the corners are."
-msgstr "Hur runda hörnen är."
-
-#: rust/crates/effects/ui/composite_editor.slint:507
-msgid "Order"
-msgstr "Ordning"
+#: rust/crates/effects/ui/composite_editor.slint:504
+msgid "How far the left edge of the stream is from the left edge of the picture, in pixels."
+msgstr ""
 
 #: rust/crates/effects/ui/composite_editor.slint:510
+msgid "Y"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:511
+msgid "Top"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:512
+msgid "How far the top edge of the stream is from the top of the picture, in pixels."
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:521
+msgid "W"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:523
+msgid "The width of the stream's box in pixels."
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:529
+msgid "H"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:531
+msgid "The height of the stream's box in pixels."
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:539 rust/crates/effects/ui/composite_editor.slint:544
+msgid "Swap with"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:540
+msgid "Swap with…"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:545
+msgid "Trade this stream's place and size with another stream's."
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:550
 msgid "Send back"
 msgstr "Flytta bakåt"
 
-#: rust/crates/effects/ui/composite_editor.slint:511
+#: rust/crates/effects/ui/composite_editor.slint:551
 msgid "Bring forward"
 msgstr "Flytta framåt"
 
-#: rust/crates/effects/ui/composite_editor.slint:523
+#: rust/crates/effects/ui/composite_editor.slint:558
+msgid "Scroll to zoom and drag with the right mouse button to move. Double-click to reset."
+msgstr "Rulla för att zooma och dra med höger musknapp för att flytta. Dubbelklicka för att återställa."
+
+#: rust/crates/effects/ui/composite_editor.slint:570 rust/crates/setup/ui/setup.slint:589 rust/crates/setup/ui/setup.slint:599
+msgid "Corners"
+msgstr "Hörn"
+
+#: rust/crates/effects/ui/composite_editor.slint:574
+msgid "How round the corners are."
+msgstr "Hur runda hörnen är."
+
+#: rust/crates/effects/ui/composite_editor.slint:582
+msgid "Border"
+msgstr "Ram"
+
+#: rust/crates/effects/ui/composite_editor.slint:586
+msgid "How thick the border is."
+msgstr "Hur tjock ramen är."
+
+#: rust/crates/effects/ui/composite_editor.slint:595
+msgid "Border colour"
+msgstr "Ramfärg"
+
+#: rust/crates/effects/ui/composite_editor.slint:626
 msgid "Background colour"
 msgstr "Bakgrundsfärg"
 
-#: rust/crates/effects/ui/composite_editor.slint:549
+#: rust/crates/effects/ui/composite_editor.slint:652
 msgid "Show a picture behind the streams instead of the colour."
 msgstr "Visa en bild bakom strömmarna i stället för färgen."
 
-#: rust/crates/effects/ui/composite_editor.slint:569 rust/crates/link/ui/connection.slint:686
+#: rust/crates/effects/ui/composite_editor.slint:672 rust/crates/link/ui/connection.slint:686
 msgid "Close"
 msgstr "Stäng"
 
-#: rust/crates/effects/ui/composite_editor.slint:580
+#: rust/crates/effects/ui/composite_editor.slint:683
 msgid "Replace layout"
 msgstr "Ersätt layout"
 
-#: rust/crates/effects/ui/composite_editor.slint:583 rust/crates/effects/ui/composite_editor.slint:586 rust/crates/shell/src/plugins/presets.rs:186
+#: rust/crates/effects/ui/composite_editor.slint:686 rust/crates/effects/ui/composite_editor.slint:689 rust/crates/shell/src/plugins/presets.rs:186
 msgid "Name:"
 msgstr "Namn:"
 
-#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1102 rust/crates/shell/ui/settings.slint:587
+#: rust/crates/effects/ui/composite_editor.slint:697 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1102 rust/crates/shell/ui/settings.slint:587
 msgid "OK"
 msgstr "OK"
 
-#: rust/crates/effects/ui/composite_editor.slint:603 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
+#: rust/crates/effects/ui/composite_editor.slint:706 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
 msgid "No"
 msgstr "Nej"
 
-#: rust/crates/effects/ui/composite_editor.slint:604 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
+#: rust/crates/effects/ui/composite_editor.slint:707 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
 msgid "Yes"
 msgstr "Ja"
 
@@ -10771,6 +10823,12 @@ msgstr "Ersatt"
 #: rust/crates/shell/src/plugins_tab.rs:157
 msgid "Couldn't restart"
 msgstr "Kunde inte starta om"
+
+#~ msgid "Stream"
+#~ msgstr "Ström"
+
+#~ msgid "Order"
+#~ msgstr "Ordning"
 
 #~ msgid "Theme, card colours and language."
 #~ msgstr "Tema, kortfärger och språk."
