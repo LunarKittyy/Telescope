@@ -249,8 +249,8 @@ component LayerToggle inherits Rectangle {
     in property <string> tip;
     in property <string> tip-detail;
     callback clicked;
-    width: Theme.icon + Theme.u(4);
-    height: Theme.icon + Theme.u(4);
+    width: Theme.u(14);
+    height: Theme.u(14);
     border-radius: Theme.r-ctl;
     background: touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : transparent;
     accessible-role: checkbox;
@@ -289,6 +289,7 @@ component LayerRow inherits Rectangle {
     in property <bool> held;
     in property <length> held-y;
     in property <bool> any-held;
+    in property <bool> joined;
     callback eye-clicked(bool);
     callback lock-clicked(bool);
     callback pick-clicked;
@@ -341,18 +342,28 @@ component LayerRow inherits Rectangle {
         }
         clicked => { if (root.layer && !was-dragged) { root.pick-clicked(); } }
     }
-    Tip { says: root.status; hover: touch.has-hover && touch.mouse-x < Theme.u(16) && !root.any-held; }
+    Tip { says: root.status; hover: touch.has-hover && touch.mouse-x < Theme.u(18) && !root.any-held; }
     HorizontalLayout {
-        padding-left: Theme.u(7);
-        padding-right: Theme.u(5.5);
+        // one rhythm: the same inset from the row's edge on the left, top and bottom, and the same gap between the parts
+        padding-left: Theme.u(2);
+        padding-right: Theme.u(2);
         spacing: Theme.u(2);
-        Icon {
+        Rectangle {
+            width: Theme.u(14);
+            height: Theme.u(14);
             y: (parent.height - self.height) / 2;
-            source: root.streaming ? Icons.camera : Icons.camera-off;
-            tint: root.streaming ? Theme.ink2 : Theme.faint;
-            width: Theme.icon;
-            height: Theme.icon;
+            border-radius: Theme.r-ctl;
+            background: Theme.card;
             accessible-role: none;
+            Icon {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                source: root.streaming ? Icons.camera : Icons.camera-off;
+                tint: root.streaming ? Theme.ink2 : Theme.faint;
+                width: Theme.icon;
+                height: Theme.icon;
+                accessible-role: none;
+            }
         }
         Text {
             text: root.title;
@@ -365,7 +376,7 @@ component LayerRow inherits Rectangle {
             overflow: elide;
             accessible-role: none;
         }
-        LayerToggle {
+        if !root.joined: LayerToggle {
             y: (parent.height - self.height) / 2;
             icon: root.on ? Icons.eye : Icons.eye-off;
             active: root.on;
@@ -374,7 +385,7 @@ component LayerRow inherits Rectangle {
             tip-detail: root.on ? @tr("Take this stream out of the picture.") : @tr("Put this stream in the picture.");
             clicked => { root.eye-clicked(!root.on); }
         }
-        if root.layer: LayerToggle {
+        if !root.joined && root.layer: LayerToggle {
             y: (parent.height - self.height) / 2;
             icon: Icons.lock;
             active: root.locked;
@@ -383,15 +394,47 @@ component LayerRow inherits Rectangle {
             tip-detail: root.locked ? @tr("Let this stream be moved and changed again.") : @tr("Pin this stream so it can't be moved or changed until it is unlocked.");
             clicked => { root.lock-clicked(!root.locked); }
         }
+        // the eye and the lock as one tile with a thin divider
+        if root.joined: Rectangle {
+            width: root.layer ? Theme.u(28) : Theme.u(14);
+            height: Theme.u(14);
+            y: (parent.height - self.height) / 2;
+            border-radius: Theme.r-ctl;
+            background: Theme.card;
+            clip: true;
+            HorizontalLayout {
+                LayerToggle {
+                    width: root.layer ? Theme.u(14) : parent.width;
+                    height: parent.height;
+                    border-radius: 0px;
+                    icon: root.on ? Icons.eye : Icons.eye-off;
+                    active: root.on;
+                    label: root.title;
+                    tip: root.on ? @tr("In the picture") : @tr("Not in the picture");
+                    tip-detail: root.on ? @tr("Take this stream out of the picture.") : @tr("Put this stream in the picture.");
+                    clicked => { root.eye-clicked(!root.on); }
+                }
+                if root.layer: Rectangle { width: Theme.u(0.5); background: Theme.line; }
+                if root.layer: LayerToggle {
+                    width: Theme.u(13.5);
+                    height: parent.height;
+                    border-radius: 0px;
+                    icon: Icons.lock;
+                    active: root.locked;
+                    label: @tr("Lock");
+                    tip: root.locked ? @tr("Locked") : @tr("Unlocked");
+                    tip-detail: root.locked ? @tr("Let this stream be moved and changed again.") : @tr("Pin this stream so it can't be moved or changed until it is unlocked.");
+                    clicked => { root.lock-clicked(!root.locked); }
+                }
+            }
+        }
         // the grip: two columns of three dots
         if root.layer: Rectangle {
-            width: Theme.u(4.5);
-            y: (parent.height - Theme.u(7)) / 2;
-            height: Theme.u(7);
+            width: Theme.u(8);
             accessible-role: none;
             for i in 6: Rectangle {
-                x: Math.mod(i, 2) * Theme.u(3);
-                y: Math.floor(i / 2) * Theme.u(3);
+                x: (parent.width - Theme.u(4.5)) / 2 + Math.mod(i, 2) * Theme.u(3);
+                y: (parent.height - Theme.u(7)) / 2 + Math.floor(i / 2) * Theme.u(3);
                 width: Theme.u(1.5);
                 height: Theme.u(1.5);
                 border-radius: self.width / 2;
@@ -463,6 +506,7 @@ export component CompositeEditor inherits Window {
     in property <string> cursor;
     in property <[StreamRow]> streams;
     in property <bool> few-streams;
+    in property <bool> joined-controls: false;
     in property <bool> tile-shown;
     in property <float> zoom: 100;
     in property <float> zoom-max: 400;
@@ -648,6 +692,7 @@ export component CompositeEditor inherits Window {
                                 held: list.held == i;
                                 held-y: list.held-y;
                                 any-held: list.held >= 0;
+                                joined: root.joined-controls;
                                 eye-clicked(on) => { root.stream-toggled(i, on); }
                                 lock-clicked(locked) => { root.stream-locked(i, locked); }
                                 pick-clicked => { root.stream-picked(i); }
