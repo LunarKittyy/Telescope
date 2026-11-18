@@ -587,12 +587,6 @@ impl Window {
         }
     }
 
-    /// Everything is withheld (State::withhold): the picture every stream last put out, which a stalled one would go on sending, is put out
-    /// again dark, and what was kept of their frames for plugins goes.
-    pub(crate) fn black_out(self: &Rc<Self>) {
-        for w in self.streams.workers.borrow().iter() {
-            black_out_slot(w.inner.slot().as_ref());
-        }
     }
 
     /// A plugin changed its frame step: the stream the panels show takes it from the next frame.
@@ -1849,7 +1843,7 @@ impl FlowHost for Host<'_> {
                                   plugin_source: source.kind.as_phone().is_none(), waiting_text: source.kind.waiting_text(),
                                   vision, steps, gate: Some(self.w.state.borrow().vc.gate()), idle: Some(self.w.state.borrow().idle.clone()) };
         let slot: Arc<dyn FrameSlot> = services.media.stream_frames().map(|f| f.new_slot()).unwrap_or_else(local_slot);
-        let slot: Arc<dyn FrameSlot> = Arc::new(WakingSlot { inner: slot, withhold: self.w.state.borrow().withhold.clone(), pending: self.w.streams.frame_wake.clone(), unwanted: self.w.streams.frame_unwanted.clone() });
+        let slot: Arc<dyn FrameSlot> = Arc::new(WakingSlot { inner: slot, pending: self.w.streams.frame_wake.clone(), unwanted: self.w.streams.frame_unwanted.clone() });
         let weak = self.w.ui.as_weak();
         let events: crate::worker::Events = Arc::new(move |e| {
             if matches!(e, WorkerEvent::Preview(..)) {
@@ -1922,8 +1916,6 @@ fn ask_keyframe(source: &SourceRef) {
 /// One wake waits at a time: a frame that lands before the window gets to it is simply the one painted (frames drop, never queue).
 struct WakingSlot {
     inner: Arc<dyn FrameSlot>,
-    /// Checked as each frame comes in (State::withhold).
-    withhold: Arc<crate::shell::Withhold>,
     pending: Arc<std::sync::atomic::AtomicBool>,
     /// Nothing shows a preview: no wake is asked for, and the window's 10 Hz timer paints once it's shown again.
     unwanted: Arc<std::sync::atomic::AtomicBool>,
@@ -1946,28 +1938,14 @@ impl WakingSlot {
     }
 }
 
-/// The newest picture a slot puts out, put out again dark, with the history plugins read from gone. Only for a slot that withholds.
-fn black_out_slot(slot: &dyn FrameSlot) {
-    if let Some((frame, _)) = slot.latest() {
-        slot.publish(frame);
-    }
-    slot.forget_history();
-}
-
 impl FrameSlot for WakingSlot {
     fn publish(&self, frame: telescope_core::frame::Frame) -> u64 {
-        let number = {
-            let _held = self.withhold.lock.lock().unwrap_or_else(|e| e.into_inner());
-            self.inner.publish(self.withhold.pass(frame))
-        };
+        let number = self.inner.publish(frame);
         self.wake();
         number
     }
     fn publish_at(&self, frame: telescope_core::frame::Frame, epoch: u64) -> u64 {
-        let number = {
-            let _held = self.withhold.lock.lock().unwrap_or_else(|e| e.into_inner());
-            self.inner.publish_at(self.withhold.pass(frame), epoch)
-        };
+        let number = self.inner.publish_at(frame, epoch);
         self.wake();
         number
     }
@@ -1978,20 +1956,14 @@ impl FrameSlot for WakingSlot {
         self.inner.published()
     }
     fn replace(&self, frame: telescope_core::frame::Frame, number: u64) -> bool {
-        let done = {
-            let _held = self.withhold.lock.lock().unwrap_or_else(|e| e.into_inner());
-            self.inner.replace(self.withhold.pass(frame), number)
-        };
+        let done = self.inner.replace(frame, number);
         if done {
             self.wake();
         }
         done
     }
     fn replace_if(&self, frame: telescope_core::frame::Frame, number: u64, expected: &Arc<Vec<u8>>) -> bool {
-        let done = {
-            let _held = self.withhold.lock.lock().unwrap_or_else(|e| e.into_inner());
-            self.inner.replace_if(self.withhold.pass(frame), number, expected)
-        };
+        let done = self.inner.replace_if(frame, number, expected);
         if done {
             self.wake();
         }
@@ -2052,26 +2024,8 @@ mod wake_tests {
     use super::*;
     use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering::SeqCst};
 
-    #[test]
-    fn a_withholding_slot_puts_out_its_last_picture_again_dark_and_only_dark_ones_after() {
-        let slot = waking();
-        slot.unwanted.store(true, std::sync::atomic::Ordering::SeqCst);
-        let clear = |v: u8| telescope_core::frame::Frame::new(2, 2, telescope_core::frame::PixelFormat::Rgba, vec![v; 16]);
-        slot.publish(clear(200));
-        slot.withhold.start();
-        // a stalled stream sends nothing new: the cached picture itself goes dark
-        black_out_slot(&slot);
-        let is_dark = |f: telescope_core::frame::Frame| f.data.as_chunks::<4>().0.iter().all(|px| *px == [0, 0, 0, 255]);
-        assert!(is_dark(slot.latest().unwrap().0));
-        slot.publish(clear(200));
-        assert!(is_dark(slot.latest().unwrap().0));
-        let n = slot.latest().unwrap().1;
-        slot.replace(clear(90), n);
-        assert!(is_dark(slot.latest().unwrap().0), "a plugin's replacement too");
-    }
-
     fn waking() -> WakingSlot {
-        WakingSlot { inner: local_slot(), withhold: Arc::default(), pending: Arc::new(AtomicBool::new(false)), unwanted: Arc::new(AtomicBool::new(false)) }
+        WakingSlot { inner: local_slot(), pending: Arc::new(AtomicBool::new(false)), unwanted: Arc::new(AtomicBool::new(false)) }
     }
 
     /// A slot that answers the timing questions, to see them get through the wrapper.
@@ -2112,7 +2066,7 @@ mod wake_tests {
 
     #[test]
     fn the_wake_wrapper_passes_history_and_the_phone_clock_through() {
-        let slot = WakingSlot { inner: Arc::new(Timed::default()), withhold: Arc::default(), pending: Arc::new(AtomicBool::new(false)), unwanted: Arc::new(AtomicBool::new(false)) };
+        let slot = WakingSlot { inner: Arc::new(Timed::default()), pending: Arc::new(AtomicBool::new(false)), unwanted: Arc::new(AtomicBool::new(false)) };
         assert_eq!(slot.near(42).and_then(|f| f.capture_ns), Some(42), "history questions reach the real slot");
         assert!(slot.phone_clock().is_none());
         slot.set_phone_clock(Some(Arc::new(telescope_core::clock::PhoneClock::default())));

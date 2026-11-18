@@ -198,52 +198,16 @@ fn step_hides(stage: telescope_core::frame::FrameStage, step: &telescope_core::f
         return Ok(true);
     }
     match step {
-        FrameStep::Cpu(c) => telescope_core::diagnostics::catch_plugin(|| c.hides()).map_err(|panic| format!("hides: {}", panic_text(panic.as_ref()))),
+        FrameStep::Cpu(c) | FrameStep::Either(_, c) => telescope_core::diagnostics::catch_plugin(|| c.hides()).map_err(|panic| format!("hides: {}", panic_text(panic.as_ref()))),
         _ => Ok(false),
     }
 }
 
-/// Everything going dark once a plugin that hides things has panicked (State::withhold). Every stream's slot checks it as it takes a frame, under
-/// `lock`, so a clear frame being put out as it comes on can't land after the dark one that replaces it.
-#[derive(Default)]
-pub struct Withhold {
-    on: std::sync::atomic::AtomicBool,
-    pub lock: std::sync::Mutex<()>,
-}
-
-impl Withhold {
-    pub fn on(&self) -> bool {
-        self.on.load(std::sync::atomic::Ordering::SeqCst)
-    }
-
-    /// From now on until the app quits.
-    pub fn start(&self) {
-        self.on.store(true, std::sync::atomic::Ordering::SeqCst);
-    }
-
-    /// The frame as it may go out: itself, or a dark one of the same size and format while withholding.
-    pub fn pass(&self, frame: telescope_core::Frame) -> telescope_core::Frame {
-        if self.on() { dark(&frame) } else { frame }
-    }
-}
-
-/// A dark frame the size and format of frame, keeping its number and times.
-pub fn dark(frame: &telescope_core::Frame) -> telescope_core::Frame {
-    use telescope_core::frame::PixelFormat;
-    let mut out = frame.clone();
-    let luma = frame.width as usize * frame.height as usize;
-    let mut data = vec![0u8; frame.data.len()];
-    match frame.format {
-        PixelFormat::I420 | PixelFormat::Nv12 => {
-            let split = luma.min(data.len());
-            data[..split].fill(16);
-            data[split..].fill(128);
-        }
-        PixelFormat::Bgra | PixelFormat::Rgba => data.as_chunks_mut::<4>().0.iter_mut().for_each(|px| *px = [0, 0, 0, 255]),
-        _ => {}
-    }
-    *out.data_mut() = data;
-    out
+/// What happens when a plugin that hides part of the picture panics: Telescope closes. Its state can't be trusted to go on hiding anything, and
+/// an app that's gone shows nothing, where one that carries on might show what was hidden for a frame or more.
+fn close_rather_than_show(name: &str, why: &str) {
+    log::error!("Plugin {name} was hiding part of the picture and failed ({why}); closing Telescope rather than show what it hid");
+    std::process::abort();
 }
 
 /// What a caught panic said, for the log and diagnostics.
@@ -351,7 +315,7 @@ impl telescope_core::host::Poster for PluginPoster {
 type PendingBefore = Arc<std::sync::Mutex<BTreeMap<String, (telescope_core::Frame, bool)>>>;
 
 /// Keeps a copy of each frame on its way into the colour step, for the preview's before and after (colour_split). The copy waits in `pending` and only reaches the preview once the frame is out (PublishBefore), so it isn't on show while the steps that hide things are still to run.
-struct KeepBefore(PendingBefore, Arc<Withhold>);
+struct KeepBefore(PendingBefore);
 
 impl telescope_core::frame::CpuStep for KeepBefore {
     fn touch(&self, _ctx: &dyn telescope_core::frame::FrameContext) -> telescope_core::frame::Touch {
@@ -359,9 +323,7 @@ impl telescope_core::frame::CpuStep for KeepBefore {
     }
 
     fn process(&mut self, frame: &mut telescope_core::Frame, ctx: &dyn telescope_core::frame::FrameContext) {
-        if !self.1.on() {
-            self.0.lock().unwrap().insert(ctx.source_id().to_string(), (frame.clone(), false));
-        }
+        self.0.lock().unwrap().insert(ctx.source_id().to_string(), (frame.clone(), false));
     }
 }
 
@@ -369,7 +331,6 @@ impl telescope_core::frame::CpuStep for KeepBefore {
 struct PublishBefore {
     pending: PendingBefore,
     before: Arc<std::sync::Mutex<BTreeMap<String, telescope_core::Frame>>>,
-    withhold: Arc<Withhold>,
 }
 
 impl telescope_core::frame::CpuStep for PublishBefore {
@@ -381,7 +342,7 @@ impl telescope_core::frame::CpuStep for PublishBefore {
         let kept = self.pending.lock().unwrap().remove(ctx.source_id());
         let mut before = self.before.lock().unwrap();
         match kept {
-            Some((frame, false)) if !self.withhold.on() => {
+            Some((frame, false)) => {
                 before.insert(ctx.source_id().to_string(), frame);
             }
             _ => {
@@ -486,8 +447,8 @@ pub struct State {
     pub problems: BTreeMap<String, String>,
     /// Plugins that panicked where they couldn't be stopped on the spot (a read through &self): stopped when the hook that read them ends.
     late_stops: RefCell<Vec<(usize, String)>>,
-    /// Set for good once a plugin that hides things panics: every frame that goes out, to the cameras and the preview alike, is dark.
-    pub withhold: Arc<Withhold>,
+    /// What a plugin that hides things panicking does (close_rather_than_show; tests put a recorder here).
+    pub hiding_panic: fn(&str, &str),
     /// What the banner calls each of them.
     problem_titles: BTreeMap<String, String>,
     /// The added plugins that are running: they're not built in, so the Plugins tab lists them from their folder.
@@ -597,7 +558,7 @@ impl State {
             builtins: Vec::new(),
             problems: BTreeMap::new(),
             late_stops: RefCell::default(),
-            withhold: Arc::default(),
+            hiding_panic: close_rather_than_show,
             problem_titles: BTreeMap::new(),
             added: Vec::new(),
             admin,
@@ -730,9 +691,11 @@ impl State {
 
     /// Stops the plugins that panicked in a read.
     pub fn stop_late(&mut self) {
-        let late = std::mem::take(&mut *self.late_stops.borrow_mut());
-        for (i, why) in late {
+        // Each stays queued (and its settings unread) until its slot is marked stopped: stopping one can read the others' settings
+        loop {
+            let Some((i, why)) = self.late_stops.borrow().first().cloned() else { return };
             self.stop_after_panic(i, &why);
+            self.late_stops.borrow_mut().retain(|(s, _)| *s != i);
         }
     }
 
@@ -742,20 +705,19 @@ impl State {
     pub fn stop_after_panic(&mut self, i: usize, why: &str) {
         let Some(slot) = self.slots.get_mut(i) else { return };
         let name = slot.info.name.clone();
+        // One that hides things (or is there to, before its first step) can't be trusted to go on hiding them, nor can a picture without it
+        use telescope_core::frame::FrameStage;
+        if !slot.starting && (slot.hides || matches!(slot.info.frame_stage, FrameStage::Background | FrameStage::Privacy | FrameStage::Cover)) {
+            slot.hides = true;
+            (self.hiding_panic)(&name, why);
+            return;
+        }
         if slot.info.required || slot.starting || slot.stopped.is_some() {
             log::error!("Plugin {name} failed: {why}");
             return;
         }
         log::error!("Plugin {name} failed ({why}); switching it off until Telescope restarts");
         slot.stopped = Some(why.to_string());
-        // One that hides things (or is there to, before its first step) can't be trusted to go on hiding them: everything goes dark until a restart
-        use telescope_core::frame::FrameStage;
-        let hides = slot.hides || matches!(slot.info.frame_stage, FrameStage::Background | FrameStage::Privacy | FrameStage::Cover);
-        if hides {
-            self.slots[i].hides = true;
-            self.withhold.start();
-            self.colour_before.lock().unwrap().clear();
-        }
         let shut_down = std::mem::replace(&mut self.slots[i].shut_down, true);
         if let Some(mut plugin) = self.slots[i].plugin.take().filter(|_| !shut_down) {
             let mut ctx = crate::host::Ctx { state: self, me: name.clone() };
@@ -798,11 +760,9 @@ impl State {
         } else {
             crate::texts::trn("{n} plugin stopped working", "{n} plugins stopped working", n)
         };
-        let mut text = crate::texts::trn("It ran into an error and is off until Telescope restarts. Everything else carries on.",
+        let text = crate::texts::trn("It ran into an error and is off until Telescope restarts. Everything else carries on.",
                                          "They ran into errors and are off until Telescope restarts. Everything else carries on.", n);
-        if self.withhold.on() {
-            text = format!("{text} {}", tr("Until then the camera and the preview only show a dark picture since part of the picture was being hidden."));
-        }
+
         self.banners.show("plugins_stopped", Issue {
             title, text, kind: "warn".into(), details, tell_dismiss: false,
             actions: vec![IssueAction { label: tr("Plugins…"), does: IssueDoes::OpenSettings { tab: "plugins".into() } }],
@@ -1315,7 +1275,7 @@ impl State {
             self.colour_before.lock().unwrap().clear();
         }
         // Nothing clear is kept for the compare while everything is withheld
-        let comparing = colour.is_some() && self.colour.split().is_some() && !self.withhold.on();
+        let comparing = colour.is_some() && self.colour.split().is_some();
         // A step that hides things, which isn't a CPU one, can't say when it does: no compare then
         let mut unwatched = false;
         let mut background = false;
@@ -1382,14 +1342,14 @@ impl State {
         }
         if let Some(step) = colour {
             if comparing && !unwatched {
-                let keep = KeepBefore(pending.clone(), self.withhold.clone());
+                let keep = KeepBefore(pending.clone());
                 steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step: telescope_core::frame::FrameStep::Cpu(Box::new(keep)) });
             }
             steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Colour, step });
         }
         steps.extend(plugin_steps);
         if comparing && !unwatched {
-            let publish = PublishBefore { pending, before: self.colour_before.clone(), withhold: self.withhold.clone() };
+            let publish = PublishBefore { pending, before: self.colour_before.clone() };
             steps.push(StagedStep { owner: "colour".into(), stage: FrameStage::Final, step: telescope_core::frame::FrameStep::Cpu(Box::new(publish)) });
         }
         steps
@@ -2830,35 +2790,53 @@ mod tests {
         assert!(!s.pipeline_steps(None).iter().any(|st| st.owner == "holder"));
     }
 
-    #[test]
-    fn a_plugin_that_hid_something_turns_everything_dark_when_it_stops_compare_included() {
-        struct Blur;
-        impl Plugin for Blur {
-            fn info(&self) -> PluginInfo {
-                PluginInfo { name: "blur".into(), frame_stage: telescope_core::frame::FrameStage::Privacy, ..Default::default() }
-            }
-            fn on_event(&mut self, _h: &mut dyn telescope_core::Host, _e: &Event) {
-                panic!("no");
-            }
+    thread_local! {
+        static CLOSED: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
+    }
+
+    fn record_close(name: &str, _why: &str) {
+        CLOSED.with(|c| c.borrow_mut().push(name.to_string()));
+    }
+
+    struct HidesOnCpu;
+
+    impl telescope_core::frame::CpuStep for HidesOnCpu {
+        fn process(&mut self, _frame: &mut telescope_core::Frame, _ctx: &dyn telescope_core::frame::FrameContext) {}
+        fn hides(&self) -> bool {
+            true
         }
+    }
+
+    /// A plugin at stage, handing out step (if any), that panics on any event.
+    struct Panics(&'static str, telescope_core::frame::FrameStage, Option<fn() -> telescope_core::frame::FrameStep>);
+
+    impl Plugin for Panics {
+        fn info(&self) -> PluginInfo {
+            PluginInfo { name: self.0.into(), frame_stage: self.1, ..Default::default() }
+        }
+        fn on_event(&mut self, _h: &mut dyn telescope_core::Host, _e: &Event) {
+            panic!("no");
+        }
+        fn frame_step(&mut self) -> Option<telescope_core::frame::FrameStep> {
+            self.2.map(|make| make())
+        }
+    }
+
+    #[test]
+    fn a_plugin_that_hides_things_closes_the_app_when_it_panics_and_others_are_only_switched_off() {
+        use telescope_core::frame::{FrameStage, FrameStep, ShaderStep};
         let mut s = state();
-        s.register(Box::new(Blur)).unwrap();
-        let clear = telescope_core::Frame::new(2, 2, telescope_core::frame::PixelFormat::Rgba, vec![200; 16]);
-        s.colour_before.lock().unwrap().insert("p1".into(), clear.clone());
-        let pending: PendingBefore = Arc::default();
-        let mut keep = KeepBefore(pending.clone(), s.withhold.clone());
-        let mut publish = PublishBefore { pending: pending.clone(), before: s.colour_before.clone(), withhold: s.withhold.clone() };
-        assert!(!s.withhold.on(), "a plugin that hides things and never panicked withholds nothing");
+        s.hiding_panic = record_close;
+        // Privacy blur before its first step, a step on the CPU that hides at the Effects stage, and its card-or-CPU kind
+        s.register(Box::new(Panics("blur", FrameStage::Privacy, None))).unwrap();
+        s.register(Box::new(Panics("cpu_hider", FrameStage::Effects, Some(|| FrameStep::Cpu(Box::new(HidesOnCpu)))))).unwrap();
+        s.register(Box::new(Panics("either_hider", FrameStage::Effects, Some(move || FrameStep::Either(ShaderStep { wgsl: String::new(), uniforms: Value::Null, textures: Vec::new() }, Box::new(HidesOnCpu)))))).unwrap();
+        s.register(Box::new(Panics("plain", FrameStage::Effects, Some(move || FrameStep::Shader(ShaderStep { wgsl: String::new(), uniforms: Value::Null, textures: Vec::new() }))))).unwrap();
+        s.pipeline_steps(None);
         s.bus.emit(Event::StreamStopped);
         s.deliver_events();
-        assert!(s.withhold.on());
-        assert!(s.colour_before.lock().unwrap().is_empty(), "the clear picture kept for the compare goes");
-        let mut frame = clear.clone();
-        telescope_core::frame::CpuStep::process(&mut keep, &mut frame, &NoCtx);
-        telescope_core::frame::CpuStep::process(&mut publish, &mut frame, &NoCtx);
-        assert!(s.colour_before.lock().unwrap().is_empty() && pending.lock().unwrap().is_empty(), "and none is kept after, in steps already handed out");
-        assert!(s.banners.issue("plugins_stopped").unwrap().text.contains("dark picture"));
-        assert_eq!(dark(&clear).data.as_slice(), [0, 0, 0, 255].repeat(4).as_slice());
+        assert_eq!(CLOSED.with(|c| c.borrow().clone()), ["blur", "cpu_hider", "either_hider"]);
+        assert_eq!(s.stopped().keys().collect::<Vec<_>>(), ["plain"], "one that hides nothing is switched off and the app carries on");
     }
 
     #[test]

@@ -1467,9 +1467,6 @@ impl Window {
         self.refresh_frame_steps();
         // A stream behind the panels keeps its other steps, this plugin's go
         self.drop_steps_behind(plugin);
-        if self.state.borrow().withhold.on() {
-            self.black_out();
-        }
     }
 
     fn close_plugin_window(self: &Rc<Self>, plugin: &str, id: &str) {
