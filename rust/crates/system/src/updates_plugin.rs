@@ -630,8 +630,13 @@ impl UpdatesPlugin {
     fn undo_going_back(&mut self, host: &mut dyn Host) {
         self.going_back = false;
         if let Some((channel, auto_check)) = self.back_settings.take() {
-            self.channel = channel;
-            self.auto_check = auto_check;
+            // What going back set is put back, but a channel or auto-check changed since stays as it is now
+            if self.channel == "stable" {
+                self.channel = channel;
+            }
+            if !self.auto_check {
+                self.auto_check = auto_check;
+            }
             self.backend.forget_going_back();
             host.save_now();
         }
@@ -665,14 +670,19 @@ impl UpdatesPlugin {
         self.refresh(host);
     }
 
-    pub fn set_channel(&mut self, host: &mut dyn Host, channel: &str) {
-        if !updates::CHANNELS.contains(&channel) || channel == self.channel {
-            return;
-        }
+    /// Moves to channel and forgets the versions found on the old one.
+    fn switch_channel(&mut self, channel: &str) {
         self.channel = channel.into();
         self.available = None;
         self.latest = None;
         self.rolled_back = None;
+    }
+
+    pub fn set_channel(&mut self, host: &mut dyn Host, channel: &str) {
+        if !updates::CHANNELS.contains(&channel) || channel == self.channel {
+            return;
+        }
+        self.switch_channel(channel);
         host.schedule_save();
         self.check(host, true);
     }
@@ -1010,13 +1020,23 @@ impl Plugin for UpdatesPlugin {
         }
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        vec![
+            SettingSpec::switch("auto_check", "Whether Telescope looks for updates by itself", true),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         json!({"channel": self.channel, "auto_check": self.auto_check, "last_check": self.last_check, "keep_portable": self.keep_portable})
     }
 
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
         let channel = cfg.get("channel").and_then(Value::as_str).filter(|c| updates::CHANNELS.contains(c));
-        self.channel = channel.unwrap_or(Self::default_channel_for(&self.built_channel)).into();
+        let channel = channel.unwrap_or(Self::default_channel_for(&self.built_channel));
+        if channel != self.channel {
+            self.switch_channel(channel);
+        }
         self.auto_check = cfg.get("auto_check") != Some(&Value::Bool(false));
         self.keep_portable = cfg.get("keep_portable") == Some(&Value::Bool(true));
         self.last_check = cfg.get("last_check").and_then(Value::as_f64).unwrap_or(0.0);
@@ -1716,6 +1736,29 @@ mod tests {
         assert_eq!(plugin.get_config()["keep_portable"], true);
     }
 
+    #[test]
+    fn a_channel_set_from_the_saved_settings_forgets_the_versions_of_the_old_one() {
+        let (mut plugin, _host, _fake) = env();
+        plugin.available = Some(manifest("9.9.9", 99, "n"));
+        plugin.latest = Some(manifest("9.9.9", 99, "n"));
+        plugin.set_config(&json!({"channel": "stable"})).unwrap();
+        assert!(plugin.available.is_none() && plugin.latest.is_none());
+        plugin.available = Some(manifest("9.9.9", 99, "n"));
+        plugin.set_config(&json!({"channel": "stable"})).unwrap();
+        assert!(plugin.available.is_some(), "the same channel keeps what was found");
+    }
+
+    #[test]
+    fn undoing_going_back_leaves_a_channel_changed_meanwhile_alone() {
+        let (mut plugin, mut host, _fake) = env();
+        plugin.going_back = true;
+        plugin.back_settings = Some(("stable".into(), false));
+        plugin.channel = "nightly".into();
+        plugin.auto_check = true;
+        plugin.undo_going_back(&mut host);
+        assert_eq!((plugin.channel.as_str(), plugin.auto_check), ("nightly", true));
+    }
+
     // The four saved keys against what Python saved for every config fixture
     #[test]
     fn what_python_saved_in_the_config_fixtures_comes_back_the_same() {
@@ -1942,5 +1985,10 @@ mod tests {
         let (mut again, mut host2, _) = env();
         again.on_plugins_ready(&mut host2);
         assert!(!again.status_while(false).0.contains("didn't start"));
+    }
+
+    #[test]
+    fn the_declared_settings_round_trip() {
+        telescope_core::testing::settings_round_trip(&mut UpdatesPlugin::new(Arc::new(Fake::default()), "stable"), &mut FakeHost::new());
     }
 }

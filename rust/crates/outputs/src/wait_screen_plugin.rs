@@ -701,6 +701,22 @@ impl Plugin for WaitScreenPlugin {
         ]
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        vec![telescope_core::settings::SettingSpec::switch("mirror", "Whether the wait screen's picture is mirrored", false)]
+    }
+
+    // A mirror switched from outside (the MCP server, a preset) shows at once, as the switch in the window does
+    fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
+        let was = self.mirror;
+        self.set_config(cfg)?;
+        if self.mirror != was {
+            host.schedule_save();
+            self.cover_changed(host);
+            self.show(host);
+        }
+        Ok(())
+    }
+
     fn get_config(&self) -> Value {
         json!({"image": self.image_path, "mirror": self.mirror, "last_size": self.last_size.map(|(w, h)| vec![w, h])})
     }

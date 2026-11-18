@@ -481,6 +481,14 @@ impl Plugin for Preview {
         }
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        vec![
+            SettingSpec::switch("lens_boxes", "Whether the preview shows a box for each of the phone's lenses", false),
+            SettingSpec::switch("skeleton", "Whether the preview draws the people tracking's stick figure on top", false),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         let mut cfg = json!({"lens_boxes": self.lens_boxes, "skeleton": self.skeleton});
         // Python has no such setting, so its settings files stay as they were unless someone turns this on
@@ -978,5 +986,11 @@ mod tests {
         host.vision = Some(vision::OFF.into());
         assert!(p.run_action(&mut host, "skeleton", &Value::Null).is_some());
         assert_eq!(card(&host)["skeleton-on"], true);
+    }
+
+    #[test]
+    fn the_declared_settings_round_trip() {
+        let (mut p, mut host) = ready();
+        telescope_core::testing::settings_round_trip(&mut p, &mut host);
     }
 }

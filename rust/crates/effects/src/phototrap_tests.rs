@@ -615,6 +615,33 @@ fn a_burst_in_the_middle_of_a_long_exposure_is_not_given_up_on_while_its_stream_
 }
 
 #[test]
+fn reset_puts_the_settings_back_and_leaves_the_zones_and_the_trap_alone() {
+    let (mut p, mut h, _) = armed();
+    p.zones = vec![[0.1, 0.1, 0.5, 0.5]];
+    p.orientation = Turn { flip_h: true, flip_v: false, rotation: None };
+    p.zones_changed(&mut h);
+    assert_eq!(card(&h)["reset-shown"], json!(false), "nothing to put back yet");
+    click(&mut p, &mut h, "sensitivity-moved", json!(9));
+    click(&mut p, &mut h, "count-moved", json!(6));
+    click(&mut p, &mut h, "pause-moved", json!(40));
+    click(&mut p, &mut h, "night-toggled", json!(true));
+    assert_eq!(card(&h)["reset-shown"], json!(true));
+    let (zones, turn, folder) = (p.zones.clone(), p.get_config()["turn"].clone(), p.folder.clone());
+    h.calls.clear();
+    click(&mut p, &mut h, "reset-clicked", json!(null));
+    let cfg = p.get_config();
+    assert_eq!((cfg["sensitivity"].as_u64(), cfg["count"].as_u64(), cfg["pause"].as_u64(), cfg["night"].as_bool()), (Some(5), Some(3), Some(10), Some(false)));
+    assert_eq!(p.zones, zones, "the zones stay");
+    assert_eq!(cfg["turn"], turn);
+    assert_eq!(p.folder, folder);
+    assert!(p.armed, "still armed");
+    assert_eq!(watches(&h), ["watch_motion phototrap 1 5"], "watched again at the default, never stopped");
+    assert!(!h.calls.iter().any(|c| c.starts_with("watch_motion phototrap 0")));
+    let shown = card(&h);
+    assert_eq!((shown["reset-shown"].clone(), shown["sensitivity"].clone(), shown["pause"].clone(), shown["night"].clone()), (json!(false), json!(5), json!(10), json!(false)));
+}
+
+#[test]
 fn a_burst_pending_while_arming_again_is_not_counted_twice() {
     let dir = scratch_dir("phototrap-rescan");
     let (mut p, now) = plugin();

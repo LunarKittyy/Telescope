@@ -515,6 +515,11 @@ fn privacy_blur_is_tagged_limited_and_not_lab() {
 }
 
 #[test]
+fn the_declared_settings_round_trip() {
+    telescope_core::testing::settings_round_trip(&mut PrivacyBlurPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+}
+
+#[test]
 fn the_host_is_told_when_it_starts_and_stops_hiding_and_not_while_it_only_has_its_step() {
     let told = |rig: &Rig| rig.host.hiding.clone();
     let mut rig = Rig::new();

@@ -921,6 +921,14 @@ impl Plugin for FunPackPlugin {
         Some(FrameStep::Cpu(step))
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        let effects: Vec<(&str, &str)> = EFFECTS.iter().map(|(k, _)| (*k, effect_text(k))).collect();
+        let mut out = vec![SettingSpec::choice("effect", "Which fun effect is on", &effects, "off")];
+        out.extend(SLIDERS.iter().map(|d| SettingSpec::number(d.key, d.tip, d.lo as f64, d.hi as f64, 0, d.default as f64)));
+        out
+    }
+
     fn get_config(&self) -> Value {
         let mut cfg = Map::new();
         cfg.insert("effect".into(), json!(self.effect));

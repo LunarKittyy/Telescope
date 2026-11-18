@@ -1796,3 +1796,8 @@ fn the_header_shows_one_badge_with_what_needs_a_look_first() {
     r.process(&shot(RED, Some(100)), "a");
     assert_eq!((r.props()["badge"].clone(), r.props()["badge-kind"].clone()), (json!("Matched"), json!("status_ok")));
 }
+
+#[test]
+fn the_declared_settings_round_trip() {
+    telescope_core::testing::settings_round_trip(&mut StereoPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+}

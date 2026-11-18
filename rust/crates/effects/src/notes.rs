@@ -761,6 +761,15 @@ impl Plugin for NotesPlugin {
         self.read_state(host, state);
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        vec![
+            SettingSpec::number("size", "How big the teleprompter text is on the phone", SIZE_MIN as f64, SIZE_MAX as f64, 0, SIZE_DEFAULT as f64),
+            SettingSpec::number("speed", "How fast the text scrolls by itself", 1.0, SPEED_MAX as f64, 0, SPEED_DEFAULT as f64),
+            SettingSpec::choice("scroll", "Whether the text scrolls by itself or by hand", &[("auto", "It scrolls by itself"), ("hand", "It only moves when you scroll it")], "auto"),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         json!({"sets": self.sets, "current": self.current, "size": self.size, "speed": self.speed, "scroll": if self.scroll_auto { "auto" } else { "hand" }})
     }

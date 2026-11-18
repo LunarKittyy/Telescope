@@ -682,6 +682,10 @@ impl Plugin for CompositePlugin {
         Some(FrameStep::Cpu(Box::new(CompositeStep(self.shared.clone()))))
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        vec![telescope_core::settings::SettingSpec::switch("on", "Whether the streams are put into one picture", false)]
+    }
+
     fn get_config(&self) -> Value {
         json!({"on": self.on, "layout": layout_dict(&self.layout), "layouts": self.layouts.iter().map(layout_dict).collect::<Vec<_>>()})
     }

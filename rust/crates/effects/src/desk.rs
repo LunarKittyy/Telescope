@@ -508,6 +508,15 @@ impl Plugin for DeskPlugin {
         Some(FrameStep::Cpu(step))
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        let keys = |list: &[(&'static str, &'static str)]| -> Vec<(&'static str, &'static str)> { list.iter().map(|(k, _)| (*k, *k)).collect() };
+        vec![
+            SettingSpec::choice("cleanup", "How the writing on the straightened sheet is cleaned up", &keys(&CLEANUPS), "off"),
+            SettingSpec::choice("shape", "The shape the sheet is straightened to", &keys(&SHAPES), "auto"),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         json!({
             "on": self.on,
