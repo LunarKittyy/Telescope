@@ -180,7 +180,7 @@ msgstr "获取 VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "消除打字声、风扇声和环境底噪。"
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:742 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:748 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}：{value}"
@@ -1278,78 +1278,102 @@ msgstr ""
 msgid "Shuffle"
 msgstr ""
 
+#: rust/crates/effects/src/composite_plugin.rs:52
+msgid "Bounce"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:53
+msgid "Iris"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:54
+msgid "Blinds"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:55
+msgid "Curtain"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:56
+msgid "Pixelate"
+msgstr ""
+
 #: rust/crates/effects/src/composite_plugin.rs:57
+msgid "Dissolve"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:63
 msgid "Springy"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:58 rust/crates/shell/ui/cards/preview.slint:290 rust/crates/shell/ui/cards/preview.slint:294
+#: rust/crates/effects/src/composite_plugin.rs:64 rust/crates/shell/ui/cards/preview.slint:290 rust/crates/shell/ui/cards/preview.slint:294
 msgid "Smooth"
 msgstr "流畅"
 
-#: rust/crates/effects/src/composite_plugin.rs:59
+#: rust/crates/effects/src/composite_plugin.rs:65
 msgid "Bouncy"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:60
+#: rust/crates/effects/src/composite_plugin.rs:66
 msgid "Even"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:479 rust/crates/effects/src/composite_plugin.rs:713 rust/crates/effects/src/composite_plugin.rs:717 rust/crates/effects/src/composite_plugin.rs:730 rust/crates/effects/ui/composite.slint:31
+#: rust/crates/effects/src/composite_plugin.rs:485 rust/crates/effects/src/composite_plugin.rs:719 rust/crates/effects/src/composite_plugin.rs:723 rust/crates/effects/src/composite_plugin.rs:736 rust/crates/effects/ui/composite.slint:31
 msgid "One picture"
 msgstr "合成画面"
 
-#: rust/crates/effects/src/composite_plugin.rs:531
+#: rust/crates/effects/src/composite_plugin.rs:537
 msgid "Nothing's in the picture yet."
 msgstr "画面中还没有内容。"
 
-#: rust/crates/effects/src/composite_plugin.rs:533
+#: rust/crates/effects/src/composite_plugin.rs:539
 msgid "Active once two streams are running."
 msgstr "两个串流运行后生效。"
 
-#: rust/crates/effects/src/composite_plugin.rs:535
+#: rust/crates/effects/src/composite_plugin.rs:541
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "已设为输出到 {camera}，但那里未运行任何串流。"
 
-#: rust/crates/effects/src/composite_plugin.rs:537
+#: rust/crates/effects/src/composite_plugin.rs:543
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "一旦那里的串流发送画面，便会输出到 {camera}。"
 
-#: rust/crates/effects/src/composite_plugin.rs:539
+#: rust/crates/effects/src/composite_plugin.rs:545
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "正在输出到 {camera}。"
 
-#: rust/crates/effects/src/composite_plugin.rs:544
+#: rust/crates/effects/src/composite_plugin.rs:550
 msgid "Nothing in it"
 msgstr "内容为空"
 
-#: rust/crates/effects/src/composite_plugin.rs:546 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:703
+#: rust/crates/effects/src/composite_plugin.rs:552 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:703
 msgid "Two streams required"
 msgstr "需要两个串流"
 
-#: rust/crates/effects/src/composite_plugin.rs:548
+#: rust/crates/effects/src/composite_plugin.rs:554
 msgid "Not going out"
 msgstr "未输出"
 
-#: rust/crates/effects/src/composite_plugin.rs:550
+#: rust/crates/effects/src/composite_plugin.rs:556
 msgid "Going out"
 msgstr "正在输出"
 
-#: rust/crates/effects/src/composite_plugin.rs:603
+#: rust/crates/effects/src/composite_plugin.rs:609
 msgid "Several cameras in one picture"
 msgstr "多相机同屏画面"
 
-#: rust/crates/effects/src/composite_plugin.rs:604
+#: rust/crates/effects/src/composite_plugin.rs:610
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "将运行的串流并排或以画中画形式呈现在一个虚拟相机中。"
 
-#: rust/crates/effects/src/composite_plugin.rs:605
+#: rust/crates/effects/src/composite_plugin.rs:611
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "若没有“多相机同屏”插件，将没有“单画面”卡片，每个串流只能输出到各自的相机。"
 
-#: rust/crates/effects/src/composite_plugin.rs:718 rust/crates/effects/src/composite_plugin.rs:742
+#: rust/crates/effects/src/composite_plugin.rs:724 rust/crates/effects/src/composite_plugin.rs:748
 msgid "Picture layout"
 msgstr "画面布局"
 

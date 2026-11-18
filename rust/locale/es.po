@@ -180,7 +180,7 @@ msgstr "Obtener VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "Quita el ruido del teclado, del ventilador y el siseo del ambiente."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:742 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:748 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -1278,78 +1278,102 @@ msgstr ""
 msgid "Shuffle"
 msgstr ""
 
+#: rust/crates/effects/src/composite_plugin.rs:52
+msgid "Bounce"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:53
+msgid "Iris"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:54
+msgid "Blinds"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:55
+msgid "Curtain"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:56
+msgid "Pixelate"
+msgstr ""
+
 #: rust/crates/effects/src/composite_plugin.rs:57
+msgid "Dissolve"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:63
 msgid "Springy"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:58 rust/crates/shell/ui/cards/preview.slint:290 rust/crates/shell/ui/cards/preview.slint:294
+#: rust/crates/effects/src/composite_plugin.rs:64 rust/crates/shell/ui/cards/preview.slint:290 rust/crates/shell/ui/cards/preview.slint:294
 msgid "Smooth"
 msgstr "Fluido"
 
-#: rust/crates/effects/src/composite_plugin.rs:59
+#: rust/crates/effects/src/composite_plugin.rs:65
 msgid "Bouncy"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:60
+#: rust/crates/effects/src/composite_plugin.rs:66
 msgid "Even"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:479 rust/crates/effects/src/composite_plugin.rs:713 rust/crates/effects/src/composite_plugin.rs:717 rust/crates/effects/src/composite_plugin.rs:730 rust/crates/effects/ui/composite.slint:31
+#: rust/crates/effects/src/composite_plugin.rs:485 rust/crates/effects/src/composite_plugin.rs:719 rust/crates/effects/src/composite_plugin.rs:723 rust/crates/effects/src/composite_plugin.rs:736 rust/crates/effects/ui/composite.slint:31
 msgid "One picture"
 msgstr "Una sola imagen"
 
-#: rust/crates/effects/src/composite_plugin.rs:531
+#: rust/crates/effects/src/composite_plugin.rs:537
 msgid "Nothing's in the picture yet."
 msgstr "Todavía no hay nada en la imagen."
 
-#: rust/crates/effects/src/composite_plugin.rs:533
+#: rust/crates/effects/src/composite_plugin.rs:539
 msgid "Active once two streams are running."
 msgstr "Activo una vez que dos transmisiones estén funcionando."
 
-#: rust/crates/effects/src/composite_plugin.rs:535
+#: rust/crates/effects/src/composite_plugin.rs:541
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "Configurado para salir por {camera}, pero no hay ninguna transmisión activa allí."
 
-#: rust/crates/effects/src/composite_plugin.rs:537
+#: rust/crates/effects/src/composite_plugin.rs:543
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "Saldrá por {camera} una vez que la transmisión allí envíe una imagen."
 
-#: rust/crates/effects/src/composite_plugin.rs:539
+#: rust/crates/effects/src/composite_plugin.rs:545
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "Saliendo por {camera}."
 
-#: rust/crates/effects/src/composite_plugin.rs:544
+#: rust/crates/effects/src/composite_plugin.rs:550
 msgid "Nothing in it"
 msgstr "Vacío"
 
-#: rust/crates/effects/src/composite_plugin.rs:546 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:703
+#: rust/crates/effects/src/composite_plugin.rs:552 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:703
 msgid "Two streams required"
 msgstr "Se requieren dos transmisiones"
 
-#: rust/crates/effects/src/composite_plugin.rs:548
+#: rust/crates/effects/src/composite_plugin.rs:554
 msgid "Not going out"
 msgstr "Sin salida"
 
-#: rust/crates/effects/src/composite_plugin.rs:550
+#: rust/crates/effects/src/composite_plugin.rs:556
 msgid "Going out"
 msgstr "En salida"
 
-#: rust/crates/effects/src/composite_plugin.rs:603
+#: rust/crates/effects/src/composite_plugin.rs:609
 msgid "Several cameras in one picture"
 msgstr "Varias cámaras en una sola imagen"
 
-#: rust/crates/effects/src/composite_plugin.rs:604
+#: rust/crates/effects/src/composite_plugin.rs:610
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "Coloca las transmisiones que ejecutas una al lado de la otra o una dentro de otra en una cámara virtual."
 
-#: rust/crates/effects/src/composite_plugin.rs:605
+#: rust/crates/effects/src/composite_plugin.rs:611
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "Sin el complemento Varias cámaras en una imagen no hay tarjeta Una imagen y cada transmisión solo va a su propia cámara."
 
-#: rust/crates/effects/src/composite_plugin.rs:718 rust/crates/effects/src/composite_plugin.rs:742
+#: rust/crates/effects/src/composite_plugin.rs:724 rust/crates/effects/src/composite_plugin.rs:748
 msgid "Picture layout"
 msgstr "Diseño de la imagen"
 
