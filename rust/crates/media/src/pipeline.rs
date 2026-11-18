@@ -92,13 +92,12 @@ impl Entry {
         self.fails >= STEP_FAILS_BEFORE_SKIP
     }
 
-    /// Whether the cut-out a frame carries (Frame::alpha) no longer fits after this step ran: an Effects or Cover step that doesn't say it keeps every pixel in place, and any card-only one there, which can move anything.
+    /// Whether the cut-out a frame carries (Frame::alpha) no longer fits after this step ran: an Effects or Cover CPU step that doesn't say it keeps every pixel in place, and a card-only one at any stage after Background unless it says so.
     fn drops_alpha(&self) -> bool {
-        matches!(self.stage, FrameStage::Effects | FrameStage::Cover)
-            && match &self.kind {
-                Kind::Cpu(step) | Kind::Either(_, step) => !step.keeps_geometry(),
-                Kind::Shader(_) => true,
-            }
+        match &self.kind {
+            Kind::Cpu(step) | Kind::Either(_, step) => matches!(self.stage, FrameStage::Effects | FrameStage::Cover) && !step.keeps_geometry(),
+            Kind::Shader(shader) => !matches!(self.stage, FrameStage::View | FrameStage::Geometry | FrameStage::Reading | FrameStage::Background) && !shader.keeps_geometry(),
+        }
     }
 
     /// A CPU step that says it's there to hide something, or a card-only step at a stage that hides: when it fails, what goes on is a dark frame, never the clear one.
@@ -424,7 +423,8 @@ impl Pipeline {
         }
         let entry = &mut self.steps[i];
         let hides = entry.hides();
-        let drops_alpha = entry.drops_alpha();
+        // A step that only reads leaves the picture, and so the cut-out, as it is
+        let drops_alpha = touch != Touch::Reads && entry.drops_alpha();
         let step = entry.kind.cpu();
         // A step that changes pixels in place would copy them all if a clone kept the old ones, so only one that failed on its last frame
         // gets that fallback; a built-in step that panics the first time may hand on a half-changed frame. Whole-frame writers build a new
@@ -1424,7 +1424,7 @@ pub(crate) mod tests {
     const DIM: &str = "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv) * 0.5; }";
 
     fn shader(wgsl: &str) -> StagedStep {
-        let step = ShaderStep { wgsl: wgsl.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let step = ShaderStep { keeps_geometry: false, wgsl: wgsl.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
         StagedStep { owner: "shader".into(), stage: FrameStage::Effects, step: FrameStep::Shader(step) }
     }
 
@@ -1706,6 +1706,7 @@ pub(crate) mod tests {
         }
         // 0.2 on the first frame, then the last frame's red and 0.2 more
         let counts = |plus: f64| ShaderStep {
+            keeps_geometry: false,
             wgsl: "struct Params { plus: f32 }\nfn effect(uv: vec2<f32>) -> vec4<f32> { if has_previous() { return vec4<f32>(previous(uv).r + params.plus, 0.0, 0.0, 1.0); } return vec4<f32>(0.2, 0.0, 0.0, 1.0); }".into(),
             uniforms: serde_json::json!({"plus": plus}),
             textures: Vec::new(),
@@ -1738,7 +1739,7 @@ pub(crate) mod tests {
                 frame.data_mut().iter_mut().for_each(|v| *v = 251 - *v + 16);
             }
         }
-        let step = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let step = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
         p.set_steps(vec![StagedStep { owner: "either".into(), stage: FrameStage::Effects, step: FrameStep::Either(step, Box::new(Invert)) }]);
         (p, balance)
     }
@@ -1781,7 +1782,7 @@ pub(crate) mod tests {
             return eprintln!("no graphics card; skipped");
         }
         let (mut p, _) = either(Place::Card);
-        let broken = ShaderStep { wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return nope; }".into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let broken = ShaderStep { keeps_geometry: false, wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return nope; }".into(), uniforms: serde_json::json!({}), textures: Vec::new() };
         let Kind::Either(slot, _) = &mut p.steps[0].kind else { panic!("two ways") };
         *slot = gpu::ShaderSlot::new(broken);
         for _ in 0..3 {
@@ -1818,7 +1819,7 @@ pub(crate) mod tests {
         let (mut chain, _) = either(Place::Card);
         chain.gpu = Some(Some(gpu.clone()));
         let Kind::Either(_, invert) = chain.steps.remove(0).kind else { panic!("two ways") };
-        let shader = || ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let shader = || ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
         let staged = |owner: &str, step| StagedStep { owner: owner.into(), stage: FrameStage::Effects, step };
         chain.set_steps(vec![
             staged("first", FrameStep::Either(shader(), invert)),
@@ -1837,7 +1838,7 @@ pub(crate) mod tests {
         }
         assert!(!p.steps[0].skipped());
         // Changing the grade hands over a new step, which doesn't go back
-        let step = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let step = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
         let cpu = p.steps.remove(0);
         let Kind::Either(_, cpu) = cpu.kind else { panic!("two ways") };
         p.replace_steps("either", FrameStage::Effects, vec![FrameStep::Either(step, cpu)]);
@@ -1894,7 +1895,7 @@ pub(crate) mod tests {
     fn with_pictures(cpu: Pictures, place: Place, before: Vec<StagedStep>) -> Pipeline {
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(place)));
         let placeholder = Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]);
-        let step = ShaderStep { wgsl: FROM_PICTURE.into(), uniforms: serde_json::json!({}), textures: vec![("soft".into(), placeholder)] };
+        let step = ShaderStep { keeps_geometry: false, wgsl: FROM_PICTURE.into(), uniforms: serde_json::json!({}), textures: vec![("soft".into(), placeholder)] };
         let mut steps = before;
         steps.push(StagedStep { owner: "either".into(), stage: FrameStage::Effects, step: FrameStep::Either(step, Box::new(cpu)) });
         p.set_steps(steps);
@@ -1995,7 +1996,7 @@ pub(crate) mod tests {
         }
         let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
-        let step = ShaderStep { wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let step = ShaderStep { keeps_geometry: false, wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
         p.set_steps(vec![shader(INVERT), StagedStep { owner: "either".into(), stage: FrameStage::Effects, step: FrameStep::Either(step, Box::new(AsksMask(seen.clone()))) }]);
         let ctx = Masked(std::sync::Mutex::new(None), std::sync::atomic::AtomicU32::new(0));
         p.process(grey(8, 8, 100), &ctx);
@@ -2084,7 +2085,7 @@ pub(crate) mod tests {
             let gpu = Arc::new(Gpu::open().unwrap());
             let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
             p.gpu = Some(Some(gpu.clone()));
-            let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+            let key = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
             p.set_steps(vec![StagedStep { owner: "key".into(), stage: FrameStage::Background, step: FrameStep::Shader(key) }, step("denoise", FrameStage::Effects, Restores(grey(8, 8, 200)))]);
             p.process(grey(8, 8, 100), &NoContext);
             gpu.inject(fault);
@@ -2099,7 +2100,7 @@ pub(crate) mod tests {
         let gpu = Arc::new(Gpu::open().unwrap());
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
         p.gpu = Some(Some(gpu.clone()));
-        let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let key = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
         p.set_steps(vec![StagedStep { owner: "key".into(), stage: FrameStage::Privacy, step: FrameStep::Shader(key) }]);
         p.process(grey(8, 8, 100), &NoContext);
         gpu.inject(Fault::BadUpload);
@@ -2109,7 +2110,7 @@ pub(crate) mod tests {
         let gpu = Arc::new(Gpu::open().unwrap());
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
         p.gpu = Some(Some(gpu.clone()));
-        let key = ShaderStep { wgsl: SHOW_MASK.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let key = ShaderStep { keeps_geometry: false, wgsl: SHOW_MASK.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
         p.set_steps(vec![StagedStep { owner: "mask".into(), stage: FrameStage::Privacy, step: FrameStep::Shader(key) }]);
         let ctx = Masked(std::sync::Mutex::new(Some(half_mask(255, 0))), Default::default());
         let out = p.process(grey(16, 8, 16), &ctx);
@@ -2142,7 +2143,7 @@ pub(crate) mod tests {
         let runs = Arc::new(std::sync::atomic::AtomicU32::new(0));
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
         p.gpu = Some(Some(gpu.clone()));
-        let dim = ShaderStep { wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let dim = ShaderStep { keeps_geometry: false, wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
         p.set_steps(vec![shader(INVERT), StagedStep { owner: "either".into(), stage: FrameStage::Effects, step: FrameStep::Either(dim, Box::new(HalvesAndCounts(runs.clone()))) }]);
         // a picture first, so the shaders are built and a download buffer of this size is kept
         p.process(grey(8, 8, 100), &NoContext);
@@ -2173,7 +2174,7 @@ pub(crate) mod tests {
             let gpu = Arc::new(Gpu::open().unwrap());
             let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
             p.gpu = Some(Some(gpu.clone()));
-            let hide = ShaderStep { wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+            let hide = ShaderStep { keeps_geometry: false, wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
             p.set_steps(vec![shader(INVERT), StagedStep { owner: "hide".into(), stage: FrameStage::Privacy, step: FrameStep::Either(hide, Box::new(HidesDark)) }]);
             p.process(grey(8, 8, 100), &NoContext);
             gpu.inject(fault);
@@ -2191,7 +2192,7 @@ pub(crate) mod tests {
             let gpu = Arc::new(Gpu::open().unwrap());
             let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
             p.gpu = Some(Some(gpu.clone()));
-            let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+            let key = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
             p.set_steps(vec![StagedStep { owner: "key".into(), stage: FrameStage::Background, step: FrameStep::Shader(key) }]);
             p.process(grey(8, 8, 100), &NoContext);
             gpu.inject(fault);
@@ -2211,11 +2212,11 @@ pub(crate) mod tests {
                 let gpu = Arc::new(Gpu::open().unwrap());
                 let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
                 p.gpu = Some(Some(gpu.clone()));
-                let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+                let key = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
                 p.set_steps(vec![StagedStep { owner: "key".into(), stage, step: FrameStep::Shader(key) }]);
                 p.process(grey(8, 8, 100), &NoContext);
                 // Another shader than the one the last frame went through, so it is still to be done
-                let dim = ShaderStep { wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+                let dim = ShaderStep { keeps_geometry: false, wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
                 p.set_steps(vec![StagedStep { owner: "other".into(), stage, step: FrameStep::Shader(dim) }]);
                 gpu.inject(fault);
                 let out = quietly(|| p.hide_again(grey(8, 8, 90), &NoContext)).expect("a card-only hiding step always has something to hide");
@@ -2229,7 +2230,7 @@ pub(crate) mod tests {
         for stage in [FrameStage::Privacy, FrameStage::Cover] {
             let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
             p.gpu = Some(None);
-            let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+            let key = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
             p.set_steps(vec![StagedStep { owner: "card".into(), stage, step: FrameStep::Shader(key) }]);
             for _ in 0..=STEP_FAILS_BEFORE_SKIP {
                 let out = quietly(|| p.hide_again(grey(8, 8, 100), &NoContext)).expect("something to hide");
@@ -2244,7 +2245,7 @@ pub(crate) mod tests {
             return eprintln!("no graphics card; skipped");
         }
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
-        let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let key = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
         p.set_steps(vec![StagedStep { owner: "key".into(), stage: FrameStage::Privacy, step: FrameStep::Shader(key) }]);
         let went_out = grey(8, 8, 100);
         let again = p.hide_again(went_out.clone(), &NoContext).expect("a card-only hiding step always has something to hide");
@@ -2260,7 +2261,7 @@ pub(crate) mod tests {
         for stage in FrameStage::ALL {
             let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
             p.gpu = Some(None);
-            let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+            let key = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
             p.set_steps(vec![StagedStep { owner: "card".into(), stage, step: FrameStep::Shader(key) }]);
             // Past the point where it is skipped for failing too often, which has to stay dark too
             for _ in 0..=STEP_FAILS_BEFORE_SKIP {
@@ -2292,7 +2293,7 @@ pub(crate) mod tests {
         let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
         p.gpu = Some(None);
-        let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let key = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
         p.set_steps(vec![StagedStep { owner: "key".into(), stage: FrameStage::Background, step: FrameStep::Shader(key) }, step("denoise", FrameStage::Effects, Restores(clear)), step("tag", FrameStage::Overlay, Push(4, seen.clone()))]);
         let out = quietly(|| p.process(grey(4, 2, 60), &NoContext));
         assert_eq!(out.data[0], 4, "the tag is drawn on the dark frame, not on the restored one");
@@ -2318,7 +2319,7 @@ pub(crate) mod tests {
         p.gpu = Some(None);
         p.set_steps(vec![step("blur", FrameStage::Background, Hides)]);
         p.process(grey(4, 2, 200), &NoContext);
-        let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let key = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
         p.set_steps(vec![step("blur", FrameStage::Background, Hides), StagedStep { owner: "redact".into(), stage: FrameStage::Background, step: FrameStep::Shader(key) }]);
         assert!(is_dark(&quietly(|| p.hide_again(grey(4, 2, 200), &NoContext)).expect("hidden")));
     }
@@ -2329,7 +2330,7 @@ pub(crate) mod tests {
             let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
             p.gpu = Some(None);
             let staged = |wgsl: &str| {
-                let step = ShaderStep { wgsl: wgsl.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+                let step = ShaderStep { keeps_geometry: false, wgsl: wgsl.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
                 StagedStep { owner: "cover".into(), stage, step: FrameStep::Shader(step) }
             };
             p.set_steps(vec![staged(INVERT)]);
@@ -2349,7 +2350,7 @@ pub(crate) mod tests {
             return eprintln!("no graphics card; skipped");
         }
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
-        let staged = || StagedStep { owner: "cover".into(), stage: FrameStage::Cover, step: FrameStep::Shader(ShaderStep { wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() }) };
+        let staged = || StagedStep { owner: "cover".into(), stage: FrameStage::Cover, step: FrameStep::Shader(ShaderStep { keeps_geometry: false, wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() }) };
         p.set_steps(vec![staged()]);
         let out = p.process(grey(8, 8, 200), &NoContext);
         assert!(out.data[0] < 150, "dimmed: {}", out.data[0]);
@@ -2381,7 +2382,7 @@ pub(crate) mod tests {
             return eprintln!("no graphics card; skipped");
         }
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
-        let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let key = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
         p.set_steps(vec![StagedStep { owner: "key".into(), stage: FrameStage::Privacy, step: FrameStep::Shader(key) }]);
         let out = p.hide_again(grey(8, 8, 100), &Hurried).expect("a new card step has something to hide");
         assert!(is_dark(&out));
@@ -2400,7 +2401,7 @@ pub(crate) mod tests {
         let mut cases: Vec<(&str, Box<dyn Fn() -> Vec<StagedStep>>, Pipeline)> = vec![("background", Box::new(|| vec![step("key", FrameStage::Background, Hides)]), Pipeline::new())];
         if let Some(gpu) = Gpu::shared() {
             let card = Box::new(|| {
-                let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+                let key = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
                 vec![StagedStep { owner: "key".into(), stage: FrameStage::Privacy, step: FrameStep::Shader(key) }]
             });
             let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
@@ -2440,7 +2441,7 @@ pub(crate) mod tests {
             return eprintln!("no graphics card; skipped");
         }
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
-        let privacy = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let privacy = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
         p.set_steps(vec![StagedStep { owner: "p".into(), stage: FrameStage::Privacy, step: FrameStep::Shader(privacy) }, step("cover", FrameStage::Cover, HidingPanics)]);
         for _ in 0..=STEP_FAILS_BEFORE_SKIP {
             quietly(|| p.process(grey(8, 8, 100), &NoContext));
@@ -2486,7 +2487,7 @@ pub(crate) mod tests {
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
         p.gpu = Some(None);
         let staged = |uniforms: serde_json::Value| {
-            let step = ShaderStep { wgsl: INVERT.into(), uniforms, textures: Vec::new() };
+            let step = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms, textures: Vec::new() };
             StagedStep { owner: "redact".into(), stage: FrameStage::Background, step: FrameStep::Shader(step) }
         };
         p.set_steps(vec![staged(serde_json::json!({"x": 1}))]);
@@ -2506,7 +2507,7 @@ pub(crate) mod tests {
         }
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
         let staged = |uniforms: serde_json::Value| {
-            let step = ShaderStep { wgsl: INVERT.into(), uniforms, textures: Vec::new() };
+            let step = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms, textures: Vec::new() };
             StagedStep { owner: "cover".into(), stage: FrameStage::Privacy, step: FrameStep::Shader(step) }
         };
         p.set_steps(vec![staged(serde_json::json!({"x": 1}))]);
@@ -2539,7 +2540,7 @@ pub(crate) mod tests {
         }
         let cue = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
-        let cover = ShaderStep { wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { if has_previous() { return vec4<f32>(previous(uv).r + 0.2, 0.0, 0.0, 1.0); } return vec4<f32>(0.2, 0.0, 0.0, 1.0); }".into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let cover = ShaderStep { keeps_geometry: false, wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { if has_previous() { return vec4<f32>(previous(uv).r + 0.2, 0.0, 0.0, 1.0); } return vec4<f32>(0.2, 0.0, 0.0, 1.0); }".into(), uniforms: serde_json::json!({}), textures: Vec::new() };
         p.set_steps(vec![step("blur", FrameStage::Background, HidesUntilCued(cue.clone())), StagedStep { owner: "cover".into(), stage: FrameStage::Cover, step: FrameStep::Shader(cover) }]);
         let first = p.process(grey(8, 8, 100), &NoContext).data[0];
         let second = p.process(grey(8, 8, 100), &NoContext).data[0];
@@ -2558,7 +2559,7 @@ pub(crate) mod tests {
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
         p.set_steps(Vec::new());
         let went_out = p.process(grey(8, 8, 200), &NoContext);
-        let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        let key = ShaderStep { keeps_geometry: false, wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
         p.set_steps(vec![StagedStep { owner: "chroma_key".into(), stage: FrameStage::Background, step: FrameStep::Shader(key) }]);
         for context in [&Hurried as &dyn FrameContext, &NoContext] {
             let out = p.hide_again(went_out.clone(), context).expect("the room is in the picture that went out");
@@ -2586,6 +2587,16 @@ pub(crate) mod tests {
         }
         fn keeps_geometry(&self) -> bool {
             true
+        }
+    }
+
+    /// Looks at the pixels and says so, leaving them as they are (like Stargazer's Handoff), whatever its stage.
+    struct Reads;
+
+    impl CpuStep for Reads {
+        fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+        fn touch(&self, _ctx: &dyn FrameContext) -> Touch {
+            Touch::Reads
         }
     }
 
@@ -2627,6 +2638,27 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn a_step_that_only_reads_keeps_the_cut_out() {
+        let cut = || step("background", FrameStage::Background, Cuts);
+        let out = after(vec![cut(), step("handoff", FrameStage::Effects, Reads)]);
+        assert!(out.alpha().is_some(), "reading isn't moving");
+        let out = after(vec![cut(), step("handoff", FrameStage::Cover, Reads)]);
+        assert!(out.alpha().is_some());
+    }
+
+    #[test]
+    fn a_plugin_shader_drops_the_cut_out_unless_it_is_known_to_keep_pixels_in_place() {
+        let owned = |stage, keeps| Entry::new("p".into(), stage, FrameStep::Shader(ShaderStep { keeps_geometry: keeps, wgsl: String::new(), uniforms: serde_json::json!({}), textures: Vec::new() }), None);
+        for stage in [FrameStage::Effects, FrameStage::Colour, FrameStage::Privacy, FrameStage::Overlay, FrameStage::Combine, FrameStage::Cover, FrameStage::Final] {
+            assert!(owned(stage, false).drops_alpha(), "{stage:?}");
+            assert!(!owned(stage, true).drops_alpha(), "{stage:?}");
+        }
+        assert!(!owned(FrameStage::Background, false).drops_alpha(), "the stage that makes the cut-out");
+        let (table, cube) = (telescope_core::colour::Baked::Table(vec![0.0; 3 * 256]), telescope_core::colour::Baked::Cube { size: 2, rgb: vec![0.0; 24] });
+        assert!(table.shader().keeps_geometry && cube.shader().keeps_geometry, "the built-in colour shaders work on each pixel alone");
+    }
+
+    #[test]
     fn a_frame_that_goes_dark_has_no_cut_out() {
         let mut p = Pipeline::new();
         p.set_steps(vec![step("background", FrameStage::Background, Cuts), step("blur", FrameStage::Privacy, HidingPanics)]);
@@ -2640,12 +2672,21 @@ pub(crate) mod tests {
             return eprintln!("no graphics card; skipped");
         }
         let on_card = |stage: FrameStage| StagedStep { stage, ..shader(INVERT) };
+        let keeping = |stage: FrameStage| match shader(INVERT).step {
+            FrameStep::Shader(mut s) => {
+                s.keeps_geometry = true;
+                StagedStep { stage, step: FrameStep::Shader(s), ..shader(INVERT) }
+            }
+            _ => unreachable!(),
+        };
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
-        p.set_steps(vec![step("background", FrameStage::Background, Cuts), on_card(FrameStage::Colour), step("blur", FrameStage::Privacy, Brightens)]);
+        p.set_steps(vec![step("background", FrameStage::Background, Cuts), keeping(FrameStage::Colour), step("blur", FrameStage::Privacy, Brightens)]);
         let out = p.process(grey(8, 8, 100), &NoContext);
         assert_ne!(out.data[0], 100, "the card's work landed");
         assert_eq!(out.alpha().map(|a| a.data[0]), Some(128), "re-attached to the frame the card gave back");
         p.set_steps(vec![step("background", FrameStage::Background, Cuts), on_card(FrameStage::Effects)]);
         assert!(p.process(grey(8, 8, 100), &NoContext).alpha().is_none(), "a card-only step in Effects may move anything");
+        p.set_steps(vec![step("background", FrameStage::Background, Cuts), on_card(FrameStage::Colour)]);
+        assert!(p.process(grey(8, 8, 100), &NoContext).alpha().is_none(), "so may a plugin's shader at Colour that doesn't say otherwise");
     }
 }

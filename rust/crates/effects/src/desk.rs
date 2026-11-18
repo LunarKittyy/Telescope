@@ -503,7 +503,7 @@ impl Plugin for DeskPlugin {
         let plain = !matches!(sheet.cleanup.as_str(), "contrast" | "bw");
         let step = Box::new(DeskStep { sheet, made: None, poster: self.poster.clone(), spares: Vec::new() });
         if plain {
-            return Some(FrameStep::Either(ShaderStep { wgsl: DESK.into(), uniforms: card_params([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]], (0, 0, 0, 0)), textures: Vec::new() }, step));
+            return Some(FrameStep::Either(ShaderStep { keeps_geometry: false, wgsl: DESK.into(), uniforms: card_params([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]], (0, 0, 0, 0)), textures: Vec::new() }, step));
         }
         Some(FrameStep::Cpu(step))
     }

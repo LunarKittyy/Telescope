@@ -202,7 +202,7 @@ impl Settings {
 }
 
 fn shader(wgsl: &str, uniforms: Value) -> ShaderStep {
-    ShaderStep { wgsl: wgsl.into(), uniforms, textures: Vec::new() }
+    ShaderStep { keeps_geometry: false, wgsl: wgsl.into(), uniforms, textures: Vec::new() }
 }
 
 /// What the CPU denoise over time remembers, by the stream it saw, each in a lock of its own. The plugin keeps it, so moving a slider

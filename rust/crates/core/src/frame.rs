@@ -203,6 +203,21 @@ impl Frame {
         self.alpha = None;
     }
 
+    /// Makes the rectangle fully picture (alpha 255) for a step that draws there, so what it paints isn't flattened away. Clipped to the frame; nothing happens to a frame without alpha.
+    pub fn opaque_rect(&mut self, x: usize, y: usize, w: usize, h: usize) {
+        let Some(alpha) = self.alpha() else { return };
+        let (fw, fh) = (alpha.w as usize, alpha.h as usize);
+        let (x1, y1) = (x.saturating_add(w).min(fw), y.saturating_add(h).min(fh));
+        if x >= x1 || y >= y1 {
+            return;
+        }
+        let alpha = self.alpha.as_mut().unwrap();
+        let plane = &mut Arc::make_mut(alpha).data;
+        for row in y..y1 {
+            plane[row * fw + x..row * fw + x1].fill(255);
+        }
+    }
+
     /// The frame with its alpha put over a flat background of this R, G, B colour, so nothing is left transparent. A frame with no alpha comes back as it is, sharing its pixels.
     pub fn flattened(&self, background: [u8; 3]) -> Frame {
         let Some(alpha) = self.alpha().cloned() else { return self.clone() };
@@ -261,21 +276,6 @@ impl Frame {
             }
         }
         out
-    }
-
-    /// The picture as R, G, B, A bytes, with the alpha plane as A (255 for a frame with none), for something that reads transparency (a Spout sender). The colour is as the frame holds it, so it is premultiplied when the alpha says so. None for a frame whose pixels don't match its size.
-    pub fn to_rgba(&self) -> Option<Vec<u8>> {
-        let rgb = crate::image::frame_rgb(self)?;
-        let n = self.width as usize * self.height as usize;
-        if rgb.len() != n * 3 {
-            return None;
-        }
-        let mut out = vec![255; n * 4];
-        crate::image::add_alpha(&rgb, self.width as usize, &mut out);
-        if let Some(alpha) = self.alpha() {
-            out.as_chunks_mut::<4>().0.iter_mut().zip(&alpha.data).for_each(|(p, &a)| p[3] = a);
-        }
-        Some(out)
     }
 
     /// The pixels to change, copied first if anything else still holds them.
@@ -510,6 +510,9 @@ pub trait CpuStep: Send {
 /// A frame step as a GPU shader, the only kind a Lua or WASM plugin hands over: plain data the host compiles and runs.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ShaderStep {
+    /// Whether the shader leaves every pixel where it was (a per-pixel colour change), so the cut-out the frame carries (Frame::alpha) still fits. False unless a built-in says so: the pipeline drops the cut-out after any other shader past Background.
+    #[serde(default)]
+    pub keeps_geometry: bool,
     /// WGSL source with the entry points the plugin host documents.
     pub wgsl: String,
     /// Values for the shader's uniforms, by name.
@@ -753,15 +756,19 @@ mod tests {
     }
 
     #[test]
-    fn an_rgba_read_of_a_frame_with_alpha_shows_it() {
-        let f = Frame::new(2, 1, PixelFormat::Rgba, vec![10, 20, 30, 255, 40, 50, 60, 255]);
-        assert_eq!(f.to_rgba().unwrap(), [10, 20, 30, 255, 40, 50, 60, 255]);
-        let mut cut = f.clone();
-        assert!(cut.set_alpha(Arc::new(Alpha::new(2, 1, vec![0, 200], false))));
-        assert_eq!(cut.to_rgba().unwrap(), [10, 20, 30, 0, 40, 50, 60, 200]);
-        let i420 = with_alpha(Frame::new(2, 2, PixelFormat::I420, vec![16, 16, 16, 16, 128, 128]), 7, false);
-        let rgba = i420.to_rgba().unwrap();
-        assert_eq!((rgba.len(), rgba[3], rgba[15]), (16, 7, 7));
+    fn opaque_rect_raises_only_its_rectangle_and_only_with_alpha() {
+        let mut f = with_alpha(Frame::new(4, 3, PixelFormat::Rgba, vec![0; 48]), 0, false);
+        f.opaque_rect(1, 1, 2, 5);
+        let a = &f.alpha().unwrap().data;
+        assert_eq!(a[..], [0, 0, 0, 0, 0, 255, 255, 0, 0, 255, 255, 0]);
+        let mut shared = f.clone();
+        shared.opaque_rect(0, 0, 1, 1);
+        assert_eq!((f.alpha().unwrap().data[0], shared.alpha().unwrap().data[0]), (0, 255), "a copy doesn't change the original's plane");
+        f.opaque_rect(9, 9, 2, 2);
+        assert_eq!(f.alpha().unwrap().data.iter().filter(|&&v| v == 255).count(), 4);
+        let mut plain = Frame::new(2, 2, PixelFormat::Rgba, vec![0; 16]);
+        plain.opaque_rect(0, 0, 2, 2);
+        assert!(plain.alpha().is_none());
     }
 
     #[test]

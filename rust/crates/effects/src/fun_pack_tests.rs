@@ -604,7 +604,7 @@ fn game_boy_before() -> String {
 
 fn shaded(wgsl: &str) -> impl FnMut(Frame) -> Frame {
     let mut pipeline = telescope_media::FfmpegMedia.pipeline().expect("a frame pipeline");
-    let step = FrameStep::Shader(ShaderStep { wgsl: wgsl.into(), uniforms: json!({}), textures: Vec::new() });
+    let step = FrameStep::Shader(ShaderStep { keeps_geometry: false, wgsl: wgsl.into(), uniforms: json!({}), textures: Vec::new() });
     pipeline.set_steps(vec![StagedStep { owner: NAME.into(), stage: FrameStage::Effects, step }]);
     move |frame| pipeline.process(frame, &Ctx("phone"))
 }

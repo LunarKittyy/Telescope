@@ -481,6 +481,8 @@ pub fn apply(frame: &mut Frame, tag: &Tag) {
     if tag.x + tag.width > w || tag.y + tag.height > h {
         return;
     }
+    // Over a cut-out the tag stays, whatever was transparent under it
+    frame.opaque_rect(tag.x, tag.y, tag.width, tag.height);
     match frame.format {
         PixelFormat::Rgba | PixelFormat::Bgra => {
             let swap = frame.format == PixelFormat::Bgra;
