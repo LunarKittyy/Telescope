@@ -77,7 +77,9 @@ export component AutomaticSettings inherits Card {
         hue: root.hue;
         keywords: @tr("search" => "automatically begin streaming when phone device ready app opens the camera auto start") + " " + words(start-items);
         ChoiceField {
-            width: Theme.control-w;
+            preferred-width: Theme.control-w;
+            min-width: Theme.control-min;
+            max-width: Theme.control-w;
             compact: true;
             name: start-title;
             items: start-items;
@@ -93,7 +95,9 @@ export component AutomaticSettings inherits Card {
         hue: root.hue;
         keywords: @tr("search" => "automatically end streaming idle no app uses the camera auto stop") + " " + words(stop-items);
         ChoiceField {
-            width: Theme.control-w;
+            preferred-width: Theme.control-w;
+            min-width: Theme.control-min;
+            max-width: Theme.control-w;
             compact: true;
             name: stop-title;
             items: stop-items;
@@ -115,7 +119,8 @@ export component AutomaticSettings inherits Card {
             alignment: end;
             // Saved once it's typed (on Enter or when the box is left), not at every digit
             NumberField {
-                width: Theme.u(45);
+                preferred-width: Theme.u(45);
+                min-width: Theme.u(30);
                 enabled: stops;
                 label: delay-title;
                 value: root.delay-text;
@@ -124,7 +129,8 @@ export component AutomaticSettings inherits Card {
             }
             // At least as wide as the number box and as wide as its longest unit with the field's padding, as Qt's combo box is
             Rectangle {
-                width: max(Theme.u(45), longest-unit.preferred-width + Theme.u(21));
+                preferred-width: max(Theme.u(45), longest-unit.preferred-width + Theme.u(21));
+                min-width: Theme.u(34);
                 ChoiceField {
                     compact: true;
                     enabled: stops;

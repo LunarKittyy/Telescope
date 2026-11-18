@@ -171,6 +171,12 @@ fn every_plugin(bus: &telescope_core::BusSender) -> Vec<Box<dyn Plugin>> {
 const MAIN_W: f32 = 1300.0;
 const MAIN_H: f32 = 3000.0;
 const SETTINGS_W: f32 = 940.0;
+/// The width the sheets draw Settings at: 940, or what APPEARANCE_SETTINGS_W says (720 for a look at the least width)
+fn settings_w() -> f32 {
+    std::env::var("APPEARANCE_SETTINGS_W").ok().and_then(|w| w.parse().ok()).unwrap_or(SETTINGS_W)
+}
+/// The Settings window's least width (shell settings.rs LEAST)
+const SETTINGS_LEAST_W: f32 = 720.0;
 
 /// A window with every built-in plugin, every card on and every fold open, saving to a folder of its own.
 fn build(name: &str) -> Rc<Window> {
@@ -352,7 +358,7 @@ fn everything(w: &Rc<Window>, step: &str) -> Vec<(String, Seen)> {
         assert!(settings.show_tab(&tab), "{tab}");
         w.process();
         settle(w);
-        seen.push((format!("settings-{tab}-{step}"), look_at(&settings.ui, &format!("{step}, Settings tab {tab}"), SETTINGS_W, None)));
+        seen.push((format!("settings-{tab}-{step}"), look_at(&settings.ui, &format!("{step}, Settings tab {tab}"), settings_w(), None)));
     }
     seen
 }
@@ -602,6 +608,50 @@ fn the_longest_languages_fit_at_the_largest_text() {
         }
     }
     telescope_core::i18n::set_translator(|_| None);
+    problems.sort();
+    problems.dedup();
+    assert!(problems.is_empty(), "{} things wrong:\n{}", problems.len(), problems.join("\n"));
+}
+
+#[test]
+fn the_settings_window_at_its_least_width_keeps_its_names_at_the_largest_text_and_loosest_density() {
+    let w = build("appearance-narrow");
+    let mut all: Vec<(String, Seen)> = Vec::new();
+    let mut problems = Vec::new();
+    let big = Appearance { text: TextSize::Large, density: Density::Comfortable, contrast: true, ..Default::default() };
+    for (name, l) in [("dark", Look::Dark), ("light", Look::Light), ("oled", Look::Oled), ("classic", Look::Classic)] {
+        look(&w, l);
+        pick(&w, big);
+        telescope_shell::settings::open(&w, "general");
+        let settings = telescope_shell::settings::current().expect("the settings window");
+        for tab in settings.tabs() {
+            assert!(settings.show_tab(&tab), "{tab}");
+            w.process();
+            settle(&w);
+            let seen = look_at(&settings.ui, &format!("{name}, Settings tab {tab} at {SETTINGS_LEAST_W}"), SETTINGS_LEAST_W, None);
+            // The names beside the Look card's controls are shown whole
+            for text in ["Theme", "Card colours", "Corners", "Text size", "Density", "Motion", "Tooltip delay", "Show the next tooltip sooner", "Language", "Higher contrast"] {
+                if seen.elided.iter().any(|t| t == text) {
+                    problems.push(format!("{name}, tab {tab}: \"{text}\" ends in an ellipsis at {SETTINGS_LEAST_W} px"));
+                }
+            }
+            problems.extend(seen.problems.iter().cloned());
+            all.push((format!("w720-{name}-{tab}"), seen));
+        }
+    }
+    if let Some(dir) = shots() {
+        save(&dir, "w720", &all);
+        for tab in ["general", "devices", "video", "audio", "plugins", "shortcuts", "about"] {
+            let pictures: Vec<&Picture> = all.iter().filter(|(n, _)| n.ends_with(&format!("-{tab}"))).map(|(_, s)| &s.picture).collect();
+            if !pictures.is_empty() {
+                sheet(&pictures, 4).save_png(&dir.join(format!("sheet-w720-{tab}.png"))).unwrap();
+            }
+        }
+    }
+    pick(&w, Appearance::default());
+    look(&w, Look::Dark);
+    telescope_shell::settings::forget();
+    w.shut_down();
     problems.sort();
     problems.dedup();
     assert!(problems.is_empty(), "{} things wrong:\n{}", problems.len(), problems.join("\n"));

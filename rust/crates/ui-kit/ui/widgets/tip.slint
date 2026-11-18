@@ -33,7 +33,7 @@ export global TipSpot {
 export global Tips {
     // How long the pointer rests before the first tip (Appearance sets it), and how long after one went down the next is warm
     in-out property <duration> delay: 500ms;
-    // The next tip shows at once while one is up or just went down (Appearance's "Instantly show next tooltip"); off, every tip waits `delay`
+    // The next tip needs only `warm-rest` while one is up or just went down (Appearance's "Show the next tooltip sooner"); off, every tip waits `delay`
     in-out property <bool> warm: true;
     out property <duration> warm-for: 1s;
     // The rest a warm tip waits for, so passing over controls doesn't flash a chain of tips

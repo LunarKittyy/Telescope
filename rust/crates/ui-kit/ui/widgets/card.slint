@@ -494,7 +494,8 @@ export component RailRow inherits HorizontalLayout {
     }
     if named: Text {
         horizontal-stretch: tags.length == 0 ? 1 : 0;
-        min-width: 0px;
+        // The whole name unless it is long: the control beside it gives way first
+        min-width: min(self.preferred-width, Theme.u(80));
         text: label;
         font-family: Theme.font;
         font-size: Theme.body;

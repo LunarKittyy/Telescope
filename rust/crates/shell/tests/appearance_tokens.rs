@@ -227,3 +227,92 @@ fn a_cards_colour_is_the_full_colour_at_rest_with_higher_contrast() {
         }
     }
 }
+
+#[test]
+fn the_text_on_a_filled_bar_reads_in_every_look_with_or_without_higher_contrast() {
+    let ui = open_theme();
+    for (look, name) in LOOKS.iter().enumerate() {
+        for contrast in [false, true] {
+            set_theme(&ui, look, contrast);
+            let (card, ink) = (colour(&ui, "card"), colour(&ui, "ink"));
+            for group in ["camera", "look", "vision", "preview", "on_screen", "sound", "streaming", "extras"] {
+                let hue = ui.invoke_global("Theme", "plugin-hue", &[Value::String(group.into())]).unwrap();
+                for tone in [0.0, 1.0] {
+                    let fill = ui.invoke_global("Theme", "lit", &[hue.clone(), Value::Number(tone)]).unwrap();
+                    let Value::Brush(fill_brush) = fill.clone() else { panic!("a colour") };
+                    let c = fill_brush.color();
+                    let fill = [c.red(), c.green(), c.blue(), 255];
+                    let on = match ui.invoke_global("Theme", "on", &[Value::Brush(slint::Brush::SolidColor(c))]).unwrap() {
+                        Value::Brush(b) => b.color(),
+                        other => panic!("{other:?}"),
+                    };
+                    let got = ratio([on.red(), on.green(), on.blue(), 255], fill);
+                    let best = ratio(card, fill).max(ratio(ink, fill));
+                    assert!(got >= best * 0.8 && got >= 3.0, "{group} in {name} (contrast {contrast}, tone {tone}): text on the fill is {got:.2}:1 where {best:.2}:1 is possible");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn a_window_heading_follows_the_text_size_and_not_the_density() {
+    use telescope_core::host::{Appearance, Density, TextSize};
+    let ui = open_theme();
+    let heading = |a: Appearance| {
+        telescope_shell::appearance::apply_to(&ui, &a);
+        length(&ui, "heading")
+    };
+    let base = Appearance::default();
+    let (small, normal, large) = (heading(Appearance { text: TextSize::Small, ..base }), heading(base), heading(Appearance { text: TextSize::Large, ..base }));
+    assert!(small < normal && normal < large, "{small} {normal} {large}");
+    assert_eq!(normal, 19.0, "as large as it was by default");
+    assert_eq!(heading(Appearance { density: Density::Comfortable, ..base }), normal);
+    assert_eq!(heading(Appearance { density: Density::Compact, ..base }), normal);
+}
+
+const BAR_DOC: &str = r#"
+import { Slider, Theme, Shortcuts, WindowBox, Tips } from "@ui-kit/ui-kit.slint";
+export { Theme, Shortcuts, WindowBox, Tips }
+export component B inherits Window {
+    width: 320px;
+    height: 40px;
+    background: Theme.card;
+    Slider {
+        width: 300px;
+        fill: "threshold";
+        hue: Theme.plugin-hue("streaming");
+        minimum: 0;
+        maximum: 100;
+        value: 20;
+        level: 80;
+        has-level: true;
+        readout: "20%";
+        level-text: "80%";
+    }
+}
+"#;
+
+#[test]
+fn a_threshold_bars_numbers_read_over_its_fill_at_rest_in_every_look_with_higher_contrast() {
+    telescope_shell::offscreen::install();
+    let ui = telescope_shell::compile::compile("bar.slint", BAR_DOC, vec![], "B").expect("the document compiles").create().unwrap();
+    ui.set_global_callback("Shortcuts", "bindings-for", |_| Value::Model(slint::ModelRc::new(slint::VecModel::from(Vec::<Value>::new())))).unwrap();
+    ui.set_global_callback("Shortcuts", "key-chips", |_| Value::Model(slint::ModelRc::new(slint::VecModel::from(Vec::<Value>::new())))).unwrap();
+    slint::ComponentHandle::show(&ui).unwrap();
+    for (look, name) in LOOKS.iter().enumerate() {
+        for contrast in [false, true] {
+            set_theme(&ui, look, contrast);
+            let picture = telescope_shell::offscreen::draw(ui.window(), 320.0, 40.0, 1.0).unwrap();
+            let px = |x: u32, y: u32| {
+                let i = ((y * picture.width + x) * 4) as usize;
+                [picture.rgba[i], picture.rgba[i + 1], picture.rgba[i + 2], 255]
+            };
+            // The fill just short of where it ends, and the glyph pixel furthest from it between the handle and there
+            let fill = px(240, 4);
+            let worst = (90..230).flat_map(|x| (10..30).map(move |y| (x, y))).map(|(x, y)| px(x, y)).max_by(|a, b| ratio(*a, fill).total_cmp(&ratio(*b, fill))).unwrap();
+            let seen = ratio(worst, fill);
+            assert!(seen >= 3.0, "the readout over the fill in {name} (contrast {contrast}) reads {seen:.2}:1");
+        }
+    }
+}

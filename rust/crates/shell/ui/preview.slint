@@ -1,7 +1,8 @@
 // What the card's stage and the pop-out both draw on the picture (FrameLabel). Their windows have Theme globals of their
-// own, so colours and the font come in as properties.
+// own, so colours and the font come in as properties. Text sizes and corners follow the window's Theme (Appearance).
 
 import { FineAxis } from "@ui-kit/widgets/fine.slint";
+import { Theme } from "@ui-kit/theme.slint";
 
 export struct LensOutline { label: string, x0: float, y0: float, x1: float, y1: float }
 export struct SkeletonLine { x0: float, y0: float, x1: float, y1: float, sure: bool, out: bool }
@@ -76,12 +77,12 @@ export component PreviewMarks {
                     // Only a sliver of the box in view: a label there would stick out of it
                     visible: self.x + self.width + 4px <= seen-right && self.y + self.height + 4px <= seen-bottom;
                     background: #00000096;
-                    border-radius: 3px;
+                    border-radius: Theme.radius / 2;
                     label := Text {
                         text: b.label;
                         color: white;
                         font-family: font;
-                        font-size: 11px;
+                        font-size: Theme.tiny;
                         font-weight: 700;
                     }
                 }
@@ -153,12 +154,12 @@ export component PreviewPick {
             width: min(hint.preferred-width + 12px, parent.width - 12px);
             height: hint.preferred-height + 6px;
             background: #000000aa;
-            border-radius: 4px;
+            border-radius: Theme.r-handle;
             hint := Text {
                 width: parent.width - 6px;
                 text: pick-hint;
                 font-family: font;
-                font-size: 12px;
+                font-size: Theme.small;
                 font-weight: 700;
                 color: white;
                 horizontal-alignment: center;

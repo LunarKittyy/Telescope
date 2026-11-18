@@ -18,7 +18,7 @@ Appearance in Settings sets these from fixed steps and never a free value. Each 
 |---|---|---|
 | Corners | sharp 0, default 6, round 10 px | `Theme.radius` |
 | Text size | small 12, default 13, large 15 px | `Theme.body` |
-| Density | compact 1.75, default 2, comfortable 2.25 px | `Theme.unit` (`stroke` and `hair` stay whole pixels, `control-w` stays 260px) |
+| Density | compact 1.75, default 2, comfortable 2.25 px | `Theme.unit` (`stroke` and `hair` stay whole pixels, `control-w` stays 260px, 240px at the largest text) |
 | Higher contrast | off or on | `Theme.contrast`: text, lines and the accent go through `Theme.lift`, `muted`, `lit` and `edge` give the full colour, and the outline tokens OLED uses are drawn in every look |
 | Card colours | colourful or monochrome | `Theme.own-hues` |
 | Motion | system, full, reduced, off | `Motion.reduced` and `Motion.off` |
@@ -180,6 +180,8 @@ Every one of these emits `moved` then `released` like a drag and nothing when th
 
 At rest everything is muted: the fill and the handle's border in the quietened colour, the handle's inside in the card's (`tolerance`, `edges` and `spill` lie under a heavier veil, `Fills.rest-veil`, since their colours run bright along the whole track). While the slider is held its full colour comes up (handle included) and dims when it is let go. The colour eases up and down (see Motion).
 
+Text over a threshold bar's live fill is `Theme.on(fill)`, held or not. It takes the card colour or the ink, whichever is further from the fill in lightness. A full colour fill under higher contrast never carries light text.
+
 ## Shift is finer
 
 Shift while dragging goes a tenth as far on everything that is dragged: sliders, the pan map and every other pad, the dial, the jog, the colour pad and hue strip, the scroll bars, the colour wheel, the curve editor's points, the picture's pan and pick. One factor, `Fine.factor` (`ui/widgets/fine.slint`, the colour wheel's tenth; `WHEEL_FINE` in `effects/src/editors.rs` is the same number) and one way of stopping the value jumping: a control holds a `FineAxis` for each axis it is dragged along, calls `begin` with where the pointer went down and passes every move through `at(pointer, shift, lo, hi)`. Moves made with Shift held count a tenth. What was held back remains held back when Shift is let go (nothing jumps when it is pressed or released mid-drag). What a value would be past an end is not forgotten and coming back takes the same way back. Callers get it for free: nothing in a card handles Shift for a drag. A new draggable control uses `FineAxis` and `tests/design.rs` fails until it does (or it is listed there with why not: the composite editor reserves Shift for stretching, a pin follows the pointer, a menu only hovers). `crates/shell/tests/kit_fine.rs` has a test per kind that a Shift drag goes a tenth as far as a plain one.
@@ -257,7 +259,7 @@ The cost rule: a live picture in a bubble is a small, low-frame-rate copy (about
 - `PictureField` (kind `picker`): a file a card takes (the picture behind you, a LUT) as a raised slot with its thumbnail or an empty glyph and its name; a file that can't be opened gets a `ProblemMark` with the reason. The state is in the control, never in a line of text beside it.
 - `LensRow` (kind `segmented`): the lens tiles, up to five in a row. Each tile's width is a separate spring and its drawing fades with it. Three lenses becoming two or five reflow with motion (the others slide, a new one grows, a lost one shrinks and holds what it said while it goes). A change mid-way turns round from where everything is. More lenses than five are rows of a `PictureSegmented` with the same `LensArt`.
 - `Card.reset-shortcut` is the reset button's own shortcut (a right-click on the button offers it); the card holds no copy of it.
-- Settings rows share one width for the control at their right edge, `Theme.control-w`; a `ChoiceField` prefers it too and one in a layout that gives it no width still has a real one.
+- Settings rows share one width for the control at their right edge, `Theme.control-w`. In a named row the control sets `preferred-width: Theme.control-w`, `min-width: Theme.control-min` and `max-width: Theme.control-w`. A long name then takes room from the control and holds its own width up to `u(80)`. A `ChoiceField` prefers `control-w` too and one in a layout that gives it no width still has a real one.
 - `Status` shows a tooltip with its whole text only when the text is cut short (and its `detail` when it has one). `LinkText` lifts its words one physical pixel like every other word the kit centres, to sit on the line of what is beside it. A `Segmented` gives each name its own room while the row has it and shrinks every name's room by the same share when the row is too narrow and fits at any width a card gives it. A held bubble that changes what it draws (`Peek`) fades the new drawing in over the old.
 - `Unfolding` in an `UnfoldGroup`: rows that appear with a state open and shut in height and opacity, both ways, turning round mid-way; never `if state: Row`.
 - Menus: `MenuSurface` and `MenuItem` (kind `menu`) are the one menu look and motion.

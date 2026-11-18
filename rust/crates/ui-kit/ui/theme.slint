@@ -23,6 +23,11 @@ export global Theme {
         look == 1 ? blue : look == 2 ? black : look == 3 ? white : dark
     }
 
+    // The text colour that reads best on `bg`: the card's own colour or the ink, whichever is further from it in lightness
+    public pure function on(bg: color) -> color {
+        abs(bg.to-oklch().lightness - card.to-oklch().lightness) >= abs(bg.to-oklch().lightness - ink.to-oklch().lightness) ? card : ink
+    }
+
     // A text or line colour in higher contrast: `c` taken `amount` of the way to white, or to black on Light. Unchanged otherwise.
     public pure function lift(c: color, amount: float) -> color { contrast ? c.mix(light ? #000000 : #ffffff, 1 - amount) : c }
 
@@ -188,6 +193,8 @@ export global Theme {
     out property <length> small: round(body * 12 / 13 / 1px) * 1px;
     out property <length> tiny: round(body * 11 / 13 / 1px) * 1px;
     out property <length> card-title: round(body * 16 / 13 / 1px) * 1px;
+    // A window's own heading (the picture editor's), the text size and not the density
+    out property <length> heading: round(body * 19 / 13 / 1px) * 1px;
     out property <length> start: body;
     // A line icon sits in text this size
     out property <length> icon: round(body * 16 / 13 / 1px) * 1px;
@@ -206,7 +213,10 @@ export global Theme {
     public pure function u(n: float) -> length { unit * n }
     out property <length> row: unit * 16;
     // How wide the control at the right of a settings row is (a picker, a text box, a segmented choice), the same in every row so the column of them lines up
-    out property <length> control-w: 260px;
+    // The larger text gives the names beside them more of the room, so the largest text trades 20 px of it back: the same in every row either way
+    out property <length> control-w: body > 14px ? 240px : 260px;
+    // How narrow it may get when a long name beside it (a translation) needs the room
+    out property <length> control-min: control-w * 0.75;
     // Text larger than the default is wider in the same words: what a value beside a slider is given grows with it, and never shrinks with
     // the density or smaller text
     out property <float> text-scale: body / 13px;
