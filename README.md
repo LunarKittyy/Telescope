@@ -56,7 +56,7 @@ Plug the phone in or use Wi-Fi and run up to four phones at once, each as its ow
 
 Most of these are plugins you switch on when you want them, along with Colour grading, Privacy blur, a Name tag, Notes next to the lens and others. You can install plugins other people made too.
 
-The [docs](docs/README.md) have [everything Telescope can do](docs/features.md), plus troubleshooting, manual setup and plugins. [How it compares](https://telescope.webcam/compare.html) with DroidCam, Iriun and Camo is on the site.
+The [docs](docs/README.md) have [everything Telescope can do](docs/features/README.md), plus troubleshooting, manual setup and plugins. [How it compares](https://telescope.webcam/compare.html) with DroidCam, Iriun and Camo is on the site.
 
 ## Questions people ask
 

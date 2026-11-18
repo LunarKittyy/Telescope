@@ -1,6 +1,6 @@
 # Release testing
 
-Tools and notes for going through [the release checklist](../../docs/release-checklist.md) against a nightly without touching your own install, on a Windows 11 VM and the Android emulator. They don't replace the real phone and desktop part of the checklist (see the end of this page).
+Tools and notes for going through [the release checklist](../../docs/development/release-checklist.md) against a nightly without touching your own install, on a Windows 11 VM and the Android emulator. They don't replace the real phone and desktop part of the checklist (see the end of this page).
 
 `fetch_nightly.sh [tag]` downloads a release's assets (the nightly by default) with `gh` into `downloads/n<build>` and checks each one against the manifest's sha256. Set `NIGHTLY_DIR` to put them somewhere else, such as a folder your Windows VM can see. `downloads/` is ignored by git.
 

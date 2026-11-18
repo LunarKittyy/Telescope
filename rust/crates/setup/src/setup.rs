@@ -37,7 +37,7 @@ const SUDO_NEEDS: &str = n_("Your password (pkexec or sudo) is required because 
 pub const AUTHOR_URL: &str = "https://github.com/LunarKittyy";
 pub const BUG_REPORT_URL: &str = "https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml";
 pub const HELP_URL: &str = "https://github.com/LunarKittyy/Telescope/blob/master/docs/troubleshooting.md";
-pub const TRANSLATE_URL: &str = "https://github.com/LunarKittyy/Telescope/blob/master/docs/translating.md";
+pub const TRANSLATE_URL: &str = "https://github.com/LunarKittyy/Telescope/blob/master/docs/development/translating.md";
 
 /// platform/linux.py's devices and the message a refused password prompt comes back with (the outputs crate has the same).
 pub const V4L2_PHONE_DEV: &str = "/dev/video11";

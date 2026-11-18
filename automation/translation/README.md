@@ -1,6 +1,6 @@
 # Translating Telescope with AI models
 
-The rules for texts in the code and how a person translates by hand are in [docs/translating.md](../../docs/translating.md). This page is about having models do the bulk of the translating cheaply and about the scripts that do the checks no model needs to do. Run everything from the repo root.
+The rules for texts in the code and how a person translates by hand are in [docs/development/translating.md](../../docs/development/translating.md). This page is about having models do the bulk of the translating cheaply and about the scripts that do the checks no model needs to do. Run everything from the repo root.
 
 A translation run only starts when the maintainer asks for one. A PR that adds texts runs `python tools/i18n.py extract` in `rust/` and leaves the new entries untranslated. They show in English until the next run. A PR that changes a phone text deletes that string from every `values-*/strings.xml` to stop the old translation showing the old meaning.
 
@@ -78,7 +78,7 @@ A cheap first draft is fine. A small model drafts, one model reviews, and the la
 - Run agent CLIs headless with `< /dev/null` at the end (some wait on stdin otherwise), and give them write access to the work folder only.
 - If a new English text duplicates another but means something else, the code needs a context (`tr_ctx`), not a cleverer translation. Raise it as a code fix.
 - Folded cards are saved under their English (`tr()` returns text that remembers its English). Two cards may share a translation without breaking anything.
-- The phone sends its camera, codec and microphone messages as codes and the desktop words them in its own catalog. Third-party plugins ship their own catalogs. `docs/translating.md` covers both.
+- The phone sends its camera, codec and microphone messages as codes and the desktop words them in its own catalog. Third-party plugins ship their own catalogs. `docs/development/translating.md` covers both.
 - Check every factual claim in a model's objections (a button name, how Windows labels something) before acting on it. Models make things up when they're unsure.
 - A full-language prose review takes about 180k tokens. If the usual reviewer's limits run out, point `REVIEW_AGENT` at the settling model.
 - Don't write a heading as a plural when its "one" form has no number in it. Android lint fails it in languages where "one" also covers 0 or 21 (Hindi, Portuguese, Ukrainian). Use two plain strings instead.

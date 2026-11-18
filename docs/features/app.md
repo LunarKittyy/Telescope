@@ -48,8 +48,8 @@ Shortcuts are global by default and also work while another app is in front.
 
 ## MCP server
 
-Optional, switched on under **Extras** in the Plugins tab of Settings. It lets an AI app like Claude Desktop read and change Telescope's settings, with a **Read only** switch in the MCP tab and an **MCP** button in the top bar that undoes what the AI changed. Telescope itself sends nothing to a model. See [MCP server](../mcp.md) for adding it to an AI app and what it can do.
+Optional, switched on under **Extras** in the Plugins tab of Settings. It lets an AI app like Claude Desktop read and change Telescope's settings, with a **Read only** switch in the MCP tab and an **MCP** button in the top bar that undoes what the AI changed. Telescope itself sends nothing to a model. See [MCP server](mcp.md) for adding it to an AI app and what it can do.
 
 ## Plugins
 
-Most of the desktop app is plugins and you switch them on and off in the **Plugins** tab in Settings. Changes apply after a restart (the plugin's row gets a **Restart now** button). The settings of switched off plugins are saved and a banner names what's off after the restart. You can also install plugins other people made. See [Plugins](../plugins.md).
+Most of the desktop app is plugins and you switch them on and off in the **Plugins** tab in Settings. Changes apply after a restart (the plugin's row gets a **Restart now** button). The settings of switched off plugins are saved and a banner names what's off after the restart. You can also install plugins other people made. See [Plugins](plugins.md).

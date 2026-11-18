@@ -1,6 +1,6 @@
 # plugin-host
 
-Plugins people add, behind core's `Plugin` trait. A plugin is a folder with a `plugin.json`, a `main.lua`, usually a `card.slint` and a shader or two. [docs/writing-plugins.md](../../../docs/writing-plugins.md) is the guide for plugin authors and [rust/docs/plugin-wasm.md](../../docs/plugin-wasm.md) shows how a WASM runtime fits the same boundary later.
+Plugins people add, behind core's `Plugin` trait. A plugin is a folder with a `plugin.json`, a `main.lua`, usually a `card.slint` and a shader or two. [docs/development/writing-plugins.md](../../../docs/development/writing-plugins.md) is the guide for plugin authors and [docs/development/plugin-wasm.md](../../../docs/development/plugin-wasm.md) shows how a WASM runtime fits the same boundary later.
 
 | File | What's in it |
 |---|---|

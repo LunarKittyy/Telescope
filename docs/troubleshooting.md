@@ -220,7 +220,7 @@ Your desktop has no global shortcuts portal (only Plasma 5.27+, GNOME 48+ and Hy
 That part of Telescope is switched off in **Plugins**. Open Settings and go to the Plugins tab (it reads **Plugins (N off)** when something is off), switch it back on or click **Reset to defaults** (every built-in plugin goes on and the optional ones go off), then click **Restart now**.
 
 **A plugin that finds people asks for a one-time download**
-The vision download hasn't happened yet or was removed. A new Telescope version can need a newer one too. Click **Download** on the card. If it fails check that GitHub is reachable from this computer, or download the vision pack zip from the release page and install it with **Install** on the Plugins tab ([Plugins](plugins.md#installing-a-plugin-someone-made)).
+The vision download hasn't happened yet or was removed. A new Telescope version can need a newer one too. Click **Download** on the card. If it fails check that GitHub is reachable from this computer, or download the vision pack zip from the release page and install it with **Install** on the Plugins tab ([Plugins](features/plugins.md#installing-a-plugin-someone-made)).
 
 **A plugin that finds people says MediaPipe didn't load**
 The download is there but MediaPipe won't start here (it only works on 64-bit Intel and AMD). On Linux it also needs the EGL and OpenGL ES libraries, which graphics drivers normally bring. If **Copy diagnostics** says `libEGL.so.1 missing` or `libGLESv2.so.2 missing`, install `libegl1` and `libgles2` (Debian and Ubuntu) or `libglvnd-egl` and `libglvnd-gles` (Fedora) and restart Telescope. Otherwise open an issue with your **Copy diagnostics** report.

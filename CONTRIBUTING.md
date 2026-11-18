@@ -6,7 +6,7 @@ Thanks for looking! You don't need to write code to help.
 
 - **Try it on your phone and let me know how it went.** Every phone behaves a bit differently and I only have a few to test on. Post in [Device compatibility](https://github.com/LunarKittyy/Telescope/discussions/new?category=device-compatibility), even if all you tried was one stream.
 - **Report bugs** in an [issue](https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml). **Report a bug** under Updates & About in Settings (and in the phone app's About card) copies the diagnostics for you to paste in. Addresses, tokens and your home folder are stripped out of it.
-- **Translate.** Both apps are in a few languages already and most of them are first drafts nobody who speaks the language has read yet. [Translating](docs/translating.md) shows how to fix texts right on GitHub without any setup and how to start a new language.
+- **Translate.** Both apps are in a few languages already and most of them are first drafts nobody who speaks the language has read yet. [Translating](docs/development/translating.md) shows how to fix texts right on GitHub without any setup and how to start a new language.
 - **Ideas and questions** go in [Discussions](https://github.com/LunarKittyy/Telescope/discussions).
 - **Docs** that confused you are bugs too. A pull request that fixes a sentence is very welcome.
 
@@ -14,11 +14,11 @@ Security problems go through a private report instead, see [SECURITY.md](SECURIT
 
 ## With code
 
-The Android app is in `android/` (Kotlin, Camera2) and the desktop app in `rust/` (Rust, Slint). [Architecture](docs/architecture.md) introduces the code and links to the detailed references.
+The Android app is in `android/` (Kotlin, Camera2) and the desktop app in `rust/` (Rust, Slint). [Architecture](docs/development/architecture.md) introduces the code and links to the detailed references.
 
 ### Setup
 
-- **Desktop:** a recent stable Rust from [rustup](https://rustup.rs). On Linux you also need FFmpeg's headers, `clang`, fontconfig and a few fonts. [Building](docs/building.md#run-the-desktop-app-from-source) has the package list.
+- **Desktop:** a recent stable Rust from [rustup](https://rustup.rs). On Linux you also need FFmpeg's headers, `clang`, fontconfig and a few fonts. [Building](docs/development/building.md#run-the-desktop-app-from-source) has the package list.
 - **Android:** JDK 21 and the Android SDK with `platform-tools`, `platforms;android-34` and `build-tools;34.0.0`.
 
 To try a change on a real phone without touching your normal install:
@@ -28,7 +28,7 @@ To try a change on a real phone without touching your normal install:
 (cd rust && cargo run -p telescope-app -- dev --keep)  # a dev desktop that pairs with it
 ```
 
-[Building](docs/building.md) has the details and [Packaging and CI](docs/packaging.md) covers the workflows.
+[Building](docs/development/building.md) has the details and [Packaging and CI](docs/development/packaging.md) covers the workflows.
 
 ### Before you start
 
@@ -57,7 +57,7 @@ Fill in the [template](.github/pull_request_template.md). The comments in it exp
 
 ### Texts in the app
 
-New texts go through `strings.xml` on the phone and `tr()` on the desktop so they can be translated ([Translating](docs/translating.md) has the details). Write them the way the rest of the app does:
+New texts go through `strings.xml` on the phone and `tr()` on the desktop so they can be translated ([Translating](docs/development/translating.md) has the details). Write them the way the rest of the app does:
 
 - Tooltips and descriptions say what you can do with a control, in the imperative ("Set the gain back to default", not "Puts the gain back").
 - Statuses say what's true or what's needed ("Restart required", not "Waits for a restart").
