@@ -10,7 +10,7 @@
 //! mask worked out and bound, and it's uploaded only when it changes. Saying nothing about it costs a shader nothing. A mask user that isn't
 //! first on the card sends the picture down once for the vision model; see uses_person_mask.
 //!
-//! A shader that calls blurred(uv) or blurred_weighted(uv) gets the picture shrunk by the step's uniform `blur_shrink` and Gaussian-blurred with `blur_sigma` there (blurred_weighted leaves out what the step texture `blur_weights` marks 0); see uses_blurred.
+//! A shader that calls blurred(uv) or blurred_weighted(uv) gets the picture shrunk by the step's uniform `blur_shrink` and Gaussian-blurred with `blur_sigma` there (blurred_weighted leaves out what the step texture `blur_weights` marks 0); a shader that defines a function of either name itself keeps its own and gets no helper; see uses_blurred.
 //! A shader that calls previous(uv) or has_previous() gets what this same step drew for the stream's last frame, which is how a step averages
 //! over time. has_previous() is false for the first frame, after the picture's size changed and when the last frame is too old to still be
 //! the same scene (HISTORY_MAX_AGE_NS), and previous() is 0 then. The card only keeps a copy for a shader that asks; see uses_history.
@@ -82,12 +82,15 @@ fn has_previous() -> bool {
 }
 ";
 
-/// Declared after PRELUDE for a shader that calls blurred(): the blur of the picture at its small size, read with linear filtering.
-pub const BLURRED_PRELUDE: &str = "\
+/// Declared after PRELUDE for a shader that calls blurred() without defining it: the blur of the picture at its small size, read with linear filtering.
+pub const BLURRED_HELPER: &str = "\
 fn blurred(uv: vec2<f32>) -> vec4<f32> {
     return textureSampleLevel(telescope_blurred, telescope_sampler, uv, 0.0);
 }
+";
 
+/// The same for blurred_weighted().
+pub const BLURRED_WEIGHTED_HELPER: &str = "\
 fn blurred_weighted(uv: vec2<f32>) -> vec4<f32> {
     return textureSampleLevel(telescope_blurred_weighted, telescope_sampler, uv, 0.0);
 }
@@ -285,10 +288,28 @@ pub fn uses_history(wgsl: &str) -> bool {
     find_word(&code, "previous", '(').is_some() || find_word(&code, "has_previous", '(').is_some()
 }
 
-/// Whether a shader reads the blurred picture, so the executor only works one out for those that do.
+/// Whether the code defines `fn name(`, as a plugin's own helper of that name does.
+fn defines_fn(code: &str, name: &str) -> bool {
+    let mut from = 0;
+    while let Some(at) = find_word(&code[from..], name, '(').map(|i| i + from) {
+        let before = code[..at].trim_end();
+        if before.ends_with("fn") && before[..before.len() - 2].chars().next_back().is_none_or(|c| !(c.is_ascii_alphanumeric() || c == '_')) {
+            return true;
+        }
+        from = at + name.len();
+    }
+    false
+}
+
+/// Whether the shader calls the helper `name` and leaves it for the executor to provide: one that defines its own keeps it, as before the helpers existed.
+fn wants_helper(code: &str, name: &str) -> bool {
+    find_word(code, name, '(').is_some() && !defines_fn(code, name)
+}
+
+/// Whether a shader reads the blurred picture through blurred() or blurred_weighted() (not its own function of that name), so the executor only works one out for those that do.
 pub fn uses_blurred(wgsl: &str) -> bool {
     let code = strip_comments(wgsl);
-    find_word(&code, "blurred", '(').is_some() || find_word(&code, "blurred_weighted", '(').is_some()
+    wants_helper(&code, "blurred") || wants_helper(&code, "blurred_weighted")
 }
 
 /// The bindings (group GROUP_STEP) of the blurred picture and the weighted one after the step's own textures; None for a shader that doesn't ask.
@@ -346,7 +367,13 @@ fn assemble_body(step: &ShaderStep) -> Result<String, String> {
     if let Some((plain, weighted)) = blur_bindings(step) {
         out += &format!("@group({GROUP_STEP}) @binding({plain}) var telescope_blurred: texture_2d<f32>;\n");
         out += &format!("@group({GROUP_STEP}) @binding({weighted}) var telescope_blurred_weighted: texture_2d<f32>;\n");
-        out += BLURRED_PRELUDE;
+        // Each helper only where the plugin hasn't defined one of that name
+        if wants_helper(&code, "blurred") {
+            out += BLURRED_HELPER;
+        }
+        if wants_helper(&code, "blurred_weighted") {
+            out += BLURRED_WEIGHTED_HELPER;
+        }
     }
     out += "\n";
     out += &step.wgsl;
@@ -415,6 +442,14 @@ mod tests {
         assert!(uses_blurred("fn effect(uv: vec2<f32>) -> vec4<f32> { return blurred(uv); }"));
         assert!(uses_blurred("fn effect(uv: vec2<f32>) -> vec4<f32> { return blurred_weighted(uv); }"));
         assert!(!uses_blurred("fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv) * blurred_gain; }"));
+        // A plugin that has a blurred() of its own keeps it, with no helper or blur made for it
+        let own = "fn blurred(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }\nfn effect(uv: vec2<f32>) -> vec4<f32> { return blurred(uv); }";
+        assert!(!uses_blurred(own) && !uses_blurred(&own.replace("fn blurred(", "fn  blurred (")) && blur_bindings(&step(own)).is_none());
+        assert!(!assemble(&step(own)).unwrap().contains("telescope_blurred"));
+        // and one that has only that one still gets the other
+        let mixed = format!("{own}\nfn other(uv: vec2<f32>) -> vec4<f32> {{ return blurred_weighted(uv); }}");
+        let module = assemble(&step(&mixed)).unwrap();
+        assert!(uses_blurred(&mixed) && module.matches("fn blurred(").count() == 1 && module.matches("fn blurred_weighted(").count() == 1);
         assert_eq!(blur_bindings(&step(plain)), None);
         let asking = step("fn effect(uv: vec2<f32>) -> vec4<f32> { return mix(blurred_weighted(uv), sample(uv), 0.5); }");
         assert_eq!(blur_bindings(&asking), Some((2, 3)));
