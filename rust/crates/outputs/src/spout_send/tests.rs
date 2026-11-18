@@ -226,3 +226,14 @@ fn the_cut_out_goes_out_as_alpha_only_for_a_stream_that_asked() {
     assert_eq!(sent.as_chunks::<4>().0.iter().map(|px| px[3]).collect::<Vec<_>>(), [0, 64, 128, 255]);
     assert_eq!(frame.alpha().map(|a| a.data.clone()), Some(vec![0, 64, 128, 255]), "the frame itself keeps its cut-out for the camera's flatten");
 }
+
+#[test]
+fn switching_the_plugin_off_stops_asking_for_every_cut_out() {
+    let (mut p, mut host, _) = plugin();
+    toggle(&mut p, &mut host, true);
+    toggle_transparent(&mut p, &mut host, true);
+    assert_eq!(cut_out_events(&host), [("phone-a".to_string(), true)]);
+    p.shutdown(&mut host);
+    assert_eq!(cut_out_events(&host).last(), Some(&("phone-a".to_string(), false)));
+    assert!(p.told.is_empty());
+}

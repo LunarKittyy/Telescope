@@ -321,6 +321,10 @@ impl Plugin for SpoutSendPlugin {
         self.stopped = true;
         host.cancel_schedule(T_STATUS);
         self.shared.stop_all();
+        // The steps that cut a person out stop doing it, and Background goes back from the Blur it was given for this
+        for id in std::mem::take(&mut self.told) {
+            host.emit(Event::CutOutWanted { source_id: id, on: false });
+        }
     }
 
     fn card(&mut self) -> Option<CardSpec> {

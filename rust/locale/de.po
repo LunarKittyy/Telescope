@@ -6240,7 +6240,7 @@ msgid "Cut yourself out and share the picture with a see-through background, for
 msgstr ""
 
 #: rust/crates/outputs/ui/spout_send.slint:31
-msgid "It uses the person cut-out of Background or Chroma key and switches Background to Blur while nothing else uses it."
+msgid "It uses the person cut-out of Background or Chroma key. For the stream you are looking at it switches Background to Blur while nothing else uses it. Another stream only has a see-through background while Background or Chroma key is on for it."
 msgstr ""
 
 #: rust/crates/outputs/ui/spout_send.slint:44

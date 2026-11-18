@@ -25,10 +25,10 @@ export component SpoutSendCard inherits Card {
         toggled(on) => { root.checked = on; root.toggled(on); }
     }
     if root.transparent-shown: SwitchTile {
-        icon: Icons.monitor;
+        icon: Icons.cut-in;
         text: @tr("Transparent background");
         tip: @tr("Cut yourself out and share the picture with a see-through background, for programs that can lay it over something.");
-        tip-detail: @tr("It uses the person cut-out of Background or Chroma key and switches Background to Blur while nothing else uses it.");
+        tip-detail: @tr("It uses the person cut-out of Background or Chroma key. For the stream you are looking at it switches Background to Blur while nothing else uses it. Another stream only has a see-through background while Background or Chroma key is on for it.");
         hue: root.hue;
         checked <=> root.transparent;
         toggled(on) => { root.transparent = on; root.transparent-toggled(on); }
