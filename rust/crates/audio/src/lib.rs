@@ -2,6 +2,8 @@
 //! plugin). The plugin (plugin.rs) is what the window uses; VirtualMic is core's Audio for anything else that has a
 //! phone's audio feed.
 
+#[cfg(test)]
+pub(crate) mod settings_check;
 pub mod backend;
 pub mod denoise;
 pub mod jitter;

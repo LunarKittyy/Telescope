@@ -938,3 +938,8 @@ fn reset_puts_the_sound_settings_back_and_keeps_the_switch_and_mute() {
     assert!(w.lock().unwrap().gain == 1.0 && !w.lock().unwrap().auto_level);
     assert!(!r.p.reset_shown() && !r.h.on("reset-shown"));
 }
+
+#[test]
+fn the_declared_settings_round_trip() {
+    crate::settings_check::round_trips(&mut MicrophonePlugin::new(backend(), None), &mut telescope_core::testing::FakeHost::new());
+}

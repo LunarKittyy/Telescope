@@ -761,3 +761,9 @@ fn reset_puts_size_and_fps_back_and_keeps_the_address_and_known_browsers() {
     assert_eq!((cfg["address"].clone(), cfg["known"].clone()), (before["address"].clone(), before["known"].clone()));
     assert_eq!(r.host.card["reset-shown"], false);
 }
+
+#[test]
+fn the_declared_settings_round_trip() {
+    let mut r = Rig::new();
+    crate::settings_check::round_trips(&mut r.plugin, &mut telescope_core::testing::FakeHost::new());
+}

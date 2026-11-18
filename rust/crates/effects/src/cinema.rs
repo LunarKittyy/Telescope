@@ -479,6 +479,28 @@ impl Plugin for CinemaPlugin {
         }
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        use crate::cinema_tools::{GUIDES, PEAKING_COLOURS, SCOPES, SIZES};
+        let keys = |list: &[(&'static str, &'static str)]| -> Vec<(&'static str, &'static str)> { list.iter().map(|(k, _)| (*k, *k)).collect() };
+        let scopes = keys(&SCOPES);
+        let guides = keys(&GUIDES);
+        let colours: Vec<(&str, &str)> = PEAKING_COLOURS.iter().map(|(k, ..)| (*k, *k)).collect();
+        let sizes: Vec<(&str, &str)> = SIZES.iter().map(|(k, ..)| (*k, *k)).collect();
+        vec![
+            SettingSpec::switch("peaking", "Outlines what is in focus on the preview", false),
+            SettingSpec::switch("zebras", "Stripes over what is too bright on the preview", false),
+            SettingSpec::switch("false_colour", "Paints the preview by how bright each part is", false),
+            SettingSpec::switch("level", "Shows a level line on the preview", false),
+            SettingSpec::choice("scope", "Which brightness or colour graph shows on the preview", &scopes, "off"),
+            SettingSpec::choice("guides", "Which framing lines show on the preview", &guides, "off"),
+            SettingSpec::choice("peaking_colour", "The colour of the focus outlines", &colours, "red"),
+            SettingSpec::number("peaking_level", "How soft an edge has to be to still be outlined", 1.0, 10.0, 0, 5.0),
+            SettingSpec::number("zebra_level", "How bright something has to be to get stripes", 70.0, 100.0, 0, 95.0).unit("%"),
+            SettingSpec::choice("scope_size", "How big the graph is", &sizes, "medium"),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         let look = &self.look;
         let mut cfg = Map::new();

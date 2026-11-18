@@ -847,3 +847,9 @@ fn an_nv12_stream_is_covered_like_any_other() {
     assert_eq!(out.format, PixelFormat::Nv12);
     assert_ne!(out.data, frame.data);
 }
+
+#[test]
+fn the_declared_settings_round_trip() {
+    let mut r = Rig::new();
+    crate::settings_check::round_trips(&mut r.plugin, &mut r.host);
+}

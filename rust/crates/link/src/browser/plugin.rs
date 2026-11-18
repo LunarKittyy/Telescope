@@ -1259,6 +1259,11 @@ impl Plugin for BrowserCameraPlugin {
         }
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        let sizes: Vec<(&str, &str)> = SIZES.iter().map(|(k, ..)| (*k, *k)).collect();
+        vec![telescope_core::settings::SettingSpec::choice("size", "The size of the picture the browser page sends", &sizes, DEFAULT_SIZE)]
+    }
+
     fn get_config(&self) -> Value {
         self.config()
     }

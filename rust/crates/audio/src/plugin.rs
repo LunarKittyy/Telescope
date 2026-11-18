@@ -1208,6 +1208,16 @@ impl Plugin for MicrophonePlugin {
         self.stream_stopped(&mut h);
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        vec![
+            SettingSpec::switch("enabled", "Whether the phone's microphone feeds the virtual microphone", false),
+            SettingSpec::number("gain_db", "How much louder or quieter the microphone is made (the phone may hold the top lower)", GAIN_MIN_DB as f64, GAIN_MAX_DB as f64, 0, 0.0).unit("dB"),
+            SettingSpec::switch("auto_level", "Whether the volume is evened out by itself", false),
+            SettingSpec::switch("noise_reduction", "Whether background noise is taken out of the microphone", false),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         json!({"enabled": self.pending.unwrap_or(self.enabled), "gain_db": self.gain_db, "auto_level": self.auto_level,
                "noise_reduction": self.noise_reduction})

@@ -1,5 +1,7 @@
 //! The window and the stream flow. Everything it uses from other crates comes in through core's traits (Services).
 
+#[cfg(test)]
+pub(crate) mod settings_check;
 pub mod admin;
 pub mod banners;
 pub mod bar;

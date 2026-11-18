@@ -1010,6 +1010,15 @@ impl Plugin for UpdatesPlugin {
         }
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        vec![
+            SettingSpec::choice("channel", "Which updates are offered: stable, or nightly with the newest changes", &[("stable", "Stable releases"), ("nightly", "Nightly builds")], Self::default_channel_for(&self.built_channel)),
+            SettingSpec::switch("auto_check", "Whether Telescope looks for updates by itself", true),
+            SettingSpec::switch("keep_portable", "Whether an unzipped copy stays a portable copy when it updates, instead of moving to the installed app", false),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         json!({"channel": self.channel, "auto_check": self.auto_check, "last_check": self.last_check, "keep_portable": self.keep_portable})
     }
@@ -1942,5 +1951,10 @@ mod tests {
         let (mut again, mut host2, _) = env();
         again.on_plugins_ready(&mut host2);
         assert!(!again.status_while(false).0.contains("didn't start"));
+    }
+
+    #[test]
+    fn the_declared_settings_round_trip() {
+        crate::settings_check::round_trips(&mut UpdatesPlugin::new(Arc::new(Fake::default()), "stable"), &mut FakeHost::new());
     }
 }

@@ -934,3 +934,8 @@ fn reset_puts_fps_quality_and_bitrate_back_and_keeps_the_size() {
     assert!(host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
     assert!(saves(&host) >= 1);
 }
+
+#[test]
+fn the_declared_settings_round_trip() {
+    crate::settings_check::round_trips(&mut plugin(), &mut FakeHost::new());
+}

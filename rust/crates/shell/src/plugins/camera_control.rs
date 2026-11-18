@@ -1932,6 +1932,20 @@ impl Plugin for CameraControl {
         }
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        vec![
+            SettingSpec::switch("exp_manual", "Whether exposure is set by hand instead of by the phone", false),
+            SettingSpec::switch("focus_manual", "Whether focus is set by hand instead of by the phone", false),
+            SettingSpec::switch("wb_manual", "Whether white balance is set by hand instead of by the phone", false),
+            SettingSpec::switch("ois", "Whether the lens's optical stabilisation reduces shake", true),
+            SettingSpec::number("nr_mode", "Noise reduction: 0 off, 1 fast, 2 high quality (which can lower the frame rate)", 0.0, 2.0, 0, 1.0),
+            SettingSpec::number("edge_mode", "Sharpening: 0 off, 1 fast, 2 high quality (which can lower the frame rate)", 0.0, 2.0, 0, 1.0),
+            SettingSpec::switch("bll", "Whether the black level is kept from changing as the light changes", false),
+            SettingSpec::switch("low_light", "Whether a dark room is brightened while exposure is automatic (the frame rate can drop to 10 fps)", false),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         self.config()
     }

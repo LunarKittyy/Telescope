@@ -901,3 +901,9 @@ fn reset_of_the_sign_in_switch_turns_the_autostart_entry_off() {
     assert_eq!(*r.autostart.calls.lock().unwrap(), ["on true", "off true"]);
     assert_eq!(r.shown("sign-in", "reset-shown"), json!(false));
 }
+
+#[test]
+fn the_declared_settings_round_trip() {
+    let mut r = Rig::new();
+    crate::settings_check::round_trips(&mut r.plugin, &mut r.host);
+}

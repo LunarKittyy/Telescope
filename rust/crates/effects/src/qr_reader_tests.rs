@@ -702,3 +702,8 @@ fn reading_codes_asks_for_frames_while_it_is_on() {
     rig.plugin.shutdown(&mut rig.host);
     assert!(rig.host.frames_wanted.is_empty(), "switching the plugin off lets go too");
 }
+
+#[test]
+fn the_declared_settings_round_trip() {
+    crate::settings_check::round_trips(&mut QrReaderPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+}

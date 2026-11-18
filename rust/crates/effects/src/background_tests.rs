@@ -1261,3 +1261,8 @@ fn reset_puts_the_settings_back_and_goes_dark() {
     assert_eq!(rig.shown("reset-shown"), json!(false));
     assert!(rig.host.calls.iter().any(|c| c == "schedule_save"));
 }
+
+#[test]
+fn the_declared_settings_round_trip() {
+    crate::settings_check::round_trips(&mut BackgroundPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+}

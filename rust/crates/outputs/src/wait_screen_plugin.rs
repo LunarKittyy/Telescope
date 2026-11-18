@@ -696,6 +696,10 @@ impl Plugin for WaitScreenPlugin {
         ]
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        vec![telescope_core::settings::SettingSpec::switch("mirror", "Whether the wait screen's picture is mirrored", false)]
+    }
+
     fn get_config(&self) -> Value {
         json!({"image": self.image_path, "mirror": self.mirror, "last_size": self.last_size.map(|(w, h)| vec![w, h])})
     }

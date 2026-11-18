@@ -2,6 +2,8 @@
 //! memory and UnityCapture on Windows, the wait screen that holds them while idle and the watch that tells whether an
 //! app reads them. Also the Stream output card and the Webcam source, which the shell gets as plugins.
 
+#[cfg(test)]
+pub(crate) mod settings_check;
 pub mod convert;
 pub mod held;
 pub mod linux_setup;

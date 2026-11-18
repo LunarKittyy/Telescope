@@ -745,6 +745,18 @@ impl Plugin for ChromaKeyPlugin {
         }))
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        vec![
+            SettingSpec::switch("on", "Whether the screen colour is removed from the picture", false),
+            SettingSpec::choice("screen", "Which screen colour is removed", &[("green", "A green screen"), ("blue", "A blue screen")], "green"),
+            SettingSpec::number("tolerance", "How many shades of the screen colour are removed", 0.0, 100.0, 0, 40.0),
+            SettingSpec::number("softness", "How soft the edge around you is", 0.0, 100.0, 0, 30.0),
+            SettingSpec::number("spill", "How much of the screen's colour is taken off your edges and skin", 0.0, 100.0, 0, 60.0),
+            SettingSpec::choice("background", "What shows where the screen was", &[("colour", "The colour chosen on the card"), ("picture", "The picture chosen on the card")], "colour"),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         let mut cfg = Map::new();
         cfg.insert("on".into(), json!(self.on));

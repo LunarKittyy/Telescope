@@ -260,6 +260,19 @@ impl Plugin for NameTagPlugin {
         self.shows().then(|| FrameStep::Cpu(Box::new(self.step())))
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        use crate::tag::{DEFAULT_POSITION, DEFAULT_SIZE, DEFAULT_STYLE, POSITIONS, SIZES, STYLES};
+        let same = |list: &[&'static str]| list.iter().map(|k| (*k, *k)).collect::<Vec<_>>();
+        let sizes: Vec<&str> = SIZES.iter().map(|(k, _)| *k).collect();
+        vec![
+            SettingSpec::switch("on", "Whether the name tag is shown on the picture", false),
+            SettingSpec::choice("style", "How the tag looks", &same(&STYLES), DEFAULT_STYLE),
+            SettingSpec::choice("position", "Where the tag sits on the picture", &same(&POSITIONS), DEFAULT_POSITION),
+            SettingSpec::choice("size", "How big the tag is", &same(&sizes), DEFAULT_SIZE),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         json!({
             "on": self.on, "name": self.spec.name, "pronouns": self.spec.pronouns, "second": self.spec.second,

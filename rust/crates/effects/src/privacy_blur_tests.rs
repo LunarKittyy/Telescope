@@ -513,3 +513,8 @@ fn privacy_blur_is_tagged_limited_and_not_lab() {
     let info = PrivacyBlurPlugin::new().info();
     assert!(info.limited && !info.lab);
 }
+
+#[test]
+fn the_declared_settings_round_trip() {
+    crate::settings_check::round_trips(&mut PrivacyBlurPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+}
