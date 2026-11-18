@@ -916,6 +916,11 @@ fn reference_of(count: usize, load: &dyn Fn(usize) -> Option<Image>, kind: Kind)
 /// Merges `count` photos, which `load` hands over one at a time (twice each). The middle one is what the others are lined up with, what the result is the
 /// size of, and what stands in where a photo disagrees with it.
 pub fn merge(count: usize, load: &dyn Fn(usize) -> Option<Image>, kind: Kind) -> Result<(Image, usize), String> {
+    merge_frames(count, load, kind).map(|(image, used)| (image, used.iter().filter(|u| **u).count()))
+}
+
+/// merge, saying which of the photos went into the picture.
+pub fn merge_frames(count: usize, load: &dyn Fn(usize) -> Option<Image>, kind: Kind) -> Result<(Image, Vec<bool>), String> {
     if count < MIN_FRAMES {
         return Err("there are too few photos to merge".into());
     }
@@ -956,7 +961,7 @@ pub fn merge(count: usize, load: &dyn Fn(usize) -> Option<Image>, kind: Kind) ->
     }
     let weights = weights(kind, &qualities, &ghost_maps, middle);
     drop(qualities);
-    let used = warps.iter().flatten().count();
+    let used: Vec<bool> = warps.iter().map(Option::is_some).collect();
     let rows = strip_rows(h);
     let depth = pyramid_depth(w, h, &rows);
     let cores = std::thread::available_parallelism().map_or(2, |n| n.get());
@@ -1135,9 +1140,9 @@ fn stamp(path: &Path) -> Option<(u64, std::time::SystemTime)> {
     Some((meta.len(), meta.modified().ok()?))
 }
 
-/// What a finished merge tells the plugin: {"ok", "path", "frames" (the shots there should be), "used", "removed", "left", "kept"} or {"ok": false, "error"}. The photos are
-/// only deleted (`keep_frames` false) when there is a JPEG for every one of the `expected` shots and every one of them went into the merge, none of them changed
-/// meanwhile and the merged file is safely on disk: a shot that never arrived has its only copy among the files being deleted (its RAW, in a RAW and JPEG bracket).
+/// What a finished merge tells the plugin: {"ok", "path", "frames" (the shots there should be), "used", "removed", "left", "kept", "skipped"} or {"ok": false, "error"}. The photos are
+/// only deleted (`keep_frames` false) when there is a JPEG for every one of the `expected` shots, none of them changed meanwhile and the merged file is safely on
+/// disk, and only those that went into the merge ("skipped" counts the ones that could not be lined up and were left): a shot that never arrived has its only copy among the files being deleted (its RAW, in a RAW and JPEG bracket).
 pub fn merge_files(files: &[String], quality: u8, keep_frames: bool, kind: Kind, expected: usize) -> Value {
     let jpegs: Vec<PathBuf> = files.iter().map(PathBuf::from).filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("jpg") || e.eq_ignore_ascii_case("jpeg"))).collect();
     let fail = |error: &str| json!({"ok": false, "error": error});
@@ -1150,7 +1155,7 @@ pub fn merge_files(files: &[String], quality: u8, keep_frames: bool, kind: Kind,
     }
     let before: Vec<_> = jpegs.iter().map(|p| stamp(p)).collect();
     let exif = read_jpeg(&jpegs[jpegs.len() / 2]).and_then(|(_, exif)| exif).and_then(|e| orientation_exif(&e));
-    let (merged, used) = match merge(jpegs.len(), &|i| read_jpeg(&jpegs[i]).map(|(image, _)| image), kind) {
+    let (merged, in_merge) = match merge_frames(jpegs.len(), &|i| read_jpeg(&jpegs[i]).map(|(image, _)| image), kind) {
         Ok(merged) => merged,
         Err(e) => return fail(&e),
     };
@@ -1167,17 +1172,24 @@ pub fn merge_files(files: &[String], quality: u8, keep_frames: bool, kind: Kind,
         Ok(path) => path,
         Err(e) => return fail(&e.to_string()),
     };
-    let complete = used == jpegs.len() && jpegs.len() >= expected;
+    let used = in_merge.iter().filter(|u| **u).count();
+    // every shot has to be here: one that never arrived has its only copy among the files being deleted (its RAW, in a RAW and JPEG bracket)
+    let complete = jpegs.len() >= expected;
     let (mut removed, mut left) = (0, 0);
     if !keep_frames && complete {
+        // only the photos that went into the merged picture are deleted, with the RAW that came with each: one that couldn't be lined up is not in it
+        let went: Vec<&Path> = jpegs.iter().zip(&in_merge).filter(|(_, u)| **u).map(|(p, _)| p.as_path()).collect();
         for f in files {
+            if !went.iter().any(|p| p.with_extension("") == Path::new(f).with_extension("")) {
+                continue;
+            }
             match std::fs::remove_file(f) {
                 Ok(()) => removed += 1,
                 Err(_) => left += 1,
             }
         }
     }
-    json!({"ok": true, "path": path.display().to_string(), "frames": expected.max(jpegs.len()), "used": used, "removed": removed, "left": left, "kept": !keep_frames && !complete})
+    json!({"ok": true, "path": path.display().to_string(), "frames": expected.max(jpegs.len()), "used": used, "removed": removed, "left": left, "kept": !keep_frames && !complete, "skipped": jpegs.len() - used})
 }
 
 /// Merges on a thread of its own and posts "merged" with what merge_files said and the request the photos came from.

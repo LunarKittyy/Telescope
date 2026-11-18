@@ -2502,7 +2502,7 @@ msgstr "Брекетинг експозиції"
 msgid "Focus bracket"
 msgstr "Брекетинг фокуса"
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:709 rust/crates/effects/src/photos.rs:842 rust/crates/effects/ui/photos.slint:146 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304 rust/crates/effects/ui/phototrap.slint:99
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:711 rust/crates/effects/src/photos.rs:844 rust/crates/effects/ui/photos.slint:146 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304 rust/crates/effects/ui/phototrap.slint:99
 msgid "Photos"
 msgstr "Фото"
 
@@ -2615,7 +2615,7 @@ msgstr "Як у відео"
 msgid "{seconds} s"
 msgstr "{seconds} с"
 
-#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/photos.rs:851 rust/crates/effects/src/photos.rs:867 rust/crates/effects/ui/photos.slint:160
+#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/photos.rs:853 rust/crates/effects/src/photos.rs:869 rust/crates/effects/ui/photos.slint:160
 msgid "Take photo"
 msgstr "Зробити фото"
 
@@ -2667,7 +2667,7 @@ msgstr "Експозиція"
 msgid "Distortion fix"
 msgstr "Виправлення спотворень"
 
-#: rust/crates/effects/src/photos.rs:353 rust/crates/effects/src/photos.rs:786
+#: rust/crates/effects/src/photos.rs:353 rust/crates/effects/src/photos.rs:788
 msgid "Start streaming to take photos."
 msgstr "Почніть трансляцію, щоб робити фото."
 
@@ -2698,72 +2698,77 @@ msgstr ""
 
 #: rust/crates/effects/src/photos.rs:584
 #, python-brace-format
-msgid "Saved the merged picture {name}. Some photos couldn't be deleted."
+msgid "Saved the merged picture {name} from {used} of {frames} photos. The photos that couldn't be lined up are saved too."
 msgstr ""
 
 #: rust/crates/effects/src/photos.rs:586
 #, python-brace-format
-msgid "Saved the merged picture {name} from {used} of {frames} photos"
+msgid "Saved the merged picture {name}. Some photos couldn't be deleted."
 msgstr ""
 
 #: rust/crates/effects/src/photos.rs:588
 #, python-brace-format
+msgid "Saved the merged picture {name} from {used} of {frames} photos"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:590
+#, python-brace-format
 msgid "Saved the merged picture {name}"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:597 rust/crates/effects/src/photos.rs:662 rust/crates/effects/src/photos.rs:684
+#: rust/crates/effects/src/photos.rs:599 rust/crates/effects/src/photos.rs:664 rust/crates/effects/src/photos.rs:686
 msgid "Photo saved"
 msgstr "Фото збережено"
 
-#: rust/crates/effects/src/photos.rs:601
+#: rust/crates/effects/src/photos.rs:603
 msgid "The photos are saved but couldn't be merged."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:623 rust/crates/effects/src/photos.rs:643
+#: rust/crates/effects/src/photos.rs:625 rust/crates/effects/src/photos.rs:645
 msgid "Taking the photo…"
 msgstr "Зйомка фото…"
 
-#: rust/crates/effects/src/photos.rs:637
+#: rust/crates/effects/src/photos.rs:639
 #, python-brace-format
 msgid "Taking the photo in {seconds} s"
 msgstr "Зйомка фото через {seconds} с"
 
-#: rust/crates/effects/src/photos.rs:639
+#: rust/crates/effects/src/photos.rs:641
 #, python-brace-format
 msgid "Photo {n} of {total}"
 msgstr "Фото {n} із {total}"
 
-#: rust/crates/effects/src/photos.rs:641
+#: rust/crates/effects/src/photos.rs:643
 msgid "The video is paused while the photo is taken…"
 msgstr "Відео призупинено під час зйомки фото…"
 
-#: rust/crates/effects/src/photos.rs:657 rust/crates/effects/src/stargazer.rs:823
+#: rust/crates/effects/src/photos.rs:659 rust/crates/effects/src/stargazer.rs:823
 #, python-brace-format
 msgid "Saved {name}"
 msgstr "Збережено {name}"
 
-#: rust/crates/effects/src/photos.rs:680
+#: rust/crates/effects/src/photos.rs:682
 #, python-brace-format
 msgid "The photo arrived late. Saved {name}"
 msgstr "Фото надійшло із запізненням. Збережено {name}"
 
-#: rust/crates/effects/src/photos.rs:694
+#: rust/crates/effects/src/photos.rs:696
 msgid "Save photos in"
 msgstr "Зберегти фото в"
 
-#: rust/crates/effects/src/photos.rs:710 rust/crates/effects/ui/photos.slint:147
+#: rust/crates/effects/src/photos.rs:712 rust/crates/effects/ui/photos.slint:147
 msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
 msgstr "Робити фото в повній якості на телефон або фотоапарат, зокрема у форматі RAW, якщо камера його підтримує."
 
-#: rust/crates/effects/src/photos.rs:711
+#: rust/crates/effects/src/photos.rs:713
 msgid "Without the Photos plugin there's no Photos card and no Take photo shortcut."
 msgstr "Без плагіна «Фотографії» немає картки «Фотографії» та комбінації клавіш «Зробити фото»."
 
-#: rust/crates/effects/src/photos.rs:844 rust/crates/effects/src/photos.rs:882
+#: rust/crates/effects/src/photos.rs:846 rust/crates/effects/src/photos.rs:884
 msgid "Photo mode"
 msgstr "Режим фото"
 
-#: rust/crates/effects/src/photos.rs:849 rust/crates/effects/src/photos.rs:892
+#: rust/crates/effects/src/photos.rs:851 rust/crates/effects/src/photos.rs:894
 msgid "Photo timer"
 msgstr "Таймер фото"
 
@@ -3681,35 +3686,35 @@ msgstr "Макет"
 msgid "Not saved"
 msgstr "Не збережено"
 
-#: rust/crates/effects/ui/composite.slint:87 rust/crates/effects/ui/composite.slint:88 rust/crates/effects/ui/composite_editor.slint:461 rust/crates/effects/ui/composite_editor.slint:569
+#: rust/crates/effects/ui/composite.slint:90 rust/crates/effects/ui/composite.slint:91 rust/crates/effects/ui/composite_editor.slint:461 rust/crates/effects/ui/composite_editor.slint:569
 msgid "Edit picture"
 msgstr "Редагувати зображення"
 
-#: rust/crates/effects/ui/composite.slint:89
+#: rust/crates/effects/ui/composite.slint:92
 msgid "Open the editor for the layout."
 msgstr "Відкрити редактор композиції."
 
-#: rust/crates/effects/ui/composite.slint:111 rust/crates/effects/ui/composite.slint:116 rust/crates/effects/ui/composite.slint:119
+#: rust/crates/effects/ui/composite.slint:115 rust/crates/effects/ui/composite.slint:120 rust/crates/effects/ui/composite.slint:123
 msgid "Transition"
 msgstr ""
 
-#: rust/crates/effects/ui/composite.slint:120
+#: rust/crates/effects/ui/composite.slint:124
 msgid "How the picture goes from one layout to the next. Glide moves the tiles to their new places and the rest mix the two pictures."
 msgstr ""
 
-#: rust/crates/effects/ui/composite.slint:129
+#: rust/crates/effects/ui/composite.slint:134
 msgid "Length"
 msgstr ""
 
-#: rust/crates/effects/ui/composite.slint:134
+#: rust/crates/effects/ui/composite.slint:139
 msgid "How long a transition takes."
 msgstr ""
 
-#: rust/crates/effects/ui/composite.slint:144 rust/crates/effects/ui/composite.slint:149 rust/crates/effects/ui/composite.slint:152
+#: rust/crates/effects/ui/composite.slint:149 rust/crates/effects/ui/composite.slint:154 rust/crates/effects/ui/composite.slint:157
 msgid "Easing"
 msgstr ""
 
-#: rust/crates/effects/ui/composite.slint:153
+#: rust/crates/effects/ui/composite.slint:158
 msgid "Springy and Bouncy overshoot a little and settle, Smooth glides without overshooting and Even goes at one speed."
 msgstr ""
 
@@ -10895,7 +10900,7 @@ msgstr " °C"
 msgid "Add your phone"
 msgstr "Додати ваш телефон"
 
-#: rust/crates/effects/src/photos.rs:655
+#: rust/crates/effects/src/photos.rs:657
 #, python-brace-format
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"

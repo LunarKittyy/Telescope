@@ -580,6 +580,8 @@ impl PhotosPlugin {
             let (frames, used) = (data.get("frames").and_then(Value::as_i64).unwrap_or(0), data.get("used").and_then(Value::as_i64).unwrap_or(0));
             let text = if data.get("kept").and_then(Value::as_bool) == Some(true) {
                 tr("Saved {name} from {used} of {frames} photos. The photos are still saved.").field("name", &name).field("used", used.to_string()).field("frames", frames.to_string())
+            } else if data.get("skipped").and_then(Value::as_i64).unwrap_or(0) > 0 {
+                tr("Saved the merged picture {name} from {used} of {frames} photos. The photos that couldn't be lined up are saved too.").field("name", &name).field("used", used.to_string()).field("frames", frames.to_string())
             } else if data.get("left").and_then(Value::as_i64).unwrap_or(0) > 0 {
                 tr("Saved the merged picture {name}. Some photos couldn't be deleted.").field("name", &name)
             } else if used < frames {
