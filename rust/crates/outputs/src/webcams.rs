@@ -559,6 +559,15 @@ pub fn usb_identity(port: &str, sysfs_usb: &std::path::Path) -> Option<String> {
     None
 }
 
+/// What stays the same for a camera on this port: sysfs on Linux, the device's own id (it holds the serial number) on Windows.
+#[cfg(any(target_os = "linux", windows))]
+fn identity_of(port: &str) -> String {
+    #[cfg(windows)]
+    return port.strip_prefix(crate::webcam_capture::ptp_wpd::PORT_PREFIX).map(|id| format!("wpd-{id}")).unwrap_or_default();
+    #[cfg(not(windows))]
+    usb_identity(port, std::path::Path::new("/sys/bus/usb/devices")).unwrap_or_default()
+}
+
 /// The webcam list entries for what gphoto2 found. A camera keeps its key when another of its model comes or goes and when it's
 /// replugged, so its settings stay with it. Cameras sysfs doesn't know fall back to their model (and port, when two share one).
 pub fn gphoto_devices(found: &[Detected]) -> Vec<Device> {
@@ -617,7 +626,7 @@ pub fn run_auto_detect(program: &str, limit: std::time::Duration) -> Result<Stri
     if status.success() { Ok(text) } else { Err(false) }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", windows))]
 #[derive(Default)]
 struct GphotoState {
     found: Vec<Detected>,
@@ -627,7 +636,7 @@ struct GphotoState {
 
 /// Looks for DSLRs now and then on a thread of its own, so a slow gphoto2 never holds up the webcam rescan: scan() gives
 /// what the last look found. Without gphoto2 installed it finds nothing and only checks again once a minute.
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", windows))]
 pub struct GphotoScanner {
     program: String,
     every: std::time::Duration,
@@ -638,7 +647,7 @@ pub struct GphotoScanner {
     last: Option<std::time::Instant>,
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", windows))]
 impl GphotoScanner {
     pub fn new(program: &str, every: std::time::Duration, limit: std::time::Duration) -> GphotoScanner {
         GphotoScanner { program: program.into(), every, limit, library: false, state: Default::default(), last: None }
@@ -665,7 +674,16 @@ impl GphotoScanner {
                         found.iter().filter_map(|(m, p)| usable_camera(m, p)).collect::<Vec<_>>()
                     }).map_err(|_| false)
                 } else {
-                    run_auto_detect(&program, limit).map(|text| parse_auto_detect(&text))
+                    #[cfg(target_os = "linux")]
+                    {
+                        run_auto_detect(&program, limit).map(|text| parse_auto_detect(&text))
+                    }
+                    // Windows always looks through its own way (PTP over Windows Portable Devices), never through a command
+                    #[cfg(not(target_os = "linux"))]
+                    {
+                        let _ = (&program, limit);
+                        Err(false)
+                    }
                 };
                 let mut st = state.lock().unwrap();
                 st.running = false;
@@ -673,7 +691,7 @@ impl GphotoScanner {
                     Ok(text) => {
                         st.missing = false;
                         st.found = text.into_iter().map(|(model, port)| {
-                            let identity = usb_identity(&port, std::path::Path::new("/sys/bus/usb/devices")).unwrap_or_default();
+                            let identity = identity_of(&port);
                             Detected { model, port, identity }
                         }).collect();
                     }

@@ -1,9 +1,9 @@
-//! The Linux-only camera code (libgphoto2 and V4L2) is never named by code Windows builds: no Windows machine runs this, so the source is read.
+//! The Linux-only camera code (the gphoto2 command and V4L2) is never named by code Windows builds: no Windows machine runs this, so the source is read.
 
 use std::path::{Path, PathBuf};
 
 /// Modules that exist on Linux only.
-const LINUX_ONLY: [&str; 4] = ["gphoto_lib", "gphoto_stills", "webcam_capture::gphoto::", "webcam_capture::v4l2"];
+const LINUX_ONLY: [&str; 2] = ["webcam_capture::gphoto::", "webcam_capture::v4l2"];
 /// How many lines above a use the `cfg(target_os = "linux")` that guards it can be.
 const REACH: usize = 60;
 
