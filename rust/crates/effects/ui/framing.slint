@@ -39,6 +39,17 @@ export component FramingCard inherits Card {
     callback framing-peek-open(bool);
     callback speed-peek-open(bool);
     callback download-clicked;
+    // One person picked on the preview to follow
+    in property <bool> following;
+    in property <bool> picking;
+    in property <string> pick-name;
+    in property <string> pick-text;
+    in property <string> pick-again-text;
+    in property <string> pick-tip;
+    in property <string> all-text;
+    in property <string> all-tip;
+    callback pick-clicked;
+    callback follow-all-clicked;
     in property <bool> reset-shown;
     callback reset-clicked;
 
@@ -160,6 +171,38 @@ export component FramingCard inherits Card {
             has-default: true;
             default-value: 2;
             moved(v) => { root.room-moved(v); }
+        }
+    }
+    RailRow {
+        icon: Icons.framing;
+        label: pick-name;
+        tip: pick-name;
+        tip-detail: pick-tip;
+        hue: root.hue;
+        enabled: active;
+        changed: following;
+        HorizontalLayout {
+            spacing: Theme.gap;
+            Button {
+                horizontal-stretch: 1;
+                preferred-width: Theme.u(500);
+                enabled: active && !picking;
+                role: following ? "" : "primary";
+                hue: root.hue;
+                text: following ? pick-again-text : pick-text;
+                tip: pick-name;
+                tip-detail: pick-tip;
+                clicked => { root.pick-clicked(); }
+            }
+            if following: Button {
+                horizontal-stretch: 1;
+                preferred-width: Theme.u(500);
+                enabled: active;
+                text: all-text;
+                tip: all-text;
+                tip-detail: all-tip;
+                clicked => { root.follow-all-clicked(); }
+            }
         }
     }
     UnfoldGroup {
