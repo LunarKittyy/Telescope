@@ -1,7 +1,7 @@
 // The Updates plugin: the green Update button in the header and the Telescope card on
 // Updates & About. Texts with blanks come filled from Rust.
 
-import { Theme, Icons, Icon, Button, Card, RailRow, SwitchRow, ChoiceField, DialogFrame, DialogButtons, WindowBox, Status, UnfoldGroup, Unfolding } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Icon, Button, Card, RailRow, SwitchRow, ChoiceField, Status, UnfoldGroup, Unfolding } from "@ui-kit/ui-kit.slint";
 
 // The kit's Status takes ok, warn and err; the plugin says it the way the other cards' notes did
 global StatusKind {
@@ -61,14 +61,6 @@ export component UpdatesSettings inherits Card {
     in property <bool> retry-shown;
     in property <string> update-text;
     in property <bool> update-enabled;
-    // Going back to the Python version: a plain button, and a question before anything happens
-    in property <bool> back-shown;
-    in property <bool> back-enabled;
-    in property <string> back-tip;
-    in property <bool> back-open;
-    in property <string> back-text;
-    in property <string> back-action;
-    in property <bool> back-action-enabled;
     // What the status line and the update button said last, kept while their rows fold away
     property <string> held-status;
     property <string> held-kind;
@@ -84,18 +76,6 @@ export component UpdatesSettings inherits Card {
     changed status-text => { keep(); }
     changed status-kind => { keep(); }
     changed update-text => { keep(); }
-    // The way out of the question: said once the dialog has faded
-    property <bool> back-answer;
-    callback back-asked;
-    callback back-answered(bool);
-    changed back-open => {
-        if (self.back-open) {
-            self.back-answer = false;
-            back-popup.show();
-        } else {
-            back-popup.close();
-        }
-    }
     callback check-now;
     callback channel-picked(int);
     callback auto-toggled(bool);
@@ -208,57 +188,5 @@ export component UpdatesSettings inherits Card {
         hue: root.hue;
         checked: portable;
         toggled(on) => { root.portable-toggled(on); }
-    }
-    if back-shown: RailRow {
-        icon: Icons.skip-back;
-        label: @tr("Older version");
-        tip: @tr("Go back to the older Python version of Telescope");
-        named: true;
-        hue: root.hue;
-        keywords: @tr("search" => "go back downgrade python previous old version revert undo rust");
-        enabled: !busy;
-        Button {
-            shrinks: true;
-            text: @tr("Go back to the Python version");
-            tip: @tr("Go back to the Python version");
-            tip-detail: back-tip;
-            enabled: back-enabled;
-            clicked => { root.back-asked(); }
-        }
-    }
-
-    back-popup := PopupWindow {
-        close-policy: no-auto-close;
-        x: -root.absolute-position.x;
-        y: -root.absolute-position.y;
-        width: WindowBox.cover-w(max(root.width, Theme.u(230)));
-        height: WindowBox.cover-h(back-frame.preferred-height);
-        back-frame := DialogFrame {
-            x: WindowBox.left(self.width);
-            y: WindowBox.top(self.height);
-            width: max(root.width, Theme.u(230));
-            height: self.preferred-height;
-            dismissable: true;
-            left => {
-                back-popup.close();
-                // A press outside never sets the answer, so it must not keep the last one
-                root.back-answered(root.back-answer);
-                root.back-answer = false;
-            }
-            title: @tr("Go back to the Python version?");
-            Text {
-                text: back-text;
-                font-family: Theme.font;
-                font-size: Theme.body;
-                color: Theme.ink2;
-                wrap: word-wrap;
-                line-height-factor: Theme.line-factor(self.font-size);
-            }
-            DialogButtons {
-                Button { text: back-action; dialog: true; enabled: back-action-enabled; clicked => { root.back-answer = true; back-frame.leave(); } }
-                // The way out is the highlighted one: going back is the thing to be sure about
-                Button { text: @tr("Cancel"); dialog: true; role: "primary"; hue: Theme.plugin-hue("extras"); clicked => { root.back-answer = false; back-frame.leave(); } }
-            }
-        }
     }
 }
