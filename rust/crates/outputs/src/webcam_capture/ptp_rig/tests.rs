@@ -317,7 +317,7 @@ fn nikon_waits_for_both_files_of_a_pair_and_reports_the_one_that_came_when_the_o
     let mock = Mock::nikon();
     let mut rig = open(&mock);
     waits(&mut rig);
-    let Err(Incomplete { why, shots }) = rig.capture(2, &|| false) else { panic!("only one file was made") };
+    let Err(Incomplete { why, shots, .. }) = rig.capture(2, &|| false) else { panic!("only one file was made") };
     assert_eq!(shots.len(), 1);
     assert!(why.starts_with("1 of 2 files came"), "{why}");
 }
@@ -328,7 +328,7 @@ fn nikon_that_never_says_the_photo_is_there_times_out_with_nothing() {
     mock.state().silent_photos = true;
     let mut rig = open(&mock);
     waits(&mut rig);
-    let Err(Incomplete { why, shots }) = rig.capture(1, &|| false) else { panic!("nothing was reported") };
+    let Err(Incomplete { why, shots, .. }) = rig.capture(1, &|| false) else { panic!("nothing was reported") };
     assert!(shots.is_empty() && why.contains("in time"), "{why}");
 }
 
@@ -336,7 +336,7 @@ fn nikon_that_never_says_the_photo_is_there_times_out_with_nothing() {
 fn a_photo_taken_while_the_picture_went_hidden_is_never_fetched() {
     let mock = Mock::nikon();
     let mut rig = open(&mock);
-    let Err(Incomplete { why, shots }) = rig.capture(1, &|| true) else { panic!("the picture was hidden") };
+    let Err(Incomplete { why, shots, .. }) = rig.capture(1, &|| true) else { panic!("the picture was hidden") };
     assert!(shots.is_empty() && why.contains("hidden"), "{why}");
     assert!(!mock.ops().contains(&0x1009), "{:x?}", mock.ops());
 }

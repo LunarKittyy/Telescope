@@ -87,16 +87,16 @@ impl PtpCamera {
         if self.live {
             self.end_live_view();
             if self.live {
-                return Err("the camera is busy ending live view".into());
+                return Err(Incomplete::refused("the camera is busy ending live view"));
             }
         }
         let triggered = match self.maker {
             Maker::Nikon => self.nikon_trigger(until),
-            Maker::Canon => self.canon_trigger(),
+            Maker::Canon => self.canon_trigger().map_err(Incomplete::from),
             Maker::Other => Err("photos aren't known for this camera's make".into()),
         };
         let mut shots: Vec<Shot> = Vec::new();
-        let outcome = triggered.map_err(Incomplete::from).and_then(|()| {
+        let outcome = triggered.and_then(|()| {
             while shots.len() < expect.max(1) {
                 match self.next_object(until) {
                     // The picture went hidden during the exposure or between files: nothing more comes from the camera
@@ -124,18 +124,19 @@ impl PtpCamera {
     }
 
     /// Starts a photo that goes to the camera's memory, so no card is needed.
-    fn nikon_trigger(&mut self, until: Instant) -> Result<(), String> {
+    fn nikon_trigger(&mut self, until: Instant) -> Result<(), Incomplete> {
         if !self.info.supports(NIKON_CAPTURE_TO_MEMORY) {
-            return Err("this camera can't be triggered from the computer".into());
+            return Err(Incomplete::from("this camera can't be triggered from the computer"));
         }
         if self.info.properties.contains(&NIKON_RECORDING_MEDIA) {
             let _ = self.set_raw(NIKON_RECORDING_MEDIA, 1);
         }
         // Whatever the camera said before this photo isn't about it
         self.nikon_events();
-        self.busy_run(NIKON_CAPTURE_TO_MEMORY, &[NIKON_ANY_STORAGE])?;
+        // A camera that won't take the trigger hasn't fired
+        self.busy_run(NIKON_CAPTURE_TO_MEMORY, &[NIKON_ANY_STORAGE]).map_err(Incomplete::refused)?;
         // The shutter and the processing keep the camera busy until it is ready again, which a long exposure stretches
-        self.busy_until(NIKON_DEVICE_READY, &[], until)
+        self.busy_until(NIKON_DEVICE_READY, &[], until).map_err(Incomplete::from)
     }
 
     /// Runs an operation until the camera stops saying it is busy, or `until` passes, or the camera is stopped.
@@ -322,8 +323,8 @@ impl PtpCamera {
 
 fn missing(shots: Vec<Shot>, expect: usize, why: String) -> Incomplete {
     if shots.is_empty() {
-        Incomplete { why, shots }
+        Incomplete { why, shots, before_shutter: false }
     } else {
-        Incomplete { why: format!("{} of {expect} files came: {why}", shots.len()), shots }
+        Incomplete { why: format!("{} of {expect} files came: {why}", shots.len()), shots, before_shutter: false }
     }
 }

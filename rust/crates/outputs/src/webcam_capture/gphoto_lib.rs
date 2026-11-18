@@ -108,11 +108,20 @@ pub struct Shot {
 pub struct Incomplete {
     pub why: String,
     pub shots: Vec<Shot>,
+    /// The camera refused or was too busy to start the shot, so the shutter never fired and trying again can't make a second picture.
+    pub before_shutter: bool,
+}
+
+impl Incomplete {
+    /// A shot the camera never started.
+    pub fn refused(why: impl Into<String>) -> Incomplete {
+        Incomplete { why: why.into(), shots: Vec::new(), before_shutter: true }
+    }
 }
 
 impl From<String> for Incomplete {
     fn from(why: String) -> Incomplete {
-        Incomplete { why, shots: Vec::new() }
+        Incomplete { why, shots: Vec::new(), before_shutter: false }
     }
 }
 
@@ -140,7 +149,7 @@ pub fn gather<F>(shots: Vec<Shot>, expect: usize, limit: Duration, mut listen: i
                  mut fetch: impl FnMut(F) -> Result<Shot, String>) -> Result<Vec<Shot>, Incomplete> {
     let until = Instant::now() + limit;
     let mut shots = shots;
-    let missing = |shots: Vec<Shot>, why: String| Err(Incomplete { why: format!("{} of {expect} files came: {why}", shots.len()), shots });
+    let missing = |shots: Vec<Shot>, why: String| Err(Incomplete { why: format!("{} of {expect} files came: {why}", shots.len()), shots, before_shutter: false });
     while shots.len() < expect {
         if Instant::now() >= until {
             return missing(shots, "the rest didn't arrive in time".into());

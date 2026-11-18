@@ -356,12 +356,18 @@ fn take_photo_guarded(rig: &mut dyn Rig, wish: &Wish, guard: Option<&Guard>) -> 
     let covered = || guard.is_some_and(Guard::is_hidden);
     let mut shot = rig.capture(expect, &covered);
     // A camera that was just told another image quality can fail the first shot while it settles (a D5100 did on a RAW after a JPEG)
-    if switched && shot.as_ref().is_err_and(|e| e.shots.is_empty() && !e.why.starts_with("stopped")) && !covered() {
-        log::info!("the first shot after changing the image quality failed, trying once more");
+    // Only when the camera hadn't started the shot: after the shutter fired, a second try would be a second picture
+    if switched && shot.as_ref().is_err_and(|e| e.before_shutter && e.shots.is_empty()) {
+        log::info!("the camera wasn't ready for the first shot after changing the image quality, trying once more");
         std::thread::sleep(AFTER_SWITCH);
-        shot = rig.capture(expect, &covered);
+        if let Some(stop) = guard.and_then(Guard::stop) {
+            return Err(stop);
+        }
+        if !covered() {
+            shot = rig.capture(expect, &covered);
+        }
     }
-    let taken = shot.map_err(|Incomplete { why, shots }| {
+    let taken = shot.map_err(|Incomplete { why, shots, .. }| {
         log::info!("the camera couldn't take the photo: {why}");
         if !shots.is_empty() {
             Failure::Partial(shots)
