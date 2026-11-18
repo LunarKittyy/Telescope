@@ -184,6 +184,19 @@ class StillCapture(
         }
     }
 
+    // From any thread, once StillJobs dropped the request: its timer is cancelled, or the captures it still has queued are
+    fun cancel(id: String) {
+        handler()?.post {
+            val w = waiting
+            if (w != null && w.id == id) {
+                waiting = null
+                handler()?.removeCallbacks(w.go)
+                if (jobs.active() == null) onBusy(false)
+            }
+            current?.let { r -> if (r.id == id) end(r, "interrupted", "The computer cancelled the photo") }
+        }
+    }
+
     // The stream is stopping: anything in flight ends, the readers go
     fun stop() {
         stopped = true

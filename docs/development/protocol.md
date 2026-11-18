@@ -190,7 +190,7 @@ A plain photo goes into the stream's own camera session next to the video and th
 
 `GET /v1/still/file?id=<id>&n=<index>` sends file `n` (from 0) with its `Content-Length` and `Content-Type`, streamed in pieces since a RAW file is often 50 MB or more. It takes one of the stream slots while it sends, and a download that stops moving for 30 seconds is cut off. Both `GET` requests answer `404` for an `id` or file the phone doesn't have (any more).
 
-`POST /v1/still` with `{"action": "forget", "id": "<id>"}` deletes the files once the desktop has them. It always answers ok, also for an `id` that's already gone. Otherwise the phone holds on to them in its cache for ten minutes (at most the last four requests and 1 GB) and deletes all of them when the stream stops.
+`POST /v1/still` with `{"action": "forget", "id": "<id>"}` deletes the files once the desktop has them. It always answers ok, also for an `id` that's already gone. For a photo still being taken it cancels the photo. The captures still queued are dropped and the files already written or still arriving are deleted. An older phone only forgot photos that had ended and left the rest to its ten minute clean-up below. Otherwise the phone holds on to them in its cache for ten minutes (at most the last four requests and 1 GB) and deletes all of them when the stream stops.
 
 The desktop gives up on a photo whose status hasn't moved for 45 s plus its exposures (`timeout`, and it tells the phone to forget it), and ends one as `interrupted` as soon as its own stream to that phone stops or restarts, rather than waiting to lose the phone.
 

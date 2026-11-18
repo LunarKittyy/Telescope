@@ -349,6 +349,32 @@ fn photos_saved_before_a_burst_failed_still_count() {
 }
 
 #[test]
+fn a_burst_cut_short_by_hiding_still_counts_what_it_saved_and_what_it_filled() {
+    let run = |budget: u64| {
+        let dir = scratch_dir(&format!("phototrap-cut-short-{budget}"));
+        let (mut p, _) = plugin();
+        p.folder = dir.display().to_string();
+        p.budget = budget;
+        let mut h = host();
+        click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+        moved(&mut p, &mut h);
+        let files: Vec<String> = ["a.jpg", "b.jpg"].iter().map(|n| {
+            std::fs::write(dir.join(n), vec![0u8; 600]).unwrap();
+            dir.join(n).display().to_string()
+        }).collect();
+        // Two shots were saved before the picture went hidden for the third
+        finished(&mut p, &mut h, 1, false, json!({"ok": false, "files": files, "code": "hidden", "error": ""}));
+        p
+    };
+    let roomy = run(10_000);
+    assert_eq!((roomy.triggers, roomy.photos, roomy.used), (1, 2, 1200), "the files and their bytes count");
+    assert!(roomy.problem.is_none() && roomy.armed, "hiding is no error and the folder has room");
+    let full = run(1000);
+    assert_eq!((full.triggers, full.photos, full.used), (1, 2, 1200));
+    assert!(!full.armed, "the saved files filled the folder");
+}
+
+#[test]
 fn a_zone_is_kept_where_the_detector_looks_whatever_the_zoom_and_flip() {
     let (mut p, mut h, _) = armed();
     // Zoomed 2x on the middle, a drag across the left of the preview is over the part of the picture that starts a quarter in

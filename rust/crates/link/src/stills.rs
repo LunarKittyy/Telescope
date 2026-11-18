@@ -642,7 +642,10 @@ impl Runner<'_> {
                     return Err(format!("got {have} of {size} bytes"));
                 }
             }
-            std::fs::rename(&part, &path).map_err(|e| e.to_string())
+            if is_hidden() {
+                cut.store(true, Ordering::SeqCst);
+            }
+            promote(&part, &path, &cut)
         };
         // A read can sit inside one chunk-size line for as long as bytes trickle in, so the limits are enforced from outside by closing the socket
         let (done, finished) = std::sync::mpsc::channel::<()>();
@@ -679,6 +682,26 @@ impl Runner<'_> {
             }
         }
     }
+}
+
+/// A finished download becomes the photo, unless `cut` says the picture went hidden (set by the watcher thread at any moment): looked at
+/// before the rename, and again after it, where a cut that raced the rename takes the file back out.
+fn promote(part: &Path, path: &Path, cut: &AtomicBool) -> Result<(), String> {
+    promote_with(part, path, cut, &|| {})
+}
+
+/// `promote` with something that runs between the rename and the second look, which is where a watcher can cut in.
+fn promote_with(part: &Path, path: &Path, cut: &AtomicBool, between: &dyn Fn()) -> Result<(), String> {
+    if cut.load(Ordering::SeqCst) {
+        return Err("hidden".into());
+    }
+    std::fs::rename(part, path).map_err(|e| e.to_string())?;
+    between();
+    if cut.load(Ordering::SeqCst) {
+        let _ = std::fs::remove_file(path);
+        return Err("hidden".into());
+    }
+    Ok(())
 }
 
 /// str(value) as Python would print a JSON value.
@@ -1016,6 +1039,31 @@ mod tests {
         assert!(!r.ok && r.code == "hidden" && r.files.is_empty(), "{r:?}");
         assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0, "no file and no partial one");
         assert_eq!(state.lock().unwrap().forgotten, ["abc"]);
+    }
+
+    #[test]
+    fn a_download_the_watcher_cut_is_never_promoted_to_a_photo() {
+        let dir = telescope_core::testing::scratch_dir("stills-promote");
+        let (part, path) = (dir.join("a.jpg.part"), dir.join("a.jpg"));
+        let cut = AtomicBool::new(false);
+        std::fs::write(&part, b"x").unwrap();
+        promote(&part, &path, &cut).unwrap();
+        assert!(path.is_file() && !part.exists());
+        // Cut before the rename: the part stays where the caller removes it, and no photo appears
+        std::fs::remove_file(&path).unwrap();
+        std::fs::write(&part, b"x").unwrap();
+        cut.store(true, Ordering::SeqCst);
+        assert_eq!(promote(&part, &path, &cut), Err("hidden".to_string()));
+        assert!(!path.exists());
+        // Cut by the watcher right after the rename won: the photo is taken back out
+        cut.store(false, Ordering::SeqCst);
+        std::fs::write(&part, b"x").unwrap();
+        let raced = || {
+            assert!(path.is_file(), "the rename had won");
+            cut.store(true, Ordering::SeqCst);
+        };
+        assert_eq!(promote_with(&part, &path, &cut, &raced), Err("hidden".to_string()));
+        assert!(!path.exists() && !part.exists());
     }
 
     #[test]

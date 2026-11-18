@@ -1306,19 +1306,20 @@ impl State {
             return true;
         }
         let steps = self.hiding_steps.get(source_id).or_else(|| self.hiding_steps.get(""));
-        steps.is_some_and(|owners| owners.iter().any(|o| !self.hiding.contains_key(o)))
+        steps.is_some_and(|owners| owners.iter().any(|o| !self.hiding.get(o).is_some_and(|per| said(per).is_some())))
     }
 
     /// Host::set_hiding: recorded at once, so a photo about to go sees a cover asked for in the same batch. A device-local plugin holds the shown
-    /// camera's settings, so a report without a stream is also that camera's own: the other streams keep what they were last told, as their steps do.
+    /// camera's settings, so a report without a stream is that camera's own and no other stream's: only a plugin that isn't device-local speaks
+    /// for all of them (""), and the streams a device-local one hasn't reported on count as hiding if its steps do.
     pub fn set_hiding(&mut self, owner: &str, source_id: Option<&str>, on: bool) {
         let local = self.slots.iter().any(|s| s.info.device_local && s.info.name == owner);
-        let shown = if local && source_id.is_none() { self.streams.source_id.clone().or_else(|| self.selected.clone()) } else { None };
-        let per = self.hiding.entry(owner.to_string()).or_default();
-        per.insert(source_id.unwrap_or("").to_string(), on);
-        if let Some(shown) = shown.filter(|s| !s.is_empty()) {
-            per.insert(shown, on);
-        }
+        let key = match source_id {
+            Some(id) => id.to_string(),
+            None if local => self.streams.source_id.clone().or_else(|| self.selected.clone()).unwrap_or_default(),
+            None => String::new(),
+        };
+        self.hiding.entry(owner.to_string()).or_default().insert(key, on);
         self.sync_hidden_flags();
     }
 
@@ -3356,6 +3357,30 @@ mod tests {
         s.set_hiding("background", None, false);
         assert!(!a.load(SeqCst) && !s.picture_hidden_for("a") && !b.load(SeqCst));
         // A stream asked about by name is unaffected by the others, too
+        s.set_hiding("background", Some("b"), true);
+        assert!(!a.load(SeqCst) && b.load(SeqCst));
+    }
+
+    #[test]
+    fn a_device_local_plugin_speaks_only_for_the_camera_it_was_shown_on() {
+        use std::sync::atomic::Ordering::SeqCst;
+        let mut s = state();
+        s.register(stub("background", json!({}), true).0).unwrap();
+        let (a, b) = (s.hidden_flag("a"), s.hidden_flag("b"));
+        // Both cameras blur: a's report, then the panels move to b, which says the same
+        s.streams.source_id = Some("a".into());
+        s.set_hiding("background", None, true);
+        assert!(a.load(SeqCst) && !b.load(SeqCst), "b has not been told about");
+        s.streams.source_id = Some("b".into());
+        s.set_hiding("background", None, true);
+        assert!(a.load(SeqCst) && b.load(SeqCst));
+        // Back on a, its blur goes off: b keeps its own
+        s.streams.source_id = Some("a".into());
+        s.set_hiding("background", None, false);
+        assert!(!a.load(SeqCst) && b.load(SeqCst) && s.picture_hidden_for("b"), "b is still blurred");
+        // With no camera shown, the report is everyone's
+        s.streams.source_id = None;
+        s.set_hiding("background", None, false);
         s.set_hiding("background", Some("b"), true);
         assert!(!a.load(SeqCst) && b.load(SeqCst));
     }

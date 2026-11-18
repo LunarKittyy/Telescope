@@ -1234,12 +1234,16 @@ class CameraStreamService : Service() {
         }
     }
 
-    // POST /v1/still: {"action": "take", ...StillOptions} starts a photo, {"action": "forget", "id"} deletes its files
+    // POST /v1/still: {"action": "take", ...StillOptions} starts a photo, {"action": "forget", "id"} deletes its files and cancels it if it is still shooting
     private fun handleStill(params: Map<String, String>): String {
         fun answer(started: StillStarted) = Json.encodeToString(StillStarted.serializer(), started)
         fun refuse(code: String, text: String) = answer(StillStarted(ok = false, error = text, code = code))
         when (params["action"] ?: "take") {
-            "forget" -> { params["id"]?.let(stillJobs::forget); return answer(StillStarted(ok = true)) }
+            "forget" -> {
+                // One still shooting is cancelled: the camera stops taking the rest and what it already wrote is deleted
+                params["id"]?.let { id -> if (stillJobs.forget(id)) stills?.cancel(id) }
+                return answer(StillStarted(ok = true))
+            }
             "take" -> {}
             else -> return refuse("bad_option", "unknown action '${params["action"]}'")
         }

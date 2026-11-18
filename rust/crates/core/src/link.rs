@@ -372,17 +372,14 @@ pub trait PhoneStills: Send + Sync {
     fn take(&self, source_id: Option<&str>, stream_base: &str, phone: &PairedPhone, options: &Value, folder: &str,
             on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
             alive: Box<dyn Fn() -> bool + Send>) -> bool;
-    /// `take` that reads `hidden` on the photo's thread right before the request leaves for the phone: true ends the photo with the code
-    /// "hidden" and nothing is asked of the phone. An implementation that can't look then reads it once, before `take`.
+    /// `take` that reads `hidden` on the photo's thread right before the request leaves for the phone and again before a file is kept: set, it
+    /// ends the photo with the code "hidden". A link that can't promise that refuses every guarded photo, as this default does.
     #[allow(clippy::too_many_arguments)]
-    fn take_unless_hidden(&self, source_id: Option<&str>, stream_base: &str, phone: &PairedPhone, options: &Value, folder: &str,
-                          on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
-                          alive: Box<dyn Fn() -> bool + Send>, hidden: std::sync::Arc<std::sync::atomic::AtomicBool>) -> bool {
-        if hidden.load(std::sync::atomic::Ordering::SeqCst) {
-            on_done(serde_json::json!({"ok": false, "files": [], "code": "hidden", "error": ""}));
-            return true;
-        }
-        self.take(source_id, stream_base, phone, options, folder, on_progress, on_done, alive)
+    fn take_unless_hidden(&self, _source_id: Option<&str>, _stream_base: &str, _phone: &PairedPhone, _options: &Value, _folder: &str,
+                          _on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
+                          _alive: Box<dyn Fn() -> bool + Send>, _hidden: std::sync::Arc<std::sync::atomic::AtomicBool>) -> bool {
+        on_done(serde_json::json!({"ok": false, "files": [], "code": "hidden", "error": "No photo was taken while part of the picture is hidden."}));
+        true
     }
     /// At quit: every photo ends, and its phone is told to forget it.
     fn shutdown(&self);
@@ -429,12 +426,13 @@ mod stills_tests {
     }
 
     #[test]
-    fn a_link_that_cant_look_refuses_a_guarded_photo_while_hidden_and_takes_it_otherwise() {
+    fn a_link_that_cant_guard_a_photo_refuses_it_whether_or_not_the_picture_is_hidden() {
         let link = Plain::default();
-        let refused = ask(&link, true);
-        assert_eq!((refused["ok"].clone(), refused["code"].clone()), (json!(false), json!("hidden")));
+        for hidden in [true, false] {
+            let refused = ask(&link, hidden);
+            assert_eq!((refused["ok"].clone(), refused["code"].clone()), (json!(false), json!("hidden")));
+            assert_eq!(refused["error"], json!("No photo was taken while part of the picture is hidden."));
+        }
         assert_eq!(link.0.load(Ordering::SeqCst), 0, "nothing was taken");
-        assert_eq!(ask(&link, false)["ok"], json!(true));
-        assert_eq!(link.0.load(Ordering::SeqCst), 1);
     }
 }

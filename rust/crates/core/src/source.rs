@@ -69,15 +69,12 @@ pub trait SourceStills: Send + Sync {
     /// restarted) ends it as interrupted. The callbacks come from its own thread.
     fn take(&self, options: &Value, folder: &str, on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
             alive: Box<dyn Fn() -> bool + Send>) -> bool;
-    /// `take` that reads `hidden` right before the shutter opens (after any self-timer): true ends the photo with the code "hidden"
-    /// and nothing is captured. An implementation that can't look then reads it once, before `take`.
-    fn take_unless_hidden(&self, options: &Value, folder: &str, on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
-                          alive: Box<dyn Fn() -> bool + Send>, hidden: std::sync::Arc<std::sync::atomic::AtomicBool>) -> bool {
-        if hidden.load(std::sync::atomic::Ordering::SeqCst) {
-            on_done(serde_json::json!({"ok": false, "files": [], "code": "hidden", "error": ""}));
-            return true;
-        }
-        self.take(options, folder, on_progress, on_done, alive)
+    /// `take` that reads `hidden` right before the shutter opens (after any self-timer) and again before what it took is kept: set, it ends the
+    /// photo with the code "hidden" and nothing is saved. A camera that can't promise that refuses every guarded photo, as this default does.
+    fn take_unless_hidden(&self, _options: &Value, _folder: &str, _on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
+                          _alive: Box<dyn Fn() -> bool + Send>, _hidden: std::sync::Arc<std::sync::atomic::AtomicBool>) -> bool {
+        on_done(serde_json::json!({"ok": false, "files": [], "code": "hidden", "error": "No photo was taken while part of the picture is hidden."}));
+        true
     }
     /// Called from any thread whenever caps() may have changed, and when its camera lets go. Replaces the last one given.
     fn set_on_change(&self, on_change: Box<dyn Fn() + Send + Sync>);
@@ -258,12 +255,13 @@ mod stills_tests {
     }
 
     #[test]
-    fn a_camera_that_cant_look_refuses_a_guarded_photo_while_hidden_and_takes_it_otherwise() {
+    fn a_camera_that_cant_guard_a_photo_refuses_it_whether_or_not_the_picture_is_hidden() {
         let camera = Plain::default();
-        let refused = ask(&camera, true);
-        assert_eq!((refused["ok"].clone(), refused["code"].clone()), (json!(false), json!("hidden")));
+        for hidden in [true, false] {
+            let refused = ask(&camera, hidden);
+            assert_eq!((refused["ok"].clone(), refused["code"].clone()), (json!(false), json!("hidden")));
+            assert_eq!(refused["error"], json!("No photo was taken while part of the picture is hidden."));
+        }
         assert_eq!(camera.0.load(Ordering::SeqCst), 0, "nothing was taken");
-        assert_eq!(ask(&camera, false)["ok"], json!(true));
-        assert_eq!(camera.0.load(Ordering::SeqCst), 1);
     }
 }

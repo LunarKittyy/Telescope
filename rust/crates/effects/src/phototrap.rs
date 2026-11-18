@@ -460,20 +460,21 @@ impl PhototrapPlugin {
     }
 
     fn done(&mut self, host: &mut dyn Host, ok: bool, data: &Value) {
-        // Asked not to take it while the picture was hidden, and it was: nothing went off
-        if data.get("code").and_then(Value::as_str) == Some("hidden") {
+        let files: Vec<&str> = data.get("files").and_then(Value::as_array).map_or_else(Vec::new, |a| a.iter().filter_map(Value::as_str).collect());
+        let code = data.get("code").and_then(Value::as_str);
+        // Asked not to take it while the picture was hidden, and it was before the first one: nothing went off
+        if code == Some("hidden") && files.is_empty() {
             self.triggers = self.triggers.saturating_sub(1);
             self.ready_at = self.now();
             return self.show(host);
         }
-        let files: Vec<&str> = data.get("files").and_then(Value::as_array).map_or_else(Vec::new, |a| a.iter().filter_map(Value::as_str).collect());
-        // What reached the folder counts even when the burst failed on a later photo
+        // What reached the folder counts even when the burst was cut short or failed on a later photo
         self.photos += files.len() as u32;
         self.used += files.iter().filter(|f| !self.counted.contains(Path::new(f))).filter_map(|f| std::fs::metadata(f).ok()).map(|m| m.len()).sum::<u64>();
         if ok && !files.is_empty() {
             self.problem = None;
-        } else if data.get("code").and_then(Value::as_str) == Some("interrupted") {
-            // The stream stopped or changed lens under it: the card already says it's waiting
+        } else if code == Some("hidden") || code == Some("interrupted") {
+            // Hiding began, or the stream stopped or changed lens, under it: the card already says it's waiting
         } else {
             let error = data.get("error").and_then(Value::as_str).filter(|e| !e.is_empty());
             self.problem = Some(error.map_or_else(|| tr("The phone couldn't take the photos"), String::from));

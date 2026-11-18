@@ -71,7 +71,7 @@ impl Rig for Fake {
         }
     }
     fn restart_live_view(&mut self) {}
-    fn capture(&mut self, expect: usize) -> Result<Vec<Shot>, Incomplete> {
+    fn capture(&mut self, expect: usize, _stop: &dyn Fn() -> bool) -> Result<Vec<Shot>, Incomplete> {
         let (takes, error) = {
             let mut s = self.0.lock().unwrap();
             s.log.push("capture".into());
@@ -513,8 +513,8 @@ fn two_photos_in_the_same_second_dont_overwrite_each_other() {
     let dir = folder("names");
     std::fs::create_dir_all(&dir).unwrap();
     let shots = vec![Shot { name: "a.JPG".into(), data: vec![1] }];
-    let first = save(&dir, &shots).unwrap();
-    let second = save(&dir, &shots).unwrap();
+    let first = save(&dir, &shots, &|| false).unwrap();
+    let second = save(&dir, &shots, &|| false).unwrap();
     // Same second or not, the second never takes the first's name
     assert_ne!(first, second);
     assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 2);
@@ -810,8 +810,8 @@ impl Rig for Meanwhile {
         self.0.write(name, value)
     }
     fn restart_live_view(&mut self) {}
-    fn capture(&mut self, expect: usize) -> Result<Vec<Shot>, Incomplete> {
-        self.0.capture(expect)
+    fn capture(&mut self, expect: usize, stop: &dyn Fn() -> bool) -> Result<Vec<Shot>, Incomplete> {
+        self.0.capture(expect, stop)
     }
     fn close(&mut self) {
         self.0.close()
@@ -855,4 +855,89 @@ fn a_stream_that_stops_while_the_camera_applies_settings_gets_no_shutter() {
     assert!(shared.run_pending(&mut Meanwhile(Fake(state.clone()), Box::new(move || gone.store(false, Ordering::SeqCst)))));
     assert_eq!(state.lock().unwrap().captures, 0, "the shutter never opened");
     assert!(matches!(waiter.wait(Duration::ZERO), Wait::Got(Err(Failure::Interrupted))));
+}
+
+/// A rig whose exposure runs while something happens (the picture is covered), and that notes what `stop` said once the shutter closed.
+struct Exposing(Fake, Box<dyn Fn() + Send>, Arc<Mutex<Option<bool>>>);
+
+impl Rig for Exposing {
+    fn preview(&mut self) -> Result<Vec<u8>, String> {
+        self.0.preview()
+    }
+    fn read(&mut self, name: &str) -> Option<Setting> {
+        self.0.read(name)
+    }
+    fn write(&mut self, name: &str, value: &str) -> Result<(), String> {
+        self.0.write(name, value)
+    }
+    fn restart_live_view(&mut self) {}
+    fn capture(&mut self, expect: usize, stop: &dyn Fn() -> bool) -> Result<Vec<Shot>, Incomplete> {
+        let taken = self.0.capture(expect, stop);
+        (self.1)();
+        *self.2.lock().unwrap() = Some(stop());
+        taken
+    }
+    fn close(&mut self) {
+        self.0.close()
+    }
+}
+
+#[test]
+fn a_picture_hidden_during_a_long_exposure_discards_what_the_camera_sends() {
+    let state = d5100(true);
+    let (hidden, alive) = (Arc::new(AtomicBool::new(false)), yes());
+    let (shared, waiter) = guarded_job(&hidden, &alive);
+    let cover = hidden.clone();
+    let said = Arc::new(Mutex::new(None));
+    assert!(shared.run_pending(&mut Exposing(Fake(state.clone()), Box::new(move || cover.store(true, Ordering::SeqCst)), said.clone())));
+    assert_eq!(state.lock().unwrap().captures, 1, "the shutter had opened before the cover");
+    assert_eq!(*said.lock().unwrap(), Some(true), "the transfer was told to stop");
+    assert!(matches!(waiter.wait(Duration::ZERO), Wait::Got(Err(Failure::Hidden))), "and what came is thrown away");
+}
+
+#[test]
+fn a_photo_covered_while_it_is_written_leaves_no_file_behind() {
+    let dir = folder("save-covered");
+    std::fs::create_dir_all(&dir).unwrap();
+    let shots = vec![Shot { name: "a.NEF".into(), data: vec![1; 4] }, Shot { name: "a.JPG".into(), data: vec![2; 4] }];
+    let left = |dir: &Path| std::fs::read_dir(dir).unwrap().count();
+    // Covered before the first file, after the first, and after the last: nothing of the photo stays
+    for after in [0usize, 1, 2, 3, 4, 5] {
+        let looks = std::sync::atomic::AtomicUsize::new(0);
+        let covered = || looks.fetch_add(1, Ordering::SeqCst) >= after;
+        let got = save(&dir, &shots, &covered);
+        match got {
+            Ok(files) => {
+                assert!(after >= 5, "covered at look {after} yet saved");
+                assert_eq!(files.len(), 2);
+                assert_eq!(left(&dir), 2);
+                for f in files {
+                    std::fs::remove_file(f).unwrap();
+                }
+            }
+            Err((failure, files)) => {
+                assert_eq!((failure, files), (Failure::Hidden, vec![]), "at look {after}");
+                assert_eq!(left(&dir), 0, "files or partial files left at look {after}");
+            }
+        }
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_photo_is_written_as_a_part_file_that_is_renamed_when_whole() {
+    let dir = folder("save-part");
+    std::fs::create_dir_all(&dir).unwrap();
+    let shots = vec![Shot { name: "a.JPG".into(), data: vec![7; 4] }];
+    let seen = Mutex::new(Vec::new());
+    // What the folder holds at each look, which comes while the file is a part
+    let covered = || {
+        seen.lock().unwrap().push(std::fs::read_dir(&dir).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect::<Vec<_>>());
+        false
+    };
+    let files = save(&dir, &shots, &covered).unwrap();
+    assert!(seen.lock().unwrap().iter().any(|names| names.iter().any(|n| n.ends_with(".part"))), "{:?}", seen.lock().unwrap());
+    assert_eq!(std::fs::read(&files[0]).unwrap(), vec![7; 4]);
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "no part file left");
+    let _ = std::fs::remove_dir_all(dir);
 }

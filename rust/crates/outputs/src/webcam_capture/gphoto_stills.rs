@@ -239,7 +239,7 @@ pub enum Failure {
     Save,
     Interrupted,
     Timeout,
-    /// The picture went hidden before the shutter opened.
+    /// The picture went hidden before the shutter opened or while the photo was being taken or saved.
     Hidden,
     /// The camera's image quality is read-only on a setting that also makes RAW, so a JPEG-only photo can't be had.
     Locked(Class),
@@ -346,7 +346,8 @@ fn take_photo_guarded(rig: &mut dyn Rig, wish: &Wish, guard: Option<&Guard>) -> 
     if let Some(stop) = guard.and_then(Guard::stop) {
         return Err(stop);
     }
-    rig.capture(expect).map_err(|Incomplete { why, shots }| {
+    let covered = || guard.is_some_and(Guard::is_hidden);
+    let taken = rig.capture(expect, &covered).map_err(|Incomplete { why, shots }| {
         log::info!("the camera couldn't take the photo: {why}");
         if !shots.is_empty() {
             Failure::Partial(shots)
@@ -355,7 +356,12 @@ fn take_photo_guarded(rig: &mut dyn Rig, wish: &Wish, guard: Option<&Guard>) -> 
         } else {
             Failure::Camera(why)
         }
-    })
+    });
+    // Hiding began after the shutter opened (a long exposure, the transfer): whatever came is discarded unseen
+    if covered() {
+        return Err(Failure::Hidden);
+    }
+    taken
 }
 
 /// What to do with a photo that came after its job gave up waiting: save it and say so.
@@ -608,11 +614,17 @@ fn reserve(folder: &Path, stem: &str, ext: &str) -> std::io::Result<PathBuf> {
     Err(std::io::Error::other("no free name"))
 }
 
-/// The files of a photo into folder, named after the moment so a RAW and its JPEG share a name.
-fn save(folder: &Path, shots: &[Shot]) -> Result<Vec<PathBuf>, (Failure, Vec<PathBuf>)> {
+/// The files of a photo into folder, named after the moment so a RAW and its JPEG share a name. Each is written as a `.part` file and renamed
+/// when whole. `covered` says the picture is hidden: it is looked at before and after every file, and the photo's files are all removed then.
+fn save(folder: &Path, shots: &[Shot], covered: &dyn Fn() -> bool) -> Result<Vec<PathBuf>, (Failure, Vec<PathBuf>)> {
     let stem = format!("Telescope_{}", telescope_core::time::local_stamp());
     let mut files: Vec<PathBuf> = Vec::new();
+    let discard = |files: &[PathBuf]| files.iter().for_each(|f| { let _ = std::fs::remove_file(f); });
     for shot in shots {
+        if covered() {
+            discard(&files);
+            return Err((Failure::Hidden, Vec::new()));
+        }
         let ext = Path::new(&shot.name).extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase)
             .filter(|e| !e.is_empty() && e.len() <= 5 && e.chars().all(|c| c.is_ascii_alphanumeric())).unwrap_or_else(|| "jpg".into());
         let path = match reserve(folder, &stem, &ext) {
@@ -622,12 +634,29 @@ fn save(folder: &Path, shots: &[Shot]) -> Result<Vec<PathBuf>, (Failure, Vec<Pat
                 return Err((Failure::Save, files));
             }
         };
-        if let Err(e) = std::fs::write(&path, &shot.data) {
-            log::warn!("can't save {}: {e}", path.display());
+        let part = path.with_file_name(format!("{}.part", path.file_name().unwrap_or_default().to_string_lossy()));
+        let written = std::fs::write(&part, &shot.data);
+        // The last look before the file is kept
+        let hidden = covered();
+        let kept = if hidden { Ok(()) } else { written.and_then(|()| std::fs::rename(&part, &path)) };
+        if hidden || kept.is_err() {
+            let _ = std::fs::remove_file(&part);
             let _ = std::fs::remove_file(&path);
+        }
+        if hidden {
+            discard(&files);
+            return Err((Failure::Hidden, Vec::new()));
+        }
+        if let Err(e) = kept {
+            log::warn!("can't save {}: {e}", path.display());
             return Err((Failure::Save, files));
         }
         files.push(path);
+    }
+    // A cover can land while the last file is renamed
+    if covered() {
+        discard(&files);
+        return Err((Failure::Hidden, Vec::new()));
     }
     Ok(files)
 }
@@ -704,15 +733,17 @@ fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Valu
             }
         }
     };
+    let covered = || guard.is_hidden();
     match outcome {
-        Ok(shots) => match save(folder, &shots) {
+        Ok(shots) => match save(folder, &shots, &covered) {
             Ok(files) => result(true, &files, "", ""),
             Err((failure, files)) => failed(&failure, &files),
         },
         // Whatever came of a photo that is only half there is kept, and the card says it is half
         Err(Failure::Partial(shots)) => {
-            let files = match save(folder, &shots) {
+            let files = match save(folder, &shots, &covered) {
                 Ok(files) => files,
+                Err((Failure::Hidden, _)) => return failed(&Failure::Hidden, &[]),
                 Err((_, files)) => files,
             };
             failed(&Failure::Partial(shots), &files)
@@ -784,12 +815,15 @@ impl GphotoStills {
         let on_progress = Arc::new(Mutex::new(on_progress));
         let tell = on_progress.clone();
         let late_folder = folder.clone();
+        let late_hidden = hidden.clone();
         let late: Late = Arc::new(move |outcome| {
             let shots = match outcome {
                 Ok(shots) | Err(Failure::Partial(shots)) => shots,
                 Err(_) => return,
             };
-            let files = save(&late_folder, &shots).unwrap_or_else(|(_, files)| files);
+            // A photo that comes late is saved unless the picture is hidden by then
+            let covered = || late_hidden.as_ref().is_some_and(|h| h.load(Ordering::SeqCst));
+            let files = save(&late_folder, &shots, &covered).unwrap_or_else(|(_, files)| files);
             if !files.is_empty() {
                 let said = json!({"state": "late", "files": files.iter().map(|f| f.display().to_string()).collect::<Vec<_>>()});
                 (*tell.lock().unwrap_or_else(|e| e.into_inner()))(said);

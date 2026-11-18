@@ -1286,3 +1286,22 @@ fn shutdown_stops_hiding_so_the_host_isnt_left_thinking_the_picture_is_covered()
     rig.plugin.shutdown(&mut rig.host);
     assert_eq!(rig.host.hiding.len(), told, "nothing to let go of twice");
 }
+
+#[test]
+fn the_host_hears_again_when_the_panels_move_to_a_camera_with_the_same_settings() {
+    let mut rig = Rig::new(None, "ready");
+    rig.set_mode("blur");
+    let told = rig.host.hiding.len();
+    // The next camera's settings arrive (here the same ones), then the panels are on it
+    let cfg = rig.plugin.get_config();
+    rig.plugin.set_config(&cfg).unwrap();
+    rig.event(Event::PhonesChanged { count: 1 });
+    assert_eq!(rig.host.hiding.len(), told + 1, "the new camera's settings are told");
+    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    // A camera shown again with nothing else changing is told too
+    rig.event(Event::SourceShown { source_id: "b".into() });
+    assert_eq!(rig.host.hiding.len(), told + 2);
+    // Settings that didn't move, nothing shown: nothing said
+    rig.event(Event::PhonesChanged { count: 1 });
+    assert_eq!(rig.host.hiding.len(), told + 2);
+}

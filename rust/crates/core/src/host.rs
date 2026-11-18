@@ -740,7 +740,7 @@ pub trait HostStills {
     }
     /// A plugin with a Privacy, Cover or Background frame step says whether it hides the stream's pixels now (None: every stream), each
     /// time that changes. It counts at once, not when the steps are next built. The host keeps it per owner and stream. A device-local plugin
-    /// holds the shown camera's settings, so its report without a stream is that camera's: the other streams keep what they were told.
+    /// holds the shown camera's settings, so its report without a stream is that camera's only, and it reports again whenever the shown camera changes.
     fn set_hiding(&mut self, _owner: &str, _source_id: Option<&str>, _on: bool) {}
     /// A flag that says what picture_hidden says for that stream, kept current by the host as hiding changes, for a frame step to read on
     /// the stream's own thread. None from a host that has none.
