@@ -401,6 +401,55 @@ fn a_picked_person_who_leaves_is_not_replaced_by_whoever_is_left() {
 }
 
 #[test]
+fn a_bystander_next_to_the_picked_person_does_not_take_their_place_when_the_model_misses_them() {
+    let (a, b) = (at(0.45), at(0.6));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[a.clone(), b.clone()]));
+    click_on(&mut r, &a);
+    r.run(2.0, Some(&[a.clone(), b.clone()]));
+    // one report without the picked person, the bystander right beside them
+    r.people("phone", std::slice::from_ref(&b));
+    r.run(0.5, Some(std::slice::from_ref(&b)));
+    r.run(3.0, Some(&[a.clone(), b.clone()]));
+    assert!(r.last().1 < 0.52, "framing {}", r.last().1);
+}
+
+#[test]
+fn leaving_the_stream_or_the_card_clears_the_pick_and_says_so() {
+    let (a, b) = (at(0.2), at(0.8));
+    for how in ["stop", "off"] {
+        let mut r = Rig::new();
+        r.switch(true);
+        r.run(1.0, Some(&[a.clone(), b.clone()]));
+        click_on(&mut r, &b);
+        assert_eq!(r.prop("following"), json!(true));
+        if how == "stop" {
+            r.plugin.on_stream_stop(&mut r.host);
+        } else {
+            r.switch(false);
+        }
+        assert_eq!(r.prop("following"), json!(false), "{how}");
+    }
+}
+
+#[test]
+fn the_pick_is_read_in_the_whole_picture_not_in_the_zoomed_preview() {
+    let (a, b) = (at(0.2), at(0.8));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[a.clone(), b.clone()]));
+    let ((x, y), _) = body(&b, 16.0 / 9.0).unwrap();
+    r.ui("pick-clicked", Value::Null);
+    // the preview shows something else (zoomed in, so its coordinates mean little) and the whole-picture spot is on b
+    let shown = vec![[0.1f32, 0.1]];
+    let full = vec![[x as f32, y as f32]];
+    r.event(Event::PreviewPicked { owner: NAME.into(), pick: Some(telescope_core::host::Pick { kind: telescope_core::host::PickKind::Point, shown, full, in_picture: vec![[0.1, 0.1]], picture: None }) });
+    r.run(4.0, Some(&[a, b]));
+    assert!(r.last().1 > 0.6);
+}
+
+#[test]
 fn the_pick_goes_to_the_nearest_person() {
     let people = [at(0.2), at(0.8)];
     let ((x, y), _) = body(&people[1], 16.0 / 9.0).unwrap();
