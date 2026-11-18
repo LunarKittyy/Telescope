@@ -63,5 +63,5 @@ pub use bus::{BusSender, EventBus};
 pub use event::Event;
 pub use frame::{Frame, FrameStage, FrameStep, PixelFormat};
 pub use host::Host;
-pub use plugin::{Plugin, PluginInfo};
+pub use plugin::{Plugin, PluginInfo, PresetOption};
 pub use serde_json::{json, Value};
