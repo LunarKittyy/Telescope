@@ -37,3 +37,51 @@ impl Sender for VideoSender {
         VideoSender::send(self, bgra)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::pipewire::VideoFormat;
+    use std::time::{Duration, Instant};
+
+    fn picture(w: u32, h: u32) -> Vec<u8> {
+        (0..w * h).flat_map(|i| [(i % 251) as u8, 40, 200, 255]).collect()
+    }
+
+    #[test]
+    fn a_picture_sent_comes_out_of_the_pipewire_source_as_it_went_in() {
+        let Ok(connection) = Connection::shared() else { return eprintln!("skipped: PipeWire isn't running") };
+        let backend = backend().unwrap();
+        let name = format!("Telescope send test {}", std::process::id());
+        let (w, h) = (64, 36);
+        let mut sender = backend.open(&name, w, h).expect("the source should open");
+        let until = Instant::now() + Duration::from_secs(8);
+        let node = loop {
+            if let Some(node) = connection.nodes().into_iter().find(|n| n.props.iter().any(|(k, v)| k == "node.description" && *v == name)) {
+                break node;
+            }
+            assert!(Instant::now() < until, "the source never showed in PipeWire");
+            std::thread::sleep(Duration::from_millis(20));
+        };
+        let mut consumer = crate::pipewire::VideoConsumer::open(&connection, node.id, "Telescope send test reader").expect("the source should open for reading");
+        let sent = picture(w, h);
+        let until = Instant::now() + Duration::from_secs(8);
+        let got = loop {
+            sender.send(&sent).unwrap();
+            if let Some(frame) = consumer.next(Duration::from_millis(100)).expect("reading shouldn't fail") {
+                break frame;
+            }
+            assert!(Instant::now() < until, "no picture arrived");
+        };
+        assert_eq!((got.width, got.height, got.format), (w, h, VideoFormat::Bgra));
+        assert_eq!(got.data, sent);
+    }
+
+    #[test]
+    fn a_picture_of_the_wrong_size_is_refused() {
+        let Ok(_) = Connection::shared() else { return eprintln!("skipped: PipeWire isn't running") };
+        let name = format!("Telescope send size test {}", std::process::id());
+        let mut sender = backend().unwrap().open(&name, 8, 8).expect("the source should open");
+        assert!(sender.send(&[0; 10]).is_err());
+    }
+}

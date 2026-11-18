@@ -6,7 +6,6 @@ export component SpoutSendCard inherits Card {
     in property <string> status-text;
     in property <string> status-kind: "status_dim";
     in-out property <bool> checked;
-    in property <bool> enabled: true;
     callback toggled(bool);
 
     title: @tr("Spout send");

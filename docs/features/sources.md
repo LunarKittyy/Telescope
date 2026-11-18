@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/link/src/browser rust/crates/link/web rust/crates/outputs/src/webcam* rust/crates/outputs/src/spout* rust/crates/shell/src/sources.rs rust/crates/shell/src/extra_cameras.rs rust/crates/effects/src/composite* rust/crates/effects/src/compositor* rust/crates/effects/src/stereo*; checked: 0d35dc883 -->
+<!-- covers: rust/crates/link/src/browser rust/crates/link/web rust/crates/outputs/src/webcam* rust/crates/outputs/src/spout* rust/crates/outputs/src/pipewire/sender.rs rust/crates/shell/src/sources.rs rust/crates/shell/src/extra_cameras.rs rust/crates/effects/src/composite* rust/crates/effects/src/compositor* rust/crates/effects/src/stereo*; checked: 0d35dc883 -->
 # Sources and layouts
 
 Other cameras and the browser, putting several cameras on screen and making 3D from two phones.
@@ -52,6 +52,15 @@ An optional early version that's still in Lab (switch it on under **Streaming an
 - **Colour conversion** on Windows is done by the graphics card, which takes load off the processor. It is decided for each frame. While a game is using the card, or if the conversion fails, the processor does it instead and the stream carries on
 - Sender names that aren't plain text (an old program using a legacy code page for accents) aren't listed
 - Switching off **Spout capture** in Plugins takes the senders out of the picker
+
+## Spout send
+New and still in Lab. It shares a stream's picture with other programs on this computer, the other way round from Spout capture. Switch it on under **Streaming and devices** in the Plugins tab of Settings, then pick a stream and switch on **Share this stream** on the Spout send card.
+
+- **On Windows** the stream shows up as a Spout sender called **Telescope - <phone name>** in OBS and other Spout programs
+- **On Linux** it is a PipeWire video source with the same name. OBS and anything else that reads PipeWire video lists it as a camera. Programs inside Proton can't see it
+- **What is shared** is what the virtual camera gets, after every effect. With **Several cameras** on, the stream going to the Telescope camera shares the combined picture
+- **The sender** appears when the first picture arrives and goes a few seconds after the stream stops
+- **Transparency** isn't there yet, the picture is always solid
 
 ## Several cameras at once
 

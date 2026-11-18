@@ -205,7 +205,7 @@ impl SpoutSendPlugin {
             (None, _) => ("status_warn", tr("Sharing pictures isn't available on this system.")),
             (Some(_), None) => ("status_dim", String::new()),
             (Some(_), Some(entry)) => match self.shared.state(&self.shown) {
-                State::Sending(w, h) => ("status_ok", tr("Sharing {size} as {name}").field("size", &format!("{w} × {h}")).field("name", &entry.name)),
+                State::Sending(w, h) => ("status_ok", tr("Sharing {size} as {name}").field("size", format!("{w} × {h}")).field("name", &entry.name)),
                 State::Failed(why) => ("status_warn", why),
                 State::Idle => ("status_dim", tr("Shares as {name} while this stream runs").field("name", &entry.name)),
             },

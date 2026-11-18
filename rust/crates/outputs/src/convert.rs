@@ -140,7 +140,7 @@ pub fn i420_to_bgra_into(frame: &Frame, out: &mut Vec<u8>) {
     let (t, cw) = (terms(), w.div_ceil(2));
     telescope_core::image::over_rows(out, w * 4, |row, line| {
         yuv_row_to_rgba(t, &py[row * w..][..w], &pu[(row / 2) * cw..][..cw], &pv[(row / 2) * cw..][..cw], line);
-        line.chunks_exact_mut(4).for_each(|px| px.swap(0, 2));
+        line.as_chunks_mut::<4>().0.iter_mut().for_each(|px| px.swap(0, 2));
     });
 }
 

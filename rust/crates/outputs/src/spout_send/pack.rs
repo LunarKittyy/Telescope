@@ -17,13 +17,13 @@ pub fn bgra(frame: &Frame, alpha: Option<&[u8]>, out: &mut Vec<u8>) -> bool {
             out.clear();
             out.extend_from_slice(&frame.data[..(pixels * 4).min(frame.data.len())]);
             out.resize(pixels * 4, 0);
-            out.chunks_exact_mut(4).for_each(|px| px.swap(0, 2));
+            out.as_chunks_mut::<4>().0.iter_mut().for_each(|px| px.swap(0, 2));
         }
         _ => return false,
     }
     match alpha {
-        Some(mask) if mask.len() == pixels => out.chunks_exact_mut(4).zip(mask).for_each(|(px, a)| px[3] = *a),
-        _ => out.chunks_exact_mut(4).for_each(|px| px[3] = 255),
+        Some(mask) if mask.len() == pixels => out.as_chunks_mut::<4>().0.iter_mut().zip(mask).for_each(|(px, a)| px[3] = *a),
+        _ => out.as_chunks_mut::<4>().0.iter_mut().for_each(|px| px[3] = 255),
     }
     true
 }
@@ -52,7 +52,7 @@ mod tests {
         assert_eq!(out, [1, 2, 3, 0, 1, 2, 3, 64, 1, 2, 3, 128, 1, 2, 3, 255]);
         // A mask of the wrong size is ignored, not read past its end
         assert!(bgra(&f, Some(&[0, 0]), &mut out));
-        assert!(out.chunks_exact(4).all(|px| px[3] == 255));
+        assert!(out.as_chunks::<4>().0.iter().all(|px| px[3] == 255));
     }
 
     #[test]
@@ -64,7 +64,7 @@ mod tests {
         let mut out = Vec::new();
         assert!(bgra(&f, None, &mut out));
         assert_eq!(out.len(), 16);
-        for px in out.chunks_exact(4) {
+        for px in out.as_chunks::<4>().0.iter() {
             assert!(px[2] > 200 && px[0] < 60 && px[3] == 255, "{px:?}");
         }
     }
