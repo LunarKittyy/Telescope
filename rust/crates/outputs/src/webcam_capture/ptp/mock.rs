@@ -115,6 +115,8 @@ impl Mock {
             s.props.insert(0x5005, desc(0x5005, 4, 2, ints(&[2, 4, 6, 0x8010])));
             s.props.insert(0xD10B, desc(0xD10B, 2, 0, ints(&[0, 1])));
             s.props.insert(0x5004, desc(0x5004, 2, 1, ints(&[1, 2, 4, 7])));
+            s.props.insert(0x500F, desc(0x500F, 4, 200, ints(&[100, 200, 400, 800])));
+            s.props.insert(0x500D, desc(0x500D, 6, 40, ints(&[2, 40, 10_000, 0xFFFF_FFFF])));
         }
         mock
     }

@@ -547,3 +547,57 @@ fn eos_m_is_told_from_the_marks_by_its_name() {
     assert!(capture::is_eos_m("Canon EOS M50") && capture::is_eos_m("Canon EOS M"));
     assert!(!capture::is_eos_m("Canon EOS 5D Mark IV") && !capture::is_eos_m("Canon EOS R5"));
 }
+
+#[test]
+fn a_nikons_iso_and_shutter_speed_are_menus_worded_as_libgphoto2_words_them() {
+    let mock = Mock::nikon();
+    let mut rig = open(&mock);
+    let iso = rig.read("iso").unwrap();
+    assert_eq!((iso.value.as_str(), iso.choices.as_slice(), iso.readonly), ("200", ["100", "200", "400", "800"].map(String::from).as_slice(), false));
+    let shutter = rig.read("shutterspeed").unwrap();
+    assert_eq!(shutter.value, "0.0040s");
+    assert_eq!(shutter.choices, ["0.0002s", "0.0040s", "1.0000s", "Bulb"]);
+    rig.write("iso", "800").unwrap();
+    assert_eq!(rig.read("iso").unwrap().value, "800");
+    rig.write("shutterspeed", "1.0000s").unwrap();
+    assert_eq!(rig.read("shutterspeed").unwrap().value, "1.0000s");
+    assert!(rig.write("iso", "123").is_err());
+}
+
+#[test]
+fn a_canon_offers_no_iso_or_shutter_menu_here() {
+    let mock = Mock::canon();
+    let mut rig = open(&mock);
+    assert!(rig.read("iso").is_none() && rig.read("shutterspeed").is_none());
+}
+
+#[test]
+fn a_nikons_shutter_labels_read_the_same_on_the_card_as_a_linux_cameras_do() {
+    use crate::webcam_capture::gphoto_stills::read_photo_caps;
+    let mock = Mock::nikon();
+    let mut rig = open(&mock);
+    let caps = read_photo_caps(&mut rig);
+    let shutter = caps.shutter.expect("a shutter menu");
+    assert_eq!(shutter.values, ["0.0002s", "0.0040s", "1.0000s"], "Bulb is not offered");
+    assert_eq!(shutter.labels, ["1/5000", "1/250", "1 s"]);
+    assert_eq!(shutter.current, Some(1));
+    let iso = caps.iso.expect("an ISO menu");
+    assert_eq!((iso.values.len(), iso.current), (4, Some(1)));
+}
+
+#[test]
+fn an_iso_and_shutter_the_camera_holds_read_only_are_not_offered() {
+    use crate::webcam_capture::gphoto_stills::read_photo_caps;
+    let mock = Mock::nikon();
+    {
+        let mut s = mock.state();
+        s.props.get_mut(&0x500F).unwrap().writable = false;
+        s.props.get_mut(&0x500D).unwrap().writable = false;
+    }
+    let mut rig = open(&mock);
+    let caps = read_photo_caps(&mut rig);
+    assert!(caps.iso.is_none() && caps.shutter.is_none());
+    // The wait for a photo still knows the speed the dial is on
+    assert_eq!(caps.shutter_now.as_deref(), Some("0.0040s"));
+    assert!(caps.json().get("iso").is_none() && caps.json().get("shutter").is_none());
+}
