@@ -49,7 +49,7 @@ A phone that can't do Light switches to Heavy automatically.
 - **Heavy** has a JPEG quality slider
 - **Light** has a bitrate slider with **Auto**, a fixed 1-100 Mbps or **Dynamic**. Dynamic sends as much as the connection can carry and backs off before the video starts to lag. If that's still too much it lowers the frame rate too (down to 15) and climbs back once there's room
 - **Hardware acceleration** under Video in Settings decodes Light on the graphics card instead of the processor, which matters most at 4K or on a laptop. It works on Windows with any graphics card and on Linux through VA-API or NVIDIA's CUDA. The line under the switch shows which one it found. On Linux it's on by default when the card is VA-API and off everywhere else. Telescope decodes on the processor for a few minutes if the card falls behind and then tries the card again
-- **Graphics card** under Video in Settings picks which card Telescope uses. **Automatic** follows what the system picks and the list holds each card the computer has. The window, the picture steps and, on Windows, hardware decoding all use it. A change applies after a restart and the row offers a **Restart** button. A picked card that fails or was skipped after a crash is replaced by another one
+- **Graphics card** under Video in Settings picks which card Telescope uses. **Automatic** follows what the system picks and the list holds each card the computer has. The window, the picture steps and, on Windows, hardware decoding all use it. A change applies after a restart and the row offers a **Restart now** button. A picked card that fails or was skipped after a crash is replaced by another one
 - Light only lists resolutions the phone's encoder can take
 
 <details>

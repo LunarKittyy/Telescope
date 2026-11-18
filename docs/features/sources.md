@@ -47,7 +47,7 @@ An optional early version that's still in Lab (switch it on under **Streaming an
 - **Colours:** Spout shares ordinary 8-bit pictures, which Telescope reads in any byte order. Transparency is dropped. A see-through sender shows whatever colour sits under its clear parts (often black). Senders that share 10-bit or floating point pictures aren't read and the stream shows that it can't read the picture
 - **A sender that changes size** is followed without restarting the stream
 - **Two graphics cards:** on a Windows laptop with two, Telescope finds the one the sender draws on
-- **Colour conversion** on Windows is done by the graphics card, which takes load off the processor at 1080p and up. While a game is using the card, or if the conversion fails, the processor does it instead and the stream carries on
+- **Colour conversion** on Windows is done by the graphics card, which takes load off the processor. It is decided for each frame. While a game is using the card, or if the conversion fails, the processor does it instead and the stream carries on
 - Sender names that aren't plain text (an old program using a legacy code page for accents) aren't listed
 - Switching off **Spout capture** in Plugins takes the senders out of the picker
 
@@ -71,7 +71,7 @@ Optional (switch it on under **Streaming and devices** in the Plugins tab of Set
 - Drag a stream to move it. Arrow keys nudge it a pixel at a time
 - The handles on the corners and sides resize it the way OBS does. A plain drag scales it without changing its shape. Hold Shift to stretch or squash it into any shape and Alt to crop the side you're dragging instead (each side remembers its own crop)
 - Edges snap to the picture's edges and middle and to the other streams. Hold Ctrl to place one freely
-- Scroll over a stream to zoom into it (as far as **Max zoom** under Video in Settings allows) and drag it with the right mouse button to pick which part shows. Lowering Max zoom holds the streams at the new limit and raising it brings their zoom back
+- Scroll over a stream to zoom into it (as far as **Max zoom** under Video in Settings allows) and drag it with the right mouse button to pick which part shows. Lowering Max zoom pulls the streams down to the new limit. Raising it again doesn't bring their zoom back
 - **Fit its shape** shows a stream in its real shape with nothing cropped, stretched or zoomed
 - Each stream can get a border and rounded corners. Behind them goes a colour or a picture
 - **Start from** lays out the running streams **Side by side**, **Big and small** or in a **Grid** to tweak from there
