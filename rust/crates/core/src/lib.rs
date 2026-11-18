@@ -45,6 +45,7 @@ pub mod settings;
 pub mod shader;
 pub mod snapshot;
 pub mod source;
+pub mod stack;
 pub mod stats;
 pub mod system;
 pub mod text;
