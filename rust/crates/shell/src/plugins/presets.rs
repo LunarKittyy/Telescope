@@ -68,6 +68,8 @@ pub struct PresetsPlugin {
     /// The preset applied last, for Next and Previous.
     last: Option<String>,
     asking: Asking,
+    /// The Save question's extra choices: (plugin, option, the picked item's index)
+    options: Vec<(String, telescope_core::PresetOption, usize)>,
     /// set_config has no host: the header and the actions hear the new presets with the next hook that has one.
     pending: bool,
 }
@@ -80,7 +82,7 @@ impl Default for PresetsPlugin {
 
 impl PresetsPlugin {
     pub fn new() -> PresetsPlugin {
-        PresetsPlugin { presets: Vec::new(), last: None, asking: Asking::Nothing, pending: false }
+        PresetsPlugin { presets: Vec::new(), last: None, asking: Asking::Nothing, options: Vec::new(), pending: false }
     }
 
     // ── Data ──────────────────────────────────────────────────────────
@@ -106,10 +108,12 @@ impl PresetsPlugin {
         let existing = self.index(&name);
         let mut entry = existing.map_or_else(|| Preset::from_iter([("name".to_string(), Value::String(name.clone()))]), |i| self.presets[i].clone());
         for section in host.preset_plugins() {
-            if let Some(cfg) = host.plugin_preset_config(&section) {
+            let picks: Vec<(String, String)> = self.options.iter().filter(|(plugin, ..)| *plugin == section).map(|(_, o, at)| (o.id.clone(), o.items[*at].0.clone())).collect();
+            if let Some(cfg) = host.plugin_preset_config_with(&section, &picks) {
                 entry.insert(key_of(&section).to_string(), cfg);
             }
         }
+        self.options.clear();
         match existing {
             Some(i) => self.presets[i] = entry,
             None => self.presets.push(entry),
@@ -215,10 +219,24 @@ impl PresetsPlugin {
             Some(old) => (tr("Rename preset"), old.clone(), tr("Rename")),
             None => (tr("Save preset"), self.unused_name(), tr("Save")),
         };
+        // A new preset can be asked more than a name by the plugins in it
+        self.options = if rename.is_some() {
+            Vec::new()
+        } else {
+            host.preset_plugins().into_iter().flat_map(|p| host.plugin_preset_options(&p).into_iter().filter(|o| !o.items.is_empty()).map(move |o| (p.clone(), o, 0))).collect()
+        };
         self.asking = Asking::Name { rename };
         // Shut first, so asking again (the same question twice) opens it again
         host.set_ui_props("header", &json!({"dialog": ""}));
-        host.set_ui_props("header", &json!({"dialog-title": title, "dialog-text": text, "ok-text": ok, "dialog": "name"}));
+        host.set_ui_props("header", &json!({"dialog-title": title, "dialog-text": text, "ok-text": ok, "options": self.options_props(), "dialog": "name"}));
+    }
+
+    /// The extra choices as the dialog's rows: a label, the item texts and the one picked.
+    fn options_props(&self) -> Value {
+        Value::Array(self.options.iter().map(|(_, o, at)| {
+            let n = o.items.len();
+            json!({"label": o.label, "items": o.items.iter().map(|i| i.1.clone()).collect::<Vec<_>>(), "disabled": vec![false; n], "has-icons": vec![false; n], "current": at})
+        }).collect())
     }
 
     fn close_dialog(&mut self, host: &mut dyn Host) {
@@ -314,7 +332,18 @@ impl Plugin for PresetsPlugin {
             "delete-clicked" => self.delete(host, &text),
             "name-accepted" => self.name_given(host, &text),
             "replace-answered" => self.replace_answered(host, event.args.first().and_then(Value::as_bool).unwrap_or(false)),
-            "dialog-cancelled" => self.close_dialog(host),
+            "option-picked" => {
+                let number = |i: usize| event.args.get(i).and_then(Value::as_f64).unwrap_or(-1.0);
+                if let Some((_, o, at)) = self.options.get_mut(number(0) as usize) {
+                    if (number(1) as usize) < o.items.len() {
+                        *at = number(1) as usize;
+                    }
+                }
+            }
+            "dialog-cancelled" => {
+                self.options.clear();
+                self.close_dialog(host);
+            }
             _ => {}
         }
     }

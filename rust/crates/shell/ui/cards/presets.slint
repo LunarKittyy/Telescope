@@ -1,7 +1,16 @@
 // The Presets button in the header (plugins/presets.py): a menu of the saved presets with Save, Rename and Delete under
 // them, and the two questions those ask (a name, and whether to replace a preset). The plugin says which question is open.
 
-import { Theme, Icons, Button, TextField, DialogFrame, DialogButtons, WindowBox, MenuSurface, MenuItem, Motion } from "@ui-kit/ui-kit.slint";
+import { Theme, Icons, Button, TextField, Segmented, DialogFrame, DialogButtons, WindowBox, MenuSurface, MenuItem, Motion } from "@ui-kit/ui-kit.slint";
+
+// One more question in the Save preset dialog: a label over the choices
+export struct SaveOption {
+    label: string,
+    items: [string],
+    disabled: [bool],
+    has-icons: [bool],
+    current: int,
+}
 
 // A row that opens a submenu: the kit's menu row with the arrow at its end
 component SubmenuItem inherits Rectangle {
@@ -46,6 +55,7 @@ export component PresetsHeader inherits HorizontalLayout {
     in property <string> dialog-label;
     in property <string> dialog-text;
     in property <string> ok-text;
+    in property <[SaveOption]> options;
     in property <string> confirm-text;
     in property <string> replace-title;
     in property <string> replace-text;
@@ -55,6 +65,7 @@ export component PresetsHeader inherits HorizontalLayout {
     callback rename-clicked(string);
     callback delete-clicked(string);
     callback name-accepted(string);
+    callback option-picked(int, int);
     callback replace-answered(bool);
     callback dialog-cancelled;
 
@@ -265,6 +276,25 @@ export component PresetsHeader inherits HorizontalLayout {
                         text <=> root.name-text;
                         init => { self.focus-all(); }
                         accepted => { root.name-accepted(root.name-text); }
+                    }
+                    for option[n] in options: VerticalLayout {
+                        spacing: Theme.u(1);
+                        Text {
+                            text: option.label;
+                            font-family: Theme.font;
+                            font-size: Theme.body;
+                            color: Theme.ink;
+                        }
+                        Segmented {
+                            hue: Theme.plugin-hue("extras");
+                            items: option.items;
+                            tips: option.items;
+                            disabled: option.disabled;
+                            has-icons: option.has-icons;
+                            label: option.label;
+                            current: option.current;
+                            picked(i) => { root.option-picked(n, i); }
+                        }
                     }
                 }
                 DialogButtons {

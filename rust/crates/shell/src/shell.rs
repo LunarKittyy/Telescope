@@ -749,10 +749,10 @@ impl State {
     }
 
     /// What plugin i leaves for a preset, read like read_config.
-    fn read_preset_config(&self, i: usize) -> Option<Value> {
+    fn read_preset_config(&self, i: usize, picks: &[(String, String)]) -> Option<Value> {
         let slot = self.slots.get(i).filter(|s| s.stopped.is_none() && !self.stop_queued(i))?;
         let plugin = slot.plugin.as_ref()?;
-        match telescope_core::diagnostics::catch_plugin(|| plugin.preset_config()) {
+        match telescope_core::diagnostics::catch_plugin(|| plugin.preset_config_with(picks)) {
             Ok(v) => Some(v),
             Err(panic) => {
                 self.stop_later(i, format!("preset_config: {}", panic_text(panic.as_ref())));
@@ -1911,8 +1911,19 @@ impl State {
     }
 
     pub fn plugin_preset_config(&self, name: &str) -> Option<Value> {
+        self.plugin_preset_config_with(name, &[])
+    }
+
+    /// What a plugin leaves for a preset given the answers to its preset_options().
+    pub fn plugin_preset_config_with(&self, name: &str, picks: &[(String, String)]) -> Option<Value> {
         let i = self.index(name)?;
-        self.read_preset_config(i).filter(Value::is_object)
+        self.read_preset_config(i, picks).filter(Value::is_object)
+    }
+
+    /// The questions plugin `name` adds to the Save preset dialog.
+    pub fn plugin_preset_options(&self, name: &str) -> Vec<telescope_core::PresetOption> {
+        let Some(plugin) = self.index(name).and_then(|i| self.slots.get(i)).filter(|s| s.stopped.is_none()).and_then(|s| s.plugin.as_ref()) else { return Vec::new() };
+        telescope_core::diagnostics::catch_plugin(|| plugin.preset_options()).unwrap_or_default()
     }
 
     /// The built-in plugins off this run, the way the Plugins tab and diagnostics count them.

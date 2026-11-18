@@ -123,6 +123,15 @@ pub struct StreamInfo {
 pub struct ConfigRejected(pub String);
 
 /// One plugin. Every method gets the host it may call; nothing is shared between plugins except through it and the bus.
+/// One question a plugin adds to the Save preset dialog: a label and the values to choose from, the first being the default.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PresetOption {
+    pub id: String,
+    pub label: String,
+    /// (value, text) pairs
+    pub items: Vec<(String, String)>,
+}
+
 pub trait Plugin: Send {
     fn info(&self) -> PluginInfo;
 
@@ -230,6 +239,14 @@ pub trait Plugin: Send {
     /// What a preset saves of this plugin: its get_config() unless some of that is not for presets (content people made, like saved layouts).
     fn preset_config(&self) -> Value {
         self.get_config()
+    }
+    /// Choices the Save preset question asks for this plugin, like whether the preset brings a layout along. None by default.
+    fn preset_options(&self) -> Vec<PresetOption> {
+        Vec::new()
+    }
+    /// preset_config() with the answers to preset_options(): (option id, picked value) pairs.
+    fn preset_config_with(&self, _picks: &[(String, String)]) -> Value {
+        self.preset_config()
     }
     /// Load settings from a preset; plugins that drive the phone also send them while streaming.
     fn apply_preset(&mut self, _host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
