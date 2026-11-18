@@ -280,6 +280,10 @@ pub trait FrameContext {
     fn stopped(&self) -> bool {
         false
     }
+    /// Whether the caller can't wait for the graphics card (the window's thread): a step that would have to wait for it is answered with a dark frame, and run for real later. False where the host doesn't say.
+    fn hurried(&self) -> bool {
+        false
+    }
     /// How sure the vision service is each pixel is a person (0..255, the frame's size), or None while it can't say. It hardly ever waits for
     /// the model, so this is the newest mask there is, about a frame behind the picture. None also means the last one got too old, and a step
     /// that hides things has to stay safe on it.

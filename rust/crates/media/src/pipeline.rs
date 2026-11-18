@@ -128,6 +128,23 @@ struct Chain {
     timing: bool,
     /// How long the readbacks took, which isn't the cost of the step that happened to trigger one.
     down_ns: u64,
+    /// The frame in hand was replaced by a dark one to hide the picture, so a step that could bring the picture back from its own history is left out.
+    withheld: bool,
+}
+
+/// A step that hides, as the frame last through the steps had it: what a frame sent again is compared with.
+#[derive(Clone)]
+struct Applied {
+    owner: String,
+    stage: FrameStage,
+    /// Which shader and settings, for a card-only step.
+    sig: Option<u64>,
+}
+
+/// Takes the match for a step off the list: a Background step by its owner, any other by its shader and settings too.
+fn take_applied(applied: &mut Vec<Applied>, owner: &str, stage: FrameStage, sig: Option<u64>) -> bool {
+    let at = applied.iter().position(|a| a.owner == owner && a.stage == stage && (stage == FrameStage::Background || a.sig == sig));
+    at.map(|i| applied.swap_remove(i)).is_some()
 }
 
 /// Transfers over the last TALLY_FRAMES frames.
@@ -163,8 +180,9 @@ pub struct Pipeline {
     on_card: bool,
     /// How long the last frame spent bringing pictures down from the card (measured while the steps are timed).
     last_readback_ns: u64,
-    /// The steps just handed over hold a Background step that the ones before them didn't, and no frame has gone through them yet.
-    background_added: bool,
+    /// The steps that hide as they are now, and as the frame last through the steps had them (a frame sent again is only missing the difference).
+    hiding: Arc<Vec<Applied>>,
+    applied: Arc<Vec<Applied>>,
     /// What the window's view steps do to the picture's geometry as of the last steps (None before any), and whether it changed since
     /// the last frame: the pictures that steps keep (denoising over time) no longer line up with the next one, so they start again.
     view_key: Option<u64>,
@@ -194,7 +212,7 @@ impl Pipeline {
 
     /// One that listens to this balance instead of the app's, so tests of the card don't move each other's steps.
     pub fn with_balance(balance: Arc<Balance>) -> Pipeline {
-        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, background_added: false, view_key: None, forget_due: false }
+        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false }
     }
 
     fn timer_of(&self, owner: &str) -> Option<Arc<Timer>> {
@@ -238,6 +256,7 @@ impl Pipeline {
                     chain.ahead.clear();
                     gpu.put_down(chain.held.take().unwrap());
                     *frame = neutral((frame.width, frame.height), frame.format, frame);
+                    chain.withheld = true;
                 }
                 Err(why) => self.card_failed(&why, chain, frame, ctx, &gpu),
             }
@@ -271,6 +290,7 @@ impl Pipeline {
         let hiding: Vec<usize> = lost.into_iter().filter(|&i| matches!(self.steps[i].kind, Kind::Shader(_)) && self.steps[i].hides()).collect();
         if !hiding.is_empty() {
             *frame = neutral((frame.width, frame.height), frame.format, frame);
+            chain.withheld = true;
             for i in hiding {
                 self.tell_withheld(i, ctx);
             }
@@ -288,6 +308,7 @@ impl Pipeline {
             *frame = neutral((frame.width, frame.height), frame.format, frame);
             // Dropped, not brought down: the card's copy has the picture this one stands in for
             self.drop_card_work(chain);
+            chain.withheld = true;
             self.tell_withheld(i, ctx);
         }
     }
@@ -300,9 +321,34 @@ impl Pipeline {
         }
     }
 
-    /// Whether the steps hold a Background step, which hides the room.
-    fn has_background(&self) -> bool {
-        self.steps.iter().any(|e| e.stage == FrameStage::Background && e.hides())
+    /// The steps that hide, as they are now.
+    fn hiding_now(&self) -> Vec<Applied> {
+        let sig = |e: &Entry| match &e.kind {
+            Kind::Shader(slot) => Some(slot.signature()),
+            _ => None,
+        };
+        self.steps.iter().filter(|e| e.stage.hides() && e.hides()).map(|e| Applied { owner: e.owner.clone(), stage: e.stage, sig: sig(e) }).collect()
+    }
+
+    /// The steps were changed: what they hide is looked at again, and a step that is gone isn't remembered as on the last frame.
+    fn steps_changed(&mut self) {
+        let mut now = self.hiding_now();
+        let mut applied = (*self.applied).clone();
+        applied.retain(|a| match now.iter().position(|n| n.owner == a.owner && n.stage == a.stage) {
+            Some(i) => {
+                now.swap_remove(i);
+                true
+            }
+            None => false,
+        });
+        self.applied = Arc::new(applied);
+        self.hiding = Arc::new(self.hiding_now());
+    }
+
+    /// Whether a step could put back what a dark frame took out, from a picture it keeps of its own (denoising over time) or by working on the picture as it was.
+    fn restores_pixels(&self, i: usize) -> bool {
+        let e = &self.steps[i];
+        !e.hides() && (matches!(e.stage, FrameStage::Effects | FrameStage::Colour) || e.kind.slot_ref().is_some_and(|s| s.keeps_history()))
     }
 
     /// A skipped step that hides is sent a dark frame in place of its work: a step watching what it hides hears of it.
@@ -344,9 +390,11 @@ impl Pipeline {
             Ok(()) => {
                 entry.failed(&format!("handed back {}x{} {:?} with {} bytes", frame.width, frame.height, frame.format, frame.data.len()));
                 *frame = before.clone().unwrap_or_else(|| neutral(size, format, frame));
+                chain.withheld |= hides;
             }
             Err(_) => {
                 entry.failed("it panicked");
+                chain.withheld |= hides;
                 match &before {
                     Some(before) => *frame = before.clone(),
                     None if hides || !sound(frame) => *frame = neutral(size, format, frame),
@@ -402,8 +450,19 @@ impl Pipeline {
                 let asked = catch_unwind(AssertUnwindSafe(|| ctx.person_mask(frame))).unwrap_or(None);
                 chain.mask = Some((frame.width, frame.height, asked));
             }
-            if let Some((w, h, Some(mask))) = &chain.mask {
-                masked = gpu.keep_mask(&mut self.mask, mask, *w, *h);
+            let kept = match &chain.mask {
+                Some((w, h, Some(mask))) => Some(gpu.keep_mask(&mut self.mask, mask, *w, *h)),
+                _ => None,
+            };
+            match kept {
+                Some(Ok(on_card)) => masked = on_card,
+                // The old mask is gone with it: the shader never draws with a mask that isn't this picture's
+                Some(Err(why)) if matches!(self.steps[i].kind, Kind::Either(..)) => {
+                    self.lost_card(&why);
+                    return self.run_cpu(i, frame, chain, ctx);
+                }
+                Some(Err(why)) => return self.shader_failed(i, &why, frame, chain, ctx),
+                None => {}
             }
         }
         // Read the way the CPU reads it if any step here has a CPU way that takes chroma by its block, so both ways see the same colours
@@ -587,7 +646,6 @@ fn sound(frame: &Frame) -> bool {
 
 impl FramePipeline for Pipeline {
     fn set_steps(&mut self, steps: Vec<StagedStep>) {
-        let had_background = self.has_background();
         let mut entries: Vec<Entry> = steps.into_iter().map(|s| Entry { timer: self.timer_of(&s.owner), owner: s.owner, stage: s.stage, kind: Kind::of(s.step), fails: 0, no_shader: false, no_textures: false, has_textures: false }).collect();
         // A step that keeps its last frame (denoising over time) and comes again with other settings goes on from it
         let mut old: Vec<Option<&Entry>> = self.steps.iter().map(Some).collect();
@@ -601,24 +659,22 @@ impl FramePipeline for Pipeline {
         // Stable: as registered within a stage
         entries.sort_by_key(|e| e.stage);
         self.steps = entries;
-        self.background_added = !had_background && self.has_background();
+        self.steps_changed();
         self.note_geometry();
     }
 
     fn replace_steps(&mut self, owner: &str, stage: FrameStage, steps: Vec<FrameStep>) {
-        let had_background = self.has_background();
         self.steps.retain(|e| e.owner != owner);
         let timer = self.timer_of(owner);
         let fresh: Vec<Entry> = steps.into_iter().map(|step| Entry { owner: owner.to_string(), stage, kind: Kind::of(step), fails: 0, no_shader: false, no_textures: false, has_textures: false, timer: timer.clone() }).collect();
         // First within the stage, where the window's own steps go
         let at = self.steps.iter().position(|e| e.stage >= stage).unwrap_or(self.steps.len());
         self.steps.splice(at..at, fresh);
-        self.background_added |= !had_background && self.has_background();
+        self.steps_changed();
         self.note_geometry();
     }
 
     fn process(&mut self, mut frame: Frame, ctx: &dyn FrameContext) -> Frame {
-        self.background_added = false;
         let started = *self.started_ns.get_or_insert_with(monotonic_ns);
         let time = monotonic_ns().saturating_sub(started) as f32 / 1e9;
         // A step that builds a new frame stays on this one: person masks are worked out once per number, and the camera's time is the same picture's
@@ -644,12 +700,15 @@ impl FramePipeline for Pipeline {
             if self.steps[i].skipped() {
                 if self.steps[i].hides() {
                     // Skipped for failing too often, which can't mean the room shows: the card's copy goes with the picture
-                    let size = (frame.width, frame.height);
-                    frame = neutral(size, frame.format, &frame);
+                    frame = neutral((frame.width, frame.height), frame.format, &frame);
                     // Dropped, not brought down: the card's copy has the picture this one stands in for, and landing it would put that back
                     self.drop_card_work(&mut chain);
+                    chain.withheld = true;
                     self.tell_withheld(i, ctx);
                 }
+                continue;
+            }
+            if chain.withheld && self.restores_pixels(i) {
                 continue;
             }
             let step_began = timing.then(monotonic_ns);
@@ -682,6 +741,7 @@ impl FramePipeline for Pipeline {
             self.try_card(&frame);
         }
         self.count(chain.ups, chain.downs);
+        self.applied = self.hiding.clone();
         span("pipeline", began);
         frame
     }
@@ -689,7 +749,8 @@ impl FramePipeline for Pipeline {
     fn hide_again(&mut self, mut frame: Frame, ctx: &dyn FrameContext) -> Option<Frame> {
         let mut chain = Chain::default();
         let mut hid = false;
-        let new_background = std::mem::take(&mut self.background_added);
+        // What the frame already went through: only a step that isn't on it, or is another than it was, has to be done now
+        let mut applied = (*self.applied).clone();
         let (number, capture_ns) = (frame.number, frame.capture_ns);
         let started = *self.started_ns.get_or_insert_with(monotonic_ns);
         let time = monotonic_ns().saturating_sub(started) as f32 / 1e9;
@@ -701,23 +762,42 @@ impl FramePipeline for Pipeline {
             if self.steps[i].skipped() {
                 if self.steps[i].hides() {
                     frame = neutral((frame.width, frame.height), frame.format, &frame);
+                    // Dropped, not landed: the card's copy has the picture this one stands in for
+                    self.drop_card_work(&mut chain);
+                    chain.withheld = true;
                     self.tell_withheld(i, ctx);
                     hid = true;
                 }
                 continue;
             }
+            if chain.withheld && self.restores_pixels(i) {
+                continue;
+            }
             if stage == FrameStage::Background {
-                // The picture in hand went out without it and has been through the stages after it, so it can't be done again: a new one makes the whole frame dark until a frame comes to do it properly
-                if new_background && self.steps[i].hides() {
+                // A Background step the picture in hand didn't go through can't be done again on a finished picture: it makes the whole frame dark until a frame comes to do it properly
+                if self.steps[i].hides() && !take_applied(&mut applied, &self.steps[i].owner, stage, None) {
                     frame = neutral((frame.width, frame.height), frame.format, &frame);
+                    self.drop_card_work(&mut chain);
+                    chain.withheld = true;
                     hid = true;
                 }
                 continue;
             }
-            // A card-only step can't say whether it has something to hide, so it runs on the card, and a failure there goes dark
-            if matches!(self.steps[i].kind, Kind::Shader(_)) {
+            // A card-only step can't say whether it has something to hide, so it runs on the card unless the picture went through it as it is, and a failure there goes dark
+            if let Kind::Shader(slot) = &self.steps[i].kind {
+                let sig = Some(slot.signature());
+                if take_applied(&mut applied, &self.steps[i].owner, stage, sig) {
+                    continue;
+                }
                 hid = true;
-                self.run_shader(i, &mut frame, &mut chain, ctx, time);
+                if ctx.hurried() {
+                    // Nobody can wait for the card here: dark now, and the real run follows on a thread that can
+                    frame = neutral((frame.width, frame.height), frame.format, &frame);
+                    self.drop_card_work(&mut chain);
+                    chain.withheld = true;
+                } else {
+                    self.run_shader(i, &mut frame, &mut chain, ctx, time);
+                }
                 continue;
             }
             // Only a CPU step can say whether it has something to hide right now
@@ -731,6 +811,10 @@ impl FramePipeline for Pipeline {
             self.bring_down(&mut chain, &mut frame, ctx, false);
             frame.number = number;
             frame.capture_ns = capture_ns;
+            // A hurried pass left the shaders undone, and a dark frame says nothing of what was done: a step that failed is still to be tried
+            if !ctx.hurried() && !self.steps.iter().any(|e| e.fails > 0 && e.hides()) {
+                self.applied = self.hiding.clone();
+            }
         }
         hid.then_some(frame)
     }
@@ -1644,7 +1728,7 @@ pub(crate) mod tests {
         // The frame on the card when it went is the last that isn't changed, but the steps that could run on the CPU still do, in order
         assert_eq!(p.process(grey(8, 8, 100), &NoContext).data[0], 167);
         let out = chain.process(grey(8, 8, 100), &NoContext);
-        assert_eq!(chain.last_transfers, (1, 1), "it was the readback that failed");
+        assert_eq!(chain.last_transfers, (0, 0), "the destroyed card refused the picture going up");
         assert_eq!(out.data[0], 177, "invert, then plus 10, as the CPU makes it; the card-only step is lost with the card");
         for _ in 0..STEP_FAILS_BEFORE_SKIP + 5 {
             assert_eq!(p.process(grey(8, 8, 100), &NoContext).data[0], 167);
@@ -1871,6 +1955,34 @@ pub(crate) mod tests {
         a_hiding_step_on_the_card_never_lets_the_clear_picture_out_when_the_card_fails();
         a_card_only_step_at_a_hiding_stage_never_lets_the_clear_picture_out_when_the_card_fails();
         a_card_only_step_at_privacy_never_lets_a_sent_again_frame_out_clear_when_the_card_fails();
+        a_failed_upload_never_lets_a_card_only_hiding_step_draw_on_what_the_card_had();
+    }
+
+    /// A picture or a mask that won't go up: the frame goes out dark, not drawn from the card's last picture or the last mask.
+    fn a_failed_upload_never_lets_a_card_only_hiding_step_draw_on_what_the_card_had() {
+        use crate::gpu::Fault;
+        let gpu = Arc::new(Gpu::open().unwrap());
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        p.gpu = Some(Some(gpu.clone()));
+        let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![StagedStep { owner: "key".into(), stage: FrameStage::Privacy, step: FrameStep::Shader(key) }]);
+        p.process(grey(8, 8, 100), &NoContext);
+        gpu.inject(Fault::BadUpload);
+        let out = quietly(|| p.process(grey(8, 8, 60), &NoContext));
+        assert!(is_dark(&out), "the picture didn't go up and the frame came out {:?}", &out.data[..4]);
+
+        let gpu = Arc::new(Gpu::open().unwrap());
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        p.gpu = Some(Some(gpu.clone()));
+        let key = ShaderStep { wgsl: SHOW_MASK.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![StagedStep { owner: "mask".into(), stage: FrameStage::Privacy, step: FrameStep::Shader(key) }]);
+        let ctx = Masked(std::sync::Mutex::new(Some(half_mask(255, 0))), Default::default());
+        let out = p.process(grey(16, 8, 16), &ctx);
+        assert!(!is_dark(&out), "the mask drew");
+        *ctx.0.lock().unwrap() = Some(half_mask(0, 255));
+        gpu.inject(Fault::BadUpload);
+        let out = quietly(|| p.process(grey(16, 8, 16), &ctx));
+        assert!(is_dark(&out), "the new mask didn't go up and the old one was drawn: {} {}", out.data[0], out.data[15]);
     }
 
     /// HalvesAndCounts its runs and does what DIM does.
@@ -1967,6 +2079,9 @@ pub(crate) mod tests {
                 let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
                 p.set_steps(vec![StagedStep { owner: "key".into(), stage, step: FrameStep::Shader(key) }]);
                 p.process(grey(8, 8, 100), &NoContext);
+                // Another shader than the one the last frame went through, so it is still to be done
+                let dim = ShaderStep { wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+                p.set_steps(vec![StagedStep { owner: "key".into(), stage, step: FrameStep::Shader(dim) }]);
                 gpu.inject(fault);
                 let out = quietly(|| p.hide_again(grey(8, 8, 90), &NoContext)).expect("a card-only hiding step always has something to hide");
                 assert!(is_dark(&out), "{stage:?} {fault:?}: the clear picture went out again: {:?}", &out.data[..4]);
@@ -2018,6 +2133,141 @@ pub(crate) mod tests {
                 assert_eq!(is_dark(&out), stage.hides(), "{stage:?}: a card-only step that fails hides the picture only where it hides things");
             }
         }
+    }
+
+    /// Writes the clear picture it remembers over whatever it is given, as a step that blends from its history does.
+    struct Restores(Frame);
+
+    impl CpuStep for Restores {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            *frame = self.0.clone();
+        }
+    }
+
+    #[test]
+    fn no_step_after_a_blackout_brings_the_camera_back() {
+        let clear = grey(4, 2, 200);
+        for stage in [FrameStage::Effects, FrameStage::Colour] {
+            let mut p = Pipeline::new();
+            p.set_steps(vec![step("blur", FrameStage::Background, HidingPanics), step("denoise", stage, Restores(clear.clone()))]);
+            let out = quietly(|| p.process(grey(4, 2, 60), &NoContext));
+            assert!(is_dark(&out), "{stage:?}: the step after the blackout put the clear picture back: {:?}", out.data[0]);
+        }
+        // A card-only Background step with no card is the same, and what comes after that only draws on top still runs
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        p.gpu = Some(None);
+        let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![StagedStep { owner: "key".into(), stage: FrameStage::Background, step: FrameStep::Shader(key) }, step("denoise", FrameStage::Effects, Restores(clear)), step("tag", FrameStage::Overlay, Push(4, seen.clone()))]);
+        let out = quietly(|| p.process(grey(4, 2, 60), &NoContext));
+        assert_eq!(out.data[0], 4, "the tag is drawn on the dark frame, not on the restored one");
+        assert!(out.data[1..8].iter().all(|v| *v == 16), "{:?}", &out.data[..8]);
+        assert_eq!(*seen.lock().unwrap(), vec![4]);
+    }
+
+    #[test]
+    fn a_hiding_step_added_beside_one_already_there_hides_the_frame_sent_again() {
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("blur", FrameStage::Background, Hides)]);
+        p.process(grey(4, 2, 200), &NoContext);
+        p.set_steps(vec![step("blur", FrameStage::Background, Hides)]);
+        assert!(p.hide_again(grey(4, 2, 200), &NoContext).is_none(), "the blur was on that picture");
+        p.set_steps(vec![step("blur", FrameStage::Background, Hides), step("redact", FrameStage::Background, Hides)]);
+        let out = p.hide_again(grey(4, 2, 200), &NoContext).expect("the redaction wasn't on the picture that went out");
+        assert!(is_dark(&out));
+        // The dark frame is what's out now: the same steps again have nothing new to hide
+        p.set_steps(vec![step("blur", FrameStage::Background, Hides), step("redact", FrameStage::Background, Hides)]);
+        assert!(p.hide_again(grey(4, 2, 200), &NoContext).is_none());
+        // A card-only redaction with no card to run on is the same
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        p.gpu = Some(None);
+        p.set_steps(vec![step("blur", FrameStage::Background, Hides)]);
+        p.process(grey(4, 2, 200), &NoContext);
+        let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![step("blur", FrameStage::Background, Hides), StagedStep { owner: "redact".into(), stage: FrameStage::Background, step: FrameStep::Shader(key) }]);
+        assert!(is_dark(&quietly(|| p.hide_again(grey(4, 2, 200), &NoContext)).expect("hidden")));
+    }
+
+    #[test]
+    fn a_settings_refresh_does_not_run_a_card_only_hiding_step_again_on_its_own_output() {
+        for stage in [FrameStage::Privacy, FrameStage::Cover] {
+            let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+            p.gpu = Some(None);
+            let staged = |wgsl: &str| {
+                let step = ShaderStep { wgsl: wgsl.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+                StagedStep { owner: "cover".into(), stage, step: FrameStep::Shader(step) }
+            };
+            p.set_steps(vec![staged(INVERT)]);
+            quietly(|| p.process(grey(8, 8, 100), &NoContext));
+            // Every plugin's steps are handed over again when one of them changes
+            p.set_steps(vec![staged(INVERT)]);
+            assert!(quietly(|| p.hide_again(grey(8, 8, 100), &NoContext)).is_none(), "{stage:?}: it was on the picture that went out");
+            // Another shader is a change, and the card can't run it
+            p.set_steps(vec![staged(DIM)]);
+            assert!(is_dark(&quietly(|| p.hide_again(grey(8, 8, 100), &NoContext)).expect("changed")), "{stage:?}");
+        }
+    }
+
+    #[test]
+    fn an_unchanged_shader_on_a_healthy_card_leaves_the_frame_sent_again_as_it_was() {
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        let staged = || StagedStep { owner: "cover".into(), stage: FrameStage::Cover, step: FrameStep::Shader(ShaderStep { wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() }) };
+        p.set_steps(vec![staged()]);
+        let out = p.process(grey(8, 8, 200), &NoContext);
+        assert!(out.data[0] < 150, "dimmed: {}", out.data[0]);
+        p.set_steps(vec![staged()]);
+        assert!(p.hide_again(out, &NoContext).is_none(), "dimmed once already, not again");
+    }
+
+    /// Says it can't wait for the card.
+    struct Hurried;
+
+    impl FrameContext for Hurried {
+        fn source_id(&self) -> &str {
+            ""
+        }
+        fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
+            None
+        }
+        fn colour_preview(&self, frame: &Frame) -> Frame {
+            frame.clone()
+        }
+        fn hurried(&self) -> bool {
+            true
+        }
+    }
+
+    #[test]
+    fn a_hurried_frame_sent_again_goes_dark_for_a_new_card_step_without_the_card() {
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![StagedStep { owner: "key".into(), stage: FrameStage::Privacy, step: FrameStep::Shader(key) }]);
+        let out = p.hide_again(grey(8, 8, 100), &Hurried).expect("a new card step has something to hide");
+        assert!(is_dark(&out));
+        let later = p.hide_again(grey(8, 8, 100), &NoContext).expect("the real run is still due");
+        assert!(!is_dark(&later), "the same step run for real draws its picture");
+    }
+
+    #[test]
+    fn a_skipped_cover_step_leaves_no_privacy_work_on_the_card_to_overwrite_its_dark_frame() {
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        let privacy = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![StagedStep { owner: "p".into(), stage: FrameStage::Privacy, step: FrameStep::Shader(privacy) }, step("cover", FrameStage::Cover, HidingPanics)]);
+        for _ in 0..=STEP_FAILS_BEFORE_SKIP {
+            quietly(|| p.process(grey(8, 8, 100), &NoContext));
+        }
+        assert!(p.steps[1].skipped());
+        let out = p.hide_again(grey(8, 8, 90), &NoContext).expect("dark");
+        assert!(is_dark(&out), "the privacy step's picture came down over the dark frame: {:?}", out.data[0]);
     }
 
     /// A context that says stop from its second question on.

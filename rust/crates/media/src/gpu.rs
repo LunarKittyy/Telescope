@@ -65,6 +65,8 @@ pub(crate) enum Fault {
     ShadePanic,
     /// wgpu panics while a shader is built.
     PreparePanic,
+    /// The next picture or mask going up is refused, as when the card can't allocate for it.
+    BadUpload,
 }
 
 pub struct Gpu {
@@ -420,12 +422,26 @@ impl Gpu {
     }
 
     fn write_plane(&self, tex: &wgpu::Texture, data: &[u8], bytes_per_row: u32) {
+        // Too little data for the texture: wgpu refuses the write and says so as an error
+        #[cfg(test)]
+        let data = if self.take_fault(|f| matches!(f, Fault::BadUpload)) { &data[..1] } else { data };
         self.queue.write_texture(
             tex.as_image_copy(),
             data,
             wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(bytes_per_row), rows_per_image: None },
             tex.size(),
         );
+    }
+
+    /// Runs work that sends pictures to the card with the card's errors caught: a refused allocation or write comes out as an error, not only a line in the log with the card's old contents left to be used.
+    fn scoped<T>(&self, work: impl FnOnce() -> T) -> Result<T, String> {
+        let scopes: Vec<_> = [wgpu::ErrorFilter::OutOfMemory, wgpu::ErrorFilter::Internal, wgpu::ErrorFilter::Validation].into_iter().map(|f| self.device.push_error_scope(f)).collect();
+        let out = work();
+        let errors: Vec<String> = scopes.into_iter().rev().filter_map(|scope| pollster::block_on(scope.pop())).map(|e| e.to_string()).collect();
+        match errors.first() {
+            Some(first) => Err(format!("the card refused a picture ({first})")),
+            None => Ok(out),
+        }
     }
 
     /// Puts a frame on the card as it is (textures to give back once used).
@@ -537,7 +553,7 @@ impl Gpu {
     fn fault(&self) -> Option<Fault> {
         let mut fault = self.fault.lock().unwrap();
         // The panics above belong to their own calls, so a readback leaves them for those
-        if matches!(*fault, Some(Fault::LiftPanic | Fault::ShadePanic | Fault::PreparePanic)) { None } else { fault.take() }
+        if matches!(*fault, Some(Fault::LiftPanic | Fault::ShadePanic | Fault::PreparePanic | Fault::BadUpload)) { None } else { fault.take() }
     }
 
     /// Takes the fault if it is the one asked for, for tests.
@@ -687,13 +703,16 @@ impl Gpu {
         }
         let (w, h) = (frame.width, frame.height);
         let began = monotonic_ns();
-        let mut used = Vec::new();
-        let mut enc = self.device.create_command_encoder(&Default::default());
-        let planes = self.upload(frame, &mut used);
-        // upload puts an I420 picture's three planes first in used
-        let kept_planes = (frame.format == PixelFormat::I420).then(|| [used[0].clone(), used[1].clone(), used[2].clone()]);
-        let (a, b) = (self.texture(w, h, WORK), self.texture(w, h, WORK));
-        self.convert_pass_with(&mut enc, &planes.views, planes.mode, &a, 1, (planes.width, planes.height), block_chroma);
+        let (enc, used, kept_planes, a, b) = self.scoped(|| {
+            let mut used = Vec::new();
+            let mut enc = self.device.create_command_encoder(&Default::default());
+            let planes = self.upload(frame, &mut used);
+            // upload puts an I420 picture's three planes first in used
+            let kept_planes = (frame.format == PixelFormat::I420).then(|| [used[0].clone(), used[1].clone(), used[2].clone()]);
+            let (a, b) = (self.texture(w, h, WORK), self.texture(w, h, WORK));
+            self.convert_pass_with(&mut enc, &planes.views, planes.mode, &a, 1, (planes.width, planes.height), block_chroma);
+            (enc, used, kept_planes, a, b)
+        })?;
         span("upload", began);
         Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: kept_planes, block_chroma })
     }
@@ -807,24 +826,29 @@ impl Gpu {
     }
 
     /// The person mask on the card in kept, uploaded only if it isn't the one already there. False for a mask of another size than w x h.
-    pub fn keep_mask(&self, kept: &mut Option<MaskPlane>, mask: &Arc<Vec<u8>>, w: u32, h: u32) -> bool {
+    pub fn keep_mask(&self, kept: &mut Option<MaskPlane>, mask: &Arc<Vec<u8>>, w: u32, h: u32) -> Result<bool, String> {
         if mask.len() != w as usize * h as usize {
-            return false;
+            return Ok(false);
         }
         if let Some(k) = kept.as_ref().filter(|k| (k.texture.width(), k.texture.height()) == (w, h)) {
             if Arc::ptr_eq(&k.source, mask) || *k.source == **mask {
-                return true;
+                return Ok(true);
             }
         }
-        let texture = match kept.take() {
-            Some(k) if (k.texture.width(), k.texture.height()) == (w, h) => k.texture,
-            _ => self.texture(w, h, wgpu::TextureFormat::R8Unorm),
-        };
-        self.write_plane(&texture, mask, w);
+        // Taken before the write, so a write that fails leaves no old mask behind to be drawn with
+        let old = kept.take();
+        let (texture, view) = self.scoped(|| {
+            let texture = match old {
+                Some(k) if (k.texture.width(), k.texture.height()) == (w, h) => k.texture,
+                _ => self.texture(w, h, wgpu::TextureFormat::R8Unorm),
+            };
+            self.write_plane(&texture, mask, w);
+            let view = texture.create_view(&Default::default());
+            (texture, view)
+        })?;
         transfers::mask_up();
-        let view = texture.create_view(&Default::default());
         *kept = Some(MaskPlane { source: mask.clone(), texture, view });
-        true
+        Ok(true)
     }
 
     /// The frame scaled and converted into target (RGBA, out_w x out_h), left on the card for whoever draws it.
@@ -1161,6 +1185,18 @@ impl ShaderSlot {
     /// Drops the last frame it drew: the next one starts again (the picture's geometry changed, so the old one doesn't line up).
     pub fn forget_history(&self) {
         *self.history.lock().unwrap() = None;
+    }
+
+    /// Which shader with which settings and pictures this is, to tell a step from the one a frame already went through.
+    pub fn signature(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        self.step.wgsl.hash(&mut h);
+        self.step.uniforms.to_string().hash(&mut h);
+        for (name, f) in &self.step.textures {
+            (name, f.width, f.height, Arc::as_ptr(&f.data) as usize).hash(&mut h);
+        }
+        h.finish()
     }
 
     /// Whether the step keeps its last frame for the shader.
