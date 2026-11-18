@@ -6,6 +6,7 @@ use super::ffi::{self, PwBuffer, StreamState};
 use super::pod::{self, Choice, ObjectPod, Pod, Prop, Scalar, Value};
 use super::stream::{Stream, StreamConfig, StreamHandler, StreamRef, PW_DIRECTION_INPUT, PW_STREAM_FLAG_AUTOCONNECT};
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
@@ -367,8 +368,12 @@ enum Copied {
 /// Copies the picture a shot noted out into packed rows. Takes no lock of the loop's, and waits for the producer's GPU work only until `until`
 /// or until `cancelled` says so.
 fn copy_shot(shot: &Shot, until: Instant, cancelled: &dyn Fn() -> bool) -> Result<Copied, String> {
-    if shot.dma_buf && !fence_ready(shot.fd.as_raw_fd(), until, cancelled) {
-        return Ok(Copied::Pending);
+    if shot.dma_buf {
+        match wait_for_fence(shot.fd.as_raw_fd(), until, cancelled) {
+            Fence::Ready => {}
+            Fence::Pending => return Ok(Copied::Pending),
+            Fence::Failed(why) => return Ok(Copied::Skipped(std::io::Error::other(why))),
+        }
     }
     let Negotiated { width, height, format } = shot.negotiated;
     let length = shot.map_offset + shot.max_size;
@@ -455,23 +460,85 @@ unsafe fn stream_copy(src: *const u8, out: &mut [u8]) {
     }
 }
 
-/// How long one poll for a fence lasts before the deadline and the cancellation are looked at again.
+/// How long one poll for a fence lasts before the cancellation is looked at again.
 const FENCE_SLICE: Duration = Duration::from_millis(20);
 
-/// Waits until the producer's pending writes to the DMA-BUF `fd` are done (it polls readable then), so the sync that follows can't block
-/// on a fence a stuck producer never signals. False when `until` passed or `cancelled` said so first.
-fn fence_ready(fd: i32, until: Instant, cancelled: &dyn Fn() -> bool) -> bool {
+/// How waiting for the producer's GPU work came out.
+#[derive(Debug, PartialEq)]
+enum Fence {
+    Ready,
+    /// The deadline passed or the wait was cancelled first.
+    Pending,
+    /// The descriptor reported an error or a hang-up, or polling it failed.
+    Failed(String),
+}
+
+/// Waits until the producer's pending writes to the DMA-BUF `fd` are done, so the sync that follows has no fence to block on. A sync_file
+/// exported from the buffer is polled rather than the buffer itself: closing it drops the kernel's wait on the fence, where a poll of the
+/// DMA-BUF keeps the buffer alive until the fence signals. Kernels before 5.20 can't export one, and the DMA-BUF is polled instead.
+fn wait_for_fence(fd: i32, until: Instant, cancelled: &dyn Fn() -> bool) -> Fence {
+    match export_sync_file(fd) {
+        Ok(file) => poll_readable(file.as_raw_fd(), until, cancelled),
+        Err(e) if matches!(e.raw_os_error(), Some(libc::ENOTTY | libc::EINVAL)) => poll_readable(fd, until, cancelled),
+        Err(e) => Fence::Failed(format!("the fence couldn't be exported ({e})")),
+    }
+}
+
+/// A sync_file that signals when the DMA-BUF's pending writes are done (DMA_BUF_IOCTL_EXPORT_SYNC_FILE with the read flag).
+fn export_sync_file(fd: i32) -> std::io::Result<OwnedFd> {
+    // _IOWR('b', 2, struct dma_buf_export_sync_file { __u32 flags; __s32 fd; })
+    const DMA_BUF_IOCTL_EXPORT_SYNC_FILE: libc::c_ulong = 0xC008_6202;
+    let mut request = [1i32, -1];
+    retry_interrupted(|| {
+        // SAFETY: the ioctl reads and writes the two 32-bit fields of the request; a descriptor that isn't a DMA-BUF just fails
+        unsafe { libc::ioctl(fd, DMA_BUF_IOCTL_EXPORT_SYNC_FILE, request.as_mut_ptr()) }
+    })?;
+    // SAFETY: the kernel put a new descriptor nothing else owns in the request
+    Ok(unsafe { OwnedFd::from_raw_fd(request[1]) })
+}
+
+/// Runs a syscall again while it fails with EINTR, and gives its error otherwise.
+fn retry_interrupted(mut call: impl FnMut() -> libc::c_int) -> std::io::Result<()> {
     loop {
+        if call() >= 0 {
+            return Ok(());
+        }
+        let error = std::io::Error::last_os_error();
+        if error.kind() != std::io::ErrorKind::Interrupted {
+            return Err(error);
+        }
+    }
+}
+
+/// Polls `fd` for readable in slices, each no longer than the time left, looking at the cancellation and the deadline between them.
+fn poll_readable(fd: i32, until: Instant, cancelled: &dyn Fn() -> bool) -> Fence {
+    loop {
+        if cancelled() {
+            return Fence::Pending;
+        }
+        let left = until.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            return Fence::Pending;
+        }
         let mut poll = libc::pollfd { fd, events: libc::POLLIN, revents: 0 };
-        // SAFETY: one pollfd that lives through the call; a timeout of at most the slice
-        let got = unsafe { libc::poll(&mut poll, 1, FENCE_SLICE.as_millis() as libc::c_int) };
-        // An error or a hang-up isn't a wait: the sync that follows reports what is wrong
-        if got > 0 {
-            return true;
+        let millis = left.min(FENCE_SLICE).as_millis().max(1) as libc::c_int;
+        // SAFETY: one pollfd that lives through the call, with a timeout of at most the slice
+        let got = unsafe { libc::poll(&mut poll, 1, millis) };
+        if got < 0 {
+            let error = std::io::Error::last_os_error();
+            if error.kind() == std::io::ErrorKind::Interrupted {
+                continue;
+            }
+            return Fence::Failed(format!("polling the fence failed ({error})"));
         }
-        if cancelled() || Instant::now() >= until {
-            return false;
+        if got == 0 {
+            continue;
         }
+        if poll.revents & libc::POLLIN != 0 {
+            // A signal that came while the wait was being cancelled doesn't count
+            return if cancelled() { Fence::Pending } else { Fence::Ready };
+        }
+        return Fence::Failed(format!("the fence's descriptor failed (events {:#x})", poll.revents));
     }
 }
 
@@ -521,9 +588,16 @@ pub struct VideoConsumer {
     stream: Stream,
     /// How many pictures in a row were dropped because the DMA-BUF couldn't be synced.
     skipped: u32,
+    /// Set when the reader is asked to stop, so a wait for the producer ends.
+    stop: Option<Arc<AtomicBool>>,
 }
 
 impl VideoConsumer {
+    /// Makes a wait for the producer's GPU work end once `stop` is set.
+    pub fn set_stop(&mut self, stop: Arc<AtomicBool>) {
+        self.stop = Some(stop);
+    }
+
     /// Starts reading the video node `node` of `connection`. `client` names the stream in PipeWire's graph tools.
     pub fn open(connection: &Arc<Connection>, node: u32, client: &str) -> Result<VideoConsumer, String> {
         let slot = Arc::new(Slot::default());
@@ -531,7 +605,7 @@ impl VideoConsumer {
         let props = [("media.type", "Video"), ("media.category", "Capture"), ("media.role", "Production"), ("media.class", "Stream/Input/Video"), ("node.dont-reconnect", "true")];
         let config = StreamConfig { name: client, props: &props, direction: PW_DIRECTION_INPUT, target: node, flags: PW_STREAM_FLAG_AUTOCONNECT };
         let stream = Stream::connect(connection, &config, &format_offers(), Box::new(handler))?;
-        Ok(VideoConsumer { connection: connection.clone(), node, watch_node: connection.node(node).is_some(), slot, stream, skipped: 0 })
+        Ok(VideoConsumer { connection: connection.clone(), node, watch_node: connection.node(node).is_some(), slot, stream, skipped: 0, stop: None })
     }
 
     /// The next picture that arrives within `timeout`: Ok(None) when nothing came, Err once the node is gone or the stream failed.
@@ -546,8 +620,11 @@ impl VideoConsumer {
             if let Some(parked) = state.parked.take() {
                 state.in_flight = Some(InFlight { buffer: parked.buffer, removed: false });
                 drop(state);
-                let connection = &self.connection;
-                let copied = copy_shot(&parked.shot, deadline, &|| connection.is_dead());
+                let (connection, slot, stop) = (&self.connection, &self.slot, &self.stop);
+                let cancelled = || {
+                    stop.as_ref().is_some_and(|s| s.load(Ordering::SeqCst)) || connection.is_dead() || slot.state.lock().map_or(true, |s| s.error.is_some() || s.in_flight.as_ref().is_none_or(|f| f.removed))
+                };
+                let copied = copy_shot(&parked.shot, deadline, &cancelled);
                 self.give_back(parked.buffer);
                 state = self.slot.state.lock().map_err(|_| broke())?;
                 match copied {
@@ -566,8 +643,13 @@ impl VideoConsumer {
                         }
                         continue;
                     }
-                    // The producer's fence is still pending: the picture is dropped, and the wait over (the deadline has passed)
-                    Ok(Copied::Pending) => continue,
+                    // The producer's fence is still pending: the picture is dropped and the read is over, with no other buffer taken first
+                    Ok(Copied::Pending) => {
+                        return match state.error.clone() {
+                            Some(error) => Err(error),
+                            None => Ok(None),
+                        };
+                    }
                     Err(message) => {
                         state.error.get_or_insert(message);
                         continue;
@@ -642,7 +724,7 @@ mod tests {
         // A pipe nothing writes to polls unreadable, like a DMA-BUF whose producer never signals its fence
         let (read, _write) = pipe();
         let start = Instant::now();
-        assert!(!fence_ready(read.as_raw_fd(), start + Duration::from_millis(100), &|| false));
+        assert_eq!(poll_readable(read.as_raw_fd(), start + Duration::from_millis(100), &|| false), Fence::Pending);
         assert!(start.elapsed() < Duration::from_secs(1), "the wait overran its deadline: {:?}", start.elapsed());
     }
 
@@ -650,8 +732,34 @@ mod tests {
     fn a_fence_wait_ends_when_cancelled() {
         let (read, _write) = pipe();
         let start = Instant::now();
-        assert!(!fence_ready(read.as_raw_fd(), start + Duration::from_secs(30), &|| true));
+        assert_eq!(poll_readable(read.as_raw_fd(), start + Duration::from_secs(30), &|| true), Fence::Pending);
         assert!(start.elapsed() < Duration::from_secs(1));
+    }
+
+    #[test]
+    fn a_fence_descriptor_that_hangs_up_is_a_failure_not_a_signal() {
+        let (read, write) = pipe();
+        drop(write);
+        assert!(matches!(poll_readable(read.as_raw_fd(), far(), &|| false), Fence::Failed(_)));
+    }
+
+    #[test]
+    fn a_wait_is_cancelled_even_when_the_fence_signals_at_the_same_time() {
+        let (read, write) = pipe();
+        std::fs::File::from(write).write_all(&[1]).unwrap();
+        assert_eq!(poll_readable(read.as_raw_fd(), far(), &|| true), Fence::Pending);
+    }
+
+    #[test]
+    fn only_an_interrupted_syscall_is_tried_again() {
+        let mut calls = 0;
+        // SAFETY: setting errno for the test's fake syscall
+        let result = retry_interrupted(|| {
+            calls += 1;
+            unsafe { *libc::__errno_location() = if calls < 3 { libc::EINTR } else { libc::EIO } };
+            -1
+        });
+        assert_eq!((result.is_err(), calls), (true, 3));
     }
 
     #[test]
@@ -659,7 +767,7 @@ mod tests {
         let (read, write) = pipe();
         let mut file = std::fs::File::from(write);
         file.write_all(&[1]).unwrap();
-        assert!(fence_ready(read.as_raw_fd(), far(), &|| false));
+        assert_eq!(poll_readable(read.as_raw_fd(), far(), &|| false), Fence::Ready);
     }
 
     #[test]
