@@ -567,7 +567,7 @@ fn a_clone_or_cloak_with_nothing_taken_leaves_the_frame_where_it_is() {
 #[test]
 fn the_effects_that_need_a_plane_work_on_an_i420_frame_without_an_rgb_picture() {
     let big = rgb_big();
-    for effect in ["vhs", "ascii", "stick"] {
+    for effect in ["vhs", "ascii", "stick", "webcam"] {
         let mut r = Rig::new();
         r.pick(effect);
         let Some(FrameStep::Cpu(mut step)) = r.plugin.frame_step() else { panic!("a CPU step") };
