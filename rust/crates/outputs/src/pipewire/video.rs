@@ -365,16 +365,137 @@ enum Copied {
     Pending,
 }
 
-/// Copies the picture a shot noted out into packed rows. Takes no lock of the loop's, and waits for the producer's GPU work only until `until`
-/// or until `cancelled` says so.
+/// Waits for the producer's GPU work on a DMA-BUF shot, only until `until` or until `cancelled` says so. None when the copy can go ahead.
+fn fence_gate(shot: &Shot, until: Instant, cancelled: &dyn Fn() -> bool) -> Option<Copied> {
+    if !shot.dma_buf {
+        return None;
+    }
+    match wait_for_fence(shot.fd.as_raw_fd(), until, cancelled) {
+        Fence::Ready => None,
+        Fence::Pending => Some(Copied::Pending),
+        Fence::Failed(why) => Some(Copied::Skipped(std::io::Error::other(why))),
+    }
+}
+
+/// Copies the picture a shot noted out into packed rows, on this thread. Takes no lock of the loop's, and waits for the producer's GPU work
+/// only until `until` or until `cancelled` says so.
+#[cfg(test)]
 fn copy_shot(shot: &Shot, until: Instant, cancelled: &dyn Fn() -> bool) -> Result<Copied, String> {
-    if shot.dma_buf {
-        match wait_for_fence(shot.fd.as_raw_fd(), until, cancelled) {
-            Fence::Ready => {}
-            Fence::Pending => return Ok(Copied::Pending),
-            Fence::Failed(why) => return Ok(Copied::Skipped(std::io::Error::other(why))),
+    match fence_gate(shot, until, cancelled) {
+        Some(early) => Ok(early),
+        None => copy_mapped(shot),
+    }
+}
+
+/// The thread a DMA-BUF is mapped, synced and read on. The kernel may make the sync wait for the buffer to be moved, which nothing can
+/// break off, so the reader thread only waits for the answer with a deadline and the worker is left to finish on its own.
+struct CopyWorker {
+    jobs: std::sync::mpsc::Sender<Shot>,
+    results: std::sync::mpsc::Receiver<Result<Copied, String>>,
+}
+
+/// How many worker threads may be alive at once across all consumers, and how many of them one sender may hold. A worker stuck in the kernel
+/// can't be stopped, so each one counts until its thread has really exited. A sender that keeps getting stuck, reconnects included, runs
+/// into its own limit and leaves room for the others.
+const MAX_WORKERS: usize = 4;
+const MAX_PER_SENDER: usize = 2;
+/// How long a read may take before the source is called stuck.
+const STALL_AFTER: Duration = Duration::from_secs(2);
+
+/// Who holds the places for worker threads.
+struct Places {
+    total: usize,
+    per_owner: usize,
+    held: Mutex<std::collections::HashMap<String, usize>>,
+}
+
+impl Places {
+    fn new(total: usize, per_owner: usize) -> Arc<Places> {
+        Arc::new(Places { total, per_owner, held: Mutex::new(std::collections::HashMap::new()) })
+    }
+
+    /// The places every consumer shares.
+    fn shared() -> Arc<Places> {
+        static SHARED: std::sync::OnceLock<Arc<Places>> = std::sync::OnceLock::new();
+        SHARED.get_or_init(|| Places::new(MAX_WORKERS, MAX_PER_SENDER)).clone()
+    }
+
+    /// A place for `owner`, if the total and the owner's own share allow one.
+    fn take(self: &Arc<Self>, owner: &str) -> Option<WorkerPlace> {
+        let mut held = self.held.lock().unwrap_or_else(|e| e.into_inner());
+        let mine = held.get(owner).copied().unwrap_or(0);
+        if mine >= self.per_owner || held.values().sum::<usize>() >= self.total {
+            return None;
+        }
+        held.insert(owner.to_string(), mine + 1);
+        Some(WorkerPlace { places: self.clone(), owner: owner.to_string() })
+    }
+}
+
+/// One place, given back when the worker thread exits (or unwinds).
+struct WorkerPlace {
+    places: Arc<Places>,
+    owner: String,
+}
+
+impl Drop for WorkerPlace {
+    fn drop(&mut self) {
+        let mut held = self.places.held.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(n) = held.get_mut(&self.owner) {
+            *n -= 1;
+            if *n == 0 {
+                held.remove(&self.owner);
+            }
         }
     }
+}
+
+impl CopyWorker {
+    fn start(owner: &str) -> std::io::Result<CopyWorker> {
+        CopyWorker::start_with(&Places::shared(), owner, copy_mapped)
+    }
+
+    fn start_with(places: &Arc<Places>, owner: &str, copy: impl Fn(&Shot) -> Result<Copied, String> + Send + 'static) -> std::io::Result<CopyWorker> {
+        let place = places.take(owner).ok_or_else(|| std::io::Error::other("too many reads of pictures are stuck"))?;
+        let (jobs, job_rx) = std::sync::mpsc::channel::<Shot>();
+        let (result_tx, results) = std::sync::mpsc::channel();
+        std::thread::Builder::new().name("pw-video-copy".into()).spawn(move || {
+            let _place = place;
+            // Ends once the consumer is dropped, as soon as the copy it may be stuck in lets go
+            while let Ok(shot) = job_rx.recv() {
+                if result_tx.send(copy(&shot)).is_err() {
+                    break;
+                }
+            }
+        })?;
+        Ok(CopyWorker { jobs, results })
+    }
+}
+
+/// Waits for the worker's answer until `until`, looking at `cancelled` between short slices. None when the deadline passed or the wait was
+/// cancelled first, with the worker still at it.
+fn await_result(results: &std::sync::mpsc::Receiver<Result<Copied, String>>, until: Instant, cancelled: &dyn Fn() -> bool) -> Option<Result<Copied, String>> {
+    use std::sync::mpsc::RecvTimeoutError;
+    loop {
+        let left = until.saturating_duration_since(Instant::now());
+        match results.recv_timeout(left.min(FENCE_SLICE)) {
+            Ok(result) => return Some(result),
+            Err(RecvTimeoutError::Disconnected) => return Some(Err("the thread reading pictures ended".into())),
+            Err(RecvTimeoutError::Timeout) if left.is_zero() || cancelled() => return None,
+            Err(RecvTimeoutError::Timeout) => {}
+        }
+    }
+}
+
+/// The buffer the worker is copying: given back when its answer has been taken.
+struct Copying {
+    buffer: *mut PwBuffer,
+}
+
+// SAFETY: as Parked
+unsafe impl Send for Copying {}
+
+fn copy_mapped(shot: &Shot) -> Result<Copied, String> {
     let Negotiated { width, height, format } = shot.negotiated;
     let length = shot.map_offset + shot.max_size;
     let fd = shot.fd.as_raw_fd();
@@ -590,9 +711,24 @@ pub struct VideoConsumer {
     skipped: u32,
     /// Set when the reader is asked to stop, so a wait for the producer ends.
     stop: Option<Arc<AtomicBool>>,
+    /// The thread DMA-BUFs are read on, started with the first one.
+    worker: Option<CopyWorker>,
+    /// The buffer the worker holds, when a read of it outlasted a call of `next`.
+    copying: Option<Copying>,
+    /// Whose reads the worker's places are counted for: the sender, so a reconnect finds them still taken.
+    owner: String,
+    /// When the read the worker is stuck on began.
+    copying_since: Instant,
+    /// Whether the buffer given back last went back to the stream (false when the stream had taken it away).
+    kept: std::cell::Cell<bool>,
 }
 
 impl VideoConsumer {
+    /// Names the sender these pictures belong to, so the limit on stuck reads counts it across reconnects.
+    pub fn set_owner(&mut self, owner: &str) {
+        self.owner = owner.to_string();
+    }
+
     /// Makes a wait for the producer's GPU work end once `stop` is set.
     pub fn set_stop(&mut self, stop: Arc<AtomicBool>) {
         self.stop = Some(stop);
@@ -605,7 +741,7 @@ impl VideoConsumer {
         let props = [("media.type", "Video"), ("media.category", "Capture"), ("media.role", "Production"), ("media.class", "Stream/Input/Video"), ("node.dont-reconnect", "true")];
         let config = StreamConfig { name: client, props: &props, direction: PW_DIRECTION_INPUT, target: node, flags: PW_STREAM_FLAG_AUTOCONNECT };
         let stream = Stream::connect(connection, &config, &format_offers(), Box::new(handler))?;
-        Ok(VideoConsumer { connection: connection.clone(), node, watch_node: connection.node(node).is_some(), slot, stream, skipped: 0, stop: None })
+        Ok(VideoConsumer { connection: connection.clone(), node, watch_node: connection.node(node).is_some(), slot, stream, skipped: 0, stop: None, worker: None, copying: None, owner: format!("node {node}"), copying_since: Instant::now(), kept: std::cell::Cell::new(true) })
     }
 
     /// The next picture that arrives within `timeout`: Ok(None) when nothing came, Err once the node is gone or the stream failed.
@@ -614,19 +750,59 @@ impl VideoConsumer {
         let broke = || "the frame slot broke".to_string();
         let mut state = self.slot.state.lock().map_err(|_| broke())?;
         loop {
+            if self.copying.is_some() && state.in_flight.as_ref().is_none_or(|f| f.removed) {
+                // The stream took the buffer a stuck read holds away: that read is let go (its worker ends when the kernel lets it) and the new
+                // pool is read by a worker of its own. This comes before any picture is handed out, so the stall ends with the old pool.
+                self.copying = None;
+                self.worker = None;
+                state.in_flight = None;
+            }
             if let Some(frame) = state.frame.take() {
                 return Ok(Some(frame));
             }
-            if let Some(parked) = state.parked.take() {
-                state.in_flight = Some(InFlight { buffer: parked.buffer, removed: false });
+            if self.copying.is_some() {
+                if let Some(why) = self.lost(&state) {
+                    return Err(why);
+                }
+            }
+            if self.copying.is_some() || state.parked.is_some() {
+                let parked = if self.copying.is_none() { state.parked.take() } else { None };
+                if let Some(parked) = &parked {
+                    state.in_flight = Some(InFlight { buffer: parked.buffer, removed: false });
+                }
                 drop(state);
-                let (connection, slot, stop) = (&self.connection, &self.slot, &self.stop);
-                let cancelled = || {
-                    stop.as_ref().is_some_and(|s| s.load(Ordering::SeqCst)) || connection.is_dead() || slot.state.lock().map_or(true, |s| s.error.is_some() || s.in_flight.as_ref().is_none_or(|f| f.removed))
+                self.kept.set(true);
+                let copied = match parked {
+                    None => self.settle(deadline),
+                    Some(parked) => match fence_gate(&parked.shot, deadline, &|| self.cancelled()) {
+                        Some(early) => {
+                            self.give_back(parked.buffer);
+                            Some(Ok(early))
+                        }
+                        None if !parked.shot.dma_buf => {
+                            let copied = copy_mapped(&parked.shot);
+                            self.give_back(parked.buffer);
+                            Some(copied)
+                        }
+                        None => match self.dispatch(parked) {
+                            Ok(()) => self.settle(deadline),
+                            Err(message) => Some(Err(message)),
+                        },
+                    },
                 };
-                let copied = copy_shot(&parked.shot, deadline, &cancelled);
-                self.give_back(parked.buffer);
+                let copied = copied.unwrap_or(Ok(Copied::Pending));
                 state = self.slot.state.lock().map_err(|_| broke())?;
+                // A picture that finished after the buffer was taken away, the reader was stopped or the stream failed is not published
+                let stopping = self.stop.as_ref().is_some_and(|s| s.load(Ordering::SeqCst));
+                // Whatever a read of a buffer the stream took away came to (a picture, a failed sync, a failed mapping) says nothing about the
+                // stream, so it is dropped
+                let dropped = !self.kept.get();
+                let copied = match copied {
+                    Ok(Copied::Pending) => Ok(Copied::Pending),
+                    _ if dropped => Ok(Copied::Pending),
+                    Ok(Copied::Frame(_)) if stopping || state.error.is_some() => Ok(Copied::Pending),
+                    other => other,
+                };
                 match copied {
                     Ok(Copied::Frame(frame)) => {
                         self.skipped = 0;
@@ -645,10 +821,15 @@ impl VideoConsumer {
                     }
                     // The producer's fence is still pending: the picture is dropped and the read is over, with no other buffer taken first
                     Ok(Copied::Pending) => {
-                        return match state.error.clone() {
-                            Some(error) => Err(error),
-                            None => Ok(None),
-                        };
+                        if let Some(why) = self.lost(&state) {
+                            return Err(why);
+                        }
+                        // A stuck read whose buffer was taken away is retired at the top of the loop, to read the new pool
+                        let retired = self.copying.is_some() && state.in_flight.as_ref().is_none_or(|f| f.removed);
+                        if (retired || dropped) && Instant::now() < deadline {
+                            continue;
+                        }
+                        return Ok(None);
                     }
                     Err(message) => {
                         state.error.get_or_insert(message);
@@ -656,14 +837,8 @@ impl VideoConsumer {
                     }
                 }
             }
-            if let Some(error) = state.error.clone() {
-                return Err(error);
-            }
-            if self.connection.is_dead() {
-                return Err("PipeWire went away".into());
-            }
-            if self.watch_node && self.connection.node(self.node).is_none() {
-                return Err("the video source is gone".into());
+            if let Some(why) = self.lost(&state) {
+                return Err(why);
             }
             let now = Instant::now();
             if now >= deadline {
@@ -671,6 +846,67 @@ impl VideoConsumer {
             }
             state = self.slot.arrived.wait_timeout(state, (deadline - now).min(GONE_CHECK)).map_err(|_| broke())?.0;
         }
+    }
+
+    /// Whether a read of a picture has been stuck in the kernel for longer than a healthy one takes.
+    pub fn stalled(&self) -> bool {
+        self.copying.is_some() && self.copying_since.elapsed() >= STALL_AFTER
+    }
+
+    /// Why the reader can't go on: the stream failed, PipeWire went away or the sender's node is gone.
+    fn lost(&self, state: &SlotState) -> Option<String> {
+        if let Some(error) = state.error.clone() {
+            return Some(error);
+        }
+        if self.connection.is_dead() {
+            return Some("PipeWire went away".into());
+        }
+        if self.watch_node && self.connection.node(self.node).is_none() {
+            return Some("the video source is gone".into());
+        }
+        None
+    }
+
+    /// Whether a wait for the producer should end now: the reader is stopping, PipeWire or the stream failed, or the buffer was taken away.
+    fn cancelled(&self) -> bool {
+        self.stop.as_ref().is_some_and(|s| s.load(Ordering::SeqCst))
+            || self.connection.is_dead()
+            || self.slot.state.lock().map_or(true, |s| s.error.is_some() || s.in_flight.as_ref().is_none_or(|f| f.removed))
+    }
+
+    /// Hands a DMA-BUF shot to the worker thread to be mapped, synced and read.
+    fn dispatch(&mut self, parked: Parked) -> Result<(), String> {
+        if self.worker.is_none() {
+            match CopyWorker::start(&self.owner) {
+                Ok(worker) => self.worker = Some(worker),
+                Err(e) => {
+                    self.give_back(parked.buffer);
+                    return Err(format!("the thread reading pictures didn't start ({e})"));
+                }
+            }
+        }
+        let worker = self.worker.as_ref().expect("started above");
+        if worker.jobs.send(parked.shot).is_err() {
+            self.worker = None;
+            self.give_back(parked.buffer);
+            return Err("the thread reading pictures ended".into());
+        }
+        self.copying = Some(Copying { buffer: parked.buffer });
+        self.copying_since = Instant::now();
+        Ok(())
+    }
+
+    /// Waits for the worker's answer on the picture it holds and gives its buffer back once there is one. None when the deadline or a
+    /// cancellation came first; the worker stays at it and the next call waits on the same read.
+    fn settle(&mut self, until: Instant) -> Option<Result<Copied, String>> {
+        let result = await_result(&self.worker.as_ref()?.results, until, &|| self.cancelled())?;
+        if let Some(copying) = self.copying.take() {
+            self.give_back(copying.buffer);
+        }
+        if matches!(&result, Err(m) if m.starts_with("the thread reading pictures ended")) {
+            self.worker = None;
+        }
+        Some(result)
     }
 
     /// Hands the buffer that was just copied back to the stream, unless the stream has taken it away since.
@@ -681,6 +917,7 @@ impl VideoConsumer {
                 Ok(mut state) => state.in_flight.take().is_none_or(|f| f.removed),
                 Err(_) => true,
             };
+            self.kept.set(!removed);
             if !removed {
                 // SAFETY: the buffer was dequeued from this stream and is queued once here
                 unsafe { stream.queue(buffer) };
@@ -760,6 +997,73 @@ mod tests {
             -1
         });
         assert_eq!((result.is_err(), calls), (true, 3));
+    }
+
+    /// A worker whose copy blocks until the test lets it go, like a sync waiting for the GPU to move a buffer.
+    fn stuck_worker() -> (CopyWorker, std::sync::mpsc::Sender<()>) {
+        stuck_worker_in(&Places::new(8, 8), "stuck")
+    }
+
+    fn stuck_worker_in(places: &Arc<Places>, owner: &str) -> (CopyWorker, std::sync::mpsc::Sender<()>) {
+        let (release, wait) = std::sync::mpsc::channel::<()>();
+        let wait = std::sync::Mutex::new(wait);
+        let worker = CopyWorker::start_with(places, owner, move |_| {
+            let _ = wait.lock().unwrap().recv();
+            Ok(Copied::Frame(VideoFrame { width: 1, height: 1, format: VideoFormat::Bgra, data: vec![0; 4] }))
+        })
+        .unwrap();
+        (worker, release)
+    }
+
+    #[test]
+    fn a_read_stuck_in_the_kernel_ends_the_wait_at_the_deadline_and_is_picked_up_after() {
+        let (worker, release) = stuck_worker();
+        let fd = memfd("telescope-stuck-test", &[0u8; 32]);
+        worker.jobs.send(shot(fd, true)).unwrap();
+        let start = Instant::now();
+        assert!(await_result(&worker.results, start + Duration::from_millis(100), &|| false).is_none());
+        assert!(start.elapsed() < Duration::from_secs(1), "the wait overran its deadline: {:?}", start.elapsed());
+        release.send(()).unwrap();
+        assert!(matches!(await_result(&worker.results, far(), &|| false), Some(Ok(Copied::Frame(_)))), "the finished read should be there for the next call");
+    }
+
+    #[test]
+    fn a_wait_on_a_stuck_read_ends_when_cancelled() {
+        let (worker, _release) = stuck_worker();
+        worker.jobs.send(shot(memfd("telescope-cancel-test", &[0u8; 32]), true)).unwrap();
+        let start = Instant::now();
+        assert!(await_result(&worker.results, start + Duration::from_secs(30), &|| true).is_none());
+        assert!(start.elapsed() < Duration::from_secs(1));
+    }
+
+    #[test]
+    fn stuck_workers_are_capped_per_sender_and_overall_and_a_place_frees_when_the_thread_exits() {
+        let places = Places::new(4, 2);
+        let mut stuck: Vec<_> = (0..2).map(|_| stuck_worker_in(&places, "sender a")).collect();
+        let refused = |owner: &str| CopyWorker::start_with(&places, owner, |_| Ok(Copied::Pending)).is_err();
+        assert!(refused("sender a"), "a third worker of one sender should be refused");
+        stuck.extend((0..2).map(|_| stuck_worker_in(&places, "sender b")));
+        assert!(refused("sender c"), "all four places are taken");
+        for (worker, release) in stuck {
+            worker.jobs.send(shot(memfd("telescope-cap-test", &[0u8; 32]), true)).unwrap();
+            // Dropped while stuck: the thread is still alive, so its place isn't free yet
+            drop(worker);
+            release.send(()).unwrap();
+        }
+        let start = Instant::now();
+        while !places.held.lock().unwrap().is_empty() {
+            assert!(start.elapsed() < Duration::from_secs(5), "the workers' places were never given back");
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(CopyWorker::start_with(&places, "sender a", |_| Ok(Copied::Pending)).is_ok());
+    }
+
+    #[test]
+    fn a_worker_that_ended_is_an_error_not_a_hang() {
+        let worker = CopyWorker::start_with(&Places::new(4, 4), "x", |_| panic!("the copy broke")).unwrap();
+        worker.jobs.send(shot(memfd("telescope-panic-test", &[0u8; 32]), true)).unwrap();
+        let result = await_result(&worker.results, far(), &|| false);
+        assert!(matches!(result, Some(Err(m)) if m.contains("ended")));
     }
 
     #[test]

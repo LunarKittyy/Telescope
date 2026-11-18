@@ -8,7 +8,7 @@
 //! its textures are fixed when it's handed over, while this one is a new size and reads every stream's newest frame.
 
 use telescope_core::i18n::Fields;
-use crate::composite::{clean_layout, clean_layouts, clean_name, layout_dict, same_arrangement, Layout, MAX_LAYOUTS, STALE_S};
+use crate::composite::{clean_layout, clean_layouts, clean_name, layout_dict, same_arrangement, Layout, Tile, MAX_LAYOUTS, STALE_S};
 use crate::compositor::{Compositor, Frames};
 use crate::shared::{no_pictures, PictureReader};
 use serde_json::{json, Value};
@@ -290,19 +290,26 @@ impl CompositePlugin {
         }
     }
 
-    /// No tile zooms in further than the Max zoom setting: one saved at a bigger zoom is brought down to it.
-    fn cap_zooms(&mut self) {
-        let max = self.max_zoom;
-        self.layout.tiles.iter_mut().for_each(|t| t.zoom = t.zoom.min(max));
+    /// A tile as it is drawn: no zoom goes past the Max zoom setting. The layout keeps the zoom it was given, so raising Max zoom brings it back.
+    fn capped(&self, tile: &Tile) -> Tile {
+        Tile { zoom: tile.zoom.min(self.max_zoom), ..tile.clone() }
+    }
+
+    /// The layout as it is drawn.
+    pub(crate) fn shown_layout(&self) -> Layout {
+        Layout { tiles: self.layout.tiles.iter().map(|t| self.capped(t)).collect(), ..self.layout.clone() }
     }
 
     fn prepare(&mut self) {
         let size = self.size();
         let on = self.on;
+        let shown = self.shown_layout();
         let mut hub = self.shared.hub();
         // Off, nothing draws: the background (a canvas-sized picture) is only worked out while it's on
         if on {
-            hub.compositor.prepare(&self.layout, size);
+            hub.compositor.prepare(&shown, size);
+            // a held fallback picture was drawn with the old layout, and the clock can't cache one from it before this plan is in
+            hub.fallback_key = None;
         } else {
             hub.compositor = Compositor::new(self.reader.clone());
         }
@@ -358,7 +365,6 @@ impl CompositePlugin {
     /// The picture as the editor has it now; the name says which saved layout it started from.
     pub fn set_layout(&mut self, host: &mut dyn Host, layout: Layout) {
         self.layout = layout;
-        self.cap_zooms();
         self.canvas = host.canvas_size();
         self.prepare();
         self.show(host);
@@ -682,13 +688,6 @@ impl Plugin for CompositePlugin {
         match event {
             Event::MaxZoomChanged { max_zoom } => {
                 self.max_zoom = (*max_zoom as f64).max(1.0);
-                let before = self.layout.clone();
-                self.cap_zooms();
-                if self.layout != before {
-                    // a held fallback picture was drawn with the old zooms
-                    self.shared.hub().fallback_key = None;
-                    host.schedule_save();
-                }
                 self.canvas = host.canvas_size();
                 self.prepare();
                 self.show(host);

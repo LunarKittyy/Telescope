@@ -89,6 +89,8 @@ pub trait Rig: Send {
     fn capture(&mut self, _expect: usize) -> Result<Vec<Shot>, Incomplete> {
         Err("this camera can't take photos".into())
     }
+    /// A flag that is set when the camera's thread is asked to end, which a photo being waited for ends its wait for.
+    fn set_stop(&mut self, _stop: Arc<AtomicBool>) {}
     /// Live view off and the camera let go.
     fn close(&mut self);
 }
@@ -441,6 +443,7 @@ fn run(mut connect: Connect, port: &str, model: &str, timing: Timing, stop: &Arc
         let Some(r) = rig.as_mut() else {
             match connect(port) {
                 Ok(mut r) => {
+                    r.set_stop(stop.clone());
                     // Live view on, for the focus drive, which only works with it
                     if r.read("viewfinder").is_some_and(|s| s.value == "false") {
                         let _ = r.write("viewfinder", "1");

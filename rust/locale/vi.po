@@ -180,7 +180,7 @@ msgstr "Tải VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "Loại bỏ tiếng gõ phím, tiếng quạt và tiếng xì nền trong phòng."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:785 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:784 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -617,7 +617,7 @@ msgid "Analysing…"
 msgstr "Đang phân tích…"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:82 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:33 rust/crates/effects/src/photos.rs:186 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:92 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:33 rust/crates/effects/src/photos.rs:186 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
 msgid "Off"
 msgstr "Tắt"
 
@@ -721,7 +721,7 @@ msgstr "Màu đã chọn từ khung xem trước. Bấm để chọn lại."
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Bấm vào phông phía sau bạn trên khung xem trước. Nhấn Esc để hủy."
 
-#: rust/crates/effects/src/chroma_key.rs:407 rust/crates/effects/src/chroma_key.rs:443 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:565 rust/crates/outputs/src/webcam.rs:976 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1785 rust/crates/shell/src/window.rs:1776 rust/crates/shell/src/worker.rs:608 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:407 rust/crates/effects/src/chroma_key.rs:443 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:976 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1785 rust/crates/shell/src/window.rs:1776 rust/crates/shell/src/worker.rs:610 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Không truyền phát"
 
@@ -1182,63 +1182,63 @@ msgstr "So sánh trước và sau"
 msgid "LUT strength"
 msgstr "Cường độ LUT"
 
-#: rust/crates/effects/src/composite_editor.rs:280
+#: rust/crates/effects/src/composite_editor.rs:296
 msgid "Move"
 msgstr "Di chuyển"
 
-#: rust/crates/effects/src/composite_editor.rs:281
+#: rust/crates/effects/src/composite_editor.rs:297
 msgid "Scale"
 msgstr "Co giãn"
 
-#: rust/crates/effects/src/composite_editor.rs:282
+#: rust/crates/effects/src/composite_editor.rs:298
 msgid "Stretch"
 msgstr "Kéo giãn"
 
-#: rust/crates/effects/src/composite_editor.rs:283
+#: rust/crates/effects/src/composite_editor.rs:299
 msgid "Crop"
 msgstr "Cắt xén"
 
-#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:236 rust/crates/effects/ui/transforms.slint:246 rust/crates/effects/ui/transforms.slint:248 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/composite_editor.rs:300 rust/crates/effects/ui/transforms.slint:236 rust/crates/effects/ui/transforms.slint:246 rust/crates/effects/ui/transforms.slint:248 rust/crates/outputs/src/webcam.rs:56
 msgid "Pan"
 msgstr "Lia"
 
-#: rust/crates/effects/src/composite_editor.rs:287
+#: rust/crates/effects/src/composite_editor.rs:303
 #, python-brace-format
 msgid "{mode}, no snapping"
 msgstr "{mode}, không căn dính"
 
-#: rust/crates/effects/src/composite_editor.rs:346
+#: rust/crates/effects/src/composite_editor.rs:364
 #, python-brace-format
 msgid "Layout {n}"
 msgstr "Bố cục {n}"
 
-#: rust/crates/effects/src/composite_editor.rs:464
+#: rust/crates/effects/src/composite_editor.rs:482
 msgid "Background picture"
 msgstr "Ảnh nền"
 
-#: rust/crates/effects/src/composite_editor.rs:513
+#: rust/crates/effects/src/composite_editor.rs:531
 #, python-brace-format
 msgid "{name} isn't streaming"
 msgstr "{name} không truyền phát"
 
-#: rust/crates/effects/src/composite_editor.rs:523
+#: rust/crates/effects/src/composite_editor.rs:542
 #, python-brace-format
 msgid "{name} (not streaming)"
 msgstr "{name} (không truyền phát)"
 
-#: rust/crates/effects/src/composite_editor.rs:527 rust/crates/setup/src/stats.rs:389
+#: rust/crates/effects/src/composite_editor.rs:546 rust/crates/setup/src/stats.rs:389
 msgid "None"
 msgstr "Không có"
 
-#: rust/crates/effects/src/composite_editor.rs:581
+#: rust/crates/effects/src/composite_editor.rs:600
 msgid "Rename layout"
 msgstr "Đổi tên bố cục"
 
-#: rust/crates/effects/src/composite_editor.rs:581
+#: rust/crates/effects/src/composite_editor.rs:600
 msgid "Save layout"
 msgstr "Lưu bố cục"
 
-#: rust/crates/effects/src/composite_editor.rs:584
+#: rust/crates/effects/src/composite_editor.rs:603
 #, python-brace-format
 msgid "There's already a layout called \"{name}\". Replace it?"
 msgstr "Đã có bố cục mang tên \"{name}\". Bạn có muốn thay thế không?"
@@ -1259,62 +1259,62 @@ msgstr ""
 msgid "A layout you saved in the editor."
 msgstr "Bố cục bạn đã lưu trong trình chỉnh sửa."
 
-#: rust/crates/effects/src/composite_plugin.rs:531 rust/crates/effects/src/composite_plugin.rs:755 rust/crates/effects/src/composite_plugin.rs:759 rust/crates/effects/src/composite_plugin.rs:772 rust/crates/effects/ui/composite.slint:26
+#: rust/crates/effects/src/composite_plugin.rs:537 rust/crates/effects/src/composite_plugin.rs:754 rust/crates/effects/src/composite_plugin.rs:758 rust/crates/effects/src/composite_plugin.rs:771 rust/crates/effects/ui/composite.slint:26
 msgid "One picture"
 msgstr "Một khung hình"
 
-#: rust/crates/effects/src/composite_plugin.rs:579
+#: rust/crates/effects/src/composite_plugin.rs:585
 msgid "Nothing's in the picture yet."
 msgstr "Chưa có gì trong ảnh."
 
-#: rust/crates/effects/src/composite_plugin.rs:581
+#: rust/crates/effects/src/composite_plugin.rs:587
 msgid "Active once two streams are running."
 msgstr "Hoạt động sau khi có hai luồng phát đang chạy."
 
-#: rust/crates/effects/src/composite_plugin.rs:583
+#: rust/crates/effects/src/composite_plugin.rs:589
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "Đã đặt xuất ra {camera} nhưng không có luồng phát nào đang chạy ở đó."
 
-#: rust/crates/effects/src/composite_plugin.rs:585
+#: rust/crates/effects/src/composite_plugin.rs:591
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "Sẽ xuất ra {camera} khi luồng phát ở đó gửi hình ảnh."
 
-#: rust/crates/effects/src/composite_plugin.rs:587
+#: rust/crates/effects/src/composite_plugin.rs:593
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "Đang xuất ra {camera}."
 
-#: rust/crates/effects/src/composite_plugin.rs:592
+#: rust/crates/effects/src/composite_plugin.rs:598
 msgid "Nothing in it"
 msgstr "Trống"
 
-#: rust/crates/effects/src/composite_plugin.rs:594 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
+#: rust/crates/effects/src/composite_plugin.rs:600 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
 msgid "Two streams required"
 msgstr "Yêu cầu hai luồng phát"
 
-#: rust/crates/effects/src/composite_plugin.rs:596
+#: rust/crates/effects/src/composite_plugin.rs:602
 msgid "Not going out"
 msgstr "Không xuất ra"
 
-#: rust/crates/effects/src/composite_plugin.rs:598
+#: rust/crates/effects/src/composite_plugin.rs:604
 msgid "Going out"
 msgstr "Đang xuất ra"
 
-#: rust/crates/effects/src/composite_plugin.rs:647
+#: rust/crates/effects/src/composite_plugin.rs:653
 msgid "Several cameras in one picture"
 msgstr "Nhiều camera trong một khung hình"
 
-#: rust/crates/effects/src/composite_plugin.rs:648
+#: rust/crates/effects/src/composite_plugin.rs:654
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "Đặt các luồng phát đang chạy cạnh nhau hoặc lồng vào nhau trên một camera ảo."
 
-#: rust/crates/effects/src/composite_plugin.rs:649
+#: rust/crates/effects/src/composite_plugin.rs:655
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "Nếu không có tiện ích bổ sung Nhiều camera trong một hình, sẽ không có thẻ Một hình và mỗi luồng phát chỉ đi tới camera riêng của nó."
 
-#: rust/crates/effects/src/composite_plugin.rs:760 rust/crates/effects/src/composite_plugin.rs:785
+#: rust/crates/effects/src/composite_plugin.rs:759 rust/crates/effects/src/composite_plugin.rs:784
 msgid "Picture layout"
 msgstr "Bố cục khung hình"
 
@@ -1743,103 +1743,103 @@ msgid "Zippy"
 msgstr "Tia chớp"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:82
+#: rust/crates/effects/src/framing.rs:92
 msgid "Fidget"
 msgstr "Cựa quậy"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:82
+#: rust/crates/effects/src/framing.rs:92
 msgid "Shift"
 msgstr "Dịch"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:82
+#: rust/crates/effects/src/framing.rs:92
 msgid "Lean"
 msgstr "Nghiêng người"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:82
+#: rust/crates/effects/src/framing.rs:92
 msgid "Step"
 msgstr "Bước chân"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:82
+#: rust/crates/effects/src/framing.rs:92
 msgid "Roam"
 msgstr "Đi lại"
 
-#: rust/crates/effects/src/framing.rs:99
+#: rust/crates/effects/src/framing.rs:109
 msgid "Zoom and pan to follow you."
 msgstr "Thu phóng và lia để theo sát bạn."
 
-#: rust/crates/effects/src/framing.rs:100
+#: rust/crates/effects/src/framing.rs:110
 msgid "Set how much of you is in the picture, from only your head to all of you."
 msgstr "Đặt phạm vi hiển thị cơ thể bạn trong ảnh, từ phần đầu cho đến toàn thân."
 
-#: rust/crates/effects/src/framing.rs:101
+#: rust/crates/effects/src/framing.rs:111
 msgid "How quickly the framing follows when you move."
 msgstr "Tốc độ căn khung theo kịp khi bạn di chuyển."
 
-#: rust/crates/effects/src/framing.rs:102
+#: rust/crates/effects/src/framing.rs:112
 msgid "How much you can move before the framing follows you, from a fidget to walking around."
 msgstr "Mức độ bạn có thể cử động trước khi căn khung đi theo, từ cựa quậy đến đi lại."
 
-#: rust/crates/effects/src/framing.rs:103
+#: rust/crates/effects/src/framing.rs:113
 msgid "Show hands"
 msgstr "Hiện bàn tay"
 
-#: rust/crates/effects/src/framing.rs:104
+#: rust/crates/effects/src/framing.rs:114
 msgid "Widen the view so your hands are in it too."
 msgstr "Mở rộng góc nhìn để có thể thấy cả hai tay của bạn."
 
-#: rust/crates/effects/src/framing.rs:105
+#: rust/crates/effects/src/framing.rs:115
 msgid "Something else is moving the zoom and pan."
 msgstr "Có tính năng khác đang điều khiển thu phóng và lia máy."
 
-#: rust/crates/effects/src/framing.rs:106
+#: rust/crates/effects/src/framing.rs:116
 msgid "Auto framing: how much of you"
 msgstr "Căn khung tự động: phần cơ thể"
 
-#: rust/crates/effects/src/framing.rs:107
+#: rust/crates/effects/src/framing.rs:117
 msgid "Auto framing speed"
 msgstr "Tốc độ căn khung tự động"
 
-#: rust/crates/effects/src/framing.rs:637
+#: rust/crates/effects/src/framing.rs:655
 msgid "Follow one person"
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:637
+#: rust/crates/effects/src/framing.rs:655
 msgid "Pick someone"
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:637
+#: rust/crates/effects/src/framing.rs:655
 msgid "Pick someone else"
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:638
+#: rust/crates/effects/src/framing.rs:656
 msgid "Click one person on the preview and Auto framing follows only them, not whoever else is in view."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:638
+#: rust/crates/effects/src/framing.rs:656
 msgid "Follow everyone"
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:639
+#: rust/crates/effects/src/framing.rs:657
 msgid "People can't be picked while the preview shows a combined picture or another camera. Switch 3D or One picture off, or show a single camera."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:640
+#: rust/crates/effects/src/framing.rs:658
 msgid "Frame everyone in view again."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:864
+#: rust/crates/effects/src/framing.rs:882
 msgid "Click the person to follow on the preview. Esc cancels."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:1089
+#: rust/crates/effects/src/framing.rs:1165
 msgid "Zoom and pan to keep you in the picture as you move."
 msgstr "Thu phóng và lia để luôn giữ bạn trong khung hình khi bạn di chuyển."
 
-#: rust/crates/effects/src/framing.rs:1090
+#: rust/crates/effects/src/framing.rs:1166
 msgid "Without the Auto framing plugin there's no Auto framing card and the zoom only changes when you change it."
 msgstr "Nếu không có tiện ích bổ sung Căn khung tự động, sẽ không có thẻ Căn khung tự động và mức thu phóng chỉ thay đổi khi bạn tự chỉnh."
 
@@ -5350,56 +5350,60 @@ msgstr "Không thể gỡ bỏ các tệp lưu cố định"
 msgid "Removed {paths}"
 msgstr "Đã gỡ bỏ {paths}"
 
-#: rust/crates/outputs/src/spout/mod.rs:54
+#: rust/crates/outputs/src/spout/mod.rs:56
 msgid "The sender isn't running. Start it again to continue."
 msgstr "Trình gửi không chạy. Hãy khởi động lại để tiếp tục."
 
-#: rust/crates/outputs/src/spout/mod.rs:55
+#: rust/crates/outputs/src/spout/mod.rs:57
 msgid "The sender isn't sharing a picture. Check that it's running and sending."
 msgstr "Trình gửi không chia sẻ hình ảnh. Hãy kiểm tra xem trình gửi có đang chạy và gửi dữ liệu không."
 
-#: rust/crates/outputs/src/spout/mod.rs:56
+#: rust/crates/outputs/src/spout/mod.rs:58
 msgid "Telescope can't read this sender's picture. Try another sender, or check the sender's output settings."
 msgstr "Telescope không thể đọc hình ảnh từ nguồn gửi này. Hãy thử một nguồn gửi khác hoặc kiểm tra cài đặt đầu ra của nguồn gửi."
 
-#: rust/crates/outputs/src/spout/mod.rs:303
+#: rust/crates/outputs/src/spout/mod.rs:309
 msgid "Check that the sender is still running."
 msgstr "Kiểm tra xem nguồn gửi còn chạy không."
 
-#: rust/crates/outputs/src/spout/mod.rs:559
+#: rust/crates/outputs/src/spout/mod.rs:588
 msgid "Sender not running"
 msgstr "Nguồn gửi không chạy"
 
-#: rust/crates/outputs/src/spout/mod.rs:561 rust/crates/outputs/src/webcam.rs:972
+#: rust/crates/outputs/src/spout/mod.rs:590 rust/crates/outputs/src/webcam.rs:972
 msgid "Not sending anything"
 msgstr "Không gửi dữ liệu nào"
 
-#: rust/crates/outputs/src/spout/mod.rs:563 rust/crates/outputs/src/webcam.rs:974
+#: rust/crates/outputs/src/spout/mod.rs:592
+msgid "Picture frozen"
+msgstr ""
+
+#: rust/crates/outputs/src/spout/mod.rs:594 rust/crates/outputs/src/webcam.rs:974
 msgid "Starting…"
 msgstr "Đang khởi động…"
 
-#: rust/crates/outputs/src/spout/mod.rs:572
+#: rust/crates/outputs/src/spout/mod.rs:603
 msgid "Set how many pictures a second to take. Spout senders don't share their own rate."
 msgstr "Đặt số ảnh lấy mỗi giây. Các nguồn gửi Spout không chia sẻ tốc độ của riêng mình."
 
-#: rust/crates/outputs/src/spout/mod.rs:586 rust/crates/outputs/ui/spout.slint:14
+#: rust/crates/outputs/src/spout/mod.rs:617 rust/crates/outputs/ui/spout.slint:14
 msgid "Spout capture"
 msgstr "Thu hình Spout"
 
-#: rust/crates/outputs/src/spout/mod.rs:587
+#: rust/crates/outputs/src/spout/mod.rs:618
 msgid "Stream from games, OBS and other programs on this computer that share their picture through Spout."
 msgstr "Truyền phát từ trò chơi, OBS và các chương trình khác trên máy tính này có chia sẻ hình ảnh qua Spout."
 
-#: rust/crates/outputs/src/spout/mod.rs:588
+#: rust/crates/outputs/src/spout/mod.rs:619
 msgid "Without Spout capture the senders aren't in the device picker and the Spout capture card is gone too."
 msgstr "Nếu không có Thu hình Spout, các nguồn gửi sẽ không có trong bộ chọn thiết bị và thẻ Thu hình Spout cũng biến mất."
 
-#: rust/crates/outputs/src/spout/mod.rs:636
+#: rust/crates/outputs/src/spout/mod.rs:667
 #, python-brace-format
 msgid "{name} isn't running"
 msgstr "{name} không chạy"
 
-#: rust/crates/outputs/src/spout/mod.rs:636
+#: rust/crates/outputs/src/spout/mod.rs:667
 msgid "Start it again or pick another source."
 msgstr "Khởi động lại hoặc chọn một nguồn khác."
 
@@ -8611,7 +8615,7 @@ msgstr "Đang bật camera điện thoại…"
 msgid "Couldn't start the phone's camera"
 msgstr "Không thể bật camera điện thoại"
 
-#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1118
+#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1136
 msgid "Connecting..."
 msgstr "Đang kết nối..."
 
@@ -8816,43 +8820,43 @@ msgstr "Bắt đầu truyền phát"
 msgid "Stop streaming"
 msgstr "Dừng truyền phát"
 
-#: rust/crates/shell/src/window.rs:2114 rust/crates/shell/src/worker.rs:1476
+#: rust/crates/shell/src/window.rs:2114 rust/crates/shell/src/worker.rs:1484
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Đang truyền phát {size} ở tốc độ {fps} fps tới {camera}"
 
-#: rust/crates/shell/src/worker.rs:598
+#: rust/crates/shell/src/worker.rs:600
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "Lỗi luồng phát: {error}"
 
-#: rust/crates/shell/src/worker.rs:1118
+#: rust/crates/shell/src/worker.rs:1136
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "Đang kết nối tới {url}..."
 
-#: rust/crates/shell/src/worker.rs:1128
+#: rust/crates/shell/src/worker.rs:1146
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "Không thể kết nối tới luồng phát của điện thoại. Thử lại sau {seconds} giây…"
 
-#: rust/crates/shell/src/worker.rs:1140
+#: rust/crates/shell/src/worker.rs:1158
 msgid "Waiting for the first frame…"
 msgstr "Đang chờ khung hình đầu tiên…"
 
-#: rust/crates/shell/src/worker.rs:1228
+#: rust/crates/shell/src/worker.rs:1246
 msgid "Stream reconnected"
 msgstr "Luồng phát đã kết nối lại"
 
-#: rust/crates/shell/src/worker.rs:1344
+#: rust/crates/shell/src/worker.rs:1351
 msgid "The video is paused while the phone takes a photo"
 msgstr "Video tạm dừng trong khi điện thoại đang chụp ảnh"
 
-#: rust/crates/shell/src/worker.rs:1346 rust/crates/shell/src/worker.rs:1352
+#: rust/crates/shell/src/worker.rs:1353 rust/crates/shell/src/worker.rs:1359
 msgid "Stream dropped - reconnecting"
 msgstr "Luồng phát bị ngắt - đang kết nối lại"
 
-#: rust/crates/shell/src/worker.rs:1465 rust/crates/shell/src/worker.rs:1574
+#: rust/crates/shell/src/worker.rs:1473 rust/crates/shell/src/worker.rs:1582
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "Lỗi camera ảo: {error}"
