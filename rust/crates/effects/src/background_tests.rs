@@ -436,16 +436,12 @@ fn each_setting_makes_the_picture_python_makes() {
         if case["config"]["mode"] == "blur" {
             let (frame, mask) = (pattern(w, h), soft_mask(w, h));
             let (blur, edges) = (case["config"]["blur"].as_i64().unwrap(), case["config"]["edges"].as_i64().unwrap());
-            // the recording is of the mask as the model made it: the firmed one is checked against the same picture made from it
-            let want = compose(&frame, &mask.firm(FIRM.0, FIRM.1).soften(edges), &blurred_as_python(&frame, blur, &mask));
+            let want = compose(&frame, &mask.soften(edges), &blurred_as_python(&frame, blur, &mask));
+            assert_eq!(sha(&want.data), case["sha"], "{case}");
             let worst = got.data.iter().zip(&want.data).map(|(a, b)| a.abs_diff(*b)).max().unwrap();
             assert!(worst <= BLUR_LEVELS, "{worst} levels off: {case}");
         } else {
-            let (frame, mask) = (pattern(w, h), soft_mask(w, h));
-            let edges = case["config"]["edges"].as_i64().unwrap_or(3);
-            let (pw, ph) = if case["config"]["picture"] == "wide" { (bw, bh) } else { (sw, sh) };
-            let want = compose(&frame, &mask.firm(FIRM.0, FIRM.1).soften(edges), &cover(&pattern(pw, ph), w, h));
-            assert_eq!(got, want, "{case}");
+            assert_eq!(sha(&got.data), case["sha"], "{case}");
         }
     }
 }
@@ -571,7 +567,7 @@ fn a_kept_mask_gives_the_same_picture_as_working_it_out_each_frame() {
             blur_step.settings.edges = round as i64;
         }
         let mask = Gray { w, h, data: held.0.borrow().to_vec() };
-        let want = compose(&source, &mask.firm(FIRM.0, FIRM.1).soften(blur_step.settings.edges), &blurred(&source, 4, Some(&mask)));
+        let want = compose(&source, &mask.soften(blur_step.settings.edges), &blurred(&source, 4, Some(&mask)));
         let mut frame = frame_of(&source);
         blur_step.process(&mut frame, &held);
         assert_eq!(Rgb::from_frame(&frame).unwrap(), Rgb::from_frame(&{ let mut f = frame_of(&source); want.write_to(&mut f); f }).unwrap(), "round {round}");
@@ -580,7 +576,7 @@ fn a_kept_mask_gives_the_same_picture_as_working_it_out_each_frame() {
     let held = Held(Arc::new(varied_mask(64, 36, 2).data.clone()).into());
     let small = stripes(64, 36);
     let mask = Gray { w: 64, h: 36, data: held.0.borrow().to_vec() };
-    let want = compose(&small, &mask.firm(FIRM.0, FIRM.1).soften(blur_step.settings.edges), &blurred(&small, 4, Some(&mask)));
+    let want = compose(&small, &mask.soften(blur_step.settings.edges), &blurred(&small, 4, Some(&mask)));
     let mut frame = frame_of(&small);
     blur_step.process(&mut frame, &held);
     let mut expected = frame_of(&small);
@@ -743,7 +739,7 @@ fn in_rgb(frame: &Frame, served: &Served, blur: i64, edges: i64, behind: Option<
     };
     // through YUV and back, as a frame goes, so only what the method changes is measured
     let mut out = frame.clone();
-    compose(&rgb, &mask.firm(FIRM.0, FIRM.1).soften(edges), &under).write_to(&mut out);
+    compose(&rgb, &mask.soften(edges), &under).write_to(&mut out);
     Rgb::from_frame(&out).unwrap()
 }
 
@@ -1247,7 +1243,7 @@ fn cut_in_on_yuv_planes_looks_like_the_one_in_rgb() {
         let rgb = Rgb::from_frame(&frame).unwrap();
         let whole = Gray { w: rgb.w, h: rgb.h, data: served.at(rgb.w, rgb.h).to_vec() };
         let mut want = frame.clone();
-        compose(&rgb, &whole.firm(FIRM.0, FIRM.1).soften_cut(3, cut), &blurred(&rgb, 6, Some(&whole))).write_to(&mut want);
+        compose(&rgb, &whole.soften_cut(3, cut), &blurred(&rgb, 6, Some(&whole))).write_to(&mut want);
         let (psnr, off, worst) = apart(&Rgb::from_frame(&got).unwrap(), &Rgb::from_frame(&want).unwrap());
         assert!(psnr > 44.0 && off < 0.03, "cut-in {cut}: {psnr:.1} dB, {:.3}% off by more than 3, worst {worst}", off * 100.0);
     }

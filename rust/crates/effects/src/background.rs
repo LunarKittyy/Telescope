@@ -34,8 +34,6 @@ const BLUR_SMALL: usize = 8;
 const DEFAULT_BLUR: i64 = 6;
 const DEFAULT_EDGES: i64 = 3;
 const DEFAULT_CUT_IN: i64 = 0;
-/// The model's confidence at or below the first is background and at or above the second is person, with a smooth ramp between: keeps a chair back or pale clothing against a bright wall from fading into the new background, judged on real frames.
-const FIRM: (u8, u8) = (30, 130);
 /// What the High quality cutout costs next to the normal one, measured on a 1080p stream: a bit under half a core.
 const QUALITY_TIP: &str = n_("Cut out your hair and edges more cleanly, for about 40% of a CPU core.");
 
@@ -139,9 +137,9 @@ fn softened_peek(edges: i64, cut: i64) -> &'static Gray {
     MASKS[(i * 11 + c) as usize].get_or_init(|| {
         let (_, mask) = peek::blur_scene();
         if i == 0 && c == 0 {
-            return mask.shrink(peek::WIDTH, peek::HEIGHT).firm(FIRM.0, FIRM.1);
+            return mask.shrink(peek::WIDTH, peek::HEIGHT);
         }
-        let mut small = mask.area((mask.w / 4).max(1), (mask.h / 4).max(1)).firm(FIRM.0, FIRM.1).cut_in(c);
+        let mut small = mask.area((mask.w / 4).max(1), (mask.h / 4).max(1)).cut_in(c);
         if i > 0 {
             small = small.blur(i as f64 * 0.6);
         }
@@ -241,7 +239,7 @@ impl Step {
         let whole = || Gray { w: size.0, h: size.1, data: src.to_vec() };
         let shaping = (self.settings.edges, self.settings.cut_in);
         if derived.soft.as_ref().is_none_or(|(e, _)| *e != shaping) {
-            derived.soft = Some((shaping, whole().firm(FIRM.0, FIRM.1).soften_cut(shaping.0, shaping.1)));
+            derived.soft = Some((shaping, whole().soften_cut(shaping.0, shaping.1)));
         }
         match self.backdrop() {
             Backdrop::Blur => {
@@ -297,7 +295,7 @@ impl Step {
             };
             if q.soft.as_ref().is_none_or(|(e, _)| *e != edges) {
                 let whole = Gray { w: qw, h: qh, data: q.src.to_vec() };
-                let cut = whole.firm(FIRM.0, FIRM.1).cut_in(edges.1);
+                let cut = whole.cut_in(edges.1);
                 q.soft = Some((edges, if edges.0 <= 0 { cut } else { cut.blur(edges.0 as f64 * 0.6) }));
                 q.wide = None;
             }

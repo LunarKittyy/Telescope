@@ -218,20 +218,6 @@ impl Gray {
         small.linear_exact(self.w, self.h)
     }
 
-    /// The mask's confidence firmed up: at or below `low` it is 0, at or above `high` it is 255, and between them it follows a smooth S-curve.
-    /// A part of someone the model is only half sure of (a chair back, light clothing against a bright wall) then stays solid instead of fading into the new background.
-    pub fn firm(&self, low: u8, high: u8) -> Gray {
-        if low == 0 && high == 255 {
-            return self.clone();
-        }
-        let (low, high) = (low as f32, (high as f32).max(low as f32 + 1.0));
-        let table: Vec<u8> = (0..=255u32).map(|v| {
-            let t = ((v as f32 - low) / (high - low)).clamp(0.0, 1.0);
-            (t * t * (3.0 - 2.0 * t) * 255.0).round() as u8
-        }).collect();
-        Gray { w: self.w, h: self.h, data: self.data.iter().map(|&v| table[v as usize]).collect() }
-    }
-
     /// The mask's border pulled in by `cut` pixels: the smallest value within that distance, so a soft edge keeps its shape and its middle moves inward. Outside the picture doesn't count. 0 is the mask as it was.
     pub fn cut_in(&self, cut: i64) -> Gray {
         if cut <= 0 {

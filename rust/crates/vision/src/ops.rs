@@ -129,6 +129,54 @@ pub fn convert_scale_abs(values: &[f32], scale: f64) -> Vec<u8> {
     values.iter().map(|v| (v * scale).abs().round_ties_even().clamp(0.0, 255.0) as u8).collect()
 }
 
+/// A pixel at least this sure (of 255) is plainly a person.
+const FIRM_CONFIDENT: u8 = 200;
+/// How far (in model pixels) from a plainly-person pixel a doubtful one still counts as part of the same body.
+const FIRM_REACH: usize = 8;
+/// Below this the model is only guessing at a stray speck: it goes.
+const FIRM_FLOOR: u8 = 20;
+/// A pixel at least this sure counts towards being inside a body, and the window it is counted in reaches this far each way.
+const FIRM_SOME: u8 = 40;
+const FIRM_WINDOW: usize = 4;
+/// Inside means this share of the window is at least FIRM_SOME.
+const FIRM_INSIDE: f64 = 0.85;
+
+/// The model's confidence mask with the doubtful middle made solid where it is inside a body: a broad stretch of faint-but-not-nothing
+/// that sits right next to a plainly-person part of the picture, as pale clothes and chair backs do (the part of a mask a new
+/// background shows through). Faint specks away from anyone are dropped. Thin edges, flyaway hair and anything far from a confident
+/// part are left as they were, so outlines don't grow. Run on each fresh mask before it is blended with the last one, so an old
+/// hand's silhouette is never firmed.
+pub fn firm_mask(mask: &[u8], w: usize, h: usize) -> Vec<u8> {
+    if mask.len() != w * h || w == 0 || h == 0 {
+        return mask.to_vec();
+    }
+    // how many of the pixels along a window (a row, then a column of those counts) are at least a given mark
+    let grow = |mark: &dyn Fn(u8) -> bool, reach: usize| -> (Vec<u16>, Vec<u16>) {
+        let across: Vec<u16> = (0..w * h).map(|i| {
+            let (x, y) = (i % w, i / w);
+            mask[y * w + x.saturating_sub(reach)..=y * w + (x + reach).min(w - 1)].iter().filter(|&&v| mark(v)).count() as u16
+        }).collect();
+        let down: Vec<u16> = (0..w * h).map(|i| {
+            let (x, y) = (i % w, i / w);
+            (y.saturating_sub(reach)..=(y + reach).min(h - 1)).map(|r| across[r * w + x]).sum()
+        }).collect();
+        (across, down)
+    };
+    let (_, near) = grow(&|v| v >= FIRM_CONFIDENT, FIRM_REACH);
+    let (_, some) = grow(&|v| v >= FIRM_SOME, FIRM_WINDOW);
+    let window = ((2 * FIRM_WINDOW + 1) * (2 * FIRM_WINDOW + 1)) as f64;
+    (0..w * h).map(|i| {
+        let v = mask[i];
+        if v < FIRM_FLOOR {
+            0
+        } else if v >= FIRM_SOME && near[i] > 0 && some[i] as f64 / window >= FIRM_INSIDE {
+            255
+        } else {
+            v
+        }
+    }).collect()
+}
+
 /// A mask (one byte a pixel) scaled with cv2.resize(INTER_LINEAR).
 pub fn mask_resized(mask: &[u8], w: usize, h: usize, w2: usize, h2: usize) -> Vec<u8> {
     resize_linear_fixed(mask, w, h, 1, w2, h2)
@@ -158,4 +206,62 @@ pub fn turned(frame: &Rgb, turn: Turn) -> Rgb {
         }
     }
     Rgb::new(ow, oh, out)
+}
+
+#[cfg(test)]
+mod firm_tests {
+    use super::firm_mask;
+
+    fn at(mask: &[u8], w: usize, x: usize, y: usize) -> u8 {
+        mask[y * w + x]
+    }
+
+    #[test]
+    fn a_half_sure_panel_beside_a_sure_body_is_made_solid() {
+        let (w, h) = (64, 32);
+        let mut mask = vec![0u8; w * h];
+        for y in 0..h {
+            for x in 0..w {
+                mask[y * w + x] = if x < 20 { 255 } else if x < 40 { 60 } else { 0 };
+            }
+        }
+        let out = firm_mask(&mask, w, h);
+        // well inside the panel and within the reach of the body: solid
+        assert_eq!(at(&out, w, 24, 10), 255);
+        // its last pixels before the edge keep their softness
+        assert_eq!(at(&out, w, 39, 10), 60);
+        // the same panel's far end isn't near anything sure
+        assert_eq!(at(&out, w, 38, 10), 60);
+        assert_eq!(at(&out, w, 5, 10), 255);
+        assert_eq!(at(&out, w, 50, 10), 0);
+    }
+
+    #[test]
+    fn a_thin_soft_edge_is_not_grown() {
+        let (w, h) = (64, 32);
+        let mask: Vec<u8> = (0..w * h).map(|i| match i % w { x if x < 20 => 255, x if x < 24 => 100, _ => 0 }).collect();
+        let out = firm_mask(&mask, w, h);
+        assert_eq!(at(&out, w, 21, 10), 100);
+        assert_eq!(at(&out, w, 23, 10), 100);
+    }
+
+    #[test]
+    fn a_far_speck_goes_and_a_far_doubtful_part_is_left_alone() {
+        let (w, h) = (64, 32);
+        let mut mask = vec![0u8; w * h];
+        mask[16 * w + 50] = 10;
+        mask[4 * w + 4] = 60;
+        let out = firm_mask(&mask, w, h);
+        assert_eq!(at(&out, w, 50, 16), 0);
+        assert_eq!(at(&out, w, 4, 4), 60);
+    }
+
+    #[test]
+    fn nothing_changes_for_a_mask_that_is_already_sure_or_empty() {
+        let sure: Vec<u8> = (0..64 * 32).map(|i| if i % 64 < 32 { 255 } else { 0 }).collect();
+        assert_eq!(firm_mask(&sure, 64, 32), sure);
+        assert_eq!(firm_mask(&vec![0; 64 * 32], 64, 32), vec![0; 64 * 32]);
+        // wrong size: handed back as it was
+        assert_eq!(firm_mask(&[1, 2, 3], 4, 4), vec![1, 2, 3]);
+    }
 }
