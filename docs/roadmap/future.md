@@ -20,7 +20,7 @@ Most of what they need underneath got built as host services along with the plug
 
 ### Colour matching and 10-bit
 
-The Colour grading card is built. Colour match between phones is for when two different phones look like two different films side by side. You pick the phone you like best and the others get as close to it as they can, with no clicking on patches. All of them film the same printed sheet as 3D from two phones uses (a ChArUco board with grey and colour patches) and the board's corners show exactly where every patch is even when the sheet is tilted. Each phone's own white balance, ISO and shutter get nudged towards the chosen one first, since fixing it in the camera loses less than fixing 8-bit video afterwards. What's left is fitted per phone as a colour matrix and a curve for each channel, which goes into the colour pipeline under your own grade. A match only holds for the light it was made in. Two sensors also never see every colour quite the same (odd fabrics and LED light show it most) but skin and greys come out very close.
+The Colour grading card is built. Colour match between phones is for when two different phones look like two different films side by side. You pick the phone you like best and the others get as close to it as they can, with no clicking on patches. All of them film the same printed sheet planned for lining up 3D (a ChArUco board with grey and colour patches) and the board's corners show exactly where every patch is even when the sheet is tilted. Each phone's own white balance, ISO and shutter get nudged towards the chosen one first, since fixing it in the camera loses less than fixing 8-bit video afterwards. 3D's Match already does a simple version of this for two phones (the same shutter, the right phone's ISO nudged and a curve for each channel from the middle of both pictures). What's left is fitted per phone as a colour matrix and a curve for each channel, which goes into the colour pipeline under your own grade. A match only holds for the light it was made in. Two sensors also never see every colour quite the same (odd fabrics and LED light show it most) but skin and greys come out very close.
 
 The phone sends 8-bit SDR now, which bands under heavy grades. Phones with 10-bit HLG (dynamic range profiles in Android 13) or a maker's log profile would give a lot more room, with turning log back into normal SDR becoming part of the grade. That needs 10-bit HEVC through the phone app, the protocol and the decoder and makes it a stretch goal on top.
 
@@ -40,19 +40,14 @@ People clip phones to telescopes. Lucky imaging for the moon and planets grabs a
 
 ### 3D from two phones
 
-Two phones side by side make a stereo camera. One plugin shows it as red/cyan for glasses on any screen or side by side for a headset, either squeezed into a normal 16:9 picture that every app takes or at full width for OBS. Through OBS that works on Twitch and YouTube too, since 3D streams there are side by side pictures. A YouTube upload plays as real 3D once the file has stereo metadata. For a Quest or similar the Browser camera server can serve a WebXR page that shows each half to one eye. Nothing has to be installed on the headset.
+An early version is out in [5.1.3](5.1.md#513-16-november-2026) as a Lab plugin. Two phones go out side by side or red/cyan on the Telescope camera, paired by when each frame was taken, with Fine tune sliders to line them up by hand and Match for exposure and colour. What's left of the plan:
 
-Two phones of the same model work best. Two different ones can be matched too but they never look quite the same.
-
-Getting the two pictures to match is most of the work:
-
-- **Timing.** Frames get paired by when they were captured and not when they arrived. Each phone sends its sensor's capture time with every frame (it already stamps them for its encoder and this costs next to nothing) and the desktop works out each phone's clock offset from round trips over the connection it already has. The faster stream then waits for the slower one. That takes network and processing delay out of it. Two separate phones can't fire their shutters together though. The best case is within half a frame (about 16 ms at 30 fps), fine for talking with a little ghosting on fast moves
-- **Exposure.** One switch sends the same ISO, shutter, white balance and focus to both phones and locks them there. With two of the same phone that does most of the matching
-- **Alignment.** A sheet to print with a ChArUco board on it (a chessboard with codes in the squares that OpenCV finds out of the box). Hold it up, both phones find the same corners and the plugin works out how the phones sit compared to each other. It then shows how to turn or tilt one of them until they're close and straightens the rest with a warp on each stream. That warp turns the whole picture to rectify it (Desk mode's only flattens the sheet) but it can go through the same warp code
-- **Colour.** Grey and colour patches on the same sheet even out what's left between the two (see Colour grading)
+- **Lining up with a printed sheet.** A ChArUco board (a chessboard with codes in the squares that OpenCV finds out of the box). Hold it up, both phones find the same corners and the plugin works out how the phones sit compared to each other. It then shows how to turn or tilt one of them until they're close and straightens the rest with a warp on each stream, which would replace most of Fine tune. The warp turns the whole picture to rectify it (Desk mode's only flattens the sheet) but it can go through the same warp code. Grey and colour patches on the same sheet could make Match more exact (see Colour matching above)
+- **Headsets.** The Browser camera server could serve a WebXR page that shows each half to one eye on a Quest or similar, with nothing to install on the headset
+- **YouTube.** An upload plays as real 3D once the file has stereo metadata, so a recording from Telescope could carry it
 - **Checking the timing.** Paper can't show time but the desktop screen can. A fast changing code on the monitor filmed by both phones shows the real offset between them, a good test of the clock sync
 
-Big. It needs capture times through the phone app and the protocol, the linked exposure, the calibration sheet and its guidance, the rectifying warp and the WebXR page (frames from other streams are there now).
+Medium for the sheet and the warp, small to medium for each of the others.
 
 ### AI models in plugins
 
@@ -75,7 +70,7 @@ The MCP server is built (see [5.1](5.1.md#an-mcp-server)). What's left of the id
 
 - **Live captions** would be the most useful accessibility plugin on this list but need Whisper or Vosk and a model. That means a second optional download like the vision one. Worth deciding separately
 
-## Smaller things for after 5.1.0
+## Smaller things
 
 Decided but small enough that none of them needs its own release.
 
@@ -103,17 +98,9 @@ A tile in Composite zooms in at most 4x, while Auto framing follows the Max zoom
 
 The stick figure gets the pose wrong when legs are crossed and turns into a huge head on a pair of shoulders in a close-up. The close-up needs the drawing to scale to the body that's visible instead of assuming a whole one. The crossed legs need the leg joints to be trusted less when they overlap. Small.
 
-### Pausing effects while nothing reads the camera
-
-When no app is using the virtual camera, the effects still run on frames nobody sees. They could pause while the phone is still connected and pick up again as soon as an app opens the camera. Telescope already knows when an app has the camera open, since the idle stop uses that. Lowers the cost of leaving Telescope running all day. Medium, since the decoder, effects and vision all have to stop and start cleanly.
-
-### A hot phone
-
-When the phone gets hot the phone app lowers the frame rate. Some cameras offer no lower rate though and then nothing changes while the phone gets hotter. It could drop to a smaller picture at that point instead of waiting for critical heat (the way it already goes to 720p there) and pause with a message at extreme heat. Small, mostly in the phone app. It needs a real phone to try.
-
 ### A faster interface underneath
 
-The work on Slint's interpreter continues, mainly cheaper struct field lookups and fewer allocations while the window updates. Nobody sees it except as a lighter window, like the rest of [Lighter on the processor and memory](5.1.md#lighter-on-the-processor-and-memory). Medium.
+The work on Slint's interpreter continues. Struct fields are a plain list instead of a hash map since 5.1.1 and fewer allocations while the window updates are next. Nobody sees it except as a lighter window, like the rest of [Lighter on the processor and memory](5.1.md#lighter-on-the-processor-and-memory). Medium.
 
 ### Spout capture at full speed
 
@@ -122,6 +109,10 @@ Spout capture copies every frame out of the graphics card's memory, then turns i
 - **Overlap the steps.** Copy the next frame while the last one is converted. Small. Probably enough for a steady 30 fps at 1080p
 - **Convert on the GPU** instead of the processor. Medium
 - **Zero-copy.** Hand the sender's GPU buffer straight to the picture work on the GPU. The frame then never leaves the graphics card (a DMA-BUF on Linux, a shared D3D11 texture on Windows). Big. It belongs with [Doing the picture work on the GPU](#doing-the-picture-work-on-the-gpu)
+
+### A graphics card choice in Settings
+
+[#489](https://github.com/LunarKittyy/Telescope/issues/489) got fixed in 5.1.3 without one. Telescope follows Windows' graphics setting and tries Intel cards through DirectX 12 first. A choice in Settings would still help someone whose system picks the wrong card and who can't change that. The window picks its card in `rust/crates/shell/src/preview.rs` and the picture work in `rust/crates/media/src/gpu.rs`, the order is in `rust/crates/core/src/gpu_pick.rs`. Only if someone asks for it. Small to medium.
 
 ### USB without adb
 
