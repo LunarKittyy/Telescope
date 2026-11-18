@@ -482,3 +482,57 @@ fn what_the_backend_says_is_wrong_shows_in_the_diagnostics() {
     scan(&mut env);
     assert_eq!(env.plugin.diagnostics()[0].1, "PipeWire isn't running");
 }
+
+/// A reader that copies a 1080p picture out of a buffer each time and then waits `COPY_MS` (default 10), as the copy from the graphics card does.
+struct CopyReader {
+    source: Arc<Vec<u8>>,
+}
+
+impl Reader for CopyReader {
+    fn next(&mut self, _timeout: Duration) -> Result<Option<Picture>, String> {
+        let data = self.source.to_vec();
+        let wait = std::env::var("COPY_MS").ok().and_then(|v| v.parse().ok()).unwrap_or(10);
+        std::thread::sleep(Duration::from_millis(wait));
+        Ok(Some(Picture { width: 1920, height: 1080, fourcc: "BGRA", data }))
+    }
+}
+
+struct CopyBackend(Arc<Vec<u8>>);
+
+impl Backend for CopyBackend {
+    fn senders(&self) -> Vec<Sender> {
+        vec![Sender { key: "Big".into(), name: "Big".into(), width: 1920, height: 1080 }]
+    }
+    fn open(&self, _key: &str) -> Result<Box<dyn Reader>, String> {
+        Ok(Box::new(CopyReader { source: self.0.clone() }))
+    }
+}
+
+/// How many frames a second the video thread's read-then-convert loop gets from a 1080p sender whose copy takes real time. Run with
+/// `cargo test -p telescope-outputs --release overlap_benchmark -- --ignored --nocapture`; it needs no sender.
+#[test]
+#[ignore = "a benchmark, prints a rate"]
+fn overlap_benchmark() {
+    let backend = Arc::new(CopyBackend(Arc::new((0..1920 * 1080 * 4).map(|i| (i % 251) as u8).collect())));
+    let mut plugin = SpoutPlugin::new(Some(backend));
+    let mut host = FakeHost::new();
+    plugin.setup(&mut host);
+    plugin.shared.fps.lock().unwrap().insert("Big".into(), 240);
+    plugin.shared.senders.lock().unwrap().insert("Big".into(), Sender { key: "Big".into(), name: "Big".into(), width: 1920, height: 1080 });
+    plugin.apply_senders(&mut host, vec![Sender { key: "Big".into(), name: "Big".into(), width: 1920, height: 1080 }]);
+    let (_, mut feed) = plugin.sources["Big"].open_feed().unwrap();
+    let mut decoder = SpoutDecoder;
+    let (mut read, mut convert) = (Duration::ZERO, Duration::ZERO);
+    let (start, mut frames) = (Instant::now(), 0u32);
+    while start.elapsed() < Duration::from_secs(3) {
+        let t = Instant::now();
+        let packet = feed.read().unwrap();
+        read += t.elapsed();
+        let t = Instant::now();
+        assert!(decoder.decode(&packet).newest.is_some());
+        convert += t.elapsed();
+        frames += 1;
+    }
+    let secs = start.elapsed().as_secs_f64();
+    println!("{:.1} frames/s, waiting for a picture {:.1} ms and converting {:.1} ms per frame", frames as f64 / secs, read.as_secs_f64() * 1000.0 / frames as f64, convert.as_secs_f64() * 1000.0 / frames as f64);
+}

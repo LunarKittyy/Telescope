@@ -20,7 +20,7 @@ use crate::convert::{bgra_to_i420, rgb_to_i420};
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{mpsc, Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 use telescope_core::frame::Frame;
 use telescope_core::host::{Host, Poster};
@@ -264,11 +264,10 @@ impl StreamSource for SpoutSource {
             }
         };
         self.report("ok", &format!("{}×{}", first.width, first.height));
-        let stop = Arc::new(AtomicBool::new(false));
-        let feed = SpoutFeed {
-            reader, first: Some(first), stop, shared: self.shared.clone(), key: self.key.clone(), poster: self.poster.clone(), waiting: self.waiting.clone(),
-            last: None, last_sent: Instant::now(), asked: Instant::now(),
-        };
+        let feed = SpoutFeed::start(Fetcher {
+            reader, first: Some(first), stop: Arc::new(AtomicBool::new(false)), mail: Arc::default(), shared: self.shared.clone(), key: self.key.clone(),
+            poster: self.poster.clone(), waiting: self.waiting.clone(), last: None, last_sent: Instant::now(), asked: Instant::now(),
+        });
         Ok((Codec::Mjpeg, Box::new(feed)))
     }
     fn decoder(&self) -> Option<Box<dyn Decoder>> {
@@ -288,11 +287,65 @@ impl StreamSource for SpoutSource {
     }
 }
 
-/// The pictures of one opened sender, handed out no faster than the frame rate picked.
+/// The pictures of one opened sender, handed out no faster than the frame rate picked. A thread of its own copies and packs the next
+/// picture while the video thread converts the last one, so the two steps overlap.
 struct SpoutFeed {
+    mail: Arc<Mailbox>,
+    stop: Arc<AtomicBool>,
+    fetcher: Option<std::thread::JoinHandle<()>>,
+}
+
+/// Where the fetch thread leaves what it made: one packet at a time, and the end of the sender after it.
+#[derive(Default)]
+struct Mailbox {
+    slot: Mutex<Slot>,
+    changed: Condvar,
+}
+
+#[derive(Default)]
+struct Slot {
+    packet: Option<Packet>,
+    ended: Option<String>,
+}
+
+impl Mailbox {
+    /// Leaves a packet once the last one was taken; false when the feed was stopped first.
+    fn put(&self, packet: Packet, stop: &AtomicBool) -> bool {
+        let mut slot = self.slot.lock().unwrap_or_else(|e| e.into_inner());
+        while slot.packet.is_some() {
+            if stop.load(Ordering::SeqCst) {
+                return false;
+            }
+            slot = self.changed.wait_timeout(slot, Duration::from_millis(20)).unwrap_or_else(|e| e.into_inner()).0;
+        }
+        slot.packet = Some(packet);
+        self.changed.notify_all();
+        true
+    }
+
+    fn end(&self, why: String) {
+        self.slot.lock().unwrap_or_else(|e| e.into_inner()).ended = Some(why);
+        self.changed.notify_all();
+    }
+}
+
+struct Stop(Arc<AtomicBool>, Arc<Mailbox>);
+
+impl FeedStopper for Stop {
+    fn stop(&self) {
+        self.0.store(true, Ordering::SeqCst);
+        // Taking the lock first means a reader between its check and its wait still hears this
+        drop(self.1.slot.lock());
+        self.1.changed.notify_all();
+    }
+}
+
+/// What the fetch thread works with.
+struct Fetcher {
     reader: Box<dyn Reader>,
     first: Option<Picture>,
     stop: Arc<AtomicBool>,
+    mail: Arc<Mailbox>,
     shared: Arc<Shared>,
     key: String,
     poster: Option<Arc<dyn Poster>>,
@@ -304,15 +357,7 @@ struct SpoutFeed {
     asked: Instant,
 }
 
-struct Stop(Arc<AtomicBool>);
-
-impl FeedStopper for Stop {
-    fn stop(&self) {
-        self.0.store(true, Ordering::SeqCst);
-    }
-}
-
-impl SpoutFeed {
+impl Fetcher {
     fn send(&mut self, picture: Picture) -> Packet {
         let size = (picture.width, picture.height);
         if self.last.as_ref().is_some_and(|(_, was)| *was != size) {
@@ -333,46 +378,84 @@ impl SpoutFeed {
             p.post(P_REPORTED, json!([self.key, state, detail]));
         }
     }
+
+    fn run(mut self) {
+        while !self.stop.load(Ordering::SeqCst) {
+            let packet = if let Some(first) = self.first.take() {
+                self.send(first)
+            } else {
+                let interval = Duration::from_secs_f64(1.0 / self.shared.fps(&self.key).max(1) as f64);
+                let wait = interval.saturating_sub(self.asked.elapsed());
+                if !wait.is_zero() {
+                    std::thread::sleep(wait.min(Duration::from_millis(20)));
+                    continue;
+                }
+                let asked = Instant::now();
+                match self.reader.next(Duration::from_millis(50)) {
+                    Ok(Some(picture)) => {
+                        self.asked = asked;
+                        self.send(picture)
+                    }
+                    Ok(None) if self.last_sent.elapsed() >= KEEP_ALIVE => match self.last.as_ref().map(|(data, _)| data.clone()) {
+                        Some(data) => self.packet(data),
+                        None => continue,
+                    },
+                    Ok(None) => continue,
+                    Err(why) => {
+                        *self.waiting.lock().unwrap() = tr(GONE_TEXT);
+                        self.post("gone", "");
+                        self.mail.end(why);
+                        return;
+                    }
+                }
+            };
+            if !self.mail.put(packet, &self.stop) {
+                return;
+            }
+        }
+    }
+}
+
+impl SpoutFeed {
+    fn start(fetcher: Fetcher) -> SpoutFeed {
+        let (mail, stop) = (fetcher.mail.clone(), fetcher.stop.clone());
+        let fetcher = std::thread::Builder::new().name("spout-fetch".into()).spawn(move || fetcher.run()).ok();
+        SpoutFeed { mail, stop, fetcher }
+    }
+}
+
+impl Drop for SpoutFeed {
+    fn drop(&mut self) {
+        Stop(self.stop.clone(), self.mail.clone()).stop();
+        if let Some(thread) = self.fetcher.take() {
+            let _ = thread.join();
+        }
+    }
 }
 
 impl VideoFeed for SpoutFeed {
     fn read(&mut self) -> Result<Packet, FeedEnd> {
+        let mut slot = self.mail.slot.lock().unwrap_or_else(|e| e.into_inner());
         loop {
             if self.stop.load(Ordering::SeqCst) {
                 return Err(FeedEnd::Stopped);
             }
-            if let Some(first) = self.first.take() {
-                return Ok(self.send(first));
+            if let Some(packet) = slot.packet.take() {
+                self.mail.changed.notify_all();
+                return Ok(packet);
             }
-            let interval = Duration::from_secs_f64(1.0 / self.shared.fps(&self.key).max(1) as f64);
-            let wait = interval.saturating_sub(self.asked.elapsed());
-            if !wait.is_zero() {
-                std::thread::sleep(wait.min(Duration::from_millis(20)));
-                continue;
+            if let Some(why) = slot.ended.take() {
+                return Err(FeedEnd::Error(why));
             }
-            let asked = Instant::now();
-            match self.reader.next(Duration::from_millis(50)) {
-                Ok(Some(picture)) => {
-                    self.asked = asked;
-                    return Ok(self.send(picture));
-                }
-                Ok(None) if self.last_sent.elapsed() >= KEEP_ALIVE => {
-                    if let Some((data, _)) = self.last.clone() {
-                        return Ok(self.packet(data));
-                    }
-                }
-                Ok(None) => {}
-                Err(why) => {
-                    *self.waiting.lock().unwrap() = tr(GONE_TEXT);
-                    self.post("gone", "");
-                    return Err(FeedEnd::Error(why));
-                }
+            if self.fetcher.as_ref().is_none_or(|t| t.is_finished()) && slot.ended.is_none() && slot.packet.is_none() {
+                return Err(FeedEnd::Closed);
             }
+            slot = self.mail.changed.wait_timeout(slot, Duration::from_millis(50)).unwrap_or_else(|e| e.into_inner()).0;
         }
     }
 
     fn stopper(&self) -> Box<dyn FeedStopper> {
-        Box::new(Stop(self.stop.clone()))
+        Box::new(Stop(self.stop.clone(), self.mail.clone()))
     }
 }
 
