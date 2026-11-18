@@ -297,6 +297,17 @@ struct Ctx<'a> {
     view_epoch: u64,
     /// The pipeline epoch when the steps began on this frame (FrameContext::entry_epoch).
     entry_epoch: u64,
+    /// Whether this is the window's thread, which can't wait for the graphics card (FrameContext::hurried).
+    hurried: bool,
+    /// For a replay of the hiding: the hand-over count it was started under, which a newer hand-over moves on.
+    superseded: Option<(&'a AtomicU64, u64)>,
+}
+
+impl Ctx<'_> {
+    /// None once the stream is stopping: its vision state is let go of then, and a mask asked for after would make it again.
+    fn unless_stopped(&self) -> Option<()> {
+        (!self.stop.load(Ordering::SeqCst)).then_some(())
+    }
 }
 
 impl FrameContext for Ctx<'_> {
@@ -304,21 +315,28 @@ impl FrameContext for Ctx<'_> {
         &self.source_id
     }
     fn stopped(&self) -> bool {
-        self.stop.load(Ordering::SeqCst)
+        self.stop.load(Ordering::SeqCst) || self.superseded.is_some_and(|(handed, at)| handed.load(Ordering::SeqCst) != at)
+    }
+    fn hurried(&self) -> bool {
+        self.hurried
     }
     fn entry_epoch(&self) -> Option<u64> {
         Some(self.entry_epoch)
     }
     fn person_mask(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        self.unless_stopped()?;
         self.vision.as_ref()?.person_mask_in(&self.source_id, frame, frame.width as usize, frame.height as usize, self.view_epoch)
     }
     fn person_mask_at(&self, frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        self.unless_stopped()?;
         self.vision.as_ref()?.person_mask_in(&self.source_id, frame, w, h, self.view_epoch)
     }
     fn person_mask_hq(&self, frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        self.unless_stopped()?;
         self.vision.as_ref()?.person_mask_hq(&self.source_id, frame, frame.width as usize, frame.height as usize, self.view_epoch)
     }
     fn person_mask_hq_at(&self, frame: &Frame, w: usize, h: usize) -> Option<Arc<Vec<u8>>> {
+        self.unless_stopped()?;
         self.vision.as_ref()?.person_mask_hq(&self.source_id, frame, w, h, self.view_epoch)
     }
     fn colour_preview(&self, frame: &Frame) -> Frame {
@@ -397,6 +415,14 @@ struct Shared {
     hidings: AtomicU64,
     /// Steps went into the pipeline ahead of a frame (hide_cached), so the next frame still has to be told they were replaced.
     steps_replaced: AtomicBool,
+    /// The frame that was out when steps that hide things came in on the window's thread and a dark one went out in its place, until the real run of those steps on it is done or a newer frame comes.
+    replay: Mutex<Option<Frame>>,
+    /// A frame took steps that came in (the frame path of installing them), so the hiding count goes up with that frame's publish, as hide_cached's does with its own.
+    installed: AtomicBool,
+    /// How many times steps were handed over to hide_cached: a replay of an earlier hand-over gives up its wait on the card and publishes nothing.
+    handed: AtomicU64,
+    /// The threads that replay the hiding, so Stop can wait for them before the stream's vision state goes.
+    replays: Mutex<Vec<std::thread::JoinHandle<()>>>,
     next_colour: Mutex<Option<Vec<FrameStep>>>,
     seq: AtomicU64,
     slot: Arc<dyn FrameSlot>,
@@ -553,7 +579,7 @@ impl StreamWorker {
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
-            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_owner_steps: Mutex::new(Vec::new()), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), next_colour: Mutex::new(None), gate: setup.gate, idle: setup.idle, born: Instant::now(),
+            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_owner_steps: Mutex::new(Vec::new()), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), replay: Mutex::new(None), installed: AtomicBool::new(false), handed: AtomicU64::new(0), replays: Mutex::new(Vec::new()), next_colour: Mutex::new(None), gate: setup.gate, idle: setup.idle, born: Instant::now(),
             seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), frames_shed: AtomicU64::new(0), published: Mutex::new(0), sent_through: Mutex::new(None), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
             last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), fps_cell: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
@@ -572,6 +598,7 @@ impl StreamWorker {
                 s.status("error", &fill(&tr("Stream error: {error}"), &[("error", &what.unwrap_or_default())]));
             }
             s.join_handover();
+            s.join_replays();
             Hub::shared().unregister(&s.stats);
             if let Some(line) = telescope_core::perf::stage_line() {
                 log::info!("Stream ended. {line}");
@@ -875,8 +902,14 @@ impl Shared {
         if self.stopped() {
             return false;
         }
+        // A newer frame makes the one waiting for its hiding to be run stale
+        *self.replay.lock().unwrap() = None;
         {
             let mut published = self.published.lock().unwrap();
+            // Frames the camera loop queued were made under the steps before these: it forgets them and takes this one
+            if self.installed.swap(false, Ordering::SeqCst) {
+                self.hidings.fetch_add(1, Ordering::SeqCst);
+            }
             // stamped with the epoch it was made under, not the one it comes out in
             self.slot.publish_at(out, entered);
             *published += 1;
@@ -888,10 +921,14 @@ impl Shared {
     /// New steps are only put in the pipeline when the next frame arrives, and until then the camera keeps sending the last frame it made (a feed that
     /// stalled, a long exposure). So the moment steps are handed over they go in now, and the steps that hide things (Blur now, the wait screen) run on
     /// that last frame, which goes out in its place: nothing clear is sent while it waits for a frame to hide.
-    fn hide_cached(&self) {
+    fn hide_cached(self: &Arc<Self>) {
+        // A replay of the last hand-over that still holds the pipeline is told at once (its wait on the card ends and what it makes is dropped), so this isn't kept waiting for it; the dark frame it stands in for is out meanwhile
+        if self.next_steps.lock().unwrap().is_some() {
+            self.handed.fetch_add(1, Ordering::SeqCst);
+        }
         let mut publish = self.publish.lock().unwrap();
         // Read under the lock frames are published under, so a newer frame can't be taken for the one that was there
-        let Some((cached, _)) = self.slot.latest() else { return };
+        let Some((latest, _)) = self.slot.latest() else { return };
         let Some((steps, epoch)) = self.next_steps.lock().unwrap().take() else { return };
         self.steps_replaced.store(true, Ordering::SeqCst);
         self.view_epoch.store(epoch, Ordering::SeqCst);
@@ -900,18 +937,93 @@ impl Shared {
         let pipeline = publish.0.as_mut();
         pipeline.set_steps(steps);
         let entered = self.slot.epoch();
-        let ctx = Ctx { stop: &self.stop, source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: epoch, entry_epoch: entered };
-        let hidden = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pipeline.hide_again(cached, &ctx))).unwrap_or_else(|_| {
+        // The frame that was out before a dark one took its place, while its hiding is still to be run for real
+        let pending = self.replay.lock().unwrap().take();
+        let cached = pending.clone().unwrap_or(latest);
+        // This is the window's thread, which can't wait for the graphics card: a step that needs it makes the frame dark here, and the worker's thread does the real run
+        let ctx = Ctx { stop: &self.stop, source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: epoch, entry_epoch: entered, hurried: true, superseded: None };
+        let hidden = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pipeline.hide_again(cached.clone(), &ctx))).unwrap_or_else(|_| {
             log::error!("Hiding the frame on the camera failed");
             None
         });
-        if let Some(out) = hidden {
+        let hidden = match (hidden, pending) {
+            (Some(out), _) => Some(out),
+            // Nothing is left to hide, and the dark frame that went out for it isn't needed
+            (None, Some(before)) => Some(before),
+            (None, None) => None,
+        };
+        let Some(out) = hidden else { return };
+        let changed = !Arc::ptr_eq(&out.data, &cached.data);
+        {
             let mut published = self.published.lock().unwrap();
             // Counted under the lock the camera reads frames with, so a frame it already has queued is known to be from before
             self.hidings.fetch_add(1, Ordering::SeqCst);
             self.slot.publish_at(out, entered);
             *published += 1;
         }
+        if changed {
+            *self.replay.lock().unwrap() = Some(cached);
+            let (shared, handed) = (self.clone(), self.handed.load(Ordering::SeqCst));
+            // Listed under the lock Stop takes them by, so one started after Stop is either seen by it or not started
+            let mut replays = self.replays.lock().unwrap();
+            replays.retain(|t| !t.is_finished());
+            if self.stopped() {
+                return;
+            }
+            match std::thread::Builder::new().name("hide-replay".into()).spawn(move || shared.replay_hidden(handed)) {
+                Ok(thread) => replays.push(thread),
+                Err(e) => log::error!("Couldn't start the thread that hides the frame on the camera ({e}); it stays dark until the next frame"),
+            }
+        }
+    }
+
+    /// Waits for the replays to end (a stop ends their wait on the card) before the stream's vision state goes, up to a few seconds.
+    fn join_replays(&self) {
+        let threads = std::mem::take(&mut *self.replays.lock().unwrap());
+        let deadline = Instant::now() + Duration::from_secs(3);
+        for t in threads {
+            while !t.is_finished() && Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            if t.is_finished() {
+                let _ = t.join();
+            }
+        }
+    }
+
+    /// The real run of the steps that hide things on the frame that was out, once a dark one has gone out in its place: this waits for the graphics card, so it isn't on the window's thread.
+    fn replay_hidden(&self, handed: u64) {
+        // Nothing is asked of the card or the vision service for a stream that was stopped
+        if self.stopped() {
+            return;
+        }
+        let mut publish = self.publish.lock().unwrap();
+        // Gone when a newer frame was published since, or another run took it; and a newer hand-over leaves the frame to its own run
+        if self.handed.load(Ordering::SeqCst) != handed || self.stopped() {
+            return;
+        }
+        let Some(original) = self.replay.lock().unwrap().take() else { return };
+        let epoch = self.view_epoch.load(Ordering::SeqCst);
+        let entered = self.slot.epoch();
+        let ctx = Ctx { stop: &self.stop, source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: epoch, entry_epoch: entered, hurried: false, superseded: Some((&self.handed, handed)) };
+        let hidden = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| publish.0.hide_again(original.clone(), &ctx))).unwrap_or_else(|_| {
+            log::error!("Hiding the frame on the camera failed");
+            None
+        });
+        let mut published = self.published.lock().unwrap();
+        // Made for steps that a newer hand-over replaced, so it is neither published nor lost: that hand-over hides the frame again
+        if self.handed.load(Ordering::SeqCst) != handed {
+            // The pipeline noted these steps as done, and no picture out has them: the next hand-over must hide the frame again, not take it for done
+            publish.0.forget_history();
+            let mut pending = self.replay.lock().unwrap();
+            pending.get_or_insert(original);
+            return;
+        }
+        // The dark frame stays out unless there is something better, and nothing is published after Stop
+        let Some(out) = hidden.filter(|_| !self.stopped()) else { return };
+        self.hidings.fetch_add(1, Ordering::SeqCst);
+        self.slot.publish_at(out, entered);
+        *published += 1;
     }
 
     /// _prepare: the steps as they are now, the frame at its size, and the frame through the steps.
@@ -921,6 +1033,7 @@ impl Shared {
         let replaced = next_steps.is_some() | self.steps_replaced.swap(false, Ordering::SeqCst);
         if let Some((steps, epoch)) = next_steps {
             pipeline.set_steps(steps);
+            self.installed.store(true, Ordering::SeqCst);
             self.view_epoch.store(epoch, Ordering::SeqCst);
             // what was published before went out under the old steps (hide_cached did this too when there was a frame to hide)
             self.slot.forget_history();
@@ -966,7 +1079,7 @@ impl Shared {
         }
         // read before the steps run: a change of steps while they do leaves this frame marked as from before it
         let entered = self.slot.epoch();
-        let ctx = Ctx { stop: &self.stop, source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: self.view_epoch.load(Ordering::SeqCst), entry_epoch: entered };
+        let ctx = Ctx { stop: &self.stop, source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: self.view_epoch.load(Ordering::SeqCst), entry_epoch: entered, hurried: false, superseded: None };
         (pipeline.process(frame, &ctx), entered)
     }
 
@@ -1450,7 +1563,14 @@ impl Shared {
                     }
                 };
                 let began = telescope_core::time::monotonic_ns();
-                if let Err(e) = cam.send(fitted.as_ref().unwrap()) {
+                // Fitting and converting took time: a hiding published meanwhile is looked for again under the lock it is published under, and the send is made under it, so a clear frame never goes out after a hiding was published
+                let published = self.published.lock().unwrap();
+                if self.hidings.load(Ordering::SeqCst) != hidings {
+                    continue;
+                }
+                let sent = cam.send(fitted.as_ref().unwrap());
+                drop(published);
+                if let Err(e) = sent {
                     self.status("warn", &fill(&tr("Virtual camera error: {error}"), &[("error", &e)]));
                     // A new frame that didn't go is counted here, and the ones the burst passed over before it; a resend isn't another frame
                     if let Some(at) = fresh_at {
@@ -2010,6 +2130,8 @@ mod tests {
         send_cost_ms: AtomicU64,
         /// Every send: when it began, the number of the frame and how old it was then, in ms.
         timeline: Mutex<Vec<(Instant, u64, f64)>>,
+        /// Run once the next time the camera loop asks what size to fit to, which is after it took a frame and before it sends it.
+        fit_hook: Mutex<Option<Box<dyn FnOnce() + Send>>>,
     }
 
     struct Cam(Arc<Cams>, (u32, u32));
@@ -2035,6 +2157,10 @@ mod tests {
             self.1
         }
         fn fit_size(&mut self) -> Option<(u32, u32)> {
+            let hook = self.0.fit_hook.lock().unwrap().take();
+            if let Some(hook) = hook {
+                hook();
+            }
             *self.0.reader.lock().unwrap()
         }
         fn device(&self) -> String {
@@ -2719,6 +2845,64 @@ mod tests {
         }
     }
 
+    /// Hides on request, but only hurried does it at once: otherwise it waits on its gate, as a step waiting for the graphics card does.
+    struct HidesSlowly(Arc<AtomicBool>);
+
+    impl FramePipeline for HidesSlowly {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            frame
+        }
+        fn hide_again(&mut self, frame: Frame, ctx: &dyn FrameContext) -> Option<Frame> {
+            if ctx.hurried() {
+                return Some(grey(frame.width, frame.height, 7));
+            }
+            while !self.0.load(Ordering::SeqCst) && !ctx.stopped() {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            Some(grey(frame.width, frame.height, 9))
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+    }
+
+    /// Opens the gate when dropped, so a failed test doesn't leave a thread waiting on it.
+    struct OpensOnDrop(Arc<AtomicBool>);
+
+    impl Drop for OpensOnDrop {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::SeqCst);
+        }
+    }
+
+    #[test]
+    fn handing_over_steps_on_a_stalled_feed_goes_dark_at_once_and_waits_for_the_card_off_the_window_thread() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(200), Step::Pause(Duration::from_secs(30))])]);
+        let gate = Arc::new(AtomicBool::new(false));
+        let media = WithPipeline(Box::new({
+            let gate = gate.clone();
+            move || Box::new(HidesSlowly(gate.clone()))
+        }));
+        let w = start(setup(opener), Arc::new(media), &cams, &log);
+        wait_for(|| cams.sent.lock().unwrap().contains(&200));
+        let handed = AtomicBool::new(false);
+        std::thread::scope(|scope| {
+            let _open = OpensOnDrop(gate.clone());
+            scope.spawn(|| {
+                w.set_steps(vec![StagedStep { owner: "privacy".into(), stage: telescope_core::frame::FrameStage::Privacy, step: FrameStep::Cpu(Box::new(Nothing)) }]);
+                handed.store(true, Ordering::SeqCst);
+            });
+            wait_for(|| handed.load(Ordering::SeqCst));
+            wait_for(|| cams.sent.lock().unwrap().last() == Some(&7));
+            assert!(!cams.sent.lock().unwrap().contains(&9), "the real answer waits for the card");
+            gate.store(true, Ordering::SeqCst);
+            wait_for(|| cams.sent.lock().unwrap().last() == Some(&9));
+        });
+        w.stop();
+    }
+
     struct Nothing;
 
     impl telescope_core::frame::CpuStep for Nothing {
@@ -2741,6 +2925,182 @@ mod tests {
         wait_for(|| cams.sent.lock().unwrap().last() == Some(&7));
         assert!(asked.load(Ordering::SeqCst));
         w.stop();
+    }
+
+    fn privacy_step() -> Vec<StagedStep> {
+        vec![StagedStep { owner: "privacy".into(), stage: telescope_core::frame::FrameStage::Privacy, step: FrameStep::Cpu(Box::new(Nothing)) }]
+    }
+
+    #[test]
+    fn a_hiding_published_while_a_frame_is_being_fitted_is_not_followed_by_that_frame() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(200), Step::Pause(Duration::from_secs(30))])]);
+        let asked = Arc::new(AtomicBool::new(false));
+        let media = WithPipeline(Box::new({
+            let asked = asked.clone();
+            move || Box::new(HidesWhenAsked(asked.clone()))
+        }));
+        let w = start(setup(opener), Arc::new(media), &cams, &log);
+        wait_for(|| cams.sent.lock().unwrap().contains(&200));
+        let (shared, before) = (w.shared.clone(), Arc::new(AtomicUsize::new(usize::MAX)));
+        let (seen, counted) = (cams.clone(), before.clone());
+        // The camera loop has the frame it is about to send again when the hiding comes in, as it does during a long conversion
+        *cams.fit_hook.lock().unwrap() = Some(Box::new(move || {
+            counted.store(seen.sent.lock().unwrap().len(), Ordering::SeqCst);
+            *shared.next_steps.lock().unwrap() = Some((privacy_step(), 0));
+            shared.hide_cached();
+        }));
+        wait_for(|| cams.sent.lock().unwrap().last() == Some(&7));
+        let sent = cams.sent.lock().unwrap().clone();
+        let at = before.load(Ordering::SeqCst);
+        assert!(at <= sent.len(), "the hook ran");
+        assert!(sent[at..].iter().all(|v| *v == 7), "a clear frame went out after the hiding was published: {sent:?}");
+        w.stop();
+    }
+
+    #[test]
+    fn steps_a_frame_took_before_the_window_hid_the_cached_one_still_move_the_hiding_count() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(200), Step::Pause(Duration::from_millis(600)), Step::Frame(201), Step::Pause(Duration::from_secs(30))])]);
+        let asked = Arc::new(AtomicBool::new(false));
+        let media = WithPipeline(Box::new({
+            let asked = asked.clone();
+            move || Box::new(HidesWhenAsked(asked.clone()))
+        }));
+        let w = start(setup(opener), Arc::new(media), &cams, &log);
+        wait_for(|| cams.sent.lock().unwrap().contains(&200));
+        let before = w.shared.hidings.load(Ordering::SeqCst);
+        // Handed over but not hidden on the cached frame: the next frame takes them
+        *w.shared.next_steps.lock().unwrap() = Some((privacy_step(), 0));
+        wait_for(|| cams.sent.lock().unwrap().contains(&7));
+        assert!(w.shared.hidings.load(Ordering::SeqCst) > before, "the queue of frames made under the old steps would still go out first");
+        w.stop();
+    }
+
+    /// Hides at once when hurried; otherwise waits until it is stopped or its hand-over is replaced, then takes a while to answer, counting its runs and saying when it is done.
+    struct SlowToHide(Arc<AtomicUsize>, Arc<AtomicBool>);
+
+    impl FramePipeline for SlowToHide {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            frame
+        }
+        fn hide_again(&mut self, frame: Frame, ctx: &dyn FrameContext) -> Option<Frame> {
+            if ctx.hurried() {
+                return Some(grey(frame.width, frame.height, 7));
+            }
+            self.0.fetch_add(1, Ordering::SeqCst);
+            while !ctx.stopped() {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            std::thread::sleep(Duration::from_millis(300));
+            self.1.store(true, Ordering::SeqCst);
+            Some(grey(frame.width, frame.height, 9))
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn a_new_hand_over_does_not_wait_for_a_replay_stuck_on_the_card_and_its_result_is_never_published() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(200), Step::Pause(Duration::from_secs(30))])]);
+        let (runs, done) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicBool::new(false)));
+        let media = WithPipeline(Box::new({
+            let (runs, done) = (runs.clone(), done.clone());
+            move || Box::new(SlowToHide(runs.clone(), done.clone()))
+        }));
+        let w = start(setup(opener), Arc::new(media), &cams, &log);
+        wait_for(|| cams.sent.lock().unwrap().contains(&200));
+        w.set_steps(privacy_step());
+        wait_for(|| cams.sent.lock().unwrap().last() == Some(&7) && runs.load(Ordering::SeqCst) == 1);
+        // The first replay is waiting on the card and holds the pipeline: another cover is handed over
+        let handed = AtomicBool::new(false);
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                w.set_steps(privacy_step());
+                handed.store(true, Ordering::SeqCst);
+            });
+            wait_for(|| handed.load(Ordering::SeqCst));
+        });
+        wait_for(|| done.load(Ordering::SeqCst));
+        assert!(!cams.sent.lock().unwrap().contains(&9), "what the first replay made under the old steps was published: {:?}", cams.sent.lock().unwrap());
+        w.stop();
+        assert!(!cams.sent.lock().unwrap().contains(&9));
+    }
+
+    /// Notes which steps a replay did, as the real pipeline does: the same steps again have nothing to hide, until the pipeline is told it can't vouch for them.
+    struct RemembersDone(Arc<AtomicUsize>, bool);
+
+    impl FramePipeline for RemembersDone {
+        fn set_steps(&mut self, _steps: Vec<StagedStep>) {}
+        fn process(&mut self, frame: Frame, _ctx: &dyn FrameContext) -> Frame {
+            frame
+        }
+        fn hide_again(&mut self, frame: Frame, ctx: &dyn FrameContext) -> Option<Frame> {
+            if ctx.hurried() {
+                return if self.1 { None } else { Some(grey(frame.width, frame.height, 7)) };
+            }
+            self.0.fetch_add(1, Ordering::SeqCst);
+            while !ctx.stopped() {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            self.1 = true;
+            Some(grey(frame.width, frame.height, 9))
+        }
+        fn forget_history(&mut self) {
+            self.1 = false;
+        }
+        fn is_empty(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn a_replay_discarded_by_a_second_hand_over_of_the_same_steps_never_lets_the_clear_frame_out() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(200), Step::Pause(Duration::from_secs(30))])]);
+        let runs = Arc::new(AtomicUsize::new(0));
+        let media = WithPipeline(Box::new({
+            let runs = runs.clone();
+            move || Box::new(RemembersDone(runs.clone(), false))
+        }));
+        let w = start(setup(opener), Arc::new(media), &cams, &log);
+        wait_for(|| cams.sent.lock().unwrap().contains(&200));
+        w.set_steps(privacy_step());
+        wait_for(|| cams.sent.lock().unwrap().last() == Some(&7) && runs.load(Ordering::SeqCst) == 1);
+        // The replay is waiting on the card when the same steps are handed over again: it is told to give up, and what it made is dropped
+        w.set_steps(privacy_step());
+        let out = w.slot().latest().expect("a frame").0;
+        assert_eq!(out.data[0], 7, "the clear frame was published for steps that no picture out had been through");
+        wait_for(|| runs.load(Ordering::SeqCst) == 2);
+        w.stop();
+        let sent = cams.sent.lock().unwrap().clone();
+        let first_dark = sent.iter().position(|v| *v == 7).expect("dark went out");
+        assert!(sent[first_dark..].iter().all(|v| *v == 7), "something other than the dark frame went out after it: {sent:?}");
+    }
+
+    #[test]
+    fn stop_waits_for_the_replay_and_nothing_is_replayed_after_it() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let (opener, _opens) = scripted(vec![Some(vec![Step::Frame(200), Step::Pause(Duration::from_secs(30))])]);
+        let (runs, done) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicBool::new(false)));
+        let media = WithPipeline(Box::new({
+            let (runs, done) = (runs.clone(), done.clone());
+            move || Box::new(SlowToHide(runs.clone(), done.clone()))
+        }));
+        let w = start(setup(opener), Arc::new(media), &cams, &log);
+        wait_for(|| cams.sent.lock().unwrap().contains(&200));
+        w.set_steps(privacy_step());
+        wait_for(|| runs.load(Ordering::SeqCst) == 1);
+        w.stop();
+        assert!(done.load(Ordering::SeqCst), "the replay was still running after Stop returned, where the vision state is let go");
+        // One that was waiting for its turn when Stop came does nothing
+        *w.shared.replay.lock().unwrap() = Some(grey(4, 2, 200));
+        w.shared.replay_hidden(w.shared.handed.load(Ordering::SeqCst));
+        assert_eq!(runs.load(Ordering::SeqCst), 1);
+        assert!(!cams.sent.lock().unwrap().contains(&9));
     }
 
     /// A slot that counts how often its history was let go of (FrameSlot::forget_history), the rest being the plain one's.
@@ -2907,6 +3267,21 @@ mod tests {
         w.follow_view_epoch();
         wait_for(|| service.asked.lock().unwrap().last() == Some(&2));
         w.stop();
+    }
+
+    #[test]
+    fn no_mask_is_asked_for_once_the_stream_is_stopped() {
+        let service = Arc::new(Epochs::default());
+        let stop = AtomicBool::new(false);
+        let ctx = Ctx { stop: &stop, source_id: "cam".into(), vision: Some(service.clone()), view_epoch: 0, entry_epoch: 0, hurried: false, superseded: None };
+        let frame = grey(4, 2, 100);
+        let ask = || [ctx.person_mask(&frame), ctx.person_mask_at(&frame, 2, 1), ctx.person_mask_hq(&frame), ctx.person_mask_hq_at(&frame, 2, 1)];
+        assert!(ask().iter().all(Option::is_some), "a running stream is answered");
+        let asked = service.asked.lock().unwrap().len();
+        assert!(asked > 0);
+        stop.store(true, Ordering::SeqCst);
+        assert!(ask().iter().all(Option::is_none), "a stopped stream gets no mask, which would bring its vision state back");
+        assert_eq!(service.asked.lock().unwrap().len(), asked);
     }
 
     #[test]
