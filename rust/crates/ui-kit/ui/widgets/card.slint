@@ -51,7 +51,10 @@ component FoldTitle inherits Rectangle {
     // About to fold or unfold: the owner reads its motion's place first, so a fold that is still moving turns round from where it is
     callback toggling;
     height: Theme.u(15);
-    width: label.preferred-width;
+    // As wide as its words, and no wider than the header leaves it: a long title (a translation, a large text size) ends in an ellipsis and never pushes the card's buttons out
+    preferred-width: label.preferred-width;
+    max-width: label.preferred-width;
+    min-width: 0px;
     accessible-role: button;
     accessible-label: text;
     accessible-checkable: foldable;
@@ -82,12 +85,14 @@ component FoldTitle inherits Rectangle {
         clicked => { toggling(); Folds.toggle(key); }
     }
     label := Text {
+        width: root.width;
         text: root.text;
         font-family: Theme.font;
         font-size: root.font-size;
         font-weight: root.font-weight;
         color: root.hot && foldable ? hot-color : root.text-color;
         vertical-alignment: center;
+        overflow: elide;
         // The button around it already says it
         accessible-role: none;
     }

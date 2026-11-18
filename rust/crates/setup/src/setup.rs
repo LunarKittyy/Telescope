@@ -451,7 +451,7 @@ impl SetupPlugin {
     fn tip_delay_text(&self) -> String {
         match self.appearance.tip_delay_ms {
             0 => tr("Instant"),
-            ms => tr("{seconds} s").field("seconds", &format!("{:.1}", f64::from(ms) / 1000.0)),
+            ms => tr("{seconds} s").field("seconds", format!("{:.1}", f64::from(ms) / 1000.0)),
         }
     }
 

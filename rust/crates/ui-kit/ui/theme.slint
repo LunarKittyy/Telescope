@@ -207,6 +207,13 @@ export global Theme {
     out property <length> row: unit * 16;
     // How wide the control at the right of a settings row is (a picker, a text box, a segmented choice), the same in every row so the column of them lines up
     out property <length> control-w: 260px;
+    // Text larger than the default is wider in the same words: what a value beside a slider is given grows with it, and never shrinks with
+    // the density or smaller text
+    out property <float> text-scale: body / 13px;
+    out property <length> readout-w: 56px * max(1, text-scale);
+    out property <length> readout-w-wide: 64px * max(1, text-scale);
+    // How wide a Settings page runs at most: a column of the window, so it does not follow the density
+    out property <length> page-w: 520px;
     // A tile that is a control of its own: a toggle tile, a picture option
     out property <length> tile: unit * 20;
     out property <length> gap: unit * 3;
