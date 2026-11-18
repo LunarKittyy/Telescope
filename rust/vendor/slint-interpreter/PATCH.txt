@@ -1,4 +1,4 @@
-slint-interpreter 1.18.1 from crates.io with four changes (the second and fourth need vendor/i-slint-core), the first two in ItemTree::item_geometry (search for "Telescope patch"): ItemTree::item_geometry no longer clones
+slint-interpreter 1.18.1 from crates.io with seven changes (the second and fourth need vendor/i-slint-core), the first two in ItemTree::item_geometry (search for "Telescope patch"): ItemTree::item_geometry no longer clones
 the item's geometry expression and no longer builds a Struct from it.
 
 Why: Slint asks every item for its geometry on every walk of the item tree (rendering, hit testing, dirty tracking). The interpreter answered by cloning the
