@@ -21,7 +21,7 @@ Ports, access rules and checking the connection are in [Over Tailscale](features
 
 ## Take photos with a DSLR from your computer
 
-Use Telescope as a big live preview and an easier settings console for a DSLR while you take photos. This works with Nikon and Canon cameras on Linux and Windows.
+Use Telescope as a big live preview and an easier settings console for a DSLR while you take photos. This works on Linux. On Windows a Nikon or Canon shows live view but taking photos isn't there yet.
 
 1. Plug the camera in with live view on. A Nikon needs its dial on M. It shows up in the device picker next to the webcams.
 2. Switch on **Photos** under **Camera** and restart. Start the stream.
