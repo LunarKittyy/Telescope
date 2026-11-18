@@ -667,3 +667,29 @@ fn a_cover_between_looks_stops_frames_at_once() {
     rig.click("run-clicked", Value::Null);
     assert_eq!(rig.plugin.count, 1);
 }
+
+#[test]
+fn reset_puts_the_sliders_back_and_leaves_the_mode_and_the_camera() {
+    let mut rig = Rig::new("reset", json!({"mode": "live", "frames": 900, "keep": 40, "interval": 20, "camera": true}));
+    let shown = |rig: &Rig| rig.plugin.state_props(&rig.host)["settings-reset-shown"].clone();
+    assert_eq!(shown(&rig), json!(true));
+    rig.click("settings-reset-clicked", Value::Null);
+    let cfg = rig.plugin.get_config();
+    assert_eq!((cfg["frames"].as_u64(), cfg["keep"].as_u64(), cfg["interval"].as_u64()), (Some(DEFAULT_FRAMES.into()), Some(DEFAULT_KEEP.into()), Some(DEFAULT_TRAIL_S.into())));
+    assert_eq!((cfg["mode"].as_str(), cfg["camera"].as_bool()), (Some("live"), Some(true)));
+    assert_eq!(rig.plugin.shared.interval_ms.load(Ordering::SeqCst), u64::from(DEFAULT_TRAIL_S) * 1000);
+    assert!(rig.plugin.shared.camera.load(Ordering::SeqCst));
+    assert_eq!(shown(&rig), json!(false));
+    assert!(rig.host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"settings-reset-shown\":false")));
+}
+
+#[test]
+fn reset_waits_for_a_run_to_end() {
+    let mut rig = Rig::new("reset-run", json!({"mode": "live", "frames": 900}));
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.phase, Phase::Collecting);
+    assert_eq!(rig.plugin.state_props(&rig.host)["settings-reset-shown"], json!(false));
+    rig.click("settings-reset-clicked", Value::Null);
+    assert_eq!(rig.plugin.frames, 900, "a run keeps the settings it began with");
+    assert_eq!(rig.plugin.phase, Phase::Collecting);
+}
