@@ -26,6 +26,10 @@ The idea was to copy the next Spout frame while the last one is converted. Captu
 
 Two ideas were meant to cut the cost of steps on the processor. They were converting a frame to RGB once for the whole chain and running brightness and colour steps on the YUV planes. Measured at 4K, the steps left on the processor cost about 1 ms each, too little to be worth the change. Two more ideas went the same way. The copy of a decoded frame and the BT.709 conversion would each save under 0.5 ms.
 
+## Steps on the integrated graphics card (November 2026)
+
+The idea was to move steps onto a laptop's integrated card while a game has the main card busy. A frame can't go straight from one card to the other. Each move costs the same trip through memory as falling back to the processor. The integrated card is also slower and shares memory bandwidth with the processor. Most steps left on the processor only cost about 1 ms each. Worth a quick measurement if someone with a busy laptop finds the processor fallback too slow.
+
 ## H.265 (November 2026)
 
 A spike looked at sending H.265 from phones that support it. Everything on both sides of the video path is written for H.264, from the phone's encoder to the headers the desktop reads. That makes it a rewrite of about a dozen files on two platforms. The gain is mostly bitrate, which only matters on weak Wi-Fi where Dynamic already steps down. Phones' H.265 encoders also differ a lot and need testing on real ones.
