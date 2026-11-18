@@ -31,6 +31,19 @@ const LEAST: (f32, f32) = (720.0, 480.0);
 /// What a window keeps clear of the screen's edges (controls.SCREEN_MARGIN).
 const SCREEN_MARGIN: f32 = 48.0;
 
+/// What the window may be cut down to: its inside never goes under 320x240, and its own minimum (least-width and least-height)
+/// is lowered to what a small work area leaves, now and whenever it is measured again.
+fn limits() -> crate::screen::Limits {
+    crate::screen::Limits::new((320.0, 240.0)).relaxed_by(least_for)
+}
+
+/// The window's own minimum on a screen (its work area in logical pixels): the usual one, or less where the screen leaves less.
+fn least_for(ui: &ComponentInstance, screen: (f32, f32)) {
+    let (w, h) = (SIZE.0.min(screen.0 - SCREEN_MARGIN), SIZE.1.min(screen.1 - SCREEN_MARGIN));
+    let _ = ui.set_property("least-width", SValue::Number(LEAST.0.min(w) as f64));
+    let _ = ui.set_property("least-height", SValue::Number(LEAST.1.min(h) as f64));
+}
+
 type Rect = (f32, f32, f32, f32);
 
 /// (tab id, its name, the sections on it in order) for the tabs that have any (settings_window.ordered_tabs).
@@ -406,7 +419,9 @@ fn create(window: &Rc<Window>, plan: Plan) -> Result<Rc<Settings>, String> {
     crate::appearance::apply(&ui);
     // A .zip dropped anywhere on the window installs like the Install button does
     let drops = Rc::new(plugins_tab::DropBatch::default());
+    let mut follow = crate::screen::follow(&ui, limits());
     crate::keys::watch_scan_codes_and(&ui, move |event| {
+        follow(event);
         if let slint::winit_030::winit::event::WindowEvent::DroppedFile(path) = event {
             if drops.add(path.clone()) {
                 let drops = drops.clone();
@@ -734,11 +749,9 @@ impl Settings {
 
     /// In the middle of the main window (a window owned by another opens wherever the system likes, the corner on Windows).
     fn centre(&self, ui: &ComponentInstance) {
-        let scale = ui.window().scale_factor();
-        let least = ((320.0 * scale) as u32, (240.0 * scale) as u32);
         match self.window.upgrade() {
-            Some(main) => crate::screen::centre_over(ui, &main.ui, least),
-            None => crate::screen::keep_inside(ui, least),
+            Some(main) => crate::screen::centre_over(ui, &main.ui, &limits()),
+            None => crate::screen::keep_inside(ui, &limits()),
         }
     }
 
@@ -746,8 +759,7 @@ impl Settings {
     /// the window's minimum. In logical pixels.
     pub fn fit_to_screen(&self, screen: (f32, f32)) {
         let (w, h) = (SIZE.0.min(screen.0 - SCREEN_MARGIN), SIZE.1.min(screen.1 - SCREEN_MARGIN));
-        let _ = self.ui.set_property("least-width", SValue::Number(LEAST.0.min(w) as f64));
-        let _ = self.ui.set_property("least-height", SValue::Number(LEAST.1.min(h) as f64));
+        least_for(&self.ui, screen);
         self.ui.window().set_size(slint::LogicalSize::new(w, h));
     }
 

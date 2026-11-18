@@ -161,8 +161,7 @@ impl Window {
         if self.fitted.replace(true) {
             return;
         }
-        let scale = self.ui.window().scale_factor();
-        crate::screen::keep_inside(&self.ui, ((560.0 * scale) as u32, (520.0 * scale) as u32));
+        crate::screen::keep_inside(&self.ui, &crate::screen::Limits::main());
     }
 
     fn hide_window(&self) {

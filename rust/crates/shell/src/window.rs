@@ -655,7 +655,7 @@ impl Window {
             }
             SValue::Void
         });
-        crate::keys::watch_scan_codes(ui);
+        crate::keys::watch_scan_codes_and(ui, crate::screen::follow(ui, crate::screen::Limits::main()));
         let weak = Rc::downgrade(self);
         let _ = ui.set_callback("key", move |args| {
             let Some(w) = weak.upgrade() else { return SValue::Bool(false) };
@@ -1443,8 +1443,7 @@ impl Window {
         let _ = ui.show();
         crate::frame::dress(&ui);
         crate::parent::attach(&ui, &self.ui);
-        let scale = ui.window().scale_factor();
-        crate::screen::keep_inside(&ui, ((320.0 * scale) as u32, (200.0 * scale) as u32));
+        crate::screen::keep_inside(&ui, &crate::screen::Limits::new((320.0, 200.0)));
         self.plugin_windows.borrow_mut().push((plugin.to_string(), id.to_string(), ui));
     }
 
