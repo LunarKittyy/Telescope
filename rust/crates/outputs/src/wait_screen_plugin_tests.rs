@@ -461,6 +461,16 @@ fn mirror_is_off_by_default_and_reshows_when_toggled() {
     assert!(!r.plugin.mirror() && !r.shown(0).last().unwrap().2);
 }
 
+#[test]
+fn a_mirror_set_from_outside_reshows_and_saves() {
+    let mut r = Rig::new();
+    r.plugin.apply_preset(&mut r.host, &json!({"mirror": true})).unwrap();
+    assert!(r.plugin.mirror() && r.shown(0).last().unwrap().2);
+    assert_eq!(r.saves(), 1);
+    r.plugin.apply_preset(&mut r.host, &json!({"mirror": true})).unwrap();
+    assert_eq!(r.saves(), 1, "nothing changed");
+}
+
 // test_wait_screen.py::test_shutdown_lets_go_for_good
 #[test]
 fn shutdown_lets_go_for_good() {
@@ -846,6 +856,12 @@ fn an_nv12_stream_is_covered_like_any_other() {
     let out = covered(&mut r.plugin, &frame);
     assert_eq!(out.format, PixelFormat::Nv12);
     assert_ne!(out.data, frame.data);
+}
+
+#[test]
+fn the_declared_settings_round_trip() {
+    let mut r = Rig::new();
+    telescope_core::testing::settings_round_trip(&mut r.plugin, &mut r.host);
 }
 
 #[test]

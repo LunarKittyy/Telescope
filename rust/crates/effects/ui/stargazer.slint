@@ -19,6 +19,7 @@ export component StargazerCard inherits Card {
     in property <bool> save-enabled;
     in property <string> reset-text;
     in property <bool> reset-enabled;
+    in property <bool> settings-reset-shown;
     in property <string> status;
     in property <string> status-kind: "status_dim";
     in property <string> tally;
@@ -37,6 +38,7 @@ export component StargazerCard inherits Card {
     callback run-clicked;
     callback save-clicked;
     callback reset-clicked;
+    callback settings-reset-clicked;
     callback camera-toggled(bool);
     callback open-clicked;
 
@@ -44,6 +46,11 @@ export component StargazerCard inherits Card {
     tip: @tr("Stack frames from a telescope into a sharper moon or planet, a faint sky or star trails.");
     icon: Icons.star;
     enabled: active;
+    has-reset: true;
+    reset-lit: settings-reset-shown;
+    reset-label: @tr("Reset settings");
+    reset-detail: @tr("Set the frames, sharpest share and time between frames back to default. The mode and the camera switch aren't reset.");
+    reset => { root.settings-reset-clicked(); }
 
     RailRow {
         has-icon: false;

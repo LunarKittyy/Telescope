@@ -296,14 +296,29 @@ fn pinning_a_tile_zoomed_far_in_keeps_a_crop_that_can_be_dragged_without_leaving
 }
 
 #[test]
-fn swapping_two_tiles_trades_their_places_and_sizes_and_nothing_else() {
+fn swapping_two_tiles_trades_their_boxes_and_layers_and_nothing_else() {
     let mut a = Tile::boxed("a", "A", 0.0, 0.0, 0.7, 1.0);
     a.zoom = 2.0;
     let b = Tile::boxed("b", "B", 0.7, 0.0, 0.3, 0.4);
     let out = swapped(&[a.clone(), b.clone()], 0, 1);
-    assert_eq!((out[0].source_id.as_str(), out[0].x, out[0].w, out[0].h), ("a", 0.7, 0.3, 0.4));
-    assert_eq!((out[1].source_id.as_str(), out[1].x, out[1].w, out[1].h), ("b", 0.0, 0.7, 1.0));
-    assert_eq!(out[0].zoom, 2.0, "each keeps its own zoom");
+    // a is now the front tile with b's box, b the back one with a's
+    assert_eq!((out[1].source_id.as_str(), out[1].x, out[1].w, out[1].h), ("a", 0.7, 0.3, 0.4));
+    assert_eq!((out[0].source_id.as_str(), out[0].x, out[0].w, out[0].h), ("b", 0.0, 0.7, 1.0));
+    assert_eq!(out[1].zoom, 2.0, "each keeps its own zoom");
     assert_eq!(swapped(&[a.clone(), b.clone()], 0, 0), [a.clone(), b.clone()]);
     assert_eq!(swapped(&[a.clone(), b.clone()], 0, 5), [a, b]);
+}
+
+#[test]
+fn a_tile_is_cut_to_the_shape_of_what_it_shows() {
+    let canvas = 16.0 / 9.0;
+    let close = |a: f64, b: f64| (a - b).abs() < 1e-9;
+    // a wide stream in a tall box gets a wide box about the same middle
+    let tall = Tile::boxed("a", "A", 0.0, 0.0, 0.3, 1.0);
+    let fitted = refit(&tall, 16.0 / 9.0, canvas);
+    assert!(close(fitted.w * canvas / fitted.h, 16.0 / 9.0), "{fitted:?}");
+    assert!(close(fitted.x + fitted.w / 2.0, 0.15) && close(fitted.y + fitted.h / 2.0, 0.5), "same middle: {fitted:?}");
+    // the same stream with its sides cropped is narrower, so its box is
+    let cropped = refit(&Tile { crop_l: 0.25, crop_r: 0.25, ..tall }, 16.0 / 9.0, canvas);
+    assert!(close(cropped.w * canvas / cropped.h, 16.0 / 9.0 * 0.5), "{cropped:?}");
 }

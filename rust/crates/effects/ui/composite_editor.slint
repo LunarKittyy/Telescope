@@ -23,11 +23,6 @@ export struct StreamRow {
     text: string,
     dim: bool,
     on: bool,
-    // The stream has a tile in the layout: it can be picked, hidden and locked from its row
-    layer: bool,
-    hidden: bool,
-    locked: bool,
-    picked: bool,
 }
 
 // _paint_chip: a small dark pill with text, for the drag's mode and the picked stream's name
@@ -41,10 +36,14 @@ component Chip inherits Rectangle {
     border-width: accent ? 1px : 0px;
     border-color: Theme.plugin-hue("streaming");
     label := Text {
+        width: parent.width;
+        height: parent.height;
         text: root.text;
         font-family: Theme.font;
         font-size: Theme.body;
         color: accent ? Theme.accent-soft : Theme.ink;
+        horizontal-alignment: center;
+        vertical-alignment: center;
     }
 }
 
@@ -149,12 +148,16 @@ component PictureView inherits Rectangle {
     for g in grips: Rectangle {
         property <length> grow: g.hot ? Theme.u(1) : 0px;
         property <length> long: g.corner ? Theme.u(5) + grow : Theme.u(8) + grow;
-        property <length> short: g.corner ? Theme.u(5) + grow : Theme.u(3) + grow / 2;
-        // Qt's 1.5 px pen sits half outside the box
-        width: (g.corner || g.wide ? long : short) + Theme.u(0.75);
-        height: (g.corner || g.wide ? (g.corner ? long : short) : long) + Theme.u(0.75);
-        x: area-x + g.x * area-w - self.width / 2;
-        y: area-y + g.y * area-h - self.height / 2;
+        property <length> short: g.corner ? Theme.u(5) + grow : Theme.u(3) + grow;
+        // Whole units on both sides, so the middle of a handle falls on a pixel line at whole scales
+        width: (g.corner || g.wide ? long : short) + Theme.u(1);
+        height: (g.corner || g.wide ? (g.corner ? long : short) : long) + Theme.u(1);
+        // The selection frame's line is drawn inside its box: its middle is half the line in from the edge
+        property <length> line: Theme.u(0.75);
+        property <length> on-x: abs(g.x - selected-tile.x) < 0.00001 ? line / 2 : abs(g.x - selected-tile.x - selected-tile.w) < 0.00001 ? -line / 2 : 0px;
+        property <length> on-y: abs(g.y - selected-tile.y) < 0.00001 ? line / 2 : abs(g.y - selected-tile.y - selected-tile.h) < 0.00001 ? -line / 2 : 0px;
+        x: area-x + g.x * area-w + on-x - self.width / 2;
+        y: area-y + g.y * area-h + on-y - self.height / 2;
         border-radius: min(self.width, self.height) / 2;
         border-width: Theme.u(0.75);
         border-color: Theme.stage;
@@ -209,10 +212,10 @@ component SwatchRow inherits HorizontalLayout {
     callback clicked;
     spacing: Theme.u(5);
     Rectangle {
-        width: Theme.u(26);
-        height: Theme.u(15);
+        width: Theme.u(32);
+        height: Theme.u(16);
         y: (parent.height - self.height) / 2;
-        border-radius: Theme.u(3.5);
+        border-radius: Theme.r-ctl;
         border-width: 1px;
         border-color: touch.has-hover ? Theme.line-hover : Theme.line-strong;
         background: root.colour;
@@ -223,6 +226,38 @@ component SwatchRow inherits HorizontalLayout {
     }
     Text {
         text: code;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        color: Theme.ink2;
+        vertical-alignment: center;
+    }
+}
+
+// A number box with its letter inside at the left (X, Y, W, H), the number right aligned
+component PlaceField inherits Rectangle {
+    in property <string> short;
+    in property <string> name;
+    in property <string> detail;
+    in property <string> value;
+    callback committed(string);
+    callback step(int);
+    horizontal-stretch: 1;
+    height: Theme.u(16);
+    NumberField {
+        width: parent.width;
+        height: parent.height;
+        label: root.name;
+        tip: root.name;
+        tip-detail: root.detail;
+        value: root.value;
+        committed(t) => { root.committed(t); }
+        step(d) => { root.step(d); }
+    }
+    Text {
+        x: Theme.u(4);
+        width: Theme.u(8);
+        height: parent.height;
+        text: root.short;
         font-family: Theme.font;
         font-size: Theme.body;
         color: Theme.ink2;
@@ -273,7 +308,6 @@ export component CompositeEditor inherits Window {
     in property <float> radius-max: 200;
     in property <string> radius-text;
     in property <bool> fit-enabled;
-    in property <bool> tile-locked;
     in property <string> pos-x-text;
     in property <string> pos-y-text;
     in property <string> size-w-text;
@@ -309,9 +343,6 @@ export component CompositeEditor inherits Window {
     callback border-moved(float);
     callback radius-moved(float);
     callback fit-clicked;
-    callback stream-picked(int);
-    callback stream-hidden(int, bool);
-    callback stream-locked(int, bool);
     callback box-committed(string, string);
     callback box-step(string, int);
     callback swap-picked(int);
@@ -418,39 +449,14 @@ export component CompositeEditor inherits Window {
                         VerticalLayout {
                             for row[i] in streams: HorizontalLayout {
                                 spacing: Theme.u(6);
-                                Rectangle {
+                                Text {
+                                    text: row.text;
+                                    font-family: Theme.font;
+                                    font-size: Theme.body;
+                                    color: row.dim ? Theme.ink2 : Theme.ink;
+                                    vertical-alignment: center;
                                     horizontal-stretch: 1;
-                                    Text {
-                                        width: parent.width;
-                                        text: row.text;
-                                        font-family: Theme.font;
-                                        font-size: Theme.body;
-                                        font-weight: row.picked ? 600 : 400;
-                                        color: row.dim || row.hidden ? Theme.ink2 : Theme.ink;
-                                        vertical-alignment: center;
-                                        overflow: elide;
-                                    }
-                                    if row.layer: TouchArea {
-                                        mouse-cursor: MouseCursor.pointer;
-                                        clicked => { root.stream-picked(i); }
-                                    }
-                                }
-                                if row.layer: IconButton {
-                                    y: (parent.height - self.height) / 2;
-                                    icon: row.hidden ? Icons.eye-off : Icons.eye;
-                                    label: row.hidden ? @tr("Show") : @tr("Hide");
-                                    tip: row.hidden ? @tr("Show") : @tr("Hide");
-                                    tip-detail: @tr("Leave this stream out of the picture without taking it out of the layout.");
-                                    clicked => { root.stream-hidden(i, !row.hidden); }
-                                }
-                                if row.layer: IconButton {
-                                    y: (parent.height - self.height) / 2;
-                                    icon: Icons.lock;
-                                    opacity: row.locked ? 1.0 : 0.4;
-                                    label: row.locked ? @tr("Unlock") : @tr("Lock");
-                                    tip: row.locked ? @tr("Unlock") : @tr("Lock");
-                                    tip-detail: @tr("Pin this stream so it can't be moved or changed until it is unlocked.");
-                                    clicked => { root.stream-locked(i, !row.locked); }
+                                    overflow: elide;
                                 }
                                 Rectangle {
                                     width: Theme.u(18);
@@ -477,77 +483,77 @@ export component CompositeEditor inherits Window {
                         action-enabled: fit-enabled;
                         action => { root.fit-clicked(); }
                         if tile-shown: VerticalLayout {
-                            spacing: Theme.u(1);
-                            if tile-locked: Note { text: @tr("Locked. Unlock it in the Streams list to change it."); kind: "status_dim"; }
-                            LabelRow {
-                            label-width: Theme.u(36);
-                                label: @tr("Stream");
-                                shown-tile-name := Text { text: selected-tile.name; font-family: Theme.font; font-size: Theme.body; color: Theme.ink; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; Tip { says: shown-tile-name.text; enabled: shown-tile-name.preferred-width > shown-tile-name.width; inert: true; } }
+                            spacing: Theme.u(2);
+                            shown-tile-name := Text {
+                                text: selected-tile.name;
+                                font-family: Theme.font;
+                                font-size: Theme.body;
+                                font-weight: 600;
+                                color: Theme.ink;
+                                overflow: elide;
+                                height: Theme.u(14);
+                                vertical-alignment: center;
+                                Tip { says: shown-tile-name.text; enabled: shown-tile-name.preferred-width > shown-tile-name.width; inert: true; }
                             }
-                            LabelRow {
-                                label-width: Theme.u(36);
-                                label: @tr("Position");
-                                HorizontalLayout {
-                                    spacing: Theme.gap;
-                                    NumberField {
-                                        label: @tr("Left");
-                                        tip: @tr("Left");
-                                        tip-detail: @tr("How far the left edge of the stream is from the left edge of the picture, in pixels.");
-                                        value: pos-x-text;
-                                        committed(t) => { root.box-committed("x", t); }
-                                        step(d) => { root.box-step("x", -d); }
-                                    }
-                                    NumberField {
-                                        label: @tr("Top");
-                                        tip: @tr("Top");
-                                        tip-detail: @tr("How far the top edge of the stream is from the top of the picture, in pixels.");
-                                        value: pos-y-text;
-                                        committed(t) => { root.box-committed("y", t); }
-                                        step(d) => { root.box-step("y", -d); }
-                                    }
+                            SectionHeading { text: @tr("Place"); }
+                            HorizontalLayout {
+                                spacing: Theme.gap;
+                                PlaceField {
+                                    short: @tr("X");
+                                    name: @tr("Left");
+                                    detail: @tr("How far the left edge of the stream is from the left edge of the picture, in pixels.");
+                                    value: pos-x-text;
+                                    committed(t) => { root.box-committed("x", t); }
+                                    step(d) => { root.box-step("x", -d); }
+                                }
+                                PlaceField {
+                                    short: @tr("Y");
+                                    name: @tr("Top");
+                                    detail: @tr("How far the top edge of the stream is from the top of the picture, in pixels.");
+                                    value: pos-y-text;
+                                    committed(t) => { root.box-committed("y", t); }
+                                    step(d) => { root.box-step("y", -d); }
                                 }
                             }
-                            LabelRow {
-                                label-width: Theme.u(36);
-                                label: @tr("Size");
-                                HorizontalLayout {
-                                    spacing: Theme.gap;
-                                    NumberField {
-                                        label: @tr("Width");
-                                        tip: @tr("Width");
-                                        tip-detail: @tr("The width of the stream's box in pixels.");
-                                        value: size-w-text;
-                                        committed(t) => { root.box-committed("w", t); }
-                                        step(d) => { root.box-step("w", -d); }
-                                    }
-                                    NumberField {
-                                        label: @tr("Height");
-                                        tip: @tr("Height");
-                                        tip-detail: @tr("The height of the stream's box in pixels.");
-                                        value: size-h-text;
-                                        committed(t) => { root.box-committed("h", t); }
-                                        step(d) => { root.box-step("h", -d); }
-                                    }
+                            HorizontalLayout {
+                                spacing: Theme.gap;
+                                PlaceField {
+                                    short: @tr("W");
+                                    name: @tr("Width");
+                                    detail: @tr("The width of the stream's box in pixels.");
+                                    value: size-w-text;
+                                    committed(t) => { root.box-committed("w", t); }
+                                    step(d) => { root.box-step("w", -d); }
+                                }
+                                PlaceField {
+                                    short: @tr("H");
+                                    name: @tr("Height");
+                                    detail: @tr("The height of the stream's box in pixels.");
+                                    value: size-h-text;
+                                    committed(t) => { root.box-committed("h", t); }
+                                    step(d) => { root.box-step("h", -d); }
                                 }
                             }
-                            LabelRow {
-                                label-width: Theme.u(36);
-                                label: @tr("Swap with");
-                                ChoiceField {
-                                    compact: true;
-                                    caption: @tr("Swap with");
-                                    placeholder: @tr("Choose a stream");
-                                    items: swap-items;
-                                    current: -1;
-                                    enabled: swap-enabled;
-                                    tip: @tr("Swap with");
-                                    tip-detail: @tr("Trade this stream's place and size with another stream's.");
-                                    picked(i) => { root.swap-picked(i); }
-                                }
+                            ChoiceField {
+                                compact: true;
+                                caption: @tr("Swap with");
+                                placeholder: @tr("Swap with…");
+                                items: swap-items;
+                                current: -1;
+                                enabled: swap-enabled;
+                                tip: @tr("Swap with");
+                                tip-detail: @tr("Trade this stream's place and size with another stream's.");
+                                picked(i) => { root.swap-picked(i); }
                             }
+                            HorizontalLayout {
+                                spacing: Theme.gap;
+                                Button { horizontal-stretch: 1; text: @tr("Send back"); enabled: back-enabled; clicked => { root.restack(-1); } }
+                                Button { horizontal-stretch: 1; text: @tr("Bring forward"); enabled: front-enabled; clicked => { root.restack(1); } }
+                            }
+                            SectionHeading { text: @tr("Look"); }
                             SliderRow {
-                                    label-width: Theme.u(36);
-                                    hue: Theme.plugin-hue("streaming");
+                                label-width: Theme.u(36);
+                                hue: Theme.plugin-hue("streaming");
                                 label: @tr("Zoom");
                                 tip-hint: @tr("Scroll to zoom and drag with the right mouse button to move. Double-click to reset.");
                                 minimum: 100;
@@ -559,8 +565,20 @@ export component CompositeEditor inherits Window {
                                 moved(v) => { root.zoom-moved(v); }
                             }
                             SliderRow {
-                                    label-width: Theme.u(36);
-                                    hue: Theme.plugin-hue("streaming");
+                                label-width: Theme.u(36);
+                                hue: Theme.plugin-hue("streaming");
+                                label: @tr("Corners");
+                                maximum: radius-max;
+                                value: radius;
+                                readout: radius-text;
+                                tip-detail: @tr("How round the corners are.");
+                                has-default: true;
+                                default-value: 0;
+                                moved(v) => { root.radius-moved(v); }
+                            }
+                            SliderRow {
+                                label-width: Theme.u(36);
+                                hue: Theme.plugin-hue("streaming");
                                 label: @tr("Border");
                                 maximum: border-max;
                                 value: border;
@@ -571,7 +589,7 @@ export component CompositeEditor inherits Window {
                                 moved(v) => { root.border-moved(v); }
                             }
                             LabelRow {
-                            label-width: Theme.u(36);
+                                label-width: Theme.u(36);
                                 label: @tr("Colour");
                                 SwatchRow {
                                     label: @tr("Border colour");
@@ -581,40 +599,19 @@ export component CompositeEditor inherits Window {
                                 }
                             }
                             Unfolding {
- open: colour-target == "border";
- lead: Theme.u(1);
- VerticalLayout {
-                                for name[i] in [@tr("Red"), @tr("Green"), @tr("Blue")]: SliderRow {
-                                    label-width: Theme.u(36);
-                                    hue: Theme.plugin-hue("streaming");
-                                    label: name;
-                                    minimum: 0;
-                                    maximum: 255;
-                                    value: channels[i];
-                                    readout: channels[i];
-                                    moved(v) => { root.channel-moved(i, v); }
-                                }
-                            }
- }
-                            SliderRow {
-                                    label-width: Theme.u(36);
-                                    hue: Theme.plugin-hue("streaming");
-                                label: @tr("Corners");
-                                maximum: radius-max;
-                                value: radius;
-                                readout: radius-text;
-                                tip-detail: @tr("How round the corners are.");
-                                has-default: true;
-                                default-value: 0;
-                                moved(v) => { root.radius-moved(v); }
-                            }
-                            LabelRow {
-                            label-width: Theme.u(36);
-                                label: @tr("Order");
-                                HorizontalLayout {
-                                    spacing: Theme.u(4);
-                                    Button { y: Theme.u(1); text: @tr("Send back"); enabled: back-enabled; clicked => { root.restack(-1); } }
-                                    Button { y: Theme.u(1); text: @tr("Bring forward"); enabled: front-enabled; clicked => { root.restack(1); } }
+                                open: colour-target == "border";
+                                lead: Theme.u(1);
+                                VerticalLayout {
+                                    for name[i] in [@tr("Red"), @tr("Green"), @tr("Blue")]: SliderRow {
+                                        label-width: Theme.u(36);
+                                        hue: Theme.plugin-hue("streaming");
+                                        label: name;
+                                        minimum: 0;
+                                        maximum: 255;
+                                        value: channels[i];
+                                        readout: channels[i];
+                                        moved(v) => { root.channel-moved(i, v); }
+                                    }
                                 }
                             }
                         }

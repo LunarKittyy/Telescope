@@ -402,6 +402,10 @@ impl Plugin for FaceExposurePlugin {
         }
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        vec![telescope_core::settings::SettingSpec::switch("on", "Whether the phone's exposure follows your face", false)]
+    }
+
     fn get_config(&self) -> Value {
         json!({"on": self.switch})
     }

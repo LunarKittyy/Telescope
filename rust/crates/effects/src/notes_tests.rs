@@ -523,3 +523,8 @@ fn reset_puts_the_look_back_and_keeps_the_scripts() {
     assert!(rig.host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
     assert!(rig.host.calls.iter().any(|c| c == "schedule_save"));
 }
+
+#[test]
+fn the_declared_settings_round_trip() {
+    telescope_core::testing::settings_round_trip(&mut NotesPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+}

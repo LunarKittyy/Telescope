@@ -96,7 +96,7 @@ impl Editor {
 
     /// (tile index, handle or "") under pos, the picked tile's handles first and then the frontmost tile.
     fn hit(&self, tiles: &[Tile], pos: (f64, f64)) -> (i64, String) {
-        if let Some(tile) = usize::try_from(self.selected).ok().and_then(|i| tiles.get(i)).filter(|t| !t.hidden && !t.locked) {
+        if let Some(tile) = usize::try_from(self.selected).ok().and_then(|i| tiles.get(i)) {
             let (x, y, w, h) = self.tile_rect(tile);
             for (name, across, down) in HANDLES {
                 if (x + across * w - pos.0).abs() <= HANDLE_PX && (y + down * h - pos.1).abs() <= HANDLE_PX {
@@ -104,8 +104,7 @@ impl Editor {
                 }
             }
         }
-        // a hidden tile isn't there to grab and a locked one can't be moved by a click on the picture
-        for (i, tile) in tiles.iter().enumerate().rev().filter(|(_, t)| !t.hidden && !t.locked) {
+        for (i, tile) in tiles.iter().enumerate().rev() {
             let (x, y, w, h) = self.tile_rect(tile);
             if pos.0 >= x && pos.0 < x + w && pos.1 >= y && pos.1 < y + h {
                 return (i as i64, String::new());
@@ -203,10 +202,6 @@ impl CompositePlugin {
     fn replace_tile(&mut self, host: &mut dyn Host, index: i64, mut tile: Tile) {
         let Some(at) = usize::try_from(index).ok().filter(|i| *i < self.layout.tiles.len()) else { return };
         let old = self.layout.tiles[at].clone();
-        // a locked tile takes no change but its own flags
-        if old.locked && (Tile { locked: old.locked, hidden: old.hidden, ..tile.clone() }) != old {
-            return;
-        }
         // an edit that leaves the shown zoom alone leaves the saved one alone too
         if tile.zoom == self.capped(&old).zoom {
             tile.zoom = old.zoom;
@@ -342,8 +337,24 @@ impl CompositePlugin {
         match field {
             "x" => new.x = (if by { tile.x + px / cw } else { px / cw }).clamp(0.0, (1.0 - tile.w).max(0.0)),
             "y" => new.y = (if by { tile.y + px / ch } else { px / ch }).clamp(0.0, (1.0 - tile.h).max(0.0)),
-            "w" => new.w = (if by { tile.w + px / cw } else { px / cw }).clamp(MIN_SIZE, (1.0 - tile.x).max(MIN_SIZE)),
-            "h" => new.h = (if by { tile.h + px / ch } else { px / ch }).clamp(MIN_SIZE, (1.0 - tile.y).max(MIN_SIZE)),
+            "w" | "h" => {
+                // a stream that keeps its shape when dragged keeps it when typed, as well: the other side follows
+                let ratio = (tile.w * cw) / (tile.h * ch).max(1e-9);
+                let wanted = if field == "w" { if by { tile.w * cw + px } else { px } } else { (if by { tile.h * ch + px } else { px }) * ratio };
+                let mut w = (wanted / cw).max(MIN_SIZE);
+                if !tile.stretch {
+                    // as big as the picture allows from where the box starts, in the same shape
+                    let most = ((1.0 - tile.x).min((1.0 - tile.y) * ch * ratio / cw)).max(MIN_SIZE);
+                    w = w.min(most);
+                    new.h = (w * cw / ratio / ch).max(MIN_SIZE);
+                } else if field == "h" {
+                    new.h = (if by { tile.h + px / ch } else { px / ch }).clamp(MIN_SIZE, (1.0 - tile.y).max(MIN_SIZE));
+                    w = tile.w;
+                } else {
+                    w = w.min((1.0 - tile.x).max(MIN_SIZE));
+                }
+                new.w = w;
+            }
             _ => return,
         }
         let index = self.editor.as_ref().map_or(-1, |e| e.selected);
@@ -355,10 +366,16 @@ impl CompositePlugin {
         let picked = self.editor.as_ref().map_or(-1, |e| e.selected);
         let others: Vec<usize> = (0..self.layout.tiles.len()).filter(|i| *i as i64 != picked).collect();
         let (Some(&there), true) = (usize::try_from(other).ok().and_then(|o| others.get(o)), picked >= 0) else { return };
-        if self.layout.tiles[picked as usize].locked || self.layout.tiles[there].locked {
-            return;
+        let mut tiles = composite::swapped(&self.layout.tiles, picked as usize, there);
+        // each is cut to the shape of its new box, so a wide picture isn't squeezed into a tall box
+        let canvas = self.canvas_aspect();
+        for i in [picked as usize, there] {
+            if let Some(aspect) = self.source_aspect(&tiles[i].source_id) {
+                tiles[i] = composite::refit(&tiles[i], aspect, canvas);
+            }
         }
-        let tiles = composite::swapped(&self.layout.tiles, picked as usize, there);
+        // the picked stream is now where the other was in the layers
+        self.select(there as i64);
         self.set_layout(host, Layout { tiles, ..self.layout.clone() });
     }
 
@@ -465,17 +482,11 @@ impl CompositePlugin {
 
     /// (source id, name, running) of everything the Streams list shows.
     fn stream_entries(&self) -> Vec<(String, String, bool)> {
-        let running = self.streams();
-        let mut entries: Vec<(String, String, bool)> = Vec::new();
-        // the tiles of the layout first, the front one on top
-        for tile in self.layout.tiles.iter().rev() {
-            let live = running.iter().find(|r| r.0 == tile.source_id);
-            let name = live.map(|r| r.1.clone()).unwrap_or_else(|| if tile.name.is_empty() { tile.source_id.clone() } else { tile.name.clone() });
-            entries.push((tile.source_id.clone(), name, live.is_some()));
-        }
-        for (sid, name, _) in running {
-            if !entries.iter().any(|e| e.0 == sid) {
-                entries.push((sid, name, true));
+        let mut entries: Vec<(String, String, bool)> = self.streams().into_iter().map(|(sid, name, _)| (sid, name, true)).collect();
+        for tile in &self.layout.tiles {
+            if !entries.iter().any(|e| e.0 == tile.source_id) {
+                let name = if tile.name.is_empty() { tile.source_id.clone() } else { tile.name.clone() };
+                entries.push((tile.source_id.clone(), name, false));
             }
         }
         entries
@@ -567,8 +578,8 @@ impl CompositePlugin {
         let live: Vec<&str> = streams.iter().map(|s| s.0.as_str()).collect();
         let tiles: Vec<Value> = layout.tiles.iter().enumerate().map(|(i, t)| {
             let label = if t.name.is_empty() { t.source_id.clone() } else { t.name.clone() };
-            json!({"x": t.x, "y": t.y, "w": t.w, "h": t.h, "missing": t.hidden || !live.contains(&t.source_id.as_str()), "name": label,
-                   "gone": if t.hidden { tr("{name} is hidden").field("name", &label) } else { tr("{name} isn't streaming").field("name", &label) },
+            json!({"x": t.x, "y": t.y, "w": t.w, "h": t.h, "missing": !live.contains(&t.source_id.as_str()), "name": label,
+                   "gone": tr("{name} isn't streaming").field("name", &label),
                    "hover": e.hover.0 == i as i64 && e.selected != i as i64 && e.drag.is_none()})
         }).collect();
         let picked = self.picked();
@@ -580,9 +591,7 @@ impl CompositePlugin {
         }).collect()).unwrap_or_default();
         let rows: Vec<Value> = self.stream_entries().into_iter().map(|(sid, name, running)| {
             let text = if running { name } else { tr("{name} (not streaming)").field("name", &name) };
-            let at = layout.tiles.iter().position(|t| t.source_id == sid);
-            json!({"text": text, "dim": !running, "on": at.is_some(), "layer": at.is_some(), "hidden": at.is_some_and(|i| layout.tiles[i].hidden),
-                   "locked": at.is_some_and(|i| layout.tiles[i].locked), "picked": at.is_some_and(|i| i as i64 == e.selected)})
+            json!({"text": text, "dim": !running, "on": layout.tiles.iter().any(|t| t.source_id == sid)})
         }).collect();
         let picture_name = if layout.picture.is_empty() {
             tr("None")
@@ -635,7 +644,6 @@ impl CompositePlugin {
             "size-w-text": picked.map_or_else(String::new, |t| format!("{}", (t.w * w as f64).round() as i64)),
             "size-h-text": picked.map_or_else(String::new, |t| format!("{}", (t.h * h as f64).round() as i64)),
             "swap-items": layout.tiles.iter().enumerate().filter(|(i, _)| *i as i64 != index).map(|(_, t)| if t.name.is_empty() { t.source_id.clone() } else { t.name.clone() }).collect::<Vec<_>>(),
-            "tile-locked": picked.is_some_and(|t| t.locked),
             "swap-enabled": picked.is_some() && layout.tiles.len() >= 2,
             "back-enabled": index > 0,
             "front-enabled": index >= 0 && index < layout.tiles.len() as i64 - 1,
@@ -707,15 +715,6 @@ impl CompositePlugin {
             }
             "box-step" => self.set_box(host, text(0), number(1), true),
             "swap-picked" => self.swap_picked(host, number(0) as i64),
-            "stream-picked" | "stream-hidden" | "stream-locked" => {
-                let Some((sid, ..)) = self.stream_entries().get(number(0) as usize).cloned() else { return };
-                let Some(at) = self.layout.tiles.iter().position(|t| t.source_id == sid) else { return };
-                match event.callback.as_str() {
-                    "stream-picked" => self.select(at as i64),
-                    "stream-hidden" => self.replace_tile(host, at as i64, Tile { hidden: flag(1), ..self.layout.tiles[at].clone() }),
-                    _ => self.replace_tile(host, at as i64, Tile { locked: flag(1), ..self.layout.tiles[at].clone() }),
-                }
-            }
             "start-from" => self.start_from(host, number(0) as i64),
             "layout-picked" => {
                 if let Some(name) = self.names().get(number(0) as usize).cloned() {

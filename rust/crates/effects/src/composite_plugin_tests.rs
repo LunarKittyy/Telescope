@@ -440,6 +440,11 @@ fn reset_clears_the_picture_and_keeps_the_switch_and_saved_layouts() {
 }
 
 #[test]
+fn the_declared_settings_round_trip() {
+    telescope_core::testing::settings_round_trip(&mut CompositePlugin::new(), &mut telescope_core::testing::FakeHost::new());
+}
+
+#[test]
 fn a_preset_saves_the_picture_but_not_the_saved_layouts() {
     let mut r = rig();
     r.two_streams(0.0);

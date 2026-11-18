@@ -197,64 +197,12 @@ fn the_streams_list_puts_streams_in_and_takes_them_out() {
     r.picture(tiles.clone());
     r.picture(tiles); // twice: the list is made afresh, not added to
     let texts: Vec<String> = r.props()["streams"].as_array().unwrap().iter().map(|s| s["text"].as_str().unwrap().to_string()).collect();
-    // the layout's tiles come first with the front one on top, then the running streams that aren't in it
-    assert_eq!(texts, ["Old phone (not streaming)", "Phone A", "Phone B"]);
-    r.ui("stream-toggled", json!([2, true]));
+    assert_eq!(texts, ["Phone A", "Phone B", "Old phone (not streaming)"]);
+    r.ui("stream-toggled", json!([1, true]));
     assert_eq!(r.sources(), ["a", "gone", "b"]);
     assert_eq!(r.props()["selected"], json!(2));
-    // now the list reads b, gone, a from the top
-    r.ui("stream-toggled", json!([2, false]));
+    r.ui("stream-toggled", json!([0, false]));
     assert_eq!(r.sources(), ["gone", "b"]);
-}
-
-#[test]
-fn a_hidden_stream_is_left_out_of_the_picture_and_a_locked_one_takes_no_change() {
-    let mut r = open();
-    r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 1.0, 1.0), Tile::boxed("b", "", 0.6, 0.6, 0.3, 0.3)]);
-    // the list: b on top
-    let rows = r.props()["streams"].clone();
-    assert_eq!((rows[0]["layer"].clone(), rows[0]["hidden"].clone(), rows[0]["locked"].clone()), (json!(true), json!(false), json!(false)));
-    r.ui("stream-picked", json!([0]));
-    assert_eq!(r.props()["selected"], json!(1));
-    r.ui("stream-hidden", json!([0, true]));
-    assert!(r.tile(1).hidden);
-    assert_eq!(r.plugin.shown_layout().tiles.len(), 1, "it isn't drawn");
-    assert_eq!(r.props()["tiles"][1]["missing"], json!(true), "the editor shows an empty outline for it");
-    // a click on the picture where it is picks the big one behind it
-    r.pointer("down", (0.7, 0.7), false, NO_KEYS);
-    r.pointer("up", (0.7, 0.7), false, NO_KEYS);
-    assert_eq!(r.props()["selected"], json!(0));
-    r.ui("stream-hidden", json!([0, false]));
-    assert_eq!(r.plugin.shown_layout().tiles.len(), 2);
-    // locked: not grabbed on the picture, and the boxes, nudges and swaps do nothing
-    r.ui("stream-locked", json!([0, true]));
-    r.ui("stream-picked", json!([0]));
-    let before = r.tile(1);
-    r.pointer("down", (0.7, 0.7), false, NO_KEYS);
-    r.pointer("move", (0.5, 0.5), false, NO_KEYS);
-    r.pointer("up", (0.5, 0.5), false, NO_KEYS);
-    r.ui("box-committed", json!(["x", "10"]));
-    r.ui("key", json!(["left", false]));
-    r.ui("swap-picked", json!([0]));
-    r.ui("zoom-moved", json!([300.0]));
-    assert_eq!(r.tile(1), Tile { locked: true, ..before.clone() });
-    // the click on the picture went through to the stream behind it; the list picks the locked one again
-    assert_eq!(r.props()["selected"], json!(0));
-    r.ui("stream-picked", json!([0]));
-    assert_eq!(r.props()["tile-locked"], json!(true));
-    // unlocking is allowed, and then it changes again
-    r.ui("stream-locked", json!([0, false]));
-    r.ui("box-committed", json!(["x", "10"]));
-    assert_ne!(r.tile(1).x, before.x);
-}
-
-#[test]
-fn hidden_and_locked_are_saved_only_when_set() {
-    let plain = crate::composite::tile_dict(&Tile::boxed("a", "A", 0.0, 0.0, 1.0, 1.0));
-    assert!(plain.get("hidden").is_none() && plain.get("locked").is_none());
-    let set = Tile { hidden: true, locked: true, ..Tile::boxed("a", "A", 0.0, 0.0, 1.0, 1.0) };
-    let back = crate::composite::clean_tile(&crate::composite::tile_dict(&set)).unwrap();
-    assert!(back.hidden && back.locked);
 }
 
 #[test]
@@ -372,14 +320,38 @@ fn the_position_and_size_boxes_set_the_box_in_canvas_pixels_and_keep_it_on_the_p
 }
 
 #[test]
-fn a_stream_can_swap_places_with_another_from_the_picked_stream_card() {
+fn a_stream_can_swap_places_with_another_and_takes_its_layer_and_its_shape_of_box() {
     let mut r = open();
-    r.picture(vec![Tile::boxed("a", "Left", 0.0, 0.0, 0.5, 1.0), Tile::boxed("b", "Right", 0.5, 0.0, 0.5, 1.0), Tile::boxed("c", "Corner", 0.8, 0.8, 0.2, 0.2)]);
+    // Screen is big at the back and Face small in front of it
+    r.picture(vec![Tile::boxed("a", "Screen", 0.0, 0.0, 0.8, 0.8), Tile::boxed("b", "Face", 0.6, 0.5, 0.3, 0.45), Tile::boxed("c", "Corner", 0.0, 0.85, 0.15, 0.15)]);
     r.plugin.select(0);
-    assert_eq!((r.props()["swap-items"].clone(), r.props()["swap-enabled"].clone()), (json!(["Right", "Corner"]), json!(true)));
-    r.ui("swap-picked", json!([1]));
-    assert_eq!((r.tile(0).source_id.clone(), r.tile(0).x, r.tile(2).source_id.clone(), r.tile(2).x), ("a".to_string(), 0.8, "c".to_string(), 0.0));
-    assert_eq!(r.props()["selected"], json!(0), "the picked stream stays picked");
+    // the picked one isn't in the choice
+    assert_eq!((r.props()["swap-items"].clone(), r.props()["swap-enabled"].clone()), (json!(["Face", "Corner"]), json!(true)));
+    r.ui("swap-picked", json!([0]));
+    // Screen is now the small one in front, Face the big one behind it
+    assert_eq!(r.sources(), ["b", "a", "c"]);
+    assert_eq!(r.props()["selected"], json!(1), "the picked stream stays picked");
+    assert!((r.tile(0).w - 0.8).abs() < 1e-9 && r.tile(0).x == 0.0, "Face has the big box: {:?}", r.tile(0));
+    // Screen's new box was tall for a wide stream: it is cut to the stream's shape (a 16:9 stream on a 16:9 picture: as tall as it is wide in fractions)
+    assert!((r.tile(1).w - r.tile(1).h).abs() < 1e-9 && r.tile(1).w <= 0.3 + 1e-9, "Screen is not squeezed: {:?}", r.tile(1));
     r.plugin.select(-1);
     assert_eq!(r.props()["swap-enabled"], json!(false));
+}
+
+#[test]
+fn typing_a_size_follows_the_shape_lock_that_dragging_follows() {
+    let mut r = open();
+    // 0.4 x 0.4 of a 320 x 180 picture is 128 x 72 pixels: 16:9
+    r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 0.2, 0.2), Tile::boxed("b", "", 0.1, 0.1, 0.4, 0.4)]);
+    r.plugin.select(1);
+    r.ui("box-committed", json!(["w", "160"]));
+    assert!((r.tile(1).w - 0.5).abs() < 1e-9 && (r.tile(1).h - 0.5).abs() < 1e-9, "the height follows: {:?}", r.tile(1));
+    r.ui("box-committed", json!(["h", "45"]));
+    assert!((r.tile(1).h - 0.25).abs() < 1e-9 && (r.tile(1).w - 0.25).abs() < 1e-9, "and the width follows the height: {:?}", r.tile(1));
+    // a stream that was stretched takes any shape
+    let stretched = Tile { stretch: true, ..r.tile(1) };
+    r.picture(vec![r.tile(0), stretched]);
+    r.plugin.select(1);
+    r.ui("box-committed", json!(["w", "64"]));
+    assert!((r.tile(1).w - 0.2).abs() < 1e-9 && (r.tile(1).h - 0.25).abs() < 1e-9, "{:?}", r.tile(1));
 }

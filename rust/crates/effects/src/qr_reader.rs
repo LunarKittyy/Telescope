@@ -770,6 +770,14 @@ impl Plugin for QrReaderPlugin {
         Some(FrameStep::Cpu(Box::new(Reader::new(self.shared.clone(), poster))))
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        vec![
+            SettingSpec::switch("on", "Whether QR codes in the picture are read", false),
+            SettingSpec::switch("notify", "Whether a notification shows when a code is read", true),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         json!({"on": self.on, "notify": self.notify})
     }

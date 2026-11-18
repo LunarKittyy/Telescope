@@ -489,6 +489,13 @@ impl Plugin for PrivacyBlurPlugin {
         Some(FrameStep::Cpu(Box::new(Step { spares: Vec::new(), active: self.active, covered: self.covered && self.wants_cover(), shown_blurs: self.shown_blurs.clone() })))
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        vec![
+            SettingSpec::choice("mode", "What is shown while hidden", &[("blur", "The whole picture blurred"), ("wait", "The wait screen")], "blur"),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         let mut cfg = Map::new();
         cfg.insert("on".into(), json!(self.auto));

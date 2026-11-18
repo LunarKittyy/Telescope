@@ -1038,3 +1038,9 @@ fn each_reset_puts_back_only_its_own_section() {
     assert_eq!(r.plugin.look_props()["lang-restart"], json!(false));
     assert!(r.host.calls.iter().any(|c| c == "schedule_save"));
 }
+
+#[test]
+fn the_declared_settings_round_trip() {
+    let mut r = Rig::linux();
+    telescope_core::testing::settings_round_trip(&mut r.plugin, &mut r.host);
+}

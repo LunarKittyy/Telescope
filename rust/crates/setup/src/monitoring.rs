@@ -565,6 +565,17 @@ impl Plugin for MonitoringPlugin {
         }
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        let d = Thresholds::default();
+        vec![
+            SettingSpec::number("battery_alert", "The phone's battery level the alert comes at", BATTERY_RANGE.0 as f64, BATTERY_RANGE.1 as f64, 0, d.battery_alert as f64).unit("%"),
+            SettingSpec::switch("battery_notify", "Whether a notification shows when the battery gets that low", d.battery_notify),
+            SettingSpec::number("temp_alert", "The phone's temperature the alert comes at", TEMP_RANGE.0 as f64, TEMP_RANGE.1 as f64, 0, d.temp_alert as f64).unit("°C"),
+            SettingSpec::switch("temp_notify", "Whether a notification shows when the phone gets that hot", d.temp_notify),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         json!({
             "battery_alert": self.battery_alert,
