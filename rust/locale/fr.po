@@ -436,7 +436,7 @@ msgstr "720p 16:9 Portrait - 720 x 1280"
 msgid "4K 16:9 Portrait - 2160 x 3840"
 msgstr "4K 16:9 Portrait - 2160 x 3840"
 
-#: rust/crates/core/src/diagnostics.rs:523 rust/crates/system/src/single_instance.rs:326
+#: rust/crates/core/src/diagnostics.rs:523 rust/crates/system/src/single_instance.rs:328
 msgid "Telescope can't start"
 msgstr "Impossible de démarrer Telescope"
 
@@ -475,11 +475,15 @@ msgid ""
 "Open the log?"
 msgstr ""
 
-#: rust/crates/core/src/gpu_marker.rs:142
+#: rust/crates/core/src/gpu_marker.rs:292 rust/crates/core/src/gpu_marker.rs:297
 msgid "Telescope switched graphics card"
 msgstr "Telescope a changé de carte graphique"
 
-#: rust/crates/core/src/gpu_marker.rs:143
+#: rust/crates/core/src/gpu_marker.rs:293
+msgid "The last start of Telescope closed while it was looking for graphics cards. Telescope now draws on the processor and doesn't look again until it is updated."
+msgstr ""
+
+#: rust/crates/core/src/gpu_marker.rs:298
 #, python-brace-format
 msgid "The last start of Telescope closed while it was opening {card}. Telescope now uses another graphics card, or the processor if there is none left."
 msgstr "Lors de son dernier lancement, Telescope s'est fermé pendant l'ouverture de {card}. Telescope utilise maintenant une autre carte graphique, ou le processeur s'il n'en reste aucune."
@@ -8405,81 +8409,81 @@ msgstr "Installer un plugin"
 msgid "Plugins (*.zip)"
 msgstr "Plugins (*.zip)"
 
-#: rust/crates/shell/src/shell.rs:805
+#: rust/crates/shell/src/shell.rs:792
 #, python-brace-format
 msgid "{plugins} stopped working"
 msgid_plural "{plugins} stopped working"
 msgstr[0] ""
 msgstr[1] ""
 
-#: rust/crates/shell/src/shell.rs:807
+#: rust/crates/shell/src/shell.rs:794
 #, python-brace-format
 msgid "{n} plugin stopped working"
 msgid_plural "{n} plugins stopped working"
 msgstr[0] ""
 msgstr[1] ""
 
-#: rust/crates/shell/src/shell.rs:809
+#: rust/crates/shell/src/shell.rs:796
 msgid "It ran into an error and is off until Telescope restarts. Everything else carries on."
 msgid_plural "They ran into errors and are off until Telescope restarts. Everything else carries on."
 msgstr[0] ""
 msgstr[1] ""
 
-#: rust/crates/shell/src/shell.rs:814 rust/crates/shell/src/shell.rs:1016 rust/crates/shell/src/shell.rs:1036
+#: rust/crates/shell/src/shell.rs:801 rust/crates/shell/src/shell.rs:1003 rust/crates/shell/src/shell.rs:1023
 msgid "Plugins…"
 msgstr "Plugins…"
 
-#: rust/crates/shell/src/shell.rs:1008
+#: rust/crates/shell/src/shell.rs:995
 #, python-brace-format
 msgid "Couldn't start {plugins}"
 msgid_plural "Couldn't start {plugins}"
 msgstr[0] "Impossible de démarrer {plugins}"
 msgstr[1] "Impossible de démarrer {plugins}"
 
-#: rust/crates/shell/src/shell.rs:1010
+#: rust/crates/shell/src/shell.rs:997
 #, python-brace-format
 msgid "Couldn't start {n} plugin"
 msgid_plural "Couldn't start {n} plugins"
 msgstr[0] "Impossible de démarrer {n} plugin"
 msgstr[1] "Impossible de démarrer {n} plugins"
 
-#: rust/crates/shell/src/shell.rs:1012
+#: rust/crates/shell/src/shell.rs:999
 msgid "Telescope works without the plugin. The Plugins tab in Settings shows what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings shows what went wrong."
 msgstr[0] "Telescope fonctionne sans le plugin. L'onglet Plugins dans les Paramètres indique ce qui s'est mal passé."
 msgstr[1] "Telescope fonctionne sans eux. L'onglet Plugins dans les Paramètres indique ce qui s'est mal passé."
 
-#: rust/crates/shell/src/shell.rs:1030
+#: rust/crates/shell/src/shell.rs:1017
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
 msgstr[0] "{plugins} est désactivé"
 msgstr[1] "{plugins} sont désactivés"
 
-#: rust/crates/shell/src/shell.rs:1031
+#: rust/crates/shell/src/shell.rs:1018
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "Vous avez désactivé cet élément dans Plugins. Pour le réactiver, ouvrez Plugins dans les Paramètres et activez-le."
 msgstr[1] "Vous avez désactivé ces éléments dans Plugins. Pour les réactiver, ouvrez Plugins dans les Paramètres et activez-les."
 
-#: rust/crates/shell/src/shell.rs:1054
+#: rust/crates/shell/src/shell.rs:1041
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "Une copie de l'ancien fichier se trouve sous {path}."
 
-#: rust/crates/shell/src/shell.rs:1056
+#: rust/crates/shell/src/shell.rs:1043
 msgid "Your settings couldn't be read"
 msgstr "Impossible de lire vos paramètres"
 
-#: rust/crates/shell/src/shell.rs:1057
+#: rust/crates/shell/src/shell.rs:1044
 msgid "Telescope started with its defaults and paired phones need pairing again."
 msgstr "Telescope a démarré avec ses paramètres par défaut et les téléphones associés doivent être associés à nouveau."
 
-#: rust/crates/shell/src/shell.rs:1547
+#: rust/crates/shell/src/shell.rs:1534
 msgid "Telescope - Save failed"
 msgstr "Telescope - Échec de l'enregistrement"
 
-#: rust/crates/shell/src/shell.rs:1548
+#: rust/crates/shell/src/shell.rs:1535
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "Impossible d'enregistrer les paramètres. Vérifiez l'espace disque et les autorisations."
 
@@ -8745,19 +8749,19 @@ msgstr "Telescope : diffusion du micro, caméra désactivée"
 msgid "Quit"
 msgstr "Quitter"
 
-#: rust/crates/shell/src/tray.rs:230
+#: rust/crates/shell/src/tray.rs:232
 msgid "Streaming continues in the background."
 msgstr "La diffusion continue en arrière-plan."
 
-#: rust/crates/shell/src/tray.rs:230
+#: rust/crates/shell/src/tray.rs:232
 msgid "Streaming starts automatically when needed."
 msgstr "La diffusion démarre automatiquement dès que nécessaire."
 
-#: rust/crates/shell/src/tray.rs:231
+#: rust/crates/shell/src/tray.rs:233
 msgid "Right-click the tray icon to quit."
 msgstr "Faites un clic droit sur l'icône de la zone de notification pour quitter."
 
-#: rust/crates/shell/src/tray.rs:232
+#: rust/crates/shell/src/tray.rs:234
 msgid "Telescope is still running"
 msgstr "Telescope fonctionne toujours"
 
@@ -8789,7 +8793,7 @@ msgstr "Démarrer la diffusion"
 msgid "Stop streaming"
 msgstr "Arrêter la diffusion"
 
-#: rust/crates/shell/src/window.rs:2085 rust/crates/shell/src/worker.rs:1363
+#: rust/crates/shell/src/window.rs:2115 rust/crates/shell/src/worker.rs:1363
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Diffusion en {size} à {fps} fps vers {camera}"
@@ -9721,41 +9725,41 @@ msgstr "Définir des touches pour les réglages de Telescope, y compris certaine
 msgid "Without the Keyboard shortcuts plugin no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are saved for when the plugin is on again)."
 msgstr "Sans le plugin Raccourcis clavier, aucun raccourci ne fonctionne et Raccourcis clavier n'apparaît pas dans les Paramètres (vos raccourcis sont conservés pour la prochaine activation du plugin)."
 
-#: rust/crates/system/src/single_instance.rs:319
+#: rust/crates/system/src/single_instance.rs:321
 msgid "Telescope is already running"
 msgstr "Telescope est déjà en cours d'exécution"
 
-#: rust/crates/system/src/single_instance.rs:320
+#: rust/crates/system/src/single_instance.rs:322
 msgid "Telescope is already running for another user on this computer. Close it there, then open it again here."
 msgstr "Telescope est déjà en cours d'exécution pour un autre utilisateur sur cet ordinateur. Fermez-le là-bas, puis rouvrez-le ici."
 
-#: rust/crates/system/src/single_instance.rs:323
+#: rust/crates/system/src/single_instance.rs:325
 #, python-brace-format
 msgid "port {port}"
 msgstr "le port {port}"
 
-#: rust/crates/system/src/single_instance.rs:324
+#: rust/crates/system/src/single_instance.rs:326
 msgid "a local socket"
 msgstr "un socket local"
 
-#: rust/crates/system/src/single_instance.rs:327
+#: rust/crates/system/src/single_instance.rs:329
 #, python-brace-format
 msgid "Telescope couldn't start because something else is holding its single-instance lock ({where}), or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again."
 msgstr "Telescope n'a pas pu démarrer car un autre processus détient son verrou d'instance unique ({where}), ou une autre instance de Telescope est bloquée. Fermez ce programme, ou redémarrez l'ordinateur, puis rouvrez Telescope."
 
-#: rust/crates/system/src/single_instance.rs:372
+#: rust/crates/system/src/single_instance.rs:374
 msgid "Telescope isn't running."
 msgstr "Telescope n'est pas en cours d'exécution."
 
-#: rust/crates/system/src/single_instance.rs:397
+#: rust/crates/system/src/single_instance.rs:399
 msgid "Telescope didn't understand the request. Is the running Telescope an older version? Update Telescope to use --action."
 msgstr "Telescope n'a pas compris la demande. La version de Telescope en cours d'exécution est-elle plus ancienne ? Mettez à jour Telescope pour utiliser --action."
 
-#: rust/crates/system/src/single_instance.rs:462
+#: rust/crates/system/src/single_instance.rs:464
 msgid "Telescope couldn't write the key --action needs next to its settings when it started. Restart it."
 msgstr "Telescope n'a pas pu écrire la clé requise par --action à côté de ses paramètres lors de son démarrage. Redémarrez-le."
 
-#: rust/crates/system/src/single_instance.rs:467
+#: rust/crates/system/src/single_instance.rs:469
 msgid "Telescope rejected the request because it didn't come from this user's Telescope command."
 msgstr "Telescope a rejeté la demande car elle ne provient pas de la commande Telescope de cet utilisateur."
 

@@ -582,7 +582,7 @@ pub fn start(events: &'static EventLog, dir: &Path, app_dir: Option<&Path>, vers
         if std::thread::current().name() == Some("main") && CATCHING.with(|c| c.get()) == 0 {
             // A panic has its reason in hand, so it isn't blamed on the graphics card, unless a card was chosen in Settings: that one may be what
             // can't draw the window, and left unmarked it would be tried again at every start
-            if crate::gpu_pick::choice().is_empty() {
+            if crate::gpu_pick::choice().is_empty() && !crate::gpu_marker::panic_blames_card(&what) {
                 crate::gpu_marker::clear();
             }
             show_start_failure(events, &what);
