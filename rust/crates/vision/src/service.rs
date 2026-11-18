@@ -6,7 +6,7 @@
 //! a stream key of its own: it only ever stands in for the normal mask when it has one in time, and the normal one is what a frame step
 //! gets while it's missing, loading, failed or late.
 
-use crate::ops::{add_weighted, mask_resized, model_input, people_size, turned, Motion, Rgb, MODEL_SIZE};
+use crate::ops::{add_weighted, firm_mask, mask_resized, model_input, people_size, turned, Motion, Rgb, MODEL_SIZE};
 use std::collections::{BTreeSet, HashMap};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, Weak};
@@ -669,6 +669,10 @@ impl Vision {
                 }
             };
             m.fails = 0;
+            // The doubtful middle is made solid first, before blending: a mask blended and then firmed would make solid what is left of an old shape
+            if m.segment.as_ref().is_some_and(|s| s.blends_last()) {
+                mask.data = firm_mask(&mask.data, mask.w, mask.h);
+            }
             // After a long gap the last mask is of another moment
             if let Some(last) = m.small.as_ref().filter(|s| (s.w, s.h) == (mask.w, mask.h) && now - m.at <= MASK_MAX_AGE_S) {
                 if m.segment.as_ref().is_some_and(|s| s.blends_last()) {
