@@ -299,10 +299,11 @@ component LayerRow inherits Rectangle {
     y: round(place.value * 1px / 1phx) * 1phx;
     z: root.held ? 10 : 0;
     tone := Tone { on: (touch.has-hover && !root.any-held && root.layer) || root.held; }
-    background: root.picked ? Theme.hover : Theme.raise.mix(Theme.hover, tone.value);
+    background: root.picked ? Theme.plugin-hue("streaming").with-alpha(0.16) : Theme.raise.mix(Theme.hover, tone.value);
     border-radius: Theme.r-ctl;
-    border-width: root.held ? Theme.ctl-outline-w(false, true) : 0px;
-    border-color: Theme.ctl-outline(false, true);
+    // The picked row has the outline the picked box has in the preview
+    border-width: root.held ? Theme.ctl-outline-w(false, true) : root.picked ? Theme.u(0.75) : 0px;
+    border-color: root.held ? Theme.ctl-outline(false, true) : Theme.plugin-hue("streaming");
     drop-shadow-blur: root.held ? Theme.u(4) : 0px;
     drop-shadow-offset-y: root.held ? Theme.u(1) : 0px;
     drop-shadow-color: root.held ? Theme.shadow : transparent;
@@ -339,7 +340,8 @@ component LayerRow inherits Rectangle {
                 root.drag-moved(root.y + self.mouse-y - grab, grab);
             }
         }
-        clicked => { if (root.layer && !was-dragged) { root.pick-clicked(); } }
+        // The grip at the right edge is for dragging: a click on it picks nothing
+        clicked => { if (root.layer && !was-dragged && self.mouse-x < root.width - Theme.u(10)) { root.pick-clicked(); } }
     }
     Tip { says: root.status; hover: touch.has-hover && touch.mouse-x < Theme.u(18) && !root.any-held; }
     HorizontalLayout {
@@ -543,6 +545,8 @@ export component CompositeEditor inherits Window {
     callback radius-moved(float);
     callback fit-clicked;
     callback stream-picked(int);
+    // Up or down in the Streams list: the pick moves one row (-1 up, 1 down)
+    callback stream-step(int);
     callback stream-locked(int, bool);
     callback stream-moved(int, int);
     callback box-committed(string, string);
@@ -664,6 +668,13 @@ export component CompositeEditor inherits Window {
                                 let shift = held < 0 ? 0 : (held < drop && i > held && i <= drop) ? -1 : (held > drop && i >= drop && i < held) ? 1 : 0;
                                 return (i + shift) * pitch;
                             }
+                            keys := FocusScope {
+                                key-pressed(e) => {
+                                    if (e.text == Key.UpArrow) { root.stream-step(-1); return accept; }
+                                    if (e.text == Key.DownArrow) { root.stream-step(1); return accept; }
+                                    reject
+                                }
+                            }
                             for row[i] in streams: LayerRow {
                                 x: 0px;
                                 width: parent.width;
@@ -682,7 +693,7 @@ export component CompositeEditor inherits Window {
                                 any-held: list.held >= 0;
                                 eye-clicked(on) => { root.stream-toggled(i, on); }
                                 lock-clicked(locked) => { root.stream-locked(i, locked); }
-                                pick-clicked => { root.stream-picked(i); }
+                                pick-clicked => { keys.focus(); root.stream-picked(i); }
                                 drag-started(top) => {
                                     list.held = i;
                                     list.drop = i;
