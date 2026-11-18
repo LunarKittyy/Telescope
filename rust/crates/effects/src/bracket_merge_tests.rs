@@ -457,7 +457,7 @@ fn what_the_memory_allows_is_planned_from_the_size_of_the_photos() {
     assert!(threads_big >= 1 && threads_big <= threads);
     // everything alive at once stays inside the budget
     let widest = strip_rows(6144).iter().map(|r| strip_bytes(8160, 6144, *r)).max().unwrap();
-    assert!(3 * 8160 * 6144 * 3 + threads_big * widest * SCRATCH_PER_STRIP / 4 + strips_big.max(widest) <= MEMORY_BUDGET + widest);
+    assert!(3 * 8160 * 6144 * 3 + threads_big * widest * WORKER_STRIPS + strips_big.max(widest) <= MEMORY_BUDGET + widest);
     assert!(memory_plan(20_000, 10_000, 8).is_none(), "200 megapixels is too big");
     // every strip of a picture has as many levels as the smallest allows
     let rows = strip_rows(1000);

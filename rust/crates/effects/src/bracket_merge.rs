@@ -757,7 +757,7 @@ fn memory_plan(w: usize, h: usize, cores: usize) -> Option<(usize, usize)> {
     let rows = strip_rows(h);
     let widest = rows.iter().map(|r| strip_bytes(w, h, *r)).max()?;
     let spare = MEMORY_BUDGET.checked_sub(3 * w * h * 3)?;
-    let worker = widest * SCRATCH_PER_STRIP / 4;
+    let worker = widest * WORKER_STRIPS;
     if spare < widest + worker {
         return None;
     }
@@ -765,8 +765,10 @@ fn memory_plan(w: usize, h: usize, cores: usize) -> Option<(usize, usize)> {
     Some((threads, spare - threads * worker))
 }
 
-/// What a worker needs for a strip, as a multiple of the strip's collecting pyramid (four): the photo's rows, its Laplacian pyramid, the weights and their pyramid
-const SCRATCH_PER_STRIP: usize = 10;
+/// What a worker needs for a strip, as a multiple of what the strip's collecting pyramid takes (call that 16 bytes a pixel of the strip's rows, P of them): counted from add_to_strip
+/// at its biggest, which is when laplacian() has made the first level, the weights 4P, the Gaussian pyramid 16P (its first level is the photo's rows, 12P), the grown
+/// copy of the second level 12P and the first Laplacian level 12P: 44P, and the allocator rounds up a little. Four times 16P (64P) leaves room.
+const WORKER_STRIPS: usize = 4;
 /// The levels each strip is blended in
 const LEVELS: usize = 6;
 /// A strip is this many rows, with this many more above and below that the blend looks at but doesn't keep
