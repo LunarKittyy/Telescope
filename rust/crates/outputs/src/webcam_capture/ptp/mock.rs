@@ -29,6 +29,16 @@ pub struct State {
     pub unreachable: bool,
     /// How many viewfinder requests answer Canon's not-ready code before one works.
     pub not_ready_frames: u32,
+    /// The files a photo makes: name and bytes. One JPEG unless a test sets more.
+    pub photo_files: Vec<(String, Vec<u8>)>,
+    /// A photo that is taken but never reported, as when the camera is stuck.
+    pub silent_photos: bool,
+    /// Nikon's pending events, read by the computer.
+    pub nikon_events: Vec<(u16, u32)>,
+    /// Files on the camera by handle.
+    pub objects: HashMap<u32, (String, Vec<u8>)>,
+    /// Canon's file announcements not yet read: handle and name.
+    pub canon_announced: Vec<(u32, String)>,
 }
 
 #[derive(Clone, Default)]
@@ -76,7 +86,8 @@ impl Mock {
         {
             let mut s = mock.0.lock().unwrap();
             s.maker = Some(Maker::Nikon);
-            s.operations = vec![0x1001, 0x1002, 0x1003, 0x1014, 0x1015, 0x1016, 0x90C1, 0x90C8, 0x9201, 0x9202, 0x9203, 0x9204];
+            s.operations = vec![0x1001, 0x1002, 0x1003, 0x1008, 0x1009, 0x1014, 0x1015, 0x1016, 0x90C0, 0x90C1, 0x90C7, 0x90C8, 0x9201, 0x9202, 0x9203, 0x9204];
+            s.photo_files = vec![("DSC_0001.JPG".into(), JPEG.to_vec())];
             let desc = |code, kind, current, form| PropDesc { code, kind, writable: true, current: Value::Int(current), form };
             let ints = |v: &[i64]| Form::Enum(v.iter().map(|n| Value::Int(*n)).collect());
             s.props.insert(0x5007, desc(0x5007, 4, 560, ints(&[280, 400, 560, 800])));
@@ -92,7 +103,9 @@ impl Mock {
         {
             let mut s = mock.0.lock().unwrap();
             s.maker = Some(Maker::Canon);
-            s.operations = vec![0x1001, 0x1002, 0x1003, 0x9110, 0x9114, 0x9115, 0x9116, 0x9153, 0x9154, 0x9155];
+            s.operations = vec![0x1001, 0x1002, 0x1003, 0x1008, 0x1009, 0x9110, 0x9114, 0x9115, 0x9116, 0x9117, 0x9128, 0x9129, 0x9153, 0x9154, 0x9155];
+            s.photo_files = vec![("IMG_0001.JPG".into(), JPEG.to_vec())];
+            s.canon_props.insert(0xD11C, (2, vec![2, 4]));
             // f/4 (0x28), f/5.6 (0x30), f/8 (0x38); exposure compensation 0, +1/3, +2/3 (as eighths); daylight and auto
             s.canon_props.insert(0xD101, (0x30, vec![0x28, 0x30, 0x38]));
             s.canon_props.insert(0xD104, (0, vec![0xFD, 0, 3, 5]));
@@ -205,7 +218,49 @@ impl Transport for Mock {
                 frame.extend_from_slice(&[0; 5]);
                 reply(RC_OK, frame)
             }
-            0x90C1 | 0x90C8 | 0x9204 | 0x9154 | 0x9155 | 0x9114 | 0x9115 => reply(RC_OK, Vec::new()),
+            0x90C1 | 0x90C8 | 0x9204 | 0x9154 | 0x9155 | 0x9114 | 0x9115 | 0x9117 | 0x9129 => reply(RC_OK, Vec::new()),
+            // Nikon: take a photo into the camera's memory, say so in events
+            0x90C0 => {
+                if !s.silent_photos {
+                    for (i, (name, data)) in s.photo_files.clone().into_iter().enumerate() {
+                        let handle = 0xFFFF_0001 + i as u32;
+                        s.objects.insert(handle, (name, data));
+                        s.nikon_events.push((0xC101, handle));
+                    }
+                    s.nikon_events.push((0xC102, 0));
+                }
+                reply(RC_OK, Vec::new())
+            }
+            0x90C7 => {
+                let events = std::mem::take(&mut s.nikon_events);
+                let mut data = (events.len() as u16).to_le_bytes().to_vec();
+                for (code, param) in events {
+                    data.extend_from_slice(&code.to_le_bytes());
+                    data.extend_from_slice(&param.to_le_bytes());
+                }
+                reply(RC_OK, data)
+            }
+            0x1008 | 0x1009 => match s.objects.get(&params[0]) {
+                Some((_, data)) if op == 0x1009 => reply(RC_OK, data.clone()),
+                Some((name, data)) => {
+                    let mut info = vec![0u8; 52];
+                    info[8..12].copy_from_slice(&(data.len() as u32).to_le_bytes());
+                    put_string(&mut info, name);
+                    reply(RC_OK, info)
+                }
+                None => reply(0x2009, Vec::new()),
+            },
+            // Canon: the full press takes the photo, and the camera announces its files
+            0x9128 => {
+                if params[0] == 2 && !s.silent_photos {
+                    for (i, (name, data)) in s.photo_files.clone().into_iter().enumerate() {
+                        let handle = 0x1000 + i as u32;
+                        s.objects.insert(handle, (name.clone(), data));
+                        s.canon_announced.push((handle, name));
+                    }
+                }
+                reply(RC_OK, Vec::new())
+            }
             // Canon: set a property, read what changed
             0x9110 => {
                 let data = data_out.unwrap_or_default();
@@ -237,6 +292,15 @@ impl Transport for Mock {
                     body.extend_from_slice(&(list.len() as u32).to_le_bytes());
                     list.iter().for_each(|v| body.extend_from_slice(&v.to_le_bytes()));
                     record(0xC18A, body);
+                }
+                for (handle, name) in std::mem::take(&mut s.canon_announced) {
+                    // The older layout: handle, storage, format, then the size at 0x1c and the name at 0x28 (offsets from the record's start)
+                    let mut body = vec![0u8; 0x28 - 8];
+                    body[0..4].copy_from_slice(&handle.to_le_bytes());
+                    body[8..10].copy_from_slice(&0x3801u16.to_le_bytes());
+                    body.extend_from_slice(name.as_bytes());
+                    body.push(0);
+                    record(0xC181, body);
                 }
                 record(0, Vec::new());
                 reply(RC_OK, data)

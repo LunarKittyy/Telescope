@@ -7,6 +7,8 @@
 pub const OP_GET_DEVICE_INFO: u16 = 0x1001;
 pub const OP_OPEN_SESSION: u16 = 0x1002;
 pub const OP_CLOSE_SESSION: u16 = 0x1003;
+pub const OP_GET_OBJECT_INFO: u16 = 0x1008;
+pub const OP_GET_OBJECT: u16 = 0x1009;
 pub const OP_GET_DEVICE_PROP_DESC: u16 = 0x1014;
 pub const OP_GET_DEVICE_PROP_VALUE: u16 = 0x1015;
 pub const OP_SET_DEVICE_PROP_VALUE: u16 = 0x1016;
@@ -45,7 +47,7 @@ pub trait Transport: Send {
 /// operations that send data back and another for those that don't). The operations the rig uses that do: device info, a property's
 /// description and value, Nikon's live view frame, Canon's viewfinder frame and Canon's events.
 pub fn returns_data(op: u16) -> bool {
-    matches!(op, OP_GET_DEVICE_INFO | OP_GET_DEVICE_PROP_DESC | OP_GET_DEVICE_PROP_VALUE | 0x9203 | 0x9153 | 0x9116)
+    matches!(op, OP_GET_DEVICE_INFO | OP_GET_DEVICE_PROP_DESC | OP_GET_DEVICE_PROP_VALUE | OP_GET_OBJECT_INFO | OP_GET_OBJECT | 0x90C7 | 0x9203 | 0x9153 | 0x9116)
 }
 
 /// Runs an operation and turns a response other than OK into an error naming the operation.
@@ -107,6 +109,14 @@ impl<'a> Cursor<'a> {
         }
         (0..count).map(|_| self.u16()).collect()
     }
+}
+
+/// The file name in an ObjectInfo dataset, which comes after the fixed fields (storage, format, size, thumbnail, image, parent, association, sequence).
+pub fn object_name(data: &[u8]) -> Option<String> {
+    let mut c = Cursor::new(data);
+    // Storage, format, protection, size, thumbnail format and size, thumbnail and image width, height and depth, parent, association type and description, sequence
+    c.take(52)?;
+    c.string().filter(|name| !name.is_empty())
 }
 
 /// Builds the same fields, for a camera that takes a value (a property to set).

@@ -5,9 +5,9 @@
 //! The operation codes and value formats are the ones libgphoto2's PTP driver uses for each maker. Nothing here has met a real camera yet,
 //! only the mock in the tests (ptp/mock.rs), so each maker's part is listed under "needs a real device" in the lane notes.
 
-use super::gphoto_lib::{Kind, Rig, Setting};
+use super::gphoto_lib::{Incomplete, Kind, Rig, Setting, Shot};
 use super::ptp::{self, find_jpeg, DeviceInfo, Form, Maker, PropDesc, Transport, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant};
 
 // Nikon
@@ -40,6 +40,9 @@ const CANON_WHITE_BALANCE: u16 = 0xD10B;
 /// What GetEvent's records are: a property's new value, and the values it can have now.
 const CANON_EVENT_PROP_VALUE: u32 = 0xC189;
 const CANON_EVENT_AVAIL_LIST: u32 = 0xC18A;
+/// A file the camera made, in the older and the newer layout.
+const CANON_EVENT_OBJECT_ADDED: u32 = 0xC181;
+const CANON_EVENT_OBJECT_ADDED_64: u32 = 0xC1A7;
 /// How much of a live view frame to ask for.
 const CANON_FRAME_SIZE: u32 = 0x0010_0000;
 /// How often Canon cameras want their events read, or they stop answering.
@@ -81,6 +84,13 @@ pub struct PtpCamera {
     live: bool,
     canon: HashMap<u16, CanonProp>,
     canon_events: Instant,
+    /// Photos a Canon camera said it made (handle and name) that haven't been fetched yet.
+    canon_added: VecDeque<(u32, String)>,
+    /// Photos a Nikon camera said are waiting (their handles), and the handles already taken from it for this photo.
+    nikon_added: VecDeque<u32>,
+    nikon_seen: Vec<u32>,
+    /// How long a photo may take to arrive, an exposure and the camera's processing included.
+    photo_wait: Duration,
     closed: bool,
 }
 
@@ -94,7 +104,7 @@ impl PtpCamera {
         }
         let info = DeviceInfo::parse(&ptp::run(t.as_mut(), ptp::OP_GET_DEVICE_INFO, &[], None)?.data).ok_or("the camera's description didn't make sense")?;
         let maker = info.maker();
-        let mut camera = PtpCamera { t, info, maker, pacing, live: false, canon: HashMap::new(), canon_events: Instant::now(), closed: false };
+        let mut camera = PtpCamera { t, info, maker, pacing, live: false, canon: HashMap::new(), canon_events: Instant::now(), canon_added: VecDeque::new(), nikon_added: VecDeque::new(), nikon_seen: Vec::new(), photo_wait: capture::PHOTO_WAIT, closed: false };
         if maker == Maker::Canon {
             // Remote mode lets the computer drive the camera, and the event mode is how it reports back
             ptp::run(camera.t.as_mut(), CANON_SET_REMOTE_MODE, &[1], None)?;
@@ -192,6 +202,11 @@ impl PtpCamera {
                             let values = (0..count as usize).filter_map(|i| read_u32(slots, i * 4)).map(|v| canon_int(prop, v)).collect();
                             self.canon.entry(prop).or_default().available = values;
                         }
+                    }
+                }
+                CANON_EVENT_OBJECT_ADDED | CANON_EVENT_OBJECT_ADDED_64 => {
+                    if let Some(added) = capture::canon_added(kind, record) {
+                        self.canon_added.push_back(added);
                     }
                 }
                 _ => {}
@@ -466,6 +481,10 @@ impl Rig for PtpCamera {
         }
     }
 
+    fn capture(&mut self, expect: usize) -> Result<Vec<Shot>, Incomplete> {
+        self.take_picture(expect)
+    }
+
     fn restart_live_view(&mut self) {
         self.end_live_view();
         let _ = self.start_live_view();
@@ -491,6 +510,8 @@ impl Drop for PtpCamera {
         self.close();
     }
 }
+
+mod capture;
 
 #[cfg(test)]
 mod tests;

@@ -289,3 +289,96 @@ fn a_property_range_that_would_overflow_ends_instead_of_panicking() {
     let mut rig = open(&mock);
     assert!(rig.read("exposurecompensation").is_some());
 }
+
+fn waits(rig: &mut PtpCamera) {
+    rig.photo_wait = Duration::from_millis(50);
+}
+
+#[test]
+fn nikon_takes_a_photo_into_its_memory_and_the_file_comes_with_its_name() {
+    let mock = Mock::nikon();
+    let mut rig = open(&mock);
+    let shots = rig.capture(1).unwrap();
+    assert_eq!(shots, vec![Shot { name: "DSC_0001.JPG".into(), data: JPEG.to_vec() }]);
+    let log = mock.state().log.clone();
+    let at = |op: u16| log.iter().position(|(o, _, _)| *o == op).unwrap_or_else(|| panic!("{op:#x} never sent"));
+    assert_eq!(log[at(0x90C0)].1, vec![0xFFFF_FFFF]);
+    assert!(log.iter().any(|(op, p, d)| *op == 0x1016 && p == &[0xD10B] && d == &[1]), "photos go to the camera's memory");
+    assert!(at(0x90C0) < at(0x90C8) && at(0x90C8) < at(0x1009), "{:x?}", mock.ops());
+}
+
+#[test]
+fn nikon_waits_for_both_files_of_a_pair_and_reports_the_one_that_came_when_the_other_didnt() {
+    let mock = Mock::nikon();
+    mock.state().photo_files.push(("DSC_0001.NEF".into(), vec![1, 2, 3]));
+    let mut rig = open(&mock);
+    let shots = rig.capture(2).unwrap();
+    assert_eq!(shots.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(), ["DSC_0001.JPG", "DSC_0001.NEF"]);
+    let mock = Mock::nikon();
+    let mut rig = open(&mock);
+    waits(&mut rig);
+    let Err(Incomplete { why, shots }) = rig.capture(2) else { panic!("only one file was made") };
+    assert_eq!(shots.len(), 1);
+    assert!(why.starts_with("1 of 2 files came"), "{why}");
+}
+
+#[test]
+fn nikon_that_never_says_the_photo_is_there_times_out_with_nothing() {
+    let mock = Mock::nikon();
+    mock.state().silent_photos = true;
+    let mut rig = open(&mock);
+    waits(&mut rig);
+    let Err(Incomplete { why, shots }) = rig.capture(1) else { panic!("nothing was reported") };
+    assert!(shots.is_empty() && why.contains("in time"), "{why}");
+}
+
+#[test]
+fn a_camera_without_the_capture_operation_says_it_cant_be_triggered() {
+    let mock = Mock::nikon();
+    mock.state().operations.retain(|op| *op != 0x90C0);
+    let mut rig = open(&mock);
+    let Err(Incomplete { why, .. }) = rig.capture(1) else { panic!("the camera can't capture") };
+    assert!(why.contains("can't be triggered"), "{why}");
+}
+
+#[test]
+fn canon_presses_half_then_full_sends_the_photo_to_the_computer_and_lets_the_camera_go() {
+    let mock = Mock::canon();
+    let mut rig = open(&mock);
+    let shots = rig.capture(1).unwrap();
+    assert_eq!(shots, vec![Shot { name: "IMG_0001.JPG".into(), data: JPEG.to_vec() }]);
+    let log = mock.state().log.clone();
+    let sent: Vec<(u16, Vec<u32>)> = log.iter().filter(|(op, _, _)| matches!(op, 0x9128 | 0x9129 | 0x9117)).map(|(op, p, _)| (*op, p.clone())).collect();
+    assert_eq!(sent, vec![(0x9128, vec![1, 0]), (0x9128, vec![2, 0]), (0x9129, vec![2]), (0x9129, vec![1]), (0x9117, vec![0x1000])]);
+    assert!(log.iter().any(|(op, _, d)| *op == 0x9110 && d.get(4..8) == Some(&0xD11Cu32.to_le_bytes()[..]) && d.get(8..12) == Some(&4u32.to_le_bytes()[..])), "to the computer");
+}
+
+#[test]
+fn canon_that_makes_a_pair_gives_both_and_one_that_stays_silent_still_gets_its_buttons_released() {
+    let mock = Mock::canon();
+    mock.state().photo_files.push(("IMG_0001.CR3".into(), vec![9; 4]));
+    let mut rig = open(&mock);
+    assert_eq!(rig.capture(2).unwrap().len(), 2);
+    let silent = Mock::canon();
+    silent.state().silent_photos = true;
+    let mut rig = open(&silent);
+    waits(&mut rig);
+    assert!(rig.capture(1).is_err());
+    assert_eq!(silent.ops().iter().filter(|o| **o == 0x9129).count(), 2, "both buttons come up");
+}
+
+#[test]
+fn a_photo_of_an_unknown_make_is_refused() {
+    let mock = Mock::nikon();
+    mock.state().maker = Some(Maker::Other);
+    let mut rig = open(&mock);
+    assert!(rig.capture(1).is_err());
+}
+
+#[test]
+fn the_stills_flow_takes_a_photo_through_the_rig() {
+    let mock = Mock::nikon();
+    let mut rig = open(&mock);
+    let shots = crate::webcam_capture::gphoto_stills::take_photo(&mut rig, &crate::webcam_capture::gphoto_stills::Wish::from_options(&serde_json::json!({}))).unwrap();
+    assert_eq!(shots.len(), 1);
+}
