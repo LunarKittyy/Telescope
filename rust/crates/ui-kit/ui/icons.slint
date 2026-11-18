@@ -4,6 +4,8 @@
 export global Icons {
     out property <image> alert: @image-url("icons/alert.svg");
     out property <image> aperture: @image-url("icons/aperture.svg");
+    out property <image> arrow-in: @image-url("icons/arrow_in.svg");
+    out property <image> arrow-out: @image-url("icons/arrow_out.svg");
     out property <image> aspect: @image-url("icons/aspect.svg");
     out property <image> battery: @image-url("icons/battery.svg");
     out property <image> battery-charging: @image-url("icons/battery_charging.svg");
@@ -11,6 +13,8 @@ export global Icons {
     out property <image> blur: @image-url("icons/blur.svg");
     out property <image> bolt: @image-url("icons/bolt.svg");
     out property <image> bookmark: @image-url("icons/bookmark.svg");
+    out property <image> broadcast: @image-url("icons/broadcast.svg");
+    out property <image> calendar: @image-url("icons/calendar.svg");
     out property <image> camera: @image-url("icons/camera.svg");
     out property <image> camera-off: @image-url("icons/camera_off.svg");
     out property <image> chat: @image-url("icons/chat.svg");
@@ -25,6 +29,7 @@ export global Icons {
     out property <image> corners: @image-url("icons/corners.svg");
     out property <image> crop: @image-url("icons/crop.svg");
     out property <image> cube: @image-url("icons/cube.svg");
+    out property <image> curve: @image-url("icons/curve.svg");
     out property <image> cut-in: @image-url("icons/cut_in.svg");
     out property <image> denoise: @image-url("icons/denoise.svg");
     out property <image> devices: @image-url("icons/devices.svg");
@@ -40,6 +45,7 @@ export global Icons {
     out property <image> focus: @image-url("icons/focus.svg");
     out property <image> folder: @image-url("icons/folder.svg");
     out property <image> framing: @image-url("icons/framing.svg");
+    out property <image> gain: @image-url("icons/gain.svg");
     out property <image> gauge: @image-url("icons/gauge.svg");
     out property <image> gem: @image-url("icons/gem.svg");
     out property <image> grain: @image-url("icons/grain.svg");
@@ -72,7 +78,9 @@ export global Icons {
     out property <image> plug: @image-url("icons/plug.svg");
     out property <image> plus: @image-url("icons/plus.svg");
     out property <image> pop-out: @image-url("icons/pop_out.svg");
+    out property <image> power: @image-url("icons/power.svg");
     out property <image> qr: @image-url("icons/qr.svg");
+    out property <image> radius: @image-url("icons/radius.svg");
     out property <image> repeat: @image-url("icons/repeat.svg");
     out property <image> reset: @image-url("icons/reset.svg");
     out property <image> room: @image-url("icons/room.svg");
@@ -96,10 +104,12 @@ export global Icons {
     out property <image> star: @image-url("icons/star.svg");
     out property <image> star-filled: @image-url("icons/star_filled.svg");
     out property <image> stop: @image-url("icons/stop.svg");
+    out property <image> strength: @image-url("icons/strength.svg");
     out property <image> stretch: @image-url("icons/stretch.svg");
     out property <image> stretch-tall: @image-url("icons/stretch_tall.svg");
     out property <image> stripes: @image-url("icons/stripes.svg");
     out property <image> sun: @image-url("icons/sun.svg");
+    out property <image> swap: @image-url("icons/swap.svg");
     out property <image> text-size: @image-url("icons/text_size.svg");
     out property <image> thermometer: @image-url("icons/thermometer.svg");
     out property <image> timer: @image-url("icons/timer.svg");
@@ -153,6 +163,10 @@ export global Icons {
         name == "battery" ? battery
             : name == "battery_charging" ? battery-charging
             : name == "bell" ? bell
+            : name == "arrow_in" ? arrow-in
+            : name == "arrow_out" ? arrow-out
+            : name == "broadcast" ? broadcast
+            : name == "power" ? power
             : name == "bolt" ? bolt
             : name == "bookmark" ? bookmark
             : name == "camera" ? camera
@@ -204,7 +218,7 @@ export global Icons {
             : name == "star" ? star
             : name == "stabilize" ? stabilize
             : name == "stop" ? stop
-            : name == "stream" || name == "v_stream" ? monitor
+            : name == "stream" || name == "v_stream" ? broadcast
             : name == "sun" ? sun
             : name == "thermometer" ? thermometer
             : name == "torch" ? torch

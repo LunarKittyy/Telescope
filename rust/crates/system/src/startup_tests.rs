@@ -843,7 +843,7 @@ fn in_a_dev_profile_the_sign_in_switch_is_off_with_a_reason() {
 #[test]
 fn it_is_a_streaming_plugin_that_can_be_switched_off() {
     let info = StartupPlugin::new(Arc::new(FakeAutostart::default())).info();
-    assert_eq!((info.name.as_str(), info.category.as_str(), info.icon.as_str()), ("startup", "streaming", "monitor"));
+    assert_eq!((info.name.as_str(), info.category.as_str(), info.icon.as_str()), ("startup", "streaming", "power"));
     assert!(!info.required && !info.optional && !info.device_local);
 }
 

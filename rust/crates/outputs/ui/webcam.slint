@@ -30,7 +30,7 @@ global Pick {
     }
     // What a picture setting of the camera is, by its name
     public pure function control(name: string) -> image {
-        name == "exposure_auto" ? Icons.exposure : name == "exposure_time" ? Icons.timer : name == "gain" ? Icons.volume
+        name == "exposure_auto" ? Icons.exposure : name == "exposure_time" ? Icons.timer : name == "gain" ? Icons.gain
             : name == "brightness" ? Icons.sun : name == "backlight" ? Icons.torch : name == "anti_flicker" ? Icons.bolt
             : name == "white_balance_auto" || name == "white_balance" || name == "dslr_white_balance" ? Icons.thermometer
             : name == "saturation" ? Icons.saturation : name == "hue" ? Icons.colour : name == "contrast" ? Icons.contrast

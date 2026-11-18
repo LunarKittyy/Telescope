@@ -94,7 +94,7 @@ export component VirtualCameraSettings inherits Card {
     }
     if linux: UnfoldGroup {
         SwitchRow {
-            icon: Icons.bolt;
+            icon: Icons.power;
             label: @tr("Load when the computer starts");
             tip: @tr("Load when the computer starts");
             tip-detail: root.persist-tip;
@@ -585,7 +585,7 @@ export component LookSettings inherits Card {
         toggled(on) => { root.contrast-checked = on; root.contrast-toggled(on); }
     }
     RailRow {
-        icon: Icons.corners;
+        icon: Icons.radius;
         label: @tr("Corners");
         tip: @tr("How round the corners of cards and controls are");
         named: true;

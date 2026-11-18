@@ -537,7 +537,7 @@ impl Plugin for StartupPlugin {
             about: n_("Open Telescope when you sign in and set up Automatic streaming.").into(),
             when_off: n_("Without the Automatic streaming plugin, Automatic streaming stops and it and the sign-in option disappear from Settings. Telescope still opens at sign-in if it did before.").into(),
             category: "streaming".into(),
-            icon: "monitor".into(),
+            icon: "power".into(),
             ..Default::default()
         }
     }

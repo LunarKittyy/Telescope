@@ -261,7 +261,7 @@ impl Plugin for SpoutSendPlugin {
             optional: true,
             lab: true,
             category: "streaming".into(),
-            icon: "monitor".into(),
+            icon: "arrow_out".into(),
             frame_stage: FrameStage::Final,
             ..PluginInfo::default()
         }
