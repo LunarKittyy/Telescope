@@ -1,7 +1,7 @@
-//! Plugins people add: Lua scripts with GPU shaders and .slint cards, behind core's Plugin trait. See docs/writing-plugins.md.
+//! Plugins people add: Lua scripts with GPU shaders and .slint cards, behind core's Plugin trait. See docs/development/writing-plugins.md.
 //!
 //! The boundary is runtime-neutral (guest.rs): a runtime implements Guest, sees plain JSON both ways and reaches the host only through
-//! PluginContext::call. Lua (lua.rs) is the one runtime today; rust/docs/plugin-wasm.md shows a WASM one fitting the same boundary.
+//! PluginContext::call. Lua (lua.rs) is the one runtime today; docs/development/plugin-wasm.md shows a WASM one fitting the same boundary.
 
 pub mod admin;
 pub mod guest;

@@ -4,7 +4,7 @@
 
 use telescope_core::i18n::Fields;
 use super::*;
-use crate::composite::{self, crop_px, Tile, MAX_BORDER, MAX_RADIUS, MAX_TILES, MAX_ZOOM, SNAP};
+use crate::composite::{self, crop_px, Tile, MAX_BORDER, MAX_RADIUS, MAX_TILES, SNAP};
 use telescope_core::frame::PixelFormat;
 use telescope_core::host::{FileDialog, FileDialogKind, RequestId};
 use telescope_core::ui::WindowSpec;
@@ -306,7 +306,7 @@ impl CompositePlugin {
         }
         e.selected = index;
         let tile = &tiles[index as usize];
-        let zoom = (tile.zoom * ZOOM_STEP.powf(steps)).clamp(1.0, MAX_ZOOM);
+        let zoom = (tile.zoom * ZOOM_STEP.powf(steps)).clamp(1.0, self.max_zoom);
         self.replace_tile(host, index, Tile { zoom, ..tile.clone() });
     }
 
@@ -558,7 +558,7 @@ impl CompositePlugin {
             "few-streams": streams.len() < 2,
             "tile-shown": picked.is_some(),
             "zoom": picked.map_or(100.0, |t| (t.zoom * 100.0).round()),
-            "zoom-max": MAX_ZOOM * 100.0,
+            "zoom-max": self.max_zoom * 100.0,
             "zoom-text": picked.map_or_else(String::new, |t| format!("{} %", (t.zoom * 100.0).round())),
             "border": picked.map_or(0, |t| t.border),
             "border-max": MAX_BORDER,
@@ -660,7 +660,7 @@ impl CompositePlugin {
                 }
             }
             "zoom-moved" => {
-                let zoom = number(0) / 100.0;
+                let zoom = (number(0) / 100.0).min(self.max_zoom);
                 self.edit_picked(host, |t| t.zoom = zoom);
             }
             "border-moved" => {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keeps the desktop app's translations in step with the code (docs/translating.md). Run it from rust/.
+"""Keeps the desktop app's translations in step with the code (docs/development/translating.md). Run it from rust/.
 
   python tools/i18n.py extract          find every text the code shows, write locale/telescope.pot
                                         and bring each locale/<lang>.po up to date with it
@@ -500,7 +500,7 @@ def extract(args) -> int:
         return 1
     LOCALE_DIR.mkdir(exist_ok=True)
     write_po(TEMPLATE, header(), entries, ["Telescope desktop app texts. Made by tools/i18n.py extract: translate the msgstr "
-                                           "lines, keep everything", "else as it is. See docs/translating.md."])
+                                           "lines, keep everything", "else as it is. See docs/development/translating.md."])
     for po in catalogs():
         merge(po, entries, args.forget)
     print(f"{len(entries)} texts in {rel(TEMPLATE)}; updated {len(catalogs())} languages")
@@ -515,7 +515,7 @@ def new(args) -> int:
     if not TEMPLATE.is_file():
         print(f"No {rel(TEMPLATE)} yet: run extract first", file=sys.stderr)
         return 1
-    write_po(po, header(args.lang), [], [f"Telescope desktop app texts in {args.lang}. See docs/translating.md."])
+    write_po(po, header(args.lang), [], [f"Telescope desktop app texts in {args.lang}. See docs/development/translating.md."])
     merge(po, read_po(TEMPLATE)[0])
     if args.lang not in PLURALS and args.lang.split("_")[0] not in PLURALS:
         print(f"Check the Plural-Forms line in {po.name}: it has English's rule")

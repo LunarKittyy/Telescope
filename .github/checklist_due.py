@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""List the sections of docs/release-checklist.md that the changes since the last release can reach.
+"""List the sections of docs/development/release-checklist.md that the changes since the last release can reach.
 
 Each section under "Only when due" names the files and packages it depends on in a comment. A section is due when one
 of them changed. Shared files (in the `shared:` comment) can reach every section, so a change there lists them all as
@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CHECKLIST = ROOT / "docs" / "release-checklist.md"
+CHECKLIST = ROOT / "docs" / "development" / "release-checklist.md"
 REQUIREMENTS = re.compile(r"^rust/tools/vision-pack-requirements\.txt$")
 
 

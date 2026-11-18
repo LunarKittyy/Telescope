@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A stand-in phone for measuring desktops: the session and stream ports of docs/protocol.md over TLS, serving a
+"""A stand-in phone for measuring desktops: the session and stream ports of docs/development/protocol.md over TLS, serving a
 pre-encoded Annex-B clip at its frame rate as /v1/video.h264. It's already paired: it accepts one token and prints
 the phone entry (id, token, certificate pin) to put in a desktop's config. With --record it writes every request a
 desktop sends, one JSON line each.

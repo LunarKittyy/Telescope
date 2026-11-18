@@ -14,7 +14,7 @@ use telescope_core::plugin::{PluginInfo, PLUGIN_CATEGORIES};
 use telescope_core::vision::{PackZip, VisionPack, VisionService};
 use telescope_core::plugin_admin::{AddedPlugin, InstallFailure, PluginAdmin, AUTO_UPDATE, CHECK_UPDATES};
 
-pub const DOCS_URL: &str = "https://github.com/LunarKittyy/Telescope/blob/master/docs/plugins.md";
+pub const DOCS_URL: &str = "https://github.com/LunarKittyy/Telescope/blob/master/docs/features/plugins.md";
 
 /// Each group's icon on its heading (CATEGORY_LOOK); its colour is the group's hue.
 pub fn group_icon(group: &str) -> &'static str {

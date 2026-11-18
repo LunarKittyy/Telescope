@@ -11,7 +11,10 @@ pub const MAX_NAME: usize = 40;
 pub const REFERENCE_HEIGHT: f64 = 1080.0;
 pub const MAX_BORDER: f64 = 40.0;
 pub const MAX_RADIUS: f64 = 200.0;
-pub const MAX_ZOOM: f64 = 4.0;
+/// What a saved tile's zoom can be at most, which is Setup's biggest Max zoom. What's drawn follows the setting.
+pub const MAX_ZOOM: f64 = 30.0;
+/// The Max zoom setting until Setup says otherwise, the same as Setup's default.
+pub const DEFAULT_MAX_ZOOM: f64 = 10.0;
 /// A box can't get smaller than this share of the picture.
 pub const MIN_SIZE: f64 = 0.05;
 /// Cropping always leaves at least this share of the stream's frame each way.
@@ -413,7 +416,11 @@ pub fn scaled(bx: (f64, f64, f64, f64), handle: &str, dx: f64, dy: f64) -> (f64,
 /// side by side or stretched. src_aspect is the stream's width over height, canvas_aspect the picture's.
 pub fn pinned(tile: &Tile, src_aspect: f64, canvas_aspect: f64) -> Tile {
     let (x0, y0, x1, y1) = shown(tile, src_aspect, 1.0, tile.w * canvas_aspect, tile.h);
-    Tile { crop_l: x0 / src_aspect, crop_t: y0, crop_r: 1.0 - x1 / src_aspect, crop_b: 1.0 - y1, zoom: 1.0, cx: 0.5, cy: 0.5, ..tile.clone() }
+    // a big zoom shows less of the stream than a crop can keep: it keeps the smallest piece a crop can, around the middle of what's shown
+    let widen = |lo: f64, hi: f64| if hi - lo < MIN_SHOWN { ((lo + hi - MIN_SHOWN) / 2.0).clamp(0.0, 1.0 - MIN_SHOWN) } else { lo };
+    let (l, t) = (widen(x0 / src_aspect, x1 / src_aspect), widen(y0, y1));
+    let (r, b) = (1.0 - l - (x1 / src_aspect - x0 / src_aspect).max(MIN_SHOWN), 1.0 - t - (y1 - y0).max(MIN_SHOWN));
+    Tile { crop_l: l, crop_t: t, crop_r: r.max(0.0), crop_b: b.max(0.0), zoom: 1.0, cx: 0.5, cy: 0.5, ..tile.clone() }
 }
 
 /// tile with the sides handle names dragged by dx, dy, cutting off (or bringing back) that side of the stream while the

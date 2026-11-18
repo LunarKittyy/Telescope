@@ -241,6 +241,8 @@ pub struct CompositePlugin {
     reader: PictureReader,
     /// The editor's state while its window is open.
     editor: Option<editor::Editor>,
+    /// Setup's Max zoom: a tile zooms in at most this far.
+    max_zoom: f64,
 }
 
 impl Default for CompositePlugin {
@@ -265,6 +267,7 @@ impl CompositePlugin {
         let mut plugin = CompositePlugin {
             on: false, layout: Layout::default(), layouts: Vec::new(), target: None, camera_size: None, canvas: (None, None), shared,
             clock: None, camera_label, note: String::new(), note_short: String::new(), pending: false, held: None, reader, editor: None,
+            max_zoom: crate::composite::DEFAULT_MAX_ZOOM,
         };
         plugin.prepare();
         plugin
@@ -278,6 +281,12 @@ impl CompositePlugin {
             (Some(w), Some(h)) if w > 0 && h > 0 => (w, h),
             _ => self.camera_size.unwrap_or(DEFAULT_SIZE),
         }
+    }
+
+    /// No tile zooms in further than the Max zoom setting: one saved at a bigger zoom is brought down to it.
+    fn cap_zooms(&mut self) {
+        let max = self.max_zoom;
+        self.layout.tiles.iter_mut().for_each(|t| t.zoom = t.zoom.min(max));
     }
 
     fn prepare(&mut self) {
@@ -342,6 +351,7 @@ impl CompositePlugin {
     /// The picture as the editor has it now; the name says which saved layout it started from.
     pub fn set_layout(&mut self, host: &mut dyn Host, layout: Layout) {
         self.layout = layout;
+        self.cap_zooms();
         self.canvas = host.canvas_size();
         self.prepare();
         self.show(host);
@@ -557,6 +567,19 @@ impl Plugin for CompositePlugin {
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
         self.catch_up(host);
         match event {
+            Event::MaxZoomChanged { max_zoom } => {
+                self.max_zoom = (*max_zoom as f64).max(1.0);
+                let before = self.layout.clone();
+                self.cap_zooms();
+                if self.layout != before {
+                    // a held fallback picture was drawn with the old zooms
+                    self.shared.hub().fallback_key = None;
+                    host.schedule_save();
+                }
+                self.canvas = host.canvas_size();
+                self.prepare();
+                self.show(host);
+            }
             Event::StreamsChanged { .. } => self.follow_camera(host),
             Event::CameraOpened { slot: 0, .. } => self.follow_camera(host),
             Event::TimerFired { owner, token } if owner == NAME && token == Self::EDITOR_TIMER => self.editor_timer(host),

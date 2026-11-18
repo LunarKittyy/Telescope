@@ -180,7 +180,7 @@ msgstr "Scarica VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "Rimuove il rumore della tastiera, delle ventole e il fruscio di fondo."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:639 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:662 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -346,7 +346,7 @@ msgstr "Giallo: il limitatore sta attenuando i picchi. Rosso: l'audio è andato 
 msgid "Click to clear"
 msgstr "Fai clic per azzerare"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:59 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:382 rust/crates/setup/ui/setup.slint:511 rust/crates/shell/src/plugins_tab.rs:726 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:70 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:382 rust/crates/setup/ui/setup.slint:511 rust/crates/shell/src/plugins_tab.rs:726 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "Ripristina"
 
@@ -597,7 +597,7 @@ msgid "Analysing…"
 msgstr "Analisi in corso…"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:73 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:40 rust/crates/effects/src/photos.rs:460 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
+#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:82 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:40 rust/crates/effects/src/photos.rs:460 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
 msgid "Off"
 msgstr "Disattivo"
 
@@ -1231,62 +1231,62 @@ msgstr "Combina i flussi attivi in un'unica immagine."
 msgid "A layout you saved in the editor."
 msgstr "Un layout che hai salvato nell'editor."
 
-#: rust/crates/effects/src/composite_plugin.rs:418 rust/crates/effects/src/composite_plugin.rs:610 rust/crates/effects/src/composite_plugin.rs:614 rust/crates/effects/src/composite_plugin.rs:627 rust/crates/effects/ui/composite.slint:21
+#: rust/crates/effects/src/composite_plugin.rs:428 rust/crates/effects/src/composite_plugin.rs:633 rust/crates/effects/src/composite_plugin.rs:637 rust/crates/effects/src/composite_plugin.rs:650 rust/crates/effects/ui/composite.slint:21
 msgid "One picture"
 msgstr "Immagine unica"
 
-#: rust/crates/effects/src/composite_plugin.rs:461
+#: rust/crates/effects/src/composite_plugin.rs:471
 msgid "Nothing's in the picture yet."
 msgstr "Non c'è ancora niente nell'immagine."
 
-#: rust/crates/effects/src/composite_plugin.rs:463
+#: rust/crates/effects/src/composite_plugin.rs:473
 msgid "Active once two streams are running."
 msgstr "Attivo quando sono in esecuzione due streaming."
 
-#: rust/crates/effects/src/composite_plugin.rs:465
+#: rust/crates/effects/src/composite_plugin.rs:475
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "Impostato per trasmettere su {camera}, ma non c'è alcuno streaming attivo lì."
 
-#: rust/crates/effects/src/composite_plugin.rs:467
+#: rust/crates/effects/src/composite_plugin.rs:477
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "Trasmetterà su {camera} non appena lo streaming invierà un'immagine."
 
-#: rust/crates/effects/src/composite_plugin.rs:469
+#: rust/crates/effects/src/composite_plugin.rs:479
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "In trasmissione su {camera}."
 
-#: rust/crates/effects/src/composite_plugin.rs:474
+#: rust/crates/effects/src/composite_plugin.rs:484
 msgid "Nothing in it"
 msgstr "Vuoto"
 
-#: rust/crates/effects/src/composite_plugin.rs:476 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
+#: rust/crates/effects/src/composite_plugin.rs:486 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
 msgid "Two streams required"
 msgstr "Due streaming richiesti"
 
-#: rust/crates/effects/src/composite_plugin.rs:478
+#: rust/crates/effects/src/composite_plugin.rs:488
 msgid "Not going out"
 msgstr "Non in uscita"
 
-#: rust/crates/effects/src/composite_plugin.rs:480
+#: rust/crates/effects/src/composite_plugin.rs:490
 msgid "Going out"
 msgstr "In uscita"
 
-#: rust/crates/effects/src/composite_plugin.rs:525
+#: rust/crates/effects/src/composite_plugin.rs:535
 msgid "Several cameras in one picture"
 msgstr "Più fotocamere in un'unica immagine"
 
-#: rust/crates/effects/src/composite_plugin.rs:526
+#: rust/crates/effects/src/composite_plugin.rs:536
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "Affianca o sovrapponi i flussi di streaming su un'unica fotocamera virtuale."
 
-#: rust/crates/effects/src/composite_plugin.rs:527
+#: rust/crates/effects/src/composite_plugin.rs:537
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "Senza il plugin Più fotocamere in un'immagine non c'è la scheda Un'immagine e ogni streaming va solo alla propria fotocamera."
 
-#: rust/crates/effects/src/composite_plugin.rs:615 rust/crates/effects/src/composite_plugin.rs:639
+#: rust/crates/effects/src/composite_plugin.rs:638 rust/crates/effects/src/composite_plugin.rs:662
 msgid "Picture layout"
 msgstr "Layout dell'immagine"
 
@@ -1640,7 +1640,7 @@ msgstr "Aggiungi filtri da editor fotografico come nitidezza, chiarezza, rimozio
 msgid "Without it there's no Filters card and the picture isn't sharpened, cleaned up or finished."
 msgstr "Senza questo plugin non c'è la scheda Filtri e l'immagine non viene resa nitida, ripulita o rifinita."
 
-#: rust/crates/effects/src/framing.rs:21 rust/crates/effects/ui/framing.slint:45
+#: rust/crates/effects/src/framing.rs:21 rust/crates/effects/ui/framing.slint:56
 msgid "Auto framing"
 msgstr "Inquadratura automatica"
 
@@ -1715,71 +1715,99 @@ msgid "Zippy"
 msgstr "Fulmine"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Fidget"
 msgstr "Agitarsi"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Shift"
 msgstr "Girarsi"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Lean"
 msgstr "Sporgersi"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Step"
 msgstr "Passo"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Roam"
 msgstr "In giro"
 
-#: rust/crates/effects/src/framing.rs:90
+#: rust/crates/effects/src/framing.rs:99
 msgid "Zoom and pan to follow you."
 msgstr "Usa zoom e panoramica per seguirti."
 
-#: rust/crates/effects/src/framing.rs:91
+#: rust/crates/effects/src/framing.rs:100
 msgid "Set how much of you is in the picture, from only your head to all of you."
 msgstr "Imposta quanta parte della tua figura includere nell'inquadratura, da solo la testa alla figura intera."
 
-#: rust/crates/effects/src/framing.rs:92
+#: rust/crates/effects/src/framing.rs:101
 msgid "How quickly the framing follows when you move."
 msgstr "Quanto velocemente l'inquadratura ti segue quando ti muovi."
 
-#: rust/crates/effects/src/framing.rs:93
+#: rust/crates/effects/src/framing.rs:102
 msgid "How much you can move before the framing follows you, from a fidget to walking around."
 msgstr "Quanto puoi muoverti prima che l'inquadratura ti segua: agitarsi, girarsi sulla sedia, sporgersi, fare un passo o andare in giro."
 
-#: rust/crates/effects/src/framing.rs:94
+#: rust/crates/effects/src/framing.rs:103
 msgid "Show hands"
 msgstr "Mostra mani"
 
-#: rust/crates/effects/src/framing.rs:95
+#: rust/crates/effects/src/framing.rs:104
 msgid "Widen the view so your hands are in it too."
 msgstr "Allarga la visuale per includere anche le mani."
 
-#: rust/crates/effects/src/framing.rs:96
+#: rust/crates/effects/src/framing.rs:105
 msgid "Something else is moving the zoom and pan."
 msgstr "Qualcos'altro sta muovendo zoom e panoramica."
 
-#: rust/crates/effects/src/framing.rs:97
+#: rust/crates/effects/src/framing.rs:106
 msgid "Auto framing: how much of you"
 msgstr "Inquadratura automatica: quanto di te"
 
-#: rust/crates/effects/src/framing.rs:98
+#: rust/crates/effects/src/framing.rs:107
 msgid "Auto framing speed"
 msgstr "Velocità inquadratura automatica"
 
-#: rust/crates/effects/src/framing.rs:897
+#: rust/crates/effects/src/framing.rs:637
+msgid "Follow one person"
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:637
+msgid "Pick someone"
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:637
+msgid "Pick someone else"
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:638
+msgid "Click one person on the preview and Auto framing follows only them, not whoever else is in view."
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:638
+msgid "Follow everyone"
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:639
+msgid "Frame everyone in view again."
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:861
+msgid "Click the person to follow on the preview. Esc cancels."
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:1086
 msgid "Zoom and pan to keep you in the picture as you move."
 msgstr "Regola zoom e panoramica per tenerti nell'inquadratura mentre ti muovi."
 
-#: rust/crates/effects/src/framing.rs:898
+#: rust/crates/effects/src/framing.rs:1087
 msgid "Without the Auto framing plugin there's no Auto framing card and the zoom only changes when you change it."
 msgstr "Senza il plugin Inquadratura automatica non c'è la scheda Inquadratura automatica e lo zoom cambia solo quando lo modifichi tu."
 
@@ -1867,81 +1895,81 @@ msgstr "Quanti fotogrammi passano da un capo all'altro dell'immagine."
 msgid "How many extra times each frame's motion is played."
 msgstr "Quante volte in più viene ripetuto il movimento di ogni fotogramma."
 
-#: rust/crates/effects/src/fun_pack.rs:377
+#: rust/crates/effects/src/fun_pack.rs:443
 msgid "Step out of the picture. The empty room is taken after a short countdown."
 msgstr "Esci dall'inquadratura. La stanza vuota viene acquisita dopo un breve conto alla rovescia."
 
-#: rust/crates/effects/src/fun_pack.rs:378
+#: rust/crates/effects/src/fun_pack.rs:444
 msgid "Get in place. The clone is taken after a short countdown."
 msgstr "Mettiti in posizione. Il clone viene acquisito dopo un breve conto alla rovescia."
 
-#: rust/crates/effects/src/fun_pack.rs:379
+#: rust/crates/effects/src/fun_pack.rs:445
 msgid "Let the next keyframe through to restore the picture."
 msgstr "Lascia passare il prossimo fotogramma chiave per ripristinare l'immagine."
 
-#: rust/crates/effects/src/fun_pack.rs:380
+#: rust/crates/effects/src/fun_pack.rs:446
 msgid "Remove all clones, or all light trails in Light painting."
 msgstr "Rimuove tutti i cloni o tutte le scie luminose in Light painting."
 
-#: rust/crates/effects/src/fun_pack.rs:381
+#: rust/crates/effects/src/fun_pack.rs:447
 msgid "Which way the bands run."
 msgstr "La direzione delle bande."
 
-#: rust/crates/effects/src/fun_pack.rs:393
+#: rust/crates/effects/src/fun_pack.rs:459
 #, python-brace-format
 msgid "Taking the empty room in {n}…"
 msgstr "Cattura della stanza vuota tra {n}…"
 
-#: rust/crates/effects/src/fun_pack.rs:395
+#: rust/crates/effects/src/fun_pack.rs:461
 msgid "Take the empty room again"
 msgstr "Acquisisci di nuovo la stanza vuota"
 
-#: rust/crates/effects/src/fun_pack.rs:397 rust/crates/effects/src/fun_pack.rs:782 rust/crates/effects/src/fun_pack.rs:811
+#: rust/crates/effects/src/fun_pack.rs:463 rust/crates/effects/src/fun_pack.rs:848 rust/crates/effects/src/fun_pack.rs:877
 msgid "Take the empty room"
 msgstr "Acquisisci la stanza vuota"
 
-#: rust/crates/effects/src/fun_pack.rs:399
+#: rust/crates/effects/src/fun_pack.rs:465
 #, python-brace-format
 msgid "Copying you in {n}…"
 msgstr "Ti copio tra {n}…"
 
-#: rust/crates/effects/src/fun_pack.rs:399 rust/crates/effects/src/fun_pack.rs:783 rust/crates/effects/src/fun_pack.rs:819
+#: rust/crates/effects/src/fun_pack.rs:465 rust/crates/effects/src/fun_pack.rs:849 rust/crates/effects/src/fun_pack.rs:885
 msgid "Add a clone"
 msgstr "Aggiungi un clone"
 
-#: rust/crates/effects/src/fun_pack.rs:405
+#: rust/crates/effects/src/fun_pack.rs:471
 msgid "The picture changed. Take the empty room again."
 msgstr "L'immagine è cambiata. Cattura di nuovo la stanza vuota."
 
-#: rust/crates/effects/src/fun_pack.rs:407
+#: rust/crates/effects/src/fun_pack.rs:473
 msgid "Take the empty room first."
 msgstr "Prima scatta la stanza vuota."
 
-#: rust/crates/effects/src/fun_pack.rs:539
+#: rust/crates/effects/src/fun_pack.rs:605
 msgid "Take the empty room first so you can be cut out."
 msgstr "Cattura prima la stanza vuota per consentire il ritaglio della figura."
 
-#: rust/crates/effects/src/fun_pack.rs:683 rust/crates/effects/src/fun_pack.rs:774 rust/crates/effects/ui/fun_pack.slint:50
+#: rust/crates/effects/src/fun_pack.rs:749 rust/crates/effects/src/fun_pack.rs:840 rust/crates/effects/ui/fun_pack.slint:50
 msgid "Fun pack"
 msgstr "Effetti divertenti"
 
-#: rust/crates/effects/src/fun_pack.rs:684
+#: rust/crates/effects/src/fun_pack.rs:750
 msgid "Add silly effects like clones, an invisibility cloak, light painting, retro looks and datamosh."
 msgstr "Aggiungi effetti divertenti come cloni, mantello dell'invisibilità, light painting, stili rétro e datamosh."
 
-#: rust/crates/effects/src/fun_pack.rs:685
+#: rust/crates/effects/src/fun_pack.rs:751
 msgid "Without the Fun pack plugin there's no Fun pack card and the picture has no effects."
 msgstr "Senza il plugin Fun pack non c'è la scheda Fun pack e l'immagine non ha effetti."
 
-#: rust/crates/effects/src/fun_pack.rs:778 rust/crates/effects/src/fun_pack.rs:834
+#: rust/crates/effects/src/fun_pack.rs:844 rust/crates/effects/src/fun_pack.rs:900
 msgid "Datamosh smear"
 msgstr "Sbavatura datamosh"
 
-#: rust/crates/effects/src/fun_pack.rs:781 rust/crates/effects/src/fun_pack.rs:804
+#: rust/crates/effects/src/fun_pack.rs:847 rust/crates/effects/src/fun_pack.rs:870
 msgid "Fun pack effect"
 msgstr "Effetto divertente"
 
-#: rust/crates/effects/src/fun_pack.rs:784 rust/crates/effects/src/fun_pack.rs:826
+#: rust/crates/effects/src/fun_pack.rs:850 rust/crates/effects/src/fun_pack.rs:892
 msgid "Clean up the datamosh"
 msgstr "Ripulisci il datamosh"
 
@@ -3457,23 +3485,23 @@ msgstr "Aumenta la nitidezza, ripulisci e rifinisci l'immagine come in un editor
 msgid "Set every filter back to neutral."
 msgstr "Riporta tutti i filtri su neutro."
 
-#: rust/crates/effects/ui/framing.slint:46
+#: rust/crates/effects/ui/framing.slint:57
 msgid "Zoom and pan to follow you as you move."
 msgstr "Regola zoom e panoramica per seguirti mentre ti muovi."
 
-#: rust/crates/effects/ui/framing.slint:60
+#: rust/crates/effects/ui/framing.slint:71
 msgid "Set the framing, speed, room and hand settings back to default."
 msgstr "Ripristina i valori predefiniti di inquadratura, velocità, margine di movimento e mani."
 
-#: rust/crates/effects/ui/framing.slint:71 rust/crates/effects/ui/framing.slint:78 rust/crates/effects/ui/framing.slint:79 rust/crates/outputs/src/webcam.rs:80
+#: rust/crates/effects/ui/framing.slint:82 rust/crates/effects/ui/framing.slint:89 rust/crates/effects/ui/framing.slint:90 rust/crates/outputs/src/webcam.rs:80
 msgid "Framing"
 msgstr "Inquadratura"
 
-#: rust/crates/effects/ui/framing.slint:115 rust/crates/effects/ui/framing.slint:122 rust/crates/effects/ui/framing.slint:123 rust/crates/effects/ui/notes.slint:171 rust/crates/effects/ui/notes.slint:177 rust/crates/effects/ui/notes.slint:178
+#: rust/crates/effects/ui/framing.slint:126 rust/crates/effects/ui/framing.slint:133 rust/crates/effects/ui/framing.slint:134 rust/crates/effects/ui/notes.slint:171 rust/crates/effects/ui/notes.slint:177 rust/crates/effects/ui/notes.slint:178
 msgid "Speed"
 msgstr "Velocità"
 
-#: rust/crates/effects/ui/framing.slint:142 rust/crates/effects/ui/framing.slint:149 rust/crates/effects/ui/framing.slint:150
+#: rust/crates/effects/ui/framing.slint:153 rust/crates/effects/ui/framing.slint:160 rust/crates/effects/ui/framing.slint:161
 msgid "Room to move"
 msgstr "Spazio di movimento"
 

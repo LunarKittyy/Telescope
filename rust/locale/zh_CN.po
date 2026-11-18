@@ -180,7 +180,7 @@ msgstr "获取 VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "消除打字声、风扇声和环境底噪。"
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:639 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:662 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}：{value}"
@@ -346,7 +346,7 @@ msgstr "黄色：限制器正在抑制峰值。红色：声音削波。"
 msgid "Click to clear"
 msgstr "点击清除"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:59 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:382 rust/crates/setup/ui/setup.slint:511 rust/crates/shell/src/plugins_tab.rs:726 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:70 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:382 rust/crates/setup/ui/setup.slint:511 rust/crates/shell/src/plugins_tab.rs:726 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "重置"
 
@@ -597,7 +597,7 @@ msgid "Analysing…"
 msgstr "正在分析…"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:73 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:40 rust/crates/effects/src/photos.rs:460 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
+#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:82 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:40 rust/crates/effects/src/photos.rs:460 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
 msgid "Off"
 msgstr "关"
 
@@ -1231,62 +1231,62 @@ msgstr "将正在运行的串流合成为一个画面。"
 msgid "A layout you saved in the editor."
 msgstr "你在编辑器中保存的布局。"
 
-#: rust/crates/effects/src/composite_plugin.rs:418 rust/crates/effects/src/composite_plugin.rs:610 rust/crates/effects/src/composite_plugin.rs:614 rust/crates/effects/src/composite_plugin.rs:627 rust/crates/effects/ui/composite.slint:21
+#: rust/crates/effects/src/composite_plugin.rs:428 rust/crates/effects/src/composite_plugin.rs:633 rust/crates/effects/src/composite_plugin.rs:637 rust/crates/effects/src/composite_plugin.rs:650 rust/crates/effects/ui/composite.slint:21
 msgid "One picture"
 msgstr "合成画面"
 
-#: rust/crates/effects/src/composite_plugin.rs:461
+#: rust/crates/effects/src/composite_plugin.rs:471
 msgid "Nothing's in the picture yet."
 msgstr "画面中还没有内容。"
 
-#: rust/crates/effects/src/composite_plugin.rs:463
+#: rust/crates/effects/src/composite_plugin.rs:473
 msgid "Active once two streams are running."
 msgstr "两个串流运行后生效。"
 
-#: rust/crates/effects/src/composite_plugin.rs:465
+#: rust/crates/effects/src/composite_plugin.rs:475
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "已设为输出到 {camera}，但那里未运行任何串流。"
 
-#: rust/crates/effects/src/composite_plugin.rs:467
+#: rust/crates/effects/src/composite_plugin.rs:477
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "一旦那里的串流发送画面，便会输出到 {camera}。"
 
-#: rust/crates/effects/src/composite_plugin.rs:469
+#: rust/crates/effects/src/composite_plugin.rs:479
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "正在输出到 {camera}。"
 
-#: rust/crates/effects/src/composite_plugin.rs:474
+#: rust/crates/effects/src/composite_plugin.rs:484
 msgid "Nothing in it"
 msgstr "内容为空"
 
-#: rust/crates/effects/src/composite_plugin.rs:476 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
+#: rust/crates/effects/src/composite_plugin.rs:486 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
 msgid "Two streams required"
 msgstr "需要两个串流"
 
-#: rust/crates/effects/src/composite_plugin.rs:478
+#: rust/crates/effects/src/composite_plugin.rs:488
 msgid "Not going out"
 msgstr "未输出"
 
-#: rust/crates/effects/src/composite_plugin.rs:480
+#: rust/crates/effects/src/composite_plugin.rs:490
 msgid "Going out"
 msgstr "正在输出"
 
-#: rust/crates/effects/src/composite_plugin.rs:525
+#: rust/crates/effects/src/composite_plugin.rs:535
 msgid "Several cameras in one picture"
 msgstr "多相机同屏画面"
 
-#: rust/crates/effects/src/composite_plugin.rs:526
+#: rust/crates/effects/src/composite_plugin.rs:536
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "将运行的串流并排或以画中画形式呈现在一个虚拟相机中。"
 
-#: rust/crates/effects/src/composite_plugin.rs:527
+#: rust/crates/effects/src/composite_plugin.rs:537
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "若没有“多相机同屏”插件，将没有“单画面”卡片，每个串流只能输出到各自的相机。"
 
-#: rust/crates/effects/src/composite_plugin.rs:615 rust/crates/effects/src/composite_plugin.rs:639
+#: rust/crates/effects/src/composite_plugin.rs:638 rust/crates/effects/src/composite_plugin.rs:662
 msgid "Picture layout"
 msgstr "画面布局"
 
@@ -1640,7 +1640,7 @@ msgstr "添加类似照片编辑器的滤镜，如锐化、清晰度、去雾、
 msgid "Without it there's no Filters card and the picture isn't sharpened, cleaned up or finished."
 msgstr "若没有此插件，将没有“滤镜”卡片，画面也不会包含锐化、降噪或修饰效果。"
 
-#: rust/crates/effects/src/framing.rs:21 rust/crates/effects/ui/framing.slint:45
+#: rust/crates/effects/src/framing.rs:21 rust/crates/effects/ui/framing.slint:56
 msgid "Auto framing"
 msgstr "自动构图"
 
@@ -1715,71 +1715,99 @@ msgid "Zippy"
 msgstr "闪电"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Fidget"
 msgstr "小动"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Shift"
 msgstr "挪身"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Lean"
 msgstr "探身"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Step"
 msgstr "迈步"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Roam"
 msgstr "溜达"
 
-#: rust/crates/effects/src/framing.rs:90
+#: rust/crates/effects/src/framing.rs:99
 msgid "Zoom and pan to follow you."
 msgstr "自动缩放和平移以跟随你的位置。"
 
-#: rust/crates/effects/src/framing.rs:91
+#: rust/crates/effects/src/framing.rs:100
 msgid "Set how much of you is in the picture, from only your head to all of you."
 msgstr "设置你在画面中的露出范围，从仅头部到全身。"
 
-#: rust/crates/effects/src/framing.rs:92
+#: rust/crates/effects/src/framing.rs:101
 msgid "How quickly the framing follows when you move."
 msgstr "你移动时构图跟随的快慢。"
 
-#: rust/crates/effects/src/framing.rs:93
+#: rust/crates/effects/src/framing.rs:102
 msgid "How much you can move before the framing follows you, from a fidget to walking around."
 msgstr "触发构图跟随所需的移动幅度：做小动作、在椅子上挪身、探身、迈步或四处溜达。"
 
-#: rust/crates/effects/src/framing.rs:94
+#: rust/crates/effects/src/framing.rs:103
 msgid "Show hands"
 msgstr "露出双手"
 
-#: rust/crates/effects/src/framing.rs:95
+#: rust/crates/effects/src/framing.rs:104
 msgid "Widen the view so your hands are in it too."
 msgstr "扩大取景范围，让双手也能入镜。"
 
-#: rust/crates/effects/src/framing.rs:96
+#: rust/crates/effects/src/framing.rs:105
 msgid "Something else is moving the zoom and pan."
 msgstr "有别的功能正在控制缩放和平移。"
 
-#: rust/crates/effects/src/framing.rs:97
+#: rust/crates/effects/src/framing.rs:106
 msgid "Auto framing: how much of you"
 msgstr "自动构图：包含你的多少部分"
 
-#: rust/crates/effects/src/framing.rs:98
+#: rust/crates/effects/src/framing.rs:107
 msgid "Auto framing speed"
 msgstr "自动构图速度"
 
-#: rust/crates/effects/src/framing.rs:897
+#: rust/crates/effects/src/framing.rs:637
+msgid "Follow one person"
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:637
+msgid "Pick someone"
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:637
+msgid "Pick someone else"
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:638
+msgid "Click one person on the preview and Auto framing follows only them, not whoever else is in view."
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:638
+msgid "Follow everyone"
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:639
+msgid "Frame everyone in view again."
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:861
+msgid "Click the person to follow on the preview. Esc cancels."
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:1086
 msgid "Zoom and pan to keep you in the picture as you move."
 msgstr "在你移动时自动缩放和平移，使你始终处于画面中。"
 
-#: rust/crates/effects/src/framing.rs:898
+#: rust/crates/effects/src/framing.rs:1087
 msgid "Without the Auto framing plugin there's no Auto framing card and the zoom only changes when you change it."
 msgstr "若没有“自动构图”插件，将没有“自动构图”卡片，缩放比例仅会在你手动调整时改变。"
 
@@ -1867,81 +1895,81 @@ msgstr "画面从一端过渡到另一端所跨越的帧数。"
 msgid "How many extra times each frame's motion is played."
 msgstr "每一帧的动态效果额外重放的次数。"
 
-#: rust/crates/effects/src/fun_pack.rs:377
+#: rust/crates/effects/src/fun_pack.rs:443
 msgid "Step out of the picture. The empty room is taken after a short countdown."
 msgstr "请离开画面。短暂倒计时后将拍下空背景。"
 
-#: rust/crates/effects/src/fun_pack.rs:378
+#: rust/crates/effects/src/fun_pack.rs:444
 msgid "Get in place. The clone is taken after a short countdown."
 msgstr "请站好位置。短暂倒计时后将定格分身。"
 
-#: rust/crates/effects/src/fun_pack.rs:379
+#: rust/crates/effects/src/fun_pack.rs:445
 msgid "Let the next keyframe through to restore the picture."
 msgstr "放行下一关键帧以恢复正常画面。"
 
-#: rust/crates/effects/src/fun_pack.rs:380
+#: rust/crates/effects/src/fun_pack.rs:446
 msgid "Remove all clones, or all light trails in Light painting."
 msgstr "清除所有分身，或清除光绘中的所有光轨。"
 
-#: rust/crates/effects/src/fun_pack.rs:381
+#: rust/crates/effects/src/fun_pack.rs:447
 msgid "Which way the bands run."
 msgstr "扫描条带的延伸方向。"
 
-#: rust/crates/effects/src/fun_pack.rs:393
+#: rust/crates/effects/src/fun_pack.rs:459
 #, python-brace-format
 msgid "Taking the empty room in {n}…"
 msgstr "将在 {n} 秒后拍摄空房间…"
 
-#: rust/crates/effects/src/fun_pack.rs:395
+#: rust/crates/effects/src/fun_pack.rs:461
 msgid "Take the empty room again"
 msgstr "重新拍摄空房间"
 
-#: rust/crates/effects/src/fun_pack.rs:397 rust/crates/effects/src/fun_pack.rs:782 rust/crates/effects/src/fun_pack.rs:811
+#: rust/crates/effects/src/fun_pack.rs:463 rust/crates/effects/src/fun_pack.rs:848 rust/crates/effects/src/fun_pack.rs:877
 msgid "Take the empty room"
 msgstr "拍摄空房间"
 
-#: rust/crates/effects/src/fun_pack.rs:399
+#: rust/crates/effects/src/fun_pack.rs:465
 #, python-brace-format
 msgid "Copying you in {n}…"
 msgstr "{n} 秒后复制你…"
 
-#: rust/crates/effects/src/fun_pack.rs:399 rust/crates/effects/src/fun_pack.rs:783 rust/crates/effects/src/fun_pack.rs:819
+#: rust/crates/effects/src/fun_pack.rs:465 rust/crates/effects/src/fun_pack.rs:849 rust/crates/effects/src/fun_pack.rs:885
 msgid "Add a clone"
 msgstr "添加克隆"
 
-#: rust/crates/effects/src/fun_pack.rs:405
+#: rust/crates/effects/src/fun_pack.rs:471
 msgid "The picture changed. Take the empty room again."
 msgstr "画面已改变。请重新拍摄空房间。"
 
-#: rust/crates/effects/src/fun_pack.rs:407
+#: rust/crates/effects/src/fun_pack.rs:473
 msgid "Take the empty room first."
 msgstr "请先拍摄空房间。"
 
-#: rust/crates/effects/src/fun_pack.rs:539
+#: rust/crates/effects/src/fun_pack.rs:605
 msgid "Take the empty room first so you can be cut out."
 msgstr "请先拍摄空房间，以便扣出人物。"
 
-#: rust/crates/effects/src/fun_pack.rs:683 rust/crates/effects/src/fun_pack.rs:774 rust/crates/effects/ui/fun_pack.slint:50
+#: rust/crates/effects/src/fun_pack.rs:749 rust/crates/effects/src/fun_pack.rs:840 rust/crates/effects/ui/fun_pack.slint:50
 msgid "Fun pack"
 msgstr "趣味包"
 
-#: rust/crates/effects/src/fun_pack.rs:684
+#: rust/crates/effects/src/fun_pack.rs:750
 msgid "Add silly effects like clones, an invisibility cloak, light painting, retro looks and datamosh."
 msgstr "添加趣味特效，如分身、隐形斗篷、光绘、复古效果和数据故障艺术（Datamosh）。"
 
-#: rust/crates/effects/src/fun_pack.rs:685
+#: rust/crates/effects/src/fun_pack.rs:751
 msgid "Without the Fun pack plugin there's no Fun pack card and the picture has no effects."
 msgstr "若没有“趣味特效包”插件，将没有“趣味特效包”卡片，画面也不会有特效。"
 
-#: rust/crates/effects/src/fun_pack.rs:778 rust/crates/effects/src/fun_pack.rs:834
+#: rust/crates/effects/src/fun_pack.rs:844 rust/crates/effects/src/fun_pack.rs:900
 msgid "Datamosh smear"
 msgstr "Datamosh 拖影"
 
-#: rust/crates/effects/src/fun_pack.rs:781 rust/crates/effects/src/fun_pack.rs:804
+#: rust/crates/effects/src/fun_pack.rs:847 rust/crates/effects/src/fun_pack.rs:870
 msgid "Fun pack effect"
 msgstr "趣味包特效"
 
-#: rust/crates/effects/src/fun_pack.rs:784 rust/crates/effects/src/fun_pack.rs:826
+#: rust/crates/effects/src/fun_pack.rs:850 rust/crates/effects/src/fun_pack.rs:892
 msgid "Clean up the datamosh"
 msgstr "清理 Datamosh"
 
@@ -3457,23 +3485,23 @@ msgstr "像照片编辑器一样为画面锐化、降噪并润色修饰。"
 msgid "Set every filter back to neutral."
 msgstr "将所有滤镜重置为默认无效果。"
 
-#: rust/crates/effects/ui/framing.slint:46
+#: rust/crates/effects/ui/framing.slint:57
 msgid "Zoom and pan to follow you as you move."
 msgstr "在你移动时通过缩放和平移跟随你。"
 
-#: rust/crates/effects/ui/framing.slint:60
+#: rust/crates/effects/ui/framing.slint:71
 msgid "Set the framing, speed, room and hand settings back to default."
 msgstr "将构图、速度、移动余量和手部设置恢复为默认值。"
 
-#: rust/crates/effects/ui/framing.slint:71 rust/crates/effects/ui/framing.slint:78 rust/crates/effects/ui/framing.slint:79 rust/crates/outputs/src/webcam.rs:80
+#: rust/crates/effects/ui/framing.slint:82 rust/crates/effects/ui/framing.slint:89 rust/crates/effects/ui/framing.slint:90 rust/crates/outputs/src/webcam.rs:80
 msgid "Framing"
 msgstr "构图"
 
-#: rust/crates/effects/ui/framing.slint:115 rust/crates/effects/ui/framing.slint:122 rust/crates/effects/ui/framing.slint:123 rust/crates/effects/ui/notes.slint:171 rust/crates/effects/ui/notes.slint:177 rust/crates/effects/ui/notes.slint:178
+#: rust/crates/effects/ui/framing.slint:126 rust/crates/effects/ui/framing.slint:133 rust/crates/effects/ui/framing.slint:134 rust/crates/effects/ui/notes.slint:171 rust/crates/effects/ui/notes.slint:177 rust/crates/effects/ui/notes.slint:178
 msgid "Speed"
 msgstr "速度"
 
-#: rust/crates/effects/ui/framing.slint:142 rust/crates/effects/ui/framing.slint:149 rust/crates/effects/ui/framing.slint:150
+#: rust/crates/effects/ui/framing.slint:153 rust/crates/effects/ui/framing.slint:160 rust/crates/effects/ui/framing.slint:161
 msgid "Room to move"
 msgstr "活动空间"
 

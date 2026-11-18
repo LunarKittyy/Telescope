@@ -17,7 +17,7 @@ body:
       label: What should change?
       description: |
         For each text: where it shows (which app, card or screen), what it says now, and what it should say. A screenshot works too, drag it in here.
-        Fixing lots of texts at once? List them all here, or edit the files directly as [Translating Telescope](https://github.com/LunarKittyy/Telescope/blob/master/docs/translating.md) explains.
+        Fixing lots of texts at once? List them all here, or edit the files directly as [Translating Telescope](https://github.com/LunarKittyy/Telescope/blob/master/docs/development/translating.md) explains.
       placeholder: |
         Desktop, Microphone card: "Ganancia máxima" should be "Ganancia máx." because it gets cut off
     validations:

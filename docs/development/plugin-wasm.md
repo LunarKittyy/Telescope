@@ -1,3 +1,4 @@
+<!-- covers: ; checked: d369c8664 -->
 # WASM plugins (design)
 
 Lua comes first because it's the easiest way in for someone who has never written a plugin. WASM comes later for people who want to write plugins in Rust, C, Zig or anything else that compiles to it. This page shows that a WASM runtime fits the boundary the Lua one already uses, with no change to `core`, to the host API or to how a plugin is packaged. Nothing here is built yet.

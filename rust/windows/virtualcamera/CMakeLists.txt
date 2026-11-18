@@ -1,4 +1,4 @@
-# The Windows 11 virtual camera; docs/building.md says how to build it
+# The Windows 11 virtual camera; docs/development/building.md says how to build it
 cmake_minimum_required(VERSION 3.20)
 project(TelescopeCamera CXX RC)
 
