@@ -251,3 +251,66 @@ fn a_save_prompt_still_closes_after_the_replace_question_took_its_place() {
         assert!(labelled(&w, "Save preset").is_empty(), "the prompt closes on {how}");
     }
 }
+
+/// A plugin that asks a question when a preset is saved: whether the preset brings its picture along.
+struct Picture(Arc<Mutex<Vec<String>>>);
+
+impl Plugin for Picture {
+    fn info(&self) -> PluginInfo {
+        PluginInfo { name: "picture".into(), title: "Picture".into(), in_presets: true, ..Default::default() }
+    }
+    fn get_config(&self) -> Value {
+        json!({"on": true, "layout": "side"})
+    }
+    fn preset_options(&self) -> Vec<telescope_core::PresetOption> {
+        vec![telescope_core::PresetOption {
+            id: "layout".into(),
+            label: "One picture layout".into(),
+            items: vec![("layout".into(), "Bring this layout".into()), ("keep".into(), "Leave the layout".into())],
+        }]
+    }
+    fn preset_config_with(&self, picks: &[(String, String)]) -> Value {
+        self.0.lock().unwrap().extend(picks.iter().map(|(id, v)| format!("{id}={v}")));
+        self.get_config()
+    }
+}
+
+#[test]
+fn the_save_prompt_shows_a_plugins_question_and_hands_back_the_answer() {
+    telescope_shell::offscreen::install();
+    let dir = telescope_core::testing::scratch_dir("presets-save-options");
+    let asked = Arc::new(Mutex::new(Vec::new()));
+    let plugin_asked = asked.clone();
+    let w = window::build(
+        ConfigFile::at(dir.join(CONFIG_FILENAME)),
+        move |_| vec![Box::new(telescope_shell::plugins::presets::PresetsPlugin::new()), Box::new(Picture(plugin_asked))],
+        None,
+        None,
+    )
+    .unwrap();
+    w.ui.window().set_size(slint::LogicalSize::new(1300.0, 900.0));
+    w.ui.show().unwrap();
+    w.process();
+    open_menu(&w);
+    menu_row(&w, "Save current as…");
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(400));
+    w.process();
+    telescope_shell::offscreen::draw(w.ui.window(), 1300.0, 900.0, 1.0);
+    assert!(!labelled(&w, "One picture layout").is_empty(), "the prompt asks the plugin's question");
+    // A picture of the prompt, when asked for (CARD_SHOTS=dir)
+    if let Ok(dir) = std::env::var("CARD_SHOTS") {
+        let pic = telescope_shell::offscreen::draw(w.ui.window(), 1300.0, 900.0, 2.0).expect("a picture");
+        let (x, y, cw, ch) = (pic.width as usize / 2 - 520, pic.height as usize / 2 - 360, 1040usize, 720usize);
+        let mut rgba = Vec::new();
+        for row in y..y + ch {
+            rgba.extend_from_slice(&pic.rgba[(row * pic.width as usize + x) * 4..(row * pic.width as usize + x + cw) * 4]);
+        }
+        telescope_shell::offscreen::Picture { width: cw as u32, height: ch as u32, rgba }.save_png(&std::path::Path::new(&dir).join("presets-save-options.png")).unwrap();
+    }
+    assert!(!labelled(&w, "One picture layout: Leave the layout").is_empty(), "with its choices");
+    press_in(&w, "One picture layout: Leave the layout", 0, (0.0, 0.0));
+    press_in(&w, "Save", 0, (0.0, 0.0));
+    telescope_shell::offscreen::skip(std::time::Duration::from_millis(400));
+    w.process();
+    assert_eq!(*asked.lock().unwrap(), ["layout=keep"], "the choice made in the prompt reaches the plugin");
+}

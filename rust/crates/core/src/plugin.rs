@@ -122,7 +122,6 @@ pub struct StreamInfo {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConfigRejected(pub String);
 
-/// One plugin. Every method gets the host it may call; nothing is shared between plugins except through it and the bus.
 /// One question a plugin adds to the Save preset dialog: a label and the values to choose from, the first being the default.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PresetOption {
@@ -132,6 +131,7 @@ pub struct PresetOption {
     pub items: Vec<(String, String)>,
 }
 
+/// One plugin. Every method gets the host it may call; nothing is shared between plugins except through it and the bus.
 pub trait Plugin: Send {
     fn info(&self) -> PluginInfo;
 

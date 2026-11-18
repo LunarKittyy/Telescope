@@ -208,6 +208,7 @@ impl PresetsPlugin {
     fn catch_up(&mut self, host: &mut dyn Host) {
         if std::mem::take(&mut self.pending) {
             self.asking = Asking::Nothing;
+            self.options.clear();
             host.set_ui_props("header", &json!({"dialog": ""}));
             self.show_names(host);
             host.refresh_actions();
