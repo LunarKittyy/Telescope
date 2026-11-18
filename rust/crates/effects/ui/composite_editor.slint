@@ -311,10 +311,12 @@ component LayerRow inherits Rectangle {
         property <length> grab;
         property <bool> down;
         property <bool> dragging;
+        property <bool> was-dragged;
         mouse-cursor: root.layer ? MouseCursor.grab : MouseCursor.default;
         pointer-event(e) => {
             if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left && root.layer) {
                 down = true;
+                was-dragged = false;
                 grab = self.mouse-y;
             } else if (e.kind == PointerEventKind.up || e.kind == PointerEventKind.cancel) {
                 down = false;
@@ -327,13 +329,14 @@ component LayerRow inherits Rectangle {
         moved => {
             if (down && !dragging && abs(self.mouse-y - grab) > Theme.u(2)) {
                 dragging = true;
+                was-dragged = true;
                 root.drag-started(root.y);
             }
             if (dragging) {
                 root.drag-moved(root.y + self.mouse-y - grab, grab);
             }
         }
-        clicked => { if (root.layer) { root.pick-clicked(); } }
+        clicked => { if (root.layer && !was-dragged) { root.pick-clicked(); } }
     }
     HorizontalLayout {
         padding-left: Theme.u(2);

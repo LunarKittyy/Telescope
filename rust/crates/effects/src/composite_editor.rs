@@ -404,7 +404,14 @@ impl CompositePlugin {
         self.replace_tile(host, index, composite::moved(&tile, tile.x + mx * step / w as f64, tile.y + my * step / h as f64));
     }
 
+    fn forget_hidden(&mut self) {
+        if let Some(e) = self.editor.as_mut() {
+            e.forgotten.clear();
+        }
+    }
+
     fn start_from(&mut self, host: &mut dyn Host, which: i64) {
+        self.forget_hidden();
         let streams = self.streams();
         let aspect = self.canvas_aspect();
         let tiles = match which {
@@ -780,6 +787,7 @@ impl CompositePlugin {
             "start-from" => self.start_from(host, number(0) as i64),
             "layout-picked" => {
                 if let Some(name) = self.names().get(number(0) as usize).cloned() {
+                    self.forget_hidden();
                     self.select(-1);
                     self.pick(host, &name);
                 }

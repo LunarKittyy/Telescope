@@ -223,6 +223,21 @@ fn the_eye_takes_a_stream_out_and_brings_it_back_as_it_was() {
 }
 
 #[test]
+fn a_hidden_stream_is_not_brought_back_into_another_layout() {
+    let mut r = open();
+    let mut a = Tile::boxed("a", "", 0.0, 0.0, 0.5, 0.5);
+    a.locked = true;
+    r.picture(vec![a, Tile::boxed("b", "", 0.6, 0.6, 0.3, 0.3)]);
+    r.ui("stream-toggled", json!([1, false]));
+    r.ui("start-from", json!([0]));
+    let sources = r.sources();
+    r.ui("stream-toggled", json!([0, true]));
+    let back = r.tile(0);
+    assert!(!back.locked, "the old layout's lock is gone");
+    assert_eq!(sources.len(), 2, "side by side holds both streams");
+}
+
+#[test]
 fn a_locked_stream_takes_no_change_and_the_list_picks_and_drags_layers() {
     let mut r = open();
     r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 1.0, 1.0), Tile::boxed("b", "", 0.6, 0.6, 0.3, 0.3)]);
