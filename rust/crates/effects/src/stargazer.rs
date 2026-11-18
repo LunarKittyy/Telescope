@@ -992,12 +992,18 @@ impl StargazerPlugin {
             self.show(host);
             return;
         }
+        self.change_mode(mode);
+        self.show(host);
+        host.schedule_save();
+    }
+
+    /// Another mode starts from nothing: the worker and the counters forget the old stack. Only while idle.
+    fn change_mode(&mut self, mode: Mode) {
         self.mode = mode;
+        self.shared.mode.store(mode.index() as u8, Ordering::SeqCst);
         self.send(Msg::Reset);
         (self.collected, self.target, self.count, self.refused, self.banked) = (0, 0, 0, 0, 0.0);
         (self.note, self.problem, self.limit, self.unsaved) = (String::new(), None, String::new(), false);
-        self.show(host);
-        host.schedule_save();
     }
 
     fn reset(&mut self, host: &mut dyn Host) {
@@ -1192,14 +1198,26 @@ impl Plugin for StargazerPlugin {
         Ok(())
     }
 
-    /// A key the preset lacks keeps its value. Only settings change, so a recall never begins a run.
+    /// A key the preset lacks keeps its value. A recall never begins a run and leaves the mode alone during one.
     fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
         let Value::Object(cfg) = cfg else { return Err(ConfigRejected("settings".into())) };
+        let (mode, camera) = (self.mode, self.camera);
         let mut merged = self.get_config();
         for (key, value) in cfg {
             merged[key] = value.clone();
         }
+        let wanted = (merged["mode"].as_str().and_then(Mode::from_key).unwrap_or(Mode::Lucky), merged["camera"] == Value::Bool(true));
+        // The mode and the camera go through their own paths below, as when they're picked on the card
+        merged["mode"] = json!(mode.key());
+        merged["camera"] = json!(camera);
         self.set_config(&merged)?;
+        if wanted.0 != mode && self.phase == Phase::Idle {
+            self.change_mode(wanted.0);
+        }
+        if wanted.1 != camera {
+            self.set_camera(host, wanted.1);
+        }
+        self.pending = true;
         self.catch_up(host);
         Ok(())
     }

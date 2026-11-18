@@ -716,15 +716,29 @@ impl Plugin for PhototrapPlugin {
         Ok(())
     }
 
-    /// A key the preset lacks keeps its value. Armed stays as it is, so a recall never starts the trap.
+    /// No empty zones, so recalling the preset leaves the zones as they are.
+    fn preset_config(&self) -> Value {
+        let mut cfg = self.get_config();
+        if self.zones.is_empty() {
+            cfg.as_object_mut().map(|m| (m.remove("zones"), m.remove("turn")));
+        }
+        cfg
+    }
+
+    /// A key the preset lacks keeps its value. Armed stays as it is, so a recall never starts the trap or moves what it watches.
     fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
         let Value::Object(cfg) = cfg else { return Err(ConfigRejected("settings".into())) };
         let mut merged = self.get_config();
+        // An armed trap keeps its zones, as they are what it watches
+        let zones = cfg.get("zones").filter(|z| !self.armed && z.as_array().is_some_and(|a| !a.is_empty()));
         // The turn belongs to the zones, so a preset with zones and no turn means the default turn
-        if cfg.contains_key("zones") {
+        if zones.is_some() {
             merged.as_object_mut().map(|m| m.remove("turn"));
         }
         for (key, value) in cfg {
+            if matches!(key.as_str(), "zones" | "turn") && zones.is_none() {
+                continue;
+            }
             merged[key] = value.clone();
         }
         self.set_config(&merged)?;

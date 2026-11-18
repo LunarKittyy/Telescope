@@ -442,6 +442,17 @@ fn only_connection_is_required() {
 }
 
 #[test]
+fn the_list_here_is_the_one_the_app_starts_with() {
+    let main = include_str!("../src/main.rs");
+    let start = main.find("let mut plugins: Vec<Box<dyn telescope_core::plugin::Plugin>> = vec![").expect("main.rs lists the plugins");
+    let list = &main[start..][..main[start..].find("];").unwrap()];
+    let in_main = list.lines().filter(|l| l.trim_start().starts_with("Box::new(")).count();
+    let bus = telescope_core::EventBus::default();
+    let here = every_plugin(&bus.sender()).len() - telescope_shell::plugins::builtins(None, &bus.sender()).len();
+    assert_eq!(here, in_main, "a plugin added in main.rs also goes in every_plugin here, and the other way round");
+}
+
+#[test]
 fn no_plugin_folder_can_take_a_built_in_plugins_name() {
     use telescope_plugin_host::package::PluginFolder;
     use telescope_plugin_host::switches::Switches;

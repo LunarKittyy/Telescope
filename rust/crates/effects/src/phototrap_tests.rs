@@ -625,3 +625,19 @@ fn recalling_a_preset_never_arms_the_trap() {
     assert!(!p.armed);
     assert!(watches(&h).is_empty());
 }
+
+#[test]
+fn a_preset_without_zones_leaves_an_armed_trap_watching_its_zones() {
+    let (mut p, mut h, _) = armed();
+    p.on_event(&mut h, &pick([0.1, 0.1], [0.5, 0.6]));
+    let zones = p.get_config()["zones"].clone();
+    assert!(p.preset_config().get("zones").is_some());
+    let (empty, _) = plugin();
+    assert!(empty.preset_config().get("zones").is_none() && empty.preset_config().get("turn").is_none());
+    p.apply_preset(&mut h, &json!({"zones": [], "sensitivity": 8})).unwrap();
+    assert_eq!(p.get_config()["zones"], zones);
+    assert_eq!(p.get_config()["sensitivity"], json!(8));
+    p.apply_preset(&mut h, &json!({"zones": [[0.6, 0.2, 0.9, 0.4]]})).unwrap();
+    assert_eq!(p.get_config()["zones"], zones, "an armed trap keeps what it watches");
+    assert!(p.armed);
+}
