@@ -420,7 +420,15 @@ export component W inherits Window {
     press(&w, "Add device");
     assert_eq!(said.borrow().len(), 2);
     assert!(said.borrow()[0].contains("closed") && said.borrow()[1].contains("add"), "{:?}", said.borrow());
-    assert!(ElementHandle::find_by_accessible_label(&w, "Your devices").count() == 1, "only the button is left, Your devices is gone");
+    // the dialog eases out before it is gone: wait for that, as a person would
+    let called = |w: &ComponentInstance| ElementHandle::find_by_accessible_label(w, "Your devices").count();
+    for _ in 0..400 {
+        if called(&w) == 1 {
+            break;
+        }
+        settle(&w);
+    }
+    assert!(called(&w) == 1, "only the button is left, Your devices is gone: {}", called(&w));
 }
 
 fn the_virtual_camera_question_comes_with_the_startup_choice() {
