@@ -17,7 +17,7 @@ pub enum Keep {
     Only(&'static [&'static str]),
 }
 
-/// The one table of what survives a reset, by plugin: paired phones, presets, notes, layouts, the journal, the links and names people typed, files people picked (LUT, photo folder), the marked desk and the guide's progress. Everything else goes back to its default.
+/// The one table of what survives a reset, by plugin: paired phones, presets, notes, layouts, the journal, the links and names people typed, files people picked (LUT, photo folder), the marked desk, the Phototrap zones, the Stargazer mode and camera switch and the guide's progress. Everything else goes back to its default.
 pub const KEPT: &[(&str, Keep)] = &[
     ("connection", Keep::Whole),
     ("presets", Keep::Whole),
@@ -30,6 +30,8 @@ pub const KEPT: &[(&str, Keep)] = &[
     ("colour_grading", Keep::Only(&["lut", "lut_strength"])),
     ("desk", Keep::Only(&["corners"])),
     ("photos", Keep::Only(&["folder"])),
+    ("phototrap", Keep::Only(&["zones", "turn"])),
+    ("stargazer", Keep::Only(&["mode", "camera"])),
     ("onboarding", Keep::Only(&["streamed"])),
     ("updates", Keep::Only(&["last_check"])),
 ];
@@ -150,6 +152,8 @@ mod tests {
                 "composite": {"on": true, "layout": {"x": 1}, "layouts": [{"name": "Two"}]},
                 "mcp": {"access": "read_and_change", "journal": [{"when": 1}]},
                 "browser_camera": {"size": "1080p", "fps": 60, "address": "cam.local", "known": {"b1": {"name": "Pixel"}}},
+                "phototrap": {"zones": [[0.1, 0.1, 0.5, 0.5]], "turn": {"rotation": 90}, "sensitivity": 9, "pause": 40, "night": true},
+                "stargazer": {"mode": "live", "camera": true, "frames": 900, "keep": 40},
                 "on_air": {"token": "a".repeat(32), "address": "tally.local", "webhook_url": "https://hook", "webhook_method": "PUT", "page": false},
                 "setup": {"language": "de", "max_zoom": 8},
                 "shortcuts": {"bindings": {"mute": "F9"}},
@@ -181,7 +185,9 @@ mod tests {
         assert_eq!(configs["browser_camera"], json!({"address": "cam.local", "known": {"b1": {"name": "Pixel"}}}));
         assert_eq!(configs["on_air"], json!({"token": "a".repeat(32), "address": "tally.local", "webhook_url": "https://hook"}));
         assert!(configs.get("setup").is_none() && configs.get("shortcuts").is_none(), "the rest is back to its defaults");
-        assert_eq!(configs.as_object().unwrap().len(), 7);
+        assert_eq!(configs["phototrap"], json!({"zones": [[0.1, 0.1, 0.5, 0.5]], "turn": {"rotation": 90}}), "the zones stay with their turn, the rest goes");
+        assert_eq!(configs["stargazer"], json!({"mode": "live", "camera": true}), "the mode and camera switch stay, the sliders go");
+        assert_eq!(configs.as_object().unwrap().len(), 9);
     }
 
     #[test]
