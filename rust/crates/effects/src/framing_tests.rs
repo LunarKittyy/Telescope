@@ -532,6 +532,27 @@ fn nothing_is_picked_on_a_preview_that_shows_another_streams_output() {
 }
 
 #[test]
+fn a_combined_picture_blocks_picks_but_a_redirect_of_another_stream_does_not() {
+    let (a, b) = (at(0.2), at(0.8));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[a.clone(), b.clone()]));
+    // 3D or One picture is making the shown stream's picture
+    r.host.composited.insert("stereo".into(), "phone".into());
+    r.event(Event::PreviewSourceChanged { shows_own: false });
+    assert_eq!(r.prop("pick-blocked"), json!(true));
+    r.ui("pick-clicked", Value::Null);
+    assert!(!r.host.calls.iter().any(|c| c.starts_with("pick_on_preview")));
+    r.host.composited.clear();
+    r.event(Event::PreviewSourceChanged { shows_own: true });
+    assert_eq!(r.prop("pick-blocked"), json!(false));
+    // another stream's redirect says nothing about this one's picture
+    r.host.follows.insert("stereo".into(), ("elsewhere".into(), "other".into()));
+    click_on(&mut r, &b);
+    assert_eq!(r.prop("following"), json!(true));
+}
+
+#[test]
 fn a_click_outside_the_picture_picks_nobody() {
     let (a, b) = (at(0.2), at(0.8));
     let mut r = Rig::new();
