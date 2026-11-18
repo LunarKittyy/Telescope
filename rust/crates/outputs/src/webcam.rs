@@ -143,6 +143,27 @@ pub struct CamCfg {
 }
 
 impl CamCfg {
+    /// A camera's saved settings read back, anything that doesn't make sense left out.
+    fn from_json(entry: &Map<String, Value>) -> CamCfg {
+        let mut clean = CamCfg::default();
+        if let Some(size) = entry.get("size").and_then(Value::as_array) {
+            let dims: Vec<u64> = size.iter().filter(|v| v.is_u64()).filter_map(Value::as_u64).filter(|v| *v > 0).collect();
+            if size.len() == 2 && dims.len() == 2 {
+                clean.size = Some((dims[0] as u32, dims[1] as u32));
+            }
+        }
+        if let Some(f) = entry.get("fps").filter(|v| v.is_u64()).and_then(Value::as_u64).filter(|f| (1..=240).contains(f)) {
+            clean.fps = Some(f as u32);
+        }
+        if let Some(controls) = entry.get("controls").and_then(Value::as_object) {
+            let kept: Vec<(String, i64)> = controls.iter().filter(|(_, v)| v.is_i64()).map(|(n, v)| (n.clone(), v.as_i64().unwrap())).collect();
+            if !kept.is_empty() {
+                clean.controls = Some(kept);
+            }
+        }
+        clean
+    }
+
     fn to_json(&self) -> Value {
         let mut m = Map::new();
         if let Some((w, h)) = self.size {
@@ -1025,6 +1046,7 @@ impl Plugin for WebcamPlugin {
             category: "streaming".into(),
             icon: "video".into(),
             pinned: true,
+            in_presets: true,
             ..PluginInfo::default()
         }
     }
@@ -1177,26 +1199,42 @@ impl Plugin for WebcamPlugin {
         if let Some(cams) = cfg.get("cameras").and_then(Value::as_object) {
             for (key, entry) in cams {
                 let Some(entry) = entry.as_object() else { continue };
-                let mut clean = CamCfg::default();
-                if let Some(size) = entry.get("size").and_then(Value::as_array) {
-                    let dims: Vec<u64> = size.iter().filter(|v| v.is_u64()).filter_map(Value::as_u64).filter(|v| *v > 0).collect();
-                    if size.len() == 2 && dims.len() == 2 {
-                        clean.size = Some((dims[0] as u32, dims[1] as u32));
-                    }
-                }
-                if let Some(f) = entry.get("fps").filter(|v| v.is_u64()).and_then(Value::as_u64).filter(|f| (1..=240).contains(f)) {
-                    clean.fps = Some(f as u32);
-                }
-                if let Some(controls) = entry.get("controls").and_then(Value::as_object) {
-                    let kept: Vec<(String, i64)> = controls.iter().filter(|(_, v)| v.is_i64()).map(|(n, v)| (n.clone(), v.as_i64().unwrap())).collect();
-                    if !kept.is_empty() {
-                        clean.controls = Some(kept);
-                    }
-                }
-                settings.insert(key.clone(), clean);
+                settings.insert(key.clone(), CamCfg::from_json(entry));
             }
         }
         *self.shared.settings.lock().unwrap() = settings;
+        Ok(())
+    }
+
+    /// A preset brings back the size, rate and picture settings of the webcam picked now, from the entry the preset holds for it. The other
+    /// cameras keep what they have.
+    fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
+        let key = self.selected_key.clone();
+        let Some(entry) = cfg.get("cameras").and_then(|c| c.get(&key)).and_then(Value::as_object) else { return Ok(()) };
+        let wanted = CamCfg::from_json(entry);
+        let changed = {
+            let mut s = self.shared.settings.lock().unwrap();
+            let have = s.entry(key.clone()).or_default();
+            let changed = have.size != wanted.size || have.fps != wanted.fps;
+            have.size = wanted.size;
+            have.fps = wanted.fps;
+            changed
+        };
+        // The pictures the preset didn't set go back to the camera's own, then its own are put on, the auto settings first
+        self.reset_controls(host);
+        if let Some(controls) = &wanted.controls {
+            let names: Vec<String> = controls.iter().map(|(n, _)| n.clone()).collect();
+            for name in apply_order(&names) {
+                if let Some((_, value)) = controls.iter().find(|(n, _)| *n == name) {
+                    self.set_control(host, &name, *value);
+                }
+            }
+        }
+        host.schedule_save();
+        if changed && self.sources.get(&key).is_some_and(|src| host.is_streaming_from(Some(&src.id()))) {
+            host.reconnect_stream(); // a new size or rate means opening the camera again
+        }
+        self.render(host);
         Ok(())
     }
 }

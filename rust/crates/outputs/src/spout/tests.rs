@@ -605,3 +605,17 @@ fn a_read_that_fails_because_of_a_stop_ends_as_stopped_not_as_a_sender_that_went
     deliver(&mut env);
     assert_ne!(env.plugin.states.get("Cam").map(|s| s.0.as_str()), Some("gone"));
 }
+
+#[test]
+fn a_preset_brings_back_the_picked_senders_frame_rate_and_nothing_else() {
+    let mut env = env();
+    assert!(env.plugin.info().in_presets);
+    pick(&mut env, Some("Cam"));
+    env.plugin.apply_preset(&mut env.host, &json!({"senders": {"Cam": {"fps": 60}, "Other": {"fps": 15}}})).unwrap();
+    assert_eq!(env.plugin.shared.fps("Cam"), 60);
+    assert_eq!(env.plugin.shared.fps("Other"), DEFAULT_FPS, "a sender that isn't picked keeps its own rate");
+    // An older preset, or a rate out of range, changes nothing
+    env.plugin.apply_preset(&mut env.host, &json!({})).unwrap();
+    env.plugin.apply_preset(&mut env.host, &json!({"senders": {"Cam": {"fps": 9999}}})).unwrap();
+    assert_eq!(env.plugin.shared.fps("Cam"), 60);
+}

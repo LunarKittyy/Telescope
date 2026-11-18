@@ -1382,3 +1382,46 @@ fn a_choice_the_camera_refuses_leaves_the_card_where_the_camera_is() {
     assert_eq!(env.plugin.tile_indexes()[2], 0, "the model stays on what the camera says, and the card follows it");
     assert_eq!(last_card_props(&env)["tile-indexes"][2], 0);
 }
+
+#[test]
+fn webcams_ride_in_presets_and_a_preset_brings_back_the_picked_cameras_size_rate_and_pictures() {
+    assert!(WebcamPlugin::new(Box::new(|| Ok(Vec::new())), Box::new(|_| None), System { opener: Arc::new(|_, _| Err((false, String::new()))), users: Arc::new(|_| String::new()), exists: Arc::new(|_| true) }).info().in_presets);
+    let (mut env, backend) = card();
+    set(&mut env, "gain", 40);
+    env.plugin.on_ui(&mut env.host, &UiEvent { ui: "card".into(), callback: "size-picked".into(), args: vec![json!(2)] });
+    let saved = env.plugin.get_config();
+    let want = env.plugin.shared.choice(&cam());
+    // Everything moves on: another size, another gain, one more picture setting
+    env.plugin.on_ui(&mut env.host, &UiEvent { ui: "card".into(), callback: "size-picked".into(), args: vec![json!(0)] });
+    set(&mut env, "gain", 200);
+    set(&mut env, "anti_flicker", 0);
+    assert_ne!(env.plugin.shared.choice(&cam()), want);
+    env.plugin.apply_preset(&mut env.host, &saved).unwrap();
+    assert_eq!(env.plugin.shared.choice(&cam()), want);
+    assert_eq!(backend.v("gain"), 40);
+    assert_eq!(backend.v("anti_flicker"), 1, "a picture setting the preset didn't hold is back at the default, the local mains for anti-flicker");
+    assert_eq!(env.plugin.get_config(), saved);
+}
+
+#[test]
+fn a_webcam_preset_leaves_the_other_cameras_alone_and_an_older_preset_changes_nothing() {
+    let (mut env, _backend) = card();
+    env.plugged.lock().unwrap().push(brio());
+    env.plugin.rescan(&mut env.host);
+    pick(&mut env, Some("usb-brio"));
+    env.plugin.on_ui(&mut env.host, &UiEvent { ui: "card".into(), callback: "size-picked".into(), args: vec![json!(2)] });
+    pick(&mut env, Some("cam"));
+    let before = env.plugin.get_config();
+    // A preset that holds only the brio's settings, applied with the other camera picked, or one without any camera section
+    env.plugin.apply_preset(&mut env.host, &json!({"cameras": {"usb-brio": {"fps": 60}}})).unwrap();
+    env.plugin.apply_preset(&mut env.host, &json!({})).unwrap();
+    assert_eq!(env.plugin.get_config(), before);
+}
+
+#[test]
+fn a_preset_that_changes_the_size_of_a_streaming_webcam_reopens_it() {
+    let (mut env, _backend) = card();
+    stream(&mut env, "cam");
+    env.plugin.apply_preset(&mut env.host, &json!({"cameras": {"cam": {"size": [1280, 720], "fps": 60}}})).unwrap();
+    assert!(env.host.calls.contains(&"reconnect_stream".to_string()));
+}

@@ -591,6 +591,7 @@ impl Plugin for SpoutPlugin {
             category: "streaming".into(),
             icon: "monitor".into(),
             pinned: true,
+            in_presets: true,
             ..PluginInfo::default()
         }
     }
@@ -687,6 +688,16 @@ impl Plugin for SpoutPlugin {
             }
         }
         *self.shared.fps.lock().unwrap() = fps;
+        Ok(())
+    }
+
+    /// A preset brings back the frame rate of the sender picked now, and leaves the others' alone.
+    fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
+        let fps = cfg.get("senders").and_then(|s| s.get(&self.selected_key)).and_then(|e| e.get("fps")).filter(|v| v.is_u64()).and_then(Value::as_u64);
+        if let Some(f) = fps.filter(|f| (1..=240).contains(f)) {
+            self.set_fps(host, f as u32);
+            self.render(host);
+        }
         Ok(())
     }
 }
