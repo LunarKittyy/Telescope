@@ -5,7 +5,7 @@ use slint::ComponentHandle;
 use slint_interpreter::{ComponentInstance, Value};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// The part of a screen a window may take up.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -158,6 +158,12 @@ pub(crate) struct Placement {
     drifted: Cell<bool>,
     /// Counts the moves, so a drag's end is the one nothing follows
     moves: Cell<u64>,
+    /// A new work area and scale that was seen once and has to be seen again before the window is fitted to it, so a taskbar that is still sliding is not
+    candidate: Cell<Option<(Area, u64)>>,
+    /// A second look at `candidate` is already on its way
+    watching: Cell<bool>,
+    /// Until then a size the window reports is the system finishing a resize (ours, or a scale change), not the person's
+    quiet_until: Cell<Option<Instant>>,
 }
 
 /// What `Placement::plan` found: how to fit it and the minimum it should have.
@@ -181,6 +187,9 @@ impl Placement {
             pending: Cell::new(Cause::Nothing),
             drifted: Cell::new(false),
             moves: Cell::new(0),
+            candidate: Cell::new(None),
+            watching: Cell::new(false),
+            quiet_until: Cell::new(None),
         })
     }
 
@@ -214,9 +223,13 @@ impl Placement {
         })
     }
 
-    /// Learns what the person wants from the window as it is now: a size they dragged it to is the new preferred one, while a size made by a scale change,
-    /// by the system (maximizing, and the size it restores to) or by this code is not.
+    /// Learns what the person wants from the window as it is now: a size they dragged it to, not one the system or this code made, or one a look that no drag started (`learns` false) found.
+    #[cfg(test)]
     pub(crate) fn observe(&self, seen: &Seen, restored: bool) {
+        self.observe_at(seen, restored, true, Instant::now());
+    }
+
+    fn observe_at(&self, seen: &Seen, restored: bool, learns: bool, now: Instant) {
         let first = self.preferred.get().is_none();
         self.preferred(seen);
         if first || seen.held {
@@ -224,18 +237,41 @@ impl Placement {
             return;
         }
         if self.scale.replace(seen.scale) != seen.scale || restored {
+            self.quiet_until.set(Some(now + QUIET_AFTER_RESIZE));
             return;
         }
-        if self.is_auto(seen.inner, seen.scale) {
+        if !learns || self.quiet_until.get().is_some_and(|until| now < until) || self.is_auto(seen.inner, seen.scale) {
             return;
         }
         self.preferred.set(Some((seen.inner.0 as f64 / seen.scale, seen.inner.1 as f64 / seen.scale)));
         self.auto.borrow_mut().clear();
     }
 
+    /// Whether the work area and scale `now` are one to fit to: not the ones the window was last measured against, and the same as at the look before
+    /// (the first sighting of a change is only noted).
+    pub(crate) fn area_settled(&self, now: (Area, u64)) -> bool {
+        if self.shown.get() == Some(now) {
+            self.candidate.set(None);
+            return false;
+        }
+        if self.candidate.get() == Some(now) {
+            self.candidate.set(None);
+            return true;
+        }
+        self.candidate.set(Some(now));
+        false
+    }
+
     /// How the window should be now, and what it has been measured against.
     pub(crate) fn plan(&self, seen: &Seen, mv: Move) -> Plan {
+        self.plan_at(seen, mv, Instant::now())
+    }
+
+    fn plan_at(&self, seen: &Seen, mv: Move, now: Instant) -> Plan {
         let preferred = self.preferred(seen);
+        if self.scale.get() > 0.0 && self.scale.get() != seen.scale {
+            self.quiet_until.set(Some(now + QUIET_AFTER_RESIZE));
+        }
         self.scale.set(seen.scale);
         self.shown.set(Some((seen.area, seen.scale.to_bits())));
         let margin = if seen.exact { (self.limits.margin as f64 * seen.scale).round() as u32 } else { 0 };
@@ -245,18 +281,20 @@ impl Placement {
         let fit = decide(seen, preferred, &self.limits, mv);
         if let Some(size) = fit.and_then(|f| f.size) {
             self.note_auto(size);
+            self.quiet_until.set(Some(now + QUIET_AFTER_RESIZE));
         }
         Plan { fit, least }
     }
 
-    /// `plan`, with the window's minimum set to what it found and the fit applied.
-    fn settle(&self, ui: &ComponentInstance, seen: &Seen, mv: Move) {
+    /// `plan`, with the window's minimum set to what it found and the fit applied. Whether the size had to change.
+    fn settle(&self, ui: &ComponentInstance, seen: &Seen, mv: Move) -> bool {
         let plan = self.plan(seen, mv);
         if self.limits.lowers_least {
             let _ = ui.set_property("least-width", Value::Number(plan.least.0 as f64));
             let _ = ui.set_property("least-height", Value::Number(plan.least.1 as f64));
         }
         apply(ui, plan.fit);
+        plan.fit.is_some_and(|f| f.size.is_some())
     }
 }
 
@@ -280,7 +318,10 @@ pub(crate) fn centre_over(ui: &ComponentInstance, parent: &ComponentInstance, pl
         });
         Some((seen, found.flatten()))
     }, move |ui, (seen, parent)| {
-        let Some((Some((at, size)), area, exact, scale)) = parent else { return place.settle(ui, &seen, Move::Yes) };
+        let Some((Some((at, size)), area, exact, scale)) = parent else {
+            place.settle(ui, &seen, Move::Yes);
+            return;
+        };
         // The window as it will be on the parent's screen
         let by = scale / seen.scale;
         let scaled = |(w, h): (u32, u32)| ((w as f64 * by).round() as u32, (h as f64 * by).round() as u32);
@@ -424,7 +465,9 @@ fn attempt<T: 'static>(weak: slint::Weak<ComponentInstance>, compute: Compute<T>
 /// Fits the window into its screen's work area once the system has made it.
 pub(crate) fn keep_inside(ui: &ComponentInstance, place: &Rc<Placement>) {
     let place = place.clone();
-    when_made(ui, measure, move |ui, seen| place.settle(ui, &seen, Move::Yes));
+    when_made(ui, measure, move |ui, seen| {
+        place.settle(ui, &seen, Move::Yes);
+    });
 }
 
 fn apply(ui: &ComponentInstance, fit: Option<Fit>) {
@@ -473,6 +516,12 @@ const AUTO_KEPT: usize = 4;
 /// How far (physical pixels) a size may be from one this set and still be that one, for the rounding between physical and logical pixels.
 const ROUNDING: u32 = 2;
 
+/// How long after it was resized (by this code, or by the system for a new scale) the sizes a window reports are not taken for its person's.
+const QUIET_AFTER_RESIZE: Duration = Duration::from_millis(600);
+/// How long after a fit is made the window is checked to have the size it was given.
+const RECHECK: Duration = Duration::from_millis(700);
+/// How long a work area that just changed is left before it is looked at again: a taskbar that slides in or out passes through sizes on the way.
+const LOOK_AGAIN: Duration = Duration::from_millis(250);
 /// How long a burst of events is left to settle before the window is looked at.
 const SETTLE: Duration = Duration::from_millis(60);
 /// How long a window that moved is left still before the drag is taken to have ended.
@@ -489,16 +538,7 @@ pub(crate) fn follow(ui: &ComponentInstance, place: &Rc<Placement>) -> impl FnMu
     let poll = slint::Timer::default();
     {
         let (weak, place) = (weak.clone(), place.clone());
-        poll.start(slint::TimerMode::Repeated, POLL, move || {
-            let Some(ui) = weak.upgrade() else { return };
-            if !ui.window().is_visible() || place.pending.get() != Cause::Nothing {
-                return;
-            }
-            let now = ui.window().with_winit_window(|w| work_area(w).map(|(area, _)| (area, w.scale_factor().to_bits()))).flatten();
-            if now.is_some() && place.shown.get().is_some() && now != place.shown.get() {
-                refit(&ui, &place, Cause::Display);
-            }
-        });
+        poll.start(slint::TimerMode::Repeated, POLL, move || look_at_area(weak.clone(), place.clone()));
     }
     move |event| {
         // The timer lives as long as the window's filter does
@@ -526,6 +566,23 @@ pub(crate) fn follow(ui: &ComponentInstance, place: &Rc<Placement>) -> impl FnMu
     }
 }
 
+/// A look at the work area and scale a visible window is on: a change is fitted to once it has been seen twice running (a second look follows soon).
+fn look_at_area(weak: slint::Weak<ComponentInstance>, place: Rc<Placement>) {
+    let Some(ui) = weak.upgrade() else { return };
+    if !ui.window().is_visible() || place.pending.get() != Cause::Nothing || place.shown.get().is_none() {
+        return;
+    }
+    let Some(now) = ui.window().with_winit_window(|w| work_area(w).map(|(area, _)| (area, w.scale_factor().to_bits()))).flatten() else { return };
+    if place.area_settled(now) {
+        refit(&ui, &place, Cause::Display);
+    } else if place.candidate.get().is_some() && !place.watching.replace(true) {
+        slint::Timer::single_shot(LOOK_AGAIN, move || {
+            place.watching.set(false);
+            look_at_area(weak, place);
+        });
+    }
+}
+
 /// Registers `follow` on a window that has no other watcher of its winit events.
 pub(crate) fn watch(ui: &ComponentInstance, place: &Rc<Placement>) {
     let mut follow = follow(ui, place);
@@ -542,7 +599,7 @@ fn refit(ui: &ComponentInstance, place: &Rc<Placement>, cause: Cause) {
         return;
     }
     let restored = place.held.replace(false);
-    place.observe(&seen, restored);
+    place.observe_at(&seen, restored, matches!(cause, Cause::Resized | Cause::Moved), Instant::now());
     let changed = place.shown.get() != Some((seen.area, seen.scale.to_bits()));
     let (act, mv) = match cause {
         Cause::Nothing => return,
@@ -550,13 +607,30 @@ fn refit(ui: &ComponentInstance, place: &Rc<Placement>, cause: Cause) {
         Cause::Moved => (changed || restored, if restored { Move::Yes } else { Move::No }),
         Cause::Display | Cause::Scale => (true, Move::Yes),
     };
-    if act {
-        place.settle(ui, &seen, mv);
+    if act && place.settle(ui, &seen, mv) {
+        recheck(ui, place);
     }
     if cause == Cause::Moved && (changed || place.drifted.get()) {
         place.drifted.set(true);
         end_of_drag(ui, place, place.moves.get());
     }
+}
+
+/// Looks once more at a window that was just resized: the system may have set another size over ours (a scale change does), and the window is fitted again
+/// to the size its person wants.
+fn recheck(ui: &ComponentInstance, place: &Rc<Placement>) {
+    let (weak, place) = (ui.as_weak(), place.clone());
+    slint::Timer::single_shot(RECHECK, move || {
+        let Some(ui) = weak.upgrade() else { return };
+        if place.pending.get() != Cause::Nothing || crate::input::button_down(ui.window()) == Some(true) {
+            return;
+        }
+        let Some(seen) = ui.window().with_winit_window(measure).flatten() else { return };
+        // A work area that moved on since is the next look's
+        if !seen.held && place.shown.get() == Some((seen.area, seen.scale.to_bits())) {
+            place.settle(&ui, &seen, Move::UnlessStraddling);
+        }
+    });
 }
 
 /// Once the moves have stopped and no button is down, puts the window back inside its screen: a tall one dropped on a shorter screen was cut down on its way
@@ -796,6 +870,8 @@ mod tests {
         place: Rc<Placement>,
         scale: f64,
         inner: (u32, u32),
+        /// The time the watcher sees, which only `wait` moves on
+        clock: Instant,
     }
 
     impl Hiding {
@@ -804,7 +880,7 @@ mod tests {
 
         fn open(scale: f64) -> Self {
             let place = Placement::new(Limits::main());
-            let mut window = Hiding { place, scale, inner: px(MAIN, scale) };
+            let mut window = Hiding { place, scale, inner: px(MAIN, scale), clock: Instant::now() };
             window.fit(Self::SHOWN, 0);
             window.arrives();
             window
@@ -816,14 +892,18 @@ mod tests {
 
         /// The work area changes: the window is fitted and takes the size asked for, off by `jitter` pixels
         fn fit(&mut self, area: Area, jitter: i32) {
-            if let Some(size) = self.place.plan(&self.seen(area), Move::Yes).fit.and_then(|f| f.size) {
+            if let Some(size) = self.place.plan_at(&self.seen(area), Move::Yes, self.clock).fit.and_then(|f| f.size) {
                 self.inner = (size.0.saturating_add_signed(jitter), size.1.saturating_add_signed(jitter));
             }
         }
 
         /// The resize event of the size it has now reaches the watcher
         fn arrives(&self) {
-            self.place.observe(&self.seen(Self::SHOWN), false);
+            self.place.observe_at(&self.seen(Self::SHOWN), false, true, self.clock);
+        }
+
+        fn wait(&mut self, time: Duration) {
+            self.clock += time;
         }
 
         fn wants(&self) -> (f64, f64) {
@@ -891,8 +971,95 @@ mod tests {
         let mut window = Hiding::open(1.5);
         window.fit(Hiding::SHOWN, 0);
         window.inner = (1500, 900);
+        window.wait(Duration::from_secs(2));
         window.arrives();
         assert_eq!(window.wants(), (1000.0, 600.0));
+    }
+
+    #[test]
+    fn a_work_area_that_is_still_changing_is_not_fitted_to_until_it_looks_the_same_twice() {
+        let place = Placement::new(Limits::main());
+        let at = |area: Area| (area, 1.25f64.to_bits());
+        place.plan(&seen(Some((0, 0)), px(MAIN, 1.25), (16, 39), Hiding::SHOWN, 1.25), Move::Yes);
+        let sliding = Area { height: 1052, ..Hiding::SHOWN };
+        assert!(!place.area_settled(at(Hiding::SHOWN)), "nothing changed");
+        assert!(!place.area_settled(at(sliding)), "seen once on its way");
+        assert!(!place.area_settled(at(Hiding::HIDDEN)), "another size, so the first is not the one it stopped at");
+        assert!(place.area_settled(at(Hiding::HIDDEN)), "the same again");
+        // A change that goes back to what it was is not one
+        assert!(!place.area_settled(at(sliding)));
+        assert!(!place.area_settled(at(Hiding::SHOWN)));
+        assert!(!place.area_settled(at(Hiding::SHOWN)));
+        assert!(!place.area_settled(at(sliding)), "its first sighting again");
+    }
+
+    #[test]
+    fn a_size_the_system_reports_while_a_work_area_change_settles_is_not_the_persons() {
+        // Windows at 125%: the bar going away grows the window to the whole screen, and coming back cuts it, with a size in between on the way
+        let mut window = Hiding::open(1.25);
+        let wanted = window.wants();
+        window.wait(Duration::from_secs(5));
+        window.fit(Hiding::HIDDEN, 0);
+        let grown = window.inner;
+        window.arrives();
+        window.wait(Duration::from_secs(5));
+        window.fit(Hiding::SHOWN, 0);
+        let cut = window.inner;
+        window.wait(Duration::from_millis(100));
+        for between in [(cut.0, cut.1 + 8), (cut.0, cut.1 + 3)] {
+            window.inner = between;
+            window.arrives();
+            assert_eq!(window.wants(), wanted, "{between:?}");
+        }
+        // The check that follows puts it where it belongs
+        window.wait(RECHECK);
+        window.fit(Hiding::SHOWN, 0);
+        assert_eq!(window.inner, cut);
+        window.arrives();
+        window.wait(Duration::from_secs(5));
+        window.fit(Hiding::HIDDEN, 0);
+        assert_eq!(window.inner, grown, "the next time the bar goes it grows as far as the first time did");
+    }
+
+    #[test]
+    fn a_work_area_or_scale_change_is_never_a_drag() {
+        let mut window = Hiding::open(1.25);
+        let wanted = window.wants();
+        window.wait(Duration::from_secs(5));
+        window.inner = (1500, 800);
+        window.place.observe_at(&window.seen(Hiding::SHOWN), false, false, window.clock);
+        assert_eq!(window.wants(), wanted);
+    }
+
+    #[test]
+    fn a_live_scale_change_ends_at_the_size_a_fresh_launch_at_that_scale_gives() {
+        let (high, low) = (Area { x: 0, y: 0, width: 1920, height: 1008 }, Area { x: 0, y: 0, width: 1920, height: 1020 });
+        let frame = |scale: f64| if scale == 1.5 { (22, 56) } else { (18, 48) };
+        let on = |scale: f64, inner: (u32, u32)| seen(Some((0, 0)), inner, frame(scale), if scale == 1.5 { high } else { low }, scale);
+        let fresh = |scale: f64| Placement::new(Limits::main()).plan(&on(scale, px(MAIN, scale)), Move::Yes).fit.unwrap().size.unwrap();
+        let (fresh_150, fresh_125) = (fresh(1.5), fresh(1.25));
+        let place = Placement::new(Limits::main());
+        let mut at = Instant::now();
+        let mut inner = px(MAIN, 1.5);
+        inner = place.plan_at(&on(1.5, inner), Move::Yes, at).fit.unwrap().size.unwrap();
+        assert_eq!(inner, fresh_150);
+        // The display goes to 125% and the system gives the window a size of its own (1618x919 outside on the Windows laptop), then a look at the new scale fits it
+        at += Duration::from_secs(10);
+        let system = (1600, 871);
+        place.observe_at(&on(1.25, system), false, false, at);
+        let fitted = place.plan_at(&on(1.25, system), Move::Yes, at).fit.unwrap().size.unwrap();
+        assert_eq!(fitted, fresh_125);
+        // The system sets its size over ours a moment later, and tells of it
+        at += Duration::from_millis(80);
+        place.observe_at(&on(1.25, system), false, true, at);
+        assert_eq!(place.preferred(&on(1.25, system)), (1380.0, 900.0));
+        // The check that follows grows it back
+        at += RECHECK;
+        assert_eq!(place.plan_at(&on(1.25, system), Move::UnlessStraddling, at).fit.unwrap().size, Some(fresh_125));
+        // And back at 150% it is what it was
+        at += Duration::from_secs(10);
+        place.observe_at(&on(1.5, fresh_125), false, false, at);
+        assert_eq!(place.plan_at(&on(1.5, fresh_125), Move::Yes, at).fit.unwrap().size, Some(fresh_150));
     }
 
     #[test]
