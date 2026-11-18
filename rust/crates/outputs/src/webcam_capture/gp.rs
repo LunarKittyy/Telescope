@@ -443,13 +443,17 @@ impl Rig for GpCamera {
         done
     }
 
-    fn capture(&mut self, expect: usize) -> Result<Vec<Shot>, Incomplete> {
+    fn capture(&mut self, expect: usize, stop: &dyn Fn() -> bool) -> Result<Vec<Shot>, Incomplete> {
         let api = self.api;
         // SAFETY: the path is a local the call fills in; each file is made, filled, copied and freed in download(); an event's data is
         // malloc'd by the library, read as the file path it is for a file event and freed here once
         unsafe {
             let mut path = FilePath { name: [0; 128], folder: [0; 1024] };
             check(api, (api.capture)(self.cam, CAPTURE_IMAGE, &mut path, self.ctx))?;
+            // A long exposure ends here: if the picture went hidden during it, nothing is fetched from the camera
+            if stop() {
+                return Err("stopped: the picture is hidden".into());
+            }
             let first = vec![self.download(&path)?];
             // A camera that makes RAW and JPEG says about the second one as an event, a moment after the first
             let (cam, ctx) = (self.cam, self.ctx);
@@ -474,7 +478,12 @@ impl Rig for GpCamera {
                 libc::free(given.as_ptr());
                 Ok(said)
             };
-            gather(first, expect, Duration::from_millis(SECOND_FILE_WAIT_MS), listen, |file| self.download(&file))
+            gather(first, expect, Duration::from_millis(SECOND_FILE_WAIT_MS), listen, |file| {
+                if stop() {
+                    return Err("stopped: the picture is hidden".to_string());
+                }
+                self.download(&file)
+            })
         }
     }
 

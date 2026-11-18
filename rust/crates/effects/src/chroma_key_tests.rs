@@ -755,3 +755,31 @@ fn the_host_is_told_when_the_key_starts_and_stops_hiding_the_screen() {
     r.ui("switch-toggled-by-hand", vec![json!(false)]);
     assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
 }
+
+#[test]
+fn shutdown_stops_hiding_so_the_host_isnt_left_thinking_the_picture_is_covered() {
+    let mut r = Rig::new(true);
+    r.ui("switch-toggled-by-hand", vec![json!(true)]);
+    assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    r.plugin.shutdown(&mut r.host);
+    assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
+    let told = r.host.hiding.len();
+    r.plugin.shutdown(&mut r.host);
+    assert_eq!(r.host.hiding.len(), told, "nothing to let go of twice");
+}
+
+#[test]
+fn the_host_hears_again_when_the_panels_move_to_a_camera_with_the_same_settings() {
+    let mut r = Rig::new(true);
+    r.ui("switch-toggled-by-hand", vec![json!(true)]);
+    let told = r.host.hiding.len();
+    let cfg = r.plugin.get_config();
+    r.plugin.set_config(&cfg).unwrap();
+    r.event(Event::PhonesChanged { count: 1 });
+    assert_eq!(r.host.hiding.len(), told + 1, "the new camera's settings are told");
+    assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    r.event(Event::SourceShown { source_id: "b".into() });
+    assert_eq!(r.host.hiding.len(), told + 2);
+    r.event(Event::PhonesChanged { count: 1 });
+    assert_eq!(r.host.hiding.len(), told + 2);
+}
