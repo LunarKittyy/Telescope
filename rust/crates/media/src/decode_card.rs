@@ -11,6 +11,12 @@ pub(crate) fn set_picked(vendor: u32, device: u32) {
     let _ = PICKED.set((vendor, device));
 }
 
+/// Whether the card the frame steps picked is the one chosen in Settings: only then does a decoder that fails on it stay off the default card,
+/// since a chosen card that wasn't found left the pick to the usual order and the default is as good as any.
+pub(crate) fn is_chosen() -> bool {
+    picked().is_some_and(|(vendor, device)| telescope_core::gpu_pick::card_id(vendor, device) == telescope_core::gpu_pick::choice())
+}
+
 pub(crate) fn picked() -> Option<(u32, u32)> {
     PICKED.get().copied()
 }

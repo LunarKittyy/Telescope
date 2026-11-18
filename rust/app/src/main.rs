@@ -51,6 +51,12 @@ fn use_own_profile() {
     std::env::set_var(DEV_PROFILE_ENV, folder);
 }
 
+/// The graphics card picked in Settings > Video ("" for Automatic), read before any window opens a card.
+fn chosen_graphics_card() -> String {
+    let cfg = telescope_core::config::ConfigFile::default().load();
+    cfg["plugin_configs"]["setup"]["gpu_card"].as_str().unwrap_or_default().to_string()
+}
+
 /// The language picked in Settings > General ("" for the system's), read before any window exists (main.py's _chosen_language).
 fn chosen_language() -> String {
     let cfg = telescope_core::config::ConfigFile::default().load();
@@ -671,6 +677,7 @@ fn main() {
         Some("control") => cli::control(&args, &services(Machine::real(None), remote, false), words.get(1).map(String::as_str).unwrap_or("{}")),
         Some("snapshot") => {
             let out = words.get(1).cloned().unwrap_or_else(|| "snapshot.ppm".into());
+            telescope_core::gpu_pick::set_choice(&chosen_graphics_card());
             telescope_shell::run(services(Machine::real(args.device.clone()), remote, false), args.window(Some(out), false, None))
         }
         Some(other) => Err(format!("Unknown command {other}")),
@@ -712,6 +719,7 @@ fn main() {
 /// the window has shown. A card the last start closed on is left out from now on, and the window says so once it is up.
 fn begin_window_start() {
     telescope_core::diagnostics::set_starting(true);
+    telescope_core::gpu_pick::set_choice(&chosen_graphics_card());
     let folder = telescope_core::config::config_path().parent().map(PathBuf::from).unwrap_or_default();
     *CRASHED_ON.lock().unwrap_or_else(|e| e.into_inner()) = telescope_core::gpu_marker::begin_start(&folder);
 }
