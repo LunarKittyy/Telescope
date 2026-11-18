@@ -892,9 +892,20 @@ impl Shared {
             self.stats.dropped(DropReason::Late, 1);
             return false;
         }
+        // Forgotten under the lock the frame is processed under, so nothing that refreshes the steps in between (hide_cached) sees a history that is gone
+        let resumed = self.was_paused.swap(false, Ordering::SeqCst);
+        if resumed {
+            log::info!("An app is reading the camera again (or something needs frames): the frame steps and vision carry on");
+        }
         let pipeline = publish.0.as_mut();
         let arrived = frame.time_ns;
-        let Ok((out, entered)) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.prepare(pipeline, seq, frame))) else {
+        let Ok((out, entered)) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            // what the steps that keep pictures of their own hold is from before the gap
+            if resumed {
+                pipeline.forget_history();
+            }
+            self.prepare(pipeline, seq, frame)
+        })) else {
             log::error!("Frame processing failed; dropping this frame");
             self.stats.dropped(DropReason::StepFailed, 1);
             return false;
@@ -1093,10 +1104,17 @@ impl Shared {
         gate.idle() && self.born.elapsed().as_nanos() as u64 >= gate.quiet_needed_ns() && !self.stopped()
     }
 
-    /// The first frame after a pause: the steps that keep pictures of their own start again, since what they hold is from before the gap.
-    fn resume(&self) {
-        log::info!("An app is reading the camera again (or something needs frames): the frame steps and vision carry on");
-        self.publish.lock().unwrap().0.forget_history();
+    /// A decoded frame, from the steps thread or a reconnect: dropped before any step sees it while they are paused (decoding went on, which is what
+    /// keeps the picture coming back at once), published otherwise, and the first one after a pause starts the steps again (publish). Only a frame the
+    /// camera is waiting for to be sized (nothing was ever published) goes through while paused. Whether it went out.
+    fn accept(&self, seq: u64, frame: Frame) -> bool {
+        if self.slot.latest().is_some() && self.paused() {
+            if !self.was_paused.swap(true, Ordering::SeqCst) {
+                log::info!("No app is reading the camera: the frame steps and vision pause, the stream stays up");
+            }
+            return false;
+        }
+        self.publish(seq, frame)
     }
 
     fn next_seq(&self) -> u64 {
@@ -1239,17 +1257,7 @@ impl Shared {
             let _counting = telescope_core::stats::bind(&s.stats);
             let _priority = telescope_core::system::prioritise_thread("frame steps");
             while let Some((seq, frame)) = frames.take() {
-                if s.paused() {
-                    if !s.was_paused.swap(true, Ordering::SeqCst) {
-                        log::info!("No app is reading the camera: the frame steps and vision pause, the stream stays up");
-                    }
-                    // Dropped before any step sees it: decoding went on, which is what keeps the picture coming back at once
-                    continue;
-                }
-                if s.was_paused.swap(false, Ordering::SeqCst) {
-                    s.resume();
-                }
-                s.publish(seq, frame);
+                s.accept(seq, frame);
             }
         }).expect("a thread for the frame steps")
     }
@@ -1371,7 +1379,8 @@ impl Shared {
                 if let Ok((frame, bytes, count)) = cap.read_frame() {
                     self.count_arrived(count, bytes);
                     let seq = self.next_seq();
-                    self.publish(seq, frame);
+                    // Like any frame: not run through the steps while they are paused, since the camera is already sending the cached picture
+                    self.accept(seq, frame);
                     return Some(cap);
                 }
             }
@@ -4220,37 +4229,105 @@ mod tests {
         w.stop();
     }
 
-    #[test]
-    fn a_reconnect_while_paused_still_forgets_the_history_when_the_camera_opens() {
+    type Queue = Arc<Mutex<VecDeque<Option<u8>>>>;
+
+    /// Two routes whose packets the test hands out itself (None ends the route): (opener, first route's, second route's, how often it was opened).
+    fn handfed_routes() -> (Opener, Queue, Queue, Arc<AtomicU32>) {
+        let (first, second, opened) = (Queue::default(), Queue::default(), Arc::new(AtomicU32::new(0)));
+        let opener: Opener = Arc::new({
+            let (first, second, opened) = (first.clone(), second.clone(), opened.clone());
+            move |_| {
+                let packets = match opened.fetch_add(1, Ordering::SeqCst) {
+                    0 => first.clone(),
+                    1 => second.clone(),
+                    _ => return Err("refused".into()),
+                };
+                Ok((Codec::Mjpeg, Box::new(Feed { packets, stop: Arc::default(), endless: None }) as Box<dyn VideoFeed>).into())
+            }
+        });
+        (opener, first, second, opened)
+    }
+
+    fn hand_out(route: &Queue, packet: Option<u8>) {
+        route.lock().unwrap().push_back(packet);
+    }
+
+    /// A stream with hiding on whose first route drops while nobody reads the camera, so the second one opens and brings frames meanwhile (two, the first
+    /// of which reconnect() takes): everything is paused and waiting for the second route's next frame. (worker, camera, frames made, forgotten, second route, gate, made so far)
+    fn reconnected_while_paused() -> (StreamWorker, Arc<Cams>, Arc<AtomicU32>, Arc<AtomicU32>, Queue, Arc<crate::idle::IdleGate>, u32) {
         let gate = Arc::new(crate::idle::IdleGate::after(0));
-        // The first route ends after a while; the second one is slow to bring a first frame
-        let (opener, opens) = scripted(vec![Some(flowing(200, 30).into_iter().chain([Step::End]).collect()),
-                                            Some([Step::Pause(Duration::from_millis(500))].into_iter().chain(flowing(200, 1000)).collect())]);
-        let (w, _cams, made, forgotten) = idle_hiding(opener, privacy_step(), gate.clone());
+        let (opener, first, second, opened) = handfed_routes();
+        hand_out(&first, Some(200));
+        let (w, cams, made, forgotten) = idle_hiding(opener, privacy_step(), gate.clone());
         let _fast = no_delay(&w);
+        wait_for(|| made.load(Ordering::SeqCst) >= 1);
+        hand_out(&first, Some(200));
         wait_for(|| made.load(Ordering::SeqCst) >= 2);
         gate.watched(false);
-        wait_for(|| opens.calls() == 2);
-        // The new route has delivered nothing yet when the camera opens
-        gate.watched(true);
-        wait_for(|| forgotten.load(Ordering::SeqCst) >= 1);
+        // Frames go on arriving all through the pause
+        hand_out(&first, Some(200));
+        hand_out(&first, Some(200));
         std::thread::sleep(Duration::from_millis(100));
+        let held = made.load(Ordering::SeqCst);
+        hand_out(&second, Some(200));
+        hand_out(&second, Some(200));
+        hand_out(&first, None);
+        wait_for(|| opened.load(Ordering::SeqCst) == 2 && second.lock().unwrap().is_empty());
+        std::thread::sleep(Duration::from_millis(100));
+        // `_fast` ends here: the route is open, there is nothing left to retry
+        (w, cams, made, forgotten, second, gate, held)
+    }
+
+    #[test]
+    fn a_frame_that_comes_with_a_reconnect_during_a_pause_does_not_go_through_the_steps() {
+        let (w, cams, made, forgotten, _second, _gate, held) = reconnected_while_paused();
+        assert_eq!(made.load(Ordering::SeqCst), held, "the reconnect's first frame ran the steps while they were paused");
+        assert_eq!(forgotten.load(Ordering::SeqCst), 0);
+        assert!(cams.sent.lock().unwrap().iter().all(|v| *v == 7), "the cached picture stays out, hidden");
+        w.stop();
+    }
+
+    #[test]
+    fn the_first_frame_made_after_a_reconnect_during_a_pause_has_the_history_forgotten_already() {
+        let (w, _cams, made, forgotten, second, gate, held) = reconnected_while_paused();
+        gate.watched(true);
+        // One frame at a time: the first one the steps see must already find the history gone
+        hand_out(&second, Some(200));
+        wait_for(|| made.load(Ordering::SeqCst) > held);
+        assert_eq!(forgotten.load(Ordering::SeqCst), 1, "the steps made a frame from before the gap's history");
+        hand_out(&second, Some(200));
+        wait_for(|| made.load(Ordering::SeqCst) > held + 1);
         assert_eq!(forgotten.load(Ordering::SeqCst), 1, "what the steps kept from before the gap is dropped, once");
         w.stop();
     }
 
     #[test]
     fn a_hidden_window_with_privacy_blur_on_auto_never_pauses_the_steps() {
+        use telescope_core::host::HostFrames;
         let gate = Arc::new(crate::idle::IdleGate::after(0));
+        let path = telescope_core::testing::scratch_dir("auto-blur-idle").join("telescope_config.json");
+        let mut state = crate::shell::State::new(telescope_core::config::ConfigFile::at(path));
+        state.idle = gate.clone();
+        state.shown = Some(false);
+        // The switch is turned through the host, as the plugin does (privacy_blur's update): what it asks for is what decides the gate
+        let mut toggle = |on: bool| crate::host::Ctx { state: &mut state, me: "privacy_blur".into() }.want_frames("privacy_blur", on);
+        toggle(true);
         gate.watched(false);
-        // Auto blur asks for frames (Host::want_frames), which is what keeps the gate open
-        gate.wanted(true);
         let (w, cams, made, forgotten) = idle_hiding(endless_clear(), privacy_step(), gate.clone());
         wait_for(|| made.load(Ordering::SeqCst) >= 3);
         let held = made.load(Ordering::SeqCst);
         wait_for(|| made.load(Ordering::SeqCst) >= held + 10);
         assert_eq!(forgotten.load(Ordering::SeqCst), 0);
         assert!(cams.sent.lock().unwrap().iter().all(|v| *v == 7));
+        // Off again, and with nothing else asking the steps pause
+        toggle(false);
+        std::thread::sleep(Duration::from_millis(100));
+        let held = made.load(Ordering::SeqCst);
+        std::thread::sleep(Duration::from_millis(200));
+        assert_eq!(made.load(Ordering::SeqCst), held, "paused");
+        toggle(true);
+        wait_for(|| made.load(Ordering::SeqCst) > held);
+        assert_eq!(forgotten.load(Ordering::SeqCst), 1);
         w.stop();
     }
 
