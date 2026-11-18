@@ -10,6 +10,8 @@ mod auto_scene;
 #[cfg(test)]
 mod auto_tests;
 #[cfg(test)]
+mod imgops_firm_tests;
+#[cfg(test)]
 mod auto_grade_tests;
 pub mod background;
 pub mod chroma_key;
