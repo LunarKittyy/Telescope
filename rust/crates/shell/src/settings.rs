@@ -186,6 +186,14 @@ pub fn set_hues(on: bool) {
     }
 }
 
+/// Host::set_appearance reaches the settings window too.
+pub fn set_appearance(appearance: &telescope_core::host::Appearance) {
+    if let Some(settings) = SETTINGS.with(|s| s.borrow().clone()) {
+        crate::appearance::apply_to(&settings.ui, appearance);
+        crate::frame::dress(&settings.ui);
+    }
+}
+
 /// Host::set_look reaches the settings window too.
 pub fn set_look(look: telescope_core::host::Look) {
     if let Some(settings) = SETTINGS.with(|s| s.borrow().clone()) {
@@ -395,7 +403,7 @@ fn create(window: &Rc<Window>, plan: Plan) -> Result<Rc<Settings>, String> {
     let Plan { sections, places, tabs, plugins_tab, pieces, tab_sections, section_words, panel, def } = plan;
     // Under the main window, as Python's dialog has it as its parent
     let ui = crate::parent::make(&window.ui, || def.create()).map_err(|e| e.to_string())?;
-    crate::motion::apply(&ui);
+    crate::appearance::apply(&ui);
     // A .zip dropped anywhere on the window installs like the Install button does
     let drops = Rc::new(plugins_tab::DropBatch::default());
     crate::keys::watch_scan_codes_and(&ui, move |event| {

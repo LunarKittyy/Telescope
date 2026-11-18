@@ -1,6 +1,6 @@
 //! Whether the windows may move things: the desktop's own reduced-motion setting, which TELESCOPE_MOTION (full, reduced or off) overrides.
 //! The kit's motions (ui-kit/ui/widgets/motion.slint) read it from the `Motion` global: reduced snaps every move and keeps colour and
-//! opacity changes, off keeps nothing. Appearance can set the same global later.
+//! opacity changes, off keeps nothing. Appearance's Motion option sets the same global over it (appearance.rs).
 
 use slint_interpreter::{ComponentInstance, Value};
 use std::sync::OnceLock;
@@ -87,12 +87,7 @@ pub fn current() -> Motion {
     *MODE.get_or_init(|| std::env::var("TELESCOPE_MOTION").ok().and_then(|w| word(&w)).unwrap_or_else(system))
 }
 
-/// Tells a window's kit what is allowed to move.
-pub fn apply(ui: &ComponentInstance) {
-    set(ui, current());
-}
-
-/// The same for a given mode, which a test or the Appearance option can ask for.
+/// Tells a window's kit what is allowed to move, for a given mode.
 pub fn set(ui: &ComponentInstance, mode: Motion) {
     let _ = ui.set_global_property("Motion", "reduced", Value::Bool(mode != Motion::Full));
     let _ = ui.set_global_property("Motion", "off", Value::Bool(mode == Motion::Off));

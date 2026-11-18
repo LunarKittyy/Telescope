@@ -437,7 +437,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
     let text = doc::window(&cards, &panels, &headers);
     let def = crate::compile::compile("window.slint", &text, files.clone(), "TelescopeWindow")?;
     let ui = def.create().map_err(|e| e.to_string())?;
-    crate::motion::apply(&ui);
+    crate::appearance::apply(&ui);
     set_app_icon(&ui);
     let window = Rc::new(Window {
         state: Rc::new(RefCell::new(state)),
@@ -1437,7 +1437,7 @@ impl Window {
         if let Ok(look) = self.ui.get_global_property("Theme", "look") {
             let _ = ui.set_global_property("Theme", "look", look);
         }
-        crate::motion::apply(&ui);
+        crate::appearance::apply(&ui);
         let _ = ui.show();
         crate::frame::dress(&ui);
         crate::parent::attach(&ui, &self.ui);
@@ -1621,6 +1621,20 @@ impl Window {
                 }
                 crate::frame::dress(&self.ui);
                 crate::settings::set_look(look);
+            }
+            Effect::Appearance(appearance) => {
+                crate::appearance::store(appearance);
+                crate::appearance::apply_to(&self.ui, &appearance);
+                for (_, _, open) in self.plugin_windows.borrow().iter() {
+                    crate::appearance::apply_to(open, &appearance);
+                    crate::frame::dress(open);
+                }
+                if let Some(question) = self.slots_question() {
+                    crate::appearance::apply_to(&question, &appearance);
+                    crate::frame::dress(&question);
+                }
+                crate::frame::dress(&self.ui);
+                crate::settings::set_appearance(&appearance);
             }
             Effect::RestartCanvas { plugin, request, shows_command } => self.restart_canvas(&plugin, request, shows_command),
             Effect::RemoveExtras { plugin, request } => self.remove_extras(&plugin, request),

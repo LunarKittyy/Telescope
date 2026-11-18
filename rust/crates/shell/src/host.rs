@@ -354,6 +354,9 @@ impl HostShell for Ctx<'_> {
     fn set_look(&mut self, look: telescope_core::host::Look) {
         self.state.effects.push(Effect::Look(look));
     }
+    fn set_appearance(&mut self, appearance: telescope_core::host::Appearance) {
+        self.state.effects.push(Effect::Appearance(appearance));
+    }
     fn set_shortcut_menu(&mut self, bindings: Option<Vec<telescope_core::ui::ShortcutEntry>>) {
         self.state.shortcut_menu = bindings.map(|b| (self.me.clone(), b));
         self.state.effects.push(Effect::ShortcutMenu);

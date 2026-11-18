@@ -443,28 +443,43 @@ export component PhoneAppSettings inherits Card {
     }
 }
 
-// Look, on General: card colours and the language
+// Look, on General: the theme, card colours, the options that scale or swap a design token (Appearance) and the language
 export component LookSettings inherits Card {
     in property <bool> reset-shown;
     callback reset-clicked;
     in-out property <int> hues-current;
     in-out property <int> theme-current;
+    in-out property <int> corners-current;
+    in-out property <int> text-current;
+    in-out property <int> density-current;
+    in-out property <bool> contrast-checked;
+    in-out property <int> motion-current;
+    in property <float> tip-delay;
+    in property <string> tip-delay-text;
+    in-out property <bool> tip-warm-checked;
     in property <[string]> lang-items;
     in-out property <int> lang-current;
     in property <bool> lang-restart;
     in property <string> help-text;
     callback hues-picked(int);
     callback theme-picked(int);
+    callback corners-picked(int);
+    callback text-picked(int);
+    callback density-picked(int);
+    callback contrast-toggled(bool);
+    callback motion-picked(int);
+    callback tip-delay-moved(float);
+    callback tip-warm-toggled(bool);
     callback lang-picked(int);
     callback restart-clicked;
     callback translate-clicked;
 
     title: @tr("Look");
-    tip: @tr("Theme, card colours and language.");
+    tip: @tr("Theme, colours, sizes, motion and language.");
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
-    reset-detail: @tr("Set the theme, card colours and language back to default.");
+    reset-detail: @tr("Set the theme, colours, sizes, motion, tooltips and language back to default.");
     reset => { root.reset-clicked(); }
     keywords: @tr("search" => "appearance theme colors colours interface");
     icon: Icons.sliders;
@@ -501,6 +516,114 @@ export component LookSettings inherits Card {
             current <=> root.hues-current;
             picked(i) => { root.hues-current = i; root.hues-picked(i); }
         }
+    }
+    SwitchRow {
+        icon: Icons.contrast;
+        label: @tr("Higher contrast");
+        tip: @tr("Higher contrast");
+        tip-detail: @tr("Use full colours with brighter text and lines.");
+        keywords: @tr("search" => "contrast accessibility vision bright text lines outline colours");
+        hue: root.hue;
+        checked <=> root.contrast-checked;
+        toggled(on) => { root.contrast-checked = on; root.contrast-toggled(on); }
+    }
+    RailRow {
+        icon: Icons.corners;
+        label: @tr("Corners");
+        tip: @tr("How round the corners of cards and controls are");
+        named: true;
+        hue: root.hue;
+        keywords: @tr("search" => "corners round rounded sharp square radius shape");
+        Segmented {
+            width: Theme.control-w;
+            hue: root.hue;
+            label: @tr("Corners");
+            items: [@tr("Sharp"), @tr("Default"), @tr("Round")];
+            current <=> root.corners-current;
+            picked(i) => { root.corners-current = i; root.corners-picked(i); }
+        }
+    }
+    RailRow {
+        icon: Icons.text-size;
+        label: @tr("Text size");
+        tip: @tr("Make every text in the app smaller or larger");
+        named: true;
+        hue: root.hue;
+        keywords: @tr("search" => "text size font bigger smaller large small zoom readable");
+        Segmented {
+            width: Theme.control-w;
+            hue: root.hue;
+            label: @tr("Text size");
+            items: [@tr("Small"), @tr("Default"), @tr("Large")];
+            current <=> root.text-current;
+            picked(i) => { root.text-current = i; root.text-picked(i); }
+        }
+    }
+    RailRow {
+        icon: Icons.layout;
+        label: @tr("Density");
+        tip: @tr("How much room there is between and inside controls");
+        named: true;
+        hue: root.hue;
+        keywords: @tr("search" => "density compact comfortable spacing padding room tight cramped");
+        Segmented {
+            width: Theme.control-w;
+            hue: root.hue;
+            label: @tr("Density");
+            items: [@tr("Compact"), @tr("Default"), @tr("Comfortable")];
+            current <=> root.density-current;
+            picked(i) => { root.density-current = i; root.density-picked(i); }
+        }
+    }
+    RailRow {
+        icon: Icons.trails;
+        label: @tr("Motion");
+        tip: @tr("Motion");
+        tip-detail: @tr("Choose how much of the app moves. System follows your desktop's animation setting.");
+        named: true;
+        hue: root.hue;
+        keywords: @tr("search" => "motion animation animations reduce reduced off movement transitions");
+        ChoiceField {
+            width: Theme.control-w;
+            compact: true;
+            name: @tr("Motion");
+            items: [@tr("System"), @tr("Full"), @tr("Reduced"), @tr("Off")];
+            current <=> root.motion-current;
+            picked(i) => { root.motion-current = i; root.motion-picked(i); }
+        }
+    }
+    RailRow {
+        icon: Icons.timer;
+        label: @tr("Tooltip delay");
+        tip: @tr("Tooltip delay");
+        tip-detail: @tr("How long to rest on something before its tooltip shows.");
+        named: true;
+        hue: root.hue;
+        keywords: @tr("search" => "tooltip tooltips delay wait hint hover instant");
+        Slider {
+            width: Theme.control-w;
+            hue: root.hue;
+            label: @tr("Tooltip delay");
+            minimum: 0;
+            maximum: 1500;
+            step: 100;
+            value: root.tip-delay;
+            readout: root.tip-delay-text;
+            has-default: true;
+            default-value: 500;
+            type-in: false;
+            moved(v) => { root.tip-delay-moved(v); }
+        }
+    }
+    SwitchRow {
+        icon: Icons.bolt;
+        label: @tr("Instantly show next tooltip");
+        tip: @tr("Instantly show next tooltip");
+        tip-detail: @tr("Skip the wait for the next tooltip.");
+        keywords: @tr("search" => "tooltip tooltips instant next quick hover hint");
+        hue: root.hue;
+        checked <=> root.tip-warm-checked;
+        toggled(on) => { root.tip-warm-checked = on; root.tip-warm-toggled(on); }
     }
     UnfoldGroup {
         RailRow {

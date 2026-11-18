@@ -12,7 +12,19 @@ Three base values drive every size. Widgets never write a literal radius, gap or
 | Corner roundness | `Theme.radius` | 6px | `r-ctl`, `r-card`, `r-handle` are ratios of it |
 | Spacing | `Theme.unit` | 2px | `Theme.u(n)` is n units; `row`, `gap`, `pad`, `stroke`, `track`, handle and switch sizes are multiples |
 
-A setting for roundness, text size or density would only change one of these three.
+Appearance in Settings sets these from fixed steps and never a free value. Each step has a render test in `app/tests/appearance_render.rs`.
+
+| Option | Steps | Sets |
+|---|---|---|
+| Corners | sharp 0, default 6, round 10 px | `Theme.radius` |
+| Text size | small 12, default 13, large 15 px | `Theme.body` |
+| Density | compact 1.75, default 2, comfortable 2.25 px | `Theme.unit` (`stroke` and `hair` stay whole pixels, `control-w` stays 260px) |
+| Higher contrast | off or on | `Theme.contrast`: text, lines and the accent go through `Theme.lift`, `muted`, `lit` and `edge` give the full colour, and the outline tokens OLED uses are drawn in every look |
+| Card colours | colourful or monochrome | `Theme.own-hues` |
+| Motion | system, full, reduced, off | `Motion.reduced` and `Motion.off` |
+| Tooltip delay | 0 to 1.5 s, and whether the next tip skips the wait | `Tips.delay` and `Tips.warm` |
+
+A new widget follows all of them as long as it reads only tokens. A literal size, radius or colour would not.
 
 ## Colour tokens
 

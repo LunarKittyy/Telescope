@@ -31,8 +31,10 @@ export global TipSpot {
 
 // The tip that is up. Written by the `Tip` that owns it, drawn by every TipLayer.
 export global Tips {
-    // How long the pointer rests before the first tip, and how long after one went down the next is warm
-    out property <duration> delay: 500ms;
+    // How long the pointer rests before the first tip (Appearance sets it), and how long after one went down the next is warm
+    in-out property <duration> delay: 500ms;
+    // The next tip shows at once while one is up or just went down (Appearance's "Instantly show next tooltip"); off, every tip waits `delay`
+    in-out property <bool> warm: true;
     out property <duration> warm-for: 1s;
     // The rest a warm tip waits for, so passing over controls doesn't flash a chain of tips
     out property <duration> warm-rest: 100ms;
@@ -79,7 +81,7 @@ export global Tips {
     }
     // How long the pointer has to rest on a control before its tip shows
     public function wait() -> duration {
-        return (is-warm() ? warm-rest : delay) * (is-quiet() ? quiet-factor : 1);
+        return (warm && is-warm() ? min(warm-rest, delay) : delay) * (is-quiet() ? quiet-factor : 1);
     }
     // The window says where the pointer is (its input watch does, on every move)
     public function moved(x: length, y: length) {
@@ -334,7 +336,7 @@ export component Tip inherits Rectangle {
     function arm() {
         if (want && !up) {
             waiting = Tips.wait();
-            wait-timer.restart();
+            if (waiting <= 0ms) { present(); } else { wait-timer.restart(); }
         }
     }
     function present() {

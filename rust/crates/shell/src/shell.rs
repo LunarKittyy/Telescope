@@ -147,6 +147,8 @@ pub enum Effect {
     PluginHues(bool),
     /// Host::set_look: the look the windows draw.
     Look(telescope_core::host::Look),
+    /// Host::set_appearance: corners, text size, density, contrast, motion and tooltip timing.
+    Appearance(telescope_core::host::Appearance),
     /// Host::restart_vcam_canvas: plugin's request, answered by a RequestDone once the camera is back.
     RestartCanvas { plugin: String, request: RequestId, shows_command: bool },
     /// Host::remove_extra_cameras: plugin's request, answered by a RequestDone.
