@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Every text the phone app shows. English is the source; a translation goes in values-<lang>/strings.xml
-     with the same names (see docs/translating.md). A name missing there falls back to English.
+     with the same names (see docs/development/translating.md). A name missing there falls back to English.
      %1$s, %1$d and so on are filled in by the app: keep them, they may move within the sentence. -->
 <resources>
     <string name="app_name" translatable="false">Telescope</string>

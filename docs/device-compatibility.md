@@ -46,7 +46,7 @@ Tried Telescope on a phone that isn't here? [Tell me how it went](https://github
 1. Install the release candidate APK and desktop bundle
 2. Pair fresh (reset the phone's pairing first if it was paired to a different build) over USB and Wi-Fi
 3. Work each column and note the exact build in "App build"
-4. File an issue for any ❌ or notable ⚠️ before ticking it off in the [release checklist](release-checklist.md)
+4. File an issue for any ❌ or notable ⚠️ before ticking it off in the [release checklist](development/release-checklist.md)
 
 The matrix is maintained by hand. Update it after testing that exact device and build.
 </details>

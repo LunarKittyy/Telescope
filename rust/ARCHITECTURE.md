@@ -1,7 +1,7 @@
-<!-- covers: rust/crates/*/Cargo.toml rust/app/tests/architecture.rs rust/app/tests/plugin_removal.rs rust/crates/plugin-host/src rust/crates/core/src/plugin.rs rust/crates/core/src/snapshot.rs rust/app/build.rs; checked: 0d35dc883 -->
+<!-- covers: rust/crates/*/Cargo.toml rust/app/tests/architecture.rs rust/app/tests/plugin_removal.rs rust/crates/plugin-host/src rust/crates/core/src/plugin.rs rust/crates/core/src/snapshot.rs rust/app/build.rs rust/crates/plugin-host/tests/plugin_api.txt; checked: 0d35dc883 -->
 # How the desktop app is put together
 
-How the desktop app in `rust/` is split up and which rules keep it that way, for anyone changing the code. [crates/shell/README.md](crates/shell/README.md) covers how the window is built and [docs/writing-plugins.md](../docs/writing-plugins.md) is the guide to writing a plugin. [docs/packaging.md](../docs/packaging.md#the-update-path) has the update path from the old Python app.
+How the desktop app in `rust/` is split up and which rules keep it that way, for anyone changing the code. [crates/shell/README.md](crates/shell/README.md) covers how the window is built and [docs/development/writing-plugins.md](../docs/development/writing-plugins.md) is the guide to writing a plugin. [docs/development/packaging.md](../docs/development/packaging.md#the-update-path) has the update path from the old Python app.
 
 ## The crates
 
@@ -47,7 +47,7 @@ Crates only meet through traits in `core`. The shell never names `link` or `medi
 
 **Each hook means one thing.** `on_stream_start` and `on_stream_stop` are for a stream that really starts or ends. `on_focus_gained` and `on_focus_lost` are for the panels moving between streams that continue running. Events about a stream carry its source id. A card about the shown stream compares it with the focused one.
 
-**Text is translated where it's shown.** Wrap what people see in `tr()` at the place it's shown, never in a `const` or `static` that runs before the language loads. A table of texts holds `n_("...")`, which marks the text and gets its `tr()` where it's displayed. Anything used as an identity or saved (a fold key, a canvas preset, a shortcut's choice) remains in English. Diagnostics remain in English for bug reports. Slint texts use `@tr()`. [docs/translating.md](../docs/translating.md) has the details.
+**Text is translated where it's shown.** Wrap what people see in `tr()` at the place it's shown, never in a `const` or `static` that runs before the language loads. A table of texts holds `n_("...")`, which marks the text and gets its `tr()` where it's displayed. Anything used as an identity or saved (a fold key, a canvas preset, a shortcut's choice) remains in English. Diagnostics remain in English for bug reports. Slint texts use `@tr()`. [docs/development/translating.md](../docs/development/translating.md) has the details.
 
 **The window drives and nothing reaches back.** The stream flow, sessions and sources never use the window. Anything they need from it goes through `FlowHost` or `SourceHost`, and the session state has no Slint in it.
 
@@ -63,7 +63,7 @@ Built-in plugins are Rust but plugins people add are Lua scripts and a WASM modu
 - A Rust step whose job is to hide something (Privacy blur, Background, the wait screen) declares that with `CpuStep::hides`. A step that panics or ends up skipped makes the pipeline send a dark frame, never the clear one it was given. A pipeline can also run only those steps again on the frame already out (`FramePipeline::hide_again`) to stop a stalled stream showing it the moment one changes (a Background step that wasn't there before turns that frame dark, as it can't be run on a finished picture).
 - Events serialise as `{"event": "<name>", ...}`. `plugin-host` shows the whole shape. Its `GuestPlugin` turns any runtime that speaks JSON into a `Plugin` and `call_host` is that runtime's only way back in.
 
-A WASM host can implement all of this without a change to `core` ([docs/plugin-wasm.md](docs/plugin-wasm.md)).
+A WASM host can implement all of this without a change to `core` ([docs/development/plugin-wasm.md](../docs/development/plugin-wasm.md)).
 
 ## Keeping plugins working
 
@@ -101,7 +101,7 @@ The file is versioned (3 today) and has `selected_device`, `plugin_configs` (eac
 
 `fixtures/configs` has eight settings files (real ones with everything personal swapped out and made-up ones for Windows, old versions, damaged sections and broken files), each with an `expected.json` recorded from the last Python app. `telescope-rs config-snapshot <folder>` prints what this app makes of one, and `app/tests/config_fixtures.rs` and `core/src/snapshot.rs` check every fixture. That one check covers upgrading, pairings, presets, shortcuts and broken files.
 
-A release build uses the real settings folder. A build from source uses `~/.config/telescope-rs` (`%APPDATA%\telescope-rs` on Windows, or `$TELESCOPE_RS_PROFILE`) as a dev profile unless `TELESCOPE_RS_REAL_CONFIG=1`. Trying it never touches the real settings. `telescope-rs dev` runs a dev desktop next to the real one (see [Building and CI](../docs/building.md#try-a-change-without-touching-your-real-install)).
+A release build uses the real settings folder. A build from source uses `~/.config/telescope-rs` (`%APPDATA%\telescope-rs` on Windows, or `$TELESCOPE_RS_PROFILE`) as a dev profile unless `TELESCOPE_RS_REAL_CONFIG=1`. Trying it never touches the real settings. `telescope-rs dev` runs a dev desktop next to the real one (see [Building and CI](../docs/development/building.md#try-a-change-without-touching-your-real-install)).
 
 ## UI
 

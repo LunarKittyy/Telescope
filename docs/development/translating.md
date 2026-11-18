@@ -1,0 +1,152 @@
+<!-- covers: rust/locale/telescope.pot rust/tools/i18n.py rust/crates/core/src/i18n* rust/crates/core/tests/i18n.rs rust/app/tests/texts_in_code.rs rust/app/tests/text_fits.rs android/app/src/main/res/values/strings.xml automation/translation; checked: 0d35dc883 -->
+# Translating Telescope
+
+## Helping without any tools
+
+Spotted a text that reads wrong, or would like Telescope in your language? [Open a translation issue](https://github.com/LunarKittyy/Telescope/issues/new?template=translation.yml) and write what a text says now and what it should say. That's all it takes, no coding or setup needed.
+
+To fix many texts at once you can edit the files right on GitHub. These are the languages so far, one file for each app:
+
+| Language | Phone app | Desktop app |
+|---|---|---|
+| Spanish (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-es/strings.xml) | [es.po](https://github.com/LunarKittyy/Telescope/blob/master/rust/locale/es.po) |
+| Hindi (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-hi/strings.xml) | [hi.po](https://github.com/LunarKittyy/Telescope/blob/master/rust/locale/hi.po) |
+| Indonesian (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-in/strings.xml) | [id.po](https://github.com/LunarKittyy/Telescope/blob/master/rust/locale/id.po) |
+| Brazilian Portuguese (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-pt-rBR/strings.xml) | [pt_BR.po](https://github.com/LunarKittyy/Telescope/blob/master/rust/locale/pt_BR.po) |
+| Swedish | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-sv/strings.xml) | [sv.po](https://github.com/LunarKittyy/Telescope/blob/master/rust/locale/sv.po) |
+| Ukrainian (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-uk/strings.xml) | [uk.po](https://github.com/LunarKittyy/Telescope/blob/master/rust/locale/uk.po) |
+| German (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-de/strings.xml) | [de.po](https://github.com/LunarKittyy/Telescope/blob/master/rust/locale/de.po) |
+| French (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-fr/strings.xml) | [fr.po](https://github.com/LunarKittyy/Telescope/blob/master/rust/locale/fr.po) |
+| Italian (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-it/strings.xml) | [it.po](https://github.com/LunarKittyy/Telescope/blob/master/rust/locale/it.po) |
+| Polish (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-pl/strings.xml) | [pl.po](https://github.com/LunarKittyy/Telescope/blob/master/rust/locale/pl.po) |
+| Russian (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-ru/strings.xml) | [ru.po](https://github.com/LunarKittyy/Telescope/blob/master/rust/locale/ru.po) |
+| Turkish (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-tr/strings.xml) | [tr.po](https://github.com/LunarKittyy/Telescope/blob/master/rust/locale/tr.po) |
+| Japanese (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-ja/strings.xml) | [ja.po](https://github.com/LunarKittyy/Telescope/blob/master/rust/locale/ja.po) |
+| Korean (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-ko/strings.xml) | [ko.po](https://github.com/LunarKittyy/Telescope/blob/master/rust/locale/ko.po) |
+| Simplified Chinese (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-zh-rCN/strings.xml) | [zh_CN.po](https://github.com/LunarKittyy/Telescope/blob/master/rust/locale/zh_CN.po) |
+| Vietnamese (first draft) | [strings.xml](https://github.com/LunarKittyy/Telescope/blob/master/android/app/src/main/res/values-vi/strings.xml) | [vi.po](https://github.com/LunarKittyy/Telescope/blob/master/rust/locale/vi.po) |
+
+1. Open the file for the app you want to fix and click the pencil icon at the top right of it
+2. Change the translated texts. On the phone that's the part between `>` and `<`, on the desktop the `msgstr "..."` lines. Leave anything in `{curly braces}` or like `%1$s` as it is (the app fills those in)
+3. Click **Commit changes** and then **Propose changes**. GitHub makes a copy for you and opens the pull request
+
+A first draft hasn't been checked by someone who speaks the language yet (the desktop's Language list shows "(beta)" after its name). Reading one through and listing what's off in an issue is a big help even if you don't change the files.
+
+Your language isn't in the table? Open a translation issue to ask for it, or start it yourself with the steps below.
+
+The rest of this page is for people working on the files themselves.
+
+## The files
+
+Both apps store every text they show in one file per language. English lives in the code and in the source files below. Anything a translation leaves out shows in English. A language can ship half done.
+
+| | Source (English) | A translation |
+|---|---|---|
+| Phone app | `android/app/src/main/res/values/strings.xml` | `values-<lang>/strings.xml` in [android/app/src/main/res](https://github.com/LunarKittyy/Telescope/tree/master/android/app/src/main/res) |
+| Desktop app | `rust/locale/telescope.pot` | `<lang>.po` in [rust/locale](https://github.com/LunarKittyy/Telescope/tree/master/rust/locale) |
+
+`<lang>` is a language code: `sv`, `de`, `fr`. For a regional variant, Android writes `values-pt-rBR` and the desktop writes `pt_BR.po`.
+
+Both apps follow the system language. To try a desktop translation without changing yours, start it with `TELESCOPE_LANG=sv` set. On the phone (Android 13 and up), Settings > Apps > Telescope > Language lists every language the app has.
+
+## Phone app
+
+Copy `values/strings.xml` to `values-<lang>/strings.xml` and translate the text between the tags. Don't change any `name` and leave out anything you haven't translated yet rather than copying the English. Don't copy `app_name` as it's marked `translatable="false"`.
+
+- `%1$s` and `%1$d` are filled in by the app. Leave them in, though they can move within the sentence
+- `<plurals>` has one `<item>` per form your language needs (`one`, `few`, `many`, `other`...). Android's [plurals guide](https://developer.android.com/guide/topics/resources/string-resource#Plurals) lists them
+- Write an apostrophe as `\'` and a percent sign before a placeholder as `%%`
+- The comment above a string explains where it shows or what fills it in
+
+`./gradlew lintDebug` in `android/` catches a placeholder that doesn't match the English.
+
+## Desktop app
+
+Start a language with:
+
+```
+cd rust
+python tools/i18n.py new sv
+```
+
+That writes `locale/sv.po` with every text and an empty `msgstr` under each. Fill in the `msgstr` lines and leave the rest alone. Check the `Plural-Forms` line in its header. The script knows the common languages and reports when it doesn't know yours.
+
+```
+#. what a translator should know, from the code
+#: rust/crates/link/src/plugin.rs:343
+#, python-brace-format
+msgid "Paired with {name}"
+msgstr "Parkopplad med {name}"
+```
+
+- `{name}`, `{n}` and the like are filled in by the app. Leave the word inside the braces exactly as it is, though the field can move. A translation with a field the English doesn't have shows the English instead
+- `msgid_plural` entries take one `msgstr[0]`, `msgstr[1]`... per plural form in your header
+- `msgctxt "search"` marks the words the settings search looks for, not a sentence. Put in the words people would type in your language and leave names like OBS, adb or VA-API as they are
+- `\n` is a line break. Put the breaks where the English has them and make the lines about as long
+- `#, fuzzy` means the English changed since it was translated. The app ignores fuzzy entries. Check the translation and remove the flag
+
+To see what's left and to check for broken fields:
+
+```
+python tools/i18n.py todo sv      # the untranslated entries, ready to paste in
+python tools/i18n.py status       # how far along each language is
+```
+
+Some texts remain in English on purpose: Copy diagnostics (it goes into bug reports), the Browser camera web page, the command line, VB-Audio's two license lines. The phone's own camera, codec and microphone messages reach the desktop as codes the desktop words itself (see [the protocol](protocol.md#texts-the-desktop-words-itself)). They're translated there.
+
+## Checking that texts fit
+
+A translation longer than the English can end up cut off or pushed out of its row. The desktop's buttons and rows take their width from their text. A longer translation mostly widens what holds it. The window and some fixed-width pieces still have limits. Start the desktop in the language (`TELESCOPE_LANG=sv`) and go through the cards, the Settings tabs and the dialogs. `cargo run -p telescope-app -- scenes OUT` in `rust/` draws every card, dialog and Settings page as a picture for a quicker look.
+
+To try a layout before any real translation exists, start the desktop with `TELESCOPE_LANG=pseudo`. That's a made-up language where every text is about 40% longer and accented ("[Šţàŕţ šţŕéàɱîñĝ ~~~~ ~~]"). Any plain English left on screen in it never went through `tr()`.
+
+`rust/app/tests/text_fits.rs` checks the rule for the buttons every card uses, in English and in the pseudo language.
+
+## Translating with an AI
+
+Hand it one file and the notes above. Things worth asking for:
+
+- Translate `todo`'s output in chunks of a hundred entries or so, and paste the result back into the `.po`
+- Keep the app's tone: short, plain and friendly, addressed to the person using it. Buttons are verbs ("Add phone", "Start streaming")
+- Use one word for each thing across both apps. "Add phone" on the desktop and "Scan pairing code" on the phone are names of buttons that the other app's texts refer to
+- Have a person who speaks the language read through it in the running app before it ships
+
+For bigger runs, [automation/translation](../../automation/translation/README.md) has the setup used for the languages so far: a glossary per language, prompts and `kit.py` for what's left and for the checks no model needs to do.
+
+## First drafts
+
+A translation nobody who speaks the language has checked yet can still ship, marked as a first draft. The desktop's Language list puts "(beta)" after its name. Both apps state that it's a first draft (in Settings > General on the desktop, in About on the phone). Two things mark it and both come off once someone has read it through:
+
+- the line `"X-Telescope-Draft: yes\n"` in the header of the desktop's `<lang>.po`
+- `android/app/src/main/res/values-<lang>/translation.xml` with `<bool name="translation_is_draft">true</bool>`
+
+## Plugins
+
+Plugins people add can ship their own translations as `locale/<lang>.po` inside the plugin's folder. A plugin's texts are looked up there first, then in Telescope's own `<lang>.po` and then remain in English. A plugin never has to translate everything. [Writing a plugin](writing-plugins.md#translating-your-plugin) covers the author's side.
+
+To translate someone's plugin, use the `.pot` in its `locale` folder or run the plugin tool on a copy of it, from `rust/`:
+
+```
+cargo run -p telescope-plugin-host --bin plugin-texts -- new sv path/to/the_plugin
+cargo run -p telescope-plugin-host --bin plugin-texts -- status path/to/the_plugin
+```
+
+The `.po` format is the same as above. Telescope's own translations don't change.
+
+## For developers: adding a text
+
+Phone: add it to `values/strings.xml` and use `getString(R.string.x)` or `@string/x`. Code that builds a message without a `Context` takes a `Strings` (see `Pairing.kt`).
+
+Desktop: wrap it in `tr()` from `telescope_core::i18n`. In a `.slint` file use `@tr()`:
+
+```rust
+use telescope_core::i18n::{n_, tr, tr_with, trn};
+
+label.set_text(tr_with("Paired with {name}", "", &[("name", &phone.name)]));   // fields, never format!() or + between pieces
+label.set_text(trn("{n} phone", "{n} phones", count));
+const TITLE: &str = n_("Camera");                                              // in a const or table: mark it, then tr(TITLE) where it shows
+```
+
+A `// Translators:` comment right above the call goes into the `.po` file. `tr_ctx("search", "...")` gives a text a context. When a text a keyboard shortcut can pick is translated (a segment button, a list entry), use its English as the value. A saved shortcut then still finds it in another language.
+
+Then run `python tools/i18n.py extract` in `rust/` and commit `locale`. `app/tests/texts_in_code.rs` fails when the template is out of date or when a text is built from pieces, and `core/tests/i18n.rs` fails when a catalogue is missing a text or a translation has a field the English doesn't.

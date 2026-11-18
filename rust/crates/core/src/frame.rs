@@ -156,6 +156,15 @@ impl Frame {
         }
     }
 
+    /// Pixels that other frames share in place of the old ones, which are dropped with the decoder's BGR (it was made from them); a sole old buffer goes back to the spares.
+    pub fn share_data(&mut self, data: Arc<Vec<u8>>) {
+        debug_assert_eq!(data.len(), self.format.size(self.width, self.height));
+        self.decoded = None;
+        if let Ok(old) = Arc::try_unwrap(std::mem::replace(&mut self.data, data)) {
+            crate::image::keep_bytes(old);
+        }
+    }
+
     /// Done with this frame: its pixels go back to the spares unless something else still holds them.
     pub fn recycle(self) {
         if let Ok(old) = Arc::try_unwrap(self.data) {
