@@ -38,6 +38,7 @@ FILES = {
                     "8b1ba204bb69a0ade2bfcf65ef294a920f6bb361b317dba43c7ef29d96332b9b"),
 }
 # ONNX Runtime's GitHub repository went missing in November 2026. These packs from release 5.1.3 hold its files as built from the pins above
+# Once the _ORT links download again, revert: delete _PUBLISHED, this FILES |= block, published_runtime_files, and the try/except in runtime_files (keep its fetch line), then check with --check
 _PUBLISHED = "https://github.com/LunarKittyy/Telescope/releases/download/v5.1.3"
 FILES |= {
     "ort-linux-published": (f"{_PUBLISHED}/Telescope-matting-linux-e9d896cf4c409646.zip", "58cdaf6e4c5892ef1f9e59507d2162ea76dd3bd33f66425c01fe0b559acdae48"),
