@@ -125,7 +125,7 @@ The MCP server lets an AI app look at Telescope and change its settings. Describ
 
 1. Switch on **MCP server** under **Extras** and restart.
 2. Add Telescope to your AI app's MCP settings, see [MCP server](features/mcp.md#adding-it-to-an-ai-app).
-3. Describe what you want. The **MCP** button in the top bar undoes what the AI changed, on its right side.
+3. Describe what you want. The right half of the **MCP** button in the top bar undoes what the AI changed.
 
 **Access** on the MCP tab can be set to **Read only**. More in [MCP server](features/mcp.md).
 
