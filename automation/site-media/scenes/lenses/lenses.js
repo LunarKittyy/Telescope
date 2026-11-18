@@ -13,7 +13,7 @@ const $ = id => document.getElementById(id);
 const vis = (el, o) => { el.style.opacity = (+o).toFixed(4); el.style.visibility = o <= 0.0005 ? "hidden" : "visible"; };
 
 // the part of the window shown, in window coordinates, and how big it is drawn
-const CROP = { x: 436, y: 50, w: 856, h: 470 }, S = 2.1;
+const CROP = { x: 430, y: 74, w: 866, h: 684 }, S = 1.44;
 const crop = $("crop");
 crop.style.width = CROP.w * S + "px"; crop.style.height = CROP.h * S + "px";
 crop.style.left = (1920 - CROP.w * S) / 2 + "px"; crop.style.top = (1080 - CROP.h * S) / 2 + "px";
