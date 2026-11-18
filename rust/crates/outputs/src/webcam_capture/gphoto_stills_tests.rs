@@ -300,7 +300,7 @@ fn yes() -> Arc<AtomicBool> {
 
 /// Reads frames while a photo is taken, since the stream's reader is what keeps the camera's thread running on its own.
 fn read_until_done(cap: &mut Box<dyn crate::webcam_capture::Capture>, taken: &Taken) -> Value {
-    let until = Instant::now() + Duration::from_secs(10);
+    let until = Instant::now() + Duration::from_secs(40);
     loop {
         if let Ok(done) = taken.done.try_recv() {
             return done;
@@ -940,4 +940,42 @@ fn a_photo_is_written_as_a_part_file_that_is_renamed_when_whole() {
     assert_eq!(std::fs::read(&files[0]).unwrap(), vec![7; 4]);
     assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "no part file left");
     let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The whole real-camera run in a minute or two: live view, then a JPEG, a RAW and a RAW and JPEG photo on a 3 s timer. DSLR_TEST_DIR keeps the files.
+#[test]
+#[ignore = "needs a Nikon or Canon plugged in"]
+fn a_real_camera_takes_photos_and_live_view_returns() {
+    let began = Instant::now();
+    let (name, port) = crate::webcam_capture::gphoto_lib::detect().unwrap().into_iter().next().expect("no camera plugged in");
+    println!("camera: {name} at {port}");
+    let location = format!("{}{port}", crate::webcams::GPHOTO_PREFIX);
+    let device = crate::webcams::Device { key: "real".into(), name: name.clone(), location: location.clone(), modes: Vec::new() };
+    let mut cap = crate::webcam_capture::gphoto_lib::open(&device).unwrap_or_else(|(_, why)| panic!("not opened: {why}"));
+    let frame = cap.read().expect("a frame");
+    println!("live view frame: {} bytes", frame.len());
+    let stills = GphotoStills::new(&location);
+    wait_for("caps", || stills.caps().is_some());
+    println!("caps: {}", stills.caps().unwrap());
+    let mut controls = crate::webcam_capture::gphoto_lib::GphotoControls::new(&location);
+    let until = Instant::now() + Duration::from_secs(5);
+    while crate::webcam_controls::Controls::list(&mut controls).is_empty() && Instant::now() < until {
+        cap.read().expect("a frame");
+    }
+    let listed = crate::webcam_controls::Controls::list(&mut controls);
+    println!("controls ({}): {:?}", listed.len(), listed.iter().map(|c| format!("{}={}", c.name, c.value)).collect::<Vec<_>>());
+    let dir = std::env::var("DSLR_TEST_DIR").map(PathBuf::from).unwrap_or_else(|_| folder("real"));
+    let asks = [("jpeg", json!({"timer_s": 3})), ("raw only", json!({"timer_s": 3, "raw": 1, "format": "none"})), ("raw and jpeg", json!({"timer_s": 3, "raw": 1}))];
+    for (what, options) in asks {
+        let taken = take(&stills, options, &dir, yes()).expect("starts");
+        let done = read_until_done(&mut cap, &taken);
+        println!("{what}: {done}");
+        assert_eq!(done["ok"], json!(true), "{what}: {done}");
+        wait_for("the busy flag to drop", || !stills.busy());
+        for _ in 0..5 {
+            cap.read().expect("live view is back");
+        }
+    }
+    println!("files in {}: {:?}", dir.display(), std::fs::read_dir(&dir).unwrap().filter_map(|e| e.ok()).map(|e| e.file_name()).collect::<Vec<_>>());
+    println!("camera was on for {} s", began.elapsed().as_secs());
 }
