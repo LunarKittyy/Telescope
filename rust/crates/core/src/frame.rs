@@ -45,6 +45,49 @@ pub struct Frame {
     /// clock offset is known; None otherwise. Every step that makes a new frame from another keeps it.
     pub capture_ns: Option<u64>,
     decoded: Option<Decoded>,
+    /// How much of each pixel is the picture, for a frame whose background was cut out; None for a frame that is all picture, which is every frame today.
+    alpha: Option<Arc<Alpha>>,
+}
+
+/// One 8-bit plane of how much of each pixel is the picture (255) and how much is whatever goes behind it (0), at the frame's full size.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Alpha {
+    pub w: u32,
+    pub h: u32,
+    /// w * h bytes, one a pixel, rows packed.
+    pub data: Vec<u8>,
+    /// Whether the frame's colour planes are already multiplied by this (each plane value times alpha, chroma included), or straight.
+    pub premultiplied: bool,
+}
+
+impl Alpha {
+    pub fn new(w: u32, h: u32, data: Vec<u8>, premultiplied: bool) -> Alpha {
+        debug_assert_eq!(data.len(), w as usize * h as usize);
+        Alpha { w, h, data, premultiplied }
+    }
+}
+
+/// x / 255 rounded, for x up to 255 * 255.
+#[inline(always)]
+fn div255(x: u32) -> u32 {
+    (x + 127) / 255
+}
+
+/// One colour value over a background value, by how much of it is the picture.
+#[inline(always)]
+fn over(colour: u8, a: u8, behind: u8, premultiplied: bool) -> u8 {
+    let (a, behind, colour) = (a as u32, behind as u32, colour as u32);
+    let under = behind * (255 - a);
+    if premultiplied { (colour + div255(under)).min(255) as u8 } else { div255(colour * a + under) as u8 }
+}
+
+/// An R, G, B colour as video-range BT.601 Y, U, V, which is what the I420 and NV12 planes hold.
+fn yuv_of([r, g, b]: [u8; 3]) -> [u8; 3] {
+    let (r, g, b) = (r as f32, g as f32, b as f32);
+    let byte = |v: f32| (v + 0.5).clamp(0.0, 255.0) as u8;
+    [byte(16.0 + (65.481 * r + 128.553 * g + 24.966 * b) / 255.0),
+     byte(128.0 + (-37.797 * r - 74.203 * g + 112.0 * b) / 255.0),
+     byte(128.0 + (112.0 * r - 93.786 * g - 18.214 * b) / 255.0)]
 }
 
 /// A picture as 8-bit B, G, R, rows `stride` bytes apart from `start`: what a decoder's colour conversion made.
@@ -138,7 +181,101 @@ impl PartialEq for Decoded {
 impl Frame {
     pub fn new(width: u32, height: u32, format: PixelFormat, data: Vec<u8>) -> Frame {
         debug_assert_eq!(data.len(), format.size(width, height));
-        Frame { width, height, format, data: Arc::new(data), number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, decoded: None }
+        Frame { width, height, format, data: Arc::new(data), number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, decoded: None, alpha: None }
+    }
+
+    /// The alpha plane, while it is the size of the picture: one left behind by a step that changed the size reads as none.
+    pub fn alpha(&self) -> Option<&Arc<Alpha>> {
+        self.alpha.as_ref().filter(|a| (a.w, a.h) == (self.width, self.height) && a.data.len() == a.w as usize * a.h as usize)
+    }
+
+    /// Gives the frame an alpha plane in place of any it had. False, and the frame left as it was, when the plane isn't the picture's size.
+    pub fn set_alpha(&mut self, alpha: Arc<Alpha>) -> bool {
+        let fits = (alpha.w, alpha.h) == (self.width, self.height) && alpha.data.len() == alpha.w as usize * alpha.h as usize;
+        if fits {
+            self.alpha = Some(alpha);
+        }
+        fits
+    }
+
+    /// Makes the frame all picture again: for a step that moves pixels or builds a new picture, which would leave the old plane misaligned.
+    pub fn clear_alpha(&mut self) {
+        self.alpha = None;
+    }
+
+    /// The frame with its alpha put over a flat background of this R, G, B colour, so nothing is left transparent. A frame with no alpha comes back as it is, sharing its pixels.
+    pub fn flattened(&self, background: [u8; 3]) -> Frame {
+        let Some(alpha) = self.alpha().cloned() else { return self.clone() };
+        if self.data.len() != self.format.size(self.width, self.height) {
+            return self.clone();
+        }
+        let mut out = self.clone();
+        out.alpha = None;
+        let (w, h, premul) = (self.width as usize, self.height as usize, alpha.premultiplied);
+        let a = &alpha.data[..];
+        let data = out.data_mut();
+        match self.format {
+            PixelFormat::I420 | PixelFormat::Nv12 => {
+                let [by, bu, bv] = yuv_of(background);
+                let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+                let (luma, chroma) = data.split_at_mut(w * h);
+                crate::image::over_rows(luma, w, |y, row| {
+                    for (x, p) in row.iter_mut().enumerate() {
+                        *p = over(*p, a[y * w + x], by, premul);
+                    }
+                });
+                // A chroma sample is as opaque as its block of pixels is on average
+                let block = |cx: usize, cy: usize| {
+                    let (x0, y0) = (cx * 2, cy * 2);
+                    let (x1, y1) = ((x0 + 2).min(w), (y0 + 2).min(h));
+                    let sum: u32 = (y0..y1).map(|y| a[y * w + x0..y * w + x1].iter().map(|&v| v as u32).sum::<u32>()).sum();
+                    let n = ((x1 - x0) * (y1 - y0)) as u32;
+                    ((sum + n / 2) / n) as u8
+                };
+                if self.format == PixelFormat::Nv12 {
+                    crate::image::over_rows(chroma, cw * 2, |cy, row| {
+                        for (cx, uv) in row.as_chunks_mut::<2>().0.iter_mut().enumerate() {
+                            let ca = block(cx, cy);
+                            uv[0] = over(uv[0], ca, bu, premul);
+                            uv[1] = over(uv[1], ca, bv, premul);
+                        }
+                    });
+                } else {
+                    let (us, vs) = chroma.split_at_mut(cw * ch);
+                    crate::image::over_rows(us, cw, |cy, row| row.iter_mut().enumerate().for_each(|(cx, p)| *p = over(*p, block(cx, cy), bu, premul)));
+                    crate::image::over_rows(vs, cw, |cy, row| row.iter_mut().enumerate().for_each(|(cx, p)| *p = over(*p, block(cx, cy), bv, premul)));
+                }
+            }
+            PixelFormat::Bgra | PixelFormat::Rgba => {
+                let [r, g, b] = background;
+                let behind = if self.format == PixelFormat::Bgra { [b, g, r] } else { [r, g, b] };
+                crate::image::over_rows(data, w * 4, |y, row| {
+                    for (x, p) in row.as_chunks_mut::<4>().0.iter_mut().enumerate() {
+                        let pa = a[y * w + x];
+                        for c in 0..3 {
+                            p[c] = over(p[c], pa, behind[c], premul);
+                        }
+                        p[3] = 255;
+                    }
+                });
+            }
+        }
+        out
+    }
+
+    /// The picture as R, G, B, A bytes, with the alpha plane as A (255 for a frame with none), for something that reads transparency (a Spout sender). The colour is as the frame holds it, so it is premultiplied when the alpha says so. None for a frame whose pixels don't match its size.
+    pub fn to_rgba(&self) -> Option<Vec<u8>> {
+        let rgb = crate::image::frame_rgb(self)?;
+        let n = self.width as usize * self.height as usize;
+        if rgb.len() != n * 3 {
+            return None;
+        }
+        let mut out = vec![255; n * 4];
+        crate::image::add_alpha(&rgb, self.width as usize, &mut out);
+        if let Some(alpha) = self.alpha() {
+            out.as_chunks_mut::<4>().0.iter_mut().zip(&alpha.data).for_each(|(p, &a)| p[3] = a);
+        }
+        Some(out)
     }
 
     /// The pixels to change, copied first if anything else still holds them.
@@ -355,6 +492,11 @@ pub trait CpuStep: Send {
     fn card_block_chroma(&self) -> bool {
         false
     }
+    /// Whether the step leaves every pixel where it was (a colour change, a filter that works on each place alone), so the cut-out the frame
+    /// carries (Frame::alpha) still fits. The pipeline drops it after an Effects or Cover step that doesn't say so.
+    fn keeps_geometry(&self) -> bool {
+        false
+    }
     /// What the window's view steps answer with: a number that is the same for as long as the step puts the picture's pixels in the
     /// same places. A step that keeps pictures of its own downstream (denoising over time) starts again when it changes.
     fn geometry_key(&self) -> u64 {
@@ -497,5 +639,137 @@ mod tests {
             sole.replace_data(vec![3; 80_000]);
             assert_eq!(crate::image::spare_bytes(80_000).capacity(), 80_000, "the old buffer comes back out");
         });
+    }
+
+    fn with_alpha(mut f: Frame, a: u8, premultiplied: bool) -> Frame {
+        let n = f.width as usize * f.height as usize;
+        assert!(f.set_alpha(Arc::new(Alpha::new(f.width, f.height, vec![a; n], premultiplied))));
+        f
+    }
+
+    #[test]
+    fn the_alpha_stays_through_changes_to_the_pixels_and_clones_and_is_not_serialised() {
+        let mut f = with_alpha(Frame::new(2, 2, PixelFormat::I420, vec![1; 6]), 90, false);
+        let clone = f.clone();
+        assert!(Arc::ptr_eq(f.alpha().unwrap(), clone.alpha().unwrap()), "a clone shares it");
+        f.data_mut()[0] = 9;
+        assert!(f.alpha().is_some());
+        f.replace_data(vec![3; 6]);
+        assert!(f.alpha().is_some());
+        f.share_data(Arc::new(vec![4; 6]));
+        assert_eq!(f.alpha().unwrap().data, [90; 4]);
+        assert_ne!(f, clone, "a different picture");
+        let json = serde_json::to_value(&f).unwrap();
+        assert_eq!(json.as_object().unwrap().keys().len(), 4);
+        let back: Frame = serde_json::from_value(json).unwrap();
+        assert!(back.alpha().is_none());
+        f.clear_alpha();
+        assert!(f.alpha().is_none());
+    }
+
+    #[test]
+    fn an_alpha_plane_of_another_size_is_refused_and_one_left_behind_by_a_size_change_reads_as_none() {
+        let mut f = Frame::new(4, 2, PixelFormat::Rgba, vec![0; 32]);
+        assert!(!f.set_alpha(Arc::new(Alpha::new(2, 2, vec![255; 4], false))));
+        assert!(f.alpha().is_none());
+        let mut f = with_alpha(f, 255, false);
+        (f.width, f.height) = (2, 2);
+        f.replace_data(vec![0; 16]);
+        assert!(f.alpha().is_none());
+        assert!(f.flattened([0, 0, 0]).alpha().is_none());
+    }
+
+    #[test]
+    fn flattening_a_frame_with_no_alpha_gives_the_same_pixels() {
+        for format in [PixelFormat::I420, PixelFormat::Nv12, PixelFormat::Bgra, PixelFormat::Rgba] {
+            let f = Frame::new(5, 3, format, (0..format.size(5, 3)).map(|i| i as u8).collect());
+            let flat = f.flattened([200, 100, 50]);
+            assert!(Arc::ptr_eq(&f.data, &flat.data), "{format:?} shares the pixels");
+            assert_eq!(*flat.data, *f.data);
+        }
+    }
+
+    #[test]
+    fn flattening_puts_the_alpha_over_the_background_in_every_format() {
+        let (w, h) = (4usize, 4usize);
+        // Half of each pixel is the picture; the colour is stored as it is, or already multiplied by the alpha
+        for premultiplied in [false, true] {
+            let scale = |v: u8| if premultiplied { (v as u32 * 128 + 127) / 255 } else { v as u32 } as u8;
+            // Either way it is half the colour over half the background, to within the rounding
+            let expect = |c: u8, bg: u8| c as f32 * 128.0 / 255.0 + bg as f32 * 127.0 / 255.0;
+            for (format, order) in [(PixelFormat::Rgba, [0, 1, 2]), (PixelFormat::Bgra, [2, 1, 0])] {
+                let px = [200u8, 100, 50];
+                let mut data = Vec::new();
+                for _ in 0..w * h {
+                    let mut p = [0u8, 0, 0, 77];
+                    for c in 0..3 {
+                        p[order[c]] = scale(px[c]);
+                    }
+                    data.extend(p);
+                }
+                let f = with_alpha(Frame::new(w as u32, h as u32, format, data), 128, premultiplied);
+                let out = f.flattened([10, 20, 30]);
+                assert!(out.alpha().is_none());
+                for p in out.data.chunks(4) {
+                    for (c, bg) in [(0, 10u8), (1, 20), (2, 30)] {
+                        let got = p[order[c]] as f32;
+                        assert!((got - expect(px[c], bg)).abs() <= 1.5, "{format:?} channel {c}: {got}");
+                    }
+                    assert_eq!(p[3], 255, "nothing is left transparent");
+                }
+            }
+            // I420 and NV12 over black (Y 16, U and V 128): every plane value is blended on its own, chroma by its block's alpha
+            for format in [PixelFormat::I420, PixelFormat::Nv12] {
+                let n = format.size(w as u32, h as u32);
+                let data: Vec<u8> = (0..n).map(|i| if i < w * h { scale(180) } else { scale(60) }).collect();
+                let out = with_alpha(Frame::new(w as u32, h as u32, format, data), 128, premultiplied).flattened([0, 0, 0]);
+                let want = |c: u8, bg: f32| c as f32 * 128.0 / 255.0 + bg * 127.0 / 255.0;
+                for (i, v) in out.data.iter().enumerate() {
+                    let expected = if i < w * h { want(180, 16.0) } else { want(60, 128.0) };
+                    assert!((*v as f32 - expected).abs() <= 1.5, "{format:?} byte {i}: {v} against {expected}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_chroma_sample_is_as_opaque_as_its_block_and_fully_opaque_pixels_are_untouched() {
+        // 4 x 2: the left 2 x 2 block is the picture, the right one is all background
+        let mut a = vec![255, 255, 0, 0, 255, 255, 0, 0];
+        let f = Frame::new(4, 2, PixelFormat::I420, vec![200, 200, 200, 200, 200, 200, 200, 200, 60, 60, 90, 90]);
+        let out = {
+            let mut f = f.clone();
+            assert!(f.set_alpha(Arc::new(Alpha::new(4, 2, a.clone(), false))));
+            f.flattened([0, 0, 0])
+        };
+        assert_eq!(out.data[..8], [200, 200, 16, 16, 200, 200, 16, 16]);
+        assert_eq!(out.data[8..], [60, 128, 90, 128]);
+        a[0] = 0;
+        let mut half = f.clone();
+        half.set_alpha(Arc::new(Alpha::new(4, 2, a, false)));
+        // one transparent pixel of the four: the chroma is three quarters picture
+        let chroma = half.flattened([0, 0, 0]).data[8] as f32;
+        assert!((chroma - (60.0 * 0.75 + 128.0 * 0.25)).abs() <= 1.0, "{chroma}");
+    }
+
+    #[test]
+    fn an_rgba_read_of_a_frame_with_alpha_shows_it() {
+        let f = Frame::new(2, 1, PixelFormat::Rgba, vec![10, 20, 30, 255, 40, 50, 60, 255]);
+        assert_eq!(f.to_rgba().unwrap(), [10, 20, 30, 255, 40, 50, 60, 255]);
+        let mut cut = f.clone();
+        assert!(cut.set_alpha(Arc::new(Alpha::new(2, 1, vec![0, 200], false))));
+        assert_eq!(cut.to_rgba().unwrap(), [10, 20, 30, 0, 40, 50, 60, 200]);
+        let i420 = with_alpha(Frame::new(2, 2, PixelFormat::I420, vec![16, 16, 16, 16, 128, 128]), 7, false);
+        let rgba = i420.to_rgba().unwrap();
+        assert_eq!((rgba.len(), rgba[3], rgba[15]), (16, 7, 7));
+    }
+
+    #[test]
+    fn a_background_colour_is_converted_for_the_yuv_planes() {
+        let clear = with_alpha(Frame::new(2, 2, PixelFormat::I420, vec![90; 6]), 0, false);
+        assert_eq!(*clear.flattened([255, 255, 255]).data, [235, 235, 235, 235, 128, 128]);
+        assert_eq!(*clear.flattened([0, 0, 0]).data, [16, 16, 16, 16, 128, 128]);
+        let red = clear.flattened([255, 0, 0]).data.clone();
+        assert!(red[0].abs_diff(81) <= 1 && red[4].abs_diff(90) <= 1 && red[5].abs_diff(240) <= 1, "{red:?}");
     }
 }

@@ -92,6 +92,15 @@ impl Entry {
         self.fails >= STEP_FAILS_BEFORE_SKIP
     }
 
+    /// Whether the cut-out a frame carries (Frame::alpha) no longer fits after this step ran: an Effects or Cover step that doesn't say it keeps every pixel in place, and any card-only one there, which can move anything.
+    fn drops_alpha(&self) -> bool {
+        matches!(self.stage, FrameStage::Effects | FrameStage::Cover)
+            && match &self.kind {
+                Kind::Cpu(step) | Kind::Either(_, step) => !step.keeps_geometry(),
+                Kind::Shader(_) => true,
+            }
+    }
+
     /// A CPU step that says it's there to hide something, or a card-only step at a stage that hides: when it fails, what goes on is a dark frame, never the clear one.
     fn hides(&self) -> bool {
         match &self.kind {
@@ -268,12 +277,17 @@ impl Pipeline {
             chain.downs += 1;
             let cap = SPARE_POOL_FRAMES * held.size().0 as usize * held.size().1 as usize * 3;
             let down_began = chain.timing.then(monotonic_ns);
+            // The card gives back a new frame, so the cut-out the one in hand carries goes onto it
+            let alpha = frame.alpha().cloned();
             let landed = self.pool.scope(cap, || gpu.land_until(held, &|| ctx.stopped()).map(|out| std::mem::replace(frame, out).recycle()));
             if let Some(began) = down_began {
                 chain.down_ns += monotonic_ns().saturating_sub(began);
             }
             match landed {
                 Ok(()) => {
+                    if let Some(alpha) = alpha {
+                        frame.set_alpha(alpha);
+                    }
                     chain.waited_ns += held.take_waited();
                     for i in chain.ahead.drain(..) {
                         self.steps[i].fails = 0;
@@ -410,6 +424,7 @@ impl Pipeline {
         }
         let entry = &mut self.steps[i];
         let hides = entry.hides();
+        let drops_alpha = entry.drops_alpha();
         let step = entry.kind.cpu();
         // A step that changes pixels in place would copy them all if a clone kept the old ones, so only one that failed on its last frame
         // gets that fallback; a built-in step that panics the first time may hand on a half-changed frame. Whole-frame writers build a new
@@ -421,7 +436,12 @@ impl Pipeline {
         let cap = SPARE_POOL_FRAMES * frame.width as usize * frame.height as usize * 3;
         let pool = &mut self.pool;
         match catch_unwind(AssertUnwindSafe(|| pool.scope(cap, || step.process(frame, ctx)))) {
-            Ok(()) if sound(frame) => entry.fails = 0,
+            Ok(()) if sound(frame) => {
+                entry.fails = 0;
+                if drops_alpha {
+                    frame.clear_alpha();
+                }
+            }
             Ok(()) => {
                 entry.failed(&format!("handed back {}x{} {:?} with {} bytes", frame.width, frame.height, frame.format, frame.data.len()));
                 *frame = before.clone().unwrap_or_else(|| neutral(size, format, frame));
@@ -433,7 +453,11 @@ impl Pipeline {
                 match &before {
                     Some(before) => *frame = before.clone(),
                     None if hides || !sound(frame) => *frame = neutral(size, format, frame),
-                    None => {}
+                    None => {
+                        if drops_alpha {
+                            frame.clear_alpha();
+                        }
+                    }
                 }
             }
         }
@@ -521,6 +545,10 @@ impl Pipeline {
         // A frame that went dark has nothing of the room in it, and the step's last frame has: it starts again from this one
         let shaded = gpu.shade_with(chain.held.as_mut().unwrap(), entry.kind.slot(), time, self.mask.as_ref().filter(|_| masked), !chain.withheld);
         chain.ahead.push(i);
+        if self.steps[i].drops_alpha() {
+            // The frame in hand is behind the card, and the cut-out it carries is the one that lands with the picture
+            frame.clear_alpha();
+        }
         if let Err(why) = shaded {
             // What was recorded for this frame can't be trusted, so it is lost as a failed readback loses it
             self.card_failed(&why, chain, frame, ctx, &gpu);
@@ -897,7 +925,7 @@ impl FramePipeline for Pipeline {
 pub(crate) mod tests {
     use super::*;
     use std::sync::Arc;
-    use telescope_core::frame::{PixelFormat, ShaderStep};
+    use telescope_core::frame::{Alpha, PixelFormat, ShaderStep};
 
     pub(crate) struct NoContext;
 
@@ -2536,5 +2564,88 @@ pub(crate) mod tests {
             let out = p.hide_again(went_out.clone(), context).expect("the room is in the picture that went out");
             assert!(is_dark(&out));
         }
+    }
+
+    /// Cuts the picture out: gives the frame an alpha plane, as the steps that cut a person out do.
+    struct Cuts;
+
+    impl CpuStep for Cuts {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            let plane = Alpha::new(frame.width, frame.height, vec![128; frame.width as usize * frame.height as usize], false);
+            assert!(frame.set_alpha(Arc::new(plane)));
+        }
+    }
+
+    /// Brightens the pixels where they are, by writing a whole new buffer.
+    struct Brightens;
+
+    impl CpuStep for Brightens {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            let data = frame.data.iter().map(|v| v.saturating_add(1)).collect();
+            frame.replace_data(data);
+        }
+        fn keeps_geometry(&self) -> bool {
+            true
+        }
+    }
+
+    /// Halves the picture's size, which a cut-out of the old size no longer fits.
+    struct Halves;
+
+    impl CpuStep for Halves {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            let (w, h) = (frame.width / 2, frame.height / 2);
+            (frame.width, frame.height) = (w, h);
+            frame.replace_data(vec![90; PixelFormat::I420.size(w, h)]);
+        }
+        fn keeps_geometry(&self) -> bool {
+            true
+        }
+    }
+
+    fn after(steps: Vec<StagedStep>) -> Frame {
+        let mut p = Pipeline::new();
+        p.set_steps(steps);
+        p.process(grey(8, 8, 100), &NoContext)
+    }
+
+    #[test]
+    fn a_cut_out_goes_through_colour_and_privacy_steps_but_not_a_step_that_moves_pixels() {
+        let cut = || step("background", FrameStage::Background, Cuts);
+        let out = after(vec![cut(), step("grade", FrameStage::Colour, Brightens), step("blur", FrameStage::Privacy, Brightens), step("tag", FrameStage::Overlay, Push(7, Arc::default()))]);
+        assert_eq!(out.data[1], 102, "the colour and privacy steps ran");
+        assert_eq!(out.alpha().map(|a| a.data[0]), Some(128));
+        let out = after(vec![cut(), step("filters", FrameStage::Effects, Brightens)]);
+        assert!(out.alpha().is_some(), "a step that says it keeps every pixel in place");
+        let out = after(vec![cut(), step("fun", FrameStage::Effects, Push(7, Arc::default()))]);
+        assert_eq!(out.data[0], 7);
+        assert!(out.alpha().is_none(), "an Effects step that doesn't say so may have moved pixels");
+        let out = after(vec![cut(), step("wait", FrameStage::Cover, Rebuilds)]);
+        assert!(out.alpha().is_none(), "the wait screen replaces the picture");
+        let out = after(vec![cut(), step("view", FrameStage::Colour, Halves)]);
+        assert_eq!((out.width, out.alpha().is_none()), (4, true), "a plane of the old size doesn't fit the new picture");
+    }
+
+    #[test]
+    fn a_frame_that_goes_dark_has_no_cut_out() {
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("background", FrameStage::Background, Cuts), step("blur", FrameStage::Privacy, HidingPanics)]);
+        let out = quietly(|| p.process(grey(8, 8, 100), &NoContext));
+        assert!(is_dark(&out) && out.alpha().is_none());
+    }
+
+    #[test]
+    fn a_cut_out_is_still_there_after_the_card_has_worked_on_the_picture() {
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let on_card = |stage: FrameStage| StagedStep { stage, ..shader(INVERT) };
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        p.set_steps(vec![step("background", FrameStage::Background, Cuts), on_card(FrameStage::Colour), step("blur", FrameStage::Privacy, Brightens)]);
+        let out = p.process(grey(8, 8, 100), &NoContext);
+        assert_ne!(out.data[0], 100, "the card's work landed");
+        assert_eq!(out.alpha().map(|a| a.data[0]), Some(128), "re-attached to the frame the card gave back");
+        p.set_steps(vec![step("background", FrameStage::Background, Cuts), on_card(FrameStage::Effects)]);
+        assert!(p.process(grey(8, 8, 100), &NoContext).alpha().is_none(), "a card-only step in Effects may move anything");
     }
 }

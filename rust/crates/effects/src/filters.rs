@@ -267,6 +267,10 @@ impl Pixels {
 }
 
 impl CpuStep for Pixels {
+    fn keeps_geometry(&self) -> bool {
+        true
+    }
+
     fn forget_history(&mut self, source: &str) {
         if let Some(forget) = &self.forget {
             forget(source);
