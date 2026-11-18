@@ -294,3 +294,16 @@ fn pinning_a_tile_zoomed_far_in_keeps_a_crop_that_can_be_dragged_without_leaving
     let cut = cropped(&pinned, "l", 0.1, 0.0);
     assert!(cut.x >= 0.0 && cut.x + cut.w <= 1.0 + 1e-9);
 }
+
+#[test]
+fn swapping_two_tiles_trades_their_places_and_sizes_and_nothing_else() {
+    let mut a = Tile::boxed("a", "A", 0.0, 0.0, 0.7, 1.0);
+    a.zoom = 2.0;
+    let b = Tile::boxed("b", "B", 0.7, 0.0, 0.3, 0.4);
+    let out = swapped(&[a.clone(), b.clone()], 0, 1);
+    assert_eq!((out[0].source_id.as_str(), out[0].x, out[0].w, out[0].h), ("a", 0.7, 0.3, 0.4));
+    assert_eq!((out[1].source_id.as_str(), out[1].x, out[1].w, out[1].h), ("b", 0.0, 0.7, 1.0));
+    assert_eq!(out[0].zoom, 2.0, "each keeps its own zoom");
+    assert_eq!(swapped(&[a.clone(), b.clone()], 0, 0), [a.clone(), b.clone()]);
+    assert_eq!(swapped(&[a.clone(), b.clone()], 0, 5), [a, b]);
+}

@@ -513,6 +513,17 @@ pub fn raised(tiles: &[Tile], index: i64, step: i64) -> Vec<Tile> {
     items
 }
 
+/// tiles with the boxes (place and size) of a and b exchanged: each keeps its own stream, crop, zoom and look.
+pub fn swapped(tiles: &[Tile], a: usize, b: usize) -> Vec<Tile> {
+    let mut out = tiles.to_vec();
+    if a != b && a < out.len() && b < out.len() {
+        let (first, second) = ((out[a].x, out[a].y, out[a].w, out[a].h), (out[b].x, out[b].y, out[b].w, out[b].h));
+        (out[a].x, out[a].y, out[a].w, out[a].h) = second;
+        (out[b].x, out[b].y, out[b].w, out[b].h) = first;
+    }
+    out
+}
+
 /// A colour as (B, G, R), black for one that isn't "#rrggbb".
 pub fn bgr(c: &str) -> [u8; 3] {
     let c = colour(Some(&Value::String(c.into())), "#000000");

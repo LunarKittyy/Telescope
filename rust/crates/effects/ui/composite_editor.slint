@@ -268,6 +268,12 @@ export component CompositeEditor inherits Window {
     in property <float> radius-max: 200;
     in property <string> radius-text;
     in property <bool> fit-enabled;
+    in property <string> pos-x-text;
+    in property <string> pos-y-text;
+    in property <string> size-w-text;
+    in property <string> size-h-text;
+    in property <[string]> swap-items;
+    in property <bool> swap-enabled;
     in property <bool> back-enabled;
     in property <bool> front-enabled;
     in property <string> background-code: "#15151a";
@@ -297,6 +303,9 @@ export component CompositeEditor inherits Window {
     callback border-moved(float);
     callback radius-moved(float);
     callback fit-clicked;
+    callback box-committed(string, string);
+    callback box-step(string, int);
+    callback swap-picked(int);
     callback restack(int);
     callback colour-clicked(string);
     callback channel-moved(int, float);
@@ -321,6 +330,7 @@ export component CompositeEditor inherits Window {
                 horizontal-stretch: 1;
                 Card {
                     title: @tr("Picture");
+                    tip: @tr("Drag a stream to move it. Hold Ctrl to move it without snapping. The arrow keys move it a pixel and Shift with them ten.");
                     icon: Icons.layout;
                     hue: Theme.plugin-hue("streaming");
                     PictureView {
@@ -438,6 +448,67 @@ export component CompositeEditor inherits Window {
                             label-width: Theme.u(36);
                                 label: @tr("Stream");
                                 shown-tile-name := Text { text: selected-tile.name; font-family: Theme.font; font-size: Theme.body; color: Theme.ink; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; Tip { says: shown-tile-name.text; enabled: shown-tile-name.preferred-width > shown-tile-name.width; inert: true; } }
+                            }
+                            LabelRow {
+                                label-width: Theme.u(36);
+                                label: @tr("Position");
+                                HorizontalLayout {
+                                    spacing: Theme.gap;
+                                    NumberField {
+                                        label: @tr("Left");
+                                        tip: @tr("Left");
+                                        tip-detail: @tr("How far the left edge of the stream is from the left edge of the picture, in pixels.");
+                                        value: pos-x-text;
+                                        committed(t) => { root.box-committed("x", t); }
+                                        step(d) => { root.box-step("x", -d); }
+                                    }
+                                    NumberField {
+                                        label: @tr("Top");
+                                        tip: @tr("Top");
+                                        tip-detail: @tr("How far the top edge of the stream is from the top of the picture, in pixels.");
+                                        value: pos-y-text;
+                                        committed(t) => { root.box-committed("y", t); }
+                                        step(d) => { root.box-step("y", -d); }
+                                    }
+                                }
+                            }
+                            LabelRow {
+                                label-width: Theme.u(36);
+                                label: @tr("Size");
+                                HorizontalLayout {
+                                    spacing: Theme.gap;
+                                    NumberField {
+                                        label: @tr("Width");
+                                        tip: @tr("Width");
+                                        tip-detail: @tr("The width of the stream's box in pixels.");
+                                        value: size-w-text;
+                                        committed(t) => { root.box-committed("w", t); }
+                                        step(d) => { root.box-step("w", -d); }
+                                    }
+                                    NumberField {
+                                        label: @tr("Height");
+                                        tip: @tr("Height");
+                                        tip-detail: @tr("The height of the stream's box in pixels.");
+                                        value: size-h-text;
+                                        committed(t) => { root.box-committed("h", t); }
+                                        step(d) => { root.box-step("h", -d); }
+                                    }
+                                }
+                            }
+                            LabelRow {
+                                label-width: Theme.u(36);
+                                label: @tr("Swap with");
+                                ChoiceField {
+                                    compact: true;
+                                    caption: @tr("Swap with");
+                                    placeholder: @tr("Choose a stream");
+                                    items: swap-items;
+                                    current: -1;
+                                    enabled: swap-enabled;
+                                    tip: @tr("Swap with");
+                                    tip-detail: @tr("Trade this stream's place and size with another stream's.");
+                                    picked(i) => { root.swap-picked(i); }
+                                }
                             }
                             SliderRow {
                                     label-width: Theme.u(36);

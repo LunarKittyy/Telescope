@@ -300,3 +300,34 @@ fn the_preview_draws_while_the_window_is_open() {
     r.plugin.on_event(&mut r.host, &Event::TimerFired { owner: NAME.into(), token: CompositePlugin::EDITOR_TIMER.into() });
     assert!(r.host.scheduled.is_empty(), "no more after it closes");
 }
+
+#[test]
+fn the_position_and_size_boxes_set_the_box_in_canvas_pixels_and_keep_it_on_the_picture() {
+    let mut r = open();
+    r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 0.5, 0.5), Tile::boxed("b", "", 0.1, 0.1, 0.4, 0.4)]);
+    r.plugin.select(1);
+    assert_eq!((r.props()["pos-x-text"].clone(), r.props()["size-w-text"].clone()), (json!("32"), json!("128")));
+    r.ui("box-committed", json!(["x", "64 px"]));
+    assert!(near(r.tile(1).x, 0.2, 1e-9), "{}", r.tile(1).x);
+    r.ui("box-committed", json!(["w", "5000"]));
+    assert!(near(r.tile(1).x + r.tile(1).w, 1.0, 1e-9), "kept on the picture");
+    r.ui("box-committed", json!(["x", "nonsense"]));
+    assert!(near(r.tile(1).x, 0.2, 1e-9), "text that isn't a number changes nothing");
+    r.ui("box-step", json!(["y", 9]));
+    assert!(near(r.tile(1).y, 0.1 + 9.0 / 180.0, 1e-9));
+    r.ui("box-committed", json!(["h", "1"]));
+    assert!(near(r.tile(1).h, crate::composite::MIN_SIZE, 1e-9), "never smaller than the least size");
+}
+
+#[test]
+fn a_stream_can_swap_places_with_another_from_the_picked_stream_card() {
+    let mut r = open();
+    r.picture(vec![Tile::boxed("a", "Left", 0.0, 0.0, 0.5, 1.0), Tile::boxed("b", "Right", 0.5, 0.0, 0.5, 1.0), Tile::boxed("c", "Corner", 0.8, 0.8, 0.2, 0.2)]);
+    r.plugin.select(0);
+    assert_eq!((r.props()["swap-items"].clone(), r.props()["swap-enabled"].clone()), (json!(["Right", "Corner"]), json!(true)));
+    r.ui("swap-picked", json!([1]));
+    assert_eq!((r.tile(0).source_id.clone(), r.tile(0).x, r.tile(2).source_id.clone(), r.tile(2).x), ("a".to_string(), 0.8, "c".to_string(), 0.0));
+    assert_eq!(r.props()["selected"], json!(0), "the picked stream stays picked");
+    r.plugin.select(-1);
+    assert_eq!(r.props()["swap-enabled"], json!(false));
+}
