@@ -190,7 +190,7 @@ export component SettingsNav inherits Rectangle {
 // How wide a Settings page's content may grow, the same on every page: past this a name and its control are too far apart to read as
 // one row. Pages keep to the left, under the page title, however wide the window is.
 export global SettingsLayout {
-    out property <length> content-max: Theme.u(260);
+    out property <length> content-max: Theme.page-w;
 }
 
 export component ScrollPage inherits Flickable {

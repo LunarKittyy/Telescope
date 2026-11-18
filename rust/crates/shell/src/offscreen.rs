@@ -163,9 +163,9 @@ pub fn redraw(window: &slint::Window) -> bool {
     })
 }
 
-/// Draws the most recently created window at width x height logical pixels and scale.
+/// Draws `window` (the most recently created one if it isn't one of this platform's) at width x height logical pixels and scale.
 pub fn draw(window: &slint::Window, width: f32, height: f32, scale: f32) -> Option<Picture> {
-    let adapter = WINDOWS.with(|w| w.borrow().last().cloned())?;
+    let adapter = WINDOWS.with(|w| w.borrow().iter().find(|a| std::ptr::eq(a.window(), window)).or(w.borrow().last()).cloned())?;
     window.dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor: scale });
     let (pw, ph) = ((width * scale).round() as u32, (height * scale).round() as u32);
     window.set_size(slint::PhysicalSize::new(pw, ph));

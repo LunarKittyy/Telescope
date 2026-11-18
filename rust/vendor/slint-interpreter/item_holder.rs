@@ -17,16 +17,81 @@ use std::pin::Pin;
 use std::rc::Rc;
 use vtable::{HasStaticVTable, VRef};
 
+/// Telescope patch: the property and callback tables of an item type, built once per thread and type, owned by the thread.
+///
+/// `BuiltinItem::properties` builds a fresh Vec of every property of the type on each call, and the interpreter looked a
+/// property up by name on every native read, write and callback call, so each one allocated and freed that Vec.
+struct Tables<T: 'static> {
+    properties: Vec<(&'static str, &'static dyn PropertyInfo<T, Value>)>,
+    callbacks: Vec<(&'static str, &'static dyn CallbackInfo<T, Value>)>,
+}
+
+/// Hashes a `TypeId`, which is already a hash.
+#[derive(Default)]
+struct IdHasher(u64);
+
+impl std::hash::Hasher for IdHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+    fn write(&mut self, bytes: &[u8]) {
+        for chunk in bytes.chunks(8) {
+            let mut word = [0u8; 8];
+            word[..chunk.len()].copy_from_slice(chunk);
+            self.0 ^= u64::from_le_bytes(word);
+        }
+    }
+}
+
+thread_local! {
+    static TABLES: std::cell::RefCell<
+        std::collections::HashMap<
+            std::any::TypeId,
+            Box<dyn std::any::Any>,
+            std::hash::BuildHasherDefault<IdHasher>,
+        >,
+    > = Default::default();
+}
+
+/// Runs `find` on the tables of `T`, `None` when the thread's tables are already gone (a thread-local destructor reading
+/// a property while the thread ends).
+fn with_tables<T: 'static + BuiltinItem, R>(find: impl FnOnce(&Tables<T>) -> R) -> Option<R> {
+    TABLES
+        .try_with(|tables| {
+            let mut tables = tables.borrow_mut();
+            let entry = tables.entry(std::any::TypeId::of::<T>()).or_insert_with(|| {
+                Box::new(Tables::<T> {
+                    properties: T::properties::<Value>(),
+                    callbacks: T::callbacks::<Value>(),
+                })
+            });
+            find(entry.downcast_ref::<Tables<T>>().expect("tables of another type"))
+        })
+        .ok()
+}
+
 fn find_property<T: 'static + BuiltinItem>(
     name: &str,
 ) -> Option<&'static dyn PropertyInfo<T, Value>> {
-    T::properties::<Value>().into_iter().find_map(|(n, info)| (n == name).then_some(info))
+    let find = |properties: &[(&'static str, &'static dyn PropertyInfo<T, Value>)]| {
+        properties.iter().find_map(|(n, info)| (*n == name).then_some(*info))
+    };
+    match with_tables::<T, _>(|tables| find(&tables.properties)) {
+        Some(found) => found,
+        None => find(&T::properties::<Value>()),
+    }
 }
 
 fn find_callback<T: 'static + BuiltinItem>(
     name: &str,
 ) -> Option<&'static dyn CallbackInfo<T, Value>> {
-    T::callbacks::<Value>().into_iter().find_map(|(n, info)| (n == name).then_some(info))
+    let find = |callbacks: &[(&'static str, &'static dyn CallbackInfo<T, Value>)]| {
+        callbacks.iter().find_map(|(n, info)| (*n == name).then_some(*info))
+    };
+    match with_tables::<T, _>(|tables| find(&tables.callbacks)) {
+        Some(found) => found,
+        None => find(&T::callbacks::<Value>()),
+    }
 }
 
 impl<T> ErasedItem for T
