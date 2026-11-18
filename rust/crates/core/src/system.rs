@@ -175,7 +175,8 @@ pub fn free_space(path: &Path) -> Option<u64> {
         extern "system" {
             fn GetDiskFreeSpaceExW(directory: *const u16, available: *mut u64, total: *mut u64, free: *mut u64) -> i32;
         }
-        let wide: Vec<u16> = at.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+        let mut wide = unc_root(at.as_os_str().encode_wide().collect());
+        wide.push(0);
         let mut available = 0u64;
         // SAFETY: wide is NUL-terminated and outlives the call, and the one out pointer that is wanted points at a live u64 (the others may be null)
         let ok = unsafe { GetDiskFreeSpaceExW(wide.as_ptr(), &mut available, std::ptr::null_mut(), std::ptr::null_mut()) };
@@ -183,9 +184,28 @@ pub fn free_space(path: &Path) -> Option<u64> {
     }
 }
 
+/// A UNC path (`\\server\share`) with the trailing backslash GetDiskFreeSpaceExW wants, as UTF-16; other paths as they are.
+#[cfg_attr(not(windows), allow(dead_code))]
+fn unc_root(mut path: Vec<u16>) -> Vec<u16> {
+    let slash = u16::from(b'\\');
+    if path.len() > 2 && path[..2] == [slash, slash] && path.last() != Some(&slash) {
+        path.push(slash);
+    }
+    path
+}
+
 #[cfg(test)]
 mod free_space_tests {
-    use super::free_space;
+    use super::{free_space, unc_root};
+
+    #[test]
+    fn a_share_gets_the_trailing_backslash_a_unc_path_needs() {
+        let wide = |s: &str| s.encode_utf16().collect::<Vec<u16>>();
+        assert_eq!(unc_root(wide(r"\\server\share")), wide(r"\\server\share\"));
+        assert_eq!(unc_root(wide(r"\\server\share\")), wide(r"\\server\share\"));
+        assert_eq!(unc_root(wide(r"\\server\share\Pictures")), wide(r"\\server\share\Pictures\"));
+        assert_eq!(unc_root(wide(r"C:\Users")), wide(r"C:\Users"));
+    }
 
     #[test]
     fn a_folder_that_is_not_made_yet_is_on_its_parents_volume() {

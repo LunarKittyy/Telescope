@@ -171,7 +171,7 @@ fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions
     let link = Arc::new(telescope_link::LinkService::new());
     let problems = telescope_core::services::PluginProblems::default();
     // Added plugins can't take a built-in's name
-    let reserved: Vec<String> = vec!["camera_control".into(), "onboarding".into(), "connection".into(), "browser_camera".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "spout".into(), "transforms".into(), "colour_grading".into(), "filters".into(), "notes".into(), "name_tag".into(), "composite".into(), "stereo".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "phototrap".into(), "qr_reader".into(), "on_air".into(), "cinema".into(), "background".into(), "privacy_blur".into(), "framing".into(), "face_exposure".into(), "setup".into(), "monitoring".into(), "stats".into(), "mcp".into()];
+    let reserved: Vec<String> = vec!["camera_control".into(), "onboarding".into(), "connection".into(), "browser_camera".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "spout".into(), "transforms".into(), "colour_grading".into(), "filters".into(), "notes".into(), "name_tag".into(), "composite".into(), "stereo".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "phototrap".into(), "stargazer".into(), "qr_reader".into(), "on_air".into(), "cinema".into(), "background".into(), "privacy_blur".into(), "framing".into(), "face_exposure".into(), "setup".into(), "monitoring".into(), "stats".into(), "mcp".into()];
     let admin: Arc<dyn telescope_core::plugin_admin::PluginAdmin> = Arc::new(telescope_plugin_host::admin::Admin::app(reserved.clone()));
     let added = telescope_plugin_host::load::factory(reserved, telescope_core::i18n::language(), problems.clone());
     let media: Arc<dyn telescope_core::media::Media> = Arc::new(telescope_media::FfmpegMedia);
@@ -233,6 +233,7 @@ fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions
                 Box::new(telescope_system::startup::StartupPlugin::new(Arc::new(telescope_system::Desktop))),
                 Box::new(telescope_effects::photos::PhotosPlugin::new()),
                 Box::new(telescope_effects::phototrap::PhototrapPlugin::new()),
+                Box::new(telescope_effects::stargazer::StargazerPlugin::new()),
                 Box::new(telescope_effects::qr_reader::QrReaderPlugin::new()),
                 Box::new(telescope_effects::on_air_plugin::OnAirPlugin::new(machine.web.clone(), Some(sign_outputs.clone()))),
                 Box::new(telescope_setup::monitoring::MonitoringPlugin::new()),

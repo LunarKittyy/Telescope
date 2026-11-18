@@ -95,7 +95,7 @@ impl Rig {
     /// process_frame: the frame after the step as it is now.
     fn process(&mut self, rgb: &Rgb) -> Rgb {
         let mut frame = frame_of(rgb);
-        if let Some(FrameStep::Cpu(mut step)) = self.plugin.frame_step() {
+        if let Some(FrameStep::Cpu(mut step) | FrameStep::Either(_, mut step)) = self.plugin.frame_step() {
             step.process(&mut frame, &self.ctx);
         }
         Rgb::from_frame(&frame).unwrap()
@@ -210,7 +210,7 @@ fn a_frame_in_yuv_without_a_mask_is_hidden_too() {
     rig.set_mode("blur");
     let source = i420_of(&stripes(64, 40));
     let mut frame = source.clone();
-    let Some(FrameStep::Cpu(mut step)) = rig.plugin.frame_step() else { panic!("a CPU step") };
+    let Some(FrameStep::Cpu(mut step) | FrameStep::Either(_, mut step)) = rig.plugin.frame_step() else { panic!("a CPU step") };
     step.process(&mut frame, &rig.ctx);
     assert_ne!(frame.data, source.data);
 }
@@ -236,7 +236,7 @@ fn a_mask_that_goes_away_leaves_the_room_hidden() {
 fn a_frozen_step_keeps_its_settings() {
     let mut rig = Rig::new(Some(Gray::new(64, 36)), vision::READY);
     rig.set_mode("blur");
-    let Some(FrameStep::Cpu(mut step)) = rig.plugin.frame_step() else { panic!("a CPU step") };
+    let Some(FrameStep::Cpu(mut step) | FrameStep::Either(_, mut step)) = rig.plugin.frame_step() else { panic!("a CPU step") };
     rig.set_mode("off");
     let source = stripes(64, 36);
     let mut frame = frame_of(&source);
@@ -545,7 +545,7 @@ impl FrameContext for Held {
 
 fn step_in(mode: &str, blur: i64, edges: i64) -> Step {
     let mode = MODES.iter().position(|(k, _)| *k == mode).unwrap();
-    Step { settings: Settings { mode, blur, edges, cut_in: 0, picture: None, high_quality: false }, covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None }
+    Step { settings: Settings { mode, blur, edges, cut_in: 0, picture: None, high_quality: false }, covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None, card: CardPictures::default() }
 }
 
 fn varied_mask(w: usize, h: usize, seed: usize) -> Gray {
@@ -1068,7 +1068,7 @@ fn the_frame_step_asks_for_the_high_quality_mask_only_with_it_switched_on() {
     let frame = stripes(w, h);
     let run = |rig: &mut Rig| {
         let mut f = frame_of(&frame);
-        if let Some(FrameStep::Cpu(mut step)) = rig.plugin.frame_step() {
+        if let Some(FrameStep::Cpu(mut step) | FrameStep::Either(_, mut step)) = rig.plugin.frame_step() {
             step.process(&mut f, &ctx);
         }
         Rgb::from_frame(&f).unwrap()
@@ -1123,7 +1123,7 @@ fn with_the_high_quality_cutout_on_and_no_mask_at_all_the_room_stays_hidden() {
     assert_eq!(rig.process(&frame), blurred(&frame, 6, None));
     let source = i420_of(&frame);
     let mut yuv = source.clone();
-    let Some(FrameStep::Cpu(mut step)) = rig.plugin.frame_step() else { panic!("a CPU step") };
+    let Some(FrameStep::Cpu(mut step) | FrameStep::Either(_, mut step)) = rig.plugin.frame_step() else { panic!("a CPU step") };
     step.process(&mut yuv, &rig.ctx);
     assert_ne!(yuv.data, source.data);
     let mut rig = Rig::with(BackgroundPlugin::with_reader(reader_of([0, 0, 255])), None, vision::LOADING);

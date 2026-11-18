@@ -42,6 +42,7 @@ pub mod peek;
 pub mod notes;
 pub mod phototrap;
 pub mod photos;
+pub mod stargazer;
 pub mod stills;
 pub mod pixels;
 pub mod privacy_blur;
