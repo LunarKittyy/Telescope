@@ -449,6 +449,35 @@ fn a_cut_out_tile_draws_nothing_until_its_stream_has_an_alpha() {
 }
 
 #[test]
+fn a_cut_out_tile_with_no_alpha_is_drawn_plain_without_a_border_box_after_a_second() {
+    let layout = |cut_out: bool| Layout { background: "#102030".into(), ..Layout::of(vec![Tile { radius: 20, border: 6, border_colour: "#ff0000".into(), cut_out, ..t("a", 0.1, 0.1, 0.5, 0.6) }]) };
+    let plain = frames(vec![("a", solid([10, 200, 90], (90, 160)), Some(1))]);
+    let masked = frames(vec![("a", cut([10, 200, 90], (90, 160), false, |_, _| 255), Some(2))]);
+    let format = PixelFormat::Bgra;
+    let size = (320, 180);
+    let empty = render_in(&Layout { background: "#102030".into(), ..Layout::of(vec![]) }, &plain, size, format);
+    let mut comp = Compositor::default();
+    comp.prepare(&layout(true), size);
+    let s = 1_000_000_000u64;
+    assert_eq!(comp.render_at(&plain, format, 10 * s).unwrap().data, empty.data, "blank when first drawn");
+    assert_eq!(comp.render_at(&plain, format, 10 * s + s / 2).unwrap().data, empty.data, "blank within the grace");
+    let late = comp.render_at(&plain, format, 11 * s).unwrap();
+    assert_ne!(late.data, empty.data, "drawn after the grace");
+    // plain picture in the inner box, no red border box: the border's room stays the canvas
+    let border_off = render_in(&layout(false), &plain, size, format);
+    assert!(!late.data.chunks(4).any(|p| p[2] > 200 && p[1] < 40 && p[0] < 40), "no red border box");
+    assert!(border_off.data.chunks(4).any(|p| p[2] > 200 && p[1] < 40 && p[0] < 40), "a plain tile does have one");
+    // an alpha arriving resets it: without one again, the tile is blank for the grace again
+    comp.render_at(&masked, format, 12 * s).unwrap();
+    assert_eq!(comp.render_at(&plain, format, 12 * s + s / 10).unwrap().data, empty.data, "blank again after an alpha came");
+    // so does the tile stopping being cut out
+    comp.prepare(&layout(false), size);
+    comp.render_at(&plain, format, 13 * s).unwrap();
+    comp.prepare(&layout(true), size);
+    assert_eq!(comp.render_at(&plain, format, 13 * s + s / 10).unwrap().data, empty.data, "blank again after it was switched off and on");
+}
+
+#[test]
 fn a_transition_names_the_cut_outs_it_still_draws_from_the_picture_it_leaves() {
     let spec = Spec { kind: transition::Kind::Crossfade, ms: 500, ease: transition::Ease::Even };
     let mut comp = Compositor::default();

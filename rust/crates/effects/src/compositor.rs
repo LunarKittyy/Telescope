@@ -868,7 +868,16 @@ pub struct Compositor {
     spare: Vec<Vec<u8>>,
     /// The columns of a mix, worked out again each plane of each picture into the same room.
     cols: Vec<(usize, usize, u32)>,
+    /// The clock of the picture being drawn (ns).
+    now: u64,
+    /// Cut-out tiles (by source id) drawn without an alpha in this picture, and when each one first was.
+    waiting: HashMap<String, u64>,
+    /// The same as of the picture before, so a tile that has an alpha now or isn't cut out any more starts again next time.
+    waiting_before: HashMap<String, u64>,
 }
+
+/// How long a cut-out tile whose stream has no alpha stays blank before it is drawn plain (ns).
+const MASK_GRACE_NS: u64 = 1_000_000_000;
 
 impl Default for Compositor {
     fn default() -> Self {
@@ -921,7 +930,7 @@ fn nv12_as_i420(frame: &Frame) -> Option<Frame> {
 
 impl Compositor {
     pub fn new(reader: PictureReader) -> Compositor {
-        Compositor { plan: None, scaled: HashMap::new(), reader, pictures: None, backgrounds: None, planes: Vec::new(), covered: Vec::new(), transition: None, spare: Vec::new(), cols: Vec::new() }
+        Compositor { plan: None, scaled: HashMap::new(), reader, pictures: None, backgrounds: None, planes: Vec::new(), covered: Vec::new(), transition: None, spare: Vec::new(), cols: Vec::new(), now: 0, waiting: HashMap::new(), waiting_before: HashMap::new() }
     }
 
     pub fn prepare(&mut self, layout: &Layout, size: (u32, u32)) {
@@ -1084,6 +1093,14 @@ impl Compositor {
 
     /// render() as it is at `now` (ns): partway through a transition, if one is going.
     pub fn render_at(&mut self, frames: &Frames, format: PixelFormat, now: u64) -> Option<Frame> {
+        self.now = now;
+        self.waiting.clear();
+        let out = self.render_picture(frames, format, now);
+        std::mem::swap(&mut self.waiting, &mut self.waiting_before);
+        out
+    }
+
+    fn render_picture(&mut self, frames: &Frames, format: PixelFormat, now: u64) -> Option<Frame> {
         let plan = self.plan.clone()?;
         let kind = Kind::of(format);
         if let Some(active) = self.transition.as_mut() {
@@ -1175,9 +1192,13 @@ impl Compositor {
         for item in items {
             let (tile, placed) = (item.tile.as_ref(), item.placed);
             let Some((frame, number)) = frames.get(&tile.source_id) else { continue };
-            // a cut-out has nothing to show until its stream's alpha arrives, and the whole frame would flash the room in the meantime
+            // a cut-out has nothing to show until its stream's alpha arrives, as the whole frame would flash the room; if none comes it is drawn plain
             if tile.cut_out && frame.alpha().is_none() {
-                continue;
+                let since = *self.waiting.get(&tile.source_id).or(self.waiting_before.get(&tile.source_id)).unwrap_or(&self.now);
+                self.waiting.insert(tile.source_id.clone(), since);
+                if self.now.saturating_sub(since) < MASK_GRACE_NS {
+                    continue;
+                }
             }
             let (mut x, mut y, mut w, mut h) = placed.bx;
             let under = (item.alpha < 1.0).then(|| save_region(out, kind, cw, chh, (x as usize, y as usize, w as usize, h as usize)));
