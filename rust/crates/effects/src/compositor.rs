@@ -478,7 +478,8 @@ fn restore_mix(canvas: &mut [u8], kind: Kind, cw: usize, chh: usize, bx: (usize,
 fn mix_pictures(out: &mut Vec<u8>, kind: Kind, (cw, chh): (usize, usize), a: &[u8], b: &[u8], how: transition::Kind, p: f64) {
     out.clear();
     out.resize(a.len(), 0);
-    if !matches!(how, transition::Kind::Slide | transition::Kind::Push | transition::Kind::Wipe | transition::Kind::Zoom) {
+    use transition::Kind as K;
+    if !matches!(how, K::Slide | K::Push | K::Wipe | K::Zoom | K::Blinds | K::Curtain | K::Pixelate | K::Iris | K::Dissolve) {
         let m = (p.clamp(0.0, 1.0) * 256.0).round() as u32;
         for ((o, x), y) in out.iter_mut().zip(a).zip(b) {
             *o = ((u32::from(*x) * (256 - m) + u32::from(*y) * m + 128) >> 8) as u8;
@@ -486,8 +487,12 @@ fn mix_pictures(out: &mut Vec<u8>, kind: Kind, (cw, chh): (usize, usize), a: &[u
         return;
     }
     let index = |c: f64, n: usize| ((c * n as f64).floor().max(0.0) as usize).min(n - 1);
-    let straight = how != transition::Kind::Zoom;
+    let straight = !matches!(how, K::Zoom | K::Pixelate);
     for plane in planes(kind, cw, chh) {
+        if matches!(how, K::Iris | K::Dissolve) {
+            mix_regions(out, &plane, a, b, how, p);
+            continue;
+        }
         let cols: Vec<(usize, usize, u32)> = (0..plane.w).map(|x| {
             let cell = transition::cell(how, false, (x as f64 + 0.5) / plane.w as f64, p);
             (index(cell.a, plane.w), index(cell.b, plane.w), (cell.mix * 256.0).round() as u32)
@@ -538,6 +543,33 @@ fn mix_pictures(out: &mut Vec<u8>, kind: Kind, (cw, chh): (usize, usize), a: &[u
                     out[at + c] = if mix == 0 { va as u8 } else if mix >= 256 { vb as u8 } else { ((va * (256 - mix) + vb * mix + 128) >> 8) as u8 };
                 }
             }
+        }
+    }
+}
+
+/// The Iris and the Dissolve: each pixel is the new picture's, the old one's or a mix by where it is. Along a row the mix changes in
+/// a few places only, so what is wholly one or the other is copied in runs and just the soft edges are mixed pixel by pixel.
+fn mix_regions(out: &mut [u8], plane: &Plane, a: &[u8], b: &[u8], how: transition::Kind, p: f64) {
+    let size = (plane.w as f64, plane.h as f64);
+    for y in 0..plane.h {
+        let line = plane.at + y * plane.w * plane.ch;
+        let mut x = 0;
+        while x < plane.w {
+            let m = (transition::mix_at(how, x as f64, y as f64, size, p) * 256.0).round() as u32;
+            let mut end = x + 1;
+            if m == 0 || m >= 256 {
+                while end < plane.w && (transition::mix_at(how, end as f64, y as f64, size, p) * 256.0).round() as u32 == m.min(256) {
+                    end += 1;
+                }
+                let src = if m == 0 { a } else { b };
+                out[line + x * plane.ch..line + end * plane.ch].copy_from_slice(&src[line + x * plane.ch..line + end * plane.ch]);
+            } else {
+                for c in 0..plane.ch {
+                    let at = line + x * plane.ch + c;
+                    out[at] = ((u32::from(a[at]) * (256 - m) + u32::from(b[at]) * m + 128) >> 8) as u8;
+                }
+            }
+            x = end;
         }
     }
 }

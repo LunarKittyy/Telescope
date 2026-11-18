@@ -49,6 +49,12 @@ fn kind_name(kind: TransitionKind) -> String {
         TransitionKind::Wipe => tr("Wipe"),
         TransitionKind::Glide => tr("Glide"),
         TransitionKind::Shuffle => tr("Shuffle"),
+        TransitionKind::Bounce => tr("Bounce"),
+        TransitionKind::Iris => tr("Iris"),
+        TransitionKind::Blinds => tr("Blinds"),
+        TransitionKind::Curtain => tr("Curtain"),
+        TransitionKind::Pixelate => tr("Pixelate"),
+        TransitionKind::Dissolve => tr("Dissolve"),
     }
 }
 
@@ -768,7 +774,7 @@ impl Plugin for CompositePlugin {
         let d = Spec::default();
         vec![
             SettingSpec::switch("on", "Whether the streams are put into one picture", false),
-            SettingSpec::choice("transition.kind", "How the picture goes to another layout: cut, crossfade, slide, push, zoom, wipe, glide (tiles travel to their new places) or shuffle", &kinds, d.kind.id()),
+            SettingSpec::choice("transition.kind", "How the picture goes to another layout: cut, crossfade, slide, push, zoom, wipe, iris, blinds, curtain, pixelate, dissolve, or glide, shuffle and bounce (tiles travel to their new places)", &kinds, d.kind.id()),
             SettingSpec::number("transition.ms", "How long that takes", f64::from(crate::transition::MIN_MS), f64::from(crate::transition::MAX_MS), 0, f64::from(d.ms)).unit("ms"),
             SettingSpec::choice("transition.ease", "How it eases: springy, smooth, bouncy or even", &eases, d.ease.id()),
         ]

@@ -506,7 +506,7 @@ fn a_stream_joining_in_the_middle_of_a_transition_does_not_end_it() {
 fn a_preset_without_a_transition_leaves_the_cards_alone_and_one_with_its_own_uses_it() {
     let mut r = with_saved_layout();
     let ui = |r: &mut Rig, callback: &str, arg: f64| r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: callback.into(), args: vec![json!(arg)] });
-    ui(&mut r, "transition-picked", 3.0);
+    ui(&mut r, "transition-picked", TransitionKind::ALL.iter().position(|k| *k == TransitionKind::Slide).unwrap() as f64);
     let old = json!({"on": true, "layout": {"name": "Big", "tiles": [{"source_id": "a", "x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0}]}});
     r.plugin.apply_preset(&mut r.host, &old).unwrap();
     assert_eq!(r.plugin.get_config()["transition"]["kind"], "slide", "an older preset has none");
@@ -533,7 +533,7 @@ fn the_transition_is_set_from_the_card_saved_and_clamped() {
     let mut r = rig();
     let ui = |r: &mut Rig, callback: &str, arg: f64| r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: callback.into(), args: vec![json!(arg)] });
     assert_eq!(r.plugin.get_config()["transition"], json!({"kind": "glide", "ms": 600, "ease": "springy"}));
-    ui(&mut r, "transition-picked", 3.0);
+    ui(&mut r, "transition-picked", TransitionKind::ALL.iter().position(|k| *k == TransitionKind::Slide).unwrap() as f64);
     ui(&mut r, "ease-picked", 2.0);
     ui(&mut r, "transition-length-moved", 99999.0);
     assert_eq!(r.plugin.get_config()["transition"], json!({"kind": "slide", "ms": 3000, "ease": "bouncy"}));
