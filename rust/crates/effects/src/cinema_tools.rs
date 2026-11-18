@@ -7,6 +7,7 @@ use crate::imgops::Gray;
 use crate::scopes;
 use std::sync::OnceLock;
 use telescope_core::host::View;
+use telescope_core::preview::TintSpec;
 use telescope_core::i18n::n_;
 
 /// A scope is worked out this often.
@@ -262,6 +263,17 @@ impl Default for Look {
 }
 
 impl Look {
+    /// The pixel tools as data for the card, from the same thresholds, colours and table tint() uses; None while none is on.
+    pub fn tint_spec(&self) -> Option<TintSpec> {
+        self.pixels().then(|| TintSpec {
+            zebra: self.zebras.then(|| zebra_from(self.zebra_level)),
+            // is_edge compares against the half threshold
+            peaking: self.peaking.then(|| ((peaking_threshold(self.peaking_level) / 2) as u8, peaking_rgb(self.peaking_colour))),
+            false_colour: self.false_colour.then(false_lut),
+            stripe_phase: 0,
+        })
+    }
+
     pub fn any(&self) -> bool {
         self.peaking || self.zebras || self.false_colour || self.scope != "off" || self.level || self.guides != "off"
     }
@@ -443,3 +455,7 @@ impl Default for LevelFilter {
 #[cfg(test)]
 #[path = "cinema_tools_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "cinema_tint_card_tests.rs"]
+mod card_tests;

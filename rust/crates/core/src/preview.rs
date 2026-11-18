@@ -3,6 +3,19 @@
 
 use crate::frame::Frame;
 
+/// What a pass's tint() does as plain data for the graphics card; whoever draws the preview moves `stripe_phase` on once per frame.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct TintSpec {
+    /// The brightness (0..255) zebras start at.
+    pub zebra: Option<u8>,
+    /// The Sobel gradients' mean, rounded, has to pass this to light up, and the colour it's drawn in.
+    pub peaking: Option<(u8, [u8; 3])>,
+    /// What each brightness (0..255) is coloured, R G B.
+    pub false_colour: Option<&'static [[u8; 3]; 256]>,
+    /// Where the zebras' stripes are, 0..8.
+    pub stripe_phase: u8,
+}
+
 /// One plugin's work on the preview, put there with HostPreview::add_preview_pass. The host calls it from its own threads, so
 /// whatever it keeps sits behind its own locks.
 pub trait PreviewPass: Send + Sync {
@@ -15,6 +28,11 @@ pub trait PreviewPass: Send + Sync {
     /// pass says yes.
     fn tints(&self) -> bool {
         false
+    }
+
+    /// What tint() does as data for the card, matching tint(), which stays as the preview's way without one; None when the card can't do this pass's tint.
+    fn tint_spec(&self) -> Option<TintSpec> {
+        None
     }
 
     /// The preview's copy of the frame as shown, already scaled to the size the preview paints it at (never above the stream's),

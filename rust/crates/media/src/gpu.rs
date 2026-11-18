@@ -49,6 +49,9 @@ const SOFTWARE_READBACK_WAIT: std::time::Duration = std::time::Duration::from_se
 /// How long one wait on the card lasts before a stop is looked for.
 const WAIT_SLICE: std::time::Duration = std::time::Duration::from_millis(50);
 
+#[path = "gpu_tint.rs"]
+mod tint;
+
 /// What a test makes go wrong on the next readback.
 #[cfg(test)]
 #[derive(Clone, Copy, Debug)]
@@ -84,6 +87,8 @@ pub struct Gpu {
     /// Stands in for planes a format doesn't have.
     blank: wgpu::TextureView,
     pool: Mutex<Pool<(u32, u32, wgpu::TextureFormat), wgpu::Texture>>,
+    /// The tint shader's pipelines (gpu_tint.rs), built when a picture is first tinted.
+    tint_kit: Mutex<Option<Arc<tint::Kit>>>,
     pub adapter_name: String,
     /// Set when the device is lost or wgpu panicked: nothing more goes to this card.
     lost: Arc<AtomicBool>,
@@ -334,6 +339,7 @@ impl Gpu {
             linear,
             blank,
             pool: Mutex::new(Pool::new(POOL_BUDGET)),
+            tint_kit: Mutex::default(),
             adapter_name,
             lost,
             wait_limit,
