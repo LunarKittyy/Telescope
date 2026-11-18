@@ -26,10 +26,6 @@ The idea was to copy the next Spout frame while the last one is converted. Captu
 
 Two ideas were meant to cut the cost of steps on the processor. They were converting a frame to RGB once for the whole chain and running brightness and colour steps on the YUV planes. Measured at 4K, the steps left on the processor cost about 1 ms each, too little to be worth the change. Two more ideas went the same way. The copy of a decoded frame and the BT.709 conversion would each save under 0.5 ms.
 
-## The rest of load balancing (November 2026)
-
-Moving steps to the integrated graphics card needs a second graphics device and changes in how the picture work runs. Doing the front of the chain on the phone needs a pass on the phone, a protocol message and testing on real phones from several makers. Neither is planned. The graphics card choice in Settings already lets someone put everything on the integrated card.
-
 ## H.265 (November 2026)
 
 A spike looked at sending H.265 from phones that support it. Everything on both sides of the video path is written for H.264, from the phone's encoder to the headers the desktop reads. That makes it a rewrite of about a dozen files on two platforms. The gain is mostly bitrate, which only matters on weak Wi-Fi where Dynamic already steps down. Phones' H.265 encoders also differ a lot and need testing on real ones.

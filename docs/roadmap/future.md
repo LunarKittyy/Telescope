@@ -118,6 +118,10 @@ Moving the steps listed above into longer runs on the card is still the idea, to
 
 Background blur, Spout's conversion and the 1998 webcam are done (see [next.md](next.md#doing-the-picture-work-on-the-gpu)). Sharing one working frame and doing effects on the YUV planes were measured and dropped, see [dropped.md](dropped.md).
 
+## The rest of load balancing
+
+Two parts are left. One is moving steps onto the integrated graphics card while the other card is busy, which needs a second graphics device and changes in how the picture work runs. The other is doing the front of the chain on the phone, which needs a pass on the phone, a protocol message and testing on real phones. Until then the graphics card choice in Settings can put everything on the integrated card.
+
 ## ARM64
 
 A maybe. Every build is x86_64 only for now and ARM Linux machines (a Raspberry Pi, Asahi on a Mac, ARM laptops) can't run Telescope at all. Windows on ARM laptops would probably run the x64 build through Windows' own emulation. The virtual camera likely wouldn't work there because the Windows 11 camera runs in a native ARM64 system service that can't load the x64 DLL.
