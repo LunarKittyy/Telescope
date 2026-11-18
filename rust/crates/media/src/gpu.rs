@@ -59,6 +59,12 @@ pub(crate) enum Fault {
     PollPanic,
     /// The device-lost callback fires.
     Lost,
+    /// wgpu panics while the picture goes up.
+    LiftPanic,
+    /// wgpu panics while a shader is recorded.
+    ShadePanic,
+    /// wgpu panics while a shader is built.
+    PreparePanic,
 }
 
 pub struct Gpu {
@@ -529,7 +535,20 @@ impl Gpu {
 
     #[cfg(test)]
     fn fault(&self) -> Option<Fault> {
-        self.fault.lock().unwrap().take()
+        let mut fault = self.fault.lock().unwrap();
+        // The panics above belong to their own calls, so a readback leaves them for those
+        if matches!(*fault, Some(Fault::LiftPanic | Fault::ShadePanic | Fault::PreparePanic)) { None } else { fault.take() }
+    }
+
+    /// Takes the fault if it is the one asked for, for tests.
+    #[cfg(test)]
+    fn take_fault(&self, wanted: fn(Fault) -> bool) -> bool {
+        let mut fault = self.fault.lock().unwrap();
+        let hit = fault.is_some_and(wanted);
+        if hit {
+            *fault = None;
+        }
+        hit
     }
 
     /// Copies textures into one buffer, waits for the card and hands back each one's rows without padding, the planes one after another in one buffer, and how long the wait was in ns.
@@ -655,7 +674,14 @@ impl Gpu {
 
     /// As lift, with block_chroma reading YUV chroma a sample to its 2 x 2 block as the CPU does, where lift blends it linearly.
     pub fn lift_with(&self, frame: &Frame, block_chroma: bool) -> Result<Held, String> {
-        self.card_ok()?;
+        self.guarded("putting a picture on the card", || self.lift_unguarded(frame, block_chroma))
+    }
+
+    fn lift_unguarded(&self, frame: &Frame, block_chroma: bool) -> Result<Held, String> {
+        #[cfg(test)]
+        if self.take_fault(|f| matches!(f, Fault::LiftPanic)) {
+            panic!("an injected panic while lifting");
+        }
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) {
             return Err(format!("{:?} frames can't go on the card", frame.format));
         }
@@ -673,7 +699,18 @@ impl Gpu {
     }
 
     /// One shader step on the held picture. Nothing runs yet; land sends it all to the card in one go.
-    pub fn shade(&self, held: &mut Held, slot: &ShaderSlot, time: f32, mask: Option<&MaskPlane>) {
+    pub fn shade(&self, held: &mut Held, slot: &ShaderSlot, time: f32, mask: Option<&MaskPlane>) -> Result<(), String> {
+        self.guarded("recording a shader", || {
+            self.shade_unguarded(held, slot, time, mask);
+            Ok(())
+        })
+    }
+
+    fn shade_unguarded(&self, held: &mut Held, slot: &ShaderSlot, time: f32, mask: Option<&MaskPlane>) {
+        #[cfg(test)]
+        if self.take_fault(|f| matches!(f, Fault::ShadePanic)) {
+            panic!("an injected panic while shading");
+        }
         let past = slot.past(held);
         let info = self.uniform(&shader::frame_uniform(held.width, held.height, time, held.number, mask.is_some(), past.is_some()));
         let planes = if slot.wants_planes(held.width, held.height) { self.current_planes(held) } else { None };
@@ -1143,11 +1180,16 @@ impl ShaderSlot {
 
     /// Builds the shader the first time; Err for one that won't ever run.
     pub fn prepare(&mut self, gpu: &Gpu) -> Result<(), String> {
-        gpu.card_ok()?;
-        if self.built.is_none() {
-            self.built = Some(build(gpu, &self.step));
-        }
-        self.built.as_ref().unwrap().as_ref().map(|_| ()).map_err(Clone::clone)
+        gpu.guarded("building a shader", || {
+            #[cfg(test)]
+            if gpu.take_fault(|f| matches!(f, Fault::PreparePanic)) {
+                panic!("an injected panic while building");
+            }
+            if self.built.is_none() {
+                self.built = Some(build(gpu, &self.step));
+            }
+            self.built.as_ref().unwrap().as_ref().map(|_| ()).map_err(Clone::clone)
+        })
     }
 
     fn draw(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, src: &wgpu::Texture, dst: &wgpu::Texture, info: &wgpu::Buffer, mask: Option<&MaskPlane>, past: Option<&wgpu::TextureView>, blurred: Option<&(wgpu::TextureView, wgpu::TextureView)>) {
@@ -1388,7 +1430,7 @@ mod tests {
         let mut held = gpu.lift(frame).unwrap();
         for slot in steps {
             slot.prepare(gpu).unwrap();
-            gpu.shade(&mut held, slot, 0.0, None);
+            gpu.shade(&mut held, slot, 0.0, None).unwrap();
         }
         let out = gpu.land(&mut held).unwrap();
         gpu.put_down(held);
@@ -1717,7 +1759,7 @@ mod tests {
             let mut slots: Vec<ShaderSlot> = std::iter::once(ShaderSlot::new(like_background())).chain(more.iter().map(|w| ShaderSlot::new(step(w, json!({}))))).collect();
             for slot in &mut slots {
                 slot.prepare(&gpu).unwrap();
-                gpu.shade(&mut held, slot, 0.0, None);
+                gpu.shade(&mut held, slot, 0.0, None).unwrap();
             }
             let out = gpu.land(&mut held).unwrap();
             gpu.put_down(held);
@@ -1728,7 +1770,7 @@ mod tests {
         let mut held = gpu.lift_with(&frame, true).unwrap();
         let mut slot = ShaderSlot::new(like_background());
         slot.prepare(&gpu).unwrap();
-        gpu.shade(&mut held, &slot, 0.0, None);
+        gpu.shade(&mut held, &slot, 0.0, None).unwrap();
         let enc = std::mem::replace(&mut held.enc, gpu.device.create_command_encoder(&Default::default()));
         let next_sees = gpu.download(enc, &[&held.a], &[4]).unwrap();
         let landed = gpu.land(&mut held).unwrap();
@@ -2045,7 +2087,7 @@ mod timing {
                 let mut held = gpu.lift(f).unwrap();
                 let slot = &mut ShaderSlot::new(ShaderStep { wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }".into(), uniforms: serde_json::json!({}), textures: vec![] });
                 slot.prepare(&gpu).unwrap();
-                gpu.shade(&mut held, slot, 0.0, None);
+                gpu.shade(&mut held, slot, 0.0, None).unwrap();
                 gpu.queue.submit([]);
                 let start = Instant::now();
                 gpu.land(&mut held).unwrap();

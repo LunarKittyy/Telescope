@@ -85,11 +85,11 @@ impl Entry {
         self.fails >= STEP_FAILS_BEFORE_SKIP
     }
 
-    /// A CPU step that says it's there to hide something: when it fails, what goes on is a dark frame, never the clear one.
+    /// A CPU step that says it's there to hide something, or a card-only step at a stage that hides: when it fails, what goes on is a dark frame, never the clear one.
     fn hides(&self) -> bool {
         match &self.kind {
             Kind::Cpu(step) | Kind::Either(_, step) => step.hides(),
-            Kind::Shader(_) => false,
+            Kind::Shader(_) => self.stage.hides(),
         }
     }
 
@@ -239,29 +239,56 @@ impl Pipeline {
                     gpu.put_down(chain.held.take().unwrap());
                     *frame = neutral((frame.width, frame.height), frame.format, frame);
                 }
-                Err(why) => {
-                    // The frame in hand is the last good one, and what the card did after it is lost with it
-                    let lost: Vec<usize> = std::mem::take(&mut chain.ahead);
-                    for &i in &lost {
-                        if matches!(self.steps[i].kind, Kind::Shader(_)) {
-                            self.steps[i].failed(&why);
-                        }
-                    }
-                    self.lost_card(&why);
-                    gpu.put_down(chain.held.take().unwrap());
-                    // Steps with a CPU half do their work on the frame in hand now, in order, so this frame isn't missing them; card-only steps stay lost
-                    for i in lost {
-                        if matches!(self.steps[i].kind, Kind::Either(..)) {
-                            self.run_cpu(i, frame, chain, ctx);
-                        }
-                    }
-                }
+                Err(why) => self.card_failed(&why, chain, frame, ctx, &gpu),
             }
         }
         if !keep {
             if let Some(held) = chain.held.take() {
                 gpu.put_down(held);
             }
+        }
+    }
+
+    /// The card failed what it was doing for this frame: the frame in hand is the last good one, and what the card did after it is lost with it.
+    fn card_failed(&mut self, why: &str, chain: &mut Chain, frame: &mut Frame, ctx: &dyn FrameContext, gpu: &Gpu) {
+        let lost: Vec<usize> = std::mem::take(&mut chain.ahead);
+        for &i in &lost {
+            if matches!(self.steps[i].kind, Kind::Shader(_)) {
+                self.steps[i].failed(why);
+            }
+        }
+        self.lost_card(why);
+        if let Some(held) = chain.held.take() {
+            gpu.put_down(held);
+        }
+        // Steps with a CPU half do their work on the frame in hand now, in order, so this frame isn't missing them; card-only steps stay lost
+        for &i in &lost {
+            if matches!(self.steps[i].kind, Kind::Either(..)) {
+                self.run_cpu(i, frame, chain, ctx);
+            }
+        }
+        // A card-only step that hides can't be done on the CPU, and the frame in hand is without it
+        let hiding: Vec<usize> = lost.into_iter().filter(|&i| matches!(self.steps[i].kind, Kind::Shader(_)) && self.steps[i].hides()).collect();
+        if !hiding.is_empty() {
+            *frame = neutral((frame.width, frame.height), frame.format, frame);
+            for i in hiding {
+                self.tell_withheld(i, ctx);
+            }
+        }
+    }
+
+    /// A card-only step that failed this frame: one that hides sends a dark frame in place of the picture it couldn't hide in.
+    fn shader_failed(&mut self, i: usize, why: &str, frame: &mut Frame, chain: &mut Chain, ctx: &dyn FrameContext) {
+        self.steps[i].failed(why);
+        self.withhold_if_hiding(i, frame, chain, ctx);
+    }
+
+    fn withhold_if_hiding(&mut self, i: usize, frame: &mut Frame, chain: &mut Chain, ctx: &dyn FrameContext) {
+        if self.steps[i].hides() {
+            *frame = neutral((frame.width, frame.height), frame.format, frame);
+            // Dropped, not brought down: the card's copy has the picture this one stands in for
+            self.drop_card_work(chain);
+            self.tell_withheld(i, ctx);
         }
     }
 
@@ -334,7 +361,7 @@ impl Pipeline {
     }
 
     fn run_shader(&mut self, i: usize, frame: &mut Frame, chain: &mut Chain, ctx: &dyn FrameContext, time: f32) {
-        let Some(gpu) = self.gpu() else { return self.steps[i].failed("no graphics card to run shaders on") };
+        let Some(gpu) = self.gpu() else { return self.shader_failed(i, "no graphics card to run shaders on", frame, chain, ctx) };
         // Before any work for the card, however small: a lost device is not touched again
         if gpu.is_lost() || self.card_lost {
             return self.off_the_card(i, "the graphics card was lost", frame, chain, ctx);
@@ -362,7 +389,7 @@ impl Pipeline {
                 return self.run_cpu(i, frame, chain, ctx);
             }
             entry.fails = STEP_FAILS_BEFORE_SKIP;
-            return;
+            return self.withhold_if_hiding(i, frame, chain, ctx);
         }
         if let Some(textures) = textures {
             slot.set_textures(&gpu, &textures);
@@ -392,11 +419,15 @@ impl Pipeline {
                     self.lost_card(&why);
                     return self.run_cpu(i, frame, chain, ctx);
                 }
-                Err(why) => return entry.failed(&why),
+                Err(why) => return self.shader_failed(i, &why, frame, chain, ctx),
             }
         }
-        gpu.shade(chain.held.as_mut().unwrap(), entry.kind.slot(), time, self.mask.as_ref().filter(|_| masked));
+        let shaded = gpu.shade(chain.held.as_mut().unwrap(), entry.kind.slot(), time, self.mask.as_ref().filter(|_| masked));
         chain.ahead.push(i);
+        if let Err(why) = shaded {
+            // What was recorded for this frame can't be trusted, so it is lost as a failed readback loses it
+            self.card_failed(&why, chain, frame, ctx, &gpu);
+        }
     }
 
     /// A step the card can't take now: one with a CPU half runs there on the frame in hand, one that is the card's alone fails for this frame.
@@ -405,7 +436,7 @@ impl Pipeline {
         if matches!(self.steps[i].kind, Kind::Either(..)) {
             self.run_cpu(i, frame, chain, ctx);
         } else {
-            self.steps[i].failed(why);
+            self.shader_failed(i, why, frame, chain, ctx);
         }
     }
 
@@ -1824,6 +1855,7 @@ pub(crate) mod tests {
         a_failed_readback_for_a_steps_pictures_sends_that_step_to_the_cpu_too();
         a_stop_ends_the_wait_and_the_frame_goes_out_dark();
         a_hiding_step_on_the_card_never_lets_the_clear_picture_out_when_the_card_fails();
+        a_card_only_step_at_a_hiding_stage_never_lets_the_clear_picture_out_when_the_card_fails();
     }
 
     /// HalvesAndCounts its runs and does what DIM does.
@@ -1886,6 +1918,43 @@ pub(crate) mod tests {
             for luma in [60u8, 90, 120] {
                 let out = p.process(grey(8, 8, luma), &NoContext);
                 assert!(out.data[..64].iter().all(|&v| v == 0), "{fault:?}: the clear picture (luma {luma}) went out: {:?}", &out.data[..4]);
+            }
+        }
+    }
+
+    /// A card-only shader at a stage that hides, while the card fails in each way there is: every frame goes out dark, never the clear one.
+    fn a_card_only_step_at_a_hiding_stage_never_lets_the_clear_picture_out_when_the_card_fails() {
+        use crate::gpu::Fault;
+        for fault in [Fault::RefusedSubmit, Fault::PollPanic, Fault::Lost, Fault::LiftPanic, Fault::ShadePanic, Fault::PreparePanic] {
+            let gpu = Arc::new(Gpu::open().unwrap());
+            let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+            p.gpu = Some(Some(gpu.clone()));
+            let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+            p.set_steps(vec![StagedStep { owner: "key".into(), stage: FrameStage::Background, step: FrameStep::Shader(key) }]);
+            p.process(grey(8, 8, 100), &NoContext);
+            gpu.inject(fault);
+            for luma in [60u8, 90, 120] {
+                let out = quietly(|| p.process(grey(8, 8, luma), &NoContext));
+                assert!(is_dark(&out), "{fault:?}: the clear picture (luma {luma}) went out: {:?}", &out.data[..4]);
+            }
+            assert!(gpu.is_lost() || matches!(fault, Fault::RefusedSubmit), "{fault:?}: a panic in the card's calls marks it lost");
+        }
+    }
+
+    #[test]
+    fn a_card_only_step_at_any_hiding_stage_goes_dark_when_there_is_no_card() {
+        let hiding: Vec<FrameStage> = FrameStage::ALL.into_iter().filter(|s| s.hides()).collect();
+        // A new hiding stage has to be looked at here, and in hide_again, before it is added
+        assert_eq!(hiding, [FrameStage::Background, FrameStage::Privacy, FrameStage::Cover]);
+        for stage in FrameStage::ALL {
+            let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+            p.gpu = Some(None);
+            let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+            p.set_steps(vec![StagedStep { owner: "card".into(), stage, step: FrameStep::Shader(key) }]);
+            // Past the point where it is skipped for failing too often, which has to stay dark too
+            for _ in 0..=STEP_FAILS_BEFORE_SKIP {
+                let out = p.process(grey(8, 8, 100), &NoContext);
+                assert_eq!(is_dark(&out), stage.hides(), "{stage:?}: a card-only step that fails hides the picture only where it hides things");
             }
         }
     }
