@@ -253,7 +253,16 @@ impl Codec {
                     } else {
                         None
                     };
-                    #[cfg(not(all(windows, ffmpeg)))]
+                    // On Linux VA-API opens the render node of the picked card, not the first one
+                    #[cfg(all(target_os = "linux", ffmpeg))]
+                    let chosen = if h == Hw::Vaapi {
+                        let (device, say) = crate::decode_card::vaapi_device();
+                        log::info!("{say}");
+                        device
+                    } else {
+                        None
+                    };
+                    #[cfg(not(any(all(windows, ffmpeg), all(target_os = "linux", ffmpeg))))]
                     let chosen: Option<std::ffi::CString> = None;
                     let name = chosen.as_ref().map_or(ptr::null(), |c| c.as_ptr());
                     let mut r = ff::av_hwdevice_ctx_create(&mut c.hw_device, h.device_type(), name, ptr::null_mut(), 0);

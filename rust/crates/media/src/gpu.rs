@@ -263,7 +263,7 @@ impl Gpu {
             ..Default::default()
         }))).map_err(|e| e.to_string())?;
         telescope_core::machine::set_gpu(info.vendor, &format!("{:?}", info.device_type), &info.name, &format!("{:?}", info.backend), &card.driver);
-        crate::decode_card::set_picked(info.vendor, info.device);
+        crate::decode_card::set_picked(info.vendor, info.device, &info.device_pci_bus_id);
         let limit = if info.device_type == wgpu::DeviceType::Cpu { SOFTWARE_READBACK_WAIT } else { READBACK_WAIT };
         Ok(Gpu::on(device, queue, format!("{} ({:?})", info.name, info.backend), limit))
     }
