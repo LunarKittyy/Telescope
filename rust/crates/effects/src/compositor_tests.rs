@@ -662,6 +662,32 @@ mod transitions {
     }
 
     #[test]
+    fn a_tile_that_was_fading_out_does_not_jump_to_full_when_interrupted() {
+        // b leaves and c arrives: both part faded at 0.3
+        let from = Layout { tiles: vec![t("a", 0.0, 0.0, 0.5, 1.0), t("b", 0.5, 0.0, 0.5, 1.0)], ..Layout::default() };
+        let to = Layout { tiles: vec![t("a", 0.0, 0.0, 0.5, 1.0), t("c", 0.5, 0.0, 0.5, 1.0)], ..Layout::default() };
+        let live = frames(vec![("a", solid([200, 0, 0], (90, 160)), None), ("b", solid([0, 200, 0], (90, 160)), None), ("c", solid([0, 0, 200], (90, 160)), None)]);
+        let mut comp = Compositor::default();
+        comp.prepare(&from, SIZE);
+        comp.prepare_with(&to, SIZE, spec(How::Glide), 1_000);
+        comp.render_at(&live, PixelFormat::Bgra, 1_000);
+        let mid = comp.render_at(&live, PixelFormat::Bgra, 1_000 + 300_000_000).unwrap();
+        comp.prepare_with(&from, SIZE, spec(How::Glide), 1_000 + 300_000_000);
+        let again = comp.render_at(&live, PixelFormat::Bgra, 1_000 + 300_000_000).unwrap();
+        assert!(differ(&mid, &again) < mid.data.len() / 40, "{} of {}", differ(&mid, &again), mid.data.len());
+    }
+
+    #[test]
+    fn a_mix_interrupting_a_glide_leaves_from_the_glide_picture() {
+        let (from, to) = (old_layout(), new_layout());
+        let mut comp = started(How::Glide, &from, &to);
+        let mid = at(&mut comp, 0.3);
+        comp.prepare_with(&from, SIZE, spec(How::Crossfade), 1_000 + 300_000_000);
+        let again = comp.render_at(&two(), PixelFormat::Bgra, 1_000 + 300_000_000).unwrap();
+        assert!(differ(&mid, &again) < mid.data.len() / 40, "{} of {}", differ(&mid, &again), mid.data.len());
+    }
+
+    #[test]
     fn preparing_again_in_the_middle_goes_on_to_the_new_target() {
         let (from, to) = (old_layout(), new_layout());
         let mut comp = started(How::Glide, &from, &to);

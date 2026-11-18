@@ -370,7 +370,7 @@ msgstr "Giảm nhiễu"
 msgid "Noise reduction unavailable"
 msgstr "Giảm nhiễu không khả dụng"
 
-#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:696 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:260
+#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:918 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:260
 msgid "Cancel"
 msgstr "Hủy"
 
@@ -516,7 +516,7 @@ msgstr "Tele"
 msgid "General"
 msgstr "Chung"
 
-#: rust/crates/core/src/plugin.rs:14 rust/crates/system/src/remote.rs:26
+#: rust/crates/core/src/plugin.rs:14 rust/crates/effects/src/composite_editor.rs:648 rust/crates/system/src/remote.rs:26
 msgid "Streaming"
 msgstr "Truyền phát"
 
@@ -548,7 +548,7 @@ msgstr "Bản cập nhật & Giới thiệu"
 msgid "Camera"
 msgstr "Camera"
 
-#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/composite_editor.slint:553 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:530
+#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/composite_editor.slint:775 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:530
 msgid "Look"
 msgstr "Diện mạo"
 
@@ -625,7 +625,7 @@ msgstr "Tắt"
 msgid "Blur"
 msgstr "Làm mờ"
 
-#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/background.slint:101 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:181 rust/crates/effects/ui/composite_editor.slint:372 rust/crates/effects/ui/composite_editor.slint:650 rust/crates/effects/ui/composite_editor.slint:652 rust/crates/effects/ui/composite_editor.slint:652
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/background.slint:101 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:181 rust/crates/effects/ui/composite_editor.slint:569 rust/crates/effects/ui/composite_editor.slint:872 rust/crates/effects/ui/composite_editor.slint:874 rust/crates/effects/ui/composite_editor.slint:874
 msgid "Picture"
 msgstr "Ảnh"
 
@@ -657,7 +657,7 @@ msgstr "Chọn một ảnh"
 msgid "Can't open that picture"
 msgstr "Không mở được ảnh đó"
 
-#: rust/crates/effects/src/background.rs:643 rust/crates/effects/src/background.rs:768 rust/crates/effects/src/background.rs:771 rust/crates/effects/src/background.rs:789 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:620
+#: rust/crates/effects/src/background.rs:643 rust/crates/effects/src/background.rs:768 rust/crates/effects/src/background.rs:771 rust/crates/effects/src/background.rs:789 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:842
 msgid "Background"
 msgstr "Nền"
 
@@ -673,11 +673,11 @@ msgstr "Nếu không có tiện ích bổ sung Nền, sẽ không có thẻ Nề
 msgid "Background blur"
 msgstr "Làm mờ nền"
 
-#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:605 rust/crates/effects/ui/composite_editor.slint:636 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:827 rust/crates/effects/ui/composite_editor.slint:858 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Green"
 msgstr "Xanh lục"
 
-#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:605 rust/crates/effects/ui/composite_editor.slint:636 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:827 rust/crates/effects/ui/composite_editor.slint:858 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Blue"
 msgstr "Xanh lam"
 
@@ -685,7 +685,7 @@ msgstr "Xanh lam"
 msgid "Picked"
 msgstr "Đã chọn"
 
-#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:153 rust/crates/effects/ui/chroma_key.slint:166 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/effects/ui/composite_editor.slint:624
+#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:153 rust/crates/effects/ui/chroma_key.slint:166 rust/crates/effects/ui/composite_editor.slint:815 rust/crates/effects/ui/composite_editor.slint:846
 msgid "Colour"
 msgstr "Màu"
 
@@ -721,7 +721,7 @@ msgstr "Màu đã chọn từ khung xem trước. Bấm để chọn lại."
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Bấm vào phông phía sau bạn trên khung xem trước. Nhấn Esc để hủy."
 
-#: rust/crates/effects/src/chroma_key.rs:411 rust/crates/effects/src/chroma_key.rs:447 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1788 rust/crates/shell/src/window.rs:1815 rust/crates/shell/src/worker.rs:610 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:411 rust/crates/effects/src/chroma_key.rs:447 rust/crates/effects/src/composite_editor.rs:648 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1788 rust/crates/shell/src/window.rs:1815 rust/crates/shell/src/worker.rs:610 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Không truyền phát"
 
@@ -842,7 +842,7 @@ msgstr "RGB parade"
 msgid "Vectorscope"
 msgstr "Vectorscope"
 
-#: rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:605 rust/crates/effects/ui/composite_editor.slint:636 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:827 rust/crates/effects/ui/composite_editor.slint:858 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Red"
 msgstr "Đỏ"
 
@@ -1002,7 +1002,7 @@ msgstr "Trông ổn"
 msgid "No stream"
 msgstr "Không truyền phát"
 
-#: rust/crates/effects/src/colour_grading.rs:59 rust/crates/effects/ui/composite_editor.slint:653
+#: rust/crates/effects/src/colour_grading.rs:59 rust/crates/effects/ui/composite_editor.slint:875
 msgid "No picture"
 msgstr "Không dùng ảnh"
 
@@ -1182,63 +1182,58 @@ msgstr "So sánh trước và sau"
 msgid "LUT strength"
 msgstr "Cường độ LUT"
 
-#: rust/crates/effects/src/composite_editor.rs:296
+#: rust/crates/effects/src/composite_editor.rs:303
 msgid "Move"
 msgstr "Di chuyển"
 
-#: rust/crates/effects/src/composite_editor.rs:297
+#: rust/crates/effects/src/composite_editor.rs:304
 msgid "Scale"
 msgstr "Co giãn"
 
-#: rust/crates/effects/src/composite_editor.rs:298
+#: rust/crates/effects/src/composite_editor.rs:305
 msgid "Stretch"
 msgstr "Kéo giãn"
 
-#: rust/crates/effects/src/composite_editor.rs:299
+#: rust/crates/effects/src/composite_editor.rs:306
 msgid "Crop"
 msgstr "Cắt xén"
 
-#: rust/crates/effects/src/composite_editor.rs:300 rust/crates/effects/ui/transforms.slint:236 rust/crates/effects/ui/transforms.slint:246 rust/crates/effects/ui/transforms.slint:248 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/composite_editor.rs:307 rust/crates/effects/ui/transforms.slint:236 rust/crates/effects/ui/transforms.slint:246 rust/crates/effects/ui/transforms.slint:248 rust/crates/outputs/src/webcam.rs:56
 msgid "Pan"
 msgstr "Lia"
 
-#: rust/crates/effects/src/composite_editor.rs:303
+#: rust/crates/effects/src/composite_editor.rs:310
 #, python-brace-format
 msgid "{mode}, no snapping"
 msgstr "{mode}, không căn dính"
 
-#: rust/crates/effects/src/composite_editor.rs:415
+#: rust/crates/effects/src/composite_editor.rs:432
 #, python-brace-format
 msgid "Layout {n}"
 msgstr "Bố cục {n}"
 
-#: rust/crates/effects/src/composite_editor.rs:533
+#: rust/crates/effects/src/composite_editor.rs:588
 msgid "Background picture"
 msgstr "Ảnh nền"
 
-#: rust/crates/effects/src/composite_editor.rs:582
+#: rust/crates/effects/src/composite_editor.rs:637
 #, python-brace-format
 msgid "{name} isn't streaming"
 msgstr "{name} không truyền phát"
 
-#: rust/crates/effects/src/composite_editor.rs:593
-#, python-brace-format
-msgid "{name} (not streaming)"
-msgstr "{name} (không truyền phát)"
-
-#: rust/crates/effects/src/composite_editor.rs:597 rust/crates/setup/src/stats.rs:389
+#: rust/crates/effects/src/composite_editor.rs:654 rust/crates/setup/src/stats.rs:389
 msgid "None"
 msgstr "Không có"
 
-#: rust/crates/effects/src/composite_editor.rs:657
+#: rust/crates/effects/src/composite_editor.rs:716
 msgid "Rename layout"
 msgstr "Đổi tên bố cục"
 
-#: rust/crates/effects/src/composite_editor.rs:657
+#: rust/crates/effects/src/composite_editor.rs:716
 msgid "Save layout"
 msgstr "Lưu bố cục"
 
-#: rust/crates/effects/src/composite_editor.rs:660
+#: rust/crates/effects/src/composite_editor.rs:719
 #, python-brace-format
 msgid "There's already a layout called \"{name}\". Replace it?"
 msgstr "Đã có bố cục mang tên \"{name}\". Bạn có muốn thay thế không?"
@@ -1267,7 +1262,7 @@ msgstr ""
 msgid "Push"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:48 rust/crates/effects/src/transforms.rs:670 rust/crates/effects/src/transforms.rs:725 rust/crates/effects/ui/composite_editor.slint:557 rust/crates/effects/ui/transforms.slint:173 rust/crates/effects/ui/transforms.slint:188 rust/crates/effects/ui/transforms.slint:189 rust/crates/effects/ui/transforms.slint:230 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/composite_plugin.rs:48 rust/crates/effects/src/transforms.rs:670 rust/crates/effects/src/transforms.rs:725 rust/crates/effects/ui/composite_editor.slint:779 rust/crates/effects/ui/transforms.slint:173 rust/crates/effects/ui/transforms.slint:188 rust/crates/effects/ui/transforms.slint:189 rust/crates/effects/ui/transforms.slint:230 rust/crates/outputs/src/webcam.rs:56
 msgid "Zoom"
 msgstr "Thu phóng"
 
@@ -1354,7 +1349,7 @@ msgstr "Đang xuất ra {camera}."
 msgid "Nothing in it"
 msgstr "Trống"
 
-#: rust/crates/effects/src/composite_plugin.rs:552 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:474
+#: rust/crates/effects/src/composite_plugin.rs:552 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:695
 msgid "Two streams required"
 msgstr "Yêu cầu hai luồng phát"
 
@@ -3190,7 +3185,7 @@ msgstr "Hủy bỏ đường cong màu do tính năng Khớp tạo ra và giữ 
 msgid "3D"
 msgstr "3D"
 
-#: rust/crates/effects/src/stereo_plugin.rs:720 rust/crates/effects/ui/composite_editor.slint:401
+#: rust/crates/effects/src/stereo_plugin.rs:720 rust/crates/effects/ui/composite_editor.slint:598
 msgid "Side by side"
 msgstr "Song song"
 
@@ -3392,11 +3387,11 @@ msgstr "Lia sang trái/phải"
 msgid "Pan up/down"
 msgstr "Lia lên/xuống"
 
-#: rust/crates/effects/src/transforms.rs:673 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/composite_editor.slint:522 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/desk.slint:165 rust/crates/effects/ui/desk.slint:172 rust/crates/effects/ui/desk.slint:173 rust/crates/effects/ui/transforms.slint:262 rust/crates/effects/ui/transforms.slint:263
+#: rust/crates/effects/src/transforms.rs:673 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/composite_editor.slint:744 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/desk.slint:165 rust/crates/effects/ui/desk.slint:172 rust/crates/effects/ui/desk.slint:173 rust/crates/effects/ui/transforms.slint:262 rust/crates/effects/ui/transforms.slint:263
 msgid "Width"
 msgstr "Chiều rộng"
 
-#: rust/crates/effects/src/transforms.rs:674 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/composite_editor.slint:530 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/stereo.slint:177 rust/crates/effects/ui/transforms.slint:279 rust/crates/effects/ui/transforms.slint:280
+#: rust/crates/effects/src/transforms.rs:674 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/composite_editor.slint:752 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/stereo.slint:177 rust/crates/effects/ui/transforms.slint:279 rust/crates/effects/ui/transforms.slint:280
 msgid "Height"
 msgstr "Chiều cao"
 
@@ -3672,15 +3667,15 @@ msgstr "Thay thế"
 msgid "Clear the current layout without touching saved layouts."
 msgstr "Xóa bố cục hiện tại mà không làm ảnh hưởng đến các bố cục đã lưu."
 
-#: rust/crates/effects/ui/composite.slint:50 rust/crates/effects/ui/composite.slint:57 rust/crates/effects/ui/composite.slint:61 rust/crates/effects/ui/composite_editor.slint:423 rust/crates/effects/ui/composite_editor.slint:435 rust/crates/shell/ui/card-order-settings.slint:7
+#: rust/crates/effects/ui/composite.slint:50 rust/crates/effects/ui/composite.slint:57 rust/crates/effects/ui/composite.slint:61 rust/crates/effects/ui/composite_editor.slint:620 rust/crates/effects/ui/composite_editor.slint:632 rust/crates/shell/ui/card-order-settings.slint:7
 msgid "Layout"
 msgstr "Bố cục"
 
-#: rust/crates/effects/ui/composite.slint:70 rust/crates/effects/ui/composite_editor.slint:436
+#: rust/crates/effects/ui/composite.slint:70 rust/crates/effects/ui/composite_editor.slint:633
 msgid "Not saved"
 msgstr "Chưa lưu"
 
-#: rust/crates/effects/ui/composite.slint:82 rust/crates/effects/ui/composite.slint:83 rust/crates/effects/ui/composite_editor.slint:269 rust/crates/effects/ui/composite_editor.slint:364
+#: rust/crates/effects/ui/composite.slint:82 rust/crates/effects/ui/composite.slint:83 rust/crates/effects/ui/composite_editor.slint:461 rust/crates/effects/ui/composite_editor.slint:561
 msgid "Edit picture"
 msgstr "Chỉnh sửa ảnh"
 
@@ -3712,207 +3707,247 @@ msgstr ""
 msgid "Springy and Bouncy overshoot a little and settle, Smooth glides without overshooting and Even goes at one speed."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:91
+#: rust/crates/effects/ui/composite_editor.slint:99
 msgid "Picture preview"
 msgstr "Xem trước ảnh"
 
-#: rust/crates/effects/ui/composite_editor.slint:92
+#: rust/crates/effects/ui/composite_editor.slint:100
 msgid "no picture picked"
 msgstr "chưa chọn ảnh nào"
 
-#: rust/crates/effects/ui/composite_editor.slint:92
+#: rust/crates/effects/ui/composite_editor.slint:100
 msgid "picked"
 msgstr "đã chọn"
 
-#: rust/crates/effects/ui/composite_editor.slint:92
+#: rust/crates/effects/ui/composite_editor.slint:100
 msgid "from the left"
 msgstr "từ bên trái"
 
-#: rust/crates/effects/ui/composite_editor.slint:92
+#: rust/crates/effects/ui/composite_editor.slint:100
 msgid "from the top"
 msgstr "từ phía trên"
 
-#: rust/crates/effects/ui/composite_editor.slint:93
+#: rust/crates/effects/ui/composite_editor.slint:101
 msgid "Arrow keys move the picked picture a little, Shift with an arrow moves it further."
 msgstr "Phím mũi tên di chuyển ảnh đã chọn một chút, giữ Shift kèm phím mũi tên để di chuyển xa hơn."
 
-#: rust/crates/effects/ui/composite_editor.slint:373
+#: rust/crates/effects/ui/composite_editor.slint:394
+msgid "In the picture"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:394
+msgid "Not in the picture"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:395
+msgid "Take this stream out of the picture."
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:395
+msgid "Put this stream in the picture."
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:405
+msgid "Lock"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:406
+msgid "Locked"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:406
+msgid "Unlocked"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:407
+msgid "Let this stream be moved and changed again."
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:407
+msgid "Pin this stream so it can't be moved or changed until it is unlocked."
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:570
 msgid "Drag a stream to move it. Hold Ctrl to move it without snapping. The arrow keys move it a pixel and Shift with them ten."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:400
+#: rust/crates/effects/ui/composite_editor.slint:597
 msgid "Start from"
 msgstr "Bắt đầu từ"
 
-#: rust/crates/effects/ui/composite_editor.slint:401
+#: rust/crates/effects/ui/composite_editor.slint:598
 msgid "Big and small"
 msgstr "Lớn và nhỏ"
 
-#: rust/crates/effects/ui/composite_editor.slint:401
+#: rust/crates/effects/ui/composite_editor.slint:598
 msgid "Grid"
 msgstr "Dạng lưới"
 
-#: rust/crates/effects/ui/composite_editor.slint:405
+#: rust/crates/effects/ui/composite_editor.slint:602
 msgid "Start a new layout with the running streams arranged like this."
 msgstr "Bắt đầu bố cục mới với các luồng phát đang chạy được sắp xếp như thế này."
 
-#: rust/crates/effects/ui/composite_editor.slint:427
+#: rust/crates/effects/ui/composite_editor.slint:624
 msgid "Save as"
 msgstr "Lưu thành"
 
-#: rust/crates/effects/ui/composite_editor.slint:428
+#: rust/crates/effects/ui/composite_editor.slint:625
 msgid "Save this layout under a new name."
 msgstr "Lưu bố cục này dưới tên mới."
 
-#: rust/crates/effects/ui/composite_editor.slint:442 rust/crates/effects/ui/composite_editor.slint:442 rust/crates/link/ui/connection.slint:116 rust/crates/setup/src/setup.rs:721 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/src/plugins/presets.rs:215
+#: rust/crates/effects/ui/composite_editor.slint:639 rust/crates/effects/ui/composite_editor.slint:639 rust/crates/link/ui/connection.slint:116 rust/crates/setup/src/setup.rs:721 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/src/plugins/presets.rs:215
 msgid "Rename"
 msgstr "Đổi tên"
 
-#: rust/crates/effects/ui/composite_editor.slint:442
+#: rust/crates/effects/ui/composite_editor.slint:639
 msgid "Rename this layout."
 msgstr "Đổi tên bố cục này."
 
-#: rust/crates/effects/ui/composite_editor.slint:443 rust/crates/effects/ui/composite_editor.slint:443 rust/crates/shell/src/plugins/presets.rs:185
+#: rust/crates/effects/ui/composite_editor.slint:640 rust/crates/effects/ui/composite_editor.slint:640 rust/crates/shell/src/plugins/presets.rs:185
 msgid "Delete"
 msgstr "Xóa"
 
-#: rust/crates/effects/ui/composite_editor.slint:443
+#: rust/crates/effects/ui/composite_editor.slint:640
 msgid "Delete this layout."
 msgstr "Xóa bố cục này."
 
-#: rust/crates/effects/ui/composite_editor.slint:447
+#: rust/crates/effects/ui/composite_editor.slint:644
 msgid "Streams"
 msgstr "Các luồng phát"
 
-#: rust/crates/effects/ui/composite_editor.slint:477
+#: rust/crates/effects/ui/composite_editor.slint:698
 msgid "Picked stream"
 msgstr "Luồng phát đã chọn"
 
-#: rust/crates/effects/ui/composite_editor.slint:481
+#: rust/crates/effects/ui/composite_editor.slint:702
 msgid "Fit its shape"
 msgstr "Khớp khung gốc"
 
-#: rust/crates/effects/ui/composite_editor.slint:482
+#: rust/crates/effects/ui/composite_editor.slint:703
 msgid "Give the box the stream's original shape again, without cropping or stretching."
 msgstr "Đưa khung về lại tỷ lệ gốc của luồng phát mà không cắt hay kéo giãn."
 
-#: rust/crates/effects/ui/composite_editor.slint:498
+#: rust/crates/effects/ui/composite_editor.slint:708
+msgid "Locked. Unlock it in the Streams list to change it."
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:720
 msgid "Place"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:502
+#: rust/crates/effects/ui/composite_editor.slint:724
 msgid "X"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:503
+#: rust/crates/effects/ui/composite_editor.slint:725
 msgid "Left"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:504
+#: rust/crates/effects/ui/composite_editor.slint:726
 msgid "How far the left edge of the stream is from the left edge of the picture, in pixels."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:510
+#: rust/crates/effects/ui/composite_editor.slint:732
 msgid "Y"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:511
+#: rust/crates/effects/ui/composite_editor.slint:733
 msgid "Top"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:512
+#: rust/crates/effects/ui/composite_editor.slint:734
 msgid "How far the top edge of the stream is from the top of the picture, in pixels."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:521
+#: rust/crates/effects/ui/composite_editor.slint:743
 msgid "W"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:523
+#: rust/crates/effects/ui/composite_editor.slint:745
 msgid "The width of the stream's box in pixels."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:529
+#: rust/crates/effects/ui/composite_editor.slint:751
 msgid "H"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:531
+#: rust/crates/effects/ui/composite_editor.slint:753
 msgid "The height of the stream's box in pixels."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:539 rust/crates/effects/ui/composite_editor.slint:544
+#: rust/crates/effects/ui/composite_editor.slint:761 rust/crates/effects/ui/composite_editor.slint:766
 msgid "Swap with"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:540
+#: rust/crates/effects/ui/composite_editor.slint:762
 msgid "Swap with…"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:545
+#: rust/crates/effects/ui/composite_editor.slint:767
 msgid "Trade this stream's place and size with another stream's."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:550
+#: rust/crates/effects/ui/composite_editor.slint:772
 msgid "Send back"
 msgstr "Chuyển xuống dưới"
 
-#: rust/crates/effects/ui/composite_editor.slint:551
+#: rust/crates/effects/ui/composite_editor.slint:773
 msgid "Bring forward"
 msgstr "Đưa lên trên"
 
-#: rust/crates/effects/ui/composite_editor.slint:558
+#: rust/crates/effects/ui/composite_editor.slint:780
 msgid "Scroll to zoom and drag with the right mouse button to move. Double-click to reset."
 msgstr "Cuộn để thu phóng và kéo bằng chuột phải để di chuyển. Nhấp đúp để đặt lại."
 
-#: rust/crates/effects/ui/composite_editor.slint:570 rust/crates/setup/ui/setup.slint:589 rust/crates/setup/ui/setup.slint:599
+#: rust/crates/effects/ui/composite_editor.slint:792 rust/crates/setup/ui/setup.slint:589 rust/crates/setup/ui/setup.slint:599
 msgid "Corners"
 msgstr "Bo góc"
 
-#: rust/crates/effects/ui/composite_editor.slint:574
+#: rust/crates/effects/ui/composite_editor.slint:796
 msgid "How round the corners are."
 msgstr "Độ bo tròn của các góc."
 
-#: rust/crates/effects/ui/composite_editor.slint:582
+#: rust/crates/effects/ui/composite_editor.slint:804
 msgid "Border"
 msgstr "Viền"
 
-#: rust/crates/effects/ui/composite_editor.slint:586
+#: rust/crates/effects/ui/composite_editor.slint:808
 msgid "How thick the border is."
 msgstr "Độ dày của đường viền."
 
-#: rust/crates/effects/ui/composite_editor.slint:595
+#: rust/crates/effects/ui/composite_editor.slint:817
 msgid "Border colour"
 msgstr "Màu viền"
 
-#: rust/crates/effects/ui/composite_editor.slint:626
+#: rust/crates/effects/ui/composite_editor.slint:848
 msgid "Background colour"
 msgstr "Màu nền"
 
-#: rust/crates/effects/ui/composite_editor.slint:652
+#: rust/crates/effects/ui/composite_editor.slint:874
 msgid "Show a picture behind the streams instead of the colour."
 msgstr "Hiện một ảnh phía sau các luồng phát thay cho màu nền."
 
-#: rust/crates/effects/ui/composite_editor.slint:672 rust/crates/link/ui/connection.slint:686
+#: rust/crates/effects/ui/composite_editor.slint:894 rust/crates/link/ui/connection.slint:686
 msgid "Close"
 msgstr "Đóng"
 
-#: rust/crates/effects/ui/composite_editor.slint:683
+#: rust/crates/effects/ui/composite_editor.slint:905
 msgid "Replace layout"
 msgstr "Thay thế bố cục"
 
-#: rust/crates/effects/ui/composite_editor.slint:686 rust/crates/effects/ui/composite_editor.slint:689 rust/crates/shell/src/plugins/presets.rs:186
+#: rust/crates/effects/ui/composite_editor.slint:908 rust/crates/effects/ui/composite_editor.slint:911 rust/crates/shell/src/plugins/presets.rs:186
 msgid "Name:"
 msgstr "Tên:"
 
-#: rust/crates/effects/ui/composite_editor.slint:697 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1102 rust/crates/shell/ui/settings.slint:587
+#: rust/crates/effects/ui/composite_editor.slint:919 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1102 rust/crates/shell/ui/settings.slint:587
 msgid "OK"
 msgstr "OK"
 
-#: rust/crates/effects/ui/composite_editor.slint:706 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
+#: rust/crates/effects/ui/composite_editor.slint:928 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
 msgid "No"
 msgstr "Không"
 
-#: rust/crates/effects/ui/composite_editor.slint:707 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
+#: rust/crates/effects/ui/composite_editor.slint:929 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
 msgid "Yes"
 msgstr "Có"
 
@@ -10825,6 +10860,10 @@ msgstr "Đã thay thế"
 #: rust/crates/shell/src/plugins_tab.rs:157
 msgid "Couldn't restart"
 msgstr "Không thể khởi động lại"
+
+#, python-brace-format
+#~ msgid "{name} (not streaming)"
+#~ msgstr "{name} (không truyền phát)"
 
 #~ msgid "Stream"
 #~ msgstr "Luồng phát"

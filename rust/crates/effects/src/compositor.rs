@@ -607,8 +607,8 @@ struct Plan {
 #[derive(Clone)]
 enum Start {
     Plan(Arc<Plan>),
-    /// The tiles where they were, over this plan's background
-    Tiles { plan: Arc<Plan>, tiles: Vec<Tile> },
+    /// The tiles where they were (some of them part faded), over this plan's background, which is part way to `over`'s when there is one
+    Tiles { plan: Arc<Plan>, tiles: Vec<transition::Posed>, over: Option<(Arc<Plan>, f64)> },
     /// The transition `active` towards `to`, frozen `t` into its length
     Frozen { active: Box<Active>, to: Arc<Plan>, t: f64 },
 }
@@ -622,10 +622,10 @@ impl Start {
         }
     }
 
-    fn tiles(&self) -> Vec<Tile> {
+    fn tiles(&self) -> Vec<transition::Posed> {
         match self {
             Start::Tiles { tiles, .. } => tiles.clone(),
-            other => other.plan().layout.tiles.clone(),
+            other => other.plan().layout.tiles.iter().map(|tile| transition::Posed { tile: tile.clone(), alpha: 1.0 }).collect(),
         }
     }
 
@@ -759,11 +759,18 @@ impl Compositor {
             (Some(active), Some(prev)) if prev.size == next.size => {
                 let t = active.at(now);
                 if active.spec.kind.moves_tiles() && spec.kind.moves_tiles() {
-                    let posed = transition::poses(active.spec.kind, &active.from.tiles(), &prev.layout.tiles, t, active.spec.ease, aspect);
-                    Some(Start::Tiles { plan: active.from.plan(), tiles: posed.into_iter().map(|p| p.tile).collect() })
-                } else if !active.spec.kind.moves_tiles() && !spec.kind.moves_tiles() && active.from.depth() < 2 {
+                    let posed = transition::poses_from(active.spec.kind, &active.from.tiles(), &prev.layout.tiles, t, active.spec.ease, aspect);
+                    // the background goes on from where it is too: part way from the old one to the one it was going to
+                    let base = active.from.plan();
+                    let over = (base.layout.background != prev.layout.background || base.layout.picture != prev.layout.picture)
+                        .then(|| (prev.clone(), transition::effect(active.spec.ease, t)));
+                    Some(Start::Tiles { plan: base, tiles: posed, over })
+                } else if !spec.kind.moves_tiles() && active.from.depth() < 2 {
+                    // a mix leaves from the picture the last one had reached, glide or mix, still live
                     Some(Start::Frozen { active: Box::new(active), to: prev, t })
                 } else {
+                    // a glide cannot leave from a picture mixed of two (and chains of mixes stop at two): it leaves from whichever end is nearer.
+                    // This happens only when the kind was changed while one was playing
                     Some(Start::Plan(if t < 0.5 { active.from.plan() } else { prev }))
                 }
             }
@@ -926,12 +933,21 @@ impl Compositor {
         let spec = active.spec;
         let from_plan = active.from.plan();
         if spec.kind.moves_tiles() {
-            let posed = transition::poses(spec.kind, &active.from.tiles(), &plan.layout.tiles, t, spec.ease, cw as f64 / chh as f64);
+            let posed = transition::poses_from(spec.kind, &active.from.tiles(), &plan.layout.tiles, t, spec.ease, cw as f64 / chh as f64);
             let background = self.background_planes(plan, kind);
             let mut out = self.copy_of(&background);
-            // a different background fades from one to the other
-            if from_plan.layout.background != plan.layout.background || from_plan.layout.picture != plan.layout.picture {
-                let before = self.background_planes(&from_plan, kind);
+            // a different background fades from one to the other (the one an interrupted transition left from is part way already)
+            let over = match &active.from {
+                Start::Tiles { over: Some((to, w)), .. } => Some((to.clone(), *w)),
+                _ => None,
+            };
+            if over.is_some() || from_plan.layout.background != plan.layout.background || from_plan.layout.picture != plan.layout.picture {
+                let mut before = self.background_planes(&from_plan, kind);
+                if let Some((other, w)) = over {
+                    let to = self.background_planes(&other, kind);
+                    let w = (w * 256.0).round() as u32;
+                    before = Arc::new(before.iter().zip(to.iter()).map(|(b, o)| ((u32::from(*b) * (256 - w) + u32::from(*o) * w + 128) >> 8) as u8).collect());
+                }
                 let fade = (transition::effect(spec.ease, t) * 256.0).round() as u32;
                 out.iter_mut().zip(before.iter()).for_each(|(o, b)| *o = ((u32::from(*b) * (256 - fade) + u32::from(*o) * fade + 128) >> 8) as u8);
             }

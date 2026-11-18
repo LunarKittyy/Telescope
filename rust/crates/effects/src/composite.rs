@@ -50,6 +50,10 @@ pub struct Tile {
     pub crop_b: f64,
     /// Fill the box whatever its shape; otherwise the middle of the crop is cut to the box's shape.
     pub stretch: bool,
+    /// Can't be moved or changed from the editor.
+    pub locked: bool,
+    /// Shows only the person, by the stream's Background mask (set from the editor by the Cut out switch).
+    pub cut_out: bool,
 }
 
 impl Tile {
@@ -58,6 +62,7 @@ impl Tile {
         Tile {
             source_id: source_id.into(), name: String::new(), x: 0.0, y: 0.0, w: 1.0, h: 1.0, zoom: 1.0, cx: 0.5, cy: 0.5, border: 0,
             border_colour: "#ffffff".into(), radius: 0, crop_l: 0.0, crop_t: 0.0, crop_r: 0.0, crop_b: 0.0, stretch: false,
+            locked: false, cut_out: false,
         }
     }
 
@@ -163,6 +168,8 @@ pub fn clean_tile(raw: &Value) -> Option<Tile> {
         crop_r: number(get("crop_r"), 0.0, 0.0, 1.0 - MIN_SHOWN - crop_l),
         crop_b: number(get("crop_b"), 0.0, 0.0, 1.0 - MIN_SHOWN - crop_t),
         stretch: get("stretch") == Some(&Value::Bool(true)),
+        locked: get("locked") == Some(&Value::Bool(true)),
+        cut_out: get("cut_out") == Some(&Value::Bool(true)),
     })
 }
 
@@ -213,6 +220,13 @@ pub fn tile_dict(t: &Tile) -> Value {
         m.insert(k.into(), json!(v));
     }
     m.insert("stretch".into(), json!(t.stretch));
+    // written only when set, so layouts that never used them read as they always did
+    if t.locked {
+        m.insert("locked".into(), json!(true));
+    }
+    if t.cut_out {
+        m.insert("cut_out".into(), json!(true));
+    }
     Value::Object(m)
 }
 
