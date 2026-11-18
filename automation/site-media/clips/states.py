@@ -34,8 +34,10 @@ def pro_values(f):
     return round(math.exp(seg(t, ISO))), int(round(seg(t, KEL) / 10) * 10), round(seg(t, DIO) / 10.0 * 1000) / 1000 * 10
 def main():
     if sys.argv[1] == "lenses":
-        for c in ("2", "0", "4"):
-            print(json.dumps({"_state": state(c)}))
+        # the three lenses with auto exposure, then the same three with manual exposure
+        for extra in ({}, dict(auto=False, iso=400, shutter_ns=8_000_000)):
+            for c in ("2", "0", "4"):
+                print(json.dumps({"_state": state(c, **extra)}))
     else:
         # one line per distinct card state; frames.json maps each frame to its line
         seen, lines, frames = {}, [], []

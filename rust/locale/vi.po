@@ -180,7 +180,7 @@ msgstr "Tải VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "Loại bỏ tiếng gõ phím, tiếng quạt và tiếng xì nền trong phòng."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:748 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:742 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -346,7 +346,7 @@ msgstr "Vàng: bộ giới hạn đang nén các đỉnh âm lượng. Đỏ: â
 msgid "Click to clear"
 msgstr "Nhấp để xóa"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:43 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:43 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "Đặt lại"
 
@@ -1278,102 +1278,78 @@ msgstr ""
 msgid "Shuffle"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:52
-msgid "Bounce"
-msgstr ""
-
-#: rust/crates/effects/src/composite_plugin.rs:53
-msgid "Iris"
-msgstr ""
-
-#: rust/crates/effects/src/composite_plugin.rs:54
-msgid "Blinds"
-msgstr ""
-
-#: rust/crates/effects/src/composite_plugin.rs:55
-msgid "Curtain"
-msgstr ""
-
-#: rust/crates/effects/src/composite_plugin.rs:56
-msgid "Pixelate"
-msgstr ""
-
 #: rust/crates/effects/src/composite_plugin.rs:57
-msgid "Dissolve"
-msgstr ""
-
-#: rust/crates/effects/src/composite_plugin.rs:63
 msgid "Springy"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:64 rust/crates/shell/ui/cards/preview.slint:288 rust/crates/shell/ui/cards/preview.slint:292
+#: rust/crates/effects/src/composite_plugin.rs:58 rust/crates/shell/ui/cards/preview.slint:290 rust/crates/shell/ui/cards/preview.slint:294
 msgid "Smooth"
 msgstr "Mượt mà"
 
-#: rust/crates/effects/src/composite_plugin.rs:65
+#: rust/crates/effects/src/composite_plugin.rs:59
 msgid "Bouncy"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:66
+#: rust/crates/effects/src/composite_plugin.rs:60
 msgid "Even"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:485 rust/crates/effects/src/composite_plugin.rs:719 rust/crates/effects/src/composite_plugin.rs:723 rust/crates/effects/src/composite_plugin.rs:736 rust/crates/effects/ui/composite.slint:31
+#: rust/crates/effects/src/composite_plugin.rs:479 rust/crates/effects/src/composite_plugin.rs:713 rust/crates/effects/src/composite_plugin.rs:717 rust/crates/effects/src/composite_plugin.rs:730 rust/crates/effects/ui/composite.slint:31
 msgid "One picture"
 msgstr "Một khung hình"
 
-#: rust/crates/effects/src/composite_plugin.rs:537
+#: rust/crates/effects/src/composite_plugin.rs:531
 msgid "Nothing's in the picture yet."
 msgstr "Chưa có gì trong ảnh."
 
-#: rust/crates/effects/src/composite_plugin.rs:539
+#: rust/crates/effects/src/composite_plugin.rs:533
 msgid "Active once two streams are running."
 msgstr "Hoạt động sau khi có hai luồng phát đang chạy."
 
-#: rust/crates/effects/src/composite_plugin.rs:541
+#: rust/crates/effects/src/composite_plugin.rs:535
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "Đã đặt xuất ra {camera} nhưng không có luồng phát nào đang chạy ở đó."
 
-#: rust/crates/effects/src/composite_plugin.rs:543
+#: rust/crates/effects/src/composite_plugin.rs:537
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "Sẽ xuất ra {camera} khi luồng phát ở đó gửi hình ảnh."
 
-#: rust/crates/effects/src/composite_plugin.rs:545
+#: rust/crates/effects/src/composite_plugin.rs:539
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "Đang xuất ra {camera}."
 
-#: rust/crates/effects/src/composite_plugin.rs:550
+#: rust/crates/effects/src/composite_plugin.rs:544
 msgid "Nothing in it"
 msgstr "Trống"
 
-#: rust/crates/effects/src/composite_plugin.rs:552 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:695
+#: rust/crates/effects/src/composite_plugin.rs:546 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:695
 msgid "Two streams required"
 msgstr "Yêu cầu hai luồng phát"
 
-#: rust/crates/effects/src/composite_plugin.rs:554
+#: rust/crates/effects/src/composite_plugin.rs:548
 msgid "Not going out"
 msgstr "Không xuất ra"
 
-#: rust/crates/effects/src/composite_plugin.rs:556
+#: rust/crates/effects/src/composite_plugin.rs:550
 msgid "Going out"
 msgstr "Đang xuất ra"
 
-#: rust/crates/effects/src/composite_plugin.rs:609
+#: rust/crates/effects/src/composite_plugin.rs:603
 msgid "Several cameras in one picture"
 msgstr "Nhiều camera trong một khung hình"
 
-#: rust/crates/effects/src/composite_plugin.rs:610
+#: rust/crates/effects/src/composite_plugin.rs:604
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "Đặt các luồng phát đang chạy cạnh nhau hoặc lồng vào nhau trên một camera ảo."
 
-#: rust/crates/effects/src/composite_plugin.rs:611
+#: rust/crates/effects/src/composite_plugin.rs:605
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "Nếu không có tiện ích bổ sung Nhiều camera trong một hình, sẽ không có thẻ Một hình và mỗi luồng phát chỉ đi tới camera riêng của nó."
 
-#: rust/crates/effects/src/composite_plugin.rs:724 rust/crates/effects/src/composite_plugin.rs:748
+#: rust/crates/effects/src/composite_plugin.rs:718 rust/crates/effects/src/composite_plugin.rs:742
 msgid "Picture layout"
 msgstr "Bố cục khung hình"
 
@@ -8257,55 +8233,55 @@ msgstr "Cài đặt sẵn"
 msgid "Next or previous preset"
 msgstr "Cài đặt sẵn tiếp theo hoặc trước đó"
 
-#: rust/crates/shell/src/plugins/preview.rs:127
+#: rust/crates/shell/src/plugins/preview.rs:128
 msgid "Turn the phone's camera back on."
 msgstr "Bật lại camera điện thoại."
 
-#: rust/crates/shell/src/plugins/preview.rs:131
+#: rust/crates/shell/src/plugins/preview.rs:132
 msgid "Turn the phone's camera off and keep streaming its mic."
 msgstr "Tắt camera điện thoại và tiếp tục truyền phát mic."
 
-#: rust/crates/shell/src/plugins/preview.rs:133
+#: rust/crates/shell/src/plugins/preview.rs:134
 msgid "Start with the phone's camera off and stream only its mic."
 msgstr "Bắt đầu khi tắt camera điện thoại và chỉ truyền phát mic."
 
-#: rust/crates/shell/src/plugins/preview.rs:138 rust/crates/shell/src/tray.rs:76 rust/crates/shell/ui/settings.slint:394
+#: rust/crates/shell/src/plugins/preview.rs:139 rust/crates/shell/src/tray.rs:76 rust/crates/shell/ui/settings.slint:394
 msgid "Show"
 msgstr "Hiển thị"
 
-#: rust/crates/shell/src/plugins/preview.rs:138 rust/crates/shell/src/plugins/preview.rs:352
+#: rust/crates/shell/src/plugins/preview.rs:139 rust/crates/shell/src/plugins/preview.rs:372
 msgid "Hide"
 msgstr "Ẩn"
 
-#: rust/crates/shell/src/plugins/preview.rs:139
+#: rust/crates/shell/src/plugins/preview.rs:140
 msgid "Preview hidden"
 msgstr "Đã ẩn bản xem trước"
 
-#: rust/crates/shell/src/plugins/preview.rs:338 rust/crates/shell/src/plugins/preview.rs:368 rust/crates/shell/ui/cards/preview.slint:92
+#: rust/crates/shell/src/plugins/preview.rs:358 rust/crates/shell/src/plugins/preview.rs:388 rust/crates/shell/ui/cards/preview.slint:94
 msgid "Preview"
 msgstr "Xem trước"
 
-#: rust/crates/shell/src/plugins/preview.rs:339
+#: rust/crates/shell/src/plugins/preview.rs:359
 msgid "See the live picture in the middle of the window and turn the camera on and off with the button under it."
 msgstr "Xem hình ảnh trực tiếp ở giữa cửa sổ và bật hoặc tắt camera bằng nút bên dưới."
 
-#: rust/crates/shell/src/plugins/preview.rs:340
+#: rust/crates/shell/src/plugins/preview.rs:360
 msgid "Without the Preview plugin the window doesn't show the picture but apps using the virtual camera still get it."
 msgstr "Nếu không có tiện ích bổ sung Xem trước, cửa sổ sẽ không hiển thị hình ảnh nhưng các ứng dụng dùng camera ảo vẫn nhận được hình ảnh."
 
-#: rust/crates/shell/src/plugins/preview.rs:370
+#: rust/crates/shell/src/plugins/preview.rs:390
 msgid "Show or hide the preview"
 msgstr "Hiện hoặc ẩn bản xem trước"
 
-#: rust/crates/shell/src/plugins/preview.rs:370 rust/crates/shell/ui/cards/preview.slint:274 rust/crates/shell/ui/cards/preview.slint:278
+#: rust/crates/shell/src/plugins/preview.rs:390 rust/crates/shell/ui/cards/preview.slint:276 rust/crates/shell/ui/cards/preview.slint:280
 msgid "Lens outlines"
 msgstr "Đường viền ống kính"
 
-#: rust/crates/shell/src/plugins/preview.rs:371 rust/crates/shell/ui/cards/preview.slint:261 rust/crates/shell/ui/cards/preview.slint:264
+#: rust/crates/shell/src/plugins/preview.rs:391 rust/crates/shell/ui/cards/preview.slint:263 rust/crates/shell/ui/cards/preview.slint:266
 msgid "Skeleton"
 msgstr "Khung xương"
 
-#: rust/crates/shell/src/plugins/preview.rs:371
+#: rust/crates/shell/src/plugins/preview.rs:391
 msgid "Pop out the preview"
 msgstr "Tách cửa sổ xem trước"
 
@@ -9247,49 +9223,53 @@ msgstr "Thiết lập camera ảo, ứng dụng điện thoại và ghép đôi 
 msgid "Close the setup guide"
 msgstr "Đóng hướng dẫn thiết lập"
 
-#: rust/crates/shell/ui/cards/preview.slint:235
+#: rust/crates/shell/ui/cards/preview.slint:237
 msgid "Hide preview"
 msgstr "Ẩn xem trước"
 
-#: rust/crates/shell/ui/cards/preview.slint:235
+#: rust/crates/shell/ui/cards/preview.slint:237
 msgid "Show preview"
 msgstr "Hiện xem trước"
 
-#: rust/crates/shell/ui/cards/preview.slint:236
+#: rust/crates/shell/ui/cards/preview.slint:238
 msgid "Stop drawing the preview without changing the camera output."
 msgstr "Dừng vẽ khung xem trước mà không làm thay đổi đầu ra camera."
 
-#: rust/crates/shell/ui/cards/preview.slint:246
+#: rust/crates/shell/ui/cards/preview.slint:248
 msgid "Device camera"
 msgstr "Camera thiết bị"
 
-#: rust/crates/shell/ui/cards/preview.slint:250
+#: rust/crates/shell/ui/cards/preview.slint:252
 msgid "Camera on"
 msgstr "Camera bật"
 
-#: rust/crates/shell/ui/cards/preview.slint:250
+#: rust/crates/shell/ui/cards/preview.slint:252
 msgid "Camera off"
 msgstr "Camera tắt"
 
-#: rust/crates/shell/ui/cards/preview.slint:265
+#: rust/crates/shell/ui/cards/preview.slint:267
 msgid "Draw the skeleton MediaPipe finds on the preview only, not in the camera output."
 msgstr "Chỉ vẽ khung xương mà MediaPipe tìm thấy trên khung xem trước, không hiện trong đầu ra camera."
 
-#: rust/crates/shell/ui/cards/preview.slint:279
+#: rust/crates/shell/ui/cards/preview.slint:281
 msgid "Always outline what the phone's longer lenses see. This only shows on the preview, not in the camera output."
 msgstr "Luôn vẽ đường viền vùng nhìn của các ống kính tiêu cự dài hơn trên điện thoại. Chỉ hiện trên khung xem trước, không có trong đầu ra camera."
 
-#: rust/crates/shell/ui/cards/preview.slint:293
+#: rust/crates/shell/ui/cards/preview.slint:295
 msgid "Show every frame in the preview at the cost of a bit more CPU."
 msgstr "Hiện mọi khung hình trong khung xem trước, đổi lại tốn thêm một chút CPU."
 
-#: rust/crates/shell/ui/cards/preview.slint:299 rust/crates/shell/ui/cards/preview.slint:300
+#: rust/crates/shell/ui/cards/preview.slint:301 rust/crates/shell/ui/cards/preview.slint:302
 msgid "Pop out"
 msgstr "Tách cửa sổ"
 
-#: rust/crates/shell/ui/cards/preview.slint:301
+#: rust/crates/shell/ui/cards/preview.slint:303
 msgid "Open the preview in a separate window."
 msgstr "Mở khung xem trước trong một cửa sổ riêng."
+
+#: rust/crates/shell/ui/cards/preview.slint:312
+msgid "Switches the lens outlines and skeleton off and stops smoothing."
+msgstr ""
 
 #: rust/crates/shell/ui/frame.slint:156 rust/crates/shell/ui/frame.slint:162
 msgid "More"

@@ -59,6 +59,7 @@ export component PreviewCard inherits Rectangle {
     in property <bool> skeleton-shown;
     in property <bool> skeleton-on;
     in property <bool> smooth-on;
+    in property <bool> reset-shown;
     // Clicks and drags on the picture (FrameLabel): what the mouse would do here, and the square where it last focused
     in property <string> stage-cursor;
     in property <bool> marker-shown;
@@ -75,6 +76,7 @@ export component PreviewCard inherits Rectangle {
     callback lenses-clicked;
     callback skeleton-clicked;
     callback smooth-clicked;
+    callback reset-clicked;
 
     visible: visible-card;
     preferred-height: Theme.u(120) + Theme.row + Theme.u(8);
@@ -301,6 +303,15 @@ export component PreviewCard inherits Rectangle {
                     tip-detail: @tr("Open the preview in a separate window.");
                     shortcut: "pop_out";
                     clicked => { root.pop-out(); }
+                }
+                IconButton {
+                    raised: true;
+                    icon: Icons.reset;
+                    label: @tr("Reset");
+                    tip: @tr("Reset");
+                    tip-detail: @tr("Switches the lens outlines and skeleton off and stops smoothing.");
+                    enabled: reset-shown;
+                    clicked => { root.reset-clicked(); }
                 }
             }
         }
