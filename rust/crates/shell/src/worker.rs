@@ -1104,9 +1104,7 @@ impl Shared {
         gate.idle() && self.born.elapsed().as_nanos() as u64 >= gate.quiet_needed_ns() && !self.stopped()
     }
 
-    /// A decoded frame, from the steps thread or a reconnect: dropped before any step sees it while they are paused (decoding went on, which is what
-    /// keeps the picture coming back at once), published otherwise, and the first one after a pause starts the steps again (publish). Only a frame the
-    /// camera is waiting for to be sized (nothing was ever published) goes through while paused. Whether it went out.
+    /// A decoded frame from the steps thread or a reconnect, dropped while paused unless the camera still waits for its first frame to be sized: whether it went out.
     fn accept(&self, seq: u64, frame: Frame) -> bool {
         if self.slot.latest().is_some() && self.paused() {
             if !self.was_paused.swap(true, Ordering::SeqCst) {
