@@ -203,6 +203,16 @@ pub struct FakeHost {
     pub still_busy: bool,
     /// The photos asked for, as (options, folder) in order.
     pub stills_taken: Vec<(Value, String)>,
+    /// The source id each photo in stills_taken was asked for on.
+    pub still_sources: Vec<Option<String>>,
+    /// While set, the photo calls only answer for this source id, as for a host where it's one of several streams: any other (or None) finds no stream.
+    pub still_only_for: Option<String>,
+    /// What picture_hidden() answers.
+    pub picture_hidden: bool,
+    /// What set_hiding() was told, as (owner, source id, on) in order.
+    pub hiding: Vec<(String, Option<String>, bool)>,
+    /// What hidden_flag hands out (None: no flag).
+    pub hidden_flag: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     /// What stream_on_camera() answers, as (slot, source id, width, height).
     pub cameras: Vec<(u32, String, Option<u32>, Option<u32>)>,
     /// Streams is_streaming_from() says run, besides the focused one while streaming.
@@ -748,19 +758,36 @@ impl HostPreview for FakeHost {
     }
 }
 
-impl HostStills for FakeHost {
-    fn still_caps(&self, _source_id: Option<&str>) -> Option<Value> {
-        self.still_caps.clone()
+impl FakeHost {
+    /// Whether a photo call about this source id finds a stream.
+    fn still_stream(&self, source_id: Option<&str>) -> bool {
+        self.still_only_for.as_deref().is_none_or(|only| source_id == Some(only))
     }
-    fn take_still(&mut self, options: &Value, folder: &str, _source_id: Option<&str>) -> Option<RequestId> {
-        if self.still_caps.is_none() || self.still_busy {
+}
+
+impl HostStills for FakeHost {
+    fn still_caps(&self, source_id: Option<&str>) -> Option<Value> {
+        self.still_stream(source_id).then(|| self.still_caps.clone()).flatten()
+    }
+    fn take_still(&mut self, options: &Value, folder: &str, source_id: Option<&str>) -> Option<RequestId> {
+        if self.still_caps.is_none() || self.still_busy || !self.still_stream(source_id) {
             return None;
         }
         self.stills_taken.push((options.clone(), folder.to_string()));
+        self.still_sources.push(source_id.map(String::from));
         Some(self.request())
     }
-    fn still_busy(&self, _source_id: Option<&str>) -> bool {
-        self.still_busy
+    fn still_busy(&self, source_id: Option<&str>) -> bool {
+        self.still_busy && self.still_stream(source_id)
+    }
+    fn picture_hidden(&self, _source_id: Option<&str>) -> bool {
+        self.picture_hidden
+    }
+    fn set_hiding(&mut self, owner: &str, source_id: Option<&str>, on: bool) {
+        self.hiding.push((owner.to_string(), source_id.map(String::from), on));
+    }
+    fn hidden_flag(&mut self, _source_id: &str) -> Option<std::sync::Arc<std::sync::atomic::AtomicBool>> {
+        self.hidden_flag.clone()
     }
 }
 

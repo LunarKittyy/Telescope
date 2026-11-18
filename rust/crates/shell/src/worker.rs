@@ -288,7 +288,9 @@ pub fn to_nv12(frame: &Frame) -> Frame {
 }
 
 /// What the frame steps may ask about the frame they work on.
-struct Ctx {
+struct Ctx<'a> {
+    /// The worker's stop flag, so a step waiting on the graphics card gives up at a stop.
+    stop: &'a AtomicBool,
     source_id: String,
     vision: Option<Arc<dyn telescope_core::vision::VisionService>>,
     /// How many times the view had turned when the steps these frames go through were handed over: their pictures are of that view.
@@ -297,9 +299,12 @@ struct Ctx {
     entry_epoch: u64,
 }
 
-impl FrameContext for Ctx {
+impl FrameContext for Ctx<'_> {
     fn source_id(&self) -> &str {
         &self.source_id
+    }
+    fn stopped(&self) -> bool {
+        self.stop.load(Ordering::SeqCst)
     }
     fn entry_epoch(&self) -> Option<u64> {
         Some(self.entry_epoch)
@@ -866,6 +871,10 @@ impl Shared {
             return false;
         };
         self.newest_arrival.store(arrived, Ordering::Relaxed);
+        // A frame made while Stop waited isn't published after it
+        if self.stopped() {
+            return false;
+        }
         {
             let mut published = self.published.lock().unwrap();
             // stamped with the epoch it was made under, not the one it comes out in
@@ -891,7 +900,7 @@ impl Shared {
         let pipeline = publish.0.as_mut();
         pipeline.set_steps(steps);
         let entered = self.slot.epoch();
-        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: epoch, entry_epoch: entered };
+        let ctx = Ctx { stop: &self.stop, source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: epoch, entry_epoch: entered };
         let hidden = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pipeline.hide_again(cached, &ctx))).unwrap_or_else(|_| {
             log::error!("Hiding the frame on the camera failed");
             None
@@ -957,7 +966,7 @@ impl Shared {
         }
         // read before the steps run: a change of steps while they do leaves this frame marked as from before it
         let entered = self.slot.epoch();
-        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: self.view_epoch.load(Ordering::SeqCst), entry_epoch: entered };
+        let ctx = Ctx { stop: &self.stop, source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: self.view_epoch.load(Ordering::SeqCst), entry_epoch: entered };
         (pipeline.process(frame, &ctx), entered)
     }
 
@@ -2310,6 +2319,19 @@ mod tests {
         assert!(!w.shared.publish(999, grey(4, 2, 8)));
         let (frame, count) = w.shared.slot.latest().unwrap();
         assert_eq!((frame.data[0], count), (7, received + 1), "the older one isn't received at all");
+        w.stop();
+    }
+
+    #[test]
+    fn a_frame_that_finishes_after_stop_is_not_published() {
+        let packets = Arc::new(Mutex::new(VecDeque::from([Some(1)])));
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let w = worker(packets, cams.clone(), log);
+        wait_for(|| cams.opened.lock().unwrap().len() == 1);
+        let received = w.shared.slot.latest().unwrap().1;
+        w.request_stop();
+        assert!(!w.shared.publish(1000, grey(4, 2, 7)));
+        assert_eq!(w.shared.slot.latest().unwrap().1, received, "nothing went out after the stop");
         w.stop();
     }
 

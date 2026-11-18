@@ -17,6 +17,8 @@ base64.workspace = true
 # The bundled photo the Framing bubble shows
 zune-jpeg.workspace = true
 zune-core.workspace = true
+# Saving a stack as a PNG
+tiny-skia = "0.12"
 ureq = { workspace = true, features = ["platform-verifier"] }
 
 [dev-dependencies]
