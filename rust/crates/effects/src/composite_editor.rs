@@ -645,9 +645,9 @@ impl CompositePlugin {
                    "hot": dragged || (e.hover.0 == e.selected && e.hover.1 == *name)})
         }).collect()).unwrap_or_default();
         let rows: Vec<Value> = self.stream_entries().into_iter().map(|(sid, name, running)| {
-            let text = if running { name } else { tr("{name} (not streaming)").field("name", &name) };
+            let status = if running { tr("Streaming") } else { tr("Not streaming") };
             let at = layout.tiles.iter().position(|t| t.source_id == sid);
-            json!({"text": text, "dim": !running, "on": at.is_some(), "layer": at.is_some(), "locked": at.is_some_and(|i| layout.tiles[i].locked),
+            json!({"text": name, "status": status, "streaming": running, "dim": !running, "on": at.is_some(), "layer": at.is_some(), "locked": at.is_some_and(|i| layout.tiles[i].locked),
                    "picked": at.is_some_and(|i| i as i64 == e.selected)})
         }).collect();
         let picture_name = if layout.picture.is_empty() {

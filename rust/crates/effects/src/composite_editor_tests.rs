@@ -198,7 +198,9 @@ fn the_streams_list_puts_streams_in_and_takes_them_out() {
     r.picture(tiles); // twice: the list is made afresh, not added to
     let texts: Vec<String> = r.props()["streams"].as_array().unwrap().iter().map(|s| s["text"].as_str().unwrap().to_string()).collect();
     // the layout's tiles come first with the front one on top, then the running streams that aren't in it
-    assert_eq!(texts, ["Old phone (not streaming)", "Phone A", "Phone B"]);
+    assert_eq!(texts, ["Old phone", "Phone A", "Phone B"]);
+    let flags: Vec<bool> = r.props()["streams"].as_array().unwrap().iter().map(|s| s["streaming"].as_bool().unwrap()).collect();
+    assert_eq!(flags, [false, true, true], "the icon, not the name, tells who is streaming");
     r.ui("stream-toggled", json!([2, true]));
     assert_eq!(r.sources(), ["a", "gone", "b"]);
     assert_eq!(r.props()["selected"], json!(2));

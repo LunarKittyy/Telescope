@@ -21,6 +21,9 @@ export struct Grip {
 
 export struct StreamRow {
     text: string,
+    // Streaming or not, as words for the icon's tip and the screen reader
+    status: string,
+    streaming: bool,
     dim: bool,
     // The stream is in the picture (the eye is open)
     on: bool,
@@ -248,7 +251,8 @@ component LayerToggle inherits Rectangle {
     callback clicked;
     width: Theme.icon + Theme.u(4);
     height: Theme.icon + Theme.u(4);
-    background: transparent;
+    border-radius: Theme.r-ctl;
+    background: touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : transparent;
     accessible-role: checkbox;
     accessible-label: label;
     accessible-checkable: true;
@@ -274,6 +278,8 @@ component LayerToggle inherits Rectangle {
 // dialog: the held row follows the pointer and the others make room, and let go it glides into its place.
 component LayerRow inherits Rectangle {
     in property <string> title;
+    in property <string> status;
+    in property <bool> streaming;
     in property <bool> on;
     in property <bool> dim;
     in property <bool> layer;
@@ -301,7 +307,7 @@ component LayerRow inherits Rectangle {
     drop-shadow-offset-y: root.held ? Theme.u(1) : 0px;
     drop-shadow-color: root.held ? Theme.shadow : transparent;
     accessible-role: list-item;
-    accessible-label: root.title;
+    accessible-label: root.title + " (" + root.status + ")";
     accessible-item-selectable: true;
     accessible-item-selected: root.picked;
     touch := TouchArea {
@@ -335,18 +341,18 @@ component LayerRow inherits Rectangle {
         }
         clicked => { if (root.layer && !was-dragged) { root.pick-clicked(); } }
     }
+    Tip { says: root.status; hover: touch.has-hover && touch.mouse-x < Theme.u(16) && !root.any-held; }
     HorizontalLayout {
         padding-left: Theme.u(7);
         padding-right: Theme.u(5.5);
         spacing: Theme.u(2);
-        LayerToggle {
+        Icon {
             y: (parent.height - self.height) / 2;
-            icon: root.on ? Icons.eye : Icons.eye-off;
-            active: root.on;
-            label: root.title;
-            tip: root.on ? @tr("In the picture") : @tr("Not in the picture");
-            tip-detail: root.on ? @tr("Take this stream out of the picture.") : @tr("Put this stream in the picture.");
-            clicked => { root.eye-clicked(!root.on); }
+            source: root.streaming ? Icons.camera : Icons.camera-off;
+            tint: root.streaming ? Theme.ink2 : Theme.faint;
+            width: Theme.icon;
+            height: Theme.icon;
+            accessible-role: none;
         }
         Text {
             text: root.title;
@@ -358,6 +364,15 @@ component LayerRow inherits Rectangle {
             horizontal-stretch: 1;
             overflow: elide;
             accessible-role: none;
+        }
+        LayerToggle {
+            y: (parent.height - self.height) / 2;
+            icon: root.on ? Icons.eye : Icons.eye-off;
+            active: root.on;
+            label: root.title;
+            tip: root.on ? @tr("In the picture") : @tr("Not in the picture");
+            tip-detail: root.on ? @tr("Take this stream out of the picture.") : @tr("Put this stream in the picture.");
+            clicked => { root.eye-clicked(!root.on); }
         }
         if root.layer: LayerToggle {
             y: (parent.height - self.height) / 2;
@@ -622,6 +637,8 @@ export component CompositeEditor inherits Window {
                                 width: parent.width;
                                 height: list.row-h;
                                 title: row.text;
+                                status: row.status;
+                                streaming: row.streaming;
                                 on: row.on;
                                 dim: row.dim;
                                 layer: row.layer;
