@@ -545,7 +545,7 @@ impl FrameContext for Held {
 
 fn step_in(mode: &str, blur: i64, edges: i64) -> Step {
     let mode = MODES.iter().position(|(k, _)| *k == mode).unwrap();
-    Step { settings: Settings { mode, blur, edges, cut_in: 0, picture: None, high_quality: false }, covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None, card: CardPictures::default() }
+    Step { settings: Settings { mode, blur, edges, cut_in: 0, picture: None, high_quality: false }, wanted: Wanted::default(), covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None, card: CardPictures::default() }
 }
 
 fn varied_mask(w: usize, h: usize, seed: usize) -> Gray {
@@ -1309,4 +1309,198 @@ fn the_host_hears_again_when_the_panels_move_to_a_camera_with_the_same_settings(
     // Settings that didn't move, nothing shown: nothing said
     rig.event(Event::PhonesChanged { count: 1 });
     assert_eq!(rig.host.hiding.len(), told + 2);
+}
+
+// ── Cut out ─────────────────────────────────────────────────────────────
+
+/// The step as a plugin hands it out, for a stream that asks for its cut-out or not.
+fn cutting(wanted: bool, mode: &str) -> Step {
+    let step = step_in(mode, 4, 3);
+    step.wanted.set("phone", wanted);
+    step
+}
+
+#[test]
+fn a_stream_that_wants_its_cut_out_gets_the_soft_mask_as_alpha_on_yuv_planes() {
+    let (scene, mask) = peek::sample_scene(160, 90);
+    let served = Served::new(mask.shrink(40, 22));
+    let frame = i420_of(&scene);
+    for mode in ["blur", "picture"] {
+        let (mut with, mut without) = (frame.clone(), frame.clone());
+        let mut step = cutting(true, mode);
+        step.process(&mut with, &served);
+        cutting(false, mode).process(&mut without, &served);
+        assert!(without.alpha().is_none(), "nothing is attached unless it is wanted");
+        assert!(with.data == without.data, "{mode}: the picture itself is what it is today");
+        let alpha = with.alpha().expect("a cut-out");
+        assert_eq!((alpha.w, alpha.h, alpha.premultiplied), (160, 90, false), "the room's blur is under the person, so the colour isn't multiplied");
+        let soft = &step.quarter.as_ref().unwrap().wide.as_ref().unwrap().luma;
+        assert_eq!(&alpha.data, soft, "the mask the person was laid over the background with");
+        assert!(alpha.data.contains(&255) && alpha.data.contains(&0), "a person and a room");
+    }
+}
+
+#[test]
+fn a_stream_that_wants_its_cut_out_gets_the_soft_mask_as_alpha_on_rgb_frames() {
+    let (w, h) = (96, 54);
+    let source = stripes(w, h);
+    let ctx = TwoMasks(half_mask(w, h), half_mask(w, h), Default::default());
+    for high in [false, true] {
+        let mut step = cutting(true, "blur");
+        step.settings.high_quality = high;
+        let (mut with, mut without) = (frame_of(&source), frame_of(&source));
+        step.process(&mut with, &ctx);
+        let mut plain = cutting(false, "blur");
+        plain.settings.high_quality = high;
+        plain.process(&mut without, &ctx);
+        assert!(with.data == without.data && without.alpha().is_none(), "high quality {high}");
+        let want = half_mask(w, h).soften_cut(3, 0);
+        assert_eq!(with.alpha().expect("a cut-out").data, want.data, "high quality {high}");
+    }
+}
+
+#[test]
+fn nobody_in_the_mask_or_no_mask_yet_is_a_cut_out_with_nothing_in_it() {
+    let (scene, _) = peek::sample_scene(160, 90);
+    let frame = i420_of(&scene);
+    let mut empty = frame.clone();
+    cutting(true, "blur").process(&mut empty, &Served::new(Gray::filled(40, 22, 0)));
+    assert!(empty.alpha().expect("a cut-out").data.iter().all(|&a| a == 0));
+    // with no mask yet there's nobody to cut out either, so a Cut out tile shows nothing rather than the blurred room
+    let mut unknown = frame.clone();
+    cutting(true, "blur").process(&mut unknown, &Ctx(None, Default::default()));
+    assert!(unknown.alpha().expect("a cut-out").data.iter().all(|&a| a == 0));
+}
+
+#[test]
+fn a_cut_out_another_step_made_is_kept_and_a_stream_not_asking_is_left_alone() {
+    let (scene, mask) = peek::sample_scene(160, 90);
+    let served = Served::new(mask.shrink(40, 22));
+    let mut frame = i420_of(&scene);
+    let first = Arc::new(Alpha::new(160, 90, vec![9; 160 * 90], true));
+    assert!(frame.set_alpha(first.clone()));
+    cutting(true, "blur").process(&mut frame, &served);
+    assert!(Arc::ptr_eq(frame.alpha().unwrap(), &first), "the first one attached wins");
+    // a stream that isn't the one asking
+    let step = step_in("blur", 4, 3);
+    step.wanted.set("somewhere else", true);
+    let mut other = i420_of(&scene);
+    let mut step = step;
+    step.process(&mut other, &served);
+    assert!(other.alpha().is_none());
+}
+
+#[test]
+fn the_mask_is_made_into_an_alpha_plane_once_while_it_stays_the_same() {
+    let (scene, mask) = peek::sample_scene(160, 90);
+    let served = Served::new(mask.shrink(40, 22));
+    let mut step = cutting(true, "blur");
+    let (mut a, mut b) = (i420_of(&scene), i420_of(&scene));
+    step.process(&mut a, &served);
+    step.process(&mut b, &served);
+    assert!(Arc::ptr_eq(a.alpha().unwrap(), b.alpha().unwrap()));
+    step.settings.edges = 6;
+    let mut c = i420_of(&scene);
+    step.process(&mut c, &served);
+    assert_ne!(a.alpha().unwrap().data, c.alpha().unwrap().data, "a new edge setting is a new cut-out");
+}
+
+#[test]
+fn the_plugins_steps_hear_which_streams_want_a_cut_out_without_being_made_again() {
+    let mut rig = Rig::new(None, "ready");
+    rig.set_mode("blur");
+    let Some(FrameStep::Either(_, mut step)) = rig.plugin.frame_step() else { panic!("blur") };
+    let (scene, mask) = peek::sample_scene(160, 90);
+    let served = Served::new(mask.shrink(40, 22));
+    let mut before = i420_of(&scene);
+    step.process(&mut before, &served);
+    assert!(before.alpha().is_none());
+    rig.event(Event::CutOutWanted { source_id: "phone".into(), on: true });
+    let mut during = i420_of(&scene);
+    step.process(&mut during, &served);
+    assert!(during.alpha().is_some());
+    rig.event(Event::CutOutWanted { source_id: "phone".into(), on: false });
+    let mut after = i420_of(&scene);
+    step.process(&mut after, &served);
+    assert!(after.alpha().is_none());
+}
+
+#[test]
+fn wanting_a_cut_out_switches_blur_on_and_the_last_stream_letting_go_puts_it_back() {
+    let mut rig = Rig::new(None, "ready");
+    assert!(rig.plugin.frame_step().is_none(), "off to start with");
+    let told = rig.host.calls.iter().filter(|c| *c == "refresh_frame_step").count();
+    rig.event(Event::CutOutWanted { source_id: "a".into(), on: true });
+    assert_eq!(rig.plugin.mode_name(), "blur");
+    assert!(matches!(rig.plugin.frame_step(), Some(FrameStep::Either(..))));
+    assert_eq!(rig.shown("mode"), json!(1));
+    assert!(rig.host.calls.iter().filter(|c| *c == "refresh_frame_step").count() > told, "the stream is given the step");
+    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    // it isn't what was chosen, so it isn't what is saved, and a second stream changes nothing
+    assert_eq!(rig.plugin.get_config()["mode"], json!("off"));
+    rig.event(Event::CutOutWanted { source_id: "b".into(), on: true });
+    rig.event(Event::CutOutWanted { source_id: "a".into(), on: false });
+    assert_eq!(rig.plugin.mode_name(), "blur", "b still wants it");
+    rig.event(Event::CutOutWanted { source_id: "b".into(), on: false });
+    assert_eq!(rig.plugin.mode_name(), "off");
+    assert!(rig.plugin.frame_step().is_none());
+    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
+}
+
+#[test]
+fn a_mode_somebody_picked_is_never_switched_or_put_back() {
+    for mode in ["blur", "picture"] {
+        let mut rig = Rig::new(None, "ready");
+        rig.set_mode(mode);
+        rig.event(Event::CutOutWanted { source_id: "a".into(), on: true });
+        rig.event(Event::CutOutWanted { source_id: "a".into(), on: false });
+        assert_eq!(rig.plugin.mode_name(), mode);
+    }
+    // taking over while it is switched on keeps the pick
+    let mut rig = Rig::new(None, "ready");
+    rig.event(Event::CutOutWanted { source_id: "a".into(), on: true });
+    rig.set_mode("blur");
+    assert_eq!(rig.plugin.get_config()["mode"], json!("blur"));
+    rig.event(Event::CutOutWanted { source_id: "a".into(), on: false });
+    assert_eq!(rig.plugin.mode_name(), "blur");
+    // and a camera's settings arriving are the camera's own
+    let mut rig = Rig::new(None, "ready");
+    rig.event(Event::CutOutWanted { source_id: "a".into(), on: true });
+    rig.plugin.set_config(&json!({"mode": "picture"})).unwrap();
+    rig.event(Event::CutOutWanted { source_id: "a".into(), on: false });
+    assert_eq!(rig.plugin.mode_name(), "picture");
+}
+
+#[test]
+fn only_the_camera_shown_has_its_background_switched_on() {
+    let mut rig = Rig::new(None, "ready");
+    rig.host.focused = Some("shown".into());
+    rig.event(Event::CutOutWanted { source_id: "behind".into(), on: true });
+    assert_eq!(rig.plugin.mode_name(), "off", "the settings here are the shown camera's");
+    rig.event(Event::CutOutWanted { source_id: "shown".into(), on: true });
+    assert_eq!(rig.plugin.mode_name(), "blur");
+}
+
+#[test]
+fn settings_arriving_with_off_still_leave_a_wanted_cut_out_its_blur() {
+    let mut rig = Rig::new(None, "ready");
+    rig.event(Event::CutOutWanted { source_id: "a".into(), on: true });
+    rig.plugin.set_config(&json!({"mode": "off"})).unwrap();
+    rig.event(Event::SourceShown { source_id: "a".into() });
+    assert_eq!(rig.plugin.mode_name(), "blur");
+    assert_eq!(rig.plugin.get_config()["mode"], json!("off"), "still not saved as chosen");
+}
+
+#[test]
+fn chroma_key_making_the_cut_out_leaves_the_background_off() {
+    let mut rig = Rig::new(None, "ready");
+    rig.host.share("chroma_key", "keying", Some(json!(true))).unwrap();
+    rig.event(Event::CutOutWanted { source_id: "a".into(), on: true });
+    assert_eq!(rig.plugin.mode_name(), "off");
+    rig.host.share("chroma_key", "keying", Some(json!(false))).unwrap();
+    rig.event(Event::SharedChanged { key: "chroma_key.keying".into() });
+    assert_eq!(rig.plugin.mode_name(), "blur", "the key went off, so Background makes it");
+    rig.host.share("chroma_key", "keying", Some(json!(true))).unwrap();
+    rig.event(Event::SharedChanged { key: "chroma_key.keying".into() });
+    assert_eq!(rig.plugin.mode_name(), "off");
 }

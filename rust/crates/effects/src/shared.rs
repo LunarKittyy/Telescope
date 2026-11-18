@@ -2,7 +2,8 @@
 //! phone is paired.
 
 use serde_json::Value;
-use std::sync::Arc;
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
 use telescope_core::frame::{Frame, FrameContext};
 use telescope_core::media::Media;
 use telescope_core::Event;
@@ -24,6 +25,27 @@ pub(crate) fn mask_shared(ctx: &dyn FrameContext, frame: &Frame) -> Option<Arc<V
 pub(crate) fn mask_shared_hq(ctx: &dyn FrameContext, frame: &Frame) -> Option<Arc<Vec<u8>>> {
     let m = ctx.person_mask_hq(frame)?;
     (m.len() == (frame.width * frame.height) as usize).then_some(m)
+}
+
+/// The streams (by source id) whose pictures are asked to carry their cut-out (Event::CutOutWanted). The plugin keeps it up to date and the steps it hands out hold a clone, so a step hears a change without being made again.
+#[derive(Clone, Default)]
+pub struct Wanted(Arc<Mutex<HashSet<String>>>);
+
+impl Wanted {
+    /// Sets whether this stream wants it. Whether that changed anything, and whether no stream wants it now.
+    pub fn set(&self, source_id: &str, on: bool) -> (bool, bool) {
+        let mut set = self.0.lock().unwrap_or_else(|e| e.into_inner());
+        let changed = if on { set.insert(source_id.to_string()) } else { set.remove(source_id) };
+        (changed, set.is_empty())
+    }
+
+    pub fn has(&self, source_id: &str) -> bool {
+        self.0.lock().is_ok_and(|set| set.contains(source_id))
+    }
+
+    pub fn any(&self) -> bool {
+        self.0.lock().is_ok_and(|set| !set.is_empty())
+    }
 }
 
 /// Reads a picture file (a PNG, JPEG, WebP or BMP) into a frame. The binary makes one from its Media.

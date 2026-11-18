@@ -339,7 +339,7 @@ fn nikon_waits_for_both_files_of_a_pair_and_reports_the_one_that_came_when_the_o
     let mock = Mock::nikon();
     let mut rig = open(&mock);
     waits(&mut rig);
-    let Err(Incomplete { why, shots }) = rig.capture(2, &|| false) else { panic!("only one file was made") };
+    let Err(Incomplete { why, shots, .. }) = rig.capture(2, &|| false) else { panic!("only one file was made") };
     assert_eq!(shots.len(), 1);
     assert!(why.starts_with("1 of 2 files came"), "{why}");
 }
@@ -350,7 +350,7 @@ fn nikon_that_never_says_the_photo_is_there_times_out_with_nothing() {
     mock.state().silent_photos = true;
     let mut rig = open(&mock);
     waits(&mut rig);
-    let Err(Incomplete { why, shots }) = rig.capture(1, &|| false) else { panic!("nothing was reported") };
+    let Err(Incomplete { why, shots, .. }) = rig.capture(1, &|| false) else { panic!("nothing was reported") };
     assert!(shots.is_empty() && why.contains("in time"), "{why}");
 }
 
@@ -358,7 +358,7 @@ fn nikon_that_never_says_the_photo_is_there_times_out_with_nothing() {
 fn a_photo_taken_while_the_picture_went_hidden_is_never_fetched() {
     let mock = Mock::nikon();
     let mut rig = open(&mock);
-    let Err(Incomplete { why, shots }) = rig.capture(1, &|| true) else { panic!("the picture was hidden") };
+    let Err(Incomplete { why, shots, .. }) = rig.capture(1, &|| true) else { panic!("the picture was hidden") };
     assert!(shots.is_empty() && why.contains("hidden"), "{why}");
     assert!(!mock.ops().contains(&0x1009), "{:x?}", mock.ops());
 }
@@ -546,6 +546,18 @@ fn an_eos_m_takes_one_press_and_a_canon_that_wont_let_go_is_reset() {
 fn eos_m_is_told_from_the_marks_by_its_name() {
     assert!(capture::is_eos_m("Canon EOS M50") && capture::is_eos_m("Canon EOS M"));
     assert!(!capture::is_eos_m("Canon EOS 5D Mark IV") && !capture::is_eos_m("Canon EOS R5"));
+}
+
+#[test]
+fn a_trigger_the_camera_refused_never_fired_but_a_link_that_failed_after_it_may_have() {
+    let refused = Mock::nikon();
+    refused.state().refuse = Some((0x90C0, 0x2002));
+    let Err(why) = open(&refused).capture(1, &|| false) else { panic!("the trigger was refused") };
+    assert!(why.before_shutter && why.why.contains("refused"), "{why:?}");
+    let dropped = Mock::nikon();
+    dropped.state().transport_error_on = Some(0x90C0);
+    let Err(why) = open(&dropped).capture(1, &|| false) else { panic!("the link dropped") };
+    assert!(!why.before_shutter && why.why.contains("link dropped"), "{why:?}");
 }
 
 #[test]

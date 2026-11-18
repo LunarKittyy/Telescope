@@ -13,6 +13,7 @@ mod auto_tests;
 mod auto_grade_tests;
 pub mod background;
 pub mod chroma_key;
+pub mod chroma_matte;
 pub mod cinema;
 pub mod cinema_paint;
 pub mod cinema_tools;

@@ -15,6 +15,11 @@ export component CompositeCard inherits Card {
     callback switch-toggled-by-hand(bool);
     callback layout-picked(int);
     callback edit-clicked;
+    in property <bool> director;
+    in property <bool> director-enabled;
+    in property <string> director-name;
+    in property <string> director-detail;
+    callback director-toggled(bool);
     in property <bool> reset-shown;
     callback reset-clicked;
     in property <[string]> transition-items;
@@ -78,15 +83,30 @@ export component CompositeCard inherits Card {
         }
         Unfolding {
             open: edit-shown;
-            Button {
-                text: @tr("Edit picture");
-                tip: @tr("Edit picture");
-                tip-detail: @tr("Open the editor for the layout.");
-                has-icon: true;
-                icon: Icons.pencil;
-                icon-tint: Theme.ink2;
-                clicked => { root.edit-clicked(); }
+            RailRow {
+                has-icon: false;
+                Button {
+                    horizontal-stretch: 1;
+                    text: @tr("Edit picture");
+                    tip: @tr("Edit picture");
+                    tip-detail: @tr("Open the editor for the layout.");
+                    has-icon: true;
+                    icon: Icons.pencil;
+                    icon-tint: Theme.ink2;
+                    clicked => { root.edit-clicked(); }
+                }
             }
+        }
+        SwitchRow {
+            icon: Icons.layout;
+            label: director-name;
+            tip: director-name;
+            tip-detail: director-detail;
+            hue: root.hue;
+            enabled: director-enabled;
+            changed: director;
+            checked: root.director;
+            toggled(v) => { root.director-toggled(v); }
         }
         Unfolding {
             open: true;
@@ -108,7 +128,8 @@ export component CompositeCard inherits Card {
         }
         Unfolding {
             open: transition-shown;
-            SliderRow {
+            RailSlider {
+                icon: Icons.timer;
                 hue: root.hue;
                 label: @tr("Length");
                 minimum: 100;
@@ -124,7 +145,7 @@ export component CompositeCard inherits Card {
         Unfolding {
             open: transition-shown;
             RailRow {
-                icon: Icons.timer;
+                icon: Icons.gauge;
                 label: @tr("Easing");
                 hue: root.hue;
                 ChoiceField {
