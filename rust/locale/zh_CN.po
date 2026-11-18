@@ -6326,28 +6326,24 @@ msgstr "从这台电脑上通过 Spout 共享画面的程序串流。"
 msgid "Sender"
 msgstr "发送端"
 
-#: rust/crates/outputs/ui/spout_send.slint:15 rust/crates/outputs/ui/spout_send.slint:21
+#: rust/crates/outputs/ui/spout_send.slint:15 rust/crates/outputs/ui/spout_send.slint:23
 msgid "Share this stream's picture with other programs on this computer, such as OBS."
 msgstr ""
 
-#: rust/crates/outputs/ui/spout_send.slint:20
+#: rust/crates/outputs/ui/spout_send.slint:22
 msgid "Share this stream"
 msgstr ""
 
-#: rust/crates/outputs/ui/spout_send.slint:29
+#: rust/crates/outputs/ui/spout_send.slint:31
 msgid "Transparent background"
 msgstr ""
 
-#: rust/crates/outputs/ui/spout_send.slint:30
+#: rust/crates/outputs/ui/spout_send.slint:32
 msgid "Cut yourself out and share the picture with a see-through background, for programs that can lay it over something."
 msgstr ""
 
-#: rust/crates/outputs/ui/spout_send.slint:31
+#: rust/crates/outputs/ui/spout_send.slint:33
 msgid "It uses the person cut-out of Background or Chroma key. For the stream you are looking at it switches Background to Blur while nothing else uses it. Another stream only has a see-through background while Background or Chroma key is on for it."
-msgstr ""
-
-#: rust/crates/outputs/ui/spout_send.slint:44
-msgid "Status"
 msgstr ""
 
 #: rust/crates/outputs/ui/stream_output.slint:52
@@ -10829,6 +10825,10 @@ msgstr "下载解压后的文件超出预期大小，未予采用。"
 #: rust/crates/vision/src/pack.rs:399
 msgid "The download contains unexpected paths and wasn't used."
 msgstr "下载内容包含异常路径，未予采用。"
+
+#: rust/crates/link/src/https.rs:646
+msgid "Status"
+msgstr ""
 
 #: rust/crates/shell/ui/specimen.slint:303
 msgid "Type or paste your notes."
