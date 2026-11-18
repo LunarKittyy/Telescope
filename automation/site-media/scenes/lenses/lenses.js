@@ -1,5 +1,5 @@
-// The lenses loop: main, then ultra-wide, then tele, then main again, clicked on the real Camera card
-const DURATION = 12;
+// The lenses loop: main, then ultra-wide, then tele, then main again, then exposure to Manual and back to Auto, clicked on the real Camera card
+const DURATION = 16;
 window.FEED_LOOP = DURATION;
 const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -13,7 +13,7 @@ const $ = id => document.getElementById(id);
 const vis = (el, o) => { el.style.opacity = (+o).toFixed(4); el.style.visibility = o <= 0.0005 ? "hidden" : "visible"; };
 
 // the part of the window shown, in window coordinates, and how big it is drawn
-const CROP = { x: 430, y: 74, w: 866, h: 684 }, S = 1.44;
+const CROP = { x: 430, y: 74, w: 866, h: 487 }, S = 2.08;
 const crop = $("crop");
 crop.style.width = CROP.w * S + "px"; crop.style.height = CROP.h * S + "px";
 crop.style.left = (1920 - CROP.w * S) / 2 + "px"; crop.style.top = (1080 - CROP.h * S) / 2 + "px";
@@ -47,14 +47,19 @@ for (const k of Object.keys(LENS)) {
 })();
 
 // [click time, lens it switches to, button centre]
-const BTN = { ultra: [980, 156], main: [1097, 156], tele: [1214, 156] };
+const BTN = { ultra: [980, 156], main: [1097, 156], tele: [1214, 156], manual: [1182, 206], auto: [1008, 206] };
 const SWITCHES = [[2.5, "ultra"], [6.2, "tele"], [9.8, "main"]];
+// exposure goes to Manual and back to Auto
+const MANUAL_ON = 11.3, MANUAL_OFF = 14.0;
+const CLICKS = [...SWITCHES.map(s => s[0]), MANUAL_ON, MANUAL_OFF];
 const REST = [1104, 216];
 const PATH = [
   [1.55, 2.4, REST, BTN.ultra, 26],
   [5.15, 6.1, BTN.ultra, BTN.tele, -30],
   [8.9, 9.7, BTN.tele, BTN.main, 18],
-  [10.5, 11.5, BTN.main, REST, -14],
+  [10.3, 11.25, BTN.main, BTN.manual, 14],
+  [12.7, 13.9, BTN.manual, BTN.auto, -16],
+  [14.5, 15.5, BTN.auto, REST, -14],
 ];
 function cursorAt(t) {
   let p = REST;
@@ -95,7 +100,10 @@ function seek(t) {
   for (const [id, lens] of [["lultra", "ultra"], ["ltele", "tele"]]) {
     const on = lens === to ? btn : lens === from && btn < 1 ? 1 - btn : 0;
     vis($(id), on);
+    vis($("m" + id.slice(1)), on);
   }
+  // exposure Manual: the card's second set of pictures fades in over the first at the click
+  vis($("manual"), t >= MANUAL_OFF ? 1 - clamp((t - MANUAL_OFF) / 0.12) : t >= MANUAL_ON ? clamp((t - MANUAL_ON) / 0.12) : 0);
   // the picture: the old lens pushes on a little and fades, the new one settles in from a touch larger
   const fade = E.io3(k);
   for (const lens of Object.keys(LENS)) {
@@ -116,9 +124,9 @@ function seek(t) {
   updateFeed({ t, blurBg: lerp(A.bg, B.bg, fade), blurMug: lerp(A.mug, B.mug, fade), blurCat: 0 });
 
   const [px, py] = cursorAt(t);
-  const press = Math.max(...SWITCHES.map(([c]) => Math.max(0, 1 - Math.abs(t - c) / 0.09)));
+  const press = Math.max(...CLICKS.map(c => Math.max(0, 1 - Math.abs(t - c) / 0.09)));
   $("cursor").style.transform = `translate(${(px - 2).toFixed(2)}px, ${(py - 2).toFixed(2)}px) scale(${(1 - 0.12 * press).toFixed(3)})`;
-  const c0 = SWITCHES.map(s => s[0]).find(c => t > c && t < c + 0.45), cl = $("click");
+  const c0 = CLICKS.find(c => t > c && t < c + 0.45), cl = $("click");
   if (c0 !== undefined) {
     const ck = (t - c0) / 0.45, [qx, qy] = cursorAt(c0);
     cl.style.left = qx + "px"; cl.style.top = qy + "px";
