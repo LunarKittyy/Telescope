@@ -306,7 +306,7 @@ impl CompositePlugin {
         }
         e.selected = index;
         let tile = &tiles[index as usize];
-        let zoom = (tile.zoom.min(self.max_zoom) * ZOOM_STEP.powf(steps)).clamp(1.0, self.max_zoom);
+        let zoom = (tile.zoom * ZOOM_STEP.powf(steps)).clamp(1.0, self.max_zoom);
         self.replace_tile(host, index, Tile { zoom, ..tile.clone() });
     }
 
@@ -557,9 +557,9 @@ impl CompositePlugin {
             "streams": rows,
             "few-streams": streams.len() < 2,
             "tile-shown": picked.is_some(),
-            "zoom": picked.map_or(100.0, |t| (t.zoom.min(self.max_zoom) * 100.0).round()),
+            "zoom": picked.map_or(100.0, |t| (t.zoom * 100.0).round()),
             "zoom-max": self.max_zoom * 100.0,
-            "zoom-text": picked.map_or_else(String::new, |t| format!("{} %", (t.zoom.min(self.max_zoom) * 100.0).round())),
+            "zoom-text": picked.map_or_else(String::new, |t| format!("{} %", (t.zoom * 100.0).round())),
             "border": picked.map_or(0, |t| t.border),
             "border-max": MAX_BORDER,
             "border-text": picked.map_or_else(String::new, |t| format!("{} px", t.border)),

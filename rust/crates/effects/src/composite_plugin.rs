@@ -283,20 +283,19 @@ impl CompositePlugin {
         }
     }
 
+    /// No tile zooms in further than the Max zoom setting: one saved at a bigger zoom is brought down to it.
+    fn cap_zooms(&mut self) {
+        let max = self.max_zoom;
+        self.layout.tiles.iter_mut().for_each(|t| t.zoom = t.zoom.min(max));
+    }
+
     fn prepare(&mut self) {
         let size = self.size();
         let on = self.on;
         let mut hub = self.shared.hub();
         // Off, nothing draws: the background (a canvas-sized picture) is only worked out while it's on
         if on {
-            if self.layout.tiles.iter().any(|t| t.zoom > self.max_zoom) {
-                // a tile saved at a bigger zoom draws at the limit and gets its zoom back if the limit rises
-                let mut layout = self.layout.clone();
-                layout.tiles.iter_mut().for_each(|t| t.zoom = t.zoom.min(self.max_zoom));
-                hub.compositor.prepare(&layout, size);
-            } else {
-                hub.compositor.prepare(&self.layout, size);
-            }
+            hub.compositor.prepare(&self.layout, size);
         } else {
             hub.compositor = Compositor::new(self.reader.clone());
         }
@@ -352,6 +351,7 @@ impl CompositePlugin {
     /// The picture as the editor has it now; the name says which saved layout it started from.
     pub fn set_layout(&mut self, host: &mut dyn Host, layout: Layout) {
         self.layout = layout;
+        self.cap_zooms();
         self.canvas = host.canvas_size();
         self.prepare();
         self.show(host);
@@ -569,6 +569,13 @@ impl Plugin for CompositePlugin {
         match event {
             Event::MaxZoomChanged { max_zoom } => {
                 self.max_zoom = (*max_zoom as f64).max(1.0);
+                let before = self.layout.clone();
+                self.cap_zooms();
+                if self.layout != before {
+                    // a held fallback picture was drawn with the old zooms
+                    self.shared.hub().fallback_key = None;
+                    host.schedule_save();
+                }
                 self.canvas = host.canvas_size();
                 self.prepare();
                 self.show(host);

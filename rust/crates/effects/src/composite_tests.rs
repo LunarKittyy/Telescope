@@ -285,3 +285,12 @@ fn names_keep_only_what_prints() {
     assert_eq!(bgr("#0000FF"), [255, 0, 0]);
     assert_eq!(bgr("nope"), [0, 0, 0]);
 }
+
+#[test]
+fn pinning_a_tile_zoomed_far_in_keeps_a_crop_that_can_be_dragged_without_leaving_the_picture() {
+    let tile = Tile { zoom: 30.0, ..Tile::boxed("a", "", 0.1, 0.1, 0.4, 0.4) };
+    let pinned = pinned(&tile, 16.0 / 9.0, 16.0 / 9.0);
+    assert!(1.0 - pinned.crop_l - pinned.crop_r >= MIN_SHOWN - 1e-9 && 1.0 - pinned.crop_t - pinned.crop_b >= MIN_SHOWN - 1e-9);
+    let cut = cropped(&pinned, "l", 0.1, 0.0);
+    assert!(cut.x >= 0.0 && cut.x + cut.w <= 1.0 + 1e-9);
+}

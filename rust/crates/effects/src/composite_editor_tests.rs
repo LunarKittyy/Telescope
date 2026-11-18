@@ -156,10 +156,10 @@ fn scrolling_zooms_as_far_as_the_max_zoom_setting() {
     }
     assert_eq!(r.tile(0).zoom, 25.0);
     assert_eq!(r.props()["zoom-max"], json!(2500.0));
-    // a lower limit holds a tile saved past it back, without losing what was saved
+    // a lower limit brings a tile that is past it down, in the layout the editor and the camera both draw
     r.plugin.on_event(&mut r.host, &Event::MaxZoomChanged { max_zoom: 6 });
     assert_eq!(r.props()["zoom"], json!(600.0));
-    assert_eq!(r.tile(0).zoom, 25.0);
+    assert_eq!(r.tile(0).zoom, 6.0);
 }
 
 #[test]
