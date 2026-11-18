@@ -192,8 +192,8 @@ impl Pipeline {
         Pipeline::default()
     }
 
-    /// One that listens to this balance, for tests.
-    fn with_balance(balance: Arc<Balance>) -> Pipeline {
+    /// One that listens to this balance instead of the app's, so tests of the card don't move each other's steps.
+    pub fn with_balance(balance: Arc<Balance>) -> Pipeline {
         Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, background_added: false, view_key: None, forget_due: false }
     }
 
@@ -394,7 +394,16 @@ impl Pipeline {
             let Kind::Either(_, cpu) = &mut entry.kind else { return Ok(None) };
             catch_unwind(AssertUnwindSafe(|| cpu.card_textures(frame, ctx))).map_err(|_| ())
         };
-        if !self.steps[i].has_textures && !chain.ahead.is_empty() {
+        // What it says about itself comes first: asking for pictures on the frame in hand while the card is ahead of it would send a mask request for the picture from before the card's work, and the answer for a frame is kept
+        let offered = match &self.steps[i].kind {
+            Kind::Either(_, cpu) => catch_unwind(AssertUnwindSafe(|| cpu.card_textures_offered())).unwrap_or(None),
+            _ => None,
+        };
+        if offered == Some(false) {
+            self.steps[i].no_textures = true;
+            return None;
+        }
+        if offered.is_none() && !self.steps[i].has_textures && !chain.ahead.is_empty() {
             if let Ok(None) = ask(&mut self.steps[i], frame) {
                 self.steps[i].no_textures = true;
                 return None;
@@ -1702,5 +1711,85 @@ pub(crate) mod tests {
         let mut p = with_pictures(cpu, Place::Cpu, Vec::new());
         let out = p.process(grey(8, 8, 100), &NoContext);
         assert_eq!((out.data[0], p.last_transfers, asked.load(Ordering::SeqCst)), (99, (0, 0), 0));
+    }
+
+    /// Asks for a mask the way Background does for its picture, and notes the luma of the frame it was shown.
+    struct AsksMask(Arc<std::sync::Mutex<Vec<u8>>>);
+
+    impl CpuStep for AsksMask {
+        fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+        fn card_textures_offered(&self) -> Option<bool> {
+            Some(true)
+        }
+        fn card_textures(&mut self, frame: &Frame, ctx: &dyn FrameContext) -> Option<Vec<(String, Frame)>> {
+            self.0.lock().unwrap().push(frame.data[0]);
+            let _ = ctx.person_mask(frame);
+            Some(Vec::new())
+        }
+    }
+
+    #[test]
+    fn a_step_that_always_has_pictures_asks_for_its_mask_once_on_the_picture_the_card_made() {
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        let step = ShaderStep { wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![shader(INVERT), StagedStep { owner: "either".into(), stage: FrameStage::Effects, step: FrameStep::Either(step, Box::new(AsksMask(seen.clone()))) }]);
+        let ctx = Masked(std::sync::Mutex::new(None), std::sync::atomic::AtomicU32::new(0));
+        p.process(grey(8, 8, 100), &ctx);
+        assert_eq!(ctx.1.load(Ordering::SeqCst), 1, "one request for the mask");
+        let seen = seen.lock().unwrap();
+        assert_eq!(seen.len(), 1);
+        assert!((seen[0] as i32 - 151).abs() <= 2, "the mask was asked for on the picture from before the card's work ({})", seen[0]);
+    }
+
+    /// The card goes wrong on a readback (see Fault): the frame the CPU makes goes out, never what was left in the kept buffer, and the stream stays on the CPU unless the card is fine.
+    fn a_readback_that_goes_wrong(fault: crate::gpu::Fault) {
+        let gpu = Arc::new(Gpu::open().unwrap());
+        let (mut p, _) = either(Place::Card);
+        p.gpu = Some(Some(gpu.clone()));
+        // a picture first, so a download buffer of this size is kept with it in
+        p.process(grey(8, 8, 100), &NoContext);
+        assert_eq!(p.last_transfers, (1, 1));
+        gpu.inject(fault);
+        let out = p.process(grey(8, 8, 60), &NoContext);
+        assert_eq!(out.data[0], 207, "{fault:?}: the CPU's picture of this frame, not the last one's (167)");
+        assert!(p.card_lost, "{fault:?}");
+        for luma in [30, 90] {
+            assert_eq!(p.process(grey(8, 8, luma), &NoContext).data[0], (267 - luma as u32) as u8, "{fault:?}");
+            assert_eq!(p.last_transfers, (0, 0), "{fault:?}");
+        }
+        let (mut other, _) = either(Place::Card);
+        other.gpu = Some(Some(gpu.clone()));
+        other.process(grey(8, 8, 80), &NoContext);
+        let usable = matches!(fault, crate::gpu::Fault::RefusedSubmit);
+        assert_eq!(other.last_transfers == (1, 1), usable, "{fault:?}: a refusal leaves the card usable, a panic or a loss doesn't");
+    }
+
+    #[test]
+    fn a_refused_readback_a_poll_panic_and_a_lost_card_all_end_on_the_cpu() {
+        let name = "pipeline::tests::card_faults_in_a_process_of_its_own";
+        let run = std::process::Command::new(std::env::current_exe().unwrap()).args(["--ignored", "--exact", name, "--nocapture"]).output().unwrap();
+        assert!(run.status.success(), "{}", String::from_utf8_lossy(&run.stdout));
+    }
+
+    #[test]
+    #[ignore = "a_refused_readback_a_poll_panic_and_a_lost_card_all_end_on_the_cpu runs this"]
+    fn card_faults_in_a_process_of_its_own() {
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        // the same card, asked for a picture twice with a refusal between: the second isn't the first
+        let frame = |luma| grey(8, 8, luma);
+        let first = gpu.rgba(&frame(100), 8, 8).unwrap();
+        gpu.inject(crate::gpu::Fault::RefusedSubmit);
+        let why = gpu.rgba(&frame(40), 8, 8).unwrap_err();
+        assert!(why.contains("refused"), "{why}");
+        let second = gpu.rgba(&frame(40), 8, 8).unwrap();
+        assert_ne!(first, second);
+        drop(gpu);
+        for fault in [crate::gpu::Fault::RefusedSubmit, crate::gpu::Fault::PollPanic, crate::gpu::Fault::Lost] {
+            a_readback_that_goes_wrong(fault);
+        }
     }
 }

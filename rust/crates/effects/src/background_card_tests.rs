@@ -4,7 +4,9 @@ use super::*;
 use crate::chroma_key::ChromaKeyPlugin;
 use std::cell::{Cell, RefCell};
 use telescope_core::image::rgb_to_420;
-use telescope_core::media::{Media, StagedStep};
+use telescope_core::balance::{Balance, Place};
+use telescope_core::media::{FramePipeline, StagedStep};
+use telescope_media::pipeline::Pipeline;
 use telescope_media::transfers;
 
 /// A person mask the vision service would give: the same Arc for as long as the mask is the same, and at a smaller size on request.
@@ -55,6 +57,14 @@ fn person(w: usize, h: usize) -> Vec<u8> {
 
 /// A room with colour in it (blocks, a gradient, noise) and a bright orange person where the mask has one, as an I420 frame.
 fn room(w: usize, h: usize, mask: &[u8]) -> Frame {
+    let rgb = room_rgb(w, h, mask);
+    let mut data = vec![0u8; PixelFormat::I420.size(w as u32, h as u32)];
+    rgb_to_420(&rgb, w, h, &mut data, false);
+    Frame::new(w as u32, h as u32, PixelFormat::I420, data)
+}
+
+/// The same room as red, green and blue bytes.
+fn room_rgb(w: usize, h: usize, mask: &[u8]) -> Vec<u8> {
     let mut rgb = vec![0u8; w * h * 3];
     let mut n = 9u32;
     for y in 0..h {
@@ -71,9 +81,7 @@ fn room(w: usize, h: usize, mask: &[u8]) -> Frame {
             }
         }
     }
-    let mut data = vec![0u8; PixelFormat::I420.size(w as u32, h as u32)];
-    rgb_to_420(&rgb, w, h, &mut data, false);
-    Frame::new(w as u32, h as u32, PixelFormat::I420, data)
+    rgb
 }
 
 fn plugin(strength: i64, edges: i64) -> BackgroundPlugin {
@@ -91,8 +99,13 @@ fn real_card() -> bool {
     here
 }
 
-fn pipeline_with(step: FrameStep) -> Box<dyn telescope_core::media::FramePipeline> {
-    let mut pipeline = telescope_media::FfmpegMedia.pipeline().expect("a frame pipeline");
+/// A pipeline with a balance of its own, as the card's place, so tests that move the step don't move each other's
+fn own_pipeline(balance: Balance) -> Pipeline {
+    Pipeline::with_balance(Arc::new(balance))
+}
+
+fn pipeline_with(step: FrameStep) -> Pipeline {
+    let mut pipeline = own_pipeline(Balance::pinned_to(Place::Card));
     pipeline.set_steps(vec![StagedStep { owner: NAME.into(), stage: FrameStage::Background, step }]);
     pipeline
 }
@@ -237,11 +250,12 @@ fn the_balance_can_still_move_the_step_to_the_cpu_where_it_gives_the_cpu_picture
     let ctx = Ctx::new(Some(mask));
     let mut p = plugin(6, 3);
     let Some(step @ FrameStep::Either(..)) = p.frame_step() else { panic!("Blur runs either way") };
-    let mut pipeline = pipeline_with(step);
     // a card that keeps frames waiting for long moves the step off it
-    let balance = telescope_core::balance::Balance::shared();
+    let balance = Arc::new(Balance::free());
+    let mut pipeline = Pipeline::with_balance(balance.clone());
+    pipeline.set_steps(vec![StagedStep { owner: NAME.into(), stage: FrameStage::Background, step }]);
     (0..8).for_each(|_| balance.note_wait(50_000_000));
-    assert_eq!(balance.place(), telescope_core::balance::Place::Cpu);
+    assert_eq!(balance.place(), Place::Cpu);
     let before = transfers::totals();
     let out = pipeline.process(frame.clone(), &ctx);
     assert_eq!(transfers::totals().up, before.up, "nothing went up");
@@ -278,7 +292,7 @@ fn the_card_blur_next_to_a_key_and_a_cpu_step_costs_one_trip_each_way_and_a_mask
     let mask = person(w, h);
     let frame = room(w, h, &mask);
     let per_frame = |blur: FrameStep, ctx: &Ctx, frames: u64, with_key: bool| {
-        let mut pipeline = telescope_media::FfmpegMedia.pipeline().expect("a frame pipeline");
+        let mut pipeline = own_pipeline(Balance::pinned_to(Place::Card));
         let mut key = ChromaKeyPlugin::new();
         key.set_config(&json!({"on": true, "colour": [0, 255, 0]})).unwrap();
         let mut steps = vec![StagedStep { owner: NAME.into(), stage: FrameStage::Background, step: blur }];
@@ -357,4 +371,94 @@ fn what_the_blur_costs() {
             }
         }
     }
+}
+
+/// The room as an RGBA or BGRA frame.
+fn room_in(format: PixelFormat, w: usize, h: usize, mask: &[u8]) -> Frame {
+    let rgb = room_rgb(w, h, mask);
+    let data = rgb.as_chunks::<3>().0.iter().flat_map(|p| if format == PixelFormat::Rgba { [p[0], p[1], p[2], 255] } else { [p[2], p[1], p[0], 255] }).collect();
+    Frame::new(w as u32, h as u32, format, data)
+}
+
+#[test]
+fn rgba_and_bgra_frames_use_the_full_size_mask_where_the_cpu_does() {
+    if !real_card() {
+        return;
+    }
+    let (w, h) = (640, 360);
+    // a person, and a few hairs a pixel or two wide that a quarter-size mask would lose
+    let mut mask = person(w, h);
+    for y in 20..140 {
+        for x in [100, 101, 230, 231, 232] {
+            mask[y * w + x] = 255;
+        }
+    }
+    let ctx = Ctx::new(Some(mask.clone()));
+    for format in [PixelFormat::Rgba, PixelFormat::Bgra] {
+        let frame = room_in(format, w, h, &mask);
+        let (card, cpu) = both(&mut plugin(6, 0), &frame, &ctx);
+        let worst = card.data.iter().zip(cpu.data.iter()).map(|(a, b)| (*a as i32 - *b as i32).abs()).max().unwrap();
+        let mean = card.data.iter().zip(cpu.data.iter()).map(|(a, b)| (*a as i32 - *b as i32).abs() as f64).sum::<f64>() / card.data.len() as f64;
+        // the hair is the room's picture as it was, on the CPU and on the card
+        let hair = (60 * w + 101) * 4;
+        let moved: i32 = (0..3).map(|c| (card.data[hair + c] as i32 - frame.data[hair + c] as i32).abs()).max().unwrap();
+        eprintln!("{format:?} with no feathering: card vs CPU max {worst}, mean {mean:.3}; the hair moved {moved} on the card");
+        assert!(worst <= 8 && mean <= 1.0, "{format:?}: max {worst}, mean {mean:.3}");
+        assert!(moved <= 3, "{format:?}: the hair was blurred away ({moved})");
+    }
+}
+
+/// A frame of two flat colours too saturated for RGB (blue and red, as planes) with a person in YUV samples of their own.
+fn two_tone(w: usize, h: usize, mask: &[u8]) -> Frame {
+    let (cw, ch) = (w / 2, h / 2);
+    let mut data = vec![0u8; PixelFormat::I420.size(w as u32, h as u32)];
+    let tone = |x: usize| if x < w / 2 { (90u8, 250u8, 90u8) } else { (170, 20, 240) };
+    let person = |x: usize, y: usize| mask[y * w + x] == 255;
+    for y in 0..h {
+        for x in 0..w {
+            data[y * w + x] = if person(x, y) { 205 } else { tone(x).0 };
+        }
+    }
+    for y in 0..ch {
+        for x in 0..cw {
+            let inside = person(x * 2, y * 2);
+            data[w * h + y * cw + x] = if inside { 60 } else { tone(x * 2).1 };
+            data[w * h + cw * ch + y * cw + x] = if inside { 200 } else { tone(x * 2).2 };
+        }
+    }
+    Frame::new(w as u32, h as u32, PixelFormat::I420, data)
+}
+
+#[test]
+fn a_saturated_room_blurs_the_colour_the_cpu_does_and_the_person_keeps_their_own_samples() {
+    if !real_card() {
+        return;
+    }
+    let (w, h) = (640, 360);
+    let mask = person(w, h);
+    let frame = two_tone(w, h, &mask);
+    let ctx = Ctx::new(Some(mask.clone()));
+    let (card, cpu) = both(&mut plugin(6, 3), &frame, &ctx);
+    let (max, mean, far) = gap(&card, &cpu, &mask, 24);
+    eprintln!("two saturated tones: card vs CPU max {max} levels, {far} away from the mask's edge, mean {mean:.3}");
+    assert!(far <= 3 && mean <= 1.0, "max {max}, far {far}, mean {mean:.3}");
+    // where the mask says person, far from its edge, every plane is the frame's own sample as far as the CPU leaves it: no trip through RGB
+    let (cw, ch) = (w / 2, h / 2);
+    let (mut checked, mut moved_card, mut moved_cpu) = (0, 0, 0);
+    for y in (30..h - 30).step_by(2) {
+        for x in (30..w - 30).step_by(2) {
+            let solid = (y - 12..y + 12).step_by(4).all(|ny| (x - 12..x + 12).step_by(4).all(|nx| mask[ny * w + nx] == 255));
+            if solid {
+                for i in [y * w + x, w * h + (y / 2) * cw + x / 2, w * h + cw * ch + (y / 2) * cw + x / 2] {
+                    assert!((card.data[i] as i32 - cpu.data[i] as i32).abs() <= 1, "at {x},{y}: the card made {} where the CPU made {}", card.data[i], cpu.data[i]);
+                    moved_card = moved_card.max((card.data[i] as i32 - frame.data[i] as i32).abs());
+                    moved_cpu = moved_cpu.max((cpu.data[i] as i32 - frame.data[i] as i32).abs());
+                }
+                checked += 1;
+            }
+        }
+    }
+    eprintln!("the person's samples moved by up to {moved_card} on the card and {moved_cpu} on the CPU");
+    assert!(moved_card <= moved_cpu + 1);
+    assert!(checked > 100, "{checked} samples checked");
 }

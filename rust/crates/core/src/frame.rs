@@ -334,6 +334,10 @@ pub trait CpuStep: Send {
     fn card_textures(&mut self, _frame: &Frame, _ctx: &dyn FrameContext) -> Option<Vec<(String, Frame)>> {
         None
     }
+    /// For the CPU half of an Either: whether card_textures always has pictures to give (Some(true)), never does (Some(false)) or can't be told without asking (None). Some(true) is never asked on a frame the card is still ahead of, so a mask it works out is asked for once, on the picture the card really made.
+    fn card_textures_offered(&self) -> Option<bool> {
+        None
+    }
     /// For the CPU half of an Either: whether the card reads YUV chroma as the CPU does (a sample repeated over its 2 x 2 block, not blended).
     fn card_block_chroma(&self) -> bool {
         false

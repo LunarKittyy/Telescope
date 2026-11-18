@@ -19,6 +19,7 @@ use telescope_core::i18n::{n_, tr};
 use telescope_core::image::{over_rows, planes_up_to_420, resize_linear_fixed, rgb_planes, rgb_to_420, small_rgb, spare_bytes, with_spares};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::settings::{off_default, reset_config};
+use telescope_core::shader::{BLUR_CUTOUT, BLUR_WEIGHTS};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 
 pub const NAME: &str = "background";
@@ -237,32 +238,69 @@ impl CpuStep for Step {
         true
     }
 
-    /// The cutout and the share of the room the blur may take from, made from the mask the way the CPU way makes them; with no mask or nobody in it they're left out, which the shader reads as no cutout and a plain blur.
+    fn card_textures_offered(&self) -> Option<bool> {
+        Some(true)
+    }
+
+    /// The cutout and the share of the room the blur may take from, made from the mask the way the CPU way makes them for this frame's format (a quarter-size mask for planes, the full-size one otherwise); with no mask or nobody in it they're left out, which the shader reads as no cutout and a plain blur.
     fn card_textures(&mut self, frame: &Frame, ctx: &dyn FrameContext) -> Option<Vec<(String, Frame)>> {
         let (w, h) = (frame.width as usize, frame.height as usize);
-        let mask = if w >= 2 && h >= 2 { self.quarter_mask(frame, ctx, ((w / 4).max(1), (h / 4).max(1))) } else { None };
+        let by_planes = frame.format == PixelFormat::I420 && w >= 2 && h >= 2 && frame.i420_planes().is_some();
+        let (mask, quarter) = if by_planes {
+            match self.quarter_mask(frame, ctx, ((w / 4).max(1), (h / 4).max(1))) {
+                Some(src) => (Some(src.clone()), Some(src)),
+                None => (None, None),
+            }
+        } else {
+            (if self.settings.high_quality { mask_shared_hq(ctx, frame) } else { mask_shared(ctx, frame) }, None)
+        };
         let Some(src) = mask else {
             self.quarter = None;
             self.card = CardPictures::default();
             return Some(Vec::new());
         };
-        let q = self.derive(src, (w, h), true);
-        let key: CardKey = (q.src.clone(), (self.settings.edges, self.settings.cut_in), (w, h));
+        let key: CardKey = (src.clone(), (self.settings.edges, self.settings.cut_in), (w, h));
+        if let Some(src) = quarter {
+            let q = self.derive(src, (w, h), true);
+            if self.card.soft.as_ref().is_none_or(|(k, _)| !same_card_key(k, &key)) {
+                let soft = q.soft.as_ref().map(|(_, g)| g).filter(|g| g.data.iter().any(|&v| v != 0));
+                self.card.soft = Some((key.clone(), soft.map(|g| card_picture(g.w, g.h, g.data.iter().copied()))));
+            }
+            if self.card.weights.as_ref().is_none_or(|(k, _)| !same_card_key(k, &key)) {
+                // 255 where the pixel is room, so what the shader weighs is the share Weights::of takes
+                let weights = q.rest.as_ref().filter(|r| r.data.iter().any(|&m| m != 0));
+                self.card.weights = Some((key.clone(), weights.map(|r| card_picture(r.w, r.h, r.data.iter().map(|m| 255 - m)))));
+            }
+            self.quarter = Some(q);
+        } else {
+            self.full_card_pictures(&src, key, (w, h));
+        }
         let mut out = Vec::new();
-        if self.card.soft.as_ref().is_none_or(|(k, _)| !same_card_key(k, &key)) {
-            let soft = q.soft.as_ref().map(|(_, g)| g).filter(|g| g.data.iter().any(|&v| v != 0));
-            self.card.soft = Some((key.clone(), soft.map(|g| card_picture(g.w, g.h, g.data.iter().copied()))));
-        }
-        if self.card.weights.as_ref().is_none_or(|(k, _)| !same_card_key(k, &key)) {
-            // 255 where the pixel is room, so what the shader weighs is the share Weights::of takes
-            let weights = q.rest.as_ref().filter(|r| r.data.iter().any(|&m| m != 0));
-            self.card.weights = Some((key.clone(), weights.map(|r| card_picture(r.w, r.h, r.data.iter().map(|m| 255 - m)))));
-        }
-        self.quarter = Some(q);
-        for (name, kept) in [("soft", &self.card.soft), ("blur_weights", &self.card.weights)] {
+        for (name, kept) in [(BLUR_CUTOUT, &self.card.soft), (BLUR_WEIGHTS, &self.card.weights)] {
             out.extend(kept.as_ref().and_then(|(_, f)| f.clone()).map(|f| (name.to_string(), f)));
         }
         Some(out)
+    }
+}
+
+impl Step {
+    /// The pictures for a frame the CPU way does with its full-size mask: the cutout is the mask itself when there's no feathering or cutting in, else what `soften_cut` makes before it's scaled up (the card scales it as it samples), and the share is the mask shrunk to the blur's size.
+    fn full_card_pictures(&mut self, src: &Arc<Vec<u8>>, key: CardKey, (w, h): (usize, usize)) {
+        let (edges, cut) = (self.settings.edges, self.settings.cut_in);
+        let whole = || Gray { w, h, data: src.to_vec() };
+        if self.card.soft.as_ref().is_none_or(|(k, _)| !same_card_key(k, &key)) {
+            let soft = if edges <= 0 && cut <= 0 {
+                whole()
+            } else {
+                let small = whole().area((w / 4).max(1), (h / 4).max(1)).cut_in(cut);
+                if edges > 0 { small.blur(edges as f64 * 0.6) } else { small }
+            };
+            self.card.soft = Some((key.clone(), Some(soft).filter(|g| g.data.iter().any(|&v| v != 0)).map(|g| card_picture(g.w, g.h, g.data.iter().copied()))));
+        }
+        if self.card.weights.as_ref().is_none_or(|(k, _)| !same_card_key(k, &key)) {
+            let rest = whole().shrink((w / BLUR_SMALL).max(1), (h / BLUR_SMALL).max(1));
+            self.card.weights = Some((key, Some(rest).filter(|r| r.data.iter().any(|&m| m != 0)).map(|r| card_picture(r.w, r.h, r.data.iter().map(|m| 255 - m)))));
+        }
     }
 }
 
@@ -275,9 +313,9 @@ fn card_picture(w: usize, h: usize, values: impl Iterator<Item = u8>) -> Frame {
     Frame::new(w as u32, h as u32, PixelFormat::Rgba, values.flat_map(|v| [v, 0, 0, 255]).collect())
 }
 
-/// The blur's settings for the card's shader, which core::shader names: the blur is worked at an eighth of the picture with the CPU way's sigma.
+/// The blur's settings for the card's shader, which core::shader names: the blur is worked at an eighth of the picture with the CPU way's sigma, and an I420 picture is shrunk and laid over by planes as the CPU does it.
 fn card_uniforms(strength: i64) -> Value {
-    json!({"blur_shrink": BLUR_SMALL, "blur_sigma": blur_sigma(strength)})
+    json!({"blur_shrink": BLUR_SMALL, "blur_sigma": blur_sigma(strength), "blur_planes": 1})
 }
 
 /// The same picture on the card: the room blurred (leaving out whoever the mask has in it) with the frame over it where the cutout says.
@@ -285,7 +323,7 @@ const CARD_BLUR: &str = include_str!("background.wgsl");
 
 fn card_blur(strength: i64) -> ShaderStep {
     let nothing = || Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]);
-    ShaderStep { wgsl: CARD_BLUR.into(), uniforms: card_uniforms(strength), textures: vec![("soft".into(), nothing()), ("blur_weights".into(), nothing())] }
+    ShaderStep { wgsl: CARD_BLUR.into(), uniforms: card_uniforms(strength), textures: vec![(BLUR_CUTOUT.into(), nothing()), (BLUR_WEIGHTS.into(), nothing())] }
 }
 
 impl Step {

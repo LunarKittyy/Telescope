@@ -96,6 +96,9 @@ fn blurred_weighted(uv: vec2<f32>) -> vec4<f32> {
 /// The step's uniform that says how many times smaller than the picture the blur is worked out, and the sigma it blurs with at that size.
 pub const BLUR_SHRINK: &str = "blur_shrink";
 pub const BLUR_SIGMA: &str = "blur_sigma";
+/// The step's uniform that, set to 1, makes the card shrink an I420 picture's planes before it works out colours and lay the blur over the picture plane by plane, as the CPU way does: what the cutout (the step texture BLUR_CUTOUT, one channel, red) leaves is the picture's own samples.
+pub const BLUR_PLANES: &str = "blur_planes";
+pub const BLUR_CUTOUT: &str = "blur_cutout";
 /// The step texture (one channel, red, at the blurred size) that weights blurred_weighted: 255 where the picture counts, 0 where it's left out.
 pub const BLUR_WEIGHTS: &str = "blur_weights";
 
