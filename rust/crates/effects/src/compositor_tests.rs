@@ -317,6 +317,248 @@ fn i420_frames_are_drawn_in_their_own_planes() {
     assert_eq!(bgr(DEFAULT_BACKGROUND), [0x1a, 0x15, 0x15]);
 }
 
+// ── Cut out: a tile with an alpha plane over what is on the canvas ──
+
+use telescope_core::frame::Alpha;
+
+/// A w x h BGRA frame of one colour (B, G, R) with an alpha plane from alpha(x, y); a premultiplied one has its colour multiplied by it.
+fn cut(bgr: [u8; 3], (h, w): (u32, u32), premultiplied: bool, alpha: impl Fn(usize, usize) -> u8) -> Frame {
+    let mut f = solid(bgr, (h, w));
+    let mut plane = Vec::new();
+    for y in 0..h as usize {
+        for x in 0..w as usize {
+            let a = alpha(x, y);
+            plane.push(a);
+            if premultiplied {
+                let at = (y * w as usize + x) * 4;
+                for (c, v) in bgr.iter().enumerate() {
+                    f.data_mut()[at + c] = (*v as f32 * a as f32 / 255.0).round() as u8;
+                }
+            }
+        }
+    }
+    assert!(f.set_alpha(Arc::new(Alpha::new(w, h, plane, premultiplied))));
+    f
+}
+
+fn cut_tile(sid: &str, x: f64, y: f64, w: f64, h: f64) -> Tile {
+    Tile { cut_out: true, ..t(sid, x, y, w, h) }
+}
+
+fn render_in(layout: &Layout, f: &Frames, size: (u32, u32), format: PixelFormat) -> Frame {
+    let mut comp = Compositor::default();
+    comp.prepare(layout, size);
+    comp.render(f, format).unwrap()
+}
+
+#[test]
+fn a_cut_out_blends_over_the_canvas_like_a_float_reference_within_a_level() {
+    let bg_hex = "#2060c0";
+    let [bb, bg, br] = bgr(bg_hex);
+    let tile_bgr = [200u8, 40, 120];
+    // columns in pairs share an alpha, so the colour planes' 2 x 2 mean is exactly it
+    let ramp = |x: usize, _y: usize| ((x / 2) * 255 / 79) as u8;
+    for premultiplied in [false, true] {
+        let layout = Layout { background: bg_hex.into(), ..Layout::of(vec![cut_tile("a", 0.0, 0.0, 1.0, 1.0)]) };
+        let f = frames(vec![("a", cut(tile_bgr, (90, 160), premultiplied, ramp), Some(1))]);
+        // packed canvas
+        let out = render_in(&layout, &f, (160, 90), PixelFormat::Bgra);
+        for (y, x) in [(0, 0), (10, 1), (45, 40), (80, 100), (89, 159)] {
+            let a = ramp(x, y) as f32 / 255.0;
+            let got = px(&out, y, x);
+            for c in 0..3 {
+                let want = tile_bgr[c] as f32 * a + [bb, bg, br][c] as f32 * (1.0 - a);
+                assert!((got[c] as f32 - want).abs() <= 1.0, "premultiplied {premultiplied} at {x},{y} channel {c}: {} against {want}", got[c]);
+            }
+        }
+        assert!(out.data.as_chunks::<4>().0.iter().all(|p| p[3] == 255), "the canvas stays opaque");
+        // I420 canvas: the luma and both colour planes against the same blend of the planes it was drawn from
+        let out = render_in(&layout, &f, (160, 90), PixelFormat::I420);
+        let tile_planes = converted(&solid(tile_bgr, (90, 160)), Kind::I420).unwrap();
+        let back = colour_planes(Kind::I420, [br, bg, bb]);
+        let (w, h) = (160usize, 90usize);
+        let cw = w / 2;
+        for (plane, (at, pw, ph)) in [(0usize, (0usize, w, h)), (1, (w * h, cw, h / 2)), (2, (w * h + cw * (h / 2), cw, h / 2))] {
+            for (y, x) in [(0, 0), (1, 3), (ph / 2, pw / 3), (ph - 1, pw - 1)] {
+                let alpha_x = if plane == 0 { x } else { 2 * x };
+                let a = ramp(alpha_x, 0) as f32 / 255.0;
+                let want = tile_planes.data[at + y * pw + x] as f32 * a + back[plane] as f32 * (1.0 - a);
+                let got = out.data[at + y * pw + x] as f32;
+                assert!((got - want).abs() <= 1.0, "premultiplied {premultiplied} plane {plane} at {x},{y}: {got} against {want}");
+            }
+        }
+    }
+}
+
+#[test]
+fn a_cut_out_shows_what_is_under_it_where_the_alpha_is_nothing() {
+    let half = |x: usize, _y: usize| if x < 80 { 0 } else { 255 };
+    for format in [PixelFormat::Bgra, PixelFormat::I420] {
+        let layout = Layout { background: "#000000".into(), ..Layout::of(vec![t("under", 0.0, 0.0, 1.0, 1.0), cut_tile("over", 0.0, 0.0, 1.0, 1.0)]) };
+        let f = frames(vec![("under", solid([0, 255, 0], (90, 160)), Some(1)), ("over", cut([0, 0, 255], (90, 160), false, half), Some(2))]);
+        let out = render_in(&layout, &f, (160, 90), format);
+        let close = |got: [u8; 3], want: [u8; 3]| got.iter().zip(want).all(|(a, b)| (*a as i32 - b as i32).abs() <= 3);
+        // nothing of the tile on the left, all of it on the right
+        let rgb = to_rgb(&out).unwrap();
+        let at = |y: usize, x: usize| [rgb[(y * 160 + x) * 3 + 2], rgb[(y * 160 + x) * 3 + 1], rgb[(y * 160 + x) * 3]];
+        assert!(close(at(45, 20), [0, 255, 0]), "{format:?} {:?}", at(45, 20));
+        assert!(close(at(45, 140), [0, 0, 255]), "{format:?} {:?}", at(45, 140));
+    }
+}
+
+#[test]
+fn a_tile_without_a_cut_out_or_with_alpha_it_ignores_draws_the_same_bytes_as_before() {
+    let layout = |cut_out: bool| Layout {
+        background: "#102030".into(),
+        ..Layout::of(vec![
+            Tile { radius: 20, border: 6, cut_out, ..t("a", 0.1, 0.1, 0.5, 0.6) },
+            Tile { radius: 12, cut_out, ..t("b", 0.4, 0.3, 0.55, 0.6) },
+        ])
+    };
+    let plain = |n: u64| frames(vec![("a", solid([10, 200, 90], (90, 160)), Some(n)), ("b", solid([220, 30, 40], (90, 160)), Some(n + 1))]);
+    let with_alpha = |n: u64| frames(vec![
+        ("a", cut([10, 200, 90], (90, 160), false, |x, _| (x * 255 / 159) as u8), Some(n)),
+        ("b", cut([220, 30, 40], (90, 160), false, |_, y| (y * 255 / 89) as u8), Some(n + 1)),
+    ]);
+    for format in [PixelFormat::Bgra, PixelFormat::Rgba, PixelFormat::I420] {
+        let before = render_in(&layout(false), &plain(1), (320, 180), format);
+        // alpha in the frames, cut out off
+        assert_eq!(render_in(&layout(false), &with_alpha(1), (320, 180), format).data, before.data, "{format:?} cut out off, frames with alpha");
+    }
+}
+
+#[test]
+fn a_cut_out_tile_draws_nothing_until_its_stream_has_an_alpha() {
+    let layout = |tiles: Vec<Tile>| Layout { background: "#102030".into(), ..Layout::of(tiles) };
+    let tile = |cut_out: bool| Tile { radius: 20, border: 6, cut_out, ..t("a", 0.1, 0.1, 0.5, 0.6) };
+    let plain = frames(vec![("a", solid([10, 200, 90], (90, 160)), Some(1))]);
+    for format in [PixelFormat::Bgra, PixelFormat::Rgba, PixelFormat::I420] {
+        let empty = render_in(&layout(vec![]), &plain, (320, 180), format);
+        let waiting = render_in(&layout(vec![tile(true)]), &plain, (320, 180), format);
+        assert_eq!(waiting.data, empty.data, "{format:?}: no box and no border box before the alpha comes");
+        // and the same tile fading in draws nothing either
+        let mut comp = Compositor::default();
+        comp.prepare(&layout(vec![tile(true)]), (320, 180));
+        let plan = comp.plan.clone().unwrap();
+        let background = comp.background_planes(&plan, Kind::of(format));
+        let mut out = comp.copy_of(&background);
+        let items = [Item { tile: Cow::Borrowed(&plan.layout.tiles[0]), placed: plan.boxes[0], alpha: 0.5, key: 5000 }];
+        comp.draw_items(&mut out, Kind::of(format), plan.size, &items, &plain);
+        assert_eq!(out, *background, "{format:?}: nothing drawn mid-fade");
+    }
+}
+
+#[test]
+fn a_cut_out_tile_with_no_alpha_is_drawn_plain_without_a_border_box_after_a_second() {
+    let layout = |cut_out: bool| Layout { background: "#102030".into(), ..Layout::of(vec![Tile { radius: 20, border: 6, border_colour: "#ff0000".into(), cut_out, ..t("a", 0.1, 0.1, 0.5, 0.6) }]) };
+    let plain = frames(vec![("a", solid([10, 200, 90], (90, 160)), Some(1))]);
+    let masked = frames(vec![("a", cut([10, 200, 90], (90, 160), false, |_, _| 255), Some(2))]);
+    let format = PixelFormat::Bgra;
+    let size = (320, 180);
+    let empty = render_in(&Layout { background: "#102030".into(), ..Layout::of(vec![]) }, &plain, size, format);
+    let mut comp = Compositor::default();
+    comp.prepare(&layout(true), size);
+    let s = 1_000_000_000u64;
+    assert_eq!(comp.render_at(&plain, format, 10 * s).unwrap().data, empty.data, "blank when first drawn");
+    assert_eq!(comp.render_at(&plain, format, 10 * s + s / 2).unwrap().data, empty.data, "blank within the grace");
+    let late = comp.render_at(&plain, format, 11 * s).unwrap();
+    assert_ne!(late.data, empty.data, "drawn after the grace");
+    // plain picture in the inner box, no red border box: the border's room stays the canvas
+    let border_off = render_in(&layout(false), &plain, size, format);
+    assert!(!late.data.chunks(4).any(|p| p[2] > 200 && p[1] < 40 && p[0] < 40), "no red border box");
+    assert!(border_off.data.chunks(4).any(|p| p[2] > 200 && p[1] < 40 && p[0] < 40), "a plain tile does have one");
+    // an alpha arriving resets it: without one again, the tile is blank for the grace again
+    comp.render_at(&masked, format, 12 * s).unwrap();
+    assert_eq!(comp.render_at(&plain, format, 12 * s + s / 10).unwrap().data, empty.data, "blank again after an alpha came");
+    // so does the tile stopping being cut out
+    comp.prepare(&layout(false), size);
+    comp.render_at(&plain, format, 13 * s).unwrap();
+    comp.prepare(&layout(true), size);
+    assert_eq!(comp.render_at(&plain, format, 13 * s + s / 10).unwrap().data, empty.data, "blank again after it was switched off and on");
+}
+
+#[test]
+fn a_transition_names_the_cut_outs_it_still_draws_from_the_picture_it_leaves() {
+    let spec = Spec { kind: transition::Kind::Crossfade, ms: 500, ease: transition::Ease::Even };
+    let mut comp = Compositor::default();
+    comp.prepare(&Layout::of(vec![cut_tile("a", 0.0, 0.0, 0.5, 1.0), t("b", 0.5, 0.0, 0.5, 1.0)]), (160, 90));
+    assert!(comp.leaving_cut_outs().is_empty());
+    comp.prepare_with(&Layout::of(vec![t("a", 0.0, 0.0, 1.0, 1.0), t("b", 0.7, 0.7, 0.25, 0.25)]), (160, 90), spec, 0);
+    assert_eq!(comp.leaving_cut_outs(), BTreeSet::from(["a".to_string()]));
+    comp.render_at(&Frames::new(), PixelFormat::Bgra, 1_000_000_000);
+    assert_eq!(comp.leaving_cut_outs().len(), 1);
+    comp.render_at(&Frames::new(), PixelFormat::Bgra, 2_000_000_000);
+    assert!(comp.leaving_cut_outs().is_empty(), "gone when the transition has ended");
+}
+
+#[test]
+fn rounded_corners_fade_the_cut_out_into_the_canvas() {
+    // an opaque cut-out rounds its corners the way a plain tile does, give or take a level
+    for format in [PixelFormat::Bgra, PixelFormat::I420] {
+        let layout = |cut_out: bool, border: i64| Layout { background: "#202020".into(), ..Layout::of(vec![Tile { radius: 40, border, border_colour: "#ff0000".into(), cut_out, ..t("a", 0.1, 0.1, 0.8, 0.8) }]) };
+        let f = frames(vec![("a", cut([10, 200, 90], (90, 160), false, |_, _| 255), Some(1))]);
+        let size = (320, 180);
+        let plain = render_in(&layout(false, 0), &f, size, format);
+        let cut_out = render_in(&layout(true, 0), &f, size, format);
+        let worst = plain.data.iter().zip(cut_out.data.iter()).map(|(a, b)| (*a as i32 - *b as i32).abs()).max().unwrap();
+        assert!(worst <= 1, "{format:?}: off by {worst}");
+        // a see-through one with a border has the canvas in the box and no border colour in it
+        let clear = frames(vec![("a", cut([10, 200, 90], (90, 160), false, |_, _| 0), Some(1))]);
+        let none = to_rgb(&render_in(&layout(true, 8), &clear, size, format)).unwrap();
+        for (x, y) in [(160, 90), (34, 90), (160, 20), (40, 36)] {
+            let at = (y * 320 + x) * 3;
+            assert!(none[at..at + 3].iter().all(|v| (*v as i32 - 0x20).abs() <= 2), "{format:?} at {x},{y}: {:?}", &none[at..at + 3]);
+        }
+    }
+}
+
+#[test]
+fn a_cut_out_tile_mid_fade_draws_at_the_fades_share_within_a_level() {
+    let bg_hex = "#2060c0";
+    let [bb, bg, br] = bgr(bg_hex);
+    let tile_bgr = [200u8, 40, 120];
+    let ramp = |x: usize, _y: usize| ((x / 2) * 255 / 79) as u8;
+    let layout = Layout { background: bg_hex.into(), ..Layout::of(vec![cut_tile("a", 0.0, 0.0, 1.0, 1.0)]) };
+    let f = frames(vec![("a", cut(tile_bgr, (90, 160), false, ramp), Some(1))]);
+    let mut comp = Compositor::default();
+    comp.prepare(&layout, (160, 90));
+    let plan = comp.plan.clone().unwrap();
+    for share in [0.25, 0.5, 0.8] {
+        let background = comp.background_planes(&plan, Kind::Bgra);
+        let mut out = comp.copy_of(&background);
+        let items = [Item { tile: Cow::Borrowed(&plan.layout.tiles[0]), placed: plan.boxes[0], alpha: share, key: 5000 }];
+        comp.draw_items(&mut out, Kind::Bgra, plan.size, &items, &f);
+        for (y, x) in [(0usize, 0usize), (10, 1), (45, 40), (80, 100), (89, 159)] {
+            let a = ramp(x, y) as f64 / 255.0 * share;
+            let at = (y * 160 + x) * 4;
+            for c in 0..3 {
+                let want = f64::from(tile_bgr[c]) * a + f64::from([bb, bg, br][c]) * (1.0 - a);
+                assert!((f64::from(out[at + c]) - want).abs() <= 1.0, "share {share} at {x},{y} channel {c}: {} against {want}", out[at + c]);
+            }
+        }
+    }
+}
+
+#[test]
+fn a_scaled_cut_out_is_kept_for_a_frame_that_comes_again_and_made_again_when_it_is_switched_on() {
+    let alpha = |x: usize, _y: usize| (x * 255 / 159) as u8;
+    let f = frames(vec![("a", cut([0, 255, 0], (90, 160), false, alpha), Some(7))]);
+    let mut comp = Compositor::default();
+    let off = Layout::of(vec![t("a", 0.0, 0.0, 1.0, 1.0)]);
+    let on = Layout::of(vec![cut_tile("a", 0.0, 0.0, 1.0, 1.0)]);
+    comp.prepare(&off, (80, 45));
+    let plain = comp.render(&f, PixelFormat::I420).unwrap();
+    let kept = comp.scaled_of(0).unwrap();
+    comp.prepare(&on, (80, 45));
+    let first = comp.render(&f, PixelFormat::I420).unwrap();
+    assert_ne!(first.data, plain.data);
+    // the same frame number with Cut out switched on is a different picture, so it isn't taken from what was kept
+    assert!(!Arc::ptr_eq(&comp.scaled_of(0).unwrap(), &kept));
+    let again = comp.scaled_of(0).unwrap();
+    assert_eq!(comp.render(&f, PixelFormat::I420).unwrap().data, first.data);
+    assert!(Arc::ptr_eq(&comp.scaled_of(0).unwrap(), &again));
+}
+
 // ── Item: paste without allocation, against the old version ──
 
 /// The paste this replaced, kept to compare every byte against.
@@ -550,6 +792,321 @@ fn linear_scaling_is_the_same_as_the_version_it_replaced() {
             let data = noise(w + 3, h + 2, ch, (w * h) as u64);
             let region = Region { data: &data, stride: w + 3, ch, x0: 2, y0: 1, w, h };
             assert!(linear(region, w2, h2) == linear_reference(region, w2, h2), "{ch} channels {w}x{h} to {w2}x{h2}");
+        }
+    }
+}
+
+// ── Transitions ───────────────────────────────────────────────────────────
+
+mod transitions {
+    use super::*;
+    use crate::transition::{Ease, Kind as How, Spec};
+
+    const SIZE: (u32, u32) = (160, 90);
+
+    fn spec(kind: How) -> Spec {
+        Spec { kind, ms: 1000, ease: Ease::Even }
+    }
+
+    fn two() -> Frames {
+        frames(vec![("a", solid([200, 0, 0], (90, 160)), None), ("b", solid([0, 200, 0], (90, 160)), None)])
+    }
+
+    fn old_layout() -> Layout {
+        Layout { tiles: vec![t("a", 0.0, 0.0, 1.0, 1.0), t("b", 0.7, 0.7, 0.25, 0.25)], ..Layout::default() }
+    }
+
+    fn new_layout() -> Layout {
+        Layout { tiles: vec![t("b", 0.0, 0.0, 1.0, 1.0), t("a", 0.7, 0.7, 0.25, 0.25)], ..Layout::default() }
+    }
+
+    fn started(kind: How, from: &Layout, to: &Layout) -> Compositor {
+        let mut comp = Compositor::default();
+        comp.prepare(from, SIZE);
+        comp.prepare_with(to, SIZE, spec(kind), 1_000);
+        // the clock starts with the first picture
+        comp.render_at(&two(), PixelFormat::Bgra, 1_000);
+        comp
+    }
+
+    fn at(comp: &mut Compositor, t: f64) -> Frame {
+        comp.render_at(&two(), PixelFormat::Bgra, 1_000 + (t * 1e9) as u64).unwrap()
+    }
+
+    #[test]
+    fn every_kind_starts_on_the_old_picture_and_ends_on_the_new_one() {
+        let (from, to) = (old_layout(), new_layout());
+        let (old, new) = (render(&from, &two(), SIZE), render(&to, &two(), SIZE));
+        for kind in How::ALL {
+            let mut comp = started(kind, &from, &to);
+            let first = at(&mut comp, 0.0);
+            if kind == How::Cut {
+                assert_eq!(first.data, new.data, "a cut is the new picture at once");
+                continue;
+            }
+            let diff = |a: &Frame, b: &Frame| a.data.iter().zip(b.data.iter()).filter(|(x, y)| x != y).count();
+            // a first frame is the old picture, give or take the pixels a glide's tiles round differently
+            assert!(diff(&first, &old) < first.data.len() / 50, "{kind:?} begins on the old picture: {}", diff(&first, &old));
+            let last = at(&mut comp, 1.0);
+            assert_eq!(last.data, new.data, "{kind:?} ends on the new picture");
+            assert!(!comp.transitioning(1_000 + 2_000_000_000));
+        }
+    }
+
+    #[test]
+    fn a_cut_a_same_arrangement_and_a_new_size_start_nothing() {
+        let (from, to) = (old_layout(), new_layout());
+        assert!(!started(How::Cut, &from, &to).transitioning(1_000));
+        assert!(!started(How::Glide, &from, &from).transitioning(1_000));
+        let mut comp = Compositor::default();
+        comp.prepare(&from, (160, 90));
+        comp.prepare_with(&to, (320, 180), spec(How::Glide), 1_000);
+        assert!(!comp.transitioning(1_000));
+        // nothing drawn before: it begins on the new layout
+        let mut fresh = Compositor::default();
+        fresh.prepare_with(&to, SIZE, spec(How::Glide), 1_000);
+        assert!(!fresh.transitioning(1_000));
+    }
+
+    #[test]
+    fn a_crossfade_halfway_is_the_two_pictures_mixed_evenly() {
+        let (from, to) = (old_layout(), new_layout());
+        let mut comp = started(How::Crossfade, &from, &to);
+        let mid = at(&mut comp, 0.5);
+        let (old, new) = (render(&from, &two(), SIZE), render(&to, &two(), SIZE));
+        for (y, x) in [(10, 10), (40, 80), (85, 150)] {
+            for c in 0..3 {
+                let want = (i32::from(px(&old, y, x)[c]) + i32::from(px(&new, y, x)[c])) / 2;
+                assert!((i32::from(px(&mid, y, x)[c]) - want).abs() <= 2, "({y}, {x}) channel {c}");
+            }
+        }
+    }
+
+    /// How many bytes of a and b differ.
+    fn differ(a: &Frame, b: &Frame) -> usize {
+        a.data.iter().zip(b.data.iter()).filter(|(x, y)| x != y).count()
+    }
+
+    #[test]
+    fn a_transition_interrupted_goes_on_from_where_it_is() {
+        let (from, to) = (old_layout(), new_layout());
+        for kind in [How::Glide, How::Shuffle, How::Crossfade, How::Push, How::Zoom] {
+            let mut comp = started(kind, &from, &to);
+            at(&mut comp, 0.0);
+            let mid = at(&mut comp, 0.3);
+            // back to where it came from, a moment later: the first picture is the one it was showing
+            comp.prepare_with(&from, SIZE, spec(kind), 1_000 + 300_000_000);
+            let again = comp.render_at(&two(), PixelFormat::Bgra, 1_000 + 300_000_000).unwrap();
+            assert!(differ(&mid, &again) < mid.data.len() / 40, "{kind:?} jumped: {} of {}", differ(&mid, &again), mid.data.len());
+            let end = comp.render_at(&two(), PixelFormat::Bgra, 1_000 + 300_000_000 + 2_000_000_000).unwrap();
+            assert_eq!(end.data, render(&from, &two(), SIZE).data, "{kind:?} ends where it was sent");
+        }
+    }
+
+    #[test]
+    fn a_tile_that_was_fading_out_does_not_jump_to_full_when_interrupted() {
+        // b leaves and c arrives: both part faded at 0.3
+        let from = Layout { tiles: vec![t("a", 0.0, 0.0, 0.5, 1.0), t("b", 0.5, 0.0, 0.5, 1.0)], ..Layout::default() };
+        let to = Layout { tiles: vec![t("a", 0.0, 0.0, 0.5, 1.0), t("c", 0.5, 0.0, 0.5, 1.0)], ..Layout::default() };
+        let live = frames(vec![("a", solid([200, 0, 0], (90, 160)), None), ("b", solid([0, 200, 0], (90, 160)), None), ("c", solid([0, 0, 200], (90, 160)), None)]);
+        let mut comp = Compositor::default();
+        comp.prepare(&from, SIZE);
+        comp.prepare_with(&to, SIZE, spec(How::Glide), 1_000);
+        comp.render_at(&live, PixelFormat::Bgra, 1_000);
+        let mid = comp.render_at(&live, PixelFormat::Bgra, 1_000 + 300_000_000).unwrap();
+        comp.prepare_with(&from, SIZE, spec(How::Glide), 1_000 + 300_000_000);
+        let again = comp.render_at(&live, PixelFormat::Bgra, 1_000 + 300_000_000).unwrap();
+        assert!(differ(&mid, &again) < mid.data.len() / 40, "{} of {}", differ(&mid, &again), mid.data.len());
+    }
+
+    #[test]
+    fn a_mix_interrupting_a_glide_leaves_from_the_glide_picture() {
+        let (from, to) = (old_layout(), new_layout());
+        let mut comp = started(How::Glide, &from, &to);
+        let mid = at(&mut comp, 0.3);
+        comp.prepare_with(&from, SIZE, spec(How::Crossfade), 1_000 + 300_000_000);
+        let again = comp.render_at(&two(), PixelFormat::Bgra, 1_000 + 300_000_000).unwrap();
+        assert!(differ(&mid, &again) < mid.data.len() / 40, "{} of {}", differ(&mid, &again), mid.data.len());
+    }
+
+    #[test]
+    fn preparing_again_in_the_middle_goes_on_to_the_new_target() {
+        let (from, to) = (old_layout(), new_layout());
+        let mut comp = started(How::Glide, &from, &to);
+        at(&mut comp, 0.0);
+        comp.prepare(&to, SIZE);
+        assert!(comp.has_transition() && comp.transitioning(1_000 + 100_000_000), "a stream joining doesn't end it");
+        let other = Layout { tiles: vec![t("a", 0.0, 0.0, 0.5, 1.0), t("b", 0.5, 0.0, 0.5, 1.0)], ..Layout::default() };
+        comp.prepare(&other, SIZE);
+        let end = comp.render_at(&two(), PixelFormat::Bgra, 1_000 + 2_000_000_000).unwrap();
+        assert_eq!(end.data, render(&other, &two(), SIZE).data, "an edit is what it ends on");
+        comp.prepare(&to, (320, 180));
+        assert!(!comp.has_transition(), "a new size ends it");
+    }
+
+    #[test]
+    fn the_clock_starts_with_the_first_picture_drawn() {
+        let (from, to) = (old_layout(), new_layout());
+        let mut comp = Compositor::default();
+        comp.prepare(&from, SIZE);
+        comp.prepare_with(&to, SIZE, spec(How::Crossfade), 1_000);
+        // asked for long after, as when the first picture was slow to come
+        comp.render_at(&two(), PixelFormat::Bgra, 5_000_000_000).unwrap();
+        assert!(comp.transitioning(5_000_000_000 + 500_000_000));
+        assert!(!comp.transitioning(5_000_000_000 + 1_500_000_000));
+    }
+
+    #[test]
+    fn tiles_that_change_places_in_the_stack_swap_where_they_overlap_least() {
+        // a and b cross over each other: a goes under b and b over a
+        let from = vec![t("a", 0.0, 0.2, 0.4, 0.4), t("b", 0.6, 0.2, 0.4, 0.4)];
+        let to = vec![t("b", 0.0, 0.2, 0.4, 0.4), t("a", 0.6, 0.2, 0.4, 0.4)];
+        let order = |p: f64| crate::transition::poses(How::Glide, &from, &to, p, Ease::Even, 16.0 / 9.0).iter().map(|x| x.tile.source_id.clone()).collect::<Vec<_>>();
+        assert_eq!(order(0.0), ["a", "b"], "the old stack at first");
+        assert_eq!(order(1.0), ["b", "a"], "the new one at the end");
+        // where the order changes the two are not on top of each other
+        let swap = (0..=100).map(|i| i as f64 / 100.0).find(|p| order(*p) != order(0.0)).unwrap();
+        let boxes: Vec<(f64, f64, f64, f64)> = crate::transition::poses(How::Glide, &from, &to, swap, Ease::Even, 16.0 / 9.0).iter().map(|x| (x.tile.x, x.tile.y, x.tile.w, x.tile.h)).collect();
+        let (a, b) = (boxes[0], boxes[1]);
+        let apart = a.0 + a.2 <= b.0 + 1e-9 || b.0 + b.2 <= a.0 + 1e-9;
+        assert!(apart, "swapped at {swap} while overlapping: {boxes:?}");
+    }
+
+    #[test]
+    fn a_new_tile_fades_in_over_what_is_there() {
+        let from = Layout { tiles: vec![t("a", 0.0, 0.0, 1.0, 1.0)], ..Layout::default() };
+        let to = Layout { tiles: vec![t("a", 0.0, 0.0, 1.0, 1.0), t("b", 0.0, 0.0, 1.0, 1.0)], ..Layout::default() };
+        let mut comp = started(How::Glide, &from, &to);
+        let mid = at(&mut comp, 0.4);
+        let [b, g, _] = px(&mid, 45, 80);
+        // between the blue stream and the green one: some of each
+        assert!(b > 20 && b < 190 && g > 20 && g < 190, "{b} {g}");
+    }
+
+    #[test]
+    fn a_picture_that_changes_size_is_never_half_drawn() {
+        let (from, to) = (old_layout(), new_layout());
+        let mut comp = started(How::Push, &from, &to);
+        for n in 0..=10 {
+            let f = at(&mut comp, n as f64 / 10.0);
+            assert_eq!((f.width, f.height, f.data.len()), (160, 90, 160 * 90 * 4));
+        }
+    }
+
+    /// With TRANSITION_SHOTS naming a folder, a contact sheet of every kind's frames to look at.
+    #[test]
+    fn the_film_of_every_transition() {
+        let Ok(dir) = std::env::var("TRANSITION_SHOTS") else { return };
+        std::fs::create_dir_all(&dir).unwrap();
+        let (w, h) = (320usize, 180usize);
+        let pattern = |bgr: [u8; 3], bar: usize| {
+            let mut data = Vec::new();
+            for y in 0..h {
+                for x in 0..w {
+                    let stripe = ((x + y) / 24) % 2 == 0;
+                    let f = if stripe { 1.0 } else { 0.72 };
+                    let marker = x > bar * 40 && x < bar * 40 + 28 && y > 60 && y < 120;
+                    let c = |v: u8| if marker { 255 } else { (f64::from(v) * f) as u8 };
+                    data.extend_from_slice(&[c(bgr[0]), c(bgr[1]), c(bgr[2]), 255]);
+                }
+            }
+            Frame::new(w as u32, h as u32, PixelFormat::Bgra, data)
+        };
+        let live = frames(vec![
+            ("a", pattern([210, 120, 60], 1), None), ("b", pattern([70, 170, 90], 2), None),
+            ("c", pattern([60, 90, 200], 3), None), ("d", pattern([180, 80, 170], 4), None),
+        ]);
+        let from = Layout { tiles: vec![t("a", 0.0, 0.0, 0.62, 0.62), t("b", 0.66, 0.0, 0.34, 0.34), t("c", 0.66, 0.38, 0.34, 0.34), t("d", 0.0, 0.66, 0.3, 0.3)], ..Layout::default() };
+        let to = Layout { tiles: vec![t("b", 0.0, 0.0, 0.62, 0.62), t("a", 0.66, 0.0, 0.34, 0.34), t("d", 0.66, 0.38, 0.34, 0.34), t("c", 0.34, 0.66, 0.3, 0.3)], ..Layout::default() };
+        let steps = [0.0, 0.12, 0.25, 0.38, 0.5, 0.65, 0.8, 1.0];
+        for ease in [Ease::Springy] {
+            for kind in How::ALL {
+                let mut comp = Compositor::default();
+                comp.prepare(&from, (w as u32, h as u32));
+                comp.prepare_with(&to, (w as u32, h as u32), Spec { kind, ms: 1000, ease }, 0);
+                let (cols, rows) = (4usize, 2usize);
+                let mut sheet = vec![30u8; (cols * w + (cols + 1) * 6) * (rows * h + (rows + 1) * 6) * 4];
+                let sw = cols * w + (cols + 1) * 6;
+                for (n, step) in steps.iter().enumerate() {
+                    let frame = comp.render_at(&live, PixelFormat::Bgra, (step * 1e9) as u64).unwrap();
+                    let (ox, oy) = (6 + (n % cols) * (w + 6), 6 + (n / cols) * (h + 6));
+                    for y in 0..h {
+                        for x in 0..w {
+                            let (s, d) = ((y * w + x) * 4, ((oy + y) * sw + ox + x) * 4);
+                            // BGRA to RGBA for the PNG
+                            sheet[d..d + 4].copy_from_slice(&[frame.data[s + 2], frame.data[s + 1], frame.data[s], 255]);
+                        }
+                    }
+                }
+                let size = tiny_skia::IntSize::from_wh(sw as u32, (rows * h + (rows + 1) * 6) as u32).unwrap();
+                tiny_skia::Pixmap::from_vec(sheet, size).unwrap().save_png(std::path::Path::new(&dir).join(format!("{}.png", kind.id()))).unwrap();
+            }
+        }
+    }
+
+    #[test]
+    fn the_iris_and_the_dissolve_by_runs_are_the_same_as_pixel_by_pixel() {
+        let (w, h) = (160usize, 90usize);
+        let pic = |c: u8| (0..w * h).flat_map(|i| [(i % 251) as u8 ^ c, (i / w) as u8, c, 255]).collect::<Vec<u8>>();
+        let (a, b) = (pic(0), pic(120));
+        for how in [How::Iris, How::Dissolve] {
+            for p in [0.0, 0.1, 0.37, 0.5, 0.83, 1.0] {
+                let mut out = Vec::new();
+                mix_pictures(&mut out, &mut Vec::new(), Kind::Bgra, (w, h), &a, &b, how, p);
+                for y in 0..h {
+                    for x in 0..w {
+                        let m = (crate::transition::mix_at(how, x as f64, y as f64, (w as f64, h as f64), p) * 256.0).round() as u32;
+                        let at = (y * w + x) * 4;
+                        for c in 0..4 {
+                            let want = ((u32::from(a[at + c]) * (256 - m) + u32::from(b[at + c]) * m + 128) >> 8) as u8;
+                            assert_eq!(out[at + c], want, "{how:?} at p = {p}, ({x}, {y}) channel {c}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// With TRANSITION_COST set: what a frame costs at 4K, for each kind (run it with an optimised test profile).
+    #[test]
+    fn the_cost_of_a_4k_transition() {
+        if std::env::var("TRANSITION_COST").is_err() {
+            return;
+        }
+        let size = (3840u32, 2160u32);
+        let src = |c: u8| {
+            let mut data = Vec::with_capacity(1920 * 1080 * 4);
+            for y in 0..1080u32 {
+                for x in 0..1920u32 {
+                    data.extend_from_slice(&[(x / 8) as u8 ^ c, (y / 8) as u8, c.wrapping_add((x + y) as u8), 255]);
+                }
+            }
+            Frame::new(1920, 1080, PixelFormat::Bgra, data)
+        };
+        let (fa, fb, fc) = (src(10), src(90), src(170));
+        // numbered: the same frame again hits what was scaled, a new one asks for it to be scaled again
+        let live = |n: u64| frames(vec![("a", fa.clone(), Some(n)), ("b", fb.clone(), Some(n)), ("c", fc.clone(), Some(n))]);
+        let from = Layout { tiles: vec![t("a", 0.0, 0.0, 0.66, 0.66), t("b", 0.7, 0.0, 0.3, 0.3), t("c", 0.7, 0.35, 0.3, 0.3)], ..Layout::default() };
+        let to = Layout { tiles: vec![t("b", 0.0, 0.0, 0.66, 0.66), t("a", 0.7, 0.0, 0.3, 0.3), t("c", 0.35, 0.7, 0.3, 0.3)], ..Layout::default() };
+        for kind in [How::Cut, How::Glide, How::Shuffle, How::Crossfade, How::Push, How::Zoom, How::Bounce, How::Iris, How::Curtain, How::Blinds, How::Pixelate, How::Dissolve] {
+            let mut comp = Compositor::default();
+            comp.prepare(&from, size);
+            let mut n = 0;
+            let mut ms = |comp: &mut Compositor, fresh: bool, at: &[f64]| {
+                let start = Instant::now();
+                for s in at {
+                    n += u64::from(fresh);
+                    comp.render_at(&live(n), PixelFormat::Bgra, (s * 1e9) as u64).unwrap();
+                }
+                start.elapsed().as_secs_f64() * 1000.0 / at.len() as f64
+            };
+            ms(&mut comp, true, &[0.0]);
+            let (plain_new, plain_same) = (ms(&mut comp, true, &[0.0; 5]), ms(&mut comp, false, &[0.0; 5]));
+            comp.prepare_with(&to, size, Spec { kind, ms: 1000, ease: Ease::Springy }, 0);
+            ms(&mut comp, true, &[0.0]);
+            let steps = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8];
+            let (new, same) = (ms(&mut comp, true, &steps), ms(&mut comp, false, &steps));
+            eprintln!("4K {:?}: {new:.1} ms a frame in the transition with a new stream frame each time, {same:.1} ms with the same one (plain picture: {plain_new:.1} and {plain_same:.1})", kind);
         }
     }
 }

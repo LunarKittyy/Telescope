@@ -751,6 +751,8 @@ impl CompositePlugin {
         });
         if let (Value::Object(all), Value::Object(side)) = (&mut props, side) {
             all.extend(side);
+            // outside the json! above, which is at its recursion limit
+            all.insert("tile-cut-out".into(), json!(picked.is_some_and(|t| t.cut_out)));
         }
         props
     }
@@ -821,6 +823,20 @@ impl CompositePlugin {
                     self.replace_tile(host, at as i64, Tile { locked: flag(1), ..self.layout.tiles[at].clone() });
                 }
             }
+            "stream-step" => {
+                // The pick moves to the next stream that has a tile, up or down the list
+                let rows: Vec<usize> = self.stream_entries().into_iter().filter_map(|(sid, ..)| self.layout.tiles.iter().position(|t| t.source_id == sid)).collect();
+                let now = rows.iter().position(|at| *at as i64 == self.editor.as_ref().map_or(-1, |e| e.selected));
+                let to = match (now, number(0) < 0.0) {
+                    (Some(i), true) => i.checked_sub(1),
+                    (Some(i), false) => Some(i + 1),
+                    (None, true) => rows.len().checked_sub(1),
+                    (None, false) => Some(0),
+                };
+                if let Some(at) = to.and_then(|i| rows.get(i)) {
+                    self.select(*at as i64);
+                }
+            }
             "stream-moved" => self.move_layer(host, number(0) as usize, number(1) as usize),
             "start-from" => self.start_from(host, number(0) as i64),
             "layout-picked" => {
@@ -861,6 +877,10 @@ impl CompositePlugin {
             "radius-moved" => {
                 let radius = number(0).round() as i64;
                 self.edit_picked(host, |t| t.radius = radius);
+            }
+            "cut-out-toggled" => {
+                let cut_out = flag(0);
+                self.edit_picked(host, |t| t.cut_out = cut_out);
             }
             "fit-clicked" => self.fit_shape(host),
             "restack" => self.restack(host, number(0) as i64),

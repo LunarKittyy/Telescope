@@ -11,6 +11,7 @@ use telescope_core::i18n::Fields;
 use crate::composite::{clean_layout, clean_layouts, clean_name, layout_dict, same_arrangement, Layout, Tile, MAX_LAYOUTS, STALE_S};
 use crate::compositor::{Compositor, Frames};
 use crate::shared::{no_pictures, PictureReader};
+use crate::transition::{Ease, Kind as TransitionKind, Spec};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
@@ -38,6 +39,35 @@ const SWITCH_TIP: &str = n_("Combine the running streams into one picture.");
 const DIRECTOR_NAME: &str = n_("Auto director");
 const DIRECTOR_TIP: &str = n_("Swaps between your saved layouts as people move. Hands held in view of another stream bring in the layout that shows that stream biggest. The layout you picked is shown again after the hands leave.");
 const LAYOUT_TIP: &str = n_("A layout you saved in the editor.");
+
+/// What the card calls a kind of transition.
+fn kind_name(kind: TransitionKind) -> String {
+    match kind {
+        TransitionKind::Cut => tr("Cut"),
+        TransitionKind::Crossfade => tr("Crossfade"),
+        TransitionKind::Slide => tr("Slide"),
+        TransitionKind::Push => tr("Push"),
+        TransitionKind::Zoom => tr("Zoom"),
+        TransitionKind::Wipe => tr("Wipe"),
+        TransitionKind::Glide => tr("Glide"),
+        TransitionKind::Shuffle => tr("Shuffle"),
+        TransitionKind::Bounce => tr("Bounce"),
+        TransitionKind::Iris => tr("Iris"),
+        TransitionKind::Blinds => tr("Blinds"),
+        TransitionKind::Curtain => tr("Curtain"),
+        TransitionKind::Pixelate => tr("Pixelate"),
+        TransitionKind::Dissolve => tr("Dissolve"),
+    }
+}
+
+fn ease_name(ease: Ease) -> String {
+    match ease {
+        Ease::Springy => tr("Springy"),
+        Ease::Smooth => tr("Smooth"),
+        Ease::Bouncy => tr("Bouncy"),
+        Ease::Even => tr("Even"),
+    }
+}
 
 /// What the frame steps of every stream, the clock and the plugin share.
 pub(crate) struct Hub {
@@ -150,8 +180,8 @@ impl Shared {
         let frames = self.frames(&hub, None, now);
         let key: BTreeSet<(String, Option<u64>)> = frames.iter().map(|(sid, (_, n))| (sid.clone(), *n)).collect();
         let others: Frames = frames.iter().filter(|(sid, _)| **sid != target).map(|(k, v)| (k.clone(), v.clone())).collect();
-        // nothing else to keep moving
-        if hub.fallback_key.as_ref() == Some(&key) || hub.compositor.live_tiles(&others) == 0 {
+        // nothing else to keep moving, but a transition does
+        if !hub.compositor.has_transition() && (hub.fallback_key.as_ref() == Some(&key) || hub.compositor.live_tiles(&others) == 0) {
             return false;
         }
         let Some(out) = hub.compositor.render(&frames, main.format) else { return false };
@@ -247,6 +277,10 @@ pub struct CompositePlugin {
     editor: Option<editor::Editor>,
     /// Setup's Max zoom: a tile zooms in at most this far.
     max_zoom: f64,
+    /// The streams whose Cut out was last announced on (Event::CutOutWanted), so only a change is announced again.
+    cut_outs_told: BTreeSet<String>,
+    /// How the picture goes from one layout to the next when one is switched to.
+    transition: Spec,
     /// The Auto director's switch, and what it has seen while it's on.
     director_on: bool,
     director: director::Director,
@@ -274,7 +308,8 @@ impl CompositePlugin {
         let mut plugin = CompositePlugin {
             on: false, layout: Layout::default(), layouts: Vec::new(), target: None, camera_size: None, canvas: (None, None), shared,
             clock: None, camera_label, note: String::new(), note_short: String::new(), pending: false, held: None, reader, editor: None,
-            max_zoom: crate::composite::DEFAULT_MAX_ZOOM, director_on: false, director: director::Director::new(),
+            max_zoom: crate::composite::DEFAULT_MAX_ZOOM, cut_outs_told: BTreeSet::new(), transition: Spec::default(), director_on: false,
+            director: director::Director::new(),
         };
         plugin.prepare();
         plugin
@@ -301,13 +336,21 @@ impl CompositePlugin {
     }
 
     fn prepare(&mut self) {
+        self.prepare_with(None);
+    }
+
+    /// prepare(), the picture going to the new layout the way `transition` says when there is one.
+    fn prepare_with(&mut self, transition: Option<Spec>) {
         let size = self.size();
         let on = self.on;
         let shown = self.shown_layout();
         let mut hub = self.shared.hub();
         // Off, nothing draws: the background (a canvas-sized picture) is only worked out while it's on
         if on {
-            hub.compositor.prepare(&shown, size);
+            match transition {
+                Some(spec) => hub.compositor.prepare_with(&shown, size, spec, monotonic_ns()),
+                None => hub.compositor.prepare(&shown, size),
+            }
             // a held fallback picture was drawn with the old layout, and the clock can't cache one from it before this plan is in
             hub.fallback_key = None;
         } else {
@@ -371,6 +414,17 @@ impl CompositePlugin {
         host.schedule_save();
     }
 
+    /// set_layout() for switching to another layout (one picked, a preset, the Auto director): the picture goes there the way the
+    /// transition says, where an edit in the editor takes effect at once.
+    pub fn switch_layout(&mut self, host: &mut dyn Host, layout: Layout) {
+        self.layout = layout;
+        self.canvas = host.canvas_size();
+        let (reduced, off) = host.reduced_motion();
+        self.prepare_with(Some(self.transition.for_motion(reduced, off)));
+        self.show(host);
+        host.schedule_save();
+    }
+
     pub fn layouts(&self) -> &[Layout] {
         &self.layouts
     }
@@ -381,7 +435,7 @@ impl CompositePlugin {
 
     pub fn pick(&mut self, host: &mut dyn Host, name: &str) -> bool {
         let Some(layout) = self.layouts.iter().find(|l| l.name == name).cloned() else { return false };
-        self.set_layout(host, layout);
+        self.switch_layout(host, layout);
         // a layout picked by hand is home for the director
         self.director.picked(monotonic_ns() as f64 / 1e9, name);
         true
@@ -427,7 +481,7 @@ impl CompositePlugin {
             let home = self.director.is_away().then(|| self.layouts.iter().find(|l| l.name == self.director.home()).cloned()).flatten();
             self.director.reset();
             if let Some(layout) = home {
-                self.set_layout(host, layout);
+                self.switch_layout(host, layout);
             }
         }
     }
@@ -442,7 +496,7 @@ impl CompositePlugin {
         self.director.retain(&fresh);
         if let Some(name) = self.director.decide(now, &self.layouts, &|l| Self::drawable(l, &fresh)) {
             if let Some(layout) = self.layouts.iter().find(|l| l.name == name).cloned() {
-                self.set_layout(host, layout);
+                self.switch_layout(host, layout);
             }
         }
     }
@@ -553,6 +607,13 @@ impl CompositePlugin {
                 ("status".to_string(), json!(self.note_short)),
                 ("status-detail".to_string(), json!(self.note)),
                 ("reset-shown".to_string(), json!(self.reset_shown())),
+                ("transition-items".to_string(), json!(TransitionKind::ALL.iter().map(|k| kind_name(*k)).collect::<Vec<_>>())),
+                ("transition-current".to_string(), json!(TransitionKind::ALL.iter().position(|k| *k == self.transition.kind).unwrap_or(0))),
+                ("ease-items".to_string(), json!(Ease::ALL.iter().map(|e| ease_name(*e)).collect::<Vec<_>>())),
+                ("ease-current".to_string(), json!(Ease::ALL.iter().position(|e| *e == self.transition.ease).unwrap_or(0))),
+                ("transition-ms".to_string(), json!(self.transition.ms)),
+                ("transition-ms-text".to_string(), json!(format!("{} ms", self.transition.ms))),
+                ("transition-shown".to_string(), json!(self.transition.kind != TransitionKind::Cut)),
             ]);
         }
         props
@@ -572,7 +633,41 @@ impl CompositePlugin {
         }
     }
 
+    /// The streams whose tile has Cut out on while the picture is on.
+    fn cut_outs(&self) -> BTreeSet<String> {
+        if !self.on {
+            return BTreeSet::new();
+        }
+        self.layout.tiles.iter().filter(|t| t.cut_out).map(|t| t.source_id.clone()).collect()
+    }
+
+    const CUT_OUT_TIMER: &'static str = "cut-outs";
+    const CUT_OUT_CHECK_MS: u64 = 200;
+
+    /// Tells whoever cuts people out which streams want it: what changed since last time, or every one again for a plugin that missed it.
+    /// A tile a transition is still drawing keeps its cut-out until the transition ends, which a timer looks for.
+    fn tell_cut_outs(&mut self, host: &mut dyn Host, again: bool) {
+        let mut want = self.cut_outs();
+        let leaving = if self.on { self.shared.hub().compositor.leaving_cut_outs() } else { BTreeSet::new() };
+        if leaving.is_empty() {
+            host.cancel_schedule(Self::CUT_OUT_TIMER);
+        } else {
+            host.schedule(Self::CUT_OUT_CHECK_MS, Self::CUT_OUT_TIMER);
+            want.extend(leaving);
+        }
+        let off: Vec<String> = self.cut_outs_told.difference(&want).cloned().collect();
+        let on: Vec<String> = want.iter().filter(|s| again || !self.cut_outs_told.contains(*s)).cloned().collect();
+        self.cut_outs_told = want;
+        for source_id in off {
+            host.emit(Event::CutOutWanted { source_id, on: false });
+        }
+        for source_id in on {
+            host.emit(Event::CutOutWanted { source_id, on: true });
+        }
+    }
+
     fn show(&mut self, host: &mut dyn Host) {
+        self.tell_cut_outs(host, false);
         // While it's on it draws from other streams' frames, which only keep coming when the steps run
         host.want_frames(NAME, self.on);
         let live = self.layout.tiles.iter().filter(|t| host.is_streaming_from(Some(&t.source_id))).count();
@@ -636,13 +731,21 @@ impl CompositePlugin {
 
     /// The picture's look and whether it's on, from settings or a preset (the saved layouts aside).
     fn apply(&mut self, cfg: &Value) {
+        self.take(cfg, false);
+        self.prepare();
+        self.wake_clock();
+    }
+
+    /// The settings of cfg, without drawing anything yet. A preset saved before transitions had none and leaves the card's alone.
+    fn take(&mut self, cfg: &Value, keep_transition: bool) {
         self.layout = cfg.get("layout").and_then(clean_layout).unwrap_or_default();
         self.on = cfg.get("on") == Some(&Value::Bool(true));
         self.director_on = cfg.get("director") == Some(&Value::Bool(true));
         // another picture is home from here on
         self.director.reset();
-        self.prepare();
-        self.wake_clock();
+        if !(keep_transition && cfg.get("transition").is_none()) {
+            self.transition = Spec::clean(cfg.get("transition"));
+        }
     }
 }
 
@@ -672,7 +775,18 @@ impl Plugin for CompositePlugin {
         self.show(host);
     }
 
+    fn on_plugins_ready(&mut self, host: &mut dyn Host) {
+        // forgetting what was told makes catch_up's show, or the call after it, say it all again
+        self.cut_outs_told.clear();
+        self.catch_up(host);
+        self.tell_cut_outs(host, false);
+    }
+
     fn shutdown(&mut self, host: &mut dyn Host) {
+        for source_id in std::mem::take(&mut self.cut_outs_told) {
+            host.emit(Event::CutOutWanted { source_id, on: false });
+        }
+        host.cancel_schedule(Self::CUT_OUT_TIMER);
         host.want_frames(NAME, false);
         host.want_people(NAME, false);
         self.shared.hub().shut = true;
@@ -697,7 +811,9 @@ impl Plugin for CompositePlugin {
                 self.direct(host, monotonic_ns() as f64 / 1e9);
                 self.sync_director(host);
             }
+            Event::TimerFired { owner, token } if owner == NAME && token == Self::CUT_OUT_TIMER => self.tell_cut_outs(host, false),
             Event::StreamsChanged { .. } => self.follow_camera(host),
+            Event::SourceShown { .. } => self.tell_cut_outs(host, true),
             Event::CameraOpened { slot: 0, .. } => self.follow_camera(host),
             Event::TimerFired { owner, token } if owner == NAME && token == Self::EDITOR_TIMER => self.editor_timer(host),
             Event::RequestDone { request, ok, data, .. } => {
@@ -739,6 +855,25 @@ impl Plugin for CompositePlugin {
             "switch-toggled-by-hand" => {
                 let on = event.args.first().and_then(Value::as_bool).unwrap_or(false);
                 self.set_on(host, on);
+            }
+            "transition-picked" | "ease-picked" | "transition-length-moved" => {
+                let n = event.args.first().and_then(Value::as_f64).unwrap_or(-1.0);
+                match event.callback.as_str() {
+                    "transition-picked" => {
+                        if let Some(k) = (n >= 0.0).then(|| TransitionKind::ALL.get(n as usize)).flatten() {
+                            self.transition.kind = *k;
+                        }
+                    }
+                    "ease-picked" => {
+                        if let Some(e) = (n >= 0.0).then(|| Ease::ALL.get(n as usize)).flatten() {
+                            self.transition.ease = *e;
+                        }
+                    }
+                    _ if n.is_finite() => self.transition.ms = (n.round() as i64).clamp(i64::from(crate::transition::MIN_MS), i64::from(crate::transition::MAX_MS)) as u32,
+                    _ => {}
+                }
+                self.show(host);
+                host.schedule_save();
             }
             "layout-picked" => {
                 let i = event.args.first().and_then(Value::as_f64).unwrap_or(-1.0);
@@ -804,13 +939,22 @@ impl Plugin for CompositePlugin {
     }
 
     fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
-        vec![telescope_core::settings::SettingSpec::switch("on", "Whether the streams are put into one picture", false)]
+        use telescope_core::settings::SettingSpec;
+        let kinds: Vec<(&str, &str)> = TransitionKind::ALL.iter().map(|k| (k.id(), k.id())).collect();
+        let eases: Vec<(&str, &str)> = Ease::ALL.iter().map(|e| (e.id(), e.id())).collect();
+        let d = Spec::default();
+        vec![
+            SettingSpec::switch("on", "Whether the streams are put into one picture", false),
+            SettingSpec::choice("transition.kind", "How the picture goes to another layout: cut, crossfade, slide, push, zoom, wipe, iris, blinds, curtain, pixelate, dissolve, or glide, shuffle and bounce (tiles travel to their new places)", &kinds, d.kind.id()),
+            SettingSpec::number("transition.ms", "How long that takes", f64::from(crate::transition::MIN_MS), f64::from(crate::transition::MAX_MS), 0, f64::from(d.ms)).unit("ms"),
+            SettingSpec::choice("transition.ease", "How it eases: springy, smooth, bouncy or even", &eases, d.ease.id()),
+        ]
     }
 
     fn get_config(&self) -> Value {
         // a layout the director cut to isn't what's saved: the one picked by hand is
         let manual = if self.director.is_away() { self.layouts.iter().find(|l| l.name == self.director.home()).unwrap_or(&self.layout) } else { &self.layout };
-        let mut cfg = json!({"on": self.on, "layout": layout_dict(manual), "layouts": self.layouts.iter().map(layout_dict).collect::<Vec<_>>()});
+        let mut cfg = json!({"on": self.on, "layout": layout_dict(manual), "layouts": self.layouts.iter().map(layout_dict).collect::<Vec<_>>(), "transition": self.transition.dict()});
         // only written while it's on, so settings that never used it read as they always did
         if self.director_on {
             cfg["director"] = json!(true);
@@ -858,11 +1002,16 @@ impl Plugin for CompositePlugin {
         self.catch_up(host);
         self.canvas = host.canvas_size();
         let current = self.layout.clone();
-        self.apply(cfg);
+        self.take(cfg, true);
         if cfg.get("layout").is_none() {
             self.layout = current;
             self.prepare();
+        } else {
+            // a preset that brings another layout goes there the way a switch does
+            let (reduced, off) = host.reduced_motion();
+            self.prepare_with(Some(self.transition.for_motion(reduced, off)));
         }
+        self.wake_clock();
         self.show(host);
         Ok(())
     }

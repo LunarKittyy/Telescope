@@ -455,3 +455,45 @@ fn typing_a_size_follows_the_shape_lock_that_dragging_follows() {
     r.ui("box-committed", json!(["w", "64"]));
     assert!((r.tile(1).w - 0.2).abs() < 1e-9 && (r.tile(1).h - 0.25).abs() < 1e-9, "{:?}", r.tile(1));
 }
+
+#[test]
+fn up_and_down_in_the_list_move_the_pick_and_the_list_follows_the_preview() {
+    let mut r = open();
+    r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 1.0, 1.0), Tile::boxed("b", "", 0.6, 0.6, 0.3, 0.3)]);
+    // rows: b (front) then a
+    r.ui("stream-picked", json!([0]));
+    assert_eq!(r.props()["streams"][0]["picked"], json!(true));
+    r.ui("stream-step", json!([1]));
+    assert_eq!((r.props()["selected"].clone(), r.props()["streams"][1]["picked"].clone()), (json!(0), json!(true)));
+    r.ui("stream-step", json!([1]));
+    assert_eq!(r.props()["selected"], json!(0), "nothing past the last row");
+    r.ui("stream-step", json!([-1]));
+    assert_eq!(r.props()["selected"], json!(1));
+    r.ui("stream-step", json!([-1]));
+    assert_eq!(r.props()["selected"], json!(1), "nothing above the first row");
+    // a click on the picture picks the stream under it and the list shows that
+    r.pointer("down", (0.1, 0.1), false, NO_KEYS);
+    r.pointer("up", (0.1, 0.1), false, NO_KEYS);
+    assert_eq!((r.props()["selected"].clone(), r.props()["streams"][1]["picked"].clone(), r.props()["streams"][0]["picked"].clone()), (json!(0), json!(true), json!(false)));
+}
+
+#[test]
+fn the_cut_out_switch_sets_the_picked_tile_and_the_card_shows_it() {
+    let mut r = open();
+    r.ui("stream-picked", json!([0]));
+    assert_eq!(r.props()["tile-cut-out"], json!(false));
+    r.ui("cut-out-toggled", json!([true]));
+    assert!(r.tile(1).cut_out && !r.tile(0).cut_out);
+    assert_eq!(r.props()["tile-cut-out"], json!(true));
+    // it goes into the saved layout and the plugin tells the stream
+    assert_eq!(r.plugin.get_config()["layout"]["tiles"][1]["cut_out"], json!(true));
+    assert!(r.host.events.iter().any(|e| matches!(e, Event::CutOutWanted { source_id, on: true } if source_id == "b")));
+    r.ui("cut-out-toggled", json!([false]));
+    assert!(!r.tile(1).cut_out);
+    assert_eq!(r.props()["tile-cut-out"], json!(false));
+    assert!(r.host.events.iter().any(|e| matches!(e, Event::CutOutWanted { source_id, on: false } if source_id == "b")));
+    // a locked tile keeps its cut-out as it is
+    r.ui("stream-locked", json!([0, true]));
+    r.ui("cut-out-toggled", json!([true]));
+    assert!(!r.tile(1).cut_out);
+}

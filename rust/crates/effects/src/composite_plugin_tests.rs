@@ -582,6 +582,106 @@ fn a_preset_saves_the_picture_but_not_the_saved_layouts() {
     assert_eq!(other.plugin.names(), ["Mine"]);
 }
 
+// ── Transitions ───────────────────────────────────────────────────────────
+
+/// Whether the transition is still going `after_ms` from now. It starts with the first picture drawn, so one is drawn first.
+fn goes(r: &Rig, after_ms: u64) -> bool {
+    let mut hub = r.plugin.shared.hub();
+    hub.compositor.render_at(&Frames::new(), PixelFormat::Bgra, STARTED);
+    hub.compositor.transitioning(STARTED + after_ms * 1_000_000)
+}
+
+/// When the pictures of these tests are drawn.
+const STARTED: u64 = 1_000_000_000;
+
+/// A rig with a saved layout "Big" that differs from the one on.
+fn with_saved_layout() -> Rig {
+    let mut r = rig();
+    r.two_streams(0.0);
+    r.plugin.set_layout(&mut r.host, Layout::of(vec![Tile::boxed("a", "Phone A", 0.0, 0.0, 1.0, 1.0), Tile::boxed("b", "Phone B", 0.7, 0.7, 0.25, 0.25)]));
+    r.plugin.save_layout(&mut r.host, "Big");
+    r.plugin.set_layout(&mut r.host, Layout::of(vec![Tile::boxed("a", "Phone A", 0.0, 0.0, 0.5, 1.0), Tile::boxed("b", "Phone B", 0.5, 0.0, 0.5, 1.0)]));
+    r
+}
+
+#[test]
+fn a_picked_layout_goes_there_the_way_the_transition_says_and_an_edit_takes_effect_at_once() {
+    let mut r = with_saved_layout();
+    assert!(!goes(&r, 0), "an edit in the editor is not a transition");
+    assert!(r.plugin.pick(&mut r.host, "Big"));
+    assert!(goes(&r, 0) && goes(&r, 400) && !goes(&r, 1500));
+    r.plugin.set_layout(&mut r.host, Layout::of(vec![Tile::boxed("a", "Phone A", 0.0, 0.0, 0.5, 1.0), Tile::boxed("b", "Phone B", 0.5, 0.0, 0.5, 1.0)]));
+    assert!(goes(&r, 400), "an edit mid-way is gone to on the way, not jumped to");
+}
+
+#[test]
+fn a_stream_joining_in_the_middle_of_a_transition_does_not_end_it() {
+    let mut r = with_saved_layout();
+    r.plugin.pick(&mut r.host, "Big");
+    assert!(goes(&r, 100));
+    // what follow_camera does when the streams change
+    r.plugin.on_event(&mut r.host, &Event::StreamsChanged { count: 2 });
+    assert!(goes(&r, 200), "it goes on");
+}
+
+#[test]
+fn a_preset_without_a_transition_leaves_the_cards_alone_and_one_with_its_own_uses_it() {
+    let mut r = with_saved_layout();
+    let ui = |r: &mut Rig, callback: &str, arg: f64| r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: callback.into(), args: vec![json!(arg)] });
+    ui(&mut r, "transition-picked", TransitionKind::ALL.iter().position(|k| *k == TransitionKind::Slide).unwrap() as f64);
+    let old = json!({"on": true, "layout": {"name": "Big", "tiles": [{"source_id": "a", "x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0}]}});
+    r.plugin.apply_preset(&mut r.host, &old).unwrap();
+    assert_eq!(r.plugin.get_config()["transition"]["kind"], "slide", "an older preset has none");
+    let mut own = old.clone();
+    own["transition"] = json!({"kind": "wipe", "ms": 400, "ease": "even"});
+    r.plugin.apply_preset(&mut r.host, &own).unwrap();
+    assert_eq!(r.plugin.get_config()["transition"], json!({"kind": "wipe", "ms": 400, "ease": "even"}));
+}
+
+#[test]
+fn reduced_motion_fades_briefly_and_off_cuts() {
+    let mut r = with_saved_layout();
+    r.host.reduced_motion = (true, false);
+    r.plugin.pick(&mut r.host, "Big");
+    assert!(goes(&r, 100) && !goes(&r, 400), "a short fade");
+    let mut r = with_saved_layout();
+    r.host.reduced_motion = (false, true);
+    r.plugin.pick(&mut r.host, "Big");
+    assert!(!goes(&r, 0), "a cut");
+}
+
+#[test]
+fn the_transition_is_set_from_the_card_saved_and_clamped() {
+    let mut r = rig();
+    let ui = |r: &mut Rig, callback: &str, arg: f64| r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: callback.into(), args: vec![json!(arg)] });
+    assert_eq!(r.plugin.get_config()["transition"], json!({"kind": "glide", "ms": 600, "ease": "springy"}));
+    ui(&mut r, "transition-picked", TransitionKind::ALL.iter().position(|k| *k == TransitionKind::Slide).unwrap() as f64);
+    ui(&mut r, "ease-picked", 2.0);
+    ui(&mut r, "transition-length-moved", 99999.0);
+    assert_eq!(r.plugin.get_config()["transition"], json!({"kind": "slide", "ms": 3000, "ease": "bouncy"}));
+    ui(&mut r, "transition-picked", 99.0);
+    assert_eq!(r.plugin.get_config()["transition"]["kind"], "slide", "an unknown pick changes nothing");
+    let saved = r.plugin.preset_config();
+    let mut other = rig();
+    other.plugin.apply_preset(&mut other.host, &saved).unwrap();
+    assert_eq!(other.plugin.get_config()["transition"], saved["transition"], "a preset carries the transition");
+}
+
+#[test]
+fn a_transition_keeps_being_drawn_while_the_telescope_stream_stalls() {
+    let mut r = with_saved_layout();
+    r.plugin.shutdown(&mut r.host);
+    let main = solid([255, 0, 0], (90, 160));
+    let t0 = monotonic_ns();
+    let sent = numbered(r.process(&main, "a"), 1, t0);
+    r.store.set(0, stream("a", "Phone A", sent));
+    r.set_main(&main, t0);
+    r.plugin.pick(&mut r.host, "Big");
+    // no new frame from anyone, yet each tick draws the next picture of the transition
+    assert!(r.draw_stalled(t0 + SECOND / 5));
+    assert!(r.draw_stalled(t0 + SECOND * 3 / 10), "the same frames, drawn again for the transition");
+}
+
 #[test]
 fn a_preset_saved_with_keep_what_is_on_leaves_the_current_layout_alone() {
     let mut r = rig();
@@ -600,4 +700,128 @@ fn a_preset_saved_with_keep_what_is_on_leaves_the_current_layout_alone() {
     other.plugin.apply_preset(&mut other.host, &kept).unwrap();
     assert_eq!(other.plugin.get_config()["layout"], before);
     assert_eq!(other.plugin.get_config()["on"], true);
+}
+
+// ── Cut out: telling the plugins that cut a person out ──
+
+fn cut_out_events(r: &mut Rig) -> Vec<(String, bool)> {
+    let told = r.host.events.iter().filter_map(|e| match e {
+        Event::CutOutWanted { source_id, on } => Some((source_id.clone(), *on)),
+        _ => None,
+    }).collect();
+    r.host.events.clear();
+    told
+}
+
+fn with_cut_out(r: &mut Rig, a: bool, b: bool) {
+    let tiles = vec![Tile { cut_out: a, ..Tile::boxed("a", "Phone A", 0.0, 0.0, 0.5, 1.0) }, Tile { cut_out: b, ..Tile::boxed("b", "Phone B", 0.5, 0.0, 0.5, 1.0) }];
+    r.plugin.set_layout(&mut r.host, Layout::of(tiles));
+}
+
+fn told(list: &[(&str, bool)]) -> Vec<(String, bool)> {
+    list.iter().map(|(s, on)| (s.to_string(), *on)).collect()
+}
+
+#[test]
+fn a_tiles_cut_out_turning_on_and_off_is_told_once_to_its_stream() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    cut_out_events(&mut r);
+    with_cut_out(&mut r, false, true);
+    assert_eq!(cut_out_events(&mut r), told(&[("b", true)]));
+    // the same picture again, or another change to it, says nothing new
+    with_cut_out(&mut r, false, true);
+    r.plugin.set_layout(&mut r.host, Layout { background: "#ff0000".into(), ..r.plugin.layout().clone() });
+    assert!(cut_out_events(&mut r).is_empty());
+    with_cut_out(&mut r, true, false);
+    assert_eq!(cut_out_events(&mut r), told(&[("b", false), ("a", true)]));
+    with_cut_out(&mut r, false, false);
+    assert_eq!(cut_out_events(&mut r), told(&[("a", false)]));
+}
+
+#[test]
+fn removing_a_tile_or_switching_the_picture_off_lets_go_of_its_cut_out() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    with_cut_out(&mut r, true, true);
+    cut_out_events(&mut r);
+    r.plugin.set_layout(&mut r.host, Layout::of(vec![Tile { cut_out: true, ..Tile::boxed("a", "Phone A", 0.0, 0.0, 1.0, 1.0) }]));
+    assert_eq!(cut_out_events(&mut r), told(&[("b", false)]));
+    with_cut_out(&mut r, true, true);
+    cut_out_events(&mut r);
+    r.switch(false);
+    assert_eq!(cut_out_events(&mut r), told(&[("a", false), ("b", false)]));
+    // while it is off a tile asking for a cut-out is nobody's business
+    with_cut_out(&mut r, true, false);
+    assert!(cut_out_events(&mut r).is_empty());
+    r.switch(true);
+    assert_eq!(cut_out_events(&mut r), told(&[("a", true)]));
+    // and a plugin that stops lets go of what it asked for
+    r.plugin.shutdown(&mut r.host);
+    assert_eq!(cut_out_events(&mut r), told(&[("a", false)]));
+}
+
+#[test]
+fn a_fading_out_tile_keeps_its_cut_out_until_the_transition_has_ended() {
+    let mut r = with_saved_layout();
+    with_cut_out(&mut r, true, false);
+    cut_out_events(&mut r);
+    // the picked layout has no cut-out and its picture is drawn from the old one for a while
+    assert!(r.plugin.pick(&mut r.host, "Big"));
+    assert!(cut_out_events(&mut r).is_empty(), "not let go while the old picture is still drawn");
+    assert!(r.host.scheduled.iter().any(|(_, t)| t == "cut-outs"));
+    let timer = Event::TimerFired { owner: NAME.into(), token: "cut-outs".into() };
+    assert!(goes(&r, 100));
+    r.plugin.on_event(&mut r.host, &timer);
+    assert!(cut_out_events(&mut r).is_empty(), "still going at the next look");
+    // drawn to its end
+    r.plugin.shared.hub().compositor.render_at(&Frames::new(), PixelFormat::Bgra, STARTED + 5 * SECOND);
+    r.plugin.on_event(&mut r.host, &timer);
+    assert_eq!(cut_out_events(&mut r), told(&[("a", false)]));
+    assert!(!r.host.scheduled.iter().any(|(_, t)| t == "cut-outs"), "nothing more to look for");
+}
+
+#[test]
+fn every_cut_out_is_told_again_when_the_plugins_are_ready_and_when_the_shown_stream_changes() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    with_cut_out(&mut r, true, true);
+    cut_out_events(&mut r);
+    r.plugin.on_plugins_ready(&mut r.host);
+    assert_eq!(cut_out_events(&mut r), told(&[("a", true), ("b", true)]));
+    r.plugin.on_event(&mut r.host, &Event::SourceShown { source_id: "b".into() });
+    assert_eq!(cut_out_events(&mut r), told(&[("a", true), ("b", true)]));
+    // with nothing wanted there is nothing to say
+    with_cut_out(&mut r, false, false);
+    cut_out_events(&mut r);
+    r.plugin.on_plugins_ready(&mut r.host);
+    r.plugin.on_event(&mut r.host, &Event::SourceShown { source_id: "a".into() });
+    assert!(cut_out_events(&mut r).is_empty());
+}
+
+#[test]
+fn a_layout_from_settings_or_a_preset_with_cut_outs_asks_for_them() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    with_cut_out(&mut r, false, true);
+    let saved = r.plugin.get_config();
+    let preset = r.plugin.preset_config();
+    assert_eq!(preset["layout"]["tiles"][1]["cut_out"], json!(true));
+    assert!(preset["layout"]["tiles"][0].get("cut_out").is_none());
+    // a start that reads its settings: the plugins hear it once they are all there
+    let mut other = rig();
+    other.plugin.set_config(&saved).unwrap();
+    other.plugin.on_plugins_ready(&mut other.host);
+    assert_eq!(cut_out_events(&mut other), told(&[("b", true)]));
+    // a preset brings the tile's cut-out back, and a layout without any lets go
+    with_cut_out(&mut r, false, false);
+    cut_out_events(&mut r);
+    r.plugin.apply_preset(&mut r.host, &preset).unwrap();
+    assert!(r.plugin.layout().tiles[1].cut_out && !r.plugin.layout().tiles[0].cut_out);
+    assert_eq!(cut_out_events(&mut r), told(&[("b", true)]));
+    // "Leave the layout" keeps the current tiles, cut-outs included
+    let keep = r.plugin.preset_config_with(&[("layout".into(), "keep".into())]);
+    assert!(keep.get("layout").is_none());
+    r.plugin.apply_preset(&mut r.host, &keep).unwrap();
+    assert!(r.plugin.layout().tiles[1].cut_out);
 }
