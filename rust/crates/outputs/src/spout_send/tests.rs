@@ -146,3 +146,17 @@ fn without_a_way_to_share_the_switch_is_off_and_says_so() {
     assert_eq!(p.props()["enabled"], json!(false));
     assert_eq!(p.props()["status-kind"], json!("status_warn"));
 }
+
+#[test]
+fn a_thread_that_ends_after_its_stream_was_switched_off_leaves_no_state_behind() {
+    let (mut p, mut host, log) = plugin();
+    toggle(&mut p, &mut host, true);
+    let mut tap = step(&mut p);
+    tap.process(&mut picture(2, 2, 1), &Ctx("phone-a".into()));
+    wait_for("the picture", || !log.sent.lock().unwrap().is_empty());
+    toggle(&mut p, &mut host, false);
+    toggle(&mut p, &mut host, true);
+    std::thread::sleep(Duration::from_millis(100));
+    assert!(p.shared.states.lock().unwrap().is_empty(), "{:?}", p.shared.states.lock().unwrap());
+    assert_eq!(p.shared.state("phone-a"), State::Idle);
+}

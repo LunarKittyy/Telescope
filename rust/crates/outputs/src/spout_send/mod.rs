@@ -87,6 +87,8 @@ pub fn sender_name(stream: &str, taken: &[&str]) -> String {
 }
 
 struct Entry {
+    /// Tells this entry from an earlier one of the same stream, so a thread that outlives its entry can't write into the next one's state.
+    generation: u64,
     /// What the stream is called to the person, kept so the name shows while the stream is stopped.
     stream: String,
     /// The sender's name.
@@ -97,7 +99,8 @@ struct Entry {
 /// What the plugin and the frame steps of every stream share.
 pub struct Shared {
     backend: Option<Arc<dyn Backend>>,
-    entries: Mutex<BTreeMap<String, Entry>>,
+    entries: Arc<Mutex<BTreeMap<String, Entry>>>,
+    generations: std::sync::atomic::AtomicU64,
     states: Arc<Mutex<BTreeMap<String, State>>>,
     idle: Duration,
     retry: Duration,
@@ -105,7 +108,7 @@ pub struct Shared {
 
 impl Shared {
     fn new(backend: Option<Arc<dyn Backend>>) -> Arc<Shared> {
-        Arc::new(Shared { backend, entries: Mutex::default(), states: Arc::default(), idle: worker::IDLE, retry: worker::RETRY })
+        Arc::new(Shared { backend, entries: Arc::default(), generations: std::sync::atomic::AtomicU64::new(1), states: Arc::default(), idle: worker::IDLE, retry: worker::RETRY })
     }
 
     fn wanted(&self, source: &str) -> bool {
@@ -125,9 +128,13 @@ impl Shared {
             entry.worker = None;
         }
         if entry.worker.is_none() {
-            let (states, id) = (self.states.clone(), source.to_string());
+            let (states, live, id, generation) = (self.states.clone(), self.entries.clone(), source.to_string(), entry.generation);
             let tell: Arc<dyn Fn(State) + Send + Sync> = Arc::new(move |state| {
-                states.lock().unwrap_or_else(|e| e.into_inner()).insert(id.clone(), state);
+                // Only while its entry is the one that is there now
+                let entries = live.lock().unwrap_or_else(|e| e.into_inner());
+                if entries.get(&id).is_some_and(|e| e.generation == generation) {
+                    states.lock().unwrap_or_else(|e| e.into_inner()).insert(id.clone(), state);
+                }
             });
             let keep = backend.keeps_idle_senders();
             entry.worker = Worker::spawn(entry.name.clone(), backend, tell, self.idle, self.retry, keep);
@@ -157,7 +164,8 @@ impl Shared {
         }
         let taken: Vec<&str> = entries.values().map(|e| e.name.as_str()).collect();
         let name = sender_name(stream, &taken);
-        entries.insert(source.to_string(), Entry { stream: stream.to_string(), name, worker: None });
+        let generation = self.generations.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        entries.insert(source.to_string(), Entry { generation, stream: stream.to_string(), name, worker: None });
         true
     }
 
