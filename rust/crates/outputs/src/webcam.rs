@@ -147,9 +147,9 @@ impl CamCfg {
     fn from_json(entry: &Map<String, Value>) -> CamCfg {
         let mut clean = CamCfg::default();
         if let Some(size) = entry.get("size").and_then(Value::as_array) {
-            let dims: Vec<u64> = size.iter().filter(|v| v.is_u64()).filter_map(Value::as_u64).filter(|v| *v > 0).collect();
+            let dims: Vec<u32> = size.iter().filter_map(Value::as_u64).filter_map(|v| u32::try_from(v).ok()).filter(|v| *v > 0).collect();
             if size.len() == 2 && dims.len() == 2 {
-                clean.size = Some((dims[0] as u32, dims[1] as u32));
+                clean.size = Some((dims[0], dims[1]));
             }
         }
         if let Some(f) = entry.get("fps").filter(|v| v.is_u64()).and_then(Value::as_u64).filter(|f| (1..=240).contains(f)) {
@@ -166,12 +166,9 @@ impl CamCfg {
 
     fn to_json(&self) -> Value {
         let mut m = Map::new();
-        if let Some((w, h)) = self.size {
-            m.insert("size".into(), json!([w, h]));
-        }
-        if let Some(f) = self.fps {
-            m.insert("fps".into(), json!(f));
-        }
+        // Auto and the default rate are written as null, so a preset can tell "put it back to Auto" from "says nothing about the size"
+        m.insert("size".into(), self.size.map_or(Value::Null, |(w, h)| json!([w, h])));
+        m.insert("fps".into(), self.fps.map_or(Value::Null, |f| json!(f)));
         if let Some(c) = &self.controls {
             m.insert("controls".into(), Value::Object(c.iter().map(|(k, v)| (k.clone(), json!(v))).collect()));
         }
@@ -1206,8 +1203,9 @@ impl Plugin for WebcamPlugin {
         Ok(())
     }
 
-    /// A preset brings back the size, rate and picture settings of the webcam picked now, from the entry the preset holds for it. The other
-    /// cameras keep what they have.
+    /// A preset brings back the size, rate and picture settings of the webcam picked now, from the entry the preset holds for it. Only what the
+    /// entry says is changed: the other cameras, and what it leaves out, keep what they have. The settings are kept even when the camera isn't
+    /// there, and go onto it when it opens.
     fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
         let key = self.selected_key.clone();
         let Some(entry) = cfg.get("cameras").and_then(|c| c.get(&key)).and_then(Value::as_object) else { return Ok(()) };
@@ -1215,23 +1213,41 @@ impl Plugin for WebcamPlugin {
         let changed = {
             let mut s = self.shared.settings.lock().unwrap();
             let have = s.entry(key.clone()).or_default();
-            let changed = have.size != wanted.size || have.fps != wanted.fps;
-            have.size = wanted.size;
-            have.fps = wanted.fps;
-            changed
+            let before = (have.size, have.fps);
+            if entry.contains_key("size") {
+                have.size = wanted.size;
+            }
+            if entry.contains_key("fps") {
+                have.fps = wanted.fps;
+            }
+            // Kept now, whether or not the camera can take them at the moment
+            for (name, value) in wanted.controls.iter().flatten() {
+                let list = have.controls.get_or_insert_with(Vec::new);
+                match list.iter_mut().find(|(n, _)| n == name) {
+                    Some(e) => e.1 = *value,
+                    None => list.push((name.clone(), *value)),
+                }
+            }
+            before != (have.size, have.fps)
         };
-        // The pictures the preset didn't set go back to the camera's own, then its own are put on, the auto settings first
-        self.reset_controls(host);
         if let Some(controls) = &wanted.controls {
             let names: Vec<String> = controls.iter().map(|(n, _)| n.clone()).collect();
             for name in apply_order(&names) {
-                if let Some((_, value)) = controls.iter().find(|(n, _)| *n == name) {
+                let Some((_, value)) = controls.iter().find(|(n, _)| *n == name) else { continue };
+                // A manual value isn't sent while its auto setting is on, which would turn the auto off
+                let auto_on = auto_of(&name).is_some_and(|a| {
+                    let said = controls.iter().find(|(n, _)| n == a).map(|(_, v)| *v);
+                    said.or_else(|| self.controls.get(&key).and_then(|m| m.get(a)).map(|c| c.value)).is_some_and(|v| v != 0)
+                });
+                if !auto_on {
                     self.set_control(host, &name, *value);
                 }
             }
         }
         host.schedule_save();
-        if changed && self.sources.get(&key).is_some_and(|src| host.is_streaming_from(Some(&src.id()))) {
+        // A camera that isn't plugged in is waiting to come back, and a restart now would end that
+        let there = self.shared.device(&key).is_some();
+        if changed && there && self.sources.get(&key).is_some_and(|src| host.is_streaming_from(Some(&src.id()))) {
             host.reconnect_stream(); // a new size or rate means opening the camera again
         }
         self.render(host);

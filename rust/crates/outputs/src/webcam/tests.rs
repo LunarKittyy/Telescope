@@ -1399,8 +1399,50 @@ fn webcams_ride_in_presets_and_a_preset_brings_back_the_picked_cameras_size_rate
     env.plugin.apply_preset(&mut env.host, &saved).unwrap();
     assert_eq!(env.plugin.shared.choice(&cam()), want);
     assert_eq!(backend.v("gain"), 40);
-    assert_eq!(backend.v("anti_flicker"), 1, "a picture setting the preset didn't hold is back at the default, the local mains for anti-flicker");
-    assert_eq!(env.plugin.get_config(), saved);
+    assert_eq!(env.plugin.get_config()["cameras"]["cam"]["size"], saved["cameras"]["cam"]["size"]);
+    let _ = backend;
+}
+
+#[test]
+fn a_preset_changes_only_what_it_says_and_keeps_picture_settings_for_a_camera_that_is_away() {
+    let (mut env, backend) = card();
+    set(&mut env, "gain", 40);
+    env.plugin.on_ui(&mut env.host, &UiEvent { ui: "card".into(), callback: "size-picked".into(), args: vec![json!(2)] });
+    let size = env.plugin.shared.choice(&cam());
+    // A preset that only has a rate leaves the size and the gain alone
+    env.plugin.apply_preset(&mut env.host, &json!({"cameras": {"cam": {"fps": 60}}})).unwrap();
+    assert_eq!(env.plugin.shared.wanted("cam").1, 60);
+    assert_eq!(env.plugin.shared.choice(&cam()).map(|c| (c.width, c.height)), size.map(|c| (c.width, c.height)));
+    assert_eq!(backend.v("gain"), 40);
+    // One that says Auto puts the size back to Auto
+    env.plugin.apply_preset(&mut env.host, &json!({"cameras": {"cam": {"size": null}}})).unwrap();
+    assert_eq!(env.plugin.shared.wanted("cam").0, None);
+    // With the camera unplugged the picture settings are kept, and no restart cancels the wait for it
+    env.plugged.lock().unwrap().clear();
+    env.plugin.rescan(&mut env.host);
+    stream(&mut env, "cam");
+    env.host.calls.clear();
+    env.plugin.apply_preset(&mut env.host, &json!({"cameras": {"cam": {"size": [1280, 720], "controls": {"gain": 90}}}})).unwrap();
+    assert!(!env.host.calls.contains(&"reconnect_stream".to_string()), "{:?}", env.host.calls);
+    let kept = env.plugin.get_config();
+    assert_eq!(kept["cameras"]["cam"]["controls"]["gain"], 90);
+}
+
+#[test]
+fn a_manual_value_in_a_preset_is_not_sent_while_its_auto_setting_is_on() {
+    let (mut env, backend) = card();
+    // exposure_time is manual and exposure_auto is on in the preset: the time is kept but the camera isn't told, so auto stays on
+    env.plugin.apply_preset(&mut env.host, &json!({"cameras": {"cam": {"controls": {"exposure_auto": 1, "exposure_time": 100}}}})).unwrap();
+    assert_eq!(backend.v("exposure_auto"), 1);
+    assert!(!backend.sets.lock().unwrap().iter().any(|(n, _)| n == "exposure_time"));
+}
+
+#[test]
+fn webcam_sizes_that_overflow_or_are_zero_are_ignored() {
+    let (mut env, _backend) = card();
+    env.plugin.set_config(&json!({"cameras": {"cam": {"size": [4294967296u64, 720]}, "other": {"size": [0, 720]}}})).unwrap();
+    assert_eq!(env.plugin.shared.wanted("cam").0, None);
+    assert_eq!(env.plugin.shared.wanted("other").0, None);
 }
 
 #[test]

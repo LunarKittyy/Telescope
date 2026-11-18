@@ -1246,6 +1246,12 @@ impl Plugin for MicrophonePlugin {
     /// A preset brings back the sound settings (gain, auto level, noise reduction) and leaves the microphone on or off as it is. A preset
     /// that lacks one of them leaves it as it is too.
     fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
+        // The microphone follows its own stream. A preset of another source's isn't about it, and would change another phone's sound
+        if let (Some(on), Some(focused)) = (&self.stream, host.focused_source_id()) {
+            if *on != focused {
+                return Ok(());
+            }
+        }
         let mut merged = self.get_config();
         for key in ["gain_db", "auto_level", "noise_reduction"] {
             if let Some(v) = cfg.get(key) {

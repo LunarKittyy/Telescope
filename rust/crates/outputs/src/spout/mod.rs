@@ -672,7 +672,11 @@ impl Plugin for SpoutPlugin {
     }
 
     fn get_config(&self) -> Value {
-        let fps = self.shared.fps.lock().unwrap();
+        let mut fps = self.shared.fps.lock().unwrap().clone();
+        // The picked sender's rate as it is now, the default included, so a preset can bring it back
+        if !self.selected_key.is_empty() {
+            fps.insert(self.selected_key.clone(), self.shared.fps(&self.selected_key));
+        }
         let mut keys: Vec<&String> = fps.keys().collect();
         keys.sort();
         json!({"senders": keys.into_iter().map(|k| (k.clone(), json!({"fps": fps[k]}))).collect::<Map<String, Value>>()})
@@ -695,7 +699,13 @@ impl Plugin for SpoutPlugin {
     fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
         let fps = cfg.get("senders").and_then(|s| s.get(&self.selected_key)).and_then(|e| e.get("fps")).filter(|v| v.is_u64()).and_then(Value::as_u64);
         if let Some(f) = fps.filter(|f| (1..=240).contains(f)) {
-            self.set_fps(host, f as u32);
+            if self.shared.sender(&self.selected_key).is_some() {
+                self.set_fps(host, f as u32);
+            } else if !self.selected_key.is_empty() {
+                // A sender that isn't running is waited for, and a restart now would end that; the rate is used when it comes back
+                self.shared.fps.lock().unwrap().insert(self.selected_key.clone(), f as u32);
+                host.schedule_save();
+            }
             self.render(host);
         }
         Ok(())

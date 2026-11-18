@@ -965,3 +965,17 @@ fn a_preset_without_a_sound_setting_leaves_it_as_it_is() {
     r.p.apply_preset(&mut host, &json!({})).unwrap();
     assert_eq!(r.p.get_config(), config(true, -2, true, true));
 }
+
+#[test]
+fn a_preset_of_another_source_leaves_the_microphone_alone() {
+    let mut r = Rig::new(backend());
+    r.set_config(json!({"enabled": true, "gain_db": 5}));
+    r.start("phone");
+    let mut host = telescope_core::testing::FakeHost::new();
+    host.focused = Some("webcam:b".into());
+    r.p.apply_preset(&mut host, &json!({"gain_db": -9})).unwrap();
+    assert_eq!(r.p.get_config()["gain_db"], 5);
+    host.focused = Some("phone".into());
+    r.p.apply_preset(&mut host, &json!({"gain_db": -9})).unwrap();
+    assert_eq!(r.p.get_config()["gain_db"], -9);
+}
