@@ -562,6 +562,9 @@ impl HostPreview for Ctx<'_> {
     fn unwarp(&self, u: f64, v: f64) -> (f64, f64) {
         self.state.overlays.unwarp(u, v)
     }
+    fn preview_redirected(&self) -> bool {
+        self.focused_source_id().is_some_and(|shown| self.state.preview_target(&shown).is_some())
+    }
     fn preview_follows(&mut self, owner: &str, source_id: Option<&str>, target: Option<&str>) {
         let now = source_id.zip(target).map(|(s, t)| (s.to_string(), t.to_string()));
         let before = match &now {

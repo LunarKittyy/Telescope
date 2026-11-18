@@ -3293,6 +3293,10 @@ mod tests {
         s.preview_dirty.store(false, SeqCst);
         crate::host::Ctx { state: &mut s, me: "stereo".into() }.preview_follows("stereo", Some("b"), Some("a"));
         assert_eq!((s.preview_target("b"), s.preview_target("a")), (Some("a"), None), "only the stream it names");
+        s.selected = Some("b".into());
+        assert!(crate::host::Ctx { state: &mut s, me: "pick".into() }.preview_redirected(), "the shown stream's preview draws another's output");
+        s.selected = Some("a".into());
+        assert!(!crate::host::Ctx { state: &mut s, me: "pick".into() }.preview_redirected(), "a stream nobody redirects");
         assert!(s.preview_dirty.swap(false, SeqCst), "the preview draws another picture now");
         crate::host::Ctx { state: &mut s, me: "stereo".into() }.preview_follows("stereo", Some("b"), Some("a"));
         assert!(!s.preview_dirty.load(SeqCst), "the same again changes nothing");

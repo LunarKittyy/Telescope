@@ -720,6 +720,9 @@ impl HostPreview for FakeHost {
         self.warp = matrix;
         self.note(format!("set_preview_warp {owner} {}", matrix.is_some()));
     }
+    fn preview_redirected(&self) -> bool {
+        !self.follows.is_empty()
+    }
     fn preview_follows(&mut self, owner: &str, source_id: Option<&str>, target: Option<&str>) {
         match (source_id, target) {
             (Some(source), Some(target)) => self.follows.insert(owner.to_string(), (source.to_string(), target.to_string())),

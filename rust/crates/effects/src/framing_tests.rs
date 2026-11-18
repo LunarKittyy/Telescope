@@ -508,6 +508,30 @@ fn nothing_can_be_picked_while_framing_is_off_and_turning_it_off_drops_a_pending
 }
 
 #[test]
+fn nothing_is_picked_on_a_preview_that_shows_another_streams_output() {
+    let (a, b) = (at(0.2), at(0.8));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[a.clone(), b.clone()]));
+    r.host.follows.insert("stereo".into(), ("phone".into(), "other".into()));
+    r.ui("pick-clicked", Value::Null);
+    assert!(!r.host.calls.iter().any(|c| c.starts_with("pick_on_preview")));
+    // and a pick that was already under way when the preview changed is turned away
+    r.host.follows.clear();
+    click_on(&mut r, &b);
+    assert_eq!(r.prop("following"), json!(true));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[a, b.clone()]));
+    r.ui("pick-clicked", Value::Null);
+    r.host.follows.insert("stereo".into(), ("phone".into(), "other".into()));
+    let ((x, y), _) = body(&b, 16.0 / 9.0).unwrap();
+    let at = vec![[x as f32, y as f32]];
+    r.event(Event::PreviewPicked { owner: NAME.into(), pick: Some(telescope_core::host::Pick { kind: telescope_core::host::PickKind::Point, shown: at.clone(), full: at.clone(), in_picture: at, picture: None }) });
+    assert_ne!(r.prop("following"), json!(true));
+}
+
+#[test]
 fn a_click_outside_the_picture_picks_nobody() {
     let (a, b) = (at(0.2), at(0.8));
     let mut r = Rig::new();

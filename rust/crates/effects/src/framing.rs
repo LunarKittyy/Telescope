@@ -855,7 +855,8 @@ impl FramingPlugin {
 
     /// Starts a pick on the preview: whoever is clicked is the one Auto framing follows.
     fn pick(&mut self, host: &mut dyn Host) {
-        if !self.steering {
+        // a preview that draws another stream's output (a 3D pair's combined picture) isn't the picture the people were found in
+        if !self.steering || host.preview_redirected() {
             return;
         }
         host.pick_on_preview(NAME, PickKind::Point, None, &tr("Click the person to follow on the preview. Esc cancels."));
@@ -863,7 +864,7 @@ impl FramingPlugin {
 
     fn picked(&mut self, host: &mut dyn Host, pick: &telescope_core::host::Pick) {
         // Where the click is in the whole picture, before the view's zoom and pan, then turned the way the view turns it, as the people are
-        if !self.steering {
+        if !self.steering || host.preview_redirected() {
             return;
         }
         // a click on the bars beside the picture isn't on anyone

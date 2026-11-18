@@ -586,6 +586,11 @@ pub trait HostPreview {
     /// the cards still act on source_id's stream. None as the target takes the owner's redirect off, and so does the owner going away. An owner
     /// has one at a time; a host without a preview ignores it.
     fn preview_follows(&mut self, _owner: &str, _source_id: Option<&str>, _target: Option<&str>) {}
+    /// Whether the preview draws another stream's output than the one the panels show (a plugin asked for it with preview_follows): then a
+    /// spot picked on it is not a spot of the shown stream's picture.
+    fn preview_redirected(&self) -> bool {
+        false
+    }
 }
 
 /// Full-quality photos taken on the phone.
