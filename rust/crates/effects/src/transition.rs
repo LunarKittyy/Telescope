@@ -254,20 +254,26 @@ fn overlap(a: (f64, f64, f64, f64), b: (f64, f64, f64, f64)) -> f64 {
 /// source id. Two tiles that change places in the stack swap where their boxes overlap least on the way, so nothing pops. `aspect` is
 /// the picture's width over its height.
 pub fn poses(kind: Kind, from: &[Tile], to: &[Tile], t: f64, ease: Ease, aspect: f64) -> Vec<Posed> {
+    let from: Vec<Posed> = from.iter().map(|tile| Posed { tile: tile.clone(), alpha: 1.0 }).collect();
+    poses_from(kind, &from, to, t, ease, aspect)
+}
+
+/// poses() leaving from tiles that are partly faded, as an interrupted transition leaves them.
+pub fn poses_from(kind: Kind, from: &[Posed], to: &[Tile], t: f64, ease: Ease, aspect: f64) -> Vec<Posed> {
     let fade = effect(ease, t);
-    let mut out: Vec<Posed> = from.iter().filter(|a| !to.iter().any(|b| b.source_id == a.source_id)).map(|a| {
+    let mut out: Vec<Posed> = from.iter().filter(|a| !to.iter().any(|b| b.source_id == a.tile.source_id)).map(|a| {
         let s = mix(1.0, 0.9, fade);
-        Posed { tile: shrunk(a, s), alpha: 1.0 - fade }
+        Posed { tile: shrunk(&a.tile, s), alpha: a.alpha * (1.0 - fade) }
     }).collect();
     // (index in to, index in from, the order it sets off in) of the matched tiles
     let mut matched: Vec<(usize, usize, usize)> = Vec::new();
     for (n, b) in to.iter().enumerate() {
-        if let Some(i) = from.iter().position(|a| a.source_id == b.source_id) {
+        if let Some(i) = from.iter().position(|a| a.tile.source_id == b.source_id) {
             matched.push((n, i, matched.len()));
         }
     }
     let moving = matched.len();
-    let at = |m: &(usize, usize, usize), t: f64| box_at(kind, &from[m.1], &to[m.0], t, m.2, moving, ease, aspect);
+    let at = |m: &(usize, usize, usize), t: f64| box_at(kind, &from[m.1].tile, &to[m.0], t, m.2, moving, ease, aspect);
     // when a pair that changes stacking order swaps: where its boxes overlap least
     let swap_at = |x: &(usize, usize, usize), y: &(usize, usize, usize)| -> f64 {
         // of the moments they overlap least (never the first or the last), the one nearest the middle
@@ -290,9 +296,10 @@ pub fn poses(kind: Kind, from: &[Tile], to: &[Tile], t: f64, ease: Ease, aspect:
         let m = matched[k];
         let a = &from[m.1];
         let (x, y, w, h) = at(&m, t);
-        let mut tile = blended(a, b, effect(ease, own(kind, t, m.2, moving)));
+        let mut tile = blended(&a.tile, b, effect(ease, own(kind, t, m.2, moving)));
         (tile.x, tile.y, tile.w, tile.h) = (x, y, w, h);
-        stack.push((above[k], n, Posed { tile, alpha: 1.0 }));
+        // one that was fading comes back to full as it goes
+        stack.push((above[k], n, Posed { tile, alpha: mix(a.alpha, 1.0, fade) }));
     }
     stack.sort_by_key(|(over, n, _)| (*over, *n));
     out.extend(stack.into_iter().map(|(_, _, p)| p));
