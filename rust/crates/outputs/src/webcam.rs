@@ -166,9 +166,12 @@ impl CamCfg {
 
     fn to_json(&self) -> Value {
         let mut m = Map::new();
-        // Auto and the default rate are written as null, so a preset can tell "put it back to Auto" from "says nothing about the size"
-        m.insert("size".into(), self.size.map_or(Value::Null, |(w, h)| json!([w, h])));
-        m.insert("fps".into(), self.fps.map_or(Value::Null, |f| json!(f)));
+        if let Some((w, h)) = self.size {
+            m.insert("size".into(), json!([w, h]));
+        }
+        if let Some(f) = self.fps {
+            m.insert("fps".into(), json!(f));
+        }
         if let Some(c) = &self.controls {
             m.insert("controls".into(), Value::Object(c.iter().map(|(k, v)| (k.clone(), json!(v))).collect()));
         }
@@ -1205,7 +1208,8 @@ impl Plugin for WebcamPlugin {
 
     /// A preset brings back the size, rate and picture settings of the webcam picked now, from the entry the preset holds for it. Only what the
     /// entry says is changed: the other cameras, and what it leaves out, keep what they have. The settings are kept even when the camera isn't
-    /// there, and go onto it when it opens.
+    /// there, and go onto it when it opens. A key that is null puts the size or rate back to Auto or the default; a key that is missing
+    /// (which is how Auto and the default are saved) leaves it as it is.
     fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
         let key = self.selected_key.clone();
         let Some(entry) = cfg.get("cameras").and_then(|c| c.get(&key)).and_then(Value::as_object) else { return Ok(()) };
