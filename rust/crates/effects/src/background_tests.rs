@@ -1360,16 +1360,16 @@ fn a_stream_that_wants_its_cut_out_gets_the_soft_mask_as_alpha_on_rgb_frames() {
 }
 
 #[test]
-fn nobody_in_the_mask_is_a_cut_out_with_nothing_in_it_and_no_mask_is_none() {
+fn nobody_in_the_mask_or_no_mask_yet_is_a_cut_out_with_nothing_in_it() {
     let (scene, _) = peek::sample_scene(160, 90);
     let frame = i420_of(&scene);
     let mut empty = frame.clone();
     cutting(true, "blur").process(&mut empty, &Served::new(Gray::filled(40, 22, 0)));
     assert!(empty.alpha().expect("a cut-out").data.iter().all(|&a| a == 0));
-    // the room is hidden already when the vision service can't tell yet, so the picture stays whole
+    // with no mask yet there's nobody to cut out either, so a Cut out tile shows nothing rather than the blurred room
     let mut unknown = frame.clone();
     cutting(true, "blur").process(&mut unknown, &Ctx(None, Default::default()));
-    assert!(unknown.alpha().is_none());
+    assert!(unknown.alpha().expect("a cut-out").data.iter().all(|&a| a == 0));
 }
 
 #[test]
@@ -1479,4 +1479,28 @@ fn only_the_camera_shown_has_its_background_switched_on() {
     assert_eq!(rig.plugin.mode_name(), "off", "the settings here are the shown camera's");
     rig.event(Event::CutOutWanted { source_id: "shown".into(), on: true });
     assert_eq!(rig.plugin.mode_name(), "blur");
+}
+
+#[test]
+fn settings_arriving_with_off_still_leave_a_wanted_cut_out_its_blur() {
+    let mut rig = Rig::new(None, "ready");
+    rig.event(Event::CutOutWanted { source_id: "a".into(), on: true });
+    rig.plugin.set_config(&json!({"mode": "off"})).unwrap();
+    rig.event(Event::SourceShown { source_id: "a".into() });
+    assert_eq!(rig.plugin.mode_name(), "blur");
+    assert_eq!(rig.plugin.get_config()["mode"], json!("off"), "still not saved as chosen");
+}
+
+#[test]
+fn chroma_key_making_the_cut_out_leaves_the_background_off() {
+    let mut rig = Rig::new(None, "ready");
+    rig.host.share("chroma_key", "keying", Some(json!(true))).unwrap();
+    rig.event(Event::CutOutWanted { source_id: "a".into(), on: true });
+    assert_eq!(rig.plugin.mode_name(), "off");
+    rig.host.share("chroma_key", "keying", Some(json!(false))).unwrap();
+    rig.event(Event::SharedChanged { key: "chroma_key.keying".into() });
+    assert_eq!(rig.plugin.mode_name(), "blur", "the key went off, so Background makes it");
+    rig.host.share("chroma_key", "keying", Some(json!(true))).unwrap();
+    rig.event(Event::SharedChanged { key: "chroma_key.keying".into() });
+    assert_eq!(rig.plugin.mode_name(), "off");
 }

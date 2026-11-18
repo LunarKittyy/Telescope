@@ -197,12 +197,90 @@ fn the_streams_list_puts_streams_in_and_takes_them_out() {
     r.picture(tiles.clone());
     r.picture(tiles); // twice: the list is made afresh, not added to
     let texts: Vec<String> = r.props()["streams"].as_array().unwrap().iter().map(|s| s["text"].as_str().unwrap().to_string()).collect();
-    assert_eq!(texts, ["Phone A", "Phone B", "Old phone (not streaming)"]);
-    r.ui("stream-toggled", json!([1, true]));
+    // the layout's tiles come first with the front one on top, then the running streams that aren't in it
+    assert_eq!(texts, ["Old phone", "Phone A", "Phone B"]);
+    let flags: Vec<bool> = r.props()["streams"].as_array().unwrap().iter().map(|s| s["streaming"].as_bool().unwrap()).collect();
+    assert_eq!(flags, [false, true, true], "the icon, not the name, tells who is streaming");
+    r.ui("stream-toggled", json!([2, true]));
     assert_eq!(r.sources(), ["a", "gone", "b"]);
     assert_eq!(r.props()["selected"], json!(2));
-    r.ui("stream-toggled", json!([0, false]));
+    // now the list reads b, gone, a from the top
+    r.ui("stream-toggled", json!([2, false]));
     assert_eq!(r.sources(), ["gone", "b"]);
+}
+
+#[test]
+fn the_eye_takes_a_stream_out_and_brings_it_back_as_it_was() {
+    let mut r = open();
+    let mut a = Tile::boxed("a", "", 0.0, 0.0, 0.5, 0.5);
+    a.zoom = 3.0;
+    a.crop_l = 0.1;
+    r.picture(vec![a.clone(), Tile::boxed("b", "", 0.6, 0.6, 0.3, 0.3)]);
+    // rows: b (front), a. The eye on a's row takes it out
+    r.ui("stream-toggled", json!([1, false]));
+    assert_eq!(r.sources(), ["b"]);
+    r.ui("stream-toggled", json!([1, true]));
+    assert_eq!(r.sources(), ["a", "b"], "back on its old layer");
+    assert_eq!(r.tile(0), a, "with its box, zoom and crop");
+}
+
+#[test]
+fn a_hidden_stream_is_not_brought_back_into_another_layout() {
+    let mut r = open();
+    let mut a = Tile::boxed("a", "", 0.0, 0.0, 0.5, 0.5);
+    a.locked = true;
+    r.picture(vec![a, Tile::boxed("b", "", 0.6, 0.6, 0.3, 0.3)]);
+    r.ui("stream-toggled", json!([1, false]));
+    r.ui("start-from", json!([0]));
+    let sources = r.sources();
+    r.ui("stream-toggled", json!([0, true]));
+    let back = r.tile(0);
+    assert!(!back.locked, "the old layout's lock is gone");
+    assert_eq!(sources.len(), 2, "side by side holds both streams");
+}
+
+#[test]
+fn a_locked_stream_takes_no_change_and_the_list_picks_and_drags_layers() {
+    let mut r = open();
+    r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 1.0, 1.0), Tile::boxed("b", "", 0.6, 0.6, 0.3, 0.3)]);
+    // rows: b (front) then a
+    let rows = r.props()["streams"].clone();
+    assert_eq!((rows[0]["layer"].clone(), rows[0]["locked"].clone(), rows[1]["layer"].clone()), (json!(true), json!(false), json!(true)));
+    r.ui("stream-picked", json!([0]));
+    assert_eq!(r.props()["selected"], json!(1));
+    // dragging row 0 (b) to row 1 puts it behind a
+    r.ui("stream-moved", json!([0, 1]));
+    assert_eq!(r.sources(), ["b", "a"]);
+    assert_eq!(r.props()["selected"], json!(0), "the picked stream stays picked");
+    r.ui("stream-moved", json!([1, 0]));
+    assert_eq!(r.sources(), ["a", "b"]);
+    // locked: a click on the picture goes through to what is behind, and boxes, nudges, swaps and sliders do nothing
+    r.ui("stream-locked", json!([0, true]));
+    r.ui("stream-picked", json!([0]));
+    let before = r.tile(1);
+    r.pointer("down", (0.7, 0.7), false, NO_KEYS);
+    r.pointer("move", (0.5, 0.5), false, NO_KEYS);
+    r.pointer("up", (0.5, 0.5), false, NO_KEYS);
+    assert_eq!(r.props()["selected"], json!(0), "the click went to the stream behind");
+    r.ui("stream-picked", json!([0]));
+    r.ui("box-committed", json!(["x", "10"]));
+    r.ui("key", json!(["left", false]));
+    r.ui("swap-picked", json!([0]));
+    r.ui("zoom-moved", json!([300.0]));
+    assert_eq!(r.tile(1), Tile { locked: true, ..before.clone() });
+    assert_eq!(r.props()["tile-locked"], json!(true));
+    r.ui("stream-locked", json!([0, false]));
+    r.ui("box-committed", json!(["x", "10"]));
+    assert_ne!(r.tile(1).x, before.x);
+}
+
+#[test]
+fn locked_and_cut_out_are_saved_only_when_set() {
+    let plain = crate::composite::tile_dict(&Tile::boxed("a", "A", 0.0, 0.0, 1.0, 1.0));
+    assert!(plain.get("locked").is_none() && plain.get("cut_out").is_none());
+    let set = Tile { locked: true, cut_out: true, ..Tile::boxed("a", "A", 0.0, 0.0, 1.0, 1.0) };
+    let back = crate::composite::clean_tile(&crate::composite::tile_dict(&set)).unwrap();
+    assert!(back.locked && back.cut_out);
 }
 
 #[test]
@@ -317,6 +395,28 @@ fn the_position_and_size_boxes_set_the_box_in_canvas_pixels_and_keep_it_on_the_p
     assert!(near(r.tile(1).y, 0.1 + 9.0 / 180.0, 1e-9));
     r.ui("box-committed", json!(["h", "1"]));
     assert!(near(r.tile(1).h, crate::composite::MIN_SIZE, 1e-9), "never smaller than the least size");
+}
+
+#[test]
+fn the_crop_boxes_cut_a_side_in_percent_and_the_rest_stays_where_it_is() {
+    let mut r = open();
+    r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 0.5, 0.5), Tile::boxed("b", "", 0.2, 0.2, 0.4, 0.4)]);
+    r.plugin.select(1);
+    assert_eq!(r.props()["crop-any"], json!(false));
+    r.ui("crop-committed", json!(["l", "25 %"]));
+    let t = r.tile(1);
+    assert!(near(t.crop_l, 0.25, 1e-9) && near(t.x, 0.3, 1e-9) && near(t.x + t.w, 0.6, 1e-9), "{t:?}");
+    assert_eq!(r.props()["crop-l-text"], json!("25 %"));
+    r.ui("crop-step", json!(["t", 10]));
+    assert!(near(r.tile(1).crop_t, 0.1, 1e-9) && near(r.tile(1).y + r.tile(1).h, 0.6, 1e-9));
+    r.ui("crop-committed", json!(["r", "99"]));
+    assert!(near(r.tile(1).crop_r, 0.7, 1e-9), "some of the stream always shows: {}", r.tile(1).crop_r);
+    r.ui("crop-committed", json!(["b", "nonsense"]));
+    assert!(near(r.tile(1).crop_b, 0.0, 1e-9));
+    r.ui("crop-reset", json!([]));
+    let t = r.tile(1);
+    assert!([t.crop_l, t.crop_t, t.crop_r, t.crop_b].iter().all(|c| near(*c, 0.0, 1e-9)));
+    assert_eq!(r.props()["crop-any"], json!(false));
 }
 
 #[test]

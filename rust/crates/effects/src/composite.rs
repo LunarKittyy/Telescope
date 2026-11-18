@@ -50,6 +50,10 @@ pub struct Tile {
     pub crop_b: f64,
     /// Fill the box whatever its shape; otherwise the middle of the crop is cut to the box's shape.
     pub stretch: bool,
+    /// Can't be moved or changed from the editor.
+    pub locked: bool,
+    /// Shows only the person, by the stream's Background mask (set from the editor by the Cut out switch).
+    pub cut_out: bool,
 }
 
 impl Tile {
@@ -58,6 +62,7 @@ impl Tile {
         Tile {
             source_id: source_id.into(), name: String::new(), x: 0.0, y: 0.0, w: 1.0, h: 1.0, zoom: 1.0, cx: 0.5, cy: 0.5, border: 0,
             border_colour: "#ffffff".into(), radius: 0, crop_l: 0.0, crop_t: 0.0, crop_r: 0.0, crop_b: 0.0, stretch: false,
+            locked: false, cut_out: false,
         }
     }
 
@@ -163,6 +168,8 @@ pub fn clean_tile(raw: &Value) -> Option<Tile> {
         crop_r: number(get("crop_r"), 0.0, 0.0, 1.0 - MIN_SHOWN - crop_l),
         crop_b: number(get("crop_b"), 0.0, 0.0, 1.0 - MIN_SHOWN - crop_t),
         stretch: get("stretch") == Some(&Value::Bool(true)),
+        locked: get("locked") == Some(&Value::Bool(true)),
+        cut_out: get("cut_out") == Some(&Value::Bool(true)),
     })
 }
 
@@ -213,6 +220,13 @@ pub fn tile_dict(t: &Tile) -> Value {
         m.insert(k.into(), json!(v));
     }
     m.insert("stretch".into(), json!(t.stretch));
+    // written only when set, so layouts that never used them read as they always did
+    if t.locked {
+        m.insert("locked".into(), json!(true));
+    }
+    if t.cut_out {
+        m.insert("cut_out".into(), json!(true));
+    }
     Value::Object(m)
 }
 
@@ -451,6 +465,35 @@ pub fn cropped(tile: &Tile, handle: &str, dx: f64, dy: f64) -> Tile {
         (ny1, b) = (y1 - (b2 - b) * per_v, b2);
     }
     Tile { x: nx, y: ny, w: nx1 - nx, h: ny1 - ny, crop_l: l, crop_t: t, crop_r: r, crop_b: b, ..tile.clone() }
+}
+
+/// tile with the side ("l", "t", "r" or "b") cropped to the share `v` of the stream (0 to 1) while the rest of it stays where it is
+/// on the picture. The tile has to be pinned() first.
+pub fn crop_side(tile: &Tile, side: &str, v: f64) -> Tile {
+    let (l, t, r, b) = (tile.crop_l, tile.crop_t, tile.crop_r, tile.crop_b);
+    let per_u = tile.w / 1e-6f64.max(1.0 - l - r);
+    let per_v = tile.h / 1e-6f64.max(1.0 - t - b);
+    let mut new = tile.clone();
+    match side {
+        "l" => {
+            let v = v.clamp(0.0, 1.0 - r - MIN_SHOWN);
+            (new.x, new.w, new.crop_l) = (tile.x + (v - l) * per_u, tile.w - (v - l) * per_u, v);
+        }
+        "r" => {
+            let v = v.clamp(0.0, 1.0 - l - MIN_SHOWN);
+            (new.w, new.crop_r) = (tile.w - (v - r) * per_u, v);
+        }
+        "t" => {
+            let v = v.clamp(0.0, 1.0 - b - MIN_SHOWN);
+            (new.y, new.h, new.crop_t) = (tile.y + (v - t) * per_v, tile.h - (v - t) * per_v, v);
+        }
+        "b" => {
+            let v = v.clamp(0.0, 1.0 - t - MIN_SHOWN);
+            (new.h, new.crop_b) = (tile.h - (v - b) * per_v, v);
+        }
+        _ => {}
+    }
+    new
 }
 
 /// tile after dragging handle by dx, dy, the way OBS does it. how is "scale" (keeps the shape), "stretch" (the box takes any
