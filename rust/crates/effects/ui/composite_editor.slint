@@ -246,12 +246,9 @@ component LayerToggle inherits Rectangle {
     in property <string> tip;
     in property <string> tip-detail;
     callback clicked;
-    width: Theme.u(14);
-    height: Theme.u(14);
-    border-radius: Theme.r-ctl;
-    background: touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : active ? Theme.raise : transparent;
-    border-width: active ? Theme.ctl-outline-w(touch.has-hover, touch.pressed) : 0px;
-    border-color: Theme.ctl-outline(touch.has-hover, touch.pressed);
+    width: Theme.icon + Theme.u(4);
+    height: Theme.icon + Theme.u(4);
+    background: transparent;
     accessible-role: checkbox;
     accessible-label: label;
     accessible-checkable: true;
@@ -261,7 +258,7 @@ component LayerToggle inherits Rectangle {
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
         source: root.icon;
-        tint: root.active ? Theme.ink : Theme.faint;
+        tint: touch.has-hover || root.active ? Theme.ink : Theme.faint;
         width: Theme.icon;
         height: Theme.icon;
         accessible-role: none;
@@ -296,7 +293,7 @@ component LayerRow inherits Rectangle {
     y: round(place.value * 1px / 1phx) * 1phx;
     z: root.held ? 10 : 0;
     tone := Tone { on: (touch.has-hover && !root.any-held && root.layer) || root.held; }
-    background: root.picked ? Theme.hover.mix(Theme.raise, 0.4) : Theme.raise.with-alpha(0).mix(Theme.hover, tone.value);
+    background: root.picked ? Theme.hover : Theme.raise.mix(Theme.hover, tone.value);
     border-radius: Theme.r-ctl;
     border-width: root.held ? Theme.ctl-outline-w(false, true) : 0px;
     border-color: Theme.ctl-outline(false, true);
@@ -339,9 +336,9 @@ component LayerRow inherits Rectangle {
         clicked => { if (root.layer && !was-dragged) { root.pick-clicked(); } }
     }
     HorizontalLayout {
-        padding-left: Theme.u(2);
-        padding-right: Theme.u(2);
-        spacing: Theme.u(3);
+        padding-left: Theme.u(7);
+        padding-right: Theme.u(5.5);
+        spacing: Theme.u(2);
         LayerToggle {
             y: (parent.height - self.height) / 2;
             icon: root.on ? Icons.eye : Icons.eye-off;
@@ -608,16 +605,17 @@ export component CompositeEditor inherits Window {
                         title: @tr("Streams");
                         icon: Icons.video;
                         list := Rectangle {
-                            property <length> row-h: Theme.u(18);
+                            property <length> row-h: Theme.row + Theme.u(2);
+                            property <length> pitch: row-h + Theme.u(2);
                             // The row held, where it is held, and the row it would take the place of
                             property <int> held: -1;
                             property <length> held-y;
                             property <int> drop: -1;
-                            height: streams.length * row-h;
+                            height: max(0px, streams.length * pitch - Theme.u(2));
                             // Where row i sits, with the held one's place made for it
                             function slot-y(i: int) -> length {
                                 let shift = held < 0 ? 0 : (held < drop && i > held && i <= drop) ? -1 : (held > drop && i >= drop && i < held) ? 1 : 0;
-                                return (i + shift) * row-h;
+                                return (i + shift) * pitch;
                             }
                             for row[i] in streams: LayerRow {
                                 x: 0px;
@@ -629,7 +627,7 @@ export component CompositeEditor inherits Window {
                                 layer: row.layer;
                                 locked: row.locked;
                                 picked: row.picked;
-                                to: row.layer ? list.slot-y(i) : i * list.row-h;
+                                to: row.layer ? list.slot-y(i) : i * list.pitch;
                                 held: list.held == i;
                                 held-y: list.held-y;
                                 any-held: list.held >= 0;
@@ -642,8 +640,8 @@ export component CompositeEditor inherits Window {
                                     list.held-y = top;
                                 }
                                 drag-moved(top, grab) => {
-                                    list.held-y = max(0px, min((layer-count - 1) * list.row-h, top));
-                                    list.drop = max(0, min(layer-count - 1, round(list.held-y / list.row-h)));
+                                    list.held-y = max(0px, min((layer-count - 1) * list.pitch, top));
+                                    list.drop = max(0, min(layer-count - 1, round(list.held-y / list.pitch)));
                                 }
                                 drag-ended => {
                                     let from = list.held;
