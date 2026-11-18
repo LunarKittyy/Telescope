@@ -147,6 +147,8 @@ pub struct FakeHost {
     pub warp: Option<[f32; 9]>,
     /// What each owner last asked the preview to follow, as (stream shown, stream drawn).
     pub follows: HashMap<String, (String, String)>,
+    /// Host::preview_composited by owner
+    pub composited: HashMap<String, String>,
     /// What can_turn_camera_off() answers instead of (false, "Not streaming").
     pub can_turn_off: Option<(bool, String)>,
     /// What vision_state() answers instead of "off".
@@ -719,6 +721,16 @@ impl HostPreview for FakeHost {
     fn set_preview_warp(&mut self, owner: &str, matrix: Option<[f32; 9]>) {
         self.warp = matrix;
         self.note(format!("set_preview_warp {owner} {}", matrix.is_some()));
+    }
+    fn preview_shows_own_picture(&self) -> bool {
+        let shown = self.focused_source_id();
+        !self.follows.values().any(|(s, _)| Some(s) == shown.as_ref()) && !self.composited.values().any(|s| Some(s) == shown.as_ref())
+    }
+    fn preview_composited(&mut self, owner: &str, source_id: Option<&str>) {
+        match source_id {
+            Some(s) => self.composited.insert(owner.to_string(), s.to_string()),
+            None => self.composited.remove(owner),
+        };
     }
     fn preview_follows(&mut self, owner: &str, source_id: Option<&str>, target: Option<&str>) {
         match (source_id, target) {
