@@ -90,7 +90,7 @@ Each stream's worker counts into a `core::stats::SourceStats`: relaxed atomics o
 
 `Frame` holds packed planes in an `Arc`. Handing a frame to the preview, the virtual camera and other plugins (`FrameStore`) shares it. A step that changes pixels gets its own copy through `data_mut()`.
 
-A frame can also carry an alpha plane (`Frame::alpha`, the cut-out a Background step makes). The pipeline keeps it only past steps that leave every pixel in place: a CPU step says so with `keeps_geometry`, a step that only reads (`Touch::Reads`) never drops it, and a plugin's `Shader` drops it after Background unless the built-in colour shader's `keeps_geometry` flag is set. A step that paints on the picture raises the alpha under what it draws (`Frame::opaque_rect`). The frame is flattened over a plain colour (`Frame::flattened`) before it leaves for the virtual camera, which has no transparency.
+A frame can also carry an alpha plane (`Frame::alpha`), the cut-out Background or Chroma key makes. It survives only steps that leave every pixel where it was. A CPU step declares that with `keeps_geometry`. A step that only reads (`Touch::Reads`) never loses it. A plugin's shader after Background drops it unless the shader sets `keeps_geometry`, which only the built-in colour shaders do. A step that paints on the picture makes the alpha solid under what it draws (`Frame::opaque_rect`). The virtual camera has no transparency. Frames get laid over a plain colour (`Frame::flattened`) before they go to it.
 
 ## Pausing while nobody watches
 
