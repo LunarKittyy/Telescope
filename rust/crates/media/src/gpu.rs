@@ -44,6 +44,8 @@ const POOL_BUDGET: usize = 256 * 1024 * 1024;
 const KEPT_DOWNLOADS: usize = 4;
 /// The longest a readback waits for the card before the frame goes to the CPU instead.
 const READBACK_WAIT: std::time::Duration = std::time::Duration::from_secs(10);
+/// The same for a card that is the processor drawing in software (Windows' WARP, llvmpipe): a heavy shader on a big picture really takes that long there, and the wait only ends so a stream isn't stuck for good.
+const SOFTWARE_READBACK_WAIT: std::time::Duration = std::time::Duration::from_secs(300);
 /// How long one wait on the card lasts before a stop is looked for.
 const WAIT_SLICE: std::time::Duration = std::time::Duration::from_millis(50);
 
@@ -77,6 +79,8 @@ pub struct Gpu {
     pub adapter_name: String,
     /// Set when the device is lost or wgpu panicked: nothing more goes to this card.
     lost: Arc<AtomicBool>,
+    /// How long a readback waits for the card (READBACK_WAIT, or SOFTWARE_READBACK_WAIT for a software one).
+    wait_limit: std::time::Duration,
     #[cfg(test)]
     fault: Mutex<Option<Fault>>,
 }
@@ -258,15 +262,16 @@ impl Gpu {
         })).map_err(|e| e.to_string())?;
         telescope_core::machine::set_gpu(info.vendor, &format!("{:?}", info.device_type), &info.name, &format!("{:?}", info.backend), &card.driver);
         crate::decode_card::set_picked(info.vendor, info.device);
-        Ok(Gpu::on(device, queue, format!("{} ({:?})", info.name, info.backend)))
+        let limit = if info.device_type == wgpu::DeviceType::Cpu { SOFTWARE_READBACK_WAIT } else { READBACK_WAIT };
+        Ok(Gpu::on(device, queue, format!("{} ({:?})", info.name, info.backend), limit))
     }
 
     /// The same shaders on a device someone else opened (the window's, so the preview can hand its texture to Slint).
     pub fn on_device(device: wgpu::Device, queue: wgpu::Queue) -> Gpu {
-        Gpu::on(device, queue, "the window's device".into())
+        Gpu::on(device, queue, "the window's device".into(), READBACK_WAIT)
     }
 
-    fn on(device: wgpu::Device, queue: wgpu::Queue, adapter_name: String) -> Gpu {
+    fn on(device: wgpu::Device, queue: wgpu::Queue, adapter_name: String, wait_limit: std::time::Duration) -> Gpu {
         // Without this a mistake in a plugin's shader that slips past the checks would end the app
         device.on_uncaptured_error(Arc::new(|e: wgpu::Error| log::error!("Graphics card error: {e}")));
 
@@ -319,6 +324,7 @@ impl Gpu {
             pool: Mutex::new(Pool::new(POOL_BUDGET)),
             adapter_name,
             lost,
+            wait_limit,
             #[cfg(test)]
             fault: Mutex::new(None),
         }
@@ -626,9 +632,9 @@ impl Gpu {
         Ok((out, waited))
     }
 
-    /// Waits for the card to finish the submission, in short slices so cancel is looked at between them, for at most READBACK_WAIT.
+    /// Waits for the card to finish the submission, in short slices so cancel is looked at between them, for at most the card's wait limit.
     fn wait_for(&self, index: wgpu::SubmissionIndex, cancel: &dyn Fn() -> bool) -> Result<(), String> {
-        let until = std::time::Instant::now() + READBACK_WAIT;
+        let until = std::time::Instant::now() + self.wait_limit;
         loop {
             if cancel() {
                 return Err("stopped while waiting for the graphics card".into());
