@@ -11,7 +11,6 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::panic::{catch_unwind, AssertUnwindSafe};
 use telescope_core::colour::ColourPipeline;
 use telescope_core::config::{merge_for_save, ConfigFile, PluginSection, WindowState};
 use telescope_core::event::Event;
@@ -42,6 +41,14 @@ pub struct Slot {
     pub seen: Vec<(Option<String>, Value)>,
     /// When each dotted path of its config last moved, by the state's setting clock (Host::setting_revision), by camera for a device-local plugin.
     pub moved: Vec<(Option<String>, String, u64)>,
+    /// Why it was switched off this run after panicking (None while it runs). Its hooks aren't called again until the next start.
+    pub stopped: Option<String>,
+    /// It has handed out a step that hides something (Background, Privacy, Cover, or a CPU step that says it hides) at some point this run.
+    pub hides: bool,
+    /// Its shutdown() was called (Telescope quitting, or it stopped): never called twice.
+    pub shut_down: bool,
+    /// Its setup() hasn't finished: a panic there leaves it out of the start instead of stopping it.
+    starting: bool,
 }
 
 /// The plugins' packet step makers by owner, in the order they came on (HostPackets).
@@ -101,6 +108,8 @@ pub enum Effect {
     Image { plugin: String, ui: String, prop: String, picture: Picture },
     /// Host::refresh_actions: plugin's actions are asked for again.
     RefreshActions(String),
+    /// A plugin panicked and is off until the next start: its card, header widget and windows go and its frame steps come out.
+    Stopped(String),
     /// HostSources: a plugin's stream source offered, taken back, or to start.
     AddSource(OfferedSource),
     RemoveSource(String),
@@ -182,6 +191,31 @@ impl Effect {
             _ => None,
         }
     }
+}
+
+/// Whether a plugin's step hides something, asked inside the panic guard: a step that panics answering is the plugin's error, not the window's.
+fn step_hides(stage: telescope_core::frame::FrameStage, step: &telescope_core::frame::FrameStep) -> Result<bool, String> {
+    use telescope_core::frame::{FrameStage, FrameStep};
+    if matches!(stage, FrameStage::Background | FrameStage::Privacy | FrameStage::Cover) {
+        return Ok(true);
+    }
+    match step {
+        FrameStep::Cpu(c) | FrameStep::Either(_, c) => telescope_core::diagnostics::catch_plugin(|| c.hides()).map_err(|panic| format!("hides: {}", panic_text(panic.as_ref()))),
+        _ => Ok(false),
+    }
+}
+
+/// What happens when a plugin that hides part of the picture panics: Telescope closes. Its state can't be trusted to go on hiding anything, and
+/// an app that's gone shows nothing, where one that carries on might show what was hidden for a frame or more.
+fn close_rather_than_show(name: &str, why: &str) {
+    log::error!("Plugin {name} was hiding part of the picture and failed ({why}); closing Telescope rather than show what it hid");
+    telescope_core::diagnostics::report_closing(telescope_core::diagnostics::events(), &format!("plugin {name}: {why}"));
+    std::process::abort();
+}
+
+/// What a caught panic said, for the log and diagnostics.
+pub fn panic_text(panic: &(dyn std::any::Any + Send)) -> String {
+    panic.downcast_ref::<&str>().map(|s| s.to_string()).or_else(|| panic.downcast_ref::<String>().cloned()).unwrap_or_else(|| "it panicked".into())
 }
 
 /// How streaming stands, as the stream flow last said.
@@ -361,19 +395,6 @@ impl telescope_core::frame::CpuStep for DropsBeforeWhenHiding {
     }
 }
 
-/// Whether a frame step is there to hide the picture: one in the Privacy, Cover or Background stage, or a CPU one that says it hides. A step that
-/// panics when asked counts as hiding.
-fn step_hides(stage: telescope_core::frame::FrameStage, step: &telescope_core::frame::FrameStep) -> bool {
-    use telescope_core::frame::{FrameStage, FrameStep};
-    if matches!(stage, FrameStage::Privacy | FrameStage::Cover | FrameStage::Background) {
-        return true;
-    }
-    match step {
-        FrameStep::Cpu(inner) | FrameStep::Either(_, inner) => catch_unwind(AssertUnwindSafe(|| inner.hides())).unwrap_or(true),
-        FrameStep::Shader(_) => false,
-    }
-}
-
 /// Monotonic seconds, the view controller's clock.
 pub fn now_s() -> f64 {
     telescope_core::time::monotonic_ns() as f64 / 1e9
@@ -427,6 +448,10 @@ pub struct State {
     pub builtins: Vec<PluginInfo>,
     /// Added plugins that are on but didn't start: name to why.
     pub problems: BTreeMap<String, String>,
+    /// Plugins that panicked where they couldn't be stopped on the spot (a read through &self): stopped when the hook that read them ends.
+    late_stops: RefCell<Vec<(usize, String)>>,
+    /// What a plugin that hides things panicking does (close_rather_than_show; tests put a recorder here).
+    pub hiding_panic: fn(&str, &str),
     /// What the banner calls each of them.
     problem_titles: BTreeMap<String, String>,
     /// The added plugins that are running: they're not built in, so the Plugins tab lists them from their folder.
@@ -479,6 +504,8 @@ pub struct State {
     pub shortcut_menu: Option<(String, Vec<telescope_core::ui::ShortcutEntry>)>,
     /// The photos being taken, by request: (plugin, the stream's id) for each, to say what became of them when they end.
     pub stills: Vec<(RequestId, String, String)>,
+    /// Which plugin offered each stream source (HostSources), so a plugin that stops takes its sources with it: (source id, plugin).
+    pub source_owners: Vec<(String, String)>,
     /// The owners whose frame steps hide the picture, for each stream (its id, or "" for the main one), as of the last time they were built.
     pub hiding_steps: BTreeMap<String, std::collections::BTreeSet<String>>,
     /// Host::set_hiding: by owner, whether it hides now, for each stream (its id, or "" for all of them).
@@ -543,6 +570,8 @@ impl State {
             off: Vec::new(),
             builtins: Vec::new(),
             problems: BTreeMap::new(),
+            late_stops: RefCell::default(),
+            hiding_panic: close_rather_than_show,
             problem_titles: BTreeMap::new(),
             added: Vec::new(),
             admin,
@@ -570,7 +599,7 @@ impl State {
             preview_own_told: true,
             idle: Arc::default(),
             tray_close_notified: false,
-            shortcut_menu: None, stills: Vec::new(), hiding_steps: BTreeMap::new(), hiding: BTreeMap::new(), hidden_flags: BTreeMap::new(), source_stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false, setting_clock: 0, saved_in_call: Vec::new(),
+            shortcut_menu: None, stills: Vec::new(), hiding_steps: BTreeMap::new(), hiding: BTreeMap::new(), hidden_flags: BTreeMap::new(), source_owners: Vec::new(), source_stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false, setting_clock: 0, saved_in_call: Vec::new(),
         }
     }
 
@@ -627,7 +656,11 @@ impl State {
     /// Runs f with plugin i taken out and a host for it; a plugin that panics is logged and the others carry on, as
     /// app.py's _call does with exceptions.
     pub fn call<R>(&mut self, i: usize, f: impl FnOnce(&mut dyn Plugin, &mut crate::host::Ctx) -> R) -> Option<R> {
-        let mut plugin = self.slots.get_mut(i)?.plugin.take()?;
+        let slot = self.slots.get_mut(i)?;
+        if slot.stopped.is_some() {
+            return None;
+        }
+        let mut plugin = slot.plugin.take()?;
         let name = self.slots[i].info.name.clone();
         self.calls += 1;
         // What a plugin's hooks cost is only timed while the Stats panel wants it
@@ -635,7 +668,7 @@ impl State {
         let began = hooks.hooks().on().then(telescope_core::time::monotonic_ns);
         let (result, name) = {
             let mut ctx = crate::host::Ctx { state: self, me: name };
-            let result = catch_unwind(AssertUnwindSafe(|| f(plugin.as_mut(), &mut ctx)));
+            let result = telescope_core::diagnostics::catch_plugin(|| f(plugin.as_mut(), &mut ctx));
             (result, ctx.me)
         };
         if let Some(began) = began {
@@ -643,6 +676,15 @@ impl State {
             timer.add(telescope_core::time::monotonic_ns().saturating_sub(began));
         }
         self.slots[i].plugin = Some(plugin);
+        // A plugin that panicked is stopped before anything reads its settings: what it holds now isn't saved over what was
+        let result = match result {
+            Ok(r) => Some(r),
+            Err(panic) => {
+                self.saved_in_call.retain(|s| *s != i);
+                self.stop_after_panic(i, &panic_text(panic.as_ref()));
+                None
+            }
+        };
         if self.saved_in_call.contains(&i) {
             self.saved_in_call.retain(|s| *s != i);
             self.note_config(i);
@@ -651,13 +693,113 @@ impl State {
         if self.calls == 0 && std::mem::take(&mut self.save_after_call) && !self.save_now() {
             self.effects.push(Effect::SaveSoon); // a file that can't be read now isn't saved over, and is tried again
         }
-        match result {
-            Ok(r) => Some(r),
-            Err(_) => {
-                log::error!("Plugin {name} failed");
+        if self.calls == 0 {
+            self.stop_late();
+        }
+        result
+    }
+
+    /// Plugin i's settings as it gives them now, read so a panic stops it instead of unwinding into whoever asked; None when it can't.
+    fn read_config(&self, i: usize) -> Option<Value> {
+        let slot = self.slots.get(i).filter(|s| s.stopped.is_none() && !self.stop_queued(i))?;
+        let plugin = slot.plugin.as_ref()?;
+        match telescope_core::diagnostics::catch_plugin(|| plugin.get_config()) {
+            Ok(v) => Some(v),
+            Err(panic) => {
+                self.stop_later(i, format!("get_config: {}", panic_text(panic.as_ref())));
                 None
             }
         }
+    }
+
+    /// Plugin i panicked in a read and is about to be stopped: nothing reads or saves its settings from now on.
+    fn stop_queued(&self, i: usize) -> bool {
+        self.late_stops.borrow().iter().any(|(s, _)| *s == i)
+    }
+
+    /// Plugin i panicked in a read through &self: it's stopped once the hook that read it ends.
+    pub fn stop_later(&self, i: usize, why: String) {
+        self.late_stops.borrow_mut().push((i, why));
+    }
+
+    /// Stops the plugins that panicked in a read.
+    pub fn stop_late(&mut self) {
+        // Each stays queued (and its settings unread) until its slot is marked stopped: stopping one can read the others' settings
+        loop {
+            let Some((i, why)) = self.late_stops.borrow().first().cloned() else { return };
+            self.stop_after_panic(i, &why);
+            self.late_stops.borrow_mut().retain(|(s, _)| *s != i);
+        }
+    }
+
+    /// A plugin that panicked is switched off until the next start, as its state can't be trusted any more: it's told to shut down, gives back what
+    /// it holds, and its card and frame steps go. A required plugin carries on (Telescope can't work without it), as does one still setting up,
+    /// which register() leaves out instead.
+    pub fn stop_after_panic(&mut self, i: usize, why: &str) {
+        let Some(slot) = self.slots.get_mut(i) else { return };
+        let name = slot.info.name.clone();
+        // One that hides things (or is there to, before its first step) can't be trusted to go on hiding them, nor can a picture without it
+        use telescope_core::frame::FrameStage;
+        if !slot.starting && (slot.hides || matches!(slot.info.frame_stage, FrameStage::Background | FrameStage::Privacy | FrameStage::Cover)) {
+            slot.hides = true;
+            (self.hiding_panic)(&name, why);
+            return;
+        }
+        if slot.info.required || slot.starting || slot.stopped.is_some() {
+            log::error!("Plugin {name} failed: {why}");
+            return;
+        }
+        log::error!("Plugin {name} failed ({why}); switching it off until Telescope restarts");
+        slot.stopped = Some(why.to_string());
+        let shut_down = std::mem::replace(&mut self.slots[i].shut_down, true);
+        if let Some(mut plugin) = self.slots[i].plugin.take().filter(|_| !shut_down) {
+            let mut ctx = crate::host::Ctx { state: self, me: name.clone() };
+            if telescope_core::diagnostics::catch_plugin(|| plugin.shutdown(&mut ctx)).is_err() {
+                log::error!("Plugin {name} failed again while shutting down");
+            }
+            ctx.release_everything();
+            self.slots[i].plugin = Some(plugin);
+        }
+        // Whatever it asked for in the hook that failed is dropped with it (a photo it started is still followed to its end, so Photos hears it finish)
+        let mine: Vec<String> = self.source_owners.iter().filter(|(_, o)| *o == name).map(|(id, _)| id.clone()).collect();
+        self.effects.retain(|e| e.plugin() != Some(name.as_str()) && !matches!(e, Effect::AddSource(s) if mine.contains(&s.0.id().to_string())));
+        if self.shortcut_menu.as_ref().is_some_and(|(plugin, _)| *plugin == name) {
+            self.shortcut_menu = None;
+        }
+        // Its sources go, and a stream from one stops
+        for id in mine {
+            self.effects.push(Effect::RemoveSource(id));
+        }
+        self.source_owners.retain(|(_, o)| *o != name);
+        for action in self.slots[i].tray.clone() {
+            self.effects.push(Effect::Tray(TrayAction { visible: false, ..action }));
+        }
+        self.effects.push(Effect::Stopped(name));
+        self.show_stopped_banner();
+    }
+
+    /// The plugins switched off this run after panicking, by name, with what went wrong.
+    pub fn stopped(&self) -> BTreeMap<String, String> {
+        self.slots.iter().filter_map(|s| Some((s.info.name.clone(), s.stopped.clone()?))).collect()
+    }
+
+    fn show_stopped_banner(&mut self) {
+        let stopped: Vec<&Slot> = self.slots.iter().filter(|s| s.stopped.is_some()).collect();
+        let titles: Vec<String> = stopped.iter().map(|s| tr(if s.info.title.is_empty() { &s.info.name } else { &s.info.title })).collect();
+        let details = stopped.iter().map(|s| format!("{}: {}", s.info.name, s.stopped.as_deref().unwrap_or_default())).collect::<Vec<_>>().join("\n");
+        let n = titles.len();
+        let title = if n < 4 {
+            crate::texts::trn("{plugins} stopped working", "{plugins} stopped working", n).field("plugins", crate::texts::and_list(&titles))
+        } else {
+            crate::texts::trn("{n} plugin stopped working", "{n} plugins stopped working", n)
+        };
+        let text = crate::texts::trn("It ran into an error and is off until Telescope restarts. Everything else carries on.",
+                                         "They ran into errors and are off until Telescope restarts. Everything else carries on.", n);
+
+        self.banners.show("plugins_stopped", Issue {
+            title, text, kind: "warn".into(), details, tell_dismiss: false,
+            actions: vec![IssueAction { label: tr("Plugins…"), does: IssueDoes::OpenSettings { tab: "plugins".into() } }],
+        });
     }
 
     /// Whose settings plugin i holds: a device-local plugin holds the shown camera's, so what moved is told apart per camera, and any other plugin has
@@ -673,7 +815,9 @@ impl State {
     /// Looks at what plugin i's settings are now against what they were when last looked at: whatever moved gets a new revision. The first look
     /// only remembers where they are.
     pub fn note_config(&mut self, i: usize) {
-        let Some(now) = self.slots.get(i).and_then(|s| s.plugin.as_ref()).map(|p| p.get_config()).filter(Value::is_object) else { return };
+        let now = self.read_config(i);
+        self.stop_late();
+        let Some(now) = now.filter(Value::is_object) else { return };
         let scope = self.setting_scope(i);
         let slot = &mut self.slots[i];
         let was = match slot.seen.iter_mut().find(|(s, _)| *s == scope) {
@@ -708,7 +852,9 @@ impl State {
     /// Takes plugin i's settings as they are as the start for `scope`, whatever was seen before: they were put there (a camera's profile coming in),
     /// not edited.
     fn rebaseline(&mut self, i: usize, scope: Option<String>) {
-        let Some(now) = self.slots[i].plugin.as_ref().map(|p| p.get_config()).filter(Value::is_object) else { return };
+        let now = self.read_config(i);
+        self.stop_late();
+        let Some(now) = now.filter(Value::is_object) else { return };
         let seen = &mut self.slots[i].seen;
         seen.retain(|(s, _)| *s != scope);
         seen.push((scope, now));
@@ -725,7 +871,7 @@ impl State {
     pub fn register(&mut self, plugin: Box<dyn Plugin>) -> Result<(), String> {
         let info = plugin.info();
         let i = self.slots.len();
-        self.slots.push(Slot { plugin: Some(plugin), info: info.clone(), card: None, header: None, actions: vec![], tray: vec![], defaults: json!({}), timer: None, seen: Vec::new(), moved: Vec::new() });
+        self.slots.push(Slot { plugin: Some(plugin), info: info.clone(), card: None, header: None, actions: vec![], tray: vec![], defaults: json!({}), timer: None, seen: Vec::new(), moved: Vec::new(), stopped: None, hides: false, shut_down: false, starting: true });
         let made = self.call(i, |p, host| {
             p.setup(host);
             let card = p.card();
@@ -734,6 +880,7 @@ impl State {
             let defaults = Some(p.get_config()).filter(Value::is_object).unwrap_or_else(|| json!({}));
             (card, header, tray, defaults)
         });
+        self.slots[i].starting = false;
         let Some((card, header, tray, defaults)) = made else {
             self.drop_last_slot();
             return Err(format!("{} failed while starting", info.name));
@@ -966,9 +1113,12 @@ impl State {
     }
 
     fn with_plugin(&mut self, i: usize, f: impl FnOnce(&mut dyn Plugin)) {
+        if self.slots[i].stopped.is_some() {
+            return;
+        }
         if let Some(p) = self.slots[i].plugin.as_mut() {
-            if catch_unwind(AssertUnwindSafe(|| f(p.as_mut()))).is_err() {
-                log::error!("Plugin {} failed", self.slots[i].info.name);
+            if let Err(panic) = telescope_core::diagnostics::catch_plugin(|| f(p.as_mut())) {
+                self.stop_after_panic(i, &panic_text(panic.as_ref()));
             }
         }
     }
@@ -1200,18 +1350,31 @@ impl State {
         if colour.is_none() || self.colour.split().is_none() {
             self.colour_before.lock().unwrap().clear();
         }
+        // Nothing clear is kept for the compare while everything is withheld
         let comparing = colour.is_some() && self.colour.split().is_some();
         // A step that hides things, which isn't a CPU one, can't say when it does: no compare then
         let mut unwatched = false;
         let mut background = false;
         let pending: PendingBefore = Arc::default();
         let mut plugin_steps = Vec::new();
+        let mut failed = Vec::new();
         for i in 0..self.slots.len() {
             let (owner, stage) = (self.slots[i].info.name.clone(), self.slots[i].info.frame_stage);
+            if self.slots[i].stopped.is_some() {
+                continue;
+            }
+            let mut hid_any = false;
             let Some(p) = self.slots[i].plugin.as_mut() else { continue };
-            match catch_unwind(AssertUnwindSafe(|| p.frame_step())) {
+            match telescope_core::diagnostics::catch_plugin(|| p.frame_step()) {
                 Ok(Some(step)) => {
                     let hides = matches!(stage, FrameStage::Privacy | FrameStage::Cover);
+                    match step_hides(stage, &step) {
+                        Ok(h) => hid_any |= h,
+                        Err(why) => {
+                            failed.push((i, why));
+                            continue;
+                        }
+                    }
                     // A picture kept before it was switched on went out with the room in it
                     background |= comparing && stage == FrameStage::Background;
                     let step = match step {
@@ -1226,17 +1389,38 @@ impl State {
                     plugin_steps.push(telescope_core::media::StagedStep { owner: owner.clone(), stage, step });
                 }
                 Ok(None) => {}
-                Err(_) => log::error!("Plugin {owner} couldn't give its frame step; leaving it out"),
+                Err(panic) => {
+                    failed.push((i, format!("frame_step: {}", panic_text(panic.as_ref()))));
+                    continue;
+                }
             }
-            match catch_unwind(AssertUnwindSafe(|| p.staged_frame_steps())) {
-                Ok(more) => plugin_steps.extend(more.into_iter().map(|(stage, step)| telescope_core::media::StagedStep { owner: owner.clone(), stage, step })),
-                Err(_) => log::error!("Plugin {owner} couldn't give its staged frame steps; leaving them out"),
+            match telescope_core::diagnostics::catch_plugin(|| p.staged_frame_steps()) {
+                Ok(more) => {
+                    for (stage, step) in more {
+                        match step_hides(stage, &step) {
+                            Ok(h) => hid_any |= h,
+                            Err(why) => failed.push((i, why)),
+                        }
+                        plugin_steps.push(telescope_core::media::StagedStep { owner: owner.clone(), stage, step });
+                    }
+                }
+                Err(panic) => failed.push((i, format!("staged_frame_steps: {}", panic_text(panic.as_ref())))),
             }
+            self.slots[i].hides |= hid_any;
+        }
+        for (i, why) in failed {
+            // A step that can't say whether it hides is taken to hide
+            if why.starts_with("hides:") {
+                self.slots[i].hides = true;
+            }
+            let owner = self.slots[i].info.name.clone();
+            plugin_steps.retain(|s| s.owner != owner);
+            self.stop_after_panic(i, &why);
         }
         if unwatched || background {
             self.colour_before.lock().unwrap().clear();
         }
-        let hiders = plugin_steps.iter().filter(|st| step_hides(st.stage, &st.step)).map(|st| st.owner.clone()).collect();
+        let hiders = plugin_steps.iter().filter(|st| step_hides(st.stage, &st.step).unwrap_or(true)).map(|st| st.owner.clone()).collect();
         self.hiding_steps.insert(source_id.unwrap_or("").to_string(), hiders);
         self.sync_hidden_flags();
         if let Some(step) = colour {
@@ -1256,9 +1440,17 @@ impl State {
 
     /// _config_of: a plugin's settings, or what was saved before when it gives something the file can't hold.
     fn config_of(&self, i: usize, saved: Option<&Value>) -> Option<Value> {
+        // One that panicked (or is about to be stopped for it) may hold anything: what was saved before stays
+        if self.slots[i].stopped.is_some() || self.stop_queued(i) {
+            return saved.cloned();
+        }
         let p = self.slots[i].plugin.as_ref()?;
-        match catch_unwind(AssertUnwindSafe(|| p.get_config())) {
+        match telescope_core::diagnostics::catch_plugin(|| p.get_config()) {
             Ok(v @ Value::Object(_)) => Some(v),
+            Err(panic) => {
+                self.stop_later(i, format!("get_config: {}", panic_text(panic.as_ref())));
+                saved.cloned()
+            }
             _ => {
                 log::error!("Plugin {} gave settings that can't be saved; keeping the saved ones", self.slots[i].info.name);
                 saved.cloned()
@@ -1289,6 +1481,7 @@ impl State {
     /// save_now. False when the file couldn't be read (saving over it would lose every other phone's settings) or
     /// written; the window tries again shortly.
     pub fn save_now(&mut self) -> bool {
+        self.stop_late();
         // The start couldn't read the file, so this app holds defaults: it takes in what's there instead of saving over it
         if let Some(read) = self.file.reread_after_unread_start() {
             return match read {
@@ -1425,6 +1618,7 @@ impl State {
     /// Hands every queued event to every plugin, in order; events emitted while delivering go after. Then each post
     /// from a plugin's threads goes to that plugin alone. Past DELIVERY_BATCH the rest waits for the next loop turn.
     pub fn deliver_events(&mut self) {
+        self.stop_late();
         let mut budget = DELIVERY_BATCH;
         loop {
             while let Some(event) = (budget > 0).then(|| self.bus.next()).flatten() {
@@ -1592,7 +1786,7 @@ impl State {
     /// A plugin's current settings, if it's running.
     pub fn plugin_config(&self, name: &str) -> Option<Value> {
         let i = self.index(name)?;
-        self.slots[i].plugin.as_ref().map(|p| p.get_config()).filter(Value::is_object)
+        self.read_config(i).filter(Value::is_object)
     }
 
     /// The built-in plugins off this run, the way the Plugins tab and diagnostics count them.
@@ -1622,12 +1816,22 @@ impl State {
         if !added.is_empty() {
             lines.push(("Added plugins".into(), added.join(", ")));
         }
+        let stopped = self.stopped();
+        if !stopped.is_empty() {
+            lines.push(("Plugins stopped".into(), stopped.iter().map(|(name, why)| format!("{name} ({why})")).collect::<Vec<_>>().join(", ")));
+        }
         lines.extend(self.colour.diagnostics());
         for i in 0..self.slots.len() {
+            if self.slots[i].stopped.is_some() {
+                continue;
+            }
             match self.slots[i].plugin.as_ref() {
-                Some(p) => match catch_unwind(AssertUnwindSafe(|| p.diagnostics())) {
+                Some(p) => match telescope_core::diagnostics::catch_plugin(|| p.diagnostics()) {
                     Ok(more) => lines.extend(more),
-                    Err(_) => lines.push((self.slots[i].info.name.clone(), "couldn't read (panic)".into())),
+                    Err(panic) => {
+                        self.stop_later(i, format!("diagnostics: {}", panic_text(panic.as_ref())));
+                        lines.push((self.slots[i].info.name.clone(), "couldn't read (panic)".into()));
+                    }
                 },
                 None => lines.extend_from_slice(own),
             }
@@ -2630,6 +2834,188 @@ mod tests {
         assert!(s.save_now(), "its get_config doesn't stop the save");
         assert_eq!(s.file.load()["plugin_configs"]["boom"], json!({"kept": 1}));
         assert_eq!(s.file.load()["plugin_configs"]["last"], json!({"x": 1}));
+        // It's off until the next start, and says so
+        assert_eq!(s.stopped().get("boom").map(String::as_str), Some("boom"));
+        assert!(s.effects.contains(&Effect::Stopped("boom".into())));
+        assert_eq!(s.banners.issue("plugins_stopped").unwrap().title, "boom stopped working");
+        assert!(s.diagnostics().iter().any(|(k, v)| k == "Plugins stopped" && v == "boom (boom)"));
+        assert!(s.call(0, |_, _| ()).is_none(), "its hooks aren't called again");
+        s.bus.emit(Event::StreamStopped);
+        s.deliver_events();
+        assert_eq!(*heard.lock().unwrap(), ["last", "last"]);
+    }
+
+    #[test]
+    fn a_stopped_plugin_gives_back_what_it_held_and_its_frame_steps_go() {
+        struct Holder;
+        impl Plugin for Holder {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "holder".into(), ..Default::default() }
+            }
+            fn on_plugins_ready(&mut self, host: &mut dyn telescope_core::Host) {
+                host.want_frames("holder", true);
+            }
+            fn on_event(&mut self, _h: &mut dyn telescope_core::Host, _e: &Event) {
+                panic!("no");
+            }
+            fn frame_step(&mut self) -> Option<telescope_core::frame::FrameStep> {
+                Some(telescope_core::frame::FrameStep::Shader(telescope_core::frame::ShaderStep { wgsl: String::new(), uniforms: Value::Null, textures: Vec::new() }))
+            }
+        }
+        let mut s = state();
+        s.register(Box::new(Holder)).unwrap();
+        s.each(|p, host| p.on_plugins_ready(host));
+        assert!(!s.frame_wants.is_empty());
+        assert!(s.pipeline_steps(None).iter().any(|st| st.owner == "holder"));
+        s.bus.emit(Event::StreamStopped);
+        s.deliver_events();
+        assert!(s.frame_wants.is_empty(), "what it asked for is given back");
+        assert!(!s.pipeline_steps(None).iter().any(|st| st.owner == "holder"));
+    }
+
+    thread_local! {
+        static CLOSED: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
+    }
+
+    fn record_close(name: &str, _why: &str) {
+        CLOSED.with(|c| c.borrow_mut().push(name.to_string()));
+    }
+
+    struct HidesOnCpu;
+
+    impl telescope_core::frame::CpuStep for HidesOnCpu {
+        fn process(&mut self, _frame: &mut telescope_core::Frame, _ctx: &dyn telescope_core::frame::FrameContext) {}
+        fn hides(&self) -> bool {
+            true
+        }
+    }
+
+    /// A plugin at stage, handing out step (if any), that panics on any event.
+    struct Panics(&'static str, telescope_core::frame::FrameStage, Option<fn() -> telescope_core::frame::FrameStep>);
+
+    impl Plugin for Panics {
+        fn info(&self) -> PluginInfo {
+            PluginInfo { name: self.0.into(), frame_stage: self.1, ..Default::default() }
+        }
+        fn on_event(&mut self, _h: &mut dyn telescope_core::Host, _e: &Event) {
+            panic!("no");
+        }
+        fn frame_step(&mut self) -> Option<telescope_core::frame::FrameStep> {
+            self.2.map(|make| make())
+        }
+    }
+
+    #[test]
+    fn a_plugin_that_hides_things_closes_the_app_when_it_panics_and_others_are_only_switched_off() {
+        use telescope_core::frame::{FrameStage, FrameStep, ShaderStep};
+        let mut s = state();
+        s.hiding_panic = record_close;
+        // Privacy blur before its first step, a step on the CPU that hides at the Effects stage, and its card-or-CPU kind
+        s.register(Box::new(Panics("blur", FrameStage::Privacy, None))).unwrap();
+        s.register(Box::new(Panics("cpu_hider", FrameStage::Effects, Some(|| FrameStep::Cpu(Box::new(HidesOnCpu)))))).unwrap();
+        s.register(Box::new(Panics("either_hider", FrameStage::Effects, Some(move || FrameStep::Either(ShaderStep { wgsl: String::new(), uniforms: Value::Null, textures: Vec::new() }, Box::new(HidesOnCpu)))))).unwrap();
+        s.register(Box::new(Panics("plain", FrameStage::Effects, Some(move || FrameStep::Shader(ShaderStep { wgsl: String::new(), uniforms: Value::Null, textures: Vec::new() }))))).unwrap();
+        s.pipeline_steps(None);
+        s.bus.emit(Event::StreamStopped);
+        s.deliver_events();
+        assert_eq!(CLOSED.with(|c| c.borrow().clone()), ["blur", "cpu_hider", "either_hider"]);
+        assert_eq!(s.stopped().keys().collect::<Vec<_>>(), ["plain"], "one that hides nothing is switched off and the app carries on");
+    }
+
+    struct UnsureOnCpu;
+
+    impl telescope_core::frame::CpuStep for UnsureOnCpu {
+        fn process(&mut self, _frame: &mut telescope_core::Frame, _ctx: &dyn telescope_core::frame::FrameContext) {}
+        fn hides(&self) -> bool {
+            panic!("can't say")
+        }
+    }
+
+    #[test]
+    fn a_step_that_panics_saying_whether_it_hides_counts_as_hiding() {
+        use telescope_core::frame::{FrameStage, FrameStep};
+        let mut s = state();
+        s.hiding_panic = record_close;
+        s.register(Box::new(Panics("unsure", FrameStage::Effects, Some(|| FrameStep::Cpu(Box::new(UnsureOnCpu)))))).unwrap();
+        s.pipeline_steps(None);
+        assert_eq!(CLOSED.with(|c| c.borrow().clone()), ["unsure"]);
+        assert!(!s.pipeline_steps(None).iter().any(|st| st.owner == "unsure"));
+    }
+
+    #[test]
+    fn a_get_config_that_panics_while_saving_never_gets_saved_over_the_good_settings() {
+        struct Breaks(Arc<std::sync::atomic::AtomicBool>);
+        impl Plugin for Breaks {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "breaks".into(), ..Default::default() }
+            }
+            fn get_config(&self) -> Value {
+                if self.0.swap(false, std::sync::atomic::Ordering::SeqCst) {
+                    panic!("half way");
+                }
+                json!({"good": false})
+            }
+        }
+        let mut s = state();
+        let breaks = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        s.register(Box::new(Breaks(breaks.clone()))).unwrap();
+        let mut cfg = s.file.load();
+        cfg["plugin_configs"]["breaks"] = json!({"good": true});
+        s.file.save(&mut cfg);
+        breaks.store(true, std::sync::atomic::Ordering::SeqCst);
+        assert!(s.save_now(), "a card moved: the save reads the plugin, which panics");
+        // the next save (another card moved) stops it first and keeps what was saved, though get_config would answer now
+        assert!(s.save_now());
+        assert!(s.stopped().contains_key("breaks"));
+        assert_eq!(s.file.load()["plugin_configs"]["breaks"], json!({"good": true}));
+    }
+
+    #[test]
+    fn a_stopped_plugin_takes_its_sources_with_it_and_reads_that_panic_stop_it_too() {
+        struct Offers;
+        impl Plugin for Offers {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "offers".into(), ..Default::default() }
+            }
+            fn get_config(&self) -> Value {
+                panic!("can't say");
+            }
+        }
+        let mut s = state();
+        s.register(Box::new(Offers)).unwrap_err();
+        let mut s = state();
+        s.source_owners.push(("cam".into(), "offers".into()));
+        s.slots.push(Slot { plugin: Some(Box::new(Offers)), info: Offers.info(), card: None, header: None, actions: vec![], tray: vec![], defaults: json!({}),
+                            timer: None, seen: Vec::new(), moved: Vec::new(), stopped: None, hides: false, shut_down: false, starting: false });
+        assert!(s.plugin_config("offers").is_none());
+        s.stop_late();
+        assert!(s.stopped().contains_key("offers"), "a panicking get_config stops it");
+        assert!(s.effects.contains(&Effect::RemoveSource("cam".into())));
+        assert!(s.source_owners.is_empty());
+    }
+
+    #[test]
+    fn a_required_plugin_that_panics_carries_on() {
+        struct Needed(Arc<Mutex<u32>>);
+        impl Plugin for Needed {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "connection".into(), required: true, ..Default::default() }
+            }
+            fn on_event(&mut self, _h: &mut dyn telescope_core::Host, _e: &Event) {
+                *self.0.lock().unwrap() += 1;
+                panic!("still needed");
+            }
+        }
+        let mut s = state();
+        let heard = Arc::new(Mutex::new(0));
+        s.register(Box::new(Needed(heard.clone()))).unwrap();
+        for _ in 0..2 {
+            s.bus.emit(Event::StreamStopped);
+            s.deliver_events();
+        }
+        assert_eq!(*heard.lock().unwrap(), 2);
+        assert!(s.stopped().is_empty());
+        assert!(s.banners.issue("plugins_stopped").is_none());
     }
 
     #[test]
@@ -2863,7 +3249,13 @@ mod tests {
             assert!(hidden_with(stage, Box::new(Step(false))).picture_hidden_for("phone"), "{stage:?}");
         }
         assert!(hidden_with(FrameStage::Effects, Box::new(Step(true))).picture_hidden_for("phone"), "a step that says it hides");
-        assert!(hidden_with(FrameStage::Effects, Box::new(Panics)).picture_hidden_for("phone"), "one that can't say counts as hiding");
+        // One that can't say counts as hiding, and a hiding plugin that panics closes Telescope
+        static CLOSED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        let mut s = state();
+        s.hiding_panic = |_, _| CLOSED.store(true, std::sync::atomic::Ordering::SeqCst);
+        s.register(Box::new(Gives("gives", FrameStage::Effects, Some(Box::new(Panics))))).unwrap();
+        s.pipeline_steps(Some("phone"));
+        assert!(CLOSED.load(std::sync::atomic::Ordering::SeqCst), "one that can't say counts as hiding");
         // Steps built for no stream in particular answer for one whose own aren't built yet
         let mut s = state();
         s.register(Box::new(Gives("gives", FrameStage::Privacy, Some(Box::new(Step(false)))))).unwrap();

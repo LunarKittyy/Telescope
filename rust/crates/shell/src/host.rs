@@ -136,13 +136,21 @@ impl HostSettings for Ctx<'_> {
         self.state.move_device_settings(old, new);
     }
     fn plugin_settings(&self) -> Vec<PluginSettings> {
-        self.state.slots.iter().filter_map(|s| {
-            let settings = s.plugin.as_ref()?.settings();
+        self.state.slots.iter().enumerate().filter(|(_, s)| s.stopped.is_none()).filter_map(|(i, s)| {
+            let plugin = s.plugin.as_ref()?;
+            // One that panics here is stopped, not the plugin asking
+            let settings = match telescope_core::diagnostics::catch_plugin(|| plugin.settings()) {
+                Ok(settings) => settings,
+                Err(panic) => {
+                    self.state.stop_later(i, format!("settings: {}", crate::shell::panic_text(panic.as_ref())));
+                    return None;
+                }
+            };
             (!settings.is_empty()).then(|| PluginSettings { name: s.info.name.clone(), title: s.info.title.clone(), settings })
         }).collect()
     }
     fn running_plugins(&self) -> Vec<(String, String)> {
-        self.state.slots.iter().filter(|s| !s.info.name.is_empty()).map(|s| (s.info.name.clone(), s.info.title.clone())).collect()
+        self.state.slots.iter().filter(|s| !s.info.name.is_empty() && s.stopped.is_none()).map(|s| (s.info.name.clone(), s.info.title.clone())).collect()
     }
     fn plugin_looks(&self) -> Vec<telescope_core::host::PluginLook> {
         self.state.slots.iter().filter(|s| !s.info.name.is_empty()).map(|s| telescope_core::host::PluginLook { name: s.info.name.clone(), title: s.info.title.clone(), icon: s.info.icon.clone() }).collect()
@@ -281,9 +289,13 @@ impl HostCamera for Ctx<'_> {
 
 impl HostSources for Ctx<'_> {
     fn add_stream_source(&mut self, source: Arc<dyn StreamSource>) {
+        let id = source.id().to_string();
+        self.state.source_owners.retain(|(s, _)| *s != id);
+        self.state.source_owners.push((id, self.me.clone()));
         self.state.effects.push(Effect::AddSource(crate::shell::OfferedSource(source)));
     }
     fn remove_stream_source(&mut self, source_id: &str) {
+        self.state.source_owners.retain(|(s, _)| s != source_id);
         self.state.effects.push(Effect::RemoveSource(source_id.into()));
     }
     fn stream_source(&mut self, source_id: &str) {
@@ -726,7 +738,7 @@ impl Host for Ctx<'_> {
         self.state.bus.emit(event);
     }
     fn has_plugin(&self, name: &str) -> bool {
-        self.state.index(name).is_some() || name == self.me
+        self.state.index(name).is_some_and(|i| self.state.slots[i].stopped.is_none()) || name == self.me
     }
     fn schedule(&mut self, after_ms: u64, token: &str) {
         self.state.effects.push(Effect::Schedule { plugin: self.me.clone(), token: token.into(), ms: after_ms });

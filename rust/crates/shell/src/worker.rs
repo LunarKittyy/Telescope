@@ -389,6 +389,8 @@ struct Shared {
     /// The frame steps, and the newest packet number that made it out (one frame at a time, never an older one).
     publish: Mutex<(Box<dyn FramePipeline>, u64)>,
     next_steps: Mutex<Option<(Vec<StagedStep>, u64)>>,
+    /// Steps of single plugins to swap from the next frame on, the others left as they are: (owner, stage, steps).
+    next_owner_steps: Mutex<Vec<(String, telescope_core::frame::FrameStage, Vec<telescope_core::frame::FrameStep>)>>,
     /// How many times the view had turned when the steps in the pipeline were handed over (Ctx::view_epoch).
     view_epoch: AtomicU64,
     /// How many times the steps that hide things were run on the frame already out (hide_cached), so frames made before that can be told from the ones after.
@@ -440,6 +442,8 @@ pub trait VideoWorker: Send + Sync {
     fn set_colour(&self, steps: Vec<FrameStep>);
     /// The view turned and this stream keeps its steps (it's behind the panels).
     fn follow_view_epoch(&self) {}
+    /// One plugin's steps swapped from the next frame on, the others kept (a plugin that stopped, on a stream behind the panels).
+    fn replace_owner_steps(&self, _owner: &str, _stage: telescope_core::frame::FrameStage, _steps: Vec<FrameStep>) {}
     fn update_output(&self, width: Option<Option<u32>>, height: Option<Option<u32>>, fps: Option<u32>);
     fn settle(&self);
     fn hold_for_photo(&self, seconds: f32);
@@ -476,6 +480,9 @@ impl VideoWorker for StreamWorker {
     }
     fn follow_view_epoch(&self) {
         StreamWorker::follow_view_epoch(self);
+    }
+    fn replace_owner_steps(&self, owner: &str, stage: telescope_core::frame::FrameStage, steps: Vec<FrameStep>) {
+        StreamWorker::replace_owner_steps(self, owner, stage, steps);
     }
     fn update_output(&self, width: Option<Option<u32>>, height: Option<Option<u32>>, fps: Option<u32>) {
         StreamWorker::update_output(self, width, height, fps);
@@ -546,7 +553,7 @@ impl StreamWorker {
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
-            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), next_colour: Mutex::new(None), gate: setup.gate, idle: setup.idle, born: Instant::now(),
+            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_owner_steps: Mutex::new(Vec::new()), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), next_colour: Mutex::new(None), gate: setup.gate, idle: setup.idle, born: Instant::now(),
             seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), frames_shed: AtomicU64::new(0), published: Mutex::new(0), sent_through: Mutex::new(None), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
             last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), fps_cell: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
@@ -609,6 +616,11 @@ impl StreamWorker {
     pub fn follow_view_epoch(&self) {
         let epoch = self.shared.vision.as_ref().map_or(0, |f| f.service.view_epoch());
         self.shared.view_epoch.store(epoch, Ordering::SeqCst);
+    }
+
+    /// Swap one plugin's steps from the next frame on, the others left as they are (a plugin that stopped, on a stream behind the panels).
+    pub fn replace_owner_steps(&self, owner: &str, stage: telescope_core::frame::FrameStage, steps: Vec<telescope_core::frame::FrameStep>) {
+        self.shared.next_owner_steps.lock().unwrap().push((owner.to_string(), stage, steps));
     }
 
     /// Swap the colour step from the next frame on, the other steps left as they are (a LUT baked for a stream behind the panels).
@@ -915,6 +927,9 @@ impl Shared {
         }
         if let Some(steps) = self.next_colour.lock().unwrap().take() {
             pipeline.replace_steps("colour", telescope_core::frame::FrameStage::Colour, steps);
+        }
+        for (owner, stage, steps) in std::mem::take(&mut *self.next_owner_steps.lock().unwrap()) {
+            pipeline.replace_steps(&owner, stage, steps);
         }
         let (rw, rh) = *self.size.lock().unwrap();
         let mut frame = match (rw, rh) {
