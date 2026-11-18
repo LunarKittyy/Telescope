@@ -406,7 +406,7 @@ fn the_crop_boxes_cut_a_side_in_percent_and_the_rest_stays_where_it_is() {
     r.ui("crop-committed", json!(["l", "25 %"]));
     let t = r.tile(1);
     assert!(near(t.crop_l, 0.25, 1e-9) && near(t.x, 0.3, 1e-9) && near(t.x + t.w, 0.6, 1e-9), "{t:?}");
-    assert_eq!(r.props()["crop-l-text"], json!("25"));
+    assert_eq!(r.props()["crop-l-text"], json!("25 %"));
     r.ui("crop-step", json!(["t", 10]));
     assert!(near(r.tile(1).crop_t, 0.1, 1e-9) && near(r.tile(1).y + r.tile(1).h, 0.6, 1e-9));
     r.ui("crop-committed", json!(["r", "99"]));
