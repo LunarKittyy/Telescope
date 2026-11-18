@@ -1360,16 +1360,16 @@ fn a_stream_that_wants_its_cut_out_gets_the_soft_mask_as_alpha_on_rgb_frames() {
 }
 
 #[test]
-fn nobody_in_the_mask_is_a_cut_out_with_nothing_in_it_and_no_mask_is_none() {
+fn nobody_in_the_mask_or_no_mask_yet_is_a_cut_out_with_nothing_in_it() {
     let (scene, _) = peek::sample_scene(160, 90);
     let frame = i420_of(&scene);
     let mut empty = frame.clone();
     cutting(true, "blur").process(&mut empty, &Served::new(Gray::filled(40, 22, 0)));
     assert!(empty.alpha().expect("a cut-out").data.iter().all(|&a| a == 0));
-    // the room is hidden already when the vision service can't tell yet, so the picture stays whole
+    // with no mask yet there's nobody to cut out either, so a Cut out tile shows nothing rather than the blurred room
     let mut unknown = frame.clone();
     cutting(true, "blur").process(&mut unknown, &Ctx(None, Default::default()));
-    assert!(unknown.alpha().is_none());
+    assert!(unknown.alpha().expect("a cut-out").data.iter().all(|&a| a == 0));
 }
 
 #[test]
