@@ -240,7 +240,9 @@ impl Placement {
             self.quiet_until.set(Some(now + QUIET_AFTER_RESIZE));
             return;
         }
-        if !learns || self.quiet_until.get().is_some_and(|until| now < until) || self.is_auto(seen.inner, seen.scale) {
+        // A work area the window was not fitted to is still changing, and the system resizes the window on its own meanwhile (the taskbar coming back)
+        let area_changed = self.shown.get().is_some_and(|shown| shown != (seen.area, seen.scale.to_bits()));
+        if !learns || area_changed || self.quiet_until.get().is_some_and(|until| now < until) || self.is_auto(seen.inner, seen.scale) {
             return;
         }
         self.preferred.set(Some((seen.inner.0 as f64 / seen.scale, seen.inner.1 as f64 / seen.scale)));
@@ -902,6 +904,11 @@ mod tests {
             self.place.observe_at(&self.seen(Self::SHOWN), false, true, self.clock);
         }
 
+        /// The same, as the work area is by then `area`
+        fn arrives_on(&self, area: Area) {
+            self.place.observe_at(&self.seen(area), false, true, self.clock);
+        }
+
         fn wait(&mut self, time: Duration) {
             self.clock += time;
         }
@@ -1019,6 +1026,28 @@ mod tests {
         window.wait(Duration::from_secs(5));
         window.fit(Hiding::HIDDEN, 0);
         assert_eq!(window.inner, grown, "the next time the bar goes it grows as far as the first time did");
+    }
+
+    #[test]
+    fn a_size_the_system_sets_before_the_new_work_area_is_fitted_to_is_not_the_persons() {
+        // Windows at 125% and 150%: the bar coming back resizes the window while the last fit was still to the bigger work area, long after any quiet time
+        for (scale, system) in [(1.25, (1725, 990)), (1.5, (1920, 1046))] {
+            let mut window = Hiding::open(scale);
+            let wanted = window.wants();
+            window.wait(Duration::from_secs(5));
+            window.fit(Hiding::HIDDEN, 0);
+            let grown = window.inner;
+            window.wait(Duration::from_secs(5));
+            window.inner = system;
+            window.arrives_on(Hiding::SHOWN);
+            assert_eq!(window.wants(), wanted, "at {scale}");
+            // The fit that follows and the next time the bar goes are as before
+            window.fit(Hiding::SHOWN, 0);
+            window.arrives();
+            window.wait(Duration::from_secs(5));
+            window.fit(Hiding::HIDDEN, 0);
+            assert_eq!(window.inner, grown, "at {scale}");
+        }
     }
 
     #[test]

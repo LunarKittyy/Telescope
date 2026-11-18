@@ -16,6 +16,7 @@ use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep,
 use telescope_core::host::{Host, Poster};
 use telescope_core::i18n::{n_, tr, trn, Fields};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::stack::{sharpness, Lucky, Plane, StackMode, Stacker};
 use telescope_core::time::{local_stamp, monotonic_ns};
 use telescope_core::ui::{CardSpec, SlintSource, UiEvent, UiSpec};
@@ -828,6 +829,7 @@ impl StargazerPlugin {
             "run-text": match self.phase { Phase::Idle => tr("Start"), Phase::Collecting => tr("Stop"), Phase::Stacking => tr("Stacking") },
             "run-enabled": self.phase == Phase::Collecting || (idle && self.can_start(host)),
             "save-enabled": self.can_save(),
+            "settings-reset-shown": self.settings_reset_shown(),
             "reset-enabled": self.mode == Mode::Live && (self.count > 0 || self.refused > 0 || self.phase == Phase::Collecting),
             "status": status, "status-kind": kind, "tally": self.tally(), "limit": self.limit, "focus-text": self.focus_text(host),
             "camera": self.camera, "saved": saved, "open-enabled": !self.last.is_empty(),
@@ -1017,6 +1019,26 @@ impl StargazerPlugin {
         self.show(host);
     }
 
+    /// The mode is the person's pick (switching it ends a stack) and the camera sends the stack out, so the card's Reset leaves both.
+    const SETTINGS_KEPT: &'static [&'static str] = &["mode", "camera"];
+
+    /// Locked during a run, like the sliders it puts back.
+    fn settings_reset_shown(&self) -> bool {
+        self.phase == Phase::Idle && off_default(&self.get_config(), &StargazerPlugin::new().get_config(), Self::SETTINGS_KEPT)
+    }
+
+    fn reset_settings(&mut self, host: &mut dyn Host) {
+        if self.phase != Phase::Idle {
+            return;
+        }
+        let cfg = reset_config(&self.get_config(), &StargazerPlugin::new().get_config(), Self::SETTINGS_KEPT);
+        if self.set_config(&cfg).is_ok() {
+            self.pending = false;
+            self.show(host);
+            host.schedule_save();
+        }
+    }
+
     fn set_camera(&mut self, host: &mut dyn Host, on: bool) {
         self.camera = on;
         self.shared.camera.store(on, Ordering::SeqCst);
@@ -1166,6 +1188,7 @@ impl Plugin for StargazerPlugin {
                 }
             }
             "reset-clicked" => self.reset(host),
+            "settings-reset-clicked" => self.reset_settings(host),
             "camera-toggled" => self.set_camera(host, flag),
             "open-clicked" => self.open_folder(host),
             _ => {}

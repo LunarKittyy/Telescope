@@ -30,6 +30,7 @@ export component PhototrapCard inherits Card {
     in property <string> folder-tip;
     in property <bool> night;
     in property <bool> night-enabled: true;
+    in property <bool> reset-shown;
     in property <string> night-tip;
     callback switch-toggled-by-hand(bool);
     callback draw-clicked;
@@ -39,6 +40,7 @@ export component PhototrapCard inherits Card {
     callback pause-moved(float);
     callback night-toggled(bool);
     callback folder-clicked;
+    callback reset-clicked;
 
     title: @tr("Phototrap");
     tip: @tr("Take photos when something moves in the zones you draw on the preview.");
@@ -51,6 +53,11 @@ export component PhototrapCard inherits Card {
     switch-tip: switch-name;
     switch-tip-detail: switch-help;
     switch-toggled(v) => { root.switch-toggled-by-hand(v); }
+    has-reset: true;
+    reset-lit: reset-shown;
+    reset-label: @tr("Reset");
+    reset-detail: @tr("Set the sensitivity, photos, pause and Night back to default. Your zones aren't reset.");
+    reset => { root.reset-clicked(); }
 
     RailRow {
         has-icon: false;

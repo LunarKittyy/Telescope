@@ -1,5 +1,8 @@
 // What the preview and the stream thumbnails cost the UI thread, headless: `cargo test --release -p telescope-app --test preview_cost -- --ignored --nocapture`.
 // Every scenario prints its mean and best time and a hash of the pictures it handed Slint, so a change can be checked byte for byte against an older run.
+// `what_the_card_route_costs` runs the real window with the graphics card's painter (tints and scopes on the card) and with the CPU's, and prints the process's CPU time
+// per frame and the longest the UI thread was held by a paint: `SLINT_BACKEND=testing cargo test --release -p telescope-app --test preview_cost what_the_card_route_costs -- --ignored --nocapture`
+// (PREVIEW_COST_ONLY=zebras keeps to the runs whose label has that in it).
 mod rig;
 
 use i_slint_backend_testing::ElementHandle;
@@ -18,6 +21,7 @@ use telescope_core::preview::PreviewPass;
 use telescope_effects::cinema_paint::CinemaLayer;
 use telescope_effects::cinema_tools::Look;
 use telescope_shell::plugins::preview::Preview;
+use telescope_shell::preview::{wgpu, GpuPainter, TexturePainter, ThreadedPainter};
 
 struct Holder;
 
@@ -403,5 +407,122 @@ fn what_a_wake_and_a_tick_cost() {
             s.r.w.update_thumbnails();
         });
         println!("WAKE {}x{} same frame {:.3} ms, new frames: even {:.3} ms odd {:.3} ms, 10 Hz tick {:.3} ms", frame.0, frame.1, same.mean, mean(0), mean(1), tick.mean);
+    }
+}
+
+/// The window's texture painter without a window's surface: media's CardPreview behind the same calls the app's GpuPreview makes.
+struct BenchCard(telescope_media::gpu::CardPreview);
+
+impl TexturePainter for BenchCard {
+    fn paint(&mut self, frame: &Frame, width: u32, height: u32, tint: Option<&telescope_core::preview::TintSpec>) -> Option<wgpu::Texture> {
+        self.0.paint(frame, width, height, tint)
+    }
+    fn lost(&self) -> bool {
+        self.0.is_lost()
+    }
+    fn on_card(&self) -> bool {
+        self.0.on_card()
+    }
+    fn scope(&mut self, wanted: bool) {
+        self.0.want_scope(wanted);
+    }
+    fn take_scope(&mut self) -> Option<Frame> {
+        self.0.take_scope()
+    }
+    fn restart(&mut self) {
+        self.0.restart();
+    }
+}
+
+/// The CPU time this process has used, all threads, in ms (None where this can't be read).
+fn process_cpu_ms() -> Option<f64> {
+    #[cfg(unix)]
+    {
+        let mut at = libc::timespec { tv_sec: 0, tv_nsec: 0 };
+        // SAFETY: clock_gettime only writes the time into the timespec it is given
+        let read = unsafe { libc::clock_gettime(libc::CLOCK_PROCESS_CPUTIME_ID, &mut at) };
+        (read == 0).then(|| at.tv_sec as f64 * 1000.0 + at.tv_nsec as f64 / 1e6)
+    }
+    #[cfg(not(unix))]
+    {
+        None
+    }
+}
+
+const PACED_FRAMES: usize = 90;
+
+/// A stream's frames at about 30 a second through the real window, painted by the card's painter or by the CPU's, and what that cost: the process's CPU time
+/// per frame (every thread, so the tint worker and the scopes count) and the longest the UI thread was held by one paint.
+fn route_cost(frame: (u32, u32), at: Where, case: &Case, card: bool) {
+    let (route, place) = (if card { "card" } else { "cpu" }, match at { Where::Card => "card".to_string(), Where::Popout(w, _) => format!("popout{w}") });
+    let label = format!("{}x{} {place} {}", frame.0, frame.1, case.name);
+    if std::env::var("PREVIEW_COST_ONLY").is_ok_and(|only| !only.is_empty() && !label.contains(&only)) {
+        return;
+    }
+    let s = Stage::on_air("route-cost");
+    if card {
+        let Some(gpu) = telescope_media::gpu::Gpu::shared() else {
+            println!("ROUTE {route:<4} {label:<40} skipped: no graphics card");
+            return;
+        };
+        let preview = telescope_media::gpu::CardPreview::new(gpu, telescope_effects::scopes::SCOPE_WIDTH as u32);
+        s.r.w.use_painter(Box::new(GpuPainter::new(Box::new(BenchCard(preview)))));
+    } else {
+        s.r.w.use_painter(Box::new(ThreadedPainter::for_window(telescope_media::FfmpegMedia.scaler())));
+    }
+    let layer = Arc::new(CinemaLayer::default());
+    if let Some(look) = &case.look {
+        layer.set_look(look.clone());
+        s.add_pass(layer.clone());
+    }
+    let popout = match at {
+        Where::Card => None,
+        Where::Popout(w, h) => Some(s.pop_out(w, h)),
+    };
+    let frames: Vec<Frame> = (0..4).map(|i| picture(frame.0, frame.1, i + 1)).collect();
+    let slot = s.r.worker(0).slot();
+    let frame_time = std::time::Duration::from_millis(33);
+    // The first frames build the card's pipelines and the scopes' first look
+    for i in 0..8 {
+        slot.publish(frames[i % frames.len()].clone());
+        s.r.w.paint_preview();
+        s.r.pump();
+        std::thread::sleep(frame_time);
+    }
+    let mut stalls = Vec::new();
+    let (cpu_before, began) = (process_cpu_ms(), Instant::now());
+    for i in 0..PACED_FRAMES {
+        slot.publish(frames[i % frames.len()].clone());
+        let t = Instant::now();
+        s.r.w.paint_preview();
+        stalls.push(t.elapsed().as_secs_f64() * 1000.0);
+        s.r.pump();
+        std::thread::sleep(frame_time);
+    }
+    let cpu = cpu_before.zip(process_cpu_ms()).map(|(a, b)| (b - a) / PACED_FRAMES as f64);
+    let longest = stalls.iter().cloned().fold(0.0, f64::max);
+    let mean = stalls.iter().sum::<f64>() / stalls.len() as f64;
+    let shown = s.shown(&popout);
+    println!(
+        "ROUTE {route:<4} {label:<40} cpu {} ms/frame  paint mean {mean:6.2} ms  longest UI stall {longest:7.2} ms  ({:.1} s, shown hash {shown:016x})",
+        cpu.map_or("   n/a".to_string(), |c| format!("{c:6.2}")),
+        began.elapsed().as_secs_f64(),
+    );
+}
+
+#[test]
+#[ignore]
+fn what_the_card_route_costs() {
+    for (frame, at) in [
+        ((1920, 1080), Where::Card),
+        ((1920, 1080), Where::Popout(1920, 1080)),
+        ((3840, 2160), Where::Card),
+        ((3840, 2160), Where::Popout(3840, 2160)),
+    ] {
+        for case in cases() {
+            // The CPU's route first, as the baseline the card's is read against
+            route_cost(frame, at, &case, false);
+            route_cost(frame, at, &case, true);
+        }
     }
 }

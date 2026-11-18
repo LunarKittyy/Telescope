@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 use telescope_core::media::Scaler;
-use telescope_core::preview::PreviewPass;
+use telescope_core::preview::{PreviewPass, TintSpec};
 use telescope_core::{Frame, PixelFormat};
 
 /// A pass that paints is asked again at least this often, since some draw only what's recent (the level guide notes it was seen).
@@ -208,6 +208,19 @@ pub struct PassWork {
     missing_since: Option<Instant>,
     /// The last frame submitted had a pass that tints.
     tinting: bool,
+    /// Where the zebras' stripes are on the card's route, moved on by one for each frame painted with zebras (as the CPU's tint does).
+    stripe_phase: u8,
+}
+
+/// How the preview's passes are served for one look at it.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Plan {
+    /// The painter draws the tint and the scopes' small copy on the card: no CPU copy is read back for the passes.
+    pub card: bool,
+    /// What the card puts on the picture, when it does.
+    pub spec: Option<TintSpec>,
+    /// A pass tints the picture and the CPU's tint worker has to (no card painter, a pass the card can't do, a lost card).
+    pub cpu_tints: bool,
 }
 
 impl Drop for PassWork {
@@ -238,9 +251,44 @@ impl PassWork {
         sorted
     }
 
-    /// Whether the preview has to read the picture off the graphics card: a pass tints it, or one is due a look.
-    pub fn needs_copy(&self, passes: &[(String, Arc<dyn PreviewPass>)]) -> bool {
-        passes.iter().any(|(owner, p)| p.tints() || self.due(owner, p))
+    /// The tint the card makes for these passes: one pass tints, and it can say what it does as data. None when no pass tints, or the
+    /// card can't make what they do (which is then the CPU's).
+    pub fn gpu_spec(passes: &[(String, Arc<dyn PreviewPass>)]) -> Option<TintSpec> {
+        let mut tinting = passes.iter().filter(|(owner, p)| guarded(owner, "tint", || p.tints()).unwrap_or(false));
+        let (owner, pass) = tinting.next()?;
+        if tinting.next().is_some() {
+            return None;
+        }
+        guarded(owner, "tint", || pass.tint_spec()).flatten()
+    }
+
+    /// Which way the passes are served: on the card when the painter is a card's and every pass that tints or analyses can be done
+    /// there, otherwise as before, from a CPU copy.
+    pub fn plan(passes: &[(String, Arc<dyn PreviewPass>)], on_card: bool) -> Plan {
+        let tints = passes.iter().any(|(owner, p)| guarded(owner, "tint", || p.tints()).unwrap_or(false));
+        let spec = Self::gpu_spec(passes);
+        let small = passes.iter().all(|(_, p)| p.analyse_fps() <= 0.0 || p.analyses_small());
+        let card = on_card && small && (spec.is_some() || !tints);
+        Plan { card, spec: spec.filter(|_| card), cpu_tints: tints && !card }
+    }
+
+    /// The spec with the stripes where the next painted frame has them: moved on by one first when zebras are on.
+    pub fn stepped(&mut self, spec: TintSpec) -> TintSpec {
+        if spec.zebra.is_some() {
+            self.stripe_phase = (self.stripe_phase + 1) % 8;
+        }
+        TintSpec { stripe_phase: self.stripe_phase, ..spec }
+    }
+
+    /// Whether the preview has to read the picture off the graphics card as a full-size CPU copy: a pass tints it, or one is due a look.
+    /// Never on the card's route, where the tint is drawn there and a look that is due gets a small copy from the painter (`scope_due`).
+    pub fn needs_copy(&self, passes: &[(String, Arc<dyn PreviewPass>)], card: bool) -> bool {
+        !card && passes.iter().any(|(owner, p)| p.tints() || self.due(owner, p))
+    }
+
+    /// Whether some pass is due a look now.
+    pub fn scope_due(&self, passes: &[(String, Arc<dyn PreviewPass>)]) -> bool {
+        passes.iter().any(|(owner, p)| self.due(owner, p))
     }
 
     fn due(&self, owner: &str, pass: &Arc<dyn PreviewPass>) -> bool {
@@ -515,7 +563,8 @@ mod tests {
     fn a_pass_that_tints_needs_the_picture_and_one_that_looks_is_due_at_its_rate() {
         let mut work = PassWork::default();
         let passes: Vec<(String, Arc<dyn PreviewPass>)> = vec![("t".into(), Arc::new(Tints))];
-        assert!(work.needs_copy(&passes));
+        assert!(work.needs_copy(&passes, false));
+        assert!(!work.needs_copy(&passes, true), "the card route reads no full-size copy");
         let frame = Frame::new(2, 2, PixelFormat::Rgba, vec![0; 16]);
         let dirty = Arc::new(AtomicBool::new(false));
         work.analyse(&passes, &frame, &dirty);
@@ -830,5 +879,102 @@ mod tests {
         let mut work = PassWork::default();
         work.analyse(&all, &grid(0), &Arc::new(AtomicBool::new(false)));
         assert!(work.analysed.is_empty());
+    }
+
+    /// A pass that tints with a spec the card can draw, and looks at a small copy.
+    struct Carded {
+        fps: f32,
+        small: bool,
+        zebra: Option<u8>,
+    }
+
+    impl PreviewPass for Carded {
+        fn tints(&self) -> bool {
+            true
+        }
+        fn tint_spec(&self) -> Option<TintSpec> {
+            Some(TintSpec { zebra: self.zebra, ..TintSpec::default() })
+        }
+        fn analyse_fps(&self) -> f32 {
+            self.fps
+        }
+        fn analyses_small(&self) -> bool {
+            self.small
+        }
+    }
+
+    fn carded(fps: f32, small: bool) -> Passes {
+        passes(vec![("cinema", Arc::new(Carded { fps, small, zebra: Some(200) }) as Arc<dyn PreviewPass>)])
+    }
+
+    #[test]
+    fn a_pass_the_card_can_tint_asks_for_no_copy_unless_a_scope_is_due() {
+        let all = carded(10.0, true);
+        let mut work = PassWork::default();
+        let plan = PassWork::plan(&all, true);
+        assert!(plan.card && !plan.cpu_tints);
+        assert_eq!(plan.spec.and_then(|s| s.zebra), Some(200));
+        assert!(!work.needs_copy(&all, plan.card), "the tint is drawn on the card, nothing is read back for it");
+        assert!(work.scope_due(&all), "the first look is due at once");
+        work.analyse(&all, &grid(0), &Arc::new(AtomicBool::new(false)));
+        assert!(!work.scope_due(&all), "and not again until its rate says so");
+        assert!(!work.needs_copy(&all, plan.card));
+        // No scope asked for: never a readback
+        let quiet = carded(0.0, true);
+        assert!(PassWork::plan(&quiet, true).card);
+        assert!(!PassWork::default().scope_due(&quiet));
+    }
+
+    #[test]
+    fn a_scope_alone_reads_back_small_on_the_card_and_a_cpu_painter_keeps_the_copy() {
+        let looks = passes(vec![("cinema", Arc::new(Carded { fps: 12.0, small: true, zebra: None }) as Arc<dyn PreviewPass>)]);
+        let plan = PassWork::plan(&looks, true);
+        assert!(plan.card);
+        let work = PassWork::default();
+        assert!(work.scope_due(&looks) && !work.needs_copy(&looks, plan.card));
+        // A scope that is on but tints nothing
+        struct Scope;
+        impl PreviewPass for Scope {
+            fn analyse_fps(&self) -> f32 {
+                12.0
+            }
+            fn analyses_small(&self) -> bool {
+                true
+            }
+        }
+        let only = passes(vec![("scope", Arc::new(Scope) as Arc<dyn PreviewPass>)]);
+        let plan = PassWork::plan(&only, true);
+        assert!(plan.card && plan.spec.is_none() && !plan.cpu_tints);
+        assert!(!work.needs_copy(&only, plan.card));
+        assert!(work.needs_copy(&only, PassWork::plan(&only, false).card), "without a card painter the copy is made as before");
+    }
+
+    #[test]
+    fn the_cpu_route_is_taken_without_a_card_painter_or_for_what_the_card_cant_do() {
+        let all = carded(10.0, true);
+        let plan = PassWork::plan(&all, false);
+        assert!(!plan.card && plan.cpu_tints && plan.spec.is_none(), "a CPU painter");
+        assert!(PassWork::default().needs_copy(&all, plan.card));
+        // A tinting pass with no spec (not Cinema's)
+        let other = passes(vec![("other", Arc::new(Tints) as Arc<dyn PreviewPass>)]);
+        let plan = PassWork::plan(&other, true);
+        assert!(!plan.card && plan.cpu_tints && plan.spec.is_none(), "a pass the card can't tint");
+        // Two tinting passes can't be one spec, and a look that wants the whole picture needs the copy
+        let two = passes(vec![("a", Arc::new(Carded { fps: 0.0, small: true, zebra: None }) as Arc<dyn PreviewPass>), ("b", Arc::new(Carded { fps: 0.0, small: true, zebra: None }) as Arc<dyn PreviewPass>)]);
+        assert!(PassWork::plan(&two, true).cpu_tints);
+        assert!(PassWork::plan(&carded(10.0, false), true).cpu_tints);
+        // Nothing tints: the plan is quiet either way
+        let none = passes(vec![]);
+        assert_eq!(PassWork::plan(&none, false), Plan { card: false, spec: None, cpu_tints: false });
+    }
+
+    #[test]
+    fn the_stripes_move_on_one_step_for_each_frame_with_zebras_and_wrap() {
+        let mut work = PassWork::default();
+        let zebras = TintSpec { zebra: Some(200), ..TintSpec::default() };
+        let phases: Vec<u8> = (0..10).map(|_| work.stepped(zebras).stripe_phase).collect();
+        assert_eq!(phases, [1, 2, 3, 4, 5, 6, 7, 0, 1, 2]);
+        // Without zebras the stripes stay where they are
+        assert_eq!(work.stepped(TintSpec::default()).stripe_phase, 2);
     }
 }

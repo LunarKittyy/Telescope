@@ -8,6 +8,7 @@ use telescope_core::event::Event;
 use telescope_core::host::{Host, PickKind, PreviewLayer, RequestId, Shape};
 use telescope_core::i18n::{n_, tr, trn, Fields};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
+use telescope_core::settings::{off_default, reset_config};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use telescope_core::host::{Pick, View};
@@ -312,6 +313,7 @@ impl PhototrapPlugin {
             "pause": self.pause_s, "pause-text": tr("{seconds} s").field("seconds", self.pause_s),
             "night": self.night, "night-enabled": night_offered,
             "night-tip": tr(if night_offered { NIGHT_TIP } else { NIGHT_OFF_TIP }),
+            "reset-shown": self.reset_shown(),
         })
     }
 
@@ -541,6 +543,22 @@ impl PhototrapPlugin {
         self.show_layer(host);
     }
 
+    /// The zones are what people drew, with the way the view was turned when they did, so a Reset leaves both. Armed isn't a setting.
+    const RESET_KEPT: &'static [&'static str] = &["zones", "turn"];
+
+    fn reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &PhototrapPlugin::new().get_config(), Self::RESET_KEPT)
+    }
+
+    fn reset(&mut self, host: &mut dyn Host) {
+        let cfg = reset_config(&self.get_config(), &PhototrapPlugin::new().get_config(), Self::RESET_KEPT);
+        if self.set_config(&cfg).is_ok() {
+            self.pending = false;
+            self.sync(host);
+            host.schedule_save();
+        }
+    }
+
     fn set_number(&mut self, host: &mut dyn Host, which: &str, value: f64) {
         let v = value.round() as u32;
         match which {
@@ -693,6 +711,7 @@ impl Plugin for PhototrapPlugin {
             "sensitivity-moved" => self.set_number(host, "sensitivity", number),
             "count-moved" => self.set_number(host, "count", number),
             "pause-moved" => self.set_number(host, "pause", number),
+            "reset-clicked" => self.reset(host),
             "night-toggled" => {
                 self.night = flag;
                 self.show(host);

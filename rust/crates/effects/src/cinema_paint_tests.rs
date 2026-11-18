@@ -273,3 +273,29 @@ fn the_kept_pictures_are_let_go_when_they_are_no_use() {
     assert!(layer.paint(320, 180, 1.0).is_none());
     assert_eq!(kept(&layer), (false, false));
 }
+
+#[test]
+fn the_layer_gives_the_card_the_same_tools_it_tints_with() {
+    assert_eq!(CinemaLayer::default().tint_spec(), None);
+    assert_eq!(layer_with(Look { guides: "thirds", scope: "waveform", level: true, ..Look::default() }).tint_spec(), None);
+    for level in 70..=100 {
+        let spec = layer_with(Look { zebras: true, zebra_level: level, ..Look::default() }).tint_spec().unwrap();
+        assert_eq!(spec, TintSpec { zebra: Some(zebra_from(level)), ..TintSpec::default() });
+    }
+    for level in 1..=10 {
+        for (key, _, rgb) in PEAKING_COLOURS {
+            let look = Look { peaking: true, peaking_level: level, peaking_colour: key, ..Look::default() };
+            let spec = layer_with(look).tint_spec().unwrap();
+            assert_eq!(spec.peaking, Some(((peaking_threshold(level) / 2) as u8, rgb)));
+            assert!(spec.zebra.is_none() && spec.false_colour.is_none());
+        }
+    }
+    let all = layer_with(Look { zebras: true, peaking: true, false_colour: true, ..Look::default() }).tint_spec().unwrap();
+    assert!(std::ptr::eq(all.false_colour.unwrap(), false_lut()));
+    assert!(all.zebra.is_some() && all.peaking.is_some());
+    // Whatever the layer says it tints, it describes
+    for (zebras, peaking, false_colour) in [(false, false, false), (true, false, false), (false, true, false), (false, false, true), (true, true, true)] {
+        let layer = layer_with(Look { zebras, peaking, false_colour, ..Look::default() });
+        assert_eq!(layer.tint_spec().is_some(), layer.tints());
+    }
+}
