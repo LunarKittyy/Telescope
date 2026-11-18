@@ -202,7 +202,9 @@ fn run(port: &dyn Port, op: u16, op_params: &[u32], data_out: Option<&[u8]>) -> 
             text.ok()
         })
     };
-    let Some(context) = context.filter(|_| code == ptp::RC_OK) else { return Ok(Reply { code, params, data: Vec::new() }) };
+    // A driver that opens a transfer gives its response code with the end of it, so a reply with a context and no code is an accepted one
+    let said_nothing = unsafe { first.GetUnsignedIntegerValue(&WPD_PROPERTY_MTP_EXT_RESPONSE_CODE) }.is_err();
+    let Some(context) = context.filter(|_| code == ptp::RC_OK || said_nothing) else { return Ok(Reply { code, params, data: Vec::new() }) };
     let context = HSTRING::from(context);
     let moved = match data_out {
         Some(data) => write_data(port, &context, data).map(|()| Vec::new()),

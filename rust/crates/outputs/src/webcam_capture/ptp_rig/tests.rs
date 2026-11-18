@@ -52,6 +52,17 @@ fn nikon_live_view_starts_by_itself_and_waits_out_a_busy_camera() {
 }
 
 #[test]
+fn a_nikon_that_says_it_is_not_in_live_view_for_a_moment_after_starting_is_waited_for() {
+    let mock = Mock::nikon();
+    mock.state().starting_frames = 5;
+    let mut rig = open(&mock);
+    assert_eq!(rig.preview().unwrap(), JPEG.to_vec());
+    let ops = mock.ops();
+    assert_eq!(ops.iter().filter(|o| **o == 0x9201).count(), 1, "started once, not again");
+    assert_eq!(ops.iter().filter(|o| **o == 0x9203).count(), 6);
+}
+
+#[test]
 fn a_camera_that_stays_busy_gives_up() {
     let mock = Mock::nikon();
     mock.state().busy_frames = 100;

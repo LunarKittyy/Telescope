@@ -15,6 +15,8 @@ struct Fake {
     announce: u64,
     fail: Option<u32>,
     response: u16,
+    /// A driver that gives the response code of a transfer only with its end, as a real camera's does.
+    quiet_start: bool,
     seen: RefCell<Vec<u32>>,
     offset: Cell<usize>,
     wrote: RefCell<Vec<u8>>,
@@ -23,7 +25,7 @@ struct Fake {
 
 impl Fake {
     fn serving(data: Vec<u8>) -> Fake {
-        Fake { announce: data.len() as u64, data, fail: None, response: ptp::RC_OK, seen: RefCell::default(), offset: Cell::new(0), wrote: RefCell::default(), wrote_total: Cell::new(0) }
+        Fake { announce: data.len() as u64, data, fail: None, response: ptp::RC_OK, quiet_start: false, seen: RefCell::default(), offset: Cell::new(0), wrote: RefCell::default(), wrote_total: Cell::new(0) }
     }
 
     fn saw(&self, key: &PROPERTYKEY) -> usize {
@@ -42,7 +44,10 @@ impl Port for Fake {
                 r.SetErrorValue(&WPD_PROPERTY_COMMON_HRESULT, E_FAIL)?;
                 return Ok(r);
             }
-            r.SetUnsignedIntegerValue(&WPD_PROPERTY_MTP_EXT_RESPONSE_CODE, self.response as u32)?;
+            let opens = id == WPD_COMMAND_MTP_EXT_EXECUTE_COMMAND_WITH_DATA_TO_READ.pid || id == WPD_COMMAND_MTP_EXT_EXECUTE_COMMAND_WITH_DATA_TO_WRITE.pid;
+            if !(self.quiet_start && opens) {
+                r.SetUnsignedIntegerValue(&WPD_PROPERTY_MTP_EXT_RESPONSE_CODE, self.response as u32)?;
+            }
             let context = HSTRING::from("transfer-1");
             if id == WPD_COMMAND_MTP_EXT_EXECUTE_COMMAND_WITH_DATA_TO_READ.pid {
                 if self.response == ptp::RC_OK {
@@ -80,6 +85,21 @@ fn a_transfer_whose_length_is_64_bit_is_read_whole() {
     let reply = run(&port, READ_OP, &[], None).unwrap();
     assert_eq!((reply.code, reply.data), (ptp::RC_OK, data));
     assert_eq!(port.saw(&WPD_COMMAND_MTP_EXT_END_DATA_TRANSFER), 1);
+}
+
+#[test]
+fn a_transfer_opened_without_a_response_code_goes_ahead_and_takes_its_code_from_the_end() {
+    let _com = Com::new();
+    let data: Vec<u8> = (0..1000u32).map(|i| i as u8).collect();
+    let mut port = Fake::serving(data.clone());
+    port.quiet_start = true;
+    let reply = run(&port, READ_OP, &[], None).unwrap();
+    assert_eq!((reply.code, reply.data), (ptp::RC_OK, data));
+    let mut port = Fake::serving(vec![1, 2, 3]);
+    port.quiet_start = true;
+    let reply = run(&port, WRITE_OP, &[0x5007], Some(&[9; 5])).unwrap();
+    assert_eq!(reply.code, ptp::RC_OK);
+    assert_eq!(*port.wrote.borrow(), [9; 5]);
 }
 
 #[test]
