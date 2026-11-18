@@ -659,6 +659,9 @@ impl HostStills for Ctx<'_> {
         };
         self.state.picture_hidden_for(&id)
     }
+    fn set_hiding(&mut self, owner: &str, source_id: Option<&str>, on: bool) {
+        self.state.set_hiding(owner, source_id, on);
+    }
 }
 
 impl HostColour for Ctx<'_> {

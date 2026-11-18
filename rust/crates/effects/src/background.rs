@@ -372,6 +372,8 @@ pub struct BackgroundPlugin {
     pending: bool,
     /// The Blur bubble is up: the sample is blurred again whenever the strength moves.
     peeking: bool,
+    /// What the host was last told with set_hiding: None until it has been.
+    told_hiding: Option<bool>,
 }
 
 impl Default for BackgroundPlugin {
@@ -407,6 +409,7 @@ impl BackgroundPlugin {
             asked: None,
             pending: true,
             peeking: false,
+            told_hiding: None,
         }
     }
 
@@ -442,7 +445,17 @@ impl BackgroundPlugin {
         })
     }
 
+    /// Tells the host when the room starts or stops being hidden, without waiting for the stream's steps to be made again.
+    fn report_hiding(&mut self, host: &mut dyn Host) {
+        let hiding = self.mode != 0;
+        if self.told_hiding != Some(hiding) {
+            self.told_hiding = Some(hiding);
+            host.set_hiding(NAME, None, hiding);
+        }
+    }
+
     fn show(&mut self, host: &mut dyn Host) {
+        self.report_hiding(host);
         let mut props = self.all_props();
         let row = vision_row::props(&*host, self.mode != 0, "");
         // The preview shows the blur only while it streams and the person can be told from the room; until then the bubble does

@@ -486,3 +486,104 @@ fn the_card_names_the_folder_and_opens_it() {
         assert_eq!(p.shown_folder(), Path::new("~").join("Pictures").join("Phototrap").display().to_string());
     }
 }
+
+#[test]
+fn zones_are_drawn_and_seen_only_on_the_stream_it_is_armed_on() {
+    let (mut p, mut h, _) = armed();
+    h.can_pick = true;
+    h.live = vec!["phone".into(), "other".into()];
+    p.on_event(&mut h, &pick([0.1, 0.1], [0.5, 0.6]));
+    assert!(h.layers.contains_key(NAME));
+    assert_eq!(card(&h)["draw-enabled"], true);
+    // The panels show another phone: nothing is drawn over its picture and no zone can be added there
+    h.focused = Some("other".into());
+    p.on_event(&mut h, &Event::SourceSelected { source_id: "other".into() });
+    assert!(!h.layers.contains_key(NAME));
+    assert_eq!(card(&h)["draw-enabled"], false);
+    assert_eq!(card(&h)["draw-tip"], DRAW_ELSEWHERE_TIP);
+    h.calls.clear();
+    click(&mut p, &mut h, "draw-clicked", json!(null));
+    assert!(!h.calls.iter().any(|c| c.starts_with("pick_on_preview")));
+    p.on_event(&mut h, &pick([0.6, 0.2], [0.9, 0.4]));
+    assert_eq!(p.zones.len(), 1, "a pick that was under way is no zone of the armed stream");
+    assert_eq!(p.watch.as_ref().map(|w| w.0.len()), Some(1), "the watch is as it was");
+    // A pick under way when the panels move on is cancelled
+    h.focused = Some("phone".into());
+    p.on_event(&mut h, &Event::SourceSelected { source_id: "phone".into() });
+    assert!(h.layers.contains_key(NAME));
+    assert_eq!(card(&h)["draw-enabled"], true);
+    assert_eq!(card(&h)["draw-tip"], DRAW_TIP);
+    click(&mut p, &mut h, "draw-clicked", json!(null));
+    assert!(p.drawing);
+    h.focused = Some("other".into());
+    p.on_event(&mut h, &Event::SourceSelected { source_id: "other".into() });
+    assert!(!p.drawing);
+    assert!(h.calls.contains(&"cancel_pick phototrap".to_string()));
+    // Not armed, zones are drawn on whatever the panels show
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(false));
+    assert!(h.layers.contains_key(NAME));
+    assert_eq!(card(&h)["draw-enabled"], true);
+}
+
+#[test]
+fn a_burst_under_way_when_the_stream_stops_still_counts_when_it_ends() {
+    let dir = scratch_dir("phototrap-interrupted");
+    let (mut p, now) = plugin();
+    p.folder = dir.display().to_string();
+    p.budget = 1000;
+    let mut h = host();
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+    moved(&mut p, &mut h);
+    let (a, b) = (dir.join("a.jpg"), dir.join("b.jpg"));
+    std::fs::write(&a, vec![0u8; 400]).unwrap();
+    std::fs::write(&b, vec![0u8; 400]).unwrap();
+    h.streaming = false;
+    h.still_caps = None;
+    p.on_event(&mut h, &Event::StreamStopped);
+    assert_eq!(p.taking.len(), 1, "still tracked");
+    now.store(130, Ordering::SeqCst);
+    p.on_event(&mut h, &Event::StreamStarted { url: String::new() });
+    assert_eq!(p.taking.len(), 1, "a restart doesn't forget it either");
+    let files = json!([a.display().to_string(), b.display().to_string()]);
+    finished(&mut p, &mut h, 1, false, json!({"ok": false, "files": files, "code": "interrupted", "error": "The photo was interrupted by a change to the camera."}));
+    assert_eq!((p.photos, p.used), (2, 800));
+    assert!(p.taking.is_empty());
+    assert!(p.problem.is_none(), "the stream stopping isn't a fault of the phone's");
+    // And the next burst that fills the folder disarms it
+    p.armed = true;
+    let c = dir.join("c.jpg");
+    std::fs::write(&c, vec![0u8; 400]).unwrap();
+    h.streaming = true;
+    h.still_caps = Some(caps());
+    p.taking.push((RequestId(9), None));
+    finished(&mut p, &mut h, 9, true, json!({"files": [c.display().to_string()]}));
+    assert!(!p.armed, "the folder total was kept through the stop");
+}
+
+#[test]
+fn a_burst_nobody_hears_the_end_of_is_given_up_on_a_minute_after_its_stream_stopped() {
+    let (mut p, mut h, now) = armed();
+    moved(&mut p, &mut h);
+    h.streaming = false;
+    p.on_event(&mut h, &Event::StreamStopped);
+    now.store(150, Ordering::SeqCst);
+    p.on_event(&mut h, &Event::PhonesChanged { count: 1 });
+    assert_eq!(p.taking.len(), 1, "50 s on");
+    now.store(161, Ordering::SeqCst);
+    p.on_event(&mut h, &Event::PhonesChanged { count: 1 });
+    assert!(p.taking.is_empty());
+    // One that arrives after that is nobody's
+    finished(&mut p, &mut h, 1, true, json!({"files": ["/a.jpg"]}));
+    assert_eq!(p.photos, 0);
+}
+
+#[test]
+fn a_burst_in_the_middle_of_a_long_exposure_is_not_given_up_on_while_its_stream_runs() {
+    let (mut p, mut h, now) = armed();
+    moved(&mut p, &mut h);
+    now.store(1000, Ordering::SeqCst);
+    p.on_event(&mut h, &Event::PhonesChanged { count: 1 });
+    assert_eq!(p.taking.len(), 1);
+    finished(&mut p, &mut h, 1, true, json!({"files": ["/a.jpg"]}));
+    assert_eq!(p.photos, 1);
+}

@@ -207,6 +207,8 @@ pub struct FakeHost {
     pub still_only_for: Option<String>,
     /// What picture_hidden() answers.
     pub picture_hidden: bool,
+    /// What set_hiding() was told, as (owner, source id, on) in order.
+    pub hiding: Vec<(String, Option<String>, bool)>,
     /// What stream_on_camera() answers, as (slot, source id, width, height).
     pub cameras: Vec<(u32, String, Option<u32>, Option<u32>)>,
     /// Streams is_streaming_from() says run, besides the focused one while streaming.
@@ -770,6 +772,9 @@ impl HostStills for FakeHost {
     }
     fn picture_hidden(&self, _source_id: Option<&str>) -> bool {
         self.picture_hidden
+    }
+    fn set_hiding(&mut self, owner: &str, source_id: Option<&str>, on: bool) {
+        self.hiding.push((owner.to_string(), source_id.map(String::from), on));
     }
 }
 

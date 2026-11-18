@@ -617,39 +617,39 @@ msgstr "Ảnh (*.png *.jpg *.jpeg *.webp *.bmp)"
 msgid "Cut out your hair and edges more cleanly, for about 40% of a CPU core."
 msgstr "Tách tóc và các cạnh viền gọn gàng hơn, dùng khoảng 40 % công suất của một lõi CPU."
 
-#: rust/crates/effects/src/background.rs:419 rust/crates/effects/src/chroma_key.rs:42 rust/crates/effects/src/fun_pack.rs:72
+#: rust/crates/effects/src/background.rs:422 rust/crates/effects/src/chroma_key.rs:42 rust/crates/effects/src/fun_pack.rs:72
 msgid "How soft the edge around you is."
 msgstr "Độ mềm của đường viền quanh bạn."
 
-#: rust/crates/effects/src/background.rs:420
+#: rust/crates/effects/src/background.rs:423
 msgid "Pull the cutout's border in towards you."
 msgstr "Kéo viền tách nền vào gần bạn hơn."
 
-#: rust/crates/effects/src/background.rs:421 rust/crates/effects/src/chroma_key.rs:286
+#: rust/crates/effects/src/background.rs:424 rust/crates/effects/src/chroma_key.rs:289
 msgid "Pick the picture that goes behind you."
 msgstr "Chọn ảnh làm nền phía sau bạn."
 
-#: rust/crates/effects/src/background.rs:492 rust/crates/effects/src/chroma_key.rs:450
+#: rust/crates/effects/src/background.rs:505 rust/crates/effects/src/chroma_key.rs:463
 msgid "Choose a picture"
 msgstr "Chọn một ảnh"
 
-#: rust/crates/effects/src/background.rs:502 rust/crates/effects/src/chroma_key.rs:468 rust/crates/effects/src/chroma_key.rs:507 rust/crates/effects/src/chroma_key.rs:526
+#: rust/crates/effects/src/background.rs:515 rust/crates/effects/src/chroma_key.rs:481 rust/crates/effects/src/chroma_key.rs:520 rust/crates/effects/src/chroma_key.rs:539
 msgid "Can't open that picture"
 msgstr "Không mở được ảnh đó"
 
-#: rust/crates/effects/src/background.rs:510 rust/crates/effects/src/background.rs:622 rust/crates/effects/src/background.rs:625 rust/crates/effects/src/background.rs:643 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:517
+#: rust/crates/effects/src/background.rs:523 rust/crates/effects/src/background.rs:635 rust/crates/effects/src/background.rs:638 rust/crates/effects/src/background.rs:656 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:517
 msgid "Background"
 msgstr "Nền"
 
-#: rust/crates/effects/src/background.rs:511
+#: rust/crates/effects/src/background.rs:524
 msgid "Blur the background behind you or swap it for a picture."
 msgstr "Làm mờ nền phía sau bạn hoặc thay bằng một ảnh."
 
-#: rust/crates/effects/src/background.rs:512
+#: rust/crates/effects/src/background.rs:525
 msgid "Without the Background plugin there's no Background card and the background is shown the way the camera sees it."
 msgstr "Nếu không có tiện ích bổ sung Nền, sẽ không có thẻ Nền và nền sẽ hiển thị theo đúng những gì camera nhìn thấy."
 
-#: rust/crates/effects/src/background.rs:624 rust/crates/effects/src/background.rs:650
+#: rust/crates/effects/src/background.rs:637 rust/crates/effects/src/background.rs:663
 msgid "Background blur"
 msgstr "Làm mờ nền"
 
@@ -677,67 +677,67 @@ msgstr "Giá trị càng cao càng xóa nhiều sắc độ của màu phông n�
 msgid "Remove the screen's colour from your edges and skin."
 msgstr "Xóa màu phông nền ám trên viền và da của bạn."
 
-#: rust/crates/effects/src/chroma_key.rs:281 rust/crates/effects/src/chroma_key.rs:554 rust/crates/effects/src/chroma_key.rs:672 rust/crates/effects/src/chroma_key.rs:676 rust/crates/effects/src/chroma_key.rs:694 rust/crates/effects/ui/chroma_key.slint:59
+#: rust/crates/effects/src/chroma_key.rs:284 rust/crates/effects/src/chroma_key.rs:567 rust/crates/effects/src/chroma_key.rs:686 rust/crates/effects/src/chroma_key.rs:690 rust/crates/effects/src/chroma_key.rs:708 rust/crates/effects/ui/chroma_key.slint:59
 msgid "Chroma key"
 msgstr "Chroma key"
 
-#: rust/crates/effects/src/chroma_key.rs:282
+#: rust/crates/effects/src/chroma_key.rs:285
 msgid "Replace the green or blue screen behind you."
 msgstr "Thay thế phông xanh lá hoặc xanh dương phía sau bạn."
 
-#: rust/crates/effects/src/chroma_key.rs:284
+#: rust/crates/effects/src/chroma_key.rs:287
 msgid "Pick the colour that goes behind you."
 msgstr "Chọn màu làm nền phía sau bạn."
 
-#: rust/crates/effects/src/chroma_key.rs:285 rust/crates/ui-kit/ui/widgets/colour.slint:392
+#: rust/crates/effects/src/chroma_key.rs:288 rust/crates/ui-kit/ui/widgets/colour.slint:392
 msgid "Pick from the preview"
 msgstr "Chọn từ khung xem trước"
 
-#: rust/crates/effects/src/chroma_key.rs:291
+#: rust/crates/effects/src/chroma_key.rs:294
 msgid "The colour picked from the preview. Click to pick again."
 msgstr "Màu đã chọn từ khung xem trước. Bấm để chọn lại."
 
-#: rust/crates/effects/src/chroma_key.rs:393
+#: rust/crates/effects/src/chroma_key.rs:406
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Bấm vào phông phía sau bạn trên khung xem trước. Nhấn Esc để hủy."
 
-#: rust/crates/effects/src/chroma_key.rs:394 rust/crates/effects/src/chroma_key.rs:430 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:565 rust/crates/outputs/src/webcam.rs:976 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:709 rust/crates/shell/src/streams.rs:1770 rust/crates/shell/src/window.rs:1726 rust/crates/shell/src/worker.rs:569 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:407 rust/crates/effects/src/chroma_key.rs:443 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:565 rust/crates/outputs/src/webcam.rs:976 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:709 rust/crates/shell/src/streams.rs:1776 rust/crates/shell/src/window.rs:1726 rust/crates/shell/src/worker.rs:569 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Không truyền phát"
 
-#: rust/crates/effects/src/chroma_key.rs:394
+#: rust/crates/effects/src/chroma_key.rs:407
 msgid "Start streaming to pick the screen's colour on the preview."
 msgstr "Bắt đầu truyền phát để chọn màu phông trên khung xem trước."
 
-#: rust/crates/effects/src/chroma_key.rs:412
+#: rust/crates/effects/src/chroma_key.rs:425
 msgid "No colour there"
 msgstr "Không có màu ở đó"
 
-#: rust/crates/effects/src/chroma_key.rs:412
+#: rust/crates/effects/src/chroma_key.rs:425
 msgid "That spot has hardly any colour. Click the screen itself."
 msgstr "Điểm đó hầu như không có màu. Hãy bấm vào chính phông nền."
 
-#: rust/crates/effects/src/chroma_key.rs:429
+#: rust/crates/effects/src/chroma_key.rs:442
 msgid "Click a colour on the preview. Esc cancels."
 msgstr "Nhấp vào một màu trên khung xem trước. Nhấn Esc để hủy."
 
-#: rust/crates/effects/src/chroma_key.rs:430
+#: rust/crates/effects/src/chroma_key.rs:443
 msgid "Start streaming to pick a colour on the preview."
 msgstr "Bắt đầu truyền phát để chọn màu trên khung xem trước."
 
-#: rust/crates/effects/src/chroma_key.rs:555
+#: rust/crates/effects/src/chroma_key.rs:568
 msgid "Swap a green or blue screen behind you for a colour or a picture, with no download."
 msgstr "Thay phông xanh lá hoặc xanh dương phía sau bạn bằng một màu sắc hoặc một ảnh mà không cần tải về."
 
-#: rust/crates/effects/src/chroma_key.rs:556
+#: rust/crates/effects/src/chroma_key.rs:569
 msgid "Without the Chroma key plugin there's no Chroma key card and a green screen isn't replaced."
 msgstr "Nếu không có tiện ích bổ sung Phông xanh, sẽ không có thẻ Phông xanh và phông xanh sẽ không được thay thế."
 
-#: rust/crates/effects/src/chroma_key.rs:674 rust/crates/effects/src/chroma_key.rs:709
+#: rust/crates/effects/src/chroma_key.rs:688 rust/crates/effects/src/chroma_key.rs:723
 msgid "Chroma key tolerance"
 msgstr "Dung sai Chroma key"
 
-#: rust/crates/effects/src/chroma_key.rs:677 rust/crates/effects/src/chroma_key.rs:703
+#: rust/crates/effects/src/chroma_key.rs:691 rust/crates/effects/src/chroma_key.rs:717
 msgid "Chroma key screen"
 msgstr "Phông Chroma key"
 
@@ -2483,7 +2483,7 @@ msgstr "Chất lượng JPEG do camera thiết lập"
 msgid "RAW photos have no quality setting"
 msgstr "Ảnh RAW không có cài đặt chất lượng"
 
-#: rust/crates/effects/src/photos.rs:52 rust/crates/shell/src/streams.rs:828
+#: rust/crates/effects/src/photos.rs:52 rust/crates/shell/src/streams.rs:834
 msgid "The camera is already taking a photo."
 msgstr "Camera đang chụp ảnh rồi."
 
@@ -2495,7 +2495,7 @@ msgstr "Camera không thể chụp ảnh."
 msgid "Like the video"
 msgstr "Như video"
 
-#: rust/crates/effects/src/photos.rs:57 rust/crates/effects/src/photos.rs:186 rust/crates/effects/src/phototrap.rs:289 rust/crates/effects/src/phototrap.rs:612
+#: rust/crates/effects/src/photos.rs:57 rust/crates/effects/src/photos.rs:186 rust/crates/effects/src/phototrap.rs:301 rust/crates/effects/src/phototrap.rs:651
 #, python-brace-format
 msgid "{seconds} s"
 msgstr "{seconds} s"
@@ -2616,112 +2616,116 @@ msgstr "Chế độ chụp ảnh"
 msgid "Photo timer"
 msgstr "Hẹn giờ chụp ảnh"
 
-#: rust/crates/effects/src/phototrap.rs:38
+#: rust/crates/effects/src/phototrap.rs:40
 msgid "Watch the zones and take photos when something moves in them."
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:39
+#: rust/crates/effects/src/phototrap.rs:41
 msgid "Drag across the preview to mark a place to watch. Up to four."
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:40
+#: rust/crates/effects/src/phototrap.rs:42
 msgid "Switch on the Preview plugin to draw zones on the preview."
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:41
-msgid "Remove every zone. With none, the whole picture is watched."
-msgstr ""
-
-#: rust/crates/effects/src/phototrap.rs:42
-msgid "Use the phone maker's Night mode for the photos."
-msgstr ""
-
 #: rust/crates/effects/src/phototrap.rs:43
-msgid "This lens has no Night mode to offer"
+msgid "Phototrap is armed on another phone. Switch to that one to draw zones."
 msgstr ""
 
 #: rust/crates/effects/src/phototrap.rs:44
-msgid "Number of photos each time it goes off."
+msgid "Remove every zone. With none, the whole picture is watched."
 msgstr ""
 
 #: rust/crates/effects/src/phototrap.rs:45
+msgid "Use the phone maker's Night mode for the photos."
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:46
+msgid "This lens has no Night mode to offer"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:47
+msgid "Number of photos each time it goes off."
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:48
 msgid "This lens takes one photo at a time"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:244 rust/crates/effects/src/phototrap.rs:611
+#: rust/crates/effects/src/phototrap.rs:255 rust/crates/effects/src/phototrap.rs:650
 msgid "Not armed"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:247
+#: rust/crates/effects/src/phototrap.rs:258
 msgid "Waiting for a phone that can take photos"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:250
+#: rust/crates/effects/src/phototrap.rs:261
 msgid "Paused while the picture is hidden"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:253
+#: rust/crates/effects/src/phototrap.rs:264
 msgid "Armed and watching the whole picture"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:255
+#: rust/crates/effects/src/phototrap.rs:266
 #, python-brace-format
 msgid "Armed and watching {n} zone"
 msgid_plural "Armed and watching {n} zones"
 msgstr[0] ""
 
-#: rust/crates/effects/src/phototrap.rs:262
+#: rust/crates/effects/src/phototrap.rs:273
 #, python-brace-format
 msgid "Triggers: {triggers}, photos: {photos}, last at {time}"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:265
+#: rust/crates/effects/src/phototrap.rs:276
 msgid "Nothing has set it off yet"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:272 rust/crates/effects/src/phototrap.rs:609
+#: rust/crates/effects/src/phototrap.rs:283 rust/crates/effects/src/phototrap.rs:648
 msgid "Armed"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:272 rust/crates/effects/src/phototrap.rs:609
+#: rust/crates/effects/src/phototrap.rs:283 rust/crates/effects/src/phototrap.rs:648
 msgid "Draw zone"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:273 rust/crates/effects/src/phototrap.rs:610
+#: rust/crates/effects/src/phototrap.rs:284 rust/crates/effects/src/phototrap.rs:649
 msgid "Clear zones"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:390
+#: rust/crates/effects/src/phototrap.rs:402
 #, python-brace-format
 msgid "Off since the {size} GB photo limit is reached"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:393
+#: rust/crates/effects/src/phototrap.rs:405
 #, python-brace-format
 msgid "Off since there's less than {size} GB free on the drive"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:453
+#: rust/crates/effects/src/phototrap.rs:467
 msgid "The phone couldn't take the photos"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:500
+#: rust/crates/effects/src/phototrap.rs:518
 msgid "Drag across the picture to mark a zone. Esc cancels."
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:538 rust/crates/effects/ui/phototrap.slint:43
+#: rust/crates/effects/src/phototrap.rs:566 rust/crates/effects/ui/phototrap.slint:43
 msgid "Phototrap"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:539
+#: rust/crates/effects/src/phototrap.rs:567
 msgid "Take a burst of photos when something moves in the zones you draw, for wildlife and anything that shows up while nobody's looking."
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:540
+#: rust/crates/effects/src/phototrap.rs:568
 msgid "Without the Phototrap plugin there's no Phototrap card and nothing is watched for movement."
 msgstr ""
 
-#: rust/crates/effects/src/privacy_blur.rs:26 rust/crates/effects/src/privacy_blur.rs:428 rust/crates/effects/ui/privacy_blur.slint:22 rust/crates/effects/ui/privacy_blur.slint:30 rust/crates/effects/ui/privacy_blur.slint:31
+#: rust/crates/effects/src/privacy_blur.rs:26 rust/crates/effects/src/privacy_blur.rs:439 rust/crates/effects/ui/privacy_blur.slint:22 rust/crates/effects/ui/privacy_blur.slint:30 rust/crates/effects/ui/privacy_blur.slint:31
 msgid "Privacy blur"
 msgstr "Làm mờ riêng tư"
 
@@ -2737,39 +2741,39 @@ msgstr "Làm mờ toàn bộ hình ảnh"
 msgid "Show the wait screen"
 msgstr "Hiện màn hình chờ"
 
-#: rust/crates/effects/src/privacy_blur.rs:220
+#: rust/crates/effects/src/privacy_blur.rs:228
 msgid "With Wait screen switched off in Plugins the whole picture gets blurred instead."
 msgstr "Khi đã tắt Màn hình chờ trong Tiện ích bổ sung, toàn bộ hình ảnh sẽ được làm mờ thay thế."
 
-#: rust/crates/effects/src/privacy_blur.rs:252
+#: rust/crates/effects/src/privacy_blur.rs:260
 msgid "Blur automatically when more than one person is in the picture."
 msgstr "Tự động làm mờ khi có nhiều hơn một người trong hình ảnh."
 
-#: rust/crates/effects/src/privacy_blur.rs:253
+#: rust/crates/effects/src/privacy_blur.rs:261
 msgid "What happens while more than one person is in the picture."
 msgstr "Điều sẽ xảy ra khi có nhiều hơn một người trong hình ảnh."
 
-#: rust/crates/effects/src/privacy_blur.rs:254
+#: rust/crates/effects/src/privacy_blur.rs:262
 msgid "Blur the picture until you click again."
 msgstr "Làm mờ ảnh cho đến khi bạn nhấp lại."
 
-#: rust/crates/effects/src/privacy_blur.rs:309
+#: rust/crates/effects/src/privacy_blur.rs:317
 msgid "Blur the whole picture or show the wait screen when more than one person is in it. Privacy isn't guaranteed because the vision models can miss someone."
 msgstr "Làm mờ toàn bộ hình ảnh hoặc hiển thị màn hình chờ khi có nhiều hơn một người xuất hiện. Quyền riêng tư không được đảm bảo tuyệt đối vì mô hình thị giác có thể bỏ sót người."
 
-#: rust/crates/effects/src/privacy_blur.rs:310
+#: rust/crates/effects/src/privacy_blur.rs:318
 msgid "Without the Privacy blur plugin there's no Privacy blur card and nothing gets hidden when someone walks in."
 msgstr "Nếu không có tiện ích bổ sung Làm mờ riêng tư, sẽ không có thẻ Làm mờ riêng tư và sẽ không có gì được ẩn đi khi có người bước vào."
 
-#: rust/crates/effects/src/privacy_blur.rs:432 rust/crates/effects/src/privacy_blur.rs:445 rust/crates/effects/ui/privacy_blur.slint:60 rust/crates/effects/ui/privacy_blur.slint:66 rust/crates/effects/ui/privacy_blur.slint:67
+#: rust/crates/effects/src/privacy_blur.rs:443 rust/crates/effects/src/privacy_blur.rs:456 rust/crates/effects/ui/privacy_blur.slint:60 rust/crates/effects/ui/privacy_blur.slint:66 rust/crates/effects/ui/privacy_blur.slint:67
 msgid "Blur now"
 msgstr "Làm mờ ngay"
 
-#: rust/crates/effects/src/privacy_blur.rs:433 rust/crates/effects/src/privacy_blur.rs:446
+#: rust/crates/effects/src/privacy_blur.rs:444 rust/crates/effects/src/privacy_blur.rs:457
 msgid "Privacy blur when someone walks in"
 msgstr "Làm mờ riêng tư khi có người bước vào"
 
-#: rust/crates/effects/src/privacy_blur.rs:434 rust/crates/effects/src/privacy_blur.rs:458 rust/crates/effects/ui/privacy_blur.slint:48 rust/crates/effects/ui/privacy_blur.slint:52
+#: rust/crates/effects/src/privacy_blur.rs:445 rust/crates/effects/src/privacy_blur.rs:469 rust/crates/effects/ui/privacy_blur.slint:48 rust/crates/effects/ui/privacy_blur.slint:52
 msgid "Privacy blur: what happens"
 msgstr "Làm mờ riêng tư: hành động"
 
@@ -2904,7 +2908,7 @@ msgstr "Đỏ/lục lam"
 msgid "Start a second stream to get the 3D picture."
 msgstr "Hãy bắt đầu luồng phát thứ hai để nhận hình ảnh 3D."
 
-#: rust/crates/effects/src/stereo_plugin.rs:737 rust/crates/shell/src/streams.rs:1081
+#: rust/crates/effects/src/stereo_plugin.rs:737 rust/crates/shell/src/streams.rs:1087
 msgid "Waiting"
 msgstr "Đang chờ"
 
@@ -4270,7 +4274,7 @@ msgstr "Không theo kịp"
 msgid "Browser"
 msgstr "Trình duyệt"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:784 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1731 rust/crates/system/ui/updates.slint:166
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:784 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1737 rust/crates/system/ui/updates.slint:166
 msgid "Try again"
 msgstr "Thử lại"
 
@@ -4725,7 +4729,7 @@ msgstr "Đang chờ {source}"
 msgid "{source}, no pairing needed"
 msgstr "{source}, không cần ghép đôi"
 
-#: rust/crates/link/src/plugin.rs:1113 rust/crates/shell/src/streams.rs:1064
+#: rust/crates/link/src/plugin.rs:1113 rust/crates/shell/src/streams.rs:1070
 msgid "Reconnecting"
 msgstr "Đang kết nối lại"
 
@@ -4737,7 +4741,7 @@ msgstr "Đang truyền phát qua USB"
 msgid "Streaming over Wi-Fi"
 msgstr "Đang truyền phát qua Wi-Fi"
 
-#: rust/crates/link/src/plugin.rs:1121 rust/crates/shell/src/streams.rs:1068
+#: rust/crates/link/src/plugin.rs:1121 rust/crates/shell/src/streams.rs:1074
 msgid "Connecting"
 msgstr "Đang kết nối"
 
@@ -5322,54 +5326,54 @@ msgstr "{device} đang đặt ở định dạng điểm ảnh {format} nên Tel
 msgid "Waiting for camera"
 msgstr "Đang chờ camera"
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:505
+#: rust/crates/outputs/src/wait_screen_plugin.rs:507
 msgid "Couldn't use that image"
 msgstr "Không dùng được hình ảnh đó"
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:505
+#: rust/crates/outputs/src/wait_screen_plugin.rs:507
 #, python-brace-format
 msgid "{problem}. The current wait screen is still used."
 msgstr "{problem}. Màn hình chờ hiện tại vẫn được sử dụng."
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:507
+#: rust/crates/outputs/src/wait_screen_plugin.rs:509
 msgid "Couldn't read that image"
 msgstr "Không đọc được hình ảnh đó"
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:507
+#: rust/crates/outputs/src/wait_screen_plugin.rs:509
 msgid "The default screen is showing. Choose another image."
 msgstr "Màn hình mặc định đang hiển thị. Hãy chọn ảnh khác."
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:510
+#: rust/crates/outputs/src/wait_screen_plugin.rs:512
 #, python-brace-format
 msgid "Shown at {size}"
 msgstr "Hiển thị ở {size}"
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:511
+#: rust/crates/outputs/src/wait_screen_plugin.rs:513
 msgid "The size the stream opens the camera at. Still images and GIFs work; transparent parts show the dark background."
 msgstr "Kích thước mà luồng phát mở camera. Hỗ trợ ảnh tĩnh và ảnh GIF; các vùng trong suốt sẽ hiện nền tối."
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:557
+#: rust/crates/outputs/src/wait_screen_plugin.rs:559
 msgid "Choose a wait screen"
 msgstr "Chọn màn hình chờ"
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:559
+#: rust/crates/outputs/src/wait_screen_plugin.rs:561
 #, python-brace-format
 msgid "Images ({formats})"
 msgstr "Ảnh ({formats})"
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:574 rust/crates/outputs/ui/wait_screen.slint:36 rust/crates/outputs/ui/wait_screen.slint:62
+#: rust/crates/outputs/src/wait_screen_plugin.rs:576 rust/crates/outputs/ui/wait_screen.slint:36 rust/crates/outputs/ui/wait_screen.slint:62
 msgid "Wait screen"
 msgstr "Màn hình chờ"
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:575
+#: rust/crates/outputs/src/wait_screen_plugin.rs:577
 msgid "Choose the picture apps see on the virtual camera while nothing is streaming."
 msgstr "Chọn hình ảnh mà các ứng dụng thấy trên camera ảo khi không có gì đang truyền phát."
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:576
+#: rust/crates/outputs/src/wait_screen_plugin.rs:578
 msgid "Without the Wait screen plugin Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
 msgstr "Nếu không có tiện ích bổ sung Màn hình chờ, mục Màn hình chờ sẽ không có trong Cài đặt và giữa các lần truyền phát, các ứng dụng có thể thấy hình ảnh màu đen hoặc không thấy gì cả."
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:674
+#: rust/crates/outputs/src/wait_screen_plugin.rs:679
 msgctxt "search"
 msgid "idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo"
 msgstr "không hoạt động chờ ảnh giữ chỗ hình ảnh gif màn hình đen bị đơ không truyền phát lật gương lật hình nền tùy chỉnh logo idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo"
@@ -7246,11 +7250,11 @@ msgstr "Đang thiết lập thêm camera ảo…"
 msgid "Couldn't add more virtual cameras"
 msgstr "Không thể thêm camera ảo"
 
-#: rust/crates/shell/src/host.rs:697
+#: rust/crates/shell/src/host.rs:700
 msgid "Phone stream required."
 msgstr "Cần có luồng phát từ điện thoại."
 
-#: rust/crates/shell/src/host.rs:703
+#: rust/crates/shell/src/host.rs:706
 msgid "Light format required. Heavy sends whole pictures with no keyframes to work with."
 msgstr "Cần có định dạng Nhẹ. Định dạng Nặng gửi toàn bộ hình ảnh mà không có khung hình khóa (keyframe) để xử lý."
 
@@ -7995,7 +7999,7 @@ msgstr "Telescope không thể xóa: {error}"
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr "Telescope không thể tạo thư mục tiện ích bổ sung: {error}"
 
-#: rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1066
+#: rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1072
 msgid "Live"
 msgstr "Trực tiếp"
 
@@ -8061,56 +8065,56 @@ msgstr "Cài đặt tiện ích bổ sung"
 msgid "Plugins (*.zip)"
 msgstr "Tiện ích bổ sung (*.zip)"
 
-#: rust/crates/shell/src/shell.rs:828
+#: rust/crates/shell/src/shell.rs:832
 #, python-brace-format
 msgid "Couldn't start {plugins}"
 msgid_plural "Couldn't start {plugins}"
 msgstr[0] "Không thể khởi động {plugins}"
 
-#: rust/crates/shell/src/shell.rs:830
+#: rust/crates/shell/src/shell.rs:834
 #, python-brace-format
 msgid "Couldn't start {n} plugin"
 msgid_plural "Couldn't start {n} plugins"
 msgstr[0] "Không thể khởi động {n} tiện ích bổ sung"
 
-#: rust/crates/shell/src/shell.rs:832
+#: rust/crates/shell/src/shell.rs:836
 msgid "Telescope works without the plugin. The Plugins tab in Settings shows what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings shows what went wrong."
 msgstr[0] "Telescope vẫn hoạt động khi không có chúng. Thẻ Tiện ích bổ sung trong Cài đặt hiển thị sự cố đã xảy ra."
 
-#: rust/crates/shell/src/shell.rs:836 rust/crates/shell/src/shell.rs:856
+#: rust/crates/shell/src/shell.rs:840 rust/crates/shell/src/shell.rs:860
 msgid "Plugins…"
 msgstr "Tiện ích bổ sung…"
 
-#: rust/crates/shell/src/shell.rs:850
+#: rust/crates/shell/src/shell.rs:854
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
 msgstr[0] "{plugins} đã bị tắt"
 
-#: rust/crates/shell/src/shell.rs:851
+#: rust/crates/shell/src/shell.rs:855
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "Bạn đã tắt mục này trong phần Tiện ích bổ sung. Để bật lại, hãy mở Tiện ích bổ sung trong Cài đặt và bật lên."
 
-#: rust/crates/shell/src/shell.rs:874
+#: rust/crates/shell/src/shell.rs:878
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "Bản sao của tệp cũ nằm tại {path}."
 
-#: rust/crates/shell/src/shell.rs:876
+#: rust/crates/shell/src/shell.rs:880
 msgid "Your settings couldn't be read"
 msgstr "Không thể đọc cài đặt của bạn"
 
-#: rust/crates/shell/src/shell.rs:877
+#: rust/crates/shell/src/shell.rs:881
 msgid "Telescope started with its defaults and paired phones need pairing again."
 msgstr "Telescope đã khởi động với các giá trị mặc định và các điện thoại đã ghép đôi cần được ghép đôi lại."
 
-#: rust/crates/shell/src/shell.rs:1288
+#: rust/crates/shell/src/shell.rs:1324
 msgid "Telescope - Save failed"
 msgstr "Telescope - Lưu thất bại"
 
-#: rust/crates/shell/src/shell.rs:1289
+#: rust/crates/shell/src/shell.rs:1325
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "Không thể lưu cài đặt. Kiểm tra dung lượng đĩa và quyền truy cập."
 
@@ -8192,7 +8196,7 @@ msgstr "Đang truyền phát ở {size} cho đến khi điện thoại hạ nhi�
 msgid "Open Telescope on it."
 msgstr "Mở Telescope trên thiết bị."
 
-#: rust/crates/shell/src/sources.rs:855 rust/crates/shell/src/streams.rs:1652
+#: rust/crates/shell/src/sources.rs:855 rust/crates/shell/src/streams.rs:1658
 msgid "the device"
 msgstr "thiết bị"
 
@@ -8282,78 +8286,78 @@ msgstr "Hãy dừng các luồng phát đến các camera đó trước"
 msgid "There are none to remove"
 msgstr "Không có mục nào để gỡ bỏ"
 
-#: rust/crates/shell/src/streams.rs:788
+#: rust/crates/shell/src/streams.rs:789
 msgid "No photo was taken while part of the picture is hidden."
 msgstr ""
 
-#: rust/crates/shell/src/streams.rs:798 rust/crates/shell/src/streams.rs:799
+#: rust/crates/shell/src/streams.rs:801 rust/crates/shell/src/streams.rs:802
 msgid "The phone couldn't take the photo."
 msgstr "Điện thoại không thể chụp ảnh."
 
-#: rust/crates/shell/src/streams.rs:830
+#: rust/crates/shell/src/streams.rs:836
 msgid "The phone is already taking a photo."
 msgstr "Điện thoại đang chụp ảnh rồi."
 
-#: rust/crates/shell/src/streams.rs:963
+#: rust/crates/shell/src/streams.rs:969
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "Luồng phát từ {name} đã dừng đột ngột"
 
-#: rust/crates/shell/src/streams.rs:965
+#: rust/crates/shell/src/streams.rs:971
 msgid "The stream stopped unexpectedly"
 msgstr "Luồng phát đã dừng đột ngột"
 
-#: rust/crates/shell/src/streams.rs:967
+#: rust/crates/shell/src/streams.rs:973
 msgid "Copy diagnostics has the details."
 msgstr "Sao chép chẩn đoán có thông tin chi tiết."
 
-#: rust/crates/shell/src/streams.rs:992
+#: rust/crates/shell/src/streams.rs:998
 #, python-brace-format
 msgid "The phone got hot and lowered the frame rate to {fps} fps."
 msgstr "Điện thoại bị nóng và đã giảm tốc độ khung hình xuống {fps} fps."
 
-#: rust/crates/shell/src/streams.rs:994
+#: rust/crates/shell/src/streams.rs:1000
 #, python-brace-format
 msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
 msgstr "Định dạng Linh hoạt đã giảm tốc độ khung hình xuống {fps} fps để theo kịp kết nối chậm."
 
-#: rust/crates/shell/src/streams.rs:996
+#: rust/crates/shell/src/streams.rs:1002
 msgid "The camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr "Camera đang tạo ra ít khung hình hơn yêu cầu. Ánh sáng yếu làm giảm tốc độ khung hình."
 
-#: rust/crates/shell/src/streams.rs:998
+#: rust/crates/shell/src/streams.rs:1004
 msgid "The phone's camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr "Camera của điện thoại đang tạo ra ít khung hình hơn yêu cầu. Ánh sáng yếu làm giảm tốc độ khung hình."
 
-#: rust/crates/shell/src/streams.rs:1078
+#: rust/crates/shell/src/streams.rs:1084
 msgid "Starting"
 msgstr "Đang bắt đầu"
 
 #. under a stream's tile, the virtual camera it goes to
-#: rust/crates/shell/src/streams.rs:1092
+#: rust/crates/shell/src/streams.rs:1098
 #, python-brace-format
 msgid "to {output}"
 msgstr "tới {output}"
 
-#: rust/crates/shell/src/streams.rs:1093
+#: rust/crates/shell/src/streams.rs:1099
 #, python-brace-format
 msgid "Stop streaming {name}"
 msgstr "Dừng truyền phát {name}"
 
-#: rust/crates/shell/src/streams.rs:1473
+#: rust/crates/shell/src/streams.rs:1479
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "Điện thoại đã gửi dữ liệu mà phiên bản này không thể đọc. Hãy cập nhật cả hai ứng dụng lên cùng một phiên bản."
 
-#: rust/crates/shell/src/streams.rs:1555
+#: rust/crates/shell/src/streams.rs:1561
 #, python-brace-format
 msgid "Can't reach {name}"
 msgstr "Không thể kết nối với {name}"
 
-#: rust/crates/shell/src/streams.rs:1639
+#: rust/crates/shell/src/streams.rs:1645
 msgid "Lost the phone - reconnecting"
 msgstr "Mất kết nối với điện thoại - đang kết nối lại"
 
-#: rust/crates/shell/src/streams.rs:1830
+#: rust/crates/shell/src/streams.rs:1836
 msgid "Couldn't reach the device."
 msgstr "Không thể kết nối tới thiết bị."
 
@@ -10192,7 +10196,7 @@ msgstr "Điện thoại mất quá nhiều thời gian để chụp ảnh."
 msgid "Lost the phone while it was taking the photo."
 msgstr "Mất kết nối với điện thoại trong khi đang chụp ảnh."
 
-#: rust/crates/link/src/stills.rs:64
+#: rust/crates/link/src/stills.rs:65
 msgid "This phone can't take photos from Telescope. Update the app on the phone."
 msgstr "Điện thoại này không thể chụp ảnh từ Telescope. Hãy cập nhật ứng dụng trên điện thoại."
 

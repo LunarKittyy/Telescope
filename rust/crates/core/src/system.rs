@@ -159,7 +159,13 @@ pub fn free_space(path: &Path) -> Option<u64> {
         // SAFETY: name is NUL-terminated and outlives the call, and stat is only read after statvfs says it filled it in
         unsafe {
             let mut stat: libc::statvfs = std::mem::zeroed();
-            (libc::statvfs(name.as_ptr(), &mut stat) == 0).then(|| (stat.f_bavail as u64).saturating_mul(stat.f_frsize as u64))
+            if libc::statvfs(name.as_ptr(), &mut stat) != 0 {
+                return None;
+            }
+            // The fields are u64 on some platforms and narrower on others, so the conversion is a no-op only on some
+            #[allow(clippy::useless_conversion)]
+            let (blocks, size) = (u64::from(stat.f_bavail), u64::from(stat.f_frsize));
+            Some(blocks.saturating_mul(size))
         }
     }
     #[cfg(windows)]

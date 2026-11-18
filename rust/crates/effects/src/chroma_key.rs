@@ -212,6 +212,8 @@ pub struct ChromaKeyPlugin {
     /// set_config has no host: the card hears the settings with the next hook that has one.
     pending: bool,
     cached: Option<(TablesKey, Arc<Tables>)>,
+    /// What the host was last told with set_hiding: None until it has been.
+    told_hiding: Option<bool>,
 }
 
 impl Default for ChromaKeyPlugin {
@@ -255,6 +257,7 @@ impl ChromaKeyPlugin {
             asked: None,
             pending: true,
             cached: None,
+            told_hiding: None,
         }
     }
 
@@ -324,7 +327,17 @@ impl ChromaKeyPlugin {
         self.status.as_ref().map(|s| s.0.clone()).unwrap_or_default()
     }
 
+    /// Tells the host when the screen starts or stops being keyed out, without waiting for the stream's steps to be made again.
+    fn report_hiding(&mut self, host: &mut dyn Host) {
+        let hiding = self.on && !self.picking && self.key_colour().is_some();
+        if self.told_hiding != Some(hiding) {
+            self.told_hiding = Some(hiding);
+            host.set_hiding(NAME, None, hiding);
+        }
+    }
+
     fn show(&mut self, host: &mut dyn Host) {
+        self.report_hiding(host);
         let mut props = self.all_props();
         props["status"] = json!(self.status_text());
         host.set_ui_props("card", &props);
@@ -584,6 +597,7 @@ impl Plugin for ChromaKeyPlugin {
                     if picking {
                         *self.last.lock().unwrap() = None;
                     }
+                    self.report_hiding(host);
                     host.refresh_frame_step();
                 }
             }
