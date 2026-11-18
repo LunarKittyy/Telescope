@@ -227,6 +227,10 @@ pub trait Plugin: Send {
     fn set_config(&mut self, _cfg: &Value) -> Result<(), ConfigRejected> {
         Ok(())
     }
+    /// What a preset saves of this plugin: its get_config() unless some of that is not for presets (content people made, like saved layouts).
+    fn preset_config(&self) -> Value {
+        self.get_config()
+    }
     /// Load settings from a preset; plugins that drive the phone also send them while streaming.
     fn apply_preset(&mut self, _host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
         self.set_config(cfg)
