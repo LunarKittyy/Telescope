@@ -1372,6 +1372,15 @@ impl Plugin for SetupPlugin {
         vec![("Decoding".into(), self.decoding())]
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        vec![
+            SettingSpec::switch("limiter", "Whether the microphone's limiter keeps loud sounds from clipping", true),
+            SettingSpec::switch("power_saving", "Whether Background and Auto framing use less processor and battery", false),
+            SettingSpec::switch("plugin_hues", "Whether every card in the main window has its own colour", true),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         let mut cfg = json!({
             "canvas_preset": self.canvas_preset,

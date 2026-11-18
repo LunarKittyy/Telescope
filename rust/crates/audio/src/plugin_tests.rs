@@ -940,6 +940,11 @@ fn reset_puts_the_sound_settings_back_and_keeps_the_switch_and_mute() {
 }
 
 #[test]
+fn the_declared_settings_round_trip() {
+    telescope_core::testing::settings_round_trip(&mut MicrophonePlugin::new(backend(), None), &mut telescope_core::testing::FakeHost::new());
+}
+
+#[test]
 fn a_preset_brings_back_the_sound_settings_and_leaves_the_microphone_switch_alone() {
     let info = Rig::new(backend()).p.info();
     assert!(info.in_presets && info.device_local);

@@ -1660,3 +1660,8 @@ fn reset_puts_the_settings_back_and_keeps_the_switch() {
     assert!(rig.host.calls.iter().rev().find_map(|c| c.strip_prefix("set_ui_props card ").filter(|j| j.contains("reset-shown"))).is_some_and(|j| j.contains("\"reset-shown\":false")));
     assert!(rig.host.calls.iter().any(|c| c == "schedule_save"));
 }
+
+#[test]
+fn the_declared_settings_round_trip() {
+    telescope_core::testing::settings_round_trip(&mut FramingPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+}

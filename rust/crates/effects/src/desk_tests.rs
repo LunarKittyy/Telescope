@@ -350,3 +350,8 @@ fn a_frame_too_small_to_hold_a_sheet_passes_through() {
         assert!(f.data.iter().all(|&b| b == 9));
     }
 }
+
+#[test]
+fn the_declared_settings_round_trip() {
+    telescope_core::testing::settings_round_trip(&mut DeskPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+}

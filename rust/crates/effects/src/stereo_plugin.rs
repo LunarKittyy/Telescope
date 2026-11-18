@@ -1339,6 +1339,21 @@ impl Plugin for StereoPlugin {
         Some(FrameStep::Cpu(Box::new(StereoStep(self.shared.clone()))))
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        use crate::stereo_match::{SIZE_MAX, SIZE_MIN};
+        vec![
+            SettingSpec::switch("on", "Whether two streams are put into one 3D picture", false),
+            SettingSpec::choice("look", "How the 3D picture is laid out", &[("side_by_side", "Side by side, for a headset or a 3D screen"), ("red_cyan", "Red and cyan, for glasses")], "side_by_side"),
+            SettingSpec::number("depth", "Slides the two pictures apart or together to change how far forward the 3D reaches", -SHIFT_LIMIT, SHIFT_LIMIT, 1, 0.0),
+            SettingSpec::number("height", "Lifts or lowers the right picture", -SHIFT_LIMIT, SHIFT_LIMIT, 1, 0.0),
+            SettingSpec::number("size", "Zooms the right picture over 100 or the left one under it", SIZE_MIN, SIZE_MAX, 1, 100.0).unit("%"),
+            SettingSpec::number("tilt", "Rolls the right picture", -TILT_LIMIT, TILT_LIMIT, 1, 0.0),
+            SettingSpec::number("timing", "Moves the right picture earlier or later in time", -TIMING_LIMIT_MS, TIMING_LIMIT_MS, 0, 0.0).unit("ms"),
+            SettingSpec::switch("swap", "Swaps which phone is the left eye", false),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         json!({
             "on": self.on, "look": self.look.name(), "depth": self.depth, "height": self.height, "size": self.size_percent, "tilt": self.tilt,

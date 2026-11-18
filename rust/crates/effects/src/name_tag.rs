@@ -260,6 +260,20 @@ impl Plugin for NameTagPlugin {
         self.shows().then(|| FrameStep::Cpu(Box::new(self.step())))
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        use crate::tag::{DEFAULT_POSITION, DEFAULT_SIZE, DEFAULT_STYLE};
+        let styles = [("bar", "A solid bar behind the name"), ("pill", "A rounded pill behind the name"), ("light", "Plain light text"), ("shadow", "Text with a drop shadow")];
+        let positions = [("bottom_left", "Bottom left corner"), ("bottom_centre", "Bottom middle"), ("bottom_right", "Bottom right corner"), ("top_left", "Top left corner"), ("top_right", "Top right corner")];
+        let sizes = [("small", "Small text"), ("medium", "Medium text"), ("large", "Large text")];
+        vec![
+            SettingSpec::switch("on", "Whether the name tag is shown on the picture", false),
+            SettingSpec::choice("style", "How the tag looks", &styles, DEFAULT_STYLE),
+            SettingSpec::choice("position", "Where the tag sits on the picture", &positions, DEFAULT_POSITION),
+            SettingSpec::choice("size", "How big the tag is", &sizes, DEFAULT_SIZE),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         json!({
             "on": self.on, "name": self.spec.name, "pronouns": self.spec.pronouns, "second": self.spec.second,

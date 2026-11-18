@@ -1200,6 +1200,10 @@ impl Plugin for ShortcutsPlugin {
         self.release_app_keys(host, None, 0);
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        vec![telescope_core::settings::SettingSpec::switch("notify", "Whether a notification shows when a keyboard shortcut does something while the window is hidden", false)]
+    }
+
     fn get_config(&self) -> Value {
         json!({"bindings": self.bindings.iter().map(Binding::to_json).collect::<Vec<_>>(), "notify": self.notify})
     }
@@ -2404,5 +2408,10 @@ mod tests {
         assert_eq!(launched.lock().unwrap().len(), 2);
         plugin.launch = Box::new(|_| false);
         assert!(!plugin.open_system_settings(&mut host));
+    }
+
+    #[test]
+    fn the_declared_settings_round_trip() {
+        telescope_core::testing::settings_round_trip(&mut ShortcutsPlugin::new(RemoteActions::default()), &mut FakeHost::default());
     }
 }

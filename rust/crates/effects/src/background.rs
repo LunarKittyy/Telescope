@@ -810,6 +810,15 @@ impl Plugin for BackgroundPlugin {
         Some(if blur { FrameStep::Either(card_blur(self.blur), step) } else { FrameStep::Cpu(step) })
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        vec![
+            SettingSpec::choice("mode", "What goes behind you", &[("off", "Nothing, the picture as it is"), ("blur", "The room blurred"), ("picture", "The picture chosen on the card")], "off"),
+            SettingSpec::number("blur", "How blurred the room is in blur mode", 1.0, 10.0, 0, DEFAULT_BLUR as f64),
+            SettingSpec::number("edges", "How soft the edge around you is", 0.0, 10.0, 0, DEFAULT_EDGES as f64),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         let mut cfg = Map::new();
         cfg.insert("mode".into(), json!(self.mode_name()));

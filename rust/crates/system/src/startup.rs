@@ -641,6 +641,15 @@ impl Plugin for StartupPlugin {
         ]
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        let choices = |list: &[(&'static str, &'static str)]| -> Vec<(&'static str, &'static str)> { list.to_vec() };
+        vec![
+            SettingSpec::choice("stop_idle", "When the stream stops by itself", &choices(&STOP_CHOICES), STOP_DEFAULT),
+            SettingSpec::switch("notify_stop", "Whether a notification shows when the stream stops by itself", true),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         json!({"start_on": self.start_on, "stop_idle": self.stop_idle, "stop_delay_s": self.stop_delay_s, "notify_stop": self.notify_stop})
     }
