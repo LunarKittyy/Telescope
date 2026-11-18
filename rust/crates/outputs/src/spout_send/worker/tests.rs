@@ -9,6 +9,9 @@ pub struct Log {
     pub closed: AtomicUsize,
     pub fail_open: AtomicBool,
     pub fail_send: AtomicBool,
+    pub resizable: AtomicBool,
+    pub resized: Mutex<Vec<(u32, u32)>>,
+    pub panic_open: AtomicBool,
 }
 
 pub struct Mock(pub Arc<Log>);
@@ -17,6 +20,9 @@ struct MockSender(Arc<Log>);
 
 impl Backend for Mock {
     fn open(&self, name: &str, width: u32, height: u32) -> Result<Box<dyn Sender>, String> {
+        if self.0.panic_open.load(Ordering::SeqCst) {
+            panic!("a backend that broke");
+        }
         if self.0.fail_open.load(Ordering::SeqCst) {
             return Err("no room".into());
         }
@@ -26,6 +32,13 @@ impl Backend for Mock {
 }
 
 impl Sender for MockSender {
+    fn resize(&mut self, width: u32, height: u32) -> Result<bool, String> {
+        if self.0.resizable.load(Ordering::SeqCst) {
+            self.0.resized.lock().unwrap().push((width, height));
+        }
+        Ok(self.0.resizable.load(Ordering::SeqCst))
+    }
+
     fn send(&mut self, bgra: &[u8]) -> Result<(), String> {
         if self.0.fail_send.load(Ordering::SeqCst) {
             return Err("gone".into());
@@ -54,9 +67,13 @@ pub fn wait_for(what: &str, mut ok: impl FnMut() -> bool) {
 }
 
 fn spawn(log: &Arc<Log>, idle: Duration) -> (Worker, Arc<Mutex<Vec<State>>>) {
+    spawn_keeping(log, idle, false)
+}
+
+fn spawn_keeping(log: &Arc<Log>, idle: Duration, keep: bool) -> (Worker, Arc<Mutex<Vec<State>>>) {
     let told = Arc::new(Mutex::new(Vec::new()));
     let t = told.clone();
-    let worker = Worker::spawn("Telescope - Pixel".into(), Arc::new(Mock(log.clone())), Arc::new(move |s| t.lock().unwrap().push(s)), idle, Duration::from_millis(20)).unwrap();
+    let worker = Worker::spawn("Telescope - Pixel".into(), Arc::new(Mock(log.clone())), Arc::new(move |s| t.lock().unwrap().push(s)), idle, Duration::from_millis(20), keep).unwrap();
     (worker, told)
 }
 
@@ -99,7 +116,7 @@ fn a_sender_that_wont_open_says_why_and_tries_again_with_the_next_picture() {
     log.fail_open.store(true, Ordering::SeqCst);
     let (worker, told) = spawn(&log, Duration::from_secs(5));
     worker.put(picture(2, 2, 1));
-    wait_for("the failure", || told.lock().unwrap().contains(&State::Failed("no room".into())));
+    wait_for("the failure", || told.lock().unwrap().contains(&State::Failed(Problem::Open)));
     log.fail_open.store(false, Ordering::SeqCst);
     wait_for("a retry", || {
         worker.put(picture(2, 2, 1));
@@ -115,7 +132,7 @@ fn a_send_that_fails_closes_the_sender_and_a_later_picture_opens_another() {
     wait_for("the first", || log.sent.lock().unwrap().len() == 1);
     log.fail_send.store(true, Ordering::SeqCst);
     worker.put(picture(2, 2, 2));
-    wait_for("the failure", || told.lock().unwrap().contains(&State::Failed("gone".into())));
+    wait_for("the failure", || told.lock().unwrap().contains(&State::Failed(Problem::Send)));
     log.fail_send.store(false, Ordering::SeqCst);
     wait_for("a new sender", || {
         worker.put(picture(2, 2, 3));
@@ -131,4 +148,42 @@ fn dropping_the_worker_closes_its_sender() {
     wait_for("the picture", || !log.sent.lock().unwrap().is_empty());
     drop(worker);
     assert_eq!(log.closed.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn a_sender_that_can_change_size_keeps_its_place() {
+    let log = Arc::new(Log::default());
+    log.resizable.store(true, Ordering::SeqCst);
+    let (worker, _) = spawn(&log, Duration::from_secs(5));
+    worker.put(picture(2, 2, 1));
+    wait_for("the first", || log.sent.lock().unwrap().len() == 1);
+    worker.put(picture(4, 2, 2));
+    wait_for("the second", || log.sent.lock().unwrap().len() == 2);
+    assert_eq!(*log.resized.lock().unwrap(), [(4, 2)]);
+    assert_eq!(log.opened.lock().unwrap().len(), 1, "no new sender");
+    assert_eq!(log.closed.load(Ordering::SeqCst), 0);
+    assert_eq!(log.sent.lock().unwrap()[1].len(), 4 * 2 * 4);
+}
+
+#[test]
+fn a_kept_sender_stays_through_a_pause_and_says_idle() {
+    let log = Arc::new(Log::default());
+    let (worker, told) = spawn_keeping(&log, Duration::from_millis(40), true);
+    worker.put(picture(2, 2, 1));
+    wait_for("the picture", || !log.sent.lock().unwrap().is_empty());
+    wait_for("idle", || told.lock().unwrap().last() == Some(&State::Idle));
+    assert!(worker.alive());
+    assert_eq!(log.closed.load(Ordering::SeqCst), 0);
+    worker.put(picture(2, 2, 2));
+    wait_for("the next picture", || log.sent.lock().unwrap().len() == 2);
+    assert_eq!(log.opened.lock().unwrap().len(), 1);
+}
+
+#[test]
+fn a_thread_that_panics_is_no_longer_alive() {
+    let log = Arc::new(Log::default());
+    log.panic_open.store(true, Ordering::SeqCst);
+    let (worker, _) = spawn(&log, Duration::from_secs(5));
+    worker.put(picture(2, 2, 1));
+    wait_for("the thread to end", || !worker.alive());
 }

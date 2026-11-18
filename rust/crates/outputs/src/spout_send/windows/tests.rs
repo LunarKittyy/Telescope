@@ -3,7 +3,9 @@
 use super::*;
 use crate::spout_shared::poll::Deadline;
 use crate::spout_shared::win::testing::noise;
-use crate::spout_shared::win::{open_shared_texture, sender_info, sender_names, FrameCounter, Info};
+use crate::spout_shared::protocol::{parse_names, ACTIVE_MAP, NAME_LEN};
+use crate::spout_shared::win::sender::StaleList;
+use crate::spout_shared::win::{open_shared_texture, sender_info, sender_names, FrameCounter, Info, SharedMemory};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -115,4 +117,61 @@ fn the_list_refuses_an_eleventh_sender_and_closes_the_gap_when_one_leaves() {
     if opened > 1 {
         assert!(listed.contains(&names[1]));
     }
+}
+
+/// The name receivers take as the active sender, empty when there is none.
+fn active_name() -> String {
+    let Some(memory) = SharedMemory::open(ACTIVE_MAP) else { return String::new() };
+    parse_names(&memory.read(NAME_LEN).expect("the active name")).into_iter().next().unwrap_or_default()
+}
+
+#[test]
+fn a_name_left_in_the_list_by_a_program_that_ended_is_taken_over_once() {
+    let _turn = turn();
+    let name = "Telescope test stale";
+    let _stale = StaleList::with(name);
+    assert!(sender_names().expect("the list").contains(&name.to_string()));
+    let sender = backend().open(name, 16, 16).expect("a sender over the stale name");
+    assert_eq!(sender_names().expect("the list").iter().filter(|n| *n == name).count(), 1);
+    drop(sender);
+    assert!(!sender_names().expect("the list").contains(&name.to_string()));
+}
+
+#[test]
+fn a_sender_resized_keeps_its_name_and_counter_and_shows_the_new_picture() {
+    let _turn = turn();
+    let name = "Telescope test resize";
+    let mut sender = backend().open(name, 16, 8).expect("a sender");
+    let counter = FrameCounter::open(name).expect("a frame counter");
+    sender.send(&[10u8; 16 * 8 * 4]).expect("sending");
+    // A receiver holding the info mapping, as OBS does, must not stop the resize
+    let held = SharedMemory::open(name).expect("the info mapping");
+    assert_eq!(sender.resize(32, 24), Ok(true));
+    assert_eq!(sender.resize(32, 24), Ok(true));
+    let mut picture = noise(32 * 24 * 4, 3);
+    for pixel in picture.chunks_mut(4) {
+        pixel[3] = 255;
+    }
+    sender.send(&picture).expect("sending after the resize");
+    let (width, height, format, pixels) = read_back(name);
+    assert_eq!((width, height, format), (32, 24, 87));
+    assert_eq!(pixels, picture);
+    assert_eq!(counter.read(), Some(2));
+    assert_eq!(sender_names().expect("the list").iter().filter(|n| *n == name).count(), 1);
+    assert!(sender.send(&[0u8; 16 * 8 * 4]).is_err());
+    drop(held);
+}
+
+#[test]
+fn the_first_sender_is_the_active_one_and_leaves_no_name_behind() {
+    let _turn = turn();
+    let (first, second) = ("Telescope test active 1", "Telescope test active 2");
+    let one = backend().open(first, 8, 8).expect("a sender");
+    assert_eq!(active_name(), first);
+    let two = backend().open(second, 8, 8).expect("another sender");
+    assert_eq!(active_name(), first);
+    drop(two);
+    assert_eq!(active_name(), first);
+    drop(one);
+    assert_eq!(active_name(), "");
 }

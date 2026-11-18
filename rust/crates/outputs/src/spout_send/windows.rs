@@ -22,6 +22,10 @@ impl Sender for SpoutSender {
     fn send(&mut self, bgra: &[u8]) -> Result<(), String> {
         self.0.send(bgra)
     }
+
+    fn resize(&mut self, width: u32, height: u32) -> Result<bool, String> {
+        self.0.resize(width, height).map(|()| true)
+    }
 }
 
 #[cfg(test)]

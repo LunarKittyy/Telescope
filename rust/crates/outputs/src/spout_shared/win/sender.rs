@@ -1,11 +1,11 @@
 //! A Spout sender's half of Spout2 on Windows: a shareable texture on a device of ours, the file mapping that tells receivers about it, the entry in the sender list, the
 //! mutex that keeps receivers from reading mid-write and the frame counter. Gone from the list and closed when dropped.
 //!
-//! What this leaves out against Spout2's own sender (2.007, from memory): it doesn't make the "ActiveSenderName" mapping, so Spout's "use the active sender" receivers
-//! won't pick it, and it never asks whether the texture is shared with a keyed mutex (it isn't, the named access mutex is used).
+//! What this leaves out against Spout2's own sender (2.007, from memory): it never asks whether the texture is shared with a keyed mutex (it isn't, the named access
+//! mutex is used), and a sender that is the active one when it ends leaves the active name empty rather than handing it to another sender.
 
 use super::super::protocol::{self, SharedTextureInfo};
-use super::{got, wide, Gpu, Owned, LOCK_WAIT_MS};
+use super::{got, wide, Gpu, Owned, SharedMemory, LOCK_WAIT_MS};
 use ::windows::core::{Interface, PCWSTR};
 use ::windows::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS, HANDLE, INVALID_HANDLE_VALUE};
 use ::windows::Win32::Graphics::Direct3D11::{
@@ -102,10 +102,11 @@ pub struct TextureSender {
     height: u32,
     name: String,
     list: Mapping,
-    _info: Mapping,
+    info: Mapping,
     access: Owned,
     count: Owned,
     listed: bool,
+    active: Option<Mapping>,
 }
 
 // SAFETY: moved between threads whole and used by one at a time, as the device it belongs to is
@@ -120,31 +121,76 @@ impl TextureSender {
         if width == 0 || height == 0 {
             return Err("the picture has no size".into());
         }
+        // The sender's own mapping first: one that is there already belongs to a running sender (or one a receiver still holds) of that name
+        let mut info = Mapping::create(name, SharedTextureInfo::SIZE)?;
+        if info.existed {
+            return Err(format!("a sender called {name} is already running"));
+        }
         let gpu = Gpu::new(None)?;
         let texture = make_shared_texture(&gpu, width, height)?;
-        let handle = share_handle(&texture)?;
         let access = mutex_named(&protocol::access_mutex(name))?;
         let count_name = wide(&protocol::count_semaphore(name));
         // The count starts at 1 so receivers read 0 until a first frame, as Spout's own counter does
         // SAFETY: NUL-terminated name that outlives the call
         let count = unsafe { CreateSemaphoreW(None, 1, i32::MAX, PCWSTR(count_name.as_ptr())) }.map(Owned).map_err(|e| format!("making the frame counter: {e}"))?;
-        let mut info = Mapping::create(name, SharedTextureInfo::SIZE)?;
-        if info.existed {
-            return Err(format!("a sender called {name} is already running"));
-        }
-        let mut description = [0u8; 256];
-        let program = std::env::current_exe().ok().and_then(|p| p.to_str().map(str::to_string)).unwrap_or_else(|| "Telescope".to_string());
-        let mut end = program.len().min(255);
-        while !program.is_char_boundary(end) {
-            end -= 1;
-        }
-        description[..end].copy_from_slice(&program.as_bytes()[..end]);
-        let bytes = SharedTextureInfo { share_handle: handle, width, height, format: FORMAT, usage: 0, description, partner_id: 0 }.to_bytes();
-        info.locked(|memory| memory[..bytes.len()].copy_from_slice(&bytes)).ok_or("the sender's own memory is locked")?;
+        write_info(&mut info, &texture, width, height)?;
         let list = Mapping::create(protocol::NAMES_MAP, LIST_CAPACITY * protocol::NAME_LEN)?;
-        let mut sender = TextureSender { gpu, texture, width, height, name: name.to_string(), list, _info: info, access, count, listed: false };
+        let active = Mapping::create(protocol::ACTIVE_MAP, protocol::NAME_LEN).ok();
+        let mut sender = TextureSender { gpu, texture, width, height, name: name.to_string(), list, info, access, count, listed: false, active };
         sender.list_name()?;
+        sender.claim_active();
         Ok(sender)
+    }
+
+    /// Makes this the active sender when none is, or the one named is gone.
+    fn claim_active(&mut self) {
+        let name = self.name.clone();
+        let Some(active) = self.active.as_mut() else { return };
+        let _ = active.locked(|memory| {
+            let held = &memory[..protocol::NAME_LEN];
+            let current = String::from_utf8_lossy(&held[..held.iter().position(|b| *b == 0).unwrap_or(held.len())]).into_owned();
+            // A name whose sender has no mapping any more is a leftover
+            if current.is_empty() || SharedMemory::open(&current).is_none() {
+                memory[..protocol::NAME_LEN].fill(0);
+                memory[..name.len()].copy_from_slice(name.as_bytes());
+            }
+        });
+    }
+
+    /// Empties the active name when it is this sender's.
+    fn release_active(&mut self) {
+        let name = self.name.clone();
+        let Some(active) = self.active.as_mut() else { return };
+        let _ = active.locked(|memory| {
+            if protocol::parse_names(&memory[..protocol::NAME_LEN]).first() == Some(&name) {
+                memory[..protocol::NAME_LEN].fill(0);
+            }
+        });
+    }
+
+    /// Shares pictures of another size from now on under the same name, mapping and counter: a new texture and its handle go into the existing info.
+    pub fn resize(&mut self, width: u32, height: u32) -> Result<(), String> {
+        if width == 0 || height == 0 {
+            return Err("the picture has no size".into());
+        }
+        if (width, height) == (self.width, self.height) {
+            return Ok(());
+        }
+        let texture = make_shared_texture(&self.gpu, width, height)?;
+        // Receivers are held off while the info and the texture change together
+        if !got(self.access.0, LOCK_WAIT_MS) {
+            return Err("a receiver is holding the picture".into());
+        }
+        let written = write_info(&mut self.info, &texture, width, height);
+        if written.is_ok() {
+            self.texture = texture;
+            (self.width, self.height) = (width, height);
+        }
+        // SAFETY: this thread got the mutex above
+        unsafe {
+            let _ = ReleaseMutex(self.access.0);
+        }
+        written
     }
 
     /// Adds the name to the sender list.
@@ -155,8 +201,9 @@ impl TextureSender {
                 // Spout's default of ten, though the mapping is a page long, so no sender takes a place a program with the default would not have
                 let slots = LIST_CAPACITY.min(memory.len() / protocol::NAME_LEN);
                 let names = protocol::parse_names(memory);
+                // A name listed with no sender behind it (its program ended before taking it off) is ours to take over
                 if names.contains(&name) {
-                    return Err(format!("a sender called {name} is already listed"));
+                    return Ok(());
                 }
                 if names.len() >= slots {
                     return Err("Spout's list of senders is full".to_string());
@@ -218,6 +265,7 @@ impl TextureSender {
 impl Drop for TextureSender {
     fn drop(&mut self) {
         if self.listed {
+            self.release_active();
             self.unlist_name();
         }
     }
@@ -248,4 +296,37 @@ fn share_handle(texture: &ID3D11Texture2D) -> Result<u32, String> {
     // SAFETY: plain COM calls on a live texture
     let handle: HANDLE = unsafe { texture.cast::<IDXGIResource>().and_then(|r| r.GetSharedHandle()) }.map_err(|e| format!("sharing the texture: {e}"))?;
     Ok(handle.0 as usize as u32)
+}
+
+/// Writes what receivers read about the texture into the sender's info mapping.
+fn write_info(info: &mut Mapping, texture: &ID3D11Texture2D, width: u32, height: u32) -> Result<(), String> {
+    let mut description = [0u8; 256];
+    let program = std::env::current_exe().ok().and_then(|p| p.to_str().map(str::to_string)).unwrap_or_else(|| "Telescope".to_string());
+    let mut end = program.len().min(255);
+    while !program.is_char_boundary(end) {
+        end -= 1;
+    }
+    description[..end].copy_from_slice(&program.as_bytes()[..end]);
+    let bytes = SharedTextureInfo { share_handle: share_handle(texture)?, width, height, format: FORMAT, usage: 0, description, partner_id: 0 }.to_bytes();
+    info.locked(|memory| memory[..bytes.len()].copy_from_slice(&bytes)).ok_or_else(|| "the sender's own memory is locked".to_string())
+}
+
+/// Holds the sender list open with a name in it that no sender backs, as a program that ended without taking its name off leaves it.
+#[cfg(test)]
+pub struct StaleList {
+    _list: Mapping,
+}
+
+#[cfg(test)]
+impl StaleList {
+    pub fn with(name: &str) -> StaleList {
+        let mut list = Mapping::create(protocol::NAMES_MAP, LIST_CAPACITY * protocol::NAME_LEN).expect("the sender list");
+        let name = name.to_string();
+        list.locked(|memory| {
+            let at = protocol::parse_names(memory).len() * protocol::NAME_LEN;
+            memory[at..at + name.len()].copy_from_slice(name.as_bytes());
+        })
+        .expect("the list's lock");
+        StaleList { _list: list }
+    }
 }

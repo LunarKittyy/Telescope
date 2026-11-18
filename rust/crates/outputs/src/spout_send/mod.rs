@@ -22,7 +22,7 @@ use telescope_core::host::Host;
 use telescope_core::i18n::{n_, tr, Fields};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::ui::{CardSpec, SlintSource, UiEvent, UiSpec};
-use worker::{State, Worker};
+use worker::{Problem, State, Worker};
 
 pub const NAME: &str = "spout_send";
 const UI: &str = include_str!("../../ui/spout_send.slint");
@@ -38,10 +38,18 @@ const NAME_BYTES: usize = 255;
 pub trait Backend: Send + Sync {
     /// A sender called `name` for pictures of this size. Err says why not.
     fn open(&self, name: &str, width: u32, height: u32) -> Result<Box<dyn Sender>, String>;
+    /// Whether a sender stays up while no pictures come (a program that bound to it would lose it otherwise), instead of going a few seconds after they stop.
+    fn keeps_idle_senders(&self) -> bool {
+        false
+    }
 }
 
 /// One open sender, gone when dropped.
 pub trait Sender: Send {
+    /// Changes the size the sender takes where it is, so whoever reads it stays connected. Ok(false) when it can't and has to be made again.
+    fn resize(&mut self, _width: u32, _height: u32) -> Result<bool, String> {
+        Ok(false)
+    }
     /// The next picture, B, G, R, A per pixel, top row first, at the size the sender was opened with.
     fn send(&mut self, bgra: &[u8]) -> Result<(), String>;
 }
@@ -121,7 +129,8 @@ impl Shared {
             let tell: Arc<dyn Fn(State) + Send + Sync> = Arc::new(move |state| {
                 states.lock().unwrap_or_else(|e| e.into_inner()).insert(id.clone(), state);
             });
-            entry.worker = Worker::spawn(entry.name.clone(), backend, tell, self.idle, self.retry);
+            let keep = backend.keeps_idle_senders();
+            entry.worker = Worker::spawn(entry.name.clone(), backend, tell, self.idle, self.retry, keep);
         }
         if let Some(worker) = &entry.worker {
             worker.put(frame.clone());
@@ -206,7 +215,11 @@ impl SpoutSendPlugin {
             (Some(_), None) => ("status_dim", String::new()),
             (Some(_), Some(entry)) => match self.shared.state(&self.shown) {
                 State::Sending(w, h) => ("status_ok", tr("Sharing {size} as {name}").field("size", format!("{w} × {h}")).field("name", &entry.name)),
-                State::Failed(why) => ("status_warn", why),
+                State::Failed(problem) => ("status_warn", tr(match problem {
+                    Problem::Open => n_("The sender couldn't be started. It tries again with the next picture."),
+                    Problem::Send => n_("The sender stopped. It tries again with the next picture."),
+                    Problem::Format => n_("This picture can't be shared."),
+                })),
                 State::Idle => ("status_dim", tr("Shares as {name} while this stream runs").field("name", &entry.name)),
             },
         };

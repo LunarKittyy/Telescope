@@ -4,15 +4,29 @@
 use super::ffi::{PwBuffer, SPA_DATA_MEM_FD};
 use super::pod::{self, Choice, ObjectPod, Pod, Prop, Scalar, Value};
 use super::{Connection, Stream, StreamConfig, StreamHandler, StreamRef, VideoFormat, PW_DIRECTION_OUTPUT, PW_STREAM_FLAG_DRIVER, SPA_ID_INVALID};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
 const PW_STREAM_FLAG_MAP_BUFFERS: u32 = 4;
 
 /// The picture the next cycle puts in a buffer, and the size every one has.
 struct Latest {
-    width: u32,
-    height: u32,
+    width: AtomicU32,
+    height: AtomicU32,
+    /// The size the stream has settled on with whoever reads it, 0 x 0 while it renegotiates after a resize.
+    ready_width: AtomicU32,
+    ready_height: AtomicU32,
     bytes: Mutex<Vec<u8>>,
+}
+
+impl Latest {
+    fn size(&self) -> (u32, u32) {
+        (self.width.load(Ordering::SeqCst), self.height.load(Ordering::SeqCst))
+    }
+
+    fn settled(&self) -> bool {
+        (self.ready_width.load(Ordering::SeqCst), self.ready_height.load(Ordering::SeqCst)) == self.size()
+    }
 }
 
 fn enum_format(width: u32, height: u32) -> Pod {
@@ -43,12 +57,25 @@ struct Producer(Arc<Latest>);
 
 impl StreamHandler for Producer {
     fn param_changed(&mut self, stream: &StreamRef, id: u32, format: Option<ObjectPod>) {
-        if id == pod::PARAM_FORMAT && format.is_some() {
-            stream.update_params(&[buffers(self.0.width, self.0.height)]);
+        if id != pod::PARAM_FORMAT {
+            return;
+        }
+        if format.is_some() {
+            let (w, h) = self.0.size();
+            stream.update_params(&[buffers(w, h)]);
+            self.0.ready_width.store(w, Ordering::SeqCst);
+            self.0.ready_height.store(h, Ordering::SeqCst);
+        } else {
+            self.0.ready_width.store(0, Ordering::SeqCst);
+            self.0.ready_height.store(0, Ordering::SeqCst);
         }
     }
 
     fn process(&mut self, stream: &StreamRef) {
+        // Between a resize and the reader settling on the new size, a buffer would be filled for a size it doesn't have yet
+        if !self.0.settled() {
+            return;
+        }
         let buffer = stream.dequeue();
         if buffer.is_null() {
             return;
@@ -63,8 +90,9 @@ impl StreamHandler for Producer {
 
 /// Writes the latest picture into a buffer's memory, as much of it as the buffer holds.
 fn fill(buffer: *mut PwBuffer, latest: &Latest) {
-    let stride = latest.width as usize * 4;
-    let wanted = stride * latest.height as usize;
+    let (width, height) = latest.size();
+    let stride = width as usize * 4;
+    let wanted = stride * height as usize;
     // SAFETY: the buffer is the stream's own with one mapped data (MAP_BUFFERS), valid until it is queued
     unsafe {
         let data = &mut *(*(*buffer).buffer).datas;
@@ -84,6 +112,7 @@ fn fill(buffer: *mut PwBuffer, latest: &Latest) {
 
 /// A video source in PipeWire's graph, gone when dropped.
 pub struct VideoSender {
+    connection: Arc<Connection>,
     stream: Stream,
     latest: Arc<Latest>,
 }
@@ -91,18 +120,32 @@ pub struct VideoSender {
 impl VideoSender {
     /// A source called `description` (its node is "telescope-" and the sanitised name) for BGRA pictures of this size.
     pub fn open(connection: &Arc<Connection>, description: &str, width: u32, height: u32) -> Result<VideoSender, String> {
-        let node: String = description.chars().map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '-' }).collect();
-        let node = format!("telescope-{node}");
+        let readable: String = description.chars().map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '-' }).collect();
+        // Names that differ only in letters a node name can't hold (accents, other scripts) still get different nodes
+        let hash = description.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3));
+        let node = format!("telescope-{readable}-{:08x}", hash >> 32);
         let props = [("media.class", "Video/Source"), ("node.name", node.as_str()), ("node.description", description), ("media.role", "Camera")];
-        let latest = Arc::new(Latest { width, height, bytes: Mutex::new(Vec::new()) });
+        let latest = Arc::new(Latest { width: AtomicU32::new(width), height: AtomicU32::new(height), ready_width: AtomicU32::new(0), ready_height: AtomicU32::new(0), bytes: Mutex::new(Vec::new()) });
         let config = StreamConfig { name: description, props: &props, direction: PW_DIRECTION_OUTPUT, target: SPA_ID_INVALID, flags: PW_STREAM_FLAG_DRIVER | PW_STREAM_FLAG_MAP_BUFFERS };
         let stream = Stream::connect(connection, &config, &[enum_format(width, height)], Box::new(Producer(latest.clone())))?;
-        Ok(VideoSender { stream, latest })
+        Ok(VideoSender { connection: connection.clone(), stream, latest })
+    }
+
+    /// Offers the same source at another size, which whoever reads it renegotiates, so the node and its id stay.
+    pub fn resize(&self, width: u32, height: u32) {
+        self.latest.width.store(width, Ordering::SeqCst);
+        self.latest.height.store(height, Ordering::SeqCst);
+        self.latest.bytes.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        self.stream.locked(|stream| stream.update_params(&[enum_format(width, height)]));
     }
 
     /// The next picture, `width * height * 4` bytes: it goes out on the cycle this starts.
     pub fn send(&self, bgra: &[u8]) -> Result<(), String> {
-        let wanted = self.latest.width as usize * self.latest.height as usize * 4;
+        if self.connection.is_dead() {
+            return Err("PipeWire went away".into());
+        }
+        let (width, height) = self.latest.size();
+        let wanted = width as usize * height as usize * 4;
         if bgra.len() != wanted {
             return Err(format!("a picture of {} bytes for a sender of {wanted}", bgra.len()));
         }

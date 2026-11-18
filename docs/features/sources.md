@@ -56,11 +56,12 @@ An optional early version that's still in Lab (switch it on under **Streaming an
 ## Spout send
 New and still in Lab. It shares a stream's picture with other programs on this computer, the other way round from Spout capture. Switch it on under **Streaming and devices** in the Plugins tab of Settings, then pick a stream and switch on **Share this stream** on the Spout send card.
 
-- **On Windows** the stream shows up as a Spout sender called **Telescope - <phone name>** in OBS and other Spout programs
+- **On Windows** the stream shows up as a Spout sender called **Telescope** followed by a dash and the phone's name in OBS and other Spout programs
 - **On Linux** it is a PipeWire video source with the same name. OBS and anything else that reads PipeWire video lists it as a camera. Programs inside Proton can't see it
 - **What is shared** is what the virtual camera gets, after every effect. With **Several cameras** on, the stream going to the Telescope camera shares the combined picture
-- **The sender** appears when the first picture arrives and goes a few seconds after the stream stops
+- **The sender** appears when the first picture arrives. On Windows it goes a few seconds after the stream stops. On Linux it remains while **Share this stream** is on. A program bound to it isn't cut off by a stop or a size change
 - **Transparency** isn't there yet, the picture is always solid
+- Telescope can't tell whether a program is reading the sender, it sends the picture while it is shared
 
 ## Several cameras at once
 

@@ -26,6 +26,11 @@ impl PipeWireBackend {
 }
 
 impl Backend for PipeWireBackend {
+    // A program that bound to the node by its id (OBS) would lose it with the node
+    fn keeps_idle_senders(&self) -> bool {
+        true
+    }
+
     fn open(&self, name: &str, width: u32, height: u32) -> Result<Box<dyn Sender>, String> {
         let connection = self.connection()?;
         Ok(Box::new(VideoSender::open(&connection, name, width, height)?))
@@ -33,6 +38,11 @@ impl Backend for PipeWireBackend {
 }
 
 impl Sender for VideoSender {
+    fn resize(&mut self, width: u32, height: u32) -> Result<bool, String> {
+        VideoSender::resize(self, width, height);
+        Ok(true)
+    }
+
     fn send(&mut self, bgra: &[u8]) -> Result<(), String> {
         VideoSender::send(self, bgra)
     }
@@ -75,6 +85,42 @@ mod tests {
         };
         assert_eq!((got.width, got.height, got.format), (w, h, VideoFormat::Bgra));
         assert_eq!(got.data, sent);
+    }
+
+    #[test]
+    fn a_source_changes_size_where_it_is_and_the_reader_follows() {
+        let Ok(connection) = Connection::shared() else { return eprintln!("skipped: PipeWire isn't running") };
+        let name = format!("Telescope send resize test {}", std::process::id());
+        let mut sender = backend().unwrap().open(&name, 64, 36).expect("the source should open");
+        let until = Instant::now() + Duration::from_secs(8);
+        let node = loop {
+            if let Some(node) = connection.nodes().into_iter().find(|n| n.props.iter().any(|(k, v)| k == "node.description" && *v == name)) {
+                break node;
+            }
+            assert!(Instant::now() < until, "the source never showed in PipeWire");
+            std::thread::sleep(Duration::from_millis(20));
+        };
+        let mut consumer = crate::pipewire::VideoConsumer::open(&connection, node.id, "Telescope send resize reader").expect("the source should open for reading");
+        let first = picture(64, 36);
+        let until = Instant::now() + Duration::from_secs(8);
+        while consumer.next(Duration::from_millis(100)).unwrap().is_none() {
+            sender.send(&first).unwrap();
+            assert!(Instant::now() < until, "no picture arrived");
+        }
+        assert_eq!(sender.resize(32, 18), Ok(true));
+        let second = picture(32, 18);
+        let until = Instant::now() + Duration::from_secs(8);
+        let got = loop {
+            sender.send(&second).unwrap();
+            match consumer.next(Duration::from_millis(100)) {
+                Ok(Some(frame)) if frame.width == 32 => break frame,
+                Ok(_) => {}
+                Err(why) => panic!("the reader gave up: {why}"),
+            }
+            assert!(Instant::now() < until, "the reader never followed the new size");
+        };
+        assert_eq!((got.width, got.height), (32, 18));
+        assert!(connection.node(node.id).is_some(), "the node stays");
     }
 
     #[test]
