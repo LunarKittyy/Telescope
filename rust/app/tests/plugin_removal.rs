@@ -341,6 +341,7 @@ fn starts_streams_and_quits(left_out: Option<&str>) {
     assert!(!w.is_streaming());
     assert!(worker.stops());
     w.shut_down();
+    window::forget(); // the window is kept for callbacks from other threads until it's let go
 }
 
 #[test]
@@ -355,6 +356,8 @@ fn the_app_starts_streams_and_quits_without_any_one_optional_plugin() {
         std::thread::Builder::new().stack_size(32 * 1024 * 1024).spawn(move || loop {
             let Some(left_out) = queue.lock().unwrap().pop() else { return };
             starts_streams_and_quits(left_out.as_deref());
+            // Compiling a window leaves most of a gigabyte freed but held by glibc, and the threads build one after another
+            telescope_system::memory::release_freed_memory();
         }).unwrap()
     }).collect();
     for helper in helpers {
