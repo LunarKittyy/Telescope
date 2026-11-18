@@ -10,6 +10,7 @@ use telescope_effects::framing::FramingPlugin;
 use telescope_effects::name_tag::NameTagPlugin;
 use telescope_effects::notes::NotesPlugin;
 use telescope_effects::photos::PhotosPlugin;
+use telescope_effects::phototrap::PhototrapPlugin;
 use telescope_setup::monitoring::MonitoringPlugin;
 use telescope_shell::offscreen;
 use telescope_shell::plugins::camera_control::CameraControl;
@@ -136,6 +137,17 @@ fn phone_shots() {
     shoot(&dir, "phone-streaming", &phone, &[json!({"active": true, "battery-level": 74, "battery-has-level": true, "battery-value": "74%",
         "battery-icon": "battery-charging", "temp-level": 38.0, "temp-has-level": true, "temp-value": "38 °C", "temp-note": "Cool"})]);
     shoot(&dir, "phone-empty", &phone, &[json!({"active": true})]);
+}
+
+#[test]
+fn phototrap_shots() {
+    let Some(dir) = out() else { return };
+    let _english = language("en");
+    let trap = card_of(&mut PhototrapPlugin::new(), "camera");
+    shoot(&dir, "phototrap-armed", &trap, &[json!({"active": true, "armed": true, "count-enabled": true, "status": "Armed and watching 2 zones", "status-kind": "status_ok",
+        "tally": "Triggers: 3, photos: 9, last at 14:03:22", "zone-count": 2, "clear-enabled": true, "count": 4, "count-max": 8, "count-text": "4",
+        "night-enabled": true, "night": true, "sensitivity-text": "5", "pause-text": "10 s"})]);
+    shoot(&dir, "phototrap-idle", &trap, &[json!({"active": true, "status": "Not armed", "count-enabled": false, "count-text": "1", "night-enabled": false})]);
 }
 
 #[test]
