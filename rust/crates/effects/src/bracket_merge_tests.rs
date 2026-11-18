@@ -79,7 +79,7 @@ fn error(a: &Image, b: &Image, rows: (f64, f64)) -> f64 {
 }
 
 fn merged(photos: Vec<Image>) -> Image {
-    merge(photos.len(), &|i| photos.get(i).map(|p| Image { width: p.width, height: p.height, rgb: p.rgb.clone() })).expect("a merged picture")
+    merge(photos.len(), &|i| photos.get(i).map(|p| Image { width: p.width, height: p.height, rgb: p.rgb.clone() }), Kind::Focus).expect("a merged picture")
 }
 
 #[test]
@@ -127,10 +127,10 @@ fn the_size_and_shift_of_a_photo_are_found() {
 fn a_photo_that_cant_be_lined_up_is_left_out_and_too_few_is_an_error() {
     let photos = [photo(0, 0.0, (0.0, 0.0)), photo(1, 0.0, (0.0, 0.0)), photo(2, 0.0, (0.0, 0.0))];
     let blank = || Image { width: W, height: H, rgb: vec![128; W * H * 3] };
-    let result = merge(3, &|i| if i == 0 { Some(blank()) } else { Some(Image { width: W, height: H, rgb: photos[i].rgb.clone() }) });
+    let result = merge(3, &|i| if i == 0 { Some(blank()) } else { Some(Image { width: W, height: H, rgb: photos[i].rgb.clone() }) }, Kind::Focus);
     assert!(result.is_ok(), "the other two still merge");
-    assert!(merge(1, &|_| Some(blank())).is_err());
-    assert!(merge(2, &|i| (i == 1).then(blank)).is_err());
+    assert!(merge(1, &|_| Some(blank()), Kind::Focus).is_err());
+    assert!(merge(2, &|i| (i == 1).then(blank), Kind::Focus).is_err());
 }
 
 #[test]
@@ -150,7 +150,7 @@ fn photos_are_read_merged_and_saved_next_to_the_first_with_what_the_camera_wrote
         files.push(path.display().to_string());
     }
     // both: the photos stay
-    let result = merge_files(&files, 90, true);
+    let result = merge_files(&files, 90, true, Kind::Focus);
     assert_eq!(result["ok"], json!(true), "{result}");
     let path = PathBuf::from(result["path"].as_str().unwrap());
     assert_eq!(path.file_name().unwrap().to_string_lossy(), "IMG_0_focus-merged.jpg");
@@ -158,20 +158,127 @@ fn photos_are_read_merged_and_saved_next_to_the_first_with_what_the_camera_wrote
     assert!(exif_of(&bytes).is_some(), "the Exif block comes along");
     assert!(files.iter().all(|f| Path::new(f).exists()));
     // only the merged picture: the photos go, and a second merge doesn't take the first one's name
-    let again = merge_files(&files, 90, false);
+    let again = merge_files(&files, 90, false, Kind::Focus);
     assert_eq!(again["ok"], json!(true));
     assert_eq!(PathBuf::from(again["path"].as_str().unwrap()).file_name().unwrap().to_string_lossy(), "IMG_0_focus-merged (2).jpg");
     assert!(files.iter().all(|f| !Path::new(f).exists()) && again["removed"] == json!(3));
     // a DNG or a missing file isn't a photo to merge
-    assert_eq!(merge_files(&["a.dng".to_string(), "b.dng".to_string()], 90, true)["ok"], json!(false));
+    assert_eq!(merge_files(&["a.dng".to_string(), "b.dng".to_string()], 90, true, Kind::Focus)["ok"], json!(false));
     std::fs::remove_dir_all(&folder).unwrap();
 }
 
+/// The light of a scene at a point (1 is what a photo at the middle exposure turns white): a dark left half with texture and a bright right half with texture.
+fn radiance(x: f64, y: f64) -> [f64; 3] {
+    let texture = noise(x, y, 14.0, 5) * 0.5 + noise(x, y, 5.0, 6) * 0.35 + 0.5;
+    let level = if x < W as f64 / 2.0 { 0.04 + 0.12 * texture } else { 1.2 + 1.6 * texture };
+    [level * (0.9 + 0.2 * noise(x, y, 80.0, 1)), level, level * (0.9 + 0.2 * noise(x, y, 80.0, 2))]
+}
+
+/// A photo of that scene `stops` brighter than the middle one: clipped at white, and in the display's brightness curve.
+fn exposure(stops: f64, object: Option<(usize, usize)>) -> Image {
+    render(|x, y| {
+        if let Some((ox, oy)) = object {
+            if (x as usize).abs_diff(ox) < 40 && (y as usize).abs_diff(oy) < 40 {
+                return [0.05, 0.9, 0.05].map(|v: f64| (v * 2f64.powf(stops)).clamp(0.0, 1.0).powf(1.0 / 2.2));
+            }
+        }
+        radiance(x, y).map(|v| (v * 2f64.powf(stops)).clamp(0.0, 1.0).powf(1.0 / 2.2))
+    })
+}
+
+fn bracket() -> Vec<Image> {
+    vec![exposure(-2.0, None), exposure(0.0, None), exposure(2.0, None)]
+}
+
+fn fused(photos: &[Image], brightness: i32) -> Image {
+    merge(photos.len(), &|i| photos.get(i).map(|p| Image { width: p.width, height: p.height, rgb: p.rgb.clone() }), Kind::Exposure { brightness }).expect("a merged picture")
+}
+
+/// How much fine texture a part of a picture has (the mean size of its Laplacian, 0..255) and how bright it is (0..255), over columns and rows given as shares.
+fn look(image: &Image, cols: (f64, f64), rows: (f64, f64)) -> (f64, f64) {
+    let (x0, x1, y0, y1) = ((cols.0 * W as f64) as usize, (cols.1 * W as f64) as usize, (rows.0 * H as f64) as usize, (rows.1 * H as f64) as usize);
+    let g = |x: usize, y: usize| (image.rgb[(y * W + x) * 3] as f64 + image.rgb[(y * W + x) * 3 + 1] as f64 + image.rgb[(y * W + x) * 3 + 2] as f64) / 3.0;
+    let (mut detail, mut sum, mut n) = (0.0, 0.0, 0usize);
+    for y in y0.max(1)..y1.min(H - 1) {
+        for x in x0.max(1)..x1.min(W - 1) {
+            detail += (g(x - 1, y) + g(x + 1, y) + g(x, y - 1) + g(x, y + 1) - 4.0 * g(x, y)).abs();
+            sum += g(x, y);
+            n += 1;
+        }
+    }
+    (detail / n as f64, sum / n as f64)
+}
+
+/// How much greener than red and blue a part of a picture is (0..255).
+fn green(image: &Image, cols: (f64, f64), rows: (f64, f64)) -> f64 {
+    let (x0, x1, y0, y1) = ((cols.0 * W as f64) as usize, (cols.1 * W as f64) as usize, (rows.0 * H as f64) as usize, (rows.1 * H as f64) as usize);
+    let (mut sum, mut n) = (0.0, 0usize);
+    for y in y0..y1 {
+        for x in x0..x1 {
+            let p = &image.rgb[(y * W + x) * 3..(y * W + x) * 3 + 3];
+            sum += p[1] as f64 - (p[0] as f64 + p[2] as f64) / 2.0;
+            n += 1;
+        }
+    }
+    sum / n as f64
+}
+
+#[test]
+fn an_exposure_bracket_has_detail_in_both_the_dark_and_the_bright_part() {
+    let photos = bracket();
+    let (dark, bright) = ((0.05, 0.45), (0.55, 0.95));
+    let (middle_dark, middle_bright) = (look(&photos[1], dark, (0.1, 0.9)), look(&photos[1], bright, (0.1, 0.9)));
+    let result = fused(&photos, 0);
+    let (got_dark, got_bright) = (look(&result, dark, (0.1, 0.9)), look(&result, bright, (0.1, 0.9)));
+    // the middle photo has lost the dark part's texture to the dark and the bright part's to white: the merge has both back
+    assert!(got_dark.0 > 1.5 * middle_dark.0, "dark: {got_dark:?} against {middle_dark:?}");
+    assert!(got_bright.0 > 1.5 * middle_bright.0, "bright: {got_bright:?} against {middle_bright:?}");
+}
+
+#[test]
+fn photos_that_moved_and_changed_size_a_little_are_lined_up_before_the_exposures_are_merged() {
+    let shaky = |stops: f64, grow: f64, shift: (f64, f64)| {
+        render(|x, y| {
+            let (sx, sy) = (CENTRE.0 + (x - CENTRE.0 - shift.0) / (1.0 + grow), CENTRE.1 + (y - CENTRE.1 - shift.1) / (1.0 + grow));
+            radiance(sx, sy).map(|v| (v * 2f64.powf(stops)).clamp(0.0, 1.0).powf(1.0 / 2.2))
+        })
+    };
+    let photos = vec![shaky(-2.0, -0.01, (2.0, -1.5)), shaky(0.0, 0.0, (0.0, 0.0)), shaky(2.0, 0.012, (-1.0, 2.0))];
+    let lined_up = fused(&photos, 0);
+    let (dark, bright) = ((0.05, 0.45), (0.55, 0.95));
+    let middle = look(&photos[1], dark, (0.1, 0.9));
+    // blurred by a misalignment the texture would be less than the middle photo's
+    assert!(look(&lined_up, dark, (0.1, 0.9)).0 > 1.3 * middle.0 && look(&lined_up, bright, (0.1, 0.9)).0 > 1.3 * look(&photos[1], bright, (0.1, 0.9)).0);
+}
+
+#[test]
+fn something_that_moved_between_the_exposures_is_not_in_the_result_where_the_middle_photo_has_none() {
+    // a green square is in the brightest photo only, where the others show the scene (in the dark half, where the middle photo has something to show)
+    let clean = fused(&bracket(), 0);
+    let ghosted = fused(&[exposure(-2.0, None), exposure(0.0, None), exposure(2.0, Some((160, 240)))], 0);
+    let (a, b) = (look(&clean, (0.2, 0.3), (0.4, 0.6)), look(&ghosted, (0.2, 0.3), (0.4, 0.6)));
+    let drift = (green(&clean, (0.2, 0.3), (0.4, 0.6)) - green(&ghosted, (0.2, 0.3), (0.4, 0.6))).abs();
+    assert!(drift < 8.0, "green changed by {drift}: {a:?} against {b:?}");
+    // the same square in the middle photo is the reference and does show
+    let shown = fused(&[exposure(-2.0, None), exposure(0.0, Some((160, 240))), exposure(2.0, None)], 0);
+    let c = look(&shown, (0.2, 0.3), (0.4, 0.6));
+    assert!((green(&clean, (0.2, 0.3), (0.4, 0.6)) - green(&shown, (0.2, 0.3), (0.4, 0.6))).abs() > 20.0, "the reference photo's square: {c:?}");
+}
+
+#[test]
+fn the_darker_to_lighter_setting_moves_the_merged_picture() {
+    let photos = bracket();
+    let darker = look(&fused(&photos, -100), (0.05, 0.95), (0.1, 0.9)).1;
+    let middle = look(&fused(&photos, 0), (0.05, 0.95), (0.1, 0.9)).1;
+    let lighter = look(&fused(&photos, 100), (0.05, 0.95), (0.1, 0.9)).1;
+    assert!(darker + 4.0 < middle && middle + 4.0 < lighter, "{darker} {middle} {lighter}");
+}
+
 /// Not part of the suite: writes the three photos of a bracket and the merge as JPEGs into TELESCOPE_FOCUS_OUT, to look at.
-/// `cargo nextest run -p telescope-effects --run-ignored only render_the_focus_merge`
+/// `cargo nextest run -p telescope-effects --run-ignored only render_the_merges`
 #[test]
 #[ignore]
-fn render_the_focus_merge() {
+fn render_the_merges() {
     let Ok(out) = std::env::var("TELESCOPE_FOCUS_OUT") else { return };
     std::fs::create_dir_all(&out).unwrap();
     let photos = vec![photo(0, -0.02, (2.0, -1.0)), photo(1, 0.0, (0.0, 0.0)), photo(2, 0.025, (-1.5, 2.0))];
@@ -181,4 +288,13 @@ fn render_the_focus_merge() {
     let result = merged(photos);
     std::fs::write(format!("{out}/merged.jpg"), encode_jpeg(&result, 92, None).unwrap()).unwrap();
     std::fs::write(format!("{out}/truth.jpg"), encode_jpeg(&truth(), 92, None).unwrap()).unwrap();
+    for (i, p) in bracket().iter().enumerate() {
+        std::fs::write(format!("{out}/exposure-{i}.jpg"), encode_jpeg(p, 92, None).unwrap()).unwrap();
+    }
+    for (name, brightness) in [("darker", -100), ("middle", 0), ("lighter", 100)] {
+        std::fs::write(format!("{out}/exposure-merged-{name}.jpg"), encode_jpeg(&fused(&bracket(), brightness), 92, None).unwrap()).unwrap();
+    }
+    let ghost = [exposure(-2.0, None), exposure(0.0, None), exposure(2.0, Some((160, 240)))];
+    std::fs::write(format!("{out}/exposure-ghost-photo.jpg"), encode_jpeg(&ghost[2], 92, None).unwrap()).unwrap();
+    std::fs::write(format!("{out}/exposure-ghost-merged.jpg"), encode_jpeg(&fused(&ghost, 0), 92, None).unwrap()).unwrap();
 }

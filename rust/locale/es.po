@@ -346,7 +346,7 @@ msgstr "Amarillo: el limitador reduce los picos. Rojo: el sonido se saturó."
 msgid "Click to clear"
 msgstr "Haz clic para limpiar"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:814 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:148 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:814 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "Restablecer"
 
@@ -400,11 +400,11 @@ msgstr "Pasos"
 msgid " stops"
 msgstr " pasos"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:191 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:325
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:192 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:325
 msgid "Next"
 msgstr "Siguiente"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:191 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:325
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:192 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:325
 msgid "Previous"
 msgstr "Anterior"
 
@@ -544,7 +544,7 @@ msgstr "Complementos"
 msgid "Updates & About"
 msgstr "Actualizaciones y Acerca de"
 
-#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:41 rust/crates/effects/ui/photos.slint:314 rust/crates/effects/ui/photos.slint:316 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:90 rust/crates/setup/src/stats.rs:435 rust/crates/shell/src/plugins/camera_control.rs:1864 rust/crates/shell/ui/cards/camera.slint:105
+#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:340 rust/crates/effects/ui/photos.slint:342 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:90 rust/crates/setup/src/stats.rs:435 rust/crates/shell/src/plugins/camera_control.rs:1864 rust/crates/shell/ui/cards/camera.slint:105
 msgid "Camera"
 msgstr "Cámara"
 
@@ -617,7 +617,7 @@ msgid "Analysing…"
 msgstr "Analizando…"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:82 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:41 rust/crates/effects/src/photos.rs:197 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:314 rust/crates/effects/ui/photos.slint:316 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:82 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:42 rust/crates/effects/src/photos.rs:198 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:340 rust/crates/effects/ui/photos.slint:342 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
 msgid "Off"
 msgstr "Desactivado"
 
@@ -2439,24 +2439,24 @@ msgstr "Horquillado de exposición"
 msgid "Focus bracket"
 msgstr "Horquillado de enfoque"
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:664 rust/crates/effects/src/photos.rs:791 rust/crates/effects/ui/photos.slint:141 rust/crates/effects/ui/photos.slint:297 rust/crates/effects/ui/photos.slint:299 rust/crates/effects/ui/phototrap.slint:92
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:684 rust/crates/effects/src/photos.rs:816 rust/crates/effects/ui/photos.slint:146 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304 rust/crates/effects/ui/phototrap.slint:92
 msgid "Photos"
 msgstr "Fotos"
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:297 rust/crates/effects/ui/photos.slint:299
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304
 msgid "Both"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:297 rust/crates/effects/ui/photos.slint:299
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304
 msgid "Merged"
 msgstr ""
 
 #: rust/crates/effects/src/photos.rs:36
-msgid "Save only the photos of the focus bracket."
+msgid "Save only the photos of the bracket."
 msgstr ""
 
 #: rust/crates/effects/src/photos.rs:37
-msgid "Save the photos and one merged picture that is sharp all the way through."
+msgid "Save the photos and one picture merged from them."
 msgstr ""
 
 #: rust/crates/effects/src/photos.rs:38
@@ -2464,212 +2464,228 @@ msgid "Save only the merged picture and delete the photos."
 msgstr ""
 
 #: rust/crates/effects/src/photos.rs:40
-msgid "Merging works on focus brackets saved as JPEG."
+msgid "Merging works on focus and exposure brackets saved as JPEG."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:41 rust/crates/effects/ui/photos.slint:314 rust/crates/effects/ui/photos.slint:316
+#: rust/crates/effects/src/photos.rs:41
+msgid "Favour the darker or the lighter photos of an exposure bracket in the merged picture."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:340 rust/crates/effects/ui/photos.slint:342
 msgid "On"
 msgstr "Activado"
 
-#: rust/crates/effects/src/photos.rs:43
+#: rust/crates/effects/src/photos.rs:44
 msgid "Let the camera decide."
 msgstr "Deja que la cámara decida."
 
-#: rust/crates/effects/src/photos.rs:43
+#: rust/crates/effects/src/photos.rs:44
 msgid "Always fix lens distortion."
 msgstr "Corrige siempre la distorsión del lente."
 
-#: rust/crates/effects/src/photos.rs:43
+#: rust/crates/effects/src/photos.rs:44
 msgid "Never fix lens distortion."
 msgstr "No corrijas nunca la distorsión del lente."
 
-#: rust/crates/effects/src/photos.rs:45
+#: rust/crates/effects/src/photos.rs:46
 msgid "Take a photo on the phone with the settings below."
 msgstr "Toma una foto en el teléfono con la configuración de abajo."
 
-#: rust/crates/effects/src/photos.rs:46
+#: rust/crates/effects/src/photos.rs:47
 msgid "Open the folder with the last photos taken."
 msgstr "Abre la carpeta con las últimas fotos tomadas."
 
-#: rust/crates/effects/src/photos.rs:47
+#: rust/crates/effects/src/photos.rs:48
 msgid "The video pauses while the phone maker's Night, HDR and Bokeh modes take a photo."
 msgstr "El video se pausa mientras los modos Noche, HDR y Bokeh del fabricante del teléfono toman una foto."
 
-#: rust/crates/effects/src/photos.rs:51
+#: rust/crates/effects/src/photos.rs:52
 msgid "Number of photos from the nearest focus to the farthest, for focus stacking."
 msgstr "Cantidad de fotos desde el enfoque más cercano hasta el más lejano, para apilamiento de enfoque."
 
-#: rust/crates/effects/src/photos.rs:52
+#: rust/crates/effects/src/photos.rs:53
 msgid "Number of photos in the burst."
 msgstr "Cantidad de fotos en la ráfaga."
 
-#: rust/crates/effects/src/photos.rs:53
+#: rust/crates/effects/src/photos.rs:54
 msgid "Take one photo, a burst or a set at different exposures or focus distances."
 msgstr "Toma una foto, una ráfaga o una serie con distintas exposiciones o distancias de enfoque."
 
-#: rust/crates/effects/src/photos.rs:54
+#: rust/crates/effects/src/photos.rs:55
 msgid "Wait a few seconds before taking the photo."
 msgstr "Espera unos segundos antes de tomar la foto."
 
-#: rust/crates/effects/src/photos.rs:55
+#: rust/crates/effects/src/photos.rs:56
 msgid "A long exposure uses the video's ISO and the video stops while the shutter is open."
 msgstr "Una exposición prolongada usa el ISO del video y el video se detiene mientras el obturador está abierto."
 
-#: rust/crates/effects/src/photos.rs:56
+#: rust/crates/effects/src/photos.rs:57
 msgid "Use extra noise reduction and sharpening on the photo only, not the video. Taking the photo takes a little longer."
 msgstr "Usa reducción de ruido y nitidez adicionales solo en la foto, no en el video. Tomar la foto tarda un poco más."
 
-#: rust/crates/effects/src/photos.rs:57
+#: rust/crates/effects/src/photos.rs:58
 msgid "This lens and mode have no extra noise reduction or sharpening to offer"
 msgstr "Este lente y modo no ofrecen reducción de ruido ni nitidez adicionales"
 
-#: rust/crates/effects/src/photos.rs:58
+#: rust/crates/effects/src/photos.rs:59
 msgid "JPEG quality is set by the camera"
 msgstr "La calidad JPEG la define la cámara"
 
-#: rust/crates/effects/src/photos.rs:59
+#: rust/crates/effects/src/photos.rs:60
 msgid "RAW photos have no quality setting"
 msgstr "Las fotos RAW no tienen ajuste de calidad"
 
-#: rust/crates/effects/src/photos.rs:60 rust/crates/shell/src/streams.rs:842
+#: rust/crates/effects/src/photos.rs:61 rust/crates/shell/src/streams.rs:842
 msgid "The camera is already taking a photo."
 msgstr "La cámara ya está tomando una foto."
 
-#: rust/crates/effects/src/photos.rs:61 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:270
+#: rust/crates/effects/src/photos.rs:62 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:270
 msgid "The camera couldn't take the photo."
 msgstr "La cámara no pudo tomar la foto."
 
-#: rust/crates/effects/src/photos.rs:65
+#: rust/crates/effects/src/photos.rs:66
 msgid "Like the video"
 msgstr "Igual que el video"
 
-#: rust/crates/effects/src/photos.rs:65 rust/crates/effects/src/photos.rs:197 rust/crates/effects/src/phototrap.rs:301 rust/crates/effects/src/phototrap.rs:651 rust/crates/effects/src/stargazer.rs:827 rust/crates/effects/src/stargazer.rs:1133 rust/crates/setup/src/setup.rs:493
+#: rust/crates/effects/src/photos.rs:66 rust/crates/effects/src/photos.rs:198 rust/crates/effects/src/phototrap.rs:301 rust/crates/effects/src/phototrap.rs:651 rust/crates/effects/src/stargazer.rs:827 rust/crates/effects/src/stargazer.rs:1133 rust/crates/setup/src/setup.rs:493
 #, python-brace-format
 msgid "{seconds} s"
 msgstr "{seconds} s"
 
-#: rust/crates/effects/src/photos.rs:188 rust/crates/effects/src/photos.rs:800 rust/crates/effects/src/photos.rs:816 rust/crates/effects/ui/photos.slint:155
+#: rust/crates/effects/src/photos.rs:189 rust/crates/effects/src/photos.rs:825 rust/crates/effects/src/photos.rs:841 rust/crates/effects/ui/photos.slint:160
 msgid "Take photo"
 msgstr "Tomar foto"
 
-#: rust/crates/effects/src/photos.rs:188 rust/crates/effects/src/stargazer.rs:815
+#: rust/crates/effects/src/photos.rs:189 rust/crates/effects/src/stargazer.rs:815
 msgid "Open folder"
 msgstr "Abrir carpeta"
 
-#: rust/crates/effects/src/photos.rs:189
+#: rust/crates/effects/src/photos.rs:190
 msgid "Best quality"
 msgstr "Máxima calidad"
 
-#: rust/crates/effects/src/photos.rs:222 rust/crates/effects/ui/photos.slint:176 rust/crates/effects/ui/photos.slint:177
+#: rust/crates/effects/src/photos.rs:223 rust/crates/effects/ui/photos.slint:181 rust/crates/effects/ui/photos.slint:182
 msgid "ISO"
 msgstr "ISO"
 
-#: rust/crates/effects/src/photos.rs:222 rust/crates/effects/ui/photos.slint:186 rust/crates/effects/ui/photos.slint:187 rust/crates/shell/src/plugins/camera_control.rs:1592 rust/crates/shell/src/plugins/camera_control.rs:1872 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:218 rust/crates/shell/ui/cards/camera.slint:229
+#: rust/crates/effects/src/photos.rs:223 rust/crates/effects/ui/photos.slint:191 rust/crates/effects/ui/photos.slint:192 rust/crates/shell/src/plugins/camera_control.rs:1592 rust/crates/shell/src/plugins/camera_control.rs:1872 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:218 rust/crates/shell/ui/cards/camera.slint:229
 msgid "Shutter"
 msgstr "Obturación"
 
-#: rust/crates/effects/src/photos.rs:228 rust/crates/effects/ui/photos.slint:209 rust/crates/effects/ui/photos.slint:214
+#: rust/crates/effects/src/photos.rs:229 rust/crates/effects/ui/photos.slint:214 rust/crates/effects/ui/photos.slint:219
 msgid "Mode"
 msgstr "Modo"
 
-#: rust/crates/effects/src/photos.rs:231 rust/crates/effects/ui/photos.slint:220 rust/crates/effects/ui/photos.slint:224 rust/crates/outputs/src/stream_output.rs:795 rust/crates/outputs/src/stream_output.rs:1012 rust/crates/outputs/src/stream_output.rs:1015 rust/crates/outputs/ui/stream_output.slint:110 rust/crates/outputs/ui/stream_output.slint:122
+#: rust/crates/effects/src/photos.rs:232 rust/crates/effects/ui/photos.slint:225 rust/crates/effects/ui/photos.slint:229 rust/crates/outputs/src/stream_output.rs:795 rust/crates/outputs/src/stream_output.rs:1012 rust/crates/outputs/src/stream_output.rs:1015 rust/crates/outputs/ui/stream_output.slint:110 rust/crates/outputs/ui/stream_output.slint:122
 msgid "Format"
 msgstr "Formato"
 
-#: rust/crates/effects/src/photos.rs:234 rust/crates/effects/ui/photos.slint:232 rust/crates/effects/ui/photos.slint:237
+#: rust/crates/effects/src/photos.rs:235 rust/crates/effects/ui/photos.slint:237 rust/crates/effects/ui/photos.slint:242
 msgid "Shots"
 msgstr "Disparos"
 
-#: rust/crates/effects/src/photos.rs:236 rust/crates/effects/ui/photos.slint:259 rust/crates/effects/ui/photos.slint:263 rust/crates/effects/ui/photos.slint:265 rust/crates/effects/ui/photos.slint:266
+#: rust/crates/effects/src/photos.rs:237 rust/crates/effects/ui/photos.slint:264 rust/crates/effects/ui/photos.slint:268 rust/crates/effects/ui/photos.slint:270 rust/crates/effects/ui/photos.slint:271
 msgid "How many"
 msgstr "Cantidad"
 
-#: rust/crates/effects/src/photos.rs:236
+#: rust/crates/effects/src/photos.rs:237
 msgid "Steps"
 msgstr "Pasos"
 
-#: rust/crates/effects/src/photos.rs:247
+#: rust/crates/effects/src/photos.rs:248
 msgid "Bracket"
 msgstr "Horquillado"
 
-#: rust/crates/effects/src/photos.rs:252 rust/crates/effects/ui/photos.slint:169 rust/crates/effects/ui/photos.slint:273 rust/crates/effects/ui/photos.slint:277 rust/crates/effects/ui/photos.slint:279 rust/crates/effects/ui/photos.slint:280 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:166 rust/crates/shell/ui/cards/camera.slint:174
+#: rust/crates/effects/src/photos.rs:253 rust/crates/effects/ui/photos.slint:174 rust/crates/effects/ui/photos.slint:278 rust/crates/effects/ui/photos.slint:282 rust/crates/effects/ui/photos.slint:284 rust/crates/effects/ui/photos.slint:285 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:166 rust/crates/shell/ui/cards/camera.slint:174
 msgid "Exposure"
 msgstr "Exposición"
 
-#: rust/crates/effects/src/photos.rs:257 rust/crates/effects/ui/photos.slint:307 rust/crates/effects/ui/photos.slint:313
+#: rust/crates/effects/src/photos.rs:258 rust/crates/effects/ui/photos.slint:333 rust/crates/effects/ui/photos.slint:339
 msgid "Distortion fix"
 msgstr "Corrección de distorsión"
 
-#: rust/crates/effects/src/photos.rs:348 rust/crates/effects/src/photos.rs:740
+#: rust/crates/effects/src/photos.rs:350 rust/crates/effects/src/photos.rs:760
 msgid "Start streaming to take photos."
 msgstr "Inicia la transmisión para tomar fotos."
 
-#: rust/crates/effects/src/photos.rs:350
+#: rust/crates/effects/src/photos.rs:352
 msgid "This phone can't take photos from Telescope yet. Update the app on the phone."
 msgstr "Este teléfono aún no puede tomar fotos desde Telescope. Actualiza la app en el teléfono."
 
-#: rust/crates/effects/src/photos.rs:540
-msgid "Merging the focus bracket…"
+#: rust/crates/effects/src/photos.rs:531
+msgid "Darker"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:550
+#: rust/crates/effects/src/photos.rs:531
+msgid "Lighter"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:531
+msgid "Middle"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:560
+msgid "Merging the bracket…"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:570
 #, python-brace-format
 msgid "Saved the merged picture {name}"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:553 rust/crates/effects/src/photos.rs:617 rust/crates/effects/src/photos.rs:639
+#: rust/crates/effects/src/photos.rs:573 rust/crates/effects/src/photos.rs:637 rust/crates/effects/src/photos.rs:659
 msgid "Photo saved"
 msgstr "Foto guardada"
 
-#: rust/crates/effects/src/photos.rs:557
+#: rust/crates/effects/src/photos.rs:577
 msgid "The photos are saved but couldn't be merged."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:578 rust/crates/effects/src/photos.rs:598
+#: rust/crates/effects/src/photos.rs:598 rust/crates/effects/src/photos.rs:618
 msgid "Taking the photo…"
 msgstr "Tomando la foto…"
 
-#: rust/crates/effects/src/photos.rs:592
+#: rust/crates/effects/src/photos.rs:612
 #, python-brace-format
 msgid "Taking the photo in {seconds} s"
 msgstr "Tomando la foto en {seconds} s"
 
-#: rust/crates/effects/src/photos.rs:594
+#: rust/crates/effects/src/photos.rs:614
 #, python-brace-format
 msgid "Photo {n} of {total}"
 msgstr "Foto {n} de {total}"
 
-#: rust/crates/effects/src/photos.rs:596
+#: rust/crates/effects/src/photos.rs:616
 msgid "The video is paused while the photo is taken…"
 msgstr "El video se pausa mientras se toma la foto…"
 
-#: rust/crates/effects/src/photos.rs:612 rust/crates/effects/src/stargazer.rs:822
+#: rust/crates/effects/src/photos.rs:632 rust/crates/effects/src/stargazer.rs:822
 #, python-brace-format
 msgid "Saved {name}"
 msgstr "Se guardó {name}"
 
-#: rust/crates/effects/src/photos.rs:635
+#: rust/crates/effects/src/photos.rs:655
 #, python-brace-format
 msgid "The photo arrived late. Saved {name}"
 msgstr "La foto llegó tarde. Se guardó {name}"
 
-#: rust/crates/effects/src/photos.rs:649
+#: rust/crates/effects/src/photos.rs:669
 msgid "Save photos in"
 msgstr "Guardar fotos en"
 
-#: rust/crates/effects/src/photos.rs:665 rust/crates/effects/ui/photos.slint:142
+#: rust/crates/effects/src/photos.rs:685 rust/crates/effects/ui/photos.slint:147
 msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
 msgstr "Toma fotos en máxima calidad con el teléfono o una DSLR, incluido RAW si la cámara lo admite."
 
-#: rust/crates/effects/src/photos.rs:666
+#: rust/crates/effects/src/photos.rs:686
 msgid "Without the Photos plugin there's no Photos card and no Take photo shortcut."
 msgstr "Sin el complemento Fotos no hay tarjeta Fotos ni atajo para Tomar foto."
 
-#: rust/crates/effects/src/photos.rs:793 rust/crates/effects/src/photos.rs:831
+#: rust/crates/effects/src/photos.rs:818 rust/crates/effects/src/photos.rs:856
 msgid "Photo mode"
 msgstr "Modo de foto"
 
-#: rust/crates/effects/src/photos.rs:798 rust/crates/effects/src/photos.rs:841
+#: rust/crates/effects/src/photos.rs:823 rust/crates/effects/src/photos.rs:866
 msgid "Photo timer"
 msgstr "Temporizador de foto"
 
@@ -4108,47 +4124,51 @@ msgstr "abajo"
 msgid "Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve."
 msgstr "Las flechas mueven el punto seleccionado; Shift con una flecha lo mueve más. Los corchetes izquierdo y derecho seleccionan otro punto. Supr quita el punto e Inicio restablece la curva."
 
-#: rust/crates/effects/ui/photos.slint:149
+#: rust/crates/effects/ui/photos.slint:154
 msgid "Set every photo setting except the folder back to default."
 msgstr "Restablece todos los ajustes de fotos excepto la carpeta a sus valores predeterminados."
 
-#: rust/crates/effects/ui/photos.slint:178
+#: rust/crates/effects/ui/photos.slint:183
 msgid "Higher ISO makes the photo brighter but grainier."
 msgstr "Un ISO más alto hace la foto más brillante, pero con más grano."
 
-#: rust/crates/effects/ui/photos.slint:188
+#: rust/crates/effects/ui/photos.slint:193
 msgid "Slower shutter speeds make the photo brighter but blur movement."
 msgstr "Las velocidades de obturación más lentas hacen la foto más brillante, pero desenfocan el movimiento."
 
-#: rust/crates/effects/ui/photos.slint:201
+#: rust/crates/effects/ui/photos.slint:206
 msgid "Mode and format"
 msgstr "Modo y formato"
 
-#: rust/crates/effects/ui/photos.slint:225
+#: rust/crates/effects/ui/photos.slint:230
 msgid "The file type photos are saved as."
 msgstr "El tipo de archivo con el que se guardan las fotos."
 
-#: rust/crates/effects/ui/photos.slint:290 rust/crates/effects/ui/photos.slint:296
-msgid "Merge focus"
+#: rust/crates/effects/ui/photos.slint:295 rust/crates/effects/ui/photos.slint:301
+msgid "Merge bracket"
 msgstr ""
 
-#: rust/crates/effects/ui/photos.slint:324 rust/crates/effects/ui/photos.slint:329 rust/crates/effects/ui/photos.slint:338
+#: rust/crates/effects/ui/photos.slint:312 rust/crates/effects/ui/photos.slint:317 rust/crates/effects/ui/photos.slint:326
+msgid "Merged brightness"
+msgstr ""
+
+#: rust/crates/effects/ui/photos.slint:350 rust/crates/effects/ui/photos.slint:355 rust/crates/effects/ui/photos.slint:364
 msgid "Quality"
 msgstr "Calidad"
 
-#: rust/crates/effects/ui/photos.slint:339
+#: rust/crates/effects/ui/photos.slint:365
 msgid "Higher quality gives bigger and cleaner JPEG files."
 msgstr "Una calidad más alta genera archivos JPEG más grandes y nítidos."
 
-#: rust/crates/effects/ui/photos.slint:356 rust/crates/effects/ui/photos.slint:362
+#: rust/crates/effects/ui/photos.slint:382 rust/crates/effects/ui/photos.slint:388
 msgid "Timer"
 msgstr "Temporizador"
 
-#: rust/crates/effects/ui/photos.slint:374 rust/crates/effects/ui/photos.slint:383 rust/crates/effects/ui/phototrap.slint:130 rust/crates/effects/ui/phototrap.slint:138
+#: rust/crates/effects/ui/photos.slint:400 rust/crates/effects/ui/photos.slint:409 rust/crates/effects/ui/phototrap.slint:130 rust/crates/effects/ui/phototrap.slint:138
 msgid "Save in"
 msgstr "Guardar en"
 
-#: rust/crates/effects/ui/photos.slint:384
+#: rust/crates/effects/ui/photos.slint:410
 msgid "The folder path photos are saved in."
 msgstr "La ruta de la carpeta donde se guardan las fotos."
 
@@ -10549,7 +10569,7 @@ msgstr " °C"
 msgid "Add your phone"
 msgstr "Agregar tu teléfono"
 
-#: rust/crates/effects/src/photos.rs:610
+#: rust/crates/effects/src/photos.rs:630
 #, python-brace-format
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"
