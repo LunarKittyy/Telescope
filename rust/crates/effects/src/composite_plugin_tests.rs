@@ -438,3 +438,94 @@ fn reset_clears_the_picture_and_keeps_the_switch_and_saved_layouts() {
     assert!(r.host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
     assert!(r.host.calls.iter().any(|c| c == "schedule_save"));
 }
+
+#[test]
+fn the_auto_director_works_only_while_on_and_switches_layouts_on_hands() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    let two = |big: &str, small: &str| Layout::of(vec![Tile::boxed(big, "", 0.0, 0.0, 0.7, 1.0), Tile::boxed(small, "", 0.7, 0.0, 0.3, 0.4)]);
+    r.plugin.set_layout(&mut r.host, two("a", "b"));
+    r.plugin.save_layout(&mut r.host, "A big");
+    r.plugin.set_layout(&mut r.host, two("b", "a"));
+    r.plugin.save_layout(&mut r.host, "B big");
+    r.plugin.pick(&mut r.host, "A big");
+    assert_eq!(r.plugin.card_props()["director"], false, "off by default");
+    assert!(!r.host.calls.iter().any(|c| c == "want_people composite true"));
+    r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: "director-toggled".into(), args: vec![json!(true)] });
+    assert!(r.host.calls.iter().any(|c| c == "want_people composite true"), "asks for people on every stream");
+    assert_eq!(r.plugin.get_config()["director"], true);
+    // hands on b for long enough: B big goes on; the pick at the start is long past
+    r.plugin.director.picked(0.0, "A big");
+    for t in 0..8 {
+        r.plugin.director.hear(10.0 + t as f64 * 0.5, "b", true);
+        r.plugin.direct(&mut r.host, 10.0 + t as f64 * 0.5);
+    }
+    assert_eq!(r.plugin.layout().name, "B big");
+    // the director's own switch is not a hand pick: A big stays home
+    assert_eq!(r.plugin.director.home(), "A big");
+    // off: nothing asked for any more
+    r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: "director-toggled".into(), args: vec![json!(false)] });
+    assert_eq!(r.host.calls.iter().rev().find(|c| c.starts_with("want_people composite")).map(String::as_str), Some("want_people composite false"));
+    r.plugin.direct(&mut r.host, 100.0);
+    assert_eq!(r.plugin.layout().name, "B big", "off, it changes nothing");
+}
+
+/// A stand-in picture: a flat colour with a few filled shapes, (x, y, w, h, colour) as fractions.
+fn scene(background: [u8; 3], shapes: &[(f64, f64, f64, f64, [u8; 3])]) -> Frame {
+    let (w, h) = (640usize, 360usize);
+    let mut data = Vec::with_capacity(w * h * 4);
+    for y in 0..h {
+        for x in 0..w {
+            let (fx, fy) = (x as f64 / w as f64, y as f64 / h as f64);
+            let c = shapes.iter().rev().find(|(sx, sy, sw, sh, _)| fx >= *sx && fx < sx + sw && fy >= *sy && fy < sy + sh).map_or(background, |s| s.4);
+            data.extend([c[0], c[1], c[2], 255]);
+        }
+    }
+    Frame::new(w as u32, h as u32, PixelFormat::Bgra, data)
+}
+
+/// Not part of the suite: writes the layouts the director picks over a scripted minute as PPM files into TELESCOPE_DIRECTOR_OUT (a folder),
+/// drawn by the real compositor on stand-in pictures, with nothing on screen. `cargo nextest run -p telescope-effects --run-ignored only render_the_director`.
+#[test]
+#[ignore]
+fn render_the_director_over_a_scripted_minute() {
+    let Ok(out) = std::env::var("TELESCOPE_DIRECTOR_OUT") else { return };
+    let mut r = rig();
+    r.two_streams(0.0);
+    let face = scene([40, 60, 90], &[(0.38, 0.12, 0.24, 0.42, [150, 190, 230]), (0.22, 0.58, 0.56, 0.42, [200, 90, 60])]);
+    let desk = scene([90, 70, 50], &[(0.15, 0.2, 0.7, 0.6, [60, 140, 90]), (0.3, 0.35, 0.12, 0.2, [240, 230, 220])]);
+    let desk_hands = scene([90, 70, 50], &[(0.15, 0.2, 0.7, 0.6, [60, 140, 90]), (0.3, 0.35, 0.12, 0.2, [240, 230, 220]), (0.45, 0.4, 0.25, 0.3, [190, 150, 130])]);
+    let now = monotonic_ns();
+    let two = |big: &str, small: &str| Layout::of(vec![Tile::boxed(big, "", 0.0, 0.0, 0.72, 1.0), Tile::boxed(small, "", 0.72, 0.0, 0.28, 0.4)]);
+    r.plugin.set_layout(&mut r.host, two("a", "b"));
+    r.plugin.save_layout(&mut r.host, "Face big");
+    r.plugin.set_layout(&mut r.host, two("b", "a"));
+    r.plugin.save_layout(&mut r.host, "Desk big");
+    r.plugin.pick(&mut r.host, "Face big");
+    r.plugin.director.picked(0.0, "Face big");
+    r.plugin.director_on = true;
+    std::fs::create_dir_all(&out).unwrap();
+    let mut log = String::new();
+    // hands on the desk from 10 s to 25 s, then gone
+    for step in 0..=70 {
+        let t = 8.0 + step as f64 * 0.5;
+        let hands = (10.0..25.0).contains(&t);
+        r.plugin.director.hear(t, "b", hands);
+        let before = r.plugin.layout().name.clone();
+        r.plugin.direct(&mut r.host, t);
+        let name = r.plugin.layout().name.clone();
+        if name != before || step == 0 {
+            log += &format!("{t:5.1} s: {name}\n");
+            let mut frames = crate::compositor::Frames::new();
+            frames.insert("a".into(), (numbered(face.clone(), 1, now), Some(1)));
+            frames.insert("b".into(), (numbered(if hands { desk_hands.clone() } else { desk.clone() }, 2, now), Some(2)));
+            let mut compositor = crate::compositor::Compositor::new(no_pictures());
+            compositor.prepare(r.plugin.layout(), (960, 540));
+            let picture = compositor.render(&frames, PixelFormat::Bgra).expect("a picture");
+            let mut ppm = format!("P6\n{} {}\n255\n", picture.width, picture.height).into_bytes();
+            picture.data.chunks(4).for_each(|p| ppm.extend([p[2], p[1], p[0]]));
+            std::fs::write(format!("{out}/{:04.1}-{}.ppm", t, name.replace(' ', "-")), ppm).unwrap();
+        }
+    }
+    std::fs::write(format!("{out}/log.txt"), log).unwrap();
+}

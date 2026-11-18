@@ -35,6 +35,8 @@ pub const FALLBACK_FPS: u64 = 30;
 pub const DEFAULT_SIZE: (u32, u32) = (1920, 1080);
 const STALE_NS: u64 = (STALE_S * 1e9) as u64;
 const SWITCH_TIP: &str = n_("Combine the running streams into one picture.");
+const DIRECTOR_NAME: &str = n_("Auto director");
+const DIRECTOR_TIP: &str = n_("Swaps between your saved layouts as people move. Hands held in view of another stream bring in the layout that shows that stream biggest. The layout you picked is shown again after the hands leave.");
 const LAYOUT_TIP: &str = n_("A layout you saved in the editor.");
 
 /// What the frame steps of every stream, the clock and the plugin share.
@@ -203,6 +205,8 @@ impl Shared {
 /// The step every stream gets; only the target stream's does anything.
 #[path = "composite_editor.rs"]
 mod editor;
+#[path = "composite_director.rs"]
+pub mod director;
 
 struct CompositeStep(Arc<Shared>);
 
@@ -243,6 +247,9 @@ pub struct CompositePlugin {
     editor: Option<editor::Editor>,
     /// Setup's Max zoom: a tile zooms in at most this far.
     max_zoom: f64,
+    /// The Auto director's switch, and what it has seen while it's on.
+    director_on: bool,
+    director: director::Director,
 }
 
 impl Default for CompositePlugin {
@@ -267,7 +274,7 @@ impl CompositePlugin {
         let mut plugin = CompositePlugin {
             on: false, layout: Layout::default(), layouts: Vec::new(), target: None, camera_size: None, canvas: (None, None), shared,
             clock: None, camera_label, note: String::new(), note_short: String::new(), pending: false, held: None, reader, editor: None,
-            max_zoom: crate::composite::DEFAULT_MAX_ZOOM,
+            max_zoom: crate::composite::DEFAULT_MAX_ZOOM, director_on: false, director: director::Director::new(),
         };
         plugin.prepare();
         plugin
@@ -369,7 +376,69 @@ impl CompositePlugin {
     pub fn pick(&mut self, host: &mut dyn Host, name: &str) -> bool {
         let Some(layout) = self.layouts.iter().find(|l| l.name == name).cloned() else { return false };
         self.set_layout(host, layout);
+        // a layout picked by hand is home for the director
+        self.director.picked(monotonic_ns() as f64 / 1e9, name);
         true
+    }
+
+    // ── Auto director ─────────────────────────────────────────────────
+
+    const DIRECTOR_TIMER: &'static str = "director";
+    const DIRECTOR_MS: u64 = 500;
+
+    /// Whether the director is working: switched on, with the picture on and a layout to come home to.
+    fn directing(&self) -> bool {
+        self.on && self.director_on
+    }
+
+    /// Asks for people on every stream and the half second clock while it's working, gives them back when it isn't.
+    fn sync_director(&mut self, host: &mut dyn Host) {
+        let working = self.directing();
+        host.want_people(NAME, working);
+        if working {
+            if self.director.home().is_empty() {
+                // the layout in use is home, if it's a saved one
+                let saved = self.saved_match();
+                if !saved.is_empty() {
+                    self.director.picked(monotonic_ns() as f64 / 1e9, &saved);
+                }
+            }
+            host.schedule(Self::DIRECTOR_MS, Self::DIRECTOR_TIMER);
+        } else {
+            host.cancel_schedule(Self::DIRECTOR_TIMER);
+            self.director.clear();
+        }
+    }
+
+    /// One look at what the streams show, at now (seconds): switches to a layout when the director says it's time.
+    pub(crate) fn direct(&mut self, host: &mut dyn Host, now: f64) {
+        // someone editing the picture is in charge of it
+        if !self.directing() || self.editor.is_some() {
+            return;
+        }
+        if let Some(name) = self.director.decide(now, &self.layouts) {
+            if let Some(layout) = self.layouts.iter().find(|l| l.name == name).cloned() {
+                self.set_layout(host, layout);
+            }
+        }
+    }
+
+    fn hear_people(&mut self, host: &mut dyn Host, source_id: &str, people: &[Value]) {
+        if !self.directing() {
+            return;
+        }
+        let now = monotonic_ns() as f64 / 1e9;
+        let hands = people.iter().filter_map(telescope_core::pose::Person::from_value)
+            .any(|p| ["left_wrist", "right_wrist"].iter().any(|w| p.point(w, 0.5).is_some()));
+        self.director.hear(now, source_id, hands);
+        self.direct(host, now);
+    }
+
+    fn set_director(&mut self, host: &mut dyn Host, on: bool) {
+        self.director_on = on;
+        self.sync_director(host);
+        self.show(host);
+        host.schedule_save();
     }
 
     /// Save the picture as it is under name, replacing one of the same name; the name it got, "" for none.
@@ -425,7 +494,8 @@ impl CompositePlugin {
     // ── Card ──────────────────────────────────────────────────────────
 
     fn fixed_props() -> Value {
-        json!({"switch-name": tr("One picture"), "switch-help": tr(SWITCH_TIP), "layout-tip": tr(LAYOUT_TIP), "edit-shown": true})
+        json!({"switch-name": tr("One picture"), "switch-help": tr(SWITCH_TIP), "layout-tip": tr(LAYOUT_TIP), "edit-shown": true,
+            "director-name": tr(DIRECTOR_NAME), "director-detail": tr(DIRECTOR_TIP)})
     }
 
     fn card_props(&self) -> Value {
@@ -438,6 +508,8 @@ impl CompositePlugin {
                 ("layout-items".to_string(), json!(names)),
                 ("layout-current".to_string(), json!(current)),
                 ("layout-enabled".to_string(), json!(!names.is_empty())),
+                ("director".to_string(), json!(self.director_on)),
+                ("director-enabled".to_string(), json!(names.len() >= 2)),
                 ("status".to_string(), json!(self.note_short)),
                 ("status-detail".to_string(), json!(self.note)),
                 ("reset-shown".to_string(), json!(self.reset_shown())),
@@ -447,7 +519,7 @@ impl CompositePlugin {
     }
 
     /// What a Reset leaves alone: the switch and the saved layouts.
-    const RESET_KEPT: &'static [&'static str] = &["on", "layouts"];
+    const RESET_KEPT: &'static [&'static str] = &["on", "layouts", "director"];
 
     fn reset_shown(&self) -> bool {
         off_default(&self.get_config(), &CompositePlugin::new().get_config(), Self::RESET_KEPT)
@@ -492,6 +564,7 @@ impl CompositePlugin {
             tr("Going out")
         };
         host.set_ui_props("card", &self.card_props());
+        self.sync_director(host);
         self.show_editor(host);
     }
 
@@ -525,6 +598,7 @@ impl CompositePlugin {
     fn apply(&mut self, cfg: &Value) {
         self.layout = cfg.get("layout").and_then(clean_layout).unwrap_or_default();
         self.on = cfg.get("on") == Some(&Value::Bool(true));
+        self.director_on = cfg.get("director") == Some(&Value::Bool(true));
         self.prepare();
         self.wake_clock();
     }
@@ -558,6 +632,7 @@ impl Plugin for CompositePlugin {
 
     fn shutdown(&mut self, host: &mut dyn Host) {
         host.want_frames(NAME, false);
+        host.want_people(NAME, false);
         self.shared.hub().shut = true;
         self.shared.wake.notify_all();
         // so no picture goes out after quitting
@@ -581,6 +656,11 @@ impl Plugin for CompositePlugin {
                 self.canvas = host.canvas_size();
                 self.prepare();
                 self.show(host);
+            }
+            Event::PeopleSeen { source_id, people } => self.hear_people(host, source_id, people),
+            Event::TimerFired { owner, token } if owner == NAME && token == Self::DIRECTOR_TIMER => {
+                self.direct(host, monotonic_ns() as f64 / 1e9);
+                self.sync_director(host);
             }
             Event::StreamsChanged { .. } => self.follow_camera(host),
             Event::CameraOpened { slot: 0, .. } => self.follow_camera(host),
@@ -616,6 +696,10 @@ impl Plugin for CompositePlugin {
         self.catch_up(host);
         match event.callback.as_str() {
             "edit-clicked" => self.open_editor(host),
+            "director-toggled" => {
+                let on = event.args.first().and_then(Value::as_bool).unwrap_or(false);
+                self.set_director(host, on);
+            }
             "reset-clicked" => self.reset(host),
             "switch-toggled-by-hand" => {
                 let on = event.args.first().and_then(Value::as_bool).unwrap_or(false);
@@ -684,7 +768,12 @@ impl Plugin for CompositePlugin {
     }
 
     fn get_config(&self) -> Value {
-        json!({"on": self.on, "layout": layout_dict(&self.layout), "layouts": self.layouts.iter().map(layout_dict).collect::<Vec<_>>()})
+        let mut cfg = json!({"on": self.on, "layout": layout_dict(&self.layout), "layouts": self.layouts.iter().map(layout_dict).collect::<Vec<_>>()});
+        // only written while it's on, so settings that never used it read as they always did
+        if self.director_on {
+            cfg["director"] = json!(true);
+        }
+        cfg
     }
 
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
