@@ -133,10 +133,22 @@ impl PtpCamera {
         }
         // Whatever the camera said before this photo isn't about it
         self.nikon_events();
-        // A camera that won't take the trigger hasn't fired
-        self.busy_run(NIKON_CAPTURE_TO_MEMORY, &[NIKON_ANY_STORAGE]).map_err(Incomplete::refused)?;
+        self.trigger(NIKON_CAPTURE_TO_MEMORY, &[NIKON_ANY_STORAGE])?;
         // The shutter and the processing keep the camera busy until it is ready again, which a long exposure stretches
         self.busy_until(NIKON_DEVICE_READY, &[], until).map_err(Incomplete::from)
+    }
+
+    /// Sends the operation that fires the shutter, waiting while the camera says it is busy. A refusal or a camera that stays busy never fired; a failure of the
+    /// link itself may have come after the trigger was sent, so it is not marked as such.
+    fn trigger(&mut self, op: u16, params: &[u32]) -> Result<(), Incomplete> {
+        for _ in 0..self.pacing.busy_tries.max(1) {
+            let reply = self.t.transact(op, params, None).map_err(Incomplete::from)?;
+            if reply.code != ptp::RC_DEVICE_BUSY {
+                return if reply.ok() { Ok(()) } else { Err(Incomplete::refused(format!("the camera refused operation {op:#06x} ({:#06x})", reply.code))) };
+            }
+            std::thread::sleep(self.pacing.busy_wait);
+        }
+        Err(Incomplete::refused("the camera stayed busy"))
     }
 
     /// Runs an operation until the camera stops saying it is busy, or `until` passes, or the camera is stopped.

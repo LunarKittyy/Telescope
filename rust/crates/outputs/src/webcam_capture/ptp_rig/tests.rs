@@ -525,3 +525,15 @@ fn eos_m_is_told_from_the_marks_by_its_name() {
     assert!(capture::is_eos_m("Canon EOS M50") && capture::is_eos_m("Canon EOS M"));
     assert!(!capture::is_eos_m("Canon EOS 5D Mark IV") && !capture::is_eos_m("Canon EOS R5"));
 }
+
+#[test]
+fn a_trigger_the_camera_refused_never_fired_but_a_link_that_failed_after_it_may_have() {
+    let refused = Mock::nikon();
+    refused.state().refuse = Some((0x90C0, 0x2002));
+    let Err(why) = open(&refused).capture(1, &|| false) else { panic!("the trigger was refused") };
+    assert!(why.before_shutter && why.why.contains("refused"), "{why:?}");
+    let dropped = Mock::nikon();
+    dropped.state().transport_error_on = Some(0x90C0);
+    let Err(why) = open(&dropped).capture(1, &|| false) else { panic!("the link dropped") };
+    assert!(!why.before_shutter && why.why.contains("link dropped"), "{why:?}");
+}
