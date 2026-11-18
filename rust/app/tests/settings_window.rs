@@ -119,9 +119,9 @@ fn it_stays_inside_the_screen() {
     let (_r, win, _) = opened("settings-screen", vec![("one", "general")]);
     let size = |win: &Settings| { let s = win.ui.window().size(); (s.width, s.height) };
     let length = |win: &Settings, name: &str| match win.ui.get_property(name) { Ok(SValue::Number(n)) => n, other => panic!("{other:?}") };
-    win.fit_to_screen((1920.0, 1080.0));
+    win.fit_to_work_area((1920, 1080), 1.0, (0, 0));
     assert_eq!(size(&win), (940, 680), "its usual size");
-    win.fit_to_screen((800.0, 500.0));
+    win.fit_to_work_area((800, 500), 1.0, (0, 0));
     assert_eq!(size(&win), (752, 452), "clear of the edges");
     assert_eq!((length(&win, "least-width"), length(&win, "least-height")), (720.0, 452.0), "a small screen wins over the minimum");
     settings::forget();

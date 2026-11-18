@@ -834,8 +834,8 @@ fn a_settings_window_made_after_the_pick_wears_it() {
 // ── A work area smaller than the window ───────────────────────────────────────
 
 /// The chips (the tab-role controls of a Segmented) whose word has less than `pad` of room at each side, from the chip's own size and the
-/// width its word asks for.
-fn crowded_chips(ui: &ComponentInstance, pad: f32) -> Vec<String> {
+/// width its word asks for. A chip named in `required` that has no drawn word to measure is a problem too.
+fn crowded_chips(ui: &ComponentInstance, pad: f32, required: &[String]) -> Vec<String> {
     let inner = i_slint_core::window::WindowInner::from_pub(ui.window());
     let adapter = inner.window_adapter();
     let root = ItemRc::new_root(inner.component());
@@ -861,17 +861,38 @@ fn crowded_chips(ui: &ComponentInstance, pad: f32) -> Vec<String> {
     }
     let mut found = Vec::new();
     words(&root, &adapter, &mut found);
-    let mut crowded = Vec::new();
+    let (mut crowded, mut measured) = (Vec::new(), Vec::<String>::new());
     for chip in ui.root_element().query_descendants().match_predicate(|e| e.accessible_role() == Some(AccessibleRole::Tab)).find_all() {
         let (at, size, label) = (chip.absolute_position(), chip.size(), chip.accessible_label().unwrap_or_default().to_string());
         let item = label.rsplit(": ").next().unwrap_or(&label).to_string();
-        let Some((_, _, _, wanted)) = found.iter().find(|(t, x, y, _)| *t == item && *x >= at.x && *x <= at.x + size.width && *y >= at.y && *y <= at.y + size.height) else { continue };
+        let Some((_, _, _, wanted)) = found.iter().find(|(t, x, y, _)| *t == item && *x >= at.x && *x <= at.x + size.width && *y >= at.y && *y <= at.y + size.height) else {
+            if required.contains(&item) {
+                crowded.push(format!("{label}: no drawn word \"{item}\" inside the chip, so its room could not be measured"));
+            }
+            continue;
+        };
+        if required.contains(&item) {
+            measured.push(item.clone());
+        }
         let room = (size.width - wanted) / 2.0;
         if room < pad {
             crowded.push(format!("{label}: {room:.1} px at each side of its word (a chip {:.0} px wide, the word {wanted:.0}), wanted {pad:.1}", size.width));
         }
     }
+    for name in required {
+        if !measured.contains(name) && !crowded.iter().any(|c| c.contains(&format!("\"{name}\""))) {
+            crowded.push(format!("no chip named \"{name}\" was found to measure"));
+        }
+    }
     crowded
+}
+
+/// Where the choice rows of the Look card begin and end across (their names, the `Segmented` rows), so they can be compared.
+fn choice_rows(ui: &ComponentInstance, names: &[String]) -> Vec<(String, f32, f32)> {
+    names.iter().filter_map(|n| {
+        let e = ElementHandle::find_by_accessible_label(ui, n).find(|e| e.accessible_role() == Some(AccessibleRole::TabList))?;
+        Some((n.clone(), e.absolute_position().x, e.size().width))
+    }).collect()
 }
 
 fn scroll_settings(ui: &ComponentInstance, by: f32) {
@@ -885,9 +906,9 @@ fn found_at(ui: &ComponentInstance, label: &str, role: AccessibleRole) -> Option
     Some((e.absolute_position().y, e.absolute_position().y + e.size().height))
 }
 
-/// Settings opened on a screen whose work area is 1280x720 (a 1920x1080 screen at 150% less its taskbar), at Large text, Comfortable
-/// density and Higher contrast: the window takes no more than the work area, the page scrolls to the Language row and Help translate
-/// beneath it, and no chip's word touches its edges.
+/// Settings opened on a screen whose work area is 1920x1032 physical pixels at 150% (a 1920x1080 screen less a taskbar of 48, 688 logical high), its
+/// frame 22x56 as Windows gives it, at Large text, Comfortable density and Higher contrast: the window takes no more than the work area, the page
+/// scrolls to the Language row and Help translate beneath it, no chip's word touches its edges, and the Look card's choice rows are all as wide.
 #[test]
 fn settings_on_a_1280_by_720_work_area_scrolls_to_language_and_its_chips_keep_their_room() {
     let w = build("appearance-workarea");
@@ -898,12 +919,13 @@ fn settings_on_a_1280_by_720_work_area_scrolls_to_language_and_its_chips_keep_th
         look(&w, l);
         choose(&w, big);
         let settings = look_card(&w);
-        settings.fit_to_screen((1280.0, 720.0));
+        let size = settings.fit_to_work_area((1920, 1032), 1.5, (22, 56));
         offscreen::pump();
         w.process();
         settle(&w);
+        assert_eq!(size, (1410, 904), "940x680 at 150% cut to the work area less its frame and the margin (48 logical)");
         let height = settings.ui.window().size().height as f32 / settings.ui.window().scale_factor();
-        assert_eq!(height, 672.0, "the window is cut to the work area less its margin");
+        assert!((height - size.1 as f32 / 1.5).abs() < 1.0, "the window is {height} logical high");
         let (lang, translate) = (tr("Language"), tr("Help translate"));
         let below = |at: Option<(f32, f32)>| at.is_none_or(|(_, to)| to > height + 0.5);
         let before = below(found_at(&settings.ui, &translate, AccessibleRole::Button));
@@ -914,7 +936,21 @@ fn settings_on_a_1280_by_720_work_area_scrolls_to_language_and_its_chips_keep_th
             assert!(settings.show_tab(&tab), "{tab}");
             w.process();
             settle(&w);
-            problems.extend(crowded_chips(&settings.ui, pad).into_iter().map(|p| format!("{name}, tab {tab}: {p}")));
+            let required = if tab == "general" { vec![tr("Comfortable")] } else { Vec::new() };
+            problems.extend(crowded_chips(&settings.ui, pad, &required).into_iter().map(|p| format!("{name}, tab {tab}: {p}")));
+            if tab == "general" {
+                let rows = choice_rows(&settings.ui, &[tr("Theme"), tr("Card colours"), tr("Corners"), tr("Text size"), tr("Density")]);
+                if rows.len() != 5 {
+                    problems.push(format!("{name}: only {} of the Look card's five choice rows were found: {rows:?}", rows.len()));
+                }
+                if let Some((_, x, width)) = rows.first() {
+                    for (row, rx, rw) in &rows {
+                        if (rx - x).abs() > 0.5 || (rw - width).abs() > 0.5 {
+                            problems.push(format!("{name}: {row} starts at {rx:.1} and is {rw:.1} wide, the first row {x:.1} and {width:.1}"));
+                        }
+                    }
+                }
+            }
         }
         assert!(settings.show_tab("general"));
         w.process();
@@ -953,6 +989,67 @@ fn settings_on_a_1280_by_720_work_area_scrolls_to_language_and_its_chips_keep_th
     choose(&w, Appearance::default());
     look(&w, Look::Dark);
     telescope_shell::settings::forget();
+    w.shut_down();
+    problems.sort();
+    problems.dedup();
+    assert!(problems.is_empty(), "{} things wrong:\n{}", problems.len(), problems.join("\n"));
+}
+
+fn number(ui: &ComponentInstance, name: &str) -> f32 {
+    match ui.get_property(name) {
+        Ok(Value::Number(n)) => n as f32,
+        other => panic!("{name} is {other:?}"),
+    }
+}
+
+/// The main window on a 1366x768 screen at 150% (910x512 logical) less a taskbar of 40 and a frame of 22x56 physical pixels: the window's own
+/// minimum height follows what the screen leaves (448 logical), the columns scroll, and what is below the fold is reachable at the end.
+#[test]
+fn the_main_window_on_a_short_screen_gets_as_short_as_the_screen_and_its_columns_scroll() {
+    let w = build("appearance-short-main");
+    let size = w.fit_to_work_area((1366, 728), 1.5, (22, 56));
+    assert_eq!(size, (1344, 672), "1380x900 logical cut to the work area less its frame");
+    settle(&w);
+    let (width, height) = (size.0 as f32 / 1.5, size.1 as f32 / 1.5);
+    assert_eq!((number(&w.ui, "least-width"), number(&w.ui, "least-height")), (560.0, height), "the minimum is what the screen leaves, no more than 520");
+    let mut problems = Vec::new();
+    for (name, l) in [("dark", Look::Dark), ("light", Look::Light), ("oled", Look::Oled), ("classic", Look::Classic)] {
+        look(&w, l);
+        // As short as the minimum lets it be
+        w.ui.window().set_size(slint::LogicalSize::new(width, height));
+        offscreen::pump();
+        w.process();
+        settle(&w);
+        let (view_top, view_height) = (number(&w.ui, "view-top"), number(&w.ui, "view-height"));
+        let below = content_height(&w.ui) > view_top + view_height + 0.5;
+        if !below {
+            problems.push(format!("{name}: everything fits in {height:.0} logical, so the test shows nothing"));
+        }
+        let top = draw(&w.ui, width, height);
+        let (cut, _) = text_fit(&w.ui);
+        problems.extend(cut.iter().map(|c| format!("{name}: \"{}\" is cut without an ellipsis ({:.0} px of room for {:.0})", c.text.replace('\n', " "), c.width, c.wanted)));
+        problems.extend(leaving_cards(&w.ui).into_iter().map(|p| format!("{name}: {p}")));
+        // Scrolled to the end every column has its last card whole inside the view
+        for column in ["scroll0", "scroll1", "scroll2"] {
+            let _ = w.ui.set_property(column, Value::Number(100_000.0));
+        }
+        offscreen::pump();
+        w.process();
+        settle(&w);
+        let end = content_height(&w.ui);
+        if end > view_top + view_height + 0.5 {
+            problems.push(format!("{name}: after scrolling to the end the last card still ends at {end:.0}, the view at {:.0}", view_top + view_height));
+        }
+        let bottom = draw(&w.ui, width, height);
+        if let Some(dir) = shots() {
+            top.save_png(&dir.join(format!("short-main-{name}-top.png"))).unwrap();
+            bottom.save_png(&dir.join(format!("short-main-{name}-bottom.png"))).unwrap();
+        }
+        for column in ["scroll0", "scroll1", "scroll2"] {
+            let _ = w.ui.set_property(column, Value::Number(0.0));
+        }
+    }
+    look(&w, Look::Dark);
     w.shut_down();
     problems.sort();
     problems.dedup();
