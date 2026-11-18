@@ -102,3 +102,9 @@ Pixels: the main window and Settings tabs (r8_pixels) are byte for byte the same
 Drop it when Slint stops cloning and boxing in item_geometry (nothing upstream is known yet; check the release notes after 1.18.1), then remove this folder and the
 slint-interpreter line under [patch.crates-io] in rust/Cargo.toml. Tests and the lockfile were left out of the copy, and so were the [[test]] entries for them in Cargo.toml.
 Slint's GPL-3 option is what Telescope uses; the licence files are kept in LICENSES.
+
+Seventh change, in component.rs (search for "Telescope patch"): build_from_document no longer keeps the compiler's TypeLoaders and object trees in the definition unless the internal-highlight feature is on.
+
+Why: every definition and instance held the whole compiled document (all documents, the passes' object trees) for as long as it lived, for highlighting and the language server only. Nothing here reads it. A Settings window kept about 300 MB of it, the main window about as much.
+
+What it does now: without internal-highlight the definition carries empty TypeLoaders, so the compiler's trees are freed when the compile ends. root_component() (internal) then has nothing to return, and nothing here calls it.
