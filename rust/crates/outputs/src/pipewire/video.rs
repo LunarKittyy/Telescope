@@ -360,10 +360,16 @@ enum Copied {
     Frame(VideoFrame),
     /// The kernel wouldn't sync the DMA-BUF for a CPU read, so the picture can't be trusted and is dropped.
     Skipped(std::io::Error),
+    /// The producer's GPU work on the picture hadn't finished when the wait ended, so it wasn't touched.
+    Pending,
 }
 
-/// Copies the picture a shot noted out into packed rows. Takes no lock of the loop's, and may wait on the producer's GPU work.
-fn copy_shot(shot: &Shot) -> Result<Copied, String> {
+/// Copies the picture a shot noted out into packed rows. Takes no lock of the loop's, and waits for the producer's GPU work only until `until`
+/// or until `cancelled` says so.
+fn copy_shot(shot: &Shot, until: Instant, cancelled: &dyn Fn() -> bool) -> Result<Copied, String> {
+    if shot.dma_buf && !fence_ready(shot.fd.as_raw_fd(), until, cancelled) {
+        return Ok(Copied::Pending);
+    }
     let Negotiated { width, height, format } = shot.negotiated;
     let length = shot.map_offset + shot.max_size;
     let fd = shot.fd.as_raw_fd();
@@ -449,6 +455,26 @@ unsafe fn stream_copy(src: *const u8, out: &mut [u8]) {
     }
 }
 
+/// How long one poll for a fence lasts before the deadline and the cancellation are looked at again.
+const FENCE_SLICE: Duration = Duration::from_millis(20);
+
+/// Waits until the producer's pending writes to the DMA-BUF `fd` are done (it polls readable then), so the sync that follows can't block
+/// on a fence a stuck producer never signals. False when `until` passed or `cancelled` said so first.
+fn fence_ready(fd: i32, until: Instant, cancelled: &dyn Fn() -> bool) -> bool {
+    loop {
+        let mut poll = libc::pollfd { fd, events: libc::POLLIN, revents: 0 };
+        // SAFETY: one pollfd that lives through the call; a timeout of at most the slice
+        let got = unsafe { libc::poll(&mut poll, 1, FENCE_SLICE.as_millis() as libc::c_int) };
+        // An error or a hang-up isn't a wait: the sync that follows reports what is wrong
+        if got > 0 {
+            return true;
+        }
+        if cancelled() || Instant::now() >= until {
+            return false;
+        }
+    }
+}
+
 /// DMA_BUF_IOCTL_SYNC's flags for a CPU read.
 const SYNC_START: u64 = 1;
 const SYNC_END: u64 = 1 | (1 << 2);
@@ -520,7 +546,8 @@ impl VideoConsumer {
             if let Some(parked) = state.parked.take() {
                 state.in_flight = Some(InFlight { buffer: parked.buffer, removed: false });
                 drop(state);
-                let copied = copy_shot(&parked.shot);
+                let connection = &self.connection;
+                let copied = copy_shot(&parked.shot, deadline, &|| connection.is_dead());
                 self.give_back(parked.buffer);
                 state = self.slot.state.lock().map_err(|_| broke())?;
                 match copied {
@@ -539,6 +566,8 @@ impl VideoConsumer {
                         }
                         continue;
                     }
+                    // The producer's fence is still pending: the picture is dropped, and the wait over (the deadline has passed)
+                    Ok(Copied::Pending) => continue,
                     Err(message) => {
                         state.error.get_or_insert(message);
                         continue;
@@ -596,6 +625,52 @@ mod tests {
         fd
     }
 
+    fn far() -> Instant {
+        Instant::now() + Duration::from_secs(5)
+    }
+
+    fn pipe() -> (OwnedFd, OwnedFd) {
+        let mut fds = [0; 2];
+        // SAFETY: a two-int array for pipe2 to fill
+        assert_eq!(unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) }, 0);
+        // SAFETY: fresh descriptors nothing else owns
+        unsafe { (OwnedFd::from_raw_fd(fds[0]), OwnedFd::from_raw_fd(fds[1])) }
+    }
+
+    #[test]
+    fn a_fence_that_never_signals_is_given_up_on_at_the_deadline() {
+        // A pipe nothing writes to polls unreadable, like a DMA-BUF whose producer never signals its fence
+        let (read, _write) = pipe();
+        let start = Instant::now();
+        assert!(!fence_ready(read.as_raw_fd(), start + Duration::from_millis(100), &|| false));
+        assert!(start.elapsed() < Duration::from_secs(1), "the wait overran its deadline: {:?}", start.elapsed());
+    }
+
+    #[test]
+    fn a_fence_wait_ends_when_cancelled() {
+        let (read, _write) = pipe();
+        let start = Instant::now();
+        assert!(!fence_ready(read.as_raw_fd(), start + Duration::from_secs(30), &|| true));
+        assert!(start.elapsed() < Duration::from_secs(1));
+    }
+
+    #[test]
+    fn a_fence_that_signals_lets_the_read_go_ahead() {
+        let (read, write) = pipe();
+        let mut file = std::fs::File::from(write);
+        file.write_all(&[1]).unwrap();
+        assert!(fence_ready(read.as_raw_fd(), far(), &|| false));
+    }
+
+    #[test]
+    fn a_picture_behind_an_unsignalled_fence_is_left_untouched() {
+        let (read, _write) = pipe();
+        let start = Instant::now();
+        let copied = copy_shot(&shot(read, true), start + Duration::from_millis(60), &|| false).unwrap();
+        assert!(matches!(copied, Copied::Pending));
+        assert!(start.elapsed() < Duration::from_secs(1));
+    }
+
     fn flags_of(fd: i32) -> i32 {
         // SAFETY: F_GETFD only reads the descriptor's flags
         unsafe { libc::fcntl(fd, libc::F_GETFD) }
@@ -650,7 +725,7 @@ mod tests {
         // A memfd is no DMA-BUF, so the sync ioctl fails for good
         let name = format!("telescope-sync-test-{}", std::process::id());
         let fd = memfd(&name, &[7u8; 32]);
-        let copied = copy_shot(&shot(fd, true)).expect("a sync failure isn't an error of the reader");
+        let copied = copy_shot(&shot(fd, true), far(), &|| false).expect("a sync failure isn't an error of the reader");
         assert!(matches!(copied, Copied::Skipped(_)));
         let maps = std::fs::read_to_string("/proc/self/maps").unwrap();
         assert!(!maps.contains(&name), "the mapping was left behind");
@@ -660,7 +735,7 @@ mod tests {
     fn a_memory_picture_is_copied_row_by_row() {
         let bytes: Vec<u8> = (0u8..32).collect();
         let fd = memfd(&format!("telescope-copy-test-{}", std::process::id()), &bytes);
-        let Copied::Frame(frame) = copy_shot(&shot(fd, false)).unwrap() else { panic!("a plain picture should copy") };
+        let Copied::Frame(frame) = copy_shot(&shot(fd, false), far(), &|| false).unwrap() else { panic!("a plain picture should copy") };
         assert_eq!((frame.width, frame.height), (4, 2));
         assert_eq!(frame.data, bytes);
     }
