@@ -15,6 +15,11 @@ export component CompositeCard inherits Card {
     callback switch-toggled-by-hand(bool);
     callback layout-picked(int);
     callback edit-clicked;
+    in property <bool> director;
+    in property <bool> director-enabled;
+    in property <string> director-name;
+    in property <string> director-detail;
+    callback director-toggled(bool);
     in property <bool> reset-shown;
     callback reset-clicked;
     in property <[string]> transition-items;
@@ -87,6 +92,17 @@ export component CompositeCard inherits Card {
                 icon-tint: Theme.ink2;
                 clicked => { root.edit-clicked(); }
             }
+        }
+        SwitchRow {
+            icon: Icons.layout;
+            label: director-name;
+            tip: director-name;
+            tip-detail: director-detail;
+            hue: root.hue;
+            enabled: director-enabled;
+            changed: director;
+            checked: root.director;
+            toggled(v) => { root.director-toggled(v); }
         }
         Unfolding {
             open: true;

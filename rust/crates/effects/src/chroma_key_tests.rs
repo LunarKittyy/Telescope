@@ -752,6 +752,7 @@ fn the_host_is_told_when_the_key_starts_and_stops_hiding_the_screen() {
     assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, false)), "off hides nothing");
     r.ui("switch-toggled-by-hand", vec![json!(true)]);
     assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    assert_eq!(r.host.shared("chroma_key.keying"), Some(json!(true)), "Background reads it to leave the cut-out to the key");
     // Its own pick only looks at the picture
     r.event(Event::PreviewPickChanged { owner: NAME.into() });
     assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
@@ -787,4 +788,172 @@ fn the_host_hears_again_when_the_panels_move_to_a_camera_with_the_same_settings(
     assert_eq!(r.host.hiding.len(), told + 2);
     r.event(Event::PhonesChanged { count: 1 });
     assert_eq!(r.host.hiding.len(), told + 2);
+}
+
+// ── Cut out ─────────────────────────────────────────────────────────────
+
+fn fixture(name: &str) -> Vec<u8> {
+    std::fs::read(format!("{}/tests/fixtures/{name}", env!("CARGO_MANIFEST_DIR"))).unwrap()
+}
+
+fn tables_for(cfg: &Value) -> Arc<Tables> {
+    let mut plugin = ChromaKeyPlugin::new();
+    plugin.set_config(cfg).unwrap();
+    let key = plugin.key_colour().expect("a screen to key");
+    plugin.tables(key)
+}
+
+/// The cases the matte is checked on: the fixtures' scenes and key settings.
+fn cases() -> Vec<(String, Frame, Value)> {
+    let doc: Value = serde_json::from_slice(&fixture("chroma.json")).unwrap();
+    doc["cases"].as_array().unwrap().iter().map(|c| {
+        let (w, h) = (c["width"].as_u64().unwrap() as u32, c["height"].as_u64().unwrap() as u32);
+        let scene = Frame::new(w, h, PixelFormat::Rgba, fixture(c["scene"].as_str().unwrap()));
+        (c["name"].as_str().unwrap().to_string(), scene, c["config"].clone())
+    }).collect()
+}
+
+#[test]
+fn the_matte_on_the_cpu_is_the_one_python_recorded() {
+    // Two recorded pictures of one scene and one key, over a dark and a pale colour: what differs is the part of the backdrop that shows, so the matte is what is left
+    let cases = cases();
+    let scene = &cases[0].1;
+    let (dark, pale) = (fixture("chroma_00.rgba"), fixture("chroma_06.rgba"));
+    assert_eq!(cases[0].2, json!({"screen": "green"}));
+    let rgb = Rgb::from_frame(scene).unwrap();
+    let got = chroma_matte::matte(&rgb.data, (rgb.w, rgb.h), &tables_for(&cases[0].2));
+    let (b_dark, b_pale) = (DEFAULT_COLOUR[0] as f64, 230.0);
+    let mut worst = 0.0f64;
+    for (i, &a) in got.iter().enumerate() {
+        let shown = (pale[i * 4 + 2] as f64 - dark[i * 4 + 2] as f64) / (b_pale - b_dark);
+        worst = worst.max((255.0 - shown * 255.0 - a as f64).abs());
+    }
+    // each recorded picture is rounded on its own, which is up to 1 level of backdrop either way
+    assert!(worst <= 2.0, "the recorded pictures are {worst:.2} levels from the matte");
+    assert!(got.contains(&0) && got.contains(&255) && got.iter().any(|&a| a > 0 && a < 255));
+}
+
+#[test]
+fn the_matte_on_the_cpu_is_the_shaders_to_within_a_level_in_every_fixture_case() {
+    if !gpu_here() {
+        return;
+    }
+    for (name, scene, cfg) in cases() {
+        let rgb = Rgb::from_frame(&scene).unwrap();
+        let got = chroma_matte::matte(&rgb.data, (rgb.w, rgb.h), &tables_for(&cfg));
+        let shader = matte(&scene, cfg).alpha;
+        let worst = got.iter().zip(&shader).map(|(&a, &b)| (a as i32 - b as i32).abs()).max().unwrap();
+        let off = got.iter().zip(&shader).filter(|(&a, &b)| (a as i32 - b as i32).abs() > 1).count();
+        // the card keys the picture after its own YUV conversion, so a pixel on the cliff of a hard table can land a cell away: few of them, not a drift
+        assert!(off * 50 <= got.len(), "{name}: {off} of {} pixels are more than a level apart (worst {worst})", got.len());
+    }
+}
+
+/// What cut_out does to a matte, a pixel at a time: the smallest of the 3 x 3 around it, then their mean.
+fn pulled_in_and_feathered(raw: &[u8], (w, h): (usize, usize)) -> Vec<u8> {
+    let near = |plane: &dyn Fn(usize, usize) -> u32, x: usize, y: usize| -> Vec<u32> {
+        (-1i32..=1).flat_map(|dy| (-1i32..=1).map(move |dx| (dx, dy))).map(|(dx, dy)| plane((x as i32 + dx).clamp(0, w as i32 - 1) as usize, (y as i32 + dy).clamp(0, h as i32 - 1) as usize)).collect()
+    };
+    let eroded = |x: usize, y: usize| near(&|x, y| raw[y * w + x] as u32, x, y).into_iter().min().unwrap();
+    let plane: Vec<u32> = (0..w * h).map(|i| eroded(i % w, i / w)).collect();
+    (0..w * h).map(|i| ((near(&|x, y| plane[y * w + x], i % w, i / w).into_iter().sum::<u32>() + 4) / 9) as u8).collect()
+}
+
+#[test]
+fn the_cut_out_is_the_matte_pulled_in_by_a_pixel_and_feathered_by_a_pixel() {
+    let cases = cases();
+    for index in [0usize, 5] {
+        let (_, scene, cfg) = &cases[index];
+        let rgb = Rgb::from_frame(scene).unwrap();
+        let tables = tables_for(cfg);
+        let size = (rgb.w, rgb.h);
+        let raw = chroma_matte::matte(&rgb.data, size, &tables);
+        let cut = chroma_matte::cut_out(&rgb.data, size, &tables);
+        assert!(cut == pulled_in_and_feathered(&raw, size), "case {index}: odd sizes too");
+        assert!(cut != raw);
+    }
+}
+
+/// A context that is the stream with this source id.
+struct Stream(&'static str);
+
+impl FrameContext for Stream {
+    fn source_id(&self) -> &str {
+        self.0
+    }
+    fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
+        None
+    }
+    fn colour_preview(&self, frame: &Frame) -> Frame {
+        frame.clone()
+    }
+}
+
+fn keying(rig: &mut Rig) {
+    rig.ui("switch-toggled-by-hand", vec![json!(true)]);
+    assert!(rig.plugin.is_on());
+}
+
+fn cut_step(rig: &mut Rig) -> Option<Box<dyn CpuStep>> {
+    match rig.plugin.staged_frame_steps().pop() {
+        Some((stage, FrameStep::Cpu(step))) => {
+            assert_eq!(stage, FrameStage::Reading, "before the key changes the picture");
+            Some(step)
+        }
+        Some(other) => panic!("a CPU step, got {other:?}"),
+        None => None,
+    }
+}
+
+#[test]
+fn a_stream_that_wants_its_cut_out_gets_the_keys_matte_as_alpha_and_nothing_else_changes() {
+    let mut rig = Rig::new(false);
+    assert!(cut_step(&mut rig).is_none(), "off");
+    keying(&mut rig);
+    assert!(cut_step(&mut rig).is_none(), "on, and nobody wants a cut-out");
+    rig.event(Event::CutOutWanted { source_id: "phone".into(), on: true });
+    assert!(rig.host.calls.iter().filter(|c| *c == "refresh_frame_step").count() >= 2, "the stream is given the step");
+    let mut step = cut_step(&mut rig).expect("the matte's step");
+    assert_eq!(step.touch(&Stream("other")), Touch::Nothing);
+    assert_eq!(step.touch(&Stream("phone")), Touch::Reads);
+    let scene = scene();
+    let (mut asked, mut other) = (scene.clone(), scene.clone());
+    step.process(&mut asked, &Stream("phone"));
+    step.process(&mut other, &Stream("other"));
+    assert!(other.alpha().is_none());
+    assert!(asked.data == scene.data, "the picture is untouched");
+    let alpha = asked.alpha().expect("a cut-out");
+    assert!(!alpha.premultiplied && (alpha.w, alpha.h) == (64, 36));
+    assert_eq!((alpha.data[4 * 64 + 4], alpha.data[18 * 64 + 32]), (0, 255), "the screen is gone and the person stays");
+    // a cut-out already there is the one that stays
+    let mut taken = scene.clone();
+    let first = Arc::new(Alpha::new(64, 36, vec![7; 64 * 36], false));
+    assert!(taken.set_alpha(first.clone()));
+    step.process(&mut taken, &Stream("phone"));
+    assert!(Arc::ptr_eq(taken.alpha().unwrap(), &first));
+    // not wanted any more, or not keying any more
+    rig.event(Event::CutOutWanted { source_id: "phone".into(), on: false });
+    assert!(cut_step(&mut rig).is_none());
+    rig.event(Event::CutOutWanted { source_id: "phone".into(), on: true });
+    rig.ui("switch-toggled-by-hand", vec![json!(false)]);
+    assert!(cut_step(&mut rig).is_none());
+}
+
+#[test]
+fn the_cut_out_comes_out_of_the_pipeline_with_the_keyed_picture() {
+    if !gpu_here() {
+        return;
+    }
+    let mut rig = Rig::new(false);
+    keying(&mut rig);
+    rig.event(Event::CutOutWanted { source_id: String::new(), on: true });
+    let cut = cut_step(&mut rig).unwrap();
+    let key = rig.plugin.frame_step().unwrap();
+    let mut pipeline = telescope_media::FfmpegMedia.pipeline().expect("a frame pipeline");
+    pipeline.set_steps(vec![StagedStep { owner: NAME.into(), stage: FrameStage::Reading, step: FrameStep::Cpu(cut) }, StagedStep { owner: NAME.into(), stage: FrameStage::Background, step: key }]);
+    let out = pipeline.process(scene(), &NoContext);
+    let keyed = through(rig.plugin.frame_step().unwrap(), scene());
+    assert!(out.data == keyed.data, "the key makes the picture it always did");
+    let alpha = out.alpha().expect("the cut-out lands with the picture");
+    assert_eq!((alpha.data[4 * 64 + 4], alpha.data[18 * 64 + 32]), (0, 255));
 }
