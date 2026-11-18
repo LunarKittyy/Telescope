@@ -65,6 +65,8 @@ pub const MAX_ZOOM: f64 = 10.0;
 const LOST_S: f64 = 2.0;
 /// The person picked to follow, not seen for this long, is let go and everyone is framed again.
 const FOLLOW_GIVE_UP_S: f64 = 30.0;
+/// Someone seen beside the person followed is remembered this long without being seen again.
+const OTHERS_KEPT_S: f64 = 15.0;
 /// The framing lets the target's centre wander this far (of the window's size) at Speed 5...
 const DEAD_CENTRE: f64 = 0.06;
 /// ...and its zoom this much, and only follows what goes past that.
@@ -515,7 +517,7 @@ pub struct FramingPlugin {
     /// The one person picked on the preview to follow, as last matched in a report and when; None frames everyone
     followed: Option<(Person, f64)>,
     /// Everyone else in the last report while someone is followed, so a bystander is never mistaken for them
-    others: Vec<Person>,
+    others: Vec<(Person, f64)>,
     /// A pick on the preview is under way
     picking: bool,
     /// The Framing bubble is up: its crop follows the slider.
@@ -688,6 +690,9 @@ impl FramingPlugin {
             host.release_view(TITLE);
             self.people.clear();
             self.forget_group();
+            if self.picking {
+                host.cancel_pick(NAME);
+            }
             self.followed = None;
             self.others.clear();
             self.seen_at = None;
@@ -827,28 +832,42 @@ impl FramingPlugin {
 
     /// Starts a pick on the preview: whoever is clicked is the one Auto framing follows.
     fn pick(&mut self, host: &mut dyn Host) {
+        if !self.steering {
+            return;
+        }
         host.pick_on_preview(NAME, PickKind::Point, None, &tr("Click the person to follow on the preview. Esc cancels."));
     }
 
     fn picked(&mut self, host: &mut dyn Host, pick: &telescope_core::host::Pick) {
         // Where the click is in the whole picture, before the view's zoom and pan, then turned the way the view turns it, as the people are
-        let Some(at) = pick.full.first() else { return };
+        if !self.steering {
+            return;
+        }
+        // a click on the bars beside the picture isn't on anyone
+        let Some(at) = pick.full.first().filter(|p| (0.0..=1.0).contains(&p[0]) && (0.0..=1.0).contains(&p[1])) else { return };
         let (x, y) = turned(Turn::default(), turn_of(&host.view()))(at[0] as f64, at[1] as f64);
         let aspect = host.view_aspect() as f64;
         let aspect = if aspect != 0.0 { aspect } else { 16.0 / 9.0 };
         if let Some(i) = nearest_person(&self.people, (x, y), aspect) {
             self.followed = Some((self.people[i].clone(), (self.clock)()));
-            self.others = self.people.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, p)| p.clone()).collect();
+            let now = (self.clock)();
+            self.others = self.people.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, p)| (p.clone(), now)).collect();
             self.last_box = None;
             self.show_following(host);
         }
     }
 
-    /// Takes a report into the one followed. They and everyone else in the last report each go to the nearest person in this one, one to one, so someone standing close by can't take their place when the model misses them for a moment. A person who isn't
-    /// found stays followed where they were last seen. Someone new turning up where they were takes over only when no one else could be them.
+    /// Takes a report into the one followed. They and everyone else seen lately each go to the nearest person in this report, one to one,
+    /// so someone standing close by can't take their place when the model misses them for a moment. A report with nobody in it changes
+    /// nothing. A person who isn't found stays followed where they were last seen. Someone new turning up where they were is taken for
+    /// them only when nobody else is around who could be: with others about, the lock waits for them to be found again (or for a new pick).
     fn follow_report(&mut self, now: f64, aspect: f64) {
         let Some((old, at)) = self.followed.clone() else { return };
-        let before: Vec<&Person> = std::iter::once(&old).chain(self.others.iter()).collect();
+        if !self.people.iter().any(|p| body(p, aspect).is_some()) {
+            return;
+        }
+        self.others.retain(|(_, seen)| now - seen < OTHERS_KEPT_S);
+        let before: Vec<&Person> = std::iter::once(&old).chain(self.others.iter().map(|(p, _)| p)).collect();
         let mut pairs: Vec<(f64, usize, usize)> = Vec::new();
         for (e, who) in before.iter().enumerate() {
             let Some(((ox, oy), owidth)) = body(who, aspect) else { continue };
@@ -871,8 +890,7 @@ impl FramingPlugin {
                 }
             }
         }
-        if theirs.is_none() {
-            // nobody was matched to them: a newcomer near where they were, with no one else near enough to be them, is them
+        if theirs.is_none() && self.others.is_empty() {
             let near = |c: usize| {
                 let (Some(((ox, oy), ow)), Some(((x, y), w))) = (body(&old, aspect), body(&self.people[c], aspect)) else { return false };
                 ((x - ox) * aspect).hypot(y - oy) <= SAME_PERSON * w.max(ow)
@@ -882,7 +900,14 @@ impl FramingPlugin {
                 theirs = Some(only);
             }
         }
-        let others: Vec<Person> = self.people.iter().enumerate().filter(|(c, p)| Some(*c) != theirs && body(p, aspect).is_some()).map(|(_, p)| p.clone()).collect();
+        // the others as this report has them; anyone it didn't find stays where they were for a while
+        let mut others: Vec<(Person, f64)> = self.people.iter().enumerate()
+            .filter(|(c, p)| Some(*c) != theirs && body(p, aspect).is_some()).map(|(_, p)| (p.clone(), now)).collect();
+        for (e, (person, seen)) in self.others.iter().enumerate() {
+            if !used[e + 1] {
+                others.push((person.clone(), *seen));
+            }
+        }
         self.followed = Some(match theirs {
             Some(c) => (self.people[c].clone(), now),
             None => (old, at),
@@ -910,7 +935,7 @@ impl FramingPlugin {
         if let Some((person, _)) = &mut self.followed {
             *person = person.mapped(&remap);
         }
-        self.others = self.others.iter().map(|person| person.mapped(&remap)).collect();
+        self.others = self.others.iter().map(|(person, at)| (person.mapped(&remap), *at)).collect();
         // Who is who is found again from the next reports, in the new orientation
         self.forget_group();
         (self.spring, self.goal, self.smooth) = (None, None, None);
@@ -1086,6 +1111,11 @@ impl Plugin for FramingPlugin {
         self.others.clear();
         self.people.clear();
         self.forget_group();
+        // the next stream doesn't open on the last one's crop
+        (self.seen_at, self.spring, self.goal, self.smooth) = (None, None, None, None);
+        self.last_box = None;
+        self.room_state.reset();
+        self.ticked_at = None;
         self.show_following(host);
     }
 

@@ -416,6 +416,44 @@ fn a_bystander_next_to_the_picked_person_does_not_take_their_place_when_the_mode
 }
 
 #[test]
+fn an_empty_report_then_only_the_bystander_then_the_picked_person_back_keeps_the_lock() {
+    let (a, b) = (at(0.45), at(0.6));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[a.clone(), b.clone()]));
+    click_on(&mut r, &a);
+    r.run(2.0, Some(&[a.clone(), b.clone()]));
+    r.run(0.3, Some(&[]));
+    r.run(0.3, Some(std::slice::from_ref(&b)));
+    r.run(4.0, Some(&[a.clone(), b.clone()]));
+    assert!(r.last().1 < 0.52 && r.last().0 > 2.5, "framing {} at {}", r.last().1, r.last().0);
+}
+
+#[test]
+fn nothing_can_be_picked_while_framing_is_off_and_turning_it_off_drops_a_pending_pick() {
+    let mut r = Rig::new();
+    r.ui("pick-clicked", Value::Null);
+    assert!(!r.host.calls.iter().any(|c| c.starts_with("pick_on_preview")));
+    r.switch(true);
+    r.ui("pick-clicked", Value::Null);
+    r.event(Event::PreviewPickChanged { owner: NAME.into() });
+    r.switch(false);
+    assert!(r.host.calls.iter().any(|c| c == "cancel_pick framing"));
+}
+
+#[test]
+fn a_click_outside_the_picture_picks_nobody() {
+    let (a, b) = (at(0.2), at(0.8));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[a, b]));
+    r.ui("pick-clicked", Value::Null);
+    let off = vec![[-0.1f32, 0.5]];
+    r.event(Event::PreviewPicked { owner: NAME.into(), pick: Some(telescope_core::host::Pick { kind: telescope_core::host::PickKind::Point, shown: off.clone(), full: off.clone(), in_picture: off, picture: None }) });
+    assert_ne!(r.prop("following"), json!(true));
+}
+
+#[test]
 fn leaving_the_stream_or_the_card_clears_the_pick_and_says_so() {
     let (a, b) = (at(0.2), at(0.8));
     for how in ["stop", "off"] {
