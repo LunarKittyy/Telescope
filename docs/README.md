@@ -10,6 +10,7 @@ New here? The [Quick Start](../README.md#up-and-running-in-about-two-minutes) is
 - [Plugins](features/plugins.md): switching parts of the app off and installing plugins other people made
 - [MCP server](features/mcp.md): letting an AI app like Claude Desktop read and change Telescope's settings
 - [Manual setup](setup.md): the virtual camera by hand on Linux, loading it at boot, OBS as a Flatpak
+- [Unusual setups](unusual-setups.md): using Telescope with the phone and computer far apart, starting with Tailscale
 - [Device compatibility](device-compatibility.md): phones that have been tested
 - [Licenses](licenses.md): what the licence means for you and the third-party parts used
 
