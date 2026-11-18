@@ -397,6 +397,8 @@ struct CopyWorker {
 /// How many worker threads may be alive at once across all consumers. A worker stuck in the kernel can't be stopped, so each one counts
 /// until its thread has really exited, and a sender that keeps getting stuck runs into this instead of piling up threads and descriptors.
 const MAX_WORKERS: usize = 4;
+/// How long a read may take before the source is called stuck.
+const STALL_AFTER: Duration = Duration::from_secs(2);
 static WORKERS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 /// One of the MAX_WORKERS places, given back when the worker thread exits (or unwinds).
@@ -679,6 +681,8 @@ pub struct VideoConsumer {
     worker: Option<CopyWorker>,
     /// The buffer the worker holds, when a read of it outlasted a call of `next`.
     copying: Option<Copying>,
+    /// When the read the worker is stuck on began.
+    copying_since: Instant,
     /// Whether the buffer given back last went back to the stream (false when the stream had taken it away).
     kept: std::cell::Cell<bool>,
 }
@@ -696,7 +700,7 @@ impl VideoConsumer {
         let props = [("media.type", "Video"), ("media.category", "Capture"), ("media.role", "Production"), ("media.class", "Stream/Input/Video"), ("node.dont-reconnect", "true")];
         let config = StreamConfig { name: client, props: &props, direction: PW_DIRECTION_INPUT, target: node, flags: PW_STREAM_FLAG_AUTOCONNECT };
         let stream = Stream::connect(connection, &config, &format_offers(), Box::new(handler))?;
-        Ok(VideoConsumer { connection: connection.clone(), node, watch_node: connection.node(node).is_some(), slot, stream, skipped: 0, stop: None, worker: None, copying: None, kept: std::cell::Cell::new(true) })
+        Ok(VideoConsumer { connection: connection.clone(), node, watch_node: connection.node(node).is_some(), slot, stream, skipped: 0, stop: None, worker: None, copying: None, copying_since: Instant::now(), kept: std::cell::Cell::new(true) })
     }
 
     /// The next picture that arrives within `timeout`: Ok(None) when nothing came, Err once the node is gone or the stream failed.
@@ -798,6 +802,11 @@ impl VideoConsumer {
         }
     }
 
+    /// Whether a read of a picture has been stuck in the kernel for longer than a healthy one takes.
+    pub fn stalled(&self) -> bool {
+        self.copying.is_some() && self.copying_since.elapsed() >= STALL_AFTER
+    }
+
     /// Why the reader can't go on: the stream failed, PipeWire went away or the sender's node is gone.
     fn lost(&self, state: &SlotState) -> Option<String> {
         if let Some(error) = state.error.clone() {
@@ -837,6 +846,7 @@ impl VideoConsumer {
             return Err("the thread reading pictures ended".into());
         }
         self.copying = Some(Copying { buffer: parked.buffer });
+        self.copying_since = Instant::now();
         Ok(())
     }
 

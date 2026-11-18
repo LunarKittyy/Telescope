@@ -109,6 +109,10 @@ pub trait Reader: Send {
     fn next(&mut self, timeout: Duration) -> Result<Option<Picture>, String>;
     /// A flag that is set when the stream is stopped, which a reader that can wait on the card ends its wait for (with an Err) instead of holding the stop up.
     fn set_stop(&mut self, _stop: Arc<AtomicBool>) {}
+    /// Whether the last picture is taking unusually long to read from the card, so the sender is probably stuck rather than idle.
+    fn stalled(&self) -> bool {
+        false
+    }
 }
 
 /// The backend this system has, if any.
@@ -286,7 +290,7 @@ impl StreamSource for SpoutSource {
         self.report("ok", &format!("{}×{}", first.width, first.height));
         let feed = SpoutFeed {
             reader, first: Some(first), stop, shared: self.shared.clone(), key: self.key.clone(), poster: self.poster.clone(), waiting: self.waiting.clone(),
-            last: None, last_sent: Instant::now(), asked: Instant::now(),
+            last: None, last_sent: Instant::now(), stalled: false, asked: Instant::now(),
         };
         Ok((Codec::Mjpeg, Box::new(feed)))
     }
@@ -319,6 +323,8 @@ struct SpoutFeed {
     /// The last picture's packet and its size, for a sender that goes quiet.
     last: Option<(Vec<u8>, (u32, u32))>,
     last_sent: Instant,
+    /// Whether the sender's row says it is stuck.
+    stalled: bool,
     /// When the reader was asked for the last picture it gave, which the rate counts from so the copy's time isn't added to each frame's.
     asked: Instant,
 }
@@ -352,6 +358,22 @@ impl SpoutFeed {
             p.post(P_REPORTED, json!([self.key, state, detail]));
         }
     }
+
+    /// Tells the sender's row when the reader gets stuck and when it recovers.
+    fn show_stall(&mut self) {
+        let stalled = self.reader.stalled();
+        if stalled == self.stalled {
+            return;
+        }
+        self.stalled = stalled;
+        if stalled {
+            log::warn!("Reading the picture of the Spout sender {} is taking too long, so its stream is paused until the card answers", self.key);
+            self.post("stalled", "");
+        } else {
+            let detail = self.last.as_ref().map(|(_, (w, h))| format!("{w}×{h}")).unwrap_or_default();
+            self.post("ok", &detail);
+        }
+    }
 }
 
 impl VideoFeed for SpoutFeed {
@@ -370,7 +392,9 @@ impl VideoFeed for SpoutFeed {
                 continue;
             }
             let asked = Instant::now();
-            match self.reader.next(Duration::from_millis(50)) {
+            let read = self.reader.next(Duration::from_millis(50));
+            self.show_stall();
+            match read {
                 Ok(Some(picture)) => {
                     self.asked = asked;
                     return Ok(self.send(picture));
@@ -559,6 +583,8 @@ impl SpoutPlugin {
             ("status_warn", tr("Sender not running"))
         } else if state == "silent" {
             ("status_warn", tr("Not sending anything"))
+        } else if state == "stalled" && streaming {
+            ("status_warn", tr("Sender isn't answering"))
         } else if streaming {
             ("status_ok", if state == "ok" { detail } else { tr("Starting…") })
         } else {

@@ -721,7 +721,7 @@ msgstr "Il colore scelto dall'anteprima. Clicca per sceglierne un altro."
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Fai clic sullo schermo dietro di te nell'anteprima. Esc annulla."
 
-#: rust/crates/effects/src/chroma_key.rs:407 rust/crates/effects/src/chroma_key.rs:443 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:565 rust/crates/outputs/src/webcam.rs:976 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1785 rust/crates/shell/src/window.rs:1776 rust/crates/shell/src/worker.rs:581 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:407 rust/crates/effects/src/chroma_key.rs:443 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:591 rust/crates/outputs/src/webcam.rs:976 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1785 rust/crates/shell/src/window.rs:1776 rust/crates/shell/src/worker.rs:581 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Non in streaming"
 
@@ -5359,44 +5359,48 @@ msgstr "Il trasmettitore non condivide alcuna immagine. Verifica che sia in esec
 msgid "Telescope can't read this sender's picture. Try another sender, or check the sender's output settings."
 msgstr "Telescope non riesce a leggere l'immagine di questo mittente. Prova con un altro mittente o controlla le sue impostazioni di uscita."
 
-#: rust/crates/outputs/src/spout/mod.rs:303
+#: rust/crates/outputs/src/spout/mod.rs:307
 msgid "Check that the sender is still running."
 msgstr "Controlla che il mittente sia ancora in esecuzione."
 
-#: rust/crates/outputs/src/spout/mod.rs:559
+#: rust/crates/outputs/src/spout/mod.rs:583
 msgid "Sender not running"
 msgstr "Mittente non in esecuzione"
 
-#: rust/crates/outputs/src/spout/mod.rs:561 rust/crates/outputs/src/webcam.rs:972
+#: rust/crates/outputs/src/spout/mod.rs:585 rust/crates/outputs/src/webcam.rs:972
 msgid "Not sending anything"
 msgstr "Nessun dato inviato"
 
-#: rust/crates/outputs/src/spout/mod.rs:563 rust/crates/outputs/src/webcam.rs:974
+#: rust/crates/outputs/src/spout/mod.rs:587
+msgid "Sender isn't answering"
+msgstr ""
+
+#: rust/crates/outputs/src/spout/mod.rs:589 rust/crates/outputs/src/webcam.rs:974
 msgid "Starting…"
 msgstr "Avvio in corso…"
 
-#: rust/crates/outputs/src/spout/mod.rs:572
+#: rust/crates/outputs/src/spout/mod.rs:598
 msgid "Set how many pictures a second to take. Spout senders don't share their own rate."
 msgstr "Imposta quante immagini acquisire al secondo. I mittenti Spout non condividono la propria frequenza."
 
-#: rust/crates/outputs/src/spout/mod.rs:586 rust/crates/outputs/ui/spout.slint:14
+#: rust/crates/outputs/src/spout/mod.rs:612 rust/crates/outputs/ui/spout.slint:14
 msgid "Spout capture"
 msgstr "Acquisizione Spout"
 
-#: rust/crates/outputs/src/spout/mod.rs:587
+#: rust/crates/outputs/src/spout/mod.rs:613
 msgid "Stream from games, OBS and other programs on this computer that share their picture through Spout."
 msgstr "Trasmetti in streaming da giochi, OBS e altri programmi su questo computer che condividono la propria immagine tramite Spout."
 
-#: rust/crates/outputs/src/spout/mod.rs:588
+#: rust/crates/outputs/src/spout/mod.rs:614
 msgid "Without Spout capture the senders aren't in the device picker and the Spout capture card is gone too."
 msgstr "Senza l'acquisizione Spout i mittenti non compaiono nel selettore dei dispositivi e scompare anche la scheda Acquisizione Spout."
 
-#: rust/crates/outputs/src/spout/mod.rs:636
+#: rust/crates/outputs/src/spout/mod.rs:662
 #, python-brace-format
 msgid "{name} isn't running"
 msgstr "{name} non è in esecuzione"
 
-#: rust/crates/outputs/src/spout/mod.rs:636
+#: rust/crates/outputs/src/spout/mod.rs:662
 msgid "Start it again or pick another source."
 msgstr "Avvialo di nuovo o scegli un'altra sorgente."
 

@@ -110,6 +110,10 @@ impl Reader for PipeWireReader {
         self.consumer.set_stop(stop);
     }
 
+    fn stalled(&self) -> bool {
+        self.consumer.stalled()
+    }
+
     fn next(&mut self, timeout: Duration) -> Result<Option<Picture>, String> {
         Ok(self.consumer.next(timeout)?.map(|VideoFrame { width, height, format, data }| Picture { width, height, fourcc: format.fourcc(), data }))
     }
