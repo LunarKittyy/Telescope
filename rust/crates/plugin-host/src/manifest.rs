@@ -131,7 +131,19 @@ impl Manifest {
         info.required = false;
         info.optional = false;
         info.pinned = false;
+        info.needs = self.needs();
         info
+    }
+
+    /// "needs": the built-in plugins it can't work without, as names that could be a plugin's, each once and at most 16. Anything else is left out.
+    pub fn needs(&self) -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        for name in self.get("needs").and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str) {
+            if valid_name(name) && !out.iter().any(|n| n == name) && out.len() < 16 {
+                out.push(name.to_string());
+            }
+        }
+        out
     }
 }
 
@@ -139,6 +151,13 @@ impl Manifest {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn needs_keeps_plugin_names_only() {
+        let m = Manifest::new(json!({"needs": ["photos", "photos", "Bad Name", 3, "motion_x"]}));
+        assert_eq!(m.info("x").needs, ["photos", "motion_x"]);
+        assert!(Manifest::new(json!({"needs": "photos"})).info("x").needs.is_empty());
+    }
 
     #[test]
     fn info_comes_from_the_manifest_and_one_bad_key_costs_only_itself() {

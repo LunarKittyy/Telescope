@@ -423,6 +423,8 @@ pub struct State {
     pub builtins: Vec<PluginInfo>,
     /// Added plugins that are on but didn't start: name to why.
     pub problems: BTreeMap<String, String>,
+    /// What plugins share with each other (Host::share).
+    pub registry: telescope_core::host::Registry,
     /// What the banner calls each of them.
     problem_titles: BTreeMap<String, String>,
     /// The added plugins that are running: they're not built in, so the Plugins tab lists them from their folder.
@@ -529,6 +531,7 @@ impl State {
             off: Vec::new(),
             builtins: Vec::new(),
             problems: BTreeMap::new(),
+            registry: Default::default(),
             problem_titles: BTreeMap::new(),
             added: Vec::new(),
             admin,
@@ -650,6 +653,7 @@ impl State {
             ctx.release_everything();
             self.slots[i].plugin = Some(plugin);
         }
+        self.drop_shared(&name);
         // Whatever it asked for in the hook that failed is dropped with it
         self.effects.retain(|e| e.plugin() != Some(name.as_str()));
         self.stills.retain(|(_, plugin, _)| *plugin != name);
@@ -658,6 +662,13 @@ impl State {
         }
         self.effects.push(Effect::Stopped(name));
         self.show_stopped_banner();
+    }
+
+    /// Takes what owner shared out of the registry, telling everyone.
+    fn drop_shared(&mut self, owner: &str) {
+        for key in self.registry.drop_owner(owner) {
+            self.bus.emit(Event::SharedChanged { key });
+        }
     }
 
     /// The plugins switched off this run after panicking, by name, with what went wrong.
@@ -786,7 +797,7 @@ impl State {
             let info = plugin.info();
             if added.contains(&info.name) {
                 // One that can't start is left out and says why (load_plugins)
-                let registered = self.register(plugin).and_then(|()| self.take_out_if_ui_broken());
+                let registered = self.missing_needs(&info).map_or_else(|| self.register(plugin).and_then(|()| self.take_out_if_ui_broken()), Err);
                 match registered {
                     Ok(()) => self.added.push(info),
                     Err(e) => broke.push(PluginProblem { title: if info.title.is_empty() { info.name.clone() } else { info.title.clone() }, name: info.name, error: e }),
@@ -809,6 +820,19 @@ impl State {
         crate::settings::start_plugin_updates(self.admin.clone());
         self.remind_plugins_off(&cfg);
         Ok(())
+    }
+
+    /// Why an added plugin can't start for the built-in plugins it needs (plugin.json "needs"), None when they're all running. Built-ins
+    /// register before added plugins, so the slots hold every one that's on.
+    fn missing_needs(&self, info: &PluginInfo) -> Option<String> {
+        let title = |name: &str| self.builtins.iter().find(|b| b.name == name).map(|b| tr(if b.title.is_empty() { &b.name } else { &b.title }));
+        let unknown: Vec<String> = info.needs.iter().filter(|n| title(n).is_none()).cloned().collect();
+        if !unknown.is_empty() {
+            return Some(tr("It needs {plugins}, which this version of Telescope doesn't have.").field("plugins", crate::texts::and_list(&unknown)));
+        }
+        let off: Vec<String> = info.needs.iter().filter(|n| self.index(n).is_none()).filter_map(|n| title(n)).collect();
+        (!off.is_empty()).then(|| crate::texts::trn("It needs {plugins}, which is switched off.", "It needs {plugins}, which are switched off.", off.len())
+            .field("plugins", crate::texts::and_list(&off)))
     }
 
     /// An added plugin's card, header widget and settings sections (with their footers), each compiled inside the document it
@@ -851,6 +875,7 @@ impl State {
     fn drop_last_slot(&mut self) {
         let Some(name) = self.slots.last().map(|s| s.info.name.clone()) else { return };
         crate::host::Ctx { state: self, me: name.clone() }.release_everything();
+        self.drop_shared(&name);
         self.effects.retain(|e| e.plugin() != Some(name.as_str()));
         self.stills.retain(|(_, plugin, _)| *plugin != name);
         if self.shortcut_menu.as_ref().is_some_and(|(plugin, _)| *plugin == name) {
@@ -2674,6 +2699,46 @@ mod tests {
         s.deliver_events();
         assert!(s.frame_wants.is_empty(), "what it asked for is given back");
         assert!(!s.pipeline_steps(None).iter().any(|st| st.owner == "holder"));
+    }
+
+    #[test]
+    fn an_added_plugin_that_needs_a_builtin_that_is_off_doesnt_start() {
+        let mut s = state();
+        s.builtins = vec![PluginInfo { name: "photos".into(), title: "Photos".into(), ..Default::default() }];
+        let needs = |names: &[&str]| PluginInfo { name: "trap".into(), needs: names.iter().map(|n| n.to_string()).collect(), ..Default::default() };
+        assert_eq!(s.missing_needs(&needs(&["photos"])).as_deref(), Some("It needs Photos, which is switched off."));
+        assert_eq!(s.missing_needs(&needs(&["warp_drive"])).as_deref(), Some("It needs warp_drive, which this version of Telescope doesn't have."));
+        s.register(stub("photos", json!({}), false).0).unwrap();
+        assert_eq!(s.missing_needs(&needs(&["photos"])), None);
+        assert_eq!(s.missing_needs(&needs(&[])), None);
+    }
+
+    #[test]
+    fn plugins_share_values_and_a_stopped_plugins_values_go() {
+        struct Sharer;
+        impl Plugin for Sharer {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "sharer".into(), ..Default::default() }
+            }
+            fn on_plugins_ready(&mut self, host: &mut dyn telescope_core::Host) {
+                host.share("sharer", "count", Some(json!(3))).unwrap();
+                assert!(host.share("other", "count", Some(json!(1))).is_err(), "only its own keys");
+            }
+            fn on_event(&mut self, _h: &mut dyn telescope_core::Host, e: &Event) {
+                if matches!(e, Event::StreamStopped) {
+                    panic!("gone");
+                }
+            }
+        }
+        let mut s = state();
+        s.register(Box::new(Sharer)).unwrap();
+        s.each(|p, host| p.on_plugins_ready(host));
+        assert_eq!(s.registry.get("sharer.count"), Some(json!(3)));
+        s.deliver_events();
+        s.bus.emit(Event::StreamStopped);
+        s.deliver_events();
+        assert_eq!(s.registry.get("sharer.count"), None);
+        assert!(s.registry.keys("").is_empty());
     }
 
     #[test]

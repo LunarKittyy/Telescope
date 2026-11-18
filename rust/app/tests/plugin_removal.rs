@@ -412,6 +412,7 @@ fn every_built_in_plugin_says_what_it_is_for_the_plugins_tab() {
     for p in &infos {
         assert!(!p.title.is_empty() && !p.about.is_empty(), "{}", p.name);
         assert!(p.required || !p.when_off.is_empty(), "{}: say what goes away while it's off", p.name);
+        assert!(p.needs.is_empty(), "{}: a built-in plugin can't need another (ARCHITECTURE.md)", p.name);
     }
     let required: BTreeSet<&str> = infos.iter().filter(|p| p.required).map(|p| p.name.as_str()).collect();
     assert_eq!(required, BTreeSet::from(["connection", "setup", "updates"]));

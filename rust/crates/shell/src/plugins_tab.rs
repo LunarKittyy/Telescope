@@ -580,6 +580,12 @@ impl Panel {
             note = fill(&tr("Couldn't start: {problem}"), &[("problem", self.problems[&item.name].trim_end_matches('.'))]);
             kind = "status_err";
             pending = true; // a restart tries it again
+        } else if item.enabled && !self.unmet_needs(&item.needs).is_empty() {
+            let off = self.unmet_needs(&item.needs);
+            note = trn("Needs {plugins}, which is switched off. Switch it on too.", "Needs {plugins}, which are switched off. Switch them on too.", off.len())
+                .field("plugins", crate::texts::and_list(&off));
+            kind = "status_warn";
+            pending = item.enabled != self.running.contains(&item.name);
         } else if item.enabled != self.running.contains(&item.name) {
             pending = true;
         }
@@ -742,6 +748,30 @@ impl Panel {
         }
     }
 
+    /// The titles of the built-in plugins in needs that are off after the next start (or that this Telescope doesn't have).
+    fn unmet_needs(&self, needs: &[String]) -> Vec<String> {
+        let (off, on) = (self.admin.builtin_off(), self.admin.optional_on());
+        needs.iter().filter_map(|n| match self.builtins.iter().find(|b| b.name == *n) {
+            Some(b) if b.required || if b.optional { on.contains(n) } else { !off.contains(n) } => None,
+            Some(b) => Some(tr(if b.title.is_empty() { &b.name } else { &b.title })),
+            None => Some(n.clone()),
+        }).collect()
+    }
+
+    /// The titles of the added plugins switched on that need the built-in plugin name.
+    fn needed_by(&self, name: &str) -> Vec<String> {
+        self.installed.iter().filter(|i| i.enabled && i.needs.iter().any(|n| n == name)).map(|i| if i.title.is_empty() { i.name.clone() } else { i.title.clone() }).collect()
+    }
+
+    /// The line the switch-off question adds for the added plugins that need name, "" when none do.
+    fn needed_by_text(&self, name: &str) -> String {
+        let users = self.needed_by(name);
+        if users.is_empty() {
+            return String::new();
+        }
+        trn("{plugins} needs it and won't start without it.", "{plugins} need it and won't start without it.", users.len()).field("plugins", crate::texts::and_list(&users))
+    }
+
     fn switch(&mut self, name: &str, on: bool) -> Step {
         let Some(tile) = self.tile(name) else { return Step::Done(Outcome::default()) };
         if tile.added {
@@ -763,12 +793,22 @@ impl Panel {
                     fill(&tr("{plugin} uses MediaPipe to find people in the picture. The files are a separate download from Telescope's releases on GitHub, shared by the other optional plugins."), &[("plugin", &tile.title)]),
                     tr("Download and switch on"), false), Commit::DownloadThenOn { name: name.into() });
             }
+            let users = self.needed_by_text(name);
+            if !on && !users.is_empty() {
+                return Step::Ask(question(fill(&tr("Switch off {plugin}?"), &[("plugin", &tile.title)]), users, tr("Switch off"), false),
+                                 Commit::Optional { name: name.into(), on });
+            }
             return Step::Done(self.commit(Commit::Optional { name: name.into(), on }));
         }
         if !on {
             let mut text = String::new();
             if !tile.when_off.is_empty() {
                 text.push_str(&tile.when_off);
+                text.push_str("\n\n");
+            }
+            let users = self.needed_by_text(name);
+            if !users.is_empty() {
+                text.push_str(&users);
                 text.push_str("\n\n");
             }
             text.push_str(&tr("Its settings are saved for when you switch it back on."));
@@ -1024,6 +1064,23 @@ mod tests {
         panel.refresh();
         panel.commit(Commit::Restart);
         assert!(panel.footer_note().starts_with("Restart to apply"), "the next change gets the usual bar again");
+    }
+
+    #[test]
+    fn an_added_plugin_needing_a_builtin_that_is_off_says_so_and_switching_one_off_names_who_needs_it() {
+        let user = AddedPlugin { needs: vec!["photos".into()], ..added("trap", true) };
+        let admin = Arc::new(Admin { extra: vec![user], ..Admin::default() });
+        let running: BTreeSet<String> = ["photos", "trap"].map(String::from).into();
+        let photos = PluginInfo { title: "Photos".into(), ..builtin("photos") };
+        let mut panel = Panel::new(vec![photos, builtin("plain")], running, BTreeMap::new(), admin.clone(), Box::new(NoVision));
+        let Step::Ask(q, commit) = panel.request(Request::Switch { name: "photos".into(), on: false }) else { panic!("it must ask") };
+        assert!(q.text.contains("trap needs it and won't start without it."), "{}", q.text);
+        let Step::Ask(q, _) = panel.request(Request::Switch { name: "plain".into(), on: false }) else { panic!("it must ask") };
+        assert!(!q.text.contains("needs it"), "{}", q.text);
+        panel.commit(commit);
+        panel.refresh();
+        let tile = panel.shown("", Filter::All).into_iter().flat_map(|(g, _)| g.tiles).find(|t| t.name == "trap").unwrap();
+        assert_eq!(tile.note, "Needs Photos, which is switched off. Switch it on too.");
     }
 
     #[test]

@@ -228,6 +228,8 @@ events! {
     "matting_state_changed" => MattingStateChanged { state: String },
     /// Not in plugin.py: an event a plugin someone added defines for itself, named "<plugin>.<what>".
     "custom" => Custom { name: String, data: Value },
+    /// Not in plugin.py: a value in the host's registry (Host::share, read with Host::shared) was set, changed or removed. key is "<plugin>.<name>".
+    "shared_changed" => SharedChanged { key: String },
 }
 
 #[cfg(test)]
