@@ -104,6 +104,10 @@ pub struct Window {
     cadence: RefCell<crate::preview::Cadence>,
     /// It's been fitted to the screen, which it only is as it first opens.
     pub(crate) fitted: Cell<bool>,
+    /// Where it may be, and the size its person wants
+    pub(crate) place: Rc<crate::screen::Placement>,
+    /// The pop-out's, while it is open
+    popout_place: RefCell<Option<Rc<crate::screen::Placement>>>,
     /// Windows plugins opened of their own (HostUi::open_window): (plugin, id, window).
     pub(crate) plugin_windows: RefCell<Vec<(String, String, ComponentInstance)>>,
     popout_asks: Cell<i32>,
@@ -314,15 +318,25 @@ pub(crate) fn bring_forward(ui: &ComponentInstance) {
     }
 }
 
-/// _PopoutWindow.resizeEvent: a resized pop-out takes the stream's shape again, by its height, once it's off by over 4 px.
-fn fit_popout(p: &ComponentInstance, frame_w: u32, frame_h: u32) {
+/// _PopoutWindow.resizeEvent: a resized pop-out takes the stream's shape again, by its height, once it's off by over 4 px, and never more than the work area leaves.
+fn fit_popout(p: &ComponentInstance, frame_w: u32, frame_h: u32, place: Option<&crate::screen::Placement>) {
     let size = p.window().size();
     if frame_w == 0 || frame_h == 0 || size.width == 0 {
         return;
     }
-    let target = (size.width as f64 * frame_h as f64 / frame_w as f64).round() as u32;
-    if target.abs_diff(size.height) > 4 {
-        p.window().set_size(slint::PhysicalSize::new(size.width, target));
+    let shape = frame_w as f64 / frame_h as f64;
+    let mut target = (size.width, (size.width as f64 / shape).round() as u32);
+    if let Some((room_w, room_h)) = place.and_then(|p| p.room()) {
+        if target.1 > room_h {
+            target = ((room_h as f64 * shape).round() as u32, room_h);
+        }
+        target.0 = target.0.min(room_w);
+    }
+    if target.0 != size.width || target.1.abs_diff(size.height) > 4 {
+        if let Some(place) = place {
+            place.note_auto(target);
+        }
+        p.window().set_size(slint::PhysicalSize::new(target.0, target.1));
     }
 }
 
@@ -465,6 +479,8 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         popout: RefCell::default(),
         cadence: RefCell::default(),
         fitted: Cell::new(false),
+        place: crate::screen::Placement::new(crate::screen::Limits::main()),
+        popout_place: RefCell::default(),
         plugin_windows: RefCell::default(),
         popout_asks: Cell::new(0),
         painted_gen: Cell::new(0),
@@ -655,7 +671,7 @@ impl Window {
             }
             SValue::Void
         });
-        crate::keys::watch_scan_codes(ui);
+        crate::keys::watch_scan_codes_and(ui, crate::screen::follow(ui, &self.place));
         let weak = Rc::downgrade(self);
         let _ = ui.set_callback("key", move |args| {
             let Some(w) = weak.upgrade() else { return SValue::Bool(false) };
@@ -1052,7 +1068,7 @@ impl Window {
         let frame = if picking { self.with_colour_split(frame) } else { frame };
         self.state.borrow_mut().overlays.shown_frame(&frame);
         if let Some(p) = &popout {
-            fit_popout(p, frame.width, frame.height);
+            fit_popout(p, frame.width, frame.height, self.popout_place.borrow().as_deref());
         }
         // A pass asked for the preview to be drawn again
         let (passes, asked) = {
@@ -1306,6 +1322,10 @@ impl Window {
                     }
                     let _ = p.show();
                     crate::frame::dress(&p);
+                    let place = crate::screen::Placement::new(crate::screen::Limits::shaped((160.0, 90.0)));
+                    crate::screen::watch(&p, &place);
+                    crate::screen::keep_inside(&p, &place);
+                    *self.popout_place.borrow_mut() = Some(place);
                     *self.popout.borrow_mut() = Some(p);
                     self.set_popout_open(true);
                     self.layers_drawn.take();
@@ -1318,6 +1338,7 @@ impl Window {
             if let Some(p) = self.popout.borrow_mut().take() {
                 let _ = p.hide();
             }
+            self.popout_place.take();
             self.set_popout_open(false);
             self.layers_drawn.take();
             self.painted.set(0);
@@ -1434,7 +1455,8 @@ impl Window {
             });
             slint::CloseRequestResponse::HideWindow
         });
-        crate::keys::watch_plugin_keys(&ui, Rc::downgrade(self));
+        let place = crate::screen::Placement::new(crate::screen::Limits::new((320.0, 200.0)));
+        crate::keys::watch_plugin_keys(&ui, Rc::downgrade(self), crate::screen::follow(&ui, &place));
         Self::set_window_props(&ui, plugin, id, &spec.ui.props);
         if let Ok(look) = self.ui.get_global_property("Theme", "look") {
             let _ = ui.set_global_property("Theme", "look", look);
@@ -1443,8 +1465,7 @@ impl Window {
         let _ = ui.show();
         crate::frame::dress(&ui);
         crate::parent::attach(&ui, &self.ui);
-        let scale = ui.window().scale_factor();
-        crate::screen::keep_inside(&ui, ((320.0 * scale) as u32, (200.0 * scale) as u32));
+        crate::screen::keep_inside(&ui, &place);
         self.plugin_windows.borrow_mut().push((plugin.to_string(), id.to_string(), ui));
     }
 
@@ -2094,16 +2115,16 @@ mod popout_tests {
         let size = |w, h| p.window().set_size(slint::PhysicalSize::new(w, h));
         let now = || (p.window().size().width, p.window().size().height);
         size(640, 400);
-        super::fit_popout(&p, 160, 90);
+        super::fit_popout(&p, 160, 90, None);
         assert_eq!(now(), (640, 360), "by its width, the stream's shape");
         size(640, 362);
-        super::fit_popout(&p, 160, 90);
+        super::fit_popout(&p, 160, 90, None);
         assert_eq!(now(), (640, 362), "off by less than 4 px stays");
         size(640, 365);
-        super::fit_popout(&p, 160, 90);
+        super::fit_popout(&p, 160, 90, None);
         assert_eq!(now(), (640, 360));
         size(500, 300);
-        super::fit_popout(&p, 0, 0);
+        super::fit_popout(&p, 0, 0, None);
         assert_eq!(now(), (500, 300), "no frame to take the shape of");
     }
 }

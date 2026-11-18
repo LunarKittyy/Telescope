@@ -74,9 +74,9 @@ export component McpSettings inherits VerticalLayout {
             named: true;
             hue: Theme.plugin-hue("extras");
             Segmented {
-                preferred-width: Theme.control-w;
+                preferred-width: self.room;
                 min-width: Theme.control-min;
-                max-width: Theme.control-w;
+                max-width: self.room;
                 hue: Theme.plugin-hue("extras");
                 label: @tr("Access");
                 items: access-items;
