@@ -353,6 +353,62 @@ fn a_group_is_framed_whole_even_when_the_model_reports_one_of_them_at_a_time() {
     assert!(r.last().0 > 2.5);
 }
 
+fn click_on(r: &mut Rig, who: &Person) {
+    let ((x, y), _) = body(who, 16.0 / 9.0).unwrap();
+    r.ui("pick-clicked", Value::Null);
+    let at = vec![[x as f32, y as f32]];
+    r.event(Event::PreviewPicked {
+        owner: NAME.into(),
+        pick: Some(telescope_core::host::Pick { kind: telescope_core::host::PickKind::Point, shown: at.clone(), full: at.clone(), in_picture: at, picture: None }),
+    });
+}
+
+#[test]
+fn a_picked_person_is_framed_alone_and_followed_when_they_move_but_not_swapped_for_another() {
+    let (left, right) = (at(0.2), at(0.8));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(2.0, Some(&[left.clone(), right.clone()]));
+    let wide = r.last().0;
+    assert!(wide < 1.8);
+    click_on(&mut r, &right);
+    assert_eq!(r.prop("following"), json!(true));
+    r.run(4.0, Some(&[left.clone(), right.clone()]));
+    let (zoom, x) = (r.last().0, r.last().1);
+    assert!(zoom > 2.5 && x > 0.6, "zoom {zoom} at {x}");
+    // They step a little to the side and are still the one followed
+    r.run(3.0, Some(&[left.clone(), at(0.7)]));
+    assert!(r.last().1 > 0.55 && r.last().0 > 2.5);
+    r.run(2.0, Some(&[left.clone(), right.clone()]));
+    // Everyone is framed again
+    r.ui("follow-all-clicked", Value::Null);
+    assert_eq!(r.prop("following"), json!(false));
+    r.run(8.0, Some(&[left, right]));
+    assert!(r.last().0 < wide + 0.3, "{} against {wide}", r.last().0);
+}
+
+#[test]
+fn a_picked_person_who_leaves_is_not_replaced_by_whoever_is_left() {
+    let (left, right) = (at(0.2), at(0.8));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[left.clone(), right.clone()]));
+    click_on(&mut r, &right);
+    r.run(2.0, Some(&[left.clone(), right]));
+    // Only the other one is in view for a good while
+    r.run(8.0, Some(&[left]));
+    assert!(r.last().0 < 1.3, "went back to the whole picture, not onto the other person: {}", r.last().0);
+}
+
+#[test]
+fn the_pick_goes_to_the_nearest_person() {
+    let people = [at(0.2), at(0.8)];
+    let ((x, y), _) = body(&people[1], 16.0 / 9.0).unwrap();
+    assert_eq!(nearest_person(&people, (x, y), 16.0 / 9.0), Some(1));
+    assert_eq!(nearest_person(&people, (0.0, 0.1), 16.0 / 9.0), Some(0));
+    assert_eq!(nearest_person(&[], (0.5, 0.5), 16.0 / 9.0), None);
+}
+
 #[test]
 fn a_group_stays_framed_for_as_long_as_the_reports_keep_alternating_between_its_people() {
     let mut r = Rig::new();
