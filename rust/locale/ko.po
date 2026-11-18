@@ -436,7 +436,7 @@ msgstr "720p 16:9 세로 - 720 x 1280"
 msgid "4K 16:9 Portrait - 2160 x 3840"
 msgstr "4K 16:9 세로 - 2160 x 3840"
 
-#: rust/crates/core/src/diagnostics.rs:523 rust/crates/system/src/single_instance.rs:326
+#: rust/crates/core/src/diagnostics.rs:523 rust/crates/system/src/single_instance.rs:328
 msgid "Telescope can't start"
 msgstr "Telescope를 시작할 수 없음"
 
@@ -475,11 +475,15 @@ msgid ""
 "Open the log?"
 msgstr ""
 
-#: rust/crates/core/src/gpu_marker.rs:142
+#: rust/crates/core/src/gpu_marker.rs:292 rust/crates/core/src/gpu_marker.rs:297
 msgid "Telescope switched graphics card"
 msgstr "Telescope 그래픽 카드 전환됨"
 
-#: rust/crates/core/src/gpu_marker.rs:143
+#: rust/crates/core/src/gpu_marker.rs:293
+msgid "The last start of Telescope closed while it was looking for graphics cards. Telescope now draws on the processor and doesn't look again until it is updated."
+msgstr ""
+
+#: rust/crates/core/src/gpu_marker.rs:298
 #, python-brace-format
 msgid "The last start of Telescope closed while it was opening {card}. Telescope now uses another graphics card, or the processor if there is none left."
 msgstr "Telescope가 지난번 실행 시 {card}을(를) 여는 중에 종료되었어요. 이제 Telescope는 다른 그래픽 카드를 사용하거나 남은 카드가 없으면 프로세서를 사용해요."
@@ -8760,19 +8764,19 @@ msgstr "Telescope: 마이크 스트리밍 중, 카메라 끔"
 msgid "Quit"
 msgstr "종료"
 
-#: rust/crates/shell/src/tray.rs:230
+#: rust/crates/shell/src/tray.rs:232
 msgid "Streaming continues in the background."
 msgstr "백그라운드에서 스트리밍이 계속돼요."
 
-#: rust/crates/shell/src/tray.rs:230
+#: rust/crates/shell/src/tray.rs:232
 msgid "Streaming starts automatically when needed."
 msgstr "필요할 때 스트리밍이 자동으로 시작돼요."
 
-#: rust/crates/shell/src/tray.rs:231
+#: rust/crates/shell/src/tray.rs:233
 msgid "Right-click the tray icon to quit."
 msgstr "종료하려면 시스템 트레이 아이콘을 우클릭하세요."
 
-#: rust/crates/shell/src/tray.rs:232
+#: rust/crates/shell/src/tray.rs:234
 msgid "Telescope is still running"
 msgstr "Telescope가 계속 실행 중이에요"
 
@@ -8804,7 +8808,7 @@ msgstr "스트리밍 시작"
 msgid "Stop streaming"
 msgstr "스트리밍 중지"
 
-#: rust/crates/shell/src/window.rs:2084 rust/crates/shell/src/worker.rs:1363
+#: rust/crates/shell/src/window.rs:2114 rust/crates/shell/src/worker.rs:1363
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{camera}에 {size}, {fps} fps로 스트리밍 중"
@@ -9734,41 +9738,41 @@ msgstr "다른 앱에서 작동하는 단축키를 포함하여 Telescope 컨트
 msgid "Without the Keyboard shortcuts plugin no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are saved for when the plugin is on again)."
 msgstr "키보드 단축키 플러그인이 없으면 어떤 단축키도 동작하지 않으며 설정에 키보드 단축키가 표시되지 않아요(단축키는 플러그인을 다시 켤 때를 위해 저장돼요)."
 
-#: rust/crates/system/src/single_instance.rs:319
+#: rust/crates/system/src/single_instance.rs:321
 msgid "Telescope is already running"
 msgstr "Telescope가 이미 실행 중임"
 
-#: rust/crates/system/src/single_instance.rs:320
+#: rust/crates/system/src/single_instance.rs:322
 msgid "Telescope is already running for another user on this computer. Close it there, then open it again here."
 msgstr "이 컴퓨터의 다른 사용자 계정에서 Telescope가 이미 실행 중이에요. 해당 계정에서 프로그램을 닫은 후 여기에서 다시 여세요."
 
-#: rust/crates/system/src/single_instance.rs:323
+#: rust/crates/system/src/single_instance.rs:325
 #, python-brace-format
 msgid "port {port}"
 msgstr "포트 {port}"
 
-#: rust/crates/system/src/single_instance.rs:324
+#: rust/crates/system/src/single_instance.rs:326
 msgid "a local socket"
 msgstr "로컬 소켓"
 
-#: rust/crates/system/src/single_instance.rs:327
+#: rust/crates/system/src/single_instance.rs:329
 #, python-brace-format
 msgid "Telescope couldn't start because something else is holding its single-instance lock ({where}), or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again."
 msgstr "다른 프로그램이 단일 인스턴스 잠금({where})을 점유 중이거나 다른 Telescope 인스턴스가 멈춰 있어 시작할 수 없었어요. 해당 프로그램을 닫거나 컴퓨터를 다시 시작한 다음 Telescope를 다시 여세요."
 
-#: rust/crates/system/src/single_instance.rs:372
+#: rust/crates/system/src/single_instance.rs:374
 msgid "Telescope isn't running."
 msgstr "Telescope가 실행 중이 아니에요."
 
-#: rust/crates/system/src/single_instance.rs:397
+#: rust/crates/system/src/single_instance.rs:399
 msgid "Telescope didn't understand the request. Is the running Telescope an older version? Update Telescope to use --action."
 msgstr "Telescope에서 요청을 이해하지 못했어요. 실행 중인 Telescope가 이전 버전인가요? --action을 사용하려면 Telescope를 업데이트하세요."
 
-#: rust/crates/system/src/single_instance.rs:462
+#: rust/crates/system/src/single_instance.rs:464
 msgid "Telescope couldn't write the key --action needs next to its settings when it started. Restart it."
 msgstr "Telescope를 시작할 때 --action에 필요한 키를 설정 옆에 저장하지 못했어요. 프로그램을 다시 시작하세요."
 
-#: rust/crates/system/src/single_instance.rs:467
+#: rust/crates/system/src/single_instance.rs:469
 msgid "Telescope rejected the request because it didn't come from this user's Telescope command."
 msgstr "이 사용자의 Telescope 명령에서 시작된 요청이 아니므로 Telescope가 요청을 거부했어요."
 

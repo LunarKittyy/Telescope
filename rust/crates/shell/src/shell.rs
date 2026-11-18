@@ -3481,7 +3481,13 @@ mod tests {
             assert!(hidden_with(stage, Box::new(Step(false))).picture_hidden_for("phone"), "{stage:?}");
         }
         assert!(hidden_with(FrameStage::Effects, Box::new(Step(true))).picture_hidden_for("phone"), "a step that says it hides");
-        assert!(hidden_with(FrameStage::Effects, Box::new(Panics)).picture_hidden_for("phone"), "one that can't say counts as hiding");
+        // One that can't say counts as hiding, and a hiding plugin that panics closes Telescope
+        static CLOSED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        let mut s = state();
+        s.hiding_panic = |_, _| CLOSED.store(true, std::sync::atomic::Ordering::SeqCst);
+        s.register(Box::new(Gives("gives", FrameStage::Effects, Some(Box::new(Panics))))).unwrap();
+        s.pipeline_steps(Some("phone"));
+        assert!(CLOSED.load(std::sync::atomic::Ordering::SeqCst), "one that can't say counts as hiding");
         // Steps built for no stream in particular answer for one whose own aren't built yet
         let mut s = state();
         s.register(Box::new(Gives("gives", FrameStage::Privacy, Some(Box::new(Step(false)))))).unwrap();
