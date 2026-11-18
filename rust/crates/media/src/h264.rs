@@ -10,7 +10,7 @@ use crate::stamp::{self, Stamp};
 use std::time::Instant;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 use telescope_core::clock::PhoneClock;
 use telescope_core::frame::Frame;
 use telescope_core::media::{Decoded, Decoder, DecodingStatus, Packet, TimingProbe};
@@ -33,8 +33,15 @@ static LIVE: Mutex<BTreeMap<&'static str, usize>> = Mutex::new(BTreeMap::new());
 
 /// The card decoder this computer has, probed once by opening one.
 pub fn hardware_device() -> Option<Hw> {
-    static FOUND: OnceLock<Option<Hw>> = OnceLock::new();
-    *FOUND.get_or_init(|| first_that_opens(|h| Codec::h264(Some(h)).is_ok()))
+    let mut found = FOUND.lock().unwrap_or_else(|e| e.into_inner());
+    *found.get_or_insert_with(|| first_that_opens(|h| Codec::h264(Some(h)).is_ok()))
+}
+
+/// The probe's answer, forgotten when the frame steps move to another card so the next decoder looks again.
+static FOUND: Mutex<Option<Option<Hw>>> = Mutex::new(None);
+
+pub(crate) fn refresh_hardware_probe() {
+    *FOUND.lock().unwrap_or_else(|e| e.into_inner()) = None;
 }
 
 /// The first card decoder that opens, in the order they're tried. One this build or this computer doesn't have just doesn't open.
@@ -326,6 +333,15 @@ impl H264 {
     /// Swaps the card for software mid-stream and retries data on it.
     fn fall_back(&mut self, why: String, data: &[u8]) -> (Option<Frame>, u32) {
         let hw = self.codec.hw.expect("only a card decoder falls back");
+        // A decoder on the picked card's render node can reject a stream the default node takes: software meanwhile, the default node at the next keyframe
+        if crate::decode_card::retry_on_default_node(hw == Hw::Vaapi) {
+            log::warn!("Hardware decoding ({}) failed on the picked card ({why}); trying the default render node at the next keyframe", hw.name());
+            let fed = self.swap_to_software(hw, data);
+            if self.codec.hw.is_none() {
+                self.retry_hw = Some(hw);
+            }
+            return fed;
+        }
         HW_FAILED.store(true, Ordering::SeqCst);
         log::warn!("Hardware decoding ({}) failed ({why}); decoding in software from now on", hw.name());
         self.swap_to_software(hw, data)
