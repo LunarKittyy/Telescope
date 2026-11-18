@@ -164,6 +164,54 @@ pub fn order(candidates: &[Candidate], prefer: Prefer) -> Vec<usize> {
     sorted.into_iter().map(|c| c.index).collect()
 }
 
+/// The graphics card Settings asked for by name, "" for Automatic. Set once at start, before the window opens a card.
+static CHOICE: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+/// The real cards the last enumeration found, by name, in the order they were tried.
+static LISTED: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+pub fn set_choice(name: &str) {
+    *CHOICE.lock().unwrap_or_else(|e| e.into_inner()) = name.trim().to_string();
+}
+
+/// The card chosen in Settings, empty for Automatic.
+pub fn choice() -> String {
+    CHOICE.lock().unwrap_or_else(|e| e.into_inner()).clone()
+}
+
+/// Remembers which real cards (integrated or discrete) exist, once each, for the Settings list. `names` is indexed like `candidates`.
+pub fn note_listed(candidates: &[Candidate], names: &[String]) {
+    let mut found: Vec<String> = Vec::new();
+    for i in order(candidates, Prefer::Unchanged) {
+        let real = matches!(candidates[i].kind, Kind::Integrated | Kind::Discrete);
+        if let (true, Some(name)) = (real, names.get(candidates[i].index)) {
+            if !found.iter().any(|f| same_card(f, name)) {
+                found.push(name.trim().to_string());
+            }
+        }
+    }
+    *LISTED.lock().unwrap_or_else(|e| e.into_inner()) = found;
+}
+
+/// The real cards found so far (empty until a card was looked for).
+pub fn listed() -> Vec<String> {
+    LISTED.lock().unwrap_or_else(|e| e.into_inner()).clone()
+}
+
+fn same_card(a: &str, b: &str) -> bool {
+    a.trim().eq_ignore_ascii_case(b.trim())
+}
+
+/// `ordered` (candidate indices, best first) with the chosen card's adapters moved to the front, in their own order. The rest follow, so
+/// a chosen card that fails or sits on the skip list still leaves something to open. No choice, or one that matches no adapter (the card
+/// was taken out), changes nothing. `names` is indexed by `Candidate::index`.
+pub fn with_choice(ordered: Vec<usize>, names: &[String], choice: &str) -> Vec<usize> {
+    if choice.trim().is_empty() {
+        return ordered;
+    }
+    let (chosen, rest): (Vec<usize>, Vec<usize>) = ordered.into_iter().partition(|&i| names.get(i).is_some_and(|n| same_card(n, choice)));
+    chosen.into_iter().chain(rest).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -271,6 +319,32 @@ mod tests {
         assert_eq!(parse_gpu_preference("GpuPreference=2;"), Prefer::HighPerformance);
         assert_eq!(parse_gpu_preference("GpuPreference=0;"), Prefer::HighPerformance);
         assert_eq!(parse_gpu_preference(""), Prefer::HighPerformance);
+    }
+
+    #[test]
+    fn a_chosen_card_goes_first_and_keeps_its_own_order() {
+        let names: Vec<String> = ["GTX", "Intel", "Intel", "GTX"].iter().map(|s| s.to_string()).collect();
+        let ordered = order(&laptop(), Prefer::HighPerformance);
+        assert_eq!(ordered, [0, 3, 2, 1]);
+        assert_eq!(with_choice(ordered.clone(), &names, "intel"), [2, 1, 0, 3]);
+        assert_eq!(with_choice(ordered.clone(), &names, "GTX"), ordered);
+    }
+
+    #[test]
+    fn automatic_and_a_missing_card_change_nothing() {
+        let names: Vec<String> = ["A", "B"].iter().map(|s| s.to_string()).collect();
+        assert_eq!(with_choice(vec![1, 0], &names, ""), [1, 0]);
+        assert_eq!(with_choice(vec![1, 0], &names, "  "), [1, 0]);
+        assert_eq!(with_choice(vec![1, 0], &names, "Gone"), [1, 0]);
+    }
+
+    #[test]
+    fn the_list_has_each_real_card_once() {
+        let names: Vec<String> = ["GTX", "Intel", "Intel", "GTX", "llvmpipe"].iter().map(|s| s.to_string()).collect();
+        let mut list = laptop().to_vec();
+        list.push(c(Api::Vulkan, Kind::Cpu, 4));
+        note_listed(&list, &names);
+        assert_eq!(listed(), ["GTX", "Intel"]);
     }
 
     #[test]
