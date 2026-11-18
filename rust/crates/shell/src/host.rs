@@ -737,6 +737,21 @@ impl Host for Ctx<'_> {
     fn emit(&mut self, event: Event) {
         self.state.bus.emit(event);
     }
+    fn share(&mut self, owner: &str, name: &str, value: Option<Value>) -> Result<(), String> {
+        if owner != self.me {
+            return Err(format!("{} can't share as {owner}", self.me));
+        }
+        if let Some(key) = self.state.registry.set(owner, name, value)? {
+            self.state.bus.emit(Event::SharedChanged { key });
+        }
+        Ok(())
+    }
+    fn shared(&self, key: &str) -> Option<Value> {
+        self.state.registry.get(key)
+    }
+    fn shared_keys(&self, prefix: &str) -> Vec<String> {
+        self.state.registry.keys(prefix)
+    }
     fn has_plugin(&self, name: &str) -> bool {
         self.state.index(name).is_some_and(|i| self.state.slots[i].stopped.is_none()) || name == self.me
     }

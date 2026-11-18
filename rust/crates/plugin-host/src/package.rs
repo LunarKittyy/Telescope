@@ -77,6 +77,8 @@ pub struct Installed {
     pub dev: bool,
     /// What went wrong loading it this run.
     pub error: String,
+    /// It couldn't start because a built-in plugin it needs is off or missing (error says which).
+    pub blocked: bool,
 }
 
 impl Installed {
@@ -227,6 +229,9 @@ impl PluginFolder {
         }
         if self.reserved.contains(&name) {
             return problem(plugin, tr(TAKEN, &[]));
+        }
+        if let Some(why) = m.needs_problem() {
+            return problem(plugin, tr(why, &[]));
         }
         let api = plugin.api;
         if api > PLUGIN_API {

@@ -686,3 +686,11 @@ fn a_real_zip_passes_the_directory_check() {
     let archive = zip_of(&scratch(&p).join("fine.zip"), &example_files("black_and_white/"));
     assert!(check_central_directory(&mut fs::File::open(archive).unwrap()).is_ok());
 }
+
+#[test]
+fn a_malformed_needs_is_a_load_error_not_a_dropped_requirement() {
+    let p = plugins();
+    plugin(&p.folder, "thing", SIMPLE, json!({"needs": "photos"}));
+    let found = one(&p);
+    assert!(found.problem.contains("\"needs\" in plugin.json has to be a list"), "{}", found.problem);
+}
