@@ -63,7 +63,7 @@ A plugin that crashes is switched off until the next start and a banner names it
 
 ### When an added plugin won't switch on
 
-Its tile on the Plugins tab shows the reason. A plugin can also name built-in plugins it needs. With one off the tile reads "It needs Photos, which is switched off." for example and the plugin doesn't start. Switching off a built-in that an added plugin needs asks first and names that plugin. Other reasons:
+Its tile on the Plugins tab shows the reason. A plugin can also name built-in plugins it needs. With one off the tile reads "Needs Photos, which is switched off. Switch it on too." for example and the plugin doesn't start. Switching off a built-in that an added plugin needs asks first and names that plugin. Other reasons:
 
 | It says | What to do |
 |---|---|
