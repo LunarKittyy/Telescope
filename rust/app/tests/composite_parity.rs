@@ -62,7 +62,9 @@ fn settings_load_and_save_as_python_does() {
     for case in cases["configs"].as_array().unwrap() {
         let mut plugin = CompositePlugin::new();
         plugin.set_config(&case["input"]).unwrap();
-        let got = plugin.get_config();
+        let mut got = plugin.get_config();
+        // the transition is new in Rust: Python's settings have no such key
+        got.as_object_mut().unwrap().remove("transition");
         assert!(same(&got, &case["output"]), "given {}:\n  rust   {got}\n  python {}", case["input"], case["output"]);
     }
 }
