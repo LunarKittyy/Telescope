@@ -9,6 +9,8 @@ pub const OP_OPEN_SESSION: u16 = 0x1002;
 pub const OP_CLOSE_SESSION: u16 = 0x1003;
 pub const OP_GET_OBJECT_INFO: u16 = 0x1008;
 pub const OP_GET_OBJECT: u16 = 0x1009;
+pub const OP_DELETE_OBJECT: u16 = 0x100B;
+pub const OP_GET_PARTIAL_OBJECT: u16 = 0x101B;
 pub const OP_GET_DEVICE_PROP_DESC: u16 = 0x1014;
 pub const OP_GET_DEVICE_PROP_VALUE: u16 = 0x1015;
 pub const OP_SET_DEVICE_PROP_VALUE: u16 = 0x1016;
@@ -47,7 +49,7 @@ pub trait Transport: Send {
 /// operations that send data back and another for those that don't). The operations the rig uses that do: device info, a property's
 /// description and value, Nikon's live view frame, Canon's viewfinder frame and Canon's events.
 pub fn returns_data(op: u16) -> bool {
-    matches!(op, OP_GET_DEVICE_INFO | OP_GET_DEVICE_PROP_DESC | OP_GET_DEVICE_PROP_VALUE | OP_GET_OBJECT_INFO | OP_GET_OBJECT | 0x90C7 | 0x9203 | 0x9153 | 0x9116)
+    matches!(op, OP_GET_DEVICE_INFO | OP_GET_DEVICE_PROP_DESC | OP_GET_DEVICE_PROP_VALUE | OP_GET_OBJECT_INFO | OP_GET_OBJECT | OP_GET_PARTIAL_OBJECT | 0x90C7 | 0x9203 | 0x9153 | 0x9116)
 }
 
 /// Runs an operation and turns a response other than OK into an error naming the operation.
@@ -111,12 +113,28 @@ impl<'a> Cursor<'a> {
     }
 }
 
-/// The file name in an ObjectInfo dataset, which comes after the fixed fields (storage, format, size, thumbnail, image, parent, association, sequence).
-pub fn object_name(data: &[u8]) -> Option<String> {
-    let mut c = Cursor::new(data);
-    // Storage, format, protection, size, thumbnail format and size, thumbnail and image width, height and depth, parent, association type and description, sequence
-    c.take(52)?;
-    c.string().filter(|name| !name.is_empty())
+/// What an ObjectInfo dataset says about a file: its format code, size and name.
+pub struct ObjectInfo {
+    pub format: u16,
+    pub size: u32,
+    pub name: Option<String>,
+}
+
+/// The format code of a folder.
+pub const OFC_ASSOCIATION: u16 = 0x3001;
+
+impl ObjectInfo {
+    pub fn parse(data: &[u8]) -> Option<ObjectInfo> {
+        let mut c = Cursor::new(data);
+        // Storage, then the format, protection and size
+        c.u32()?;
+        let format = c.u16()?;
+        c.u16()?;
+        let size = c.u32()?;
+        // Thumbnail format and size, thumbnail and image width, height and depth, parent, association type and description, sequence
+        c.take(40)?;
+        Some(ObjectInfo { format, size, name: c.string().filter(|name| !name.is_empty()) })
+    }
 }
 
 /// Builds the same fields, for a camera that takes a value (a property to set).

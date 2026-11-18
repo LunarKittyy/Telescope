@@ -37,8 +37,24 @@ pub struct State {
     pub nikon_events: Vec<(u16, u32)>,
     /// Files on the camera by handle.
     pub objects: HashMap<u32, (String, Vec<u8>)>,
-    /// Canon's file announcements not yet read: handle and name.
-    pub canon_announced: Vec<(u32, String)>,
+    /// Canon's file announcements not yet read: handle, name and whether it is an offer to send.
+    pub canon_announced: Vec<(u32, String, bool)>,
+    /// A folder the Nikon announces before its photo.
+    pub folder_first: bool,
+    /// Handles that are folders.
+    pub folders: std::collections::HashSet<u32>,
+    /// The most data one reply may carry; a larger one fails as it does over a transport that caps a transfer.
+    pub max_data: Option<usize>,
+    /// What the camera answers a delete with, in place of success.
+    pub delete_code: Option<u16>,
+    /// What the camera answers a release of the shutter button with, in place of success.
+    pub release_code: Option<u16>,
+    /// How many readiness checks answer busy before one works.
+    pub ready_busy: u32,
+    /// Live view can't be ended: the camera says it is busy.
+    pub end_busy: bool,
+    /// The model name, when it isn't the usual one.
+    pub model: Option<String>,
 }
 
 #[derive(Clone, Default)]
@@ -86,7 +102,7 @@ impl Mock {
         {
             let mut s = mock.0.lock().unwrap();
             s.maker = Some(Maker::Nikon);
-            s.operations = vec![0x1001, 0x1002, 0x1003, 0x1008, 0x1009, 0x1014, 0x1015, 0x1016, 0x90C0, 0x90C1, 0x90C7, 0x90C8, 0x9201, 0x9202, 0x9203, 0x9204];
+            s.operations = vec![0x1001, 0x1002, 0x1003, 0x1008, 0x1009, 0x100B, 0x101B, 0x1014, 0x1015, 0x1016, 0x90C0, 0x90C1, 0x90C7, 0x90C8, 0x9201, 0x9202, 0x9203, 0x9204];
             s.photo_files = vec![("DSC_0001.JPG".into(), JPEG.to_vec())];
             let desc = |code, kind, current, form| PropDesc { code, kind, writable: true, current: Value::Int(current), form };
             let ints = |v: &[i64]| Form::Enum(v.iter().map(|n| Value::Int(*n)).collect());
@@ -94,6 +110,7 @@ impl Mock {
             s.props.insert(0x5010, desc(0x5010, 3, 0, Form::Range { min: -1000, max: 1000, step: 333 }));
             s.props.insert(0x5005, desc(0x5005, 4, 2, ints(&[2, 4, 6, 0x8010])));
             s.props.insert(0xD10B, desc(0xD10B, 2, 0, ints(&[0, 1])));
+            s.props.insert(0x5004, desc(0x5004, 2, 1, ints(&[1, 2, 4, 7])));
         }
         mock
     }
@@ -103,7 +120,7 @@ impl Mock {
         {
             let mut s = mock.0.lock().unwrap();
             s.maker = Some(Maker::Canon);
-            s.operations = vec![0x1001, 0x1002, 0x1003, 0x1008, 0x1009, 0x9110, 0x9114, 0x9115, 0x9116, 0x9117, 0x9128, 0x9129, 0x9153, 0x9154, 0x9155];
+            s.operations = vec![0x1001, 0x1002, 0x1003, 0x1008, 0x1009, 0x100B, 0x101B, 0x9110, 0x9114, 0x9115, 0x9116, 0x9117, 0x9128, 0x9129, 0x9153, 0x9154, 0x9155];
             s.photo_files = vec![("IMG_0001.JPG".into(), JPEG.to_vec())];
             s.canon_props.insert(0xD11C, (2, vec![2, 4]));
             // f/4 (0x28), f/5.6 (0x30), f/8 (0x38); exposure compensation 0, +1/3, +2/3 (as eighths); daylight and auto
@@ -140,6 +157,11 @@ impl Transport for Mock {
         if s.maker.is_none() || !(s.operations.contains(&op)) {
             return reply(0x2005, Vec::new());
         }
+        if let (Some(max), true) = (s.max_data, matches!(op, 0x1009)) {
+            if s.objects.get(&params[0]).is_some_and(|(_, d)| d.len() > max) {
+                return Err("the transfer is larger than the transport allows".into());
+            }
+        }
         match op {
             OP_OPEN_SESSION => {
                 let already = std::mem::replace(&mut s.session, true);
@@ -150,6 +172,7 @@ impl Transport for Mock {
                 reply(RC_OK, Vec::new())
             }
             OP_GET_DEVICE_INFO => {
+                let custom = s.model.clone();
                 let (vendor, name, model) = match s.maker {
                     Some(Maker::Canon) => (VENDOR_CANON, "Canon Inc.", "Canon test camera"),
                     Some(Maker::Other) => (0x6, "Acme", "Acme test camera"),
@@ -168,7 +191,7 @@ impl Transport for Mock {
                 data.extend(array(&[]));
                 data.extend(array(&[]));
                 data.extend(string(name));
-                data.extend(string(model));
+                data.extend(string(custom.as_deref().unwrap_or(model)));
                 reply(RC_OK, data)
             }
             OP_GET_DEVICE_PROP_DESC => match s.props.get(&(params[0] as u16)) {
@@ -193,6 +216,9 @@ impl Transport for Mock {
                 reply(RC_OK, Vec::new())
             }
             0x9202 => {
+                if s.end_busy {
+                    return reply(RC_DEVICE_BUSY, Vec::new());
+                }
                 s.live = false;
                 reply(RC_OK, Vec::new())
             }
@@ -218,10 +244,38 @@ impl Transport for Mock {
                 frame.extend_from_slice(&[0; 5]);
                 reply(RC_OK, frame)
             }
+            0x90C8 if s.ready_busy > 0 => {
+                s.ready_busy -= 1;
+                reply(RC_DEVICE_BUSY, Vec::new())
+            }
+            0x9129 if s.release_code.is_some() => reply(s.release_code.unwrap_or(RC_OK), Vec::new()),
+            0x100B => {
+                let handle = params[0];
+                if let Some(code) = s.delete_code {
+                    return reply(code, Vec::new());
+                }
+                match s.objects.remove(&handle) {
+                    Some(_) => reply(RC_OK, Vec::new()),
+                    None => reply(0x2009, Vec::new()),
+                }
+            }
+            0x101B => match s.objects.get(&params[0]) {
+                Some((_, data)) => {
+                    let (at, len) = (params[1] as usize, params[2] as usize);
+                    let end = (at + len).min(data.len());
+                    reply(RC_OK, data.get(at..end).unwrap_or_default().to_vec())
+                }
+                None => reply(0x2009, Vec::new()),
+            },
             0x90C1 | 0x90C8 | 0x9204 | 0x9154 | 0x9155 | 0x9114 | 0x9115 | 0x9117 | 0x9129 => reply(RC_OK, Vec::new()),
             // Nikon: take a photo into the camera's memory, say so in events
             0x90C0 => {
                 if !s.silent_photos {
+                    if s.folder_first {
+                        s.folders.insert(0x10);
+                        s.objects.insert(0x10, ("100NIKON".into(), Vec::new()));
+                        s.nikon_events.push((0x4002, 0x10));
+                    }
                     for (i, (name, data)) in s.photo_files.clone().into_iter().enumerate() {
                         let handle = 0xFFFF_0001 + i as u32;
                         s.objects.insert(handle, (name, data));
@@ -244,6 +298,9 @@ impl Transport for Mock {
                 Some((_, data)) if op == 0x1009 => reply(RC_OK, data.clone()),
                 Some((name, data)) => {
                     let mut info = vec![0u8; 52];
+                    if s.folders.contains(&params[0]) {
+                        info[4..6].copy_from_slice(&0x3001u16.to_le_bytes());
+                    }
                     info[8..12].copy_from_slice(&(data.len() as u32).to_le_bytes());
                     put_string(&mut info, name);
                     reply(RC_OK, info)
@@ -252,11 +309,13 @@ impl Transport for Mock {
             },
             // Canon: the full press takes the photo, and the camera announces its files
             0x9128 => {
-                if params[0] == 2 && !s.silent_photos {
+                if matches!(params[0], 2 | 3) && !s.silent_photos {
+                    // With the computer as the destination the camera offers to send each file, otherwise it says the file is on its card
+                    let to_computer = s.canon_props.get(&0xD11C).is_some_and(|p| p.0 == 4);
                     for (i, (name, data)) in s.photo_files.clone().into_iter().enumerate() {
                         let handle = 0x1000 + i as u32;
                         s.objects.insert(handle, (name.clone(), data));
-                        s.canon_announced.push((handle, name));
+                        s.canon_announced.push((handle, name, to_computer));
                     }
                 }
                 reply(RC_OK, Vec::new())
@@ -293,14 +352,16 @@ impl Transport for Mock {
                     list.iter().for_each(|v| body.extend_from_slice(&v.to_le_bytes()));
                     record(0xC18A, body);
                 }
-                for (handle, name) in std::mem::take(&mut s.canon_announced) {
-                    // The older layout: handle, storage, format, then the size at 0x1c and the name at 0x28 (offsets from the record's start)
-                    let mut body = vec![0u8; 0x28 - 8];
+                for (handle, name, offer) in std::mem::take(&mut s.canon_announced) {
+                    // An offer to send has the format at 0x0c and the name at 0x1c, a file on the card the format at 0x10 and the name at
+                    // 0x28 (offsets from the record's start, header included)
+                    let (format_at, name_at, kind) = if offer { (4, 0x1c - 8, 0xC186) } else { (8, 0x28 - 8, 0xC181) };
+                    let mut body = vec![0u8; name_at];
                     body[0..4].copy_from_slice(&handle.to_le_bytes());
-                    body[8..10].copy_from_slice(&0x3801u16.to_le_bytes());
+                    body[format_at..format_at + 2].copy_from_slice(&0x3801u16.to_le_bytes());
                     body.extend_from_slice(name.as_bytes());
                     body.push(0);
-                    record(0xC181, body);
+                    record(kind, body);
                 }
                 record(0, Vec::new());
                 reply(RC_OK, data)
