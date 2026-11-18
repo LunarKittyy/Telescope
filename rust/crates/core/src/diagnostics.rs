@@ -498,6 +498,19 @@ fn describe_panic(info: &std::panic::PanicHookInfo) -> String {
 
 static STARTING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+thread_local! {
+    // How many catch_plugin calls this thread is inside: a panic there is caught and dealt with, so it doesn't end the start
+    static CATCHING: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
+/// catch_unwind for code that carries on after a panic (a plugin's hook): the panic is still logged, but never ends a start.
+pub fn catch_plugin<R>(f: impl FnOnce() -> R) -> std::thread::Result<R> {
+    CATCHING.with(|c| c.set(c.get() + 1));
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
+    CATCHING.with(|c| c.set(c.get() - 1));
+    result
+}
+
 /// The window is being started: a failure now ends in a message box (Windows), since nothing else would say what happened. Called
 /// with true before the window starts and with false once it has shown.
 pub fn set_starting(on: bool) {
@@ -537,7 +550,7 @@ pub fn start(events: &'static EventLog, dir: &Path, app_dir: Option<&Path>, vers
         let what = describe_panic(info);
         events.add("CRASH", &what);
         // Only the main thread's panic ends the start; a worker's is caught and logged
-        if std::thread::current().name() == Some("main") {
+        if std::thread::current().name() == Some("main") && CATCHING.with(|c| c.get()) == 0 {
             // A panic has its reason in hand, so it isn't blamed on the graphics card
             crate::gpu_marker::clear();
             show_start_failure(events, &what);

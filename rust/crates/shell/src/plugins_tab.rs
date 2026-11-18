@@ -359,6 +359,8 @@ pub struct Panel {
     running: BTreeSet<String>,
     /// Why each added plugin that's on didn't start this time.
     problems: BTreeMap<String, String>,
+    /// Plugins switched off this run after an error, by name (the error is for diagnostics, not the tile).
+    pub stopped: BTreeMap<String, String>,
     pub admin: Arc<dyn PluginAdmin>,
     download: Box<dyn Download>,
     pub installed: Vec<AddedPlugin>,
@@ -389,7 +391,7 @@ impl Panel {
                download: Box<dyn Download>) -> Panel {
         let reserved = builtins.iter().map(|p| p.name.clone()).collect();
         let mut panel = Panel {
-            builtins, reserved, running, problems, admin, download, installed: vec![], groups: vec![], pending: BTreeSet::new(),
+            builtins, reserved, running, problems, stopped: BTreeMap::new(), admin, download, installed: vec![], groups: vec![], pending: BTreeSet::new(),
             all_on_enabled: false, update_rows: None, vision_group: String::new(), left_after_revert: false,
         };
         panel.refresh();
@@ -417,7 +419,13 @@ impl Panel {
         self.installed = self.admin.find_installed();
         self.all_on_enabled = self.builtins.iter().any(|p| !p.required && if p.optional { on.contains(&p.name) } else { off.contains(&p.name) });
         let mut tiles: Vec<(String, Vec<Tile>)> = PLUGIN_CATEGORIES.iter().map(|(id, _)| (id.to_string(), vec![])).collect();
-        let add = |tiles: &mut Vec<(String, Vec<Tile>)>, tile: Tile| {
+        let stopped = self.stopped.clone();
+        let add = |tiles: &mut Vec<(String, Vec<Tile>)>, mut tile: Tile| {
+            if stopped.contains_key(&tile.name) {
+                tile.note = tr("Stopped after an error. It's off until Telescope restarts, which tries it again.");
+                tile.note_kind = "status_err".into();
+                tile.note_link = None;
+            }
             if let Some((_, list)) = tiles.iter_mut().find(|(id, _)| *id == tile.group) {
                 list.push(tile);
             }

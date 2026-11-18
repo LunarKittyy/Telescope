@@ -129,13 +129,13 @@ impl HostSettings for Ctx<'_> {
         self.state.move_device_settings(old, new);
     }
     fn plugin_settings(&self) -> Vec<PluginSettings> {
-        self.state.slots.iter().filter_map(|s| {
+        self.state.slots.iter().filter(|s| s.stopped.is_none()).filter_map(|s| {
             let settings = s.plugin.as_ref()?.settings();
             (!settings.is_empty()).then(|| PluginSettings { name: s.info.name.clone(), title: s.info.title.clone(), settings })
         }).collect()
     }
     fn running_plugins(&self) -> Vec<(String, String)> {
-        self.state.slots.iter().filter(|s| !s.info.name.is_empty()).map(|s| (s.info.name.clone(), s.info.title.clone())).collect()
+        self.state.slots.iter().filter(|s| !s.info.name.is_empty() && s.stopped.is_none()).map(|s| (s.info.name.clone(), s.info.title.clone())).collect()
     }
     fn plugin_looks(&self) -> Vec<telescope_core::host::PluginLook> {
         self.state.slots.iter().filter(|s| !s.info.name.is_empty()).map(|s| telescope_core::host::PluginLook { name: s.info.name.clone(), title: s.info.title.clone(), icon: s.info.icon.clone() }).collect()
@@ -690,7 +690,7 @@ impl Host for Ctx<'_> {
         self.state.bus.emit(event);
     }
     fn has_plugin(&self, name: &str) -> bool {
-        self.state.index(name).is_some() || name == self.me
+        self.state.index(name).is_some_and(|i| self.state.slots[i].stopped.is_none()) || name == self.me
     }
     fn schedule(&mut self, after_ms: u64, token: &str) {
         self.state.effects.push(Effect::Schedule { plugin: self.me.clone(), token: token.into(), ms: after_ms });

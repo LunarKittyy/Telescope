@@ -1452,6 +1452,20 @@ impl Window {
     }
 
     /// HostUi::close_window, or the person closed it: gone, and the plugin hears "closed".
+    /// A plugin that panicked is off until the next start: its card and header widget are hidden, its windows close and its frame steps come out.
+    fn plugin_stopped(self: &Rc<Self>, plugin: &str) {
+        for r in self.pieces.iter().filter(|r| r.plugin == plugin) {
+            let _ = self.ui.set_property(&format!("{}-visible", r.id), SValue::Bool(false));
+        }
+        let open: Vec<String> = self.plugin_windows.borrow().iter().filter(|(p, _, _)| p == plugin).map(|(_, id, _)| id.clone()).collect();
+        for id in open {
+            self.close_plugin_window(plugin, &id);
+        }
+        let stopped = self.state.borrow().stopped();
+        crate::settings::plugins_stopped(stopped);
+        self.refresh_frame_steps();
+    }
+
     fn close_plugin_window(self: &Rc<Self>, plugin: &str, id: &str) {
         let gone = {
             let mut windows = self.plugin_windows.borrow_mut();
@@ -1526,6 +1540,7 @@ impl Window {
             Effect::StreamSource(id) => self.stream_plugin_source(&id),
             Effect::OpenWindow { plugin, id, window } => self.open_plugin_window(&plugin, &id, &window),
             Effect::CloseWindow { plugin, id } => self.close_plugin_window(&plugin, &id),
+            Effect::Stopped(plugin) => self.plugin_stopped(&plugin),
             Effect::RefreshActions(plugin) => {
                 let mut state = self.state.borrow_mut();
                 if let Some(i) = state.index(&plugin) {
