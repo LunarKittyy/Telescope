@@ -167,7 +167,7 @@ impl Effect {
         })
     }
 
-    /// The effects that need no RGB picture work on the frame's own data (VHS, ASCII, stick figure, light painting, slit-scan); None for the rest, frame untouched.
+    /// The effects that need no RGB picture work on the frame's own data (VHS, ASCII, stick figure, light painting, slit-scan, 1998 webcam); None for the rest, frame untouched.
     pub fn run_frame(&mut self, frame: &mut Frame, look: &Look) -> Option<()> {
         let (w, h) = (frame.width as usize, frame.height as usize);
         match self {
@@ -178,6 +178,7 @@ impl Effect {
                 Some(())
             }
             Effect::Stick(paper) => stick_figure(paper, w, h, look).write_over(frame).then_some(()),
+            Effect::Webcam(c) => c.run_frame(frame).then_some(()),
             Effect::Light(light) => light.run_planes(frame, look),
             Effect::Slit(slit) => slit.run_planes(frame, look),
             _ => None,
@@ -476,6 +477,8 @@ pub struct Webcam {
     held: Option<(Rgb, (usize, usize))>,
     odd: bool,
     noise: Noise,
+    /// The last picture handed out on a frame's own data, for the frame that repeats it
+    shown: Option<(Arc<Vec<u8>>, PixelFormat)>,
 }
 
 impl Webcam {
@@ -483,18 +486,18 @@ impl Webcam {
     const QUALITY: u32 = 12;
 
     pub fn new() -> Webcam {
-        Webcam { held: None, odd: false, noise: Noise::new() }
+        Webcam { held: None, odd: false, noise: Noise::new(), shown: None }
     }
 
-    pub fn run(&mut self, frame: &Rgb) -> Rgb {
+    /// Whether this frame repeats the held picture. Every call is one tick of the 15 frames a second.
+    fn repeats(&mut self, w: usize, h: usize) -> bool {
         self.odd = !self.odd;
+        self.odd && self.held.as_ref().is_some_and(|(_, shape)| *shape == (w, h))
+    }
+
+    /// Shrinks, washes out, noises and squeezes frame into the held picture.
+    fn take(&mut self, frame: &Rgb) {
         let (w, h) = (frame.w, frame.h);
-        if let (true, Some((small, shape))) = (self.odd, &self.held) {
-            if *shape == (w, h) {
-                // Scaled up again, not handed out twice: later stages may draw on what they get
-                return small.nearest(w, h);
-            }
-        }
         let (sw, sh) = (Self::WIDTH, ((h * Self::WIDTH) as f64 / w as f64).round_ties_even().max(1.0) as usize);
         let mut small = frame.area(sw, sh);
         for p in small.data.as_chunks_mut::<3>().0 {
@@ -508,10 +511,129 @@ impl Webcam {
                 *c = (*c as i32 + n).clamp(0, 255) as u8;
             }
         }
-        let small = jpeg(&small, Self::QUALITY);
-        let out = small.nearest(w, h);
-        self.held = Some((small, (w, h)));
-        out
+        self.held = Some((jpeg(&small, Self::QUALITY), (w, h)));
+        self.drop_shown();
+    }
+
+    fn drop_shown(&mut self) {
+        if let Some((data, _)) = self.shown.take() {
+            if let Ok(old) = Arc::try_unwrap(data) {
+                telescope_core::image::keep_bytes(old);
+            }
+        }
+    }
+
+    pub fn run(&mut self, frame: &Rgb) -> Rgb {
+        let (w, h) = (frame.w, frame.h);
+        if !self.repeats(w, h) {
+            self.take(frame);
+        }
+        // Scaled up again, not handed out twice: later stages may draw on what they get
+        self.held.as_ref().unwrap().0.nearest(w, h)
+    }
+
+    /// The same as run on the frame's own data, without the full-size RGB picture on the way out. False when the frame can't be done
+    /// this way (nothing is touched then).
+    pub fn run_frame(&mut self, frame: &mut Frame) -> bool {
+        let (w, h, format) = (frame.width as usize, frame.height as usize, frame.format);
+        if w == 0 || h == 0 || !matches!(format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) || frame.data.len() != format.size(frame.width, frame.height) {
+            return false;
+        }
+        if self.repeats(w, h) {
+            if let Some((data, kept)) = &self.shown {
+                if *kept == format && data.len() == frame.data.len() {
+                    // The picture is the one handed out last time to the byte; whoever changes it first gets a copy of their own
+                    let old = std::mem::replace(&mut frame.data, data.clone());
+                    if let Ok(old) = Arc::try_unwrap(old) {
+                        telescope_core::image::keep_bytes(old);
+                    }
+                    return true;
+                }
+            }
+        } else {
+            let Some(rgb) = Rgb::from_frame(frame) else { return false };
+            self.take(&rgb);
+        }
+        self.drop_shown();
+        let mut out = telescope_core::image::spare_bytes(format.size(frame.width, frame.height));
+        nearest_into(&self.held.as_ref().unwrap().0, w, h, format, &mut out);
+        frame.replace_data(out);
+        self.shown = Some((frame.data.clone(), format));
+        true
+    }
+}
+
+/// small scaled up to w x h with nearest, in format, to the byte what Rgb::nearest then write_to give: built a pair of rows at a time,
+/// and a pair that comes from the same source rows as the one before is copied.
+fn nearest_into(small: &Rgb, w: usize, h: usize, format: PixelFormat, out: &mut [u8]) {
+    let (sw, sh) = (small.w, small.h);
+    let columns: Vec<usize> = (0..w).map(|x| (x * sw / w).min(sw - 1) * 3).collect();
+    let source = |y: usize| (y * sh / h).min(sh - 1);
+    let row = |sy: usize, to: &mut [u8]| {
+        let line = &small.data[sy * sw * 3..][..sw * 3];
+        for (o, &at) in to.as_chunks_mut::<3>().0.iter_mut().zip(&columns) {
+            *o = [line[at], line[at + 1], line[at + 2]];
+        }
+    };
+    if matches!(format, PixelFormat::Rgba | PixelFormat::Bgra) {
+        let (r, b) = if format == PixelFormat::Rgba { (0, 2) } else { (2, 0) };
+        let mut last = usize::MAX;
+        for y in 0..h {
+            let sy = source(y);
+            if sy == last {
+                out.copy_within((y - 1) * w * 4..y * w * 4, y * w * 4);
+            } else {
+                let line = &small.data[sy * sw * 3..][..sw * 3];
+                for (p, &at) in out[y * w * 4..(y + 1) * w * 4].as_chunks_mut::<4>().0.iter_mut().zip(&columns) {
+                    p[r] = line[at];
+                    p[1] = line[at + 1];
+                    p[b] = line[at + 2];
+                    p[3] = 255;
+                }
+            }
+            last = sy;
+        }
+        return;
+    }
+    let nv12 = format == PixelFormat::Nv12;
+    let (cw, ch) = (w.div_ceil(2), h.div_ceil(2));
+    let mut rgb = vec![0u8; 2 * w * 3];
+    let mut cells = vec![0u8; 2 * w + 2 * cw];
+    let mut last = (usize::MAX, usize::MAX);
+    for pair in 0..ch {
+        let (a, below) = (pair * 2, pair * 2 + 1 < h);
+        let key = (source(a), if below { source(a + 1) } else { usize::MAX });
+        let rows = if below { 2 } else { 1 };
+        if key == last {
+            out.copy_within((a - 2) * w..a * w, a * w);
+            if nv12 {
+                let at = w * h + pair * cw * 2;
+                out.copy_within(at - cw * 2..at, at);
+            } else {
+                for plane in 0..2 {
+                    let at = w * h + plane * cw * ch + pair * cw;
+                    out.copy_within(at - cw..at, at);
+                }
+            }
+            continue;
+        }
+        let (top, lower) = rgb.split_at_mut(w * 3);
+        row(key.0, top);
+        if below {
+            row(key.1, lower);
+        }
+        telescope_core::image::rgb_to_420(&rgb[..rows * w * 3], w, rows, &mut cells[..rows * w + 2 * cw], false);
+        out[a * w..(a + rows) * w].copy_from_slice(&cells[..rows * w]);
+        let (u, v) = cells[rows * w..rows * w + 2 * cw].split_at(cw);
+        if nv12 {
+            for (cell, (u, v)) in out[w * h + pair * cw * 2..][..cw * 2].as_chunks_mut::<2>().0.iter_mut().zip(u.iter().zip(v)) {
+                *cell = [*u, *v];
+            }
+        } else {
+            out[w * h + pair * cw..][..cw].copy_from_slice(u);
+            out[w * h + cw * ch + pair * cw..][..cw].copy_from_slice(v);
+        }
+        last = key;
     }
 }
 
