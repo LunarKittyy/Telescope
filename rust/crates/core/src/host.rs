@@ -799,4 +799,104 @@ pub trait Host:
     }
     /// The expensive stats (each plugin's frame step and hook times) are measured while any plugin wants them; the cheap ones are always counted.
     fn want_stats(&mut self, _owner: &str, _on: bool) {}
+
+    /// Puts value in the host's registry as "<owner>.<name>" for other plugins to read, or takes it out with None. Everyone hears
+    /// Event::SharedChanged. Only the owner writes its keys; the values go when it stops, and nothing is kept past a restart.
+    fn share(&mut self, _owner: &str, _name: &str, _value: Option<Value>) -> Result<(), String> {
+        Err("this host has no registry".into())
+    }
+    /// A value from the registry by its full key ("<plugin>.<name>"); None when nobody shares it (now).
+    fn shared(&self, _key: &str) -> Option<Value> {
+        None
+    }
+    /// The registry's keys that start with prefix ("" for all), sorted.
+    fn shared_keys(&self, _prefix: &str) -> Vec<String> {
+        Vec::new()
+    }
+}
+
+/// The values plugins share through the host (Host::share), for a host to keep.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Registry {
+    values: std::collections::BTreeMap<String, Value>,
+}
+
+impl Registry {
+    /// Longest value, as JSON text.
+    pub const VALUE_MAX: usize = 64 * 1024;
+    /// Most keys one plugin may hold.
+    pub const KEYS_MAX: usize = 256;
+
+    /// Host::share: the full key when the registry changed, None when it already held that.
+    pub fn set(&mut self, owner: &str, name: &str, value: Option<Value>) -> Result<Option<String>, String> {
+        if owner.is_empty() {
+            return Err("only a plugin can share values".into());
+        }
+        let ok_name = !name.is_empty() && name.len() <= 64 && name.bytes().all(|c| c.is_ascii_alphanumeric() || b"_.-".contains(&c));
+        if !ok_name {
+            return Err(format!("{name:?} can't be a shared name: up to 64 letters, digits, '_', '.' or '-'"));
+        }
+        let key = format!("{owner}.{name}");
+        let Some(value) = value.filter(|v| !v.is_null()) else {
+            return Ok(self.values.remove(&key).map(|_| key));
+        };
+        if serde_json::to_string(&value).map_or(usize::MAX, |t| t.len()) > Self::VALUE_MAX {
+            return Err(format!("a shared value can be up to {} KB as JSON", Self::VALUE_MAX / 1024));
+        }
+        if self.values.get(&key) == Some(&value) {
+            return Ok(None);
+        }
+        if !self.values.contains_key(&key) && self.keys(&format!("{owner}.")).len() >= Self::KEYS_MAX {
+            return Err(format!("a plugin can share up to {} values", Self::KEYS_MAX));
+        }
+        self.values.insert(key.clone(), value);
+        Ok(Some(key))
+    }
+
+    pub fn get(&self, key: &str) -> Option<Value> {
+        self.values.get(key).cloned()
+    }
+
+    pub fn keys(&self, prefix: &str) -> Vec<String> {
+        self.values.keys().filter(|k| k.starts_with(prefix)).cloned().collect()
+    }
+
+    /// Takes out everything owner shared (it stopped or went away): the keys that went.
+    pub fn drop_owner(&mut self, owner: &str) -> Vec<String> {
+        let gone = self.keys(&format!("{owner}."));
+        for key in &gone {
+            self.values.remove(key);
+        }
+        gone
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn the_registry_keeps_each_plugins_values_under_its_name() {
+        let mut r = Registry::default();
+        assert_eq!(r.set("trap", "last_seen", Some(json!({"t": 1}))), Ok(Some("trap.last_seen".into())));
+        assert_eq!(r.set("trap", "last_seen", Some(json!({"t": 1}))), Ok(None), "the same value again changes nothing");
+        assert_eq!(r.get("trap.last_seen"), Some(json!({"t": 1})));
+        assert!(r.set("trap", "", Some(json!(1))).is_err());
+        assert!(r.set("trap", "a b", Some(json!(1))).is_err());
+        assert!(r.set("", "x", Some(json!(1))).is_err());
+        assert!(r.set("trap", "big", Some(json!("x".repeat(Registry::VALUE_MAX)))).is_err());
+        r.set("stars", "seeing", Some(json!(2.5))).unwrap();
+        assert_eq!(r.keys("trap."), ["trap.last_seen"]);
+        assert_eq!(r.set("trap", "last_seen", Some(Value::Null)), Ok(Some("trap.last_seen".into())), "null takes it out");
+        assert_eq!(r.set("trap", "last_seen", None), Ok(None));
+        r.set("trap", "a", Some(json!(1))).unwrap();
+        assert_eq!(r.drop_owner("trap"), ["trap.a"]);
+        assert_eq!(r.keys(""), ["stars.seeing"]);
+        for i in 0..Registry::KEYS_MAX {
+            r.set("many", &format!("k{i}"), Some(json!(i))).unwrap();
+        }
+        assert!(r.set("many", "one_more", Some(json!(1))).is_err());
+        assert!(r.set("many", "k0", Some(json!(9))).is_ok(), "changing a key it has is fine");
+    }
 }

@@ -237,6 +237,10 @@ pub const HOST_API: &[HostMethod] = &[
     later("schedule", &["after_ms", "token"]),
     later("cancel_schedule", &["token"]),
     m("has_plugin", &["name"], None),
+    // The registry plugins share values through: a plugin writes "<its name>.<name>" and reads anyone's
+    later("share", &["name", "value?"]),
+    m("shared", &["key"], None),
+    m("shared_keys", &["prefix?"], None),
 ];
 
 /// The method called name, if guests may call it.
@@ -552,6 +556,9 @@ pub fn call_host(host: &mut dyn Host, info: &PluginInfo, method: &str, args: &Va
         "packets_problem" => return out(host.packets_problem()),
         "emit" => host.emit(guest_event(info, &arg::<String>(args, "name")?, args.get("data").unwrap_or(&Value::Null))?),
         "has_plugin" => return out(host.has_plugin(&arg::<String>(args, "name")?)),
+        "share" => host.share(owner, &arg::<String>(args, "name")?, args.get("value").cloned())?,
+        "shared" => return out(host.shared(&arg::<String>(args, "key")?)),
+        "shared_keys" => return out(host.shared_keys(&arg::<Option<String>>(args, "prefix")?.unwrap_or_default())),
         "schedule" => host.schedule(arg(args, "after_ms")?, &arg::<String>(args, "token")?),
         "cancel_schedule" => host.cancel_schedule(&arg::<String>(args, "token")?),
         other => return Err(format!("host has no method {other}")),

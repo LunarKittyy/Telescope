@@ -407,6 +407,35 @@ fn only_connection_is_required() {
 }
 
 #[test]
+fn no_plugin_folder_can_take_a_built_in_plugins_name() {
+    use telescope_plugin_host::package::PluginFolder;
+    use telescope_plugin_host::switches::Switches;
+    let root = telescope_core::testing::scratch_dir("plugin-folder-reserved");
+    let plugins = root.join("plugins");
+    std::fs::create_dir_all(&plugins).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        for dir in [&root, &plugins] {
+            std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+    }
+    let names = every_name();
+    for name in &names {
+        let dir = plugins.join(name);
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::write(dir.join("plugin.json"), serde_json::json!({"name": name, "api": 2}).to_string()).unwrap();
+        std::fs::write(dir.join("main.lua"), "return {}\n").unwrap();
+    }
+    let folder = PluginFolder::new(plugins, Switches::new(telescope_core::config::ConfigFile::at(root.join("telescope_config.json"))), ORDER.iter().map(|n| n.to_string()));
+    let found = folder.find_installed();
+    assert_eq!(found.len(), names.len());
+    for item in found {
+        assert!(item.problem.contains("already has that name"), "{}: {}", item.name, item.problem);
+    }
+}
+
+#[test]
 fn every_built_in_plugin_says_what_it_is_for_the_plugins_tab() {
     init();
     let bus = telescope_core::EventBus::default();
@@ -414,6 +443,7 @@ fn every_built_in_plugin_says_what_it_is_for_the_plugins_tab() {
     for p in &infos {
         assert!(!p.title.is_empty() && !p.about.is_empty(), "{}", p.name);
         assert!(p.required || !p.when_off.is_empty(), "{}: say what goes away while it's off", p.name);
+        assert!(p.needs.is_empty(), "{}: a built-in plugin can't need another (ARCHITECTURE.md)", p.name);
     }
     let required: BTreeSet<&str> = infos.iter().filter(|p| p.required).map(|p| p.name.as_str()).collect();
     assert_eq!(required, BTreeSet::from(["connection", "setup", "updates"]));

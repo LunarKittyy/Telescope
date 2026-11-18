@@ -17,7 +17,7 @@ Switching a plugin off deletes nothing. Everything is back, settings included, o
 
 Some tiles carry a badge:
 
-- **Needs the vision download** is on Auto framing, Background and Expose for my face. They start out off and need a separate download the first time, see [the vision download](picture.md#the-vision-download). Its **Remove download** button sits next to the **People and vision** heading
+- **Needs the vision download** is on Auto framing, Background and Expose for my face. They start out off and need a separate download the first time, see [the vision download](picture.md#the-vision-download). Its **Remove download** button sits next to the **People** heading
 - **Required** marks Devices and connection, Advanced settings and Updates. Their switches are locked on since Telescope doesn't work without them
 - **Added** marks plugins you installed yourself
 - **Lab** sits next to a plugin's name when it's an early version. It works but may change or behave oddly while it's being finished
@@ -56,6 +56,10 @@ For plugins hosted on GitHub that publish their builds as GitHub Releases, Teles
 > **Install updates without asking** under **Added plugins** installs new versions of the plugins you switched on and switches them on again before you get a look at them. Whoever controls a plugin's repo can then run new code on your computer every time they publish a release. That includes anyone who gets into the author's GitHub account. It starts out off and Telescope asks before it goes on. Leave it off unless you trust everyone behind every plugin you use with that.
 
 An update installed this way runs from the next time Telescope starts and the restart bar on the Plugins tab counts it. Each release gets one try. If it won't install or holds a different plugin Telescope leaves it and waits for the next release.
+
+### When a plugin crashes
+
+A plugin that crashes is switched off until the next start and a banner names it. The card, header button, windows and effect on the picture go away and its tile shows "Stopped after an error". The next start tries it again. **Copy diagnostics** lists it with the error. Devices and connection, Advanced settings and Updates go on running because Telescope needs them. If the plugin was hiding part of the picture (Background or Privacy blur, for example) Telescope closes instead. That way nothing that should be hidden shows.
 
 ### When an added plugin won't switch on
 

@@ -398,6 +398,7 @@ fn plan(window: &Rc<Window>) -> Result<Plan, String> {
             None => Box::new(plugins_tab::NoVision),
         };
         let mut panel = Panel::new(state.builtins.clone(), running, state.problems.clone(), state.admin.clone(), download);
+        panel.blocked = state.blocked.clone();
         panel.stopped = state.stopped();
         panel.refresh();
         (panel, state.off.len(), categories)

@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">Quyên góp hoặc đọc thêm</a>"
 msgid "No mic"
 msgstr "Không có mic"
 
-#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:516 rust/crates/system/src/updates_plugin.rs:457
+#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:518 rust/crates/system/src/updates_plugin.rs:457
 msgid "Downloading…"
 msgstr "Đang tải về…"
 
@@ -346,7 +346,7 @@ msgstr "Vàng: bộ giới hạn đang nén các đỉnh âm lượng. Đỏ: â
 msgid "Click to clear"
 msgstr "Nhấp để xóa"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:814 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:38 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:734 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:814 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:38 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "Đặt lại"
 
@@ -576,7 +576,7 @@ msgstr "Truyền phát và thiết bị"
 msgid "Extras"
 msgstr "Mở rộng"
 
-#: rust/crates/core/src/vision.rs:114 rust/crates/core/src/vision.rs:143 rust/crates/shell/src/plugins_tab.rs:516
+#: rust/crates/core/src/vision.rs:114 rust/crates/core/src/vision.rs:143 rust/crates/shell/src/plugins_tab.rs:518
 #, python-brace-format
 msgid "Downloading… {percent}%"
 msgstr "Đang tải về… {percent} %"
@@ -721,7 +721,7 @@ msgstr "Màu đã chọn từ khung xem trước. Bấm để chọn lại."
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Bấm vào phông phía sau bạn trên khung xem trước. Nhấn Esc để hủy."
 
-#: rust/crates/effects/src/chroma_key.rs:407 rust/crates/effects/src/chroma_key.rs:443 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:565 rust/crates/outputs/src/webcam.rs:976 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1785 rust/crates/shell/src/window.rs:1776 rust/crates/shell/src/worker.rs:581 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:407 rust/crates/effects/src/chroma_key.rs:443 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:565 rust/crates/outputs/src/webcam.rs:976 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1785 rust/crates/shell/src/window.rs:1776 rust/crates/shell/src/worker.rs:608 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Không truyền phát"
 
@@ -3536,7 +3536,7 @@ msgstr "Xuất bản chỉnh màu"
 msgid "Save the grade and LUT as a .cube file to use in other apps."
 msgstr "Lưu bản chỉnh màu và LUT thành tệp .cube để dùng trong ứng dụng khác."
 
-#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:806
+#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:865
 msgid "Replace"
 msgstr "Thay thế"
 
@@ -3700,7 +3700,7 @@ msgstr "Thay thế bố cục"
 msgid "Name:"
 msgstr "Tên:"
 
-#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1111 rust/crates/shell/ui/settings.slint:587
+#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1112 rust/crates/shell/ui/settings.slint:587
 msgid "OK"
 msgstr "OK"
 
@@ -5054,7 +5054,7 @@ msgstr "Camera ảo đang tắt"
 msgid "Your password is needed to switch on the virtual camera."
 msgstr "Cần có mật khẩu của bạn để bật camera ảo."
 
-#: rust/crates/link/src/plugin.rs:1554 rust/crates/shell/src/plugins_tab.rs:724 rust/crates/shell/src/plugins_tab.rs:752
+#: rust/crates/link/src/plugin.rs:1554 rust/crates/shell/src/plugins_tab.rs:735 rust/crates/shell/src/plugins_tab.rs:801
 msgid "Switch on"
 msgstr "Bật"
 
@@ -5098,7 +5098,7 @@ msgstr "Tốc độ khung"
 msgid "How many pictures a second the browser sends."
 msgstr "Số lượng hình ảnh mỗi giây mà trình duyệt gửi."
 
-#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:23 rust/crates/setup/ui/setup.slint:23 rust/crates/shell/src/plugins_tab.rs:709 rust/crates/shell/src/plugins_tab.rs:714 rust/crates/shell/ui/settings.slint:330
+#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:23 rust/crates/setup/ui/setup.slint:23 rust/crates/shell/src/plugins_tab.rs:720 rust/crates/shell/src/plugins_tab.rs:725 rust/crates/shell/ui/settings.slint:330
 msgid "Remove"
 msgstr "Gỡ bỏ"
 
@@ -6002,45 +6002,45 @@ msgstr "Tiện ích bổ sung chưa được bật."
 msgid "{file} has to return the plugin's table at the end."
 msgstr "{file} phải trả về bảng của tiện ích bổ sung ở cuối."
 
-#: rust/crates/plugin-host/src/package.rs:181
+#: rust/crates/plugin-host/src/package.rs:183
 msgid "The plugin is a link to another folder, which plugins can't be."
 msgstr "Tiện ích bổ sung là một liên kết đến thư mục khác, nhưng tiện ích bổ sung không thể ở dạng liên kết."
 
-#: rust/crates/plugin-host/src/package.rs:187 rust/crates/plugin-host/src/package.rs:242
+#: rust/crates/plugin-host/src/package.rs:189 rust/crates/plugin-host/src/package.rs:247
 #, python-brace-format
 msgid "The plugin has no {file}."
 msgstr "Tiện ích bổ sung không có {file}."
 
-#: rust/crates/plugin-host/src/package.rs:191
+#: rust/crates/plugin-host/src/package.rs:193
 #, python-brace-format
 msgid "{file} isn't valid JSON."
 msgstr "{file} không phải là JSON hợp lệ."
 
-#: rust/crates/plugin-host/src/package.rs:195 rust/crates/plugin-host/src/package.rs:239
+#: rust/crates/plugin-host/src/package.rs:197 rust/crates/plugin-host/src/package.rs:244
 #, python-brace-format
 msgid "{file} isn't valid."
 msgstr "{file} không hợp lệ."
 
-#: rust/crates/plugin-host/src/package.rs:209
+#: rust/crates/plugin-host/src/package.rs:211
 #, python-brace-format
 msgid "The plugin was made for an older Telescope (plugin API {api}) and needs an update."
 msgstr "Tiện ích bổ sung này được tạo cho phiên bản Telescope cũ hơn (API tiện ích bổ sung {api}) và cần được cập nhật."
 
-#: rust/crates/plugin-host/src/package.rs:219
+#: rust/crates/plugin-host/src/package.rs:221
 msgid "The plugin's files couldn't be read."
 msgstr "Không thể đọc các tệp của tiện ích bổ sung."
 
-#: rust/crates/plugin-host/src/package.rs:226
+#: rust/crates/plugin-host/src/package.rs:228
 #, python-brace-format
 msgid "{file} has to give the folder's name as \"name\"."
 msgstr "{file} phải chỉ định tên thư mục làm \"name\"."
 
-#: rust/crates/plugin-host/src/package.rs:233
+#: rust/crates/plugin-host/src/package.rs:238
 #, python-brace-format
 msgid "The plugin needs a newer Telescope (plugin API {wanted}; this Telescope has {have})."
 msgstr "Tiện ích bổ sung cần phiên bản Telescope mới hơn (API tiện ích bổ sung {wanted}; Telescope này có {have})."
 
-#: rust/crates/plugin-host/src/package.rs:273
+#: rust/crates/plugin-host/src/package.rs:278
 msgid "The plugin's files changed since it was turned on. Turn the plugin on again if you trust the new version."
 msgstr "Các tệp của tiện ích bổ sung đã thay đổi kể từ khi được bật. Hãy bật lại tiện ích bổ sung nếu bạn tin tưởng phiên bản mới."
 
@@ -7100,7 +7100,7 @@ msgstr ""
 msgid "Restart now"
 msgstr "Khởi động lại ngay"
 
-#: rust/crates/setup/ui/setup.slint:270 rust/crates/setup/ui/setup.slint:728 rust/crates/shell/src/plugins_tab.rs:737 rust/crates/shell/ui/card-order.slint:265
+#: rust/crates/setup/ui/setup.slint:270 rust/crates/setup/ui/setup.slint:728 rust/crates/shell/src/plugins_tab.rs:748 rust/crates/shell/ui/card-order.slint:265
 msgid "Restart"
 msgstr "Khởi động lại"
 
@@ -7557,7 +7557,7 @@ msgstr "Thông số trực tiếp về luồng phát đang chạy."
 msgid "Stats view"
 msgstr "Chế độ xem"
 
-#: rust/crates/shell/src/card_order.rs:226 rust/crates/shell/src/plugins_tab.rs:737
+#: rust/crates/shell/src/card_order.rs:226 rust/crates/shell/src/plugins_tab.rs:748
 msgid "Streaming stops while Telescope restarts. Restarting takes a few seconds."
 msgstr "Việc truyền phát sẽ dừng trong khi Telescope khởi động lại. Quá trình khởi động lại mất vài giây."
 
@@ -7683,7 +7683,7 @@ msgstr "Lấy nét điểm"
 msgid "Legacy"
 msgstr "Đời cũ"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:44 rust/crates/shell/src/plugins_tab.rs:478
+#: rust/crates/shell/src/plugins/camera_control.rs:44 rust/crates/shell/src/plugins_tab.rs:480
 msgid "Limited"
 msgstr "Giới hạn"
 
@@ -8065,172 +8065,172 @@ msgstr "Telescope không thể khởi động lại. Hãy đóng Telescope rồi
 msgid "The download didn't work. {error}"
 msgstr "Quá trình tải về không thành công. {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:425
+#: rust/crates/shell/src/plugins_tab.rs:427
 msgid "Stopped after an error. It's off until Telescope restarts, which tries it again."
 msgstr ""
 
-#: rust/crates/shell/src/plugins_tab.rs:475
+#: rust/crates/shell/src/plugins_tab.rs:477
 msgid "Lab"
 msgstr "Thử nghiệm"
 
-#: rust/crates/shell/src/plugins_tab.rs:494
+#: rust/crates/shell/src/plugins_tab.rs:496
 msgid "This plugin can't be switched off. Telescope needs it to work."
 msgstr "Không thể tắt tiện ích bổ sung này. Telescope cần nó để hoạt động."
 
-#: rust/crates/shell/src/plugins_tab.rs:495
+#: rust/crates/shell/src/plugins_tab.rs:497
 msgid "Required"
 msgstr "Bắt buộc"
 
-#: rust/crates/shell/src/plugins_tab.rs:519
+#: rust/crates/shell/src/plugins_tab.rs:521
 #, python-brace-format
 msgid "The download failed. {error}"
 msgstr "Tải về không thành công. {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:522
+#: rust/crates/shell/src/plugins_tab.rs:524
 msgid "The plugin can't be switched on until there's a download for this computer."
 msgstr "Không thể bật tiện ích bổ sung cho đến khi có bản tải về cho máy tính này."
 
-#: rust/crates/shell/src/plugins_tab.rs:525
+#: rust/crates/shell/src/plugins_tab.rs:527
 #, python-brace-format
 msgid "The plugin's download (about {mb} MB) is missing. Switch the plugin off and on again to download it."
 msgstr "Bản tải về của tiện ích bổ sung (khoảng {mb} MB) bị thiếu. Hãy tắt rồi bật lại tiện ích bổ sung để tải về."
 
-#: rust/crates/shell/src/plugins_tab.rs:532
+#: rust/crates/shell/src/plugins_tab.rs:534
 msgid "Vision download required"
 msgstr "Cần tải về gói thị giác"
 
-#: rust/crates/shell/src/plugins_tab.rs:550
+#: rust/crates/shell/src/plugins_tab.rs:552
 msgid "There's no vision download for this computer yet."
 msgstr "Chưa có bản tải về gói thị giác cho máy tính này."
 
-#: rust/crates/shell/src/plugins_tab.rs:561
+#: rust/crates/shell/src/plugins_tab.rs:563
 #, python-brace-format
 msgid "By {author}."
 msgstr "Tác giả {author}."
 
-#: rust/crates/shell/src/plugins_tab.rs:571
+#: rust/crates/shell/src/plugins_tab.rs:573
 #, python-brace-format
 msgid "Updated to {version} automatically. The new version runs after Telescope restarts."
 msgstr "Đã tự động cập nhật lên {version}. Phiên bản mới sẽ chạy sau khi Telescope khởi động lại."
 
-#: rust/crates/shell/src/plugins_tab.rs:577
+#: rust/crates/shell/src/plugins_tab.rs:579
 msgid "Off since the plugin's files changed after you switched it on. Switch it on again if you trust the new version."
 msgstr "Đã tắt do các tệp của tiện ích bổ sung đã thay đổi sau khi bạn bật. Hãy bật lại nếu bạn tin tưởng phiên bản mới."
 
-#: rust/crates/shell/src/plugins_tab.rs:580 rust/crates/shell/src/plugins_tab.rs:620
+#: rust/crates/shell/src/plugins_tab.rs:587 rust/crates/shell/src/plugins_tab.rs:631
 #, python-brace-format
 msgid "Couldn't start: {problem}"
 msgstr "Không thể khởi động: {problem}"
 
 #. keep the <a href="{url}"> link
-#: rust/crates/shell/src/plugins_tab.rs:589
+#: rust/crates/shell/src/plugins_tab.rs:600
 #, python-brace-format
 msgid "Version {version} is out. <a href=\"{url}\">Download it from the plugin's release page</a> and install it here to replace the current version."
 msgstr "Phiên bản {version} đã ra mắt. <a href=\"{url}\">Tải về từ trang phát hành của tiện ích bổ sung</a> và cài đặt tại đây để thay thế phiên bản hiện tại."
 
-#: rust/crates/shell/src/plugins_tab.rs:599
+#: rust/crates/shell/src/plugins_tab.rs:610
 msgid "Added"
 msgstr "Đã thêm"
 
-#: rust/crates/shell/src/plugins_tab.rs:616
+#: rust/crates/shell/src/plugins_tab.rs:627
 msgid "This plugin is always on while `telescope-rs dev --plugin` loads it."
 msgstr "Tiện ích bổ sung này luôn bật khi `telescope-rs dev --plugin` tải nó."
 
-#: rust/crates/shell/src/plugins_tab.rs:617
+#: rust/crates/shell/src/plugins_tab.rs:628
 msgid "Being written"
 msgstr "Đang phát triển"
 
-#: rust/crates/shell/src/plugins_tab.rs:623
+#: rust/crates/shell/src/plugins_tab.rs:634
 #, python-brace-format
 msgid "Loaded from {folder} by telescope-rs dev. Saving a file in that folder restarts Telescope."
 msgstr "Được tải từ {folder} bởi telescope-rs dev. Lưu tệp trong thư mục đó sẽ khởi động lại Telescope."
 
 #. next to a group's name on the Plugins tab, how many of its plugins are switched on
-#: rust/crates/shell/src/plugins_tab.rs:637
+#: rust/crates/shell/src/plugins_tab.rs:648
 #, python-brace-format
 msgid "{on} of {total} on"
 msgstr "{on}/{total} đã bật"
 
-#: rust/crates/shell/src/plugins_tab.rs:650
+#: rust/crates/shell/src/plugins_tab.rs:661
 #, python-brace-format
 msgid "No plugins match “{text}”."
 msgstr "Không có tiện ích bổ sung nào khớp với “{text}”."
 
-#: rust/crates/shell/src/plugins_tab.rs:652
+#: rust/crates/shell/src/plugins_tab.rs:663
 msgid "Every plugin is switched on."
 msgstr "Mọi tiện ích bổ sung đều đã được bật."
 
-#: rust/crates/shell/src/plugins_tab.rs:654
+#: rust/crates/shell/src/plugins_tab.rs:665
 msgid "No plugin is switched on."
 msgstr "Không có tiện ích bổ sung nào được bật."
 
-#: rust/crates/shell/src/plugins_tab.rs:663
+#: rust/crates/shell/src/plugins_tab.rs:674
 msgid "Downloading the vision pack"
 msgstr "Đang tải về gói thị giác"
 
-#: rust/crates/shell/src/plugins_tab.rs:664
+#: rust/crates/shell/src/plugins_tab.rs:675
 #, python-brace-format
 msgid "This one-time download (about {mb} MB) is shared by every plugin that finds people in the picture."
 msgstr "Bản tải về một lần này (khoảng {mb} MB) được chia sẻ bởi mọi tiện ích bổ sung có tính năng tìm người trong hình ảnh."
 
-#: rust/crates/shell/src/plugins_tab.rs:665
+#: rust/crates/shell/src/plugins_tab.rs:676
 msgid "Switch on a plugin that needs the vision pack to try again."
 msgstr "Bật tiện ích bổ sung cần gói thị giác để thử lại."
 
-#: rust/crates/shell/src/plugins_tab.rs:668
+#: rust/crates/shell/src/plugins_tab.rs:679
 msgid "Downloading the high quality cutout"
 msgstr "Đang tải về phần tách nền chất lượng cao"
 
-#: rust/crates/shell/src/plugins_tab.rs:669
+#: rust/crates/shell/src/plugins_tab.rs:680
 #, python-brace-format
 msgid "This one-time download (about {mb} MB) gives the Background cutout cleaner edges."
 msgstr "Bản tải về một lần này (khoảng {mb} MB) giúp đường viền tách Nền gọn gàng hơn."
 
-#: rust/crates/shell/src/plugins_tab.rs:670
+#: rust/crates/shell/src/plugins_tab.rs:681
 msgid "Press Download under High quality cutout in Background to try again."
 msgstr "Nhấn Tải về dưới mục Tách nền chất lượng cao trong thẻ Nền để thử lại."
 
-#: rust/crates/shell/src/plugins_tab.rs:678
+#: rust/crates/shell/src/plugins_tab.rs:689
 #, python-brace-format
 msgid "Switches are back as they were. {n} other change still needs a restart"
 msgid_plural "Switches are back as they were. {n} other changes still need a restart"
 msgstr[0] "Các công tắc đã trở về trạng thái cũ. {n} thay đổi khác vẫn cần khởi động lại"
 
-#: rust/crates/shell/src/plugins_tab.rs:680
+#: rust/crates/shell/src/plugins_tab.rs:691
 #, python-brace-format
 msgid "Restart to apply {n} change"
 msgid_plural "Restart to apply {n} changes"
 msgstr[0] "Khởi động lại để áp dụng {n} thay đổi"
 
-#: rust/crates/shell/src/plugins_tab.rs:685
+#: rust/crates/shell/src/plugins_tab.rs:696
 #, python-brace-format
 msgid "Plugins ({n} off)"
 msgstr "Tiện ích bổ sung ({n} đã tắt)"
 
-#: rust/crates/shell/src/plugins_tab.rs:707
+#: rust/crates/shell/src/plugins_tab.rs:718
 #, python-brace-format
 msgid "Remove {plugin}?"
 msgstr "Gỡ bỏ {plugin}?"
 
-#: rust/crates/shell/src/plugins_tab.rs:708
+#: rust/crates/shell/src/plugins_tab.rs:719
 #, python-brace-format
 msgid "The plugin's folder ({folder}) is deleted from the plugins folder. To use the plugin again, add it again."
 msgstr "Thư mục của tiện ích bổ sung ({folder}) đã bị xóa khỏi thư mục tiện ích bổ sung. Để dùng lại tiện ích bổ sung, hãy thêm lại."
 
-#: rust/crates/shell/src/plugins_tab.rs:712
+#: rust/crates/shell/src/plugins_tab.rs:723
 msgid "Remove the download?"
 msgstr "Xóa bản tải về?"
 
-#: rust/crates/shell/src/plugins_tab.rs:713
+#: rust/crates/shell/src/plugins_tab.rs:724
 #, python-brace-format
 msgid "Frees about {mb} MB. Switching on an optional plugin downloads the files again."
 msgstr "Giải phóng khoảng {mb} MB. Bật một tiện ích bổ sung tùy chọn sẽ tải về lại các tệp."
 
-#: rust/crates/shell/src/plugins_tab.rs:722
+#: rust/crates/shell/src/plugins_tab.rs:733
 msgid "Install plugin updates without asking?"
 msgstr "Cài đặt bản cập nhật tiện ích mà không cần hỏi?"
 
-#: rust/crates/shell/src/plugins_tab.rs:723
+#: rust/crates/shell/src/plugins_tab.rs:734
 msgid ""
 "Telescope will install new versions of the plugins you switched on and switch them on too, without showing them to you first.\n"
 "\n"
@@ -8240,110 +8240,128 @@ msgstr ""
 "\n"
 "Bất kỳ ai kiểm soát kho lưu trữ của tiện ích trên GitHub (tác giả hoặc bất kỳ ai truy cập được vào tài khoản của họ) đều có thể chạy mã mới trên máy tính này mỗi khi họ xuất bản bản phát hành mới. Chỉ bật tính năng này nếu bạn tin tưởng tất cả bọn họ."
 
-#: rust/crates/shell/src/plugins_tab.rs:728
+#: rust/crates/shell/src/plugins_tab.rs:739
 msgid "Reset all settings?"
 msgstr "Đặt lại tất cả cài đặt?"
 
-#: rust/crates/shell/src/plugins_tab.rs:730
+#: rust/crates/shell/src/plugins_tab.rs:741
 msgid "Every setting will go back to default. Telescope will restart and the stream will stop. Your paired phones, presets and notes aren't reset."
 msgstr "Mọi cài đặt sẽ trở về mặc định. Telescope sẽ khởi động lại và luồng phát sẽ dừng. Các điện thoại đã ghép đôi, cài đặt sẵn và ghi chú của bạn không bị đặt lại."
 
-#: rust/crates/shell/src/plugins_tab.rs:732
+#: rust/crates/shell/src/plugins_tab.rs:743
 msgid "Every setting will go back to default and Telescope will restart. Your paired phones, presets and notes aren't reset."
 msgstr "Mọi cài đặt sẽ trở về mặc định và Telescope sẽ khởi động lại. Các điện thoại đã ghép đôi, cài đặt sẵn và ghi chú của bạn không bị đặt lại."
 
-#: rust/crates/shell/src/plugins_tab.rs:737
+#: rust/crates/shell/src/plugins_tab.rs:748
 msgid "Restart Telescope now?"
 msgstr "Khởi động lại Telescope ngay?"
 
-#: rust/crates/shell/src/plugins_tab.rs:751
+#: rust/crates/shell/src/plugins_tab.rs:770
+#, python-brace-format
+msgid "Needs {plugins}, which is switched off. Switch it on too."
+msgid_plural "Needs {plugins}, which are switched off. Switch them on too."
+msgstr[0] ""
+
+#: rust/crates/shell/src/plugins_tab.rs:774
+#, python-brace-format
+msgid "Needs a plugin called {plugins}, which this version of Telescope doesn't have."
+msgid_plural "Needs plugins called {plugins}, which this version of Telescope doesn't have."
+msgstr[0] ""
+
+#: rust/crates/shell/src/plugins_tab.rs:791
+#, python-brace-format
+msgid "{plugins} needs it and won't start without it."
+msgid_plural "{plugins} need it and won't start without it."
+msgstr[0] ""
+
+#: rust/crates/shell/src/plugins_tab.rs:800
 #, python-brace-format
 msgid "Switch on {plugin}?"
 msgstr "Bật {plugin}?"
 
-#: rust/crates/shell/src/plugins_tab.rs:752
+#: rust/crates/shell/src/plugins_tab.rs:801
 msgid "A plugin can do anything on your computer. Only switch it on if you trust its source."
 msgstr "Tiện ích bổ sung có thể làm mọi thứ trên máy tính của bạn. Chỉ bật nếu bạn tin tưởng nguồn gốc của tiện ích."
 
-#: rust/crates/shell/src/plugins_tab.rs:754 rust/crates/shell/src/plugins_tab.rs:775
+#: rust/crates/shell/src/plugins_tab.rs:803 rust/crates/shell/src/plugins_tab.rs:817 rust/crates/shell/src/plugins_tab.rs:834
 #, python-brace-format
 msgid "Switch off {plugin}?"
 msgstr "Tắt {plugin}?"
 
-#: rust/crates/shell/src/plugins_tab.rs:755
+#: rust/crates/shell/src/plugins_tab.rs:804
 msgid "Without the plugin, what it added to Telescope is gone. Its settings are saved for when you switch it back on."
 msgstr "Nếu không có tiện ích bổ sung, những gì tiện ích thêm vào Telescope sẽ biến mất. Cài đặt của tiện ích được lưu lại cho khi bạn bật lại."
 
-#: rust/crates/shell/src/plugins_tab.rs:755 rust/crates/shell/src/plugins_tab.rs:775
+#: rust/crates/shell/src/plugins_tab.rs:804 rust/crates/shell/src/plugins_tab.rs:817 rust/crates/shell/src/plugins_tab.rs:834
 msgid "Switch off"
 msgstr "Tắt"
 
-#: rust/crates/shell/src/plugins_tab.rs:762
+#: rust/crates/shell/src/plugins_tab.rs:811
 #, python-brace-format
 msgid "Download about {mb} MB?"
 msgstr "Tải về khoảng {mb} MB?"
 
-#: rust/crates/shell/src/plugins_tab.rs:763
+#: rust/crates/shell/src/plugins_tab.rs:812
 #, python-brace-format
 msgid "{plugin} uses MediaPipe to find people in the picture. The files are a separate download from Telescope's releases on GitHub, shared by the other optional plugins."
 msgstr "{plugin} sử dụng MediaPipe để tìm người trong hình ảnh. Các tệp này là bản tải về riêng từ các bản phát hành của Telescope trên GitHub, được chia sẻ với các tiện ích bổ sung tùy chọn khác."
 
-#: rust/crates/shell/src/plugins_tab.rs:764
+#: rust/crates/shell/src/plugins_tab.rs:813
 msgid "Download and switch on"
 msgstr "Tải về và bật"
 
-#: rust/crates/shell/src/plugins_tab.rs:774
+#: rust/crates/shell/src/plugins_tab.rs:833
 msgid "Its settings are saved for when you switch it back on."
 msgstr "Cài đặt của tiện ích được lưu lại cho khi bạn bật lại."
 
-#: rust/crates/shell/src/plugins_tab.rs:785
+#: rust/crates/shell/src/plugins_tab.rs:844
 msgid "This is the vision pack, not a plugin. It's being checked and installed in the background and the download banner shows how it goes."
 msgstr "Đây là gói thị giác, không phải tiện ích bổ sung. Gói đang được kiểm tra và cài đặt trong nền, biểu ngữ tải về sẽ hiển thị tiến trình."
 
-#: rust/crates/shell/src/plugins_tab.rs:791
+#: rust/crates/shell/src/plugins_tab.rs:850
 msgid "This file wasn't used while the vision pack is downloading or installing. Try again when it's done."
 msgstr "Tệp này không được dùng trong khi gói thị giác đang tải về hoặc cài đặt. Hãy thử lại khi hoàn tất."
 
-#: rust/crates/shell/src/plugins_tab.rs:804
+#: rust/crates/shell/src/plugins_tab.rs:863
 #, python-brace-format
 msgid "Replace {plugin}?"
 msgstr "Thay thế {plugin}?"
 
-#: rust/crates/shell/src/plugins_tab.rs:805
+#: rust/crates/shell/src/plugins_tab.rs:864
 msgid "The version in this .zip replaces the installed version and its settings carry over. Like any added plugin, it's switched off at first."
 msgstr "Phiên bản trong tệp .zip này sẽ thay thế phiên bản đã cài đặt và giữ lại các cài đặt. Giống như bất kỳ tiện ích bổ sung nào được thêm vào, ban đầu tiện ích sẽ ở trạng thái tắt."
 
-#: rust/crates/shell/src/plugins_tab.rs:817
+#: rust/crates/shell/src/plugins_tab.rs:876
 #, python-brace-format
 msgid "{plugin} was installed but it can't run yet. {problem}"
 msgstr "{plugin} đã được cài đặt nhưng chưa thể chạy. {problem}"
 
-#: rust/crates/shell/src/plugins_tab.rs:819
+#: rust/crates/shell/src/plugins_tab.rs:878
 #, python-brace-format
 msgid "{plugin} {version} is installed but switched off. To use it, switch it on again and restart Telescope."
 msgstr "{plugin} {version} đã được cài đặt nhưng đang tắt. Để dùng, hãy bật lại và khởi động lại Telescope."
 
-#: rust/crates/shell/src/plugins_tab.rs:821
+#: rust/crates/shell/src/plugins_tab.rs:880
 #, python-brace-format
 msgid "{plugin} is installed but switched off. To use it, switch it on and restart Telescope."
 msgstr "{plugin} đã được cài đặt nhưng đang tắt. Để dùng, hãy bật và khởi động lại Telescope."
 
-#: rust/crates/shell/src/plugins_tab.rs:831
+#: rust/crates/shell/src/plugins_tab.rs:890
 #, python-brace-format
 msgid "Telescope couldn't save the change: {error}"
 msgstr "Telescope không thể lưu thay đổi: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:878
+#: rust/crates/shell/src/plugins_tab.rs:937
 #, python-brace-format
 msgid "Telescope couldn't delete its folder: {error}"
 msgstr "Telescope không thể xóa thư mục của tiện ích: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:886
+#: rust/crates/shell/src/plugins_tab.rs:945
 #, python-brace-format
 msgid "Telescope couldn't delete it: {error}"
 msgstr "Telescope không thể xóa: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:924
+#: rust/crates/shell/src/plugins_tab.rs:983
 #, python-brace-format
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr "Telescope không thể tạo thư mục tiện ích bổ sung: {error}"
@@ -8356,127 +8374,139 @@ msgstr "Thẻ"
 msgid "Check that the device is still on."
 msgstr "Kiểm tra xem thiết bị có còn bật không."
 
-#: rust/crates/shell/src/settings.rs:923
+#: rust/crates/shell/src/settings.rs:924
 msgid "Nothing matches every word. These match some of the words."
 msgstr "Không có kết quả khớp với mọi từ. Dưới đây là các kết quả khớp với một số từ."
 
-#: rust/crates/shell/src/settings.rs:925
+#: rust/crates/shell/src/settings.rs:926
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or describe what it does (resolution, microphone, startup)."
 msgstr "Không có kết quả khớp với “{text}”. Hãy thử dùng ít từ hơn, hoặc mô tả chức năng của mục đó (độ phân giải, micrô, khởi động)."
 
-#: rust/crates/shell/src/settings.rs:927 rust/crates/shell/ui/settings.slint:260
+#: rust/crates/shell/src/settings.rs:928 rust/crates/shell/ui/settings.slint:260
 msgid "Search results"
 msgstr "Kết quả tìm kiếm"
 
-#: rust/crates/shell/src/settings.rs:982
+#: rust/crates/shell/src/settings.rs:983
 msgid "This plugin is an early version. It may change or behave oddly."
 msgstr "Tiện ích bổ sung này là phiên bản phát hành sớm. Nó có thể thay đổi hoặc hoạt động bất thường."
 
-#: rust/crates/shell/src/settings.rs:983
+#: rust/crates/shell/src/settings.rs:984
 msgid "This plugin has technical limitations that will likely never get resolved. Do not expect it to work perfectly."
 msgstr "Tiện ích bổ sung này có những giới hạn kỹ thuật nhiều khả năng sẽ không bao giờ được giải quyết. Đừng kỳ vọng nó hoạt động hoàn hảo."
 
-#: rust/crates/shell/src/settings.rs:999
+#: rust/crates/shell/src/settings.rs:1000
 #, python-brace-format
 msgid "Remove {plugin}"
 msgstr "Gỡ bỏ {plugin}"
 
-#: rust/crates/shell/src/settings.rs:1028
+#: rust/crates/shell/src/settings.rs:1029
 msgid "Check for updates"
 msgstr "Kiểm tra bản cập nhật"
 
-#: rust/crates/shell/src/settings.rs:1029
+#: rust/crates/shell/src/settings.rs:1030
 msgid "Check once a day for new versions of added plugins that publish releases on GitHub and show them here. Nothing is downloaded."
 msgstr "Kiểm tra mỗi ngày một lần các phiên bản mới của tiện ích bổ sung đã thêm có phát hành bản cập nhật trên GitHub và hiển thị tại đây. Không có gì được tải về."
 
-#: rust/crates/shell/src/settings.rs:1030
+#: rust/crates/shell/src/settings.rs:1031
 msgid "Install updates without asking"
 msgstr "Cài đặt bản cập nhật mà không cần hỏi"
 
-#: rust/crates/shell/src/settings.rs:1030
+#: rust/crates/shell/src/settings.rs:1031
 msgid "Install new versions of the plugins you switched on and switch them on again."
 msgstr "Cài đặt các phiên bản mới của các tiện ích bổ sung bạn đã bật và bật lại chúng."
 
-#: rust/crates/shell/src/settings.rs:1031
+#: rust/crates/shell/src/settings.rs:1032
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "Nguy hiểm! Bất kỳ ai kiểm soát kho lưu trữ của tiện ích đều có thể chạy mã mới trên máy tính này mỗi khi họ xuất bản bản phát hành mới."
 
-#: rust/crates/shell/src/settings.rs:1144
+#: rust/crates/shell/src/settings.rs:1145
 msgid "Install a plugin"
 msgstr "Cài đặt tiện ích bổ sung"
 
-#: rust/crates/shell/src/settings.rs:1146
+#: rust/crates/shell/src/settings.rs:1147
 msgid "Plugins (*.zip)"
 msgstr "Tiện ích bổ sung (*.zip)"
 
-#: rust/crates/shell/src/shell.rs:792
+#: rust/crates/shell/src/shell.rs:226
+#, python-brace-format
+msgid "It needs a plugin called {plugins}, which this version of Telescope doesn't have."
+msgid_plural "It needs plugins called {plugins}, which this version of Telescope doesn't have."
+msgstr[0] ""
+
+#: rust/crates/shell/src/shell.rs:231
+#, python-brace-format
+msgid "It needs {plugins}, which is switched off."
+msgid_plural "It needs {plugins}, which are switched off."
+msgstr[0] ""
+
+#: rust/crates/shell/src/shell.rs:858
 #, python-brace-format
 msgid "{plugins} stopped working"
 msgid_plural "{plugins} stopped working"
 msgstr[0] ""
 
-#: rust/crates/shell/src/shell.rs:794
+#: rust/crates/shell/src/shell.rs:860
 #, python-brace-format
 msgid "{n} plugin stopped working"
 msgid_plural "{n} plugins stopped working"
 msgstr[0] ""
 
-#: rust/crates/shell/src/shell.rs:796
+#: rust/crates/shell/src/shell.rs:862
 msgid "It ran into an error and is off until Telescope restarts. Everything else carries on."
 msgid_plural "They ran into errors and are off until Telescope restarts. Everything else carries on."
 msgstr[0] ""
 
-#: rust/crates/shell/src/shell.rs:801 rust/crates/shell/src/shell.rs:1003 rust/crates/shell/src/shell.rs:1023
+#: rust/crates/shell/src/shell.rs:867 rust/crates/shell/src/shell.rs:1097 rust/crates/shell/src/shell.rs:1117
 msgid "Plugins…"
 msgstr "Tiện ích bổ sung…"
 
-#: rust/crates/shell/src/shell.rs:995
+#: rust/crates/shell/src/shell.rs:1089
 #, python-brace-format
 msgid "Couldn't start {plugins}"
 msgid_plural "Couldn't start {plugins}"
 msgstr[0] "Không thể khởi động {plugins}"
 
-#: rust/crates/shell/src/shell.rs:997
+#: rust/crates/shell/src/shell.rs:1091
 #, python-brace-format
 msgid "Couldn't start {n} plugin"
 msgid_plural "Couldn't start {n} plugins"
 msgstr[0] "Không thể khởi động {n} tiện ích bổ sung"
 
-#: rust/crates/shell/src/shell.rs:999
+#: rust/crates/shell/src/shell.rs:1093
 msgid "Telescope works without the plugin. The Plugins tab in Settings shows what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings shows what went wrong."
 msgstr[0] "Telescope vẫn hoạt động khi không có chúng. Thẻ Tiện ích bổ sung trong Cài đặt hiển thị sự cố đã xảy ra."
 
-#: rust/crates/shell/src/shell.rs:1017
+#: rust/crates/shell/src/shell.rs:1111
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
 msgstr[0] "{plugins} đã bị tắt"
 
-#: rust/crates/shell/src/shell.rs:1018
+#: rust/crates/shell/src/shell.rs:1112
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "Bạn đã tắt mục này trong phần Tiện ích bổ sung. Để bật lại, hãy mở Tiện ích bổ sung trong Cài đặt và bật lên."
 
-#: rust/crates/shell/src/shell.rs:1041
+#: rust/crates/shell/src/shell.rs:1136
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "Bản sao của tệp cũ nằm tại {path}."
 
-#: rust/crates/shell/src/shell.rs:1043
+#: rust/crates/shell/src/shell.rs:1138
 msgid "Your settings couldn't be read"
 msgstr "Không thể đọc cài đặt của bạn"
 
-#: rust/crates/shell/src/shell.rs:1044
+#: rust/crates/shell/src/shell.rs:1139
 msgid "Telescope started with its defaults and paired phones need pairing again."
 msgstr "Telescope đã khởi động với các giá trị mặc định và các điện thoại đã ghép đôi cần được ghép đôi lại."
 
-#: rust/crates/shell/src/shell.rs:1534
+#: rust/crates/shell/src/shell.rs:1629
 msgid "Telescope - Save failed"
 msgstr "Telescope - Lưu thất bại"
 
-#: rust/crates/shell/src/shell.rs:1535
+#: rust/crates/shell/src/shell.rs:1630
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "Không thể lưu cài đặt. Kiểm tra dung lượng đĩa và quyền truy cập."
 
@@ -8581,7 +8611,7 @@ msgstr "Đang bật camera điện thoại…"
 msgid "Couldn't start the phone's camera"
 msgstr "Không thể bật camera điện thoại"
 
-#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1005
+#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1118
 msgid "Connecting..."
 msgstr "Đang kết nối..."
 
@@ -8786,43 +8816,43 @@ msgstr "Bắt đầu truyền phát"
 msgid "Stop streaming"
 msgstr "Dừng truyền phát"
 
-#: rust/crates/shell/src/window.rs:2115 rust/crates/shell/src/worker.rs:1363
+#: rust/crates/shell/src/window.rs:2114 rust/crates/shell/src/worker.rs:1476
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Đang truyền phát {size} ở tốc độ {fps} fps tới {camera}"
 
-#: rust/crates/shell/src/worker.rs:572
+#: rust/crates/shell/src/worker.rs:598
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "Lỗi luồng phát: {error}"
 
-#: rust/crates/shell/src/worker.rs:1005
+#: rust/crates/shell/src/worker.rs:1118
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "Đang kết nối tới {url}..."
 
-#: rust/crates/shell/src/worker.rs:1015
+#: rust/crates/shell/src/worker.rs:1128
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "Không thể kết nối tới luồng phát của điện thoại. Thử lại sau {seconds} giây…"
 
-#: rust/crates/shell/src/worker.rs:1027
+#: rust/crates/shell/src/worker.rs:1140
 msgid "Waiting for the first frame…"
 msgstr "Đang chờ khung hình đầu tiên…"
 
-#: rust/crates/shell/src/worker.rs:1115
+#: rust/crates/shell/src/worker.rs:1228
 msgid "Stream reconnected"
 msgstr "Luồng phát đã kết nối lại"
 
-#: rust/crates/shell/src/worker.rs:1231
+#: rust/crates/shell/src/worker.rs:1344
 msgid "The video is paused while the phone takes a photo"
 msgstr "Video tạm dừng trong khi điện thoại đang chụp ảnh"
 
-#: rust/crates/shell/src/worker.rs:1233 rust/crates/shell/src/worker.rs:1239
+#: rust/crates/shell/src/worker.rs:1346 rust/crates/shell/src/worker.rs:1352
 msgid "Stream dropped - reconnecting"
 msgstr "Luồng phát bị ngắt - đang kết nối lại"
 
-#: rust/crates/shell/src/worker.rs:1352 rust/crates/shell/src/worker.rs:1454
+#: rust/crates/shell/src/worker.rs:1465 rust/crates/shell/src/worker.rs:1574
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "Lỗi camera ảo: {error}"
@@ -10417,7 +10447,7 @@ msgid "Light"
 msgstr "Ánh sáng"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:445
+#: rust/app/src/main.rs:448
 msgid ", "
 msgstr ", "
 
@@ -10564,7 +10594,7 @@ msgstr "Không thể kiểm tra bản cập nhật. Hãy kiểm tra kết nối 
 msgid "The download was cut short. Check the internet connection and try again."
 msgstr "Bản tải về bị gián đoạn. Kiểm tra kết nối Internet và thử lại."
 
-#: rust/crates/shell/src/plugins_tab.rs:819
+#: rust/crates/shell/src/plugins_tab.rs:878
 msgid "Replaced"
 msgstr "Đã thay thế"
 
