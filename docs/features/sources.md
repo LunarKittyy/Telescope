@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/link/src/browser rust/crates/link/web rust/crates/outputs/src/webcam* rust/crates/outputs/src/spout* rust/crates/shell/src/sources.rs rust/crates/shell/src/extra_cameras.rs rust/crates/effects/src/composite* rust/crates/effects/src/compositor* rust/crates/effects/src/stereo*; checked: 0d35dc883 -->
+<!-- covers: rust/crates/link/src/browser rust/crates/link/web rust/crates/outputs/src/webcam* rust/crates/outputs/src/spout* rust/crates/outputs/src/pipewire/sender.rs rust/crates/shell/src/sources.rs rust/crates/shell/src/extra_cameras.rs rust/crates/effects/src/composite* rust/crates/effects/src/compositor* rust/crates/effects/src/stereo*; checked: 0d35dc883 -->
 # Sources and layouts
 
 Other cameras and the browser, putting several cameras on screen and making 3D from two phones.
@@ -53,6 +53,16 @@ An optional early version that's still in Lab (switch it on under **Streaming an
 - Sender names that aren't plain text (an old program using a legacy code page for accents) aren't listed
 - Switching off **Spout capture** in Plugins takes the senders out of the picker
 
+## Spout send
+New and still in Lab. It shares a stream's picture with other programs on this computer, the other way round from Spout capture. Switch it on under **Streaming and devices** in the Plugins tab of Settings, then pick a stream and switch on **Share this stream** on the Spout send card.
+
+- **On Windows** the stream shows up as a Spout sender called **Telescope** followed by a dash and the phone's name in OBS and other Spout programs
+- **On Linux** it is a PipeWire video source with the same name. OBS and anything else that reads PipeWire video lists it as a camera. Programs inside Proton can't see it
+- **What is shared** is what the virtual camera gets, after every effect. With **Several cameras** on, the stream going to the Telescope camera shares the combined picture
+- **The sender** appears when the first picture arrives. On Windows it goes a few seconds after the stream stops. On Linux it remains while **Share this stream** is on. A program bound to it isn't cut off by a stop or a size change
+- **Transparency** isn't there yet, the picture is always solid
+- Telescope can't tell whether a program is reading the sender, it sends the picture while it is shared
+
 ## Several cameras at once
 
 Click the **+** next to Stop while streaming to add another phone (or Browser camera, or a webcam), up to four in total. Each gets its own virtual camera, called **Telescope #2** to **#4**.
@@ -70,7 +80,9 @@ Click the **+** next to Stop while streaming to add another phone (or Browser ca
 Optional (switch it on under **Streaming and devices** in the Plugins tab of Settings). It puts the streams you run into one picture for apps that take only one camera, like your face big with the desk small in a corner, two phones side by side or a grid of up to four.
 
 - The switch on the **One picture** card turns it on and **Edit picture…** opens the editor with a live preview
-- Drag a stream to move it. Arrow keys nudge it a pixel at a time
+- Drag a stream to move it. Arrow keys nudge it a pixel at a time and Shift makes that ten
+- The **Streams** list shows the layers with the front one on top. The eye adds a stream to the picture or takes it out. While the editor is open a stream that comes in again returns as it was. The lock pins a stream so it can't be moved or changed until it is unlocked. A click on the picture goes through a locked stream to the one behind. Click a name to pick it. Drag a row up or down to change its layer. **Send back** and **Bring forward** do the same from the keyboard
+- **Place** under Picked stream takes exact X, Y, W and H in pixels of the picture (Up and Down change a value by one). **Swap with** trades this stream's place, size and layer with another stream's
 - The handles on the corners and sides resize it the way OBS does. A plain drag scales it without changing its shape. Hold Shift to stretch or squash it into any shape and Alt to crop the side you're dragging instead (each side remembers its own crop)
 - Edges snap to the picture's edges and middle and to the other streams. Hold Ctrl to place one freely
 - Scroll over a stream to zoom into it (as far as **Max zoom** under Video in Settings allows) and drag it with the right mouse button to pick which part shows. Lowering Max zoom shows the streams at the new limit while the layout remembers the zoom you gave them. Raising it again brings that zoom back

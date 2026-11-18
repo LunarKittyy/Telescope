@@ -1138,6 +1138,11 @@ impl ShaderSlot {
         ShaderSlot { wants_mask: shader::uses_person_mask(&step.wgsl), wants_history: shader::uses_history(&step.wgsl), step, built: None, history: Mutex::new(None) }
     }
 
+    /// Whether the step says it leaves every pixel where it was (ShaderStep::keeps_geometry).
+    pub fn keeps_geometry(&self) -> bool {
+        self.step.keeps_geometry
+    }
+
     /// The last frame this step drew, as a view, when there is one that still goes with held's picture: the same size and not too old.
     fn past(&self, held: &Held) -> Option<wgpu::TextureView> {
         if !self.wants_history {
@@ -1474,7 +1479,7 @@ mod tests {
     use serde_json::json;
 
     fn step(wgsl: &str, uniforms: serde_json::Value) -> ShaderStep {
-        ShaderStep { wgsl: wgsl.into(), uniforms, textures: vec![] }
+        ShaderStep { keeps_geometry: false, wgsl: wgsl.into(), uniforms, textures: vec![] }
     }
 
     #[test]
@@ -1729,6 +1734,7 @@ mod tests {
         let weights = weights_frame(sw as u32, sh as u32, share);
         let placeholder = Frame::new(1, 1, PixelFormat::Rgba, vec![255, 0, 0, 255]);
         let weighted_step = || ShaderStep {
+           keeps_geometry: false,
             wgsl: BLURRED_WEIGHTED.into(),
             uniforms: json!({"blur_shrink": shrink, "blur_sigma": sigma}),
             textures: vec![("blur_weights".into(), placeholder.clone())],
@@ -1776,7 +1782,7 @@ mod tests {
         let frame = noisy_rgba(w, h);
         let (sw, sh) = (w / shrink, h / shrink);
         let share = |x: u32, y: u32| if (4..12).contains(&x) && (3..11).contains(&y) { 0 } else { 255 };
-        let declared = ShaderStep { wgsl: BLURRED_WEIGHTED.into(), uniforms: json!({"blur_shrink": shrink, "blur_sigma": sigma}), textures: vec![("blur_weights".into(), weights_frame(sw as u32, sh as u32, share))] };
+        let declared = ShaderStep { keeps_geometry: false, wgsl: BLURRED_WEIGHTED.into(), uniforms: json!({"blur_shrink": shrink, "blur_sigma": sigma}), textures: vec![("blur_weights".into(), weights_frame(sw as u32, sh as u32, share))] };
         let out = run(&gpu, &frame, &mut [ShaderSlot::new(declared)]);
         let shares: Vec<f32> = (0..sw * sh).map(|i| share((i % sw) as u32, (i / sw) as u32) as f32 / 255.0).collect();
         let want = blur_reference::weighted(&blur_reference::shrunk(&frame.data, w, h, shrink), &shares, sigma, shader::blur_taps(sigma) as usize);
@@ -1815,6 +1821,7 @@ mod tests {
         telescope_core::image::rgb_to_420(&rgb, w, h, &mut data, false);
         let frame = Frame::new(w as u32, h as u32, PixelFormat::I420, data);
         let like_background = || ShaderStep {
+            keeps_geometry: false,
             wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(mix(blurred_weighted(uv).rgb, sample(uv).rgb, sample_texture(blur_cutout, uv).r), 1.0); }".into(),
             uniforms: json!({"blur_shrink": 8, "blur_sigma": 2.5, "blur_planes": 1}),
             textures: vec![("blur_cutout".into(), disc(w as u32, h as u32)), ("blur_weights".into(), Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]))],
@@ -1893,6 +1900,7 @@ mod tests {
     fn a_picture_the_cpu_half_gives_is_there_to_sample_by_its_name() {
         let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
         let step = ShaderStep {
+            keeps_geometry: false,
             wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(sample_texture(soft, uv).r, 0.0, 0.0, 1.0); }".into(),
             uniforms: json!({}),
             textures: vec![("soft".into(), Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]))],
@@ -1912,6 +1920,7 @@ mod tests {
     fn a_picture_the_card_refuses_is_an_error_and_is_tried_again_not_taken_for_the_one_before() {
         let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
         let step = ShaderStep {
+            keeps_geometry: false,
             wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(sample_texture(soft, uv).r, 0.0, 0.0, 1.0); }".into(),
             uniforms: json!({}),
             textures: vec![("soft".into(), Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]))],
@@ -2068,6 +2077,7 @@ mod tests {
         let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
         let logo = Frame::new(1, 1, PixelFormat::Rgba, vec![255, 255, 255, 255]);
         let s = ShaderStep {
+            keeps_geometry: false,
             wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample_texture(logo, uv); }".into(),
             uniforms: json!({}),
             textures: vec![("logo".into(), logo)],
@@ -2187,7 +2197,7 @@ mod timing {
                 gpu.give_back(used);
 
                 let mut held = gpu.lift(f).unwrap();
-                let slot = &mut ShaderSlot::new(ShaderStep { wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }".into(), uniforms: serde_json::json!({}), textures: vec![] });
+                let slot = &mut ShaderSlot::new(ShaderStep { keeps_geometry: false, wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }".into(), uniforms: serde_json::json!({}), textures: vec![] });
                 slot.prepare(&gpu).unwrap();
                 gpu.shade(&mut held, slot, 0.0, None).unwrap();
                 gpu.queue.submit([]);

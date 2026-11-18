@@ -55,6 +55,24 @@ fn run(step: Option<FrameStep>, mut f: Frame) -> Frame {
     f
 }
 
+#[test]
+fn text_over_a_cut_out_is_opaque_where_it_is_drawn() {
+    if !have_fonts() {
+        return;
+    }
+    let mut r = Rig::new();
+    r.plugin.set_config(&json!({"on": true})).unwrap();
+    r.ui("text-edited", vec![json!(0), json!("Luna")]);
+    let mut f = frame(640, 360, 70);
+    assert!(f.set_alpha(std::sync::Arc::new(telescope_core::frame::Alpha::new(640, 360, vec![0; 640 * 360], false))));
+    let out = run(r.plugin.frame_step(), f);
+    let alpha = out.alpha().expect("the cut-out stays");
+    let drawn: Vec<usize> = (0..640 * 360).filter(|&i| out.data[i * 4..i * 4 + 3] != [70, 70, 70]).collect();
+    assert!(!drawn.is_empty() && drawn.iter().all(|&i| alpha.data[i] == 255), "every pixel the tag painted is opaque");
+    let opaque = alpha.data.iter().filter(|&&a| a == 255).count();
+    assert!(opaque > 0 && opaque < 640 * 360 / 2, "only the tag's own rectangle is raised");
+}
+
 fn have_fonts() -> bool {
     let here = tag::Fonts::system().is_some();
     if !here {

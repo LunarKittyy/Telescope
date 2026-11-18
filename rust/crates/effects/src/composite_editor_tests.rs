@@ -197,12 +197,90 @@ fn the_streams_list_puts_streams_in_and_takes_them_out() {
     r.picture(tiles.clone());
     r.picture(tiles); // twice: the list is made afresh, not added to
     let texts: Vec<String> = r.props()["streams"].as_array().unwrap().iter().map(|s| s["text"].as_str().unwrap().to_string()).collect();
-    assert_eq!(texts, ["Phone A", "Phone B", "Old phone (not streaming)"]);
-    r.ui("stream-toggled", json!([1, true]));
+    // the layout's tiles come first with the front one on top, then the running streams that aren't in it
+    assert_eq!(texts, ["Old phone", "Phone A", "Phone B"]);
+    let flags: Vec<bool> = r.props()["streams"].as_array().unwrap().iter().map(|s| s["streaming"].as_bool().unwrap()).collect();
+    assert_eq!(flags, [false, true, true], "the icon, not the name, tells who is streaming");
+    r.ui("stream-toggled", json!([2, true]));
     assert_eq!(r.sources(), ["a", "gone", "b"]);
     assert_eq!(r.props()["selected"], json!(2));
-    r.ui("stream-toggled", json!([0, false]));
+    // now the list reads b, gone, a from the top
+    r.ui("stream-toggled", json!([2, false]));
     assert_eq!(r.sources(), ["gone", "b"]);
+}
+
+#[test]
+fn the_eye_takes_a_stream_out_and_brings_it_back_as_it_was() {
+    let mut r = open();
+    let mut a = Tile::boxed("a", "", 0.0, 0.0, 0.5, 0.5);
+    a.zoom = 3.0;
+    a.crop_l = 0.1;
+    r.picture(vec![a.clone(), Tile::boxed("b", "", 0.6, 0.6, 0.3, 0.3)]);
+    // rows: b (front), a. The eye on a's row takes it out
+    r.ui("stream-toggled", json!([1, false]));
+    assert_eq!(r.sources(), ["b"]);
+    r.ui("stream-toggled", json!([1, true]));
+    assert_eq!(r.sources(), ["a", "b"], "back on its old layer");
+    assert_eq!(r.tile(0), a, "with its box, zoom and crop");
+}
+
+#[test]
+fn a_hidden_stream_is_not_brought_back_into_another_layout() {
+    let mut r = open();
+    let mut a = Tile::boxed("a", "", 0.0, 0.0, 0.5, 0.5);
+    a.locked = true;
+    r.picture(vec![a, Tile::boxed("b", "", 0.6, 0.6, 0.3, 0.3)]);
+    r.ui("stream-toggled", json!([1, false]));
+    r.ui("start-from", json!([0]));
+    let sources = r.sources();
+    r.ui("stream-toggled", json!([0, true]));
+    let back = r.tile(0);
+    assert!(!back.locked, "the old layout's lock is gone");
+    assert_eq!(sources.len(), 2, "side by side holds both streams");
+}
+
+#[test]
+fn a_locked_stream_takes_no_change_and_the_list_picks_and_drags_layers() {
+    let mut r = open();
+    r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 1.0, 1.0), Tile::boxed("b", "", 0.6, 0.6, 0.3, 0.3)]);
+    // rows: b (front) then a
+    let rows = r.props()["streams"].clone();
+    assert_eq!((rows[0]["layer"].clone(), rows[0]["locked"].clone(), rows[1]["layer"].clone()), (json!(true), json!(false), json!(true)));
+    r.ui("stream-picked", json!([0]));
+    assert_eq!(r.props()["selected"], json!(1));
+    // dragging row 0 (b) to row 1 puts it behind a
+    r.ui("stream-moved", json!([0, 1]));
+    assert_eq!(r.sources(), ["b", "a"]);
+    assert_eq!(r.props()["selected"], json!(0), "the picked stream stays picked");
+    r.ui("stream-moved", json!([1, 0]));
+    assert_eq!(r.sources(), ["a", "b"]);
+    // locked: a click on the picture goes through to what is behind, and boxes, nudges, swaps and sliders do nothing
+    r.ui("stream-locked", json!([0, true]));
+    r.ui("stream-picked", json!([0]));
+    let before = r.tile(1);
+    r.pointer("down", (0.7, 0.7), false, NO_KEYS);
+    r.pointer("move", (0.5, 0.5), false, NO_KEYS);
+    r.pointer("up", (0.5, 0.5), false, NO_KEYS);
+    assert_eq!(r.props()["selected"], json!(0), "the click went to the stream behind");
+    r.ui("stream-picked", json!([0]));
+    r.ui("box-committed", json!(["x", "10"]));
+    r.ui("key", json!(["left", false]));
+    r.ui("swap-picked", json!([0]));
+    r.ui("zoom-moved", json!([300.0]));
+    assert_eq!(r.tile(1), Tile { locked: true, ..before.clone() });
+    assert_eq!(r.props()["tile-locked"], json!(true));
+    r.ui("stream-locked", json!([0, false]));
+    r.ui("box-committed", json!(["x", "10"]));
+    assert_ne!(r.tile(1).x, before.x);
+}
+
+#[test]
+fn locked_and_cut_out_are_saved_only_when_set() {
+    let plain = crate::composite::tile_dict(&Tile::boxed("a", "A", 0.0, 0.0, 1.0, 1.0));
+    assert!(plain.get("locked").is_none() && plain.get("cut_out").is_none());
+    let set = Tile { locked: true, cut_out: true, ..Tile::boxed("a", "A", 0.0, 0.0, 1.0, 1.0) };
+    let back = crate::composite::clean_tile(&crate::composite::tile_dict(&set)).unwrap();
+    assert!(back.locked && back.cut_out);
 }
 
 #[test]
@@ -299,4 +377,59 @@ fn the_preview_draws_while_the_window_is_open() {
     r.ui("closed", json!([]));
     r.plugin.on_event(&mut r.host, &Event::TimerFired { owner: NAME.into(), token: CompositePlugin::EDITOR_TIMER.into() });
     assert!(r.host.scheduled.is_empty(), "no more after it closes");
+}
+
+#[test]
+fn the_position_and_size_boxes_set_the_box_in_canvas_pixels_and_keep_it_on_the_picture() {
+    let mut r = open();
+    r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 0.5, 0.5), Tile::boxed("b", "", 0.1, 0.1, 0.4, 0.4)]);
+    r.plugin.select(1);
+    assert_eq!((r.props()["pos-x-text"].clone(), r.props()["size-w-text"].clone()), (json!("32"), json!("128")));
+    r.ui("box-committed", json!(["x", "64 px"]));
+    assert!(near(r.tile(1).x, 0.2, 1e-9), "{}", r.tile(1).x);
+    r.ui("box-committed", json!(["w", "5000"]));
+    assert!(near(r.tile(1).x + r.tile(1).w, 1.0, 1e-9), "kept on the picture");
+    r.ui("box-committed", json!(["x", "nonsense"]));
+    assert!(near(r.tile(1).x, 0.2, 1e-9), "text that isn't a number changes nothing");
+    r.ui("box-step", json!(["y", 9]));
+    assert!(near(r.tile(1).y, 0.1 + 9.0 / 180.0, 1e-9));
+    r.ui("box-committed", json!(["h", "1"]));
+    assert!(near(r.tile(1).h, crate::composite::MIN_SIZE, 1e-9), "never smaller than the least size");
+}
+
+#[test]
+fn a_stream_can_swap_places_with_another_and_takes_its_layer_and_its_shape_of_box() {
+    let mut r = open();
+    // Screen is big at the back and Face small in front of it
+    r.picture(vec![Tile::boxed("a", "Screen", 0.0, 0.0, 0.8, 0.8), Tile::boxed("b", "Face", 0.6, 0.5, 0.3, 0.45), Tile::boxed("c", "Corner", 0.0, 0.85, 0.15, 0.15)]);
+    r.plugin.select(0);
+    // the picked one isn't in the choice
+    assert_eq!((r.props()["swap-items"].clone(), r.props()["swap-enabled"].clone()), (json!(["Face", "Corner"]), json!(true)));
+    r.ui("swap-picked", json!([0]));
+    // Screen is now the small one in front, Face the big one behind it
+    assert_eq!(r.sources(), ["b", "a", "c"]);
+    assert_eq!(r.props()["selected"], json!(1), "the picked stream stays picked");
+    assert!((r.tile(0).w - 0.8).abs() < 1e-9 && r.tile(0).x == 0.0, "Face has the big box: {:?}", r.tile(0));
+    // Screen's new box was tall for a wide stream: it is cut to the stream's shape (a 16:9 stream on a 16:9 picture: as tall as it is wide in fractions)
+    assert!((r.tile(1).w - r.tile(1).h).abs() < 1e-9 && r.tile(1).w <= 0.3 + 1e-9, "Screen is not squeezed: {:?}", r.tile(1));
+    r.plugin.select(-1);
+    assert_eq!(r.props()["swap-enabled"], json!(false));
+}
+
+#[test]
+fn typing_a_size_follows_the_shape_lock_that_dragging_follows() {
+    let mut r = open();
+    // 0.4 x 0.4 of a 320 x 180 picture is 128 x 72 pixels: 16:9
+    r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 0.2, 0.2), Tile::boxed("b", "", 0.1, 0.1, 0.4, 0.4)]);
+    r.plugin.select(1);
+    r.ui("box-committed", json!(["w", "160"]));
+    assert!((r.tile(1).w - 0.5).abs() < 1e-9 && (r.tile(1).h - 0.5).abs() < 1e-9, "the height follows: {:?}", r.tile(1));
+    r.ui("box-committed", json!(["h", "45"]));
+    assert!((r.tile(1).h - 0.25).abs() < 1e-9 && (r.tile(1).w - 0.25).abs() < 1e-9, "and the width follows the height: {:?}", r.tile(1));
+    // a stream that was stretched takes any shape
+    let stretched = Tile { stretch: true, ..r.tile(1) };
+    r.picture(vec![r.tile(0), stretched]);
+    r.plugin.select(1);
+    r.ui("box-committed", json!(["w", "64"]));
+    assert!((r.tile(1).w - 0.2).abs() < 1e-9 && (r.tile(1).h - 0.25).abs() < 1e-9, "{:?}", r.tile(1));
 }
