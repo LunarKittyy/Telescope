@@ -21,6 +21,8 @@ pub struct State {
     pub canon_props: HashMap<u16, (u32, Vec<u32>)>,
     /// How many frame requests answer busy before one works.
     pub busy_frames: u32,
+    /// Answers NotLiveView to this many frame requests after live view was started, as a Nikon does for its first moments.
+    pub starting_frames: u32,
     /// Every operation received, with its parameters and data.
     pub log: Vec<(u16, Vec<u32>, Vec<u8>)>,
     pub frames: u32,
@@ -235,6 +237,10 @@ impl Transport for Mock {
                 if s.not_ready_frames > 0 {
                     s.not_ready_frames -= 1;
                     return reply(0xA102, Vec::new());
+                }
+                if s.starting_frames > 0 && op == 0x9203 {
+                    s.starting_frames -= 1;
+                    return reply(0xA00B, Vec::new());
                 }
                 if s.busy_frames > 0 {
                     s.busy_frames -= 1;

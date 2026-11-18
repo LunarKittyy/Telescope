@@ -290,10 +290,11 @@ impl PtpCamera {
     }
 
     fn frame(&mut self) -> Result<Vec<u8>, String> {
-        let (mut restarted, mut waited) = (false, 0);
+        let (mut restarted, mut waited, mut fresh) = (false, 0, false);
         loop {
             if !self.live {
                 self.start_live_view()?;
+                fresh = true;
             }
             let reply = match self.maker {
                 Maker::Nikon => self.t.transact(NIKON_GET_LIVE_VIEW_IMG, &[], None)?,
@@ -307,7 +308,12 @@ impl PtpCamera {
             match reply.code {
                 ptp::RC_OK => return find_jpeg(&reply.data).map(<[u8]>::to_vec).ok_or_else(|| "the camera sent a frame with no picture in it".to_string()),
                 // The first frame after starting isn't ready for a moment
+                // A Nikon says it isn't in live view for its first moments after it was told to start (a D5100 took about a second)
                 ptp::RC_DEVICE_BUSY | CANON_NOT_READY if waited < self.pacing.busy_tries => {
+                    waited += 1;
+                    std::thread::sleep(self.pacing.busy_wait);
+                }
+                NIKON_NOT_LIVE_VIEW if fresh && waited < self.pacing.busy_tries => {
                     waited += 1;
                     std::thread::sleep(self.pacing.busy_wait);
                 }
