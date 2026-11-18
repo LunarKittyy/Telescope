@@ -64,7 +64,7 @@ fn install_property_bindings(sub: &Pin<Rc<SubComponentInstance>>) {
     // Pre-init code (custom font registration) runs before the two-way
     // bindings and property_init.
     for e in &sc.pre_init_code {
-        let expr = mut_expression_clone(e);
+        let expr = shared_mut(&sub.compilation_unit, e);
         let mut ctx = EvalContext::new(sub.clone());
         eval_expression(&mut ctx, &expr);
     }
@@ -178,7 +178,7 @@ fn install_change_callbacks(
     let base = 2 * sc.timers.len();
     for (idx, (target, expr)) in sc.change_callbacks.iter().enumerate() {
         let target = target.clone();
-        let expr = mut_expression_clone(expr);
+        let expr = shared_mut(cu, expr);
         let weak_get = weak_sub.clone();
         let weak_set = weak_sub.clone();
         let expr_for_set = expr.clone();
@@ -206,7 +206,7 @@ fn install_repeater_model_bindings(
     let sc: &SubComponent = &cu.sub_components[sub.sub_component_idx];
     for (idx, repeated) in sc.repeated.iter_enumerated() {
         let repeater = &sub.repeaters[idx];
-        let expr = mut_expression_clone(&repeated.model);
+        let expr = shared_mut(cu, &repeated.model);
         let weak_sub = weak_sub.clone();
         if repeater.is_conditional() {
             repeater.set_condition_binding(move || {
@@ -260,7 +260,7 @@ fn install_property_init(
                 .clone();
             let handler = make_callback_handler(
                 weak_sub.clone(),
-                mut_expression_clone(&binding.expression),
+                shared_mut(&sub.compilation_unit, &binding.expression),
                 arg_types,
             );
             callback.set_handler(handler);
@@ -269,7 +269,7 @@ fn install_property_init(
             let prop = Pin::as_ref(&instance.properties[*idx]);
             let cu = &instance.compilation_unit;
             let ty = &cu.sub_components[instance.sub_component_idx].properties[*idx].ty;
-            install_property_binding(prop, binding, weak_sub, ty);
+            install_property_binding(prop, binding, weak_sub, ty, &instance.compilation_unit);
         }
         LocalMemberIndex::Native { item_index, prop_name, kind } => {
             // The lowering pass already disambiguates rtti properties,
@@ -279,7 +279,7 @@ fn install_property_init(
             let item = Pin::as_ref(&instance.items[*item_index]);
             match kind {
                 i_slint_compiler::llr::NativeMemberKind::Callback => {
-                    let expr = mut_expression_clone(&binding.expression);
+                    let expr = shared_mut(&sub.compilation_unit, &binding.expression);
                     let cb_weak = weak_sub.clone();
                     let cu = &instance.compilation_unit;
                     let sc = &cu.sub_components[instance.sub_component_idx];
@@ -293,7 +293,7 @@ fn install_property_init(
                     );
                 }
                 i_slint_compiler::llr::NativeMemberKind::Property => {
-                    let expr = mut_expression_clone(&binding.expression);
+                    let expr = shared_mut(&sub.compilation_unit, &binding.expression);
                     let weak_sub_eval = weak_sub.clone();
                     let closure: Box<dyn Fn() -> Value> = Box::new(move || {
                         let Some(owner) = weak_sub_eval.upgrade() else { return Value::Void };
@@ -301,7 +301,7 @@ fn install_property_init(
                         eval_expression(&mut ctx, &expr)
                     });
                     let animation_kind =
-                        animation_for_binding(binding.animation.as_ref(), weak_sub.clone());
+                        animation_for_binding(&sub.compilation_unit, binding.animation.as_ref(), weak_sub.clone());
                     let _ = item.set_property_binding(prop_name, closure, animation_kind);
                 }
                 i_slint_compiler::llr::NativeMemberKind::Function => {
@@ -339,17 +339,17 @@ fn install_global_property_init(
                 if let Some(prop) =
                     native.as_ref().prepare_property_for_two_way_binding(&g.properties[*idx].name)
                 {
-                    install_property_binding(prop.as_ref(), binding, weak_sub, ty);
+                    install_property_binding(prop.as_ref(), binding, weak_sub, ty, &sub.compilation_unit);
                 }
             } else {
                 let prop = Pin::as_ref(&global.properties[*idx]);
-                install_property_binding(prop, binding, weak_sub, ty);
+                install_property_binding(prop, binding, weak_sub, ty, &sub.compilation_unit);
             }
         }
         LocalMemberIndex::Callback(idx) => {
             let handler = make_callback_handler(
                 weak_sub.clone(),
-                mut_expression_clone(&binding.expression),
+                shared_mut(&sub.compilation_unit, &binding.expression),
                 g.callbacks[*idx].args.clone(),
             );
             if let Some(native) = &global.native {
@@ -384,8 +384,9 @@ fn install_property_binding(
     binding: &llr::BindingExpression,
     weak_sub: &Weak<SubComponentInstance>,
     ty: &i_slint_compiler::langtype::Type,
+    cu: &Rc<llr::CompilationUnit>,
 ) {
-    let expr = mut_expression_clone(&binding.expression);
+    let expr = shared_mut(cu, &binding.expression);
     let weak_sub_eval = weak_sub.clone();
 
     use i_slint_compiler::llr::BindingKind;
@@ -419,7 +420,7 @@ fn install_property_binding(
     });
 
     match (
-        animation_for_binding(binding.animation.as_ref(), weak_sub.clone()),
+        animation_for_binding(cu, binding.animation.as_ref(), weak_sub.clone()),
         animated_value_map(ty),
     ) {
         (AnimatedBindingKind::NotAnimated, _) => prop.set_binding(binding_fn),
@@ -449,13 +450,14 @@ fn install_property_binding(
 }
 
 fn animation_for_binding(
+    cu: &Rc<llr::CompilationUnit>,
     animation: Option<&Animation>,
     weak_sub: Weak<SubComponentInstance>,
 ) -> AnimatedBindingKind {
     match animation {
         None => AnimatedBindingKind::NotAnimated,
         Some(Animation::Static(expr)) => {
-            let expr = expr.clone();
+            let expr = shared_expression(cu, expr);
             AnimatedBindingKind::Animation(Box::new(move || -> PropertyAnimation {
                 let Some(owner) = weak_sub.upgrade() else { return Default::default() };
                 let mut ctx = EvalContext::new(Pin::new(owner));
@@ -463,7 +465,7 @@ fn animation_for_binding(
             }))
         }
         Some(Animation::Transition(expr)) => {
-            let expr = expr.clone();
+            let expr = shared_expression(cu, expr);
             AnimatedBindingKind::Transition(Box::new(
                 move || -> (PropertyAnimation, i_slint_core::animations::Instant) {
                     let Some(owner) = weak_sub.upgrade() else {
@@ -736,7 +738,7 @@ fn run_init_code(sub: &Pin<Rc<SubComponentInstance>>) {
     let cu = sub.compilation_unit.clone();
     let sc = &cu.sub_components[sub.sub_component_idx];
     for e in &sc.init_code {
-        let expr = mut_expression_clone(e);
+        let expr = shared_mut(&sub.compilation_unit, e);
         let mut ctx = EvalContext::new(sub.clone());
         eval_expression(&mut ctx, &expr);
     }
@@ -744,15 +746,70 @@ fn run_init_code(sub: &Pin<Rc<SubComponentInstance>>) {
 
 use crate::eval::{walk_parent, walk_sub_path};
 
-fn mut_expression_clone(e: &MutExpression) -> Expression {
-    e.borrow().clone()
+/// Telescope patch: one shared copy of an expression per compilation unit, for the closures of every instance.
+///
+/// Each instance installs its bindings, handlers and models as closures that need an expression of their own, and the
+/// interpreter deep-copied the expression for each one, so every row a repeater created copied every binding of its
+/// component. The key is the compilation unit's address and the expression's address. The weak handle keeps the unit's
+/// allocation from being reused while the entry exists, so the key can't stand for a different unit later; the compiler's
+/// expressions don't change after the unit is built.
+#[derive(Default)]
+struct PtrHasher(u64);
+
+impl std::hash::Hasher for PtrHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+    fn write(&mut self, bytes: &[u8]) {
+        for b in bytes {
+            self.write_u64(*b as u64);
+        }
+    }
+    fn write_usize(&mut self, n: usize) {
+        self.write_u64(n as u64);
+    }
+    fn write_u64(&mut self, n: u64) {
+        self.0 = (self.0.rotate_left(5) ^ n).wrapping_mul(0x517c_c1b7_2722_0a95);
+    }
+}
+
+type SharedExpressions = std::collections::HashMap<
+    (usize, usize),
+    (Weak<llr::CompilationUnit>, Rc<Expression>),
+    std::hash::BuildHasherDefault<PtrHasher>,
+>;
+
+thread_local! {
+    static SHARED_EXPRESSIONS: std::cell::RefCell<SharedExpressions> = Default::default();
+    static NEXT_PURGE: std::cell::Cell<usize> = const { std::cell::Cell::new(4096) };
+}
+
+fn shared_expression(cu: &Rc<llr::CompilationUnit>, e: &Expression) -> Rc<Expression> {
+    let key = (Rc::as_ptr(cu) as usize, e as *const Expression as usize);
+    SHARED_EXPRESSIONS.with(|shared| {
+        let mut shared = shared.borrow_mut();
+        if let Some((_, found)) = shared.get(&key) {
+            return found.clone();
+        }
+        if shared.len() >= NEXT_PURGE.with(|n| n.get()) {
+            shared.retain(|_, (unit, _)| unit.strong_count() > 0);
+            NEXT_PURGE.with(|n| n.set((2 * shared.len()).max(4096)));
+        }
+        let copy = Rc::new(e.clone());
+        shared.insert(key, (Rc::downgrade(cu), copy.clone()));
+        copy
+    })
+}
+
+fn shared_mut(cu: &Rc<llr::CompilationUnit>, e: &MutExpression) -> Rc<Expression> {
+    shared_expression(cu, &e.borrow())
 }
 
 /// A handler that evaluates `expr` with the call's arguments in `weak`'s
 /// scope; `Value::Void` once the owner is gone.
 fn make_callback_handler(
     weak: Weak<SubComponentInstance>,
-    expr: Expression,
+    expr: Rc<Expression>,
     arg_types: Vec<i_slint_compiler::langtype::Type>,
 ) -> impl Fn(&[Value]) -> Value + 'static {
     let arg_types = crate::eval::ArgTypes::from(arg_types.as_slice());
