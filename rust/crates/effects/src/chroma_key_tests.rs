@@ -740,3 +740,18 @@ fn reset_puts_the_settings_back_and_keeps_the_switch() {
     assert!(host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
     assert!(host.calls.iter().any(|c| c == "schedule_save"));
 }
+
+#[test]
+fn the_host_is_told_when_the_key_starts_and_stops_hiding_the_screen() {
+    let mut r = Rig::new(true);
+    assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, false)), "off hides nothing");
+    r.ui("switch-toggled-by-hand", vec![json!(true)]);
+    assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    // Its own pick only looks at the picture
+    r.event(Event::PreviewPickChanged { owner: NAME.into() });
+    assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
+    r.event(Event::PreviewPickChanged { owner: String::new() });
+    assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    r.ui("switch-toggled-by-hand", vec![json!(false)]);
+    assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
+}

@@ -730,6 +730,22 @@ pub trait HostStills {
     /// Takes a photo with the /v1/still options into folder; None when it can't start. Progress and the result come as events.
     fn take_still(&mut self, options: &Value, folder: &str, source_id: Option<&str>) -> Option<RequestId>;
     fn still_busy(&self, source_id: Option<&str>) -> bool;
+    /// Whether pixels of that stream (the shown one for None) are being hidden now (a privacy blur, the wait screen, a background). A
+    /// plugin that hides tells the host through `set_hiding`. One whose frame steps exist and that never has told it counts as hiding. A
+    /// photo comes straight off the phone and never passes through those steps. The options a photo is taken with can say
+    /// `"skip_if_hidden": true`, which makes the host check again just before the request leaves for the phone and end it with a RequestDone
+    /// whose data has `"code": "hidden"` instead of taking it.
+    fn picture_hidden(&self, _source_id: Option<&str>) -> bool {
+        false
+    }
+    /// A plugin with a Privacy, Cover or Background frame step says whether it hides the stream's pixels now (None: every stream), each
+    /// time that changes. It counts at once, not when the steps are next built. The host keeps it per owner.
+    fn set_hiding(&mut self, _owner: &str, _source_id: Option<&str>, _on: bool) {}
+    /// A flag that says what picture_hidden says for that stream, kept current by the host as hiding changes, for a frame step to read on
+    /// the stream's own thread. None from a host that has none.
+    fn hidden_flag(&mut self, _source_id: &str) -> Option<std::sync::Arc<std::sync::atomic::AtomicBool>> {
+        None
+    }
 }
 
 /// The colour pipeline: every plugin's colour changes baked into one LUT per stream.

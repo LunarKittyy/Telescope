@@ -63,7 +63,7 @@ fn grey_frame() -> Frame {
 
 fn process(plugin: &mut BackgroundPlugin, frame: &Frame) -> Frame {
     let mut out = frame.clone();
-    if let Some(FrameStep::Cpu(mut step)) = plugin.frame_step() {
+    if let Some(FrameStep::Cpu(mut step) | FrameStep::Either(_, mut step)) = plugin.frame_step() {
         step.process(&mut out, &HalfMask);
     }
     out

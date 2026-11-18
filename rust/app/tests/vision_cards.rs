@@ -73,7 +73,7 @@ fn mask_of(ctx: &Ctx) -> Arc<Vec<u8>> {
 }
 
 fn through(step: Option<FrameStep>, ctx: &Ctx) -> Frame {
-    let Some(FrameStep::Cpu(mut step)) = step else { panic!("a CPU step") };
+    let Some(FrameStep::Cpu(mut step) | FrameStep::Either(_, mut step)) = step else { panic!("a CPU step") };
     let mut out = frame();
     out.number = 1_000_000;
     step.process(&mut out, ctx);

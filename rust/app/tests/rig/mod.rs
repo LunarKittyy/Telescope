@@ -548,7 +548,12 @@ impl Plugin for Listener {
             Event::StreamStopped => note(&self.heard, format!("{} stream_stopped", self.name)),
             Event::StreamStartFailed => note(&self.heard, format!("{} start_failed", self.name)),
             Event::IdleOutputs { slots } => note(&self.heard, format!("{} idle {slots:?}", self.name)),
-            Event::RequestDone { ok, message, data, .. } => note(&self.heard, format!("{} done {ok} {message} {}", self.name, data["command"].as_str().unwrap_or(""))),
+            Event::RequestDone { ok, message, data, .. } => {
+                note(&self.heard, format!("{} done {ok} {message} {}", self.name, data["command"].as_str().unwrap_or("")));
+                if let Some(code) = data["code"].as_str() {
+                    note(&self.heard, format!("{} done code {code}", self.name));
+                }
+            }
             Event::WindowShown { shown } => note(&self.heard, format!("{} shown {shown}", self.name)),
             Event::FocusModeChanged { mode } => note(&self.heard, format!("{} focus mode {mode}", self.name)),
             Event::SensorsChanged { source_id } => note(&self.heard, format!("{} sensors {source_id}", self.name)),
