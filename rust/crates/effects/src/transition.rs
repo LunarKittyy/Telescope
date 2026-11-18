@@ -286,10 +286,6 @@ pub fn poses(kind: Kind, from: &[Tile], to: &[Tile], t: f64, ease: Ease, aspect:
 /// poses() leaving from tiles that are partly faded, as an interrupted transition leaves them.
 pub fn poses_from(kind: Kind, from: &[Posed], to: &[Tile], t: f64, ease: Ease, aspect: f64) -> Vec<Posed> {
     let fade = effect(ease, t);
-    let mut out: Vec<Posed> = from.iter().filter(|a| !to.iter().any(|b| b.source_id == a.tile.source_id)).map(|a| {
-        let s = mix(1.0, 0.9, fade);
-        Posed { tile: shrunk(&a.tile, s), alpha: a.alpha * (1.0 - fade) }
-    }).collect();
     // (index in to, index in from, the order it sets off in) of the matched tiles
     let mut matched: Vec<(usize, usize, usize)> = Vec::new();
     for (n, b) in to.iter().enumerate() {
@@ -310,12 +306,19 @@ pub fn poses_from(kind: Kind, from: &[Posed], to: &[Tile], t: f64, ease: Ease, a
         let (was, will) = (x.1 > y.1, x.0 > y.0);
         if was == will { will } else if t < swap_at(x, y) { was } else { will }
     }).count()).collect();
-    let mut stack: Vec<(usize, usize, Posed)> = Vec::new();
+    // (how many it is over, 0 for a leaving tile / 1 for one that stays / 2 for a new one, where it was or is, the tile)
+    let mut stack: Vec<(usize, usize, usize, Posed)> = Vec::new();
+    // a tile that leaves fades where it was in the stack: over the matched ones that were under it
+    for (i, a) in from.iter().enumerate().filter(|(_, a)| !to.iter().any(|b| b.source_id == a.tile.source_id)) {
+        let s = mix(1.0, 0.9, fade);
+        let under = matched.iter().filter(|m| m.1 < i).count();
+        stack.push((under, 0, i, Posed { tile: shrunk(&a.tile, s), alpha: a.alpha * (1.0 - fade) }));
+    }
     for (n, b) in to.iter().enumerate() {
         let Some(k) = matched.iter().position(|m| m.0 == n) else {
             let s = mix(0.9, 1.0, spatial(ease, t).min(1.0));
             // a new tile comes in on top
-            stack.push((usize::MAX, n, Posed { tile: shrunk(b, s), alpha: fade }));
+            stack.push((usize::MAX, 2, n, Posed { tile: shrunk(b, s), alpha: fade }));
             continue;
         };
         let m = matched[k];
@@ -324,11 +327,10 @@ pub fn poses_from(kind: Kind, from: &[Posed], to: &[Tile], t: f64, ease: Ease, a
         let mut tile = blended(&a.tile, b, effect(ease, own(kind, t, m.2, moving)));
         (tile.x, tile.y, tile.w, tile.h) = (x, y, w, h);
         // one that was fading comes back to full as it goes
-        stack.push((above[k], n, Posed { tile, alpha: mix(a.alpha, 1.0, fade) }));
+        stack.push((above[k], 1, n, Posed { tile, alpha: mix(a.alpha, 1.0, fade) }));
     }
-    stack.sort_by_key(|(over, n, _)| (*over, *n));
-    out.extend(stack.into_iter().map(|(_, _, p)| p));
-    out
+    stack.sort_by_key(|(over, tier, n, _)| (*over, *tier, *n));
+    stack.into_iter().map(|(.., p)| p).collect()
 }
 
 /// `tile` scaled about its middle.
