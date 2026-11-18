@@ -472,6 +472,8 @@ pub fn confirm_on_terminate_as(directory: PathBuf, build: i64) {
         // SAFETY: reads one byte into a local from a pipe this thread's handler end keeps open
         if unsafe { libc::read(ends[0], (&mut byte as *mut u8).cast(), 1) } == 1 {
             confirm_build(&directory, build);
+            // A logout while the window waits to be confirmed is no crash of its graphics card
+            telescope_core::gpu_marker::clear();
             // SAFETY: back to the default action, then that action
             unsafe {
                 libc::signal(byte as libc::c_int, libc::SIG_DFL);

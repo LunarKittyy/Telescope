@@ -134,6 +134,8 @@ impl Window {
     /// _tray_show: up, not minimized, in front.
     pub fn show_window(&self) {
         use slint::winit_030::WinitWindowAccessor;
+        // After a start in the tray its marker is armed now: the first surface is made by the next line
+        telescope_core::gpu_marker::rearm();
         let _ = self.ui.show();
         crate::frame::dress(&self.ui);
         self.ui.window().set_minimized(false);
