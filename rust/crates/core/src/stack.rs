@@ -7,7 +7,7 @@ use std::f32::consts::TAU;
 
 /// The smallest and largest square the correlation looks at
 const MIN_SQUARE: usize = 64;
-const MAX_SQUARE: usize = 512;
+const MAX_SQUARE: usize = 256;
 /// The correlation's frequency fade, as a share of the square's size
 const LOW_PASS: f32 = 0.1;
 /// Frames wider than this are aligned on a smaller copy
@@ -16,6 +16,15 @@ const ALIGN_WIDTH: usize = 1024;
 const CLIP_AFTER: u32 = 5;
 /// Pixel values are 0..1, so this is a bit under half a level
 const MIN_SPREAD: f32 = 0.002;
+/// A reference picture needs at least this much brightness spread (standard deviation), or there is nothing to line up on
+const MIN_REFERENCE_SPREAD: f32 = 0.01;
+/// When more than this share of a clip frame's pixels is rejected, the scene changed and the statistics restart from that frame
+const CLIP_RESTART: f32 = 0.5;
+
+/// Whether the frame has pixels and exactly the data its format and size call for.
+fn frame_ok(frame: &Frame) -> bool {
+    frame.width > 0 && frame.height > 0 && frame.data.len() == frame.format.size(frame.width, frame.height)
+}
 
 /// A picture's brightness, 0..1.
 #[derive(Clone, Debug, PartialEq)]
@@ -26,11 +35,11 @@ pub struct Plane {
 }
 
 impl Plane {
-    /// The frame's luma (the Y plane, or Rec.709 for RGB), shrunk by a box filter by an integer factor. None when the frame's data is too short.
+    /// The frame's luma (the Y plane, or Rec.709 for RGB), shrunk by a box filter by an integer factor. None when the frame is empty or its data doesn't fit its size.
     pub fn from_frame(frame: &Frame, factor: usize) -> Option<Plane> {
         let (w, h) = (frame.width as usize, frame.height as usize);
         let d = &frame.data;
-        if w == 0 || h == 0 || d.len() < frame.format.size(frame.width, frame.height) {
+        if !frame_ok(frame) {
             return None;
         }
         let luma = |i: usize| -> f32 {
@@ -59,6 +68,17 @@ impl Plane {
             }
         }
         Some(Plane { width: ow, height: oh, data })
+    }
+
+    /// Whether the plane is big enough to line up on and has enough brightness spread to hold a peak.
+    fn alignable(&self) -> bool {
+        let n = self.width * self.height;
+        if self.width < MIN_SQUARE || self.height < MIN_SQUARE || self.data.len() != n {
+            return false;
+        }
+        let mean = self.data.iter().sum::<f32>() / n as f32;
+        let var = self.data.iter().map(|v| (v - mean) * (v - mean)).sum::<f32>() / n as f32;
+        var.sqrt() >= MIN_REFERENCE_SPREAD
     }
 }
 
@@ -147,17 +167,19 @@ fn fft2d(re: &mut [f32], im: &mut [f32], n: usize, inverse: bool) {
     transpose(im, n);
 }
 
-/// The central n x n square of the plane, mean removed and under a Hann window, as the real part of a complex picture.
-fn windowed(plane: &Plane, n: usize) -> Vec<f32> {
+/// The central n x n square of the plane, mean removed and under a Hann window, in the corner of an m x m field of zeros (so the correlation is linear).
+fn windowed(plane: &Plane, n: usize, m: usize) -> Vec<f32> {
     let (x0, y0) = ((plane.width - n) / 2, (plane.height - n) / 2);
     let hann: Vec<f32> = (0..n).map(|i| 0.5 - 0.5 * (TAU * (i as f32 + 0.5) / n as f32).cos()).collect();
-    let mut out = vec![0.0; n * n];
-    for (y, row) in out.chunks_exact_mut(n).enumerate() {
-        row.copy_from_slice(&plane.data[(y0 + y) * plane.width + x0..][..n]);
+    let mut out = vec![0.0; m * m];
+    let mut sum = 0.0;
+    for (y, row) in out.chunks_exact_mut(m).take(n).enumerate() {
+        row[..n].copy_from_slice(&plane.data[(y0 + y) * plane.width + x0..][..n]);
+        sum += row[..n].iter().sum::<f32>();
     }
-    let mean = out.iter().sum::<f32>() / (n * n) as f32;
-    for (y, row) in out.chunks_exact_mut(n).enumerate() {
-        for (x, v) in row.iter_mut().enumerate() {
+    let mean = sum / (n * n) as f32;
+    for (y, row) in out.chunks_exact_mut(m).take(n).enumerate() {
+        for (x, v) in row[..n].iter_mut().enumerate() {
             *v = (*v - mean) * hann[y] * hann[x];
         }
     }
@@ -170,42 +192,46 @@ fn parabola(a: f32, b: f32, c: f32) -> f32 {
     if d.abs() < 1e-12 { 0.0 } else { (0.5 * (a - c) / d).clamp(-0.5, 0.5) }
 }
 
-/// How far `moved` is displaced from `reference`, by phase correlation on their central square. None when the planes are under 64 px, differ in size or have no clear peak.
+/// How far `moved` is displaced from `reference`, by phase correlation on their central square. None when the planes are under 64 px, differ in size, hold less data than their size or have no clear peak.
 pub fn shift_between(reference: &Plane, moved: &Plane) -> Option<Shift> {
     if (reference.width, reference.height) != (moved.width, moved.height) {
         return None;
     }
     let small = reference.width.min(reference.height);
-    if small < MIN_SQUARE {
+    if small < MIN_SQUARE || [reference, moved].iter().any(|p| p.data.len() < p.width * p.height) {
         return None;
     }
     let n = (1usize << small.ilog2()).min(MAX_SQUARE);
-    let (mut ar, mut ai) = (windowed(reference, n), vec![0.0; n * n]);
-    let (mut br, mut bi) = (windowed(moved, n), vec![0.0; n * n]);
-    fft2d(&mut ar, &mut ai, n, false);
-    fft2d(&mut br, &mut bi, n, false);
+    // zero-padded to twice the square, so shifts up to n don't wrap round into the wrong direction
+    let m = n * 2;
+    let (mut ar, mut ai) = (windowed(reference, n, m), vec![0.0; m * m]);
+    let (mut br, mut bi) = (windowed(moved, n, m), vec![0.0; m * m]);
+    fft2d(&mut ar, &mut ai, m, false);
+    fft2d(&mut br, &mut bi, m, false);
     // normalised cross-power spectrum moved * conj(reference), written over a, with the fine detail (mostly noise) faded out
-    let sigma = n as f32 * LOW_PASS;
-    let bin = |k: usize| (if k > n / 2 { n - k } else { k }) as f32;
-    for i in 0..n * n {
-        let (r, m) = (br[i] * ar[i] + bi[i] * ai[i], bi[i] * ar[i] - br[i] * ai[i]);
-        let mag = (r * r + m * m).sqrt();
-        let (fx, fy) = (bin(i % n), bin(i / n));
+    let sigma = m as f32 * LOW_PASS;
+    let bin = |k: usize| (if k > m / 2 { m - k } else { k }) as f32;
+    for i in 0..m * m {
+        let (r, q) = (br[i] * ar[i] + bi[i] * ai[i], bi[i] * ar[i] - br[i] * ai[i]);
+        let mag = (r * r + q * q).sqrt();
+        let (fx, fy) = (bin(i % m), bin(i / m));
         let fade = (-(fx * fx + fy * fy) / (2.0 * sigma * sigma)).exp();
-        (ar[i], ai[i]) = if mag > 1e-9 { (r / mag * fade, m / mag * fade) } else { (0.0, 0.0) };
+        (ar[i], ai[i]) = if mag > 1e-9 { (r / mag * fade, q / mag * fade) } else { (0.0, 0.0) };
     }
-    fft2d(&mut ar, &mut ai, n, true);
-    let surface: Vec<f32> = ar.iter().map(|v| v / (n * n) as f32).collect();
+    fft2d(&mut ar, &mut ai, m, true);
+    let surface: Vec<f32> = ar.iter().map(|v| v / (m * m) as f32).collect();
     let (peak_at, peak) = surface.iter().enumerate().fold((0, f32::MIN), |best, (i, &v)| if v > best.1 { (i, v) } else { best });
-    let mean_abs = surface.iter().map(|v| v.abs()).sum::<f32>() / (n * n) as f32;
+    // the noise floor is judged where the two squares overlap by at least half, not over the faint far lags
+    let lags: Vec<usize> = (0..n).map(|k| (k + m - n / 2) % m).collect();
+    let mean_abs = lags.iter().flat_map(|&y| lags.iter().map(move |&x| (y, x))).map(|(y, x)| surface[y * m + x].abs()).sum::<f32>() / (n * n) as f32;
     if peak <= 0.0 || mean_abs < 1e-12 {
         return None;
     }
-    let (px, py) = (peak_at % n, peak_at / n);
-    let at = |x: usize, y: usize| surface[(y % n) * n + x % n];
-    let fx = parabola(at(px + n - 1, py), peak, at(px + 1, py));
-    let fy = parabola(at(px, py + n - 1), peak, at(px, py + 1));
-    let wrap = |p: usize| if p > n / 2 { p as f32 - n as f32 } else { p as f32 };
+    let (px, py) = (peak_at % m, peak_at / m);
+    let at = |x: usize, y: usize| surface[(y % m) * m + x % m];
+    let fx = parabola(at(px + m - 1, py), peak, at(px + 1, py));
+    let fy = parabola(at(px, py + m - 1), peak, at(px, py + 1));
+    let wrap = |p: usize| if p > m / 2 { p as f32 - m as f32 } else { p as f32 };
     Some(Shift { dx: wrap(px) + fx, dy: wrap(py) + fy, confidence: peak / mean_abs })
 }
 
@@ -222,9 +248,8 @@ pub enum StackMode {
 
 /// Accumulates frames lined up with the first one.
 pub struct Stacker {
-    pub mode: StackMode,
-    /// Line frames up with the first one (off for star trails, where the sky should move across a fixed frame)
-    pub align: bool,
+    mode: StackMode,
+    align: bool,
     /// Frames whose correlation peak is weaker than this are refused
     pub min_confidence: f32,
     size: (usize, usize),
@@ -240,17 +265,57 @@ pub struct Stacker {
 
 impl Stacker {
     pub fn new(mode: StackMode) -> Stacker {
-        Stacker { mode, align: true, min_confidence: 6.0, size: (0, 0), reference: None, mean: Vec::new(), spread: Vec::new(), weight: Vec::new(), count: 0 }
+        Stacker { mode, align: true, min_confidence: 8.0, size: (0, 0), reference: None, mean: Vec::new(), spread: Vec::new(), weight: Vec::new(), count: 0 }
     }
 
-    /// How many frames are in the stack.
+    /// How the frames are combined.
+    pub fn mode(&self) -> StackMode {
+        self.mode
+    }
+
+    /// Changes how frames are combined; a change starts the stack over.
+    pub fn set_mode(&mut self, mode: StackMode) {
+        if mode != self.mode {
+            self.mode = mode;
+            self.reset();
+        }
+    }
+
+    /// Whether frames are lined up with the first one.
+    pub fn align(&self) -> bool {
+        self.align
+    }
+
+    /// Lines frames up with the first one (off for star trails, where the sky should move across a fixed frame); a change starts the stack over.
+    pub fn set_align(&mut self, align: bool) {
+        if align != self.align {
+            self.align = align;
+            self.reset();
+        }
+    }
+
+    /// Empties the stack, keeping the settings.
+    pub fn reset(&mut self) {
+        self.size = (0, 0);
+        self.reference = None;
+        self.mean = Vec::new();
+        self.spread = Vec::new();
+        self.weight = Vec::new();
+        self.count = 0;
+    }
+
+    /// How many frames are in the stack (after a clip restart, the ones since).
     pub fn count(&self) -> usize {
         self.count
     }
 
     /// Lines the frame up with the first one and adds it, returning the shift used. None (and not counted) when it is another size than
-    /// the first, can't be read, or can't be lined up with enough confidence.
+    /// the first, empty, short of data, can't be lined up with enough confidence, or (with align on) too dark or flat to be the first.
+    /// In clip mode a frame that most pixels reject is a scene change (an exposure jump, say): the statistics restart from it and count() starts again at one.
     pub fn add(&mut self, frame: &Frame) -> Option<Shift> {
+        if !frame_ok(frame) {
+            return None;
+        }
         let (w, h) = (frame.width as usize, frame.height as usize);
         if self.count > 0 && (w, h) != self.size {
             return None;
@@ -267,6 +332,9 @@ impl Stacker {
             }
             _ => Shift { dx: 0.0, dy: 0.0, confidence: f32::INFINITY },
         };
+        if self.count == 0 && plane.as_ref().is_some_and(|p| !p.alignable()) {
+            return None;
+        }
         let rgb = frame_rgb(frame).filter(|r| r.len() == w * h * 3)?;
         if self.count == 0 {
             self.size = (w, h);
@@ -275,12 +343,22 @@ impl Stacker {
             self.weight = vec![0; w * h];
             self.reference = plane;
         }
-        self.accumulate(&rgb, shift);
-        self.count += 1;
+        let (covered, rejected) = self.accumulate(&rgb, shift);
+        if rejected as f32 > covered as f32 * CLIP_RESTART {
+            self.mean.fill(0.0);
+            self.spread.fill(0.0);
+            self.weight.fill(0);
+            self.accumulate(&rgb, shift);
+            self.count = 1;
+        } else {
+            self.count += 1;
+        }
         Some(shift)
     }
 
-    fn accumulate(&mut self, rgb: &[u8], shift: Shift) {
+    /// Puts the frame into the stack, returning how many pixels it covered and how many of those clipping rejected.
+    fn accumulate(&mut self, rgb: &[u8], shift: Shift) -> (usize, usize) {
+        let (mut covered, mut rejected) = (0, 0);
         let (w, h) = self.size;
         let at = |x: usize, y: usize, c: usize| rgb[(y * w + x) * 3 + c] as f32 / 255.0;
         for y in 0..h {
@@ -304,13 +382,17 @@ impl Stacker {
                     let bottom = at(x0, y1, c) * (1.0 - tx) + at(x1, y1, c) * tx;
                     *out = top * (1.0 - ty) + bottom * ty;
                 }
-                self.put(y * w + x, v);
+                covered += 1;
+                if !self.put(y * w + x, v) {
+                    rejected += 1;
+                }
             }
         }
+        (covered, rejected)
     }
 
-    /// Takes one pixel's value from a frame into the stack.
-    fn put(&mut self, i: usize, v: [f32; 3]) {
+    /// Takes one pixel's value from a frame into the stack; false when clipping left it out.
+    fn put(&mut self, i: usize, v: [f32; 3]) -> bool {
         let n = self.weight[i];
         let mean = &mut self.mean[i * 3..i * 3 + 3];
         match self.mode {
@@ -327,7 +409,7 @@ impl Stacker {
             StackMode::Clip { kappa } => {
                 let spread = &mut self.spread[i * 3..i * 3 + 3];
                 if n >= CLIP_AFTER && (0..3).any(|c| (v[c] - mean[c]).abs() > kappa * (spread[c] / n as f32).sqrt().max(MIN_SPREAD)) {
-                    return;
+                    return false;
                 }
                 for c in 0..3 {
                     let d = v[c] - mean[c];
@@ -337,6 +419,7 @@ impl Stacker {
             }
         }
         self.weight[i] = n + 1;
+        true
     }
 
     /// The stack as an RGBA frame; None while it is empty. Pixels no frame covered are black.
@@ -355,15 +438,35 @@ impl Stacker {
     }
 }
 
-/// The indexes of the sharpest `keep` share of the frames (at least one), sharpest first.
-pub fn lucky(frames: &[Frame], keep: f32) -> Vec<usize> {
-    let mut scored: Vec<(usize, f32)> = frames.iter().enumerate().map(|(i, f)| {
-        let score = Plane::from_frame(f, (f.width as usize).div_ceil(ALIGN_WIDTH)).map_or(0.0, |p| sharpness(&p));
-        (i, score)
-    }).collect();
-    scored.sort_by(|a, b| b.1.total_cmp(&a.1));
-    let take = ((frames.len() as f32 * keep.clamp(0.0, 1.0)).ceil() as usize).clamp(1, frames.len().max(1));
-    scored.into_iter().take(take).map(|(i, _)| i).collect()
+/// Keeps the sharpest frames of a burst, scoring each on arrival so only `capacity` are ever held.
+pub struct Lucky {
+    capacity: usize,
+    // sharpest first
+    kept: Vec<(f32, Frame)>,
+}
+
+impl Lucky {
+    /// Holds up to `capacity` frames (at least one).
+    pub fn new(capacity: usize) -> Lucky {
+        Lucky { capacity: capacity.max(1), kept: Vec::new() }
+    }
+
+    /// Scores the frame and keeps it if it is among the sharpest so far; whether it was kept.
+    pub fn add(&mut self, frame: Frame) -> bool {
+        let score = Plane::from_frame(&frame, (frame.width as usize).div_ceil(ALIGN_WIDTH)).map_or(0.0, |p| sharpness(&p));
+        if self.kept.len() >= self.capacity && self.kept.last().is_some_and(|(worst, _)| score <= *worst) {
+            return false;
+        }
+        let at = self.kept.partition_point(|(s, _)| *s >= score);
+        self.kept.insert(at, (score, frame));
+        self.kept.truncate(self.capacity);
+        true
+    }
+
+    /// The kept frames, sharpest first.
+    pub fn best(&self) -> Vec<Frame> {
+        self.kept.iter().map(|(_, f)| f.clone()).collect()
+    }
 }
 
 #[cfg(test)]
