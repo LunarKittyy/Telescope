@@ -74,7 +74,8 @@ Save two scenes as presets. One is you talking and the other is the whiteboard b
 1. Switch on **Desk and document mode** under **Camera** and restart.
 2. Start the stream and set up the picture for talking. Click **Presets** and save it, as "Talking" for example.
 3. Turn on **Desk mode** and press **Mark the sheet**. Drag the four corners onto the corners of the board and press **Done**. It can be any flat sheet or board and doesn't have to be paper. **Contrast** evens out the light across it.
-4. Save that as a second preset, "Board". Click a preset to switch. Each preset can have its own shortcut to switch the scene with a key.
+4. Save that as a second preset, "Board". Click a preset to switch.
+5. Under **Keyboard shortcuts** in Settings add a shortcut for **Apply a preset** once per scene and pick the preset. Each scene then has its own key.
 
 With two cameras, one on you and one on the board, set Desk mode on the board's camera and combine them in **One picture**. Layouts have shortcuts too. See [Presets](features/camera.md#presets), [Desk and document mode](features/picture.md#desk-and-document-mode) and [Several cameras in one picture](features/sources.md#several-cameras-in-one-picture).
 
