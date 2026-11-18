@@ -14,9 +14,7 @@ Big, mostly the corner finding and the clean-up. Worth seeing first whether peop
 
 More ideas for plugins that start out off, for people who want more out of their webcam than a picture. Most of them need no new dependencies (FFmpeg is already there and the vision download already exists). Same rule as the Camera card. If the phone's camera exposes something, Telescope uses it.
 
-Most of what they need underneath got built as host services along with the plugins in [4.3](4.3.md). One is still open:
-
-- **Lining up and stacking frames.** Phase correlation and friends. Used by the stargazer and maybe a denoised "hold still" scan in document mode
+Most of what they need underneath got built as host services along with the plugins in [4.3](4.3.md). A denoised "hold still" scan in document mode could still use the new frame stacking.
 
 ### Colour matching and 10-bit
 
@@ -28,15 +26,7 @@ Medium for colour matching, big with 10-bit.
 
 ### An auto director
 
-Several cameras in one picture is built. An auto director could pick its layout from who's in frame, like the face big while you talk and the desk big while you show something on it. Medium, on top of calm people tracking.
-
-### Phototrap
-
-For wildlife and anything else that shows up when you're not looking. Draw zones on the preview and when something moves in one the phone takes a short burst of full-quality photos. Nothing is saved until something sets it off and it only ever saves photos, never video. Night mode and long exposures from Photos make it work after dark. Medium, now that motion detection and Photos exist.
-
-### Stargazer
-
-People clip phones to telescopes. Lucky imaging for the moon and planets grabs a burst, keeps the sharpest frames, lines them up and averages them. Live stacking does the same slowly for faint things and star trails stack a long series. Manual ISO and shutter are already there, focus peaking helps focusing on a star and Photos brings long exposures and RAW. Medium.
+Several cameras in one picture is built. An auto director picks its layout from who's in frame, like the face big while you talk and the desk big while you show something on it. A first version is written and isn't merged yet, see [next.md](next.md#an-auto-director).
 
 ### 3D from two phones
 
@@ -64,7 +54,7 @@ The MCP server is built (see [5.1](5.1.md#an-mcp-server)). What's left of the id
 - `frame` sending a small frame, only when the user allows it and off by default. A middle step could blur the person out with the vision mask to let the model see the room and the light but not them. Telescope would show when a model is connected and separately when it's getting frames
 - `show` opening the right tab and highlighting a setting, for when someone asks where something is
 - A preview mode where changes wait until accepted, which needs the preview and the output to be separate
-- More plugins declaring their settings so the model can reach them
+- More plugins declaring their settings so the model can reach them (being written)
 
 ### Not for now
 
@@ -74,61 +64,17 @@ The MCP server is built (see [5.1](5.1.md#an-mcp-server)). What's left of the id
 
 Decided but small enough that none of them needs its own release.
 
-### Auto framing that follows one person
+### Spout capture with zero-copy
 
-With several people in view, Auto framing frames the whole group. A choice of one person to follow would frame only them the way it already follows a single person and ignore whoever walks past behind. The open part is how to choose. Clicking someone in the preview is the obvious way and the other is following whoever talks. Small to medium, on top of the people tracking that's there.
-
-### Cleaner edges for Background
-
-Background replacement can eat the edges of things that aren't a person. A chair back or light clothing against a bright wall partly dissolves into the new background. Tuning the mask threshold and edge softening on those cases should help and so might smoothing the mask over a few frames. The hard part is finding settings that fix this without making hair and hands worse. Small to medium.
-
-### Background blur on the GPU
-
-Blur is the heaviest step left on the CPU with everything on at 4K. Switching it off saves about half of Telescope's processor use there. Doing the shrink, blur and blend on the graphics card would take most of that away. Medium, as part of [Doing the picture work on the GPU](#doing-the-picture-work-on-the-gpu).
-
-### The 1998 webcam costs more than it should
-
-With the Fun pack's 1998 webcam on, the processor use goes up by about 44% and the picture is repeated every other frame on purpose. Much of the cost is the way the blocky look is made, which could be done once and held for the repeated frame. Small.
-
-### Composite tiles zoom further
-
-A tile in Composite zooms in at most 4x, while Auto framing follows the Max zoom setting. The tiles could follow it too. Small.
-
-### Stick figure with crossed legs and close-ups
-
-The stick figure gets the pose wrong when legs are crossed and turns into a huge head on a pair of shoulders in a close-up. The close-up needs the drawing to scale to the body that's visible instead of assuming a whole one. The crossed legs need the leg joints to be trusted less when they overlap. Small.
-
-### A faster interface underneath
-
-The work on Slint's interpreter continues. Struct fields are a plain list instead of a hash map since 5.1.1 and fewer allocations while the window updates are next. Nobody sees it except as a lighter window, like the rest of [Lighter on the processor and memory](5.1.md#lighter-on-the-processor-and-memory). Medium.
-
-### Spout capture at full speed
-
-Spout capture copies every frame out of the graphics card's memory, then turns it into the picture format the rest of Telescope uses, one step after the other. At 1080p that's close to the 33 ms a frame gets at 30 fps. A 4K or 60 fps sender would fall behind. Three steps, each faster than the last:
-
-- **Overlap the steps.** Copy the next frame while the last one is converted. Small. Probably enough for a steady 30 fps at 1080p
-- **Convert on the GPU** instead of the processor. Medium
-- **Zero-copy.** Hand the sender's GPU buffer straight to the picture work on the GPU. The frame then never leaves the graphics card (a DMA-BUF on Linux, a shared D3D11 texture on Windows). Big. It belongs with [Doing the picture work on the GPU](#doing-the-picture-work-on-the-gpu)
-
-### A graphics card choice in Settings
-
-[#489](https://github.com/LunarKittyy/Telescope/issues/489) got fixed in 5.1.3 without one. Telescope follows Windows' graphics setting and tries Intel cards through DirectX 12 first. A choice in Settings would still help someone whose system picks the wrong card and who can't change that. The window picks its card in `rust/crates/shell/src/preview.rs` and the picture work in `rust/crates/media/src/gpu.rs`, the order is in `rust/crates/core/src/gpu_pick.rs`. Only if someone asks for it. Small to medium.
+Spout capture is converted on the graphics card now. The frame is still copied out of the sender's memory first. Handing the sender's GPU buffer straight to the picture work (a DMA-BUF on Linux, a shared D3D11 texture on Windows) would leave the frame on the card. Big. It belongs with [Doing the picture work on the GPU](#doing-the-picture-work-on-the-gpu). Overlapping the copy with the conversion was left out, see [dropped.md](dropped.md).
 
 ### USB without adb
 
 USB pairing and the USB route need adb on the computer (which Windows downloads from Google after asking) and USB debugging switched on in the phone's Developer options. Android's Open Accessory mode would let the phone talk to the computer over the cable with neither. The computer asks a plugged-in phone to switch into accessory mode and the Telescope app opens. The catch is that it needs a libusb-style driver on Windows. The phone app also has to handle a second kind of connection beside adb's reverse port (`rust/crates/link/src/adb.rs` and `service.rs` on the desktop). Big. It needs real phones from several makers to try.
 
-## Appearance options
+## Card colours
 
-Only options that scale or swap something every control already reads from the design tokens, in a few fixed steps. That way a render test can cover them and nothing breaks unseen. No free colour pickers, fonts or per-card overrides.
-
-- Corner roundness: sharp, default or round
-- Text size: small, default or large. The riskiest one, since long labels and translations overflow first
-- Density: compact or comfortable
-- Card colours: each card in its category colour, or one accent for all
-- Contrast: a higher contrast mode with full colours at rest and near-white lines and text
-- Motion: full, reduced or off, following the system by default
-- Tooltip delay: a slider from instant to about 1.5 seconds, plus an "Instantly show next tooltip" toggle
+The last of the appearance options, left over from [next.md](next.md#appearance-options). Each card would use its own category colour or all of them would share one accent. It would be a few fixed steps like the other options, with no free colour picker.
 
 ## Undo across the app
 
@@ -137,14 +83,6 @@ Each card has a Reset but nothing can be undone one step at a time. One undo and
 It can't be one list that reaches into each plugin because plugins don't know about each other. Each change a person makes would go through `core` as a step that records what it was and how to undo it. Each plugin decides which of its changes count. A slider dragged for two seconds is one step, not a hundred. Changes from the phone, from Auto or from a shortcut need a rule too.
 
 A week or so, most of it deciding what counts as one step in each plugin.
-
-## DSLRs on Windows
-
-DSLRs only work on Linux, through libgphoto2, which needs direct USB access. On Windows that means replacing the camera's driver with another tool, too much to ask. Windows has its own driver for cameras though (the one that shows them in Explorer) and programs can send it raw PTP commands through Windows Portable Devices. digiCamControl and the makers' own SDKs work that way.
-
-So Windows needs a small PTP layer on top of that driver to start and stop live view, fetch frames, read and set settings and do autofocus and focus steps. Nikon and Canon each have their own commands for these, a handful per maker. Testing needs real cameras because each maker and model has quirks that libgphoto2 handles on Linux. The first step is checking whether a camera can be passed through to the Windows VM, otherwise there's nothing to test on.
-
-A few days for Nikon and Canon, most of it testing.
 
 ## A guide to unusual setups
 
@@ -162,7 +100,7 @@ Before writing it a few things need trying on real links:
 - Reconnecting when the phone switches between mobile data and Wi-Fi
 - Whether Browser camera works over a 100.x address
 
-Small to write. The testing is the work.
+A draft of the doc is written and the tests on real links are still to do. Small to write. The testing is the work.
 
 ## Doing the picture work on the GPU
 
@@ -176,13 +114,9 @@ A view between two plugin shaders now costs a trip down and back up though. Maki
 
 Measure first. The pipeline already counts its transfers (`crates/media/src/transfers.rs`). Run a heavy stack on a weak laptop and see where the time goes before moving anything. Laptops whose GPU shares memory with the CPU copy almost for free and they're also the ones whose CPU struggles first.
 
-Three ideas for making the chain cheaper, none of them measured yet:
+Moving the steps listed above into longer runs on the card is still the idea, to send the frame up once and down once. Medium and worth measuring with the transfer counter first.
 
-- **One shared working frame.** A step on the CPU that needs RGB converts the frame from I420 or NV12 and writes it back afterwards (`rust/crates/effects/src/pixels.rs`) for each of them. Converting once at the start and once at the end would do it for the whole chain
-- **Longer runs on the GPU.** Moving the steps listed above into runs on the card to send the frame up once and down once
-- **Effects on the YUV planes directly.** Steps that only change brightness or colour (grading, some of Filters) could work on the Y and UV planes as they come out of the decoder. That's half the bytes of RGB with no conversion
-
-Medium each and worth measuring with the transfer counter first.
+Background blur, Spout's conversion and the 1998 webcam are done (see [next.md](next.md#doing-the-picture-work-on-the-gpu)). Sharing one working frame and doing effects on the YUV planes were measured and dropped, see [dropped.md](dropped.md).
 
 ## ARM64
 
@@ -195,12 +129,6 @@ Start with GitHub's free ARM64 runners for Linux and Windows 11. Build the works
 ## Carried over from the desktop notes
 
 - **Going back (2026-11-02):** the first part is built, which Rust needed before it reaches the stable channel. Settings has one "Go back to the Python version…" button under Updates, pinned to 4.4.2 (its build number and the checksum of each package are written in `crates/system/src/going_back.rs`, nothing is trusted from the network). It copies the settings aside first, swaps the files through the normal update's journal and turns off 4.4.2's daily check so it doesn't offer Rust back. An AppImage gets the release page instead. A Linux box without Python 3.12 can't downgrade and a source build doesn't show it. Still to do, after 5.0: downgrades in the updater generally, with a warning that it may cause issues and resets the config.
-- **H.265 (2026-10-31):** add it some day for phones that support it. The small FFmpeg build already has the HEVC decoder.
-- **Load balancing (2026-11-01):** the goal for running beside a heavy game, with nothing needing elevated permissions and each step measured against the stress test's `gpu` and `split` loads. Built so far: `core::balance` moves steps that can run either way to the CPU after a few late frames and back after a clear stretch; the colour LUT runs on the CPU; person masks have their own thread; `core::pace` evens out browser feeds that arrive in bursts; phone streams have age caps on the send queues and even timing under load; hardware decoding is back on by default with VA-API (the stall behind a game came from the driver's I420 conversion queuing behind the game's work. The card is asked for NV12 and the split happens on the processor instead). Still to do, in this order: the integrated GPU when there is one and the front of the chain on the phone when it's plugged in and measured fast enough. The decoder in a child process was dropped, see [dropped.md](dropped.md).
+- **Load balancing (2026-11-01):** the goal for running beside a heavy game, with nothing needing elevated permissions and each step measured against the stress test's `gpu` load. Built so far: `core::balance` moves steps that can run either way to the CPU after a few late frames and back after a clear stretch; the colour LUT runs on the CPU; person masks have their own thread; `core::pace` evens out browser feeds that arrive in bursts; phone streams have age caps on the send queues and even timing under load; hardware decoding is back on by default with VA-API (the stall behind a game came from the driver's I420 conversion queuing behind the game's work. The card is asked for NV12 and the split happens on the processor instead). The integrated card and the front of the chain on the phone aren't planned. The decoder in a child process was dropped too, see [dropped.md](dropped.md).
 - **Signed updates:** a changed manifest can name its own package and checksum because the updater trusts the update manifest over HTTPS. Sign the manifest with a key built into the app before anything in it is believed. The Python app worked the same way. Going to a signature needs a release that adds the key first.
 - **Window weight and start time:** from the measurements of the finished app against Python. Memory: a three-line Slint patch that drops the type loaders the interpreter keeps after compiling saves about 30 MB, and compiling the cards of hidden tabs only when they open saves more. Settings is built the first time it opens now (122 MB at start against 173 MB). Start: compile ahead of time instead of at launch, overlap opening the cards with compiling them (40 to 80 ms), and reuse the Vulkan instance (24 ms).
-
-## Not settled in the desktop app
-
-- Release builds unwind instead of aborting on a panic. That lets the shell catch a plugin that panics and carry on but the catching itself isn't written yet.
-- A `needs` list in `plugin.json` naming built-in plugins a plugin can't work without, and a host registry for added plugins to share with each other.
