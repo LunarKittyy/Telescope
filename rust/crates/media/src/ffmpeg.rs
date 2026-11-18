@@ -262,13 +262,16 @@ impl Codec {
                     let chosen: Option<std::ffi::CString> = None;
                     let name = chosen.as_ref().map_or(ptr::null(), |c| c.as_ptr());
                     let mut r = ff::av_hwdevice_ctx_create(&mut c.hw_device, h.device_type(), name, ptr::null_mut(), 0);
-                    #[cfg_attr(not(all(target_os = "linux", ffmpeg)), allow(unused_mut, unused_variables))]
+                    #[cfg(all(target_os = "linux", ffmpeg))]
                     let mut on_picked = r >= 0;
                     // A chosen card that fails keeps decoding off the default card, except for VA-API: a card with a render node can lack a driver
                     if r < 0 && !name.is_null() && (h == Hw::Vaapi || !crate::decode_card::is_chosen()) {
                         log::warn!("{} didn't open on the picked card ({}), trying the default one", h.name(), err_text(r));
                         r = ff::av_hwdevice_ctx_create(&mut c.hw_device, h.device_type(), ptr::null(), ptr::null_mut(), 0);
-                        on_picked = false;
+                        #[cfg(all(target_os = "linux", ffmpeg))]
+                        {
+                            on_picked = false;
+                        }
                     }
                     if r < 0 {
                         return Err(format!("{} didn't open: {}", h.name(), err_text(r)));
