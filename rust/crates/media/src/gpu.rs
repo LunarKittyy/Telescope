@@ -18,6 +18,9 @@ use wgpu::naga;
 /// Set on the convert shader's mode to read YUV chroma by index, a sample for its 2 x 2 block, as the CPU does (taps stay 1).
 const BLOCK_CHROMA: u32 = 8;
 const CONVERT: &str = include_str!("shaders/convert.wgsl");
+const BLUR: &str = include_str!("shaders/blur.wgsl");
+/// What the blurred copies are worked in: more than 8 bits, so the weighted blur's sums don't band.
+const BLUR_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 /// What a working picture on the card is kept as: gamma-encoded RGBA, like the camera's own values.
 const WORK: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
@@ -540,7 +543,8 @@ impl Gpu {
     pub fn shade(&self, held: &mut Held, slot: &ShaderSlot, time: f32, mask: Option<&MaskPlane>) {
         let past = slot.past(held);
         let info = self.uniform(&shader::frame_uniform(held.width, held.height, time, held.number, mask.is_some(), past.is_some()));
-        slot.draw(self, &mut held.enc, &held.a, &held.b, &info, mask, past.as_ref());
+        let blurred = slot.blur(self, &mut held.enc, &held.a, &mut held.used);
+        slot.draw(self, &mut held.enc, &held.a, &held.b, &info, mask, past.as_ref(), blurred.as_ref());
         slot.keep(self, &mut held.enc, &held.b, held.time_ns);
         std::mem::swap(&mut held.a, &mut held.b);
     }
@@ -771,11 +775,73 @@ pub struct MaskPlane {
 
 struct Built {
     pipeline: wgpu::RenderPipeline,
-    /// Group 1: the plugin's uniforms and textures, or None when it has neither.
+    /// Group 1: the plugin's uniforms and textures, or None when it has neither (or a blur, whose group is made for each frame).
     extras: Option<wgpu::BindGroup>,
+    extras_layout: Option<wgpu::BindGroupLayout>,
     /// The Params buffer, kept so new uniforms can be written into it.
     ubuf: Option<wgpu::Buffer>,
+    /// What each of the step's textures is bound to now, and what it went up as at first.
+    views: Vec<wgpu::TextureView>,
+    first_views: Vec<wgpu::TextureView>,
+    /// For a texture the CPU half has replaced: the data it came from, to know an unchanged one, and the texture itself.
+    sources: Vec<Option<Arc<Vec<u8>>>>,
+    replaced: Vec<Option<wgpu::Texture>>,
+    blur: Option<BlurKit>,
     _keep: Vec<wgpu::Texture>,
+}
+
+/// What a shader that calls blurred() needs: the passes that shrink the picture and blur it.
+struct BlurKit {
+    layout: wgpu::BindGroupLayout,
+    shrink: wgpu::RenderPipeline,
+    blur: wgpu::RenderPipeline,
+    combine: wgpu::RenderPipeline,
+}
+
+impl BlurKit {
+    fn new(gpu: &Gpu) -> BlurKit {
+        let layout = gpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { label: Some("blur"), entries: &[tex_entry(0), tex_entry(1), uniform_entry(2)] });
+        let module = gpu.device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("blur"), source: wgpu::ShaderSource::Wgsl(BLUR.into()) });
+        let pipeline_layout = gpu.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("blur"), bind_group_layouts: &[Some(&layout)], immediate_size: 0 });
+        let make = |fs: &str| gpu.render_pipeline("blur", &pipeline_layout, &module, ("vs_main", fs), BLUR_FORMAT);
+        BlurKit { shrink: make("fs_shrink"), blur: make("fs_blur"), combine: make("fs_combine"), layout }
+    }
+
+    /// One pass into target; the settings are the Pass struct in blur.wgsl.
+    fn pass(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, pipeline: &wgpu::RenderPipeline, a: &wgpu::TextureView, b: &wgpu::TextureView, target: &wgpu::Texture, settings: Pass) {
+        let mut bytes = Vec::with_capacity(48);
+        for v in [settings.src.0, settings.src.1, target.width(), target.height(), settings.dir.0, settings.dir.1, settings.taps, settings.weighted] {
+            bytes.extend(v.to_le_bytes());
+        }
+        bytes.extend((settings.sigma as f32).to_le_bytes());
+        let buf = gpu.uniform(&bytes);
+        let bind = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("blur"),
+            layout: &self.layout,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(a) },
+                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(b) },
+                wgpu::BindGroupEntry { binding: 2, resource: buf.as_entire_binding() },
+            ],
+        });
+        draw(enc, pipeline, &[&bind], &target.create_view(&Default::default()));
+    }
+}
+
+/// The settings of one blur pass.
+#[derive(Clone, Copy)]
+struct Pass {
+    src: (u32, u32),
+    dir: (u32, u32),
+    taps: u32,
+    weighted: u32,
+    sigma: f64,
+}
+
+impl Pass {
+    fn of(src: (u32, u32)) -> Pass {
+        Pass { src, dir: (0, 0), taps: 1, weighted: 0, sigma: 1.0 }
+    }
 }
 
 impl ShaderSlot {
@@ -871,7 +937,7 @@ impl ShaderSlot {
         self.built.as_ref().unwrap().as_ref().map(|_| ()).map_err(Clone::clone)
     }
 
-    fn draw(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, src: &wgpu::Texture, dst: &wgpu::Texture, info: &wgpu::Buffer, mask: Option<&MaskPlane>, past: Option<&wgpu::TextureView>) {
+    fn draw(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, src: &wgpu::Texture, dst: &wgpu::Texture, info: &wgpu::Buffer, mask: Option<&MaskPlane>, past: Option<&wgpu::TextureView>, blurred: Option<&(wgpu::TextureView, wgpu::TextureView)>) {
         let Some(Ok(built)) = &self.built else { return };
         let (src_view, dst_view) = (src.create_view(&Default::default()), dst.create_view(&Default::default()));
         let frame_bind = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -885,9 +951,110 @@ impl ShaderSlot {
                 wgpu::BindGroupEntry { binding: shader::BINDING_HISTORY, resource: wgpu::BindingResource::TextureView(past.unwrap_or(&gpu.blank)) },
             ],
         });
+        // The blurred copies are new each frame, so a step that has them gets a group of its own for the frame
+        let made = blurred.zip(built.extras_layout.as_ref()).map(|(b, layout)| extras_group(gpu, layout, built.ubuf.as_ref(), &built.views, self.blur_bindings().map(|(p, w)| ((p, &b.0), (w, &b.1)))));
         let mut binds = vec![&frame_bind];
-        binds.extend(built.extras.as_ref());
+        binds.extend(made.as_ref().or(built.extras.as_ref()));
         draw(enc, &built.pipeline, &binds, &dst_view);
+    }
+
+    fn blur_bindings(&self) -> Option<(u32, u32)> {
+        shader::blur_bindings(&self.step)
+    }
+
+    /// The step's uniforms for the blur: how much smaller it is worked out and its sigma.
+    fn blur_settings(&self) -> (u32, f64) {
+        let get = |name: &str| self.step.uniforms.get(name).and_then(serde_json::Value::as_f64);
+        (get(shader::BLUR_SHRINK).map_or(8, |v| v.max(1.0) as u32), get(shader::BLUR_SIGMA).map_or(2.0, |v| v.max(0.1)))
+    }
+
+    /// Records the passes that make the blurred copies of src (shrunk, blurred and, where the CPU half gave weights, blurred without what they leave out) and gives (plain, weighted) as views; None for a step that doesn't ask.
+    fn blur(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, src: &wgpu::Texture, used: &mut Vec<wgpu::Texture>) -> Option<(wgpu::TextureView, wgpu::TextureView)> {
+        let Some(Ok(Built { blur: Some(kit), views, sources, .. })) = &self.built else { return None };
+        let (shrink, sigma) = self.blur_settings();
+        let size = (src.width(), src.height());
+        let (sw, sh) = shader::blur_size(size.0, size.1, shrink);
+        let taps = shader::blur_taps(sigma);
+        let mut texture = || {
+            let t = gpu.texture(sw, sh, BLUR_FORMAT);
+            used.push(t.clone());
+            t
+        };
+        let view = |t: &wgpu::Texture| t.create_view(&Default::default());
+        let (small, across, plain) = (texture(), texture(), texture());
+        let src_view = view(src);
+        kit.pass(gpu, enc, &kit.shrink, &src_view, &gpu.blank, &small, Pass::of(size));
+        let blur = |dir, weighted| Pass { src: (sw, sh), dir, taps, weighted, sigma };
+        kit.pass(gpu, enc, &kit.blur, &view(&small), &gpu.blank, &across, blur((1, 0), 0));
+        kit.pass(gpu, enc, &kit.blur, &view(&across), &gpu.blank, &plain, blur((0, 1), 0));
+        // Weights count only at the size the blur is worked at
+        let weights = self.step.textures.iter().position(|(n, _)| n == shader::BLUR_WEIGHTS)
+            .filter(|&i| sources[i].is_some() && (views[i].texture().width(), views[i].texture().height()) == (sw, sh));
+        let Some(weights) = weights else { return Some((view(&plain), view(&plain))) };
+        let total = texture();
+        kit.pass(gpu, enc, &kit.blur, &view(&small), &views[weights], &across, blur((1, 0), 1));
+        kit.pass(gpu, enc, &kit.blur, &view(&across), &gpu.blank, &total, blur((0, 1), 0));
+        kit.pass(gpu, enc, &kit.combine, &view(&plain), &view(&total), &across, Pass::of((sw, sh)));
+        Some((view(&plain), view(&across)))
+    }
+
+    /// Takes the pictures the CPU half has for the shader (see CpuStep::card_textures) in place of the step's own of those names; one it leaves out goes back to the first. A picture goes up only when its data isn't the one already there.
+    pub fn set_textures(&mut self, gpu: &Gpu, given: &[(String, Frame)]) {
+        let Some(Ok(built)) = &mut self.built else { return };
+        let mut changed = false;
+        for (i, (name, _)) in self.step.textures.iter().enumerate() {
+            match given.iter().find(|(n, _)| n == name) {
+                Some((_, f)) if built.sources[i].as_ref().is_some_and(|s| Arc::ptr_eq(s, &f.data)) => {}
+                Some((_, f)) => {
+                    let Some(texture) = gpu.picture_texture(f) else {
+                        log::warn!("Shader texture {name} wasn't used: {:?} {}x{} can't be uploaded", f.format, f.width, f.height);
+                        continue;
+                    };
+                    built.views[i] = texture.create_view(&Default::default());
+                    built.sources[i] = Some(f.data.clone());
+                    gpu.give_back(built.replaced[i].replace(texture));
+                    transfers::mask_up();
+                    changed = true;
+                }
+                None if built.sources[i].is_some() => {
+                    built.views[i] = built.first_views[i].clone();
+                    built.sources[i] = None;
+                    gpu.give_back(built.replaced[i].take());
+                    changed = true;
+                }
+                None => {}
+            }
+        }
+        if changed && built.blur.is_none() {
+            built.extras = built.extras_layout.as_ref().map(|l| extras_group(gpu, l, built.ubuf.as_ref(), &built.views, None));
+        }
+    }
+}
+
+/// Group 1 for the step: its Params buffer, its textures and the blurred copies when it has them.
+fn extras_group(gpu: &Gpu, layout: &wgpu::BindGroupLayout, params: Option<&wgpu::Buffer>, views: &[wgpu::TextureView], blurred: Option<((u32, &wgpu::TextureView), (u32, &wgpu::TextureView))>) -> wgpu::BindGroup {
+    let mut e = Vec::new();
+    if let Some(b) = params {
+        e.push(wgpu::BindGroupEntry { binding: shader::BINDING_PARAMS, resource: b.as_entire_binding() });
+    }
+    for (i, v) in views.iter().enumerate() {
+        e.push(wgpu::BindGroupEntry { binding: shader::BINDING_FIRST_TEXTURE + i as u32, resource: wgpu::BindingResource::TextureView(v) });
+    }
+    for (binding, v) in blurred.into_iter().flat_map(|(a, b)| [a, b]) {
+        e.push(wgpu::BindGroupEntry { binding, resource: wgpu::BindingResource::TextureView(v) });
+    }
+    gpu.device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("plugin"), layout, entries: &e })
+}
+
+impl Gpu {
+    /// An Rgba picture as a texture of its own to sample, from the pool; None for another format.
+    fn picture_texture(&self, f: &Frame) -> Option<wgpu::Texture> {
+        if f.format != PixelFormat::Rgba || f.width == 0 || f.height == 0 {
+            return None;
+        }
+        let t = self.texture(f.width, f.height, WORK);
+        self.write_plane(&t, &f.data, f.width * 4);
+        Some(t)
     }
 }
 
@@ -916,6 +1083,8 @@ fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
         entries.push(uniform_entry(shader::BINDING_PARAMS));
     }
     entries.extend((0..step.textures.len()).map(|i| tex_entry(shader::BINDING_FIRST_TEXTURE + i as u32)));
+    let blur_bindings = shader::blur_bindings(step);
+    entries.extend(blur_bindings.into_iter().flat_map(|(plain, weighted)| [tex_entry(plain), tex_entry(weighted)]));
     let extras_layout = (!entries.is_empty()).then(|| gpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("plugin"),
         entries: &entries,
@@ -939,20 +1108,14 @@ fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
     }
     gpu.queue.submit([enc.finish()]);
     let ubuf = has_uniforms.then(|| gpu.uniform(&params));
-    let extras = extras_layout.as_ref().map(|l| {
-        let mut e = Vec::new();
-        if let Some(b) = &ubuf {
-            e.push(wgpu::BindGroupEntry { binding: shader::BINDING_PARAMS, resource: b.as_entire_binding() });
-        }
-        for (i, v) in views.iter().enumerate() {
-            e.push(wgpu::BindGroupEntry { binding: shader::BINDING_FIRST_TEXTURE + i as u32, resource: wgpu::BindingResource::TextureView(v) });
-        }
-        gpu.device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("plugin"), layout: l, entries: &e })
-    });
+    // With a blur the group is made for each frame, as its copies are new each time
+    let extras = extras_layout.as_ref().filter(|_| blur_bindings.is_none()).map(|l| extras_group(gpu, l, ubuf.as_ref(), &views, None));
+    let blur = blur_bindings.map(|_| BlurKit::new(gpu));
     if let Some(e) = pollster::block_on(scope.pop()) {
         return Err(e.to_string());
     }
-    Ok(Built { pipeline, extras, ubuf, _keep: keep })
+    let n = views.len();
+    Ok(Built { pipeline, extras, extras_layout, ubuf, first_views: views.clone(), views, sources: vec![None; n], replaced: vec![None; n], blur, _keep: keep })
 }
 
 #[cfg(test)]
@@ -1071,6 +1234,214 @@ mod tests {
                 assert!(worst <= Some(limit), "{w}x{h} {} on {}: {worst:?}", lut.kind(), gpu.adapter_name);
             }
         }
+    }
+
+    /// The blur as a plain program would make it: the picture shrunk by area, blurred along each axis with reflected edges, read with linear filtering at each pixel's centre. rgb 0..1.
+    mod blur_reference {
+        pub struct Small {
+            pub w: usize,
+            pub h: usize,
+            pub px: Vec<[f32; 4]>,
+        }
+
+        pub fn shrunk(rgba: &[u8], w: usize, h: usize, shrink: usize) -> Small {
+            let (sw, sh) = ((w / shrink).max(1), (h / shrink).max(1));
+            let mut px = vec![[0f32; 4]; sw * sh];
+            for (i, out) in px.iter_mut().enumerate() {
+                let (ox, oy) = (i % sw, i / sw);
+                let (x0, x1, y0, y1) = (ox * w / sw, (ox + 1) * w / sw, oy * h / sh, (oy + 1) * h / sh);
+                let n = ((x1 - x0) * (y1 - y0)) as f32;
+                for y in y0..y1 {
+                    for x in x0..x1 {
+                        for c in 0..3 {
+                            out[c] += rgba[(y * w + x) * 4 + c] as f32 / 255.0 / n;
+                        }
+                    }
+                }
+                out[3] = 1.0;
+            }
+            Small { w: sw, h: sh, px }
+        }
+
+        fn reflect(i: isize, n: isize) -> usize {
+            if n == 1 {
+                return 0;
+            }
+            let mut i = i;
+            while i < 0 || i >= n {
+                i = if i < 0 { -i } else { 2 * (n - 1) - i };
+            }
+            i as usize
+        }
+
+        pub fn gauss(img: &Small, sigma: f64, taps: usize) -> Small {
+            let half = (taps / 2) as isize;
+            let weights: Vec<f64> = (-half..=half).map(|j| (-(j * j) as f64 / (2.0 * sigma * sigma)).exp()).collect();
+            let total: f64 = weights.iter().sum();
+            let across = |src: &Small, horizontal: bool| {
+                let mut px = vec![[0f32; 4]; src.w * src.h];
+                for y in 0..src.h {
+                    for x in 0..src.w {
+                        for (j, wt) in (-half..=half).zip(&weights) {
+                            let (sx, sy) = if horizontal { (reflect(x as isize + j, src.w as isize), y) } else { (x, reflect(y as isize + j, src.h as isize)) };
+                            let from = src.px[sy * src.w + sx];
+                            for (o, v) in px[y * src.w + x].iter_mut().zip(from) {
+                                *o += (v as f64 * wt / total) as f32;
+                            }
+                        }
+                    }
+                }
+                Small { w: src.w, h: src.h, px }
+            };
+            across(&across(img, true), false)
+        }
+
+        /// What blurred_with does with the weights (0..1 a pixel at the small size).
+        pub fn weighted(small: &Small, weights: &[f32], sigma: f64, taps: usize) -> Small {
+            let plain = gauss(small, sigma, taps);
+            let kept = Small { w: small.w, h: small.h, px: small.px.iter().zip(weights).map(|(p, w)| [p[0] * w, p[1] * w, p[2] * w, *w]).collect() };
+            let total = gauss(&kept, sigma, taps);
+            let px = plain.px.iter().zip(&total.px).map(|(p, t)| {
+                let weight = (t[3] * 4.0).clamp(0.0, 1.0);
+                let mut out = [0f32; 4];
+                for (c, o) in out.iter_mut().enumerate().take(3) {
+                    *o = t[c] / t[3].max(1e-3) * weight + p[c] * (1.0 - weight);
+                }
+                out
+            }).collect();
+            Small { w: small.w, h: small.h, px }
+        }
+
+        /// The picture at (x, y) of a w x h frame, 0..255.
+        pub fn read(small: &Small, x: usize, y: usize, w: usize, h: usize) -> [f32; 3] {
+            let at = |c: usize, size: usize, n: usize| (((c as f32 + 0.5) / size as f32 * n as f32) - 0.5).clamp(0.0, n as f32 - 1.0);
+            let (fx, fy) = (at(x, w, small.w), at(y, h, small.h));
+            let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
+            let (x1, y1) = ((x0 + 1).min(small.w - 1), (y0 + 1).min(small.h - 1));
+            let (tx, ty) = (fx - x0 as f32, fy - y0 as f32);
+            let mix = |c: usize| {
+                let top = small.px[y0 * small.w + x0][c] * (1.0 - tx) + small.px[y0 * small.w + x1][c] * tx;
+                let bottom = small.px[y1 * small.w + x0][c] * (1.0 - tx) + small.px[y1 * small.w + x1][c] * tx;
+                (top * (1.0 - ty) + bottom * ty) * 255.0
+            };
+            [mix(0), mix(1), mix(2)]
+        }
+    }
+
+    const BLURRED: &str = "fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(blurred(uv).rgb, 1.0); }";
+    const BLURRED_WEIGHTED: &str = "fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(blurred_weighted(uv).rgb, 1.0); }";
+
+    fn noisy_rgba(w: usize, h: usize) -> Frame {
+        let mut x = 11u32;
+        let data = (0..w * h * 4).map(|i| {
+            x = x.wrapping_mul(1664525).wrapping_add(1013904223);
+            // blocks of colour with a little noise, so there are edges to blur
+            let (px, py) = ((i / 4) % w, (i / 4) / w);
+            let base = [(px / 13 * 40) % 256, (py / 11 * 55) % 256, ((px + py) / 17 * 70) % 256, 255][i % 4] as u32;
+            (base + (x >> 30)).min(255) as u8
+        }).collect();
+        Frame::new(w as u32, h as u32, PixelFormat::Rgba, data)
+    }
+
+    fn weights_frame(w: u32, h: u32, share: impl Fn(u32, u32) -> u8) -> Frame {
+        let mut data = Vec::new();
+        for y in 0..h {
+            for x in 0..w {
+                data.extend([share(x, y), 0, 0, 255]);
+            }
+        }
+        Frame::new(w, h, PixelFormat::Rgba, data)
+    }
+
+    #[test]
+    fn the_card_blurs_a_shrunk_copy_of_the_picture_as_a_program_would() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let (w, h, shrink) = (200usize, 120usize, 8usize);
+        let frame = noisy_rgba(w, h);
+        for sigma in [1.1f64, 3.5, 6.5] {
+            let uniforms = json!({"blur_shrink": shrink, "blur_sigma": sigma});
+            let out = run(&gpu, &frame, &mut [ShaderSlot::new(step(BLURRED, uniforms))]);
+            let small = blur_reference::gauss(&blur_reference::shrunk(&frame.data, w, h, shrink), sigma, shader::blur_taps(sigma) as usize);
+            let mut worst = 0f32;
+            for y in 0..h {
+                for x in 0..w {
+                    let want = blur_reference::read(&small, x, y, w, h);
+                    for (c, v) in want.iter().enumerate() {
+                        worst = worst.max((out.data[(y * w + x) * 4 + c] as f32 - v).abs());
+                    }
+                }
+            }
+            assert!(worst <= 1.5, "sigma {sigma}: the card is {worst} levels from the reference");
+        }
+    }
+
+    #[test]
+    fn the_weighted_blur_leaves_out_what_the_weights_mark_and_a_missing_weight_is_the_plain_blur() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let (w, h, shrink, sigma) = (192usize, 128usize, 8usize, 2.9f64);
+        let frame = noisy_rgba(w, h);
+        let (sw, sh) = (w / shrink, h / shrink);
+        let share = |x: u32, y: u32| if (4..12).contains(&x) && (3..11).contains(&y) { 0 } else { 255 };
+        let weights = weights_frame(sw as u32, sh as u32, share);
+        let placeholder = Frame::new(1, 1, PixelFormat::Rgba, vec![255, 0, 0, 255]);
+        let weighted_step = || ShaderStep {
+            wgsl: BLURRED_WEIGHTED.into(),
+            uniforms: json!({"blur_shrink": shrink, "blur_sigma": sigma}),
+            textures: vec![("blur_weights".into(), placeholder.clone())],
+        };
+        let compare = |out: &Frame, want: &blur_reference::Small| {
+            let mut worst = 0f32;
+            for y in 0..h {
+                for x in 0..w {
+                    let at = blur_reference::read(want, x, y, w, h);
+                    (0..3).for_each(|c| worst = worst.max((out.data[(y * w + x) * 4 + c] as f32 - at[c]).abs()));
+                }
+            }
+            worst
+        };
+        let taps = shader::blur_taps(sigma) as usize;
+        let small = blur_reference::shrunk(&frame.data, w, h, shrink);
+        let mut slot = ShaderSlot::new(weighted_step());
+        slot.prepare(&gpu).unwrap();
+        // no weights given yet: the plain blur
+        let out = run(&gpu, &frame, std::slice::from_mut(&mut slot));
+        let worst = compare(&out, &blur_reference::gauss(&small, sigma, taps));
+        assert!(worst <= 1.5, "without weights {worst} levels from the plain blur");
+        // weights given
+        let uploads = crate::transfers::totals().mask_up;
+        slot.set_textures(&gpu, &[("blur_weights".into(), weights.clone())]);
+        assert_eq!(crate::transfers::totals().mask_up, uploads + 1);
+        let out = run(&gpu, &frame, std::slice::from_mut(&mut slot));
+        let shares: Vec<f32> = (0..sw * sh).map(|i| share((i % sw) as u32, (i / sw) as u32) as f32 / 255.0).collect();
+        let worst = compare(&out, &blur_reference::weighted(&small, &shares, sigma, taps));
+        assert!(worst <= 2.0, "with weights {worst} levels from the reference");
+        // the same data again goes up no more, a changed one does, and leaving it out goes back to the plain blur
+        slot.set_textures(&gpu, &[("blur_weights".into(), weights.clone())]);
+        assert_eq!(crate::transfers::totals().mask_up, uploads + 1, "the same picture isn't sent again");
+        slot.set_textures(&gpu, &[("blur_weights".into(), weights_frame(sw as u32, sh as u32, |_, _| 255))]);
+        assert_eq!(crate::transfers::totals().mask_up, uploads + 2);
+        slot.set_textures(&gpu, &[]);
+        let out = run(&gpu, &frame, std::slice::from_mut(&mut slot));
+        assert!(compare(&out, &blur_reference::gauss(&small, sigma, taps)) <= 1.5);
+    }
+
+    #[test]
+    fn a_picture_the_cpu_half_gives_is_there_to_sample_by_its_name() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let step = ShaderStep {
+            wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(sample_texture(soft, uv).r, 0.0, 0.0, 1.0); }".into(),
+            uniforms: json!({}),
+            textures: vec![("soft".into(), Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]))],
+        };
+        let mut slot = ShaderSlot::new(step);
+        slot.prepare(&gpu).unwrap();
+        let frame = yuv_frame(16, 8, |_, _| 100, 128, 128);
+        assert_eq!(run(&gpu, &frame, std::slice::from_mut(&mut slot)).data[0], 16, "the picture it started with, which is black");
+        // two columns wide: the left black and the right red, read with linear filtering
+        slot.set_textures(&gpu, &[("soft".into(), Frame::new(2, 1, PixelFormat::Rgba, vec![0, 0, 0, 255, 255, 0, 0, 255]))]);
+        let out = run(&gpu, &frame, std::slice::from_mut(&mut slot));
+        let luma = |x: usize| out.data[x] as i32;
+        assert!(luma(0) <= 17 && luma(15) >= 60, "{} {}", luma(0), luma(15));
     }
 
     #[test]

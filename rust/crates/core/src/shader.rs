@@ -10,6 +10,7 @@
 //! mask worked out and bound, and it's uploaded only when it changes. Saying nothing about it costs a shader nothing. A mask user that isn't
 //! first on the card sends the picture down once for the vision model; see uses_person_mask.
 //!
+//! A shader that calls blurred(uv) or blurred_weighted(uv) gets the picture shrunk by the step's uniform `blur_shrink` and Gaussian-blurred with `blur_sigma` there (blurred_weighted leaves out what the step texture `blur_weights` marks 0); see uses_blurred.
 //! A shader that calls previous(uv) or has_previous() gets what this same step drew for the stream's last frame, which is how a step averages
 //! over time. has_previous() is false for the first frame, after the picture's size changed and when the last frame is too old to still be
 //! the same scene (HISTORY_MAX_AGE_NS), and previous() is 0 then. The card only keeps a copy for a shader that asks; see uses_history.
@@ -80,6 +81,23 @@ fn has_previous() -> bool {
     return frame.has_history != 0u;
 }
 ";
+
+/// Declared after PRELUDE for a shader that calls blurred(): the blur of the picture at its small size, read with linear filtering.
+pub const BLURRED_PRELUDE: &str = "\
+fn blurred(uv: vec2<f32>) -> vec4<f32> {
+    return textureSampleLevel(telescope_blurred, telescope_sampler, uv, 0.0);
+}
+
+fn blurred_weighted(uv: vec2<f32>) -> vec4<f32> {
+    return textureSampleLevel(telescope_blurred_weighted, telescope_sampler, uv, 0.0);
+}
+";
+
+/// The step's uniform that says how many times smaller than the picture the blur is worked out, and the sigma it blurs with at that size.
+pub const BLUR_SHRINK: &str = "blur_shrink";
+pub const BLUR_SIGMA: &str = "blur_sigma";
+/// The step texture (one channel, red, at the blurred size) that weights blurred_weighted: 255 where the picture counts, 0 where it's left out.
+pub const BLUR_WEIGHTS: &str = "blur_weights";
 
 const ENTRY_POINTS: &str = "
 struct TelescopeVertex {
@@ -264,6 +282,29 @@ pub fn uses_history(wgsl: &str) -> bool {
     find_word(&code, "previous", '(').is_some() || find_word(&code, "has_previous", '(').is_some()
 }
 
+/// Whether a shader reads the blurred picture, so the executor only works one out for those that do.
+pub fn uses_blurred(wgsl: &str) -> bool {
+    let code = strip_comments(wgsl);
+    find_word(&code, "blurred", '(').is_some() || find_word(&code, "blurred_weighted", '(').is_some()
+}
+
+/// The bindings (group GROUP_STEP) of the blurred picture and the weighted one after the step's own textures; None for a shader that doesn't ask.
+pub fn blur_bindings(step: &ShaderStep) -> Option<(u32, u32)> {
+    let first = BINDING_FIRST_TEXTURE + step.textures.len() as u32;
+    uses_blurred(&step.wgsl).then_some((first, first + 1))
+}
+
+/// The size the blur is worked out at for a picture of w x h shrunk by `shrink`.
+pub fn blur_size(w: u32, h: u32, shrink: u32) -> (u32, u32) {
+    let shrink = shrink.max(1);
+    ((w / shrink).max(1), (h / shrink).max(1))
+}
+
+/// How many taps the blur's kernel has for a sigma: 3 sigma either way, rounded to an odd number.
+pub fn blur_taps(sigma: f64) -> u32 {
+    ((sigma * 3.0 * 2.0 + 1.0).round_ties_even() as u32) | 1
+}
+
 /// FrameInfo's buffer: the frame's size in pixels, the stream's time in seconds, the frame's number and whether a mask and a last frame are bound.
 pub fn frame_uniform(width: u32, height: u32, time_s: f32, number: u64, has_mask: bool, has_history: bool) -> [u8; 24] {
     let mut buf = [0u8; 24];
@@ -299,6 +340,11 @@ fn assemble_body(step: &ShaderStep) -> Result<String, String> {
         }
         out += &format!("@group({GROUP_STEP}) @binding({}) var {name}: texture_2d<f32>;\n", BINDING_FIRST_TEXTURE + i as u32);
     }
+    if let Some((plain, weighted)) = blur_bindings(step) {
+        out += &format!("@group({GROUP_STEP}) @binding({plain}) var telescope_blurred: texture_2d<f32>;\n");
+        out += &format!("@group({GROUP_STEP}) @binding({weighted}) var telescope_blurred_weighted: texture_2d<f32>;\n");
+        out += BLURRED_PRELUDE;
+    }
     out += "\n";
     out += &step.wgsl;
     Ok(out)
@@ -307,6 +353,7 @@ fn assemble_body(step: &ShaderStep) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::frame::{Frame, PixelFormat};
     use serde_json::json;
 
     const GREY: &str = "struct Params {\n    strength: f32,\n    tint: vec3<f32>, // a colour\n    steps: u32,\n}\n\
@@ -355,6 +402,32 @@ mod tests {
         assert!(uses_history("fn effect(uv: vec2<f32>) -> vec4<f32> { if has_previous() { return previous(uv); } return sample(uv); }"));
         let buf = frame_uniform(2, 2, 0.0, 1, false, true);
         assert_eq!((u32::from_le_bytes(buf[16..20].try_into().unwrap()), u32::from_le_bytes(buf[20..24].try_into().unwrap())), (0, 1));
+    }
+
+    #[test]
+    fn only_a_shader_that_asks_for_the_blur_gets_one() {
+        let plain = "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }";
+        let step = |wgsl: &str| ShaderStep { wgsl: wgsl.into(), uniforms: json!({}), textures: vec![("soft".into(), Frame::new(1, 1, PixelFormat::Rgba, vec![0; 4]))] };
+        assert!(!uses_blurred(plain) && !uses_blurred(&format!("// blurred(uv)\n{plain}")));
+        assert!(uses_blurred("fn effect(uv: vec2<f32>) -> vec4<f32> { return blurred(uv); }"));
+        assert!(uses_blurred("fn effect(uv: vec2<f32>) -> vec4<f32> { return blurred_weighted(uv); }"));
+        assert!(!uses_blurred("fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv) * blurred_gain; }"));
+        assert_eq!(blur_bindings(&step(plain)), None);
+        let asking = step("fn effect(uv: vec2<f32>) -> vec4<f32> { return mix(blurred_weighted(uv), sample(uv), 0.5); }");
+        assert_eq!(blur_bindings(&asking), Some((2, 3)));
+        let module = assemble(&asking).unwrap();
+        assert!(module.contains("@binding(2) var telescope_blurred:") && module.contains("@binding(3) var telescope_blurred_weighted:") && module.contains("fn blurred_weighted"));
+        assert!(!assemble(&step(plain)).unwrap().contains("telescope_blurred"));
+    }
+
+    #[test]
+    fn the_blur_works_at_the_size_and_with_the_kernel_the_cpu_blur_does() {
+        assert_eq!(blur_size(3840, 2160, 8), (480, 270));
+        assert_eq!(blur_size(1280, 720, 8), (160, 90));
+        assert_eq!(blur_size(5, 3, 8), (1, 1));
+        assert_eq!(blur_taps(3.5), 23);
+        assert_eq!(blur_taps(6.5), 41);
+        assert_eq!(blur_taps(1.1), 9);
     }
 
     #[test]

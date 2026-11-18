@@ -330,6 +330,10 @@ pub trait CpuStep: Send {
     fn card_uniforms(&mut self, _width: u32, _height: u32) -> Option<Value> {
         None
     }
+    /// For the CPU half of an Either: Rgba frames (red is the value) the shader samples by name, asked with the frame on the CPU; the card re-uploads one only when its data Arc changed, None means never any.
+    fn card_textures(&mut self, _frame: &Frame, _ctx: &dyn FrameContext) -> Option<Vec<(String, Frame)>> {
+        None
+    }
     /// For the CPU half of an Either: whether the card reads YUV chroma as the CPU does (a sample repeated over its 2 x 2 block, not blended).
     fn card_block_chroma(&self) -> bool {
         false
