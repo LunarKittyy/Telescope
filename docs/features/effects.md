@@ -1,4 +1,4 @@
-<!-- covers: rust/crates/effects/src/fun_* rust/crates/effects/src/cinema* rust/crates/effects/src/mosh.rs rust/crates/effects/src/peek* rust/crates/effects/src/light_planes* rust/crates/effects/src/slit_planes* rust/crates/effects/src/qr_reader* rust/crates/effects/src/photos* rust/crates/effects/src/colour_grading* rust/crates/effects/src/cube.rs rust/crates/effects/src/filter* rust/crates/effects/src/notes* rust/crates/effects/src/name_tag* rust/crates/effects/src/tag* rust/crates/effects/src/scopes* rust/crates/effects/src/*.wgsl android/app/src/main/kotlin/com/telescope/Notes.kt android/app/src/main/kotlin/com/telescope/Tag.kt; checked: 0d35dc883 -->
+<!-- covers: rust/crates/effects/src/fun_* rust/crates/effects/src/cinema* rust/crates/effects/src/mosh.rs rust/crates/effects/src/peek* rust/crates/effects/src/light_planes* rust/crates/effects/src/slit_planes* rust/crates/effects/src/qr_reader* rust/crates/effects/src/photos* rust/crates/effects/src/colour_grading* rust/crates/effects/src/cube.rs rust/crates/effects/src/filter* rust/crates/effects/src/notes* rust/crates/effects/src/stargazer* rust/crates/effects/src/name_tag* rust/crates/effects/src/tag* rust/crates/effects/src/scopes* rust/crates/effects/src/*.wgsl android/app/src/main/kotlin/com/telescope/Notes.kt android/app/src/main/kotlin/com/telescope/Tag.kt; checked: 0d35dc883 -->
 # Effects and overlays
 
 Fun effects, looks and things drawn on top of the picture.
@@ -87,6 +87,18 @@ Optional, switched on under **On screen** in the Plugins tab of Settings. Type y
 - On the phone the screen is on and black behind the text while the notes are up, to go easy on the battery with an OLED screen. Back closes them until you send again and stopping the stream takes them away
 
 Android only lets an app open a screen while it's in front. With Telescope in the background the card asks you to open it on the phone and the notes appear once you do. With Preview open on the phone they wait until you close it, since opening them over it would make the stream stutter. Turned sideways in a holder, the text sits next to the lens instead of under it.
+
+## Stargazer
+
+An early version for a phone clipped to a telescope, in Lab. Switch it on under **Camera** in the Plugins tab of Settings. It stacks many frames into one sharper or cleaner picture and has a **Focus** readout that shows how sharp the picture is now and the best so far. Turn the focuser to the highest number.
+
+- **Lucky imaging** is for the moon and planets. It collects **Frames** and stacks the **Sharpest** share of them
+- **Live stack** adds every frame and leaves out what only shows once, like satellites and noise. It is for faint things
+- **Star trails** takes the brightest value of one frame every few seconds (**Every**), which draws the stars as lines
+
+**Start** begins a run and **Stop** ends it early. A lucky run stopped early still stacks what it has, if at least 3 frames made the cut. The finished stack is saved as a PNG in the Stargazer folder of your Pictures and **Open folder** shows it. **Show the stack on the camera** sends it to the virtual camera in place of the live picture, refreshed about once a second.
+
+A run belongs to one phone and one picture size. Switching phones or changing the resolution ends it and you get the stack so far. Collecting pauses while part of the picture is hidden, by Privacy blur or the wait screen. Lucky imaging holds at most 1.5 GB of frames and the card notes it when that lowers the count. A slow computer drops frames instead of using more memory.
 
 ## Name tag
 

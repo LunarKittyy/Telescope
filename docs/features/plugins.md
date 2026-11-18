@@ -57,6 +57,10 @@ For plugins hosted on GitHub that publish their builds as GitHub Releases, Teles
 
 An update installed this way runs from the next time Telescope starts and the restart bar on the Plugins tab counts it. Each release gets one try. If it won't install or holds a different plugin Telescope leaves it and waits for the next release.
 
+### When a plugin crashes
+
+A plugin that crashes is switched off until the next start and a banner names it. The card, header button, windows and effect on the picture go away and its tile shows "Stopped after an error". The next start tries it again. **Copy diagnostics** lists it with the error. Devices and connection, Advanced settings and Updates go on running because Telescope needs them. If the plugin was hiding part of the picture (Background or Privacy blur, for example) Telescope closes instead. That way nothing that should be hidden shows.
+
 ### When an added plugin won't switch on
 
 Its tile on the Plugins tab shows the reason:
