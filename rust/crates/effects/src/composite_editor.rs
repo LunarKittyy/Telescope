@@ -751,6 +751,8 @@ impl CompositePlugin {
         });
         if let (Value::Object(all), Value::Object(side)) = (&mut props, side) {
             all.extend(side);
+            // outside the json! above, which is at its recursion limit
+            all.insert("tile-cut-out".into(), json!(picked.is_some_and(|t| t.cut_out)));
         }
         props
     }
@@ -861,6 +863,10 @@ impl CompositePlugin {
             "radius-moved" => {
                 let radius = number(0).round() as i64;
                 self.edit_picked(host, |t| t.radius = radius);
+            }
+            "cut-out-toggled" => {
+                let cut_out = flag(0);
+                self.edit_picked(host, |t| t.cut_out = cut_out);
             }
             "fit-clicked" => self.fit_shape(host),
             "restack" => self.restack(host, number(0) as i64),

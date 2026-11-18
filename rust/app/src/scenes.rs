@@ -452,6 +452,7 @@ fn services_with(link: SceneLink, changes: Changes) -> Arc<Services> {
             let mut plugins = vec![
                 Box::new(setup_plugin()) as Box<dyn telescope_core::plugin::Plugin>,
                 Box::new(telescope_setup::monitoring::MonitoringPlugin::new()),
+                Box::new(telescope_outputs::spout_send::SpoutSendPlugin::new(None)),
                 Box::new(telescope_link::plugin::ConnectionPlugin::new(connection.clone(), shared)),
                 Box::new(telescope_effects::chroma_key::ChromaKeyPlugin::with_reader(pictures)),
                 Box::new(telescope_effects::face_exposure::FaceExposurePlugin::new()),
@@ -1095,7 +1096,7 @@ fn list() -> Value {
 
 /// `scenes OUT --card PLUGIN [--config JSON | --config-lines FILE] [--card-width N] [--window] [--scale S] [--name NAME]`: one plugin's card alone
 /// (as Page::Card draws it) with that plugin's settings (an event goes out first, so plugins that load settings quietly show them), for the site's clip tiles. A lines file holds one JSON settings object per
-/// line and gives one picture each, NAME-000.png and on (NAME is the plugin's name unless given). Dev tool, changes nothing in the app.
+/// line and gives one picture each, NAME-000.png and on (NAME is the plugin's name unless given). A line's "_props" go straight on the card and its "_appearance" is the look it is drawn in. Dev tool, changes nothing in the app.
 fn run_card(out: &str, words: &[String]) -> Result<(), String> {
     let value = |flag: &str| words.iter().position(|w| w == flag).and_then(|i| words.get(i + 1)).cloned();
     let plugin = value("--card").ok_or("--card needs a plugin name")?;
@@ -1128,6 +1129,10 @@ fn run_card(out: &str, words: &[String]) -> Result<(), String> {
             }
             // a plugin that keeps one copy for the whole app reads it from here
             config["plugin_configs"][plugin.as_str()] = settings.clone();
+            // "_appearance" in a settings line draws the card under that look ({"text": "large"})
+            if let Some(look) = settings.get("_appearance") {
+                config["plugin_configs"]["setup"] = json!({"appearance": look});
+            }
             let page = if whole_window { Page::WindowTop } else { Page::Card { plugin: plugin.clone() } };
             Setup { page, then: Some(Box::new(move |w| {
                 telescope_shell::scenes::hold_still(w);
