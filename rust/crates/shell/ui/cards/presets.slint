@@ -262,22 +262,26 @@ export component PresetsHeader inherits HorizontalLayout {
                 dismissed => { root.dialog-cancelled(); }
                 left => { root.name-going = false; root.name-up = false; name-popup.close(); }
                 title: dialog-title;
+                // Each question is a label over its control, the same gap under every label and the same room between questions
                 VerticalLayout {
-                    spacing: Theme.u(3);
-                    Text {
-                        text: dialog-label;
-                        font-family: Theme.font;
-                        font-size: Theme.body;
-                        color: Theme.ink;
-                    }
-                    TextField {
-                        label: dialog-label;
-                        text <=> root.name-text;
-                        init => { self.focus-all(); }
-                        accepted => { root.name-accepted(root.name-text); }
+                    spacing: Theme.u(4);
+                    VerticalLayout {
+                        spacing: Theme.u(2);
+                        Text {
+                            text: dialog-label;
+                            font-family: Theme.font;
+                            font-size: Theme.body;
+                            color: Theme.ink;
+                        }
+                        TextField {
+                            label: dialog-label;
+                            text <=> root.name-text;
+                            init => { self.focus-all(); }
+                            accepted => { root.name-accepted(root.name-text); }
+                        }
                     }
                     for option[n] in options: VerticalLayout {
-                        spacing: Theme.u(1);
+                        spacing: Theme.u(2);
                         Text {
                             text: option.label;
                             font-family: Theme.font;

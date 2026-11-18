@@ -187,7 +187,7 @@ impl PresetsPlugin {
             "label": tr("Presets"),
             "tip": tr("Saved camera, output, transform, framing and background settings for this phone."),
             "save-text": tr("Save current as…"), "rename-text": tr("Rename"), "delete-text": tr("Delete"),
-            "dialog-label": tr("Name:"), "replace-title": tr("Replace preset"), "replace-text": tr("Replace"),
+            "dialog-label": tr("Name"), "replace-title": tr("Replace preset"), "replace-text": tr("Replace"),
             "cancel-text": tr("Cancel"),
         })
     }
