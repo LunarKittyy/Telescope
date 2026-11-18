@@ -690,6 +690,9 @@ impl FramePipeline for Pipeline {
         let mut chain = Chain::default();
         let mut hid = false;
         let new_background = std::mem::take(&mut self.background_added);
+        let (number, capture_ns) = (frame.number, frame.capture_ns);
+        let started = *self.started_ns.get_or_insert_with(monotonic_ns);
+        let time = monotonic_ns().saturating_sub(started) as f32 / 1e9;
         for i in 0..self.steps.len() {
             let stage = self.steps[i].stage;
             if !matches!(stage, FrameStage::Background | FrameStage::Privacy | FrameStage::Cover) {
@@ -711,12 +714,23 @@ impl FramePipeline for Pipeline {
                 }
                 continue;
             }
+            // A card-only step can't say whether it has something to hide, so it runs on the card, and a failure there goes dark
+            if matches!(self.steps[i].kind, Kind::Shader(_)) {
+                hid = true;
+                self.run_shader(i, &mut frame, &mut chain, ctx, time);
+                continue;
+            }
             // Only a CPU step can say whether it has something to hide right now
             let (Kind::Cpu(step) | Kind::Either(_, step)) = &self.steps[i].kind else { continue };
             if catch_unwind(AssertUnwindSafe(|| step.touch(ctx))).unwrap_or(Touch::Changes) != Touch::Nothing {
                 hid = true;
                 self.run_cpu(i, &mut frame, &mut chain, ctx);
             }
+        }
+        if hid {
+            self.bring_down(&mut chain, &mut frame, ctx, false);
+            frame.number = number;
+            frame.capture_ns = capture_ns;
         }
         hid.then_some(frame)
     }
@@ -1856,6 +1870,7 @@ pub(crate) mod tests {
         a_stop_ends_the_wait_and_the_frame_goes_out_dark();
         a_hiding_step_on_the_card_never_lets_the_clear_picture_out_when_the_card_fails();
         a_card_only_step_at_a_hiding_stage_never_lets_the_clear_picture_out_when_the_card_fails();
+        a_card_only_step_at_privacy_never_lets_a_sent_again_frame_out_clear_when_the_card_fails();
     }
 
     /// HalvesAndCounts its runs and does what DIM does.
@@ -1939,6 +1954,52 @@ pub(crate) mod tests {
             }
             assert!(gpu.is_lost() || matches!(fault, Fault::RefusedSubmit), "{fault:?}: a panic in the card's calls marks it lost");
         }
+    }
+
+    /// A card-only shader at Privacy or Cover, a feed that stalls so the last frame is sent again, while the card fails in each way: the frame is dark, never the clear one.
+    fn a_card_only_step_at_privacy_never_lets_a_sent_again_frame_out_clear_when_the_card_fails() {
+        use crate::gpu::Fault;
+        for stage in [FrameStage::Privacy, FrameStage::Cover] {
+            for fault in [Fault::RefusedSubmit, Fault::PollPanic, Fault::Lost, Fault::LiftPanic, Fault::ShadePanic] {
+                let gpu = Arc::new(Gpu::open().unwrap());
+                let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+                p.gpu = Some(Some(gpu.clone()));
+                let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+                p.set_steps(vec![StagedStep { owner: "key".into(), stage, step: FrameStep::Shader(key) }]);
+                p.process(grey(8, 8, 100), &NoContext);
+                gpu.inject(fault);
+                let out = quietly(|| p.hide_again(grey(8, 8, 90), &NoContext)).expect("a card-only hiding step always has something to hide");
+                assert!(is_dark(&out), "{stage:?} {fault:?}: the clear picture went out again: {:?}", &out.data[..4]);
+            }
+        }
+    }
+
+    #[test]
+    fn a_card_only_step_at_a_hiding_stage_hides_a_frame_sent_again_when_there_is_no_card() {
+        for stage in [FrameStage::Privacy, FrameStage::Cover] {
+            let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+            p.gpu = Some(None);
+            let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+            p.set_steps(vec![StagedStep { owner: "card".into(), stage, step: FrameStep::Shader(key) }]);
+            for _ in 0..=STEP_FAILS_BEFORE_SKIP {
+                let out = quietly(|| p.hide_again(grey(8, 8, 100), &NoContext)).expect("something to hide");
+                assert!(is_dark(&out), "{stage:?}: the clear picture went out again");
+            }
+        }
+    }
+
+    #[test]
+    fn a_card_only_step_at_privacy_runs_on_a_frame_sent_again() {
+        if Gpu::shared().is_none() {
+            return eprintln!("no graphics card; skipped");
+        }
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![StagedStep { owner: "key".into(), stage: FrameStage::Privacy, step: FrameStep::Shader(key) }]);
+        let went_out = grey(8, 8, 100);
+        let again = p.hide_again(went_out.clone(), &NoContext).expect("a card-only hiding step always has something to hide");
+        assert_ne!(again.data[0], 100, "the step ran on the frame sent again");
+        assert_eq!(went_out.data[0], 100);
     }
 
     #[test]
