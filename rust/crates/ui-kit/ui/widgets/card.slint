@@ -262,6 +262,8 @@ export component Card inherits Rectangle {
                     height: parent.height;
                     text: root.header-status;
                     kind: root.header-status-kind;
+                    // Regular weight, so it doesn't compete with the title
+                    font-weight: 400;
                     horizontal: "end";
                 }
             }
