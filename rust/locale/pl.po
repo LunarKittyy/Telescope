@@ -2502,7 +2502,7 @@ msgstr "Bracketing ekspozycji"
 msgid "Focus bracket"
 msgstr "Bracketing ostrości"
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:711 rust/crates/effects/src/photos.rs:844 rust/crates/effects/ui/photos.slint:146 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304 rust/crates/effects/ui/phototrap.slint:99
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:709 rust/crates/effects/src/photos.rs:842 rust/crates/effects/ui/photos.slint:146 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304 rust/crates/effects/ui/phototrap.slint:99
 msgid "Photos"
 msgstr "Zdjęcia"
 
@@ -2615,7 +2615,7 @@ msgstr "Tak jak wideo"
 msgid "{seconds} s"
 msgstr "{seconds} s"
 
-#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/photos.rs:853 rust/crates/effects/src/photos.rs:869 rust/crates/effects/ui/photos.slint:160
+#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/photos.rs:851 rust/crates/effects/src/photos.rs:867 rust/crates/effects/ui/photos.slint:160
 msgid "Take photo"
 msgstr "Zrób zdjęcie"
 
@@ -2667,7 +2667,7 @@ msgstr "Ekspozycja"
 msgid "Distortion fix"
 msgstr "Korekta zniekształceń"
 
-#: rust/crates/effects/src/photos.rs:353 rust/crates/effects/src/photos.rs:788
+#: rust/crates/effects/src/photos.rs:353 rust/crates/effects/src/photos.rs:786
 msgid "Start streaming to take photos."
 msgstr "Rozpocznij strumieniowanie, aby robić zdjęcia."
 
@@ -2703,72 +2703,67 @@ msgstr ""
 
 #: rust/crates/effects/src/photos.rs:586
 #, python-brace-format
-msgid "Saved the merged picture {name} from {used} of {frames} photos. Some photos couldn't be lined up and are still saved."
+msgid "Saved the merged picture {name} from {used} of {frames} photos"
 msgstr ""
 
 #: rust/crates/effects/src/photos.rs:588
 #, python-brace-format
-msgid "Saved the merged picture {name} from {used} of {frames} photos"
-msgstr ""
-
-#: rust/crates/effects/src/photos.rs:590
-#, python-brace-format
 msgid "Saved the merged picture {name}"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:599 rust/crates/effects/src/photos.rs:664 rust/crates/effects/src/photos.rs:686
+#: rust/crates/effects/src/photos.rs:597 rust/crates/effects/src/photos.rs:662 rust/crates/effects/src/photos.rs:684
 msgid "Photo saved"
 msgstr "Zapisano zdjęcie"
 
-#: rust/crates/effects/src/photos.rs:603
+#: rust/crates/effects/src/photos.rs:601
 msgid "The photos are saved but couldn't be merged."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:625 rust/crates/effects/src/photos.rs:645
+#: rust/crates/effects/src/photos.rs:623 rust/crates/effects/src/photos.rs:643
 msgid "Taking the photo…"
 msgstr "Robienie zdjęcia…"
 
-#: rust/crates/effects/src/photos.rs:639
+#: rust/crates/effects/src/photos.rs:637
 #, python-brace-format
 msgid "Taking the photo in {seconds} s"
 msgstr "Zrobienie zdjęcia za {seconds} s"
 
-#: rust/crates/effects/src/photos.rs:641
+#: rust/crates/effects/src/photos.rs:639
 #, python-brace-format
 msgid "Photo {n} of {total}"
 msgstr "Zdjęcie {n} z {total}"
 
-#: rust/crates/effects/src/photos.rs:643
+#: rust/crates/effects/src/photos.rs:641
 msgid "The video is paused while the photo is taken…"
 msgstr "Wideo jest wstrzymane podczas robienia zdjęcia…"
 
-#: rust/crates/effects/src/photos.rs:659 rust/crates/effects/src/stargazer.rs:823
+#: rust/crates/effects/src/photos.rs:657 rust/crates/effects/src/stargazer.rs:823
 #, python-brace-format
 msgid "Saved {name}"
 msgstr "Zapisano {name}"
 
-#: rust/crates/effects/src/photos.rs:682
+#: rust/crates/effects/src/photos.rs:680
 #, python-brace-format
 msgid "The photo arrived late. Saved {name}"
 msgstr "Zdjęcie dotarło z opóźnieniem. Zapisano: {name}"
 
-#: rust/crates/effects/src/photos.rs:696
+#: rust/crates/effects/src/photos.rs:694
 msgid "Save photos in"
 msgstr "Zapisuj zdjęcia w"
 
-#: rust/crates/effects/src/photos.rs:712 rust/crates/effects/ui/photos.slint:147
+#: rust/crates/effects/src/photos.rs:710 rust/crates/effects/ui/photos.slint:147
 msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
 msgstr "Rób zdjęcia w pełnej jakości telefonem lub aparatem fotograficznym, w tym w formacie RAW, jeśli aparat go obsługuje."
 
-#: rust/crates/effects/src/photos.rs:713
+#: rust/crates/effects/src/photos.rs:711
 msgid "Without the Photos plugin there's no Photos card and no Take photo shortcut."
 msgstr "Bez wtyczki Zdjęcia nie ma karty Zdjęcia ani skrótu Zrób zdjęcie."
 
-#: rust/crates/effects/src/photos.rs:846 rust/crates/effects/src/photos.rs:884
+#: rust/crates/effects/src/photos.rs:844 rust/crates/effects/src/photos.rs:882
 msgid "Photo mode"
 msgstr "Tryb zdjęć"
 
-#: rust/crates/effects/src/photos.rs:851 rust/crates/effects/src/photos.rs:894
+#: rust/crates/effects/src/photos.rs:849 rust/crates/effects/src/photos.rs:892
 msgid "Photo timer"
 msgstr "Samowyzwalacz zdjęć"
 
@@ -10900,7 +10895,7 @@ msgstr " °C"
 msgid "Add your phone"
 msgstr "Dodaj swój telefon"
 
-#: rust/crates/effects/src/photos.rs:657
+#: rust/crates/effects/src/photos.rs:655
 #, python-brace-format
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"

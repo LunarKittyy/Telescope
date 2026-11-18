@@ -2502,7 +2502,7 @@ msgstr "Брекетинг экспозиции"
 msgid "Focus bracket"
 msgstr "Брекетинг фокуса"
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:711 rust/crates/effects/src/photos.rs:844 rust/crates/effects/ui/photos.slint:146 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304 rust/crates/effects/ui/phototrap.slint:99
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:709 rust/crates/effects/src/photos.rs:842 rust/crates/effects/ui/photos.slint:146 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304 rust/crates/effects/ui/phototrap.slint:99
 msgid "Photos"
 msgstr "Фото"
 
@@ -2615,7 +2615,7 @@ msgstr "Как в видео"
 msgid "{seconds} s"
 msgstr "{seconds} с"
 
-#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/photos.rs:853 rust/crates/effects/src/photos.rs:869 rust/crates/effects/ui/photos.slint:160
+#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/photos.rs:851 rust/crates/effects/src/photos.rs:867 rust/crates/effects/ui/photos.slint:160
 msgid "Take photo"
 msgstr "Сделать фото"
 
@@ -2667,7 +2667,7 @@ msgstr "Экспозиция"
 msgid "Distortion fix"
 msgstr "Коррекция искажений"
 
-#: rust/crates/effects/src/photos.rs:353 rust/crates/effects/src/photos.rs:788
+#: rust/crates/effects/src/photos.rs:353 rust/crates/effects/src/photos.rs:786
 msgid "Start streaming to take photos."
 msgstr "Начни трансляцию, чтобы делать фото."
 
@@ -2703,72 +2703,67 @@ msgstr ""
 
 #: rust/crates/effects/src/photos.rs:586
 #, python-brace-format
-msgid "Saved the merged picture {name} from {used} of {frames} photos. Some photos couldn't be lined up and are still saved."
+msgid "Saved the merged picture {name} from {used} of {frames} photos"
 msgstr ""
 
 #: rust/crates/effects/src/photos.rs:588
 #, python-brace-format
-msgid "Saved the merged picture {name} from {used} of {frames} photos"
-msgstr ""
-
-#: rust/crates/effects/src/photos.rs:590
-#, python-brace-format
 msgid "Saved the merged picture {name}"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:599 rust/crates/effects/src/photos.rs:664 rust/crates/effects/src/photos.rs:686
+#: rust/crates/effects/src/photos.rs:597 rust/crates/effects/src/photos.rs:662 rust/crates/effects/src/photos.rs:684
 msgid "Photo saved"
 msgstr "Фото сохранено"
 
-#: rust/crates/effects/src/photos.rs:603
+#: rust/crates/effects/src/photos.rs:601
 msgid "The photos are saved but couldn't be merged."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:625 rust/crates/effects/src/photos.rs:645
+#: rust/crates/effects/src/photos.rs:623 rust/crates/effects/src/photos.rs:643
 msgid "Taking the photo…"
 msgstr "Съемка фото…"
 
-#: rust/crates/effects/src/photos.rs:639
+#: rust/crates/effects/src/photos.rs:637
 #, python-brace-format
 msgid "Taking the photo in {seconds} s"
 msgstr "Съемка фото через {seconds} с"
 
-#: rust/crates/effects/src/photos.rs:641
+#: rust/crates/effects/src/photos.rs:639
 #, python-brace-format
 msgid "Photo {n} of {total}"
 msgstr "Фото {n} из {total}"
 
-#: rust/crates/effects/src/photos.rs:643
+#: rust/crates/effects/src/photos.rs:641
 msgid "The video is paused while the photo is taken…"
 msgstr "Видео приостановлено на время съемки фото…"
 
-#: rust/crates/effects/src/photos.rs:659 rust/crates/effects/src/stargazer.rs:823
+#: rust/crates/effects/src/photos.rs:657 rust/crates/effects/src/stargazer.rs:823
 #, python-brace-format
 msgid "Saved {name}"
 msgstr "Сохранено {name}"
 
-#: rust/crates/effects/src/photos.rs:682
+#: rust/crates/effects/src/photos.rs:680
 #, python-brace-format
 msgid "The photo arrived late. Saved {name}"
 msgstr "Фото получено с задержкой. Сохранено: {name}"
 
-#: rust/crates/effects/src/photos.rs:696
+#: rust/crates/effects/src/photos.rs:694
 msgid "Save photos in"
 msgstr "Сохранять фото в"
 
-#: rust/crates/effects/src/photos.rs:712 rust/crates/effects/ui/photos.slint:147
+#: rust/crates/effects/src/photos.rs:710 rust/crates/effects/ui/photos.slint:147
 msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
 msgstr "Делать фото в полном качестве на телефон или DSLR-камеру, включая RAW, если камера его поддерживает."
 
-#: rust/crates/effects/src/photos.rs:713
+#: rust/crates/effects/src/photos.rs:711
 msgid "Without the Photos plugin there's no Photos card and no Take photo shortcut."
 msgstr "Без плагина «Фото» не будет карточки «Фото» и горячей клавиши «Сделать фото»."
 
-#: rust/crates/effects/src/photos.rs:846 rust/crates/effects/src/photos.rs:884
+#: rust/crates/effects/src/photos.rs:844 rust/crates/effects/src/photos.rs:882
 msgid "Photo mode"
 msgstr "Режим фото"
 
-#: rust/crates/effects/src/photos.rs:851 rust/crates/effects/src/photos.rs:894
+#: rust/crates/effects/src/photos.rs:849 rust/crates/effects/src/photos.rs:892
 msgid "Photo timer"
 msgstr "Таймер фото"
 
@@ -10900,7 +10895,7 @@ msgstr " °C"
 msgid "Add your phone"
 msgstr "Добавить телефон"
 
-#: rust/crates/effects/src/photos.rs:657
+#: rust/crates/effects/src/photos.rs:655
 #, python-brace-format
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"

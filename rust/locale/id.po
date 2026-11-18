@@ -2502,7 +2502,7 @@ msgstr "Bracket eksposur"
 msgid "Focus bracket"
 msgstr "Bracket fokus"
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:711 rust/crates/effects/src/photos.rs:844 rust/crates/effects/ui/photos.slint:146 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304 rust/crates/effects/ui/phototrap.slint:99
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:709 rust/crates/effects/src/photos.rs:842 rust/crates/effects/ui/photos.slint:146 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304 rust/crates/effects/ui/phototrap.slint:99
 msgid "Photos"
 msgstr "Foto"
 
@@ -2615,7 +2615,7 @@ msgstr "Sama seperti video"
 msgid "{seconds} s"
 msgstr "{seconds} s"
 
-#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/photos.rs:853 rust/crates/effects/src/photos.rs:869 rust/crates/effects/ui/photos.slint:160
+#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/photos.rs:851 rust/crates/effects/src/photos.rs:867 rust/crates/effects/ui/photos.slint:160
 msgid "Take photo"
 msgstr "Ambil foto"
 
@@ -2667,7 +2667,7 @@ msgstr "Eksposur"
 msgid "Distortion fix"
 msgstr "Koreksi distorsi"
 
-#: rust/crates/effects/src/photos.rs:353 rust/crates/effects/src/photos.rs:788
+#: rust/crates/effects/src/photos.rs:353 rust/crates/effects/src/photos.rs:786
 msgid "Start streaming to take photos."
 msgstr "Mulai streaming untuk mengambil foto."
 
@@ -2703,72 +2703,67 @@ msgstr ""
 
 #: rust/crates/effects/src/photos.rs:586
 #, python-brace-format
-msgid "Saved the merged picture {name} from {used} of {frames} photos. Some photos couldn't be lined up and are still saved."
+msgid "Saved the merged picture {name} from {used} of {frames} photos"
 msgstr ""
 
 #: rust/crates/effects/src/photos.rs:588
 #, python-brace-format
-msgid "Saved the merged picture {name} from {used} of {frames} photos"
-msgstr ""
-
-#: rust/crates/effects/src/photos.rs:590
-#, python-brace-format
 msgid "Saved the merged picture {name}"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:599 rust/crates/effects/src/photos.rs:664 rust/crates/effects/src/photos.rs:686
+#: rust/crates/effects/src/photos.rs:597 rust/crates/effects/src/photos.rs:662 rust/crates/effects/src/photos.rs:684
 msgid "Photo saved"
 msgstr "Foto disimpan"
 
-#: rust/crates/effects/src/photos.rs:603
+#: rust/crates/effects/src/photos.rs:601
 msgid "The photos are saved but couldn't be merged."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:625 rust/crates/effects/src/photos.rs:645
+#: rust/crates/effects/src/photos.rs:623 rust/crates/effects/src/photos.rs:643
 msgid "Taking the photo…"
 msgstr "Mengambil foto…"
 
-#: rust/crates/effects/src/photos.rs:639
+#: rust/crates/effects/src/photos.rs:637
 #, python-brace-format
 msgid "Taking the photo in {seconds} s"
 msgstr "Mengambil foto dalam {seconds} s"
 
-#: rust/crates/effects/src/photos.rs:641
+#: rust/crates/effects/src/photos.rs:639
 #, python-brace-format
 msgid "Photo {n} of {total}"
 msgstr "Foto {n} dari {total}"
 
-#: rust/crates/effects/src/photos.rs:643
+#: rust/crates/effects/src/photos.rs:641
 msgid "The video is paused while the photo is taken…"
 msgstr "Video dijeda saat foto diambil…"
 
-#: rust/crates/effects/src/photos.rs:659 rust/crates/effects/src/stargazer.rs:823
+#: rust/crates/effects/src/photos.rs:657 rust/crates/effects/src/stargazer.rs:823
 #, python-brace-format
 msgid "Saved {name}"
 msgstr "Tersimpan {name}"
 
-#: rust/crates/effects/src/photos.rs:682
+#: rust/crates/effects/src/photos.rs:680
 #, python-brace-format
 msgid "The photo arrived late. Saved {name}"
 msgstr "Foto terlambat tiba. Disimpan {name}"
 
-#: rust/crates/effects/src/photos.rs:696
+#: rust/crates/effects/src/photos.rs:694
 msgid "Save photos in"
 msgstr "Simpan foto di"
 
-#: rust/crates/effects/src/photos.rs:712 rust/crates/effects/ui/photos.slint:147
+#: rust/crates/effects/src/photos.rs:710 rust/crates/effects/ui/photos.slint:147
 msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
 msgstr "Ambil foto berkualitas penuh di ponsel atau DSLR, termasuk RAW jika kamera mendukungnya."
 
-#: rust/crates/effects/src/photos.rs:713
+#: rust/crates/effects/src/photos.rs:711
 msgid "Without the Photos plugin there's no Photos card and no Take photo shortcut."
 msgstr "Tanpa plugin Foto, tidak ada kartu Foto dan tidak ada pintasan Ambil foto."
 
-#: rust/crates/effects/src/photos.rs:846 rust/crates/effects/src/photos.rs:884
+#: rust/crates/effects/src/photos.rs:844 rust/crates/effects/src/photos.rs:882
 msgid "Photo mode"
 msgstr "Mode foto"
 
-#: rust/crates/effects/src/photos.rs:851 rust/crates/effects/src/photos.rs:894
+#: rust/crates/effects/src/photos.rs:849 rust/crates/effects/src/photos.rs:892
 msgid "Photo timer"
 msgstr "Timer foto"
 
@@ -10856,7 +10851,7 @@ msgstr " °C"
 msgid "Add your phone"
 msgstr "Tambahkan ponsel"
 
-#: rust/crates/effects/src/photos.rs:657
+#: rust/crates/effects/src/photos.rs:655
 #, python-brace-format
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"

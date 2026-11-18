@@ -582,8 +582,6 @@ impl PhotosPlugin {
                 tr("Saved {name} from {used} of {frames} photos. The photos are still saved.").field("name", &name).field("used", used.to_string()).field("frames", frames.to_string())
             } else if data.get("left").and_then(Value::as_i64).unwrap_or(0) > 0 {
                 tr("Saved the merged picture {name}. Some photos couldn't be deleted.").field("name", &name)
-            } else if data.get("skipped").and_then(Value::as_i64).unwrap_or(0) > 0 {
-                tr("Saved the merged picture {name} from {used} of {frames} photos. Some photos couldn't be lined up and are still saved.").field("name", &name).field("used", used.to_string()).field("frames", frames.to_string())
             } else if used < frames {
                 tr("Saved the merged picture {name} from {used} of {frames} photos").field("name", &name).field("used", used.to_string()).field("frames", frames.to_string())
             } else {

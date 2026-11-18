@@ -1140,9 +1140,9 @@ fn stamp(path: &Path) -> Option<(u64, std::time::SystemTime)> {
     Some((meta.len(), meta.modified().ok()?))
 }
 
-/// What a finished merge tells the plugin: {"ok", "path", "frames" (the shots there should be), "used", "removed", "left", "kept", "skipped"} or {"ok": false, "error"}. The photos are
+/// What a finished merge tells the plugin: {"ok", "path", "frames" (the shots there should be), "used", "removed", "left", "kept"} or {"ok": false, "error"}. The photos are
 /// only deleted (`keep_frames` false) when there is a JPEG for every one of the `expected` shots, none of them changed meanwhile and the merged file is safely on
-/// disk, and only those that went into the merge ("skipped" counts the ones that could not be lined up and were left): a shot that never arrived has its only copy among the files being deleted (its RAW, in a RAW and JPEG bracket).
+/// disk, the ones that could not be lined up too: a shot that never arrived has its only copy among the files being deleted (its RAW, in a RAW and JPEG bracket).
 pub fn merge_files(files: &[String], quality: u8, keep_frames: bool, kind: Kind, expected: usize) -> Value {
     let jpegs: Vec<PathBuf> = files.iter().map(PathBuf::from).filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("jpg") || e.eq_ignore_ascii_case("jpeg"))).collect();
     let fail = |error: &str| json!({"ok": false, "error": error});
@@ -1177,19 +1177,14 @@ pub fn merge_files(files: &[String], quality: u8, keep_frames: bool, kind: Kind,
     let complete = jpegs.len() >= expected;
     let (mut removed, mut left) = (0, 0);
     if !keep_frames && complete {
-        // only the photos that went into the merged picture are deleted, with the RAW that came with each: one that couldn't be lined up is not in it
-        let went: Vec<&Path> = jpegs.iter().zip(&in_merge).filter(|(_, u)| **u).map(|(p, _)| p.as_path()).collect();
         for f in files {
-            if !went.iter().any(|p| p.with_extension("") == Path::new(f).with_extension("")) {
-                continue;
-            }
             match std::fs::remove_file(f) {
                 Ok(()) => removed += 1,
                 Err(_) => left += 1,
             }
         }
     }
-    json!({"ok": true, "path": path.display().to_string(), "frames": expected.max(jpegs.len()), "used": used, "removed": removed, "left": left, "kept": !keep_frames && !complete, "skipped": jpegs.len() - used})
+    json!({"ok": true, "path": path.display().to_string(), "frames": expected.max(jpegs.len()), "used": used, "removed": removed, "left": left, "kept": !keep_frames && !complete})
 }
 
 /// Merges on a thread of its own and posts "merged" with what merge_files said and the request the photos came from.
