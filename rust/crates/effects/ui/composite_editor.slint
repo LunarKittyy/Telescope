@@ -21,8 +21,16 @@ export struct Grip {
 
 export struct StreamRow {
     text: string,
+    // Streaming or not, as words for the icon's tip and the screen reader
+    status: string,
+    streaming: bool,
     dim: bool,
+    // The stream is in the picture (the eye is open)
     on: bool,
+    // It has a tile in the layout: it can be picked, locked and dragged to another layer
+    layer: bool,
+    locked: bool,
+    picked: bool,
 }
 
 // _paint_chip: a small dark pill with text, for the drag's mode and the picked stream's name
@@ -233,6 +241,190 @@ component SwatchRow inherits HorizontalLayout {
     }
 }
 
+// A small square toggle in a row of the Streams list: an icon that says its state by its shape and by its fill, and by its accessible state
+component LayerToggle inherits Rectangle {
+    in property <image> icon;
+    in property <bool> active;
+    in property <string> label;
+    in property <string> tip;
+    in property <string> tip-detail;
+    callback clicked;
+    width: Theme.u(14);
+    height: Theme.u(14);
+    border-radius: Theme.r-ctl;
+    background: touch.pressed ? Theme.press : touch.has-hover ? Theme.hover : transparent;
+    accessible-role: checkbox;
+    accessible-label: label;
+    accessible-checkable: true;
+    accessible-checked: active;
+    accessible-action-default => { root.clicked(); }
+    Icon {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        source: root.icon;
+        tint: touch.has-hover || root.active ? Theme.ink : Theme.faint;
+        width: Theme.icon;
+        height: Theme.icon;
+        accessible-role: none;
+    }
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.clicked(); }
+    }
+    Tip { says: root.tip; detail: root.tip-detail; hover: touch.has-hover; }
+}
+
+// One row of the Streams list. A stream in the layout is held and dragged up and down to another layer (the front one is on top), as in the Card order
+// dialog: the held row follows the pointer and the others make room, and let go it glides into its place.
+component LayerRow inherits Rectangle {
+    in property <string> title;
+    in property <string> status;
+    in property <bool> streaming;
+    in property <bool> on;
+    in property <bool> dim;
+    in property <bool> layer;
+    in property <bool> locked;
+    in property <bool> picked;
+    in property <length> to;
+    in property <bool> held;
+    in property <length> held-y;
+    in property <bool> any-held;
+    callback eye-clicked(bool);
+    callback lock-clicked(bool);
+    callback pick-clicked;
+    callback drag-started(length);
+    callback drag-moved(length, length);
+    callback drag-ended;
+    place := Settle { to: (root.held ? root.held-y : root.to) / 1px; snap: root.held; }
+    y: round(place.value * 1px / 1phx) * 1phx;
+    z: root.held ? 10 : 0;
+    tone := Tone { on: (touch.has-hover && !root.any-held && root.layer) || root.held; }
+    background: root.picked ? Theme.hover : Theme.raise.mix(Theme.hover, tone.value);
+    border-radius: Theme.r-ctl;
+    border-width: root.held ? Theme.ctl-outline-w(false, true) : 0px;
+    border-color: Theme.ctl-outline(false, true);
+    drop-shadow-blur: root.held ? Theme.u(4) : 0px;
+    drop-shadow-offset-y: root.held ? Theme.u(1) : 0px;
+    drop-shadow-color: root.held ? Theme.shadow : transparent;
+    accessible-role: list-item;
+    accessible-label: root.title + " (" + root.status + ")";
+    accessible-item-selectable: true;
+    accessible-item-selected: root.picked;
+    touch := TouchArea {
+        property <length> grab;
+        property <bool> down;
+        property <bool> dragging;
+        property <bool> was-dragged;
+        mouse-cursor: root.layer ? MouseCursor.grab : MouseCursor.default;
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down && e.button == PointerEventButton.left && root.layer) {
+                down = true;
+                was-dragged = false;
+                grab = self.mouse-y;
+            } else if (e.kind == PointerEventKind.up || e.kind == PointerEventKind.cancel) {
+                down = false;
+                if (dragging) {
+                    dragging = false;
+                    root.drag-ended();
+                }
+            }
+        }
+        moved => {
+            if (down && !dragging && abs(self.mouse-y - grab) > Theme.u(2)) {
+                dragging = true;
+                was-dragged = true;
+                root.drag-started(root.y);
+            }
+            if (dragging) {
+                root.drag-moved(root.y + self.mouse-y - grab, grab);
+            }
+        }
+        clicked => { if (root.layer && !was-dragged) { root.pick-clicked(); } }
+    }
+    Tip { says: root.status; hover: touch.has-hover && touch.mouse-x < Theme.u(18) && !root.any-held; }
+    HorizontalLayout {
+        // one rhythm: the same inset from the row's edge on the left, top and bottom, and the same gap between the parts
+        padding-left: Theme.u(2);
+        padding-right: Theme.u(2);
+        spacing: Theme.u(2);
+        Rectangle {
+            width: Theme.u(14);
+            height: Theme.u(14);
+            y: (parent.height - self.height) / 2;
+            border-radius: Theme.r-ctl;
+            background: Theme.card;
+            accessible-role: none;
+            Icon {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                source: root.streaming ? Icons.camera : Icons.camera-off;
+                tint: root.streaming ? Theme.ink2 : Theme.faint;
+                width: Theme.icon;
+                height: Theme.icon;
+                accessible-role: none;
+            }
+        }
+        Text {
+            text: root.title;
+            font-family: Theme.font;
+            font-size: Theme.body;
+            font-weight: root.picked ? 600 : 400;
+            color: root.dim || !root.on ? Theme.ink2 : Theme.ink;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+            accessible-role: none;
+        }
+        // the eye and the lock as one tile with a thin divider
+        Rectangle {
+            width: root.layer ? Theme.u(28) : Theme.u(14);
+            height: Theme.u(14);
+            y: (parent.height - self.height) / 2;
+            border-radius: Theme.r-ctl;
+            background: Theme.card;
+            clip: true;
+            HorizontalLayout {
+                LayerToggle {
+                    width: root.layer ? Theme.u(14) : parent.width;
+                    height: parent.height;
+                    border-radius: 0px;
+                    icon: root.on ? Icons.eye : Icons.eye-off;
+                    active: root.on;
+                    label: root.title;
+                    tip: root.on ? @tr("In the picture") : @tr("Not in the picture");
+                    tip-detail: root.on ? @tr("Take this stream out of the picture.") : @tr("Put this stream in the picture.");
+                    clicked => { root.eye-clicked(!root.on); }
+                }
+                if root.layer: Rectangle { width: Theme.u(0.5); background: Theme.line; }
+                if root.layer: LayerToggle {
+                    width: Theme.u(13.5);
+                    height: parent.height;
+                    border-radius: 0px;
+                    icon: Icons.lock;
+                    active: root.locked;
+                    label: @tr("Lock");
+                    tip: root.locked ? @tr("Locked") : @tr("Unlocked");
+                    tip-detail: root.locked ? @tr("Let this stream be moved and changed again.") : @tr("Pin this stream so it can't be moved or changed until it is unlocked.");
+                    clicked => { root.lock-clicked(!root.locked); }
+                }
+            }
+        }
+        // the grip: two columns of three dots
+        if root.layer: Rectangle {
+            width: Theme.u(8);
+            accessible-role: none;
+            for i in 6: Rectangle {
+                x: (parent.width - Theme.u(4.5)) / 2 + Math.mod(i, 2) * Theme.u(3);
+                y: (parent.height - Theme.u(7)) / 2 + Math.floor(i / 2) * Theme.u(3);
+                width: Theme.u(1.5);
+                height: Theme.u(1.5);
+                border-radius: self.width / 2;
+                background: Theme.faint;
+            }
+        }
+    }
+}
+
 // A number box with its letter inside at the left (X, Y, W, H), the number right aligned
 component PlaceField inherits Rectangle {
     in property <string> short;
@@ -308,6 +500,8 @@ export component CompositeEditor inherits Window {
     in property <float> radius-max: 200;
     in property <string> radius-text;
     in property <bool> fit-enabled;
+    in property <bool> tile-locked;
+    in property <int> layer-count;
     in property <string> pos-x-text;
     in property <string> pos-y-text;
     in property <string> size-w-text;
@@ -343,6 +537,9 @@ export component CompositeEditor inherits Window {
     callback border-moved(float);
     callback radius-moved(float);
     callback fit-clicked;
+    callback stream-picked(int);
+    callback stream-locked(int, bool);
+    callback stream-moved(int, int);
     callback box-committed(string, string);
     callback box-step(string, int);
     callback swap-picked(int);
@@ -446,28 +643,52 @@ export component CompositeEditor inherits Window {
                     SideCard {
                         title: @tr("Streams");
                         icon: Icons.video;
-                        VerticalLayout {
-                            for row[i] in streams: HorizontalLayout {
-                                spacing: Theme.u(6);
-                                Text {
-                                    text: row.text;
-                                    font-family: Theme.font;
-                                    font-size: Theme.body;
-                                    color: row.dim ? Theme.ink2 : Theme.ink;
-                                    vertical-alignment: center;
-                                    horizontal-stretch: 1;
-                                    overflow: elide;
+                        list := Rectangle {
+                            property <length> row-h: Theme.row + Theme.u(2);
+                            property <length> pitch: row-h + Theme.u(2);
+                            // The row held, where it is held, and the row it would take the place of
+                            property <int> held: -1;
+                            property <length> held-y;
+                            property <int> drop: -1;
+                            height: max(0px, streams.length * pitch - Theme.u(2));
+                            // Where row i sits, with the held one's place made for it
+                            function slot-y(i: int) -> length {
+                                let shift = held < 0 ? 0 : (held < drop && i > held && i <= drop) ? -1 : (held > drop && i >= drop && i < held) ? 1 : 0;
+                                return (i + shift) * pitch;
+                            }
+                            for row[i] in streams: LayerRow {
+                                x: 0px;
+                                width: parent.width;
+                                height: list.row-h;
+                                title: row.text;
+                                status: row.status;
+                                streaming: row.streaming;
+                                on: row.on;
+                                dim: row.dim;
+                                layer: row.layer;
+                                locked: row.locked;
+                                picked: row.picked;
+                                to: row.layer ? list.slot-y(i) : i * list.pitch;
+                                held: list.held == i;
+                                held-y: list.held-y;
+                                any-held: list.held >= 0;
+                                eye-clicked(on) => { root.stream-toggled(i, on); }
+                                lock-clicked(locked) => { root.stream-locked(i, locked); }
+                                pick-clicked => { root.stream-picked(i); }
+                                drag-started(top) => {
+                                    list.held = i;
+                                    list.drop = i;
+                                    list.held-y = top;
                                 }
-                                Rectangle {
-                                    width: Theme.u(18);
-                                    // 32 px only beside the note, which leaves its spare height to the rows in Qt
-                                    height: few-streams ? Theme.u(16) : Theme.u(14);
-                                    Switch {
-                                        y: (parent.height - self.height) / 2;
-                                        checked: row.on;
-                                        label: row.text;
-                                        toggled(on) => { root.stream-toggled(i, on); }
-                                    }
+                                drag-moved(top, grab) => {
+                                    list.held-y = max(0px, min((layer-count - 1) * list.pitch, top));
+                                    list.drop = max(0, min(layer-count - 1, round(list.held-y / list.pitch)));
+                                }
+                                drag-ended => {
+                                    let from = list.held;
+                                    let target = list.drop;
+                                    list.held = -1;
+                                    if (from != target) { root.stream-moved(from, target); }
                                 }
                             }
                         }
@@ -484,6 +705,7 @@ export component CompositeEditor inherits Window {
                         action => { root.fit-clicked(); }
                         if tile-shown: VerticalLayout {
                             spacing: Theme.u(2);
+                            if tile-locked: Note { text: @tr("Locked. Unlock it in the Streams list to change it."); kind: "status_dim"; }
                             shown-tile-name := Text {
                                 text: selected-tile.name;
                                 font-family: Theme.font;
