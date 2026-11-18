@@ -1373,6 +1373,40 @@ fn nobody_in_the_mask_or_no_mask_yet_is_a_cut_out_with_nothing_in_it() {
 }
 
 #[test]
+fn the_card_ways_cut_out_is_the_one_the_cpu_way_makes() {
+    let (scene, mask) = peek::sample_scene(160, 90);
+    let served = Served::new(mask.shrink(40, 22));
+    let frame = i420_of(&scene);
+    let mut cpu = frame.clone();
+    cutting(true, "blur").process(&mut cpu, &served);
+    let mut step = cutting(true, "blur");
+    let alpha = step.card_cut_out(&frame, &served).expect("a cut-out for the card's frame");
+    assert_eq!(alpha.data, cpu.alpha().unwrap().data);
+    assert!(Arc::ptr_eq(&alpha, &step.card_cut_out(&frame, &served).unwrap()), "made once while the mask stays the same");
+    // on RGB frames
+    let (w, h) = (96, 54);
+    let source = stripes(w, h);
+    let ctx = TwoMasks(half_mask(w, h), half_mask(w, h), Default::default());
+    let (rgb, mut on_cpu) = (frame_of(&source), frame_of(&source));
+    cutting(true, "blur").process(&mut on_cpu, &ctx);
+    let alpha = cutting(true, "blur").card_cut_out(&rgb, &ctx).expect("a cut-out");
+    assert_eq!(alpha.data, on_cpu.alpha().unwrap().data);
+}
+
+#[test]
+fn the_card_way_gives_no_cut_out_to_a_stream_not_asking_or_one_that_has_it_and_a_blank_one_with_no_mask() {
+    let (scene, mask) = peek::sample_scene(160, 90);
+    let served = Served::new(mask.shrink(40, 22));
+    let frame = i420_of(&scene);
+    assert!(cutting(false, "blur").card_cut_out(&frame, &served).is_none());
+    let mut has = frame.clone();
+    assert!(has.set_alpha(Arc::new(Alpha::new(160, 90, vec![9; 160 * 90], true))));
+    assert!(cutting(true, "blur").card_cut_out(&has, &served).is_none(), "the first one attached wins");
+    let blank = cutting(true, "blur").card_cut_out(&frame, &Ctx(None, Default::default())).expect("nobody to cut out");
+    assert!(blank.data.iter().all(|&a| a == 0));
+}
+
+#[test]
 fn a_cut_out_another_step_made_is_kept_and_a_stream_not_asking_is_left_alone() {
     let (scene, mask) = peek::sample_scene(160, 90);
     let served = Served::new(mask.shrink(40, 22));

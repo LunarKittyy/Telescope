@@ -488,6 +488,10 @@ pub trait CpuStep: Send {
     fn card_textures_offered(&self) -> Option<bool> {
         None
     }
+    /// For the CPU half of an Either that makes a cut-out (Frame::alpha): the plane for a frame the card is about to work on, asked with the frame on the CPU. The card's shader never gives one, so a step whose CPU way does has to say so here.
+    fn card_cut_out(&mut self, _frame: &Frame, _ctx: &dyn FrameContext) -> Option<Arc<Alpha>> {
+        None
+    }
     /// For the CPU half of an Either: whether the card reads YUV chroma as the CPU does (a sample repeated over its 2 x 2 block, not blended).
     fn card_block_chroma(&self) -> bool {
         false
