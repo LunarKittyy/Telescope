@@ -6,6 +6,7 @@ use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
 use telescope_core::event::LensBox;
 use telescope_core::pose::{self, Person};
+use telescope_core::settings::{off_default, reset_config};
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
 use telescope_core::view::{upright_to_shown, Geometry};
 use telescope_core::{vision, Event, Host};
@@ -161,6 +162,7 @@ impl Preview {
             "boxes-opacity": if self.lens_boxes { 1.0 } else { self.boxes_opacity },
             "lenses-enabled": !self.boxes.is_empty(),
             "lenses-on": self.lens_boxes,
+            "reset-shown": self.reset_shown(),
         }));
     }
 
@@ -194,7 +196,7 @@ impl Preview {
             skeleton(&self.people, &|x, y| upright_to_shown(&geometry, x, y), aspect)
         };
         let lines: Vec<Value> = lines.iter().map(|l| json!({"x0": l.from.0, "y0": l.from.1, "x1": l.to.0, "y1": l.to.1, "sure": l.sure, "out": l.out})).collect();
-        host.set_ui_props("card", &json!({"skeleton-lines": lines, "skeleton-shown": Self::skeleton_there(host), "skeleton-on": self.skeleton}));
+        host.set_ui_props("card", &json!({"skeleton-lines": lines, "skeleton-shown": Self::skeleton_there(host), "skeleton-on": self.skeleton, "reset-shown": self.reset_shown()}));
     }
 
     /// _on_skeleton.
@@ -234,7 +236,25 @@ impl Preview {
     }
 
     fn show_smooth(&self, host: &mut dyn Host) {
-        host.set_ui_props("card", &json!({"smooth-on": self.smooth}));
+        host.set_ui_props("card", &json!({"smooth-on": self.smooth, "reset-shown": self.reset_shown()}));
+    }
+
+    /// Preview keeps nothing through a Reset. Hide, Camera and Pop out aren't settings.
+    fn reset_shown(&self) -> bool {
+        off_default(&self.get_config(), &Preview::default().get_config(), &[])
+    }
+
+    /// Lens outlines, Skeleton and Smooth back to off. The picture, the camera and the phone stay as they are.
+    fn reset(&mut self, host: &mut dyn Host) {
+        let cfg = reset_config(&self.get_config(), &Preview::default().get_config(), &[]);
+        if self.set_config(&cfg).is_ok() {
+            host.want_people(SKELETON_OWNER, false);
+            self.people.clear();
+            self.show_boxes(host);
+            self.show_skeleton(host);
+            self.show_smooth(host);
+            host.schedule_save();
+        }
     }
 
     fn stage_cursor(&self) -> &'static str {
@@ -463,6 +483,7 @@ impl Plugin for Preview {
             "lenses-clicked" => self.toggle_lenses(host),
             "skeleton-clicked" => self.set_skeleton(host, !self.skeleton),
             "smooth-clicked" => self.toggle_smooth(host),
+            "reset-clicked" => self.reset(host),
             "view-pointer" => {
                 let n = |i: usize| event.args.get(i).and_then(Value::as_f64).unwrap_or(0.0);
                 let kind = event.args.first().and_then(Value::as_str).unwrap_or("");
@@ -992,5 +1013,27 @@ mod tests {
     fn the_declared_settings_round_trip() {
         let (mut p, mut host) = ready();
         telescope_core::testing::settings_round_trip(&mut p, &mut host);
+    }
+
+    #[test]
+    fn reset_turns_the_three_buttons_off_and_leaves_the_picture_and_camera_alone() {
+        let (mut p, mut host) = skeleton_card(vision::READY);
+        assert_eq!(card(&host)["reset-shown"], false);
+        click(&mut p, &mut host, "toggle");
+        click(&mut p, &mut host, "toggle");
+        click(&mut p, &mut host, "lenses-clicked");
+        click(&mut p, &mut host, "skeleton-clicked");
+        click(&mut p, &mut host, "smooth-clicked");
+        assert_eq!(card(&host)["reset-shown"], true);
+        click(&mut p, &mut host, "toggle");
+        host.calls.clear();
+        click(&mut p, &mut host, "reset-clicked");
+        let c = card(&host);
+        assert_eq!((c["lenses-on"].as_bool(), c["skeleton-on"].as_bool(), c["smooth-on"].as_bool(), c["reset-shown"].as_bool()), (Some(false), Some(false), Some(false), Some(false)));
+        assert_eq!(p.get_config(), Preview::default().get_config());
+        assert!(p.hidden, "Hide is not a setting");
+        assert!(host.calls.iter().any(|c| c == "want_people Preview skeleton false"));
+        assert!(host.calls.iter().any(|c| c == "schedule_save"));
+        assert!(!host.calls.iter().any(|c| c.starts_with("set_camera_on") || c.starts_with("emit") || c.starts_with("set_source")), "{:?}", host.calls);
     }
 }
