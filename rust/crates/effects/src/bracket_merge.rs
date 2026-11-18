@@ -36,6 +36,8 @@ const MAX_RESIDUAL: f64 = 2.0;
 const MAX_BREATHING: f64 = 0.08;
 /// How far (working pixels) the average and spread that brightness and contrast are evened out against reach
 const LOCAL: usize = 12;
+/// Two pictures lined up are only taken as matching when their correlation in every quarter that can be compared is at least this high
+const MIN_AGREE: f64 = 0.45;
 /// The fine detail is blurred away over this many pixels either way (twice) before photos are compared for how they sit
 const ALIGN_BLUR: usize = 8;
 /// Exposure fusion's well exposed target (the middle of the range) and how far the darker to lighter setting moves it, and how wide "well exposed" is
@@ -46,8 +48,8 @@ const WELL_SIGMA: f32 = 0.2;
 const CLIPPED: f32 = 0.04;
 /// What moved is taken as this many working pixels bigger than where it was seen
 const GHOST_GROW: usize = 4;
-/// The sharpness is smoothed over this many working pixels either way (twice), so the weights change gradually
-const SMOOTH: usize = 6;
+/// The sharpness is smoothed over this many working pixels either way: little, since the pyramid blend softens the join and a wide blur would let a sharp foreground edge win the background beside it
+const SMOOTH: usize = 2;
 /// How much sharper one photo has to be for it to win a pixel: the weight is the sharpness to this power
 const FAVOUR: i32 = 4;
 /// Photos that can't be merged: fewer than this many, or more than the phone's longest bracket
@@ -144,7 +146,40 @@ pub fn estimate(reference: &Plane, moved: &Plane) -> Option<Warp> {
     let rough = Warp { scale: rough.scale, shift: (rough.shift.0 * 2.0, rough.shift.1 * 2.0) };
     let fine = nudge(&reference, &moved, rough, 8)?;
     let far = reference.width.min(reference.height) as f64 / 4.0;
-    ((fine.scale - 1.0).abs() <= MAX_BREATHING && fine.shift.0.hypot(fine.shift.1) <= far).then_some(fine)
+    ((fine.scale - 1.0).abs() <= MAX_BREATHING && fine.shift.0.hypot(fine.shift.1) <= far && agrees(&reference, &moved, &fine)).then_some(fine)
+}
+
+/// Whether the two pictures, laid over each other by the warp, match everywhere there is something to compare and not only in one part (a turn of the camera can
+/// be put right in the middle and left wrong at the sides): the correlation of the two is checked in each quarter. A quarter that is mostly clipped in one of the
+/// pictures, as the bright half of the middle photo of an exposure bracket can be, says nothing either way, but two quarters have to.
+fn agrees(reference: &Plane, moved: &Plane, warp: &Warp) -> bool {
+    let (w, h) = (reference.width, reference.height);
+    let centre = (w as f64 / 2.0, h as f64 / 2.0);
+    let (mut said, mut bad) = (0, 0);
+    for q in 0..4 {
+        let (x0, y0) = ((q % 2) * w / 2, (q / 2) * h / 2);
+        let (mut ab, mut aa, mut bb, mut n) = (0.0f64, 0.0f64, 0.0f64, 0usize);
+        for y in (y0..y0 + h / 2).step_by(2) {
+            for x in (x0..x0 + w / 2).step_by(2) {
+                let (sx, sy) = warp.at(centre, x as f64, y as f64);
+                if sx < 0.0 || sy < 0.0 || sx > (w - 1) as f64 || sy > (h - 1) as f64 {
+                    continue;
+                }
+                let (a, b) = (reference.data[y * w + x], bilinear(moved, sx, sy));
+                if a.is_nan() || b.is_nan() {
+                    continue;
+                }
+                (ab, aa, bb, n) = (ab + (a * b) as f64, aa + (a * a) as f64, bb + (b * b) as f64, n + 1);
+            }
+        }
+        if n * 4 >= (w / 2) * (h / 2) / 4 {
+            said += 1;
+            if ab / (aa * bb).sqrt().max(1e-9) < MIN_AGREE {
+                bad += 1;
+            }
+        }
+    }
+    said >= 2 && bad == 0
 }
 
 /// The plane at half the size, by averaging 2 x 2.
@@ -467,7 +502,6 @@ fn quality(kind: Kind, rgb: &[f32], luma: &[f32], inside: &[bool], w: usize, h: 
     match kind {
         Kind::Focus => {
             blur(&mut map, w, h, SMOOTH);
-            blur(&mut map, w, h, SMOOTH);
             // sharper wins by a lot: the weight is the sharpness to a power, in the weights() that follows
         }
         Kind::Exposure { brightness } => {
@@ -700,6 +734,9 @@ fn collapse(mut levels: Vec<Layer>, ch: usize) -> Layer {
     out
 }
 
+/// The most memory the strips of the result may take while the photos are blended into them (bytes), and the biggest photo that is merged at all (pixels)
+const ACCUMULATOR_BUDGET: usize = 600 << 20;
+const MAX_PIXELS: usize = 150_000_000;
 /// The levels each strip is blended in
 const LEVELS: usize = 6;
 /// A strip is this many rows, with this many more above and below that the blend looks at but doesn't keep
@@ -721,26 +758,53 @@ struct Strip {
     levels: Vec<Layer>,
 }
 
-fn strips(w: usize, h: usize) -> Vec<Strip> {
-    (0..h).step_by(STRIP).map(|y0| {
-        let y1 = (y0 + STRIP).min(h);
-        let (r0, r1) = (y0.saturating_sub(MARGIN), (y1 + MARGIN).min(h));
-        let depth = (LEVELS).min((w.min(r1 - r0).max(1)).ilog2().saturating_sub(2) as usize);
-        let (mut lw, mut lh) = (w, r1 - r0);
-        let mut levels = Vec::with_capacity(depth + 1);
-        for _ in 0..=depth {
-            levels.push(Layer { w: lw, h: lh, data: vec![0.0; lw * lh * 3] });
-            (lw, lh) = (lw.div_ceil(2), lh.div_ceil(2));
+/// The rows of each strip of the result that are kept.
+fn strip_rows(h: usize) -> Vec<(usize, usize)> {
+    (0..h).step_by(STRIP).map(|y0| (y0, (y0 + STRIP).min(h))).collect()
+}
+
+/// An empty strip for these rows of a picture w pixels wide.
+fn new_strip(w: usize, h: usize, (y0, y1): (usize, usize)) -> Strip {
+    let (r0, r1) = (y0.saturating_sub(MARGIN), (y1 + MARGIN).min(h));
+    let depth = LEVELS.min(w.min(r1 - r0).max(1).ilog2().saturating_sub(2) as usize);
+    let (mut lw, mut lh) = (w, r1 - r0);
+    let mut levels = Vec::with_capacity(depth + 1);
+    for _ in 0..=depth {
+        levels.push(Layer { w: lw, h: lh, data: vec![0.0; lw * lh * 3] });
+        (lw, lh) = (lw.div_ceil(2), lh.div_ceil(2));
+    }
+    Strip { keep: (y0, y1), from: r0, levels }
+}
+
+/// The strips (by index, from..to) that go through the photos together: as many as fit the budget, and at least one.
+fn groups(rows: &[(usize, usize)], w: usize, h: usize, budget: usize) -> Vec<(usize, usize)> {
+    let mut out = Vec::new();
+    let mut at = 0;
+    while at < rows.len() {
+        let mut end = at;
+        let mut bytes = 0;
+        while end < rows.len() && (end == at || bytes + strip_bytes(w, h, rows[end]) <= budget) {
+            bytes += strip_bytes(w, h, rows[end]);
+            end += 1;
         }
-        Strip { keep: (y0, y1), from: r0, levels }
-    }).collect()
+        out.push((at, end));
+        at = end;
+    }
+    out
+}
+
+/// How many bytes a strip of these rows takes while it collects.
+fn strip_bytes(w: usize, h: usize, rows: (usize, usize)) -> usize {
+    let (r0, r1) = (rows.0.saturating_sub(MARGIN), (rows.1 + MARGIN).min(h));
+    (w * (r1 - r0) * 3 * 4) * 4 / 3 + 1024
 }
 
 /// What photo `rgb` (w x h, through `warp`) gives a strip: its Laplacian pyramid weighed by the Gaussian pyramid of its weights, added to the strip's.
 fn add_to_strip(strip: &mut Strip, rgb: &[u8], (w, h): (usize, usize), warp: &Warp, weight: &[f32], work: (usize, usize, usize), ghost: Option<&Ghost>) {
     let (ww, wh, factor) = work;
     let rows = strip.levels[0].h;
-    let centre = (w as f64 / 2.0, h as f64 / 2.0);
+    // the middle of the working picture, where the warp turns about, is this pixel of the full one (a working pixel is the average of `factor` of them)
+    let centre = ((ww as f64 / 2.0 + 0.5) * factor as f64 - 0.5, (wh as f64 / 2.0 + 0.5) * factor as f64 - 0.5);
     let mut image = vec![0.0f32; w * rows * 3];
     let mut wmap = vec![0.0f32; w * rows];
     for ry in 0..rows {
@@ -797,13 +861,16 @@ fn add_to_strip(strip: &mut Strip, rgb: &[u8], (w, h): (usize, usize), warp: &Wa
 
 /// Merges `count` photos, which `load` hands over one at a time (twice each). The middle one is what the others are lined up with, what the result is the
 /// size of, and what stands in where a photo disagrees with it.
-pub fn merge(count: usize, load: &dyn Fn(usize) -> Option<Image>, kind: Kind) -> Result<Image, String> {
+pub fn merge(count: usize, load: &dyn Fn(usize) -> Option<Image>, kind: Kind) -> Result<(Image, usize), String> {
     if count < MIN_FRAMES {
         return Err("there are too few photos to merge".into());
     }
     let middle = count / 2;
     let reference = load(middle).ok_or("the middle photo can't be read")?;
     let (w, h) = (reference.width, reference.height);
+    if w * h > MAX_PIXELS {
+        return Err("the photos are too big to merge".into());
+    }
     let factor = w.div_ceil(WORK_WIDTH).max(1);
     let ref_small = small(&reference, factor).ok_or("the middle photo is too small")?;
     let (ww, wh) = (ref_small.width, ref_small.height);
@@ -835,39 +902,45 @@ pub fn merge(count: usize, load: &dyn Fn(usize) -> Option<Image>, kind: Kind) ->
     }
     let weights = weights(kind, &qualities, &ghost_maps, middle);
     drop(qualities);
-    let mut parts = strips(w, h);
+    let used = warps.iter().flatten().count();
     let threads = std::thread::available_parallelism().map_or(2, |n| n.get()).clamp(1, 4);
-    for i in 0..count {
-        let (Some(warp), Some(weight)) = (warps[i], weights[i].as_ref()) else { continue };
-        // the warp was measured on the working picture: its shift is that many pixels there and more here
-        let full = Warp { scale: warp.scale, shift: (warp.shift.0 * factor as f64, warp.shift.1 * factor as f64) };
-        let loaded = if i == middle { None } else { load(i) };
-        let ghost = ghost_maps[i].as_deref().map(|map| Ghost { map, reference: &reference.rgb, expected: 1.0 / gains[i] });
-        let rgb: &[u8] = match (&loaded, i == middle) {
-            (_, true) => &reference.rgb,
-            (Some(f), _) if (f.width, f.height) == (w, h) => &f.rgb,
-            _ => continue,
-        };
-        let per = parts.len().div_ceil(threads).max(1);
-        std::thread::scope(|scope| {
-            for chunk in parts.chunks_mut(per) {
-                scope.spawn(|| chunk.iter_mut().for_each(|strip| add_to_strip(strip, rgb, (w, h), &full, weight, (ww, wh, factor), ghost.as_ref())));
-            }
-        });
-    }
     let mut out = vec![0u8; w * h * 3];
-    for strip in parts {
-        let (y0, y1) = strip.keep;
-        let from = strip.from;
-        let done = collapse(strip.levels, 3);
-        for y in y0..y1 {
-            let src = &done.data[(y - from) * w * 3..(y - from + 1) * w * 3];
-            for (o, v) in out[y * w * 3..(y + 1) * w * 3].iter_mut().zip(src) {
-                *o = (v * 255.0 + 0.5).clamp(0.0, 255.0) as u8;
+    // the strips are done in groups that fit the memory the merge may use, each group reading the photos again
+    let rows = strip_rows(h);
+    for (at, end) in groups(&rows, w, h, ACCUMULATOR_BUDGET) {
+        let mut parts: Vec<Strip> = rows[at..end].iter().map(|r| new_strip(w, h, *r)).collect();
+        for i in 0..count {
+            let (Some(warp), Some(weight)) = (warps[i], weights[i].as_ref()) else { continue };
+            // the warp was measured on the working picture: its shift is that many pixels there and more here
+            let full = Warp { scale: warp.scale, shift: (warp.shift.0 * factor as f64, warp.shift.1 * factor as f64) };
+            let loaded = if i == middle { None } else { load(i) };
+            let ghost = ghost_maps[i].as_deref().map(|map| Ghost { map, reference: &reference.rgb, expected: 1.0 / gains[i] });
+            let rgb: &[u8] = match (&loaded, i == middle) {
+                (_, true) => &reference.rgb,
+                (Some(f), _) if (f.width, f.height) == (w, h) => &f.rgb,
+                // the weights were worked out with this photo in them: without it the picture would come out dark
+                _ => return Err("a photo changed while the photos were merged".into()),
+            };
+            let per = parts.len().div_ceil(threads).max(1);
+            std::thread::scope(|scope| {
+                for chunk in parts.chunks_mut(per) {
+                    scope.spawn(|| chunk.iter_mut().for_each(|strip| add_to_strip(strip, rgb, (w, h), &full, weight, (ww, wh, factor), ghost.as_ref())));
+                }
+            });
+        }
+        for strip in parts {
+            let (y0, y1) = strip.keep;
+            let from = strip.from;
+            let done = collapse(strip.levels, 3);
+            for y in y0..y1 {
+                let src = &done.data[(y - from) * w * 3..(y - from + 1) * w * 3];
+                for (o, v) in out[y * w * 3..(y + 1) * w * 3].iter_mut().zip(src) {
+                    *o = (v * 255.0 + 0.5).clamp(0.0, 255.0) as u8;
+                }
             }
         }
     }
-    Ok(Image { width: w, height: h, rgb: out })
+    Ok((Image { width: w, height: h, rgb: out }, used))
 }
 
 // ── Files ─────────────────────────────────────────────────────────────
@@ -933,15 +1006,51 @@ fn reserve(first: &Path, tag: &str) -> std::io::Result<PathBuf> {
     unreachable!()
 }
 
-/// What a finished merge tells the plugin: {"ok", "path", "frames", "removed"} or {"ok": false, "error"}.
+/// A small Exif block with only the orientation of the one `exif_of` found (the camera's notes and its thumbnail stay behind: the thumbnail would show a photo, not the merge).
+fn orientation_exif(segment: &[u8]) -> Option<Vec<u8>> {
+    let tiff = segment.get(4 + 6..)?;
+    let big = match tiff.get(..2)? {
+        b"MM" => true,
+        b"II" => false,
+        _ => return None,
+    };
+    let u16_at = |at: usize| -> Option<u16> {
+        let b = [*tiff.get(at)?, *tiff.get(at + 1)?];
+        Some(if big { u16::from_be_bytes(b) } else { u16::from_le_bytes(b) })
+    };
+    let u32_at = |at: usize| -> Option<u32> {
+        let b = [*tiff.get(at)?, *tiff.get(at + 1)?, *tiff.get(at + 2)?, *tiff.get(at + 3)?];
+        Some(if big { u32::from_be_bytes(b) } else { u32::from_le_bytes(b) })
+    };
+    let ifd = u32_at(4)? as usize;
+    let entries = u16_at(ifd)? as usize;
+    let orientation = (0..entries.min(64)).find_map(|n| {
+        let at = ifd + 2 + n * 12;
+        (u16_at(at)? == 0x0112).then(|| u16_at(at + 8)).flatten()
+    })?;
+    if !(1..=8).contains(&orientation) {
+        return None;
+    }
+    let mut out = vec![0xFF, 0xE1, 0x00, 0x22];
+    out.extend_from_slice(b"Exif\0\0MM\0\x2A\0\0\0\x08\0\x01\x01\x12\0\x03\0\0\0\x01");
+    out.extend_from_slice(&orientation.to_be_bytes());
+    out.extend_from_slice(&[0, 0, 0, 0, 0, 0]);
+    Some(out)
+}
+
+/// Only one merge works at a time: each takes hundreds of megabytes on a big photo.
+static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// What a finished merge tells the plugin: {"ok", "path", "frames", "used", "removed", "left", "kept"} or {"ok": false, "error"}. The photos are only deleted
+/// (`keep_frames` false) when every one of them went into the merge and the merged file is safely on disk.
 pub fn merge_files(files: &[String], quality: u8, keep_frames: bool, kind: Kind) -> Value {
     let jpegs: Vec<PathBuf> = files.iter().map(PathBuf::from).filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("jpg") || e.eq_ignore_ascii_case("jpeg"))).collect();
     let fail = |error: &str| json!({"ok": false, "error": error});
     if jpegs.len() < MIN_FRAMES {
         return fail("fewer than two JPEG photos");
     }
-    let exif = read_jpeg(&jpegs[jpegs.len() / 2]).and_then(|(_, exif)| exif);
-    let merged = match merge(jpegs.len(), &|i| read_jpeg(&jpegs[i]).map(|(image, _)| image), kind) {
+    let exif = read_jpeg(&jpegs[jpegs.len() / 2]).and_then(|(_, exif)| exif).and_then(|e| orientation_exif(&e));
+    let (merged, used) = match merge(jpegs.len(), &|i| read_jpeg(&jpegs[i]).map(|(image, _)| image), kind) {
         Ok(merged) => merged,
         Err(e) => return fail(&e),
     };
@@ -949,33 +1058,48 @@ pub fn merge_files(files: &[String], quality: u8, keep_frames: bool, kind: Kind)
         Ok(bytes) => bytes,
         Err(e) => return fail(&e),
     };
-    let saved = reserve(&jpegs[0], kind.tag()).and_then(|path| match std::fs::write(&path, &bytes) {
-        Ok(()) => Ok(path),
-        Err(e) => {
-            let _ = std::fs::remove_file(&path);
-            Err(e)
+    drop(merged);
+    // written beside the final name and put there whole, so nothing sees half a picture
+    let saved = reserve(&jpegs[0], kind.tag()).and_then(|path| {
+        let part = path.with_file_name(format!(".{}.part", path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()));
+        let written = std::fs::File::create(&part).and_then(|mut f| std::io::Write::write_all(&mut f, &bytes).and_then(|_| f.sync_all())).and_then(|_| std::fs::rename(&part, &path));
+        match written {
+            Ok(()) => Ok(path),
+            Err(e) => {
+                let _ = std::fs::remove_file(&part);
+                let _ = std::fs::remove_file(&path);
+                Err(e)
+            }
         }
     });
     let path = match saved {
         Ok(path) => path,
         Err(e) => return fail(&e.to_string()),
     };
-    let mut removed = 0;
-    if !keep_frames {
-        removed = files.iter().filter(|f| std::fs::remove_file(f).is_ok()).count();
+    let complete = used == jpegs.len();
+    let (mut removed, mut left) = (0, 0);
+    if !keep_frames && complete {
+        for f in files {
+            match std::fs::remove_file(f) {
+                Ok(()) => removed += 1,
+                Err(_) => left += 1,
+            }
+        }
     }
-    json!({"ok": true, "path": path.display().to_string(), "frames": jpegs.len(), "removed": removed})
+    json!({"ok": true, "path": path.display().to_string(), "frames": jpegs.len(), "used": used, "removed": removed, "left": left, "kept": !keep_frames && !complete})
 }
 
-/// Merges on a thread of its own and posts "merged" with what merge_files said.
-pub fn spawn(poster: std::sync::Arc<dyn Poster>, files: Vec<String>, quality: u8, keep_frames: bool, kind: Kind) {
+/// Merges on a thread of its own and posts "merged" with what merge_files said and the request the photos came from.
+pub fn spawn(poster: std::sync::Arc<dyn Poster>, files: Vec<String>, quality: u8, keep_frames: bool, kind: Kind, request: u64) {
     let post = poster.clone();
-    let started = std::thread::Builder::new().name("focus-merge".into()).spawn(move || {
-        let result = std::panic::catch_unwind(|| merge_files(&files, quality, keep_frames, kind)).unwrap_or_else(|_| json!({"ok": false, "error": "it stopped unexpectedly"}));
+    let started = std::thread::Builder::new().name("bracket-merge".into()).spawn(move || {
+        let _turn = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
+        let mut result = std::panic::catch_unwind(|| merge_files(&files, quality, keep_frames, kind)).unwrap_or_else(|_| json!({"ok": false, "error": "it stopped unexpectedly"}));
+        result["request"] = json!(request);
         post.post("merged", result);
     });
     if started.is_err() {
-        poster.post("merged", json!({"ok": false, "error": "no thread to merge on"}));
+        poster.post("merged", json!({"ok": false, "error": "no thread to merge on", "request": request}));
     }
 }
 

@@ -101,6 +101,8 @@ pub struct PhotosPlugin {
     asked: Option<RequestId>,
     /// The brackets being taken that are to be merged: the request, what to save, the JPEG quality and what kind of merge.
     merges: Vec<(RequestId, String, u8, crate::bracket_merge::Kind)>,
+    /// The newest photo asked for: a merge of an older one finishing later doesn't take Open folder back to its photos.
+    latest_take: Option<RequestId>,
     status: (String, &'static str),
     paired: Paired,
     /// set_config has no host: the card hears the settings with the next hook that has one.
@@ -132,6 +134,7 @@ impl PhotosPlugin {
             taking: Vec::new(),
             asked: None,
             merges: Vec::new(),
+            latest_take: None,
             status: (String::new(), "status_dim"),
             paired: Paired::default(),
             pending: false,
@@ -554,26 +557,39 @@ impl PhotosPlugin {
     }
 
     /// The photos of a bracket are in: merge them on a thread of its own, which says when it's done.
-    fn start_merge(&mut self, host: &mut dyn Host, files: &[String], mode: &str, quality: u8, kind: crate::bracket_merge::Kind) {
+    fn start_merge(&mut self, host: &mut dyn Host, files: &[String], mode: &str, quality: u8, kind: crate::bracket_merge::Kind, request: RequestId) {
         let Some(poster) = host.poster() else { return };
-        crate::bracket_merge::spawn(poster, files.to_vec(), quality, mode != crate::bracket_merge::MERGED, kind);
+        crate::bracket_merge::spawn(poster, files.to_vec(), quality, mode != crate::bracket_merge::MERGED, kind, request.0);
         self.show_status(host, tr("Merging the bracket…"), "status_dim");
     }
 
     fn merged(&mut self, host: &mut dyn Host, data: &Value) {
+        // a merge of an older photo that comes in after a newer one was asked for says so but leaves Open folder alone
+        let newest = data.get("request").and_then(Value::as_u64) == self.latest_take.map(|r| r.0);
         if data.get("ok").and_then(Value::as_bool) == Some(true) {
             let path = data.get("path").and_then(Value::as_str).unwrap_or("").to_string();
             let name = Path::new(&path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-            // the photos that are still there come after the merged picture
-            self.last_saved.retain(|f| Path::new(f).exists());
-            self.last_saved.insert(0, path);
-            let text = tr("Saved the merged picture {name}").field("name", &name);
+            let (frames, used) = (data.get("frames").and_then(Value::as_i64).unwrap_or(0), data.get("used").and_then(Value::as_i64).unwrap_or(0));
+            let text = if data.get("kept").and_then(Value::as_bool) == Some(true) {
+                tr("Saved {name} from {used} of {frames} photos. The photos are still saved.").field("name", &name).field("used", used.to_string()).field("frames", frames.to_string())
+            } else if data.get("left").and_then(Value::as_i64).unwrap_or(0) > 0 {
+                tr("Saved the merged picture {name}. Some photos couldn't be deleted.").field("name", &name)
+            } else if used < frames {
+                tr("Saved the merged picture {name} from {used} of {frames} photos").field("name", &name).field("used", used.to_string()).field("frames", frames.to_string())
+            } else {
+                tr("Saved the merged picture {name}").field("name", &name)
+            };
+            if newest {
+                // the photos that are still there come after the merged picture
+                self.last_saved.retain(|f| Path::new(f).exists());
+                self.last_saved.insert(0, path);
+            }
             self.show_status(host, text.clone(), "status_ok");
             if !host.window_active() {
                 host.send_notification(&tr("Photo saved"), &text, false);
             }
         } else {
-            log::warn!("The focus bracket couldn't be merged: {}", data.get("error").and_then(Value::as_str).unwrap_or("?"));
+            log::warn!("The bracket couldn't be merged: {}", data.get("error").and_then(Value::as_str).unwrap_or("?"));
             self.show_status(host, tr("The photos are saved but couldn't be merged."), "status_err");
         }
         self.refresh(host);
@@ -595,6 +611,7 @@ impl PhotosPlugin {
                     self.merges.push((id, mode.to_string(), int(&self.choices, "quality", 95).clamp(50, 100) as u8, self.merge_kind()));
                 }
                 self.taking.push(id);
+                self.latest_take = Some(id);
                 self.show_status(host, tr("Taking the photo…"), "status_dim");
                 self.refresh(host);
             }
@@ -735,7 +752,7 @@ impl Plugin for PhotosPlugin {
                     let (_, mode, quality, kind) = self.merges.remove(at);
                     if data.get("ok").and_then(Value::as_bool) == Some(true) {
                         let files = self.last_saved.clone();
-                        self.start_merge(host, &files, &mode, quality, kind);
+                        self.start_merge(host, &files, &mode, quality, kind, *request);
                     }
                 }
             }
