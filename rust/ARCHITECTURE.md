@@ -33,6 +33,8 @@ Crates only meet through traits in `core`. The shell never names `link` or `medi
 
 **Every plugin except Connection can be missing.** People switch plugins off and the app still has to start, stream and quit. If you need something another plugin provides, handle it not being there. `app/tests/plugin_removal.rs` starts the window with each optional plugin left out.
 
+**A plugin that panics is switched off until the next start.** Release builds unwind and `State::call` catches a panic in any hook. The plugin's state can't be trusted after that and `State::stop_after_panic` calls its `shutdown()` once, gives back what it held, hides its card and windows, drops its frame steps and shows a banner. A plugin that hides things is the exception (one at the Background, Privacy or Cover stage or with a step whose `hides()` was true this run). Telescope closes when one of those panics, since a closed app shows nothing and one that carries on could show what was hidden. Required plugins carry on after a panic since Telescope can't work without them. A panic in `setup()` leaves the plugin out of the start as before.
+
 **Plugins only use the public host.** If a plugin needs more from the window, add a method to `Host` in `core::host`, implement it in the shell and add it next to the old ones.
 
 **Settings go in the Settings window as sections.** A plugin hands over a section as a `.slint` component and it's built once.
