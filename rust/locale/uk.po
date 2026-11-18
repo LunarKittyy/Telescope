@@ -721,7 +721,7 @@ msgstr "Колір, вибраний із попереднього перегл�
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Клацніть екран позаду вас на попередньому перегляді. Esc скасовує."
 
-#: rust/crates/effects/src/chroma_key.rs:407 rust/crates/effects/src/chroma_key.rs:443 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:591 rust/crates/outputs/src/webcam.rs:976 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1785 rust/crates/shell/src/window.rs:1776 rust/crates/shell/src/worker.rs:581 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:407 rust/crates/effects/src/chroma_key.rs:443 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:976 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1785 rust/crates/shell/src/window.rs:1776 rust/crates/shell/src/worker.rs:581 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Не транслює"
 
@@ -5352,60 +5352,60 @@ msgstr "Не вдалося вилучити файли збереження к�
 msgid "Removed {paths}"
 msgstr "Вилучено {paths}"
 
-#: rust/crates/outputs/src/spout/mod.rs:54
+#: rust/crates/outputs/src/spout/mod.rs:56
 msgid "The sender isn't running. Start it again to continue."
 msgstr "Відправник не запущений. Запустіть його знову, щоб продовжити."
 
-#: rust/crates/outputs/src/spout/mod.rs:55
+#: rust/crates/outputs/src/spout/mod.rs:57
 msgid "The sender isn't sharing a picture. Check that it's running and sending."
 msgstr "Відправник не транслює картинку. Перевірте, чи він запущений і чи щось надсилає."
 
-#: rust/crates/outputs/src/spout/mod.rs:56
+#: rust/crates/outputs/src/spout/mod.rs:58
 msgid "Telescope can't read this sender's picture. Try another sender, or check the sender's output settings."
 msgstr "Telescope не може прочитати картинку цього відправника. Спробуйте іншого відправника або перевірте налаштування виводу відправника."
 
-#: rust/crates/outputs/src/spout/mod.rs:307
+#: rust/crates/outputs/src/spout/mod.rs:309
 msgid "Check that the sender is still running."
 msgstr "Перевірте, чи відправник усе ще працює."
 
-#: rust/crates/outputs/src/spout/mod.rs:583
+#: rust/crates/outputs/src/spout/mod.rs:588
 msgid "Sender not running"
 msgstr "Відправник не працює"
 
-#: rust/crates/outputs/src/spout/mod.rs:585 rust/crates/outputs/src/webcam.rs:972
+#: rust/crates/outputs/src/spout/mod.rs:590 rust/crates/outputs/src/webcam.rs:972
 msgid "Not sending anything"
 msgstr "Нічого не надсилає"
 
-#: rust/crates/outputs/src/spout/mod.rs:587
-msgid "Sender isn't answering"
+#: rust/crates/outputs/src/spout/mod.rs:592
+msgid "Picture frozen"
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:589 rust/crates/outputs/src/webcam.rs:974
+#: rust/crates/outputs/src/spout/mod.rs:594 rust/crates/outputs/src/webcam.rs:974
 msgid "Starting…"
 msgstr "Запуск…"
 
-#: rust/crates/outputs/src/spout/mod.rs:598
+#: rust/crates/outputs/src/spout/mod.rs:603
 msgid "Set how many pictures a second to take. Spout senders don't share their own rate."
 msgstr "Вкажіть, скільки картинок на секунду знімати. Відправники Spout не передають власну частоту."
 
-#: rust/crates/outputs/src/spout/mod.rs:612 rust/crates/outputs/ui/spout.slint:14
+#: rust/crates/outputs/src/spout/mod.rs:617 rust/crates/outputs/ui/spout.slint:14
 msgid "Spout capture"
 msgstr "Захоплення Spout"
 
-#: rust/crates/outputs/src/spout/mod.rs:613
+#: rust/crates/outputs/src/spout/mod.rs:618
 msgid "Stream from games, OBS and other programs on this computer that share their picture through Spout."
 msgstr "Транслюйте з ігор, OBS та інших програм на цьому комп'ютері, які передають свою картинку через Spout."
 
-#: rust/crates/outputs/src/spout/mod.rs:614
+#: rust/crates/outputs/src/spout/mod.rs:619
 msgid "Without Spout capture the senders aren't in the device picker and the Spout capture card is gone too."
 msgstr "Без захоплення Spout відправників немає у списку вибору пристроїв, а картка «Захоплення Spout» також зникає."
 
-#: rust/crates/outputs/src/spout/mod.rs:662
+#: rust/crates/outputs/src/spout/mod.rs:667
 #, python-brace-format
 msgid "{name} isn't running"
 msgstr "{name} не працює"
 
-#: rust/crates/outputs/src/spout/mod.rs:662
+#: rust/crates/outputs/src/spout/mod.rs:667
 msgid "Start it again or pick another source."
 msgstr "Запустіть знову або виберіть інше джерело."
 

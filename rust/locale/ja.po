@@ -721,7 +721,7 @@ msgstr "プレビューから取得した色です。クリックすると再度
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "プレビュー上の背後のスクリーンをクリックしてください。Escでキャンセルします。"
 
-#: rust/crates/effects/src/chroma_key.rs:407 rust/crates/effects/src/chroma_key.rs:443 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:591 rust/crates/outputs/src/webcam.rs:976 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1785 rust/crates/shell/src/window.rs:1776 rust/crates/shell/src/worker.rs:581 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:407 rust/crates/effects/src/chroma_key.rs:443 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:976 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1785 rust/crates/shell/src/window.rs:1776 rust/crates/shell/src/worker.rs:581 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "ストリーミング停止中"
 
@@ -5342,60 +5342,60 @@ msgstr "永続化ファイルの削除に失敗しました"
 msgid "Removed {paths}"
 msgstr "{paths}を削除しました"
 
-#: rust/crates/outputs/src/spout/mod.rs:54
+#: rust/crates/outputs/src/spout/mod.rs:56
 msgid "The sender isn't running. Start it again to continue."
 msgstr "送信側が実行されていません。続行するには再度開始してください。"
 
-#: rust/crates/outputs/src/spout/mod.rs:55
+#: rust/crates/outputs/src/spout/mod.rs:57
 msgid "The sender isn't sharing a picture. Check that it's running and sending."
 msgstr "送信側から映像が共有されていません。実行中で送信が行われているか確認してください。"
 
-#: rust/crates/outputs/src/spout/mod.rs:56
+#: rust/crates/outputs/src/spout/mod.rs:58
 msgid "Telescope can't read this sender's picture. Try another sender, or check the sender's output settings."
 msgstr "Telescopeはこの送信元の画像を読み取れません。別の送信元を試すか、送信元の出力設定を確認してください。"
 
-#: rust/crates/outputs/src/spout/mod.rs:307
+#: rust/crates/outputs/src/spout/mod.rs:309
 msgid "Check that the sender is still running."
 msgstr "送信元が実行中であることを確認してください。"
 
-#: rust/crates/outputs/src/spout/mod.rs:583
+#: rust/crates/outputs/src/spout/mod.rs:588
 msgid "Sender not running"
 msgstr "送信元が実行されていません"
 
-#: rust/crates/outputs/src/spout/mod.rs:585 rust/crates/outputs/src/webcam.rs:972
+#: rust/crates/outputs/src/spout/mod.rs:590 rust/crates/outputs/src/webcam.rs:972
 msgid "Not sending anything"
 msgstr "データ未送信"
 
-#: rust/crates/outputs/src/spout/mod.rs:587
-msgid "Sender isn't answering"
+#: rust/crates/outputs/src/spout/mod.rs:592
+msgid "Picture frozen"
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:589 rust/crates/outputs/src/webcam.rs:974
+#: rust/crates/outputs/src/spout/mod.rs:594 rust/crates/outputs/src/webcam.rs:974
 msgid "Starting…"
 msgstr "開始中…"
 
-#: rust/crates/outputs/src/spout/mod.rs:598
+#: rust/crates/outputs/src/spout/mod.rs:603
 msgid "Set how many pictures a second to take. Spout senders don't share their own rate."
 msgstr "1秒間に取得する画像数を設定します。Spout送信元は自身のレートを共有しません。"
 
-#: rust/crates/outputs/src/spout/mod.rs:612 rust/crates/outputs/ui/spout.slint:14
+#: rust/crates/outputs/src/spout/mod.rs:617 rust/crates/outputs/ui/spout.slint:14
 msgid "Spout capture"
 msgstr "Spoutキャプチャ"
 
-#: rust/crates/outputs/src/spout/mod.rs:613
+#: rust/crates/outputs/src/spout/mod.rs:618
 msgid "Stream from games, OBS and other programs on this computer that share their picture through Spout."
 msgstr "このコンピューター上で、Spout経由で画像を共有しているゲームやOBS、その他のプログラムからストリーミングします。"
 
-#: rust/crates/outputs/src/spout/mod.rs:614
+#: rust/crates/outputs/src/spout/mod.rs:619
 msgid "Without Spout capture the senders aren't in the device picker and the Spout capture card is gone too."
 msgstr "Spoutキャプチャがない場合、デバイス選択に送信元が表示されず、「Spoutキャプチャ」カードも表示されません。"
 
-#: rust/crates/outputs/src/spout/mod.rs:662
+#: rust/crates/outputs/src/spout/mod.rs:667
 #, python-brace-format
 msgid "{name} isn't running"
 msgstr "{name}が実行されていません"
 
-#: rust/crates/outputs/src/spout/mod.rs:662
+#: rust/crates/outputs/src/spout/mod.rs:667
 msgid "Start it again or pick another source."
 msgstr "再起動するか、別のソースを選択してください。"
 

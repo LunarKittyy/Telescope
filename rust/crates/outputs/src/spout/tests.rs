@@ -350,11 +350,31 @@ fn a_reader_that_gets_stuck_says_so_in_the_row_and_says_ok_again_when_it_recover
     feed.read().unwrap();
     deliver(&mut env);
     assert_eq!(env.plugin.states["Cam"].0, "stalled");
-    assert_eq!(status(&env), "Sender isn't answering");
+    assert_eq!(status(&env), "Picture frozen");
+    // The reader stops being stuck, but the row waits for a new picture
     env.backend.stalled.store(false, Ordering::SeqCst);
     feed.read().unwrap();
     deliver(&mut env);
+    assert_eq!(env.plugin.states["Cam"].0, "stalled");
+    env.backend.script.lock().unwrap().push(Ok(Some(picture(2, 2, "RGBA", [1; 4]))));
+    feed.read().unwrap();
+    deliver(&mut env);
     assert_eq!(env.plugin.states["Cam"], ("ok".to_string(), "2×2".to_string()));
+}
+
+#[test]
+fn a_feed_that_was_stopped_leaves_the_row_alone_when_its_reader_turns_out_to_be_stuck() {
+    let mut env = env();
+    pick(&mut env, Some("Cam"));
+    stream(&mut env, "Cam");
+    env.backend.script.lock().unwrap().push(Ok(Some(picture(2, 2, "RGBA", [0; 4]))));
+    let mut feed = open(&env);
+    feed.read().unwrap();
+    feed.stopper().stop();
+    env.backend.stalled.store(true, Ordering::SeqCst);
+    assert_eq!(feed.read().unwrap_err(), FeedEnd::Stopped);
+    deliver(&mut env);
+    assert_ne!(env.plugin.states["Cam"].0, "stalled");
 }
 
 #[test]

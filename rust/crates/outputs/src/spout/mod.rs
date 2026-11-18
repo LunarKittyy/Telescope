@@ -49,6 +49,8 @@ const P_SCANNED: &str = "scanned";
 /// How long opening a sender waits for its first picture.
 const FIRST_PICTURE: Duration = Duration::from_secs(5);
 /// A sender that's idle gets its last picture sent again this often, so the stream doesn't take it for gone.
+/// How often a stuck sender is written to the log again.
+const STALL_LOG_EVERY: Duration = Duration::from_secs(60);
 const KEEP_ALIVE: Duration = Duration::from_secs(1);
 
 const GONE_TEXT: &str = n_("The sender isn't running. Start it again to continue.");
@@ -290,7 +292,7 @@ impl StreamSource for SpoutSource {
         self.report("ok", &format!("{}×{}", first.width, first.height));
         let feed = SpoutFeed {
             reader, first: Some(first), stop, shared: self.shared.clone(), key: self.key.clone(), poster: self.poster.clone(), waiting: self.waiting.clone(),
-            last: None, last_sent: Instant::now(), stalled: false, asked: Instant::now(),
+            last: None, last_sent: Instant::now(), stalled: false, stall_logged: None, asked: Instant::now(),
         };
         Ok((Codec::Mjpeg, Box::new(feed)))
     }
@@ -323,8 +325,9 @@ struct SpoutFeed {
     /// The last picture's packet and its size, for a sender that goes quiet.
     last: Option<(Vec<u8>, (u32, u32))>,
     last_sent: Instant,
-    /// Whether the sender's row says it is stuck.
+    /// Whether the sender's row says it is stuck, and when that was last written to the log.
     stalled: bool,
+    stall_logged: Option<Instant>,
     /// When the reader was asked for the last picture it gave, which the rate counts from so the copy's time isn't added to each frame's.
     asked: Instant,
 }
@@ -359,20 +362,18 @@ impl SpoutFeed {
         }
     }
 
-    /// Tells the sender's row when the reader gets stuck and when it recovers.
+    /// Tells the sender's row when the reader gets stuck. A feed that was stopped says nothing, since a new one may be reporting for the same
+    /// sender. The row goes back to normal only when a new picture comes, so a read that ends in an error doesn't clear it.
     fn show_stall(&mut self) {
-        let stalled = self.reader.stalled();
-        if stalled == self.stalled {
+        if self.stalled || self.stop.load(Ordering::SeqCst) || !self.reader.stalled() {
             return;
         }
-        self.stalled = stalled;
-        if stalled {
-            log::warn!("Reading the picture of the Spout sender {} is taking too long, so its stream is paused until the card answers", self.key);
-            self.post("stalled", "");
-        } else {
-            let detail = self.last.as_ref().map(|(_, (w, h))| format!("{w}×{h}")).unwrap_or_default();
-            self.post("ok", &detail);
+        self.stalled = true;
+        if self.stall_logged.is_none_or(|at| at.elapsed() >= STALL_LOG_EVERY) {
+            self.stall_logged = Some(Instant::now());
+            log::warn!("Reading the picture of the Spout sender {} is taking too long, so its stream is frozen until the card answers", self.key);
         }
+        self.post("stalled", "");
     }
 }
 
@@ -397,6 +398,10 @@ impl VideoFeed for SpoutFeed {
             match read {
                 Ok(Some(picture)) => {
                     self.asked = asked;
+                    if self.stalled && !self.stop.load(Ordering::SeqCst) {
+                        self.stalled = false;
+                        self.post("ok", &format!("{}×{}", picture.width, picture.height));
+                    }
                     return Ok(self.send(picture));
                 }
                 Ok(None) if self.last_sent.elapsed() >= KEEP_ALIVE => {
@@ -584,7 +589,7 @@ impl SpoutPlugin {
         } else if state == "silent" {
             ("status_warn", tr("Not sending anything"))
         } else if state == "stalled" && streaming {
-            ("status_warn", tr("Sender isn't answering"))
+            ("status_warn", tr("Picture frozen"))
         } else if streaming {
             ("status_ok", if state == "ok" { detail } else { tr("Starting…") })
         } else {

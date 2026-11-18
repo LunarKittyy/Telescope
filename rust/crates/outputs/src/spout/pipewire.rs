@@ -96,7 +96,8 @@ impl Backend for PipeWireBackend {
     fn open(&self, key: &str) -> Result<Box<dyn Reader>, String> {
         let connection = self.connection()?;
         let node = connection.nodes().into_iter().find(|n| is_spout2pw(n) && n.name() == key).ok_or_else(|| "the sender isn't running".to_string())?;
-        let consumer = VideoConsumer::open(&connection, node.id, CLIENT_NAME)?;
+        let mut consumer = VideoConsumer::open(&connection, node.id, CLIENT_NAME)?;
+        consumer.set_owner(key);
         Ok(Box::new(PipeWireReader { consumer }))
     }
 }
