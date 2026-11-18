@@ -180,7 +180,7 @@ msgstr "VB-Cable पाएं"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "टाइपिंग, पंखे का शोर और कमरे की सरसराहट हटाएं."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:663 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:784 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -346,7 +346,7 @@ msgstr "पीला: लिमिटर पीक्स को दबा रह
 msgid "Click to clear"
 msgstr "हटाने के लिए क्लिक करें"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:38 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "रीसेट करें"
 
@@ -721,7 +721,7 @@ msgstr "प्रीव्यू से चुना गया रंग. दो
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "प्रीव्यू में अपने पीछे की स्क्रीन पर क्लिक करें. Esc दबाकर रद्द करें."
 
-#: rust/crates/effects/src/chroma_key.rs:411 rust/crates/effects/src/chroma_key.rs:447 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1788 rust/crates/shell/src/window.rs:1815 rust/crates/shell/src/worker.rs:610 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:411 rust/crates/effects/src/chroma_key.rs:447 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1788 rust/crates/shell/src/window.rs:1815 rust/crates/shell/src/worker.rs:613 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "स्ट्रीम नहीं हो रहा है"
 
@@ -1238,82 +1238,90 @@ msgstr "लेआउट सेव करें"
 msgid "There's already a layout called \"{name}\". Replace it?"
 msgstr "\"{name}\" नाम का लेआउट पहले से मौजूद है. क्या आप इसे बदलना चाहते हैं?"
 
-#: rust/crates/effects/src/composite_plugin.rs:37 rust/crates/effects/ui/composite.slint:22
+#: rust/crates/effects/src/composite_plugin.rs:37 rust/crates/effects/ui/composite.slint:27
 msgid "Combine the running streams into one picture."
 msgstr "चल रही स्ट्रीम को मिलाकर एक तस्वीर बनाएं."
 
 #: rust/crates/effects/src/composite_plugin.rs:38
+msgid "Auto director"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:39
+msgid "Swaps between your saved layouts as people move. Hands held in view of another stream bring in the layout that shows that stream biggest. The layout you picked is shown again after the hands leave."
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:40
 msgid "A layout you saved in the editor."
 msgstr "एडिटर में सेव किया गया लेआउट."
 
-#: rust/crates/effects/src/composite_plugin.rs:434 rust/crates/effects/src/composite_plugin.rs:634 rust/crates/effects/src/composite_plugin.rs:638 rust/crates/effects/src/composite_plugin.rs:651 rust/crates/effects/ui/composite.slint:21
+#: rust/crates/effects/src/composite_plugin.rs:537 rust/crates/effects/src/composite_plugin.rs:754 rust/crates/effects/src/composite_plugin.rs:758 rust/crates/effects/src/composite_plugin.rs:771 rust/crates/effects/ui/composite.slint:26
 msgid "One picture"
 msgstr "एक तस्वीर"
 
-#: rust/crates/effects/src/composite_plugin.rs:479
+#: rust/crates/effects/src/composite_plugin.rs:585
 msgid "Nothing's in the picture yet."
 msgstr "तस्वीर में अभी कुछ नहीं है."
 
-#: rust/crates/effects/src/composite_plugin.rs:481
+#: rust/crates/effects/src/composite_plugin.rs:587
 msgid "Active once two streams are running."
 msgstr "दो स्ट्रीम चलने पर सक्रिय होता है."
 
-#: rust/crates/effects/src/composite_plugin.rs:483
+#: rust/crates/effects/src/composite_plugin.rs:589
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "{camera} पर आउटपुट के लिए सेट है लेकिन वहां कोई स्ट्रीम नहीं चल रही है."
 
-#: rust/crates/effects/src/composite_plugin.rs:485
+#: rust/crates/effects/src/composite_plugin.rs:591
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "{camera} पर स्ट्रीम द्वारा तस्वीर भेजने के बाद वहां आउटपुट देगा."
 
-#: rust/crates/effects/src/composite_plugin.rs:487
+#: rust/crates/effects/src/composite_plugin.rs:593
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "{camera} पर आउटपुट हो रहा है."
 
-#: rust/crates/effects/src/composite_plugin.rs:492
+#: rust/crates/effects/src/composite_plugin.rs:598
 msgid "Nothing in it"
 msgstr "इसमें कुछ नहीं है"
 
-#: rust/crates/effects/src/composite_plugin.rs:494 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:703
+#: rust/crates/effects/src/composite_plugin.rs:600 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:703
 msgid "Two streams required"
 msgstr "दो स्ट्रीम ज़रूरी हैं"
 
-#: rust/crates/effects/src/composite_plugin.rs:496
+#: rust/crates/effects/src/composite_plugin.rs:602
 msgid "Not going out"
 msgstr "आउटपुट बंद है"
 
-#: rust/crates/effects/src/composite_plugin.rs:498
+#: rust/crates/effects/src/composite_plugin.rs:604
 msgid "Going out"
 msgstr "आउटपुट चालू है"
 
-#: rust/crates/effects/src/composite_plugin.rs:543
+#: rust/crates/effects/src/composite_plugin.rs:653
 msgid "Several cameras in one picture"
 msgstr "एक ही तस्वीर में कई कैमरे"
 
-#: rust/crates/effects/src/composite_plugin.rs:544
+#: rust/crates/effects/src/composite_plugin.rs:654
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "अपनी चलाई जाने वाली स्ट्रीम्स को एक वर्चुअल कैमरे पर अगल-बगल या एक-दूसरे के अंदर रखें."
 
-#: rust/crates/effects/src/composite_plugin.rs:545
+#: rust/crates/effects/src/composite_plugin.rs:655
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "कई कैमरे एक तस्वीर में प्लगइन के बिना कोई 'एक तस्वीर' कार्ड नहीं होता और हर स्ट्रीम सिर्फ़ अपने कैमरे पर जाती है."
 
-#: rust/crates/effects/src/composite_plugin.rs:639 rust/crates/effects/src/composite_plugin.rs:663
+#: rust/crates/effects/src/composite_plugin.rs:759 rust/crates/effects/src/composite_plugin.rs:784
 msgid "Picture layout"
 msgstr "तस्वीर का लेआउट"
 
-#: rust/crates/effects/src/composite_plugin.rs:712
+#: rust/crates/effects/src/composite_plugin.rs:840
 msgid "One picture layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:713
+#: rust/crates/effects/src/composite_plugin.rs:841
 msgid "Bring this layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:713
+#: rust/crates/effects/src/composite_plugin.rs:841
 msgid "Leave the layout"
 msgstr ""
 
@@ -1651,19 +1659,19 @@ msgstr "फ़ोन पर भी"
 msgid "The Camera card has the phone's own Sharpening and Noise reduction. Using both looks worse."
 msgstr "कैमरा कार्ड में फ़ोन की अपनी शार्पनेस और नॉइज़ रिडक्शन होती है. दोनों का इस्तेमाल करने पर यह और खराब दिखता है."
 
-#: rust/crates/effects/src/filters.rs:364 rust/crates/effects/src/filters.rs:472 rust/crates/effects/src/filters.rs:535 rust/crates/effects/src/filters.rs:535 rust/crates/effects/src/filters.rs:548 rust/crates/effects/ui/filters.slint:38
+#: rust/crates/effects/src/filters.rs:368 rust/crates/effects/src/filters.rs:476 rust/crates/effects/src/filters.rs:539 rust/crates/effects/src/filters.rs:539 rust/crates/effects/src/filters.rs:552 rust/crates/effects/ui/filters.slint:38
 msgid "Filters"
 msgstr "फ़िल्टर्स"
 
-#: rust/crates/effects/src/filters.rs:365
+#: rust/crates/effects/src/filters.rs:369
 msgid "Turn every filter off to see the picture without them."
 msgstr "फ़िल्टर के बिना तस्वीर देखने के लिए हर फ़िल्टर को बंद करें."
 
-#: rust/crates/effects/src/filters.rs:473
+#: rust/crates/effects/src/filters.rs:477
 msgid "Add photo editor filters like sharpen, clarity, dehaze, denoise, skin smoothing, vignette, glow and film grain."
 msgstr "शार्पनेस, क्लैरिटी, डीहेज़, डिनॉइज़, स्किन स्मूथिंग, विगनेट, ग्लो और फ़िल्म ग्रेन जैसे फ़ोटो एडिटर फ़िल्टर जोड़ें."
 
-#: rust/crates/effects/src/filters.rs:474
+#: rust/crates/effects/src/filters.rs:478
 msgid "Without it there's no Filters card and the picture isn't sharpened, cleaned up or finished."
 msgstr "इसके बिना कोई फ़िल्टर्स कार्ड नहीं होता और तस्वीर शार्प, साफ़ या फ़िनिश नहीं होती है."
 
@@ -3612,23 +3620,23 @@ msgstr "दूसरे ऐप्स में इस्तेमाल कर�
 msgid "Replace"
 msgstr "बदलें"
 
-#: rust/crates/effects/ui/composite.slint:34
+#: rust/crates/effects/ui/composite.slint:39
 msgid "Clear the current layout without touching saved layouts."
 msgstr "सेव किए गए लेआउट्स को छुए बिना मौजूदा लेआउट साफ़ करें."
 
-#: rust/crates/effects/ui/composite.slint:40 rust/crates/effects/ui/composite.slint:47 rust/crates/effects/ui/composite.slint:51 rust/crates/effects/ui/composite_editor.slint:628 rust/crates/effects/ui/composite_editor.slint:640 rust/crates/shell/ui/card-order-settings.slint:7
+#: rust/crates/effects/ui/composite.slint:45 rust/crates/effects/ui/composite.slint:52 rust/crates/effects/ui/composite.slint:56 rust/crates/effects/ui/composite_editor.slint:628 rust/crates/effects/ui/composite_editor.slint:640 rust/crates/shell/ui/card-order-settings.slint:7
 msgid "Layout"
 msgstr "लेआउट"
 
-#: rust/crates/effects/ui/composite.slint:60 rust/crates/effects/ui/composite_editor.slint:641
+#: rust/crates/effects/ui/composite.slint:65 rust/crates/effects/ui/composite_editor.slint:641
 msgid "Not saved"
 msgstr "सेव नहीं किया गया"
 
-#: rust/crates/effects/ui/composite.slint:72 rust/crates/effects/ui/composite.slint:73 rust/crates/effects/ui/composite_editor.slint:461 rust/crates/effects/ui/composite_editor.slint:569
+#: rust/crates/effects/ui/composite.slint:77 rust/crates/effects/ui/composite.slint:78 rust/crates/effects/ui/composite_editor.slint:461 rust/crates/effects/ui/composite_editor.slint:569
 msgid "Edit picture"
 msgstr "तस्वीर एडिट करें"
 
-#: rust/crates/effects/ui/composite.slint:74
+#: rust/crates/effects/ui/composite.slint:79
 msgid "Open the editor for the layout."
 msgstr "लेआउट के लिए एडिटर खोलें."
 
@@ -3920,7 +3928,7 @@ msgstr "लेआउट बदलें"
 msgid "Name:"
 msgstr "नाम:"
 
-#: rust/crates/effects/ui/composite_editor.slint:967 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1102 rust/crates/shell/ui/settings.slint:587
+#: rust/crates/effects/ui/composite_editor.slint:967 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1105 rust/crates/shell/ui/settings.slint:587
 msgid "OK"
 msgstr "ठीक है"
 
@@ -8677,57 +8685,57 @@ msgstr "टैब"
 msgid "Check that the device is still on."
 msgstr "जांचें कि डिवाइस अभी भी चालू है."
 
-#: rust/crates/shell/src/settings.rs:914
+#: rust/crates/shell/src/settings.rs:917
 msgid "Nothing matches every word. These match some of the words."
 msgstr "हर शब्द से कुछ भी मेल नहीं खाता. ये कुछ शब्दों से मेल खाते हैं."
 
-#: rust/crates/shell/src/settings.rs:916
+#: rust/crates/shell/src/settings.rs:919
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or describe what it does (resolution, microphone, startup)."
 msgstr "“{text}” से कुछ भी मेल नहीं खाता. कम शब्दों की कोशिश करें, या यह क्या करता है उसका विवरण दें (रेज़ोल्यूशन, माइक्रोफ़ोन, स्टार्टअप)."
 
-#: rust/crates/shell/src/settings.rs:918 rust/crates/shell/ui/settings.slint:260
+#: rust/crates/shell/src/settings.rs:921 rust/crates/shell/ui/settings.slint:260
 msgid "Search results"
 msgstr "खोज परिणाम"
 
-#: rust/crates/shell/src/settings.rs:973
+#: rust/crates/shell/src/settings.rs:976
 msgid "This plugin is an early version. It may change or behave oddly."
 msgstr "यह प्लगइन शुरुआती वर्ज़न है. यह बदल सकता है या असामान्य व्यवहार कर सकता है."
 
-#: rust/crates/shell/src/settings.rs:974
+#: rust/crates/shell/src/settings.rs:977
 msgid "This plugin has technical limitations that will likely never get resolved. Do not expect it to work perfectly."
 msgstr "इस प्लगइन में तकनीकी सीमाएं हैं जो शायद कभी हल नहीं होंगी. इसके पूरी तरह से सही काम करने की उम्मीद न करें."
 
-#: rust/crates/shell/src/settings.rs:990
+#: rust/crates/shell/src/settings.rs:993
 #, python-brace-format
 msgid "Remove {plugin}"
 msgstr "{plugin} हटाएं"
 
-#: rust/crates/shell/src/settings.rs:1019
+#: rust/crates/shell/src/settings.rs:1022
 msgid "Check for updates"
 msgstr "अपडेट खोजें"
 
-#: rust/crates/shell/src/settings.rs:1020
+#: rust/crates/shell/src/settings.rs:1023
 msgid "Check once a day for new versions of added plugins that publish releases on GitHub and show them here. Nothing is downloaded."
 msgstr "जोड़े गए उन प्लगइन्स के नए वर्ज़न के लिए दिन में एक बार देखें जो GitHub पर रिलीज़ पब्लिश करते हैं और उन्हें यहाँ दिखाएं. कुछ भी डाउनलोड नहीं होता."
 
-#: rust/crates/shell/src/settings.rs:1021
+#: rust/crates/shell/src/settings.rs:1024
 msgid "Install updates without asking"
 msgstr "बिना पूछे अपडेट इंस्टॉल करें"
 
-#: rust/crates/shell/src/settings.rs:1021
+#: rust/crates/shell/src/settings.rs:1024
 msgid "Install new versions of the plugins you switched on and switch them on again."
 msgstr "आपके द्वारा चालू किए गए प्लगइन्स के नए वर्ज़न इंस्टॉल करें और उन्हें फिर से चालू करें."
 
-#: rust/crates/shell/src/settings.rs:1022
+#: rust/crates/shell/src/settings.rs:1025
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "खतरनाक! जो कोई भी प्लगइन के रेपो को नियंत्रित करता है, वह हर बार रिलीज़ पब्लिश करने पर इस कंप्यूटर पर नया कोड चला सकता है."
 
-#: rust/crates/shell/src/settings.rs:1135
+#: rust/crates/shell/src/settings.rs:1138
 msgid "Install a plugin"
 msgstr "एक प्लगइन इंस्टॉल करें"
 
-#: rust/crates/shell/src/settings.rs:1137
+#: rust/crates/shell/src/settings.rs:1140
 msgid "Plugins (*.zip)"
 msgstr "प्लगइन्स (*.zip)"
 
@@ -8924,7 +8932,7 @@ msgstr "फ़ोन का कैमरा शुरू हो रहा है
 msgid "Couldn't start the phone's camera"
 msgstr "फ़ोन का कैमरा शुरू नहीं किया जा सका"
 
-#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1136
+#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1139
 msgid "Connecting..."
 msgstr "कनेक्ट हो रहा है..."
 
@@ -9125,43 +9133,43 @@ msgstr "स्ट्रीमिंग शुरू करें"
 msgid "Stop streaming"
 msgstr "स्ट्रीमिंग रोकें"
 
-#: rust/crates/shell/src/window.rs:2153 rust/crates/shell/src/worker.rs:1484
+#: rust/crates/shell/src/window.rs:2153 rust/crates/shell/src/worker.rs:1487
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{camera} पर {fps} fps पर {size} स्ट्रीम हो रहा है"
 
-#: rust/crates/shell/src/worker.rs:600
+#: rust/crates/shell/src/worker.rs:603
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "स्ट्रीम एरर: {error}"
 
-#: rust/crates/shell/src/worker.rs:1136
+#: rust/crates/shell/src/worker.rs:1139
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "{url} से कनेक्ट हो रहा है..."
 
-#: rust/crates/shell/src/worker.rs:1146
+#: rust/crates/shell/src/worker.rs:1149
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "फ़ोन की स्ट्रीम से संपर्क नहीं हो पा रहा है. {seconds} सेकंड में फिर कोशिश की जाएगी…"
 
-#: rust/crates/shell/src/worker.rs:1158
+#: rust/crates/shell/src/worker.rs:1161
 msgid "Waiting for the first frame…"
 msgstr "पहले फ़्रेम का इंतज़ार है…"
 
-#: rust/crates/shell/src/worker.rs:1246
+#: rust/crates/shell/src/worker.rs:1249
 msgid "Stream reconnected"
 msgstr "स्ट्रीम फिर से कनेक्ट हो गई"
 
-#: rust/crates/shell/src/worker.rs:1351
+#: rust/crates/shell/src/worker.rs:1354
 msgid "The video is paused while the phone takes a photo"
 msgstr "फ़ोन द्वारा फ़ोटो लिए जाने के दौरान वीडियो रुका हुआ है"
 
-#: rust/crates/shell/src/worker.rs:1353 rust/crates/shell/src/worker.rs:1359
+#: rust/crates/shell/src/worker.rs:1356 rust/crates/shell/src/worker.rs:1362
 msgid "Stream dropped - reconnecting"
 msgstr "स्ट्रीम टूट गई - फिर से कनेक्ट हो रहा है"
 
-#: rust/crates/shell/src/worker.rs:1473 rust/crates/shell/src/worker.rs:1582
+#: rust/crates/shell/src/worker.rs:1476 rust/crates/shell/src/worker.rs:1585
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "वर्चुअल कैमरा एरर: {error}"
