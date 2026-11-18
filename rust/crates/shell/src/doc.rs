@@ -415,8 +415,10 @@ export component TelescopeWindow inherits Window {
     icon: app-icon;
     preferred-width: 1380px;
     preferred-height: 900px;
-    min-width: 560px;
-    min-height: 520px;
+    in property <length> least-width: 560px;
+    in property <length> least-height: 520px;
+    min-width: least-width;
+    min-height: least-height;
     background: Theme.ground;
     default-font-family: Theme.font;
     default-font-size: Theme.body;

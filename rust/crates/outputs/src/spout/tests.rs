@@ -17,11 +17,15 @@ type Script = Arc<Mutex<Vec<Result<Option<Picture>, String>>>>;
 /// The stop flag the feed gave its reader.
 type StopSlot = Arc<Mutex<Option<Arc<AtomicBool>>>>;
 
-struct FakeReader(Script, StopSlot);
+struct FakeReader(Script, StopSlot, Arc<AtomicBool>);
 
 impl Reader for FakeReader {
     fn set_stop(&mut self, stop: Arc<AtomicBool>) {
         *self.1.lock().unwrap() = Some(stop);
+    }
+
+    fn stalled(&self) -> bool {
+        self.2.load(Ordering::SeqCst)
     }
 
     fn next(&mut self, timeout: Duration) -> Result<Option<Picture>, String> {
@@ -48,6 +52,7 @@ struct FakeBackend {
     script: Script,
     refuse: Mutex<Option<String>>,
     stop: StopSlot,
+    stalled: Arc<AtomicBool>,
 }
 
 impl Backend for FakeBackend {
@@ -57,7 +62,7 @@ impl Backend for FakeBackend {
     fn open(&self, _key: &str) -> Result<Box<dyn Reader>, String> {
         match self.refuse.lock().unwrap().clone() {
             Some(why) => Err(why),
-            None => Ok(Box::new(FakeReader(self.script.clone(), self.stop.clone()))),
+            None => Ok(Box::new(FakeReader(self.script.clone(), self.stop.clone(), self.stalled.clone()))),
         }
     }
 }
@@ -334,6 +339,45 @@ fn a_new_size_is_reported_and_packets_carry_it() {
 }
 
 #[test]
+fn a_reader_that_gets_stuck_says_so_in_the_row_and_says_ok_again_when_it_recovers() {
+    let mut env = env();
+    pick(&mut env, Some("Cam"));
+    stream(&mut env, "Cam");
+    env.backend.script.lock().unwrap().push(Ok(Some(picture(2, 2, "RGBA", [0; 4]))));
+    let mut feed = open(&env);
+    feed.read().unwrap();
+    env.backend.stalled.store(true, Ordering::SeqCst);
+    feed.read().unwrap();
+    deliver(&mut env);
+    assert_eq!(env.plugin.states["Cam"].0, "stalled");
+    assert_eq!(status(&env), "Picture frozen");
+    // The reader stops being stuck, but the row waits for a new picture
+    env.backend.stalled.store(false, Ordering::SeqCst);
+    feed.read().unwrap();
+    deliver(&mut env);
+    assert_eq!(env.plugin.states["Cam"].0, "stalled");
+    env.backend.script.lock().unwrap().push(Ok(Some(picture(2, 2, "RGBA", [1; 4]))));
+    feed.read().unwrap();
+    deliver(&mut env);
+    assert_eq!(env.plugin.states["Cam"], ("ok".to_string(), "2×2".to_string()));
+}
+
+#[test]
+fn a_feed_that_was_stopped_leaves_the_row_alone_when_its_reader_turns_out_to_be_stuck() {
+    let mut env = env();
+    pick(&mut env, Some("Cam"));
+    stream(&mut env, "Cam");
+    env.backend.script.lock().unwrap().push(Ok(Some(picture(2, 2, "RGBA", [0; 4]))));
+    let mut feed = open(&env);
+    feed.read().unwrap();
+    feed.stopper().stop();
+    env.backend.stalled.store(true, Ordering::SeqCst);
+    assert_eq!(feed.read().unwrap_err(), FeedEnd::Stopped);
+    deliver(&mut env);
+    assert_ne!(env.plugin.states["Cam"].0, "stalled");
+}
+
+#[test]
 fn stopping_ends_the_feed() {
     let env = env();
     env.backend.script.lock().unwrap().push(Ok(Some(picture(2, 2, "RGBA", [0; 4]))));
@@ -604,4 +648,37 @@ fn a_read_that_fails_because_of_a_stop_ends_as_stopped_not_as_a_sender_that_went
     assert_eq!(feed.read().unwrap_err(), FeedEnd::Stopped);
     deliver(&mut env);
     assert_ne!(env.plugin.states.get("Cam").map(|s| s.0.as_str()), Some("gone"));
+}
+
+#[test]
+fn a_preset_brings_back_the_picked_senders_frame_rate_and_nothing_else() {
+    let mut env = env();
+    assert!(env.plugin.info().in_presets);
+    pick(&mut env, Some("Cam"));
+    env.plugin.apply_preset(&mut env.host, &json!({"senders": {"Cam": {"fps": 60}, "Other": {"fps": 15}}})).unwrap();
+    assert_eq!(env.plugin.shared.fps("Cam"), 60);
+    assert_eq!(env.plugin.shared.fps("Other"), DEFAULT_FPS, "a sender that isn't picked keeps its own rate");
+    // An older preset, or a rate out of range, changes nothing
+    env.plugin.apply_preset(&mut env.host, &json!({})).unwrap();
+    env.plugin.apply_preset(&mut env.host, &json!({"senders": {"Cam": {"fps": 9999}}})).unwrap();
+    assert_eq!(env.plugin.shared.fps("Cam"), 60);
+}
+
+#[test]
+fn a_preset_saved_at_the_default_rate_can_bring_it_back_and_a_sender_that_is_away_keeps_the_rate_without_a_restart() {
+    let mut env = env();
+    pick(&mut env, Some("Cam"));
+    let saved = env.plugin.get_config();
+    assert_eq!(saved["senders"]["Cam"]["fps"], DEFAULT_FPS);
+    env.plugin.apply_preset(&mut env.host, &json!({"senders": {"Cam": {"fps": 60}}})).unwrap();
+    env.plugin.apply_preset(&mut env.host, &saved).unwrap();
+    assert_eq!(env.plugin.shared.fps("Cam"), DEFAULT_FPS);
+    // The sender goes away while it streams
+    env.backend.senders.lock().unwrap().clear();
+    scan(&mut env);
+    stream(&mut env, "Cam");
+    env.host.calls.clear();
+    env.plugin.apply_preset(&mut env.host, &json!({"senders": {"Cam": {"fps": 15}}})).unwrap();
+    assert!(!env.host.calls.contains(&"reconnect_stream".to_string()), "{:?}", env.host.calls);
+    assert_eq!(env.plugin.shared.fps("Cam"), 15);
 }

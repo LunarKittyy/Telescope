@@ -399,9 +399,9 @@ export component MicrophoneLimits inherits Card {
         hue: root.hue;
         keywords: @tr("search" => "microphone volume loudness boost amplify quiet decibel db slider range");
         Segmented {
-            preferred-width: Theme.control-w;
+            preferred-width: self.room;
             min-width: Theme.control-min;
-            max-width: Theme.control-w;
+            max-width: self.room;
             hue: root.hue;
             label: @tr("Max gain");
             items: root.gain-items;
@@ -545,9 +545,9 @@ export component LookSettings inherits Card {
         hue: root.hue;
         keywords: @tr("search" => "theme classic dark blue appearance look old oled black light white");
         Segmented {
-            preferred-width: Theme.control-w;
+            preferred-width: self.room;
             min-width: Theme.control-min;
-            max-width: Theme.control-w;
+            max-width: self.room;
             hue: root.hue;
             label: @tr("Theme");
             items: [@tr("Dark"), @tr("Classic"), @tr("OLED"), @tr("Light")];
@@ -564,9 +564,9 @@ export component LookSettings inherits Card {
         hue: root.hue;
         keywords: @tr("search" => "color colour theme appearance monochrome colourful purple hue accent look");
         Segmented {
-            preferred-width: Theme.control-w;
+            preferred-width: self.room;
             min-width: Theme.control-min;
-            max-width: Theme.control-w;
+            max-width: self.room;
             hue: root.hue;
             label: @tr("Card colours");
             items: [@tr("Colourful"), @tr("Monochrome")];
@@ -592,9 +592,9 @@ export component LookSettings inherits Card {
         hue: root.hue;
         keywords: @tr("search" => "corners round rounded sharp square radius shape");
         Segmented {
-            preferred-width: Theme.control-w;
+            preferred-width: self.room;
             min-width: Theme.control-min;
-            max-width: Theme.control-w;
+            max-width: self.room;
             hue: root.hue;
             label: @tr("Corners");
             items: [@tr("Sharp"), @tr("Default"), @tr("Round")];
@@ -610,9 +610,9 @@ export component LookSettings inherits Card {
         hue: root.hue;
         keywords: @tr("search" => "text size font bigger smaller large small zoom readable");
         Segmented {
-            preferred-width: Theme.control-w;
+            preferred-width: self.room;
             min-width: Theme.control-min;
-            max-width: Theme.control-w;
+            max-width: self.room;
             hue: root.hue;
             label: @tr("Text size");
             items: [@tr("Small"), @tr("Default"), @tr("Large")];
@@ -628,9 +628,9 @@ export component LookSettings inherits Card {
         hue: root.hue;
         keywords: @tr("search" => "density compact comfortable spacing padding room tight cramped");
         Segmented {
-            preferred-width: Theme.control-w;
+            preferred-width: self.room;
             min-width: Theme.control-min;
-            max-width: Theme.control-w;
+            max-width: self.room;
             hue: root.hue;
             label: @tr("Density");
             items: [@tr("Compact"), @tr("Default"), @tr("Comfortable")];

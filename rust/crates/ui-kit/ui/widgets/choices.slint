@@ -78,6 +78,8 @@ export component Segmented inherits Rectangle {
     // this, a segment never does, so no name is cut by what is next to it
     out property <length> needed: names.preferred-width + items.length * Theme.u(8) + icon-room * items.length + max(0, items.length - 1) * Theme.gap;
     min-width: min(needed, Theme.u(130));
+    // What a settings row gives it: the shared control width, or more where the names need it, so Comfortable at the largest text keeps its room
+    out property <length> room: max(Theme.control-w, needed);
     // What an icon before a name takes
     property <length> icon-room: has-icons.length > 0 ? Theme.icon-small + Theme.u(3) : 0px;
     // How much of its own room every segment can have: all of it while the row is wide enough, and the same share of it for each while it isn't, so

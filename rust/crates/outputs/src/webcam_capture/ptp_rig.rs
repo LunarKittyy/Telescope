@@ -5,9 +5,11 @@
 //! The operation codes and value formats are the ones libgphoto2's PTP driver uses for each maker. Nothing here has met a real camera yet,
 //! only the mock in the tests (ptp/mock.rs), so each maker's part is listed under "needs a real device" in the lane notes.
 
-use super::gphoto_lib::{Kind, Rig, Setting};
+use super::gphoto_lib::{Incomplete, Kind, Rig, Setting, Shot};
 use super::ptp::{self, find_jpeg, DeviceInfo, Form, Maker, PropDesc, Transport, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 // Nikon
@@ -40,6 +42,9 @@ const CANON_WHITE_BALANCE: u16 = 0xD10B;
 /// What GetEvent's records are: a property's new value, and the values it can have now.
 const CANON_EVENT_PROP_VALUE: u32 = 0xC189;
 const CANON_EVENT_AVAIL_LIST: u32 = 0xC18A;
+/// A file the camera made, in the older and the newer layout.
+const CANON_EVENT_OBJECT_ADDED: u32 = 0xC181;
+const CANON_EVENT_OBJECT_ADDED_64: u32 = 0xC1A7;
 /// How much of a live view frame to ask for.
 const CANON_FRAME_SIZE: u32 = 0x0010_0000;
 /// How often Canon cameras want their events read, or they stop answering.
@@ -47,6 +52,8 @@ const CANON_EVENT_EVERY: Duration = Duration::from_millis(800);
 
 // Properties every maker has, named by the standard
 const STD_WHITE_BALANCE: u16 = 0x5005;
+/// JPEG or RAW, and how much compression, which is what Nikon's image quality is.
+const STD_COMPRESSION: u16 = 0x5004;
 const STD_F_NUMBER: u16 = 0x5007;
 const STD_EXPOSURE_BIAS: u16 = 0x5010;
 
@@ -81,6 +88,19 @@ pub struct PtpCamera {
     live: bool,
     canon: HashMap<u16, CanonProp>,
     canon_events: Instant,
+    /// Photos a Canon camera said it made (handle and name) that haven't been fetched yet.
+    canon_added: VecDeque<(u32, String, bool)>,
+    /// Photos a Nikon camera said are waiting (their handles), and the handles already taken from it for this photo.
+    nikon_added: VecDeque<u32>,
+    nikon_seen: Vec<u32>,
+    /// The pictures Nikon said it holds in its memory, which are the only ones this deletes. Files on the card and folders are never touched.
+    nikon_memory: Vec<u32>,
+    /// A camera that doesn't know the handles of its memory pictures when asked to delete them isn't asked again.
+    nikon_delete_fails: bool,
+    /// Set when the camera's thread is asked to end.
+    stop: Option<Arc<AtomicBool>>,
+    /// How long a photo may take to arrive, an exposure and the camera's processing included.
+    photo_wait: Duration,
     closed: bool,
 }
 
@@ -94,7 +114,7 @@ impl PtpCamera {
         }
         let info = DeviceInfo::parse(&ptp::run(t.as_mut(), ptp::OP_GET_DEVICE_INFO, &[], None)?.data).ok_or("the camera's description didn't make sense")?;
         let maker = info.maker();
-        let mut camera = PtpCamera { t, info, maker, pacing, live: false, canon: HashMap::new(), canon_events: Instant::now(), closed: false };
+        let mut camera = PtpCamera { t, info, maker, pacing, live: false, canon: HashMap::new(), canon_events: Instant::now(), canon_added: VecDeque::new(), nikon_added: VecDeque::new(), nikon_seen: Vec::new(), nikon_memory: Vec::new(), nikon_delete_fails: false, stop: None, photo_wait: capture::PHOTO_WAIT, closed: false };
         if maker == Maker::Canon {
             // Remote mode lets the computer drive the camera, and the event mode is how it reports back
             ptp::run(camera.t.as_mut(), CANON_SET_REMOTE_MODE, &[1], None)?;
@@ -144,13 +164,21 @@ impl PtpCamera {
         Ok(())
     }
 
+    fn is_stopped(&self) -> bool {
+        self.stop.as_ref().is_some_and(|s| s.load(Ordering::SeqCst))
+    }
+
+    /// Live view off. A camera that says it is busy is still showing it, so that stays what the rig believes.
     fn end_live_view(&mut self) {
-        let _ = match self.maker {
-            Maker::Nikon => self.t.transact(NIKON_END_LIVE_VIEW, &[], None).map(|_| ()),
-            Maker::Canon => self.canon_set(CANON_EVF_OUTPUT_DEVICE, 0),
-            Maker::Other => Ok(()),
+        let ended = match self.maker {
+            Maker::Nikon => self.t.transact(NIKON_END_LIVE_VIEW, &[], None).map(|r| r.code != ptp::RC_DEVICE_BUSY),
+            Maker::Canon => self.canon_set(CANON_EVF_OUTPUT_DEVICE, 0).map(|()| true),
+            Maker::Other => Ok(true),
         };
-        self.live = false;
+        // A camera that can't be reached has nothing to stop either
+        if ended.unwrap_or(true) {
+            self.live = false;
+        }
     }
 
     /// Sets a Canon property: its code and a 32 bit value, in the record these cameras take.
@@ -194,6 +222,11 @@ impl PtpCamera {
                         }
                     }
                 }
+                CANON_EVENT_OBJECT_ADDED | CANON_EVENT_OBJECT_ADDED_64 | 0xC186 | 0xC1A9 => {
+                    if let Some(added) = capture::canon_added(kind, record) {
+                        self.canon_added.push_back(added);
+                    }
+                }
                 _ => {}
             }
             at += size;
@@ -222,12 +255,15 @@ impl PtpCamera {
             "aperture" if self.maker == Maker::Canon => Words::Aperture(self.maker),
             "exposurecompensation" => Words::Compensation(self.maker),
             "whitebalance" => Words::WhiteBalance(self.maker),
+            // Canon's quality is a pair of codes that this doesn't read, so its photos are made as the camera is set
+            "imagequality" if self.maker == Maker::Nikon => Words::Quality,
             _ => return None,
         };
         let code = match (name, self.maker) {
             ("aperture", _) => CANON_APERTURE,
             ("exposurecompensation", Maker::Canon) => CANON_EXPOSURE_COMP,
             ("whitebalance", Maker::Canon) => CANON_WHITE_BALANCE,
+            ("imagequality", _) => STD_COMPRESSION,
             ("f-number", _) => STD_F_NUMBER,
             ("exposurecompensation", _) => STD_EXPOSURE_BIAS,
             _ => STD_WHITE_BALANCE,
@@ -304,6 +340,7 @@ enum Words {
     Aperture(Maker),
     Compensation(Maker),
     WhiteBalance(Maker),
+    Quality,
 }
 
 impl Words {
@@ -315,6 +352,7 @@ impl Words {
             Words::Compensation(Maker::Canon) => stops_label(canon_stops(raw)),
             Words::Compensation(_) => stops_label(raw as f64 / 1000.0),
             Words::WhiteBalance(maker) => white_balance_label(maker, raw),
+            Words::Quality => quality_label(raw),
         }
     }
 }
@@ -349,6 +387,21 @@ fn canon_stops(code: i64) -> f64 {
         n => n as f64 / 8.0,
     };
     whole as f64 + part
+}
+
+/// Nikon's image quality as libgphoto2 words it for the bodies without a table of their own (the D5100 among them).
+fn quality_label(raw: i64) -> String {
+    match raw {
+        0 => "JPEG Basic",
+        1 => "JPEG Normal",
+        2 => "JPEG Fine",
+        4 => "NEF (Raw)",
+        5 => "NEF+Basic",
+        6 => "NEF+Normal",
+        7 => "NEF+Fine",
+        _ => return format!("Setting {raw}"),
+    }
+    .to_string()
 }
 
 fn white_balance_label(maker: Maker, raw: i64) -> String {
@@ -421,6 +474,10 @@ impl Rig for PtpCamera {
         match name {
             "viewfinder" => {
                 if value == "1" || value == "true" {
+                    // Nothing is started for a camera that is being let go of
+                    if self.is_stopped() {
+                        return Err("stopped".into());
+                    }
                     self.start_live_view()
                 } else {
                     self.end_live_view();
@@ -466,6 +523,14 @@ impl Rig for PtpCamera {
         }
     }
 
+    fn set_stop(&mut self, stop: Arc<AtomicBool>) {
+        self.stop = Some(stop);
+    }
+
+    fn capture(&mut self, expect: usize) -> Result<Vec<Shot>, Incomplete> {
+        self.take_picture(expect)
+    }
+
     fn restart_live_view(&mut self) {
         self.end_live_view();
         let _ = self.start_live_view();
@@ -491,6 +556,8 @@ impl Drop for PtpCamera {
         self.close();
     }
 }
+
+mod capture;
 
 #[cfg(test)]
 mod tests;

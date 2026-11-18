@@ -180,7 +180,7 @@ msgstr "VB-Cableを取得"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "タイピング音、ファン音、室内のノイズを除去します。"
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:664 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:663 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -346,7 +346,7 @@ msgstr "黄: リミッターがピークを抑えています。赤: 音割れ�
 msgid "Click to clear"
 msgstr "クリックでクリア"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:814 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:814 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "リセット"
 
@@ -400,11 +400,11 @@ msgstr "段"
 msgid " stops"
 msgstr "段"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:180 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:325
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:195 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:325
 msgid "Next"
 msgstr "次へ"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:180 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:325
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:195 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:325
 msgid "Previous"
 msgstr "前へ"
 
@@ -544,7 +544,7 @@ msgstr "プラグイン"
 msgid "Updates & About"
 msgstr "アップデート & 情報"
 
-#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:33 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:90 rust/crates/setup/src/stats.rs:435 rust/crates/shell/src/plugins/camera_control.rs:1864 rust/crates/shell/ui/cards/camera.slint:105
+#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:340 rust/crates/effects/ui/photos.slint:342 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:90 rust/crates/setup/src/stats.rs:435 rust/crates/shell/src/plugins/camera_control.rs:1864 rust/crates/shell/ui/cards/camera.slint:105
 msgid "Camera"
 msgstr "カメラ"
 
@@ -617,7 +617,7 @@ msgid "Analysing…"
 msgstr "解析中…"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:82 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:33 rust/crates/effects/src/photos.rs:186 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:92 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:42 rust/crates/effects/src/photos.rs:201 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:340 rust/crates/effects/ui/photos.slint:342 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
 msgid "Off"
 msgstr "オフ"
 
@@ -721,7 +721,7 @@ msgstr "プレビューから取得した色です。クリックすると再度
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "プレビュー上の背後のスクリーンをクリックしてください。Escでキャンセルします。"
 
-#: rust/crates/effects/src/chroma_key.rs:407 rust/crates/effects/src/chroma_key.rs:443 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:565 rust/crates/outputs/src/webcam.rs:976 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1785 rust/crates/shell/src/window.rs:1776 rust/crates/shell/src/worker.rs:581 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:407 rust/crates/effects/src/chroma_key.rs:443 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:976 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1785 rust/crates/shell/src/window.rs:1776 rust/crates/shell/src/worker.rs:610 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "ストリーミング停止中"
 
@@ -1182,63 +1182,63 @@ msgstr "適用前後を比較"
 msgid "LUT strength"
 msgstr "LUT強度"
 
-#: rust/crates/effects/src/composite_editor.rs:280
+#: rust/crates/effects/src/composite_editor.rs:296
 msgid "Move"
 msgstr "移動"
 
-#: rust/crates/effects/src/composite_editor.rs:281
+#: rust/crates/effects/src/composite_editor.rs:297
 msgid "Scale"
 msgstr "拡大縮小"
 
-#: rust/crates/effects/src/composite_editor.rs:282
+#: rust/crates/effects/src/composite_editor.rs:298
 msgid "Stretch"
 msgstr "伸縮"
 
-#: rust/crates/effects/src/composite_editor.rs:283
+#: rust/crates/effects/src/composite_editor.rs:299
 msgid "Crop"
 msgstr "切り抜き"
 
-#: rust/crates/effects/src/composite_editor.rs:284 rust/crates/effects/ui/transforms.slint:236 rust/crates/effects/ui/transforms.slint:246 rust/crates/effects/ui/transforms.slint:248 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/composite_editor.rs:300 rust/crates/effects/ui/transforms.slint:236 rust/crates/effects/ui/transforms.slint:246 rust/crates/effects/ui/transforms.slint:248 rust/crates/outputs/src/webcam.rs:56
 msgid "Pan"
 msgstr "パン"
 
-#: rust/crates/effects/src/composite_editor.rs:287
+#: rust/crates/effects/src/composite_editor.rs:303
 #, python-brace-format
 msgid "{mode}, no snapping"
 msgstr "{mode}、スナップなし"
 
-#: rust/crates/effects/src/composite_editor.rs:346
+#: rust/crates/effects/src/composite_editor.rs:364
 #, python-brace-format
 msgid "Layout {n}"
 msgstr "レイアウト {n}"
 
-#: rust/crates/effects/src/composite_editor.rs:464
+#: rust/crates/effects/src/composite_editor.rs:482
 msgid "Background picture"
 msgstr "背景画像"
 
-#: rust/crates/effects/src/composite_editor.rs:513
+#: rust/crates/effects/src/composite_editor.rs:531
 #, python-brace-format
 msgid "{name} isn't streaming"
 msgstr "{name}はストリーミングしていません"
 
-#: rust/crates/effects/src/composite_editor.rs:523
+#: rust/crates/effects/src/composite_editor.rs:542
 #, python-brace-format
 msgid "{name} (not streaming)"
 msgstr "{name}（ストリーミング停止中）"
 
-#: rust/crates/effects/src/composite_editor.rs:527 rust/crates/setup/src/stats.rs:389
+#: rust/crates/effects/src/composite_editor.rs:546 rust/crates/setup/src/stats.rs:389
 msgid "None"
 msgstr "なし"
 
-#: rust/crates/effects/src/composite_editor.rs:581
+#: rust/crates/effects/src/composite_editor.rs:600
 msgid "Rename layout"
 msgstr "レイアウトの名前を変更"
 
-#: rust/crates/effects/src/composite_editor.rs:581
+#: rust/crates/effects/src/composite_editor.rs:600
 msgid "Save layout"
 msgstr "レイアウトを保存"
 
-#: rust/crates/effects/src/composite_editor.rs:584
+#: rust/crates/effects/src/composite_editor.rs:603
 #, python-brace-format
 msgid "There's already a layout called \"{name}\". Replace it?"
 msgstr "「{name}」という名前のレイアウトが既に存在します。置き換えますか？"
@@ -1251,62 +1251,62 @@ msgstr "実行中のストリームを1つの画像に合成します。"
 msgid "A layout you saved in the editor."
 msgstr "エディターで保存したレイアウトです。"
 
-#: rust/crates/effects/src/composite_plugin.rs:428 rust/crates/effects/src/composite_plugin.rs:635 rust/crates/effects/src/composite_plugin.rs:639 rust/crates/effects/src/composite_plugin.rs:652 rust/crates/effects/ui/composite.slint:21
+#: rust/crates/effects/src/composite_plugin.rs:434 rust/crates/effects/src/composite_plugin.rs:634 rust/crates/effects/src/composite_plugin.rs:638 rust/crates/effects/src/composite_plugin.rs:651 rust/crates/effects/ui/composite.slint:21
 msgid "One picture"
 msgstr "1画面に統合"
 
-#: rust/crates/effects/src/composite_plugin.rs:473
+#: rust/crates/effects/src/composite_plugin.rs:479
 msgid "Nothing's in the picture yet."
 msgstr "画像にはまだ何もありません。"
 
-#: rust/crates/effects/src/composite_plugin.rs:475
+#: rust/crates/effects/src/composite_plugin.rs:481
 msgid "Active once two streams are running."
 msgstr "2つのストリームが実行されると有効になります。"
 
-#: rust/crates/effects/src/composite_plugin.rs:477
+#: rust/crates/effects/src/composite_plugin.rs:483
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "{camera}に出力するよう設定されていますが、ストリームが実行されていません。"
 
-#: rust/crates/effects/src/composite_plugin.rs:479
+#: rust/crates/effects/src/composite_plugin.rs:485
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "該当のストリームから映像が送信されると、{camera}に出力されます。"
 
-#: rust/crates/effects/src/composite_plugin.rs:481
+#: rust/crates/effects/src/composite_plugin.rs:487
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "{camera}に出力中。"
 
-#: rust/crates/effects/src/composite_plugin.rs:486
+#: rust/crates/effects/src/composite_plugin.rs:492
 msgid "Nothing in it"
 msgstr "中身なし"
 
-#: rust/crates/effects/src/composite_plugin.rs:488 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
+#: rust/crates/effects/src/composite_plugin.rs:494 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
 msgid "Two streams required"
 msgstr "2つのストリームが必要です"
 
-#: rust/crates/effects/src/composite_plugin.rs:490
+#: rust/crates/effects/src/composite_plugin.rs:496
 msgid "Not going out"
 msgstr "出力なし"
 
-#: rust/crates/effects/src/composite_plugin.rs:492
+#: rust/crates/effects/src/composite_plugin.rs:498
 msgid "Going out"
 msgstr "出力中"
 
-#: rust/crates/effects/src/composite_plugin.rs:537
+#: rust/crates/effects/src/composite_plugin.rs:543
 msgid "Several cameras in one picture"
 msgstr "複数のカメラを1つの画面に統合"
 
-#: rust/crates/effects/src/composite_plugin.rs:538
+#: rust/crates/effects/src/composite_plugin.rs:544
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "実行中の複数のストリームを、1つの仮想カメラ上に並べて、または重ねて配置します。"
 
-#: rust/crates/effects/src/composite_plugin.rs:539
+#: rust/crates/effects/src/composite_plugin.rs:545
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "「複数のカメラを1つの画面に」プラグインがない場合、「1つの画面」カードは表示されず、各ストリームはそれぞれのカメラにのみ出力されます。"
 
-#: rust/crates/effects/src/composite_plugin.rs:640 rust/crates/effects/src/composite_plugin.rs:664
+#: rust/crates/effects/src/composite_plugin.rs:639 rust/crates/effects/src/composite_plugin.rs:663
 msgid "Picture layout"
 msgstr "画面レイアウト"
 
@@ -1735,103 +1735,103 @@ msgid "Zippy"
 msgstr "イナズマ"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:82
+#: rust/crates/effects/src/framing.rs:92
 msgid "Fidget"
 msgstr "もぞもぞ"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:82
+#: rust/crates/effects/src/framing.rs:92
 msgid "Shift"
 msgstr "身じろぎ"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:82
+#: rust/crates/effects/src/framing.rs:92
 msgid "Lean"
 msgstr "傾き"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:82
+#: rust/crates/effects/src/framing.rs:92
 msgid "Step"
 msgstr "一歩"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:82
+#: rust/crates/effects/src/framing.rs:92
 msgid "Roam"
 msgstr "歩き回り"
 
-#: rust/crates/effects/src/framing.rs:99
+#: rust/crates/effects/src/framing.rs:109
 msgid "Zoom and pan to follow you."
 msgstr "ズームとパンで動きを追跡します。"
 
-#: rust/crates/effects/src/framing.rs:100
+#: rust/crates/effects/src/framing.rs:110
 msgid "Set how much of you is in the picture, from only your head to all of you."
 msgstr "頭部のみから全身まで、画面内に収める範囲を設定します。"
 
-#: rust/crates/effects/src/framing.rs:101
+#: rust/crates/effects/src/framing.rs:111
 msgid "How quickly the framing follows when you move."
 msgstr "動いたときにフレーミングが追従する速さです。"
 
-#: rust/crates/effects/src/framing.rs:102
+#: rust/crates/effects/src/framing.rs:112
 msgid "How much you can move before the framing follows you, from a fidget to walking around."
 msgstr "フレーミングが追従し始めるまでの動きの許容範囲（もぞもぞ動く程度から歩き回るまで）です。"
 
-#: rust/crates/effects/src/framing.rs:103
+#: rust/crates/effects/src/framing.rs:113
 msgid "Show hands"
 msgstr "手を表示"
 
-#: rust/crates/effects/src/framing.rs:104
+#: rust/crates/effects/src/framing.rs:114
 msgid "Widen the view so your hands are in it too."
 msgstr "手元も画面に収まるよう画角を広げます。"
 
-#: rust/crates/effects/src/framing.rs:105
+#: rust/crates/effects/src/framing.rs:115
 msgid "Something else is moving the zoom and pan."
 msgstr "他の機能がズームとパンを制御しています。"
 
-#: rust/crates/effects/src/framing.rs:106
+#: rust/crates/effects/src/framing.rs:116
 msgid "Auto framing: how much of you"
 msgstr "自動フレーミング: 画角の範囲"
 
-#: rust/crates/effects/src/framing.rs:107
+#: rust/crates/effects/src/framing.rs:117
 msgid "Auto framing speed"
 msgstr "自動フレーミング速度"
 
-#: rust/crates/effects/src/framing.rs:637
+#: rust/crates/effects/src/framing.rs:655
 msgid "Follow one person"
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:637
+#: rust/crates/effects/src/framing.rs:655
 msgid "Pick someone"
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:637
+#: rust/crates/effects/src/framing.rs:655
 msgid "Pick someone else"
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:638
+#: rust/crates/effects/src/framing.rs:656
 msgid "Click one person on the preview and Auto framing follows only them, not whoever else is in view."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:638
+#: rust/crates/effects/src/framing.rs:656
 msgid "Follow everyone"
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:639
+#: rust/crates/effects/src/framing.rs:657
 msgid "People can't be picked while the preview shows a combined picture or another camera. Switch 3D or One picture off, or show a single camera."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:640
+#: rust/crates/effects/src/framing.rs:658
 msgid "Frame everyone in view again."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:864
+#: rust/crates/effects/src/framing.rs:882
 msgid "Click the person to follow on the preview. Esc cancels."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:1089
+#: rust/crates/effects/src/framing.rs:1165
 msgid "Zoom and pan to keep you in the picture as you move."
 msgstr "体の動きに合わせてズームやパンを行い、画面内に収め続けます。"
 
-#: rust/crates/effects/src/framing.rs:1090
+#: rust/crates/effects/src/framing.rs:1166
 msgid "Without the Auto framing plugin there's no Auto framing card and the zoom only changes when you change it."
 msgstr "自動フレーミング プラグインがない場合、「自動フレーミング」カードは表示されず、ズームは手動で変更したときのみ変わります。"
 
@@ -2439,200 +2439,268 @@ msgstr "露出ブラケット"
 msgid "Focus bracket"
 msgstr "フォーカスブラケット"
 
-#: rust/crates/effects/src/photos.rs:33 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:709 rust/crates/effects/src/photos.rs:841 rust/crates/effects/ui/photos.slint:146 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304 rust/crates/effects/ui/phototrap.slint:92
+msgid "Photos"
+msgstr "写真"
+
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304
+msgid "Both"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:304
+msgid "Merged"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:36
+msgid "Save only the photos of the bracket."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:37
+msgid "Save the photos and one picture merged from them."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:38
+msgid "Save only the merged picture and delete the photos."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:40
+msgid "Merging works on focus and exposure brackets saved as JPEG."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:41
+msgid "Favour the darker or the lighter photos of an exposure bracket in the merged picture."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:42 rust/crates/effects/ui/photos.slint:340 rust/crates/effects/ui/photos.slint:342
 msgid "On"
 msgstr "オン"
 
-#: rust/crates/effects/src/photos.rs:35
+#: rust/crates/effects/src/photos.rs:44
 msgid "Let the camera decide."
 msgstr "カメラの設定に従います。"
 
-#: rust/crates/effects/src/photos.rs:35
+#: rust/crates/effects/src/photos.rs:44
 msgid "Always fix lens distortion."
 msgstr "常にレンズ歪みを補正します。"
 
-#: rust/crates/effects/src/photos.rs:35
+#: rust/crates/effects/src/photos.rs:44
 msgid "Never fix lens distortion."
 msgstr "レンズ歪みを補正しません。"
 
-#: rust/crates/effects/src/photos.rs:37
+#: rust/crates/effects/src/photos.rs:46
 msgid "Take a photo on the phone with the settings below."
 msgstr "以下の設定でスマートフォンで写真を撮影します。"
 
-#: rust/crates/effects/src/photos.rs:38
+#: rust/crates/effects/src/photos.rs:47
 msgid "Open the folder with the last photos taken."
 msgstr "最後に撮影した写真があるフォルダーを開きます。"
 
-#: rust/crates/effects/src/photos.rs:39
+#: rust/crates/effects/src/photos.rs:48
 msgid "The video pauses while the phone maker's Night, HDR and Bokeh modes take a photo."
 msgstr "スマートフォン独自のナイト、HDR、ボケ モードでの写真撮影中はビデオが一時停止します。"
 
-#: rust/crates/effects/src/photos.rs:43
+#: rust/crates/effects/src/photos.rs:52
 msgid "Number of photos from the nearest focus to the farthest, for focus stacking."
 msgstr "フォーカス合成用に、最も近いフォーカスから最も遠いフォーカスまで撮影する写真の枚数です。"
 
-#: rust/crates/effects/src/photos.rs:44
+#: rust/crates/effects/src/photos.rs:53
 msgid "Number of photos in the burst."
 msgstr "連写する写真の枚数です。"
 
-#: rust/crates/effects/src/photos.rs:45
+#: rust/crates/effects/src/photos.rs:54
 msgid "Take one photo, a burst or a set at different exposures or focus distances."
 msgstr "1枚の写真、連写、または異なる露出やフォーカス距離での複数枚撮影をします。"
 
-#: rust/crates/effects/src/photos.rs:46
+#: rust/crates/effects/src/photos.rs:55
 msgid "Wait a few seconds before taking the photo."
 msgstr "写真を撮影する前に数秒待機します。"
 
-#: rust/crates/effects/src/photos.rs:47
+#: rust/crates/effects/src/photos.rs:56
 msgid "A long exposure uses the video's ISO and the video stops while the shutter is open."
 msgstr "長秒時露光では動画のISOが使用され、シャッターが開いている間は動画が停止します。"
 
-#: rust/crates/effects/src/photos.rs:48
+#: rust/crates/effects/src/photos.rs:57
 msgid "Use extra noise reduction and sharpening on the photo only, not the video. Taking the photo takes a little longer."
 msgstr "ビデオではなく写真にのみ、追加のノイズ低減とシャープ化を適用します。撮影に少し時間がかかります。"
 
-#: rust/crates/effects/src/photos.rs:49
+#: rust/crates/effects/src/photos.rs:58
 msgid "This lens and mode have no extra noise reduction or sharpening to offer"
 msgstr "このレンズとモードでは、追加のノイズ低減やシャープ化を利用できません"
 
-#: rust/crates/effects/src/photos.rs:50
+#: rust/crates/effects/src/photos.rs:59
 msgid "JPEG quality is set by the camera"
 msgstr "JPEG画質はカメラ側で設定されます"
 
-#: rust/crates/effects/src/photos.rs:51
+#: rust/crates/effects/src/photos.rs:60
 msgid "RAW photos have no quality setting"
 msgstr "RAW写真には画質設定がありません"
 
-#: rust/crates/effects/src/photos.rs:52 rust/crates/shell/src/streams.rs:842
+#: rust/crates/effects/src/photos.rs:61 rust/crates/shell/src/streams.rs:842
 msgid "The camera is already taking a photo."
 msgstr "カメラはすでに写真を撮影中です。"
 
-#: rust/crates/effects/src/photos.rs:53 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:270
+#: rust/crates/effects/src/photos.rs:62 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:270
 msgid "The camera couldn't take the photo."
 msgstr "カメラで写真を撮影できませんでした。"
 
-#: rust/crates/effects/src/photos.rs:57
+#: rust/crates/effects/src/photos.rs:66
 msgid "Like the video"
 msgstr "動画と同じ"
 
-#: rust/crates/effects/src/photos.rs:57 rust/crates/effects/src/photos.rs:186 rust/crates/effects/src/phototrap.rs:301 rust/crates/effects/src/phototrap.rs:651 rust/crates/effects/src/stargazer.rs:827 rust/crates/effects/src/stargazer.rs:1133 rust/crates/setup/src/setup.rs:493
+#: rust/crates/effects/src/photos.rs:66 rust/crates/effects/src/photos.rs:201 rust/crates/effects/src/phototrap.rs:301 rust/crates/effects/src/phototrap.rs:651 rust/crates/effects/src/stargazer.rs:827 rust/crates/effects/src/stargazer.rs:1133 rust/crates/setup/src/setup.rs:493
 #, python-brace-format
 msgid "{seconds} s"
 msgstr "{seconds}秒"
 
-#: rust/crates/effects/src/photos.rs:177 rust/crates/effects/src/photos.rs:734 rust/crates/effects/src/photos.rs:750 rust/crates/effects/ui/photos.slint:150
+#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/photos.rs:850 rust/crates/effects/src/photos.rs:866 rust/crates/effects/ui/photos.slint:160
 msgid "Take photo"
 msgstr "写真を撮影"
 
-#: rust/crates/effects/src/photos.rs:177 rust/crates/effects/src/stargazer.rs:815
+#: rust/crates/effects/src/photos.rs:192 rust/crates/effects/src/stargazer.rs:815
 msgid "Open folder"
 msgstr "フォルダーを開く"
 
-#: rust/crates/effects/src/photos.rs:178
+#: rust/crates/effects/src/photos.rs:193
 msgid "Best quality"
 msgstr "最高画質"
 
-#: rust/crates/effects/src/photos.rs:211 rust/crates/effects/ui/photos.slint:171 rust/crates/effects/ui/photos.slint:172
+#: rust/crates/effects/src/photos.rs:226 rust/crates/effects/ui/photos.slint:181 rust/crates/effects/ui/photos.slint:182
 msgid "ISO"
 msgstr "ISO"
 
-#: rust/crates/effects/src/photos.rs:211 rust/crates/effects/ui/photos.slint:181 rust/crates/effects/ui/photos.slint:182 rust/crates/shell/src/plugins/camera_control.rs:1592 rust/crates/shell/src/plugins/camera_control.rs:1872 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:218 rust/crates/shell/ui/cards/camera.slint:229
+#: rust/crates/effects/src/photos.rs:226 rust/crates/effects/ui/photos.slint:191 rust/crates/effects/ui/photos.slint:192 rust/crates/shell/src/plugins/camera_control.rs:1592 rust/crates/shell/src/plugins/camera_control.rs:1872 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:218 rust/crates/shell/ui/cards/camera.slint:229
 msgid "Shutter"
 msgstr "シャッター速度"
 
-#: rust/crates/effects/src/photos.rs:217 rust/crates/effects/ui/photos.slint:204 rust/crates/effects/ui/photos.slint:209
+#: rust/crates/effects/src/photos.rs:232 rust/crates/effects/ui/photos.slint:214 rust/crates/effects/ui/photos.slint:219
 msgid "Mode"
 msgstr "モード"
 
-#: rust/crates/effects/src/photos.rs:220 rust/crates/effects/ui/photos.slint:215 rust/crates/effects/ui/photos.slint:219 rust/crates/outputs/src/stream_output.rs:795 rust/crates/outputs/src/stream_output.rs:1012 rust/crates/outputs/src/stream_output.rs:1015 rust/crates/outputs/ui/stream_output.slint:110 rust/crates/outputs/ui/stream_output.slint:122
+#: rust/crates/effects/src/photos.rs:235 rust/crates/effects/ui/photos.slint:225 rust/crates/effects/ui/photos.slint:229 rust/crates/outputs/src/stream_output.rs:795 rust/crates/outputs/src/stream_output.rs:1012 rust/crates/outputs/src/stream_output.rs:1015 rust/crates/outputs/ui/stream_output.slint:110 rust/crates/outputs/ui/stream_output.slint:122
 msgid "Format"
 msgstr "形式"
 
-#: rust/crates/effects/src/photos.rs:223 rust/crates/effects/ui/photos.slint:227 rust/crates/effects/ui/photos.slint:232
+#: rust/crates/effects/src/photos.rs:238 rust/crates/effects/ui/photos.slint:237 rust/crates/effects/ui/photos.slint:242
 msgid "Shots"
 msgstr "撮影枚数"
 
-#: rust/crates/effects/src/photos.rs:225 rust/crates/effects/ui/photos.slint:254 rust/crates/effects/ui/photos.slint:258 rust/crates/effects/ui/photos.slint:260 rust/crates/effects/ui/photos.slint:261
+#: rust/crates/effects/src/photos.rs:240 rust/crates/effects/ui/photos.slint:264 rust/crates/effects/ui/photos.slint:268 rust/crates/effects/ui/photos.slint:270 rust/crates/effects/ui/photos.slint:271
 msgid "How many"
 msgstr "枚数"
 
-#: rust/crates/effects/src/photos.rs:225
+#: rust/crates/effects/src/photos.rs:240
 msgid "Steps"
 msgstr "ステップ数"
 
-#: rust/crates/effects/src/photos.rs:236
+#: rust/crates/effects/src/photos.rs:251
 msgid "Bracket"
 msgstr "ブラケット"
 
-#: rust/crates/effects/src/photos.rs:241 rust/crates/effects/ui/photos.slint:164 rust/crates/effects/ui/photos.slint:268 rust/crates/effects/ui/photos.slint:272 rust/crates/effects/ui/photos.slint:274 rust/crates/effects/ui/photos.slint:275 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:166 rust/crates/shell/ui/cards/camera.slint:174
+#: rust/crates/effects/src/photos.rs:256 rust/crates/effects/ui/photos.slint:174 rust/crates/effects/ui/photos.slint:278 rust/crates/effects/ui/photos.slint:282 rust/crates/effects/ui/photos.slint:284 rust/crates/effects/ui/photos.slint:285 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:166 rust/crates/shell/ui/cards/camera.slint:174
 msgid "Exposure"
 msgstr "露出"
 
-#: rust/crates/effects/src/photos.rs:246 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:291
+#: rust/crates/effects/src/photos.rs:261 rust/crates/effects/ui/photos.slint:333 rust/crates/effects/ui/photos.slint:339
 msgid "Distortion fix"
 msgstr "歪み補正"
 
-#: rust/crates/effects/src/photos.rs:333 rust/crates/effects/src/photos.rs:674
+#: rust/crates/effects/src/photos.rs:353 rust/crates/effects/src/photos.rs:785
 msgid "Start streaming to take photos."
 msgstr "写真を撮影するにはストリーミングを開始してください。"
 
-#: rust/crates/effects/src/photos.rs:335
+#: rust/crates/effects/src/photos.rs:355
 msgid "This phone can't take photos from Telescope yet. Update the app on the phone."
 msgstr "このスマートフォンではまだTelescopeから写真を撮影できません。スマートフォン版アプリをアップデートしてください。"
 
-#: rust/crates/effects/src/photos.rs:520 rust/crates/effects/src/photos.rs:540
+#: rust/crates/effects/src/photos.rs:534
+msgid "Darker"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:534
+msgid "Lighter"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:534
+msgid "Middle"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:571
+msgid "Merging the bracket…"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:582
+#, python-brace-format
+msgid "Saved {name} from {used} of {frames} photos. The photos are still saved."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:584
+#, python-brace-format
+msgid "Saved the merged picture {name}. Some photos couldn't be deleted."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:586
+#, python-brace-format
+msgid "Saved the merged picture {name} from {used} of {frames} photos"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:588
+#, python-brace-format
+msgid "Saved the merged picture {name}"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:597 rust/crates/effects/src/photos.rs:662 rust/crates/effects/src/photos.rs:684
+msgid "Photo saved"
+msgstr "写真を保存しました"
+
+#: rust/crates/effects/src/photos.rs:601
+msgid "The photos are saved but couldn't be merged."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:623 rust/crates/effects/src/photos.rs:643
 msgid "Taking the photo…"
 msgstr "写真を撮影中…"
 
-#: rust/crates/effects/src/photos.rs:534
+#: rust/crates/effects/src/photos.rs:637
 #, python-brace-format
 msgid "Taking the photo in {seconds} s"
 msgstr "{seconds}秒後に写真を撮影します"
 
-#: rust/crates/effects/src/photos.rs:536
+#: rust/crates/effects/src/photos.rs:639
 #, python-brace-format
 msgid "Photo {n} of {total}"
 msgstr "写真 {n} / {total}"
 
-#: rust/crates/effects/src/photos.rs:538
+#: rust/crates/effects/src/photos.rs:641
 msgid "The video is paused while the photo is taken…"
 msgstr "写真の撮影中は動画が一時停止します…"
 
-#: rust/crates/effects/src/photos.rs:554 rust/crates/effects/src/stargazer.rs:822
+#: rust/crates/effects/src/photos.rs:657 rust/crates/effects/src/stargazer.rs:822
 #, python-brace-format
 msgid "Saved {name}"
 msgstr "「{name}」を保存しました"
 
-#: rust/crates/effects/src/photos.rs:559 rust/crates/effects/src/photos.rs:581
-msgid "Photo saved"
-msgstr "写真を保存しました"
-
-#: rust/crates/effects/src/photos.rs:577
+#: rust/crates/effects/src/photos.rs:680
 #, python-brace-format
 msgid "The photo arrived late. Saved {name}"
 msgstr "写真の受信が遅れました。{name}を保存しました"
 
-#: rust/crates/effects/src/photos.rs:591
+#: rust/crates/effects/src/photos.rs:694
 msgid "Save photos in"
 msgstr "写真の保存先"
 
-#: rust/crates/effects/src/photos.rs:606 rust/crates/effects/src/photos.rs:725 rust/crates/effects/ui/photos.slint:136 rust/crates/effects/ui/phototrap.slint:92
-msgid "Photos"
-msgstr "写真"
-
-#: rust/crates/effects/src/photos.rs:607 rust/crates/effects/ui/photos.slint:137
+#: rust/crates/effects/src/photos.rs:710 rust/crates/effects/ui/photos.slint:147
 msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
 msgstr "スマートフォンや一眼レフで高画質な写真を撮影します（カメラが対応していればRAWも可能）。"
 
-#: rust/crates/effects/src/photos.rs:608
+#: rust/crates/effects/src/photos.rs:711
 msgid "Without the Photos plugin there's no Photos card and no Take photo shortcut."
 msgstr "写真プラグインがない場合、「写真」カードは表示されず、「写真を撮影」ショートカットも利用できません。"
 
-#: rust/crates/effects/src/photos.rs:727 rust/crates/effects/src/photos.rs:765
+#: rust/crates/effects/src/photos.rs:843 rust/crates/effects/src/photos.rs:881
 msgid "Photo mode"
 msgstr "写真モード"
 
-#: rust/crates/effects/src/photos.rs:732 rust/crates/effects/src/photos.rs:775
+#: rust/crates/effects/src/photos.rs:848 rust/crates/effects/src/photos.rs:891
 msgid "Photo timer"
 msgstr "写真タイマー"
 
@@ -4066,43 +4134,51 @@ msgstr "下"
 msgid "Arrow keys move the picked point, Shift with an arrow moves it further. Left and right square brackets pick another point. Delete removes the point and Home resets the curve."
 msgstr "矢印キーで選択したポイントを移動し、Shift+矢印キーで大きく移動します。[ と ] で別のポイントを選択します。Deleteでポイントを削除し、Homeでカーブをリセットします。"
 
-#: rust/crates/effects/ui/photos.slint:144
+#: rust/crates/effects/ui/photos.slint:154
 msgid "Set every photo setting except the folder back to default."
 msgstr "フォルダー以外のすべての写真設定をデフォルトに戻します。"
 
-#: rust/crates/effects/ui/photos.slint:173
+#: rust/crates/effects/ui/photos.slint:183
 msgid "Higher ISO makes the photo brighter but grainier."
 msgstr "ISOを高くすると写真は明るくなりますが、ざらつきが増えます。"
 
-#: rust/crates/effects/ui/photos.slint:183
+#: rust/crates/effects/ui/photos.slint:193
 msgid "Slower shutter speeds make the photo brighter but blur movement."
 msgstr "シャッター速度を遅くすると写真は明るくなりますが、動きがブレやすくなります。"
 
-#: rust/crates/effects/ui/photos.slint:196
+#: rust/crates/effects/ui/photos.slint:206
 msgid "Mode and format"
 msgstr "モードと形式"
 
-#: rust/crates/effects/ui/photos.slint:220
+#: rust/crates/effects/ui/photos.slint:230
 msgid "The file type photos are saved as."
 msgstr "写真を保存するファイル形式です。"
 
-#: rust/crates/effects/ui/photos.slint:302 rust/crates/effects/ui/photos.slint:307 rust/crates/effects/ui/photos.slint:316
+#: rust/crates/effects/ui/photos.slint:295 rust/crates/effects/ui/photos.slint:301
+msgid "Merge bracket"
+msgstr ""
+
+#: rust/crates/effects/ui/photos.slint:312 rust/crates/effects/ui/photos.slint:317 rust/crates/effects/ui/photos.slint:326
+msgid "Merged brightness"
+msgstr ""
+
+#: rust/crates/effects/ui/photos.slint:350 rust/crates/effects/ui/photos.slint:355 rust/crates/effects/ui/photos.slint:364
 msgid "Quality"
 msgstr "画質"
 
-#: rust/crates/effects/ui/photos.slint:317
+#: rust/crates/effects/ui/photos.slint:365
 msgid "Higher quality gives bigger and cleaner JPEG files."
 msgstr "画質を高くすると、よりきれいで大きなJPEGファイルになります。"
 
-#: rust/crates/effects/ui/photos.slint:334 rust/crates/effects/ui/photos.slint:340
+#: rust/crates/effects/ui/photos.slint:382 rust/crates/effects/ui/photos.slint:388
 msgid "Timer"
 msgstr "タイマー"
 
-#: rust/crates/effects/ui/photos.slint:352 rust/crates/effects/ui/photos.slint:361 rust/crates/effects/ui/phototrap.slint:130 rust/crates/effects/ui/phototrap.slint:138
+#: rust/crates/effects/ui/photos.slint:400 rust/crates/effects/ui/photos.slint:409 rust/crates/effects/ui/phototrap.slint:130 rust/crates/effects/ui/phototrap.slint:138
 msgid "Save in"
 msgstr "保存先"
 
-#: rust/crates/effects/ui/photos.slint:362
+#: rust/crates/effects/ui/photos.slint:410
 msgid "The folder path photos are saved in."
 msgstr "写真を保存するフォルダーのパスです。"
 
@@ -5342,56 +5418,60 @@ msgstr "永続化ファイルの削除に失敗しました"
 msgid "Removed {paths}"
 msgstr "{paths}を削除しました"
 
-#: rust/crates/outputs/src/spout/mod.rs:54
+#: rust/crates/outputs/src/spout/mod.rs:56
 msgid "The sender isn't running. Start it again to continue."
 msgstr "送信側が実行されていません。続行するには再度開始してください。"
 
-#: rust/crates/outputs/src/spout/mod.rs:55
+#: rust/crates/outputs/src/spout/mod.rs:57
 msgid "The sender isn't sharing a picture. Check that it's running and sending."
 msgstr "送信側から映像が共有されていません。実行中で送信が行われているか確認してください。"
 
-#: rust/crates/outputs/src/spout/mod.rs:56
+#: rust/crates/outputs/src/spout/mod.rs:58
 msgid "Telescope can't read this sender's picture. Try another sender, or check the sender's output settings."
 msgstr "Telescopeはこの送信元の画像を読み取れません。別の送信元を試すか、送信元の出力設定を確認してください。"
 
-#: rust/crates/outputs/src/spout/mod.rs:303
+#: rust/crates/outputs/src/spout/mod.rs:309
 msgid "Check that the sender is still running."
 msgstr "送信元が実行中であることを確認してください。"
 
-#: rust/crates/outputs/src/spout/mod.rs:559
+#: rust/crates/outputs/src/spout/mod.rs:588
 msgid "Sender not running"
 msgstr "送信元が実行されていません"
 
-#: rust/crates/outputs/src/spout/mod.rs:561 rust/crates/outputs/src/webcam.rs:972
+#: rust/crates/outputs/src/spout/mod.rs:590 rust/crates/outputs/src/webcam.rs:972
 msgid "Not sending anything"
 msgstr "データ未送信"
 
-#: rust/crates/outputs/src/spout/mod.rs:563 rust/crates/outputs/src/webcam.rs:974
+#: rust/crates/outputs/src/spout/mod.rs:592
+msgid "Picture frozen"
+msgstr ""
+
+#: rust/crates/outputs/src/spout/mod.rs:594 rust/crates/outputs/src/webcam.rs:974
 msgid "Starting…"
 msgstr "開始中…"
 
-#: rust/crates/outputs/src/spout/mod.rs:572
+#: rust/crates/outputs/src/spout/mod.rs:603
 msgid "Set how many pictures a second to take. Spout senders don't share their own rate."
 msgstr "1秒間に取得する画像数を設定します。Spout送信元は自身のレートを共有しません。"
 
-#: rust/crates/outputs/src/spout/mod.rs:586 rust/crates/outputs/ui/spout.slint:14
+#: rust/crates/outputs/src/spout/mod.rs:617 rust/crates/outputs/ui/spout.slint:14
 msgid "Spout capture"
 msgstr "Spoutキャプチャ"
 
-#: rust/crates/outputs/src/spout/mod.rs:587
+#: rust/crates/outputs/src/spout/mod.rs:618
 msgid "Stream from games, OBS and other programs on this computer that share their picture through Spout."
 msgstr "このコンピューター上で、Spout経由で画像を共有しているゲームやOBS、その他のプログラムからストリーミングします。"
 
-#: rust/crates/outputs/src/spout/mod.rs:588
+#: rust/crates/outputs/src/spout/mod.rs:619
 msgid "Without Spout capture the senders aren't in the device picker and the Spout capture card is gone too."
 msgstr "Spoutキャプチャがない場合、デバイス選択に送信元が表示されず、「Spoutキャプチャ」カードも表示されません。"
 
-#: rust/crates/outputs/src/spout/mod.rs:636
+#: rust/crates/outputs/src/spout/mod.rs:667
 #, python-brace-format
 msgid "{name} isn't running"
 msgstr "{name}が実行されていません"
 
-#: rust/crates/outputs/src/spout/mod.rs:636
+#: rust/crates/outputs/src/spout/mod.rs:667
 msgid "Start it again or pick another source."
 msgstr "再起動するか、別のソースを選択してください。"
 
@@ -8603,7 +8683,7 @@ msgstr "スマートフォンのカメラを開始中…"
 msgid "Couldn't start the phone's camera"
 msgstr "スマートフォンのカメラを開始できませんでした"
 
-#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1005
+#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1136
 msgid "Connecting..."
 msgstr "接続中..."
 
@@ -8808,43 +8888,43 @@ msgstr "ストリーミング開始"
 msgid "Stop streaming"
 msgstr "ストリーミング停止"
 
-#: rust/crates/shell/src/window.rs:2114 rust/crates/shell/src/worker.rs:1363
+#: rust/crates/shell/src/window.rs:2114 rust/crates/shell/src/worker.rs:1484
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{size}、{fps} fpsで{camera}にストリーミング中"
 
-#: rust/crates/shell/src/worker.rs:572
+#: rust/crates/shell/src/worker.rs:600
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "ストリーム エラー: {error}"
 
-#: rust/crates/shell/src/worker.rs:1005
+#: rust/crates/shell/src/worker.rs:1136
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "{url}に接続中..."
 
-#: rust/crates/shell/src/worker.rs:1015
+#: rust/crates/shell/src/worker.rs:1146
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "スマートフォンのストリームに接続できません。{seconds}秒後に再試行します…"
 
-#: rust/crates/shell/src/worker.rs:1027
+#: rust/crates/shell/src/worker.rs:1158
 msgid "Waiting for the first frame…"
 msgstr "最初のフレームを待機中…"
 
-#: rust/crates/shell/src/worker.rs:1115
+#: rust/crates/shell/src/worker.rs:1246
 msgid "Stream reconnected"
 msgstr "ストリームが再接続されました"
 
-#: rust/crates/shell/src/worker.rs:1231
+#: rust/crates/shell/src/worker.rs:1351
 msgid "The video is paused while the phone takes a photo"
 msgstr "スマートフォンが写真を撮影している間、映像は一時停止します"
 
-#: rust/crates/shell/src/worker.rs:1233 rust/crates/shell/src/worker.rs:1239
+#: rust/crates/shell/src/worker.rs:1353 rust/crates/shell/src/worker.rs:1359
 msgid "Stream dropped - reconnecting"
 msgstr "ストリームが切断されました - 再接続中"
 
-#: rust/crates/shell/src/worker.rs:1352 rust/crates/shell/src/worker.rs:1454
+#: rust/crates/shell/src/worker.rs:1473 rust/crates/shell/src/worker.rs:1582
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "仮想カメラ エラー: {error}"
@@ -10486,7 +10566,7 @@ msgstr "°C"
 msgid "Add your phone"
 msgstr "スマートフォンを追加"
 
-#: rust/crates/effects/src/photos.rs:552
+#: rust/crates/effects/src/photos.rs:655
 #, python-brace-format
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"

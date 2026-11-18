@@ -88,12 +88,13 @@ fn key_text(key: &slint::winit_030::winit::keyboard::Key, typed: Option<&str>) -
 
 /// A plugin's own window: its component is the plugin's, so nothing in it can catch keys first as the main window's
 /// FocusScope does, and they're taken here, before Slint gives them to the control with focus.
-pub fn watch_plugin_keys(ui: &slint_interpreter::ComponentInstance, owner: std::rc::Weak<Window>) {
+pub fn watch_plugin_keys(ui: &slint_interpreter::ComponentInstance, owner: std::rc::Weak<Window>, mut also: impl FnMut(&slint::winit_030::winit::event::WindowEvent) + 'static) {
     use slint::winit_030::winit::event::{ElementState, WindowEvent};
     use slint::winit_030::winit::keyboard::ModifiersState;
     use slint::winit_030::EventResult;
     let held = std::cell::Cell::new(ModifiersState::empty());
     crate::input::watch(ui, move |window, event| {
+        also(event);
         match event {
             WindowEvent::ModifiersChanged(m) => held.set(m.state()),
             WindowEvent::KeyboardInput { event, .. } => {
