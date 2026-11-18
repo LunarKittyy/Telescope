@@ -17,7 +17,8 @@ pub struct Admin {
 fn added(item: Installed) -> AddedPlugin {
     AddedPlugin {
         folder: item.folder, name: item.name, title: item.title, version: item.version, author: item.author, description: item.description,
-        repo: item.repo, category: item.category, problem: item.problem, enabled: item.enabled, changed: item.changed, dev: item.dev,
+        needs: item.manifest.needs(), repo: item.repo, category: item.category, problem: item.problem, enabled: item.enabled, changed: item.changed,
+        dev: item.dev,
     }
 }
 

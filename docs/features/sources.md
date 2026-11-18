@@ -43,6 +43,7 @@ An optional early version that's still in Lab (switch it on under **Streaming an
 - **On Windows** Telescope reads Spout's shared pictures directly. Any program sending through Spout shows up
 - **On Linux** Spout only exists inside Proton, for Windows games and programs. [Spout2PW](https://github.com/tasokait/spout2pw) passes their senders out to PipeWire and Telescope lists the ones it passes on. Its own page lists the Proton versions it works with. Telescope needs nothing extra for it, as long as PipeWire is running
 - **Senders coming and going** is noticed within a couple of seconds. A sender that stops while it streams holds its place, apps see the wait screen and the stream carries on once the sender is back. One that isn't streaming leaves the picker. Starting a stream on a sender that has stopped since you picked it shows a banner
+- **Stopping** a Spout source on Linux works even when the sending program has stalled or the graphics card is stuck moving its picture. Telescope drops that picture and no new one is taken until the card lets go
 - **Frame rate** is on the Spout capture card (30 by default) and saved for each sender. Senders don't share how fast they run. This is the most pictures a second Telescope takes from one. A sender that sends nothing new, like a paused scene, has its last picture sent again about once a second so the stream isn't taken for lost. The card also shows the size the sender shares
 - **Colours:** Spout shares ordinary 8-bit pictures, which Telescope reads in any byte order. Transparency is dropped. A see-through sender shows whatever colour sits under its clear parts (often black). Senders that share 10-bit or floating point pictures aren't read and the stream shows that it can't read the picture
 - **A sender that changes size** is followed without restarting the stream
@@ -71,7 +72,7 @@ Optional (switch it on under **Streaming and devices** in the Plugins tab of Set
 - Drag a stream to move it. Arrow keys nudge it a pixel at a time
 - The handles on the corners and sides resize it the way OBS does. A plain drag scales it without changing its shape. Hold Shift to stretch or squash it into any shape and Alt to crop the side you're dragging instead (each side remembers its own crop)
 - Edges snap to the picture's edges and middle and to the other streams. Hold Ctrl to place one freely
-- Scroll over a stream to zoom into it (as far as **Max zoom** under Video in Settings allows) and drag it with the right mouse button to pick which part shows. Lowering Max zoom pulls the streams down to the new limit. Raising it again doesn't bring their zoom back
+- Scroll over a stream to zoom into it (as far as **Max zoom** under Video in Settings allows) and drag it with the right mouse button to pick which part shows. Lowering Max zoom shows the streams at the new limit while the layout remembers the zoom you gave them. Raising it again brings that zoom back
 - **Fit its shape** shows a stream in its real shape with nothing cropped, stretched or zoomed
 - Each stream can get a border and rounded corners. Behind them goes a colour or a picture
 - **Start from** lays out the running streams **Side by side**, **Big and small** or in a **Grid** to tweak from there

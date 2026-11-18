@@ -1145,3 +1145,16 @@ fn a_plugin_that_waits_for_people_keeps_the_frames_coming() {
     assert!(t.host.frames_wanted.is_empty());
 }
 
+
+#[test]
+fn a_plugin_shares_values_through_the_host_registry() {
+    let folder = plugin("sharing", r#"
+        return { run = function()
+            host.share("seen", { n = 2 })
+            local ok = pcall(host.share, "bad name", 1)
+            return { got = host.shared("sharing.seen").n, keys = host.shared_keys("sharing."), bad = ok, none = host.shared("other.x") == nil }
+        end }
+    "#, json!({}));
+    let mut t = PluginTest::open(&folder).unwrap();
+    assert_eq!(t.call("run", vec![]).unwrap(), json!({"got": 2, "keys": ["sharing.seen"], "bad": false, "none": true}));
+}

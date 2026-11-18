@@ -10,16 +10,16 @@ Optional. It finds you in the picture and moves zoom and pan to follow you. Swit
 - **Framing** sets how much of you is in the shot, from only your head to your whole body. Two people get framed together. With nobody in view for two seconds it zooms back out
 - **Speed** goes from **Sloth** to **Zippy**. **Easy** is the default
 - **Room to move** is how far you can shift before the framing follows (**Fidget** to **Roam**, while **Off** follows every move)
-- **Pick someone** lets you click one person on the preview and Auto framing follows only them. **Pick someone else** changes the choice and **Follow everyone** returns to the whole group. When that person leaves the picture it zooms out after the usual moment and doesn't switch to anyone else. After 30 seconds without seeing them it lets go and frames everyone again. The choice isn't saved and resets when Auto framing is switched off or the stream changes. With two phones paired for 3D a click on the combined picture can steer the wrong camera
+- **Pick someone** lets you click one person on the preview and Auto framing follows only them. **Pick someone else** changes the choice and **Follow everyone** returns to the whole group. When that person leaves the picture it zooms out after the usual moment and doesn't switch to anyone else. After 30 seconds without seeing them it lets go and frames everyone again. The choice isn't saved and resets when Auto framing is switched off or the stream changes. People who walk past each other are told apart by the way each was heading. It lets go instead of guessing when it still can't tell who is who. With two phones paired for 3D a click on the combined picture can steer the wrong camera
 - **Show hands** (off by default) widens the view so your hands are in it too, for when you hold something out to the side
 - Zoom and Pan on the Transforms card are greyed out while it's on. Flip and rotation still work and your own zoom and pan return when you switch it off
 - The skeleton button under the preview shows what the framing is reacting to. It never appears in the camera output
 
 ## Background
 
-Optional and it shares the vision download. **Blur** blurs everything behind you and **Picture** puts an image there instead (PNG, JPEG, WebP or BMP). **Edges** sets how soft the outline around you is. It runs on the computer so it works with any phone and with Browser camera. Pale clothes, chair backs and other large faint areas next to you are drawn solid, while thin edges and loose hair are left soft. **High quality** has its own cutout. Privacy blur doesn't use one and blurs the whole picture.
+Optional and it shares the vision download. **Blur** blurs everything behind you and **Picture** puts an image there instead (PNG, JPEG, WebP or BMP). **Edges** sets how soft the outline around you is. It runs on the computer so it works with any phone and with Browser camera. In Blur mode the blur itself is drawn by the graphics card, which takes a lot of load off the processor at 4K. While the card is busy the processor draws it instead with the same picture. Picture mode always uses the processor. Pale clothes, chair backs and other large faint areas next to you are drawn solid, while thin edges and loose hair are left soft. **High quality** has its own cutout. Privacy blur doesn't use one and blurs the whole picture.
 
-**High quality** swaps the cutout for a slower model (Robust Video Matting) that follows hair and edges much better and holds still where nothing moves. It's off by default because it uses more of the processor, about 40% of one core on a 1080p stream. It has a separate download, about 25 MB on Linux and 20 MB on Windows, which the card offers when you switch it on. Until that's there, or if the model doesn't load, the normal cutout is used and the picture never waits for it. **Remove download** under People and vision on the Plugins tab deletes it as well.
+**High quality** swaps the cutout for a slower model (Robust Video Matting) that follows hair and edges much better and holds still where nothing moves. It's off by default because it uses more of the processor, about 40% of one core on a 1080p stream. It has a separate download, about 25 MB on Linux and 20 MB on Windows, which the card offers when you switch it on. Until that's there, or if the model doesn't load, the normal cutout is used and the picture never waits for it. **Remove download** under People on the Plugins tab deletes it as well.
 
 ## Expose for my face
 
@@ -46,6 +46,7 @@ Optional, for anyone with a green or blue screen. It swaps the screen behind you
 - **Screen** is **Green**, **Blue** or **Picked**. **Picked** asks you to click the screen on the preview and keys whatever colour is there, which helps with a screen that isn't quite the usual green or with uneven light
 - **Tolerance** sets how many shades of the screen go (raise it for creases and shadows, lower it if bits of you vanish). **Edges** softens the outline and **Spill** takes the green or blue glow off your edges and skin without touching colours far from the screen's
 - **Behind you** is a **Colour** you pick or a **Picture** (PNG, JPEG, WebP or BMP) scaled to cover the frame
+- If the graphics card fails while Chroma key is on, the picture goes dark until the card works again. It never sends the plain picture with the room showing
 - Presets save it like the other picture settings
 
 ## Desk and document mode
@@ -63,6 +64,6 @@ Optional. Point the phone down at a sheet of paper, mark the sheet's four corner
 
 ## The vision download
 
-Auto framing, Background, Expose for my face and Privacy blur use MediaPipe to find people (the Fun pack can use it too). MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch one of them on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). They share the download and **Remove download** next to the People and vision heading on the Plugins tab deletes it again. Background's **High quality** option has a second download (see [Background](#background)).
+Auto framing, Background, Expose for my face and Privacy blur use MediaPipe to find people (the Fun pack can use it too). MediaPipe and its two models don't come with Telescope since most people won't use them. The first time you switch one of them on Telescope asks and downloads them from its GitHub releases (about 47 MB on Linux and 28 MB on Windows). They share the download and **Remove download** next to the People heading on the Plugins tab deletes it again. Background's **High quality** option has a second download (see [Background](#background)).
 
 It only works on 64-bit Intel and AMD computers for now.
