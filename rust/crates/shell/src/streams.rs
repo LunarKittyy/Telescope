@@ -587,8 +587,6 @@ impl Window {
         }
     }
 
-    }
-
     /// A plugin changed its frame step: the stream the panels show takes it from the next frame.
     pub fn refresh_frame_steps(self: &Rc<Self>) {
         let live: Vec<Rc<ShellWorker>> = self.streams.workers.borrow().iter().filter(|w| w.live.get()).cloned().collect();
