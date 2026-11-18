@@ -587,3 +587,33 @@ fn a_burst_in_the_middle_of_a_long_exposure_is_not_given_up_on_while_its_stream_
     finished(&mut p, &mut h, 1, true, json!({"files": ["/a.jpg"]}));
     assert_eq!(p.photos, 1);
 }
+
+#[test]
+fn a_burst_pending_while_arming_again_is_not_counted_twice() {
+    let dir = scratch_dir("phototrap-rescan");
+    let (mut p, now) = plugin();
+    p.folder = dir.display().to_string();
+    p.budget = 10_000;
+    let mut h = host();
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+    moved(&mut p, &mut h);
+    assert_eq!(p.taking.len(), 1);
+    let (a, b) = (dir.join("a.jpg"), dir.join("b.jpg"));
+    std::fs::write(&a, vec![0u8; 400]).unwrap();
+    std::fs::write(&b, vec![0u8; 400]).unwrap();
+    // Off and on again while the burst is pending: the rescan finds its files
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(false));
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+    assert_eq!(p.used, 800);
+    let files = json!([a.display().to_string(), b.display().to_string()]);
+    finished(&mut p, &mut h, 1, true, json!({"files": files}));
+    assert_eq!((p.photos, p.used), (2, 800), "counted once");
+    assert!(p.counted.is_empty());
+    // A later burst is counted as usual
+    let c = dir.join("c.jpg");
+    std::fs::write(&c, vec![0u8; 100]).unwrap();
+    p.taking.push((RequestId(9), None));
+    finished(&mut p, &mut h, 9, true, json!({"files": [c.display().to_string()]}));
+    assert_eq!(p.used, 900);
+    let _ = now;
+}

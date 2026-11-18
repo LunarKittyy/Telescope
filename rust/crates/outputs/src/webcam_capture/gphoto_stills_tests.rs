@@ -452,6 +452,42 @@ fn a_self_timer_counts_down_before_the_shutter_and_a_stream_that_stops_ends_it()
 }
 
 #[test]
+fn a_photo_whose_picture_goes_hidden_before_the_shutter_never_opens_it() {
+    let state = d5100(true);
+    let mut cap = open_with("gphoto2:usb:S6", fast(), connecting(&state)).ok().unwrap();
+    cap.read().unwrap();
+    let stills = GphotoStills::new("gphoto2:usb:S6");
+    wait_for("caps", || stills.caps().is_some());
+    let dir = folder("hidden");
+    let go = |hidden: Arc<AtomicBool>, timer: u64| {
+        let (tx, done) = channel();
+        let started = stills.take_unless_hidden(&json!({"format": "jpeg", "timer_s": timer}), &dir.display().to_string(), Box::new(|_| {}),
+                                                Box::new(move |r| tx.send(r).unwrap()), Box::new(|| true), hidden);
+        assert!(started);
+        Taken { states: Arc::default(), done }
+    };
+    // Hidden at the start
+    let captures = state.lock().unwrap().captures;
+    let done = read_until_done(&mut cap, &go(Arc::new(AtomicBool::new(true)), 0));
+    assert_eq!((done["ok"].clone(), done["code"].clone()), (json!(false), json!("hidden")), "{done}");
+    assert_eq!(state.lock().unwrap().captures, captures, "the shutter never opened");
+    wait_for("the busy flag to drop", || !stills.busy());
+    // Hidden while the self-timer counts
+    let flag = Arc::new(AtomicBool::new(false));
+    let taken = go(flag.clone(), 1);
+    flag.store(true, Ordering::SeqCst);
+    let done = read_until_done(&mut cap, &taken);
+    assert_eq!(done["code"], json!("hidden"), "{done}");
+    assert_eq!(state.lock().unwrap().captures, captures, "the shutter never opened");
+    wait_for("the busy flag to drop", || !stills.busy());
+    // Not hidden: taken as usual
+    let done = read_until_done(&mut cap, &go(Arc::new(AtomicBool::new(false)), 0));
+    assert_eq!(done["ok"], json!(true), "{done}");
+    drop(cap);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
 fn a_photo_that_cant_be_saved_says_so_and_keeps_what_was_saved() {
     let state = d5100(true);
     let mut cap = open_with("gphoto2:usb:S6", fast(), connecting(&state)).ok().unwrap();

@@ -239,6 +239,8 @@ pub enum Failure {
     Save,
     Interrupted,
     Timeout,
+    /// The picture went hidden before the shutter opened.
+    Hidden,
     /// The camera's image quality is read-only on a setting that also makes RAW, so a JPEG-only photo can't be had.
     Locked(Class),
     /// A RAW and JPEG photo with a file missing: the files that did come are still saved.
@@ -256,6 +258,7 @@ impl Failure {
             Failure::Save => "save",
             Failure::Interrupted => "interrupted",
             Failure::Timeout => "timeout",
+            Failure::Hidden => "hidden",
             Failure::Locked(_) => "unsupported",
             Failure::Partial(_) => "partial",
         }
@@ -271,6 +274,7 @@ impl Failure {
             Failure::Save => n_("Telescope couldn't save the photo."),
             Failure::Interrupted => n_("The photo was interrupted because the camera stopped."),
             Failure::Timeout => n_("The camera took too long to take the photo. The photo is saved and you get a notification if it still arrives."),
+            Failure::Hidden => n_("No photo was taken while part of the picture is hidden."),
             Failure::Locked(Class::Both) => n_("The camera can't take a JPEG alone with its image quality locked to RAW and JPEG together."),
             Failure::Locked(_) => n_("The camera can't take a JPEG with its image quality locked to RAW."),
             Failure::Partial(_) => n_("The camera only sent part of the photo. The part that arrived is saved."),
@@ -605,10 +609,15 @@ fn exposure_of(shared: &Shared, wish: &Wish) -> Option<f64> {
 }
 
 /// One photo from start to saved files, on the thread of its own: the countdown, the camera's thread doing the shooting, the files.
-fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Value), alive: &dyn Fn() -> bool, longest: Duration, late: Option<Late>) -> Value {
+fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Value), alive: &dyn Fn() -> bool, longest: Duration, late: Option<Late>,
+           hidden: Option<&AtomicBool>) -> Value {
+    let is_hidden = || hidden.is_some_and(|h| h.load(Ordering::SeqCst));
     if let Err(e) = std::fs::create_dir_all(folder) {
         log::warn!("can't make the photo folder {}: {e}", folder.display());
         return failed(&Failure::Save, &[]);
+    }
+    if is_hidden() {
+        return failed(&Failure::Hidden, &[]);
     }
     let until = Instant::now() + Duration::from_secs(wish.timer_s);
     let mut shown = u64::MAX;
@@ -623,6 +632,10 @@ fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Valu
             on_progress(progress("waiting", left.as_millis(), false));
         }
         std::thread::sleep(left.min(Duration::from_millis(50)));
+    }
+    // The last look before the shutter: a cover can land while the self-timer counts
+    if is_hidden() {
+        return failed(&Failure::Hidden, &[]);
     }
     let longest = wait_for_photo(longest, exposure_of(shared, &wish));
     let (reply, waiter) = handover();
@@ -708,6 +721,22 @@ impl SourceStills for GphotoStills {
 
     fn take(&self, options: &Value, folder: &str, on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
             alive: Box<dyn Fn() -> bool + Send>) -> bool {
+        self.start(options, folder, on_progress, on_done, alive, None)
+    }
+
+    fn take_unless_hidden(&self, options: &Value, folder: &str, on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
+                          alive: Box<dyn Fn() -> bool + Send>, hidden: Arc<AtomicBool>) -> bool {
+        self.start(options, folder, on_progress, on_done, alive, Some(hidden))
+    }
+
+    fn set_on_change(&self, on_change: Box<dyn Fn() + Send + Sync>) {
+        *self.hearer.on_change.lock().unwrap() = Some(Arc::from(on_change));
+    }
+}
+
+impl GphotoStills {
+    fn start(&self, options: &Value, folder: &str, on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
+             alive: Box<dyn Fn() -> bool + Send>, hidden: Option<Arc<AtomicBool>>) -> bool {
         let Some(shared) = self.shared() else { return false };
         if shared.caps_json().is_none() || shared.in_flight.swap(true, Ordering::SeqCst) {
             return false;
@@ -731,7 +760,7 @@ impl SourceStills for GphotoStills {
         });
         let spawned = std::thread::Builder::new().name("dslr-photo".into()).spawn(move || {
             let report = |data: Value| (*on_progress.lock().unwrap_or_else(|e| e.into_inner()))(data);
-            let outcome = run_job(&held, wish, &folder, &report, &*alive, longest, Some(late));
+            let outcome = run_job(&held, wish, &folder, &report, &*alive, longest, Some(late), hidden.as_deref());
             held.in_flight.store(false, Ordering::SeqCst);
             on_done(outcome);
         });
@@ -740,10 +769,6 @@ impl SourceStills for GphotoStills {
             return false;
         }
         true
-    }
-
-    fn set_on_change(&self, on_change: Box<dyn Fn() + Send + Sync>) {
-        *self.hearer.on_change.lock().unwrap() = Some(Arc::from(on_change));
     }
 }
 

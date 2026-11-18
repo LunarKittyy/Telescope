@@ -584,6 +584,12 @@ impl Plugin for ChromaKeyPlugin {
         self.show(host);
     }
 
+    fn shutdown(&mut self, host: &mut dyn Host) {
+        if self.told_hiding.take() == Some(true) {
+            host.set_hiding(NAME, None, false);
+        }
+    }
+
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
         self.catch_up(host);
         if let Some(on) = self.paired.hear(event) {

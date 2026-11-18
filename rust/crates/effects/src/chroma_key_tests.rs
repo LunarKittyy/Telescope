@@ -755,3 +755,15 @@ fn the_host_is_told_when_the_key_starts_and_stops_hiding_the_screen() {
     r.ui("switch-toggled-by-hand", vec![json!(false)]);
     assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
 }
+
+#[test]
+fn shutdown_stops_hiding_so_the_host_isnt_left_thinking_the_picture_is_covered() {
+    let mut r = Rig::new(true);
+    r.ui("switch-toggled-by-hand", vec![json!(true)]);
+    assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    r.plugin.shutdown(&mut r.host);
+    assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
+    let told = r.host.hiding.len();
+    r.plugin.shutdown(&mut r.host);
+    assert_eq!(r.host.hiding.len(), told, "nothing to let go of twice");
+}

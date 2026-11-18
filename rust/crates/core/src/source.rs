@@ -69,6 +69,12 @@ pub trait SourceStills: Send + Sync {
     /// restarted) ends it as interrupted. The callbacks come from its own thread.
     fn take(&self, options: &Value, folder: &str, on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
             alive: Box<dyn Fn() -> bool + Send>) -> bool;
+    /// `take` that reads `hidden` right before the shutter opens (after any self-timer): true ends the photo with the code "hidden"
+    /// and nothing is captured. An implementation that can't look then takes the photo as `take` does.
+    fn take_unless_hidden(&self, options: &Value, folder: &str, on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
+                          alive: Box<dyn Fn() -> bool + Send>, _hidden: std::sync::Arc<std::sync::atomic::AtomicBool>) -> bool {
+        self.take(options, folder, on_progress, on_done, alive)
+    }
     /// Called from any thread whenever caps() may have changed, and when its camera lets go. Replaces the last one given.
     fn set_on_change(&self, on_change: Box<dyn Fn() + Send + Sync>);
 }
