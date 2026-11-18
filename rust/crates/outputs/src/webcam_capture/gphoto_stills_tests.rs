@@ -1,5 +1,5 @@
 use super::*;
-use crate::webcam_capture::gphoto::Timing;
+use crate::webcam_capture::gphoto_timing::Timing;
 use crate::webcam_capture::gphoto_lib::{gather, Said};
 use crate::webcam_capture::gphoto_lib::{open_with, Connect};
 use std::collections::HashMap;

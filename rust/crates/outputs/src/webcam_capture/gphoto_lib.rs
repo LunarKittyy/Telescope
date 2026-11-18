@@ -3,7 +3,7 @@
 //! the gphoto2 command can't change a setting mid-stream. The card only gets what the camera allows right now: a setting the camera
 //! marks read-only (a scene mode on the dial) isn't offered, and the list is read again now and then so a turn of the dial shows up.
 
-use super::gphoto::{is_claim_error, Timing, CLAIM_ERROR};
+use super::gphoto_timing::{is_claim_error, Timing, CLAIM_ERROR};
 use super::gphoto_stills::{notify_changed, read_photo_caps, Shared as StillsShared};
 use super::quirks;
 use super::Capture;
@@ -158,14 +158,34 @@ pub fn gather<F>(shots: Vec<Shot>, expect: usize, limit: Duration, mut listen: i
 /// Opens the camera on a port.
 pub type Connect = Box<dyn FnMut(&str) -> Result<Box<dyn Rig>, String> + Send>;
 
-/// Whether libgphoto2 could be loaded (bundled or the system's).
+/// Whether this system can talk to DSLRs: libgphoto2 could be loaded (bundled or the system's) on Linux, Windows always can.
 pub fn available() -> bool {
-    super::gp::available()
+    #[cfg(target_os = "linux")]
+    return super::gp::available();
+    #[cfg(windows)]
+    return true;
+    #[cfg(not(any(target_os = "linux", windows)))]
+    false
 }
 
 /// (model, port) of each camera plugged in.
 pub fn detect() -> Result<Vec<(String, String)>, String> {
-    super::gp::auto_detect()
+    #[cfg(target_os = "linux")]
+    return super::gp::auto_detect();
+    #[cfg(windows)]
+    return super::ptp_wpd::detect();
+    #[cfg(not(any(target_os = "linux", windows)))]
+    Err("DSLRs aren't supported here".into())
+}
+
+/// The camera on a port, through what this system has: libgphoto2 on Linux, PTP over Windows Portable Devices on Windows.
+fn system_rig(port: &str) -> Result<Box<dyn Rig>, String> {
+    #[cfg(target_os = "linux")]
+    return super::gp::GpCamera::open(port).map(|c| Box::new(c) as Box<dyn Rig>);
+    #[cfg(windows)]
+    return super::ptp_wpd::connect(port);
+    #[cfg(not(any(target_os = "linux", windows)))]
+    Err(format!("no way to reach the camera on {port} here"))
 }
 
 /// The first of these names the camera has, with its setting.
@@ -363,7 +383,7 @@ impl telescope_core::media::FeedStopper for Stopper {
 
 /// Starts live view through libgphoto2 on device's camera: Err((opened at all, why)). The first frame comes from read().
 pub fn open(device: &Device) -> Result<Box<dyn Capture>, (bool, String)> {
-    open_model(&device.location, &device.name, Timing::default(), Box::new(|port| super::gp::GpCamera::open(port).map(|c| Box::new(c) as Box<dyn Rig>)))
+    open_model(&device.location, &device.name, Timing::default(), Box::new(system_rig))
 }
 
 pub fn open_with(location: &str, timing: Timing, connect: Connect) -> Result<Box<dyn Capture>, (bool, String)> {
@@ -696,7 +716,7 @@ mod tests {
         let (model, port) = detect().expect("the lookup runs").into_iter().next().expect("a camera");
         println!("camera {model} on {port}");
         let started = Instant::now();
-        let mut cap = open_with(&format!("gphoto2:{port}"), Timing::default(), Box::new(|p| super::super::gp::GpCamera::open(p).map(|c| Box::new(c) as Box<dyn Rig>))).ok().unwrap();
+        let mut cap = open_with(&format!("gphoto2:{port}"), Timing::default(), Box::new(system_rig)).ok().unwrap();
         let first = cap.read().expect("a first frame");
         println!("first frame after {:?}, {} bytes", started.elapsed(), first.len());
         let mut controls = GphotoControls::new(&format!("gphoto2:{port}"));
@@ -742,6 +762,7 @@ mod tests {
 
     // Where libgphoto2 is installed this runs the real library's camera lookup (finding no camera is fine); elsewhere it's skipped
     #[test]
+    #[cfg(target_os = "linux")]
     fn the_real_library_lists_cameras_when_it_is_there() {
         assert!(available() || std::env::var_os(super::super::gp::BUNDLE_ENV).is_none(), "the bundled copy didn't load");
         if available() {
