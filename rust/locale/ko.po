@@ -5789,7 +5789,7 @@ msgstr "재부팅 후에도 커널 모듈이 로드되도록 /etc/modprobe.d/ �
 msgid "Your password (pkexec or sudo) is required."
 msgstr "비밀번호(pkexec 또는 sudo)가 필요해요."
 
-#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:987
+#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:989
 msgid "(not found)"
 msgstr ""
 
@@ -6057,15 +6057,15 @@ msgstr "완료 - 캔버스를 업데이트했어요."
 msgid "Failed: still in use. Close OBS and other apps using it, then try again."
 msgstr "실패: 아직 사용 중이에요. OBS 및 사용 중인 다른 앱을 닫은 다음 다시 시도하세요."
 
-#: rust/crates/setup/src/setup.rs:1158
+#: rust/crates/setup/src/setup.rs:1160
 msgid "Advanced settings"
 msgstr "고급 설정"
 
-#: rust/crates/setup/src/setup.rs:1159
+#: rust/crates/setup/src/setup.rs:1161
 msgid "Set up the virtual camera, its size, extra cameras and the video and microphone limits, and check for updates."
 msgstr "가상 카메라, 크기, 추가 카메라, 비디오 및 마이크 제한을 설정하고 업데이트를 확인해요."
 
-#: rust/crates/setup/src/setup.rs:1258
+#: rust/crates/setup/src/setup.rs:1260
 msgid "Use my own adb…"
 msgstr "내 adb 사용…"
 
@@ -8257,7 +8257,7 @@ msgstr "스트리밍 중지"
 msgid "Stop"
 msgstr "중지"
 
-#: rust/crates/shell/src/window.rs:2018 rust/crates/shell/src/worker.rs:1339
+#: rust/crates/shell/src/window.rs:2034 rust/crates/shell/src/worker.rs:1339
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{camera}에 {size}, {fps} fps로 스트리밍 중"

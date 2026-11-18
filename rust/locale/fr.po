@@ -5789,7 +5789,7 @@ msgstr "Écrire le réglage dans /etc/modprobe.d/ et /etc/modules-load.d/ pour c
 msgid "Your password (pkexec or sudo) is required."
 msgstr "Votre mot de passe (pkexec ou sudo) est requis."
 
-#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:987
+#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:989
 msgid "(not found)"
 msgstr ""
 
@@ -6057,15 +6057,15 @@ msgstr "Terminé - canevas mis à jour."
 msgid "Failed: still in use. Close OBS and other apps using it, then try again."
 msgstr "Échec : toujours utilisée. Fermez OBS et les autres applications qui l'utilisent, puis réessayez."
 
-#: rust/crates/setup/src/setup.rs:1158
+#: rust/crates/setup/src/setup.rs:1160
 msgid "Advanced settings"
 msgstr "Paramètres avancés"
 
-#: rust/crates/setup/src/setup.rs:1159
+#: rust/crates/setup/src/setup.rs:1161
 msgid "Set up the virtual camera, its size, extra cameras and the video and microphone limits, and check for updates."
 msgstr "Configurez la caméra virtuelle, sa taille, les caméras supplémentaires et les limites vidéo et microphone, puis recherchez des mises à jour."
 
-#: rust/crates/setup/src/setup.rs:1258
+#: rust/crates/setup/src/setup.rs:1260
 msgid "Use my own adb…"
 msgstr "Utiliser mon propre adb…"
 
@@ -8264,7 +8264,7 @@ msgstr "Arrêter la diffusion"
 msgid "Stop"
 msgstr "Arrêter"
 
-#: rust/crates/shell/src/window.rs:2018 rust/crates/shell/src/worker.rs:1339
+#: rust/crates/shell/src/window.rs:2034 rust/crates/shell/src/worker.rs:1339
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Diffusion en {size} à {fps} fps vers {camera}"

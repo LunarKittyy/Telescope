@@ -5789,7 +5789,7 @@ msgstr "Ghi cài đặt vào /etc/modprobe.d/ và /etc/modules-load.d/ để mô
 msgid "Your password (pkexec or sudo) is required."
 msgstr "Cần có mật khẩu của bạn (pkexec hoặc sudo)."
 
-#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:987
+#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:989
 msgid "(not found)"
 msgstr ""
 
@@ -6057,15 +6057,15 @@ msgstr "Xong - đã cập nhật khung vẽ."
 msgid "Failed: still in use. Close OBS and other apps using it, then try again."
 msgstr "Thất bại: vẫn đang được dùng. Hãy đóng OBS và các ứng dụng khác đang dùng nó, rồi thử lại."
 
-#: rust/crates/setup/src/setup.rs:1158
+#: rust/crates/setup/src/setup.rs:1160
 msgid "Advanced settings"
 msgstr "Cài đặt nâng cao"
 
-#: rust/crates/setup/src/setup.rs:1159
+#: rust/crates/setup/src/setup.rs:1161
 msgid "Set up the virtual camera, its size, extra cameras and the video and microphone limits, and check for updates."
 msgstr "Thiết lập camera ảo, kích thước camera, các camera phụ cùng giới hạn video và micrô, đồng thời kiểm tra bản cập nhật."
 
-#: rust/crates/setup/src/setup.rs:1258
+#: rust/crates/setup/src/setup.rs:1260
 msgid "Use my own adb…"
 msgstr "Dùng adb riêng…"
 
@@ -8257,7 +8257,7 @@ msgstr "Dừng truyền phát"
 msgid "Stop"
 msgstr "Dừng"
 
-#: rust/crates/shell/src/window.rs:2018 rust/crates/shell/src/worker.rs:1339
+#: rust/crates/shell/src/window.rs:2034 rust/crates/shell/src/worker.rs:1339
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Đang truyền phát {size} ở tốc độ {fps} fps tới {camera}"

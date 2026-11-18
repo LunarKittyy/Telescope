@@ -5789,7 +5789,7 @@ msgstr "Die Einstellung nach /etc/modprobe.d/ und /etc/modules-load.d/ schreiben
 msgid "Your password (pkexec or sudo) is required."
 msgstr "Dein Passwort (pkexec oder sudo) wird benötigt."
 
-#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:987
+#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:989
 msgid "(not found)"
 msgstr ""
 
@@ -6057,15 +6057,15 @@ msgstr "Fertig - Leinwand aktualisiert."
 msgid "Failed: still in use. Close OBS and other apps using it, then try again."
 msgstr "Fehlgeschlagen: noch in Verwendung. Schließe OBS und andere Apps, die sie nutzen, und versuche es erneut."
 
-#: rust/crates/setup/src/setup.rs:1158
+#: rust/crates/setup/src/setup.rs:1160
 msgid "Advanced settings"
 msgstr "Erweiterte Einstellungen"
 
-#: rust/crates/setup/src/setup.rs:1159
+#: rust/crates/setup/src/setup.rs:1161
 msgid "Set up the virtual camera, its size, extra cameras and the video and microphone limits, and check for updates."
 msgstr "Richte die virtuelle Kamera, ihre Größe, zusätzliche Kameras und die Video- und Mikrofonlimits ein und suche nach Updates."
 
-#: rust/crates/setup/src/setup.rs:1258
+#: rust/crates/setup/src/setup.rs:1260
 msgid "Use my own adb…"
 msgstr "Eigenes adb verwenden…"
 
@@ -8264,7 +8264,7 @@ msgstr "Streaming stoppen"
 msgid "Stop"
 msgstr "Stopp"
 
-#: rust/crates/shell/src/window.rs:2018 rust/crates/shell/src/worker.rs:1339
+#: rust/crates/shell/src/window.rs:2034 rust/crates/shell/src/worker.rs:1339
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Streamt {size} mit {fps} fps an {camera}"

@@ -231,7 +231,7 @@ pub fn chosen(candidates: &[Candidate], choice: &str) -> Vec<usize> {
     if choice.trim().is_empty() {
         return Vec::new();
     }
-    candidates.iter().filter(|c| card_id(c.vendor, c.device).eq_ignore_ascii_case(choice.trim()) && !(c.windows && c.vendor == VENDOR_INTEL && c.api == Api::Vulkan)).map(|c| c.index).collect()
+    candidates.iter().filter(|c| card_id(c.vendor, c.device).eq_ignore_ascii_case(choice.trim()) && !is_crashy(c)).map(|c| c.index).collect()
 }
 
 /// `ordered` (candidate indices, best first) with the chosen card's adapters moved to the front, in their own order. The rest follow, so
@@ -243,8 +243,17 @@ pub fn with_choice(ordered: Vec<usize>, candidates: &[Candidate], choice: &str) 
     first.into_iter().chain(rest).collect()
 }
 
-/// `ordered` with one adapter moved to the front (for a power preference set in the environment), unchanged when it isn't there.
-pub fn move_to_front(mut ordered: Vec<usize>, index: usize) -> Vec<usize> {
+/// Intel's Windows Vulkan adapter, the one that crashes while it opens (see `order`).
+pub fn is_crashy(c: &Candidate) -> bool {
+    c.windows && c.vendor == VENDOR_INTEL && c.api == Api::Vulkan
+}
+
+/// `ordered` with one adapter (`Candidate::index`) moved to the front, for a power preference set in the environment. Unchanged when it isn't
+/// there or is the crashy one, which no preference may bring forward.
+pub fn move_to_front(mut ordered: Vec<usize>, candidates: &[Candidate], index: usize) -> Vec<usize> {
+    if candidates.iter().any(|c| c.index == index && is_crashy(c)) {
+        return ordered;
+    }
     if let Some(at) = ordered.iter().position(|&i| i == index) {
         let found = ordered.remove(at);
         ordered.insert(0, found);
@@ -395,8 +404,10 @@ mod tests {
 
     #[test]
     fn one_adapter_can_be_moved_first() {
-        assert_eq!(move_to_front(vec![2, 0, 1], 1), [1, 2, 0]);
-        assert_eq!(move_to_front(vec![2, 0, 1], 9), [2, 0, 1]);
+        let list = laptop();
+        assert_eq!(move_to_front(vec![2, 0, 3], &list, 3), [3, 2, 0]);
+        assert_eq!(move_to_front(vec![2, 0, 3], &list, 9), [2, 0, 3]);
+        assert_eq!(move_to_front(vec![2, 0, 3], &list, 1), [2, 0, 3], "Intel's Windows Vulkan adapter never goes first");
     }
 
     #[test]

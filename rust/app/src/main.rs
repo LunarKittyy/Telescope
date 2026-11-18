@@ -677,6 +677,7 @@ fn main() {
         Some("control") => cli::control(&args, &services(Machine::real(None), remote, false), words.get(1).map(String::as_str).unwrap_or("{}")),
         Some("snapshot") => {
             let out = words.get(1).cloned().unwrap_or_else(|| "snapshot.ppm".into());
+            telescope_core::gpu_pick::set_choice(&chosen_graphics_card());
             telescope_shell::run(services(Machine::real(args.device.clone()), remote, false), args.window(Some(out), false, None))
         }
         Some(other) => Err(format!("Unknown command {other}")),

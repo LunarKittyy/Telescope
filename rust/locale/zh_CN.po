@@ -5789,7 +5789,7 @@ msgstr "将设置写入 /etc/modprobe.d/ 和 /etc/modules-load.d/，以便重启
 msgid "Your password (pkexec or sudo) is required."
 msgstr "需要你的密码（pkexec 或 sudo）。"
 
-#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:987
+#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:989
 msgid "(not found)"
 msgstr ""
 
@@ -6057,15 +6057,15 @@ msgstr "完成 - 画布已更新。"
 msgid "Failed: still in use. Close OBS and other apps using it, then try again."
 msgstr "失败：仍在占用中。请关闭 OBS 及其他正在使用它的应用，然后重试。"
 
-#: rust/crates/setup/src/setup.rs:1158
+#: rust/crates/setup/src/setup.rs:1160
 msgid "Advanced settings"
 msgstr "高级设置"
 
-#: rust/crates/setup/src/setup.rs:1159
+#: rust/crates/setup/src/setup.rs:1161
 msgid "Set up the virtual camera, its size, extra cameras and the video and microphone limits, and check for updates."
 msgstr "配置虚拟相机及其尺寸、额外相机以及视频和麦克风限制，并检查更新。"
 
-#: rust/crates/setup/src/setup.rs:1258
+#: rust/crates/setup/src/setup.rs:1260
 msgid "Use my own adb…"
 msgstr "使用自定义 adb…"
 
@@ -8257,7 +8257,7 @@ msgstr "停止串流"
 msgid "Stop"
 msgstr "停止"
 
-#: rust/crates/shell/src/window.rs:2018 rust/crates/shell/src/worker.rs:1339
+#: rust/crates/shell/src/window.rs:2034 rust/crates/shell/src/worker.rs:1339
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "正在以 {size}、{fps} fps 串流至 {camera}"

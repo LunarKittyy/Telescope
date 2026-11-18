@@ -157,12 +157,8 @@ fn adapters_to_try(instance: &wgpu::Instance, backends: wgpu::Backends, preferen
         let same = |a: &wgpu::AdapterInfo, b: &wgpu::AdapterInfo| a.name == b.name && a.backend == b.backend && a.vendor == b.vendor && a.device == b.device;
         if let Some(index) = picked.ok().and_then(|p| listed.iter().position(|a| same(&a.get_info(), &p.get_info()))) {
             log::info!("Graphics card {} ({:?}) picked by WGPU_POWER_PREF", names[index], listed[index].get_info().backend);
-            by_choice = gpu_pick::move_to_front(by_choice, index);
+            by_choice = gpu_pick::move_to_front(by_choice, &candidates, index);
         }
-    }
-    // A card chosen in Settings that can't be opened leaves the picture work on the processor, like the window's card it was meant to match
-    if !wanted.is_empty() {
-        by_choice.retain(|i| wanted.contains(i));
     }
     let mut listed: Vec<Option<wgpu::Adapter>> = listed.into_iter().map(Some).collect();
     let ordered: Vec<(wgpu::Adapter, Card)> = by_choice.into_iter().filter_map(|i| listed[i].take()).map(|a| { let card = card_of(&a.get_info(), &all); (a, card) }).collect();
@@ -210,11 +206,6 @@ impl Gpu {
                     }
                 }
             }
-        }
-        // The card chosen in Settings was found but none of its adapters opened: the processor does the picture work, not another card
-        let choice = gpu_pick::choice();
-        if !choice.is_empty() && gpu_pick::listed().iter().any(|l| l.id == choice) {
-            return Err(format!("the graphics card chosen in Settings can't be used ({why})"));
         }
         // Nothing enumerated worked: the plain high performance request, as before 5.1.1
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle().with_env());

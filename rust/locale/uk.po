@@ -5789,7 +5789,7 @@ msgstr "Записати параметр у /etc/modprobe.d/ та /etc/modules-
 msgid "Your password (pkexec or sudo) is required."
 msgstr "Потрібен ваш пароль (pkexec або sudo)."
 
-#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:987
+#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:989
 msgid "(not found)"
 msgstr ""
 
@@ -6057,15 +6057,15 @@ msgstr "Готово - полотно оновлено."
 msgid "Failed: still in use. Close OBS and other apps using it, then try again."
 msgstr "Помилка: ще використовується. Закрийте OBS та інші програми, що її використовують, і спробуйте знову."
 
-#: rust/crates/setup/src/setup.rs:1158
+#: rust/crates/setup/src/setup.rs:1160
 msgid "Advanced settings"
 msgstr "Розширені налаштування"
 
-#: rust/crates/setup/src/setup.rs:1159
+#: rust/crates/setup/src/setup.rs:1161
 msgid "Set up the virtual camera, its size, extra cameras and the video and microphone limits, and check for updates."
 msgstr "Налаштуйте віртуальну камеру, її розмір, додаткові камери та обмеження відео й мікрофона, а також перевірте наявність оновлень."
 
-#: rust/crates/setup/src/setup.rs:1258
+#: rust/crates/setup/src/setup.rs:1260
 msgid "Use my own adb…"
 msgstr "Використати власний adb…"
 
@@ -8271,7 +8271,7 @@ msgstr "Зупинити трансляцію"
 msgid "Stop"
 msgstr "Стоп"
 
-#: rust/crates/shell/src/window.rs:2018 rust/crates/shell/src/worker.rs:1339
+#: rust/crates/shell/src/window.rs:2034 rust/crates/shell/src/worker.rs:1339
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Трансляція {size} з {fps} fps на {camera}"

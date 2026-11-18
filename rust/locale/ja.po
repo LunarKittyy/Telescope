@@ -5789,7 +5789,7 @@ msgstr "再起動後もモジュールがロードされるよう、/etc/modprob
 msgid "Your password (pkexec or sudo) is required."
 msgstr "パスワード（pkexecまたはsudo）が必要です。"
 
-#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:987
+#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:989
 msgid "(not found)"
 msgstr ""
 
@@ -6057,15 +6057,15 @@ msgstr "完了 - キャンバスを更新しました。"
 msgid "Failed: still in use. Close OBS and other apps using it, then try again."
 msgstr "失敗: 使用中です。OBSなど使用中のアプリを閉じてから、もう一度お試しください。"
 
-#: rust/crates/setup/src/setup.rs:1158
+#: rust/crates/setup/src/setup.rs:1160
 msgid "Advanced settings"
 msgstr "詳細設定"
 
-#: rust/crates/setup/src/setup.rs:1159
+#: rust/crates/setup/src/setup.rs:1161
 msgid "Set up the virtual camera, its size, extra cameras and the video and microphone limits, and check for updates."
 msgstr "仮想カメラ、そのサイズ、追加のカメラ、映像とマイクの制限を設定し、アップデートを確認します。"
 
-#: rust/crates/setup/src/setup.rs:1258
+#: rust/crates/setup/src/setup.rs:1260
 msgid "Use my own adb…"
 msgstr "手持ちのadbを使用…"
 
@@ -8257,7 +8257,7 @@ msgstr "ストリーミング停止"
 msgid "Stop"
 msgstr "停止"
 
-#: rust/crates/shell/src/window.rs:2018 rust/crates/shell/src/worker.rs:1339
+#: rust/crates/shell/src/window.rs:2034 rust/crates/shell/src/worker.rs:1339
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{size}、{fps} fpsで{camera}にストリーミング中"

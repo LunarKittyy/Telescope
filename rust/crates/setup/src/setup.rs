@@ -982,8 +982,10 @@ impl SetupPlugin {
     }
 
     /// The graphics card for the next start: index 0 is Automatic, the others follow the list shown.
-    pub fn on_gpu_card(&mut self, host: &mut dyn Host, index: usize) {
-        let (id, name) = self.gpu_cards().get(index).cloned().unwrap_or_default();
+    pub fn on_gpu_card(&mut self, host: &mut dyn Host, index: usize, shown: &str) {
+        // The name of the row that was clicked, not its place: the list can have gained a card (a late scan) since it was drawn
+        let cards = self.gpu_cards();
+        let (id, name) = cards.iter().find(|(_, n)| !shown.is_empty() && n == shown).or_else(|| cards.get(index)).cloned().unwrap_or_default();
         self.gpu_card_name = if id.is_empty() { String::new() } else { name.trim_end_matches(&format!(" {}", tr("(not found)"))).to_string() };
         self.gpu_card = id;
         host.schedule_save();
@@ -1261,7 +1263,7 @@ impl Plugin for SetupPlugin {
             }
             ("virtual-camera" | "video", "copy") => host.copy_text(&text),
             ("video", "hw-toggled") => self.on_hw_decode(host, on),
-            ("video", "gpu-picked") => self.on_gpu_card(host, index.max(0) as usize),
+            ("video", "gpu-picked") => self.on_gpu_card(host, index.max(0) as usize, event.args.get(1).and_then(Value::as_str).unwrap_or("")),
             ("video", "restart-clicked") => { host.restart_app(); }
             ("video", "saving-toggled") => self.on_power_saving(host, on),
             ("video", "zoom-committed") => {

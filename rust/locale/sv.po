@@ -5788,7 +5788,7 @@ msgstr "Skriv inställningen till /etc/modprobe.d/ och /etc/modules-load.d/ så 
 msgid "Your password (pkexec or sudo) is required."
 msgstr "Ditt lösenord (pkexec eller sudo) krävs."
 
-#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:987
+#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:989
 msgid "(not found)"
 msgstr ""
 
@@ -6056,15 +6056,15 @@ msgstr "Klart - bildytan har uppdaterats."
 msgid "Failed: still in use. Close OBS and other apps using it, then try again."
 msgstr "Misslyckades: används fortfarande. Stäng OBS och andra program som använder den och försök igen."
 
-#: rust/crates/setup/src/setup.rs:1158
+#: rust/crates/setup/src/setup.rs:1160
 msgid "Advanced settings"
 msgstr "Avancerade inställningar"
 
-#: rust/crates/setup/src/setup.rs:1159
+#: rust/crates/setup/src/setup.rs:1161
 msgid "Set up the virtual camera, its size, extra cameras and the video and microphone limits, and check for updates."
 msgstr "Ställ in den virtuella kameran, dess storlek, extra kameror och gränserna för video och mikrofon, och sök efter uppdateringar."
 
-#: rust/crates/setup/src/setup.rs:1258
+#: rust/crates/setup/src/setup.rs:1260
 msgid "Use my own adb…"
 msgstr "Använd min egen adb…"
 
@@ -8263,7 +8263,7 @@ msgstr "Stoppa strömning"
 msgid "Stop"
 msgstr "Stoppa"
 
-#: rust/crates/shell/src/window.rs:2018 rust/crates/shell/src/worker.rs:1339
+#: rust/crates/shell/src/window.rs:2034 rust/crates/shell/src/worker.rs:1339
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Strömmar {size} i {fps} fps till {camera}"

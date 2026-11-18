@@ -5789,7 +5789,7 @@ msgstr "Tulis pengaturan ke /etc/modprobe.d/ dan /etc/modules-load.d/ agar modul
 msgid "Your password (pkexec or sudo) is required."
 msgstr "Kata sandi Anda (pkexec atau sudo) diperlukan."
 
-#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:987
+#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:989
 msgid "(not found)"
 msgstr ""
 
@@ -6057,15 +6057,15 @@ msgstr "Selesai - kanvas diperbarui."
 msgid "Failed: still in use. Close OBS and other apps using it, then try again."
 msgstr "Gagal: masih digunakan. Tutup OBS dan aplikasi lain yang menggunakannya, lalu coba lagi."
 
-#: rust/crates/setup/src/setup.rs:1158
+#: rust/crates/setup/src/setup.rs:1160
 msgid "Advanced settings"
 msgstr "Pengaturan lanjutan"
 
-#: rust/crates/setup/src/setup.rs:1159
+#: rust/crates/setup/src/setup.rs:1161
 msgid "Set up the virtual camera, its size, extra cameras and the video and microphone limits, and check for updates."
 msgstr "Siapkan kamera virtual, ukurannya, kamera tambahan, serta batas video dan mikrofon, dan periksa pembaruan."
 
-#: rust/crates/setup/src/setup.rs:1258
+#: rust/crates/setup/src/setup.rs:1260
 msgid "Use my own adb…"
 msgstr "Gunakan adb saya sendiri…"
 
@@ -8257,7 +8257,7 @@ msgstr "Hentikan streaming"
 msgid "Stop"
 msgstr "Stop"
 
-#: rust/crates/shell/src/window.rs:2018 rust/crates/shell/src/worker.rs:1339
+#: rust/crates/shell/src/window.rs:2034 rust/crates/shell/src/worker.rs:1339
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Streaming {size} pada {fps} fps ke {camera}"

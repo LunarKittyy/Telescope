@@ -198,7 +198,7 @@ export component VideoSettings inherits Card {
     in property <string> apply-tip;
     in property <string> canvas-command;
     callback hw-toggled(bool);
-    callback gpu-picked(int);
+    callback gpu-picked(int, string);
     callback restart-clicked;
     callback saving-toggled(bool);
     callback zoom-committed(string);
@@ -249,7 +249,7 @@ export component VideoSettings inherits Card {
                 name: @tr("Graphics card");
                 items: root.gpu-items;
                 current <=> root.gpu-current;
-                picked(i) => { root.gpu-current = i; root.gpu-picked(i); }
+                picked(i) => { root.gpu-current = i; root.gpu-picked(i, root.gpu-items[i]); }
             }
         }
         StatusRow { text: gpu-line; kind: "status_dim"; detail: gpu-line; }
