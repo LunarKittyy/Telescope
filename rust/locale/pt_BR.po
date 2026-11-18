@@ -625,11 +625,11 @@ msgstr "Desligado"
 msgid "Blur"
 msgstr "Desfoque"
 
-#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/background.slint:101 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:181 rust/crates/effects/ui/composite_editor.slint:372 rust/crates/effects/ui/composite_editor.slint:650 rust/crates/effects/ui/composite_editor.slint:652 rust/crates/effects/ui/composite_editor.slint:652
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/chroma_key.rs:31 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/background.slint:101 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:181 rust/crates/effects/ui/composite_editor.slint:372 rust/crates/effects/ui/composite_editor.slint:650 rust/crates/effects/ui/composite_editor.slint:652 rust/crates/effects/ui/composite_editor.slint:652
 msgid "Picture"
 msgstr "Imagem"
 
-#: rust/crates/effects/src/background.rs:30 rust/crates/effects/src/chroma_key.rs:31 rust/crates/effects/src/composite_editor.rs:16
+#: rust/crates/effects/src/background.rs:30 rust/crates/effects/src/chroma_key.rs:32 rust/crates/effects/src/composite_editor.rs:16
 msgid "Pictures (*.png *.jpg *.jpeg *.webp *.bmp)"
 msgstr "Imagens (*.png *.jpg *.jpeg *.webp *.bmp)"
 
@@ -637,127 +637,127 @@ msgstr "Imagens (*.png *.jpg *.jpeg *.webp *.bmp)"
 msgid "Cut out your hair and edges more cleanly, for about 40% of a CPU core."
 msgstr "Recorte seu cabelo e as bordas com mais nitidez, usando cerca de 40 % de um núcleo de CPU."
 
-#: rust/crates/effects/src/background.rs:541 rust/crates/effects/src/chroma_key.rs:42 rust/crates/effects/src/fun_pack.rs:72
+#: rust/crates/effects/src/background.rs:572 rust/crates/effects/src/chroma_key.rs:43 rust/crates/effects/src/fun_pack.rs:72
 msgid "How soft the edge around you is."
 msgstr "A suavidade da borda ao seu redor."
 
-#: rust/crates/effects/src/background.rs:542
+#: rust/crates/effects/src/background.rs:573
 msgid "Pull the cutout's border in towards you."
 msgstr "Puxe a borda do recorte para dentro, na sua direção."
 
-#: rust/crates/effects/src/background.rs:543 rust/crates/effects/src/chroma_key.rs:292
+#: rust/crates/effects/src/background.rs:574 rust/crates/effects/src/chroma_key.rs:323
 msgid "Pick the picture that goes behind you."
 msgstr "Escolha a imagem que fica atrás de você."
 
-#: rust/crates/effects/src/background.rs:625 rust/crates/effects/src/chroma_key.rs:467
+#: rust/crates/effects/src/background.rs:677 rust/crates/effects/src/chroma_key.rs:498
 msgid "Choose a picture"
 msgstr "Escolha uma imagem"
 
-#: rust/crates/effects/src/background.rs:635 rust/crates/effects/src/chroma_key.rs:485 rust/crates/effects/src/chroma_key.rs:524 rust/crates/effects/src/chroma_key.rs:543
+#: rust/crates/effects/src/background.rs:687 rust/crates/effects/src/chroma_key.rs:516 rust/crates/effects/src/chroma_key.rs:555 rust/crates/effects/src/chroma_key.rs:574
 msgid "Can't open that picture"
 msgstr "Não foi possível abrir essa imagem"
 
-#: rust/crates/effects/src/background.rs:643 rust/crates/effects/src/background.rs:768 rust/crates/effects/src/background.rs:771 rust/crates/effects/src/background.rs:789 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:620
+#: rust/crates/effects/src/background.rs:695 rust/crates/effects/src/background.rs:825 rust/crates/effects/src/background.rs:828 rust/crates/effects/src/background.rs:847 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:620
 msgid "Background"
 msgstr "Plano de fundo"
 
-#: rust/crates/effects/src/background.rs:644
+#: rust/crates/effects/src/background.rs:696
 msgid "Blur the background behind you or swap it for a picture."
 msgstr "Desfoque o fundo atrás de você ou troque-o por uma imagem."
 
-#: rust/crates/effects/src/background.rs:645
+#: rust/crates/effects/src/background.rs:697
 msgid "Without the Background plugin there's no Background card and the background is shown the way the camera sees it."
 msgstr "Sem o plugin Fundo, não há o cartão Fundo e o fundo é exibido do jeito que a câmera o vê."
 
-#: rust/crates/effects/src/background.rs:770 rust/crates/effects/src/background.rs:796
+#: rust/crates/effects/src/background.rs:827 rust/crates/effects/src/background.rs:854
 msgid "Background blur"
 msgstr "Desfoque de fundo"
 
-#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:605 rust/crates/effects/ui/composite_editor.slint:636 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:605 rust/crates/effects/ui/composite_editor.slint:636 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Green"
 msgstr "Verde"
 
-#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:605 rust/crates/effects/ui/composite_editor.slint:636 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:605 rust/crates/effects/ui/composite_editor.slint:636 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Blue"
 msgstr "Azul"
 
-#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94
+#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94
 msgid "Picked"
 msgstr "Escolhida"
 
-#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:153 rust/crates/effects/ui/chroma_key.slint:166 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/effects/ui/composite_editor.slint:624
+#: rust/crates/effects/src/chroma_key.rs:31 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:153 rust/crates/effects/ui/chroma_key.slint:166 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/effects/ui/composite_editor.slint:624
 msgid "Colour"
 msgstr "Cor"
 
-#: rust/crates/effects/src/chroma_key.rs:42
+#: rust/crates/effects/src/chroma_key.rs:43
 msgid "Higher values remove more shades of the screen colour."
 msgstr "Valores mais altos removem mais tons da cor do fundo."
 
-#: rust/crates/effects/src/chroma_key.rs:42
+#: rust/crates/effects/src/chroma_key.rs:43
 msgid "Remove the screen's colour from your edges and skin."
 msgstr "Remove a cor do fundo das suas bordas e da pele."
 
-#: rust/crates/effects/src/chroma_key.rs:287 rust/crates/effects/src/chroma_key.rs:571 rust/crates/effects/src/chroma_key.rs:703 rust/crates/effects/src/chroma_key.rs:707 rust/crates/effects/src/chroma_key.rs:725 rust/crates/effects/ui/chroma_key.slint:59
+#: rust/crates/effects/src/chroma_key.rs:318 rust/crates/effects/src/chroma_key.rs:602 rust/crates/effects/src/chroma_key.rs:739 rust/crates/effects/src/chroma_key.rs:743 rust/crates/effects/src/chroma_key.rs:761 rust/crates/effects/ui/chroma_key.slint:59
 msgid "Chroma key"
 msgstr "Chroma key"
 
-#: rust/crates/effects/src/chroma_key.rs:288
+#: rust/crates/effects/src/chroma_key.rs:319
 msgid "Replace the green or blue screen behind you."
 msgstr "Substitui o fundo verde ou azul atrás de você."
 
-#: rust/crates/effects/src/chroma_key.rs:290
+#: rust/crates/effects/src/chroma_key.rs:321
 msgid "Pick the colour that goes behind you."
 msgstr "Escolha a cor que fica atrás de você."
 
-#: rust/crates/effects/src/chroma_key.rs:291 rust/crates/ui-kit/ui/widgets/colour.slint:392
+#: rust/crates/effects/src/chroma_key.rs:322 rust/crates/ui-kit/ui/widgets/colour.slint:392
 msgid "Pick from the preview"
 msgstr "Escolher na pré-visualização"
 
-#: rust/crates/effects/src/chroma_key.rs:297
+#: rust/crates/effects/src/chroma_key.rs:328
 msgid "The colour picked from the preview. Click to pick again."
 msgstr "A cor escolhida na pré-visualização. Clique para escolher novamente."
 
-#: rust/crates/effects/src/chroma_key.rs:410
+#: rust/crates/effects/src/chroma_key.rs:441
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Clique na tela atrás de você na pré-visualização. Esc cancela."
 
-#: rust/crates/effects/src/chroma_key.rs:411 rust/crates/effects/src/chroma_key.rs:447 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1788 rust/crates/shell/src/window.rs:1815 rust/crates/shell/src/worker.rs:610 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:442 rust/crates/effects/src/chroma_key.rs:478 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1788 rust/crates/shell/src/window.rs:1815 rust/crates/shell/src/worker.rs:613 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Não está transmitindo"
 
-#: rust/crates/effects/src/chroma_key.rs:411
+#: rust/crates/effects/src/chroma_key.rs:442
 msgid "Start streaming to pick the screen's colour on the preview."
 msgstr "Inicie a transmissão para escolher a cor da tela na pré-visualização."
 
-#: rust/crates/effects/src/chroma_key.rs:429
+#: rust/crates/effects/src/chroma_key.rs:460
 msgid "No colour there"
 msgstr "Sem cor nesse ponto"
 
-#: rust/crates/effects/src/chroma_key.rs:429
+#: rust/crates/effects/src/chroma_key.rs:460
 msgid "That spot has hardly any colour. Click the screen itself."
 msgstr "Esse ponto quase não tem cor. Clique na própria tela."
 
-#: rust/crates/effects/src/chroma_key.rs:446
+#: rust/crates/effects/src/chroma_key.rs:477
 msgid "Click a colour on the preview. Esc cancels."
 msgstr "Clique em uma cor na pré-visualização. Esc cancela."
 
-#: rust/crates/effects/src/chroma_key.rs:447
+#: rust/crates/effects/src/chroma_key.rs:478
 msgid "Start streaming to pick a colour on the preview."
 msgstr "Inicie a transmissão para escolher uma cor na pré-visualização."
 
-#: rust/crates/effects/src/chroma_key.rs:572
+#: rust/crates/effects/src/chroma_key.rs:603
 msgid "Swap a green or blue screen behind you for a colour or a picture, with no download."
 msgstr "Troque um fundo verde ou azul atrás de você por uma cor ou uma imagem, sem nenhum download."
 
-#: rust/crates/effects/src/chroma_key.rs:573
+#: rust/crates/effects/src/chroma_key.rs:604
 msgid "Without the Chroma key plugin there's no Chroma key card and a green screen isn't replaced."
 msgstr "Sem o plugin Chroma key, não há o cartão Chroma key e o fundo verde não é substituído."
 
-#: rust/crates/effects/src/chroma_key.rs:705 rust/crates/effects/src/chroma_key.rs:740
+#: rust/crates/effects/src/chroma_key.rs:741 rust/crates/effects/src/chroma_key.rs:776
 msgid "Chroma key tolerance"
 msgstr "Tolerância do chroma key"
 
-#: rust/crates/effects/src/chroma_key.rs:708 rust/crates/effects/src/chroma_key.rs:734
+#: rust/crates/effects/src/chroma_key.rs:744 rust/crates/effects/src/chroma_key.rs:770
 msgid "Chroma key screen"
 msgstr "Tela do chroma key"
 
@@ -1644,19 +1644,19 @@ msgstr "Também no celular"
 msgid "The Camera card has the phone's own Sharpening and Noise reduction. Using both looks worse."
 msgstr "O cartão Câmera tem a Nitidez e a Redução de ruído próprias do celular. Usar ambas piora o resultado."
 
-#: rust/crates/effects/src/filters.rs:364 rust/crates/effects/src/filters.rs:472 rust/crates/effects/src/filters.rs:535 rust/crates/effects/src/filters.rs:535 rust/crates/effects/src/filters.rs:548 rust/crates/effects/ui/filters.slint:38
+#: rust/crates/effects/src/filters.rs:368 rust/crates/effects/src/filters.rs:476 rust/crates/effects/src/filters.rs:539 rust/crates/effects/src/filters.rs:539 rust/crates/effects/src/filters.rs:552 rust/crates/effects/ui/filters.slint:38
 msgid "Filters"
 msgstr "Filtros"
 
-#: rust/crates/effects/src/filters.rs:365
+#: rust/crates/effects/src/filters.rs:369
 msgid "Turn every filter off to see the picture without them."
 msgstr "Desligue todos os filtros para ver a imagem sem eles."
 
-#: rust/crates/effects/src/filters.rs:473
+#: rust/crates/effects/src/filters.rs:477
 msgid "Add photo editor filters like sharpen, clarity, dehaze, denoise, skin smoothing, vignette, glow and film grain."
 msgstr "Adicione filtros de edição de fotos como nitidez, claridade, remoção de névoa, redução de ruído, suavização de pele, vinheta, brilho suave e grão de filme."
 
-#: rust/crates/effects/src/filters.rs:474
+#: rust/crates/effects/src/filters.rs:478
 msgid "Without it there's no Filters card and the picture isn't sharpened, cleaned up or finished."
 msgstr "Sem ele, não há o cartão Filtros e a imagem não recebe nitidez, limpeza nem acabamento."
 
@@ -5544,41 +5544,41 @@ msgstr "{name} não está em execução"
 msgid "Start it again or pick another source."
 msgstr "Inicie novamente ou escolha outra fonte."
 
-#: rust/crates/outputs/src/spout_send/mod.rs:222
+#: rust/crates/outputs/src/spout_send/mod.rs:249
 msgid "Sharing pictures isn't available on this system."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:225
+#: rust/crates/outputs/src/spout_send/mod.rs:252
 #, python-brace-format
 msgid "Sharing {size} as {name}"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:227
+#: rust/crates/outputs/src/spout_send/mod.rs:254
 msgid "The sender couldn't be started. It tries again with the next picture."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:228
+#: rust/crates/outputs/src/spout_send/mod.rs:255
 msgid "The sender stopped. It tries again with the next picture."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:229
+#: rust/crates/outputs/src/spout_send/mod.rs:256
 msgid "This picture can't be shared."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:231
+#: rust/crates/outputs/src/spout_send/mod.rs:258
 #, python-brace-format
 msgid "Shares as {name} while this stream runs"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:258 rust/crates/outputs/ui/spout_send.slint:11
+#: rust/crates/outputs/src/spout_send/mod.rs:304 rust/crates/outputs/ui/spout_send.slint:14
 msgid "Spout send"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:259
+#: rust/crates/outputs/src/spout_send/mod.rs:305
 msgid "Share a stream's picture with other programs on this computer, such as OBS."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:260
+#: rust/crates/outputs/src/spout_send/mod.rs:306
 msgid "Without Spout send the Spout send card is gone and no picture is shared."
 msgstr ""
 
@@ -6120,15 +6120,27 @@ msgstr "Transmita de programas neste computador que compartilham a imagem pelo S
 msgid "Sender"
 msgstr "Emissor"
 
-#: rust/crates/outputs/ui/spout_send.slint:12 rust/crates/outputs/ui/spout_send.slint:18
+#: rust/crates/outputs/ui/spout_send.slint:15 rust/crates/outputs/ui/spout_send.slint:21
 msgid "Share this stream's picture with other programs on this computer, such as OBS."
 msgstr ""
 
-#: rust/crates/outputs/ui/spout_send.slint:17
+#: rust/crates/outputs/ui/spout_send.slint:20
 msgid "Share this stream"
 msgstr ""
 
-#: rust/crates/outputs/ui/spout_send.slint:32
+#: rust/crates/outputs/ui/spout_send.slint:29
+msgid "Transparent background"
+msgstr ""
+
+#: rust/crates/outputs/ui/spout_send.slint:30
+msgid "Cut yourself out and share the picture with a see-through background, for programs that can lay it over something."
+msgstr ""
+
+#: rust/crates/outputs/ui/spout_send.slint:31
+msgid "It uses the person cut-out of Background or Chroma key and switches Background to Blur while nothing else uses it."
+msgstr ""
+
+#: rust/crates/outputs/ui/spout_send.slint:44
 msgid "Status"
 msgstr ""
 
@@ -8821,7 +8833,7 @@ msgstr "Iniciando a câmera do celular…"
 msgid "Couldn't start the phone's camera"
 msgstr "Não foi possível iniciar a câmera do celular"
 
-#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1136
+#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1139
 msgid "Connecting..."
 msgstr "Conectando..."
 
@@ -9022,43 +9034,43 @@ msgstr "Iniciar transmissão"
 msgid "Stop streaming"
 msgstr "Parar transmissão"
 
-#: rust/crates/shell/src/window.rs:2153 rust/crates/shell/src/worker.rs:1484
+#: rust/crates/shell/src/window.rs:2153 rust/crates/shell/src/worker.rs:1487
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Transmitindo {size} a {fps} fps para {camera}"
 
-#: rust/crates/shell/src/worker.rs:600
+#: rust/crates/shell/src/worker.rs:603
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "Erro na transmissão: {error}"
 
-#: rust/crates/shell/src/worker.rs:1136
+#: rust/crates/shell/src/worker.rs:1139
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "Conectando a {url}..."
 
-#: rust/crates/shell/src/worker.rs:1146
+#: rust/crates/shell/src/worker.rs:1149
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "Não é possível acessar a transmissão do celular. Tentando novamente em {seconds} s…"
 
-#: rust/crates/shell/src/worker.rs:1158
+#: rust/crates/shell/src/worker.rs:1161
 msgid "Waiting for the first frame…"
 msgstr "Aguardando o primeiro quadro…"
 
-#: rust/crates/shell/src/worker.rs:1246
+#: rust/crates/shell/src/worker.rs:1249
 msgid "Stream reconnected"
 msgstr "Transmissão reconectada"
 
-#: rust/crates/shell/src/worker.rs:1351
+#: rust/crates/shell/src/worker.rs:1354
 msgid "The video is paused while the phone takes a photo"
 msgstr "O vídeo está pausado enquanto o celular tira uma foto"
 
-#: rust/crates/shell/src/worker.rs:1353 rust/crates/shell/src/worker.rs:1359
+#: rust/crates/shell/src/worker.rs:1356 rust/crates/shell/src/worker.rs:1362
 msgid "Stream dropped - reconnecting"
 msgstr "Transmissão perdida - reconectando"
 
-#: rust/crates/shell/src/worker.rs:1473 rust/crates/shell/src/worker.rs:1582
+#: rust/crates/shell/src/worker.rs:1476 rust/crates/shell/src/worker.rs:1585
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "Erro na câmera virtual: {error}"

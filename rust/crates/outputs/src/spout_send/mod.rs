@@ -3,7 +3,8 @@
 //! gets: a stream's own picture, or with Several cameras on, the combined one the stream going to the Telescope camera shows.
 //!
 //! The step only copies a handle to the picture and leaves it for a thread of the stream's own, so a slow program reading the sender never holds the stream up. The sender is
-//! made when the first picture comes and goes when they stop. Pictures leave opaque for now, with the alpha channel already in the packing (pack.rs).
+//! made when the first picture comes and goes when they stop. Pictures leave opaque unless a stream is switched to Transparent: then the steps that cut a person out are
+//! asked to (Event::CutOutWanted) and the alpha they leave on the frame goes out as the picture's alpha.
 
 #[cfg(target_os = "linux")]
 pub mod pipewire;
@@ -93,6 +94,8 @@ struct Entry {
     stream: String,
     /// The sender's name.
     name: String,
+    /// Whether the cut-out goes out as the picture's alpha, so what is behind the person is see-through.
+    transparent: bool,
     worker: Option<Worker>,
 }
 
@@ -124,6 +127,11 @@ impl Shared {
         let Some(backend) = self.backend.clone() else { return };
         let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
         let Some(entry) = entries.get_mut(source) else { return };
+        // The step leaves the cut-out on the picture it hands over only for a sender that asked for it
+        let mut frame = frame.clone();
+        if !entry.transparent {
+            frame.clear_alpha();
+        }
         if entry.worker.as_ref().is_some_and(|w| !w.alive()) {
             entry.worker = None;
         }
@@ -140,8 +148,25 @@ impl Shared {
             entry.worker = Worker::spawn(entry.name.clone(), backend, tell, self.idle, self.retry, keep);
         }
         if let Some(worker) = &entry.worker {
-            worker.put(frame.clone());
+            worker.put(frame);
         }
+    }
+
+    /// Sets whether a shared stream's cut-out goes out as alpha. Whether that changed anything.
+    fn set_transparent(&self, source: &str, on: bool) -> bool {
+        let mut entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
+        match entries.get_mut(source) {
+            Some(entry) if entry.transparent != on => {
+                entry.transparent = on;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// The streams whose senders want their cut-out.
+    fn transparent(&self) -> std::collections::BTreeSet<String> {
+        self.entries.lock().unwrap_or_else(|e| e.into_inner()).iter().filter(|(_, e)| e.transparent).map(|(id, _)| id.clone()).collect()
     }
 
     fn state(&self, source: &str) -> State {
@@ -165,7 +190,7 @@ impl Shared {
         let taken: Vec<&str> = entries.values().map(|e| e.name.as_str()).collect();
         let name = sender_name(stream, &taken);
         let generation = self.generations.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        entries.insert(source.to_string(), Entry { generation, stream: stream.to_string(), name, worker: None });
+        entries.insert(source.to_string(), Entry { generation, stream: stream.to_string(), name, transparent: false, worker: None });
         true
     }
 
@@ -194,11 +219,13 @@ pub struct SpoutSendPlugin {
     /// The stream the panels show, which the card's switch is for.
     shown: String,
     stopped: bool,
+    /// The streams the producers of the cut-out have been told to cut out for (Event::CutOutWanted), so a change is told once.
+    told: std::collections::BTreeSet<String>,
 }
 
 impl SpoutSendPlugin {
     pub fn new(backend: Option<Arc<dyn Backend>>) -> SpoutSendPlugin {
-        SpoutSendPlugin { shared: Shared::new(backend), shown: String::new(), stopped: false }
+        SpoutSendPlugin { shared: Shared::new(backend), shown: String::new(), stopped: false, told: Default::default() }
     }
 
     pub fn system() -> SpoutSendPlugin {
@@ -235,8 +262,27 @@ impl SpoutSendPlugin {
             "visible": !self.shown.is_empty(),
             "checked": entry.is_some(),
             "enabled": self.shared.backend.is_some(),
+            "transparent": entry.is_some_and(|e| e.transparent),
+            "transparent-shown": entry.is_some(),
             "status-text": text, "status-kind": kind,
         })
+    }
+
+    /// Tells the steps that cut a person out which streams want it, now and again, since a step that starts later hasn't heard.
+    fn tell_cut_outs(&mut self, host: &mut dyn Host, again: bool) {
+        let now = self.shared.transparent();
+        for id in now.difference(&self.told).cloned().collect::<Vec<_>>() {
+            host.emit(Event::CutOutWanted { source_id: id, on: true });
+        }
+        for id in self.told.difference(&now).cloned().collect::<Vec<_>>() {
+            host.emit(Event::CutOutWanted { source_id: id, on: false });
+        }
+        if again {
+            for id in now.intersection(&self.told).cloned().collect::<Vec<_>>() {
+                host.emit(Event::CutOutWanted { source_id: id, on: true });
+            }
+        }
+        self.told = now;
     }
 
     fn render(&self, host: &mut dyn Host) {
@@ -289,13 +335,19 @@ impl Plugin for SpoutSendPlugin {
         match event {
             Event::TimerFired { owner, token } if owner == NAME && token == T_STATUS => {
                 if !self.stopped {
+                    self.tell_cut_outs(host, false);
                     self.render(host);
                     host.schedule(STATUS_MS, T_STATUS);
                 }
             }
             Event::SourceSelected { source_id } => self.follow(host, &source_id.clone()),
+            Event::SourceShown { .. } => self.tell_cut_outs(host, true),
             _ => {}
         }
+    }
+
+    fn on_plugins_ready(&mut self, host: &mut dyn Host) {
+        self.tell_cut_outs(host, true);
     }
 
     fn on_focus_gained(&mut self, host: &mut dyn Host, stream: &StreamInfo) {
@@ -303,14 +355,26 @@ impl Plugin for SpoutSendPlugin {
     }
 
     fn on_ui(&mut self, host: &mut dyn Host, event: &UiEvent) {
-        if event.callback != "toggled" || self.shown.is_empty() {
+        if self.shown.is_empty() {
             return;
         }
         let on = event.args.first().and_then(Value::as_bool).unwrap_or(false);
-        let stream = Self::stream_name(host, &self.shown).unwrap_or_default();
-        if self.shared.set(&self.shown, &stream, on) {
-            host.refresh_frame_step();
-            host.schedule_save();
+        match event.callback.as_str() {
+            "toggled" => {
+                let stream = Self::stream_name(host, &self.shown).unwrap_or_default();
+                if self.shared.set(&self.shown, &stream, on) {
+                    host.refresh_frame_step();
+                    host.schedule_save();
+                    self.tell_cut_outs(host, false);
+                }
+            }
+            "transparent-toggled" => {
+                if self.shared.set_transparent(&self.shown, on) {
+                    host.schedule_save();
+                    self.tell_cut_outs(host, false);
+                }
+            }
+            _ => return,
         }
         self.render(host);
     }
@@ -323,7 +387,7 @@ impl Plugin for SpoutSendPlugin {
 
     fn get_config(&self) -> Value {
         let entries = self.shared.entries.lock().unwrap_or_else(|e| e.into_inner());
-        json!({"streams": entries.iter().map(|(id, e)| (id.clone(), json!({"name": e.stream}))).collect::<Map<String, Value>>()})
+        json!({"streams": entries.iter().map(|(id, e)| (id.clone(), if e.transparent { json!({"name": e.stream, "transparent": true}) } else { json!({"name": e.stream}) })).collect::<Map<String, Value>>()})
     }
 
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
@@ -331,6 +395,7 @@ impl Plugin for SpoutSendPlugin {
         if let Some(streams) = cfg.get("streams").and_then(Value::as_object) {
             for (id, entry) in streams {
                 self.shared.set(id, entry.get("name").and_then(Value::as_str).unwrap_or(""), true);
+                self.shared.set_transparent(id, entry.get("transparent").and_then(Value::as_bool).unwrap_or(false));
             }
         }
         Ok(())

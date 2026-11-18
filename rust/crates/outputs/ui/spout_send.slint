@@ -6,7 +6,10 @@ export component SpoutSendCard inherits Card {
     in property <string> status-text;
     in property <string> status-kind: "status_dim";
     in-out property <bool> checked;
+    in-out property <bool> transparent;
+    in property <bool> transparent-shown;
     callback toggled(bool);
+    callback transparent-toggled(bool);
 
     title: @tr("Spout send");
     tip: @tr("Share this stream's picture with other programs on this computer, such as OBS.");
@@ -20,6 +23,15 @@ export component SpoutSendCard inherits Card {
         enabled: root.enabled;
         checked <=> root.checked;
         toggled(on) => { root.checked = on; root.toggled(on); }
+    }
+    if root.transparent-shown: SwitchTile {
+        icon: Icons.monitor;
+        text: @tr("Transparent background");
+        tip: @tr("Cut yourself out and share the picture with a see-through background, for programs that can lay it over something.");
+        tip-detail: @tr("It uses the person cut-out of Background or Chroma key and switches Background to Blur while nothing else uses it.");
+        hue: root.hue;
+        checked <=> root.transparent;
+        toggled(on) => { root.transparent = on; root.transparent-toggled(on); }
     }
     Text {
         height: Theme.u(9);
