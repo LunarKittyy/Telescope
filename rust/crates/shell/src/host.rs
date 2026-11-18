@@ -41,6 +41,10 @@ impl Ctx<'_> {
         self.want_frames(&me, false);
         self.want_frame_history(&me, 0);
         self.state.colour.remove_owner(&me);
+        // Whatever it said about hiding goes with it, for every stream and not only the one its shutdown reported on
+        if self.state.hiding.remove(&me).is_some() {
+            self.state.sync_hidden_flags();
+        }
         if self.state.packet_makers.0.iter().any(|(o, _)| *o == me) {
             self.change_packets(&me, None);
         }

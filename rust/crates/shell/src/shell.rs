@@ -1331,7 +1331,7 @@ impl State {
     }
 
     /// Every flag handed out says what picture_hidden_for says now. A flag no photo holds any more goes.
-    fn sync_hidden_flags(&mut self) {
+    pub(crate) fn sync_hidden_flags(&mut self) {
         self.hidden_flags.retain(|_, flag| Arc::strong_count(flag) > 1);
         for (id, flag) in &self.hidden_flags {
             flag.store(self.picture_hidden_for(id), std::sync::atomic::Ordering::SeqCst);
@@ -3327,6 +3327,21 @@ mod tests {
         drop(flag);
         s.set_hiding("cover", None, true);
         assert!(s.hidden_flags.is_empty());
+    }
+
+    #[test]
+    fn a_plugin_that_stops_leaves_no_stream_hidden_behind_it() {
+        use std::sync::atomic::Ordering::SeqCst;
+        let mut s = state();
+        s.register(stub("background", json!({}), true).0).unwrap();
+        let (a, b) = (s.hidden_flag("a"), s.hidden_flag("b"));
+        s.set_hiding("background", Some("a"), true);
+        s.set_hiding("background", Some("b"), true);
+        // Its shutdown only reports on the shown stream, b
+        s.set_hiding("background", Some("b"), false);
+        assert!(a.load(SeqCst));
+        crate::host::Ctx { state: &mut s, me: "background".into() }.release_everything();
+        assert!(!a.load(SeqCst) && !b.load(SeqCst) && !s.picture_hidden_for("a"), "a isn't left hidden by a plugin that's gone");
     }
 
     #[test]
