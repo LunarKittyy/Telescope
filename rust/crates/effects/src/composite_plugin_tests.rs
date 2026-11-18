@@ -582,6 +582,106 @@ fn a_preset_saves_the_picture_but_not_the_saved_layouts() {
     assert_eq!(other.plugin.names(), ["Mine"]);
 }
 
+// ── Transitions ───────────────────────────────────────────────────────────
+
+/// Whether the transition is still going `after_ms` from now. It starts with the first picture drawn, so one is drawn first.
+fn goes(r: &Rig, after_ms: u64) -> bool {
+    let mut hub = r.plugin.shared.hub();
+    hub.compositor.render_at(&Frames::new(), PixelFormat::Bgra, STARTED);
+    hub.compositor.transitioning(STARTED + after_ms * 1_000_000)
+}
+
+/// When the pictures of these tests are drawn.
+const STARTED: u64 = 1_000_000_000;
+
+/// A rig with a saved layout "Big" that differs from the one on.
+fn with_saved_layout() -> Rig {
+    let mut r = rig();
+    r.two_streams(0.0);
+    r.plugin.set_layout(&mut r.host, Layout::of(vec![Tile::boxed("a", "Phone A", 0.0, 0.0, 1.0, 1.0), Tile::boxed("b", "Phone B", 0.7, 0.7, 0.25, 0.25)]));
+    r.plugin.save_layout(&mut r.host, "Big");
+    r.plugin.set_layout(&mut r.host, Layout::of(vec![Tile::boxed("a", "Phone A", 0.0, 0.0, 0.5, 1.0), Tile::boxed("b", "Phone B", 0.5, 0.0, 0.5, 1.0)]));
+    r
+}
+
+#[test]
+fn a_picked_layout_goes_there_the_way_the_transition_says_and_an_edit_takes_effect_at_once() {
+    let mut r = with_saved_layout();
+    assert!(!goes(&r, 0), "an edit in the editor is not a transition");
+    assert!(r.plugin.pick(&mut r.host, "Big"));
+    assert!(goes(&r, 0) && goes(&r, 400) && !goes(&r, 1500));
+    r.plugin.set_layout(&mut r.host, Layout::of(vec![Tile::boxed("a", "Phone A", 0.0, 0.0, 0.5, 1.0), Tile::boxed("b", "Phone B", 0.5, 0.0, 0.5, 1.0)]));
+    assert!(goes(&r, 400), "an edit mid-way is gone to on the way, not jumped to");
+}
+
+#[test]
+fn a_stream_joining_in_the_middle_of_a_transition_does_not_end_it() {
+    let mut r = with_saved_layout();
+    r.plugin.pick(&mut r.host, "Big");
+    assert!(goes(&r, 100));
+    // what follow_camera does when the streams change
+    r.plugin.on_event(&mut r.host, &Event::StreamsChanged { count: 2 });
+    assert!(goes(&r, 200), "it goes on");
+}
+
+#[test]
+fn a_preset_without_a_transition_leaves_the_cards_alone_and_one_with_its_own_uses_it() {
+    let mut r = with_saved_layout();
+    let ui = |r: &mut Rig, callback: &str, arg: f64| r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: callback.into(), args: vec![json!(arg)] });
+    ui(&mut r, "transition-picked", 3.0);
+    let old = json!({"on": true, "layout": {"name": "Big", "tiles": [{"source_id": "a", "x": 0.0, "y": 0.0, "w": 1.0, "h": 1.0}]}});
+    r.plugin.apply_preset(&mut r.host, &old).unwrap();
+    assert_eq!(r.plugin.get_config()["transition"]["kind"], "slide", "an older preset has none");
+    let mut own = old.clone();
+    own["transition"] = json!({"kind": "wipe", "ms": 400, "ease": "even"});
+    r.plugin.apply_preset(&mut r.host, &own).unwrap();
+    assert_eq!(r.plugin.get_config()["transition"], json!({"kind": "wipe", "ms": 400, "ease": "even"}));
+}
+
+#[test]
+fn reduced_motion_fades_briefly_and_off_cuts() {
+    let mut r = with_saved_layout();
+    r.host.reduced_motion = (true, false);
+    r.plugin.pick(&mut r.host, "Big");
+    assert!(goes(&r, 100) && !goes(&r, 400), "a short fade");
+    let mut r = with_saved_layout();
+    r.host.reduced_motion = (false, true);
+    r.plugin.pick(&mut r.host, "Big");
+    assert!(!goes(&r, 0), "a cut");
+}
+
+#[test]
+fn the_transition_is_set_from_the_card_saved_and_clamped() {
+    let mut r = rig();
+    let ui = |r: &mut Rig, callback: &str, arg: f64| r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: callback.into(), args: vec![json!(arg)] });
+    assert_eq!(r.plugin.get_config()["transition"], json!({"kind": "glide", "ms": 600, "ease": "springy"}));
+    ui(&mut r, "transition-picked", 3.0);
+    ui(&mut r, "ease-picked", 2.0);
+    ui(&mut r, "transition-length-moved", 99999.0);
+    assert_eq!(r.plugin.get_config()["transition"], json!({"kind": "slide", "ms": 3000, "ease": "bouncy"}));
+    ui(&mut r, "transition-picked", 99.0);
+    assert_eq!(r.plugin.get_config()["transition"]["kind"], "slide", "an unknown pick changes nothing");
+    let saved = r.plugin.preset_config();
+    let mut other = rig();
+    other.plugin.apply_preset(&mut other.host, &saved).unwrap();
+    assert_eq!(other.plugin.get_config()["transition"], saved["transition"], "a preset carries the transition");
+}
+
+#[test]
+fn a_transition_keeps_being_drawn_while_the_telescope_stream_stalls() {
+    let mut r = with_saved_layout();
+    r.plugin.shutdown(&mut r.host);
+    let main = solid([255, 0, 0], (90, 160));
+    let t0 = monotonic_ns();
+    let sent = numbered(r.process(&main, "a"), 1, t0);
+    r.store.set(0, stream("a", "Phone A", sent));
+    r.set_main(&main, t0);
+    r.plugin.pick(&mut r.host, "Big");
+    // no new frame from anyone, yet each tick draws the next picture of the transition
+    assert!(r.draw_stalled(t0 + SECOND / 5));
+    assert!(r.draw_stalled(t0 + SECOND * 3 / 10), "the same frames, drawn again for the transition");
+}
+
 #[test]
 fn a_preset_saved_with_keep_what_is_on_leaves_the_current_layout_alone() {
     let mut r = rig();
