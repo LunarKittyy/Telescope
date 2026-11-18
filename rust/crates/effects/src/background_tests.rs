@@ -1263,6 +1263,11 @@ fn reset_puts_the_settings_back_and_goes_dark() {
 }
 
 #[test]
+fn the_declared_settings_round_trip() {
+    telescope_core::testing::settings_round_trip(&mut BackgroundPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+}
+
+#[test]
 fn the_host_is_told_when_the_room_starts_and_stops_being_hidden() {
     let mut rig = Rig::new(None, "ready");
     assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)), "off hides nothing");

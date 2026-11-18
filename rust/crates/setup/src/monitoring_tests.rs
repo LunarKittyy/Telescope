@@ -517,3 +517,9 @@ fn reset_puts_the_alerts_back() {
     assert!(r.host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
     assert!(r.host.calls.iter().any(|c| c == "schedule_save"));
 }
+
+#[test]
+fn the_declared_settings_round_trip() {
+    let mut r = Rig::new();
+    telescope_core::testing::settings_round_trip(&mut r.plugin, &mut r.host);
+}

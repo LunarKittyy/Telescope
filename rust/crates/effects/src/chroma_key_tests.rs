@@ -742,6 +742,11 @@ fn reset_puts_the_settings_back_and_keeps_the_switch() {
 }
 
 #[test]
+fn the_declared_settings_round_trip() {
+    telescope_core::testing::settings_round_trip(&mut ChromaKeyPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+}
+
+#[test]
 fn the_host_is_told_when_the_key_starts_and_stops_hiding_the_screen() {
     let mut r = Rig::new(true);
     assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, false)), "off hides nothing");

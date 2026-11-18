@@ -56,7 +56,7 @@ Changing:
 
 The model is told to make small steps because changes show in the camera straight away. An AI app can have 4 calls running at once (12 across all of them) and up to 8 can be connected. Starting or stopping the stream, switching the phone's camera off and picking another phone are left to you because they can interrupt whatever is using the camera. `telescope --action` is there if you want them from a command. A message longer than 1 MiB is turned away.
 
-Settings are declared by plugins. Colour grading and Transforms declare theirs so far and more plugins will follow. A plugin that's switched off doesn't show up in **describe**.
+Settings are declared by plugins and most built-in plugins declare theirs. A plugin that's switched off doesn't show up in **describe**. Settings that guard your privacy or reach outside Telescope, like Privacy blur's switch, when the stream starts and the update channel, are left out on purpose.
 
 - **stats** gives the numbers the Stats panel shows (frame rates in and out, drops with their reasons, bitrate, decode and frame step times) over the last minute, each as min, average and max with the worst moments and how long ago they were. `level: nerd` adds the stage times, the balancer's moves and the app's CPU and memory
 - **watch** collects the same numbers for 5 to 120 seconds while you reproduce a problem, then answers

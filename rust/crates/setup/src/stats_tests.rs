@@ -872,3 +872,8 @@ fn a_pinned_plugin_timing_is_still_offered_when_it_is_not_among_the_listed_slowe
     let offered = offers(&snap, Some(source), &Context::default());
     assert!(offered.iter().any(|o| o.id == "stats.hook_quiet"));
 }
+
+#[test]
+fn the_declared_settings_round_trip() {
+    telescope_core::testing::settings_round_trip(&mut StatsPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+}
