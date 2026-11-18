@@ -853,9 +853,76 @@ fn reset_puts_the_picks_back_and_keeps_the_folder() {
     assert!(p.reset_shown());
     p.on_ui(&mut host, &UiEvent { ui: "card".into(), callback: "reset-clicked".into(), args: vec![] });
     let mut want = Value::Object(defaults());
+    // the merge pick is only written when it isn't the photos
+    want.as_object_mut().unwrap().shift_remove("bracket_merge");
+    want.as_object_mut().unwrap().shift_remove("merge_brightness");
     want["folder"] = json!("/home/me/shots");
     assert_eq!(p.get_config(), want);
     assert!(!p.reset_shown());
     assert!(host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
     assert!(host.calls.iter().any(|c| c == "schedule_save"));
+}
+
+#[test]
+fn a_focus_bracket_can_be_merged_when_it_is_jpeg_and_the_choice_is_part_of_a_preset() {
+    let mut rig = Rig::new(Some(full_json()), true);
+    // off for a single photo and for a RAW bracket
+    assert_eq!(rig.props()["merge-enabled"], false);
+    rig.ui("tile-picked", vec![json!("shots"), json!(3)]);
+    assert_eq!((rig.props()["merge-enabled"].clone(), rig.props()["merge-index"].clone()), (json!(true), json!(0)));
+    rig.ui("tile-picked", vec![json!("format"), json!(3)]);
+    assert_eq!(rig.props()["merge-enabled"], false, "a RAW photo can't be read");
+    rig.ui("tile-picked", vec![json!("format"), json!(0)]);
+    rig.ui("tile-picked", vec![json!("bracket_merge"), json!(1)]);
+    assert_eq!(rig.props()["merge-index"], json!(1));
+    assert_eq!(rig.plugin.get_config()["bracket_merge"], "both");
+    // a preset brings it back
+    let mut other = Rig::new(Some(full_json()), true);
+    other.plugin.apply_preset(&mut other.host, &rig.plugin.get_config()).unwrap();
+    assert_eq!(other.plugin.get_config()["bracket_merge"], "both");
+}
+
+#[test]
+fn a_bracket_to_merge_is_merged_once_it_is_in_and_the_photos_stay_when_it_cant_be() {
+    let mut rig = Rig::new(Some(full_json()), true);
+    rig.ui("tile-picked", vec![json!("shots"), json!(3)]);
+    rig.ui("tile-picked", vec![json!("bracket_merge"), json!(2)]);
+    rig.ui("take-clicked", vec![]);
+    let id = *rig.plugin.taking.last().unwrap();
+    rig.event(Event::RequestDone { request: id, ok: true, message: String::new(), data: json!({"ok": true, "files": ["/nonexistent/IMG_1.jpg", "/nonexistent/IMG_2.jpg"]}) });
+    assert_eq!(rig.props()["status"], "Merging the bracket…");
+    // the merge runs on a thread and posts when it is done: here it can't read the photos
+    let posted = loop {
+        let posted = rig.host.take_posted();
+        if !posted.is_empty() {
+            break posted;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    };
+    assert_eq!(posted[0].0, "merged");
+    rig.event(Event::Posted { owner: NAME.into(), token: "merged".into(), data: posted[0].1.clone() });
+    assert_eq!((rig.props()["status"].clone(), rig.props()["status-kind"].clone()), (json!("The photos are saved but couldn't be merged."), json!("status_err")));
+    // a plain take of a single photo merges nothing
+    rig.ui("tile-picked", vec![json!("shots"), json!(0)]);
+    rig.ui("take-clicked", vec![]);
+    assert!(rig.plugin.merges.is_empty());
+}
+
+#[test]
+fn an_exposure_bracket_can_be_merged_too_with_a_darker_to_lighter_pick_that_is_part_of_presets() {
+    let mut rig = Rig::new(Some(full_json()), true);
+    assert_eq!(rig.props()["brightness-enabled"], false);
+    rig.ui("tile-picked", vec![json!("shots"), json!(2)]);
+    assert_eq!((rig.props()["merge-enabled"].clone(), rig.props()["brightness-enabled"].clone()), (json!(true), json!(true)));
+    rig.ui("brightness-moved", vec![json!(-40.0)]);
+    assert_eq!((rig.props()["brightness-text"].clone(), rig.plugin.get_config()["merge_brightness"].clone()), (json!("Darker"), json!(-40)));
+    // a focus bracket has no use for it
+    rig.ui("tile-picked", vec![json!("shots"), json!(3)]);
+    assert_eq!(rig.props()["brightness-enabled"], false);
+    let mut other = Rig::new(Some(full_json()), true);
+    other.plugin.apply_preset(&mut other.host, &rig.plugin.get_config()).unwrap();
+    assert_eq!(other.plugin.get_config()["merge_brightness"], json!(-40));
+    // the middle is the default and isn't written
+    rig.ui("brightness-moved", vec![json!(0.0)]);
+    assert!(rig.plugin.get_config().get("merge_brightness").is_none());
 }
