@@ -402,7 +402,7 @@ impl ComponentInstanceInner {
 pub fn build_from_document(
     document: &i_slint_compiler::object_tree::Document,
     compiler_config: &i_slint_compiler::CompilerConfiguration,
-    mut type_loaders: TypeLoaders,
+    #[cfg_attr(not(feature = "internal-highlight"), allow(unused_mut))] mut type_loaders: TypeLoaders,
     animation_mode: AnimationMode,
 ) -> Vec<ComponentDefinitionInner> {
     let mut unit =
@@ -413,7 +413,17 @@ pub fn build_from_document(
     let unit = Rc::new(Unit::new(unit));
     // `lower_to_item_tree` builds `public_components` from `exported_roots()`
     // in iteration order, so the indices line up.
-    type_loaders.originals = document.exported_roots().collect();
+    // Telescope patch: the compiler's object trees are only for highlighting and the language server, and keeping them
+    // made every definition and instance hold the whole compiled document for as long as it lived
+    #[cfg(feature = "internal-highlight")]
+    {
+        type_loaders.originals = document.exported_roots().collect();
+    }
+    #[cfg(not(feature = "internal-highlight"))]
+    let type_loaders = {
+        drop(type_loaders);
+        TypeLoaders::default()
+    };
     (0..unit.public_components.len())
         .map(|public_index| ComponentDefinitionInner {
             compilation_unit: unit.clone(),

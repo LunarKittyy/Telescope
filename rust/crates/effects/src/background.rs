@@ -323,7 +323,7 @@ const CARD_BLUR: &str = include_str!("background.wgsl");
 
 fn card_blur(strength: i64) -> ShaderStep {
     let nothing = || Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]);
-    ShaderStep { wgsl: CARD_BLUR.into(), uniforms: card_uniforms(strength), textures: vec![(BLUR_CUTOUT.into(), nothing()), (BLUR_WEIGHTS.into(), nothing())] }
+    ShaderStep { keeps_geometry: false, wgsl: CARD_BLUR.into(), uniforms: card_uniforms(strength), textures: vec![(BLUR_CUTOUT.into(), nothing()), (BLUR_WEIGHTS.into(), nothing())] }
 }
 
 impl Step {

@@ -228,6 +228,8 @@ events! {
     /// Not in plugin.py: the high quality cutout (Background's switch for it) went from not loaded to loading, ready or failed, the same as
     /// vision_state_changed for MediaPipe: host.matting_state() has the new state. Its download's progress and end come as the vision pack's do.
     "matting_state_changed" => MattingStateChanged { state: String },
+    /// Not in plugin.py: whether a stream's picture should carry its cut-out (Frame::alpha) on, a source id and a flag. One picture's tile for that stream turning Cut out on or off fires it, and again from on_plugins_ready and on source_shown. The plugins that cut a person out (Background, Chroma key) hear it and attach the alpha; nothing is attached while it is off.
+    "cut_out_wanted" => CutOutWanted { source_id: String, on: bool },
     /// Not in plugin.py: an event a plugin someone added defines for itself, named "<plugin>.<what>".
     "custom" => Custom { name: String, data: Value },
     /// Not in plugin.py: a value in the host's registry (Host::share, read with Host::shared) was set, changed or removed. key is "<plugin>.<name>".

@@ -1,7 +1,6 @@
 //! The Windows side of Spout2 for any plugin: the file mappings and named objects senders publish (sender list, a sender's info, its
 //! frame counter and texture lock) and the D3D11 device, shared textures and staging textures that read them, with the pixel shaders that
-//! turn a picture into I420 planes on the card. Only the reading half is here; a sender's half (register a name, create a texture, write the
-//! info, count frames) goes next to it.
+//! turn a picture into I420 planes on the card. A sender's half (register a name, create a texture, write the info, count frames) is in `sender`.
 
 use super::planes;
 use super::poll::{poll, Deadline, Polled};
@@ -641,6 +640,7 @@ pub fn open_shared_texture(handle: u32) -> Result<(Gpu, SharedTexture), String> 
     Err(last)
 }
 
+pub mod sender;
 #[cfg(test)]
 pub(crate) mod testing;
 #[cfg(test)]

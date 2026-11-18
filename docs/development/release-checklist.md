@@ -198,8 +198,9 @@ QR code advertises desktop addresses, phone sends LAN attempts on Wi-Fi.
 
 ### Spout capture
 
-<!-- due: rust/crates/outputs/src/spout/** rust/crates/outputs/src/spout_shared/** rust/crates/outputs/src/pipewire/** rust/crates/outputs/ui/spout.slint -->
+<!-- due: rust/crates/outputs/src/spout/** rust/crates/outputs/src/spout_shared/** rust/crates/outputs/src/pipewire/** rust/crates/outputs/ui/spout.slint rust/crates/outputs/src/spout_send/** rust/crates/outputs/ui/spout_send.slint -->
 
+- [ ] Spout send (Lab, Streaming and devices). With a stream running, **Share this stream** on the Spout send card makes a sender called Telescope and the phone's name. On Windows OBS's Spout source and a Spout demo receiver show the picture and follow a size change, on Linux OBS's PipeWire capture lists it as a camera. Switching it off or stopping the stream removes it within a few seconds. With Several cameras on, the stream going to the Telescope camera shares the combined picture
 - [ ] Windows with Spout capture switched on. A Spout sender (OBS with its Spout output, or Spout2's demo sender) shows in the device picker under its own name. Start streams it at the frame rate on the card with the right colours. Background works on it.
 - [ ] Closing the sender mid-stream shows the wait screen and opening it again picks the stream up. Stop is instant.
 - [ ] On Linux a Windows game or program sending Spout under Proton with Spout2PW shows in the picker and streams the same way. With PipeWire stopped when Telescope starts and started later, the sender still shows up.

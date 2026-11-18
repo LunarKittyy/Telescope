@@ -368,6 +368,32 @@ impl CompositePlugin {
         self.replace_tile(host, index, new);
     }
 
+    /// One of the crop boxes: the side ("l", "t", "r", "b") to `pct` percent of the stream, or by that many (step). "reset" shows all of it.
+    fn set_crop(&mut self, host: &mut dyn Host, side: &str, pct: f64, by: bool) {
+        let Some(tile) = self.picked() else { return };
+        let pinned = match self.source_aspect(&tile.source_id) {
+            Some(aspect) => composite::pinned(&tile, aspect, self.canvas_aspect()),
+            None => tile.clone(),
+        };
+        let new = if side == "reset" {
+            let mut t = pinned;
+            for s in ["l", "t", "r", "b"] {
+                t = composite::crop_side(&t, s, 0.0);
+            }
+            t
+        } else {
+            let now = match side {
+                "l" => pinned.crop_l,
+                "t" => pinned.crop_t,
+                "r" => pinned.crop_r,
+                _ => pinned.crop_b,
+            };
+            composite::crop_side(&pinned, side, if by { now + pct / 100.0 } else { pct / 100.0 })
+        };
+        let index = self.editor.as_ref().map_or(-1, |e| e.selected);
+        self.replace_tile(host, index, new);
+    }
+
     /// The picked tile and another trade places and sizes; `other` counts the tiles but the picked one.
     fn swap_picked(&mut self, host: &mut dyn Host, other: i64) {
         let picked = self.editor.as_ref().map_or(-1, |e| e.selected);
@@ -699,6 +725,11 @@ impl CompositePlugin {
             "pos-x-text": picked.map_or_else(String::new, |t| format!("{}", (t.x * w as f64).round() as i64)),
             "pos-y-text": picked.map_or_else(String::new, |t| format!("{}", (t.y * h as f64).round() as i64)),
             "size-w-text": picked.map_or_else(String::new, |t| format!("{}", (t.w * w as f64).round() as i64)),
+            "crop-l-text": picked.map_or_else(String::new, |t| format!("{} %", (t.crop_l * 100.0).round() as i64)),
+            "crop-t-text": picked.map_or_else(String::new, |t| format!("{} %", (t.crop_t * 100.0).round() as i64)),
+            "crop-r-text": picked.map_or_else(String::new, |t| format!("{} %", (t.crop_r * 100.0).round() as i64)),
+            "crop-b-text": picked.map_or_else(String::new, |t| format!("{} %", (t.crop_b * 100.0).round() as i64)),
+            "crop-any": picked.is_some_and(|t| t.crop_l + t.crop_t + t.crop_r + t.crop_b > 0.0),
             "size-h-text": picked.map_or_else(String::new, |t| format!("{}", (t.h * h as f64).round() as i64)),
             "swap-items": layout.tiles.iter().enumerate().filter(|(i, _)| *i as i64 != index).map(|(_, t)| if t.name.is_empty() { t.source_id.clone() } else { t.name.clone() }).collect::<Vec<_>>(),
             "tile-locked": picked.is_some_and(|t| t.locked),
@@ -773,6 +804,13 @@ impl CompositePlugin {
                 }
             }
             "box-step" => self.set_box(host, text(0), number(1), true),
+            "crop-committed" => {
+                if let Some(pct) = text(1).trim().trim_end_matches('%').trim().parse::<f64>().ok().filter(|v| v.is_finite()) {
+                    self.set_crop(host, text(0), pct, false);
+                }
+            }
+            "crop-step" => self.set_crop(host, text(0), number(1), true),
+            "crop-reset" => self.set_crop(host, "reset", 0.0, false),
             "swap-picked" => self.swap_picked(host, number(0) as i64),
             "stream-picked" | "stream-locked" => {
                 let Some((sid, ..)) = self.stream_entries().get(number(0) as usize).cloned() else { return };
