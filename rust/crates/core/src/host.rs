@@ -397,6 +397,14 @@ pub trait HostSettings {
     fn plugin_preset_config(&self, name: &str) -> Option<Value> {
         self.plugin_config(name)
     }
+    /// The questions a plugin adds to the Save preset dialog (Plugin::preset_options).
+    fn plugin_preset_options(&self, _name: &str) -> Vec<crate::plugin::PresetOption> {
+        Vec::new()
+    }
+    /// What a preset saves of a plugin given the answers to its options (Plugin::preset_config_with).
+    fn plugin_preset_config_with(&self, name: &str, _picks: &[(String, String)]) -> Option<Value> {
+        self.plugin_preset_config(name)
+    }
     /// Hand a saved config to another plugin's apply_preset(); unknown names are ignored.
     fn apply_preset(&mut self, name: &str, cfg: &Value);
     /// Whether the person asked for less motion: (reduced, off). Motion in the picture follows it as the windows do.
