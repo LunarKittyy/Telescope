@@ -1823,6 +1823,7 @@ pub(crate) mod tests {
         }
         a_failed_readback_for_a_steps_pictures_sends_that_step_to_the_cpu_too();
         a_stop_ends_the_wait_and_the_frame_goes_out_dark();
+        a_hiding_step_on_the_card_never_lets_the_clear_picture_out_when_the_card_fails();
     }
 
     /// HalvesAndCounts its runs and does what DIM does.
@@ -1858,6 +1859,35 @@ pub(crate) mod tests {
         assert_eq!(runs.load(Ordering::SeqCst), 1, "the step with a CPU half ran on the CPU this frame");
         assert_eq!(p.last_transfers, (1, 1), "one trip to the card and one wait on it, not a second");
         assert_eq!(out.data[0], 50, "the card's invert went with the failed readback, and the CPU halved the frame in hand");
+    }
+
+    /// Hides by painting the frame black, so a clear picture shows in the luma.
+    struct HidesDark;
+
+    impl CpuStep for HidesDark {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            frame.data_mut().iter_mut().for_each(|v| *v = 0);
+        }
+        fn hides(&self) -> bool {
+            true
+        }
+    }
+
+    /// A hiding step run on the card, with a card-only shader before it, while the card fails: nothing clear goes out.
+    fn a_hiding_step_on_the_card_never_lets_the_clear_picture_out_when_the_card_fails() {
+        for fault in [crate::gpu::Fault::RefusedSubmit, crate::gpu::Fault::PollPanic, crate::gpu::Fault::Lost] {
+            let gpu = Arc::new(Gpu::open().unwrap());
+            let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+            p.gpu = Some(Some(gpu.clone()));
+            let hide = ShaderStep { wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+            p.set_steps(vec![shader(INVERT), StagedStep { owner: "hide".into(), stage: FrameStage::Privacy, step: FrameStep::Either(hide, Box::new(HidesDark)) }]);
+            p.process(grey(8, 8, 100), &NoContext);
+            gpu.inject(fault);
+            for luma in [60u8, 90, 120] {
+                let out = p.process(grey(8, 8, luma), &NoContext);
+                assert!(out.data[..64].iter().all(|&v| v == 0), "{fault:?}: the clear picture (luma {luma}) went out: {:?}", &out.data[..4]);
+            }
+        }
     }
 
     /// A context that says stop from its second question on.
