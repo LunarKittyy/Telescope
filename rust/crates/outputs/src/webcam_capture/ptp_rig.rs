@@ -56,6 +56,9 @@ const STD_WHITE_BALANCE: u16 = 0x5005;
 const STD_COMPRESSION: u16 = 0x5004;
 const STD_F_NUMBER: u16 = 0x5007;
 const STD_EXPOSURE_BIAS: u16 = 0x5010;
+/// The shutter time in tenths of a millisecond (0xFFFFFFFF is Bulb) and the ISO number.
+const STD_EXPOSURE_TIME: u16 = 0x500D;
+const STD_EXPOSURE_INDEX: u16 = 0x500F;
 
 /// What a focus step of Canon's lens drive is: libgphoto2's "Near 1" to "Far 3".
 const CANON_DRIVE_CHOICES: [(&str, u32); 6] = [("Near 1", 0x0001), ("Near 2", 0x0002), ("Near 3", 0x0003), ("Far 1", 0x8001), ("Far 2", 0x8002), ("Far 3", 0x8003)];
@@ -257,6 +260,9 @@ impl PtpCamera {
             "whitebalance" => Words::WhiteBalance(self.maker),
             // Canon's quality is a pair of codes that this doesn't read, so its photos are made as the camera is set
             "imagequality" if self.maker == Maker::Nikon => Words::Quality,
+            // Canon words these in codes of its own that aren't read here
+            "iso" if self.maker == Maker::Nikon => Words::Iso,
+            "shutterspeed" if self.maker == Maker::Nikon => Words::Shutter,
             _ => return None,
         };
         let code = match (name, self.maker) {
@@ -264,6 +270,8 @@ impl PtpCamera {
             ("exposurecompensation", Maker::Canon) => CANON_EXPOSURE_COMP,
             ("whitebalance", Maker::Canon) => CANON_WHITE_BALANCE,
             ("imagequality", _) => STD_COMPRESSION,
+            ("iso", _) => STD_EXPOSURE_INDEX,
+            ("shutterspeed", _) => STD_EXPOSURE_TIME,
             ("f-number", _) => STD_F_NUMBER,
             ("exposurecompensation", _) => STD_EXPOSURE_BIAS,
             _ => STD_WHITE_BALANCE,
@@ -341,6 +349,8 @@ enum Words {
     Compensation(Maker),
     WhiteBalance(Maker),
     Quality,
+    Iso,
+    Shutter,
 }
 
 impl Words {
@@ -353,6 +363,10 @@ impl Words {
             Words::Compensation(_) => stops_label(raw as f64 / 1000.0),
             Words::WhiteBalance(maker) => white_balance_label(maker, raw),
             Words::Quality => quality_label(raw),
+            Words::Iso => raw.to_string(),
+            // libgphoto2 words a Nikon's shutter as seconds with four decimals
+            Words::Shutter if raw == 0xFFFF_FFFF => "Bulb".to_string(),
+            Words::Shutter => format!("{:.4}s", raw as f64 / 10_000.0),
         }
     }
 }
