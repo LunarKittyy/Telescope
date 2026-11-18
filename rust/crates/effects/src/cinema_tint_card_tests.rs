@@ -181,3 +181,82 @@ fn the_small_readback_gives_the_scopes_the_picture_the_cpus_copy_does() {
     gpu.paint(&frame, &texture).unwrap();
     assert_eq!(gpu.scope_picture(&texture, scopes::SCOPE_WIDTH as u32).unwrap().data, frame.data);
 }
+
+/// Every colour whose brightness (2126 r + 7152 g + 722 b, over 10000) lands exactly half way between two levels, where one rounding
+/// rule and another part ways.
+fn halves() -> Vec<[u8; 3]> {
+    let inverse = (1..5000u32).find(|k| 361 * k % 5000 == 1).unwrap();
+    let mut found = Vec::new();
+    for r in 0..256u32 {
+        for g in 0..256u32 {
+            let need = (5000 + 10000 - (2126 * r + 7152 * g) % 10000) % 10000;
+            let b = (need / 2 % 5000) * inverse % 5000;
+            if b < 256 {
+                found.push([r as u8, g as u8, b as u8]);
+            }
+        }
+    }
+    found
+}
+
+fn halves_frame() -> Frame {
+    let colours = halves();
+    assert!(colours.len() > 3000, "{} colours", colours.len());
+    let (w, h) = (64usize, colours.len().div_ceil(64));
+    let mut data = Vec::with_capacity(w * h * 4);
+    for i in 0..w * h {
+        data.extend(colours.get(i).copied().unwrap_or([0; 3]));
+        data.push(255);
+    }
+    Frame::new(w as u32, h as u32, PixelFormat::Rgba, data)
+}
+
+#[test]
+fn a_brightness_half_way_between_two_levels_is_rounded_the_same_way_whatever_the_card_does_with_a_multiply_and_add() {
+    let Some(gpu) = Gpu::shared() else {
+        eprintln!("no graphics card; skipped");
+        return;
+    };
+    // A table that tells every level apart, so a level that is one off shows
+    let table: &'static [[u8; 3]; 256] = Box::leak(Box::new(std::array::from_fn(|i| [i as u8, 255 - i as u8, 0])));
+    let spec = telescope_core::preview::TintSpec { false_colour: Some(table), ..Default::default() };
+    let frame = halves_frame();
+    let out = gpu.tint_rgba(&frame, &spec).unwrap();
+    let colours = halves();
+    let wrong: Vec<([u8; 3], u8, u8)> = colours.iter().enumerate().filter(|(i, c)| out[i * 4] != scopes::luma_of(c[0], c[1], c[2])).map(|(i, c)| (*c, out[i * 4], scopes::luma_of(c[0], c[1], c[2]))).take(5).collect();
+    assert!(wrong.is_empty(), "colour, level on the card, level on the CPU: {wrong:?}");
+}
+
+#[test]
+fn a_brightness_half_way_between_two_levels_is_the_same_level_in_the_cpus_false_colour() {
+    let look = Look { false_colour: true, ..Look::default() };
+    compare("half way", &look, &halves_frame(), 0, 0.0);
+    // The example from the review: (230, 80, 130) comes to 115.5
+    let patch = Frame::new(8, 8, PixelFormat::Rgba, [230, 80, 130, 255].repeat(64));
+    compare("half way patch", &look, &patch, 0, 0.0);
+}
+
+/// Blocks of `size` pixels, white and black like a chess board, so where two corners meet the mask the shrunk copy makes has bright and dark diagonally.
+fn chess(w: usize, h: usize, size: usize) -> Frame {
+    let mut data = Vec::with_capacity(w * h * 4);
+    for y in 0..h {
+        for x in 0..w {
+            let v = if (x / size + y / size).is_multiple_of(2) { 255 } else { 0 };
+            data.extend([v, v, v, 255]);
+        }
+    }
+    Frame::new(w as u32, h as u32, PixelFormat::Rgba, data)
+}
+
+#[test]
+fn a_mask_scaled_up_from_a_shrunk_copy_is_the_cpus_to_the_pixel() {
+    // 1531 x 887 shrinks to 1280 wide by a part of a pixel, so the masks are scaled up by weights that are never half and half. Blocks wide enough
+    // that the shrunk copy is judged the same on both leave only the scaling to differ, and it has to match to the pixel; on narrow ones a level
+    // of rounding in the shrink at the threshold itself can still move a few pixels
+    let zebras = Look { zebras: true, zebra_level: 70, ..Look::default() };
+    let peaking = Look { peaking: true, peaking_level: 3, ..Look::default() };
+    for (size, bound) in [(3, 0.02), (5, 0.02), (9, 0.0), (48, 0.0)] {
+        compare(&format!("chess {size} zebras"), &zebras, &chess(1531, 887, size), 2, bound);
+        compare(&format!("chess {size} peaking"), &peaking, &chess(1531, 887, size), 0, bound);
+    }
+}

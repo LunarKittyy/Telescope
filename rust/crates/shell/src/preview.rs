@@ -34,6 +34,11 @@ pub trait Painter {
         false
     }
 
+    /// The card this painter draws on was lost: it can't paint anything again, and the window swaps in one that doesn't use a card.
+    fn lost(&self) -> bool {
+        false
+    }
+
     /// What the next paint puts on the picture, and whether it also reads a small copy of the untinted picture back for the scopes.
     /// Only a painter that is `on_card` takes any notice.
     fn set_tint(&mut self, _spec: Option<TintSpec>, _scope: bool) {}
@@ -53,31 +58,40 @@ pub trait TexturePainter {
     /// The picture in a texture, with the tools of `tint` on it when there is one.
     fn paint(&mut self, frame: &Frame, width: u32, height: u32, tint: Option<&TintSpec>) -> Option<wgpu::Texture>;
 
-    /// Whether the card was lost, so the tints are made on the CPU again.
+    /// Whether the card was lost: nothing can be painted on it again.
     fn lost(&self) -> bool {
         false
     }
 
-    /// Whether the next paints also make a small copy of the picture before any tint, for `take_scope`.
+    /// Whether the tints and the scopes' copies are still the card's to make: not after paints it refused in a row, or a card too busy to
+    /// bring a copy back in time. They are the CPU's from then on.
+    fn on_card(&self) -> bool {
+        true
+    }
+
+    /// Whether the next paints also start a small copy of the picture before any tint, for `take_scope`.
     fn scope(&mut self, _wanted: bool) {}
 
-    /// The small copy the last paint made.
+    /// The small copy that was started, when it has come back. Never waits for it: None until then.
     fn take_scope(&mut self) -> Option<Frame> {
         None
     }
+
+    /// A different stream: a copy started for the last one is let go of.
+    fn restart(&mut self) {}
 }
 
 /// Makes a texture painter on the device and queue Slint renders with.
 pub type GpuPainterFactory = Arc<dyn Fn(wgpu::Device, wgpu::Queue) -> Box<dyn TexturePainter> + Send + Sync>;
 
 /// A texture painter's textures, handed to Slint as they are.
-pub(crate) struct GpuPainter {
+pub struct GpuPainter {
     painter: Box<dyn TexturePainter>,
     tint: Option<TintSpec>,
 }
 
 impl GpuPainter {
-    pub(crate) fn new(painter: Box<dyn TexturePainter>) -> GpuPainter {
+    pub fn new(painter: Box<dyn TexturePainter>) -> GpuPainter {
         GpuPainter { painter, tint: None }
     }
 }
@@ -90,7 +104,11 @@ impl Painter for GpuPainter {
     }
 
     fn on_card(&self) -> bool {
-        !self.painter.lost()
+        !self.painter.lost() && self.painter.on_card()
+    }
+
+    fn lost(&self) -> bool {
+        self.painter.lost()
     }
 
     fn set_tint(&mut self, spec: Option<TintSpec>, scope: bool) {
@@ -105,6 +123,23 @@ impl Painter for GpuPainter {
     fn restart(&mut self) {
         self.tint = None;
         self.painter.scope(false);
+        self.painter.restart();
+    }
+}
+
+/// Swaps a painter whose card was lost for one that doesn't use a card (made by `make`), so the window goes on painting: left in place it would
+/// refuse every frame while the passes had already moved to the CPU's copy. What it had been told to tint with goes with it. True when swapped.
+pub(crate) fn replace_lost(painter: &mut Option<Box<dyn Painter>>, make: impl FnOnce() -> Option<Box<dyn Painter>>) -> bool {
+    if !painter.as_ref().is_some_and(|p| p.lost()) {
+        return false;
+    }
+    match make() {
+        Some(fresh) => {
+            log::warn!("The graphics card was lost, so the preview is painted on the CPU now");
+            *painter = Some(fresh);
+            true
+        }
+        None => false,
     }
 }
 
@@ -768,5 +803,69 @@ mod tests {
         assert_eq!(fit_within((1920, 1080), (400, 100)), (178, 100));
         assert_eq!(fit_within((640, 360), (1280, 720)), (640, 360));
         assert_eq!(fit_within((640, 360), (0, 0)), (1, 1));
+    }
+
+    /// A texture painter that says what it is told to, and counts the restarts.
+    #[derive(Clone, Default)]
+    struct Card {
+        lost: Arc<std::sync::atomic::AtomicBool>,
+        busy: Arc<std::sync::atomic::AtomicBool>,
+        restarts: Arc<std::sync::atomic::AtomicUsize>,
+    }
+
+    impl TexturePainter for Card {
+        fn paint(&mut self, _frame: &Frame, _width: u32, _height: u32, _tint: Option<&TintSpec>) -> Option<wgpu::Texture> {
+            None
+        }
+        fn lost(&self) -> bool {
+            self.lost.load(std::sync::atomic::Ordering::SeqCst)
+        }
+        fn on_card(&self) -> bool {
+            !self.busy.load(std::sync::atomic::Ordering::SeqCst)
+        }
+        fn restart(&mut self) {
+            self.restarts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+
+    /// The painter that takes over: no card.
+    struct NoCard;
+
+    impl Painter for NoCard {
+        fn paint(&mut self, _frame: &Frame, _width: u32, _height: u32) -> Option<slint::Image> {
+            None
+        }
+    }
+
+    #[test]
+    fn a_painter_whose_card_was_lost_is_swapped_for_one_without_a_card_and_not_before() {
+        use std::sync::atomic::Ordering::SeqCst;
+        let card = Card::default();
+        let mut painter: Option<Box<dyn Painter>> = Some(Box::new(GpuPainter::new(Box::new(card.clone()))));
+        painter.as_mut().unwrap().set_tint(Some(TintSpec { zebra: Some(200), ..TintSpec::default() }), true);
+        assert!(painter.as_ref().unwrap().on_card());
+        // A card that is only too busy keeps its painter, and the tints leave it
+        card.busy.store(true, SeqCst);
+        assert!(!painter.as_ref().unwrap().on_card() && !painter.as_ref().unwrap().lost());
+        assert!(!replace_lost(&mut painter, || panic!("nothing was lost")));
+        card.busy.store(false, SeqCst);
+        assert!(!replace_lost(&mut painter, || panic!("nothing was lost")));
+        // Lost: the next look swaps it, once, and what is there then draws no tint on a card
+        card.lost.store(true, SeqCst);
+        assert!(painter.as_ref().unwrap().lost() && !painter.as_ref().unwrap().on_card());
+        assert!(replace_lost(&mut painter, || Some(Box::new(NoCard))));
+        assert!(!painter.as_ref().unwrap().lost() && !painter.as_ref().unwrap().on_card());
+        assert!(!replace_lost(&mut painter, || panic!("already swapped")));
+        // No stand-in to be had (no services yet): the painter stays rather than leaving the window with none
+        let mut kept: Option<Box<dyn Painter>> = Some(Box::new(GpuPainter::new(Box::new(card))));
+        assert!(!replace_lost(&mut kept, || None) && kept.is_some());
+    }
+
+    #[test]
+    fn a_new_stream_lets_the_texture_painter_go_of_its_scope_copy() {
+        let card = Card::default();
+        let mut painter = GpuPainter::new(Box::new(card.clone()));
+        painter.restart();
+        assert_eq!(card.restarts.load(std::sync::atomic::Ordering::SeqCst), 1);
     }
 }

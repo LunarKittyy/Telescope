@@ -6,6 +6,10 @@
 @group(0) @binding(3) var lut: texture_2d<f32>;
 @group(0) @binding(4) var smp: sampler;
 @group(0) @binding(5) var<uniform> p: Params;
+// How a mask is grown from work to pic's size, as the CPU's cv2.resize(INTER_LINEAR) does it: x taps on row 0, y taps on row 1, each (first source, second source, weight of the first, weight of the second) out of 2048
+@group(0) @binding(6) var taps: texture_2d<u32>;
+// For each red (x) and green (y), the CPU's level for the one blue that puts that colour exactly half way between two levels (none: 0)
+@group(0) @binding(7) var halves: texture_2d<u32>;
 
 struct Params {
     // flags (1 zebras, 2 peaking, 4 false colour, 8 work is a smaller copy of pic), zebras' brightness, peaking's threshold, stripe phase
@@ -34,11 +38,17 @@ fn bytes(c: vec4<f32>) -> vec3<u32> {
     return vec3<u32>(round(c.rgb * 255.0));
 }
 
-// BT.709 brightness as scopes::luma_of gets it: green first, then each multiply fused into the add
+// BT.709 brightness as scopes::luma_of gets it (float steps, a multiply fused into each add): worked out here in whole numbers, 2126 r + 7152 g + 722 b over 10000, which
+// agrees with it everywhere but on a colour exactly half way between two levels, where its float rounding goes either way. Those few colours are looked up in a table made
+// on the CPU from its own steps, so no card's own fma or mad can differ from it (DX12 turns fma into a plain mad).
 fn luma(rgb: vec3<u32>) -> u32 {
-    let c = vec3<f32>(rgb);
-    let acc = fma(c.b, 0.0722, c.g * 0.7152);
-    return u32(clamp(round(fma(c.r, 0.2126, acc)), 0.0, 255.0));
+    let n = rgb.r * 2126u + rgb.g * 7152u + rgb.b * 722u;
+    let q = n / 10000u;
+    let rest = n % 10000u;
+    if rest == 5000u {
+        return textureLoad(halves, vec2<i32>(i32(rgb.r), i32(rgb.g)), 0).r;
+    }
+    return min(q + select(0u, 1u, rest > 5000u), 255u);
 }
 
 // BT.601 grey in 15 bits, as OpenCV's BGR2GRAY
@@ -146,6 +156,23 @@ fn false_scaled(at: vec2<i32>) -> vec3<f32> {
     return mix(top, bottom, t.y);
 }
 
+fn mark_bytes(at: vec2<i32>) -> vec2<i32> {
+    return vec2<i32>(round(textureLoad(marks, at, 0).rg * 255.0));
+}
+
+// The two masks grown from work to pic's size in whole numbers as the CPU does it: the weights in 11 bits from the taps, the sums kept in 15 bits across and rounded down
+fn grown_marks(at: vec2<i32>) -> vec2<i32> {
+    let tx = textureLoad(taps, vec2<i32>(at.x, 0), 0);
+    let ty = textureLoad(taps, vec2<i32>(at.y, 1), 0);
+    let a = mark_bytes(vec2<i32>(i32(tx.x), i32(ty.x)));
+    let b = mark_bytes(vec2<i32>(i32(tx.y), i32(ty.x)));
+    let c = mark_bytes(vec2<i32>(i32(tx.x), i32(ty.y)));
+    let d = mark_bytes(vec2<i32>(i32(tx.y), i32(ty.y)));
+    let top = (a * i32(tx.z) + b * i32(tx.w)) >> vec2<u32>(4u);
+    let bottom = (c * i32(tx.z) + d * i32(tx.w)) >> vec2<u32>(4u);
+    return (((top * i32(ty.z)) >> vec2<u32>(16u)) + ((bottom * i32(ty.w)) >> vec2<u32>(16u)) + vec2<i32>(2)) >> vec2<u32>(2u);
+}
+
 @fragment
 fn fs_tint(in: VsOut) -> @location(0) vec4<f32> {
     let at = vec2<i32>(in.pos.xy);
@@ -155,9 +182,11 @@ fn fs_tint(in: VsOut) -> @location(0) vec4<f32> {
     var edge = false;
     if smaller {
         // The masks scaled up and cut half way
-        let m = textureSampleLevel(marks, smp, in.uv, 0.0).rg;
-        bright = (flags & 1u) != 0u && m.x >= 0.5;
-        edge = (flags & 2u) != 0u && m.y >= 0.5;
+        if (flags & 3u) != 0u {
+            let m = grown_marks(at);
+            bright = (flags & 1u) != 0u && m.x > 127;
+            edge = (flags & 2u) != 0u && m.y > 127;
+        }
     } else {
         bright = (flags & 1u) != 0u && is_bright(at);
         edge = (flags & 2u) != 0u && is_edge(at);

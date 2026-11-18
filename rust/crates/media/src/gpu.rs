@@ -51,6 +51,7 @@ const WAIT_SLICE: std::time::Duration = std::time::Duration::from_millis(50);
 
 #[path = "gpu_tint.rs"]
 mod tint;
+pub use tint::{CardPreview, Scope, ScopeRead, ScopeSamples};
 
 /// What a test makes go wrong on the next readback.
 #[cfg(test)]

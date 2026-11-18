@@ -1065,7 +1065,16 @@ impl Window {
         // Kept until the overlay is drawn: the picture it goes on may only land later
         let dirty = self.overlay_pending.look(asked);
         // Only a tint the card can't draw is the worker's: painted a frame late, so a frame already painted is painted again once its result is in
-        let on_card = self.painter.borrow().as_ref().is_some_and(|p| p.on_card());
+        let on_card = {
+            let mut painter = self.painter.borrow_mut();
+            // A painter whose card was lost refuses every frame: the CPU's takes its place, and the picture is painted again at once
+            let services = self.services.as_ref();
+            let stand_in = || services.map(|s| Box::new(crate::preview::ThreadedPainter::for_window(s.media.scaler())) as Box<dyn crate::preview::Painter>);
+            if crate::preview::replace_lost(&mut painter, stand_in) {
+                self.painted.set(0);
+            }
+            painter.as_ref().is_some_and(|p| p.on_card())
+        };
         let plan = crate::preview_passes::PassWork::plan(&passes, on_card);
         let tints = plan.cpu_tints;
         let source = {
