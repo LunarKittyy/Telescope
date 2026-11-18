@@ -29,10 +29,25 @@ pub enum Kind {
     Glide,
     /// Like Glide, but tiles set off one after another and fly in a small arc
     Shuffle,
+    /// Like Glide, but each tile lands with a small bouncing hop
+    Bounce,
+    /// The new picture opens from the middle in a circle
+    Iris,
+    /// The new picture shows through eight slats that open one after another along the picture
+    Blinds,
+    /// The new picture opens from the middle outwards, side to side
+    Curtain,
+    /// Both pictures break up into big squares that shrink to nothing again, the new one taking over on the way
+    Pixelate,
+    /// The new picture appears in small squares in a scattered order
+    Dissolve,
 }
 
 impl Kind {
-    pub const ALL: [Kind; 8] = [Kind::Glide, Kind::Shuffle, Kind::Crossfade, Kind::Slide, Kind::Push, Kind::Zoom, Kind::Wipe, Kind::Cut];
+    pub const ALL: [Kind; 14] = [
+        Kind::Glide, Kind::Shuffle, Kind::Bounce, Kind::Crossfade, Kind::Slide, Kind::Push, Kind::Zoom, Kind::Wipe,
+        Kind::Iris, Kind::Blinds, Kind::Curtain, Kind::Pixelate, Kind::Dissolve, Kind::Cut,
+    ];
 
     pub fn id(self) -> &'static str {
         match self {
@@ -44,6 +59,12 @@ impl Kind {
             Kind::Wipe => "wipe",
             Kind::Glide => "glide",
             Kind::Shuffle => "shuffle",
+            Kind::Bounce => "bounce",
+            Kind::Iris => "iris",
+            Kind::Blinds => "blinds",
+            Kind::Curtain => "curtain",
+            Kind::Pixelate => "pixelate",
+            Kind::Dissolve => "dissolve",
         }
     }
 
@@ -53,7 +74,7 @@ impl Kind {
 
     /// Whether it moves tiles from one layout's places to the other's (the rest mix two whole pictures).
     pub fn moves_tiles(self) -> bool {
-        matches!(self, Kind::Glide | Kind::Shuffle)
+        matches!(self, Kind::Glide | Kind::Shuffle | Kind::Bounce)
     }
 }
 
@@ -239,8 +260,12 @@ fn own(kind: Kind, t: f64, order: usize, moving: usize) -> f64 {
 fn box_at(kind: Kind, a: &Tile, b: &Tile, t: f64, order: usize, moving: usize, ease: Ease, aspect: f64) -> (f64, f64, f64, f64) {
     let own = own(kind, t, order, moving);
     let (x, y, w, h) = glide_box((a.x, a.y, a.w, a.h), (b.x, b.y, b.w, b.h), own, ease, aspect);
-    // a flight: up and back down by a few percent of the picture's height
-    let arc = if kind == Kind::Shuffle { -0.05 * (std::f64::consts::PI * own).sin() } else { 0.0 };
+    // a Shuffle's flight: up and back down by a few percent of the picture's height. A Bounce lands with hops that die away
+    let arc = match kind {
+        Kind::Shuffle => -0.05 * (std::f64::consts::PI * own).sin(),
+        Kind::Bounce => -0.05 * (1.0 - own) * (3.0 * std::f64::consts::PI * own).sin().abs(),
+        _ => 0.0,
+    };
     (x, y + arc, w, h)
 }
 
@@ -326,13 +351,50 @@ pub struct Cell {
     pub mix: f64,
 }
 
+/// How many slats the Blinds have.
+pub const BLINDS: f64 = 8.0;
+
+/// How much of the new picture the pixel at (x, y) of a w x h plane shows, for the two that are not the same down every column
+/// (an Iris, a Dissolve), `p` (0 to 1) of the way through.
+pub fn mix_at(kind: Kind, x: f64, y: f64, (w, h): (f64, f64), p: f64) -> f64 {
+    match kind {
+        Kind::Iris => {
+            // a circle from the middle that has covered the corners at the end, with a soft edge
+            let reach = (w * w + h * h).sqrt() / 2.0;
+            let band = 0.18 * reach;
+            let radius = p * (reach + band);
+            let d = ((x + 0.5 - w / 2.0).powi(2) + (y + 0.5 - h / 2.0).powi(2)).sqrt();
+            ((radius - d) / band).clamp(0.0, 1.0)
+        }
+        Kind::Dissolve => {
+            // squares of about a fortieth of the width each coming in at a time of its own
+            let size = (w / 40.0).max(1.0);
+            let at = scatter((x / size).floor() as u32, (y / size).floor() as u32);
+            smooth((p * 1.4 - at * 0.8 - 0.1) / 0.3)
+        }
+        _ => p,
+    }
+}
+
+/// A fixed scattered number from 0 to 1 for a square of the Dissolve.
+fn scatter(x: u32, y: u32) -> f64 {
+    let mut h = x.wrapping_mul(0x9E37_79B1) ^ y.wrapping_mul(0x85EB_CA6B) ^ 0x27D4_EB2F;
+    h ^= h >> 15;
+    h = h.wrapping_mul(0x2C1B_3C6D);
+    h ^= h >> 12;
+    h = h.wrapping_mul(0x297A_2D39);
+    h ^= h >> 15;
+    f64::from(h) / f64::from(u32::MAX)
+}
+
 fn smooth(t: f64) -> f64 {
     let t = t.clamp(0.0, 1.0);
     t * t * (3.0 - 2.0 * t)
 }
 
-/// What the column (or row, with `vertical`) at s (0 to 1) shows `p` (0 to 1, eased) of the way through the whole-picture transition `kind`.
-pub fn cell(kind: Kind, vertical: bool, s: f64, p: f64) -> Cell {
+/// What the column (or row, with `vertical`) at s (0 to 1) shows `p` (0 to 1, eased) of the way through the whole-picture transition `kind`;
+/// `aspect` is the picture's width over its height.
+pub fn cell(kind: Kind, vertical: bool, s: f64, p: f64, aspect: f64) -> Cell {
     let same = Cell { a: s, b: s, mix: 1.0 };
     match kind {
         Kind::Slide if !vertical => {
@@ -354,8 +416,25 @@ pub fn cell(kind: Kind, vertical: bool, s: f64, p: f64) -> Cell {
             let band = 0.15;
             Cell { a: s, b: s, mix: ((p * (1.0 + band) - s) / band).clamp(0.0, 1.0) }
         }
+        // eight slats, each opening a little after the one before
+        Kind::Blinds if !vertical => {
+            let slat = (s * BLINDS).fract();
+            let band = 0.3;
+            Cell { a: s, b: s, mix: smooth((p * (1.0 + band) - slat) / band) }
+        }
+        Kind::Curtain if !vertical => {
+            let band = 0.15;
+            Cell { a: s, b: s, mix: ((p * (1.0 + band) - (2.0 * s - 1.0).abs()) / band).clamp(0.0, 1.0) }
+        }
+        // a mosaic of big squares that grows and shrinks again, the new picture taking over at the top of it
+        Kind::Pixelate => {
+            // squares: as wide as a share of the width, and that share of the width again down
+            let size = 0.07 * (std::f64::consts::PI * p).sin() * if vertical { aspect } else { 1.0 };
+            let q = if size < 0.003 { s } else { let n = 1.0 / size; ((s * n).floor() + 0.5) / n };
+            Cell { a: q, b: q, mix: if vertical { 1.0 } else { ((p - 0.35) / 0.3).clamp(0.0, 1.0) } }
+        }
         // a Crossfade, and what falls back to one
-        Kind::Slide | Kind::Push | Kind::Wipe => same,
+        Kind::Slide | Kind::Push | Kind::Wipe | Kind::Blinds | Kind::Curtain => same,
         _ => Cell { a: s, b: s, mix: if vertical { 1.0 } else { p } },
     }
 }

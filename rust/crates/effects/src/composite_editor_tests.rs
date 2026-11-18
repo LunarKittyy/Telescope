@@ -455,3 +455,24 @@ fn typing_a_size_follows_the_shape_lock_that_dragging_follows() {
     r.ui("box-committed", json!(["w", "64"]));
     assert!((r.tile(1).w - 0.2).abs() < 1e-9 && (r.tile(1).h - 0.25).abs() < 1e-9, "{:?}", r.tile(1));
 }
+
+#[test]
+fn the_cut_out_switch_sets_the_picked_tile_and_the_card_shows_it() {
+    let mut r = open();
+    r.ui("stream-picked", json!([0]));
+    assert_eq!(r.props()["tile-cut-out"], json!(false));
+    r.ui("cut-out-toggled", json!([true]));
+    assert!(r.tile(1).cut_out && !r.tile(0).cut_out);
+    assert_eq!(r.props()["tile-cut-out"], json!(true));
+    // it goes into the saved layout and the plugin tells the stream
+    assert_eq!(r.plugin.get_config()["layout"]["tiles"][1]["cut_out"], json!(true));
+    assert!(r.host.events.iter().any(|e| matches!(e, Event::CutOutWanted { source_id, on: true } if source_id == "b")));
+    r.ui("cut-out-toggled", json!([false]));
+    assert!(!r.tile(1).cut_out);
+    assert_eq!(r.props()["tile-cut-out"], json!(false));
+    assert!(r.host.events.iter().any(|e| matches!(e, Event::CutOutWanted { source_id, on: false } if source_id == "b")));
+    // a locked tile keeps its cut-out as it is
+    r.ui("stream-locked", json!([0, true]));
+    r.ui("cut-out-toggled", json!([true]));
+    assert!(!r.tile(1).cut_out);
+}

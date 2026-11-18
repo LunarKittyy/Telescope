@@ -51,6 +51,12 @@ fn kind_name(kind: TransitionKind) -> String {
         TransitionKind::Wipe => tr("Wipe"),
         TransitionKind::Glide => tr("Glide"),
         TransitionKind::Shuffle => tr("Shuffle"),
+        TransitionKind::Bounce => tr("Bounce"),
+        TransitionKind::Iris => tr("Iris"),
+        TransitionKind::Blinds => tr("Blinds"),
+        TransitionKind::Curtain => tr("Curtain"),
+        TransitionKind::Pixelate => tr("Pixelate"),
+        TransitionKind::Dissolve => tr("Dissolve"),
     }
 }
 
@@ -271,6 +277,8 @@ pub struct CompositePlugin {
     editor: Option<editor::Editor>,
     /// Setup's Max zoom: a tile zooms in at most this far.
     max_zoom: f64,
+    /// The streams whose Cut out was last announced on (Event::CutOutWanted), so only a change is announced again.
+    cut_outs_told: BTreeSet<String>,
     /// How the picture goes from one layout to the next when one is switched to.
     transition: Spec,
     /// The Auto director's switch, and what it has seen while it's on.
@@ -300,7 +308,8 @@ impl CompositePlugin {
         let mut plugin = CompositePlugin {
             on: false, layout: Layout::default(), layouts: Vec::new(), target: None, camera_size: None, canvas: (None, None), shared,
             clock: None, camera_label, note: String::new(), note_short: String::new(), pending: false, held: None, reader, editor: None,
-            max_zoom: crate::composite::DEFAULT_MAX_ZOOM, transition: Spec::default(), director_on: false, director: director::Director::new(),
+            max_zoom: crate::composite::DEFAULT_MAX_ZOOM, cut_outs_told: BTreeSet::new(), transition: Spec::default(), director_on: false,
+            director: director::Director::new(),
         };
         plugin.prepare();
         plugin
@@ -624,7 +633,41 @@ impl CompositePlugin {
         }
     }
 
+    /// The streams whose tile has Cut out on while the picture is on.
+    fn cut_outs(&self) -> BTreeSet<String> {
+        if !self.on {
+            return BTreeSet::new();
+        }
+        self.layout.tiles.iter().filter(|t| t.cut_out).map(|t| t.source_id.clone()).collect()
+    }
+
+    const CUT_OUT_TIMER: &'static str = "cut-outs";
+    const CUT_OUT_CHECK_MS: u64 = 200;
+
+    /// Tells whoever cuts people out which streams want it: what changed since last time, or every one again for a plugin that missed it.
+    /// A tile a transition is still drawing keeps its cut-out until the transition ends, which a timer looks for.
+    fn tell_cut_outs(&mut self, host: &mut dyn Host, again: bool) {
+        let mut want = self.cut_outs();
+        let leaving = if self.on { self.shared.hub().compositor.leaving_cut_outs() } else { BTreeSet::new() };
+        if leaving.is_empty() {
+            host.cancel_schedule(Self::CUT_OUT_TIMER);
+        } else {
+            host.schedule(Self::CUT_OUT_CHECK_MS, Self::CUT_OUT_TIMER);
+            want.extend(leaving);
+        }
+        let off: Vec<String> = self.cut_outs_told.difference(&want).cloned().collect();
+        let on: Vec<String> = want.iter().filter(|s| again || !self.cut_outs_told.contains(*s)).cloned().collect();
+        self.cut_outs_told = want;
+        for source_id in off {
+            host.emit(Event::CutOutWanted { source_id, on: false });
+        }
+        for source_id in on {
+            host.emit(Event::CutOutWanted { source_id, on: true });
+        }
+    }
+
     fn show(&mut self, host: &mut dyn Host) {
+        self.tell_cut_outs(host, false);
         // While it's on it draws from other streams' frames, which only keep coming when the steps run
         host.want_frames(NAME, self.on);
         let live = self.layout.tiles.iter().filter(|t| host.is_streaming_from(Some(&t.source_id))).count();
@@ -732,7 +775,18 @@ impl Plugin for CompositePlugin {
         self.show(host);
     }
 
+    fn on_plugins_ready(&mut self, host: &mut dyn Host) {
+        // forgetting what was told makes catch_up's show, or the call after it, say it all again
+        self.cut_outs_told.clear();
+        self.catch_up(host);
+        self.tell_cut_outs(host, false);
+    }
+
     fn shutdown(&mut self, host: &mut dyn Host) {
+        for source_id in std::mem::take(&mut self.cut_outs_told) {
+            host.emit(Event::CutOutWanted { source_id, on: false });
+        }
+        host.cancel_schedule(Self::CUT_OUT_TIMER);
         host.want_frames(NAME, false);
         host.want_people(NAME, false);
         self.shared.hub().shut = true;
@@ -757,7 +811,9 @@ impl Plugin for CompositePlugin {
                 self.direct(host, monotonic_ns() as f64 / 1e9);
                 self.sync_director(host);
             }
+            Event::TimerFired { owner, token } if owner == NAME && token == Self::CUT_OUT_TIMER => self.tell_cut_outs(host, false),
             Event::StreamsChanged { .. } => self.follow_camera(host),
+            Event::SourceShown { .. } => self.tell_cut_outs(host, true),
             Event::CameraOpened { slot: 0, .. } => self.follow_camera(host),
             Event::TimerFired { owner, token } if owner == NAME && token == Self::EDITOR_TIMER => self.editor_timer(host),
             Event::RequestDone { request, ok, data, .. } => {
@@ -889,7 +945,7 @@ impl Plugin for CompositePlugin {
         let d = Spec::default();
         vec![
             SettingSpec::switch("on", "Whether the streams are put into one picture", false),
-            SettingSpec::choice("transition.kind", "How the picture goes to another layout: cut, crossfade, slide, push, zoom, wipe, glide (tiles travel to their new places) or shuffle", &kinds, d.kind.id()),
+            SettingSpec::choice("transition.kind", "How the picture goes to another layout: cut, crossfade, slide, push, zoom, wipe, iris, blinds, curtain, pixelate, dissolve, or glide, shuffle and bounce (tiles travel to their new places)", &kinds, d.kind.id()),
             SettingSpec::number("transition.ms", "How long that takes", f64::from(crate::transition::MIN_MS), f64::from(crate::transition::MAX_MS), 0, f64::from(d.ms)).unit("ms"),
             SettingSpec::choice("transition.ease", "How it eases: springy, smooth, bouncy or even", &eases, d.ease.id()),
         ]
