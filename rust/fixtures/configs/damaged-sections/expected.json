@@ -146,7 +146,12 @@
           ]
         },
         "layouts": [],
-        "on": false
+        "on": false,
+        "transition": {
+          "ease": "springy",
+          "kind": "glide",
+          "ms": 600
+        }
       },
       "connection": {
         "computer_id": "00000000000000000000000000000008",
