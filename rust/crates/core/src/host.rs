@@ -393,6 +393,10 @@ pub trait HostSettings {
     fn save_now(&mut self);
     /// Another plugin's current get_config(), or None if it isn't registered.
     fn plugin_config(&self, name: &str) -> Option<Value>;
+    /// What a preset stores for a plugin: its preset_config().
+    fn preset_config(&self, name: &str) -> Option<Value> {
+        self.plugin_config(name)
+    }
     /// Hand a saved config to another plugin's apply_preset(); unknown names are ignored.
     fn apply_preset(&mut self, name: &str, cfg: &Value);
     /// The names of the running plugins that are in_presets, in registration order.

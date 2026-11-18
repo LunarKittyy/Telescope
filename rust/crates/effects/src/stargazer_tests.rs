@@ -667,3 +667,27 @@ fn a_cover_between_looks_stops_frames_at_once() {
     rig.click("run-clicked", Value::Null);
     assert_eq!(rig.plugin.count, 1);
 }
+
+#[test]
+fn a_preset_brings_back_the_settings_and_never_begins_a_run() {
+    let mut a = StargazerPlugin::new();
+    a.set_config(&json!({"mode": "trails", "frames": 800, "keep": 25, "interval": 12, "camera": true})).unwrap();
+    let saved = a.preset_config();
+    assert!(saved.get("folder").is_none());
+    let mut rig = Rig::new("preset", json!({}));
+    rig.plugin.apply_preset(&mut rig.host, &saved).unwrap();
+    assert_eq!(rig.plugin.get_config(), a.get_config());
+    assert_eq!(rig.plugin.phase, Phase::Idle);
+    assert!(rig.plugin.shared.camera.load(Ordering::SeqCst));
+}
+
+#[test]
+fn an_older_preset_without_the_keys_changes_nothing_in_stargazer() {
+    let mut rig = Rig::new("preset-old", json!({"mode": "live", "frames": 700, "keep": 20, "interval": 9, "camera": true}));
+    let before = rig.plugin.get_config();
+    rig.plugin.apply_preset(&mut rig.host, &json!({})).unwrap();
+    assert_eq!(rig.plugin.get_config(), before);
+    rig.plugin.apply_preset(&mut rig.host, &json!({"frames": 400})).unwrap();
+    let after = rig.plugin.get_config();
+    assert_eq!((&after["frames"], &after["mode"], &after["camera"]), (&json!(400), &json!("live"), &json!(true)));
+}

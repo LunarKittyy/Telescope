@@ -609,6 +609,7 @@ impl Plugin for PhotosPlugin {
             category: "camera".into(),
             icon: "photo".into(),
             optional: true,
+            in_presets: true,
             ..Default::default()
         }
     }
@@ -782,6 +783,23 @@ impl Plugin for PhotosPlugin {
         let mut cfg = self.choices.clone();
         cfg.insert("folder".into(), json!(self.folder));
         Value::Object(cfg)
+    }
+
+    /// The still settings; the folder is this computer's own.
+    fn preset_config(&self) -> Value {
+        Value::Object(self.choices.clone())
+    }
+
+    /// A key the preset lacks keeps its value, and the folder never changes.
+    fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
+        let Value::Object(cfg) = cfg else { return Err(ConfigRejected("settings".into())) };
+        let mut merged = self.get_config();
+        for (key, value) in cfg.iter().filter(|(key, _)| *key != "folder") {
+            merged[key] = value.clone();
+        }
+        self.set_config(&merged)?;
+        self.catch_up(host);
+        Ok(())
     }
 
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {

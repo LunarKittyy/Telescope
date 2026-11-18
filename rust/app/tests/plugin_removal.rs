@@ -175,6 +175,44 @@ fn every_plugin(bus: &telescope_core::BusSender) -> Vec<Box<dyn Plugin>> {
     plugins
 }
 
+/// Built-in plugins that stay out of presets, with why. A new plugin has to be in presets or be added here.
+const NOT_IN_PRESETS: &[(&str, &str)] = &[
+    ("setup", "machine-wide options, not a look"),
+    ("connection", "connection state, not a look"),
+    ("monitoring", "a readout, nothing to recall"),
+    ("stats", "a readout, nothing to recall"),
+    ("updates", "per-machine update channel"),
+    ("shortcuts", "per-machine key bindings"),
+    ("mcp", "per-machine tool server"),
+    ("startup", "per-machine autostart"),
+    ("onboarding", "first-run state, not a look"),
+    ("presets", "holds the presets themselves"),
+    ("preview", "viewer preferences, not the output"),
+    ("cinema", "preview-only aids that never reach the output"),
+    ("on_air", "holds a token and addresses"),
+    ("qr_reader", "a tool that starts nothing a look needs"),
+    ("wait_screen", "an image path and a size cache, both machine-bound"),
+    ("notes", "the teleprompter's text and display are people's own content, kept out on purpose"),
+    ("browser_camera", "address and known browsers are per machine, and size and fps are source options with no look"),
+    ("webcam", "USB camera options are not covered by presets yet, decided on their own"),
+    ("spout", "per-sender frame rate, low value"),
+    ("microphone", "audio options are not covered by presets yet, decided on their own"),
+];
+
+#[test]
+fn every_built_in_plugin_is_in_presets_or_has_a_reason_not_to_be() {
+    let bus = telescope_core::EventBus::default();
+    let infos: Vec<PluginInfo> = every_plugin(&bus.sender()).iter().map(|p| p.info()).collect();
+    let names: BTreeSet<&str> = infos.iter().map(|i| i.name.as_str()).collect();
+    let missing: Vec<&str> = infos.iter().filter(|i| !i.in_presets && !NOT_IN_PRESETS.iter().any(|(n, _)| *n == i.name)).map(|i| i.name.as_str()).collect();
+    assert!(missing.is_empty(), "in neither presets nor NOT_IN_PRESETS: {missing:?}");
+    for (name, why) in NOT_IN_PRESETS {
+        assert!(names.contains(name), "{name} is not a built-in plugin any more, drop it from NOT_IN_PRESETS");
+        assert!(!why.is_empty());
+        assert!(!infos.iter().any(|i| i.name == *name && i.in_presets), "{name} is in presets now, drop it from NOT_IN_PRESETS");
+    }
+}
+
 /// A source of the test's own, so streaming needs neither a phone nor Browser camera.
 struct TestCamera;
 

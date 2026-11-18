@@ -1041,6 +1041,7 @@ impl Plugin for StargazerPlugin {
             frame_stage: FrameStage::Effects,
             optional: true,
             lab: true,
+            in_presets: true,
             ..Default::default()
         }
     }
@@ -1188,6 +1189,18 @@ impl Plugin for StargazerPlugin {
         self.shared.interval_ms.store(u64::from(self.trail_s) * 1000, Ordering::SeqCst);
         self.shared.camera.store(self.camera, Ordering::SeqCst);
         self.pending = true;
+        Ok(())
+    }
+
+    /// A key the preset lacks keeps its value. Only settings change, so a recall never begins a run.
+    fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
+        let Value::Object(cfg) = cfg else { return Err(ConfigRejected("settings".into())) };
+        let mut merged = self.get_config();
+        for (key, value) in cfg {
+            merged[key] = value.clone();
+        }
+        self.set_config(&merged)?;
+        self.catch_up(host);
         Ok(())
     }
 

@@ -1884,6 +1884,13 @@ impl State {
         self.read_config(i).filter(Value::is_object)
     }
 
+    /// What a preset stores for a plugin, if it's running.
+    pub fn preset_config(&self, name: &str) -> Option<Value> {
+        let slot = self.slots.get(self.index(name)?).filter(|s| s.stopped.is_none())?;
+        let plugin = slot.plugin.as_ref()?;
+        telescope_core::diagnostics::catch_plugin(|| plugin.preset_config()).ok().filter(Value::is_object)
+    }
+
     /// The built-in plugins off this run, the way the Plugins tab and diagnostics count them.
     pub fn plugins_off(&self) -> &[PluginInfo] {
         &self.off
