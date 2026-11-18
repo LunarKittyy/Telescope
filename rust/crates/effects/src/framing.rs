@@ -70,6 +70,11 @@ const REACH_BASE: f64 = 0.8;
 const REACH_PER_S: f64 = 1.5;
 /// A match is only clear when no other is this many times as near.
 const AMBIGUOUS: f64 = 4.0;
+/// A match looks for someone where they would be by now at the speed they were going, up to this many seconds ahead.
+const PREDICT_S: f64 = 0.6;
+/// A speed is only worked out from two sightings this far apart (s): closer ones are mostly noise, further ones are another movement.
+const MIN_SPEED_DT: f64 = 0.03;
+const MAX_SPEED_DT: f64 = 1.0;
 /// A lost person is taken back as the lone unaccounted-for person only within this long of being seen.
 const RESUME_WITHIN_S: f64 = 5.0;
 /// The framing lets the target's centre wander this far (of the window's size) at Speed 5...
@@ -541,6 +546,9 @@ pub struct FramingPlugin {
     followed: Option<(Person, f64)>,
     /// Everyone else in the last report while someone is followed, so a bystander is never mistaken for them
     others: Vec<(Person, f64)>,
+    /// How fast the followed person and each of the others were moving across the picture (x, y per second) when last matched, so a match looks for them where they are going
+    followed_vel: (f64, f64),
+    others_vel: Vec<(f64, f64)>,
     /// A pick on the preview is under way
     picking: bool,
     /// The Framing bubble is up: its crop follows the slider.
@@ -585,6 +593,8 @@ impl FramingPlugin {
             tracked: Vec::new(),
             followed: None,
             others: Vec::new(),
+            followed_vel: (0.0, 0.0),
+            others_vel: Vec::new(),
             picking: false,
             together_at: None,
             seen_at: None,
@@ -876,6 +886,8 @@ impl FramingPlugin {
         let aspect = if aspect != 0.0 { aspect } else { 16.0 / 9.0 };
         if let Some(i) = nearest_person(&self.people, (x, y), aspect) {
             self.followed = Some((self.people[i].clone(), (self.clock)()));
+            self.followed_vel = (0.0, 0.0);
+            self.others_vel.clear();
             let now = (self.clock)();
             self.others = self.people.iter().enumerate().filter(|(j, _)| *j != i).map(|(_, p)| (p.clone(), now)).collect();
             self.last_box = None;
@@ -898,15 +910,19 @@ impl FramingPlugin {
             return;
         }
         let before: Vec<(&Person, f64)> = std::iter::once((&old, at)).chain(self.others.iter().map(|(p, t)| (p, *t))).collect();
+        let vels: Vec<(f64, f64)> = std::iter::once(self.followed_vel).chain((0..self.others.len()).map(|i| self.others_vel.get(i).copied().unwrap_or((0.0, 0.0)))).collect();
         // (distance in shoulder widths, entity, candidate) for the pairs that could be the same person
         let mut pairs: Vec<(f64, usize, usize)> = Vec::new();
         for (e, (who, seen)) in before.iter().enumerate() {
             let Some(((ox, oy), owidth)) = body(who, aspect) else { continue };
             let reach = (REACH_BASE + REACH_PER_S * (now - seen)).min(SAME_PERSON);
+            // where they should be by now, going the way they were going: two people crossing don't swap by passing each other's old spot
+            let ahead = (now - seen).min(PREDICT_S);
+            let (px, py) = (ox + vels[e].0 * ahead, oy + vels[e].1 * ahead);
             for &c in &cands {
                 let Some(((x, y), width)) = body(&self.people[c], aspect) else { continue };
                 let size = width.max(owidth);
-                let apart = ((x - ox) * aspect).hypot(y - oy) / size;
+                let apart = ((x - px) * aspect).hypot(y - py) / size;
                 if apart <= reach && same_build(who, &self.people[c], aspect) {
                     pairs.push((apart, e, c));
                 }
@@ -946,23 +962,42 @@ impl FramingPlugin {
         }
         // bystanders as the report has them; anyone it didn't find stays as they were. While the lock is lost new faces aren't added: they might be the lost person
         let mut others: Vec<(Person, f64)> = Vec::new();
+        let mut others_vel: Vec<(f64, f64)> = Vec::new();
+        // the speed from where someone was last seen to where they are now, blended with the speed they had
+        let speed = |e: usize, c: usize| -> (f64, f64) {
+            let (who, seen) = before[e];
+            let (Some(((ox, oy), _)), Some(((x, y), _))) = (body(who, aspect), body(&self.people[c], aspect)) else { return vels[e] };
+            let dt = now - seen;
+            if !(MIN_SPEED_DT..=MAX_SPEED_DT).contains(&dt) {
+                return vels[e];
+            }
+            ((vels[e].0 + (x - ox) / dt) / 2.0, (vels[e].1 + (y - oy) / dt) / 2.0)
+        };
         for (e, (person, seen)) in self.others.iter().enumerate() {
             match matched[e + 1] {
-                Some((c, _)) if Some(c) != lock => others.push((self.people[c].clone(), now)),
-                _ => others.push((person.clone(), *seen)),
+                Some((c, _)) if Some(c) != lock => {
+                    others.push((self.people[c].clone(), now));
+                    others_vel.push(speed(e + 1, c));
+                }
+                _ => {
+                    others.push((person.clone(), *seen));
+                    others_vel.push(vels[e + 1]);
+                }
             }
         }
         if lock.is_some() {
             for &c in &cands {
                 if Some(c) != lock && !taken[c] {
                     others.push((self.people[c].clone(), now));
+                    others_vel.push((0.0, 0.0));
                 }
             }
         }
         if let Some(c) = lock {
+            self.followed_vel = speed(0, c);
             self.followed = Some((self.people[c].clone(), now));
         }
-        self.others = others;
+        (self.others, self.others_vel) = (others, others_vel);
     }
 
     fn show_following(&self, host: &mut dyn Host) {
@@ -986,6 +1021,8 @@ impl FramingPlugin {
             *person = person.mapped(&remap);
         }
         self.others = self.others.iter().map(|(person, at)| (person.mapped(&remap), *at)).collect();
+        // the speeds were in the old turn of the picture
+        (self.followed_vel, self.others_vel) = ((0.0, 0.0), Vec::new());
         // Who is who is found again from the next reports, in the new orientation
         self.forget_group();
         (self.spring, self.goal, self.smooth) = (None, None, None);

@@ -466,6 +466,37 @@ fn the_picked_person_is_still_followed_after_crossing_over_a_bystander_of_anothe
     assert!(r.last().0 > 2.5 && r.last().1.abs() < 0.1, "framing {:?}", r.last());
 }
 
+/// Two people of the same build walk toward each other across the picture and past, reported every 0.2 s while they are close; the picked one comes from the left.
+fn walk_past(r: &mut Rig, speed: f64) -> (f64, f64) {
+    let (mut a, mut b) = (0.3, 0.7);
+    for _ in 0..40 {
+        a += speed * 0.2;
+        b -= speed * 0.2;
+        for tick in 0..6 {
+            *r.clock.lock().unwrap() += 0.2 / 6.0;
+            if tick == 0 {
+                r.people("phone", &[at(a), at(b)]);
+            }
+            r.tick();
+        }
+        if a > 0.75 {
+            break;
+        }
+    }
+    (a, b)
+}
+
+#[test]
+fn the_picked_person_is_still_followed_after_walking_past_someone_of_the_same_build() {
+    let (a, b) = (at(0.3), at(0.7));
+    let mut r = picked_pair(&a, &b);
+    let (a_now, b_now) = walk_past(&mut r, 0.1);
+    r.run(4.0, Some(&[at(a_now), at(b_now)]));
+    // the picked one is on the right now: still the one framed, not let go or swapped for the other
+    let (zoom, x) = (r.last().0, r.last().1);
+    assert!(zoom > 2.5 && x > 0.3, "framing {:?} with them at {a_now}", r.last());
+}
+
 #[test]
 fn reports_that_alternate_between_the_picked_person_and_the_bystander_keep_the_lock() {
     let (a, b) = (at(0.45), at(0.6));
