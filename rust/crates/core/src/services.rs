@@ -14,6 +14,8 @@ pub struct PluginProblem {
     pub name: String,
     pub title: String,
     pub error: String,
+    /// It's on but waits for a built-in plugin it needs, which isn't a switch change a restart applies.
+    pub blocked: bool,
 }
 
 /// The plugins that didn't start the last time the factory ran, which it fills in for the shell to say so.

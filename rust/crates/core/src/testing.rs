@@ -107,6 +107,8 @@ pub struct FakeHost {
     pub preset_rules: Option<fn(&str, &mut Value)>,
     /// Plugins has_plugin() says are there.
     pub plugins: Vec<String>,
+    /// What share() put in, for shared() to read.
+    pub registry: crate::host::Registry,
     /// What plugin_looks() lists.
     pub looks: Vec<crate::host::PluginLook>,
     /// What plugin_settings() lists.
@@ -834,6 +836,18 @@ impl Host for FakeHost {
     }
     fn cancel_schedule(&mut self, token: &str) {
         self.scheduled.retain(|(_, t)| t != token);
+    }
+    fn share(&mut self, owner: &str, name: &str, value: Option<Value>) -> Result<(), String> {
+        if let Some(key) = self.registry.set(owner, name, value)? {
+            self.events.push(Event::SharedChanged { key });
+        }
+        Ok(())
+    }
+    fn shared(&self, key: &str) -> Option<Value> {
+        self.registry.get(key)
+    }
+    fn shared_keys(&self, prefix: &str) -> Vec<String> {
+        self.registry.keys(prefix)
     }
     fn poster(&self) -> Option<Arc<dyn Poster>> {
         Some(Arc::new(FakePoster(self.posted.clone())))

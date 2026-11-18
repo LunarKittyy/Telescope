@@ -305,6 +305,35 @@ struct Late {
     images: Vec<(String, String, String, slint::Image)>,
 }
 
+/// Plugins switched off this run after panicking: the Plugins tab says so on their tiles, in the window if it's built and in the plan if it's prepared.
+pub fn plugins_stopped(stopped: std::collections::BTreeMap<String, String>) {
+    PLAN.with(|p| {
+        if let Some(plan) = p.borrow_mut().as_mut() {
+            plan.panel.stopped = stopped.clone();
+            plan.panel.refresh();
+        }
+    });
+    if let Some(settings) = current() {
+        settings.panel.borrow_mut().stopped = stopped;
+        settings.panel.borrow_mut().refresh();
+        settings.show_panel();
+    }
+}
+
+/// A stopped plugin's settings sections are hidden, in the window if it's built and in the plan if it's prepared.
+pub fn hide_sections(plugin: &str) {
+    let ids: Vec<String> = PLAN.with(|p| p.borrow().as_ref().map(|plan| plan.pieces.iter().filter(|(pl, _, _)| pl == plugin).map(|(_, ui, _)| ui.clone()).collect()))
+        .or_else(|| current().map(|s| s.pieces.iter().filter(|(pl, _, _)| pl == plugin).map(|(_, ui, _)| ui.clone()).collect()))
+        .unwrap_or_default();
+    for ui in ids {
+        let hidden = serde_json::json!({"visible": false});
+        match current() {
+            Some(settings) => settings.set_props(plugin, &ui, &hidden),
+            None => hold_props(plugin, &ui, &hidden),
+        }
+    }
+}
+
 /// Keeps a section's new properties while the page is prepared but not yet a window, so the window starts out with them (the plan only holds the ones from when it was made).
 pub fn hold_props(plugin: &str, ui: &str, props: &serde_json::Value) {
     if !prepared() {
@@ -364,7 +393,11 @@ fn plan(window: &Rc<Window>) -> Result<Plan, String> {
             Some(service) => Box::new(VisionDownload::new(service.clone())),
             None => Box::new(plugins_tab::NoVision),
         };
-        (Panel::new(state.builtins.clone(), running, state.problems.clone(), state.admin.clone(), download), state.off.len(), categories)
+        let mut panel = Panel::new(state.builtins.clone(), running, state.problems.clone(), state.admin.clone(), download);
+        panel.blocked = state.blocked.clone();
+        panel.stopped = state.stopped();
+        panel.refresh();
+        (panel, state.off.len(), categories)
     };
     let tabs = ordered_tabs(&sections, &Panel::tab_title(off));
     let plugins_tab = tabs.iter().position(|(id, _, _)| id == "plugins");

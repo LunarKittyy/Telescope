@@ -260,6 +260,11 @@ impl FrameStage {
         FrameStage::View, FrameStage::Geometry, FrameStage::Reading, FrameStage::Background, FrameStage::Effects,
         FrameStage::Colour, FrameStage::Privacy, FrameStage::Overlay, FrameStage::Combine, FrameStage::Cover, FrameStage::Final,
     ];
+
+    /// Whether the steps of this stage are there to hide something, so a failure of one must never let the clear picture out.
+    pub fn hides(self) -> bool {
+        matches!(self, FrameStage::Background | FrameStage::Privacy | FrameStage::Cover)
+    }
 }
 
 /// What a frame step may ask while it works on a frame (HostFrames.frame_source, HostVision.person_mask, HostColour.colour_preview).
@@ -273,6 +278,10 @@ pub trait FrameContext {
     }
     /// Whether the stream is being stopped, so a step that would wait on something slow (the graphics card) gives up and the frame is dropped. False where the host doesn't say.
     fn stopped(&self) -> bool {
+        false
+    }
+    /// Whether the caller can't wait for the graphics card (the window's thread): a step that would have to wait for it is answered with a dark frame, and run for real later. False where the host doesn't say.
+    fn hurried(&self) -> bool {
         false
     }
     /// How sure the vision service is each pixel is a person (0..255, the frame's size), or None while it can't say. It hardly ever waits for

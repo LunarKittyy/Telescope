@@ -32,6 +32,8 @@ pub struct AddedPlugin {
     pub changed: bool,
     /// Loaded from where it's written, always on.
     pub dev: bool,
+    /// The built-in plugins it can't work without (plugin.json "needs").
+    pub needs: Vec<String>,
 }
 
 /// A newer release of an added plugin that the last update check found.

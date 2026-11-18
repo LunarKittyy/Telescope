@@ -107,9 +107,10 @@ fn a_section_hears_when_its_tab_comes_on_screen() {
 }
 
 #[test]
-fn a_section_that_cant_refresh_doesnt_break_the_window() {
-    let (_r, win, heard) = opened("settings-cant-refresh", vec![("broken", "general"), ("fine", "general")]);
-    assert_eq!(shown(&heard), ["fine"]);
+fn a_section_that_cant_refresh_switches_its_plugin_off_and_the_window_carries_on() {
+    let (r, win, heard) = opened("settings-cant-refresh", vec![("broken", "general"), ("fine", "general")]);
+    assert!(shown(&heard).is_empty(), "the plugin is off after its first panic");
+    assert!(r.w.state.borrow().stopped().contains_key("mine"));
     assert!(win.ui.window().is_visible());
     settings::forget();
 }

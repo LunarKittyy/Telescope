@@ -33,6 +33,11 @@ fn info(name: &str, title: &str) -> PluginInfo {
     PluginInfo { name: name.into(), title: title.into(), about: format!("What {title} does."), when_off: format!("The {title} card goes away."), ..Default::default() }
 }
 
+/// What the plugin host says of a plugin that comes from a plugins folder.
+fn from_folder(info: PluginInfo) -> PluginInfo {
+    PluginInfo { added: true, ..info }
+}
+
 fn builtins() -> Vec<PluginInfo> {
     let mut connection = info("connection", "Connection");
     connection.required = true;
@@ -898,9 +903,9 @@ fn an_added_plugin_with_a_broken_settings_section_is_left_out_and_the_rest_of_se
     let w = window::build(ConfigFile::at(root.join("telescope_config.json")), |_| Vec::new(), None, None).unwrap();
     w.state.borrow_mut().admin = admin;
     let plugins: Vec<Box<dyn Plugin>> = vec![
-        Box::new(WithSection(info("fine", "Fine"), good, "Fine")),
-        Box::new(WithSection(info("syntax", "Syntax"), syntax, "Fine")),
-        Box::new(WithSection(info("missing", "Missing"), good, "NotThere")),
+        Box::new(WithSection(from_folder(info("fine", "Fine")), good, "Fine")),
+        Box::new(WithSection(from_folder(info("syntax", "Syntax")), syntax, "Fine")),
+        Box::new(WithSection(from_folder(info("missing", "Missing")), good, "NotThere")),
     ];
     w.state.borrow_mut().load_builtins(plugins).unwrap();
     {
@@ -953,11 +958,11 @@ fn an_added_plugin_whose_ui_only_breaks_inside_the_shared_window_is_left_out() {
     let w = window::build(ConfigFile::at(root.join("telescope_config.json")), |_| Vec::new(), None, None).unwrap();
     w.state.borrow_mut().admin = admin;
     let plugins: Vec<Box<dyn Plugin>> = vec![
-        Box::new(WithCard(info("fine", "Fine"), Some((good, "Fine")), None)),
-        Box::new(WithCard(info("card", "Bare card"), Some((rect, "Broken")), None)),
-        Box::new(WithCard(info("header", "Bad header"), None, Some((timer, "Broken")))),
-        Box::new(WithSection(info("section", "Bad section"), timer, "Broken")),
-        Box::new(WithSection(info("hueless", "Hueless"), no_hue, "Broken")),
+        Box::new(WithCard(from_folder(info("fine", "Fine")), Some((good, "Fine")), None)),
+        Box::new(WithCard(from_folder(info("card", "Bare card")), Some((rect, "Broken")), None)),
+        Box::new(WithCard(from_folder(info("header", "Bad header")), None, Some((timer, "Broken")))),
+        Box::new(WithSection(from_folder(info("section", "Bad section")), timer, "Broken")),
+        Box::new(WithSection(from_folder(info("hueless", "Hueless")), no_hue, "Broken")),
     ];
     w.state.borrow_mut().load_builtins(plugins).unwrap();
     let state = w.state.borrow();
