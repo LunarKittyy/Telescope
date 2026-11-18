@@ -762,6 +762,26 @@ fn removing_a_tile_or_switching_the_picture_off_lets_go_of_its_cut_out() {
 }
 
 #[test]
+fn a_fading_out_tile_keeps_its_cut_out_until_the_transition_has_ended() {
+    let mut r = with_saved_layout();
+    with_cut_out(&mut r, true, false);
+    cut_out_events(&mut r);
+    // the picked layout has no cut-out and its picture is drawn from the old one for a while
+    assert!(r.plugin.pick(&mut r.host, "Big"));
+    assert!(cut_out_events(&mut r).is_empty(), "not let go while the old picture is still drawn");
+    assert!(r.host.scheduled.iter().any(|(_, t)| t == "cut-outs"));
+    let timer = Event::TimerFired { owner: NAME.into(), token: "cut-outs".into() };
+    assert!(goes(&r, 100));
+    r.plugin.on_event(&mut r.host, &timer);
+    assert!(cut_out_events(&mut r).is_empty(), "still going at the next look");
+    // drawn to its end
+    r.plugin.shared.hub().compositor.render_at(&Frames::new(), PixelFormat::Bgra, STARTED + 5 * SECOND);
+    r.plugin.on_event(&mut r.host, &timer);
+    assert_eq!(cut_out_events(&mut r), told(&[("a", false)]));
+    assert!(!r.host.scheduled.iter().any(|(_, t)| t == "cut-outs"), "nothing more to look for");
+}
+
+#[test]
 fn every_cut_out_is_told_again_when_the_plugins_are_ready_and_when_the_shown_stream_changes() {
     let mut r = rig();
     r.two_streams(0.0);

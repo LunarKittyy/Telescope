@@ -641,9 +641,20 @@ impl CompositePlugin {
         self.layout.tiles.iter().filter(|t| t.cut_out).map(|t| t.source_id.clone()).collect()
     }
 
+    const CUT_OUT_TIMER: &'static str = "cut-outs";
+    const CUT_OUT_CHECK_MS: u64 = 200;
+
     /// Tells whoever cuts people out which streams want it: what changed since last time, or every one again for a plugin that missed it.
+    /// A tile a transition is still drawing keeps its cut-out until the transition ends, which a timer looks for.
     fn tell_cut_outs(&mut self, host: &mut dyn Host, again: bool) {
-        let want = self.cut_outs();
+        let mut want = self.cut_outs();
+        let leaving = if self.on { self.shared.hub().compositor.leaving_cut_outs() } else { BTreeSet::new() };
+        if leaving.is_empty() {
+            host.cancel_schedule(Self::CUT_OUT_TIMER);
+        } else {
+            host.schedule(Self::CUT_OUT_CHECK_MS, Self::CUT_OUT_TIMER);
+            want.extend(leaving);
+        }
         let off: Vec<String> = self.cut_outs_told.difference(&want).cloned().collect();
         let on: Vec<String> = want.iter().filter(|s| again || !self.cut_outs_told.contains(*s)).cloned().collect();
         self.cut_outs_told = want;
@@ -775,6 +786,7 @@ impl Plugin for CompositePlugin {
         for source_id in std::mem::take(&mut self.cut_outs_told) {
             host.emit(Event::CutOutWanted { source_id, on: false });
         }
+        host.cancel_schedule(Self::CUT_OUT_TIMER);
         host.want_frames(NAME, false);
         host.want_people(NAME, false);
         self.shared.hub().shut = true;
@@ -799,6 +811,7 @@ impl Plugin for CompositePlugin {
                 self.direct(host, monotonic_ns() as f64 / 1e9);
                 self.sync_director(host);
             }
+            Event::TimerFired { owner, token } if owner == NAME && token == Self::CUT_OUT_TIMER => self.tell_cut_outs(host, false),
             Event::StreamsChanged { .. } => self.follow_camera(host),
             Event::SourceShown { .. } => self.tell_cut_outs(host, true),
             Event::CameraOpened { slot: 0, .. } => self.follow_camera(host),

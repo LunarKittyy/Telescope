@@ -407,7 +407,7 @@ fn a_cut_out_shows_what_is_under_it_where_the_alpha_is_nothing() {
 }
 
 #[test]
-fn a_tile_without_a_cut_out_or_without_alpha_draws_the_same_bytes_as_before() {
+fn a_tile_without_a_cut_out_or_with_alpha_it_ignores_draws_the_same_bytes_as_before() {
     let layout = |cut_out: bool| Layout {
         background: "#102030".into(),
         ..Layout::of(vec![
@@ -422,11 +422,44 @@ fn a_tile_without_a_cut_out_or_without_alpha_draws_the_same_bytes_as_before() {
     ]);
     for format in [PixelFormat::Bgra, PixelFormat::Rgba, PixelFormat::I420] {
         let before = render_in(&layout(false), &plain(1), (320, 180), format);
-        // cut out on, no alpha in the frames
-        assert_eq!(render_in(&layout(true), &plain(1), (320, 180), format).data, before.data, "{format:?} cut out on, frames opaque");
         // alpha in the frames, cut out off
         assert_eq!(render_in(&layout(false), &with_alpha(1), (320, 180), format).data, before.data, "{format:?} cut out off, frames with alpha");
     }
+}
+
+#[test]
+fn a_cut_out_tile_draws_nothing_until_its_stream_has_an_alpha() {
+    let layout = |tiles: Vec<Tile>| Layout { background: "#102030".into(), ..Layout::of(tiles) };
+    let tile = |cut_out: bool| Tile { radius: 20, border: 6, cut_out, ..t("a", 0.1, 0.1, 0.5, 0.6) };
+    let plain = frames(vec![("a", solid([10, 200, 90], (90, 160)), Some(1))]);
+    for format in [PixelFormat::Bgra, PixelFormat::Rgba, PixelFormat::I420] {
+        let empty = render_in(&layout(vec![]), &plain, (320, 180), format);
+        let waiting = render_in(&layout(vec![tile(true)]), &plain, (320, 180), format);
+        assert_eq!(waiting.data, empty.data, "{format:?}: no box and no border box before the alpha comes");
+        // and the same tile fading in draws nothing either
+        let mut comp = Compositor::default();
+        comp.prepare(&layout(vec![tile(true)]), (320, 180));
+        let plan = comp.plan.clone().unwrap();
+        let background = comp.background_planes(&plan, Kind::of(format));
+        let mut out = comp.copy_of(&background);
+        let items = [Item { tile: Cow::Borrowed(&plan.layout.tiles[0]), placed: plan.boxes[0], alpha: 0.5, key: 5000 }];
+        comp.draw_items(&mut out, Kind::of(format), plan.size, &items, &plain);
+        assert_eq!(out, *background, "{format:?}: nothing drawn mid-fade");
+    }
+}
+
+#[test]
+fn a_transition_names_the_cut_outs_it_still_draws_from_the_picture_it_leaves() {
+    let spec = Spec { kind: transition::Kind::Crossfade, ms: 500, ease: transition::Ease::Even };
+    let mut comp = Compositor::default();
+    comp.prepare(&Layout::of(vec![cut_tile("a", 0.0, 0.0, 0.5, 1.0), t("b", 0.5, 0.0, 0.5, 1.0)]), (160, 90));
+    assert!(comp.leaving_cut_outs().is_empty());
+    comp.prepare_with(&Layout::of(vec![t("a", 0.0, 0.0, 1.0, 1.0), t("b", 0.7, 0.7, 0.25, 0.25)]), (160, 90), spec, 0);
+    assert_eq!(comp.leaving_cut_outs(), BTreeSet::from(["a".to_string()]));
+    comp.render_at(&Frames::new(), PixelFormat::Bgra, 1_000_000_000);
+    assert_eq!(comp.leaving_cut_outs().len(), 1);
+    comp.render_at(&Frames::new(), PixelFormat::Bgra, 2_000_000_000);
+    assert!(comp.leaving_cut_outs().is_empty(), "gone when the transition has ended");
 }
 
 #[test]

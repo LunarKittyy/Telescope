@@ -12,7 +12,7 @@ use crate::imgops::resize_area;
 use crate::pixels::{put_rgb, to_rgb};
 use crate::shared::{no_pictures, PictureReader};
 use crate::transition::{self, Spec};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::{Arc, Mutex, OnceLock};
 use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::time::monotonic_ns;
@@ -488,7 +488,7 @@ fn unpremultiplied(frame: &Frame, alpha: &telescope_core::frame::Alpha) -> Frame
                 }
             }
         }
-        _ => {}
+        other => debug_assert!(false, "no cut-out for {other:?}"),
     }
     out
 }
@@ -539,8 +539,13 @@ fn paste_over(canvas: &mut [u8], kind: Kind, cw: usize, chh: usize, picture: &[V
         let data = &mut canvas[plane.at..plane.at + plane.w * plane.h * ch];
         for cy in py0..py1 {
             for cx in px0..px1 {
+                // only a corner square has a curve to look up; a luma pixel or colour sample clear of both bands of one is fully covered
                 let cov = if full {
-                    coverage(cx, cy, bx, r, m)
+                    if (cy >= y + r && cy < y + h - r) || (cx >= x + r && cx < x + w - r) { 1.0 } else { coverage(cx, cy, bx, r, m) }
+                } else if (2 * cy >= y && 2 * cy + 1 < y + h) && (2 * cx >= x && 2 * cx + 1 < x + w)
+                    && ((2 * cy >= y + r && 2 * cy + 1 < y + h - r) || (2 * cx >= x + r && 2 * cx + 1 < x + w - r))
+                {
+                    1.0
                 } else {
                     let mut sum = 0f32;
                     let mut n = 0f32;
@@ -978,6 +983,22 @@ impl Compositor {
         self.transition.is_some()
     }
 
+    /// The streams of the cut-out tiles a transition under way still draws from the picture it leaves, which the layout no longer has.
+    pub fn leaving_cut_outs(&self) -> BTreeSet<String> {
+        let mut out = BTreeSet::new();
+        let mut from = self.transition.as_ref().map(|a| &a.from);
+        while let Some(start) = from {
+            let (tiles, next): (Vec<&Tile>, _) = match start {
+                Start::Plan(plan) => (plan.layout.tiles.iter().collect(), None),
+                Start::Tiles { tiles, .. } => (tiles.iter().map(|p| &p.tile).collect(), None),
+                Start::Frozen { active, to, .. } => (to.layout.tiles.iter().collect(), Some(&active.from)),
+            };
+            out.extend(tiles.into_iter().filter(|t| t.cut_out).map(|t| t.source_id.clone()));
+            from = next;
+        }
+        out
+    }
+
     fn plan_of(&mut self, layout: &Layout, size: (u32, u32)) -> Arc<Plan> {
         let (width, height) = (size.0.max(1) as usize, size.1.max(1) as usize);
         let background = self.background(layout, width, height);
@@ -1154,11 +1175,15 @@ impl Compositor {
         for item in items {
             let (tile, placed) = (item.tile.as_ref(), item.placed);
             let Some((frame, number)) = frames.get(&tile.source_id) else { continue };
+            // a cut-out has nothing to show until its stream's alpha arrives, and the whole frame would flash the room in the meantime
+            if tile.cut_out && frame.alpha().is_none() {
+                continue;
+            }
             let (mut x, mut y, mut w, mut h) = placed.bx;
             let under = (item.alpha < 1.0).then(|| save_region(out, kind, cw, chh, (x as usize, y as usize, w as usize, h as usize)));
             if placed.border > 0 {
                 // a cut-out has no box for a border to fill, so it keeps the room the border takes and leaves it empty
-                if !(tile.cut_out && frame.alpha().is_some()) {
+                if !tile.cut_out {
                     let colour = colour_planes(kind, { let [b, g, r] = bgr(&tile.border_colour); [r, g, b] });
                     paste(out, kind, cw, chh, Content::Colour(colour), (x as usize, y as usize, w as usize, h as usize), placed.radius as usize);
                 }
