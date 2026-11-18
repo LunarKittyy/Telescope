@@ -228,39 +228,74 @@ fn glide_box(a: (f64, f64, f64, f64), b: (f64, f64, f64, f64), t: f64, ease: Eas
     (x0, y0, (x1 - x0).max(least), (y1 - y0).max(least))
 }
 
+/// How far into its own move the tile that sets off `order`th is, `t` (0 to 1) into a Glide or Shuffle that has `moving` tiles on the way.
+fn own(kind: Kind, t: f64, order: usize, moving: usize) -> f64 {
+    // Shuffle: each tile sets off a little after the one under it and the last has the rest of the time
+    let stagger = if kind == Kind::Shuffle && moving > 1 { 0.5 / moving as f64 } else { 0.0 };
+    ((t - stagger * order as f64) / (1.0 - stagger * (moving.max(1) - 1) as f64)).clamp(0.0, 1.0)
+}
+
+/// The box of a matched tile at `t`, with a Shuffle's flight in it.
+fn box_at(kind: Kind, a: &Tile, b: &Tile, t: f64, order: usize, moving: usize, ease: Ease, aspect: f64) -> (f64, f64, f64, f64) {
+    let own = own(kind, t, order, moving);
+    let (x, y, w, h) = glide_box((a.x, a.y, a.w, a.h), (b.x, b.y, b.w, b.h), own, ease, aspect);
+    // a flight: up and back down by a few percent of the picture's height
+    let arc = if kind == Kind::Shuffle { -0.05 * (std::f64::consts::PI * own).sin() } else { 0.0 };
+    (x, y + arc, w, h)
+}
+
+fn overlap(a: (f64, f64, f64, f64), b: (f64, f64, f64, f64)) -> f64 {
+    let (w, h) = ((a.0 + a.2).min(b.0 + b.2) - a.0.max(b.0), (a.1 + a.3).min(b.1 + b.3) - a.1.max(b.1));
+    if w > 0.0 && h > 0.0 { w * h } else { 0.0 }
+}
+
 /// The tiles to draw `t` (0 to 1 of the length) into a Glide or Shuffle, back to front: what is only in the old layout fading away under
 /// the rest, then the new layout's tiles, matched ones on their way and new ones growing in as they fade. Tiles are the same stream by
-/// source id. `aspect` is the picture's width over its height.
+/// source id. Two tiles that change places in the stack swap where their boxes overlap least on the way, so nothing pops. `aspect` is
+/// the picture's width over its height.
 pub fn poses(kind: Kind, from: &[Tile], to: &[Tile], t: f64, ease: Ease, aspect: f64) -> Vec<Posed> {
     let fade = effect(ease, t);
     let mut out: Vec<Posed> = from.iter().filter(|a| !to.iter().any(|b| b.source_id == a.source_id)).map(|a| {
         let s = mix(1.0, 0.9, fade);
         Posed { tile: shrunk(a, s), alpha: 1.0 - fade }
     }).collect();
-    let moving = to.iter().filter(|b| from.iter().any(|a| a.source_id == b.source_id)).count();
-    // Shuffle: each tile sets off a little after the one under it and the last has the rest of the time
-    let stagger = if kind == Kind::Shuffle && moving > 1 { 0.5 / moving as f64 } else { 0.0 };
-    let mut order = 0usize;
-    // (where it is in the stack, the tile): the old stack to begin with and the new one from halfway, so the first picture is the old one
-    let mut stack: Vec<(usize, Posed)> = Vec::new();
+    // (index in to, index in from, the order it sets off in) of the matched tiles
+    let mut matched: Vec<(usize, usize, usize)> = Vec::new();
     for (n, b) in to.iter().enumerate() {
-        let old_at = from.iter().position(|a| a.source_id == b.source_id);
-        let Some(a) = old_at.map(|i| &from[i]) else {
+        if let Some(i) = from.iter().position(|a| a.source_id == b.source_id) {
+            matched.push((n, i, matched.len()));
+        }
+    }
+    let moving = matched.len();
+    let at = |m: &(usize, usize, usize), t: f64| box_at(kind, &from[m.1], &to[m.0], t, m.2, moving, ease, aspect);
+    // when a pair that changes stacking order swaps: where its boxes overlap least
+    let swap_at = |x: &(usize, usize, usize), y: &(usize, usize, usize)| -> f64 {
+        // of the moments they overlap least (never the first or the last), the one nearest the middle
+        (1..20).map(|k| k as f64 / 20.0)
+            .min_by(|p, q| overlap(at(x, *p), at(y, *p)).total_cmp(&overlap(at(x, *q), at(y, *q))).then((*p - 0.5).abs().total_cmp(&(*q - 0.5).abs()))).unwrap_or(0.5)
+    };
+    // above[k]: how many matched tiles the k-th is stacked over right now
+    let above: Vec<usize> = matched.iter().map(|x| matched.iter().filter(|y| y.0 != x.0).filter(|y| {
+        let (was, will) = (x.1 > y.1, x.0 > y.0);
+        if was == will { will } else if t < swap_at(x, y) { was } else { will }
+    }).count()).collect();
+    let mut stack: Vec<(usize, usize, Posed)> = Vec::new();
+    for (n, b) in to.iter().enumerate() {
+        let Some(k) = matched.iter().position(|m| m.0 == n) else {
             let s = mix(0.9, 1.0, spatial(ease, t).min(1.0));
-            stack.push((from.len() + n, Posed { tile: shrunk(b, s), alpha: fade }));
+            // a new tile comes in on top
+            stack.push((usize::MAX, n, Posed { tile: shrunk(b, s), alpha: fade }));
             continue;
         };
-        let own = ((t - stagger * order as f64) / (1.0 - stagger * (moving.max(1) - 1) as f64)).clamp(0.0, 1.0);
-        order += 1;
-        let (x, y, w, h) = glide_box((a.x, a.y, a.w, a.h), (b.x, b.y, b.w, b.h), own, ease, aspect);
-        // a flight: up and back down by a few percent of the picture's height
-        let arc = if kind == Kind::Shuffle { -0.05 * (std::f64::consts::PI * own).sin() } else { 0.0 };
-        let mut tile = blended(a, b, effect(ease, own));
-        (tile.x, tile.y, tile.w, tile.h) = (x, y + arc, w, h);
-        stack.push((if t < 0.5 { old_at.unwrap_or(0) } else { n }, Posed { tile, alpha: 1.0 }));
+        let m = matched[k];
+        let a = &from[m.1];
+        let (x, y, w, h) = at(&m, t);
+        let mut tile = blended(a, b, effect(ease, own(kind, t, m.2, moving)));
+        (tile.x, tile.y, tile.w, tile.h) = (x, y, w, h);
+        stack.push((above[k], n, Posed { tile, alpha: 1.0 }));
     }
-    stack.sort_by_key(|(at, _)| *at);
-    out.extend(stack.into_iter().map(|(_, p)| p));
+    stack.sort_by_key(|(over, n, _)| (*over, *n));
+    out.extend(stack.into_iter().map(|(_, _, p)| p));
     out
 }
 

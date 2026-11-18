@@ -173,7 +173,7 @@ impl Shared {
         let key: BTreeSet<(String, Option<u64>)> = frames.iter().map(|(sid, (_, n))| (sid.clone(), *n)).collect();
         let others: Frames = frames.iter().filter(|(sid, _)| **sid != target).map(|(k, v)| (k.clone(), v.clone())).collect();
         // nothing else to keep moving, but a transition does
-        if !hub.compositor.transitioning(now) && (hub.fallback_key.as_ref() == Some(&key) || hub.compositor.live_tiles(&others) == 0) {
+        if !hub.compositor.has_transition() && (hub.fallback_key.as_ref() == Some(&key) || hub.compositor.live_tiles(&others) == 0) {
             return false;
         }
         let Some(out) = hub.compositor.render(&frames, main.format) else { return false };
@@ -581,16 +581,18 @@ impl CompositePlugin {
 
     /// The picture's look and whether it's on, from settings or a preset (the saved layouts aside).
     fn apply(&mut self, cfg: &Value) {
-        self.take(cfg);
+        self.take(cfg, false);
         self.prepare();
         self.wake_clock();
     }
 
-    /// The settings of cfg, without drawing anything yet.
-    fn take(&mut self, cfg: &Value) {
+    /// The settings of cfg, without drawing anything yet. A preset saved before transitions had none and leaves the card's alone.
+    fn take(&mut self, cfg: &Value, keep_transition: bool) {
         self.layout = cfg.get("layout").and_then(clean_layout).unwrap_or_default();
         self.on = cfg.get("on") == Some(&Value::Bool(true));
-        self.transition = Spec::clean(cfg.get("transition"));
+        if !(keep_transition && cfg.get("transition").is_none()) {
+            self.transition = Spec::clean(cfg.get("transition"));
+        }
     }
 }
 
@@ -796,7 +798,7 @@ impl Plugin for CompositePlugin {
     fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
         self.catch_up(host);
         self.canvas = host.canvas_size();
-        self.take(cfg);
+        self.take(cfg, true);
         // a preset that brings another layout goes there the way a switch does
         let (reduced, off) = host.reduced_motion();
         self.prepare_with(Some(self.transition.for_motion(reduced, off)));

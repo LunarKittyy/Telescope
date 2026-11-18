@@ -582,6 +582,8 @@ mod transitions {
         let mut comp = Compositor::default();
         comp.prepare(from, SIZE);
         comp.prepare_with(to, SIZE, spec(kind), 1_000);
+        // the clock starts with the first picture
+        comp.render_at(&two(), PixelFormat::Bgra, 1_000);
         comp
     }
 
@@ -636,6 +638,70 @@ mod transitions {
                 assert!((i32::from(px(&mid, y, x)[c]) - want).abs() <= 2, "({y}, {x}) channel {c}");
             }
         }
+    }
+
+    /// How many bytes of a and b differ.
+    fn differ(a: &Frame, b: &Frame) -> usize {
+        a.data.iter().zip(b.data.iter()).filter(|(x, y)| x != y).count()
+    }
+
+    #[test]
+    fn a_transition_interrupted_goes_on_from_where_it_is() {
+        let (from, to) = (old_layout(), new_layout());
+        for kind in [How::Glide, How::Shuffle, How::Crossfade, How::Push, How::Zoom] {
+            let mut comp = started(kind, &from, &to);
+            at(&mut comp, 0.0);
+            let mid = at(&mut comp, 0.3);
+            // back to where it came from, a moment later: the first picture is the one it was showing
+            comp.prepare_with(&from, SIZE, spec(kind), 1_000 + 300_000_000);
+            let again = comp.render_at(&two(), PixelFormat::Bgra, 1_000 + 300_000_000).unwrap();
+            assert!(differ(&mid, &again) < mid.data.len() / 40, "{kind:?} jumped: {} of {}", differ(&mid, &again), mid.data.len());
+            let end = comp.render_at(&two(), PixelFormat::Bgra, 1_000 + 300_000_000 + 2_000_000_000).unwrap();
+            assert_eq!(end.data, render(&from, &two(), SIZE).data, "{kind:?} ends where it was sent");
+        }
+    }
+
+    #[test]
+    fn preparing_again_in_the_middle_goes_on_to_the_new_target() {
+        let (from, to) = (old_layout(), new_layout());
+        let mut comp = started(How::Glide, &from, &to);
+        at(&mut comp, 0.0);
+        comp.prepare(&to, SIZE);
+        assert!(comp.has_transition() && comp.transitioning(1_000 + 100_000_000), "a stream joining doesn't end it");
+        let other = Layout { tiles: vec![t("a", 0.0, 0.0, 0.5, 1.0), t("b", 0.5, 0.0, 0.5, 1.0)], ..Layout::default() };
+        comp.prepare(&other, SIZE);
+        let end = comp.render_at(&two(), PixelFormat::Bgra, 1_000 + 2_000_000_000).unwrap();
+        assert_eq!(end.data, render(&other, &two(), SIZE).data, "an edit is what it ends on");
+        comp.prepare(&to, (320, 180));
+        assert!(!comp.has_transition(), "a new size ends it");
+    }
+
+    #[test]
+    fn the_clock_starts_with_the_first_picture_drawn() {
+        let (from, to) = (old_layout(), new_layout());
+        let mut comp = Compositor::default();
+        comp.prepare(&from, SIZE);
+        comp.prepare_with(&to, SIZE, spec(How::Crossfade), 1_000);
+        // asked for long after, as when the first picture was slow to come
+        comp.render_at(&two(), PixelFormat::Bgra, 5_000_000_000).unwrap();
+        assert!(comp.transitioning(5_000_000_000 + 500_000_000));
+        assert!(!comp.transitioning(5_000_000_000 + 1_500_000_000));
+    }
+
+    #[test]
+    fn tiles_that_change_places_in_the_stack_swap_where_they_overlap_least() {
+        // a and b cross over each other: a goes under b and b over a
+        let from = vec![t("a", 0.0, 0.2, 0.4, 0.4), t("b", 0.6, 0.2, 0.4, 0.4)];
+        let to = vec![t("b", 0.0, 0.2, 0.4, 0.4), t("a", 0.6, 0.2, 0.4, 0.4)];
+        let order = |p: f64| crate::transition::poses(How::Glide, &from, &to, p, Ease::Even, 16.0 / 9.0).iter().map(|x| x.tile.source_id.clone()).collect::<Vec<_>>();
+        assert_eq!(order(0.0), ["a", "b"], "the old stack at first");
+        assert_eq!(order(1.0), ["b", "a"], "the new one at the end");
+        // where the order changes the two are not on top of each other
+        let swap = (0..=100).map(|i| i as f64 / 100.0).find(|p| order(*p) != order(0.0)).unwrap();
+        let boxes: Vec<(f64, f64, f64, f64)> = crate::transition::poses(How::Glide, &from, &to, swap, Ease::Even, 16.0 / 9.0).iter().map(|x| (x.tile.x, x.tile.y, x.tile.w, x.tile.h)).collect();
+        let (a, b) = (boxes[0], boxes[1]);
+        let apart = a.0 + a.2 <= b.0 + 1e-9 || b.0 + b.2 <= a.0 + 1e-9;
+        assert!(apart, "swapped at {swap} while overlapping: {boxes:?}");
     }
 
     #[test]
@@ -707,6 +773,49 @@ mod transitions {
                 let size = tiny_skia::IntSize::from_wh(sw as u32, (rows * h + (rows + 1) * 6) as u32).unwrap();
                 tiny_skia::Pixmap::from_vec(sheet, size).unwrap().save_png(std::path::Path::new(&dir).join(format!("{}.png", kind.id()))).unwrap();
             }
+        }
+    }
+
+    /// With TRANSITION_COST set: what a frame costs at 4K, for each kind (run it with an optimised test profile).
+    #[test]
+    fn the_cost_of_a_4k_transition() {
+        if std::env::var("TRANSITION_COST").is_err() {
+            return;
+        }
+        let size = (3840u32, 2160u32);
+        let src = |c: u8| {
+            let mut data = Vec::with_capacity(1920 * 1080 * 4);
+            for y in 0..1080u32 {
+                for x in 0..1920u32 {
+                    data.extend_from_slice(&[(x / 8) as u8 ^ c, (y / 8) as u8, c.wrapping_add((x + y) as u8), 255]);
+                }
+            }
+            Frame::new(1920, 1080, PixelFormat::Bgra, data)
+        };
+        let (fa, fb, fc) = (src(10), src(90), src(170));
+        // numbered: the same frame again hits what was scaled, a new one asks for it to be scaled again
+        let live = |n: u64| frames(vec![("a", fa.clone(), Some(n)), ("b", fb.clone(), Some(n)), ("c", fc.clone(), Some(n))]);
+        let from = Layout { tiles: vec![t("a", 0.0, 0.0, 0.66, 0.66), t("b", 0.7, 0.0, 0.3, 0.3), t("c", 0.7, 0.35, 0.3, 0.3)], ..Layout::default() };
+        let to = Layout { tiles: vec![t("b", 0.0, 0.0, 0.66, 0.66), t("a", 0.7, 0.0, 0.3, 0.3), t("c", 0.35, 0.7, 0.3, 0.3)], ..Layout::default() };
+        for kind in [How::Cut, How::Glide, How::Shuffle, How::Crossfade, How::Push, How::Zoom] {
+            let mut comp = Compositor::default();
+            comp.prepare(&from, size);
+            let mut n = 0;
+            let mut ms = |comp: &mut Compositor, fresh: bool, at: &[f64]| {
+                let start = Instant::now();
+                for s in at {
+                    n += u64::from(fresh);
+                    comp.render_at(&live(n), PixelFormat::Bgra, (s * 1e9) as u64).unwrap();
+                }
+                start.elapsed().as_secs_f64() * 1000.0 / at.len() as f64
+            };
+            ms(&mut comp, true, &[0.0]);
+            let (plain_new, plain_same) = (ms(&mut comp, true, &[0.0; 5]), ms(&mut comp, false, &[0.0; 5]));
+            comp.prepare_with(&to, size, Spec { kind, ms: 1000, ease: Ease::Springy }, 0);
+            ms(&mut comp, true, &[0.0]);
+            let steps = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8];
+            let (new, same) = (ms(&mut comp, true, &steps), ms(&mut comp, false, &steps));
+            eprintln!("4K {:?}: {new:.1} ms a frame in the transition with a new stream frame each time, {same:.1} ms with the same one (plain picture: {plain_new:.1} and {plain_same:.1})", kind);
         }
     }
 }
