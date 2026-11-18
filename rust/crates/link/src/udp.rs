@@ -1,4 +1,4 @@
-//! Experimental H.264 over UDP for Wi-Fi (/v1/video.udp, docs/protocol.md), falling back to the TCP stream
+//! Experimental H.264 over UDP for Wi-Fi (/v1/video.udp, docs/development/protocol.md), falling back to the TCP stream
 //! (udp_reader.py). Each packet handed on is one whole frame, in order.
 
 use crate::feeds::{H264Feed, StopHandle, MAX_FRAME_BYTES};

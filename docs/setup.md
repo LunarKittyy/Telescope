@@ -83,4 +83,4 @@ The first-run checklist installs the virtual camera with one click (Windows asks
 
 Only an admin can change either folder. Upgraded to Windows 11 with the older driver installed, or installed it with an older Telescope? **Virtual camera & phone** in Settings shows **Update**, which puts the Windows 11 camera in and takes UnityCapture out so apps don't list Telescope twice.
 
-Building from source instead? [Building](building.md) explains it. The zip and the installer already include both drivers.
+Building from source instead? [Building](development/building.md) explains it. The zip and the installer already include both drivers.

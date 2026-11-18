@@ -14,7 +14,7 @@ import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
-// The experimental UDP video's datagrams, shared with the desktop's udp_reader.py (see docs/protocol.md)
+// The experimental UDP video's datagrams, shared with the desktop's udp_reader.py (see docs/development/protocol.md)
 object UdpWire {
     const val MAX_PAYLOAD = 1100  // a fragment's bytes: with the headers and the tag a datagram stays under 1200
     const val HEADER = 9          // frame (u32), index (u16), count (u16), flags (u8)

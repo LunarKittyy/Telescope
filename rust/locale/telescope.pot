@@ -1,5 +1,5 @@
 # Telescope desktop app texts. Made by tools/i18n.py extract: translate the msgstr lines, keep everything
-# else as it is. See docs/translating.md.
+# else as it is. See docs/development/translating.md.
 msgid ""
 msgstr ""
 "Project-Id-Version: Telescope\n"
