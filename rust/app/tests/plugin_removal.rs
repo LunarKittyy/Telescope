@@ -195,6 +195,7 @@ const NOT_IN_PRESETS: &[(&str, &str)] = &[
     ("wait_screen", "an image path and a size cache, both machine-bound"),
     ("notes", "the teleprompter's text and display are people's own content, kept out on purpose"),
     ("browser_camera", "its address and known browsers belong to one computer"),
+    ("spout_send", "where pictures are shared with other programs on this computer, not a look"),
 ];
 
 #[test]
