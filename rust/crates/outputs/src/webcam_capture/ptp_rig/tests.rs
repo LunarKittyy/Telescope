@@ -168,7 +168,7 @@ fn canon_menus_come_from_its_events_and_are_set_by_property_record() {
     assert_eq!(values(&mut rig, "whitebalance"), (strings(&["Auto", "Daylight", "Cloudy"]), "Auto".into(), false));
     rig.write("aperture", "8").unwrap();
     let set = mock.state().log.iter().rev().find(|(op, _, _)| *op == 0x9110).unwrap().2.clone();
-    assert_eq!(set, [12, 0, 0, 0, 0x01, 0xD1, 0, 0, 0x30, 0, 0, 0]);
+    assert_eq!(set, [12, 0, 0, 0, 0x01, 0xD1, 0, 0, 0x38, 0, 0, 0]);
     assert_eq!(values(&mut rig, "aperture").1, "8");
     rig.write("exposurecompensation", "-0.3").unwrap();
     assert_eq!(values(&mut rig, "exposurecompensation").1, "-0.3");
@@ -243,8 +243,49 @@ fn the_capture_thread_streams_a_pretend_camera_end_to_end() {
 
 #[test]
 fn labels_follow_how_cameras_write_their_numbers() {
-    assert_eq!([2f64.powf(32.0 / 16.0), 2f64.powf(40.0 / 16.0), 2f64.powf(48.0 / 16.0)].map(aperture_label), ["4", "5.6", "8"]);
+    assert_eq!([0x28i64, 0x30, 0x38, 0x10, 0x08, 0x18].map(|raw| Words::Aperture(Maker::Canon).label(raw)), ["4", "5.6", "8", "1.4", "1", "2"]);
     assert_eq!(aperture_label(2.0f64.powf(0.5)), "1.4");
     assert_eq!([-8, -3, 0, 3, 4, 5, 8, 11].map(|c| stops_label(canon_stops(c))), ["-1", "-0.3", "0", "0.3", "0.5", "0.7", "1", "1.3"]);
     assert_eq!(white_balance_label(Maker::Nikon, 99), "Setting 99");
+}
+
+#[test]
+fn canon_not_ready_waits_like_busy_and_a_list_with_missing_slots_is_ignored() {
+    let mock = Mock::canon();
+    mock.state().not_ready_frames = 2;
+    let mut rig = open(&mock);
+    assert_eq!(rig.preview().unwrap(), JPEG.to_vec());
+    assert_eq!(mock.ops().iter().filter(|o| **o == 0x9153).count(), 3);
+    // A list that counts more values than it holds is not applied
+    let mut cam = open(&Mock::canon());
+    let before = cam.canon[&0xD101].available.clone();
+    let mut record = 0xD101u32.to_le_bytes().to_vec();
+    record.extend_from_slice(&3u32.to_le_bytes());
+    record.extend_from_slice(&9u32.to_le_bytes());
+    record.extend_from_slice(&0x28u32.to_le_bytes());
+    let mut event = (8 + record.len() as u32).to_le_bytes().to_vec();
+    event.extend_from_slice(&0xC18Au32.to_le_bytes());
+    event.extend(record);
+    event.extend_from_slice(&8u32.to_le_bytes());
+    event.extend_from_slice(&0u32.to_le_bytes());
+    cam.t = Box::new(Fixed(event));
+    cam.read_canon_events();
+    assert_eq!(cam.canon[&0xD101].available, before);
+}
+
+/// A line that answers every operation with the same data.
+struct Fixed(Vec<u8>);
+
+impl Transport for Fixed {
+    fn transact(&mut self, _op: u16, _params: &[u32], _data_out: Option<&[u8]>) -> Result<ptp::Reply, String> {
+        Ok(ptp::Reply { code: ptp::RC_OK, params: Vec::new(), data: self.0.clone() })
+    }
+}
+
+#[test]
+fn a_property_range_that_would_overflow_ends_instead_of_panicking() {
+    let mock = Mock::nikon();
+    mock.state().props.insert(0x5010, PropDesc { code: 0x5010, kind: 8, writable: true, current: Value::Int(0), form: Form::Range { min: i64::MAX - 1, max: i64::MAX, step: 1 } });
+    let mut rig = open(&mock);
+    assert!(rig.read("exposurecompensation").is_some());
 }

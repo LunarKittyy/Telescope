@@ -30,6 +30,8 @@ const CANON_GET_EVENT: u16 = 0x9116;
 const CANON_GET_VIEW_FINDER_DATA: u16 = 0x9153;
 const CANON_DO_AF: u16 = 0x9154;
 const CANON_DRIVE_LENS: u16 = 0x9155;
+/// Canon's answer while live view isn't ready yet, which waits like a busy camera.
+const CANON_NOT_READY: u16 = 0xA102;
 const CANON_EVF_OUTPUT_DEVICE: u32 = 0xD1B0;
 const CANON_EVF_MODE: u32 = 0xD1B3;
 const CANON_APERTURE: u16 = 0xD101;
@@ -181,10 +183,15 @@ impl PtpCamera {
                     }
                 }
                 CANON_EVENT_AVAIL_LIST => {
-                    let mut c = ptp::Cursor::new(record);
-                    if let (Some(prop), Some(kind), Some(count)) = (c.u32(), c.u32(), c.u32()) {
-                        let values: Vec<i64> = (0..count.min(512)).map_while(|_| canon_read(&mut c, kind as u16)).map(|v| canon_int(prop as u16, v as u32)).collect();
-                        self.canon.entry(prop as u16).or_default().available = values;
+                    let prop = read_u32(record, 0).map(|p| p as u16);
+                    let (format, count) = (read_u32(record, 4), read_u32(record, 8));
+                    // Format 3 is a list with a four byte slot per value; a list that doesn't hold what it counts is left out whole
+                    if let (Some(prop), Some(3), Some(count)) = (prop, format, count) {
+                        let slots = record.get(12..).unwrap_or_default();
+                        if count as usize <= slots.len() / 4 {
+                            let values = (0..count as usize).filter_map(|i| read_u32(slots, i * 4)).map(|v| canon_int(prop, v)).collect();
+                            self.canon.entry(prop).or_default().available = values;
+                        }
                     }
                 }
                 _ => {}
@@ -240,7 +247,7 @@ impl PtpCamera {
         let desc = self.desc(code)?;
         let list = match &desc.form {
             Form::Enum(values) => values.iter().filter_map(Value::int).collect(),
-            Form::Range { min, max, step } if *step > 0 => (0..).map(|i| min + i * step).take_while(|v| v <= max).take(400).collect(),
+            Form::Range { min, max, step } if *step > 0 => std::iter::successors(Some(*min), |v| v.checked_add(*step)).take_while(|v| v <= max).take(400).collect(),
             _ => Vec::new(),
         };
         Some((desc.writable, list, desc.current.int()))
@@ -264,7 +271,7 @@ impl PtpCamera {
             match reply.code {
                 ptp::RC_OK => return find_jpeg(&reply.data).map(<[u8]>::to_vec).ok_or_else(|| "the camera sent a frame with no picture in it".to_string()),
                 // The first frame after starting isn't ready for a moment
-                ptp::RC_DEVICE_BUSY if waited < self.pacing.busy_tries => {
+                ptp::RC_DEVICE_BUSY | CANON_NOT_READY if waited < self.pacing.busy_tries => {
                     waited += 1;
                     std::thread::sleep(self.pacing.busy_wait);
                 }
@@ -280,15 +287,6 @@ impl PtpCamera {
 
 fn read_u32(data: &[u8], at: usize) -> Option<u32> {
     data.get(at..at + 4).map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]))
-}
-
-/// A value of a Canon list by its data type, as the number it holds.
-fn canon_read(c: &mut ptp::Cursor, kind: u16) -> Option<u64> {
-    match kind {
-        1 | 2 => c.u8().map(u64::from),
-        3 | 4 => c.u16().map(u64::from),
-        _ => c.u32().map(u64::from),
-    }
 }
 
 /// A Canon value as the number it stands for: exposure compensation is a signed byte, the rest are plain.
@@ -311,7 +309,8 @@ enum Words {
 impl Words {
     fn label(self, raw: i64) -> String {
         match self {
-            Words::Aperture(Maker::Canon) => aperture_label(2f64.powf(raw as f64 / 16.0)),
+            // Canon counts the aperture in sixteenths of a stop of f-number from f/1 at 8: 0x28 is f/4, 0x30 f/5.6
+            Words::Aperture(Maker::Canon) => aperture_label(2f64.powf((raw - 8) as f64 / 16.0)),
             Words::Aperture(_) => aperture_label(raw as f64 / 100.0),
             Words::Compensation(Maker::Canon) => stops_label(canon_stops(raw)),
             Words::Compensation(_) => stops_label(raw as f64 / 1000.0),

@@ -27,6 +27,8 @@ pub struct State {
     /// Answer every live view frame with this response instead (the camera ended live view).
     pub frame_code: Option<u16>,
     pub unreachable: bool,
+    /// How many viewfinder requests answer Canon's not-ready code before one works.
+    pub not_ready_frames: u32,
 }
 
 #[derive(Clone, Default)]
@@ -91,8 +93,8 @@ impl Mock {
             let mut s = mock.0.lock().unwrap();
             s.maker = Some(Maker::Canon);
             s.operations = vec![0x1001, 0x1002, 0x1003, 0x9110, 0x9114, 0x9115, 0x9116, 0x9153, 0x9154, 0x9155];
-            // f/4, f/5.6, f/8; exposure compensation 0, +1/3, +2/3 (as eighths); daylight and auto
-            s.canon_props.insert(0xD101, (0x28, vec![0x20, 0x28, 0x30]));
+            // f/4 (0x28), f/5.6 (0x30), f/8 (0x38); exposure compensation 0, +1/3, +2/3 (as eighths); daylight and auto
+            s.canon_props.insert(0xD101, (0x30, vec![0x28, 0x30, 0x38]));
             s.canon_props.insert(0xD104, (0, vec![0xFD, 0, 3, 5]));
             s.canon_props.insert(0xD10B, (0, vec![0, 1, 2]));
         }
@@ -189,6 +191,10 @@ impl Transport for Mock {
                 if !started {
                     return reply(0xA00B, Vec::new());
                 }
+                if s.not_ready_frames > 0 {
+                    s.not_ready_frames -= 1;
+                    return reply(0xA102, Vec::new());
+                }
                 if s.busy_frames > 0 {
                     s.busy_frames -= 1;
                     return reply(RC_DEVICE_BUSY, Vec::new());
@@ -227,9 +233,9 @@ impl Transport for Mock {
                     body.extend_from_slice(&value.to_le_bytes());
                     record(0xC189, body);
                     let mut body = (*code as u32).to_le_bytes().to_vec();
-                    body.extend_from_slice(&4u32.to_le_bytes());
+                    body.extend_from_slice(&3u32.to_le_bytes());
                     body.extend_from_slice(&(list.len() as u32).to_le_bytes());
-                    list.iter().for_each(|v| body.extend_from_slice(&(*v as u16).to_le_bytes()));
+                    list.iter().for_each(|v| body.extend_from_slice(&v.to_le_bytes()));
                     record(0xC18A, body);
                 }
                 record(0, Vec::new());
