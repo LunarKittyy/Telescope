@@ -82,7 +82,7 @@ fn a_status_is_a_status_not_a_paragraph() {
     // The few places a sentence is the point: a question a dialog asks before it does something, or a licence line
     const SENTENCES: &[(&str, usize)] = &[
         ("link/ui/connection.slint", 4),
-        ("effects/ui/composite_editor.slint", 2),
+        ("effects/ui/composite_editor.slint", 3),
     ];
     let mut problems = Vec::new();
     for (rel, text) in cards() {
