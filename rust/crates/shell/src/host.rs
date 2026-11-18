@@ -662,6 +662,19 @@ impl HostStills for Ctx<'_> {
         }
         self.stills().is_some_and(|s| s.busy(Some(&id)))
     }
+    fn picture_hidden(&self, source_id: Option<&str>) -> bool {
+        let id = match source_id {
+            Some(id) => id.to_string(),
+            None => self.focused_source_id().unwrap_or_default(),
+        };
+        self.state.picture_hidden_for(&id)
+    }
+    fn set_hiding(&mut self, owner: &str, source_id: Option<&str>, on: bool) {
+        self.state.set_hiding(owner, source_id, on);
+    }
+    fn hidden_flag(&mut self, source_id: &str) -> Option<Arc<std::sync::atomic::AtomicBool>> {
+        Some(self.state.hidden_flag(source_id))
+    }
 }
 
 impl HostColour for Ctx<'_> {

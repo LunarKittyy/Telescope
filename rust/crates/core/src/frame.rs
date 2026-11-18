@@ -271,6 +271,10 @@ pub trait FrameContext {
     fn entry_epoch(&self) -> Option<u64> {
         None
     }
+    /// Whether the stream is being stopped, so a step that would wait on something slow (the graphics card) gives up and the frame is dropped. False where the host doesn't say.
+    fn stopped(&self) -> bool {
+        false
+    }
     /// How sure the vision service is each pixel is a person (0..255, the frame's size), or None while it can't say. It hardly ever waits for
     /// the model, so this is the newest mask there is, about a frame behind the picture. None also means the last one got too old, and a step
     /// that hides things has to stay safe on it.
@@ -328,6 +332,14 @@ pub trait CpuStep: Send {
     /// For the CPU half of an Either: the shader's uniforms for a frame of this size, asked before each run on the card. A step whose
     /// uniforms depend on the picture's size (a warp worked out for it) answers here; the card only uploads an answer that changed.
     fn card_uniforms(&mut self, _width: u32, _height: u32) -> Option<Value> {
+        None
+    }
+    /// For the CPU half of an Either: Rgba frames (red is the value) the shader samples by name, asked with the frame on the CPU; the card re-uploads one only when its data Arc changed, None means never any.
+    fn card_textures(&mut self, _frame: &Frame, _ctx: &dyn FrameContext) -> Option<Vec<(String, Frame)>> {
+        None
+    }
+    /// For the CPU half of an Either: whether card_textures always has pictures to give (Some(true)), never does (Some(false)) or can't be told without asking (None). Some(true) is never asked on a frame the card is still ahead of, so a mask it works out is asked for once, on the picture the card really made.
+    fn card_textures_offered(&self) -> Option<bool> {
         None
     }
     /// For the CPU half of an Either: whether the card reads YUV chroma as the CPU does (a sample repeated over its 2 x 2 block, not blended).

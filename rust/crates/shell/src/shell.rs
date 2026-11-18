@@ -395,6 +395,19 @@ impl telescope_core::frame::CpuStep for DropsBeforeWhenHiding {
     }
 }
 
+/// Whether a frame step is there to hide the picture: one in the Privacy, Cover or Background stage, or a CPU one that says it hides. A step that
+/// panics when asked counts as hiding.
+fn step_hides(stage: telescope_core::frame::FrameStage, step: &telescope_core::frame::FrameStep) -> bool {
+    use telescope_core::frame::{FrameStage, FrameStep};
+    if matches!(stage, FrameStage::Privacy | FrameStage::Cover | FrameStage::Background) {
+        return true;
+    }
+    match step {
+        FrameStep::Cpu(inner) | FrameStep::Either(_, inner) => catch_unwind(AssertUnwindSafe(|| inner.hides())).unwrap_or(true),
+        FrameStep::Shader(_) => false,
+    }
+}
+
 /// Monotonic seconds, the view controller's clock.
 pub fn now_s() -> f64 {
     telescope_core::time::monotonic_ns() as f64 / 1e9
@@ -506,6 +519,12 @@ pub struct State {
     pub stills: Vec<(RequestId, String, String)>,
     /// Which plugin offered each stream source (HostSources), so a plugin that stops takes its sources with it: (source id, plugin).
     pub source_owners: Vec<(String, String)>,
+    /// The owners whose frame steps hide the picture, for each stream (its id, or "" for the main one), as of the last time they were built.
+    pub hiding_steps: BTreeMap<String, std::collections::BTreeSet<String>>,
+    /// Host::set_hiding: by owner, whether it hides now, for each stream (its id, or "" for all of them).
+    pub hiding: BTreeMap<String, BTreeMap<String, bool>>,
+    /// What a photo's thread reads right before its request leaves, by stream: whether the picture is hidden, kept up with every change.
+    pub hidden_flags: BTreeMap<String, Arc<std::sync::atomic::AtomicBool>>,
     /// The streams that take photos with a camera of their own (a DSLR), by their id: the photo service of each, as of the last snapshot.
     pub source_stills: Vec<(String, Arc<dyn telescope_core::source::SourceStills>)>,
     /// Photos' "still running" flags, by the stream they're taken on: cleared when that stream ends, which ends the photo.
@@ -593,7 +612,7 @@ impl State {
             preview_own_told: true,
             idle: Arc::default(),
             tray_close_notified: false,
-            shortcut_menu: None, stills: Vec::new(), source_owners: Vec::new(), source_stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false, setting_clock: 0, saved_in_call: Vec::new(),
+            shortcut_menu: None, stills: Vec::new(), hiding_steps: BTreeMap::new(), hiding: BTreeMap::new(), hidden_flags: BTreeMap::new(), source_owners: Vec::new(), source_stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false, setting_clock: 0, saved_in_call: Vec::new(),
         }
     }
 
@@ -1285,6 +1304,48 @@ impl State {
                 }
             }
         }
+        // The phone's share of the zoom moves without a ViewChanged (its capabilities arriving, a stream starting): the mapping follows it too
+        if self.upright.lock().unwrap().sent != telescope_core::view::phone_window(self.vc.sent().as_ref()) {
+            self.follow_view_for_vision();
+        }
+    }
+
+    /// Whether pixels of this stream are being hidden now: a plugin said so with set_hiding, or one has a step that hides in the steps last built
+    /// for it and has never said anything. The steps are the same for every stream, so ones built for another (or for the main one) answer when
+    /// this stream's haven't been built yet.
+    pub fn picture_hidden_for(&self, source_id: &str) -> bool {
+        let said = |per: &BTreeMap<String, bool>| per.get(source_id).or_else(|| per.get("")).copied();
+        if self.hiding.values().any(|per| said(per) == Some(true)) {
+            return true;
+        }
+        let steps = self.hiding_steps.get(source_id).or_else(|| self.hiding_steps.get(""));
+        steps.is_some_and(|owners| owners.iter().any(|o| !self.hiding.contains_key(o)))
+    }
+
+    /// Host::set_hiding: recorded at once, so a photo about to go sees a cover asked for in the same batch.
+    pub fn set_hiding(&mut self, owner: &str, source_id: Option<&str>, on: bool) {
+        self.hiding.entry(owner.to_string()).or_default().insert(source_id.unwrap_or("").to_string(), on);
+        self.sync_hidden_flags();
+    }
+
+    /// The flag a photo on this stream reads from its own thread.
+    pub fn hidden_flag(&mut self, source_id: &str) -> Arc<std::sync::atomic::AtomicBool> {
+        self.sync_hidden_flags();
+        let hidden = self.picture_hidden_for(source_id);
+        self.hidden_flags.entry(source_id.to_string()).or_insert_with(|| Arc::new(std::sync::atomic::AtomicBool::new(hidden))).clone()
+    }
+
+    /// Every flag handed out says what picture_hidden_for says now. A flag no photo holds any more goes.
+    fn sync_hidden_flags(&mut self) {
+        self.hidden_flags.retain(|_, flag| Arc::strong_count(flag) > 1);
+        for (id, flag) in &self.hidden_flags {
+            flag.store(self.picture_hidden_for(id), std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+
+    /// Whether a photo asked for with `"skip_if_hidden": true` has to be left untaken because the stream's picture is hidden now.
+    pub fn still_skipped(&self, options: &Value, source_id: &str) -> bool {
+        options.get("skip_if_hidden").and_then(Value::as_bool) == Some(true) && self.picture_hidden_for(source_id)
     }
 
     /// Every plugin's frame step as it is now, in registration order (the pipeline sorts them by stage), with the colour
@@ -1372,6 +1433,9 @@ impl State {
         if unwatched || background {
             self.colour_before.lock().unwrap().clear();
         }
+        let hiders = plugin_steps.iter().filter(|st| step_hides(st.stage, &st.step)).map(|st| st.owner.clone()).collect();
+        self.hiding_steps.insert(source_id.unwrap_or("").to_string(), hiders);
+        self.sync_hidden_flags();
         if let Some(step) = colour {
             if comparing && !unwatched {
                 let keep = KeepBefore(pending.clone());
@@ -3156,6 +3220,151 @@ mod tests {
         let mut frame = Frame::new(1, 1, PixelFormat::Rgba, vec![0; 4]);
         step.process(&mut frame, &NoCtx);
         assert_eq!(frame.data[0], 1);
+    }
+
+    #[test]
+    fn the_picture_is_hidden_while_a_step_that_hides_is_in_the_pipeline_and_a_photo_can_ask_to_be_skipped() {
+        use serde_json::json;
+        use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep};
+        use telescope_core::host::HostStills;
+        struct Step(bool);
+        impl CpuStep for Step {
+            fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+            fn hides(&self) -> bool {
+                self.0
+            }
+        }
+        struct Panics;
+        impl CpuStep for Panics {
+            fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+            fn hides(&self) -> bool {
+                panic!("no");
+            }
+        }
+        struct Gives(&'static str, FrameStage, Option<Box<dyn CpuStep>>);
+        impl Plugin for Gives {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: self.0.into(), frame_stage: self.1, ..Default::default() }
+            }
+            fn frame_step(&mut self) -> Option<FrameStep> {
+                self.2.take().map(FrameStep::Cpu)
+            }
+        }
+        let hidden_with = |stage: FrameStage, step: Box<dyn CpuStep>| {
+            let mut s = state();
+            s.register(Box::new(Gives("gives", stage, Some(step)))).unwrap();
+            s.pipeline_steps(Some("phone"));
+            s
+        };
+        let plain = hidden_with(FrameStage::Effects, Box::new(Step(false)));
+        assert!(!plain.picture_hidden_for("phone"), "a step that hides nothing");
+        for stage in [FrameStage::Privacy, FrameStage::Cover, FrameStage::Background] {
+            assert!(hidden_with(stage, Box::new(Step(false))).picture_hidden_for("phone"), "{stage:?}");
+        }
+        assert!(hidden_with(FrameStage::Effects, Box::new(Step(true))).picture_hidden_for("phone"), "a step that says it hides");
+        assert!(hidden_with(FrameStage::Effects, Box::new(Panics)).picture_hidden_for("phone"), "one that can't say counts as hiding");
+        // Steps built for no stream in particular answer for one whose own aren't built yet
+        let mut s = state();
+        s.register(Box::new(Gives("gives", FrameStage::Privacy, Some(Box::new(Step(false)))))).unwrap();
+        s.pipeline_steps(None);
+        assert!(s.picture_hidden_for("other"));
+        // The steps going away lets the picture out again
+        s.pipeline_steps(None);
+        assert!(!s.picture_hidden_for("other"), "the plugin has no step any more");
+
+        // A photo that said to check is skipped while hidden, any other is taken
+        let hidden = hidden_with(FrameStage::Privacy, Box::new(Step(false)));
+        assert!(hidden.still_skipped(&json!({"skip_if_hidden": true}), "phone"));
+        assert!(!hidden.still_skipped(&json!({}), "phone"), "Photos doesn't ask");
+        assert!(!hidden.still_skipped(&json!({"skip_if_hidden": false}), "phone"));
+        assert!(!plain.still_skipped(&json!({"skip_if_hidden": true}), "phone"));
+        // And the host's own answer for a stream, asked about it by id or as the panels' one
+        let mut hidden = hidden;
+        hidden.streams.source_id = Some("phone".into());
+        let ctx = crate::host::Ctx { state: &mut hidden, me: "phototrap".into() };
+        assert!(ctx.picture_hidden(Some("phone")) && ctx.picture_hidden(None));
+    }
+
+    #[test]
+    fn hiding_is_what_plugins_say_and_a_hiding_step_that_never_says_counts_as_hiding() {
+        use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep};
+        struct Step;
+        impl CpuStep for Step {
+            fn process(&mut self, _frame: &mut Frame, _ctx: &dyn FrameContext) {}
+        }
+        struct Gives(&'static str, FrameStage);
+        impl Plugin for Gives {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: self.0.into(), frame_stage: self.1, ..Default::default() }
+            }
+            fn frame_step(&mut self) -> Option<FrameStep> {
+                Some(FrameStep::Cpu(Box::new(Step)))
+            }
+        }
+        let mut s = state();
+        s.register(Box::new(Gives("blur", FrameStage::Privacy))).unwrap();
+        s.register(Box::new(Gives("cover", FrameStage::Cover))).unwrap();
+        s.pipeline_steps(Some("phone"));
+        assert!(s.picture_hidden_for("phone"), "steps that have never said");
+        s.set_hiding("blur", None, false);
+        assert!(s.picture_hidden_for("phone"), "the other has not said yet");
+        s.set_hiding("cover", None, false);
+        assert!(!s.picture_hidden_for("phone") && !s.picture_hidden_for("other"), "both said they're idle, whatever steps they hand out");
+        // A flag handed to a photo's thread follows every change at once, with no step made again in between
+        let flag = s.hidden_flag("phone");
+        assert!(!flag.load(std::sync::atomic::Ordering::SeqCst));
+        s.set_hiding("cover", None, true);
+        assert!(flag.load(std::sync::atomic::Ordering::SeqCst) && s.picture_hidden_for("other"), "every stream");
+        s.set_hiding("cover", Some("phone"), false);
+        assert!(!flag.load(std::sync::atomic::Ordering::SeqCst) && s.picture_hidden_for("other"), "just not this one");
+        s.set_hiding("blur", Some("phone"), true);
+        assert!(flag.load(std::sync::atomic::Ordering::SeqCst), "another owner hides this one");
+        s.set_hiding("blur", Some("phone"), false);
+        s.set_hiding("cover", None, false);
+        assert!(!flag.load(std::sync::atomic::Ordering::SeqCst) && !s.picture_hidden_for("other"));
+        // A flag no photo holds any more is dropped
+        drop(flag);
+        s.set_hiding("cover", None, true);
+        assert!(s.hidden_flags.is_empty());
+    }
+
+    #[test]
+    fn a_cover_that_lands_after_the_photo_was_asked_for_is_seen_when_the_window_dispatches_it() {
+        use serde_json::json;
+        let mut s = state();
+        let options = json!({"skip_if_hidden": true});
+        assert!(!s.still_skipped(&options, "phone"));
+        // Nothing has rebuilt the steps since: what the plugin said is what counts
+        s.set_hiding("wait_screen", None, true);
+        assert!(s.still_skipped(&options, "phone"));
+        s.set_hiding("wait_screen", None, false);
+        assert!(!s.still_skipped(&options, "phone"));
+    }
+
+    #[test]
+    fn the_motion_detectors_mapping_follows_the_phones_share_of_the_zoom_with_no_view_change() {
+        use crate::view_control::Said;
+        let mut s = state();
+        let said = s.vc.stream_start(&s.view, "phone", 1, 0.0);
+        s.apply_said(said);
+        // 2x zoom asked for before the phone has told what it can do: this computer crops all of it
+        let said = s.vc.set_view(&mut s.view, &telescope_core::host::ViewChange { zoom: Some(2.0), ..Default::default() }, 0.0);
+        s.apply_said(said);
+        assert_eq!(s.upright.lock().unwrap().sent, (1.0, 0.0, 0.0));
+        let caps = json!({"cameras": [{"id": "0", "current": true, "zoomRatioMax": 10.0, "cropZoomMax": 4.0, "freeformCrop": true}]});
+        let said = s.vc.phone_state(&s.view, &caps, 0.0);
+        assert!(said.iter().any(|x| matches!(x, Said::Zoom(_))), "the phone takes the crop over");
+        assert!(!said.iter().any(|x| matches!(x, Said::Emit(Event::ViewChanged { .. }))), "and the view itself didn't change");
+        s.apply_said(said);
+        let sent = telescope_core::view::phone_window(s.vc.sent().as_ref());
+        assert!(sent.0 > 1.0, "{sent:?}");
+        assert_eq!(s.upright.lock().unwrap().sent, sent);
+        let (x, y) = s.upright.lock().unwrap().for_frame(1920, 1080).to_shown(0.0, 0.0);
+        assert!(x > 0.1 && y > 0.1, "the corner of what the phone sends is well inside the picture: ({x}, {y})");
+        // A stream that starts again is sent nothing yet, which is no crop either
+        let said = s.vc.stream_start(&s.view, "phone", 2, 1.0);
+        s.apply_said(said);
+        assert_eq!(s.upright.lock().unwrap().sent, telescope_core::view::phone_window(s.vc.sent().as_ref()));
     }
 
     #[test]

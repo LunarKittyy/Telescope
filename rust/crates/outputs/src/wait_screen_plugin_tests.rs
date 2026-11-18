@@ -847,3 +847,16 @@ fn an_nv12_stream_is_covered_like_any_other() {
     assert_eq!(out.format, PixelFormat::Nv12);
     assert_ne!(out.data, frame.data);
 }
+
+#[test]
+fn the_host_is_told_the_moment_the_picture_is_covered_or_let_go() {
+    let mut r = Rig::new();
+    assert!(r.host.hiding.is_empty(), "no step and nothing to say while it isn't covering");
+    r.event(Event::CoverRequested { owner: "Blur".into(), on: true, note: None });
+    assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    r.event(Event::CoverRequested { owner: "Other".into(), on: true, note: None });
+    r.event(Event::CoverRequested { owner: "Blur".into(), on: false, note: None });
+    assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, true)), "someone still wants it");
+    r.event(Event::CoverRequested { owner: "Other".into(), on: false, note: None });
+    assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
+}

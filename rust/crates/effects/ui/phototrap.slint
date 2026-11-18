@@ -1,0 +1,147 @@
+// The Phototrap card. Joined after parts.slint, which has the imports.
+// The status rows keep their place with nothing in them, so arming it or a trigger moves nothing.
+
+export component PhototrapCard inherits Card {
+    in property <bool> active: true;
+    idle: !active;
+    in property <bool> armed;
+    in property <string> switch-name;
+    in property <string> switch-help;
+    in property <string> status;
+    in property <string> status-kind: "status_dim";
+    in property <string> tally;
+    in property <string> draw-text;
+    in property <string> draw-tip;
+    in property <bool> draw-enabled: true;
+    in property <string> clear-text;
+    in property <string> clear-tip;
+    in property <bool> clear-enabled;
+    in property <int> zone-count;
+    in property <int> sensitivity: 5;
+    in property <string> sensitivity-text;
+    in property <int> count: 3;
+    in property <int> count-max: 8;
+    in property <string> count-text;
+    in property <string> count-tip;
+    in property <bool> count-enabled: true;
+    in property <int> pause: 10;
+    in property <string> pause-text;
+    in property <string> folder-text;
+    in property <string> folder-tip;
+    in property <bool> night;
+    in property <bool> night-enabled: true;
+    in property <string> night-tip;
+    callback switch-toggled-by-hand(bool);
+    callback draw-clicked;
+    callback clear-clicked;
+    callback sensitivity-moved(float);
+    callback count-moved(float);
+    callback pause-moved(float);
+    callback night-toggled(bool);
+    callback folder-clicked;
+
+    title: @tr("Phototrap");
+    tip: @tr("Take photos when something moves in the zones you draw on the preview.");
+    icon: Icons.eye;
+    enabled: active;
+    has-switch: true;
+    switch-enabled: active;
+    switch-checked: armed;
+    switch-label: switch-name;
+    switch-tip: switch-name;
+    switch-tip-detail: switch-help;
+    switch-toggled(v) => { root.switch-toggled-by-hand(v); }
+
+    RailRow {
+        has-icon: false;
+        StatusLine { text: status; kind: status-kind; detail: status; }
+    }
+    UnfoldGroup {
+        StatusUnfold { text: tally; detail: tally; }
+    }
+    RailRow {
+        icon: Icons.corners;
+        label: @tr("Zones");
+        hue: root.hue;
+        enabled: active;
+        changed: zone-count > 0;
+        HorizontalLayout {
+            spacing: Theme.gap;
+            Button { horizontal-stretch: 1; preferred-width: 1000px; text: draw-text; tip: draw-text; tip-detail: draw-tip; hue: root.hue; enabled: active && draw-enabled; clicked => { root.draw-clicked(); } }
+            Button { horizontal-stretch: 1; preferred-width: 1000px; text: clear-text; tip: clear-text; tip-detail: clear-tip; hue: root.hue; enabled: active && clear-enabled; clicked => { root.clear-clicked(); } }
+        }
+    }
+    RailSlider {
+        icon: Icons.gauge;
+        enabled: active;
+        label: @tr("Sensitivity");
+        tip: @tr("Sensitivity");
+        tip-detail: @tr("Higher catches smaller movements and more false alarms.");
+        minimum: 1;
+        maximum: 10;
+        value: sensitivity;
+        readout: sensitivity-text;
+        hue: root.hue;
+        has-default: true;
+        default-value: 5;
+        moved(v) => { root.sensitivity-moved(v); }
+    }
+    RailSlider {
+        icon: Icons.copy;
+        enabled: active && count-enabled;
+        label: @tr("Photos");
+        tip: @tr("Photos per trigger");
+        tip-detail: count-tip;
+        minimum: 2;
+        maximum: count-max;
+        value: count;
+        readout: count-text;
+        hue: root.hue;
+        moved(v) => { root.count-moved(v); }
+    }
+    RailSlider {
+        icon: Icons.timer;
+        enabled: active;
+        label: @tr("Pause");
+        tip: @tr("Pause between triggers");
+        tip-detail: @tr("How long to wait after a burst before it can go off again.");
+        minimum: 1;
+        maximum: 120;
+        value: pause;
+        readout: pause-text;
+        hue: root.hue;
+        has-default: true;
+        default-value: 10;
+        moved(v) => { root.pause-moved(v); }
+    }
+    SwitchRow {
+        icon: Icons.moon;
+        label: @tr("Night");
+        tip: @tr("Night");
+        tip-detail: night-tip;
+        hue: root.hue;
+        enabled: active && night-enabled;
+        changed: night;
+        checked: night;
+        toggled(v) => { root.night-toggled(v); }
+    }
+    RailRow {
+        icon: Icons.folder;
+        label: @tr("Save in");
+        hue: root.hue;
+        enabled: active;
+        Button {
+            horizontal-stretch: 1;
+            preferred-width: Theme.u(500);
+            shrinks: true;
+            text: folder-text;
+            tip: @tr("Save in");
+            tip-detail: @tr("Where the photos go. Click to open the folder.");
+            tip-hint: folder-tip;
+            enabled: active;
+            clicked => { root.folder-clicked(); }
+        }
+    }
+    // Nothing to touch until a phone is paired
+    blocked: !active;
+}
