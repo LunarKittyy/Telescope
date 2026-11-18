@@ -77,7 +77,7 @@ The phone and computer aren't on the same network, or the computer's firewall bl
 Those networks usually block devices from talking to each other. Nothing can work around that. Use USB pairing or a network you control.
 
 **QR pairing fails with a VPN on**
-The VPN is blocking local network traffic. Turn on its "allow local network access" option, pause it while pairing or use USB. Streaming over Wi-Fi needs the same. With Tailscale you don't need to pause anything, see [Unusual setups](unusual-setups.md#tailscale).
+The VPN is blocking local network traffic. Turn on its "allow local network access" option, pause it while pairing or use USB. Streaming over Wi-Fi needs the same. With Tailscale you don't need to pause anything, see [Things to try](unusual-setups.md#use-a-phone-from-far-away).
 
 **Plugged in but USB pairing doesn't happen**
 Click the phone's **Pair** button under USB in the Add phone dialog first. A plugged-in phone isn't paired until you do. The USB line names which of these is in the way if it still doesn't (adb isn't installed, USB debugging isn't allowed on the phone or the app isn't on screen). Install `adb` (Linux) or click **get from Google** in that line (Windows), [enable Developer options](https://developer.android.com/studio/debug/dev-options#enable) on the phone and turn on [USB debugging](https://developer.android.com/studio/debug/dev-options#Enable-debugging) in them, accept the prompt it shows and leave Telescope open there.
