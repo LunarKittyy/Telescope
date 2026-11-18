@@ -1467,3 +1467,11 @@ fn a_preset_that_changes_the_size_of_a_streaming_webcam_reopens_it() {
     env.plugin.apply_preset(&mut env.host, &json!({"cameras": {"cam": {"size": [1280, 720], "fps": 60}}})).unwrap();
     assert!(env.host.calls.contains(&"reconnect_stream".to_string()));
 }
+
+#[test]
+fn a_dslr_offers_photos_on_every_system_and_a_webcam_does_not() {
+    let device = Device { key: "gphoto2-d5100".into(), name: "Nikon DSC D5100".into(), location: "gphoto2:usb:001,004".into(), modes: modes() };
+    let env = cams_with(vec![device, c920()], Box::new(|_| None));
+    assert!(env.plugin.sources["gphoto2-d5100"].stills().is_some());
+    assert!(env.plugin.sources["usb-c920"].stills().is_none());
+}
