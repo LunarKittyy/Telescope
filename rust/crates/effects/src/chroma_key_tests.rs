@@ -752,6 +752,7 @@ fn the_host_is_told_when_the_key_starts_and_stops_hiding_the_screen() {
     assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, false)), "off hides nothing");
     r.ui("switch-toggled-by-hand", vec![json!(true)]);
     assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    assert_eq!(r.host.shared("chroma_key.keying"), Some(json!(true)), "Background reads it to leave the cut-out to the key");
     // Its own pick only looks at the picture
     r.event(Event::PreviewPickChanged { owner: NAME.into() });
     assert_eq!(r.host.hiding.last(), Some(&(NAME.to_string(), None, false)));

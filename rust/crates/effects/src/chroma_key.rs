@@ -368,6 +368,8 @@ impl ChromaKeyPlugin {
             self.retell_hiding = false;
             self.told_hiding = Some(hiding);
             host.set_hiding(NAME, None, hiding);
+            // Background reads it to leave a wanted cut-out to the key instead of switching its blur on
+            let _ = host.share(NAME, "keying", Some(json!(hiding)));
         }
     }
 

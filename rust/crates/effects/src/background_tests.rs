@@ -1480,3 +1480,27 @@ fn only_the_camera_shown_has_its_background_switched_on() {
     rig.event(Event::CutOutWanted { source_id: "shown".into(), on: true });
     assert_eq!(rig.plugin.mode_name(), "blur");
 }
+
+#[test]
+fn settings_arriving_with_off_still_leave_a_wanted_cut_out_its_blur() {
+    let mut rig = Rig::new(None, "ready");
+    rig.event(Event::CutOutWanted { source_id: "a".into(), on: true });
+    rig.plugin.set_config(&json!({"mode": "off"})).unwrap();
+    rig.event(Event::SourceShown { source_id: "a".into() });
+    assert_eq!(rig.plugin.mode_name(), "blur");
+    assert_eq!(rig.plugin.get_config()["mode"], json!("off"), "still not saved as chosen");
+}
+
+#[test]
+fn chroma_key_making_the_cut_out_leaves_the_background_off() {
+    let mut rig = Rig::new(None, "ready");
+    rig.host.share("chroma_key", "keying", Some(json!(true))).unwrap();
+    rig.event(Event::CutOutWanted { source_id: "a".into(), on: true });
+    assert_eq!(rig.plugin.mode_name(), "off");
+    rig.host.share("chroma_key", "keying", Some(json!(false))).unwrap();
+    rig.event(Event::SharedChanged { key: "chroma_key.keying".into() });
+    assert_eq!(rig.plugin.mode_name(), "blur", "the key went off, so Background makes it");
+    rig.host.share("chroma_key", "keying", Some(json!(true))).unwrap();
+    rig.event(Event::SharedChanged { key: "chroma_key.keying".into() });
+    assert_eq!(rig.plugin.mode_name(), "off");
+}

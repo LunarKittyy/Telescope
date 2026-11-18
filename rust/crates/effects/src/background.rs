@@ -344,7 +344,14 @@ impl Step {
         let Some(rgb) = Rgb::from_frame(frame) else { return };
         let want = self.wants_cut_out(frame, ctx);
         // No mask yet (vision still loading, or it can't segment) is the same as having lost track: the room stays hidden
-        let Some(mask) = mask else { return self.hide_all(frame, &rgb) };
+        let Some(mask) = mask else {
+            self.hide_all(frame, &rgb);
+            // Nobody to cut out: an all-clear plane, the same as the planes path gives
+            if want {
+                frame.set_alpha(Arc::new(Alpha::new(rgb.w as u32, rgb.h as u32, vec![0; rgb.w * rgb.h], false)));
+            }
+            return;
+        };
         let size = (rgb.w, rgb.h);
         let mut derived = match self.derived.take() {
             Some(d) if Arc::ptr_eq(&d.src, &mask) && d.size == size => d,
@@ -476,9 +483,12 @@ impl Step {
             }
         }
         frame.replace_data(out);
-        // The alpha is the mask the frame was laid over the background with: nobody in it is all zero. With no mask yet the frame is all background and has no cut-out to give.
-        if let (true, Some(q)) = (want, quarter.as_mut()) {
-            let alpha = q.alpha.get_or_insert_with(|| Arc::new(Alpha::new(w as u32, h as u32, q.wide.as_ref().map_or_else(|| vec![0; w * h], |wide| wide.luma.clone()), false))).clone();
+        // The alpha is the mask the frame was laid over the background with: nobody in it, or no mask yet, is all zero
+        if want {
+            let alpha = match quarter.as_mut() {
+                Some(q) => q.alpha.get_or_insert_with(|| Arc::new(Alpha::new(w as u32, h as u32, q.wide.as_ref().map_or_else(|| vec![0; w * h], |wide| wide.luma.clone()), false))).clone(),
+                None => Arc::new(Alpha::new(w as u32, h as u32, vec![0; w * h], false)),
+            };
             frame.set_alpha(alpha);
         }
         self.quarter = quarter;
@@ -640,6 +650,8 @@ impl BackgroundPlugin {
         if self.pending {
             self.pending = false;
             self.show(host);
+            // New settings (a preset, another camera's) may say Off while the stream still wants its cut-out
+            self.settle_auto(host);
         }
     }
 
@@ -650,23 +662,30 @@ impl BackgroundPlugin {
         host.refresh_frame_step();
     }
 
-    /// A stream's picture is asked to carry its cut-out, or no longer. A camera with Background off gets Blur for as long as any stream wants it, so there is something to cut out.
+    /// A stream's picture is asked to carry its cut-out, or no longer.
     fn cut_out_wanted(&mut self, host: &mut dyn Host, source_id: &str, on: bool) {
-        let (moved, empty) = self.wanted.set(source_id, on);
-        // The mode here is the shown camera's, so only a stream shown now has it switched
-        let mine = host.focused_source_id().is_none_or(|shown| shown == source_id);
+        if self.wanted.set(source_id, on).0 {
+            host.refresh_frame_step();
+        }
+        self.settle_auto(host);
+    }
+
+    /// The shown camera with Background off gets Blur while its stream wants a cut-out and Chroma key isn't the one making it, and goes back to Off after.
+    fn settle_auto(&mut self, host: &mut dyn Host) {
+        // The mode here is the shown camera's, so only the shown stream counts
+        let wanted = host.focused_source_id().map_or_else(|| self.wanted.any(), |shown| self.wanted.has(&shown));
+        let keyed = host.shared("chroma_key.keying").and_then(|v| v.as_bool()).unwrap_or(false);
+        let need = wanted && !keyed;
         let before = self.mode;
-        if on && self.mode == 0 && mine {
+        if need && self.mode == 0 {
             self.mode = 1;
             self.auto_on = true;
-        } else if !on && empty && self.auto_on {
+        } else if !need && self.auto_on {
             self.mode = 0;
             self.auto_on = false;
         }
         if self.mode != before {
             self.show(host);
-        }
-        if moved || self.mode != before {
             host.refresh_frame_step();
         }
     }
@@ -731,8 +750,11 @@ impl Plugin for BackgroundPlugin {
         if self.retell_hiding {
             self.report_hiding(host);
         }
-        if let Event::CutOutWanted { source_id, on } = event {
-            self.cut_out_wanted(host, source_id, *on);
+        match event {
+            Event::CutOutWanted { source_id, on } => self.cut_out_wanted(host, source_id, *on),
+            Event::SharedChanged { key } if key == "chroma_key.keying" => self.settle_auto(host),
+            Event::SourceShown { .. } => self.settle_auto(host),
+            _ => {}
         }
         if let Some(on) = self.paired.hear(event) {
             host.set_ui_props("card", &json!({"active": on}));
