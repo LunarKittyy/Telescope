@@ -331,7 +331,7 @@ pub fn setup_asset(manifest: &Manifest) -> Option<&Asset> {
 }
 
 /// Can this folder take a new file (os.access(W_OK) in Python)?
-pub(crate) fn writable(directory: &Path) -> bool {
+fn writable(directory: &Path) -> bool {
     let probe = directory.join(format!(".write-check-{}", std::process::id()));
     let ok = std::fs::File::create(&probe).is_ok();
     let _ = std::fs::remove_file(&probe);
@@ -576,11 +576,6 @@ fn foreign_entry(directory: &Path, staging: &Path, entries: &[String]) -> Option
 }
 
 pub fn install_linux(archive: &Path, directory: &Path, build: i64, mv: Mover) -> Result<InstallResult> {
-    install_linux_after(archive, directory, build, mv, &|_| Ok(()))
-}
-
-/// install_linux, with prepare run on the unpacked package before anything of this copy is touched: an error from it stops the install with nothing changed.
-pub(crate) fn install_linux_after(archive: &Path, directory: &Path, build: i64, mv: Mover, prepare: &dyn Fn(&Path) -> Result<()>) -> Result<InstallResult> {
     let staging = directory.join(STAGING_DIR);
     extract(archive, &staging)?;
     let mut entries: Vec<String> = std::fs::read_dir(&staging)
@@ -594,10 +589,6 @@ pub(crate) fn install_linux_after(archive: &Path, directory: &Path, build: i64, 
     if let Some(name) = foreign_entry(directory, &staging, &entries) {
         let _ = std::fs::remove_dir_all(&staging);
         return Err(UpdateError(tr("Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a separate folder.").field("name", name)));
-    }
-    if let Err(e) = prepare(&staging) {
-        let _ = std::fs::remove_dir_all(&staging);
-        return Err(e);
     }
     let previous = directory.join(PREVIOUS_DIR);
     // A stale copy left in place would be what a roll-back restores, so the update stops here (shutil.rmtree raising)
