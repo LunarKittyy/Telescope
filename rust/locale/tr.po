@@ -180,7 +180,7 @@ msgstr "VB-Cable'ı edin"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "Klavye sesini, fan gürültüsünü ve oda tıslamasını gider."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:900 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:906 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -1286,90 +1286,114 @@ msgstr ""
 msgid "Shuffle"
 msgstr ""
 
+#: rust/crates/effects/src/composite_plugin.rs:54
+msgid "Bounce"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:55
+msgid "Iris"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:56
+msgid "Blinds"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:57
+msgid "Curtain"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:58
+msgid "Pixelate"
+msgstr ""
+
 #: rust/crates/effects/src/composite_plugin.rs:59
+msgid "Dissolve"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:65
 msgid "Springy"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:60 rust/crates/shell/ui/cards/preview.slint:290 rust/crates/shell/ui/cards/preview.slint:294
+#: rust/crates/effects/src/composite_plugin.rs:66 rust/crates/shell/ui/cards/preview.slint:290 rust/crates/shell/ui/cards/preview.slint:294
 msgid "Smooth"
 msgstr "Akıcı"
 
-#: rust/crates/effects/src/composite_plugin.rs:61
+#: rust/crates/effects/src/composite_plugin.rs:67
 msgid "Bouncy"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:62
+#: rust/crates/effects/src/composite_plugin.rs:68
 msgid "Even"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:585 rust/crates/effects/src/composite_plugin.rs:870 rust/crates/effects/src/composite_plugin.rs:874 rust/crates/effects/src/composite_plugin.rs:887 rust/crates/effects/ui/composite.slint:36
+#: rust/crates/effects/src/composite_plugin.rs:591 rust/crates/effects/src/composite_plugin.rs:876 rust/crates/effects/src/composite_plugin.rs:880 rust/crates/effects/src/composite_plugin.rs:893 rust/crates/effects/ui/composite.slint:36
 msgid "One picture"
 msgstr "Tek görüntü"
 
-#: rust/crates/effects/src/composite_plugin.rs:663
+#: rust/crates/effects/src/composite_plugin.rs:669
 msgid "Nothing's in the picture yet."
 msgstr "Henüz görüntüde hiçbir şey yok."
 
-#: rust/crates/effects/src/composite_plugin.rs:665
+#: rust/crates/effects/src/composite_plugin.rs:671
 msgid "Active once two streams are running."
 msgstr "İki yayın çalıştığında etkinleşir."
 
-#: rust/crates/effects/src/composite_plugin.rs:667
+#: rust/crates/effects/src/composite_plugin.rs:673
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "{camera} üzerinde çıkış verecek şekilde ayarlandı ancak orada çalışan bir yayın yok."
 
-#: rust/crates/effects/src/composite_plugin.rs:669
+#: rust/crates/effects/src/composite_plugin.rs:675
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "Oradaki yayın bir görüntü gönderdiğinde {camera} üzerinde çıkış verecektir."
 
-#: rust/crates/effects/src/composite_plugin.rs:671
+#: rust/crates/effects/src/composite_plugin.rs:677
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "{camera} üzerinde çıkış veriliyor."
 
-#: rust/crates/effects/src/composite_plugin.rs:676
+#: rust/crates/effects/src/composite_plugin.rs:682
 msgid "Nothing in it"
 msgstr "İçi boş"
 
-#: rust/crates/effects/src/composite_plugin.rs:678 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:705
+#: rust/crates/effects/src/composite_plugin.rs:684 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:705
 msgid "Two streams required"
 msgstr "İki yayın gerekli"
 
-#: rust/crates/effects/src/composite_plugin.rs:680
+#: rust/crates/effects/src/composite_plugin.rs:686
 msgid "Not going out"
 msgstr "Yayında değil"
 
-#: rust/crates/effects/src/composite_plugin.rs:682
+#: rust/crates/effects/src/composite_plugin.rs:688
 msgid "Going out"
 msgstr "Yayında"
 
-#: rust/crates/effects/src/composite_plugin.rs:739
+#: rust/crates/effects/src/composite_plugin.rs:745
 msgid "Several cameras in one picture"
 msgstr "Bir görüntüde birkaç kamera"
 
-#: rust/crates/effects/src/composite_plugin.rs:740
+#: rust/crates/effects/src/composite_plugin.rs:746
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "Yayınları tek bir sanal kamerada yan yana veya iç içe yerleştir."
 
-#: rust/crates/effects/src/composite_plugin.rs:741
+#: rust/crates/effects/src/composite_plugin.rs:747
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "Tek görüntüde birden fazla kamera eklentisi olmadan Tek görüntü kartı olmaz ve her yayın sadece kendi kamerasına gider."
 
-#: rust/crates/effects/src/composite_plugin.rs:875 rust/crates/effects/src/composite_plugin.rs:900
+#: rust/crates/effects/src/composite_plugin.rs:881 rust/crates/effects/src/composite_plugin.rs:906
 msgid "Picture layout"
 msgstr "Görüntü düzeni"
 
-#: rust/crates/effects/src/composite_plugin.rs:965
+#: rust/crates/effects/src/composite_plugin.rs:971
 msgid "One picture layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:966
+#: rust/crates/effects/src/composite_plugin.rs:972
 msgid "Bring this layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:966
+#: rust/crates/effects/src/composite_plugin.rs:972
 msgid "Leave the layout"
 msgstr ""
 

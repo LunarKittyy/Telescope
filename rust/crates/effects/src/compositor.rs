@@ -606,10 +606,11 @@ fn restore_mix(canvas: &mut [u8], kind: Kind, cw: usize, chh: usize, bx: (usize,
 /// Two whole pictures mixed the way `how` says, `p` (0 to 1) of the way from `a` to `b`, into `out`. Each plane is mixed at its own size.
 /// A crossfade is one pass of byte mixes; what only ever reads straight across (a slide, a push, a wipe) copies runs of pixels from
 /// one picture or the other and mixes only the band between; a zoom reads each pixel from where its column and row say.
-fn mix_pictures(out: &mut Vec<u8>, kind: Kind, (cw, chh): (usize, usize), a: &[u8], b: &[u8], how: transition::Kind, p: f64) {
+fn mix_pictures(out: &mut Vec<u8>, cols: &mut Vec<(usize, usize, u32)>, kind: Kind, (cw, chh): (usize, usize), a: &[u8], b: &[u8], how: transition::Kind, p: f64) {
     out.clear();
     out.resize(a.len(), 0);
-    if !matches!(how, transition::Kind::Slide | transition::Kind::Push | transition::Kind::Wipe | transition::Kind::Zoom) {
+    use transition::Kind as K;
+    if !matches!(how, K::Slide | K::Push | K::Wipe | K::Zoom | K::Blinds | K::Curtain | K::Pixelate | K::Iris | K::Dissolve) {
         let m = (p.clamp(0.0, 1.0) * 256.0).round() as u32;
         for ((o, x), y) in out.iter_mut().zip(a).zip(b) {
             *o = ((u32::from(*x) * (256 - m) + u32::from(*y) * m + 128) >> 8) as u8;
@@ -617,14 +618,20 @@ fn mix_pictures(out: &mut Vec<u8>, kind: Kind, (cw, chh): (usize, usize), a: &[u
         return;
     }
     let index = |c: f64, n: usize| ((c * n as f64).floor().max(0.0) as usize).min(n - 1);
-    let straight = how != transition::Kind::Zoom;
+    let straight = !matches!(how, K::Zoom | K::Pixelate);
     for plane in planes(kind, cw, chh) {
-        let cols: Vec<(usize, usize, u32)> = (0..plane.w).map(|x| {
-            let cell = transition::cell(how, false, (x as f64 + 0.5) / plane.w as f64, p);
+        if matches!(how, K::Iris | K::Dissolve) {
+            mix_regions(out, &plane, a, b, how, p);
+            continue;
+        }
+        let aspect = cw as f64 / chh as f64;
+        cols.clear();
+        cols.extend((0..plane.w).map(|x| {
+            let cell = transition::cell(how, false, (x as f64 + 0.5) / plane.w as f64, p, aspect);
             (index(cell.a, plane.w), index(cell.b, plane.w), (cell.mix * 256.0).round() as u32)
-        }).collect();
+        }));
         for y in 0..plane.h {
-            let row = transition::cell(how, true, (y as f64 + 0.5) / plane.h as f64, p);
+            let row = transition::cell(how, true, (y as f64 + 0.5) / plane.h as f64, p, aspect);
             let (ay, by) = (index(row.a, plane.h), index(row.b, plane.h));
             let rm = (row.mix * 256.0).round() as u32;
             let line = plane.at + y * plane.w * plane.ch;
@@ -668,6 +675,71 @@ fn mix_pictures(out: &mut Vec<u8>, kind: Kind, (cw, chh): (usize, usize), a: &[u
                     let (va, vb) = (u32::from(a[from_a + c]), u32::from(b[from_b + c]));
                     out[at + c] = if mix == 0 { va as u8 } else if mix >= 256 { vb as u8 } else { ((va * (256 - mix) + vb * mix + 128) >> 8) as u8 };
                 }
+            }
+        }
+    }
+}
+
+/// The Iris and the Dissolve: each pixel is the new picture's, the old one's or a mix by where it is. What is wholly one or the other is
+/// copied in runs and only the soft edge is mixed pixel by pixel: the Iris finds where along a row its circle's edges are, and the Dissolve
+/// has one mix for each square.
+fn mix_regions(out: &mut [u8], plane: &Plane, a: &[u8], b: &[u8], how: transition::Kind, p: f64) {
+    let size = (plane.w as f64, plane.h as f64);
+    let ch = plane.ch;
+    let copy = |out: &mut [u8], line: usize, from: usize, to: usize, src: &[u8]| {
+        if to > from {
+            out[line + from * ch..line + to * ch].copy_from_slice(&src[line + from * ch..line + to * ch]);
+        }
+    };
+    let lerp = |out: &mut [u8], line: usize, from: usize, to: usize, m: u32| {
+        for at in line + from * ch..line + to * ch {
+            out[at] = ((u32::from(a[at]) * (256 - m) + u32::from(b[at]) * m + 128) >> 8) as u8;
+        }
+    };
+    let (w, h) = size;
+    for y in 0..plane.h {
+        let line = plane.at + y * plane.w * ch;
+        if how == transition::Kind::Dissolve {
+            let square = (w / 40.0).max(1.0);
+            let mut x = 0usize;
+            while x < plane.w {
+                let end = (((x as f64 / square).floor() + 1.0) * square).ceil().min(w) as usize;
+                let end = end.max(x + 1);
+                let m = (transition::mix_at(how, x as f64, y as f64, size, p) * 256.0).round() as u32;
+                match m {
+                    0 => copy(out, line, x, end, a),
+                    256.. => copy(out, line, x, end, b),
+                    _ => lerp(out, line, x, end, m),
+                }
+                x = end;
+            }
+            continue;
+        }
+        // Iris: pixels inside the circle's solid part are the new picture's, outside it the old one's, and the soft edge lies between
+        let reach = (w * w + h * h).sqrt() / 2.0;
+        let band = 0.18 * reach;
+        let radius = p * (reach + band);
+        let dy = y as f64 + 0.5 - h / 2.0;
+        let half = |r: f64| if r > 0.0 && dy.abs() < r { (r * r - dy * dy).sqrt() } else { -1.0 };
+        let (outer, inner) = (half(radius), half(radius - band));
+        let (cx, wide) = (w / 2.0, plane.w);
+        let span = |half: f64| if half < 0.0 { None } else { Some(((cx - half - 1.0).floor().max(0.0) as usize, ((cx + half + 1.0).ceil() as usize).min(wide))) };
+        let Some((lo_o, hi_o)) = span(outer) else {
+            copy(out, line, 0, wide, a);
+            continue;
+        };
+        // a margin of a pixel each side of the solid part, so rounding never copies a mixed pixel
+        let (lo_i, hi_i) = match span(inner) {
+            Some((lo, hi)) if hi > lo + 4 => (lo + 2, hi - 2),
+            _ => ((lo_o + hi_o) / 2, (lo_o + hi_o) / 2),
+        };
+        copy(out, line, 0, lo_o, a);
+        copy(out, line, hi_o, wide, a);
+        copy(out, line, lo_i, hi_i, b);
+        for (from, to) in [(lo_o, lo_i), (hi_i, hi_o)] {
+            for x in from..to {
+                let m = (transition::mix_at(how, x as f64, y as f64, size, p) * 256.0).round() as u32;
+                lerp(out, line, x, x + 1, m);
             }
         }
     }
@@ -789,6 +861,8 @@ pub struct Compositor {
     transition: Option<Active>,
     /// Buffers of whole pictures to draw into again, so a transition's frames don't ask for new ones.
     spare: Vec<Vec<u8>>,
+    /// The columns of a mix, worked out again each plane of each picture into the same room.
+    cols: Vec<(usize, usize, u32)>,
 }
 
 impl Default for Compositor {
@@ -842,7 +916,7 @@ fn nv12_as_i420(frame: &Frame) -> Option<Frame> {
 
 impl Compositor {
     pub fn new(reader: PictureReader) -> Compositor {
-        Compositor { plan: None, scaled: HashMap::new(), reader, pictures: None, backgrounds: None, planes: Vec::new(), covered: Vec::new(), transition: None, spare: Vec::new() }
+        Compositor { plan: None, scaled: HashMap::new(), reader, pictures: None, backgrounds: None, planes: Vec::new(), covered: Vec::new(), transition: None, spare: Vec::new(), cols: Vec::new() }
     }
 
     pub fn prepare(&mut self, layout: &Layout, size: (u32, u32)) {
@@ -1067,7 +1141,9 @@ impl Compositor {
         };
         let b = self.draw_plan(plan, frames, kind, base);
         let mut out = self.spare.pop().unwrap_or_default();
-        mix_pictures(&mut out, kind, plan.size, &a, &b, spec.kind, transition::effect(spec.ease, t));
+        let mut cols = std::mem::take(&mut self.cols);
+        mix_pictures(&mut out, &mut cols, kind, plan.size, &a, &b, spec.kind, transition::effect(spec.ease, t));
+        self.cols = cols;
         self.give_back(a);
         self.give_back(b);
         out

@@ -100,15 +100,39 @@ fn shuffle_sets_tiles_off_one_after_another_and_lifts_them_on_the_way() {
 
 #[test]
 fn whole_picture_transitions_begin_on_the_old_picture_and_end_on_the_new_one() {
-    for kind in [Kind::Crossfade, Kind::Slide, Kind::Push, Kind::Zoom, Kind::Wipe] {
+    for kind in [Kind::Crossfade, Kind::Slide, Kind::Push, Kind::Zoom, Kind::Wipe, Kind::Blinds, Kind::Curtain, Kind::Pixelate] {
         for s in [0.1, 0.5, 0.9] {
             for vertical in [false, true] {
-                let (first, last) = (cell(kind, vertical, s, 0.0), cell(kind, vertical, s, 1.0));
+                let (first, last) = (cell(kind, vertical, s, 0.0, 16.0 / 9.0), cell(kind, vertical, s, 1.0, 16.0 / 9.0));
                 // at the start every pixel's mix of B is 0 along one axis at least, and A is where it was
                 assert!(near(first.a, s), "{kind:?} {vertical} at the start: {first:?}");
                 assert!(near(last.b, s) && near(last.mix, 1.0), "{kind:?} {vertical} at the end: {last:?}");
             }
-            assert!(near(cell(kind, false, s, 0.0).mix * cell(kind, true, s, 0.0).mix, 0.0), "{kind:?} shows nothing of the new picture at the start");
+            assert!(near(cell(kind, false, s, 0.0, 16.0 / 9.0).mix * cell(kind, true, s, 0.0, 16.0 / 9.0).mix, 0.0), "{kind:?} shows nothing of the new picture at the start");
         }
     }
+}
+
+#[test]
+fn the_iris_and_the_dissolve_start_with_none_of_the_new_picture_and_end_with_all_of_it() {
+    for kind in [Kind::Iris, Kind::Dissolve] {
+        for (x, y) in [(0.0, 0.0), (959.0, 539.0), (1919.0, 1079.0), (300.0, 800.0)] {
+            assert!(near(mix_at(kind, x, y, (1920.0, 1080.0), 0.0), 0.0), "{kind:?} at ({x}, {y}) at the start");
+            assert!(near(mix_at(kind, x, y, (1920.0, 1080.0), 1.0), 1.0), "{kind:?} at ({x}, {y}) at the end");
+        }
+    }
+    // the iris opens from the middle
+    assert!(mix_at(Kind::Iris, 960.0, 540.0, (1920.0, 1080.0), 0.3) > mix_at(Kind::Iris, 10.0, 10.0, (1920.0, 1080.0), 0.3));
+}
+
+#[test]
+fn a_bounce_lands_with_hops_that_die_away() {
+    let from = vec![Tile::boxed("a", "", 0.0, 0.2, 0.4, 0.4)];
+    let to = vec![Tile::boxed("a", "", 0.6, 0.2, 0.4, 0.4)];
+    let y = |t: f64| poses(Kind::Bounce, &from, &to, t, Ease::Smooth, 16.0 / 9.0)[0].tile.y;
+    assert!(near(y(0.0), 0.2) && near(y(1.0), 0.2), "it starts and ends on the line");
+    assert!(y(0.4) < 0.2 - 0.005, "it hops up on the way: {}", y(0.4));
+    // later hops are smaller than the first
+    let up = |lo: f64, hi: f64| (0..=50).map(|i| 0.2 - y(lo + (hi - lo) * i as f64 / 50.0)).fold(0.0f64, f64::max);
+    assert!(up(0.0, 0.34) > up(0.67, 1.0));
 }

@@ -982,6 +982,29 @@ mod transitions {
         }
     }
 
+    #[test]
+    fn the_iris_and_the_dissolve_by_runs_are_the_same_as_pixel_by_pixel() {
+        let (w, h) = (160usize, 90usize);
+        let pic = |c: u8| (0..w * h).flat_map(|i| [(i % 251) as u8 ^ c, (i / w) as u8, c, 255]).collect::<Vec<u8>>();
+        let (a, b) = (pic(0), pic(120));
+        for how in [How::Iris, How::Dissolve] {
+            for p in [0.0, 0.1, 0.37, 0.5, 0.83, 1.0] {
+                let mut out = Vec::new();
+                mix_pictures(&mut out, &mut Vec::new(), Kind::Bgra, (w, h), &a, &b, how, p);
+                for y in 0..h {
+                    for x in 0..w {
+                        let m = (crate::transition::mix_at(how, x as f64, y as f64, (w as f64, h as f64), p) * 256.0).round() as u32;
+                        let at = (y * w + x) * 4;
+                        for c in 0..4 {
+                            let want = ((u32::from(a[at + c]) * (256 - m) + u32::from(b[at + c]) * m + 128) >> 8) as u8;
+                            assert_eq!(out[at + c], want, "{how:?} at p = {p}, ({x}, {y}) channel {c}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// With TRANSITION_COST set: what a frame costs at 4K, for each kind (run it with an optimised test profile).
     #[test]
     fn the_cost_of_a_4k_transition() {
@@ -1003,7 +1026,7 @@ mod transitions {
         let live = |n: u64| frames(vec![("a", fa.clone(), Some(n)), ("b", fb.clone(), Some(n)), ("c", fc.clone(), Some(n))]);
         let from = Layout { tiles: vec![t("a", 0.0, 0.0, 0.66, 0.66), t("b", 0.7, 0.0, 0.3, 0.3), t("c", 0.7, 0.35, 0.3, 0.3)], ..Layout::default() };
         let to = Layout { tiles: vec![t("b", 0.0, 0.0, 0.66, 0.66), t("a", 0.7, 0.0, 0.3, 0.3), t("c", 0.35, 0.7, 0.3, 0.3)], ..Layout::default() };
-        for kind in [How::Cut, How::Glide, How::Shuffle, How::Crossfade, How::Push, How::Zoom] {
+        for kind in [How::Cut, How::Glide, How::Shuffle, How::Crossfade, How::Push, How::Zoom, How::Bounce, How::Iris, How::Curtain, How::Blinds, How::Pixelate, How::Dissolve] {
             let mut comp = Compositor::default();
             comp.prepare(&from, size);
             let mut n = 0;
