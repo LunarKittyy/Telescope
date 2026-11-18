@@ -126,6 +126,7 @@ pub struct Window {
 const POPOUT: &str = r#"
 import { PreviewMarks, PreviewPick, LensOutline, SkeletonLine } from "shell/preview.slint";
 import { FineAxis } from "@ui-kit/ui-kit.slint";
+export { Theme, Motion, Tips } from "@ui-kit/ui-kit.slint";
 
 export struct LayerPath { commands: string, stroke: color, width: length, fill: color, evenodd: bool }
 export struct LayerText { x: length, y: length, text: string, color: color, size: length }
@@ -437,7 +438,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
     let text = doc::window(&cards, &panels, &headers);
     let def = crate::compile::compile("window.slint", &text, files.clone(), "TelescopeWindow")?;
     let ui = def.create().map_err(|e| e.to_string())?;
-    crate::motion::apply(&ui);
+    crate::appearance::apply(&ui);
     set_app_icon(&ui);
     let window = Rc::new(Window {
         state: Rc::new(RefCell::new(state)),
@@ -1290,6 +1291,7 @@ impl Window {
                         });
                     }
                     set_app_icon(&p);
+                    crate::appearance::apply(&p);
                     if let Ok(accent) = self.ui.get_global_property("Theme", "accent-soft") {
                         let _ = p.set_property("marker-colour", accent);
                     }
@@ -1437,7 +1439,7 @@ impl Window {
         if let Ok(look) = self.ui.get_global_property("Theme", "look") {
             let _ = ui.set_global_property("Theme", "look", look);
         }
-        crate::motion::apply(&ui);
+        crate::appearance::apply(&ui);
         let _ = ui.show();
         crate::frame::dress(&ui);
         crate::parent::attach(&ui, &self.ui);
@@ -1463,7 +1465,10 @@ impl Window {
         }
         let stopped = self.state.borrow().stopped();
         crate::settings::plugins_stopped(stopped);
+        crate::settings::hide_sections(plugin);
         self.refresh_frame_steps();
+        // A stream behind the panels keeps its other steps, this plugin's go
+        self.drop_steps_behind(plugin);
     }
 
     fn close_plugin_window(self: &Rc<Self>, plugin: &str, id: &str) {
@@ -1637,6 +1642,36 @@ impl Window {
                 crate::frame::dress(&self.ui);
                 crate::settings::set_look(look);
             }
+            Effect::Appearance(appearance) => {
+                // Only a change of contrast moves a title bar's colours: dragging the tooltip delay shouldn't touch the frames
+                let before = crate::appearance::current();
+                let reframe = before.contrast != appearance.contrast;
+                // Picking System asks the desktop again, since its setting may have changed since the app started
+                if appearance.motion == telescope_core::host::MotionChoice::System && before.motion != telescope_core::host::MotionChoice::System {
+                    crate::motion::refresh();
+                }
+                crate::appearance::store(appearance);
+                crate::appearance::apply_to(&self.ui, &appearance);
+                for (_, _, open) in self.plugin_windows.borrow().iter() {
+                    crate::appearance::apply_to(open, &appearance);
+                    if reframe {
+                        crate::frame::dress(open);
+                    }
+                }
+                if let Some(popout) = self.popout.borrow().as_ref() {
+                    crate::appearance::apply_to(popout, &appearance);
+                }
+                if let Some(question) = self.slots_question() {
+                    crate::appearance::apply_to(&question, &appearance);
+                    if reframe {
+                        crate::frame::dress(&question);
+                    }
+                }
+                if reframe {
+                    crate::frame::dress(&self.ui);
+                }
+                crate::settings::set_appearance(&appearance);
+            }
             Effect::RestartCanvas { plugin, request, shows_command } => self.restart_canvas(&plugin, request, shows_command),
             Effect::RemoveExtras { plugin, request } => self.remove_extras(&plugin, request),
             Effect::TakeStill { plugin, request, source, options, folder } => self.take_still(&plugin, request, &source, &options, &folder),
@@ -1788,6 +1823,7 @@ impl Window {
             self.save_timer.stop();
             self.state.borrow_mut().save_now();
         }
+        self.state.borrow_mut().slots.iter_mut().for_each(|s| s.shut_down = true);
         self.state.borrow_mut().each(|p, host| p.shutdown(host));
         let vision = self.state.borrow().vision.clone();
         if let Some(vision) = vision {
@@ -1956,7 +1992,23 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         window.show_window();
     }
     if let Some(hook) = &opts.on_shown {
-        (hook.0)();
+        // With a graphics card chosen in Settings the start isn't done at show() but at the first picture: a card that opens but can't present
+        // to the window's surface fails there, and the crash marker has to stay until then
+        let hook = Rc::new(RefCell::new(Some(hook.0.clone())));
+        let waits = !opts.minimized && !telescope_core::gpu_pick::choice().is_empty();
+        let later = hook.clone();
+        let set = waits && window.ui.window().set_rendering_notifier(move |state, _| {
+            if matches!(state, slint::RenderingState::AfterRendering) {
+                if let Some(run) = later.borrow_mut().take() {
+                    run();
+                }
+            }
+        }).is_ok();
+        if !set {
+            if let Some(run) = hook.borrow_mut().take() {
+                run();
+            }
+        }
     }
     let weak = Rc::downgrade(&window);
     window.ui.window().on_close_requested(move || weak.upgrade().map_or(slint::CloseRequestResponse::HideWindow, |w| w.close_requested()));

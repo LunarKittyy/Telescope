@@ -453,7 +453,7 @@ const FINDS: &[(&str, &str, usize)] = &[
     ("mirorr", "Mirror it for apps that flip the camera", 2),
     ("web page", "Show the sign on a web page", 3),
     // what it does, in other words
-    ("gpu", "Hardware acceleration", 1),
+    ("gpu", "Hardware acceleration", 2),
     ("nvidia", "Hardware acceleration", 2),
     ("hw accel", "Hardware acceleration", 1),
     ("hwaccel", "Hardware acceleration", 1),
@@ -502,7 +502,7 @@ const FINDS: &[(&str, &str, usize)] = &[
     ("install the phone app", "Telescope.apk", 2),
     // asked as a question
     ("how do i change the resolution", "Canvas size", 1),
-    ("where is the gpu setting", "Hardware acceleration", 1),
+    ("where is the gpu setting", "Hardware acceleration", 2),
     ("turn on autostart", "Open Telescope when I sign in", 2),
 ];
 

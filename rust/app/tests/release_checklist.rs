@@ -17,10 +17,10 @@ fn deleted_files_are_not_reported_as_unmapped() {
     let repo = Path::new(env!("CARGO_TARGET_TMPDIR")).join("checklist-due-deleted");
     let _ = std::fs::remove_dir_all(&repo);
     std::fs::create_dir_all(repo.join(".github")).unwrap();
-    std::fs::create_dir_all(repo.join("docs")).unwrap();
+    std::fs::create_dir_all(repo.join("docs/development")).unwrap();
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     std::fs::copy(root.join(".github/checklist_due.py"), repo.join(".github/checklist_due.py")).unwrap();
-    std::fs::copy(root.join("docs/release-checklist.md"), repo.join("docs/release-checklist.md")).unwrap();
+    std::fs::copy(root.join("docs/development/release-checklist.md"), repo.join("docs/development/release-checklist.md")).unwrap();
     let git = |args: &[&str]| {
         let out = Command::new("git")
             .arg("-C").arg(&repo)

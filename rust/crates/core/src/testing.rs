@@ -149,6 +149,8 @@ pub struct FakeHost {
     pub warp: Option<[f32; 9]>,
     /// What each owner last asked the preview to follow, as (stream shown, stream drawn).
     pub follows: HashMap<String, (String, String)>,
+    /// Host::preview_composited by owner
+    pub composited: HashMap<String, String>,
     /// What can_turn_camera_off() answers instead of (false, "Not streaming").
     pub can_turn_off: Option<(bool, String)>,
     /// What vision_state() answers instead of "off".
@@ -221,6 +223,8 @@ pub struct FakeHost {
     pub plugin_hues: Option<bool>,
     /// What set_look last said (None until it's called).
     pub look: Option<crate::host::Look>,
+    /// What set_appearance last said (None until it's called).
+    pub appearance: Option<crate::host::Appearance>,
     /// What set_power_saving last said (None until it's called).
     pub power_saving: Option<bool>,
     /// What the plugin last offered the bottom bar (offer_bar_stats), and the ids pinned to it (bar_pins), which pin_to_bar changes.
@@ -529,6 +533,10 @@ impl HostShell for FakeHost {
         self.note(format!("set_look {}", look.name()));
         self.look = Some(look);
     }
+    fn set_appearance(&mut self, appearance: crate::host::Appearance) {
+        self.note(format!("set_appearance {appearance:?}"));
+        self.appearance = Some(appearance);
+    }
     fn pick_file(&mut self, dialog: &FileDialog) -> Option<RequestId> {
         self.note(format!("pick_file {:?} {}", dialog.kind, dialog.title));
         self.dialogs.push(dialog.clone());
@@ -721,6 +729,16 @@ impl HostPreview for FakeHost {
     fn set_preview_warp(&mut self, owner: &str, matrix: Option<[f32; 9]>) {
         self.warp = matrix;
         self.note(format!("set_preview_warp {owner} {}", matrix.is_some()));
+    }
+    fn preview_shows_own_picture(&self) -> bool {
+        let shown = self.focused_source_id();
+        !self.follows.values().any(|(s, _)| Some(s) == shown.as_ref()) && !self.composited.values().any(|s| Some(s) == shown.as_ref())
+    }
+    fn preview_composited(&mut self, owner: &str, source_id: Option<&str>) {
+        match source_id {
+            Some(s) => self.composited.insert(owner.to_string(), s.to_string()),
+            None => self.composited.remove(owner),
+        };
     }
     fn preview_follows(&mut self, owner: &str, source_id: Option<&str>, target: Option<&str>) {
         match (source_id, target) {

@@ -209,10 +209,16 @@ impl Default for System {
         };
         #[cfg(windows)]
         return System {
-            opener: Arc::new(|d: &Device, c: &Choice| crate::webcams_win::open(&d.location, c)),
+            opener: Arc::new(|d: &Device, c: &Choice| if webcams::is_gphoto(&d.location) { webcam_capture::gphoto_lib::open(d) } else { crate::webcams_win::open(&d.location, c) }),
             // Windows doesn't say which app holds a camera
             users: Arc::new(|_: &str| String::new()),
-            exists: Arc::new(crate::webcams_win::present),
+            exists: Arc::new(|p: &str| {
+                if webcams::is_gphoto(p) {
+                    webcam_capture::gphoto_lib::detect().is_ok_and(|found| found.iter().any(|(_, port)| port == webcams::gphoto_port(p)))
+                } else {
+                    crate::webcams_win::present(p)
+                }
+            }),
         };
         #[cfg(not(any(target_os = "linux", windows)))]
         System {
@@ -398,7 +404,12 @@ impl WebcamPlugin {
         #[cfg(windows)]
         let scan: Scanner = {
             let mut scanner = crate::webcams_win::WindowsScanner::default();
-            Box::new(move || Ok(scanner.scan()))
+            let mut dslrs = webcams::GphotoScanner::system();
+            Box::new(move || {
+                let mut found = scanner.scan();
+                found.extend(dslrs.scan());
+                Ok(found)
+            })
         };
         #[cfg(not(any(target_os = "linux", windows)))]
         let scan: Scanner = Box::new(|| Ok(Vec::new()));

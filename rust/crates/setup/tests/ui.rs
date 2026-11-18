@@ -55,11 +55,12 @@ fn the_cards_have_what_their_plugins_use() {
     let callbacks: [(&str, &[&str]); 6] = [
         ("virtual-camera", &["check-clicked", "load-clicked", "unload-clicked", "persist-toggled", "extras-clicked", "uc-clicked",
                              "adb-clicked", "own-adb-clicked", "copy"]),
-        ("video", &["hw-toggled", "saving-toggled", "zoom-committed", "zoom-step", "canvas-picked", "custom-committed", "custom-step",
+        ("video", &["hw-toggled", "gpu-picked", "restart-clicked", "saving-toggled", "zoom-committed", "zoom-step", "canvas-picked", "custom-committed", "custom-step",
                     "apply-clicked", "copy"]),
         ("microphone", &["gain-picked", "limiter-toggled"]),
         ("phone-app", &["apk-clicked", "pick-done", "pick-cancelled"]),
-        ("look", &["hues-picked", "lang-picked", "restart-clicked", "translate-clicked"]),
+        ("look", &["hues-picked", "lang-picked", "restart-clicked", "translate-clicked", "corners-picked", "text-picked", "density-picked", "contrast-toggled",
+                   "motion-picked", "tip-delay-moved", "tip-warm-toggled"]),
         ("about", &["author-clicked", "diag-clicked", "bug-clicked", "log-clicked", "help-clicked"]),
     ];
     for linux in [true, false] {

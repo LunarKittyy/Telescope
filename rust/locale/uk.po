@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">Підтримати або дізнатися біл�
 msgid "No mic"
 msgstr "Без мікрофона"
 
-#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:508 rust/crates/system/src/updates_plugin.rs:457
+#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:516 rust/crates/system/src/updates_plugin.rs:457
 msgid "Downloading…"
 msgstr "Завантаження…"
 
@@ -180,7 +180,7 @@ msgstr "Отримати VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "Прибрати стукіт клавіш, шум вентилятора та фонове шипіння."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:639 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:664 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -227,7 +227,7 @@ msgstr "Перемикати під час утримування, поверт�
 msgid "Does"
 msgstr "Дія"
 
-#: rust/crates/audio/src/plugin.rs:1086 rust/crates/audio/src/plugin.rs:1159 rust/crates/audio/ui/microphone.slint:167 rust/crates/setup/ui/setup.slint:333
+#: rust/crates/audio/src/plugin.rs:1086 rust/crates/audio/src/plugin.rs:1159 rust/crates/audio/ui/microphone.slint:167 rust/crates/setup/ui/setup.slint:382
 msgid "Microphone"
 msgstr "Мікрофон"
 
@@ -346,7 +346,7 @@ msgstr "Жовтий: лімітер стримує піки. Червоний: 
 msgid "Click to clear"
 msgstr "Натисніть, щоб скинути"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:59 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:210 rust/crates/setup/ui/setup.slint:337 rust/crates/setup/ui/setup.slint:466 rust/crates/shell/src/plugins_tab.rs:726 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:740 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "Скинути"
 
@@ -370,7 +370,7 @@ msgstr "Шумозаглушення"
 msgid "Noise reduction unavailable"
 msgstr "Шумозаглушення недоступне"
 
-#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:438 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:258
+#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:260
 msgid "Cancel"
 msgstr "Скасувати"
 
@@ -436,11 +436,11 @@ msgstr "720p 16:9 Портрет - 720 x 1280"
 msgid "4K 16:9 Portrait - 2160 x 3840"
 msgstr "4K 16:9 Портрет - 2160 x 3840"
 
-#: rust/crates/core/src/diagnostics.rs:510 rust/crates/system/src/single_instance.rs:326
+#: rust/crates/core/src/diagnostics.rs:523 rust/crates/system/src/single_instance.rs:326
 msgid "Telescope can't start"
 msgstr "Telescope не може запуститися"
 
-#: rust/crates/core/src/diagnostics.rs:511
+#: rust/crates/core/src/diagnostics.rs:524
 #, python-brace-format
 msgid ""
 "Telescope ran into a problem while starting and has to close.\n"
@@ -459,11 +459,27 @@ msgstr ""
 "\n"
 "Відкрити журнал?"
 
-#: rust/crates/core/src/gpu_marker.rs:133
+#: rust/crates/core/src/diagnostics.rs:543
+msgid "Telescope had to close"
+msgstr ""
+
+#: rust/crates/core/src/diagnostics.rs:544
+#, python-brace-format
+msgid ""
+"A plugin that hides part of the picture ran into a problem. Telescope closed rather than show what it hid.\n"
+"\n"
+"What went wrong: {reason}\n"
+"\n"
+"The log is at {path}\n"
+"\n"
+"Open the log?"
+msgstr ""
+
+#: rust/crates/core/src/gpu_marker.rs:142
 msgid "Telescope switched graphics card"
 msgstr "Telescope перемкнув відеокарту"
 
-#: rust/crates/core/src/gpu_marker.rs:134
+#: rust/crates/core/src/gpu_marker.rs:143
 #, python-brace-format
 msgid "The last start of Telescope closed while it was opening {card}. Telescope now uses another graphics card, or the processor if there is none left."
 msgstr "Попередній запуск Telescope завершився аварійно під час відкриття {card}. Тепер Telescope використовує іншу відеокарту або процесор, якщо інших не залишилося."
@@ -500,7 +516,7 @@ msgstr "Загальні"
 msgid "Streaming"
 msgstr "Трансляція"
 
-#: rust/crates/core/src/plugin.rs:15 rust/crates/setup/ui/setup.slint:206
+#: rust/crates/core/src/plugin.rs:15 rust/crates/setup/ui/setup.slint:212
 msgid "Video"
 msgstr "Відео"
 
@@ -528,7 +544,7 @@ msgstr "Оновлення та відомості"
 msgid "Camera"
 msgstr "Камера"
 
-#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:462
+#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:530
 msgid "Look"
 msgstr "Вигляд"
 
@@ -556,7 +572,7 @@ msgstr "Трансляція та пристрої"
 msgid "Extras"
 msgstr "Додатково"
 
-#: rust/crates/core/src/vision.rs:114 rust/crates/core/src/vision.rs:143 rust/crates/shell/src/plugins_tab.rs:508
+#: rust/crates/core/src/vision.rs:114 rust/crates/core/src/vision.rs:143 rust/crates/shell/src/plugins_tab.rs:516
 #, python-brace-format
 msgid "Downloading… {percent}%"
 msgstr "Завантаження… {percent} %"
@@ -597,7 +613,7 @@ msgid "Analysing…"
 msgstr "Аналіз…"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:73 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:40 rust/crates/effects/src/photos.rs:460 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
+#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:82 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:40 rust/crates/effects/src/photos.rs:460 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
 msgid "Off"
 msgstr "Вимк."
 
@@ -653,11 +669,11 @@ msgstr "Без плагіна «Фон» немає картки «Фон», і 
 msgid "Background blur"
 msgstr "Розмиття фону"
 
-#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:173 rust/crates/effects/ui/cinema.slint:174 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Green"
 msgstr "Зелений"
 
-#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:173 rust/crates/effects/ui/cinema.slint:174 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Blue"
 msgstr "Синій"
 
@@ -701,7 +717,7 @@ msgstr "Колір, вибраний із попереднього перегл�
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Клацніть екран позаду вас на попередньому перегляді. Esc скасовує."
 
-#: rust/crates/effects/src/chroma_key.rs:394 rust/crates/effects/src/chroma_key.rs:430 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:544 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:709 rust/crates/shell/src/streams.rs:1766 rust/crates/shell/src/window.rs:1726 rust/crates/shell/src/worker.rs:569 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:394 rust/crates/effects/src/chroma_key.rs:430 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:565 rust/crates/outputs/src/webcam.rs:976 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1775 rust/crates/shell/src/window.rs:1776 rust/crates/shell/src/worker.rs:576 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Не транслює"
 
@@ -822,11 +838,11 @@ msgstr "Парад RGB"
 msgid "Vectorscope"
 msgstr "Вектороскоп"
 
-#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:173 rust/crates/effects/ui/cinema.slint:174 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/cinema_tools.rs:41 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:533 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Red"
 msgstr "Червоний"
 
-#: rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/cinema.slint:173 rust/crates/effects/ui/cinema.slint:174
+#: rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176
 msgid "White"
 msgstr "Білий"
 
@@ -849,15 +865,15 @@ msgstr "4 × 4"
 msgid "Golden ratio"
 msgstr "Золотий перетин"
 
-#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:25 rust/crates/effects/ui/cinema.slint:218 rust/crates/effects/ui/cinema.slint:219
+#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:25 rust/crates/effects/ui/cinema.slint:220 rust/crates/effects/ui/cinema.slint:221 rust/crates/setup/ui/setup.slint:618
 msgid "Small"
 msgstr "Малий"
 
-#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:25 rust/crates/effects/ui/cinema.slint:218 rust/crates/effects/ui/cinema.slint:219
+#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:25 rust/crates/effects/ui/cinema.slint:220 rust/crates/effects/ui/cinema.slint:221
 msgid "Medium"
 msgstr "Середній"
 
-#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:25 rust/crates/effects/ui/cinema.slint:218 rust/crates/effects/ui/cinema.slint:219
+#: rust/crates/effects/src/cinema_tools.rs:57 rust/crates/effects/src/name_tag.rs:25 rust/crates/effects/ui/cinema.slint:220 rust/crates/effects/ui/cinema.slint:221 rust/crates/setup/ui/setup.slint:618
 msgid "Large"
 msgstr "Великий"
 
@@ -1137,7 +1153,7 @@ msgstr "Експортувати корекцію"
 msgid "{file} is already there. Replace it?"
 msgstr "{file} уже існує. Хочете замінити його?"
 
-#: rust/crates/effects/src/colour_grading.rs:663 rust/crates/effects/src/colour_grading.rs:1084 rust/crates/effects/src/colour_grading.rs:1177 rust/crates/effects/src/colour_grading.rs:1179 rust/crates/effects/src/colour_grading.rs:1221 rust/crates/effects/ui/colour_grading.slint:180
+#: rust/crates/effects/src/colour_grading.rs:663 rust/crates/effects/src/colour_grading.rs:1083 rust/crates/effects/src/colour_grading.rs:1175 rust/crates/effects/src/colour_grading.rs:1177 rust/crates/effects/src/colour_grading.rs:1219 rust/crates/effects/ui/colour_grading.slint:180
 msgid "Colour grading"
 msgstr "Корекція кольору"
 
@@ -1146,19 +1162,19 @@ msgstr "Корекція кольору"
 msgid "{wheel} colour"
 msgstr "Колір: {wheel}"
 
-#: rust/crates/effects/src/colour_grading.rs:1085
+#: rust/crates/effects/src/colour_grading.rs:1084
 msgid "Change the look of the picture with colour wheels, curves and LUT files."
 msgstr "Змінюйте вигляд картинки за допомогою колірних кругів, кривих і файлів LUT."
 
-#: rust/crates/effects/src/colour_grading.rs:1086
+#: rust/crates/effects/src/colour_grading.rs:1085
 msgid "Without the Colour grading plugin there's no Colour grading card and the picture has the camera's colours."
 msgstr "Без плагіна «Корекція кольору» немає картки «Корекція кольору», і картинка має кольори камери."
 
-#: rust/crates/effects/src/colour_grading.rs:1180 rust/crates/effects/src/colour_grading.rs:1226
+#: rust/crates/effects/src/colour_grading.rs:1178 rust/crates/effects/src/colour_grading.rs:1224
 msgid "Compare before and after"
 msgstr "Порівняти до і після"
 
-#: rust/crates/effects/src/colour_grading.rs:1204 rust/crates/effects/src/colour_grading.rs:1239
+#: rust/crates/effects/src/colour_grading.rs:1202 rust/crates/effects/src/colour_grading.rs:1237
 msgid "LUT strength"
 msgstr "Інтенсивність LUT"
 
@@ -1231,62 +1247,62 @@ msgstr "Об'єднати активні потоки в одну картинк
 msgid "A layout you saved in the editor."
 msgstr "Композиція, яку ви зберегли в редакторі."
 
-#: rust/crates/effects/src/composite_plugin.rs:418 rust/crates/effects/src/composite_plugin.rs:610 rust/crates/effects/src/composite_plugin.rs:614 rust/crates/effects/src/composite_plugin.rs:627 rust/crates/effects/ui/composite.slint:21
+#: rust/crates/effects/src/composite_plugin.rs:428 rust/crates/effects/src/composite_plugin.rs:635 rust/crates/effects/src/composite_plugin.rs:639 rust/crates/effects/src/composite_plugin.rs:652 rust/crates/effects/ui/composite.slint:21
 msgid "One picture"
 msgstr "Одне зображення"
 
-#: rust/crates/effects/src/composite_plugin.rs:461
+#: rust/crates/effects/src/composite_plugin.rs:473
 msgid "Nothing's in the picture yet."
 msgstr "На картинці ще нічого немає."
 
-#: rust/crates/effects/src/composite_plugin.rs:463
+#: rust/crates/effects/src/composite_plugin.rs:475
 msgid "Active once two streams are running."
 msgstr "Активно, коли запущено дві трансляції."
 
-#: rust/crates/effects/src/composite_plugin.rs:465
+#: rust/crates/effects/src/composite_plugin.rs:477
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "Налаштовано виведення на {camera}, але там не запущено жодної трансляції."
 
-#: rust/crates/effects/src/composite_plugin.rs:467
+#: rust/crates/effects/src/composite_plugin.rs:479
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "Виводитиметься на {camera}, щойно трансляція почне передавати картинку."
 
-#: rust/crates/effects/src/composite_plugin.rs:469
+#: rust/crates/effects/src/composite_plugin.rs:481
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "Виведення на {camera}."
 
-#: rust/crates/effects/src/composite_plugin.rs:474
+#: rust/crates/effects/src/composite_plugin.rs:486
 msgid "Nothing in it"
 msgstr "Порожньо"
 
-#: rust/crates/effects/src/composite_plugin.rs:476 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
+#: rust/crates/effects/src/composite_plugin.rs:488 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
 msgid "Two streams required"
 msgstr "Потрібні дві трансляції"
 
-#: rust/crates/effects/src/composite_plugin.rs:478
+#: rust/crates/effects/src/composite_plugin.rs:490
 msgid "Not going out"
 msgstr "Не виводиться"
 
-#: rust/crates/effects/src/composite_plugin.rs:480
+#: rust/crates/effects/src/composite_plugin.rs:492
 msgid "Going out"
 msgstr "Виводиться"
 
-#: rust/crates/effects/src/composite_plugin.rs:525
+#: rust/crates/effects/src/composite_plugin.rs:537
 msgid "Several cameras in one picture"
 msgstr "Кілька камер в одному зображенні"
 
-#: rust/crates/effects/src/composite_plugin.rs:526
+#: rust/crates/effects/src/composite_plugin.rs:538
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "Розміщуйте запущені трансляції поруч або одна в одній на одній віртуальній камері."
 
-#: rust/crates/effects/src/composite_plugin.rs:527
+#: rust/crates/effects/src/composite_plugin.rs:539
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "Без плагіна «Кілька камер в одній картинці» немає картки «Одна картинка», і кожна трансляція йде лише на власну камеру."
 
-#: rust/crates/effects/src/composite_plugin.rs:615 rust/crates/effects/src/composite_plugin.rs:639
+#: rust/crates/effects/src/composite_plugin.rs:640 rust/crates/effects/src/composite_plugin.rs:664
 msgid "Picture layout"
 msgstr "Макет зображення"
 
@@ -1337,7 +1353,7 @@ msgid "Black and white"
 msgstr "Чорно-білий"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:30 rust/crates/effects/src/desk.rs:46 rust/crates/effects/src/notes.rs:45 rust/crates/effects/src/photos.rs:28 rust/crates/effects/ui/colour_grading.slint:257 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/link/ui/connection.slint:295 rust/crates/link/ui/connection.slint:296 rust/crates/outputs/src/stream_output.rs:292 rust/crates/outputs/src/webcam.rs:111 rust/crates/outputs/src/webcam.rs:968 rust/crates/outputs/ui/webcam.slint:145 rust/crates/outputs/ui/webcam.slint:146 rust/crates/shell/src/plugins/camera_control.rs:1498 rust/crates/shell/src/plugins/camera_control.rs:1500 rust/crates/shell/src/plugins/camera_control.rs:1502 rust/crates/shell/src/plugins/camera_control.rs:1869 rust/crates/shell/src/plugins/camera_control.rs:1870 rust/crates/shell/ui/cards/camera.slint:175 rust/crates/shell/ui/cards/camera.slint:177 rust/crates/shell/ui/cards/camera.slint:273 rust/crates/shell/ui/cards/camera.slint:275 rust/crates/shell/ui/cards/camera.slint:335 rust/crates/shell/ui/cards/camera.slint:337
+#: rust/crates/effects/src/desk.rs:30 rust/crates/effects/src/desk.rs:46 rust/crates/effects/src/notes.rs:45 rust/crates/effects/src/photos.rs:28 rust/crates/effects/ui/colour_grading.slint:257 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/link/ui/connection.slint:295 rust/crates/link/ui/connection.slint:296 rust/crates/outputs/src/stream_output.rs:292 rust/crates/outputs/src/webcam.rs:111 rust/crates/outputs/src/webcam.rs:979 rust/crates/outputs/ui/webcam.slint:145 rust/crates/outputs/ui/webcam.slint:146 rust/crates/shell/src/plugins/camera_control.rs:1498 rust/crates/shell/src/plugins/camera_control.rs:1500 rust/crates/shell/src/plugins/camera_control.rs:1502 rust/crates/shell/src/plugins/camera_control.rs:1869 rust/crates/shell/src/plugins/camera_control.rs:1870 rust/crates/shell/ui/cards/camera.slint:175 rust/crates/shell/ui/cards/camera.slint:177 rust/crates/shell/ui/cards/camera.slint:273 rust/crates/shell/ui/cards/camera.slint:275 rust/crates/shell/ui/cards/camera.slint:335 rust/crates/shell/ui/cards/camera.slint:337
 msgid "Auto"
 msgstr "Авто"
 
@@ -1640,7 +1656,7 @@ msgstr "Додавайте фільтри фоторедактора, такі �
 msgid "Without it there's no Filters card and the picture isn't sharpened, cleaned up or finished."
 msgstr "Без нього немає картки «Фільтри», і картинка не стає різкішою, чистішою чи завершеною."
 
-#: rust/crates/effects/src/framing.rs:21 rust/crates/effects/ui/framing.slint:45
+#: rust/crates/effects/src/framing.rs:21 rust/crates/effects/ui/framing.slint:58
 msgid "Auto framing"
 msgstr "Автокадрування"
 
@@ -1715,71 +1731,103 @@ msgid "Zippy"
 msgstr "Блискавка"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Fidget"
 msgstr "Йорзати"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Shift"
 msgstr "Зсув"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Lean"
 msgstr "Нахилятися"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Step"
 msgstr "Крокувати"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Roam"
 msgstr "Ходити"
 
-#: rust/crates/effects/src/framing.rs:90
+#: rust/crates/effects/src/framing.rs:99
 msgid "Zoom and pan to follow you."
 msgstr "Масштабувати й панорамувати вслід за вами."
 
-#: rust/crates/effects/src/framing.rs:91
+#: rust/crates/effects/src/framing.rs:100
 msgid "Set how much of you is in the picture, from only your head to all of you."
 msgstr "Налаштуйте, яка частина вашого тіла потрапляє в кадр: від лише голови до повного зросту."
 
-#: rust/crates/effects/src/framing.rs:92
+#: rust/crates/effects/src/framing.rs:101
 msgid "How quickly the framing follows when you move."
 msgstr "Як швидко кадрування рухається за вами."
 
-#: rust/crates/effects/src/framing.rs:93
+#: rust/crates/effects/src/framing.rs:102
 msgid "How much you can move before the framing follows you, from a fidget to walking around."
 msgstr "Наскільки вільно ви можете рухатися, перш ніж кадрування піде за вами: йорзати, соватися в кріслі, нахилятися, зробити крок або ходити кімнатою."
 
-#: rust/crates/effects/src/framing.rs:94
+#: rust/crates/effects/src/framing.rs:103
 msgid "Show hands"
 msgstr "Показувати руки"
 
-#: rust/crates/effects/src/framing.rs:95
+#: rust/crates/effects/src/framing.rs:104
 msgid "Widen the view so your hands are in it too."
 msgstr "Розширити огляд, щоб було видно також і ваші руки."
 
-#: rust/crates/effects/src/framing.rs:96
+#: rust/crates/effects/src/framing.rs:105
 msgid "Something else is moving the zoom and pan."
 msgstr "Щось інше змінює масштаб і панорамування."
 
-#: rust/crates/effects/src/framing.rs:97
+#: rust/crates/effects/src/framing.rs:106
 msgid "Auto framing: how much of you"
 msgstr "Автокадрування: скільки вас у кадрі"
 
-#: rust/crates/effects/src/framing.rs:98
+#: rust/crates/effects/src/framing.rs:107
 msgid "Auto framing speed"
 msgstr "Швидкість автокадрування"
 
-#: rust/crates/effects/src/framing.rs:897
+#: rust/crates/effects/src/framing.rs:637
+msgid "Follow one person"
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:637
+msgid "Pick someone"
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:637
+msgid "Pick someone else"
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:638
+msgid "Click one person on the preview and Auto framing follows only them, not whoever else is in view."
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:638
+msgid "Follow everyone"
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:639
+msgid "People can't be picked while the preview shows a combined picture or another camera. Switch 3D or One picture off, or show a single camera."
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:640
+msgid "Frame everyone in view again."
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:864
+msgid "Click the person to follow on the preview. Esc cancels."
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:1089
 msgid "Zoom and pan to keep you in the picture as you move."
 msgstr "Масштабувати й панорамувати, щоб утримувати вас у кадрі під час руху."
 
-#: rust/crates/effects/src/framing.rs:898
+#: rust/crates/effects/src/framing.rs:1090
 msgid "Without the Auto framing plugin there's no Auto framing card and the zoom only changes when you change it."
 msgstr "Без плагіна «Автокадрування» немає картки «Автокадрування», а масштаб змінюється лише вручну."
 
@@ -1867,81 +1915,81 @@ msgstr "Скільки кадрів минає між одним краєм ка
 msgid "How many extra times each frame's motion is played."
 msgstr "Скільки додаткових разів відтворюється рух кожного кадру."
 
-#: rust/crates/effects/src/fun_pack.rs:377
+#: rust/crates/effects/src/fun_pack.rs:443
 msgid "Step out of the picture. The empty room is taken after a short countdown."
 msgstr "Вийдіть із кадру. Порожня кімната фіксується після короткого відліку."
 
-#: rust/crates/effects/src/fun_pack.rs:378
+#: rust/crates/effects/src/fun_pack.rs:444
 msgid "Get in place. The clone is taken after a short countdown."
 msgstr "Займіть місце. Клон фіксується після короткого відліку."
 
-#: rust/crates/effects/src/fun_pack.rs:379
+#: rust/crates/effects/src/fun_pack.rs:445
 msgid "Let the next keyframe through to restore the picture."
 msgstr "Пропустити наступний ключовий кадр, щоб відновити картинку."
 
-#: rust/crates/effects/src/fun_pack.rs:380
+#: rust/crates/effects/src/fun_pack.rs:446
 msgid "Remove all clones, or all light trails in Light painting."
 msgstr "Прибрати всі клони або всі світлові сліди в «Малюванні світлом»."
 
-#: rust/crates/effects/src/fun_pack.rs:381
+#: rust/crates/effects/src/fun_pack.rs:447
 msgid "Which way the bands run."
 msgstr "У якому напрямку йдуть смуги."
 
-#: rust/crates/effects/src/fun_pack.rs:393
+#: rust/crates/effects/src/fun_pack.rs:459
 #, python-brace-format
 msgid "Taking the empty room in {n}…"
 msgstr "Зйомка порожньої кімнати через {n}…"
 
-#: rust/crates/effects/src/fun_pack.rs:395
+#: rust/crates/effects/src/fun_pack.rs:461
 msgid "Take the empty room again"
 msgstr "Зняти порожню кімнату знову"
 
-#: rust/crates/effects/src/fun_pack.rs:397 rust/crates/effects/src/fun_pack.rs:782 rust/crates/effects/src/fun_pack.rs:811
+#: rust/crates/effects/src/fun_pack.rs:463 rust/crates/effects/src/fun_pack.rs:848 rust/crates/effects/src/fun_pack.rs:877
 msgid "Take the empty room"
 msgstr "Зняти порожню кімнату"
 
-#: rust/crates/effects/src/fun_pack.rs:399
+#: rust/crates/effects/src/fun_pack.rs:465
 #, python-brace-format
 msgid "Copying you in {n}…"
 msgstr "Копіювання через {n}…"
 
-#: rust/crates/effects/src/fun_pack.rs:399 rust/crates/effects/src/fun_pack.rs:783 rust/crates/effects/src/fun_pack.rs:819
+#: rust/crates/effects/src/fun_pack.rs:465 rust/crates/effects/src/fun_pack.rs:849 rust/crates/effects/src/fun_pack.rs:885
 msgid "Add a clone"
 msgstr "Додати клона"
 
-#: rust/crates/effects/src/fun_pack.rs:405
+#: rust/crates/effects/src/fun_pack.rs:471
 msgid "The picture changed. Take the empty room again."
 msgstr "Картинка змінилася. Зробіть знімок порожньої кімнати знову."
 
-#: rust/crates/effects/src/fun_pack.rs:407
+#: rust/crates/effects/src/fun_pack.rs:473
 msgid "Take the empty room first."
 msgstr "Спочатку зніміть порожню кімнату."
 
-#: rust/crates/effects/src/fun_pack.rs:539
+#: rust/crates/effects/src/fun_pack.rs:605
 msgid "Take the empty room first so you can be cut out."
 msgstr "Спочатку зробіть знімок порожньої кімнати, щоб можна було вирізати ваш силует."
 
-#: rust/crates/effects/src/fun_pack.rs:683 rust/crates/effects/src/fun_pack.rs:774 rust/crates/effects/ui/fun_pack.slint:50
+#: rust/crates/effects/src/fun_pack.rs:749 rust/crates/effects/src/fun_pack.rs:840 rust/crates/effects/ui/fun_pack.slint:50
 msgid "Fun pack"
 msgstr "Набір розваг"
 
-#: rust/crates/effects/src/fun_pack.rs:684
+#: rust/crates/effects/src/fun_pack.rs:750
 msgid "Add silly effects like clones, an invisibility cloak, light painting, retro looks and datamosh."
 msgstr "Додавайте кумедні ефекти, як-от клони, плащ-невидимка, малювання світлом, ретростилі та датамош."
 
-#: rust/crates/effects/src/fun_pack.rs:685
+#: rust/crates/effects/src/fun_pack.rs:751
 msgid "Without the Fun pack plugin there's no Fun pack card and the picture has no effects."
 msgstr "Без плагіна «Розважальний набір» немає картки «Розважальний набір», і картинка не має ефектів."
 
-#: rust/crates/effects/src/fun_pack.rs:778 rust/crates/effects/src/fun_pack.rs:834
+#: rust/crates/effects/src/fun_pack.rs:844 rust/crates/effects/src/fun_pack.rs:900
 msgid "Datamosh smear"
 msgstr "Змазування датамошу"
 
-#: rust/crates/effects/src/fun_pack.rs:781 rust/crates/effects/src/fun_pack.rs:804
+#: rust/crates/effects/src/fun_pack.rs:847 rust/crates/effects/src/fun_pack.rs:870
 msgid "Fun pack effect"
 msgstr "Ефект набору розваг"
 
-#: rust/crates/effects/src/fun_pack.rs:784 rust/crates/effects/src/fun_pack.rs:826
+#: rust/crates/effects/src/fun_pack.rs:850 rust/crates/effects/src/fun_pack.rs:892
 msgid "Clean up the datamosh"
 msgstr "Очистити датамош"
 
@@ -1954,7 +2002,7 @@ msgid "Pill"
 msgstr "Капсула"
 
 #. Light and Heavy are the names of the two stream formats
-#: rust/crates/effects/src/name_tag.rs:20 rust/crates/outputs/src/stream_output.rs:790 rust/crates/outputs/src/stream_output.rs:1005 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:116 rust/crates/outputs/ui/stream_output.slint:120 rust/crates/setup/src/stats_phone.rs:98 rust/crates/setup/ui/setup.slint:483
+#: rust/crates/effects/src/name_tag.rs:20 rust/crates/outputs/src/stream_output.rs:790 rust/crates/outputs/src/stream_output.rs:1005 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:116 rust/crates/outputs/ui/stream_output.slint:120 rust/crates/setup/src/stats_phone.rs:98 rust/crates/setup/ui/setup.slint:553
 msgid "Light"
 msgstr "Легкий"
 
@@ -2251,11 +2299,11 @@ msgstr "Відкрити налаштування «В ефірі»."
 msgid "Open the link in a browser on any device on the same network and tap the page to make it full screen. The link is the same after Telescope restarts."
 msgstr "Відкрийте посилання у браузері на будь-якому пристрої в тій самій мережі й торкніться сторінки, щоб розгорнути її на весь екран. Посилання залишається тим самим після перезапуску Telescope."
 
-#: rust/crates/effects/src/on_air_plugin.rs:206 rust/crates/effects/src/on_air_plugin.rs:496 rust/crates/effects/ui/on_air.slint:313 rust/crates/effects/ui/on_air_header.slint:14 rust/crates/effects/ui/on_air_header.slint:16
+#: rust/crates/effects/src/on_air_plugin.rs:206 rust/crates/effects/src/on_air_plugin.rs:496 rust/crates/effects/ui/on_air.slint:319 rust/crates/effects/ui/on_air_header.slint:14 rust/crates/effects/ui/on_air_header.slint:16
 msgid "On air"
 msgstr "В ефірі"
 
-#: rust/crates/effects/src/on_air_plugin.rs:206 rust/crates/effects/src/on_air_plugin.rs:496 rust/crates/effects/ui/on_air.slint:314
+#: rust/crates/effects/src/on_air_plugin.rs:206 rust/crates/effects/src/on_air_plugin.rs:496 rust/crates/effects/ui/on_air.slint:320
 msgid "Off air"
 msgstr "Не в ефірі"
 
@@ -2302,7 +2350,7 @@ msgstr "Не вдалося запустити: {error}"
 msgid "The address has to start with http:// or https://"
 msgstr "Адреса має починатися з http:// або https://"
 
-#: rust/crates/effects/src/on_air_plugin.rs:483 rust/crates/effects/ui/on_air.slint:165
+#: rust/crates/effects/src/on_air_plugin.rs:483 rust/crates/effects/ui/on_air.slint:169
 msgid "Show the sign on a web page"
 msgstr "Показувати табличку на вебсторінці"
 
@@ -2310,11 +2358,11 @@ msgstr "Показувати табличку на вебсторінці"
 msgid "Scan"
 msgstr "Сканувати"
 
-#: rust/crates/effects/src/on_air_plugin.rs:484 rust/crates/effects/src/qr_reader.rs:527 rust/crates/link/ui/browser_camera.slint:178 rust/crates/link/ui/browser_camera.slint:179 rust/crates/setup/src/setup.rs:445 rust/crates/setup/ui/parts.slint:91 rust/crates/setup/ui/parts.slint:92 rust/crates/system/ui/mcp.slint:118 rust/crates/system/ui/mcp.slint:119 rust/crates/system/ui/shortcuts.slint:356
+#: rust/crates/effects/src/on_air_plugin.rs:484 rust/crates/effects/src/qr_reader.rs:527 rust/crates/link/ui/browser_camera.slint:178 rust/crates/link/ui/browser_camera.slint:179 rust/crates/setup/src/setup.rs:504 rust/crates/setup/ui/parts.slint:91 rust/crates/setup/ui/parts.slint:92 rust/crates/system/ui/mcp.slint:120 rust/crates/system/ui/mcp.slint:121 rust/crates/system/ui/shortcuts.slint:356
 msgid "Copy"
 msgstr "Копіювати"
 
-#: rust/crates/effects/src/on_air_plugin.rs:555 rust/crates/effects/ui/on_air.slint:116
+#: rust/crates/effects/src/on_air_plugin.rs:555 rust/crates/effects/ui/on_air.slint:118
 msgid "On Air sign"
 msgstr "Табличка «В ефірі»"
 
@@ -2467,7 +2515,7 @@ msgstr "Якість JPEG встановлюється камерою"
 msgid "RAW photos have no quality setting"
 msgstr "Для фото у форматі RAW немає налаштування якості"
 
-#: rust/crates/effects/src/photos.rs:59 rust/crates/shell/src/streams.rs:824
+#: rust/crates/effects/src/photos.rs:59 rust/crates/shell/src/streams.rs:832
 msgid "The camera is already taking a photo."
 msgstr "Камера вже робить фото."
 
@@ -2479,7 +2527,7 @@ msgstr "Камері не вдалося зробити фото."
 msgid "Like the video"
 msgstr "Як у відео"
 
-#: rust/crates/effects/src/photos.rs:331 rust/crates/effects/src/photos.rs:460
+#: rust/crates/effects/src/photos.rs:331 rust/crates/effects/src/photos.rs:460 rust/crates/setup/src/setup.rs:493
 #, python-brace-format
 msgid "{seconds} s"
 msgstr "{seconds} с"
@@ -2767,7 +2815,7 @@ msgstr "Робіть обидва телефони яскравішими чи �
 msgid "Drop the colour curve Match made and leave the phones' exposure as it is."
 msgstr "Скинути колірну криву, створену під час узгодження, і залишити експозицію телефонів без змін."
 
-#: rust/crates/effects/src/stereo_plugin.rs:719 rust/crates/effects/src/stereo_plugin.rs:1169 rust/crates/effects/src/stereo_plugin.rs:1309 rust/crates/effects/src/stereo_plugin.rs:1309 rust/crates/effects/src/stereo_plugin.rs:1321 rust/crates/effects/ui/stereo.slint:55
+#: rust/crates/effects/src/stereo_plugin.rs:719 rust/crates/effects/src/stereo_plugin.rs:1172 rust/crates/effects/src/stereo_plugin.rs:1311 rust/crates/effects/src/stereo_plugin.rs:1311 rust/crates/effects/src/stereo_plugin.rs:1323 rust/crates/effects/ui/stereo.slint:55
 msgid "3D"
 msgstr "3D"
 
@@ -2783,7 +2831,7 @@ msgstr "Червоний/блакитний"
 msgid "Start a second stream to get the 3D picture."
 msgstr "Запустіть другу трансляцію, щоб отримати 3D-картинку."
 
-#: rust/crates/effects/src/stereo_plugin.rs:737 rust/crates/shell/src/streams.rs:1077
+#: rust/crates/effects/src/stereo_plugin.rs:737 rust/crates/shell/src/streams.rs:1085
 msgid "Waiting"
 msgstr "Очікування"
 
@@ -2847,11 +2895,11 @@ msgstr "Не вдалося узгодити"
 msgid "Telescope couldn't read both phones and their pictures. Nothing was matched."
 msgstr "Telescope не зміг прочитати вміст обох телефонів та їхні картинки. Нічого не було узгоджено."
 
-#: rust/crates/effects/src/stereo_plugin.rs:1170
+#: rust/crates/effects/src/stereo_plugin.rs:1173
 msgid "Turn two phones into one 3D picture, side by side for a headset or red and cyan for glasses."
 msgstr "Перетворюйте два телефони на одну 3D-картинку: режим «Поруч» для гарнітури або червоний і блакитний для окулярів."
 
-#: rust/crates/effects/src/stereo_plugin.rs:1171
+#: rust/crates/effects/src/stereo_plugin.rs:1174
 msgid "Without the 3D plugin there's no 3D card and two streams only go to their own cameras."
 msgstr "Без плагіна «3D» немає картки «3D», і дві трансляції йдуть лише на власні камери."
 
@@ -3081,7 +3129,7 @@ msgstr "Який прилад відображається на попередн
 msgid "Set the peaking colour, sensitivity, zebra level and scope size back to default."
 msgstr "Скинути колір підсвічування фокусу, чутливість, рівень зебри та розмір осцилографа до значень за замовчуванням."
 
-#: rust/crates/effects/ui/cinema.slint:166 rust/crates/effects/ui/cinema.slint:178
+#: rust/crates/effects/ui/cinema.slint:166 rust/crates/effects/ui/cinema.slint:180
 msgid "Peaking colour"
 msgstr "Колір пікінгу"
 
@@ -3089,19 +3137,19 @@ msgstr "Колір пікінгу"
 msgid "The colour that marks the sharp parts of the picture"
 msgstr "Колір, яким позначаються різкі частини картинки"
 
-#: rust/crates/effects/ui/cinema.slint:185
+#: rust/crates/effects/ui/cinema.slint:187
 msgid "Peaking sensitivity"
 msgstr "Чутливість пікінгу"
 
-#: rust/crates/effects/ui/cinema.slint:198
+#: rust/crates/effects/ui/cinema.slint:200
 msgid "Zebras from"
 msgstr "Зебра від"
 
-#: rust/crates/effects/ui/cinema.slint:211 rust/crates/effects/ui/cinema.slint:223
+#: rust/crates/effects/ui/cinema.slint:213 rust/crates/effects/ui/cinema.slint:225
 msgid "Scope size"
 msgstr "Розмір відеоскопа"
 
-#: rust/crates/effects/ui/cinema.slint:212
+#: rust/crates/effects/ui/cinema.slint:214
 msgid "How big the scope is on the preview"
 msgstr "Розмір осцилографа на попередньому перегляді"
 
@@ -3193,7 +3241,7 @@ msgstr "Крива"
 msgid "All"
 msgstr "Усі"
 
-#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/system/ui/updates.slint:173 rust/crates/system/ui/updates.slint:182
+#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/system/ui/updates.slint:173 rust/crates/system/ui/updates.slint:184
 msgid "Channel"
 msgstr "Канал"
 
@@ -3233,7 +3281,7 @@ msgstr "Експортувати корекцію"
 msgid "Save the grade and LUT as a .cube file to use in other apps."
 msgstr "Зберегти корекцію та LUT як файл .cube для використання в інших програмах."
 
-#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:798
+#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:846
 msgid "Replace"
 msgstr "Замінити"
 
@@ -3305,7 +3353,7 @@ msgstr "Зберегти як"
 msgid "Save this layout under a new name."
 msgstr "Зберегти цю композицію під новою назвою."
 
-#: rust/crates/effects/ui/composite_editor.slint:392 rust/crates/effects/ui/composite_editor.slint:392 rust/crates/link/ui/connection.slint:116 rust/crates/setup/src/setup.rs:662 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/src/plugins/presets.rs:215
+#: rust/crates/effects/ui/composite_editor.slint:392 rust/crates/effects/ui/composite_editor.slint:392 rust/crates/link/ui/connection.slint:116 rust/crates/setup/src/setup.rs:721 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/src/plugins/presets.rs:215
 msgid "Rename"
 msgstr "Перейменувати"
 
@@ -3357,7 +3405,7 @@ msgstr "Наскільки товстою є рамка."
 msgid "Border colour"
 msgstr "Колір рамки"
 
-#: rust/crates/effects/ui/composite_editor.slint:496
+#: rust/crates/effects/ui/composite_editor.slint:496 rust/crates/setup/ui/setup.slint:589 rust/crates/setup/ui/setup.slint:599
 msgid "Corners"
 msgstr "Кути"
 
@@ -3397,7 +3445,7 @@ msgstr "Замінити макет"
 msgid "Name:"
 msgstr "Назва:"
 
-#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:439 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1065 rust/crates/shell/ui/settings.slint:587
+#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1111 rust/crates/shell/ui/settings.slint:587
 msgid "OK"
 msgstr "ОК"
 
@@ -3457,23 +3505,23 @@ msgstr "Додавайте різкість, очищуйте та викону�
 msgid "Set every filter back to neutral."
 msgstr "Скинути всі фільтри до нейтральних значень."
 
-#: rust/crates/effects/ui/framing.slint:46
+#: rust/crates/effects/ui/framing.slint:59
 msgid "Zoom and pan to follow you as you move."
 msgstr "Масштабувати й панорамувати, слідуючи за вашими рухами."
 
-#: rust/crates/effects/ui/framing.slint:60
+#: rust/crates/effects/ui/framing.slint:73
 msgid "Set the framing, speed, room and hand settings back to default."
 msgstr "Скинути налаштування кадрування, швидкості, вільного простору та рук до значень за замовчуванням."
 
-#: rust/crates/effects/ui/framing.slint:71 rust/crates/effects/ui/framing.slint:78 rust/crates/effects/ui/framing.slint:79 rust/crates/outputs/src/webcam.rs:80
+#: rust/crates/effects/ui/framing.slint:84 rust/crates/effects/ui/framing.slint:91 rust/crates/effects/ui/framing.slint:92 rust/crates/outputs/src/webcam.rs:80
 msgid "Framing"
 msgstr "Кадрування"
 
-#: rust/crates/effects/ui/framing.slint:115 rust/crates/effects/ui/framing.slint:122 rust/crates/effects/ui/framing.slint:123 rust/crates/effects/ui/notes.slint:171 rust/crates/effects/ui/notes.slint:177 rust/crates/effects/ui/notes.slint:178
+#: rust/crates/effects/ui/framing.slint:128 rust/crates/effects/ui/framing.slint:135 rust/crates/effects/ui/framing.slint:136 rust/crates/effects/ui/notes.slint:171 rust/crates/effects/ui/notes.slint:177 rust/crates/effects/ui/notes.slint:178
 msgid "Speed"
 msgstr "Швидкість"
 
-#: rust/crates/effects/ui/framing.slint:142 rust/crates/effects/ui/framing.slint:149 rust/crates/effects/ui/framing.slint:150
+#: rust/crates/effects/ui/framing.slint:155 rust/crates/effects/ui/framing.slint:162 rust/crates/effects/ui/framing.slint:163
 msgid "Room to move"
 msgstr "Простір для руху"
 
@@ -3561,7 +3609,7 @@ msgstr "Показувати ваш текст на екрані телефон�
 msgid "Set the text size, scroll mode and speed back to default. Your scripts aren't reset."
 msgstr "Скинути розмір тексту, режим прокручування та швидкість до значень за замовчуванням. Ваші тексти не скидаються."
 
-#: rust/crates/effects/ui/notes.slint:128 rust/crates/effects/ui/notes.slint:134 rust/crates/effects/ui/notes.slint:135
+#: rust/crates/effects/ui/notes.slint:128 rust/crates/effects/ui/notes.slint:134 rust/crates/effects/ui/notes.slint:135 rust/crates/setup/ui/setup.slint:607 rust/crates/setup/ui/setup.slint:617
 msgid "Text size"
 msgstr "Розмір тексту"
 
@@ -3573,109 +3621,109 @@ msgstr "Прокручування"
 msgid "Move through the script"
 msgstr "Перехід по тексту"
 
-#: rust/crates/effects/ui/on_air.slint:117
+#: rust/crates/effects/ui/on_air.slint:119
 msgid "Show the people around you that your camera or microphone is in use."
 msgstr "Показуйте людям навколо, що ваша камера або мікрофон використовуються."
 
-#: rust/crates/effects/ui/on_air.slint:123
+#: rust/crates/effects/ui/on_air.slint:125
 msgid "Set what turns the sign on air back to default. Your link, address and webhook aren't reset."
 msgstr "Скинути умови активації таблички «В ефірі» до значень за замовчуванням. Ваше посилання, адреса та вебхук не скидаються."
 
-#: rust/crates/effects/ui/on_air.slint:127
+#: rust/crates/effects/ui/on_air.slint:129
 msgid "Now"
 msgstr "Зараз"
 
-#: rust/crates/effects/ui/on_air.slint:128
+#: rust/crates/effects/ui/on_air.slint:130
 msgid "Whether the sign is on air right now"
 msgstr "Чи світиться табличка «В ефірі» просто зараз"
 
-#: rust/crates/effects/ui/on_air.slint:135 rust/crates/effects/ui/on_air.slint:142 rust/crates/effects/ui/on_air.slint:145
+#: rust/crates/effects/ui/on_air.slint:137 rust/crates/effects/ui/on_air.slint:146 rust/crates/effects/ui/on_air.slint:149
 msgid "On air when"
 msgstr "В ефірі, коли"
 
-#: rust/crates/effects/ui/on_air.slint:136
+#: rust/crates/effects/ui/on_air.slint:138
 msgid "Choose what turns the sign on."
 msgstr "Виберіть, що вмикає табличку."
 
-#: rust/crates/effects/ui/on_air.slint:152
+#: rust/crates/effects/ui/on_air.slint:156
 msgid "Sign on another device"
 msgstr "Табличка на іншому пристрої"
 
-#: rust/crates/effects/ui/on_air.slint:153
+#: rust/crates/effects/ui/on_air.slint:157
 msgctxt "search"
 msgid "tablet phone screen page link qr code"
 msgstr "планшет телефон екран сторінка посилання qr-код tablet phone screen page link qr code"
 
-#: rust/crates/effects/ui/on_air.slint:159 rust/crates/link/ui/browser_camera.slint:78
+#: rust/crates/effects/ui/on_air.slint:163 rust/crates/link/ui/browser_camera.slint:78
 msgid "New link"
 msgstr "Нове посилання"
 
-#: rust/crates/effects/ui/on_air.slint:166
+#: rust/crates/effects/ui/on_air.slint:170
 msgid "Open the sign in a browser on a tablet, a phone or another computer"
 msgstr "Відкрийте табличку у браузері на планшеті, телефоні або іншому комп'ютері"
 
-#: rust/crates/effects/ui/on_air.slint:175
+#: rust/crates/effects/ui/on_air.slint:179
 msgid "Page failed to start"
 msgstr "Не вдалося запустити сторінку"
 
-#: rust/crates/effects/ui/on_air.slint:183
+#: rust/crates/effects/ui/on_air.slint:187
 msgid "Scan the code to open the sign on another device"
 msgstr "Відскануйте код, щоб відкрити табличку на іншому пристрої"
 
-#: rust/crates/effects/ui/on_air.slint:196 rust/crates/effects/ui/on_air.slint:203 rust/crates/effects/ui/on_air.slint:206 rust/crates/effects/ui/on_air.slint:252 rust/crates/link/ui/browser_camera.slint:167 rust/crates/link/ui/browser_camera.slint:170
+#: rust/crates/effects/ui/on_air.slint:200 rust/crates/effects/ui/on_air.slint:209 rust/crates/effects/ui/on_air.slint:212 rust/crates/effects/ui/on_air.slint:258 rust/crates/link/ui/browser_camera.slint:167 rust/crates/link/ui/browser_camera.slint:170
 msgid "Address"
 msgstr "Адреса"
 
-#: rust/crates/effects/ui/on_air.slint:197
+#: rust/crates/effects/ui/on_air.slint:201
 msgid "Which of this computer's addresses the link uses"
 msgstr "Яку з адрес цього комп'ютера використовує посилання"
 
-#: rust/crates/effects/ui/on_air.slint:217 rust/crates/link/ui/browser_camera.slint:149 rust/crates/setup/src/stats.rs:400
+#: rust/crates/effects/ui/on_air.slint:223 rust/crates/link/ui/browser_camera.slint:149 rust/crates/setup/src/stats.rs:400
 msgid "Link"
 msgstr "Посилання"
 
-#: rust/crates/effects/ui/on_air.slint:239
+#: rust/crates/effects/ui/on_air.slint:245
 msgid "Webhook"
 msgstr "Вебхук"
 
-#: rust/crates/effects/ui/on_air.slint:240
+#: rust/crates/effects/ui/on_air.slint:246
 msgctxt "search"
 msgid "smart home light home assistant url http request automation"
 msgstr "розумний дім лампа світильник автоматизація запит url smart home light home assistant url http request automation"
 
-#: rust/crates/effects/ui/on_air.slint:246
+#: rust/crates/effects/ui/on_air.slint:252
 msgid "Set the method and the on air and off air texts back to default. The webhook address isn't reset."
 msgstr "Скинути метод і тексти для станів «В ефірі» та «Не в ефірі» до значень за замовчуванням. Адреса вебхука не скидається."
 
-#: rust/crates/effects/ui/on_air.slint:253
+#: rust/crates/effects/ui/on_air.slint:259
 msgid "The web address that gets a request when the sign goes on or off air"
 msgstr "Вебадреса, на яку надсилається запит, коли табличка вмикається або вимикається"
 
-#: rust/crates/effects/ui/on_air.slint:268 rust/crates/effects/ui/on_air.slint:278
+#: rust/crates/effects/ui/on_air.slint:274 rust/crates/effects/ui/on_air.slint:284
 msgid "Method"
 msgstr "Метод"
 
-#: rust/crates/effects/ui/on_air.slint:269
+#: rust/crates/effects/ui/on_air.slint:275
 msgid "How the request is sent"
 msgstr "Спосіб надсилання запиту"
 
-#: rust/crates/effects/ui/on_air.slint:270 rust/crates/effects/ui/on_air.slint:277 rust/crates/effects/ui/on_air.slint:277
+#: rust/crates/effects/ui/on_air.slint:276 rust/crates/effects/ui/on_air.slint:283 rust/crates/effects/ui/on_air.slint:283
 msgid "POST sends the text as the request body and GET adds it to the address."
 msgstr "POST надсилає текст у тілі запиту, а GET додає його до адреси."
 
-#: rust/crates/effects/ui/on_air.slint:286 rust/crates/effects/ui/on_air.slint:288
+#: rust/crates/effects/ui/on_air.slint:292 rust/crates/effects/ui/on_air.slint:294
 msgid "Going on air"
 msgstr "Вихід в ефір"
 
-#: rust/crates/effects/ui/on_air.slint:296 rust/crates/effects/ui/on_air.slint:298
+#: rust/crates/effects/ui/on_air.slint:302 rust/crates/effects/ui/on_air.slint:304
 msgid "Going off air"
 msgstr "Вихід з ефіру"
 
-#: rust/crates/effects/ui/on_air.slint:306
+#: rust/crates/effects/ui/on_air.slint:312
 msgid "Send a test"
 msgstr "Надіслати тест"
 
-#: rust/crates/effects/ui/on_air.slint:307
+#: rust/crates/effects/ui/on_air.slint:313
 msgid "Send the request now to check that it works"
 msgstr "Надіслати запит зараз, щоб перевірити його роботу"
 
@@ -4101,7 +4149,7 @@ msgstr "Не встигає"
 msgid "Browser"
 msgstr "Браузер"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:745 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1727 rust/crates/system/ui/updates.slint:166
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1736 rust/crates/system/ui/updates.slint:166
 msgid "Try again"
 msgstr "Спробувати знову"
 
@@ -4166,7 +4214,7 @@ msgstr "Перевірте, чи телефон перебуває в тій с�
 msgid "The stream is still running over {now} and Connect via is still set to {kept}."
 msgstr "Трансляція все ще працює через {now}, а для параметра «Підключення через» усе ще встановлено {kept}."
 
-#: rust/crates/link/src/connection.rs:804
+#: rust/crates/link/src/connection.rs:804 rust/crates/setup/src/setup.rs:401
 msgid "Automatic"
 msgstr "Автоматично"
 
@@ -4186,7 +4234,7 @@ msgstr "Комп'ютер"
 msgid "Checking"
 msgstr "Перевірка"
 
-#: rust/crates/link/src/connection.rs:826 rust/crates/setup/src/setup.rs:650 rust/crates/setup/src/setup.rs:659 rust/crates/setup/src/setup.rs:678 rust/crates/setup/src/setup.rs:702
+#: rust/crates/link/src/connection.rs:826 rust/crates/setup/src/setup.rs:709 rust/crates/setup/src/setup.rs:718 rust/crates/setup/src/setup.rs:737 rust/crates/setup/src/setup.rs:761
 msgid "Ready"
 msgstr "Готово"
 
@@ -4556,7 +4604,7 @@ msgstr "Очікування на {source}"
 msgid "{source}, no pairing needed"
 msgstr "{source}, створення пари не потрібне"
 
-#: rust/crates/link/src/plugin.rs:1113 rust/crates/shell/src/streams.rs:1060
+#: rust/crates/link/src/plugin.rs:1113 rust/crates/shell/src/streams.rs:1068
 msgid "Reconnecting"
 msgstr "Повторне підключення"
 
@@ -4568,7 +4616,7 @@ msgstr "Транслює через USB"
 msgid "Streaming over Wi-Fi"
 msgstr "Транслює через Wi-Fi"
 
-#: rust/crates/link/src/plugin.rs:1121 rust/crates/shell/src/streams.rs:1064
+#: rust/crates/link/src/plugin.rs:1121 rust/crates/shell/src/streams.rs:1072
 msgid "Connecting"
 msgstr "Підключення"
 
@@ -4581,7 +4629,7 @@ msgstr "Оновлення додатка на телефоні через USB�
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Додаток Telescope на {phone} старіший за цей."
 
-#: rust/crates/link/src/plugin.rs:1216 rust/crates/setup/src/setup.rs:854 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:712 rust/crates/system/src/shortcuts.rs:856
+#: rust/crates/link/src/plugin.rs:1216 rust/crates/setup/src/setup.rs:913 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:720 rust/crates/system/src/shortcuts.rs:856
 msgid "Copy command"
 msgstr "Скопіювати команду"
 
@@ -4639,7 +4687,7 @@ msgstr "Віртуальну камеру вимкнено"
 msgid "Your password is needed to switch on the virtual camera."
 msgstr "Для ввімкнення віртуальної камери потрібен ваш пароль."
 
-#: rust/crates/link/src/plugin.rs:1554 rust/crates/shell/src/plugins_tab.rs:716 rust/crates/shell/src/plugins_tab.rs:744
+#: rust/crates/link/src/plugin.rs:1554 rust/crates/shell/src/plugins_tab.rs:730 rust/crates/shell/src/plugins_tab.rs:782
 msgid "Switch on"
 msgstr "Увімкнути"
 
@@ -4675,7 +4723,7 @@ msgstr "Роздільна здатність"
 msgid "The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do."
 msgstr "Розмір, який надсилає браузер. Якщо камера не підтримує цей розмір, браузер надішле те, що підтримує камера."
 
-#: rust/crates/link/ui/browser_camera.slint:203 rust/crates/link/ui/browser_camera.slint:206 rust/crates/outputs/ui/spout.slint:31 rust/crates/outputs/ui/spout.slint:36 rust/crates/outputs/ui/spout.slint:37 rust/crates/outputs/ui/stream_output.slint:73 rust/crates/outputs/ui/stream_output.slint:78 rust/crates/outputs/ui/stream_output.slint:84 rust/crates/outputs/ui/webcam.slint:114 rust/crates/outputs/ui/webcam.slint:118 rust/crates/outputs/ui/webcam.slint:119 rust/crates/shell/src/window.rs:772
+#: rust/crates/link/ui/browser_camera.slint:203 rust/crates/link/ui/browser_camera.slint:206 rust/crates/outputs/ui/spout.slint:31 rust/crates/outputs/ui/spout.slint:36 rust/crates/outputs/ui/spout.slint:37 rust/crates/outputs/ui/stream_output.slint:73 rust/crates/outputs/ui/stream_output.slint:78 rust/crates/outputs/ui/stream_output.slint:84 rust/crates/outputs/ui/webcam.slint:114 rust/crates/outputs/ui/webcam.slint:118 rust/crates/outputs/ui/webcam.slint:119 rust/crates/shell/src/window.rs:773
 msgid "Frame rate"
 msgstr "Кадрів/с"
 
@@ -4683,7 +4731,7 @@ msgstr "Кадрів/с"
 msgid "How many pictures a second the browser sends."
 msgstr "Скільки картинок на секунду надсилає браузер."
 
-#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:23 rust/crates/setup/ui/setup.slint:23 rust/crates/shell/src/plugins_tab.rs:701 rust/crates/shell/src/plugins_tab.rs:706 rust/crates/shell/ui/settings.slint:330
+#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:23 rust/crates/setup/ui/setup.slint:23 rust/crates/shell/src/plugins_tab.rs:715 rust/crates/shell/src/plugins_tab.rs:720 rust/crates/shell/ui/settings.slint:330
 msgid "Remove"
 msgstr "Вилучити"
 
@@ -4848,143 +4896,143 @@ msgstr "транспорт мережа затримка лаги зависан
 msgid "Experimental"
 msgstr "Експериментально"
 
-#: rust/crates/outputs/src/linux_setup.rs:21
+#: rust/crates/outputs/src/linux_setup.rs:62
 msgid "Telescope couldn't ask for your password here. Run this in a terminal, then try again."
 msgstr "Telescope не зміг запитати ваш пароль тут. Виконайте це в терміналі, а потім спробуйте знову."
 
-#: rust/crates/outputs/src/linux_setup.rs:158
+#: rust/crates/outputs/src/linux_setup.rs:209
 msgid "modprobe -r failed"
 msgstr "помилка modprobe -r"
 
-#: rust/crates/outputs/src/linux_setup.rs:159
+#: rust/crates/outputs/src/linux_setup.rs:210
 msgid "Module unloaded"
 msgstr "Модуль вивантажено"
 
-#: rust/crates/outputs/src/linux_setup.rs:165
+#: rust/crates/outputs/src/linux_setup.rs:218
 msgid "reload failed"
 msgstr "помилка перезавантаження"
 
-#: rust/crates/outputs/src/linux_setup.rs:173
+#: rust/crates/outputs/src/linux_setup.rs:226
 #, python-brace-format
 msgid "{device} is missing since v4l2loopback is already loaded with other settings. Close any app using a virtual camera, click Unload and then Load."
 msgstr "{device} відсутній, оскільки v4l2loopback уже завантажено з іншими налаштуваннями. Закрийте всі програми, які використовують віртуальну камеру, натисніть «Вивантажити», а потім «Завантажити»."
 
-#: rust/crates/outputs/src/linux_setup.rs:178
+#: rust/crates/outputs/src/linux_setup.rs:231
 #, python-brace-format
 msgid "{device} already exists and is not a v4l2loopback device."
 msgstr "{device} вже існує і не є пристроєм v4l2loopback."
 
-#: rust/crates/outputs/src/linux_setup.rs:186
+#: rust/crates/outputs/src/linux_setup.rs:240
 msgid "modprobe failed"
 msgstr "помилка modprobe"
 
-#: rust/crates/outputs/src/linux_setup.rs:188
+#: rust/crates/outputs/src/linux_setup.rs:242
 #, python-brace-format
 msgid "Loaded: {phone} + {obs}"
 msgstr "Завантажено: {phone} + {obs}"
 
-#: rust/crates/outputs/src/linux_setup.rs:191
+#: rust/crates/outputs/src/linux_setup.rs:245
 msgid "v4l2loopback isn't installed. Install it via your package manager (v4l2loopback-dkms on Debian/Ubuntu/Arch, v4l2loopback via RPM Fusion on Fedora/Nobara), then try again."
 msgstr "v4l2loopback не встановлено. Встановіть його через менеджер пакетів (v4l2loopback-dkms у Debian/Ubuntu/Arch, v4l2loopback через RPM Fusion у Fedora/Nobara), а потім спробуйте знову."
 
-#: rust/crates/outputs/src/linux_setup.rs:199
+#: rust/crates/outputs/src/linux_setup.rs:254
 msgid "This v4l2loopback can't add cameras while it runs (v4l2loopback-ctl is missing). Install v4l2loopback-utils or a newer v4l2loopback, then try again."
 msgstr "Ця версія v4l2loopback не може додавати камери під час роботи (відсутній v4l2loopback-ctl). Встановіть v4l2loopback-utils або новішу версію v4l2loopback, а потім спробуйте знову."
 
-#: rust/crates/outputs/src/linux_setup.rs:202
+#: rust/crates/outputs/src/linux_setup.rs:258
 msgid "v4l2loopback-ctl add failed"
 msgstr "помилка v4l2loopback-ctl add"
 
-#: rust/crates/outputs/src/linux_setup.rs:209
+#: rust/crates/outputs/src/linux_setup.rs:266
 msgid "v4l2loopback-ctl is missing. Unloading the module, or a restart, removes them too."
 msgstr "v4l2loopback-ctl відсутній. Вивантаження модуля або перезавантаження також видалить їх."
 
-#: rust/crates/outputs/src/linux_setup.rs:212
+#: rust/crates/outputs/src/linux_setup.rs:270
 msgid "v4l2loopback-ctl delete failed (an app may still have one open)"
 msgstr "помилка v4l2loopback-ctl delete (можливо, якась програма все ще використовує пристрій)"
 
-#: rust/crates/outputs/src/linux_setup.rs:243
+#: rust/crates/outputs/src/linux_setup.rs:334
 #, python-brace-format
 msgid "Already persisted: {path}"
 msgstr "Уже збережено для автозавантаження: {path}"
 
-#: rust/crates/outputs/src/linux_setup.rs:247
+#: rust/crates/outputs/src/linux_setup.rs:338
 #, python-brace-format
 msgid "Existing v4l2loopback config found in {paths} - remove it first"
 msgstr "У {paths} знайдено наявну конфігурацію v4l2loopback - спочатку вилучіть її"
 
-#: rust/crates/outputs/src/linux_setup.rs:249
+#: rust/crates/outputs/src/linux_setup.rs:341
 msgid "Failed to write persistence files"
 msgstr "Не вдалося записати файли збереження конфігурації"
 
-#: rust/crates/outputs/src/linux_setup.rs:253
+#: rust/crates/outputs/src/linux_setup.rs:345
 #, python-brace-format
 msgid "Wrote {first} and {second}"
 msgstr "Записано {first} і {second}"
 
-#: rust/crates/outputs/src/linux_setup.rs:260
+#: rust/crates/outputs/src/linux_setup.rs:352
 msgid "Nothing to remove"
 msgstr "Немає чого вилучати"
 
-#: rust/crates/outputs/src/linux_setup.rs:263
+#: rust/crates/outputs/src/linux_setup.rs:355
 msgid "Failed to remove persistence files"
 msgstr "Не вдалося вилучити файли збереження конфігурації"
 
-#: rust/crates/outputs/src/linux_setup.rs:267
+#: rust/crates/outputs/src/linux_setup.rs:359
 #, python-brace-format
 msgid "Removed {paths}"
 msgstr "Вилучено {paths}"
 
-#: rust/crates/outputs/src/spout/mod.rs:51
+#: rust/crates/outputs/src/spout/mod.rs:54
 msgid "The sender isn't running. Start it again to continue."
 msgstr "Відправник не запущений. Запустіть його знову, щоб продовжити."
 
-#: rust/crates/outputs/src/spout/mod.rs:52
+#: rust/crates/outputs/src/spout/mod.rs:55
 msgid "The sender isn't sharing a picture. Check that it's running and sending."
 msgstr "Відправник не транслює картинку. Перевірте, чи він запущений і чи щось надсилає."
 
-#: rust/crates/outputs/src/spout/mod.rs:53
+#: rust/crates/outputs/src/spout/mod.rs:56
 msgid "Telescope can't read this sender's picture. Try another sender, or check the sender's output settings."
 msgstr "Telescope не може прочитати картинку цього відправника. Спробуйте іншого відправника або перевірте налаштування виводу відправника."
 
-#: rust/crates/outputs/src/spout/mod.rs:284
+#: rust/crates/outputs/src/spout/mod.rs:303
 msgid "Check that the sender is still running."
 msgstr "Перевірте, чи відправник усе ще працює."
 
-#: rust/crates/outputs/src/spout/mod.rs:538
+#: rust/crates/outputs/src/spout/mod.rs:559
 msgid "Sender not running"
 msgstr "Відправник не працює"
 
-#: rust/crates/outputs/src/spout/mod.rs:540 rust/crates/outputs/src/webcam.rs:961
+#: rust/crates/outputs/src/spout/mod.rs:561 rust/crates/outputs/src/webcam.rs:972
 msgid "Not sending anything"
 msgstr "Нічого не надсилає"
 
-#: rust/crates/outputs/src/spout/mod.rs:542 rust/crates/outputs/src/webcam.rs:963
+#: rust/crates/outputs/src/spout/mod.rs:563 rust/crates/outputs/src/webcam.rs:974
 msgid "Starting…"
 msgstr "Запуск…"
 
-#: rust/crates/outputs/src/spout/mod.rs:551
+#: rust/crates/outputs/src/spout/mod.rs:572
 msgid "Set how many pictures a second to take. Spout senders don't share their own rate."
 msgstr "Вкажіть, скільки картинок на секунду знімати. Відправники Spout не передають власну частоту."
 
-#: rust/crates/outputs/src/spout/mod.rs:565 rust/crates/outputs/ui/spout.slint:14
+#: rust/crates/outputs/src/spout/mod.rs:586 rust/crates/outputs/ui/spout.slint:14
 msgid "Spout capture"
 msgstr "Захоплення Spout"
 
-#: rust/crates/outputs/src/spout/mod.rs:566
+#: rust/crates/outputs/src/spout/mod.rs:587
 msgid "Stream from games, OBS and other programs on this computer that share their picture through Spout."
 msgstr "Транслюйте з ігор, OBS та інших програм на цьому комп'ютері, які передають свою картинку через Spout."
 
-#: rust/crates/outputs/src/spout/mod.rs:567
+#: rust/crates/outputs/src/spout/mod.rs:588
 msgid "Without Spout capture the senders aren't in the device picker and the Spout capture card is gone too."
 msgstr "Без захоплення Spout відправників немає у списку вибору пристроїв, а картка «Захоплення Spout» також зникає."
 
-#: rust/crates/outputs/src/spout/mod.rs:615
+#: rust/crates/outputs/src/spout/mod.rs:636
 #, python-brace-format
 msgid "{name} isn't running"
 msgstr "{name} не працює"
 
-#: rust/crates/outputs/src/spout/mod.rs:615
+#: rust/crates/outputs/src/spout/mod.rs:636
 msgid "Start it again or pick another source."
 msgstr "Запустіть знову або виберіть інше джерело."
 
@@ -5139,12 +5187,12 @@ msgstr "Якість JPEG"
 msgid "Bitrate"
 msgstr "Бітрейт"
 
-#: rust/crates/outputs/src/v4l2.rs:165
+#: rust/crates/outputs/src/v4l2.rs:160
 #, python-brace-format
 msgid "{device} is held at {width}x{height} by an app reading it"
 msgstr "{device} утримується в роздільній здатності {width}x{height} програмою, яка читає потік"
 
-#: rust/crates/outputs/src/v4l2.rs:168
+#: rust/crates/outputs/src/v4l2.rs:163
 #, python-brace-format
 msgid "{device} is set to the {format} pixel format, which Telescope can't write to it. Close the apps using it, or reload v4l2loopback without keep_format."
 msgstr "Для {device} встановлено формат пікселів {format}, у який Telescope не може писати. Закрийте програми, що його використовують, або перезавантажте v4l2loopback без keep_format."
@@ -5233,7 +5281,7 @@ msgstr "Відтінок"
 msgid "Sharpness"
 msgstr "Різкість"
 
-#: rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/src/webcam.rs:78 rust/crates/outputs/src/webcam.rs:886 rust/crates/shell/ui/cards/camera.slint:326 rust/crates/shell/ui/cards/camera.slint:334
+#: rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/src/webcam.rs:78 rust/crates/outputs/src/webcam.rs:897 rust/crates/shell/ui/cards/camera.slint:326 rust/crates/shell/ui/cards/camera.slint:334
 msgid "Focus"
 msgstr "Фокус"
 
@@ -5317,75 +5365,75 @@ msgstr "50 Гц"
 msgid "60 Hz"
 msgstr "60 Гц"
 
-#: rust/crates/outputs/src/webcam.rs:320
+#: rust/crates/outputs/src/webcam.rs:326
 msgid "Check that the webcam is plugged in."
 msgstr "Перевірте, чи вебкамера підключена."
 
-#: rust/crates/outputs/src/webcam.rs:498
+#: rust/crates/outputs/src/webcam.rs:509
 msgid "Another app may be using the webcam. Close the webcam in that app, then start streaming here."
 msgstr "Можливо, вебкамеру використовує інша програма. Закрийте вебкамеру в тій програмі, а потім почніть трансляцію тут."
 
-#: rust/crates/outputs/src/webcam.rs:500
+#: rust/crates/outputs/src/webcam.rs:511
 #, python-brace-format
 msgid "{app} is using the webcam. Close the webcam there, then start streaming here."
 msgstr "{app} використовує вебкамеру. Закрийте вебкамеру там, а потім почніть трансляцію тут."
 
-#: rust/crates/outputs/src/webcam.rs:502 rust/crates/outputs/src/webcam.rs:505 rust/crates/outputs/src/webcam.rs:508
+#: rust/crates/outputs/src/webcam.rs:513 rust/crates/outputs/src/webcam.rs:516 rust/crates/outputs/src/webcam.rs:519
 #, python-brace-format
 msgid "Can't open {name}"
 msgstr "Не вдалося відкрити {name}"
 
-#: rust/crates/outputs/src/webcam.rs:886
+#: rust/crates/outputs/src/webcam.rs:897
 msgid "Near"
 msgstr "Ближче"
 
-#: rust/crates/outputs/src/webcam.rs:886
+#: rust/crates/outputs/src/webcam.rs:897
 msgid "Far"
 msgstr "Далі"
 
-#: rust/crates/outputs/src/webcam.rs:953
+#: rust/crates/outputs/src/webcam.rs:964
 msgid "Not plugged in"
 msgstr "Не підключено"
 
-#: rust/crates/outputs/src/webcam.rs:955
+#: rust/crates/outputs/src/webcam.rs:966
 msgid "Blocked by Windows or security software"
 msgstr "Заблоковано Windows або захисною програмою"
 
-#: rust/crates/outputs/src/webcam.rs:957
+#: rust/crates/outputs/src/webcam.rs:968
 msgid "In use by another app"
 msgstr "Використовує інший додаток"
 
-#: rust/crates/outputs/src/webcam.rs:957
+#: rust/crates/outputs/src/webcam.rs:968
 #, python-brace-format
 msgid "In use by {app}"
 msgstr "Використовує {app}"
 
-#: rust/crates/outputs/src/webcam.rs:959
+#: rust/crates/outputs/src/webcam.rs:970
 msgid "Mounted as a drive"
 msgstr "Підключено як диск"
 
-#: rust/crates/outputs/src/webcam.rs:976
+#: rust/crates/outputs/src/webcam.rs:987
 msgid "The size the webcam sends. Auto takes the largest up to 1080p that still reaches the frame rate."
 msgstr "Розмір, який надсилає вебкамера. «Авто» вибирає найбільший до 1080p, який усе ще забезпечує потрібну частоту кадрів."
 
-#: rust/crates/outputs/src/webcam.rs:1011
+#: rust/crates/outputs/src/webcam.rs:1022
 msgid "Webcams"
 msgstr "Вебкамери"
 
-#: rust/crates/outputs/src/webcam.rs:1012 rust/crates/outputs/ui/webcam.slint:80
+#: rust/crates/outputs/src/webcam.rs:1023 rust/crates/outputs/ui/webcam.slint:80
 msgid "Stream from webcams and capture cards plugged into this computer."
 msgstr "Транслювати з веб-камер і карт захоплення, підключених до цього комп'ютера."
 
-#: rust/crates/outputs/src/webcam.rs:1013
+#: rust/crates/outputs/src/webcam.rs:1024
 msgid "Without the Webcams plugin webcams aren't in the device picker and the Webcam card is gone too."
 msgstr "Без плагіна «Вебкамери» вебкамер немає у списку вибору пристроїв, а картка «Вебкамера» також зникає."
 
-#: rust/crates/outputs/src/webcam.rs:1057
+#: rust/crates/outputs/src/webcam.rs:1068
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name} не підключено"
 
-#: rust/crates/outputs/src/webcam.rs:1058
+#: rust/crates/outputs/src/webcam.rs:1069
 msgid "Plug it in, or pick another camera."
 msgstr "Підключіть її або виберіть іншу камеру."
 
@@ -5449,7 +5497,7 @@ msgstr "Камера не може зняти JPEG, коли якість зоб
 msgid "The camera only sent part of the photo. The part that arrived is saved."
 msgstr "Камера надіслала лише частину фото. Частину, яка надійшла, збережено."
 
-#: rust/crates/outputs/src/wininstall.rs:256 rust/crates/setup/src/setup.rs:809
+#: rust/crates/outputs/src/wininstall.rs:256 rust/crates/setup/src/setup.rs:868
 msgid "Installed"
 msgstr "Встановлено"
 
@@ -5756,7 +5804,7 @@ msgstr "Потрібен ваш пароль (pkexec або sudo), оскіль�
 msgid "Checking..."
 msgstr "Перевірка..."
 
-#: rust/crates/setup/src/setup.rs:185 rust/crates/setup/src/setup.rs:667 rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/shell/src/plugins/onboarding.rs:146
+#: rust/crates/setup/src/setup.rs:185 rust/crates/setup/src/setup.rs:726 rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/shell/src/plugins/onboarding.rs:146
 msgid "Install driver"
 msgstr "Встановити драйвер"
 
@@ -5772,291 +5820,304 @@ msgstr "Входить до цього додатка"
 msgid "Not included with this app"
 msgstr "Не входить до цього додатка"
 
-#: rust/crates/setup/src/setup.rs:355
+#: rust/crates/setup/src/setup.rs:364
 msgid "Same as the system"
 msgstr "Як у системі"
 
 #. after a language's name in the Language list, for a translation that's only a first draft
-#: rust/crates/setup/src/setup.rs:358
+#: rust/crates/setup/src/setup.rs:367
 msgid "(beta)"
 msgstr "(бета)"
 
-#: rust/crates/setup/src/setup.rs:374
+#: rust/crates/setup/src/setup.rs:383
 msgid "Write the setting to /etc/modprobe.d/ and /etc/modules-load.d/ so the module loads after a reboot."
 msgstr "Записати параметр у /etc/modprobe.d/ та /etc/modules-load.d/, щоб модуль завантажувався після перезавантаження."
 
-#: rust/crates/setup/src/setup.rs:374
+#: rust/crates/setup/src/setup.rs:383
 msgid "Your password (pkexec or sudo) is required."
 msgstr "Потрібен ваш пароль (pkexec або sudo)."
 
-#: rust/crates/setup/src/setup.rs:387
+#: rust/crates/setup/src/setup.rs:398 rust/crates/setup/src/setup.rs:1009
+msgid "(not found)"
+msgstr ""
+
+#: rust/crates/setup/src/setup.rs:421
+#, python-brace-format
+msgid "Using {card}"
+msgstr ""
+
+#: rust/crates/setup/src/setup.rs:429
 msgid "Applying stops the stream and reloads the virtual camera. Close OBS and other apps using it first."
 msgstr "Застосування зупинить трансляцію й перезавантажить віртуальну камеру. Спершу закрийте OBS та інші програми, які її використовують."
 
-#: rust/crates/setup/src/setup.rs:388
+#: rust/crates/setup/src/setup.rs:430
 msgid "Apply and reload"
 msgstr "Застосувати й перезавантажити"
 
-#: rust/crates/setup/src/setup.rs:390
+#: rust/crates/setup/src/setup.rs:432
 msgid "Apply"
 msgstr "Застосувати"
 
-#: rust/crates/setup/src/setup.rs:390
+#: rust/crates/setup/src/setup.rs:432
 msgid "Applying restarts the stream at the new size. Remove the source and add it again if OBS loses it."
 msgstr "Застосування перезапускає трансляцію з новим розміром. Вилучіть джерело й додайте його знову, якщо OBS його втратить."
 
-#: rust/crates/setup/src/setup.rs:419 rust/crates/shell/src/plugins/onboarding.rs:157 rust/crates/shell/src/plugins/onboarding.rs:161 rust/crates/shell/src/plugins/onboarding.rs:164
+#: rust/crates/setup/src/setup.rs:462 rust/crates/shell/src/plugins/onboarding.rs:157 rust/crates/shell/src/plugins/onboarding.rs:161 rust/crates/shell/src/plugins/onboarding.rs:164
 msgid "Install over USB"
 msgstr "Встановити через USB"
 
-#: rust/crates/setup/src/setup.rs:419
+#: rust/crates/setup/src/setup.rs:462
 msgid "Choose APK"
 msgstr "Вибрати APK"
 
-#: rust/crates/setup/src/setup.rs:433
+#: rust/crates/setup/src/setup.rs:484
 msgid "This translation is a first draft and some texts might read a bit oddly."
 msgstr "Це перша чернетка перекладу, тому деякі тексти можуть звучати дивно."
 
-#: rust/crates/setup/src/setup.rs:434
+#: rust/crates/setup/src/setup.rs:485
 msgid "Missing your language, or spotted a text that reads wrong?"
 msgstr "Немає вашої мови або помітили текст, що звучить неправильно?"
 
+#: rust/crates/setup/src/setup.rs:492
+msgid "Instant"
+msgstr ""
+
 #. keep the <a href="{url}"> link and the name LunarKittyy as they are
-#: rust/crates/setup/src/setup.rs:440
+#: rust/crates/setup/src/setup.rs:499
 #, python-brace-format
 msgid "Made by <a href=\"{url}\">LunarKittyy</a>"
 msgstr "Створено <a href=\"{url}\">LunarKittyy</a>"
 
-#: rust/crates/setup/src/setup.rs:443
+#: rust/crates/setup/src/setup.rs:502
 #, python-brace-format
 msgid "Version {version}"
 msgstr "Версія {version}"
 
-#: rust/crates/setup/src/setup.rs:445 rust/crates/system/src/shortcuts.rs:856
+#: rust/crates/setup/src/setup.rs:504 rust/crates/system/src/shortcuts.rs:856
 msgid "Copied"
 msgstr "Скопійовано"
 
-#: rust/crates/setup/src/setup.rs:526
+#: rust/crates/setup/src/setup.rs:585
 msgid "Off until you restart Telescope because the graphics card failed"
 msgstr "Вимкнено до перезапуску Telescope через збій відеокарти"
 
-#: rust/crates/setup/src/setup.rs:527
+#: rust/crates/setup/src/setup.rs:586
 msgid "Paused for a few minutes because the graphics card was too slow"
 msgstr "Призупинено на кілька хвилин, оскільки відеокарта працювала занадто повільно"
 
-#: rust/crates/setup/src/setup.rs:528
+#: rust/crates/setup/src/setup.rs:587
 #, python-brace-format
 msgid "Found {device}"
 msgstr "Знайдено {device}"
 
-#: rust/crates/setup/src/setup.rs:529
+#: rust/crates/setup/src/setup.rs:588
 msgid "No graphics card Telescope can use"
 msgstr "Немає відеокарти, яку може використовувати Telescope"
 
-#: rust/crates/setup/src/setup.rs:546
+#: rust/crates/setup/src/setup.rs:605
 #, python-brace-format
 msgid "Ready: {phone} + {obs}"
 msgstr "Готово: {phone} + {obs}"
 
-#: rust/crates/setup/src/setup.rs:548
+#: rust/crates/setup/src/setup.rs:607
 #, python-brace-format
 msgid "Module loaded but {device} not found - another config active"
 msgstr "Модуль завантажено, але {device} не знайдено - активна інша конфігурація"
 
-#: rust/crates/setup/src/setup.rs:550
+#: rust/crates/setup/src/setup.rs:609
 msgid "Not loaded - click Load"
 msgstr "Не завантажено - натисніть «Завантажити»"
 
-#: rust/crates/setup/src/setup.rs:561
+#: rust/crates/setup/src/setup.rs:620
 msgid "Loading..."
 msgstr "Завантаження..."
 
-#: rust/crates/setup/src/setup.rs:566
+#: rust/crates/setup/src/setup.rs:625
 msgid "Unloading..."
 msgstr "Вивантаження..."
 
-#: rust/crates/setup/src/setup.rs:572
+#: rust/crates/setup/src/setup.rs:631
 #, python-brace-format
 msgid "Loaded - {message}"
 msgstr "Завантажено - {message}"
 
-#: rust/crates/setup/src/setup.rs:573
+#: rust/crates/setup/src/setup.rs:632
 #, python-brace-format
 msgid "Unloaded - {message}"
 msgstr "Вивантажено - {message}"
 
-#: rust/crates/setup/src/setup.rs:574
+#: rust/crates/setup/src/setup.rs:633
 #, python-brace-format
 msgid "Failed - {message}"
 msgstr "Помилка - {message}"
 
-#: rust/crates/setup/src/setup.rs:583
+#: rust/crates/setup/src/setup.rs:642
 msgid "Working..."
 msgstr "Виконується..."
 
-#: rust/crates/setup/src/setup.rs:608
+#: rust/crates/setup/src/setup.rs:667
 msgid "Stop the streams going to them first."
 msgstr "Спершу зупиніть трансляції, які йдуть на них."
 
-#: rust/crates/setup/src/setup.rs:610
+#: rust/crates/setup/src/setup.rs:669
 msgid "Go back to one camera. Use Add camera to set up the others again."
 msgstr "Повернутися до однієї камери. Скористайтеся кнопкою «Додати камеру», щоб налаштувати інші знову."
 
-#: rust/crates/setup/src/setup.rs:611
+#: rust/crates/setup/src/setup.rs:670
 msgid "Your password is required."
 msgstr "Потрібен ваш пароль."
 
-#: rust/crates/setup/src/setup.rs:611 rust/crates/shell/src/extra_cameras.rs:87
+#: rust/crates/setup/src/setup.rs:670 rust/crates/shell/src/extra_cameras.rs:87
 msgid "Windows asks for permission."
 msgstr "Windows запитує дозвіл."
 
-#: rust/crates/setup/src/setup.rs:618
+#: rust/crates/setup/src/setup.rs:677
 msgid "Removing…"
 msgstr "Вилучення…"
 
-#: rust/crates/setup/src/setup.rs:625
+#: rust/crates/setup/src/setup.rs:684
 msgid "Removed"
 msgstr "Вилучено"
 
-#: rust/crates/setup/src/setup.rs:629
+#: rust/crates/setup/src/setup.rs:688
 #, python-brace-format
 msgid "Couldn't remove them: {message}"
 msgstr "Не вдалося їх вилучити: {message}"
 
-#: rust/crates/setup/src/setup.rs:650 rust/crates/setup/src/setup.rs:656 rust/crates/setup/src/setup.rs:659 rust/crates/setup/src/setup.rs:703
+#: rust/crates/setup/src/setup.rs:709 rust/crates/setup/src/setup.rs:715 rust/crates/setup/src/setup.rs:718 rust/crates/setup/src/setup.rs:762
 msgid "Reinstall"
 msgstr "Перевстановити"
 
-#: rust/crates/setup/src/setup.rs:652
+#: rust/crates/setup/src/setup.rs:711
 msgid "Update ready"
 msgstr "Оновлення готове"
 
-#: rust/crates/setup/src/setup.rs:652
+#: rust/crates/setup/src/setup.rs:711
 msgid "Some apps can't see the camera"
 msgstr "Деякі програми не бачать камеру"
 
-#: rust/crates/setup/src/setup.rs:653 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
+#: rust/crates/setup/src/setup.rs:712 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
 msgid "Update"
 msgstr "Оновити"
 
-#: rust/crates/setup/src/setup.rs:653
+#: rust/crates/setup/src/setup.rs:712
 msgid "Install the camera every Windows 11 app can see (Windows asks for admin access once)."
 msgstr "Встановити камеру, яку бачать усі програми у Windows 11 (Windows один раз запитає права адміністратора)."
 
-#: rust/crates/setup/src/setup.rs:656
+#: rust/crates/setup/src/setup.rs:715
 msgid "Reinstall for a security fix"
 msgstr "Перевстановіть для виправлення безпеки"
 
-#: rust/crates/setup/src/setup.rs:657
+#: rust/crates/setup/src/setup.rs:716
 msgid "Move the driver into Program Files (Windows asks for admin access once)."
 msgstr "Перемістити драйвер у Program Files (Windows один раз запитає права адміністратора)."
 
-#: rust/crates/setup/src/setup.rs:662
+#: rust/crates/setup/src/setup.rs:721
 #, python-brace-format
 msgid "Apps list it as “{name}”"
 msgstr "У додатках вона відображається як «{name}»"
 
-#: rust/crates/setup/src/setup.rs:663
+#: rust/crates/setup/src/setup.rs:722
 #, python-brace-format
 msgid "Register it again as “{name}”."
 msgstr "Зареєструвати її знову як “{name}”."
 
-#: rust/crates/setup/src/setup.rs:666 rust/crates/shell/src/plugins/onboarding.rs:138 rust/crates/shell/src/plugins/onboarding.rs:146
+#: rust/crates/setup/src/setup.rs:725 rust/crates/shell/src/plugins/onboarding.rs:138 rust/crates/shell/src/plugins/onboarding.rs:146
 msgid "Not installed"
 msgstr "Не встановлено"
 
-#: rust/crates/setup/src/setup.rs:666
+#: rust/crates/setup/src/setup.rs:725
 msgid "Not installed (Install driver downloads it first)"
 msgstr "Не встановлено («Встановити драйвер» спочатку завантажує його)"
 
-#: rust/crates/setup/src/setup.rs:680
+#: rust/crates/setup/src/setup.rs:739
 msgid "Not found. Pairing and installing over USB need adb; Wi-Fi doesn't."
 msgstr "Не знайдено. Для створення пари та встановлення через USB потрібен adb; для Wi-Fi він не потрібен."
 
-#: rust/crates/setup/src/setup.rs:706 rust/crates/setup/src/setup.rs:870
+#: rust/crates/setup/src/setup.rs:765 rust/crates/setup/src/setup.rs:929
 #, python-brace-format
 msgid "Failed: {message}"
 msgstr "Помилка: {message}"
 
-#: rust/crates/setup/src/setup.rs:707
+#: rust/crates/setup/src/setup.rs:766
 msgid "Retry"
 msgstr "Спробувати знову"
 
-#: rust/crates/setup/src/setup.rs:738
+#: rust/crates/setup/src/setup.rs:797
 #, python-brace-format
 msgid "Ready (adb {version}, from Google)"
 msgstr "Готово (adb {version}, від Google)"
 
-#: rust/crates/setup/src/setup.rs:739
+#: rust/crates/setup/src/setup.rs:798
 msgid "Ready (adb, from Google)"
 msgstr "Готово (adb, від Google)"
 
-#: rust/crates/setup/src/setup.rs:740
+#: rust/crates/setup/src/setup.rs:799
 #, python-brace-format
 msgid "Ready (adb {version})"
 msgstr "Готово (adb {version})"
 
-#: rust/crates/setup/src/setup.rs:741
+#: rust/crates/setup/src/setup.rs:800
 msgid "Ready (adb)"
 msgstr "Готово (adb)"
 
-#: rust/crates/setup/src/setup.rs:755
+#: rust/crates/setup/src/setup.rs:814
 msgid "Installing over USB needs adb. Install it from your distro's packages."
 msgstr "Для встановлення через USB потрібен adb. Встановіть його з пакетів вашого дистрибутива."
 
-#: rust/crates/setup/src/setup.rs:757
+#: rust/crates/setup/src/setup.rs:816
 msgid "Installing over USB needs adb. Click Get adb under Virtual camera above."
 msgstr "Для встановлення через USB потрібен adb. Натисніть «Отримати adb» у розділі «Віртуальна камера» вище."
 
-#: rust/crates/setup/src/setup.rs:765
+#: rust/crates/setup/src/setup.rs:824
 msgid "Select APK"
 msgstr "Вибрати APK"
 
-#: rust/crates/setup/src/setup.rs:766
+#: rust/crates/setup/src/setup.rs:825
 msgid "Android Package (*.apk)"
 msgstr "Пакет Android (*.apk)"
 
-#: rust/crates/setup/src/setup.rs:783 rust/crates/shell/src/plugins/mod.rs:32
+#: rust/crates/setup/src/setup.rs:842 rust/crates/shell/src/plugins/mod.rs:32
 msgid "No phone found over USB. Plug it in and allow USB debugging when the phone asks."
 msgstr "Телефон не знайдено через USB. Підключіть його та дозвольте налагодження через USB, коли телефон запитає."
 
-#: rust/crates/setup/src/setup.rs:799
+#: rust/crates/setup/src/setup.rs:858
 msgid "Installing..."
 msgstr "Встановлення..."
 
-#: rust/crates/setup/src/setup.rs:831
+#: rust/crates/setup/src/setup.rs:890
 msgid "Reloading loopback..."
 msgstr "Перезавантаження loopback..."
 
-#: rust/crates/setup/src/setup.rs:831
+#: rust/crates/setup/src/setup.rs:890
 msgid "Restarting stream..."
 msgstr "Перезапуск трансляції..."
 
-#: rust/crates/setup/src/setup.rs:852 rust/crates/shell/src/streams.rs:713
+#: rust/crates/setup/src/setup.rs:911 rust/crates/shell/src/streams.rs:721
 msgid "Resize the virtual camera"
 msgstr "Змінити розмір віртуальної камери"
 
-#: rust/crates/setup/src/setup.rs:866
+#: rust/crates/setup/src/setup.rs:925
 msgid "Done - loopback reloaded."
 msgstr "Готово - loopback перезавантажено."
 
-#: rust/crates/setup/src/setup.rs:866
+#: rust/crates/setup/src/setup.rs:925
 msgid "Done - canvas updated."
 msgstr "Готово - полотно оновлено."
 
-#: rust/crates/setup/src/setup.rs:868
+#: rust/crates/setup/src/setup.rs:927
 msgid "Failed: still in use. Close OBS and other apps using it, then try again."
 msgstr "Помилка: ще використовується. Закрийте OBS та інші програми, що її використовують, і спробуйте знову."
 
-#: rust/crates/setup/src/setup.rs:1111
+#: rust/crates/setup/src/setup.rs:1187
 msgid "Advanced settings"
 msgstr "Розширені налаштування"
 
-#: rust/crates/setup/src/setup.rs:1112
+#: rust/crates/setup/src/setup.rs:1188
 msgid "Set up the virtual camera, its size, extra cameras and the video and microphone limits, and check for updates."
 msgstr "Налаштуйте віртуальну камеру, її розмір, додаткові камери та обмеження відео й мікрофона, а також перевірте наявність оновлень."
 
-#: rust/crates/setup/src/setup.rs:1211
+#: rust/crates/setup/src/setup.rs:1287
 msgid "Use my own adb…"
 msgstr "Використати власний adb…"
 
@@ -6064,7 +6125,7 @@ msgstr "Використати власний adb…"
 msgid "Not available yet"
 msgstr "Ще недоступно"
 
-#: rust/crates/setup/src/stats.rs:196 rust/crates/setup/src/stats_phone.rs:88 rust/crates/setup/src/stats_phone.rs:92 rust/crates/shell/src/window.rs:764
+#: rust/crates/setup/src/stats.rs:196 rust/crates/setup/src/stats_phone.rs:88 rust/crates/setup/src/stats_phone.rs:92 rust/crates/shell/src/window.rs:765
 #, python-brace-format
 msgid "{n} fps"
 msgstr "{n} fps"
@@ -6222,7 +6283,7 @@ msgstr "TCP"
 msgid "From the phone"
 msgstr "З телефону"
 
-#: rust/crates/setup/src/stats.rs:427 rust/crates/setup/ui/setup.slint:69 rust/crates/shell/src/window.rs:771
+#: rust/crates/setup/src/stats.rs:427 rust/crates/setup/ui/setup.slint:69 rust/crates/shell/src/window.rs:772
 msgid "Virtual camera"
 msgstr "Віртуальна камера"
 
@@ -6625,367 +6686,507 @@ msgstr "Власний"
 msgid "Pick an adb.exe or platform-tools zip you already have."
 msgstr "Вибрати наявний файл adb.exe або архів zip із platform-tools."
 
-#: rust/crates/setup/ui/setup.slint:207
+#: rust/crates/setup/ui/setup.slint:213
 msgid "Hardware acceleration, power saving, zoom range and the virtual camera's size."
 msgstr "Апаратне прискорення, енергозбереження, діапазон масштабу та розмір віртуальної камери."
 
-#: rust/crates/setup/ui/setup.slint:211
+#: rust/crates/setup/ui/setup.slint:217
 msgid "Set hardware acceleration, power saving, zoom range and canvas size back to default. The canvas size changes when you press Apply."
 msgstr "Скинути апаратне прискорення, енергозбереження, діапазон масштабування та розмір полотна до значень за замовчуванням. Розмір полотна зміниться після натискання кнопки «Застосувати»."
 
-#: rust/crates/setup/ui/setup.slint:213
+#: rust/crates/setup/ui/setup.slint:219
 msgctxt "search"
 msgid "picture quality image stream camera output"
 msgstr "якість картинки зображення потік вихідний потік камери picture quality image stream camera output"
 
-#: rust/crates/setup/ui/setup.slint:220 rust/crates/setup/ui/setup.slint:221
+#: rust/crates/setup/ui/setup.slint:226 rust/crates/setup/ui/setup.slint:227
 msgid "Hardware acceleration"
 msgstr "Апаратне прискорення"
 
-#: rust/crates/setup/ui/setup.slint:222
+#: rust/crates/setup/ui/setup.slint:228
 msgid "Decode the Light format on the graphics card from the next stream on. The processor is used until you restart Telescope if the graphics card fails."
 msgstr "Декодувати формат «Легкий» на відеокарті, починаючи з наступної трансляції. У разі збою відеокарти використовуватиметься процесор, доки ви не перезапустите Telescope."
 
-#: rust/crates/setup/ui/setup.slint:223
+#: rust/crates/setup/ui/setup.slint:229
 msgctxt "search"
 msgid "hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu processor laptop 4k"
 msgstr "апаратне прискорення відеокарта графічний процесор декодування швидше процесор ноутбук hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu processor laptop 4k"
 
-#: rust/crates/setup/ui/setup.slint:233 rust/crates/setup/ui/setup.slint:234
+#: rust/crates/setup/ui/setup.slint:240 rust/crates/setup/ui/setup.slint:251
+msgid "Graphics card"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:241
+msgid "Which graphics card Telescope uses"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:242
+msgid "Automatic follows what your system picks. Choose a card here if the system picks the wrong one. A change applies after a restart."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:245
+msgctxt "search"
+msgid "gpu graphics card nvidia amd intel integrated discrete laptop hybrid switch choose select"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:264 rust/crates/setup/ui/setup.slint:722
+msgid "Restart to switch"
+msgstr "Перезапустіть для зміни"
+
+#: rust/crates/setup/ui/setup.slint:264
+msgid "Restart Telescope to use the graphics card you picked."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:266 rust/crates/setup/ui/setup.slint:724 rust/crates/shell/ui/card-order.slint:265 rust/crates/shell/ui/restart-bar.slint:15 rust/crates/shell/ui/restart-bar.slint:45
+msgid "Restart now"
+msgstr "Перезапустити зараз"
+
+#: rust/crates/setup/ui/setup.slint:270 rust/crates/setup/ui/setup.slint:728 rust/crates/shell/src/plugins_tab.rs:743 rust/crates/shell/ui/card-order.slint:265
+msgid "Restart"
+msgstr "Перезапустити"
+
+#: rust/crates/setup/ui/setup.slint:271
+msgid "Restart Telescope with the graphics card you picked."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:280 rust/crates/setup/ui/setup.slint:281
 msgid "Power-saving effects"
 msgstr "Енергоощадні ефекти"
 
-#: rust/crates/setup/ui/setup.slint:235
+#: rust/crates/setup/ui/setup.slint:282
 msgid "Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later."
 msgstr "Використовувати менше ресурсів процесора й акумулятора, коли увімкнено «Фон» або «Автокадрування». Обидва реагують на швидкі рухи трохи пізніше."
 
-#: rust/crates/setup/ui/setup.slint:236
+#: rust/crates/setup/ui/setup.slint:283
 msgctxt "search"
 msgid "battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
 msgstr "батарея акумулятор живлення енергія вати ноутбук процесор навантаження вентилятор нагрів повільно розмиття кадрування легші ефекти якість battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
 
-#: rust/crates/setup/ui/setup.slint:243 rust/crates/setup/ui/setup.slint:252
+#: rust/crates/setup/ui/setup.slint:290 rust/crates/setup/ui/setup.slint:299
 msgid "Max zoom"
 msgstr "Макс. масштаб"
 
-#: rust/crates/setup/ui/setup.slint:244
+#: rust/crates/setup/ui/setup.slint:291
 msgid "How far the Zoom slider goes"
 msgstr "Діапазон повзунка «Масштаб»"
 
-#: rust/crates/setup/ui/setup.slint:245
+#: rust/crates/setup/ui/setup.slint:292
 msgid "Zoom beyond the phone's own range is cropped on this computer."
 msgstr "Масштабування понад власний діапазон телефону обрізається на цьому комп'ютері."
 
-#: rust/crates/setup/ui/setup.slint:248
+#: rust/crates/setup/ui/setup.slint:295
 msgctxt "search"
 msgid "zoom limit magnify telephoto digital crop 10x 30x slider range"
 msgstr "масштаб наближення ліміт збільшення телеоб'єктив цифровий обрізка повзунок діапазон zoom limit magnify telephoto digital crop 10x 30x slider range"
 
-#: rust/crates/setup/ui/setup.slint:261 rust/crates/setup/ui/setup.slint:271 rust/crates/setup/ui/setup.slint:286 rust/crates/setup/ui/setup.slint:294
+#: rust/crates/setup/ui/setup.slint:308 rust/crates/setup/ui/setup.slint:320 rust/crates/setup/ui/setup.slint:335 rust/crates/setup/ui/setup.slint:343
 msgid "Canvas size"
 msgstr "Розмір полотна"
 
-#: rust/crates/setup/ui/setup.slint:262
+#: rust/crates/setup/ui/setup.slint:309
 msgid "The size of the picture other apps get from the virtual camera"
 msgstr "Розмір картинки, яку інші програми отримують із віртуальної камери"
 
-#: rust/crates/setup/ui/setup.slint:263
+#: rust/crates/setup/ui/setup.slint:310
 msgid "On Linux the virtual camera is reloaded for this. Close OBS and other apps using it first."
 msgstr "У Linux для цього перезавантажується віртуальна камера. Спочатку закрийте OBS та інші програми, які її використовують."
 
-#: rust/crates/setup/ui/setup.slint:266
+#: rust/crates/setup/ui/setup.slint:313
 msgctxt "search"
 msgid "resolution output size 1080p 720p 4k portrait landscape aspect ratio custom width height pixels apply reload"
 msgstr "роздільна здатність вихідний розмір портрет пейзаж альбомна співвідношення сторін власний ширина висота пікселі застосувати перезавантажити resolution output size 1080p 720p 4k portrait landscape aspect ratio custom width height pixels apply reload"
 
-#: rust/crates/setup/ui/setup.slint:334
+#: rust/crates/setup/ui/setup.slint:383
 msgid "Maximum microphone gain and the limiter."
 msgstr "Максимальне підсилення мікрофона та лімітер."
 
-#: rust/crates/setup/ui/setup.slint:338
+#: rust/crates/setup/ui/setup.slint:387
 msgid "Set the gain range and limiter back to default."
 msgstr "Скинути діапазон підсилення та лімітер до значень за замовчуванням."
 
-#: rust/crates/setup/ui/setup.slint:340
+#: rust/crates/setup/ui/setup.slint:389
 msgctxt "search"
 msgid "audio sound voice input volume"
 msgstr "аудіо звук голос вхідний гучність audio sound voice input volume"
 
-#: rust/crates/setup/ui/setup.slint:346 rust/crates/setup/ui/setup.slint:355
+#: rust/crates/setup/ui/setup.slint:395 rust/crates/setup/ui/setup.slint:406
 msgid "Max gain"
 msgstr "Макс. підсилення"
 
-#: rust/crates/setup/ui/setup.slint:347
+#: rust/crates/setup/ui/setup.slint:396
 msgid "How far the Gain slider goes"
 msgstr "Діапазон повзунка «Підсилення»"
 
-#: rust/crates/setup/ui/setup.slint:348
+#: rust/crates/setup/ui/setup.slint:397
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "Вужчий діапазон забезпечує точніше налаштування. Ширший діапазон допомагає для тихого телефону."
 
-#: rust/crates/setup/ui/setup.slint:351
+#: rust/crates/setup/ui/setup.slint:400
 msgctxt "search"
 msgid "microphone volume loudness boost amplify quiet decibel db slider range"
 msgstr "мікрофон гучність підсилення підсилити тихий децибели дб повзунок діапазон microphone volume loudness boost amplify quiet decibel db slider range"
 
-#: rust/crates/setup/ui/setup.slint:363 rust/crates/setup/ui/setup.slint:364
+#: rust/crates/setup/ui/setup.slint:414 rust/crates/setup/ui/setup.slint:415
 msgid "Limiter"
 msgstr "Лімітер"
 
-#: rust/crates/setup/ui/setup.slint:365
+#: rust/crates/setup/ui/setup.slint:416
 msgid "Keep loud sounds from clipping"
 msgstr "Запобігати спотворенню гучних звуків"
 
-#: rust/crates/setup/ui/setup.slint:366
+#: rust/crates/setup/ui/setup.slint:417
 msgctxt "search"
 msgid "microphone audio compressor distortion clipping loud peaks sound"
 msgstr "мікрофон аудіо компресор спотворення перевантаження кліпінг гучні піки звук microphone audio compressor distortion clipping loud peaks sound"
 
-#: rust/crates/setup/ui/setup.slint:386
+#: rust/crates/setup/ui/setup.slint:437
 msgid "Phone app"
 msgstr "Додаток на телефоні"
 
-#: rust/crates/setup/ui/setup.slint:387
+#: rust/crates/setup/ui/setup.slint:438
 msgid "Install the Telescope app on a phone over USB."
 msgstr "Встановити додаток Telescope на телефон через USB."
 
-#: rust/crates/setup/ui/setup.slint:388
+#: rust/crates/setup/ui/setup.slint:439
 msgctxt "search"
 msgid "android install apk usb"
 msgstr "андроїд встановити встановлення android install apk usb"
 
-#: rust/crates/setup/ui/setup.slint:396
+#: rust/crates/setup/ui/setup.slint:447
 msgid "The phone app that streams the camera to this computer"
 msgstr "Додаток на телефоні, який транслює камеру на цей комп'ютер"
 
-#: rust/crates/setup/ui/setup.slint:399
+#: rust/crates/setup/ui/setup.slint:450
 msgctxt "search"
 msgid "phone app install usb android reinstall newer version sideload cable"
 msgstr "додаток на телефоні встановити перевстановити новіша версія кабель phone app install usb android reinstall newer version sideload cable"
 
-#: rust/crates/setup/ui/setup.slint:406 rust/crates/shell/ui/settings.slint:441 rust/crates/shell/ui/settings.slint:442
+#: rust/crates/setup/ui/setup.slint:457 rust/crates/shell/ui/settings.slint:441 rust/crates/shell/ui/settings.slint:442
 msgid "Install"
 msgstr "Встановити"
 
-#: rust/crates/setup/ui/setup.slint:407
+#: rust/crates/setup/ui/setup.slint:458
 msgid "Install the Telescope.apk that came with this app, or an APK you pick, on a phone plugged in over USB."
 msgstr "Встановити файл Telescope.apk, що входить до цього додатка, або вибраний вами APK на телефон, підключений через USB."
 
-#: rust/crates/setup/ui/setup.slint:417 rust/crates/setup/ui/setup.slint:424
+#: rust/crates/setup/ui/setup.slint:468 rust/crates/setup/ui/setup.slint:477
 msgid "Select device"
 msgstr "Виберіть пристрій"
 
-#: rust/crates/setup/ui/setup.slint:418
+#: rust/crates/setup/ui/setup.slint:469
 msgid "Pick which phone gets the app when more than one is plugged in"
 msgstr "Виберіть, на який телефон установити додаток, якщо підключено кілька"
 
-#: rust/crates/setup/ui/setup.slint:463
-msgid "Theme, card colours and language."
-msgstr "Тема, кольори карток і мова."
+#: rust/crates/setup/ui/setup.slint:531
+msgid "Theme, colours, sizes, motion and language."
+msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:467
-msgid "Set the theme, card colours and language back to default."
-msgstr "Скинути тему, кольори карток і мову до значень за замовчуванням."
+#: rust/crates/setup/ui/setup.slint:535
+msgid "Set the theme, colours, sizes, motion, tooltips and language back to default."
+msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:469
+#: rust/crates/setup/ui/setup.slint:537
 msgctxt "search"
 msgid "appearance theme colors colours interface"
 msgstr "вигляд тема кольори інтерфейс оформлення appearance theme colors colours interface"
 
-#: rust/crates/setup/ui/setup.slint:474 rust/crates/setup/ui/setup.slint:482
+#: rust/crates/setup/ui/setup.slint:542 rust/crates/setup/ui/setup.slint:552
 msgid "Theme"
 msgstr "Тема"
 
-#: rust/crates/setup/ui/setup.slint:475
+#: rust/crates/setup/ui/setup.slint:543
 msgid "Dark, classic, OLED black or light for the whole app"
 msgstr "Темна, класична, чорна OLED або світла для всього додатка"
 
-#: rust/crates/setup/ui/setup.slint:478
+#: rust/crates/setup/ui/setup.slint:546
 msgctxt "search"
 msgid "theme classic dark blue appearance look old oled black light white"
 msgstr "тема класична темна синя вигляд оформлення стара олед чорна світла біла theme classic dark blue appearance look old oled black light white"
 
-#: rust/crates/setup/ui/setup.slint:483
+#: rust/crates/setup/ui/setup.slint:553
 msgid "Dark"
 msgstr "Темна"
 
-#: rust/crates/setup/ui/setup.slint:483
+#: rust/crates/setup/ui/setup.slint:553
 msgid "Classic"
 msgstr "Класична"
 
-#: rust/crates/setup/ui/setup.slint:483
+#: rust/crates/setup/ui/setup.slint:553
 msgid "OLED"
 msgstr "OLED"
 
-#: rust/crates/setup/ui/setup.slint:490 rust/crates/setup/ui/setup.slint:491 rust/crates/setup/ui/setup.slint:499
+#: rust/crates/setup/ui/setup.slint:560 rust/crates/setup/ui/setup.slint:561 rust/crates/setup/ui/setup.slint:571
 msgid "Card colours"
 msgstr "Кольори карток"
 
-#: rust/crates/setup/ui/setup.slint:492
+#: rust/crates/setup/ui/setup.slint:562
 msgid "Give every card in the main window a different colour."
 msgstr "Надати кожній картці в головному вікні інший колір."
 
-#: rust/crates/setup/ui/setup.slint:495
+#: rust/crates/setup/ui/setup.slint:565
 msgctxt "search"
 msgid "color colour theme appearance monochrome colourful purple hue accent look"
 msgstr "колір кольори тема вигляд монохромний кольоровий фіолетовий відтінок акцент color colour theme appearance monochrome colourful purple hue accent look"
 
-#: rust/crates/setup/ui/setup.slint:500
+#: rust/crates/setup/ui/setup.slint:572
 msgid "Colourful"
 msgstr "Кольоровий"
 
-#: rust/crates/setup/ui/setup.slint:500
+#: rust/crates/setup/ui/setup.slint:572
 msgid "Monochrome"
 msgstr "Монохромний"
 
-#: rust/crates/setup/ui/setup.slint:508 rust/crates/setup/ui/setup.slint:517
+#: rust/crates/setup/ui/setup.slint:579 rust/crates/setup/ui/setup.slint:580
+msgid "Higher contrast"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:581
+msgid "Use full colours with brighter text and lines."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:582
+msgctxt "search"
+msgid "contrast accessibility vision bright text lines outline colours"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:590
+msgid "How round the corners of cards and controls are"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:593
+msgctxt "search"
+msgid "corners round rounded sharp square radius shape"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:600
+msgid "Sharp"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:600 rust/crates/setup/ui/setup.slint:618 rust/crates/setup/ui/setup.slint:636
+msgid "Default"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:600
+msgid "Round"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:608
+msgid "Make every text in the app smaller or larger"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:611
+msgctxt "search"
+msgid "text size font bigger smaller large small zoom readable"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:625 rust/crates/setup/ui/setup.slint:635
+msgid "Density"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:626
+msgid "How much room there is between and inside controls"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:629
+msgctxt "search"
+msgid "density compact comfortable spacing padding room tight cramped"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:636
+msgid "Compact"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:636
+msgid "Comfortable"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:643 rust/crates/setup/ui/setup.slint:644 rust/crates/setup/ui/setup.slint:654
+msgid "Motion"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:645
+msgid "Choose how much of the app moves. System follows your desktop's animation setting."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:648
+msgctxt "search"
+msgid "motion animation animations reduce reduced off movement transitions"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:655
+msgid "System"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:44
+msgid "Full"
+msgstr "Повний"
+
+#: rust/crates/setup/ui/setup.slint:655
+msgid "Reduced"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:662 rust/crates/setup/ui/setup.slint:663 rust/crates/setup/ui/setup.slint:673
+msgid "Tooltip delay"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:664
+msgid "How long to rest on something before its tooltip shows."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:667
+msgctxt "search"
+msgid "tooltip tooltips delay wait hint hover instant"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:687 rust/crates/setup/ui/setup.slint:688
+msgid "Show the next tooltip sooner"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:689
+msgid "Cut the wait for the next tooltip to a short rest."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:690
+msgctxt "search"
+msgid "tooltip tooltips instant next quick hover hint"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:698 rust/crates/setup/ui/setup.slint:709
 msgid "Language"
 msgstr "Мова"
 
-#: rust/crates/setup/ui/setup.slint:509
+#: rust/crates/setup/ui/setup.slint:699
 msgid "The language of every text in the app"
 msgstr "Мова всіх текстів у додатку"
 
-#: rust/crates/setup/ui/setup.slint:510
+#: rust/crates/setup/ui/setup.slint:700
 msgid "Switching needs a restart."
 msgstr "Для зміни потрібен перезапуск."
 
-#: rust/crates/setup/ui/setup.slint:513
+#: rust/crates/setup/ui/setup.slint:703
 msgctxt "search"
 msgid "language translation translate locale"
 msgstr "мова переклад перекласти локаль language translation translate locale"
 
-#: rust/crates/setup/ui/setup.slint:530
-msgid "Restart to switch"
-msgstr "Перезапустіть для зміни"
-
-#: rust/crates/setup/ui/setup.slint:530
+#: rust/crates/setup/ui/setup.slint:722
 msgid "Restart Telescope to switch to the new language."
 msgstr "Перезапустіть Telescope, щоб перемкнутися на нову мову."
 
-#: rust/crates/setup/ui/setup.slint:532 rust/crates/shell/ui/card-order.slint:265 rust/crates/shell/ui/restart-bar.slint:15 rust/crates/shell/ui/restart-bar.slint:45
-msgid "Restart now"
-msgstr "Перезапустити зараз"
-
-#: rust/crates/setup/ui/setup.slint:536 rust/crates/shell/src/plugins_tab.rs:729 rust/crates/shell/ui/card-order.slint:265
-msgid "Restart"
-msgstr "Перезапустити"
-
-#: rust/crates/setup/ui/setup.slint:537
+#: rust/crates/setup/ui/setup.slint:729
 msgid "Restart Telescope in the language you picked."
 msgstr "Перезапустити Telescope вибраною мовою."
 
-#: rust/crates/setup/ui/setup.slint:550 rust/crates/setup/ui/setup.slint:554
+#: rust/crates/setup/ui/setup.slint:742 rust/crates/setup/ui/setup.slint:746
 msgid "Help translate"
 msgstr "Допомогти з перекладом"
 
-#: rust/crates/setup/ui/setup.slint:555
+#: rust/crates/setup/ui/setup.slint:747
 msgid "Fix a text or add a language without any coding."
 msgstr "Виправляйте текст або додавайте мову без програмування."
 
-#: rust/crates/setup/ui/setup.slint:576
+#: rust/crates/setup/ui/setup.slint:768
 msgid "About"
 msgstr "Про програму"
 
-#: rust/crates/setup/ui/setup.slint:577
+#: rust/crates/setup/ui/setup.slint:769
 msgid "Version, log, bug reports and help."
 msgstr "Версія, журнал, звіти про помилки та довідка."
 
-#: rust/crates/setup/ui/setup.slint:578
+#: rust/crates/setup/ui/setup.slint:770
 msgctxt "search"
 msgid "info version help support credits"
 msgstr "інформація інфо версія довідка підтримка подяки автори info version help support credits"
 
-#: rust/crates/setup/ui/setup.slint:589
+#: rust/crates/setup/ui/setup.slint:781
 msgctxt "search"
 msgid "about author credits made by version number build"
 msgstr "про програму автор подяки розробник створено версія номер збірка about author credits made by version number build"
 
-#: rust/crates/setup/ui/setup.slint:604
+#: rust/crates/setup/ui/setup.slint:796
 msgid "Log"
 msgstr "Журнал"
 
-#: rust/crates/setup/ui/setup.slint:605
+#: rust/crates/setup/ui/setup.slint:797
 msgid "A record of what the app did to help track down a problem"
 msgstr "Запис дій додатку, що допомагає виявити причину проблеми"
 
-#: rust/crates/setup/ui/setup.slint:608
+#: rust/crates/setup/ui/setup.slint:800
 msgctxt "search"
 msgid "log file open show temp folder"
 msgstr "журнал лог файл відкрити показати тимчасова папка тека log file open show temp folder"
 
-#: rust/crates/setup/ui/setup.slint:609 rust/crates/system/ui/shortcuts.slint:228
+#: rust/crates/setup/ui/setup.slint:801 rust/crates/system/ui/shortcuts.slint:228
 msgid "Open"
 msgstr "Відкрити"
 
-#: rust/crates/setup/ui/setup.slint:609
+#: rust/crates/setup/ui/setup.slint:801
 msgid "Open log"
 msgstr "Відкрити журнал"
 
-#: rust/crates/setup/ui/setup.slint:609
+#: rust/crates/setup/ui/setup.slint:801
 msgid "Open the full log. The log is saved in the temp folder, which the system clears."
 msgstr "Відкрити повний журнал. Журнал зберігається в тимчасовій папці, яку очищає система."
 
-#: rust/crates/setup/ui/setup.slint:613
+#: rust/crates/setup/ui/setup.slint:805
 msgid "Diagnostics"
 msgstr "Діагностика"
 
-#: rust/crates/setup/ui/setup.slint:614
+#: rust/crates/setup/ui/setup.slint:806
 msgid "Info about your setup to include in a bug report"
 msgstr "Відомості про вашу систему для додавання до звіту про помилку"
 
-#: rust/crates/setup/ui/setup.slint:615
+#: rust/crates/setup/ui/setup.slint:807
 msgid "Pairing tokens, addresses and file paths are left out."
 msgstr "Токени створення пари, адреси та шляхи до файлів не включаються."
 
-#: rust/crates/setup/ui/setup.slint:618
+#: rust/crates/setup/ui/setup.slint:810
 msgctxt "search"
 msgid "copy diagnostics info system details"
 msgstr "скопіювати діагностику інформація відомості про систему copy diagnostics info system details"
 
-#: rust/crates/setup/ui/setup.slint:621
+#: rust/crates/setup/ui/setup.slint:813
 msgid "Copy diagnostics"
 msgstr "Скопіювати діагностику"
 
-#: rust/crates/setup/ui/setup.slint:622
+#: rust/crates/setup/ui/setup.slint:814
 msgid "Copy info for a bug report without pairing tokens, addresses or file paths."
 msgstr "Скопіювати інформацію для звіту про помилку без токенів створення пари, адрес і шляхів до файлів."
 
-#: rust/crates/setup/ui/setup.slint:628
+#: rust/crates/setup/ui/setup.slint:820
 msgid "Bug reports"
 msgstr "Звіти про помилки"
 
-#: rust/crates/setup/ui/setup.slint:629
+#: rust/crates/setup/ui/setup.slint:821
 msgid "Report a problem on GitHub"
 msgstr "Повідомити про проблему на GitHub"
 
-#: rust/crates/setup/ui/setup.slint:632
+#: rust/crates/setup/ui/setup.slint:824
 msgctxt "search"
 msgid "bug report diagnostics logs debug support problem issue help copy log file"
 msgstr "звіт про помилку діагностика журнали журнал налагодження підтримка проблема довідка скопіювати файл журналу bug report diagnostics logs debug support problem issue help copy log file"
 
-#: rust/crates/setup/ui/setup.slint:633 rust/crates/setup/ui/setup.slint:633
+#: rust/crates/setup/ui/setup.slint:825 rust/crates/setup/ui/setup.slint:825
 msgid "Report a bug"
 msgstr "Повідомити про помилку"
 
-#: rust/crates/setup/ui/setup.slint:633
+#: rust/crates/setup/ui/setup.slint:825
 msgid "Copy the diagnostics and open the bug form on GitHub."
 msgstr "Скопіювати діагностику й відкрити форму звіту про помилку на GitHub."
 
-#: rust/crates/setup/ui/setup.slint:637
+#: rust/crates/setup/ui/setup.slint:829
 msgid "Need help?"
 msgstr "Потрібна допомога?"
 
-#: rust/crates/setup/ui/setup.slint:638
+#: rust/crates/setup/ui/setup.slint:830
 msgid "Fixes for the common problems"
 msgstr "Вирішення поширених проблем"
 
-#: rust/crates/setup/ui/setup.slint:641
+#: rust/crates/setup/ui/setup.slint:833
 msgctxt "search"
 msgid "help support troubleshooting question faq problem not working stuck ask"
 msgstr "допомога підтримка усунення несправностей питання часті питання проблема не працює зависло запитати help support troubleshooting question faq problem not working stuck ask"
 
-#: rust/crates/setup/ui/setup.slint:642
+#: rust/crates/setup/ui/setup.slint:834
 msgid "Troubleshooting"
 msgstr "Усунення несправностей"
 
@@ -6997,7 +7198,7 @@ msgstr "Показники поточної трансляції наживо."
 msgid "Stats view"
 msgstr "Вигляд статистики"
 
-#: rust/crates/shell/src/card_order.rs:226 rust/crates/shell/src/plugins_tab.rs:729
+#: rust/crates/shell/src/card_order.rs:226 rust/crates/shell/src/plugins_tab.rs:743
 msgid "Streaming stops while Telescope restarts. Restarting takes a few seconds."
 msgstr "Трансляція зупиниться на час перезапуску Telescope. Перезапуск триває кілька секунд."
 
@@ -7043,11 +7244,11 @@ msgstr "Налаштування додаткових віртуальних к�
 msgid "Couldn't add more virtual cameras"
 msgstr "Не вдалося додати додаткові віртуальні камери"
 
-#: rust/crates/shell/src/host.rs:665
+#: rust/crates/shell/src/host.rs:700
 msgid "Phone stream required."
 msgstr "Потрібна трансляція з телефону."
 
-#: rust/crates/shell/src/host.rs:671
+#: rust/crates/shell/src/host.rs:706
 msgid "Light format required. Heavy sends whole pictures with no keyframes to work with."
 msgstr "Потрібен формат «Легкий». Формат «Важкий» надсилає цілі картинки без ключових кадрів для роботи."
 
@@ -7123,13 +7324,9 @@ msgstr "Фокусування на точці"
 msgid "Legacy"
 msgstr "Legacy"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:44 rust/crates/shell/src/plugins_tab.rs:470
+#: rust/crates/shell/src/plugins/camera_control.rs:44 rust/crates/shell/src/plugins_tab.rs:478
 msgid "Limited"
 msgstr "Обмежений"
-
-#: rust/crates/shell/src/plugins/camera_control.rs:44
-msgid "Full"
-msgstr "Повний"
 
 #: rust/crates/shell/src/plugins/camera_control.rs:44
 msgid "Level 3"
@@ -7513,128 +7710,140 @@ msgstr "Telescope не вдалося перезапустити. Закрийт
 msgid "The download didn't work. {error}"
 msgstr "Не вдалося завантажити. {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:467
+#: rust/crates/shell/src/plugins_tab.rs:425
+msgid "Stopped after an error. It's off until Telescope restarts, which tries it again."
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:475
 msgid "Lab"
 msgstr "Лабораторія"
 
-#: rust/crates/shell/src/plugins_tab.rs:486
+#: rust/crates/shell/src/plugins_tab.rs:494
 msgid "This plugin can't be switched off. Telescope needs it to work."
 msgstr "Цей плагін не можна вимкнути. Він потрібен для роботи Telescope."
 
-#: rust/crates/shell/src/plugins_tab.rs:487
+#: rust/crates/shell/src/plugins_tab.rs:495
 msgid "Required"
 msgstr "Обов'язковий"
 
-#: rust/crates/shell/src/plugins_tab.rs:511
+#: rust/crates/shell/src/plugins_tab.rs:519
 #, python-brace-format
 msgid "The download failed. {error}"
 msgstr "Завантаження не вдалося. {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:514
+#: rust/crates/shell/src/plugins_tab.rs:522
 msgid "The plugin can't be switched on until there's a download for this computer."
 msgstr "Плагін не можна ввімкнути, доки немає завантаження для цього комп'ютера."
 
-#: rust/crates/shell/src/plugins_tab.rs:517
+#: rust/crates/shell/src/plugins_tab.rs:525
 #, python-brace-format
 msgid "The plugin's download (about {mb} MB) is missing. Switch the plugin off and on again to download it."
 msgstr "Файл завантаження плагіна (близько {mb} МБ) відсутній. Вимкніть і знову ввімкніть плагін, щоб завантажити його."
 
-#: rust/crates/shell/src/plugins_tab.rs:524
+#: rust/crates/shell/src/plugins_tab.rs:532
 msgid "Vision download required"
 msgstr "Потрібне завантаження Vision"
 
-#: rust/crates/shell/src/plugins_tab.rs:542
+#: rust/crates/shell/src/plugins_tab.rs:550
 msgid "There's no vision download for this computer yet."
 msgstr "Для цього комп'ютера ще немає завантаження vision."
 
-#: rust/crates/shell/src/plugins_tab.rs:553
+#: rust/crates/shell/src/plugins_tab.rs:561
 #, python-brace-format
 msgid "By {author}."
 msgstr "Автор: {author}."
 
-#: rust/crates/shell/src/plugins_tab.rs:563
+#: rust/crates/shell/src/plugins_tab.rs:571
 #, python-brace-format
 msgid "Updated to {version} automatically. The new version runs after Telescope restarts."
 msgstr "Автоматично оновлено до {version}. Нова версія запуститься після перезапуску Telescope."
 
-#: rust/crates/shell/src/plugins_tab.rs:569
+#: rust/crates/shell/src/plugins_tab.rs:577
 msgid "Off since the plugin's files changed after you switched it on. Switch it on again if you trust the new version."
 msgstr "Вимкнено, оскільки файли плагіна змінилися після його ввімкнення. Увімкніть його знову, якщо ви довіряєте новій версії."
 
-#: rust/crates/shell/src/plugins_tab.rs:572 rust/crates/shell/src/plugins_tab.rs:612
+#: rust/crates/shell/src/plugins_tab.rs:580 rust/crates/shell/src/plugins_tab.rs:626
 #, python-brace-format
 msgid "Couldn't start: {problem}"
 msgstr "Не вдалося запустити: {problem}"
 
+#: rust/crates/shell/src/plugins_tab.rs:585
+#, python-brace-format
+msgid "Needs {plugins}, which is switched off. Switch it on too."
+msgid_plural "Needs {plugins}, which are switched off. Switch them on too."
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
 #. keep the <a href="{url}"> link
-#: rust/crates/shell/src/plugins_tab.rs:581
+#: rust/crates/shell/src/plugins_tab.rs:595
 #, python-brace-format
 msgid "Version {version} is out. <a href=\"{url}\">Download it from the plugin's release page</a> and install it here to replace the current version."
 msgstr "Вийшла версія {version}. <a href=\"{url}\">Завантажте її зі сторінки релізу плагіна</a> та встановіть сюди, щоб замінити поточну версію."
 
-#: rust/crates/shell/src/plugins_tab.rs:591
+#: rust/crates/shell/src/plugins_tab.rs:605
 msgid "Added"
 msgstr "Додані"
 
-#: rust/crates/shell/src/plugins_tab.rs:608
+#: rust/crates/shell/src/plugins_tab.rs:622
 msgid "This plugin is always on while `telescope-rs dev --plugin` loads it."
 msgstr "Цей плагін завжди ввімкнено, доки його завантажує `telescope-rs dev --plugin`."
 
-#: rust/crates/shell/src/plugins_tab.rs:609
+#: rust/crates/shell/src/plugins_tab.rs:623
 msgid "Being written"
 msgstr "У розробці"
 
-#: rust/crates/shell/src/plugins_tab.rs:615
+#: rust/crates/shell/src/plugins_tab.rs:629
 #, python-brace-format
 msgid "Loaded from {folder} by telescope-rs dev. Saving a file in that folder restarts Telescope."
 msgstr "Завантажено з {folder} за допомогою telescope-rs dev. Збереження файлу в цій папці перезапускає Telescope."
 
 #. next to a group's name on the Plugins tab, how many of its plugins are switched on
-#: rust/crates/shell/src/plugins_tab.rs:629
+#: rust/crates/shell/src/plugins_tab.rs:643
 #, python-brace-format
 msgid "{on} of {total} on"
 msgstr "{on} з {total} увімк."
 
-#: rust/crates/shell/src/plugins_tab.rs:642
+#: rust/crates/shell/src/plugins_tab.rs:656
 #, python-brace-format
 msgid "No plugins match “{text}”."
 msgstr "Жоден плагін не відповідає запиту «{text}»."
 
-#: rust/crates/shell/src/plugins_tab.rs:644
+#: rust/crates/shell/src/plugins_tab.rs:658
 msgid "Every plugin is switched on."
 msgstr "Усі плагіни ввімкнено."
 
-#: rust/crates/shell/src/plugins_tab.rs:646
+#: rust/crates/shell/src/plugins_tab.rs:660
 msgid "No plugin is switched on."
 msgstr "Жоден плагін не ввімкнено."
 
-#: rust/crates/shell/src/plugins_tab.rs:655
+#: rust/crates/shell/src/plugins_tab.rs:669
 msgid "Downloading the vision pack"
 msgstr "Завантаження пакета Vision"
 
-#: rust/crates/shell/src/plugins_tab.rs:656
+#: rust/crates/shell/src/plugins_tab.rs:670
 #, python-brace-format
 msgid "This one-time download (about {mb} MB) is shared by every plugin that finds people in the picture."
 msgstr "Це одноразове завантаження (близько {mb} МБ) використовується всіма плагінами, які виявляють людей на зображенні."
 
-#: rust/crates/shell/src/plugins_tab.rs:657
+#: rust/crates/shell/src/plugins_tab.rs:671
 msgid "Switch on a plugin that needs the vision pack to try again."
 msgstr "Увімкніть плагін, якому потрібен пакет Vision, щоб спробувати знову."
 
-#: rust/crates/shell/src/plugins_tab.rs:660
+#: rust/crates/shell/src/plugins_tab.rs:674
 msgid "Downloading the high quality cutout"
 msgstr "Завантаження вирізання високої якості"
 
-#: rust/crates/shell/src/plugins_tab.rs:661
+#: rust/crates/shell/src/plugins_tab.rs:675
 #, python-brace-format
 msgid "This one-time download (about {mb} MB) gives the Background cutout cleaner edges."
 msgstr "Це одноразове завантаження (близько {mb} МБ) робить краї вирізання у «Фоні» чіткішими."
 
-#: rust/crates/shell/src/plugins_tab.rs:662
+#: rust/crates/shell/src/plugins_tab.rs:676
 msgid "Press Download under High quality cutout in Background to try again."
 msgstr "Натисніть «Завантажити» під пунктом «Вирізання високої якості» у «Фоні», щоб спробувати знову."
 
-#: rust/crates/shell/src/plugins_tab.rs:670
+#: rust/crates/shell/src/plugins_tab.rs:684
 #, python-brace-format
 msgid "Switches are back as they were. {n} other change still needs a restart"
 msgid_plural "Switches are back as they were. {n} other changes still need a restart"
@@ -7642,7 +7851,7 @@ msgstr[0] "Перемикачі повернуто до попереднього
 msgstr[1] "Перемикачі повернуто до попереднього стану. {n} інші зміни все ще потребують перезапуску"
 msgstr[2] "Перемикачі повернуто до попереднього стану. {n} інших змін все ще потребують перезапуску"
 
-#: rust/crates/shell/src/plugins_tab.rs:672
+#: rust/crates/shell/src/plugins_tab.rs:686
 #, python-brace-format
 msgid "Restart to apply {n} change"
 msgid_plural "Restart to apply {n} changes"
@@ -7650,35 +7859,35 @@ msgstr[0] "Перезапустіть, щоб застосувати {n} змі�
 msgstr[1] "Перезапустіть, щоб застосувати {n} зміни"
 msgstr[2] "Перезапустіть, щоб застосувати {n} змін"
 
-#: rust/crates/shell/src/plugins_tab.rs:677
+#: rust/crates/shell/src/plugins_tab.rs:691
 #, python-brace-format
 msgid "Plugins ({n} off)"
 msgstr "Плагіни ({n} вимк.)"
 
-#: rust/crates/shell/src/plugins_tab.rs:699
+#: rust/crates/shell/src/plugins_tab.rs:713
 #, python-brace-format
 msgid "Remove {plugin}?"
 msgstr "Вилучити {plugin}?"
 
-#: rust/crates/shell/src/plugins_tab.rs:700
+#: rust/crates/shell/src/plugins_tab.rs:714
 #, python-brace-format
 msgid "The plugin's folder ({folder}) is deleted from the plugins folder. To use the plugin again, add it again."
 msgstr "Папку плагіна ({folder}) видалено з папки плагінів. Щоб скористатися плагіном знову, додайте його повторно."
 
-#: rust/crates/shell/src/plugins_tab.rs:704
+#: rust/crates/shell/src/plugins_tab.rs:718
 msgid "Remove the download?"
 msgstr "Вилучити завантаження?"
 
-#: rust/crates/shell/src/plugins_tab.rs:705
+#: rust/crates/shell/src/plugins_tab.rs:719
 #, python-brace-format
 msgid "Frees about {mb} MB. Switching on an optional plugin downloads the files again."
 msgstr "Звільняє близько {mb} МБ. Увімкнення додаткового плагіна завантажить файли знову."
 
-#: rust/crates/shell/src/plugins_tab.rs:714
+#: rust/crates/shell/src/plugins_tab.rs:728
 msgid "Install plugin updates without asking?"
 msgstr "Встановлювати оновлення плагінів без запиту?"
 
-#: rust/crates/shell/src/plugins_tab.rs:715
+#: rust/crates/shell/src/plugins_tab.rs:729
 msgid ""
 "Telescope will install new versions of the plugins you switched on and switch them on too, without showing them to you first.\n"
 "\n"
@@ -7688,115 +7897,123 @@ msgstr ""
 "\n"
 "Той, хто керує репозиторієм плагіна на GitHub (його автор або будь-хто, хто отримає доступ до його облікового запису), зможе запускати новий код на цьому комп'ютері щоразу під час публікації релізу. Вмикайте це лише тоді, коли ви довіряєте їм усім."
 
-#: rust/crates/shell/src/plugins_tab.rs:720
+#: rust/crates/shell/src/plugins_tab.rs:734
 msgid "Reset all settings?"
 msgstr "Скинути всі налаштування?"
 
-#: rust/crates/shell/src/plugins_tab.rs:722
+#: rust/crates/shell/src/plugins_tab.rs:736
 msgid "Every setting will go back to default. Telescope will restart and the stream will stop. Your paired phones, presets and notes aren't reset."
 msgstr "Усі налаштування повернуться до значень за замовчуванням. Telescope перезапуститься, а трансляція зупиниться. Телефони, з якими створено пару, пресети та нотатки не скидаються."
 
-#: rust/crates/shell/src/plugins_tab.rs:724
+#: rust/crates/shell/src/plugins_tab.rs:738
 msgid "Every setting will go back to default and Telescope will restart. Your paired phones, presets and notes aren't reset."
 msgstr "Усі налаштування повернуться до значень за замовчуванням, а Telescope перезапуститься. Телефони, з якими створено пару, пресети та нотатки не скидаються."
 
-#: rust/crates/shell/src/plugins_tab.rs:729
+#: rust/crates/shell/src/plugins_tab.rs:743
 msgid "Restart Telescope now?"
 msgstr "Перезапустити Telescope зараз?"
 
-#: rust/crates/shell/src/plugins_tab.rs:743
+#: rust/crates/shell/src/plugins_tab.rs:772
+#, python-brace-format
+msgid "{plugins} needs it and won't start without it."
+msgid_plural "{plugins} need it and won't start without it."
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
+#: rust/crates/shell/src/plugins_tab.rs:781
 #, python-brace-format
 msgid "Switch on {plugin}?"
 msgstr "Увімкнути {plugin}?"
 
-#: rust/crates/shell/src/plugins_tab.rs:744
+#: rust/crates/shell/src/plugins_tab.rs:782
 msgid "A plugin can do anything on your computer. Only switch it on if you trust its source."
 msgstr "Плагін може виконувати будь-які дії на вашому комп'ютері. Вмикайте його, лише якщо довіряєте його джерелу."
 
-#: rust/crates/shell/src/plugins_tab.rs:746 rust/crates/shell/src/plugins_tab.rs:767
+#: rust/crates/shell/src/plugins_tab.rs:784 rust/crates/shell/src/plugins_tab.rs:798 rust/crates/shell/src/plugins_tab.rs:815
 #, python-brace-format
 msgid "Switch off {plugin}?"
 msgstr "Вимкнути {plugin}?"
 
-#: rust/crates/shell/src/plugins_tab.rs:747
+#: rust/crates/shell/src/plugins_tab.rs:785
 msgid "Without the plugin, what it added to Telescope is gone. Its settings are saved for when you switch it back on."
 msgstr "Без плагіна все, що він додавав до Telescope, зникає. Його налаштування збережуться на випадок, коли ви знову його ввімкнете."
 
-#: rust/crates/shell/src/plugins_tab.rs:747 rust/crates/shell/src/plugins_tab.rs:767
+#: rust/crates/shell/src/plugins_tab.rs:785 rust/crates/shell/src/plugins_tab.rs:798 rust/crates/shell/src/plugins_tab.rs:815
 msgid "Switch off"
 msgstr "Вимкнути"
 
-#: rust/crates/shell/src/plugins_tab.rs:754
+#: rust/crates/shell/src/plugins_tab.rs:792
 #, python-brace-format
 msgid "Download about {mb} MB?"
 msgstr "Завантажити приблизно {mb} МБ?"
 
-#: rust/crates/shell/src/plugins_tab.rs:755
+#: rust/crates/shell/src/plugins_tab.rs:793
 #, python-brace-format
 msgid "{plugin} uses MediaPipe to find people in the picture. The files are a separate download from Telescope's releases on GitHub, shared by the other optional plugins."
 msgstr "{plugin} використовує MediaPipe для виявлення людей на зображенні. Ці файли завантажуються окремо з релізів Telescope на GitHub і є спільними для інших додаткових плагінів."
 
-#: rust/crates/shell/src/plugins_tab.rs:756
+#: rust/crates/shell/src/plugins_tab.rs:794
 msgid "Download and switch on"
 msgstr "Завантажити та ввімкнути"
 
-#: rust/crates/shell/src/plugins_tab.rs:766
+#: rust/crates/shell/src/plugins_tab.rs:814
 msgid "Its settings are saved for when you switch it back on."
 msgstr "Його налаштування збережуться на випадок, коли ви знову його ввімкнете."
 
-#: rust/crates/shell/src/plugins_tab.rs:777
+#: rust/crates/shell/src/plugins_tab.rs:825
 msgid "This is the vision pack, not a plugin. It's being checked and installed in the background and the download banner shows how it goes."
 msgstr "Це пакет Vision, а не плагін. Він перевіряється та встановлюється у фоновому режимі, а банер завантаження показує перебіг процесу."
 
-#: rust/crates/shell/src/plugins_tab.rs:783
+#: rust/crates/shell/src/plugins_tab.rs:831
 msgid "This file wasn't used while the vision pack is downloading or installing. Try again when it's done."
 msgstr "Цей файл не використовувався, доки завантажується або встановлюється пакет Vision. Спробуйте знову, коли процес завершиться."
 
-#: rust/crates/shell/src/plugins_tab.rs:796
+#: rust/crates/shell/src/plugins_tab.rs:844
 #, python-brace-format
 msgid "Replace {plugin}?"
 msgstr "Замінити {plugin}?"
 
-#: rust/crates/shell/src/plugins_tab.rs:797
+#: rust/crates/shell/src/plugins_tab.rs:845
 msgid "The version in this .zip replaces the installed version and its settings carry over. Like any added plugin, it's switched off at first."
 msgstr "Версія в цьому файлі .zip замінює встановлену версію, а її налаштування зберігаються. Як і будь-який доданий плагін, спочатку він вимкнений."
 
-#: rust/crates/shell/src/plugins_tab.rs:809
+#: rust/crates/shell/src/plugins_tab.rs:857
 #, python-brace-format
 msgid "{plugin} was installed but it can't run yet. {problem}"
 msgstr "{plugin} встановлено, але він поки не може працювати. {problem}"
 
-#: rust/crates/shell/src/plugins_tab.rs:811
+#: rust/crates/shell/src/plugins_tab.rs:859
 #, python-brace-format
 msgid "{plugin} {version} is installed but switched off. To use it, switch it on again and restart Telescope."
 msgstr "{plugin} {version} встановлено, але вимкнено. Щоб скористатися ним, увімкніть його знову та перезапустіть Telescope."
 
-#: rust/crates/shell/src/plugins_tab.rs:813
+#: rust/crates/shell/src/plugins_tab.rs:861
 #, python-brace-format
 msgid "{plugin} is installed but switched off. To use it, switch it on and restart Telescope."
 msgstr "{plugin} встановлено, але вимкнено. Щоб скористатися ним, увімкніть його та перезапустіть Telescope."
 
-#: rust/crates/shell/src/plugins_tab.rs:823
+#: rust/crates/shell/src/plugins_tab.rs:871
 #, python-brace-format
 msgid "Telescope couldn't save the change: {error}"
 msgstr "Telescope не зміг зберегти зміну: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:870
+#: rust/crates/shell/src/plugins_tab.rs:918
 #, python-brace-format
 msgid "Telescope couldn't delete its folder: {error}"
 msgstr "Telescope не зміг видалити його папку: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:878
+#: rust/crates/shell/src/plugins_tab.rs:926
 #, python-brace-format
 msgid "Telescope couldn't delete it: {error}"
 msgstr "Telescope не зміг видалити це: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:916
+#: rust/crates/shell/src/plugins_tab.rs:964
 #, python-brace-format
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr "Telescope не зміг створити папку плагінів: {error}"
 
-#: rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1062
+#: rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1070
 msgid "Live"
 msgstr "Наживо"
 
@@ -7808,61 +8025,101 @@ msgstr "Вкладка"
 msgid "Check that the device is still on."
 msgstr "Перевірте, чи пристрій досі увімкнений."
 
-#: rust/crates/shell/src/settings.rs:877
+#: rust/crates/shell/src/settings.rs:923
 msgid "Nothing matches every word. These match some of the words."
 msgstr "Жоден результат не відповідає всім словам. Ось результати, які відповідають деяким зі слів."
 
-#: rust/crates/shell/src/settings.rs:879
+#: rust/crates/shell/src/settings.rs:925
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or describe what it does (resolution, microphone, startup)."
 msgstr "За запитом «{text}» нічого не знайдено. Спробуйте менше слів або опишіть потрібну дію (роздільна здатність, мікрофон, автозапуск)."
 
-#: rust/crates/shell/src/settings.rs:881 rust/crates/shell/ui/settings.slint:260
+#: rust/crates/shell/src/settings.rs:927 rust/crates/shell/ui/settings.slint:260
 msgid "Search results"
 msgstr "Результати пошуку"
 
-#: rust/crates/shell/src/settings.rs:936
+#: rust/crates/shell/src/settings.rs:982
 msgid "This plugin is an early version. It may change or behave oddly."
 msgstr "Цей плагін є ранньою версією. Він може змінюватися або поводитися незвично."
 
-#: rust/crates/shell/src/settings.rs:937
+#: rust/crates/shell/src/settings.rs:983
 msgid "This plugin has technical limitations that will likely never get resolved. Do not expect it to work perfectly."
 msgstr "Цей плагін має технічні обмеження, які, ймовірно, ніколи не буде усунено. Не очікуйте бездоганної роботи."
 
-#: rust/crates/shell/src/settings.rs:953
+#: rust/crates/shell/src/settings.rs:999
 #, python-brace-format
 msgid "Remove {plugin}"
 msgstr "Вилучити {plugin}"
 
-#: rust/crates/shell/src/settings.rs:982
+#: rust/crates/shell/src/settings.rs:1028
 msgid "Check for updates"
 msgstr "Перевіряти наявність оновлень"
 
-#: rust/crates/shell/src/settings.rs:983
+#: rust/crates/shell/src/settings.rs:1029
 msgid "Check once a day for new versions of added plugins that publish releases on GitHub and show them here. Nothing is downloaded."
 msgstr "Перевіряти раз на день наявність нових версій доданих плагінів, релізи яких публікуються на GitHub, і показувати їх тут. Нічого не завантажується."
 
-#: rust/crates/shell/src/settings.rs:984
+#: rust/crates/shell/src/settings.rs:1030
 msgid "Install updates without asking"
 msgstr "Встановлювати оновлення без запиту"
 
-#: rust/crates/shell/src/settings.rs:984
+#: rust/crates/shell/src/settings.rs:1030
 msgid "Install new versions of the plugins you switched on and switch them on again."
 msgstr "Встановлювати нові версії увімкнених плагінів і вмикати їх знову."
 
-#: rust/crates/shell/src/settings.rs:985
+#: rust/crates/shell/src/settings.rs:1031
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "Небезпечно! Той, хто керує репозиторієм плагіна, зможе запускати новий код на цьому комп'ютері щоразу під час публікації релізу."
 
-#: rust/crates/shell/src/settings.rs:1098
+#: rust/crates/shell/src/settings.rs:1144
 msgid "Install a plugin"
 msgstr "Встановити плагін"
 
-#: rust/crates/shell/src/settings.rs:1100
+#: rust/crates/shell/src/settings.rs:1146
 msgid "Plugins (*.zip)"
 msgstr "Плагіни (*.zip)"
 
-#: rust/crates/shell/src/shell.rs:803
+#: rust/crates/shell/src/shell.rs:797
+#, python-brace-format
+msgid "{plugins} stopped working"
+msgid_plural "{plugins} stopped working"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
+#: rust/crates/shell/src/shell.rs:799
+#, python-brace-format
+msgid "{n} plugin stopped working"
+msgid_plural "{n} plugins stopped working"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
+#: rust/crates/shell/src/shell.rs:801
+msgid "It ran into an error and is off until Telescope restarts. Everything else carries on."
+msgid_plural "They ran into errors and are off until Telescope restarts. Everything else carries on."
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
+#: rust/crates/shell/src/shell.rs:806 rust/crates/shell/src/shell.rs:1022 rust/crates/shell/src/shell.rs:1042
+msgid "Plugins…"
+msgstr "Плагіни…"
+
+#: rust/crates/shell/src/shell.rs:948
+#, python-brace-format
+msgid "It needs {plugins}, which this version of Telescope doesn't have."
+msgstr ""
+
+#: rust/crates/shell/src/shell.rs:951
+#, python-brace-format
+msgid "It needs {plugins}, which is switched off."
+msgid_plural "It needs {plugins}, which are switched off."
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+
+#: rust/crates/shell/src/shell.rs:1014
 #, python-brace-format
 msgid "Couldn't start {plugins}"
 msgid_plural "Couldn't start {plugins}"
@@ -7870,7 +8127,7 @@ msgstr[0] "Не вдалося запустити {plugins}"
 msgstr[1] "Не вдалося запустити {plugins}"
 msgstr[2] "Не вдалося запустити {plugins}"
 
-#: rust/crates/shell/src/shell.rs:805
+#: rust/crates/shell/src/shell.rs:1016
 #, python-brace-format
 msgid "Couldn't start {n} plugin"
 msgid_plural "Couldn't start {n} plugins"
@@ -7878,18 +8135,14 @@ msgstr[0] "Не вдалося запустити {n} плагін"
 msgstr[1] "Не вдалося запустити {n} плагіни"
 msgstr[2] "Не вдалося запустити {n} плагінів"
 
-#: rust/crates/shell/src/shell.rs:807
+#: rust/crates/shell/src/shell.rs:1018
 msgid "Telescope works without the plugin. The Plugins tab in Settings shows what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings shows what went wrong."
 msgstr[0] "Telescope працює без цього плагіна. Вкладка «Плагіни» в Налаштуваннях показує, що пішло не так."
 msgstr[1] "Telescope працює без них. Вкладка «Плагіни» в Налаштуваннях показує, що пішло не так."
 msgstr[2] "Telescope працює без них. Вкладка «Плагіни» в Налаштуваннях показує, що пішло не так."
 
-#: rust/crates/shell/src/shell.rs:811 rust/crates/shell/src/shell.rs:831
-msgid "Plugins…"
-msgstr "Плагіни…"
-
-#: rust/crates/shell/src/shell.rs:825
+#: rust/crates/shell/src/shell.rs:1036
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
@@ -7897,36 +8150,36 @@ msgstr[0] "{plugins} вимкнено"
 msgstr[1] "{plugins} вимкнено"
 msgstr[2] "{plugins} вимкнено"
 
-#: rust/crates/shell/src/shell.rs:826
+#: rust/crates/shell/src/shell.rs:1037
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "Ви вимкнули це в Плагінах. Щоб повернути, відкрийте «Плагіни» в Налаштуваннях і ввімкніть його."
 msgstr[1] "Ви вимкнули це в Плагінах. Щоб повернути, відкрийте «Плагіни» в Налаштуваннях і ввімкніть їх."
 msgstr[2] "Ви вимкнули це в Плагінах. Щоб повернути, відкрийте «Плагіни» в Налаштуваннях і ввімкніть їх."
 
-#: rust/crates/shell/src/shell.rs:849
+#: rust/crates/shell/src/shell.rs:1060
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "Копію старого файлу збережено тут: {path}."
 
-#: rust/crates/shell/src/shell.rs:851
+#: rust/crates/shell/src/shell.rs:1062
 msgid "Your settings couldn't be read"
 msgstr "Не вдалося прочитати ваші налаштування"
 
-#: rust/crates/shell/src/shell.rs:852
+#: rust/crates/shell/src/shell.rs:1063
 msgid "Telescope started with its defaults and paired phones need pairing again."
 msgstr "Telescope запустився з налаштуваннями за замовчуванням, тому для телефонів, з якими було створено пару, потрібно створити пару знову."
 
-#: rust/crates/shell/src/shell.rs:1250
+#: rust/crates/shell/src/shell.rs:1508
 msgid "Telescope - Save failed"
 msgstr "Telescope - Помилка збереження"
 
-#: rust/crates/shell/src/shell.rs:1251
+#: rust/crates/shell/src/shell.rs:1509
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "Не вдалося зберегти налаштування. Перевірте вільне місце на диску та права доступу."
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1736 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1786 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "Старт"
 
@@ -8003,7 +8256,7 @@ msgstr "Трансляція з {size}, доки телефон не охоло�
 msgid "Open Telescope on it."
 msgstr "Відкрийте Telescope на ньому."
 
-#: rust/crates/shell/src/sources.rs:855 rust/crates/shell/src/streams.rs:1648
+#: rust/crates/shell/src/sources.rs:855 rust/crates/shell/src/streams.rs:1656
 msgid "the device"
 msgstr "пристрій"
 
@@ -8031,7 +8284,7 @@ msgstr "Запуск камери телефону…"
 msgid "Couldn't start the phone's camera"
 msgstr "Не вдалося запустити камеру телефону"
 
-#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:981
+#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:996
 msgid "Connecting..."
 msgstr "Підключення..."
 
@@ -8059,108 +8312,108 @@ msgstr "Увімкнення камери телефону…"
 msgid "Streaming the mic, camera off"
 msgstr "Транслює мікрофон, камеру вимкнено"
 
-#: rust/crates/shell/src/streams.rs:658
+#: rust/crates/shell/src/streams.rs:666
 msgid "Stop all but one camera first, then apply again"
 msgstr "Спочатку зупиніть усі камери, крім однієї, а потім застосуйте знову"
 
-#: rust/crates/shell/src/streams.rs:672
+#: rust/crates/shell/src/streams.rs:680
 msgid "Reloading v4l2loopback…"
 msgstr "Перезавантаження v4l2loopback…"
 
-#: rust/crates/shell/src/streams.rs:672
+#: rust/crates/shell/src/streams.rs:680
 msgid "Restarting stream…"
 msgstr "Перезапуск трансляції…"
 
-#: rust/crates/shell/src/streams.rs:702
+#: rust/crates/shell/src/streams.rs:710
 #, python-brace-format
 msgid "Loopback reloaded: {message}"
 msgstr "Loopback перезавантажено: {message}"
 
-#: rust/crates/shell/src/streams.rs:702
+#: rust/crates/shell/src/streams.rs:710
 msgid "Canvas updated"
 msgstr "Полотно оновлено"
 
-#: rust/crates/shell/src/streams.rs:707
+#: rust/crates/shell/src/streams.rs:715
 #, python-brace-format
 msgid "Reload failed: {message}"
 msgstr "Помилка перезавантаження: {message}"
 
-#: rust/crates/shell/src/streams.rs:728
+#: rust/crates/shell/src/streams.rs:736
 msgid "Stop the streams going to them first"
 msgstr "Спочатку зупиніть трансляції, що йдуть на них"
 
-#: rust/crates/shell/src/streams.rs:728
+#: rust/crates/shell/src/streams.rs:736
 msgid "There are none to remove"
 msgstr "Немає чого вилучати"
 
-#: rust/crates/shell/src/streams.rs:794 rust/crates/shell/src/streams.rs:795
+#: rust/crates/shell/src/streams.rs:802 rust/crates/shell/src/streams.rs:803
 msgid "The phone couldn't take the photo."
 msgstr "Телефону не вдалося зробити фото."
 
-#: rust/crates/shell/src/streams.rs:826
+#: rust/crates/shell/src/streams.rs:834
 msgid "The phone is already taking a photo."
 msgstr "Телефон уже робить фото."
 
-#: rust/crates/shell/src/streams.rs:959
+#: rust/crates/shell/src/streams.rs:967
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "Трансляція з {name} неочікувано зупинилася"
 
-#: rust/crates/shell/src/streams.rs:961
+#: rust/crates/shell/src/streams.rs:969
 msgid "The stream stopped unexpectedly"
 msgstr "Трансляція неочікувано зупинилася"
 
-#: rust/crates/shell/src/streams.rs:963
+#: rust/crates/shell/src/streams.rs:971
 msgid "Copy diagnostics has the details."
 msgstr "У пункті «Скопіювати діагностику» є подробиці."
 
-#: rust/crates/shell/src/streams.rs:988
+#: rust/crates/shell/src/streams.rs:996
 #, python-brace-format
 msgid "The phone got hot and lowered the frame rate to {fps} fps."
 msgstr "Телефон нагрівся та знизив частоту кадрів до {fps} fps."
 
-#: rust/crates/shell/src/streams.rs:990
+#: rust/crates/shell/src/streams.rs:998
 #, python-brace-format
 msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
 msgstr "«Динамічний» знизив частоту кадрів до {fps} fps, щоб підлаштуватися під повільне з'єднання."
 
-#: rust/crates/shell/src/streams.rs:992
+#: rust/crates/shell/src/streams.rs:1000
 msgid "The camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr "Камера видає менше кадрів, ніж запитано. Тьмяне світло знижує частоту кадрів."
 
-#: rust/crates/shell/src/streams.rs:994
+#: rust/crates/shell/src/streams.rs:1002
 msgid "The phone's camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr "Камера телефону видає менше кадрів, ніж запитано. Тьмяне світло знижує частоту кадрів."
 
-#: rust/crates/shell/src/streams.rs:1074
+#: rust/crates/shell/src/streams.rs:1082
 msgid "Starting"
 msgstr "Запуск"
 
 #. under a stream's tile, the virtual camera it goes to
-#: rust/crates/shell/src/streams.rs:1088
+#: rust/crates/shell/src/streams.rs:1096
 #, python-brace-format
 msgid "to {output}"
 msgstr "на {output}"
 
-#: rust/crates/shell/src/streams.rs:1089
+#: rust/crates/shell/src/streams.rs:1097
 #, python-brace-format
 msgid "Stop streaming {name}"
 msgstr "Зупинити трансляцію {name}"
 
-#: rust/crates/shell/src/streams.rs:1469
+#: rust/crates/shell/src/streams.rs:1477
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "Телефон надіслав дані, які ця версія не може прочитати. Оновіть обидва додатки до однакової версії."
 
-#: rust/crates/shell/src/streams.rs:1551
+#: rust/crates/shell/src/streams.rs:1559
 #, python-brace-format
 msgid "Can't reach {name}"
 msgstr "Не вдається зв'язатися з {name}"
 
-#: rust/crates/shell/src/streams.rs:1635
+#: rust/crates/shell/src/streams.rs:1643
 msgid "Lost the phone - reconnecting"
 msgstr "Зв'язок із телефоном втрачено - повторне підключення"
 
-#: rust/crates/shell/src/streams.rs:1826
+#: rust/crates/shell/src/streams.rs:1835
 msgid "Couldn't reach the device."
 msgstr "Не вдалося зв'язатися з пристроєм."
 
@@ -8204,76 +8457,76 @@ msgstr "Клацніть правою кнопкою миші піктограм
 msgid "Telescope is still running"
 msgstr "Telescope досі працює"
 
-#: rust/crates/shell/src/window.rs:134
+#: rust/crates/shell/src/window.rs:135
 msgid "Telescope - Video Preview"
 msgstr "Telescope - Попередній перегляд відео"
 
-#: rust/crates/shell/src/window.rs:675
+#: rust/crates/shell/src/window.rs:676
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: rust/crates/shell/src/window.rs:773
+#: rust/crates/shell/src/window.rs:774
 msgid "How much data per second reaches this computer."
 msgstr "Скільки даних за секунду надходить на цей комп'ютер."
 
-#: rust/crates/shell/src/window.rs:773
+#: rust/crates/shell/src/window.rs:774
 msgid "Throughput"
 msgstr "Пропускна здатність"
 
-#: rust/crates/shell/src/window.rs:1735 rust/crates/shell/src/window.rs:1736
+#: rust/crates/shell/src/window.rs:1785 rust/crates/shell/src/window.rs:1786
 msgid "Start mic only"
 msgstr "Запустити лише мікрофон"
 
-#: rust/crates/shell/src/window.rs:1735
+#: rust/crates/shell/src/window.rs:1785
 msgid "Start streaming"
 msgstr "Почати трансляцію"
 
-#: rust/crates/shell/src/window.rs:1741
+#: rust/crates/shell/src/window.rs:1791
 msgid "Stop streaming"
 msgstr "Зупинити трансляцію"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1742 rust/crates/system/src/remote.rs:19
+#: rust/crates/shell/src/window.rs:1792 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "Стоп"
 
-#: rust/crates/shell/src/window.rs:2018 rust/crates/shell/src/worker.rs:1339
+#: rust/crates/shell/src/window.rs:2085 rust/crates/shell/src/worker.rs:1354
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Трансляція {size} з {fps} fps на {camera}"
 
-#: rust/crates/shell/src/worker.rs:560
+#: rust/crates/shell/src/worker.rs:567
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "Помилка трансляції: {error}"
 
-#: rust/crates/shell/src/worker.rs:981
+#: rust/crates/shell/src/worker.rs:996
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "Підключення до {url}..."
 
-#: rust/crates/shell/src/worker.rs:991
+#: rust/crates/shell/src/worker.rs:1006
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "Не вдається отримати трансляцію з телефону. Повторна спроба через {seconds} с…"
 
-#: rust/crates/shell/src/worker.rs:1003
+#: rust/crates/shell/src/worker.rs:1018
 msgid "Waiting for the first frame…"
 msgstr "Очікування першого кадру…"
 
-#: rust/crates/shell/src/worker.rs:1091
+#: rust/crates/shell/src/worker.rs:1106
 msgid "Stream reconnected"
 msgstr "Трансляцію відновлено"
 
-#: rust/crates/shell/src/worker.rs:1207
+#: rust/crates/shell/src/worker.rs:1222
 msgid "The video is paused while the phone takes a photo"
 msgstr "Відео призупинено, поки телефон робить фото"
 
-#: rust/crates/shell/src/worker.rs:1209 rust/crates/shell/src/worker.rs:1215
+#: rust/crates/shell/src/worker.rs:1224 rust/crates/shell/src/worker.rs:1230
 msgid "Stream dropped - reconnecting"
 msgstr "Трансляція обірвалася - повторне підключення"
 
-#: rust/crates/shell/src/worker.rs:1328 rust/crates/shell/src/worker.rs:1430
+#: rust/crates/shell/src/worker.rs:1343 rust/crates/shell/src/worker.rs:1445
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "Помилка віртуальної камери: {error}"
@@ -8856,7 +9109,7 @@ msgstr "Дозвольте додатку ШІ, наприклад Claude Deskto
 msgid "Without the MCP server plugin AI apps can't connect to Telescope."
 msgstr "Без плагіна «Сервер MCP» додатки ШІ не можуть підключатися до Telescope."
 
-#: rust/crates/system/src/mcp.rs:1532 rust/crates/system/ui/mcp.slint:236
+#: rust/crates/system/src/mcp.rs:1532 rust/crates/system/ui/mcp.slint:238
 msgid "MCP"
 msgstr "MCP"
 
@@ -9361,7 +9614,7 @@ msgstr "Не вдалося встановити це оновлення, бо �
 msgid "Stable"
 msgstr "Стабільний"
 
-#: rust/crates/system/src/updates_plugin.rs:31 rust/crates/system/ui/updates.slint:186
+#: rust/crates/system/src/updates_plugin.rs:31 rust/crates/system/ui/updates.slint:188
 msgid "Nightly"
 msgstr "Nightly"
 
@@ -9452,7 +9705,7 @@ msgstr "Скинути дозволені дії для додатків ШІ д
 msgid "The AI apps connected right now"
 msgstr "Додатки ШІ, підключені зараз"
 
-#: rust/crates/system/ui/mcp.slint:72 rust/crates/system/ui/mcp.slint:79
+#: rust/crates/system/ui/mcp.slint:72 rust/crates/system/ui/mcp.slint:81
 msgid "Access"
 msgstr "Доступ"
 
@@ -9460,20 +9713,20 @@ msgstr "Доступ"
 msgid "Whether AI apps can only look at your settings or change them too"
 msgstr "Чи можуть додатки ШІ лише переглядати ваші налаштування, чи й змінювати їх"
 
-#: rust/crates/system/ui/mcp.slint:91
+#: rust/crates/system/ui/mcp.slint:93
 msgid "Command"
 msgstr "Команда"
 
-#: rust/crates/system/ui/mcp.slint:129
+#: rust/crates/system/ui/mcp.slint:131
 msgid "Recent activity"
 msgstr "Нещодавня активність"
 
-#: rust/crates/system/ui/mcp.slint:130
+#: rust/crates/system/ui/mcp.slint:132
 msgctxt "search"
 msgid "mcp ai log history what the ai did refused"
 msgstr "mcp ші штучний інтелект журнал лог історія дії ші відхилено mcp ai log history what the ai did refused"
 
-#: rust/crates/system/ui/mcp.slint:260
+#: rust/crates/system/ui/mcp.slint:262
 msgid "Undo"
 msgstr "Скасувати"
 
@@ -9641,33 +9894,33 @@ msgctxt "search"
 msgid "automatically begin streaming when phone device ready app opens the camera auto start"
 msgstr "автоматично починати трансляцію коли телефон пристрій готовий програма відкриває камеру автозапуск автостарт automatically begin streaming when phone device ready app opens the camera auto start"
 
-#: rust/crates/system/ui/startup.slint:91
+#: rust/crates/system/ui/startup.slint:93
 msgid "When to stop streaming automatically"
 msgstr "Коли зупиняти трансляцію автоматично"
 
-#: rust/crates/system/ui/startup.slint:94
+#: rust/crates/system/ui/startup.slint:96
 msgctxt "search"
 msgid "automatically end streaming idle no app uses the camera auto stop"
 msgstr "автоматично завершити трансляцію бездіяльність жоден додаток не використовує камеру автозупинка automatically end streaming idle no app uses the camera auto stop"
 
-#: rust/crates/system/ui/startup.slint:107
+#: rust/crates/system/ui/startup.slint:111
 msgid "How long to wait after the last app stops using the camera"
 msgstr "Скільки очікувати після того, як остання програма перестане використовувати камеру"
 
-#: rust/crates/system/ui/startup.slint:112
+#: rust/crates/system/ui/startup.slint:116
 msgctxt "search"
 msgid "delay timeout idle seconds minutes how long grace period auto stop"
 msgstr "затримка таймаут бездіяльність секунди хвилини скільки часу період очікування автозупинка delay timeout idle seconds minutes how long grace period auto stop"
 
-#: rust/crates/system/ui/startup.slint:147
+#: rust/crates/system/ui/startup.slint:153
 msgid "Tell me when it stops a stream"
 msgstr "Повідомляти мене про зупинку трансляції"
 
-#: rust/crates/system/ui/startup.slint:148
+#: rust/crates/system/ui/startup.slint:154
 msgid "Show a notification when streaming stops automatically"
 msgstr "Показувати сповіщення, коли трансляція зупиняється автоматично"
 
-#: rust/crates/system/ui/startup.slint:151
+#: rust/crates/system/ui/startup.slint:157
 msgctxt "search"
 msgid "notification notify alert popup message"
 msgstr "сповіщення сповістити попередження спливаюче повідомлення notification notify alert popup message"
@@ -9719,54 +9972,54 @@ msgctxt "search"
 msgid "stable nightly beta release track builds testing"
 msgstr "стабільний стабільна nightly бета реліз гілка канал збірки тестування stable nightly beta release track builds testing"
 
-#: rust/crates/system/ui/updates.slint:187
+#: rust/crates/system/ui/updates.slint:189
 msgid "Built from every change. Gets fixes first but is less tested."
 msgstr "Збирається з кожної зміни. Першим отримує виправлення, але менш протестований."
 
-#: rust/crates/system/ui/updates.slint:193
+#: rust/crates/system/ui/updates.slint:195
 msgid "Check daily"
 msgstr "Перевіряти щодня"
 
-#: rust/crates/system/ui/updates.slint:194
+#: rust/crates/system/ui/updates.slint:196
 msgid "Look for a new version once a day"
 msgstr "Перевіряти наявність нової версії раз на день"
 
-#: rust/crates/system/ui/updates.slint:195
+#: rust/crates/system/ui/updates.slint:197
 msgctxt "search"
 msgid "automatic updates auto check every day background"
 msgstr "автоматичні оновлення автоперевірка перевіряти щодня фоновий режим автоматично automatic updates auto check every day background"
 
-#: rust/crates/system/ui/updates.slint:202 rust/crates/system/ui/updates.slint:204
+#: rust/crates/system/ui/updates.slint:204 rust/crates/system/ui/updates.slint:206
 msgid "Keep this copy where it is"
 msgstr "Залишити цю копію там, де вона є"
 
-#: rust/crates/system/ui/updates.slint:203
+#: rust/crates/system/ui/updates.slint:205
 msgctxt "search"
 msgid "portable keep this copy where it is zip folder in place windows unzipped"
 msgstr "портативна портативний зберегти цю копію на місці архів zip папка тека на місці windows розпакована portable keep this copy where it is zip folder in place windows unzipped"
 
-#: rust/crates/system/ui/updates.slint:205
+#: rust/crates/system/ui/updates.slint:207
 msgid "Update this unzipped folder in place instead of installing Telescope for your user."
 msgstr "Оновлювати цю розпаковану папку на місці замість встановлення Telescope для вашого користувача."
 
-#: rust/crates/system/ui/updates.slint:212
+#: rust/crates/system/ui/updates.slint:214
 msgid "Older version"
 msgstr "Старіша версія"
 
-#: rust/crates/system/ui/updates.slint:213
+#: rust/crates/system/ui/updates.slint:215
 msgid "Go back to the older Python version of Telescope"
 msgstr "Повернутися до старішої версії Telescope на Python"
 
-#: rust/crates/system/ui/updates.slint:216
+#: rust/crates/system/ui/updates.slint:218
 msgctxt "search"
 msgid "go back downgrade python previous old version revert undo rust"
 msgstr "повернутися відкотити знизити версію пайтон попередня стара версія скасувати раст go back downgrade python previous old version revert undo rust"
 
-#: rust/crates/system/ui/updates.slint:220 rust/crates/system/ui/updates.slint:221
+#: rust/crates/system/ui/updates.slint:222 rust/crates/system/ui/updates.slint:223
 msgid "Go back to the Python version"
 msgstr "Повернутися до версії на Python"
 
-#: rust/crates/system/ui/updates.slint:246
+#: rust/crates/system/ui/updates.slint:248
 msgid "Go back to the Python version?"
 msgstr "Хочете повернутися до версії на Python?"
 
@@ -9872,7 +10125,7 @@ msgid "Light"
 msgstr "Освітлення"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:437
+#: rust/app/src/main.rs:443
 msgid ", "
 msgstr ", "
 
@@ -10021,13 +10274,19 @@ msgstr "Не вдалося перевірити наявність оновле
 msgid "The download was cut short. Check the internet connection and try again."
 msgstr "Завантаження обірвалося. Перевірте з'єднання з інтернетом і спробуйте знову."
 
-#: rust/crates/shell/src/plugins_tab.rs:811
+#: rust/crates/shell/src/plugins_tab.rs:859
 msgid "Replaced"
 msgstr "Замінено"
 
 #: rust/crates/shell/src/plugins_tab.rs:157
 msgid "Couldn't restart"
 msgstr "Не вдалося перезапустити"
+
+#~ msgid "Theme, card colours and language."
+#~ msgstr "Тема, кольори карток і мова."
+
+#~ msgid "Set the theme, card colours and language back to default."
+#~ msgstr "Скинути тему, кольори карток і мову до значень за замовчуванням."
 
 #~ msgid "Couldn't save a copy of your settings, so nothing was changed."
 #~ msgstr "Не вдалося зберегти копію ваших налаштувань, тому нічого не змінено."

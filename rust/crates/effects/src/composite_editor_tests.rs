@@ -1,7 +1,7 @@
 //! test_composite.py's editor tests, by the same names. The window reports the pointer in px of a picture this big.
 
 use super::*;
-use crate::composite::{MAX_NAME, MAX_ZOOM};
+use crate::composite::{DEFAULT_MAX_ZOOM, MAX_NAME};
 
 const AREA: (f64, f64) = (800.0, 450.0);
 
@@ -143,7 +143,23 @@ fn scrolling_over_a_stream_zooms_into_it() {
     for _ in 0..30 {
         r.ui("wheel", json!([0.3 * AREA.0, 0.3 * AREA.1, AREA.0, AREA.1, 240.0]));
     }
-    assert_eq!(r.tile(0).zoom, MAX_ZOOM);
+    assert_eq!(r.tile(0).zoom, DEFAULT_MAX_ZOOM);
+}
+
+#[test]
+fn scrolling_zooms_as_far_as_the_max_zoom_setting() {
+    let mut r = open();
+    r.picture(vec![Tile::boxed("b", "", 0.1, 0.1, 0.4, 0.4)]);
+    r.plugin.on_event(&mut r.host, &Event::MaxZoomChanged { max_zoom: 25 });
+    for _ in 0..60 {
+        r.ui("wheel", json!([0.3 * AREA.0, 0.3 * AREA.1, AREA.0, AREA.1, 240.0]));
+    }
+    assert_eq!(r.tile(0).zoom, 25.0);
+    assert_eq!(r.props()["zoom-max"], json!(2500.0));
+    // a lower limit brings a tile that is past it down, in the layout the editor and the camera both draw
+    r.plugin.on_event(&mut r.host, &Event::MaxZoomChanged { max_zoom: 6 });
+    assert_eq!(r.props()["zoom"], json!(600.0));
+    assert_eq!(r.tile(0).zoom, 6.0);
 }
 
 #[test]

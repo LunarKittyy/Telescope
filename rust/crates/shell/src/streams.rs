@@ -290,7 +290,7 @@ impl Window {
             let cfg = st.plugin_config("stream_output").unwrap_or_else(|| serde_json::json!({"format": "h264"}));
             let dynamic = cfg.get("bitrate_mbps").and_then(Value::as_f64) == Some(-1.0);
             let format = telescope_core::link::StreamFormat { h264: cfg.get("format").and_then(Value::as_str) == Some("h264"), dynamic };
-            let output = st.index("stream_output").and_then(|i| st.slots[i].plugin.as_ref());
+            let output = st.index("stream_output").filter(|&i| st.slots[i].stopped.is_none()).and_then(|i| st.slots[i].plugin.as_ref());
             StreamPlan { format, params: output.and_then(|p| p.stream_params()), opening: output.and_then(|p| p.opening()) }
         });
         Box::new(PhoneKind::new(id.map(String::from), services.link.clone(), plan, opts.request, post, on_timer))
@@ -487,6 +487,7 @@ impl Window {
         st.streams.stopping_all = s.stopping_all;
         st.streams.ids =s.streams.iter().map(|x| x.id_str().to_string()).collect();
         st.streams.waking_id = s.wake_source.as_ref().filter(|_| s.waking).map(|w| w.id_str().to_string());
+        st.sync_preview_source();
         st.streams.url = s.focus.as_ref().and_then(|f| f.session()).map(|x| x.url);
         st.streams.background = s.streams.iter().filter(|x| !crate::session::same(&s.focus, x))
             .map(|x| telescope_core::host::BackgroundStream { source_id: x.id_str().to_string(), name: x.kind.name(), session: x.session().map_or(0, |s| s.id) }).collect();
@@ -577,6 +578,13 @@ impl Window {
         };
         if let Some(w) = source.and_then(|s| self.worker_of(&s)) {
             w.inner.update_output(change.width, change.height, change.fps.flatten());
+        }
+    }
+
+    /// A stopped plugin's steps leave the streams behind the panels, the rest kept.
+    pub(crate) fn drop_steps_behind(self: &Rc<Self>, owner: &str) {
+        for w in self.streams.workers.borrow().iter().filter(|w| !w.live.get()) {
+            w.inner.replace_owner_steps(owner, telescope_core::frame::FrameStage::default(), Vec::new());
         }
     }
 
@@ -1671,6 +1679,7 @@ impl FlowHost for Host<'_> {
     fn show_selected(&mut self, source_id: Option<&str>) {
         let mut st = self.w.state.borrow_mut();
         st.selected = source_id.map(str::to_string);
+        st.sync_preview_source();
         st.bus.emit(Event::SourceShown { source_id: source_id.unwrap_or("").to_string() });
     }
     fn call(&mut self, plugins: &[String], hook: &Hook) {

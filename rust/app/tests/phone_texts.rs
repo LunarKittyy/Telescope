@@ -1,5 +1,5 @@
 // Texts the phone words in English next to a code: the desktop words them itself, and still shows the English from a phone that sends no
-// code or one it doesn't know (tests/test_phone_texts.py, docs/protocol.md "Texts the desktop words itself"). Swedish is the real catalog.
+// code or one it doesn't know (tests/test_phone_texts.py, docs/development/protocol.md "Texts the desktop words itself"). Swedish is the real catalog.
 use serde_json::json;
 use std::io::{Read, Write};
 use std::path::Path;

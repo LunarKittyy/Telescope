@@ -175,6 +175,8 @@ events! {
     "remembered_sources" => RememberedSources { sources: Vec<RememberedSource> },
     /// Remove was clicked on one of remembered_sources in the phones list: its plugin forgets it.
     "forget_source_requested" => ForgetSourceRequested { source_id: String },
+    /// What the preview draws changed between the shown stream's own camera picture and another or a combined one (shows_own: it draws its own): a pick under way was ended.
+    "preview_source_changed" => PreviewSourceChanged { shows_own: bool },
     /// A pick on the preview started (who asked) or ended ("").
     "preview_pick_changed" => PreviewPickChanged { owner: String },
     /// A photo started or finished on a stream's phone, whichever plugin asked for it.

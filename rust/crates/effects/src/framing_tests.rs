@@ -353,6 +353,260 @@ fn a_group_is_framed_whole_even_when_the_model_reports_one_of_them_at_a_time() {
     assert!(r.last().0 > 2.5);
 }
 
+fn click_on(r: &mut Rig, who: &Person) {
+    let ((x, y), _) = body(who, 16.0 / 9.0).unwrap();
+    r.ui("pick-clicked", Value::Null);
+    let at = vec![[x as f32, y as f32]];
+    r.event(Event::PreviewPicked {
+        owner: NAME.into(),
+        pick: Some(telescope_core::host::Pick { kind: telescope_core::host::PickKind::Point, shown: at.clone(), full: at.clone(), in_picture: at, picture: None }),
+    });
+}
+
+#[test]
+fn a_picked_person_is_framed_alone_and_followed_when_they_move_but_not_swapped_for_another() {
+    let (left, right) = (at(0.2), at(0.8));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(2.0, Some(&[left.clone(), right.clone()]));
+    let wide = r.last().0;
+    assert!(wide < 1.8);
+    click_on(&mut r, &right);
+    assert_eq!(r.prop("following"), json!(true));
+    r.run(4.0, Some(&[left.clone(), right.clone()]));
+    let (zoom, x) = (r.last().0, r.last().1);
+    assert!(zoom > 2.5 && x > 0.6, "zoom {zoom} at {x}");
+    // They step a little to the side and are still the one followed
+    r.run(3.0, Some(&[left.clone(), at(0.7)]));
+    assert!(r.last().1 > 0.55 && r.last().0 > 2.5);
+    r.run(2.0, Some(&[left.clone(), right.clone()]));
+    // Everyone is framed again
+    r.ui("follow-all-clicked", Value::Null);
+    assert_eq!(r.prop("following"), json!(false));
+    r.run(8.0, Some(&[left, right]));
+    assert!(r.last().0 < wide + 0.3, "{} against {wide}", r.last().0);
+}
+
+#[test]
+fn a_picked_person_who_leaves_is_not_replaced_by_whoever_is_left() {
+    let (left, right) = (at(0.2), at(0.8));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[left.clone(), right.clone()]));
+    click_on(&mut r, &right);
+    r.run(2.0, Some(&[left.clone(), right]));
+    // Only the other one is in view for a good while
+    r.run(8.0, Some(&[left]));
+    assert!(r.last().0 < 1.3, "went back to the whole picture, not onto the other person: {}", r.last().0);
+}
+
+#[test]
+fn a_bystander_next_to_the_picked_person_does_not_take_their_place_when_the_model_misses_them() {
+    let (a, b) = (at(0.45), at(0.6));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[a.clone(), b.clone()]));
+    click_on(&mut r, &a);
+    r.run(2.0, Some(&[a.clone(), b.clone()]));
+    // one report without the picked person, the bystander right beside them
+    r.people("phone", std::slice::from_ref(&b));
+    r.run(0.5, Some(std::slice::from_ref(&b)));
+    r.run(3.0, Some(&[a.clone(), b.clone()]));
+    assert!(r.last().1 < 0.52, "framing {}", r.last().1);
+}
+
+#[test]
+fn an_empty_report_then_only_the_bystander_then_the_picked_person_back_keeps_the_lock() {
+    let (a, b) = (at(0.45), at(0.6));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[a.clone(), b.clone()]));
+    click_on(&mut r, &a);
+    r.run(2.0, Some(&[a.clone(), b.clone()]));
+    r.run(0.3, Some(&[]));
+    r.run(0.3, Some(std::slice::from_ref(&b)));
+    r.run(4.0, Some(&[a.clone(), b.clone()]));
+    assert!(r.last().1 < 0.52 && r.last().0 > 2.5, "framing {} at {}", r.last().1, r.last().0);
+}
+
+fn picked_pair(a: &Person, b: &Person) -> Rig {
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[a.clone(), b.clone()]));
+    click_on(&mut r, a);
+    r.run(4.0, Some(&[a.clone(), b.clone()]));
+    assert!(r.last().0 > 2.5, "locked on the picked person first: {}", r.last().0);
+    r
+}
+
+fn unlocked(r: &mut Rig, people: &[Person]) -> bool {
+    // wide again once it has had time to settle
+    r.run(12.0, Some(people));
+    r.last().0 < 1.5
+}
+
+#[test]
+fn when_it_is_unclear_who_is_who_after_a_gap_the_lock_lets_go_instead_of_guessing() {
+    let (a, b) = (at(0.45), at(0.6));
+    let mut r = picked_pair(&a, &b);
+    r.run(0.3, Some(&[]));
+    // they have both moved, and the one now nearest the old spot is the bystander
+    r.run(5.0, Some(&[at(0.38), at(0.48)]));
+    assert!(unlocked(&mut r, &[at(0.38), at(0.48)]), "zoom {}", r.last().0);
+}
+
+#[test]
+fn the_picked_person_is_still_followed_after_crossing_over_a_bystander_of_another_build() {
+    let slight = person(Who { x: 0.3, width: 0.1, ..Who::default() });
+    let broad = person(Who { x: 0.5, width: 0.16, ..Who::default() });
+    let mut r = picked_pair(&slight, &broad);
+    let (slight_now, broad_now) = (person(Who { x: 0.5, width: 0.1, ..Who::default() }), person(Who { x: 0.3, width: 0.16, ..Who::default() }));
+    r.run(5.0, Some(&[slight_now, broad_now]));
+    // the slight one, now in the middle of the picture, is the one framed
+    assert!(r.last().0 > 2.5 && r.last().1.abs() < 0.1, "framing {:?}", r.last());
+}
+
+#[test]
+fn reports_that_alternate_between_the_picked_person_and_the_bystander_keep_the_lock() {
+    let (a, b) = (at(0.45), at(0.6));
+    let mut r = picked_pair(&a, &b);
+    for i in 0..60 {
+        r.run(0.1, Some(std::slice::from_ref(if i % 2 == 0 { &b } else { &a })));
+    }
+    r.run(0.1, Some(std::slice::from_ref(&a)));
+    r.run(2.0, Some(&[a.clone(), b.clone()]));
+    assert!(r.last().0 > 2.5 && r.last().1 < 0.52, "framing {} at {}", r.last().1, r.last().0);
+}
+
+#[test]
+fn a_picked_person_coming_back_from_far_away_is_not_taken_for_a_bystander_and_nobody_else_is_taken_for_them() {
+    let (a, b) = (at(0.45), at(0.6));
+    let mut r = picked_pair(&a, &b);
+    r.run(2.0, Some(std::slice::from_ref(&b)));
+    r.run(5.0, Some(&[at(0.95), b.clone()]));
+    assert!(unlocked(&mut r, &[at(0.95), b.clone()]), "zoom {}", r.last().0);
+}
+
+#[test]
+fn a_quick_restart_does_not_open_on_the_old_crop() {
+    let (a, b) = (at(0.2), at(0.8));
+    let mut r = picked_pair(&a, &b);
+    r.plugin.on_stream_stop(&mut r.host);
+    assert_eq!(r.last(), (1.0, 0.0, 0.0));
+}
+
+#[test]
+fn nothing_can_be_picked_while_framing_is_off_and_turning_it_off_drops_a_pending_pick() {
+    let mut r = Rig::new();
+    r.ui("pick-clicked", Value::Null);
+    assert!(!r.host.calls.iter().any(|c| c.starts_with("pick_on_preview")));
+    r.switch(true);
+    r.ui("pick-clicked", Value::Null);
+    r.event(Event::PreviewPickChanged { owner: NAME.into() });
+    r.switch(false);
+    assert!(r.host.calls.iter().any(|c| c == "cancel_pick framing"));
+}
+
+#[test]
+fn nothing_is_picked_on_a_preview_that_shows_another_streams_output() {
+    let (a, b) = (at(0.2), at(0.8));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[a.clone(), b.clone()]));
+    r.host.follows.insert("stereo".into(), ("phone".into(), "other".into()));
+    r.ui("pick-clicked", Value::Null);
+    assert!(!r.host.calls.iter().any(|c| c.starts_with("pick_on_preview")));
+    // and a pick that was already under way when the preview changed is turned away
+    r.host.follows.clear();
+    click_on(&mut r, &b);
+    assert_eq!(r.prop("following"), json!(true));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[a, b.clone()]));
+    r.ui("pick-clicked", Value::Null);
+    r.host.follows.insert("stereo".into(), ("phone".into(), "other".into()));
+    let ((x, y), _) = body(&b, 16.0 / 9.0).unwrap();
+    let at = vec![[x as f32, y as f32]];
+    r.event(Event::PreviewPicked { owner: NAME.into(), pick: Some(telescope_core::host::Pick { kind: telescope_core::host::PickKind::Point, shown: at.clone(), full: at.clone(), in_picture: at, picture: None }) });
+    assert_ne!(r.prop("following"), json!(true));
+}
+
+#[test]
+fn a_combined_picture_blocks_picks_but_a_redirect_of_another_stream_does_not() {
+    let (a, b) = (at(0.2), at(0.8));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[a.clone(), b.clone()]));
+    // 3D or One picture is making the shown stream's picture
+    r.host.composited.insert("stereo".into(), "phone".into());
+    r.event(Event::PreviewSourceChanged { shows_own: false });
+    assert_eq!(r.prop("pick-blocked"), json!(true));
+    r.ui("pick-clicked", Value::Null);
+    assert!(!r.host.calls.iter().any(|c| c.starts_with("pick_on_preview")));
+    r.host.composited.clear();
+    r.event(Event::PreviewSourceChanged { shows_own: true });
+    assert_eq!(r.prop("pick-blocked"), json!(false));
+    // another stream's redirect says nothing about this one's picture
+    r.host.follows.insert("stereo".into(), ("elsewhere".into(), "other".into()));
+    click_on(&mut r, &b);
+    assert_eq!(r.prop("following"), json!(true));
+}
+
+#[test]
+fn a_click_outside_the_picture_picks_nobody() {
+    let (a, b) = (at(0.2), at(0.8));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[a, b]));
+    r.ui("pick-clicked", Value::Null);
+    let off = vec![[-0.1f32, 0.5]];
+    r.event(Event::PreviewPicked { owner: NAME.into(), pick: Some(telescope_core::host::Pick { kind: telescope_core::host::PickKind::Point, shown: off.clone(), full: off.clone(), in_picture: off, picture: None }) });
+    assert_ne!(r.prop("following"), json!(true));
+}
+
+#[test]
+fn leaving_the_stream_or_the_card_clears_the_pick_and_says_so() {
+    let (a, b) = (at(0.2), at(0.8));
+    for how in ["stop", "off"] {
+        let mut r = Rig::new();
+        r.switch(true);
+        r.run(1.0, Some(&[a.clone(), b.clone()]));
+        click_on(&mut r, &b);
+        assert_eq!(r.prop("following"), json!(true));
+        if how == "stop" {
+            r.plugin.on_stream_stop(&mut r.host);
+        } else {
+            r.switch(false);
+        }
+        assert_eq!(r.prop("following"), json!(false), "{how}");
+    }
+}
+
+#[test]
+fn the_pick_is_read_in_the_whole_picture_not_in_the_zoomed_preview() {
+    let (a, b) = (at(0.2), at(0.8));
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[a.clone(), b.clone()]));
+    let ((x, y), _) = body(&b, 16.0 / 9.0).unwrap();
+    r.ui("pick-clicked", Value::Null);
+    // the preview shows something else (zoomed in, so its coordinates mean little) and the whole-picture spot is on b
+    let shown = vec![[0.1f32, 0.1]];
+    let full = vec![[x as f32, y as f32]];
+    r.event(Event::PreviewPicked { owner: NAME.into(), pick: Some(telescope_core::host::Pick { kind: telescope_core::host::PickKind::Point, shown, full, in_picture: vec![[0.1, 0.1]], picture: None }) });
+    r.run(4.0, Some(&[a, b]));
+    assert!(r.last().1 > 0.6);
+}
+
+#[test]
+fn the_pick_goes_to_the_nearest_person() {
+    let people = [at(0.2), at(0.8)];
+    let ((x, y), _) = body(&people[1], 16.0 / 9.0).unwrap();
+    assert_eq!(nearest_person(&people, (x, y), 16.0 / 9.0), Some(1));
+    assert_eq!(nearest_person(&people, (0.0, 0.1), 16.0 / 9.0), Some(0));
+    assert_eq!(nearest_person(&[], (0.5, 0.5), 16.0 / 9.0), None);
+}
+
 #[test]
 fn a_group_stays_framed_for_as_long_as_the_reports_keep_alternating_between_its_people() {
     let mut r = Rig::new();

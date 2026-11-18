@@ -14,7 +14,7 @@ use std::path::Path;
 use std::sync::Arc;
 use telescope_core::canvas;
 use telescope_core::event::Event;
-use telescope_core::host::{FileDialog, FileDialogKind, Host, Look, Poster, RequestId};
+use telescope_core::host::{Appearance, Corners, Density, FileDialog, FileDialogKind, Host, Look, MotionChoice, Poster, RequestId, TextSize, TIP_DELAY_MAX_MS};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::link::Link;
 use telescope_core::media::Media;
@@ -37,7 +37,7 @@ const SUDO_NEEDS: &str = n_("Your password (pkexec or sudo) is required because 
 pub const AUTHOR_URL: &str = "https://github.com/LunarKittyy";
 pub const BUG_REPORT_URL: &str = "https://github.com/LunarKittyy/Telescope/issues/new?template=bug.yml";
 pub const HELP_URL: &str = "https://github.com/LunarKittyy/Telescope/blob/master/docs/troubleshooting.md";
-pub const TRANSLATE_URL: &str = "https://github.com/LunarKittyy/Telescope/blob/master/docs/translating.md";
+pub const TRANSLATE_URL: &str = "https://github.com/LunarKittyy/Telescope/blob/master/docs/development/translating.md";
 
 /// platform/linux.py's devices and the message a refused password prompt comes back with (the outputs crate has the same).
 pub const V4L2_PHONE_DEV: &str = "/dev/video11";
@@ -239,9 +239,14 @@ pub struct SetupPlugin {
     /// The graphics card this computer has, once looked for.
     hw_device: Option<String>,
     pub power_saving: bool,
+    /// The graphics card picked in Video as `gpu_pick::card_id` text, empty for Automatic, and the name it was shown by.
+    pub gpu_card: String,
+    gpu_card_name: String,
     pub plugin_hues: bool,
     /// The look of the windows (Appearance)
     pub look: Look,
+    /// Corners, text size, density, contrast, motion and tooltip timing (Appearance)
+    pub appearance: Appearance,
     pub language: String,
     /// set_config has no host: the others hear the loaded values with the next hook that has one.
     pending: bool,
@@ -276,8 +281,11 @@ impl SetupPlugin {
             hw_choice: None,
             hw_device: None,
             power_saving: false,
+            gpu_card: String::new(),
+            gpu_card_name: String::new(),
             plugin_hues: true,
             look: Look::Dark,
+            appearance: Appearance::default(),
             language: String::new(),
             pending: true,
             panel: Panel::new(apk_bundled),
@@ -324,6 +332,7 @@ impl SetupPlugin {
             host.emit(Event::LimiterChanged { on: self.limiter });
             host.set_plugin_hues(self.plugin_hues);
             host.set_look(self.look);
+            host.set_appearance(self.appearance);
             host.set_power_saving(self.power_saving);
         }
     }
@@ -380,8 +389,41 @@ impl SetupPlugin {
         })
     }
 
+    /// The Graphics card list: Automatic, then each real card found, with the id each is saved by (Automatic's is empty). A chosen card that isn't
+    /// found now stays in the list, under the name it was picked by, so the choice can be seen.
+    fn gpu_cards(&self) -> Vec<(String, String)> {
+        let mut cards: Vec<(String, String)> = telescope_core::gpu_pick::listed().into_iter().map(|l| (l.id, l.name)).collect();
+        let chosen = self.gpu_card.trim();
+        if !chosen.is_empty() && !cards.iter().any(|(id, _)| id.eq_ignore_ascii_case(chosen)) {
+            let name = if self.gpu_card_name.is_empty() { chosen.to_string() } else { format!("{} {}", self.gpu_card_name, tr("(not found)")) };
+            cards.push((chosen.to_string(), name));
+        }
+        let mut all = vec![(String::new(), tr("Automatic"))];
+        all.extend(cards);
+        all
+    }
+
+    fn gpu_items(&self) -> (Vec<String>, usize) {
+        let cards = self.gpu_cards();
+        let chosen = self.gpu_card.trim();
+        let current = cards.iter().position(|(id, _)| !id.is_empty() && id.eq_ignore_ascii_case(chosen)).unwrap_or(0);
+        (cards.into_iter().map(|(_, name)| name).collect(), current)
+    }
+
+    /// The card is opened once when Telescope starts, so a change waits for the next start.
+    fn gpu_restart_needed(&self) -> bool {
+        !self.gpu_card.trim().eq_ignore_ascii_case(telescope_core::gpu_pick::choice().trim())
+    }
+
+    /// Which card the window opened, so a choice that couldn't be used (a card that was skipped or unplugged) shows.
+    fn gpu_line(&self) -> String {
+        let opened = telescope_core::gpu_pick::opened();
+        if opened.is_empty() { String::new() } else { tr("Using {card}").field("card", &opened) }
+    }
+
     pub fn video_props(&self) -> Value {
         let p = &self.panel;
+        let (gpu_items, gpu_current) = self.gpu_items();
         let status = p.canvas_status.clone().unwrap_or_default();
         let (apply, tip) = if self.linux {
             let note = tr("Applying stops the stream and reloads the virtual camera. Close OBS and other apps using it first.");
@@ -391,6 +433,7 @@ impl SetupPlugin {
         };
         json!({
             "hw-enabled": p.hw_enabled, "hw-checked": self.hw_decode() && (p.hw_enabled || p.hw_line.is_empty()), "hw-line": p.hw_line,
+            "gpu-items": gpu_items, "gpu-current": gpu_current, "gpu-restart": self.gpu_restart_needed(), "gpu-line": self.gpu_line(),
             "saving-checked": self.power_saving,
             "zoom-text": format!("{}×", self.max_zoom),
             "canvas-items": self.canvas_items(), "canvas-current": p.canvas_current,
@@ -427,12 +470,28 @@ impl SetupPlugin {
         json!({
             "hues-current": if self.plugin_hues { 0 } else { 1 },
             "theme-current": self.look.index(),
+            "corners-current": self.appearance.corners as usize,
+            "text-current": self.appearance.text as usize,
+            "density-current": self.appearance.density as usize,
+            "contrast-checked": self.appearance.contrast,
+            "motion-current": self.appearance.motion as usize,
+            "tip-delay": self.appearance.tip_delay_ms,
+            "tip-delay-text": self.tip_delay_text(),
+            "tip-warm-checked": self.appearance.tip_warm,
             "lang-items": self.language_items(), "lang-current": self.panel.lang_current,
             "lang-restart": self.restart_needed(),
             "reset-shown": self.reset_shown("look"),
             "help-text": if draft { tr("This translation is a first draft and some texts might read a bit oddly.") }
                          else { tr("Missing your language, or spotted a text that reads wrong?") },
         })
+    }
+
+    /// The tooltip slider's readout: "Instant" at the far left, else seconds.
+    fn tip_delay_text(&self) -> String {
+        match self.appearance.tip_delay_ms {
+            0 => tr("Instant"),
+            ms => tr("{seconds} s").field("seconds", format!("{:.1}", f64::from(ms) / 1000.0)),
+        }
     }
 
     pub fn about_props(&self) -> Value {
@@ -876,9 +935,9 @@ impl SetupPlugin {
     /// What each section's Reset leaves alone: every setting the other sections own. Video also keeps the canvas that is applied, since only Apply changes it.
     fn reset_kept(section: &str) -> &'static [&'static str] {
         match section {
-            "video" => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_gain", "limiter", "look", "plugin_hues", "language"],
-            "microphone" => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_zoom", "hw_decode", "hw_decode_chosen", "power_saving", "look", "plugin_hues", "language"],
-            _ => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_zoom", "hw_decode", "hw_decode_chosen", "power_saving", "max_gain", "limiter"],
+            "video" => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_gain", "limiter", "look", "appearance", "plugin_hues", "language"],
+            "microphone" => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_zoom", "hw_decode", "hw_decode_chosen", "gpu_card", "gpu_card_name", "power_saving", "look", "appearance", "plugin_hues", "language"],
+            _ => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_zoom", "hw_decode", "hw_decode_chosen", "gpu_card", "gpu_card_name", "power_saving", "max_gain", "limiter"],
         }
     }
 
@@ -942,6 +1001,16 @@ impl SetupPlugin {
         host.schedule_save();
     }
 
+    /// The graphics card for the next start: index 0 is Automatic, the others follow the list shown.
+    pub fn on_gpu_card(&mut self, host: &mut dyn Host, index: usize, shown: &str) {
+        // The name of the row that was clicked, not its place: the list can have gained a card (a late scan) since it was drawn
+        let cards = self.gpu_cards();
+        let (id, name) = cards.iter().find(|(_, n)| !shown.is_empty() && n == shown).or_else(|| cards.get(index)).cloned().unwrap_or_default();
+        self.gpu_card_name = if id.is_empty() { String::new() } else { name.trim_end_matches(&format!(" {}", tr("(not found)"))).to_string() };
+        self.gpu_card = id;
+        host.schedule_save();
+    }
+
     pub fn on_power_saving(&mut self, host: &mut dyn Host, on: bool) {
         self.power_saving = on;
         host.set_power_saving(on);
@@ -951,6 +1020,13 @@ impl SetupPlugin {
     pub fn on_look(&mut self, host: &mut dyn Host, look: Look) {
         self.look = look;
         host.set_look(look);
+        host.schedule_save();
+    }
+
+    /// Any of the Appearance options changed: the windows take the new set and it is saved.
+    pub fn on_appearance(&mut self, host: &mut dyn Host, change: impl FnOnce(&mut Appearance)) {
+        change(&mut self.appearance);
+        host.set_appearance(self.appearance);
         host.schedule_save();
     }
 
@@ -1214,6 +1290,8 @@ impl Plugin for SetupPlugin {
             }
             ("virtual-camera" | "video", "copy") => host.copy_text(&text),
             ("video", "hw-toggled") => self.on_hw_decode(host, on),
+            ("video", "gpu-picked") => self.on_gpu_card(host, index.max(0) as usize, event.args.get(1).and_then(Value::as_str).unwrap_or("")),
+            ("video", "restart-clicked") => { host.restart_app(); }
             ("video", "saving-toggled") => self.on_power_saving(host, on),
             ("video", "zoom-committed") => {
                 if let Some(v) = zoom_number(&text) {
@@ -1258,6 +1336,16 @@ impl Plugin for SetupPlugin {
             ("phone-app", "pick-cancelled") => self.phone_picked(host, None),
             ("look", "hues-picked") => self.on_plugin_hues(host, index == 0),
             ("look", "theme-picked") => self.on_look(host, Look::from_index(index)),
+            ("look", "corners-picked") => self.on_appearance(host, |a| a.corners = [Corners::Sharp, Corners::Normal, Corners::Round][index.clamp(0, 2) as usize]),
+            ("look", "text-picked") => self.on_appearance(host, |a| a.text = [TextSize::Small, TextSize::Normal, TextSize::Large][index.clamp(0, 2) as usize]),
+            ("look", "density-picked") => self.on_appearance(host, |a| a.density = [Density::Compact, Density::Normal, Density::Comfortable][index.clamp(0, 2) as usize]),
+            ("look", "contrast-toggled") => self.on_appearance(host, |a| a.contrast = on),
+            ("look", "motion-picked") => self.on_appearance(host, |a| a.motion = [MotionChoice::System, MotionChoice::Full, MotionChoice::Reduced, MotionChoice::Off][index.clamp(0, 3) as usize]),
+            ("look", "tip-delay-moved") => {
+                let ms = event.args.first().and_then(Value::as_f64).unwrap_or(0.0).clamp(0.0, f64::from(TIP_DELAY_MAX_MS));
+                self.on_appearance(host, |a| a.tip_delay_ms = ((ms / 100.0).round() * 100.0) as u32);
+            }
+            ("look", "tip-warm-toggled") => self.on_appearance(host, |a| a.tip_warm = on),
             ("look", "lang-picked") => self.on_language(host, index.max(0) as usize),
             ("look", "restart-clicked") => {
                 host.restart_app();
@@ -1301,9 +1389,18 @@ impl Plugin for SetupPlugin {
         if self.hw_choice == Some(false) {
             cfg["hw_decode_chosen"] = json!(true);
         }
+        // Written only once chosen
+        if !self.gpu_card.trim().is_empty() {
+            cfg["gpu_card"] = json!(self.gpu_card.trim());
+            cfg["gpu_card_name"] = json!(self.gpu_card_name);
+        }
         // Written only once chosen, so a config that never touched the theme stays as an older Telescope wrote it
         if self.look != Look::Dark {
             cfg["look"] = json!(self.look.name());
+        }
+        // The same for Appearance: only what was changed
+        if let Some(appearance) = self.appearance.to_json() {
+            cfg["appearance"] = appearance;
         }
         cfg
     }
@@ -1321,6 +1418,8 @@ impl Plugin for SetupPlugin {
         self.limiter = cfg.get("limiter") != Some(&Value::Bool(false)); // only an explicit off turns it off
         self.hw_choice = telescope_core::media::hardware_decode_choice(Some(cfg));
         self.power_saving = cfg.get("power_saving") == Some(&Value::Bool(true));
+        self.gpu_card = cfg.get("gpu_card").and_then(Value::as_str).unwrap_or("").trim().to_ascii_lowercase();
+        self.gpu_card_name = cfg.get("gpu_card_name").and_then(Value::as_str).unwrap_or("").to_string();
         self.plugin_hues = cfg.get("plugin_hues") != Some(&Value::Bool(false));
         // A config an older Telescope wrote says classic_theme instead
         self.look = match cfg.get("look").and_then(Value::as_str).and_then(Look::from_name) {
@@ -1328,6 +1427,7 @@ impl Plugin for SetupPlugin {
             None if cfg.get("classic_theme") == Some(&Value::Bool(true)) => Look::Classic,
             None => Look::Dark,
         };
+        self.appearance = Appearance::from_json(cfg.get("appearance"));
         self.language = cfg.get("language").and_then(Value::as_str).unwrap_or("").to_string();
         self.pending = true;
         Ok(())

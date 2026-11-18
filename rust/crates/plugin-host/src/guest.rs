@@ -1,7 +1,7 @@
 //! The runtime-neutral boundary: a runtime implements Guest, sees plain JSON both ways and reaches the host only through PluginContext::call.
 //!
 //! Nothing here knows about Lua. A hook is a name and a JSON array of arguments, its answer is JSON, and a call back into the host is a method
-//! name from HOST_API with its arguments. A WASM runtime implements the same trait (rust/docs/plugin-wasm.md).
+//! name from HOST_API with its arguments. A WASM runtime implements the same trait (docs/development/plugin-wasm.md).
 
 use crate::i18n::{self, Catalog};
 use crate::manifest::PERMISSIONS;

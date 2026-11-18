@@ -5,10 +5,10 @@ Android app (`android/`, Kotlin) streams the phone camera to a Rust/Slint deskto
 Before changing how desktop plugins, sources or the window talk to each other, read `rust/ARCHITECTURE.md`. It explains why plugins don't depend on each other and why every plugin but Connection has to cope with being switched off. `rust/app/tests/architecture.rs` and `rust/app/tests/plugin_removal.rs` check both.
 
 ## Texts people see
-Both apps are translatable. New UI text goes in `android/.../res/values/strings.xml` on the phone and through `tr()` (or `@tr()` in Slint) on the desktop, then `python tools/i18n.py extract` in `rust/`. `docs/translating.md` has the rules. Don't translate new texts, even though the `.po` and `values-*` entries look unfinished. They wait for the next translation pass (`automation/translation/`), which only runs when the owner asks for one. Old translations must stop showing the old meaning of an English text that changed. Delete that string from every `values-*/strings.xml` on the phone so it falls back to English (the desktop's `extract` already does this, since a changed text is a new entry and the old one remains as an obsolete entry).
+Both apps are translatable. New UI text goes in `android/.../res/values/strings.xml` on the phone and through `tr()` (or `@tr()` in Slint) on the desktop, then `python tools/i18n.py extract` in `rust/`. `docs/development/translating.md` has the rules. Don't translate new texts, even though the `.po` and `values-*` entries look unfinished. They wait for the next translation pass (`automation/translation/`), which only runs when the owner asks for one. Old translations must stop showing the old meaning of an English text that changed. Delete that string from every `values-*/strings.xml` on the phone so it falls back to English (the desktop's `extract` already does this, since a changed text is a new entry and the old one remains as an obsolete entry).
 
 ## Trying a change on a real phone
-`./gradlew installDev` in `android/` and `cargo run -p telescope-app -- dev --keep` in `rust/` give a dev app and dev desktop that pair with each other and leave the real installs alone (see `docs/building.md`).
+`./gradlew installDev` in `android/` and `cargo run -p telescope-app -- dev --keep` in `rust/` give a dev app and dev desktop that pair with each other and leave the real installs alone (see `docs/development/building.md`).
 
 ## Checks
 - Desktop: `cargo nextest run --workspace --locked` and `cargo clippy --workspace --locked --all-targets -- -D warnings` in `rust/`

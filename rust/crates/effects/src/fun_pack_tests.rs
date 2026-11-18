@@ -364,13 +364,85 @@ fn stick_figure_lines_come_from_the_pose_through_the_view() {
     let person = Person::from_value(&json!({"points": {
         "left_shoulder": [0.4, 0.4, 1.0], "right_shoulder": [0.6, 0.4, 1.0], "left_hip": [0.42, 0.7, 1.0], "nose": [0.5, 0.25, 1.0],
         "left_eye": [0.48, 0.24, 1.0], "right_eye": [0.52, 0.24, 1.0], "right_hip": [0.58, 0.7, 0.1]}})).unwrap();
-    let (lines, heads) = stick_figure(std::slice::from_ref(&person), &|x, y| (x, y), 16.0 / 9.0);
+    let (lines, heads) = stick_figure(std::slice::from_ref(&person), &|x, y| (x, y), 16.0 / 9.0, &mut Vec::new());
     assert!(lines.contains(&((0.4, 0.4), (0.6, 0.4))) && lines.contains(&((0.4, 0.4), (0.42, 0.7))));
     // not sure enough about that hip
     assert!(!lines.iter().any(|l| l.0 == (0.58, 0.7) || l.1 == (0.58, 0.7)));
     assert!(heads.len() == 1 && heads[0].0 == (0.5, 0.25));
-    let (flipped, _) = stick_figure(&[person], &|x, y| (1.0 - x, y), 16.0 / 9.0);
+    let (flipped, _) = stick_figure(&[person], &|x, y| (1.0 - x, y), 16.0 / 9.0, &mut Vec::new());
     assert!(flipped.contains(&((0.6, 0.4), (0.4, 0.4))));
+}
+
+#[test]
+fn a_close_up_keeps_the_head_small_and_draws_no_body_below_the_picture() {
+    let person = Person::from_value(&json!({"points": {
+        "left_shoulder": [0.2, 0.9, 1.0], "right_shoulder": [0.8, 0.9, 1.0], "left_hip": [0.25, 1.4, 1.0], "right_hip": [0.75, 1.4, 1.0],
+        "nose": [0.5, 0.5, 1.0], "left_ear": [0.3, 0.5, 1.0], "right_ear": [0.7, 0.5, 1.0]}})).unwrap();
+    let (lines, heads) = stick_figure(&[person], &|x, y| (x, y), 1.0, &mut Vec::new());
+    // ears 0.4 apart would be a head of 0.32 against shoulders 0.6 wide
+    assert!(heads[0].1 <= 0.15 + 1e-9);
+    assert!(!lines.iter().any(|l| l.0 .1 > 1.02 || l.1 .1 > 1.02));
+    assert!(lines.contains(&((0.2, 0.9), (0.8, 0.9))));
+}
+
+fn crossed(left_ankle: f64, right_ankle: f64, knees_apart: bool) -> Person {
+    let (lk, rk) = if knees_apart { (0.4, 0.6) } else { (0.5, 0.51) };
+    Person::from_value(&json!({"points": {
+        "left_hip": [0.4, 0.5, 1.0], "right_hip": [0.6, 0.5, 1.0], "left_knee": [lk, 0.7, 0.9], "right_knee": [rk, 0.7, 0.9],
+        "left_ankle": [0.5, 0.9, left_ankle], "right_ankle": [0.51, 0.9, right_ankle]}})).unwrap()
+}
+
+#[test]
+fn crossed_legs_keep_one_whole_leg_of_an_overlapping_pair() {
+    let (lines, _) = stick_figure(&[crossed(0.9, 0.6, true)], &|x, y| (x, y), 1.0, &mut Vec::new());
+    assert!(lines.contains(&((0.4, 0.7), (0.5, 0.9))));
+    assert!(!lines.iter().any(|l| l.1 == (0.51, 0.9)));
+    // knees and ankles both overlap and the surer joints are on different legs: a whole shin is still drawn
+    let mixed = Person::from_value(&json!({"points": {
+        "left_hip": [0.4, 0.5, 1.0], "right_hip": [0.6, 0.5, 1.0], "left_knee": [0.5, 0.7, 0.9], "right_knee": [0.51, 0.7, 0.6],
+        "left_ankle": [0.5, 0.9, 0.55], "right_ankle": [0.51, 0.9, 0.95]}})).unwrap();
+    let (lines, _) = stick_figure(&[mixed], &|x, y| (x, y), 1.0, &mut Vec::new());
+    assert!(lines.iter().any(|l| (l.0 == (0.5, 0.7) && l.1 == (0.5, 0.9)) || (l.0 == (0.51, 0.7) && l.1 == (0.51, 0.9))));
+    // apart they are both drawn
+    let apart = Person::from_value(&json!({"points": {
+        "left_hip": [0.4, 0.5, 1.0], "right_hip": [0.6, 0.5, 1.0], "left_knee": [0.4, 0.7, 1.0], "right_knee": [0.6, 0.7, 1.0],
+        "left_ankle": [0.4, 0.9, 1.0], "right_ankle": [0.6, 0.9, 1.0]}})).unwrap();
+    let (lines, _) = stick_figure(&[apart], &|x, y| (x, y), 1.0, &mut Vec::new());
+    assert!(lines.contains(&((0.4, 0.7), (0.4, 0.9))) && lines.contains(&((0.6, 0.7), (0.6, 0.9))));
+}
+
+#[test]
+fn the_drawn_leg_stays_the_same_while_the_scores_wobble_and_changes_when_the_other_is_clearly_surer() {
+    let mut legs = Vec::new();
+    let drawn_left = |scores: (f64, f64), legs: &mut Vec<Option<bool>>| {
+        let (lines, _) = stick_figure(&[crossed(scores.0, scores.1, true)], &|x, y| (x, y), 1.0, legs);
+        lines.iter().any(|l| l.1 == (0.5, 0.9))
+    };
+    assert!(drawn_left((0.82, 0.81), &mut legs));
+    for _ in 0..3 {
+        assert!(drawn_left((0.81, 0.82), &mut legs));
+        assert!(drawn_left((0.82, 0.81), &mut legs));
+    }
+    assert!(!drawn_left((0.6, 0.95), &mut legs));
+    assert!(!drawn_left((0.82, 0.81), &mut legs));
+}
+
+#[test]
+fn a_sideways_head_and_a_zoomed_view_keep_their_figure() {
+    // shoulders nearly on top of each other: the head keeps the size the face gives it
+    let sideways = Person::from_value(&json!({"points": {
+        "left_shoulder": [0.5, 0.5, 1.0], "right_shoulder": [0.52, 0.5, 1.0], "nose": [0.5, 0.3, 1.0],
+        "left_ear": [0.48, 0.3, 1.0], "right_ear": [0.52, 0.3, 1.0]}})).unwrap();
+    let (_, heads) = stick_figure(&[sideways], &|x, y| (x, y), 1.0, &mut Vec::new());
+    assert!(heads[0].1 >= 0.03);
+    // a knee the model saw in its picture stays drawn when the view's crop puts it past the bottom edge
+    let person = Person::from_value(&json!({"points": {"left_hip": [0.4, 0.5, 1.0], "left_knee": [0.4, 0.8, 1.0]}})).unwrap();
+    let (lines, _) = stick_figure(&[person], &|x, y| (x, y * 1.5), 1.0, &mut Vec::new());
+    assert!(lines.len() == 1 && (lines[0].1 .1 - 1.2).abs() < 1e-9);
+    // a hip the model put below its own picture is a guess, however the view maps it
+    let guess = Person::from_value(&json!({"points": {"left_hip": [0.4, 1.4, 1.0], "left_knee": [0.4, 0.8, 1.0]}})).unwrap();
+    let (lines, _) = stick_figure(&[guess], &|x, y| (x, y * 0.5), 1.0, &mut Vec::new());
+    assert!(lines.is_empty());
 }
 
 #[test]
@@ -495,7 +567,7 @@ fn a_clone_or_cloak_with_nothing_taken_leaves_the_frame_where_it_is() {
 #[test]
 fn the_effects_that_need_a_plane_work_on_an_i420_frame_without_an_rgb_picture() {
     let big = rgb_big();
-    for effect in ["vhs", "ascii", "stick"] {
+    for effect in ["vhs", "ascii", "stick", "webcam"] {
         let mut r = Rig::new();
         r.pick(effect);
         let Some(FrameStep::Cpu(mut step)) = r.plugin.frame_step() else { panic!("a CPU step") };

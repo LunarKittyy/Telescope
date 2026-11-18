@@ -537,6 +537,35 @@ pub fn show_start_failure(events: &EventLog, reason: &str) {
     }
 }
 
+/// The title and words of the box the next start shows after Telescope closed for a plugin that hid part of the picture and failed.
+pub fn closing_text(reason: &str, log: &Path) -> (String, String) {
+    (
+        tr("Telescope had to close"),
+        tr("A plugin that hides part of the picture ran into a problem. Telescope closed rather than show what it hid.\n\nWhat went wrong: {reason}\n\nThe log is at {path}\n\nOpen the log?").field("reason", reason).field("path", log.display()),
+    )
+}
+
+/// The file next to the log that says the last run closed for a plugin that hid things and failed, and why.
+const CLOSED_MARKER: &str = "closed_for_hiding_plugin.txt";
+
+/// Before closing for a plugin that hid things and failed: a CRASH line goes in the log (written out, since the caller aborts) and a marker
+/// lets the next start say why. No box now: one waiting for a click would leave the other threads sending frames.
+pub fn report_closing(events: &EventLog, reason: &str) {
+    events.add("CRASH", reason);
+    events.close();
+    if let Some(log) = events.path() {
+        let _ = fs::write(log.with_file_name(CLOSED_MARKER), reason);
+    }
+}
+
+/// Why the last run closed for a plugin that hid things, once: the marker goes with it.
+pub fn take_closing_reason(log_folder: &Path) -> Option<String> {
+    let marker = log_folder.join(CLOSED_MARKER);
+    let reason = fs::read_to_string(&marker).ok()?;
+    let _ = fs::remove_file(&marker);
+    Some(reason)
+}
+
 /// Log to the file from here on, including panics (in any thread), and link it into app_dir. `version` is what START says.
 pub fn start(events: &'static EventLog, dir: &Path, app_dir: Option<&Path>, version: &str) {
     if events.open(&dir.join("telescope.log")) {
@@ -551,13 +580,23 @@ pub fn start(events: &'static EventLog, dir: &Path, app_dir: Option<&Path>, vers
         events.add("CRASH", &what);
         // Only the main thread's panic ends the start; a worker's is caught and logged
         if std::thread::current().name() == Some("main") && CATCHING.with(|c| c.get()) == 0 {
-            // A panic has its reason in hand, so it isn't blamed on the graphics card
-            crate::gpu_marker::clear();
+            // A panic has its reason in hand, so it isn't blamed on the graphics card, unless a card was chosen in Settings: that one may be what
+            // can't draw the window, and left unmarked it would be tried again at every start
+            if crate::gpu_pick::choice().is_empty() {
+                crate::gpu_marker::clear();
+            }
             show_start_failure(events, &what);
         }
         previous(info);
     }));
     events.add("START", &format!("Telescope {version}"));
+    if let Some(reason) = take_closing_reason(dir) {
+        let log = events.path().unwrap_or_else(|| dir.join("telescope.log"));
+        let (title, text) = closing_text(&reason, &log);
+        if crate::system::ask_box(&title, &text) {
+            crate::launch::open_url(&log.to_string_lossy());
+        }
+    }
 }
 
 /// Windows 11 still reports itself as release "10"; only the build number tells them apart.

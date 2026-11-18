@@ -5,10 +5,10 @@ New here? The [Quick Start](../README.md#up-and-running-in-about-two-minutes) is
 
 ## For users
 
-- [Features](features.md): everything the apps can do, split by area in [features/](features/camera.md)
+- [Features](features/README.md): everything the apps can do, split by area in [features/](features/camera.md)
 - [Troubleshooting](troubleshooting.md): common problems and their fixes
-- [Plugins](plugins.md): switching parts of the app off and installing plugins other people made
-- [MCP server](mcp.md): letting an AI app like Claude Desktop read and change Telescope's settings
+- [Plugins](features/plugins.md): switching parts of the app off and installing plugins other people made
+- [MCP server](features/mcp.md): letting an AI app like Claude Desktop read and change Telescope's settings
 - [Manual setup](setup.md): the virtual camera by hand on Linux, loading it at boot, OBS as a Flatpak
 - [Device compatibility](device-compatibility.md): phones that have been tested
 - [Licenses](licenses.md): what the licence means for you and the third-party parts used
@@ -17,15 +17,15 @@ New here? The [Quick Start](../README.md#up-and-running-in-about-two-minutes) is
 
 ## For contributors
 
-- [Architecture](architecture.md): how the phone and desktop apps fit together
+- [Architecture](development/architecture.md): how the phone and desktop apps fit together
 - [Desktop architecture](../rust/ARCHITECTURE.md): the crates and the plugin rules that keep the desktop app working when parts are switched off
-- [Control API](protocol.md): the phone's endpoints, the pairing QR code and the Browser camera messages
-- [Writing a plugin](writing-plugins.md): a guide with examples, in Lua
-- [Translating](translating.md): adding a language to either app and keeping new texts translatable
-- [Building](building.md): building the apps and trying a change with a dev app
-- [Packaging and CI](packaging.md): how the desktop app is packaged, the update path from the Python app and what each workflow does
-- [Release checklist](release-checklist.md): what to test by hand before tagging a release
+- [Control API](development/protocol.md): the phone's endpoints, the pairing QR code and the Browser camera messages
+- [Writing a plugin](development/writing-plugins.md): a guide with examples in Lua, plus the [WASM design](development/plugin-wasm.md) for later
+- [Translating](development/translating.md): adding a language to either app and keeping new texts translatable
+- [Building](development/building.md): building the apps and trying a change with a dev app
+- [Packaging and CI](development/packaging.md): how the desktop app is packaged, the update path from the Python app and what each workflow does
+- [Release checklist](development/release-checklist.md): what to test by hand before tagging a release
 - [Automation](../automation/README.md): translating with AI models and release testing in a VM and the emulator
-- [Upstream bugs](upstream-bugs.md): dependency bugs that are worked around, where the workaround is and when to drop it
+- [Upstream bugs](development/upstream-bugs.md): dependency bugs that are worked around, where the workaround is and when to drop it
 - [Roadmap](roadmap/README.md): what's planned, ideas for some day and what each past release set out to do
 - [CONTRIBUTING.md](../CONTRIBUTING.md): the short version of how to help

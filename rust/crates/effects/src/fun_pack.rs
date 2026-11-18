@@ -85,20 +85,30 @@ fn effect_text(key: &str) -> &'static str {
 pub type Lines = Vec<((f64, f64), (f64, f64))>;
 pub type Heads = Vec<((f64, f64), f64)>;
 
-pub fn stick_figure(people: &[Person], map_point: &dyn Fn(f64, f64) -> (f64, f64), aspect: f64) -> (Lines, Heads) {
+/// `legs` is which side's leg each person was drawn with while their legs overlapped (true for the left), kept from one call to the next so the shin doesn't flip side as the model's scores wobble.
+pub fn stick_figure(people: &[Person], map_point: &dyn Fn(f64, f64) -> (f64, f64), aspect: f64, legs: &mut Vec<Option<bool>>) -> (Lines, Heads) {
     let (mut lines, mut heads) = (Vec::new(), Vec::new());
-    for person in people {
+    legs.resize(people.len(), None);
+    for (person, chosen) in people.iter().zip(legs.iter_mut()) {
         let mut pts = std::collections::HashMap::new();
         for name in person.points.keys() {
             if let Some((x, y)) = person.point(name, SEEN) {
                 pts.insert(name.as_str(), map_point(x, y));
             }
         }
+        keep_one_leg(person, &mut pts, aspect, chosen);
+        // a point the model put outside its own picture is a guess: the view's zoom or crop doesn't change that
+        let guessed = |n: &str| person.point(n, SEEN).is_some_and(|(x, y)| !(-0.02..=1.02).contains(&x) || !(-0.02..=1.02).contains(&y));
         for (a, b) in BONES {
             if let (Some(&pa), Some(&pb)) = (pts.get(a), pts.get(b)) {
-                if !FACE.iter().any(|f| a.contains(f) || b.contains(f)) {
-                    lines.push((pa, pb));
+                if FACE.iter().any(|f| a.contains(f) || b.contains(f)) {
+                    continue;
                 }
+                // in a close-up the model guesses the torso and legs below the picture, which would draw a whole body
+                if !ARMS.iter().any(|m| a.contains(m) || b.contains(m)) && (guessed(a) || guessed(b)) {
+                    continue;
+                }
+                lines.push((pa, pb));
             }
         }
         let ears: Vec<(f64, f64)> = ["left_ear", "right_ear", "left_eye", "right_eye"].iter().filter_map(|n| pts.get(n).copied()).collect();
@@ -111,14 +121,67 @@ pub fn stick_figure(people: &[Person], map_point: &dyn Fn(f64, f64) -> (f64, f64
             if ears.len() >= 2 {
                 r = 0.02f64.max(((ears[0].0 - ears[1].0) * aspect).hypot(ears[0].1 - ears[1].1) * 0.8);
             }
+            let shoulders = pts.get("left_shoulder").zip(pts.get("right_shoulder"));
+            if let Some((&l, &rt)) = shoulders {
+                // a head is about half as wide as the shoulders: close up it stays that size next to what's drawn. Turned sideways the
+                // shoulders are nearly a line and say nothing about the head, so the face's own size stays
+                let span = ((l.0 - rt.0) * aspect).hypot(l.1 - rt.1);
+                if span >= SHOULDERS_SQUARE {
+                    r = r.min(0.25 * span);
+                }
+            }
             heads.push((head, r));
-            if let (Some(&(lx, ly)), Some(&(rx, ry))) = (pts.get("left_shoulder"), pts.get("right_shoulder")) {
+            if let Some((&(lx, ly), &(rx, ry))) = shoulders {
                 lines.push((((lx + rx) / 2.0, (ly + ry) / 2.0), (head.0, head.1 + r)));
             }
         }
     }
     (lines, heads)
 }
+
+const ARMS: [&str; 2] = ["elbow", "wrist"];
+
+/// Shoulders at least this far apart (picture heights) are seen from the front well enough to size the head by.
+const SHOULDERS_SQUARE: f64 = 0.08;
+
+/// With the legs crossed the model swaps the two knees or the two ankles. Where a pair sits on top of each other, one whole leg is
+/// kept (the one the model is surer of, and the same one from call to call unless the other becomes clearly surer) and the other
+/// leg loses the joints that overlap, so a drawable shin always survives and a wrong guess doesn't make a leg jump to the other side.
+fn keep_one_leg(person: &Person, pts: &mut std::collections::HashMap<&str, (f64, f64)>, aspect: f64, chosen: &mut Option<bool>) {
+    let span = |a: &str, b: &str| match (pts.get(a), pts.get(b)) {
+        (Some(l), Some(r)) => Some(((l.0 - r.0) * aspect).hypot(l.1 - r.1)),
+        _ => None,
+    };
+    // the hips say how wide the body is, the shoulders do when a hip is missing
+    let Some(width) = span("left_hip", "right_hip").or_else(|| span("left_shoulder", "right_shoulder").map(|s| s * 0.8)) else { return };
+    let apart = |a: &str, b: &str| span(a, b).is_some_and(|d| d < width * LEGS_APART);
+    let (knees, ankles) = (apart("left_knee", "right_knee"), apart("left_ankle", "right_ankle"));
+    if !knees && !ankles {
+        *chosen = None;
+        return;
+    }
+    let seen = |n: &str| person.points.get(n).map_or(0.0, |p| p.2);
+    let score = |side: &str| seen(&format!("{side}_knee")).min(seen(&format!("{side}_ankle")));
+    let (l, r) = (score("left"), score("right"));
+    let left = match *chosen {
+        Some(true) => r <= l + LEG_SWITCH,
+        Some(false) => l > r + LEG_SWITCH,
+        None => l >= r,
+    };
+    *chosen = Some(left);
+    let loser = if left { "right" } else { "left" };
+    if knees {
+        pts.remove(format!("{loser}_knee").as_str());
+    }
+    if ankles {
+        pts.remove(format!("{loser}_ankle").as_str());
+    }
+}
+
+/// Two knees or ankles closer than this many hip widths count as overlapping.
+const LEGS_APART: f64 = 0.35;
+/// How much surer the model has to be of the other leg before the drawn one changes.
+const LEG_SWITCH: f64 = 0.15;
 
 /// What the stream's step took for the card.
 enum Taken {
@@ -289,6 +352,8 @@ impl HubState {
 }
 
 pub struct FunPackPlugin {
+    /// Which leg each stick figure is drawn with while theirs overlap
+    legs: Vec<Option<bool>>,
     effect: &'static str,
     sliders: [i64; 5],
     across: bool,
@@ -341,6 +406,7 @@ impl FunPackPlugin {
             people: Vec::new(),
             lines: Vec::new(),
             heads: Vec::new(),
+            legs: Vec::new(),
             reset: 0,
             countdown: 0,
             counting: None,
@@ -611,7 +677,7 @@ impl FunPackPlugin {
         }
         let geometry = Geometry::from(&host.view());
         let aspect = host.view_aspect() as f64;
-        let (lines, heads) = stick_figure(&self.people, &|x, y| upright_to_shown(&geometry, x, y), if aspect > 0.0 { aspect } else { 16.0 / 9.0 });
+        let (lines, heads) = stick_figure(&self.people, &|x, y| upright_to_shown(&geometry, x, y), if aspect > 0.0 { aspect } else { 16.0 / 9.0 }, &mut self.legs);
         self.lines = lines;
         self.heads = heads;
         self.apply(host, false);
