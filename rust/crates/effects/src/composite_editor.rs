@@ -80,13 +80,15 @@ pub(super) struct Editor {
     picture_asked: Option<RequestId>,
     compositor: Compositor,
     prepared: Option<(Layout, (u32, u32))>,
+    /// Tiles the eye took out of the layout while this window is open, with the layer they were on: the eye brings one back as it was.
+    forgotten: Vec<(usize, Tile)>,
 }
 
 impl Editor {
     fn new(reader: PictureReader) -> Editor {
         Editor {
             selected: -1, hover: (-1, String::new()), drag: None, mode: String::new(), guides: (Vec::new(), Vec::new()), area: (960.0, 540.0),
-            cursor: "", asking: None, replacing: None, colour: "", picture_asked: None, compositor: Compositor::new(reader), prepared: None,
+            cursor: "", asking: None, replacing: None, colour: "", picture_asked: None, compositor: Compositor::new(reader), prepared: None, forgotten: Vec::new(),
         }
     }
 
@@ -96,7 +98,7 @@ impl Editor {
 
     /// (tile index, handle or "") under pos, the picked tile's handles first and then the frontmost tile.
     fn hit(&self, tiles: &[Tile], pos: (f64, f64)) -> (i64, String) {
-        if let Some(tile) = usize::try_from(self.selected).ok().and_then(|i| tiles.get(i)) {
+        if let Some(tile) = usize::try_from(self.selected).ok().and_then(|i| tiles.get(i)).filter(|t| !t.locked) {
             let (x, y, w, h) = self.tile_rect(tile);
             for (name, across, down) in HANDLES {
                 if (x + across * w - pos.0).abs() <= HANDLE_PX && (y + down * h - pos.1).abs() <= HANDLE_PX {
@@ -104,7 +106,8 @@ impl Editor {
                 }
             }
         }
-        for (i, tile) in tiles.iter().enumerate().rev() {
+        // a locked tile can't be moved by a click on the picture: the click goes through to what is behind it
+        for (i, tile) in tiles.iter().enumerate().rev().filter(|(_, t)| !t.locked) {
             let (x, y, w, h) = self.tile_rect(tile);
             if pos.0 >= x && pos.0 < x + w && pos.1 >= y && pos.1 < y + h {
                 return (i as i64, String::new());
@@ -202,6 +205,10 @@ impl CompositePlugin {
     fn replace_tile(&mut self, host: &mut dyn Host, index: i64, mut tile: Tile) {
         let Some(at) = usize::try_from(index).ok().filter(|i| *i < self.layout.tiles.len()) else { return };
         let old = self.layout.tiles[at].clone();
+        // a locked tile takes no change but its own lock
+        if old.locked && (Tile { locked: old.locked, ..tile.clone() }) != old {
+            return;
+        }
         // an edit that leaves the shown zoom alone leaves the saved one alone too
         if tile.zoom == self.capped(&old).zoom {
             tile.zoom = old.zoom;
@@ -366,6 +373,9 @@ impl CompositePlugin {
         let picked = self.editor.as_ref().map_or(-1, |e| e.selected);
         let others: Vec<usize> = (0..self.layout.tiles.len()).filter(|i| *i as i64 != picked).collect();
         let (Some(&there), true) = (usize::try_from(other).ok().and_then(|o| others.get(o)), picked >= 0) else { return };
+        if self.layout.tiles[picked as usize].locked || self.layout.tiles[there].locked {
+            return;
+        }
         let mut tiles = composite::swapped(&self.layout.tiles, picked as usize, there);
         // each is cut to the shape of its new box, so a wide picture isn't squeezed into a tall box
         let canvas = self.canvas_aspect();
@@ -482,24 +492,46 @@ impl CompositePlugin {
 
     /// (source id, name, running) of everything the Streams list shows.
     fn stream_entries(&self) -> Vec<(String, String, bool)> {
-        let mut entries: Vec<(String, String, bool)> = self.streams().into_iter().map(|(sid, name, _)| (sid, name, true)).collect();
-        for tile in &self.layout.tiles {
-            if !entries.iter().any(|e| e.0 == tile.source_id) {
-                let name = if tile.name.is_empty() { tile.source_id.clone() } else { tile.name.clone() };
-                entries.push((tile.source_id.clone(), name, false));
+        let running = self.streams();
+        let mut entries: Vec<(String, String, bool)> = Vec::new();
+        // the tiles of the layout first, the front one on top
+        for tile in self.layout.tiles.iter().rev() {
+            let live = running.iter().find(|r| r.0 == tile.source_id);
+            let name = live.map(|r| r.1.clone()).unwrap_or_else(|| if tile.name.is_empty() { tile.source_id.clone() } else { tile.name.clone() });
+            entries.push((tile.source_id.clone(), name, live.is_some()));
+        }
+        for (sid, name, _) in running {
+            if !entries.iter().any(|e| e.0 == sid) {
+                entries.push((sid, name, true));
             }
         }
         entries
     }
 
     fn put(&mut self, host: &mut dyn Host, source_id: &str, name: &str, on: bool) {
+        let at = self.layout.tiles.iter().position(|t| t.source_id == source_id);
         let mut tiles: Vec<Tile> = self.layout.tiles.iter().filter(|t| t.source_id != source_id).cloned().collect();
-        if on && tiles.len() < MAX_TILES {
-            let aspect = self.source_aspect(source_id).unwrap_or_else(|| self.canvas_aspect());
-            let b = composite::fit_box(aspect, (0.3, 0.3, 0.4, 0.4), self.canvas_aspect());
-            tiles.push(Tile { radius: 16, ..Tile::boxed(source_id, name, b.0, b.1, b.2, b.3) });
+        let mut picked = tiles.len() as i64 - 1;
+        if !on {
+            // the eye off: the stream leaves the picture, and its tile is remembered for as long as the window is open
+            if let (Some(i), Some(e)) = (at, self.editor.as_mut()) {
+                e.forgotten.retain(|(_, t)| t.source_id != source_id);
+                e.forgotten.push((i, self.layout.tiles[i].clone()));
+            }
+        } else if tiles.len() < MAX_TILES {
+            let back = self.editor.as_mut().and_then(|e| e.forgotten.iter().position(|(_, t)| t.source_id == source_id).map(|p| e.forgotten.remove(p)));
+            if let Some((layer, tile)) = back {
+                let layer = layer.min(tiles.len());
+                tiles.insert(layer, tile);
+                picked = layer as i64;
+            } else {
+                let aspect = self.source_aspect(source_id).unwrap_or_else(|| self.canvas_aspect());
+                let b = composite::fit_box(aspect, (0.3, 0.3, 0.4, 0.4), self.canvas_aspect());
+                tiles.push(Tile { radius: 16, ..Tile::boxed(source_id, name, b.0, b.1, b.2, b.3) });
+                picked = tiles.len() as i64 - 1;
+            }
         }
-        self.select(if on { tiles.len() as i64 - 1 } else { -1 });
+        self.select(if on { picked } else { -1 });
         self.set_layout(host, Layout { tiles, ..self.layout.clone() });
     }
 
@@ -517,6 +549,22 @@ impl CompositePlugin {
         let Some(aspect) = self.source_aspect(&tile.source_id) else { return };
         let fitted = composite::fitted(&tile, aspect, self.canvas_aspect());
         self.edit_picked(host, |t| *t = fitted);
+    }
+
+    /// The stream on row `from` of the Streams list (the front layer first) dragged to row `to`.
+    fn move_layer(&mut self, host: &mut dyn Host, from: usize, to: usize) {
+        let n = self.layout.tiles.len();
+        if from >= n || to >= n || from == to {
+            return;
+        }
+        let (index, step) = ((n - 1 - from) as i64, from as i64 - to as i64);
+        let picked = self.editor.as_ref().map_or(-1, |e| e.selected);
+        let tiles = composite::raised(&self.layout.tiles, index, step);
+        // whoever was picked stays picked, wherever its layer went
+        let id = usize::try_from(picked).ok().and_then(|i| self.layout.tiles.get(i)).map(|t| t.source_id.clone());
+        let now = id.and_then(|id| tiles.iter().position(|t| t.source_id == id)).map_or(-1, |i| i as i64);
+        self.select(now);
+        self.set_layout(host, Layout { tiles, ..self.layout.clone() });
     }
 
     fn restack(&mut self, host: &mut dyn Host, step: i64) {
@@ -591,7 +639,9 @@ impl CompositePlugin {
         }).collect()).unwrap_or_default();
         let rows: Vec<Value> = self.stream_entries().into_iter().map(|(sid, name, running)| {
             let text = if running { name } else { tr("{name} (not streaming)").field("name", &name) };
-            json!({"text": text, "dim": !running, "on": layout.tiles.iter().any(|t| t.source_id == sid)})
+            let at = layout.tiles.iter().position(|t| t.source_id == sid);
+            json!({"text": text, "dim": !running, "on": at.is_some(), "layer": at.is_some(), "locked": at.is_some_and(|i| layout.tiles[i].locked),
+                   "picked": at.is_some_and(|i| i as i64 == e.selected)})
         }).collect();
         let picture_name = if layout.picture.is_empty() {
             tr("None")
@@ -644,6 +694,8 @@ impl CompositePlugin {
             "size-w-text": picked.map_or_else(String::new, |t| format!("{}", (t.w * w as f64).round() as i64)),
             "size-h-text": picked.map_or_else(String::new, |t| format!("{}", (t.h * h as f64).round() as i64)),
             "swap-items": layout.tiles.iter().enumerate().filter(|(i, _)| *i as i64 != index).map(|(_, t)| if t.name.is_empty() { t.source_id.clone() } else { t.name.clone() }).collect::<Vec<_>>(),
+            "tile-locked": picked.is_some_and(|t| t.locked),
+            "layer-count": layout.tiles.len(),
             "swap-enabled": picked.is_some() && layout.tiles.len() >= 2,
             "back-enabled": index > 0,
             "front-enabled": index >= 0 && index < layout.tiles.len() as i64 - 1,
@@ -715,6 +767,16 @@ impl CompositePlugin {
             }
             "box-step" => self.set_box(host, text(0), number(1), true),
             "swap-picked" => self.swap_picked(host, number(0) as i64),
+            "stream-picked" | "stream-locked" => {
+                let Some((sid, ..)) = self.stream_entries().get(number(0) as usize).cloned() else { return };
+                let Some(at) = self.layout.tiles.iter().position(|t| t.source_id == sid) else { return };
+                if event.callback == "stream-picked" {
+                    self.select(at as i64);
+                } else {
+                    self.replace_tile(host, at as i64, Tile { locked: flag(1), ..self.layout.tiles[at].clone() });
+                }
+            }
+            "stream-moved" => self.move_layer(host, number(0) as usize, number(1) as usize),
             "start-from" => self.start_from(host, number(0) as i64),
             "layout-picked" => {
                 if let Some(name) = self.names().get(number(0) as usize).cloned() {
