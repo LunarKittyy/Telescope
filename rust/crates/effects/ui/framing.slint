@@ -191,6 +191,7 @@ export component FramingCard inherits Card {
                 enabled: active && !picking && !pick-blocked;
                 role: following ? "" : "primary";
                 hue: root.hue;
+                muted: true;
                 text: following ? pick-again-text : pick-text;
                 tip: pick-name;
                 tip-detail: pick-blocked ? pick-blocked-tip : pick-tip;
