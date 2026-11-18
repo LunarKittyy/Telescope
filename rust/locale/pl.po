@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">Przekaż darowiznę lub dowiedz się więcej</a>"
 msgid "No mic"
 msgstr "Brak mikrofonu"
 
-#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:518 rust/crates/system/src/updates_plugin.rs:457
+#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:518 rust/crates/system/src/updates_plugin.rs:358
 msgid "Downloading…"
 msgstr "Pobieranie…"
 
@@ -346,7 +346,7 @@ msgstr "Żółty: ogranicznik tłumi wartości szczytowe. Czerwony: doszło do p
 msgid "Click to clear"
 msgstr "Kliknij, by wyczyścić"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:48 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:48 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:99
 msgid "Reset"
 msgstr "Zresetuj"
 
@@ -370,7 +370,7 @@ msgstr "Redukcja szumów"
 msgid "Noise reduction unavailable"
 msgstr "Redukcja szumów niedostępna"
 
-#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:993 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:191 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:260
+#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:993 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:191 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363
 msgid "Cancel"
 msgstr "Anuluj"
 
@@ -3649,7 +3649,7 @@ msgstr "Krzywa"
 msgid "All"
 msgstr "Wszystkie"
 
-#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/system/ui/updates.slint:173 rust/crates/system/ui/updates.slint:184
+#: rust/crates/effects/ui/colour_grading.slint:364 rust/crates/system/ui/updates.slint:153 rust/crates/system/ui/updates.slint:164
 msgid "Channel"
 msgstr "Kanał"
 
@@ -4873,7 +4873,7 @@ msgstr "Nie nadąża"
 msgid "Browser"
 msgstr "Przeglądarka"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1749 rust/crates/system/ui/updates.slint:166
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1749 rust/crates/system/ui/updates.slint:146
 msgid "Try again"
 msgstr "Spróbuj ponownie"
 
@@ -8261,7 +8261,7 @@ msgstr "Odległość ostrzenia"
 msgid "Install the v4l2loopback package. Fedora and Nobara: v4l2loopback (from RPM Fusion). Debian, Ubuntu and Arch: v4l2loopback-dkms."
 msgstr "Zainstaluj pakiet v4l2loopback. Fedora i Nobara: v4l2loopback (z RPM Fusion). Debian, Ubuntu i Arch: v4l2loopback-dkms."
 
-#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:465
+#: rust/crates/shell/src/plugins/onboarding.rs:131 rust/crates/system/src/updates_plugin.rs:365
 msgid "Checking…"
 msgstr "Sprawdzanie…"
 
@@ -8281,7 +8281,7 @@ msgstr "Zainstalowano."
 msgid "Check again"
 msgstr "Sprawdź ponownie"
 
-#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:459
+#: rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/system/src/updates_plugin.rs:360
 msgid "Installing…"
 msgstr "Instalowanie…"
 
@@ -9611,67 +9611,6 @@ msgstr "Nie udało się ustawić uruchamiania Telescope przy logowaniu: {error}"
 msgid "Couldn't stop Telescope opening at sign-in: {error}"
 msgstr "Nie udało się wyłączyć uruchamiania Telescope przy logowaniu: {error}"
 
-#: rust/crates/system/src/going_back.rs:113
-#, python-brace-format
-msgid "Couldn't set up the Python libraries {version} needs. That needs an internet connection and a folder Telescope can write to ({folder}). Nothing was changed."
-msgstr "Nie udało się skonfigurować bibliotek języka Python wymaganych przez wersję {version}. Wymaga to połączenia z internetem i folderu z prawami zapisu dla Telescope ({folder}). Nic nie zostało zmienione."
-
-#: rust/crates/system/src/going_back.rs:227
-#, python-brace-format
-msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones carry over, with a copy of your current settings saved first in {folder}."
-msgstr "Telescope uruchamia się ponownie jako wersja {version}, ostatnia wersja w języku Python. Twoje ustawienia i sparowane telefony zostaną zachowane, a kopia bieżących ustawień zostanie najpierw zapisana w {folder}."
-
-#: rust/crates/system/src/going_back.rs:229
-#, python-brace-format
-msgid "You lose what's new since then. Plugins written in Lua don't run in {version} and settings that didn't exist then are ignored."
-msgstr "Utracisz nowości wprowadzone od tamtej pory. Wtyczki napisane w Lua nie działają w wersji {version}, a ustawienia, które wtedy nie istniały, zostaną zignorowane."
-
-#: rust/crates/system/src/going_back.rs:231
-#, python-brace-format
-msgid "{version} has no automatic update check and doesn't offer this version back. You can turn that on again in its settings."
-msgstr "Wersja {version} nie sprawdza aktualizacji automatycznie i nie oferuje powrotu do tej wersji. Możesz to włączyć ponownie w jej ustawieniach."
-
-#: rust/crates/system/src/going_back.rs:234
-#, python-brace-format
-msgid "First the Python libraries {version} needs are set up. This needs the internet and takes a few minutes. Nothing is changed if that fails."
-msgstr "Najpierw konfigurowane są biblioteki Pythona potrzebne dla wersji {version}. Wymaga to połączenia z internetem i zajmuje kilka minut. Jeśli się nie uda, nic nie zostanie zmienione."
-
-#: rust/crates/system/src/going_back.rs:236
-msgid "If the Python version doesn't start, opening Telescope again brings this version back."
-msgstr "Jeśli wersja w języku Python się nie uruchomi, ponowne otwarcie Telescope przywróci tę wersję."
-
-#: rust/crates/system/src/going_back.rs:238 rust/crates/system/src/going_back.rs:251
-msgid "Go back"
-msgstr "Wróć"
-
-#: rust/crates/system/src/going_back.rs:242
-#, python-brace-format
-msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack the archive and run start.sh in the folder. The Python version needs Python 3.12 or newer and uses the same settings folder."
-msgstr "Wersji AppImage nie można zamienić na wersję w języku Python. Pobierz plik Telescope-linux.tar.gz z wydania {version}, rozpakuj archiwum i uruchom start.sh w tym folderze. Wersja w Pythonie wymaga środowiska Python 3.12 lub nowszego i korzysta z tego samego folderu ustawień."
-
-#: rust/crates/system/src/going_back.rs:244
-#, python-brace-format
-msgid "Telescope can't swap its own files here, because its folder isn't writable. Download {version} from its release page and install it yourself."
-msgstr "Telescope nie może tu podmienić własnych plików, ponieważ jego folder nie ma praw zapisu. Pobierz wersję {version} z jej strony wydania i zainstaluj ją samodzielnie."
-
-#: rust/crates/system/src/going_back.rs:247 rust/crates/system/src/updates_plugin.rs:529
-msgid "Open download page"
-msgstr "Otwórz stronę pobierania"
-
-#: rust/crates/system/src/going_back.rs:258
-#, python-brace-format
-msgid "{version} needs Python 3.12 or newer with venv and this computer doesn't have it. Install it first (python3 and python3-venv on Debian or Ubuntu), then try again. Nothing was changed."
-msgstr "Wersja {version} wymaga środowiska Python 3.12 lub nowszego z modułem venv, a na tym komputerze go nie ma. Zainstaluj je najpierw (pakiety python3 i python3-venv w systemie Debian lub Ubuntu), a potem spróbuj ponownie. Nic nie zostało zmienione."
-
-#: rust/crates/system/src/going_back.rs:262
-#, python-brace-format
-msgid "The phone app has to match. A newer phone app may not connect to {version}. Android won't install an older app over a newer one. Uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
-msgstr "Aplikacja na telefon musi być zgodna. Nowsza aplikacja może nie połączyć się z wersją {version}. Android nie zainstaluje starszej aplikacji na nowszą. Odinstaluj Telescope na telefonie, zainstaluj plik Telescope.apk z wydania {version} i sparuj telefon ponownie."
-
-#: rust/crates/system/src/going_back.rs:282
-msgid "A copy of your settings couldn't be saved. Nothing was changed."
-msgstr "Nie udało się zapisać kopii Twoich ustawień. Nic nie zostało zmienione."
-
 #: rust/crates/system/src/hotkeys_portal.rs:117
 msgid "Not available on this desktop"
 msgstr "Niedostępne w tym środowisku graficznym"
@@ -10368,99 +10307,86 @@ msgstr "Nie udało się podmienić plików programu Telescope: {error}"
 msgid "The update wasn't installed while {file} is in use. Try again after a restart."
 msgstr "Aktualizacja nie została zainstalowana, ponieważ plik {file} jest w użyciu. Spróbuj ponownie po ponownym uruchomieniu komputera."
 
-#: rust/crates/system/src/updates.rs:596
+#: rust/crates/system/src/updates.rs:591
 #, python-brace-format
 msgid "Telescope can't update itself in place because this folder also holds something of yours named {name}. Unpack the download into a separate folder."
 msgstr "Telescope nie może zaktualizować się w bieżącej lokalizacji, ponieważ w tym folderze znajduje się już Twój element o nazwie {name}. Rozpakuj pobrany plik do osobnego folderu."
 
-#: rust/crates/system/src/updates.rs:665 rust/crates/system/src/updates_plugin.rs:98 rust/crates/system/src/updates_plugin.rs:169 rust/crates/system/src/updates_plugin.rs:241 rust/crates/system/src/updates_plugin.rs:623 rust/crates/system/src/updates_plugin.rs:829
+#: rust/crates/system/src/updates.rs:656 rust/crates/system/src/updates_plugin.rs:142 rust/crates/system/src/updates_plugin.rs:612
 msgid "The update failed."
 msgstr "Aktualizacja nie powiodła się."
 
-#: rust/crates/system/src/updates.rs:692
+#: rust/crates/system/src/updates.rs:683
 msgid "This update wasn't installed because it can't start on this computer."
 msgstr "Ta aktualizacja nie została zainstalowana, ponieważ nie można jej uruchomić na tym komputerze."
 
-#: rust/crates/system/src/updates_plugin.rs:31
+#: rust/crates/system/src/updates_plugin.rs:30
 msgid "Stable"
 msgstr "Stabilny"
 
-#: rust/crates/system/src/updates_plugin.rs:31 rust/crates/system/ui/updates.slint:188
+#: rust/crates/system/src/updates_plugin.rs:30 rust/crates/system/ui/updates.slint:168
 msgid "Nightly"
 msgstr "Nightly"
 
-#: rust/crates/system/src/updates_plugin.rs:455
+#: rust/crates/system/src/updates_plugin.rs:356
 #, python-brace-format
 msgid "Downloading {percent}%…"
 msgstr "Pobieranie {percent} %…"
 
-#: rust/crates/system/src/updates_plugin.rs:460
-msgid "Setting up Python's libraries. This takes a few minutes…"
-msgstr "Konfigurowanie bibliotek Pythona. To zajmie kilka minut…"
-
-#: rust/crates/system/src/updates_plugin.rs:461
+#: rust/crates/system/src/updates_plugin.rs:361
 msgid "Updated. Telescope restarts when you stop streaming."
 msgstr "Zaktualizowano. Telescope uruchomi się ponownie po zatrzymaniu strumieniowania."
 
-#: rust/crates/system/src/updates_plugin.rs:471
-msgid "Going back to the Python version failed because the Python version didn't start. This version is running again."
-msgstr "Powrót do wersji w języku Python nie powiódł się, ponieważ wersja w Pythonie nie uruchomiła się. Ponownie działa bieżąca wersja."
-
-#: rust/crates/system/src/updates_plugin.rs:476
+#: rust/crates/system/src/updates_plugin.rs:373
 msgid "Updating also installs it for your user with a Start menu entry and removes this unzipped copy. Settings and paired phones carry over."
 msgstr "Aktualizacja instaluje go także dla Twojego użytkownika ze skrótem w menu Start i usuwa tę rozpakowaną kopię. Ustawienia i sparowane telefony zostają zachowane."
 
-#: rust/crates/system/src/updates_plugin.rs:482
+#: rust/crates/system/src/updates_plugin.rs:379
 msgid "Stop streaming to update."
 msgstr "Zatrzymaj strumieniowanie, aby zaktualizować."
 
-#: rust/crates/system/src/updates_plugin.rs:494
+#: rust/crates/system/src/updates_plugin.rs:391
 msgid "This is a source checkout. Update Telescope with git."
 msgstr "To jest kopia ze źródeł. Zaktualizuj Telescope za pomocą gita."
 
-#: rust/crates/system/src/updates_plugin.rs:502
+#: rust/crates/system/src/updates_plugin.rs:399
 msgid "There's no nightly release yet."
 msgstr "Nie ma jeszcze wydania nightly."
 
-#: rust/crates/system/src/updates_plugin.rs:502
+#: rust/crates/system/src/updates_plugin.rs:399
 msgid "There's no stable release yet."
 msgstr "Nie ma jeszcze wydania stabilnego."
 
-#: rust/crates/system/src/updates_plugin.rs:504
+#: rust/crates/system/src/updates_plugin.rs:401
 msgid "You have the latest version."
 msgstr "Masz najnowszą wersję."
 
-#: rust/crates/system/src/updates_plugin.rs:508
+#: rust/crates/system/src/updates_plugin.rs:405
 #, python-brace-format
 msgid "Telescope {version} is available"
 msgstr "Telescope {version} jest dostępny"
 
-#: rust/crates/system/src/updates_plugin.rs:529
+#: rust/crates/system/src/updates_plugin.rs:426
+msgid "Open download page"
+msgstr "Otwórz stronę pobierania"
+
+#: rust/crates/system/src/updates_plugin.rs:426
 msgid "Update and restart"
 msgstr "Zaktualizuj i uruchom ponownie"
 
-#: rust/crates/system/src/updates_plugin.rs:533
-msgid "Stop streaming to go back."
-msgstr "Zatrzymaj strumieniowanie, aby wrócić do starszej wersji."
-
-#: rust/crates/system/src/updates_plugin.rs:533
-#, python-brace-format
-msgid "Swap this version for the last Python version, {version}."
-msgstr "Zamień tę wersję na ostatnią wersję w Pythonie ({version})."
-
-#: rust/crates/system/src/updates_plugin.rs:722
+#: rust/crates/system/src/updates_plugin.rs:509
 msgid "Couldn't check for updates."
 msgstr "Nie udało się sprawdzić aktualizacji."
 
-#: rust/crates/system/src/updates_plugin.rs:879
+#: rust/crates/system/src/updates_plugin.rs:659
 msgid "Updated. Close and reopen Telescope to finish."
 msgstr "Zaktualizowano. Zamknij i otwórz ponownie Telescope, aby dokończyć."
 
-#: rust/crates/system/src/updates_plugin.rs:895
+#: rust/crates/system/src/updates_plugin.rs:675
 msgid "Updates"
 msgstr "Aktualizacje"
 
-#: rust/crates/system/src/updates_plugin.rs:896
+#: rust/crates/system/src/updates_plugin.rs:676
 msgid "Check for new versions of Telescope and install them."
 msgstr "Sprawdzaj dostępność nowych wersji programu Telescope i instaluj je."
 
@@ -10696,103 +10622,82 @@ msgctxt "search"
 msgid "notification notify alert popup message"
 msgstr "powiadomienie powiadom alert wyskakujące okienko komunikat wiadomość notification notify alert popup message"
 
-#: rust/crates/system/ui/updates.slint:107
+#: rust/crates/system/ui/updates.slint:87
 msgid "Check for new versions and install them."
 msgstr "Sprawdzaj dostępność nowych wersji i instaluj je."
 
-#: rust/crates/system/ui/updates.slint:108
+#: rust/crates/system/ui/updates.slint:88
 msgctxt "search"
 msgid "update upgrade new version release download install latest"
 msgstr "aktualizacja zaktualizuj nowa wersja wydanie pobierz zainstaluj najnowsza update upgrade new version release download install latest"
 
-#: rust/crates/system/ui/updates.slint:113 rust/crates/system/ui/updates.slint:114
+#: rust/crates/system/ui/updates.slint:93 rust/crates/system/ui/updates.slint:94
 msgid "Check now"
 msgstr "Sprawdź teraz"
 
-#: rust/crates/system/ui/updates.slint:115
+#: rust/crates/system/ui/updates.slint:95
 msgid "Look for a new version of Telescope."
 msgstr "Poszukaj nowej wersji programu Telescope."
 
-#: rust/crates/system/ui/updates.slint:120
+#: rust/crates/system/ui/updates.slint:100
 msgid "Set the update channel and automatic checking back to default."
 msgstr "Przywróć domyślny kanał aktualizacji i automatyczne sprawdzanie."
 
-#: rust/crates/system/ui/updates.slint:126
+#: rust/crates/system/ui/updates.slint:106
 msgid "This version"
 msgstr "Ta wersja"
 
-#: rust/crates/system/ui/updates.slint:127
+#: rust/crates/system/ui/updates.slint:107
 msgid "The version of Telescope you're running"
 msgstr "Wersja programu Telescope, której używasz"
 
-#: rust/crates/system/ui/updates.slint:130
+#: rust/crates/system/ui/updates.slint:110
 msgctxt "search"
 msgid "current build number"
 msgstr "bieżąca wersja kompilacja numer current build number"
 
-#: rust/crates/system/ui/updates.slint:155
+#: rust/crates/system/ui/updates.slint:135
 msgid "What's new"
 msgstr "Co nowego"
 
-#: rust/crates/system/ui/updates.slint:174
+#: rust/crates/system/ui/updates.slint:154
 msgid "Stable is tested more and nightly gets fixes first"
 msgstr "Wersja stabilna jest dokładniej przetestowana, a nightly szybciej otrzymuje poprawki"
 
-#: rust/crates/system/ui/updates.slint:177
+#: rust/crates/system/ui/updates.slint:157
 msgctxt "search"
 msgid "stable nightly beta release track builds testing"
 msgstr "stabilny nightly beta wydanie kanał kompilacje testowanie stable nightly beta release track builds testing"
 
-#: rust/crates/system/ui/updates.slint:189
+#: rust/crates/system/ui/updates.slint:169
 msgid "Built from every change. Gets fixes first but is less tested."
 msgstr "Budowany z każdej zmiany. Pierwszy otrzymuje poprawki, ale jest mniej przetestowany."
 
-#: rust/crates/system/ui/updates.slint:195
+#: rust/crates/system/ui/updates.slint:175
 msgid "Check daily"
 msgstr "Sprawdzaj codziennie"
 
-#: rust/crates/system/ui/updates.slint:196
+#: rust/crates/system/ui/updates.slint:176
 msgid "Look for a new version once a day"
 msgstr "Sprawdzaj dostępność nowej wersji raz dziennie"
 
-#: rust/crates/system/ui/updates.slint:197
+#: rust/crates/system/ui/updates.slint:177
 msgctxt "search"
 msgid "automatic updates auto check every day background"
 msgstr "automatyczne aktualizacje automatyczne sprawdzanie codziennie w tle automatic updates auto check every day background"
 
-#: rust/crates/system/ui/updates.slint:204 rust/crates/system/ui/updates.slint:206
+#: rust/crates/system/ui/updates.slint:184 rust/crates/system/ui/updates.slint:186
 msgid "Keep this copy where it is"
 msgstr "Pozostaw tę kopię na miejscu"
 
-#: rust/crates/system/ui/updates.slint:205
+#: rust/crates/system/ui/updates.slint:185
 msgctxt "search"
 msgid "portable keep this copy where it is zip folder in place windows unzipped"
 msgstr "przenośny zachowaj tę kopię na miejscu zip folder w miejscu windows rozpakowany portable keep this copy where it is in place unzipped"
 
-#: rust/crates/system/ui/updates.slint:207
+#: rust/crates/system/ui/updates.slint:187
 msgid "Update this unzipped folder in place instead of installing Telescope for your user."
 msgstr "Zaktualizuj ten rozpakowany folder na miejscu, zamiast instalować Telescope dla swojego użytkownika."
-
-#: rust/crates/system/ui/updates.slint:214
-msgid "Older version"
-msgstr "Starsza wersja"
-
-#: rust/crates/system/ui/updates.slint:215
-msgid "Go back to the older Python version of Telescope"
-msgstr "Wróć do starszej wersji programu Telescope w języku Python"
-
-#: rust/crates/system/ui/updates.slint:218
-msgctxt "search"
-msgid "go back downgrade python previous old version revert undo rust"
-msgstr "wróć starsza wersja poprzednia stara cofnij python rust go back downgrade previous old version revert undo"
-
-#: rust/crates/system/ui/updates.slint:222 rust/crates/system/ui/updates.slint:223
-msgid "Go back to the Python version"
-msgstr "Wróć do wersji w Pythonie"
-
-#: rust/crates/system/ui/updates.slint:248
-msgid "Go back to the Python version?"
-msgstr "Czy chcesz wrócić do wersji w Pythonie?"
 
 #: rust/crates/ui-kit/ui/widgets/colour.slint:253
 msgid "Hex"
@@ -10982,17 +10887,17 @@ msgctxt "search"
 msgid "stretch squish aspect tall"
 msgstr "rozciągnij ściśnij proporcje wysoki pionowy stretch squish aspect tall"
 
-#: rust/crates/system/src/updates_plugin.rs:474
+#: rust/crates/system/src/updates_plugin.rs:371
 #, python-brace-format
 msgid "Telescope {version} is available."
 msgstr "Telescope {version} jest dostępny."
 
-#: rust/crates/system/src/updates_plugin.rs:496
+#: rust/crates/system/src/updates_plugin.rs:393
 #, python-brace-format
 msgid "The latest nightly build is {version}."
 msgstr "Najnowsza kompilacja nightly to {version}."
 
-#: rust/crates/system/src/updates_plugin.rs:496
+#: rust/crates/system/src/updates_plugin.rs:393
 #, python-brace-format
 msgid "The latest stable build is {version}."
 msgstr "Najnowsza wersja stabilna to {version}."
@@ -11048,6 +10953,80 @@ msgstr "Zastąpiono"
 #: rust/crates/shell/src/plugins_tab.rs:157
 msgid "Couldn't restart"
 msgstr "Nie udało się uruchomić ponownie"
+
+#, python-brace-format
+#~ msgid "Couldn't set up the Python libraries {version} needs. That needs an internet connection and a folder Telescope can write to ({folder}). Nothing was changed."
+#~ msgstr "Nie udało się skonfigurować bibliotek języka Python wymaganych przez wersję {version}. Wymaga to połączenia z internetem i folderu z prawami zapisu dla Telescope ({folder}). Nic nie zostało zmienione."
+
+#, python-brace-format
+#~ msgid "Telescope restarts as version {version}, the last Python version. Your settings and paired phones carry over, with a copy of your current settings saved first in {folder}."
+#~ msgstr "Telescope uruchamia się ponownie jako wersja {version}, ostatnia wersja w języku Python. Twoje ustawienia i sparowane telefony zostaną zachowane, a kopia bieżących ustawień zostanie najpierw zapisana w {folder}."
+
+#, python-brace-format
+#~ msgid "You lose what's new since then. Plugins written in Lua don't run in {version} and settings that didn't exist then are ignored."
+#~ msgstr "Utracisz nowości wprowadzone od tamtej pory. Wtyczki napisane w Lua nie działają w wersji {version}, a ustawienia, które wtedy nie istniały, zostaną zignorowane."
+
+#, python-brace-format
+#~ msgid "{version} has no automatic update check and doesn't offer this version back. You can turn that on again in its settings."
+#~ msgstr "Wersja {version} nie sprawdza aktualizacji automatycznie i nie oferuje powrotu do tej wersji. Możesz to włączyć ponownie w jej ustawieniach."
+
+#, python-brace-format
+#~ msgid "First the Python libraries {version} needs are set up. This needs the internet and takes a few minutes. Nothing is changed if that fails."
+#~ msgstr "Najpierw konfigurowane są biblioteki Pythona potrzebne dla wersji {version}. Wymaga to połączenia z internetem i zajmuje kilka minut. Jeśli się nie uda, nic nie zostanie zmienione."
+
+#~ msgid "If the Python version doesn't start, opening Telescope again brings this version back."
+#~ msgstr "Jeśli wersja w języku Python się nie uruchomi, ponowne otwarcie Telescope przywróci tę wersję."
+
+#~ msgid "Go back"
+#~ msgstr "Wróć"
+
+#, python-brace-format
+#~ msgid "An AppImage can't be swapped for the Python version. Download Telescope-linux.tar.gz from the {version} release, unpack the archive and run start.sh in the folder. The Python version needs Python 3.12 or newer and uses the same settings folder."
+#~ msgstr "Wersji AppImage nie można zamienić na wersję w języku Python. Pobierz plik Telescope-linux.tar.gz z wydania {version}, rozpakuj archiwum i uruchom start.sh w tym folderze. Wersja w Pythonie wymaga środowiska Python 3.12 lub nowszego i korzysta z tego samego folderu ustawień."
+
+#, python-brace-format
+#~ msgid "Telescope can't swap its own files here, because its folder isn't writable. Download {version} from its release page and install it yourself."
+#~ msgstr "Telescope nie może tu podmienić własnych plików, ponieważ jego folder nie ma praw zapisu. Pobierz wersję {version} z jej strony wydania i zainstaluj ją samodzielnie."
+
+#, python-brace-format
+#~ msgid "{version} needs Python 3.12 or newer with venv and this computer doesn't have it. Install it first (python3 and python3-venv on Debian or Ubuntu), then try again. Nothing was changed."
+#~ msgstr "Wersja {version} wymaga środowiska Python 3.12 lub nowszego z modułem venv, a na tym komputerze go nie ma. Zainstaluj je najpierw (pakiety python3 i python3-venv w systemie Debian lub Ubuntu), a potem spróbuj ponownie. Nic nie zostało zmienione."
+
+#, python-brace-format
+#~ msgid "The phone app has to match. A newer phone app may not connect to {version}. Android won't install an older app over a newer one. Uninstall Telescope on the phone, install Telescope.apk from the {version} release and pair again."
+#~ msgstr "Aplikacja na telefon musi być zgodna. Nowsza aplikacja może nie połączyć się z wersją {version}. Android nie zainstaluje starszej aplikacji na nowszą. Odinstaluj Telescope na telefonie, zainstaluj plik Telescope.apk z wydania {version} i sparuj telefon ponownie."
+
+#~ msgid "A copy of your settings couldn't be saved. Nothing was changed."
+#~ msgstr "Nie udało się zapisać kopii Twoich ustawień. Nic nie zostało zmienione."
+
+#~ msgid "Setting up Python's libraries. This takes a few minutes…"
+#~ msgstr "Konfigurowanie bibliotek Pythona. To zajmie kilka minut…"
+
+#~ msgid "Going back to the Python version failed because the Python version didn't start. This version is running again."
+#~ msgstr "Powrót do wersji w języku Python nie powiódł się, ponieważ wersja w Pythonie nie uruchomiła się. Ponownie działa bieżąca wersja."
+
+#~ msgid "Stop streaming to go back."
+#~ msgstr "Zatrzymaj strumieniowanie, aby wrócić do starszej wersji."
+
+#, python-brace-format
+#~ msgid "Swap this version for the last Python version, {version}."
+#~ msgstr "Zamień tę wersję na ostatnią wersję w Pythonie ({version})."
+
+#~ msgid "Older version"
+#~ msgstr "Starsza wersja"
+
+#~ msgid "Go back to the older Python version of Telescope"
+#~ msgstr "Wróć do starszej wersji programu Telescope w języku Python"
+
+#~ msgctxt "search"
+#~ msgid "go back downgrade python previous old version revert undo rust"
+#~ msgstr "wróć starsza wersja poprzednia stara cofnij python rust go back downgrade previous old version revert undo"
+
+#~ msgid "Go back to the Python version"
+#~ msgstr "Wróć do wersji w Pythonie"
+
+#~ msgid "Go back to the Python version?"
+#~ msgstr "Czy chcesz wrócić do wersji w Pythonie?"
 
 #, python-brace-format
 #~ msgid "{name} (not streaming)"
