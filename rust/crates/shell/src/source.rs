@@ -318,9 +318,8 @@ pub fn to_slint(json: &Json, like: &Value) -> Value {
 pub fn to_property(ui: &ComponentInstance, name: &str, json: &Json) -> Value {
     let like = ui.get_property(name).unwrap_or(Value::Void);
     if matches!(json, Json::Array(_) | Json::Object(_) | Json::Null) {
-        let same = |n: &str| n.replace('_', "-") == name.replace('_', "-");
-        if let Some((_, (ty, _))) = ui.definition().properties_and_callbacks().find(|(n, _)| same(n)) {
-            return fill(json, &ty, &like);
+        if let Some(ty) = ui.property_type(name) {
+            return fill(json, ty, &like);
         }
     }
     to_slint(json, &like)

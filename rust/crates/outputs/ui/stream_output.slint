@@ -30,7 +30,7 @@ export component StreamOutputCard inherits Card {
     in property <string> bitrate-readout;
     in property <string> bitrate-tip;
     // value_label's fits: the column both readouts share, wide enough for "100 Mbps" and the words it can show
-    in property <length> readout-width: Theme.u(32);
+    in property <length> readout-width: Theme.readout-w-wide;
     callback res-picked(int);
     callback fps-picked(int);
     callback ar-picked(int);
