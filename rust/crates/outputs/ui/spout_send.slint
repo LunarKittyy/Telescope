@@ -14,6 +14,8 @@ export component SpoutSendCard inherits Card {
     title: @tr("Spout send");
     tip: @tr("Share this stream's picture with other programs on this computer, such as OBS.");
     icon: Icons.monitor;
+    header-status: root.status-text;
+    header-status-kind: root.status-kind == "status_ok" ? "ok" : root.status-kind == "status_warn" ? "warn" : root.status-kind == "status_err" ? "err" : "";
 
     SwitchTile {
         icon: Icons.monitor;
@@ -32,17 +34,5 @@ export component SpoutSendCard inherits Card {
         hue: root.hue;
         checked <=> root.transparent;
         toggled(on) => { root.transparent = on; root.transparent-toggled(on); }
-    }
-    Text {
-        height: Theme.u(9);
-        visible: root.status-text != "";
-        text: root.status-text;
-        overflow: elide;
-        vertical-alignment: center;
-        font-family: Theme.font;
-        font-size: Theme.body;
-        accessible-label: @tr("Status");
-        color: root.status-kind == "status_ok" ? Theme.ok : root.status-kind == "status_warn" ? Theme.warn
-            : root.status-kind == "status_err" ? Theme.err : Theme.ink2;
     }
 }

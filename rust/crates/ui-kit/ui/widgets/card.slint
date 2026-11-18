@@ -6,7 +6,7 @@ import { Icons } from "../icons.slint";
 import { Folds, FoldText, Reveal, CardOrder } from "folds.slint";
 import { Switch } from "switch.slint";
 import { Tip, Tips } from "tip.slint";
-import { SearchWords, SettingMark, ProblemMark, Tag, TagData } from "setting.slint";
+import { SearchWords, SettingMark, ProblemMark, Tag, TagData, Status } from "setting.slint";
 import { Motion, Unfold, Fade } from "motion.slint";
 import { Grip } from "fine.slint";
 
@@ -121,6 +121,9 @@ export component Card inherits Rectangle {
     in property <string> tag;
     in property <string> tag-detail;
     in property <color> tag-tint: Theme.ink2;
+    // A line of state at the right of the title row ("Sharing 1920 × 1080 as ..."), cut short with an ellipsis before it would push the title. `header-status-kind` is "ok", "warn", "err" or blank.
+    in property <string> header-status;
+    in property <string> header-status-kind;
     // "<plugin>/<title in English>", set by the window; blank leaves the card unfoldable
     in property <string> fold-key;
     // The window lists the card in its Card order dialog: a right-click on the header offers "Reorder cards"
@@ -251,7 +254,16 @@ export component Card inherits Rectangle {
             }
             Rectangle {
                 horizontal-stretch: 1;
+                min-width: 0px;
                 HeaderMenu { reorderable: root.reorderable; }
+                if header-status != "": Status {
+                    x: Theme.u(4);
+                    width: parent.width - Theme.u(4);
+                    height: parent.height;
+                    text: root.header-status;
+                    kind: root.header-status-kind;
+                    horizontal: "end";
+                }
             }
             if has-extra: Button {
                 width: Theme.row;
