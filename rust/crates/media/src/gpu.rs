@@ -110,7 +110,7 @@ const BACKENDS: [wgpu::Backends; 2] = [wgpu::Backends::PRIMARY, wgpu::Backends::
 /// when its own driver says none), so an updated driver is tried again.
 fn card_of(info: &wgpu::AdapterInfo, all: &[gpu_pick::Info]) -> Card {
     let own = gpu_pick::Info { vendor: info.vendor, device: info.device, driver: info.driver.clone(), driver_info: info.driver_info.clone() };
-    Card::new(&info.name, &format!("{:?}", info.backend), &gpu_pick::driver_text(&own, all))
+    Card::new(&info.name, &format!("{:?}", info.backend), &gpu_pick::driver_text(&own, all)).with_bus(&info.device_pci_bus_id)
 }
 
 fn infos_of(adapters: &[wgpu::Adapter]) -> Vec<gpu_pick::Info> {

@@ -1870,9 +1870,22 @@ pub fn build_app(file: ConfigFile, services: Arc<Services>, opts: Option<WindowO
 
 pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     let gpu_painter = crate::preview::select_wgpu_backend();
+    // Every card was skipped (or none opened): the processor draws the window. Slint's own default would pick a card without asking the skip list
+    let software = gpu_painter.is_none() && !telescope_core::gpu_marker::skipped().is_empty() && match crate::parent::selector().renderer_name("software".into()).select() {
+        Ok(()) => {
+            log::info!("The window is drawn by the processor, every graphics card was skipped");
+            true
+        }
+        Err(e) => {
+            log::warn!("The software renderer couldn't be chosen: {e}");
+            false
+        }
+    };
+    #[cfg(not(windows))]
+    let _ = software;
     // Without the graphics card's backend the default one is chosen here, so Windows can make a side window owned by the main one
     #[cfg(windows)]
-    if gpu_painter.is_none() {
+    if gpu_painter.is_none() && !software {
         if let Err(e) = crate::parent::selector().select() {
             log::warn!("The window backend couldn't be chosen: {e}");
         }
@@ -1886,14 +1899,32 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     let window = build_app(ConfigFile::default(), services.clone(), Some(opts.clone()))?;
     // Without the card's painter the picture is scaled on a thread of its own, so the window never waits on a readback
     *window.painter.borrow_mut() = gpu_painter.or_else(|| Some(Box::new(crate::preview::ThreadedPainter::for_window(services.media.scaler())) as Box<dyn crate::preview::Painter>));
-    if let Some(t0) = std::env::var("TELESCOPE_T0").ok().and_then(|v| v.parse::<u64>().ok()) {
-        let mut done = false;
-        let _ = window.ui.window().set_rendering_notifier(move |state, _| {
-            if !done && matches!(state, slint::RenderingState::AfterRendering) {
-                done = true;
-                println!("first-paint-ms {:.1}", (telescope_core::time::monotonic_ns() - t0) as f64 / 1e6);
+    // The start is only confirmed once a picture has gone out: a card that opens but can't present to the window's surface fails at the first
+    // present, which comes after the first AfterRendering. The next frame is asked for, and when it starts the first has been presented. One
+    // notifier does this and the first-paint timing, since a window has only one.
+    let t0 = std::env::var("TELESCOPE_T0").ok().and_then(|v| v.parse::<u64>().ok());
+    let mut confirm = telescope_core::gpu_marker::Confirm::default();
+    let weak_ui = window.ui.as_weak();
+    let noted = window.ui.window().set_rendering_notifier(move |state, _| {
+        if !matches!(state, slint::RenderingState::AfterRendering) {
+            return;
+        }
+        match confirm.frame() {
+            telescope_core::gpu_marker::Frame::AskForAnother => {
+                if let Some(t0) = t0 {
+                    println!("first-paint-ms {:.1}", (telescope_core::time::monotonic_ns() - t0) as f64 / 1e6);
+                }
+                if let Some(ui) = weak_ui.upgrade() {
+                    ui.window().request_redraw();
+                }
             }
-        });
+            telescope_core::gpu_marker::Frame::Confirm => telescope_core::gpu_marker::clear(),
+            telescope_core::gpu_marker::Frame::Nothing => {}
+        }
+    });
+    if noted.is_err() {
+        // A renderer without notifiers (the processor's) can't be waited for, and it doesn't use a graphics card
+        telescope_core::gpu_marker::clear();
     }
     // A new frame wakes the window (frame_ready), so this only covers what has no frame to say it changed: focus, a picture that wants
     // drawing again with the stream stalled, and the tiles' tiny pictures, so 10 fps costs next to nothing
@@ -1937,27 +1968,14 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         window.start_hidden();
     } else {
         // A window that can't be shown ends the start with its reason, not with an empty process (show_window ignores the result)
-        window.ui.show().map_err(|e| format!("The window couldn't be shown: {e}"))?;
+        window.ui.show().map_err(|e| {
+            telescope_core::gpu_marker::keep();
+            format!("The window couldn't be shown: {e}")
+        })?;
         window.show_window();
     }
     if let Some(hook) = &opts.on_shown {
-        // With a graphics card chosen in Settings the start isn't done at show() but at the first picture: a card that opens but can't present
-        // to the window's surface fails there, and the crash marker has to stay until then
-        let hook = Rc::new(RefCell::new(Some(hook.0.clone())));
-        let waits = !opts.minimized && !telescope_core::gpu_pick::choice().is_empty();
-        let later = hook.clone();
-        let set = waits && window.ui.window().set_rendering_notifier(move |state, _| {
-            if matches!(state, slint::RenderingState::AfterRendering) {
-                if let Some(run) = later.borrow_mut().take() {
-                    run();
-                }
-            }
-        }).is_ok();
-        if !set {
-            if let Some(run) = hook.borrow_mut().take() {
-                run();
-            }
-        }
+        (hook.0)();
     }
     let weak = Rc::downgrade(&window);
     window.ui.window().on_close_requested(move || weak.upgrade().map_or(slint::CloseRequestResponse::HideWindow, |w| w.close_requested()));
@@ -1977,7 +1995,12 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     window.process();
     // Building the cards' pages leaves freed memory behind
     (app_hooks().release_memory)();
-    slint::run_event_loop_until_quit().map_err(|e| e.to_string())?;
+    slint::run_event_loop_until_quit().map_err(|e| {
+        telescope_core::gpu_marker::keep();
+        e.to_string()
+    })?;
+    // A normal end is no crash, also when the window never drew (it stayed in the tray)
+    telescope_core::gpu_marker::clear();
     drop(tray_timer);
     let _ = window.ui.hide();
     window.shut_down();

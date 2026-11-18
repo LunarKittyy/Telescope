@@ -14,6 +14,9 @@ pub struct Card {
     pub name: String,
     pub backend: String,
     pub driver: String,
+    /// The card's PCI bus address when the driver gives one, so two cards of one model are told apart. Empty when unknown.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub bus: String,
 }
 
 impl Card {
@@ -21,11 +24,18 @@ impl Card {
     /// matches the same card once a version is found for it.
     pub fn is_listed_as(&self, listed: &Card) -> bool {
         self.name == listed.name && self.backend == listed.backend
+            && (self.bus.is_empty() || listed.bus.is_empty() || self.bus == listed.bus)
             && (self.driver == listed.driver || (!has_version(&listed.driver) && self.driver.strip_prefix(listed.driver.as_str()).is_some_and(|rest| rest.starts_with(' '))))
     }
 
     pub fn new(name: &str, backend: &str, driver: &str) -> Card {
-        Card { name: name.trim().into(), backend: backend.into(), driver: driver.trim().into() }
+        Card { name: name.trim().into(), backend: backend.into(), driver: driver.trim().into(), bus: String::new() }
+    }
+
+    /// This card at a PCI bus address (empty leaves it unknown).
+    pub fn with_bus(mut self, bus: &str) -> Card {
+        self.bus = bus.trim().into();
+        self
     }
 }
 
@@ -106,6 +116,59 @@ pub fn is_skipped(card: &Card) -> bool {
 /// The skip list as it stands.
 pub fn skipped() -> Vec<Card> {
     state().skipped.clone()
+}
+
+/// What to do after a frame was drawn while the start waits to be confirmed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Frame {
+    /// The first picture is drawn but may not be presented yet: ask for another.
+    AskForAnother,
+    /// The second one started, so the first was presented: the card is cleared.
+    Confirm,
+    Nothing,
+}
+
+/// Counts the window's drawn frames. Slint says a frame is drawn before it is presented, and a card that can't present to the window's
+/// surface fails exactly there, so only the second frame's start proves the first one went out.
+#[derive(Default)]
+pub struct Confirm(u32);
+
+impl Confirm {
+    pub fn frame(&mut self) -> Frame {
+        self.0 = self.0.saturating_add(1);
+        match self.0 {
+            1 => Frame::AskForAnother,
+            2 => Frame::Confirm,
+            _ => Frame::Nothing,
+        }
+    }
+}
+
+/// Reads the skip list from `folder` without starting a window start: for commands that open a card but never mark one (snapshot).
+pub fn load_skipped(folder: &Path) {
+    let skipped: Vec<Card> = read(&folder.join(SKIP_FILE)).unwrap_or_default();
+    state().skipped = skipped;
+}
+
+static KEPT: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// The window failed after its card was opened (it couldn't be shown, or the event loop ended with an error), which can be that card
+/// failing to draw: the marker is left for the next start.
+pub fn keep() {
+    KEPT.store(true, std::sync::atomic::Ordering::SeqCst);
+}
+
+/// `clear`, except after `keep`.
+pub fn clear_unless_kept() {
+    if !KEPT.load(std::sync::atomic::Ordering::SeqCst) {
+        clear();
+    }
+}
+
+/// Whether a panic's text looks like the graphics driver or the renderer failing, so a panic at start isn't cleared as "has its reason".
+pub fn panic_blames_card(text: &str) -> bool {
+    let text = text.to_ascii_lowercase();
+    ["wgpu", "vulkan", "swapchain", "surface", "femtovg", "slint-renderer", "slint_renderer", "d3d12", "dxgi", "opengl", "glutin"].iter().any(|w| text.contains(w))
 }
 
 /// Notes that this card is about to be opened. Does nothing outside a window start.
@@ -196,6 +259,29 @@ mod tests {
     }
 
     #[test]
+    fn a_start_is_confirmed_by_the_second_frame() {
+        let mut c = Confirm::default();
+        assert_eq!((c.frame(), c.frame(), c.frame()), (Frame::AskForAnother, Frame::Confirm, Frame::Nothing));
+    }
+
+    #[test]
+    fn twins_on_different_buses_are_different_cards() {
+        let a = Card::new("A", "Vulkan", "1").with_bus("0000:01:00.0");
+        let b = Card::new("A", "Vulkan", "1").with_bus("0000:02:00.0");
+        let unknown = Card::new("A", "Vulkan", "1");
+        assert!(!b.is_listed_as(&a) && a.is_listed_as(&a));
+        assert!(unknown.is_listed_as(&a) && a.is_listed_as(&unknown), "an entry without a bus still matches");
+        assert_eq!(without_skipped(vec![a.clone(), b.clone()], |c| c.clone(), std::slice::from_ref(&a)), [b]);
+    }
+
+    #[test]
+    fn a_driver_or_renderer_panic_blames_the_card() {
+        assert!(panic_blames_card("panicked at wgpu-core/src/present.rs: Surface configuration failed"));
+        assert!(panic_blames_card("failed to create swapchain"));
+        assert!(!panic_blames_card("panicked at crates/shell/src/shell.rs:10: index out of bounds"));
+    }
+
+    #[test]
     fn the_backend_is_part_of_the_card() {
         let skipped = [Card::new("A", "Vulkan", "1")];
         let list = vec![Card::new("A", "Vulkan", "1"), Card::new("A", "Dx12", "1")];
@@ -227,6 +313,20 @@ mod tests {
         assert!(!folder.join(MARKER_FILE).exists());
         assert_eq!(begin_start(&folder), None);
         assert_eq!(skipped(), vec![card("A", "1")]);
+        // A failure after the card opened keeps the marker, any other clears it
+        mark(&card("E", "1"));
+        keep();
+        clear_unless_kept();
+        assert!(folder.join(MARKER_FILE).exists());
+        KEPT.store(false, std::sync::atomic::Ordering::SeqCst);
+        clear_unless_kept();
+        assert!(!folder.join(MARKER_FILE).exists());
+        // A command that marks nothing still reads the list
+        std::fs::write(folder.join(SKIP_FILE), serde_json::to_string(&[card("S", "9")]).unwrap()).unwrap();
+        load_skipped(&folder);
+        assert!(is_skipped(&card("S", "9")));
+        std::fs::write(folder.join(SKIP_FILE), serde_json::to_string(&[card("A", "1")]).unwrap()).unwrap();
+        load_skipped(&folder);
         // A damaged file is ignored
         std::fs::write(folder.join(MARKER_FILE), "not json").unwrap();
         assert_eq!(begin_start(&folder), None);
