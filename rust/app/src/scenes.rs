@@ -452,6 +452,7 @@ fn services_with(link: SceneLink, changes: Changes) -> Arc<Services> {
             let mut plugins = vec![
                 Box::new(setup_plugin()) as Box<dyn telescope_core::plugin::Plugin>,
                 Box::new(telescope_setup::monitoring::MonitoringPlugin::new()),
+                Box::new(telescope_outputs::spout_send::SpoutSendPlugin::new(None)),
                 Box::new(telescope_link::plugin::ConnectionPlugin::new(connection.clone(), shared)),
                 Box::new(telescope_effects::chroma_key::ChromaKeyPlugin::with_reader(pictures)),
                 Box::new(telescope_effects::face_exposure::FaceExposurePlugin::new()),
