@@ -951,7 +951,7 @@ fn a_real_camera_takes_photos_and_live_view_returns() {
     println!("camera: {name} at {port}");
     let location = format!("{}{port}", crate::webcams::GPHOTO_PREFIX);
     let device = crate::webcams::Device { key: "real".into(), name: name.clone(), location: location.clone(), modes: Vec::new() };
-    let mut cap = crate::webcam_capture::gphoto_lib::open(&device).ok().expect("opened");
+    let mut cap = crate::webcam_capture::gphoto_lib::open(&device).unwrap_or_else(|(_, why)| panic!("not opened: {why}"));
     let frame = cap.read().expect("a frame");
     println!("live view frame: {} bytes", frame.len());
     let stills = GphotoStills::new(&location);
