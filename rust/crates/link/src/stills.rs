@@ -61,6 +61,7 @@ pub fn reason_text(code: &str, english: &str) -> String {
         "lost" => "Lost the phone while it was taking the photo.",
         "dropped" => "The phone cancelled the photo, possibly because its stream stopped.",
         "save" => "Telescope couldn't save the photo.",
+        "hidden" => "No photo was taken while part of the picture is hidden.",
         "no_photos" => "This phone can't take photos from Telescope. Update the app on the phone.",
         _ if english.is_empty() => "The phone couldn't take the photo.",
         _ => return english.to_string(),
@@ -346,6 +347,14 @@ impl Stills {
     #[allow(clippy::too_many_arguments)]
     pub fn take(&self, source_id: Option<&str>, base: &str, auth: PhoneAuth, options: Map<String, Value>, folder: PathBuf,
                 on_done: Box<dyn FnOnce(StillResult) + Send>, on_progress: Option<Progress>, alive: Option<Alive>) -> bool {
+        self.take_unless_hidden(source_id, base, auth, options, folder, on_done, on_progress, alive, None)
+    }
+
+    /// `take` that reads `hidden` on the photo's thread right before the request goes to the phone: set, it ends as "hidden" and the phone is never asked.
+    #[allow(clippy::too_many_arguments)]
+    pub fn take_unless_hidden(&self, source_id: Option<&str>, base: &str, auth: PhoneAuth, options: Map<String, Value>, folder: PathBuf,
+                              on_done: Box<dyn FnOnce(StillResult) + Send>, on_progress: Option<Progress>, alive: Option<Alive>,
+                              hidden: Option<Arc<AtomicBool>>) -> bool {
         let stop = Arc::new(AtomicBool::new(false));
         let k = key(source_id);
         {
@@ -360,7 +369,7 @@ impl Stills {
         let k2 = k.clone();
         let spawned = std::thread::Builder::new().name("still".into()).spawn(move || {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                Runner { inner: &inner, base: &base, auth: &auth, stop: &stop }.run(options, &folder, on_progress, alive)
+                Runner { inner: &inner, base: &base, auth: &auth, stop: &stop }.run(options, &folder, on_progress, alive, hidden.as_deref())
             })).unwrap_or_else(|_| StillResult::failed("failed", "", &[]));
             inner.busy.lock().unwrap().remove(&k);
             on_done(result);
@@ -431,7 +440,11 @@ impl Runner<'_> {
         }
     }
 
-    fn run(&self, options: Map<String, Value>, folder: &Path, on_progress: Option<Progress>, alive: Option<Alive>) -> StillResult {
+    fn run(&self, options: Map<String, Value>, folder: &Path, on_progress: Option<Progress>, alive: Option<Alive>, hidden: Option<&AtomicBool>) -> StillResult {
+        // The last look before the phone is asked: a picture that went hidden since the photo was asked for stays untaken
+        if hidden.is_some_and(|h| h.load(Ordering::SeqCst)) {
+            return StillResult::failed("hidden", "", &[]);
+        }
         let t = self.timings();
         let exposure = exposure_duration(exposure_seconds(&Value::Object(options.clone())));
         let mut body = options;
@@ -656,6 +669,15 @@ impl PhoneStills for Stills {
                      Some(Box::new(move |p| on_progress(serde_json::to_value(p).unwrap_or(Value::Null)))), Some(alive))
     }
 
+    fn take_unless_hidden(&self, source_id: Option<&str>, stream_base: &str, phone: &PairedPhone, options: &Value, folder: &str,
+                          on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>, alive: Box<dyn Fn() -> bool + Send>,
+                          hidden: Arc<AtomicBool>) -> bool {
+        let options = options.as_object().cloned().unwrap_or_default();
+        Stills::take_unless_hidden(self, source_id, stream_base, auth_of(phone), options, PathBuf::from(folder),
+                                   Box::new(move |r| on_done(serde_json::to_value(r).unwrap_or(Value::Null))),
+                                   Some(Box::new(move |p| on_progress(serde_json::to_value(p).unwrap_or(Value::Null)))), Some(alive), Some(hidden))
+    }
+
     fn shutdown(&self) {
         Stills::shutdown(self);
     }
@@ -878,6 +900,26 @@ mod tests {
         assert_eq!((progress[0].state.as_str(), progress.last().unwrap().state.as_str()), ("capturing", "done"));
         assert_eq!(progress.last().unwrap().saved, r.files);
         assert!(!std::fs::read_dir(&dir).unwrap().flatten().any(|e| e.file_name().to_string_lossy().ends_with(".part")));
+    }
+
+    #[test]
+    fn a_photo_whose_picture_went_hidden_before_the_request_leaves_never_asks_the_phone() {
+        let dir = telescope_core::testing::scratch_dir("stills-hidden");
+        let stills = Stills::new();
+        stills.set_timings(quick());
+        let (server, _) = phone(Phone::default());
+        let go = |hidden: bool| {
+            let (tx, rx) = mpsc::channel();
+            assert!(stills.take_unless_hidden(Some("phone-1"), &format!("{}/v1", server.base(false)), PhoneAuth::new("token", ""),
+                                              json!({"format": "jpeg"}).as_object().unwrap().clone(), dir.clone(), Box::new(move |r| tx.send(r).unwrap()),
+                                              None, None, Some(Arc::new(AtomicBool::new(hidden)))));
+            rx.recv_timeout(Duration::from_secs(10)).unwrap()
+        };
+        let r = go(true);
+        assert!(!r.ok && r.code == "hidden" && r.files.is_empty(), "{r:?}");
+        assert!(server.seen.lock().unwrap().is_empty(), "the phone was never asked");
+        assert!(!stills.busy(Some("phone-1")), "and it's free for the next");
+        assert!(go(false).ok, "not hidden: taken as usual");
     }
 
     #[test]

@@ -10,6 +10,8 @@ use telescope_effects::framing::FramingPlugin;
 use telescope_effects::name_tag::NameTagPlugin;
 use telescope_effects::notes::NotesPlugin;
 use telescope_effects::photos::PhotosPlugin;
+use telescope_effects::phototrap::PhototrapPlugin;
+use telescope_effects::stargazer::StargazerPlugin;
 use telescope_setup::monitoring::MonitoringPlugin;
 use telescope_shell::offscreen;
 use telescope_shell::plugins::camera_control::CameraControl;
@@ -136,6 +138,36 @@ fn phone_shots() {
     shoot(&dir, "phone-streaming", &phone, &[json!({"active": true, "battery-level": 74, "battery-has-level": true, "battery-value": "74%",
         "battery-icon": "battery-charging", "temp-level": 38.0, "temp-has-level": true, "temp-value": "38 °C", "temp-note": "Cool"})]);
     shoot(&dir, "phone-empty", &phone, &[json!({"active": true})]);
+}
+
+#[test]
+fn phototrap_shots() {
+    let Some(dir) = out() else { return };
+    let _english = language("en");
+    let trap = card_of(&mut PhototrapPlugin::new(), "camera");
+    shoot(&dir, "phototrap-armed", &trap, &[json!({"active": true, "armed": true, "count-enabled": true, "status": "Armed and watching 2 zones", "status-kind": "status_ok",
+        "tally": "Triggers: 3, photos: 9, last at 14:03:22", "zone-count": 2, "clear-enabled": true, "count": 4, "count-max": 8, "count-text": "4",
+        "night-enabled": true, "night": true, "sensitivity-text": "5", "pause-text": "10 s", "folder-text": "~/Pictures/Phototrap"})]);
+    shoot(&dir, "phototrap-idle", &trap, &[json!({"active": true, "status": "Not armed", "count-enabled": false, "count-text": "1", "night-enabled": false,
+        "folder-text": "~/Pictures/Phototrap"})]);
+    // Disarmed by itself, and the Preview plugin off so zones can't be drawn
+    shoot(&dir, "phototrap-disarmed", &trap, &[json!({"active": true, "status": "Off since the 2 GB photo limit is reached", "status-kind": "status_err",
+        "count-enabled": true, "count-text": "3", "night-enabled": false, "draw-enabled": false, "folder-text": "~/Pictures/Phototrap"})]);
+}
+
+#[test]
+fn stargazer_shots() {
+    let Some(dir) = out() else { return };
+    let _english = language("en");
+    let sky = card_of(&mut StargazerPlugin::new(), "camera");
+    let items = json!(["Lucky", "Live", "Trails"]);
+    let ready = json!({"active": true, "mode-items": items, "run-enabled": true, "status": "Ready", "focus-text": "Now 12.4, best 15.8", "camera-name": "Show the stack on the camera",
+        "save-text": "Save", "reset-text": "Reset", "open-text": "Open folder", "frames-text": "300 frames", "keep-text": "10 %", "trail-text": "5 s"});
+    shoot(&dir, "stargazer-lucky", &sky, &[ready.clone(), json!({"mode-index": 0, "running": true, "run-text": "Stop", "status": "Collecting frame 120 of 300", "status-kind": "status_ok",
+        "tally": "In the stack: 30, refused: 0, time: 0:36"})]);
+    shoot(&dir, "stargazer-live", &sky, &[ready.clone(), json!({"mode-index": 1, "save-enabled": true, "reset-enabled": true, "run-text": "Start", "status": "Stopped. Reset starts a new stack",
+        "status-kind": "status_ok", "tally": "In the stack: 412, refused: 5, time: 6:52", "camera": true, "saved": "Saved stargazer_20261118_214503.png", "open-enabled": true})]);
+    shoot(&dir, "stargazer-trails", &sky, &[ready, json!({"mode-index": 2, "running": true, "run-text": "Stop", "status": "Recording the trails", "status-kind": "status_ok", "tally": "In the stack: 84, refused: 0, time: 7:00"})]);
 }
 
 #[test]
