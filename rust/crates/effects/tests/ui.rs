@@ -18,6 +18,7 @@ use telescope_effects::fun_pack::FunPackPlugin;
 use telescope_effects::on_air_plugin::OnAirPlugin;
 use telescope_effects::photos::PhotosPlugin;
 use telescope_effects::privacy_blur::PrivacyBlurPlugin;
+use telescope_effects::phototrap::PhototrapPlugin;
 use telescope_effects::qr_reader::QrReaderPlugin;
 use telescope_effects::stereo_plugin::StereoPlugin;
 use telescope_effects::transforms::TransformsPlugin;
@@ -115,6 +116,9 @@ fn the_cards_have_what_their_plugins_use() {
     has_what_the_plugin_uses(&mut photos, &[
         "take-clicked", "open-clicked", "tile-picked", "tile-step", "tile-hold-down", "tile-hold-up", "quality-moved", "timer-picked", "best-toggled", "folder-clicked", "reset-clicked",
     ]);
+    let mut trap = PhototrapPlugin::new();
+    compile(&mut trap);
+    has_what_the_plugin_uses(&mut trap, &["switch-toggled-by-hand", "draw-clicked", "clear-clicked", "sensitivity-moved", "count-moved", "pause-moved", "night-toggled"]);
     let mut composite = CompositePlugin::new();
     compile(&mut composite);
     has_what_the_plugin_uses(&mut composite, &["switch-toggled-by-hand", "layout-picked", "edit-clicked", "reset-clicked"]);
