@@ -881,6 +881,8 @@ impl FramePipeline for Pipeline {
 
     fn forget_history(&mut self) {
         self.forget_due = true;
+        // What the last frame carried can't be vouched for after a gap or a discarded replay, so every hiding step counts as new until a frame goes through them
+        self.applied = Arc::default();
     }
 
     fn set_stats(&mut self, stats: Arc<SourceStats>) {
@@ -2342,6 +2344,51 @@ pub(crate) mod tests {
         assert!(is_dark(&out));
         let later = p.hide_again(grey(8, 8, 100), &NoContext).expect("the real run is still due");
         assert!(!is_dark(&later), "the same step run for real draws its picture");
+    }
+
+    /// The window's hand-over on a stalled feed, as the worker makes it: the new steps in, then the hurried hide on the window's thread.
+    fn handed_over_on_a_stall(p: &mut Pipeline, steps: impl Fn() -> Vec<StagedStep>, out: &Frame) -> Option<Frame> {
+        p.set_steps(steps());
+        p.hide_again(out.clone(), &Hurried)
+    }
+
+    #[test]
+    fn a_replay_that_was_discarded_leaves_no_hiding_step_marked_as_done_on_the_clear_frame() {
+        let mut cases: Vec<(&str, Box<dyn Fn() -> Vec<StagedStep>>, Pipeline)> = vec![("background", Box::new(|| vec![step("key", FrameStage::Background, Hides)]), Pipeline::new())];
+        if let Some(gpu) = Gpu::shared() {
+            let card = Box::new(|| {
+                let key = ShaderStep { wgsl: INVERT.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+                vec![StagedStep { owner: "key".into(), stage: FrameStage::Privacy, step: FrameStep::Shader(key) }]
+            });
+            let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+            p.gpu = Some(Some(gpu));
+            cases.push(("card shader", card, p));
+        }
+        for (name, steps, mut p) in cases {
+            // The picture the stalled feed keeps sending, made before any hiding step came on
+            let clear = grey(8, 8, 200);
+            p.process(clear.clone(), &NoContext);
+            // Hand-over 1: dark at once, and the replay's real run notes the steps as done, but a second hand-over discards what it made
+            assert!(is_dark(&handed_over_on_a_stall(&mut p, &steps, &clear).expect("something to hide")), "{name}");
+            p.hide_again(clear.clone(), &NoContext).expect("the replay has something to hide");
+            // What the worker does with a replay it discards
+            FramePipeline::forget_history(&mut p);
+            // Hand-over 2 carries the same steps again: no picture out has them, so None here would put the clear frame out
+            let again = handed_over_on_a_stall(&mut p, &steps, &clear);
+            assert!(again.as_ref().is_some_and(is_dark), "{name}: the same steps again took the discarded replay for done and left the clear frame to go out");
+        }
+    }
+
+    #[test]
+    fn a_replay_that_was_published_leaves_the_same_steps_again_nothing_to_hide() {
+        let mut p = Pipeline::new();
+        let steps = || vec![step("key", FrameStage::Background, Hides)];
+        let clear = grey(8, 8, 200);
+        p.process(clear.clone(), &NoContext);
+        assert!(handed_over_on_a_stall(&mut p, steps, &clear).is_some());
+        let hidden = p.hide_again(clear.clone(), &NoContext).expect("the replay has something to hide");
+        assert!(is_dark(&hidden));
+        assert!(handed_over_on_a_stall(&mut p, steps, &hidden).is_none(), "the picture out already has them");
     }
 
     #[test]
