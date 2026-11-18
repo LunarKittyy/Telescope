@@ -864,6 +864,42 @@ fn reset_puts_the_picks_back_and_keeps_the_folder() {
 }
 
 #[test]
+fn a_preset_brings_back_the_still_settings_and_leaves_the_folder_alone() {
+    let mut a = Rig::new(Some(full_json()), true);
+    a.plugin.set_config(&json!({"format": "raw", "timer": 3, "best": false, "burst": 9, "folder": "/photos/a"})).unwrap();
+    let saved = a.plugin.preset_config();
+    assert!(saved.get("folder").is_none());
+    let mut b = Rig::new(Some(full_json()), true);
+    let before = b.plugin.get_config();
+    b.plugin.apply_preset(&mut b.host, &saved).unwrap();
+    let mut want = a.plugin.get_config();
+    want["folder"] = before["folder"].clone();
+    assert_eq!(b.plugin.get_config(), want);
+    // A preset naming a folder doesn't move it either
+    b.plugin.apply_preset(&mut b.host, &json!({"folder": "/elsewhere"})).unwrap();
+    assert_eq!(b.plugin.get_config()["folder"], before["folder"]);
+}
+
+#[test]
+fn an_older_preset_without_the_keys_changes_nothing_in_photos() {
+    let mut rig = Rig::new(Some(full_json()), true);
+    rig.plugin.set_config(&json!({"format": "heic", "timer": 3, "folder": "/x"})).unwrap();
+    let before = rig.plugin.get_config();
+    rig.plugin.apply_preset(&mut rig.host, &json!({})).unwrap();
+    assert_eq!(rig.plugin.get_config(), before);
+    rig.plugin.apply_preset(&mut rig.host, &json!({"quality": 80})).unwrap();
+    let after = rig.plugin.get_config();
+    assert_eq!((&after["quality"], &after["format"], &after["timer"]), (&json!(80), &json!("heic"), &json!(3)));
+}
+
+#[test]
+fn recalling_a_preset_takes_no_photo() {
+    let mut rig = Rig::new(Some(full_json()), true);
+    rig.plugin.apply_preset(&mut rig.host, &json!({"timer": 3, "burst": 9})).unwrap();
+    assert!(rig.host.stills_taken.is_empty());
+}
+
+#[test]
 fn a_focus_bracket_can_be_merged_when_it_is_jpeg_and_the_choice_is_part_of_a_preset() {
     let mut rig = Rig::new(Some(full_json()), true);
     // off for a single photo and for a RAW bracket
