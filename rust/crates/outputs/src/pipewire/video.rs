@@ -365,16 +365,79 @@ enum Copied {
     Pending,
 }
 
-/// Copies the picture a shot noted out into packed rows. Takes no lock of the loop's, and waits for the producer's GPU work only until `until`
-/// or until `cancelled` says so.
+/// Waits for the producer's GPU work on a DMA-BUF shot, only until `until` or until `cancelled` says so. None when the copy can go ahead.
+fn fence_gate(shot: &Shot, until: Instant, cancelled: &dyn Fn() -> bool) -> Option<Copied> {
+    if !shot.dma_buf {
+        return None;
+    }
+    match wait_for_fence(shot.fd.as_raw_fd(), until, cancelled) {
+        Fence::Ready => None,
+        Fence::Pending => Some(Copied::Pending),
+        Fence::Failed(why) => Some(Copied::Skipped(std::io::Error::other(why))),
+    }
+}
+
+/// Copies the picture a shot noted out into packed rows, on this thread. Takes no lock of the loop's, and waits for the producer's GPU work
+/// only until `until` or until `cancelled` says so.
+#[cfg(test)]
 fn copy_shot(shot: &Shot, until: Instant, cancelled: &dyn Fn() -> bool) -> Result<Copied, String> {
-    if shot.dma_buf {
-        match wait_for_fence(shot.fd.as_raw_fd(), until, cancelled) {
-            Fence::Ready => {}
-            Fence::Pending => return Ok(Copied::Pending),
-            Fence::Failed(why) => return Ok(Copied::Skipped(std::io::Error::other(why))),
+    match fence_gate(shot, until, cancelled) {
+        Some(early) => Ok(early),
+        None => copy_mapped(shot),
+    }
+}
+
+/// The thread a DMA-BUF is mapped, synced and read on. The kernel may make the sync wait for the buffer to be moved, which nothing can
+/// break off, so the reader thread only waits for the answer with a deadline and the worker is left to finish on its own.
+struct CopyWorker {
+    jobs: std::sync::mpsc::Sender<Shot>,
+    results: std::sync::mpsc::Receiver<Result<Copied, String>>,
+}
+
+impl CopyWorker {
+    fn start() -> std::io::Result<CopyWorker> {
+        CopyWorker::start_with(copy_mapped)
+    }
+
+    fn start_with(copy: impl Fn(&Shot) -> Result<Copied, String> + Send + 'static) -> std::io::Result<CopyWorker> {
+        let (jobs, job_rx) = std::sync::mpsc::channel::<Shot>();
+        let (result_tx, results) = std::sync::mpsc::channel();
+        std::thread::Builder::new().name("pw-video-copy".into()).spawn(move || {
+            // Ends once the consumer is dropped, as soon as the copy it may be stuck in lets go
+            while let Ok(shot) = job_rx.recv() {
+                if result_tx.send(copy(&shot)).is_err() {
+                    break;
+                }
+            }
+        })?;
+        Ok(CopyWorker { jobs, results })
+    }
+}
+
+/// Waits for the worker's answer until `until`, looking at `cancelled` between short slices. None when the deadline passed or the wait was
+/// cancelled first, with the worker still at it.
+fn await_result(results: &std::sync::mpsc::Receiver<Result<Copied, String>>, until: Instant, cancelled: &dyn Fn() -> bool) -> Option<Result<Copied, String>> {
+    use std::sync::mpsc::RecvTimeoutError;
+    loop {
+        let left = until.saturating_duration_since(Instant::now());
+        match results.recv_timeout(left.min(FENCE_SLICE)) {
+            Ok(result) => return Some(result),
+            Err(RecvTimeoutError::Disconnected) => return Some(Err("the thread reading pictures ended".into())),
+            Err(RecvTimeoutError::Timeout) if left.is_zero() || cancelled() => return None,
+            Err(RecvTimeoutError::Timeout) => {}
         }
     }
+}
+
+/// The buffer the worker is copying: given back when its answer has been taken.
+struct Copying {
+    buffer: *mut PwBuffer,
+}
+
+// SAFETY: as Parked
+unsafe impl Send for Copying {}
+
+fn copy_mapped(shot: &Shot) -> Result<Copied, String> {
     let Negotiated { width, height, format } = shot.negotiated;
     let length = shot.map_offset + shot.max_size;
     let fd = shot.fd.as_raw_fd();
@@ -590,6 +653,10 @@ pub struct VideoConsumer {
     skipped: u32,
     /// Set when the reader is asked to stop, so a wait for the producer ends.
     stop: Option<Arc<AtomicBool>>,
+    /// The thread DMA-BUFs are read on, started with the first one.
+    worker: Option<CopyWorker>,
+    /// The buffer the worker holds, when a read of it outlasted a call of `next`.
+    copying: Option<Copying>,
 }
 
 impl VideoConsumer {
@@ -605,7 +672,7 @@ impl VideoConsumer {
         let props = [("media.type", "Video"), ("media.category", "Capture"), ("media.role", "Production"), ("media.class", "Stream/Input/Video"), ("node.dont-reconnect", "true")];
         let config = StreamConfig { name: client, props: &props, direction: PW_DIRECTION_INPUT, target: node, flags: PW_STREAM_FLAG_AUTOCONNECT };
         let stream = Stream::connect(connection, &config, &format_offers(), Box::new(handler))?;
-        Ok(VideoConsumer { connection: connection.clone(), node, watch_node: connection.node(node).is_some(), slot, stream, skipped: 0, stop: None })
+        Ok(VideoConsumer { connection: connection.clone(), node, watch_node: connection.node(node).is_some(), slot, stream, skipped: 0, stop: None, worker: None, copying: None })
     }
 
     /// The next picture that arrives within `timeout`: Ok(None) when nothing came, Err once the node is gone or the stream failed.
@@ -617,15 +684,31 @@ impl VideoConsumer {
             if let Some(frame) = state.frame.take() {
                 return Ok(Some(frame));
             }
-            if let Some(parked) = state.parked.take() {
-                state.in_flight = Some(InFlight { buffer: parked.buffer, removed: false });
+            if self.copying.is_some() || state.parked.is_some() {
+                let parked = if self.copying.is_none() { state.parked.take() } else { None };
+                if let Some(parked) = &parked {
+                    state.in_flight = Some(InFlight { buffer: parked.buffer, removed: false });
+                }
                 drop(state);
-                let (connection, slot, stop) = (&self.connection, &self.slot, &self.stop);
-                let cancelled = || {
-                    stop.as_ref().is_some_and(|s| s.load(Ordering::SeqCst)) || connection.is_dead() || slot.state.lock().map_or(true, |s| s.error.is_some() || s.in_flight.as_ref().is_none_or(|f| f.removed))
+                let copied = match parked {
+                    None => self.settle(deadline),
+                    Some(parked) => match fence_gate(&parked.shot, deadline, &|| self.cancelled()) {
+                        Some(early) => {
+                            self.give_back(parked.buffer);
+                            Some(Ok(early))
+                        }
+                        None if !parked.shot.dma_buf => {
+                            let copied = copy_mapped(&parked.shot);
+                            self.give_back(parked.buffer);
+                            Some(copied)
+                        }
+                        None => match self.dispatch(parked) {
+                            Ok(()) => self.settle(deadline),
+                            Err(message) => Some(Err(message)),
+                        },
+                    },
                 };
-                let copied = copy_shot(&parked.shot, deadline, &cancelled);
-                self.give_back(parked.buffer);
+                let copied = copied.unwrap_or(Ok(Copied::Pending));
                 state = self.slot.state.lock().map_err(|_| broke())?;
                 match copied {
                     Ok(Copied::Frame(frame)) => {
@@ -671,6 +754,41 @@ impl VideoConsumer {
             }
             state = self.slot.arrived.wait_timeout(state, (deadline - now).min(GONE_CHECK)).map_err(|_| broke())?.0;
         }
+    }
+
+    /// Whether a wait for the producer should end now: the reader is stopping, PipeWire or the stream failed, or the buffer was taken away.
+    fn cancelled(&self) -> bool {
+        self.stop.as_ref().is_some_and(|s| s.load(Ordering::SeqCst))
+            || self.connection.is_dead()
+            || self.slot.state.lock().map_or(true, |s| s.error.is_some() || s.in_flight.as_ref().is_none_or(|f| f.removed))
+    }
+
+    /// Hands a DMA-BUF shot to the worker thread to be mapped, synced and read.
+    fn dispatch(&mut self, parked: Parked) -> Result<(), String> {
+        if self.worker.is_none() {
+            self.worker = Some(CopyWorker::start().map_err(|e| format!("the thread reading pictures didn't start ({e})"))?);
+        }
+        let worker = self.worker.as_ref().expect("started above");
+        if worker.jobs.send(parked.shot).is_err() {
+            self.worker = None;
+            self.give_back(parked.buffer);
+            return Err("the thread reading pictures ended".into());
+        }
+        self.copying = Some(Copying { buffer: parked.buffer });
+        Ok(())
+    }
+
+    /// Waits for the worker's answer on the picture it holds and gives its buffer back once there is one. None when the deadline or a
+    /// cancellation came first; the worker stays at it and the next call waits on the same read.
+    fn settle(&mut self, until: Instant) -> Option<Result<Copied, String>> {
+        let result = await_result(&self.worker.as_ref()?.results, until, &|| self.cancelled())?;
+        if let Some(copying) = self.copying.take() {
+            self.give_back(copying.buffer);
+        }
+        if matches!(&result, Err(m) if m.starts_with("the thread reading pictures ended")) {
+            self.worker = None;
+        }
+        Some(result)
     }
 
     /// Hands the buffer that was just copied back to the stream, unless the stream has taken it away since.
@@ -760,6 +878,47 @@ mod tests {
             -1
         });
         assert_eq!((result.is_err(), calls), (true, 3));
+    }
+
+    /// A worker whose copy blocks until the test lets it go, like a sync waiting for the GPU to move a buffer.
+    fn stuck_worker() -> (CopyWorker, std::sync::mpsc::Sender<()>) {
+        let (release, wait) = std::sync::mpsc::channel::<()>();
+        let wait = std::sync::Mutex::new(wait);
+        let worker = CopyWorker::start_with(move |_| {
+            let _ = wait.lock().unwrap().recv();
+            Ok(Copied::Pending)
+        })
+        .unwrap();
+        (worker, release)
+    }
+
+    #[test]
+    fn a_read_stuck_in_the_kernel_ends_the_wait_at_the_deadline_and_is_picked_up_after() {
+        let (worker, release) = stuck_worker();
+        let fd = memfd("telescope-stuck-test", &[0u8; 32]);
+        worker.jobs.send(shot(fd, true)).unwrap();
+        let start = Instant::now();
+        assert!(await_result(&worker.results, start + Duration::from_millis(100), &|| false).is_none());
+        assert!(start.elapsed() < Duration::from_secs(1), "the wait overran its deadline: {:?}", start.elapsed());
+        release.send(()).unwrap();
+        assert!(await_result(&worker.results, far(), &|| false).is_some(), "the finished read should be there for the next call");
+    }
+
+    #[test]
+    fn a_wait_on_a_stuck_read_ends_when_cancelled() {
+        let (worker, _release) = stuck_worker();
+        worker.jobs.send(shot(memfd("telescope-cancel-test", &[0u8; 32]), true)).unwrap();
+        let start = Instant::now();
+        assert!(await_result(&worker.results, start + Duration::from_secs(30), &|| true).is_none());
+        assert!(start.elapsed() < Duration::from_secs(1));
+    }
+
+    #[test]
+    fn a_worker_that_ended_is_an_error_not_a_hang() {
+        let worker = CopyWorker::start_with(|_| panic!("the copy broke")).unwrap();
+        worker.jobs.send(shot(memfd("telescope-panic-test", &[0u8; 32]), true)).unwrap();
+        let result = await_result(&worker.results, far(), &|| false);
+        assert!(matches!(result, Some(Err(m)) if m.contains("ended")));
     }
 
     #[test]
