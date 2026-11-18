@@ -571,11 +571,8 @@ mod win {
 /// What reads and sets a webcam's controls on this system, or None where that can't be done.
 pub fn controls_for(device: &crate::webcams::Device) -> Option<Box<dyn Controls>> {
     if crate::webcams::is_gphoto(&device.location) {
-        // A DSLR's settings, while its live view streams through libgphoto2
-        #[cfg(target_os = "linux")]
+        // A DSLR's settings, while its live view streams (through libgphoto2 on Linux, PTP over Windows Portable Devices on Windows)
         return Some(Box::new(crate::webcam_capture::gphoto_lib::GphotoControls::new(&device.location)));
-        #[cfg(not(target_os = "linux"))]
-        return None;
     }
     #[cfg(target_os = "linux")]
     {

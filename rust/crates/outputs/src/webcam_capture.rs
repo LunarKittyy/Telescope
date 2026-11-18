@@ -292,11 +292,13 @@ pub fn prepare_gphoto_environment() {
     #[cfg(target_os = "linux")]
     gp::prepare_environment();
 }
-#[cfg(target_os = "linux")]
 pub mod gphoto_lib;
-#[cfg(target_os = "linux")]
 pub mod gphoto_stills;
-#[cfg(target_os = "linux")]
+pub mod gphoto_timing;
+pub mod ptp;
+pub mod ptp_rig;
+#[cfg(windows)]
+pub mod ptp_wpd;
 pub mod quirks;
 
 #[cfg(target_os = "linux")]

@@ -586,6 +586,15 @@ pub trait HostPreview {
     /// the cards still act on source_id's stream. None as the target takes the owner's redirect off, and so does the owner going away. An owner
     /// has one at a time; a host without a preview ignores it.
     fn preview_follows(&mut self, _owner: &str, _source_id: Option<&str>, _target: Option<&str>) {}
+    /// Whether the preview draws the shown stream's own camera picture. It doesn't while a plugin has it draw another running stream
+    /// (preview_follows) or while the picture is made of several streams (preview_composited): a spot picked on it is then not a spot of
+    /// that stream's picture, and the people found in it are not the ones on screen.
+    fn preview_shows_own_picture(&self) -> bool {
+        true
+    }
+    /// A plugin says the picture stream source_id sends is made of several (Stereo's 3D picture, Composite's picture), not one camera's
+    /// view, or None that it no longer is. An owner has one at a time.
+    fn preview_composited(&mut self, _owner: &str, _source_id: Option<&str>) {}
 }
 
 /// Full-quality photos taken on the phone.
