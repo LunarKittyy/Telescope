@@ -735,6 +735,23 @@ fn setup_plugin_config_round_trip() {
 }
 
 #[test]
+fn the_graphics_card_choice_is_saved_by_id_and_waits_for_a_restart() {
+    let mut r = Rig::linux();
+    assert!(r.plugin.get_config().get("gpu_card").is_none(), "Automatic writes nothing");
+    assert_eq!((&r.plugin.video_props()["gpu-current"], &r.plugin.video_props()["gpu-restart"]), (&json!(0), &json!(false)));
+    r.plugin.set_config(&json!({"gpu_card": "AB12:0001", "gpu_card_name": "Test Card 9000"})).unwrap();
+    let props = r.plugin.video_props();
+    assert_eq!((&props["gpu-items"][1], &props["gpu-current"], &props["gpu-restart"]), (&json!("Test Card 9000 (not found)"), &json!(1), &json!(true)), "a saved card stays in the list even when it isn't found");
+    r.ui("video", "gpu-picked", vec![json!(0), json!("Automatic")]);
+    assert!(r.plugin.get_config().get("gpu_card").is_none());
+    assert_eq!(r.plugin.video_props()["gpu-restart"], json!(false));
+    r.plugin.set_config(&json!({"gpu_card": "ab12:0001", "gpu_card_name": "Test Card 9000"})).unwrap();
+    r.ui("video", "gpu-picked", vec![json!(1), json!("Test Card 9000 (not found)")]);
+    let saved = r.plugin.get_config();
+    assert_eq!((&saved["gpu_card"], &saved["gpu_card_name"]), (&json!("ab12:0001"), &json!("Test Card 9000")), "the label is saved without the not found note");
+}
+
+#[test]
 fn hardware_decoding_follows_the_card_until_a_choice_is_made() {
     let mut r = Rig::linux();
     let fresh = r.plugin.get_config();

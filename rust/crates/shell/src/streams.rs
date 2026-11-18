@@ -783,6 +783,10 @@ impl Window {
             let data = serde_json::json!({"ok": false, "files": [], "code": "failed", "error": why});
             posts.push_event(plugin, Event::RequestDone { request, ok: false, message: why.into(), data });
         };
+        // The photo comes straight off the phone, so a picture that is hidden now stays untaken when the request said to check
+        if self.state.borrow().still_skipped(options, source) {
+            return fail(&tr("No photo was taken while part of the picture is hidden."));
+        }
         let found = self.streams.flow.borrow().sessions.find(Some(source));
         // A stream with a camera of its own (a DSLR) takes the photo there, any other on its phone
         let camera = found.as_ref().and_then(|src| src.kind.stills());

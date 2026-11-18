@@ -145,6 +145,51 @@ mod tests {
     }
 }
 
+/// How many bytes are free for this person on the volume holding `path`, asked of the nearest folder that exists (a folder not made yet is on the
+/// volume of its parent). None when the system can't say.
+pub fn free_space(path: &Path) -> Option<u64> {
+    let mut at = path;
+    while !at.exists() {
+        at = at.parent().filter(|p| !p.as_os_str().is_empty())?;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        let name = std::ffi::CString::new(at.as_os_str().as_bytes()).ok()?;
+        // SAFETY: name is NUL-terminated and outlives the call, and stat is only read after statvfs says it filled it in
+        unsafe {
+            let mut stat: libc::statvfs = std::mem::zeroed();
+            (libc::statvfs(name.as_ptr(), &mut stat) == 0).then(|| (stat.f_bavail as u64).saturating_mul(stat.f_frsize as u64))
+        }
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStrExt;
+        #[link(name = "kernel32")]
+        extern "system" {
+            fn GetDiskFreeSpaceExW(directory: *const u16, available: *mut u64, total: *mut u64, free: *mut u64) -> i32;
+        }
+        let wide: Vec<u16> = at.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+        let mut available = 0u64;
+        // SAFETY: wide is NUL-terminated and outlives the call, and the one out pointer that is wanted points at a live u64 (the others may be null)
+        let ok = unsafe { GetDiskFreeSpaceExW(wide.as_ptr(), &mut available, std::ptr::null_mut(), std::ptr::null_mut()) };
+        (ok != 0).then_some(available)
+    }
+}
+
+#[cfg(test)]
+mod free_space_tests {
+    use super::free_space;
+
+    #[test]
+    fn a_folder_that_is_not_made_yet_is_on_its_parents_volume() {
+        let dir = std::env::temp_dir();
+        let here = free_space(&dir).expect("the temp folder's volume");
+        assert!(here > 0);
+        assert!(free_space(&dir.join("telescope-free-space-not-made").join("deeper")).is_some());
+    }
+}
+
 /// A path without the `\\?\` that canonicalize puts in front on Windows, which Slint, a Run key or a shortcut can't use. A `\\?\UNC\` path stays as it is.
 pub fn plain_path(path: PathBuf) -> PathBuf {
     let plain = path.to_string_lossy().strip_prefix(r"\\?\").filter(|rest| !rest.starts_with("UNC\\")).map(PathBuf::from);

@@ -26,6 +26,8 @@ export component PhototrapCard inherits Card {
     in property <bool> count-enabled: true;
     in property <int> pause: 10;
     in property <string> pause-text;
+    in property <string> folder-text;
+    in property <string> folder-tip;
     in property <bool> night;
     in property <bool> night-enabled: true;
     in property <string> night-tip;
@@ -36,6 +38,7 @@ export component PhototrapCard inherits Card {
     callback count-moved(float);
     callback pause-moved(float);
     callback night-toggled(bool);
+    callback folder-clicked;
 
     title: @tr("Phototrap");
     tip: @tr("Take photos when something moves in the zones you draw on the preview.");
@@ -53,7 +56,7 @@ export component PhototrapCard inherits Card {
         has-icon: false;
         StatusLine { text: status; kind: status-kind; detail: status; }
     }
-    RailRow {
+    if tally != "": RailRow {
         has-icon: false;
         StatusLine { text: tally; detail: tally; }
     }
@@ -122,6 +125,23 @@ export component PhototrapCard inherits Card {
         changed: night;
         checked: night;
         toggled(v) => { root.night-toggled(v); }
+    }
+    RailRow {
+        icon: Icons.folder;
+        label: @tr("Save in");
+        hue: root.hue;
+        enabled: active;
+        Button {
+            horizontal-stretch: 1;
+            preferred-width: Theme.u(500);
+            shrinks: true;
+            text: folder-text;
+            tip: @tr("Save in");
+            tip-detail: @tr("Where the photos go. Click to open the folder.");
+            tip-hint: folder-tip;
+            enabled: active;
+            clicked => { root.folder-clicked(); }
+        }
     }
     // Nothing to touch until a phone is paired
     blocked: !active;
