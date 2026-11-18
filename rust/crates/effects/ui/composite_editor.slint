@@ -503,6 +503,7 @@ export component CompositeEditor inherits Window {
     in property <string> radius-text;
     in property <bool> fit-enabled;
     in property <bool> tile-locked;
+    in property <bool> tile-cut-out;
     in property <int> layer-count;
     in property <string> pos-x-text;
     in property <string> pos-y-text;
@@ -543,6 +544,7 @@ export component CompositeEditor inherits Window {
     callback zoom-moved(float);
     callback border-moved(float);
     callback radius-moved(float);
+    callback cut-out-toggled(bool);
     callback fit-clicked;
     callback stream-picked(int);
     // Up or down in the Streams list: the pick moves one row (-1 up, 1 down)
@@ -892,6 +894,20 @@ export component CompositeEditor inherits Window {
                                         value: channels[i];
                                         readout: channels[i];
                                         moved(v) => { root.channel-moved(i, v); }
+                                    }
+                                }
+                            }
+                            LabelRow {
+                                label-width: Theme.u(36);
+                                label: @tr("Cut out");
+                                HorizontalLayout {
+                                    alignment: start;
+                                    Switch {
+                                        label: @tr("Cut out");
+                                        tip: @tr("Show only the person, using this stream's Background or Chroma key");
+                                        hue: Theme.plugin-hue("streaming");
+                                        checked: tile-cut-out;
+                                        toggled(v) => { root.cut-out-toggled(v); }
                                     }
                                 }
                             }

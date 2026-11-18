@@ -476,3 +476,24 @@ fn up_and_down_in_the_list_move_the_pick_and_the_list_follows_the_preview() {
     r.pointer("up", (0.1, 0.1), false, NO_KEYS);
     assert_eq!((r.props()["selected"].clone(), r.props()["streams"][1]["picked"].clone(), r.props()["streams"][0]["picked"].clone()), (json!(0), json!(true), json!(false)));
 }
+
+#[test]
+fn the_cut_out_switch_sets_the_picked_tile_and_the_card_shows_it() {
+    let mut r = open();
+    r.ui("stream-picked", json!([0]));
+    assert_eq!(r.props()["tile-cut-out"], json!(false));
+    r.ui("cut-out-toggled", json!([true]));
+    assert!(r.tile(1).cut_out && !r.tile(0).cut_out);
+    assert_eq!(r.props()["tile-cut-out"], json!(true));
+    // it goes into the saved layout and the plugin tells the stream
+    assert_eq!(r.plugin.get_config()["layout"]["tiles"][1]["cut_out"], json!(true));
+    assert!(r.host.events.iter().any(|e| matches!(e, Event::CutOutWanted { source_id, on: true } if source_id == "b")));
+    r.ui("cut-out-toggled", json!([false]));
+    assert!(!r.tile(1).cut_out);
+    assert_eq!(r.props()["tile-cut-out"], json!(false));
+    assert!(r.host.events.iter().any(|e| matches!(e, Event::CutOutWanted { source_id, on: false } if source_id == "b")));
+    // a locked tile keeps its cut-out as it is
+    r.ui("stream-locked", json!([0, true]));
+    r.ui("cut-out-toggled", json!([true]));
+    assert!(!r.tile(1).cut_out);
+}
