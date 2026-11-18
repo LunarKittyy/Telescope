@@ -1,9 +1,8 @@
 //! Whether the windows may move things: the desktop's own reduced-motion setting, which TELESCOPE_MOTION (full, reduced or off) overrides.
 //! The kit's motions (ui-kit/ui/widgets/motion.slint) read it from the `Motion` global: reduced snaps every move and keeps colour and
-//! opacity changes, off keeps nothing. Appearance can set the same global later.
+//! opacity changes, off keeps nothing. Appearance's Motion option sets the same global over it (appearance.rs).
 
 use slint_interpreter::{ComponentInstance, Value};
-use std::sync::OnceLock;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Motion {
@@ -81,18 +80,28 @@ fn system() -> Motion {
     Motion::Full
 }
 
-/// What the person's setting says, looked up once.
+fn read() -> Motion {
+    std::env::var("TELESCOPE_MOTION").ok().and_then(|w| word(&w)).unwrap_or_else(system)
+}
+
+static MODE: std::sync::Mutex<Option<Motion>> = std::sync::Mutex::new(None);
+
+/// What the person's setting says, looked up once (again on `refresh`).
 pub fn current() -> Motion {
-    static MODE: OnceLock<Motion> = OnceLock::new();
-    *MODE.get_or_init(|| std::env::var("TELESCOPE_MOTION").ok().and_then(|w| word(&w)).unwrap_or_else(system))
+    let Ok(mut mode) = MODE.lock() else { return read() };
+    *mode.get_or_insert_with(read)
 }
 
-/// Tells a window's kit what is allowed to move.
-pub fn apply(ui: &ComponentInstance) {
-    set(ui, current());
+/// Looks the desktop's setting up again: the person may have changed it since the app started, and picking System is asking for it.
+pub fn refresh() -> Motion {
+    let now = read();
+    if let Ok(mut mode) = MODE.lock() {
+        *mode = Some(now);
+    }
+    now
 }
 
-/// The same for a given mode, which a test or the Appearance option can ask for.
+/// Tells a window's kit what is allowed to move, for a given mode.
 pub fn set(ui: &ComponentInstance, mode: Motion) {
     let _ = ui.set_global_property("Motion", "reduced", Value::Bool(mode != Motion::Full));
     let _ = ui.set_global_property("Motion", "off", Value::Bool(mode == Motion::Off));

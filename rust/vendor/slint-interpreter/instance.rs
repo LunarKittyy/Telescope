@@ -8,7 +8,7 @@ use crate::erased::{ErasedItemRc, SubComponentCallback, SubComponentProperty};
 use crate::globals::GlobalStorage;
 use crate::item_registry::ItemRegistry;
 use i_slint_compiler::llr::{
-    self, CompilationUnit, ItemInstanceIdx, RepeatedElementIdx, SubComponentIdx,
+    self, ItemInstanceIdx, RepeatedElementIdx, SubComponentIdx,
     SubComponentInstanceIdx,
 };
 use i_slint_core::item_tree::{ItemTreeNode, ItemTreeVTable};
@@ -157,7 +157,7 @@ impl RepeaterOrConditional {
 ///
 /// Each field is indexed by its corresponding LLR index, so lookups are O(1).
 pub struct SubComponentInstance {
-    pub compilation_unit: Rc<CompilationUnit>,
+    pub compilation_unit: Rc<crate::component::Unit>,
     pub sub_component_idx: SubComponentIdx,
     pub properties: TiVec<llr::PropertyIdx, SubComponentProperty>,
     pub callbacks: TiVec<llr::CallbackIdx, SubComponentCallback>,
@@ -680,7 +680,7 @@ impl Instance {
     /// Properties are default-valued, then `bindings::install_bindings` wires
     /// up `property_init`, `two_way_bindings` and `init_code`.
     pub fn new(
-        compilation_unit: Rc<CompilationUnit>,
+        compilation_unit: Rc<crate::component::Unit>,
         public_component_index: usize,
     ) -> VRc<ItemTreeVTable, Instance> {
         Self::new_with_window(compilation_unit, public_component_index, None, Default::default())
@@ -690,7 +690,7 @@ impl Instance {
     /// existing [`WindowAdapterRc`]. Live preview passes in the window from
     /// the old instance so reloaded components keep the same window frame.
     pub fn new_with_window(
-        compilation_unit: Rc<CompilationUnit>,
+        compilation_unit: Rc<crate::component::Unit>,
         public_component_index: usize,
         window_adapter: Option<i_slint_core::window::WindowAdapterRc>,
         type_loaders: crate::component::TypeLoaders,
@@ -709,7 +709,7 @@ impl Instance {
     /// `ComponentContainer` slot index it substitutes into so that
     /// `parent_node` can walk back into the host tree.
     pub fn new_embedded(
-        compilation_unit: Rc<CompilationUnit>,
+        compilation_unit: Rc<crate::component::Unit>,
         public_component_index: usize,
         type_loaders: crate::component::TypeLoaders,
         parent: vtable::VWeak<ItemTreeVTable>,
@@ -725,7 +725,7 @@ impl Instance {
     }
 
     fn new_with_options(
-        compilation_unit: Rc<CompilationUnit>,
+        compilation_unit: Rc<crate::component::Unit>,
         public_component_index: usize,
         window_adapter: Option<i_slint_core::window::WindowAdapterRc>,
         type_loaders: crate::component::TypeLoaders,
@@ -760,7 +760,7 @@ impl Instance {
     /// `repeater_idx` lets `ModelDataAssignment` find the owning repeater
     /// when an event in the repeated sub-tree wants to write back.
     pub fn new_repeated(
-        compilation_unit: Rc<CompilationUnit>,
+        compilation_unit: Rc<crate::component::Unit>,
         item_tree: &llr::ItemTree,
         parent: Weak<SubComponentInstance>,
         repeater_idx: RepeatedElementIdx,
@@ -782,7 +782,7 @@ impl Instance {
     /// parented on the sub-component that owns the popup so that parent-
     /// relative property references resolve through `parent.upgrade()`.
     pub fn new_popup(
-        compilation_unit: Rc<CompilationUnit>,
+        compilation_unit: Rc<crate::component::Unit>,
         item_tree: &llr::ItemTree,
         parent: Weak<SubComponentInstance>,
         globals: Rc<GlobalStorage>,
@@ -799,7 +799,7 @@ impl Instance {
 /// borrow. This avoids re-entrant repeater access when an `init` callback
 /// reads a layout property that walks back through the same repeater.
 fn build_instance(
-    compilation_unit: &Rc<CompilationUnit>,
+    compilation_unit: &Rc<crate::component::Unit>,
     item_tree: &llr::ItemTree,
     parent: Weak<SubComponentInstance>,
     globals: Rc<GlobalStorage>,
@@ -897,7 +897,7 @@ fn propagate_root(sub: &Pin<Rc<SubComponentInstance>>, weak: &VWeak<ItemTreeVTab
 
 /// Recursively allocate a [`SubComponentInstance`].
 fn build_sub_component_instance(
-    cu: &Rc<CompilationUnit>,
+    cu: &Rc<crate::component::Unit>,
     sub_idx: SubComponentIdx,
     parent: Weak<SubComponentInstance>,
 ) -> Pin<Rc<SubComponentInstance>> {
