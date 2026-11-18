@@ -581,3 +581,23 @@ fn a_preset_saves_the_picture_but_not_the_saved_layouts() {
     other.plugin.apply_preset(&mut other.host, &saved).unwrap();
     assert_eq!(other.plugin.names(), ["Mine"]);
 }
+
+#[test]
+fn a_preset_saved_with_keep_what_is_on_leaves_the_current_layout_alone() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    r.plugin.save_layout(&mut r.host, "Two");
+    let options = r.plugin.preset_options();
+    assert_eq!(options.len(), 1);
+    assert_eq!(options[0].items[0].0, "layout", "a new preset brings its layout, as before");
+    assert!(r.plugin.preset_config_with(&[("layout".into(), "layout".into())])["layout"]["name"] == "Two");
+    let kept = r.plugin.preset_config_with(&[("layout".into(), "keep".into())]);
+    assert!(kept.get("layout").is_none() && kept["on"] == true, "{kept}");
+    let mut other = rig();
+    other.two_streams(0.0);
+    other.plugin.save_layout(&mut other.host, "Mine");
+    let before = other.plugin.get_config()["layout"].clone();
+    other.plugin.apply_preset(&mut other.host, &kept).unwrap();
+    assert_eq!(other.plugin.get_config()["layout"], before);
+    assert_eq!(other.plugin.get_config()["on"], true);
+}

@@ -339,3 +339,19 @@ fn the_shortcuts_apply_a_preset_or_go_round_them() {
     assert_eq!(fresh.plugin.run_action(&mut fresh.host, "presets.cycle", &json!({"op": "next"})), Some("Preset: A".into()));
     assert_eq!(Rig::new(&[]).plugin.run_action(&mut FakeHost::new(), "presets.cycle", &json!({"op": "next"})), None);
 }
+
+#[test]
+fn the_save_question_asks_what_the_plugins_want_to_know_and_saves_the_answers() {
+    let mut r = Rig::new(&[("composite", json!({"on": true}))]);
+    let option = telescope_core::PresetOption { id: "layout".into(), label: "One picture layout".into(), items: vec![("layout".into(), "Bring this layout".into()), ("keep".into(), "Leave the layout".into())] };
+    r.host.preset_options.push(("composite".into(), option));
+    r.ui("save-clicked", vec![]);
+    assert!(r.host.calls.iter().any(|c| c.contains("Bring this layout") && c.contains("Leave the layout")));
+    r.ui("option-picked", vec![json!(0), json!(1)]);
+    r.ui("name-accepted", vec![json!("Talk")]);
+    assert_eq!(r.plugin.get_config()["presets"][0]["composite"], json!({"on": true, "picks": [["layout", "keep"]]}));
+    // the next Save starts from the first answer again
+    r.ui("save-clicked", vec![]);
+    r.ui("name-accepted", vec![json!("Plain")]);
+    assert_eq!(r.plugin.get_config()["presets"][1]["composite"], json!({"on": true, "picks": [["layout", "layout"]]}));
+}

@@ -22,7 +22,7 @@ use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep,
 use telescope_core::host::{FrameStore, Host};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::output::Outputs;
-use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
+use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, PresetOption, StreamInfo};
 use telescope_core::settings::{off_default, reset_config};
 use telescope_core::time::monotonic_ns;
 use telescope_core::ui::{ActionSpec, CardSpec, SlintSource, UiEvent, UiSpec};
@@ -834,11 +834,35 @@ impl Plugin for CompositePlugin {
         cfg
     }
 
-    /// A preset brings back whether the picture is on and how it looks, and leaves the saved layouts alone.
+    fn preset_options(&self) -> Vec<PresetOption> {
+        vec![PresetOption {
+            id: "layout".into(),
+            label: tr("One picture layout"),
+            items: vec![("layout".into(), tr("Bring this layout")), ("keep".into(), tr("Leave the layout"))],
+        }]
+    }
+
+    /// "Leave the layout" saves no layout, so applying it leaves whatever the picture shows when it's applied.
+    fn preset_config_with(&self, picks: &[(String, String)]) -> Value {
+        let mut cfg = self.preset_config();
+        if picks.iter().any(|(id, v)| id == "layout" && v == "keep") {
+            if let Value::Object(map) = &mut cfg {
+                map.remove("layout");
+            }
+        }
+        cfg
+    }
+
+    /// A preset brings back whether the picture is on and how it looks, and leaves the saved layouts alone. One saved without a layout leaves the current one.
     fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
         self.catch_up(host);
         self.canvas = host.canvas_size();
+        let current = self.layout.clone();
         self.apply(cfg);
+        if cfg.get("layout").is_none() {
+            self.layout = current;
+            self.prepare();
+        }
         self.show(host);
         Ok(())
     }
