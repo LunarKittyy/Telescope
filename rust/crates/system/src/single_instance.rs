@@ -41,6 +41,8 @@ impl Address {
     /// Python dev desktop, mustn't take each other for the running copy.
     pub fn current() -> Address {
         let Some(folder) = telescope_core::config::dev_profile() else { return Address::for_profile(false) };
+        // A symlink to the profile is the same profile: they share the settings folder and its crash marker
+        let folder = folder.canonicalize().unwrap_or(folder);
         let digest = ring::digest::digest(&ring::digest::SHA256, folder.to_string_lossy().as_bytes());
         let tag = u16::from_be_bytes([digest.as_ref()[0], digest.as_ref()[1]]);
         match Address::for_profile(true) {
