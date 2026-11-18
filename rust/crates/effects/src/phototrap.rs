@@ -8,7 +8,8 @@ use telescope_core::event::Event;
 use telescope_core::host::{Host, PickKind, PreviewLayer, RequestId, Shape};
 use telescope_core::i18n::{n_, tr, trn, Fields};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
-use std::path::Path;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 use telescope_core::host::{Pick, View};
 use telescope_core::system::{file_url, free_space};
 use telescope_core::time::{local_clock, monotonic_ns};
@@ -63,24 +64,31 @@ fn map_zone(z: [f32; 4], map: impl Fn(f64, f64) -> (f64, f64)) -> [f32; 4] {
     [a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)].map(|v| v.clamp(0.0, 1.0) as f32)
 }
 
-/// Bytes in a folder and the ones inside it, 0 for one that isn't there.
-fn folder_size(folder: &Path) -> u64 {
-    let (mut total, mut seen, mut todo) = (0u64, 0usize, vec![folder.to_path_buf()]);
+/// Bytes in a folder and the ones inside it, 0 for one that isn't there, and the files that made them when `keep` asks for them. A download
+/// under way isn't a photo yet: its partial file and the empty one reserved for its name are left out.
+fn folder_scan(folder: &Path, keep: bool) -> (u64, HashSet<PathBuf>) {
+    let (mut total, mut seen, mut todo, mut files) = (0u64, 0usize, vec![folder.to_path_buf()], HashSet::new());
     while let Some(dir) = todo.pop() {
         let Ok(entries) = std::fs::read_dir(&dir) else { continue };
         for entry in entries.flatten() {
             seen += 1;
             if seen > SCAN_LIMIT {
-                return total;
+                return (total, files);
             }
             match entry.metadata() {
                 Ok(m) if m.is_dir() => todo.push(entry.path()),
-                Ok(m) => total += m.len(),
+                Ok(m) if m.len() == 0 || entry.file_name().to_string_lossy().ends_with(".part") => {}
+                Ok(m) => {
+                    total += m.len();
+                    if keep {
+                        files.insert(entry.path());
+                    }
+                }
                 Err(_) => {}
             }
         }
     }
-    total
+    (total, files)
 }
 
 /// Gigabytes the way a limit is told: "2", or "0.5".
@@ -108,6 +116,8 @@ pub struct PhototrapPlugin {
     moving: Vec<u32>,
     /// Bytes the folder holds: counted when armed, then grown with each burst saved.
     used: u64,
+    /// The files the last rescan already counted in `used` while bursts were still pending, so their end doesn't count them again.
+    counted: HashSet<PathBuf>,
     budget: u64,
     min_free: u64,
     free: Box<dyn Fn(&Path) -> Option<u64> + Send>,
@@ -153,6 +163,7 @@ impl PhototrapPlugin {
             orientation: Turn::default(),
             moving: Vec::new(),
             used: 0,
+            counted: HashSet::new(),
             budget: STORAGE_BUDGET,
             min_free: MIN_FREE,
             free: Box::new(free_space),
@@ -385,7 +396,8 @@ impl PhototrapPlugin {
         if on {
             self.ready_at = 0.0;
             self.source = host.focused_source_id();
-            self.used = folder_size(Path::new(&self.folder));
+            // A burst still pending may already have put files there, which its end must not count a second time
+            (self.used, self.counted) = folder_scan(Path::new(&self.folder), !self.taking.is_empty());
         }
         self.sync(host);
         self.show_layer(host);
@@ -448,20 +460,21 @@ impl PhototrapPlugin {
     }
 
     fn done(&mut self, host: &mut dyn Host, ok: bool, data: &Value) {
-        // Asked not to take it while the picture was hidden, and it was: nothing went off
-        if data.get("code").and_then(Value::as_str) == Some("hidden") {
+        let files: Vec<&str> = data.get("files").and_then(Value::as_array).map_or_else(Vec::new, |a| a.iter().filter_map(Value::as_str).collect());
+        let code = data.get("code").and_then(Value::as_str);
+        // Asked not to take it while the picture was hidden, and it was before the first one: nothing went off
+        if code == Some("hidden") && files.is_empty() {
             self.triggers = self.triggers.saturating_sub(1);
             self.ready_at = self.now();
             return self.show(host);
         }
-        let files: Vec<&str> = data.get("files").and_then(Value::as_array).map_or_else(Vec::new, |a| a.iter().filter_map(Value::as_str).collect());
-        // What reached the folder counts even when the burst failed on a later photo
+        // What reached the folder counts even when the burst was cut short or failed on a later photo
         self.photos += files.len() as u32;
-        self.used += files.iter().filter_map(|f| std::fs::metadata(f).ok()).map(|m| m.len()).sum::<u64>();
+        self.used += files.iter().filter(|f| !self.counted.contains(Path::new(f))).filter_map(|f| std::fs::metadata(f).ok()).map(|m| m.len()).sum::<u64>();
         if ok && !files.is_empty() {
             self.problem = None;
-        } else if data.get("code").and_then(Value::as_str) == Some("interrupted") {
-            // The stream stopped or changed lens under it: the card already says it's waiting
+        } else if code == Some("hidden") || code == Some("interrupted") {
+            // Hiding began, or the stream stopped or changed lens, under it: the card already says it's waiting
         } else {
             let error = data.get("error").and_then(Value::as_str).filter(|e| !e.is_empty());
             self.problem = Some(error.map_or_else(|| tr("The phone couldn't take the photos"), String::from));
@@ -614,6 +627,9 @@ impl Plugin for PhototrapPlugin {
             Event::RequestDone { request, ok, data, .. } if self.taking.iter().any(|(r, _)| r == request) => {
                 self.taking.retain(|(r, _)| r != request);
                 self.done(host, *ok, data);
+                if self.taking.is_empty() {
+                    self.counted.clear();
+                }
             }
             Event::WindowShown { shown } => {
                 self.window_shown = *shown;

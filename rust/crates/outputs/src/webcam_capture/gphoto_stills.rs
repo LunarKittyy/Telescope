@@ -239,6 +239,8 @@ pub enum Failure {
     Save,
     Interrupted,
     Timeout,
+    /// The picture went hidden before the shutter opened or while the photo was being taken or saved.
+    Hidden,
     /// The camera's image quality is read-only on a setting that also makes RAW, so a JPEG-only photo can't be had.
     Locked(Class),
     /// A RAW and JPEG photo with a file missing: the files that did come are still saved.
@@ -256,6 +258,7 @@ impl Failure {
             Failure::Save => "save",
             Failure::Interrupted => "interrupted",
             Failure::Timeout => "timeout",
+            Failure::Hidden => "hidden",
             Failure::Locked(_) => "unsupported",
             Failure::Partial(_) => "partial",
         }
@@ -271,6 +274,7 @@ impl Failure {
             Failure::Save => n_("Telescope couldn't save the photo."),
             Failure::Interrupted => n_("The photo was interrupted because the camera stopped."),
             Failure::Timeout => n_("The camera took too long to take the photo. The photo is saved and you get a notification if it still arrives."),
+            Failure::Hidden => n_("No photo was taken while part of the picture is hidden."),
             Failure::Locked(Class::Both) => n_("The camera can't take a JPEG alone with its image quality locked to RAW and JPEG together."),
             Failure::Locked(_) => n_("The camera can't take a JPEG with its image quality locked to RAW."),
             Failure::Partial(_) => n_("The camera only sent part of the photo. The part that arrived is saved."),
@@ -296,6 +300,11 @@ fn put(rig: &mut dyn Rig, menu: Option<&Menu>, want: &str, what: &'static str) -
 /// The shooting itself, on the camera's thread: live view off (a camera won't shoot with it on), the settings, the picture to this
 /// computer, and every file it made. Live view is the caller's to bring back.
 pub fn take_photo(rig: &mut dyn Rig, wish: &Wish) -> Result<Vec<Shot>, Failure> {
+    take_photo_guarded(rig, wish, None)
+}
+
+/// `take_photo` that looks at the guard right before the shutter, after every setting: a hidden or stopped stream gets no photo.
+fn take_photo_guarded(rig: &mut dyn Rig, wish: &Wish, guard: Option<&Guard>) -> Result<Vec<Shot>, Failure> {
     let _ = rig.write("viewfinder", "0");
     let caps = read_photo_caps(rig);
     let mut expect = 1;
@@ -334,7 +343,11 @@ pub fn take_photo(rig: &mut dyn Rig, wish: &Wish) -> Result<Vec<Shot>, Failure> 
             }
         }
     }
-    rig.capture(expect).map_err(|Incomplete { why, shots }| {
+    if let Some(stop) = guard.and_then(Guard::stop) {
+        return Err(stop);
+    }
+    let covered = || guard.is_some_and(Guard::is_hidden);
+    let taken = rig.capture(expect, &covered).map_err(|Incomplete { why, shots }| {
         log::info!("the camera couldn't take the photo: {why}");
         if !shots.is_empty() {
             Failure::Partial(shots)
@@ -343,7 +356,12 @@ pub fn take_photo(rig: &mut dyn Rig, wish: &Wish) -> Result<Vec<Shot>, Failure> 
         } else {
             Failure::Camera(why)
         }
-    })
+    });
+    // Hiding began after the shutter opened (a long exposure, the transfer): whatever came is discarded unseen
+    if covered() {
+        return Err(Failure::Hidden);
+    }
+    taken
 }
 
 /// What to do with a photo that came after its job gave up waiting: save it and say so.
@@ -353,6 +371,35 @@ struct Job {
     wish: Wish,
     reply: Reply,
     late: Option<Late>,
+    guard: Option<Guard>,
+}
+
+/// What stops a photo from being taken: the picture going hidden, or the stream going away. Shared by the job and the camera's thread.
+#[derive(Clone)]
+struct Guard {
+    hidden: Option<Arc<AtomicBool>>,
+    alive: Arc<Mutex<Box<dyn Fn() -> bool + Send>>>,
+}
+
+impl Guard {
+    fn is_hidden(&self) -> bool {
+        self.hidden.as_ref().is_some_and(|h| h.load(Ordering::SeqCst))
+    }
+
+    fn is_alive(&self) -> bool {
+        (*self.alive.lock().unwrap_or_else(|e| e.into_inner()))()
+    }
+
+    /// Why the shutter must stay shut, if it must.
+    fn stop(&self) -> Option<Failure> {
+        if !self.is_alive() {
+            Some(Failure::Interrupted)
+        } else if self.is_hidden() {
+            Some(Failure::Hidden)
+        } else {
+            None
+        }
+    }
 }
 
 type Outcome = Result<Vec<Shot>, Failure>;
@@ -490,7 +537,7 @@ impl Shared {
     pub fn run_pending(&self, rig: &mut dyn Rig) -> bool {
         let Some(job) = self.pending.lock().unwrap().take() else { return false };
         self.capturing.store(true, Ordering::SeqCst);
-        let result = take_photo(rig, &job.wish);
+        let result = take_photo_guarded(rig, &job.wish, job.guard.as_ref());
         let _ = rig.write("viewfinder", "1");
         self.capturing.store(false, Ordering::SeqCst);
         // The job may have stopped waiting (a timeout, or the stream stopping): what the camera sent after that is not thrown away
@@ -567,11 +614,17 @@ fn reserve(folder: &Path, stem: &str, ext: &str) -> std::io::Result<PathBuf> {
     Err(std::io::Error::other("no free name"))
 }
 
-/// The files of a photo into folder, named after the moment so a RAW and its JPEG share a name.
-fn save(folder: &Path, shots: &[Shot]) -> Result<Vec<PathBuf>, (Failure, Vec<PathBuf>)> {
+/// The files of a photo into folder, named after the moment so a RAW and its JPEG share a name. Each is written as a `.part` file and renamed
+/// when whole. `covered` says the picture is hidden: it is looked at before and after every file, and the photo's files are all removed then.
+fn save(folder: &Path, shots: &[Shot], covered: &dyn Fn() -> bool) -> Result<Vec<PathBuf>, (Failure, Vec<PathBuf>)> {
     let stem = format!("Telescope_{}", telescope_core::time::local_stamp());
     let mut files: Vec<PathBuf> = Vec::new();
+    let discard = |files: &[PathBuf]| files.iter().for_each(|f| { let _ = std::fs::remove_file(f); });
     for shot in shots {
+        if covered() {
+            discard(&files);
+            return Err((Failure::Hidden, Vec::new()));
+        }
         let ext = Path::new(&shot.name).extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase)
             .filter(|e| !e.is_empty() && e.len() <= 5 && e.chars().all(|c| c.is_ascii_alphanumeric())).unwrap_or_else(|| "jpg".into());
         let path = match reserve(folder, &stem, &ext) {
@@ -581,12 +634,29 @@ fn save(folder: &Path, shots: &[Shot]) -> Result<Vec<PathBuf>, (Failure, Vec<Pat
                 return Err((Failure::Save, files));
             }
         };
-        if let Err(e) = std::fs::write(&path, &shot.data) {
-            log::warn!("can't save {}: {e}", path.display());
+        let part = path.with_file_name(format!("{}.part", path.file_name().unwrap_or_default().to_string_lossy()));
+        let written = std::fs::write(&part, &shot.data);
+        // The last look before the file is kept
+        let hidden = covered();
+        let kept = if hidden { Ok(()) } else { written.and_then(|()| std::fs::rename(&part, &path)) };
+        if hidden || kept.is_err() {
+            let _ = std::fs::remove_file(&part);
             let _ = std::fs::remove_file(&path);
+        }
+        if hidden {
+            discard(&files);
+            return Err((Failure::Hidden, Vec::new()));
+        }
+        if let Err(e) = kept {
+            log::warn!("can't save {}: {e}", path.display());
             return Err((Failure::Save, files));
         }
         files.push(path);
+    }
+    // A cover can land while the last file is renamed
+    if covered() {
+        discard(&files);
+        return Err((Failure::Hidden, Vec::new()));
     }
     Ok(files)
 }
@@ -605,10 +675,15 @@ fn exposure_of(shared: &Shared, wish: &Wish) -> Option<f64> {
 }
 
 /// One photo from start to saved files, on the thread of its own: the countdown, the camera's thread doing the shooting, the files.
-fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Value), alive: &dyn Fn() -> bool, longest: Duration, late: Option<Late>) -> Value {
+fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Value), guard: &Guard, longest: Duration, late: Option<Late>) -> Value {
+    let is_hidden = || guard.is_hidden();
+    let alive = || guard.is_alive();
     if let Err(e) = std::fs::create_dir_all(folder) {
         log::warn!("can't make the photo folder {}: {e}", folder.display());
         return failed(&Failure::Save, &[]);
+    }
+    if is_hidden() {
+        return failed(&Failure::Hidden, &[]);
     }
     let until = Instant::now() + Duration::from_secs(wish.timer_s);
     let mut shown = u64::MAX;
@@ -624,9 +699,13 @@ fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Valu
         }
         std::thread::sleep(left.min(Duration::from_millis(50)));
     }
+    // The last look before the shutter: a cover can land while the self-timer counts
+    if is_hidden() {
+        return failed(&Failure::Hidden, &[]);
+    }
     let longest = wait_for_photo(longest, exposure_of(shared, &wish));
     let (reply, waiter) = handover();
-    *shared.pending.lock().unwrap() = Some(Job { wish, reply, late });
+    *shared.pending.lock().unwrap() = Some(Job { wish, reply, late, guard: Some(guard.clone()) });
     on_progress(progress("capturing", 0, true));
     let (began, mut looks) = (Instant::now(), 0u32);
     let outcome = loop {
@@ -654,15 +733,17 @@ fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Valu
             }
         }
     };
+    let covered = || guard.is_hidden();
     match outcome {
-        Ok(shots) => match save(folder, &shots) {
+        Ok(shots) => match save(folder, &shots, &covered) {
             Ok(files) => result(true, &files, "", ""),
             Err((failure, files)) => failed(&failure, &files),
         },
         // Whatever came of a photo that is only half there is kept, and the card says it is half
         Err(Failure::Partial(shots)) => {
-            let files = match save(folder, &shots) {
+            let files = match save(folder, &shots, &covered) {
                 Ok(files) => files,
+                Err((Failure::Hidden, _)) => return failed(&Failure::Hidden, &[]),
                 Err((_, files)) => files,
             };
             failed(&Failure::Partial(shots), &files)
@@ -708,6 +789,22 @@ impl SourceStills for GphotoStills {
 
     fn take(&self, options: &Value, folder: &str, on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
             alive: Box<dyn Fn() -> bool + Send>) -> bool {
+        self.start(options, folder, on_progress, on_done, alive, None)
+    }
+
+    fn take_unless_hidden(&self, options: &Value, folder: &str, on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
+                          alive: Box<dyn Fn() -> bool + Send>, hidden: Arc<AtomicBool>) -> bool {
+        self.start(options, folder, on_progress, on_done, alive, Some(hidden))
+    }
+
+    fn set_on_change(&self, on_change: Box<dyn Fn() + Send + Sync>) {
+        *self.hearer.on_change.lock().unwrap() = Some(Arc::from(on_change));
+    }
+}
+
+impl GphotoStills {
+    fn start(&self, options: &Value, folder: &str, on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
+             alive: Box<dyn Fn() -> bool + Send>, hidden: Option<Arc<AtomicBool>>) -> bool {
         let Some(shared) = self.shared() else { return false };
         if shared.caps_json().is_none() || shared.in_flight.swap(true, Ordering::SeqCst) {
             return false;
@@ -718,12 +815,15 @@ impl SourceStills for GphotoStills {
         let on_progress = Arc::new(Mutex::new(on_progress));
         let tell = on_progress.clone();
         let late_folder = folder.clone();
+        let late_hidden = hidden.clone();
         let late: Late = Arc::new(move |outcome| {
             let shots = match outcome {
                 Ok(shots) | Err(Failure::Partial(shots)) => shots,
                 Err(_) => return,
             };
-            let files = save(&late_folder, &shots).unwrap_or_else(|(_, files)| files);
+            // A photo that comes late is saved unless the picture is hidden by then
+            let covered = || late_hidden.as_ref().is_some_and(|h| h.load(Ordering::SeqCst));
+            let files = save(&late_folder, &shots, &covered).unwrap_or_else(|(_, files)| files);
             if !files.is_empty() {
                 let said = json!({"state": "late", "files": files.iter().map(|f| f.display().to_string()).collect::<Vec<_>>()});
                 (*tell.lock().unwrap_or_else(|e| e.into_inner()))(said);
@@ -731,7 +831,8 @@ impl SourceStills for GphotoStills {
         });
         let spawned = std::thread::Builder::new().name("dslr-photo".into()).spawn(move || {
             let report = |data: Value| (*on_progress.lock().unwrap_or_else(|e| e.into_inner()))(data);
-            let outcome = run_job(&held, wish, &folder, &report, &*alive, longest, Some(late));
+            let guard = Guard { hidden, alive: Arc::new(Mutex::new(alive)) };
+            let outcome = run_job(&held, wish, &folder, &report, &guard, longest, Some(late));
             held.in_flight.store(false, Ordering::SeqCst);
             on_done(outcome);
         });
@@ -740,10 +841,6 @@ impl SourceStills for GphotoStills {
             return false;
         }
         true
-    }
-
-    fn set_on_change(&self, on_change: Box<dyn Fn() + Send + Sync>) {
-        *self.hearer.on_change.lock().unwrap() = Some(Arc::from(on_change));
     }
 }
 

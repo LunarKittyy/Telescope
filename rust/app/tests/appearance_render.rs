@@ -830,3 +830,228 @@ fn a_settings_window_made_after_the_pick_wears_it() {
     telescope_shell::settings::forget();
     w.shut_down();
 }
+
+// ── A work area smaller than the window ───────────────────────────────────────
+
+/// The chips (the tab-role controls of a Segmented) whose word has less than `pad` of room at each side, from the chip's own size and the
+/// width its word asks for. A chip named in `required` that has no drawn word to measure is a problem too.
+fn crowded_chips(ui: &ComponentInstance, pad: f32, required: &[String]) -> Vec<String> {
+    let inner = i_slint_core::window::WindowInner::from_pub(ui.window());
+    let adapter = inner.window_adapter();
+    let root = ItemRc::new_root(inner.component());
+    // Every drawn word with where it is in the window and the width it asks for
+    fn words(item: &ItemRc, adapter: &i_slint_core::window::WindowAdapterRc, found: &mut Vec<(String, f32, f32, f32)>) {
+        if item.is_visible() {
+            let text = if let Some(t) = item.downcast::<SimpleText>() {
+                Some(i_slint_core::items::SimpleText::FIELD_OFFSETS.text().apply_pin(t.as_pin_ref()).get().to_string())
+            } else {
+                item.downcast::<ComplexText>().map(|t| ComplexText::FIELD_OFFSETS.text().apply_pin(t.as_pin_ref()).get().to_string())
+            };
+            if let Some(text) = text.filter(|t| !t.is_empty()) {
+                let (size, at) = (item.geometry().size, item.map_to_window(Default::default()));
+                let wanted = item.borrow().as_ref().layout_info(Orientation::Horizontal, -1.0, adapter, item).preferred;
+                found.push((text, at.x + size.width / 2.0, at.y + size.height / 2.0, wanted));
+            }
+        }
+        let mut child = item.first_child();
+        while let Some(c) = child {
+            words(&c, adapter, found);
+            child = c.next_sibling();
+        }
+    }
+    let mut found = Vec::new();
+    words(&root, &adapter, &mut found);
+    let (mut crowded, mut measured) = (Vec::new(), Vec::<String>::new());
+    for chip in ui.root_element().query_descendants().match_predicate(|e| e.accessible_role() == Some(AccessibleRole::Tab)).find_all() {
+        let (at, size, label) = (chip.absolute_position(), chip.size(), chip.accessible_label().unwrap_or_default().to_string());
+        let item = label.rsplit(": ").next().unwrap_or(&label).to_string();
+        let Some((_, _, _, wanted)) = found.iter().find(|(t, x, y, _)| *t == item && *x >= at.x && *x <= at.x + size.width && *y >= at.y && *y <= at.y + size.height) else {
+            if required.contains(&item) {
+                crowded.push(format!("{label}: no drawn word \"{item}\" inside the chip, so its room could not be measured"));
+            }
+            continue;
+        };
+        if required.contains(&item) {
+            measured.push(item.clone());
+        }
+        let room = (size.width - wanted) / 2.0;
+        if room < pad {
+            crowded.push(format!("{label}: {room:.1} px at each side of its word (a chip {:.0} px wide, the word {wanted:.0}), wanted {pad:.1}", size.width));
+        }
+    }
+    for name in required {
+        if !measured.contains(name) && !crowded.iter().any(|c| c.contains(&format!("\"{name}\""))) {
+            crowded.push(format!("no chip named \"{name}\" was found to measure"));
+        }
+    }
+    crowded
+}
+
+/// Where the choice rows of the Look card begin and end across (their names, the `Segmented` rows), so they can be compared.
+fn choice_rows(ui: &ComponentInstance, names: &[String]) -> Vec<(String, f32, f32)> {
+    names.iter().filter_map(|n| {
+        let e = ElementHandle::find_by_accessible_label(ui, n).find(|e| e.accessible_role() == Some(AccessibleRole::TabList))?;
+        Some((n.clone(), e.absolute_position().x, e.size().width))
+    }).collect()
+}
+
+fn scroll_settings(ui: &ComponentInstance, by: f32) {
+    use slint::platform::WindowEvent;
+    ui.window().dispatch_event(WindowEvent::PointerScrolled { position: slint::LogicalPosition::new(400.0, 400.0), delta_x: 0.0, delta_y: by });
+}
+
+/// The control of this role with this name: where its box is in the window, none while it is clipped away (a page scrolled past it).
+fn found_at(ui: &ComponentInstance, label: &str, role: AccessibleRole) -> Option<(f32, f32)> {
+    let e = ElementHandle::find_by_accessible_label(ui, label).find(|e| e.accessible_role() == Some(role))?;
+    Some((e.absolute_position().y, e.absolute_position().y + e.size().height))
+}
+
+/// Settings opened on a screen whose work area is 1920x1032 physical pixels at 150% (a 1920x1080 screen less a taskbar of 48, 688 logical high), its
+/// frame 22x56 as Windows gives it, at Large text, Comfortable density and Higher contrast: the window takes no more than the work area, the page
+/// scrolls to the Language row and Help translate beneath it, no chip's word touches its edges, and the Look card's choice rows are all as wide.
+#[test]
+fn settings_on_a_1280_by_720_work_area_scrolls_to_language_and_its_chips_keep_their_room() {
+    let w = build("appearance-workarea");
+    let big = Appearance { text: TextSize::Large, density: Density::Comfortable, contrast: true, ..Default::default() };
+    let mut problems = Vec::new();
+    let mut seen_scroll = false;
+    for (name, l) in [("dark", Look::Dark), ("light", Look::Light), ("oled", Look::Oled), ("classic", Look::Classic)] {
+        look(&w, l);
+        choose(&w, big);
+        let settings = look_card(&w);
+        let size = settings.fit_to_work_area((1920, 1032), 1.5, (22, 56));
+        offscreen::pump();
+        w.process();
+        settle(&w);
+        assert_eq!(size, (1410, 904), "940x680 at 150% cut to the work area less its frame and the margin (48 logical)");
+        let height = settings.ui.window().size().height as f32 / settings.ui.window().scale_factor();
+        assert!((height - size.1 as f32 / 1.5).abs() < 1.0, "the window is {height} logical high");
+        let (lang, translate) = (tr("Language"), tr("Help translate"));
+        let below = |at: Option<(f32, f32)>| at.is_none_or(|(_, to)| to > height + 0.5);
+        let before = below(found_at(&settings.ui, &translate, AccessibleRole::Button));
+        let top = draw(&settings.ui, 940.0, height);
+        // The chips keep room around their words, on every tab at this size
+        let pad = match settings.ui.get_global_property("Theme", "unit") { Ok(Value::Number(unit)) => unit as f32 * 3.0, other => panic!("Theme.unit is {other:?}") };
+        for tab in settings.tabs() {
+            assert!(settings.show_tab(&tab), "{tab}");
+            w.process();
+            settle(&w);
+            let required = if tab == "general" { vec![tr("Comfortable")] } else { Vec::new() };
+            problems.extend(crowded_chips(&settings.ui, pad, &required).into_iter().map(|p| format!("{name}, tab {tab}: {p}")));
+            if tab == "general" {
+                let rows = choice_rows(&settings.ui, &[tr("Theme"), tr("Card colours"), tr("Corners"), tr("Text size"), tr("Density")]);
+                if rows.len() != 5 {
+                    problems.push(format!("{name}: only {} of the Look card's five choice rows were found: {rows:?}", rows.len()));
+                }
+                if let Some((_, x, width)) = rows.first() {
+                    for (row, rx, rw) in &rows {
+                        if (rx - x).abs() > 0.5 || (rw - width).abs() > 0.5 {
+                            problems.push(format!("{name}: {row} starts at {rx:.1} and is {rw:.1} wide, the first row {x:.1} and {width:.1}"));
+                        }
+                    }
+                }
+            }
+        }
+        assert!(settings.show_tab("general"));
+        w.process();
+        settle(&w);
+        // Scrolled to the end, the Language row and Help translate are in the window
+        for _ in 0..4 {
+            scroll_settings(&settings.ui, -400.0);
+        }
+        offscreen::pump();
+        w.process();
+        settle(&w);
+        for (what, label, role) in [("Language", &lang, AccessibleRole::Combobox), ("Help translate", &translate, AccessibleRole::Button)] {
+            match found_at(&settings.ui, label, role) {
+                Some((from, to)) if from >= 0.0 && to <= height + 0.5 => {}
+                other => problems.push(format!("{name}: {what} is at {other:?} of a window {height:.0} tall after scrolling to the end")),
+            }
+        }
+        seen_scroll |= before;
+        if !before {
+            problems.push(format!("{name}: Help translate already fits before scrolling, so the test shows nothing"));
+        }
+        let bottom = draw(&settings.ui, 940.0, height);
+        if let Some(dir) = shots() {
+            top.save_png(&dir.join(format!("workarea-{name}-top.png"))).unwrap();
+            bottom.save_png(&dir.join(format!("workarea-{name}-bottom.png"))).unwrap();
+            if name == "dark" {
+                // The same window on the laptop's screen at 150%
+                let picture = offscreen::draw(settings.ui.window(), 940.0, height, 1.5).expect("a picture");
+                picture.save_png(&dir.join("workarea-dark-bottom-150.png")).unwrap();
+                offscreen::draw(settings.ui.window(), 940.0, height, 1.0);
+            }
+        }
+        scroll_settings(&settings.ui, 5000.0);
+    }
+    assert!(seen_scroll);
+    choose(&w, Appearance::default());
+    look(&w, Look::Dark);
+    telescope_shell::settings::forget();
+    w.shut_down();
+    problems.sort();
+    problems.dedup();
+    assert!(problems.is_empty(), "{} things wrong:\n{}", problems.len(), problems.join("\n"));
+}
+
+fn number(ui: &ComponentInstance, name: &str) -> f32 {
+    match ui.get_property(name) {
+        Ok(Value::Number(n)) => n as f32,
+        other => panic!("{name} is {other:?}"),
+    }
+}
+
+/// The main window on a 1366x768 screen at 150% (910x512 logical) less a taskbar of 40 and a frame of 22x56 physical pixels: the window's own
+/// minimum height follows what the screen leaves (448 logical), the columns scroll, and what is below the fold is reachable at the end.
+#[test]
+fn the_main_window_on_a_short_screen_gets_as_short_as_the_screen_and_its_columns_scroll() {
+    let w = build("appearance-short-main");
+    let size = w.fit_to_work_area((1366, 728), 1.5, (22, 56));
+    assert_eq!(size, (1344, 672), "1380x900 logical cut to the work area less its frame");
+    settle(&w);
+    let (width, height) = (size.0 as f32 / 1.5, size.1 as f32 / 1.5);
+    assert_eq!((number(&w.ui, "least-width"), number(&w.ui, "least-height")), (560.0, height), "the minimum is what the screen leaves, no more than 520");
+    let mut problems = Vec::new();
+    for (name, l) in [("dark", Look::Dark), ("light", Look::Light), ("oled", Look::Oled), ("classic", Look::Classic)] {
+        look(&w, l);
+        // As short as the minimum lets it be
+        w.ui.window().set_size(slint::LogicalSize::new(width, height));
+        offscreen::pump();
+        w.process();
+        settle(&w);
+        let (view_top, view_height) = (number(&w.ui, "view-top"), number(&w.ui, "view-height"));
+        let below = content_height(&w.ui) > view_top + view_height + 0.5;
+        if !below {
+            problems.push(format!("{name}: everything fits in {height:.0} logical, so the test shows nothing"));
+        }
+        let top = draw(&w.ui, width, height);
+        let (cut, _) = text_fit(&w.ui);
+        problems.extend(cut.iter().map(|c| format!("{name}: \"{}\" is cut without an ellipsis ({:.0} px of room for {:.0})", c.text.replace('\n', " "), c.width, c.wanted)));
+        problems.extend(leaving_cards(&w.ui).into_iter().map(|p| format!("{name}: {p}")));
+        // Scrolled to the end every column has its last card whole inside the view
+        for column in ["scroll0", "scroll1", "scroll2"] {
+            let _ = w.ui.set_property(column, Value::Number(100_000.0));
+        }
+        offscreen::pump();
+        w.process();
+        settle(&w);
+        let end = content_height(&w.ui);
+        if end > view_top + view_height + 0.5 {
+            problems.push(format!("{name}: after scrolling to the end the last card still ends at {end:.0}, the view at {:.0}", view_top + view_height));
+        }
+        let bottom = draw(&w.ui, width, height);
+        if let Some(dir) = shots() {
+            top.save_png(&dir.join(format!("short-main-{name}-top.png"))).unwrap();
+            bottom.save_png(&dir.join(format!("short-main-{name}-bottom.png"))).unwrap();
+        }
+        for column in ["scroll0", "scroll1", "scroll2"] {
+            let _ = w.ui.set_property(column, Value::Number(0.0));
+        }
+    }
+    look(&w, Look::Dark);
+    w.shut_down();
+    problems.sort();
+    problems.dedup();
+    assert!(problems.is_empty(), "{} things wrong:\n{}", problems.len(), problems.join("\n"));
+}

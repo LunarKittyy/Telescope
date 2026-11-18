@@ -218,6 +218,20 @@ struct CameraStills {
     done: Later<dyn FnOnce(Value) + Send>,
     alive: Later<dyn Fn() -> bool + Send>,
     on_change: Later<dyn Fn() + Send + Sync>,
+    /// Which way each photo was asked for, and the flags the guarded ones were given.
+    calls: Mutex<Vec<&'static str>>,
+    gates: Mutex<Vec<Arc<AtomicBool>>>,
+}
+
+impl CameraStills {
+    fn start(&self, options: &Value, folder: &str, on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
+             alive: Box<dyn Fn() -> bool + Send>) -> bool {
+        self.taken.lock().unwrap().push((options.clone(), folder.into()));
+        *self.progress.lock().unwrap() = Some(on_progress);
+        *self.done.lock().unwrap() = Some(on_done);
+        *self.alive.lock().unwrap() = Some(alive);
+        true
+    }
 }
 
 impl SourceStills for CameraStills {
@@ -229,11 +243,14 @@ impl SourceStills for CameraStills {
     }
     fn take(&self, options: &Value, folder: &str, on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
             alive: Box<dyn Fn() -> bool + Send>) -> bool {
-        self.taken.lock().unwrap().push((options.clone(), folder.into()));
-        *self.progress.lock().unwrap() = Some(on_progress);
-        *self.done.lock().unwrap() = Some(on_done);
-        *self.alive.lock().unwrap() = Some(alive);
-        true
+        self.calls.lock().unwrap().push("take");
+        self.start(options, folder, on_progress, on_done, alive)
+    }
+    fn take_unless_hidden(&self, options: &Value, folder: &str, on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
+                          alive: Box<dyn Fn() -> bool + Send>, hidden: Arc<AtomicBool>) -> bool {
+        self.calls.lock().unwrap().push("take_unless_hidden");
+        self.gates.lock().unwrap().push(hidden);
+        self.start(options, folder, on_progress, on_done, alive)
     }
     fn set_on_change(&self, on_change: Box<dyn Fn() + Send + Sync>) {
         *self.on_change.lock().unwrap() = Some(on_change);
@@ -272,6 +289,26 @@ fn a_cameras_photos_go_through_its_own_service_and_tell_every_plugin() {
     r.pump();
     assert_eq!(busy(&r), ["panel busy webcam:d5100 true", "panel busy webcam:d5100 false"]);
     assert!(r.did_hear("panel saved webcam:d5100 [\"/tmp/Telescope_1.jpg\"]"), "{:?}", r.heard());
+}
+
+#[test]
+fn a_cameras_photo_that_asks_to_be_skipped_while_hidden_goes_through_the_guarded_call_with_a_flag_that_follows() {
+    let (r, stills) = camera_on_air("photos-camera-gate");
+    assert!(asks(&r, |host| host.take_still(&skippable(), "/tmp", None)).is_some());
+    r.pump();
+    assert_eq!(*stills.calls.lock().unwrap(), ["take_unless_hidden"]);
+    let flag = stills.gates.lock().unwrap()[0].clone();
+    assert!(!flag.load(Ordering::SeqCst));
+    asks(&r, |host| host.set_hiding("wait_screen", None, true));
+    assert!(flag.load(Ordering::SeqCst), "a cover that lands later is seen on the camera's thread");
+    asks(&r, |host| host.set_hiding("wait_screen", None, false));
+    stills.done.lock().unwrap().take().unwrap()(json!({"ok": true, "files": []}));
+    r.until("it reported back", |r| r.heard().iter().any(|l| l.starts_with("panel done true")));
+    // One that doesn't ask takes the plain way
+    assert!(asks(&r, |host| host.take_still(&json!({"format": "jpeg"}), "/tmp", None)).is_some());
+    r.pump();
+    assert_eq!(*stills.calls.lock().unwrap(), ["take_unless_hidden", "take"]);
+    assert_eq!(stills.gates.lock().unwrap().len(), 1);
 }
 
 #[test]
