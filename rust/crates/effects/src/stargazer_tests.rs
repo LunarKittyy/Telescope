@@ -430,10 +430,10 @@ fn the_folder_opens_on_the_last_saved_file() {
 
 #[test]
 fn a_lucky_run_holds_frames_by_bytes_not_by_count() {
-    // Full-size frames: a 4K I420 picture is about 12 MB, so 1.5 GB (less the queue) is a bit over a hundred of them
+    // Full-size frames: a 4K I420 picture is about 12 MB and stacking takes about 230 MB, so 1.5 GB (less the queue) holds about 95
     let uhd = Frame::new(3840, 2160, PixelFormat::I420, vec![0; PixelFormat::I420.size(3840, 2160)]);
     let fits = lucky_capacity(2000, &uhd, LUCKY_BUDGET);
-    assert!((100..=125).contains(&fits), "{fits}");
+    assert!((90..=100).contains(&fits), "{fits}");
     assert_eq!(lucky_capacity(30, &uhd, LUCKY_BUDGET), 30, "a small share is never raised");
     assert_eq!(lucky_capacity(2000, &field(2.0), LUCKY_BUDGET), 2000, "small pictures fit");
     assert_eq!(lucky_capacity(500, &uhd, 1000), 1, "at least one");
@@ -442,8 +442,8 @@ fn a_lucky_run_holds_frames_by_bytes_not_by_count() {
 #[test]
 fn the_card_says_when_memory_lowers_a_lucky_run() {
     let mut rig = Rig::new("budget", json!({"mode": "lucky", "frames": 50, "keep": 40}));
-    // Room for the queue and three pictures, where the share asked for is twenty
-    rig.plugin.budget = (QUEUE + 3) * field(2.0).format.size(SIZE as u32, SIZE as u32);
+    // Room for stacking, the queue and three pictures, where the share asked for is twenty
+    rig.plugin.budget = (QUEUE + 3) * field(2.0).format.size(SIZE as u32, SIZE as u32) + SIZE * SIZE * STACK_BYTES_PER_PIXEL;
     rig.click("run-clicked", Value::Null);
     for i in 0..50 {
         rig.feed(field(1.0 + (i % 7) as f32 * 0.4));
@@ -626,4 +626,26 @@ fn stopping_trails_reports_the_time_it_ran() {
     *now.lock().unwrap() += 60.0;
     assert_eq!(rig.plugin.elapsed(), 30.0);
     assert!(rig.props()["tally"].as_str().unwrap().contains("0:30"), "{}", rig.props()["tally"]);
+}
+
+#[test]
+fn another_phone_starts_with_an_empty_tally() {
+    let mut rig = Rig::new("tally", config("live"));
+    rig.click("run-clicked", Value::Null);
+    rig.feed(field(2.0));
+    rig.feed(field(2.0));
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.count, 2);
+    rig.plugin.on_focus_lost(&mut rig.host);
+    rig.host.focused = Some("other".into());
+    rig.plugin.on_stream_start(&mut rig.host, &StreamInfo { source_id: "other".into(), url: "u".into(), session: 0 });
+    assert_eq!(rig.plugin.tally(), "");
+    assert!(rig.plugin.can_save(), "the first phone's stack can still be saved");
+    // Back on the same phone after a stop, the numbers stay
+    let mut same = Rig::new("tally-same", config("live"));
+    same.click("run-clicked", Value::Null);
+    same.feed(field(2.0));
+    same.click("run-clicked", Value::Null);
+    same.plugin.on_stream_start(&mut same.host, &StreamInfo { source_id: "phone".into(), url: "u".into(), session: 0 });
+    assert_eq!(same.plugin.count, 1);
 }

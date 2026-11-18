@@ -42,6 +42,8 @@ const PROGRESS_EVERY: Duration = Duration::from_millis(250);
 const MIN_LUCKY: usize = 3;
 /// Retained pictures of a lucky run (the kept ones and the queue) stay under this many bytes.
 const LUCKY_BUDGET: usize = 1_500_000_000;
+/// What stacking the kept frames takes on top of them, per pixel: a mean and a spread per channel as f32 and a weight as u32.
+const STACK_BYTES_PER_PIXEL: usize = 28;
 /// Switching the plugin off waits this long for a save in progress.
 const SHUTDOWN_WAIT: Duration = Duration::from_secs(10);
 /// Between looks at whether the picture is hidden.
@@ -221,7 +223,8 @@ struct Job {
 /// ones waiting in the queue count too). Never under one.
 fn lucky_capacity(wanted: usize, frame: &Frame, budget: usize) -> usize {
     let bytes = frame.format.size(frame.width, frame.height).max(1);
-    (budget / bytes).saturating_sub(QUEUE).clamp(1, wanted.max(1))
+    let stacking = frame.width as usize * frame.height as usize * STACK_BYTES_PER_PIXEL;
+    (budget.saturating_sub(stacking) / bytes).saturating_sub(QUEUE).clamp(1, wanted.max(1))
 }
 
 impl Job {
@@ -1068,9 +1071,14 @@ impl Plugin for StargazerPlugin {
         self.poster = None;
     }
 
-    fn on_stream_start(&mut self, host: &mut dyn Host, _stream: &StreamInfo) {
+    fn on_stream_start(&mut self, host: &mut dyn Host, stream: &StreamInfo) {
         self.down = false;
         self.best = 0.0;
+        // Another phone's numbers don't belong on this one; its live stack can still be saved
+        if self.phase == Phase::Idle && !self.source.is_empty() && stream.source_id != self.source {
+            self.unsaved |= self.mode == Mode::Live && self.count > 0;
+            (self.collected, self.target, self.count, self.refused, self.banked) = (0, 0, 0, 0, 0.0);
+        }
         self.show(host);
     }
 
