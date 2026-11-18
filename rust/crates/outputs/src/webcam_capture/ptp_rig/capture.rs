@@ -76,8 +76,8 @@ fn stopped() -> String {
 }
 
 impl PtpCamera {
-    /// Takes one photo to the computer and gives its files, `expect` of them (RAW and JPEG are two).
-    pub(super) fn take_picture(&mut self, expect: usize) -> Result<Vec<Shot>, Incomplete> {
+    /// Takes one photo to the computer and gives its files, `expect` of them (RAW and JPEG are two); none is fetched once `stop` is true.
+    pub(super) fn take_picture(&mut self, expect: usize, stop: &dyn Fn() -> bool) -> Result<Vec<Shot>, Incomplete> {
         let mut until = Instant::now() + self.photo_wait;
         self.nikon_added.clear();
         self.nikon_seen.clear();
@@ -99,6 +99,10 @@ impl PtpCamera {
         let outcome = triggered.map_err(Incomplete::from).and_then(|()| {
             while shots.len() < expect.max(1) {
                 match self.next_object(until) {
+                    // The picture went hidden during the exposure or between files: nothing more comes from the camera
+                    Ok(Some(_)) if stop() => {
+                        return Err(missing(std::mem::take(&mut shots), expect, "stopped: the picture is hidden".into()));
+                    }
                     Ok(Some((handle, name, transfer))) => match self.fetch_object(handle, name, transfer) {
                         Ok(Some(shot)) => {
                             shots.push(shot);
