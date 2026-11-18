@@ -137,6 +137,8 @@ pub struct PrivacyBlurPlugin {
     behind: HashMap<String, Trigger>,
     covered: bool,
     asked_cover: bool,
+    /// What the host was last told with set_hiding: None until it has been.
+    told_hiding: Option<bool>,
     shown_blurs: Arc<AtomicBool>,
     held: HashMap<String, Option<bool>>,
     paired: Paired,
@@ -170,6 +172,7 @@ impl PrivacyBlurPlugin {
             behind: HashMap::new(),
             covered: false,
             asked_cover: false,
+            told_hiding: None,
             shown_blurs: Arc::new(AtomicBool::new(false)),
             held: HashMap::new(),
             paired: Paired::default(),
@@ -204,6 +207,11 @@ impl PrivacyBlurPlugin {
         let before = (self.active, self.covered && self.wants_cover());
         self.work_out();
         self.shown_blurs.store(self.active, Ordering::Relaxed);
+        // Only blurring or covering hides anything: the step it always hands out does nothing the rest of the time
+        if self.told_hiding != Some(self.active) {
+            self.told_hiding = Some(self.active);
+            host.set_hiding(NAME, None, self.active);
+        }
         if before != (self.active, self.covered && self.wants_cover()) {
             host.refresh_frame_step();
         }
@@ -329,6 +337,9 @@ impl Plugin for PrivacyBlurPlugin {
     }
 
     fn shutdown(&mut self, host: &mut dyn Host) {
+        if self.told_hiding.take() == Some(true) {
+            host.set_hiding(NAME, None, false);
+        }
         if self.asked_cover {
             host.emit(Event::CoverRequested { owner: TITLE.into(), on: false, note: None });
         }

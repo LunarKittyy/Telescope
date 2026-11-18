@@ -1,0 +1,589 @@
+use super::*;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use telescope_core::host::Pick;
+use telescope_core::testing::{scratch_dir, FakeHost};
+
+fn caps() -> Value {
+    json!({"burst_max": 8, "extensions": ["night"]})
+}
+
+fn host() -> FakeHost {
+    let mut h = FakeHost::new();
+    h.streaming = true;
+    h.focused = Some("phone".into());
+    h.plugins = vec!["preview".into()];
+    h.still_caps = Some(caps());
+    h
+}
+
+/// Every property the card has been given, the latest of each.
+fn card(h: &FakeHost) -> Value {
+    let mut all = serde_json::Map::new();
+    for call in &h.calls {
+        if let Some(json) = call.strip_prefix("set_ui_props card ") {
+            if let Ok(Value::Object(props)) = serde_json::from_str(json) {
+                all.extend(props);
+            }
+        }
+    }
+    Value::Object(all)
+}
+
+fn seen(p: &mut PhototrapPlugin, h: &mut FakeHost, source: &str, zones: &[u32]) {
+    p.on_event(h, &Event::MotionSeen { source_id: source.into(), owner: NAME.into(), zones: zones.into() });
+}
+
+fn finished(p: &mut PhototrapPlugin, h: &mut FakeHost, request: u64, ok: bool, data: Value) {
+    p.on_event(h, &Event::RequestDone { request: RequestId(request), ok, message: String::new(), data });
+}
+
+/// A plugin on a clock the test moves, in seconds.
+fn plugin() -> (PhototrapPlugin, Arc<AtomicU64>) {
+    let now = Arc::new(AtomicU64::new(100));
+    let seen = now.clone();
+    let mut p = PhototrapPlugin::with_clock(move || seen.load(Ordering::SeqCst) as f64);
+    p.folder = "/photos/Phototrap".into();
+    // Whatever the machine running the tests has free
+    p.free = Box::new(|_| Some(u64::MAX));
+    (p, now)
+}
+
+fn click(p: &mut PhototrapPlugin, h: &mut FakeHost, callback: &str, arg: Value) {
+    p.on_ui(h, &UiEvent { ui: "card".into(), callback: callback.into(), args: vec![arg] });
+}
+
+/// Something moves in the first zone again: it was still, then it isn't.
+fn moved(p: &mut PhototrapPlugin, h: &mut FakeHost) {
+    seen(p, h, "phone", &[]);
+    seen(p, h, "phone", &[0]);
+}
+
+fn pick(a: [f32; 2], b: [f32; 2]) -> Event {
+    let points = vec![a, b];
+    Event::PreviewPicked { owner: NAME.into(), pick: Some(Pick { kind: PickKind::Rect, shown: points.clone(), full: points.clone(), in_picture: points, picture: None }) }
+}
+
+fn watches(h: &FakeHost) -> Vec<&String> {
+    h.calls.iter().filter(|c| c.starts_with("watch_motion")).collect()
+}
+
+fn armed() -> (PhototrapPlugin, FakeHost, Arc<AtomicU64>) {
+    let (mut p, now) = plugin();
+    let mut h = host();
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+    (p, h, now)
+}
+
+#[test]
+fn arming_watches_the_zones() {
+    let (mut p, mut h) = (plugin().0, host());
+    p.on_event(&mut h, &pick([0.1, 0.1], [0.5, 0.6]));
+    p.on_event(&mut h, &pick([0.6, 0.2], [0.9, 0.4]));
+    assert!(watches(&h).is_empty(), "nothing is watched until it's armed");
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+    assert_eq!(watches(&h), ["watch_motion phototrap 2 5"]);
+    assert!(h.layers.contains_key(NAME));
+}
+
+#[test]
+fn with_no_zones_the_whole_picture_is_watched() {
+    let (_, h, _) = armed();
+    assert_eq!(watches(&h), ["watch_motion phototrap 1 5"]);
+}
+
+#[test]
+fn motion_takes_one_burst_with_the_right_options() {
+    let (mut p, mut h, _) = armed();
+    click(&mut p, &mut h, "count-moved", json!(4.0));
+    moved(&mut p, &mut h);
+    assert_eq!(h.stills_taken.len(), 1);
+    let (options, folder) = &h.stills_taken[0];
+    assert_eq!(folder, "/photos/Phototrap");
+    assert_eq!(options["count"], 4);
+    assert_eq!(options["format"], "jpeg");
+    assert!(options.get("extension").is_none());
+}
+
+#[test]
+fn night_asks_for_the_makers_mode_only_when_the_lens_has_it() {
+    let (mut p, mut h, _) = armed();
+    click(&mut p, &mut h, "night-toggled", json!(true));
+    moved(&mut p, &mut h);
+    assert_eq!(h.stills_taken[0].0["extension"], "night");
+
+    let (mut p, mut h, _) = armed();
+    h.still_caps = Some(json!({"burst_max": 8}));
+    p.on_event(&mut h, &Event::StillCapsChanged { source_id: "phone".into() });
+    click(&mut p, &mut h, "night-toggled", json!(true));
+    moved(&mut p, &mut h);
+    assert!(h.stills_taken[0].0.get("extension").is_none());
+}
+
+#[test]
+fn a_lens_without_bursts_takes_one_photo() {
+    let (mut p, mut h, _) = armed();
+    h.still_caps = Some(json!({"burst_max": 1}));
+    p.on_event(&mut h, &Event::StillCapsChanged { source_id: "phone".into() });
+    moved(&mut p, &mut h);
+    assert!(h.stills_taken[0].0.get("count").is_none());
+}
+
+#[test]
+fn a_second_motion_during_the_pause_or_while_busy_takes_nothing() {
+    let (mut p, mut h, now) = armed();
+    moved(&mut p, &mut h);
+    // The burst ends, then the pause runs from there
+    p.on_event(&mut h, &Event::RequestDone { request: RequestId(1), ok: true, message: String::new(), data: json!({"files": ["/a.jpg", "/b.jpg", "/c.jpg"]}) });
+    now.store(105, Ordering::SeqCst);
+    moved(&mut p, &mut h);
+    assert_eq!(h.stills_taken.len(), 1, "inside the pause");
+    now.store(120, Ordering::SeqCst);
+    h.still_busy = true;
+    moved(&mut p, &mut h);
+    assert_eq!(h.stills_taken.len(), 1, "the phone is busy");
+    h.still_busy = false;
+    moved(&mut p, &mut h);
+    assert_eq!(h.stills_taken.len(), 2);
+    assert_eq!((p.triggers, p.photos), (2, 3));
+}
+
+#[test]
+fn motion_for_another_owner_or_when_disarmed_takes_nothing() {
+    let (mut p, mut h, _) = armed();
+    p.on_event(&mut h, &Event::MotionSeen { source_id: "phone".into(), owner: "other".into(), zones: vec![0] });
+    seen(&mut p, &mut h, "phone", &[]);
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(false));
+    moved(&mut p, &mut h);
+    assert!(h.stills_taken.is_empty());
+}
+
+#[test]
+fn disarming_and_a_stream_stop_stop_the_watch() {
+    let (mut p, mut h, _) = armed();
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(false));
+    assert_eq!(watches(&h).last().unwrap().as_str(), "watch_motion phototrap 0 5");
+
+    let (mut p, mut h, _) = armed();
+    h.streaming = false;
+    p.on_event(&mut h, &Event::StreamStopped);
+    assert_eq!(watches(&h).last().unwrap().as_str(), "watch_motion phototrap 0 5");
+    h.streaming = true;
+    p.on_event(&mut h, &Event::StreamStarted { url: String::new() });
+    assert_eq!(watches(&h).last().unwrap().as_str(), "watch_motion phototrap 1 5");
+}
+
+#[test]
+fn without_a_phone_that_takes_photos_it_waits_and_says_so() {
+    let (mut p, now) = plugin();
+    let _ = now;
+    let mut h = FakeHost::new();
+    h.streaming = true;
+    h.focused = Some("phone".into());
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+    assert!(watches(&h).is_empty());
+    let status = h.calls.iter().rev().find(|c| c.starts_with("set_ui_props card")).unwrap();
+    assert!(status.contains("Waiting for a phone that can take photos"), "{status}");
+    h.still_caps = Some(caps());
+    p.on_event(&mut h, &Event::StillCapsChanged { source_id: "phone".into() });
+    assert_eq!(watches(&h), ["watch_motion phototrap 1 5"]);
+}
+
+#[test]
+fn config_round_trips_and_armed_is_not_saved() {
+    let (mut p, mut h, _) = armed();
+    p.on_event(&mut h, &pick([0.1, 0.1], [0.5, 0.6]));
+    click(&mut p, &mut h, "sensitivity-moved", json!(8.0));
+    click(&mut p, &mut h, "count-moved", json!(5.0));
+    click(&mut p, &mut h, "pause-moved", json!(30.0));
+    click(&mut p, &mut h, "night-toggled", json!(true));
+    let saved = p.get_config();
+    assert!(saved.get("armed").is_none() && saved.get("on").is_none());
+    let mut q = PhototrapPlugin::new();
+    q.set_config(&saved).unwrap();
+    assert_eq!(q.get_config(), saved);
+    assert!(!q.armed);
+    assert_eq!((q.sensitivity, q.count, q.pause_s, q.night, q.zones.len()), (8, 5, 30, true, 1));
+}
+
+#[test]
+fn bad_settings_fall_back() {
+    let mut p = PhototrapPlugin::new();
+    p.set_config(&json!({"zones": [[0.5, 0.5, 0.4, 0.9], [0.1, 0.1, 0.3, 0.3], "x", [0.0, 0.0, 2.0, 1.0]], "sensitivity": 99, "count": "many", "pause": -4})).unwrap();
+    assert_eq!(p.zones, [[0.1, 0.1, 0.3, 0.3]]);
+    assert_eq!((p.sensitivity, p.count, p.pause_s), (10, DEFAULT_COUNT, 1));
+}
+
+#[test]
+fn zones_come_from_a_pick_up_to_four() {
+    let (mut p, mut h) = (plugin().0, host());
+    click(&mut p, &mut h, "draw-clicked", json!(null));
+    assert!(h.calls.contains(&"pick_on_preview phototrap Rect".to_string()));
+    p.on_event(&mut h, &pick([0.5, 0.6], [0.1, 0.2]));
+    assert_eq!(p.zones, [[0.1, 0.2, 0.5, 0.6]], "corners in any order");
+    p.on_event(&mut h, &pick([0.3, 0.3], [0.3, 0.9]));
+    assert_eq!(p.zones.len(), 1, "a line is no zone");
+    for i in 0..5 {
+        p.on_event(&mut h, &pick([0.1, 0.1], [0.2 + i as f32 * 0.01, 0.5]));
+    }
+    assert_eq!(p.zones.len(), MAX_ZONES);
+    h.calls.clear();
+    click(&mut p, &mut h, "draw-clicked", json!(null));
+    assert!(h.calls.is_empty(), "no fifth zone");
+    click(&mut p, &mut h, "clear-clicked", json!(null));
+    assert!(p.zones.is_empty());
+    let Some(layer) = h.layers.get(NAME) else { panic!("the layer stays") };
+    assert!(layer.shapes.is_empty());
+}
+
+#[test]
+fn zones_show_on_the_preview_while_the_window_is_up_or_it_is_armed() {
+    let (mut p, mut h) = (plugin().0, host());
+    p.on_event(&mut h, &pick([0.1, 0.1], [0.5, 0.6]));
+    assert_eq!(h.layers[NAME].shapes.len(), 2);
+    p.on_event(&mut h, &Event::WindowShown { shown: false });
+    assert!(!h.layers.contains_key(NAME));
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+    assert!(h.layers.contains_key(NAME));
+}
+
+#[test]
+fn the_folder_is_phototrap_inside_the_photos_folder() {
+    let p = PhototrapPlugin::with_folder("/x");
+    assert_eq!(p.folder, "/x");
+    assert!(PhototrapPlugin::new().folder.ends_with("Phototrap"));
+}
+
+#[test]
+fn only_motion_on_the_armed_stream_takes_photos_and_every_call_names_it() {
+    let (mut p, mut h, _) = armed();
+    h.still_only_for = Some("phone".into());
+    seen(&mut p, &mut h, "other", &[]);
+    seen(&mut p, &mut h, "other", &[0]);
+    assert!(h.stills_taken.is_empty(), "another phone's movement");
+    // The panels move on to the other phone, and the trap stays where it was armed
+    h.focused = Some("other".into());
+    h.live = vec!["phone".into(), "other".into()];
+    p.on_event(&mut h, &Event::SourceSelected { source_id: "other".into() });
+    moved(&mut p, &mut h);
+    assert_eq!(h.stills_taken.len(), 1);
+    assert_eq!(h.still_sources, [Some("phone".to_string())]);
+    assert_eq!(watches(&h), ["watch_motion phototrap 1 5"], "still watching");
+}
+
+#[test]
+fn arming_before_a_stream_picks_up_the_one_that_comes() {
+    let (mut p, now) = plugin();
+    let _ = now;
+    let mut h = FakeHost::new();
+    h.plugins = vec!["preview".into()];
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+    assert!(watches(&h).is_empty());
+    h.streaming = true;
+    h.focused = Some("phone".into());
+    h.still_caps = Some(caps());
+    p.on_event(&mut h, &Event::StreamConnected { source_id: "phone".into() });
+    assert_eq!(watches(&h), ["watch_motion phototrap 1 5"]);
+    assert_eq!(p.source.as_deref(), Some("phone"));
+    // And the caps arriving after the stream did are heard in the phone's state
+    let (mut p, mut h, _) = armed();
+    h.still_caps = None;
+    p.on_event(&mut h, &Event::StillCapsChanged { source_id: "phone".into() });
+    assert_eq!(watches(&h).last().unwrap().as_str(), "watch_motion phototrap 0 5");
+    h.still_caps = Some(caps());
+    p.on_event(&mut h, &Event::PhoneStateUpdated { state: json!({}) });
+    assert_eq!(watches(&h).last().unwrap().as_str(), "watch_motion phototrap 1 5");
+    let before = h.calls.len();
+    p.on_event(&mut h, &Event::PhoneStateUpdated { state: json!({}) });
+    p.on_event(&mut h, &Event::StreamState { source_id: "phone".into(), state: json!({}) });
+    assert_eq!(h.calls.len(), before, "nothing changed, so nothing is said again");
+}
+
+#[test]
+fn nothing_is_taken_while_the_picture_is_hidden_and_the_host_is_asked_to_check_again() {
+    let (mut p, mut h, _) = armed();
+    h.picture_hidden = true;
+    moved(&mut p, &mut h);
+    assert!(h.stills_taken.is_empty());
+    assert_eq!(card(&h)["status"], "Paused while the picture is hidden");
+    assert_eq!(card(&h)["status-kind"], "status_warn");
+    assert_eq!(p.triggers, 0);
+    h.picture_hidden = false;
+    moved(&mut p, &mut h);
+    assert_eq!(h.stills_taken.len(), 1);
+    assert_eq!(h.stills_taken[0].0["skip_if_hidden"], true);
+    // The host found it hidden by the time it went to the phone: that's no trigger and no error
+    finished(&mut p, &mut h, 1, false, json!({"ok": false, "files": [], "code": "hidden", "error": "hidden"}));
+    assert_eq!((p.triggers, p.photos), (0, 0));
+    assert!(p.problem.is_none());
+    moved(&mut p, &mut h);
+    assert_eq!(h.stills_taken.len(), 2, "no pause was started");
+}
+
+#[test]
+fn a_zone_has_to_be_entered_to_set_it_off() {
+    let (mut p, mut h, now) = armed();
+    seen(&mut p, &mut h, "phone", &[0]);
+    assert_eq!(h.stills_taken.len(), 1);
+    finished(&mut p, &mut h, 1, true, json!({"files": ["/a.jpg"]}));
+    now.store(200, Ordering::SeqCst);
+    seen(&mut p, &mut h, "phone", &[0, 1]);
+    assert_eq!(h.stills_taken.len(), 2, "a second zone starts moving");
+    finished(&mut p, &mut h, 2, true, json!({"files": ["/a.jpg"]}));
+    now.store(400, Ordering::SeqCst);
+    seen(&mut p, &mut h, "phone", &[0]);
+    assert_eq!(h.stills_taken.len(), 2, "one of two stops moving: that's nothing new");
+    seen(&mut p, &mut h, "phone", &[0]);
+    seen(&mut p, &mut h, "phone", &[]);
+    assert_eq!(h.stills_taken.len(), 2, "and all stopping isn't either");
+}
+
+#[test]
+fn photos_saved_before_a_burst_failed_still_count() {
+    let (mut p, mut h, _) = armed();
+    moved(&mut p, &mut h);
+    finished(&mut p, &mut h, 1, false, json!({"ok": false, "files": ["/a.jpg", "/b.jpg"], "error": "The phone ran out of room"}));
+    assert_eq!((p.triggers, p.photos), (1, 2));
+    assert_eq!(card(&h)["status"], "The phone ran out of room");
+    assert_eq!(card(&h)["status-kind"], "status_err");
+}
+
+#[test]
+fn a_zone_is_kept_where_the_detector_looks_whatever_the_zoom_and_flip() {
+    let (mut p, mut h, _) = armed();
+    // Zoomed 2x on the middle, a drag across the left of the preview is over the part of the picture that starts a quarter in
+    h.view.zoom = 2.0;
+    let on_preview = [[0.0, 0.2], [0.2, 0.6]];
+    let in_picture = vec![[0.25, 0.35], [0.35, 0.55]];
+    let drag = Pick { kind: PickKind::Rect, shown: on_preview.to_vec(), full: in_picture.clone(), in_picture, picture: None };
+    p.on_event(&mut h, &Event::PreviewPicked { owner: NAME.into(), pick: Some(drag) });
+    let close = |a: [f32; 4], b: [f32; 4]| a.iter().zip(b).all(|(x, y)| (x - y).abs() < 1e-5);
+    assert!(close(p.zones[0], [0.25, 0.35, 0.35, 0.55]), "{:?}", p.zones[0]);
+    assert_eq!(watches(&h).last().unwrap().as_str(), "watch_motion phototrap 1 5");
+    // And drawn back where the drag was
+    let Shape::Rect { x0, y0, x1, y1, .. } = h.layers[NAME].shapes[0].clone() else { panic!("a rectangle") };
+    assert!(close([x0, y0, x1, y1], [0.0, 0.2, 0.2, 0.6]), "{x0} {y0} {x1} {y1}");
+
+    // A flipped view turns the detector's picture, and flipping it later takes the zone along
+    let (mut p, mut h, _) = armed();
+    h.view.flip_h = true;
+    let view = h.view.clone();
+    p.on_event(&mut h, &Event::ViewChanged { view });
+    let points = vec![[0.1, 0.1], [0.3, 0.5]];
+    let drag = Pick { kind: PickKind::Rect, shown: points.clone(), full: vec![[0.9, 0.1], [0.7, 0.5]], in_picture: points, picture: None };
+    p.on_event(&mut h, &Event::PreviewPicked { owner: NAME.into(), pick: Some(drag) });
+    assert!(close(p.zones[0], [0.1, 0.1, 0.3, 0.5]), "{:?}", p.zones[0]);
+    assert_eq!(p.get_config()["turn"]["flip_h"], true);
+    h.view.flip_h = false;
+    let view = h.view.clone();
+    p.on_event(&mut h, &Event::ViewChanged { view });
+    assert!(close(p.zones[0], [0.7, 0.1, 0.9, 0.5]), "{:?}", p.zones[0]);
+    let Shape::Rect { x0, x1, .. } = h.layers[NAME].shapes[0].clone() else { panic!("a rectangle") };
+    assert!(close([x0, 0.0, x1, 0.0], [0.7, 0.0, 0.9, 0.0]));
+    assert!(watches(&h).last().unwrap().ends_with(" 1 5"), "watched again, in the new places");
+}
+
+#[test]
+fn zones_saved_before_the_view_was_turned_follow_it() {
+    let mut p = PhototrapPlugin::new();
+    p.set_config(&json!({"zones": [[0.1, 0.1, 0.3, 0.5]], "turn": {"flip_h": true, "flip_v": false, "rotation": null}})).unwrap();
+    let mut h = host();
+    p.setup(&mut h);
+    assert!(p.zones[0].iter().zip([0.7, 0.1, 0.9, 0.5]).all(|(x, y)| (x - y).abs() < 1e-5), "{:?}", p.zones[0]);
+}
+
+#[test]
+fn a_full_folder_disarms_it_and_says_why() {
+    let dir = scratch_dir("phototrap-full");
+    std::fs::write(dir.join("a.jpg"), vec![0u8; 600]).unwrap();
+    std::fs::create_dir(dir.join("older")).unwrap();
+    std::fs::write(dir.join("older").join("b.jpg"), vec![0u8; 600]).unwrap();
+    let (mut p, now) = plugin();
+    let _ = now;
+    p.folder = dir.display().to_string();
+    p.budget = 1000;
+    let mut h = host();
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+    assert!(!p.armed, "what's there already is over the limit");
+    assert!(watches(&h).last().unwrap().ends_with(" 0 5"));
+    assert_eq!(card(&h)["armed"], false);
+    assert_eq!(card(&h)["status-kind"], "status_err");
+    assert!(card(&h)["status"].as_str().unwrap().starts_with("Off since the "), "{}", card(&h)["status"]);
+
+    // A burst that fills it is the last one
+    std::fs::remove_dir_all(dir.join("older")).unwrap();
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+    assert!(p.armed);
+    moved(&mut p, &mut h);
+    let big = dir.join("c.jpg");
+    std::fs::write(&big, vec![0u8; 600]).unwrap();
+    finished(&mut p, &mut h, 1, true, json!({"files": [big.display().to_string()]}));
+    assert!(!p.armed);
+    assert_eq!(p.photos, 1);
+    assert_eq!(card(&h)["status-kind"], "status_err");
+    // Switching it on again clears the line when there's room
+    p.budget = 5000;
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+    assert!(p.armed && p.problem.is_none());
+}
+
+#[test]
+fn too_little_room_on_the_drive_disarms_it_before_a_burst() {
+    let (mut p, mut h, _) = armed();
+    p.min_free = 1000;
+    p.free = Box::new(|_| Some(999));
+    moved(&mut p, &mut h);
+    assert!(h.stills_taken.is_empty());
+    assert!(!p.armed);
+    assert_eq!(card(&h)["status-kind"], "status_err");
+    assert!(card(&h)["status"].as_str().unwrap().starts_with("Off since there's less than"), "{}", card(&h)["status"]);
+    assert!(watches(&h).last().unwrap().ends_with(" 0 5"));
+    // A drive that can't say how much is free is no reason to stop
+    let (mut p, mut h, _) = armed();
+    p.min_free = 1000;
+    p.free = Box::new(|_| None);
+    moved(&mut p, &mut h);
+    assert_eq!(h.stills_taken.len(), 1);
+}
+
+#[test]
+fn limits_are_told_in_gigabytes() {
+    assert_eq!(gigabytes(STORAGE_BUDGET), "2");
+    assert_eq!(gigabytes(MIN_FREE), "1");
+    assert_eq!(gigabytes(1 << 29), "0.5");
+}
+
+#[test]
+fn draw_zone_waits_for_the_preview_and_says_so() {
+    let (mut p, mut h, _) = armed();
+    h.plugins.clear();
+    p.on_event(&mut h, &Event::PhonesChanged { count: 1 });
+    p.sync(&mut h);
+    assert_eq!(card(&h)["draw-enabled"], false);
+    assert_eq!(card(&h)["draw-tip"], DRAW_OFF_TIP);
+    h.calls.clear();
+    click(&mut p, &mut h, "draw-clicked", json!(null));
+    assert!(!h.calls.iter().any(|c| c.starts_with("pick_on_preview")));
+    h.plugins = vec!["preview".into()];
+    p.sync(&mut h);
+    assert_eq!(card(&h)["draw-enabled"], true);
+    assert_eq!(card(&h)["draw-tip"], DRAW_TIP);
+}
+
+#[test]
+fn the_card_names_the_folder_and_opens_it() {
+    let dir = scratch_dir("phototrap-folder").join("Phototrap");
+    let (mut p, mut h, _) = armed();
+    p.folder = dir.display().to_string();
+    p.sync(&mut h);
+    assert_eq!(card(&h)["folder-tip"], dir.display().to_string());
+    click(&mut p, &mut h, "folder-clicked", json!(null));
+    assert!(dir.is_dir(), "made so there's something to open");
+    assert_eq!(h.calls.last().unwrap(), &format!("open_url {}", file_url(&dir)));
+    // The home folder is only a ~ on the card
+    if let Some(home) = std::env::home_dir() {
+        let p = PhototrapPlugin::with_folder(&home.join("Pictures").join("Phototrap").display().to_string());
+        assert_eq!(p.shown_folder(), Path::new("~").join("Pictures").join("Phototrap").display().to_string());
+    }
+}
+
+#[test]
+fn zones_are_drawn_and_seen_only_on_the_stream_it_is_armed_on() {
+    let (mut p, mut h, _) = armed();
+    h.can_pick = true;
+    h.live = vec!["phone".into(), "other".into()];
+    p.on_event(&mut h, &pick([0.1, 0.1], [0.5, 0.6]));
+    assert!(h.layers.contains_key(NAME));
+    assert_eq!(card(&h)["draw-enabled"], true);
+    // The panels show another phone: nothing is drawn over its picture and no zone can be added there
+    h.focused = Some("other".into());
+    p.on_event(&mut h, &Event::SourceSelected { source_id: "other".into() });
+    assert!(!h.layers.contains_key(NAME));
+    assert_eq!(card(&h)["draw-enabled"], false);
+    assert_eq!(card(&h)["draw-tip"], DRAW_ELSEWHERE_TIP);
+    h.calls.clear();
+    click(&mut p, &mut h, "draw-clicked", json!(null));
+    assert!(!h.calls.iter().any(|c| c.starts_with("pick_on_preview")));
+    p.on_event(&mut h, &pick([0.6, 0.2], [0.9, 0.4]));
+    assert_eq!(p.zones.len(), 1, "a pick that was under way is no zone of the armed stream");
+    assert_eq!(p.watch.as_ref().map(|w| w.0.len()), Some(1), "the watch is as it was");
+    // A pick under way when the panels move on is cancelled
+    h.focused = Some("phone".into());
+    p.on_event(&mut h, &Event::SourceSelected { source_id: "phone".into() });
+    assert!(h.layers.contains_key(NAME));
+    assert_eq!(card(&h)["draw-enabled"], true);
+    assert_eq!(card(&h)["draw-tip"], DRAW_TIP);
+    click(&mut p, &mut h, "draw-clicked", json!(null));
+    assert!(p.drawing);
+    h.focused = Some("other".into());
+    p.on_event(&mut h, &Event::SourceSelected { source_id: "other".into() });
+    assert!(!p.drawing);
+    assert!(h.calls.contains(&"cancel_pick phototrap".to_string()));
+    // Not armed, zones are drawn on whatever the panels show
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(false));
+    assert!(h.layers.contains_key(NAME));
+    assert_eq!(card(&h)["draw-enabled"], true);
+}
+
+#[test]
+fn a_burst_under_way_when_the_stream_stops_still_counts_when_it_ends() {
+    let dir = scratch_dir("phototrap-interrupted");
+    let (mut p, now) = plugin();
+    p.folder = dir.display().to_string();
+    p.budget = 1000;
+    let mut h = host();
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+    moved(&mut p, &mut h);
+    let (a, b) = (dir.join("a.jpg"), dir.join("b.jpg"));
+    std::fs::write(&a, vec![0u8; 400]).unwrap();
+    std::fs::write(&b, vec![0u8; 400]).unwrap();
+    h.streaming = false;
+    h.still_caps = None;
+    p.on_event(&mut h, &Event::StreamStopped);
+    assert_eq!(p.taking.len(), 1, "still tracked");
+    now.store(130, Ordering::SeqCst);
+    p.on_event(&mut h, &Event::StreamStarted { url: String::new() });
+    assert_eq!(p.taking.len(), 1, "a restart doesn't forget it either");
+    let files = json!([a.display().to_string(), b.display().to_string()]);
+    finished(&mut p, &mut h, 1, false, json!({"ok": false, "files": files, "code": "interrupted", "error": "The photo was interrupted by a change to the camera."}));
+    assert_eq!((p.photos, p.used), (2, 800));
+    assert!(p.taking.is_empty());
+    assert!(p.problem.is_none(), "the stream stopping isn't a fault of the phone's");
+    // And the next burst that fills the folder disarms it
+    p.armed = true;
+    let c = dir.join("c.jpg");
+    std::fs::write(&c, vec![0u8; 400]).unwrap();
+    h.streaming = true;
+    h.still_caps = Some(caps());
+    p.taking.push((RequestId(9), None));
+    finished(&mut p, &mut h, 9, true, json!({"files": [c.display().to_string()]}));
+    assert!(!p.armed, "the folder total was kept through the stop");
+}
+
+#[test]
+fn a_burst_nobody_hears_the_end_of_is_given_up_on_a_minute_after_its_stream_stopped() {
+    let (mut p, mut h, now) = armed();
+    moved(&mut p, &mut h);
+    h.streaming = false;
+    p.on_event(&mut h, &Event::StreamStopped);
+    now.store(150, Ordering::SeqCst);
+    p.on_event(&mut h, &Event::PhonesChanged { count: 1 });
+    assert_eq!(p.taking.len(), 1, "50 s on");
+    now.store(161, Ordering::SeqCst);
+    p.on_event(&mut h, &Event::PhonesChanged { count: 1 });
+    assert!(p.taking.is_empty());
+    // One that arrives after that is nobody's
+    finished(&mut p, &mut h, 1, true, json!({"files": ["/a.jpg"]}));
+    assert_eq!(p.photos, 0);
+}
+
+#[test]
+fn a_burst_in_the_middle_of_a_long_exposure_is_not_given_up_on_while_its_stream_runs() {
+    let (mut p, mut h, now) = armed();
+    moved(&mut p, &mut h);
+    now.store(1000, Ordering::SeqCst);
+    p.on_event(&mut h, &Event::PhonesChanged { count: 1 });
+    assert_eq!(p.taking.len(), 1);
+    finished(&mut p, &mut h, 1, true, json!({"files": ["/a.jpg"]}));
+    assert_eq!(p.photos, 1);
+}
