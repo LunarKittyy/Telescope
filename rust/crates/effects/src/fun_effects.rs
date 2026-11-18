@@ -11,7 +11,7 @@ use telescope_core::avx2_too;
 use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::image::{over_bands, resize_area, resize_linear_into, rint};
 use telescope_core::workers::each_part;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
 /// Masks from the empty room are worked out at a quarter of the size.
 const MASK_SMALL: usize = 4;
@@ -477,8 +477,8 @@ pub struct Webcam {
     held: Option<(Rgb, (usize, usize))>,
     odd: bool,
     noise: Noise,
-    /// The last picture handed out on a frame's own data, for the frame that repeats it
-    shown: Option<(Arc<Vec<u8>>, PixelFormat)>,
+    /// The last picture handed out on a frame's own data, for the frame that repeats it while someone still holds it
+    shown: Option<(Weak<Vec<u8>>, PixelFormat)>,
 }
 
 impl Webcam {
@@ -512,15 +512,7 @@ impl Webcam {
             }
         }
         self.held = Some((jpeg(&small, Self::QUALITY), (w, h)));
-        self.drop_shown();
-    }
-
-    fn drop_shown(&mut self) {
-        if let Some((data, _)) = self.shown.take() {
-            if let Ok(old) = Arc::try_unwrap(data) {
-                telescope_core::image::keep_bytes(old);
-            }
-        }
+        self.shown = None;
     }
 
     pub fn run(&mut self, frame: &Rgb) -> Rgb {
@@ -539,26 +531,25 @@ impl Webcam {
         if w == 0 || h == 0 || !matches!(format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) || frame.data.len() != format.size(frame.width, frame.height) {
             return false;
         }
+        let mut scratch = None;
         if self.repeats(w, h) {
-            if let Some((data, kept)) = &self.shown {
-                if *kept == format && data.len() == frame.data.len() {
-                    // The picture is the one handed out last time to the byte; whoever changes it first gets a copy of their own
-                    let old = std::mem::replace(&mut frame.data, data.clone());
-                    if let Ok(old) = Arc::try_unwrap(old) {
-                        telescope_core::image::keep_bytes(old);
-                    }
-                    return true;
-                }
+            // Still alive means nobody changed it in place (a change to a shared Arc with only Weak pointers left moves the data and cuts the Weak loose)
+            let alive = self.shown.as_ref().filter(|(_, kept)| *kept == format).and_then(|(weak, _)| weak.upgrade()).filter(|data| data.len() == frame.data.len());
+            if let Some(data) = alive {
+                frame.share_data(data);
+                return true;
             }
         } else {
             let Some(rgb) = Rgb::from_frame(frame) else { return false };
             self.take(&rgb);
+            scratch = Some(rgb);
         }
-        self.drop_shown();
+        // The output is taken before the scratch goes back, so the first one doesn't take the bigger scratch buffer
         let mut out = telescope_core::image::spare_bytes(format.size(frame.width, frame.height));
+        drop(scratch);
         nearest_into(&self.held.as_ref().unwrap().0, w, h, format, &mut out);
         frame.replace_data(out);
-        self.shown = Some((frame.data.clone(), format));
+        self.shown = Some((Arc::downgrade(&frame.data), format));
         true
     }
 }

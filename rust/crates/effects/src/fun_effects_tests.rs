@@ -316,6 +316,61 @@ fn slit_bands_match_the_full_scan_byte_for_byte() {
 }
 
 #[test]
+fn the_1998_webcam_gives_the_same_bytes_at_4k_with_a_repeat() {
+    let (mut old, mut new) = twin_webcams();
+    let mut history = Vec::new();
+    for n in 0..3 {
+        let source = frame_in(&busy_photo(3840, 2160, n), PixelFormat::I420);
+        let (mut a, mut b) = (source.clone(), source);
+        webcam_before(&mut old, &mut a);
+        assert!(new.run_frame(&mut b));
+        assert!(a.data == b.data, "4K frame {n}");
+        // kept alive, as the history does
+        history.push(b);
+    }
+}
+
+#[test]
+fn the_1998_webcam_reads_a_decoders_bgr_with_padding_and_an_offset_as_the_rgb_path_did() {
+    use telescope_core::frame::Bgr;
+    let (w, h) = (321usize, 241usize);
+    let (start, stride) = (5, w * 3 + 7);
+    let (mut old, mut new) = twin_webcams();
+    for n in 0..4 {
+        let photo = busy_photo(w, h, n);
+        let mut data = vec![9u8; start + stride * h];
+        for y in 0..h {
+            for x in 0..w {
+                let [r, g, b] = [photo.data[(y * w + x) * 3], photo.data[(y * w + x) * 3 + 1], photo.data[(y * w + x) * 3 + 2]];
+                data[start + y * stride + x * 3..][..3].copy_from_slice(&[b, g, r]);
+            }
+        }
+        // the planes are a different picture, so only a read of the BGR gives the expected bytes
+        let source = frame_in(&busy_photo(w, h, n + 50), PixelFormat::I420).with_bgr(Arc::new(Bgr { data, start, stride }));
+        assert!(source.has_bgr());
+        let (mut a, mut b) = (source.clone(), source);
+        webcam_before(&mut old, &mut a);
+        assert!(new.run_frame(&mut b));
+        assert!(a.data == b.data, "frame {n}");
+        assert!(!b.has_bgr(), "the handed out pixels are not the decoder's picture");
+    }
+}
+
+#[test]
+fn the_1998_webcams_repeat_is_still_the_clean_picture_after_an_edit_in_place() {
+    let (mut old, mut new) = twin_webcams();
+    let source = frame_in(&busy_photo(640, 360, 2), PixelFormat::I420);
+    for n in 0..3 {
+        let (mut a, mut b) = (source.clone(), source.clone());
+        webcam_before(&mut old, &mut a);
+        assert!(new.run_frame(&mut b));
+        assert!(a.data == b.data, "frame {n}");
+        // the only holder draws on it, as the name tag does
+        b.data_mut().fill(0);
+    }
+}
+
+#[test]
 #[ignore = "timing bench, run with --release -- --ignored --nocapture"]
 fn bench_slit() {
     for (sw, sh) in [(960usize, 540usize), (1920, 1080)] {
