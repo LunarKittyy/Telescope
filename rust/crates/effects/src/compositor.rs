@@ -14,6 +14,7 @@ use crate::shared::{no_pictures, PictureReader};
 use crate::transition::{self, Spec};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::{Arc, Mutex, OnceLock};
+use std::time::{Duration, Instant};
 use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::time::monotonic_ns;
 
@@ -847,6 +848,14 @@ struct Scaled {
     planes: Arc<ScaledPlanes>,
     alpha: Option<Arc<ScaledPlanes>>,
 }
+/// Where the last render's time went: scaling the streams, drawing them onto the canvas and getting the canvas ready.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct RenderTimes {
+    pub scale: Duration,
+    pub paste: Duration,
+    pub setup: Duration,
+}
+
 type BackgroundKey = (String, String, usize, usize);
 
 /// composite.Compositor: prepare() on the host thread (it may read the background picture), render() on a stream's thread.
@@ -874,6 +883,7 @@ pub struct Compositor {
     waiting: HashMap<String, u64>,
     /// The same as of the picture before, so a tile that has an alpha now or isn't cut out any more starts again next time.
     waiting_before: HashMap<String, u64>,
+    times: RenderTimes,
 }
 
 /// How long a cut-out tile whose stream has no alpha stays blank before it is drawn plain (ns).
@@ -930,7 +940,7 @@ fn nv12_as_i420(frame: &Frame) -> Option<Frame> {
 
 impl Compositor {
     pub fn new(reader: PictureReader) -> Compositor {
-        Compositor { plan: None, scaled: HashMap::new(), reader, pictures: None, backgrounds: None, planes: Vec::new(), covered: Vec::new(), transition: None, spare: Vec::new(), cols: Vec::new(), now: 0, waiting: HashMap::new(), waiting_before: HashMap::new() }
+        Compositor { plan: None, scaled: HashMap::new(), reader, pictures: None, backgrounds: None, planes: Vec::new(), covered: Vec::new(), transition: None, spare: Vec::new(), cols: Vec::new(), now: 0, waiting: HashMap::new(), waiting_before: HashMap::new(), times: RenderTimes::default() }
     }
 
     pub fn prepare(&mut self, layout: &Layout, size: (u32, u32)) {
@@ -1101,6 +1111,7 @@ impl Compositor {
     }
 
     fn render_picture(&mut self, frames: &Frames, format: PixelFormat, now: u64) -> Option<Frame> {
+        self.times = RenderTimes::default();
         let plan = self.plan.clone()?;
         let kind = Kind::of(format);
         if let Some(active) = self.transition.as_mut() {
@@ -1120,6 +1131,11 @@ impl Compositor {
         Some(Frame::new(plan.size.0 as u32, plan.size.1 as u32, kind.format(), out))
     }
 
+    /// How the last render's time split up.
+    pub fn last_times(&self) -> RenderTimes {
+        self.times
+    }
+
     /// A buffer holding a copy of `from`, one given back before if there is one.
     fn copy_of(&mut self, from: &[u8]) -> Vec<u8> {
         let mut buf = self.spare.pop().unwrap_or_default();
@@ -1136,8 +1152,10 @@ impl Compositor {
 
     /// The whole of a plan drawn as it is: the background, then every tile with a frame.
     fn draw_plan(&mut self, plan: &Plan, frames: &Frames, kind: Kind, key_base: usize) -> Vec<u8> {
+        let started = Instant::now();
         let background = self.background_planes(plan, kind);
         let mut out = self.copy_of(&background);
+        self.times.setup += started.elapsed();
         let items: Vec<Item> = plan.layout.tiles.iter().zip(&plan.boxes).enumerate()
             .map(|(i, (tile, placed))| Item { tile: Cow::Borrowed(tile), placed: *placed, alpha: 1.0, key: key_base + i }).collect();
         self.draw_items(&mut out, kind, plan.size, &items, frames);
@@ -1152,8 +1170,10 @@ impl Compositor {
         let from_plan = active.from.plan();
         if spec.kind.moves_tiles() {
             let posed = transition::poses_from(spec.kind, &active.from.tiles(), &plan.layout.tiles, t, spec.ease, cw as f64 / chh as f64);
+            let started = Instant::now();
             let background = self.background_planes(plan, kind);
             let mut out = self.copy_of(&background);
+            self.times.setup += started.elapsed();
             // a different background fades from one to the other (the one an interrupted transition left from is part way already)
             let over = match &active.from {
                 Start::Tiles { over: Some((to, w)), .. } => Some((to.clone(), *w)),
@@ -1206,18 +1226,25 @@ impl Compositor {
                 // a cut-out has no box for a border to fill, so it keeps the room the border takes and leaves it empty
                 if !tile.cut_out {
                     let colour = colour_planes(kind, { let [b, g, r] = bgr(&tile.border_colour); [r, g, b] });
+                    let started = Instant::now();
                     paste(out, kind, cw, chh, Content::Colour(colour), (x as usize, y as usize, w as usize, h as usize), placed.radius as usize);
+                    self.times.paste += started.elapsed();
                 }
                 (x, y, w, h) = (x + placed.border, y + placed.border, w - 2 * placed.border, h - 2 * placed.border);
             }
             if w > 0 && h > 0 {
                 let bx = (x as usize, y as usize, w as usize, h as usize);
-                if let Some(scaled) = self.scale(item.key, tile, frame, *number, bx, kind) {
+                let started = Instant::now();
+                let scaled = self.scale(item.key, tile, frame, *number, bx, kind);
+                self.times.scale += started.elapsed();
+                if let Some(scaled) = scaled {
                     let radius = if placed.border > 0 { placed.inner } else { placed.radius };
+                    let started = Instant::now();
                     match &scaled.alpha {
                         Some(alpha) => paste_over(out, kind, cw, chh, &scaled.planes, alpha, bx, radius as usize),
                         None => paste(out, kind, cw, chh, Content::Picture(&scaled.planes), bx, radius as usize),
                     }
+                    self.times.paste += started.elapsed();
                 }
             }
             if let Some(under) = under {
@@ -1290,3 +1317,7 @@ impl Compositor {
 #[cfg(test)]
 #[path = "compositor_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "compositor_speed_tests.rs"]
+mod speed_tests;
