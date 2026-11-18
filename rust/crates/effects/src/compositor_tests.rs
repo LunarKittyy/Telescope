@@ -846,7 +846,7 @@ mod transitions {
         let live = |n: u64| frames(vec![("a", fa.clone(), Some(n)), ("b", fb.clone(), Some(n)), ("c", fc.clone(), Some(n))]);
         let from = Layout { tiles: vec![t("a", 0.0, 0.0, 0.66, 0.66), t("b", 0.7, 0.0, 0.3, 0.3), t("c", 0.7, 0.35, 0.3, 0.3)], ..Layout::default() };
         let to = Layout { tiles: vec![t("b", 0.0, 0.0, 0.66, 0.66), t("a", 0.7, 0.0, 0.3, 0.3), t("c", 0.35, 0.7, 0.3, 0.3)], ..Layout::default() };
-        for kind in [How::Cut, How::Glide, How::Shuffle, How::Crossfade, How::Push, How::Zoom] {
+        for kind in [How::Cut, How::Glide, How::Shuffle, How::Crossfade, How::Push, How::Zoom, How::Bounce, How::Iris, How::Curtain, How::Blinds, How::Pixelate, How::Dissolve] {
             let mut comp = Compositor::default();
             comp.prepare(&from, size);
             let mut n = 0;
