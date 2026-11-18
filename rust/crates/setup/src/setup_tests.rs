@@ -928,6 +928,53 @@ fn the_theme_applies_and_saves() {
 }
 
 #[test]
+fn the_appearance_options_apply_save_and_come_back() {
+    use telescope_core::host::{Appearance, Corners, Density, MotionChoice, TextSize};
+    let mut r = Rig::linux();
+    assert!(r.plugin.get_config().get("appearance").is_none(), "an untouched Appearance leaves the config as an older Telescope wrote it");
+    r.ui("look", "corners-picked", vec![json!(2)]);
+    r.ui("look", "text-picked", vec![json!(2)]);
+    r.ui("look", "density-picked", vec![json!(0)]);
+    r.ui("look", "contrast-toggled", vec![json!(true)]);
+    r.ui("look", "motion-picked", vec![json!(3)]);
+    r.ui("look", "tip-delay-moved", vec![json!(1230.0)]);
+    r.ui("look", "tip-warm-toggled", vec![json!(false)]);
+    let picked = Appearance { corners: Corners::Round, text: TextSize::Large, density: Density::Compact, contrast: true, motion: MotionChoice::Off, tip_delay_ms: 1200, tip_warm: false };
+    assert_eq!(r.host.appearance, Some(picked));
+    let saved = r.plugin.get_config();
+    assert_eq!(saved["appearance"], json!({"corners": "round", "text": "large", "density": "compact", "contrast": true, "motion": "off", "tip_delay_ms": 1200, "tip_warm": false}));
+    let props = r.plugin.look_props();
+    assert_eq!((props["corners-current"].clone(), props["text-current"].clone(), props["density-current"].clone(), props["motion-current"].clone()), (json!(2), json!(2), json!(0), json!(3)));
+    assert_eq!((props["contrast-checked"].clone(), props["tip-warm-checked"].clone(), props["tip-delay"].clone()), (json!(true), json!(false), json!(1200)));
+    assert_eq!(props["tip-delay-text"], json!("1.2 s"));
+    // A fresh plugin loads the same
+    let mut fresh = Rig::linux();
+    fresh.plugin.set_config(&saved).unwrap();
+    assert_eq!(fresh.plugin.appearance, picked);
+    fresh.plugin.on_plugins_ready(&mut fresh.host);
+    assert_eq!(fresh.host.appearance, Some(picked));
+    // Instant is the far end of the slider, and a value out of range or a word that isn't one falls back
+    r.ui("look", "tip-delay-moved", vec![json!(-40.0)]);
+    assert_eq!(r.plugin.look_props()["tip-delay-text"], json!("Instant"));
+    fresh.plugin.set_config(&json!({"appearance": {"corners": "pointy", "tip_delay_ms": 99999, "motion": 3}})).unwrap();
+    assert_eq!(fresh.plugin.appearance, Appearance { tip_delay_ms: 1500, ..Appearance::default() });
+}
+
+#[test]
+fn the_looks_reset_puts_the_appearance_back_and_the_others_leave_it() {
+    let mut r = Rig::linux();
+    r.ui("look", "text-picked", vec![json!(2)]);
+    r.ui("look", "contrast-toggled", vec![json!(true)]);
+    r.ui("video", "reset-clicked", vec![]);
+    r.ui("microphone", "reset-clicked", vec![]);
+    assert!(r.plugin.appearance.contrast && r.plugin.reset_shown("look"));
+    r.ui("look", "reset-clicked", vec![]);
+    assert_eq!(r.plugin.appearance, Default::default());
+    assert_eq!(r.host.appearance, Some(Default::default()), "the window is told");
+    assert!(!r.plugin.reset_shown("look"));
+}
+
+#[test]
 fn a_config_from_before_the_looks_loads_classic_as_classic() {
     let mut r = Rig::linux();
     r.plugin.set_config(&json!({"classic_theme": true})).unwrap();
