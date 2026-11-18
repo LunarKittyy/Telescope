@@ -4026,11 +4026,20 @@ mod tests {
         let w = StreamWorker::start(WorkerSetup { source_id: id.into(), url: "https://127.0.0.1:40003/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
         let n = gaps.len() as u64;
         wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) == n);
-        std::thread::sleep(Duration::from_millis(300));
-        let snap = Hub::shared().snapshot();
+        // A busy machine can still be sending the last frame, so wait until every frame is counted one way or the other
+        let counts = || {
+            let snap = Hub::shared().snapshot();
+            let s = snap.sources.iter().find(|s| s.source_id == id).expect("the stream is in the snapshot");
+            (s.totals.received, s.totals.delivered, s.drops.paced)
+        };
+        let until = Instant::now() + Duration::from_secs(5);
+        let mut seen = counts();
+        while (seen.0 < n || seen.1 + seen.2 < seen.0) && Instant::now() < until {
+            std::thread::sleep(Duration::from_millis(10));
+            seen = counts();
+        }
         w.stop();
-        let s = snap.sources.iter().find(|s| s.source_id == id).expect("the stream is in the snapshot");
-        (s.totals.received, s.totals.delivered, s.drops.paced)
+        seen
     }
 
     #[test]
