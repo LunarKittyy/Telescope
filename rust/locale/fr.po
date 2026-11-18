@@ -180,7 +180,7 @@ msgstr "Obtenir VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "Éliminer les bruits de clavier, de ventilateur et le souffle de la pièce."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:663 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:784 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label} : {value}"
@@ -346,7 +346,7 @@ msgstr "Jaune : le limiteur atténue les crêtes. Rouge : le son a saturé."
 msgid "Click to clear"
 msgstr "Cliquer pour effacer"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:38 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "Réinitialiser"
 
@@ -1238,82 +1238,90 @@ msgstr "Enregistrer la disposition"
 msgid "There's already a layout called \"{name}\". Replace it?"
 msgstr "Une disposition nommée \"{name}\" existe déjà. Voulez-vous la remplacer ?"
 
-#: rust/crates/effects/src/composite_plugin.rs:37 rust/crates/effects/ui/composite.slint:22
+#: rust/crates/effects/src/composite_plugin.rs:37 rust/crates/effects/ui/composite.slint:27
 msgid "Combine the running streams into one picture."
 msgstr "Combiner les flux actifs en une seule image."
 
 #: rust/crates/effects/src/composite_plugin.rs:38
+msgid "Auto director"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:39
+msgid "Swaps between your saved layouts as people move. Hands held in view of another stream bring in the layout that shows that stream biggest. The layout you picked is shown again after the hands leave."
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:40
 msgid "A layout you saved in the editor."
 msgstr "Une disposition enregistrée dans l'éditeur."
 
-#: rust/crates/effects/src/composite_plugin.rs:434 rust/crates/effects/src/composite_plugin.rs:634 rust/crates/effects/src/composite_plugin.rs:638 rust/crates/effects/src/composite_plugin.rs:651 rust/crates/effects/ui/composite.slint:21
+#: rust/crates/effects/src/composite_plugin.rs:537 rust/crates/effects/src/composite_plugin.rs:754 rust/crates/effects/src/composite_plugin.rs:758 rust/crates/effects/src/composite_plugin.rs:771 rust/crates/effects/ui/composite.slint:26
 msgid "One picture"
 msgstr "Image unique"
 
-#: rust/crates/effects/src/composite_plugin.rs:479
+#: rust/crates/effects/src/composite_plugin.rs:585
 msgid "Nothing's in the picture yet."
 msgstr "Il n'y a encore rien dans l'image."
 
-#: rust/crates/effects/src/composite_plugin.rs:481
+#: rust/crates/effects/src/composite_plugin.rs:587
 msgid "Active once two streams are running."
 msgstr "Actif dès que deux flux sont en cours de diffusion."
 
-#: rust/crates/effects/src/composite_plugin.rs:483
+#: rust/crates/effects/src/composite_plugin.rs:589
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "Configuré pour diffuser sur {camera}, mais aucun flux n'y est actif."
 
-#: rust/crates/effects/src/composite_plugin.rs:485
+#: rust/crates/effects/src/composite_plugin.rs:591
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "Diffusera sur {camera} dès que le flux transmettra une image."
 
-#: rust/crates/effects/src/composite_plugin.rs:487
+#: rust/crates/effects/src/composite_plugin.rs:593
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "Diffusion sur {camera}."
 
-#: rust/crates/effects/src/composite_plugin.rs:492
+#: rust/crates/effects/src/composite_plugin.rs:598
 msgid "Nothing in it"
 msgstr "Vide"
 
-#: rust/crates/effects/src/composite_plugin.rs:494 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:703
+#: rust/crates/effects/src/composite_plugin.rs:600 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:703
 msgid "Two streams required"
 msgstr "Deux flux requis"
 
-#: rust/crates/effects/src/composite_plugin.rs:496
+#: rust/crates/effects/src/composite_plugin.rs:602
 msgid "Not going out"
 msgstr "Non diffusé"
 
-#: rust/crates/effects/src/composite_plugin.rs:498
+#: rust/crates/effects/src/composite_plugin.rs:604
 msgid "Going out"
 msgstr "Diffusé"
 
-#: rust/crates/effects/src/composite_plugin.rs:543
+#: rust/crates/effects/src/composite_plugin.rs:653
 msgid "Several cameras in one picture"
 msgstr "Plusieurs caméras en une seule image"
 
-#: rust/crates/effects/src/composite_plugin.rs:544
+#: rust/crates/effects/src/composite_plugin.rs:654
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "Affichez les flux côte à côte ou incrustés l'un dans l'autre sur une seule caméra virtuelle."
 
-#: rust/crates/effects/src/composite_plugin.rs:545
+#: rust/crates/effects/src/composite_plugin.rs:655
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "Sans le plugin Plusieurs caméras en une image, la carte Une image n'est pas disponible et chaque flux est envoyé uniquement vers sa propre caméra."
 
-#: rust/crates/effects/src/composite_plugin.rs:639 rust/crates/effects/src/composite_plugin.rs:663
+#: rust/crates/effects/src/composite_plugin.rs:759 rust/crates/effects/src/composite_plugin.rs:784
 msgid "Picture layout"
 msgstr "Disposition de l'image"
 
-#: rust/crates/effects/src/composite_plugin.rs:712
+#: rust/crates/effects/src/composite_plugin.rs:840
 msgid "One picture layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:713
+#: rust/crates/effects/src/composite_plugin.rs:841
 msgid "Bring this layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:713
+#: rust/crates/effects/src/composite_plugin.rs:841
 msgid "Leave the layout"
 msgstr ""
 
@@ -2546,7 +2554,7 @@ msgstr "Les photos RAW n'ont pas de réglage de qualité"
 msgid "The camera is already taking a photo."
 msgstr "La caméra prend déjà une photo."
 
-#: rust/crates/effects/src/photos.rs:62 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:273
+#: rust/crates/effects/src/photos.rs:62 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:278
 msgid "The camera couldn't take the photo."
 msgstr "La caméra n'a pas pu prendre la photo."
 
@@ -3612,23 +3620,23 @@ msgstr "Enregistrer l'étalonnage et la LUT dans un fichier .cube pour les utili
 msgid "Replace"
 msgstr "Remplacer"
 
-#: rust/crates/effects/ui/composite.slint:34
+#: rust/crates/effects/ui/composite.slint:39
 msgid "Clear the current layout without touching saved layouts."
 msgstr "Effacer la disposition actuelle sans modifier les dispositions enregistrées."
 
-#: rust/crates/effects/ui/composite.slint:40 rust/crates/effects/ui/composite.slint:47 rust/crates/effects/ui/composite.slint:51 rust/crates/effects/ui/composite_editor.slint:628 rust/crates/effects/ui/composite_editor.slint:640 rust/crates/shell/ui/card-order-settings.slint:7
+#: rust/crates/effects/ui/composite.slint:45 rust/crates/effects/ui/composite.slint:52 rust/crates/effects/ui/composite.slint:56 rust/crates/effects/ui/composite_editor.slint:628 rust/crates/effects/ui/composite_editor.slint:640 rust/crates/shell/ui/card-order-settings.slint:7
 msgid "Layout"
 msgstr "Disposition"
 
-#: rust/crates/effects/ui/composite.slint:60 rust/crates/effects/ui/composite_editor.slint:641
+#: rust/crates/effects/ui/composite.slint:65 rust/crates/effects/ui/composite_editor.slint:641
 msgid "Not saved"
 msgstr "Non enregistré"
 
-#: rust/crates/effects/ui/composite.slint:72 rust/crates/effects/ui/composite.slint:73 rust/crates/effects/ui/composite_editor.slint:461 rust/crates/effects/ui/composite_editor.slint:569
+#: rust/crates/effects/ui/composite.slint:77 rust/crates/effects/ui/composite.slint:78 rust/crates/effects/ui/composite_editor.slint:461 rust/crates/effects/ui/composite_editor.slint:569
 msgid "Edit picture"
 msgstr "Modifier l'image"
 
-#: rust/crates/effects/ui/composite.slint:74
+#: rust/crates/effects/ui/composite.slint:79
 msgid "Open the editor for the layout."
 msgstr "Ouvrir l'éditeur de disposition."
 
@@ -6102,47 +6110,47 @@ msgstr "Une autre application a monté la caméra comme disque. Démontez-la dan
 msgid "The webcam isn't sending anything. Try another resolution or frame rate."
 msgstr "La webcam n'envoie rien. Essayez une autre résolution ou fréquence d'images."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:269
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:274
 msgid "The camera is busy. Try again in a moment."
 msgstr "La caméra est occupée. Réessayez dans un instant."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:270
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:275
 msgid "The camera's mode doesn't allow that setting."
 msgstr "Le mode de la caméra ne permet pas ce réglage."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:271
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:276
 msgid "The camera is on Bulb. Pick a shutter speed first."
 msgstr "La caméra est en mode Bulb. Choisissez d'abord une vitesse d'obturation."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:272
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:277
 msgid "This camera can't take that kind of photo."
 msgstr "Cette caméra ne peut pas prendre ce type de photo."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:274
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:279
 msgid "Telescope couldn't save the photo."
 msgstr "Telescope n'a pas pu enregistrer la photo."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:275
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:280
 msgid "The photo was interrupted because the camera stopped."
 msgstr "La photo a été interrompue car la caméra s'est arrêtée."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:276
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:281
 msgid "The camera took too long to take the photo. The photo is saved and you get a notification if it still arrives."
 msgstr "La caméra a mis trop de temps pour prendre la photo. La photo est enregistrée et vous recevez une notification si elle finit par arriver."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:277 rust/crates/shell/src/streams.rs:797
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:282 rust/crates/shell/src/streams.rs:797
 msgid "No photo was taken while part of the picture is hidden."
 msgstr ""
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:278
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:283
 msgid "The camera can't take a JPEG alone with its image quality locked to RAW and JPEG together."
 msgstr "La caméra ne peut pas prendre un JPEG seul lorsque sa qualité d'image est verrouillée sur RAW et JPEG simultanément."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:279
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:284
 msgid "The camera can't take a JPEG with its image quality locked to RAW."
 msgstr "La caméra ne peut pas prendre de JPEG lorsque sa qualité d'image est verrouillée sur RAW."
 
-#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:280
+#: rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:285
 msgid "The camera only sent part of the photo. The part that arrived is saved."
 msgstr "La caméra n'a envoyé qu'une partie de la photo. La partie reçue est enregistrée."
 

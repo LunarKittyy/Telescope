@@ -14,6 +14,10 @@ struct State {
     /// What capture() makes: (name, bytes) per file, or the error it fails with, and how long it takes.
     made: Vec<(String, Vec<u8>)>,
     capture_error: Option<String>,
+    /// The first this many captures fail, whatever else is set.
+    fail_captures: u32,
+    /// Whether those failures come before the shutter fired.
+    fail_before_shutter: bool,
     /// capture() brings the first file and fails for the second.
     partial: bool,
     capture_takes: Duration,
@@ -72,21 +76,23 @@ impl Rig for Fake {
     }
     fn restart_live_view(&mut self) {}
     fn capture(&mut self, expect: usize, _stop: &dyn Fn() -> bool) -> Result<Vec<Shot>, Incomplete> {
-        let (takes, error) = {
+        let (takes, error, before) = {
             let mut s = self.0.lock().unwrap();
             s.log.push("capture".into());
             s.captures += 1;
             s.expected.push(expect);
             s.live_view_at_capture = s.settings.get("viewfinder").map(|v| v.2.clone());
-            (s.capture_takes, s.capture_error.clone())
+            let failing = s.fail_captures > 0;
+            s.fail_captures = s.fail_captures.saturating_sub(1);
+            (s.capture_takes, s.capture_error.clone().or(failing.then(|| "the camera hiccuped".to_string())), s.fail_before_shutter && failing)
         };
         std::thread::sleep(takes);
         if let Some(why) = error {
-            return Err(why.into());
+            return Err(if before { Incomplete::refused(why) } else { Incomplete::from(why) });
         }
         let s = self.0.lock().unwrap();
         if s.partial {
-            return Err(Incomplete { why: "1 of 2 files came".into(), shots: s.made.iter().take(1).map(|(name, data)| Shot { name: name.clone(), data: data.clone() }).collect() });
+            return Err(Incomplete { why: "1 of 2 files came".into(), shots: s.made.iter().take(1).map(|(name, data)| Shot { name: name.clone(), data: data.clone() }).collect(), before_shutter: false });
         }
         Ok(s.made.iter().take(expect).map(|(name, data)| Shot { name: name.clone(), data: data.clone() }).collect())
     }
@@ -189,6 +195,36 @@ fn a_jpeg_changes_the_quality_from_a_raw_one_and_waits_for_one_file() {
     let again = take_photo(&mut Fake(state.clone()), &wish(Format::Jpeg)).unwrap();
     assert_eq!(again.len(), 1);
     assert_eq!(log(&state)[4..], ["viewfinder=0", "capture"]);
+}
+
+#[test]
+fn the_first_shot_after_changing_the_quality_is_tried_once_more_only_when_the_shutter_never_fired() {
+    let state = d5100(true);
+    {
+        let mut s = state.lock().unwrap();
+        s.fail_captures = 1;
+        s.fail_before_shutter = true;
+    }
+    let shots = take_photo(&mut Fake(state.clone()), &wish(Format::Jpeg)).unwrap();
+    assert_eq!(shots.len(), 1);
+    assert_eq!(state.lock().unwrap().captures, 2, "one refusal and the retry");
+    // A failure after the shutter fired is never retried, since that would be a second picture
+    {
+        let mut s = state.lock().unwrap();
+        s.settings.get_mut("imagequality").unwrap().2 = "NEF (Raw)".into();
+        s.fail_captures = 1;
+        s.fail_before_shutter = false;
+    }
+    assert_eq!(take_photo(&mut Fake(state.clone()), &wish(Format::Jpeg)).unwrap_err(), Failure::Camera("the camera hiccuped".into()));
+    assert_eq!(state.lock().unwrap().captures, 3, "no retry");
+    // Nothing was switched this time, so even a refusal is the answer
+    {
+        let mut s = state.lock().unwrap();
+        s.fail_captures = 1;
+        s.fail_before_shutter = true;
+    }
+    assert!(take_photo(&mut Fake(state.clone()), &wish(Format::Jpeg)).is_err());
+    assert_eq!(state.lock().unwrap().captures, 4);
 }
 
 #[test]

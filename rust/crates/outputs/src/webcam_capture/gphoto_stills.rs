@@ -27,6 +27,11 @@ const LONGEST: Duration = Duration::from_secs(4 * 60);
 /// How often the job looks at its camera's thread, and how many looks make one progress report.
 const LOOK: Duration = Duration::from_millis(250);
 const REPORT_EVERY: u32 = 4;
+/// How long a camera that was just told another image quality gets before its first shot is tried again.
+#[cfg(not(test))]
+const AFTER_SWITCH: Duration = Duration::from_millis(1500);
+#[cfg(test)]
+const AFTER_SWITCH: Duration = Duration::from_millis(10);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Format {
@@ -308,11 +313,13 @@ fn take_photo_guarded(rig: &mut dyn Rig, wish: &Wish, guard: Option<&Guard>) -> 
     let _ = rig.write("viewfinder", "0");
     let caps = read_photo_caps(rig);
     let mut expect = 1;
+    let mut switched = false;
     if let Some(q) = &caps.quality {
         match q.target(wish.format) {
             Some(choice) => {
                 if *choice != q.current {
                     rig.write(q.name, choice).map_err(|_| Failure::Setting("format"))?;
+                    switched = true;
                 }
                 if classify(choice) == Class::Both {
                     expect = 2;
@@ -347,7 +354,20 @@ fn take_photo_guarded(rig: &mut dyn Rig, wish: &Wish, guard: Option<&Guard>) -> 
         return Err(stop);
     }
     let covered = || guard.is_some_and(Guard::is_hidden);
-    let taken = rig.capture(expect, &covered).map_err(|Incomplete { why, shots }| {
+    let mut shot = rig.capture(expect, &covered);
+    // A camera that was just told another image quality can fail the first shot while it settles (a D5100 did on a RAW after a JPEG)
+    // Only when the camera hadn't started the shot: after the shutter fired, a second try would be a second picture
+    if switched && shot.as_ref().is_err_and(|e| e.before_shutter && e.shots.is_empty()) {
+        log::info!("the camera wasn't ready for the first shot after changing the image quality, trying once more");
+        std::thread::sleep(AFTER_SWITCH);
+        if let Some(stop) = guard.and_then(Guard::stop) {
+            return Err(stop);
+        }
+        if !covered() {
+            shot = rig.capture(expect, &covered);
+        }
+    }
+    let taken = shot.map_err(|Incomplete { why, shots, .. }| {
         log::info!("the camera couldn't take the photo: {why}");
         if !shots.is_empty() {
             Failure::Partial(shots)
