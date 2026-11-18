@@ -100,7 +100,7 @@ pub struct PhotosPlugin {
     taking: Vec<RequestId>,
     asked: Option<RequestId>,
     /// The brackets being taken that are to be merged: the request, what to save, the JPEG quality and what kind of merge.
-    merges: Vec<(RequestId, String, u8, crate::bracket_merge::Kind)>,
+    merges: Vec<(RequestId, String, u8, crate::bracket_merge::Kind, usize)>,
     /// The newest photo asked for: a merge of an older one finishing later doesn't take Open folder back to its photos.
     latest_take: Option<RequestId>,
     status: (String, &'static str),
@@ -534,6 +534,14 @@ impl PhotosPlugin {
         if value < 0 { tr("Darker") } else if value > 0 { tr("Lighter") } else { tr("Middle") }
     }
 
+    /// How many shots the bracket asked the phone for: its focus steps, or its exposure steps.
+    fn shots_expected(options: &Value) -> usize {
+        if let Some(n) = options.get("focus_steps").and_then(Value::as_u64) {
+            return n as usize;
+        }
+        options.get("bracket_ev").and_then(Value::as_str).map_or(0, |ev| ev.split(',').count())
+    }
+
     /// What kind of merge the bracket about to be taken gets.
     fn merge_kind(&self) -> crate::bracket_merge::Kind {
         if text(&self.choices, "shots") == "bracket" {
@@ -557,9 +565,9 @@ impl PhotosPlugin {
     }
 
     /// The photos of a bracket are in: merge them on a thread of its own, which says when it's done.
-    fn start_merge(&mut self, host: &mut dyn Host, files: &[String], mode: &str, quality: u8, kind: crate::bracket_merge::Kind, request: RequestId) {
+    fn start_merge(&mut self, host: &mut dyn Host, files: &[String], mode: &str, quality: u8, kind: crate::bracket_merge::Kind, request: RequestId, expected: usize) {
         let Some(poster) = host.poster() else { return };
-        crate::bracket_merge::spawn(poster, files.to_vec(), quality, mode != crate::bracket_merge::MERGED, kind, request.0);
+        crate::bracket_merge::spawn(poster, files.to_vec(), quality, mode != crate::bracket_merge::MERGED, kind, request.0, expected);
         self.show_status(host, tr("Merging the bracket…"), "status_dim");
     }
 
@@ -608,7 +616,7 @@ impl PhotosPlugin {
         match host.take_still(&options, &self.folder, None) {
             Some(id) => {
                 if let Some(mode) = self.merge_mode() {
-                    self.merges.push((id, mode.to_string(), int(&self.choices, "quality", 95).clamp(50, 100) as u8, self.merge_kind()));
+                    self.merges.push((id, mode.to_string(), int(&self.choices, "quality", 95).clamp(50, 100) as u8, self.merge_kind(), Self::shots_expected(&options)));
                 }
                 self.taking.push(id);
                 self.latest_take = Some(id);
@@ -749,10 +757,10 @@ impl Plugin for PhotosPlugin {
                 self.taking.retain(|r| r != request);
                 self.done(host, data);
                 if let Some(at) = self.merges.iter().position(|(r, ..)| r == request) {
-                    let (_, mode, quality, kind) = self.merges.remove(at);
+                    let (_, mode, quality, kind, expected) = self.merges.remove(at);
                     if data.get("ok").and_then(Value::as_bool) == Some(true) {
                         let files = self.last_saved.clone();
-                        self.start_merge(host, &files, &mode, quality, kind, *request);
+                        self.start_merge(host, &files, &mode, quality, kind, *request, expected);
                     }
                 }
             }

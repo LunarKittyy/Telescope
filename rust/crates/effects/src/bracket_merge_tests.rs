@@ -145,7 +145,7 @@ fn photos_are_read_merged_and_saved_next_to_the_first_with_what_the_camera_wrote
         files.push(path.display().to_string());
     }
     // both: the photos stay
-    let result = merge_files(&files, 90, true, Kind::Focus);
+    let result = merge_files(&files, 90, true, Kind::Focus, 3);
     assert_eq!(result["ok"], json!(true), "{result}");
     let path = PathBuf::from(result["path"].as_str().unwrap());
     assert_eq!(path.file_name().unwrap().to_string_lossy(), "IMG_0_focus-merged.jpg");
@@ -156,7 +156,7 @@ fn photos_are_read_merged_and_saved_next_to_the_first_with_what_the_camera_wrote
     assert_eq!(&kept[kept.len() - 8..kept.len() - 6], &[0, 6], "orientation 6");
     assert!(files.iter().all(|f| Path::new(f).exists()));
     // only the merged picture: the photos go, and a second merge doesn't take the first one's name
-    let again = merge_files(&files, 90, false, Kind::Focus);
+    let again = merge_files(&files, 90, false, Kind::Focus, 3);
     assert_eq!(again["ok"], json!(true));
     assert_eq!(PathBuf::from(again["path"].as_str().unwrap()).file_name().unwrap().to_string_lossy(), "IMG_0_focus-merged (2).jpg");
     assert!(files.iter().all(|f| !Path::new(f).exists()) && again["removed"] == json!(3));
@@ -168,11 +168,21 @@ fn photos_are_read_merged_and_saved_next_to_the_first_with_what_the_camera_wrote
         std::fs::write(&path, encode_jpeg(&image, 92, None).unwrap()).unwrap();
         more.push(path.display().to_string());
     }
-    let partial = merge_files(&more, 90, false, Kind::Focus);
+    let partial = merge_files(&more, 90, false, Kind::Focus, 3);
     assert_eq!((partial["ok"].clone(), partial["used"].clone(), partial["kept"].clone()), (json!(true), json!(2), json!(true)), "{partial}");
     assert!(more.iter().all(|f| Path::new(f).exists()) && partial["removed"] == json!(0));
+    // a bracket of four of which only three JPEGs arrived (the fourth is a RAW only): the three are merged and nothing is deleted
+    let three: Vec<String> = (0..3).map(|i| folder.join(format!("SHOT_{i}.jpg")).display().to_string()).collect();
+    for (i, f) in three.iter().enumerate() {
+        std::fs::write(f, encode_jpeg(&photo(i, 0.0, (0.0, 0.0)), 92, None).unwrap()).unwrap();
+    }
+    let short = merge_files(&three, 90, false, Kind::Focus, 4);
+    assert_eq!((short["ok"].clone(), short["kept"].clone(), short["frames"].clone()), (json!(true), json!(true), json!(4)), "{short}");
+    assert!(three.iter().all(|f| Path::new(f).exists()));
+    // the size comes from the header
+    assert_eq!(jpeg_size(Path::new(&three[0])), Some((W, H)));
     // a DNG or a missing file isn't a photo to merge
-    assert_eq!(merge_files(&["a.dng".to_string(), "b.dng".to_string()], 90, true, Kind::Focus)["ok"], json!(false));
+    assert_eq!(merge_files(&["a.dng".to_string(), "b.dng".to_string()], 90, true, Kind::Focus, 2)["ok"], json!(false));
     std::fs::remove_dir_all(&folder).unwrap();
 }
 
@@ -352,14 +362,14 @@ fn a_wide_bracket_with_a_big_shift_is_lined_up_at_full_size() {
 fn the_strips_that_go_through_the_photos_together_fit_the_memory_the_merge_may_use() {
     let (w, h) = (8000, 5600);
     let rows = strip_rows(h);
-    let together = groups(&rows, w, h, ACCUMULATOR_BUDGET);
+    let together = groups(&rows, w, h, 600 << 20);
     assert!(together.len() >= 2, "a 45 megapixel photo takes more than one pass: {together:?}");
     for (from, to) in &together {
         let bytes: usize = rows[*from..*to].iter().map(|r| strip_bytes(w, h, *r)).sum();
-        assert!(bytes <= ACCUMULATOR_BUDGET || to - from == 1);
+        assert!(bytes <= (600 << 20) || to - from == 1);
     }
     assert_eq!(together.iter().map(|(a, b)| b - a).sum::<usize>(), rows.len());
-    assert_eq!(groups(&strip_rows(480), 640, 480, ACCUMULATOR_BUDGET).len(), 1);
+    assert_eq!(groups(&strip_rows(480), 640, 480, 600 << 20).len(), 1);
     // two merges back to back take turns
     assert!(ONE_AT_A_TIME.try_lock().is_ok());
 }
@@ -407,6 +417,51 @@ fn only_the_orientation_of_the_exif_block_is_kept() {
     assert_eq!(orientation_exif(&exif_with_orientation(8, true)).map(|e| (e.len(), e[e.len() - 8..e.len() - 6].to_vec())), Some((36, vec![0, 8])));
     assert!(orientation_exif(&exif_with_orientation(0, false)).is_none(), "an orientation that isn't one");
     assert!(orientation_exif(b"junk").is_none());
+}
+
+#[test]
+fn the_reference_of_an_exposure_bracket_is_the_one_with_the_middle_brightness_in_whatever_order() {
+    let photos = [exposure(2.0, None), exposure(-2.0, None), exposure(0.0, None)];
+    let load = |i: usize| photos.get(i).map(|p| Image { width: p.width, height: p.height, rgb: p.rgb.clone() });
+    assert_eq!(reference_of(3, &load, Kind::Exposure { brightness: 0 }), 2);
+    assert_eq!(reference_of(3, &load, Kind::Focus), 1, "a focus bracket goes by position");
+}
+
+#[test]
+fn a_flat_grey_quarter_does_not_veto_a_bracket_that_lines_up() {
+    // a picture whose lower right quarter is flat sky
+    let flat = |shift: f64| render(|x, y| if x > CENTRE.0 && y > CENTRE.1 { [0.5, 0.5, 0.5] } else { scene(x - shift, y, true) });
+    let (a, b) = (luma(&flat(0.0), 1).unwrap(), luma(&flat(3.0), 1).unwrap());
+    assert!(estimate(&a, &b).is_some());
+}
+
+#[test]
+fn someone_crossing_a_blown_out_part_of_the_middle_photo_is_not_in_the_result_twice() {
+    // the person is dark in the darker photo only, where the middle photo shows white
+    let with = |stops: f64, at: Option<(usize, usize)>| render(|x, y| {
+        let v = if let Some((ox, oy)) = at.filter(|(ox, oy)| (x as usize).abs_diff(*ox) < 40 && (y as usize).abs_diff(*oy) < 60) { let _ = (ox, oy); [0.04, 0.04, 0.05] } else { radiance(x, y).map(|v| v) };
+        v.map(|v| (v * 2f64.powf(stops)).clamp(0.0, 1.0).powf(1.0 / 2.2))
+    });
+    let photos = [with(-2.0, Some((480, 240))), with(0.0, None), with(2.0, None)];
+    let result = fused(&photos, 0);
+    let (_, brightness) = look(&result, (0.7, 0.8), (0.4, 0.6));
+    let (_, plain) = look(&fused(&bracket(), 0), (0.7, 0.8), (0.4, 0.6));
+    assert!((brightness - plain).abs() < 40.0 && brightness > 120.0, "the person shows: {brightness} against {plain}");
+}
+
+#[test]
+fn what_the_memory_allows_is_planned_from_the_size_of_the_photos() {
+    let (threads, strips) = memory_plan(4000, 3000, 8).expect("a 12 megapixel photo fits");
+    assert!(threads >= 2 && strips >= 100 << 20);
+    let (threads_big, strips_big) = memory_plan(8160, 6144, 8).expect("a 50 megapixel photo fits");
+    assert!(threads_big >= 1 && threads_big <= threads);
+    // everything alive at once stays inside the budget
+    let widest = strip_rows(6144).iter().map(|r| strip_bytes(8160, 6144, *r)).max().unwrap();
+    assert!(3 * 8160 * 6144 * 3 + threads_big * widest * SCRATCH_PER_STRIP / 4 + strips_big.max(widest) <= MEMORY_BUDGET + widest);
+    assert!(memory_plan(20_000, 10_000, 8).is_none(), "200 megapixels is too big");
+    // every strip of a picture has as many levels as the smallest allows
+    let rows = strip_rows(1000);
+    assert!(pyramid_depth(640, 1000, &rows) <= LEVELS && pyramid_depth(640, 1000, &rows) >= 3);
 }
 
 /// Not part of the suite: writes the three photos of a bracket and the merge as JPEGs into TELESCOPE_FOCUS_OUT, to look at.
