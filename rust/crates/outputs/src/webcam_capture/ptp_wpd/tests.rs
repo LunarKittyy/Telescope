@@ -17,6 +17,8 @@ struct Fake {
     response: u16,
     /// A driver that gives the response code of a transfer only with its end, as a real camera's does.
     quiet_start: bool,
+    /// No response code at the end of a transfer, or on an operation without data.
+    quiet_end: bool,
     seen: RefCell<Vec<u32>>,
     offset: Cell<usize>,
     wrote: RefCell<Vec<u8>>,
@@ -25,7 +27,7 @@ struct Fake {
 
 impl Fake {
     fn serving(data: Vec<u8>) -> Fake {
-        Fake { announce: data.len() as u64, data, fail: None, response: ptp::RC_OK, quiet_start: false, seen: RefCell::default(), offset: Cell::new(0), wrote: RefCell::default(), wrote_total: Cell::new(0) }
+        Fake { announce: data.len() as u64, data, fail: None, response: ptp::RC_OK, quiet_start: false, quiet_end: false, seen: RefCell::default(), offset: Cell::new(0), wrote: RefCell::default(), wrote_total: Cell::new(0) }
     }
 
     fn saw(&self, key: &PROPERTYKEY) -> usize {
@@ -45,7 +47,8 @@ impl Port for Fake {
                 return Ok(r);
             }
             let opens = id == WPD_COMMAND_MTP_EXT_EXECUTE_COMMAND_WITH_DATA_TO_READ.pid || id == WPD_COMMAND_MTP_EXT_EXECUTE_COMMAND_WITH_DATA_TO_WRITE.pid;
-            if !(self.quiet_start && opens) {
+            let closes = id == WPD_COMMAND_MTP_EXT_END_DATA_TRANSFER.pid || id == WPD_COMMAND_MTP_EXT_EXECUTE_COMMAND_WITHOUT_DATA_PHASE.pid;
+            if !(self.quiet_start && opens) && !(self.quiet_end && closes) {
                 r.SetUnsignedIntegerValue(&WPD_PROPERTY_MTP_EXT_RESPONSE_CODE, self.response as u32)?;
             }
             let context = HSTRING::from("transfer-1");
@@ -100,6 +103,22 @@ fn a_transfer_opened_without_a_response_code_goes_ahead_and_takes_its_code_from_
     let reply = run(&port, WRITE_OP, &[0x5007], Some(&[9; 5])).unwrap();
     assert_eq!(reply.code, ptp::RC_OK);
     assert_eq!(*port.wrote.borrow(), [9; 5]);
+}
+
+#[test]
+fn a_reply_with_no_response_code_where_one_is_due_is_an_error_not_a_zero() {
+    let _com = Com::new();
+    let mut port = Fake::serving(vec![1, 2, 3]);
+    port.quiet_start = true;
+    port.quiet_end = true;
+    let why = run(&port, READ_OP, &[], None).unwrap_err();
+    assert!(why.message().contains("no response code"), "{why}");
+    let mut port = Fake::serving(Vec::new());
+    port.quiet_end = true;
+    let why = run(&port, 0x1002, &[1], None).unwrap_err();
+    assert!(why.message().contains("no response code"), "{why}");
+    // A camera that does give its codes is as before
+    assert_eq!(run(&Fake::serving(Vec::new()), 0x1002, &[1], None).unwrap().code, ptp::RC_OK);
 }
 
 #[test]

@@ -63,6 +63,17 @@ fn a_nikon_that_says_it_is_not_in_live_view_for_a_moment_after_starting_is_waite
 }
 
 #[test]
+fn a_nikon_that_never_gets_into_live_view_gives_up_after_one_restart() {
+    let mock = Mock::nikon();
+    mock.state().starting_frames = 1000;
+    let mut rig = open(&mock);
+    assert!(rig.preview().unwrap_err().contains("live view stopped"));
+    let ops = mock.ops();
+    assert_eq!(ops.iter().filter(|o| **o == 0x9201).count(), 2, "started, then once more");
+    assert!(ops.iter().filter(|o| **o == 0x9203).count() <= 14, "the wait is bounded by the pacing: {}", ops.len());
+}
+
+#[test]
 fn a_camera_that_stays_busy_gives_up() {
     let mock = Mock::nikon();
     mock.state().busy_frames = 100;
