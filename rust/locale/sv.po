@@ -179,7 +179,7 @@ msgstr "Skaffa VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "Ta bort tangentbordsljud, fläktbrus och rumsbrus."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:662 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:664 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -345,7 +345,7 @@ msgstr "Gult: begränsaren håller nere ljudtopparna. Rött: ljudet klipper."
 msgid "Click to clear"
 msgstr "Klicka för att rensa"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:70 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:382 rust/crates/setup/ui/setup.slint:511 rust/crates/shell/src/plugins_tab.rs:726 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:382 rust/crates/setup/ui/setup.slint:511 rust/crates/shell/src/plugins_tab.rs:726 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "Återställ"
 
@@ -1230,62 +1230,62 @@ msgstr "Kombinera de aktiva strömmarna till en bild."
 msgid "A layout you saved in the editor."
 msgstr "En layout som du sparat i redigeraren."
 
-#: rust/crates/effects/src/composite_plugin.rs:428 rust/crates/effects/src/composite_plugin.rs:633 rust/crates/effects/src/composite_plugin.rs:637 rust/crates/effects/src/composite_plugin.rs:650 rust/crates/effects/ui/composite.slint:21
+#: rust/crates/effects/src/composite_plugin.rs:428 rust/crates/effects/src/composite_plugin.rs:635 rust/crates/effects/src/composite_plugin.rs:639 rust/crates/effects/src/composite_plugin.rs:652 rust/crates/effects/ui/composite.slint:21
 msgid "One picture"
 msgstr "En bild"
 
-#: rust/crates/effects/src/composite_plugin.rs:471
+#: rust/crates/effects/src/composite_plugin.rs:473
 msgid "Nothing's in the picture yet."
 msgstr "Det finns inget i bilden än."
 
-#: rust/crates/effects/src/composite_plugin.rs:473
+#: rust/crates/effects/src/composite_plugin.rs:475
 msgid "Active once two streams are running."
 msgstr "Aktiv när två strömmar är igång."
 
-#: rust/crates/effects/src/composite_plugin.rs:475
+#: rust/crates/effects/src/composite_plugin.rs:477
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "Inställd på att mata ut på {camera}, men ingen ström är igång där."
 
-#: rust/crates/effects/src/composite_plugin.rs:477
+#: rust/crates/effects/src/composite_plugin.rs:479
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "Matar ut på {camera} så snart strömmen där skickar en bild."
 
-#: rust/crates/effects/src/composite_plugin.rs:479
+#: rust/crates/effects/src/composite_plugin.rs:481
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "Matar ut på {camera}."
 
-#: rust/crates/effects/src/composite_plugin.rs:484
+#: rust/crates/effects/src/composite_plugin.rs:486
 msgid "Nothing in it"
 msgstr "Inget innehåll"
 
-#: rust/crates/effects/src/composite_plugin.rs:486 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
+#: rust/crates/effects/src/composite_plugin.rs:488 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
 msgid "Two streams required"
 msgstr "Två strömmar krävs"
 
-#: rust/crates/effects/src/composite_plugin.rs:488
+#: rust/crates/effects/src/composite_plugin.rs:490
 msgid "Not going out"
 msgstr "Sänds inte ut"
 
-#: rust/crates/effects/src/composite_plugin.rs:490
+#: rust/crates/effects/src/composite_plugin.rs:492
 msgid "Going out"
 msgstr "Sänds ut"
 
-#: rust/crates/effects/src/composite_plugin.rs:535
+#: rust/crates/effects/src/composite_plugin.rs:537
 msgid "Several cameras in one picture"
 msgstr "Flera kameror i en bild"
 
-#: rust/crates/effects/src/composite_plugin.rs:536
+#: rust/crates/effects/src/composite_plugin.rs:538
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "Placera strömmarna sida vid sida eller inuti varandra på en virtuell kamera."
 
-#: rust/crates/effects/src/composite_plugin.rs:537
+#: rust/crates/effects/src/composite_plugin.rs:539
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "Utan tillägget Flera kameror i en bild finns inte kortet En bild och varje ström går bara till sin egen kamera."
 
-#: rust/crates/effects/src/composite_plugin.rs:638 rust/crates/effects/src/composite_plugin.rs:662
+#: rust/crates/effects/src/composite_plugin.rs:640 rust/crates/effects/src/composite_plugin.rs:664
 msgid "Picture layout"
 msgstr "Bildlayout"
 
@@ -1639,7 +1639,7 @@ msgstr "Lägg till fotoredigeringsfilter som skärpa, klarhet, ta bort dis, brus
 msgid "Without it there's no Filters card and the picture isn't sharpened, cleaned up or finished."
 msgstr "Utan det finns inte kortet Filter och bilden varken skärps, rensas upp eller ges slutfinish."
 
-#: rust/crates/effects/src/framing.rs:21 rust/crates/effects/ui/framing.slint:56
+#: rust/crates/effects/src/framing.rs:21 rust/crates/effects/ui/framing.slint:58
 msgid "Auto framing"
 msgstr "Automatisk inramning"
 
@@ -1795,18 +1795,22 @@ msgid "Follow everyone"
 msgstr ""
 
 #: rust/crates/effects/src/framing.rs:639
+msgid "People can't be picked while the preview shows a combined picture or another camera. Switch 3D or One picture off, or show a single camera."
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:640
 msgid "Frame everyone in view again."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:861
+#: rust/crates/effects/src/framing.rs:864
 msgid "Click the person to follow on the preview. Esc cancels."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:1086
+#: rust/crates/effects/src/framing.rs:1089
 msgid "Zoom and pan to keep you in the picture as you move."
 msgstr "Zooma och panorera för att hålla dig i bild när du rör dig."
 
-#: rust/crates/effects/src/framing.rs:1087
+#: rust/crates/effects/src/framing.rs:1090
 msgid "Without the Auto framing plugin there's no Auto framing card and the zoom only changes when you change it."
 msgstr "Utan tillägget Automatisk inramning finns inte kortet Automatisk inramning och zoomen ändras bara när du ändrar den."
 
@@ -2794,7 +2798,7 @@ msgstr "Gör båda telefonerna ljusare eller mörkare tillsammans efter Matcha, 
 msgid "Drop the colour curve Match made and leave the phones' exposure as it is."
 msgstr "Ta bort färgkurvan som Matcha skapade och lämna telefonernas exponering som den är."
 
-#: rust/crates/effects/src/stereo_plugin.rs:719 rust/crates/effects/src/stereo_plugin.rs:1169 rust/crates/effects/src/stereo_plugin.rs:1308 rust/crates/effects/src/stereo_plugin.rs:1308 rust/crates/effects/src/stereo_plugin.rs:1320 rust/crates/effects/ui/stereo.slint:55
+#: rust/crates/effects/src/stereo_plugin.rs:719 rust/crates/effects/src/stereo_plugin.rs:1172 rust/crates/effects/src/stereo_plugin.rs:1311 rust/crates/effects/src/stereo_plugin.rs:1311 rust/crates/effects/src/stereo_plugin.rs:1323 rust/crates/effects/ui/stereo.slint:55
 msgid "3D"
 msgstr "3D"
 
@@ -2874,11 +2878,11 @@ msgstr "Matchning misslyckades"
 msgid "Telescope couldn't read both phones and their pictures. Nothing was matched."
 msgstr "Telescope kunde inte läsa av båda telefonerna och deras bilder. Inget matchades."
 
-#: rust/crates/effects/src/stereo_plugin.rs:1170
+#: rust/crates/effects/src/stereo_plugin.rs:1173
 msgid "Turn two phones into one 3D picture, side by side for a headset or red and cyan for glasses."
 msgstr "Gör om två telefoner till en 3D-bild, sida vid sida för ett headset eller röd och cyan för glasögon."
 
-#: rust/crates/effects/src/stereo_plugin.rs:1171
+#: rust/crates/effects/src/stereo_plugin.rs:1174
 msgid "Without the 3D plugin there's no 3D card and two streams only go to their own cameras."
 msgstr "Utan tillägget 3D finns inte kortet 3D och två strömmar går bara till sina egna kameror."
 
@@ -3484,23 +3488,23 @@ msgstr "Skärp, rensa upp och ge bilden slutfinish som i en fotoredigerare."
 msgid "Set every filter back to neutral."
 msgstr "Återställ alla filter till neutralt läge."
 
-#: rust/crates/effects/ui/framing.slint:57
+#: rust/crates/effects/ui/framing.slint:59
 msgid "Zoom and pan to follow you as you move."
 msgstr "Zooma och panorera för att följa dig när du rör dig."
 
-#: rust/crates/effects/ui/framing.slint:71
+#: rust/crates/effects/ui/framing.slint:73
 msgid "Set the framing, speed, room and hand settings back to default."
 msgstr "Återställ inställningarna för inramning, hastighet, utrymme och händer till standard."
 
-#: rust/crates/effects/ui/framing.slint:82 rust/crates/effects/ui/framing.slint:89 rust/crates/effects/ui/framing.slint:90 rust/crates/outputs/src/webcam.rs:80
+#: rust/crates/effects/ui/framing.slint:84 rust/crates/effects/ui/framing.slint:91 rust/crates/effects/ui/framing.slint:92 rust/crates/outputs/src/webcam.rs:80
 msgid "Framing"
 msgstr "Inramning"
 
-#: rust/crates/effects/ui/framing.slint:126 rust/crates/effects/ui/framing.slint:133 rust/crates/effects/ui/framing.slint:134 rust/crates/effects/ui/notes.slint:171 rust/crates/effects/ui/notes.slint:177 rust/crates/effects/ui/notes.slint:178
+#: rust/crates/effects/ui/framing.slint:128 rust/crates/effects/ui/framing.slint:135 rust/crates/effects/ui/framing.slint:136 rust/crates/effects/ui/notes.slint:171 rust/crates/effects/ui/notes.slint:177 rust/crates/effects/ui/notes.slint:178
 msgid "Speed"
 msgstr "Hastighet"
 
-#: rust/crates/effects/ui/framing.slint:153 rust/crates/effects/ui/framing.slint:160 rust/crates/effects/ui/framing.slint:161
+#: rust/crates/effects/ui/framing.slint:155 rust/crates/effects/ui/framing.slint:162 rust/crates/effects/ui/framing.slint:163
 msgid "Room to move"
 msgstr "Rörelsemån"
 
@@ -7104,11 +7108,11 @@ msgstr "Ställer in fler virtuella kameror…"
 msgid "Couldn't add more virtual cameras"
 msgstr "Kunde inte lägga till fler virtuella kameror"
 
-#: rust/crates/shell/src/host.rs:665
+#: rust/crates/shell/src/host.rs:690
 msgid "Phone stream required."
 msgstr "Telefonström krävs."
 
-#: rust/crates/shell/src/host.rs:671
+#: rust/crates/shell/src/host.rs:696
 msgid "Light format required. Heavy sends whole pictures with no keyframes to work with."
 msgstr "Formatet Lätt krävs. Tung skickar hela bilder utan några nyckelbildrutor att arbeta med."
 
@@ -7921,61 +7925,61 @@ msgstr "Installera ett tillägg"
 msgid "Plugins (*.zip)"
 msgstr "Tillägg (*.zip)"
 
-#: rust/crates/shell/src/shell.rs:803
+#: rust/crates/shell/src/shell.rs:813
 #, python-brace-format
 msgid "Couldn't start {plugins}"
 msgid_plural "Couldn't start {plugins}"
 msgstr[0] "Kunde inte starta {plugins}"
 msgstr[1] "Kunde inte starta {plugins}"
 
-#: rust/crates/shell/src/shell.rs:805
+#: rust/crates/shell/src/shell.rs:815
 #, python-brace-format
 msgid "Couldn't start {n} plugin"
 msgid_plural "Couldn't start {n} plugins"
 msgstr[0] "Kunde inte starta {n} tillägg"
 msgstr[1] "Kunde inte starta {n} tillägg"
 
-#: rust/crates/shell/src/shell.rs:807
+#: rust/crates/shell/src/shell.rs:817
 msgid "Telescope works without the plugin. The Plugins tab in Settings shows what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings shows what went wrong."
 msgstr[0] "Telescope fungerar utan tillägget. Fliken Tillägg i Inställningar visar vad som gick fel."
 msgstr[1] "Telescope fungerar utan dem. Fliken Tillägg i Inställningar visar vad som gick fel."
 
-#: rust/crates/shell/src/shell.rs:811 rust/crates/shell/src/shell.rs:831
+#: rust/crates/shell/src/shell.rs:821 rust/crates/shell/src/shell.rs:841
 msgid "Plugins…"
 msgstr "Tillägg…"
 
-#: rust/crates/shell/src/shell.rs:825
+#: rust/crates/shell/src/shell.rs:835
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
 msgstr[0] "Tillägget {plugins} är avstängt"
 msgstr[1] "Tilläggen {plugins} är avstängda"
 
-#: rust/crates/shell/src/shell.rs:826
+#: rust/crates/shell/src/shell.rs:836
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "Du stängde av det här i Tillägg. Öppna Tillägg i Inställningar och slå på det igen för att få tillbaka det."
 msgstr[1] "Du stängde av de här i Tillägg. Öppna Tillägg i Inställningar och slå på dem igen för att få tillbaka dem."
 
-#: rust/crates/shell/src/shell.rs:849
+#: rust/crates/shell/src/shell.rs:859
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "En kopia av den gamla filen finns på {path}."
 
-#: rust/crates/shell/src/shell.rs:851
+#: rust/crates/shell/src/shell.rs:861
 msgid "Your settings couldn't be read"
 msgstr "Dina inställningar kunde inte läsas"
 
-#: rust/crates/shell/src/shell.rs:852
+#: rust/crates/shell/src/shell.rs:862
 msgid "Telescope started with its defaults and paired phones need pairing again."
 msgstr "Telescope startade med standardinställningarna och parkopplade telefoner måste parkopplas igen."
 
-#: rust/crates/shell/src/shell.rs:1250
+#: rust/crates/shell/src/shell.rs:1260
 msgid "Telescope - Save failed"
 msgstr "Telescope - Kunde inte spara"
 
-#: rust/crates/shell/src/shell.rs:1251
+#: rust/crates/shell/src/shell.rs:1261
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "Kunde inte spara inställningarna. Kontrollera diskutrymme och behörigheter."
 

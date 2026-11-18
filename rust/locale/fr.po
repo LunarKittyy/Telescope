@@ -180,7 +180,7 @@ msgstr "Obtenir VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "Éliminer les bruits de clavier, de ventilateur et le souffle de la pièce."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:662 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:664 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label} : {value}"
@@ -346,7 +346,7 @@ msgstr "Jaune : le limiteur atténue les crêtes. Rouge : le son a saturé."
 msgid "Click to clear"
 msgstr "Cliquer pour effacer"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:70 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:382 rust/crates/setup/ui/setup.slint:511 rust/crates/shell/src/plugins_tab.rs:726 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:382 rust/crates/setup/ui/setup.slint:511 rust/crates/shell/src/plugins_tab.rs:726 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "Réinitialiser"
 
@@ -1231,62 +1231,62 @@ msgstr "Combiner les flux actifs en une seule image."
 msgid "A layout you saved in the editor."
 msgstr "Une disposition enregistrée dans l'éditeur."
 
-#: rust/crates/effects/src/composite_plugin.rs:428 rust/crates/effects/src/composite_plugin.rs:633 rust/crates/effects/src/composite_plugin.rs:637 rust/crates/effects/src/composite_plugin.rs:650 rust/crates/effects/ui/composite.slint:21
+#: rust/crates/effects/src/composite_plugin.rs:428 rust/crates/effects/src/composite_plugin.rs:635 rust/crates/effects/src/composite_plugin.rs:639 rust/crates/effects/src/composite_plugin.rs:652 rust/crates/effects/ui/composite.slint:21
 msgid "One picture"
 msgstr "Image unique"
 
-#: rust/crates/effects/src/composite_plugin.rs:471
+#: rust/crates/effects/src/composite_plugin.rs:473
 msgid "Nothing's in the picture yet."
 msgstr "Il n'y a encore rien dans l'image."
 
-#: rust/crates/effects/src/composite_plugin.rs:473
+#: rust/crates/effects/src/composite_plugin.rs:475
 msgid "Active once two streams are running."
 msgstr "Actif dès que deux flux sont en cours de diffusion."
 
-#: rust/crates/effects/src/composite_plugin.rs:475
+#: rust/crates/effects/src/composite_plugin.rs:477
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "Configuré pour diffuser sur {camera}, mais aucun flux n'y est actif."
 
-#: rust/crates/effects/src/composite_plugin.rs:477
+#: rust/crates/effects/src/composite_plugin.rs:479
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "Diffusera sur {camera} dès que le flux transmettra une image."
 
-#: rust/crates/effects/src/composite_plugin.rs:479
+#: rust/crates/effects/src/composite_plugin.rs:481
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "Diffusion sur {camera}."
 
-#: rust/crates/effects/src/composite_plugin.rs:484
+#: rust/crates/effects/src/composite_plugin.rs:486
 msgid "Nothing in it"
 msgstr "Vide"
 
-#: rust/crates/effects/src/composite_plugin.rs:486 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
+#: rust/crates/effects/src/composite_plugin.rs:488 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
 msgid "Two streams required"
 msgstr "Deux flux requis"
 
-#: rust/crates/effects/src/composite_plugin.rs:488
+#: rust/crates/effects/src/composite_plugin.rs:490
 msgid "Not going out"
 msgstr "Non diffusé"
 
-#: rust/crates/effects/src/composite_plugin.rs:490
+#: rust/crates/effects/src/composite_plugin.rs:492
 msgid "Going out"
 msgstr "Diffusé"
 
-#: rust/crates/effects/src/composite_plugin.rs:535
+#: rust/crates/effects/src/composite_plugin.rs:537
 msgid "Several cameras in one picture"
 msgstr "Plusieurs caméras en une seule image"
 
-#: rust/crates/effects/src/composite_plugin.rs:536
+#: rust/crates/effects/src/composite_plugin.rs:538
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "Affichez les flux côte à côte ou incrustés l'un dans l'autre sur une seule caméra virtuelle."
 
-#: rust/crates/effects/src/composite_plugin.rs:537
+#: rust/crates/effects/src/composite_plugin.rs:539
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "Sans le plugin Plusieurs caméras en une image, la carte Une image n'est pas disponible et chaque flux est envoyé uniquement vers sa propre caméra."
 
-#: rust/crates/effects/src/composite_plugin.rs:638 rust/crates/effects/src/composite_plugin.rs:662
+#: rust/crates/effects/src/composite_plugin.rs:640 rust/crates/effects/src/composite_plugin.rs:664
 msgid "Picture layout"
 msgstr "Disposition de l'image"
 
@@ -1640,7 +1640,7 @@ msgstr "Ajoutez des filtres de retouche photo comme la netteté, la clarté, l'a
 msgid "Without it there's no Filters card and the picture isn't sharpened, cleaned up or finished."
 msgstr "Sans ce plugin, la carte Filtres n'est pas disponible et l'image ne bénéficie d'aucune amélioration de netteté, de nettoyage ou de finition."
 
-#: rust/crates/effects/src/framing.rs:21 rust/crates/effects/ui/framing.slint:56
+#: rust/crates/effects/src/framing.rs:21 rust/crates/effects/ui/framing.slint:58
 msgid "Auto framing"
 msgstr "Cadrage automatique"
 
@@ -1796,18 +1796,22 @@ msgid "Follow everyone"
 msgstr ""
 
 #: rust/crates/effects/src/framing.rs:639
+msgid "People can't be picked while the preview shows a combined picture or another camera. Switch 3D or One picture off, or show a single camera."
+msgstr ""
+
+#: rust/crates/effects/src/framing.rs:640
 msgid "Frame everyone in view again."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:861
+#: rust/crates/effects/src/framing.rs:864
 msgid "Click the person to follow on the preview. Esc cancels."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:1086
+#: rust/crates/effects/src/framing.rs:1089
 msgid "Zoom and pan to keep you in the picture as you move."
 msgstr "Ajustez le zoom et le panoramique pour vous garder dans le champ lorsque vous bougez."
 
-#: rust/crates/effects/src/framing.rs:1087
+#: rust/crates/effects/src/framing.rs:1090
 msgid "Without the Auto framing plugin there's no Auto framing card and the zoom only changes when you change it."
 msgstr "Sans le plugin Cadrage automatique, la carte Cadrage automatique n'est pas disponible et le zoom ne change que si vous le modifiez manuellement."
 
@@ -2795,7 +2799,7 @@ msgstr "Éclaircissez ou assombrissez simultanément les deux téléphones aprè
 msgid "Drop the colour curve Match made and leave the phones' exposure as it is."
 msgstr "Supprimer la courbe de couleurs générée par l'harmonisation et laisser l'exposition des téléphones telle quelle."
 
-#: rust/crates/effects/src/stereo_plugin.rs:719 rust/crates/effects/src/stereo_plugin.rs:1169 rust/crates/effects/src/stereo_plugin.rs:1308 rust/crates/effects/src/stereo_plugin.rs:1308 rust/crates/effects/src/stereo_plugin.rs:1320 rust/crates/effects/ui/stereo.slint:55
+#: rust/crates/effects/src/stereo_plugin.rs:719 rust/crates/effects/src/stereo_plugin.rs:1172 rust/crates/effects/src/stereo_plugin.rs:1311 rust/crates/effects/src/stereo_plugin.rs:1311 rust/crates/effects/src/stereo_plugin.rs:1323 rust/crates/effects/ui/stereo.slint:55
 msgid "3D"
 msgstr "3D"
 
@@ -2875,11 +2879,11 @@ msgstr "Échec de l'harmonisation"
 msgid "Telescope couldn't read both phones and their pictures. Nothing was matched."
 msgstr "Telescope n'a pas pu lire les deux téléphones et leurs images. Aucune harmonisation n'a été effectuée."
 
-#: rust/crates/effects/src/stereo_plugin.rs:1170
+#: rust/crates/effects/src/stereo_plugin.rs:1173
 msgid "Turn two phones into one 3D picture, side by side for a headset or red and cyan for glasses."
 msgstr "Combinez deux téléphones en une seule image 3D, côte à côte pour un casque ou en rouge et cyan pour des lunettes."
 
-#: rust/crates/effects/src/stereo_plugin.rs:1171
+#: rust/crates/effects/src/stereo_plugin.rs:1174
 msgid "Without the 3D plugin there's no 3D card and two streams only go to their own cameras."
 msgstr "Sans le plugin 3D, la carte 3D n'est pas disponible et les deux flux sont envoyés uniquement vers leurs propres caméras."
 
@@ -3485,23 +3489,23 @@ msgstr "Améliorez la netteté, nettoyez et finalisez l'image comme dans un édi
 msgid "Set every filter back to neutral."
 msgstr "Rétablir tous les filtres à zéro."
 
-#: rust/crates/effects/ui/framing.slint:57
+#: rust/crates/effects/ui/framing.slint:59
 msgid "Zoom and pan to follow you as you move."
 msgstr "Zoomer et effectuer un panoramique pour vous suivre dans vos mouvements."
 
-#: rust/crates/effects/ui/framing.slint:71
+#: rust/crates/effects/ui/framing.slint:73
 msgid "Set the framing, speed, room and hand settings back to default."
 msgstr "Rétablir le cadrage, la vitesse, la marge de mouvement et les réglages des mains aux valeurs par défaut."
 
-#: rust/crates/effects/ui/framing.slint:82 rust/crates/effects/ui/framing.slint:89 rust/crates/effects/ui/framing.slint:90 rust/crates/outputs/src/webcam.rs:80
+#: rust/crates/effects/ui/framing.slint:84 rust/crates/effects/ui/framing.slint:91 rust/crates/effects/ui/framing.slint:92 rust/crates/outputs/src/webcam.rs:80
 msgid "Framing"
 msgstr "Cadrage"
 
-#: rust/crates/effects/ui/framing.slint:126 rust/crates/effects/ui/framing.slint:133 rust/crates/effects/ui/framing.slint:134 rust/crates/effects/ui/notes.slint:171 rust/crates/effects/ui/notes.slint:177 rust/crates/effects/ui/notes.slint:178
+#: rust/crates/effects/ui/framing.slint:128 rust/crates/effects/ui/framing.slint:135 rust/crates/effects/ui/framing.slint:136 rust/crates/effects/ui/notes.slint:171 rust/crates/effects/ui/notes.slint:177 rust/crates/effects/ui/notes.slint:178
 msgid "Speed"
 msgstr "Vitesse"
 
-#: rust/crates/effects/ui/framing.slint:153 rust/crates/effects/ui/framing.slint:160 rust/crates/effects/ui/framing.slint:161
+#: rust/crates/effects/ui/framing.slint:155 rust/crates/effects/ui/framing.slint:162 rust/crates/effects/ui/framing.slint:163
 msgid "Room to move"
 msgstr "Marge de mouvement"
 
@@ -7105,11 +7109,11 @@ msgstr "Configuration de caméras virtuelles supplémentaires…"
 msgid "Couldn't add more virtual cameras"
 msgstr "Impossible d'ajouter des caméras virtuelles supplémentaires"
 
-#: rust/crates/shell/src/host.rs:665
+#: rust/crates/shell/src/host.rs:690
 msgid "Phone stream required."
 msgstr "Flux du téléphone requis."
 
-#: rust/crates/shell/src/host.rs:671
+#: rust/crates/shell/src/host.rs:696
 msgid "Light format required. Heavy sends whole pictures with no keyframes to work with."
 msgstr "Format Léger requis. Lourd envoie des images entières sans images clés exploitables."
 
@@ -7922,61 +7926,61 @@ msgstr "Installer un plugin"
 msgid "Plugins (*.zip)"
 msgstr "Plugins (*.zip)"
 
-#: rust/crates/shell/src/shell.rs:803
+#: rust/crates/shell/src/shell.rs:813
 #, python-brace-format
 msgid "Couldn't start {plugins}"
 msgid_plural "Couldn't start {plugins}"
 msgstr[0] "Impossible de démarrer {plugins}"
 msgstr[1] "Impossible de démarrer {plugins}"
 
-#: rust/crates/shell/src/shell.rs:805
+#: rust/crates/shell/src/shell.rs:815
 #, python-brace-format
 msgid "Couldn't start {n} plugin"
 msgid_plural "Couldn't start {n} plugins"
 msgstr[0] "Impossible de démarrer {n} plugin"
 msgstr[1] "Impossible de démarrer {n} plugins"
 
-#: rust/crates/shell/src/shell.rs:807
+#: rust/crates/shell/src/shell.rs:817
 msgid "Telescope works without the plugin. The Plugins tab in Settings shows what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings shows what went wrong."
 msgstr[0] "Telescope fonctionne sans le plugin. L'onglet Plugins dans les Paramètres indique ce qui s'est mal passé."
 msgstr[1] "Telescope fonctionne sans eux. L'onglet Plugins dans les Paramètres indique ce qui s'est mal passé."
 
-#: rust/crates/shell/src/shell.rs:811 rust/crates/shell/src/shell.rs:831
+#: rust/crates/shell/src/shell.rs:821 rust/crates/shell/src/shell.rs:841
 msgid "Plugins…"
 msgstr "Plugins…"
 
-#: rust/crates/shell/src/shell.rs:825
+#: rust/crates/shell/src/shell.rs:835
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
 msgstr[0] "{plugins} est désactivé"
 msgstr[1] "{plugins} sont désactivés"
 
-#: rust/crates/shell/src/shell.rs:826
+#: rust/crates/shell/src/shell.rs:836
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "Vous avez désactivé cet élément dans Plugins. Pour le réactiver, ouvrez Plugins dans les Paramètres et activez-le."
 msgstr[1] "Vous avez désactivé ces éléments dans Plugins. Pour les réactiver, ouvrez Plugins dans les Paramètres et activez-les."
 
-#: rust/crates/shell/src/shell.rs:849
+#: rust/crates/shell/src/shell.rs:859
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "Une copie de l'ancien fichier se trouve sous {path}."
 
-#: rust/crates/shell/src/shell.rs:851
+#: rust/crates/shell/src/shell.rs:861
 msgid "Your settings couldn't be read"
 msgstr "Impossible de lire vos paramètres"
 
-#: rust/crates/shell/src/shell.rs:852
+#: rust/crates/shell/src/shell.rs:862
 msgid "Telescope started with its defaults and paired phones need pairing again."
 msgstr "Telescope a démarré avec ses paramètres par défaut et les téléphones associés doivent être associés à nouveau."
 
-#: rust/crates/shell/src/shell.rs:1250
+#: rust/crates/shell/src/shell.rs:1260
 msgid "Telescope - Save failed"
 msgstr "Telescope - Échec de l'enregistrement"
 
-#: rust/crates/shell/src/shell.rs:1251
+#: rust/crates/shell/src/shell.rs:1261
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "Impossible d'enregistrer les paramètres. Vérifiez l'espace disque et les autorisations."
 
