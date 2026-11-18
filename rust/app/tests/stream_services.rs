@@ -58,6 +58,8 @@ struct Stills {
     progress: Later<dyn Fn(Value) + Send>,
     done: Later<dyn FnOnce(Value) + Send>,
     alive: Later<dyn Fn() -> bool + Send>,
+    /// The flags a photo that asked to be skipped while hidden was given for its own thread.
+    gates: Mutex<Vec<Arc<AtomicBool>>>,
 }
 
 impl PhoneStills for Stills {
@@ -80,6 +82,12 @@ impl PhoneStills for Stills {
         *self.done.lock().unwrap() = Some(on_done);
         *self.alive.lock().unwrap() = Some(alive);
         true
+    }
+    fn take_unless_hidden(&self, source_id: Option<&str>, stream_base: &str, phone: &PairedPhone, options: &Value, folder: &str,
+                          on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>, alive: Box<dyn Fn() -> bool + Send>,
+                          hidden: Arc<AtomicBool>) -> bool {
+        self.gates.lock().unwrap().push(hidden);
+        self.take(source_id, stream_base, phone, options, folder, on_progress, on_done, alive)
     }
     fn shutdown(&self) {}
 }
@@ -139,6 +147,53 @@ fn a_photo_ending_while_the_next_has_started_stays_busy() {
     r.pump();
     assert_eq!(busy(&r), ["panel busy pixel true"]);
     assert!(!take(&r), "one at a time");
+}
+
+fn skippable() -> Value {
+    json!({"format": "jpeg", "skip_if_hidden": true})
+}
+
+#[test]
+fn a_photo_that_asks_is_given_a_flag_that_follows_whether_the_picture_is_hidden() {
+    let (r, stills) = on_air_with_stills("photos-gate");
+    r.phone_says("pixel", state_with(json!({"stills_caps": {"formats": ["jpeg"]}})));
+    r.pump();
+    assert!(asks(&r, |host| host.take_still(&skippable(), "/tmp", None)).is_some());
+    r.pump();
+    assert_eq!(stills.taken.lock().unwrap().len(), 1);
+    let flag = stills.gates.lock().unwrap()[0].clone();
+    assert!(!flag.load(Ordering::SeqCst));
+    // A cover that lands after the photo went to the phone's thread is seen by it at once, not once the steps are made again
+    asks(&r, |host| host.set_hiding("wait_screen", None, true));
+    assert!(flag.load(Ordering::SeqCst));
+    asks(&r, |host| host.set_hiding("wait_screen", None, false));
+    assert!(!flag.load(Ordering::SeqCst));
+    // One that doesn't ask has nothing to watch
+    stills.done.lock().unwrap().take().unwrap()(json!({"ok": true, "files": []}));
+    r.until("it reported back", |r| r.heard().iter().any(|l| l.starts_with("panel done true")));
+    assert!(asks(&r, |host| host.take_still(&json!({"format": "jpeg"}), "/tmp", None)).is_some());
+    r.pump();
+    assert_eq!(stills.gates.lock().unwrap().len(), 1);
+    assert_eq!(stills.taken.lock().unwrap().len(), 2);
+}
+
+#[test]
+fn a_cover_asked_for_in_the_same_batch_as_a_photo_stops_it_and_it_ends_as_hidden() {
+    let (r, stills) = on_air_with_stills("photos-same-batch");
+    r.phone_says("pixel", state_with(json!({"stills_caps": {"formats": ["jpeg"]}})));
+    r.pump();
+    r.forget_heard();
+    // The photo is asked for, then a plugin says the picture is covered, before the window gets to either
+    let asked = asks(&r, |host| {
+        let id = host.take_still(&skippable(), "/tmp", None);
+        host.set_hiding("wait_screen", None, true);
+        id
+    });
+    assert!(asked.is_some());
+    r.until("it ended", |r| r.heard().iter().any(|l| l.starts_with("panel done false")));
+    assert!(stills.taken.lock().unwrap().is_empty(), "never reached the phone");
+    assert!(r.did_hear("panel done code hidden"), "{:?}", r.heard());
+    assert!(!busy(&r).iter().any(|l| l.ends_with("true")), "the phone never became busy: {:?}", busy(&r));
 }
 
 #[test]

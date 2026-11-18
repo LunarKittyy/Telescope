@@ -56,9 +56,8 @@ export component PhototrapCard inherits Card {
         has-icon: false;
         StatusLine { text: status; kind: status-kind; detail: status; }
     }
-    if tally != "": RailRow {
-        has-icon: false;
-        StatusLine { text: tally; detail: tally; }
+    UnfoldGroup {
+        StatusUnfold { text: tally; detail: tally; }
     }
     RailRow {
         icon: Icons.corners;

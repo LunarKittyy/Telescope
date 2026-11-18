@@ -586,6 +586,15 @@ pub trait HostPreview {
     /// the cards still act on source_id's stream. None as the target takes the owner's redirect off, and so does the owner going away. An owner
     /// has one at a time; a host without a preview ignores it.
     fn preview_follows(&mut self, _owner: &str, _source_id: Option<&str>, _target: Option<&str>) {}
+    /// Whether the preview draws the shown stream's own camera picture. It doesn't while a plugin has it draw another running stream
+    /// (preview_follows) or while the picture is made of several streams (preview_composited): a spot picked on it is then not a spot of
+    /// that stream's picture, and the people found in it are not the ones on screen.
+    fn preview_shows_own_picture(&self) -> bool {
+        true
+    }
+    /// A plugin says the picture stream source_id sends is made of several (Stereo's 3D picture, Composite's picture), not one camera's
+    /// view, or None that it no longer is. An owner has one at a time.
+    fn preview_composited(&mut self, _owner: &str, _source_id: Option<&str>) {}
 }
 
 /// Full-quality photos taken on the phone.
@@ -594,13 +603,17 @@ pub trait HostStills {
     /// Takes a photo with the /v1/still options into folder; None when it can't start. Progress and the result come as events.
     fn take_still(&mut self, options: &Value, folder: &str, source_id: Option<&str>) -> Option<RequestId>;
     fn still_busy(&self, source_id: Option<&str>) -> bool;
-    /// Whether the frame steps of that stream (the shown one for None) include one that hides the picture (a privacy blur, the wait screen, a
-    /// background), as of when they were last built. A photo comes straight off the phone and never passes through them. The options a photo is
-    /// taken with can say `"skip_if_hidden": true`, which makes the host check again when the photo is about to start and end it with a failed
-    /// RequestDone instead of taking it.
+    /// Whether pixels of that stream (the shown one for None) are being hidden now (a privacy blur, the wait screen, a background). A
+    /// plugin that hides tells the host through `set_hiding`. One whose frame steps exist and that never has told it counts as hiding. A
+    /// photo comes straight off the phone and never passes through those steps. The options a photo is taken with can say
+    /// `"skip_if_hidden": true`, which makes the host check again just before the request leaves for the phone and end it with a RequestDone
+    /// whose data has `"code": "hidden"` instead of taking it.
     fn picture_hidden(&self, _source_id: Option<&str>) -> bool {
         false
     }
+    /// A plugin with a Privacy, Cover or Background frame step says whether it hides the stream's pixels now (None: every stream), each
+    /// time that changes. It counts at once, not when the steps are next built. The host keeps it per owner.
+    fn set_hiding(&mut self, _owner: &str, _source_id: Option<&str>, _on: bool) {}
 }
 
 /// The colour pipeline: every plugin's colour changes baked into one LUT per stream.

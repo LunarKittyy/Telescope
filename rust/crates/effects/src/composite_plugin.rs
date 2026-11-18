@@ -464,6 +464,8 @@ impl CompositePlugin {
         // While it's on it draws from other streams' frames, which only keep coming when the steps run
         host.want_frames(NAME, self.on);
         let live = self.layout.tiles.iter().filter(|t| host.is_streaming_from(Some(&t.source_id))).count();
+        // the stream it draws on sends the picture of several, not one camera's view
+        host.preview_composited(NAME, self.target.as_deref().filter(|_| self.on && live >= 2));
         let camera = self.camera_label.as_str();
         self.note = if !self.on {
             String::new()

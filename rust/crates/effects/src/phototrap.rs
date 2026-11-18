@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use telescope_core::event::Event;
 use telescope_core::host::{Host, PickKind, PreviewLayer, RequestId, Shape};
 use telescope_core::i18n::{n_, tr, trn, Fields};
-use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
+use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use std::path::Path;
 use telescope_core::host::{Pick, View};
 use telescope_core::system::{file_url, free_space};
@@ -34,10 +34,13 @@ pub const STORAGE_BUDGET: u64 = 2 << 30;
 pub const MIN_FREE: u64 = 1 << 30;
 /// Entries looked at when adding up what the folder holds, so a folder someone filled with other things can't hold the card up.
 const SCAN_LIMIT: usize = 100_000;
+/// A burst nobody has heard the end of this long after its stream stopped is given up on, in seconds.
+const FORGET_AFTER_S: f64 = 60.0;
 
 const SWITCH_TIP: &str = n_("Watch the zones and take photos when something moves in them.");
 const DRAW_TIP: &str = n_("Drag across the preview to mark a place to watch. Up to four.");
 const DRAW_OFF_TIP: &str = n_("Switch on the Preview plugin to draw zones on the preview.");
+const DRAW_ELSEWHERE_TIP: &str = n_("Phototrap is armed on another phone. Switch to that one to draw zones.");
 const CLEAR_TIP: &str = n_("Remove every zone. With none, the whole picture is watched.");
 const NIGHT_TIP: &str = n_("Use the phone maker's Night mode for the photos.");
 const NIGHT_OFF_TIP: &str = n_("This lens has no Night mode to offer");
@@ -116,8 +119,8 @@ pub struct PhototrapPlugin {
     triggers: u32,
     photos: u32,
     last: String,
-    /// The bursts asked for that haven't finished.
-    taking: Vec<RequestId>,
+    /// The bursts asked for that haven't finished, with when their stream stopped (on the clock) if it has.
+    taking: Vec<(RequestId, Option<f64>)>,
     /// When the next trigger is allowed, in seconds on the clock.
     ready_at: f64,
     /// What went wrong with the last burst, until the next one works.
@@ -205,6 +208,14 @@ impl PhototrapPlugin {
         self.source.clone().or_else(|| host.focused_source_id())
     }
 
+    /// Whether the panels show the stream it's armed on, which is where zones can be drawn and seen. Always so while it isn't armed.
+    fn on_armed_source(&self, host: &dyn Host) -> bool {
+        match (&self.source, self.armed) {
+            (Some(source), true) => host.focused_source_id().as_deref() == Some(source.as_str()),
+            _ => true,
+        }
+    }
+
     fn read_caps(&self, host: &dyn Host) -> Option<StillCaps> {
         let id = self.target(host)?;
         host.still_caps(Some(&id)).and_then(|v| serde_json::from_value(v).ok())
@@ -278,10 +289,11 @@ impl PhototrapPlugin {
         let max = self.burst_max();
         let night_offered = self.night_offered();
         let preview = host.has_plugin("preview");
+        let here = self.on_armed_source(host);
         json!({
             "active": self.paired.on(), "armed": self.armed, "status": status, "status-kind": kind, "tally": self.tally(),
-            "zone-count": self.zones.len(), "draw-enabled": self.zones.len() < MAX_ZONES && preview, "clear-enabled": !self.zones.is_empty(),
-            "draw-tip": tr(if preview { DRAW_TIP } else { DRAW_OFF_TIP }),
+            "zone-count": self.zones.len(), "draw-enabled": self.zones.len() < MAX_ZONES && preview && here, "clear-enabled": !self.zones.is_empty(),
+            "draw-tip": tr(if !preview { DRAW_OFF_TIP } else if !here { DRAW_ELSEWHERE_TIP } else { DRAW_TIP }),
             "folder-text": self.shown_folder(), "folder-tip": self.folder,
             "sensitivity": self.sensitivity, "sensitivity-text": self.sensitivity.to_string(),
             "count": self.count_now().max(2), "count-max": max.max(3), "count-text": self.count_now().to_string(), "count-enabled": max >= 2,
@@ -334,9 +346,9 @@ impl PhototrapPlugin {
         PreviewLayer { shapes }
     }
 
-    /// The zones are on the preview while the window shows or it's armed.
+    /// The zones are on the preview while the window shows or it's armed, but never on a stream they aren't watching.
     fn show_layer(&self, host: &mut dyn Host) {
-        if self.armed || self.window_shown {
+        if (self.armed || self.window_shown) && self.on_armed_source(host) {
             let layer = self.layer(&host.view());
             host.add_preview_layer(NAME, layer);
         } else {
@@ -428,7 +440,7 @@ impl PhototrapPlugin {
         // The host looks again when the request is about to go to the phone
         options["skip_if_hidden"] = json!(true);
         let Some(id) = host.take_still(&options, &self.folder, Some(&source)) else { return };
-        self.taking.push(id);
+        self.taking.push((id, None));
         self.triggers += 1;
         self.last = local_clock();
         self.ready_at = now + f64::from(self.pause_s);
@@ -448,6 +460,8 @@ impl PhototrapPlugin {
         self.used += files.iter().filter_map(|f| std::fs::metadata(f).ok()).map(|m| m.len()).sum::<u64>();
         if ok && !files.is_empty() {
             self.problem = None;
+        } else if data.get("code").and_then(Value::as_str) == Some("interrupted") {
+            // The stream stopped or changed lens under it: the card already says it's waiting
         } else {
             let error = data.get("error").and_then(Value::as_str).filter(|e| !e.is_empty());
             self.problem = Some(error.map_or_else(|| tr("The phone couldn't take the photos"), String::from));
@@ -463,6 +477,10 @@ impl PhototrapPlugin {
     fn picked(&mut self, host: &mut dyn Host, pick: &Pick) {
         self.drawing = false;
         self.follow_view(host);
+        // A zone is where the armed stream looks, so one drawn on another stream's picture isn't one
+        if !self.on_armed_source(host) {
+            return;
+        }
         // Where the points are in the whole picture, turned the way the view turns it, as the detector has it
         let &[a, b] = pick.full.as_slice() else { return };
         let turn = turned(Turn::default(), self.orientation);
@@ -494,10 +512,20 @@ impl PhototrapPlugin {
     }
 
     fn draw(&mut self, host: &mut dyn Host) {
-        if self.zones.len() >= MAX_ZONES || !host.has_plugin("preview") {
+        if self.zones.len() >= MAX_ZONES || !host.has_plugin("preview") || !self.on_armed_source(host) {
             return;
         }
         self.drawing = host.pick_on_preview(NAME, PickKind::Rect, None, &tr("Drag across the picture to mark a zone. Esc cancels."));
+    }
+
+    /// The panels moved to another stream: zones can't be drawn or seen on one the trap isn't armed on.
+    fn focus_moved(&mut self, host: &mut dyn Host) {
+        if self.drawing && !self.on_armed_source(host) {
+            self.drawing = false;
+            host.cancel_pick(NAME);
+        }
+        self.sync(host);
+        self.show_layer(host);
     }
 
     fn set_number(&mut self, host: &mut dyn Host, which: &str, value: f64) {
@@ -564,8 +592,14 @@ impl Plugin for PhototrapPlugin {
         host.remove_preview_layer(NAME);
     }
 
+    fn on_focus_gained(&mut self, host: &mut dyn Host, _stream: &StreamInfo) {
+        self.focus_moved(host);
+    }
+
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
         self.catch_up(host);
+        let now = self.now();
+        self.taking.retain(|(_, lost)| lost.is_none_or(|at| now - at < FORGET_AFTER_S));
         if let Some(on) = self.paired.hear(event) {
             host.set_ui_props("card", &json!({"active": on}));
         }
@@ -576,8 +610,8 @@ impl Plugin for PhototrapPlugin {
                 Some(pick) => self.picked(host, pick),
                 None => self.drawing = false,
             },
-            Event::RequestDone { request, ok, data, .. } if self.taking.contains(request) => {
-                self.taking.retain(|r| r != request);
+            Event::RequestDone { request, ok, data, .. } if self.taking.iter().any(|(r, _)| r == request) => {
+                self.taking.retain(|(r, _)| r != request);
                 self.done(host, *ok, data);
             }
             Event::WindowShown { shown } => {
@@ -586,7 +620,11 @@ impl Plugin for PhototrapPlugin {
             }
             Event::StreamStopped => {
                 self.down = true;
-                self.taking.clear();
+                // The bursts still end on their own and say what reached the folder
+                let now = self.now();
+                for (_, lost) in &mut self.taking {
+                    lost.get_or_insert(now);
+                }
                 self.sync(host);
             }
             Event::StreamStarted { .. } | Event::StreamConnected { .. } => {
@@ -600,7 +638,8 @@ impl Plugin for PhototrapPlugin {
                 self.follow_view(host);
                 self.show_layer(host);
             }
-            Event::StillCapsChanged { .. } | Event::StreamLost { .. } | Event::SourceSelected { .. } | Event::CameraSwitched { .. } => self.sync(host),
+            Event::SourceSelected { .. } => self.focus_moved(host),
+            Event::StillCapsChanged { .. } | Event::StreamLost { .. } | Event::CameraSwitched { .. } => self.sync(host),
             _ => {}
         }
     }

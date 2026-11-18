@@ -11,18 +11,21 @@
 
 #[cfg(any(windows, test))]
 mod frame_count;
+#[cfg(any(windows, test))]
+mod grab;
 #[cfg(windows)]
 mod windows;
 #[cfg(target_os = "linux")]
 mod pipewire;
 
 use crate::convert::{bgra_to_i420, rgb_to_i420};
+use crate::spout_shared::planes;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Duration, Instant};
-use telescope_core::frame::Frame;
+use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::host::{Host, Poster};
 use telescope_core::i18n::{n_, tr, Fields};
 use telescope_core::event::Event;
@@ -75,12 +78,15 @@ impl Sender {
     }
 }
 
+/// The fourcc of a picture that is I420 planes already (the card made them): luma, then U, then V, each packed with no padding.
+const I420: &str = "I420";
+
 /// One picture from a sender, rows packed with no padding.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Picture {
     pub width: u32,
     pub height: u32,
-    /// "BGRA", "RGBA", "BGRx" or "RGBx": the byte order of a pixel, the fourth byte (alpha or unused) being dropped.
+    /// "BGRA", "RGBA", "BGRx" or "RGBx": the byte order of a pixel, the fourth byte (alpha or unused) being dropped. Or "I420": planes, not pixels.
     pub fourcc: &'static str,
     pub data: Vec<u8>,
 }
@@ -101,6 +107,8 @@ pub trait Backend: Send + Sync {
 pub trait Reader: Send {
     /// The next new picture, waiting up to `timeout` for it: Ok(None) on timeout (the sender is idle), Err once the sender is gone.
     fn next(&mut self, timeout: Duration) -> Result<Option<Picture>, String>;
+    /// A flag that is set when the stream is stopped, which a reader that can wait on the card ends its wait for (with an Err) instead of holding the stop up.
+    fn set_stop(&mut self, _stop: Arc<AtomicBool>) {}
 }
 
 /// The backend this system has, if any.
@@ -126,7 +134,7 @@ fn packet_of(picture: &Picture) -> Vec<u8> {
     out
 }
 
-/// Turns the packets of `packet_of` into I420 frames, alpha dropped.
+/// Turns the packets of `packet_of` into I420 frames, alpha dropped; a picture that is I420 already is passed on as it is.
 #[derive(Default)]
 struct SpoutDecoder;
 
@@ -146,7 +154,13 @@ impl SpoutDecoder {
     fn frame(&self, bytes: &[u8]) -> Option<Frame> {
         let (head, pixels) = bytes.split_at_checked(12)?;
         let (width, height) = (u32::from_le_bytes(head[..4].try_into().ok()?), u32::from_le_bytes(head[4..8].try_into().ok()?));
-        if width == 0 || height == 0 || pixels.len() != width as usize * height as usize * 4 {
+        if width == 0 || height == 0 {
+            return None;
+        }
+        if &head[8..12] == I420.as_bytes() {
+            return (pixels.len() == planes::i420_len(width, height)).then(|| Frame::new(width, height, PixelFormat::I420, pixels.to_vec()));
+        }
+        if pixels.len() != width as usize * height as usize * 4 {
             return None;
         }
         match &head[8..12] {
@@ -248,6 +262,11 @@ impl StreamSource for SpoutSource {
                 return if self.shared.sender(&self.key).is_none() { self.say(GONE_TEXT, "gone") } else { self.say(CANT_READ_TEXT, "silent") };
             }
         };
+        // One flag for the open and the feed after it, so a stop reaches a reader that is waiting on the card at either time
+        let stop = Arc::new(AtomicBool::new(false));
+        reader.set_stop(stop.clone());
+        let stopper = stop.clone();
+        open.watch(move || stopper.store(true, Ordering::SeqCst));
         let started = Instant::now();
         let first = loop {
             if open.stopped() {
@@ -257,6 +276,7 @@ impl StreamSource for SpoutSource {
                 Ok(Some(picture)) => break picture,
                 Ok(None) if started.elapsed() < FIRST_PICTURE => {}
                 Ok(None) => return self.say(SILENT_TEXT, "silent"),
+                Err(_) if open.stopped() => return Err("stopped".into()),
                 Err(why) => {
                     log::info!("Spout sender {} gave nothing: {why}", self.name());
                     return self.say(GONE_TEXT, "gone");
@@ -264,7 +284,6 @@ impl StreamSource for SpoutSource {
             }
         };
         self.report("ok", &format!("{}×{}", first.width, first.height));
-        let stop = Arc::new(AtomicBool::new(false));
         let feed = SpoutFeed {
             reader, first: Some(first), stop, shared: self.shared.clone(), key: self.key.clone(), poster: self.poster.clone(), waiting: self.waiting.clone(),
             last: None, last_sent: Instant::now(), asked: Instant::now(),
@@ -362,6 +381,7 @@ impl VideoFeed for SpoutFeed {
                     }
                 }
                 Ok(None) => {}
+                Err(_) if self.stop.load(Ordering::SeqCst) => return Err(FeedEnd::Stopped),
                 Err(why) => {
                     *self.waiting.lock().unwrap() = tr(GONE_TEXT);
                     self.post("gone", "");

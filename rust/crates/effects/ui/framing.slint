@@ -42,6 +42,8 @@ export component FramingCard inherits Card {
     // One person picked on the preview to follow
     in property <bool> following;
     in property <bool> picking;
+    in property <bool> pick-blocked;
+    in property <string> pick-blocked-tip;
     in property <string> pick-name;
     in property <string> pick-text;
     in property <string> pick-again-text;
@@ -186,12 +188,12 @@ export component FramingCard inherits Card {
             Button {
                 horizontal-stretch: 1;
                 preferred-width: Theme.u(500);
-                enabled: active && !picking;
+                enabled: active && !picking && !pick-blocked;
                 role: following ? "" : "primary";
                 hue: root.hue;
                 text: following ? pick-again-text : pick-text;
                 tip: pick-name;
-                tip-detail: pick-tip;
+                tip-detail: pick-blocked ? pick-blocked-tip : pick-tip;
                 clicked => { root.pick-clicked(); }
             }
             if following: Button {

@@ -147,6 +147,8 @@ pub struct FakeHost {
     pub warp: Option<[f32; 9]>,
     /// What each owner last asked the preview to follow, as (stream shown, stream drawn).
     pub follows: HashMap<String, (String, String)>,
+    /// Host::preview_composited by owner
+    pub composited: HashMap<String, String>,
     /// What can_turn_camera_off() answers instead of (false, "Not streaming").
     pub can_turn_off: Option<(bool, String)>,
     /// What vision_state() answers instead of "off".
@@ -205,6 +207,8 @@ pub struct FakeHost {
     pub still_only_for: Option<String>,
     /// What picture_hidden() answers.
     pub picture_hidden: bool,
+    /// What set_hiding() was told, as (owner, source id, on) in order.
+    pub hiding: Vec<(String, Option<String>, bool)>,
     /// What stream_on_camera() answers, as (slot, source id, width, height).
     pub cameras: Vec<(u32, String, Option<u32>, Option<u32>)>,
     /// Streams is_streaming_from() says run, besides the focused one while streaming.
@@ -726,6 +730,16 @@ impl HostPreview for FakeHost {
         self.warp = matrix;
         self.note(format!("set_preview_warp {owner} {}", matrix.is_some()));
     }
+    fn preview_shows_own_picture(&self) -> bool {
+        let shown = self.focused_source_id();
+        !self.follows.values().any(|(s, _)| Some(s) == shown.as_ref()) && !self.composited.values().any(|s| Some(s) == shown.as_ref())
+    }
+    fn preview_composited(&mut self, owner: &str, source_id: Option<&str>) {
+        match source_id {
+            Some(s) => self.composited.insert(owner.to_string(), s.to_string()),
+            None => self.composited.remove(owner),
+        };
+    }
     fn preview_follows(&mut self, owner: &str, source_id: Option<&str>, target: Option<&str>) {
         match (source_id, target) {
             (Some(source), Some(target)) => self.follows.insert(owner.to_string(), (source.to_string(), target.to_string())),
@@ -758,6 +772,9 @@ impl HostStills for FakeHost {
     }
     fn picture_hidden(&self, _source_id: Option<&str>) -> bool {
         self.picture_hidden
+    }
+    fn set_hiding(&mut self, owner: &str, source_id: Option<&str>, on: bool) {
+        self.hiding.push((owner.to_string(), source_id.map(String::from), on));
     }
 }
 
