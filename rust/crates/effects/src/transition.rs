@@ -390,8 +390,9 @@ fn smooth(t: f64) -> f64 {
     t * t * (3.0 - 2.0 * t)
 }
 
-/// What the column (or row, with `vertical`) at s (0 to 1) shows `p` (0 to 1, eased) of the way through the whole-picture transition `kind`.
-pub fn cell(kind: Kind, vertical: bool, s: f64, p: f64) -> Cell {
+/// What the column (or row, with `vertical`) at s (0 to 1) shows `p` (0 to 1, eased) of the way through the whole-picture transition `kind`;
+/// `aspect` is the picture's width over its height.
+pub fn cell(kind: Kind, vertical: bool, s: f64, p: f64, aspect: f64) -> Cell {
     let same = Cell { a: s, b: s, mix: 1.0 };
     match kind {
         Kind::Slide if !vertical => {
@@ -425,7 +426,8 @@ pub fn cell(kind: Kind, vertical: bool, s: f64, p: f64) -> Cell {
         }
         // a mosaic of big squares that grows and shrinks again, the new picture taking over at the top of it
         Kind::Pixelate => {
-            let size = 0.07 * (std::f64::consts::PI * p).sin();
+            // squares: as wide as a share of the width, and that share of the width again down
+            let size = 0.07 * (std::f64::consts::PI * p).sin() * if vertical { aspect } else { 1.0 };
             let q = if size < 0.003 { s } else { let n = 1.0 / size; ((s * n).floor() + 0.5) / n };
             Cell { a: q, b: q, mix: if vertical { 1.0 } else { ((p - 0.35) / 0.3).clamp(0.0, 1.0) } }
         }

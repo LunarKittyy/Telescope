@@ -103,12 +103,12 @@ fn whole_picture_transitions_begin_on_the_old_picture_and_end_on_the_new_one() {
     for kind in [Kind::Crossfade, Kind::Slide, Kind::Push, Kind::Zoom, Kind::Wipe, Kind::Blinds, Kind::Curtain, Kind::Pixelate] {
         for s in [0.1, 0.5, 0.9] {
             for vertical in [false, true] {
-                let (first, last) = (cell(kind, vertical, s, 0.0), cell(kind, vertical, s, 1.0));
+                let (first, last) = (cell(kind, vertical, s, 0.0, 16.0 / 9.0), cell(kind, vertical, s, 1.0, 16.0 / 9.0));
                 // at the start every pixel's mix of B is 0 along one axis at least, and A is where it was
                 assert!(near(first.a, s), "{kind:?} {vertical} at the start: {first:?}");
                 assert!(near(last.b, s) && near(last.mix, 1.0), "{kind:?} {vertical} at the end: {last:?}");
             }
-            assert!(near(cell(kind, false, s, 0.0).mix * cell(kind, true, s, 0.0).mix, 0.0), "{kind:?} shows nothing of the new picture at the start");
+            assert!(near(cell(kind, false, s, 0.0, 16.0 / 9.0).mix * cell(kind, true, s, 0.0, 16.0 / 9.0).mix, 0.0), "{kind:?} shows nothing of the new picture at the start");
         }
     }
 }
