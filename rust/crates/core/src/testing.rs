@@ -187,6 +187,8 @@ pub struct FakeHost {
     pub preset_plugins: Vec<String>,
     /// What reduced_motion() says: (reduced, off).
     pub reduced_motion: (bool, bool),
+    /// The Save preset questions for a plugin; saving adds the answers to its config as "picks".
+    pub preset_options: Vec<(String, crate::plugin::PresetOption)>,
     /// What's on the clipboard: copy_text puts text there unless the clipboard is deaf (Wayland ignores a copy from a window
     /// in the background).
     pub clipboard: Option<String>,
@@ -322,6 +324,18 @@ impl HostSettings for FakeHost {
     }
     fn preset_plugins(&self) -> Vec<String> {
         self.preset_plugins.clone()
+    }
+    fn plugin_preset_options(&self, name: &str) -> Vec<crate::plugin::PresetOption> {
+        self.preset_options.iter().filter(|(p, _)| p == name).map(|(_, o)| o.clone()).collect()
+    }
+    fn plugin_preset_config_with(&self, name: &str, picks: &[(String, String)]) -> Option<Value> {
+        let mut cfg = self.plugin_configs.get(name).cloned()?;
+        if let Value::Object(map) = &mut cfg {
+            if !picks.is_empty() {
+                map.insert("picks".into(), json!(picks));
+            }
+        }
+        Some(cfg)
     }
     fn plugin_settings(&self) -> Vec<PluginSettings> {
         self.settings.clone()

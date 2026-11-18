@@ -111,6 +111,12 @@ impl HostSettings for Ctx<'_> {
     fn plugin_preset_config(&self, name: &str) -> Option<Value> {
         self.state.plugin_preset_config(name)
     }
+    fn plugin_preset_options(&self, name: &str) -> Vec<telescope_core::PresetOption> {
+        self.state.plugin_preset_options(name)
+    }
+    fn plugin_preset_config_with(&self, name: &str, picks: &[(String, String)]) -> Option<Value> {
+        self.state.plugin_preset_config_with(name, picks)
+    }
     fn apply_preset(&mut self, name: &str, cfg: &Value) {
         if let Some(i) = self.state.index(name) {
             let cfg = cfg.clone();
