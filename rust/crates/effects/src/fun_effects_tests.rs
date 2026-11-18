@@ -316,6 +316,61 @@ fn slit_bands_match_the_full_scan_byte_for_byte() {
 }
 
 #[test]
+fn the_1998_webcam_gives_the_same_bytes_at_4k_with_a_repeat() {
+    let (mut old, mut new) = twin_webcams();
+    let mut history = Vec::new();
+    for n in 0..3 {
+        let source = frame_in(&busy_photo(3840, 2160, n), PixelFormat::I420);
+        let (mut a, mut b) = (source.clone(), source);
+        webcam_before(&mut old, &mut a);
+        assert!(new.run_frame(&mut b));
+        assert!(a.data == b.data, "4K frame {n}");
+        // kept alive, as the history does
+        history.push(b);
+    }
+}
+
+#[test]
+fn the_1998_webcam_reads_a_decoders_bgr_with_padding_and_an_offset_as_the_rgb_path_did() {
+    use telescope_core::frame::Bgr;
+    let (w, h) = (321usize, 241usize);
+    let (start, stride) = (5, w * 3 + 7);
+    let (mut old, mut new) = twin_webcams();
+    for n in 0..4 {
+        let photo = busy_photo(w, h, n);
+        let mut data = vec![9u8; start + stride * h];
+        for y in 0..h {
+            for x in 0..w {
+                let [r, g, b] = [photo.data[(y * w + x) * 3], photo.data[(y * w + x) * 3 + 1], photo.data[(y * w + x) * 3 + 2]];
+                data[start + y * stride + x * 3..][..3].copy_from_slice(&[b, g, r]);
+            }
+        }
+        // the planes are a different picture, so only a read of the BGR gives the expected bytes
+        let source = frame_in(&busy_photo(w, h, n + 50), PixelFormat::I420).with_bgr(Arc::new(Bgr { data, start, stride }));
+        assert!(source.has_bgr());
+        let (mut a, mut b) = (source.clone(), source);
+        webcam_before(&mut old, &mut a);
+        assert!(new.run_frame(&mut b));
+        assert!(a.data == b.data, "frame {n}");
+        assert!(!b.has_bgr(), "the handed out pixels are not the decoder's picture");
+    }
+}
+
+#[test]
+fn the_1998_webcams_repeat_is_still_the_clean_picture_after_an_edit_in_place() {
+    let (mut old, mut new) = twin_webcams();
+    let source = frame_in(&busy_photo(640, 360, 2), PixelFormat::I420);
+    for n in 0..3 {
+        let (mut a, mut b) = (source.clone(), source.clone());
+        webcam_before(&mut old, &mut a);
+        assert!(new.run_frame(&mut b));
+        assert!(a.data == b.data, "frame {n}");
+        // the only holder draws on it, as the name tag does
+        b.data_mut().fill(0);
+    }
+}
+
+#[test]
 #[ignore = "timing bench, run with --release -- --ignored --nocapture"]
 fn bench_slit() {
     for (sw, sh) in [(960usize, 540usize), (1920, 1080)] {
@@ -697,5 +752,125 @@ fn bench_vhs_parts() {
             v.run_i420(f.data_mut(), w, h);
         }));
         println!("vhs parts {w}x{h}: rgb path {:.2} ms", timed(&mut || drop(std::hint::black_box(v.run(&frame)))));
+    }
+}
+
+/// A picture with detail at every scale, a different one for each seed.
+fn busy_photo(w: usize, h: usize, seed: usize) -> Rgb {
+    let mut r = Rgb::new(w, h);
+    for y in 0..h {
+        for x in 0..w {
+            let n = (x * 7 + y * 13 + seed * 31) ^ (x * y / 5 + seed);
+            r.set(x, y, [((x * 255 / w + seed * 20) % 256) as u8, ((y * 255 / h) % 256) as u8, (n % 256) as u8]);
+        }
+    }
+    r
+}
+
+fn frame_in(rgb: &Rgb, format: PixelFormat) -> Frame {
+    let mut f = Frame::new(rgb.w as u32, rgb.h as u32, format, vec![0; format.size(rgb.w as u32, rgb.h as u32)]);
+    rgb.write_to(&mut f);
+    f
+}
+
+/// What the 1998 webcam did through the full-size RGB picture before it worked on the frame's own planes.
+fn webcam_before(cam: &mut Webcam, frame: &mut Frame) {
+    let rgb = Rgb::from_frame(frame).unwrap();
+    cam.run(&rgb).write_to(frame);
+}
+
+fn twin_webcams() -> (Webcam, Webcam) {
+    let (mut a, mut b) = (Webcam::new(), Webcam::new());
+    a.noise = Noise(0x1234_5678_9abc_def1);
+    b.noise = Noise(0x1234_5678_9abc_def1);
+    (a, b)
+}
+
+#[test]
+fn the_1998_webcam_on_a_frames_own_data_gives_the_bytes_the_rgb_path_did() {
+    for (w, h) in [(1280, 720), (1366, 768), (1000, 562), (321, 241), (640, 483), (2, 2), (321, 1)] {
+        for format in [PixelFormat::I420, PixelFormat::Nv12, PixelFormat::Rgba, PixelFormat::Bgra] {
+            let (mut old, mut new) = twin_webcams();
+            for n in 0..6 {
+                let source = frame_in(&busy_photo(w, h, n), format);
+                let (mut a, mut b) = (source.clone(), source);
+                webcam_before(&mut old, &mut a);
+                assert!(new.run_frame(&mut b));
+                assert!(a.data == b.data, "{w}x{h} {format:?} frame {n}");
+            }
+        }
+    }
+}
+
+#[test]
+fn the_1998_webcam_keeps_its_rhythm_across_size_and_format_changes_and_edits_to_what_it_handed_out() {
+    let (mut old, mut new) = twin_webcams();
+    let steps = [
+        (640, 360, PixelFormat::I420),
+        (640, 360, PixelFormat::I420),
+        (640, 360, PixelFormat::I420),
+        (800, 450, PixelFormat::I420),
+        (800, 450, PixelFormat::Nv12),
+        (800, 450, PixelFormat::Nv12),
+        (800, 450, PixelFormat::Nv12),
+        (800, 450, PixelFormat::Rgba),
+        (321, 241, PixelFormat::Bgra),
+        (321, 241, PixelFormat::Bgra),
+        (321, 241, PixelFormat::Bgra),
+    ];
+    for (n, (w, h, format)) in steps.into_iter().enumerate() {
+        let source = frame_in(&busy_photo(w, h, n), format);
+        let (mut a, mut b) = (source.clone(), source);
+        webcam_before(&mut old, &mut a);
+        assert!(new.run_frame(&mut b));
+        assert!(a.data == b.data, "step {n}");
+        // whoever edits the picture gets a copy, the webcam's own stays as it was
+        b.data_mut().fill(0);
+    }
+}
+
+#[test]
+fn the_1998_webcam_hands_out_the_same_pixels_again_on_a_repeated_frame() {
+    let mut cam = Webcam::new();
+    let source = frame_in(&busy_photo(640, 360, 1), PixelFormat::I420);
+    let (mut first, mut second, mut repeat) = (source.clone(), source.clone(), source);
+    cam.run_frame(&mut first);
+    cam.run_frame(&mut second);
+    cam.run_frame(&mut repeat);
+    assert!(Arc::ptr_eq(&second.data, &repeat.data));
+    assert!(second.data == repeat.data);
+    assert_ne!(first.data, second.data);
+}
+
+#[test]
+#[ignore = "timing bench, run with --release -- --ignored --nocapture"]
+fn bench_1998_webcam() {
+    for (w, h) in [(1920usize, 1080usize), (3840, 2160)] {
+        let source = frame_in(&busy_photo(w, h, 3), PixelFormat::I420);
+        let time = |work: &mut dyn FnMut(&mut Frame)| {
+            // frames as the pipeline hands them in, nobody else holding their pixels
+            let mut inputs: Vec<Frame> = (0..16)
+                .map(|_| {
+                    let mut f = source.clone();
+                    f.data_mut();
+                    f
+                })
+                .collect();
+            for f in &mut inputs[..4] {
+                work(f);
+            }
+            let start = std::time::Instant::now();
+            for f in &mut inputs[4..] {
+                work(f);
+            }
+            std::hint::black_box(&inputs);
+            start.elapsed().as_secs_f64() * 1000.0 / 12.0
+        };
+        let (mut old, mut new) = twin_webcams();
+        let before = time(&mut |f| webcam_before(&mut old, f));
+        let after = time(&mut |f| {
+            new.run_frame(f);
+        });
+        println!("1998 webcam {w}x{h}: before {before:.2} ms, after {after:.2} ms a frame (even and odd frames)");
     }
 }

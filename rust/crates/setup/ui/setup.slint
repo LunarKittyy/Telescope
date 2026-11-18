@@ -179,6 +179,10 @@ export component VideoSettings inherits Card {
     in property <bool> hw-enabled;
     in-out property <bool> hw-checked;
     in property <string> hw-line;
+    in property <[string]> gpu-items;
+    in-out property <int> gpu-current;
+    in property <bool> gpu-restart;
+    in property <string> gpu-line;
     in-out property <bool> saving-checked;
     in-out property <string> zoom-text: "10×";
     in property <[string]> canvas-items;
@@ -194,6 +198,8 @@ export component VideoSettings inherits Card {
     in property <string> apply-tip;
     in property <string> canvas-command;
     callback hw-toggled(bool);
+    callback gpu-picked(int, string);
+    callback restart-clicked;
     callback saving-toggled(bool);
     callback zoom-committed(string);
     callback zoom-step(int);
@@ -227,6 +233,45 @@ export component VideoSettings inherits Card {
             toggled(on) => { root.hw-toggled(on); }
         }
         StatusRow { text: hw-line; kind: "status_dim"; detail: hw-line; }
+    }
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.chip;
+            label: @tr("Graphics card");
+            tip: @tr("Which graphics card Telescope uses");
+            tip-detail: @tr("Automatic follows what your system picks. Choose a card here if the system picks the wrong one. A change applies after a restart.");
+            named: true;
+            hue: root.hue;
+            keywords: @tr("search" => "gpu graphics card nvidia amd intel integrated discrete laptop hybrid switch choose select");
+            ChoiceField {
+                width: Theme.control-w;
+                compact: true;
+                name: @tr("Graphics card");
+                items: root.gpu-items;
+                current <=> root.gpu-current;
+                picked(i) => { root.gpu-current = i; root.gpu-picked(i, root.gpu-items[i]); }
+            }
+        }
+        StatusRow { text: gpu-line; kind: "status_dim"; detail: gpu-line; }
+        Unfolding {
+            open: gpu-restart;
+            RailRow {
+                has-icon: false;
+                HorizontalLayout {
+                    spacing: Theme.gap;
+                    KitStatus { text: @tr("Restart to switch"); detail: @tr("Restart Telescope to use the graphics card you picked."); kind: "warn"; horizontal: "end"; }
+                    Button {
+                        text: @tr("Restart now");
+                        has-icon: true;
+                        icon: Icons.repeat;
+                        icon-tint: Theme.ink2;
+                        tip: @tr("Restart");
+                        tip-detail: @tr("Restart Telescope with the graphics card you picked.");
+                        clicked => { root.restart-clicked(); }
+                    }
+                }
+            }
+        }
     }
     SwitchRow {
         icon: Icons.battery;

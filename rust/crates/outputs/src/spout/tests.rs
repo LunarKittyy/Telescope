@@ -14,9 +14,16 @@ fn picture(width: u32, height: u32, fourcc: &'static str, pixel: [u8; 4]) -> Pic
 /// What a reader hands out next: a picture, nothing yet, or the end.
 type Script = Arc<Mutex<Vec<Result<Option<Picture>, String>>>>;
 
-struct FakeReader(Script);
+/// The stop flag the feed gave its reader.
+type StopSlot = Arc<Mutex<Option<Arc<AtomicBool>>>>;
+
+struct FakeReader(Script, StopSlot);
 
 impl Reader for FakeReader {
+    fn set_stop(&mut self, stop: Arc<AtomicBool>) {
+        *self.1.lock().unwrap() = Some(stop);
+    }
+
     fn next(&mut self, timeout: Duration) -> Result<Option<Picture>, String> {
         let mut script = self.0.lock().unwrap();
         if script.is_empty() {
@@ -24,7 +31,14 @@ impl Reader for FakeReader {
             std::thread::sleep(timeout.min(Duration::from_millis(5)));
             return Ok(None);
         }
-        script.remove(0)
+        let next = script.remove(0);
+        // A read that fails because the stream was stopped has the flag set when it fails
+        if matches!(&next, Err(why) if why.starts_with("stopped")) {
+            if let Some(stop) = self.1.lock().unwrap().as_ref() {
+                stop.store(true, Ordering::SeqCst);
+            }
+        }
+        next
     }
 }
 
@@ -33,6 +47,7 @@ struct FakeBackend {
     senders: Mutex<Vec<Sender>>,
     script: Script,
     refuse: Mutex<Option<String>>,
+    stop: StopSlot,
 }
 
 impl Backend for FakeBackend {
@@ -42,7 +57,7 @@ impl Backend for FakeBackend {
     fn open(&self, _key: &str) -> Result<Box<dyn Reader>, String> {
         match self.refuse.lock().unwrap().clone() {
             Some(why) => Err(why),
-            None => Ok(Box::new(FakeReader(self.script.clone()))),
+            None => Ok(Box::new(FakeReader(self.script.clone(), self.stop.clone()))),
         }
     }
 }
@@ -481,4 +496,112 @@ fn what_the_backend_says_is_wrong_shows_in_the_diagnostics() {
     let mut env = Env { plugin, host, backend: Arc::default() };
     scan(&mut env);
     assert_eq!(env.plugin.diagnostics()[0].1, "PipeWire isn't running");
+}
+
+/// BGRA pixels that run through every channel value, for conversion checks.
+fn colourful(width: u32, height: u32) -> Picture {
+    let data = (0..width * height).flat_map(|i| [(i * 7 + 3) as u8, (i * 13) as u8, (i * 29 + 100) as u8, 255]).collect();
+    Picture { width, height, fourcc: "BGRA", data }
+}
+
+/// The same picture as the card hands it out: the planes the CPU conversion makes of it.
+fn planes_of(picture: &Picture) -> Picture {
+    let frame = decode(picture);
+    Picture { width: picture.width, height: picture.height, fourcc: I420, data: frame.data.to_vec() }
+}
+
+#[test]
+fn a_picture_that_is_planes_already_is_passed_on_as_it_is() {
+    for (w, h) in [(1, 1), (2, 2), (3, 5), (4, 7), (17, 9), (64, 48)] {
+        let planar = planes_of(&colourful(w, h));
+        assert_eq!(planar.data.len(), crate::spout_shared::planes::i420_len(w, h), "{w}x{h}");
+        let frame = decode(&planar);
+        assert_eq!((frame.width, frame.height, frame.format), (w, h, PixelFormat::I420));
+        assert_eq!(frame.data.to_vec(), planar.data, "{w}x{h}");
+    }
+}
+
+#[test]
+fn the_packet_of_planes_carries_its_fourcc_and_round_trips() {
+    let planar = planes_of(&colourful(5, 3));
+    let packet = packet_of(&planar);
+    assert_eq!(&packet[..12], &[5, 0, 0, 0, 3, 0, 0, 0, b'I', b'4', b'2', b'0']);
+    assert_eq!(&packet[12..], &planar.data[..]);
+}
+
+#[test]
+fn a_broken_packet_of_planes_gives_no_frame() {
+    let mut decoder = SpoutDecoder;
+    let good = packet_of(&planes_of(&colourful(5, 3)));
+    let mut short = good.clone();
+    short.pop();
+    let mut long = good.clone();
+    long.push(0);
+    // Planes the size of BGRA pixels, and a picture with no size
+    let bgra_sized = packet_of(&Picture { width: 5, height: 3, fourcc: I420, data: vec![0; 5 * 3 * 4] });
+    let no_size = packet_of(&Picture { width: 0, height: 3, fourcc: I420, data: Vec::new() });
+    for data in [short, long, bgra_sized, no_size] {
+        assert!(decoder.decode(&Packet { data, time_ns: 0 }).newest.is_none());
+    }
+    assert!(decoder.decode(&Packet { data: good, time_ns: 0 }).newest.is_some());
+}
+
+#[test]
+fn a_feed_carries_planes_and_sends_them_again_when_the_sender_is_idle() {
+    let env = env();
+    let planar = planes_of(&colourful(5, 3));
+    env.backend.script.lock().unwrap().push(Ok(Some(planar.clone())));
+    let mut feed = open(&env);
+    let mut decoder = SpoutDecoder;
+    let first = feed.read().unwrap();
+    assert_eq!(decoder.decode(&first).newest.unwrap().data.to_vec(), planar.data);
+    let again = feed.read().unwrap();
+    assert_eq!(again.data, first.data);
+}
+
+#[test]
+fn a_stop_of_the_feed_sets_the_flag_its_reader_waits_on_the_card_with() {
+    let env = env();
+    env.backend.script.lock().unwrap().push(Ok(Some(picture(2, 2, "RGBA", [0; 4]))));
+    let feed = open(&env);
+    let flag = env.backend.stop.lock().unwrap().clone().expect("the reader was given a flag");
+    assert!(!flag.load(Ordering::SeqCst));
+    feed.stopper().stop();
+    assert!(flag.load(Ordering::SeqCst));
+}
+
+#[test]
+fn a_stop_while_the_feed_is_opening_sets_the_flag_and_ends_the_open_quietly() {
+    let env = env();
+    let open_stop = OpenStop::default();
+    // The sender gives nothing yet; the stop comes while the open is waiting for the first picture
+    let stopper = open_stop.clone();
+    let seen = env.backend.stop.clone();
+    let watcher = std::thread::spawn(move || {
+        while seen.lock().unwrap().is_none() {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        stopper.stop();
+        seen.lock().unwrap().clone().unwrap()
+    });
+    let before = env.plugin.sources["Cam"].waiting_text();
+    let err = env.plugin.sources["Cam"].open_feed_stoppable(&open_stop).err().unwrap();
+    assert_eq!(err, "stopped");
+    assert!(watcher.join().unwrap().load(Ordering::SeqCst));
+    assert_eq!(env.plugin.sources["Cam"].waiting_text(), before, "a stop is not a sender that went");
+}
+
+#[test]
+fn a_read_that_fails_because_of_a_stop_ends_as_stopped_not_as_a_sender_that_went() {
+    let mut env = env();
+    {
+        let mut script = env.backend.script.lock().unwrap();
+        script.push(Ok(Some(picture(2, 2, "RGBA", [0; 4]))));
+        script.push(Err("stopped while the card was still working".into()));
+    }
+    let mut feed = open(&env);
+    feed.read().unwrap();
+    assert_eq!(feed.read().unwrap_err(), FeedEnd::Stopped);
+    deliver(&mut env);
+    assert_ne!(env.plugin.states.get("Cam").map(|s| s.0.as_str()), Some("gone"));
 }

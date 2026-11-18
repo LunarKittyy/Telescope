@@ -1,17 +1,26 @@
 //! The Windows side of Spout2 for any plugin: the file mappings and named objects senders publish (sender list, a sender's info, its
-//! frame counter and texture lock) and the D3D11 device, shared textures and staging textures that read them. Only the reading half
-//! is here; a sender's half (register a name, create a texture, write the info, count frames) goes next to it.
+//! frame counter and texture lock) and the D3D11 device, shared textures and staging textures that read them, with the pixel shaders that
+//! turn a picture into I420 planes on the card. Only the reading half is here; a sender's half (register a name, create a texture, write the
+//! info, count frames) goes next to it.
 
+use super::planes;
+use super::poll::{poll, Deadline, Polled};
 use super::protocol::{self, SharedTextureInfo};
 use ::windows::core::{Interface, PCWSTR};
 use ::windows::Win32::Foundation::{CloseHandle, HANDLE, HMODULE, WAIT_ABANDONED, WAIT_OBJECT_0};
-use ::windows::Win32::Graphics::Direct3D::{D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_UNKNOWN, D3D_FEATURE_LEVEL, D3D_FEATURE_LEVEL_10_0, D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL_11_0};
-use ::windows::Win32::Graphics::Direct3D11::{
-    D3D11CreateDevice, ID3D11Device, ID3D11DeviceContext, ID3D11Texture2D, D3D11_CPU_ACCESS_READ, D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_MAPPED_SUBRESOURCE, D3D11_MAP_READ,
-    D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX, D3D11_SDK_VERSION, D3D11_TEXTURE2D_DESC, D3D11_USAGE_STAGING,
+use ::windows::Win32::Graphics::Direct3D::{
+    D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_UNKNOWN, D3D_FEATURE_LEVEL, D3D_FEATURE_LEVEL_10_0, D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL_11_0,
+    D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST, D3D_SRV_DIMENSION_TEXTURE2D,
 };
-use ::windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT, DXGI_SAMPLE_DESC};
-use ::windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, IDXGIAdapter, IDXGIFactory1, IDXGIKeyedMutex};
+use ::windows::Win32::Graphics::Direct3D11::{
+    D3D11CreateDevice, ID3D11ClassLinkage, ID3D11DepthStencilView, ID3D11Device, ID3D11DeviceContext, ID3D11InputLayout, ID3D11PixelShader, ID3D11RasterizerState,
+    ID3D11RenderTargetView, ID3D11ShaderResourceView, ID3D11Texture2D, ID3D11VertexShader, D3D11_BIND_RENDER_TARGET, D3D11_BIND_SHADER_RESOURCE, D3D11_CPU_ACCESS_READ,
+    D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_CULL_NONE, D3D11_FILL_SOLID, D3D11_MAPPED_SUBRESOURCE, D3D11_MAP_FLAG_DO_NOT_WAIT, D3D11_MAP_READ, D3D11_RASTERIZER_DESC, D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX,
+    D3D11_SDK_VERSION, D3D11_SHADER_RESOURCE_VIEW_DESC, D3D11_SHADER_RESOURCE_VIEW_DESC_0, D3D11_TEX2D_SRV, D3D11_TEXTURE2D_DESC, D3D11_USAGE, D3D11_USAGE_DEFAULT,
+    D3D11_USAGE_STAGING, D3D11_VIEWPORT,
+};
+use ::windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT, DXGI_FORMAT_R8_UNORM, DXGI_SAMPLE_DESC};
+use ::windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, IDXGIAdapter, IDXGIDevice, IDXGIFactory1, IDXGIKeyedMutex, DXGI_ERROR_WAS_STILL_DRAWING};
 use ::windows::Win32::System::Memory::{MapViewOfFile, OpenFileMappingW, UnmapViewOfFile, VirtualQuery, FILE_MAP_READ, MEMORY_BASIC_INFORMATION, MEMORY_MAPPED_VIEW_ADDRESS};
 use ::windows::Win32::System::Threading::{
     OpenMutexW, OpenSemaphoreW, ReleaseMutex, ReleaseSemaphore, WaitForSingleObject, MUTEX_MODIFY_STATE, SEMAPHORE_MODIFY_STATE, SYNCHRONIZATION_SYNCHRONIZE,
@@ -21,8 +30,33 @@ use std::ffi::c_void;
 /// How long Spout's own code waits on its mutexes: four frames at 60 fps.
 const LOCK_WAIT_MS: u32 = 67;
 
+// The converter's shaders, built from shaders/convert.hlsl by shaders/compile.ps1 and checked in so nothing compiles at run time
+const SHADER_VERTEX: &[u8] = include_bytes!("shaders/convert_vs.cso");
+const SHADER_LUMA: &[u8] = include_bytes!("shaders/convert_y.cso");
+const SHADER_CHROMA: &[u8] = include_bytes!("shaders/convert_uv.cso");
+
 fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+/// Why reading a picture back from the card gave nothing.
+#[derive(Debug, PartialEq, Eq)]
+pub enum ReadError {
+    /// The stream was stopped while the card was still working.
+    Cancelled,
+    /// The card didn't finish in the time given.
+    TimedOut,
+    Failed(String),
+}
+
+impl std::fmt::Display for ReadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReadError::Cancelled => f.write_str("stopped while the card was still working"),
+            ReadError::TimedOut => f.write_str("the card didn't finish in time"),
+            ReadError::Failed(why) => f.write_str(why),
+        }
+    }
 }
 
 /// A kernel handle, closed when dropped.
@@ -251,16 +285,58 @@ pub struct Staging {
 // SAFETY: as SharedTexture
 unsafe impl Send for Staging {}
 
+/// One plane of the converter's picture: the target the shader draws it in and the staging texture it is read back from.
+struct Plane {
+    target: ID3D11Texture2D,
+    view: ID3D11RenderTargetView,
+    staging: ID3D11Texture2D,
+    width: u32,
+    height: u32,
+}
+
+/// What turns pictures of one size and format into I420 on the card (a copy of the sender's texture, the shaders, a target per plane), used with the Gpu that made it.
+pub struct Converter {
+    source: ID3D11Texture2D,
+    source_view: ID3D11ShaderResourceView,
+    vertex: ID3D11VertexShader,
+    luma_shader: ID3D11PixelShader,
+    chroma_shader: ID3D11PixelShader,
+    raster: ID3D11RasterizerState,
+    luma: Plane,
+    u: Plane,
+    v: Plane,
+    width: u32,
+    height: u32,
+    /// Makes the next convert fail, for the tests of what comes after a failure.
+    #[cfg(test)]
+    pub(crate) fail_next: std::sync::atomic::AtomicBool,
+}
+
+// SAFETY: as SharedTexture
+unsafe impl Send for Converter {}
+
 /// A D3D11 device and its immediate context.
 pub struct Gpu {
     device: ID3D11Device,
     context: ID3D11DeviceContext,
     /// For the log: which graphics adapter this is.
     pub adapter: String,
+    /// The adapter's locally unique id (0 when it can't be told), which tells two cards of one laptop apart.
+    pub luid: u64,
+    /// How many of the next map attempts report the card as still drawing, for the tests of waiting.
+    #[cfg(test)]
+    pub(crate) busy: std::sync::atomic::AtomicU32,
 }
 
 // SAFETY: moved between threads whole and used by one at a time, which D3D11's immediate context allows
 unsafe impl Send for Gpu {}
+
+/// The locally unique id of the adapter a device is on, 0 when it can't be had.
+fn luid_of(device: &ID3D11Device) -> u64 {
+    // SAFETY: plain COM calls on the device and the objects it gives back
+    let desc = unsafe { device.cast::<IDXGIDevice>().and_then(|d| d.GetAdapter()).and_then(|a| a.GetDesc()) };
+    desc.map_or(0, |d| (u64::from(d.AdapterLuid.HighPart as u32) << 32) | u64::from(d.AdapterLuid.LowPart))
+}
 
 impl Gpu {
     /// A device on graphics adapter number `adapter` of the system, or on the default one for None.
@@ -287,7 +363,10 @@ impl Gpu {
                 .map_err(|e| format!("Direct3D on {name}: {e}"))?;
         }
         match (device, context) {
-            (Some(device), Some(context)) => Ok(Gpu { device, context, adapter: name }),
+            (Some(device), Some(context)) => {
+                let luid = luid_of(&device);
+                Ok(Gpu { device, context, adapter: name, luid, #[cfg(test)] busy: std::sync::atomic::AtomicU32::new(0) })
+            }
             _ => Err(format!("Direct3D on {name} gave no device")),
         }
     }
@@ -345,11 +424,9 @@ impl Gpu {
         }
     }
 
-    /// The staging texture's pixels, rows packed with no padding.
-    pub fn read(&self, from: &Staging) -> Result<Vec<u8>, String> {
-        let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
-        // SAFETY: mapped is a valid out buffer; the call waits for the copy to finish
-        unsafe { self.context.Map(&from.texture, 0, D3D11_MAP_READ, 0, Some(&mut mapped)) }.map_err(|e| format!("reading the texture: {e}"))?;
+    /// The staging texture's pixels, rows packed with no padding, once the copy into it has finished; gives up at the deadline or when its stop is set.
+    pub fn read(&self, from: &Staging, deadline: &Deadline) -> Result<Vec<u8>, ReadError> {
+        let mapped = self.map_when_ready(&from.texture, deadline, "reading the texture")?;
         let row = from.width as usize * from.bytes_per_pixel as usize;
         let mut out = Vec::with_capacity(row * from.height as usize);
         for y in 0..from.height as usize {
@@ -359,6 +436,194 @@ impl Gpu {
         // SAFETY: mapped above and unmapped once
         unsafe { self.context.Unmap(&from.texture, 0) };
         Ok(out)
+    }
+
+    /// Maps a staging texture for reading as soon as the card is done with it. A plain Map would block with no way out when the card stalls, so this asks again
+    /// with DO_NOT_WAIT until the deadline or the stop; the work is flushed first, as a poll never makes the card start it.
+    fn map_when_ready(&self, texture: &ID3D11Texture2D, deadline: &Deadline, what: &str) -> Result<D3D11_MAPPED_SUBRESOURCE, ReadError> {
+        // SAFETY: flushing the immediate context has no preconditions
+        unsafe { self.context.Flush() };
+        let polled = poll(deadline, || {
+            #[cfg(test)]
+            if self.busy.load(std::sync::atomic::Ordering::SeqCst) > 0 {
+                self.busy.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+                return None;
+            }
+            let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
+            // SAFETY: mapped is a valid out buffer and the texture is a staging texture of this device
+            match unsafe { self.context.Map(texture, 0, D3D11_MAP_READ, D3D11_MAP_FLAG_DO_NOT_WAIT.0 as u32, Some(&mut mapped)) } {
+                Ok(()) => Some(Ok(mapped)),
+                Err(e) if e.code() == DXGI_ERROR_WAS_STILL_DRAWING => None,
+                Err(e) => Some(Err(format!("{what}: {e}"))),
+            }
+        });
+        match polled {
+            Polled::Ready(Ok(mapped)) => Ok(mapped),
+            Polled::Ready(Err(why)) => Err(ReadError::Failed(why)),
+            Polled::Cancelled => Err(ReadError::Cancelled),
+            Polled::TimedOut => Err(ReadError::TimedOut),
+        }
+    }
+
+    /// Whether the device has been removed or reset, as a driver does after a fault; nothing on it works any more.
+    pub fn lost(&self) -> bool {
+        // SAFETY: a plain query of the device
+        unsafe { self.device.GetDeviceRemovedReason() }.is_err()
+    }
+}
+
+impl Gpu {
+    /// A texture of this device.
+    fn make_texture(&self, (width, height): (u32, u32), format: DXGI_FORMAT, usage: D3D11_USAGE, bind: u32, cpu_access: u32) -> Result<ID3D11Texture2D, String> {
+        let desc = D3D11_TEXTURE2D_DESC {
+            Width: width,
+            Height: height,
+            MipLevels: 1,
+            ArraySize: 1,
+            Format: format,
+            SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
+            Usage: usage,
+            BindFlags: bind,
+            CPUAccessFlags: cpu_access,
+            MiscFlags: 0,
+        };
+        let mut made: Option<ID3D11Texture2D> = None;
+        // SAFETY: desc is valid for the call and made is a valid out Option
+        unsafe { self.device.CreateTexture2D(&desc, None, Some(&mut made)) }.map_err(|e| format!("making a {width}x{height} texture: {e}"))?;
+        made.ok_or_else(|| "making a texture gave nothing".to_string())
+    }
+
+    fn make_plane(&self, size: (u32, u32)) -> Result<Plane, String> {
+        let target = self.make_texture(size, DXGI_FORMAT_R8_UNORM, D3D11_USAGE_DEFAULT, D3D11_BIND_RENDER_TARGET.0 as u32, 0)?;
+        let staging = self.make_texture(size, DXGI_FORMAT_R8_UNORM, D3D11_USAGE_STAGING, 0, D3D11_CPU_ACCESS_READ.0 as u32)?;
+        let mut made: Option<ID3D11RenderTargetView> = None;
+        // SAFETY: target is a live render target texture of this device and made is a valid out Option
+        unsafe { self.device.CreateRenderTargetView(&target, None, Some(&mut made)) }.map_err(|e| format!("making a render target: {e}"))?;
+        let view = made.ok_or("making a render target gave nothing")?;
+        Ok(Plane { target, view, staging, width: size.0, height: size.1 })
+    }
+
+    /// What converts pictures like `like` to I420 on the card; made once for a texture.
+    pub fn converter(&self, like: &SharedTexture) -> Result<Converter, String> {
+        let (typeless, view_format) = planes::card_formats(like.format).ok_or_else(|| format!("the card can't convert DXGI format {}", like.format))?;
+        let (width, height) = (like.width, like.height);
+        if width == 0 || height == 0 {
+            return Err("the picture has no size".into());
+        }
+        let (cw, ch) = planes::chroma_size(width, height);
+        let source = self.make_texture((width, height), DXGI_FORMAT(typeless as i32), D3D11_USAGE_DEFAULT, D3D11_BIND_SHADER_RESOURCE.0 as u32, 0)?;
+        let view_desc = D3D11_SHADER_RESOURCE_VIEW_DESC {
+            Format: DXGI_FORMAT(view_format as i32),
+            ViewDimension: D3D_SRV_DIMENSION_TEXTURE2D,
+            Anonymous: D3D11_SHADER_RESOURCE_VIEW_DESC_0 { Texture2D: D3D11_TEX2D_SRV { MostDetailedMip: 0, MipLevels: 1 } },
+        };
+        let mut made_view: Option<ID3D11ShaderResourceView> = None;
+        // SAFETY: source is a live texture of this device, view_desc is valid for the call and made_view is a valid out Option
+        unsafe { self.device.CreateShaderResourceView(&source, Some(&view_desc), Some(&mut made_view)) }.map_err(|e| format!("making the shader's view: {e}"))?;
+        let source_view = made_view.ok_or("making the shader's view gave nothing")?;
+        let (mut vertex, mut luma_shader, mut chroma_shader): (Option<ID3D11VertexShader>, Option<ID3D11PixelShader>, Option<ID3D11PixelShader>) = (None, None, None);
+        // SAFETY: the bytecode slices live for the whole program and the out Options are valid
+        unsafe {
+            self.device.CreateVertexShader(SHADER_VERTEX, None::<&ID3D11ClassLinkage>, Some(&mut vertex)).map_err(|e| format!("making the vertex shader: {e}"))?;
+            self.device.CreatePixelShader(SHADER_LUMA, None::<&ID3D11ClassLinkage>, Some(&mut luma_shader)).map_err(|e| format!("making the luma shader: {e}"))?;
+            self.device.CreatePixelShader(SHADER_CHROMA, None::<&ID3D11ClassLinkage>, Some(&mut chroma_shader)).map_err(|e| format!("making the chroma shader: {e}"))?;
+        }
+        let raster_desc = D3D11_RASTERIZER_DESC {
+            FillMode: D3D11_FILL_SOLID,
+            CullMode: D3D11_CULL_NONE,
+            DepthClipEnable: true.into(),
+            ..D3D11_RASTERIZER_DESC::default()
+        };
+        let mut raster: Option<ID3D11RasterizerState> = None;
+        // SAFETY: raster_desc is valid for the call and raster is a valid out Option
+        unsafe { self.device.CreateRasterizerState(&raster_desc, Some(&mut raster)) }.map_err(|e| format!("making the rasterizer state: {e}"))?;
+        Ok(Converter {
+            source,
+            source_view,
+            vertex: vertex.ok_or("making the vertex shader gave nothing")?,
+            luma_shader: luma_shader.ok_or("making the luma shader gave nothing")?,
+            chroma_shader: chroma_shader.ok_or("making the chroma shader gave nothing")?,
+            raster: raster.ok_or("making the rasterizer state gave nothing")?,
+            luma: self.make_plane((width, height))?,
+            u: self.make_plane((cw, ch))?,
+            v: self.make_plane((cw, ch))?,
+            width,
+            height,
+            #[cfg(test)]
+            fail_next: std::sync::atomic::AtomicBool::new(false),
+        })
+    }
+
+    /// Copies the shared texture into the converter's own and sends it to the card; the caller's lock covers this and can be let go after, as the rest reads the copy.
+    pub fn copy_to_converter(&self, into: &Converter, from: &SharedTexture) -> Result<(), String> {
+        if (from.width, from.height) != (into.width, into.height) {
+            return Err(format!("the texture is {}x{} but the converter {}x{}", from.width, from.height, into.width, into.height));
+        }
+        // SAFETY: both textures belong to this device, match in size and are of one format family
+        unsafe {
+            self.context.CopySubresourceRegion(&into.source, 0, 0, 0, 0, &from.texture, 0, None);
+            self.context.Flush();
+        }
+        Ok(())
+    }
+
+    /// The picture last copied into the converter as I420 (luma, U, V, packed with no padding), made by the shaders; waits for the card to finish, until the deadline or the stop at the most.
+    pub fn convert(&self, converter: &Converter, deadline: &Deadline) -> Result<Vec<u8>, ReadError> {
+        #[cfg(test)]
+        if converter.fail_next.swap(false, std::sync::atomic::Ordering::SeqCst) {
+            return Err(ReadError::Failed("made to fail by a test".into()));
+        }
+        let viewport = |plane: &Plane| D3D11_VIEWPORT { TopLeftX: 0.0, TopLeftY: 0.0, Width: plane.width as f32, Height: plane.height as f32, MinDepth: 0.0, MaxDepth: 1.0 };
+        let context = &self.context;
+        // SAFETY: everything bound is a live object of this device that the converter keeps, the slices live through each call, and the state is cleared before the converter can go
+        unsafe {
+            context.IASetInputLayout(None::<&ID3D11InputLayout>);
+            context.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+            context.VSSetShader(&converter.vertex, None);
+            context.RSSetState(&converter.raster);
+            context.PSSetShaderResources(0, Some(&[Some(converter.source_view.clone())]));
+            context.OMSetRenderTargets(Some(&[Some(converter.luma.view.clone())]), None::<&ID3D11DepthStencilView>);
+            context.RSSetViewports(Some(&[viewport(&converter.luma)]));
+            context.PSSetShader(&converter.luma_shader, None);
+            context.Draw(3, 0);
+            context.OMSetRenderTargets(Some(&[Some(converter.u.view.clone()), Some(converter.v.view.clone())]), None::<&ID3D11DepthStencilView>);
+            context.RSSetViewports(Some(&[viewport(&converter.u)]));
+            context.PSSetShader(&converter.chroma_shader, None);
+            context.Draw(3, 0);
+            context.ClearState();
+            for plane in [&converter.luma, &converter.u, &converter.v] {
+                context.CopyResource(&plane.staging, &plane.target);
+            }
+        }
+        let mut out = Vec::with_capacity(planes::i420_len(converter.width, converter.height));
+        for plane in [&converter.luma, &converter.u, &converter.v] {
+            self.read_plane(plane, deadline, &mut out)?;
+        }
+        Ok(out)
+    }
+
+    /// Appends one plane's bytes, rows packed with no padding.
+    fn read_plane(&self, plane: &Plane, deadline: &Deadline, out: &mut Vec<u8>) -> Result<(), ReadError> {
+        let mapped = self.map_when_ready(&plane.staging, deadline, "reading a plane")?;
+        let (row, height, pitch) = (plane.width as usize, plane.height as usize, mapped.RowPitch as usize);
+        let packed = if mapped.pData.is_null() {
+            None
+        } else {
+            // SAFETY: a mapped texture holds `height` rows `RowPitch` bytes apart, each at least `row` bytes, and this stops short of the padding after the last
+            let bytes = unsafe { std::slice::from_raw_parts(mapped.pData as *const u8, planes::mapped_len(pitch, row, height)) };
+            planes::pack_rows(bytes, pitch, row, height, out)
+        };
+        // SAFETY: mapped above and unmapped once, whatever came of the packing
+        unsafe { self.context.Unmap(&plane.staging, 0) };
+        packed.ok_or_else(|| ReadError::Failed(format!("a plane's rows are {pitch} bytes apart, shorter than the {row} they hold")))
+    }
+
+    /// Copies the picture last copied into the converter into the BGRA staging texture, for a frame the shaders failed on (`read` waits for it).
+    pub fn copy_source(&self, into: &Staging, from: &Converter) {
+        // SAFETY: both textures belong to this device and match in size and format family
+        unsafe {
+            self.context.CopyResource(&into.texture, &from.source);
+        }
     }
 }
 
@@ -375,3 +640,8 @@ pub fn open_shared_texture(handle: u32) -> Result<(Gpu, SharedTexture), String> 
     }
     Err(last)
 }
+
+#[cfg(test)]
+pub(crate) mod testing;
+#[cfg(test)]
+mod tests;
