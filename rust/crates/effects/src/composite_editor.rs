@@ -38,7 +38,10 @@ struct Drag {
     /// Where it began, in fractions of the picture and in px, and the tile as it was.
     start: (f64, f64),
     pos: (f64, f64),
+    /// The tile as it was drawn, at the zoom Max zoom allows.
     tile: Tile,
+    /// The zoom the layout has for it, which can be past that: a drag that leaves the shown zoom alone leaves this alone.
+    saved_zoom: f64,
 }
 
 /// The keys held during a pointer event.
@@ -185,14 +188,25 @@ impl CompositePlugin {
         self.streams().into_iter().find(|s| s.0 == source_id).map(|s| s.2)
     }
 
-    fn picked(&self) -> Option<&Tile> {
+    /// The selected tile as it is drawn, at the zoom Max zoom allows.
+    fn picked(&self) -> Option<Tile> {
         let e = self.editor.as_ref()?;
-        self.layout.tiles.get(usize::try_from(e.selected).ok()?)
+        self.layout.tiles.get(usize::try_from(e.selected).ok()?).map(|t| self.capped(t))
     }
 
-    fn replace_tile(&mut self, host: &mut dyn Host, index: i64, tile: Tile) {
+    /// The tiles as they are drawn: a zoom saved above Max zoom shows at Max zoom and is kept, to come back when Max zoom goes up.
+    fn shown_tiles(&self) -> Vec<Tile> {
+        self.layout.tiles.iter().map(|t| self.capped(t)).collect()
+    }
+
+    fn replace_tile(&mut self, host: &mut dyn Host, index: i64, mut tile: Tile) {
         let Some(at) = usize::try_from(index).ok().filter(|i| *i < self.layout.tiles.len()) else { return };
-        if self.layout.tiles[at] != tile {
+        let old = self.layout.tiles[at].clone();
+        // an edit that leaves the shown zoom alone leaves the saved one alone too
+        if tile.zoom == self.capped(&old).zoom {
+            tile.zoom = old.zoom;
+        }
+        if old != tile {
             let mut layout = self.layout.clone();
             layout.tiles[at] = tile;
             self.set_layout(host, layout);
@@ -208,20 +222,22 @@ impl CompositePlugin {
     // ── The picture ───────────────────────────────────────────────────
 
     fn pointer_down(&mut self, pos: (f64, f64), right: bool) {
-        let tiles = self.layout.tiles.clone();
+        let tiles = self.shown_tiles();
         let Some(e) = self.editor.as_mut() else { return };
         let (index, handle) = e.hit(&tiles, pos);
         e.selected = index;
         if index < 0 {
             return;
         }
+        let saved = self.layout.tiles.get(index as usize).map_or(1.0, |t| t.zoom);
+        let Some(e) = self.editor.as_mut() else { return };
         let kind = if right { DragKind::Pan } else if handle.is_empty() { DragKind::Move } else { DragKind::Resize(handle) };
         let start = (pos.0 / e.area.0, pos.1 / e.area.1);
-        e.drag = Some(Drag { kind, start, pos, tile: tiles[index as usize].clone() });
+        e.drag = Some(Drag { kind, start, pos, tile: tiles[index as usize].clone(), saved_zoom: saved });
     }
 
     fn pointer_move(&mut self, host: &mut dyn Host, pos: (f64, f64), mods: Mods) {
-        let tiles = self.layout.tiles.clone();
+        let tiles = self.shown_tiles();
         let Some(e) = self.editor.as_mut() else { return };
         let Some(d) = &e.drag else {
             let hover = e.hit(&tiles, pos);
@@ -229,7 +245,7 @@ impl CompositePlugin {
             e.hover = hover;
             return;
         };
-        let (kind, tile, start, from) = (d.kind.clone(), d.tile.clone(), d.start, d.pos);
+        let (kind, tile, start, from, saved) = (d.kind.clone(), d.tile.clone(), d.start, d.pos, d.saved_zoom);
         let selected = e.selected;
         let (mut dx, mut dy) = (pos.0 / e.area.0 - start.0, pos.1 / e.area.1 - start.1);
         let snapping = !mods.ctrl; // Ctrl: no snapping, as in OBS
@@ -271,7 +287,7 @@ impl CompositePlugin {
             DragKind::Pan => {
                 let frames = self.frames_now();
                 let frame = frames.get(&tile.source_id).map(|f| &f.0);
-                let now = self.layout.tiles.get(selected as usize).cloned().unwrap_or_else(|| tile.clone());
+                let now = tiles.get(selected as usize).cloned().unwrap_or_else(|| tile.clone());
                 let e = self.editor.as_ref().unwrap();
                 ("pan", panned(&now, &tile, frame, e.tile_rect(&now), (pos.0 - from.0, pos.1 - from.1)))
             }
@@ -286,6 +302,8 @@ impl CompositePlugin {
         let e = self.editor.as_mut().unwrap();
         e.mode = if snapping || mode == "pan" { text } else { tr("{mode}, no snapping").field("mode", &text) };
         e.guides = (guides_x, guides_y);
+        // switching between resize modes mid-drag works from the zoom the drag began with, not from one an earlier step of it wrote
+        let new = if new.zoom == tile.zoom { Tile { zoom: saved, ..new } } else { new };
         self.replace_tile(host, selected, new);
     }
 
@@ -298,7 +316,7 @@ impl CompositePlugin {
     }
 
     fn wheel(&mut self, host: &mut dyn Host, pos: (f64, f64), steps: f64) {
-        let tiles = self.layout.tiles.clone();
+        let tiles = self.shown_tiles();
         let Some(e) = self.editor.as_mut() else { return };
         let (index, _) = e.hit(&tiles, pos);
         if index < 0 {
@@ -311,7 +329,7 @@ impl CompositePlugin {
     }
 
     fn nudge(&mut self, host: &mut dyn Host, key: &str, shift: bool) {
-        let Some(tile) = self.picked().cloned() else { return };
+        let Some(tile) = self.picked() else { return };
         let (mx, my) = match key {
             "left" => (-1.0, 0.0),
             "right" => (1.0, 0.0),
@@ -437,14 +455,14 @@ impl CompositePlugin {
     // ── The picked stream ─────────────────────────────────────────────
 
     fn edit_picked(&mut self, host: &mut dyn Host, change: impl FnOnce(&mut Tile)) {
-        let Some(mut tile) = self.picked().cloned() else { return };
+        let Some(mut tile) = self.picked() else { return };
         change(&mut tile);
         let index = self.editor.as_ref().map_or(-1, |e| e.selected);
         self.replace_tile(host, index, tile);
     }
 
     fn fit_shape(&mut self, host: &mut dyn Host) {
-        let Some(tile) = self.picked().cloned() else { return };
+        let Some(tile) = self.picked() else { return };
         let Some(aspect) = self.source_aspect(&tile.source_id) else { return };
         let fitted = composite::fitted(&tile, aspect, self.canvas_aspect());
         self.edit_picked(host, |t| *t = fitted);
@@ -501,7 +519,7 @@ impl CompositePlugin {
     /// Everything the window shows, as it is now (a preset or a shortcut may have changed the picture).
     pub(super) fn editor_props(&self) -> Value {
         let Some(e) = &self.editor else { return json!({}) };
-        let layout = &self.layout;
+        let layout = &Layout { tiles: self.shown_tiles(), ..self.layout.clone() };
         let names = self.names();
         let matched = self.saved_match();
         let current = names.iter().position(|n| *n == matched).map_or(-1, |i| i as i64);
@@ -514,6 +532,7 @@ impl CompositePlugin {
                    "hover": e.hover.0 == i as i64 && e.selected != i as i64 && e.drag.is_none()})
         }).collect();
         let picked = self.picked();
+        let picked = picked.as_ref();
         let handles: Vec<Value> = picked.map(|t| HANDLES.iter().map(|(name, across, down)| {
             let dragged = e.drag.as_ref().is_some_and(|d| d.kind == DragKind::Resize(name.to_string()));
             json!({"x": t.x + across * t.w, "y": t.y + down * t.h, "corner": name.len() == 2, "wide": *name == "t" || *name == "b",
@@ -697,7 +716,7 @@ impl CompositePlugin {
         }
         let frames = self.frames_now();
         let (full_w, full_h) = self.size();
-        let layout = self.layout.clone();
+        let layout = self.shown_layout();
         let Some(e) = self.editor.as_mut() else { return };
         let width = (e.area.0.round() as u32).clamp(16, PREVIEW_MAX_W);
         let height = (((width as f64) * full_h as f64 / full_w as f64).round() as u32).max(9);
