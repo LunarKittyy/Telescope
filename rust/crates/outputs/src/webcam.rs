@@ -260,7 +260,6 @@ pub struct WebcamSource {
     waiting: Arc<Mutex<String>>,
     last: Mutex<Option<Choice>>,
     /// A DSLR's photo service, made once and following the camera's device, so a camera back on another USB port is still its camera.
-    #[cfg(target_os = "linux")]
     stills: std::sync::OnceLock<Arc<webcam_capture::gphoto_stills::GphotoStills>>,
 }
 
@@ -350,15 +349,12 @@ impl StreamSource for WebcamSource {
         self.waiting.lock().unwrap().clone()
     }
     fn stills(&self) -> Option<Arc<dyn SourceStills>> {
-        // A DSLR takes full photos through the camera thread that streams its live view
-        #[cfg(target_os = "linux")]
-        {
-            let device = self.shared.device(&self.key)?;
-            if webcams::is_gphoto(&device.location) {
-                let (shared, key) = (self.shared.clone(), self.key.clone());
-                let stills = self.stills.get_or_init(|| Arc::new(webcam_capture::gphoto_stills::GphotoStills::following(Arc::new(move || shared.device(&key).map(|d| d.location)))));
-                return Some(stills.clone());
-            }
+        // A DSLR takes full photos through the camera thread that streams its live view, on Linux and on Windows
+        let device = self.shared.device(&self.key)?;
+        if webcams::is_gphoto(&device.location) {
+            let (shared, key) = (self.shared.clone(), self.key.clone());
+            let stills = self.stills.get_or_init(|| Arc::new(webcam_capture::gphoto_stills::GphotoStills::following(Arc::new(move || shared.device(&key).map(|d| d.location)))));
+            return Some(stills.clone());
         }
         None
     }
@@ -461,7 +457,6 @@ impl WebcamPlugin {
                     let src = Arc::new(WebcamSource {
                         key: dev.key.clone(), name: Mutex::new(dev.name.clone()), shared: self.shared.clone(), poster: self.poster.clone(),
                         system: self.system.clone(), waiting: Arc::new(Mutex::new(tr(webcam_capture::BUSY_TEXT))), last: Mutex::new(None),
-                        #[cfg(target_os = "linux")]
                         stills: std::sync::OnceLock::new(),
                     });
                     self.sources.insert(dev.key.clone(), src.clone());
