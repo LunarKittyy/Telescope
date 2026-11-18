@@ -830,3 +830,131 @@ fn a_settings_window_made_after_the_pick_wears_it() {
     telescope_shell::settings::forget();
     w.shut_down();
 }
+
+// ── A work area smaller than the window ───────────────────────────────────────
+
+/// The chips (the tab-role controls of a Segmented) whose word has less than `pad` of room at each side, from the chip's own size and the
+/// width its word asks for.
+fn crowded_chips(ui: &ComponentInstance, pad: f32) -> Vec<String> {
+    let inner = i_slint_core::window::WindowInner::from_pub(ui.window());
+    let adapter = inner.window_adapter();
+    let root = ItemRc::new_root(inner.component());
+    // Every drawn word with where it is in the window and the width it asks for
+    fn words(item: &ItemRc, adapter: &i_slint_core::window::WindowAdapterRc, found: &mut Vec<(String, f32, f32, f32)>) {
+        if item.is_visible() {
+            let text = if let Some(t) = item.downcast::<SimpleText>() {
+                Some(i_slint_core::items::SimpleText::FIELD_OFFSETS.text().apply_pin(t.as_pin_ref()).get().to_string())
+            } else {
+                item.downcast::<ComplexText>().map(|t| ComplexText::FIELD_OFFSETS.text().apply_pin(t.as_pin_ref()).get().to_string())
+            };
+            if let Some(text) = text.filter(|t| !t.is_empty()) {
+                let (size, at) = (item.geometry().size, item.map_to_window(Default::default()));
+                let wanted = item.borrow().as_ref().layout_info(Orientation::Horizontal, -1.0, adapter, item).preferred;
+                found.push((text, at.x + size.width / 2.0, at.y + size.height / 2.0, wanted));
+            }
+        }
+        let mut child = item.first_child();
+        while let Some(c) = child {
+            words(&c, adapter, found);
+            child = c.next_sibling();
+        }
+    }
+    let mut found = Vec::new();
+    words(&root, &adapter, &mut found);
+    let mut crowded = Vec::new();
+    for chip in ui.root_element().query_descendants().match_predicate(|e| e.accessible_role() == Some(AccessibleRole::Tab)).find_all() {
+        let (at, size, label) = (chip.absolute_position(), chip.size(), chip.accessible_label().unwrap_or_default().to_string());
+        let item = label.rsplit(": ").next().unwrap_or(&label).to_string();
+        let Some((_, _, _, wanted)) = found.iter().find(|(t, x, y, _)| *t == item && *x >= at.x && *x <= at.x + size.width && *y >= at.y && *y <= at.y + size.height) else { continue };
+        let room = (size.width - wanted) / 2.0;
+        if room < pad {
+            crowded.push(format!("{label}: {room:.1} px at each side of its word (a chip {:.0} px wide, the word {wanted:.0}), wanted {pad:.1}", size.width));
+        }
+    }
+    crowded
+}
+
+fn scroll_settings(ui: &ComponentInstance, by: f32) {
+    use slint::platform::WindowEvent;
+    ui.window().dispatch_event(WindowEvent::PointerScrolled { position: slint::LogicalPosition::new(400.0, 400.0), delta_x: 0.0, delta_y: by });
+}
+
+/// The control of this role with this name: where its box is in the window, none while it is clipped away (a page scrolled past it).
+fn found_at(ui: &ComponentInstance, label: &str, role: AccessibleRole) -> Option<(f32, f32)> {
+    let e = ElementHandle::find_by_accessible_label(ui, label).find(|e| e.accessible_role() == Some(role))?;
+    Some((e.absolute_position().y, e.absolute_position().y + e.size().height))
+}
+
+/// Settings opened on a screen whose work area is 1280x720 (a 1920x1080 screen at 150% less its taskbar), at Large text, Comfortable
+/// density and Higher contrast: the window takes no more than the work area, the page scrolls to the Language row and Help translate
+/// beneath it, and no chip's word touches its edges.
+#[test]
+fn settings_on_a_1280_by_720_work_area_scrolls_to_language_and_its_chips_keep_their_room() {
+    let w = build("appearance-workarea");
+    let big = Appearance { text: TextSize::Large, density: Density::Comfortable, contrast: true, ..Default::default() };
+    let mut problems = Vec::new();
+    let mut seen_scroll = false;
+    for (name, l) in [("dark", Look::Dark), ("light", Look::Light), ("oled", Look::Oled), ("classic", Look::Classic)] {
+        look(&w, l);
+        choose(&w, big);
+        let settings = look_card(&w);
+        settings.fit_to_screen((1280.0, 720.0));
+        offscreen::pump();
+        w.process();
+        settle(&w);
+        let height = settings.ui.window().size().height as f32 / settings.ui.window().scale_factor();
+        assert_eq!(height, 672.0, "the window is cut to the work area less its margin");
+        let (lang, translate) = (tr("Language"), tr("Help translate"));
+        let below = |at: Option<(f32, f32)>| at.is_none_or(|(_, to)| to > height + 0.5);
+        let before = below(found_at(&settings.ui, &translate, AccessibleRole::Button));
+        let top = draw(&settings.ui, 940.0, height);
+        // The chips keep room around their words, on every tab at this size
+        let pad = match settings.ui.get_global_property("Theme", "unit") { Ok(Value::Number(unit)) => unit as f32 * 3.0, other => panic!("Theme.unit is {other:?}") };
+        for tab in settings.tabs() {
+            assert!(settings.show_tab(&tab), "{tab}");
+            w.process();
+            settle(&w);
+            problems.extend(crowded_chips(&settings.ui, pad).into_iter().map(|p| format!("{name}, tab {tab}: {p}")));
+        }
+        assert!(settings.show_tab("general"));
+        w.process();
+        settle(&w);
+        // Scrolled to the end, the Language row and Help translate are in the window
+        for _ in 0..4 {
+            scroll_settings(&settings.ui, -400.0);
+        }
+        offscreen::pump();
+        w.process();
+        settle(&w);
+        for (what, label, role) in [("Language", &lang, AccessibleRole::Combobox), ("Help translate", &translate, AccessibleRole::Button)] {
+            match found_at(&settings.ui, label, role) {
+                Some((from, to)) if from >= 0.0 && to <= height + 0.5 => {}
+                other => problems.push(format!("{name}: {what} is at {other:?} of a window {height:.0} tall after scrolling to the end")),
+            }
+        }
+        seen_scroll |= before;
+        if !before {
+            problems.push(format!("{name}: Help translate already fits before scrolling, so the test shows nothing"));
+        }
+        let bottom = draw(&settings.ui, 940.0, height);
+        if let Some(dir) = shots() {
+            top.save_png(&dir.join(format!("workarea-{name}-top.png"))).unwrap();
+            bottom.save_png(&dir.join(format!("workarea-{name}-bottom.png"))).unwrap();
+            if name == "dark" {
+                // The same window on the laptop's screen at 150%
+                let picture = offscreen::draw(settings.ui.window(), 940.0, height, 1.5).expect("a picture");
+                picture.save_png(&dir.join("workarea-dark-bottom-150.png")).unwrap();
+                offscreen::draw(settings.ui.window(), 940.0, height, 1.0);
+            }
+        }
+        scroll_settings(&settings.ui, 5000.0);
+    }
+    assert!(seen_scroll);
+    choose(&w, Appearance::default());
+    look(&w, Look::Dark);
+    telescope_shell::settings::forget();
+    w.shut_down();
+    problems.sort();
+    problems.dedup();
+    assert!(problems.is_empty(), "{} things wrong:\n{}", problems.len(), problems.join("\n"));
+}
