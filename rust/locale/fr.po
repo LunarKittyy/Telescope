@@ -1377,15 +1377,15 @@ msgstr "Sans le plugin Plusieurs caméras en une image, la carte Une image n'est
 msgid "Picture layout"
 msgstr "Disposition de l'image"
 
-#: rust/crates/effects/src/composite_plugin.rs:800
+#: rust/crates/effects/src/composite_plugin.rs:806
 msgid "One picture layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:801
+#: rust/crates/effects/src/composite_plugin.rs:807
 msgid "Bring this layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:801
+#: rust/crates/effects/src/composite_plugin.rs:807
 msgid "Leave the layout"
 msgstr ""
 

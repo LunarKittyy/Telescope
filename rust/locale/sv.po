@@ -1376,15 +1376,15 @@ msgstr "Utan tillägget Flera kameror i en bild finns inte kortet En bild och va
 msgid "Picture layout"
 msgstr "Bildlayout"
 
-#: rust/crates/effects/src/composite_plugin.rs:800
+#: rust/crates/effects/src/composite_plugin.rs:806
 msgid "One picture layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:801
+#: rust/crates/effects/src/composite_plugin.rs:807
 msgid "Bring this layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:801
+#: rust/crates/effects/src/composite_plugin.rs:807
 msgid "Leave the layout"
 msgstr ""
 

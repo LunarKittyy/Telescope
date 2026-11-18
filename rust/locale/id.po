@@ -1377,15 +1377,15 @@ msgstr "Tanpa plugin Beberapa kamera dalam satu gambar, tidak ada kartu Satu gam
 msgid "Picture layout"
 msgstr "Tata letak gambar"
 
-#: rust/crates/effects/src/composite_plugin.rs:800
+#: rust/crates/effects/src/composite_plugin.rs:806
 msgid "One picture layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:801
+#: rust/crates/effects/src/composite_plugin.rs:807
 msgid "Bring this layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:801
+#: rust/crates/effects/src/composite_plugin.rs:807
 msgid "Leave the layout"
 msgstr ""
 

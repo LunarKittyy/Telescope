@@ -1377,15 +1377,15 @@ msgstr "若没有“多相机同屏”插件，将没有“单画面”卡片，
 msgid "Picture layout"
 msgstr "画面布局"
 
-#: rust/crates/effects/src/composite_plugin.rs:800
+#: rust/crates/effects/src/composite_plugin.rs:806
 msgid "One picture layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:801
+#: rust/crates/effects/src/composite_plugin.rs:807
 msgid "Bring this layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:801
+#: rust/crates/effects/src/composite_plugin.rs:807
 msgid "Leave the layout"
 msgstr ""
 
