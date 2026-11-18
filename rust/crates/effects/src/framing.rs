@@ -636,6 +636,7 @@ impl FramingPlugin {
         json!({"switch-name": tr(TITLE), "switch-help": tr(SWITCH_TIP), "framing-tip": tr(FRAMING_TIP), "speed-tip": tr(SPEED_TIP),
                "room-tip": tr(ROOM_TIP), "hand-name": tr(HAND_NAME), "hand-detail": tr(HAND_DETAIL), "pick-name": tr("Follow one person"), "pick-text": tr("Pick someone"), "pick-again-text": tr("Pick someone else"),
                "pick-tip": tr("Click one person on the preview and Auto framing follows only them, not whoever else is in view."), "all-text": tr("Follow everyone"),
+               "pick-blocked-tip": tr("People can't be picked while the preview shows a combined picture or another camera. Switch 3D or One picture off, or show a single camera."),
                "all-tip": tr("Frame everyone in view again."), "fits": fits.join("\n")})
     }
 
@@ -674,6 +675,7 @@ impl FramingPlugin {
         if self.pending {
             self.pending = false;
             host.set_ui_props("card", &self.state_props());
+            self.show_following(host);
             if std::mem::take(&mut self.cycle) {
                 self.apply(host, false);
             }
@@ -855,7 +857,8 @@ impl FramingPlugin {
 
     /// Starts a pick on the preview: whoever is clicked is the one Auto framing follows.
     fn pick(&mut self, host: &mut dyn Host) {
-        if !self.steering {
+        // a preview that draws another stream's output (a 3D pair's combined picture) isn't the picture the people were found in
+        if !self.steering || !host.preview_shows_own_picture() {
             return;
         }
         host.pick_on_preview(NAME, PickKind::Point, None, &tr("Click the person to follow on the preview. Esc cancels."));
@@ -863,7 +866,7 @@ impl FramingPlugin {
 
     fn picked(&mut self, host: &mut dyn Host, pick: &telescope_core::host::Pick) {
         // Where the click is in the whole picture, before the view's zoom and pan, then turned the way the view turns it, as the people are
-        if !self.steering {
+        if !self.steering || !host.preview_shows_own_picture() {
             return;
         }
         // a click on the bars beside the picture isn't on anyone
@@ -963,7 +966,7 @@ impl FramingPlugin {
     }
 
     fn show_following(&self, host: &mut dyn Host) {
-        host.set_ui_props("card", &json!({"following": self.followed.is_some(), "picking": self.picking}));
+        host.set_ui_props("card", &json!({"following": self.followed.is_some(), "picking": self.picking, "pick-blocked": !host.preview_shows_own_picture()}));
     }
 
     fn forget_group(&mut self) {
@@ -1120,6 +1123,7 @@ impl Plugin for FramingPlugin {
         }
         match event {
             Event::PeopleSeen { source_id, people } => self.on_people(host, source_id, people),
+            Event::PreviewSourceChanged { .. } => self.show_following(host),
             Event::PreviewPickChanged { owner } => {
                 self.picking = owner == NAME;
                 self.show_following(host);

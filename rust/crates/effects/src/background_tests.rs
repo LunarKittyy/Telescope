@@ -1261,3 +1261,16 @@ fn reset_puts_the_settings_back_and_goes_dark() {
     assert_eq!(rig.shown("reset-shown"), json!(false));
     assert!(rig.host.calls.iter().any(|c| c == "schedule_save"));
 }
+
+#[test]
+fn the_host_is_told_when_the_room_starts_and_stops_being_hidden() {
+    let mut rig = Rig::new(None, "ready");
+    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)), "off hides nothing");
+    rig.set_mode("blur");
+    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, true)));
+    let told = rig.host.hiding.len();
+    rig.set_mode("picture");
+    assert_eq!(rig.host.hiding.len(), told, "still hiding: not said again");
+    rig.set_mode("off");
+    assert_eq!(rig.host.hiding.last(), Some(&(NAME.to_string(), None, false)));
+}

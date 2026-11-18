@@ -171,7 +171,7 @@ fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions
     let link = Arc::new(telescope_link::LinkService::new());
     let problems = telescope_core::services::PluginProblems::default();
     // Added plugins can't take a built-in's name
-    let reserved: Vec<String> = vec!["camera_control".into(), "onboarding".into(), "connection".into(), "browser_camera".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "spout".into(), "transforms".into(), "colour_grading".into(), "filters".into(), "notes".into(), "name_tag".into(), "composite".into(), "stereo".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "qr_reader".into(), "on_air".into(), "cinema".into(), "background".into(), "privacy_blur".into(), "framing".into(), "face_exposure".into(), "setup".into(), "monitoring".into(), "stats".into(), "mcp".into()];
+    let reserved: Vec<String> = vec!["camera_control".into(), "onboarding".into(), "connection".into(), "browser_camera".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "spout".into(), "transforms".into(), "colour_grading".into(), "filters".into(), "notes".into(), "name_tag".into(), "composite".into(), "stereo".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "phototrap".into(), "stargazer".into(), "qr_reader".into(), "on_air".into(), "cinema".into(), "background".into(), "privacy_blur".into(), "framing".into(), "face_exposure".into(), "setup".into(), "monitoring".into(), "stats".into(), "mcp".into()];
     let admin: Arc<dyn telescope_core::plugin_admin::PluginAdmin> = Arc::new(telescope_plugin_host::admin::Admin::app(reserved.clone()));
     let added = telescope_plugin_host::load::factory(reserved, telescope_core::i18n::language(), problems.clone());
     let media: Arc<dyn telescope_core::media::Media> = Arc::new(telescope_media::FfmpegMedia);
@@ -232,6 +232,8 @@ fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions
                 Box::new(machine.shortcuts(remote.clone())),
                 Box::new(telescope_system::startup::StartupPlugin::new(Arc::new(telescope_system::Desktop))),
                 Box::new(telescope_effects::photos::PhotosPlugin::new()),
+                Box::new(telescope_effects::phototrap::PhototrapPlugin::new()),
+                Box::new(telescope_effects::stargazer::StargazerPlugin::new()),
                 Box::new(telescope_effects::qr_reader::QrReaderPlugin::new()),
                 Box::new(telescope_effects::on_air_plugin::OnAirPlugin::new(machine.web.clone(), Some(sign_outputs.clone()))),
                 Box::new(telescope_setup::monitoring::MonitoringPlugin::new()),
@@ -678,6 +680,8 @@ fn main() {
         Some("snapshot") => {
             let out = words.get(1).cloned().unwrap_or_else(|| "snapshot.ppm".into());
             telescope_core::gpu_pick::set_choice(&chosen_graphics_card());
+            // Cards the start guard skipped stay skipped here too, and nothing is marked
+            telescope_core::gpu_marker::load_skipped(&telescope_core::config::config_path().parent().map(PathBuf::from).unwrap_or_default());
             telescope_shell::run(services(Machine::real(args.device.clone()), remote, false), args.window(Some(out), false, None))
         }
         Some(other) => Err(format!("Unknown command {other}")),
@@ -707,8 +711,9 @@ fn main() {
     }
     if let Err(e) = result {
         eprintln!("{e}");
-        // A start that failed with its reason in hand isn't a driver crash, so the card isn't blamed (this does nothing once the window has shown)
-        telescope_core::gpu_marker::clear();
+        // A start that failed with its reason in hand isn't a driver crash, so the card isn't blamed, unless the window failed after its card
+        // opened (it couldn't be shown or drawn)
+        telescope_core::gpu_marker::clear_unless_kept();
         telescope_core::diagnostics::show_start_failure(telescope_core::diagnostics::events(), &e);
         leave(1);
     }
@@ -727,10 +732,8 @@ fn begin_window_start() {
 /// The graphics card the last start closed on, to say so once the window is up.
 static CRASHED_ON: std::sync::Mutex<Option<telescope_core::gpu_marker::Card>> = std::sync::Mutex::new(None);
 
-/// The window has shown: the start worked, so the card isn't blamed and a failure from here on has the window to say it.
+/// The window has shown: a failure from here on has the window to say it. The card is cleared by the window's second picture, not here.
 fn window_shown() {
-    telescope_core::gpu_marker::clear();
-    telescope_core::diagnostics::set_starting(false);
     let crashed = CRASHED_ON.lock().unwrap_or_else(|e| e.into_inner()).take();
     if let Some(card) = crashed.filter(|_| cfg!(windows)) {
         // Its own thread: the box waits for OK, and the window must keep drawing meanwhile

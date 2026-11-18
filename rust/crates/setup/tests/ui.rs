@@ -59,7 +59,8 @@ fn the_cards_have_what_their_plugins_use() {
                     "apply-clicked", "copy"]),
         ("microphone", &["gain-picked", "limiter-toggled"]),
         ("phone-app", &["apk-clicked", "pick-done", "pick-cancelled"]),
-        ("look", &["hues-picked", "lang-picked", "restart-clicked", "translate-clicked"]),
+        ("look", &["hues-picked", "lang-picked", "restart-clicked", "translate-clicked", "corners-picked", "text-picked", "density-picked", "contrast-toggled",
+                   "motion-picked", "tip-delay-moved", "tip-warm-toggled"]),
         ("about", &["author-clicked", "diag-clicked", "bug-clicked", "log-clicked", "help-clicked"]),
     ];
     for linux in [true, false] {

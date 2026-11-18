@@ -1,0 +1,725 @@
+//! The Phototrap plugin: zones drawn on the preview are watched for movement while it's armed, and each time something moves in one
+//! the phone takes a short burst of photos. Nothing is saved until something sets it off, and only photos, never video.
+
+use crate::stills::{build_options, default_folder, defaults, offered, StillCaps};
+use crate::shared::Paired;
+use serde_json::{json, Value};
+use telescope_core::event::Event;
+use telescope_core::host::{Host, PickKind, PreviewLayer, RequestId, Shape};
+use telescope_core::i18n::{n_, tr, trn, Fields};
+use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
+use std::path::Path;
+use telescope_core::host::{Pick, View};
+use telescope_core::system::{file_url, free_space};
+use telescope_core::time::{local_clock, monotonic_ns};
+use telescope_core::ui::{CardSpec, SlintSource, UiEvent, UiSpec};
+use telescope_core::view::{shown_to_view, view_to_shown, Geometry};
+use telescope_core::vision::{turned, Turn};
+
+pub const NAME: &str = "phototrap";
+const UI: &str = concat!(include_str!("../ui/parts.slint"), "\n", include_str!("../ui/phototrap.slint"));
+
+/// Zones that can be drawn.
+pub const MAX_ZONES: usize = 4;
+pub const DEFAULT_SENSITIVITY: u32 = 5;
+pub const DEFAULT_COUNT: u32 = 3;
+pub const DEFAULT_PAUSE_S: u32 = 10;
+const MAX_PAUSE_S: u32 = 120;
+/// A zone smaller than this (a fraction of the picture, each way) is a stray click.
+const MIN_ZONE: f32 = 0.02;
+const WHOLE: [f32; 4] = [0.0, 0.0, 1.0, 1.0];
+/// The most the Phototrap folder may hold before it disarms itself.
+pub const STORAGE_BUDGET: u64 = 2 << 30;
+/// Less than this free on the volume the photos go to disarms it.
+pub const MIN_FREE: u64 = 1 << 30;
+/// Entries looked at when adding up what the folder holds, so a folder someone filled with other things can't hold the card up.
+const SCAN_LIMIT: usize = 100_000;
+/// A burst nobody has heard the end of this long after its stream stopped is given up on, in seconds.
+const FORGET_AFTER_S: f64 = 60.0;
+
+const SWITCH_TIP: &str = n_("Watch the zones and take photos when something moves in them.");
+const DRAW_TIP: &str = n_("Drag across the preview to mark a place to watch. Up to four.");
+const DRAW_OFF_TIP: &str = n_("Switch on the Preview plugin to draw zones on the preview.");
+const DRAW_ELSEWHERE_TIP: &str = n_("Phototrap is armed on another phone. Switch to that one to draw zones.");
+const CLEAR_TIP: &str = n_("Remove every zone. With none, the whole picture is watched.");
+const NIGHT_TIP: &str = n_("Use the phone maker's Night mode for the photos.");
+const NIGHT_OFF_TIP: &str = n_("This lens has no Night mode to offer");
+const COUNT_TIP: &str = n_("Number of photos each time it goes off.");
+const COUNT_OFF_TIP: &str = n_("This lens takes one photo at a time");
+
+/// The view's flips and rotation, which turn the picture the detector sees.
+fn turn_of(view: &View) -> Turn {
+    Turn { flip_h: view.flip_h, flip_v: view.flip_v, rotation: view.rotation }
+}
+
+/// The picture as shown at zoom 1 with this turn, as a view with nothing else changed.
+fn flat(turn: Turn) -> Geometry {
+    Geometry { zoom: 1.0, pan_x: 0.0, pan_y: 0.0, flip_h: turn.flip_h, flip_v: turn.flip_v, rotation: turn.rotation, stretch_x: 1.0, stretch_y: 1.0, distortion: 0.0 }
+}
+
+/// A zone (x0, y0, x1, y1) with its two corners put through `map`, kept to the picture and with its corners in order.
+fn map_zone(z: [f32; 4], map: impl Fn(f64, f64) -> (f64, f64)) -> [f32; 4] {
+    let (a, b) = (map(f64::from(z[0]), f64::from(z[1])), map(f64::from(z[2]), f64::from(z[3])));
+    [a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)].map(|v| v.clamp(0.0, 1.0) as f32)
+}
+
+/// Bytes in a folder and the ones inside it, 0 for one that isn't there.
+fn folder_size(folder: &Path) -> u64 {
+    let (mut total, mut seen, mut todo) = (0u64, 0usize, vec![folder.to_path_buf()]);
+    while let Some(dir) = todo.pop() {
+        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        for entry in entries.flatten() {
+            seen += 1;
+            if seen > SCAN_LIMIT {
+                return total;
+            }
+            match entry.metadata() {
+                Ok(m) if m.is_dir() => todo.push(entry.path()),
+                Ok(m) => total += m.len(),
+                Err(_) => {}
+            }
+        }
+    }
+    total
+}
+
+/// Gigabytes the way a limit is told: "2", or "0.5".
+fn gigabytes(bytes: u64) -> String {
+    let gb = bytes as f64 / f64::from(1u32 << 30);
+    if (gb - gb.round()).abs() < 0.05 { format!("{}", gb.round()) } else { format!("{gb:.1}") }
+}
+
+pub struct PhototrapPlugin {
+    armed: bool,
+    /// In the picture as the detector sees it: 0..1 of the whole picture at zoom 1, turned as the view is.
+    zones: Vec<[f32; 4]>,
+    sensitivity: u32,
+    count: u32,
+    pause_s: u32,
+    night: bool,
+    paired: Paired,
+    /// The zones and sensitivity the watch on the host runs with, None while there's none.
+    watch: Option<(Vec<[f32; 4]>, u32)>,
+    /// The stream it watches and takes photos on: the one the panels showed when it was armed. None until there is one.
+    source: Option<String>,
+    /// How the view was turned (flips and rotation) when the zones were drawn, which is how the detector sees the picture.
+    orientation: Turn,
+    /// The zones something moves in now, as the host last said.
+    moving: Vec<u32>,
+    /// Bytes the folder holds: counted when armed, then grown with each burst saved.
+    used: u64,
+    budget: u64,
+    min_free: u64,
+    free: Box<dyn Fn(&Path) -> Option<u64> + Send>,
+    /// The stream ended and no start has been heard since.
+    down: bool,
+    window_shown: bool,
+    caps: Option<StillCaps>,
+    folder: String,
+    triggers: u32,
+    photos: u32,
+    last: String,
+    /// The bursts asked for that haven't finished, with when their stream stopped (on the clock) if it has.
+    taking: Vec<(RequestId, Option<f64>)>,
+    /// When the next trigger is allowed, in seconds on the clock.
+    ready_at: f64,
+    /// What went wrong with the last burst, until the next one works.
+    problem: Option<String>,
+    /// A pick on the preview is under way.
+    drawing: bool,
+    /// set_config has no host: the card hears the settings with the next hook that has one.
+    pending: bool,
+    clock: Box<dyn Fn() -> f64 + Send>,
+}
+
+impl Default for PhototrapPlugin {
+    fn default() -> Self {
+        PhototrapPlugin::new()
+    }
+}
+
+impl PhototrapPlugin {
+    pub fn new() -> PhototrapPlugin {
+        PhototrapPlugin {
+            armed: false,
+            zones: Vec::new(),
+            sensitivity: DEFAULT_SENSITIVITY,
+            count: DEFAULT_COUNT,
+            pause_s: DEFAULT_PAUSE_S,
+            night: false,
+            paired: Paired::default(),
+            watch: None,
+            source: None,
+            orientation: Turn::default(),
+            moving: Vec::new(),
+            used: 0,
+            budget: STORAGE_BUDGET,
+            min_free: MIN_FREE,
+            free: Box::new(free_space),
+            down: false,
+            window_shown: true,
+            caps: None,
+            folder: std::path::Path::new(&default_folder()).join("Phototrap").display().to_string(),
+            triggers: 0,
+            photos: 0,
+            last: String::new(),
+            taking: Vec::new(),
+            ready_at: 0.0,
+            problem: None,
+            drawing: false,
+            pending: false,
+            clock: Box::new(|| monotonic_ns() as f64 / 1e9),
+        }
+    }
+
+    #[cfg(test)]
+    fn with_clock(clock: impl Fn() -> f64 + Send + 'static) -> PhototrapPlugin {
+        PhototrapPlugin { clock: Box::new(clock), ..PhototrapPlugin::new() }
+    }
+
+    #[cfg(test)]
+    fn with_folder(folder: &str) -> PhototrapPlugin {
+        PhototrapPlugin { folder: folder.into(), ..PhototrapPlugin::new() }
+    }
+
+    fn now(&self) -> f64 {
+        (self.clock)()
+    }
+
+    fn burst_max(&self) -> i64 {
+        self.caps.as_ref().map_or(1, |c| c.burst_max)
+    }
+
+    /// The photos per trigger in use: what was picked within what the lens offers, 1 where it has no bursts.
+    fn count_now(&self) -> u32 {
+        let max = self.burst_max();
+        if max < 2 { 1 } else { i64::from(self.count).clamp(2, max) as u32 }
+    }
+
+    fn night_offered(&self) -> bool {
+        let Some(caps) = &self.caps else { return false };
+        let mut choices = defaults();
+        choices.insert("mode".into(), json!("night"));
+        offered(caps, &choices).modes.contains(&"night")
+    }
+
+    /// The stream it's about: the one it was armed on, else the one the panels show.
+    fn target(&self, host: &dyn Host) -> Option<String> {
+        self.source.clone().or_else(|| host.focused_source_id())
+    }
+
+    /// Whether the panels show the stream it's armed on, which is where zones can be drawn and seen. Always so while it isn't armed.
+    fn on_armed_source(&self, host: &dyn Host) -> bool {
+        match (&self.source, self.armed) {
+            (Some(source), true) => host.focused_source_id().as_deref() == Some(source.as_str()),
+            _ => true,
+        }
+    }
+
+    fn read_caps(&self, host: &dyn Host) -> Option<StillCaps> {
+        let id = self.target(host)?;
+        host.still_caps(Some(&id)).and_then(|v| serde_json::from_value(v).ok())
+    }
+
+    /// Whether its stream is running and can take photos.
+    fn can_snap(&self, host: &dyn Host) -> bool {
+        let Some(id) = self.target(host) else { return false };
+        !self.down && host.is_streaming_from(Some(&id)) && host.still_caps(Some(&id)).is_some()
+    }
+
+    fn zones_to_watch(&self) -> Vec<[f32; 4]> {
+        if self.zones.is_empty() { vec![WHOLE] } else { self.zones.clone() }
+    }
+
+    /// The photo options for the picks and what the lens offers.
+    fn options(&self, caps: &StillCaps, host: &dyn Host) -> Value {
+        let mut choices = defaults();
+        let burst = caps.burst_max >= 2;
+        choices.insert("shots".into(), json!(if burst { "burst" } else { "single" }));
+        choices.insert("burst".into(), json!(self.count_now().max(2)));
+        if self.night && self.night_offered() {
+            choices.insert("mode".into(), json!("night"));
+        }
+        let rotation = host.view().rotation.filter(|r| [90, 180, 270].contains(r)).unwrap_or(0);
+        build_options(caps, &choices, rotation)
+    }
+
+    // ── What the card shows ───────────────────────────────────────────
+
+    fn status(&self, host: &dyn Host) -> (String, &'static str) {
+        // A reason it disarmed itself stays up after it has
+        if let Some(problem) = &self.problem {
+            return (problem.clone(), "status_err");
+        }
+        if !self.armed {
+            return (tr("Not armed"), "status_dim");
+        }
+        if !self.can_snap(host) {
+            return (tr("Waiting for a phone that can take photos"), "status_warn");
+        }
+        if host.picture_hidden(self.target(host).as_deref()) {
+            return (tr("Paused while the picture is hidden"), "status_warn");
+        }
+        let text = if self.zones.is_empty() {
+            tr("Armed and watching the whole picture")
+        } else {
+            trn("Armed and watching {n} zone", "Armed and watching {n} zones", self.zones.len() as i64)
+        };
+        (text, "status_ok")
+    }
+
+    fn tally(&self) -> String {
+        if self.triggers > 0 {
+            tr("Triggers: {triggers}, photos: {photos}, last at {time}")
+                .field("triggers", self.triggers).field("photos", self.photos).field("time", &self.last)
+        } else if self.armed {
+            tr("Nothing has set it off yet")
+        } else {
+            String::new()
+        }
+    }
+
+    fn fixed_props() -> Value {
+        json!({"switch-name": tr("Armed"), "switch-help": tr(SWITCH_TIP), "draw-text": tr("Draw zone"), "draw-tip": tr(DRAW_TIP),
+               "clear-text": tr("Clear zones"), "clear-tip": tr(CLEAR_TIP)})
+    }
+
+    fn state_props(&self, host: &dyn Host) -> Value {
+        let (status, kind) = self.status(host);
+        let max = self.burst_max();
+        let night_offered = self.night_offered();
+        let preview = host.has_plugin("preview");
+        let here = self.on_armed_source(host);
+        json!({
+            "active": self.paired.on(), "armed": self.armed, "status": status, "status-kind": kind, "tally": self.tally(),
+            "zone-count": self.zones.len(), "draw-enabled": self.zones.len() < MAX_ZONES && preview && here, "clear-enabled": !self.zones.is_empty(),
+            "draw-tip": tr(if !preview { DRAW_OFF_TIP } else if !here { DRAW_ELSEWHERE_TIP } else { DRAW_TIP }),
+            "folder-text": self.shown_folder(), "folder-tip": self.folder,
+            "sensitivity": self.sensitivity, "sensitivity-text": self.sensitivity.to_string(),
+            "count": self.count_now().max(2), "count-max": max.max(3), "count-text": self.count_now().to_string(), "count-enabled": max >= 2,
+            "count-tip": tr(if max >= 2 { COUNT_TIP } else { COUNT_OFF_TIP }),
+            "pause": self.pause_s, "pause-text": tr("{seconds} s").field("seconds", self.pause_s),
+            "night": self.night, "night-enabled": night_offered,
+            "night-tip": tr(if night_offered { NIGHT_TIP } else { NIGHT_OFF_TIP }),
+        })
+    }
+
+    fn all_props(&self, host: &dyn Host) -> Value {
+        let mut all = Self::fixed_props();
+        if let (Value::Object(a), Value::Object(s)) = (&mut all, self.state_props(host)) {
+            a.extend(s);
+        }
+        all
+    }
+
+    fn show(&self, host: &mut dyn Host) {
+        let props = self.state_props(host);
+        host.set_ui_props("card", &props);
+    }
+
+    /// The folder as the card says it, with the home folder as ~ (nothing personal on a screenshot).
+    fn shown_folder(&self) -> String {
+        let path = Path::new(&self.folder);
+        match std::env::home_dir().and_then(|home| path.strip_prefix(home).ok().map(Path::to_path_buf)) {
+            Some(rest) => Path::new("~").join(rest).display().to_string(),
+            None => self.folder.clone(),
+        }
+    }
+
+    /// The zones drawn back onto the preview: from where the detector has them to the picture as the view shows it now.
+    fn layer(&self, view: &View) -> PreviewLayer {
+        let (flat, shown) = (flat(turn_of(view)), Geometry::from(view));
+        let on_preview = |x: f64, y: f64| {
+            let (fx, fy) = shown_to_view(x, y, &flat);
+            view_to_shown(fx, fy, &shown)
+        };
+        let mut shapes = Vec::new();
+        for (i, z) in self.zones.iter().enumerate() {
+            let z = map_zone(*z, on_preview);
+            // Off the preview while it's zoomed in somewhere else
+            if z[2] - z[0] < 1e-4 || z[3] - z[1] < 1e-4 {
+                continue;
+            }
+            shapes.push(Shape::Rect { x0: z[0], y0: z[1], x1: z[2], y1: z[3], stroke: "#f2b441".into(), width: 2.0, fill: Some("#f2b44126".into()) });
+            shapes.push(Shape::Text { x: z[0] + 0.01, y: z[1] + 0.01, text: (i + 1).to_string(), color: "#f2b441".into(), size: 14.0 });
+        }
+        PreviewLayer { shapes }
+    }
+
+    /// The zones are on the preview while the window shows or it's armed, but never on a stream they aren't watching.
+    fn show_layer(&self, host: &mut dyn Host) {
+        if (self.armed || self.window_shown) && self.on_armed_source(host) {
+            let layer = self.layer(&host.view());
+            host.add_preview_layer(NAME, layer);
+        } else {
+            host.remove_preview_layer(NAME);
+        }
+        host.refresh_preview();
+    }
+
+    // ── Watching ──────────────────────────────────────────────────────
+
+    /// Watches the zones while armed and the phone can take photos, and stops otherwise. The host starts the watch over each time it's told
+    /// one, so it's told only when the zones or the sensitivity change.
+    fn sync(&mut self, host: &mut dyn Host) {
+        if self.armed && self.source.is_none() {
+            self.source = host.focused_source_id();
+        }
+        self.caps = self.read_caps(host);
+        let want = (self.armed && self.can_snap(host)).then(|| (self.zones_to_watch(), self.sensitivity));
+        if want != self.watch {
+            match &want {
+                Some((zones, sensitivity)) => host.watch_motion(NAME, zones, *sensitivity),
+                None => host.watch_motion(NAME, &[], self.sensitivity),
+            }
+            self.watch = want;
+            self.moving.clear();
+        }
+        self.show(host);
+    }
+
+    fn arm(&mut self, host: &mut dyn Host, on: bool) {
+        self.armed = on;
+        self.problem = None;
+        self.source = None;
+        if on {
+            self.ready_at = 0.0;
+            self.source = host.focused_source_id();
+            self.used = folder_size(Path::new(&self.folder));
+        }
+        self.sync(host);
+        self.show_layer(host);
+        if on {
+            if let Some(why) = self.over_limits() {
+                self.disarm(host, why);
+            }
+        }
+    }
+
+    /// Why it can't take another burst: the folder has what it may hold, or the volume has too little free.
+    fn over_limits(&self) -> Option<String> {
+        if self.used >= self.budget {
+            return Some(tr("Off since the {size} GB photo limit is reached").field("size", gigabytes(self.budget)));
+        }
+        if (self.free)(Path::new(&self.folder)).is_some_and(|free| free < self.min_free) {
+            return Some(tr("Off since there's less than {size} GB free on the drive").field("size", gigabytes(self.min_free)));
+        }
+        None
+    }
+
+    /// Stops watching, with the reason on the card.
+    fn disarm(&mut self, host: &mut dyn Host, why: String) {
+        self.armed = false;
+        self.source = None;
+        self.sync(host);
+        self.show_layer(host);
+        self.problem = Some(why);
+        self.show(host);
+    }
+
+    /// Something moved in the zones: a burst of photos when a zone has just been entered, unless it's paused, the phone is busy, the
+    /// picture is hidden or the folder or the drive is full.
+    fn motion(&mut self, host: &mut dyn Host, zones: &[u32]) {
+        let entered = zones.iter().any(|z| !self.moving.contains(z));
+        self.moving = zones.to_vec();
+        let now = self.now();
+        let Some(source) = self.source.clone() else { return };
+        if !entered || !self.armed || now < self.ready_at || host.still_busy(Some(&source)) {
+            return;
+        }
+        // A photo comes off the phone whole, never through the steps that hide the picture
+        if host.picture_hidden(Some(&source)) {
+            return self.show(host);
+        }
+        if let Some(why) = self.over_limits() {
+            return self.disarm(host, why);
+        }
+        let Some(raw) = host.still_caps(Some(&source)) else { return };
+        let caps: StillCaps = serde_json::from_value(raw).unwrap_or_default();
+        let mut options = self.options(&caps, host);
+        // The host looks again when the request is about to go to the phone
+        options["skip_if_hidden"] = json!(true);
+        let Some(id) = host.take_still(&options, &self.folder, Some(&source)) else { return };
+        self.taking.push((id, None));
+        self.triggers += 1;
+        self.last = local_clock();
+        self.ready_at = now + f64::from(self.pause_s);
+        self.show(host);
+    }
+
+    fn done(&mut self, host: &mut dyn Host, ok: bool, data: &Value) {
+        // Asked not to take it while the picture was hidden, and it was: nothing went off
+        if data.get("code").and_then(Value::as_str) == Some("hidden") {
+            self.triggers = self.triggers.saturating_sub(1);
+            self.ready_at = self.now();
+            return self.show(host);
+        }
+        let files: Vec<&str> = data.get("files").and_then(Value::as_array).map_or_else(Vec::new, |a| a.iter().filter_map(Value::as_str).collect());
+        // What reached the folder counts even when the burst failed on a later photo
+        self.photos += files.len() as u32;
+        self.used += files.iter().filter_map(|f| std::fs::metadata(f).ok()).map(|m| m.len()).sum::<u64>();
+        if ok && !files.is_empty() {
+            self.problem = None;
+        } else if data.get("code").and_then(Value::as_str) == Some("interrupted") {
+            // The stream stopped or changed lens under it: the card already says it's waiting
+        } else {
+            let error = data.get("error").and_then(Value::as_str).filter(|e| !e.is_empty());
+            self.problem = Some(error.map_or_else(|| tr("The phone couldn't take the photos"), String::from));
+        }
+        // The pause counts from when the burst ended
+        self.ready_at = self.now() + f64::from(self.pause_s);
+        match self.over_limits().filter(|_| self.armed) {
+            Some(why) => self.disarm(host, why),
+            None => self.show(host),
+        }
+    }
+
+    fn picked(&mut self, host: &mut dyn Host, pick: &Pick) {
+        self.drawing = false;
+        self.follow_view(host);
+        // A zone is where the armed stream looks, so one drawn on another stream's picture isn't one
+        if !self.on_armed_source(host) {
+            return;
+        }
+        // Where the points are in the whole picture, turned the way the view turns it, as the detector has it
+        let &[a, b] = pick.full.as_slice() else { return };
+        let turn = turned(Turn::default(), self.orientation);
+        let zone = map_zone([a[0], a[1], b[0], b[1]], turn);
+        if zone[2] - zone[0] < MIN_ZONE || zone[3] - zone[1] < MIN_ZONE || self.zones.len() >= MAX_ZONES {
+            return;
+        }
+        self.zones.push(zone);
+        self.zones_changed(host);
+    }
+
+    /// The view turned or flipped: the zones go where the same part of the scene is now.
+    fn follow_view(&mut self, host: &mut dyn Host) {
+        let now = turn_of(&host.view());
+        if now == self.orientation {
+            return;
+        }
+        let remap = turned(self.orientation, now);
+        self.zones = self.zones.iter().map(|z| map_zone(*z, &remap)).collect();
+        self.orientation = now;
+        self.sync(host);
+        host.schedule_save();
+    }
+
+    fn zones_changed(&mut self, host: &mut dyn Host) {
+        self.sync(host);
+        self.show_layer(host);
+        host.schedule_save();
+    }
+
+    fn draw(&mut self, host: &mut dyn Host) {
+        if self.zones.len() >= MAX_ZONES || !host.has_plugin("preview") || !self.on_armed_source(host) {
+            return;
+        }
+        self.drawing = host.pick_on_preview(NAME, PickKind::Rect, None, &tr("Drag across the picture to mark a zone. Esc cancels."));
+    }
+
+    /// The panels moved to another stream: zones can't be drawn or seen on one the trap isn't armed on.
+    fn focus_moved(&mut self, host: &mut dyn Host) {
+        if self.drawing && !self.on_armed_source(host) {
+            self.drawing = false;
+            host.cancel_pick(NAME);
+        }
+        self.sync(host);
+        self.show_layer(host);
+    }
+
+    fn set_number(&mut self, host: &mut dyn Host, which: &str, value: f64) {
+        let v = value.round() as u32;
+        match which {
+            "sensitivity" => self.sensitivity = v.clamp(1, 10),
+            "count" => self.count = v.clamp(2, 64),
+            _ => self.pause_s = v.clamp(1, MAX_PAUSE_S),
+        }
+        self.sync(host);
+        host.schedule_save();
+    }
+
+    /// A phone said how it is: what it can take may have changed, which is when arming waits or goes on.
+    fn state_heard(&mut self, host: &mut dyn Host) {
+        let streaming = self.can_snap(host);
+        if self.read_caps(host) != self.caps || (self.armed && streaming != self.watch.is_some()) {
+            self.sync(host);
+        }
+    }
+
+    fn catch_up(&mut self, host: &mut dyn Host) {
+        if self.pending {
+            self.pending = false;
+            self.follow_view(host);
+            self.caps = self.read_caps(host);
+            let props = self.all_props(host);
+            host.set_ui_props("card", &props);
+            self.show_layer(host);
+        }
+    }
+}
+
+impl Plugin for PhototrapPlugin {
+    fn info(&self) -> PluginInfo {
+        PluginInfo {
+            name: NAME.into(),
+            title: n_("Phototrap").into(),
+            about: n_("Take a burst of photos when something moves in the zones you draw, for wildlife and anything that shows up while nobody's looking.").into(),
+            when_off: n_("Without the Phototrap plugin there's no Phototrap card and nothing is watched for movement.").into(),
+            category: "camera".into(),
+            icon: "eye".into(),
+            optional: true,
+            lab: true,
+            ..Default::default()
+        }
+    }
+
+    fn setup(&mut self, host: &mut dyn Host) {
+        self.follow_view(host);
+        self.caps = self.read_caps(host);
+        let props = self.all_props(host);
+        host.set_ui_props("card", &props);
+        self.show_layer(host);
+    }
+
+    fn shutdown(&mut self, host: &mut dyn Host) {
+        if self.watch.take().is_some() {
+            host.watch_motion(NAME, &[], self.sensitivity);
+        }
+        if self.drawing {
+            host.cancel_pick(NAME);
+        }
+        host.remove_preview_layer(NAME);
+    }
+
+    fn on_focus_gained(&mut self, host: &mut dyn Host, _stream: &StreamInfo) {
+        self.focus_moved(host);
+    }
+
+    fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
+        self.catch_up(host);
+        let now = self.now();
+        self.taking.retain(|(_, lost)| lost.is_none_or(|at| now - at < FORGET_AFTER_S));
+        if let Some(on) = self.paired.hear(event) {
+            host.set_ui_props("card", &json!({"active": on}));
+        }
+        match event {
+            // Only the stream it was armed on: another phone's movement is nothing to it
+            Event::MotionSeen { source_id, owner, zones } if owner == NAME && self.source.as_deref() == Some(source_id.as_str()) => self.motion(host, zones),
+            Event::PreviewPicked { owner, pick } if owner == NAME => match pick {
+                Some(pick) => self.picked(host, pick),
+                None => self.drawing = false,
+            },
+            Event::RequestDone { request, ok, data, .. } if self.taking.iter().any(|(r, _)| r == request) => {
+                self.taking.retain(|(r, _)| r != request);
+                self.done(host, *ok, data);
+            }
+            Event::WindowShown { shown } => {
+                self.window_shown = *shown;
+                self.show_layer(host);
+            }
+            Event::StreamStopped => {
+                self.down = true;
+                // The bursts still end on their own and say what reached the folder
+                let now = self.now();
+                for (_, lost) in &mut self.taking {
+                    lost.get_or_insert(now);
+                }
+                self.sync(host);
+            }
+            Event::StreamStarted { .. } | Event::StreamConnected { .. } => {
+                self.down = false;
+                self.sync(host);
+            }
+            // The phone's lenses can arrive after its stream connects
+            Event::PhoneStateUpdated { .. } if self.source.is_none() || self.source == host.focused_source_id() => self.state_heard(host),
+            Event::StreamState { source_id, .. } if self.source.as_deref() == Some(source_id.as_str()) => self.state_heard(host),
+            Event::ViewChanged { .. } => {
+                self.follow_view(host);
+                self.show_layer(host);
+            }
+            Event::SourceSelected { .. } => self.focus_moved(host),
+            Event::StillCapsChanged { .. } | Event::StreamLost { .. } | Event::CameraSwitched { .. } => self.sync(host),
+            _ => {}
+        }
+    }
+
+    fn card(&mut self) -> Option<CardSpec> {
+        let props = json!({"switch-name": tr("Armed"), "switch-help": tr(SWITCH_TIP), "draw-text": tr("Draw zone"), "draw-tip": tr(DRAW_TIP),
+                           "clear-text": tr("Clear zones"), "clear-tip": tr(CLEAR_TIP), "active": self.paired.on(), "armed": self.armed,
+                           "status": tr("Not armed"), "status-kind": "status_dim", "count-max": 8, "count": 3, "count-enabled": false, "night-enabled": false,
+                           "count-text": "1", "night-tip": tr(NIGHT_OFF_TIP), "pause-text": tr("{seconds} s").field("seconds", self.pause_s),
+                           "sensitivity-text": self.sensitivity.to_string(), "sensitivity": self.sensitivity, "pause": self.pause_s,
+                           "folder-text": self.shown_folder(), "folder-tip": self.folder});
+        Some(CardSpec { ui: UiSpec { source: SlintSource::Text(UI.into()), component: "PhototrapCard".into(), props }, region: "right".into() })
+    }
+
+    fn on_ui(&mut self, host: &mut dyn Host, event: &UiEvent) {
+        if event.ui != "card" {
+            return;
+        }
+        self.catch_up(host);
+        let flag = event.args.first().and_then(Value::as_bool).unwrap_or(false);
+        let number = event.args.first().and_then(Value::as_f64).unwrap_or(0.0);
+        match event.callback.as_str() {
+            "switch-toggled-by-hand" => self.arm(host, flag),
+            "draw-clicked" => self.draw(host),
+            "folder-clicked" => {
+                // A folder nothing has gone to yet isn't there to open
+                let _ = std::fs::create_dir_all(&self.folder);
+                host.open_url(&file_url(Path::new(&self.folder)));
+            }
+            "clear-clicked" => {
+                self.zones.clear();
+                self.zones_changed(host);
+            }
+            "sensitivity-moved" => self.set_number(host, "sensitivity", number),
+            "count-moved" => self.set_number(host, "count", number),
+            "pause-moved" => self.set_number(host, "pause", number),
+            "night-toggled" => {
+                self.night = flag;
+                self.show(host);
+                host.schedule_save();
+            }
+            _ => {}
+        }
+    }
+
+    /// Armed isn't saved, so a restart never starts taking photos.
+    fn get_config(&self) -> Value {
+        let mut cfg = json!({"zones": self.zones, "sensitivity": self.sensitivity, "count": self.count, "pause": self.pause_s, "night": self.night});
+        // The zones' orientation, so they follow the view if it's turned another way by the time they're loaded
+        if self.orientation != Turn::default() {
+            cfg["turn"] = json!(self.orientation);
+        }
+        cfg
+    }
+
+    fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
+        let number = |key: &str, default: u32, low: u32, high: u32| {
+            cfg.get(key).and_then(Value::as_f64).filter(|v| v.is_finite()).map_or(default, |v| (v.round() as i64).clamp(i64::from(low), i64::from(high)) as u32)
+        };
+        self.zones = cfg.get("zones").and_then(Value::as_array).map_or_else(Vec::new, |list| {
+            list.iter()
+                .filter_map(|z| serde_json::from_value::<[f32; 4]>(z.clone()).ok())
+                .filter(|z| z.iter().all(|v| (0.0..=1.0).contains(v)) && z[2] - z[0] >= MIN_ZONE && z[3] - z[1] >= MIN_ZONE)
+                .take(MAX_ZONES)
+                .collect()
+        });
+        self.sensitivity = number("sensitivity", DEFAULT_SENSITIVITY, 1, 10);
+        self.count = number("count", DEFAULT_COUNT, 2, 64);
+        self.pause_s = number("pause", DEFAULT_PAUSE_S, 1, MAX_PAUSE_S);
+        self.night = cfg.get("night") == Some(&Value::Bool(true));
+        self.orientation = cfg.get("turn").and_then(|t| serde_json::from_value(t.clone()).ok()).unwrap_or_default();
+        self.pending = true;
+        Ok(())
+    }
+
+    fn diagnostics(&self) -> Vec<(String, String)> {
+        vec![("Phototrap".into(), format!("{}, {} zones, {} triggers", if self.armed { "armed" } else { "off" }, self.zones.len(), self.triggers))]
+    }
+}
+
+#[cfg(test)]
+#[path = "phototrap_tests.rs"]
+mod tests;

@@ -186,6 +186,14 @@ pub fn set_hues(on: bool) {
     }
 }
 
+/// Host::set_appearance reaches the settings window too.
+pub fn set_appearance(appearance: &telescope_core::host::Appearance) {
+    if let Some(settings) = SETTINGS.with(|s| s.borrow().clone()) {
+        crate::appearance::apply_to(&settings.ui, appearance);
+        crate::frame::dress(&settings.ui);
+    }
+}
+
 /// Host::set_look reaches the settings window too.
 pub fn set_look(look: telescope_core::host::Look) {
     if let Some(settings) = SETTINGS.with(|s| s.borrow().clone()) {
@@ -301,6 +309,35 @@ struct Late {
     images: Vec<(String, String, String, slint::Image)>,
 }
 
+/// Plugins switched off this run after panicking: the Plugins tab says so on their tiles, in the window if it's built and in the plan if it's prepared.
+pub fn plugins_stopped(stopped: std::collections::BTreeMap<String, String>) {
+    PLAN.with(|p| {
+        if let Some(plan) = p.borrow_mut().as_mut() {
+            plan.panel.stopped = stopped.clone();
+            plan.panel.refresh();
+        }
+    });
+    if let Some(settings) = current() {
+        settings.panel.borrow_mut().stopped = stopped;
+        settings.panel.borrow_mut().refresh();
+        settings.show_panel();
+    }
+}
+
+/// A stopped plugin's settings sections are hidden, in the window if it's built and in the plan if it's prepared.
+pub fn hide_sections(plugin: &str) {
+    let ids: Vec<String> = PLAN.with(|p| p.borrow().as_ref().map(|plan| plan.pieces.iter().filter(|(pl, _, _)| pl == plugin).map(|(_, ui, _)| ui.clone()).collect()))
+        .or_else(|| current().map(|s| s.pieces.iter().filter(|(pl, _, _)| pl == plugin).map(|(_, ui, _)| ui.clone()).collect()))
+        .unwrap_or_default();
+    for ui in ids {
+        let hidden = serde_json::json!({"visible": false});
+        match current() {
+            Some(settings) => settings.set_props(plugin, &ui, &hidden),
+            None => hold_props(plugin, &ui, &hidden),
+        }
+    }
+}
+
 /// Keeps a section's new properties while the page is prepared but not yet a window, so the window starts out with them (the plan only holds the ones from when it was made).
 pub fn hold_props(plugin: &str, ui: &str, props: &serde_json::Value) {
     if !prepared() {
@@ -360,7 +397,10 @@ fn plan(window: &Rc<Window>) -> Result<Plan, String> {
             Some(service) => Box::new(VisionDownload::new(service.clone())),
             None => Box::new(plugins_tab::NoVision),
         };
-        (Panel::new(state.builtins.clone(), running, state.problems.clone(), state.admin.clone(), download), state.off.len(), categories)
+        let mut panel = Panel::new(state.builtins.clone(), running, state.problems.clone(), state.admin.clone(), download);
+        panel.stopped = state.stopped();
+        panel.refresh();
+        (panel, state.off.len(), categories)
     };
     let tabs = ordered_tabs(&sections, &Panel::tab_title(off));
     let plugins_tab = tabs.iter().position(|(id, _, _)| id == "plugins");
@@ -395,7 +435,7 @@ fn create(window: &Rc<Window>, plan: Plan) -> Result<Rc<Settings>, String> {
     let Plan { sections, places, tabs, plugins_tab, pieces, tab_sections, section_words, panel, def } = plan;
     // Under the main window, as Python's dialog has it as its parent
     let ui = crate::parent::make(&window.ui, || def.create()).map_err(|e| e.to_string())?;
-    crate::motion::apply(&ui);
+    crate::appearance::apply(&ui);
     // A .zip dropped anywhere on the window installs like the Install button does
     let drops = Rc::new(plugins_tab::DropBatch::default());
     crate::keys::watch_scan_codes_and(&ui, move |event| {
@@ -654,6 +694,12 @@ impl Settings {
             let name = format!("{id}-{k}");
             let _ = crate::same::set(&self.ui, &name, to_property(&self.ui, &name, v));
         }
+    }
+
+    /// What a plugin's settings section shows for one of its properties now (for tests).
+    pub fn get_prop(&self, plugin: &str, ui: &str, prop: &str) -> Option<SValue> {
+        let (_, _, id) = self.pieces.iter().find(|p| p.0 == plugin && p.1 == ui)?;
+        self.ui.get_property(&format!("{id}-{prop}")).ok()
     }
 
     /// Scrolls the page so a control that just got keyboard focus shows, 40 px clear of the edge like ensureWidgetVisible.

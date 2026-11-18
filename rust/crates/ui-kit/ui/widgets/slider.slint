@@ -64,7 +64,7 @@ export component Slider inherits HorizontalLayout {
     // false drops the readout column, for a slider with a box of its own beside it
     in property <bool> has-readout: true;
     // value_label's fits: wider than the usual column when its words need it
-    in property <length> readout-width: Theme.u(28);
+    in property <length> readout-width: Theme.readout-w;
     // Dots on the groove (NoScrollSlider.set_snaps, at most four) that a dragged handle sticks to within snap-px; only a
     // drag snaps, keys and clicks on the groove step freely
     in property <[float]> marks;
@@ -361,7 +361,7 @@ export component Slider inherits HorizontalLayout {
             font-size: Theme.body;
             font-weight: Theme.w-value;
             // Over the full colour of a held bar the card's own dark reads, where the light ink wouldn't
-            color: !enabled ? Theme.dis : track.held && has-level && (left-side ? self.x + self.width - Theme.u(7) : self.x + Theme.u(7)) < groove.live-w ? Theme.card : Theme.ink;
+            color: !enabled ? Theme.dis : has-level && (left-side ? self.x + self.width - Theme.u(7) : self.x + Theme.u(7)) < groove.live-w ? Theme.on(groove.live-colour) : Theme.ink;
             horizontal-alignment: left-side ? right : left;
             vertical-alignment: center;
             overflow: elide;
@@ -406,7 +406,7 @@ export component Slider inherits HorizontalLayout {
             if has-level-icon: Icon {
                 y: (parent.height - Theme.icon-small) / 2;
                 source: level-icon;
-                tint: !enabled ? Theme.dis : track.held && has-level && groove.live-w > parent.x + parent.width / 2 ? Theme.card : Theme.ink;
+                tint: !enabled ? Theme.dis : has-level && groove.live-w > parent.x + parent.width / 2 ? Theme.on(groove.live-colour) : Theme.ink;
                 width: Theme.icon-small;
                 height: Theme.icon-small;
             }
@@ -415,7 +415,7 @@ export component Slider inherits HorizontalLayout {
                 font-family: Theme.font;
                 font-size: Theme.body;
                 font-weight: Theme.w-value;
-                color: !enabled ? Theme.dis : track.held && has-level && groove.live-w > parent.x + parent.width / 2 ? Theme.card : Theme.ink;
+                color: !enabled ? Theme.dis : has-level && groove.live-w > parent.x + parent.width / 2 ? Theme.on(groove.live-colour) : Theme.ink;
                 vertical-alignment: center;
                 overflow: elide;
                 accessible-role: none;

@@ -840,6 +840,9 @@ impl StereoPlugin {
             Some((other, t))
         });
         host.preview_follows(NAME, follows.as_ref().map(|f| f.0.as_str()), follows.as_ref().map(|f| f.1.as_str()));
+        // with a pair the picture that stream sends is the 3D one, not a camera's view
+        let making = self.target.clone().filter(|_| self.on && self.eyes(host).is_some());
+        host.preview_composited(NAME, making.as_deref());
     }
 
     fn catch_up(&mut self, host: &mut dyn Host) {

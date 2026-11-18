@@ -147,6 +147,8 @@ pub struct FakeHost {
     pub warp: Option<[f32; 9]>,
     /// What each owner last asked the preview to follow, as (stream shown, stream drawn).
     pub follows: HashMap<String, (String, String)>,
+    /// Host::preview_composited by owner
+    pub composited: HashMap<String, String>,
     /// What can_turn_camera_off() answers instead of (false, "Not streaming").
     pub can_turn_off: Option<(bool, String)>,
     /// What vision_state() answers instead of "off".
@@ -199,6 +201,16 @@ pub struct FakeHost {
     pub still_busy: bool,
     /// The photos asked for, as (options, folder) in order.
     pub stills_taken: Vec<(Value, String)>,
+    /// The source id each photo in stills_taken was asked for on.
+    pub still_sources: Vec<Option<String>>,
+    /// While set, the photo calls only answer for this source id, as for a host where it's one of several streams: any other (or None) finds no stream.
+    pub still_only_for: Option<String>,
+    /// What picture_hidden() answers.
+    pub picture_hidden: bool,
+    /// What set_hiding() was told, as (owner, source id, on) in order.
+    pub hiding: Vec<(String, Option<String>, bool)>,
+    /// What hidden_flag hands out (None: no flag).
+    pub hidden_flag: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     /// What stream_on_camera() answers, as (slot, source id, width, height).
     pub cameras: Vec<(u32, String, Option<u32>, Option<u32>)>,
     /// Streams is_streaming_from() says run, besides the focused one while streaming.
@@ -219,6 +231,8 @@ pub struct FakeHost {
     pub plugin_hues: Option<bool>,
     /// What set_look last said (None until it's called).
     pub look: Option<crate::host::Look>,
+    /// What set_appearance last said (None until it's called).
+    pub appearance: Option<crate::host::Appearance>,
     /// What set_power_saving last said (None until it's called).
     pub power_saving: Option<bool>,
     /// What the plugin last offered the bottom bar (offer_bar_stats), and the ids pinned to it (bar_pins), which pin_to_bar changes.
@@ -527,6 +541,10 @@ impl HostShell for FakeHost {
         self.note(format!("set_look {}", look.name()));
         self.look = Some(look);
     }
+    fn set_appearance(&mut self, appearance: crate::host::Appearance) {
+        self.note(format!("set_appearance {appearance:?}"));
+        self.appearance = Some(appearance);
+    }
     fn pick_file(&mut self, dialog: &FileDialog) -> Option<RequestId> {
         self.note(format!("pick_file {:?} {}", dialog.kind, dialog.title));
         self.dialogs.push(dialog.clone());
@@ -720,6 +738,16 @@ impl HostPreview for FakeHost {
         self.warp = matrix;
         self.note(format!("set_preview_warp {owner} {}", matrix.is_some()));
     }
+    fn preview_shows_own_picture(&self) -> bool {
+        let shown = self.focused_source_id();
+        !self.follows.values().any(|(s, _)| Some(s) == shown.as_ref()) && !self.composited.values().any(|s| Some(s) == shown.as_ref())
+    }
+    fn preview_composited(&mut self, owner: &str, source_id: Option<&str>) {
+        match source_id {
+            Some(s) => self.composited.insert(owner.to_string(), s.to_string()),
+            None => self.composited.remove(owner),
+        };
+    }
     fn preview_follows(&mut self, owner: &str, source_id: Option<&str>, target: Option<&str>) {
         match (source_id, target) {
             (Some(source), Some(target)) => self.follows.insert(owner.to_string(), (source.to_string(), target.to_string())),
@@ -728,19 +756,36 @@ impl HostPreview for FakeHost {
     }
 }
 
-impl HostStills for FakeHost {
-    fn still_caps(&self, _source_id: Option<&str>) -> Option<Value> {
-        self.still_caps.clone()
+impl FakeHost {
+    /// Whether a photo call about this source id finds a stream.
+    fn still_stream(&self, source_id: Option<&str>) -> bool {
+        self.still_only_for.as_deref().is_none_or(|only| source_id == Some(only))
     }
-    fn take_still(&mut self, options: &Value, folder: &str, _source_id: Option<&str>) -> Option<RequestId> {
-        if self.still_caps.is_none() || self.still_busy {
+}
+
+impl HostStills for FakeHost {
+    fn still_caps(&self, source_id: Option<&str>) -> Option<Value> {
+        self.still_stream(source_id).then(|| self.still_caps.clone()).flatten()
+    }
+    fn take_still(&mut self, options: &Value, folder: &str, source_id: Option<&str>) -> Option<RequestId> {
+        if self.still_caps.is_none() || self.still_busy || !self.still_stream(source_id) {
             return None;
         }
         self.stills_taken.push((options.clone(), folder.to_string()));
+        self.still_sources.push(source_id.map(String::from));
         Some(self.request())
     }
-    fn still_busy(&self, _source_id: Option<&str>) -> bool {
-        self.still_busy
+    fn still_busy(&self, source_id: Option<&str>) -> bool {
+        self.still_busy && self.still_stream(source_id)
+    }
+    fn picture_hidden(&self, _source_id: Option<&str>) -> bool {
+        self.picture_hidden
+    }
+    fn set_hiding(&mut self, owner: &str, source_id: Option<&str>, on: bool) {
+        self.hiding.push((owner.to_string(), source_id.map(String::from), on));
+    }
+    fn hidden_flag(&mut self, _source_id: &str) -> Option<std::sync::Arc<std::sync::atomic::AtomicBool>> {
+        self.hidden_flag.clone()
     }
 }
 

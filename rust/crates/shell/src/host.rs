@@ -19,6 +19,12 @@ pub struct Ctx<'a> {
 }
 
 impl Ctx<'_> {
+    /// After something changed what the preview draws: when it moved between the shown stream's own picture and another or a combined one, a pick
+    /// under way is over (its spots are of the other picture) and the plugins hear it.
+    fn preview_source_changed(&mut self, _was_own: bool) {
+        self.state.sync_preview_source();
+    }
+
     /// Gives back what the plugin took or switched on in setup(), for one that is taken out again before it ever runs (its UI didn't build).
     pub fn release_everything(&mut self) {
         let me = self.me.clone();
@@ -29,6 +35,7 @@ impl Ctx<'_> {
         self.cancel_pick(&me);
         self.set_preview_warp(&me, None);
         self.preview_follows(&me, None, None);
+        self.preview_composited(&me, None);
         self.want_sensors(&me, &[]);
         self.want_stats(&me, false);
         self.want_frames(&me, false);
@@ -129,13 +136,21 @@ impl HostSettings for Ctx<'_> {
         self.state.move_device_settings(old, new);
     }
     fn plugin_settings(&self) -> Vec<PluginSettings> {
-        self.state.slots.iter().filter_map(|s| {
-            let settings = s.plugin.as_ref()?.settings();
+        self.state.slots.iter().enumerate().filter(|(_, s)| s.stopped.is_none()).filter_map(|(i, s)| {
+            let plugin = s.plugin.as_ref()?;
+            // One that panics here is stopped, not the plugin asking
+            let settings = match telescope_core::diagnostics::catch_plugin(|| plugin.settings()) {
+                Ok(settings) => settings,
+                Err(panic) => {
+                    self.state.stop_later(i, format!("settings: {}", crate::shell::panic_text(panic.as_ref())));
+                    return None;
+                }
+            };
             (!settings.is_empty()).then(|| PluginSettings { name: s.info.name.clone(), title: s.info.title.clone(), settings })
         }).collect()
     }
     fn running_plugins(&self) -> Vec<(String, String)> {
-        self.state.slots.iter().filter(|s| !s.info.name.is_empty()).map(|s| (s.info.name.clone(), s.info.title.clone())).collect()
+        self.state.slots.iter().filter(|s| !s.info.name.is_empty() && s.stopped.is_none()).map(|s| (s.info.name.clone(), s.info.title.clone())).collect()
     }
     fn plugin_looks(&self) -> Vec<telescope_core::host::PluginLook> {
         self.state.slots.iter().filter(|s| !s.info.name.is_empty()).map(|s| telescope_core::host::PluginLook { name: s.info.name.clone(), title: s.info.title.clone(), icon: s.info.icon.clone() }).collect()
@@ -274,9 +289,13 @@ impl HostCamera for Ctx<'_> {
 
 impl HostSources for Ctx<'_> {
     fn add_stream_source(&mut self, source: Arc<dyn StreamSource>) {
+        let id = source.id().to_string();
+        self.state.source_owners.retain(|(s, _)| *s != id);
+        self.state.source_owners.push((id, self.me.clone()));
         self.state.effects.push(Effect::AddSource(crate::shell::OfferedSource(source)));
     }
     fn remove_stream_source(&mut self, source_id: &str) {
+        self.state.source_owners.retain(|(s, _)| s != source_id);
         self.state.effects.push(Effect::RemoveSource(source_id.into()));
     }
     fn stream_source(&mut self, source_id: &str) {
@@ -353,6 +372,9 @@ impl HostShell for Ctx<'_> {
     }
     fn set_look(&mut self, look: telescope_core::host::Look) {
         self.state.effects.push(Effect::Look(look));
+    }
+    fn set_appearance(&mut self, appearance: telescope_core::host::Appearance) {
+        self.state.effects.push(Effect::Appearance(appearance));
     }
     fn set_shortcut_menu(&mut self, bindings: Option<Vec<telescope_core::ui::ShortcutEntry>>) {
         self.state.shortcut_menu = bindings.map(|b| (self.me.clone(), b));
@@ -562,7 +584,19 @@ impl HostPreview for Ctx<'_> {
     fn unwarp(&self, u: f64, v: f64) -> (f64, f64) {
         self.state.overlays.unwarp(u, v)
     }
+    fn preview_shows_own_picture(&self) -> bool {
+        self.focused_source_id().is_none_or(|shown| self.state.preview_shows_own(&shown))
+    }
+    fn preview_composited(&mut self, owner: &str, source_id: Option<&str>) {
+        let shows_own = self.preview_shows_own_picture();
+        match source_id {
+            Some(s) => self.state.preview_composited.insert(owner.to_string(), s.to_string()),
+            None => self.state.preview_composited.remove(owner),
+        };
+        self.preview_source_changed(shows_own);
+    }
     fn preview_follows(&mut self, owner: &str, source_id: Option<&str>, target: Option<&str>) {
+        let shows_own = self.preview_shows_own_picture();
         let now = source_id.zip(target).map(|(s, t)| (s.to_string(), t.to_string()));
         let before = match &now {
             Some(pair) => self.state.preview_follows.insert(owner.to_string(), pair.clone()),
@@ -572,6 +606,7 @@ impl HostPreview for Ctx<'_> {
             // the picture the preview draws is another stream's from now on, or its own again
             self.state.preview_dirty.store(true, std::sync::atomic::Ordering::SeqCst);
         }
+        self.preview_source_changed(shows_own);
     }
 }
 
@@ -626,6 +661,19 @@ impl HostStills for Ctx<'_> {
             return camera.busy();
         }
         self.stills().is_some_and(|s| s.busy(Some(&id)))
+    }
+    fn picture_hidden(&self, source_id: Option<&str>) -> bool {
+        let id = match source_id {
+            Some(id) => id.to_string(),
+            None => self.focused_source_id().unwrap_or_default(),
+        };
+        self.state.picture_hidden_for(&id)
+    }
+    fn set_hiding(&mut self, owner: &str, source_id: Option<&str>, on: bool) {
+        self.state.set_hiding(owner, source_id, on);
+    }
+    fn hidden_flag(&mut self, source_id: &str) -> Option<Arc<std::sync::atomic::AtomicBool>> {
+        Some(self.state.hidden_flag(source_id))
     }
 }
 
@@ -690,7 +738,7 @@ impl Host for Ctx<'_> {
         self.state.bus.emit(event);
     }
     fn has_plugin(&self, name: &str) -> bool {
-        self.state.index(name).is_some() || name == self.me
+        self.state.index(name).is_some_and(|i| self.state.slots[i].stopped.is_none()) || name == self.me
     }
     fn schedule(&mut self, after_ms: u64, token: &str) {
         self.state.effects.push(Effect::Schedule { plugin: self.me.clone(), token: token.into(), ms: after_ms });

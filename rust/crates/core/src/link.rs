@@ -372,6 +372,14 @@ pub trait PhoneStills: Send + Sync {
     fn take(&self, source_id: Option<&str>, stream_base: &str, phone: &PairedPhone, options: &Value, folder: &str,
             on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
             alive: Box<dyn Fn() -> bool + Send>) -> bool;
+    /// `take` that reads `hidden` on the photo's thread right before the request leaves for the phone: true ends the photo with the code
+    /// "hidden" and nothing is asked of the phone. An implementation that can't look then takes the photo as `take` does.
+    #[allow(clippy::too_many_arguments)]
+    fn take_unless_hidden(&self, source_id: Option<&str>, stream_base: &str, phone: &PairedPhone, options: &Value, folder: &str,
+                          on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
+                          alive: Box<dyn Fn() -> bool + Send>, _hidden: std::sync::Arc<std::sync::atomic::AtomicBool>) -> bool {
+        self.take(source_id, stream_base, phone, options, folder, on_progress, on_done, alive)
+    }
     /// At quit: every photo ends, and its phone is told to forget it.
     fn shutdown(&self);
 }
