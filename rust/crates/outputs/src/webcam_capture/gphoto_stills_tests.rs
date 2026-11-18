@@ -14,6 +14,8 @@ struct State {
     /// What capture() makes: (name, bytes) per file, or the error it fails with, and how long it takes.
     made: Vec<(String, Vec<u8>)>,
     capture_error: Option<String>,
+    /// The first this many captures fail, whatever else is set.
+    fail_captures: u32,
     /// capture() brings the first file and fails for the second.
     partial: bool,
     capture_takes: Duration,
@@ -78,7 +80,9 @@ impl Rig for Fake {
             s.captures += 1;
             s.expected.push(expect);
             s.live_view_at_capture = s.settings.get("viewfinder").map(|v| v.2.clone());
-            (s.capture_takes, s.capture_error.clone())
+            let failing = s.fail_captures > 0;
+            s.fail_captures = s.fail_captures.saturating_sub(1);
+            (s.capture_takes, s.capture_error.clone().or(failing.then(|| "the camera hiccuped".to_string())))
         };
         std::thread::sleep(takes);
         if let Some(why) = error {
@@ -189,6 +193,24 @@ fn a_jpeg_changes_the_quality_from_a_raw_one_and_waits_for_one_file() {
     let again = take_photo(&mut Fake(state.clone()), &wish(Format::Jpeg)).unwrap();
     assert_eq!(again.len(), 1);
     assert_eq!(log(&state)[4..], ["viewfinder=0", "capture"]);
+}
+
+#[test]
+fn the_first_shot_after_changing_the_quality_is_tried_once_more_but_a_plain_failure_is_not() {
+    let state = d5100(true);
+    state.lock().unwrap().fail_captures = 1;
+    let shots = take_photo(&mut Fake(state.clone()), &wish(Format::Jpeg)).unwrap();
+    assert_eq!(shots.len(), 1);
+    assert_eq!(state.lock().unwrap().captures, 2, "one failure and the retry");
+    // Nothing was switched this time, so a failure is the answer
+    state.lock().unwrap().fail_captures = 1;
+    assert_eq!(take_photo(&mut Fake(state.clone()), &wish(Format::Jpeg)).unwrap_err(), Failure::Camera("the camera hiccuped".into()));
+    assert_eq!(state.lock().unwrap().captures, 3);
+    // A stop is never retried
+    state.lock().unwrap().settings.get_mut("imagequality").unwrap().2 = "NEF (Raw)".into();
+    state.lock().unwrap().capture_error = Some("stopped: the picture is hidden".into());
+    assert!(take_photo(&mut Fake(state.clone()), &wish(Format::Jpeg)).is_err());
+    assert_eq!(state.lock().unwrap().captures, 4);
 }
 
 #[test]
