@@ -300,3 +300,58 @@ fn the_preview_draws_while_the_window_is_open() {
     r.plugin.on_event(&mut r.host, &Event::TimerFired { owner: NAME.into(), token: CompositePlugin::EDITOR_TIMER.into() });
     assert!(r.host.scheduled.is_empty(), "no more after it closes");
 }
+
+#[test]
+fn the_position_and_size_boxes_set_the_box_in_canvas_pixels_and_keep_it_on_the_picture() {
+    let mut r = open();
+    r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 0.5, 0.5), Tile::boxed("b", "", 0.1, 0.1, 0.4, 0.4)]);
+    r.plugin.select(1);
+    assert_eq!((r.props()["pos-x-text"].clone(), r.props()["size-w-text"].clone()), (json!("32"), json!("128")));
+    r.ui("box-committed", json!(["x", "64 px"]));
+    assert!(near(r.tile(1).x, 0.2, 1e-9), "{}", r.tile(1).x);
+    r.ui("box-committed", json!(["w", "5000"]));
+    assert!(near(r.tile(1).x + r.tile(1).w, 1.0, 1e-9), "kept on the picture");
+    r.ui("box-committed", json!(["x", "nonsense"]));
+    assert!(near(r.tile(1).x, 0.2, 1e-9), "text that isn't a number changes nothing");
+    r.ui("box-step", json!(["y", 9]));
+    assert!(near(r.tile(1).y, 0.1 + 9.0 / 180.0, 1e-9));
+    r.ui("box-committed", json!(["h", "1"]));
+    assert!(near(r.tile(1).h, crate::composite::MIN_SIZE, 1e-9), "never smaller than the least size");
+}
+
+#[test]
+fn a_stream_can_swap_places_with_another_and_takes_its_layer_and_its_shape_of_box() {
+    let mut r = open();
+    // Screen is big at the back and Face small in front of it
+    r.picture(vec![Tile::boxed("a", "Screen", 0.0, 0.0, 0.8, 0.8), Tile::boxed("b", "Face", 0.6, 0.5, 0.3, 0.45), Tile::boxed("c", "Corner", 0.0, 0.85, 0.15, 0.15)]);
+    r.plugin.select(0);
+    // the picked one isn't in the choice
+    assert_eq!((r.props()["swap-items"].clone(), r.props()["swap-enabled"].clone()), (json!(["Face", "Corner"]), json!(true)));
+    r.ui("swap-picked", json!([0]));
+    // Screen is now the small one in front, Face the big one behind it
+    assert_eq!(r.sources(), ["b", "a", "c"]);
+    assert_eq!(r.props()["selected"], json!(1), "the picked stream stays picked");
+    assert!((r.tile(0).w - 0.8).abs() < 1e-9 && r.tile(0).x == 0.0, "Face has the big box: {:?}", r.tile(0));
+    // Screen's new box was tall for a wide stream: it is cut to the stream's shape (a 16:9 stream on a 16:9 picture: as tall as it is wide in fractions)
+    assert!((r.tile(1).w - r.tile(1).h).abs() < 1e-9 && r.tile(1).w <= 0.3 + 1e-9, "Screen is not squeezed: {:?}", r.tile(1));
+    r.plugin.select(-1);
+    assert_eq!(r.props()["swap-enabled"], json!(false));
+}
+
+#[test]
+fn typing_a_size_follows_the_shape_lock_that_dragging_follows() {
+    let mut r = open();
+    // 0.4 x 0.4 of a 320 x 180 picture is 128 x 72 pixels: 16:9
+    r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 0.2, 0.2), Tile::boxed("b", "", 0.1, 0.1, 0.4, 0.4)]);
+    r.plugin.select(1);
+    r.ui("box-committed", json!(["w", "160"]));
+    assert!((r.tile(1).w - 0.5).abs() < 1e-9 && (r.tile(1).h - 0.5).abs() < 1e-9, "the height follows: {:?}", r.tile(1));
+    r.ui("box-committed", json!(["h", "45"]));
+    assert!((r.tile(1).h - 0.25).abs() < 1e-9 && (r.tile(1).w - 0.25).abs() < 1e-9, "and the width follows the height: {:?}", r.tile(1));
+    // a stream that was stretched takes any shape
+    let stretched = Tile { stretch: true, ..r.tile(1) };
+    r.picture(vec![r.tile(0), stretched]);
+    r.plugin.select(1);
+    r.ui("box-committed", json!(["w", "64"]));
+    assert!((r.tile(1).w - 0.2).abs() < 1e-9 && (r.tile(1).h - 0.25).abs() < 1e-9, "{:?}", r.tile(1));
+}
