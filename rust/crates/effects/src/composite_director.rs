@@ -6,7 +6,7 @@
 //! This is a plain state machine over (time, stream, hands) so the rules are testable without a stream.
 
 use crate::composite::Layout;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// How long hands must stay in frame on another stream before its layout goes on.
 pub const HOLD_IN: f64 = 3.0;
@@ -14,6 +14,8 @@ pub const HOLD_IN: f64 = 3.0;
 pub const HOLD_OUT: f64 = 6.0;
 /// The least time between two switches.
 pub const MIN_DWELL: f64 = 5.0;
+/// How long no stream may show hands before the picture hands over from one away stream to another.
+pub const HANDOFF_QUIET: f64 = 3.0;
 /// A reading older than this counts as nobody there.
 pub const STALE_S: f64 = 2.0;
 
@@ -59,9 +61,26 @@ impl Director {
         self.last_switch = now;
     }
 
-    /// Forgets what it was told, for when it goes off or the streams change.
-    pub fn clear(&mut self) {
-        *self = Director { home: std::mem::take(&mut self.home), ..Director::default() };
+    /// Whether a layout other than home is on because of a cut.
+    pub fn is_away(&self) -> bool {
+        self.away.is_some()
+    }
+
+    /// Forgets everything, home too: for when it goes off or a preset brings another picture.
+    pub fn reset(&mut self) {
+        *self = Director::default();
+    }
+
+    /// The home layout was renamed.
+    pub fn rename_home(&mut self, old: &str, new: &str) {
+        if self.home == old {
+            self.home = new.to_string();
+        }
+    }
+
+    /// Drops what streams that aren't running any more said.
+    pub fn retain(&mut self, live: &BTreeSet<String>) {
+        self.seen.retain(|s, _| live.contains(s));
     }
 
     /// A stream said whether hands are in its frame.
@@ -81,20 +100,33 @@ impl Director {
     }
 
     /// The saved layout that shows stream biggest, other than home.
-    fn layout_for<'a>(&self, layouts: &'a [Layout], stream: &str) -> Option<&'a str> {
-        layouts.iter().find(|l| l.name != self.home && biggest(l) == Some(stream)).map(|l| l.name.as_str())
+    pub fn layout_for<'a>(&self, layouts: &'a [Layout], stream: &str, usable: &dyn Fn(&Layout) -> bool) -> Option<&'a Layout> {
+        layouts.iter().find(|l| l.name != self.home && biggest(l) == Some(stream) && usable(l))
     }
 
     /// The name of the layout to switch to now, if it is time to.
-    pub fn decide(&mut self, now: f64, layouts: &[Layout]) -> Option<String> {
+    /// usable says whether a layout can be drawn now (its streams are sending), and a layout that can't is never cut to.
+    pub fn decide(&mut self, now: f64, layouts: &[Layout], usable: &dyn Fn(&Layout) -> bool) -> Option<String> {
         let home = layouts.iter().find(|l| l.name == self.home)?;
         let home_stream = biggest(home)?.to_string();
+        if !usable(home) {
+            return None;
+        }
+        // the layout that is on can't be drawn any more (a stream stopped, the layout was deleted): home, without waiting
+        if let Some(a) = self.away.clone() {
+            if self.layout_for(layouts, &a, usable).is_none() {
+                self.away = None;
+                self.quiet_since = None;
+                self.last_switch = now;
+                return Some(self.home.clone());
+            }
+        }
         if now - self.last_switch < MIN_DWELL {
             return None;
         }
         // the one that has had hands longest comes first
         let mut candidates: Vec<(&String, f64)> = self.seen.iter()
-            .filter(|(s, _)| **s != home_stream && self.away.as_ref() != Some(*s) && self.held(now, s) && self.layout_for(layouts, s).is_some())
+            .filter(|(s, _)| **s != home_stream && self.away.as_ref() != Some(*s) && self.held(now, s) && self.layout_for(layouts, s, usable).is_some())
             .filter_map(|(s, seen)| seen.since.map(|since| (s, since)))
             .collect();
         candidates.sort_by(|a, b| a.1.total_cmp(&b.1));
@@ -102,7 +134,7 @@ impl Director {
         match self.away.clone() {
             None => {
                 let stream = next?;
-                self.go_away(now, &stream, layouts)
+                self.go_away(now, &stream, layouts, usable)
             }
             Some(current) => {
                 if self.hands(now, &current) {
@@ -110,8 +142,9 @@ impl Director {
                     return None;
                 }
                 let quiet = *self.quiet_since.get_or_insert(now);
-                if let Some(stream) = next {
-                    return self.go_away(now, &stream, layouts);
+                // one missed reading is not a handover: the hands have to be gone a while
+                if let Some(stream) = next.filter(|_| now - quiet >= HANDOFF_QUIET) {
+                    return self.go_away(now, &stream, layouts, usable);
                 }
                 if now - quiet >= HOLD_OUT {
                     self.away = None;
@@ -124,8 +157,8 @@ impl Director {
         }
     }
 
-    fn go_away(&mut self, now: f64, stream: &str, layouts: &[Layout]) -> Option<String> {
-        let name = self.layout_for(layouts, stream)?.to_string();
+    fn go_away(&mut self, now: f64, stream: &str, layouts: &[Layout], usable: &dyn Fn(&Layout) -> bool) -> Option<String> {
+        let name = self.layout_for(layouts, stream, usable)?.name.clone();
         self.away = Some(stream.to_string());
         self.quiet_since = None;
         self.last_switch = now;
@@ -154,7 +187,7 @@ mod tests {
             for (s, h) in hands {
                 d.hear(t, s, *h);
             }
-            if let Some(name) = d.decide(t, layouts) {
+            if let Some(name) = d.decide(t, layouts, &|_| true) {
                 out.push((t, name));
             }
             t += 0.5;
@@ -190,7 +223,7 @@ mod tests {
             // two seconds of hands, then a gap, over and over
             let hands = (t as u64 % 4) < 2;
             d.hear(t, "desk", hands);
-            switches += d.decide(t, &l).is_some() as usize;
+            switches += d.decide(t, &l, &|_| true).is_some() as usize;
             t += 0.5;
         }
         assert_eq!(switches, 0);
@@ -231,9 +264,62 @@ mod tests {
     fn a_stale_reading_counts_as_nobody_and_the_home_stream_never_wins() {
         let (l, mut d) = (saved(), started());
         d.hear(6.0, "desk", true);
-        assert_eq!(d.decide(9.5, &l), None, "the last reading is 3.5 s old: gone");
+        assert_eq!(d.decide(9.5, &l, &|_| true), None, "the last reading is 3.5 s old: gone");
         let (l, mut d) = (saved(), started());
         assert!(run(&mut d, &l, 6.0, 30.0, &[("face", true)]).is_empty(), "hands on the home stream change nothing");
+    }
+
+    #[test]
+    fn a_layout_that_cant_be_drawn_is_never_cut_to_and_one_that_stops_sends_it_home() {
+        let (l, mut d) = (saved(), started());
+        let no_desk = |layout: &Layout| layout.name != "Desk";
+        let mut t = 6.0;
+        while t < 20.0 {
+            d.hear(t, "desk", true);
+            assert_eq!(d.decide(t, &l, &no_desk), None, "the Desk layout has no stream to draw");
+            t += 0.5;
+        }
+        let (mut d, mut t) = (started(), 6.0);
+        while d.decide(t, &l, &|_| true).is_none() {
+            d.hear(t, "desk", true);
+            t += 0.5;
+        }
+        assert_eq!(d.decide(t + 0.5, &l, &no_desk).as_deref(), Some("Face"), "the stream stopped: home at once, inside the rest");
+    }
+
+    #[test]
+    fn one_missed_reading_hands_nothing_over_and_a_long_gap_does() {
+        let (l, mut d) = (saved(), started());
+        run(&mut d, &l, 6.0, 12.0, &[("desk", true)]);
+        // wall has had hands all along, desk misses one report
+        let mut t = 12.0;
+        let mut cuts = Vec::new();
+        while t < 20.0 {
+            d.hear(t, "wall", true);
+            d.hear(t, "desk", t != 15.0);
+            cuts.extend(d.decide(t, &l, &|_| true));
+            t += 0.5;
+        }
+        assert!(cuts.is_empty(), "one report without hands cuts nothing: {cuts:?}");
+        let mut t = 20.0;
+        while t < 30.0 {
+            d.hear(t, "wall", true);
+            d.hear(t, "desk", false);
+            cuts.extend(d.decide(t, &l, &|_| true));
+            t += 0.5;
+        }
+        assert_eq!(cuts, ["Wall"], "hands gone for 3 s hands it over");
+    }
+
+    #[test]
+    fn a_renamed_home_is_followed_and_what_stopped_streams_said_is_dropped() {
+        let (mut l, mut d) = (saved(), started());
+        l[0].name = "Talking".into();
+        d.rename_home("Face", "Talking");
+        assert_eq!(d.home(), "Talking");
+        d.hear(6.0, "desk", true);
+        d.retain(&["face".to_string()].into_iter().collect());
+        assert_eq!(d.decide(9.5, &l, &|_| true), None, "the desk stream is gone with its sightings");
     }
 
     #[test]

@@ -467,7 +467,7 @@ fn the_auto_director_works_only_while_on_and_switches_layouts_on_hands() {
     r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: "director-toggled".into(), args: vec![json!(false)] });
     assert_eq!(r.host.calls.iter().rev().find(|c| c.starts_with("want_people composite")).map(String::as_str), Some("want_people composite false"));
     r.plugin.direct(&mut r.host, 100.0);
-    assert_eq!(r.plugin.layout().name, "B big", "off, it changes nothing");
+    assert_eq!(r.plugin.layout().name, "A big", "off puts the layout picked by hand back, and it changes nothing after that");
 }
 
 /// A stand-in picture: a flat colour with a few filled shapes, (x, y, w, h, colour) as fractions.
@@ -528,4 +528,35 @@ fn render_the_director_over_a_scripted_minute() {
         }
     }
     std::fs::write(format!("{out}/log.txt"), log).unwrap();
+}
+
+#[test]
+fn the_auto_director_saves_the_layout_picked_by_hand_follows_a_rename_and_puts_it_back_when_off() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    let two = |big: &str, small: &str| Layout::of(vec![Tile::boxed(big, "", 0.0, 0.0, 0.7, 1.0), Tile::boxed(small, "", 0.7, 0.0, 0.3, 0.4)]);
+    r.plugin.set_layout(&mut r.host, two("a", "b"));
+    r.plugin.save_layout(&mut r.host, "A big");
+    r.plugin.set_layout(&mut r.host, two("b", "a"));
+    r.plugin.save_layout(&mut r.host, "B big");
+    r.plugin.pick(&mut r.host, "A big");
+    r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: "director-toggled".into(), args: vec![json!(true)] });
+    r.plugin.director.picked(0.0, "A big");
+    for t in 0..8 {
+        r.plugin.director.hear(10.0 + t as f64 * 0.5, "b", true);
+        r.plugin.direct(&mut r.host, 10.0 + t as f64 * 0.5);
+    }
+    assert_eq!(r.plugin.layout().name, "B big");
+    assert_eq!(r.plugin.get_config()["layout"]["name"], "A big", "a cut isn't what is saved");
+    // renaming home keeps the director working
+    r.plugin.rename_layout(&mut r.host, "A big", "Talking");
+    assert_eq!(r.plugin.director.home(), "Talking");
+    // off while cut: the picture is back on the one picked by hand
+    r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: "director-toggled".into(), args: vec![json!(false)] });
+    assert_eq!(r.plugin.layout().name, "Talking");
+    // a card with one layout left can still switch it off
+    r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: "director-toggled".into(), args: vec![json!(true)] });
+    r.plugin.delete_layout(&mut r.host, "B big");
+    assert_eq!(r.plugin.card_props()["director-enabled"], true);
+    assert_eq!(r.host.calls.iter().rev().find(|c| c.starts_with("want_people composite")).map(String::as_str), Some("want_people composite false"), "no pose work without two layouts");
 }

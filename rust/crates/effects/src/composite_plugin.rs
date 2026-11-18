@@ -388,7 +388,18 @@ impl CompositePlugin {
 
     /// Whether the director is working: switched on, with the picture on and a layout to come home to.
     fn directing(&self) -> bool {
-        self.on && self.director_on
+        self.on && self.director_on && self.layouts.len() >= 2
+    }
+
+    /// The streams with a recent frame, from the store.
+    fn fresh_streams(&self) -> BTreeSet<String> {
+        let now = monotonic_ns();
+        self.shared.store().stream_frames().into_iter().filter(|f| f.age(now) < STALE_NS).map(|f| f.source_id).collect()
+    }
+
+    /// Whether a layout can be drawn now: at least two of its streams are sending.
+    fn drawable(layout: &Layout, fresh: &BTreeSet<String>) -> bool {
+        layout.tiles.iter().filter(|t| fresh.contains(&t.source_id)).count() >= 2
     }
 
     /// Asks for people on every stream and the half second clock while it's working, gives them back when it isn't.
@@ -406,7 +417,12 @@ impl CompositePlugin {
             host.schedule(Self::DIRECTOR_MS, Self::DIRECTOR_TIMER);
         } else {
             host.cancel_schedule(Self::DIRECTOR_TIMER);
-            self.director.clear();
+            // a cut that is on is put back to the layout picked by hand, and the next time it starts from what is shown then
+            let home = self.director.is_away().then(|| self.layouts.iter().find(|l| l.name == self.director.home()).cloned()).flatten();
+            self.director.reset();
+            if let Some(layout) = home {
+                self.set_layout(host, layout);
+            }
         }
     }
 
@@ -416,7 +432,9 @@ impl CompositePlugin {
         if !self.directing() || self.editor.is_some() {
             return;
         }
-        if let Some(name) = self.director.decide(now, &self.layouts) {
+        let fresh = self.fresh_streams();
+        self.director.retain(&fresh);
+        if let Some(name) = self.director.decide(now, &self.layouts, &|l| Self::drawable(l, &fresh)) {
             if let Some(layout) = self.layouts.iter().find(|l| l.name == name).cloned() {
                 self.set_layout(host, layout);
             }
@@ -428,8 +446,19 @@ impl CompositePlugin {
             return;
         }
         let now = monotonic_ns() as f64 / 1e9;
-        let hands = people.iter().filter_map(telescope_core::pose::Person::from_value)
-            .any(|p| ["left_wrist", "right_wrist"].iter().any(|w| p.point(w, 0.5).is_some()));
+        let fresh = self.fresh_streams();
+        // hands count where the layout that would cut to this stream shows them
+        let hands = self.director.layout_for(&self.layouts, source_id, &|l| Self::drawable(l, &fresh))
+            .and_then(|l| l.tiles.iter().find(|t| t.source_id == source_id))
+            .zip(self.shared.store().stream_frame(Some(source_id)))
+            .is_some_and(|(tile, sf)| {
+                let (sw, sh) = (sf.frame.width as f64, sf.frame.height as f64);
+                let (cw, ch) = self.size();
+                let (x0, y0, x1, y1) = crate::composite::shown(tile, sw, sh, tile.w * cw as f64, tile.h * ch as f64);
+                people.iter().filter_map(telescope_core::pose::Person::from_value).any(|p| {
+                    ["left_wrist", "right_wrist"].iter().filter_map(|w| p.point(w, 0.5)).any(|(x, y)| (x0..=x1).contains(&(x * sw)) && (y0..=y1).contains(&(y * sh)))
+                })
+            });
         self.director.hear(now, source_id, hands);
         self.direct(host, now);
     }
@@ -472,8 +501,9 @@ impl CompositePlugin {
             }
         }
         if self.layout.name == old {
-            self.layout.name = new;
+            self.layout.name = new.clone();
         }
+        self.director.rename_home(old, &new);
         self.show(host);
         host.refresh_actions();
         host.schedule_save();
@@ -481,6 +511,10 @@ impl CompositePlugin {
 
     pub fn delete_layout(&mut self, host: &mut dyn Host, name: &str) {
         self.layouts.retain(|l| l.name != name);
+        // the home layout is gone: the next one picked, or the one shown when it's looked at again, is home
+        if self.director.home() == name {
+            self.director.reset();
+        }
         self.show(host);
         host.refresh_actions();
         host.schedule_save();
@@ -509,7 +543,7 @@ impl CompositePlugin {
                 ("layout-current".to_string(), json!(current)),
                 ("layout-enabled".to_string(), json!(!names.is_empty())),
                 ("director".to_string(), json!(self.director_on)),
-                ("director-enabled".to_string(), json!(names.len() >= 2)),
+                ("director-enabled".to_string(), json!(names.len() >= 2 || self.director_on)),
                 ("status".to_string(), json!(self.note_short)),
                 ("status-detail".to_string(), json!(self.note)),
                 ("reset-shown".to_string(), json!(self.reset_shown())),
@@ -599,6 +633,8 @@ impl CompositePlugin {
         self.layout = cfg.get("layout").and_then(clean_layout).unwrap_or_default();
         self.on = cfg.get("on") == Some(&Value::Bool(true));
         self.director_on = cfg.get("director") == Some(&Value::Bool(true));
+        // another picture is home from here on
+        self.director.reset();
         self.prepare();
         self.wake_clock();
     }
@@ -742,7 +778,8 @@ impl Plugin for CompositePlugin {
                 let current = names.iter().position(|n| *n == matched);
                 let (target, pick) = actions::choice_target(params, &options, current, true)?;
                 let name = names[target].clone();
-                if pick {
+                // choosing the layout the director cut to is a pick by hand too
+                if pick || self.director.is_away() {
                     self.pick(host, &name);
                 }
                 Some(tr("{label}: {value}").field("label", tr("Picture layout")).field("value", &name))
@@ -768,7 +805,9 @@ impl Plugin for CompositePlugin {
     }
 
     fn get_config(&self) -> Value {
-        let mut cfg = json!({"on": self.on, "layout": layout_dict(&self.layout), "layouts": self.layouts.iter().map(layout_dict).collect::<Vec<_>>()});
+        // a layout the director cut to isn't what's saved: the one picked by hand is
+        let manual = if self.director.is_away() { self.layouts.iter().find(|l| l.name == self.director.home()).unwrap_or(&self.layout) } else { &self.layout };
+        let mut cfg = json!({"on": self.on, "layout": layout_dict(manual), "layouts": self.layouts.iter().map(layout_dict).collect::<Vec<_>>()});
         // only written while it's on, so settings that never used it read as they always did
         if self.director_on {
             cfg["director"] = json!(true);
