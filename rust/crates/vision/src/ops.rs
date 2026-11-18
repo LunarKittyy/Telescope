@@ -141,6 +141,31 @@ const FIRM_WINDOW: usize = 4;
 /// Inside means this share of the window is at least FIRM_SOME.
 const FIRM_INSIDE: f64 = 0.85;
 
+/// For each pixel, how many pixels within `reach` of it each way (a square window, the picture's edge cutting it short) pass `mark`:
+/// a running sum along each row and then down each column, so the work doesn't grow with the reach (a mask thread can't be held up).
+fn counts(mask: &[u8], w: usize, h: usize, mark: impl Fn(u8) -> bool, reach: usize) -> Vec<u32> {
+    let mut across = vec![0u32; w * h];
+    let mut sum = vec![0u32; w.max(h) + 1];
+    for y in 0..h {
+        for x in 0..w {
+            sum[x + 1] = sum[x] + mark(mask[y * w + x]) as u32;
+        }
+        for x in 0..w {
+            across[y * w + x] = sum[(x + reach + 1).min(w)] - sum[x.saturating_sub(reach)];
+        }
+    }
+    let mut out = vec![0u32; w * h];
+    for x in 0..w {
+        for y in 0..h {
+            sum[y + 1] = sum[y] + across[y * w + x];
+        }
+        for y in 0..h {
+            out[y * w + x] = sum[(y + reach + 1).min(h)] - sum[y.saturating_sub(reach)];
+        }
+    }
+    out
+}
+
 /// The model's confidence mask with the doubtful middle made solid where it is inside a body: a broad stretch of faint-but-not-nothing
 /// that sits right next to a plainly-person part of the picture, as pale clothes and chair backs do (the part of a mask a new
 /// background shows through). Faint specks away from anyone are dropped. Thin edges, flyaway hair and anything far from a confident
@@ -150,20 +175,7 @@ pub fn firm_mask(mask: &[u8], w: usize, h: usize) -> Vec<u8> {
     if mask.len() != w * h || w == 0 || h == 0 {
         return mask.to_vec();
     }
-    // how many of the pixels along a window (a row, then a column of those counts) are at least a given mark
-    let grow = |mark: &dyn Fn(u8) -> bool, reach: usize| -> (Vec<u16>, Vec<u16>) {
-        let across: Vec<u16> = (0..w * h).map(|i| {
-            let (x, y) = (i % w, i / w);
-            mask[y * w + x.saturating_sub(reach)..=y * w + (x + reach).min(w - 1)].iter().filter(|&&v| mark(v)).count() as u16
-        }).collect();
-        let down: Vec<u16> = (0..w * h).map(|i| {
-            let (x, y) = (i % w, i / w);
-            (y.saturating_sub(reach)..=(y + reach).min(h - 1)).map(|r| across[r * w + x]).sum()
-        }).collect();
-        (across, down)
-    };
-    let (_, near) = grow(&|v| v >= FIRM_CONFIDENT, FIRM_REACH);
-    let (_, some) = grow(&|v| v >= FIRM_SOME, FIRM_WINDOW);
+    let (near, some) = (counts(mask, w, h, |v| v >= FIRM_CONFIDENT, FIRM_REACH), counts(mask, w, h, |v| v >= FIRM_SOME, FIRM_WINDOW));
     let window = ((2 * FIRM_WINDOW + 1) * (2 * FIRM_WINDOW + 1)) as f64;
     (0..w * h).map(|i| {
         let v = mask[i];
