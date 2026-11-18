@@ -688,7 +688,8 @@
       },
       "photos": {
         "best": true,
-        "bracket": "3x1",
+        "bracket_photos": 3,
+        "bracket_gap": 3,
         "burst": 5,
         "distortion": "camera",
         "exposure_s": 0,

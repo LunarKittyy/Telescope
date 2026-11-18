@@ -101,11 +101,29 @@ fn night_mode_bursts() {
 
 #[test]
 fn brackets_and_focus_steps() {
-    assert_eq!(build_options(&full(), &choices(json!({"shots": "bracket", "bracket": "5x1"})), 0)["bracket_ev"], "-2,-1,0,1,2");
+    let ev = |picks: Value, caps: &StillCaps| build_options(caps, &choices(picks), 0)["bracket_ev"].clone();
+    assert_eq!(ev(json!({"shots": "bracket", "bracket_photos": 5, "bracket_gap": 3}), &full()), "-2,-1,0,1,2");
+    // an even count has no photo at 0, and a gap in thirds of a stop
+    assert_eq!(ev(json!({"shots": "bracket", "bracket_photos": 4, "bracket_gap": 3}), &full()), "-1.5,-0.5,0.5,1.5");
+    assert_eq!(ev(json!({"shots": "bracket", "bracket_photos": 3, "bracket_gap": 2}), &full()), "-0.67,0,0.67");
+    // more photos or a wider gap than the phone takes is fitted (9 photos and 6 EV from the middle on a phone that doesn't say)
+    assert_eq!(ev(json!({"shots": "bracket", "bracket_photos": 15, "bracket_gap": 9}), &full()), "-5.33,-4,-2.67,-1.33,0,1.33,2.67,4,5.33");
+    let wide = caps(json!({"burst_max": 60, "bracketing": true, "bracket_max": 15, "ev_max": 12}));
+    assert_eq!(ev(json!({"shots": "bracket", "bracket_photos": 15, "bracket_gap": 9}), &wide).as_str().unwrap().split(',').count(), 15);
+    assert_eq!(ev(json!({"shots": "bracket", "bracket_photos": 15, "bracket_gap": 9}), &wide).as_str().unwrap().split(',').next(), Some("-11.67"));
     assert_eq!(build_options(&full(), &choices(json!({"shots": "focus", "focus_steps": 8})), 0)["focus_steps"], 8);
     let few = caps(json!({"burst_max": 4, "focus_bracketing": true}));
     assert_eq!(build_options(&few, &choices(json!({"shots": "focus", "focus_steps": 8})), 0)["focus_steps"], 4);
-    assert_eq!(build_options(&full(), &choices(json!({"shots": "bracket", "bracket": "nope"})), 0)["bracket_ev"], "-1,0,1");
+    assert_eq!(ev(json!({"shots": "bracket"}), &full()), "-1,0,1");
+    // the focus range goes with the photos when it isn't the whole lens
+    let near = caps(json!({"burst_max": 60, "focus_bracketing": true, "focus_near_max": 10.0}));
+    let o = build_options(&near, &choices(json!({"shots": "focus", "focus_near": 4.0, "focus_far": 0.5})), 0);
+    assert_eq!((o["focus_from"].clone(), o["focus_to"].clone()), (json!(4.0), json!(0.5)));
+    let whole = build_options(&near, &choices(json!({"shots": "focus"})), 0);
+    assert!(whole.get("focus_from").is_none() && whole.get("focus_to").is_none(), "the whole lens is the phone's own default");
+    // Far is never nearer than Near
+    let o = build_options(&near, &choices(json!({"shots": "focus", "focus_near": 1.0, "focus_far": 3.0})), 0);
+    assert!(o["focus_from"].as_f64() >= o["focus_to"].as_f64());
 }
 
 // ── The card ─────────────────────────────────────────────────────────────────
@@ -150,10 +168,10 @@ impl Rig {
 fn tile(props: &Value, key: &str) -> Option<(Vec<String>, i64)> {
     let (prefix, there) = match key {
         "iso" | "shutter" => (key, !props[format!("{key}-options")].as_array()?.is_empty()),
-        "exposure_s" => ("exposure", props["exposure-options"].as_array()?.len() > 1),
+        "exposure_s" | "bracket_gap" => ("second", props["second-key"] == key && props["second-options"].as_array()?.len() > 1),
         "mode" | "format" => (key, props[format!("{key}-enabled")] == true),
         "distortion" => (key, props["distortion-enabled"] == true),
-        "burst" | "focus_steps" | "bracket" => ("slot", props["slot-key"] == key),
+        "burst" | "focus_steps" | "bracket_photos" => ("slot", props["slot-key"] == key),
         _ => return None,
     };
     if !there {
@@ -170,11 +188,11 @@ fn tile(props: &Value, key: &str) -> Option<(Vec<String>, i64)> {
 fn keys(props: &Value) -> Vec<String> {
     let offered = props["shots-offered"].as_array().map_or(0, |s| s.iter().filter(|o| **o == true).count());
     let slot = props["slot-key"].as_str().unwrap_or("");
-    ["iso", "shutter", "mode", "format", "shots", "burst", "focus_steps", "bracket", "exposure_s", "distortion"]
+    ["iso", "shutter", "mode", "format", "shots", "burst", "focus_steps", "bracket_photos", "bracket_gap", "exposure_s", "distortion"]
         .into_iter()
         .filter(|key| match *key {
             "shots" => offered > 1,
-            "burst" | "focus_steps" | "bracket" => slot == *key,
+            "burst" | "focus_steps" | "bracket_photos" => slot == *key,
             _ => tile(props, key).is_some(),
         })
         .map(String::from)
@@ -353,7 +371,7 @@ fn config_round_trips_and_odd_values_go_back_to_defaults() {
     assert_eq!(cfg["folder"], default_folder().as_str());
     // The keys come in the order the file has always had them
     let keys: Vec<&String> = cfg.as_object().unwrap().keys().collect();
-    assert_eq!(keys, ["format", "quality", "mode", "shots", "burst", "bracket", "focus_steps", "exposure_s", "timer", "best", "distortion", "folder"]);
+    assert_eq!(keys, ["format", "quality", "mode", "shots", "burst", "bracket_photos", "bracket_gap", "focus_steps", "exposure_s", "timer", "best", "distortion", "folder"]);
     assert!(rig.plugin.set_config(&json!([1])).is_err());
 }
 
@@ -415,7 +433,7 @@ fn quality_burst_and_the_other_boxes_are_picks_too() {
     rig.ui("best-toggled", vec![json!(false)]);
     rig.ui("tile-picked", vec![json!("exposure_s"), json!(2)]);
     let cfg = rig.plugin.get_config();
-    assert_eq!((&cfg["timer"], &cfg["best"], &cfg["exposure_s"]), (&json!(10), &json!(false), &json!(1)));
+    assert_eq!((&cfg["timer"], &cfg["best"], &cfg["exposure_s"]), (&json!(10), &json!(false), &json!(2)));
     let saves = rig.host.calls.iter().filter(|c| *c == "schedule_save").count();
     rig.ui("timer-picked", vec![json!(2)]);
     assert_eq!(rig.host.calls.iter().filter(|c| *c == "schedule_save").count(), saves, "the same pick again isn't a change");
@@ -442,7 +460,8 @@ fn the_folder_is_picked_in_a_dialog_and_opened_from_the_last_photo() {
 
 #[test]
 fn exposures_read_like_the_python_app() {
-    assert_eq!((exposure_text(0.0).as_str(), exposure_text(0.5).as_str(), exposure_text(8.0).as_str()), ("Like the video", "0.5 s", "8 s"));
+    assert_eq!((exposure_text(0.0).as_str(), exposure_text(0.5).as_str(), exposure_text(8.0).as_str()), ("Like the video", "1/2 s", "8 s"));
+    assert_eq!(exposure_text(1.0 / 4000.0), "1/4000 s");
 }
 
 #[test]
@@ -656,9 +675,12 @@ fn a_dslr_has_its_dials_then_the_format_and_a_phone_its_named_choices() {
     let mut phone = Rig::new(Some(full_json()), true);
     phone.ui("tile-picked", vec![json!("shots"), json!(2)]);
     let p = phone.props();
-    assert_eq!(keys(&p), ["mode", "format", "shots", "bracket", "distortion"]);
-    assert_eq!((p["slot-key"].clone(), p["shots-index"].clone()), (json!("bracket"), json!(2)));
-    assert_eq!(tile(&p, "bracket").unwrap().0[0], "3 photos, 1 EV apart");
+    assert_eq!(keys(&p), ["mode", "format", "shots", "bracket_photos", "bracket_gap", "distortion"]);
+    assert_eq!((p["slot-key"].clone(), p["shots-index"].clone()), (json!("bracket_photos"), json!(2)));
+    let (photos, at) = tile(&p, "bracket_photos").unwrap();
+    assert_eq!((photos.first().map(String::as_str), photos.last().map(String::as_str), at), (Some("2"), Some("9"), 1), "3 photos by default, up to what the phone takes");
+    let (gaps, at) = tile(&p, "bracket_gap").unwrap();
+    assert_eq!((gaps.first().map(String::as_str), at), (Some("1/3"), 2), "1 EV apart by default");
     // A shot the lens doesn't have can't be picked, whatever the card sends
     let mut plain = Rig::new(Some(json!({"size": [1920, 1080]})), true);
     plain.ui("tile-picked", vec![json!("shots"), json!(3)]);
@@ -667,7 +689,7 @@ fn a_dslr_has_its_dials_then_the_format_and_a_phone_its_named_choices() {
         phone.ui("tile-picked", vec![json!("shots"), json!(0)]);
         tile(&phone.props(), "exposure_s").unwrap().0
     };
-    assert_eq!((long[0].as_str(), long[1].as_str(), long.last().map(String::as_str)), ("Like the video", "0.5 s", Some("30 s")));
+    assert_eq!((long[0].as_str(), long[1].as_str(), long.last().map(String::as_str)), ("Like the video", "1 s", Some("30 s")));
 }
 
 #[test]
@@ -961,4 +983,72 @@ fn an_exposure_bracket_can_be_merged_too_with_a_darker_to_lighter_pick_that_is_p
     // the middle is the default and isn't written
     rig.ui("brightness-moved", vec![json!(0.0)]);
     assert!(rig.plugin.get_config().get("merge_brightness").is_none());
+}
+
+#[test]
+fn an_old_bracket_pick_is_the_same_bracket_in_two_picks() {
+    let mut rig = Rig::new(Some(full_json()), true);
+    rig.plugin.set_config(&json!({"shots": "bracket", "bracket": "3x2"})).unwrap();
+    let cfg = rig.plugin.get_config();
+    assert_eq!((cfg["bracket_photos"].clone(), cfg["bracket_gap"].clone()), (json!(3), json!(6)));
+    // the new picks win when both are there
+    rig.plugin.set_config(&json!({"shots": "bracket", "bracket": "3x2", "bracket_photos": 5, "bracket_gap": 1})).unwrap();
+    assert_eq!(rig.plugin.get_config()["bracket_photos"], json!(5));
+}
+
+#[test]
+fn the_shutter_list_runs_from_the_fastest_to_the_longest_the_sensor_takes() {
+    let both = caps(json!({"exposure_min_ns": 250_000, "exposure_max_ns": 30_000_000_000i64}));
+    let list = shutter_speeds(&both);
+    assert_eq!((list.first().map(|s| shutter_n(*s)), list.last().copied()), (Some(Some(4000)), Some(30.0)));
+    assert!(list.windows(2).all(|w| w[0] < w[1]));
+    // a phone that doesn't say its fastest shutter gets the long ones only
+    let old = caps(json!({"exposure_max_ns": 30_000_000_000i64}));
+    assert_eq!(shutter_speeds(&old).first().copied(), Some(1.0));
+    // a sensor that stops at 1/1000 s and 2 s
+    let fewer = caps(json!({"exposure_min_ns": 1_000_000, "exposure_max_ns": 2_000_000_000i64}));
+    assert_eq!(shutter_speeds(&fewer).len(), 10 + 2);
+}
+
+#[test]
+fn focus_counts_go_up_in_bigger_jumps_and_stop_at_what_the_phone_takes() {
+    let all = focus_counts(&caps(json!({"burst_max": 60, "focus_steps_max": 100})));
+    assert_eq!(all.iter().take(10).copied().collect::<Vec<_>>(), (2..=11).filter(|n| *n <= 10).chain([12]).collect::<Vec<_>>());
+    assert_eq!(all.iter().copied().filter(|n| *n > 10).collect::<Vec<_>>(), [12, 14, 16, 18, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100]);
+    assert_eq!(focus_counts(&caps(json!({"burst_max": 15, "focus_steps_max": 30}))).last().copied(), Some(14));
+    assert_eq!(focus_counts(&caps(json!({"burst_max": 60, "focus_steps_max": 100}))).last().copied(), Some(100), "a phone that says so takes more steps than a burst");
+    assert_eq!(focus_counts(&caps(json!({"burst_max": 60}))).last().copied(), Some(30), "the old limit is 30");
+}
+
+#[test]
+fn the_focus_range_slider_sets_the_ends_and_both_at_the_ends_is_the_whole_lens() {
+    let mut rig = Rig::new(Some(json!({"burst_max": 60, "focus_bracketing": true, "focus_near_max": 10.0})), true);
+    rig.plugin.set_config(&json!({"shots": "focus"})).unwrap();
+    rig.caps_changed();
+    assert_eq!((rig.props()["focus-range-shown"].clone(), rig.props()["focus-readout"].clone()), (json!(true), json!("All")));
+    rig.ui("focus-range-moved", vec![json!(50.0), json!(400.0)]);
+    let cfg = rig.plugin.get_config();
+    assert_eq!((cfg["focus_far"].clone(), cfg["focus_near"].clone()), (json!(0.5), json!(4.0)));
+    assert_eq!(rig.props()["focus-readout"], json!("0.25-2 m"));
+    // the far end at infinity says so
+    rig.ui("focus-range-moved", vec![json!(0.0), json!(400.0)]);
+    assert_eq!(rig.props()["focus-readout"], json!("0.25 m-∞"));
+    assert!(rig.plugin.get_config().get("focus_far").is_none());
+    // both ends at the ends of the lens is no range at all
+    rig.ui("focus-range-moved", vec![json!(0.0), json!(1000.0)]);
+    let cfg = rig.plugin.get_config();
+    assert!(cfg.get("focus_far").is_none() && cfg.get("focus_near").is_none());
+    assert_eq!(rig.props()["focus-readout"], json!("All"));
+    // the mark is where the phone is focused now, on manual focus only
+    rig.host.phone_state = Some(json!({"focus_mode": "manual", "focus_distance": 2.5}));
+    rig.caps_changed();
+    assert_eq!((rig.props()["focus-live"].clone(), rig.props()["focus-live-pos"].clone()), (json!(true), json!(250.0)));
+    rig.host.phone_state = Some(json!({"focus_mode": "continuous", "focus_distance": 2.5}));
+    rig.caps_changed();
+    assert_eq!(rig.props()["focus-live"], json!(false));
+    // a lens that doesn't say how near it focuses has no range
+    let mut none = Rig::new(Some(json!({"burst_max": 60, "focus_bracketing": true})), true);
+    none.plugin.set_config(&json!({"shots": "focus"})).unwrap();
+    none.caps_changed();
+    assert_eq!(none.props()["focus-range-shown"], json!(false));
 }

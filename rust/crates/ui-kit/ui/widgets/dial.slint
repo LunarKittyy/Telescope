@@ -124,6 +124,9 @@ export component Dial inherits Rectangle {
     property <float> per: max(1, per-label);
     property <length> tick-pitch: pitch / per;
     property <length> mid: root.width / 2;
+    // A dial at half a narrow card's width has no room for the neighbouring names (hidden first, so the value and the label stay clear) and, when the ticks of a stop come close together, only the named ticks are drawn
+    property <bool> names-shown: root.width >= Theme.u(80);
+    property <bool> minor-shown: tick-pitch >= Theme.u(10);
     property <length> big: round(Theme.body * 17 / 13 / 1px) * 1px;
     // Typing over the value
     property <bool> is-typing;
@@ -214,6 +217,7 @@ export component Dial inherits Rectangle {
     // The ticks: one for every value, the labelled ones taller, fading toward the ends
     for stop[t] in stops: Rectangle {
         property <bool> major: per-label <= 1 || mod(t + 1000 * per-label - label-from, per-label) == 0;
+        visible: major || minor-shown;
         property <length> at: mid + (t - pos) * tick-pitch;
         property <float> near: clamp((1 - abs(at - mid) / (root.width / 2)) / 0.45, 0, 1);
         x: at - Theme.u(0.5);
@@ -233,12 +237,15 @@ export component Dial inherits Rectangle {
         // Gone when its near edge comes within a hair of the readout's, in full a few pixels further out, so long names at their resting place stay clear
         property <length> inner: rt.preferred-width * grown / 2 + name.preferred-width / 2 + Theme.u(1);
         property <float> clear: clamp((from-mid - inner) / Theme.u(5), 0, 1);
-        visible: major && slots < 1.6;
+        // A name left of the value is gone once it would lie under the label
+        property <length> left-edge: mid + (i - pos) * tick-pitch - name.preferred-width / 2;
+        property <float> off-label: i < pos ? clamp((left-edge - (label-text.x + label-text.width)) / Theme.u(3), 0, 1) : 1;
+        visible: major && slots < 1.6 && names-shown;
         x: mid + (i - pos) * tick-pitch - self.width / 2 + shake-x;
         y: Theme.u(5);
         width: pitch - Theme.u(3);
         height: Theme.u(13);
-        opacity: solid * 0.45 * clear * far;
+        opacity: solid * 0.45 * clear * far * off-label;
         name := Text {
             width: parent.width;
             height: parent.height;
@@ -321,10 +328,11 @@ export component Dial inherits Rectangle {
             reject
         }
     }
-    Text {
+    label-text := Text {
         x: Theme.u(5);
         y: Theme.u(2.5);
-        width: parent.width - Theme.u(10);
+        // Never reaching under the value, which stays readable at any width: a long name is cut short instead (a dial with nothing to pick has no value to keep clear)
+        width: stops.length < 2 ? parent.width - Theme.u(10) : min(self.preferred-width, max(Theme.u(14), min(parent.width - Theme.u(10), mid - rt.preferred-width * grown / 2 - Theme.u(3) - self.x)));
         text: label;
         font-family: Theme.font;
         font-size: Theme.tiny;

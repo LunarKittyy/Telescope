@@ -124,10 +124,19 @@ class StillOptionsTest {
     }
 
     @Test
-    fun `bracket steps outside 6 EV or past 9 pictures are refused`() {
-        assertEquals("bad_option", refused(mapOf("format" to "jpeg", "bracket_ev" to "-7,0")))
+    fun `bracket steps outside 12 EV or past 15 pictures are refused`() {
+        assertEquals("bad_option", refused(mapOf("format" to "jpeg", "bracket_ev" to "-13,0")))
         assertEquals("bad_option", refused(mapOf("format" to "jpeg", "bracket_ev" to "a,b")))
-        assertEquals("bad_option", refused(mapOf("format" to "jpeg", "bracket_ev" to (1..10).joinToString(","))))
+        assertEquals("bad_option", refused(mapOf("format" to "jpeg", "bracket_ev" to (1..16).joinToString(","))))
+        // the widest bracket the phone says it takes
+        assertEquals(15, ok(mapOf("format" to "jpeg", "bracket_ev" to (-7..7).joinToString(","))).shots.size)
+        assertEquals(2, ok(mapOf("format" to "jpeg", "bracket_ev" to "-12,12")).shots.size)
+    }
+
+    @Test
+    fun `focus bracketing takes up to 100 steps`() {
+        assertEquals(100, ok(mapOf("format" to "jpeg", "focus_steps" to "100")).shots.size)
+        assertEquals("bad_option", refused(mapOf("format" to "jpeg", "focus_steps" to "101")))
     }
 
     @Test
@@ -182,6 +191,10 @@ class StillOptionsTest {
         assertEquals(30_000_000_000L, flagship.exposureMaxNs)
         assertTrue(flagship.bracketing && flagship.focusBracketing && flagship.distortionCorrection)
         assertEquals(StillOptions.MAX_SHOTS, flagship.burstMax)
+        // the limits a newer phone says it has, and the fastest shutter of a lens with manual exposure
+        assertEquals(15, flagship.bracketMax)
+        assertEquals(100, flagship.focusStepsMax)
+        assertEquals(full.exposureMinNs, flagship.exposureMinNs)
         // Night takes its photos smaller than the lens's own JPEG
         assertEquals(StillSize(3840, 2160), flagship.extensionSizes["night"])
         assertEquals(4080, flagship.width)

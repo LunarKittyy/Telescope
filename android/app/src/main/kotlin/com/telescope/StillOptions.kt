@@ -40,6 +40,9 @@ data class StillCaps(
         focusBracketing = manualFocus,
         noiseReductionHq = nrHq, sharpeningHq = edgeHq, hotPixelHq = hotPixelHq, distortionCorrection = distortion,
         burstMax = StillOptions.MAX_SHOTS,
+        exposureMinNs = if (manualSensor) exposureMinNs else 0L,
+        bracketMax = StillOptions.MAX_BRACKET,
+        focusStepsMax = StillOptions.MAX_FOCUS_STEPS,
     )
 }
 
@@ -106,9 +109,9 @@ object StillOptions {
     // Camera2 extension names, by CameraExtensionCharacteristics.EXTENSION_* value
     val EXTENSIONS = mapOf(0 to "auto", 2 to "bokeh", 3 to "hdr", 4 to "night")
     const val MAX_SHOTS = 60
-    const val MAX_BRACKET = 9
-    const val MAX_EV = 6.0
-    const val MAX_FOCUS_STEPS = 30
+    const val MAX_BRACKET = 15
+    const val MAX_EV = 12.0
+    const val MAX_FOCUS_STEPS = 100
     const val MAX_TIMER_S = 30
     const val PAUSE_MS = 500L  // manual exposures adding up to this freeze the video long enough to say so
 
@@ -180,7 +183,9 @@ object StillOptions {
         val count = params["count"]?.toIntOrNull() ?: 1
         if (count < 1) return refuse("bad_option", "Take at least one picture")
         val total = count.toLong() * exposures.size * focuses.size
-        if (total > MAX_SHOTS) return refuse("bad_option", "At most $MAX_SHOTS pictures at once")
+        // A focus bracket on its own may take as many pictures as it has steps; with a burst or an exposure bracket the whole lot is capped
+        val limit = if (count == 1 && exposures.size == 1) MAX_FOCUS_STEPS else MAX_SHOTS
+        if (total > limit) return refuse("bad_option", "At most $limit pictures at once")
         val shots = (1..count).flatMap {
             focuses.flatMap { focus -> exposures.map { e -> StillShot(e?.first, e?.second, focus) } }
         }
