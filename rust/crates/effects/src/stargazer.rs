@@ -98,6 +98,8 @@ struct Shared {
     source: Mutex<String>,
     /// The stream's picture is hidden by another step, so nothing is collected and the stack stays off the camera.
     hidden: AtomicBool,
+    /// The host's own flag for the run's stream, current at every frame (the poll above can be a second behind).
+    host_hidden: Mutex<Option<Arc<AtomicBool>>>,
     mode: AtomicU8,
     /// Star trails take a frame this often.
     interval_ms: AtomicU64,
@@ -426,7 +428,7 @@ impl Worker {
     fn finish_lucky(&mut self, partial: bool) {
         self.release();
         let Some(job) = self.job.as_mut() else { return };
-        let mut frames = job.lucky.take().map(|l| l.best()).unwrap_or_default();
+        let mut frames = job.lucky.take().map(Lucky::into_best).unwrap_or_default();
         if partial {
             frames.truncate((job.seen * job.keep).div_ceil(100).max(MIN_LUCKY));
         }
@@ -542,6 +544,10 @@ struct Handoff {
 }
 
 impl Handoff {
+    fn hidden(&self) -> bool {
+        self.shared.hidden.load(Ordering::SeqCst) || self.shared.host_hidden.lock().unwrap().as_ref().is_some_and(|f| f.load(Ordering::SeqCst))
+    }
+
     fn focused_here(&self, source_id: &str) -> bool {
         *self.shared.focused.lock().unwrap() == source_id
     }
@@ -549,7 +555,7 @@ impl Handoff {
     /// The run a picture of this stream is wanted for (0: only for the focus readout), None when it isn't wanted at all: another stream than
     /// the run's, or the one the panels show when nothing runs, or a picture something else hides.
     fn wanted(&self, source_id: &str, now: Instant) -> Option<u64> {
-        if self.shared.hidden.load(Ordering::SeqCst) || self.shared.queued.load(Ordering::SeqCst) >= QUEUE {
+        if self.hidden() || self.shared.queued.load(Ordering::SeqCst) >= QUEUE {
             return None;
         }
         let run = self.shared.run.load(Ordering::SeqCst);
@@ -565,7 +571,7 @@ impl Handoff {
 
     /// The stack, when it goes on this stream's picture: the camera switch is on, the stream is the one shown and the stack's own, and nothing hides it.
     fn stack(&self, source_id: &str) -> Option<Frame> {
-        if !self.shared.camera.load(Ordering::SeqCst) || self.shared.hidden.load(Ordering::SeqCst) || !self.focused_here(source_id) {
+        if !self.shared.camera.load(Ordering::SeqCst) || self.hidden() || !self.focused_here(source_id) {
             return None;
         }
         self.shared.result.lock().unwrap().as_ref().filter(|s| s.source == source_id).map(|s| s.frame.clone())
@@ -752,6 +758,7 @@ impl StargazerPlugin {
         self.hidden_at = Some(now);
         let ours = self.run > 0 && (self.phase != Phase::Idle || self.camera);
         let source = if ours { self.source.clone() } else { host.focused_source_id().unwrap_or_default() };
+        *self.shared.host_hidden.lock().unwrap() = host.hidden_flag(&source);
         let hidden = host.picture_hidden(Some(&source));
         if hidden != self.hidden {
             self.hidden = hidden;

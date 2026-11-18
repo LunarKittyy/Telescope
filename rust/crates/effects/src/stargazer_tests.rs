@@ -649,3 +649,21 @@ fn another_phone_starts_with_an_empty_tally() {
     same.plugin.on_stream_start(&mut same.host, &StreamInfo { source_id: "phone".into(), url: "u".into(), session: 0 });
     assert_eq!(same.plugin.count, 1);
 }
+
+#[test]
+fn a_cover_between_looks_stops_frames_at_once() {
+    let mut rig = Rig::new("hidden-flag", config("live"));
+    let flag = Arc::new(AtomicBool::new(false));
+    rig.host.hidden_flag = Some(flag.clone());
+    rig.click("run-clicked", Value::Null);
+    rig.feed(field(2.0));
+    // The host's flag turns before the plugin's next look: the frame step reads it and takes nothing
+    flag.store(true, Ordering::SeqCst);
+    rig.feed(field(2.0));
+    rig.feed(field(2.0));
+    assert_eq!(rig.plugin.shared.queued.load(Ordering::SeqCst), 0);
+    rig.click("camera-toggled", Value::Bool(true));
+    assert_eq!(rig.step.touch(&Ctx("phone")), Touch::Nothing);
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.count, 1);
+}

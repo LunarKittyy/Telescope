@@ -492,6 +492,11 @@ impl Lucky {
     pub fn best(&self) -> Vec<Frame> {
         self.kept.iter().map(|(_, f)| f.clone()).collect()
     }
+
+    /// The kept frames, sharpest first, handed over without copying them.
+    pub fn into_best(self) -> Vec<Frame> {
+        self.kept.into_iter().map(|(_, f)| f).collect()
+    }
 }
 
 #[cfg(test)]

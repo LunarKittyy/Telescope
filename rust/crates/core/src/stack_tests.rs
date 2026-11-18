@@ -340,3 +340,14 @@ fn lucky_does_not_keep_a_malformed_frame() {
     assert!(lucky.add(shifted(0.0, 0.0, 2.0, 0.01, &mut rng)));
     assert_eq!(lucky.best().len(), 1);
 }
+
+#[test]
+fn lucky_hands_its_frames_over_sharpest_first() {
+    let mut rng = Lcg(3);
+    let mut lucky = Lucky::new(2);
+    assert!(lucky.add(shifted(0.0, 0.0, 3.0, 0.01, &mut rng)) && lucky.add(shifted(0.0, 0.0, 0.0, 0.01, &mut rng)));
+    let best = lucky.best();
+    let moved = lucky.into_best();
+    assert_eq!(moved.len(), 2);
+    assert_eq!(moved.iter().map(|f| f.data.clone()).collect::<Vec<_>>(), best.iter().map(|f| f.data.clone()).collect::<Vec<_>>());
+}

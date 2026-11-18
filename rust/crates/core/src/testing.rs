@@ -209,6 +209,8 @@ pub struct FakeHost {
     pub picture_hidden: bool,
     /// What set_hiding() was told, as (owner, source id, on) in order.
     pub hiding: Vec<(String, Option<String>, bool)>,
+    /// What hidden_flag hands out (None: no flag).
+    pub hidden_flag: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     /// What stream_on_camera() answers, as (slot, source id, width, height).
     pub cameras: Vec<(u32, String, Option<u32>, Option<u32>)>,
     /// Streams is_streaming_from() says run, besides the focused one while streaming.
@@ -775,6 +777,9 @@ impl HostStills for FakeHost {
     }
     fn set_hiding(&mut self, owner: &str, source_id: Option<&str>, on: bool) {
         self.hiding.push((owner.to_string(), source_id.map(String::from), on));
+    }
+    fn hidden_flag(&mut self, _source_id: &str) -> Option<std::sync::Arc<std::sync::atomic::AtomicBool>> {
+        self.hidden_flag.clone()
     }
 }
 
