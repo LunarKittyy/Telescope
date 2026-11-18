@@ -5579,6 +5579,44 @@ msgstr "{name} non è in esecuzione"
 msgid "Start it again or pick another source."
 msgstr "Avvialo di nuovo o scegli un'altra sorgente."
 
+#: rust/crates/outputs/src/spout_send/mod.rs:222
+msgid "Sharing pictures isn't available on this system."
+msgstr ""
+
+#: rust/crates/outputs/src/spout_send/mod.rs:225
+#, python-brace-format
+msgid "Sharing {size} as {name}"
+msgstr ""
+
+#: rust/crates/outputs/src/spout_send/mod.rs:227
+msgid "The sender couldn't be started. It tries again with the next picture."
+msgstr ""
+
+#: rust/crates/outputs/src/spout_send/mod.rs:228
+msgid "The sender stopped. It tries again with the next picture."
+msgstr ""
+
+#: rust/crates/outputs/src/spout_send/mod.rs:229
+msgid "This picture can't be shared."
+msgstr ""
+
+#: rust/crates/outputs/src/spout_send/mod.rs:231
+#, python-brace-format
+msgid "Shares as {name} while this stream runs"
+msgstr ""
+
+#: rust/crates/outputs/src/spout_send/mod.rs:258 rust/crates/outputs/ui/spout_send.slint:11
+msgid "Spout send"
+msgstr ""
+
+#: rust/crates/outputs/src/spout_send/mod.rs:259
+msgid "Share a stream's picture with other programs on this computer, such as OBS."
+msgstr ""
+
+#: rust/crates/outputs/src/spout_send/mod.rs:260
+msgid "Without Spout send the Spout send card is gone and no picture is shared."
+msgstr ""
+
 #: rust/crates/outputs/src/stream_output.rs:29
 msgid "All the way right is Dynamic, which adjusts to your connection."
 msgstr "Tutto a destra è Dinamico, che si adatta alla tua connessione."
@@ -6116,6 +6154,18 @@ msgstr "Trasmetti in streaming da programmi su questo computer che condividono l
 #: rust/crates/outputs/ui/spout.slint:25
 msgid "Sender"
 msgstr "Mittente"
+
+#: rust/crates/outputs/ui/spout_send.slint:12 rust/crates/outputs/ui/spout_send.slint:18
+msgid "Share this stream's picture with other programs on this computer, such as OBS."
+msgstr ""
+
+#: rust/crates/outputs/ui/spout_send.slint:17
+msgid "Share this stream"
+msgstr ""
+
+#: rust/crates/outputs/ui/spout_send.slint:32
+msgid "Status"
+msgstr ""
 
 #: rust/crates/outputs/ui/stream_output.slint:52
 msgid "Set the frame rate, format, quality and bitrate back to default."
@@ -10644,7 +10694,7 @@ msgid "Light"
 msgstr "Luce"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:451
+#: rust/app/src/main.rs:456
 msgid ", "
 msgstr ", "
 
