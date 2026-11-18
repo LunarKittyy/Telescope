@@ -50,6 +50,7 @@ event sensors_changed(source_id: String)
 event settings_touched(ids: Vec<String>, changed: bool)
 event setup_guide_requested()
 event setup_needed(showing: bool)
+event shared_changed(key: String)
 event source_selected(source_id: String)
 event source_shown(source_id: String)
 event stats_updated(snapshot: Snapshot)
@@ -247,6 +248,9 @@ host.set_keep_in_tray(keep) [app]
 host.set_preview_warp(matrix?)
 host.set_ui_props(ui, props) [waits for the host]
 host.set_view(change)
+host.share(name, value?) [waits for the host]
+host.shared(key)
+host.shared_keys(prefix?)
 host.shortcut_actions()
 host.show_issue(key, issue)
 host.start_again(source_id?) [streams]

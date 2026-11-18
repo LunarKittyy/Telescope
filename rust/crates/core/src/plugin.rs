@@ -69,6 +69,11 @@ pub struct PluginInfo {
     pub follows_focus: bool,
     /// Where the header widget goes: "left" (with the phone picker) or "right".
     pub header_side: String,
+    /// Built-in plugins it can't work without, by name: an added plugin's plugin.json "needs". It doesn't start while one of them is off. A
+    /// built-in plugin never has any, since built-ins don't depend on each other (ARCHITECTURE.md).
+    pub needs: Vec<String>,
+    /// It came from a plugin folder, not from Telescope itself: only the plugin host sets it, from the manifest's origin.
+    pub added: bool,
 }
 
 /// A frame_stage that names no stage counts as "effects", like frame_stage_index() in Python.
@@ -96,6 +101,8 @@ impl Default for PluginInfo {
             frame_stage: FrameStage::Effects,
             follows_focus: true,
             header_side: "left".into(),
+            needs: Vec::new(),
+            added: false,
         }
     }
 }
@@ -219,6 +226,10 @@ pub trait Plugin: Send {
     }
     fn set_config(&mut self, _cfg: &Value) -> Result<(), ConfigRejected> {
         Ok(())
+    }
+    /// What a preset saves of this plugin: its get_config() unless some of that is not for presets (content people made, like saved layouts).
+    fn preset_config(&self) -> Value {
+        self.get_config()
     }
     /// Load settings from a preset; plugins that drive the phone also send them while streaming.
     fn apply_preset(&mut self, _host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {

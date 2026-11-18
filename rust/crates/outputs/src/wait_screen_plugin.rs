@@ -420,6 +420,8 @@ impl WaitScreenPlugin {
             self.asked.remove(owner);
         }
         self.covering = !self.asked.is_empty();
+        // At once: a photo about to go must not wait for the stream's steps to be made again to find the picture covered
+        host.set_hiding(NAME, None, self.covering);
         if self.covering {
             // Likely the stream's size, and what the decoder makes: ready by the first frame
             let size = self.size(host);
@@ -597,7 +599,10 @@ impl Plugin for WaitScreenPlugin {
         self.show(host);
     }
 
-    fn shutdown(&mut self, _host: &mut dyn Host) {
+    fn shutdown(&mut self, host: &mut dyn Host) {
+        if self.covering {
+            host.set_hiding(NAME, None, false);
+        }
         self.shut = true;
         if let Some(screen) = &self.screen {
             screen.stop();

@@ -100,6 +100,9 @@ impl HostSettings for Ctx<'_> {
     fn plugin_config(&self, name: &str) -> Option<Value> {
         self.state.plugin_config(name)
     }
+    fn plugin_preset_config(&self, name: &str) -> Option<Value> {
+        self.state.plugin_preset_config(name)
+    }
     fn apply_preset(&mut self, name: &str, cfg: &Value) {
         if let Some(i) = self.state.index(name) {
             let cfg = cfg.clone();
@@ -136,13 +139,21 @@ impl HostSettings for Ctx<'_> {
         self.state.move_device_settings(old, new);
     }
     fn plugin_settings(&self) -> Vec<PluginSettings> {
-        self.state.slots.iter().filter_map(|s| {
-            let settings = s.plugin.as_ref()?.settings();
+        self.state.slots.iter().enumerate().filter(|(_, s)| s.stopped.is_none()).filter_map(|(i, s)| {
+            let plugin = s.plugin.as_ref()?;
+            // One that panics here is stopped, not the plugin asking
+            let settings = match telescope_core::diagnostics::catch_plugin(|| plugin.settings()) {
+                Ok(settings) => settings,
+                Err(panic) => {
+                    self.state.stop_later(i, format!("settings: {}", crate::shell::panic_text(panic.as_ref())));
+                    return None;
+                }
+            };
             (!settings.is_empty()).then(|| PluginSettings { name: s.info.name.clone(), title: s.info.title.clone(), settings })
         }).collect()
     }
     fn running_plugins(&self) -> Vec<(String, String)> {
-        self.state.slots.iter().filter(|s| !s.info.name.is_empty()).map(|s| (s.info.name.clone(), s.info.title.clone())).collect()
+        self.state.slots.iter().filter(|s| !s.info.name.is_empty() && s.stopped.is_none()).map(|s| (s.info.name.clone(), s.info.title.clone())).collect()
     }
     fn plugin_looks(&self) -> Vec<telescope_core::host::PluginLook> {
         self.state.slots.iter().filter(|s| !s.info.name.is_empty()).map(|s| telescope_core::host::PluginLook { name: s.info.name.clone(), title: s.info.title.clone(), icon: s.info.icon.clone() }).collect()
@@ -281,9 +292,13 @@ impl HostCamera for Ctx<'_> {
 
 impl HostSources for Ctx<'_> {
     fn add_stream_source(&mut self, source: Arc<dyn StreamSource>) {
+        let id = source.id().to_string();
+        self.state.source_owners.retain(|(s, _)| *s != id);
+        self.state.source_owners.push((id, self.me.clone()));
         self.state.effects.push(Effect::AddSource(crate::shell::OfferedSource(source)));
     }
     fn remove_stream_source(&mut self, source_id: &str) {
+        self.state.source_owners.retain(|(s, _)| s != source_id);
         self.state.effects.push(Effect::RemoveSource(source_id.into()));
     }
     fn stream_source(&mut self, source_id: &str) {
@@ -650,6 +665,19 @@ impl HostStills for Ctx<'_> {
         }
         self.stills().is_some_and(|s| s.busy(Some(&id)))
     }
+    fn picture_hidden(&self, source_id: Option<&str>) -> bool {
+        let id = match source_id {
+            Some(id) => id.to_string(),
+            None => self.focused_source_id().unwrap_or_default(),
+        };
+        self.state.picture_hidden_for(&id)
+    }
+    fn set_hiding(&mut self, owner: &str, source_id: Option<&str>, on: bool) {
+        self.state.set_hiding(owner, source_id, on);
+    }
+    fn hidden_flag(&mut self, source_id: &str) -> Option<Arc<std::sync::atomic::AtomicBool>> {
+        Some(self.state.hidden_flag(source_id))
+    }
 }
 
 impl HostColour for Ctx<'_> {
@@ -712,8 +740,23 @@ impl Host for Ctx<'_> {
     fn emit(&mut self, event: Event) {
         self.state.bus.emit(event);
     }
+    fn share(&mut self, owner: &str, name: &str, value: Option<Value>) -> Result<(), String> {
+        if owner != self.me {
+            return Err(format!("{} can't share as {owner}", self.me));
+        }
+        if let Some(key) = self.state.registry.set(owner, name, value)? {
+            self.state.bus.emit(Event::SharedChanged { key });
+        }
+        Ok(())
+    }
+    fn shared(&self, key: &str) -> Option<Value> {
+        self.state.registry.get(key)
+    }
+    fn shared_keys(&self, prefix: &str) -> Vec<String> {
+        self.state.registry.keys(prefix)
+    }
     fn has_plugin(&self, name: &str) -> bool {
-        self.state.index(name).is_some() || name == self.me
+        self.state.index(name).is_some_and(|i| self.state.slots[i].stopped.is_none()) || name == self.me
     }
     fn schedule(&mut self, after_ms: u64, token: &str) {
         self.state.effects.push(Effect::Schedule { plugin: self.me.clone(), token: token.into(), ms: after_ms });

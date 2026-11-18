@@ -443,3 +443,19 @@ fn reset_clears_the_picture_and_keeps_the_switch_and_saved_layouts() {
 fn the_declared_settings_round_trip() {
     crate::settings_check::round_trips(&mut CompositePlugin::new(), &mut telescope_core::testing::FakeHost::new());
 }
+
+#[test]
+fn a_preset_saves_the_picture_but_not_the_saved_layouts() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    r.plugin.save_layout(&mut r.host, "Two");
+    let saved = r.plugin.preset_config();
+    assert!(saved.get("layouts").is_none() && saved["on"] == true && saved["layout"]["name"] == "Two", "{saved}");
+    // settings still carry the layouts: they are what the app keeps between runs
+    assert_eq!(r.plugin.get_config()["layouts"].as_array().map(Vec::len), Some(1));
+    // bringing a preset back leaves the layouts as they are
+    let mut other = rig();
+    other.plugin.save_layout(&mut other.host, "Mine");
+    other.plugin.apply_preset(&mut other.host, &saved).unwrap();
+    assert_eq!(other.plugin.names(), ["Mine"]);
+}

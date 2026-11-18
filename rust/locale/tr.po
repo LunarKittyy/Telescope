@@ -71,7 +71,7 @@ msgstr "<a href=\"{url}\">Bağış yap veya daha fazla bilgi edin</a>"
 msgid "No mic"
 msgstr "Mikrofon yok"
 
-#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:508 rust/crates/system/src/updates_plugin.rs:457
+#: rust/crates/audio/src/plugin.rs:112 rust/crates/core/src/vision.rs:116 rust/crates/core/src/vision.rs:145 rust/crates/shell/src/plugins_tab.rs:518 rust/crates/system/src/updates_plugin.rs:457
 msgid "Downloading…"
 msgstr "İndiriliyor…"
 
@@ -346,7 +346,7 @@ msgstr "Sarı: sınırlayıcı tepe noktalarını bastırıyor. Kırmızı: sest
 msgid "Click to clear"
 msgstr "Temizlemek için tıkla"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:726 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:814 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "Sıfırla"
 
@@ -400,11 +400,11 @@ msgstr "Durak"
 msgid " stops"
 msgstr " durak"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:454 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:325
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:180 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:250 rust/crates/shell/src/plugins/presets.rs:325
 msgid "Next"
 msgstr "Sonraki"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:454 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:325
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:180 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:249 rust/crates/shell/src/plugins/presets.rs:325
 msgid "Previous"
 msgstr "Önceki"
 
@@ -436,11 +436,11 @@ msgstr "720p 16:9 Dikey - 720 x 1280"
 msgid "4K 16:9 Portrait - 2160 x 3840"
 msgstr "4K 16:9 Dikey - 2160 x 3840"
 
-#: rust/crates/core/src/diagnostics.rs:510 rust/crates/system/src/single_instance.rs:326
+#: rust/crates/core/src/diagnostics.rs:523 rust/crates/system/src/single_instance.rs:328
 msgid "Telescope can't start"
 msgstr "Telescope başlatılamıyor"
 
-#: rust/crates/core/src/diagnostics.rs:511
+#: rust/crates/core/src/diagnostics.rs:524
 #, python-brace-format
 msgid ""
 "Telescope ran into a problem while starting and has to close.\n"
@@ -459,11 +459,31 @@ msgstr ""
 "\n"
 "Günlüğü açmak istiyor musun?"
 
-#: rust/crates/core/src/gpu_marker.rs:142
+#: rust/crates/core/src/diagnostics.rs:543
+msgid "Telescope had to close"
+msgstr ""
+
+#: rust/crates/core/src/diagnostics.rs:544
+#, python-brace-format
+msgid ""
+"A plugin that hides part of the picture ran into a problem. Telescope closed rather than show what it hid.\n"
+"\n"
+"What went wrong: {reason}\n"
+"\n"
+"The log is at {path}\n"
+"\n"
+"Open the log?"
+msgstr ""
+
+#: rust/crates/core/src/gpu_marker.rs:292 rust/crates/core/src/gpu_marker.rs:297
 msgid "Telescope switched graphics card"
 msgstr "Telescope ekran kartını değiştirdi"
 
-#: rust/crates/core/src/gpu_marker.rs:143
+#: rust/crates/core/src/gpu_marker.rs:293
+msgid "The last start of Telescope closed while it was looking for graphics cards. Telescope now draws on the processor and doesn't look again until it is updated."
+msgstr ""
+
+#: rust/crates/core/src/gpu_marker.rs:298
 #, python-brace-format
 msgid "The last start of Telescope closed while it was opening {card}. Telescope now uses another graphics card, or the processor if there is none left."
 msgstr "Telescope'un son başlatılması {card} açılırken kapandı. Telescope artık başka bir ekran kartı veya başka kart kalmadıysa işlemciyi kullanıyor."
@@ -524,7 +544,7 @@ msgstr "Eklentiler"
 msgid "Updates & About"
 msgstr "Güncellemeler ve Hakkında"
 
-#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:40 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:90 rust/crates/setup/src/stats.rs:435 rust/crates/shell/src/plugins/camera_control.rs:1864 rust/crates/shell/ui/cards/camera.slint:105
+#: rust/crates/core/src/plugin.rs:25 rust/crates/effects/src/photos.rs:33 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294 rust/crates/outputs/src/webcam.rs:79 rust/crates/outputs/ui/webcam.slint:90 rust/crates/setup/src/stats.rs:435 rust/crates/shell/src/plugins/camera_control.rs:1864 rust/crates/shell/ui/cards/camera.slint:105
 msgid "Camera"
 msgstr "Kamera"
 
@@ -556,7 +576,7 @@ msgstr "Yayın ve aygıtlar"
 msgid "Extras"
 msgstr "Ekstralar"
 
-#: rust/crates/core/src/vision.rs:114 rust/crates/core/src/vision.rs:143 rust/crates/shell/src/plugins_tab.rs:508
+#: rust/crates/core/src/vision.rs:114 rust/crates/core/src/vision.rs:143 rust/crates/shell/src/plugins_tab.rs:518
 #, python-brace-format
 msgid "Downloading… {percent}%"
 msgstr "İndiriliyor… {percent} %"
@@ -597,59 +617,59 @@ msgid "Analysing…"
 msgstr "Analiz ediliyor…"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:82 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:40 rust/crates/effects/src/photos.rs:460 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:82 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:33 rust/crates/effects/src/photos.rs:186 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
 msgid "Off"
 msgstr "Kapalı"
 
-#: rust/crates/effects/src/background.rs:26 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/background.slint:81 rust/crates/effects/ui/background.slint:82
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/background.slint:81 rust/crates/effects/ui/background.slint:82
 msgid "Blur"
 msgstr "Bulanıklaştırma"
 
-#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/background.slint:101 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:181 rust/crates/effects/ui/composite_editor.slint:323 rust/crates/effects/ui/composite_editor.slint:547 rust/crates/effects/ui/composite_editor.slint:549 rust/crates/effects/ui/composite_editor.slint:549
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/background.slint:101 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:181 rust/crates/effects/ui/composite_editor.slint:323 rust/crates/effects/ui/composite_editor.slint:547 rust/crates/effects/ui/composite_editor.slint:549 rust/crates/effects/ui/composite_editor.slint:549
 msgid "Picture"
 msgstr "Görüntü"
 
-#: rust/crates/effects/src/background.rs:29 rust/crates/effects/src/chroma_key.rs:31 rust/crates/effects/src/composite_editor.rs:16
+#: rust/crates/effects/src/background.rs:30 rust/crates/effects/src/chroma_key.rs:31 rust/crates/effects/src/composite_editor.rs:16
 msgid "Pictures (*.png *.jpg *.jpeg *.webp *.bmp)"
 msgstr "Görüntüler (*.png *.jpg *.jpeg *.webp *.bmp)"
 
-#: rust/crates/effects/src/background.rs:38
+#: rust/crates/effects/src/background.rs:39
 msgid "Cut out your hair and edges more cleanly, for about 40% of a CPU core."
 msgstr "Yaklaşık %40 CPU çekirdeği kullanımıyla saçlarını ve kenarları daha temiz kırp."
 
-#: rust/crates/effects/src/background.rs:419 rust/crates/effects/src/chroma_key.rs:42 rust/crates/effects/src/fun_pack.rs:72
+#: rust/crates/effects/src/background.rs:538 rust/crates/effects/src/chroma_key.rs:42 rust/crates/effects/src/fun_pack.rs:72
 msgid "How soft the edge around you is."
 msgstr "Etrafındaki kenarın ne kadar yumuşak olduğu."
 
-#: rust/crates/effects/src/background.rs:420
+#: rust/crates/effects/src/background.rs:539
 msgid "Pull the cutout's border in towards you."
 msgstr "Kırpma kenarlığını kendine doğru çek."
 
-#: rust/crates/effects/src/background.rs:421 rust/crates/effects/src/chroma_key.rs:286
+#: rust/crates/effects/src/background.rs:540 rust/crates/effects/src/chroma_key.rs:289
 msgid "Pick the picture that goes behind you."
 msgstr "Arkana gelecek görüntüyü seç."
 
-#: rust/crates/effects/src/background.rs:492 rust/crates/effects/src/chroma_key.rs:450
+#: rust/crates/effects/src/background.rs:621 rust/crates/effects/src/chroma_key.rs:463
 msgid "Choose a picture"
 msgstr "Bir görüntü seç"
 
-#: rust/crates/effects/src/background.rs:502 rust/crates/effects/src/chroma_key.rs:468 rust/crates/effects/src/chroma_key.rs:507 rust/crates/effects/src/chroma_key.rs:526
+#: rust/crates/effects/src/background.rs:631 rust/crates/effects/src/chroma_key.rs:481 rust/crates/effects/src/chroma_key.rs:520 rust/crates/effects/src/chroma_key.rs:539
 msgid "Can't open that picture"
 msgstr "Bu görüntü açılamıyor"
 
-#: rust/crates/effects/src/background.rs:510 rust/crates/effects/src/background.rs:622 rust/crates/effects/src/background.rs:625 rust/crates/effects/src/background.rs:643 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:517
+#: rust/crates/effects/src/background.rs:639 rust/crates/effects/src/background.rs:751 rust/crates/effects/src/background.rs:754 rust/crates/effects/src/background.rs:772 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:517
 msgid "Background"
 msgstr "Arka plan"
 
-#: rust/crates/effects/src/background.rs:511
+#: rust/crates/effects/src/background.rs:640
 msgid "Blur the background behind you or swap it for a picture."
 msgstr "Arka planı bulanıklaştır veya bir görüntüyle değiştir."
 
-#: rust/crates/effects/src/background.rs:512
+#: rust/crates/effects/src/background.rs:641
 msgid "Without the Background plugin there's no Background card and the background is shown the way the camera sees it."
 msgstr "Arka plan eklentisi olmadan Arka plan kartı olmaz ve arka plan kameranın gördüğü gibi gösterilir."
 
-#: rust/crates/effects/src/background.rs:624 rust/crates/effects/src/background.rs:650
+#: rust/crates/effects/src/background.rs:753 rust/crates/effects/src/background.rs:779
 msgid "Background blur"
 msgstr "Arka plan bulanıklaştırma"
 
@@ -677,67 +697,67 @@ msgstr "Daha yüksek değerler perde renginin daha fazla tonunu kaldırır."
 msgid "Remove the screen's colour from your edges and skin."
 msgstr "Perdenin rengini kenarlarından ve cildinden temizle."
 
-#: rust/crates/effects/src/chroma_key.rs:281 rust/crates/effects/src/chroma_key.rs:554 rust/crates/effects/src/chroma_key.rs:672 rust/crates/effects/src/chroma_key.rs:676 rust/crates/effects/src/chroma_key.rs:694 rust/crates/effects/ui/chroma_key.slint:59
+#: rust/crates/effects/src/chroma_key.rs:284 rust/crates/effects/src/chroma_key.rs:567 rust/crates/effects/src/chroma_key.rs:686 rust/crates/effects/src/chroma_key.rs:690 rust/crates/effects/src/chroma_key.rs:708 rust/crates/effects/ui/chroma_key.slint:59
 msgid "Chroma key"
 msgstr "Chroma key"
 
-#: rust/crates/effects/src/chroma_key.rs:282
+#: rust/crates/effects/src/chroma_key.rs:285
 msgid "Replace the green or blue screen behind you."
 msgstr "Arkandaki yeşil veya mavi perdeyi değiştir."
 
-#: rust/crates/effects/src/chroma_key.rs:284
+#: rust/crates/effects/src/chroma_key.rs:287
 msgid "Pick the colour that goes behind you."
 msgstr "Arkana gelecek rengi seç."
 
-#: rust/crates/effects/src/chroma_key.rs:285 rust/crates/ui-kit/ui/widgets/colour.slint:392
+#: rust/crates/effects/src/chroma_key.rs:288 rust/crates/ui-kit/ui/widgets/colour.slint:392
 msgid "Pick from the preview"
 msgstr "Önizlemeden seç"
 
-#: rust/crates/effects/src/chroma_key.rs:291
+#: rust/crates/effects/src/chroma_key.rs:294
 msgid "The colour picked from the preview. Click to pick again."
 msgstr "Önizlemeden seçilen renk. Tekrar seçmek için tıkla."
 
-#: rust/crates/effects/src/chroma_key.rs:393
+#: rust/crates/effects/src/chroma_key.rs:406
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Önizlemede arkandaki ekrana tıkla. Esc iptal eder."
 
-#: rust/crates/effects/src/chroma_key.rs:394 rust/crates/effects/src/chroma_key.rs:430 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:565 rust/crates/outputs/src/webcam.rs:976 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:709 rust/crates/shell/src/streams.rs:1766 rust/crates/shell/src/window.rs:1758 rust/crates/shell/src/worker.rs:569 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:407 rust/crates/effects/src/chroma_key.rs:443 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:976 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1785 rust/crates/shell/src/window.rs:1776 rust/crates/shell/src/worker.rs:581 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Yayın yapmıyor"
 
-#: rust/crates/effects/src/chroma_key.rs:394
+#: rust/crates/effects/src/chroma_key.rs:407
 msgid "Start streaming to pick the screen's colour on the preview."
 msgstr "Ekranın rengini önizlemeden seçmek için yayını başlat."
 
-#: rust/crates/effects/src/chroma_key.rs:412
+#: rust/crates/effects/src/chroma_key.rs:425
 msgid "No colour there"
 msgstr "Orada renk yok"
 
-#: rust/crates/effects/src/chroma_key.rs:412
+#: rust/crates/effects/src/chroma_key.rs:425
 msgid "That spot has hardly any colour. Click the screen itself."
 msgstr "O noktada neredeyse hiç renk yok. Ekranın kendisine tıkla."
 
-#: rust/crates/effects/src/chroma_key.rs:429
+#: rust/crates/effects/src/chroma_key.rs:442
 msgid "Click a colour on the preview. Esc cancels."
 msgstr "Önizlemede bir renge tıkla. Esc iptal eder."
 
-#: rust/crates/effects/src/chroma_key.rs:430
+#: rust/crates/effects/src/chroma_key.rs:443
 msgid "Start streaming to pick a colour on the preview."
 msgstr "Önizlemeden bir renk seçmek için yayını başlat."
 
-#: rust/crates/effects/src/chroma_key.rs:555
+#: rust/crates/effects/src/chroma_key.rs:568
 msgid "Swap a green or blue screen behind you for a colour or a picture, with no download."
 msgstr "Arkandaki yeşil veya mavi ekranı indirme yapmadan bir renkle veya görüntüyle değiştir."
 
-#: rust/crates/effects/src/chroma_key.rs:556
+#: rust/crates/effects/src/chroma_key.rs:569
 msgid "Without the Chroma key plugin there's no Chroma key card and a green screen isn't replaced."
 msgstr "Chroma key eklentisi olmadan Chroma key kartı olmaz ve yeşil ekran değiştirilmez."
 
-#: rust/crates/effects/src/chroma_key.rs:674 rust/crates/effects/src/chroma_key.rs:709
+#: rust/crates/effects/src/chroma_key.rs:688 rust/crates/effects/src/chroma_key.rs:723
 msgid "Chroma key tolerance"
 msgstr "Chroma key toleransı"
 
-#: rust/crates/effects/src/chroma_key.rs:677 rust/crates/effects/src/chroma_key.rs:703
+#: rust/crates/effects/src/chroma_key.rs:691 rust/crates/effects/src/chroma_key.rs:717
 msgid "Chroma key screen"
 msgstr "Chroma key ekranı"
 
@@ -1337,7 +1357,7 @@ msgid "Black and white"
 msgstr "Siyah beyaz"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:30 rust/crates/effects/src/desk.rs:46 rust/crates/effects/src/notes.rs:45 rust/crates/effects/src/photos.rs:28 rust/crates/effects/ui/colour_grading.slint:257 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/link/ui/connection.slint:295 rust/crates/link/ui/connection.slint:296 rust/crates/outputs/src/stream_output.rs:292 rust/crates/outputs/src/webcam.rs:111 rust/crates/outputs/src/webcam.rs:979 rust/crates/outputs/ui/webcam.slint:145 rust/crates/outputs/ui/webcam.slint:146 rust/crates/shell/src/plugins/camera_control.rs:1498 rust/crates/shell/src/plugins/camera_control.rs:1500 rust/crates/shell/src/plugins/camera_control.rs:1502 rust/crates/shell/src/plugins/camera_control.rs:1869 rust/crates/shell/src/plugins/camera_control.rs:1870 rust/crates/shell/ui/cards/camera.slint:175 rust/crates/shell/ui/cards/camera.slint:177 rust/crates/shell/ui/cards/camera.slint:273 rust/crates/shell/ui/cards/camera.slint:275 rust/crates/shell/ui/cards/camera.slint:335 rust/crates/shell/ui/cards/camera.slint:337
+#: rust/crates/effects/src/desk.rs:30 rust/crates/effects/src/desk.rs:46 rust/crates/effects/src/notes.rs:45 rust/crates/effects/src/photos.rs:30 rust/crates/effects/ui/colour_grading.slint:257 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/link/ui/connection.slint:295 rust/crates/link/ui/connection.slint:296 rust/crates/outputs/src/stream_output.rs:292 rust/crates/outputs/src/webcam.rs:111 rust/crates/outputs/src/webcam.rs:979 rust/crates/outputs/ui/webcam.slint:145 rust/crates/outputs/ui/webcam.slint:146 rust/crates/shell/src/plugins/camera_control.rs:1498 rust/crates/shell/src/plugins/camera_control.rs:1500 rust/crates/shell/src/plugins/camera_control.rs:1502 rust/crates/shell/src/plugins/camera_control.rs:1869 rust/crates/shell/src/plugins/camera_control.rs:1870 rust/crates/shell/ui/cards/camera.slint:175 rust/crates/shell/ui/cards/camera.slint:177 rust/crates/shell/ui/cards/camera.slint:273 rust/crates/shell/ui/cards/camera.slint:275 rust/crates/shell/ui/cards/camera.slint:335 rust/crates/shell/ui/cards/camera.slint:337
 msgid "Auto"
 msgstr "Otomatik"
 
@@ -2182,7 +2202,7 @@ msgstr "Telefona gönder"
 msgid "Clear from phone"
 msgstr "Telefondan temizle"
 
-#: rust/crates/effects/src/notes.rs:332
+#: rust/crates/effects/src/notes.rs:332 rust/crates/effects/ui/phototrap.slint:105
 msgid "Pause"
 msgstr "Duraklat"
 
@@ -2363,276 +2383,370 @@ msgctxt "search"
 msgid "on air sign busy light call meeting do not disturb webhook home assistant smart home"
 msgstr "yayında tabelası meşgul ışığı arama toplantı rahatsız etmeyin webhook home assistant akıllı ev on air sign busy light call meeting do not disturb webhook home assistant smart home"
 
-#: rust/crates/effects/src/photos.rs:26
+#: rust/crates/effects/src/photos.rs:28
 msgid "JPEG"
 msgstr "JPEG"
 
-#: rust/crates/effects/src/photos.rs:26
+#: rust/crates/effects/src/photos.rs:28
 msgid "HEIC"
 msgstr "HEIC"
 
-#: rust/crates/effects/src/photos.rs:26
+#: rust/crates/effects/src/photos.rs:28
 msgid "Ultra HDR"
 msgstr "Ultra HDR"
 
-#: rust/crates/effects/src/photos.rs:26
+#: rust/crates/effects/src/photos.rs:28
 msgid "RAW (DNG)"
 msgstr "RAW (DNG)"
 
-#: rust/crates/effects/src/photos.rs:26
+#: rust/crates/effects/src/photos.rs:28
 msgid "RAW and JPEG"
 msgstr "RAW ve JPEG"
 
-#: rust/crates/effects/src/photos.rs:28
+#: rust/crates/effects/src/photos.rs:30
 msgid "Normal"
 msgstr "Normal"
 
-#: rust/crates/effects/src/photos.rs:28
+#: rust/crates/effects/src/photos.rs:30
 msgid "Full resolution"
 msgstr "Tam çözünürlük"
 
-#: rust/crates/effects/src/photos.rs:28
+#: rust/crates/effects/src/photos.rs:30 rust/crates/effects/ui/phototrap.slint:119 rust/crates/effects/ui/phototrap.slint:120
 msgid "Night"
 msgstr "Gece"
 
-#: rust/crates/effects/src/photos.rs:28
+#: rust/crates/effects/src/photos.rs:30
 msgid "HDR"
 msgstr "HDR"
 
-#: rust/crates/effects/src/photos.rs:28
+#: rust/crates/effects/src/photos.rs:30
 msgid "Bokeh"
 msgstr "Bokeh"
 
-#: rust/crates/effects/src/photos.rs:31
+#: rust/crates/effects/src/photos.rs:32
 msgid "Single"
 msgstr "Tek çekim"
 
-#: rust/crates/effects/src/photos.rs:31
+#: rust/crates/effects/src/photos.rs:32
 msgid "Burst"
 msgstr "Seri çekim"
 
-#: rust/crates/effects/src/photos.rs:31
+#: rust/crates/effects/src/photos.rs:32
 msgid "Exposure bracket"
 msgstr "Pozlama basamaklama"
 
-#: rust/crates/effects/src/photos.rs:31
+#: rust/crates/effects/src/photos.rs:32
 msgid "Focus bracket"
 msgstr "Odak basamaklama"
 
-#: rust/crates/effects/src/photos.rs:34
-msgid "3 photos, 1 EV apart"
-msgstr "3 fotoğraf, 1 EV aralıklı"
-
-#: rust/crates/effects/src/photos.rs:34
-msgid "3 photos, 2 EV apart"
-msgstr "3 fotoğraf, 2 EV aralıklı"
-
-#: rust/crates/effects/src/photos.rs:35
-msgid "5 photos, 1 EV apart"
-msgstr "5 fotoğraf, 1 EV aralıklı"
-
-#: rust/crates/effects/src/photos.rs:35
-msgid "7 photos, 1 EV apart"
-msgstr "7 fotoğraf, 1 EV aralıklı"
-
-#: rust/crates/effects/src/photos.rs:40 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294
+#: rust/crates/effects/src/photos.rs:33 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294
 msgid "On"
 msgstr "Açık"
 
-#: rust/crates/effects/src/photos.rs:42
+#: rust/crates/effects/src/photos.rs:35
 msgid "Let the camera decide."
 msgstr "Kameranın karar vermesine izin ver."
 
-#: rust/crates/effects/src/photos.rs:42
+#: rust/crates/effects/src/photos.rs:35
 msgid "Always fix lens distortion."
 msgstr "Lens bozulmasını her zaman düzelt."
 
-#: rust/crates/effects/src/photos.rs:42
+#: rust/crates/effects/src/photos.rs:35
 msgid "Never fix lens distortion."
 msgstr "Lens bozulmasını hiçbir zaman düzeltme."
 
-#: rust/crates/effects/src/photos.rs:44
+#: rust/crates/effects/src/photos.rs:37
 msgid "Take a photo on the phone with the settings below."
 msgstr "Aşağıdaki ayarlarla telefonda bir fotoğraf çek."
 
-#: rust/crates/effects/src/photos.rs:45
+#: rust/crates/effects/src/photos.rs:38
 msgid "Open the folder with the last photos taken."
 msgstr "Son çekilen fotoğrafların olduğu klasörü aç."
 
-#: rust/crates/effects/src/photos.rs:46
+#: rust/crates/effects/src/photos.rs:39
 msgid "The video pauses while the phone maker's Night, HDR and Bokeh modes take a photo."
 msgstr "Telefon üreticisinin Gece, HDR ve Bokeh modları fotoğraf çekerken video duraklatılır."
 
-#: rust/crates/effects/src/photos.rs:50
+#: rust/crates/effects/src/photos.rs:43
 msgid "Number of photos from the nearest focus to the farthest, for focus stacking."
 msgstr "Odak istifleme için en yakın odaktan en uzağa fotoğraf sayısı."
 
-#: rust/crates/effects/src/photos.rs:51
+#: rust/crates/effects/src/photos.rs:44
 msgid "Number of photos in the burst."
 msgstr "Seri çekimdeki fotoğraf sayısı."
 
-#: rust/crates/effects/src/photos.rs:52
+#: rust/crates/effects/src/photos.rs:45
 msgid "Take one photo, a burst or a set at different exposures or focus distances."
 msgstr "Tek bir fotoğraf, seri çekim veya farklı pozlama ya da odak mesafelerinde bir dizi fotoğraf çek."
 
-#: rust/crates/effects/src/photos.rs:53
+#: rust/crates/effects/src/photos.rs:46
 msgid "Wait a few seconds before taking the photo."
 msgstr "Fotoğrafı çekmeden önce birkaç saniye bekle."
 
-#: rust/crates/effects/src/photos.rs:54
+#: rust/crates/effects/src/photos.rs:47
 msgid "A long exposure uses the video's ISO and the video stops while the shutter is open."
 msgstr "Uzun pozlama videonun ISO değerini kullanır ve enstantane açıkken video durur."
 
-#: rust/crates/effects/src/photos.rs:55
+#: rust/crates/effects/src/photos.rs:48
 msgid "Use extra noise reduction and sharpening on the photo only, not the video. Taking the photo takes a little longer."
 msgstr "Videoda değil, sadece fotoğrafta ek gürültü azaltma ve keskinleştirme kullan. Fotoğrafın çekilmesi biraz daha uzun sürer."
 
-#: rust/crates/effects/src/photos.rs:56
+#: rust/crates/effects/src/photos.rs:49
 msgid "This lens and mode have no extra noise reduction or sharpening to offer"
 msgstr "Bu lens ve modda ek gürültü azaltma veya keskinleştirme yok"
 
-#: rust/crates/effects/src/photos.rs:57
+#: rust/crates/effects/src/photos.rs:50
 msgid "JPEG quality is set by the camera"
 msgstr "JPEG kalitesi kamera tarafından belirlenir"
 
-#: rust/crates/effects/src/photos.rs:58
+#: rust/crates/effects/src/photos.rs:51
 msgid "RAW photos have no quality setting"
 msgstr "RAW fotoğrafların kalite ayarı yoktur"
 
-#: rust/crates/effects/src/photos.rs:59 rust/crates/shell/src/streams.rs:824
+#: rust/crates/effects/src/photos.rs:52 rust/crates/shell/src/streams.rs:842
 msgid "The camera is already taking a photo."
 msgstr "Kamera zaten bir fotoğraf çekiyor."
 
-#: rust/crates/effects/src/photos.rs:60 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:270
+#: rust/crates/effects/src/photos.rs:53 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:270
 msgid "The camera couldn't take the photo."
 msgstr "Kamera fotoğrafı çekemedi."
 
-#: rust/crates/effects/src/photos.rs:331
+#: rust/crates/effects/src/photos.rs:57
 msgid "Like the video"
 msgstr "Video gibi"
 
-#: rust/crates/effects/src/photos.rs:331 rust/crates/effects/src/photos.rs:460 rust/crates/setup/src/setup.rs:493
+#: rust/crates/effects/src/photos.rs:57 rust/crates/effects/src/photos.rs:186 rust/crates/effects/src/phototrap.rs:301 rust/crates/effects/src/phototrap.rs:651 rust/crates/effects/src/stargazer.rs:827 rust/crates/effects/src/stargazer.rs:1133 rust/crates/setup/src/setup.rs:493
 #, python-brace-format
 msgid "{seconds} s"
 msgstr "{seconds} sn"
 
-#: rust/crates/effects/src/photos.rs:451 rust/crates/effects/src/photos.rs:1008 rust/crates/effects/src/photos.rs:1024 rust/crates/effects/ui/photos.slint:150
+#: rust/crates/effects/src/photos.rs:177 rust/crates/effects/src/photos.rs:734 rust/crates/effects/src/photos.rs:750 rust/crates/effects/ui/photos.slint:150
 msgid "Take photo"
 msgstr "Fotoğraf çek"
 
-#: rust/crates/effects/src/photos.rs:451
+#: rust/crates/effects/src/photos.rs:177 rust/crates/effects/src/stargazer.rs:815
 msgid "Open folder"
 msgstr "Klasörü aç"
 
-#: rust/crates/effects/src/photos.rs:452
+#: rust/crates/effects/src/photos.rs:178
 msgid "Best quality"
 msgstr "En iyi kalite"
 
-#: rust/crates/effects/src/photos.rs:485 rust/crates/effects/ui/photos.slint:171 rust/crates/effects/ui/photos.slint:172
+#: rust/crates/effects/src/photos.rs:211 rust/crates/effects/ui/photos.slint:171 rust/crates/effects/ui/photos.slint:172
 msgid "ISO"
 msgstr "ISO"
 
-#: rust/crates/effects/src/photos.rs:485 rust/crates/effects/ui/photos.slint:181 rust/crates/effects/ui/photos.slint:182 rust/crates/shell/src/plugins/camera_control.rs:1592 rust/crates/shell/src/plugins/camera_control.rs:1872 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:218 rust/crates/shell/ui/cards/camera.slint:229
+#: rust/crates/effects/src/photos.rs:211 rust/crates/effects/ui/photos.slint:181 rust/crates/effects/ui/photos.slint:182 rust/crates/shell/src/plugins/camera_control.rs:1592 rust/crates/shell/src/plugins/camera_control.rs:1872 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:218 rust/crates/shell/ui/cards/camera.slint:229
 msgid "Shutter"
 msgstr "Enstantane"
 
-#: rust/crates/effects/src/photos.rs:491 rust/crates/effects/ui/photos.slint:204 rust/crates/effects/ui/photos.slint:209
+#: rust/crates/effects/src/photos.rs:217 rust/crates/effects/ui/photos.slint:204 rust/crates/effects/ui/photos.slint:209
 msgid "Mode"
 msgstr "Mod"
 
-#: rust/crates/effects/src/photos.rs:494 rust/crates/effects/ui/photos.slint:215 rust/crates/effects/ui/photos.slint:219 rust/crates/outputs/src/stream_output.rs:795 rust/crates/outputs/src/stream_output.rs:1012 rust/crates/outputs/src/stream_output.rs:1015 rust/crates/outputs/ui/stream_output.slint:110 rust/crates/outputs/ui/stream_output.slint:122
+#: rust/crates/effects/src/photos.rs:220 rust/crates/effects/ui/photos.slint:215 rust/crates/effects/ui/photos.slint:219 rust/crates/outputs/src/stream_output.rs:795 rust/crates/outputs/src/stream_output.rs:1012 rust/crates/outputs/src/stream_output.rs:1015 rust/crates/outputs/ui/stream_output.slint:110 rust/crates/outputs/ui/stream_output.slint:122
 msgid "Format"
 msgstr "Biçim"
 
-#: rust/crates/effects/src/photos.rs:497 rust/crates/effects/ui/photos.slint:227 rust/crates/effects/ui/photos.slint:232
+#: rust/crates/effects/src/photos.rs:223 rust/crates/effects/ui/photos.slint:227 rust/crates/effects/ui/photos.slint:232
 msgid "Shots"
 msgstr "Çekim"
 
-#: rust/crates/effects/src/photos.rs:499 rust/crates/effects/ui/photos.slint:254 rust/crates/effects/ui/photos.slint:258 rust/crates/effects/ui/photos.slint:260 rust/crates/effects/ui/photos.slint:261
+#: rust/crates/effects/src/photos.rs:225 rust/crates/effects/ui/photos.slint:254 rust/crates/effects/ui/photos.slint:258 rust/crates/effects/ui/photos.slint:260 rust/crates/effects/ui/photos.slint:261
 msgid "How many"
 msgstr "Kaç adet"
 
-#: rust/crates/effects/src/photos.rs:499
+#: rust/crates/effects/src/photos.rs:225
 msgid "Steps"
 msgstr "Adım sayısı"
 
-#: rust/crates/effects/src/photos.rs:510
+#: rust/crates/effects/src/photos.rs:236
 msgid "Bracket"
 msgstr "Basamaklama"
 
-#: rust/crates/effects/src/photos.rs:515 rust/crates/effects/ui/photos.slint:164 rust/crates/effects/ui/photos.slint:268 rust/crates/effects/ui/photos.slint:272 rust/crates/effects/ui/photos.slint:274 rust/crates/effects/ui/photos.slint:275 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:166 rust/crates/shell/ui/cards/camera.slint:174
+#: rust/crates/effects/src/photos.rs:241 rust/crates/effects/ui/photos.slint:164 rust/crates/effects/ui/photos.slint:268 rust/crates/effects/ui/photos.slint:272 rust/crates/effects/ui/photos.slint:274 rust/crates/effects/ui/photos.slint:275 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:166 rust/crates/shell/ui/cards/camera.slint:174
 msgid "Exposure"
 msgstr "Pozlama"
 
-#: rust/crates/effects/src/photos.rs:520 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:291
+#: rust/crates/effects/src/photos.rs:246 rust/crates/effects/ui/photos.slint:285 rust/crates/effects/ui/photos.slint:291
 msgid "Distortion fix"
 msgstr "Bozulma düzeltme"
 
-#: rust/crates/effects/src/photos.rs:607 rust/crates/effects/src/photos.rs:948
+#: rust/crates/effects/src/photos.rs:333 rust/crates/effects/src/photos.rs:674
 msgid "Start streaming to take photos."
 msgstr "Fotoğraf çekmek için yayını başlat."
 
-#: rust/crates/effects/src/photos.rs:609
+#: rust/crates/effects/src/photos.rs:335
 msgid "This phone can't take photos from Telescope yet. Update the app on the phone."
 msgstr "Bu telefon henüz Telescope üzerinden fotoğraf çekemiyor. Telefondaki uygulamayı güncelle."
 
-#: rust/crates/effects/src/photos.rs:794 rust/crates/effects/src/photos.rs:814
+#: rust/crates/effects/src/photos.rs:520 rust/crates/effects/src/photos.rs:540
 msgid "Taking the photo…"
 msgstr "Fotoğraf çekiliyor…"
 
-#: rust/crates/effects/src/photos.rs:808
+#: rust/crates/effects/src/photos.rs:534
 #, python-brace-format
 msgid "Taking the photo in {seconds} s"
 msgstr "{seconds} sn içinde fotoğraf çekiliyor"
 
-#: rust/crates/effects/src/photos.rs:810
+#: rust/crates/effects/src/photos.rs:536
 #, python-brace-format
 msgid "Photo {n} of {total}"
 msgstr "Fotoğraf {n} / {total}"
 
-#: rust/crates/effects/src/photos.rs:812
+#: rust/crates/effects/src/photos.rs:538
 msgid "The video is paused while the photo is taken…"
 msgstr "Fotoğraf çekilirken video duraklatıldı…"
 
-#: rust/crates/effects/src/photos.rs:828
+#: rust/crates/effects/src/photos.rs:554 rust/crates/effects/src/stargazer.rs:822
 #, python-brace-format
 msgid "Saved {name}"
 msgstr "{name} kaydedildi"
 
-#: rust/crates/effects/src/photos.rs:833 rust/crates/effects/src/photos.rs:855
+#: rust/crates/effects/src/photos.rs:559 rust/crates/effects/src/photos.rs:581
 msgid "Photo saved"
 msgstr "Fotoğraf kaydedildi"
 
-#: rust/crates/effects/src/photos.rs:851
+#: rust/crates/effects/src/photos.rs:577
 #, python-brace-format
 msgid "The photo arrived late. Saved {name}"
 msgstr "Fotoğraf geç ulaştı. {name} kaydedildi"
 
-#: rust/crates/effects/src/photos.rs:865
+#: rust/crates/effects/src/photos.rs:591
 msgid "Save photos in"
 msgstr "Fotoğrafları kaydet"
 
-#: rust/crates/effects/src/photos.rs:880 rust/crates/effects/src/photos.rs:999 rust/crates/effects/ui/photos.slint:136
+#: rust/crates/effects/src/photos.rs:606 rust/crates/effects/src/photos.rs:725 rust/crates/effects/ui/photos.slint:136 rust/crates/effects/ui/phototrap.slint:92
 msgid "Photos"
 msgstr "Fotoğraflar"
 
-#: rust/crates/effects/src/photos.rs:881 rust/crates/effects/ui/photos.slint:137
+#: rust/crates/effects/src/photos.rs:607 rust/crates/effects/ui/photos.slint:137
 msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
 msgstr "Telefonda veya bir DSLR'de, kamera destekliyorsa RAW dahil tam kalitede fotoğraflar çek."
 
-#: rust/crates/effects/src/photos.rs:882
+#: rust/crates/effects/src/photos.rs:608
 msgid "Without the Photos plugin there's no Photos card and no Take photo shortcut."
 msgstr "Fotoğraflar eklentisi olmadan Fotoğraflar kartı ve Fotoğraf çek kısayolu olmaz."
 
-#: rust/crates/effects/src/photos.rs:1001 rust/crates/effects/src/photos.rs:1039
+#: rust/crates/effects/src/photos.rs:727 rust/crates/effects/src/photos.rs:765
 msgid "Photo mode"
 msgstr "Fotoğraf modu"
 
-#: rust/crates/effects/src/photos.rs:1006 rust/crates/effects/src/photos.rs:1049
+#: rust/crates/effects/src/photos.rs:732 rust/crates/effects/src/photos.rs:775
 msgid "Photo timer"
 msgstr "Fotoğraf zamanlayıcısı"
 
-#: rust/crates/effects/src/privacy_blur.rs:26 rust/crates/effects/src/privacy_blur.rs:428 rust/crates/effects/ui/privacy_blur.slint:22 rust/crates/effects/ui/privacy_blur.slint:30 rust/crates/effects/ui/privacy_blur.slint:31
+#: rust/crates/effects/src/phototrap.rs:40
+msgid "Watch the zones and take photos when something moves in them."
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:41
+msgid "Drag across the preview to mark a place to watch. Up to four."
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:42
+msgid "Switch on the Preview plugin to draw zones on the preview."
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:43
+msgid "Phototrap is armed on another phone. Switch to that one to draw zones."
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:44
+msgid "Remove every zone. With none, the whole picture is watched."
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:45
+msgid "Use the phone maker's Night mode for the photos."
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:46
+msgid "This lens has no Night mode to offer"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:47
+msgid "Number of photos each time it goes off."
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:48
+msgid "This lens takes one photo at a time"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:255 rust/crates/effects/src/phototrap.rs:650
+msgid "Not armed"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:258
+msgid "Waiting for a phone that can take photos"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:261
+msgid "Paused while the picture is hidden"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:264
+msgid "Armed and watching the whole picture"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:266
+#, python-brace-format
+msgid "Armed and watching {n} zone"
+msgid_plural "Armed and watching {n} zones"
+msgstr[0] ""
+msgstr[1] ""
+
+#: rust/crates/effects/src/phototrap.rs:273
+#, python-brace-format
+msgid "Triggers: {triggers}, photos: {photos}, last at {time}"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:276
+msgid "Nothing has set it off yet"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:283 rust/crates/effects/src/phototrap.rs:648
+msgid "Armed"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:283 rust/crates/effects/src/phototrap.rs:648
+msgid "Draw zone"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:284 rust/crates/effects/src/phototrap.rs:649
+msgid "Clear zones"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:402
+#, python-brace-format
+msgid "Off since the {size} GB photo limit is reached"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:405
+#, python-brace-format
+msgid "Off since there's less than {size} GB free on the drive"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:467
+msgid "The phone couldn't take the photos"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:518
+msgid "Drag across the picture to mark a zone. Esc cancels."
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:566 rust/crates/effects/ui/phototrap.slint:43
+msgid "Phototrap"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:567
+msgid "Take a burst of photos when something moves in the zones you draw, for wildlife and anything that shows up while nobody's looking."
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:568
+msgid "Without the Phototrap plugin there's no Phototrap card and nothing is watched for movement."
+msgstr ""
+
+#: rust/crates/effects/src/privacy_blur.rs:26 rust/crates/effects/src/privacy_blur.rs:439 rust/crates/effects/ui/privacy_blur.slint:22 rust/crates/effects/ui/privacy_blur.slint:30 rust/crates/effects/ui/privacy_blur.slint:31
 msgid "Privacy blur"
 msgstr "Gizlilik bulanıklaştırması"
 
@@ -2648,39 +2762,39 @@ msgstr "Tüm görüntüyü bulanıklaştır"
 msgid "Show the wait screen"
 msgstr "Bekleme ekranını göster"
 
-#: rust/crates/effects/src/privacy_blur.rs:220
+#: rust/crates/effects/src/privacy_blur.rs:228
 msgid "With Wait screen switched off in Plugins the whole picture gets blurred instead."
 msgstr "Eklentiler bölümünde Bekleme ekranı kapatıldığında, bunun yerine tüm görüntü bulanıklaştırılır."
 
-#: rust/crates/effects/src/privacy_blur.rs:252
+#: rust/crates/effects/src/privacy_blur.rs:260
 msgid "Blur automatically when more than one person is in the picture."
 msgstr "Görüntüde birden fazla kişi olduğunda otomatik olarak bulanıklaştır."
 
-#: rust/crates/effects/src/privacy_blur.rs:253
+#: rust/crates/effects/src/privacy_blur.rs:261
 msgid "What happens while more than one person is in the picture."
 msgstr "Görüntüde birden fazla kişi varken ne olacağı."
 
-#: rust/crates/effects/src/privacy_blur.rs:254
+#: rust/crates/effects/src/privacy_blur.rs:262
 msgid "Blur the picture until you click again."
 msgstr "Tekrar tıklayana kadar görüntüyü bulanıklaştır."
 
-#: rust/crates/effects/src/privacy_blur.rs:309
+#: rust/crates/effects/src/privacy_blur.rs:317
 msgid "Blur the whole picture or show the wait screen when more than one person is in it. Privacy isn't guaranteed because the vision models can miss someone."
 msgstr "Görüntüde birden fazla kişi olduğunda tüm görüntüyü bulanıklaştır veya bekleme ekranını göster. Görme modelleri birilerini kaçırabileceği için gizlilik garanti edilmez."
 
-#: rust/crates/effects/src/privacy_blur.rs:310
+#: rust/crates/effects/src/privacy_blur.rs:318
 msgid "Without the Privacy blur plugin there's no Privacy blur card and nothing gets hidden when someone walks in."
 msgstr "Gizlilik bulanıklaştırma eklentisi olmadan Gizlilik bulanıklaştırma kartı olmaz ve içeri biri girdiğinde hiçbir şey gizlenmez."
 
-#: rust/crates/effects/src/privacy_blur.rs:432 rust/crates/effects/src/privacy_blur.rs:445 rust/crates/effects/ui/privacy_blur.slint:60 rust/crates/effects/ui/privacy_blur.slint:66 rust/crates/effects/ui/privacy_blur.slint:67
+#: rust/crates/effects/src/privacy_blur.rs:443 rust/crates/effects/src/privacy_blur.rs:456 rust/crates/effects/ui/privacy_blur.slint:60 rust/crates/effects/ui/privacy_blur.slint:66 rust/crates/effects/ui/privacy_blur.slint:67
 msgid "Blur now"
 msgstr "Şimdi bulanıklaştır"
 
-#: rust/crates/effects/src/privacy_blur.rs:433 rust/crates/effects/src/privacy_blur.rs:446
+#: rust/crates/effects/src/privacy_blur.rs:444 rust/crates/effects/src/privacy_blur.rs:457
 msgid "Privacy blur when someone walks in"
 msgstr "Biri girdiğinde gizlilik bulanıklaştırması"
 
-#: rust/crates/effects/src/privacy_blur.rs:434 rust/crates/effects/src/privacy_blur.rs:458 rust/crates/effects/ui/privacy_blur.slint:48 rust/crates/effects/ui/privacy_blur.slint:52
+#: rust/crates/effects/src/privacy_blur.rs:445 rust/crates/effects/src/privacy_blur.rs:469 rust/crates/effects/ui/privacy_blur.slint:48 rust/crates/effects/ui/privacy_blur.slint:52
 msgid "Privacy blur: what happens"
 msgstr "Gizlilik bulanıklaştırması: yapılacak işlem"
 
@@ -2751,6 +2865,144 @@ msgstr "QR kod okuyucu eklentisi olmadan QR kod kartı olmaz ve görüntüdeki k
 msgid "Read QR codes"
 msgstr "QR kodları oku"
 
+#: rust/crates/effects/src/stargazer.rs:54
+msgid "Open the folder the stacks are saved in."
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:774
+msgid "Paused while part of the picture is hidden"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:777
+#, python-brace-format
+msgid "Collecting frame {done} of {total}"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:778
+msgid "Stacking every frame"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:779
+msgid "Recording the trails"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:783
+#, python-brace-format
+msgid "Stacking the sharpest {n} frame"
+msgid_plural "Stacking the sharpest {n} frames"
+msgstr[0] ""
+msgstr[1] ""
+
+#: rust/crates/effects/src/stargazer.rs:790 rust/crates/effects/src/stargazer.rs:809 rust/crates/effects/src/stargazer.rs:1134 rust/crates/effects/src/stargazer.rs:1134
+msgid "Waiting for the picture"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:792 rust/crates/link/src/connection.rs:826 rust/crates/setup/src/setup.rs:709 rust/crates/setup/src/setup.rs:718 rust/crates/setup/src/setup.rs:737 rust/crates/setup/src/setup.rs:761
+msgid "Ready"
+msgstr "Hazır"
+
+#: rust/crates/effects/src/stargazer.rs:802
+#, python-brace-format
+msgid "In the stack: {frames}, refused: {refused}, time: {time}"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:808
+#, python-brace-format
+msgid "Now {now}, best {best}"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:814
+msgid "Lucky"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:814 rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1080
+msgid "Live"
+msgstr "Canlı"
+
+#: rust/crates/effects/src/stargazer.rs:814 rust/crates/effects/ui/fun_pack.slint:146
+msgid "Trails"
+msgstr "İzler"
+
+#: rust/crates/effects/src/stargazer.rs:814 rust/crates/shell/src/plugins/presets.rs:216 rust/crates/system/ui/shortcuts.slint:364
+msgid "Save"
+msgstr "Kaydet"
+
+#: rust/crates/effects/src/stargazer.rs:815
+msgid "Show the stack on the camera"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:825 rust/crates/effects/src/stargazer.rs:1132
+#, python-brace-format
+msgid "{n} frames"
+msgstr ""
+
+#. the short form of Start streaming / Stop streaming, on a narrow window
+#: rust/crates/effects/src/stargazer.rs:828 rust/crates/effects/src/stargazer.rs:1134 rust/crates/effects/ui/stargazer.slint:147 rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1786 rust/crates/system/src/remote.rs:19
+msgid "Start"
+msgstr "Başlat"
+
+#. the short form of Start streaming / Stop streaming, on a narrow window
+#: rust/crates/effects/src/stargazer.rs:828 rust/crates/effects/ui/stargazer.slint:147 rust/crates/shell/src/window.rs:1792 rust/crates/system/src/remote.rs:19
+msgid "Stop"
+msgstr "Durdur"
+
+#: rust/crates/effects/src/stargazer.rs:828 rust/crates/effects/ui/stargazer.slint:147
+msgid "Stacking"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:901
+msgid "Stopped. Reset starts a new stack"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:946
+#, python-brace-format
+msgid "Stopped early and stacked the sharpest {n} frame it had"
+msgid_plural "Stopped early and stacked the sharpest {n} frames it had"
+msgstr[0] ""
+msgstr[1] ""
+
+#: rust/crates/effects/src/stargazer.rs:947
+msgid "Saved the trails"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:948
+#, python-brace-format
+msgid "Saved a stack of {n} frame"
+msgid_plural "Saved a stack of {n} frames"
+msgstr[0] ""
+msgstr[1] ""
+
+#: rust/crates/effects/src/stargazer.rs:954
+msgid "Stopped before enough frames came in. Nothing was saved"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:963
+msgid "Couldn't save the picture"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:968
+#, python-brace-format
+msgid "Memory limits this run to the sharpest {n} frame"
+msgid_plural "Memory limits this run to the sharpest {n} frames"
+msgstr[0] ""
+msgstr[1] ""
+
+#: rust/crates/effects/src/stargazer.rs:969
+msgid "Stopped because the picture size changed"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:1036 rust/crates/effects/ui/stargazer.slint:43
+msgid "Stargazer"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:1037
+msgid "Stack frames from a phone clipped to a telescope into a sharper moon or planet, a clearer faint sky or a star trail."
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:1038
+msgid "Without the Stargazer plugin there's no Stargazer card and no frames are stacked."
+msgstr ""
+
 #: rust/crates/effects/src/stereo_plugin.rs:56
 msgid "Turn two running streams into one 3D picture."
 msgstr "Çalışan iki yayını tek bir 3D görüntüye dönüştür."
@@ -2815,7 +3067,7 @@ msgstr "Kırmızı/camgöbeği"
 msgid "Start a second stream to get the 3D picture."
 msgstr "3D görüntüyü elde etmek için ikinci bir yayın başlat."
 
-#: rust/crates/effects/src/stereo_plugin.rs:737 rust/crates/shell/src/streams.rs:1077
+#: rust/crates/effects/src/stereo_plugin.rs:737 rust/crates/shell/src/streams.rs:1095
 msgid "Waiting"
 msgstr "Bekleniyor"
 
@@ -2886,6 +3138,22 @@ msgstr "İki telefonu, başlık için yan yana veya gözlük için kırmızı ve
 #: rust/crates/effects/src/stereo_plugin.rs:1174
 msgid "Without the 3D plugin there's no 3D card and two streams only go to their own cameras."
 msgstr "3D eklentisi olmadan 3D kartı olmaz ve iki yayın sadece kendi kameralarına gider."
+
+#: rust/crates/effects/src/stills.rs:13
+msgid "3 photos, 1 EV apart"
+msgstr "3 fotoğraf, 1 EV aralıklı"
+
+#: rust/crates/effects/src/stills.rs:13
+msgid "3 photos, 2 EV apart"
+msgstr "3 fotoğraf, 2 EV aralıklı"
+
+#: rust/crates/effects/src/stills.rs:14
+msgid "5 photos, 1 EV apart"
+msgstr "5 fotoğraf, 1 EV aralıklı"
+
+#: rust/crates/effects/src/stills.rs:14
+msgid "7 photos, 1 EV apart"
+msgstr "7 fotoğraf, 1 EV aralıklı"
 
 #: rust/crates/effects/src/transforms.rs:37
 msgid "Set flip, rotation, zoom, pan, stretch and lens correction back to default."
@@ -3265,7 +3533,7 @@ msgstr "Renkleri dışa aktar"
 msgid "Save the grade and LUT as a .cube file to use in other apps."
 msgstr "Renk düzenlemesini ve LUT'u diğer uygulamalarda kullanmak üzere .cube dosyası olarak kaydet."
 
-#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:798
+#: rust/crates/effects/ui/colour_grading.slint:474 rust/crates/shell/src/plugins/presets.rs:186 rust/crates/shell/src/plugins_tab.rs:865
 msgid "Replace"
 msgstr "Değiştir"
 
@@ -3429,7 +3697,7 @@ msgstr "Düzeni değiştir"
 msgid "Name:"
 msgstr "Ad:"
 
-#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1079 rust/crates/shell/ui/settings.slint:587
+#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1112 rust/crates/shell/ui/settings.slint:587
 msgid "OK"
 msgstr "Tamam"
 
@@ -3524,10 +3792,6 @@ msgstr "Efekt"
 #: rust/crates/effects/ui/fun_pack.slint:114 rust/crates/effects/ui/fun_pack.slint:115 rust/crates/system/ui/shortcuts.slint:126 rust/crates/ui-kit/ui/widgets/field.slint:129
 msgid "Clear"
 msgstr "Temizle"
-
-#: rust/crates/effects/ui/fun_pack.slint:146
-msgid "Trails"
-msgstr "İzler"
 
 #: rust/crates/effects/ui/fun_pack.slint:163 rust/crates/effects/ui/stereo.slint:130 rust/crates/outputs/src/webcam.rs:47 rust/crates/shell/ui/cards/camera.slint:238 rust/crates/shell/ui/cards/camera.slint:245 rust/crates/shell/ui/cards/camera.slint:256
 msgid "Brightness"
@@ -3839,13 +4103,45 @@ msgstr "Daha yüksek kalite, daha büyük ve daha temiz JPEG dosyaları verir."
 msgid "Timer"
 msgstr "Zamanlayıcı"
 
-#: rust/crates/effects/ui/photos.slint:352 rust/crates/effects/ui/photos.slint:361
+#: rust/crates/effects/ui/photos.slint:352 rust/crates/effects/ui/photos.slint:361 rust/crates/effects/ui/phototrap.slint:130 rust/crates/effects/ui/phototrap.slint:138
 msgid "Save in"
 msgstr "Kayıt yeri"
 
 #: rust/crates/effects/ui/photos.slint:362
 msgid "The folder path photos are saved in."
 msgstr "Fotoğrafların kaydedileceği klasör yolu."
+
+#: rust/crates/effects/ui/phototrap.slint:44
+msgid "Take photos when something moves in the zones you draw on the preview."
+msgstr ""
+
+#: rust/crates/effects/ui/phototrap.slint:64
+msgid "Zones"
+msgstr ""
+
+#: rust/crates/effects/ui/phototrap.slint:77 rust/crates/effects/ui/phototrap.slint:78
+msgid "Sensitivity"
+msgstr ""
+
+#: rust/crates/effects/ui/phototrap.slint:79
+msgid "Higher catches smaller movements and more false alarms."
+msgstr ""
+
+#: rust/crates/effects/ui/phototrap.slint:93
+msgid "Photos per trigger"
+msgstr ""
+
+#: rust/crates/effects/ui/phototrap.slint:106
+msgid "Pause between triggers"
+msgstr ""
+
+#: rust/crates/effects/ui/phototrap.slint:107
+msgid "How long to wait after a burst before it can go off again."
+msgstr ""
+
+#: rust/crates/effects/ui/phototrap.slint:139
+msgid "Where the photos go. Click to open the folder."
+msgstr ""
 
 #: rust/crates/effects/ui/privacy_blur.slint:23
 msgid "Blur the whole picture or show the wait screen when more than one person is in it."
@@ -3866,6 +4162,94 @@ msgstr "Kameraya tutulan QR kodlarını panoya kopyala."
 #: rust/crates/effects/ui/qr_reader.slint:65
 msgid "Show a notification when a QR code is read"
 msgstr "Bir QR kod okunduğunda bildirim göster"
+
+#: rust/crates/effects/ui/stargazer.slint:44
+msgid "Stack frames from a telescope into a sharper moon or planet, a faint sky or star trails."
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:61 rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/src/webcam.rs:78 rust/crates/outputs/src/webcam.rs:897 rust/crates/shell/ui/cards/camera.slint:326 rust/crates/shell/ui/cards/camera.slint:334
+msgid "Focus"
+msgstr "Odak"
+
+#: rust/crates/effects/ui/stargazer.slint:64
+msgid "How sharp the picture is now and the best so far. Turn the focuser to the highest number."
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:69 rust/crates/effects/ui/stargazer.slint:74
+msgid "Stack"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:76
+msgid "Lucky imaging"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:76
+msgid "Live stack"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:76
+msgid "Star trails"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:78
+msgid "Stacks only the sharpest frames of a burst. For the moon and planets."
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:79
+msgid "Adds every frame and leaves out what only shows once, like satellites and noise. For faint things."
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:80
+msgid "Takes the brightest value of one frame every few seconds, which draws the stars as lines."
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:92 rust/crates/setup/src/stats.rs:375
+msgid "Frames"
+msgstr "Kareler"
+
+#: rust/crates/effects/ui/stargazer.slint:93
+msgid "Frames to collect"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:94
+msgid "How many frames to look at before stacking the sharpest ones."
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:108
+msgid "Sharpest"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:109
+msgid "Share of frames to stack"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:110
+msgid "The sharpest share of the frames that gets stacked."
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:126
+msgid "Every"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:127
+msgid "Time between frames"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:128
+msgid "How long to wait before the next frame goes into the trails."
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:142
+msgid "Run"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:156
+msgid "Sends the stack to the virtual camera in place of the live picture, refreshed about once a second."
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:165
+msgid "Saved"
+msgstr ""
 
 #: rust/crates/effects/ui/stereo.slint:56
 msgid "Make one 3D picture from two phones."
@@ -4133,7 +4517,7 @@ msgstr "Yetişemiyor"
 msgid "Browser"
 msgstr "Tarayıcı"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1727 rust/crates/system/ui/updates.slint:166
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:804 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1746 rust/crates/system/ui/updates.slint:166
 msgid "Try again"
 msgstr "Tekrar dene"
 
@@ -4217,10 +4601,6 @@ msgstr "Bilgisayar"
 #: rust/crates/link/src/connection.rs:824
 msgid "Checking"
 msgstr "Denetleniyor"
-
-#: rust/crates/link/src/connection.rs:826 rust/crates/setup/src/setup.rs:709 rust/crates/setup/src/setup.rs:718 rust/crates/setup/src/setup.rs:737 rust/crates/setup/src/setup.rs:761
-msgid "Ready"
-msgstr "Hazır"
 
 #: rust/crates/link/src/connection.rs:827
 msgid "Can't reach the phone"
@@ -4588,7 +4968,7 @@ msgstr "{source} bekleniyor"
 msgid "{source}, no pairing needed"
 msgstr "{source}, eşleştirme gerekmez"
 
-#: rust/crates/link/src/plugin.rs:1113 rust/crates/shell/src/streams.rs:1060
+#: rust/crates/link/src/plugin.rs:1113 rust/crates/shell/src/streams.rs:1078
 msgid "Reconnecting"
 msgstr "Yeniden bağlanıyor"
 
@@ -4600,7 +4980,7 @@ msgstr "USB üzerinden yayın yapıyor"
 msgid "Streaming over Wi-Fi"
 msgstr "Wi-Fi üzerinden yayın yapıyor"
 
-#: rust/crates/link/src/plugin.rs:1121 rust/crates/shell/src/streams.rs:1064
+#: rust/crates/link/src/plugin.rs:1121 rust/crates/shell/src/streams.rs:1082
 msgid "Connecting"
 msgstr "Bağlanıyor"
 
@@ -4613,7 +4993,7 @@ msgstr "Telefon uygulaması USB üzerinden güncelleniyor…"
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "{phone} üzerindeki Telescope uygulaması bu sürümden daha eski."
 
-#: rust/crates/link/src/plugin.rs:1216 rust/crates/setup/src/setup.rs:913 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:712 rust/crates/system/src/shortcuts.rs:856
+#: rust/crates/link/src/plugin.rs:1216 rust/crates/setup/src/setup.rs:913 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:720 rust/crates/system/src/shortcuts.rs:856
 msgid "Copy command"
 msgstr "Komutu kopyala"
 
@@ -4671,7 +5051,7 @@ msgstr "Sanal kamera kapalı"
 msgid "Your password is needed to switch on the virtual camera."
 msgstr "Sanal kamerayı açmak için şifren gerekli."
 
-#: rust/crates/link/src/plugin.rs:1554 rust/crates/shell/src/plugins_tab.rs:716 rust/crates/shell/src/plugins_tab.rs:744
+#: rust/crates/link/src/plugin.rs:1554 rust/crates/shell/src/plugins_tab.rs:735 rust/crates/shell/src/plugins_tab.rs:801
 msgid "Switch on"
 msgstr "Aç"
 
@@ -4715,7 +5095,7 @@ msgstr "Kare hızı"
 msgid "How many pictures a second the browser sends."
 msgstr "Tarayıcının saniyede kaç görüntü gönderdiği."
 
-#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:23 rust/crates/setup/ui/setup.slint:23 rust/crates/shell/src/plugins_tab.rs:701 rust/crates/shell/src/plugins_tab.rs:706 rust/crates/shell/ui/settings.slint:330
+#: rust/crates/link/ui/connection.slint:123 rust/crates/setup/ui/setup.slint:23 rust/crates/setup/ui/setup.slint:23 rust/crates/shell/src/plugins_tab.rs:720 rust/crates/shell/src/plugins_tab.rs:725 rust/crates/shell/ui/settings.slint:330
 msgid "Remove"
 msgstr "Kaldır"
 
@@ -4967,56 +5347,60 @@ msgstr "Kalıcılık dosyaları kaldırılamadı"
 msgid "Removed {paths}"
 msgstr "{paths} kaldırıldı"
 
-#: rust/crates/outputs/src/spout/mod.rs:54
+#: rust/crates/outputs/src/spout/mod.rs:56
 msgid "The sender isn't running. Start it again to continue."
 msgstr "Gönderici çalışmıyor. Devam etmek için yeniden başlat."
 
-#: rust/crates/outputs/src/spout/mod.rs:55
+#: rust/crates/outputs/src/spout/mod.rs:57
 msgid "The sender isn't sharing a picture. Check that it's running and sending."
 msgstr "Gönderici görüntü paylaşmıyor. Çalıştığını ve gönderdiğini kontrol et."
 
-#: rust/crates/outputs/src/spout/mod.rs:56
+#: rust/crates/outputs/src/spout/mod.rs:58
 msgid "Telescope can't read this sender's picture. Try another sender, or check the sender's output settings."
 msgstr "Telescope bu göndericinin görüntüsünü okuyamıyor. Başka bir gönderici dene veya göndericinin çıkış ayarlarını kontrol et."
 
-#: rust/crates/outputs/src/spout/mod.rs:303
+#: rust/crates/outputs/src/spout/mod.rs:309
 msgid "Check that the sender is still running."
 msgstr "Göndericinin hâlâ çalıştığını kontrol et."
 
-#: rust/crates/outputs/src/spout/mod.rs:559
+#: rust/crates/outputs/src/spout/mod.rs:588
 msgid "Sender not running"
 msgstr "Gönderici çalışmıyor"
 
-#: rust/crates/outputs/src/spout/mod.rs:561 rust/crates/outputs/src/webcam.rs:972
+#: rust/crates/outputs/src/spout/mod.rs:590 rust/crates/outputs/src/webcam.rs:972
 msgid "Not sending anything"
 msgstr "Hiçbir şey göndermiyor"
 
-#: rust/crates/outputs/src/spout/mod.rs:563 rust/crates/outputs/src/webcam.rs:974
+#: rust/crates/outputs/src/spout/mod.rs:592
+msgid "Picture frozen"
+msgstr ""
+
+#: rust/crates/outputs/src/spout/mod.rs:594 rust/crates/outputs/src/webcam.rs:974
 msgid "Starting…"
 msgstr "Başlatılıyor…"
 
-#: rust/crates/outputs/src/spout/mod.rs:572
+#: rust/crates/outputs/src/spout/mod.rs:603
 msgid "Set how many pictures a second to take. Spout senders don't share their own rate."
 msgstr "Saniyede kaç görüntü alınacağını belirle. Spout göndericileri kendi hızlarını paylaşmaz."
 
-#: rust/crates/outputs/src/spout/mod.rs:586 rust/crates/outputs/ui/spout.slint:14
+#: rust/crates/outputs/src/spout/mod.rs:617 rust/crates/outputs/ui/spout.slint:14
 msgid "Spout capture"
 msgstr "Spout yakalama"
 
-#: rust/crates/outputs/src/spout/mod.rs:587
+#: rust/crates/outputs/src/spout/mod.rs:618
 msgid "Stream from games, OBS and other programs on this computer that share their picture through Spout."
 msgstr "Görüntülerini Spout üzerinden paylaşan bu bilgisayardaki oyunlardan, OBS'ten ve diğer programlardan yayın yap."
 
-#: rust/crates/outputs/src/spout/mod.rs:588
+#: rust/crates/outputs/src/spout/mod.rs:619
 msgid "Without Spout capture the senders aren't in the device picker and the Spout capture card is gone too."
 msgstr "Spout yakalama olmadan göndericiler aygıt seçicide yer almaz ve Spout yakalama kartı da kaybolur."
 
-#: rust/crates/outputs/src/spout/mod.rs:636
+#: rust/crates/outputs/src/spout/mod.rs:667
 #, python-brace-format
 msgid "{name} isn't running"
 msgstr "{name} çalışmıyor"
 
-#: rust/crates/outputs/src/spout/mod.rs:636
+#: rust/crates/outputs/src/spout/mod.rs:667
 msgid "Start it again or pick another source."
 msgstr "Yeniden başlat veya başka bir kaynak seç."
 
@@ -5185,54 +5569,54 @@ msgstr "{device}, Telescope'un yazamadığı {format} piksel biçimine ayarlı. 
 msgid "Waiting for camera"
 msgstr "Kamera bekleniyor"
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:505
+#: rust/crates/outputs/src/wait_screen_plugin.rs:507
 msgid "Couldn't use that image"
 msgstr "Bu görsel kullanılamadı"
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:505
+#: rust/crates/outputs/src/wait_screen_plugin.rs:507
 #, python-brace-format
 msgid "{problem}. The current wait screen is still used."
 msgstr "{problem}. Geçerli bekleme ekranı kullanılmaya devam ediyor."
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:507
+#: rust/crates/outputs/src/wait_screen_plugin.rs:509
 msgid "Couldn't read that image"
 msgstr "Bu görsel okunamadı"
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:507
+#: rust/crates/outputs/src/wait_screen_plugin.rs:509
 msgid "The default screen is showing. Choose another image."
 msgstr "Varsayılan ekran gösteriliyor. Başka bir görsel seç."
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:510
+#: rust/crates/outputs/src/wait_screen_plugin.rs:512
 #, python-brace-format
 msgid "Shown at {size}"
 msgstr "Boyutu: {size}"
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:511
+#: rust/crates/outputs/src/wait_screen_plugin.rs:513
 msgid "The size the stream opens the camera at. Still images and GIFs work; transparent parts show the dark background."
 msgstr "Yayının kamerayı açtığı boyut. Hareketsiz görseller ve GIF'ler çalışır; saydam kısımlar koyu arka planı gösterir."
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:557
+#: rust/crates/outputs/src/wait_screen_plugin.rs:559
 msgid "Choose a wait screen"
 msgstr "Bir bekleme ekranı seç"
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:559
+#: rust/crates/outputs/src/wait_screen_plugin.rs:561
 #, python-brace-format
 msgid "Images ({formats})"
 msgstr "Resimler ({formats})"
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:574 rust/crates/outputs/ui/wait_screen.slint:36 rust/crates/outputs/ui/wait_screen.slint:62
+#: rust/crates/outputs/src/wait_screen_plugin.rs:576 rust/crates/outputs/ui/wait_screen.slint:36 rust/crates/outputs/ui/wait_screen.slint:62
 msgid "Wait screen"
 msgstr "Bekleme ekranı"
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:575
+#: rust/crates/outputs/src/wait_screen_plugin.rs:577
 msgid "Choose the picture apps see on the virtual camera while nothing is streaming."
 msgstr "Hiçbir şey yayınlanmıyorken uygulamaların sanal kamerada göreceği görüntüyü seç."
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:576
+#: rust/crates/outputs/src/wait_screen_plugin.rs:578
 msgid "Without the Wait screen plugin Wait screen isn't in Settings and between streams apps might see a black picture or nothing at all."
 msgstr "Bekleme ekranı eklentisi olmadan Bekleme ekranı Ayarlar'da yer almaz ve yayınlar arasında uygulamalar siyah bir görüntü görebilir veya hiçbir şey görmeyebilir."
 
-#: rust/crates/outputs/src/wait_screen_plugin.rs:674
+#: rust/crates/outputs/src/wait_screen_plugin.rs:679
 msgctxt "search"
 msgid "idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo"
 msgstr "boşta bekleme yer tutucu resim görüntü gif siyah ekran donmuş yayın yapmıyor aynala ters çevir özel arka plan logo idle standby placeholder picture image gif black screen frozen not streaming mirror flip custom background logo"
@@ -5264,10 +5648,6 @@ msgstr "Renk tonu"
 #: rust/crates/outputs/src/webcam.rs:51
 msgid "Sharpness"
 msgstr "Keskinlik"
-
-#: rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/src/webcam.rs:78 rust/crates/outputs/src/webcam.rs:897 rust/crates/shell/ui/cards/camera.slint:326 rust/crates/shell/ui/cards/camera.slint:334
-msgid "Focus"
-msgstr "Odak"
 
 #: rust/crates/outputs/src/webcam.rs:52
 msgid "Focus position"
@@ -5623,45 +6003,45 @@ msgstr "Eklenti açık değil."
 msgid "{file} has to return the plugin's table at the end."
 msgstr "{file} sonunda eklentinin tablosunu döndürmelidir."
 
-#: rust/crates/plugin-host/src/package.rs:181
+#: rust/crates/plugin-host/src/package.rs:183
 msgid "The plugin is a link to another folder, which plugins can't be."
 msgstr "Eklenti başka bir klasöre bağlantıdır; eklentiler bağlantı olamaz."
 
-#: rust/crates/plugin-host/src/package.rs:187 rust/crates/plugin-host/src/package.rs:242
+#: rust/crates/plugin-host/src/package.rs:189 rust/crates/plugin-host/src/package.rs:247
 #, python-brace-format
 msgid "The plugin has no {file}."
 msgstr "Eklentide {file} yok."
 
-#: rust/crates/plugin-host/src/package.rs:191
+#: rust/crates/plugin-host/src/package.rs:193
 #, python-brace-format
 msgid "{file} isn't valid JSON."
 msgstr "{file} geçerli bir JSON değil."
 
-#: rust/crates/plugin-host/src/package.rs:195 rust/crates/plugin-host/src/package.rs:239
+#: rust/crates/plugin-host/src/package.rs:197 rust/crates/plugin-host/src/package.rs:244
 #, python-brace-format
 msgid "{file} isn't valid."
 msgstr "{file} geçerli değil."
 
-#: rust/crates/plugin-host/src/package.rs:209
+#: rust/crates/plugin-host/src/package.rs:211
 #, python-brace-format
 msgid "The plugin was made for an older Telescope (plugin API {api}) and needs an update."
 msgstr "Eklenti daha eski bir Telescope (eklenti API'si {api}) için yapılmış ve güncelleme gerekiyor."
 
-#: rust/crates/plugin-host/src/package.rs:219
+#: rust/crates/plugin-host/src/package.rs:221
 msgid "The plugin's files couldn't be read."
 msgstr "Eklentinin dosyaları okunamadı."
 
-#: rust/crates/plugin-host/src/package.rs:226
+#: rust/crates/plugin-host/src/package.rs:228
 #, python-brace-format
 msgid "{file} has to give the folder's name as \"name\"."
 msgstr "{file}, klasörün adını \"name\" olarak belirtmelidir."
 
-#: rust/crates/plugin-host/src/package.rs:233
+#: rust/crates/plugin-host/src/package.rs:238
 #, python-brace-format
 msgid "The plugin needs a newer Telescope (plugin API {wanted}; this Telescope has {have})."
 msgstr "Eklenti daha yeni bir Telescope gerektiriyor (istenen eklenti API'si {wanted}; bu Telescope'ta {have} var)."
 
-#: rust/crates/plugin-host/src/package.rs:273
+#: rust/crates/plugin-host/src/package.rs:278
 msgid "The plugin's files changed since it was turned on. Turn the plugin on again if you trust the new version."
 msgstr "Eklentinin dosyaları açıldıktan sonra değişti. Yeni sürüme güveniyorsan eklentiyi tekrar aç."
 
@@ -6077,7 +6457,7 @@ msgstr "Loopback yeniden yükleniyor..."
 msgid "Restarting stream..."
 msgstr "Yayın yeniden başlatılıyor..."
 
-#: rust/crates/setup/src/setup.rs:911 rust/crates/shell/src/streams.rs:713
+#: rust/crates/setup/src/setup.rs:911 rust/crates/shell/src/streams.rs:721
 msgid "Resize the virtual camera"
 msgstr "Sanal kamerayı yeniden boyutlandır"
 
@@ -6214,10 +6594,6 @@ msgstr "Otomatik istendi"
 #, python-brace-format
 msgid "asked for {n}"
 msgstr "{n} istendi"
-
-#: rust/crates/setup/src/stats.rs:375
-msgid "Frames"
-msgstr "Kareler"
 
 #: rust/crates/setup/src/stats.rs:379
 msgid "Frames in"
@@ -6725,7 +7101,7 @@ msgstr ""
 msgid "Restart now"
 msgstr "Şimdi yeniden başlat"
 
-#: rust/crates/setup/ui/setup.slint:270 rust/crates/setup/ui/setup.slint:728 rust/crates/shell/src/plugins_tab.rs:729 rust/crates/shell/ui/card-order.slint:265
+#: rust/crates/setup/ui/setup.slint:270 rust/crates/setup/ui/setup.slint:728 rust/crates/shell/src/plugins_tab.rs:748 rust/crates/shell/ui/card-order.slint:265
 msgid "Restart"
 msgstr "Yeniden başlat"
 
@@ -7182,7 +7558,7 @@ msgstr "Çalışan yayınla ilgili canlı sayılar."
 msgid "Stats view"
 msgstr "Görünüm"
 
-#: rust/crates/shell/src/card_order.rs:226 rust/crates/shell/src/plugins_tab.rs:729
+#: rust/crates/shell/src/card_order.rs:226 rust/crates/shell/src/plugins_tab.rs:748
 msgid "Streaming stops while Telescope restarts. Restarting takes a few seconds."
 msgstr "Telescope yeniden başlatılırken yayın durur. Yeniden başlatma birkaç saniye sürer."
 
@@ -7228,11 +7604,11 @@ msgstr "Daha fazla sanal kamera kuruluyor…"
 msgid "Couldn't add more virtual cameras"
 msgstr "Daha fazla sanal kamera eklenemedi"
 
-#: rust/crates/shell/src/host.rs:693
+#: rust/crates/shell/src/host.rs:713
 msgid "Phone stream required."
 msgstr "Telefon yayını gerekiyor."
 
-#: rust/crates/shell/src/host.rs:699
+#: rust/crates/shell/src/host.rs:719
 msgid "Light format required. Heavy sends whole pictures with no keyframes to work with."
 msgstr "Hafif biçimi gerekiyor. Yoğun, üzerinde çalışılacak anahtar kareler olmadan tüm görüntüleri gönderir."
 
@@ -7308,7 +7684,7 @@ msgstr "Nokta odak"
 msgid "Legacy"
 msgstr "Eski"
 
-#: rust/crates/shell/src/plugins/camera_control.rs:44 rust/crates/shell/src/plugins_tab.rs:470
+#: rust/crates/shell/src/plugins/camera_control.rs:44 rust/crates/shell/src/plugins_tab.rs:480
 msgid "Limited"
 msgstr "Sınırlı"
 
@@ -7585,10 +7961,6 @@ msgstr "Ön ayarı yeniden adlandır"
 msgid "Save preset"
 msgstr "Ön ayarı kaydet"
 
-#: rust/crates/shell/src/plugins/presets.rs:216 rust/crates/system/ui/shortcuts.slint:364
-msgid "Save"
-msgstr "Kaydet"
-
 #: rust/crates/shell/src/plugins/presets.rs:234
 #, python-brace-format
 msgid "There's already a preset called \"{name}\". Replace it?"
@@ -7694,170 +8066,174 @@ msgstr "Telescope yeniden başlatılamadı. Değişikliklerini uygulamak için T
 msgid "The download didn't work. {error}"
 msgstr "İndirme başarısız oldu. {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:467
+#: rust/crates/shell/src/plugins_tab.rs:427
+msgid "Stopped after an error. It's off until Telescope restarts, which tries it again."
+msgstr ""
+
+#: rust/crates/shell/src/plugins_tab.rs:477
 msgid "Lab"
 msgstr "Laboratuvar"
 
-#: rust/crates/shell/src/plugins_tab.rs:486
+#: rust/crates/shell/src/plugins_tab.rs:496
 msgid "This plugin can't be switched off. Telescope needs it to work."
 msgstr "Bu eklenti kapatılamaz. Telescope'un çalışması için buna ihtiyacı var."
 
-#: rust/crates/shell/src/plugins_tab.rs:487
+#: rust/crates/shell/src/plugins_tab.rs:497
 msgid "Required"
 msgstr "Gerekli"
 
-#: rust/crates/shell/src/plugins_tab.rs:511
+#: rust/crates/shell/src/plugins_tab.rs:521
 #, python-brace-format
 msgid "The download failed. {error}"
 msgstr "İndirme başarısız oldu. {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:514
+#: rust/crates/shell/src/plugins_tab.rs:524
 msgid "The plugin can't be switched on until there's a download for this computer."
 msgstr "Bu bilgisayar için bir indirme olana kadar eklenti açılamaz."
 
-#: rust/crates/shell/src/plugins_tab.rs:517
+#: rust/crates/shell/src/plugins_tab.rs:527
 #, python-brace-format
 msgid "The plugin's download (about {mb} MB) is missing. Switch the plugin off and on again to download it."
 msgstr "Eklentinin indirme dosyası (yaklaşık {mb} MB) eksik. İndirmek için eklentiyi kapatıp tekrar aç."
 
-#: rust/crates/shell/src/plugins_tab.rs:524
+#: rust/crates/shell/src/plugins_tab.rs:534
 msgid "Vision download required"
 msgstr "Vision indirmesi gerekiyor"
 
-#: rust/crates/shell/src/plugins_tab.rs:542
+#: rust/crates/shell/src/plugins_tab.rs:552
 msgid "There's no vision download for this computer yet."
 msgstr "Bu bilgisayar için henüz bir vision indirmesi yok."
 
-#: rust/crates/shell/src/plugins_tab.rs:553
+#: rust/crates/shell/src/plugins_tab.rs:563
 #, python-brace-format
 msgid "By {author}."
 msgstr "{author} tarafından."
 
-#: rust/crates/shell/src/plugins_tab.rs:563
+#: rust/crates/shell/src/plugins_tab.rs:573
 #, python-brace-format
 msgid "Updated to {version} automatically. The new version runs after Telescope restarts."
 msgstr "Otomatik olarak {version} sürümüne güncellendi. Yeni sürüm Telescope yeniden başlatıldıktan sonra çalışır."
 
-#: rust/crates/shell/src/plugins_tab.rs:569
+#: rust/crates/shell/src/plugins_tab.rs:579
 msgid "Off since the plugin's files changed after you switched it on. Switch it on again if you trust the new version."
 msgstr "Eklentiyi açtıktan sonra dosyaları değiştiği için kapalı. Yeni sürüme güveniyorsan tekrar aç."
 
-#: rust/crates/shell/src/plugins_tab.rs:572 rust/crates/shell/src/plugins_tab.rs:612
+#: rust/crates/shell/src/plugins_tab.rs:587 rust/crates/shell/src/plugins_tab.rs:631
 #, python-brace-format
 msgid "Couldn't start: {problem}"
 msgstr "Başlatılamadı: {problem}"
 
 #. keep the <a href="{url}"> link
-#: rust/crates/shell/src/plugins_tab.rs:581
+#: rust/crates/shell/src/plugins_tab.rs:600
 #, python-brace-format
 msgid "Version {version} is out. <a href=\"{url}\">Download it from the plugin's release page</a> and install it here to replace the current version."
 msgstr "Sürüm {version} çıktı. Mevcut sürümün yerine geçmesi için <a href=\"{url}\">eklentinin sürüm sayfasından indir</a> ve buraya yükle."
 
-#: rust/crates/shell/src/plugins_tab.rs:591
+#: rust/crates/shell/src/plugins_tab.rs:610
 msgid "Added"
 msgstr "Eklendi"
 
-#: rust/crates/shell/src/plugins_tab.rs:608
+#: rust/crates/shell/src/plugins_tab.rs:627
 msgid "This plugin is always on while `telescope-rs dev --plugin` loads it."
 msgstr "`telescope-rs dev --plugin` eklentiyi yüklediği sürece bu eklenti her zaman açıktır."
 
-#: rust/crates/shell/src/plugins_tab.rs:609
+#: rust/crates/shell/src/plugins_tab.rs:628
 msgid "Being written"
 msgstr "Yazılıyor"
 
-#: rust/crates/shell/src/plugins_tab.rs:615
+#: rust/crates/shell/src/plugins_tab.rs:634
 #, python-brace-format
 msgid "Loaded from {folder} by telescope-rs dev. Saving a file in that folder restarts Telescope."
 msgstr "telescope-rs dev tarafından {folder} konumundan yüklendi. Bu klasörde bir dosya kaydetmek Telescope'u yeniden başlatır."
 
 #. next to a group's name on the Plugins tab, how many of its plugins are switched on
-#: rust/crates/shell/src/plugins_tab.rs:629
+#: rust/crates/shell/src/plugins_tab.rs:648
 #, python-brace-format
 msgid "{on} of {total} on"
 msgstr "{total} eklentiden {on} açık"
 
-#: rust/crates/shell/src/plugins_tab.rs:642
+#: rust/crates/shell/src/plugins_tab.rs:661
 #, python-brace-format
 msgid "No plugins match “{text}”."
 msgstr "“{text}” ile eşleşen eklenti yok."
 
-#: rust/crates/shell/src/plugins_tab.rs:644
+#: rust/crates/shell/src/plugins_tab.rs:663
 msgid "Every plugin is switched on."
 msgstr "Tüm eklentiler açık."
 
-#: rust/crates/shell/src/plugins_tab.rs:646
+#: rust/crates/shell/src/plugins_tab.rs:665
 msgid "No plugin is switched on."
 msgstr "Hiçbir eklenti açık değil."
 
-#: rust/crates/shell/src/plugins_tab.rs:655
+#: rust/crates/shell/src/plugins_tab.rs:674
 msgid "Downloading the vision pack"
 msgstr "Vision paketi indiriliyor"
 
-#: rust/crates/shell/src/plugins_tab.rs:656
+#: rust/crates/shell/src/plugins_tab.rs:675
 #, python-brace-format
 msgid "This one-time download (about {mb} MB) is shared by every plugin that finds people in the picture."
 msgstr "Bu tek seferlik indirme (yaklaşık {mb} MB), görüntüdeki kişileri bulan her eklenti tarafından paylaşılır."
 
-#: rust/crates/shell/src/plugins_tab.rs:657
+#: rust/crates/shell/src/plugins_tab.rs:676
 msgid "Switch on a plugin that needs the vision pack to try again."
 msgstr "Tekrar denemek için vision paketine ihtiyaç duyan bir eklentiyi aç."
 
-#: rust/crates/shell/src/plugins_tab.rs:660
+#: rust/crates/shell/src/plugins_tab.rs:679
 msgid "Downloading the high quality cutout"
 msgstr "Yüksek kaliteli kırpma indiriliyor"
 
-#: rust/crates/shell/src/plugins_tab.rs:661
+#: rust/crates/shell/src/plugins_tab.rs:680
 #, python-brace-format
 msgid "This one-time download (about {mb} MB) gives the Background cutout cleaner edges."
 msgstr "Bu tek seferlik indirme (yaklaşık {mb} MB), Arka plan kırpmasına daha temiz kenarlar kazandırır."
 
-#: rust/crates/shell/src/plugins_tab.rs:662
+#: rust/crates/shell/src/plugins_tab.rs:681
 msgid "Press Download under High quality cutout in Background to try again."
 msgstr "Tekrar denemek için Arka plan içindeki Yüksek kaliteli kırpma altındaki İndir'e bas."
 
-#: rust/crates/shell/src/plugins_tab.rs:670
+#: rust/crates/shell/src/plugins_tab.rs:689
 #, python-brace-format
 msgid "Switches are back as they were. {n} other change still needs a restart"
 msgid_plural "Switches are back as they were. {n} other changes still need a restart"
 msgstr[0] "Anahtarlar eski haline döndü. Başka {n} değişikliğin geçerli olması için yeniden başlatma gerekiyor"
 msgstr[1] "Anahtarlar eski haline döndü. Başka {n} değişikliğin geçerli olması için yeniden başlatma gerekiyor"
 
-#: rust/crates/shell/src/plugins_tab.rs:672
+#: rust/crates/shell/src/plugins_tab.rs:691
 #, python-brace-format
 msgid "Restart to apply {n} change"
 msgid_plural "Restart to apply {n} changes"
 msgstr[0] "{n} değişikliği uygulamak için yeniden başlat"
 msgstr[1] "{n} değişikliği uygulamak için yeniden başlat"
 
-#: rust/crates/shell/src/plugins_tab.rs:677
+#: rust/crates/shell/src/plugins_tab.rs:696
 #, python-brace-format
 msgid "Plugins ({n} off)"
 msgstr "Eklentiler ({n} kapalı)"
 
-#: rust/crates/shell/src/plugins_tab.rs:699
+#: rust/crates/shell/src/plugins_tab.rs:718
 #, python-brace-format
 msgid "Remove {plugin}?"
 msgstr "{plugin} kaldırılsın mı?"
 
-#: rust/crates/shell/src/plugins_tab.rs:700
+#: rust/crates/shell/src/plugins_tab.rs:719
 #, python-brace-format
 msgid "The plugin's folder ({folder}) is deleted from the plugins folder. To use the plugin again, add it again."
 msgstr "Eklentinin klasörü ({folder}) eklentiler klasöründen silinir. Eklentiyi tekrar kullanmak için yeniden ekle."
 
-#: rust/crates/shell/src/plugins_tab.rs:704
+#: rust/crates/shell/src/plugins_tab.rs:723
 msgid "Remove the download?"
 msgstr "İndirmeyi kaldırmak istiyor musun?"
 
-#: rust/crates/shell/src/plugins_tab.rs:705
+#: rust/crates/shell/src/plugins_tab.rs:724
 #, python-brace-format
 msgid "Frees about {mb} MB. Switching on an optional plugin downloads the files again."
 msgstr "Yaklaşık {mb} MB yer açar. İsteğe bağlı bir eklentiyi açmak dosyaları tekrar indirir."
 
-#: rust/crates/shell/src/plugins_tab.rs:714
+#: rust/crates/shell/src/plugins_tab.rs:733
 msgid "Install plugin updates without asking?"
 msgstr "Eklenti güncellemelerini sormadan yüklemek istiyor musun?"
 
-#: rust/crates/shell/src/plugins_tab.rs:715
+#: rust/crates/shell/src/plugins_tab.rs:734
 msgid ""
 "Telescope will install new versions of the plugins you switched on and switch them on too, without showing them to you first.\n"
 "\n"
@@ -7867,117 +8243,134 @@ msgstr ""
 "\n"
 "GitHub'da bir eklentinin deposunu kontrol eden kişi (yazarı veya hesabını ele geçiren herhangi biri), her sürüm yayınladığında bu bilgisayarda yeni kod çalıştırabilir. Bunu sadece hepsine bu konuda güveniyorsan aç."
 
-#: rust/crates/shell/src/plugins_tab.rs:720
+#: rust/crates/shell/src/plugins_tab.rs:739
 msgid "Reset all settings?"
 msgstr "Tüm ayarlar sıfırlansın mı?"
 
-#: rust/crates/shell/src/plugins_tab.rs:722
+#: rust/crates/shell/src/plugins_tab.rs:741
 msgid "Every setting will go back to default. Telescope will restart and the stream will stop. Your paired phones, presets and notes aren't reset."
 msgstr "Tüm ayarlar varsayılana dönecektir. Telescope yeniden başlatılacak ve yayın duracaktır. Eşleştirilmiş telefonların, ön ayarların ve notların sıfırlanmaz."
 
-#: rust/crates/shell/src/plugins_tab.rs:724
+#: rust/crates/shell/src/plugins_tab.rs:743
 msgid "Every setting will go back to default and Telescope will restart. Your paired phones, presets and notes aren't reset."
 msgstr "Tüm ayarlar varsayılana dönecek ve Telescope yeniden başlatılacaktır. Eşleştirilmiş telefonların, ön ayarların ve notların sıfırlanmaz."
 
-#: rust/crates/shell/src/plugins_tab.rs:729
+#: rust/crates/shell/src/plugins_tab.rs:748
 msgid "Restart Telescope now?"
 msgstr "Telescope'u şimdi yeniden başlatmak istiyor musun?"
 
-#: rust/crates/shell/src/plugins_tab.rs:743
+#: rust/crates/shell/src/plugins_tab.rs:770
+#, python-brace-format
+msgid "Needs {plugins}, which is switched off. Switch it on too."
+msgid_plural "Needs {plugins}, which are switched off. Switch them on too."
+msgstr[0] ""
+msgstr[1] ""
+
+#: rust/crates/shell/src/plugins_tab.rs:774
+#, python-brace-format
+msgid "Needs a plugin called {plugins}, which this version of Telescope doesn't have."
+msgid_plural "Needs plugins called {plugins}, which this version of Telescope doesn't have."
+msgstr[0] ""
+msgstr[1] ""
+
+#: rust/crates/shell/src/plugins_tab.rs:791
+#, python-brace-format
+msgid "{plugins} needs it and won't start without it."
+msgid_plural "{plugins} need it and won't start without it."
+msgstr[0] ""
+msgstr[1] ""
+
+#: rust/crates/shell/src/plugins_tab.rs:800
 #, python-brace-format
 msgid "Switch on {plugin}?"
 msgstr "{plugin} açılsın mı?"
 
-#: rust/crates/shell/src/plugins_tab.rs:744
+#: rust/crates/shell/src/plugins_tab.rs:801
 msgid "A plugin can do anything on your computer. Only switch it on if you trust its source."
 msgstr "Bir eklenti bilgisayarında her şeyi yapabilir. Bunu sadece kaynağına güveniyorsan aç."
 
-#: rust/crates/shell/src/plugins_tab.rs:746 rust/crates/shell/src/plugins_tab.rs:767
+#: rust/crates/shell/src/plugins_tab.rs:803 rust/crates/shell/src/plugins_tab.rs:817 rust/crates/shell/src/plugins_tab.rs:834
 #, python-brace-format
 msgid "Switch off {plugin}?"
 msgstr "{plugin} kapatılsın mı?"
 
-#: rust/crates/shell/src/plugins_tab.rs:747
+#: rust/crates/shell/src/plugins_tab.rs:804
 msgid "Without the plugin, what it added to Telescope is gone. Its settings are saved for when you switch it back on."
 msgstr "Eklenti olmadan Telescope'a eklediği şeyler kaybolur. Ayarları, tekrar açtığın zaman için kaydedilir."
 
-#: rust/crates/shell/src/plugins_tab.rs:747 rust/crates/shell/src/plugins_tab.rs:767
+#: rust/crates/shell/src/plugins_tab.rs:804 rust/crates/shell/src/plugins_tab.rs:817 rust/crates/shell/src/plugins_tab.rs:834
 msgid "Switch off"
 msgstr "Kapat"
 
-#: rust/crates/shell/src/plugins_tab.rs:754
+#: rust/crates/shell/src/plugins_tab.rs:811
 #, python-brace-format
 msgid "Download about {mb} MB?"
 msgstr "Yaklaşık {mb} MB indirmek ister misin?"
 
-#: rust/crates/shell/src/plugins_tab.rs:755
+#: rust/crates/shell/src/plugins_tab.rs:812
 #, python-brace-format
 msgid "{plugin} uses MediaPipe to find people in the picture. The files are a separate download from Telescope's releases on GitHub, shared by the other optional plugins."
 msgstr "{plugin}, görüntüdeki kişileri bulmak için MediaPipe'ı kullanır. Dosyalar, Telescope'un GitHub'daki sürümlerinden ayrı bir indirmedir ve diğer isteğe bağlı eklentiler tarafından paylaşılır."
 
-#: rust/crates/shell/src/plugins_tab.rs:756
+#: rust/crates/shell/src/plugins_tab.rs:813
 msgid "Download and switch on"
 msgstr "İndir ve aç"
 
-#: rust/crates/shell/src/plugins_tab.rs:766
+#: rust/crates/shell/src/plugins_tab.rs:833
 msgid "Its settings are saved for when you switch it back on."
 msgstr "Ayarları, tekrar açtığın zaman için kaydedilir."
 
-#: rust/crates/shell/src/plugins_tab.rs:777
+#: rust/crates/shell/src/plugins_tab.rs:844
 msgid "This is the vision pack, not a plugin. It's being checked and installed in the background and the download banner shows how it goes."
 msgstr "Bu bir eklenti değil, vision paketidir. Arka planda denetlenip yükleniyor ve indirme başlığı durumunu gösteriyor."
 
-#: rust/crates/shell/src/plugins_tab.rs:783
+#: rust/crates/shell/src/plugins_tab.rs:850
 msgid "This file wasn't used while the vision pack is downloading or installing. Try again when it's done."
 msgstr "Vision paketi indirilirken veya yüklenirken bu dosya kullanılmadı. İşlem tamamlandığında tekrar dene."
 
-#: rust/crates/shell/src/plugins_tab.rs:796
+#: rust/crates/shell/src/plugins_tab.rs:863
 #, python-brace-format
 msgid "Replace {plugin}?"
 msgstr "{plugin} değiştirilsin mi?"
 
-#: rust/crates/shell/src/plugins_tab.rs:797
+#: rust/crates/shell/src/plugins_tab.rs:864
 msgid "The version in this .zip replaces the installed version and its settings carry over. Like any added plugin, it's switched off at first."
 msgstr "Bu .zip dosyasındaki sürüm, yüklü sürümün yerini alır ve ayarları aktarılır. Eklenen tüm eklentiler gibi başlangıçta kapalıdır."
 
-#: rust/crates/shell/src/plugins_tab.rs:809
+#: rust/crates/shell/src/plugins_tab.rs:876
 #, python-brace-format
 msgid "{plugin} was installed but it can't run yet. {problem}"
 msgstr "{plugin} yüklendi ancak henüz çalışamıyor. {problem}"
 
-#: rust/crates/shell/src/plugins_tab.rs:811
+#: rust/crates/shell/src/plugins_tab.rs:878
 #, python-brace-format
 msgid "{plugin} {version} is installed but switched off. To use it, switch it on again and restart Telescope."
 msgstr "{plugin} {version} yüklendi ancak kapalı. Kullanmak için tekrar aç ve Telescope'u yeniden başlat."
 
-#: rust/crates/shell/src/plugins_tab.rs:813
+#: rust/crates/shell/src/plugins_tab.rs:880
 #, python-brace-format
 msgid "{plugin} is installed but switched off. To use it, switch it on and restart Telescope."
 msgstr "{plugin} yüklendi ancak kapalı. Kullanmak için aç ve Telescope'u yeniden başlat."
 
-#: rust/crates/shell/src/plugins_tab.rs:823
+#: rust/crates/shell/src/plugins_tab.rs:890
 #, python-brace-format
 msgid "Telescope couldn't save the change: {error}"
 msgstr "Telescope değişikliği kaydedemedi: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:870
+#: rust/crates/shell/src/plugins_tab.rs:937
 #, python-brace-format
 msgid "Telescope couldn't delete its folder: {error}"
 msgstr "Telescope klasörünü silemedi: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:878
+#: rust/crates/shell/src/plugins_tab.rs:945
 #, python-brace-format
 msgid "Telescope couldn't delete it: {error}"
 msgstr "Telescope bunu silemedi: {error}"
 
-#: rust/crates/shell/src/plugins_tab.rs:916
+#: rust/crates/shell/src/plugins_tab.rs:983
 #, python-brace-format
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr "Telescope eklentiler klasörünü oluşturamadı: {error}"
-
-#: rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1062
-msgid "Live"
-msgstr "Canlı"
 
 #: rust/crates/shell/src/search.rs:31
 msgid "Tab"
@@ -7987,122 +8380,151 @@ msgstr "Sekme"
 msgid "Check that the device is still on."
 msgstr "Aygıtın hâlâ açık olduğunu kontrol et."
 
-#: rust/crates/shell/src/settings.rs:891
+#: rust/crates/shell/src/settings.rs:924
 msgid "Nothing matches every word. These match some of the words."
 msgstr "Hiçbir şey tüm sözcüklerle eşleşmiyor. Bunlar sözcüklerin bazılarıyla eşleşiyor."
 
-#: rust/crates/shell/src/settings.rs:893
+#: rust/crates/shell/src/settings.rs:926
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or describe what it does (resolution, microphone, startup)."
 msgstr "“{text}” ile hiçbir şey eşleşmiyor. Daha az sözcük dene veya ne işe yaradığını açıkla (çözünürlük, mikrofon, başlangıç)."
 
-#: rust/crates/shell/src/settings.rs:895 rust/crates/shell/ui/settings.slint:260
+#: rust/crates/shell/src/settings.rs:928 rust/crates/shell/ui/settings.slint:260
 msgid "Search results"
 msgstr "Arama sonuçları"
 
-#: rust/crates/shell/src/settings.rs:950
+#: rust/crates/shell/src/settings.rs:983
 msgid "This plugin is an early version. It may change or behave oddly."
 msgstr "Bu eklenti erken bir sürümdür. Değişebilir veya alışılmadık şekilde davranabilir."
 
-#: rust/crates/shell/src/settings.rs:951
+#: rust/crates/shell/src/settings.rs:984
 msgid "This plugin has technical limitations that will likely never get resolved. Do not expect it to work perfectly."
 msgstr "Bu eklentinin muhtemelen hiçbir zaman çözülmeyecek teknik kısıtlamaları vardır. Kusursuz çalışmasını bekleme."
 
-#: rust/crates/shell/src/settings.rs:967
+#: rust/crates/shell/src/settings.rs:1000
 #, python-brace-format
 msgid "Remove {plugin}"
 msgstr "{plugin} eklentisini kaldır"
 
-#: rust/crates/shell/src/settings.rs:996
+#: rust/crates/shell/src/settings.rs:1029
 msgid "Check for updates"
 msgstr "Güncellemeleri denetle"
 
-#: rust/crates/shell/src/settings.rs:997
+#: rust/crates/shell/src/settings.rs:1030
 msgid "Check once a day for new versions of added plugins that publish releases on GitHub and show them here. Nothing is downloaded."
 msgstr "GitHub'da sürüm yayınlayan eklenmiş eklentilerin yeni sürümlerini günde bir kez denetle ve burada göster. Hiçbir şey indirilmez."
 
-#: rust/crates/shell/src/settings.rs:998
+#: rust/crates/shell/src/settings.rs:1031
 msgid "Install updates without asking"
 msgstr "Güncellemeleri sormadan yükle"
 
-#: rust/crates/shell/src/settings.rs:998
+#: rust/crates/shell/src/settings.rs:1031
 msgid "Install new versions of the plugins you switched on and switch them on again."
 msgstr "Açtığın eklentilerin yeni sürümlerini yükle ve onları tekrar aç."
 
-#: rust/crates/shell/src/settings.rs:999
+#: rust/crates/shell/src/settings.rs:1032
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "Tehlikeli! Bir eklentinin deposunu kontrol eden kişi, her sürüm yayınladığında bu bilgisayarda yeni kodlar çalıştırabilir."
 
-#: rust/crates/shell/src/settings.rs:1112
+#: rust/crates/shell/src/settings.rs:1145
 msgid "Install a plugin"
 msgstr "Bir eklenti yükle"
 
-#: rust/crates/shell/src/settings.rs:1114
+#: rust/crates/shell/src/settings.rs:1147
 msgid "Plugins (*.zip)"
 msgstr "Eklentiler (*.zip)"
 
-#: rust/crates/shell/src/shell.rs:815
+#: rust/crates/shell/src/shell.rs:226
+#, python-brace-format
+msgid "It needs a plugin called {plugins}, which this version of Telescope doesn't have."
+msgid_plural "It needs plugins called {plugins}, which this version of Telescope doesn't have."
+msgstr[0] ""
+msgstr[1] ""
+
+#: rust/crates/shell/src/shell.rs:231
+#, python-brace-format
+msgid "It needs {plugins}, which is switched off."
+msgid_plural "It needs {plugins}, which are switched off."
+msgstr[0] ""
+msgstr[1] ""
+
+#: rust/crates/shell/src/shell.rs:858
+#, python-brace-format
+msgid "{plugins} stopped working"
+msgid_plural "{plugins} stopped working"
+msgstr[0] ""
+msgstr[1] ""
+
+#: rust/crates/shell/src/shell.rs:860
+#, python-brace-format
+msgid "{n} plugin stopped working"
+msgid_plural "{n} plugins stopped working"
+msgstr[0] ""
+msgstr[1] ""
+
+#: rust/crates/shell/src/shell.rs:862
+msgid "It ran into an error and is off until Telescope restarts. Everything else carries on."
+msgid_plural "They ran into errors and are off until Telescope restarts. Everything else carries on."
+msgstr[0] ""
+msgstr[1] ""
+
+#: rust/crates/shell/src/shell.rs:867 rust/crates/shell/src/shell.rs:1097 rust/crates/shell/src/shell.rs:1117
+msgid "Plugins…"
+msgstr "Eklentiler…"
+
+#: rust/crates/shell/src/shell.rs:1089
 #, python-brace-format
 msgid "Couldn't start {plugins}"
 msgid_plural "Couldn't start {plugins}"
 msgstr[0] "{plugins} başlatılamadı"
 msgstr[1] "{plugins} başlatılamadı"
 
-#: rust/crates/shell/src/shell.rs:817
+#: rust/crates/shell/src/shell.rs:1091
 #, python-brace-format
 msgid "Couldn't start {n} plugin"
 msgid_plural "Couldn't start {n} plugins"
 msgstr[0] "{n} eklenti başlatılamadı"
 msgstr[1] "{n} eklenti başlatılamadı"
 
-#: rust/crates/shell/src/shell.rs:819
+#: rust/crates/shell/src/shell.rs:1093
 msgid "Telescope works without the plugin. The Plugins tab in Settings shows what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings shows what went wrong."
 msgstr[0] "Telescope eklenti olmadan da çalışır. Ayarlar'daki Eklentiler sekmesi neyin ters gittiğini gösterir."
 msgstr[1] "Telescope onlar olmadan da çalışır. Ayarlar'daki Eklentiler sekmesi neyin ters gittiğini gösterir."
 
-#: rust/crates/shell/src/shell.rs:823 rust/crates/shell/src/shell.rs:843
-msgid "Plugins…"
-msgstr "Eklentiler…"
-
-#: rust/crates/shell/src/shell.rs:837
+#: rust/crates/shell/src/shell.rs:1111
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
 msgstr[0] "{plugins} kapalı"
 msgstr[1] "{plugins} kapalı"
 
-#: rust/crates/shell/src/shell.rs:838
+#: rust/crates/shell/src/shell.rs:1112
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "Bunu Eklentiler'de kapattın. Geri getirmek için Ayarlar'dan Eklentiler'i açıp etkinleştir."
 msgstr[1] "Bunları Eklentiler'de kapattın. Geri getirmek için Ayarlar'dan Eklentiler'i açıp etkinleştir."
 
-#: rust/crates/shell/src/shell.rs:861
+#: rust/crates/shell/src/shell.rs:1136
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "Eski dosyanın bir kopyası {path} konumunda."
 
-#: rust/crates/shell/src/shell.rs:863
+#: rust/crates/shell/src/shell.rs:1138
 msgid "Your settings couldn't be read"
 msgstr "Ayarların okunamadı"
 
-#: rust/crates/shell/src/shell.rs:864
+#: rust/crates/shell/src/shell.rs:1139
 msgid "Telescope started with its defaults and paired phones need pairing again."
 msgstr "Telescope varsayılanlarıyla başlatıldı ve eşleştirilmiş telefonların yeniden eşleştirilmesi gerekiyor."
 
-#: rust/crates/shell/src/shell.rs:1262
+#: rust/crates/shell/src/shell.rs:1629
 msgid "Telescope - Save failed"
 msgstr "Telescope - Kaydetme başarısız oldu"
 
-#: rust/crates/shell/src/shell.rs:1263
+#: rust/crates/shell/src/shell.rs:1630
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "Ayarlar kaydedilemedi. Disk alanını ve izinleri kontrol et."
-
-#. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1768 rust/crates/system/src/remote.rs:19
-msgid "Start"
-msgstr "Başlat"
 
 #: rust/crates/shell/src/sources.rs:114
 msgid "Another app on the phone is using the camera"
@@ -8177,7 +8599,7 @@ msgstr "Telefon soğuyana kadar {size} boyutunda yayın yapılıyor."
 msgid "Open Telescope on it."
 msgstr "Telescope'u cihazda aç."
 
-#: rust/crates/shell/src/sources.rs:855 rust/crates/shell/src/streams.rs:1648
+#: rust/crates/shell/src/sources.rs:855 rust/crates/shell/src/streams.rs:1666
 msgid "the device"
 msgstr "cihaz"
 
@@ -8205,7 +8627,7 @@ msgstr "Telefon kamerası başlatılıyor…"
 msgid "Couldn't start the phone's camera"
 msgstr "Telefon kamerası başlatılamadı"
 
-#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:981
+#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1005
 msgid "Connecting..."
 msgstr "Bağlanıyor..."
 
@@ -8233,108 +8655,112 @@ msgstr "Telefonun kamerası açılıyor…"
 msgid "Streaming the mic, camera off"
 msgstr "Kamera kapalı, mikrofon yayın yapıyor"
 
-#: rust/crates/shell/src/streams.rs:658
+#: rust/crates/shell/src/streams.rs:666
 msgid "Stop all but one camera first, then apply again"
 msgstr "Önce biri hariç tüm kameraları durdur, ardından tekrar uygula"
 
-#: rust/crates/shell/src/streams.rs:672
+#: rust/crates/shell/src/streams.rs:680
 msgid "Reloading v4l2loopback…"
 msgstr "v4l2loopback yeniden yükleniyor…"
 
-#: rust/crates/shell/src/streams.rs:672
+#: rust/crates/shell/src/streams.rs:680
 msgid "Restarting stream…"
 msgstr "Yayın yeniden başlatılıyor…"
 
-#: rust/crates/shell/src/streams.rs:702
+#: rust/crates/shell/src/streams.rs:710
 #, python-brace-format
 msgid "Loopback reloaded: {message}"
 msgstr "Loopback yeniden yüklendi: {message}"
 
-#: rust/crates/shell/src/streams.rs:702
+#: rust/crates/shell/src/streams.rs:710
 msgid "Canvas updated"
 msgstr "Tuval güncellendi"
 
-#: rust/crates/shell/src/streams.rs:707
+#: rust/crates/shell/src/streams.rs:715
 #, python-brace-format
 msgid "Reload failed: {message}"
 msgstr "Yeniden yükleme başarısız oldu: {message}"
 
-#: rust/crates/shell/src/streams.rs:728
+#: rust/crates/shell/src/streams.rs:736
 msgid "Stop the streams going to them first"
 msgstr "Önce bunlara giden yayınları durdur"
 
-#: rust/crates/shell/src/streams.rs:728
+#: rust/crates/shell/src/streams.rs:736
 msgid "There are none to remove"
 msgstr "Kaldırılacak hiçbir şey yok"
 
-#: rust/crates/shell/src/streams.rs:794 rust/crates/shell/src/streams.rs:795
+#: rust/crates/shell/src/streams.rs:797
+msgid "No photo was taken while part of the picture is hidden."
+msgstr ""
+
+#: rust/crates/shell/src/streams.rs:809 rust/crates/shell/src/streams.rs:810
 msgid "The phone couldn't take the photo."
 msgstr "Telefon fotoğrafı çekemedi."
 
-#: rust/crates/shell/src/streams.rs:826
+#: rust/crates/shell/src/streams.rs:844
 msgid "The phone is already taking a photo."
 msgstr "Telefon zaten bir fotoğraf çekiyor."
 
-#: rust/crates/shell/src/streams.rs:959
+#: rust/crates/shell/src/streams.rs:977
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "{name} kaynağından gelen yayın beklenmedik şekilde durdu"
 
-#: rust/crates/shell/src/streams.rs:961
+#: rust/crates/shell/src/streams.rs:979
 msgid "The stream stopped unexpectedly"
 msgstr "Yayın beklenmedik şekilde durdu"
 
-#: rust/crates/shell/src/streams.rs:963
+#: rust/crates/shell/src/streams.rs:981
 msgid "Copy diagnostics has the details."
 msgstr "Ayrıntılar Tanılama bilgilerini kopyala seçeneğinde."
 
-#: rust/crates/shell/src/streams.rs:988
+#: rust/crates/shell/src/streams.rs:1006
 #, python-brace-format
 msgid "The phone got hot and lowered the frame rate to {fps} fps."
 msgstr "Telefon ısındı ve kare hızını {fps} fps değerine düşürdü."
 
-#: rust/crates/shell/src/streams.rs:990
+#: rust/crates/shell/src/streams.rs:1008
 #, python-brace-format
 msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
 msgstr "Dinamik, yavaş bir bağlantıya ayak uydurmak için kare hızını {fps} fps değerine düşürdü."
 
-#: rust/crates/shell/src/streams.rs:992
+#: rust/crates/shell/src/streams.rs:1010
 msgid "The camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr "Kamera istenenden daha az kare üretiyor. Loş ışık kare hızını düşürür."
 
-#: rust/crates/shell/src/streams.rs:994
+#: rust/crates/shell/src/streams.rs:1012
 msgid "The phone's camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr "Telefonun kamerası istenenden daha az kare üretiyor. Loş ışık kare hızını düşürür."
 
-#: rust/crates/shell/src/streams.rs:1074
+#: rust/crates/shell/src/streams.rs:1092
 msgid "Starting"
 msgstr "Başlatılıyor"
 
 #. under a stream's tile, the virtual camera it goes to
-#: rust/crates/shell/src/streams.rs:1088
+#: rust/crates/shell/src/streams.rs:1106
 #, python-brace-format
 msgid "to {output}"
 msgstr "{output} hedefine"
 
-#: rust/crates/shell/src/streams.rs:1089
+#: rust/crates/shell/src/streams.rs:1107
 #, python-brace-format
 msgid "Stop streaming {name}"
 msgstr "{name} yayınını durdur"
 
-#: rust/crates/shell/src/streams.rs:1469
+#: rust/crates/shell/src/streams.rs:1487
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "Telefon bu sürümün okuyamadığı veriler gönderdi. Her iki uygulamayı da aynı sürüme güncelle."
 
-#: rust/crates/shell/src/streams.rs:1551
+#: rust/crates/shell/src/streams.rs:1569
 #, python-brace-format
 msgid "Can't reach {name}"
 msgstr "{name} hedefine ulaşılamıyor"
 
-#: rust/crates/shell/src/streams.rs:1635
+#: rust/crates/shell/src/streams.rs:1653
 msgid "Lost the phone - reconnecting"
 msgstr "Telefonla bağlantı kesildi - yeniden bağlanıyor"
 
-#: rust/crates/shell/src/streams.rs:1826
+#: rust/crates/shell/src/streams.rs:1845
 msgid "Couldn't reach the device."
 msgstr "Cihaza ulaşılamadı."
 
@@ -8362,19 +8788,19 @@ msgstr "Telescope: mikrofon yayın yapıyor, kamera kapalı"
 msgid "Quit"
 msgstr "Çık"
 
-#: rust/crates/shell/src/tray.rs:230
+#: rust/crates/shell/src/tray.rs:232
 msgid "Streaming continues in the background."
 msgstr "Yayın arka planda devam ediyor."
 
-#: rust/crates/shell/src/tray.rs:230
+#: rust/crates/shell/src/tray.rs:232
 msgid "Streaming starts automatically when needed."
 msgstr "Yayın gerektiğinde otomatik olarak başlar."
 
-#: rust/crates/shell/src/tray.rs:231
+#: rust/crates/shell/src/tray.rs:233
 msgid "Right-click the tray icon to quit."
 msgstr "Çıkmak için sistem tepsisi simgesine sağ tıkla."
 
-#: rust/crates/shell/src/tray.rs:232
+#: rust/crates/shell/src/tray.rs:234
 msgid "Telescope is still running"
 msgstr "Telescope hâlâ çalışıyor"
 
@@ -8394,60 +8820,55 @@ msgstr "Saniyede bu bilgisayara ne kadar veri ulaştığı."
 msgid "Throughput"
 msgstr "Aktarım hızı"
 
-#: rust/crates/shell/src/window.rs:1767 rust/crates/shell/src/window.rs:1768
+#: rust/crates/shell/src/window.rs:1785 rust/crates/shell/src/window.rs:1786
 msgid "Start mic only"
 msgstr "Sadece mikrofonu başlat"
 
-#: rust/crates/shell/src/window.rs:1767
+#: rust/crates/shell/src/window.rs:1785
 msgid "Start streaming"
 msgstr "Yayını başlat"
 
-#: rust/crates/shell/src/window.rs:1773
+#: rust/crates/shell/src/window.rs:1791
 msgid "Stop streaming"
 msgstr "Yayını durdur"
 
-#. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1774 rust/crates/system/src/remote.rs:19
-msgid "Stop"
-msgstr "Durdur"
-
-#: rust/crates/shell/src/window.rs:2066 rust/crates/shell/src/worker.rs:1339
+#: rust/crates/shell/src/window.rs:2114 rust/crates/shell/src/worker.rs:1363
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{camera} cihazına {fps} fps hızında {size} yayınlanıyor"
 
-#: rust/crates/shell/src/worker.rs:560
+#: rust/crates/shell/src/worker.rs:572
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "Yayın hatası: {error}"
 
-#: rust/crates/shell/src/worker.rs:981
+#: rust/crates/shell/src/worker.rs:1005
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "{url} adresine bağlanıyor..."
 
-#: rust/crates/shell/src/worker.rs:991
+#: rust/crates/shell/src/worker.rs:1015
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "Telefonun yayınına ulaşılamıyor. {seconds} sn içinde tekrar deneniyor…"
 
-#: rust/crates/shell/src/worker.rs:1003
+#: rust/crates/shell/src/worker.rs:1027
 msgid "Waiting for the first frame…"
 msgstr "İlk kare bekleniyor…"
 
-#: rust/crates/shell/src/worker.rs:1091
+#: rust/crates/shell/src/worker.rs:1115
 msgid "Stream reconnected"
 msgstr "Yayın yeniden bağlandı"
 
-#: rust/crates/shell/src/worker.rs:1207
+#: rust/crates/shell/src/worker.rs:1231
 msgid "The video is paused while the phone takes a photo"
 msgstr "Telefon fotoğraf çekerken video duraklatıldı"
 
-#: rust/crates/shell/src/worker.rs:1209 rust/crates/shell/src/worker.rs:1215
+#: rust/crates/shell/src/worker.rs:1233 rust/crates/shell/src/worker.rs:1239
 msgid "Stream dropped - reconnecting"
 msgstr "Yayın kesildi - yeniden bağlanıyor"
 
-#: rust/crates/shell/src/worker.rs:1328 rust/crates/shell/src/worker.rs:1430
+#: rust/crates/shell/src/worker.rs:1352 rust/crates/shell/src/worker.rs:1454
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "Sanal kamera hatası: {error}"
@@ -9343,41 +9764,41 @@ msgstr "Telescope'un denetimleri için diğer uygulamalarda çalışanlar da dah
 msgid "Without the Keyboard shortcuts plugin no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are saved for when the plugin is on again)."
 msgstr "Klavye kısayolları eklentisi olmadan hiçbir kısayol bir şey yapmaz ve Klavye kısayolları Ayarlar'da yer almaz (kısayolların eklenti tekrar açıldığında kullanılmak üzere kaydedilir)."
 
-#: rust/crates/system/src/single_instance.rs:319
+#: rust/crates/system/src/single_instance.rs:321
 msgid "Telescope is already running"
 msgstr "Telescope zaten çalışıyor"
 
-#: rust/crates/system/src/single_instance.rs:320
+#: rust/crates/system/src/single_instance.rs:322
 msgid "Telescope is already running for another user on this computer. Close it there, then open it again here."
 msgstr "Telescope bu bilgisayardaki başka bir kullanıcı için zaten çalışıyor. Orada kapat, ardından burada tekrar aç."
 
-#: rust/crates/system/src/single_instance.rs:323
+#: rust/crates/system/src/single_instance.rs:325
 #, python-brace-format
 msgid "port {port}"
 msgstr "bağlantı noktası {port}"
 
-#: rust/crates/system/src/single_instance.rs:324
+#: rust/crates/system/src/single_instance.rs:326
 msgid "a local socket"
 msgstr "yerel bir soket"
 
-#: rust/crates/system/src/single_instance.rs:327
+#: rust/crates/system/src/single_instance.rs:329
 #, python-brace-format
 msgid "Telescope couldn't start because something else is holding its single-instance lock ({where}), or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again."
 msgstr "Başka bir şey tek örnek kilidini ({where}) tuttuğu veya başka bir Telescope takılı kaldığı için Telescope başlatılamadı. O programı kapat veya bilgisayarı yeniden başlat, ardından Telescope'u tekrar aç."
 
-#: rust/crates/system/src/single_instance.rs:372
+#: rust/crates/system/src/single_instance.rs:374
 msgid "Telescope isn't running."
 msgstr "Telescope çalışmıyor."
 
-#: rust/crates/system/src/single_instance.rs:397
+#: rust/crates/system/src/single_instance.rs:399
 msgid "Telescope didn't understand the request. Is the running Telescope an older version? Update Telescope to use --action."
 msgstr "Telescope isteği anlamadı. Çalışan Telescope eski bir sürüm mü? --action kullanmak için Telescope'u güncelle."
 
-#: rust/crates/system/src/single_instance.rs:462
+#: rust/crates/system/src/single_instance.rs:464
 msgid "Telescope couldn't write the key --action needs next to its settings when it started. Restart it."
 msgstr "Telescope başlatılırken --action için gereken anahtarı ayarlarının yanına yazamadı. Uygulamayı yeniden başlat."
 
-#: rust/crates/system/src/single_instance.rs:467
+#: rust/crates/system/src/single_instance.rs:469
 msgid "Telescope rejected the request because it didn't come from this user's Telescope command."
 msgstr "Telescope bu kullanıcının Telescope komutundan gelmediği için isteği reddetti."
 
@@ -10044,7 +10465,7 @@ msgid "Light"
 msgstr "Işık"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:443
+#: rust/app/src/main.rs:448
 msgid ", "
 msgstr ", "
 
@@ -10091,7 +10512,7 @@ msgstr " °C"
 msgid "Add your phone"
 msgstr "Telefonunu ekle"
 
-#: rust/crates/effects/src/photos.rs:826
+#: rust/crates/effects/src/photos.rs:552
 #, python-brace-format
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"
@@ -10176,7 +10597,7 @@ msgstr "Telefonun fotoğrafı çekmesi çok uzun sürdü."
 msgid "Lost the phone while it was taking the photo."
 msgstr "Fotoğraf çekilirken telefonla bağlantı kesildi."
 
-#: rust/crates/link/src/stills.rs:64
+#: rust/crates/link/src/stills.rs:65
 msgid "This phone can't take photos from Telescope. Update the app on the phone."
 msgstr "Bu telefon Telescope üzerinden fotoğraf çekemiyor. Telefondaki uygulamayı güncelle."
 
@@ -10192,7 +10613,7 @@ msgstr "Güncellemeler denetlenemedi. İnternet bağlantını kontrol et."
 msgid "The download was cut short. Check the internet connection and try again."
 msgstr "İndirme yarıda kesildi. İnternet bağlantını kontrol et ve tekrar dene."
 
-#: rust/crates/shell/src/plugins_tab.rs:811
+#: rust/crates/shell/src/plugins_tab.rs:878
 msgid "Replaced"
 msgstr "Değiştirildi"
 

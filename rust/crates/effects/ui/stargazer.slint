@@ -1,0 +1,176 @@
+// The Stargazer card. Joined after parts.slint, which has the imports.
+// The status rows keep their place with nothing in them, so starting a run moves nothing.
+
+export component StargazerCard inherits Card {
+    in property <bool> active: true;
+    idle: !active;
+    in property <int> mode-index;
+    in property <[string]> mode-items;
+    in property <bool> running;
+    in property <int> frames: 300;
+    in property <string> frames-text;
+    in property <int> keep: 10;
+    in property <string> keep-text;
+    in property <int> trail: 5;
+    in property <string> trail-text;
+    in property <string> run-text;
+    in property <bool> run-enabled;
+    in property <string> save-text;
+    in property <bool> save-enabled;
+    in property <string> reset-text;
+    in property <bool> reset-enabled;
+    in property <string> status;
+    in property <string> status-kind: "status_dim";
+    in property <string> tally;
+    in property <string> limit;
+    in property <string> focus-text;
+    in property <string> camera-name;
+    in property <bool> camera;
+    in property <string> saved;
+    in property <string> open-text;
+    in property <string> open-tip;
+    in property <bool> open-enabled;
+    callback mode-picked(int);
+    callback frames-moved(float);
+    callback keep-moved(float);
+    callback trail-moved(float);
+    callback run-clicked;
+    callback save-clicked;
+    callback reset-clicked;
+    callback camera-toggled(bool);
+    callback open-clicked;
+
+    title: @tr("Stargazer");
+    tip: @tr("Stack frames from a telescope into a sharper moon or planet, a faint sky or star trails.");
+    icon: Icons.star;
+    enabled: active;
+
+    RailRow {
+        has-icon: false;
+        StatusLine { text: status; kind: status-kind; detail: status; }
+    }
+    UnfoldGroup {
+        RailRow {
+            has-icon: false;
+            StatusLine { text: tally; detail: tally; }
+        }
+        StatusUnfold { text: limit; kind: "status_warn"; detail: limit; }
+    }
+    RailRow {
+        icon: Icons.focus;
+        label: @tr("Focus");
+        hue: root.hue;
+        enabled: active;
+        StatusLine { text: focus-text; detail: @tr("How sharp the picture is now and the best so far. Turn the focuser to the highest number."); }
+    }
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.layers;
+            label: @tr("Stack");
+            hue: root.hue;
+            enabled: active;
+            Segmented {
+                hue: root.hue;
+                label: @tr("Stack");
+                items: mode-items;
+                tips: [@tr("Lucky imaging"), @tr("Live stack"), @tr("Star trails")];
+                tip-details: [
+                    @tr("Stacks only the sharpest frames of a burst. For the moon and planets."),
+                    @tr("Adds every frame and leaves out what only shows once, like satellites and noise. For faint things."),
+                    @tr("Takes the brightest value of one frame every few seconds, which draws the stars as lines."),
+                ];
+                disabled: [!active || running, !active || running, !active || running];
+                current: mode-index;
+                picked(i) => { root.mode-picked(i); }
+            }
+        }
+        Unfolding {
+            open: mode-index == 0;
+            RailSlider {
+                icon: Icons.film;
+                enabled: active && !running;
+                label: @tr("Frames");
+                tip: @tr("Frames to collect");
+                tip-detail: @tr("How many frames to look at before stacking the sharpest ones.");
+                minimum: 50;
+                maximum: 2000;
+                value: frames;
+                readout: frames-text;
+                readout-width: Theme.u(40);
+                hue: root.hue;
+                has-default: true;
+                default-value: 300;
+                moved(v) => { root.frames-moved(v); }
+            }
+            RailSlider {
+                icon: Icons.sparkle;
+                enabled: active && !running;
+                label: @tr("Sharpest");
+                tip: @tr("Share of frames to stack");
+                tip-detail: @tr("The sharpest share of the frames that gets stacked.");
+                minimum: 1;
+                maximum: 100;
+                value: keep;
+                readout: keep-text;
+                hue: root.hue;
+                has-default: true;
+                default-value: 10;
+                moved(v) => { root.keep-moved(v); }
+            }
+        }
+        Unfolding {
+            open: mode-index == 2;
+            RailSlider {
+                icon: Icons.timer;
+                enabled: active && !running;
+                label: @tr("Every");
+                tip: @tr("Time between frames");
+                tip-detail: @tr("How long to wait before the next frame goes into the trails.");
+                minimum: 1;
+                maximum: 60;
+                value: trail;
+                readout: trail-text;
+                hue: root.hue;
+                has-default: true;
+                default-value: 5;
+                moved(v) => { root.trail-moved(v); }
+            }
+        }
+    }
+    RailRow {
+        icon: Icons.play;
+        label: @tr("Run");
+        hue: root.hue;
+        enabled: active;
+        HorizontalLayout {
+            spacing: Theme.gap;
+            Button { horizontal-stretch: 1; preferred-width: 1000px; text: run-text; reserve: [@tr("Start"), @tr("Stop"), @tr("Stacking")]; role: "primary"; hue: root.hue; enabled: active && run-enabled; clicked => { root.run-clicked(); } }
+            if mode-index == 1 || save-enabled: Button { horizontal-stretch: 1; preferred-width: 1000px; text: save-text; enabled: active && save-enabled; clicked => { root.save-clicked(); } }
+            if mode-index == 1: Button { horizontal-stretch: 1; preferred-width: 1000px; text: reset-text; enabled: active && reset-enabled; clicked => { root.reset-clicked(); } }
+        }
+    }
+    SwitchRow {
+        icon: Icons.camera;
+        label: camera-name;
+        tip: camera-name;
+        tip-detail: @tr("Sends the stack to the virtual camera in place of the live picture, refreshed about once a second.");
+        hue: root.hue;
+        enabled: active;
+        changed: camera;
+        checked: camera;
+        toggled(v) => { root.camera-toggled(v); }
+    }
+    RailRow {
+        icon: Icons.folder;
+        label: @tr("Saved");
+        hue: root.hue;
+        enabled: active;
+        HorizontalLayout {
+            spacing: Theme.u(4);
+            StatusLine { text: saved; detail: saved; }
+            Button { text: open-text; tip: open-text; tip-detail: open-tip; enabled: active && open-enabled; clicked => { root.open-clicked(); } }
+        }
+    }
+    // Nothing to touch until a phone is paired
+    blocked: !active;
+}

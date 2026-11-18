@@ -156,10 +156,10 @@ Your numbers may not match these because task managers count memory in different
 On Linux the decoder is VA-API or NVIDIA's CUDA. On Windows it's Direct3D 11. Without a usable card Light still decodes on the processor.
 
 **Telescope switched graphics card**
-The last start closed while Telescope was opening that card. Telescope now leaves it out and uses another one, or the processor if none is left. It tries the card again after a driver update. To undo it sooner, delete `gpu_skipped.json` from Telescope's settings folder (`%APPDATA%\Telescope` on Windows, `~/.config/telescope` on Linux) and start Telescope again.
+The last start closed while Telescope was opening that card, or the card opened but couldn't draw the window. When every card has been skipped the processor draws the window. Telescope now leaves it out and uses another one, or the processor if none is left. It tries the card again after a driver update. To undo it sooner, delete `gpu_skipped.json` from Telescope's settings folder (`%APPDATA%\Telescope` on Windows, `~/.config/telescope` on Linux) and start Telescope again.
 
 **Windows: Telescope uses the other graphics card**
-Telescope follows the graphics setting for its own app in Windows Settings > System > Display > Graphics. It uses the high performance card, which on a laptop with two is the discrete one, with no setting or with **Let Windows decide**. **Power saving** runs everything on the integrated card, hardware decode included. Try it when a laptop with two cards runs hot or drains the battery. The log shows which setting Telescope found. On Intel cards it tries DirectX 12 before Vulkan because an old Intel Vulkan driver crashed while opening the card.
+Pick the card yourself under **Graphics card** in Video settings and restart. With **Automatic** Telescope follows the graphics setting for its own app in Windows Settings > System > Display > Graphics. It uses the high performance card, which on a laptop with two is the discrete one, with no setting or with **Let Windows decide**. **Power saving** runs everything on the integrated card, hardware decode included. Try it when a laptop with two cards runs hot or drains the battery. The log shows which setting Telescope found. On Intel cards it tries DirectX 12 before Vulkan because an old Intel Vulkan driver crashed while opening the card.
 
 ## Camera controls
 

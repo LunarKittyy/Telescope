@@ -518,3 +518,25 @@ fn privacy_blur_is_tagged_limited_and_not_lab() {
 fn the_declared_settings_round_trip() {
     crate::settings_check::round_trips(&mut PrivacyBlurPlugin::new(), &mut telescope_core::testing::FakeHost::new());
 }
+
+#[test]
+fn the_host_is_told_when_it_starts_and_stops_hiding_and_not_while_it_only_has_its_step() {
+    let told = |rig: &Rig| rig.host.hiding.clone();
+    let mut rig = Rig::new();
+    assert_eq!(told(&rig), [(NAME.to_string(), None, false)], "its step is there, and hides nothing");
+    rig.switch_on();
+    rig.see(1, 0.5);
+    assert_eq!(told(&rig).len(), 1, "one person, so nothing to hide");
+    rig.see(2, EVERY);
+    assert_eq!(told(&rig).last(), Some(&(NAME.to_string(), None, true)));
+    rig.see(2, 1.0);
+    assert_eq!(told(&rig).len(), 2, "not said again while it carries on");
+    rig.see(1, OFF_S + 1.0);
+    assert_eq!(told(&rig).last(), Some(&(NAME.to_string(), None, false)));
+    assert_eq!(told(&rig).len(), 3);
+    // Blur now hides with nobody found
+    rig.ui("now-clicked", vec![]);
+    assert_eq!(told(&rig).last(), Some(&(NAME.to_string(), None, true)));
+    rig.ui("now-clicked", vec![]);
+    assert_eq!(told(&rig).last(), Some(&(NAME.to_string(), None, false)));
+}

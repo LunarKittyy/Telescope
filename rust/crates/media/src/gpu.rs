@@ -6,7 +6,9 @@
 use crate::pool::Pool;
 use crate::transfers;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use telescope_core::gpu_marker::{self, Card};
 use telescope_core::gpu_pick::{self, Api, Candidate, Kind};
 use telescope_core::frame::{Frame, PixelFormat, ShaderStep};
@@ -18,6 +20,9 @@ use wgpu::naga;
 /// Set on the convert shader's mode to read YUV chroma by index, a sample for its 2 x 2 block, as the CPU does (taps stay 1).
 const BLOCK_CHROMA: u32 = 8;
 const CONVERT: &str = include_str!("shaders/convert.wgsl");
+const BLUR: &str = include_str!("shaders/blur.wgsl");
+/// What the blurred copies are worked in: more than 8 bits, so the weighted blur's sums don't band.
+const BLUR_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba16Float;
 /// What a working picture on the card is kept as: gamma-encoded RGBA, like the camera's own values.
 const WORK: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 
@@ -37,6 +42,32 @@ enum Mode {
 /// The most memory the kept textures take: a few 4K pictures' worth, with the sizes least recently used dropped first.
 const POOL_BUDGET: usize = 256 * 1024 * 1024;
 const KEPT_DOWNLOADS: usize = 4;
+/// The longest a readback waits for the card before the frame goes to the CPU instead.
+const READBACK_WAIT: std::time::Duration = std::time::Duration::from_secs(10);
+/// The same for a card that is the processor drawing in software (Windows' WARP, llvmpipe): a heavy shader on a big picture really takes that long there, and the wait only ends so a stream isn't stuck for good.
+const SOFTWARE_READBACK_WAIT: std::time::Duration = std::time::Duration::from_secs(300);
+/// How long one wait on the card lasts before a stop is looked for.
+const WAIT_SLICE: std::time::Duration = std::time::Duration::from_millis(50);
+
+/// What a test makes go wrong on the next readback.
+#[cfg(test)]
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum Fault {
+    /// The commands are refused, as when a pass is invalid: the copy into the download buffer never runs.
+    RefusedSubmit,
+    /// wgpu panics while waiting, as it can when a driver resets.
+    PollPanic,
+    /// The device-lost callback fires.
+    Lost,
+    /// wgpu panics while the picture goes up.
+    LiftPanic,
+    /// wgpu panics while a shader is recorded.
+    ShadePanic,
+    /// wgpu panics while a shader is built.
+    PreparePanic,
+    /// The next picture or mask going up is refused, as when the card can't allocate for it.
+    BadUpload,
+}
 
 pub struct Gpu {
     device: wgpu::Device,
@@ -54,6 +85,12 @@ pub struct Gpu {
     blank: wgpu::TextureView,
     pool: Mutex<Pool<(u32, u32, wgpu::TextureFormat), wgpu::Texture>>,
     pub adapter_name: String,
+    /// Set when the device is lost or wgpu panicked: nothing more goes to this card.
+    lost: Arc<AtomicBool>,
+    /// How long a readback waits for the card (READBACK_WAIT, or SOFTWARE_READBACK_WAIT for a software one).
+    wait_limit: std::time::Duration,
+    #[cfg(test)]
+    fault: Mutex<Option<Fault>>,
 }
 
 /// One picture on the card in its own format, ready for the convert shader.
@@ -110,7 +147,7 @@ const BACKENDS: [wgpu::Backends; 2] = [wgpu::Backends::PRIMARY, wgpu::Backends::
 /// when its own driver says none), so an updated driver is tried again.
 fn card_of(info: &wgpu::AdapterInfo, all: &[gpu_pick::Info]) -> Card {
     let own = gpu_pick::Info { vendor: info.vendor, device: info.device, driver: info.driver.clone(), driver_info: info.driver_info.clone() };
-    Card::new(&info.name, &format!("{:?}", info.backend), &gpu_pick::driver_text(&own, all))
+    Card::new(&info.name, &format!("{:?}", info.backend), &gpu_pick::driver_text(&own, all)).with_bus(&info.device_pci_bus_id)
 }
 
 fn infos_of(adapters: &[wgpu::Adapter]) -> Vec<gpu_pick::Info> {
@@ -121,7 +158,7 @@ fn infos_of(adapters: &[wgpu::Adapter]) -> Vec<gpu_pick::Info> {
 /// before DX12 as in 5.1.0, and software or odd adapters last; wgpu's no-preference request would take whatever is listed first,
 /// software adapters included.
 fn adapters_to_try(instance: &wgpu::Instance, backends: wgpu::Backends, preference: Option<wgpu::PowerPreference>) -> Vec<(wgpu::Adapter, Card)> {
-    let listed = pollster::block_on(instance.enumerate_adapters(backends));
+    let listed = gpu_marker::marked_while(&gpu_marker::probe_card(), || pollster::block_on(instance.enumerate_adapters(backends)));
     let all = infos_of(&listed);
     let candidates: Vec<Candidate> = listed.iter().enumerate().filter_map(|(index, a)| {
         let info = a.get_info();
@@ -176,10 +213,16 @@ fn adapters_to_try(instance: &wgpu::Instance, backends: wgpu::Backends, preferen
 
 impl Gpu {
     /// The app's one graphics card connection, opened on first use; None when there's no card wgpu can use or
-    /// TELESCOPE_NO_GPU is set (for a driver that misbehaves, and for comparing).
+    /// TELESCOPE_NO_GPU is set (for a driver that misbehaves, and for comparing). One that was lost is opened again by the same path, so a
+    /// stream that starts afterwards gets a fresh device and caches; streams still running keep the lost one and stay on the CPU.
     pub fn shared() -> Option<Arc<Gpu>> {
-        static GPU: OnceLock<Option<Arc<Gpu>>> = OnceLock::new();
-        GPU.get_or_init(|| match std::env::var_os("TELESCOPE_NO_GPU").map_or_else(Gpu::open, |_| Err("TELESCOPE_NO_GPU is set".into())) {
+        static GPU: Mutex<Option<Option<Arc<Gpu>>>> = Mutex::new(None);
+        let mut kept = GPU.lock().unwrap_or_else(|e| e.into_inner());
+        if kept.as_ref().and_then(Option::as_ref).is_some_and(|gpu| gpu.is_lost()) {
+            log::warn!("The graphics card was lost; opening it again for the streams that start now");
+            *kept = None;
+        }
+        kept.get_or_insert_with(|| match std::env::var_os("TELESCOPE_NO_GPU").map_or_else(Gpu::open, |_| Err("TELESCOPE_NO_GPU is set".into())) {
             Ok(gpu) => {
                 log::info!("Frame steps run on {}", gpu.adapter_name);
                 Some(Arc::new(gpu))
@@ -192,11 +235,14 @@ impl Gpu {
     }
 
     pub(crate) fn open() -> Result<Gpu, String> {
+        if gpu_marker::probe_failed() {
+            return Err("the last start closed while looking for graphics cards".into());
+        }
         let mut why = String::from("no graphics card found");
         for backends in BACKENDS {
             let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
             desc.backends = backends;
-            let instance = wgpu::Instance::new(desc.with_env());
+            let instance = gpu_marker::marked_while(&gpu_marker::probe_card(), || wgpu::Instance::new(desc.with_env()));
             for (adapter, card) in adapters_to_try(&instance, backends, wgpu::PowerPreference::from_env()) {
                 match Gpu::open_on(&adapter, &card) {
                     Ok(gpu) => return Ok(gpu),
@@ -208,7 +254,7 @@ impl Gpu {
             }
         }
         // Nothing enumerated worked: the plain high performance request, as before 5.1.1
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle().with_env());
+        let instance = gpu_marker::marked_while(&gpu_marker::probe_card(), || wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle().with_env()));
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, ..Default::default() })).map_err(|e| format!("{why}; {e}"))?;
         let card = card_of(&adapter.get_info(), &infos_of(&pollster::block_on(instance.enumerate_adapters(wgpu::Backends::PRIMARY))));
         if gpu_marker::is_skipped(&card) {
@@ -219,23 +265,25 @@ impl Gpu {
 
     fn open_on(adapter: &wgpu::Adapter, card: &Card) -> Result<Gpu, String> {
         let info = adapter.get_info();
-        gpu_marker::mark_unless_marked(card);
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+        let (device, queue) = gpu_marker::marked_while(card, || pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("telescope frames"),
             required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
             ..Default::default()
-        })).map_err(|e| e.to_string())?;
+        }))).map_err(|e| e.to_string())?;
         telescope_core::machine::set_gpu(info.vendor, &format!("{:?}", info.device_type), &info.name, &format!("{:?}", info.backend), &card.driver);
-        crate::decode_card::set_picked(info.vendor, info.device);
-        Ok(Gpu::on(device, queue, format!("{} ({:?})", info.name, info.backend)))
+        if crate::decode_card::set_picked(info.vendor, info.device, &info.device_pci_bus_id) {
+            crate::h264::refresh_hardware_probe();
+        }
+        let limit = if info.device_type == wgpu::DeviceType::Cpu { SOFTWARE_READBACK_WAIT } else { READBACK_WAIT };
+        Ok(Gpu::on(device, queue, format!("{} ({:?})", info.name, info.backend), limit))
     }
 
     /// The same shaders on a device someone else opened (the window's, so the preview can hand its texture to Slint).
     pub fn on_device(device: wgpu::Device, queue: wgpu::Queue) -> Gpu {
-        Gpu::on(device, queue, "the window's device".into())
+        Gpu::on(device, queue, "the window's device".into(), READBACK_WAIT)
     }
 
-    fn on(device: wgpu::Device, queue: wgpu::Queue, adapter_name: String) -> Gpu {
+    fn on(device: wgpu::Device, queue: wgpu::Queue, adapter_name: String, wait_limit: std::time::Duration) -> Gpu {
         // Without this a mistake in a plugin's shader that slips past the checks would end the app
         device.on_uncaptured_error(Arc::new(|e: wgpu::Error| log::error!("Graphics card error: {e}")));
 
@@ -267,6 +315,14 @@ impl Gpu {
             usage: wgpu::TextureUsages::TEXTURE_BINDING,
             view_formats: &[],
         }).create_view(&Default::default());
+        let lost = Arc::new(AtomicBool::new(false));
+        let flag = lost.clone();
+        device.set_device_lost_callback(move |reason, why| {
+            if matches!(reason, wgpu::DeviceLostReason::Unknown) {
+                log::error!("The graphics card was lost ({reason:?}): {why}");
+            }
+            flag.store(true, Ordering::SeqCst);
+        });
         Gpu {
             device,
             queue,
@@ -279,6 +335,10 @@ impl Gpu {
             blank,
             pool: Mutex::new(Pool::new(POOL_BUDGET)),
             adapter_name,
+            lost,
+            wait_limit,
+            #[cfg(test)]
+            fault: Mutex::new(None),
         }
     }
 
@@ -366,12 +426,26 @@ impl Gpu {
     }
 
     fn write_plane(&self, tex: &wgpu::Texture, data: &[u8], bytes_per_row: u32) {
+        // Too little data for the texture: wgpu refuses the write and says so as an error
+        #[cfg(test)]
+        let data = if self.take_fault(|f| matches!(f, Fault::BadUpload)) { &data[..1] } else { data };
         self.queue.write_texture(
             tex.as_image_copy(),
             data,
             wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(bytes_per_row), rows_per_image: None },
             tex.size(),
         );
+    }
+
+    /// Runs work that sends pictures to the card with the card's errors caught: a refused allocation or write comes out as an error, not only a line in the log with the card's old contents left to be used.
+    fn scoped<T>(&self, work: impl FnOnce() -> T) -> Result<T, String> {
+        let scopes: Vec<_> = [wgpu::ErrorFilter::OutOfMemory, wgpu::ErrorFilter::Internal, wgpu::ErrorFilter::Validation].into_iter().map(|f| self.device.push_error_scope(f)).collect();
+        let out = work();
+        let errors: Vec<String> = scopes.into_iter().rev().filter_map(|scope| pollster::block_on(scope.pop())).map(|e| e.to_string()).collect();
+        match errors.first() {
+            Some(first) => Err(format!("the card refused a picture ({first})")),
+            None => Ok(out),
+        }
     }
 
     /// Puts a frame on the card as it is (textures to give back once used).
@@ -452,8 +526,62 @@ impl Gpu {
         self.download_timed(enc, textures, bpp).map(|(planes, _)| planes)
     }
 
+    /// Whether the device was lost or wgpu panicked on it: nothing more goes to it.
+    pub fn is_lost(&self) -> bool {
+        self.lost.load(Ordering::SeqCst)
+    }
+
+    /// Whether this card can still be used.
+    fn card_ok(&self) -> Result<(), String> {
+        if self.lost.load(Ordering::SeqCst) { Err("the graphics card was lost".into()) } else { Ok(()) }
+    }
+
+    /// Runs work that waits on the card so a panic inside wgpu (a driver reset can cause one while polling) comes out as an error and the card counts as lost.
+    fn guarded<T>(&self, what: &str, work: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+        self.card_ok()?;
+        catch_unwind(AssertUnwindSafe(work)).unwrap_or_else(|panic| {
+            self.lost.store(true, Ordering::SeqCst);
+            let said = panic.downcast_ref::<&str>().map(|s| s.to_string()).or_else(|| panic.downcast_ref::<String>().cloned()).unwrap_or_default();
+            log::error!("wgpu panicked while {what}: {said}");
+            Err(format!("the graphics card failed while {what} ({said})"))
+        })
+    }
+
+    /// Makes the next readback go wrong, for tests.
+    #[cfg(test)]
+    pub(crate) fn inject(&self, fault: Fault) {
+        *self.fault.lock().unwrap() = Some(fault);
+    }
+
+    #[cfg(test)]
+    fn fault(&self) -> Option<Fault> {
+        let mut fault = self.fault.lock().unwrap();
+        // The panics above belong to their own calls, so a readback leaves them for those
+        if matches!(*fault, Some(Fault::LiftPanic | Fault::ShadePanic | Fault::PreparePanic | Fault::BadUpload)) { None } else { fault.take() }
+    }
+
+    /// Takes the fault if it is the one asked for, for tests.
+    #[cfg(test)]
+    fn take_fault(&self, wanted: fn(Fault) -> bool) -> bool {
+        let mut fault = self.fault.lock().unwrap();
+        let hit = fault.is_some_and(wanted);
+        if hit {
+            *fault = None;
+        }
+        hit
+    }
+
     /// Copies textures into one buffer, waits for the card and hands back each one's rows without padding, the planes one after another in one buffer, and how long the wait was in ns.
-    fn download_timed(&self, mut enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<(Vec<u8>, u64), String> {
+    fn download_timed(&self, enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<(Vec<u8>, u64), String> {
+        self.download_until(enc, textures, bpp, &|| false)
+    }
+
+    /// As download_timed, giving up with an error as soon as cancel says so (a stop doesn't wait out a card that has stalled).
+    fn download_until(&self, enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32], cancel: &dyn Fn() -> bool) -> Result<(Vec<u8>, u64), String> {
+        self.guarded("reading a picture back", || self.read_back(enc, textures, bpp, cancel))
+    }
+
+    fn read_back(&self, mut enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32], cancel: &dyn Fn() -> bool) -> Result<(Vec<u8>, u64), String> {
         let mut offsets = Vec::new();
         let mut size = 0u64;
         for (t, b) in textures.iter().zip(bpp) {
@@ -476,8 +604,16 @@ impl Gpu {
                 layout: wgpu::TexelCopyBufferLayout { offset: *off, bytes_per_row: Some(aligned_row(t.width() * b)), rows_per_image: None },
             }, t.size());
         }
+        // A refused submission leaves a reused buffer holding another picture, so every error from here on is caught and the buffer isn't kept
+        let scopes: Vec<_> = [wgpu::ErrorFilter::OutOfMemory, wgpu::ErrorFilter::Internal, wgpu::ErrorFilter::Validation].into_iter().map(|f| self.device.push_error_scope(f)).collect();
+        #[cfg(test)]
+        let fault = self.fault();
+        #[cfg(test)]
+        if matches!(fault, Some(Fault::RefusedSubmit)) {
+            enc.copy_buffer_to_buffer(&buf, 0, &buf, 0, Some(size));
+        }
         let began = monotonic_ns();
-        self.queue.submit([enc.finish()]);
+        let index = self.queue.submit([enc.finish()]);
         span("submit", began);
         let began = monotonic_ns();
         let slice = buf.slice(..);
@@ -485,7 +621,27 @@ impl Gpu {
         slice.map_async(wgpu::MapMode::Read, move |r| {
             let _ = tx.send(r);
         });
-        self.device.poll(wgpu::PollType::wait_indefinitely()).map_err(|e| e.to_string())?;
+        #[cfg(test)]
+        if matches!(fault, Some(Fault::PollPanic)) {
+            panic!("an injected panic while polling");
+        }
+        let polled = self.wait_for(index, cancel);
+        #[cfg(test)]
+        if matches!(fault, Some(Fault::Lost)) {
+            self.lost.store(true, Ordering::SeqCst);
+        }
+        let errors: Vec<String> = scopes.into_iter().rev().filter_map(|scope| pollster::block_on(scope.pop())).map(|e| e.to_string()).collect();
+        if let Some(first) = errors.first() {
+            return Err(format!("the card refused the readback ({first})"));
+        }
+        polled?;
+        self.card_ok()?;
+        // wgpu 30 on DX12 counts a removed device's fence as done without saying the device was lost, which leaves the buffer as it was
+        if let Some(why) = device_removed(&self.device) {
+            self.lost.store(true, Ordering::SeqCst);
+            log::error!("The graphics card was removed ({why})");
+            return Err(format!("the graphics card was removed ({why})"));
+        }
         rx.recv().map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
         span("gpu_wait", began);
         let waited = monotonic_ns().saturating_sub(began);
@@ -515,6 +671,22 @@ impl Gpu {
         Ok((out, waited))
     }
 
+    /// Waits for the card to finish the submission, in short slices so cancel is looked at between them, for at most the card's wait limit.
+    fn wait_for(&self, index: wgpu::SubmissionIndex, cancel: &dyn Fn() -> bool) -> Result<(), String> {
+        let until = std::time::Instant::now() + self.wait_limit;
+        loop {
+            if cancel() {
+                return Err("stopped while waiting for the graphics card".into());
+            }
+            let slice = until.saturating_duration_since(std::time::Instant::now()).min(WAIT_SLICE);
+            match self.device.poll(wgpu::PollType::Wait { submission_index: Some(index.clone()), timeout: Some(slice) }) {
+                Ok(_) => return Ok(()),
+                Err(wgpu::PollError::Timeout) if !until.saturating_duration_since(std::time::Instant::now()).is_zero() => {}
+                Err(e) => return Err(e.to_string()),
+            }
+        }
+    }
+
     /// Puts a frame on the card, ready for shaders.
     pub fn lift(&self, frame: &Frame) -> Result<Held, String> {
         self.lift_with(frame, false)
@@ -522,31 +694,95 @@ impl Gpu {
 
     /// As lift, with block_chroma reading YUV chroma a sample to its 2 x 2 block as the CPU does, where lift blends it linearly.
     pub fn lift_with(&self, frame: &Frame, block_chroma: bool) -> Result<Held, String> {
+        self.guarded("putting a picture on the card", || self.lift_unguarded(frame, block_chroma))
+    }
+
+    fn lift_unguarded(&self, frame: &Frame, block_chroma: bool) -> Result<Held, String> {
+        #[cfg(test)]
+        if self.take_fault(|f| matches!(f, Fault::LiftPanic)) {
+            panic!("an injected panic while lifting");
+        }
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) {
             return Err(format!("{:?} frames can't go on the card", frame.format));
         }
         let (w, h) = (frame.width, frame.height);
         let began = monotonic_ns();
-        let mut used = Vec::new();
-        let mut enc = self.device.create_command_encoder(&Default::default());
-        let planes = self.upload(frame, &mut used);
-        let (a, b) = (self.texture(w, h, WORK), self.texture(w, h, WORK));
-        self.convert_pass_with(&mut enc, &planes.views, planes.mode, &a, 1, (planes.width, planes.height), block_chroma);
+        let (enc, used, kept_planes, a, b) = self.scoped(|| {
+            let mut used = Vec::new();
+            let mut enc = self.device.create_command_encoder(&Default::default());
+            let planes = self.upload(frame, &mut used);
+            // upload puts an I420 picture's three planes first in used
+            let kept_planes = (frame.format == PixelFormat::I420).then(|| [used[0].clone(), used[1].clone(), used[2].clone()]);
+            let (a, b) = (self.texture(w, h, WORK), self.texture(w, h, WORK));
+            self.convert_pass_with(&mut enc, &planes.views, planes.mode, &a, 1, (planes.width, planes.height), block_chroma);
+            (enc, used, kept_planes, a, b)
+        })?;
         span("upload", began);
-        Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0 })
+        Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: kept_planes, block_chroma })
     }
 
     /// One shader step on the held picture. Nothing runs yet; land sends it all to the card in one go.
-    pub fn shade(&self, held: &mut Held, slot: &ShaderSlot, time: f32, mask: Option<&MaskPlane>) {
-        let past = slot.past(held);
+    pub fn shade(&self, held: &mut Held, slot: &ShaderSlot, time: f32, mask: Option<&MaskPlane>) -> Result<(), String> {
+        self.shade_with(held, slot, time, mask, true)
+    }
+
+    /// As shade, with history false the shader isn't given the step's last frame (previous() has nothing), as for a picture that is not the one that frame belongs to.
+    pub fn shade_with(&self, held: &mut Held, slot: &ShaderSlot, time: f32, mask: Option<&MaskPlane>, history: bool) -> Result<(), String> {
+        self.guarded("recording a shader", || {
+            self.shade_unguarded(held, slot, time, mask, history);
+            Ok(())
+        })
+    }
+
+    fn shade_unguarded(&self, held: &mut Held, slot: &ShaderSlot, time: f32, mask: Option<&MaskPlane>, history: bool) {
+        #[cfg(test)]
+        if self.take_fault(|f| matches!(f, Fault::ShadePanic)) {
+            panic!("an injected panic while shading");
+        }
+        let past = slot.past(held).filter(|_| history);
         let info = self.uniform(&shader::frame_uniform(held.width, held.height, time, held.number, mask.is_some(), past.is_some()));
-        slot.draw(self, &mut held.enc, &held.a, &held.b, &info, mask, past.as_ref());
+        let planes = if slot.wants_planes(held.width, held.height) { self.current_planes(held) } else { None };
+        held.planes = None;
+        let blurred = slot.blur(self, &mut held.enc, &held.a, planes.as_ref(), &mut held.used);
+        slot.draw(self, &mut held.enc, &held.a, &held.b, &info, mask, past.as_ref(), blurred.as_ref());
         slot.keep(self, &mut held.enc, &held.b, held.time_ns);
+        if let (Some(planes), Some((_, room))) = (&planes, &blurred) {
+            held.planes = slot.compose(self, &mut held.enc, planes, room, &mut held.used);
+            // Landing reads these planes, so the shaders after this one are given the same picture rather than the step's own composite
+            if let Some(composed) = &held.planes {
+                let views = composed.each_ref().map(|t| t.create_view(&Default::default()));
+                self.convert_pass_with(&mut held.enc, &views, Mode::I420, &held.b, 1, (held.width, held.height), held.block_chroma);
+            }
+        }
         std::mem::swap(&mut held.a, &mut held.b);
+    }
+
+    /// An I420 picture's planes as the picture is now: the ones it went up as or a planes step made, or else what landing would make of its colours. None for other formats.
+    fn current_planes(&self, held: &mut Held) -> Option<[wgpu::Texture; 3]> {
+        if held.format != PixelFormat::I420 {
+            return None;
+        }
+        if let Some(planes) = &held.planes {
+            return Some(planes.clone());
+        }
+        let (w, h) = (held.width, held.height);
+        let work = [held.a.create_view(&Default::default()), self.blank.clone(), self.blank.clone()];
+        let planes = [self.texture(w, h, wgpu::TextureFormat::R8Unorm), self.texture(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm), self.texture(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm)];
+        for (plane, mode) in planes.iter().zip([Mode::ToY, Mode::ToU, Mode::ToV]) {
+            self.convert_pass(&mut held.enc, &work, mode, plane, 1, (w, h));
+        }
+        held.used.extend(planes.iter().cloned());
+        Some(planes)
     }
 
     /// The picture so far, read back in the frame's own format. The card keeps its copy, so more shaders can follow without an upload.
     pub fn land(&self, held: &mut Held) -> Result<Frame, String> {
+        self.land_until(held, &|| false)
+    }
+
+    /// As land, giving up with an error as soon as cancel says so while the card is waited for.
+    pub fn land_until(&self, held: &mut Held, cancel: &dyn Fn() -> bool) -> Result<Frame, String> {
+        self.card_ok()?;
         let mut enc = std::mem::replace(&mut held.enc, self.device.create_command_encoder(&Default::default()));
         let (w, h) = (held.width, held.height);
         let work = [held.a.create_view(&Default::default()), self.blank.clone(), self.blank.clone()];
@@ -557,26 +793,30 @@ impl Gpu {
             t
         };
         let (out, waited) = match held.format {
+            PixelFormat::I420 if held.planes.is_some() => {
+                let [y, u, v] = held.planes.clone().unwrap();
+                self.download_until(enc, &[&y, &u, &v], &[1, 1, 1], cancel)?
+            }
             PixelFormat::I420 => {
                 let (y, u, v) = (target(w, h, wgpu::TextureFormat::R8Unorm), target(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm),
                                  target(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm));
                 self.convert_pass(&mut enc, &work, Mode::ToY, &y, 1, (w, h));
                 self.convert_pass(&mut enc, &work, Mode::ToU, &u, 1, (w, h));
                 self.convert_pass(&mut enc, &work, Mode::ToV, &v, 1, (w, h));
-                self.download_timed(enc, &[&y, &u, &v], &[1, 1, 1])?
+                self.download_until(enc, &[&y, &u, &v], &[1, 1, 1], cancel)?
             }
             PixelFormat::Nv12 => {
                 let (y, uv) = (target(w, h, wgpu::TextureFormat::R8Unorm), target(chroma(w), chroma(h), wgpu::TextureFormat::Rg8Unorm));
                 self.convert_pass(&mut enc, &work, Mode::ToY, &y, 1, (w, h));
                 self.convert_pass(&mut enc, &work, Mode::ToUv, &uv, 1, (w, h));
-                self.download_timed(enc, &[&y, &uv], &[1, 2])?
+                self.download_until(enc, &[&y, &uv], &[1, 2], cancel)?
             }
             PixelFormat::Bgra => {
                 let t = target(w, h, wgpu::TextureFormat::Bgra8Unorm);
                 self.convert_pass(&mut enc, &work, Mode::Rgba, &t, 1, (w, h));
-                self.download_timed(enc, &[&t], &[4])?
+                self.download_until(enc, &[&t], &[4], cancel)?
             }
-            _ => self.download_timed(enc, &[&held.a], &[4])?,
+            _ => self.download_until(enc, &[&held.a], &[4], cancel)?,
         };
         held.waited_ns += waited;
         self.give_back(targets);
@@ -595,28 +835,34 @@ impl Gpu {
     }
 
     /// The person mask on the card in kept, uploaded only if it isn't the one already there. False for a mask of another size than w x h.
-    pub fn keep_mask(&self, kept: &mut Option<MaskPlane>, mask: &Arc<Vec<u8>>, w: u32, h: u32) -> bool {
+    pub fn keep_mask(&self, kept: &mut Option<MaskPlane>, mask: &Arc<Vec<u8>>, w: u32, h: u32) -> Result<bool, String> {
         if mask.len() != w as usize * h as usize {
-            return false;
+            return Ok(false);
         }
         if let Some(k) = kept.as_ref().filter(|k| (k.texture.width(), k.texture.height()) == (w, h)) {
             if Arc::ptr_eq(&k.source, mask) || *k.source == **mask {
-                return true;
+                return Ok(true);
             }
         }
-        let texture = match kept.take() {
-            Some(k) if (k.texture.width(), k.texture.height()) == (w, h) => k.texture,
-            _ => self.texture(w, h, wgpu::TextureFormat::R8Unorm),
-        };
-        self.write_plane(&texture, mask, w);
+        // Taken before the write, so a write that fails leaves no old mask behind to be drawn with
+        let old = kept.take();
+        let (texture, view) = self.scoped(|| {
+            let texture = match old {
+                Some(k) if (k.texture.width(), k.texture.height()) == (w, h) => k.texture,
+                _ => self.texture(w, h, wgpu::TextureFormat::R8Unorm),
+            };
+            self.write_plane(&texture, mask, w);
+            let view = texture.create_view(&Default::default());
+            (texture, view)
+        })?;
         transfers::mask_up();
-        let view = texture.create_view(&Default::default());
         *kept = Some(MaskPlane { source: mask.clone(), texture, view });
-        true
+        Ok(true)
     }
 
     /// The frame scaled and converted into target (RGBA, out_w x out_h), left on the card for whoever draws it.
     pub fn paint(&self, frame: &Frame, target: &wgpu::Texture) -> Result<(), String> {
+        self.card_ok()?;
         let (out_w, out_h) = (target.width(), target.height());
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) || out_w == 0 || out_h == 0 {
             return Err(format!("can't scale {:?} to {out_w}x{out_h}", frame.format));
@@ -635,6 +881,7 @@ impl Gpu {
     /// How long the card would make a frame wait right now, in ns: the frame up and a pass over it and back, as big as a real one, and
     /// nothing kept. core::balance's way of looking at the card while frames stay off it.
     pub fn trial(&self, frame: &Frame) -> Result<u64, String> {
+        self.card_ok()?;
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) {
             return Err(format!("{:?} frames can't go on the card", frame.format));
         }
@@ -672,6 +919,7 @@ impl Gpu {
 
     /// The frame as RGBA at another size, scaled and converted on the card (the preview).
     pub fn rgba(&self, frame: &Frame, out_w: u32, out_h: u32) -> Result<Vec<u8>, String> {
+        self.card_ok()?;
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) || out_w == 0 || out_h == 0 {
             return Err(format!("can't scale {:?} to {out_w}x{out_h}", frame.format));
         }
@@ -689,6 +937,20 @@ impl Gpu {
         self.give_back(used);
         Ok(out)
     }
+}
+
+/// Why a DX12 device was removed (a driver reset, the card unplugged); None on other backends and while it's fine.
+#[cfg(windows)]
+fn device_removed(device: &wgpu::Device) -> Option<String> {
+    // SAFETY: the guard is only read from and dropped here, and nothing in it is destroyed
+    let hal = unsafe { device.as_hal::<wgpu::hal::api::Dx12>() }?;
+    // SAFETY: GetDeviceRemovedReason only reads the device's state
+    unsafe { hal.raw_device().GetDeviceRemovedReason() }.err().map(|e| e.to_string())
+}
+
+#[cfg(not(windows))]
+fn device_removed(_device: &wgpu::Device) -> Option<String> {
+    None
 }
 
 fn bytemuck_u32(v: &[u32]) -> &[u8] {
@@ -750,6 +1012,10 @@ pub struct Held {
     capture_ns: Option<u64>,
     /// What reading it back has waited for the card since this was last asked.
     waited_ns: u64,
+    /// For an I420 picture: its Y, U and V planes as textures while they are the picture itself (as it went up, or as a step that lays planes made it), so a step that works on planes needn't make them from the colours.
+    planes: Option<[wgpu::Texture; 3]>,
+    /// Whether it went up with YUV chroma read by block, so what is made from planes later is read the same way.
+    block_chroma: bool,
 }
 
 impl Held {
@@ -771,11 +1037,93 @@ pub struct MaskPlane {
 
 struct Built {
     pipeline: wgpu::RenderPipeline,
-    /// Group 1: the plugin's uniforms and textures, or None when it has neither.
+    /// Group 1: the plugin's uniforms and textures, or None when it has neither (or a blur, whose group is made for each frame).
     extras: Option<wgpu::BindGroup>,
+    extras_layout: Option<wgpu::BindGroupLayout>,
     /// The Params buffer, kept so new uniforms can be written into it.
     ubuf: Option<wgpu::Buffer>,
+    /// What each of the step's textures is bound to now, and what it went up as at first.
+    views: Vec<wgpu::TextureView>,
+    first_views: Vec<wgpu::TextureView>,
+    /// For a texture the CPU half has replaced: the data it came from, to know an unchanged one, and the texture itself.
+    sources: Vec<Option<Arc<Vec<u8>>>>,
+    replaced: Vec<Option<wgpu::Texture>>,
+    blur: Option<BlurKit>,
     _keep: Vec<wgpu::Texture>,
+}
+
+/// What a shader that calls blurred() needs: the passes that shrink the picture and blur it, and for an I420 picture the ones that work on its planes.
+struct BlurKit {
+    layout: wgpu::BindGroupLayout,
+    shrink: wgpu::RenderPipeline,
+    shrink_planes: wgpu::RenderPipeline,
+    blur: wgpu::RenderPipeline,
+    combine: wgpu::RenderPipeline,
+    compose: wgpu::RenderPipeline,
+}
+
+impl BlurKit {
+    fn new(gpu: &Gpu) -> BlurKit {
+        let layout = gpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("blur"),
+            entries: &[tex_entry(0), tex_entry(1), uniform_entry(2), tex_entry(3), tex_entry(4), tex_entry(5), sampler_entry(6)],
+        });
+        let module = gpu.device.create_shader_module(wgpu::ShaderModuleDescriptor { label: Some("blur"), source: wgpu::ShaderSource::Wgsl(BLUR.into()) });
+        let pipeline_layout = gpu.device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor { label: Some("blur"), bind_group_layouts: &[Some(&layout)], immediate_size: 0 });
+        let make = |fs: &str, target| gpu.render_pipeline("blur", &pipeline_layout, &module, ("vs_main", fs), target);
+        BlurKit {
+            shrink: make("fs_shrink", BLUR_FORMAT),
+            shrink_planes: make("fs_shrink_yuv", BLUR_FORMAT),
+            blur: make("fs_blur", BLUR_FORMAT),
+            combine: make("fs_combine", BLUR_FORMAT),
+            compose: make("fs_composite", wgpu::TextureFormat::R8Unorm),
+            layout,
+        }
+    }
+
+    /// One pass into target; the textures (up to five) are bound in order, what's left over is blank, and the settings are the Pass struct in blur.wgsl.
+    fn pass(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, pipeline: &wgpu::RenderPipeline, inputs: &[&wgpu::TextureView], target: &wgpu::Texture, settings: Pass) {
+        let mut bytes = Vec::with_capacity(48);
+        for v in [settings.src.0, settings.src.1, target.width(), target.height(), settings.dir.0, settings.dir.1, settings.chroma.0, settings.chroma.1, settings.taps, settings.weighted] {
+            bytes.extend(v.to_le_bytes());
+        }
+        bytes.extend((settings.sigma as f32).to_le_bytes());
+        bytes.extend(settings.plane.to_le_bytes());
+        let buf = gpu.uniform(&bytes);
+        let at = |i: usize| inputs.get(i).copied().unwrap_or(&gpu.blank);
+        let bind = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("blur"),
+            layout: &self.layout,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(at(0)) },
+                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(at(1)) },
+                wgpu::BindGroupEntry { binding: 2, resource: buf.as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(at(2)) },
+                wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::TextureView(at(3)) },
+                wgpu::BindGroupEntry { binding: 5, resource: wgpu::BindingResource::TextureView(at(4)) },
+                wgpu::BindGroupEntry { binding: 6, resource: wgpu::BindingResource::Sampler(&gpu.linear) },
+            ],
+        });
+        draw(enc, pipeline, &[&bind], &target.create_view(&Default::default()));
+    }
+}
+
+/// The settings of one blur pass.
+#[derive(Clone, Copy)]
+struct Pass {
+    src: (u32, u32),
+    dir: (u32, u32),
+    chroma: (u32, u32),
+    taps: u32,
+    weighted: u32,
+    sigma: f64,
+    plane: u32,
+}
+
+impl Pass {
+    fn of(src: (u32, u32)) -> Pass {
+        Pass { src, dir: (0, 0), chroma: (0, 0), taps: 1, weighted: 0, sigma: 1.0, plane: 0 }
+    }
 }
 
 impl ShaderSlot {
@@ -848,6 +1196,18 @@ impl ShaderSlot {
         *self.history.lock().unwrap() = None;
     }
 
+    /// Which shader with which settings and pictures this is, to tell a step from the one a frame already went through.
+    pub fn signature(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        self.step.wgsl.hash(&mut h);
+        self.step.uniforms.to_string().hash(&mut h);
+        for (name, f) in &self.step.textures {
+            (name, f.width, f.height, Arc::as_ptr(&f.data) as usize).hash(&mut h);
+        }
+        h.finish()
+    }
+
     /// Whether the step keeps its last frame for the shader.
     pub fn keeps_history(&self) -> bool {
         self.wants_history
@@ -865,13 +1225,19 @@ impl ShaderSlot {
 
     /// Builds the shader the first time; Err for one that won't ever run.
     pub fn prepare(&mut self, gpu: &Gpu) -> Result<(), String> {
-        if self.built.is_none() {
-            self.built = Some(build(gpu, &self.step));
-        }
-        self.built.as_ref().unwrap().as_ref().map(|_| ()).map_err(Clone::clone)
+        gpu.guarded("building a shader", || {
+            #[cfg(test)]
+            if gpu.take_fault(|f| matches!(f, Fault::PreparePanic)) {
+                panic!("an injected panic while building");
+            }
+            if self.built.is_none() {
+                self.built = Some(build(gpu, &self.step));
+            }
+            self.built.as_ref().unwrap().as_ref().map(|_| ()).map_err(Clone::clone)
+        })
     }
 
-    fn draw(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, src: &wgpu::Texture, dst: &wgpu::Texture, info: &wgpu::Buffer, mask: Option<&MaskPlane>, past: Option<&wgpu::TextureView>) {
+    fn draw(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, src: &wgpu::Texture, dst: &wgpu::Texture, info: &wgpu::Buffer, mask: Option<&MaskPlane>, past: Option<&wgpu::TextureView>, blurred: Option<&(wgpu::TextureView, wgpu::TextureView)>) {
         let Some(Ok(built)) = &self.built else { return };
         let (src_view, dst_view) = (src.create_view(&Default::default()), dst.create_view(&Default::default()));
         let frame_bind = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -885,9 +1251,147 @@ impl ShaderSlot {
                 wgpu::BindGroupEntry { binding: shader::BINDING_HISTORY, resource: wgpu::BindingResource::TextureView(past.unwrap_or(&gpu.blank)) },
             ],
         });
+        // The blurred copies are new each frame, so a step that has them gets a group of its own for the frame
+        let made = blurred.zip(built.extras_layout.as_ref()).map(|(b, layout)| extras_group(gpu, layout, built.ubuf.as_ref(), &built.views, self.blur_bindings().map(|(p, w)| ((p, &b.0), (w, &b.1)))));
         let mut binds = vec![&frame_bind];
-        binds.extend(built.extras.as_ref());
+        binds.extend(made.as_ref().or(built.extras.as_ref()));
         draw(enc, &built.pipeline, &binds, &dst_view);
+    }
+
+    fn blur_bindings(&self) -> Option<(u32, u32)> {
+        shader::blur_bindings(&self.step)
+    }
+
+    /// The step's uniforms for the blur: how much smaller it is worked out and its sigma.
+    fn blur_settings(&self) -> (u32, f64) {
+        let get = |name: &str| self.step.uniforms.get(name).and_then(serde_json::Value::as_f64);
+        (get(shader::BLUR_SHRINK).map_or(8, |v| v.max(1.0) as u32), get(shader::BLUR_SIGMA).map_or(2.0, |v| v.max(0.1)))
+    }
+
+    /// Whether the step lays the blur over an I420 picture plane by plane (see shader::BLUR_PLANES), which it does for pictures of at least 2 x 2.
+    fn wants_planes(&self, w: u32, h: u32) -> bool {
+        let asked = self.step.uniforms.get(shader::BLUR_PLANES).and_then(serde_json::Value::as_f64).is_some_and(|v| v >= 0.5);
+        asked && w >= 2 && h >= 2 && matches!(&self.built, Some(Ok(Built { blur: Some(_), .. })))
+    }
+
+    /// Records the passes that make the blurred copies of src (shrunk, from planes when it has them, blurred and, where the CPU half gave weights, blurred without what they leave out) and gives (plain, weighted) as views; None for a step that doesn't ask.
+    fn blur(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, src: &wgpu::Texture, planes: Option<&[wgpu::Texture; 3]>, used: &mut Vec<wgpu::Texture>) -> Option<(wgpu::TextureView, wgpu::TextureView)> {
+        let Some(Ok(Built { blur: Some(kit), views, .. })) = &self.built else { return None };
+        let (shrink, sigma) = self.blur_settings();
+        let size = (src.width(), src.height());
+        let (sw, sh) = shader::blur_size(size.0, size.1, shrink);
+        let taps = shader::blur_taps(sigma);
+        let mut texture = || {
+            let t = gpu.texture(sw, sh, BLUR_FORMAT);
+            used.push(t.clone());
+            t
+        };
+        let view = |t: &wgpu::Texture| t.create_view(&Default::default());
+        let (small, across, plain) = (texture(), texture(), texture());
+        match planes {
+            Some(planes) => {
+                let [y, u, v] = planes.each_ref().map(view);
+                kit.pass(gpu, enc, &kit.shrink_planes, &[&y, &u, &v], &small, Pass { chroma: (planes[1].width(), planes[1].height()), ..Pass::of(size) });
+            }
+            None => kit.pass(gpu, enc, &kit.shrink, &[&view(src)], &small, Pass::of(size)),
+        }
+        let blur = |dir, weighted| Pass { src: (sw, sh), dir, taps, weighted, sigma, ..Pass::of((sw, sh)) };
+        kit.pass(gpu, enc, &kit.blur, &[&view(&small)], &across, blur((1, 0), 0));
+        kit.pass(gpu, enc, &kit.blur, &[&view(&across)], &plain, blur((0, 1), 0));
+        // Weights count only at the size the blur is worked at, whether the step declared them or its CPU half gave them
+        let weights = self.step.textures.iter().position(|(n, _)| n == shader::BLUR_WEIGHTS)
+            .filter(|&i| (views[i].texture().width(), views[i].texture().height()) == (sw, sh));
+        let Some(weights) = weights else { return Some((view(&plain), view(&plain))) };
+        let total = texture();
+        kit.pass(gpu, enc, &kit.blur, &[&view(&small), &views[weights]], &across, blur((1, 0), 1));
+        kit.pass(gpu, enc, &kit.blur, &[&view(&across)], &total, blur((0, 1), 0));
+        kit.pass(gpu, enc, &kit.combine, &[&view(&plain), &view(&total)], &across, Pass::of((sw, sh)));
+        Some((view(&plain), view(&across)))
+    }
+
+    /// The picture's own planes laid over the blur plane by plane where the step's cutout says (shader::BLUR_CUTOUT, nothing where it has none), made as the CPU makes them so what the cutout keeps is the picture's samples untouched; the three planes as textures.
+    fn compose(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, planes: &[wgpu::Texture; 3], room: &wgpu::TextureView, used: &mut Vec<wgpu::Texture>) -> Option<[wgpu::Texture; 3]> {
+        let Some(Ok(Built { blur: Some(kit), views, .. })) = &self.built else { return None };
+        let cutout = self.step.textures.iter().position(|(n, _)| n == shader::BLUR_CUTOUT).map_or(&gpu.blank, |i| &views[i]);
+        let own = planes.each_ref().map(|t| t.create_view(&Default::default()));
+        let out = planes.each_ref().map(|t| gpu.texture(t.width(), t.height(), wgpu::TextureFormat::R8Unorm));
+        for (plane, target) in out.iter().enumerate() {
+            used.push(target.clone());
+            kit.pass(gpu, enc, &kit.compose, &[&own[0], &own[1], &own[2], room, cutout], target, Pass { plane: plane as u32, ..Pass::of((target.width(), target.height())) });
+        }
+        Some(out)
+    }
+
+    /// Takes the pictures the CPU half has for the shader (see CpuStep::card_textures) in place of the step's own of those names; one it leaves out goes back to the first. A picture goes up only when its data isn't the one already there. A picture the card refuses is an error, and the shader isn't to be drawn with what was there before it.
+    pub fn set_textures(&mut self, gpu: &Gpu, given: &[(String, Frame)]) -> Result<(), String> {
+        let Some(Ok(built)) = &mut self.built else { return Ok(()) };
+        let mut changed = false;
+        let mut refused = None;
+        for (i, (name, _)) in self.step.textures.iter().enumerate() {
+            match given.iter().find(|(n, _)| n == name) {
+                Some((_, f)) if built.sources[i].as_ref().is_some_and(|s| Arc::ptr_eq(s, &f.data)) => {}
+                Some((_, f)) => {
+                    let texture = match gpu.picture_texture(f) {
+                        Ok(Some(texture)) => texture,
+                        Ok(None) => {
+                            log::warn!("Shader texture {name} wasn't used: {:?} {}x{} can't be uploaded", f.format, f.width, f.height);
+                            continue;
+                        }
+                        Err(why) => {
+                            refused.get_or_insert(why);
+                            continue;
+                        }
+                    };
+                    built.views[i] = texture.create_view(&Default::default());
+                    built.sources[i] = Some(f.data.clone());
+                    gpu.give_back(built.replaced[i].replace(texture));
+                    transfers::mask_up();
+                    changed = true;
+                }
+                None if built.sources[i].is_some() => {
+                    built.views[i] = built.first_views[i].clone();
+                    built.sources[i] = None;
+                    gpu.give_back(built.replaced[i].take());
+                    changed = true;
+                }
+                None => {}
+            }
+        }
+        if changed && built.blur.is_none() {
+            built.extras = built.extras_layout.as_ref().map(|l| extras_group(gpu, l, built.ubuf.as_ref(), &built.views, None));
+        }
+        refused.map_or(Ok(()), Err)
+    }
+}
+
+/// Group 1 for the step: its Params buffer, its textures and the blurred copies when it has them.
+fn extras_group(gpu: &Gpu, layout: &wgpu::BindGroupLayout, params: Option<&wgpu::Buffer>, views: &[wgpu::TextureView], blurred: Option<((u32, &wgpu::TextureView), (u32, &wgpu::TextureView))>) -> wgpu::BindGroup {
+    let mut e = Vec::new();
+    if let Some(b) = params {
+        e.push(wgpu::BindGroupEntry { binding: shader::BINDING_PARAMS, resource: b.as_entire_binding() });
+    }
+    for (i, v) in views.iter().enumerate() {
+        e.push(wgpu::BindGroupEntry { binding: shader::BINDING_FIRST_TEXTURE + i as u32, resource: wgpu::BindingResource::TextureView(v) });
+    }
+    for (binding, v) in blurred.into_iter().flat_map(|(a, b)| [a, b]) {
+        e.push(wgpu::BindGroupEntry { binding, resource: wgpu::BindingResource::TextureView(v) });
+    }
+    gpu.device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("plugin"), layout, entries: &e })
+}
+
+impl Gpu {
+    /// An Rgba picture as a texture of its own to sample, from the pool; Ok(None) for another format, and an error when the card refuses it.
+    fn picture_texture(&self, f: &Frame) -> Result<Option<wgpu::Texture>, String> {
+        if f.format != PixelFormat::Rgba || f.width == 0 || f.height == 0 {
+            return Ok(None);
+        }
+        // A pooled texture still holds the picture it had, so a refused write must not leave it to be sampled
+        self.scoped(|| {
+            let t = self.texture(f.width, f.height, WORK);
+            self.write_plane(&t, &f.data, f.width * 4);
+            t
+        })
+        .map(Some)
     }
 }
 
@@ -916,6 +1420,8 @@ fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
         entries.push(uniform_entry(shader::BINDING_PARAMS));
     }
     entries.extend((0..step.textures.len()).map(|i| tex_entry(shader::BINDING_FIRST_TEXTURE + i as u32)));
+    let blur_bindings = shader::blur_bindings(step);
+    entries.extend(blur_bindings.into_iter().flat_map(|(plain, weighted)| [tex_entry(plain), tex_entry(weighted)]));
     let extras_layout = (!entries.is_empty()).then(|| gpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         label: Some("plugin"),
         entries: &entries,
@@ -939,20 +1445,14 @@ fn build(gpu: &Gpu, step: &ShaderStep) -> Result<Built, String> {
     }
     gpu.queue.submit([enc.finish()]);
     let ubuf = has_uniforms.then(|| gpu.uniform(&params));
-    let extras = extras_layout.as_ref().map(|l| {
-        let mut e = Vec::new();
-        if let Some(b) = &ubuf {
-            e.push(wgpu::BindGroupEntry { binding: shader::BINDING_PARAMS, resource: b.as_entire_binding() });
-        }
-        for (i, v) in views.iter().enumerate() {
-            e.push(wgpu::BindGroupEntry { binding: shader::BINDING_FIRST_TEXTURE + i as u32, resource: wgpu::BindingResource::TextureView(v) });
-        }
-        gpu.device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("plugin"), layout: l, entries: &e })
-    });
+    // With a blur the group is made for each frame, as its copies are new each time
+    let extras = extras_layout.as_ref().filter(|_| blur_bindings.is_none()).map(|l| extras_group(gpu, l, ubuf.as_ref(), &views, None));
+    let blur = blur_bindings.map(|_| BlurKit::new(gpu));
     if let Some(e) = pollster::block_on(scope.pop()) {
         return Err(e.to_string());
     }
-    Ok(Built { pipeline, extras, ubuf, _keep: keep })
+    let n = views.len();
+    Ok(Built { pipeline, extras, extras_layout, ubuf, first_views: views.clone(), views, sources: vec![None; n], replaced: vec![None; n], blur, _keep: keep })
 }
 
 #[cfg(test)]
@@ -988,7 +1488,7 @@ mod tests {
         let mut held = gpu.lift(frame).unwrap();
         for slot in steps {
             slot.prepare(gpu).unwrap();
-            gpu.shade(&mut held, slot, 0.0, None);
+            gpu.shade(&mut held, slot, 0.0, None).unwrap();
         }
         let out = gpu.land(&mut held).unwrap();
         gpu.put_down(held);
@@ -1071,6 +1571,371 @@ mod tests {
                 assert!(worst <= Some(limit), "{w}x{h} {} on {}: {worst:?}", lut.kind(), gpu.adapter_name);
             }
         }
+    }
+
+    /// The blur as a plain program would make it: the picture shrunk by area, blurred along each axis with reflected edges, read with linear filtering at each pixel's centre. rgb 0..1.
+    mod blur_reference {
+        pub struct Small {
+            pub w: usize,
+            pub h: usize,
+            pub px: Vec<[f32; 4]>,
+        }
+
+        pub fn shrunk(rgba: &[u8], w: usize, h: usize, shrink: usize) -> Small {
+            let (sw, sh) = ((w / shrink).max(1), (h / shrink).max(1));
+            let mut px = vec![[0f32; 4]; sw * sh];
+            for (i, out) in px.iter_mut().enumerate() {
+                let (ox, oy) = (i % sw, i / sw);
+                let (x0, x1, y0, y1) = (ox * w / sw, (ox + 1) * w / sw, oy * h / sh, (oy + 1) * h / sh);
+                let n = ((x1 - x0) * (y1 - y0)) as f32;
+                for y in y0..y1 {
+                    for x in x0..x1 {
+                        for c in 0..3 {
+                            out[c] += rgba[(y * w + x) * 4 + c] as f32 / 255.0 / n;
+                        }
+                    }
+                }
+                out[3] = 1.0;
+            }
+            Small { w: sw, h: sh, px }
+        }
+
+        fn reflect(i: isize, n: isize) -> usize {
+            if n == 1 {
+                return 0;
+            }
+            let mut i = i;
+            while i < 0 || i >= n {
+                i = if i < 0 { -i } else { 2 * (n - 1) - i };
+            }
+            i as usize
+        }
+
+        pub fn gauss(img: &Small, sigma: f64, taps: usize) -> Small {
+            let half = (taps / 2) as isize;
+            let weights: Vec<f64> = (-half..=half).map(|j| (-(j * j) as f64 / (2.0 * sigma * sigma)).exp()).collect();
+            let total: f64 = weights.iter().sum();
+            let across = |src: &Small, horizontal: bool| {
+                let mut px = vec![[0f32; 4]; src.w * src.h];
+                for y in 0..src.h {
+                    for x in 0..src.w {
+                        for (j, wt) in (-half..=half).zip(&weights) {
+                            let (sx, sy) = if horizontal { (reflect(x as isize + j, src.w as isize), y) } else { (x, reflect(y as isize + j, src.h as isize)) };
+                            let from = src.px[sy * src.w + sx];
+                            for (o, v) in px[y * src.w + x].iter_mut().zip(from) {
+                                *o += (v as f64 * wt / total) as f32;
+                            }
+                        }
+                    }
+                }
+                Small { w: src.w, h: src.h, px }
+            };
+            across(&across(img, true), false)
+        }
+
+        /// What blurred_with does with the weights (0..1 a pixel at the small size).
+        pub fn weighted(small: &Small, weights: &[f32], sigma: f64, taps: usize) -> Small {
+            let plain = gauss(small, sigma, taps);
+            let kept = Small { w: small.w, h: small.h, px: small.px.iter().zip(weights).map(|(p, w)| [p[0] * w, p[1] * w, p[2] * w, *w]).collect() };
+            let total = gauss(&kept, sigma, taps);
+            let px = plain.px.iter().zip(&total.px).map(|(p, t)| {
+                let weight = (t[3] * 4.0).clamp(0.0, 1.0);
+                let mut out = [0f32; 4];
+                for (c, o) in out.iter_mut().enumerate().take(3) {
+                    *o = t[c] / t[3].max(1e-3) * weight + p[c] * (1.0 - weight);
+                }
+                out
+            }).collect();
+            Small { w: small.w, h: small.h, px }
+        }
+
+        /// The picture at (x, y) of a w x h frame, 0..255.
+        pub fn read(small: &Small, x: usize, y: usize, w: usize, h: usize) -> [f32; 3] {
+            let at = |c: usize, size: usize, n: usize| (((c as f32 + 0.5) / size as f32 * n as f32) - 0.5).clamp(0.0, n as f32 - 1.0);
+            let (fx, fy) = (at(x, w, small.w), at(y, h, small.h));
+            let (x0, y0) = (fx.floor() as usize, fy.floor() as usize);
+            let (x1, y1) = ((x0 + 1).min(small.w - 1), (y0 + 1).min(small.h - 1));
+            let (tx, ty) = (fx - x0 as f32, fy - y0 as f32);
+            let mix = |c: usize| {
+                let top = small.px[y0 * small.w + x0][c] * (1.0 - tx) + small.px[y0 * small.w + x1][c] * tx;
+                let bottom = small.px[y1 * small.w + x0][c] * (1.0 - tx) + small.px[y1 * small.w + x1][c] * tx;
+                (top * (1.0 - ty) + bottom * ty) * 255.0
+            };
+            [mix(0), mix(1), mix(2)]
+        }
+    }
+
+    const BLURRED: &str = "fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(blurred(uv).rgb, 1.0); }";
+    const BLURRED_WEIGHTED: &str = "fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(blurred_weighted(uv).rgb, 1.0); }";
+
+    fn noisy_rgba(w: usize, h: usize) -> Frame {
+        let mut x = 11u32;
+        let data = (0..w * h * 4).map(|i| {
+            x = x.wrapping_mul(1664525).wrapping_add(1013904223);
+            // blocks of colour with a little noise, so there are edges to blur
+            let (px, py) = ((i / 4) % w, (i / 4) / w);
+            let base = [(px / 13 * 40) % 256, (py / 11 * 55) % 256, ((px + py) / 17 * 70) % 256, 255][i % 4] as u32;
+            (base + (x >> 30)).min(255) as u8
+        }).collect();
+        Frame::new(w as u32, h as u32, PixelFormat::Rgba, data)
+    }
+
+    fn weights_frame(w: u32, h: u32, share: impl Fn(u32, u32) -> u8) -> Frame {
+        let mut data = Vec::new();
+        for y in 0..h {
+            for x in 0..w {
+                data.extend([share(x, y), 0, 0, 255]);
+            }
+        }
+        Frame::new(w, h, PixelFormat::Rgba, data)
+    }
+
+    #[test]
+    fn the_card_blurs_a_shrunk_copy_of_the_picture_as_a_program_would() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let (w, h, shrink) = (200usize, 120usize, 8usize);
+        let frame = noisy_rgba(w, h);
+        for sigma in [1.1f64, 3.5, 6.5] {
+            let uniforms = json!({"blur_shrink": shrink, "blur_sigma": sigma});
+            let out = run(&gpu, &frame, &mut [ShaderSlot::new(step(BLURRED, uniforms))]);
+            let small = blur_reference::gauss(&blur_reference::shrunk(&frame.data, w, h, shrink), sigma, shader::blur_taps(sigma) as usize);
+            let mut worst = 0f32;
+            for y in 0..h {
+                for x in 0..w {
+                    let want = blur_reference::read(&small, x, y, w, h);
+                    for (c, v) in want.iter().enumerate() {
+                        worst = worst.max((out.data[(y * w + x) * 4 + c] as f32 - v).abs());
+                    }
+                }
+            }
+            assert!(worst <= 1.5, "sigma {sigma}: the card is {worst} levels from the reference");
+        }
+    }
+
+    #[test]
+    fn the_weighted_blur_leaves_out_what_the_weights_mark_and_a_missing_weight_is_the_plain_blur() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let (w, h, shrink, sigma) = (192usize, 128usize, 8usize, 2.9f64);
+        let frame = noisy_rgba(w, h);
+        let (sw, sh) = (w / shrink, h / shrink);
+        let share = |x: u32, y: u32| if (4..12).contains(&x) && (3..11).contains(&y) { 0 } else { 255 };
+        let weights = weights_frame(sw as u32, sh as u32, share);
+        let placeholder = Frame::new(1, 1, PixelFormat::Rgba, vec![255, 0, 0, 255]);
+        let weighted_step = || ShaderStep {
+            wgsl: BLURRED_WEIGHTED.into(),
+            uniforms: json!({"blur_shrink": shrink, "blur_sigma": sigma}),
+            textures: vec![("blur_weights".into(), placeholder.clone())],
+        };
+        let compare = |out: &Frame, want: &blur_reference::Small| {
+            let mut worst = 0f32;
+            for y in 0..h {
+                for x in 0..w {
+                    let at = blur_reference::read(want, x, y, w, h);
+                    (0..3).for_each(|c| worst = worst.max((out.data[(y * w + x) * 4 + c] as f32 - at[c]).abs()));
+                }
+            }
+            worst
+        };
+        let taps = shader::blur_taps(sigma) as usize;
+        let small = blur_reference::shrunk(&frame.data, w, h, shrink);
+        let mut slot = ShaderSlot::new(weighted_step());
+        slot.prepare(&gpu).unwrap();
+        // no weights given yet: the plain blur
+        let out = run(&gpu, &frame, std::slice::from_mut(&mut slot));
+        let worst = compare(&out, &blur_reference::gauss(&small, sigma, taps));
+        assert!(worst <= 1.5, "without weights {worst} levels from the plain blur");
+        // weights given
+        let uploads = crate::transfers::totals().mask_up;
+        slot.set_textures(&gpu, &[("blur_weights".into(), weights.clone())]).unwrap();
+        assert_eq!(crate::transfers::totals().mask_up, uploads + 1);
+        let out = run(&gpu, &frame, std::slice::from_mut(&mut slot));
+        let shares: Vec<f32> = (0..sw * sh).map(|i| share((i % sw) as u32, (i / sw) as u32) as f32 / 255.0).collect();
+        let worst = compare(&out, &blur_reference::weighted(&small, &shares, sigma, taps));
+        assert!(worst <= 2.0, "with weights {worst} levels from the reference");
+        // the same data again goes up no more, a changed one does, and leaving it out goes back to the plain blur
+        slot.set_textures(&gpu, &[("blur_weights".into(), weights.clone())]).unwrap();
+        assert_eq!(crate::transfers::totals().mask_up, uploads + 1, "the same picture isn't sent again");
+        slot.set_textures(&gpu, &[("blur_weights".into(), weights_frame(sw as u32, sh as u32, |_, _| 255))]).unwrap();
+        assert_eq!(crate::transfers::totals().mask_up, uploads + 2);
+        slot.set_textures(&gpu, &[]).unwrap();
+        let out = run(&gpu, &frame, std::slice::from_mut(&mut slot));
+        assert!(compare(&out, &blur_reference::gauss(&small, sigma, taps)) <= 1.5);
+    }
+
+    #[test]
+    fn weights_a_step_declares_count_like_the_ones_its_cpu_half_gives() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let (w, h, shrink, sigma) = (192usize, 128usize, 8usize, 2.9f64);
+        let frame = noisy_rgba(w, h);
+        let (sw, sh) = (w / shrink, h / shrink);
+        let share = |x: u32, y: u32| if (4..12).contains(&x) && (3..11).contains(&y) { 0 } else { 255 };
+        let declared = ShaderStep { wgsl: BLURRED_WEIGHTED.into(), uniforms: json!({"blur_shrink": shrink, "blur_sigma": sigma}), textures: vec![("blur_weights".into(), weights_frame(sw as u32, sh as u32, share))] };
+        let out = run(&gpu, &frame, &mut [ShaderSlot::new(declared)]);
+        let shares: Vec<f32> = (0..sw * sh).map(|i| share((i % sw) as u32, (i / sw) as u32) as f32 / 255.0).collect();
+        let want = blur_reference::weighted(&blur_reference::shrunk(&frame.data, w, h, shrink), &shares, sigma, shader::blur_taps(sigma) as usize);
+        let mut worst = 0f32;
+        for y in 0..h {
+            for x in 0..w {
+                let at = blur_reference::read(&want, x, y, w, h);
+                (0..3).for_each(|c| worst = worst.max((out.data[(y * w + x) * 4 + c] as f32 - at[c]).abs()));
+            }
+        }
+        assert!(worst <= 2.0, "declared weights are {worst} levels from the reference");
+    }
+
+    /// The step texture a Background-like shader lays over its blur: a soft disc in the middle.
+    fn disc(w: u32, h: u32) -> Frame {
+        let mut data = Vec::new();
+        for y in 0..h {
+            for x in 0..w {
+                let d = (((x as f32 - w as f32 / 2.0).powi(2) + (y as f32 - h as f32 / 2.0).powi(2)).sqrt() - h as f32 / 4.0) / 3.0;
+                data.extend([(255.0 * (0.5 - d).clamp(0.0, 1.0)) as u8, 0, 0, 255]);
+            }
+        }
+        Frame::new(w, h, PixelFormat::Rgba, data)
+    }
+
+    #[test]
+    fn a_shader_after_a_plane_step_sees_the_planes_that_come_back() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let (w, h) = (160usize, 96usize);
+        // colours well inside the range, so a trip through RGB and back has nothing to clip
+        let rgb: Vec<u8> = (0..w * h).flat_map(|i| {
+            let (x, y) = (i % w, i / w);
+            [(70 + x * 90 / w + (x / 9 % 2) * 40) as u8, (80 + y * 80 / h + (y / 7 % 2) * 30) as u8, (130 + ((x + y) / 11 % 3) * 25) as u8]
+        }).collect();
+        let mut data = vec![0u8; PixelFormat::I420.size(w as u32, h as u32)];
+        telescope_core::image::rgb_to_420(&rgb, w, h, &mut data, false);
+        let frame = Frame::new(w as u32, h as u32, PixelFormat::I420, data);
+        let like_background = || ShaderStep {
+            wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(mix(blurred_weighted(uv).rgb, sample(uv).rgb, sample_texture(blur_cutout, uv).r), 1.0); }".into(),
+            uniforms: json!({"blur_shrink": 8, "blur_sigma": 2.5, "blur_planes": 1}),
+            textures: vec![("blur_cutout".into(), disc(w as u32, h as u32)), ("blur_weights".into(), Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]))],
+        };
+        let go = |more: &[&str]| {
+            let mut held = gpu.lift_with(&frame, true).unwrap();
+            let mut slots: Vec<ShaderSlot> = std::iter::once(ShaderSlot::new(like_background())).chain(more.iter().map(|w| ShaderSlot::new(step(w, json!({}))))).collect();
+            for slot in &mut slots {
+                slot.prepare(&gpu).unwrap();
+                gpu.shade(&mut held, slot, 0.0, None).unwrap();
+            }
+            let out = gpu.land(&mut held).unwrap();
+            gpu.put_down(held);
+            out
+        };
+        let alone = go(&[]);
+        // what the next shader is given is the picture that lands: the same colours as from those planes put on the card as they are
+        let mut held = gpu.lift_with(&frame, true).unwrap();
+        let mut slot = ShaderSlot::new(like_background());
+        slot.prepare(&gpu).unwrap();
+        gpu.shade(&mut held, &slot, 0.0, None).unwrap();
+        let enc = std::mem::replace(&mut held.enc, gpu.device.create_command_encoder(&Default::default()));
+        let next_sees = gpu.download(enc, &[&held.a], &[4]).unwrap();
+        let landed = gpu.land(&mut held).unwrap();
+        gpu.put_down(held);
+        let mut again = gpu.lift_with(&landed, true).unwrap();
+        let enc = std::mem::replace(&mut again.enc, gpu.device.create_command_encoder(&Default::default()));
+        assert!(next_sees == gpu.download(enc, &[&again.a], &[4]).unwrap(), "the next shader is given a picture other than the one that comes back");
+        gpu.put_down(again);
+        assert_eq!(landed.data, alone.data);
+        let then_identity = go(&[IDENTITY]);
+        // an identity shader reads the planes' colours and writes them as planes again: a level here and there from the rounding, no more
+        let worst = alone.data.iter().zip(then_identity.data.iter()).map(|(a, b)| (*a as i32 - *b as i32).abs()).max().unwrap();
+        assert!(worst <= 2, "an identity shader after the step changed the picture by {worst} levels");
+    }
+
+    #[test]
+    fn a_lost_card_takes_no_more_work_and_a_stream_after_it_gets_a_new_one() {
+        let name = "gpu::tests::lost_card_in_a_process_of_its_own";
+        let run = std::process::Command::new(std::env::current_exe().unwrap()).args(["--ignored", "--exact", name, "--nocapture"]).output().unwrap();
+        assert!(run.status.success(), "{}{}", String::from_utf8_lossy(&run.stdout), String::from_utf8_lossy(&run.stderr));
+    }
+
+    #[test]
+    #[ignore = "a_lost_card_takes_no_more_work_and_a_stream_after_it_gets_a_new_one runs this"]
+    fn lost_card_in_a_process_of_its_own() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let frame = yuv_frame(8, 8, |x, y| (x * 7 + y * 3) as u8 + 16, 100, 150);
+        let target = gpu.picture(8, 8);
+        let mut slot = ShaderSlot::new(step(IDENTITY, json!({})));
+        slot.prepare(&gpu).unwrap();
+        gpu.lost.store(true, Ordering::SeqCst);
+        // nothing is allocated, uploaded or drawn once it's lost
+        let pooled = gpu.kept_bytes();
+        assert!(gpu.lift(&frame).is_err() && gpu.rgba(&frame, 4, 4).is_err() && gpu.paint(&frame, &target).is_err() && gpu.trial(&frame).is_err());
+        assert!(ShaderSlot::new(step(IDENTITY, json!({}))).prepare(&gpu).is_err());
+        assert_eq!(gpu.kept_bytes(), pooled);
+        let fresh = Gpu::shared().expect("a card again");
+        assert!(!Arc::ptr_eq(&fresh, &gpu) && !fresh.is_lost(), "a stream that starts now gets a new device");
+        assert!(Arc::ptr_eq(&Gpu::shared().unwrap(), &fresh), "and so does the next one, with no more opening");
+        run(&fresh, &frame, &mut [ShaderSlot::new(step(IDENTITY, json!({})))]);
+    }
+
+    #[test]
+    fn a_wait_for_the_card_that_is_stopped_gives_up_at_once() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let mut held = gpu.lift(&yuv_frame(8, 8, |x, y| (x * 7 + y * 3) as u8 + 16, 100, 150)).unwrap();
+        let began = std::time::Instant::now();
+        assert!(gpu.land_until(&mut held, &|| true).unwrap_err().contains("stopped"));
+        assert!(began.elapsed() < std::time::Duration::from_secs(2));
+        assert!(!gpu.is_lost(), "a stop isn't the card failing");
+        gpu.put_down(held);
+    }
+
+    #[test]
+    fn a_picture_the_cpu_half_gives_is_there_to_sample_by_its_name() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let step = ShaderStep {
+            wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(sample_texture(soft, uv).r, 0.0, 0.0, 1.0); }".into(),
+            uniforms: json!({}),
+            textures: vec![("soft".into(), Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]))],
+        };
+        let mut slot = ShaderSlot::new(step);
+        slot.prepare(&gpu).unwrap();
+        let frame = yuv_frame(16, 8, |_, _| 100, 128, 128);
+        assert_eq!(run(&gpu, &frame, std::slice::from_mut(&mut slot)).data[0], 16, "the picture it started with, which is black");
+        // two columns wide: the left black and the right red, read with linear filtering
+        slot.set_textures(&gpu, &[("soft".into(), Frame::new(2, 1, PixelFormat::Rgba, vec![0, 0, 0, 255, 255, 0, 0, 255]))]).unwrap();
+        let out = run(&gpu, &frame, std::slice::from_mut(&mut slot));
+        let luma = |x: usize| out.data[x] as i32;
+        assert!(luma(0) <= 17 && luma(15) >= 60, "{} {}", luma(0), luma(15));
+    }
+
+    #[test]
+    fn a_picture_the_card_refuses_is_an_error_and_is_tried_again_not_taken_for_the_one_before() {
+        let Ok(gpu) = Gpu::open() else { return eprintln!("no graphics card; skipped") };
+        let step = ShaderStep {
+            wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(sample_texture(soft, uv).r, 0.0, 0.0, 1.0); }".into(),
+            uniforms: json!({}),
+            textures: vec![("soft".into(), Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]))],
+        };
+        let mut slot = ShaderSlot::new(step);
+        slot.prepare(&gpu).unwrap();
+        let red = Frame::new(1, 1, PixelFormat::Rgba, vec![255, 0, 0, 255]);
+        slot.set_textures(&gpu, &[("soft".into(), Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]))]).unwrap();
+        gpu.inject(Fault::BadUpload);
+        let why = slot.set_textures(&gpu, &[("soft".into(), red.clone())]).unwrap_err();
+        assert!(why.contains("refused"), "{why}");
+        // The same data again is still to be sent, and then the shader draws it
+        slot.set_textures(&gpu, &[("soft".into(), red)]).unwrap();
+        let out = run(&gpu, &yuv_frame(16, 8, |_, _| 100, 128, 128), std::slice::from_mut(&mut slot));
+        assert!(out.data[0] > 60, "{}", out.data[0]);
+    }
+
+    #[test]
+    fn a_step_shaded_without_history_has_no_previous_frame_and_the_next_one_goes_on_from_it() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let frame = || Frame::new(8, 4, PixelFormat::Rgba, vec![0; 8 * 4 * 4]);
+        let mut slot = ShaderSlot::new(step(COUNTS, json!({})));
+        slot.prepare(&gpu).unwrap();
+        assert_eq!(run(&gpu, &frame(), std::slice::from_mut(&mut slot)).data[0], 51);
+        assert_eq!(run(&gpu, &frame(), std::slice::from_mut(&mut slot)).data[0], 102);
+        let mut held = gpu.lift(&frame()).unwrap();
+        gpu.shade_with(&mut held, &slot, 0.0, None, false).unwrap();
+        let out = gpu.land(&mut held).unwrap();
+        gpu.put_down(held);
+        assert_eq!(out.data[0], 51, "previous() had nothing");
+        assert_eq!(run(&gpu, &frame(), std::slice::from_mut(&mut slot)).data[0], 102, "and what it drew then is the history now");
     }
 
     #[test]
@@ -1317,7 +2182,7 @@ mod timing {
                 let mut held = gpu.lift(f).unwrap();
                 let slot = &mut ShaderSlot::new(ShaderStep { wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }".into(), uniforms: serde_json::json!({}), textures: vec![] });
                 slot.prepare(&gpu).unwrap();
-                gpu.shade(&mut held, slot, 0.0, None);
+                gpu.shade(&mut held, slot, 0.0, None).unwrap();
                 gpu.queue.submit([]);
                 let start = Instant::now();
                 gpu.land(&mut held).unwrap();

@@ -943,3 +943,44 @@ fn reset_puts_the_sound_settings_back_and_keeps_the_switch_and_mute() {
 fn the_declared_settings_round_trip() {
     crate::settings_check::round_trips(&mut MicrophonePlugin::new(backend(), None), &mut telescope_core::testing::FakeHost::new());
 }
+
+#[test]
+fn a_preset_brings_back_the_sound_settings_and_leaves_the_microphone_switch_alone() {
+    let info = Rig::new(backend()).p.info();
+    assert!(info.in_presets && info.device_local);
+    let mut r = Rig::new(backend());
+    r.set_config(json!({"enabled": true, "gain_db": 9, "auto_level": true, "noise_reduction": false}));
+    let saved = r.p.get_config();
+    r.set_config(json!({"enabled": true, "gain_db": -6, "auto_level": false, "noise_reduction": true}));
+    let mut host = telescope_core::testing::FakeHost::new();
+    // The preset says it was off; applying it doesn't switch the microphone
+    let mut preset = saved.clone();
+    preset["enabled"] = json!(false);
+    r.p.apply_preset(&mut host, &preset).unwrap();
+    assert_eq!(r.p.get_config(), config(true, 9, true, false));
+}
+
+#[test]
+fn a_preset_without_a_sound_setting_leaves_it_as_it_is() {
+    let mut r = Rig::new(backend());
+    r.set_config(json!({"enabled": true, "gain_db": 4, "auto_level": true, "noise_reduction": true}));
+    let mut host = telescope_core::testing::FakeHost::new();
+    r.p.apply_preset(&mut host, &json!({"gain_db": -2})).unwrap();
+    assert_eq!(r.p.get_config(), config(true, -2, true, true));
+    r.p.apply_preset(&mut host, &json!({})).unwrap();
+    assert_eq!(r.p.get_config(), config(true, -2, true, true));
+}
+
+#[test]
+fn a_preset_of_another_source_leaves_the_microphone_alone() {
+    let mut r = Rig::new(backend());
+    r.set_config(json!({"enabled": true, "gain_db": 5}));
+    r.start("phone");
+    let mut host = telescope_core::testing::FakeHost::new();
+    host.focused = Some("webcam:b".into());
+    r.p.apply_preset(&mut host, &json!({"gain_db": -9})).unwrap();
+    assert_eq!(r.p.get_config()["gain_db"], 5);
+    host.focused = Some("phone".into());
+    r.p.apply_preset(&mut host, &json!({"gain_db": -9})).unwrap();
+    assert_eq!(r.p.get_config()["gain_db"], -9);
+}

@@ -290,7 +290,7 @@ impl Window {
             let cfg = st.plugin_config("stream_output").unwrap_or_else(|| serde_json::json!({"format": "h264"}));
             let dynamic = cfg.get("bitrate_mbps").and_then(Value::as_f64) == Some(-1.0);
             let format = telescope_core::link::StreamFormat { h264: cfg.get("format").and_then(Value::as_str) == Some("h264"), dynamic };
-            let output = st.index("stream_output").and_then(|i| st.slots[i].plugin.as_ref());
+            let output = st.index("stream_output").filter(|&i| st.slots[i].stopped.is_none()).and_then(|i| st.slots[i].plugin.as_ref());
             StreamPlan { format, params: output.and_then(|p| p.stream_params()), opening: output.and_then(|p| p.opening()) }
         });
         Box::new(PhoneKind::new(id.map(String::from), services.link.clone(), plan, opts.request, post, on_timer))
@@ -581,6 +581,13 @@ impl Window {
         }
     }
 
+    /// A stopped plugin's steps leave the streams behind the panels, the rest kept.
+    pub(crate) fn drop_steps_behind(self: &Rc<Self>, owner: &str) {
+        for w in self.streams.workers.borrow().iter().filter(|w| !w.live.get()) {
+            w.inner.replace_owner_steps(owner, telescope_core::frame::FrameStage::default(), Vec::new());
+        }
+    }
+
     /// A plugin changed its frame step: the stream the panels show takes it from the next frame.
     pub fn refresh_frame_steps(self: &Rc<Self>) {
         let live: Vec<Rc<ShellWorker>> = self.streams.workers.borrow().iter().filter(|w| w.live.get()).cloned().collect();
@@ -780,10 +787,17 @@ impl Window {
     /// photo's own thread through the posts.
     pub fn take_still(self: &Rc<Self>, plugin: &str, request: telescope_core::host::RequestId, source: &str, options: &Value, folder: &str) {
         let posts = self.state.borrow().posts.clone();
-        let fail = |why: &str| {
-            let data = serde_json::json!({"ok": false, "files": [], "code": "failed", "error": why});
+        let end = |code: &str, why: &str| {
+            let data = serde_json::json!({"ok": false, "files": [], "code": code, "error": why});
             posts.push_event(plugin, Event::RequestDone { request, ok: false, message: why.into(), data });
         };
+        let fail = |why: &str| end("failed", why);
+        // The photo comes straight off the phone, so a picture that is hidden now stays untaken when the request said to check
+        if self.state.borrow().still_skipped(options, source) {
+            return end("hidden", &tr("No photo was taken while part of the picture is hidden."));
+        }
+        // And the thread that sends the request looks once more, as a cover can land between this check and the send
+        let hidden = (options.get("skip_if_hidden").and_then(Value::as_bool) == Some(true)).then(|| self.state.borrow_mut().hidden_flag(source));
         let found = self.streams.flow.borrow().sessions.find(Some(source));
         // A stream with a camera of its own (a DSLR) takes the photo there, any other on its phone
         let camera = found.as_ref().and_then(|src| src.kind.stills());
@@ -816,7 +830,10 @@ impl Window {
         let still_alive: Box<dyn Fn() -> bool + Send> = Box::new(move || alive.load(std::sync::atomic::Ordering::SeqCst));
         let started = match (camera, phone) {
             (Some(camera), _) => camera.take(options, folder, on_progress, on_done, still_alive),
-            (None, Some((stills, base, phone))) => stills.take(Some(source), &base, &phone, options, folder, on_progress, on_done, still_alive),
+            (None, Some((stills, base, phone))) => match hidden {
+                Some(hidden) => stills.take_unless_hidden(Some(source), &base, &phone, options, folder, on_progress, on_done, still_alive, hidden),
+                None => stills.take(Some(source), &base, &phone, options, folder, on_progress, on_done, still_alive),
+            },
             (None, None) => false,
         };
         if started {
