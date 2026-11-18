@@ -151,6 +151,25 @@ fn same(a: &Frame, b: &Frame) -> bool {
 }
 
 #[test]
+fn other_streams_pass_while_the_picture_is_drawing() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    let Some(FrameStep::Cpu(step)) = r.plugin.frame_step() else { panic!("a CPU step") };
+    let (tx, rx) = std::sync::mpsc::channel();
+    // a drawing holds the hub for as long as it takes
+    let held = r.plugin.shared.hub();
+    std::thread::spawn(move || {
+        let _ = tx.send((step.touch(&Ctx("a".into())), step.touch(&Ctx("b".into()))));
+    });
+    let (main, other) = rx.recv_timeout(Duration::from_secs(5)).expect("touch waited for the hub");
+    drop(held);
+    assert!(main == Touch::Changes && other == Touch::Nothing);
+    r.switch(false);
+    let Some(FrameStep::Cpu(step)) = r.plugin.frame_step() else { panic!("a CPU step") };
+    assert!(step.touch(&Ctx("a".into())) == Touch::Nothing);
+}
+
+#[test]
 fn the_picture_goes_out_on_the_main_stream_only() {
     let mut r = rig();
     r.two_streams(0.0);

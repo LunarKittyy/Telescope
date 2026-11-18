@@ -14,7 +14,7 @@ use crate::shared::{no_pictures, PictureReader};
 use crate::transition::{Ease, Kind as TransitionKind, Spec};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
-use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, RwLock};
 use std::thread::JoinHandle;
 use std::time::Duration;
 use telescope_core::actions::{self, Choice};
@@ -89,6 +89,8 @@ pub(crate) struct Hub {
 
 pub(crate) struct Shared {
     pub(crate) hub: Mutex<Hub>,
+    /// A copy of the hub's (on, target), so touch() never waits for a drawing that holds the hub.
+    gate: RwLock<(bool, Option<String>)>,
     wake: Condvar,
     store: Mutex<Arc<dyn FrameStore>>,
 }
@@ -110,6 +112,22 @@ impl FrameStore for NoFrames {
 impl Shared {
     pub(crate) fn hub(&self) -> MutexGuard<'_, Hub> {
         self.hub.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    fn set_gate(&self, on: Option<bool>, target: Option<Option<String>>) {
+        let mut gate = self.gate.write().unwrap_or_else(|e| e.into_inner());
+        if let Some(on) = on {
+            gate.0 = on;
+        }
+        if let Some(target) = target {
+            gate.1 = target;
+        }
+    }
+
+    /// Whether the picture is on and source_id is the stream it goes out on, without the hub lock.
+    pub(crate) fn is_target(&self, source_id: &str) -> bool {
+        let gate = self.gate.read().unwrap_or_else(|e| e.into_inner());
+        gate.0 && gate.1.as_deref() == Some(source_id)
     }
 
     fn store(&self) -> Arc<dyn FrameStore> {
@@ -242,8 +260,7 @@ struct CompositeStep(Arc<Shared>);
 
 impl CpuStep for CompositeStep {
     fn touch(&self, ctx: &dyn FrameContext) -> Touch {
-        let hub = self.0.hub();
-        if hub.on && hub.target.as_deref() == Some(ctx.source_id()) { Touch::Changes } else { Touch::Nothing }
+        if self.0.is_target(ctx.source_id()) { Touch::Changes } else { Touch::Nothing }
     }
 
     fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
@@ -304,7 +321,7 @@ impl CompositePlugin {
             on: false, target: None, main_frame: None, handed: None, last_picture_at: None, fallback_key: None,
             compositor: Compositor::new(reader.clone()), shut: false, ticks: 0,
         };
-        let shared = Arc::new(Shared { hub: Mutex::new(hub), wake: Condvar::new(), store: Mutex::new(Arc::new(NoFrames)) });
+        let shared = Arc::new(Shared { hub: Mutex::new(hub), gate: RwLock::new((false, None)), wake: Condvar::new(), store: Mutex::new(Arc::new(NoFrames)) });
         let mut plugin = CompositePlugin {
             on: false, layout: Layout::default(), layouts: Vec::new(), target: None, camera_size: None, canvas: (None, None), shared,
             clock: None, camera_label, note: String::new(), note_short: String::new(), pending: false, held: None, reader, editor: None,
@@ -357,6 +374,7 @@ impl CompositePlugin {
             hub.compositor = Compositor::new(self.reader.clone());
         }
         hub.on = on;
+        self.shared.set_gate(Some(on), None);
     }
 
     fn follow_camera(&mut self, host: &mut dyn Host) {
@@ -371,6 +389,7 @@ impl CompositePlugin {
             self.target = target.clone();
             let mut hub = self.shared.hub();
             hub.target = target.clone();
+            self.shared.set_gate(None, Some(target.clone()));
             // another stream's frame isn't this one's
             (hub.main_frame, hub.handed, hub.fallback_key) = (None, None, None);
             drop(hub);
