@@ -770,6 +770,7 @@ impl Plugin for ChromaKeyPlugin {
         };
         let [b, g, r] = self.colour;
         Some(FrameStep::Shader(ShaderStep {
+            keeps_geometry: false,
             wgsl: WGSL.into(),
             uniforms: json!({"backdrop": [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, use_picture], "picture": size}),
             textures: vec![("keys".into(), keys), ("picture".into(), picture)],

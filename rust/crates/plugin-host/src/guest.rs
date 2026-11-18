@@ -660,7 +660,7 @@ impl<G: Guest> GuestPlugin<G> {
             _ => return Err("it needs a \"shader\" (a .wgsl file in the plugin)".into()),
         };
         let uniforms = v.get("uniforms").cloned().unwrap_or_else(|| json!({}));
-        let step = ShaderStep { wgsl, uniforms, textures: Vec::new() };
+        let step = ShaderStep { keeps_geometry: false, wgsl, uniforms, textures: Vec::new() };
         telescope_core::shader::assemble(&step)?;
         telescope_core::shader::pack_uniforms(&step.wgsl, &step.uniforms)?;
         Ok(step)

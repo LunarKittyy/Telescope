@@ -2986,7 +2986,7 @@ mod tests {
                 panic!("no");
             }
             fn frame_step(&mut self) -> Option<telescope_core::frame::FrameStep> {
-                Some(telescope_core::frame::FrameStep::Shader(telescope_core::frame::ShaderStep { wgsl: String::new(), uniforms: Value::Null, textures: Vec::new() }))
+                Some(telescope_core::frame::FrameStep::Shader(telescope_core::frame::ShaderStep { keeps_geometry: false, wgsl: String::new(), uniforms: Value::Null, textures: Vec::new() }))
             }
         }
         let mut s = state();
@@ -3040,8 +3040,8 @@ mod tests {
         // Privacy blur before its first step, a step on the CPU that hides at the Effects stage, and its card-or-CPU kind
         s.register(Box::new(Panics("blur", FrameStage::Privacy, None))).unwrap();
         s.register(Box::new(Panics("cpu_hider", FrameStage::Effects, Some(|| FrameStep::Cpu(Box::new(HidesOnCpu)))))).unwrap();
-        s.register(Box::new(Panics("either_hider", FrameStage::Effects, Some(move || FrameStep::Either(ShaderStep { wgsl: String::new(), uniforms: Value::Null, textures: Vec::new() }, Box::new(HidesOnCpu)))))).unwrap();
-        s.register(Box::new(Panics("plain", FrameStage::Effects, Some(move || FrameStep::Shader(ShaderStep { wgsl: String::new(), uniforms: Value::Null, textures: Vec::new() }))))).unwrap();
+        s.register(Box::new(Panics("either_hider", FrameStage::Effects, Some(move || FrameStep::Either(ShaderStep { keeps_geometry: false, wgsl: String::new(), uniforms: Value::Null, textures: Vec::new() }, Box::new(HidesOnCpu)))))).unwrap();
+        s.register(Box::new(Panics("plain", FrameStage::Effects, Some(move || FrameStep::Shader(ShaderStep { keeps_geometry: false, wgsl: String::new(), uniforms: Value::Null, textures: Vec::new() }))))).unwrap();
         s.pipeline_steps(None);
         s.bus.emit(Event::StreamStopped);
         s.deliver_events();

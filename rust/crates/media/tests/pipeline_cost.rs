@@ -94,7 +94,7 @@ fn card_case(w: u32, h: u32, format: PixelFormat) {
     let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
     let source = noise(w, h, format);
     let steps = || vec![StagedStep { owner: "fx".into(), stage: FrameStage::Effects,
-                                     step: FrameStep::Shader(ShaderStep { wgsl: IDENTITY.into(), uniforms: serde_json::json!({}), textures: vec![] }) }];
+                                     step: FrameStep::Shader(ShaderStep { keeps_geometry: false, wgsl: IDENTITY.into(), uniforms: serde_json::json!({}), textures: vec![] }) }];
     // Only the pipeline holds the frame, as it does when the decoder hands it over
     let (best, median) = cost(steps, &source, false);
     let stages: Vec<String> = telescope_core::perf::stage_summaries().iter().filter(|s| ["upload", "submit", "gpu_wait", "readback"].contains(&s.stage))

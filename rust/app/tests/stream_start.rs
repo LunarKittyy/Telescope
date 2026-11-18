@@ -686,7 +686,7 @@ impl Plugin for Stepper {
         PluginInfo { name: "stepper".into(), title: "Stepper".into(), ..Default::default() }
     }
     fn frame_step(&mut self) -> Option<FrameStep> {
-        Some(FrameStep::Shader(ShaderStep { wgsl: String::new(), uniforms: json!({}), textures: Vec::new() }))
+        Some(FrameStep::Shader(ShaderStep { keeps_geometry: false, wgsl: String::new(), uniforms: json!({}), textures: Vec::new() }))
     }
 }
 

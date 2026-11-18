@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use crate::worker::{fit_frame, to_nv12};
+use crate::worker::{fit_frame, to_nv12, CAMERA_BACKGROUND};
 use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::link::PhoneSession;
 use telescope_core::media::{DecodeOptions, FeedEnd, FeedStopper, Media};
@@ -182,6 +182,7 @@ impl Camera {
     /// worker, it lets go of the old camera before opening and, when an app reading the camera holds it at a size,
     /// opens at that size and fits the frame into it.
     fn send(&mut self, outputs: &dyn Outputs, slot: u32, fps: u32, frame: &Frame) {
+        let frame = &frame.flattened(CAMERA_BACKGROUND);
         if self.cam.is_none() || self.opened_for != (frame.width, frame.height) {
             self.cam = None;
             let (w, h) = outputs.locked_size(slot).unwrap_or((frame.width, frame.height));

@@ -90,6 +90,8 @@ Each stream's worker counts into a `core::stats::SourceStats`: relaxed atomics o
 
 `Frame` holds packed planes in an `Arc`. Handing a frame to the preview, the virtual camera and other plugins (`FrameStore`) shares it. A step that changes pixels gets its own copy through `data_mut()`.
 
+A frame can also carry an alpha plane (`Frame::alpha`), the cut-out Background or Chroma key makes. It survives only steps that leave every pixel where it was. A CPU step declares that with `keeps_geometry`. A step that only reads (`Touch::Reads`) never loses it. A plugin's shader after Background drops it unless the shader sets `keeps_geometry`, which only the built-in colour shaders do. A step that paints on the picture makes the alpha solid under what it draws (`Frame::opaque_rect`). The virtual camera has no transparency. Frames get laid over a plain colour (`Frame::flattened`) before they go to it.
+
 ## Pausing while nobody watches
 
 The main camera's frame steps and vision stop while no app has read the virtual camera for about 8 s and nothing else needs frames; decoding and the phone's link carry on and the camera continues sending the last picture. `shell::idle::IdleGate` holds the answer and the stream worker (`spawn_steps`) looks at it once per frame and no plugin knows about it. The reader comes from the Wait screen plugin's `Event::CameraWatched`. A computer with no such signal never pauses and only slot 0 does. A reader, or anything that needs frames, ends the pause at the next frame. The steps that hold on to pictures start again (`FramePipeline::forget_history`).
