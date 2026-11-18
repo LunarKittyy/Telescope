@@ -180,7 +180,7 @@ msgstr "获取 VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "消除打字声、风扇声和环境底噪。"
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:663 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:742 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}：{value}"
@@ -346,7 +346,7 @@ msgstr "黄色：限制器正在抑制峰值。红色：声音削波。"
 msgid "Click to clear"
 msgstr "点击清除"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:43 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:153 rust/crates/effects/ui/phototrap.slint:58 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "重置"
 
@@ -721,7 +721,7 @@ msgstr "从预览中拾取的颜色。点击可重新拾取。"
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "在预览中点击身后的幕布。按 Esc 键取消。"
 
-#: rust/crates/effects/src/chroma_key.rs:411 rust/crates/effects/src/chroma_key.rs:447 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1788 rust/crates/shell/src/window.rs:1815 rust/crates/shell/src/worker.rs:610 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:411 rust/crates/effects/src/chroma_key.rs:447 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1788 rust/crates/shell/src/window.rs:1815 rust/crates/shell/src/worker.rs:613 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "未串流"
 
@@ -1238,82 +1238,130 @@ msgstr "保存布局"
 msgid "There's already a layout called \"{name}\". Replace it?"
 msgstr "已存在名为“{name}”的布局。是否要替换？"
 
-#: rust/crates/effects/src/composite_plugin.rs:37 rust/crates/effects/ui/composite.slint:22
+#: rust/crates/effects/src/composite_plugin.rs:38 rust/crates/effects/ui/composite.slint:32
 msgid "Combine the running streams into one picture."
 msgstr "将正在运行的串流合成为一个画面。"
 
-#: rust/crates/effects/src/composite_plugin.rs:38
+#: rust/crates/effects/src/composite_plugin.rs:39
 msgid "A layout you saved in the editor."
 msgstr "你在编辑器中保存的布局。"
 
-#: rust/crates/effects/src/composite_plugin.rs:434 rust/crates/effects/src/composite_plugin.rs:634 rust/crates/effects/src/composite_plugin.rs:638 rust/crates/effects/src/composite_plugin.rs:651 rust/crates/effects/ui/composite.slint:21
+#: rust/crates/effects/src/composite_plugin.rs:44
+msgid "Cut"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:45
+msgid "Crossfade"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:46
+msgid "Slide"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:47
+msgid "Push"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:48 rust/crates/effects/src/transforms.rs:670 rust/crates/effects/src/transforms.rs:725 rust/crates/effects/ui/composite_editor.slint:827 rust/crates/effects/ui/transforms.slint:173 rust/crates/effects/ui/transforms.slint:188 rust/crates/effects/ui/transforms.slint:189 rust/crates/effects/ui/transforms.slint:230 rust/crates/outputs/src/webcam.rs:56
+msgid "Zoom"
+msgstr "缩放"
+
+#: rust/crates/effects/src/composite_plugin.rs:49
+msgid "Wipe"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:50
+msgid "Glide"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:51
+msgid "Shuffle"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:57
+msgid "Springy"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:58 rust/crates/shell/ui/cards/preview.slint:290 rust/crates/shell/ui/cards/preview.slint:294
+msgid "Smooth"
+msgstr "流畅"
+
+#: rust/crates/effects/src/composite_plugin.rs:59
+msgid "Bouncy"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:60
+msgid "Even"
+msgstr ""
+
+#: rust/crates/effects/src/composite_plugin.rs:479 rust/crates/effects/src/composite_plugin.rs:713 rust/crates/effects/src/composite_plugin.rs:717 rust/crates/effects/src/composite_plugin.rs:730 rust/crates/effects/ui/composite.slint:31
 msgid "One picture"
 msgstr "合成画面"
 
-#: rust/crates/effects/src/composite_plugin.rs:479
+#: rust/crates/effects/src/composite_plugin.rs:531
 msgid "Nothing's in the picture yet."
 msgstr "画面中还没有内容。"
 
-#: rust/crates/effects/src/composite_plugin.rs:481
+#: rust/crates/effects/src/composite_plugin.rs:533
 msgid "Active once two streams are running."
 msgstr "两个串流运行后生效。"
 
-#: rust/crates/effects/src/composite_plugin.rs:483
+#: rust/crates/effects/src/composite_plugin.rs:535
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "已设为输出到 {camera}，但那里未运行任何串流。"
 
-#: rust/crates/effects/src/composite_plugin.rs:485
+#: rust/crates/effects/src/composite_plugin.rs:537
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "一旦那里的串流发送画面，便会输出到 {camera}。"
 
-#: rust/crates/effects/src/composite_plugin.rs:487
+#: rust/crates/effects/src/composite_plugin.rs:539
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "正在输出到 {camera}。"
 
-#: rust/crates/effects/src/composite_plugin.rs:492
+#: rust/crates/effects/src/composite_plugin.rs:544
 msgid "Nothing in it"
 msgstr "内容为空"
 
-#: rust/crates/effects/src/composite_plugin.rs:494 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:703
+#: rust/crates/effects/src/composite_plugin.rs:546 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:703
 msgid "Two streams required"
 msgstr "需要两个串流"
 
-#: rust/crates/effects/src/composite_plugin.rs:496
+#: rust/crates/effects/src/composite_plugin.rs:548
 msgid "Not going out"
 msgstr "未输出"
 
-#: rust/crates/effects/src/composite_plugin.rs:498
+#: rust/crates/effects/src/composite_plugin.rs:550
 msgid "Going out"
 msgstr "正在输出"
 
-#: rust/crates/effects/src/composite_plugin.rs:543
+#: rust/crates/effects/src/composite_plugin.rs:603
 msgid "Several cameras in one picture"
 msgstr "多相机同屏画面"
 
-#: rust/crates/effects/src/composite_plugin.rs:544
+#: rust/crates/effects/src/composite_plugin.rs:604
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "将运行的串流并排或以画中画形式呈现在一个虚拟相机中。"
 
-#: rust/crates/effects/src/composite_plugin.rs:545
+#: rust/crates/effects/src/composite_plugin.rs:605
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "若没有“多相机同屏”插件，将没有“单画面”卡片，每个串流只能输出到各自的相机。"
 
-#: rust/crates/effects/src/composite_plugin.rs:639 rust/crates/effects/src/composite_plugin.rs:663
+#: rust/crates/effects/src/composite_plugin.rs:718 rust/crates/effects/src/composite_plugin.rs:742
 msgid "Picture layout"
 msgstr "画面布局"
 
-#: rust/crates/effects/src/composite_plugin.rs:712
+#: rust/crates/effects/src/composite_plugin.rs:800
 msgid "One picture layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:713
+#: rust/crates/effects/src/composite_plugin.rs:801
 msgid "Bring this layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:713
+#: rust/crates/effects/src/composite_plugin.rs:801
 msgid "Leave the layout"
 msgstr ""
 
@@ -1651,19 +1699,19 @@ msgstr "手机端也有"
 msgid "The Camera card has the phone's own Sharpening and Noise reduction. Using both looks worse."
 msgstr "“相机”卡片中已有手机自带的“锐化”和“降噪”。两者同时开启效果会更差。"
 
-#: rust/crates/effects/src/filters.rs:364 rust/crates/effects/src/filters.rs:472 rust/crates/effects/src/filters.rs:535 rust/crates/effects/src/filters.rs:535 rust/crates/effects/src/filters.rs:548 rust/crates/effects/ui/filters.slint:38
+#: rust/crates/effects/src/filters.rs:368 rust/crates/effects/src/filters.rs:476 rust/crates/effects/src/filters.rs:539 rust/crates/effects/src/filters.rs:539 rust/crates/effects/src/filters.rs:552 rust/crates/effects/ui/filters.slint:38
 msgid "Filters"
 msgstr "滤镜"
 
-#: rust/crates/effects/src/filters.rs:365
+#: rust/crates/effects/src/filters.rs:369
 msgid "Turn every filter off to see the picture without them."
 msgstr "关闭所有滤镜以查看无滤镜时的画面。"
 
-#: rust/crates/effects/src/filters.rs:473
+#: rust/crates/effects/src/filters.rs:477
 msgid "Add photo editor filters like sharpen, clarity, dehaze, denoise, skin smoothing, vignette, glow and film grain."
 msgstr "添加类似照片编辑器的滤镜，如锐化、清晰度、去雾、降噪、磨皮、暗角、光晕和胶片颗粒。"
 
-#: rust/crates/effects/src/filters.rs:474
+#: rust/crates/effects/src/filters.rs:478
 msgid "Without it there's no Filters card and the picture isn't sharpened, cleaned up or finished."
 msgstr "若没有此插件，将没有“滤镜”卡片，画面也不会包含锐化、降噪或修饰效果。"
 
@@ -3319,10 +3367,6 @@ msgstr "缩放、平移、翻转、旋转和拉伸画面。"
 msgid "Without the Transforms plugin there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "若没有“变换”插件，将没有“变换”卡片，画面将完全按手机发送的原样输出。"
 
-#: rust/crates/effects/src/transforms.rs:670 rust/crates/effects/src/transforms.rs:725 rust/crates/effects/ui/composite_editor.slint:827 rust/crates/effects/ui/transforms.slint:173 rust/crates/effects/ui/transforms.slint:188 rust/crates/effects/ui/transforms.slint:189 rust/crates/effects/ui/transforms.slint:230 rust/crates/outputs/src/webcam.rs:56
-msgid "Zoom"
-msgstr "缩放"
-
 #: rust/crates/effects/src/transforms.rs:671 rust/crates/effects/src/transforms.rs:735
 msgid "Pan left/right"
 msgstr "左右平移"
@@ -3607,25 +3651,49 @@ msgstr "将调色参数与 LUT 保存为 .cube 文件，以便在其他应用中
 msgid "Replace"
 msgstr "替换"
 
-#: rust/crates/effects/ui/composite.slint:34
+#: rust/crates/effects/ui/composite.slint:44
 msgid "Clear the current layout without touching saved layouts."
 msgstr "清除当前布局，但不影响已保存的布局。"
 
-#: rust/crates/effects/ui/composite.slint:40 rust/crates/effects/ui/composite.slint:47 rust/crates/effects/ui/composite.slint:51 rust/crates/effects/ui/composite_editor.slint:628 rust/crates/effects/ui/composite_editor.slint:640 rust/crates/shell/ui/card-order-settings.slint:7
+#: rust/crates/effects/ui/composite.slint:50 rust/crates/effects/ui/composite.slint:57 rust/crates/effects/ui/composite.slint:61 rust/crates/effects/ui/composite_editor.slint:628 rust/crates/effects/ui/composite_editor.slint:640 rust/crates/shell/ui/card-order-settings.slint:7
 msgid "Layout"
 msgstr "布局"
 
-#: rust/crates/effects/ui/composite.slint:60 rust/crates/effects/ui/composite_editor.slint:641
+#: rust/crates/effects/ui/composite.slint:70 rust/crates/effects/ui/composite_editor.slint:641
 msgid "Not saved"
 msgstr "未保存"
 
-#: rust/crates/effects/ui/composite.slint:72 rust/crates/effects/ui/composite.slint:73 rust/crates/effects/ui/composite_editor.slint:461 rust/crates/effects/ui/composite_editor.slint:569
+#: rust/crates/effects/ui/composite.slint:82 rust/crates/effects/ui/composite.slint:83 rust/crates/effects/ui/composite_editor.slint:461 rust/crates/effects/ui/composite_editor.slint:569
 msgid "Edit picture"
 msgstr "编辑画面"
 
-#: rust/crates/effects/ui/composite.slint:74
+#: rust/crates/effects/ui/composite.slint:84
 msgid "Open the editor for the layout."
 msgstr "打开布局编辑器。"
+
+#: rust/crates/effects/ui/composite.slint:95 rust/crates/effects/ui/composite.slint:100 rust/crates/effects/ui/composite.slint:103
+msgid "Transition"
+msgstr ""
+
+#: rust/crates/effects/ui/composite.slint:104
+msgid "How the picture goes from one layout to the next. Glide moves the tiles to their new places and the rest mix the two pictures."
+msgstr ""
+
+#: rust/crates/effects/ui/composite.slint:113
+msgid "Length"
+msgstr ""
+
+#: rust/crates/effects/ui/composite.slint:118
+msgid "How long a transition takes."
+msgstr ""
+
+#: rust/crates/effects/ui/composite.slint:128 rust/crates/effects/ui/composite.slint:133 rust/crates/effects/ui/composite.slint:136
+msgid "Easing"
+msgstr ""
+
+#: rust/crates/effects/ui/composite.slint:137
+msgid "Springy and Bouncy overshoot a little and settle, Smooth glides without overshooting and Even goes at one speed."
+msgstr ""
 
 #: rust/crates/effects/ui/composite_editor.slint:99
 msgid "Picture preview"
@@ -3915,7 +3983,7 @@ msgstr "替换布局"
 msgid "Name:"
 msgstr "名称："
 
-#: rust/crates/effects/ui/composite_editor.slint:967 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1102 rust/crates/shell/ui/settings.slint:587
+#: rust/crates/effects/ui/composite_editor.slint:967 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1105 rust/crates/shell/ui/settings.slint:587
 msgid "OK"
 msgstr "确定"
 
@@ -7896,11 +7964,11 @@ msgstr "正在配置更多虚拟相机…"
 msgid "Couldn't add more virtual cameras"
 msgstr "无法添加更多虚拟相机"
 
-#: rust/crates/shell/src/host.rs:726
+#: rust/crates/shell/src/host.rs:730
 msgid "Phone stream required."
 msgstr "需要手机串流。"
 
-#: rust/crates/shell/src/host.rs:732
+#: rust/crates/shell/src/host.rs:736
 msgid "Light format required. Heavy sends whole pictures with no keyframes to work with."
 msgstr "需要“轻量”格式。“完整”格式发送整张画面，没有可用的关键帧。"
 
@@ -8667,57 +8735,57 @@ msgstr "标签页"
 msgid "Check that the device is still on."
 msgstr "检查设备是否仍处于开启状态。"
 
-#: rust/crates/shell/src/settings.rs:914
+#: rust/crates/shell/src/settings.rs:917
 msgid "Nothing matches every word. These match some of the words."
 msgstr "没有匹配所有词项的结果。以下结果匹配了部分词项。"
 
-#: rust/crates/shell/src/settings.rs:916
+#: rust/crates/shell/src/settings.rs:919
 #, python-brace-format
 msgid "Nothing matches “{text}”. Try fewer words, or describe what it does (resolution, microphone, startup)."
 msgstr "没有与“{text}”匹配的结果。请尝试减少词数，或描述其功能（分辨率、麦克风、启动）。"
 
-#: rust/crates/shell/src/settings.rs:918 rust/crates/shell/ui/settings.slint:260
+#: rust/crates/shell/src/settings.rs:921 rust/crates/shell/ui/settings.slint:260
 msgid "Search results"
 msgstr "搜索结果"
 
-#: rust/crates/shell/src/settings.rs:973
+#: rust/crates/shell/src/settings.rs:976
 msgid "This plugin is an early version. It may change or behave oddly."
 msgstr "此插件为早期版本。可能会发生变动或出现异常行为。"
 
-#: rust/crates/shell/src/settings.rs:974
+#: rust/crates/shell/src/settings.rs:977
 msgid "This plugin has technical limitations that will likely never get resolved. Do not expect it to work perfectly."
 msgstr "此插件存在可能永远无法解决的技术限制。请勿期望它能完美工作。"
 
-#: rust/crates/shell/src/settings.rs:990
+#: rust/crates/shell/src/settings.rs:993
 #, python-brace-format
 msgid "Remove {plugin}"
 msgstr "移除 {plugin}"
 
-#: rust/crates/shell/src/settings.rs:1019
+#: rust/crates/shell/src/settings.rs:1022
 msgid "Check for updates"
 msgstr "检查更新"
 
-#: rust/crates/shell/src/settings.rs:1020
+#: rust/crates/shell/src/settings.rs:1023
 msgid "Check once a day for new versions of added plugins that publish releases on GitHub and show them here. Nothing is downloaded."
 msgstr "每天检查一次在 GitHub 上发布版本的已添加插件是否有新版本，并在此处显示。不会下载任何内容。"
 
-#: rust/crates/shell/src/settings.rs:1021
+#: rust/crates/shell/src/settings.rs:1024
 msgid "Install updates without asking"
 msgstr "无需询问直接安装更新"
 
-#: rust/crates/shell/src/settings.rs:1021
+#: rust/crates/shell/src/settings.rs:1024
 msgid "Install new versions of the plugins you switched on and switch them on again."
 msgstr "安装已开启插件的新版本并重新开启它们。"
 
-#: rust/crates/shell/src/settings.rs:1022
+#: rust/crates/shell/src/settings.rs:1025
 msgid "Dangerous! Whoever controls a plugin's repo can then run new code on this computer every time they publish a release."
 msgstr "危险！控制插件代码仓库的人在每次发布新版本时，都可以在这台电脑上运行新代码。"
 
-#: rust/crates/shell/src/settings.rs:1135
+#: rust/crates/shell/src/settings.rs:1138
 msgid "Install a plugin"
 msgstr "安装插件"
 
-#: rust/crates/shell/src/settings.rs:1137
+#: rust/crates/shell/src/settings.rs:1140
 msgid "Plugins (*.zip)"
 msgstr "插件 (*.zip)"
 
@@ -8904,7 +8972,7 @@ msgstr "正在启动手机相机…"
 msgid "Couldn't start the phone's camera"
 msgstr "无法启动手机相机"
 
-#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1136
+#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1139
 msgid "Connecting..."
 msgstr "正在连接..."
 
@@ -9105,43 +9173,43 @@ msgstr "开始串流"
 msgid "Stop streaming"
 msgstr "停止串流"
 
-#: rust/crates/shell/src/window.rs:2153 rust/crates/shell/src/worker.rs:1484
+#: rust/crates/shell/src/window.rs:2153 rust/crates/shell/src/worker.rs:1487
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "正在以 {size}、{fps} fps 串流至 {camera}"
 
-#: rust/crates/shell/src/worker.rs:600
+#: rust/crates/shell/src/worker.rs:603
 #, python-brace-format
 msgid "Stream error: {error}"
 msgstr "串流错误：{error}"
 
-#: rust/crates/shell/src/worker.rs:1136
+#: rust/crates/shell/src/worker.rs:1139
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "正在连接到 {url}..."
 
-#: rust/crates/shell/src/worker.rs:1146
+#: rust/crates/shell/src/worker.rs:1149
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "无法连接到手机的串流。将在 {seconds} 秒后重试…"
 
-#: rust/crates/shell/src/worker.rs:1158
+#: rust/crates/shell/src/worker.rs:1161
 msgid "Waiting for the first frame…"
 msgstr "正在等待首帧…"
 
-#: rust/crates/shell/src/worker.rs:1246
+#: rust/crates/shell/src/worker.rs:1249
 msgid "Stream reconnected"
 msgstr "串流已重新连接"
 
-#: rust/crates/shell/src/worker.rs:1351
+#: rust/crates/shell/src/worker.rs:1354
 msgid "The video is paused while the phone takes a photo"
 msgstr "手机拍照期间视频已暂停"
 
-#: rust/crates/shell/src/worker.rs:1353 rust/crates/shell/src/worker.rs:1359
+#: rust/crates/shell/src/worker.rs:1356 rust/crates/shell/src/worker.rs:1362
 msgid "Stream dropped - reconnecting"
 msgstr "串流中断 - 正在重新连接"
 
-#: rust/crates/shell/src/worker.rs:1473 rust/crates/shell/src/worker.rs:1582
+#: rust/crates/shell/src/worker.rs:1476 rust/crates/shell/src/worker.rs:1585
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "虚拟相机错误：{error}"
@@ -9304,10 +9372,6 @@ msgstr "仅在预览中绘制 MediaPipe 识别到的骨架，不出现在相机�
 #: rust/crates/shell/ui/cards/preview.slint:281
 msgid "Always outline what the phone's longer lenses see. This only shows on the preview, not in the camera output."
 msgstr "始终框出手机长焦镜头的取景范围。仅在预览中显示，不出现在相机输出中。"
-
-#: rust/crates/shell/ui/cards/preview.slint:290 rust/crates/shell/ui/cards/preview.slint:294
-msgid "Smooth"
-msgstr "流畅"
 
 #: rust/crates/shell/ui/cards/preview.slint:295
 msgid "Show every frame in the preview at the cost of a bit more CPU."
