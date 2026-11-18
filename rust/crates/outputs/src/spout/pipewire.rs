@@ -96,7 +96,8 @@ impl Backend for PipeWireBackend {
     fn open(&self, key: &str) -> Result<Box<dyn Reader>, String> {
         let connection = self.connection()?;
         let node = connection.nodes().into_iter().find(|n| is_spout2pw(n) && n.name() == key).ok_or_else(|| "the sender isn't running".to_string())?;
-        let consumer = VideoConsumer::open(&connection, node.id, CLIENT_NAME)?;
+        let mut consumer = VideoConsumer::open(&connection, node.id, CLIENT_NAME)?;
+        consumer.set_owner(key);
         Ok(Box::new(PipeWireReader { consumer }))
     }
 }
@@ -108,6 +109,10 @@ struct PipeWireReader {
 impl Reader for PipeWireReader {
     fn set_stop(&mut self, stop: std::sync::Arc<std::sync::atomic::AtomicBool>) {
         self.consumer.set_stop(stop);
+    }
+
+    fn stalled(&self) -> bool {
+        self.consumer.stalled()
     }
 
     fn next(&mut self, timeout: Duration) -> Result<Option<Picture>, String> {
