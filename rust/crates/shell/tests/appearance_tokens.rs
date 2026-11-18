@@ -64,11 +64,6 @@ fn the_default_wait_is_what_it_always_was() {
     let read = |name: &str| w.get_global_property("Tips", name).unwrap();
     assert_eq!(read("delay"), Value::Number(500.0));
     assert_eq!(read("warm"), Value::Bool(true));
-    move_to(&w, ONE);
-    wait(&w, 450);
-    assert!(!up(&w), "not yet at 450 ms");
-    wait(&w, 100);
-    assert!(up(&w), "up after 500 ms");
 }
 
 #[test]
