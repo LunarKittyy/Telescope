@@ -732,7 +732,6 @@ static CRASHED_ON: std::sync::Mutex<Option<telescope_core::gpu_marker::Card>> = 
 
 /// The window has shown: a failure from here on has the window to say it. The card is cleared by the window's second picture, not here.
 fn window_shown() {
-    telescope_core::diagnostics::set_starting(false);
     let crashed = CRASHED_ON.lock().unwrap_or_else(|e| e.into_inner()).take();
     if let Some(card) = crashed.filter(|_| cfg!(windows)) {
         // Its own thread: the box waits for OK, and the window must keep drawing meanwhile

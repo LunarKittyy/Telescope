@@ -436,7 +436,7 @@ msgstr "720p 16:9 Potret - 720 x 1280"
 msgid "4K 16:9 Portrait - 2160 x 3840"
 msgstr "4K 16:9 Potret - 2160 x 3840"
 
-#: rust/crates/core/src/diagnostics.rs:510 rust/crates/system/src/single_instance.rs:326
+#: rust/crates/core/src/diagnostics.rs:510 rust/crates/system/src/single_instance.rs:328
 msgid "Telescope can't start"
 msgstr "Telescope tidak dapat dimulai"
 
@@ -459,11 +459,15 @@ msgstr ""
 "\n"
 "Ingin membuka log?"
 
-#: rust/crates/core/src/gpu_marker.rs:142
+#: rust/crates/core/src/gpu_marker.rs:283 rust/crates/core/src/gpu_marker.rs:288
 msgid "Telescope switched graphics card"
 msgstr "Telescope beralih kartu grafis"
 
-#: rust/crates/core/src/gpu_marker.rs:143
+#: rust/crates/core/src/gpu_marker.rs:284
+msgid "The last start of Telescope closed while it was looking for graphics cards. Telescope now draws on the processor and doesn't look again until it is updated."
+msgstr ""
+
+#: rust/crates/core/src/gpu_marker.rs:289
 #, python-brace-format
 msgid "The last start of Telescope closed while it was opening {card}. Telescope now uses another graphics card, or the processor if there is none left."
 msgstr "Telescope sebelumnya ditutup saat membuka {card}. Telescope kini menggunakan kartu grafis lain, atau prosesor jika tidak ada yang tersisa."
@@ -8236,19 +8240,19 @@ msgstr "Telescope: streaming mikrofon, kamera nonaktif"
 msgid "Quit"
 msgstr "Keluar"
 
-#: rust/crates/shell/src/tray.rs:230
+#: rust/crates/shell/src/tray.rs:232
 msgid "Streaming continues in the background."
 msgstr "Streaming berlanjut di latar belakang."
 
-#: rust/crates/shell/src/tray.rs:230
+#: rust/crates/shell/src/tray.rs:232
 msgid "Streaming starts automatically when needed."
 msgstr "Streaming dimulai secara otomatis saat dibutuhkan."
 
-#: rust/crates/shell/src/tray.rs:231
+#: rust/crates/shell/src/tray.rs:233
 msgid "Right-click the tray icon to quit."
 msgstr "Klik kanan ikon baki sistem untuk keluar."
 
-#: rust/crates/shell/src/tray.rs:232
+#: rust/crates/shell/src/tray.rs:234
 msgid "Telescope is still running"
 msgstr "Telescope masih berjalan"
 
@@ -8285,7 +8289,7 @@ msgstr "Hentikan streaming"
 msgid "Stop"
 msgstr "Stop"
 
-#: rust/crates/shell/src/window.rs:2034 rust/crates/shell/src/worker.rs:1339
+#: rust/crates/shell/src/window.rs:2064 rust/crates/shell/src/worker.rs:1339
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "Streaming {size} pada {fps} fps ke {camera}"
@@ -9215,41 +9219,41 @@ msgstr "Atur tombol untuk kontrol Telescope, termasuk yang berfungsi di aplikasi
 msgid "Without the Keyboard shortcuts plugin no shortcut does anything and Keyboard shortcuts isn't in Settings (your shortcuts are saved for when the plugin is on again)."
 msgstr "Tanpa plugin Pintasan keyboard, tidak ada pintasan yang berfungsi dan Pintasan keyboard tidak ada di Pengaturan (pintasan Anda disimpan untuk saat plugin aktif kembali)."
 
-#: rust/crates/system/src/single_instance.rs:319
+#: rust/crates/system/src/single_instance.rs:321
 msgid "Telescope is already running"
 msgstr "Telescope sudah berjalan"
 
-#: rust/crates/system/src/single_instance.rs:320
+#: rust/crates/system/src/single_instance.rs:322
 msgid "Telescope is already running for another user on this computer. Close it there, then open it again here."
 msgstr "Telescope sudah berjalan untuk pengguna lain di komputer ini. Tutup di sana, lalu buka kembali di sini."
 
-#: rust/crates/system/src/single_instance.rs:323
+#: rust/crates/system/src/single_instance.rs:325
 #, python-brace-format
 msgid "port {port}"
 msgstr "port {port}"
 
-#: rust/crates/system/src/single_instance.rs:324
+#: rust/crates/system/src/single_instance.rs:326
 msgid "a local socket"
 msgstr "soket lokal"
 
-#: rust/crates/system/src/single_instance.rs:327
+#: rust/crates/system/src/single_instance.rs:329
 #, python-brace-format
 msgid "Telescope couldn't start because something else is holding its single-instance lock ({where}), or another Telescope is stuck. Close that program, or restart the computer, then open Telescope again."
 msgstr "Telescope tidak dapat dimulai karena program lain menahan kunci instans tunggalnya ({where}), atau instans Telescope lain macet. Tutup program tersebut, atau mulai ulang komputer, lalu buka kembali Telescope."
 
-#: rust/crates/system/src/single_instance.rs:372
+#: rust/crates/system/src/single_instance.rs:374
 msgid "Telescope isn't running."
 msgstr "Telescope tidak sedang berjalan."
 
-#: rust/crates/system/src/single_instance.rs:397
+#: rust/crates/system/src/single_instance.rs:399
 msgid "Telescope didn't understand the request. Is the running Telescope an older version? Update Telescope to use --action."
 msgstr "Telescope tidak memahami permintaan tersebut. Apakah Telescope yang berjalan adalah versi yang lebih lama? Perbarui Telescope untuk menggunakan --action."
 
-#: rust/crates/system/src/single_instance.rs:462
+#: rust/crates/system/src/single_instance.rs:464
 msgid "Telescope couldn't write the key --action needs next to its settings when it started. Restart it."
 msgstr "Telescope tidak dapat menulis kunci yang dibutuhkan --action di sebelah pengaturannya saat dimulai. Mulai ulang aplikasi."
 
-#: rust/crates/system/src/single_instance.rs:467
+#: rust/crates/system/src/single_instance.rs:469
 msgid "Telescope rejected the request because it didn't come from this user's Telescope command."
 msgstr "Telescope menolak permintaan karena bukan berasal dari perintah Telescope milik pengguna ini."
 

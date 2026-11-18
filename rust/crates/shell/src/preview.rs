@@ -71,7 +71,7 @@ fn infos_of(adapters: &[wgpu::Adapter]) -> Vec<gpu_pick::Info> {
 /// as in 5.1.0, and software or odd adapters last; wgpu's no-preference request would take whatever is listed first, software
 /// adapters included.
 fn adapters_to_try(instance: &wgpu::Instance, preference: Option<wgpu::PowerPreference>) -> Vec<(wgpu::Adapter, Card)> {
-    let listed = block_on(instance.enumerate_adapters(wgpu::Backends::PRIMARY));
+    let listed = gpu_marker::marked_while(&gpu_marker::probe_card(), || block_on(instance.enumerate_adapters(wgpu::Backends::PRIMARY)));
     let all = infos_of(&listed);
     let candidates: Vec<Candidate> = listed.iter().enumerate().filter_map(|(index, a)| {
         let info = a.get_info();
@@ -132,11 +132,16 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
     if std::env::var_os("TELESCOPE_NO_GPU").is_some() {
         return None;
     }
+    if gpu_marker::probe_failed() {
+        log::warn!("The last start closed while looking for graphics cards, so none is looked for now");
+        return None;
+    }
     let opened = (|| {
         // Not GL: looking for it loads Mesa's big GL libraries, about 25 MB, and a GL adapter found here can't present to the window
         let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
         desc.backends = wgpu::Backends::PRIMARY;
-        let instance = wgpu::Instance::new(desc.with_env());
+        // Loading the drivers can crash too, so the card isn't the only thing the marker covers
+        let instance = gpu_marker::marked_while(&gpu_marker::probe_card(), || wgpu::Instance::new(desc.with_env()));
         let mut why = String::from("no graphics card found");
         for (adapter, card) in adapters_to_try(&instance, wgpu::PowerPreference::from_env()) {
             let info = adapter.get_info();

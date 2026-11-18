@@ -121,7 +121,7 @@ fn infos_of(adapters: &[wgpu::Adapter]) -> Vec<gpu_pick::Info> {
 /// before DX12 as in 5.1.0, and software or odd adapters last; wgpu's no-preference request would take whatever is listed first,
 /// software adapters included.
 fn adapters_to_try(instance: &wgpu::Instance, backends: wgpu::Backends, preference: Option<wgpu::PowerPreference>) -> Vec<(wgpu::Adapter, Card)> {
-    let listed = pollster::block_on(instance.enumerate_adapters(backends));
+    let listed = gpu_marker::marked_while(&gpu_marker::probe_card(), || pollster::block_on(instance.enumerate_adapters(backends)));
     let all = infos_of(&listed);
     let candidates: Vec<Candidate> = listed.iter().enumerate().filter_map(|(index, a)| {
         let info = a.get_info();
@@ -192,11 +192,14 @@ impl Gpu {
     }
 
     pub(crate) fn open() -> Result<Gpu, String> {
+        if gpu_marker::probe_failed() {
+            return Err("the last start closed while looking for graphics cards".into());
+        }
         let mut why = String::from("no graphics card found");
         for backends in BACKENDS {
             let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
             desc.backends = backends;
-            let instance = wgpu::Instance::new(desc.with_env());
+            let instance = gpu_marker::marked_while(&gpu_marker::probe_card(), || wgpu::Instance::new(desc.with_env()));
             for (adapter, card) in adapters_to_try(&instance, backends, wgpu::PowerPreference::from_env()) {
                 match Gpu::open_on(&adapter, &card) {
                     Ok(gpu) => return Ok(gpu),
@@ -208,7 +211,7 @@ impl Gpu {
             }
         }
         // Nothing enumerated worked: the plain high performance request, as before 5.1.1
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle().with_env());
+        let instance = gpu_marker::marked_while(&gpu_marker::probe_card(), || wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle().with_env()));
         let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, ..Default::default() })).map_err(|e| format!("{why}; {e}"))?;
         let card = card_of(&adapter.get_info(), &infos_of(&pollster::block_on(instance.enumerate_adapters(wgpu::Backends::PRIMARY))));
         if gpu_marker::is_skipped(&card) {
@@ -219,12 +222,11 @@ impl Gpu {
 
     fn open_on(adapter: &wgpu::Adapter, card: &Card) -> Result<Gpu, String> {
         let info = adapter.get_info();
-        gpu_marker::mark_unless_marked(card);
-        let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
+        let (device, queue) = gpu_marker::marked_while(card, || pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("telescope frames"),
             required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
             ..Default::default()
-        })).map_err(|e| e.to_string())?;
+        }))).map_err(|e| e.to_string())?;
         telescope_core::machine::set_gpu(info.vendor, &format!("{:?}", info.device_type), &info.name, &format!("{:?}", info.backend), &card.driver);
         crate::decode_card::set_picked(info.vendor, info.device);
         Ok(Gpu::on(device, queue, format!("{} ({:?})", info.name, info.backend)))

@@ -73,16 +73,33 @@ pub fn without_skipped<T>(list: Vec<T>, card_of: impl Fn(&T) -> Card, skipped: &
 struct State {
     /// Markers are only written while a window start is under way, so commands and tests that open a card leave nothing behind.
     folder: Option<PathBuf>,
+    /// The folder of the start, kept after the marker is cleared so a deferred start can arm it again.
+    home: Option<PathBuf>,
+    /// The card last marked.
+    last: Option<Card>,
+    /// A start in the tray: no surface exists yet, so the marker was cleared and is armed again when the window first shows.
+    deferred: bool,
     skipped: Vec<Card>,
 }
 
 fn state() -> MutexGuard<'static, State> {
-    static STATE: Mutex<State> = Mutex::new(State { folder: None, skipped: Vec::new() });
+    static STATE: Mutex<State> = Mutex::new(State { folder: None, home: None, last: None, deferred: false, skipped: Vec::new() });
     STATE.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 fn read<T: for<'de> Deserialize<'de>>(path: &Path) -> Option<T> {
     serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()
+}
+
+/// Writes a file whole or not at all: to a name beside it first, then moved over.
+fn write_atomic(path: &Path, text: &str) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let tmp = path.with_extension("tmp");
+    std::fs::write(&tmp, text).and_then(|_| std::fs::rename(&tmp, path)).inspect_err(|_| {
+        let _ = std::fs::remove_file(&tmp);
+    })
 }
 
 /// Reads what the last start left, in `folder`. The card it closed on (if any) is logged, skipped from now on and returned, so the
@@ -92,18 +109,19 @@ pub fn begin_start(folder: &Path) -> Option<Card> {
     let (skipped, crashed) = after_start(marker, read(&folder.join(SKIP_FILE)).unwrap_or_default());
     if let Some(card) = &crashed {
         log::error!("The last start closed while opening the graphics card {card}, so it is skipped from now on");
-        match serde_json::to_string(&skipped) {
-            Ok(text) => {
-                if let Err(e) = std::fs::create_dir_all(folder).and_then(|_| std::fs::write(folder.join(SKIP_FILE), text)) {
-                    log::warn!("Couldn't save the skipped graphics cards: {e}");
-                }
+        // The marker goes only once the list is saved: losing both would let the card be tried again
+        let saved = serde_json::to_string(&skipped).map_err(|e| e.to_string()).and_then(|text| write_atomic(&folder.join(SKIP_FILE), &text).map_err(|e| e.to_string()));
+        match saved {
+            Ok(()) => {
+                let _ = std::fs::remove_file(folder.join(MARKER_FILE));
             }
-            Err(e) => log::warn!("Couldn't save the skipped graphics cards: {e}"),
+            Err(e) => log::warn!("Couldn't save the skipped graphics cards, the note stays for the next start: {e}"),
         }
-        let _ = std::fs::remove_file(folder.join(MARKER_FILE));
     }
     let mut state = state();
     state.folder = Some(folder.to_path_buf());
+    state.home = Some(folder.to_path_buf());
+    state.deferred = false;
     state.skipped = skipped;
     crashed
 }
@@ -121,26 +139,39 @@ pub fn skipped() -> Vec<Card> {
 /// What to do after a frame was drawn while the start waits to be confirmed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Frame {
-    /// The first picture is drawn but may not be presented yet: ask for another.
+    /// Not yet proven: ask for another picture.
     AskForAnother,
-    /// The second one started, so the first was presented: the card is cleared.
+    /// Enough pictures went out: the card is cleared.
     Confirm,
     Nothing,
 }
 
 /// Counts the window's drawn frames. Slint says a frame is drawn before it is presented, and a card that can't present to the window's
-/// surface fails exactly there, so only the second frame's start proves the first one went out.
+/// surface fails exactly there, with nothing to say a present worked. So the start counts as done after a few frames over about a second.
 #[derive(Default)]
-pub struct Confirm(u32);
+pub struct Confirm {
+    frames: u32,
+    first_ms: u64,
+    done: bool,
+}
+
+const CONFIRM_FRAMES: u32 = 3;
+const CONFIRM_MS: u64 = 1000;
 
 impl Confirm {
-    pub fn frame(&mut self) -> Frame {
-        self.0 = self.0.saturating_add(1);
-        match self.0 {
-            1 => Frame::AskForAnother,
-            2 => Frame::Confirm,
-            _ => Frame::Nothing,
+    pub fn frame(&mut self, now_ms: u64) -> Frame {
+        if self.done {
+            return Frame::Nothing;
         }
+        self.frames += 1;
+        if self.frames == 1 {
+            self.first_ms = now_ms;
+        }
+        if self.frames >= CONFIRM_FRAMES && now_ms.saturating_sub(self.first_ms) >= CONFIRM_MS {
+            self.done = true;
+            return Frame::Confirm;
+        }
+        Frame::AskForAnother
     }
 }
 
@@ -173,7 +204,8 @@ pub fn panic_blames_card(text: &str) -> bool {
 
 /// Notes that this card is about to be opened. Does nothing outside a window start.
 pub fn mark(card: &Card) {
-    let state = state();
+    let mut state = state();
+    state.last = Some(card.clone());
     let Some(folder) = &state.folder else { return };
     let written = serde_json::to_string(card).map_err(|e| e.to_string())
         .and_then(|text| std::fs::create_dir_all(folder).and_then(|_| std::fs::write(folder.join(MARKER_FILE), text)).map_err(|e| e.to_string()));
@@ -182,13 +214,58 @@ pub fn mark(card: &Card) {
     }
 }
 
-/// Like `mark`, but leaves a marker that is already there: the picture work opens its card while the window's card may still be unconfirmed,
-/// and a crash on the window's first picture must not be put on the picture work's card.
-pub fn mark_unless_marked(card: &Card) {
-    let marked = state().folder.as_ref().is_some_and(|f| f.join(MARKER_FILE).exists());
-    if !marked {
-        mark(card);
+/// Marks `card` while `work` runs and puts back what was marked before: the picture work opens its card while the window's may still be
+/// unconfirmed, and a crash in the one must not be put on the other.
+pub fn marked_while<T>(card: &Card, work: impl FnOnce() -> T) -> T {
+    let (folder, last) = {
+        let state = state();
+        (state.folder.clone(), state.last.clone())
+    };
+    let Some(folder) = folder else { return work() };
+    let before = read::<Card>(&folder.join(MARKER_FILE));
+    mark(card);
+    let done = work();
+    match &before {
+        Some(card) => {
+            let _ = serde_json::to_string(card).map(|text| std::fs::write(folder.join(MARKER_FILE), text));
+        }
+        None => {
+            let _ = std::fs::remove_file(folder.join(MARKER_FILE));
+        }
     }
+    state().last = last;
+    done
+}
+
+/// The pseudo card named in the marker while wgpu looks for cards: loading drivers and listing adapters can crash too, before any card is
+/// opened. Its driver text is the app's version, so an update is allowed to look again.
+pub const PROBE_NAME: &str = "graphics card probe";
+
+pub fn probe_card() -> Card {
+    Card::new(PROBE_NAME, "probe", env!("CARGO_PKG_VERSION"))
+}
+
+/// Whether the last start closed while looking for graphics cards at all: no card is looked for then.
+pub fn probe_failed() -> bool {
+    is_skipped(&probe_card())
+}
+
+/// The start is in the tray, where no surface exists to draw on: nothing can fail yet, so the marker goes until the window first shows.
+pub fn defer() {
+    clear();
+    state().deferred = true;
+}
+
+/// The window shows for the first time after a deferred start: the marker is armed again for its first pictures.
+pub fn rearm() {
+    let mut state = state();
+    if !std::mem::take(&mut state.deferred) {
+        return;
+    }
+    let (Some(home), Some(card)) = (state.home.clone(), state.last.clone()) else { return };
+    state.folder = Some(home.clone());
+    drop(state);
+    mark(&card);
 }
 
 /// The window has shown (or the start failed with a message): the card didn't take the program down, so the marker goes.
@@ -201,6 +278,12 @@ pub fn clear() {
 
 /// The title and words for the box that says the last start closed on this card.
 pub fn crash_text(card: &Card) -> (String, String) {
+    if card.name == PROBE_NAME {
+        return (
+            tr("Telescope switched graphics card"),
+            tr("The last start of Telescope closed while it was looking for graphics cards. Telescope now draws on the processor and doesn't look again until it is updated."),
+        );
+    }
     (
         tr("Telescope switched graphics card"),
         tr("The last start of Telescope closed while it was opening {card}. Telescope now uses another graphics card, or the processor if there is none left.").field("card", &card.name),
@@ -259,9 +342,12 @@ mod tests {
     }
 
     #[test]
-    fn a_start_is_confirmed_by_the_second_frame() {
+    fn a_start_is_confirmed_by_a_few_frames_over_a_second() {
         let mut c = Confirm::default();
-        assert_eq!((c.frame(), c.frame(), c.frame()), (Frame::AskForAnother, Frame::Confirm, Frame::Nothing));
+        assert_eq!((c.frame(0), c.frame(16), c.frame(32)), (Frame::AskForAnother, Frame::AskForAnother, Frame::AskForAnother), "three quick frames aren't enough");
+        assert_eq!((c.frame(1000), c.frame(1016), c.frame(1032)), (Frame::Confirm, Frame::Nothing, Frame::Nothing));
+        let mut slow = Confirm::default();
+        assert_eq!((slow.frame(0), slow.frame(600), slow.frame(1500)), (Frame::AskForAnother, Frame::AskForAnother, Frame::Confirm));
     }
 
     #[test]
@@ -302,11 +388,33 @@ mod tests {
         assert_eq!(begin_start(&folder), Some(card("A", "1")));
         assert!(is_skipped(&card("A", "1")) && !is_skipped(&card("A", "2")));
         assert!(!folder.join(MARKER_FILE).exists());
-        // The picture work's card doesn't take the window's marker over, and does mark when there is none
-        mark_unless_marked(&card("C", "1"));
+        // The picture work's card is marked while it opens, and the window's marker is back afterwards
+        mark(&card("C", "1"));
+        assert_eq!(marked_while(&card("D", "1"), || read::<Card>(&folder.join(MARKER_FILE))), Some(card("D", "1")));
         assert_eq!(read::<Card>(&folder.join(MARKER_FILE)), Some(card("C", "1")));
-        mark_unless_marked(&card("D", "1"));
-        assert_eq!(read::<Card>(&folder.join(MARKER_FILE)), Some(card("C", "1")));
+        clear();
+        assert_eq!(marked_while(&card("D", "1"), || ()), ());
+        assert!(!folder.join(MARKER_FILE).exists());
+        // A tray start has no marker until its window first shows, and a normal start isn't armed again
+        begin_start(&folder);
+        mark(&card("T", "1"));
+        defer();
+        assert!(!folder.join(MARKER_FILE).exists());
+        rearm();
+        assert_eq!(read::<Card>(&folder.join(MARKER_FILE)), Some(card("T", "1")));
+        clear();
+        rearm();
+        assert!(!folder.join(MARKER_FILE).exists());
+        // Looking for cards is marked as its own pseudo card, and skipped from then on
+        begin_start(&folder);
+        mark(&probe_card());
+        assert_eq!(begin_start(&folder), Some(probe_card()));
+        assert!(probe_failed());
+        std::fs::write(folder.join(SKIP_FILE), serde_json::to_string(&[card("A", "1")]).unwrap()).unwrap();
+        begin_start(&folder);
+        assert!(!probe_failed());
+        clear();
+        begin_start(&folder);
         // The skip survives another start that went fine
         mark(&card("B", "1"));
         clear();
