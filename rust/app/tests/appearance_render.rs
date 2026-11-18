@@ -3,17 +3,18 @@
 // the columns stay where they were and the default is the picture that was there before the option was touched. The longest
 // languages are drawn at the largest text. APPEARANCE_SHOTS=dir writes the pictures and a list of the texts that end in an ellipsis.
 // Offscreen: nothing reaches the desktop.
-use i_slint_backend_testing::{AccessibleRole, ElementRoot};
+use i_slint_backend_testing::{AccessibleRole, ElementHandle, ElementRoot};
 use i_slint_core::item_tree::ItemRc;
 use i_slint_core::items::{ComplexText, SimpleText, TextOverflow, TextWrap};
 use i_slint_core::layout::Orientation;
 use slint::ComponentHandle;
-use slint_interpreter::ComponentInstance;
+use slint_interpreter::{ComponentInstance, Value};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::Arc;
 use telescope_core::config::{ConfigFile, CONFIG_FILENAME};
 use telescope_core::frame::PixelFormat;
+use telescope_core::i18n::tr;
 use telescope_core::host::{Appearance, Corners, Density, Look, MotionChoice, TextSize};
 use telescope_core::link::{Link, PairingOffer, PhoneSession, RoutePrefs, Unreachable};
 use telescope_core::media::Media;
@@ -180,6 +181,11 @@ const SETTINGS_LEAST_W: f32 = 720.0;
 
 /// A window with every built-in plugin, every card on and every fold open, saving to a folder of its own.
 fn build(name: &str) -> Rc<Window> {
+    build_saved(name, None)
+}
+
+/// build, with an appearance already saved in the settings file (an app that is starting again).
+fn build_saved(name: &str, saved: Option<Appearance>) -> Rc<Window> {
     offscreen::install();
     let folder = telescope_core::testing::scratch_dir(name);
     let services = Arc::new(Services {
@@ -189,6 +195,9 @@ fn build(name: &str) -> Rc<Window> {
     let file = ConfigFile::at(folder.join(CONFIG_FILENAME));
     assert!(file.update(|cfg| {
         cfg["plugins"] = serde_json::json!({"on": ORDER});
+        if let Some(json) = saved.and_then(|a| a.to_json()) {
+            cfg["plugin_configs"] = serde_json::json!({"setup": {"appearance": json}});
+        }
     }));
     let w = window::build(file, move |bus| telescope_shell::plugins::in_order(every_plugin(bus)), Some(services), None).unwrap();
     w.ui.window().set_size(slint::LogicalSize::new(MAIN_W, MAIN_H));
@@ -223,10 +232,111 @@ fn pick(w: &Rc<Window>, appearance: Appearance) {
     settle(w);
 }
 
-fn look(w: &Rc<Window>, look: Look) {
-    w.state.borrow_mut().effects.push(Effect::Look(look));
+/// A control of the Settings window by its accessible name (an exact match).
+fn control(settings: &ComponentInstance, label: &str) -> ElementHandle {
+    ElementHandle::find_by_accessible_label(settings, label).next().unwrap_or_else(|| {
+        let word = label.split(':').next().unwrap_or(label);
+        let near: Vec<String> = settings.root_element().query_descendants().find_all().iter().filter_map(|e| e.accessible_label()).filter(|l| l.contains(word)).map(|l| l.to_string()).collect();
+        let all: Vec<String> = settings.root_element().query_descendants().find_all().iter().filter_map(|e| e.accessible_label()).map(|l| l.to_string()).collect();
+        panic!("no control called {label}; near: {near:?}; {} labelled in all: {:?}", all.len(), &all[..all.len().min(60)])
+    })
+}
+
+/// A switch of the Settings window by its accessible name (the row's marker has the same name, and cannot be checked).
+fn switch(settings: &ComponentInstance, label: &str) -> ElementHandle {
+    ElementHandle::find_by_accessible_label(settings, label).find(|e| e.accessible_checkable() == Some(true)).unwrap_or_else(|| panic!("no switch called {label}"))
+}
+
+/// Opens Settings on General, where the Look card is.
+fn look_card(w: &Rc<Window>) -> Rc<telescope_shell::settings::Settings> {
+    telescope_shell::settings::open(w, "general");
+    let settings = telescope_shell::settings::current().expect("the settings window");
+    assert!(settings.show_tab("general"));
+    // As tall as the content, so the whole card is there to be found
+    settings.ui.window().set_size(slint::LogicalSize::new(settings_w(), 9000.0));
+    offscreen::pump();
     w.process();
     settle(w);
+    settings
+}
+
+/// Picks a look the way a person does, with the Theme chip of the Look card.
+fn look(w: &Rc<Window>, look: Look) {
+    let settings = look_card(w);
+    let names = ["Dark", "Classic", "OLED", "Light"];
+    control(&settings.ui, &format!("{}: {}", tr("Theme"), tr(names[look.index()]))).invoke_accessible_default_action();
+    w.process();
+    settle(w);
+    let shown = settings.get_prop("setup", "look", "theme-current");
+    assert_eq!(shown, Some(Value::Number(look.index() as f64)), "the Theme chip shows {look:?}");
+    for (what, ui) in [("main window", &w.ui), ("Settings", &settings.ui)] {
+        assert_eq!(ui.get_global_property("Theme", "look").unwrap(), Value::Number(look.index() as f64), "{what} wears {look:?}");
+    }
+}
+
+/// Picks an appearance the way a person does (the Look card's chips, switches, slider and Motion list), so the plugin state, the controls and the tokens all change.
+fn choose(w: &Rc<Window>, a: Appearance) {
+    let settings = look_card(w);
+    let chip = |row: &str, item: &str| format!("{}: {}", tr(row), tr(item));
+    let (corners, text, density) = (["Sharp", "Default", "Round"], ["Small", "Default", "Large"], ["Compact", "Default", "Comfortable"]);
+    control(&settings.ui, &chip("Corners", corners[a.corners as usize])).invoke_accessible_default_action();
+    control(&settings.ui, &chip("Text size", text[a.text as usize])).invoke_accessible_default_action();
+    control(&settings.ui, &chip("Density", density[a.density as usize])).invoke_accessible_default_action();
+    for (name, on) in [("Higher contrast", a.contrast), ("Show the next tooltip sooner", a.tip_warm)] {
+        let flip = switch(&settings.ui, &tr(name));
+        if flip.accessible_checked() != Some(on) {
+            flip.invoke_accessible_default_action();
+        }
+    }
+    // The Motion list and the slider have no accessible action: their callbacks go to the plugin as the controls would send them
+    assert!(settings.call_with("setup", "look", "motion-picked", &[Value::Number(a.motion as usize as f64)]));
+    assert!(settings.call_with("setup", "look", "tip-delay-moved", &[Value::Number(f64::from(a.tip_delay_ms))]));
+    w.process();
+    settle(w);
+    applied(w, &a);
+}
+
+/// That the main window and the Settings window wear an appearance's tokens (and the tooltip and motion globals).
+fn wears(w: &Rc<Window>, a: &Appearance) {
+    let settings = telescope_shell::settings::current().expect("the settings window");
+    let motion = telescope_shell::appearance::motion_of(a);
+    let (reduced, off) = (motion != telescope_shell::motion::Motion::Full, motion == telescope_shell::motion::Motion::Off);
+    for (what, ui) in [("main window", &w.ui), ("Settings", &settings.ui)] {
+        let number = |g: &str, n: &str| match ui.get_global_property(g, n) {
+            Ok(Value::Number(v)) => v,
+            other => panic!("{what}: {g}.{n} is {other:?}"),
+        };
+        let flag = |g: &str, n: &str| ui.get_global_property(g, n) == Ok(Value::Bool(true));
+        assert_eq!(number("Theme", "radius"), a.radius(), "{what}: Theme.radius for {a:?}");
+        assert_eq!(number("Theme", "body"), a.body(), "{what}: Theme.body for {a:?}");
+        assert_eq!(number("Theme", "unit"), a.unit(), "{what}: Theme.unit for {a:?}");
+        assert_eq!(flag("Theme", "contrast"), a.contrast, "{what}: Theme.contrast for {a:?}");
+        assert_eq!(number("Tips", "delay"), f64::from(a.tip_delay_ms), "{what}: Tips.delay for {a:?}");
+        assert_eq!(flag("Tips", "warm"), a.tip_warm, "{what}: Tips.warm for {a:?}");
+        assert_eq!((flag("Motion", "reduced"), flag("Motion", "off")), (reduced, off), "{what}: Motion for {a:?}");
+    }
+}
+
+/// That an appearance is what the windows wear and the Look card shows: the tokens, the plugin state behind the controls, and the controls as drawn.
+fn applied(w: &Rc<Window>, a: &Appearance) {
+    wears(w, a);
+    let settings = telescope_shell::settings::current().expect("the settings window");
+    // The plugin's own state, which is what the card's controls show
+    let prop = |n: &str| settings.get_prop("setup", "look", n);
+    assert_eq!(prop("corners-current"), Some(Value::Number(a.corners as usize as f64)), "the Corners chip");
+    assert_eq!(prop("text-current"), Some(Value::Number(a.text as usize as f64)), "the Text size chip");
+    assert_eq!(prop("density-current"), Some(Value::Number(a.density as usize as f64)), "the Density chip");
+    assert_eq!(prop("contrast-checked"), Some(Value::Bool(a.contrast)), "the Higher contrast switch");
+    assert_eq!(prop("tip-warm-checked"), Some(Value::Bool(a.tip_warm)), "the next tooltip switch");
+    // And the controls as drawn: the chips and switches say the same through their accessibility
+    let (corners, text, density) = (["Sharp", "Default", "Round"], ["Small", "Default", "Large"], ["Compact", "Default", "Comfortable"]);
+    for (row, items, at) in [("Corners", corners, a.corners as usize), ("Text size", text, a.text as usize), ("Density", density, a.density as usize)] {
+        for (i, item) in items.iter().enumerate() {
+            let checked = control(&settings.ui, &format!("{}: {}", tr(row), tr(item))).accessible_checked();
+            assert_eq!(checked, Some(i == at), "the {row} chip {item} for {a:?}");
+        }
+    }
+    assert_eq!(switch(&settings.ui, &tr("Higher contrast")).accessible_checked(), Some(a.contrast), "the Higher contrast switch as drawn");
 }
 
 fn shots() -> Option<PathBuf> {
@@ -470,7 +580,7 @@ fn every_step_draws_the_main_window_and_every_settings_tab_inside_their_boxes() 
     let mut problems: Vec<String> = Vec::new();
     let mut all: Vec<(String, Seen)> = Vec::new();
     for (name, appearance) in steps() {
-        pick(&w, appearance);
+        choose(&w, appearance);
         let seen = everything(&w, name);
         // The columns stay where they are: only text size and density may change what is inside a card, never where the cards sit across
         for ((n, s), (_, b)) in seen.iter().zip(&before) {
@@ -499,7 +609,7 @@ fn every_step_draws_the_main_window_and_every_settings_tab_inside_their_boxes() 
         all.extend(seen);
     }
     // Back to the default after all of them: nothing stays behind
-    pick(&w, Appearance::default());
+    choose(&w, Appearance::default());
     for ((n, s), (_, b)) in everything(&w, "after").iter().zip(&before) {
         if !same(s, b) {
             problems.push(format!("{n}: it does not come back to the default ({})", differ(s, b)));
@@ -534,9 +644,9 @@ fn contrast_is_drawn_in_each_look() {
     let mut problems = Vec::new();
     for (name, l) in [("dark", Look::Dark), ("classic", Look::Classic), ("oled", Look::Oled), ("light", Look::Light)] {
         look(&w, l);
-        pick(&w, Appearance::default());
+        choose(&w, Appearance::default());
         let normal = everything(&w, &format!("{name}-normal"));
-        pick(&w, Appearance { contrast: true, ..Default::default() });
+        choose(&w, Appearance { contrast: true, ..Default::default() });
         let high = everything(&w, &format!("{name}-contrast"));
         for ((n, a), (_, b)) in normal.iter().zip(&high) {
             if same(a, b) {
@@ -577,9 +687,9 @@ fn the_longest_languages_fit_at_the_largest_text() {
         assert_eq!(telescope_core::i18n::load(Some(language)), language);
         let w = build(&format!("appearance-lang-{language}"));
         let large = Appearance { text: TextSize::Large, ..Default::default() };
-        pick(&w, Appearance::default());
+        choose(&w, Appearance::default());
         let normal = everything(&w, &format!("{language}-default"));
-        pick(&w, large);
+        choose(&w, large);
         let big = everything(&w, &format!("{language}-large"));
         // What the largest text cuts or ends in an ellipsis that the default text does not
         for ((n, a), (_, b)) in normal.iter().zip(&big) {
@@ -621,7 +731,7 @@ fn the_settings_window_at_its_least_width_keeps_its_names_at_the_largest_text_an
     let big = Appearance { text: TextSize::Large, density: Density::Comfortable, contrast: true, ..Default::default() };
     for (name, l) in [("dark", Look::Dark), ("light", Look::Light), ("oled", Look::Oled), ("classic", Look::Classic)] {
         look(&w, l);
-        pick(&w, big);
+        choose(&w, big);
         telescope_shell::settings::open(&w, "general");
         let settings = telescope_shell::settings::current().expect("the settings window");
         for tab in settings.tabs() {
@@ -648,7 +758,7 @@ fn the_settings_window_at_its_least_width_keeps_its_names_at_the_largest_text_an
             }
         }
     }
-    pick(&w, Appearance::default());
+    choose(&w, Appearance::default());
     look(&w, Look::Dark);
     telescope_shell::settings::forget();
     w.shut_down();
@@ -683,6 +793,40 @@ fn the_motion_choice_overrides_the_system_and_reaches_every_window() {
     }
     pick(&w, Appearance::default());
     assert_eq!(flags(main), expected(system));
+    telescope_shell::settings::forget();
+    w.shut_down();
+}
+
+/// A Settings window made after the pick, or after a restart with the pick saved, wears it and its Look card shows it.
+#[test]
+fn a_settings_window_made_after_the_pick_wears_it() {
+    let big = Appearance { corners: Corners::Round, text: TextSize::Large, density: Density::Comfortable, contrast: true, tip_delay_ms: 900, tip_warm: false, motion: MotionChoice::Reduced };
+    // The effect alone (nobody used the card) dresses the open Settings window and the main window, and leaves the card's own state behind
+    let w = build("appearance-effect");
+    look_card(&w);
+    w.state.borrow_mut().effects.push(Effect::Appearance(big));
+    w.process();
+    wears(&w, &big);
+    let settings = telescope_shell::settings::current().expect("the settings window");
+    assert_eq!(settings.get_prop("setup", "look", "text-current"), Some(Value::Number(1.0)), "the card is not told by the effect alone");
+    telescope_shell::settings::forget();
+    w.shut_down();
+    // Picked in the running app, with Settings not yet made
+    let w = build("appearance-late");
+    w.state.borrow_mut().effects.push(Effect::Appearance(big));
+    w.process();
+    assert!(telescope_shell::settings::current().is_none(), "Settings is not made yet");
+    telescope_shell::settings::open(&w, "general");
+    wears(&w, &big);
+    telescope_shell::settings::forget();
+    w.shut_down();
+    // Saved, and the app starting again: the plugin tells the windows before Settings exists, and the card shows what was saved
+    let w = build_saved("appearance-restart", Some(big));
+    w.process();
+    settle(&w);
+    assert!(telescope_shell::settings::current().is_none(), "Settings is not made yet");
+    look_card(&w);
+    applied(&w, &big);
     telescope_shell::settings::forget();
     w.shut_down();
 }

@@ -664,6 +664,12 @@ impl Settings {
         }
     }
 
+    /// What a plugin's settings section shows for one of its properties now (for tests).
+    pub fn get_prop(&self, plugin: &str, ui: &str, prop: &str) -> Option<SValue> {
+        let (_, _, id) = self.pieces.iter().find(|p| p.0 == plugin && p.1 == ui)?;
+        self.ui.get_property(&format!("{id}-{prop}")).ok()
+    }
+
     /// Scrolls the page so a control that just got keyboard focus shows, 40 px clear of the edge like ensureWidgetVisible.
     fn reveal(&self, y: f32, h: f32) {
         let t = match self.ui.get_property("current") { Ok(SValue::Number(n)) => n as usize, _ => 0 };

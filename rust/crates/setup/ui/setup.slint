@@ -84,9 +84,9 @@ export component VirtualCameraSettings inherits Card {
             HorizontalLayout {
                 spacing: Theme.gap;
                 alignment: end;
-                Button { text: @tr("Check"); clicked => { root.check-clicked(); } }
-                Button { text: @tr("Load"); tip: @tr("Load"); tip-detail: load-tip; clicked => { root.load-clicked(); } }
-                Button { text: @tr("Unload"); tip: @tr("Unload"); tip-detail: load-tip; clicked => { root.unload-clicked(); } }
+                Button { text: @tr("Check"); shrinks: true; clicked => { root.check-clicked(); } }
+                Button { text: @tr("Load"); shrinks: true; tip: @tr("Load"); tip-detail: load-tip; clicked => { root.load-clicked(); } }
+                Button { text: @tr("Unload"); shrinks: true; tip: @tr("Unload"); tip-detail: load-tip; clicked => { root.unload-clicked(); } }
             }
         }
         StatusRow { text: v4l-text; kind: v4l-kind; detail: v4l-text; }
