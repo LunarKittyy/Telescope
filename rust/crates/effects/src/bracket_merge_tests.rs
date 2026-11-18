@@ -160,7 +160,7 @@ fn photos_are_read_merged_and_saved_next_to_the_first_with_what_the_camera_wrote
     assert_eq!(again["ok"], json!(true));
     assert_eq!(PathBuf::from(again["path"].as_str().unwrap()).file_name().unwrap().to_string_lossy(), "IMG_0_focus-merged (2).jpg");
     assert!(files.iter().all(|f| !Path::new(f).exists()) && again["removed"] == json!(3));
-    // a photo that can't be lined up leaves the others merged and nothing deleted, even when only the merged picture was asked for
+    // a photo that can't be lined up is not in the merged picture, and goes with the others when only the merged picture was asked for
     let mut more = Vec::new();
     for i in 0..3 {
         let path = folder.join(format!("PIC_{i}.jpg"));
@@ -169,8 +169,23 @@ fn photos_are_read_merged_and_saved_next_to_the_first_with_what_the_camera_wrote
         more.push(path.display().to_string());
     }
     let partial = merge_files(&more, 90, false, Kind::Focus, 3);
-    assert_eq!((partial["ok"].clone(), partial["used"].clone(), partial["kept"].clone()), (json!(true), json!(2), json!(true)), "{partial}");
-    assert!(more.iter().all(|f| Path::new(f).exists()) && partial["removed"] == json!(0));
+    assert_eq!((partial["ok"].clone(), partial["used"].clone(), partial["kept"].clone(), partial["removed"].clone()), (json!(true), json!(2), json!(false), json!(3)), "{partial}");
+    assert!(more.iter().all(|f| !Path::new(f).exists()));
+    // a big stack with several photos that can't be lined up: every photo goes, with its RAW
+    let mut stack = Vec::new();
+    let odd = [3usize, 17, 31, 44];
+    for i in 0..48 {
+        let path = folder.join(format!("BIG_{i:02}.jpg"));
+        let image = if odd.contains(&i) { Image { width: W, height: H, rgb: vec![128; W * H * 3] } } else { photo(i % 3, 0.0, (0.0, 0.0)) };
+        std::fs::write(&path, encode_jpeg(&image, 92, None).unwrap()).unwrap();
+        std::fs::write(folder.join(format!("BIG_{i:02}.dng")), b"raw").unwrap();
+        stack.push(path.display().to_string());
+        stack.push(folder.join(format!("BIG_{i:02}.dng")).display().to_string());
+    }
+    let big = merge_files(&stack, 90, false, Kind::Focus, 48);
+    assert_eq!((big["ok"].clone(), big["removed"].clone(), big["left"].clone()), (json!(true), json!(96), json!(0)), "{big}");
+    assert!(big["used"].as_i64().unwrap() < 48, "some photos were not in the merge: {big}");
+    assert!((0..48).all(|i| !folder.join(format!("BIG_{i:02}.jpg")).exists() && !folder.join(format!("BIG_{i:02}.dng")).exists()));
     // a bracket of four of which only three JPEGs arrived (the fourth is a RAW only): the three are merged and nothing is deleted
     let three: Vec<String> = (0..3).map(|i| folder.join(format!("SHOT_{i}.jpg")).display().to_string()).collect();
     for (i, f) in three.iter().enumerate() {

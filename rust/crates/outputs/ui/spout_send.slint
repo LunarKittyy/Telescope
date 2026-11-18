@@ -6,11 +6,16 @@ export component SpoutSendCard inherits Card {
     in property <string> status-text;
     in property <string> status-kind: "status_dim";
     in-out property <bool> checked;
+    in-out property <bool> transparent;
+    in property <bool> transparent-shown;
     callback toggled(bool);
+    callback transparent-toggled(bool);
 
     title: @tr("Spout send");
     tip: @tr("Share this stream's picture with other programs on this computer, such as OBS.");
     icon: Icons.arrow-out;
+    header-status: root.status-text;
+    header-status-kind: root.status-kind == "status_ok" ? "ok" : root.status-kind == "status_warn" ? "warn" : root.status-kind == "status_err" ? "err" : "";
 
     SwitchTile {
         icon: Icons.arrow-out;
@@ -21,16 +26,13 @@ export component SpoutSendCard inherits Card {
         checked <=> root.checked;
         toggled(on) => { root.checked = on; root.toggled(on); }
     }
-    Text {
-        height: Theme.u(9);
-        visible: root.status-text != "";
-        text: root.status-text;
-        overflow: elide;
-        vertical-alignment: center;
-        font-family: Theme.font;
-        font-size: Theme.body;
-        accessible-label: @tr("Status");
-        color: root.status-kind == "status_ok" ? Theme.ok : root.status-kind == "status_warn" ? Theme.warn
-            : root.status-kind == "status_err" ? Theme.err : Theme.ink2;
+    if root.transparent-shown: SwitchTile {
+        icon: Icons.cut-in;
+        text: @tr("Transparent background");
+        tip: @tr("Cut yourself out and share the picture with a see-through background, for programs that can lay it over something.");
+        tip-detail: @tr("It uses the person cut-out of Background or Chroma key. For the stream you are looking at it switches Background to Blur while nothing else uses it. Another stream only has a see-through background while Background or Chroma key is on for it.");
+        hue: root.hue;
+        checked <=> root.transparent;
+        toggled(on) => { root.transparent = on; root.transparent-toggled(on); }
     }
 }

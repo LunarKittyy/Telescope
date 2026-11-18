@@ -166,7 +166,9 @@ fn run(name: &str, backend: &dyn Backend, tell: &(dyn Fn(State) + Send + Sync), 
                 }
             }
         }
-        if !pack::bgra(&frame, None, &mut bytes) {
+        // The cut-out the frame carries (the step that tapped it left it only for a stream that asked for transparency); colours that are already multiplied by it stay opaque
+        let cut_out = frame.alpha().filter(|a| !a.premultiplied);
+        if !pack::bgra(&frame, cut_out.map(|a| &a.data[..]), &mut bytes) {
             tell(State::Failed(Problem::Format));
             continue;
         }
