@@ -186,6 +186,11 @@ class Eval:
         if tok == "pick" and self.peek() == "(":
             self.take()
             return self.args()[self.look]
+        if tok == "lift" and self.peek() == "(":
+            self.take()
+            return self.args()[0]
+        if tok == "contrast":
+            return False
         if tok == "look":
             return self.look
         if tok in ("classic", "oled", "light"):
@@ -231,7 +236,7 @@ def generate():
     colours = [(n, e) for k, n, e in props if k == "color" and n not in SKIP and not re.fullmatch(r"[a-z0-9-]+", e) and not e.startswith('"')]
     lengths = [(n, e) for k, n, e in props if k == "length" and n in LENGTHS]
     # unit and stroke are the only sizes the lengths above rest on
-    base = {"unit": unit, "stroke": unit}
+    base = {"unit": unit, "stroke": unit, "hair": max(1.0, round(unit / 2))}
     values = []  # per look: name -> (kind, text)
     defs = {n: e for n, e in colours + lengths}
     for group, expr in hues.items():
