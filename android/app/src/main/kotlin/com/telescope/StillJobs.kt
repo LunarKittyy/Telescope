@@ -131,12 +131,13 @@ class StillJobs(private val dir: File, private val clock: () -> Long = System::c
         return job.files.getOrNull(n)?.takeIf { it.isFile }?.also { job.fetched += n }
     }
 
-    // The computer has what it wanted: the files go
+    // The computer is done with the request: its files go. One still shooting is cancelled the same way, so its unwritten and late files
+    // are refused and deleted too; true then, so the caller stops the camera taking the rest
     @Synchronized
-    fun forget(id: String) {
-        val job = jobs[id]?.takeIf { it.endedAt != 0L } ?: return
+    fun forget(id: String): Boolean {
+        val job = jobs.remove(id) ?: return false
         job.files.forEach { it.delete() }
-        jobs.remove(id)
+        return job.endedAt == 0L
     }
 
     // Everything goes: the stream stopped

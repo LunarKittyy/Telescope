@@ -349,6 +349,32 @@ fn photos_saved_before_a_burst_failed_still_count() {
 }
 
 #[test]
+fn a_burst_cut_short_by_hiding_still_counts_what_it_saved_and_what_it_filled() {
+    let run = |budget: u64| {
+        let dir = scratch_dir(&format!("phototrap-cut-short-{budget}"));
+        let (mut p, _) = plugin();
+        p.folder = dir.display().to_string();
+        p.budget = budget;
+        let mut h = host();
+        click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+        moved(&mut p, &mut h);
+        let files: Vec<String> = ["a.jpg", "b.jpg"].iter().map(|n| {
+            std::fs::write(dir.join(n), vec![0u8; 600]).unwrap();
+            dir.join(n).display().to_string()
+        }).collect();
+        // Two shots were saved before the picture went hidden for the third
+        finished(&mut p, &mut h, 1, false, json!({"ok": false, "files": files, "code": "hidden", "error": ""}));
+        p
+    };
+    let roomy = run(10_000);
+    assert_eq!((roomy.triggers, roomy.photos, roomy.used), (1, 2, 1200), "the files and their bytes count");
+    assert!(roomy.problem.is_none() && roomy.armed, "hiding is no error and the folder has room");
+    let full = run(1000);
+    assert_eq!((full.triggers, full.photos, full.used), (1, 2, 1200));
+    assert!(!full.armed, "the saved files filled the folder");
+}
+
+#[test]
 fn a_zone_is_kept_where_the_detector_looks_whatever_the_zoom_and_flip() {
     let (mut p, mut h, _) = armed();
     // Zoomed 2x on the middle, a drag across the left of the preview is over the part of the picture that starts a quarter in
@@ -586,4 +612,60 @@ fn a_burst_in_the_middle_of_a_long_exposure_is_not_given_up_on_while_its_stream_
     assert_eq!(p.taking.len(), 1);
     finished(&mut p, &mut h, 1, true, json!({"files": ["/a.jpg"]}));
     assert_eq!(p.photos, 1);
+}
+
+#[test]
+fn a_burst_pending_while_arming_again_is_not_counted_twice() {
+    let dir = scratch_dir("phototrap-rescan");
+    let (mut p, now) = plugin();
+    p.folder = dir.display().to_string();
+    p.budget = 10_000;
+    let mut h = host();
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+    moved(&mut p, &mut h);
+    assert_eq!(p.taking.len(), 1);
+    let (a, b) = (dir.join("a.jpg"), dir.join("b.jpg"));
+    std::fs::write(&a, vec![0u8; 400]).unwrap();
+    std::fs::write(&b, vec![0u8; 400]).unwrap();
+    // Off and on again while the burst is pending: the rescan finds its files
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(false));
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+    assert_eq!(p.used, 800);
+    let files = json!([a.display().to_string(), b.display().to_string()]);
+    finished(&mut p, &mut h, 1, true, json!({"files": files}));
+    assert_eq!((p.photos, p.used), (2, 800), "counted once");
+    assert!(p.counted.is_empty());
+    // A later burst is counted as usual
+    let c = dir.join("c.jpg");
+    std::fs::write(&c, vec![0u8; 100]).unwrap();
+    p.taking.push((RequestId(9), None));
+    finished(&mut p, &mut h, 9, true, json!({"files": [c.display().to_string()]}));
+    assert_eq!(p.used, 900);
+    let _ = now;
+}
+
+#[test]
+fn arming_again_during_a_download_leaves_out_the_empty_name_and_the_partial_file() {
+    let dir = scratch_dir("phototrap-rescan-part");
+    let (mut p, _now) = plugin();
+    p.folder = dir.display().to_string();
+    p.budget = 10_000;
+    let mut h = host();
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+    moved(&mut p, &mut h);
+    assert_eq!(p.taking.len(), 1);
+    let (done, reserved) = (dir.join("a.jpg"), dir.join("b.jpg"));
+    std::fs::write(&done, vec![0u8; 400]).unwrap();
+    std::fs::write(&reserved, b"").unwrap();
+    std::fs::write(dir.join("b.jpg.part"), vec![0u8; 300]).unwrap();
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(false));
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+    assert_eq!(p.used, 400, "only the finished photo");
+    assert_eq!(p.counted, HashSet::from([done.clone()]));
+    // The download ends: the file is its real size, counted once
+    std::fs::remove_file(dir.join("b.jpg.part")).unwrap();
+    std::fs::write(&reserved, vec![0u8; 500]).unwrap();
+    let files = json!([done.display().to_string(), reserved.display().to_string()]);
+    finished(&mut p, &mut h, 1, true, json!({"files": files}));
+    assert_eq!((p.photos, p.used), (2, 900));
 }

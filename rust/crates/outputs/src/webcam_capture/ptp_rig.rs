@@ -527,8 +527,8 @@ impl Rig for PtpCamera {
         self.stop = Some(stop);
     }
 
-    fn capture(&mut self, expect: usize) -> Result<Vec<Shot>, Incomplete> {
-        self.take_picture(expect)
+    fn capture(&mut self, expect: usize, stop: &dyn Fn() -> bool) -> Result<Vec<Shot>, Incomplete> {
+        self.take_picture(expect, stop)
     }
 
     fn restart_live_view(&mut self) {

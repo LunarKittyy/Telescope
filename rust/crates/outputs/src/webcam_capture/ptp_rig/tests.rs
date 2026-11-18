@@ -298,7 +298,7 @@ fn waits(rig: &mut PtpCamera) {
 fn nikon_takes_a_photo_into_its_memory_and_the_file_comes_with_its_name() {
     let mock = Mock::nikon();
     let mut rig = open(&mock);
-    let shots = rig.capture(1).unwrap();
+    let shots = rig.capture(1, &|| false).unwrap();
     assert_eq!(shots, vec![Shot { name: "DSC_0001.JPG".into(), data: JPEG.to_vec() }]);
     let log = mock.state().log.clone();
     let at = |op: u16| log.iter().position(|(o, _, _)| *o == op).unwrap_or_else(|| panic!("{op:#x} never sent"));
@@ -312,12 +312,12 @@ fn nikon_waits_for_both_files_of_a_pair_and_reports_the_one_that_came_when_the_o
     let mock = Mock::nikon();
     mock.state().photo_files.push(("DSC_0001.NEF".into(), vec![1, 2, 3]));
     let mut rig = open(&mock);
-    let shots = rig.capture(2).unwrap();
+    let shots = rig.capture(2, &|| false).unwrap();
     assert_eq!(shots.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(), ["DSC_0001.JPG", "DSC_0001.NEF"]);
     let mock = Mock::nikon();
     let mut rig = open(&mock);
     waits(&mut rig);
-    let Err(Incomplete { why, shots }) = rig.capture(2) else { panic!("only one file was made") };
+    let Err(Incomplete { why, shots }) = rig.capture(2, &|| false) else { panic!("only one file was made") };
     assert_eq!(shots.len(), 1);
     assert!(why.starts_with("1 of 2 files came"), "{why}");
 }
@@ -328,8 +328,17 @@ fn nikon_that_never_says_the_photo_is_there_times_out_with_nothing() {
     mock.state().silent_photos = true;
     let mut rig = open(&mock);
     waits(&mut rig);
-    let Err(Incomplete { why, shots }) = rig.capture(1) else { panic!("nothing was reported") };
+    let Err(Incomplete { why, shots }) = rig.capture(1, &|| false) else { panic!("nothing was reported") };
     assert!(shots.is_empty() && why.contains("in time"), "{why}");
+}
+
+#[test]
+fn a_photo_taken_while_the_picture_went_hidden_is_never_fetched() {
+    let mock = Mock::nikon();
+    let mut rig = open(&mock);
+    let Err(Incomplete { why, shots }) = rig.capture(1, &|| true) else { panic!("the picture was hidden") };
+    assert!(shots.is_empty() && why.contains("hidden"), "{why}");
+    assert!(!mock.ops().contains(&0x1009), "{:x?}", mock.ops());
 }
 
 #[test]
@@ -337,7 +346,7 @@ fn a_camera_without_the_capture_operation_says_it_cant_be_triggered() {
     let mock = Mock::nikon();
     mock.state().operations.retain(|op| *op != 0x90C0);
     let mut rig = open(&mock);
-    let Err(Incomplete { why, .. }) = rig.capture(1) else { panic!("the camera can't capture") };
+    let Err(Incomplete { why, .. }) = rig.capture(1, &|| false) else { panic!("the camera can't capture") };
     assert!(why.contains("can't be triggered"), "{why}");
 }
 
@@ -345,7 +354,7 @@ fn a_camera_without_the_capture_operation_says_it_cant_be_triggered() {
 fn canon_presses_half_then_full_sends_the_photo_to_the_computer_and_lets_the_camera_go() {
     let mock = Mock::canon();
     let mut rig = open(&mock);
-    let shots = rig.capture(1).unwrap();
+    let shots = rig.capture(1, &|| false).unwrap();
     assert_eq!(shots, vec![Shot { name: "IMG_0001.JPG".into(), data: JPEG.to_vec() }]);
     let log = mock.state().log.clone();
     let sent: Vec<(u16, Vec<u32>)> = log.iter().filter(|(op, _, _)| matches!(op, 0x9128 | 0x9129 | 0x9117)).map(|(op, p, _)| (*op, p.clone())).collect();
@@ -358,12 +367,12 @@ fn canon_that_makes_a_pair_gives_both_and_one_that_stays_silent_still_gets_its_b
     let mock = Mock::canon();
     mock.state().photo_files.push(("IMG_0001.CR3".into(), vec![9; 4]));
     let mut rig = open(&mock);
-    assert_eq!(rig.capture(2).unwrap().len(), 2);
+    assert_eq!(rig.capture(2, &|| false).unwrap().len(), 2);
     let silent = Mock::canon();
     silent.state().silent_photos = true;
     let mut rig = open(&silent);
     waits(&mut rig);
-    assert!(rig.capture(1).is_err());
+    assert!(rig.capture(1, &|| false).is_err());
     assert_eq!(silent.ops().iter().filter(|o| **o == 0x9129).count(), 2, "both buttons come up");
 }
 
@@ -372,7 +381,7 @@ fn a_photo_of_an_unknown_make_is_refused() {
     let mock = Mock::nikon();
     mock.state().maker = Some(Maker::Other);
     let mut rig = open(&mock);
-    assert!(rig.capture(1).is_err());
+    assert!(rig.capture(1, &|| false).is_err());
 }
 
 #[test]
@@ -394,7 +403,7 @@ fn a_raw_file_over_the_transports_limit_comes_in_pieces_and_whole() {
         s.max_data = Some(1 << 20);
     }
     let mut rig = open(&mock);
-    let shots = rig.capture(1).unwrap();
+    let shots = rig.capture(1, &|| false).unwrap();
     assert_eq!(shots[0].data, big);
     let pieces: Vec<Vec<u32>> = mock.state().log.iter().filter(|(op, _, _)| *op == 0x101B).map(|(_, p, _)| p.clone()).collect();
     assert_eq!(pieces.len(), 3);
@@ -406,16 +415,16 @@ fn a_raw_file_over_the_transports_limit_comes_in_pieces_and_whole() {
 fn nikon_lets_go_of_what_it_held_in_memory_and_stops_asking_when_it_doesnt_know_the_handle() {
     let mock = Mock::nikon();
     let mut rig = open(&mock);
-    rig.capture(1).unwrap();
+    rig.capture(1, &|| false).unwrap();
     assert!(mock.state().log.iter().any(|(op, p, _)| *op == 0x100B && p == &[0xFFFF_0001, 0]));
     let mock = Mock::nikon();
     mock.state().delete_code = Some(0x2009);
     mock.state().photo_files.push(("DSC_0001.NEF".into(), vec![1, 2, 3]));
     let mut rig = open(&mock);
-    rig.capture(2).unwrap();
+    rig.capture(2, &|| false).unwrap();
     assert_eq!(mock.ops().iter().filter(|o| **o == 0x100B).count(), 1, "asked once for the photo, not for each file");
     // The next photo asks again
-    rig.capture(2).unwrap();
+    rig.capture(2, &|| false).unwrap();
     assert_eq!(mock.ops().iter().filter(|o| **o == 0x100B).count(), 2);
 }
 
@@ -425,7 +434,7 @@ fn a_file_the_nikon_put_on_its_card_is_fetched_and_never_deleted() {
     mock.state().to_card = true;
     mock.state().folder_first = true;
     let mut rig = open(&mock);
-    let shots = rig.capture(1).unwrap();
+    let shots = rig.capture(1, &|| false).unwrap();
     assert_eq!(shots[0].name, "DSC_0001.JPG");
     assert!(!mock.ops().contains(&0x100B) && !mock.ops().contains(&0x90C3), "nothing on the card or its folders is deleted: {:x?}", mock.ops());
     assert!(mock.state().objects.contains_key(&0xFFFF_0001) && mock.state().objects.contains_key(&0x10));
@@ -436,7 +445,7 @@ fn a_folder_the_nikon_announces_is_not_taken_for_the_photo() {
     let mock = Mock::nikon();
     mock.state().folder_first = true;
     let mut rig = open(&mock);
-    let shots = rig.capture(1).unwrap();
+    let shots = rig.capture(1, &|| false).unwrap();
     assert_eq!(shots[0].name, "DSC_0001.JPG");
 }
 
@@ -446,7 +455,7 @@ fn a_nikon_that_is_busy_through_a_long_exposure_still_gives_the_photo() {
     // Far more busy answers than the tries a single command gets
     mock.state().ready_busy = 500;
     let mut rig = open(&mock);
-    assert_eq!(rig.capture(1).unwrap().len(), 1);
+    assert_eq!(rig.capture(1, &|| false).unwrap().len(), 1);
 }
 
 #[test]
@@ -458,7 +467,7 @@ fn a_stop_ends_the_wait_for_a_photo_and_keeps_live_view_from_starting_again() {
     rig.set_stop(stop.clone());
     stop.store(true, Ordering::SeqCst);
     let start = Instant::now();
-    let Err(Incomplete { why, .. }) = rig.capture(1) else { panic!("the camera was stopped") };
+    let Err(Incomplete { why, .. }) = rig.capture(1, &|| false) else { panic!("the camera was stopped") };
     assert!(why.contains("stopped") && start.elapsed() < Duration::from_secs(5), "{why}");
     assert!(rig.write("viewfinder", "1").is_err());
 }
@@ -469,7 +478,7 @@ fn a_camera_that_stays_busy_ending_live_view_is_not_shot() {
     let mut rig = open(&mock);
     rig.preview().unwrap();
     mock.state().end_busy = true;
-    let Err(Incomplete { why, .. }) = rig.capture(1) else { panic!("live view was still on") };
+    let Err(Incomplete { why, .. }) = rig.capture(1, &|| false) else { panic!("live view was still on") };
     assert!(why.contains("busy"), "{why}");
     assert!(!mock.ops().contains(&0x90C0), "no photo was started");
 }
@@ -490,7 +499,7 @@ fn canon_files_on_the_card_are_fetched_without_telling_the_camera_a_transfer_is_
     let mock = Mock::canon();
     mock.state().canon_props.remove(&0xD11C);
     let mut rig = open(&mock);
-    assert_eq!(rig.capture(1).unwrap().len(), 1);
+    assert_eq!(rig.capture(1, &|| false).unwrap().len(), 1);
     assert!(!mock.ops().contains(&0x9117), "{:x?}", mock.ops());
 }
 
@@ -499,13 +508,13 @@ fn an_eos_m_takes_one_press_and_a_canon_that_wont_let_go_is_reset() {
     let mock = Mock::canon();
     mock.state().model = Some("Canon EOS M50".into());
     let mut rig = open(&mock);
-    rig.capture(1).unwrap();
+    rig.capture(1, &|| false).unwrap();
     let sent: Vec<(u16, Vec<u32>)> = mock.state().log.iter().filter(|(op, _, _)| matches!(op, 0x9128 | 0x9129)).map(|(op, p, _)| (*op, p.clone())).collect();
     assert_eq!(sent, vec![(0x9128, vec![3, 0]), (0x9129, vec![3])]);
     let stuck = Mock::canon();
     stuck.state().release_code = Some(0x2002);
     let mut rig = open(&stuck);
-    let Err(Incomplete { why, .. }) = rig.capture(1) else { panic!("the release failed") };
+    let Err(Incomplete { why, .. }) = rig.capture(1, &|| false) else { panic!("the release failed") };
     assert!(why.contains("let go"), "{why}");
     let modes: Vec<Vec<u32>> = stuck.state().log.iter().filter(|(op, _, _)| *op == 0x9114).map(|(_, p, _)| p.clone()).collect();
     assert_eq!(modes, vec![vec![1], vec![0], vec![1]], "remote mode was left and entered again");

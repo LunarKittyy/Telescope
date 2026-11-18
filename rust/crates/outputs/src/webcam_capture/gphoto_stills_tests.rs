@@ -71,7 +71,7 @@ impl Rig for Fake {
         }
     }
     fn restart_live_view(&mut self) {}
-    fn capture(&mut self, expect: usize) -> Result<Vec<Shot>, Incomplete> {
+    fn capture(&mut self, expect: usize, _stop: &dyn Fn() -> bool) -> Result<Vec<Shot>, Incomplete> {
         let (takes, error) = {
             let mut s = self.0.lock().unwrap();
             s.log.push("capture".into());
@@ -170,7 +170,7 @@ fn a_photo_sets_what_was_asked_sends_the_picture_to_the_computer_and_brings_live
     *shared.pending.lock().unwrap() = {
         let (reply, waiter) = handover();
         std::mem::forget(waiter);
-        Some(Job { wish: Wish { format: Format::RawJpeg, iso: Some("800".into()), shutter: Some("1,0000s".into()), timer_s: 0 }, reply, late: None })
+        Some(Job { wish: Wish { format: Format::RawJpeg, iso: Some("800".into()), shutter: Some("1,0000s".into()), timer_s: 0 }, reply, late: None, guard: None })
     };
     assert!(shared.run_pending(&mut Fake(state.clone())));
     assert_eq!(log(&state), ["viewfinder=0", "iso=800", "shutterspeed=1,0000s", "capturetarget=Internal RAM", "capture", "viewfinder=1"]);
@@ -452,6 +452,46 @@ fn a_self_timer_counts_down_before_the_shutter_and_a_stream_that_stops_ends_it()
 }
 
 #[test]
+fn a_photo_whose_picture_goes_hidden_before_the_shutter_never_opens_it() {
+    let state = d5100(true);
+    let mut cap = open_with("gphoto2:usb:S6", fast(), connecting(&state)).ok().unwrap();
+    cap.read().unwrap();
+    let stills = GphotoStills::new("gphoto2:usb:S6");
+    wait_for("caps", || stills.caps().is_some());
+    let dir = folder("hidden");
+    let go = |hidden: Arc<AtomicBool>, timer: u64| {
+        let (tx, done) = channel();
+        let states = Arc::new(Mutex::new(Vec::new()));
+        let heard = states.clone();
+        let started = stills.take_unless_hidden(&json!({"format": "jpeg", "timer_s": timer}), &dir.display().to_string(),
+                                                Box::new(move |p| heard.lock().unwrap().push(p)), Box::new(move |r| tx.send(r).unwrap()),
+                                                Box::new(|| true), hidden);
+        assert!(started);
+        Taken { states, done }
+    };
+    // Hidden at the start
+    let captures = state.lock().unwrap().captures;
+    let done = read_until_done(&mut cap, &go(Arc::new(AtomicBool::new(true)), 0));
+    assert_eq!((done["ok"].clone(), done["code"].clone()), (json!(false), json!("hidden")), "{done}");
+    assert_eq!(state.lock().unwrap().captures, captures, "the shutter never opened");
+    wait_for("the busy flag to drop", || !stills.busy());
+    // Hidden while the self-timer counts
+    let flag = Arc::new(AtomicBool::new(false));
+    let taken = go(flag.clone(), 1);
+    wait_for("the countdown to begin", || taken.states.lock().unwrap().iter().any(|p| p["state"] == json!("waiting")));
+    flag.store(true, Ordering::SeqCst);
+    let done = read_until_done(&mut cap, &taken);
+    assert_eq!(done["code"], json!("hidden"), "{done}");
+    assert_eq!(state.lock().unwrap().captures, captures, "the shutter never opened");
+    wait_for("the busy flag to drop", || !stills.busy());
+    // Not hidden: taken as usual
+    let done = read_until_done(&mut cap, &go(Arc::new(AtomicBool::new(false)), 0));
+    assert_eq!(done["ok"], json!(true), "{done}");
+    drop(cap);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
 fn a_photo_that_cant_be_saved_says_so_and_keeps_what_was_saved() {
     let state = d5100(true);
     let mut cap = open_with("gphoto2:usb:S6", fast(), connecting(&state)).ok().unwrap();
@@ -473,8 +513,8 @@ fn two_photos_in_the_same_second_dont_overwrite_each_other() {
     let dir = folder("names");
     std::fs::create_dir_all(&dir).unwrap();
     let shots = vec![Shot { name: "a.JPG".into(), data: vec![1] }];
-    let first = save(&dir, &shots).unwrap();
-    let second = save(&dir, &shots).unwrap();
+    let first = save(&dir, &shots, &|| false).unwrap();
+    let second = save(&dir, &shots, &|| false).unwrap();
     // Same second or not, the second never takes the first's name
     assert_ne!(first, second);
     assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 2);
@@ -671,7 +711,7 @@ fn a_photo_that_finishes_in_time_is_not_reported_late() {
     let (reply, waiter) = handover();
     let told = Arc::new(Mutex::new(0));
     let counted = told.clone();
-    *shared.pending.lock().unwrap() = Some(Job { wish: wish(Format::Jpeg), reply, late: Some(Arc::new(move |_| *counted.lock().unwrap() += 1)) });
+    *shared.pending.lock().unwrap() = Some(Job { wish: wish(Format::Jpeg), reply, late: Some(Arc::new(move |_| *counted.lock().unwrap() += 1)), guard: None });
     assert!(shared.run_pending(&mut Fake(d5100(true))));
     assert!(matches!(waiter.wait(Duration::ZERO), Wait::Got(Ok(_))));
     assert_eq!(*told.lock().unwrap(), 0);
@@ -679,7 +719,7 @@ fn a_photo_that_finishes_in_time_is_not_reported_late() {
     let (reply, waiter) = handover();
     drop(waiter);
     let counted = told.clone();
-    *shared.pending.lock().unwrap() = Some(Job { wish: wish(Format::Jpeg), reply, late: Some(Arc::new(move |_| *counted.lock().unwrap() += 1)) });
+    *shared.pending.lock().unwrap() = Some(Job { wish: wish(Format::Jpeg), reply, late: Some(Arc::new(move |_| *counted.lock().unwrap() += 1)), guard: None });
     assert!(shared.run_pending(&mut Fake(d5100(true))));
     assert_eq!(*told.lock().unwrap(), 1);
 }
@@ -751,4 +791,153 @@ fn a_locked_camera_ending_a_photo_through_the_service_says_why() {
     assert!(done["error"].as_str().unwrap().contains("locked to RAW"));
     assert_eq!(done["files"], json!([]), "nothing saved that wasn't asked for");
     drop(cap);
+}
+
+/// A rig that covers the picture, or stops the stream, when a setting is written, as one can while the camera's thread is busy.
+struct Meanwhile(Fake, Box<dyn Fn() + Send>);
+
+impl Rig for Meanwhile {
+    fn preview(&mut self) -> Result<Vec<u8>, String> {
+        self.0.preview()
+    }
+    fn read(&mut self, name: &str) -> Option<Setting> {
+        self.0.read(name)
+    }
+    fn write(&mut self, name: &str, value: &str) -> Result<(), String> {
+        if name == "iso" {
+            (self.1)();
+        }
+        self.0.write(name, value)
+    }
+    fn restart_live_view(&mut self) {}
+    fn capture(&mut self, expect: usize, stop: &dyn Fn() -> bool) -> Result<Vec<Shot>, Incomplete> {
+        self.0.capture(expect, stop)
+    }
+    fn close(&mut self) {
+        self.0.close()
+    }
+}
+
+fn guarded_job(hidden: &Arc<AtomicBool>, alive: &Arc<AtomicBool>) -> (Shared, Waiter) {
+    let shared = Shared::default();
+    let (reply, waiter) = handover();
+    let (hidden, alive) = (hidden.clone(), alive.clone());
+    let guard = Guard { hidden: Some(hidden), alive: Arc::new(Mutex::new(Box::new(move || alive.load(Ordering::SeqCst)))) };
+    let asked = Wish { format: Format::Jpeg, iso: Some("800".into()), shutter: None, timer_s: 0 };
+    *shared.pending.lock().unwrap() = Some(Job { wish: asked, reply, late: None, guard: Some(guard) });
+    (shared, waiter)
+}
+
+#[test]
+fn a_picture_hidden_while_the_camera_applies_settings_gets_no_shutter() {
+    let state = d5100(true);
+    let (hidden, alive) = (Arc::new(AtomicBool::new(false)), yes());
+    let (shared, waiter) = guarded_job(&hidden, &alive);
+    let cover = hidden.clone();
+    assert!(shared.run_pending(&mut Meanwhile(Fake(state.clone()), Box::new(move || cover.store(true, Ordering::SeqCst)))));
+    assert_eq!(state.lock().unwrap().captures, 0, "the shutter never opened");
+    assert!(matches!(waiter.wait(Duration::ZERO), Wait::Got(Err(Failure::Hidden))));
+    // Not covered: the same job shoots
+    let state = d5100(true);
+    let (hidden, alive) = (Arc::new(AtomicBool::new(false)), yes());
+    let (shared, waiter) = guarded_job(&hidden, &alive);
+    assert!(shared.run_pending(&mut Fake(state.clone())));
+    assert_eq!(state.lock().unwrap().captures, 1);
+    assert!(matches!(waiter.wait(Duration::ZERO), Wait::Got(Ok(_))));
+}
+
+#[test]
+fn a_stream_that_stops_while_the_camera_applies_settings_gets_no_shutter() {
+    let state = d5100(true);
+    let (hidden, alive) = (Arc::new(AtomicBool::new(false)), yes());
+    let (shared, waiter) = guarded_job(&hidden, &alive);
+    let gone = alive.clone();
+    assert!(shared.run_pending(&mut Meanwhile(Fake(state.clone()), Box::new(move || gone.store(false, Ordering::SeqCst)))));
+    assert_eq!(state.lock().unwrap().captures, 0, "the shutter never opened");
+    assert!(matches!(waiter.wait(Duration::ZERO), Wait::Got(Err(Failure::Interrupted))));
+}
+
+/// A rig whose exposure runs while something happens (the picture is covered), and that notes what `stop` said once the shutter closed.
+struct Exposing(Fake, Box<dyn Fn() + Send>, Arc<Mutex<Option<bool>>>);
+
+impl Rig for Exposing {
+    fn preview(&mut self) -> Result<Vec<u8>, String> {
+        self.0.preview()
+    }
+    fn read(&mut self, name: &str) -> Option<Setting> {
+        self.0.read(name)
+    }
+    fn write(&mut self, name: &str, value: &str) -> Result<(), String> {
+        self.0.write(name, value)
+    }
+    fn restart_live_view(&mut self) {}
+    fn capture(&mut self, expect: usize, stop: &dyn Fn() -> bool) -> Result<Vec<Shot>, Incomplete> {
+        let taken = self.0.capture(expect, stop);
+        (self.1)();
+        *self.2.lock().unwrap() = Some(stop());
+        taken
+    }
+    fn close(&mut self) {
+        self.0.close()
+    }
+}
+
+#[test]
+fn a_picture_hidden_during_a_long_exposure_discards_what_the_camera_sends() {
+    let state = d5100(true);
+    let (hidden, alive) = (Arc::new(AtomicBool::new(false)), yes());
+    let (shared, waiter) = guarded_job(&hidden, &alive);
+    let cover = hidden.clone();
+    let said = Arc::new(Mutex::new(None));
+    assert!(shared.run_pending(&mut Exposing(Fake(state.clone()), Box::new(move || cover.store(true, Ordering::SeqCst)), said.clone())));
+    assert_eq!(state.lock().unwrap().captures, 1, "the shutter had opened before the cover");
+    assert_eq!(*said.lock().unwrap(), Some(true), "the transfer was told to stop");
+    assert!(matches!(waiter.wait(Duration::ZERO), Wait::Got(Err(Failure::Hidden))), "and what came is thrown away");
+}
+
+#[test]
+fn a_photo_covered_while_it_is_written_leaves_no_file_behind() {
+    let dir = folder("save-covered");
+    std::fs::create_dir_all(&dir).unwrap();
+    let shots = vec![Shot { name: "a.NEF".into(), data: vec![1; 4] }, Shot { name: "a.JPG".into(), data: vec![2; 4] }];
+    let left = |dir: &Path| std::fs::read_dir(dir).unwrap().count();
+    // Covered before the first file, after the first, and after the last: nothing of the photo stays
+    for after in [0usize, 1, 2, 3, 4, 5] {
+        let looks = std::sync::atomic::AtomicUsize::new(0);
+        let covered = || looks.fetch_add(1, Ordering::SeqCst) >= after;
+        let got = save(&dir, &shots, &covered);
+        match got {
+            Ok(files) => {
+                assert!(after >= 5, "covered at look {after} yet saved");
+                assert_eq!(files.len(), 2);
+                assert_eq!(left(&dir), 2);
+                for f in files {
+                    std::fs::remove_file(f).unwrap();
+                }
+            }
+            Err((failure, files)) => {
+                assert_eq!((failure, files), (Failure::Hidden, vec![]), "at look {after}");
+                assert_eq!(left(&dir), 0, "files or partial files left at look {after}");
+            }
+        }
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_photo_is_written_as_a_part_file_that_is_renamed_when_whole() {
+    let dir = folder("save-part");
+    std::fs::create_dir_all(&dir).unwrap();
+    let shots = vec![Shot { name: "a.JPG".into(), data: vec![7; 4] }];
+    let seen = Mutex::new(Vec::new());
+    // What the folder holds at each look, which comes while the file is a part
+    let covered = || {
+        seen.lock().unwrap().push(std::fs::read_dir(&dir).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect::<Vec<_>>());
+        false
+    };
+    let files = save(&dir, &shots, &covered).unwrap();
+    assert!(seen.lock().unwrap().iter().any(|names| names.iter().any(|n| n.ends_with(".part"))), "{:?}", seen.lock().unwrap());
+    assert_eq!(std::fs::read(&files[0]).unwrap(), vec![7; 4]);
+    assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 1, "no part file left");
+    let _ = std::fs::remove_dir_all(dir);
 }
