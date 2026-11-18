@@ -17,3 +17,15 @@ The limit itself is a few constants (`vcam.MAX_SLOTS`, `composite.MAX_TILES` and
 ## The decoder in a child process (November 2026)
 
 The idea was to run the video decoder in a separate process so hardware decoding could return without a game on the graphics card stalling the app. It didn't fix the stall. The stall came from the driver's I420 conversion queuing behind the game's work. Asking the card for NV12 and splitting it on the processor fixed that. Hardware decoding is on by default with VA-API again without it.
+
+## Overlapping Spout's copy and conversion (November 2026)
+
+The idea was to copy the next Spout frame while the last one is converted. Capture already does that, since a reader thread fetches the next picture while a decoder thread converts the last. A benchmark that showed a gain had compared against a version that ran the two one after the other.
+
+## One working frame and effects on the YUV planes (November 2026)
+
+Two ideas were meant to cut the cost of steps on the processor. They were converting a frame to RGB once for the whole chain and running brightness and colour steps on the YUV planes. Measured at 4K, the steps left on the processor cost about 1 ms each, too little to be worth the change. Two more ideas went the same way. The copy of a decoded frame and the BT.709 conversion would each save under 0.5 ms.
+
+## H.265 (November 2026)
+
+A spike looked at sending H.265 from phones that support it. Everything on both sides of the video path is written for H.264, from the phone's encoder to the headers the desktop reads. That makes it a rewrite of about a dozen files on two platforms. The gain is mostly bitrate, which only matters on weak Wi-Fi where Dynamic already steps down. Phones' H.265 encoders also differ a lot and need testing on real ones.
