@@ -537,7 +537,7 @@ pub fn show_start_failure(events: &EventLog, reason: &str) {
     }
 }
 
-/// The title and words of the box for a plugin that hid part of the picture and failed: Telescope closes and says why.
+/// The title and words of the box the next start shows after Telescope closed for a plugin that hid part of the picture and failed.
 pub fn closing_text(reason: &str, log: &Path) -> (String, String) {
     (
         tr("Telescope had to close"),
@@ -545,16 +545,25 @@ pub fn closing_text(reason: &str, log: &Path) -> (String, String) {
     )
 }
 
-/// Before closing for a plugin that hid things and failed: a CRASH line goes in the log (written out, since the caller aborts) and a box
-/// says why (Windows). The panic hook skips both inside catch_plugin, so this does them itself.
+/// The file next to the log that says the last run closed for a plugin that hid things and failed, and why.
+const CLOSED_MARKER: &str = "closed_for_hiding_plugin.txt";
+
+/// Before closing for a plugin that hid things and failed: a CRASH line goes in the log (written out, since the caller aborts) and a marker
+/// lets the next start say why. No box now: one waiting for a click would leave the other threads sending frames.
 pub fn report_closing(events: &EventLog, reason: &str) {
     events.add("CRASH", reason);
     events.close();
-    let log = events.path().unwrap_or_else(|| log_dir().join("telescope.log"));
-    let (title, text) = closing_text(reason, &log);
-    if crate::system::ask_box(&title, &text) {
-        crate::launch::open_url(&log.to_string_lossy());
+    if let Some(log) = events.path() {
+        let _ = fs::write(log.with_file_name(CLOSED_MARKER), reason);
     }
+}
+
+/// Why the last run closed for a plugin that hid things, once: the marker goes with it.
+pub fn take_closing_reason(log_folder: &Path) -> Option<String> {
+    let marker = log_folder.join(CLOSED_MARKER);
+    let reason = fs::read_to_string(&marker).ok()?;
+    let _ = fs::remove_file(&marker);
+    Some(reason)
 }
 
 /// Log to the file from here on, including panics (in any thread), and link it into app_dir. `version` is what START says.
@@ -581,6 +590,13 @@ pub fn start(events: &'static EventLog, dir: &Path, app_dir: Option<&Path>, vers
         previous(info);
     }));
     events.add("START", &format!("Telescope {version}"));
+    if let Some(reason) = take_closing_reason(dir) {
+        let log = events.path().unwrap_or_else(|| dir.join("telescope.log"));
+        let (title, text) = closing_text(&reason, &log);
+        if crate::system::ask_box(&title, &text) {
+            crate::launch::open_url(&log.to_string_lossy());
+        }
+    }
 }
 
 /// Windows 11 still reports itself as release "10"; only the build number tells them apart.

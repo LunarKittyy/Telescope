@@ -503,7 +503,7 @@ fn the_failure_box_is_for_the_start_only_and_only_once() {
 }
 
 #[test]
-fn closing_for_a_plugin_that_hid_things_leaves_a_crash_line_in_the_log() {
+fn closing_for_a_plugin_that_hid_things_leaves_a_crash_line_and_tells_the_next_start() {
     let dir = scratch_dir("closing");
     let events = EventLog::new();
     assert!(events.open(&dir.join("telescope.log")));
@@ -511,6 +511,9 @@ fn closing_for_a_plugin_that_hid_things_leaves_a_crash_line_in_the_log() {
     let _ = catch_plugin(|| report_closing(&events, "plugin blur: frame_step: no"));
     let log = fs::read_to_string(dir.join("telescope.log")).unwrap();
     assert!(log.contains("CRASH plugin blur: frame_step: no"), "{log}");
+    // The next start says why, once
+    assert_eq!(take_closing_reason(&dir).as_deref(), Some("plugin blur: frame_step: no"));
+    assert_eq!(take_closing_reason(&dir), None);
     let (title, text) = closing_text("plugin blur: no", Path::new("/tmp/telescope.log"));
     assert_eq!(title, "Telescope had to close");
     assert!(text.contains("What went wrong: plugin blur: no") && text.contains("The log is at /tmp/telescope.log"), "{text}");
