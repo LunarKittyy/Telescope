@@ -11,7 +11,10 @@ pub const MAX_NAME: usize = 40;
 pub const REFERENCE_HEIGHT: f64 = 1080.0;
 pub const MAX_BORDER: f64 = 40.0;
 pub const MAX_RADIUS: f64 = 200.0;
-pub const MAX_ZOOM: f64 = 4.0;
+/// What a saved tile's zoom can be at most, which is Setup's biggest Max zoom. What's drawn follows the setting.
+pub const MAX_ZOOM: f64 = 30.0;
+/// The Max zoom setting until Setup says otherwise, the same as Setup's default.
+pub const DEFAULT_MAX_ZOOM: f64 = 10.0;
 /// A box can't get smaller than this share of the picture.
 pub const MIN_SIZE: f64 = 0.05;
 /// Cropping always leaves at least this share of the stream's frame each way.

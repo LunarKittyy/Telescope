@@ -241,6 +241,8 @@ pub struct CompositePlugin {
     reader: PictureReader,
     /// The editor's state while its window is open.
     editor: Option<editor::Editor>,
+    /// Setup's Max zoom: a tile zooms in at most this far.
+    max_zoom: f64,
 }
 
 impl Default for CompositePlugin {
@@ -265,6 +267,7 @@ impl CompositePlugin {
         let mut plugin = CompositePlugin {
             on: false, layout: Layout::default(), layouts: Vec::new(), target: None, camera_size: None, canvas: (None, None), shared,
             clock: None, camera_label, note: String::new(), note_short: String::new(), pending: false, held: None, reader, editor: None,
+            max_zoom: crate::composite::DEFAULT_MAX_ZOOM,
         };
         plugin.prepare();
         plugin
@@ -286,7 +289,14 @@ impl CompositePlugin {
         let mut hub = self.shared.hub();
         // Off, nothing draws: the background (a canvas-sized picture) is only worked out while it's on
         if on {
-            hub.compositor.prepare(&self.layout, size);
+            if self.layout.tiles.iter().any(|t| t.zoom > self.max_zoom) {
+                // a tile saved at a bigger zoom draws at the limit and gets its zoom back if the limit rises
+                let mut layout = self.layout.clone();
+                layout.tiles.iter_mut().for_each(|t| t.zoom = t.zoom.min(self.max_zoom));
+                hub.compositor.prepare(&layout, size);
+            } else {
+                hub.compositor.prepare(&self.layout, size);
+            }
         } else {
             hub.compositor = Compositor::new(self.reader.clone());
         }
@@ -557,6 +567,12 @@ impl Plugin for CompositePlugin {
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
         self.catch_up(host);
         match event {
+            Event::MaxZoomChanged { max_zoom } => {
+                self.max_zoom = (*max_zoom as f64).max(1.0);
+                self.canvas = host.canvas_size();
+                self.prepare();
+                self.show(host);
+            }
             Event::StreamsChanged { .. } => self.follow_camera(host),
             Event::CameraOpened { slot: 0, .. } => self.follow_camera(host),
             Event::TimerFired { owner, token } if owner == NAME && token == Self::EDITOR_TIMER => self.editor_timer(host),
