@@ -83,14 +83,18 @@ export component CompositeCard inherits Card {
         }
         Unfolding {
             open: edit-shown;
-            Button {
-                text: @tr("Edit picture");
-                tip: @tr("Edit picture");
-                tip-detail: @tr("Open the editor for the layout.");
-                has-icon: true;
-                icon: Icons.pencil;
-                icon-tint: Theme.ink2;
-                clicked => { root.edit-clicked(); }
+            RailRow {
+                has-icon: false;
+                Button {
+                    horizontal-stretch: 1;
+                    text: @tr("Edit picture");
+                    tip: @tr("Edit picture");
+                    tip-detail: @tr("Open the editor for the layout.");
+                    has-icon: true;
+                    icon: Icons.pencil;
+                    icon-tint: Theme.ink2;
+                    clicked => { root.edit-clicked(); }
+                }
             }
         }
         SwitchRow {
@@ -124,7 +128,8 @@ export component CompositeCard inherits Card {
         }
         Unfolding {
             open: transition-shown;
-            SliderRow {
+            RailSlider {
+                icon: Icons.timer;
                 hue: root.hue;
                 label: @tr("Length");
                 minimum: 100;
@@ -140,7 +145,7 @@ export component CompositeCard inherits Card {
         Unfolding {
             open: transition-shown;
             RailRow {
-                icon: Icons.timer;
+                icon: Icons.gauge;
                 label: @tr("Easing");
                 hue: root.hue;
                 ChoiceField {
