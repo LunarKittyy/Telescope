@@ -303,6 +303,17 @@ impl ComponentInstanceInner {
         }
     }
 
+    /// Telescope patch: see `ComponentInstance::property_type`.
+    #[cfg_attr(not(feature = "internal"), allow(dead_code))]
+    pub fn property_type(&self, name: &str) -> Option<&LangType> {
+        let public_index = self.0.public_component_index.unwrap_or(0);
+        let unit = &self.0.root_sub_component.compilation_unit;
+        unit.public_components[public_index]
+            .public_properties
+            .get(&normalize_identifier(name))
+            .map(|p| &p.ty)
+    }
+
     /// Definition this instance was created from.
     pub fn definition(&self) -> ComponentDefinitionInner {
         let public_index = self.0.public_component_index.unwrap_or(0);

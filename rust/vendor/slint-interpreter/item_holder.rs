@@ -17,16 +17,66 @@ use std::pin::Pin;
 use std::rc::Rc;
 use vtable::{HasStaticVTable, VRef};
 
+/// Telescope patch: the property and callback tables of an item type, built once per thread and type.
+///
+/// `BuiltinItem::properties` builds a fresh Vec of every property of the type on each call, and the interpreter looked a
+/// property up by name on every native read, write and callback call, so each one allocated and freed that Vec.
+struct Tables<T: 'static> {
+    properties: Vec<(&'static str, &'static dyn PropertyInfo<T, Value>)>,
+    callbacks: Vec<(&'static str, &'static dyn CallbackInfo<T, Value>)>,
+}
+
+/// Hashes a `TypeId`, which is already a hash.
+#[derive(Default)]
+struct IdHasher(u64);
+
+impl std::hash::Hasher for IdHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+    fn write(&mut self, bytes: &[u8]) {
+        for chunk in bytes.chunks(8) {
+            let mut word = [0u8; 8];
+            word[..chunk.len()].copy_from_slice(chunk);
+            self.0 ^= u64::from_le_bytes(word);
+        }
+    }
+}
+
+thread_local! {
+    static TABLES: std::cell::RefCell<
+        std::collections::HashMap<
+            std::any::TypeId,
+            &'static dyn std::any::Any,
+            std::hash::BuildHasherDefault<IdHasher>,
+        >,
+    > = Default::default();
+}
+
+fn tables<T: 'static + BuiltinItem>() -> &'static Tables<T> {
+    TABLES.with(|tables| {
+        let mut tables = tables.borrow_mut();
+        let entry = *tables.entry(std::any::TypeId::of::<T>()).or_insert_with(|| {
+            let built: &'static Tables<T> = Box::leak(Box::new(Tables {
+                properties: T::properties::<Value>(),
+                callbacks: T::callbacks::<Value>(),
+            }));
+            built
+        });
+        entry.downcast_ref::<Tables<T>>().expect("tables of another type")
+    })
+}
+
 fn find_property<T: 'static + BuiltinItem>(
     name: &str,
 ) -> Option<&'static dyn PropertyInfo<T, Value>> {
-    T::properties::<Value>().into_iter().find_map(|(n, info)| (n == name).then_some(info))
+    tables::<T>().properties.iter().find_map(|(n, info)| (*n == name).then_some(*info))
 }
 
 fn find_callback<T: 'static + BuiltinItem>(
     name: &str,
 ) -> Option<&'static dyn CallbackInfo<T, Value>> {
-    T::callbacks::<Value>().into_iter().find_map(|(n, info)| (n == name).then_some(info))
+    tables::<T>().callbacks.iter().find_map(|(n, info)| (*n == name).then_some(*info))
 }
 
 impl<T> ErasedItem for T

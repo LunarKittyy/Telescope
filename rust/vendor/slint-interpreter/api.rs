@@ -1524,6 +1524,14 @@ pub struct ComponentInstance {
 }
 
 impl ComponentInstance {
+    /// Telescope patch: the declared type of a public property, callback or function, without building the list of all of them
+    /// (`definition().properties_and_callbacks()` allocated a String and a Type for each, per call).
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn property_type(&self, name: &str) -> Option<&i_slint_compiler::langtype::Type> {
+        self.inner.property_type(name)
+    }
+
     /// Return the [`ComponentDefinition`] that was used to create this instance.
     pub fn definition(&self) -> ComponentDefinition {
         ComponentDefinition { inner: std::rc::Rc::new(self.inner.definition()) }

@@ -24,6 +24,25 @@ use std::collections::HashMap;
 use std::pin::Pin;
 use std::rc::{Rc, Weak};
 
+/// Telescope patch: where the declared types of the current function's arguments are, so a call doesn't copy them.
+#[derive(Clone, Default)]
+pub enum ArgTypes {
+    #[default]
+    None,
+    /// A callback's argument types, built once when its handler is installed.
+    Shared(Rc<[Type]>),
+    /// The arguments of function `function` of global `global`, in the context's compilation unit.
+    Global { global: llr::GlobalIdx, function: llr::FunctionIdx },
+    /// The arguments of function `function` of sub-component `sub_component`, in the context's compilation unit.
+    Sub { sub_component: llr::SubComponentIdx, function: llr::FunctionIdx },
+}
+
+impl From<&[Type]> for ArgTypes {
+    fn from(types: &[Type]) -> Self {
+        if types.is_empty() { ArgTypes::None } else { ArgTypes::Shared(types.into()) }
+    }
+}
+
 /// Dynamic context for one expression evaluation.
 pub struct EvalContext {
     /// Closest sub-component, set when the expression is evaluated from one.
@@ -40,7 +59,7 @@ pub struct EvalContext {
     pub function_arguments: Vec<Value>,
     /// Declared types of `function_arguments`, for
     /// [`i_slint_compiler::llr::TypeResolutionContext::arg_type`].
-    pub function_arg_types: Vec<Type>,
+    pub function_arg_types: ArgTypes,
     /// Set by `return` to stop further statement evaluation in a `CodeBlock`.
     pub return_value: Option<Value>,
 }
@@ -61,7 +80,7 @@ impl EvalContext {
             globals,
             locals: HashMap::new(),
             function_arguments: Vec::new(),
-            function_arg_types: Vec::new(),
+            function_arg_types: ArgTypes::None,
             return_value: None,
         }
     }
@@ -74,7 +93,7 @@ impl EvalContext {
             globals,
             locals: HashMap::new(),
             function_arguments: Vec::new(),
-            function_arg_types: Vec::new(),
+            function_arg_types: ArgTypes::None,
             return_value: None,
         }
     }
@@ -174,7 +193,17 @@ impl i_slint_compiler::llr::TypeResolutionContext for EvalContext {
     }
 
     fn arg_type(&self, index: usize) -> &Type {
-        self.function_arg_types.get(index).unwrap_or(&Type::Invalid)
+        let types: &[Type] = match &self.function_arg_types {
+            ArgTypes::None => &[],
+            ArgTypes::Shared(types) => types,
+            ArgTypes::Global { global, function } => {
+                &self.compilation_unit.globals[*global].functions[*function].args
+            }
+            ArgTypes::Sub { sub_component, function } => {
+                &self.compilation_unit.sub_components[*sub_component].functions[*function].args
+            }
+        };
+        types.get(index).unwrap_or(&Type::Invalid)
     }
 }
 
@@ -406,12 +435,11 @@ pub fn invoke_callback(ctx: &EvalContext, mr: &MemberReference, args: &[Value]) 
                         Pin::as_ref(tracker).get();
                     }
                     let res = Pin::as_ref(&instance.callbacks[*idx]).call(args);
-                    let ret_ty = instance.compilation_unit.sub_components
+                    let ret_ty = &instance.compilation_unit.sub_components
                         [instance.sub_component_idx]
                         .callbacks[*idx]
-                        .ret_ty
-                        .clone();
-                    ensure_typed_default(res, &ret_ty)
+                        .ret_ty;
+                    ensure_typed_default(res, ret_ty)
                 }
                 LocalMemberIndex::Native { item_index, prop_name, .. } => {
                     Pin::as_ref(&instance.items[*item_index])
@@ -439,10 +467,12 @@ pub fn invoke_function(ctx: &EvalContext, mr: &MemberReference, args: Vec<Value>
                 panic!("invoke_function on non-function global reference")
             };
             let function = &global.compilation_unit.globals[global.global_idx].functions[*idx];
-            let code = function.code.borrow().clone();
+            // Telescope patch: the body is borrowed for the call, not copied; nothing writes it after load.
+            let code = function.code.borrow();
             let mut inner_ctx =
                 EvalContext::for_global(ctx.globals.clone(), global.compilation_unit.clone());
-            inner_ctx.function_arg_types = function.args.clone();
+            inner_ctx.function_arg_types =
+                ArgTypes::Global { global: global.global_idx, function: *idx };
             inner_ctx.function_arguments = args;
             eval_expression(&mut inner_ctx, &code)
         }
@@ -455,9 +485,10 @@ pub fn invoke_function(ctx: &EvalContext, mr: &MemberReference, args: Vec<Value>
             };
             let sc = &instance.compilation_unit.sub_components[instance.sub_component_idx];
             let function = &sc.functions[*idx];
-            let code = function.code.borrow().clone();
+            let code = function.code.borrow();
             let mut inner_ctx = EvalContext::with_arguments(instance.clone(), args);
-            inner_ctx.function_arg_types = function.args.clone();
+            inner_ctx.function_arg_types =
+                ArgTypes::Sub { sub_component: instance.sub_component_idx, function: *idx };
             eval_expression(&mut inner_ctx, &code)
         }
     }

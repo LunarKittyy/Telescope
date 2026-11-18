@@ -755,6 +755,7 @@ fn make_callback_handler(
     expr: Expression,
     arg_types: Vec<i_slint_compiler::langtype::Type>,
 ) -> impl Fn(&[Value]) -> Value + 'static {
+    let arg_types = crate::eval::ArgTypes::from(arg_types.as_slice());
     move |args| {
         let Some(owner) = weak.upgrade() else { return Value::Void };
         let mut ctx = EvalContext::with_arguments(Pin::new(owner), args.to_vec());

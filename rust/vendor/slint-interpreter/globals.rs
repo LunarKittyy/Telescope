@@ -283,7 +283,7 @@ fn install_for_global(g: &Rc<GlobalInstance>, storage: &Rc<GlobalStorage>) {
                 let cb = Pin::as_ref(&g.callbacks[*idx]);
                 let expr = expr.clone();
                 let cu = cu.clone();
-                let arg_types = global.callbacks[*idx].args.clone();
+                let arg_types = crate::eval::ArgTypes::from(global.callbacks[*idx].args.as_slice());
                 cb.set_handler(move |args: &[Value]| -> Value {
                     let mut ctx = EvalContext::for_global(weak_storage.clone(), cu.clone());
                     ctx.function_arg_types = arg_types.clone();
