@@ -271,6 +271,10 @@ pub trait FrameContext {
     fn entry_epoch(&self) -> Option<u64> {
         None
     }
+    /// Whether the stream is being stopped, so a step that would wait on something slow (the graphics card) gives up and the frame is dropped. False where the host doesn't say.
+    fn stopped(&self) -> bool {
+        false
+    }
     /// How sure the vision service is each pixel is a person (0..255, the frame's size), or None while it can't say. It hardly ever waits for
     /// the model, so this is the newest mask there is, about a frame behind the picture. None also means the last one got too old, and a step
     /// that hides things has to stay safe on it.

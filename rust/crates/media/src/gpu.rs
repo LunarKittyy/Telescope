@@ -8,7 +8,7 @@ use crate::transfers;
 use std::collections::HashMap;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 use telescope_core::gpu_marker::{self, Card};
 use telescope_core::gpu_pick::{self, Api, Candidate, Kind};
 use telescope_core::frame::{Frame, PixelFormat, ShaderStep};
@@ -44,6 +44,8 @@ const POOL_BUDGET: usize = 256 * 1024 * 1024;
 const KEPT_DOWNLOADS: usize = 4;
 /// The longest a readback waits for the card before the frame goes to the CPU instead.
 const READBACK_WAIT: std::time::Duration = std::time::Duration::from_secs(10);
+/// How long one wait on the card lasts before a stop is looked for.
+const WAIT_SLICE: std::time::Duration = std::time::Duration::from_millis(50);
 
 /// What a test makes go wrong on the next readback.
 #[cfg(test)]
@@ -199,10 +201,16 @@ fn adapters_to_try(instance: &wgpu::Instance, backends: wgpu::Backends, preferen
 
 impl Gpu {
     /// The app's one graphics card connection, opened on first use; None when there's no card wgpu can use or
-    /// TELESCOPE_NO_GPU is set (for a driver that misbehaves, and for comparing).
+    /// TELESCOPE_NO_GPU is set (for a driver that misbehaves, and for comparing). One that was lost is opened again by the same path, so a
+    /// stream that starts afterwards gets a fresh device and caches; streams still running keep the lost one and stay on the CPU.
     pub fn shared() -> Option<Arc<Gpu>> {
-        static GPU: OnceLock<Option<Arc<Gpu>>> = OnceLock::new();
-        GPU.get_or_init(|| match std::env::var_os("TELESCOPE_NO_GPU").map_or_else(Gpu::open, |_| Err("TELESCOPE_NO_GPU is set".into())) {
+        static GPU: Mutex<Option<Option<Arc<Gpu>>>> = Mutex::new(None);
+        let mut kept = GPU.lock().unwrap_or_else(|e| e.into_inner());
+        if kept.as_ref().and_then(Option::as_ref).is_some_and(|gpu| gpu.is_lost()) {
+            log::warn!("The graphics card was lost; opening it again for the streams that start now");
+            *kept = None;
+        }
+        kept.get_or_insert_with(|| match std::env::var_os("TELESCOPE_NO_GPU").map_or_else(Gpu::open, |_| Err("TELESCOPE_NO_GPU is set".into())) {
             Ok(gpu) => {
                 log::info!("Frame steps run on {}", gpu.adapter_name);
                 Some(Arc::new(gpu))
@@ -486,6 +494,11 @@ impl Gpu {
         self.download_timed(enc, textures, bpp).map(|(planes, _)| planes)
     }
 
+    /// Whether the device was lost or wgpu panicked on it: nothing more goes to it.
+    pub fn is_lost(&self) -> bool {
+        self.lost.load(Ordering::SeqCst)
+    }
+
     /// Whether this card can still be used.
     fn card_ok(&self) -> Result<(), String> {
         if self.lost.load(Ordering::SeqCst) { Err("the graphics card was lost".into()) } else { Ok(()) }
@@ -515,10 +528,15 @@ impl Gpu {
 
     /// Copies textures into one buffer, waits for the card and hands back each one's rows without padding, the planes one after another in one buffer, and how long the wait was in ns.
     fn download_timed(&self, enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<(Vec<u8>, u64), String> {
-        self.guarded("reading a picture back", || self.read_back(enc, textures, bpp))
+        self.download_until(enc, textures, bpp, &|| false)
     }
 
-    fn read_back(&self, mut enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32]) -> Result<(Vec<u8>, u64), String> {
+    /// As download_timed, giving up with an error as soon as cancel says so (a stop doesn't wait out a card that has stalled).
+    fn download_until(&self, enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32], cancel: &dyn Fn() -> bool) -> Result<(Vec<u8>, u64), String> {
+        self.guarded("reading a picture back", || self.read_back(enc, textures, bpp, cancel))
+    }
+
+    fn read_back(&self, mut enc: wgpu::CommandEncoder, textures: &[&wgpu::Texture], bpp: &[u32], cancel: &dyn Fn() -> bool) -> Result<(Vec<u8>, u64), String> {
         let mut offsets = Vec::new();
         let mut size = 0u64;
         for (t, b) in textures.iter().zip(bpp) {
@@ -562,7 +580,7 @@ impl Gpu {
         if matches!(fault, Some(Fault::PollPanic)) {
             panic!("an injected panic while polling");
         }
-        let polled = self.device.poll(wgpu::PollType::Wait { submission_index: Some(index), timeout: Some(READBACK_WAIT) });
+        let polled = self.wait_for(index, cancel);
         #[cfg(test)]
         if matches!(fault, Some(Fault::Lost)) {
             self.lost.store(true, Ordering::SeqCst);
@@ -571,8 +589,14 @@ impl Gpu {
         if let Some(first) = errors.first() {
             return Err(format!("the card refused the readback ({first})"));
         }
-        polled.map_err(|e| e.to_string())?;
+        polled?;
         self.card_ok()?;
+        // wgpu 30 on DX12 counts a removed device's fence as done without saying the device was lost, which leaves the buffer as it was
+        if let Some(why) = device_removed(&self.device) {
+            self.lost.store(true, Ordering::SeqCst);
+            log::error!("The graphics card was removed ({why})");
+            return Err(format!("the graphics card was removed ({why})"));
+        }
         rx.recv().map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;
         span("gpu_wait", began);
         let waited = monotonic_ns().saturating_sub(began);
@@ -602,6 +626,22 @@ impl Gpu {
         Ok((out, waited))
     }
 
+    /// Waits for the card to finish the submission, in short slices so cancel is looked at between them, for at most READBACK_WAIT.
+    fn wait_for(&self, index: wgpu::SubmissionIndex, cancel: &dyn Fn() -> bool) -> Result<(), String> {
+        let until = std::time::Instant::now() + READBACK_WAIT;
+        loop {
+            if cancel() {
+                return Err("stopped while waiting for the graphics card".into());
+            }
+            let slice = until.saturating_duration_since(std::time::Instant::now()).min(WAIT_SLICE);
+            match self.device.poll(wgpu::PollType::Wait { submission_index: Some(index.clone()), timeout: Some(slice) }) {
+                Ok(_) => return Ok(()),
+                Err(wgpu::PollError::Timeout) if !until.saturating_duration_since(std::time::Instant::now()).is_zero() => {}
+                Err(e) => return Err(e.to_string()),
+            }
+        }
+    }
+
     /// Puts a frame on the card, ready for shaders.
     pub fn lift(&self, frame: &Frame) -> Result<Held, String> {
         self.lift_with(frame, false)
@@ -623,7 +663,7 @@ impl Gpu {
         let (a, b) = (self.texture(w, h, WORK), self.texture(w, h, WORK));
         self.convert_pass_with(&mut enc, &planes.views, planes.mode, &a, 1, (planes.width, planes.height), block_chroma);
         span("upload", began);
-        Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: kept_planes })
+        Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: kept_planes, block_chroma })
     }
 
     /// One shader step on the held picture. Nothing runs yet; land sends it all to the card in one go.
@@ -637,6 +677,11 @@ impl Gpu {
         slot.keep(self, &mut held.enc, &held.b, held.time_ns);
         if let (Some(planes), Some((_, room))) = (&planes, &blurred) {
             held.planes = slot.compose(self, &mut held.enc, planes, room, &mut held.used);
+            // Landing reads these planes, so the shaders after this one are given the same picture rather than the step's own composite
+            if let Some(composed) = &held.planes {
+                let views = composed.each_ref().map(|t| t.create_view(&Default::default()));
+                self.convert_pass_with(&mut held.enc, &views, Mode::I420, &held.b, 1, (held.width, held.height), held.block_chroma);
+            }
         }
         std::mem::swap(&mut held.a, &mut held.b);
     }
@@ -661,6 +706,12 @@ impl Gpu {
 
     /// The picture so far, read back in the frame's own format. The card keeps its copy, so more shaders can follow without an upload.
     pub fn land(&self, held: &mut Held) -> Result<Frame, String> {
+        self.land_until(held, &|| false)
+    }
+
+    /// As land, giving up with an error as soon as cancel says so while the card is waited for.
+    pub fn land_until(&self, held: &mut Held, cancel: &dyn Fn() -> bool) -> Result<Frame, String> {
+        self.card_ok()?;
         let mut enc = std::mem::replace(&mut held.enc, self.device.create_command_encoder(&Default::default()));
         let (w, h) = (held.width, held.height);
         let work = [held.a.create_view(&Default::default()), self.blank.clone(), self.blank.clone()];
@@ -673,7 +724,7 @@ impl Gpu {
         let (out, waited) = match held.format {
             PixelFormat::I420 if held.planes.is_some() => {
                 let [y, u, v] = held.planes.clone().unwrap();
-                self.download_timed(enc, &[&y, &u, &v], &[1, 1, 1])?
+                self.download_until(enc, &[&y, &u, &v], &[1, 1, 1], cancel)?
             }
             PixelFormat::I420 => {
                 let (y, u, v) = (target(w, h, wgpu::TextureFormat::R8Unorm), target(chroma(w), chroma(h), wgpu::TextureFormat::R8Unorm),
@@ -681,20 +732,20 @@ impl Gpu {
                 self.convert_pass(&mut enc, &work, Mode::ToY, &y, 1, (w, h));
                 self.convert_pass(&mut enc, &work, Mode::ToU, &u, 1, (w, h));
                 self.convert_pass(&mut enc, &work, Mode::ToV, &v, 1, (w, h));
-                self.download_timed(enc, &[&y, &u, &v], &[1, 1, 1])?
+                self.download_until(enc, &[&y, &u, &v], &[1, 1, 1], cancel)?
             }
             PixelFormat::Nv12 => {
                 let (y, uv) = (target(w, h, wgpu::TextureFormat::R8Unorm), target(chroma(w), chroma(h), wgpu::TextureFormat::Rg8Unorm));
                 self.convert_pass(&mut enc, &work, Mode::ToY, &y, 1, (w, h));
                 self.convert_pass(&mut enc, &work, Mode::ToUv, &uv, 1, (w, h));
-                self.download_timed(enc, &[&y, &uv], &[1, 2])?
+                self.download_until(enc, &[&y, &uv], &[1, 2], cancel)?
             }
             PixelFormat::Bgra => {
                 let t = target(w, h, wgpu::TextureFormat::Bgra8Unorm);
                 self.convert_pass(&mut enc, &work, Mode::Rgba, &t, 1, (w, h));
-                self.download_timed(enc, &[&t], &[4])?
+                self.download_until(enc, &[&t], &[4], cancel)?
             }
-            _ => self.download_timed(enc, &[&held.a], &[4])?,
+            _ => self.download_until(enc, &[&held.a], &[4], cancel)?,
         };
         held.waited_ns += waited;
         self.give_back(targets);
@@ -735,6 +786,7 @@ impl Gpu {
 
     /// The frame scaled and converted into target (RGBA, out_w x out_h), left on the card for whoever draws it.
     pub fn paint(&self, frame: &Frame, target: &wgpu::Texture) -> Result<(), String> {
+        self.card_ok()?;
         let (out_w, out_h) = (target.width(), target.height());
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) || out_w == 0 || out_h == 0 {
             return Err(format!("can't scale {:?} to {out_w}x{out_h}", frame.format));
@@ -753,6 +805,7 @@ impl Gpu {
     /// How long the card would make a frame wait right now, in ns: the frame up and a pass over it and back, as big as a real one, and
     /// nothing kept. core::balance's way of looking at the card while frames stay off it.
     pub fn trial(&self, frame: &Frame) -> Result<u64, String> {
+        self.card_ok()?;
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) {
             return Err(format!("{:?} frames can't go on the card", frame.format));
         }
@@ -790,6 +843,7 @@ impl Gpu {
 
     /// The frame as RGBA at another size, scaled and converted on the card (the preview).
     pub fn rgba(&self, frame: &Frame, out_w: u32, out_h: u32) -> Result<Vec<u8>, String> {
+        self.card_ok()?;
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) || out_w == 0 || out_h == 0 {
             return Err(format!("can't scale {:?} to {out_w}x{out_h}", frame.format));
         }
@@ -807,6 +861,20 @@ impl Gpu {
         self.give_back(used);
         Ok(out)
     }
+}
+
+/// Why a DX12 device was removed (a driver reset, the card unplugged); None on other backends and while it's fine.
+#[cfg(windows)]
+fn device_removed(device: &wgpu::Device) -> Option<String> {
+    // SAFETY: the guard is only read from and dropped here, and nothing in it is destroyed
+    let hal = unsafe { device.as_hal::<wgpu::hal::api::Dx12>() }?;
+    // SAFETY: GetDeviceRemovedReason only reads the device's state
+    unsafe { hal.raw_device().GetDeviceRemovedReason() }.err().map(|e| e.to_string())
+}
+
+#[cfg(not(windows))]
+fn device_removed(_device: &wgpu::Device) -> Option<String> {
+    None
 }
 
 fn bytemuck_u32(v: &[u32]) -> &[u8] {
@@ -870,6 +938,8 @@ pub struct Held {
     waited_ns: u64,
     /// For an I420 picture: its Y, U and V planes as textures while they are the picture itself (as it went up, or as a step that lays planes made it), so a step that works on planes needn't make them from the colours.
     planes: Option<[wgpu::Texture; 3]>,
+    /// Whether it went up with YUV chroma read by block, so what is made from planes later is read the same way.
+    block_chroma: bool,
 }
 
 impl Held {
@@ -1067,6 +1137,7 @@ impl ShaderSlot {
 
     /// Builds the shader the first time; Err for one that won't ever run.
     pub fn prepare(&mut self, gpu: &Gpu) -> Result<(), String> {
+        gpu.card_ok()?;
         if self.built.is_none() {
             self.built = Some(build(gpu, &self.step));
         }
@@ -1112,7 +1183,7 @@ impl ShaderSlot {
 
     /// Records the passes that make the blurred copies of src (shrunk, from planes when it has them, blurred and, where the CPU half gave weights, blurred without what they leave out) and gives (plain, weighted) as views; None for a step that doesn't ask.
     fn blur(&self, gpu: &Gpu, enc: &mut wgpu::CommandEncoder, src: &wgpu::Texture, planes: Option<&[wgpu::Texture; 3]>, used: &mut Vec<wgpu::Texture>) -> Option<(wgpu::TextureView, wgpu::TextureView)> {
-        let Some(Ok(Built { blur: Some(kit), views, sources, .. })) = &self.built else { return None };
+        let Some(Ok(Built { blur: Some(kit), views, .. })) = &self.built else { return None };
         let (shrink, sigma) = self.blur_settings();
         let size = (src.width(), src.height());
         let (sw, sh) = shader::blur_size(size.0, size.1, shrink);
@@ -1134,9 +1205,9 @@ impl ShaderSlot {
         let blur = |dir, weighted| Pass { src: (sw, sh), dir, taps, weighted, sigma, ..Pass::of((sw, sh)) };
         kit.pass(gpu, enc, &kit.blur, &[&view(&small)], &across, blur((1, 0), 0));
         kit.pass(gpu, enc, &kit.blur, &[&view(&across)], &plain, blur((0, 1), 0));
-        // Weights count only at the size the blur is worked at
+        // Weights count only at the size the blur is worked at, whether the step declared them or its CPU half gave them
         let weights = self.step.textures.iter().position(|(n, _)| n == shader::BLUR_WEIGHTS)
-            .filter(|&i| sources[i].is_some() && (views[i].texture().width(), views[i].texture().height()) == (sw, sh));
+            .filter(|&i| (views[i].texture().width(), views[i].texture().height()) == (sw, sh));
         let Some(weights) = weights else { return Some((view(&plain), view(&plain))) };
         let total = texture();
         kit.pass(gpu, enc, &kit.blur, &[&view(&small), &views[weights]], &across, blur((1, 0), 1));
@@ -1583,6 +1654,126 @@ mod tests {
         slot.set_textures(&gpu, &[]);
         let out = run(&gpu, &frame, std::slice::from_mut(&mut slot));
         assert!(compare(&out, &blur_reference::gauss(&small, sigma, taps)) <= 1.5);
+    }
+
+    #[test]
+    fn weights_a_step_declares_count_like_the_ones_its_cpu_half_gives() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let (w, h, shrink, sigma) = (192usize, 128usize, 8usize, 2.9f64);
+        let frame = noisy_rgba(w, h);
+        let (sw, sh) = (w / shrink, h / shrink);
+        let share = |x: u32, y: u32| if (4..12).contains(&x) && (3..11).contains(&y) { 0 } else { 255 };
+        let declared = ShaderStep { wgsl: BLURRED_WEIGHTED.into(), uniforms: json!({"blur_shrink": shrink, "blur_sigma": sigma}), textures: vec![("blur_weights".into(), weights_frame(sw as u32, sh as u32, share))] };
+        let out = run(&gpu, &frame, &mut [ShaderSlot::new(declared)]);
+        let shares: Vec<f32> = (0..sw * sh).map(|i| share((i % sw) as u32, (i / sw) as u32) as f32 / 255.0).collect();
+        let want = blur_reference::weighted(&blur_reference::shrunk(&frame.data, w, h, shrink), &shares, sigma, shader::blur_taps(sigma) as usize);
+        let mut worst = 0f32;
+        for y in 0..h {
+            for x in 0..w {
+                let at = blur_reference::read(&want, x, y, w, h);
+                (0..3).for_each(|c| worst = worst.max((out.data[(y * w + x) * 4 + c] as f32 - at[c]).abs()));
+            }
+        }
+        assert!(worst <= 2.0, "declared weights are {worst} levels from the reference");
+    }
+
+    /// The step texture a Background-like shader lays over its blur: a soft disc in the middle.
+    fn disc(w: u32, h: u32) -> Frame {
+        let mut data = Vec::new();
+        for y in 0..h {
+            for x in 0..w {
+                let d = (((x as f32 - w as f32 / 2.0).powi(2) + (y as f32 - h as f32 / 2.0).powi(2)).sqrt() - h as f32 / 4.0) / 3.0;
+                data.extend([(255.0 * (0.5 - d).clamp(0.0, 1.0)) as u8, 0, 0, 255]);
+            }
+        }
+        Frame::new(w, h, PixelFormat::Rgba, data)
+    }
+
+    #[test]
+    fn a_shader_after_a_plane_step_sees_the_planes_that_come_back() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let (w, h) = (160usize, 96usize);
+        // colours well inside the range, so a trip through RGB and back has nothing to clip
+        let rgb: Vec<u8> = (0..w * h).flat_map(|i| {
+            let (x, y) = (i % w, i / w);
+            [(70 + x * 90 / w + (x / 9 % 2) * 40) as u8, (80 + y * 80 / h + (y / 7 % 2) * 30) as u8, (130 + ((x + y) / 11 % 3) * 25) as u8]
+        }).collect();
+        let mut data = vec![0u8; PixelFormat::I420.size(w as u32, h as u32)];
+        telescope_core::image::rgb_to_420(&rgb, w, h, &mut data, false);
+        let frame = Frame::new(w as u32, h as u32, PixelFormat::I420, data);
+        let like_background = || ShaderStep {
+            wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { return vec4<f32>(mix(blurred_weighted(uv).rgb, sample(uv).rgb, sample_texture(blur_cutout, uv).r), 1.0); }".into(),
+            uniforms: json!({"blur_shrink": 8, "blur_sigma": 2.5, "blur_planes": 1}),
+            textures: vec![("blur_cutout".into(), disc(w as u32, h as u32)), ("blur_weights".into(), Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]))],
+        };
+        let go = |more: &[&str]| {
+            let mut held = gpu.lift_with(&frame, true).unwrap();
+            let mut slots: Vec<ShaderSlot> = std::iter::once(ShaderSlot::new(like_background())).chain(more.iter().map(|w| ShaderSlot::new(step(w, json!({}))))).collect();
+            for slot in &mut slots {
+                slot.prepare(&gpu).unwrap();
+                gpu.shade(&mut held, slot, 0.0, None);
+            }
+            let out = gpu.land(&mut held).unwrap();
+            gpu.put_down(held);
+            out
+        };
+        let alone = go(&[]);
+        // what the next shader is given is the picture that lands: the same colours as from those planes put on the card as they are
+        let mut held = gpu.lift_with(&frame, true).unwrap();
+        let mut slot = ShaderSlot::new(like_background());
+        slot.prepare(&gpu).unwrap();
+        gpu.shade(&mut held, &slot, 0.0, None);
+        let enc = std::mem::replace(&mut held.enc, gpu.device.create_command_encoder(&Default::default()));
+        let next_sees = gpu.download(enc, &[&held.a], &[4]).unwrap();
+        let landed = gpu.land(&mut held).unwrap();
+        gpu.put_down(held);
+        let mut again = gpu.lift_with(&landed, true).unwrap();
+        let enc = std::mem::replace(&mut again.enc, gpu.device.create_command_encoder(&Default::default()));
+        assert!(next_sees == gpu.download(enc, &[&again.a], &[4]).unwrap(), "the next shader is given a picture other than the one that comes back");
+        gpu.put_down(again);
+        assert_eq!(landed.data, alone.data);
+        let then_identity = go(&[IDENTITY]);
+        // an identity shader reads the planes' colours and writes them as planes again: a level here and there from the rounding, no more
+        let worst = alone.data.iter().zip(then_identity.data.iter()).map(|(a, b)| (*a as i32 - *b as i32).abs()).max().unwrap();
+        assert!(worst <= 2, "an identity shader after the step changed the picture by {worst} levels");
+    }
+
+    #[test]
+    fn a_lost_card_takes_no_more_work_and_a_stream_after_it_gets_a_new_one() {
+        let name = "gpu::tests::lost_card_in_a_process_of_its_own";
+        let run = std::process::Command::new(std::env::current_exe().unwrap()).args(["--ignored", "--exact", name, "--nocapture"]).output().unwrap();
+        assert!(run.status.success(), "{}{}", String::from_utf8_lossy(&run.stdout), String::from_utf8_lossy(&run.stderr));
+    }
+
+    #[test]
+    #[ignore = "a_lost_card_takes_no_more_work_and_a_stream_after_it_gets_a_new_one runs this"]
+    fn lost_card_in_a_process_of_its_own() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let frame = yuv_frame(8, 8, |x, y| (x * 7 + y * 3) as u8 + 16, 100, 150);
+        let target = gpu.picture(8, 8);
+        let mut slot = ShaderSlot::new(step(IDENTITY, json!({})));
+        slot.prepare(&gpu).unwrap();
+        gpu.lost.store(true, Ordering::SeqCst);
+        // nothing is allocated, uploaded or drawn once it's lost
+        let pooled = gpu.kept_bytes();
+        assert!(gpu.lift(&frame).is_err() && gpu.rgba(&frame, 4, 4).is_err() && gpu.paint(&frame, &target).is_err() && gpu.trial(&frame).is_err());
+        assert!(ShaderSlot::new(step(IDENTITY, json!({}))).prepare(&gpu).is_err());
+        assert_eq!(gpu.kept_bytes(), pooled);
+        let fresh = Gpu::shared().expect("a card again");
+        assert!(!Arc::ptr_eq(&fresh, &gpu) && !fresh.is_lost(), "a stream that starts now gets a new device");
+        assert!(Arc::ptr_eq(&Gpu::shared().unwrap(), &fresh), "and so does the next one, with no more opening");
+        run(&fresh, &frame, &mut [ShaderSlot::new(step(IDENTITY, json!({})))]);
+    }
+
+    #[test]
+    fn a_wait_for_the_card_that_is_stopped_gives_up_at_once() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let mut held = gpu.lift(&yuv_frame(8, 8, |x, y| (x * 7 + y * 3) as u8 + 16, 100, 150)).unwrap();
+        let began = std::time::Instant::now();
+        assert!(gpu.land_until(&mut held, &|| true).unwrap_err().contains("stopped"));
+        assert!(began.elapsed() < std::time::Duration::from_secs(2));
+        assert!(!gpu.is_lost(), "a stop isn't the card failing");
+        gpu.put_down(held);
     }
 
     #[test]

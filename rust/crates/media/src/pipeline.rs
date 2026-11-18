@@ -222,7 +222,7 @@ impl Pipeline {
             chain.downs += 1;
             let cap = SPARE_POOL_FRAMES * held.size().0 as usize * held.size().1 as usize * 3;
             let down_began = chain.timing.then(monotonic_ns);
-            let landed = self.pool.scope(cap, || gpu.land(held).map(|out| std::mem::replace(frame, out).recycle()));
+            let landed = self.pool.scope(cap, || gpu.land_until(held, &|| ctx.stopped()).map(|out| std::mem::replace(frame, out).recycle()));
             if let Some(began) = down_began {
                 chain.down_ns += monotonic_ns().saturating_sub(began);
             }
@@ -232,6 +232,12 @@ impl Pipeline {
                     for i in chain.ahead.drain(..) {
                         self.steps[i].fails = 0;
                     }
+                }
+                Err(_) if ctx.stopped() => {
+                    // Stop is waiting on this frame: it isn't worth the CPU's work, the card isn't to blame, and what it was missing mustn't go out as it is
+                    chain.ahead.clear();
+                    gpu.put_down(chain.held.take().unwrap());
+                    *frame = neutral((frame.width, frame.height), frame.format, frame);
                 }
                 Err(why) => {
                     // The frame in hand is the last good one, and what the card did after it is lost with it
@@ -329,8 +335,16 @@ impl Pipeline {
 
     fn run_shader(&mut self, i: usize, frame: &mut Frame, chain: &mut Chain, ctx: &dyn FrameContext, time: f32) {
         let Some(gpu) = self.gpu() else { return self.steps[i].failed("no graphics card to run shaders on") };
+        // Before any work for the card, however small: a lost device is not touched again
+        if gpu.is_lost() || self.card_lost {
+            return self.off_the_card(i, "the graphics card was lost", frame, chain, ctx);
+        }
         // A step with a CPU half may have pictures for its shader that it works out on the frame, so that comes first
         let textures = self.card_textures(i, frame, chain, ctx);
+        // Bringing the picture down for that failed: this frame goes on the CPU from here, with no second wait on the card
+        if self.card_lost {
+            return self.off_the_card(i, "the graphics card failed a frame", frame, chain, ctx);
+        }
         let entry = &mut self.steps[i];
         // It may need uniforms that depend on this frame's size, and on the pictures it just made
         if let Kind::Either(slot, cpu) = &mut entry.kind {
@@ -385,6 +399,16 @@ impl Pipeline {
         chain.ahead.push(i);
     }
 
+    /// A step the card can't take now: one with a CPU half runs there on the frame in hand, one that is the card's alone fails for this frame.
+    fn off_the_card(&mut self, i: usize, why: &str, frame: &mut Frame, chain: &mut Chain, ctx: &dyn FrameContext) {
+        self.lost_card(why);
+        if matches!(self.steps[i].kind, Kind::Either(..)) {
+            self.run_cpu(i, frame, chain, ctx);
+        } else {
+            self.steps[i].failed(why);
+        }
+    }
+
     /// The pictures an Either's CPU half has for its shader, asked with the frame on the CPU (so it comes down first, the card keeping its copy). A step that has none says so once and isn't asked again, and until it has given some it is first asked on the frame in hand, so one that has none never brings the picture down. One that panics gives none, which leaves what it hides hidden.
     fn card_textures(&mut self, i: usize, frame: &mut Frame, chain: &mut Chain, ctx: &dyn FrameContext) -> Option<Vec<(String, Frame)>> {
         if !matches!(self.steps[i].kind, Kind::Either(..)) || self.steps[i].no_textures {
@@ -425,7 +449,7 @@ impl Pipeline {
 
     /// Keeps a step that's off the card ready for coming back, so that doesn't cost a frame later.
     fn ready_on_card(&mut self, i: usize) {
-        if let Some(gpu) = self.gpu() {
+        if let Some(gpu) = self.gpu().filter(|gpu| !gpu.is_lost()) {
             if let Err(why) = self.steps[i].kind.slot().prepare(&gpu) {
                 log::error!("Plugin {}'s shader can't run ({why}); it stays on the CPU", self.steps[i].owner);
                 self.steps[i].no_shader = true;
@@ -580,6 +604,12 @@ impl FramePipeline for Pipeline {
         let timing = self.stats.as_ref().is_some_and(|s| s.steps().on());
         chain.timing = timing;
         for i in 0..self.steps.len() {
+            if ctx.stopped() {
+                // Stop is waiting for this worker: nothing more is done, and what's left goes out dark in case it is published after all
+                frame = neutral((frame.width, frame.height), frame.format, &frame);
+                self.drop_card_work(&mut chain);
+                break;
+            }
             if self.steps[i].skipped() {
                 if self.steps[i].hides() {
                     // Skipped for failing too often, which can't mean the room shows: the card's copy goes with the picture
@@ -1791,5 +1821,73 @@ pub(crate) mod tests {
         for fault in [crate::gpu::Fault::RefusedSubmit, crate::gpu::Fault::PollPanic, crate::gpu::Fault::Lost] {
             a_readback_that_goes_wrong(fault);
         }
+        a_failed_readback_for_a_steps_pictures_sends_that_step_to_the_cpu_too();
+        a_stop_ends_the_wait_and_the_frame_goes_out_dark();
+    }
+
+    /// HalvesAndCounts its runs and does what DIM does.
+    struct HalvesAndCounts(Arc<std::sync::atomic::AtomicU32>);
+
+    impl CpuStep for HalvesAndCounts {
+        fn process(&mut self, frame: &mut Frame, _ctx: &dyn FrameContext) {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            frame.data_mut().iter_mut().for_each(|v| *v /= 2);
+        }
+        fn card_textures_offered(&self) -> Option<bool> {
+            Some(true)
+        }
+        fn card_textures(&mut self, _frame: &Frame, _ctx: &dyn FrameContext) -> Option<Vec<(String, Frame)>> {
+            Some(Vec::new())
+        }
+    }
+
+    /// The readback that brings the picture down for a step's pictures fails: that step runs on the CPU in the same frame, so the card is waited on once.
+    fn a_failed_readback_for_a_steps_pictures_sends_that_step_to_the_cpu_too() {
+        let gpu = Arc::new(Gpu::open().unwrap());
+        let runs = Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        p.gpu = Some(Some(gpu.clone()));
+        let dim = ShaderStep { wgsl: DIM.into(), uniforms: serde_json::json!({}), textures: Vec::new() };
+        p.set_steps(vec![shader(INVERT), StagedStep { owner: "either".into(), stage: FrameStage::Effects, step: FrameStep::Either(dim, Box::new(HalvesAndCounts(runs.clone()))) }]);
+        // a picture first, so the shaders are built and a download buffer of this size is kept
+        p.process(grey(8, 8, 100), &NoContext);
+        runs.store(0, Ordering::SeqCst);
+        gpu.inject(crate::gpu::Fault::RefusedSubmit);
+        let out = p.process(grey(8, 8, 100), &NoContext);
+        assert!(p.card_lost);
+        assert_eq!(runs.load(Ordering::SeqCst), 1, "the step with a CPU half ran on the CPU this frame");
+        assert_eq!(p.last_transfers, (1, 1), "one trip to the card and one wait on it, not a second");
+        assert_eq!(out.data[0], 50, "the card's invert went with the failed readback, and the CPU halved the frame in hand");
+    }
+
+    /// A context that says stop from its second question on.
+    struct Stops(std::sync::atomic::AtomicU32);
+
+    impl FrameContext for Stops {
+        fn source_id(&self) -> &str {
+            ""
+        }
+        fn person_mask(&self, _frame: &Frame) -> Option<Arc<Vec<u8>>> {
+            None
+        }
+        fn colour_preview(&self, frame: &Frame) -> Frame {
+            frame.clone()
+        }
+        fn stopped(&self) -> bool {
+            self.0.fetch_add(1, Ordering::SeqCst) > 0
+        }
+    }
+
+    /// A stop while the frame waits on the card ends the wait at once: the card isn't blamed and nothing but a dark frame is left.
+    fn a_stop_ends_the_wait_and_the_frame_goes_out_dark() {
+        let gpu = Arc::new(Gpu::open().unwrap());
+        let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+        p.gpu = Some(Some(gpu));
+        p.set_steps(vec![shader(INVERT)]);
+        let began = std::time::Instant::now();
+        let out = p.process(grey(8, 8, 100), &Stops(Default::default()));
+        assert!(began.elapsed() < std::time::Duration::from_secs(5));
+        assert_eq!(out.data[0], 16, "dark, not the frame without what the card was doing for it");
+        assert!(!p.card_lost, "a stop isn't the card failing");
     }
 }
