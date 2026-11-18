@@ -138,10 +138,10 @@ impl WpdTransport {
             let mut params = Vec::new();
             if let Ok(collection) = result.GetIPortableDevicePropVariantCollectionValue(&WPD_PROPERTY_MTP_EXT_RESPONSE_PARAMS) {
                 let mut count = 0u32;
-                if collection.GetCount(&mut count).is_ok() {
+                if collection.GetCount(&raw mut count).is_ok() {
                     for i in 0..count {
                         let mut value = PROPVARIANT::default();
-                        if collection.GetAt(i, &mut value).is_ok() {
+                        if collection.GetAt(i, &raw mut value).is_ok() {
                             params.extend(u32::try_from(&value).ok());
                         }
                     }
