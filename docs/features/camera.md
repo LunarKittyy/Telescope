@@ -29,7 +29,7 @@ Zooming in gets sharper because it crops from the full sensor first and hops to 
 
 ## Presets
 
-The **Presets** button saves your camera, output and transform settings (lens included) under a name and brings them back in one click. The optional picture plugins (Auto framing, Background, Fun pack, Colour grading and the others) are saved too when they're on. Each phone has its own presets and each preset can have its own shortcut.
+The **Presets** button saves your camera, output and transform settings (lens included) under a name and brings them back in one click. The optional picture plugins (Auto framing, Background, Fun pack, Colour grading and the others) are saved too when they're on. Presets also save a USB webcam's size, frame rate and picture settings, the microphone's gain, auto level and noise reduction (not whether it's on) and a Spout sender's frame rate. Applying one changes only the source it was saved for. A streaming webcam or Spout sender reopens if the preset changes its size or rate. Presets don't hold your saved One picture layouts. Each phone has its own presets and each preset can have its own shortcut.
 
 ## Resolution and FPS
 
