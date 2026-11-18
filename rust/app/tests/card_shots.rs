@@ -146,8 +146,12 @@ fn phototrap_shots() {
     let trap = card_of(&mut PhototrapPlugin::new(), "camera");
     shoot(&dir, "phototrap-armed", &trap, &[json!({"active": true, "armed": true, "count-enabled": true, "status": "Armed and watching 2 zones", "status-kind": "status_ok",
         "tally": "Triggers: 3, photos: 9, last at 14:03:22", "zone-count": 2, "clear-enabled": true, "count": 4, "count-max": 8, "count-text": "4",
-        "night-enabled": true, "night": true, "sensitivity-text": "5", "pause-text": "10 s"})]);
-    shoot(&dir, "phototrap-idle", &trap, &[json!({"active": true, "status": "Not armed", "count-enabled": false, "count-text": "1", "night-enabled": false})]);
+        "night-enabled": true, "night": true, "sensitivity-text": "5", "pause-text": "10 s", "folder-text": "~/Pictures/Phototrap"})]);
+    shoot(&dir, "phototrap-idle", &trap, &[json!({"active": true, "status": "Not armed", "count-enabled": false, "count-text": "1", "night-enabled": false,
+        "folder-text": "~/Pictures/Phototrap"})]);
+    // Disarmed by itself, and the Preview plugin off so zones can't be drawn
+    shoot(&dir, "phototrap-disarmed", &trap, &[json!({"active": true, "status": "Off since the 2 GB photo limit is reached", "status-kind": "status_err",
+        "count-enabled": true, "count-text": "3", "night-enabled": false, "draw-enabled": false, "folder-text": "~/Pictures/Phototrap"})]);
 }
 
 #[test]

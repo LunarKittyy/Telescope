@@ -701,7 +701,7 @@ msgstr "从预览中拾取的颜色。点击可重新拾取。"
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "在预览中点击身后的幕布。按 Esc 键取消。"
 
-#: rust/crates/effects/src/chroma_key.rs:394 rust/crates/effects/src/chroma_key.rs:430 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:545 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:709 rust/crates/shell/src/streams.rs:1766 rust/crates/shell/src/window.rs:1726 rust/crates/shell/src/worker.rs:569 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:394 rust/crates/effects/src/chroma_key.rs:430 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:545 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:709 rust/crates/shell/src/streams.rs:1770 rust/crates/shell/src/window.rs:1726 rust/crates/shell/src/worker.rs:569 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "未串流"
 
@@ -2178,7 +2178,7 @@ msgstr "发送到手机"
 msgid "Clear from phone"
 msgstr "从手机清除"
 
-#: rust/crates/effects/src/notes.rs:332 rust/crates/effects/ui/phototrap.slint:103
+#: rust/crates/effects/src/notes.rs:332 rust/crates/effects/ui/phototrap.slint:106
 msgid "Pause"
 msgstr "暂停"
 
@@ -2387,7 +2387,7 @@ msgstr "普通"
 msgid "Full resolution"
 msgstr "全分辨率"
 
-#: rust/crates/effects/src/photos.rs:30 rust/crates/effects/ui/phototrap.slint:117 rust/crates/effects/ui/phototrap.slint:118
+#: rust/crates/effects/src/photos.rs:30 rust/crates/effects/ui/phototrap.slint:120 rust/crates/effects/ui/phototrap.slint:121
 msgid "Night"
 msgstr "夜景"
 
@@ -2479,7 +2479,7 @@ msgstr "JPEG 质量由相机决定"
 msgid "RAW photos have no quality setting"
 msgstr "RAW 照片没有质量设置"
 
-#: rust/crates/effects/src/photos.rs:52 rust/crates/shell/src/streams.rs:824
+#: rust/crates/effects/src/photos.rs:52 rust/crates/shell/src/streams.rs:828
 msgid "The camera is already taking a photo."
 msgstr "相机正在拍照中。"
 
@@ -2491,7 +2491,7 @@ msgstr "相机无法完成拍照。"
 msgid "Like the video"
 msgstr "与视频一致"
 
-#: rust/crates/effects/src/photos.rs:57 rust/crates/effects/src/photos.rs:186 rust/crates/effects/src/phototrap.rs:198 rust/crates/effects/src/phototrap.rs:407
+#: rust/crates/effects/src/photos.rs:57 rust/crates/effects/src/photos.rs:186 rust/crates/effects/src/phototrap.rs:289 rust/crates/effects/src/phototrap.rs:612
 #, python-brace-format
 msgid "{seconds} s"
 msgstr "{seconds} 秒"
@@ -2592,7 +2592,7 @@ msgstr "照片传输延迟。已保存 {name}"
 msgid "Save photos in"
 msgstr "将照片保存至"
 
-#: rust/crates/effects/src/photos.rs:606 rust/crates/effects/src/photos.rs:725 rust/crates/effects/ui/photos.slint:136 rust/crates/effects/ui/phototrap.slint:90
+#: rust/crates/effects/src/photos.rs:606 rust/crates/effects/src/photos.rs:725 rust/crates/effects/ui/photos.slint:136 rust/crates/effects/ui/phototrap.slint:93
 msgid "Photos"
 msgstr "照片"
 
@@ -2612,90 +2612,108 @@ msgstr "拍照模式"
 msgid "Photo timer"
 msgstr "拍照倒计时"
 
-#: rust/crates/effects/src/phototrap.rs:27
+#: rust/crates/effects/src/phototrap.rs:38
 msgid "Watch the zones and take photos when something moves in them."
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:28
+#: rust/crates/effects/src/phototrap.rs:39
 msgid "Drag across the preview to mark a place to watch. Up to four."
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:29
+#: rust/crates/effects/src/phototrap.rs:40
+msgid "Switch on the Preview plugin to draw zones on the preview."
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:41
 msgid "Remove every zone. With none, the whole picture is watched."
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:30
+#: rust/crates/effects/src/phototrap.rs:42
 msgid "Use the phone maker's Night mode for the photos."
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:31
+#: rust/crates/effects/src/phototrap.rs:43
 msgid "This lens has no Night mode to offer"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:32
+#: rust/crates/effects/src/phototrap.rs:44
 msgid "Number of photos each time it goes off."
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:33
+#: rust/crates/effects/src/phototrap.rs:45
 msgid "This lens takes one photo at a time"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:156 rust/crates/effects/src/phototrap.rs:406
+#: rust/crates/effects/src/phototrap.rs:244 rust/crates/effects/src/phototrap.rs:611
 msgid "Not armed"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:162
+#: rust/crates/effects/src/phototrap.rs:247
 msgid "Waiting for a phone that can take photos"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:165
+#: rust/crates/effects/src/phototrap.rs:250
+msgid "Paused while the picture is hidden"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:253
 msgid "Armed and watching the whole picture"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:167
+#: rust/crates/effects/src/phototrap.rs:255
 #, python-brace-format
 msgid "Armed and watching {n} zone"
 msgid_plural "Armed and watching {n} zones"
 msgstr[0] ""
 
-#: rust/crates/effects/src/phototrap.rs:174
+#: rust/crates/effects/src/phototrap.rs:262
 #, python-brace-format
 msgid "Triggers: {triggers}, photos: {photos}, last at {time}"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:177
+#: rust/crates/effects/src/phototrap.rs:265
 msgid "Nothing has set it off yet"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:184 rust/crates/effects/src/phototrap.rs:404
+#: rust/crates/effects/src/phototrap.rs:272 rust/crates/effects/src/phototrap.rs:609
 msgid "Armed"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:184 rust/crates/effects/src/phototrap.rs:404
+#: rust/crates/effects/src/phototrap.rs:272 rust/crates/effects/src/phototrap.rs:609
 msgid "Draw zone"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:185 rust/crates/effects/src/phototrap.rs:405
+#: rust/crates/effects/src/phototrap.rs:273 rust/crates/effects/src/phototrap.rs:610
 msgid "Clear zones"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:284
+#: rust/crates/effects/src/phototrap.rs:390
+#, python-brace-format
+msgid "Off since the {size} GB photo limit is reached"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:393
+#, python-brace-format
+msgid "Off since there's less than {size} GB free on the drive"
+msgstr ""
+
+#: rust/crates/effects/src/phototrap.rs:453
 msgid "The phone couldn't take the photos"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:312
+#: rust/crates/effects/src/phototrap.rs:500
 msgid "Drag across the picture to mark a zone. Esc cancels."
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:341 rust/crates/effects/ui/phototrap.slint:40
+#: rust/crates/effects/src/phototrap.rs:538 rust/crates/effects/ui/phototrap.slint:43
 msgid "Phototrap"
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:342
+#: rust/crates/effects/src/phototrap.rs:539
 msgid "Take a burst of photos when something moves in the zones you draw, for wildlife and anything that shows up while nobody's looking."
 msgstr ""
 
-#: rust/crates/effects/src/phototrap.rs:343
+#: rust/crates/effects/src/phototrap.rs:540
 msgid "Without the Phototrap plugin there's no Phototrap card and nothing is watched for movement."
 msgstr ""
 
@@ -2882,7 +2900,7 @@ msgstr "红青"
 msgid "Start a second stream to get the 3D picture."
 msgstr "开启第二个串流以获取 3D 画面。"
 
-#: rust/crates/effects/src/stereo_plugin.rs:737 rust/crates/shell/src/streams.rs:1077
+#: rust/crates/effects/src/stereo_plugin.rs:737 rust/crates/shell/src/streams.rs:1081
 msgid "Waiting"
 msgstr "等待中"
 
@@ -3922,7 +3940,7 @@ msgstr "质量越高，生成的 JPEG 文件越大、画质越纯净。"
 msgid "Timer"
 msgstr "倒计时"
 
-#: rust/crates/effects/ui/photos.slint:352 rust/crates/effects/ui/photos.slint:361
+#: rust/crates/effects/ui/photos.slint:352 rust/crates/effects/ui/photos.slint:361 rust/crates/effects/ui/phototrap.slint:131 rust/crates/effects/ui/phototrap.slint:139
 msgid "Save in"
 msgstr "保存位置"
 
@@ -3930,32 +3948,36 @@ msgstr "保存位置"
 msgid "The folder path photos are saved in."
 msgstr "保存照片的文件夹路径。"
 
-#: rust/crates/effects/ui/phototrap.slint:41
+#: rust/crates/effects/ui/phototrap.slint:44
 msgid "Take photos when something moves in the zones you draw on the preview."
 msgstr ""
 
-#: rust/crates/effects/ui/phototrap.slint:62
+#: rust/crates/effects/ui/phototrap.slint:65
 msgid "Zones"
 msgstr ""
 
-#: rust/crates/effects/ui/phototrap.slint:75 rust/crates/effects/ui/phototrap.slint:76
+#: rust/crates/effects/ui/phototrap.slint:78 rust/crates/effects/ui/phototrap.slint:79
 msgid "Sensitivity"
 msgstr ""
 
-#: rust/crates/effects/ui/phototrap.slint:77
+#: rust/crates/effects/ui/phototrap.slint:80
 msgid "Higher catches smaller movements and more false alarms."
 msgstr ""
 
-#: rust/crates/effects/ui/phototrap.slint:91
+#: rust/crates/effects/ui/phototrap.slint:94
 msgid "Photos per trigger"
 msgstr ""
 
-#: rust/crates/effects/ui/phototrap.slint:104
+#: rust/crates/effects/ui/phototrap.slint:107
 msgid "Pause between triggers"
 msgstr ""
 
-#: rust/crates/effects/ui/phototrap.slint:105
+#: rust/crates/effects/ui/phototrap.slint:108
 msgid "How long to wait after a burst before it can go off again."
+msgstr ""
+
+#: rust/crates/effects/ui/phototrap.slint:140
+msgid "Where the photos go. Click to open the folder."
 msgstr ""
 
 #: rust/crates/effects/ui/privacy_blur.slint:23
@@ -4244,7 +4266,7 @@ msgstr "无法跟上"
 msgid "Browser"
 msgstr "浏览器"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:784 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1727 rust/crates/system/ui/updates.slint:166
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:784 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1731 rust/crates/system/ui/updates.slint:166
 msgid "Try again"
 msgstr "重试"
 
@@ -4699,7 +4721,7 @@ msgstr "正在等待 {source}"
 msgid "{source}, no pairing needed"
 msgstr "{source}，无需配对"
 
-#: rust/crates/link/src/plugin.rs:1113 rust/crates/shell/src/streams.rs:1060
+#: rust/crates/link/src/plugin.rs:1113 rust/crates/shell/src/streams.rs:1064
 msgid "Reconnecting"
 msgstr "正在重新连接"
 
@@ -4711,7 +4733,7 @@ msgstr "通过 USB 串流"
 msgid "Streaming over Wi-Fi"
 msgstr "通过 Wi-Fi 串流"
 
-#: rust/crates/link/src/plugin.rs:1121 rust/crates/shell/src/streams.rs:1064
+#: rust/crates/link/src/plugin.rs:1121 rust/crates/shell/src/streams.rs:1068
 msgid "Connecting"
 msgstr "正在连接"
 
@@ -7220,11 +7242,11 @@ msgstr "正在配置更多虚拟相机…"
 msgid "Couldn't add more virtual cameras"
 msgstr "无法添加更多虚拟相机"
 
-#: rust/crates/shell/src/host.rs:665
+#: rust/crates/shell/src/host.rs:672
 msgid "Phone stream required."
 msgstr "需要手机串流。"
 
-#: rust/crates/shell/src/host.rs:671
+#: rust/crates/shell/src/host.rs:678
 msgid "Light format required. Heavy sends whole pictures with no keyframes to work with."
 msgstr "需要“轻量”格式。“完整”格式发送整张画面，没有可用的关键帧。"
 
@@ -7969,7 +7991,7 @@ msgstr "Telescope 无法删除：{error}"
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr "Telescope 无法创建插件文件夹：{error}"
 
-#: rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1062
+#: rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1066
 msgid "Live"
 msgstr "实时"
 
@@ -8035,56 +8057,56 @@ msgstr "安装插件"
 msgid "Plugins (*.zip)"
 msgstr "插件 (*.zip)"
 
-#: rust/crates/shell/src/shell.rs:803
+#: rust/crates/shell/src/shell.rs:818
 #, python-brace-format
 msgid "Couldn't start {plugins}"
 msgid_plural "Couldn't start {plugins}"
 msgstr[0] "无法启动 {plugins}"
 
-#: rust/crates/shell/src/shell.rs:805
+#: rust/crates/shell/src/shell.rs:820
 #, python-brace-format
 msgid "Couldn't start {n} plugin"
 msgid_plural "Couldn't start {n} plugins"
 msgstr[0] "无法启动 {n} 个插件"
 
-#: rust/crates/shell/src/shell.rs:807
+#: rust/crates/shell/src/shell.rs:822
 msgid "Telescope works without the plugin. The Plugins tab in Settings shows what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings shows what went wrong."
 msgstr[0] "没有这些插件，Telescope 也能正常运行。“设置”中的“插件”标签页显示了具体问题。"
 
-#: rust/crates/shell/src/shell.rs:811 rust/crates/shell/src/shell.rs:831
+#: rust/crates/shell/src/shell.rs:826 rust/crates/shell/src/shell.rs:846
 msgid "Plugins…"
 msgstr "插件…"
 
-#: rust/crates/shell/src/shell.rs:825
+#: rust/crates/shell/src/shell.rs:840
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
 msgstr[0] "{plugins} 已关闭"
 
-#: rust/crates/shell/src/shell.rs:826
+#: rust/crates/shell/src/shell.rs:841
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "你在“插件”中关闭了它。要恢复，请在“设置”中打开“插件”并将其开启。"
 
-#: rust/crates/shell/src/shell.rs:849
+#: rust/crates/shell/src/shell.rs:864
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "旧文件的副本位于 {path}。"
 
-#: rust/crates/shell/src/shell.rs:851
+#: rust/crates/shell/src/shell.rs:866
 msgid "Your settings couldn't be read"
 msgstr "无法读取你的设置"
 
-#: rust/crates/shell/src/shell.rs:852
+#: rust/crates/shell/src/shell.rs:867
 msgid "Telescope started with its defaults and paired phones need pairing again."
 msgstr "Telescope 已以默认设置启动，已配对的手机需要重新配对。"
 
-#: rust/crates/shell/src/shell.rs:1250
+#: rust/crates/shell/src/shell.rs:1278
 msgid "Telescope - Save failed"
 msgstr "Telescope - 保存失败"
 
-#: rust/crates/shell/src/shell.rs:1251
+#: rust/crates/shell/src/shell.rs:1279
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "无法保存设置。请检查磁盘空间和权限。"
 
@@ -8166,7 +8188,7 @@ msgstr "以 {size} 串流，直到手机降温。"
 msgid "Open Telescope on it."
 msgstr "请在上面打开 Telescope。"
 
-#: rust/crates/shell/src/sources.rs:855 rust/crates/shell/src/streams.rs:1648
+#: rust/crates/shell/src/sources.rs:855 rust/crates/shell/src/streams.rs:1652
 msgid "the device"
 msgstr "设备"
 
@@ -8256,74 +8278,78 @@ msgstr "请先停止输出到它们的串流"
 msgid "There are none to remove"
 msgstr "没有可移除的项"
 
-#: rust/crates/shell/src/streams.rs:794 rust/crates/shell/src/streams.rs:795
+#: rust/crates/shell/src/streams.rs:788
+msgid "No photo was taken while part of the picture is hidden."
+msgstr ""
+
+#: rust/crates/shell/src/streams.rs:798 rust/crates/shell/src/streams.rs:799
 msgid "The phone couldn't take the photo."
 msgstr "手机未能拍摄照片。"
 
-#: rust/crates/shell/src/streams.rs:826
+#: rust/crates/shell/src/streams.rs:830
 msgid "The phone is already taking a photo."
 msgstr "手机正在拍照。"
 
-#: rust/crates/shell/src/streams.rs:959
+#: rust/crates/shell/src/streams.rs:963
 #, python-brace-format
 msgid "The stream from {name} stopped unexpectedly"
 msgstr "来自 {name} 的串流意外停止"
 
-#: rust/crates/shell/src/streams.rs:961
+#: rust/crates/shell/src/streams.rs:965
 msgid "The stream stopped unexpectedly"
 msgstr "串流意外停止"
 
-#: rust/crates/shell/src/streams.rs:963
+#: rust/crates/shell/src/streams.rs:967
 msgid "Copy diagnostics has the details."
 msgstr "复制诊断信息可查看详情。"
 
-#: rust/crates/shell/src/streams.rs:988
+#: rust/crates/shell/src/streams.rs:992
 #, python-brace-format
 msgid "The phone got hot and lowered the frame rate to {fps} fps."
 msgstr "手机发热，已将帧率降至 {fps} fps。"
 
-#: rust/crates/shell/src/streams.rs:990
+#: rust/crates/shell/src/streams.rs:994
 #, python-brace-format
 msgid "Dynamic lowered the frame rate to {fps} fps to keep up with a slow connection."
 msgstr "动态模式已将帧率降至 {fps} fps，以适应较慢的连接。"
 
-#: rust/crates/shell/src/streams.rs:992
+#: rust/crates/shell/src/streams.rs:996
 msgid "The camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr "相机生成的帧数少于请求值。光线昏暗会降低帧率。"
 
-#: rust/crates/shell/src/streams.rs:994
+#: rust/crates/shell/src/streams.rs:998
 msgid "The phone's camera is producing fewer frames than requested. Dim light lowers the frame rate."
 msgstr "手机相机生成的帧数少于请求值。光线昏暗会降低帧率。"
 
-#: rust/crates/shell/src/streams.rs:1074
+#: rust/crates/shell/src/streams.rs:1078
 msgid "Starting"
 msgstr "正在启动"
 
 #. under a stream's tile, the virtual camera it goes to
-#: rust/crates/shell/src/streams.rs:1088
+#: rust/crates/shell/src/streams.rs:1092
 #, python-brace-format
 msgid "to {output}"
 msgstr "至 {output}"
 
-#: rust/crates/shell/src/streams.rs:1089
+#: rust/crates/shell/src/streams.rs:1093
 #, python-brace-format
 msgid "Stop streaming {name}"
 msgstr "停止串流 {name}"
 
-#: rust/crates/shell/src/streams.rs:1469
+#: rust/crates/shell/src/streams.rs:1473
 msgid "The phone sent data this version can't read. Update both apps to the same version."
 msgstr "手机发送了此版本无法读取的数据。请将两端的应用更新到同一版本。"
 
-#: rust/crates/shell/src/streams.rs:1551
+#: rust/crates/shell/src/streams.rs:1555
 #, python-brace-format
 msgid "Can't reach {name}"
 msgstr "无法连接到 {name}"
 
-#: rust/crates/shell/src/streams.rs:1635
+#: rust/crates/shell/src/streams.rs:1639
 msgid "Lost the phone - reconnecting"
 msgstr "与手机断开连接 - 正在重新连接"
 
-#: rust/crates/shell/src/streams.rs:1826
+#: rust/crates/shell/src/streams.rs:1830
 msgid "Couldn't reach the device."
 msgstr "无法连接到设备。"
 

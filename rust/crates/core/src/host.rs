@@ -594,6 +594,13 @@ pub trait HostStills {
     /// Takes a photo with the /v1/still options into folder; None when it can't start. Progress and the result come as events.
     fn take_still(&mut self, options: &Value, folder: &str, source_id: Option<&str>) -> Option<RequestId>;
     fn still_busy(&self, source_id: Option<&str>) -> bool;
+    /// Whether the frame steps of that stream (the shown one for None) include one that hides the picture (a privacy blur, the wait screen, a
+    /// background), as of when they were last built. A photo comes straight off the phone and never passes through them. The options a photo is
+    /// taken with can say `"skip_if_hidden": true`, which makes the host check again when the photo is about to start and end it with a failed
+    /// RequestDone instead of taking it.
+    fn picture_hidden(&self, _source_id: Option<&str>) -> bool {
+        false
+    }
 }
 
 /// The colour pipeline: every plugin's colour changes baked into one LUT per stream.
