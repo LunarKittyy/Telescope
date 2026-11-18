@@ -156,10 +156,30 @@ fn scrolling_zooms_as_far_as_the_max_zoom_setting() {
     }
     assert_eq!(r.tile(0).zoom, 25.0);
     assert_eq!(r.props()["zoom-max"], json!(2500.0));
-    // a lower limit brings a tile that is past it down, in the layout the editor and the camera both draw
+    // a lower limit shows it at the limit and keeps the zoom it was given, in the editor and on the camera
     r.plugin.on_event(&mut r.host, &Event::MaxZoomChanged { max_zoom: 6 });
     assert_eq!(r.props()["zoom"], json!(600.0));
-    assert_eq!(r.tile(0).zoom, 6.0);
+    assert_eq!(r.tile(0).zoom, 25.0);
+    assert_eq!(r.plugin.shown_layout().tiles[0].zoom, 6.0);
+    // scrolling up at the limit changes nothing, and neither does moving the tile
+    r.ui("wheel", json!([0.3 * AREA.0, 0.3 * AREA.1, AREA.0, AREA.1, 240.0]));
+    r.ui("zoom-moved", json!([600.0]));
+    assert_eq!(r.tile(0).zoom, 25.0);
+    let (moved, rest) = (crate::composite::moved(&r.tile(0), 0.2, 0.2), r.plugin.layout().clone());
+    r.plugin.set_layout(&mut r.host, Layout { tiles: vec![moved], ..rest });
+    r.ui("zoom-moved", json!([600.0]));
+    assert_eq!(r.tile(0).zoom, 25.0);
+    // scrolling down works from what is shown
+    r.ui("wheel", json!([0.3 * AREA.0, 0.3 * AREA.1, AREA.0, AREA.1, -240.0]));
+    assert!(near(r.tile(0).zoom, 6.0 / 1.21, 1e-9));
+    // and a limit raised again brings back a zoom nobody changed
+    r.plugin.on_event(&mut r.host, &Event::MaxZoomChanged { max_zoom: 30 });
+    let (back, rest) = (Tile { zoom: 25.0, ..r.tile(0) }, r.plugin.layout().clone());
+    r.plugin.set_layout(&mut r.host, Layout { tiles: vec![back], ..rest });
+    r.plugin.on_event(&mut r.host, &Event::MaxZoomChanged { max_zoom: 6 });
+    r.plugin.on_event(&mut r.host, &Event::MaxZoomChanged { max_zoom: 30 });
+    assert_eq!(r.props()["zoom"], json!(2500.0));
+    assert_eq!(r.plugin.shown_layout().tiles[0].zoom, 25.0);
 }
 
 #[test]
