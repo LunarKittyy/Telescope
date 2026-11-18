@@ -452,7 +452,7 @@ fn when_it_is_unclear_who_is_who_after_a_gap_the_lock_lets_go_instead_of_guessin
     r.run(0.3, Some(&[]));
     // they have both moved, and the one now nearest the old spot is the bystander
     r.run(5.0, Some(&[at(0.38), at(0.48)]));
-    assert!(unlocked(&mut r, &[at(0.38), at(0.48)]), "zoom {}", r.last().0);
+    assert!(r.plugin.followed.is_none(), "it let go instead of guessing");
 }
 
 #[test]
@@ -492,9 +492,48 @@ fn the_picked_person_is_still_followed_after_walking_past_someone_of_the_same_bu
     let mut r = picked_pair(&a, &b);
     let (a_now, b_now) = walk_past(&mut r, 0.1);
     r.run(4.0, Some(&[at(a_now), at(b_now)]));
+    // and it has been tracking them, not holding an old match
+    let (followed, seen) = r.plugin.followed.clone().expect("still following");
+    let now = *r.clock.lock().unwrap();
+    assert!(close(body(&followed, ASPECT).unwrap().0 .0, a_now, 0.03) && now - seen < 0.5, "followed {:?} seen {}s ago", body(&followed, ASPECT).unwrap().0, now - seen);
     // the picked one is on the right now: still the one framed, not let go or swapped for the other
     let (zoom, x) = (r.last().0, r.last().1);
     assert!(zoom > 2.5 && x > 0.3, "framing {:?} with them at {a_now}", r.last());
+}
+
+/// Reports of the two, `gap` seconds with nothing, then the two again.
+fn gap_then(r: &mut Rig, before: [f64; 2], gap: f64, after: [f64; 2]) {
+    r.run(0.2, Some(&[at(before[0]), at(before[1])]));
+    r.run(gap, None);
+    r.run(0.2, Some(&[at(after[0]), at(after[1])]));
+}
+
+#[test]
+fn after_a_long_gap_a_guess_of_where_they_went_never_swaps_them_but_it_may_let_go() {
+    let (a, b) = (at(0.39), at(0.61));
+    let mut r = picked_pair(&a, &b);
+    // they walked toward each other and past, out of sight for 1.6 s: the report puts the picked one on the right
+    gap_then(&mut r, [0.39, 0.61], 1.6, [0.55, 0.45]);
+    r.run(3.0, Some(&[at(0.55), at(0.45)]));
+    let now = *r.clock.lock().unwrap();
+    let fresh = r.plugin.followed.clone().filter(|(_, seen)| now - seen < 0.5).map(|(p, _)| body(&p, ASPECT).unwrap().0 .0);
+    assert!(fresh.is_none_or(|x| close(x, 0.55, 0.03)), "following the bystander at {fresh:?}");
+}
+
+#[test]
+fn someone_who_was_moving_fast_and_comes_back_after_a_while_is_found_where_they_are() {
+    let slight = |x: f64| person(Who { x, width: 0.06, ..Who::default() });
+    let (a, b) = (slight(0.3), slight(0.7));
+    let mut r = picked_pair(&a, &b);
+    // moving right at .3 a second when last seen
+    for step in 0..10 {
+        r.run(0.1, Some(&[slight(0.3 + step as f64 * 0.03), slight(0.7)]));
+    }
+    r.run(6.0, None);
+    r.run(0.5, Some(&[slight(0.56), slight(0.7)]));
+    let (followed, seen) = r.plugin.followed.clone().expect("still following");
+    let now = *r.clock.lock().unwrap();
+    assert!(close(body(&followed, ASPECT).unwrap().0 .0, 0.56, 0.03) && now - seen < 0.3, "followed {:?} seen {}s ago", body(&followed, ASPECT).unwrap().0, now - seen);
 }
 
 #[test]

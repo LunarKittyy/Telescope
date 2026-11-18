@@ -68,13 +68,18 @@ const FOLLOW_GIVE_UP_S: f64 = 30.0;
 /// How far (in shoulder widths) someone can have moved between two reports back to back, and each second more they were out of sight.
 const REACH_BASE: f64 = 0.8;
 const REACH_PER_S: f64 = 1.5;
+/// How far, in shoulder widths, someone could have got however long they were out of sight: two people this close to the same spot can't be told apart.
+const FAR_REACH: f64 = 6.0;
 /// A match is only clear when no other is this many times as near.
 const AMBIGUOUS: f64 = 4.0;
-/// A match looks for someone where they would be by now at the speed they were going, up to this many seconds ahead.
-const PREDICT_S: f64 = 0.6;
-/// A speed is only worked out from two sightings this far apart (s): closer ones are mostly noise, further ones are another movement.
+/// A match looks for someone where they would be by now at the speed they were going, if they were last seen no longer ago than this (seconds). After a longer gap the speed is dropped and the old spot is all there is: a guess that far ahead could put two people the wrong way round.
+const PREDICT_S: f64 = 0.5;
+/// Reports this long without being clear about who is who (two people passing each other) and the pick is let go.
+const COAST_MAX_S: f64 = 2.0;
+/// A speed is only worked out from two sightings at least this far apart (s): closer ones are mostly noise.
 const MIN_SPEED_DT: f64 = 0.03;
-const MAX_SPEED_DT: f64 = 1.0;
+/// A sighting this long after the last one counts half as much as the speed from before, and more the longer it is.
+const SPEED_HALF_S: f64 = 0.2;
 /// A lost person is taken back as the lone unaccounted-for person only within this long of being seen.
 const RESUME_WITHIN_S: f64 = 5.0;
 /// The framing lets the target's centre wander this far (of the window's size) at Speed 5...
@@ -549,6 +554,8 @@ pub struct FramingPlugin {
     /// How fast the followed person and each of the others were moving across the picture (x, y per second) when last matched, so a match looks for them where they are going
     followed_vel: (f64, f64),
     others_vel: Vec<(f64, f64)>,
+    /// Since when the reports have been too unclear to say who is who, and since when the followed person was last matched clearly: the tracks go on along their speeds meanwhile
+    coasting_since: Option<(f64, f64)>,
     /// A pick on the preview is under way
     picking: bool,
     /// The Framing bubble is up: its crop follows the slider.
@@ -595,6 +602,7 @@ impl FramingPlugin {
             others: Vec::new(),
             followed_vel: (0.0, 0.0),
             others_vel: Vec::new(),
+            coasting_since: None,
             picking: false,
             together_at: None,
             seen_at: None,
@@ -910,14 +918,17 @@ impl FramingPlugin {
             return;
         }
         let before: Vec<(&Person, f64)> = std::iter::once((&old, at)).chain(self.others.iter().map(|(p, t)| (p, *t))).collect();
+        // how long each has been out of reach of a clear match: while it's unclear who is who the clock for that keeps running, though everyone is carried along
+        let lost_since: Vec<f64> = before.iter().map(|(_, seen)| self.coasting_since.map_or(*seen, |(_, lost)| lost.min(*seen))).collect();
         let vels: Vec<(f64, f64)> = std::iter::once(self.followed_vel).chain((0..self.others.len()).map(|i| self.others_vel.get(i).copied().unwrap_or((0.0, 0.0)))).collect();
         // (distance in shoulder widths, entity, candidate) for the pairs that could be the same person
         let mut pairs: Vec<(f64, usize, usize)> = Vec::new();
         for (e, (who, seen)) in before.iter().enumerate() {
             let Some(((ox, oy), owidth)) = body(who, aspect) else { continue };
-            let reach = (REACH_BASE + REACH_PER_S * (now - seen)).min(SAME_PERSON);
+            // as far as they could have got, which is further than anyone is taken for them: whoever else could be them makes a match unclear
+            let reach = (REACH_BASE + REACH_PER_S * (now - lost_since[e])).min(FAR_REACH);
             // where they should be by now, going the way they were going: two people crossing don't swap by passing each other's old spot
-            let ahead = (now - seen).min(PREDICT_S);
+            let ahead = if now - seen <= PREDICT_S { now - seen } else { 0.0 };
             let (px, py) = (ox + vels[e].0 * ahead, oy + vels[e].1 * ahead);
             for &c in &cands {
                 let Some(((x, y), width)) = body(&self.people[c], aspect) else { continue };
@@ -932,6 +943,10 @@ impl FramingPlugin {
         let (mut taken, mut used) = (vec![false; self.people.len()], vec![false; before.len()]);
         let mut matched: Vec<Option<(usize, f64)>> = vec![None; before.len()];
         for &(apart, e, c) in &pairs {
+            // only someone within reach of where they were is taken for them
+            if apart > (REACH_BASE + REACH_PER_S * (now - lost_since[e])).min(SAME_PERSON) {
+                continue;
+            }
             if !taken[c] && !used[e] {
                 (taken[c], used[e]) = (true, true);
                 matched[e] = Some((c, apart));
@@ -951,15 +966,33 @@ impl FramingPlugin {
             };
             let unaccounted: Vec<usize> = cands.iter().copied().filter(|&c| !taken[c]).collect();
             if let [only] = unaccounted[..] {
-                if near(only) {
+                // not if someone else known could be them as well
+                if near(only) && !pairs.iter().any(|&(_, pe, pc)| pc == only && pe != 0) {
                     lock = Some(only);
                 }
             }
         }
         if matched[0].is_some() && lock.is_none() {
-            // unclear who is who: nothing is refreshed, so the lock can't drift onto the wrong person
+            // unclear who is who, as when two people pass each other: nobody is matched, so the lock can't drift onto the wrong person, and everyone
+            // goes on along their speed so that the reports after the overlap still find them. If it stays unclear that long the pick is let go.
+            let (since, _) = *self.coasting_since.get_or_insert((now, at));
+            if now - since > COAST_MAX_S {
+                self.followed = None;
+                self.others.clear();
+                (self.followed_vel, self.others_vel, self.coasting_since) = ((0.0, 0.0), Vec::new(), None);
+                return;
+            }
+            let advance = |person: &Person, seen: f64, v: (f64, f64)| {
+                let dt = (now - seen).clamp(0.0, PREDICT_S);
+                person.mapped(&|x, y| (x + v.0 * dt, y + v.1 * dt))
+            };
+            let moved: Vec<(Person, f64)> = self.others.iter().enumerate()
+                .map(|(i, (p, t))| (advance(p, *t, self.others_vel.get(i).copied().unwrap_or((0.0, 0.0))), now)).collect();
+            self.followed = Some((advance(&old, at, self.followed_vel), now));
+            self.others = moved;
             return;
         }
+        self.coasting_since = None;
         // bystanders as the report has them; anyone it didn't find stays as they were. While the lock is lost new faces aren't added: they might be the lost person
         let mut others: Vec<(Person, f64)> = Vec::new();
         let mut others_vel: Vec<(f64, f64)> = Vec::new();
@@ -968,10 +1001,16 @@ impl FramingPlugin {
             let (who, seen) = before[e];
             let (Some(((ox, oy), _)), Some(((x, y), _))) = (body(who, aspect), body(&self.people[c], aspect)) else { return vels[e] };
             let dt = now - seen;
-            if !(MIN_SPEED_DT..=MAX_SPEED_DT).contains(&dt) {
+            if dt > PREDICT_S {
+                // after a gap nobody knows how fast they went in between
+                return (0.0, 0.0);
+            }
+            if dt < MIN_SPEED_DT {
                 return vels[e];
             }
-            ((vels[e].0 + (x - ox) / dt) / 2.0, (vels[e].1 + (y - oy) / dt) / 2.0)
+            // the newer the sighting the more it counts, so slow report rates (power saving) don't make the speed lag
+            let w = 1.0 - 0.5f64.powf(dt / SPEED_HALF_S);
+            (vels[e].0 + w * ((x - ox) / dt - vels[e].0), vels[e].1 + w * ((y - oy) / dt - vels[e].1))
         };
         for (e, (person, seen)) in self.others.iter().enumerate() {
             match matched[e + 1] {
