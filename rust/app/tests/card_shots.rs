@@ -165,7 +165,7 @@ fn stargazer_shots() {
         "save-text": "Save", "reset-text": "Reset", "open-text": "Open folder", "frames-text": "300 frames", "keep-text": "10 %", "trail-text": "5 s"});
     shoot(&dir, "stargazer-lucky", &sky, &[ready.clone(), json!({"mode-index": 0, "running": true, "run-text": "Stop", "status": "Collecting frame 120 of 300", "status-kind": "status_ok",
         "tally": "In the stack: 30, refused: 0, time: 0:36"})]);
-    shoot(&dir, "stargazer-live", &sky, &[ready.clone(), json!({"mode-index": 1, "save-enabled": true, "reset-enabled": true, "run-text": "Start", "status": "Stopped. The stack is kept until you reset it",
+    shoot(&dir, "stargazer-live", &sky, &[ready.clone(), json!({"mode-index": 1, "save-enabled": true, "reset-enabled": true, "run-text": "Start", "status": "Stopped. Reset starts a new stack",
         "status-kind": "status_ok", "tally": "In the stack: 412, refused: 5, time: 6:52", "camera": true, "saved": "Saved stargazer_20261118_214503.png", "open-enabled": true})]);
     shoot(&dir, "stargazer-trails", &sky, &[ready, json!({"mode-index": 2, "running": true, "run-text": "Stop", "status": "Recording the trails", "status-kind": "status_ok", "tally": "In the stack: 84, refused: 0, time: 7:00"})]);
 }

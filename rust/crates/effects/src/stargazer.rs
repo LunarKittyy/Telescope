@@ -719,7 +719,7 @@ impl StargazerPlugin {
         host.want_frames(NAME, false);
         if self.mode == Mode::Live {
             self.phase = Phase::Idle;
-            self.note = tr("Stopped. The stack is kept until you reset it");
+            self.note = tr("Stopped. Reset starts a new stack");
         }
         self.show(host);
     }
@@ -774,7 +774,7 @@ impl StargazerPlugin {
             "ended" => {
                 self.ended(host);
                 if data.get("few") == Some(&Value::Bool(true)) {
-                    self.note = tr("Stopped before enough frames came in, so nothing was saved");
+                    self.note = tr("Stopped before enough frames came in. Nothing was saved");
                 }
             }
             "failed" => {

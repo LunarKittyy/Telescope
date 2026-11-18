@@ -246,7 +246,7 @@ fn stopping_the_stream_ends_a_run() {
     few.event(Event::StreamStopped);
     assert_eq!(few.plugin.phase, Phase::Idle);
     assert!(few.pngs().is_empty());
-    assert!(few.props()["status"].as_str().unwrap().contains("nothing was saved"));
+    assert!(few.props()["status"].as_str().unwrap().contains("Nothing was saved"));
 }
 
 #[test]

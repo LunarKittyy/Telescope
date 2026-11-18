@@ -2917,7 +2917,7 @@ msgid "Stacking"
 msgstr ""
 
 #: rust/crates/effects/src/stargazer.rs:722
-msgid "Stopped. The stack is kept until you reset it"
+msgid "Stopped. Reset starts a new stack"
 msgstr ""
 
 #: rust/crates/effects/src/stargazer.rs:769
@@ -2937,7 +2937,7 @@ msgid_plural "Saved a stack of {n} frames"
 msgstr[0] ""
 
 #: rust/crates/effects/src/stargazer.rs:777
-msgid "Stopped before enough frames came in, so nothing was saved"
+msgid "Stopped before enough frames came in. Nothing was saved"
 msgstr ""
 
 #: rust/crates/effects/src/stargazer.rs:786
@@ -4145,7 +4145,7 @@ msgid "Star trails"
 msgstr ""
 
 #: rust/crates/effects/ui/stargazer.slint:73
-msgid "Keeps only the sharpest frames of a burst and stacks them. For the moon and planets."
+msgid "Stacks only the sharpest frames of a burst. For the moon and planets."
 msgstr ""
 
 #: rust/crates/effects/ui/stargazer.slint:74
@@ -4153,7 +4153,7 @@ msgid "Adds every frame and leaves out what only shows once, like satellites and
 msgstr ""
 
 #: rust/crates/effects/ui/stargazer.slint:75
-msgid "Keeps the brightest value of one frame every few seconds, so the stars draw lines."
+msgid "Takes the brightest value of one frame every few seconds, which draws the stars as lines."
 msgstr ""
 
 #: rust/crates/effects/ui/stargazer.slint:85 rust/crates/setup/src/stats.rs:375
@@ -4169,11 +4169,11 @@ msgid "How many frames to look at before stacking the sharpest ones."
 msgstr ""
 
 #: rust/crates/effects/ui/stargazer.slint:101
-msgid "Keep"
+msgid "Sharpest"
 msgstr ""
 
 #: rust/crates/effects/ui/stargazer.slint:102
-msgid "Share to keep"
+msgid "Share of frames to stack"
 msgstr ""
 
 #: rust/crates/effects/ui/stargazer.slint:103

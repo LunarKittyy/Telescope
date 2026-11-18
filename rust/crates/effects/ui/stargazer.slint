@@ -70,9 +70,9 @@ export component StargazerCard inherits Card {
             items: mode-items;
             tips: [@tr("Lucky imaging"), @tr("Live stack"), @tr("Star trails")];
             tip-details: [
-                @tr("Keeps only the sharpest frames of a burst and stacks them. For the moon and planets."),
+                @tr("Stacks only the sharpest frames of a burst. For the moon and planets."),
                 @tr("Adds every frame and leaves out what only shows once, like satellites and noise. For faint things."),
-                @tr("Keeps the brightest value of one frame every few seconds, so the stars draw lines."),
+                @tr("Takes the brightest value of one frame every few seconds, which draws the stars as lines."),
             ];
             disabled: [!active || running, !active || running, !active || running];
             current: mode-index;
@@ -98,8 +98,8 @@ export component StargazerCard inherits Card {
     if mode-index == 0: RailSlider {
         icon: Icons.sparkle;
         enabled: active && !running;
-        label: @tr("Keep");
-        tip: @tr("Share to keep");
+        label: @tr("Sharpest");
+        tip: @tr("Share of frames to stack");
         tip-detail: @tr("The sharpest share of the frames that gets stacked.");
         minimum: 1;
         maximum: 100;
