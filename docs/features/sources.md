@@ -60,7 +60,7 @@ New and still in Lab. It shares a stream's picture with other programs on this c
 - **On Linux** it is a PipeWire video source with the same name. OBS and anything else that reads PipeWire video lists it as a camera. Programs inside Proton can't see it
 - **What is shared** is what the virtual camera gets, after every effect. With **Several cameras** on, the stream going to the Telescope camera shares the combined picture
 - **The sender** appears when the first picture arrives. On Windows it goes a few seconds after the stream stops. On Linux it remains while **Share this stream** is on. A program bound to it isn't cut off by a stop or a size change
-- **Transparency** isn't there yet, the picture is always solid
+- **Transparent background** on the Spout send card shares the stream with the background cut out. It is for programs that can lay it over something. It uses the person cut-out of Background or Chroma key, and switches Background to Blur for as long as nothing else uses it. That switch only happens for the stream you are looking at. Another stream needs Background or Chroma key on for itself. Without a cut-out the picture is solid. Whether the program reading it shows the transparency is up to that program
 - Telescope can't tell whether a program is reading the sender, it sends the picture while it is shared
 
 ## Several cameras at once

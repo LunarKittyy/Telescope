@@ -5742,41 +5742,41 @@ msgstr "{name}が実行されていません"
 msgid "Start it again or pick another source."
 msgstr "再起動するか、別のソースを選択してください。"
 
-#: rust/crates/outputs/src/spout_send/mod.rs:222
+#: rust/crates/outputs/src/spout_send/mod.rs:249
 msgid "Sharing pictures isn't available on this system."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:225
+#: rust/crates/outputs/src/spout_send/mod.rs:252
 #, python-brace-format
 msgid "Sharing {size} as {name}"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:227
+#: rust/crates/outputs/src/spout_send/mod.rs:254
 msgid "The sender couldn't be started. It tries again with the next picture."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:228
+#: rust/crates/outputs/src/spout_send/mod.rs:255
 msgid "The sender stopped. It tries again with the next picture."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:229
+#: rust/crates/outputs/src/spout_send/mod.rs:256
 msgid "This picture can't be shared."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:231
+#: rust/crates/outputs/src/spout_send/mod.rs:258
 #, python-brace-format
 msgid "Shares as {name} while this stream runs"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:258 rust/crates/outputs/ui/spout_send.slint:11
+#: rust/crates/outputs/src/spout_send/mod.rs:304 rust/crates/outputs/ui/spout_send.slint:14
 msgid "Spout send"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:259
+#: rust/crates/outputs/src/spout_send/mod.rs:305
 msgid "Share a stream's picture with other programs on this computer, such as OBS."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:260
+#: rust/crates/outputs/src/spout_send/mod.rs:306
 msgid "Without Spout send the Spout send card is gone and no picture is shared."
 msgstr ""
 
@@ -6318,15 +6318,27 @@ msgstr "このコンピューター上で、Spout経由で画像を共有して�
 msgid "Sender"
 msgstr "送信元"
 
-#: rust/crates/outputs/ui/spout_send.slint:12 rust/crates/outputs/ui/spout_send.slint:18
+#: rust/crates/outputs/ui/spout_send.slint:15 rust/crates/outputs/ui/spout_send.slint:21
 msgid "Share this stream's picture with other programs on this computer, such as OBS."
 msgstr ""
 
-#: rust/crates/outputs/ui/spout_send.slint:17
+#: rust/crates/outputs/ui/spout_send.slint:20
 msgid "Share this stream"
 msgstr ""
 
-#: rust/crates/outputs/ui/spout_send.slint:32
+#: rust/crates/outputs/ui/spout_send.slint:29
+msgid "Transparent background"
+msgstr ""
+
+#: rust/crates/outputs/ui/spout_send.slint:30
+msgid "Cut yourself out and share the picture with a see-through background, for programs that can lay it over something."
+msgstr ""
+
+#: rust/crates/outputs/ui/spout_send.slint:31
+msgid "It uses the person cut-out of Background or Chroma key. For the stream you are looking at it switches Background to Blur while nothing else uses it. Another stream only has a see-through background while Background or Chroma key is on for it."
+msgstr ""
+
+#: rust/crates/outputs/ui/spout_send.slint:44
 msgid "Status"
 msgstr ""
 
