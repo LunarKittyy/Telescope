@@ -467,6 +467,35 @@ pub fn cropped(tile: &Tile, handle: &str, dx: f64, dy: f64) -> Tile {
     Tile { x: nx, y: ny, w: nx1 - nx, h: ny1 - ny, crop_l: l, crop_t: t, crop_r: r, crop_b: b, ..tile.clone() }
 }
 
+/// tile with the side ("l", "t", "r" or "b") cropped to the share `v` of the stream (0 to 1) while the rest of it stays where it is
+/// on the picture. The tile has to be pinned() first.
+pub fn crop_side(tile: &Tile, side: &str, v: f64) -> Tile {
+    let (l, t, r, b) = (tile.crop_l, tile.crop_t, tile.crop_r, tile.crop_b);
+    let per_u = tile.w / 1e-6f64.max(1.0 - l - r);
+    let per_v = tile.h / 1e-6f64.max(1.0 - t - b);
+    let mut new = tile.clone();
+    match side {
+        "l" => {
+            let v = v.clamp(0.0, 1.0 - r - MIN_SHOWN);
+            (new.x, new.w, new.crop_l) = (tile.x + (v - l) * per_u, tile.w - (v - l) * per_u, v);
+        }
+        "r" => {
+            let v = v.clamp(0.0, 1.0 - l - MIN_SHOWN);
+            (new.w, new.crop_r) = (tile.w - (v - r) * per_u, v);
+        }
+        "t" => {
+            let v = v.clamp(0.0, 1.0 - b - MIN_SHOWN);
+            (new.y, new.h, new.crop_t) = (tile.y + (v - t) * per_v, tile.h - (v - t) * per_v, v);
+        }
+        "b" => {
+            let v = v.clamp(0.0, 1.0 - t - MIN_SHOWN);
+            (new.h, new.crop_b) = (tile.h - (v - b) * per_v, v);
+        }
+        _ => {}
+    }
+    new
+}
+
 /// tile after dragging handle by dx, dy, the way OBS does it. how is "scale" (keeps the shape), "stretch" (the box takes any
 /// shape and the stream is squashed to fill it) or "crop" (cuts off the side being dragged). Stretching and cropping need the
 /// stream's shape (src_aspect); without one they only change the box, as for a stream that's off.

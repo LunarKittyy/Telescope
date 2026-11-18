@@ -315,7 +315,7 @@ fn check_shader_files(folder: &Path, report: &mut Report) {
             continue;
         }
         let result = std::fs::read_to_string(folder.join(rel)).map_err(|e| e.to_string())
-            .and_then(|wgsl| validate_shader(&ShaderStep { wgsl, uniforms: json!({}), textures: Vec::new() }, &name));
+            .and_then(|wgsl| validate_shader(&ShaderStep { keeps_geometry: false, wgsl, uniforms: json!({}), textures: Vec::new() }, &name));
         report.step(&what, result);
     }
 }

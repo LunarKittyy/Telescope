@@ -236,7 +236,7 @@ impl Baked {
         match self {
             Baked::Table(t) => {
                 let (hi, lo) = pictures(t, LEVELS as u32, 1);
-                ShaderStep { wgsl: format!("{COMMON}{TABLE_WGSL}"), uniforms: json!({}), textures: vec![("lut_hi".into(), hi), ("lut_lo".into(), lo)] }
+                ShaderStep { keeps_geometry: true, wgsl: format!("{COMMON}{TABLE_WGSL}"), uniforms: json!({}), textures: vec![("lut_hi".into(), hi), ("lut_lo".into(), lo)] }
             }
             Baked::Cube { size, rgb } => {
                 let n = *size;
@@ -250,7 +250,7 @@ impl Baked {
                     }
                 }
                 let (hi, lo) = pictures(&tile, (n * n) as u32, n as u32);
-                ShaderStep { wgsl: format!("{COMMON}{CUBE_WGSL}"), uniforms: json!({"size": n}), textures: vec![("lut_hi".into(), hi), ("lut_lo".into(), lo)] }
+                ShaderStep { keeps_geometry: true, wgsl: format!("{COMMON}{CUBE_WGSL}"), uniforms: json!({"size": n}), textures: vec![("lut_hi".into(), hi), ("lut_lo".into(), lo)] }
             }
         }
     }

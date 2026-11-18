@@ -128,6 +128,22 @@ pub fn i420_to_rgba_flipped_into(frame: &Frame, out: &mut Vec<u8>) {
     });
 }
 
+/// An I420 frame as BGRA bytes with the alpha left opaque, top row first, into out which keeps its allocation from one call to the next (black if the frame isn't I420).
+pub fn i420_to_bgra_into(frame: &Frame, out: &mut Vec<u8>) {
+    let (w, h) = (frame.width as usize, frame.height as usize);
+    out.clear();
+    out.resize(w * h * 4, 0);
+    let Some((py, pu, pv)) = frame.i420_planes() else { return };
+    if w == 0 {
+        return;
+    }
+    let (t, cw) = (terms(), w.div_ceil(2));
+    telescope_core::image::over_rows(out, w * 4, |row, line| {
+        yuv_row_to_rgba(t, &py[row * w..][..w], &pu[(row / 2) * cw..][..cw], &pv[(row / 2) * cw..][..cw], line);
+        line.as_chunks_mut::<4>().0.iter_mut().for_each(|px| px.swap(0, 2));
+    });
+}
+
 /// An I420 frame as BGR bytes, top row first (an odd-sized v4l2 camera, which I420 can't be).
 pub fn i420_to_bgr(frame: &Frame) -> Vec<u8> {
     let (w, h) = (frame.width as usize, frame.height as usize);

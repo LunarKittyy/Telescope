@@ -406,7 +406,7 @@ mod tests {
     fn a_shader_without_params_has_no_buffer() {
         let wgsl = "// struct Params { x: f32 }\nfn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }";
         assert_eq!(pack_uniforms(wgsl, &json!({"x": 1})).unwrap(), Vec::<u8>::new());
-        let step = ShaderStep { wgsl: wgsl.into(), uniforms: json!({}), textures: Vec::new() };
+        let step = ShaderStep { keeps_geometry: false, wgsl: wgsl.into(), uniforms: json!({}), textures: Vec::new() };
         let module = assemble(&step).unwrap();
         assert!(!module.contains("var<uniform> params") && module.contains("fn telescope_fs"));
     }
@@ -437,7 +437,7 @@ mod tests {
     #[test]
     fn only_a_shader_that_asks_for_the_blur_gets_one() {
         let plain = "fn effect(uv: vec2<f32>) -> vec4<f32> { return sample(uv); }";
-        let step = |wgsl: &str| ShaderStep { wgsl: wgsl.into(), uniforms: json!({}), textures: vec![("soft".into(), Frame::new(1, 1, PixelFormat::Rgba, vec![0; 4]))] };
+        let step = |wgsl: &str| ShaderStep { keeps_geometry: false, wgsl: wgsl.into(), uniforms: json!({}), textures: vec![("soft".into(), Frame::new(1, 1, PixelFormat::Rgba, vec![0; 4]))] };
         assert!(!uses_blurred(plain) && !uses_blurred(&format!("// blurred(uv)\n{plain}")));
         assert!(uses_blurred("fn effect(uv: vec2<f32>) -> vec4<f32> { return blurred(uv); }"));
         assert!(uses_blurred("fn effect(uv: vec2<f32>) -> vec4<f32> { return blurred_weighted(uv); }"));
@@ -470,7 +470,7 @@ mod tests {
 
     #[test]
     fn assembling_checks_what_the_executor_relies_on() {
-        let step = |wgsl: &str| ShaderStep { wgsl: wgsl.into(), uniforms: json!({}), textures: Vec::new() };
+        let step = |wgsl: &str| ShaderStep { keeps_geometry: false, wgsl: wgsl.into(), uniforms: json!({}), textures: Vec::new() };
         assert!(assemble(&step("fn other() {}")).unwrap_err().contains("fn effect"));
         assert!(assemble(&step("@group(0) @binding(9) var x: f32;\nfn effect(uv: vec2<f32>) -> vec4<f32> { return vec4(0.0); }")).is_err());
         assert!(params_layout("struct Params { m: mat3x3<f32> }").unwrap_err().contains("mat3x3"));

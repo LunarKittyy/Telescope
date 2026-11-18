@@ -144,11 +144,17 @@ fn failure(why: &str) -> windows::core::Error {
     windows::core::Error::new(windows::Win32::Foundation::E_FAIL, why)
 }
 
-/// The response code and parameters a result carries.
-fn response(result: &IPortableDeviceValues) -> (u16, Vec<u32>) {
+/// The response code a result carries, when it has one: a driver gives it with the end of a transfer, not with its start.
+fn response_code(result: &IPortableDeviceValues) -> Option<u16> {
+    // SAFETY: the result is live
+    unsafe { result.GetUnsignedIntegerValue(&WPD_PROPERTY_MTP_EXT_RESPONSE_CODE) }.ok().map(|code| code as u16)
+}
+
+/// The response code and parameters a result carries. A result with no code is an error, since 0 would read as an answer.
+fn response(result: &IPortableDeviceValues) -> windows::core::Result<(u16, Vec<u32>)> {
+    let code = response_code(result).ok_or_else(|| failure("the camera's reply had no response code"))?;
     // SAFETY: the result is live; the collection and each variant are read in place
     unsafe {
-        let code = result.GetUnsignedIntegerValue(&WPD_PROPERTY_MTP_EXT_RESPONSE_CODE).unwrap_or(0) as u16;
         let mut params = Vec::new();
         if let Ok(collection) = result.GetIPortableDevicePropVariantCollectionValue(&WPD_PROPERTY_MTP_EXT_RESPONSE_PARAMS) {
             let mut count = 0u32;
@@ -161,7 +167,7 @@ fn response(result: &IPortableDeviceValues) -> (u16, Vec<u32>) {
                 }
             }
         }
-        (code, params)
+        Ok((code, params))
     }
 }
 
@@ -189,8 +195,9 @@ fn run(port: &dyn Port, op: u16, op_params: &[u32], data_out: Option<&[u8]>) -> 
         }
         send(port, &p)?
     };
-    let (code, params) = response(&first);
+    let first_code = response_code(&first);
     if kind.pid == WPD_COMMAND_MTP_EXT_EXECUTE_COMMAND_WITHOUT_DATA_PHASE.pid {
+        let (code, params) = response(&first)?;
         return Ok(Reply { code, params, data: Vec::new() });
     }
     // A transfer exists only for an operation the camera accepted
@@ -202,7 +209,11 @@ fn run(port: &dyn Port, op: u16, op_params: &[u32], data_out: Option<&[u8]>) -> 
             text.ok()
         })
     };
-    let Some(context) = context.filter(|_| code == ptp::RC_OK) else { return Ok(Reply { code, params, data: Vec::new() }) };
+    // A driver that opens a transfer gives its response code with the end of it, so a reply with a context and no code is an accepted one
+    let Some(context) = context.filter(|_| first_code.is_none_or(|code| code == ptp::RC_OK)) else {
+        let (code, params) = response(&first)?;
+        return Ok(Reply { code, params, data: Vec::new() });
+    };
     let context = HSTRING::from(context);
     let moved = match data_out {
         Some(data) => write_data(port, &context, data).map(|()| Vec::new()),
@@ -221,7 +232,7 @@ fn run(port: &dyn Port, op: u16, op_params: &[u32], data_out: Option<&[u8]>) -> 
     unsafe { end.SetStringValue(&WPD_PROPERTY_MTP_EXT_TRANSFER_CONTEXT, &context)? };
     let ended = send(port, &end);
     let data = moved?;
-    let (code, params) = response(&ended?);
+    let (code, params) = response(&ended?)?;
     Ok(Reply { code, params, data })
 }
 
