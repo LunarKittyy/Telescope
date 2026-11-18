@@ -104,11 +104,11 @@ msgstr "{name}에 켜져 있어요. 여기서 마이크를 켜면 {name}에서�
 msgid "Mute microphone"
 msgstr "마이크 음소거"
 
-#: rust/crates/audio/src/plugin.rs:512 rust/crates/audio/src/plugin.rs:1160
+#: rust/crates/audio/src/plugin.rs:512 rust/crates/audio/src/plugin.rs:1161
 msgid "Unmute"
 msgstr "음소거 해제"
 
-#: rust/crates/audio/src/plugin.rs:512 rust/crates/audio/src/plugin.rs:1005 rust/crates/audio/src/plugin.rs:1143 rust/crates/audio/src/plugin.rs:1160 rust/crates/audio/src/plugin.rs:1164 rust/crates/audio/ui/microphone.slint:110
+#: rust/crates/audio/src/plugin.rs:512 rust/crates/audio/src/plugin.rs:1005 rust/crates/audio/src/plugin.rs:1144 rust/crates/audio/src/plugin.rs:1161 rust/crates/audio/src/plugin.rs:1165 rust/crates/audio/ui/microphone.slint:110
 msgid "Mute"
 msgstr "음소거"
 
@@ -128,7 +128,7 @@ msgstr "카메라 마이크"
 msgid "Camera microphone"
 msgstr "카메라 마이크"
 
-#: rust/crates/audio/src/plugin.rs:672 rust/crates/audio/src/plugin.rs:1022 rust/crates/audio/src/plugin.rs:1166 rust/crates/audio/ui/microphone.slint:106
+#: rust/crates/audio/src/plugin.rs:672 rust/crates/audio/src/plugin.rs:1022 rust/crates/audio/src/plugin.rs:1167 rust/crates/audio/ui/microphone.slint:106
 msgid "Phone mic"
 msgstr "휴대폰 마이크"
 
@@ -203,7 +203,7 @@ msgstr "켬"
 msgid "off"
 msgstr "끔"
 
-#: rust/crates/audio/src/plugin.rs:1040 rust/crates/audio/src/plugin.rs:1169 rust/crates/audio/ui/microphone.slint:228 rust/crates/audio/ui/microphone.slint:238 rust/crates/audio/ui/microphone.slint:242 rust/crates/effects/src/colour_grading.rs:41 rust/crates/effects/ui/colour_grading.slint:281 rust/crates/outputs/src/webcam.rs:46
+#: rust/crates/audio/src/plugin.rs:1040 rust/crates/audio/src/plugin.rs:1170 rust/crates/audio/ui/microphone.slint:228 rust/crates/audio/ui/microphone.slint:238 rust/crates/audio/ui/microphone.slint:242 rust/crates/effects/src/colour_grading.rs:41 rust/crates/effects/ui/colour_grading.slint:281 rust/crates/outputs/src/webcam.rs:46
 msgid "Gain"
 msgstr "게인"
 
@@ -223,11 +223,11 @@ msgstr "끄기"
 msgid "Switch while held, back on release"
 msgstr "누르고 있는 동안 전환, 떼면 복귀"
 
-#: rust/crates/audio/src/plugin.rs:1079 rust/crates/audio/src/plugin.rs:1171 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1384 rust/crates/outputs/src/stream_output.rs:627 rust/crates/outputs/src/stream_output.rs:644 rust/crates/shell/src/plugins/presets.rs:335 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
+#: rust/crates/audio/src/plugin.rs:1079 rust/crates/audio/src/plugin.rs:1172 rust/crates/core/src/actions.rs:35 rust/crates/core/src/actions.rs:98 rust/crates/core/src/actions.rs:176 rust/crates/core/src/actions.rs:213 rust/crates/link/src/plugin.rs:1384 rust/crates/outputs/src/stream_output.rs:627 rust/crates/outputs/src/stream_output.rs:644 rust/crates/shell/src/plugins/presets.rs:335 rust/crates/system/src/remote.rs:26 rust/crates/system/src/remote.rs:27
 msgid "Does"
 msgstr "동작"
 
-#: rust/crates/audio/src/plugin.rs:1086 rust/crates/audio/src/plugin.rs:1159 rust/crates/audio/ui/microphone.slint:167 rust/crates/setup/ui/setup.slint:382
+#: rust/crates/audio/src/plugin.rs:1086 rust/crates/audio/src/plugin.rs:1160 rust/crates/audio/ui/microphone.slint:167 rust/crates/setup/ui/setup.slint:382
 msgid "Microphone"
 msgstr "마이크"
 
@@ -239,44 +239,44 @@ msgstr "이 컴퓨터에서 휴대폰의 마이크를 사용해요."
 msgid "Without the Microphone plugin there's no Microphone card or Mute in the tray menu and Telescope doesn't make a virtual microphone."
 msgstr "마이크 플러그인이 없으면 마이크 카드나 트레이 메뉴의 음소거 기능이 표시되지 않으며, Telescope에서 가상 마이크를 생성하지 않아요."
 
-#: rust/crates/audio/src/plugin.rs:1160
+#: rust/crates/audio/src/plugin.rs:1161
 msgid "Mute or unmute"
 msgstr "음소거 또는 음소거 해제"
 
-#: rust/crates/audio/src/plugin.rs:1161
+#: rust/crates/audio/src/plugin.rs:1162
 msgid "Switch while held (push to talk while muted)"
 msgstr "누르고 있는 동안 전환(음소거 중 누르고 말하기)"
 
-#: rust/crates/audio/src/plugin.rs:1165
+#: rust/crates/audio/src/plugin.rs:1166
 msgctxt "search"
 msgid "push to talk silence"
 msgstr "누르고 말하기 푸시투톡 무음 음소거 정적 push to talk silence"
 
-#: rust/crates/audio/src/plugin.rs:1172 rust/crates/core/src/actions.rs:88 rust/crates/outputs/src/stream_output.rs:637
+#: rust/crates/audio/src/plugin.rs:1173 rust/crates/core/src/actions.rs:88 rust/crates/outputs/src/stream_output.rs:637
 msgid "Increase by"
 msgstr "다음만큼 증가"
 
-#: rust/crates/audio/src/plugin.rs:1172 rust/crates/core/src/actions.rs:88 rust/crates/outputs/src/stream_output.rs:637
+#: rust/crates/audio/src/plugin.rs:1173 rust/crates/core/src/actions.rs:88 rust/crates/outputs/src/stream_output.rs:637
 msgid "Decrease by"
 msgstr "다음만큼 감소"
 
-#: rust/crates/audio/src/plugin.rs:1172 rust/crates/core/src/actions.rs:88 rust/crates/core/src/actions.rs:177 rust/crates/outputs/src/stream_output.rs:637
+#: rust/crates/audio/src/plugin.rs:1173 rust/crates/core/src/actions.rs:88 rust/crates/core/src/actions.rs:177 rust/crates/outputs/src/stream_output.rs:637
 msgid "Set to"
 msgstr "다음 값으로 설정"
 
-#: rust/crates/audio/src/plugin.rs:1172 rust/crates/core/src/actions.rs:90 rust/crates/outputs/src/stream_output.rs:639
+#: rust/crates/audio/src/plugin.rs:1173 rust/crates/core/src/actions.rs:90 rust/crates/outputs/src/stream_output.rs:639
 msgid "Reset to default"
 msgstr "기본값으로 초기화"
 
-#: rust/crates/audio/src/plugin.rs:1173 rust/crates/core/src/actions.rs:99 rust/crates/outputs/src/stream_output.rs:645
+#: rust/crates/audio/src/plugin.rs:1174 rust/crates/core/src/actions.rs:99 rust/crates/outputs/src/stream_output.rs:645
 msgid "By"
 msgstr "조절량"
 
-#: rust/crates/audio/src/plugin.rs:1175 rust/crates/core/src/actions.rs:101 rust/crates/core/src/actions.rs:181 rust/crates/outputs/src/stream_output.rs:647
+#: rust/crates/audio/src/plugin.rs:1176 rust/crates/core/src/actions.rs:101 rust/crates/core/src/actions.rs:181 rust/crates/outputs/src/stream_output.rs:647
 msgid "Value"
 msgstr "값"
 
-#: rust/crates/audio/src/plugin.rs:1178
+#: rust/crates/audio/src/plugin.rs:1179
 msgctxt "search"
 msgid "volume loudness"
 msgstr "볼륨 음량 소리 크기 volume loudness"
@@ -721,7 +721,7 @@ msgstr "미리보기에서 선택한 색상이에요. 다시 선택하려면 클
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "미리보기에서 등 뒤의 스크린을 클릭해 보세요. Esc를 누르면 취소돼요."
 
-#: rust/crates/effects/src/chroma_key.rs:407 rust/crates/effects/src/chroma_key.rs:443 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:976 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1785 rust/crates/shell/src/window.rs:1776 rust/crates/shell/src/worker.rs:610 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:407 rust/crates/effects/src/chroma_key.rs:443 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:997 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1785 rust/crates/shell/src/window.rs:1776 rust/crates/shell/src/worker.rs:610 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "스트리밍 중 아님"
 
@@ -1365,7 +1365,7 @@ msgid "Black and white"
 msgstr "흑백"
 
 #. the sheet's shape: worked out from its corners, a paper size, square, or stretched over the picture
-#: rust/crates/effects/src/desk.rs:30 rust/crates/effects/src/desk.rs:46 rust/crates/effects/src/notes.rs:45 rust/crates/effects/src/photos.rs:30 rust/crates/effects/ui/colour_grading.slint:257 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/link/ui/connection.slint:295 rust/crates/link/ui/connection.slint:296 rust/crates/outputs/src/stream_output.rs:292 rust/crates/outputs/src/webcam.rs:111 rust/crates/outputs/src/webcam.rs:979 rust/crates/outputs/ui/webcam.slint:145 rust/crates/outputs/ui/webcam.slint:146 rust/crates/shell/src/plugins/camera_control.rs:1498 rust/crates/shell/src/plugins/camera_control.rs:1500 rust/crates/shell/src/plugins/camera_control.rs:1502 rust/crates/shell/src/plugins/camera_control.rs:1869 rust/crates/shell/src/plugins/camera_control.rs:1870 rust/crates/shell/ui/cards/camera.slint:175 rust/crates/shell/ui/cards/camera.slint:177 rust/crates/shell/ui/cards/camera.slint:273 rust/crates/shell/ui/cards/camera.slint:275 rust/crates/shell/ui/cards/camera.slint:335 rust/crates/shell/ui/cards/camera.slint:337
+#: rust/crates/effects/src/desk.rs:30 rust/crates/effects/src/desk.rs:46 rust/crates/effects/src/notes.rs:45 rust/crates/effects/src/photos.rs:30 rust/crates/effects/ui/colour_grading.slint:257 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/effects/ui/colour_grading.slint:262 rust/crates/link/ui/connection.slint:295 rust/crates/link/ui/connection.slint:296 rust/crates/outputs/src/stream_output.rs:292 rust/crates/outputs/src/webcam.rs:111 rust/crates/outputs/src/webcam.rs:1000 rust/crates/outputs/ui/webcam.slint:145 rust/crates/outputs/ui/webcam.slint:146 rust/crates/shell/src/plugins/camera_control.rs:1498 rust/crates/shell/src/plugins/camera_control.rs:1500 rust/crates/shell/src/plugins/camera_control.rs:1502 rust/crates/shell/src/plugins/camera_control.rs:1869 rust/crates/shell/src/plugins/camera_control.rs:1870 rust/crates/shell/ui/cards/camera.slint:175 rust/crates/shell/ui/cards/camera.slint:177 rust/crates/shell/ui/cards/camera.slint:273 rust/crates/shell/ui/cards/camera.slint:275 rust/crates/shell/ui/cards/camera.slint:335 rust/crates/shell/ui/cards/camera.slint:337
 msgid "Auto"
 msgstr "자동"
 
@@ -4170,7 +4170,7 @@ msgstr "QR 코드를 읽었을 때 알림 표시"
 msgid "Stack frames from a telescope into a sharper moon or planet, a faint sky or star trails."
 msgstr ""
 
-#: rust/crates/effects/ui/stargazer.slint:61 rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/src/webcam.rs:78 rust/crates/outputs/src/webcam.rs:897 rust/crates/shell/ui/cards/camera.slint:326 rust/crates/shell/ui/cards/camera.slint:334
+#: rust/crates/effects/ui/stargazer.slint:61 rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/src/webcam.rs:78 rust/crates/outputs/src/webcam.rs:918 rust/crates/shell/ui/cards/camera.slint:326 rust/crates/shell/ui/cards/camera.slint:334
 msgid "Focus"
 msgstr "초점"
 
@@ -5370,7 +5370,7 @@ msgstr "센더가 계속 실행 중인지 확인해 보세요."
 msgid "Sender not running"
 msgstr "센더 실행 중 아님"
 
-#: rust/crates/outputs/src/spout/mod.rs:590 rust/crates/outputs/src/webcam.rs:972
+#: rust/crates/outputs/src/spout/mod.rs:590 rust/crates/outputs/src/webcam.rs:993
 msgid "Not sending anything"
 msgstr "아무것도 전송하지 않음"
 
@@ -5378,7 +5378,7 @@ msgstr "아무것도 전송하지 않음"
 msgid "Picture frozen"
 msgstr ""
 
-#: rust/crates/outputs/src/spout/mod.rs:594 rust/crates/outputs/src/webcam.rs:974
+#: rust/crates/outputs/src/spout/mod.rs:594 rust/crates/outputs/src/webcam.rs:995
 msgid "Starting…"
 msgstr "시작 중…"
 
@@ -5398,12 +5398,12 @@ msgstr "Spout을 통해 화면을 공유하는 게임, OBS 및 이 컴퓨터의 
 msgid "Without Spout capture the senders aren't in the device picker and the Spout capture card is gone too."
 msgstr "Spout 캡처가 없으면 장치 선택기에 센더가 표시되지 않고 Spout 캡처 카드도 사라져요."
 
-#: rust/crates/outputs/src/spout/mod.rs:667
+#: rust/crates/outputs/src/spout/mod.rs:668
 #, python-brace-format
 msgid "{name} isn't running"
 msgstr "{name} 실행 중 아님"
 
-#: rust/crates/outputs/src/spout/mod.rs:667
+#: rust/crates/outputs/src/spout/mod.rs:668
 msgid "Start it again or pick another source."
 msgstr "다시 시작하거나 다른 소스를 선택해 보세요."
 
@@ -5732,75 +5732,75 @@ msgstr "50 Hz"
 msgid "60 Hz"
 msgstr "60 Hz"
 
-#: rust/crates/outputs/src/webcam.rs:326
+#: rust/crates/outputs/src/webcam.rs:347
 msgid "Check that the webcam is plugged in."
 msgstr "웹캠이 연결되어 있는지 확인해 보세요."
 
-#: rust/crates/outputs/src/webcam.rs:509
+#: rust/crates/outputs/src/webcam.rs:530
 msgid "Another app may be using the webcam. Close the webcam in that app, then start streaming here."
 msgstr "다른 앱에서 웹캠을 사용 중일 수 있어요. 해당 앱에서 웹캠을 닫은 다음, 여기서 스트리밍을 시작하세요."
 
-#: rust/crates/outputs/src/webcam.rs:511
+#: rust/crates/outputs/src/webcam.rs:532
 #, python-brace-format
 msgid "{app} is using the webcam. Close the webcam there, then start streaming here."
 msgstr "{app}에서 웹캠을 사용 중이에요. 해당 앱에서 웹캠을 닫은 다음, 여기서 스트리밍을 시작하세요."
 
-#: rust/crates/outputs/src/webcam.rs:513 rust/crates/outputs/src/webcam.rs:516 rust/crates/outputs/src/webcam.rs:519
+#: rust/crates/outputs/src/webcam.rs:534 rust/crates/outputs/src/webcam.rs:537 rust/crates/outputs/src/webcam.rs:540
 #, python-brace-format
 msgid "Can't open {name}"
 msgstr "{name}을(를) 열 수 없음"
 
-#: rust/crates/outputs/src/webcam.rs:897
+#: rust/crates/outputs/src/webcam.rs:918
 msgid "Near"
 msgstr "가까움"
 
-#: rust/crates/outputs/src/webcam.rs:897
+#: rust/crates/outputs/src/webcam.rs:918
 msgid "Far"
 msgstr "멂"
 
-#: rust/crates/outputs/src/webcam.rs:964
+#: rust/crates/outputs/src/webcam.rs:985
 msgid "Not plugged in"
 msgstr "연결되지 않음"
 
-#: rust/crates/outputs/src/webcam.rs:966
+#: rust/crates/outputs/src/webcam.rs:987
 msgid "Blocked by Windows or security software"
 msgstr "Windows 또는 보안 소프트웨어에서 차단됨"
 
-#: rust/crates/outputs/src/webcam.rs:968
+#: rust/crates/outputs/src/webcam.rs:989
 msgid "In use by another app"
 msgstr "다른 앱에서 사용 중"
 
-#: rust/crates/outputs/src/webcam.rs:968
+#: rust/crates/outputs/src/webcam.rs:989
 #, python-brace-format
 msgid "In use by {app}"
 msgstr "{app}에서 사용 중"
 
-#: rust/crates/outputs/src/webcam.rs:970
+#: rust/crates/outputs/src/webcam.rs:991
 msgid "Mounted as a drive"
 msgstr "드라이브로 마운트됨"
 
-#: rust/crates/outputs/src/webcam.rs:987
+#: rust/crates/outputs/src/webcam.rs:1008
 msgid "The size the webcam sends. Auto takes the largest up to 1080p that still reaches the frame rate."
 msgstr "웹캠이 전송하는 크기예요. 자동은 목표 프레임 레이트를 달성하는 최대 1080p 크기를 선택해요."
 
-#: rust/crates/outputs/src/webcam.rs:1022
+#: rust/crates/outputs/src/webcam.rs:1043
 msgid "Webcams"
 msgstr "웹캠"
 
-#: rust/crates/outputs/src/webcam.rs:1023 rust/crates/outputs/ui/webcam.slint:80
+#: rust/crates/outputs/src/webcam.rs:1044 rust/crates/outputs/ui/webcam.slint:80
 msgid "Stream from webcams and capture cards plugged into this computer."
 msgstr "이 컴퓨터에 연결된 웹캠과 캡처 카드로 스트리밍해요."
 
-#: rust/crates/outputs/src/webcam.rs:1024
+#: rust/crates/outputs/src/webcam.rs:1045
 msgid "Without the Webcams plugin webcams aren't in the device picker and the Webcam card is gone too."
 msgstr "웹캠 플러그인이 없으면 장치 선택기에 웹캠이 표시되지 않고 웹캠 카드도 사라져요."
 
-#: rust/crates/outputs/src/webcam.rs:1068
+#: rust/crates/outputs/src/webcam.rs:1090
 #, python-brace-format
 msgid "{name} isn't plugged in"
 msgstr "{name}이(가) 연결되어 있지 않음"
 
-#: rust/crates/outputs/src/webcam.rs:1069
+#: rust/crates/outputs/src/webcam.rs:1091
 msgid "Plug it in, or pick another camera."
 msgstr "케이블을 연결하거나 다른 카메라를 선택하세요."
 
@@ -7607,11 +7607,11 @@ msgstr "추가 가상 카메라 설정 중…"
 msgid "Couldn't add more virtual cameras"
 msgstr "가상 카메라를 더 추가하지 못했어요"
 
-#: rust/crates/shell/src/host.rs:713
+#: rust/crates/shell/src/host.rs:716
 msgid "Phone stream required."
 msgstr "휴대폰 스트림이 필요해요."
 
-#: rust/crates/shell/src/host.rs:719
+#: rust/crates/shell/src/host.rs:722
 msgid "Light format required. Heavy sends whole pictures with no keyframes to work with."
 msgstr "'가볍게' 형식이 필요해요. '무겁게' 형식은 참조할 키프레임 없이 전체 화면을 전송해요."
 
@@ -8444,73 +8444,73 @@ msgid "It needs {plugins}, which is switched off."
 msgid_plural "It needs {plugins}, which are switched off."
 msgstr[0] ""
 
-#: rust/crates/shell/src/shell.rs:858
+#: rust/crates/shell/src/shell.rs:871
 #, python-brace-format
 msgid "{plugins} stopped working"
 msgid_plural "{plugins} stopped working"
 msgstr[0] ""
 
-#: rust/crates/shell/src/shell.rs:860
+#: rust/crates/shell/src/shell.rs:873
 #, python-brace-format
 msgid "{n} plugin stopped working"
 msgid_plural "{n} plugins stopped working"
 msgstr[0] ""
 
-#: rust/crates/shell/src/shell.rs:862
+#: rust/crates/shell/src/shell.rs:875
 msgid "It ran into an error and is off until Telescope restarts. Everything else carries on."
 msgid_plural "They ran into errors and are off until Telescope restarts. Everything else carries on."
 msgstr[0] ""
 
-#: rust/crates/shell/src/shell.rs:867 rust/crates/shell/src/shell.rs:1097 rust/crates/shell/src/shell.rs:1117
+#: rust/crates/shell/src/shell.rs:880 rust/crates/shell/src/shell.rs:1110 rust/crates/shell/src/shell.rs:1130
 msgid "Plugins…"
 msgstr "플러그인…"
 
-#: rust/crates/shell/src/shell.rs:1089
+#: rust/crates/shell/src/shell.rs:1102
 #, python-brace-format
 msgid "Couldn't start {plugins}"
 msgid_plural "Couldn't start {plugins}"
 msgstr[0] "시작할 수 없는 플러그인: {plugins}"
 
-#: rust/crates/shell/src/shell.rs:1091
+#: rust/crates/shell/src/shell.rs:1104
 #, python-brace-format
 msgid "Couldn't start {n} plugin"
 msgid_plural "Couldn't start {n} plugins"
 msgstr[0] "플러그인 {n}개를 시작할 수 없음"
 
-#: rust/crates/shell/src/shell.rs:1093
+#: rust/crates/shell/src/shell.rs:1106
 msgid "Telescope works without the plugin. The Plugins tab in Settings shows what went wrong."
 msgid_plural "Telescope works without them. The Plugins tab in Settings shows what went wrong."
 msgstr[0] "Telescope는 해당 플러그인 없이도 작동해요. 설정의 플러그인 탭에서 문제 내용을 확인할 수 있어요."
 
-#: rust/crates/shell/src/shell.rs:1111
+#: rust/crates/shell/src/shell.rs:1124
 #, python-brace-format
 msgid "{plugins} is turned off"
 msgid_plural "{plugins} are turned off"
 msgstr[0] "{plugins}이(가) 꺼져 있어요"
 
-#: rust/crates/shell/src/shell.rs:1112
+#: rust/crates/shell/src/shell.rs:1125
 msgid "You turned this off in Plugins. To get it back, open Plugins in Settings and switch it on."
 msgid_plural "You turned these off in Plugins. To get them back, open Plugins in Settings and switch them on."
 msgstr[0] "플러그인에서 꺼 둔 상태예요. 다시 사용하려면 설정에서 플러그인을 열어 켜세요."
 
-#: rust/crates/shell/src/shell.rs:1136
+#: rust/crates/shell/src/shell.rs:1149
 #, python-brace-format
 msgid "A copy of the old file is at {path}."
 msgstr "이전 파일의 사본이 {path}에 있어요."
 
-#: rust/crates/shell/src/shell.rs:1138
+#: rust/crates/shell/src/shell.rs:1151
 msgid "Your settings couldn't be read"
 msgstr "설정을 읽을 수 없어요"
 
-#: rust/crates/shell/src/shell.rs:1139
+#: rust/crates/shell/src/shell.rs:1152
 msgid "Telescope started with its defaults and paired phones need pairing again."
 msgstr "Telescope가 기본값으로 시작되었으며 페어링된 휴대폰은 다시 페어링해야 해요."
 
-#: rust/crates/shell/src/shell.rs:1629
+#: rust/crates/shell/src/shell.rs:1642
 msgid "Telescope - Save failed"
 msgstr "Telescope - 저장 실패"
 
-#: rust/crates/shell/src/shell.rs:1630
+#: rust/crates/shell/src/shell.rs:1643
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "설정을 저장하지 못했어요. 디스크 공간과 권한을 확인하세요."
 

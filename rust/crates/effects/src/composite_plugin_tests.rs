@@ -560,3 +560,19 @@ fn the_auto_director_saves_the_layout_picked_by_hand_follows_a_rename_and_puts_i
     assert_eq!(r.plugin.card_props()["director-enabled"], true);
     assert_eq!(r.host.calls.iter().rev().find(|c| c.starts_with("want_people composite")).map(String::as_str), Some("want_people composite false"), "no pose work without two layouts");
 }
+
+#[test]
+fn a_preset_saves_the_picture_but_not_the_saved_layouts() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    r.plugin.save_layout(&mut r.host, "Two");
+    let saved = r.plugin.preset_config();
+    assert!(saved.get("layouts").is_none() && saved["on"] == true && saved["layout"]["name"] == "Two", "{saved}");
+    // settings still carry the layouts: they are what the app keeps between runs
+    assert_eq!(r.plugin.get_config()["layouts"].as_array().map(Vec::len), Some(1));
+    // bringing a preset back leaves the layouts as they are
+    let mut other = rig();
+    other.plugin.save_layout(&mut other.host, "Mine");
+    other.plugin.apply_preset(&mut other.host, &saved).unwrap();
+    assert_eq!(other.plugin.names(), ["Mine"]);
+}

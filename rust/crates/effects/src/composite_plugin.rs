@@ -821,6 +821,15 @@ impl Plugin for CompositePlugin {
         Ok(())
     }
 
+    /// A preset saves whether the picture is on and how it looks, not the saved layouts (which it never brings back, and a copy of them would only go out of date).
+    fn preset_config(&self) -> Value {
+        let mut cfg = self.get_config();
+        if let Value::Object(map) = &mut cfg {
+            map.remove("layouts");
+        }
+        cfg
+    }
+
     /// A preset brings back whether the picture is on and how it looks, and leaves the saved layouts alone.
     fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
         self.catch_up(host);
