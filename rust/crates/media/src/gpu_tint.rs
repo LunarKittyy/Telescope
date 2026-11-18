@@ -18,6 +18,8 @@ const SMALLER: u32 = 8;
 const SCOPE_PATIENCE: Duration = Duration::from_secs(1);
 /// How many misses in a row (a picture that took too long, or a card that refused one) end the card's part in the scopes.
 const MISSES: u32 = 3;
+/// How many paints pass between looks at whether the card was removed.
+const REMOVED_CHECK_EVERY: u32 = 30;
 
 /// One weight pair of OpenCV's INTER_LINEAR: first source, second source, their weights out of 2048 (core's image.rs has the same).
 type Tap = (usize, usize, i32, i32);
@@ -345,6 +347,9 @@ impl Gpu {
                 let _ = tx.send(r.map_err(|e| e.to_string()));
             });
             (buffer, done, small)
+        }).inspect_err(|_| {
+            // What a refused call left half made is made again, as on the tint path
+            self.tint_kit.lock().unwrap().take();
         })?;
         // Handed back only once the card took all of it: the next use of it is queued behind the copy
         self.give_back(small);
@@ -368,12 +373,18 @@ impl Gpu {
         }
     }
 
+    /// Marks the card lost, and says why, when the device was removed (a driver reset); never on other backends.
+    pub fn check_removed(&self) -> Option<String> {
+        let why = device_removed(&self.device)?;
+        self.lost.store(true, Ordering::SeqCst);
+        log::error!("The graphics card was removed ({why})");
+        Some(why)
+    }
+
     /// The rows of a mapped scope buffer without their padding.
     fn scope_frame(&self, read: &ScopeRead) -> Result<Frame, String> {
         // wgpu 30 on DX12 counts a removed device's fence as done without saying the device was lost, which leaves the buffer as it was
-        if let Some(why) = device_removed(&self.device) {
-            self.lost.store(true, Ordering::SeqCst);
-            log::error!("The graphics card was removed ({why})");
+        if let Some(why) = self.check_removed() {
             return Err(format!("the graphics card was removed ({why})"));
         }
         let (w, h) = read.size;
@@ -529,18 +540,26 @@ pub struct CardPreview {
     scope_width: u32,
     scope: bool,
     samples: ScopeSamples,
-    /// Paints the card refused, in a row.
+    /// Paints the card refused, in a row; once out it stays out until `restart`.
     refused: Strikes,
+    /// Paints since the card was last asked whether it was removed.
+    since_check: u32,
 }
 
 impl CardPreview {
     pub fn new(gpu: Arc<Gpu>, scope_width: u32) -> CardPreview {
-        CardPreview { gpu, pictures: [None, None], plain: None, next: 0, scope_width, scope: false, samples: ScopeSamples::default(), refused: Strikes::default() }
+        CardPreview { gpu, pictures: [None, None], plain: None, next: 0, scope_width, scope: false, samples: ScopeSamples::default(), refused: Strikes::default(), since_check: 0 }
     }
 
     /// The frame as a texture of this size, with the tools of `tint` on it when there is one.
     pub fn paint(&mut self, frame: &Frame, width: u32, height: u32, tint: Option<&TintSpec>) -> Option<wgpu::Texture> {
         let gpu = self.gpu.clone();
+        // Without a scope nothing is read back, so a removed card is looked for here every so often
+        self.since_check += 1;
+        if self.since_check >= REMOVED_CHECK_EVERY {
+            self.since_check = 0;
+            gpu.check_removed();
+        }
         let of_size = |slot: &mut Option<wgpu::Texture>| {
             if slot.as_ref().is_none_or(|t| (t.width(), t.height()) != (width, height)) {
                 *slot = Some(gpu.picture(width, height));
@@ -562,7 +581,6 @@ impl CardPreview {
         });
         match painted {
             Ok(()) => {
-                self.refused.clear();
                 Some(shown)
             }
             Err(e) => {
@@ -597,6 +615,8 @@ impl CardPreview {
     pub fn restart(&mut self) {
         self.scope = false;
         self.samples.clear();
+        self.samples.misses.clear();
+        self.refused.clear();
     }
 }
 
@@ -639,6 +659,21 @@ mod tests {
         // Given up on: no read is started again
         samples.start(&gpu, &source, 256);
         assert!(!samples.in_flight() && samples.gave_up());
+    }
+
+    #[test]
+    fn a_card_that_refused_three_paints_stays_given_up_on_until_a_restart() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let mut card = CardPreview::new(gpu, 256);
+        let frame = rgba(64, 64, 10);
+        for _ in 0..MISSES {
+            card.refused.miss();
+        }
+        assert!(!card.on_card());
+        assert!(card.paint(&frame, 64, 64, None).is_some());
+        assert!(!card.on_card(), "a good untinted paint doesn't bring the card route back");
+        card.restart();
+        assert!(card.on_card());
     }
 
     #[test]
