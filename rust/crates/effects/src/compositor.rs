@@ -446,7 +446,7 @@ fn div255(x: u32) -> u32 {
 /// A frame whose colour is multiplied by its alpha, as straight colour: every value divided by its alpha (a colour sample by the mean of its 2 x 2).
 fn unpremultiplied(frame: &Frame, alpha: &telescope_core::frame::Alpha) -> Frame {
     let (w, h) = (frame.width as usize, frame.height as usize);
-    let divide = |v: u8, a: u32| if a == 0 { 0 } else { ((v as u32 * 255 + a / 2) / a).min(255) as u8 };
+    let divide = |v: u8, a: u32| (v as u32 * 255 + a / 2).checked_div(a).map_or(0, |q| q.min(255) as u8);
     let mut out = frame.clone();
     let data = out.data_mut();
     let block = |cx: usize, cy: usize| {
@@ -462,7 +462,7 @@ fn unpremultiplied(frame: &Frame, alpha: &telescope_core::frame::Alpha) -> Frame
     };
     match frame.format {
         PixelFormat::Rgba | PixelFormat::Bgra => {
-            for (pixel, &a) in data.chunks_exact_mut(4).zip(&alpha.data) {
+            for (pixel, &a) in data.as_chunks_mut::<4>().0.iter_mut().zip(&alpha.data) {
                 pixel.iter_mut().take(3).for_each(|v| *v = divide(*v, a as u32));
             }
         }
@@ -516,7 +516,7 @@ fn chroma_alpha(luma: &[u8], bx: (usize, usize, usize, usize)) -> Vec<u8> {
                     }
                 }
             }
-            out.push(if n > 0 { ((sum + n / 2) / n) as u8 } else { 0 });
+            out.push((sum + n / 2).checked_div(n).map_or(0, |v| v as u8));
         }
     }
     out

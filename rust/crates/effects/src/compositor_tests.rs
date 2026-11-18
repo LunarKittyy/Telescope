@@ -331,8 +331,8 @@ fn cut(bgr: [u8; 3], (h, w): (u32, u32), premultiplied: bool, alpha: impl Fn(usi
             plane.push(a);
             if premultiplied {
                 let at = (y * w as usize + x) * 4;
-                for c in 0..3 {
-                    f.data_mut()[at + c] = (bgr[c] as f32 * a as f32 / 255.0).round() as u8;
+                for (c, v) in bgr.iter().enumerate() {
+                    f.data_mut()[at + c] = (*v as f32 * a as f32 / 255.0).round() as u8;
                 }
             }
         }
@@ -371,7 +371,7 @@ fn a_cut_out_blends_over_the_canvas_like_a_float_reference_within_a_level() {
                 assert!((got[c] as f32 - want).abs() <= 1.0, "premultiplied {premultiplied} at {x},{y} channel {c}: {} against {want}", got[c]);
             }
         }
-        assert!(out.data.chunks_exact(4).all(|p| p[3] == 255), "the canvas stays opaque");
+        assert!(out.data.as_chunks::<4>().0.iter().all(|p| p[3] == 255), "the canvas stays opaque");
         // I420 canvas: the luma and both colour planes against the same blend of the planes it was drawn from
         let out = render_in(&layout, &f, (160, 90), PixelFormat::I420);
         let tile_planes = converted(&solid(tile_bgr, (90, 160)), Kind::I420).unwrap();
