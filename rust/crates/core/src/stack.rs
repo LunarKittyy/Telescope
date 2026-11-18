@@ -16,8 +16,10 @@ const ALIGN_WIDTH: usize = 1024;
 const CLIP_AFTER: u32 = 5;
 /// Pixel values are 0..1, so this is a bit under half a level
 const MIN_SPREAD: f32 = 0.002;
-/// A reference picture needs at least this much brightness spread (standard deviation), or there is nothing to line up on
+/// A reference picture needs a tile with at least this much brightness spread (standard deviation), or there is nothing to line up on
 const MIN_REFERENCE_SPREAD: f32 = 0.01;
+/// The side of the tiles the spread is judged on: a few stars on a dark sky show in a tile, though hardly in the whole frame
+const FEATURE_TILE: usize = 16;
 /// When more than this share of a clip frame's pixels is rejected, the scene changed and the statistics restart from that frame
 const CLIP_RESTART: f32 = 0.5;
 
@@ -70,15 +72,27 @@ impl Plane {
         Some(Plane { width: ow, height: oh, data })
     }
 
-    /// Whether the plane is big enough to line up on and has enough brightness spread to hold a peak.
+    /// Whether the plane is big enough to line up on and has a feature in it: some tile with enough brightness spread to hold a peak.
     fn alignable(&self) -> bool {
-        let n = self.width * self.height;
-        if self.width < MIN_SQUARE || self.height < MIN_SQUARE || self.data.len() != n {
+        if self.width < MIN_SQUARE || self.height < MIN_SQUARE || self.data.len() != self.width * self.height {
             return false;
         }
-        let mean = self.data.iter().sum::<f32>() / n as f32;
-        let var = self.data.iter().map(|v| (v - mean) * (v - mean)).sum::<f32>() / n as f32;
-        var.sqrt() >= MIN_REFERENCE_SPREAD
+        let limit = MIN_REFERENCE_SPREAD * MIN_REFERENCE_SPREAD;
+        (0..self.height).step_by(FEATURE_TILE).any(|y0| (0..self.width).step_by(FEATURE_TILE).any(|x0| self.tile_variance(x0, y0) >= limit))
+    }
+
+    /// The brightness variance of the tile whose top left is x0, y0 (smaller at the edges).
+    fn tile_variance(&self, x0: usize, y0: usize) -> f32 {
+        let (x1, y1) = ((x0 + FEATURE_TILE).min(self.width), (y0 + FEATURE_TILE).min(self.height));
+        let (mut sum, mut sum2) = (0.0f64, 0.0f64);
+        for y in y0..y1 {
+            for &v in &self.data[y * self.width + x0..y * self.width + x1] {
+                sum += f64::from(v);
+                sum2 += f64::from(v) * f64::from(v);
+            }
+        }
+        let n = ((x1 - x0) * (y1 - y0)) as f64;
+        (sum2 / n - (sum / n) * (sum / n)).max(0.0) as f32
     }
 }
 
@@ -310,7 +324,7 @@ impl Stacker {
     }
 
     /// Lines the frame up with the first one and adds it, returning the shift used. None (and not counted) when it is another size than
-    /// the first, empty, short of data, can't be lined up with enough confidence, or (with align on) too dark or flat to be the first.
+    /// the first, empty, short of data, can't be lined up with enough confidence, lands without overlapping the stack, or (with align on) has no feature to line up on as the first.
     /// In clip mode a frame that most pixels reject is a scene change (an exposure jump, say): the statistics restart from it and count() starts again at one.
     pub fn add(&mut self, frame: &Frame) -> Option<Shift> {
         if !frame_ok(frame) {
@@ -343,12 +357,20 @@ impl Stacker {
             self.weight = vec![0; w * h];
             self.reference = plane;
         }
-        let (covered, rejected) = self.accumulate(&rgb, shift);
+        self.take(&rgb, shift)
+    }
+
+    /// Puts a frame's pixels into the stack at the shift. None (and nothing changed) when the shift leaves no pixel of it over the stack.
+    fn take(&mut self, rgb: &[u8], shift: Shift) -> Option<Shift> {
+        let (covered, rejected) = self.accumulate(rgb, shift);
+        if covered == 0 {
+            return None;
+        }
         if rejected as f32 > covered as f32 * CLIP_RESTART {
             self.mean.fill(0.0);
             self.spread.fill(0.0);
             self.weight.fill(0);
-            self.accumulate(&rgb, shift);
+            self.accumulate(rgb, shift);
             self.count = 1;
         } else {
             self.count += 1;
@@ -438,7 +460,7 @@ impl Stacker {
     }
 }
 
-/// Keeps the sharpest frames of a burst, scoring each on arrival so only `capacity` are ever held.
+/// Keeps the sharpest frames of a burst, scoring each on arrival so only `capacity` are ever held. A frame with no pixels or the wrong amount of data is never kept.
 pub struct Lucky {
     capacity: usize,
     // sharpest first
@@ -453,6 +475,9 @@ impl Lucky {
 
     /// Scores the frame and keeps it if it is among the sharpest so far; whether it was kept.
     pub fn add(&mut self, frame: Frame) -> bool {
+        if !frame_ok(&frame) {
+            return false;
+        }
         let score = Plane::from_frame(&frame, (frame.width as usize).div_ceil(ALIGN_WIDTH)).map_or(0.0, |p| sharpness(&p));
         if self.kept.len() >= self.capacity && self.kept.last().is_some_and(|(worst, _)| score <= *worst) {
             return false;

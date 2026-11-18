@@ -277,3 +277,66 @@ fn short_plane_data_has_no_shift() {
     let empty = Plane { width: 64, height: 64, data: Vec::new() };
     assert!(shift_between(&empty, &empty).is_none());
 }
+
+/// A dark 1024x576 frame with twenty clean 3x3 stars at quarter brightness, moved by (dx, dy).
+fn faint_sky(dx: usize, dy: usize) -> Frame {
+    let (w, h) = (1024, 576);
+    let mut rng = Lcg(21);
+    let stars: Vec<(usize, usize)> = (0..20).map(|_| (40 + (rng.next() * 900.0) as usize, 40 + (rng.next() * 480.0) as usize)).collect();
+    let mut data = Vec::with_capacity(w * h * 4);
+    for y in 0..h {
+        for x in 0..w {
+            let lit = stars.iter().any(|&(sx, sy)| (sx + dx..sx + dx + 3).contains(&x) && (sy + dy..sy + dy + 3).contains(&y));
+            let v = if lit { 0.25 } else { 0.02 };
+            data.extend([(v * 255.0 + 0.5) as u8, (v * 255.0 + 0.5) as u8, (v * 255.0 + 0.5) as u8, 255]);
+        }
+    }
+    Frame::new(w as u32, h as u32, PixelFormat::Rgba, data)
+}
+
+#[test]
+fn a_faint_sky_of_a_few_small_stars_can_start_a_stack() {
+    let first = faint_sky(0, 0);
+    // Whole-frame contrast is under the old threshold, so only a local test finds the stars
+    let whole = plane(&first);
+    let mean = whole.data.iter().sum::<f32>() / whole.data.len() as f32;
+    let spread = (whole.data.iter().map(|v| (v - mean) * (v - mean)).sum::<f32>() / whole.data.len() as f32).sqrt();
+    assert!(spread < MIN_REFERENCE_SPREAD, "{spread}");
+    let mut stacker = Stacker::new(StackMode::Mean);
+    assert!(stacker.add(&first).is_some());
+    assert!(stacker.add(&faint_sky(4, 3)).is_some(), "the next frame lines up with it");
+    assert_eq!(stacker.count(), 2);
+    // A black frame, a flat one and a smooth ramp have nothing to line up on
+    let (w, h) = (1024usize, 576usize);
+    let solid = |f: &dyn Fn(usize) -> u8| Frame::new(w as u32, h as u32, PixelFormat::Rgba, (0..w * h).flat_map(|i| { let v = f(i % w); [v, v, v, 255] }).collect());
+    for frame in [solid(&|_| 0), solid(&|_| 120), solid(&|x| (x / 8) as u8)] {
+        assert!(Stacker::new(StackMode::Mean).add(&frame).is_none());
+    }
+}
+
+#[test]
+fn a_shift_that_misses_the_stack_is_refused() {
+    let mut rng = Lcg(31);
+    let mut stacker = Stacker::new(StackMode::Mean);
+    let frame = shifted(0.0, 0.0, 0.0, 0.01, &mut rng);
+    stacker.add(&frame).unwrap();
+    let rgb = frame_rgb(&frame).unwrap();
+    assert!(stacker.take(&rgb, Shift { dx: 5000.0, dy: 0.0, confidence: 100.0 }).is_none());
+    assert!(stacker.take(&rgb, Shift { dx: 0.0, dy: -(H as f32), confidence: 100.0 }).is_none());
+    assert_eq!(stacker.count(), 1);
+    assert!(stacker.take(&rgb, Shift { dx: 2.0, dy: 1.0, confidence: 100.0 }).is_some());
+    assert_eq!(stacker.count(), 2);
+}
+
+#[test]
+fn lucky_does_not_keep_a_malformed_frame() {
+    let mut lucky = Lucky::new(3);
+    let mut short = Frame::new(W as u32, H as u32, PixelFormat::Rgba, vec![200; W * H * 4]);
+    short.data_mut().truncate(100);
+    assert!(!lucky.add(short));
+    assert!(!lucky.add(Frame::new(0, 0, PixelFormat::Rgba, Vec::new())));
+    assert!(lucky.best().is_empty());
+    let mut rng = Lcg(5);
+    assert!(lucky.add(shifted(0.0, 0.0, 2.0, 0.01, &mut rng)));
+    assert_eq!(lucky.best().len(), 1);
+}

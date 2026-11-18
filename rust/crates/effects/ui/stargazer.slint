@@ -22,6 +22,7 @@ export component StargazerCard inherits Card {
     in property <string> status;
     in property <string> status-kind: "status_dim";
     in property <string> tally;
+    in property <string> limit;
     in property <string> focus-text;
     in property <string> camera-name;
     in property <bool> camera;
@@ -48,9 +49,12 @@ export component StargazerCard inherits Card {
         has-icon: false;
         StatusLine { text: status; kind: status-kind; detail: status; }
     }
-    RailRow {
-        has-icon: false;
-        StatusLine { text: tally; detail: tally; }
+    UnfoldGroup {
+        RailRow {
+            has-icon: false;
+            StatusLine { text: tally; detail: tally; }
+        }
+        StatusUnfold { text: limit; kind: "status_warn"; detail: limit; }
     }
     RailRow {
         icon: Icons.focus;
@@ -59,71 +63,79 @@ export component StargazerCard inherits Card {
         enabled: active;
         StatusLine { text: focus-text; detail: @tr("How sharp the picture is now and the best so far. Turn the focuser to the highest number."); }
     }
-    RailRow {
-        icon: Icons.layers;
-        label: @tr("Stack");
-        hue: root.hue;
-        enabled: active;
-        Segmented {
-            hue: root.hue;
+    UnfoldGroup {
+        RailRow {
+            icon: Icons.layers;
             label: @tr("Stack");
-            items: mode-items;
-            tips: [@tr("Lucky imaging"), @tr("Live stack"), @tr("Star trails")];
-            tip-details: [
-                @tr("Stacks only the sharpest frames of a burst. For the moon and planets."),
-                @tr("Adds every frame and leaves out what only shows once, like satellites and noise. For faint things."),
-                @tr("Takes the brightest value of one frame every few seconds, which draws the stars as lines."),
-            ];
-            disabled: [!active || running, !active || running, !active || running];
-            current: mode-index;
-            picked(i) => { root.mode-picked(i); }
+            hue: root.hue;
+            enabled: active;
+            Segmented {
+                hue: root.hue;
+                label: @tr("Stack");
+                items: mode-items;
+                tips: [@tr("Lucky imaging"), @tr("Live stack"), @tr("Star trails")];
+                tip-details: [
+                    @tr("Stacks only the sharpest frames of a burst. For the moon and planets."),
+                    @tr("Adds every frame and leaves out what only shows once, like satellites and noise. For faint things."),
+                    @tr("Takes the brightest value of one frame every few seconds, which draws the stars as lines."),
+                ];
+                disabled: [!active || running, !active || running, !active || running];
+                current: mode-index;
+                picked(i) => { root.mode-picked(i); }
+            }
         }
-    }
-    if mode-index == 0: RailSlider {
-        icon: Icons.film;
-        enabled: active && !running;
-        label: @tr("Frames");
-        tip: @tr("Frames to collect");
-        tip-detail: @tr("How many frames to look at before stacking the sharpest ones.");
-        minimum: 50;
-        maximum: 2000;
-        value: frames;
-        readout: frames-text;
-        readout-width: Theme.u(40);
-        hue: root.hue;
-        has-default: true;
-        default-value: 300;
-        moved(v) => { root.frames-moved(v); }
-    }
-    if mode-index == 0: RailSlider {
-        icon: Icons.sparkle;
-        enabled: active && !running;
-        label: @tr("Sharpest");
-        tip: @tr("Share of frames to stack");
-        tip-detail: @tr("The sharpest share of the frames that gets stacked.");
-        minimum: 1;
-        maximum: 100;
-        value: keep;
-        readout: keep-text;
-        hue: root.hue;
-        has-default: true;
-        default-value: 10;
-        moved(v) => { root.keep-moved(v); }
-    }
-    if mode-index == 2: RailSlider {
-        icon: Icons.timer;
-        enabled: active && !running;
-        label: @tr("Every");
-        tip: @tr("Time between frames");
-        tip-detail: @tr("How long to wait before the next frame goes into the trails.");
-        minimum: 1;
-        maximum: 60;
-        value: trail;
-        readout: trail-text;
-        hue: root.hue;
-        has-default: true;
-        default-value: 5;
-        moved(v) => { root.trail-moved(v); }
+        Unfolding {
+            open: mode-index == 0;
+            RailSlider {
+                icon: Icons.film;
+                enabled: active && !running;
+                label: @tr("Frames");
+                tip: @tr("Frames to collect");
+                tip-detail: @tr("How many frames to look at before stacking the sharpest ones.");
+                minimum: 50;
+                maximum: 2000;
+                value: frames;
+                readout: frames-text;
+                readout-width: Theme.u(40);
+                hue: root.hue;
+                has-default: true;
+                default-value: 300;
+                moved(v) => { root.frames-moved(v); }
+            }
+            RailSlider {
+                icon: Icons.sparkle;
+                enabled: active && !running;
+                label: @tr("Sharpest");
+                tip: @tr("Share of frames to stack");
+                tip-detail: @tr("The sharpest share of the frames that gets stacked.");
+                minimum: 1;
+                maximum: 100;
+                value: keep;
+                readout: keep-text;
+                hue: root.hue;
+                has-default: true;
+                default-value: 10;
+                moved(v) => { root.keep-moved(v); }
+            }
+        }
+        Unfolding {
+            open: mode-index == 2;
+            RailSlider {
+                icon: Icons.timer;
+                enabled: active && !running;
+                label: @tr("Every");
+                tip: @tr("Time between frames");
+                tip-detail: @tr("How long to wait before the next frame goes into the trails.");
+                minimum: 1;
+                maximum: 60;
+                value: trail;
+                readout: trail-text;
+                hue: root.hue;
+                has-default: true;
+                default-value: 5;
+                moved(v) => { root.trail-moved(v); }
+            }
+        }
     }
     RailRow {
         icon: Icons.play;
@@ -133,7 +145,7 @@ export component StargazerCard inherits Card {
         HorizontalLayout {
             spacing: Theme.gap;
             Button { horizontal-stretch: 1; preferred-width: 1000px; text: run-text; reserve: [@tr("Start"), @tr("Stop"), @tr("Stacking")]; role: "primary"; hue: root.hue; enabled: active && run-enabled; clicked => { root.run-clicked(); } }
-            if mode-index == 1: Button { horizontal-stretch: 1; preferred-width: 1000px; text: save-text; enabled: active && save-enabled; clicked => { root.save-clicked(); } }
+            if mode-index == 1 || save-enabled: Button { horizontal-stretch: 1; preferred-width: 1000px; text: save-text; enabled: active && save-enabled; clicked => { root.save-clicked(); } }
             if mode-index == 1: Button { horizontal-stretch: 1; preferred-width: 1000px; text: reset-text; enabled: active && reset-enabled; clicked => { root.reset-clicked(); } }
         }
     }
