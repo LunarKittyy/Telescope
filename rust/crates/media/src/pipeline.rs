@@ -1252,6 +1252,21 @@ pub(crate) mod tests {
         assert!(p.hide_again(went_out, &NoContext).is_none());
     }
 
+    #[test]
+    fn a_frame_a_hiding_step_has_not_seen_goes_dark_once_the_history_is_forgotten() {
+        let mut p = Pipeline::new();
+        p.set_steps(vec![step("background", FrameStage::Background, Hides)]);
+        let went_out = p.process(grey(4, 2, 200), &NoContext);
+        assert!(p.hide_again(went_out.clone(), &NoContext).is_none(), "it went through the step, so nothing is new");
+        p.forget_history();
+        let hidden = p.hide_again(went_out.clone(), &NoContext).expect("after a gap nothing can vouch for the frame");
+        assert!(is_dark(&hidden));
+        assert_eq!(hidden.number, went_out.number);
+        // A frame that goes through the step settles it again
+        p.process(grey(4, 2, 1), &NoContext);
+        assert!(p.hide_again(went_out, &NoContext).is_none());
+    }
+
     /// Hides when told to: it paints the picture 9, and says it has nothing to do otherwise.
     struct HidesOnCue(Arc<std::sync::atomic::AtomicBool>);
 
