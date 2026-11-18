@@ -669,6 +669,60 @@ fn a_cover_between_looks_stops_frames_at_once() {
 }
 
 #[test]
+fn a_preset_brings_back_the_settings_and_never_begins_a_run() {
+    let mut a = StargazerPlugin::new();
+    a.set_config(&json!({"mode": "trails", "frames": 800, "keep": 25, "interval": 12, "camera": true})).unwrap();
+    let saved = a.preset_config();
+    assert!(saved.get("folder").is_none());
+    let mut rig = Rig::new("preset", json!({}));
+    rig.plugin.apply_preset(&mut rig.host, &saved).unwrap();
+    assert_eq!(rig.plugin.get_config(), a.get_config());
+    assert_eq!(rig.plugin.phase, Phase::Idle);
+    assert!(rig.plugin.shared.camera.load(Ordering::SeqCst));
+}
+
+#[test]
+fn an_older_preset_without_the_keys_changes_nothing_in_stargazer() {
+    let mut rig = Rig::new("preset-old", json!({"mode": "live", "frames": 700, "keep": 20, "interval": 9, "camera": true}));
+    let before = rig.plugin.get_config();
+    rig.plugin.apply_preset(&mut rig.host, &json!({})).unwrap();
+    assert_eq!(rig.plugin.get_config(), before);
+    rig.plugin.apply_preset(&mut rig.host, &json!({"frames": 400})).unwrap();
+    let after = rig.plugin.get_config();
+    assert_eq!((&after["frames"], &after["mode"], &after["camera"]), (&json!(400), &json!("live"), &json!(true)));
+}
+
+#[test]
+fn a_preset_mid_run_leaves_the_mode_alone() {
+    let mut rig = Rig::new("preset-run", json!({"mode": "live"}));
+    rig.click("run-clicked", Value::Null);
+    assert_eq!(rig.plugin.phase, Phase::Collecting);
+    rig.plugin.apply_preset(&mut rig.host, &json!({"mode": "trails", "frames": 400})).unwrap();
+    assert_eq!((rig.plugin.mode, rig.plugin.shared.mode(), rig.plugin.frames), (Mode::Live, Mode::Live, 400));
+    assert_eq!(rig.plugin.phase, Phase::Collecting);
+}
+
+#[test]
+fn a_preset_that_changes_the_mode_starts_that_mode_clean() {
+    let mut rig = Rig::new("preset-mode", json!({"mode": "live"}));
+    rig.plugin.count = 5;
+    rig.plugin.unsaved = true;
+    rig.plugin.apply_preset(&mut rig.host, &json!({"mode": "lucky"})).unwrap();
+    assert_eq!((rig.plugin.mode, rig.plugin.count, rig.plugin.unsaved, rig.plugin.can_save()), (Mode::Lucky, 0, false, false));
+}
+
+#[test]
+fn a_preset_turning_the_camera_off_drops_the_stack_from_it() {
+    let mut rig = Rig::new("preset-cam", json!({"mode": "live"}));
+    *rig.plugin.shared.result.lock().unwrap() = Some(Stack { source: "phone".into(), frame: field(2.0) });
+    rig.plugin.apply_preset(&mut rig.host, &json!({"camera": true})).unwrap();
+    assert!(rig.plugin.shared.camera.load(Ordering::SeqCst));
+    rig.plugin.apply_preset(&mut rig.host, &json!({"camera": false})).unwrap();
+    assert!(!rig.plugin.shared.camera.load(Ordering::SeqCst));
+    assert!(rig.plugin.shared.result.lock().unwrap().is_none());
+}
+
+#[test]
 fn reset_puts_the_sliders_back_and_leaves_the_mode_and_the_camera() {
     let mut rig = Rig::new("reset", json!({"mode": "live", "frames": 900, "keep": 40, "interval": 20, "camera": true}));
     let shown = |rig: &Rig| rig.plugin.state_props(&rig.host)["settings-reset-shown"].clone();

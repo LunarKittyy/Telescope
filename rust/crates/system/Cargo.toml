@@ -10,7 +10,6 @@ telescope-core.workspace = true
 log.workspace = true
 serde_json.workspace = true
 ring.workspace = true
-libc.workspace = true
 ureq = { workspace = true, features = ["platform-verifier"] }
 zip.workspace = true
 tar.workspace = true
@@ -19,6 +18,9 @@ serde.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
 
 [dev-dependencies]
 i-slint-backend-testing = "=1.18.1"
