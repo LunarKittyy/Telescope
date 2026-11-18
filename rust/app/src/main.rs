@@ -170,10 +170,11 @@ impl Machine {
 fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions, tray: bool) -> Arc<Services> {
     let link = Arc::new(telescope_link::LinkService::new());
     let problems = telescope_core::services::PluginProblems::default();
-    // Added plugins can't take a built-in's name
-    let reserved: Vec<String> = vec!["camera_control".into(), "onboarding".into(), "connection".into(), "browser_camera".into(), "microphone".into(), "stream_output".into(), "webcam".into(), "spout".into(), "transforms".into(), "colour_grading".into(), "filters".into(), "notes".into(), "name_tag".into(), "composite".into(), "stereo".into(), "desk".into(), "chroma_key".into(), "fun_pack".into(), "presets".into(), "wait_screen".into(), "startup".into(), "photos".into(), "phototrap".into(), "stargazer".into(), "qr_reader".into(), "on_air".into(), "cinema".into(), "background".into(), "privacy_blur".into(), "framing".into(), "face_exposure".into(), "setup".into(), "monitoring".into(), "stats".into(), "mcp".into()];
+    // Added plugins can't take a built-in's name (a test checks this list is every built-in plugin)
+    let reserved: Vec<String> = telescope_shell::plugins::ORDER.iter().map(|n| n.to_string()).collect();
     let admin: Arc<dyn telescope_core::plugin_admin::PluginAdmin> = Arc::new(telescope_plugin_host::admin::Admin::app(reserved.clone()));
     let added = telescope_plugin_host::load::factory(reserved, telescope_core::i18n::language(), problems.clone());
+    let needs_admin = admin.clone();
     let media: Arc<dyn telescope_core::media::Media> = Arc::new(telescope_media::FfmpegMedia);
     let pictures = telescope_effects::shared::picture_reader(media.clone());
     let browser_media = media.clone();
@@ -240,7 +241,9 @@ fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions
                 Box::new(telescope_setup::stats::StatsPlugin::new()),
                 Box::new(telescope_system::mcp::McpPlugin::new(telescope_system::mcp::McpHandle::global())),
             ];
-            plugins.extend(added());
+            // An added plugin whose built-in plugins aren't switched on is left out before any of its code runs
+            let gate = telescope_shell::shell::needs_gate(plugins.iter().map(|p| p.info()).collect(), needs_admin.clone());
+            plugins.extend(added(&gate));
             plugins
         }),
     })

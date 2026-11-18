@@ -361,6 +361,8 @@ pub struct Panel {
     problems: BTreeMap<String, String>,
     /// Plugins switched off this run after an error, by name (the error is for diagnostics, not the tile).
     pub stopped: BTreeMap<String, String>,
+    /// Added plugins that are on but held back at the start by a built-in plugin they need: not a switch a restart changes.
+    pub blocked: BTreeSet<String>,
     pub admin: Arc<dyn PluginAdmin>,
     download: Box<dyn Download>,
     pub installed: Vec<AddedPlugin>,
@@ -391,7 +393,7 @@ impl Panel {
                download: Box<dyn Download>) -> Panel {
         let reserved = builtins.iter().map(|p| p.name.clone()).collect();
         let mut panel = Panel {
-            builtins, reserved, running, problems, stopped: BTreeMap::new(), admin, download, installed: vec![], groups: vec![], pending: BTreeSet::new(),
+            builtins, reserved, running, problems, stopped: BTreeMap::new(), blocked: BTreeSet::new(), admin, download, installed: vec![], groups: vec![], pending: BTreeSet::new(),
             all_on_enabled: false, update_rows: None, vision_group: String::new(), left_after_revert: false,
         };
         panel.refresh();
@@ -576,14 +578,17 @@ impl Panel {
         } else if item.changed {
             note = tr("Off since the plugin's files changed after you switched it on. Switch it on again if you trust the new version.");
             kind = "status_warn";
+        } else if item.enabled && self.blocked.contains(&item.name) {
+            // Held back at the start by a plugin it needs: not a failure and not a switch, so nothing waits for a restart until that plugin is back
+            note = self.needs_note(&item.needs);
+            kind = "status_warn";
+            pending = note.is_empty();
         } else if item.enabled && self.problems.contains_key(&item.name) {
             note = fill(&tr("Couldn't start: {problem}"), &[("problem", self.problems[&item.name].trim_end_matches('.'))]);
             kind = "status_err";
             pending = true; // a restart tries it again
-        } else if item.enabled && !self.unmet_needs(&item.needs).is_empty() {
-            let off = self.unmet_needs(&item.needs);
-            note = trn("Needs {plugins}, which is switched off. Switch it on too.", "Needs {plugins}, which are switched off. Switch them on too.", off.len())
-                .field("plugins", crate::texts::and_list(&off));
+        } else if item.enabled && !self.needs_note(&item.needs).is_empty() {
+            note = self.needs_note(&item.needs);
             kind = "status_warn";
             pending = item.enabled != self.running.contains(&item.name);
         } else if item.enabled != self.running.contains(&item.name) {
@@ -748,14 +753,28 @@ impl Panel {
         }
     }
 
-    /// The titles of the built-in plugins in needs that are off after the next start (or that this Telescope doesn't have).
-    fn unmet_needs(&self, needs: &[String]) -> Vec<String> {
+    /// What a plugin's needs lack after the next start, in the tile's words ("" when nothing): the built-in plugins that are off, and the
+    /// names this Telescope doesn't have.
+    fn needs_note(&self, needs: &[String]) -> String {
         let (off, on) = (self.admin.builtin_off(), self.admin.optional_on());
-        needs.iter().filter_map(|n| match self.builtins.iter().find(|b| b.name == *n) {
-            Some(b) if b.required || if b.optional { on.contains(n) } else { !off.contains(n) } => None,
-            Some(b) => Some(tr(if b.title.is_empty() { &b.name } else { &b.title })),
-            None => Some(n.clone()),
-        }).collect()
+        let (mut gone, mut unknown) = (Vec::new(), Vec::new());
+        for n in needs {
+            match self.builtins.iter().find(|b| b.name == *n) {
+                Some(b) if b.required || if b.optional { on.contains(n) } else { !off.contains(n) } => {}
+                Some(b) => gone.push(tr(if b.title.is_empty() { &b.name } else { &b.title })),
+                None => unknown.push(n.clone()),
+            }
+        }
+        let mut parts = Vec::new();
+        if !gone.is_empty() {
+            parts.push(trn("Needs {plugins}, which is switched off. Switch it on too.", "Needs {plugins}, which are switched off. Switch them on too.", gone.len())
+                .field("plugins", crate::texts::and_list(&gone)));
+        }
+        if !unknown.is_empty() {
+            parts.push(trn("Needs a plugin called {plugins}, which this version of Telescope doesn't have.", "Needs plugins called {plugins}, which this version of Telescope doesn't have.", unknown.len())
+                .field("plugins", crate::texts::and_list(&unknown)));
+        }
+        parts.join(" ")
     }
 
     /// The titles of the added plugins switched on that need the built-in plugin name.
@@ -893,7 +912,7 @@ impl Panel {
                 // Only a switch can be put back: a removed plugin has none, and an update that came in stays
                 let waiting: Vec<(String, bool, bool)> = self.pending.iter().filter_map(|n| {
                     if let Some(item) = self.installed.iter().find(|i| i.name == *n) {
-                        let failed_start = item.enabled && self.problems.contains_key(n);
+                        let failed_start = item.enabled && self.problems.contains_key(n) && !self.blocked.contains(n);
                         let moved = item.enabled != self.running.contains(n) && !failed_start;
                         return moved.then(|| (n.clone(), false, true));
                     }
@@ -1081,6 +1100,37 @@ mod tests {
         panel.refresh();
         let tile = panel.shown("", Filter::All).into_iter().flat_map(|(g, _)| g.tiles).find(|t| t.name == "trap").unwrap();
         assert_eq!(tile.note, "Needs Photos, which is switched off. Switch it on too.");
+    }
+
+    #[test]
+    fn a_plugin_held_back_by_what_it_needs_is_no_pending_change_and_an_unknown_need_has_its_own_note() {
+        let trap = AddedPlugin { needs: vec!["photos".into()], ..added("trap", true) };
+        let ghost = AddedPlugin { needs: vec!["warp_drive".into()], ..added("ghost", true) };
+        let admin = Arc::new(Admin { extra: vec![trap, ghost], ..Admin::default() });
+        admin.off.lock().unwrap().insert("photos".into());
+        let photos = PluginInfo { title: "Photos".into(), ..builtin("photos") };
+        let problems: BTreeMap<String, String> = [("trap", "It needs Photos, which is switched off."), ("ghost", "It needs a plugin called warp_drive, which this version of Telescope doesn't have.")]
+            .map(|(n, e)| (n.to_string(), e.to_string())).into();
+        let mut panel = Panel::new(vec![photos], BTreeSet::new(), problems, admin.clone(), Box::new(NoVision));
+        panel.blocked = ["trap", "ghost"].map(String::from).into();
+        panel.refresh();
+        let note = |panel: &Panel, name: &str| panel.shown("", Filter::All).into_iter().flat_map(|(g, _)| g.tiles).find(|t| t.name == name).unwrap().note;
+        assert_eq!(note(&panel, "trap"), "Needs Photos, which is switched off. Switch it on too.");
+        assert_eq!(note(&panel, "ghost"), "Needs a plugin called warp_drive, which this version of Telescope doesn't have.");
+        assert_eq!(panel.pending_changes(), 0, "a blocker is no switch waiting for a restart");
+        // Photos on: the restart now starts it
+        admin.off.lock().unwrap().clear();
+        panel.refresh();
+        assert!(panel.pending.contains("trap"), "the restart now starts it");
+        assert_eq!(note(&panel, "trap"), "");
+        // A plugin switched on now while its need is off is a pending switch, with the note too
+        admin.off.lock().unwrap().insert("photos".into());
+        let fresh = AddedPlugin { needs: vec!["photos".into()], ..added("fresh", true) };
+        let admin = Arc::new(Admin { extra: vec![fresh], ..Admin::default() });
+        admin.off.lock().unwrap().insert("photos".into());
+        let panel = Panel::new(vec![PluginInfo { title: "Photos".into(), ..builtin("photos") }], BTreeSet::new(), BTreeMap::new(), admin, Box::new(NoVision));
+        assert_eq!(panel.pending_changes(), 1);
+        assert_eq!(note(&panel, "fresh"), "Needs Photos, which is switched off. Switch it on too.");
     }
 
     #[test]

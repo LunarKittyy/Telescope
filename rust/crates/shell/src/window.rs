@@ -1823,8 +1823,7 @@ impl Window {
             self.save_timer.stop();
             self.state.borrow_mut().save_now();
         }
-        self.state.borrow_mut().slots.iter_mut().for_each(|s| s.shut_down = true);
-        self.state.borrow_mut().each(|p, host| p.shutdown(host));
+        self.state.borrow_mut().shut_down_plugins();
         let vision = self.state.borrow().vision.clone();
         if let Some(vision) = vision {
             vision.shutdown();

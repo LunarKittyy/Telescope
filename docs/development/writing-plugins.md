@@ -62,7 +62,7 @@ Telescope loads a plugin you're working on straight from its folder when it runs
 - `when_off` tells people what goes missing when they switch your plugin off.
 - `repo` is an optional `https://` link to your plugin's source, shown next to the author. A GitHub address also lets Telescope tell people about new versions (see [Sharing it](#sharing-it)).
 - `permissions` lists the parts of the host API your plugin needs that could surprise someone. See the table under [Events and the host](#events-and-the-host).
-- `needs` lists built-in plugins your plugin can't work without, by their `name` (`["preview", "photos"]`). Your plugin doesn't start while one of them is off. Its tile on the Plugins tab names the one to switch on. Switching that one off asks first. Up to 16 names.
+- `needs` lists built-in plugins your plugin can't work without, by their `name` (`["preview", "photos"]`). Your plugin doesn't start while one of them is off or has stopped. None of its code runs then. Its tile on the Plugins tab names the one to switch on. A name Telescope doesn't know gets its own note on the tile. Switching that one off asks first. It has to be a list of up to 16 names, or the plugin doesn't load.
 
 These are optional and work like the class attributes of a built-in plugin:
 
@@ -243,7 +243,7 @@ Plugins can't call each other. They can leave values for each other with the hos
 
 - A value is plain JSON (numbers, text, tables) of up to 64 KB. A plugin can share up to 256 of them.
 - `host.share("level")` with no value takes it back.
-- Your values go when your plugin stops. Whatever reads them has to cope with them not being there, the same as with any other plugin being off.
+- Your values go when your plugin stops, right after its `shutdown` hook, which can still read them. Whatever reads them has to cope with them not being there, the same as with any other plugin being off.
 
 Some calls need a permission in `plugin.json`. People see the permissions on the Plugins tab before they switch your plugin on.
 

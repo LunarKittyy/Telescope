@@ -15,6 +15,8 @@ pub const OLDEST_PLUGIN_API: i64 = 2;
 /// Longest title, author or description shown.
 pub const TEXT_MAX: usize = 300;
 const REPO_MAX: usize = 200;
+pub const NEEDS_NOT_NAMES: &str = "\"needs\" in plugin.json has to be a list of built-in plugin names, like [\"photos\"].";
+pub const NEEDS_TOO_MANY: &str = "\"needs\" in plugin.json lists more than 16 plugins.";
 
 /// What a plugin may ask for in "permissions", and what each one lets it do. Everything else in the host API needs none.
 pub const PERMISSIONS: &[(&str, &str)] = &[
@@ -132,7 +134,18 @@ impl Manifest {
         info.optional = false;
         info.pinned = false;
         info.needs = self.needs();
+        info.added = true;
         info
+    }
+
+    /// Whether "needs" is a list of up to 16 plugin names (or absent), as a load error in the plugin's own words; None when it is.
+    pub fn needs_problem(&self) -> Option<&'static str> {
+        let value = self.get("needs").filter(|v| !v.is_null())?;
+        let Some(list) = value.as_array() else { return Some(NEEDS_NOT_NAMES) };
+        if list.len() > 16 {
+            return Some(NEEDS_TOO_MANY);
+        }
+        (!list.iter().all(|n| n.as_str().is_some_and(valid_name))).then_some(NEEDS_NOT_NAMES)
     }
 
     /// "needs": the built-in plugins it can't work without, as names that could be a plugin's, each once and at most 16. Anything else is left out.
@@ -151,6 +164,18 @@ impl Manifest {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_needs_that_isnt_a_list_of_plugin_names_is_a_problem() {
+        let problem = |v: Value| Manifest::new(json!({"needs": v})).needs_problem();
+        assert_eq!(problem(json!("photos")), Some(NEEDS_NOT_NAMES));
+        assert_eq!(problem(json!(["photos", 3])), Some(NEEDS_NOT_NAMES));
+        assert_eq!(problem(json!(["Bad Name"])), Some(NEEDS_NOT_NAMES));
+        assert_eq!(problem(json!((0..17).map(|i| format!("p{i}")).collect::<Vec<_>>())), Some(NEEDS_TOO_MANY));
+        assert_eq!(problem(json!(["photos", "preview"])), None);
+        assert_eq!(problem(json!([])), None);
+        assert_eq!(Manifest::new(json!({})).needs_problem(), None);
+    }
 
     #[test]
     fn needs_keeps_plugin_names_only() {
