@@ -94,11 +94,17 @@ pub fn stick_figure(people: &[Person], map_point: &dyn Fn(f64, f64) -> (f64, f64
                 pts.insert(name.as_str(), map_point(x, y));
             }
         }
+        drop_crossed_legs(person, &mut pts, aspect);
         for (a, b) in BONES {
             if let (Some(&pa), Some(&pb)) = (pts.get(a), pts.get(b)) {
-                if !FACE.iter().any(|f| a.contains(f) || b.contains(f)) {
-                    lines.push((pa, pb));
+                if FACE.iter().any(|f| a.contains(f) || b.contains(f)) {
+                    continue;
                 }
+                // in a close-up the model guesses the torso and legs below the picture, which would draw a whole body
+                if !ARMS.iter().any(|m| a.contains(m) || b.contains(m)) && !(inside(pa) && inside(pb)) {
+                    continue;
+                }
+                lines.push((pa, pb));
             }
         }
         let ears: Vec<(f64, f64)> = ["left_ear", "right_ear", "left_eye", "right_eye"].iter().filter_map(|n| pts.get(n).copied()).collect();
@@ -111,14 +117,44 @@ pub fn stick_figure(people: &[Person], map_point: &dyn Fn(f64, f64) -> (f64, f64
             if ears.len() >= 2 {
                 r = 0.02f64.max(((ears[0].0 - ears[1].0) * aspect).hypot(ears[0].1 - ears[1].1) * 0.8);
             }
+            let shoulders = pts.get("left_shoulder").zip(pts.get("right_shoulder"));
+            if let Some((&l, &rt)) = shoulders {
+                // a head is about half as wide as the shoulders: close up it stays that size next to what's drawn
+                r = r.min(0.5 * ((l.0 - rt.0) * aspect).hypot(l.1 - rt.1));
+            }
             heads.push((head, r));
-            if let (Some(&(lx, ly)), Some(&(rx, ry))) = (pts.get("left_shoulder"), pts.get("right_shoulder")) {
+            if let Some((&(lx, ly), &(rx, ry))) = shoulders {
                 lines.push((((lx + rx) / 2.0, (ly + ry) / 2.0), (head.0, head.1 + r)));
             }
         }
     }
     (lines, heads)
 }
+
+const ARMS: [&str; 2] = ["elbow", "wrist"];
+
+fn inside(p: (f64, f64)) -> bool {
+    (-0.02..=1.02).contains(&p.0) && (-0.02..=1.02).contains(&p.1)
+}
+
+/// With the legs crossed the model swaps the two knees or the two ankles. Where a pair sits on top of each other, only the one it
+/// is surer of is drawn, so a wrong guess doesn't make a leg jump to the other side.
+fn drop_crossed_legs(person: &Person, pts: &mut std::collections::HashMap<&str, (f64, f64)>, aspect: f64) {
+    let width = match (pts.get("left_hip"), pts.get("right_hip")) {
+        (Some(l), Some(r)) => ((l.0 - r.0) * aspect).hypot(l.1 - r.1),
+        _ => return,
+    };
+    for (l, r) in [("left_knee", "right_knee"), ("left_ankle", "right_ankle")] {
+        let (Some(&pl), Some(&pr)) = (pts.get(l), pts.get(r)) else { continue };
+        if ((pl.0 - pr.0) * aspect).hypot(pl.1 - pr.1) < width * LEGS_APART {
+            let seen = |n: &str| person.points.get(n).map_or(0.0, |p| p.2);
+            pts.remove(if seen(l) > seen(r) { r } else { l });
+        }
+    }
+}
+
+/// Two knees or ankles closer than this many hip widths count as overlapping.
+const LEGS_APART: f64 = 0.35;
 
 /// What the stream's step took for the card.
 enum Taken {

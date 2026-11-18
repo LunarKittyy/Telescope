@@ -374,6 +374,34 @@ fn stick_figure_lines_come_from_the_pose_through_the_view() {
 }
 
 #[test]
+fn a_close_up_keeps_the_head_small_and_draws_no_body_below_the_picture() {
+    let person = Person::from_value(&json!({"points": {
+        "left_shoulder": [0.2, 0.9, 1.0], "right_shoulder": [0.8, 0.9, 1.0], "left_hip": [0.25, 1.4, 1.0], "right_hip": [0.75, 1.4, 1.0],
+        "nose": [0.5, 0.5, 1.0], "left_ear": [0.3, 0.5, 1.0], "right_ear": [0.7, 0.5, 1.0]}})).unwrap();
+    let (lines, heads) = stick_figure(&[person], &|x, y| (x, y), 1.0);
+    // ears 0.4 apart would be a head of 0.32 against shoulders 0.6 wide
+    assert!(heads[0].1 <= 0.3 + 1e-9);
+    assert!(!lines.iter().any(|l| l.0 .1 > 1.02 || l.1 .1 > 1.02));
+    assert!(lines.contains(&((0.2, 0.9), (0.8, 0.9))));
+}
+
+#[test]
+fn crossed_legs_keep_only_the_surer_ankle_of_an_overlapping_pair() {
+    let person = Person::from_value(&json!({"points": {
+        "left_hip": [0.4, 0.5, 1.0], "right_hip": [0.6, 0.5, 1.0], "left_knee": [0.4, 0.7, 1.0], "right_knee": [0.6, 0.7, 1.0],
+        "left_ankle": [0.5, 0.9, 0.9], "right_ankle": [0.51, 0.9, 0.6]}})).unwrap();
+    let (lines, _) = stick_figure(&[person], &|x, y| (x, y), 1.0);
+    assert!(lines.contains(&((0.4, 0.7), (0.5, 0.9))));
+    assert!(!lines.iter().any(|l| l.1 == (0.51, 0.9)));
+    // apart they are both drawn
+    let apart = Person::from_value(&json!({"points": {
+        "left_hip": [0.4, 0.5, 1.0], "right_hip": [0.6, 0.5, 1.0], "left_knee": [0.4, 0.7, 1.0], "right_knee": [0.6, 0.7, 1.0],
+        "left_ankle": [0.4, 0.9, 1.0], "right_ankle": [0.6, 0.9, 1.0]}})).unwrap();
+    let (lines, _) = stick_figure(&[apart], &|x, y| (x, y), 1.0);
+    assert!(lines.contains(&((0.4, 0.7), (0.4, 0.9))) && lines.contains(&((0.6, 0.7), (0.6, 0.9))));
+}
+
+#[test]
 fn the_shortcuts_pick_the_effect_and_run_the_buttons() {
     let mut r = Rig::new();
     let run = |r: &mut Rig, id: &str, p: Value| r.plugin.run_action(&mut r.host, id, &p);
