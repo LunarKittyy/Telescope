@@ -501,3 +501,17 @@ fn the_failure_box_is_for_the_start_only_and_only_once() {
     show_start_failure(&events, "early");
     assert!(!STARTING.load(std::sync::atomic::Ordering::SeqCst), "the box is shown once, then the start counts as over");
 }
+
+#[test]
+fn closing_for_a_plugin_that_hid_things_leaves_a_crash_line_in_the_log() {
+    let dir = scratch_dir("closing");
+    let events = EventLog::new();
+    assert!(events.open(&dir.join("telescope.log")));
+    // Inside catch_plugin the panic hook writes nothing, so the report has to
+    let _ = catch_plugin(|| report_closing(&events, "plugin blur: frame_step: no"));
+    let log = fs::read_to_string(dir.join("telescope.log")).unwrap();
+    assert!(log.contains("CRASH plugin blur: frame_step: no"), "{log}");
+    let (title, text) = closing_text("plugin blur: no", Path::new("/tmp/telescope.log"));
+    assert_eq!(title, "Telescope had to close");
+    assert!(text.contains("What went wrong: plugin blur: no") && text.contains("The log is at /tmp/telescope.log"), "{text}");
+}

@@ -537,6 +537,26 @@ pub fn show_start_failure(events: &EventLog, reason: &str) {
     }
 }
 
+/// The title and words of the box for a plugin that hid part of the picture and failed: Telescope closes and says why.
+pub fn closing_text(reason: &str, log: &Path) -> (String, String) {
+    (
+        tr("Telescope had to close"),
+        tr("A plugin that hides part of the picture ran into a problem. Telescope closed rather than show what it hid.\n\nWhat went wrong: {reason}\n\nThe log is at {path}\n\nOpen the log?").field("reason", reason).field("path", log.display()),
+    )
+}
+
+/// Before closing for a plugin that hid things and failed: a CRASH line goes in the log (written out, since the caller aborts) and a box
+/// says why (Windows). The panic hook skips both inside catch_plugin, so this does them itself.
+pub fn report_closing(events: &EventLog, reason: &str) {
+    events.add("CRASH", reason);
+    events.close();
+    let log = events.path().unwrap_or_else(|| log_dir().join("telescope.log"));
+    let (title, text) = closing_text(reason, &log);
+    if crate::system::ask_box(&title, &text) {
+        crate::launch::open_url(&log.to_string_lossy());
+    }
+}
+
 /// Log to the file from here on, including panics (in any thread), and link it into app_dir. `version` is what START says.
 pub fn start(events: &'static EventLog, dir: &Path, app_dir: Option<&Path>, version: &str) {
     if events.open(&dir.join("telescope.log")) {

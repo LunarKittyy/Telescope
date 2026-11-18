@@ -207,6 +207,7 @@ fn step_hides(stage: telescope_core::frame::FrameStage, step: &telescope_core::f
 /// an app that's gone shows nothing, where one that carries on might show what was hidden for a frame or more.
 fn close_rather_than_show(name: &str, why: &str) {
     log::error!("Plugin {name} was hiding part of the picture and failed ({why}); closing Telescope rather than show what it hid");
+    telescope_core::diagnostics::report_closing(telescope_core::diagnostics::events(), &format!("plugin {name}: {why}"));
     std::process::abort();
 }
 
@@ -1333,6 +1334,10 @@ impl State {
             self.slots[i].hides |= hid_any;
         }
         for (i, why) in failed {
+            // A step that can't say whether it hides is taken to hide
+            if why.starts_with("hides:") {
+                self.slots[i].hides = true;
+            }
             let owner = self.slots[i].info.name.clone();
             plugin_steps.retain(|s| s.owner != owner);
             self.stop_after_panic(i, &why);
@@ -2837,6 +2842,26 @@ mod tests {
         s.deliver_events();
         assert_eq!(CLOSED.with(|c| c.borrow().clone()), ["blur", "cpu_hider", "either_hider"]);
         assert_eq!(s.stopped().keys().collect::<Vec<_>>(), ["plain"], "one that hides nothing is switched off and the app carries on");
+    }
+
+    struct UnsureOnCpu;
+
+    impl telescope_core::frame::CpuStep for UnsureOnCpu {
+        fn process(&mut self, _frame: &mut telescope_core::Frame, _ctx: &dyn telescope_core::frame::FrameContext) {}
+        fn hides(&self) -> bool {
+            panic!("can't say")
+        }
+    }
+
+    #[test]
+    fn a_step_that_panics_saying_whether_it_hides_counts_as_hiding() {
+        use telescope_core::frame::{FrameStage, FrameStep};
+        let mut s = state();
+        s.hiding_panic = record_close;
+        s.register(Box::new(Panics("unsure", FrameStage::Effects, Some(|| FrameStep::Cpu(Box::new(UnsureOnCpu)))))).unwrap();
+        s.pipeline_steps(None);
+        assert_eq!(CLOSED.with(|c| c.borrow().clone()), ["unsure"]);
+        assert!(!s.pipeline_steps(None).iter().any(|st| st.owner == "unsure"));
     }
 
     #[test]
