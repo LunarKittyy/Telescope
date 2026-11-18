@@ -163,7 +163,13 @@ impl Window {
         if self.fitted.replace(true) {
             return;
         }
-        crate::screen::keep_inside(&self.ui, &crate::screen::Limits::main());
+        crate::screen::keep_inside(&self.ui, &self.place);
+    }
+
+    /// Fits the window as for a screen that is not there (tests): a work area of this many physical pixels at this scale, the frame adding `frame`.
+    /// Gives the inside it comes to, in physical pixels at that scale.
+    pub fn fit_to_work_area(&self, area: (u32, u32), scale: f64, frame: (u32, u32)) -> (u32, u32) {
+        crate::screen::fit_by_hand(&self.ui, &self.place, crate::screen::Area { x: 0, y: 0, width: area.0, height: area.1 }, scale, frame)
     }
 
     fn hide_window(&self) {
