@@ -17,7 +17,7 @@ Switching a plugin off deletes nothing. Everything is back, settings included, o
 
 Some tiles carry a badge:
 
-- **Needs the vision download** is on Auto framing, Background and Expose for my face. They start out off and need a separate download the first time, see [the vision download](picture.md#the-vision-download). Its **Remove download** button sits next to the **People and vision** heading
+- **Needs the vision download** is on Auto framing, Background and Expose for my face. They start out off and need a separate download the first time, see [the vision download](picture.md#the-vision-download). Its **Remove download** button sits next to the **People** heading
 - **Required** marks Devices and connection, Advanced settings and Updates. Their switches are locked on since Telescope doesn't work without them
 - **Added** marks plugins you installed yourself
 - **Lab** sits next to a plugin's name when it's an early version. It works but may change or behave oddly while it's being finished
