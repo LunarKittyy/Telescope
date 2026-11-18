@@ -1663,5 +1663,5 @@ fn reset_puts_the_settings_back_and_keeps_the_switch() {
 
 #[test]
 fn the_declared_settings_round_trip() {
-    crate::settings_check::round_trips(&mut FramingPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+    telescope_core::testing::settings_round_trip(&mut FramingPlugin::new(), &mut telescope_core::testing::FakeHost::new());
 }

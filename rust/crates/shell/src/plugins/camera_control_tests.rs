@@ -1353,5 +1353,5 @@ fn reset_goes_back_to_automatic_and_keeps_the_lens() {
 #[test]
 fn the_declared_settings_round_trip() {
     let mut r = Rig::new();
-    crate::settings_check::round_trips(&mut r.cam, &mut r.host);
+    telescope_core::testing::settings_round_trip(&mut r.cam, &mut r.host);
 }

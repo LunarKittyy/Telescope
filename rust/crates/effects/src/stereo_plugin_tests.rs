@@ -1799,5 +1799,5 @@ fn the_header_shows_one_badge_with_what_needs_a_look_first() {
 
 #[test]
 fn the_declared_settings_round_trip() {
-    crate::settings_check::round_trips(&mut StereoPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+    telescope_core::testing::settings_round_trip(&mut StereoPlugin::new(), &mut telescope_core::testing::FakeHost::new());
 }

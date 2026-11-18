@@ -1,7 +1,5 @@
 //! The desktop around the window, behind core's system traits: a skeleton (tray, notifications, autostart, single instance, global shortcuts, updater and update guard to come).
 
-#[cfg(test)]
-pub(crate) mod settings_check;
 pub mod autostart;
 pub mod going_back;
 pub mod hotkeys;

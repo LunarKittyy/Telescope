@@ -941,7 +941,7 @@ fn reset_puts_the_sound_settings_back_and_keeps_the_switch_and_mute() {
 
 #[test]
 fn the_declared_settings_round_trip() {
-    crate::settings_check::round_trips(&mut MicrophonePlugin::new(backend(), None), &mut telescope_core::testing::FakeHost::new());
+    telescope_core::testing::settings_round_trip(&mut MicrophonePlugin::new(backend(), None), &mut telescope_core::testing::FakeHost::new());
 }
 
 #[test]

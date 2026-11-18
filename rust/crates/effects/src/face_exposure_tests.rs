@@ -448,5 +448,5 @@ fn whole_runs_send_what_python_sends() {
 
 #[test]
 fn the_declared_settings_round_trip() {
-    crate::settings_check::round_trips(&mut FaceExposurePlugin::new(), &mut telescope_core::testing::FakeHost::new());
+    telescope_core::testing::settings_round_trip(&mut FaceExposurePlugin::new(), &mut telescope_core::testing::FakeHost::new());
 }

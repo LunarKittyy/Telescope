@@ -991,6 +991,6 @@ mod tests {
     #[test]
     fn the_declared_settings_round_trip() {
         let (mut p, mut host) = ready();
-        crate::settings_check::round_trips(&mut p, &mut host);
+        telescope_core::testing::settings_round_trip(&mut p, &mut host);
     }
 }

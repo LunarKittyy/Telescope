@@ -705,5 +705,5 @@ fn reading_codes_asks_for_frames_while_it_is_on() {
 
 #[test]
 fn the_declared_settings_round_trip() {
-    crate::settings_check::round_trips(&mut QrReaderPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+    telescope_core::testing::settings_round_trip(&mut QrReaderPlugin::new(), &mut telescope_core::testing::FakeHost::new());
 }

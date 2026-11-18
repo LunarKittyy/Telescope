@@ -1,7 +1,5 @@
 //! Reaching phones: pairing, finding them on the LAN or a USB cable, their session and video. Nothing here knows about the window.
 
-#[cfg(test)]
-pub(crate) mod settings_check;
 pub mod browser;
 pub mod adb;
 pub mod adb_download;

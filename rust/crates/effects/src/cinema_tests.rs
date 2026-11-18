@@ -368,5 +368,5 @@ fn each_reset_puts_back_its_own_half() {
 
 #[test]
 fn the_declared_settings_round_trip() {
-    crate::settings_check::round_trips(&mut CinemaPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+    telescope_core::testing::settings_round_trip(&mut CinemaPlugin::new(), &mut telescope_core::testing::FakeHost::new());
 }

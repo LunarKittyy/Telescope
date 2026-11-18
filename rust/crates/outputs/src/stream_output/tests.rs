@@ -937,5 +937,5 @@ fn reset_puts_fps_quality_and_bitrate_back_and_keeps_the_size() {
 
 #[test]
 fn the_declared_settings_round_trip() {
-    crate::settings_check::round_trips(&mut plugin(), &mut FakeHost::new());
+    telescope_core::testing::settings_round_trip(&mut plugin(), &mut FakeHost::new());
 }

@@ -1264,7 +1264,7 @@ fn reset_puts_the_settings_back_and_goes_dark() {
 
 #[test]
 fn the_declared_settings_round_trip() {
-    crate::settings_check::round_trips(&mut BackgroundPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+    telescope_core::testing::settings_round_trip(&mut BackgroundPlugin::new(), &mut telescope_core::testing::FakeHost::new());
 }
 
 #[test]

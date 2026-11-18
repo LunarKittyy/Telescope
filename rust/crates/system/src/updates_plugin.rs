@@ -1955,6 +1955,6 @@ mod tests {
 
     #[test]
     fn the_declared_settings_round_trip() {
-        crate::settings_check::round_trips(&mut UpdatesPlugin::new(Arc::new(Fake::default()), "stable"), &mut FakeHost::new());
+        telescope_core::testing::settings_round_trip(&mut UpdatesPlugin::new(Arc::new(Fake::default()), "stable"), &mut FakeHost::new());
     }
 }

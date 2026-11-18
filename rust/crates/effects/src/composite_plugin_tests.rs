@@ -441,7 +441,7 @@ fn reset_clears_the_picture_and_keeps_the_switch_and_saved_layouts() {
 
 #[test]
 fn the_declared_settings_round_trip() {
-    crate::settings_check::round_trips(&mut CompositePlugin::new(), &mut telescope_core::testing::FakeHost::new());
+    telescope_core::testing::settings_round_trip(&mut CompositePlugin::new(), &mut telescope_core::testing::FakeHost::new());
 }
 
 #[test]

@@ -833,6 +833,10 @@ impl State {
         }
         self.effects.push(Effect::Stopped(name));
         self.show_stopped_banner();
+        // A built-in going down takes the added plugins that need it along
+        if !self.slots[i].info.added {
+            self.stop_unmet_needs();
+        }
     }
 
     /// Takes what owner shared out of the registry, telling everyone.
@@ -1023,8 +1027,8 @@ impl State {
         needs_reason(&self.builtins, &info.needs, |n| self.index(n).is_some_and(|i| self.slots[i].stopped.is_none()))
     }
 
-    /// Stops the added plugins whose built-in plugins aren't all running any more (one stopped while the saved settings went in), before
-    /// anything hears on_plugins_ready.
+    /// Stops the added plugins whose built-in plugins aren't all running any more, whether one stopped while the saved settings went in or
+    /// later (stop_slot calls this when a built-in goes down).
     fn stop_unmet_needs(&mut self) {
         for i in 0..self.slots.len() {
             let slot = &self.slots[i];
@@ -3157,6 +3161,25 @@ mod tests {
         s.apply_saved_config();
         assert_eq!(*ready.lock().unwrap(), 0, "it never hears on_plugins_ready");
         assert!(s.stopped().contains_key("trap") && s.blocked.contains("trap"));
+    }
+
+    #[test]
+    fn an_added_plugin_stops_when_a_built_in_it_needs_stops_later() {
+        struct Dependent;
+        impl Plugin for Dependent {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "trap".into(), added: true, needs: vec!["photos".into()], ..Default::default() }
+            }
+        }
+        let mut s = state();
+        s.builtins = vec![PluginInfo { name: "photos".into(), title: "Photos".into(), ..Default::default() }];
+        s.register(stub("photos", json!({}), false).0).unwrap();
+        s.register(Box::new(Dependent)).unwrap();
+        assert!(s.stopped().is_empty());
+        s.stop_after_panic(0, "boom");
+        assert!(s.stopped().contains_key("photos") && s.stopped().contains_key("trap"));
+        assert_eq!(s.stopped()["trap"], "It needs Photos, which is switched off.");
+        assert!(s.blocked.contains("trap"));
     }
 
     #[test]

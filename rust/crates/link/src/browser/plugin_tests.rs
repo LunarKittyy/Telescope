@@ -765,5 +765,5 @@ fn reset_puts_size_and_fps_back_and_keeps_the_address_and_known_browsers() {
 #[test]
 fn the_declared_settings_round_trip() {
     let mut r = Rig::new();
-    crate::settings_check::round_trips(&mut r.plugin, &mut telescope_core::testing::FakeHost::new());
+    telescope_core::testing::settings_round_trip(&mut r.plugin, &mut telescope_core::testing::FakeHost::new());
 }

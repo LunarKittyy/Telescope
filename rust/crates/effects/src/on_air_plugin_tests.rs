@@ -577,5 +577,5 @@ fn each_reset_puts_back_its_own_card_and_keeps_the_link_and_address() {
 #[test]
 fn the_declared_settings_round_trip() {
     let mut r = Rig::new(json!({}));
-    crate::settings_check::round_trips(&mut r.plugin, &mut r.host);
+    telescope_core::testing::settings_round_trip(&mut r.plugin, &mut r.host);
 }

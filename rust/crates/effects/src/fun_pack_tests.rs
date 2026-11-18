@@ -687,5 +687,5 @@ fn reset_switches_the_effect_off_and_puts_the_sliders_back() {
 
 #[test]
 fn the_declared_settings_round_trip() {
-    crate::settings_check::round_trips(&mut FunPackPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+    telescope_core::testing::settings_round_trip(&mut FunPackPlugin::new(), &mut telescope_core::testing::FakeHost::new());
 }

@@ -265,5 +265,5 @@ fn reset_puts_the_look_back_and_keeps_what_was_typed() {
 
 #[test]
 fn the_declared_settings_round_trip() {
-    crate::settings_check::round_trips(&mut NameTagPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+    telescope_core::testing::settings_round_trip(&mut NameTagPlugin::new(), &mut telescope_core::testing::FakeHost::new());
 }

@@ -2412,6 +2412,6 @@ mod tests {
 
     #[test]
     fn the_declared_settings_round_trip() {
-        crate::settings_check::round_trips(&mut ShortcutsPlugin::new(RemoteActions::default()), &mut FakeHost::default());
+        telescope_core::testing::settings_round_trip(&mut ShortcutsPlugin::new(RemoteActions::default()), &mut FakeHost::default());
     }
 }

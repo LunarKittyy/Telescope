@@ -1042,5 +1042,5 @@ fn each_reset_puts_back_only_its_own_section() {
 #[test]
 fn the_declared_settings_round_trip() {
     let mut r = Rig::linux();
-    crate::settings_check::round_trips(&mut r.plugin, &mut r.host);
+    telescope_core::testing::settings_round_trip(&mut r.plugin, &mut r.host);
 }

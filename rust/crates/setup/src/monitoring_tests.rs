@@ -521,5 +521,5 @@ fn reset_puts_the_alerts_back() {
 #[test]
 fn the_declared_settings_round_trip() {
     let mut r = Rig::new();
-    crate::settings_check::round_trips(&mut r.plugin, &mut r.host);
+    telescope_core::testing::settings_round_trip(&mut r.plugin, &mut r.host);
 }

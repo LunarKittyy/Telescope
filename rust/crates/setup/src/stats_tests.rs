@@ -875,5 +875,5 @@ fn a_pinned_plugin_timing_is_still_offered_when_it_is_not_among_the_listed_slowe
 
 #[test]
 fn the_declared_settings_round_trip() {
-    crate::settings_check::round_trips(&mut StatsPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+    telescope_core::testing::settings_round_trip(&mut StatsPlugin::new(), &mut telescope_core::testing::FakeHost::new());
 }
