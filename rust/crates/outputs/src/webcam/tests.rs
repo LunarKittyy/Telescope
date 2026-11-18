@@ -1382,3 +1382,88 @@ fn a_choice_the_camera_refuses_leaves_the_card_where_the_camera_is() {
     assert_eq!(env.plugin.tile_indexes()[2], 0, "the model stays on what the camera says, and the card follows it");
     assert_eq!(last_card_props(&env)["tile-indexes"][2], 0);
 }
+
+#[test]
+fn webcams_ride_in_presets_and_a_preset_brings_back_the_picked_cameras_size_rate_and_pictures() {
+    assert!(WebcamPlugin::new(Box::new(|| Ok(Vec::new())), Box::new(|_| None), System { opener: Arc::new(|_, _| Err((false, String::new()))), users: Arc::new(|_| String::new()), exists: Arc::new(|_| true) }).info().in_presets);
+    let (mut env, backend) = card();
+    set(&mut env, "gain", 40);
+    env.plugin.on_ui(&mut env.host, &UiEvent { ui: "card".into(), callback: "size-picked".into(), args: vec![json!(2)] });
+    let saved = env.plugin.get_config();
+    let want = env.plugin.shared.choice(&cam());
+    // Everything moves on: another size, another gain, one more picture setting
+    env.plugin.on_ui(&mut env.host, &UiEvent { ui: "card".into(), callback: "size-picked".into(), args: vec![json!(0)] });
+    set(&mut env, "gain", 200);
+    set(&mut env, "anti_flicker", 0);
+    assert_ne!(env.plugin.shared.choice(&cam()), want);
+    env.plugin.apply_preset(&mut env.host, &saved).unwrap();
+    assert_eq!(env.plugin.shared.choice(&cam()), want);
+    assert_eq!(backend.v("gain"), 40);
+    assert_eq!(env.plugin.get_config()["cameras"]["cam"]["size"], saved["cameras"]["cam"]["size"]);
+    let _ = backend;
+}
+
+#[test]
+fn a_preset_changes_only_what_it_says_and_keeps_picture_settings_for_a_camera_that_is_away() {
+    let (mut env, backend) = card();
+    set(&mut env, "gain", 40);
+    env.plugin.on_ui(&mut env.host, &UiEvent { ui: "card".into(), callback: "size-picked".into(), args: vec![json!(2)] });
+    let size = env.plugin.shared.choice(&cam());
+    // A preset that only has a rate leaves the size and the gain alone
+    env.plugin.apply_preset(&mut env.host, &json!({"cameras": {"cam": {"fps": 60}}})).unwrap();
+    assert_eq!(env.plugin.shared.wanted("cam").1, 60);
+    assert_eq!(env.plugin.shared.choice(&cam()).map(|c| (c.width, c.height)), size.map(|c| (c.width, c.height)));
+    assert_eq!(backend.v("gain"), 40);
+    // One that says Auto puts the size back to Auto
+    env.plugin.apply_preset(&mut env.host, &json!({"cameras": {"cam": {"size": null}}})).unwrap();
+    assert_eq!(env.plugin.shared.wanted("cam").0, None);
+    // With the camera unplugged the picture settings are kept, and no restart cancels the wait for it
+    env.plugged.lock().unwrap().clear();
+    env.plugin.rescan(&mut env.host);
+    stream(&mut env, "cam");
+    env.host.calls.clear();
+    env.plugin.apply_preset(&mut env.host, &json!({"cameras": {"cam": {"size": [1280, 720], "controls": {"gain": 90}}}})).unwrap();
+    assert!(!env.host.calls.contains(&"reconnect_stream".to_string()), "{:?}", env.host.calls);
+    let kept = env.plugin.get_config();
+    assert_eq!(kept["cameras"]["cam"]["controls"]["gain"], 90);
+}
+
+#[test]
+fn a_manual_value_in_a_preset_is_not_sent_while_its_auto_setting_is_on() {
+    let (mut env, backend) = card();
+    // exposure_time is manual and exposure_auto is on in the preset: the time is kept but the camera isn't told, so auto stays on
+    env.plugin.apply_preset(&mut env.host, &json!({"cameras": {"cam": {"controls": {"exposure_auto": 1, "exposure_time": 100}}}})).unwrap();
+    assert_eq!(backend.v("exposure_auto"), 1);
+    assert!(!backend.sets.lock().unwrap().iter().any(|(n, _)| n == "exposure_time"));
+}
+
+#[test]
+fn webcam_sizes_that_overflow_or_are_zero_are_ignored() {
+    let (mut env, _backend) = card();
+    env.plugin.set_config(&json!({"cameras": {"cam": {"size": [4294967296u64, 720]}, "other": {"size": [0, 720]}}})).unwrap();
+    assert_eq!(env.plugin.shared.wanted("cam").0, None);
+    assert_eq!(env.plugin.shared.wanted("other").0, None);
+}
+
+#[test]
+fn a_webcam_preset_leaves_the_other_cameras_alone_and_an_older_preset_changes_nothing() {
+    let (mut env, _backend) = card();
+    env.plugged.lock().unwrap().push(brio());
+    env.plugin.rescan(&mut env.host);
+    pick(&mut env, Some("usb-brio"));
+    env.plugin.on_ui(&mut env.host, &UiEvent { ui: "card".into(), callback: "size-picked".into(), args: vec![json!(2)] });
+    pick(&mut env, Some("cam"));
+    let before = env.plugin.get_config();
+    // A preset that holds only the brio's settings, applied with the other camera picked, or one without any camera section
+    env.plugin.apply_preset(&mut env.host, &json!({"cameras": {"usb-brio": {"fps": 60}}})).unwrap();
+    env.plugin.apply_preset(&mut env.host, &json!({})).unwrap();
+    assert_eq!(env.plugin.get_config(), before);
+}
+
+#[test]
+fn a_preset_that_changes_the_size_of_a_streaming_webcam_reopens_it() {
+    let (mut env, _backend) = card();
+    stream(&mut env, "cam");
+    env.plugin.apply_preset(&mut env.host, &json!({"cameras": {"cam": {"size": [1280, 720], "fps": 60}}})).unwrap();
+    assert!(env.host.calls.contains(&"reconnect_stream".to_string()));
+}
