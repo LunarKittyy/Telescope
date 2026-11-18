@@ -243,6 +243,8 @@ pub struct CompositePlugin {
     editor: Option<editor::Editor>,
     /// Setup's Max zoom: a tile zooms in at most this far.
     max_zoom: f64,
+    /// The streams whose Cut out was last announced on (Event::CutOutWanted), so only a change is announced again.
+    cut_outs_told: BTreeSet<String>,
 }
 
 impl Default for CompositePlugin {
@@ -267,7 +269,7 @@ impl CompositePlugin {
         let mut plugin = CompositePlugin {
             on: false, layout: Layout::default(), layouts: Vec::new(), target: None, camera_size: None, canvas: (None, None), shared,
             clock: None, camera_label, note: String::new(), note_short: String::new(), pending: false, held: None, reader, editor: None,
-            max_zoom: crate::composite::DEFAULT_MAX_ZOOM,
+            max_zoom: crate::composite::DEFAULT_MAX_ZOOM, cut_outs_told: BTreeSet::new(),
         };
         plugin.prepare();
         plugin
@@ -466,7 +468,30 @@ impl CompositePlugin {
         }
     }
 
+    /// The streams whose tile has Cut out on while the picture is on.
+    fn cut_outs(&self) -> BTreeSet<String> {
+        if !self.on {
+            return BTreeSet::new();
+        }
+        self.layout.tiles.iter().filter(|t| t.cut_out).map(|t| t.source_id.clone()).collect()
+    }
+
+    /// Tells whoever cuts people out which streams want it: what changed since last time, or every one again for a plugin that missed it.
+    fn tell_cut_outs(&mut self, host: &mut dyn Host, again: bool) {
+        let want = self.cut_outs();
+        let off: Vec<String> = self.cut_outs_told.difference(&want).cloned().collect();
+        let on: Vec<String> = want.iter().filter(|s| again || !self.cut_outs_told.contains(*s)).cloned().collect();
+        self.cut_outs_told = want;
+        for source_id in off {
+            host.emit(Event::CutOutWanted { source_id, on: false });
+        }
+        for source_id in on {
+            host.emit(Event::CutOutWanted { source_id, on: true });
+        }
+    }
+
     fn show(&mut self, host: &mut dyn Host) {
+        self.tell_cut_outs(host, false);
         // While it's on it draws from other streams' frames, which only keep coming when the steps run
         host.want_frames(NAME, self.on);
         let live = self.layout.tiles.iter().filter(|t| host.is_streaming_from(Some(&t.source_id))).count();
@@ -562,7 +587,17 @@ impl Plugin for CompositePlugin {
         self.show(host);
     }
 
+    fn on_plugins_ready(&mut self, host: &mut dyn Host) {
+        // forgetting what was told makes catch_up's show, or the call after it, say it all again
+        self.cut_outs_told.clear();
+        self.catch_up(host);
+        self.tell_cut_outs(host, false);
+    }
+
     fn shutdown(&mut self, host: &mut dyn Host) {
+        for source_id in std::mem::take(&mut self.cut_outs_told) {
+            host.emit(Event::CutOutWanted { source_id, on: false });
+        }
         host.want_frames(NAME, false);
         self.shared.hub().shut = true;
         self.shared.wake.notify_all();
@@ -582,6 +617,7 @@ impl Plugin for CompositePlugin {
                 self.show(host);
             }
             Event::StreamsChanged { .. } => self.follow_camera(host),
+            Event::SourceShown { .. } => self.tell_cut_outs(host, true),
             Event::CameraOpened { slot: 0, .. } => self.follow_camera(host),
             Event::TimerFired { owner, token } if owner == NAME && token == Self::EDITOR_TIMER => self.editor_timer(host),
             Event::RequestDone { request, ok, data, .. } => {

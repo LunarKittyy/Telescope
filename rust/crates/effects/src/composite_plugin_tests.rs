@@ -479,3 +479,107 @@ fn a_preset_saved_with_keep_what_is_on_leaves_the_current_layout_alone() {
     assert_eq!(other.plugin.get_config()["layout"], before);
     assert_eq!(other.plugin.get_config()["on"], true);
 }
+
+// ── Cut out: telling the plugins that cut a person out ──
+
+fn cut_out_events(r: &mut Rig) -> Vec<(String, bool)> {
+    let told = r.host.events.iter().filter_map(|e| match e {
+        Event::CutOutWanted { source_id, on } => Some((source_id.clone(), *on)),
+        _ => None,
+    }).collect();
+    r.host.events.clear();
+    told
+}
+
+fn with_cut_out(r: &mut Rig, a: bool, b: bool) {
+    let tiles = vec![Tile { cut_out: a, ..Tile::boxed("a", "Phone A", 0.0, 0.0, 0.5, 1.0) }, Tile { cut_out: b, ..Tile::boxed("b", "Phone B", 0.5, 0.0, 0.5, 1.0) }];
+    r.plugin.set_layout(&mut r.host, Layout::of(tiles));
+}
+
+fn told(list: &[(&str, bool)]) -> Vec<(String, bool)> {
+    list.iter().map(|(s, on)| (s.to_string(), *on)).collect()
+}
+
+#[test]
+fn a_tiles_cut_out_turning_on_and_off_is_told_once_to_its_stream() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    cut_out_events(&mut r);
+    with_cut_out(&mut r, false, true);
+    assert_eq!(cut_out_events(&mut r), told(&[("b", true)]));
+    // the same picture again, or another change to it, says nothing new
+    with_cut_out(&mut r, false, true);
+    r.plugin.set_layout(&mut r.host, Layout { background: "#ff0000".into(), ..r.plugin.layout().clone() });
+    assert!(cut_out_events(&mut r).is_empty());
+    with_cut_out(&mut r, true, false);
+    assert_eq!(cut_out_events(&mut r), told(&[("b", false), ("a", true)]));
+    with_cut_out(&mut r, false, false);
+    assert_eq!(cut_out_events(&mut r), told(&[("a", false)]));
+}
+
+#[test]
+fn removing_a_tile_or_switching_the_picture_off_lets_go_of_its_cut_out() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    with_cut_out(&mut r, true, true);
+    cut_out_events(&mut r);
+    r.plugin.set_layout(&mut r.host, Layout::of(vec![Tile { cut_out: true, ..Tile::boxed("a", "Phone A", 0.0, 0.0, 1.0, 1.0) }]));
+    assert_eq!(cut_out_events(&mut r), told(&[("b", false)]));
+    with_cut_out(&mut r, true, true);
+    cut_out_events(&mut r);
+    r.switch(false);
+    assert_eq!(cut_out_events(&mut r), told(&[("a", false), ("b", false)]));
+    // while it is off a tile asking for a cut-out is nobody's business
+    with_cut_out(&mut r, true, false);
+    assert!(cut_out_events(&mut r).is_empty());
+    r.switch(true);
+    assert_eq!(cut_out_events(&mut r), told(&[("a", true)]));
+    // and a plugin that stops lets go of what it asked for
+    r.plugin.shutdown(&mut r.host);
+    assert_eq!(cut_out_events(&mut r), told(&[("a", false)]));
+}
+
+#[test]
+fn every_cut_out_is_told_again_when_the_plugins_are_ready_and_when_the_shown_stream_changes() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    with_cut_out(&mut r, true, true);
+    cut_out_events(&mut r);
+    r.plugin.on_plugins_ready(&mut r.host);
+    assert_eq!(cut_out_events(&mut r), told(&[("a", true), ("b", true)]));
+    r.plugin.on_event(&mut r.host, &Event::SourceShown { source_id: "b".into() });
+    assert_eq!(cut_out_events(&mut r), told(&[("a", true), ("b", true)]));
+    // with nothing wanted there is nothing to say
+    with_cut_out(&mut r, false, false);
+    cut_out_events(&mut r);
+    r.plugin.on_plugins_ready(&mut r.host);
+    r.plugin.on_event(&mut r.host, &Event::SourceShown { source_id: "a".into() });
+    assert!(cut_out_events(&mut r).is_empty());
+}
+
+#[test]
+fn a_layout_from_settings_or_a_preset_with_cut_outs_asks_for_them() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    with_cut_out(&mut r, false, true);
+    let saved = r.plugin.get_config();
+    let preset = r.plugin.preset_config();
+    assert_eq!(preset["layout"]["tiles"][1]["cut_out"], json!(true));
+    assert!(preset["layout"]["tiles"][0].get("cut_out").is_none());
+    // a start that reads its settings: the plugins hear it once they are all there
+    let mut other = rig();
+    other.plugin.set_config(&saved).unwrap();
+    other.plugin.on_plugins_ready(&mut other.host);
+    assert_eq!(cut_out_events(&mut other), told(&[("b", true)]));
+    // a preset brings the tile's cut-out back, and a layout without any lets go
+    with_cut_out(&mut r, false, false);
+    cut_out_events(&mut r);
+    r.plugin.apply_preset(&mut r.host, &preset).unwrap();
+    assert!(r.plugin.layout().tiles[1].cut_out && !r.plugin.layout().tiles[0].cut_out);
+    assert_eq!(cut_out_events(&mut r), told(&[("b", true)]));
+    // "Leave the layout" keeps the current tiles, cut-outs included
+    let keep = r.plugin.preset_config_with(&[("layout".into(), "keep".into())]);
+    assert!(keep.get("layout").is_none());
+    r.plugin.apply_preset(&mut r.host, &keep).unwrap();
+    assert!(r.plugin.layout().tiles[1].cut_out);
+}
