@@ -73,10 +73,6 @@ fn infos_of(adapters: &[wgpu::Adapter]) -> Vec<gpu_pick::Info> {
 fn adapters_to_try(instance: &wgpu::Instance, preference: Option<wgpu::PowerPreference>) -> Vec<(wgpu::Adapter, Card)> {
     let listed = block_on(instance.enumerate_adapters(wgpu::Backends::PRIMARY));
     let all = infos_of(&listed);
-    if let Some(power_preference) = preference {
-        let picked = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference, ..Default::default() }));
-        return picked.into_iter().inspect(|a| log::info!("Window graphics card {} ({:?}) picked by WGPU_POWER_PREF", a.get_info().name, a.get_info().backend)).map(|a| { let card = card_of(&a.get_info(), &all); (a, card) }).collect();
-    }
     let candidates: Vec<Candidate> = listed.iter().enumerate().filter_map(|(index, a)| {
         let info = a.get_info();
         let api = match info.backend {
@@ -93,16 +89,28 @@ fn adapters_to_try(instance: &wgpu::Instance, preference: Option<wgpu::PowerPref
             wgpu::DeviceType::Cpu => Kind::Cpu,
             wgpu::DeviceType::Other => Kind::Other,
         };
-        Some(Candidate { api, kind, index, vendor: info.vendor, windows: cfg!(windows) })
+        Some(Candidate { api, kind, index, vendor: info.vendor, device: info.device, windows: cfg!(windows) })
     }).collect();
     let names: Vec<String> = listed.iter().map(|a| a.get_info().name).collect();
     gpu_pick::note_listed(&candidates, &names);
     let choice = gpu_pick::choice();
-    if !choice.is_empty() {
-        log::info!("Graphics card chosen in Settings: {choice}");
+    let wanted = gpu_pick::chosen(&candidates, &choice);
+    let mut by_choice = gpu_pick::with_choice(gpu_pick::order(&candidates, gpu_pick::system_preference()), &candidates, &choice);
+    if !wanted.is_empty() {
+        log::info!("Graphics card chosen in Settings: {}", names[wanted[0]]);
+        if let Some(power_preference) = preference {
+            log::info!("WGPU_POWER_PREF is ignored, the graphics card chosen in Settings goes first ({power_preference:?})");
+        }
+    } else if let Some(power_preference) = preference {
+        // The environment's preference still goes through the skip list below, and wgpu's pick only moves to the front
+        let picked = block_on(instance.request_adapter(&wgpu::RequestAdapterOptions { power_preference, ..Default::default() }));
+        let same = |a: &wgpu::AdapterInfo, b: &wgpu::AdapterInfo| a.name == b.name && a.backend == b.backend && a.vendor == b.vendor && a.device == b.device;
+        if let Some(index) = picked.ok().and_then(|p| listed.iter().position(|a| same(&a.get_info(), &p.get_info()))) {
+            log::info!("Graphics card {} ({:?}) picked by WGPU_POWER_PREF", names[index], listed[index].get_info().backend);
+            by_choice = gpu_pick::move_to_front(by_choice, index);
+        }
     }
     let mut listed: Vec<Option<wgpu::Adapter>> = listed.into_iter().map(Some).collect();
-    let by_choice = gpu_pick::with_choice(gpu_pick::order(&candidates, gpu_pick::system_preference()), &names, &choice);
     let ordered: Vec<(wgpu::Adapter, Card)> = by_choice.into_iter().filter_map(|i| listed[i].take()).map(|a| { let card = card_of(&a.get_info(), &all); (a, card) }).collect();
     let skipped = gpu_marker::skipped();
     for (_, card) in ordered.iter().filter(|(_, card)| skipped.iter().any(|s| card.is_listed_as(s))) {
@@ -149,7 +157,10 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
                 Ok::<_, String>((device, queue))
             })();
             match tried {
-                Ok(opened) => return Ok(opened),
+                Ok(opened) => {
+                    gpu_pick::set_opened(&info.name);
+                    return Ok(opened);
+                }
                 Err(e) => {
                     log::warn!("Graphics card {} ({:?}) can't draw the window: {e}", info.name, info.backend);
                     why = e;

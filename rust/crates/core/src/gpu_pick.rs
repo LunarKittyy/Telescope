@@ -27,6 +27,8 @@ pub struct Candidate {
     pub index: usize,
     /// PCI vendor id, 0 when unknown.
     pub vendor: u32,
+    /// PCI device id, 0 when unknown.
+    pub device: u32,
     /// Whether this is Windows, set by the caller so `order` stays the same everywhere.
     pub windows: bool,
 }
@@ -164,13 +166,27 @@ pub fn order(candidates: &[Candidate], prefer: Prefer) -> Vec<usize> {
     sorted.into_iter().map(|c| c.index).collect()
 }
 
-/// The graphics card Settings asked for by name, "" for Automatic. Set once at start, before the window opens a card.
+/// The graphics card Settings asked for as `card_id` text, "" for Automatic. Set once at start, before the window opens a card.
 static CHOICE: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
-/// The real cards the last enumeration found, by name, in the order they were tried.
-static LISTED: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+/// The real cards the last enumeration found, in the order they were tried.
+static LISTED: std::sync::Mutex<Vec<Listed>> = std::sync::Mutex::new(Vec::new());
+/// The card the window opened, for Settings to show.
+static OPENED: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
 
-pub fn set_choice(name: &str) {
-    *CHOICE.lock().unwrap_or_else(|e| e.into_inner()) = name.trim().to_string();
+/// A real card as Settings lists it: the id it is saved by and the name it is shown by.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Listed {
+    pub id: String,
+    pub name: String,
+}
+
+/// A card's id, the same on every API (Vulkan and DX12 can word its name differently): its PCI vendor and device.
+pub fn card_id(vendor: u32, device: u32) -> String {
+    format!("{vendor:04x}:{device:04x}")
+}
+
+pub fn set_choice(id: &str) {
+    *CHOICE.lock().unwrap_or_else(|e| e.into_inner()) = id.trim().to_ascii_lowercase();
 }
 
 /// The card chosen in Settings, empty for Automatic.
@@ -178,14 +194,26 @@ pub fn choice() -> String {
     CHOICE.lock().unwrap_or_else(|e| e.into_inner()).clone()
 }
 
+/// Notes the card the window opened.
+pub fn set_opened(name: &str) {
+    *OPENED.lock().unwrap_or_else(|e| e.into_inner()) = name.trim().to_string();
+}
+
+/// The card the window opened (empty before one did, or when the window draws on the processor).
+pub fn opened() -> String {
+    OPENED.lock().unwrap_or_else(|e| e.into_inner()).clone()
+}
+
 /// Remembers which real cards (integrated or discrete) exist, once each, for the Settings list. `names` is indexed like `candidates`.
 pub fn note_listed(candidates: &[Candidate], names: &[String]) {
-    let mut found: Vec<String> = Vec::new();
+    let mut found: Vec<Listed> = Vec::new();
     for i in order(candidates, Prefer::Unchanged) {
-        let real = matches!(candidates[i].kind, Kind::Integrated | Kind::Discrete);
-        if let (true, Some(name)) = (real, names.get(candidates[i].index)) {
-            if !found.iter().any(|f| same_card(f, name)) {
-                found.push(name.trim().to_string());
+        let c = &candidates[i];
+        let real = matches!(c.kind, Kind::Integrated | Kind::Discrete);
+        let id = card_id(c.vendor, c.device);
+        if let (true, Some(name)) = (real, names.get(c.index)) {
+            if !found.iter().any(|f| f.id == id) {
+                found.push(Listed { id, name: name.trim().to_string() });
             }
         }
     }
@@ -193,23 +221,35 @@ pub fn note_listed(candidates: &[Candidate], names: &[String]) {
 }
 
 /// The real cards found so far (empty until a card was looked for).
-pub fn listed() -> Vec<String> {
+pub fn listed() -> Vec<Listed> {
     LISTED.lock().unwrap_or_else(|e| e.into_inner()).clone()
 }
 
-fn same_card(a: &str, b: &str) -> bool {
-    a.trim().eq_ignore_ascii_case(b.trim())
+/// The adapters (`Candidate::index`) that are the chosen card. Intel's Windows Vulkan adapter is never one of them, since it is the one
+/// that crashes (see `order`), whatever was chosen.
+pub fn chosen(candidates: &[Candidate], choice: &str) -> Vec<usize> {
+    if choice.trim().is_empty() {
+        return Vec::new();
+    }
+    candidates.iter().filter(|c| card_id(c.vendor, c.device).eq_ignore_ascii_case(choice.trim()) && !(c.windows && c.vendor == VENDOR_INTEL && c.api == Api::Vulkan)).map(|c| c.index).collect()
 }
 
 /// `ordered` (candidate indices, best first) with the chosen card's adapters moved to the front, in their own order. The rest follow, so
 /// a chosen card that fails or sits on the skip list still leaves something to open. No choice, or one that matches no adapter (the card
-/// was taken out), changes nothing. `names` is indexed by `Candidate::index`.
-pub fn with_choice(ordered: Vec<usize>, names: &[String], choice: &str) -> Vec<usize> {
-    if choice.trim().is_empty() {
-        return ordered;
+/// was taken out), changes nothing.
+pub fn with_choice(ordered: Vec<usize>, candidates: &[Candidate], choice: &str) -> Vec<usize> {
+    let wanted = chosen(candidates, choice);
+    let (first, rest): (Vec<usize>, Vec<usize>) = ordered.into_iter().partition(|i| wanted.contains(i));
+    first.into_iter().chain(rest).collect()
+}
+
+/// `ordered` with one adapter moved to the front (for a power preference set in the environment), unchanged when it isn't there.
+pub fn move_to_front(mut ordered: Vec<usize>, index: usize) -> Vec<usize> {
+    if let Some(at) = ordered.iter().position(|&i| i == index) {
+        let found = ordered.remove(at);
+        ordered.insert(0, found);
     }
-    let (chosen, rest): (Vec<usize>, Vec<usize>) = ordered.into_iter().partition(|&i| names.get(i).is_some_and(|n| same_card(n, choice)));
-    chosen.into_iter().chain(rest).collect()
+    ordered
 }
 
 #[cfg(test)]
@@ -217,11 +257,11 @@ mod tests {
     use super::*;
 
     fn c(api: Api, kind: Kind, index: usize) -> Candidate {
-        Candidate { api, kind, index, vendor: 0, windows: false }
+        Candidate { api, kind, index, vendor: 0, device: 0, windows: false }
     }
 
     fn intel(api: Api, index: usize, windows: bool) -> Candidate {
-        Candidate { api, kind: Kind::Integrated, index, vendor: VENDOR_INTEL, windows }
+        Candidate { api, kind: Kind::Integrated, index, vendor: VENDOR_INTEL, device: 0x591b, windows }
     }
 
     fn info(vendor: u32, device: u32, driver: &str, driver_info: &str) -> Info {
@@ -238,7 +278,7 @@ mod tests {
     fn intel_elsewhere_and_other_vendors_on_windows_keep_vulkan_first() {
         let list = [intel(Api::Dx12, 0, false), intel(Api::Vulkan, 1, false)];
         assert_eq!(order(&list, Prefer::Unchanged), [1, 0]);
-        let nvidia = |api, index| Candidate { api, kind: Kind::Discrete, index, vendor: 0x10de, windows: true };
+        let nvidia = |api, index| Candidate { api, kind: Kind::Discrete, index, vendor: 0x10de, device: 0x1c20, windows: true };
         assert_eq!(order(&[nvidia(Api::Dx12, 0), nvidia(Api::Vulkan, 1)], Prefer::Unchanged), [1, 0]);
     }
 
@@ -286,7 +326,7 @@ mod tests {
     }
 
     fn laptop() -> [Candidate; 4] {
-        let gtx = |api, index| Candidate { api, kind: Kind::Discrete, index, vendor: 0x10de, windows: true };
+        let gtx = |api, index| Candidate { api, kind: Kind::Discrete, index, vendor: 0x10de, device: 0x1c20, windows: true };
         [gtx(Api::Vulkan, 0), intel(Api::Vulkan, 1, true), intel(Api::Dx12, 2, true), gtx(Api::Dx12, 3)]
     }
 
@@ -323,28 +363,40 @@ mod tests {
 
     #[test]
     fn a_chosen_card_goes_first_and_keeps_its_own_order() {
-        let names: Vec<String> = ["GTX", "Intel", "Intel", "GTX"].iter().map(|s| s.to_string()).collect();
         let ordered = order(&laptop(), Prefer::HighPerformance);
         assert_eq!(ordered, [0, 3, 2, 1]);
-        assert_eq!(with_choice(ordered.clone(), &names, "intel"), [2, 1, 0, 3]);
-        assert_eq!(with_choice(ordered.clone(), &names, "GTX"), ordered);
+        assert_eq!(with_choice(ordered.clone(), &laptop(), "8086:591b"), [2, 0, 3, 1], "Intel DX12 first, its crashy Vulkan adapter stays behind the working cards");
+        assert_eq!(with_choice(ordered.clone(), &laptop(), "10DE:1C20"), ordered);
     }
 
     #[test]
     fn automatic_and_a_missing_card_change_nothing() {
-        let names: Vec<String> = ["A", "B"].iter().map(|s| s.to_string()).collect();
-        assert_eq!(with_choice(vec![1, 0], &names, ""), [1, 0]);
-        assert_eq!(with_choice(vec![1, 0], &names, "  "), [1, 0]);
-        assert_eq!(with_choice(vec![1, 0], &names, "Gone"), [1, 0]);
+        assert_eq!(with_choice(vec![3, 1], &laptop(), ""), [3, 1]);
+        assert_eq!(with_choice(vec![3, 1], &laptop(), "  "), [3, 1]);
+        assert_eq!(with_choice(vec![3, 1], &laptop(), "1234:5678"), [3, 1]);
+        assert!(chosen(&laptop(), "1234:5678").is_empty());
     }
 
     #[test]
-    fn the_list_has_each_real_card_once() {
-        let names: Vec<String> = ["GTX", "Intel", "Intel", "GTX", "llvmpipe"].iter().map(|s| s.to_string()).collect();
+    fn the_crashy_adapter_is_never_a_chosen_one() {
+        assert_eq!(chosen(&laptop(), "8086:591b"), [2]);
+        let linux = Candidate { windows: false, ..intel(Api::Vulkan, 0, false) };
+        assert_eq!(chosen(&[linux], "8086:591b"), [0]);
+    }
+
+    #[test]
+    fn the_list_has_each_real_card_once_by_id() {
+        let names: Vec<String> = ["GTX", "Intel", "Intel (R)", "GTX", "llvmpipe"].iter().map(|s| s.to_string()).collect();
         let mut list = laptop().to_vec();
         list.push(c(Api::Vulkan, Kind::Cpu, 4));
         note_listed(&list, &names);
-        assert_eq!(listed(), ["GTX", "Intel"]);
+        assert_eq!(listed(), [Listed { id: "10de:1c20".into(), name: "GTX".into() }, Listed { id: "8086:591b".into(), name: "Intel (R)".into() }]);
+    }
+
+    #[test]
+    fn one_adapter_can_be_moved_first() {
+        assert_eq!(move_to_front(vec![2, 0, 1], 1), [1, 2, 0]);
+        assert_eq!(move_to_front(vec![2, 0, 1], 9), [2, 0, 1]);
     }
 
     #[test]

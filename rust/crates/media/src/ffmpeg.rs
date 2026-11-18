@@ -257,7 +257,7 @@ impl Codec {
                     let chosen: Option<std::ffi::CString> = None;
                     let name = chosen.as_ref().map_or(ptr::null(), |c| c.as_ptr());
                     let mut r = ff::av_hwdevice_ctx_create(&mut c.hw_device, h.device_type(), name, ptr::null_mut(), 0);
-                    if r < 0 && !name.is_null() {
+                    if r < 0 && !name.is_null() && telescope_core::gpu_pick::choice().is_empty() {
                         log::warn!("{} didn't open on the picked card ({}), trying the default one", h.name(), err_text(r));
                         r = ff::av_hwdevice_ctx_create(&mut c.hw_device, h.device_type(), ptr::null(), ptr::null_mut(), 0);
                     }

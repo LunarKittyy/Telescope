@@ -227,7 +227,7 @@ msgstr "Beralih saat ditahan, kembali saat dilepas"
 msgid "Does"
 msgstr "Tindakan"
 
-#: rust/crates/audio/src/plugin.rs:1086 rust/crates/audio/src/plugin.rs:1159 rust/crates/audio/ui/microphone.slint:167 rust/crates/setup/ui/setup.slint:333
+#: rust/crates/audio/src/plugin.rs:1086 rust/crates/audio/src/plugin.rs:1159 rust/crates/audio/ui/microphone.slint:167 rust/crates/setup/ui/setup.slint:378
 msgid "Microphone"
 msgstr "Mikrofon"
 
@@ -346,7 +346,7 @@ msgstr "Kuning: limiter menahan level puncak. Merah: suara mengalami kliping."
 msgid "Click to clear"
 msgstr "Klik untuk membersihkan"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:59 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:210 rust/crates/setup/ui/setup.slint:337 rust/crates/setup/ui/setup.slint:466 rust/crates/shell/src/plugins_tab.rs:726 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:59 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:382 rust/crates/setup/ui/setup.slint:511 rust/crates/shell/src/plugins_tab.rs:726 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "Reset"
 
@@ -370,7 +370,7 @@ msgstr "Pengurangan noise"
 msgid "Noise reduction unavailable"
 msgstr "Pengurangan noise tidak tersedia"
 
-#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:438 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:258
+#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:483 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:258
 msgid "Cancel"
 msgstr "Batal"
 
@@ -500,7 +500,7 @@ msgstr "Umum"
 msgid "Streaming"
 msgstr "Streaming"
 
-#: rust/crates/core/src/plugin.rs:15 rust/crates/setup/ui/setup.slint:206
+#: rust/crates/core/src/plugin.rs:15 rust/crates/setup/ui/setup.slint:212
 msgid "Video"
 msgstr "Video"
 
@@ -528,7 +528,7 @@ msgstr "Pembaruan & Tentang"
 msgid "Camera"
 msgstr "Kamera"
 
-#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:462
+#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:507
 msgid "Look"
 msgstr "Tampilan"
 
@@ -701,7 +701,7 @@ msgstr "Warna yang dipilih dari pratinjau. Klik untuk memilih lagi."
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Klik layar di belakang Anda pada pratinjau. Esc untuk membatalkan."
 
-#: rust/crates/effects/src/chroma_key.rs:394 rust/crates/effects/src/chroma_key.rs:430 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:544 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:709 rust/crates/shell/src/streams.rs:1766 rust/crates/shell/src/window.rs:1726 rust/crates/shell/src/worker.rs:569 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:394 rust/crates/effects/src/chroma_key.rs:430 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:545 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:709 rust/crates/shell/src/streams.rs:1766 rust/crates/shell/src/window.rs:1726 rust/crates/shell/src/worker.rs:569 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Tidak streaming"
 
@@ -1137,7 +1137,7 @@ msgstr "Ekspor grade"
 msgid "{file} is already there. Replace it?"
 msgstr "{file} sudah ada. Ingin menggantinya?"
 
-#: rust/crates/effects/src/colour_grading.rs:663 rust/crates/effects/src/colour_grading.rs:1084 rust/crates/effects/src/colour_grading.rs:1177 rust/crates/effects/src/colour_grading.rs:1179 rust/crates/effects/src/colour_grading.rs:1221 rust/crates/effects/ui/colour_grading.slint:180
+#: rust/crates/effects/src/colour_grading.rs:663 rust/crates/effects/src/colour_grading.rs:1083 rust/crates/effects/src/colour_grading.rs:1175 rust/crates/effects/src/colour_grading.rs:1177 rust/crates/effects/src/colour_grading.rs:1219 rust/crates/effects/ui/colour_grading.slint:180
 msgid "Colour grading"
 msgstr "Colour grading"
 
@@ -1146,19 +1146,19 @@ msgstr "Colour grading"
 msgid "{wheel} colour"
 msgstr "Warna {wheel}"
 
-#: rust/crates/effects/src/colour_grading.rs:1085
+#: rust/crates/effects/src/colour_grading.rs:1084
 msgid "Change the look of the picture with colour wheels, curves and LUT files."
 msgstr "Ubah tampilan gambar dengan roda warna, kurva, dan file LUT."
 
-#: rust/crates/effects/src/colour_grading.rs:1086
+#: rust/crates/effects/src/colour_grading.rs:1085
 msgid "Without the Colour grading plugin there's no Colour grading card and the picture has the camera's colours."
 msgstr "Tanpa plugin Colour grading, tidak ada kartu Colour grading dan gambar memiliki warna kamera."
 
-#: rust/crates/effects/src/colour_grading.rs:1180 rust/crates/effects/src/colour_grading.rs:1226
+#: rust/crates/effects/src/colour_grading.rs:1178 rust/crates/effects/src/colour_grading.rs:1224
 msgid "Compare before and after"
 msgstr "Bandingkan sebelum dan sesudah"
 
-#: rust/crates/effects/src/colour_grading.rs:1204 rust/crates/effects/src/colour_grading.rs:1239
+#: rust/crates/effects/src/colour_grading.rs:1202 rust/crates/effects/src/colour_grading.rs:1237
 msgid "LUT strength"
 msgstr "Intensitas LUT"
 
@@ -1954,7 +1954,7 @@ msgid "Pill"
 msgstr "Kapsul"
 
 #. Light and Heavy are the names of the two stream formats
-#: rust/crates/effects/src/name_tag.rs:20 rust/crates/outputs/src/stream_output.rs:790 rust/crates/outputs/src/stream_output.rs:1005 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:116 rust/crates/outputs/ui/stream_output.slint:120 rust/crates/setup/src/stats_phone.rs:98 rust/crates/setup/ui/setup.slint:483
+#: rust/crates/effects/src/name_tag.rs:20 rust/crates/outputs/src/stream_output.rs:790 rust/crates/outputs/src/stream_output.rs:1005 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:116 rust/crates/outputs/ui/stream_output.slint:120 rust/crates/setup/src/stats_phone.rs:98 rust/crates/setup/ui/setup.slint:528
 msgid "Light"
 msgstr "Ringan"
 
@@ -2310,7 +2310,7 @@ msgstr "Tampilkan tanda di halaman web"
 msgid "Scan"
 msgstr "Pindai"
 
-#: rust/crates/effects/src/on_air_plugin.rs:484 rust/crates/effects/src/qr_reader.rs:527 rust/crates/link/ui/browser_camera.slint:178 rust/crates/link/ui/browser_camera.slint:179 rust/crates/setup/src/setup.rs:445 rust/crates/setup/ui/parts.slint:91 rust/crates/setup/ui/parts.slint:92 rust/crates/system/ui/mcp.slint:118 rust/crates/system/ui/mcp.slint:119 rust/crates/system/ui/shortcuts.slint:356
+#: rust/crates/effects/src/on_air_plugin.rs:484 rust/crates/effects/src/qr_reader.rs:527 rust/crates/link/ui/browser_camera.slint:178 rust/crates/link/ui/browser_camera.slint:179 rust/crates/setup/src/setup.rs:484 rust/crates/setup/ui/parts.slint:91 rust/crates/setup/ui/parts.slint:92 rust/crates/system/ui/mcp.slint:118 rust/crates/system/ui/mcp.slint:119 rust/crates/system/ui/shortcuts.slint:356
 msgid "Copy"
 msgstr "Salin"
 
@@ -2767,7 +2767,7 @@ msgstr "Jadikan kedua ponsel lebih terang atau lebih gelap bersamaan setelah Pen
 msgid "Drop the colour curve Match made and leave the phones' exposure as it is."
 msgstr "Hapus kurva warna yang dibuat oleh Pencocokan dan biarkan eksposur ponsel apa adanya."
 
-#: rust/crates/effects/src/stereo_plugin.rs:719 rust/crates/effects/src/stereo_plugin.rs:1169 rust/crates/effects/src/stereo_plugin.rs:1309 rust/crates/effects/src/stereo_plugin.rs:1309 rust/crates/effects/src/stereo_plugin.rs:1321 rust/crates/effects/ui/stereo.slint:55
+#: rust/crates/effects/src/stereo_plugin.rs:719 rust/crates/effects/src/stereo_plugin.rs:1169 rust/crates/effects/src/stereo_plugin.rs:1308 rust/crates/effects/src/stereo_plugin.rs:1308 rust/crates/effects/src/stereo_plugin.rs:1320 rust/crates/effects/ui/stereo.slint:55
 msgid "3D"
 msgstr "3D"
 
@@ -3305,7 +3305,7 @@ msgstr "Simpan sebagai"
 msgid "Save this layout under a new name."
 msgstr "Simpan tata letak ini dengan nama baru."
 
-#: rust/crates/effects/ui/composite_editor.slint:392 rust/crates/effects/ui/composite_editor.slint:392 rust/crates/link/ui/connection.slint:116 rust/crates/setup/src/setup.rs:662 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/src/plugins/presets.rs:215
+#: rust/crates/effects/ui/composite_editor.slint:392 rust/crates/effects/ui/composite_editor.slint:392 rust/crates/link/ui/connection.slint:116 rust/crates/setup/src/setup.rs:701 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/src/plugins/presets.rs:215
 msgid "Rename"
 msgstr "Ganti nama"
 
@@ -3397,7 +3397,7 @@ msgstr "Ganti tata letak"
 msgid "Name:"
 msgstr "Nama:"
 
-#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:439 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1065 rust/crates/shell/ui/settings.slint:587
+#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:484 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1065 rust/crates/shell/ui/settings.slint:587
 msgid "OK"
 msgstr "Oke"
 
@@ -4101,7 +4101,7 @@ msgstr "Tidak dapat mengimbangi"
 msgid "Browser"
 msgstr "Browser"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:745 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1727 rust/crates/system/ui/updates.slint:166
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:784 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1727 rust/crates/system/ui/updates.slint:166
 msgid "Try again"
 msgstr "Coba lagi"
 
@@ -4166,7 +4166,7 @@ msgstr "Pastikan ponsel berada di jaringan yang sama."
 msgid "The stream is still running over {now} and Connect via is still set to {kept}."
 msgstr "Stream masih berjalan melalui {now} dan Hubungkan via masih disetel ke {kept}."
 
-#: rust/crates/link/src/connection.rs:804
+#: rust/crates/link/src/connection.rs:804 rust/crates/setup/src/setup.rs:397
 msgid "Automatic"
 msgstr "Otomatis"
 
@@ -4186,7 +4186,7 @@ msgstr "Komputer"
 msgid "Checking"
 msgstr "Memeriksa"
 
-#: rust/crates/link/src/connection.rs:826 rust/crates/setup/src/setup.rs:650 rust/crates/setup/src/setup.rs:659 rust/crates/setup/src/setup.rs:678 rust/crates/setup/src/setup.rs:702
+#: rust/crates/link/src/connection.rs:826 rust/crates/setup/src/setup.rs:689 rust/crates/setup/src/setup.rs:698 rust/crates/setup/src/setup.rs:717 rust/crates/setup/src/setup.rs:741
 msgid "Ready"
 msgstr "Siap"
 
@@ -4581,7 +4581,7 @@ msgstr "Memperbarui aplikasi ponsel melalui USB…"
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Aplikasi Telescope di {phone} lebih lama daripada versi ini."
 
-#: rust/crates/link/src/plugin.rs:1216 rust/crates/setup/src/setup.rs:854 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:712 rust/crates/system/src/shortcuts.rs:856
+#: rust/crates/link/src/plugin.rs:1216 rust/crates/setup/src/setup.rs:893 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:712 rust/crates/system/src/shortcuts.rs:856
 msgid "Copy command"
 msgstr "Salin perintah"
 
@@ -4848,89 +4848,89 @@ msgstr "jaringan transmisi lag macet tersendat patah-patah wifi udp tcp transpor
 msgid "Experimental"
 msgstr "Eksperimental"
 
-#: rust/crates/outputs/src/linux_setup.rs:21
+#: rust/crates/outputs/src/linux_setup.rs:62
 msgid "Telescope couldn't ask for your password here. Run this in a terminal, then try again."
 msgstr "Telescope tidak dapat meminta kata sandi Anda di sini. Jalankan ini di terminal, lalu coba lagi."
 
-#: rust/crates/outputs/src/linux_setup.rs:158
+#: rust/crates/outputs/src/linux_setup.rs:209
 msgid "modprobe -r failed"
 msgstr "modprobe -r gagal"
 
-#: rust/crates/outputs/src/linux_setup.rs:159
+#: rust/crates/outputs/src/linux_setup.rs:210
 msgid "Module unloaded"
 msgstr "Modul dibongkar"
 
-#: rust/crates/outputs/src/linux_setup.rs:165
+#: rust/crates/outputs/src/linux_setup.rs:218
 msgid "reload failed"
 msgstr "gagal memuat ulang"
 
-#: rust/crates/outputs/src/linux_setup.rs:173
+#: rust/crates/outputs/src/linux_setup.rs:226
 #, python-brace-format
 msgid "{device} is missing since v4l2loopback is already loaded with other settings. Close any app using a virtual camera, click Unload and then Load."
 msgstr "{device} tidak ada karena v4l2loopback sudah dimuat dengan pengaturan lain. Tutup aplikasi apa pun yang menggunakan kamera virtual, klik Bongkar lalu Muat."
 
-#: rust/crates/outputs/src/linux_setup.rs:178
+#: rust/crates/outputs/src/linux_setup.rs:231
 #, python-brace-format
 msgid "{device} already exists and is not a v4l2loopback device."
 msgstr "{device} sudah ada dan bukan perangkat v4l2loopback."
 
-#: rust/crates/outputs/src/linux_setup.rs:186
+#: rust/crates/outputs/src/linux_setup.rs:240
 msgid "modprobe failed"
 msgstr "modprobe gagal"
 
-#: rust/crates/outputs/src/linux_setup.rs:188
+#: rust/crates/outputs/src/linux_setup.rs:242
 #, python-brace-format
 msgid "Loaded: {phone} + {obs}"
 msgstr "Dimuat: {phone} + {obs}"
 
-#: rust/crates/outputs/src/linux_setup.rs:191
+#: rust/crates/outputs/src/linux_setup.rs:245
 msgid "v4l2loopback isn't installed. Install it via your package manager (v4l2loopback-dkms on Debian/Ubuntu/Arch, v4l2loopback via RPM Fusion on Fedora/Nobara), then try again."
 msgstr "v4l2loopback belum terinstal. Instal melalui pengelola paket Anda (v4l2loopback-dkms di Debian/Ubuntu/Arch, v4l2loopback via RPM Fusion di Fedora/Nobara), lalu coba lagi."
 
-#: rust/crates/outputs/src/linux_setup.rs:199
+#: rust/crates/outputs/src/linux_setup.rs:254
 msgid "This v4l2loopback can't add cameras while it runs (v4l2loopback-ctl is missing). Install v4l2loopback-utils or a newer v4l2loopback, then try again."
 msgstr "v4l2loopback ini tidak dapat menambahkan kamera saat sedang berjalan (v4l2loopback-ctl tidak ada). Instal v4l2loopback-utils atau v4l2loopback yang lebih baru, lalu coba lagi."
 
-#: rust/crates/outputs/src/linux_setup.rs:202
+#: rust/crates/outputs/src/linux_setup.rs:258
 msgid "v4l2loopback-ctl add failed"
 msgstr "v4l2loopback-ctl add gagal"
 
-#: rust/crates/outputs/src/linux_setup.rs:209
+#: rust/crates/outputs/src/linux_setup.rs:266
 msgid "v4l2loopback-ctl is missing. Unloading the module, or a restart, removes them too."
 msgstr "v4l2loopback-ctl tidak ada. Membongkar modul, atau memulai ulang sistem, juga akan menghapusnya."
 
-#: rust/crates/outputs/src/linux_setup.rs:212
+#: rust/crates/outputs/src/linux_setup.rs:270
 msgid "v4l2loopback-ctl delete failed (an app may still have one open)"
 msgstr "v4l2loopback-ctl delete gagal (mungkin masih ada aplikasi yang membukanya)"
 
-#: rust/crates/outputs/src/linux_setup.rs:243
+#: rust/crates/outputs/src/linux_setup.rs:334
 #, python-brace-format
 msgid "Already persisted: {path}"
 msgstr "Sudah disimpan permanen: {path}"
 
-#: rust/crates/outputs/src/linux_setup.rs:247
+#: rust/crates/outputs/src/linux_setup.rs:338
 #, python-brace-format
 msgid "Existing v4l2loopback config found in {paths} - remove it first"
 msgstr "Konfigurasi v4l2loopback yang ada ditemukan di {paths} - hapus terlebih dahulu"
 
-#: rust/crates/outputs/src/linux_setup.rs:249
+#: rust/crates/outputs/src/linux_setup.rs:341
 msgid "Failed to write persistence files"
 msgstr "Gagal menulis file persistensi"
 
-#: rust/crates/outputs/src/linux_setup.rs:253
+#: rust/crates/outputs/src/linux_setup.rs:345
 #, python-brace-format
 msgid "Wrote {first} and {second}"
 msgstr "Berhasil menulis {first} dan {second}"
 
-#: rust/crates/outputs/src/linux_setup.rs:260
+#: rust/crates/outputs/src/linux_setup.rs:352
 msgid "Nothing to remove"
 msgstr "Tidak ada yang perlu dihapus"
 
-#: rust/crates/outputs/src/linux_setup.rs:263
+#: rust/crates/outputs/src/linux_setup.rs:355
 msgid "Failed to remove persistence files"
 msgstr "Gagal menghapus file persistensi"
 
-#: rust/crates/outputs/src/linux_setup.rs:267
+#: rust/crates/outputs/src/linux_setup.rs:359
 #, python-brace-format
 msgid "Removed {paths}"
 msgstr "Berhasil menghapus {paths}"
@@ -4951,40 +4951,40 @@ msgstr "Telescope tidak dapat membaca gambar pengirim ini. Coba pengirim lain, a
 msgid "Check that the sender is still running."
 msgstr "Pastikan pengirim masih berjalan."
 
-#: rust/crates/outputs/src/spout/mod.rs:538
+#: rust/crates/outputs/src/spout/mod.rs:539
 msgid "Sender not running"
 msgstr "Pengirim tidak berjalan"
 
-#: rust/crates/outputs/src/spout/mod.rs:540 rust/crates/outputs/src/webcam.rs:961
+#: rust/crates/outputs/src/spout/mod.rs:541 rust/crates/outputs/src/webcam.rs:961
 msgid "Not sending anything"
 msgstr "Tidak mengirim apa pun"
 
-#: rust/crates/outputs/src/spout/mod.rs:542 rust/crates/outputs/src/webcam.rs:963
+#: rust/crates/outputs/src/spout/mod.rs:543 rust/crates/outputs/src/webcam.rs:963
 msgid "Starting…"
 msgstr "Memulai…"
 
-#: rust/crates/outputs/src/spout/mod.rs:551
+#: rust/crates/outputs/src/spout/mod.rs:552
 msgid "Set how many pictures a second to take. Spout senders don't share their own rate."
 msgstr "Atur berapa banyak gambar per detik yang diambil. Pengirim Spout tidak membagikan kecepatannya sendiri."
 
-#: rust/crates/outputs/src/spout/mod.rs:565 rust/crates/outputs/ui/spout.slint:14
+#: rust/crates/outputs/src/spout/mod.rs:566 rust/crates/outputs/ui/spout.slint:14
 msgid "Spout capture"
 msgstr "Tangkapan Spout"
 
-#: rust/crates/outputs/src/spout/mod.rs:566
+#: rust/crates/outputs/src/spout/mod.rs:567
 msgid "Stream from games, OBS and other programs on this computer that share their picture through Spout."
 msgstr "Streaming dari game, OBS, dan program lain di komputer ini yang membagikan gambarnya melalui Spout."
 
-#: rust/crates/outputs/src/spout/mod.rs:567
+#: rust/crates/outputs/src/spout/mod.rs:568
 msgid "Without Spout capture the senders aren't in the device picker and the Spout capture card is gone too."
 msgstr "Tanpa Tangkapan Spout, pengirim tidak ada di pemilih perangkat dan kartu Tangkapan Spout juga hilang."
 
-#: rust/crates/outputs/src/spout/mod.rs:615
+#: rust/crates/outputs/src/spout/mod.rs:616
 #, python-brace-format
 msgid "{name} isn't running"
 msgstr "{name} tidak berjalan"
 
-#: rust/crates/outputs/src/spout/mod.rs:615
+#: rust/crates/outputs/src/spout/mod.rs:616
 msgid "Start it again or pick another source."
 msgstr "Mulai lagi atau pilih sumber lain."
 
@@ -5139,12 +5139,12 @@ msgstr "Kualitas JPEG"
 msgid "Bitrate"
 msgstr "Bitrate"
 
-#: rust/crates/outputs/src/v4l2.rs:165
+#: rust/crates/outputs/src/v4l2.rs:160
 #, python-brace-format
 msgid "{device} is held at {width}x{height} by an app reading it"
 msgstr "{device} ditahan pada {width}x{height} oleh aplikasi yang membacanya"
 
-#: rust/crates/outputs/src/v4l2.rs:168
+#: rust/crates/outputs/src/v4l2.rs:163
 #, python-brace-format
 msgid "{device} is set to the {format} pixel format, which Telescope can't write to it. Close the apps using it, or reload v4l2loopback without keep_format."
 msgstr "{device} diatur ke format piksel {format}, yang tidak dapat ditulis oleh Telescope. Tutup aplikasi yang menggunakannya, atau muat ulang v4l2loopback tanpa keep_format."
@@ -5449,7 +5449,7 @@ msgstr "Kamera tidak dapat mengambil JPEG saat kualitas gambarnya terkunci pada 
 msgid "The camera only sent part of the photo. The part that arrived is saved."
 msgstr "Kamera hanya mengirimkan sebagian foto. Bagian yang telah tiba disimpan."
 
-#: rust/crates/outputs/src/wininstall.rs:256 rust/crates/setup/src/setup.rs:809
+#: rust/crates/outputs/src/wininstall.rs:256 rust/crates/setup/src/setup.rs:848
 msgid "Installed"
 msgstr "Terinstal"
 
@@ -5756,7 +5756,7 @@ msgstr "Kata sandi Anda (pkexec atau sudo) diperlukan karena tindakan ini mengub
 msgid "Checking..."
 msgstr "Memeriksa..."
 
-#: rust/crates/setup/src/setup.rs:185 rust/crates/setup/src/setup.rs:667 rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/shell/src/plugins/onboarding.rs:146
+#: rust/crates/setup/src/setup.rs:185 rust/crates/setup/src/setup.rs:706 rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/shell/src/plugins/onboarding.rs:146
 msgid "Install driver"
 msgstr "Instal driver"
 
@@ -5772,291 +5772,300 @@ msgstr "Disertakan dengan aplikasi ini"
 msgid "Not included with this app"
 msgstr "Tidak disertakan dengan aplikasi ini"
 
-#: rust/crates/setup/src/setup.rs:355
+#: rust/crates/setup/src/setup.rs:360
 msgid "Same as the system"
 msgstr "Sama seperti sistem"
 
 #. after a language's name in the Language list, for a translation that's only a first draft
-#: rust/crates/setup/src/setup.rs:358
+#: rust/crates/setup/src/setup.rs:363
 msgid "(beta)"
 msgstr "(beta)"
 
-#: rust/crates/setup/src/setup.rs:374
+#: rust/crates/setup/src/setup.rs:379
 msgid "Write the setting to /etc/modprobe.d/ and /etc/modules-load.d/ so the module loads after a reboot."
 msgstr "Tulis pengaturan ke /etc/modprobe.d/ dan /etc/modules-load.d/ agar modul dimuat setelah mulai ulang."
 
-#: rust/crates/setup/src/setup.rs:374
+#: rust/crates/setup/src/setup.rs:379
 msgid "Your password (pkexec or sudo) is required."
 msgstr "Kata sandi Anda (pkexec atau sudo) diperlukan."
 
-#: rust/crates/setup/src/setup.rs:387
+#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:987
+msgid "(not found)"
+msgstr ""
+
+#: rust/crates/setup/src/setup.rs:417
+#, python-brace-format
+msgid "Using {card}"
+msgstr ""
+
+#: rust/crates/setup/src/setup.rs:425
 msgid "Applying stops the stream and reloads the virtual camera. Close OBS and other apps using it first."
 msgstr "Menerapkan akan menghentikan stream dan memuat ulang kamera virtual. Tutup OBS dan aplikasi lain yang menggunakannya terlebih dahulu."
 
-#: rust/crates/setup/src/setup.rs:388
+#: rust/crates/setup/src/setup.rs:426
 msgid "Apply and reload"
 msgstr "Terapkan dan muat ulang"
 
-#: rust/crates/setup/src/setup.rs:390
+#: rust/crates/setup/src/setup.rs:428
 msgid "Apply"
 msgstr "Terapkan"
 
-#: rust/crates/setup/src/setup.rs:390
+#: rust/crates/setup/src/setup.rs:428
 msgid "Applying restarts the stream at the new size. Remove the source and add it again if OBS loses it."
 msgstr "Menerapkan perubahan akan memulai ulang stream pada ukuran baru. Hapus sumber dan tambahkan kembali jika OBS kehilangannya."
 
-#: rust/crates/setup/src/setup.rs:419 rust/crates/shell/src/plugins/onboarding.rs:157 rust/crates/shell/src/plugins/onboarding.rs:161 rust/crates/shell/src/plugins/onboarding.rs:164
+#: rust/crates/setup/src/setup.rs:458 rust/crates/shell/src/plugins/onboarding.rs:157 rust/crates/shell/src/plugins/onboarding.rs:161 rust/crates/shell/src/plugins/onboarding.rs:164
 msgid "Install over USB"
 msgstr "Instal via USB"
 
-#: rust/crates/setup/src/setup.rs:419
+#: rust/crates/setup/src/setup.rs:458
 msgid "Choose APK"
 msgstr "Pilih APK"
 
-#: rust/crates/setup/src/setup.rs:433
+#: rust/crates/setup/src/setup.rs:472
 msgid "This translation is a first draft and some texts might read a bit oddly."
 msgstr "Terjemahan ini masih draf pertama dan beberapa teks mungkin terdengar agak aneh."
 
-#: rust/crates/setup/src/setup.rs:434
+#: rust/crates/setup/src/setup.rs:473
 msgid "Missing your language, or spotted a text that reads wrong?"
 msgstr "Bahasa Anda belum ada, atau ada teks yang terasa keliru?"
 
 #. keep the <a href="{url}"> link and the name LunarKittyy as they are
-#: rust/crates/setup/src/setup.rs:440
+#: rust/crates/setup/src/setup.rs:479
 #, python-brace-format
 msgid "Made by <a href=\"{url}\">LunarKittyy</a>"
 msgstr "Dibuat oleh <a href=\"{url}\">LunarKittyy</a>"
 
-#: rust/crates/setup/src/setup.rs:443
+#: rust/crates/setup/src/setup.rs:482
 #, python-brace-format
 msgid "Version {version}"
 msgstr "Versi {version}"
 
-#: rust/crates/setup/src/setup.rs:445 rust/crates/system/src/shortcuts.rs:856
+#: rust/crates/setup/src/setup.rs:484 rust/crates/system/src/shortcuts.rs:856
 msgid "Copied"
 msgstr "Disalin"
 
-#: rust/crates/setup/src/setup.rs:526
+#: rust/crates/setup/src/setup.rs:565
 msgid "Off until you restart Telescope because the graphics card failed"
 msgstr "Nonaktif hingga Anda memulai ulang Telescope karena kartu grafis mengalami kegagalan"
 
-#: rust/crates/setup/src/setup.rs:527
+#: rust/crates/setup/src/setup.rs:566
 msgid "Paused for a few minutes because the graphics card was too slow"
 msgstr "Dijeda selama beberapa menit karena kartu grafis terlalu lambat"
 
-#: rust/crates/setup/src/setup.rs:528
+#: rust/crates/setup/src/setup.rs:567
 #, python-brace-format
 msgid "Found {device}"
 msgstr "Ditemukan {device}"
 
-#: rust/crates/setup/src/setup.rs:529
+#: rust/crates/setup/src/setup.rs:568
 msgid "No graphics card Telescope can use"
 msgstr "Tidak ada kartu grafis yang dapat digunakan Telescope"
 
-#: rust/crates/setup/src/setup.rs:546
+#: rust/crates/setup/src/setup.rs:585
 #, python-brace-format
 msgid "Ready: {phone} + {obs}"
 msgstr "Siap: {phone} + {obs}"
 
-#: rust/crates/setup/src/setup.rs:548
+#: rust/crates/setup/src/setup.rs:587
 #, python-brace-format
 msgid "Module loaded but {device} not found - another config active"
 msgstr "Modul dimuat tetapi {device} tidak ditemukan - konfigurasi lain aktif"
 
-#: rust/crates/setup/src/setup.rs:550
+#: rust/crates/setup/src/setup.rs:589
 msgid "Not loaded - click Load"
 msgstr "Tidak dimuat - klik Muat"
 
-#: rust/crates/setup/src/setup.rs:561
+#: rust/crates/setup/src/setup.rs:600
 msgid "Loading..."
 msgstr "Memuat..."
 
-#: rust/crates/setup/src/setup.rs:566
+#: rust/crates/setup/src/setup.rs:605
 msgid "Unloading..."
 msgstr "Membongkar..."
 
-#: rust/crates/setup/src/setup.rs:572
+#: rust/crates/setup/src/setup.rs:611
 #, python-brace-format
 msgid "Loaded - {message}"
 msgstr "Dimuat - {message}"
 
-#: rust/crates/setup/src/setup.rs:573
+#: rust/crates/setup/src/setup.rs:612
 #, python-brace-format
 msgid "Unloaded - {message}"
 msgstr "Dibongkar - {message}"
 
-#: rust/crates/setup/src/setup.rs:574
+#: rust/crates/setup/src/setup.rs:613
 #, python-brace-format
 msgid "Failed - {message}"
 msgstr "Gagal - {message}"
 
-#: rust/crates/setup/src/setup.rs:583
+#: rust/crates/setup/src/setup.rs:622
 msgid "Working..."
 msgstr "Memproses..."
 
-#: rust/crates/setup/src/setup.rs:608
+#: rust/crates/setup/src/setup.rs:647
 msgid "Stop the streams going to them first."
 msgstr "Hentikan stream yang mengarah ke kamera tersebut terlebih dahulu."
 
-#: rust/crates/setup/src/setup.rs:610
+#: rust/crates/setup/src/setup.rs:649
 msgid "Go back to one camera. Use Add camera to set up the others again."
 msgstr "Kembali ke satu kamera. Gunakan Tambahkan kamera untuk menyiapkan yang lain lagi."
 
-#: rust/crates/setup/src/setup.rs:611
+#: rust/crates/setup/src/setup.rs:650
 msgid "Your password is required."
 msgstr "Kata sandi Anda diperlukan."
 
-#: rust/crates/setup/src/setup.rs:611 rust/crates/shell/src/extra_cameras.rs:87
+#: rust/crates/setup/src/setup.rs:650 rust/crates/shell/src/extra_cameras.rs:87
 msgid "Windows asks for permission."
 msgstr "Windows meminta izin."
 
-#: rust/crates/setup/src/setup.rs:618
+#: rust/crates/setup/src/setup.rs:657
 msgid "Removing…"
 msgstr "Menghapus…"
 
-#: rust/crates/setup/src/setup.rs:625
+#: rust/crates/setup/src/setup.rs:664
 msgid "Removed"
 msgstr "Dihapus"
 
-#: rust/crates/setup/src/setup.rs:629
+#: rust/crates/setup/src/setup.rs:668
 #, python-brace-format
 msgid "Couldn't remove them: {message}"
 msgstr "Gagal menghapusnya: {message}"
 
-#: rust/crates/setup/src/setup.rs:650 rust/crates/setup/src/setup.rs:656 rust/crates/setup/src/setup.rs:659 rust/crates/setup/src/setup.rs:703
+#: rust/crates/setup/src/setup.rs:689 rust/crates/setup/src/setup.rs:695 rust/crates/setup/src/setup.rs:698 rust/crates/setup/src/setup.rs:742
 msgid "Reinstall"
 msgstr "Instal ulang"
 
-#: rust/crates/setup/src/setup.rs:652
+#: rust/crates/setup/src/setup.rs:691
 msgid "Update ready"
 msgstr "Pembaruan siap"
 
-#: rust/crates/setup/src/setup.rs:652
+#: rust/crates/setup/src/setup.rs:691
 msgid "Some apps can't see the camera"
 msgstr "Beberapa aplikasi tidak dapat melihat kamera"
 
-#: rust/crates/setup/src/setup.rs:653 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
+#: rust/crates/setup/src/setup.rs:692 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
 msgid "Update"
 msgstr "Perbarui"
 
-#: rust/crates/setup/src/setup.rs:653
+#: rust/crates/setup/src/setup.rs:692
 msgid "Install the camera every Windows 11 app can see (Windows asks for admin access once)."
 msgstr "Instal kamera yang dapat dilihat setiap aplikasi Windows 11 (Windows meminta akses admin sekali)."
 
-#: rust/crates/setup/src/setup.rs:656
+#: rust/crates/setup/src/setup.rs:695
 msgid "Reinstall for a security fix"
 msgstr "Instal ulang untuk perbaikan keamanan"
 
-#: rust/crates/setup/src/setup.rs:657
+#: rust/crates/setup/src/setup.rs:696
 msgid "Move the driver into Program Files (Windows asks for admin access once)."
 msgstr "Pindahkan driver ke Program Files (Windows meminta akses admin sekali)."
 
-#: rust/crates/setup/src/setup.rs:662
+#: rust/crates/setup/src/setup.rs:701
 #, python-brace-format
 msgid "Apps list it as “{name}”"
 msgstr "Aplikasi mencantumkannya sebagai “{name}”"
 
-#: rust/crates/setup/src/setup.rs:663
+#: rust/crates/setup/src/setup.rs:702
 #, python-brace-format
 msgid "Register it again as “{name}”."
 msgstr "Daftarkan lagi sebagai “{name}”."
 
-#: rust/crates/setup/src/setup.rs:666 rust/crates/shell/src/plugins/onboarding.rs:138 rust/crates/shell/src/plugins/onboarding.rs:146
+#: rust/crates/setup/src/setup.rs:705 rust/crates/shell/src/plugins/onboarding.rs:138 rust/crates/shell/src/plugins/onboarding.rs:146
 msgid "Not installed"
 msgstr "Tidak terinstal"
 
-#: rust/crates/setup/src/setup.rs:666
+#: rust/crates/setup/src/setup.rs:705
 msgid "Not installed (Install driver downloads it first)"
 msgstr "Tidak terinstal (Instal driver mengunduhnya terlebih dahulu)"
 
-#: rust/crates/setup/src/setup.rs:680
+#: rust/crates/setup/src/setup.rs:719
 msgid "Not found. Pairing and installing over USB need adb; Wi-Fi doesn't."
 msgstr "Tidak ditemukan. Penyandingan dan penginstalan melalui USB memerlukan adb; Wi-Fi tidak."
 
-#: rust/crates/setup/src/setup.rs:706 rust/crates/setup/src/setup.rs:870
+#: rust/crates/setup/src/setup.rs:745 rust/crates/setup/src/setup.rs:909
 #, python-brace-format
 msgid "Failed: {message}"
 msgstr "Gagal: {message}"
 
-#: rust/crates/setup/src/setup.rs:707
+#: rust/crates/setup/src/setup.rs:746
 msgid "Retry"
 msgstr "Coba lagi"
 
-#: rust/crates/setup/src/setup.rs:738
+#: rust/crates/setup/src/setup.rs:777
 #, python-brace-format
 msgid "Ready (adb {version}, from Google)"
 msgstr "Siap (adb {version}, dari Google)"
 
-#: rust/crates/setup/src/setup.rs:739
+#: rust/crates/setup/src/setup.rs:778
 msgid "Ready (adb, from Google)"
 msgstr "Siap (adb, dari Google)"
 
-#: rust/crates/setup/src/setup.rs:740
+#: rust/crates/setup/src/setup.rs:779
 #, python-brace-format
 msgid "Ready (adb {version})"
 msgstr "Siap (adb {version})"
 
-#: rust/crates/setup/src/setup.rs:741
+#: rust/crates/setup/src/setup.rs:780
 msgid "Ready (adb)"
 msgstr "Siap (adb)"
 
-#: rust/crates/setup/src/setup.rs:755
+#: rust/crates/setup/src/setup.rs:794
 msgid "Installing over USB needs adb. Install it from your distro's packages."
 msgstr "Penginstalan via USB memerlukan adb. Instal dari paket distro Anda."
 
-#: rust/crates/setup/src/setup.rs:757
+#: rust/crates/setup/src/setup.rs:796
 msgid "Installing over USB needs adb. Click Get adb under Virtual camera above."
 msgstr "Penginstalan via USB memerlukan adb. Klik Dapatkan adb di bawah Kamera virtual di atas."
 
-#: rust/crates/setup/src/setup.rs:765
+#: rust/crates/setup/src/setup.rs:804
 msgid "Select APK"
 msgstr "Pilih APK"
 
-#: rust/crates/setup/src/setup.rs:766
+#: rust/crates/setup/src/setup.rs:805
 msgid "Android Package (*.apk)"
 msgstr "Paket Android (*.apk)"
 
-#: rust/crates/setup/src/setup.rs:783 rust/crates/shell/src/plugins/mod.rs:32
+#: rust/crates/setup/src/setup.rs:822 rust/crates/shell/src/plugins/mod.rs:32
 msgid "No phone found over USB. Plug it in and allow USB debugging when the phone asks."
 msgstr "Tidak ada ponsel yang ditemukan via USB. Sambungkan ponsel dan izinkan Debugging USB saat diminta oleh ponsel."
 
-#: rust/crates/setup/src/setup.rs:799
+#: rust/crates/setup/src/setup.rs:838
 msgid "Installing..."
 msgstr "Menginstal..."
 
-#: rust/crates/setup/src/setup.rs:831
+#: rust/crates/setup/src/setup.rs:870
 msgid "Reloading loopback..."
 msgstr "Memuat ulang loopback..."
 
-#: rust/crates/setup/src/setup.rs:831
+#: rust/crates/setup/src/setup.rs:870
 msgid "Restarting stream..."
 msgstr "Memulai ulang stream..."
 
-#: rust/crates/setup/src/setup.rs:852 rust/crates/shell/src/streams.rs:713
+#: rust/crates/setup/src/setup.rs:891 rust/crates/shell/src/streams.rs:713
 msgid "Resize the virtual camera"
 msgstr "Ubah ukuran kamera virtual"
 
-#: rust/crates/setup/src/setup.rs:866
+#: rust/crates/setup/src/setup.rs:905
 msgid "Done - loopback reloaded."
 msgstr "Selesai - loopback dimuat ulang."
 
-#: rust/crates/setup/src/setup.rs:866
+#: rust/crates/setup/src/setup.rs:905
 msgid "Done - canvas updated."
 msgstr "Selesai - kanvas diperbarui."
 
-#: rust/crates/setup/src/setup.rs:868
+#: rust/crates/setup/src/setup.rs:907
 msgid "Failed: still in use. Close OBS and other apps using it, then try again."
 msgstr "Gagal: masih digunakan. Tutup OBS dan aplikasi lain yang menggunakannya, lalu coba lagi."
 
-#: rust/crates/setup/src/setup.rs:1111
+#: rust/crates/setup/src/setup.rs:1158
 msgid "Advanced settings"
 msgstr "Pengaturan lanjutan"
 
-#: rust/crates/setup/src/setup.rs:1112
+#: rust/crates/setup/src/setup.rs:1159
 msgid "Set up the virtual camera, its size, extra cameras and the video and microphone limits, and check for updates."
 msgstr "Siapkan kamera virtual, ukurannya, kamera tambahan, serta batas video dan mikrofon, dan periksa pembaruan."
 
-#: rust/crates/setup/src/setup.rs:1211
+#: rust/crates/setup/src/setup.rs:1258
 msgid "Use my own adb…"
 msgstr "Gunakan adb saya sendiri…"
 
@@ -6625,367 +6634,392 @@ msgstr "Pakai sendiri"
 msgid "Pick an adb.exe or platform-tools zip you already have."
 msgstr "Pilih file adb.exe atau zip platform-tools yang sudah Anda miliki."
 
-#: rust/crates/setup/ui/setup.slint:207
+#: rust/crates/setup/ui/setup.slint:213
 msgid "Hardware acceleration, power saving, zoom range and the virtual camera's size."
 msgstr "Akselerasi hardware, penghemat daya, rentang zoom, dan ukuran kamera virtual."
 
-#: rust/crates/setup/ui/setup.slint:211
+#: rust/crates/setup/ui/setup.slint:217
 msgid "Set hardware acceleration, power saving, zoom range and canvas size back to default. The canvas size changes when you press Apply."
 msgstr "Kembalikan akselerasi hardware, penghematan daya, rentang zoom, dan ukuran kanvas ke default. Ukuran kanvas berubah saat Anda menekan Terapkan."
 
-#: rust/crates/setup/ui/setup.slint:213
+#: rust/crates/setup/ui/setup.slint:219
 msgctxt "search"
 msgid "picture quality image stream camera output"
 msgstr "kualitas gambar output kamera stream picture quality image stream camera output"
 
-#: rust/crates/setup/ui/setup.slint:220 rust/crates/setup/ui/setup.slint:221
+#: rust/crates/setup/ui/setup.slint:226 rust/crates/setup/ui/setup.slint:227
 msgid "Hardware acceleration"
 msgstr "Akselerasi hardware"
 
-#: rust/crates/setup/ui/setup.slint:222
+#: rust/crates/setup/ui/setup.slint:228
 msgid "Decode the Light format on the graphics card from the next stream on. The processor is used until you restart Telescope if the graphics card fails."
 msgstr "Dekode format Ringan pada kartu grafis mulai dari stream berikutnya. Prosesor akan digunakan hingga Anda memulai ulang Telescope jika kartu grafis mengalami kegagalan."
 
-#: rust/crates/setup/ui/setup.slint:223
+#: rust/crates/setup/ui/setup.slint:229
 msgctxt "search"
 msgid "hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu processor laptop 4k"
 msgstr "kartu grafis dekode lebih cepat prosesor hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu processor laptop 4k"
 
-#: rust/crates/setup/ui/setup.slint:233 rust/crates/setup/ui/setup.slint:234
+#: rust/crates/setup/ui/setup.slint:240 rust/crates/setup/ui/setup.slint:249
+msgid "Graphics card"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:241
+msgid "Which graphics card Telescope uses"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:242
+msgid "Automatic follows what your system picks. Choose a card here if the system picks the wrong one. A change applies after a restart."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:245
+msgctxt "search"
+msgid "gpu graphics card nvidia amd intel integrated discrete laptop hybrid switch choose select"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:262 rust/crates/setup/ui/setup.slint:575
+msgid "Restart to switch"
+msgstr "Mulai ulang untuk mengganti"
+
+#: rust/crates/setup/ui/setup.slint:262
+msgid "Restart Telescope to use the graphics card you picked."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:264 rust/crates/setup/ui/setup.slint:577 rust/crates/shell/ui/card-order.slint:265 rust/crates/shell/ui/restart-bar.slint:15 rust/crates/shell/ui/restart-bar.slint:45
+msgid "Restart now"
+msgstr "Mulai ulang sekarang"
+
+#: rust/crates/setup/ui/setup.slint:268 rust/crates/setup/ui/setup.slint:581 rust/crates/shell/src/plugins_tab.rs:729 rust/crates/shell/ui/card-order.slint:265
+msgid "Restart"
+msgstr "Mulai ulang"
+
+#: rust/crates/setup/ui/setup.slint:269
+msgid "Restart Telescope with the graphics card you picked."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:278 rust/crates/setup/ui/setup.slint:279
 msgid "Power-saving effects"
 msgstr "Efek hemat daya"
 
-#: rust/crates/setup/ui/setup.slint:235
+#: rust/crates/setup/ui/setup.slint:280
 msgid "Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later."
 msgstr "Gunakan lebih sedikit prosesor dan baterai saat Latar Belakang atau Pembingkaian otomatis aktif. Keduanya bereaksi terhadap gerakan cepat sedikit lebih lambat."
 
-#: rust/crates/setup/ui/setup.slint:236
+#: rust/crates/setup/ui/setup.slint:281
 msgctxt "search"
 msgid "battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
 msgstr "baterai daya energi prosesor kipas panas lambat buram pembingkaian efek lebih ringan kualitas battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
 
-#: rust/crates/setup/ui/setup.slint:243 rust/crates/setup/ui/setup.slint:252
+#: rust/crates/setup/ui/setup.slint:288 rust/crates/setup/ui/setup.slint:297
 msgid "Max zoom"
 msgstr "Zoom maks."
 
-#: rust/crates/setup/ui/setup.slint:244
+#: rust/crates/setup/ui/setup.slint:289
 msgid "How far the Zoom slider goes"
 msgstr "Seberapa jauh penggeser Zoom bergerak"
 
-#: rust/crates/setup/ui/setup.slint:245
+#: rust/crates/setup/ui/setup.slint:290
 msgid "Zoom beyond the phone's own range is cropped on this computer."
 msgstr "Zoom di luar rentang bawaan ponsel akan dipotong di komputer ini."
 
-#: rust/crates/setup/ui/setup.slint:248
+#: rust/crates/setup/ui/setup.slint:293
 msgctxt "search"
 msgid "zoom limit magnify telephoto digital crop 10x 30x slider range"
 msgstr "batas perbesar telefoto pangkas rentang slider zoom limit magnify telephoto digital crop 10x 30x slider range"
 
-#: rust/crates/setup/ui/setup.slint:261 rust/crates/setup/ui/setup.slint:271 rust/crates/setup/ui/setup.slint:286 rust/crates/setup/ui/setup.slint:294
+#: rust/crates/setup/ui/setup.slint:306 rust/crates/setup/ui/setup.slint:316 rust/crates/setup/ui/setup.slint:331 rust/crates/setup/ui/setup.slint:339
 msgid "Canvas size"
 msgstr "Ukuran kanvas"
 
-#: rust/crates/setup/ui/setup.slint:262
+#: rust/crates/setup/ui/setup.slint:307
 msgid "The size of the picture other apps get from the virtual camera"
 msgstr "Ukuran gambar yang didapatkan aplikasi lain dari kamera virtual"
 
-#: rust/crates/setup/ui/setup.slint:263
+#: rust/crates/setup/ui/setup.slint:308
 msgid "On Linux the virtual camera is reloaded for this. Close OBS and other apps using it first."
 msgstr "Di Linux, kamera virtual dimuat ulang untuk hal ini. Tutup OBS dan aplikasi lain yang menggunakannya terlebih dahulu."
 
-#: rust/crates/setup/ui/setup.slint:266
+#: rust/crates/setup/ui/setup.slint:311
 msgctxt "search"
 msgid "resolution output size 1080p 720p 4k portrait landscape aspect ratio custom width height pixels apply reload"
 msgstr "resolusi ukuran output potret lanskap rasio aspek kustom lebar tinggi piksel terapkan muat ulang resolution output size 1080p 720p 4k portrait landscape aspect ratio custom width height pixels apply reload"
 
-#: rust/crates/setup/ui/setup.slint:334
+#: rust/crates/setup/ui/setup.slint:379
 msgid "Maximum microphone gain and the limiter."
 msgstr "Gain mikrofon maksimum dan limiter."
 
-#: rust/crates/setup/ui/setup.slint:338
+#: rust/crates/setup/ui/setup.slint:383
 msgid "Set the gain range and limiter back to default."
 msgstr "Kembalikan rentang gain dan limiter ke default."
 
-#: rust/crates/setup/ui/setup.slint:340
+#: rust/crates/setup/ui/setup.slint:385
 msgctxt "search"
 msgid "audio sound voice input volume"
 msgstr "suara input audio sound voice input volume"
 
-#: rust/crates/setup/ui/setup.slint:346 rust/crates/setup/ui/setup.slint:355
+#: rust/crates/setup/ui/setup.slint:391 rust/crates/setup/ui/setup.slint:400
 msgid "Max gain"
 msgstr "Gain maks."
 
-#: rust/crates/setup/ui/setup.slint:347
+#: rust/crates/setup/ui/setup.slint:392
 msgid "How far the Gain slider goes"
 msgstr "Seberapa jauh penggeser Gain bergerak"
 
-#: rust/crates/setup/ui/setup.slint:348
+#: rust/crates/setup/ui/setup.slint:393
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "Rentang yang lebih kecil memberikan tahapan yang lebih halus. Rentang yang lebih besar membantu ponsel yang suaranya kecil."
 
-#: rust/crates/setup/ui/setup.slint:351
+#: rust/crates/setup/ui/setup.slint:396
 msgctxt "search"
 msgid "microphone volume loudness boost amplify quiet decibel db slider range"
 msgstr "mikrofon pengeras suara perkuat pelan rentang slider microphone volume loudness boost amplify quiet decibel db slider range"
 
-#: rust/crates/setup/ui/setup.slint:363 rust/crates/setup/ui/setup.slint:364
+#: rust/crates/setup/ui/setup.slint:408 rust/crates/setup/ui/setup.slint:409
 msgid "Limiter"
 msgstr "Limiter"
 
-#: rust/crates/setup/ui/setup.slint:365
+#: rust/crates/setup/ui/setup.slint:410
 msgid "Keep loud sounds from clipping"
 msgstr "Cegah suara keras dari kliping"
 
-#: rust/crates/setup/ui/setup.slint:366
+#: rust/crates/setup/ui/setup.slint:411
 msgctxt "search"
 msgid "microphone audio compressor distortion clipping loud peaks sound"
 msgstr "mikrofon kompresor distorsi keras puncak suara microphone audio compressor distortion clipping loud peaks sound"
 
-#: rust/crates/setup/ui/setup.slint:386
+#: rust/crates/setup/ui/setup.slint:431
 msgid "Phone app"
 msgstr "Aplikasi ponsel"
 
-#: rust/crates/setup/ui/setup.slint:387
+#: rust/crates/setup/ui/setup.slint:432
 msgid "Install the Telescope app on a phone over USB."
 msgstr "Instal aplikasi Telescope di ponsel via USB."
 
-#: rust/crates/setup/ui/setup.slint:388
+#: rust/crates/setup/ui/setup.slint:433
 msgctxt "search"
 msgid "android install apk usb"
 msgstr "instal android install apk usb"
 
-#: rust/crates/setup/ui/setup.slint:396
+#: rust/crates/setup/ui/setup.slint:441
 msgid "The phone app that streams the camera to this computer"
 msgstr "Aplikasi ponsel yang streaming kamera ke komputer ini"
 
-#: rust/crates/setup/ui/setup.slint:399
+#: rust/crates/setup/ui/setup.slint:444
 msgctxt "search"
 msgid "phone app install usb android reinstall newer version sideload cable"
 msgstr "aplikasi ponsel instal instal ulang versi lebih baru kabel phone app install usb android reinstall newer version sideload cable"
 
-#: rust/crates/setup/ui/setup.slint:406 rust/crates/shell/ui/settings.slint:441 rust/crates/shell/ui/settings.slint:442
+#: rust/crates/setup/ui/setup.slint:451 rust/crates/shell/ui/settings.slint:441 rust/crates/shell/ui/settings.slint:442
 msgid "Install"
 msgstr "Instal"
 
-#: rust/crates/setup/ui/setup.slint:407
+#: rust/crates/setup/ui/setup.slint:452
 msgid "Install the Telescope.apk that came with this app, or an APK you pick, on a phone plugged in over USB."
 msgstr "Instal Telescope.apk yang disertakan dengan aplikasi ini, atau APK pilihan Anda, di ponsel yang tercolok via USB."
 
-#: rust/crates/setup/ui/setup.slint:417 rust/crates/setup/ui/setup.slint:424
+#: rust/crates/setup/ui/setup.slint:462 rust/crates/setup/ui/setup.slint:469
 msgid "Select device"
 msgstr "Pilih ponsel"
 
-#: rust/crates/setup/ui/setup.slint:418
+#: rust/crates/setup/ui/setup.slint:463
 msgid "Pick which phone gets the app when more than one is plugged in"
 msgstr "Pilih ponsel mana yang menerima aplikasi saat lebih dari satu ponsel terhubung"
 
-#: rust/crates/setup/ui/setup.slint:463
+#: rust/crates/setup/ui/setup.slint:508
 msgid "Theme, card colours and language."
 msgstr "Tema, warna kartu, dan bahasa."
 
-#: rust/crates/setup/ui/setup.slint:467
+#: rust/crates/setup/ui/setup.slint:512
 msgid "Set the theme, card colours and language back to default."
 msgstr "Kembalikan tema, warna kartu, dan bahasa ke default."
 
-#: rust/crates/setup/ui/setup.slint:469
+#: rust/crates/setup/ui/setup.slint:514
 msgctxt "search"
 msgid "appearance theme colors colours interface"
 msgstr "tampilan tema warna antarmuka appearance theme colors colours interface"
 
-#: rust/crates/setup/ui/setup.slint:474 rust/crates/setup/ui/setup.slint:482
+#: rust/crates/setup/ui/setup.slint:519 rust/crates/setup/ui/setup.slint:527
 msgid "Theme"
 msgstr "Tema"
 
-#: rust/crates/setup/ui/setup.slint:475
+#: rust/crates/setup/ui/setup.slint:520
 msgid "Dark, classic, OLED black or light for the whole app"
 msgstr "Gelap, klasik, hitam OLED, atau terang untuk seluruh aplikasi"
 
-#: rust/crates/setup/ui/setup.slint:478
+#: rust/crates/setup/ui/setup.slint:523
 msgctxt "search"
 msgid "theme classic dark blue appearance look old oled black light white"
 msgstr "tema klasik gelap biru tampilan lama oled hitam terang putih theme classic dark blue appearance look old oled black light white"
 
-#: rust/crates/setup/ui/setup.slint:483
+#: rust/crates/setup/ui/setup.slint:528
 msgid "Dark"
 msgstr "Gelap"
 
-#: rust/crates/setup/ui/setup.slint:483
+#: rust/crates/setup/ui/setup.slint:528
 msgid "Classic"
 msgstr "Klasik"
 
-#: rust/crates/setup/ui/setup.slint:483
+#: rust/crates/setup/ui/setup.slint:528
 msgid "OLED"
 msgstr "OLED"
 
-#: rust/crates/setup/ui/setup.slint:490 rust/crates/setup/ui/setup.slint:491 rust/crates/setup/ui/setup.slint:499
+#: rust/crates/setup/ui/setup.slint:535 rust/crates/setup/ui/setup.slint:536 rust/crates/setup/ui/setup.slint:544
 msgid "Card colours"
 msgstr "Warna kartu"
 
-#: rust/crates/setup/ui/setup.slint:492
+#: rust/crates/setup/ui/setup.slint:537
 msgid "Give every card in the main window a different colour."
 msgstr "Beri setiap kartu di jendela utama warna yang berbeda."
 
-#: rust/crates/setup/ui/setup.slint:495
+#: rust/crates/setup/ui/setup.slint:540
 msgctxt "search"
 msgid "color colour theme appearance monochrome colourful purple hue accent look"
 msgstr "warna tema tampilan monokrom berwarna ungu aksen color colour theme appearance monochrome colourful purple hue accent look"
 
-#: rust/crates/setup/ui/setup.slint:500
+#: rust/crates/setup/ui/setup.slint:545
 msgid "Colourful"
 msgstr "Berwarna"
 
-#: rust/crates/setup/ui/setup.slint:500
+#: rust/crates/setup/ui/setup.slint:545
 msgid "Monochrome"
 msgstr "Monokrom"
 
-#: rust/crates/setup/ui/setup.slint:508 rust/crates/setup/ui/setup.slint:517
+#: rust/crates/setup/ui/setup.slint:553 rust/crates/setup/ui/setup.slint:562
 msgid "Language"
 msgstr "Bahasa"
 
-#: rust/crates/setup/ui/setup.slint:509
+#: rust/crates/setup/ui/setup.slint:554
 msgid "The language of every text in the app"
 msgstr "Bahasa dari setiap teks di aplikasi"
 
-#: rust/crates/setup/ui/setup.slint:510
+#: rust/crates/setup/ui/setup.slint:555
 msgid "Switching needs a restart."
 msgstr "Beralih memerlukan mulai ulang."
 
-#: rust/crates/setup/ui/setup.slint:513
+#: rust/crates/setup/ui/setup.slint:558
 msgctxt "search"
 msgid "language translation translate locale"
 msgstr "bahasa terjemahan terjemahkan language translation translate locale"
 
-#: rust/crates/setup/ui/setup.slint:530
-msgid "Restart to switch"
-msgstr "Mulai ulang untuk mengganti"
-
-#: rust/crates/setup/ui/setup.slint:530
+#: rust/crates/setup/ui/setup.slint:575
 msgid "Restart Telescope to switch to the new language."
 msgstr "Mulai ulang Telescope untuk beralih ke bahasa baru."
 
-#: rust/crates/setup/ui/setup.slint:532 rust/crates/shell/ui/card-order.slint:265 rust/crates/shell/ui/restart-bar.slint:15 rust/crates/shell/ui/restart-bar.slint:45
-msgid "Restart now"
-msgstr "Mulai ulang sekarang"
-
-#: rust/crates/setup/ui/setup.slint:536 rust/crates/shell/src/plugins_tab.rs:729 rust/crates/shell/ui/card-order.slint:265
-msgid "Restart"
-msgstr "Mulai ulang"
-
-#: rust/crates/setup/ui/setup.slint:537
+#: rust/crates/setup/ui/setup.slint:582
 msgid "Restart Telescope in the language you picked."
 msgstr "Mulai ulang Telescope dalam bahasa yang Anda pilih."
 
-#: rust/crates/setup/ui/setup.slint:550 rust/crates/setup/ui/setup.slint:554
+#: rust/crates/setup/ui/setup.slint:595 rust/crates/setup/ui/setup.slint:599
 msgid "Help translate"
 msgstr "Bantu menerjemahkan"
 
-#: rust/crates/setup/ui/setup.slint:555
+#: rust/crates/setup/ui/setup.slint:600
 msgid "Fix a text or add a language without any coding."
 msgstr "Perbaiki teks atau tambahkan bahasa tanpa coding."
 
-#: rust/crates/setup/ui/setup.slint:576
+#: rust/crates/setup/ui/setup.slint:621
 msgid "About"
 msgstr "Tentang"
 
-#: rust/crates/setup/ui/setup.slint:577
+#: rust/crates/setup/ui/setup.slint:622
 msgid "Version, log, bug reports and help."
 msgstr "Versi, log, laporan bug, dan bantuan."
 
-#: rust/crates/setup/ui/setup.slint:578
+#: rust/crates/setup/ui/setup.slint:623
 msgctxt "search"
 msgid "info version help support credits"
 msgstr "versi bantuan dukungan kredit info version help support credits"
 
-#: rust/crates/setup/ui/setup.slint:589
+#: rust/crates/setup/ui/setup.slint:634
 msgctxt "search"
 msgid "about author credits made by version number build"
 msgstr "tentang pembuat kredit dibuat oleh nomor versi about author credits made by version number build"
 
-#: rust/crates/setup/ui/setup.slint:604
+#: rust/crates/setup/ui/setup.slint:649
 msgid "Log"
 msgstr "Log"
 
-#: rust/crates/setup/ui/setup.slint:605
+#: rust/crates/setup/ui/setup.slint:650
 msgid "A record of what the app did to help track down a problem"
 msgstr "Catatan tentang hal yang dilakukan aplikasi untuk membantu melacak masalah"
 
-#: rust/crates/setup/ui/setup.slint:608
+#: rust/crates/setup/ui/setup.slint:653
 msgctxt "search"
 msgid "log file open show temp folder"
 msgstr "file log buka tampilkan folder sementara log file open show temp folder"
 
-#: rust/crates/setup/ui/setup.slint:609 rust/crates/system/ui/shortcuts.slint:228
+#: rust/crates/setup/ui/setup.slint:654 rust/crates/system/ui/shortcuts.slint:228
 msgid "Open"
 msgstr "Buka"
 
-#: rust/crates/setup/ui/setup.slint:609
+#: rust/crates/setup/ui/setup.slint:654
 msgid "Open log"
 msgstr "Buka log"
 
-#: rust/crates/setup/ui/setup.slint:609
+#: rust/crates/setup/ui/setup.slint:654
 msgid "Open the full log. The log is saved in the temp folder, which the system clears."
 msgstr "Buka log lengkap. Log disimpan di folder sementara, yang dibersihkan oleh sistem."
 
-#: rust/crates/setup/ui/setup.slint:613
+#: rust/crates/setup/ui/setup.slint:658
 msgid "Diagnostics"
 msgstr "Diagnostik"
 
-#: rust/crates/setup/ui/setup.slint:614
+#: rust/crates/setup/ui/setup.slint:659
 msgid "Info about your setup to include in a bug report"
 msgstr "Info tentang penyiapan Anda untuk disertakan dalam laporan bug"
 
-#: rust/crates/setup/ui/setup.slint:615
+#: rust/crates/setup/ui/setup.slint:660
 msgid "Pairing tokens, addresses and file paths are left out."
 msgstr "Token penyandingan, alamat, dan jalur file tidak disertakan."
 
-#: rust/crates/setup/ui/setup.slint:618
+#: rust/crates/setup/ui/setup.slint:663
 msgctxt "search"
 msgid "copy diagnostics info system details"
 msgstr "salin info diagnostik detail sistem copy diagnostics info system details"
 
-#: rust/crates/setup/ui/setup.slint:621
+#: rust/crates/setup/ui/setup.slint:666
 msgid "Copy diagnostics"
 msgstr "Salin diagnostik"
 
-#: rust/crates/setup/ui/setup.slint:622
+#: rust/crates/setup/ui/setup.slint:667
 msgid "Copy info for a bug report without pairing tokens, addresses or file paths."
 msgstr "Salin info untuk laporan bug tanpa token penyandingan, alamat, atau jalur file."
 
-#: rust/crates/setup/ui/setup.slint:628
+#: rust/crates/setup/ui/setup.slint:673
 msgid "Bug reports"
 msgstr "Laporan bug"
 
-#: rust/crates/setup/ui/setup.slint:629
+#: rust/crates/setup/ui/setup.slint:674
 msgid "Report a problem on GitHub"
 msgstr "Laporkan masalah di GitHub"
 
-#: rust/crates/setup/ui/setup.slint:632
+#: rust/crates/setup/ui/setup.slint:677
 msgctxt "search"
 msgid "bug report diagnostics logs debug support problem issue help copy log file"
 msgstr "laporan bug diagnostik bantuan masalah salin file log bug report diagnostics logs debug support problem issue help copy log file"
 
-#: rust/crates/setup/ui/setup.slint:633 rust/crates/setup/ui/setup.slint:633
+#: rust/crates/setup/ui/setup.slint:678 rust/crates/setup/ui/setup.slint:678
 msgid "Report a bug"
 msgstr "Laporkan bug"
 
-#: rust/crates/setup/ui/setup.slint:633
+#: rust/crates/setup/ui/setup.slint:678
 msgid "Copy the diagnostics and open the bug form on GitHub."
 msgstr "Salin diagnostik dan buka formulir bug di GitHub."
 
-#: rust/crates/setup/ui/setup.slint:637
+#: rust/crates/setup/ui/setup.slint:682
 msgid "Need help?"
 msgstr "Butuh bantuan?"
 
-#: rust/crates/setup/ui/setup.slint:638
+#: rust/crates/setup/ui/setup.slint:683
 msgid "Fixes for the common problems"
 msgstr "Solusi untuk masalah umum"
 
-#: rust/crates/setup/ui/setup.slint:641
+#: rust/crates/setup/ui/setup.slint:686
 msgctxt "search"
 msgid "help support troubleshooting question faq problem not working stuck ask"
 msgstr "bantuan pemecahan masalah pertanyaan masalah tidak berfungsi tanya help support troubleshooting question faq problem not working stuck ask"
 
-#: rust/crates/setup/ui/setup.slint:642
+#: rust/crates/setup/ui/setup.slint:687
 msgid "Troubleshooting"
 msgstr "Pemecahan masalah"
 
@@ -9854,7 +9888,7 @@ msgid "Light"
 msgstr "Pencahayaan"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:437
+#: rust/app/src/main.rs:443
 msgid ", "
 msgstr ", "
 

@@ -182,6 +182,7 @@ export component VideoSettings inherits Card {
     in property <[string]> gpu-items;
     in-out property <int> gpu-current;
     in property <bool> gpu-restart;
+    in property <string> gpu-line;
     in-out property <bool> saving-checked;
     in-out property <string> zoom-text: "10×";
     in property <[string]> canvas-items;
@@ -209,7 +210,7 @@ export component VideoSettings inherits Card {
     callback copy(string);
 
     title: @tr("Video");
-    tip: @tr("Hardware acceleration, graphics card, power saving, zoom range and the virtual camera's size.");
+    tip: @tr("Hardware acceleration, power saving, zoom range and the virtual camera's size.");
     has-reset: true;
     reset-lit: reset-shown;
     reset-label: @tr("Reset");
@@ -251,6 +252,7 @@ export component VideoSettings inherits Card {
                 picked(i) => { root.gpu-current = i; root.gpu-picked(i); }
             }
         }
+        StatusRow { text: gpu-line; kind: "status_dim"; detail: gpu-line; }
         Unfolding {
             open: gpu-restart;
             RailRow {

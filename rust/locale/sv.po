@@ -226,7 +226,7 @@ msgstr "Växla medan tangenten hålls ner, tillbaka när du släpper"
 msgid "Does"
 msgstr "Gör"
 
-#: rust/crates/audio/src/plugin.rs:1086 rust/crates/audio/src/plugin.rs:1159 rust/crates/audio/ui/microphone.slint:167 rust/crates/setup/ui/setup.slint:333
+#: rust/crates/audio/src/plugin.rs:1086 rust/crates/audio/src/plugin.rs:1159 rust/crates/audio/ui/microphone.slint:167 rust/crates/setup/ui/setup.slint:378
 msgid "Microphone"
 msgstr "Mikrofon"
 
@@ -345,7 +345,7 @@ msgstr "Gult: begränsaren håller nere ljudtopparna. Rött: ljudet klipper."
 msgid "Click to clear"
 msgstr "Klicka för att rensa"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:59 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:210 rust/crates/setup/ui/setup.slint:337 rust/crates/setup/ui/setup.slint:466 rust/crates/shell/src/plugins_tab.rs:726 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:59 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:382 rust/crates/setup/ui/setup.slint:511 rust/crates/shell/src/plugins_tab.rs:726 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "Återställ"
 
@@ -369,7 +369,7 @@ msgstr "Brusreducering"
 msgid "Noise reduction unavailable"
 msgstr "Brusreducering inte tillgänglig"
 
-#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:438 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:258
+#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:483 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:258
 msgid "Cancel"
 msgstr "Avbryt"
 
@@ -499,7 +499,7 @@ msgstr "Allmänt"
 msgid "Streaming"
 msgstr "Strömning"
 
-#: rust/crates/core/src/plugin.rs:15 rust/crates/setup/ui/setup.slint:206
+#: rust/crates/core/src/plugin.rs:15 rust/crates/setup/ui/setup.slint:212
 msgid "Video"
 msgstr "Video"
 
@@ -527,7 +527,7 @@ msgstr "Uppdateringar & Om"
 msgid "Camera"
 msgstr "Kamera"
 
-#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:462
+#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:507
 msgid "Look"
 msgstr "Utseende"
 
@@ -700,7 +700,7 @@ msgstr "Färgen som valdes från förhandsvisningen. Klicka för att välja igen
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "Klicka på skärmen bakom dig i förhandsvisningen. Esc avbryter."
 
-#: rust/crates/effects/src/chroma_key.rs:394 rust/crates/effects/src/chroma_key.rs:430 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:544 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:709 rust/crates/shell/src/streams.rs:1766 rust/crates/shell/src/window.rs:1726 rust/crates/shell/src/worker.rs:569 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:394 rust/crates/effects/src/chroma_key.rs:430 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:545 rust/crates/outputs/src/webcam.rs:965 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:709 rust/crates/shell/src/streams.rs:1766 rust/crates/shell/src/window.rs:1726 rust/crates/shell/src/worker.rs:569 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "Strömmar inte"
 
@@ -1136,7 +1136,7 @@ msgstr "Exportera graderingen"
 msgid "{file} is already there. Replace it?"
 msgstr "{file} finns redan där. Vill du ersätta den?"
 
-#: rust/crates/effects/src/colour_grading.rs:663 rust/crates/effects/src/colour_grading.rs:1084 rust/crates/effects/src/colour_grading.rs:1177 rust/crates/effects/src/colour_grading.rs:1179 rust/crates/effects/src/colour_grading.rs:1221 rust/crates/effects/ui/colour_grading.slint:180
+#: rust/crates/effects/src/colour_grading.rs:663 rust/crates/effects/src/colour_grading.rs:1083 rust/crates/effects/src/colour_grading.rs:1175 rust/crates/effects/src/colour_grading.rs:1177 rust/crates/effects/src/colour_grading.rs:1219 rust/crates/effects/ui/colour_grading.slint:180
 msgid "Colour grading"
 msgstr "Färgsättning"
 
@@ -1145,19 +1145,19 @@ msgstr "Färgsättning"
 msgid "{wheel} colour"
 msgstr "{wheel}-färg"
 
-#: rust/crates/effects/src/colour_grading.rs:1085
+#: rust/crates/effects/src/colour_grading.rs:1084
 msgid "Change the look of the picture with colour wheels, curves and LUT files."
 msgstr "Ändra bildens utseende med färghjul, kurvor och LUT-filer."
 
-#: rust/crates/effects/src/colour_grading.rs:1086
+#: rust/crates/effects/src/colour_grading.rs:1085
 msgid "Without the Colour grading plugin there's no Colour grading card and the picture has the camera's colours."
 msgstr "Utan tillägget Colour grading finns inte kortet Colour grading och bilden har kamerans färger."
 
-#: rust/crates/effects/src/colour_grading.rs:1180 rust/crates/effects/src/colour_grading.rs:1226
+#: rust/crates/effects/src/colour_grading.rs:1178 rust/crates/effects/src/colour_grading.rs:1224
 msgid "Compare before and after"
 msgstr "Jämför före och efter"
 
-#: rust/crates/effects/src/colour_grading.rs:1204 rust/crates/effects/src/colour_grading.rs:1239
+#: rust/crates/effects/src/colour_grading.rs:1202 rust/crates/effects/src/colour_grading.rs:1237
 msgid "LUT strength"
 msgstr "LUT-styrka"
 
@@ -1953,7 +1953,7 @@ msgid "Pill"
 msgstr "Piller"
 
 #. Light and Heavy are the names of the two stream formats
-#: rust/crates/effects/src/name_tag.rs:20 rust/crates/outputs/src/stream_output.rs:790 rust/crates/outputs/src/stream_output.rs:1005 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:116 rust/crates/outputs/ui/stream_output.slint:120 rust/crates/setup/src/stats_phone.rs:98 rust/crates/setup/ui/setup.slint:483
+#: rust/crates/effects/src/name_tag.rs:20 rust/crates/outputs/src/stream_output.rs:790 rust/crates/outputs/src/stream_output.rs:1005 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:116 rust/crates/outputs/ui/stream_output.slint:120 rust/crates/setup/src/stats_phone.rs:98 rust/crates/setup/ui/setup.slint:528
 msgid "Light"
 msgstr "Lätt"
 
@@ -2309,7 +2309,7 @@ msgstr "Visa skylten på en webbsida"
 msgid "Scan"
 msgstr "Skanna"
 
-#: rust/crates/effects/src/on_air_plugin.rs:484 rust/crates/effects/src/qr_reader.rs:527 rust/crates/link/ui/browser_camera.slint:178 rust/crates/link/ui/browser_camera.slint:179 rust/crates/setup/src/setup.rs:445 rust/crates/setup/ui/parts.slint:91 rust/crates/setup/ui/parts.slint:92 rust/crates/system/ui/mcp.slint:118 rust/crates/system/ui/mcp.slint:119 rust/crates/system/ui/shortcuts.slint:356
+#: rust/crates/effects/src/on_air_plugin.rs:484 rust/crates/effects/src/qr_reader.rs:527 rust/crates/link/ui/browser_camera.slint:178 rust/crates/link/ui/browser_camera.slint:179 rust/crates/setup/src/setup.rs:484 rust/crates/setup/ui/parts.slint:91 rust/crates/setup/ui/parts.slint:92 rust/crates/system/ui/mcp.slint:118 rust/crates/system/ui/mcp.slint:119 rust/crates/system/ui/shortcuts.slint:356
 msgid "Copy"
 msgstr "Kopiera"
 
@@ -2766,7 +2766,7 @@ msgstr "Gör båda telefonerna ljusare eller mörkare tillsammans efter Matcha, 
 msgid "Drop the colour curve Match made and leave the phones' exposure as it is."
 msgstr "Ta bort färgkurvan som Matcha skapade och lämna telefonernas exponering som den är."
 
-#: rust/crates/effects/src/stereo_plugin.rs:719 rust/crates/effects/src/stereo_plugin.rs:1169 rust/crates/effects/src/stereo_plugin.rs:1309 rust/crates/effects/src/stereo_plugin.rs:1309 rust/crates/effects/src/stereo_plugin.rs:1321 rust/crates/effects/ui/stereo.slint:55
+#: rust/crates/effects/src/stereo_plugin.rs:719 rust/crates/effects/src/stereo_plugin.rs:1169 rust/crates/effects/src/stereo_plugin.rs:1308 rust/crates/effects/src/stereo_plugin.rs:1308 rust/crates/effects/src/stereo_plugin.rs:1320 rust/crates/effects/ui/stereo.slint:55
 msgid "3D"
 msgstr "3D"
 
@@ -3304,7 +3304,7 @@ msgstr "Spara som"
 msgid "Save this layout under a new name."
 msgstr "Spara den här layouten under ett nytt namn."
 
-#: rust/crates/effects/ui/composite_editor.slint:392 rust/crates/effects/ui/composite_editor.slint:392 rust/crates/link/ui/connection.slint:116 rust/crates/setup/src/setup.rs:662 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/src/plugins/presets.rs:215
+#: rust/crates/effects/ui/composite_editor.slint:392 rust/crates/effects/ui/composite_editor.slint:392 rust/crates/link/ui/connection.slint:116 rust/crates/setup/src/setup.rs:701 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/src/plugins/presets.rs:215
 msgid "Rename"
 msgstr "Byt namn"
 
@@ -3396,7 +3396,7 @@ msgstr "Ersätt layout"
 msgid "Name:"
 msgstr "Namn:"
 
-#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:439 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1065 rust/crates/shell/ui/settings.slint:587
+#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:484 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1065 rust/crates/shell/ui/settings.slint:587
 msgid "OK"
 msgstr "OK"
 
@@ -4100,7 +4100,7 @@ msgstr "Hinner inte med"
 msgid "Browser"
 msgstr "Webbläsare"
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:745 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1727 rust/crates/system/ui/updates.slint:166
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:784 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1727 rust/crates/system/ui/updates.slint:166
 msgid "Try again"
 msgstr "Försök igen"
 
@@ -4165,7 +4165,7 @@ msgstr "Kontrollera att telefonen är på samma nätverk."
 msgid "The stream is still running over {now} and Connect via is still set to {kept}."
 msgstr "Strömmen körs fortfarande via {now} och Anslut via är fortfarande inställt på {kept}."
 
-#: rust/crates/link/src/connection.rs:804
+#: rust/crates/link/src/connection.rs:804 rust/crates/setup/src/setup.rs:397
 msgid "Automatic"
 msgstr "Automatiskt"
 
@@ -4185,7 +4185,7 @@ msgstr "Dator"
 msgid "Checking"
 msgstr "Kontrollerar"
 
-#: rust/crates/link/src/connection.rs:826 rust/crates/setup/src/setup.rs:650 rust/crates/setup/src/setup.rs:659 rust/crates/setup/src/setup.rs:678 rust/crates/setup/src/setup.rs:702
+#: rust/crates/link/src/connection.rs:826 rust/crates/setup/src/setup.rs:689 rust/crates/setup/src/setup.rs:698 rust/crates/setup/src/setup.rs:717 rust/crates/setup/src/setup.rs:741
 msgid "Ready"
 msgstr "Redo"
 
@@ -4580,7 +4580,7 @@ msgstr "Uppdaterar telefonappen via USB…"
 msgid "The Telescope app on {phone} is older than this one."
 msgstr "Telescope-appen på {phone} är äldre än den här."
 
-#: rust/crates/link/src/plugin.rs:1216 rust/crates/setup/src/setup.rs:854 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:712 rust/crates/system/src/shortcuts.rs:856
+#: rust/crates/link/src/plugin.rs:1216 rust/crates/setup/src/setup.rs:893 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:712 rust/crates/system/src/shortcuts.rs:856
 msgid "Copy command"
 msgstr "Kopiera kommando"
 
@@ -4847,89 +4847,89 @@ msgstr "nätverk lagg fördröjning fryser frysningar hackar hack wi-fi udp tcp 
 msgid "Experimental"
 msgstr "Experimentellt"
 
-#: rust/crates/outputs/src/linux_setup.rs:21
+#: rust/crates/outputs/src/linux_setup.rs:62
 msgid "Telescope couldn't ask for your password here. Run this in a terminal, then try again."
 msgstr "Telescope kunde inte fråga efter ditt lösenord här. Kör det här i en terminal och försök igen."
 
-#: rust/crates/outputs/src/linux_setup.rs:158
+#: rust/crates/outputs/src/linux_setup.rs:209
 msgid "modprobe -r failed"
 msgstr "modprobe -r misslyckades"
 
-#: rust/crates/outputs/src/linux_setup.rs:159
+#: rust/crates/outputs/src/linux_setup.rs:210
 msgid "Module unloaded"
 msgstr "Modulen laddades ur"
 
-#: rust/crates/outputs/src/linux_setup.rs:165
+#: rust/crates/outputs/src/linux_setup.rs:218
 msgid "reload failed"
 msgstr "omladdning misslyckades"
 
-#: rust/crates/outputs/src/linux_setup.rs:173
+#: rust/crates/outputs/src/linux_setup.rs:226
 #, python-brace-format
 msgid "{device} is missing since v4l2loopback is already loaded with other settings. Close any app using a virtual camera, click Unload and then Load."
 msgstr "{device} saknas eftersom v4l2loopback redan är inläst med andra inställningar. Stäng alla program som använder en virtuell kamera, klicka på Ladda ur och sedan på Ladda."
 
-#: rust/crates/outputs/src/linux_setup.rs:178
+#: rust/crates/outputs/src/linux_setup.rs:231
 #, python-brace-format
 msgid "{device} already exists and is not a v4l2loopback device."
 msgstr "{device} finns redan och är inte en v4l2loopback-enhet."
 
-#: rust/crates/outputs/src/linux_setup.rs:186
+#: rust/crates/outputs/src/linux_setup.rs:240
 msgid "modprobe failed"
 msgstr "modprobe misslyckades"
 
-#: rust/crates/outputs/src/linux_setup.rs:188
+#: rust/crates/outputs/src/linux_setup.rs:242
 #, python-brace-format
 msgid "Loaded: {phone} + {obs}"
 msgstr "Laddad: {phone} + {obs}"
 
-#: rust/crates/outputs/src/linux_setup.rs:191
+#: rust/crates/outputs/src/linux_setup.rs:245
 msgid "v4l2loopback isn't installed. Install it via your package manager (v4l2loopback-dkms on Debian/Ubuntu/Arch, v4l2loopback via RPM Fusion on Fedora/Nobara), then try again."
 msgstr "v4l2loopback är inte installerad. Installera den via din pakethanterare (v4l2loopback-dkms på Debian/Ubuntu/Arch, v4l2loopback via RPM Fusion på Fedora/Nobara) och försök igen."
 
-#: rust/crates/outputs/src/linux_setup.rs:199
+#: rust/crates/outputs/src/linux_setup.rs:254
 msgid "This v4l2loopback can't add cameras while it runs (v4l2loopback-ctl is missing). Install v4l2loopback-utils or a newer v4l2loopback, then try again."
 msgstr "Den här versionen av v4l2loopback kan inte lägga till kameror medan den körs (v4l2loopback-ctl saknas). Installera v4l2loopback-utils eller en nyare v4l2loopback och försök igen."
 
-#: rust/crates/outputs/src/linux_setup.rs:202
+#: rust/crates/outputs/src/linux_setup.rs:258
 msgid "v4l2loopback-ctl add failed"
 msgstr "v4l2loopback-ctl add misslyckades"
 
-#: rust/crates/outputs/src/linux_setup.rs:209
+#: rust/crates/outputs/src/linux_setup.rs:266
 msgid "v4l2loopback-ctl is missing. Unloading the module, or a restart, removes them too."
 msgstr "v4l2loopback-ctl saknas. De försvinner också om du laddar ur modulen eller startar om datorn."
 
-#: rust/crates/outputs/src/linux_setup.rs:212
+#: rust/crates/outputs/src/linux_setup.rs:270
 msgid "v4l2loopback-ctl delete failed (an app may still have one open)"
 msgstr "v4l2loopback-ctl delete misslyckades (en app kan fortfarande ha en öppen)"
 
-#: rust/crates/outputs/src/linux_setup.rs:243
+#: rust/crates/outputs/src/linux_setup.rs:334
 #, python-brace-format
 msgid "Already persisted: {path}"
 msgstr "Redan sparad för uppstart: {path}"
 
-#: rust/crates/outputs/src/linux_setup.rs:247
+#: rust/crates/outputs/src/linux_setup.rs:338
 #, python-brace-format
 msgid "Existing v4l2loopback config found in {paths} - remove it first"
 msgstr "Befintlig v4l2loopback-konfiguration hittades i {paths} - ta bort den först"
 
-#: rust/crates/outputs/src/linux_setup.rs:249
+#: rust/crates/outputs/src/linux_setup.rs:341
 msgid "Failed to write persistence files"
 msgstr "Kunde inte skriva filerna för uppstart"
 
-#: rust/crates/outputs/src/linux_setup.rs:253
+#: rust/crates/outputs/src/linux_setup.rs:345
 #, python-brace-format
 msgid "Wrote {first} and {second}"
 msgstr "Skrev {first} och {second}"
 
-#: rust/crates/outputs/src/linux_setup.rs:260
+#: rust/crates/outputs/src/linux_setup.rs:352
 msgid "Nothing to remove"
 msgstr "Inget att ta bort"
 
-#: rust/crates/outputs/src/linux_setup.rs:263
+#: rust/crates/outputs/src/linux_setup.rs:355
 msgid "Failed to remove persistence files"
 msgstr "Kunde inte ta bort filerna för uppstart"
 
-#: rust/crates/outputs/src/linux_setup.rs:267
+#: rust/crates/outputs/src/linux_setup.rs:359
 #, python-brace-format
 msgid "Removed {paths}"
 msgstr "Tog bort {paths}"
@@ -4950,40 +4950,40 @@ msgstr "Telescope kan inte läsa den här sändarens bild. Prova en annan sända
 msgid "Check that the sender is still running."
 msgstr "Kontrollera att sändaren fortfarande är igång."
 
-#: rust/crates/outputs/src/spout/mod.rs:538
+#: rust/crates/outputs/src/spout/mod.rs:539
 msgid "Sender not running"
 msgstr "Sändaren körs inte"
 
-#: rust/crates/outputs/src/spout/mod.rs:540 rust/crates/outputs/src/webcam.rs:961
+#: rust/crates/outputs/src/spout/mod.rs:541 rust/crates/outputs/src/webcam.rs:961
 msgid "Not sending anything"
 msgstr "Skickar ingenting"
 
-#: rust/crates/outputs/src/spout/mod.rs:542 rust/crates/outputs/src/webcam.rs:963
+#: rust/crates/outputs/src/spout/mod.rs:543 rust/crates/outputs/src/webcam.rs:963
 msgid "Starting…"
 msgstr "Startar…"
 
-#: rust/crates/outputs/src/spout/mod.rs:551
+#: rust/crates/outputs/src/spout/mod.rs:552
 msgid "Set how many pictures a second to take. Spout senders don't share their own rate."
 msgstr "Ställ in hur många bilder i sekunden som ska tas. Spout-sändare delar inte sin egen bildfrekvens."
 
-#: rust/crates/outputs/src/spout/mod.rs:565 rust/crates/outputs/ui/spout.slint:14
+#: rust/crates/outputs/src/spout/mod.rs:566 rust/crates/outputs/ui/spout.slint:14
 msgid "Spout capture"
 msgstr "Spout-fångst"
 
-#: rust/crates/outputs/src/spout/mod.rs:566
+#: rust/crates/outputs/src/spout/mod.rs:567
 msgid "Stream from games, OBS and other programs on this computer that share their picture through Spout."
 msgstr "Strömma från spel, OBS och andra program på den här datorn som delar sin bild via Spout."
 
-#: rust/crates/outputs/src/spout/mod.rs:567
+#: rust/crates/outputs/src/spout/mod.rs:568
 msgid "Without Spout capture the senders aren't in the device picker and the Spout capture card is gone too."
 msgstr "Utan Spout-fångst finns inte sändarna i enhetsväljaren och kortet Spout-fångst är också borta."
 
-#: rust/crates/outputs/src/spout/mod.rs:615
+#: rust/crates/outputs/src/spout/mod.rs:616
 #, python-brace-format
 msgid "{name} isn't running"
 msgstr "{name} körs inte"
 
-#: rust/crates/outputs/src/spout/mod.rs:615
+#: rust/crates/outputs/src/spout/mod.rs:616
 msgid "Start it again or pick another source."
 msgstr "Starta det igen eller välj en annan källa."
 
@@ -5138,12 +5138,12 @@ msgstr "JPEG-kvalitet"
 msgid "Bitrate"
 msgstr "Bithastighet"
 
-#: rust/crates/outputs/src/v4l2.rs:165
+#: rust/crates/outputs/src/v4l2.rs:160
 #, python-brace-format
 msgid "{device} is held at {width}x{height} by an app reading it"
 msgstr "{device} hålls kvar på {width}x{height} av en app som läser från den"
 
-#: rust/crates/outputs/src/v4l2.rs:168
+#: rust/crates/outputs/src/v4l2.rs:163
 #, python-brace-format
 msgid "{device} is set to the {format} pixel format, which Telescope can't write to it. Close the apps using it, or reload v4l2loopback without keep_format."
 msgstr "{device} är inställd på pixelformatet {format}, som Telescope inte kan skriva till den. Stäng apparna som använder den, eller ladda om v4l2loopback utan keep_format."
@@ -5448,7 +5448,7 @@ msgstr "Kameran kan inte ta en JPEG när dess bildkvalitet är låst till RAW."
 msgid "The camera only sent part of the photo. The part that arrived is saved."
 msgstr "Kameran skickade bara en del av fotot. Den del som kom fram sparas."
 
-#: rust/crates/outputs/src/wininstall.rs:256 rust/crates/setup/src/setup.rs:809
+#: rust/crates/outputs/src/wininstall.rs:256 rust/crates/setup/src/setup.rs:848
 msgid "Installed"
 msgstr "Installerad"
 
@@ -5755,7 +5755,7 @@ msgstr "Ditt lösenord (pkexec eller sudo) krävs eftersom det här ändrar syst
 msgid "Checking..."
 msgstr "Kontrollerar..."
 
-#: rust/crates/setup/src/setup.rs:185 rust/crates/setup/src/setup.rs:667 rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/shell/src/plugins/onboarding.rs:146
+#: rust/crates/setup/src/setup.rs:185 rust/crates/setup/src/setup.rs:706 rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/shell/src/plugins/onboarding.rs:146
 msgid "Install driver"
 msgstr "Installera drivrutin"
 
@@ -5771,291 +5771,300 @@ msgstr "Ingår i den här appen"
 msgid "Not included with this app"
 msgstr "Ingår inte i den här appen"
 
-#: rust/crates/setup/src/setup.rs:355
+#: rust/crates/setup/src/setup.rs:360
 msgid "Same as the system"
 msgstr "Samma som systemet"
 
 #. after a language's name in the Language list, for a translation that's only a first draft
-#: rust/crates/setup/src/setup.rs:358
+#: rust/crates/setup/src/setup.rs:363
 msgid "(beta)"
 msgstr "(beta)"
 
-#: rust/crates/setup/src/setup.rs:374
+#: rust/crates/setup/src/setup.rs:379
 msgid "Write the setting to /etc/modprobe.d/ and /etc/modules-load.d/ so the module loads after a reboot."
 msgstr "Skriv inställningen till /etc/modprobe.d/ och /etc/modules-load.d/ så att modulen laddas efter en omstart."
 
-#: rust/crates/setup/src/setup.rs:374
+#: rust/crates/setup/src/setup.rs:379
 msgid "Your password (pkexec or sudo) is required."
 msgstr "Ditt lösenord (pkexec eller sudo) krävs."
 
-#: rust/crates/setup/src/setup.rs:387
+#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:987
+msgid "(not found)"
+msgstr ""
+
+#: rust/crates/setup/src/setup.rs:417
+#, python-brace-format
+msgid "Using {card}"
+msgstr ""
+
+#: rust/crates/setup/src/setup.rs:425
 msgid "Applying stops the stream and reloads the virtual camera. Close OBS and other apps using it first."
 msgstr "När du verkställer stoppas strömmen och den virtuella kameran laddas om. Stäng OBS och andra program som använder den först."
 
-#: rust/crates/setup/src/setup.rs:388
+#: rust/crates/setup/src/setup.rs:426
 msgid "Apply and reload"
 msgstr "Verkställ och ladda om"
 
-#: rust/crates/setup/src/setup.rs:390
+#: rust/crates/setup/src/setup.rs:428
 msgid "Apply"
 msgstr "Verkställ"
 
-#: rust/crates/setup/src/setup.rs:390
+#: rust/crates/setup/src/setup.rs:428
 msgid "Applying restarts the stream at the new size. Remove the source and add it again if OBS loses it."
 msgstr "Att verkställa startar om strömmen med den nya storleken. Ta bort källan och lägg till den igen om OBS tappar bort den."
 
-#: rust/crates/setup/src/setup.rs:419 rust/crates/shell/src/plugins/onboarding.rs:157 rust/crates/shell/src/plugins/onboarding.rs:161 rust/crates/shell/src/plugins/onboarding.rs:164
+#: rust/crates/setup/src/setup.rs:458 rust/crates/shell/src/plugins/onboarding.rs:157 rust/crates/shell/src/plugins/onboarding.rs:161 rust/crates/shell/src/plugins/onboarding.rs:164
 msgid "Install over USB"
 msgstr "Installera via USB"
 
-#: rust/crates/setup/src/setup.rs:419
+#: rust/crates/setup/src/setup.rs:458
 msgid "Choose APK"
 msgstr "Välj APK"
 
-#: rust/crates/setup/src/setup.rs:433
+#: rust/crates/setup/src/setup.rs:472
 msgid "This translation is a first draft and some texts might read a bit oddly."
 msgstr "Den här översättningen är ett första utkast och vissa texter kan låta lite konstiga."
 
-#: rust/crates/setup/src/setup.rs:434
+#: rust/crates/setup/src/setup.rs:473
 msgid "Missing your language, or spotted a text that reads wrong?"
 msgstr "Saknas ditt språk, eller har du hittat en text som blivit fel?"
 
 #. keep the <a href="{url}"> link and the name LunarKittyy as they are
-#: rust/crates/setup/src/setup.rs:440
+#: rust/crates/setup/src/setup.rs:479
 #, python-brace-format
 msgid "Made by <a href=\"{url}\">LunarKittyy</a>"
 msgstr "Skapad av <a href=\"{url}\">LunarKittyy</a>"
 
-#: rust/crates/setup/src/setup.rs:443
+#: rust/crates/setup/src/setup.rs:482
 #, python-brace-format
 msgid "Version {version}"
 msgstr "Version {version}"
 
-#: rust/crates/setup/src/setup.rs:445 rust/crates/system/src/shortcuts.rs:856
+#: rust/crates/setup/src/setup.rs:484 rust/crates/system/src/shortcuts.rs:856
 msgid "Copied"
 msgstr "Kopierat"
 
-#: rust/crates/setup/src/setup.rs:526
+#: rust/crates/setup/src/setup.rs:565
 msgid "Off until you restart Telescope because the graphics card failed"
 msgstr "Av tills du startar om Telescope eftersom grafikkortet slutade fungera"
 
-#: rust/crates/setup/src/setup.rs:527
+#: rust/crates/setup/src/setup.rs:566
 msgid "Paused for a few minutes because the graphics card was too slow"
 msgstr "Pausad i några minuter eftersom grafikkortet var för långsamt"
 
-#: rust/crates/setup/src/setup.rs:528
+#: rust/crates/setup/src/setup.rs:567
 #, python-brace-format
 msgid "Found {device}"
 msgstr "Hittade {device}"
 
-#: rust/crates/setup/src/setup.rs:529
+#: rust/crates/setup/src/setup.rs:568
 msgid "No graphics card Telescope can use"
 msgstr "Inget grafikkort som Telescope kan använda"
 
-#: rust/crates/setup/src/setup.rs:546
+#: rust/crates/setup/src/setup.rs:585
 #, python-brace-format
 msgid "Ready: {phone} + {obs}"
 msgstr "Redo: {phone} + {obs}"
 
-#: rust/crates/setup/src/setup.rs:548
+#: rust/crates/setup/src/setup.rs:587
 #, python-brace-format
 msgid "Module loaded but {device} not found - another config active"
 msgstr "Modulen är laddad men {device} hittades inte - en annan konfiguration är aktiv"
 
-#: rust/crates/setup/src/setup.rs:550
+#: rust/crates/setup/src/setup.rs:589
 msgid "Not loaded - click Load"
 msgstr "Inte laddad - klicka på Ladda"
 
-#: rust/crates/setup/src/setup.rs:561
+#: rust/crates/setup/src/setup.rs:600
 msgid "Loading..."
 msgstr "Laddar..."
 
-#: rust/crates/setup/src/setup.rs:566
+#: rust/crates/setup/src/setup.rs:605
 msgid "Unloading..."
 msgstr "Laddar ur..."
 
-#: rust/crates/setup/src/setup.rs:572
+#: rust/crates/setup/src/setup.rs:611
 #, python-brace-format
 msgid "Loaded - {message}"
 msgstr "Laddad - {message}"
 
-#: rust/crates/setup/src/setup.rs:573
+#: rust/crates/setup/src/setup.rs:612
 #, python-brace-format
 msgid "Unloaded - {message}"
 msgstr "Laddades ur - {message}"
 
-#: rust/crates/setup/src/setup.rs:574
+#: rust/crates/setup/src/setup.rs:613
 #, python-brace-format
 msgid "Failed - {message}"
 msgstr "Misslyckades - {message}"
 
-#: rust/crates/setup/src/setup.rs:583
+#: rust/crates/setup/src/setup.rs:622
 msgid "Working..."
 msgstr "Arbetar..."
 
-#: rust/crates/setup/src/setup.rs:608
+#: rust/crates/setup/src/setup.rs:647
 msgid "Stop the streams going to them first."
 msgstr "Stoppa strömmarna som går till dem först."
 
-#: rust/crates/setup/src/setup.rs:610
+#: rust/crates/setup/src/setup.rs:649
 msgid "Go back to one camera. Use Add camera to set up the others again."
 msgstr "Gå tillbaka till en kamera. Använd Lägg till kamera för att ställa in de andra igen."
 
-#: rust/crates/setup/src/setup.rs:611
+#: rust/crates/setup/src/setup.rs:650
 msgid "Your password is required."
 msgstr "Ditt lösenord krävs."
 
-#: rust/crates/setup/src/setup.rs:611 rust/crates/shell/src/extra_cameras.rs:87
+#: rust/crates/setup/src/setup.rs:650 rust/crates/shell/src/extra_cameras.rs:87
 msgid "Windows asks for permission."
 msgstr "Windows ber om tillåtelse."
 
-#: rust/crates/setup/src/setup.rs:618
+#: rust/crates/setup/src/setup.rs:657
 msgid "Removing…"
 msgstr "Tar bort…"
 
-#: rust/crates/setup/src/setup.rs:625
+#: rust/crates/setup/src/setup.rs:664
 msgid "Removed"
 msgstr "Borttagna"
 
-#: rust/crates/setup/src/setup.rs:629
+#: rust/crates/setup/src/setup.rs:668
 #, python-brace-format
 msgid "Couldn't remove them: {message}"
 msgstr "Kunde inte ta bort dem: {message}"
 
-#: rust/crates/setup/src/setup.rs:650 rust/crates/setup/src/setup.rs:656 rust/crates/setup/src/setup.rs:659 rust/crates/setup/src/setup.rs:703
+#: rust/crates/setup/src/setup.rs:689 rust/crates/setup/src/setup.rs:695 rust/crates/setup/src/setup.rs:698 rust/crates/setup/src/setup.rs:742
 msgid "Reinstall"
 msgstr "Installera om"
 
-#: rust/crates/setup/src/setup.rs:652
+#: rust/crates/setup/src/setup.rs:691
 msgid "Update ready"
 msgstr "Uppdatering redo"
 
-#: rust/crates/setup/src/setup.rs:652
+#: rust/crates/setup/src/setup.rs:691
 msgid "Some apps can't see the camera"
 msgstr "Vissa appar kan inte se kameran"
 
-#: rust/crates/setup/src/setup.rs:653 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
+#: rust/crates/setup/src/setup.rs:692 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
 msgid "Update"
 msgstr "Uppdatera"
 
-#: rust/crates/setup/src/setup.rs:653
+#: rust/crates/setup/src/setup.rs:692
 msgid "Install the camera every Windows 11 app can see (Windows asks for admin access once)."
 msgstr "Installera kameran som alla appar i Windows 11 kan se (Windows ber om administratörsbehörighet en gång)."
 
-#: rust/crates/setup/src/setup.rs:656
+#: rust/crates/setup/src/setup.rs:695
 msgid "Reinstall for a security fix"
 msgstr "Installera om för en säkerhetsfix"
 
-#: rust/crates/setup/src/setup.rs:657
+#: rust/crates/setup/src/setup.rs:696
 msgid "Move the driver into Program Files (Windows asks for admin access once)."
 msgstr "Flytta drivrutinen till Program Files (Windows ber om administratörsbehörighet en gång)."
 
-#: rust/crates/setup/src/setup.rs:662
+#: rust/crates/setup/src/setup.rs:701
 #, python-brace-format
 msgid "Apps list it as “{name}”"
 msgstr "Appar visar den som “{name}”"
 
-#: rust/crates/setup/src/setup.rs:663
+#: rust/crates/setup/src/setup.rs:702
 #, python-brace-format
 msgid "Register it again as “{name}”."
 msgstr "Registrera den igen som “{name}”."
 
-#: rust/crates/setup/src/setup.rs:666 rust/crates/shell/src/plugins/onboarding.rs:138 rust/crates/shell/src/plugins/onboarding.rs:146
+#: rust/crates/setup/src/setup.rs:705 rust/crates/shell/src/plugins/onboarding.rs:138 rust/crates/shell/src/plugins/onboarding.rs:146
 msgid "Not installed"
 msgstr "Inte installerad"
 
-#: rust/crates/setup/src/setup.rs:666
+#: rust/crates/setup/src/setup.rs:705
 msgid "Not installed (Install driver downloads it first)"
 msgstr "Inte installerad (Installera drivrutin laddar ner den först)"
 
-#: rust/crates/setup/src/setup.rs:680
+#: rust/crates/setup/src/setup.rs:719
 msgid "Not found. Pairing and installing over USB need adb; Wi-Fi doesn't."
 msgstr "Hittades inte. Parkoppling och installation via USB kräver adb; Wi-Fi gör det inte."
 
-#: rust/crates/setup/src/setup.rs:706 rust/crates/setup/src/setup.rs:870
+#: rust/crates/setup/src/setup.rs:745 rust/crates/setup/src/setup.rs:909
 #, python-brace-format
 msgid "Failed: {message}"
 msgstr "Misslyckades: {message}"
 
-#: rust/crates/setup/src/setup.rs:707
+#: rust/crates/setup/src/setup.rs:746
 msgid "Retry"
 msgstr "Försök igen"
 
-#: rust/crates/setup/src/setup.rs:738
+#: rust/crates/setup/src/setup.rs:777
 #, python-brace-format
 msgid "Ready (adb {version}, from Google)"
 msgstr "Redo (adb {version}, från Google)"
 
-#: rust/crates/setup/src/setup.rs:739
+#: rust/crates/setup/src/setup.rs:778
 msgid "Ready (adb, from Google)"
 msgstr "Redo (adb, från Google)"
 
-#: rust/crates/setup/src/setup.rs:740
+#: rust/crates/setup/src/setup.rs:779
 #, python-brace-format
 msgid "Ready (adb {version})"
 msgstr "Redo (adb {version})"
 
-#: rust/crates/setup/src/setup.rs:741
+#: rust/crates/setup/src/setup.rs:780
 msgid "Ready (adb)"
 msgstr "Redo (adb)"
 
-#: rust/crates/setup/src/setup.rs:755
+#: rust/crates/setup/src/setup.rs:794
 msgid "Installing over USB needs adb. Install it from your distro's packages."
 msgstr "Installation via USB behöver adb. Installera det från din distributions paket."
 
-#: rust/crates/setup/src/setup.rs:757
+#: rust/crates/setup/src/setup.rs:796
 msgid "Installing over USB needs adb. Click Get adb under Virtual camera above."
 msgstr "Installation via USB behöver adb. Klicka på Hämta adb under Virtuell kamera ovan."
 
-#: rust/crates/setup/src/setup.rs:765
+#: rust/crates/setup/src/setup.rs:804
 msgid "Select APK"
 msgstr "Välj APK"
 
-#: rust/crates/setup/src/setup.rs:766
+#: rust/crates/setup/src/setup.rs:805
 msgid "Android Package (*.apk)"
 msgstr "Android-paket (*.apk)"
 
-#: rust/crates/setup/src/setup.rs:783 rust/crates/shell/src/plugins/mod.rs:32
+#: rust/crates/setup/src/setup.rs:822 rust/crates/shell/src/plugins/mod.rs:32
 msgid "No phone found over USB. Plug it in and allow USB debugging when the phone asks."
 msgstr "Ingen telefon hittades via USB. Koppla in den och tillåt USB-felsökning när telefonen frågar."
 
-#: rust/crates/setup/src/setup.rs:799
+#: rust/crates/setup/src/setup.rs:838
 msgid "Installing..."
 msgstr "Installerar..."
 
-#: rust/crates/setup/src/setup.rs:831
+#: rust/crates/setup/src/setup.rs:870
 msgid "Reloading loopback..."
 msgstr "Laddar om loopback..."
 
-#: rust/crates/setup/src/setup.rs:831
+#: rust/crates/setup/src/setup.rs:870
 msgid "Restarting stream..."
 msgstr "Startar om strömmen..."
 
-#: rust/crates/setup/src/setup.rs:852 rust/crates/shell/src/streams.rs:713
+#: rust/crates/setup/src/setup.rs:891 rust/crates/shell/src/streams.rs:713
 msgid "Resize the virtual camera"
 msgstr "Ändra storlek på den virtuella kameran"
 
-#: rust/crates/setup/src/setup.rs:866
+#: rust/crates/setup/src/setup.rs:905
 msgid "Done - loopback reloaded."
 msgstr "Klart - loopback har laddats om."
 
-#: rust/crates/setup/src/setup.rs:866
+#: rust/crates/setup/src/setup.rs:905
 msgid "Done - canvas updated."
 msgstr "Klart - bildytan har uppdaterats."
 
-#: rust/crates/setup/src/setup.rs:868
+#: rust/crates/setup/src/setup.rs:907
 msgid "Failed: still in use. Close OBS and other apps using it, then try again."
 msgstr "Misslyckades: används fortfarande. Stäng OBS och andra program som använder den och försök igen."
 
-#: rust/crates/setup/src/setup.rs:1111
+#: rust/crates/setup/src/setup.rs:1158
 msgid "Advanced settings"
 msgstr "Avancerade inställningar"
 
-#: rust/crates/setup/src/setup.rs:1112
+#: rust/crates/setup/src/setup.rs:1159
 msgid "Set up the virtual camera, its size, extra cameras and the video and microphone limits, and check for updates."
 msgstr "Ställ in den virtuella kameran, dess storlek, extra kameror och gränserna för video och mikrofon, och sök efter uppdateringar."
 
-#: rust/crates/setup/src/setup.rs:1211
+#: rust/crates/setup/src/setup.rs:1258
 msgid "Use my own adb…"
 msgstr "Använd min egen adb…"
 
@@ -6624,367 +6633,392 @@ msgstr "Använd egen"
 msgid "Pick an adb.exe or platform-tools zip you already have."
 msgstr "Välj en adb.exe eller en zip-fil med platform-tools som du redan har."
 
-#: rust/crates/setup/ui/setup.slint:207
+#: rust/crates/setup/ui/setup.slint:213
 msgid "Hardware acceleration, power saving, zoom range and the virtual camera's size."
 msgstr "Hårdvaruacceleration, energisparläge, zoomomfång och den virtuella kamerans storlek."
 
-#: rust/crates/setup/ui/setup.slint:211
+#: rust/crates/setup/ui/setup.slint:217
 msgid "Set hardware acceleration, power saving, zoom range and canvas size back to default. The canvas size changes when you press Apply."
 msgstr "Återställ hårdvaruacceleration, energisparläge, zoomintervall och bildytans storlek till standard. Bildytans storlek ändras när du trycker på Verkställ."
 
-#: rust/crates/setup/ui/setup.slint:213
+#: rust/crates/setup/ui/setup.slint:219
 msgctxt "search"
 msgid "picture quality image stream camera output"
 msgstr "bildkvalitet kvalitet bild ström kamera utgående ström picture quality image stream camera output"
 
-#: rust/crates/setup/ui/setup.slint:220 rust/crates/setup/ui/setup.slint:221
+#: rust/crates/setup/ui/setup.slint:226 rust/crates/setup/ui/setup.slint:227
 msgid "Hardware acceleration"
 msgstr "Hårdvaruacceleration"
 
-#: rust/crates/setup/ui/setup.slint:222
+#: rust/crates/setup/ui/setup.slint:228
 msgid "Decode the Light format on the graphics card from the next stream on. The processor is used until you restart Telescope if the graphics card fails."
 msgstr "Avkoda formatet Lätt på grafikkortet från och med nästa strömning. Processorn används tills du startar om Telescope om grafikkortet slutar fungera."
 
-#: rust/crates/setup/ui/setup.slint:223
+#: rust/crates/setup/ui/setup.slint:229
 msgctxt "search"
 msgid "hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu processor laptop 4k"
 msgstr "maskinvaruacceleration hårdvaruacceleration gpu grafikkort nvidia cuda amd intel vaapi d3d11 avkoda avkodning h264 snabbare cpu processor bärbar dator laptop 4k hw accel graphics card decode decoding h.264 va-api"
 
-#: rust/crates/setup/ui/setup.slint:233 rust/crates/setup/ui/setup.slint:234
+#: rust/crates/setup/ui/setup.slint:240 rust/crates/setup/ui/setup.slint:249
+msgid "Graphics card"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:241
+msgid "Which graphics card Telescope uses"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:242
+msgid "Automatic follows what your system picks. Choose a card here if the system picks the wrong one. A change applies after a restart."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:245
+msgctxt "search"
+msgid "gpu graphics card nvidia amd intel integrated discrete laptop hybrid switch choose select"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:262 rust/crates/setup/ui/setup.slint:575
+msgid "Restart to switch"
+msgstr "Starta om för att byta"
+
+#: rust/crates/setup/ui/setup.slint:262
+msgid "Restart Telescope to use the graphics card you picked."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:264 rust/crates/setup/ui/setup.slint:577 rust/crates/shell/ui/card-order.slint:265 rust/crates/shell/ui/restart-bar.slint:15 rust/crates/shell/ui/restart-bar.slint:45
+msgid "Restart now"
+msgstr "Starta om nu"
+
+#: rust/crates/setup/ui/setup.slint:268 rust/crates/setup/ui/setup.slint:581 rust/crates/shell/src/plugins_tab.rs:729 rust/crates/shell/ui/card-order.slint:265
+msgid "Restart"
+msgstr "Starta om"
+
+#: rust/crates/setup/ui/setup.slint:269
+msgid "Restart Telescope with the graphics card you picked."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:278 rust/crates/setup/ui/setup.slint:279
 msgid "Power-saving effects"
 msgstr "Strömsparande effekter"
 
-#: rust/crates/setup/ui/setup.slint:235
+#: rust/crates/setup/ui/setup.slint:280
 msgid "Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later."
 msgstr "Använd mindre processor och batteri medan Bakgrund eller Automatisk inramning är på. Båda reagerar på snabba rörelser lite senare."
 
-#: rust/crates/setup/ui/setup.slint:236
+#: rust/crates/setup/ui/setup.slint:281
 msgctxt "search"
 msgid "battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
 msgstr "batteri ström energi watt bärbar dator laptop processor cpu användning fläkt värme långsam oskärpa inramning mediapipe lättare effekter kvalitet battery power energy usage fan heat slow blur framing effects quality"
 
-#: rust/crates/setup/ui/setup.slint:243 rust/crates/setup/ui/setup.slint:252
+#: rust/crates/setup/ui/setup.slint:288 rust/crates/setup/ui/setup.slint:297
 msgid "Max zoom"
 msgstr "Max zoom"
 
-#: rust/crates/setup/ui/setup.slint:244
+#: rust/crates/setup/ui/setup.slint:289
 msgid "How far the Zoom slider goes"
 msgstr "Hur långt zoomreglaget når"
 
-#: rust/crates/setup/ui/setup.slint:245
+#: rust/crates/setup/ui/setup.slint:290
 msgid "Zoom beyond the phone's own range is cropped on this computer."
 msgstr "Zoom utöver telefonens eget intervall beskärs på den här datorn."
 
-#: rust/crates/setup/ui/setup.slint:248
+#: rust/crates/setup/ui/setup.slint:293
 msgctxt "search"
 msgid "zoom limit magnify telephoto digital crop 10x 30x slider range"
 msgstr "zoom gräns förstora teleobjektiv digital beskär beskära 10x 30x reglage omfång limit magnify telephoto crop slider range"
 
-#: rust/crates/setup/ui/setup.slint:261 rust/crates/setup/ui/setup.slint:271 rust/crates/setup/ui/setup.slint:286 rust/crates/setup/ui/setup.slint:294
+#: rust/crates/setup/ui/setup.slint:306 rust/crates/setup/ui/setup.slint:316 rust/crates/setup/ui/setup.slint:331 rust/crates/setup/ui/setup.slint:339
 msgid "Canvas size"
 msgstr "Bildytans storlek"
 
-#: rust/crates/setup/ui/setup.slint:262
+#: rust/crates/setup/ui/setup.slint:307
 msgid "The size of the picture other apps get from the virtual camera"
 msgstr "Storleken på bilden som andra appar får från den virtuella kameran"
 
-#: rust/crates/setup/ui/setup.slint:263
+#: rust/crates/setup/ui/setup.slint:308
 msgid "On Linux the virtual camera is reloaded for this. Close OBS and other apps using it first."
 msgstr "På Linux laddas den virtuella kameran om för det här. Stäng OBS och andra appar som använder den först."
 
-#: rust/crates/setup/ui/setup.slint:266
+#: rust/crates/setup/ui/setup.slint:311
 msgctxt "search"
 msgid "resolution output size 1080p 720p 4k portrait landscape aspect ratio custom width height pixels apply reload"
 msgstr "upplösning utgående storlek bildyta 1080p 720p 4k stående liggande bildförhållande anpassad bredd höjd pixlar verkställ ladda om resolution output size portrait landscape aspect ratio custom width height pixels apply reload"
 
-#: rust/crates/setup/ui/setup.slint:334
+#: rust/crates/setup/ui/setup.slint:379
 msgid "Maximum microphone gain and the limiter."
 msgstr "Max förstärkning för mikrofonen och begränsaren."
 
-#: rust/crates/setup/ui/setup.slint:338
+#: rust/crates/setup/ui/setup.slint:383
 msgid "Set the gain range and limiter back to default."
 msgstr "Återställ förstärkningsintervall och begränsare till standard."
 
-#: rust/crates/setup/ui/setup.slint:340
+#: rust/crates/setup/ui/setup.slint:385
 msgctxt "search"
 msgid "audio sound voice input volume"
 msgstr "ljud röst inmatning mikrofon volym audio sound voice input volume"
 
-#: rust/crates/setup/ui/setup.slint:346 rust/crates/setup/ui/setup.slint:355
+#: rust/crates/setup/ui/setup.slint:391 rust/crates/setup/ui/setup.slint:400
 msgid "Max gain"
 msgstr "Max förstärkning"
 
-#: rust/crates/setup/ui/setup.slint:347
+#: rust/crates/setup/ui/setup.slint:392
 msgid "How far the Gain slider goes"
 msgstr "Hur långt förstärkningsreglaget når"
 
-#: rust/crates/setup/ui/setup.slint:348
+#: rust/crates/setup/ui/setup.slint:393
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr "Mindre intervall ger finare steg. Större intervall hjälper en tyst telefon."
 
-#: rust/crates/setup/ui/setup.slint:351
+#: rust/crates/setup/ui/setup.slint:396
 msgctxt "search"
 msgid "microphone volume loudness boost amplify quiet decibel db slider range"
 msgstr "mikrofon volym ljudstyrka höja förstärkning tyst decibel db reglage omfång microphone volume loudness boost amplify quiet slider range"
 
-#: rust/crates/setup/ui/setup.slint:363 rust/crates/setup/ui/setup.slint:364
+#: rust/crates/setup/ui/setup.slint:408 rust/crates/setup/ui/setup.slint:409
 msgid "Limiter"
 msgstr "Begränsare"
 
-#: rust/crates/setup/ui/setup.slint:365
+#: rust/crates/setup/ui/setup.slint:410
 msgid "Keep loud sounds from clipping"
 msgstr "Förhindra att starka ljud klipper"
 
-#: rust/crates/setup/ui/setup.slint:366
+#: rust/crates/setup/ui/setup.slint:411
 msgctxt "search"
 msgid "microphone audio compressor distortion clipping loud peaks sound"
 msgstr "mikrofon ljud kompressor distorsion klippning klippa höga toppar microphone audio compressor distortion clipping sound"
 
-#: rust/crates/setup/ui/setup.slint:386
+#: rust/crates/setup/ui/setup.slint:431
 msgid "Phone app"
 msgstr "Telefonappen"
 
-#: rust/crates/setup/ui/setup.slint:387
+#: rust/crates/setup/ui/setup.slint:432
 msgid "Install the Telescope app on a phone over USB."
 msgstr "Installera Telescope-appen på en telefon via USB."
 
-#: rust/crates/setup/ui/setup.slint:388
+#: rust/crates/setup/ui/setup.slint:433
 msgctxt "search"
 msgid "android install apk usb"
 msgstr "android installera apk usb install"
 
-#: rust/crates/setup/ui/setup.slint:396
+#: rust/crates/setup/ui/setup.slint:441
 msgid "The phone app that streams the camera to this computer"
 msgstr "Telefonappen som strömmar kameran till den här datorn"
 
-#: rust/crates/setup/ui/setup.slint:399
+#: rust/crates/setup/ui/setup.slint:444
 msgctxt "search"
 msgid "phone app install usb android reinstall newer version sideload cable"
 msgstr "telefonapp installera usb android installera om nyare version sideload kabel phone app install reinstall newer cable"
 
-#: rust/crates/setup/ui/setup.slint:406 rust/crates/shell/ui/settings.slint:441 rust/crates/shell/ui/settings.slint:442
+#: rust/crates/setup/ui/setup.slint:451 rust/crates/shell/ui/settings.slint:441 rust/crates/shell/ui/settings.slint:442
 msgid "Install"
 msgstr "Installera"
 
-#: rust/crates/setup/ui/setup.slint:407
+#: rust/crates/setup/ui/setup.slint:452
 msgid "Install the Telescope.apk that came with this app, or an APK you pick, on a phone plugged in over USB."
 msgstr "Installera den Telescope.apk som följde med den här appen, eller en APK som du väljer, på en telefon ansluten via USB."
 
-#: rust/crates/setup/ui/setup.slint:417 rust/crates/setup/ui/setup.slint:424
+#: rust/crates/setup/ui/setup.slint:462 rust/crates/setup/ui/setup.slint:469
 msgid "Select device"
 msgstr "Välj enhet"
 
-#: rust/crates/setup/ui/setup.slint:418
+#: rust/crates/setup/ui/setup.slint:463
 msgid "Pick which phone gets the app when more than one is plugged in"
 msgstr "Välj vilken telefon som får appen när fler än en är ansluten"
 
-#: rust/crates/setup/ui/setup.slint:463
+#: rust/crates/setup/ui/setup.slint:508
 msgid "Theme, card colours and language."
 msgstr "Tema, kortfärger och språk."
 
-#: rust/crates/setup/ui/setup.slint:467
+#: rust/crates/setup/ui/setup.slint:512
 msgid "Set the theme, card colours and language back to default."
 msgstr "Återställ tema, kortfärger och språk till standard."
 
-#: rust/crates/setup/ui/setup.slint:469
+#: rust/crates/setup/ui/setup.slint:514
 msgctxt "search"
 msgid "appearance theme colors colours interface"
 msgstr "utseende tema färger gränssnitt appearance theme colors colours interface"
 
-#: rust/crates/setup/ui/setup.slint:474 rust/crates/setup/ui/setup.slint:482
+#: rust/crates/setup/ui/setup.slint:519 rust/crates/setup/ui/setup.slint:527
 msgid "Theme"
 msgstr "Tema"
 
-#: rust/crates/setup/ui/setup.slint:475
+#: rust/crates/setup/ui/setup.slint:520
 msgid "Dark, classic, OLED black or light for the whole app"
 msgstr "Mörkt, klassiskt, OLED-svart eller ljust för hela appen"
 
-#: rust/crates/setup/ui/setup.slint:478
+#: rust/crates/setup/ui/setup.slint:523
 msgctxt "search"
 msgid "theme classic dark blue appearance look old oled black light white"
 msgstr "tema klassiskt mörkt blått utseende gammalt oled svart ljust vitt theme classic dark blue appearance look old black light white"
 
-#: rust/crates/setup/ui/setup.slint:483
+#: rust/crates/setup/ui/setup.slint:528
 msgid "Dark"
 msgstr "Mörkt"
 
-#: rust/crates/setup/ui/setup.slint:483
+#: rust/crates/setup/ui/setup.slint:528
 msgid "Classic"
 msgstr "Klassiskt"
 
-#: rust/crates/setup/ui/setup.slint:483
+#: rust/crates/setup/ui/setup.slint:528
 msgid "OLED"
 msgstr "OLED"
 
-#: rust/crates/setup/ui/setup.slint:490 rust/crates/setup/ui/setup.slint:491 rust/crates/setup/ui/setup.slint:499
+#: rust/crates/setup/ui/setup.slint:535 rust/crates/setup/ui/setup.slint:536 rust/crates/setup/ui/setup.slint:544
 msgid "Card colours"
 msgstr "Kortfärger"
 
-#: rust/crates/setup/ui/setup.slint:492
+#: rust/crates/setup/ui/setup.slint:537
 msgid "Give every card in the main window a different colour."
 msgstr "Ge varje kort i huvudfönstret en egen färg."
 
-#: rust/crates/setup/ui/setup.slint:495
+#: rust/crates/setup/ui/setup.slint:540
 msgctxt "search"
 msgid "color colour theme appearance monochrome colourful purple hue accent look"
 msgstr "färg färger tema utseende enfärgat monokromt färgglatt lila nyans accent color colour theme appearance monochrome colourful hue"
 
-#: rust/crates/setup/ui/setup.slint:500
+#: rust/crates/setup/ui/setup.slint:545
 msgid "Colourful"
 msgstr "Färgglatt"
 
-#: rust/crates/setup/ui/setup.slint:500
+#: rust/crates/setup/ui/setup.slint:545
 msgid "Monochrome"
 msgstr "Enfärgat"
 
-#: rust/crates/setup/ui/setup.slint:508 rust/crates/setup/ui/setup.slint:517
+#: rust/crates/setup/ui/setup.slint:553 rust/crates/setup/ui/setup.slint:562
 msgid "Language"
 msgstr "Språk"
 
-#: rust/crates/setup/ui/setup.slint:509
+#: rust/crates/setup/ui/setup.slint:554
 msgid "The language of every text in the app"
 msgstr "Språket för alla texter i appen"
 
-#: rust/crates/setup/ui/setup.slint:510
+#: rust/crates/setup/ui/setup.slint:555
 msgid "Switching needs a restart."
 msgstr "Byte kräver en omstart."
 
-#: rust/crates/setup/ui/setup.slint:513
+#: rust/crates/setup/ui/setup.slint:558
 msgctxt "search"
 msgid "language translation translate locale"
 msgstr "språk översättning översätt svenska engelska language translation translate locale english"
 
-#: rust/crates/setup/ui/setup.slint:530
-msgid "Restart to switch"
-msgstr "Starta om för att byta"
-
-#: rust/crates/setup/ui/setup.slint:530
+#: rust/crates/setup/ui/setup.slint:575
 msgid "Restart Telescope to switch to the new language."
 msgstr "Starta om Telescope för att byta till det nya språket."
 
-#: rust/crates/setup/ui/setup.slint:532 rust/crates/shell/ui/card-order.slint:265 rust/crates/shell/ui/restart-bar.slint:15 rust/crates/shell/ui/restart-bar.slint:45
-msgid "Restart now"
-msgstr "Starta om nu"
-
-#: rust/crates/setup/ui/setup.slint:536 rust/crates/shell/src/plugins_tab.rs:729 rust/crates/shell/ui/card-order.slint:265
-msgid "Restart"
-msgstr "Starta om"
-
-#: rust/crates/setup/ui/setup.slint:537
+#: rust/crates/setup/ui/setup.slint:582
 msgid "Restart Telescope in the language you picked."
 msgstr "Starta om Telescope på det språk du valde."
 
-#: rust/crates/setup/ui/setup.slint:550 rust/crates/setup/ui/setup.slint:554
+#: rust/crates/setup/ui/setup.slint:595 rust/crates/setup/ui/setup.slint:599
 msgid "Help translate"
 msgstr "Hjälp till att översätta"
 
-#: rust/crates/setup/ui/setup.slint:555
+#: rust/crates/setup/ui/setup.slint:600
 msgid "Fix a text or add a language without any coding."
 msgstr "Rätta en text eller lägg till ett språk utan någon programmering."
 
-#: rust/crates/setup/ui/setup.slint:576
+#: rust/crates/setup/ui/setup.slint:621
 msgid "About"
 msgstr "Om"
 
-#: rust/crates/setup/ui/setup.slint:577
+#: rust/crates/setup/ui/setup.slint:622
 msgid "Version, log, bug reports and help."
 msgstr "Version, logg, felrapporter och hjälp."
 
-#: rust/crates/setup/ui/setup.slint:578
+#: rust/crates/setup/ui/setup.slint:623
 msgctxt "search"
 msgid "info version help support credits"
 msgstr "info information version hjälp support medverkande om help credits"
 
-#: rust/crates/setup/ui/setup.slint:589
+#: rust/crates/setup/ui/setup.slint:634
 msgctxt "search"
 msgid "about author credits made by version number build"
 msgstr "om skapare upphovsperson medverkande skapad av gjord av versionsnummer version bygge about author credits build"
 
-#: rust/crates/setup/ui/setup.slint:604
+#: rust/crates/setup/ui/setup.slint:649
 msgid "Log"
 msgstr "Logg"
 
-#: rust/crates/setup/ui/setup.slint:605
+#: rust/crates/setup/ui/setup.slint:650
 msgid "A record of what the app did to help track down a problem"
 msgstr "En logg över vad appen gjorde för att hjälpa till att spåra ett problem"
 
-#: rust/crates/setup/ui/setup.slint:608
+#: rust/crates/setup/ui/setup.slint:653
 msgctxt "search"
 msgid "log file open show temp folder"
 msgstr "logg loggfil öppna visa tempmapp tillfällig mapp log file open show temp folder"
 
-#: rust/crates/setup/ui/setup.slint:609 rust/crates/system/ui/shortcuts.slint:228
+#: rust/crates/setup/ui/setup.slint:654 rust/crates/system/ui/shortcuts.slint:228
 msgid "Open"
 msgstr "Öppna"
 
-#: rust/crates/setup/ui/setup.slint:609
+#: rust/crates/setup/ui/setup.slint:654
 msgid "Open log"
 msgstr "Öppna loggen"
 
-#: rust/crates/setup/ui/setup.slint:609
+#: rust/crates/setup/ui/setup.slint:654
 msgid "Open the full log. The log is saved in the temp folder, which the system clears."
 msgstr "Öppna hela loggen. Loggen sparas i temp-mappen, som systemet rensar."
 
-#: rust/crates/setup/ui/setup.slint:613
+#: rust/crates/setup/ui/setup.slint:658
 msgid "Diagnostics"
 msgstr "Diagnostik"
 
-#: rust/crates/setup/ui/setup.slint:614
+#: rust/crates/setup/ui/setup.slint:659
 msgid "Info about your setup to include in a bug report"
 msgstr "Information om din konfiguration att ta med i en felrapport"
 
-#: rust/crates/setup/ui/setup.slint:615
+#: rust/crates/setup/ui/setup.slint:660
 msgid "Pairing tokens, addresses and file paths are left out."
 msgstr "Parkopplingstoken, adresser och filsökvägar utelämnas."
 
-#: rust/crates/setup/ui/setup.slint:618
+#: rust/crates/setup/ui/setup.slint:663
 msgctxt "search"
 msgid "copy diagnostics info system details"
 msgstr "kopiera diagnostik information systemdetaljer systeminfo copy diagnostics info system details"
 
-#: rust/crates/setup/ui/setup.slint:621
+#: rust/crates/setup/ui/setup.slint:666
 msgid "Copy diagnostics"
 msgstr "Kopiera diagnostik"
 
-#: rust/crates/setup/ui/setup.slint:622
+#: rust/crates/setup/ui/setup.slint:667
 msgid "Copy info for a bug report without pairing tokens, addresses or file paths."
 msgstr "Kopiera information för en felrapport utan parkopplingstoken, adresser eller filsökvägar."
 
-#: rust/crates/setup/ui/setup.slint:628
+#: rust/crates/setup/ui/setup.slint:673
 msgid "Bug reports"
 msgstr "Felrapporter"
 
-#: rust/crates/setup/ui/setup.slint:629
+#: rust/crates/setup/ui/setup.slint:674
 msgid "Report a problem on GitHub"
 msgstr "Rapportera ett problem på GitHub"
 
-#: rust/crates/setup/ui/setup.slint:632
+#: rust/crates/setup/ui/setup.slint:677
 msgctxt "search"
 msgid "bug report diagnostics logs debug support problem issue help copy log file"
 msgstr "felrapport buggrapport bugg fel diagnostik loggar logg felsökning support problem ärende hjälp kopiera loggfil bug report diagnostics logs debug issue help copy log file"
 
-#: rust/crates/setup/ui/setup.slint:633 rust/crates/setup/ui/setup.slint:633
+#: rust/crates/setup/ui/setup.slint:678 rust/crates/setup/ui/setup.slint:678
 msgid "Report a bug"
 msgstr "Rapportera ett fel"
 
-#: rust/crates/setup/ui/setup.slint:633
+#: rust/crates/setup/ui/setup.slint:678
 msgid "Copy the diagnostics and open the bug form on GitHub."
 msgstr "Kopiera diagnostiken och öppna felformuläret på GitHub."
 
-#: rust/crates/setup/ui/setup.slint:637
+#: rust/crates/setup/ui/setup.slint:682
 msgid "Need help?"
 msgstr "Behöver du hjälp?"
 
-#: rust/crates/setup/ui/setup.slint:638
+#: rust/crates/setup/ui/setup.slint:683
 msgid "Fixes for the common problems"
 msgstr "Lösningar på vanliga problem"
 
-#: rust/crates/setup/ui/setup.slint:641
+#: rust/crates/setup/ui/setup.slint:686
 msgctxt "search"
 msgid "help support troubleshooting question faq problem not working stuck ask"
 msgstr "hjälp support felsökning fråga frågor faq problem fungerar inte funkar inte fastnat help troubleshooting not working"
 
-#: rust/crates/setup/ui/setup.slint:642
+#: rust/crates/setup/ui/setup.slint:687
 msgid "Troubleshooting"
 msgstr "Felsökning"
 
@@ -9862,7 +9896,7 @@ msgid "Light"
 msgstr "Ljus"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:437
+#: rust/app/src/main.rs:443
 msgid ", "
 msgstr ", "
 
