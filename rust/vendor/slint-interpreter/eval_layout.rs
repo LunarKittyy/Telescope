@@ -13,7 +13,8 @@ use i_slint_core::layout::{
     BoxLayoutData, FlexboxLayoutData, FlexboxLayoutItemInfo, GridLayoutData, GridLayoutInputData,
     LayoutInfo, LayoutItemInfo, Padding,
 };
-use i_slint_core::model::Model;
+use i_slint_core::model::{Model, ModelTracker};
+use std::borrow::Cow;
 use i_slint_core::slice::Slice;
 
 // ── Value → layout-type converters ──────────────────────────────────────────
@@ -41,27 +42,102 @@ fn to_enum<T: std::str::FromStr + Default>(v: &Value) -> T {
     }
 }
 
-fn to_cells(v: &Value) -> Vec<LayoutItemInfo> {
-    let Value::Model(m) = v else { return Vec::new() };
-    (0..m.row_count())
-        .filter_map(|i| {
-            let Value::Struct(s) = m.row_data(i)? else { return None };
-            let c = s.get_field("constraint")?;
-            Some(LayoutItemInfo {
-                constraint: c.clone().try_into().unwrap_or_default(),
-                // Only set for a box layout's cross-axis cells; absent means `auto`.
-                cross_axis_self_alignment: s
-                    .get_field("cross-axis-self-alignment")
-                    .map(to_enum)
-                    .unwrap_or_default(),
-                // Only set for a box layout's main-axis cells; absent means 0.
-                layout_order: match s.get_field("layout-order") {
-                    Some(Value::Number(n)) => *n as i32,
-                    _ => 0,
-                },
-            })
-        })
-        .collect()
+/// Telescope patch: one layout cell from the struct the LLR builds for it.
+/// `None` for a value that is not a struct with a `constraint`.
+pub(crate) fn cell_from_value(v: &Value) -> Option<LayoutItemInfo> {
+    let Value::Struct(s) = v else { return None };
+    let c = s.get_field("constraint")?;
+    Some(LayoutItemInfo {
+        constraint: c.clone().try_into().unwrap_or_default(),
+        // Only set for a box layout's cross-axis cells; absent means `auto`.
+        cross_axis_self_alignment: s
+            .get_field("cross-axis-self-alignment")
+            .map(to_enum)
+            .unwrap_or_default(),
+        // Only set for a box layout's main-axis cells; absent means 0.
+        layout_order: match s.get_field("layout-order") {
+            Some(Value::Number(n)) => *n as i32,
+            _ => 0,
+        },
+    })
+}
+
+/// Telescope patch: the struct a layout cell reads as to a `.slint` expression.
+fn cell_to_value(info: &LayoutItemInfo) -> Value {
+    let mut fields: Vec<(smol_str::SmolStr, Value)> = Vec::with_capacity(3);
+    fields.push((smol_str::SmolStr::new_static("constraint"), info.constraint.clone().into()));
+    if info.cross_axis_self_alignment != i_slint_core::items::CrossAxisAlignment::Auto {
+        fields.push((
+            smol_str::SmolStr::new_static("cross_axis_self_alignment"),
+            Value::EnumerationValue(
+                "CrossAxisAlignment".to_string(),
+                info.cross_axis_self_alignment.to_string(),
+            ),
+        ));
+    }
+    if info.layout_order != 0 {
+        fields.push((
+            smol_str::SmolStr::new_static("layout_order"),
+            Value::Number(info.layout_order as f64),
+        ));
+    }
+    Value::Struct(crate::api::Struct(fields))
+}
+
+/// Telescope patch: the cells of one layout evaluation as the layout infos the solver reads, which `to_cells` borrows.
+pub(crate) struct LayoutCells(pub Vec<LayoutItemInfo>);
+
+impl Model for LayoutCells {
+    type Data = Value;
+
+    fn row_count(&self) -> usize {
+        self.0.len()
+    }
+
+    fn row_data(&self, row: usize) -> Option<Value> {
+        self.0.get(row).map(cell_to_value)
+    }
+
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        &()
+    }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
+    }
+}
+
+/// Telescope patch: `repeated_indices` and `repeater_steps` of one layout evaluation.
+pub(crate) struct NumberRows(pub Vec<u32>);
+
+impl Model for NumberRows {
+    type Data = Value;
+
+    fn row_count(&self) -> usize {
+        self.0.len()
+    }
+
+    fn row_data(&self, row: usize) -> Option<Value> {
+        self.0.get(row).map(|n| Value::Number(*n as f64))
+    }
+
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        &()
+    }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
+    }
+}
+
+fn to_cells(v: &Value) -> Cow<'_, [LayoutItemInfo]> {
+    let Value::Model(m) = v else { return Cow::Borrowed(&[]) };
+    if let Some(cells) = m.as_any().downcast_ref::<LayoutCells>() {
+        return Cow::Borrowed(&cells.0);
+    }
+    Cow::Owned(
+        (0..m.row_count()).filter_map(|i| m.row_data(i).as_ref().and_then(cell_from_value)).collect(),
+    )
 }
 
 /// Convert one `Value::Struct` produced by the LLR's flexbox lowering:
@@ -105,14 +181,19 @@ fn to_flex_props(v: &Value) -> Vec<i_slint_core::layout::FlexItemProps> {
         .collect()
 }
 
-fn to_u32_vec(v: &Value) -> Vec<u32> {
-    let Value::Model(m) = v else { return Vec::new() };
-    (0..m.row_count())
-        .filter_map(|i| match m.row_data(i)? {
-            Value::Number(n) => Some(n as u32),
-            _ => None,
-        })
-        .collect()
+fn to_u32_vec(v: &Value) -> Cow<'_, [u32]> {
+    let Value::Model(m) = v else { return Cow::Borrowed(&[]) };
+    if let Some(rows) = m.as_any().downcast_ref::<NumberRows>() {
+        return Cow::Borrowed(&rows.0);
+    }
+    Cow::Owned(
+        (0..m.row_count())
+            .filter_map(|i| match m.row_data(i)? {
+                Value::Number(n) => Some(n as u32),
+                _ => None,
+            })
+            .collect(),
+    )
 }
 
 fn to_grid_input_data(v: &Value) -> Vec<GridLayoutInputData> {
@@ -166,7 +247,18 @@ pub(crate) fn call_extra_builtin(
     name: &str,
     arguments: &[Expression],
 ) -> Value {
-    let a: Vec<Value> = arguments.iter().map(|e| eval_expression(ctx, e)).collect();
+    // Telescope patch: the arguments live on the stack unless there are an unusual number of them.
+    let mut a_small: [Value; 12] = Default::default();
+    let a_big: Vec<Value>;
+    let a: &[Value] = if arguments.len() <= a_small.len() {
+        for (slot, e) in a_small.iter_mut().zip(arguments) {
+            *slot = eval_expression(ctx, e);
+        }
+        &a_small
+    } else {
+        a_big = arguments.iter().map(|e| eval_expression(ctx, e)).collect();
+        &a_big
+    };
 
     match name {
         "box_layout_info" => {
@@ -415,7 +507,8 @@ pub(crate) fn solve_flexbox_layout_with_measure(ctx: &mut EvalContext, expr: &Ex
     else {
         return Value::Void;
     };
-    let ri = to_u32_vec(&eval_expression(ctx, repeater_indices));
+    let ri_value = eval_expression(ctx, repeater_indices);
+    let ri = to_u32_vec(&ri_value);
     let data = eval_expression(ctx, data);
     let Value::Struct(s) = &data else { return Value::LayoutCache(Default::default()) };
     let (ch, cv) = (

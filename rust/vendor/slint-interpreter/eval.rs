@@ -17,10 +17,10 @@ use i_slint_compiler::llr::{self, Expression, LocalMemberIndex, MemberReference}
 use i_slint_core::graphics::{
     Brush, ConicGradientBrush, GradientStop, LinearGradientBrush, RadialGradientBrush,
 };
+use i_slint_core::layout::LayoutItemInfo;
 use i_slint_core::model::{Model, ModelExt, ModelRc, SharedVectorModel};
 use i_slint_core::{Color, SharedString, SharedVector};
 use smol_str::SmolStr;
-use std::collections::HashMap;
 use std::pin::Pin;
 use std::rc::{Rc, Weak};
 
@@ -43,6 +43,35 @@ impl From<&[Type]> for ArgTypes {
     }
 }
 
+/// Telescope patch: the local variables of one evaluation, a Vec scanned by name (a handful at most) instead of a HashMap.
+#[derive(Default)]
+pub struct Locals(Vec<(SmolStr, Value)>);
+
+impl Locals {
+    pub fn insert(&mut self, name: SmolStr, value: Value) -> Option<Value> {
+        match self.0.iter_mut().find(|(n, _)| *n == name) {
+            Some((_, slot)) => Some(std::mem::replace(slot, value)),
+            None => {
+                self.0.push((name, value));
+                None
+            }
+        }
+    }
+
+    pub fn get(&self, name: &str) -> Option<&Value> {
+        self.0.iter().find(|(n, _)| n.as_str() == name).map(|(_, v)| v)
+    }
+
+    pub fn get_mut(&mut self, name: &str) -> Option<&mut Value> {
+        self.0.iter_mut().find(|(n, _)| n.as_str() == name).map(|(_, v)| v)
+    }
+
+    pub fn remove(&mut self, name: &str) -> Option<Value> {
+        let at = self.0.iter().position(|(n, _)| n.as_str() == name)?;
+        Some(self.0.swap_remove(at).1)
+    }
+}
+
 /// Dynamic context for one expression evaluation.
 pub struct EvalContext {
     /// Closest sub-component, set when the expression is evaluated from one.
@@ -54,7 +83,7 @@ pub struct EvalContext {
     /// Shared global storage, used to resolve `MemberReference::Global`.
     pub globals: Weak<GlobalStorage>,
     /// Local variables introduced by `StoreLocalVariable`.
-    pub locals: HashMap<SmolStr, Value>,
+    pub locals: Locals,
     /// Arguments of the current function, if any.
     pub function_arguments: Vec<Value>,
     /// Declared types of `function_arguments`, for
@@ -78,7 +107,7 @@ impl EvalContext {
             compilation_unit: current.compilation_unit.clone(),
             current: Some(current),
             globals,
-            locals: HashMap::new(),
+            locals: Locals::default(),
             function_arguments: Vec::new(),
             function_arg_types: ArgTypes::None,
             return_value: None,
@@ -91,7 +120,7 @@ impl EvalContext {
             current: None,
             compilation_unit: cu,
             globals,
-            locals: HashMap::new(),
+            locals: Locals::default(),
             function_arguments: Vec::new(),
             function_arg_types: ArgTypes::None,
             return_value: None,
@@ -1145,14 +1174,23 @@ fn with_layout_item_info(
     // back to the plain layout info rather than measuring at 0.
     let cross_size: Option<f32> =
         repeated_cross_size.and_then(|e| eval_expression(ctx, e).try_into().ok());
-    let mut cells: Vec<Value> = Vec::with_capacity(elements.len());
+    // Telescope patch: cells stay LayoutItemInfo (eval_layout::LayoutCells), index lists go straight into their models
+    let mut cells: Vec<LayoutItemInfo> = Vec::with_capacity(elements.len());
+    // Offsets count a static cell even when it is dropped for not being a cell
+    let mut raw_len = 0u32;
     let mut repeated_indices: Vec<u32> = Vec::new();
     let mut repeater_steps: Vec<u32> = Vec::new();
     for el in elements {
         match el {
-            itertools::Either::Left(expr) => cells.push(eval_expression(ctx, expr)),
+            itertools::Either::Left(expr) => {
+                let value = eval_expression(ctx, expr);
+                if let Some(info) = crate::eval_layout::cell_from_value(&value) {
+                    cells.push(info);
+                }
+                raw_len += 1;
+            }
             itertools::Either::Right(repeater) => {
-                let offset = cells.len() as u32;
+                let before = cells.len();
                 let (instances, step) = push_repeater_layout_items(
                     ctx,
                     repeater.repeater_index,
@@ -1162,26 +1200,30 @@ fn with_layout_item_info(
                     repeater.cross_width.as_ref(),
                     &mut cells,
                 );
-                repeated_indices.push(offset);
+                repeated_indices.push(raw_len);
                 repeated_indices.push(instances);
                 repeater_steps.push(step);
+                raw_len += (cells.len() - before) as u32;
             }
         }
     }
-    let prev_cells =
-        ctx.locals.insert(SmolStr::from(cells_variable), Value::Model(model_from_vec(cells)));
-    let prev_ri = ctx.locals.insert(
-        SmolStr::new_static("repeated_indices"),
-        Value::Model(model_from_vec(
-            repeated_indices.into_iter().map(|i| Value::Number(i as f64)).collect(),
-        )),
+    let number_rows = |rows: Vec<u32>| {
+        if rows.is_empty() {
+            ModelRc::default()
+        } else {
+            ModelRc::new(crate::eval_layout::NumberRows(rows))
+        }
+    };
+    let prev_cells = ctx.locals.insert(
+        SmolStr::from(cells_variable),
+        Value::Model(ModelRc::new(crate::eval_layout::LayoutCells(cells))),
     );
-    let prev_rs = ctx.locals.insert(
-        SmolStr::new_static("repeater_steps"),
-        Value::Model(model_from_vec(
-            repeater_steps.into_iter().map(|i| Value::Number(i as f64)).collect(),
-        )),
-    );
+    let prev_ri = ctx
+        .locals
+        .insert(SmolStr::new_static("repeated_indices"), Value::Model(number_rows(repeated_indices)));
+    let prev_rs = ctx
+        .locals
+        .insert(SmolStr::new_static("repeater_steps"), Value::Model(number_rows(repeater_steps)));
     let result = eval_expression(ctx, sub_expression);
     restore_local(ctx, cells_variable, prev_cells);
     restore_local(ctx, "repeated_indices", prev_ri);
@@ -1196,7 +1238,7 @@ fn push_repeater_layout_items(
     orientation: i_slint_compiler::layout::Orientation,
     cross_size: Option<f32>,
     grid_cross_width: Option<&Expression>,
-    cells: &mut Vec<Value>,
+    cells: &mut Vec<LayoutItemInfo>,
 ) -> (u32, u32) {
     use i_slint_core::model::RepeatedItemTree;
     let Some(current) = ctx.current.as_ref() else { return (0, 0) };
@@ -1204,27 +1246,7 @@ fn push_repeater_layout_items(
     repeater.track_instance_changes();
     let instances = repeater.instances_vec();
     let core_orientation = llr_to_core_orientation(orientation);
-    let push_cell = |cells: &mut Vec<Value>, info: i_slint_core::layout::LayoutItemInfo| {
-        let mut struct_value = crate::api::Struct::default();
-        struct_value.set_field("constraint".to_string(), info.constraint.into());
-        // The cell's `cross-axis-self-alignment` in a box layout; `to_cells`
-        // reads it back on the cross-axis solve, an absent field means `auto`.
-        if info.cross_axis_self_alignment != i_slint_core::items::CrossAxisAlignment::Auto {
-            struct_value.set_field(
-                "cross-axis-self-alignment".to_string(),
-                Value::EnumerationValue(
-                    "CrossAxisAlignment".to_string(),
-                    info.cross_axis_self_alignment.to_string(),
-                ),
-            );
-        }
-        // Likewise `layout-order`, read back on the main-axis solve.
-        if info.layout_order != 0 {
-            struct_value
-                .set_field("layout-order".to_string(), Value::Number(info.layout_order as f64));
-        }
-        cells.push(Value::Struct(struct_value));
-    };
+    let push_cell = |cells: &mut Vec<LayoutItemInfo>, info: LayoutItemInfo| cells.push(info);
     let step = match row_child_templates {
         None => {
             // Column repeater: one cell per instance, asking the sub-component
