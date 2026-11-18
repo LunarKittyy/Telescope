@@ -48,9 +48,9 @@ const P_GONE: &str = "gone";
 const P_SCANNED: &str = "scanned";
 /// How long opening a sender waits for its first picture.
 const FIRST_PICTURE: Duration = Duration::from_secs(5);
-/// A sender that's idle gets its last picture sent again this often, so the stream doesn't take it for gone.
 /// How often a stuck sender is written to the log again.
 const STALL_LOG_EVERY: Duration = Duration::from_secs(60);
+/// A sender that's idle gets its last picture sent again this often, so the stream doesn't take it for gone.
 const KEEP_ALIVE: Duration = Duration::from_secs(1);
 
 const GONE_TEXT: &str = n_("The sender isn't running. Start it again to continue.");
