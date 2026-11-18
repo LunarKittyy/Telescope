@@ -398,6 +398,28 @@ fn the_position_and_size_boxes_set_the_box_in_canvas_pixels_and_keep_it_on_the_p
 }
 
 #[test]
+fn the_crop_boxes_cut_a_side_in_percent_and_the_rest_stays_where_it_is() {
+    let mut r = open();
+    r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 0.5, 0.5), Tile::boxed("b", "", 0.2, 0.2, 0.4, 0.4)]);
+    r.plugin.select(1);
+    assert_eq!(r.props()["crop-any"], json!(false));
+    r.ui("crop-committed", json!(["l", "25 %"]));
+    let t = r.tile(1);
+    assert!(near(t.crop_l, 0.25, 1e-9) && near(t.x, 0.3, 1e-9) && near(t.x + t.w, 0.6, 1e-9), "{t:?}");
+    assert_eq!(r.props()["crop-l-text"], json!("25 %"));
+    r.ui("crop-step", json!(["t", 10]));
+    assert!(near(r.tile(1).crop_t, 0.1, 1e-9) && near(r.tile(1).y + r.tile(1).h, 0.6, 1e-9));
+    r.ui("crop-committed", json!(["r", "99"]));
+    assert!(near(r.tile(1).crop_r, 0.7, 1e-9), "some of the stream always shows: {}", r.tile(1).crop_r);
+    r.ui("crop-committed", json!(["b", "nonsense"]));
+    assert!(near(r.tile(1).crop_b, 0.0, 1e-9));
+    r.ui("crop-reset", json!([]));
+    let t = r.tile(1);
+    assert!([t.crop_l, t.crop_t, t.crop_r, t.crop_b].iter().all(|c| near(*c, 0.0, 1e-9)));
+    assert_eq!(r.props()["crop-any"], json!(false));
+}
+
+#[test]
 fn a_stream_can_swap_places_with_another_and_takes_its_layer_and_its_shape_of_box() {
     let mut r = open();
     // Screen is big at the back and Face small in front of it
