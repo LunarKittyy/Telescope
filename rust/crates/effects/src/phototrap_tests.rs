@@ -615,6 +615,60 @@ fn a_burst_in_the_middle_of_a_long_exposure_is_not_given_up_on_while_its_stream_
 }
 
 #[test]
+fn a_preset_brings_back_the_settings_of_the_trap() {
+    let (mut p, mut h, _) = armed();
+    p.on_event(&mut h, &pick([0.1, 0.1], [0.5, 0.6]));
+    click(&mut p, &mut h, "sensitivity-moved", json!(8.0));
+    click(&mut p, &mut h, "count-moved", json!(5.0));
+    click(&mut p, &mut h, "pause-moved", json!(30.0));
+    click(&mut p, &mut h, "night-toggled", json!(true));
+    let saved = p.preset_config();
+    assert!(saved.get("folder").is_none() && saved.get("armed").is_none());
+    let (mut q, _) = plugin();
+    let mut h = host();
+    q.apply_preset(&mut h, &saved).unwrap();
+    assert_eq!(q.get_config(), p.get_config());
+}
+
+#[test]
+fn an_older_preset_without_the_keys_changes_nothing_in_phototrap() {
+    let (mut p, _) = plugin();
+    let mut h = host();
+    p.set_config(&json!({"zones": [[0.1, 0.1, 0.5, 0.6]], "sensitivity": 8, "count": 5, "pause": 30, "night": true})).unwrap();
+    let before = p.get_config();
+    p.apply_preset(&mut h, &json!({})).unwrap();
+    assert_eq!(p.get_config(), before);
+    p.apply_preset(&mut h, &json!({"count": 9})).unwrap();
+    let after = p.get_config();
+    assert_eq!((&after["count"], &after["sensitivity"], &after["zones"]), (&json!(9), &json!(8), &before["zones"]));
+}
+
+#[test]
+fn recalling_a_preset_never_arms_the_trap() {
+    let (mut p, _) = plugin();
+    let mut h = host();
+    p.apply_preset(&mut h, &json!({"zones": [[0.1, 0.1, 0.5, 0.6]], "sensitivity": 8})).unwrap();
+    assert!(!p.armed);
+    assert!(watches(&h).is_empty());
+}
+
+#[test]
+fn a_preset_without_zones_leaves_an_armed_trap_watching_its_zones() {
+    let (mut p, mut h, _) = armed();
+    p.on_event(&mut h, &pick([0.1, 0.1], [0.5, 0.6]));
+    let zones = p.get_config()["zones"].clone();
+    assert!(p.preset_config().get("zones").is_some());
+    let (empty, _) = plugin();
+    assert!(empty.preset_config().get("zones").is_none() && empty.preset_config().get("turn").is_none());
+    p.apply_preset(&mut h, &json!({"zones": [], "sensitivity": 8})).unwrap();
+    assert_eq!(p.get_config()["zones"], zones);
+    assert_eq!(p.get_config()["sensitivity"], json!(8));
+    p.apply_preset(&mut h, &json!({"zones": [[0.6, 0.2, 0.9, 0.4]]})).unwrap();
+    assert_eq!(p.get_config()["zones"], zones, "an armed trap keeps what it watches");
+    assert!(p.armed);
+}
+
+#[test]
 fn reset_puts_the_settings_back_and_leaves_the_zones_and_the_trap_alone() {
     let (mut p, mut h, _) = armed();
     p.zones = vec![[0.1, 0.1, 0.5, 0.5]];
