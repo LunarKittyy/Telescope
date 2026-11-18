@@ -289,7 +289,6 @@ component LayerRow inherits Rectangle {
     in property <bool> held;
     in property <length> held-y;
     in property <bool> any-held;
-    in property <bool> joined;
     callback eye-clicked(bool);
     callback lock-clicked(bool);
     callback pick-clicked;
@@ -376,26 +375,8 @@ component LayerRow inherits Rectangle {
             overflow: elide;
             accessible-role: none;
         }
-        if !root.joined: LayerToggle {
-            y: (parent.height - self.height) / 2;
-            icon: root.on ? Icons.eye : Icons.eye-off;
-            active: root.on;
-            label: root.title;
-            tip: root.on ? @tr("In the picture") : @tr("Not in the picture");
-            tip-detail: root.on ? @tr("Take this stream out of the picture.") : @tr("Put this stream in the picture.");
-            clicked => { root.eye-clicked(!root.on); }
-        }
-        if !root.joined && root.layer: LayerToggle {
-            y: (parent.height - self.height) / 2;
-            icon: Icons.lock;
-            active: root.locked;
-            label: @tr("Lock");
-            tip: root.locked ? @tr("Locked") : @tr("Unlocked");
-            tip-detail: root.locked ? @tr("Let this stream be moved and changed again.") : @tr("Pin this stream so it can't be moved or changed until it is unlocked.");
-            clicked => { root.lock-clicked(!root.locked); }
-        }
         // the eye and the lock as one tile with a thin divider
-        if root.joined: Rectangle {
+        Rectangle {
             width: root.layer ? Theme.u(28) : Theme.u(14);
             height: Theme.u(14);
             y: (parent.height - self.height) / 2;
@@ -506,7 +487,6 @@ export component CompositeEditor inherits Window {
     in property <string> cursor;
     in property <[StreamRow]> streams;
     in property <bool> few-streams;
-    in property <bool> joined-controls: false;
     in property <bool> tile-shown;
     in property <float> zoom: 100;
     in property <float> zoom-max: 400;
@@ -692,7 +672,6 @@ export component CompositeEditor inherits Window {
                                 held: list.held == i;
                                 held-y: list.held-y;
                                 any-held: list.held >= 0;
-                                joined: root.joined-controls;
                                 eye-clicked(on) => { root.stream-toggled(i, on); }
                                 lock-clicked(locked) => { root.stream-locked(i, locked); }
                                 pick-clicked => { root.stream-picked(i); }
