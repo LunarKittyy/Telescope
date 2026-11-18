@@ -64,7 +64,8 @@ fn map_zone(z: [f32; 4], map: impl Fn(f64, f64) -> (f64, f64)) -> [f32; 4] {
     [a.0.min(b.0), a.1.min(b.1), a.0.max(b.0), a.1.max(b.1)].map(|v| v.clamp(0.0, 1.0) as f32)
 }
 
-/// Bytes in a folder and the ones inside it, 0 for one that isn't there, and the files that made them when `keep` asks for them.
+/// Bytes in a folder and the ones inside it, 0 for one that isn't there, and the files that made them when `keep` asks for them. A download
+/// under way isn't a photo yet: its partial file and the empty one reserved for its name are left out.
 fn folder_scan(folder: &Path, keep: bool) -> (u64, HashSet<PathBuf>) {
     let (mut total, mut seen, mut todo, mut files) = (0u64, 0usize, vec![folder.to_path_buf()], HashSet::new());
     while let Some(dir) = todo.pop() {
@@ -76,6 +77,7 @@ fn folder_scan(folder: &Path, keep: bool) -> (u64, HashSet<PathBuf>) {
             }
             match entry.metadata() {
                 Ok(m) if m.is_dir() => todo.push(entry.path()),
+                Ok(m) if m.len() == 0 || entry.file_name().to_string_lossy().ends_with(".part") => {}
                 Ok(m) => {
                     total += m.len();
                     if keep {

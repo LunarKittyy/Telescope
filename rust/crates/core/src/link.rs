@@ -373,13 +373,68 @@ pub trait PhoneStills: Send + Sync {
             on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
             alive: Box<dyn Fn() -> bool + Send>) -> bool;
     /// `take` that reads `hidden` on the photo's thread right before the request leaves for the phone: true ends the photo with the code
-    /// "hidden" and nothing is asked of the phone. An implementation that can't look then takes the photo as `take` does.
+    /// "hidden" and nothing is asked of the phone. An implementation that can't look then reads it once, before `take`.
     #[allow(clippy::too_many_arguments)]
     fn take_unless_hidden(&self, source_id: Option<&str>, stream_base: &str, phone: &PairedPhone, options: &Value, folder: &str,
                           on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
-                          alive: Box<dyn Fn() -> bool + Send>, _hidden: std::sync::Arc<std::sync::atomic::AtomicBool>) -> bool {
+                          alive: Box<dyn Fn() -> bool + Send>, hidden: std::sync::Arc<std::sync::atomic::AtomicBool>) -> bool {
+        if hidden.load(std::sync::atomic::Ordering::SeqCst) {
+            on_done(serde_json::json!({"ok": false, "files": [], "code": "hidden", "error": ""}));
+            return true;
+        }
         self.take(source_id, stream_base, phone, options, folder, on_progress, on_done, alive)
     }
     /// At quit: every photo ends, and its phone is told to forget it.
     fn shutdown(&self);
+}
+
+#[cfg(test)]
+mod stills_tests {
+    use super::*;
+    use serde_json::json;
+    use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+    use std::sync::{Arc, Mutex};
+
+    /// A phone link that can't look at the flag itself.
+    #[derive(Default)]
+    struct Plain(AtomicU32);
+
+    impl PhoneStills for Plain {
+        fn note_state(&self, _: Option<&str>, _: &Value) {}
+        fn note_lens(&self, _: Option<&str>, _: &Value) {}
+        fn caps(&self, _: Option<&str>) -> Option<Value> {
+            None
+        }
+        fn busy(&self, _: Option<&str>) -> bool {
+            false
+        }
+        fn take(&self, _: Option<&str>, _: &str, _: &PairedPhone, _: &Value, _: &str, _: Box<dyn Fn(Value) + Send>,
+                on_done: Box<dyn FnOnce(Value) + Send>, _: Box<dyn Fn() -> bool + Send>) -> bool {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            on_done(json!({"ok": true}));
+            true
+        }
+        fn shutdown(&self) {}
+    }
+
+    fn ask(link: &Plain, hidden: bool) -> Value {
+        let phone: PairedPhone = serde_json::from_value(json!({"id": "p", "name": "Pixel", "token": "t"})).unwrap();
+        let told = Arc::new(Mutex::new(None));
+        let heard = told.clone();
+        let started = link.take_unless_hidden(None, "", &phone, &json!({}), "", Box::new(|_| {}), Box::new(move |r| *heard.lock().unwrap() = Some(r)),
+                                              Box::new(|| true), Arc::new(AtomicBool::new(hidden)));
+        assert!(started);
+        let ended = told.lock().unwrap().take();
+        ended.expect("it ended")
+    }
+
+    #[test]
+    fn a_link_that_cant_look_refuses_a_guarded_photo_while_hidden_and_takes_it_otherwise() {
+        let link = Plain::default();
+        let refused = ask(&link, true);
+        assert_eq!((refused["ok"].clone(), refused["code"].clone()), (json!(false), json!("hidden")));
+        assert_eq!(link.0.load(Ordering::SeqCst), 0, "nothing was taken");
+        assert_eq!(ask(&link, false)["ok"], json!(true));
+        assert_eq!(link.0.load(Ordering::SeqCst), 1);
+    }
 }

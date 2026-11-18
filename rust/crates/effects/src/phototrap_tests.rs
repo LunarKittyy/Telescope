@@ -617,3 +617,29 @@ fn a_burst_pending_while_arming_again_is_not_counted_twice() {
     assert_eq!(p.used, 900);
     let _ = now;
 }
+
+#[test]
+fn arming_again_during_a_download_leaves_out_the_empty_name_and_the_partial_file() {
+    let dir = scratch_dir("phototrap-rescan-part");
+    let (mut p, _now) = plugin();
+    p.folder = dir.display().to_string();
+    p.budget = 10_000;
+    let mut h = host();
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+    moved(&mut p, &mut h);
+    assert_eq!(p.taking.len(), 1);
+    let (done, reserved) = (dir.join("a.jpg"), dir.join("b.jpg"));
+    std::fs::write(&done, vec![0u8; 400]).unwrap();
+    std::fs::write(&reserved, b"").unwrap();
+    std::fs::write(dir.join("b.jpg.part"), vec![0u8; 300]).unwrap();
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(false));
+    click(&mut p, &mut h, "switch-toggled-by-hand", json!(true));
+    assert_eq!(p.used, 400, "only the finished photo");
+    assert_eq!(p.counted, HashSet::from([done.clone()]));
+    // The download ends: the file is its real size, counted once
+    std::fs::remove_file(dir.join("b.jpg.part")).unwrap();
+    std::fs::write(&reserved, vec![0u8; 500]).unwrap();
+    let files = json!([done.display().to_string(), reserved.display().to_string()]);
+    finished(&mut p, &mut h, 1, true, json!({"files": files}));
+    assert_eq!((p.photos, p.used), (2, 900));
+}

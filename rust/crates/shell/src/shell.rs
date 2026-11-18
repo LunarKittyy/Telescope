@@ -1159,9 +1159,16 @@ impl State {
         steps.is_some_and(|owners| owners.iter().any(|o| !self.hiding.contains_key(o)))
     }
 
-    /// Host::set_hiding: recorded at once, so a photo about to go sees a cover asked for in the same batch.
+    /// Host::set_hiding: recorded at once, so a photo about to go sees a cover asked for in the same batch. A device-local plugin holds the shown
+    /// camera's settings, so a report without a stream is also that camera's own: the other streams keep what they were last told, as their steps do.
     pub fn set_hiding(&mut self, owner: &str, source_id: Option<&str>, on: bool) {
-        self.hiding.entry(owner.to_string()).or_default().insert(source_id.unwrap_or("").to_string(), on);
+        let local = self.slots.iter().any(|s| s.info.device_local && s.info.name == owner);
+        let shown = if local && source_id.is_none() { self.streams.source_id.clone().or_else(|| self.selected.clone()) } else { None };
+        let per = self.hiding.entry(owner.to_string()).or_default();
+        per.insert(source_id.unwrap_or("").to_string(), on);
+        if let Some(shown) = shown.filter(|s| !s.is_empty()) {
+            per.insert(shown, on);
+        }
         self.sync_hidden_flags();
     }
 
@@ -2927,6 +2934,38 @@ mod tests {
         drop(flag);
         s.set_hiding("cover", None, true);
         assert!(s.hidden_flags.is_empty());
+    }
+
+    #[test]
+    fn one_streams_hiding_report_never_clears_anothers() {
+        use std::sync::atomic::Ordering::SeqCst;
+        let mut s = state();
+        s.register(stub("background", json!({}), true).0).unwrap();
+        s.register(stub("blur", json!({}), false).0).unwrap();
+        let (a, b) = (s.hidden_flag("a"), s.hidden_flag("b"));
+        // A device-local plugin hides the stream the panels show
+        s.streams.source_id = Some("a".into());
+        s.set_hiding("background", None, true);
+        s.set_hiding("blur", None, false);
+        assert!(a.load(SeqCst) && s.picture_hidden_for("a"));
+        // The panels move to a stream it isn't hiding: its report is about that one
+        s.streams.source_id = Some("b".into());
+        s.set_hiding("background", None, false);
+        assert!(a.load(SeqCst) && s.picture_hidden_for("a"), "a keeps its own");
+        assert!(!b.load(SeqCst) && !s.picture_hidden_for("b"), "b is not hidden");
+        // One that hides every stream still does, and ends for all of them
+        s.set_hiding("blur", None, true);
+        assert!(a.load(SeqCst) && b.load(SeqCst));
+        s.set_hiding("blur", None, false);
+        assert!(a.load(SeqCst) && !b.load(SeqCst), "blur ending leaves a to background");
+        // Back on a: what it says there is a's
+        s.streams.source_id = Some("a".into());
+        s.set_hiding("background", None, true);
+        s.set_hiding("background", None, false);
+        assert!(!a.load(SeqCst) && !s.picture_hidden_for("a") && !b.load(SeqCst));
+        // A stream asked about by name is unaffected by the others, too
+        s.set_hiding("background", Some("b"), true);
+        assert!(!a.load(SeqCst) && b.load(SeqCst));
     }
 
     #[test]

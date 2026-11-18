@@ -271,6 +271,14 @@ impl Failure {
     }
 }
 
+/// How a file's download ended.
+enum Fetch {
+    Saved(PathBuf),
+    /// The picture went hidden first: nothing of it is kept.
+    Hidden,
+    Failed,
+}
+
 /// Takes photos on a stream's phone and saves them, one at a time per phone.
 #[derive(Clone, Default)]
 pub struct Stills {
@@ -441,8 +449,9 @@ impl Runner<'_> {
     }
 
     fn run(&self, options: Map<String, Value>, folder: &Path, on_progress: Option<Progress>, alive: Option<Alive>, hidden: Option<&AtomicBool>) -> StillResult {
+        let is_hidden = || hidden.is_some_and(|h| h.load(Ordering::SeqCst));
         // The last look before the phone is asked: a picture that went hidden since the photo was asked for stays untaken
-        if hidden.is_some_and(|h| h.load(Ordering::SeqCst)) {
+        if is_hidden() {
             return StillResult::failed("hidden", "", &[]);
         }
         let t = self.timings();
@@ -480,6 +489,11 @@ impl Runner<'_> {
             if !alive_now() {
                 // Its stream stopped or restarted: the phone drops the photo with it, if it can still say so at all
                 return StillResult::failed("interrupted", "", &saved);
+            }
+            // Hiding began mid-burst: what the phone still has or is taking is never downloaded, and what is saved already stays
+            if is_hidden() {
+                self.forget(&sid);
+                return StillResult::failed("hidden", "", &saved);
             }
             let status = match self.request(&format!("/still?id={sid}"), None) {
                 Ok(status) => {
@@ -521,10 +535,17 @@ impl Runner<'_> {
             };
             report(&saved); // before the downloads, which can take a while for a batch of RAW files
             while fetched < files.len() && !self.stopped() {
-                let Some(path) = self.fetch(&sid, fetched, &files[fetched], folder, &alive_now, longest) else {
-                    self.forget(&sid);
-                    let code = if self.stopped() { "failed" } else if !alive_now() { "interrupted" } else { "save" };
-                    return StillResult::failed(code, "", &saved);
+                let path = match self.fetch(&sid, fetched, &files[fetched], folder, &alive_now, longest, hidden) {
+                    Fetch::Saved(path) => path,
+                    Fetch::Hidden => {
+                        self.forget(&sid);
+                        return StillResult::failed("hidden", "", &saved);
+                    }
+                    Fetch::Failed => {
+                        self.forget(&sid);
+                        let code = if self.stopped() { "failed" } else if !alive_now() { "interrupted" } else { "save" };
+                        return StillResult::failed(code, "", &saved);
+                    }
                 };
                 saved.push(path.to_string_lossy().into_owned());
                 fetched += 1;
@@ -553,18 +574,24 @@ impl Runner<'_> {
         StillResult::failed("failed", "", &saved)
     }
 
-    /// File n of the photo into folder under the phone's name (made free), or None when it couldn't be saved.
-    fn fetch(&self, sid: &str, n: usize, info: &Map<String, Value>, folder: &Path, alive: &(dyn Fn() -> bool + Sync), patience: Duration) -> Option<PathBuf> {
+    /// File n of the photo into folder under the phone's name (made free). A picture that is hidden before the file is saved is left unsaved.
+    #[allow(clippy::too_many_arguments)]
+    fn fetch(&self, sid: &str, n: usize, info: &Map<String, Value>, folder: &Path, alive: &(dyn Fn() -> bool + Sync), patience: Duration,
+             hidden: Option<&AtomicBool>) -> Fetch {
+        let is_hidden = || hidden.is_some_and(|h| h.load(Ordering::SeqCst));
+        if is_hidden() {
+            return Fetch::Hidden;
+        }
         let hook = self.inner.before_fetch.lock().unwrap().clone();
         if hook.is_some_and(|h| !h()) {
-            return None;
+            return Fetch::Failed;
         }
         let name = safe_name(&info.get("name").filter(|v| truthy(v)).map(py_str).unwrap_or_default(), n);
         let path = match reserve_path(folder, &name) {
             Ok(path) => path,
             Err(e) => {
                 log::warn!("Couldn't save photo {name}: {e}");
-                return None;
+                return Fetch::Failed;
             }
         };
         let part = path.with_file_name(format!("{}.part", path.file_name().unwrap_or_default().to_string_lossy()));
@@ -573,6 +600,8 @@ impl Runner<'_> {
         let cap = size.map_or(MAX_FILE_BYTES, |s| s.min(MAX_FILE_BYTES));
         let deadline = Instant::now() + patience;
         let aborter: Mutex<Option<Aborter>> = Mutex::new(None);
+        // Set when the download was cut because the picture went hidden
+        let cut = AtomicBool::new(false);
         let download = || -> Result<(), String> {
             let url = format!("{}/still/file?id={sid}&n={n}", self.base);
             let mut resp = self.auth.open(Request::get(&url, self.timings().file).watched(&|a| *aborter.lock().unwrap_or_else(|e| e.into_inner()) = Some(a)))
@@ -583,6 +612,10 @@ impl Runner<'_> {
             loop {
                 if self.stopped() || !alive() {
                     return Err("stopped".into());
+                }
+                if is_hidden() {
+                    cut.store(true, Ordering::SeqCst);
+                    return Err("hidden".into());
                 }
                 if Instant::now() > deadline {
                     return Err("took too long".into());
@@ -598,6 +631,11 @@ impl Runner<'_> {
                 out.write_all(&buf[..k]).map_err(|e| e.to_string())?;
             }
             drop(out);
+            // The last look before the photo is kept
+            if is_hidden() {
+                cut.store(true, Ordering::SeqCst);
+                return Err("hidden".into());
+            }
             if let Some(size) = size {
                 let have = std::fs::metadata(&part).map_err(|e| e.to_string())?.len();
                 if have != size {
@@ -609,10 +647,14 @@ impl Runner<'_> {
         // A read can sit inside one chunk-size line for as long as bytes trickle in, so the limits are enforced from outside by closing the socket
         let (done, finished) = std::sync::mpsc::channel::<()>();
         let got = std::thread::scope(|scope| {
-            let (stopped, alive, aborter) = (&self.stop, alive, &aborter);
+            let (stopped, alive, aborter, cut) = (&self.stop, alive, &aborter, &cut);
             scope.spawn(move || {
                 while let Err(std::sync::mpsc::RecvTimeoutError::Timeout) = finished.recv_timeout(WATCH_EVERY) {
-                    if stopped.load(Ordering::SeqCst) || !alive() || Instant::now() > deadline {
+                    let covered = hidden.is_some_and(|h| h.load(Ordering::SeqCst));
+                    if covered {
+                        cut.store(true, Ordering::SeqCst);
+                    }
+                    if stopped.load(Ordering::SeqCst) || !alive() || covered || Instant::now() > deadline {
                         if let Some(a) = aborter.lock().unwrap_or_else(|e| e.into_inner()).as_ref() {
                             a.abort();
                             return;
@@ -625,12 +667,15 @@ impl Runner<'_> {
             got
         });
         match got {
-            Ok(()) => Some(path),
+            Ok(()) => Fetch::Saved(path),
             Err(e) => {
-                log::warn!("Couldn't save photo {name}: {e}");
                 let _ = std::fs::remove_file(&part);
                 let _ = std::fs::remove_file(&path);
-                None
+                if cut.load(Ordering::SeqCst) {
+                    return Fetch::Hidden;
+                }
+                log::warn!("Couldn't save photo {name}: {e}");
+                Fetch::Failed
             }
         }
     }
@@ -920,6 +965,57 @@ mod tests {
         assert!(server.seen.lock().unwrap().is_empty(), "the phone was never asked");
         assert!(!stills.busy(Some("phone-1")), "and it's free for the next");
         assert!(go(false).ok, "not hidden: taken as usual");
+    }
+
+    /// A photo taken with a flag that reads `hidden`, the way a guarded burst is.
+    fn take_guarded(stills: &Stills, server: &Server, folder: &Path, hidden: Arc<AtomicBool>, on_progress: Option<Progress>) -> StillResult {
+        let (tx, rx) = mpsc::channel();
+        assert!(stills.take_unless_hidden(Some("phone-1"), &format!("{}/v1", server.base(false)), PhoneAuth::new("token", ""),
+                                          json!({"format": "jpeg"}).as_object().unwrap().clone(), folder.to_path_buf(),
+                                          Box::new(move |r| tx.send(r).unwrap()), on_progress, None, Some(hidden)));
+        rx.recv_timeout(Duration::from_secs(10)).unwrap()
+    }
+
+    #[test]
+    fn a_burst_whose_picture_goes_hidden_part_way_keeps_what_was_saved_and_drops_the_rest() {
+        let dir = telescope_core::testing::scratch_dir("stills-hidden-burst");
+        let stills = Stills::new();
+        stills.set_timings(quick());
+        let (server, state) = phone(Phone { early: true, ..Phone::default() });
+        let hidden = Arc::new(AtomicBool::new(false));
+        let cover = hidden.clone();
+        // The first shot is saved; the cover lands while the phone is still on the second
+        let on_progress: Progress = Box::new(move |p| {
+            if !p.saved.is_empty() {
+                cover.store(true, Ordering::SeqCst);
+            }
+        });
+        let r = take_guarded(&stills, &server, &dir, hidden, Some(on_progress));
+        assert!(!r.ok && r.code == "hidden", "{r:?}");
+        assert_eq!(names(&r.files), ["IMG_1.jpg"]);
+        let mut left: Vec<String> = std::fs::read_dir(&dir).unwrap().flatten().map(|e| e.file_name().to_string_lossy().into_owned()).collect();
+        left.sort();
+        assert_eq!(left, ["IMG_1.jpg"], "the second shot was never saved");
+        assert_eq!(state.lock().unwrap().forgotten, ["abc"], "the phone lets go of the rest");
+    }
+
+    #[test]
+    fn a_shot_whose_picture_goes_hidden_while_it_downloads_is_not_saved() {
+        let dir = telescope_core::testing::scratch_dir("stills-hidden-shot");
+        let stills = Stills::new();
+        stills.set_timings(quick());
+        let hidden = Arc::new(AtomicBool::new(false));
+        let cover = hidden.clone();
+        // After the file was asked for and before it is kept
+        stills.set_before_fetch(Some(Arc::new(move || {
+            cover.store(true, Ordering::SeqCst);
+            true
+        })));
+        let (server, state) = phone(Phone::default());
+        let r = take_guarded(&stills, &server, &dir, hidden, None);
+        assert!(!r.ok && r.code == "hidden" && r.files.is_empty(), "{r:?}");
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0, "no file and no partial one");
+        assert_eq!(state.lock().unwrap().forgotten, ["abc"]);
     }
 
     #[test]

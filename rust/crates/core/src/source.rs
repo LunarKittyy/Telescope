@@ -70,9 +70,13 @@ pub trait SourceStills: Send + Sync {
     fn take(&self, options: &Value, folder: &str, on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
             alive: Box<dyn Fn() -> bool + Send>) -> bool;
     /// `take` that reads `hidden` right before the shutter opens (after any self-timer): true ends the photo with the code "hidden"
-    /// and nothing is captured. An implementation that can't look then takes the photo as `take` does.
+    /// and nothing is captured. An implementation that can't look then reads it once, before `take`.
     fn take_unless_hidden(&self, options: &Value, folder: &str, on_progress: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>,
-                          alive: Box<dyn Fn() -> bool + Send>, _hidden: std::sync::Arc<std::sync::atomic::AtomicBool>) -> bool {
+                          alive: Box<dyn Fn() -> bool + Send>, hidden: std::sync::Arc<std::sync::atomic::AtomicBool>) -> bool {
+        if hidden.load(std::sync::atomic::Ordering::SeqCst) {
+            on_done(serde_json::json!({"ok": false, "files": [], "code": "hidden", "error": ""}));
+            return true;
+        }
         self.take(options, folder, on_progress, on_done, alive)
     }
     /// Called from any thread whenever caps() may have changed, and when its camera lets go. Replaces the last one given.
@@ -214,5 +218,52 @@ mod phones_tests {
         let phones = Phones::from_section(Some(&section), || unreachable!());
         assert_eq!(phones.selected().unwrap().name, "Pixel");
         assert_eq!(phones.to_section(), section);
+    }
+}
+
+#[cfg(test)]
+mod stills_tests {
+    use super::*;
+    use serde_json::json;
+    use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+    use std::sync::{Arc, Mutex};
+
+    /// A camera that can't look at the flag itself.
+    #[derive(Default)]
+    struct Plain(AtomicU32);
+
+    impl SourceStills for Plain {
+        fn caps(&self) -> Option<Value> {
+            None
+        }
+        fn busy(&self) -> bool {
+            false
+        }
+        fn take(&self, _: &Value, _: &str, _: Box<dyn Fn(Value) + Send>, on_done: Box<dyn FnOnce(Value) + Send>, _: Box<dyn Fn() -> bool + Send>) -> bool {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            on_done(json!({"ok": true}));
+            true
+        }
+        fn set_on_change(&self, _: Box<dyn Fn() + Send + Sync>) {}
+    }
+
+    fn ask(camera: &Plain, hidden: bool) -> Value {
+        let told = Arc::new(Mutex::new(None));
+        let heard = told.clone();
+        let started = camera.take_unless_hidden(&json!({}), "", Box::new(|_| {}), Box::new(move |r| *heard.lock().unwrap() = Some(r)),
+                                                Box::new(|| true), Arc::new(AtomicBool::new(hidden)));
+        assert!(started);
+        let ended = told.lock().unwrap().take();
+        ended.expect("it ended")
+    }
+
+    #[test]
+    fn a_camera_that_cant_look_refuses_a_guarded_photo_while_hidden_and_takes_it_otherwise() {
+        let camera = Plain::default();
+        let refused = ask(&camera, true);
+        assert_eq!((refused["ok"].clone(), refused["code"].clone()), (json!(false), json!("hidden")));
+        assert_eq!(camera.0.load(Ordering::SeqCst), 0, "nothing was taken");
+        assert_eq!(ask(&camera, false)["ok"], json!(true));
+        assert_eq!(camera.0.load(Ordering::SeqCst), 1);
     }
 }

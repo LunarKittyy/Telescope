@@ -300,6 +300,11 @@ fn put(rig: &mut dyn Rig, menu: Option<&Menu>, want: &str, what: &'static str) -
 /// The shooting itself, on the camera's thread: live view off (a camera won't shoot with it on), the settings, the picture to this
 /// computer, and every file it made. Live view is the caller's to bring back.
 pub fn take_photo(rig: &mut dyn Rig, wish: &Wish) -> Result<Vec<Shot>, Failure> {
+    take_photo_guarded(rig, wish, None)
+}
+
+/// `take_photo` that looks at the guard right before the shutter, after every setting: a hidden or stopped stream gets no photo.
+fn take_photo_guarded(rig: &mut dyn Rig, wish: &Wish, guard: Option<&Guard>) -> Result<Vec<Shot>, Failure> {
     let _ = rig.write("viewfinder", "0");
     let caps = read_photo_caps(rig);
     let mut expect = 1;
@@ -338,6 +343,9 @@ pub fn take_photo(rig: &mut dyn Rig, wish: &Wish) -> Result<Vec<Shot>, Failure> 
             }
         }
     }
+    if let Some(stop) = guard.and_then(Guard::stop) {
+        return Err(stop);
+    }
     rig.capture(expect).map_err(|Incomplete { why, shots }| {
         log::info!("the camera couldn't take the photo: {why}");
         if !shots.is_empty() {
@@ -357,6 +365,35 @@ struct Job {
     wish: Wish,
     reply: Reply,
     late: Option<Late>,
+    guard: Option<Guard>,
+}
+
+/// What stops a photo from being taken: the picture going hidden, or the stream going away. Shared by the job and the camera's thread.
+#[derive(Clone)]
+struct Guard {
+    hidden: Option<Arc<AtomicBool>>,
+    alive: Arc<Mutex<Box<dyn Fn() -> bool + Send>>>,
+}
+
+impl Guard {
+    fn is_hidden(&self) -> bool {
+        self.hidden.as_ref().is_some_and(|h| h.load(Ordering::SeqCst))
+    }
+
+    fn is_alive(&self) -> bool {
+        (*self.alive.lock().unwrap_or_else(|e| e.into_inner()))()
+    }
+
+    /// Why the shutter must stay shut, if it must.
+    fn stop(&self) -> Option<Failure> {
+        if !self.is_alive() {
+            Some(Failure::Interrupted)
+        } else if self.is_hidden() {
+            Some(Failure::Hidden)
+        } else {
+            None
+        }
+    }
 }
 
 type Outcome = Result<Vec<Shot>, Failure>;
@@ -494,7 +531,7 @@ impl Shared {
     pub fn run_pending(&self, rig: &mut dyn Rig) -> bool {
         let Some(job) = self.pending.lock().unwrap().take() else { return false };
         self.capturing.store(true, Ordering::SeqCst);
-        let result = take_photo(rig, &job.wish);
+        let result = take_photo_guarded(rig, &job.wish, job.guard.as_ref());
         let _ = rig.write("viewfinder", "1");
         self.capturing.store(false, Ordering::SeqCst);
         // The job may have stopped waiting (a timeout, or the stream stopping): what the camera sent after that is not thrown away
@@ -609,9 +646,9 @@ fn exposure_of(shared: &Shared, wish: &Wish) -> Option<f64> {
 }
 
 /// One photo from start to saved files, on the thread of its own: the countdown, the camera's thread doing the shooting, the files.
-fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Value), alive: &dyn Fn() -> bool, longest: Duration, late: Option<Late>,
-           hidden: Option<&AtomicBool>) -> Value {
-    let is_hidden = || hidden.is_some_and(|h| h.load(Ordering::SeqCst));
+fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Value), guard: &Guard, longest: Duration, late: Option<Late>) -> Value {
+    let is_hidden = || guard.is_hidden();
+    let alive = || guard.is_alive();
     if let Err(e) = std::fs::create_dir_all(folder) {
         log::warn!("can't make the photo folder {}: {e}", folder.display());
         return failed(&Failure::Save, &[]);
@@ -639,7 +676,7 @@ fn run_job(shared: &Shared, wish: Wish, folder: &Path, on_progress: &dyn Fn(Valu
     }
     let longest = wait_for_photo(longest, exposure_of(shared, &wish));
     let (reply, waiter) = handover();
-    *shared.pending.lock().unwrap() = Some(Job { wish, reply, late });
+    *shared.pending.lock().unwrap() = Some(Job { wish, reply, late, guard: Some(guard.clone()) });
     on_progress(progress("capturing", 0, true));
     let (began, mut looks) = (Instant::now(), 0u32);
     let outcome = loop {
@@ -760,7 +797,8 @@ impl GphotoStills {
         });
         let spawned = std::thread::Builder::new().name("dslr-photo".into()).spawn(move || {
             let report = |data: Value| (*on_progress.lock().unwrap_or_else(|e| e.into_inner()))(data);
-            let outcome = run_job(&held, wish, &folder, &report, &*alive, longest, Some(late), hidden.as_deref());
+            let guard = Guard { hidden, alive: Arc::new(Mutex::new(alive)) };
+            let outcome = run_job(&held, wish, &folder, &report, &guard, longest, Some(late));
             held.in_flight.store(false, Ordering::SeqCst);
             on_done(outcome);
         });
