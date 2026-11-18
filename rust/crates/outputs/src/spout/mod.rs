@@ -107,6 +107,8 @@ pub trait Backend: Send + Sync {
 pub trait Reader: Send {
     /// The next new picture, waiting up to `timeout` for it: Ok(None) on timeout (the sender is idle), Err once the sender is gone.
     fn next(&mut self, timeout: Duration) -> Result<Option<Picture>, String>;
+    /// A flag that is set when the stream is stopped, which a reader that can wait on the card ends its wait for (with an Err) instead of holding the stop up.
+    fn set_stop(&mut self, _stop: Arc<AtomicBool>) {}
 }
 
 /// The backend this system has, if any.
@@ -260,6 +262,11 @@ impl StreamSource for SpoutSource {
                 return if self.shared.sender(&self.key).is_none() { self.say(GONE_TEXT, "gone") } else { self.say(CANT_READ_TEXT, "silent") };
             }
         };
+        // One flag for the open and the feed after it, so a stop reaches a reader that is waiting on the card at either time
+        let stop = Arc::new(AtomicBool::new(false));
+        reader.set_stop(stop.clone());
+        let stopper = stop.clone();
+        open.watch(move || stopper.store(true, Ordering::SeqCst));
         let started = Instant::now();
         let first = loop {
             if open.stopped() {
@@ -269,6 +276,7 @@ impl StreamSource for SpoutSource {
                 Ok(Some(picture)) => break picture,
                 Ok(None) if started.elapsed() < FIRST_PICTURE => {}
                 Ok(None) => return self.say(SILENT_TEXT, "silent"),
+                Err(_) if open.stopped() => return Err("stopped".into()),
                 Err(why) => {
                     log::info!("Spout sender {} gave nothing: {why}", self.name());
                     return self.say(GONE_TEXT, "gone");
@@ -276,7 +284,6 @@ impl StreamSource for SpoutSource {
             }
         };
         self.report("ok", &format!("{}×{}", first.width, first.height));
-        let stop = Arc::new(AtomicBool::new(false));
         let feed = SpoutFeed {
             reader, first: Some(first), stop, shared: self.shared.clone(), key: self.key.clone(), poster: self.poster.clone(), waiting: self.waiting.clone(),
             last: None, last_sent: Instant::now(), asked: Instant::now(),
@@ -374,6 +381,7 @@ impl VideoFeed for SpoutFeed {
                     }
                 }
                 Ok(None) => {}
+                Err(_) if self.stop.load(Ordering::SeqCst) => return Err(FeedEnd::Stopped),
                 Err(why) => {
                     *self.waiting.lock().unwrap() = tr(GONE_TEXT);
                     self.post("gone", "");

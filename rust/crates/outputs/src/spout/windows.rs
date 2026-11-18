@@ -1,12 +1,13 @@
 //! Reading Spout senders on Windows: the sender list and each sender's texture through the shared Spout pieces, as packed pixels or as I420 planes made on the card.
 
 use super::frame_count::FrameTracker;
-use super::grab::{self, Grabber};
+use super::grab::{self, Balances, Grabber, Troubles};
 use super::{Backend, Picture, Reader, Sender, I420};
+use crate::spout_shared::poll::Deadline;
 use crate::spout_shared::protocol::ChannelOrder;
-use crate::spout_shared::win::{self as shared, AccessLock, Converter, FrameCounter, Gpu, Info, SharedTexture, Staging};
+use crate::spout_shared::win::{self as shared, AccessLock, Converter, FrameCounter, Gpu, Info, ReadError, SharedTexture, Staging};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 use telescope_core::balance::Balance;
 
@@ -46,8 +47,17 @@ impl Backend for Senders {
     }
 }
 
+/// How long a picture may take to come back from the card, a frame's conversion or a plain copy, before the reader gives up on it. Well inside the shell's four seconds for a stop, which ends the wait at once anyway.
+const READ_WITHIN: Duration = Duration::from_secs(1);
+/// How long a trial on the card may take: far past what the balance calls late, and short because the reader waits it out.
+const TRIAL_WITHIN: Duration = Duration::from_millis(50);
 /// How many frames in a row the card's conversion may fail before this reader stops asking it.
 const CARD_FAILS_ALLOWED: u32 = 3;
+
+/// What the card's conversion failed on, for every reader, so a reader that ends over a reset leaves its record to the next.
+static TROUBLES: LazyLock<Arc<Troubles>> = LazyLock::new(Arc::default);
+/// The balance of each graphics adapter a sender's texture was read on.
+static BALANCES: LazyLock<Balances> = LazyLock::new(Balances::default);
 
 /// Whether a failure of the card's conversion has been logged yet; the first is, the rest aren't, so a card that fails every frame can't fill the log.
 static CARD_FAILURE_LOGGED: AtomicBool = AtomicBool::new(false);
@@ -83,7 +93,15 @@ struct SpoutReader {
     balance: Arc<Balance>,
     card: Card,
     card_fails: u32,
+    troubles: Arc<Troubles>,
+    /// Set when the stream is stopped; ends a wait for the card.
+    stop: Arc<AtomicBool>,
+    /// Whether no picture has been taken yet: the first is always BGRA, as before the card converted, because the feed's first picture is taken on the shell's worker thread, which shouldn't draw on the card; a reader after a resize or a failure starts on BGRA too.
+    fresh: bool,
 }
+
+/// The frame count read with a picture, None for a sender that doesn't count.
+type Count = Option<i32>;
 
 fn fourcc(order: ChannelOrder) -> &'static str {
     match order {
@@ -96,17 +114,25 @@ fn fourcc(order: ChannelOrder) -> &'static str {
 impl SpoutReader {
     fn open(key: &str, handle: u32) -> Result<SpoutReader, String> {
         let (gpu, texture) = shared::open_shared_texture(handle)?;
-        SpoutReader::with_texture(key, handle, gpu, texture)
+        SpoutReader::with_texture(key, handle, gpu, texture, TROUBLES.clone())
     }
 
-    fn with_texture(key: &str, handle: u32, gpu: Gpu, texture: SharedTexture) -> Result<SpoutReader, String> {
+    fn with_texture(key: &str, handle: u32, gpu: Gpu, texture: SharedTexture, troubles: Arc<Troubles>) -> Result<SpoutReader, String> {
         let order = ChannelOrder::of_dxgi(texture.format).ok_or_else(|| format!("the sender's picture format (DXGI {}) isn't supported", texture.format))?;
         let staging = gpu.staging(&texture, 4)?;
         let lock = AccessLock::for_texture(key, &texture);
         log::info!("Spout sender {key}: {}x{} on {}", texture.width, texture.height, gpu.adapter);
+        let card_fails = troubles.fails(key, Instant::now());
+        let card = if card_fails >= CARD_FAILS_ALLOWED {
+            log::info!("Spout sender {key}: the graphics card's conversion failed {card_fails} frames in a row lately, taking pictures as BGRA");
+            Card::Broken
+        } else {
+            Card::Unmade
+        };
+        let balance = BALANCES.of(gpu.luid, &Balance::shared());
         Ok(SpoutReader {
             key: key.into(), handle, gpu, texture, staging, lock, order, counter: FrameCounter::open(key), tracker: FrameTracker::default(), checked: Instant::now(),
-            balance: Balance::shared(), card: Card::Unmade, card_fails: 0,
+            balance, card, card_fails, troubles, stop: Arc::new(AtomicBool::new(false)), fresh: true,
         })
     }
 
@@ -122,7 +148,9 @@ impl SpoutReader {
             Info::Busy => return Ok(()),
             Info::Found(info) => {
                 if info.share_handle != self.handle || info.width != self.texture.width || info.height != self.texture.height {
+                    let stop = self.stop.clone();
                     *self = SpoutReader::open(&self.key, info.share_handle)?;
+                    self.stop = stop;
                 }
             }
         }
@@ -144,6 +172,11 @@ impl SpoutReader {
         grab::grab(&balance, self)
     }
 
+    /// How long a readback may take from now, ended early by a stop.
+    fn deadline(&self, within: Duration) -> Deadline {
+        Deadline::new(&self.stop, within)
+    }
+
     /// Takes the picture as BGRA; the count is read while the texture is locked so it belongs to the picture copied, and only a picture that was read is marked as read.
     fn grab_bgra(&mut self) -> Result<Option<Picture>, String> {
         if !self.lock.acquire() {
@@ -152,8 +185,9 @@ impl SpoutReader {
         let count = self.count();
         self.gpu.copy(&self.staging, &self.texture);
         self.lock.release();
-        let data = self.gpu.read(&self.staging)?;
+        let data = self.gpu.read(&self.staging, &self.deadline(READ_WITHIN)).map_err(|e| e.to_string())?;
         self.tracker.read(count);
+        self.fresh = false;
         Ok(Some(Picture { width: self.texture.width, height: self.texture.height, fourcc: fourcc(self.order), data }))
     }
 
@@ -178,8 +212,28 @@ impl SpoutReader {
     fn bgra_from_card(&mut self) -> Result<Picture, String> {
         let Card::Ready(converter) = &self.card else { return Err("no converter to take the picture from".into()) };
         self.gpu.copy_source(&self.staging, converter);
-        let data = self.gpu.read(&self.staging)?;
+        let data = self.gpu.read(&self.staging, &self.deadline(READ_WITHIN)).map_err(|e| e.to_string())?;
         Ok(Picture { width: self.texture.width, height: self.texture.height, fourcc: fourcc(self.order), data })
+    }
+
+    /// Copies the sender's picture into the converter's own texture under the sender's lock, which is let go before the shaders run. Ok(None) while the sender holds it, else the frame count read with the copy.
+    fn copy_to_card(&self) -> Result<Option<Count>, String> {
+        if !self.lock.acquire() {
+            return Ok(None);
+        }
+        let count = self.count();
+        let copied = match &self.card {
+            Card::Ready(converter) => self.gpu.copy_to_converter(converter, &self.texture),
+            _ => Err("no converter".into()),
+        };
+        self.lock.release();
+        copied.map(|()| Some(count))
+    }
+
+    /// The card can't copy this sender's texture: this reader takes BGRA from here on.
+    fn give_up_card(&mut self, why: &str) {
+        card_failed(&self.key, why);
+        self.card = Card::Broken;
     }
 }
 
@@ -189,47 +243,68 @@ impl Grabber for SpoutReader {
     }
 
     fn card(&mut self) -> Result<Option<(Picture, Option<Duration>)>, String> {
-        if self.converter().is_none() {
+        if self.fresh || self.converter().is_none() {
             return Ok(self.grab_bgra()?.map(|picture| (picture, None)));
         }
-        if !self.lock.acquire() {
-            return Ok(None);
-        }
-        let count = self.count();
-        // The lock only covers the copy into the converter's own texture; the shaders run after it's let go
-        let copied = match &self.card {
-            Card::Ready(converter) => self.gpu.copy_to_converter(converter, &self.texture),
-            _ => Err("no converter".into()),
+        let count = match self.copy_to_card() {
+            Ok(Some(count)) => count,
+            Ok(None) => return Ok(None),
+            Err(why) => {
+                self.give_up_card(&why);
+                return Ok(self.grab_bgra()?.map(|picture| (picture, None)));
+            }
         };
-        self.lock.release();
-        if let Err(why) = copied {
-            card_failed(&self.key, &why);
-            self.card = Card::Broken;
-            return Ok(self.grab_bgra()?.map(|picture| (picture, None)));
-        }
         let started = Instant::now();
         let made = match &self.card {
-            Card::Ready(converter) => self.gpu.convert(converter),
-            _ => Err("no converter".into()),
+            Card::Ready(converter) => self.gpu.convert(converter, &self.deadline(READ_WITHIN)),
+            _ => Err(ReadError::Failed("no converter".into())),
         };
         let wait = started.elapsed();
         let (picture, wait) = match made {
             Ok(data) => {
                 self.card_fails = 0;
+                self.troubles.worked(&self.key);
                 (Picture { width: self.texture.width, height: self.texture.height, fourcc: I420, data }, Some(wait))
             }
+            // Stopping: no second readback to wait for
+            Err(ReadError::Cancelled) => return Err(ReadError::Cancelled.to_string()),
             Err(why) => {
-                card_failed(&self.key, &why);
-                self.card_fails += 1;
-                let picture = self.bgra_from_card();
+                card_failed(&self.key, &why.to_string());
+                self.card_fails = self.troubles.failed(&self.key, Instant::now());
+                // A reset device has nothing to read the copy from, and the replacement reader starts on BGRA and remembers this
+                let picture = if self.gpu.lost() { Err(format!("the graphics card was reset ({why})")) } else { self.bgra_from_card() };
                 if self.card_fails >= CARD_FAILS_ALLOWED {
                     self.card = Card::Broken;
                 }
-                (picture?, None)
+                // A card too slow to finish tells the balance how long it kept the frame
+                (picture?, (why == ReadError::TimedOut).then_some(wait))
             }
         };
         self.tracker.read(count);
         Ok(Some((picture, wait)))
+    }
+
+    fn trial(&mut self) -> Option<Duration> {
+        if self.fresh || self.converter().is_none() {
+            return None;
+        }
+        match self.copy_to_card() {
+            Ok(Some(_)) => {}
+            Ok(None) => return None,
+            Err(why) => {
+                self.give_up_card(&why);
+                return None;
+            }
+        }
+        let started = Instant::now();
+        let Card::Ready(converter) = &self.card else { return None };
+        match self.gpu.convert(converter, &self.deadline(TRIAL_WITHIN)) {
+            Ok(_) => Some(started.elapsed()),
+            Err(why) => {
+                log::debug!("Spout sender {}: a trial on the graphics card failed: {why}", self.key);
+                None
+            }
+        }
     }
 }
 
@@ -247,6 +322,10 @@ impl Reader for SpoutReader {
             std::thread::sleep(POLL);
         }
     }
+
+    fn set_stop(&mut self, stop: Arc<AtomicBool>) {
+        self.stop = stop;
+    }
 }
 
 #[cfg(test)]
@@ -262,10 +341,22 @@ mod tests {
         let gpu = warp();
         let data = noise(size.0 as usize * size.1 as usize * 4, size.0 * 31 + size.1);
         let texture = texture_with(&gpu, size, 87, &data);
-        let mut reader = SpoutReader::with_texture("telescope-test-sender", 0, gpu, texture).unwrap();
+        let mut reader = SpoutReader::with_texture("telescope-test-sender", 0, gpu, texture, Arc::new(Troubles::default())).unwrap();
+        // Past the first picture, which is BGRA whatever the balance says
+        reader.fresh = false;
         let balance = Arc::new(Balance::pinned_to(place));
         reader.balance = balance.clone();
         (reader, data, balance)
+    }
+
+    /// A new reader of a sender whose card failures `troubles` remembers, a texture of random pixels, the balance on the card.
+    fn reader_with(troubles: &Arc<Troubles>) -> (SpoutReader, Vec<u8>) {
+        let gpu = warp();
+        let data = noise(5 * 3 * 4, 9);
+        let texture = texture_with(&gpu, (5, 3), 87, &data);
+        let mut reader = SpoutReader::with_texture("telescope-test-sender", 0, gpu, texture, troubles.clone()).unwrap();
+        reader.balance = Arc::new(Balance::pinned_to(Place::Card));
+        (reader, data)
     }
 
     fn within_one(picture: &Picture, data: &[u8]) {
@@ -336,6 +427,96 @@ mod tests {
             reader.grab().unwrap().unwrap();
         }
         assert!(matches!(reader.card, Card::Ready(_)));
+    }
+
+    #[test]
+    fn the_first_picture_is_bgra_even_with_the_balance_on_the_card_and_the_next_is_planes() {
+        let (mut reader, data) = reader_with(&Arc::new(Troubles::default()));
+        let first = reader.grab().unwrap().unwrap();
+        assert_eq!((first.fourcc, &first.data), ("BGRA", &data));
+        assert!(matches!(reader.card, Card::Unmade), "the card wasn't touched for it");
+        assert_eq!(reader.grab().unwrap().unwrap().fourcc, I420);
+    }
+
+    #[test]
+    fn a_stop_ends_a_wait_for_the_card_at_once_on_either_way_of_reading() {
+        for place in [Place::Card, Place::Cpu] {
+            let (mut reader, _, _) = reader_at(place, (17, 9));
+            reader.grab().unwrap().unwrap();
+            // The card never finishes
+            reader.gpu.busy.store(u32::MAX, Ordering::SeqCst);
+            let stop = Arc::new(AtomicBool::new(false));
+            reader.set_stop(stop.clone());
+            let setter = {
+                let stop = stop.clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(Duration::from_millis(100));
+                    stop.store(true, Ordering::SeqCst);
+                })
+            };
+            let started = Instant::now();
+            let why = reader.grab().unwrap_err();
+            setter.join().unwrap();
+            assert!(started.elapsed() < Duration::from_millis(900), "{place:?}: took {:?}", started.elapsed());
+            assert!(why.contains("stopped"), "{why}");
+            // The reader is fine after: nothing was left mapped
+            reader.gpu.busy.store(0, Ordering::SeqCst);
+            stop.store(false, Ordering::SeqCst);
+            assert!(reader.grab().unwrap().is_some());
+        }
+    }
+
+    #[test]
+    fn a_trial_on_a_card_that_doesnt_finish_gives_up_in_a_short_time() {
+        let (mut reader, _, _) = reader_at(Place::Cpu, (17, 9));
+        reader.grab().unwrap().unwrap();
+        let waited = reader.trial().expect("a trial on an idle device");
+        assert!(waited < Duration::from_secs(1));
+        reader.gpu.busy.store(u32::MAX, Ordering::SeqCst);
+        let started = Instant::now();
+        assert_eq!(reader.trial(), None);
+        assert!(started.elapsed() < TRIAL_WITHIN * 10, "took {:?}", started.elapsed());
+    }
+
+    #[test]
+    fn a_failure_is_carried_to_the_next_reader_of_the_sender_which_starts_on_bgra() {
+        let troubles = Arc::new(Troubles::default());
+        let (mut reader, data) = reader_with(&troubles);
+        // The first picture is BGRA, the second makes the converter
+        reader.grab().unwrap().unwrap();
+        assert_eq!(reader.grab().unwrap().unwrap().fourcc, I420);
+        let Card::Ready(converter) = &reader.card else { panic!("no converter") };
+        converter.fail_next.store(true, Ordering::SeqCst);
+        assert_eq!(reader.grab().unwrap().unwrap().data, data);
+        assert_eq!(troubles.fails("telescope-test-sender", Instant::now()), 1);
+        // A reader that comes after (the feed reopened) knows, and the first picture is BGRA
+        let (mut next, data) = reader_with(&troubles);
+        assert_eq!(next.card_fails, 1);
+        assert_eq!(next.grab().unwrap().unwrap().data, data);
+        // A frame the card then makes right ends the run
+        assert_eq!(next.grab().unwrap().unwrap().fourcc, I420);
+        assert_eq!(troubles.fails("telescope-test-sender", Instant::now()), 0);
+    }
+
+    #[test]
+    fn a_sender_the_card_failed_on_every_time_lately_stays_on_bgra_in_a_new_reader() {
+        let troubles = Arc::new(Troubles::default());
+        for _ in 0..CARD_FAILS_ALLOWED {
+            troubles.failed("telescope-test-sender", Instant::now());
+        }
+        let (mut reader, data) = reader_with(&troubles);
+        assert!(matches!(reader.card, Card::Broken));
+        for _ in 0..3 {
+            let picture = reader.grab().unwrap().unwrap();
+            assert_eq!((picture.fourcc, &picture.data), ("BGRA", &data));
+        }
+    }
+
+    #[test]
+    fn readers_on_one_adapter_share_its_balance() {
+        let (a, _, _) = reader_at(Place::Card, (4, 4));
+        let (b, _, _) = reader_at(Place::Card, (2, 2));
+        assert_eq!(a.gpu.luid, b.gpu.luid);
     }
 
     /// 1080p frames from a texture on this device, taken the CPU's way and the card's: grab, wrap as a packet and decode, as the stream does.

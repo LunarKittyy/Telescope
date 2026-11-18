@@ -4,6 +4,7 @@
 //! info, count frames) goes next to it.
 
 use super::planes;
+use super::poll::{poll, Deadline, Polled};
 use super::protocol::{self, SharedTextureInfo};
 use ::windows::core::{Interface, PCWSTR};
 use ::windows::Win32::Foundation::{CloseHandle, HANDLE, HMODULE, WAIT_ABANDONED, WAIT_OBJECT_0};
@@ -14,12 +15,12 @@ use ::windows::Win32::Graphics::Direct3D::{
 use ::windows::Win32::Graphics::Direct3D11::{
     D3D11CreateDevice, ID3D11ClassLinkage, ID3D11DepthStencilView, ID3D11Device, ID3D11DeviceContext, ID3D11InputLayout, ID3D11PixelShader, ID3D11RasterizerState,
     ID3D11RenderTargetView, ID3D11ShaderResourceView, ID3D11Texture2D, ID3D11VertexShader, D3D11_BIND_RENDER_TARGET, D3D11_BIND_SHADER_RESOURCE, D3D11_CPU_ACCESS_READ,
-    D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_CULL_NONE, D3D11_FILL_SOLID, D3D11_MAPPED_SUBRESOURCE, D3D11_MAP_READ, D3D11_RASTERIZER_DESC, D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX,
+    D3D11_CREATE_DEVICE_BGRA_SUPPORT, D3D11_CULL_NONE, D3D11_FILL_SOLID, D3D11_MAPPED_SUBRESOURCE, D3D11_MAP_FLAG_DO_NOT_WAIT, D3D11_MAP_READ, D3D11_RASTERIZER_DESC, D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX,
     D3D11_SDK_VERSION, D3D11_SHADER_RESOURCE_VIEW_DESC, D3D11_SHADER_RESOURCE_VIEW_DESC_0, D3D11_TEX2D_SRV, D3D11_TEXTURE2D_DESC, D3D11_USAGE, D3D11_USAGE_DEFAULT,
     D3D11_USAGE_STAGING, D3D11_VIEWPORT,
 };
 use ::windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT, DXGI_FORMAT_R8_UNORM, DXGI_SAMPLE_DESC};
-use ::windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, IDXGIAdapter, IDXGIFactory1, IDXGIKeyedMutex};
+use ::windows::Win32::Graphics::Dxgi::{CreateDXGIFactory1, IDXGIAdapter, IDXGIDevice, IDXGIFactory1, IDXGIKeyedMutex, DXGI_ERROR_WAS_STILL_DRAWING};
 use ::windows::Win32::System::Memory::{MapViewOfFile, OpenFileMappingW, UnmapViewOfFile, VirtualQuery, FILE_MAP_READ, MEMORY_BASIC_INFORMATION, MEMORY_MAPPED_VIEW_ADDRESS};
 use ::windows::Win32::System::Threading::{
     OpenMutexW, OpenSemaphoreW, ReleaseMutex, ReleaseSemaphore, WaitForSingleObject, MUTEX_MODIFY_STATE, SEMAPHORE_MODIFY_STATE, SYNCHRONIZATION_SYNCHRONIZE,
@@ -36,6 +37,26 @@ const SHADER_CHROMA: &[u8] = include_bytes!("shaders/convert_uv.cso");
 
 fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+/// Why reading a picture back from the card gave nothing.
+#[derive(Debug, PartialEq, Eq)]
+pub enum ReadError {
+    /// The stream was stopped while the card was still working.
+    Cancelled,
+    /// The card didn't finish in the time given.
+    TimedOut,
+    Failed(String),
+}
+
+impl std::fmt::Display for ReadError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReadError::Cancelled => f.write_str("stopped while the card was still working"),
+            ReadError::TimedOut => f.write_str("the card didn't finish in time"),
+            ReadError::Failed(why) => f.write_str(why),
+        }
+    }
 }
 
 /// A kernel handle, closed when dropped.
@@ -300,10 +321,22 @@ pub struct Gpu {
     context: ID3D11DeviceContext,
     /// For the log: which graphics adapter this is.
     pub adapter: String,
+    /// The adapter's locally unique id (0 when it can't be told), which tells two cards of one laptop apart.
+    pub luid: u64,
+    /// How many of the next map attempts report the card as still drawing, for the tests of waiting.
+    #[cfg(test)]
+    pub(crate) busy: std::sync::atomic::AtomicU32,
 }
 
 // SAFETY: moved between threads whole and used by one at a time, which D3D11's immediate context allows
 unsafe impl Send for Gpu {}
+
+/// The locally unique id of the adapter a device is on, 0 when it can't be had.
+fn luid_of(device: &ID3D11Device) -> u64 {
+    // SAFETY: plain COM calls on the device and the objects it gives back
+    let desc = unsafe { device.cast::<IDXGIDevice>().and_then(|d| d.GetAdapter()).and_then(|a| a.GetDesc()) };
+    desc.map_or(0, |d| (u64::from(d.AdapterLuid.HighPart as u32) << 32) | u64::from(d.AdapterLuid.LowPart))
+}
 
 impl Gpu {
     /// A device on graphics adapter number `adapter` of the system, or on the default one for None.
@@ -330,7 +363,10 @@ impl Gpu {
                 .map_err(|e| format!("Direct3D on {name}: {e}"))?;
         }
         match (device, context) {
-            (Some(device), Some(context)) => Ok(Gpu { device, context, adapter: name }),
+            (Some(device), Some(context)) => {
+                let luid = luid_of(&device);
+                Ok(Gpu { device, context, adapter: name, luid, #[cfg(test)] busy: std::sync::atomic::AtomicU32::new(0) })
+            }
             _ => Err(format!("Direct3D on {name} gave no device")),
         }
     }
@@ -388,11 +424,9 @@ impl Gpu {
         }
     }
 
-    /// The staging texture's pixels, rows packed with no padding.
-    pub fn read(&self, from: &Staging) -> Result<Vec<u8>, String> {
-        let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
-        // SAFETY: mapped is a valid out buffer; the call waits for the copy to finish
-        unsafe { self.context.Map(&from.texture, 0, D3D11_MAP_READ, 0, Some(&mut mapped)) }.map_err(|e| format!("reading the texture: {e}"))?;
+    /// The staging texture's pixels, rows packed with no padding, once the copy into it has finished; gives up at the deadline or when its stop is set.
+    pub fn read(&self, from: &Staging, deadline: &Deadline) -> Result<Vec<u8>, ReadError> {
+        let mapped = self.map_when_ready(&from.texture, deadline, "reading the texture")?;
         let row = from.width as usize * from.bytes_per_pixel as usize;
         let mut out = Vec::with_capacity(row * from.height as usize);
         for y in 0..from.height as usize {
@@ -402,6 +436,39 @@ impl Gpu {
         // SAFETY: mapped above and unmapped once
         unsafe { self.context.Unmap(&from.texture, 0) };
         Ok(out)
+    }
+
+    /// Maps a staging texture for reading as soon as the card is done with it. A plain Map would block with no way out when the card stalls, so this asks again
+    /// with DO_NOT_WAIT until the deadline or the stop; the work is flushed first, as a poll never makes the card start it.
+    fn map_when_ready(&self, texture: &ID3D11Texture2D, deadline: &Deadline, what: &str) -> Result<D3D11_MAPPED_SUBRESOURCE, ReadError> {
+        // SAFETY: flushing the immediate context has no preconditions
+        unsafe { self.context.Flush() };
+        let polled = poll(deadline, || {
+            #[cfg(test)]
+            if self.busy.load(std::sync::atomic::Ordering::SeqCst) > 0 {
+                self.busy.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+                return None;
+            }
+            let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
+            // SAFETY: mapped is a valid out buffer and the texture is a staging texture of this device
+            match unsafe { self.context.Map(texture, 0, D3D11_MAP_READ, D3D11_MAP_FLAG_DO_NOT_WAIT.0 as u32, Some(&mut mapped)) } {
+                Ok(()) => Some(Ok(mapped)),
+                Err(e) if e.code() == DXGI_ERROR_WAS_STILL_DRAWING => None,
+                Err(e) => Some(Err(format!("{what}: {e}"))),
+            }
+        });
+        match polled {
+            Polled::Ready(Ok(mapped)) => Ok(mapped),
+            Polled::Ready(Err(why)) => Err(ReadError::Failed(why)),
+            Polled::Cancelled => Err(ReadError::Cancelled),
+            Polled::TimedOut => Err(ReadError::TimedOut),
+        }
+    }
+
+    /// Whether the device has been removed or reset, as a driver does after a fault; nothing on it works any more.
+    pub fn lost(&self) -> bool {
+        // SAFETY: a plain query of the device
+        unsafe { self.device.GetDeviceRemovedReason() }.is_err()
     }
 }
 
@@ -500,11 +567,11 @@ impl Gpu {
         Ok(())
     }
 
-    /// The picture last copied into the converter as I420 (luma, U, V, packed with no padding), made by the shaders; waits for the card to finish.
-    pub fn convert(&self, converter: &Converter) -> Result<Vec<u8>, String> {
+    /// The picture last copied into the converter as I420 (luma, U, V, packed with no padding), made by the shaders; waits for the card to finish, until the deadline or the stop at the most.
+    pub fn convert(&self, converter: &Converter, deadline: &Deadline) -> Result<Vec<u8>, ReadError> {
         #[cfg(test)]
         if converter.fail_next.swap(false, std::sync::atomic::Ordering::SeqCst) {
-            return Err("made to fail by a test".into());
+            return Err(ReadError::Failed("made to fail by a test".into()));
         }
         let viewport = |plane: &Plane| D3D11_VIEWPORT { TopLeftX: 0.0, TopLeftY: 0.0, Width: plane.width as f32, Height: plane.height as f32, MinDepth: 0.0, MaxDepth: 1.0 };
         let context = &self.context;
@@ -530,16 +597,14 @@ impl Gpu {
         }
         let mut out = Vec::with_capacity(planes::i420_len(converter.width, converter.height));
         for plane in [&converter.luma, &converter.u, &converter.v] {
-            self.read_plane(plane, &mut out)?;
+            self.read_plane(plane, deadline, &mut out)?;
         }
         Ok(out)
     }
 
     /// Appends one plane's bytes, rows packed with no padding.
-    fn read_plane(&self, plane: &Plane, out: &mut Vec<u8>) -> Result<(), String> {
-        let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
-        // SAFETY: mapped is a valid out buffer; the call waits for the card to finish the plane
-        unsafe { self.context.Map(&plane.staging, 0, D3D11_MAP_READ, 0, Some(&mut mapped)) }.map_err(|e| format!("reading a plane: {e}"))?;
+    fn read_plane(&self, plane: &Plane, deadline: &Deadline, out: &mut Vec<u8>) -> Result<(), ReadError> {
+        let mapped = self.map_when_ready(&plane.staging, deadline, "reading a plane")?;
         let (row, height, pitch) = (plane.width as usize, plane.height as usize, mapped.RowPitch as usize);
         let packed = if mapped.pData.is_null() {
             None
@@ -550,7 +615,7 @@ impl Gpu {
         };
         // SAFETY: mapped above and unmapped once, whatever came of the packing
         unsafe { self.context.Unmap(&plane.staging, 0) };
-        packed.ok_or_else(|| format!("a plane's rows are {pitch} bytes apart, shorter than the {row} they hold"))
+        packed.ok_or_else(|| ReadError::Failed(format!("a plane's rows are {pitch} bytes apart, shorter than the {row} they hold")))
     }
 
     /// Copies the picture last copied into the converter into the BGRA staging texture, for a frame the shaders failed on (`read` waits for it).

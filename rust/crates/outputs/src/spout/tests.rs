@@ -14,9 +14,16 @@ fn picture(width: u32, height: u32, fourcc: &'static str, pixel: [u8; 4]) -> Pic
 /// What a reader hands out next: a picture, nothing yet, or the end.
 type Script = Arc<Mutex<Vec<Result<Option<Picture>, String>>>>;
 
-struct FakeReader(Script);
+/// The stop flag the feed gave its reader.
+type StopSlot = Arc<Mutex<Option<Arc<AtomicBool>>>>;
+
+struct FakeReader(Script, StopSlot);
 
 impl Reader for FakeReader {
+    fn set_stop(&mut self, stop: Arc<AtomicBool>) {
+        *self.1.lock().unwrap() = Some(stop);
+    }
+
     fn next(&mut self, timeout: Duration) -> Result<Option<Picture>, String> {
         let mut script = self.0.lock().unwrap();
         if script.is_empty() {
@@ -24,7 +31,14 @@ impl Reader for FakeReader {
             std::thread::sleep(timeout.min(Duration::from_millis(5)));
             return Ok(None);
         }
-        script.remove(0)
+        let next = script.remove(0);
+        // A read that fails because the stream was stopped has the flag set when it fails
+        if matches!(&next, Err(why) if why.starts_with("stopped")) {
+            if let Some(stop) = self.1.lock().unwrap().as_ref() {
+                stop.store(true, Ordering::SeqCst);
+            }
+        }
+        next
     }
 }
 
@@ -33,6 +47,7 @@ struct FakeBackend {
     senders: Mutex<Vec<Sender>>,
     script: Script,
     refuse: Mutex<Option<String>>,
+    stop: StopSlot,
 }
 
 impl Backend for FakeBackend {
@@ -42,7 +57,7 @@ impl Backend for FakeBackend {
     fn open(&self, _key: &str) -> Result<Box<dyn Reader>, String> {
         match self.refuse.lock().unwrap().clone() {
             Some(why) => Err(why),
-            None => Ok(Box::new(FakeReader(self.script.clone()))),
+            None => Ok(Box::new(FakeReader(self.script.clone(), self.stop.clone()))),
         }
     }
 }
@@ -542,4 +557,51 @@ fn a_feed_carries_planes_and_sends_them_again_when_the_sender_is_idle() {
     assert_eq!(decoder.decode(&first).newest.unwrap().data.to_vec(), planar.data);
     let again = feed.read().unwrap();
     assert_eq!(again.data, first.data);
+}
+
+#[test]
+fn a_stop_of_the_feed_sets_the_flag_its_reader_waits_on_the_card_with() {
+    let env = env();
+    env.backend.script.lock().unwrap().push(Ok(Some(picture(2, 2, "RGBA", [0; 4]))));
+    let feed = open(&env);
+    let flag = env.backend.stop.lock().unwrap().clone().expect("the reader was given a flag");
+    assert!(!flag.load(Ordering::SeqCst));
+    feed.stopper().stop();
+    assert!(flag.load(Ordering::SeqCst));
+}
+
+#[test]
+fn a_stop_while_the_feed_is_opening_sets_the_flag_and_ends_the_open_quietly() {
+    let env = env();
+    let open_stop = OpenStop::default();
+    // The sender gives nothing yet; the stop comes while the open is waiting for the first picture
+    let stopper = open_stop.clone();
+    let seen = env.backend.stop.clone();
+    let watcher = std::thread::spawn(move || {
+        while seen.lock().unwrap().is_none() {
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        stopper.stop();
+        seen.lock().unwrap().clone().unwrap()
+    });
+    let before = env.plugin.sources["Cam"].waiting_text();
+    let err = env.plugin.sources["Cam"].open_feed_stoppable(&open_stop).err().unwrap();
+    assert_eq!(err, "stopped");
+    assert!(watcher.join().unwrap().load(Ordering::SeqCst));
+    assert_eq!(env.plugin.sources["Cam"].waiting_text(), before, "a stop is not a sender that went");
+}
+
+#[test]
+fn a_read_that_fails_because_of_a_stop_ends_as_stopped_not_as_a_sender_that_went() {
+    let mut env = env();
+    {
+        let mut script = env.backend.script.lock().unwrap();
+        script.push(Ok(Some(picture(2, 2, "RGBA", [0; 4]))));
+        script.push(Err("stopped while the card was still working".into()));
+    }
+    let mut feed = open(&env);
+    feed.read().unwrap();
+    assert_eq!(feed.read().unwrap_err(), FeedEnd::Stopped);
+    deliver(&mut env);
+    assert_ne!(env.plugin.states.get("Cam").map(|s| s.0.as_str()), Some("gone"));
 }

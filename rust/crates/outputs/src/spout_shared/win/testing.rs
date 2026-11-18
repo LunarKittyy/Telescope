@@ -13,7 +13,9 @@ pub fn warp() -> Gpu {
         D3D11CreateDevice(None, D3D_DRIVER_TYPE_WARP, HMODULE(std::ptr::null_mut()), D3D11_CREATE_DEVICE_BGRA_SUPPORT, Some(&levels), D3D11_SDK_VERSION, Some(&mut device), None, Some(&mut context))
             .expect("a WARP device");
     }
-    Gpu { device: device.expect("a device"), context: context.expect("a context"), adapter: "WARP".into() }
+    let device = device.expect("a device");
+    let luid = luid_of(&device);
+    Gpu { device, context: context.expect("a context"), adapter: "WARP".into(), luid, busy: std::sync::atomic::AtomicU32::new(0) }
 }
 
 /// Every device these tests can try: WARP, and the machine's own graphics card when it has one.
