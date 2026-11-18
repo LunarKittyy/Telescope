@@ -3,7 +3,7 @@
 use slint::winit_030::{winit, WinitWindowAccessor};
 use slint::ComponentHandle;
 use slint_interpreter::{ComponentInstance, Value};
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -143,8 +143,8 @@ pub(crate) struct Placement {
     limits: Limits,
     /// The size the person wants, in logical pixels: what they opened it at or last dragged it to, never what a cut left
     preferred: Cell<Option<(f64, f64)>>,
-    /// The inside this set last, so its own resize isn't taken for the person's
-    auto: Cell<Option<(u32, u32)>>,
+    /// The insides this set lately (logical pixels, newest last), so its own resizes aren't taken for the person's even when they arrive late or at another scale
+    auto: RefCell<Vec<(f64, f64)>>,
     /// The scale the sizes seen last belong to
     scale: Cell<f64>,
     /// The work area and scale (bits) it was last measured against
@@ -173,7 +173,7 @@ impl Placement {
         Rc::new(Placement {
             limits,
             preferred: Cell::new(limits.preferred.map(|(w, h)| (w as f64, h as f64))),
-            auto: Cell::new(None),
+            auto: RefCell::new(Vec::new()),
             scale: Cell::new(0.0),
             shown: Cell::new(None),
             held: Cell::new(false),
@@ -197,28 +197,40 @@ impl Placement {
         self.room.get()
     }
 
-    /// Notes a size this window was given on its own (not the person's).
+    /// Notes a size this window was given on its own (not the person's), taken at the scale it was last measured at.
     pub(crate) fn note_auto(&self, size: (u32, u32)) {
-        self.auto.set(Some(size));
+        let scale = if self.scale.get() > 0.0 { self.scale.get() } else { 1.0 };
+        let mut auto = self.auto.borrow_mut();
+        auto.push((size.0 as f64 / scale, size.1 as f64 / scale));
+        let extra = auto.len().saturating_sub(AUTO_KEPT);
+        auto.drain(..extra);
+    }
+
+    /// Whether `inner` at `scale` is a size this set lately, give or take what rounding between physical and logical pixels does.
+    fn is_auto(&self, inner: (u32, u32), scale: f64) -> bool {
+        self.auto.borrow().iter().any(|&(w, h)| {
+            let (w, h) = physical((w, h), scale);
+            w.abs_diff(inner.0) <= ROUNDING && h.abs_diff(inner.1) <= ROUNDING
+        })
     }
 
     /// Learns what the person wants from the window as it is now: a size they dragged it to is the new preferred one, while a size made by a scale change,
-    /// by the system (maximizing) or by this code is not.
-    pub(crate) fn observe(&self, seen: &Seen) {
+    /// by the system (maximizing, and the size it restores to) or by this code is not.
+    pub(crate) fn observe(&self, seen: &Seen, restored: bool) {
         let first = self.preferred.get().is_none();
         self.preferred(seen);
         if first || seen.held {
             self.scale.set(seen.scale);
             return;
         }
-        if self.scale.replace(seen.scale) != seen.scale {
+        if self.scale.replace(seen.scale) != seen.scale || restored {
             return;
         }
-        if self.auto.get().is_some_and(|(w, h)| w.abs_diff(seen.inner.0) <= 2 && h.abs_diff(seen.inner.1) <= 2) {
+        if self.is_auto(seen.inner, seen.scale) {
             return;
         }
         self.preferred.set(Some((seen.inner.0 as f64 / seen.scale, seen.inner.1 as f64 / seen.scale)));
-        self.auto.set(None);
+        self.auto.borrow_mut().clear();
     }
 
     /// How the window should be now, and what it has been measured against.
@@ -232,7 +244,7 @@ impl Placement {
         let least = self.limits.least_for((room.0 as f32 / seen.scale as f32, room.1 as f32 / seen.scale as f32));
         let fit = decide(seen, preferred, &self.limits, mv);
         if let Some(size) = fit.and_then(|f| f.size) {
-            self.auto.set(Some(size));
+            self.note_auto(size);
         }
         Plan { fit, least }
     }
@@ -456,6 +468,11 @@ enum Cause {
     Scale,
 }
 
+/// How many of its own sizes a window remembers: a resize event can arrive after the next fit was already made.
+const AUTO_KEPT: usize = 4;
+/// How far (physical pixels) a size may be from one this set and still be that one, for the rounding between physical and logical pixels.
+const ROUNDING: u32 = 2;
+
 /// How long a burst of events is left to settle before the window is looked at.
 const SETTLE: Duration = Duration::from_millis(60);
 /// How long a window that moved is left still before the drag is taken to have ended.
@@ -525,7 +542,7 @@ fn refit(ui: &ComponentInstance, place: &Rc<Placement>, cause: Cause) {
         return;
     }
     let restored = place.held.replace(false);
-    place.observe(&seen);
+    place.observe(&seen, restored);
     let changed = place.shown.get() != Some((seen.area, seen.scale.to_bits()));
     let (act, mv) = match cause {
         Cause::Nothing => return,
@@ -731,9 +748,9 @@ mod tests {
         let place = Placement::new(Limits::main());
         assert_eq!(place.plan(&held, Move::Yes).fit, None);
         // And not taken for the person resizing it
-        place.observe(&held);
+        place.observe(&held, false);
         assert_eq!(place.preferred(&held), (1920.0 / 1.5, 1009.0 / 1.5), "what it had when first asked, not the maximized size twice");
-        place.observe(&Seen { inner: (700, 500), ..held });
+        place.observe(&Seen { inner: (700, 500), ..held }, false);
         assert_eq!(place.preferred(&held), (1920.0 / 1.5, 1009.0 / 1.5));
     }
 
@@ -749,7 +766,7 @@ mod tests {
         assert_eq!(cut.size, Some((1350, 689)));
         // Dragged back: it is what it was, not the size it was cut to
         let cut_window = Seen { inner: (1350, 689), area: Area { x: 0, y: 0, width: 1920, height: 1032 }, ..first };
-        place.observe(&cut_window);
+        place.observe(&cut_window, false);
         let back = place.plan(&cut_window, Move::No).fit.unwrap();
         assert_eq!(back.size, Some((1380, 900)));
     }
@@ -762,16 +779,136 @@ mod tests {
         // Its own cut is not the person's
         let cut = Seen { inner: (1000, 700), ..first };
         place.note_auto((1000, 700));
-        place.observe(&cut);
+        place.observe(&cut, false);
         assert_eq!(place.preferred(&first), (1380.0, 900.0));
         // A drag to 1100x640 is, and so is one that lands where a cut once did
-        place.observe(&Seen { inner: (1100, 640), ..first });
+        place.observe(&Seen { inner: (1100, 640), ..first }, false);
         assert_eq!(place.preferred(&first), (1100.0, 640.0));
-        place.observe(&Seen { inner: (1000, 700), ..first });
+        place.observe(&Seen { inner: (1000, 700), ..first }, false);
         assert_eq!(place.preferred(&first), (1000.0, 700.0));
         // A new scale resizes it without the person: the logical size is kept
-        place.observe(&Seen { inner: (1500, 1050), scale: 1.5, ..first });
+        place.observe(&Seen { inner: (1500, 1050), scale: 1.5, ..first }, false);
         assert_eq!(place.preferred(&first), (1000.0, 700.0));
+    }
+
+    /// A window on a screen with a taskbar that hides and comes back, as Windows treats it: the size asked for is the size it gets, give or take `jitter`.
+    struct Hiding {
+        place: Rc<Placement>,
+        scale: f64,
+        inner: (u32, u32),
+    }
+
+    impl Hiding {
+        const SHOWN: Area = Area { x: 0, y: 0, width: 1920, height: 1020 };
+        const HIDDEN: Area = Area { x: 0, y: 0, width: 1920, height: 1080 };
+
+        fn open(scale: f64) -> Self {
+            let place = Placement::new(Limits::main());
+            let mut window = Hiding { place, scale, inner: px(MAIN, scale) };
+            window.fit(Self::SHOWN, 0);
+            window.arrives();
+            window
+        }
+
+        fn seen(&self, area: Area) -> Seen {
+            seen(Some((0, 0)), self.inner, (16, 39), area, self.scale)
+        }
+
+        /// The work area changes: the window is fitted and takes the size asked for, off by `jitter` pixels
+        fn fit(&mut self, area: Area, jitter: i32) {
+            if let Some(size) = self.place.plan(&self.seen(area), Move::Yes).fit.and_then(|f| f.size) {
+                self.inner = (size.0.saturating_add_signed(jitter), size.1.saturating_add_signed(jitter));
+            }
+        }
+
+        /// The resize event of the size it has now reaches the watcher
+        fn arrives(&self) {
+            self.place.observe(&self.seen(Self::SHOWN), false);
+        }
+
+        fn wants(&self) -> (f64, f64) {
+            self.place.preferred(&self.seen(Self::SHOWN))
+        }
+    }
+
+    #[test]
+    fn a_taskbar_that_hides_and_returns_does_not_shrink_what_the_window_grows_back_to() {
+        for scale in [1.0, 1.25, 1.5] {
+            let mut window = Hiding::open(scale);
+            let wanted = window.wants();
+            assert_eq!(wanted, (1380.0, 900.0));
+            window.fit(Hiding::HIDDEN, 0);
+            let grown = window.inner;
+            window.arrives();
+            window.fit(Hiding::SHOWN, 0);
+            window.arrives();
+            for _ in 0..3 {
+                window.fit(Hiding::HIDDEN, 0);
+                assert_eq!(window.inner, grown, "at {scale}");
+                window.arrives();
+                window.fit(Hiding::SHOWN, 0);
+                window.arrives();
+                assert_eq!(window.wants(), wanted, "at {scale}");
+            }
+        }
+    }
+
+    #[test]
+    fn resize_events_that_arrive_after_the_next_fit_are_still_its_own() {
+        for scale in [1.25, 1.5] {
+            let mut window = Hiding::open(scale);
+            let wanted = window.wants();
+            // The bar hides and returns before the window has been told of its first resize
+            window.fit(Hiding::HIDDEN, 0);
+            let grown = window.inner;
+            window.fit(Hiding::SHOWN, 0);
+            let cut = window.inner;
+            assert_ne!(grown, cut, "at {scale}");
+            for inner in [grown, cut] {
+                window.inner = inner;
+                window.arrives();
+                assert_eq!(window.wants(), wanted, "at {scale}");
+            }
+            window.fit(Hiding::HIDDEN, 0);
+            assert_eq!(window.inner, grown, "it grows back to what it was, at {scale}");
+        }
+    }
+
+    #[test]
+    fn a_size_off_by_a_pixel_from_the_one_asked_for_is_not_the_persons() {
+        for scale in [1.25, 1.5, 1.75] {
+            for jitter in [-2, -1, 1, 2] {
+                let mut window = Hiding::open(scale);
+                let wanted = window.wants();
+                window.fit(Hiding::HIDDEN, jitter);
+                window.arrives();
+                window.fit(Hiding::SHOWN, jitter);
+                window.arrives();
+                assert_eq!(window.wants(), wanted, "at {scale} off by {jitter}");
+            }
+        }
+        // A real drag still is
+        let mut window = Hiding::open(1.5);
+        window.fit(Hiding::SHOWN, 0);
+        window.inner = (1500, 900);
+        window.arrives();
+        assert_eq!(window.wants(), (1000.0, 600.0));
+    }
+
+    #[test]
+    fn a_window_restored_after_a_scale_change_while_maximized_goes_back_to_what_its_person_wants() {
+        let mut window = Hiding::open(1.25);
+        let wanted = window.wants();
+        // Maximized at 125%, the scale changes to 150% under it, and restoring gives it whatever size the system remembered
+        let held = |window: &Hiding, scale: f64| Seen { held: true, scale, ..window.seen(Hiding::SHOWN) };
+        window.place.observe(&held(&window, 1.25), false);
+        window.place.observe(&held(&window, 1.5), false);
+        window.scale = 1.5;
+        window.inner = (1618, 919);
+        window.place.observe(&window.seen(Hiding::SHOWN), true);
+        assert_eq!(window.wants(), wanted);
+        window.fit(Hiding::SHOWN, 0);
+        assert_eq!(window.inner, (1904, 981), "the room a work area of 1920x1020 leaves at 150%, not the size the system gave it");
     }
 
     #[test]
@@ -809,7 +946,7 @@ mod tests {
         assert_eq!(place.plan(&after, Move::Yes).fit, Some(Fit { position: Some((100, 48)), size: Some((1100, 976)) }));
         // And once it goes again, it is what it was
         let back = Seen { inner: (1100, 976), ..before };
-        place.observe(&back);
+        place.observe(&back, false);
         assert_eq!(place.plan(&back, Move::Yes).fit, Some(Fit { position: None, size: Some((1100, 1000)) }));
     }
 
