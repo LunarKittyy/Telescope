@@ -1465,9 +1465,11 @@ impl Window {
         crate::settings::plugins_stopped(stopped);
         crate::settings::hide_sections(plugin);
         self.refresh_frame_steps();
-        // A stream behind the panels keeps its other steps; this plugin's go, or turn the picture dark where it was hiding something
-        let hid = self.state.borrow().index(plugin).and_then(|i| self.state.borrow().slots[i].hid);
-        self.drop_steps_behind(plugin, hid);
+        // A stream behind the panels keeps its other steps, this plugin's go
+        self.drop_steps_behind(plugin);
+        if self.state.borrow().withhold.on() {
+            self.black_out();
+        }
     }
 
     fn close_plugin_window(self: &Rc<Self>, plugin: &str, id: &str) {
@@ -1792,6 +1794,7 @@ impl Window {
             self.save_timer.stop();
             self.state.borrow_mut().save_now();
         }
+        self.state.borrow_mut().slots.iter_mut().for_each(|s| s.shut_down = true);
         self.state.borrow_mut().each(|p, host| p.shutdown(host));
         let vision = self.state.borrow().vision.clone();
         if let Some(vision) = vision {

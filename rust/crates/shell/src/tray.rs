@@ -74,7 +74,7 @@ impl Window {
     pub fn refresh_tray_menu(&self) {
         let item = |id: String, title: String| TrayItem { id, title, checkable: false, checked: false, visible: true, enabled: true };
         let mut items = vec![item(SHOW.into(), tr("Show"))];
-        for slot in &self.state.borrow().slots {
+        for slot in self.state.borrow().slots.iter().filter(|s| s.stopped.is_none()) {
             items.extend(slot.tray.iter().map(|a| TrayItem {
                 id: format!("{}/{}", slot.info.name, a.id),
                 title: a.title.clone(),
