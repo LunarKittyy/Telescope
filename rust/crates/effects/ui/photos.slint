@@ -93,6 +93,11 @@ export component PhotosCard inherits Card {
     in property <int> distortion-index;
     in property <bool> distortion-enabled;
     in property <[string]> distortion-tips;
+    // What a focus bracket saves: the photos, both, or only the merged picture
+    in property <int> merge-index;
+    in property <bool> merge-enabled;
+    in property <[string]> merge-tips;
+    in property <string> merge-off-tip;
     // What the arrows are called to a screen reader
     in property <string> previous-label;
     in property <string> next-label;
@@ -278,6 +283,23 @@ export component PhotosCard inherits Card {
                 hold-up => { root.tile-hold-up(); }
                 picked(i) => { root.tile-picked("exposure_s", i); }
             }
+        }
+    }
+    RailRow {
+        icon: Icons.layers;
+        label: @tr("Merge focus");
+        hue: root.hue;
+        enabled: active;
+        changed: merge-index != 0;
+        Segmented {
+            hue: root.hue;
+            label: @tr("Merge focus");
+            items: [@tr("Photos"), @tr("Both"), @tr("Merged")];
+            disabled: [!active || !merge-enabled, !active || !merge-enabled, !active || !merge-enabled];
+            tips: [@tr("Photos"), @tr("Both"), @tr("Merged")];
+            tip-details: merge-enabled ? merge-tips : [merge-off-tip, merge-off-tip, merge-off-tip];
+            current: merge-index;
+            picked(i) => { root.tile-picked("focus_merge", i); }
         }
     }
     RailRow {

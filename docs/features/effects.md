@@ -43,6 +43,7 @@ Optional. Switch it on under **Camera** in the Plugins tab of Settings and the P
 - **Format** is JPEG with a quality setting, HEIC, Ultra HDR (Android 14) or RAW as a DNG, alone or together with a JPEG
 - **Full resolution** under **Mode** uses the sensor's real size (the 50 or 200 MP on sensors that normally give 12). **Night**, **HDR** and **Bokeh** are the phone maker's own modes and show up if the maker lets other apps use them (Android 12)
 - **Shots** can be a burst of up to 60, an exposure bracket for HDR merging or a focus bracket from near to far for focus stacking
+- **Merge focus** appears for a focus bracket saved as JPEG (or RAW and JPEG). It is **Photos** to save only the photos, **Both** to save one merged picture next to them, or **Merged** to save only the merged picture and delete the photos. The merged picture is built from the sharpest photo at each point with a soft blend between them. The photos are lined up first, including the small size change as the focus moves. It is a JPEG named after the first photo with `_focus-merged`. It takes a few seconds after the photos arrive. If the merge fails the photos are still saved
 - **Exposure** takes a long exposure up to what the sensor allows (30 s or more on some phones) at the video's ISO
 - There's a 3 or 10 second **Timer** and best quality noise reduction and sharpening, plus distortion correction that can be turned on or off where the phone allows it
 

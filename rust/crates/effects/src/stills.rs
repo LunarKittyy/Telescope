@@ -78,7 +78,7 @@ pub type Choices = Map<String, Value>;
 
 pub fn defaults() -> Choices {
     let Value::Object(map) = json!({"format": "jpeg", "quality": 95, "mode": "normal", "shots": "single", "burst": 5, "bracket": "3x1",
-                                    "focus_steps": 5, "exposure_s": 0, "timer": 0, "best": true, "distortion": "camera"}) else { unreachable!() };
+                                    "focus_steps": 5, "focus_merge": "frames", "exposure_s": 0, "timer": 0, "best": true, "distortion": "camera"}) else { unreachable!() };
     map
 }
 

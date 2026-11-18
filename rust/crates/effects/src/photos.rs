@@ -30,6 +30,14 @@ pub const MODES: [(&str, &str); 6] = [
     ("normal", n_("Normal")), ("max_res", n_("Full resolution")), ("night", n_("Night")), ("hdr", n_("HDR")), ("bokeh", n_("Bokeh")), ("auto", n_("Auto")),
 ];
 pub const SHOTS: [(&str, &str); 4] = [("single", n_("Single")), ("burst", n_("Burst")), ("bracket", n_("Exposure bracket")), ("focus", n_("Focus bracket"))];
+/// What a focus bracket saves: the photos only, the photos and one merged picture, or the merged picture only (crate::focus_merge).
+pub const FOCUS_MERGE: [(&str, &str); 3] = [("frames", n_("Photos")), ("both", n_("Both")), ("merged", n_("Merged"))];
+const FOCUS_MERGE_TIPS: [&str; 3] = [
+    n_("Save only the photos of the focus bracket."),
+    n_("Save the photos and one merged picture that is sharp all the way through."),
+    n_("Save only the merged picture and delete the photos."),
+];
+const FOCUS_MERGE_OFF_TIP: &str = n_("Merging works on focus brackets saved as JPEG.");
 pub const DISTORTION: [(&str, &str); 3] = [("camera", n_("Camera")), ("on", n_("On")), ("off", n_("Off"))];
 /// What each distortion choice means, for its tooltip.
 const DISTORTION_TIPS: [&str; 3] = [n_("Let the camera decide."), n_("Always fix lens distortion."), n_("Never fix lens distortion.")];
@@ -90,6 +98,8 @@ pub struct PhotosPlugin {
     /// The photos being taken (one per phone, each with its own end) and the folder dialog being shown.
     taking: Vec<RequestId>,
     asked: Option<RequestId>,
+    /// The focus brackets being taken that are to be merged: the request, what to save and the JPEG quality.
+    merges: Vec<(RequestId, String, u8)>,
     status: (String, &'static str),
     paired: Paired,
     /// set_config has no host: the card hears the settings with the next hook that has one.
@@ -120,6 +130,7 @@ impl PhotosPlugin {
             last_saved: Vec::new(),
             taking: Vec::new(),
             asked: None,
+            merges: Vec::new(),
             status: (String::new(), "status_dim"),
             paired: Paired::default(),
             pending: false,
@@ -175,7 +186,7 @@ impl PhotosPlugin {
     fn fixed_props() -> Value {
         json!({
             "take-text": tr("Take photo"), "take-tip": tr(TAKE_TIP), "open-text": tr("Open folder"), "open-tip": tr(OPEN_TIP),
-            "best-name": tr("Best quality"), "distortion-tips": DISTORTION_TIPS.map(tr),
+            "best-name": tr("Best quality"), "distortion-tips": DISTORTION_TIPS.map(tr), "merge-tips": FOCUS_MERGE_TIPS.map(tr), "merge-off-tip": tr(FOCUS_MERGE_OFF_TIP),
             "shots-names": SHOTS.map(|(_, name)| tr(name)), "mode-tip": tr(MODE_TIP), "shots-tip": tr(SHOTS_TIP), "timer-tip": tr(TIMER_TIP), "exposure-tip": tr(EXPOSURE_TIP),
             "previous-label": tr("Previous"), "next-label": tr("Next"),
             "timer-items": TIMERS.iter().map(|s| Self::timer_text(*s)).collect::<Vec<_>>(),
@@ -287,6 +298,7 @@ impl PhotosPlugin {
             "slot-index": index(slot), "slot-tip": find(slot).map_or_else(String::new, |t| t.tip.clone()),
             "exposure-options": options("exposure_s"), "exposure-index": index("exposure_s"),
             "distortion-enabled": find("distortion").is_some(), "distortion-index": index("distortion"),
+            "merge-enabled": self.merge_possible(), "merge-index": FOCUS_MERGE.iter().position(|(k, _)| *k == text(c, "focus_merge")).unwrap_or(0),
             "quality": quality, "quality-text": quality.to_string(), "quality-enabled": format != "raw" && !caps.camera, "quality-tip": quality_tip,
             "timer-current": TIMERS.iter().position(|t| *t as f64 == number(c, "timer", 0.0)).unwrap_or(0),
             "best": c.get("best") == Some(&json!(true)), "best-enabled": best, "best-tip": tr(if best { BEST_TIP } else { BEST_OFF_TIP }),
@@ -309,7 +321,10 @@ impl PhotosPlugin {
     }
 
     fn reset_shown(&self) -> bool {
-        off_default(&Self::alike(self.get_config()), &Self::alike(Value::Object(defaults())), Self::RESET_KEPT)
+        // the merge pick isn't written while it is the photos, so the defaults are compared without it
+        let mut base = defaults();
+        base.shift_remove("focus_merge");
+        off_default(&Self::alike(self.get_config()), &Self::alike(Value::Object(base)), Self::RESET_KEPT)
     }
 
     fn reset(&mut self, host: &mut dyn Host) {
@@ -441,6 +456,7 @@ impl PhotosPlugin {
             "exposure_s" => can.exposures.get(index).map(|s| if s.fract() == 0.0 { json!(*s as i64) } else { json!(s) }),
             "bracket" => BRACKETS.get(index).map(|(k, ..)| json!(k)),
             "distortion" => DISTORTION.get(index).map(|(k, _)| json!(k)),
+            "focus_merge" => FOCUS_MERGE.get(index).map(|(k, _)| json!(k)),
             "burst" | "focus_steps" => {
                 let (min, max) = self.number_range(usize::from(key == "focus_steps"));
                 Some(min + index as i64).filter(|n| *n <= max).map(|n| json!(n))
@@ -504,6 +520,45 @@ impl PhotosPlugin {
         host.view().rotation.filter(|r| [90, 180, 270].contains(r)).unwrap_or(0)
     }
 
+    /// Whether a focus bracket can be merged as the card is set: the photos are JPEGs (a RAW photo can't be read, and the JPEG of RAW and JPEG can).
+    fn merge_possible(&self) -> bool {
+        let can = self.can();
+        let (shots, format) = (pick(text(&self.choices, "shots"), &can.shots), pick(text(&self.choices, "format"), &can.formats));
+        shots == "focus" && (format == "jpeg" || format == "raw+jpeg")
+    }
+
+    /// What the focus bracket about to be taken saves besides its photos: "both" or "merged", None for the photos only.
+    fn merge_mode(&self) -> Option<&'static str> {
+        let wanted = text(&self.choices, "focus_merge");
+        FOCUS_MERGE.iter().map(|(k, _)| *k).find(|k| *k == wanted && *k != crate::focus_merge::FRAMES).filter(|_| self.merge_possible())
+    }
+
+    /// The photos of a bracket are in: merge them on a thread of its own, which says when it's done.
+    fn start_merge(&mut self, host: &mut dyn Host, files: &[String], mode: &str, quality: u8) {
+        let Some(poster) = host.poster() else { return };
+        crate::focus_merge::spawn(poster, files.to_vec(), quality, mode != crate::focus_merge::MERGED);
+        self.show_status(host, tr("Merging the focus bracket…"), "status_dim");
+    }
+
+    fn merged(&mut self, host: &mut dyn Host, data: &Value) {
+        if data.get("ok").and_then(Value::as_bool) == Some(true) {
+            let path = data.get("path").and_then(Value::as_str).unwrap_or("").to_string();
+            let name = Path::new(&path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            // the photos that are still there come after the merged picture
+            self.last_saved.retain(|f| Path::new(f).exists());
+            self.last_saved.insert(0, path);
+            let text = tr("Saved the merged picture {name}").field("name", &name);
+            self.show_status(host, text.clone(), "status_ok");
+            if !host.window_active() {
+                host.send_notification(&tr("Photo saved"), &text, false);
+            }
+        } else {
+            log::warn!("The focus bracket couldn't be merged: {}", data.get("error").and_then(Value::as_str).unwrap_or("?"));
+            self.show_status(host, tr("The photos are saved but couldn't be merged."), "status_err");
+        }
+        self.refresh(host);
+    }
+
     fn take(&mut self, host: &mut dyn Host) {
         let Some(raw) = host.still_caps(None) else { return };
         if host.still_busy(None) {
@@ -516,6 +571,9 @@ impl PhotosPlugin {
         }
         match host.take_still(&options, &self.folder, None) {
             Some(id) => {
+                if let Some(mode) = self.merge_mode() {
+                    self.merges.push((id, mode.to_string(), int(&self.choices, "quality", 95).clamp(50, 100) as u8));
+                }
                 self.taking.push(id);
                 self.show_status(host, tr("Taking the photo…"), "status_dim");
                 self.refresh(host);
@@ -653,7 +711,15 @@ impl Plugin for PhotosPlugin {
             Event::RequestDone { request, data, .. } if self.taking.contains(request) => {
                 self.taking.retain(|r| r != request);
                 self.done(host, data);
+                if let Some(at) = self.merges.iter().position(|(r, ..)| r == request) {
+                    let (_, mode, quality) = self.merges.remove(at);
+                    if data.get("ok").and_then(Value::as_bool) == Some(true) {
+                        let files = self.last_saved.clone();
+                        self.start_merge(host, &files, &mode, quality);
+                    }
+                }
             }
+            Event::Posted { owner, token, data } if owner == NAME && token == "merged" => self.merged(host, data),
             Event::RequestDone { request, ok, data, .. } if Some(*request) == self.asked => {
                 self.asked = None;
                 if let (true, Some(path)) = (*ok, data.get("path").and_then(Value::as_str).filter(|p| !p.is_empty())) {
@@ -780,6 +846,10 @@ impl Plugin for PhotosPlugin {
 
     fn get_config(&self) -> Value {
         let mut cfg = self.choices.clone();
+        // written only when something other than the photos is asked for, so settings that never used it read as they always did
+        if text(&cfg, "focus_merge") == crate::focus_merge::FRAMES {
+            cfg.shift_remove("focus_merge");
+        }
         cfg.insert("folder".into(), json!(self.folder));
         Value::Object(cfg)
     }
