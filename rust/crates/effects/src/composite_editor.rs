@@ -4,7 +4,7 @@
 
 use telescope_core::i18n::Fields;
 use super::*;
-use crate::composite::{self, crop_px, Tile, MAX_BORDER, MAX_RADIUS, MAX_TILES, SNAP};
+use crate::composite::{self, crop_px, Tile, MAX_BORDER, MAX_RADIUS, MAX_TILES, MIN_SIZE, SNAP};
 use telescope_core::frame::PixelFormat;
 use telescope_core::host::{FileDialog, FileDialogKind, RequestId};
 use telescope_core::ui::WindowSpec;
@@ -328,6 +328,57 @@ impl CompositePlugin {
         self.replace_tile(host, index, Tile { zoom, ..tile.clone() });
     }
 
+    /// One of the Left, Top, Width and Height boxes: to `px` (canvas pixels), or by that many (step), kept on the picture.
+    fn set_box(&mut self, host: &mut dyn Host, field: &str, px: f64, by: bool) {
+        let Some(tile) = self.picked() else { return };
+        let (cw, ch) = self.size();
+        let (cw, ch) = (cw as f64, ch as f64);
+        let mut new = tile.clone();
+        match field {
+            "x" => new.x = (if by { tile.x + px / cw } else { px / cw }).clamp(0.0, (1.0 - tile.w).max(0.0)),
+            "y" => new.y = (if by { tile.y + px / ch } else { px / ch }).clamp(0.0, (1.0 - tile.h).max(0.0)),
+            "w" | "h" => {
+                // a stream that keeps its shape when dragged keeps it when typed, as well: the other side follows
+                let ratio = (tile.w * cw) / (tile.h * ch).max(1e-9);
+                let wanted = if field == "w" { if by { tile.w * cw + px } else { px } } else { (if by { tile.h * ch + px } else { px }) * ratio };
+                let mut w = (wanted / cw).max(MIN_SIZE);
+                if !tile.stretch {
+                    // as big as the picture allows from where the box starts, in the same shape
+                    let most = ((1.0 - tile.x).min((1.0 - tile.y) * ch * ratio / cw)).max(MIN_SIZE);
+                    w = w.min(most);
+                    new.h = (w * cw / ratio / ch).max(MIN_SIZE);
+                } else if field == "h" {
+                    new.h = (if by { tile.h + px / ch } else { px / ch }).clamp(MIN_SIZE, (1.0 - tile.y).max(MIN_SIZE));
+                    w = tile.w;
+                } else {
+                    w = w.min((1.0 - tile.x).max(MIN_SIZE));
+                }
+                new.w = w;
+            }
+            _ => return,
+        }
+        let index = self.editor.as_ref().map_or(-1, |e| e.selected);
+        self.replace_tile(host, index, new);
+    }
+
+    /// The picked tile and another trade places and sizes; `other` counts the tiles but the picked one.
+    fn swap_picked(&mut self, host: &mut dyn Host, other: i64) {
+        let picked = self.editor.as_ref().map_or(-1, |e| e.selected);
+        let others: Vec<usize> = (0..self.layout.tiles.len()).filter(|i| *i as i64 != picked).collect();
+        let (Some(&there), true) = (usize::try_from(other).ok().and_then(|o| others.get(o)), picked >= 0) else { return };
+        let mut tiles = composite::swapped(&self.layout.tiles, picked as usize, there);
+        // each is cut to the shape of its new box, so a wide picture isn't squeezed into a tall box
+        let canvas = self.canvas_aspect();
+        for i in [picked as usize, there] {
+            if let Some(aspect) = self.source_aspect(&tiles[i].source_id) {
+                tiles[i] = composite::refit(&tiles[i], aspect, canvas);
+            }
+        }
+        // the picked stream is now where the other was in the layers
+        self.select(there as i64);
+        self.set_layout(host, Layout { tiles, ..self.layout.clone() });
+    }
+
     fn nudge(&mut self, host: &mut dyn Host, key: &str, shift: bool) {
         let Some(tile) = self.picked() else { return };
         let (mx, my) = match key {
@@ -588,6 +639,12 @@ impl CompositePlugin {
             "radius-max": MAX_RADIUS,
             "radius-text": picked.map_or_else(String::new, |t| format!("{} px", t.radius)),
             "fit-enabled": picked.is_some_and(|t| live.contains(&t.source_id.as_str())),
+            "pos-x-text": picked.map_or_else(String::new, |t| format!("{}", (t.x * w as f64).round() as i64)),
+            "pos-y-text": picked.map_or_else(String::new, |t| format!("{}", (t.y * h as f64).round() as i64)),
+            "size-w-text": picked.map_or_else(String::new, |t| format!("{}", (t.w * w as f64).round() as i64)),
+            "size-h-text": picked.map_or_else(String::new, |t| format!("{}", (t.h * h as f64).round() as i64)),
+            "swap-items": layout.tiles.iter().enumerate().filter(|(i, _)| *i as i64 != index).map(|(_, t)| if t.name.is_empty() { t.source_id.clone() } else { t.name.clone() }).collect::<Vec<_>>(),
+            "swap-enabled": picked.is_some() && layout.tiles.len() >= 2,
             "back-enabled": index > 0,
             "front-enabled": index >= 0 && index < layout.tiles.len() as i64 - 1,
             "background-code": layout.background,
@@ -651,6 +708,13 @@ impl CompositePlugin {
                 self.wheel(host, (number(0), number(1)), number(4) / 120.0);
             }
             "key" => self.nudge(host, text(0), flag(1)),
+            "box-committed" => {
+                if let Some(px) = text(1).trim().trim_end_matches("px").trim().parse::<f64>().ok().filter(|v| v.is_finite()) {
+                    self.set_box(host, text(0), px, false);
+                }
+            }
+            "box-step" => self.set_box(host, text(0), number(1), true),
+            "swap-picked" => self.swap_picked(host, number(0) as i64),
             "start-from" => self.start_from(host, number(0) as i64),
             "layout-picked" => {
                 if let Some(name) = self.names().get(number(0) as usize).cloned() {
