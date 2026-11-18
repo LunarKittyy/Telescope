@@ -260,6 +260,131 @@ impl Look {
     }
 }
 
+/// Corner roundness: what `Theme.radius` takes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Corners {
+    Sharp,
+    #[default]
+    Normal,
+    Round,
+}
+
+/// Text size: what `Theme.body` takes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum TextSize {
+    Small,
+    #[default]
+    Normal,
+    Large,
+}
+
+/// Density: what `Theme.unit` takes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Density {
+    Compact,
+    #[default]
+    Normal,
+    Comfortable,
+}
+
+/// Which motions may play: the system's own setting, or one the person picked over it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum MotionChoice {
+    #[default]
+    System,
+    Full,
+    Reduced,
+    Off,
+}
+
+/// The longest wait before a tooltip, in milliseconds (the slider's far end).
+pub const TIP_DELAY_MAX_MS: u32 = 1500;
+
+/// The options of Appearance that scale or swap a design token, each in a few fixed steps. The window sets its globals from this;
+/// the look and the card colours have their own calls.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Appearance {
+    pub corners: Corners,
+    pub text: TextSize,
+    pub density: Density,
+    /// Full colours at rest, near-white text and lines
+    pub contrast: bool,
+    pub motion: MotionChoice,
+    /// How long the pointer rests before a tooltip shows, in milliseconds
+    pub tip_delay_ms: u32,
+    /// The next tooltip shows at once while one is up or just went down
+    pub tip_warm: bool,
+}
+
+impl Default for Appearance {
+    fn default() -> Appearance {
+        Appearance { corners: Corners::Normal, text: TextSize::Normal, density: Density::Normal, contrast: false, motion: MotionChoice::System, tip_delay_ms: 500, tip_warm: true }
+    }
+}
+
+impl Appearance {
+    /// `Theme.radius` in logical pixels.
+    pub fn radius(&self) -> f64 {
+        match self.corners {
+            Corners::Sharp => 0.0,
+            Corners::Normal => 6.0,
+            Corners::Round => 10.0,
+        }
+    }
+
+    /// `Theme.body` in logical pixels.
+    pub fn body(&self) -> f64 {
+        match self.text {
+            TextSize::Small => 12.0,
+            TextSize::Normal => 13.0,
+            TextSize::Large => 15.0,
+        }
+    }
+
+    /// `Theme.unit` in logical pixels.
+    pub fn unit(&self) -> f64 {
+        match self.density {
+            Density::Compact => 1.75,
+            Density::Normal => 2.0,
+            Density::Comfortable => 2.25,
+        }
+    }
+
+    /// What the settings file holds: only what is not at its default, so a config that never touched Appearance stays as it was.
+    pub fn to_json(&self) -> Option<Value> {
+        let was = Appearance::default();
+        let mut out = serde_json::Map::new();
+        let mut put = |key: &str, changed: bool, value: Value| {
+            if changed {
+                out.insert(key.into(), value);
+            }
+        };
+        put("corners", self.corners != was.corners, Value::from(match self.corners { Corners::Sharp => "sharp", Corners::Normal => "default", Corners::Round => "round" }));
+        put("text", self.text != was.text, Value::from(match self.text { TextSize::Small => "small", TextSize::Normal => "default", TextSize::Large => "large" }));
+        put("density", self.density != was.density, Value::from(match self.density { Density::Compact => "compact", Density::Normal => "default", Density::Comfortable => "comfortable" }));
+        put("contrast", self.contrast != was.contrast, Value::from(self.contrast));
+        put("motion", self.motion != was.motion, Value::from(match self.motion { MotionChoice::System => "system", MotionChoice::Full => "full", MotionChoice::Reduced => "reduced", MotionChoice::Off => "off" }));
+        put("tip_delay_ms", self.tip_delay_ms != was.tip_delay_ms, Value::from(self.tip_delay_ms));
+        put("tip_warm", self.tip_warm != was.tip_warm, Value::from(self.tip_warm));
+        (!out.is_empty()).then_some(Value::Object(out))
+    }
+
+    /// What `to_json` wrote; anything missing or not understood is the default.
+    pub fn from_json(value: Option<&Value>) -> Appearance {
+        let get = |key: &str| value.and_then(|v| v.get(key));
+        let word = |key: &str| get(key).and_then(Value::as_str).unwrap_or("");
+        Appearance {
+            corners: match word("corners") { "sharp" => Corners::Sharp, "round" => Corners::Round, _ => Corners::Normal },
+            text: match word("text") { "small" => TextSize::Small, "large" => TextSize::Large, _ => TextSize::Normal },
+            density: match word("density") { "compact" => Density::Compact, "comfortable" => Density::Comfortable, _ => Density::Normal },
+            contrast: get("contrast") == Some(&Value::Bool(true)),
+            motion: match word("motion") { "full" => MotionChoice::Full, "reduced" => MotionChoice::Reduced, "off" => MotionChoice::Off, _ => MotionChoice::System },
+            tip_delay_ms: get("tip_delay_ms").and_then(Value::as_u64).map_or(500, |ms| ms.min(u64::from(TIP_DELAY_MAX_MS)) as u32),
+            tip_warm: get("tip_warm") != Some(&Value::Bool(false)),
+        }
+    }
+}
+
 /// Saving and reading settings: this plugin's, another's, and each device's.
 pub trait HostSettings {
     /// Persist all plugin config soon, coalescing rapid successive calls.
@@ -458,6 +583,8 @@ pub trait HostShell {
     fn set_plugin_hues(&mut self, _on: bool) {}
     /// Which look the window draws (Appearance in Settings). A host without a window ignores it.
     fn set_look(&mut self, _look: Look) {}
+    /// The other Appearance options: corners, text size, density, contrast, motion and tooltip timing. A host without a window ignores it.
+    fn set_appearance(&mut self, _appearance: Appearance) {}
     /// Asks the person for a file or folder. Event::RequestDone says how it went: ok with data {"path", "filter"} for
     /// the pick, not ok with an empty message when it was cancelled. None on a host that can't show a dialog.
     fn pick_file(&mut self, _dialog: &FileDialog) -> Option<RequestId> {
@@ -586,6 +713,15 @@ pub trait HostPreview {
     /// the cards still act on source_id's stream. None as the target takes the owner's redirect off, and so does the owner going away. An owner
     /// has one at a time; a host without a preview ignores it.
     fn preview_follows(&mut self, _owner: &str, _source_id: Option<&str>, _target: Option<&str>) {}
+    /// Whether the preview draws the shown stream's own camera picture. It doesn't while a plugin has it draw another running stream
+    /// (preview_follows) or while the picture is made of several streams (preview_composited): a spot picked on it is then not a spot of
+    /// that stream's picture, and the people found in it are not the ones on screen.
+    fn preview_shows_own_picture(&self) -> bool {
+        true
+    }
+    /// A plugin says the picture stream source_id sends is made of several (Stereo's 3D picture, Composite's picture), not one camera's
+    /// view, or None that it no longer is. An owner has one at a time.
+    fn preview_composited(&mut self, _owner: &str, _source_id: Option<&str>) {}
 }
 
 /// Full-quality photos taken on the phone.

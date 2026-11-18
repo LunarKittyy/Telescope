@@ -147,6 +147,8 @@ pub enum Effect {
     PluginHues(bool),
     /// Host::set_look: the look the windows draw.
     Look(telescope_core::host::Look),
+    /// Host::set_appearance: corners, text size, density, contrast, motion and tooltip timing.
+    Appearance(telescope_core::host::Appearance),
     /// Host::restart_vcam_canvas: plugin's request, answered by a RequestDone once the camera is back.
     RestartCanvas { plugin: String, request: RequestId, shows_command: bool },
     /// Host::remove_extra_cameras: plugin's request, answered by a RequestDone.
@@ -453,6 +455,10 @@ pub struct State {
     pub frame_wants: std::collections::BTreeSet<String>,
     /// Host::preview_follows by owner: (the stream the panels show, the stream whose output the preview draws instead).
     pub preview_follows: std::collections::BTreeMap<String, (String, String)>,
+    /// Host::preview_composited by owner: the stream whose picture is made of several.
+    pub preview_composited: std::collections::BTreeMap<String, String>,
+    /// Whether the plugins were last told the preview draws the shown stream's own picture (Event::PreviewSourceChanged).
+    pub preview_own_told: bool,
     /// Whether the main camera's frame steps can pause while nobody reads it (idle.rs), which the stream's worker looks at.
     pub idle: Arc<crate::idle::IdleGate>,
     pub tray_close_notified: bool,
@@ -541,6 +547,8 @@ impl State {
             other_windows: false,
             frame_wants: Default::default(),
             preview_follows: Default::default(),
+            preview_composited: Default::default(),
+            preview_own_told: true,
             idle: Arc::default(),
             tray_close_notified: false,
             shortcut_menu: None, stills: Vec::new(), source_stills: Vec::new(), still_alive: Vec::new(), clipboard: None, next_request: 1, calls: 0, save_after_call: false, setting_clock: 0, saved_in_call: Vec::new(),
@@ -561,6 +569,24 @@ impl State {
     /// The stream whose output the preview draws while source is the one the panels show, when a plugin asked for another (Host::preview_follows).
     pub fn preview_target(&self, source: &str) -> Option<&str> {
         self.preview_follows.values().find(|(shown, _)| shown == source).map(|(_, target)| target.as_str())
+    }
+
+    /// Whether the preview draws the stream the panels show (shown) as its own camera picture: not while that stream's picture is made of several, nor
+    /// while a plugin has the preview draw another stream that is running (one that has stopped leaves the preview on its own picture).
+    pub fn preview_shows_own(&self, shown: &str) -> bool {
+        let running = |id: &str| self.streams.waking_id.as_deref() == Some(id) || self.streams.ids.iter().any(|s| s == id);
+        !self.preview_composited.values().any(|s| s == shown) && !self.preview_target(shown).is_some_and(running)
+    }
+
+    /// After the shown stream or what the preview draws changed: tells the plugins when it moved between a stream's own picture and another or
+    /// a combined one, and ends a pick under way (its spots are of the other picture).
+    pub fn sync_preview_source(&mut self) {
+        let now_own = self.streams.source_id.clone().or_else(|| self.selected.clone()).is_none_or(|shown| self.preview_shows_own(&shown));
+        if now_own != self.preview_own_told {
+            self.preview_own_told = now_own;
+            self.overlays.cancel_pick(None, &self.bus);
+            self.bus.emit(Event::PreviewSourceChanged { shows_own: now_own });
+        }
     }
 
     /// Tells the idle gate whether anything needs the main camera's frames: a window someone can see (the preview, the tiles, the cards that
@@ -992,6 +1018,7 @@ impl State {
             // where on_focus_gained reads the live focus (streams.rs syncs the rest once the flow is through)
             self.streams.source_id = Some(info.source_id.clone());
             self.streams.url = Some(info.url.clone());
+            self.sync_preview_source();
         }
         if names.iter().any(|n| n == "view") {
             let (vc, view, now) = (&mut self.vc, &self.view, now_s());
@@ -3293,6 +3320,26 @@ mod tests {
         s.preview_dirty.store(false, SeqCst);
         crate::host::Ctx { state: &mut s, me: "stereo".into() }.preview_follows("stereo", Some("b"), Some("a"));
         assert_eq!((s.preview_target("b"), s.preview_target("a")), (Some("a"), None), "only the stream it names");
+        s.streams.ids = vec!["a".into(), "b".into()];
+        assert!(!s.preview_shows_own("b"), "the shown stream's preview draws another's output");
+        assert!(s.preview_shows_own("a"), "a stream nobody redirects");
+        s.streams.ids = vec!["b".into()];
+        assert!(s.preview_shows_own("b"), "the one it follows has stopped: the preview is on its own picture");
+        s.streams.ids = vec!["a".into(), "b".into()];
+        crate::host::Ctx { state: &mut s, me: "comp".into() }.preview_composited("comp", Some("a"));
+        assert!(!s.preview_shows_own("a"), "a stream whose picture is made of several");
+        crate::host::Ctx { state: &mut s, me: "comp".into() }.preview_composited("comp", Some("a"));
+        s.streams.source_id = Some("c".into());
+        s.sync_preview_source();
+        assert!(s.preview_own_told, "the shown stream c is on its own picture");
+        s.streams.source_id = Some("a".into());
+        s.sync_preview_source();
+        assert!(!s.preview_own_told, "moving the panels to the combined stream tells the plugins");
+        s.streams.source_id = Some("c".into());
+        s.sync_preview_source();
+        assert!(s.preview_own_told, "and moving away tells them again");
+        crate::host::Ctx { state: &mut s, me: "comp".into() }.preview_composited("comp", None);
+        assert!(s.preview_shows_own("a"));
         assert!(s.preview_dirty.swap(false, SeqCst), "the preview draws another picture now");
         crate::host::Ctx { state: &mut s, me: "stereo".into() }.preview_follows("stereo", Some("b"), Some("a"));
         assert!(!s.preview_dirty.load(SeqCst), "the same again changes nothing");

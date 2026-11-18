@@ -14,7 +14,7 @@ use std::path::Path;
 use std::sync::Arc;
 use telescope_core::canvas;
 use telescope_core::event::Event;
-use telescope_core::host::{FileDialog, FileDialogKind, Host, Look, Poster, RequestId};
+use telescope_core::host::{Appearance, Corners, Density, FileDialog, FileDialogKind, Host, Look, MotionChoice, Poster, RequestId, TextSize, TIP_DELAY_MAX_MS};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::link::Link;
 use telescope_core::media::Media;
@@ -245,6 +245,8 @@ pub struct SetupPlugin {
     pub plugin_hues: bool,
     /// The look of the windows (Appearance)
     pub look: Look,
+    /// Corners, text size, density, contrast, motion and tooltip timing (Appearance)
+    pub appearance: Appearance,
     pub language: String,
     /// set_config has no host: the others hear the loaded values with the next hook that has one.
     pending: bool,
@@ -283,6 +285,7 @@ impl SetupPlugin {
             gpu_card_name: String::new(),
             plugin_hues: true,
             look: Look::Dark,
+            appearance: Appearance::default(),
             language: String::new(),
             pending: true,
             panel: Panel::new(apk_bundled),
@@ -329,6 +332,7 @@ impl SetupPlugin {
             host.emit(Event::LimiterChanged { on: self.limiter });
             host.set_plugin_hues(self.plugin_hues);
             host.set_look(self.look);
+            host.set_appearance(self.appearance);
             host.set_power_saving(self.power_saving);
         }
     }
@@ -466,12 +470,28 @@ impl SetupPlugin {
         json!({
             "hues-current": if self.plugin_hues { 0 } else { 1 },
             "theme-current": self.look.index(),
+            "corners-current": self.appearance.corners as usize,
+            "text-current": self.appearance.text as usize,
+            "density-current": self.appearance.density as usize,
+            "contrast-checked": self.appearance.contrast,
+            "motion-current": self.appearance.motion as usize,
+            "tip-delay": self.appearance.tip_delay_ms,
+            "tip-delay-text": self.tip_delay_text(),
+            "tip-warm-checked": self.appearance.tip_warm,
             "lang-items": self.language_items(), "lang-current": self.panel.lang_current,
             "lang-restart": self.restart_needed(),
             "reset-shown": self.reset_shown("look"),
             "help-text": if draft { tr("This translation is a first draft and some texts might read a bit oddly.") }
                          else { tr("Missing your language, or spotted a text that reads wrong?") },
         })
+    }
+
+    /// The tooltip slider's readout: "Instant" at the far left, else seconds.
+    fn tip_delay_text(&self) -> String {
+        match self.appearance.tip_delay_ms {
+            0 => tr("Instant"),
+            ms => tr("{seconds} s").field("seconds", format!("{:.1}", f64::from(ms) / 1000.0)),
+        }
     }
 
     pub fn about_props(&self) -> Value {
@@ -915,8 +935,8 @@ impl SetupPlugin {
     /// What each section's Reset leaves alone: every setting the other sections own. Video also keeps the canvas that is applied, since only Apply changes it.
     fn reset_kept(section: &str) -> &'static [&'static str] {
         match section {
-            "video" => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_gain", "limiter", "look", "plugin_hues", "language"],
-            "microphone" => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_zoom", "hw_decode", "hw_decode_chosen", "gpu_card", "gpu_card_name", "power_saving", "look", "plugin_hues", "language"],
+            "video" => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_gain", "limiter", "look", "appearance", "plugin_hues", "language"],
+            "microphone" => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_zoom", "hw_decode", "hw_decode_chosen", "gpu_card", "gpu_card_name", "power_saving", "look", "appearance", "plugin_hues", "language"],
             _ => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_zoom", "hw_decode", "hw_decode_chosen", "gpu_card", "gpu_card_name", "power_saving", "max_gain", "limiter"],
         }
     }
@@ -1000,6 +1020,13 @@ impl SetupPlugin {
     pub fn on_look(&mut self, host: &mut dyn Host, look: Look) {
         self.look = look;
         host.set_look(look);
+        host.schedule_save();
+    }
+
+    /// Any of the Appearance options changed: the windows take the new set and it is saved.
+    pub fn on_appearance(&mut self, host: &mut dyn Host, change: impl FnOnce(&mut Appearance)) {
+        change(&mut self.appearance);
+        host.set_appearance(self.appearance);
         host.schedule_save();
     }
 
@@ -1309,6 +1336,16 @@ impl Plugin for SetupPlugin {
             ("phone-app", "pick-cancelled") => self.phone_picked(host, None),
             ("look", "hues-picked") => self.on_plugin_hues(host, index == 0),
             ("look", "theme-picked") => self.on_look(host, Look::from_index(index)),
+            ("look", "corners-picked") => self.on_appearance(host, |a| a.corners = [Corners::Sharp, Corners::Normal, Corners::Round][index.clamp(0, 2) as usize]),
+            ("look", "text-picked") => self.on_appearance(host, |a| a.text = [TextSize::Small, TextSize::Normal, TextSize::Large][index.clamp(0, 2) as usize]),
+            ("look", "density-picked") => self.on_appearance(host, |a| a.density = [Density::Compact, Density::Normal, Density::Comfortable][index.clamp(0, 2) as usize]),
+            ("look", "contrast-toggled") => self.on_appearance(host, |a| a.contrast = on),
+            ("look", "motion-picked") => self.on_appearance(host, |a| a.motion = [MotionChoice::System, MotionChoice::Full, MotionChoice::Reduced, MotionChoice::Off][index.clamp(0, 3) as usize]),
+            ("look", "tip-delay-moved") => {
+                let ms = event.args.first().and_then(Value::as_f64).unwrap_or(0.0).clamp(0.0, f64::from(TIP_DELAY_MAX_MS));
+                self.on_appearance(host, |a| a.tip_delay_ms = ((ms / 100.0).round() * 100.0) as u32);
+            }
+            ("look", "tip-warm-toggled") => self.on_appearance(host, |a| a.tip_warm = on),
             ("look", "lang-picked") => self.on_language(host, index.max(0) as usize),
             ("look", "restart-clicked") => {
                 host.restart_app();
@@ -1361,6 +1398,10 @@ impl Plugin for SetupPlugin {
         if self.look != Look::Dark {
             cfg["look"] = json!(self.look.name());
         }
+        // The same for Appearance: only what was changed
+        if let Some(appearance) = self.appearance.to_json() {
+            cfg["appearance"] = appearance;
+        }
         cfg
     }
 
@@ -1386,6 +1427,7 @@ impl Plugin for SetupPlugin {
             None if cfg.get("classic_theme") == Some(&Value::Bool(true)) => Look::Classic,
             None => Look::Dark,
         };
+        self.appearance = Appearance::from_json(cfg.get("appearance"));
         self.language = cfg.get("language").and_then(Value::as_str).unwrap_or("").to_string();
         self.pending = true;
         Ok(())

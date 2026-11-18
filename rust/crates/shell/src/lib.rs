@@ -16,6 +16,7 @@ mod kde;
 pub mod handover;
 pub mod idle;
 pub mod layout;
+pub mod appearance;
 pub mod motion;
 pub mod notice;
 pub mod offscreen;

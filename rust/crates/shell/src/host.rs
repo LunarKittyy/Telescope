@@ -19,6 +19,12 @@ pub struct Ctx<'a> {
 }
 
 impl Ctx<'_> {
+    /// After something changed what the preview draws: when it moved between the shown stream's own picture and another or a combined one, a pick
+    /// under way is over (its spots are of the other picture) and the plugins hear it.
+    fn preview_source_changed(&mut self, _was_own: bool) {
+        self.state.sync_preview_source();
+    }
+
     /// Gives back what the plugin took or switched on in setup(), for one that is taken out again before it ever runs (its UI didn't build).
     pub fn release_everything(&mut self) {
         let me = self.me.clone();
@@ -29,6 +35,7 @@ impl Ctx<'_> {
         self.cancel_pick(&me);
         self.set_preview_warp(&me, None);
         self.preview_follows(&me, None, None);
+        self.preview_composited(&me, None);
         self.want_sensors(&me, &[]);
         self.want_stats(&me, false);
         self.want_frames(&me, false);
@@ -354,6 +361,9 @@ impl HostShell for Ctx<'_> {
     fn set_look(&mut self, look: telescope_core::host::Look) {
         self.state.effects.push(Effect::Look(look));
     }
+    fn set_appearance(&mut self, appearance: telescope_core::host::Appearance) {
+        self.state.effects.push(Effect::Appearance(appearance));
+    }
     fn set_shortcut_menu(&mut self, bindings: Option<Vec<telescope_core::ui::ShortcutEntry>>) {
         self.state.shortcut_menu = bindings.map(|b| (self.me.clone(), b));
         self.state.effects.push(Effect::ShortcutMenu);
@@ -562,7 +572,19 @@ impl HostPreview for Ctx<'_> {
     fn unwarp(&self, u: f64, v: f64) -> (f64, f64) {
         self.state.overlays.unwarp(u, v)
     }
+    fn preview_shows_own_picture(&self) -> bool {
+        self.focused_source_id().is_none_or(|shown| self.state.preview_shows_own(&shown))
+    }
+    fn preview_composited(&mut self, owner: &str, source_id: Option<&str>) {
+        let shows_own = self.preview_shows_own_picture();
+        match source_id {
+            Some(s) => self.state.preview_composited.insert(owner.to_string(), s.to_string()),
+            None => self.state.preview_composited.remove(owner),
+        };
+        self.preview_source_changed(shows_own);
+    }
     fn preview_follows(&mut self, owner: &str, source_id: Option<&str>, target: Option<&str>) {
+        let shows_own = self.preview_shows_own_picture();
         let now = source_id.zip(target).map(|(s, t)| (s.to_string(), t.to_string()));
         let before = match &now {
             Some(pair) => self.state.preview_follows.insert(owner.to_string(), pair.clone()),
@@ -572,6 +594,7 @@ impl HostPreview for Ctx<'_> {
             // the picture the preview draws is another stream's from now on, or its own again
             self.state.preview_dirty.store(true, std::sync::atomic::Ordering::SeqCst);
         }
+        self.preview_source_changed(shows_own);
     }
 }
 
