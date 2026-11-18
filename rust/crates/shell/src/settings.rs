@@ -316,6 +316,20 @@ pub fn plugins_stopped(stopped: std::collections::BTreeMap<String, String>) {
     }
 }
 
+/// A stopped plugin's settings sections are hidden, in the window if it's built and in the plan if it's prepared.
+pub fn hide_sections(plugin: &str) {
+    let ids: Vec<String> = PLAN.with(|p| p.borrow().as_ref().map(|plan| plan.pieces.iter().filter(|(pl, _, _)| pl == plugin).map(|(_, ui, _)| ui.clone()).collect()))
+        .or_else(|| current().map(|s| s.pieces.iter().filter(|(pl, _, _)| pl == plugin).map(|(_, ui, _)| ui.clone()).collect()))
+        .unwrap_or_default();
+    for ui in ids {
+        let hidden = serde_json::json!({"visible": false});
+        match current() {
+            Some(settings) => settings.set_props(plugin, &ui, &hidden),
+            None => hold_props(plugin, &ui, &hidden),
+        }
+    }
+}
+
 /// Keeps a section's new properties while the page is prepared but not yet a window, so the window starts out with them (the plan only holds the ones from when it was made).
 pub fn hold_props(plugin: &str, ui: &str, props: &serde_json::Value) {
     if !prepared() {

@@ -1463,7 +1463,11 @@ impl Window {
         }
         let stopped = self.state.borrow().stopped();
         crate::settings::plugins_stopped(stopped);
+        crate::settings::hide_sections(plugin);
         self.refresh_frame_steps();
+        // A stream behind the panels keeps its other steps; this plugin's go, or turn the picture dark where it was hiding something
+        let hid = self.state.borrow().index(plugin).and_then(|i| self.state.borrow().slots[i].hid);
+        self.drop_steps_behind(plugin, hid);
     }
 
     fn close_plugin_window(self: &Rc<Self>, plugin: &str, id: &str) {

@@ -580,6 +580,14 @@ impl Window {
         }
     }
 
+    /// A stopped plugin's steps leave the streams behind the panels, the rest kept; where it hid something (hid: its stage) a dark picture takes their place.
+    pub(crate) fn drop_steps_behind(self: &Rc<Self>, owner: &str, hid: Option<telescope_core::frame::FrameStage>) {
+        for w in self.streams.workers.borrow().iter().filter(|w| !w.live.get()) {
+            let steps = if hid.is_some() { self.state.borrow().withheld_steps() } else { Vec::new() };
+            w.inner.replace_owner_steps(owner, hid.unwrap_or_default(), steps);
+        }
+    }
+
     /// A plugin changed its frame step: the stream the panels show takes it from the next frame.
     pub fn refresh_frame_steps(self: &Rc<Self>) {
         let live: Vec<Rc<ShellWorker>> = self.streams.workers.borrow().iter().filter(|w| w.live.get()).cloned().collect();
