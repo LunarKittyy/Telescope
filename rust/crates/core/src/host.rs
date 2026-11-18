@@ -399,6 +399,10 @@ pub trait HostSettings {
     }
     /// Hand a saved config to another plugin's apply_preset(); unknown names are ignored.
     fn apply_preset(&mut self, name: &str, cfg: &Value);
+    /// Whether the person asked for less motion: (reduced, off). Motion in the picture follows it as the windows do.
+    fn reduced_motion(&self) -> (bool, bool) {
+        (false, false)
+    }
     /// The names of the running plugins that are in_presets, in registration order.
     fn preset_plugins(&self) -> Vec<String>;
     /// A device-local plugin's settings saved for source_id's stream; {} without any.

@@ -19,6 +19,7 @@ pub mod cinema_tools;
 pub mod composite;
 pub mod composite_plugin;
 pub mod compositor;
+pub mod transition;
 pub mod cpu;
 pub mod cube;
 pub mod cv_draw;

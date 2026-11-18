@@ -459,3 +459,58 @@ fn a_preset_saves_the_picture_but_not_the_saved_layouts() {
     other.plugin.apply_preset(&mut other.host, &saved).unwrap();
     assert_eq!(other.plugin.names(), ["Mine"]);
 }
+
+// ── Transitions ───────────────────────────────────────────────────────────
+
+fn goes(r: &Rig, after_ms: u64) -> bool {
+    r.plugin.shared.hub().compositor.transitioning(monotonic_ns() + after_ms * 1_000_000)
+}
+
+/// A rig with a saved layout "Big" that differs from the one on.
+fn with_saved_layout() -> Rig {
+    let mut r = rig();
+    r.two_streams(0.0);
+    r.plugin.set_layout(&mut r.host, Layout::of(vec![Tile::boxed("a", "Phone A", 0.0, 0.0, 1.0, 1.0), Tile::boxed("b", "Phone B", 0.7, 0.7, 0.25, 0.25)]));
+    r.plugin.save_layout(&mut r.host, "Big");
+    r.plugin.set_layout(&mut r.host, Layout::of(vec![Tile::boxed("a", "Phone A", 0.0, 0.0, 0.5, 1.0), Tile::boxed("b", "Phone B", 0.5, 0.0, 0.5, 1.0)]));
+    r
+}
+
+#[test]
+fn a_picked_layout_goes_there_the_way_the_transition_says_and_an_edit_takes_effect_at_once() {
+    let mut r = with_saved_layout();
+    assert!(!goes(&r, 0), "an edit in the editor is not a transition");
+    assert!(r.plugin.pick(&mut r.host, "Big"));
+    assert!(goes(&r, 0) && goes(&r, 400) && !goes(&r, 1500));
+    r.plugin.set_layout(&mut r.host, Layout::of(vec![Tile::boxed("a", "Phone A", 0.0, 0.0, 0.5, 1.0), Tile::boxed("b", "Phone B", 0.5, 0.0, 0.5, 1.0)]));
+    assert!(!goes(&r, 0), "a new edit cancels it");
+}
+
+#[test]
+fn reduced_motion_fades_briefly_and_off_cuts() {
+    let mut r = with_saved_layout();
+    r.host.reduced_motion = (true, false);
+    r.plugin.pick(&mut r.host, "Big");
+    assert!(goes(&r, 100) && !goes(&r, 400), "a short fade");
+    let mut r = with_saved_layout();
+    r.host.reduced_motion = (false, true);
+    r.plugin.pick(&mut r.host, "Big");
+    assert!(!goes(&r, 0), "a cut");
+}
+
+#[test]
+fn the_transition_is_set_from_the_card_saved_and_clamped() {
+    let mut r = rig();
+    let ui = |r: &mut Rig, callback: &str, arg: f64| r.plugin.on_ui(&mut r.host, &UiEvent { ui: "card".into(), callback: callback.into(), args: vec![json!(arg)] });
+    assert_eq!(r.plugin.get_config()["transition"], json!({"kind": "glide", "ms": 600, "ease": "springy"}));
+    ui(&mut r, "transition-picked", 3.0);
+    ui(&mut r, "ease-picked", 2.0);
+    ui(&mut r, "transition-length-moved", 99999.0);
+    assert_eq!(r.plugin.get_config()["transition"], json!({"kind": "slide", "ms": 3000, "ease": "bouncy"}));
+    ui(&mut r, "transition-picked", 99.0);
+    assert_eq!(r.plugin.get_config()["transition"]["kind"], "slide", "an unknown pick changes nothing");
+    let saved = r.plugin.preset_config();
+    let mut other = rig();
+    other.plugin.apply_preset(&mut other.host, &saved).unwrap();
+    assert_eq!(other.plugin.get_config()["transition"], saved["transition"], "a preset carries the transition");
+}

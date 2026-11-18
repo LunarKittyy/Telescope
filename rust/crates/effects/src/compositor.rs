@@ -11,9 +11,11 @@ use crate::cpu::Rgb;
 use crate::imgops::resize_area;
 use crate::pixels::{put_rgb, to_rgb};
 use crate::shared::{no_pictures, PictureReader};
+use crate::transition::{self, Spec};
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex, OnceLock};
 use telescope_core::frame::{Frame, PixelFormat};
+use telescope_core::time::monotonic_ns;
 
 /// The frames to draw from: each stream's newest, with its number when the same frame can come again (None: always fresh).
 pub type Frames = BTreeMap<String, (Frame, Option<u64>)>;
@@ -438,6 +440,65 @@ fn paste(canvas: &mut [u8], kind: Kind, cw: usize, chh: usize, content: Content,
     }
 }
 
+// ── Fading and mixing ─────────────────────────────────────────────────────
+
+/// The rows of every plane inside box, to put back (or mix with) after something is drawn over them.
+fn save_region(canvas: &[u8], kind: Kind, cw: usize, chh: usize, bx: (usize, usize, usize, usize)) -> Vec<Vec<u8>> {
+    planes(kind, cw, chh).into_iter().map(|plane| {
+        let (x0, y0, x1, y1) = if plane.w == cw { (bx.0, bx.1, bx.0 + bx.2, bx.1 + bx.3) } else { plane_box(2, bx) };
+        let (x1, y1) = (x1.min(plane.w), y1.min(plane.h));
+        let mut rows = Vec::new();
+        for y in y0..y1 {
+            let start = plane.at + (y * plane.w + x0) * plane.ch;
+            rows.extend_from_slice(&canvas[start..start + (x1 - x0) * plane.ch]);
+        }
+        rows
+    }).collect()
+}
+
+/// What save_region saved and what is drawn over it now, mixed by `alpha` (the drawn share).
+fn restore_mix(canvas: &mut [u8], kind: Kind, cw: usize, chh: usize, bx: (usize, usize, usize, usize), before: &[Vec<u8>], alpha: f64) {
+    let a = (alpha.clamp(0.0, 1.0) * 256.0).round() as u32;
+    for (plane, saved) in planes(kind, cw, chh).into_iter().zip(before) {
+        let (x0, y0, x1, y1) = if plane.w == cw { (bx.0, bx.1, bx.0 + bx.2, bx.1 + bx.3) } else { plane_box(2, bx) };
+        let (x1, y1) = (x1.min(plane.w), y1.min(plane.h));
+        let row = (x1 - x0) * plane.ch;
+        for (n, y) in (y0..y1).enumerate() {
+            let start = plane.at + (y * plane.w + x0) * plane.ch;
+            for (now, was) in canvas[start..start + row].iter_mut().zip(&saved[n * row..(n + 1) * row]) {
+                *now = ((u32::from(*was) * (256 - a) + u32::from(*now) * a + 128) >> 8) as u8;
+            }
+        }
+    }
+}
+
+/// Two whole pictures mixed the way `kind` says, `p` (0 to 1) of the way from `a` to `b`. Each plane is mixed at its own size.
+fn mix_pictures(kind: Kind, (cw, chh): (usize, usize), a: &[u8], b: &[u8], how: transition::Kind, p: f64) -> Vec<u8> {
+    let mut out = vec![0u8; a.len()];
+    for plane in planes(kind, cw, chh) {
+        let index = |c: f64, n: usize| ((c * n as f64).floor().max(0.0) as usize).min(n - 1);
+        let cols: Vec<(usize, usize, f64)> = (0..plane.w).map(|x| {
+            let cell = transition::cell(how, false, (x as f64 + 0.5) / plane.w as f64, p);
+            (index(cell.a, plane.w), index(cell.b, plane.w), cell.mix)
+        }).collect();
+        for y in 0..plane.h {
+            let row = transition::cell(how, true, (y as f64 + 0.5) / plane.h as f64, p);
+            let (ay, by) = (index(row.a, plane.h), index(row.b, plane.h));
+            for (x, &(ax, bxx, cm)) in cols.iter().enumerate() {
+                let mix = (cm * row.mix * 256.0).round() as u32;
+                let at = plane.at + (y * plane.w + x) * plane.ch;
+                let from_a = plane.at + (ay * plane.w + ax) * plane.ch;
+                let from_b = plane.at + (by * plane.w + bxx) * plane.ch;
+                for c in 0..plane.ch {
+                    let (va, vb) = (u32::from(a[from_a + c]), u32::from(b[from_b + c]));
+                    out[at + c] = if mix == 0 { va as u8 } else if mix >= 256 { vb as u8 } else { ((va * (256 - mix) + vb * mix + 128) >> 8) as u8 };
+                }
+            }
+        }
+    }
+    out
+}
+
 // ── The plan and the drawing ──────────────────────────────────────────────
 
 /// Where a tile goes in pixels: its box, border, corner radius and the radius inside the border.
@@ -449,12 +510,36 @@ struct Placed {
     inner: i64,
 }
 
+/// Where a tile goes in a width x height picture.
+fn place(tile: &Tile, width: usize, height: usize) -> Placed {
+    let (x0, y0, x1, y1) = box_px(tile, width as i64, height as i64);
+    let border = scaled_size(tile.border, height as i64).min((x1 - x0) / 3).min((y1 - y0) / 3);
+    let radius = scaled_size(tile.radius, height as i64);
+    Placed { bx: (x0, y0, x1 - x0, y1 - y0), border, radius, inner: 0.max(radius - border) }
+}
+
 /// A layout worked out at one size; swapped in whole, so a render never sees half of a change.
 struct Plan {
     layout: Layout,
     size: (usize, usize),
     background: Arc<Rgb>,
     boxes: Vec<Placed>,
+}
+
+/// A transition under way: the plan it leaves, how it goes and when it began.
+#[derive(Clone)]
+struct Active {
+    from: Arc<Plan>,
+    spec: Spec,
+    start: u64,
+}
+
+/// One tile to draw: where, how much of it shows and which cached scaling it uses.
+struct Item<'a> {
+    tile: Cow<'a, Tile>,
+    placed: Placed,
+    alpha: f64,
+    key: usize,
 }
 
 type ScaleKey = (u64, (i64, i64, i64, i64), usize, usize, usize, usize, Kind);
@@ -475,6 +560,7 @@ pub struct Compositor {
     planes: Option<(usize, Kind, Arc<Vec<u8>>)>,
     /// The sizes a background picture was scaled to, for the tests.
     pub covered: Vec<(usize, usize)>,
+    transition: Option<Active>,
 }
 
 impl Default for Compositor {
@@ -528,19 +614,35 @@ fn nv12_as_i420(frame: &Frame) -> Option<Frame> {
 
 impl Compositor {
     pub fn new(reader: PictureReader) -> Compositor {
-        Compositor { plan: None, scaled: HashMap::new(), reader, pictures: None, backgrounds: None, planes: None, covered: Vec::new() }
+        Compositor { plan: None, scaled: HashMap::new(), reader, pictures: None, backgrounds: None, planes: None, covered: Vec::new(), transition: None }
     }
 
     pub fn prepare(&mut self, layout: &Layout, size: (u32, u32)) {
+        self.transition = None;
+        self.plan = Some(self.plan_of(layout, size));
+    }
+
+    /// prepare(), but the picture goes from what it shows now to `layout` the way `spec` says, starting at `now` (ns). It cuts when
+    /// nothing is drawn yet, the picture's size changed, the arrangement is the same or the spec is a cut.
+    pub fn prepare_with(&mut self, layout: &Layout, size: (u32, u32), spec: Spec, now: u64) {
+        let from = self.plan.clone();
+        let next = self.plan_of(layout, size);
+        self.transition = from
+            .filter(|f| spec.kind != transition::Kind::Cut && f.size == next.size && !crate::composite::same_arrangement(&f.layout, layout))
+            .map(|from| Active { from, spec, start: now });
+        self.plan = Some(next);
+    }
+
+    /// Whether a transition is still going at `now` (ns).
+    pub fn transitioning(&self, now: u64) -> bool {
+        self.transition.as_ref().is_some_and(|a| now.saturating_sub(a.start) < a.spec.length_ns())
+    }
+
+    fn plan_of(&mut self, layout: &Layout, size: (u32, u32)) -> Arc<Plan> {
         let (width, height) = (size.0.max(1) as usize, size.1.max(1) as usize);
         let background = self.background(layout, width, height);
-        let boxes = layout.tiles.iter().map(|tile| {
-            let (x0, y0, x1, y1) = box_px(tile, width as i64, height as i64);
-            let border = scaled_size(tile.border, height as i64).min((x1 - x0) / 3).min((y1 - y0) / 3);
-            let radius = scaled_size(tile.radius, height as i64);
-            Placed { bx: (x0, y0, x1 - x0, y1 - y0), border, radius, inner: 0.max(radius - border) }
-        }).collect();
-        self.plan = Some(Arc::new(Plan { layout: layout.clone(), size: (width, height), background, boxes }));
+        let boxes = layout.tiles.iter().map(|tile| place(tile, width, height)).collect();
+        Arc::new(Plan { layout: layout.clone(), size: (width, height), background, boxes })
     }
 
     /// The picture behind the tiles, worked out once per picture, colour and size.
@@ -616,27 +718,80 @@ impl Compositor {
     /// The picture, from frames; tiles without a frame are left out. In format's planes (I420 for one that isn't RGBA or
     /// BGRA); None before prepare().
     pub fn render(&mut self, frames: &Frames, format: PixelFormat) -> Option<Frame> {
+        self.render_at(frames, format, monotonic_ns())
+    }
+
+    /// render() as it is at `now` (ns): partway through a transition, if one is going.
+    pub fn render_at(&mut self, frames: &Frames, format: PixelFormat, now: u64) -> Option<Frame> {
         let plan = self.plan.clone()?;
         let kind = Kind::of(format);
+        if let Some(active) = self.transition.clone() {
+            let t = now.saturating_sub(active.start) as f64 / active.spec.length_ns().max(1) as f64;
+            if t >= 1.0 {
+                self.transition = None;
+            } else {
+                let out = self.in_transition(&plan, &active, t, frames, kind);
+                return Some(Frame::new(plan.size.0 as u32, plan.size.1 as u32, kind.format(), out));
+            }
+        }
+        let out = self.draw_plan(&plan, frames, kind, 0);
+        Some(Frame::new(plan.size.0 as u32, plan.size.1 as u32, kind.format(), out))
+    }
+
+    /// The whole of a plan drawn as it is: the background, then every tile with a frame.
+    fn draw_plan(&mut self, plan: &Plan, frames: &Frames, kind: Kind, key_base: usize) -> Vec<u8> {
+        let mut out = self.background_planes(plan, kind).as_ref().clone();
+        let items: Vec<Item> = plan.layout.tiles.iter().zip(&plan.boxes).enumerate()
+            .map(|(i, (tile, placed))| Item { tile: Cow::Borrowed(tile), placed: *placed, alpha: 1.0, key: key_base + i }).collect();
+        self.draw_items(&mut out, kind, plan.size, &items, frames);
+        out
+    }
+
+    /// The picture `t` (0 to 1 of the length) into a transition from `active.from` to `plan`.
+    fn in_transition(&mut self, plan: &Plan, active: &Active, t: f64, frames: &Frames, kind: Kind) -> Vec<u8> {
         let (cw, chh) = plan.size;
-        let mut out = self.background_planes(&plan, kind).as_ref().clone();
-        for (i, (tile, placed)) in plan.layout.tiles.iter().zip(&plan.boxes).enumerate() {
+        let spec = active.spec;
+        if spec.kind.moves_tiles() {
+            let posed = transition::poses(spec.kind, &active.from.layout.tiles, &plan.layout.tiles, t, spec.ease, cw as f64 / chh as f64);
+            let mut out = self.background_planes(plan, kind).as_ref().clone();
+            // a different background fades from one to the other
+            if active.from.layout.background != plan.layout.background || active.from.layout.picture != plan.layout.picture {
+                let before = self.background_planes(&active.from, kind);
+                let fade = transition::effect(spec.ease, t);
+                out.iter_mut().zip(before.iter()).for_each(|(o, b)| *o = (f64::from(*b) + (f64::from(*o) - f64::from(*b)) * fade).round() as u8);
+            }
+            let items: Vec<Item> = posed.iter().enumerate().map(|(i, p)| Item { tile: Cow::Borrowed(&p.tile), placed: place(&p.tile, cw, chh), alpha: p.alpha, key: 2000 + i }).collect();
+            self.draw_items(&mut out, kind, plan.size, &items, frames);
+            return out;
+        }
+        let a = self.draw_plan(&active.from, frames, kind, 1000);
+        let b = self.draw_plan(plan, frames, kind, 0);
+        mix_pictures(kind, plan.size, &a, &b, spec.kind, transition::effect(spec.ease, t))
+    }
+
+    /// Draws items back to front on out: each one's border, then its stream, fading in over what is under it by `alpha`.
+    fn draw_items(&mut self, out: &mut [u8], kind: Kind, (cw, chh): (usize, usize), items: &[Item], frames: &Frames) {
+        for item in items {
+            let (tile, placed) = (item.tile.as_ref(), item.placed);
             let Some((frame, number)) = frames.get(&tile.source_id) else { continue };
             let (mut x, mut y, mut w, mut h) = placed.bx;
+            let under = (item.alpha < 1.0).then(|| save_region(out, kind, cw, chh, (x as usize, y as usize, w as usize, h as usize)));
             if placed.border > 0 {
                 let colour = colour_planes(kind, { let [b, g, r] = bgr(&tile.border_colour); [r, g, b] });
-                paste(&mut out, kind, cw, chh, Content::Colour(colour), (x as usize, y as usize, w as usize, h as usize), placed.radius as usize);
+                paste(out, kind, cw, chh, Content::Colour(colour), (x as usize, y as usize, w as usize, h as usize), placed.radius as usize);
                 (x, y, w, h) = (x + placed.border, y + placed.border, w - 2 * placed.border, h - 2 * placed.border);
             }
             if w > 0 && h > 0 {
                 let bx = (x as usize, y as usize, w as usize, h as usize);
-                if let Some(scaled) = self.scale(i, tile, frame, *number, bx, kind) {
+                if let Some(scaled) = self.scale(item.key, tile, frame, *number, bx, kind) {
                     let radius = if placed.border > 0 { placed.inner } else { placed.radius };
-                    paste(&mut out, kind, cw, chh, Content::Picture(&scaled), bx, radius as usize);
+                    paste(out, kind, cw, chh, Content::Picture(&scaled), bx, radius as usize);
                 }
             }
+            if let Some(under) = under {
+                restore_mix(out, kind, cw, chh, (placed.bx.0 as usize, placed.bx.1 as usize, placed.bx.2 as usize, placed.bx.3 as usize), &under, item.alpha);
+            }
         }
-        Some(Frame::new(cw as u32, chh as u32, kind.format(), out))
     }
 
     /// The tile's crop of frame scaled to its box, plane by plane; kept for a frame that can come again.

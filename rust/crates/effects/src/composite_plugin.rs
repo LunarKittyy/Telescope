@@ -11,6 +11,7 @@ use telescope_core::i18n::Fields;
 use crate::composite::{clean_layout, clean_layouts, clean_name, layout_dict, same_arrangement, Layout, Tile, MAX_LAYOUTS, STALE_S};
 use crate::compositor::{Compositor, Frames};
 use crate::shared::{no_pictures, PictureReader};
+use crate::transition::{Ease, Kind as TransitionKind, Spec};
 use serde_json::{json, Value};
 use std::collections::BTreeSet;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
@@ -36,6 +37,29 @@ pub const DEFAULT_SIZE: (u32, u32) = (1920, 1080);
 const STALE_NS: u64 = (STALE_S * 1e9) as u64;
 const SWITCH_TIP: &str = n_("Combine the running streams into one picture.");
 const LAYOUT_TIP: &str = n_("A layout you saved in the editor.");
+
+/// What the card calls a kind of transition.
+fn kind_name(kind: TransitionKind) -> String {
+    match kind {
+        TransitionKind::Cut => tr("Cut"),
+        TransitionKind::Crossfade => tr("Crossfade"),
+        TransitionKind::Slide => tr("Slide"),
+        TransitionKind::Push => tr("Push"),
+        TransitionKind::Zoom => tr("Zoom"),
+        TransitionKind::Wipe => tr("Wipe"),
+        TransitionKind::Glide => tr("Glide"),
+        TransitionKind::Shuffle => tr("Shuffle"),
+    }
+}
+
+fn ease_name(ease: Ease) -> String {
+    match ease {
+        Ease::Springy => tr("Springy"),
+        Ease::Smooth => tr("Smooth"),
+        Ease::Bouncy => tr("Bouncy"),
+        Ease::Even => tr("Even"),
+    }
+}
 
 /// What the frame steps of every stream, the clock and the plugin share.
 pub(crate) struct Hub {
@@ -148,8 +172,8 @@ impl Shared {
         let frames = self.frames(&hub, None, now);
         let key: BTreeSet<(String, Option<u64>)> = frames.iter().map(|(sid, (_, n))| (sid.clone(), *n)).collect();
         let others: Frames = frames.iter().filter(|(sid, _)| **sid != target).map(|(k, v)| (k.clone(), v.clone())).collect();
-        // nothing else to keep moving
-        if hub.fallback_key.as_ref() == Some(&key) || hub.compositor.live_tiles(&others) == 0 {
+        // nothing else to keep moving, but a transition does
+        if !hub.compositor.transitioning(now) && (hub.fallback_key.as_ref() == Some(&key) || hub.compositor.live_tiles(&others) == 0) {
             return false;
         }
         let Some(out) = hub.compositor.render(&frames, main.format) else { return false };
@@ -243,6 +267,8 @@ pub struct CompositePlugin {
     editor: Option<editor::Editor>,
     /// Setup's Max zoom: a tile zooms in at most this far.
     max_zoom: f64,
+    /// How the picture goes from one layout to the next when one is switched to.
+    transition: Spec,
 }
 
 impl Default for CompositePlugin {
@@ -267,7 +293,7 @@ impl CompositePlugin {
         let mut plugin = CompositePlugin {
             on: false, layout: Layout::default(), layouts: Vec::new(), target: None, camera_size: None, canvas: (None, None), shared,
             clock: None, camera_label, note: String::new(), note_short: String::new(), pending: false, held: None, reader, editor: None,
-            max_zoom: crate::composite::DEFAULT_MAX_ZOOM,
+            max_zoom: crate::composite::DEFAULT_MAX_ZOOM, transition: Spec::default(),
         };
         plugin.prepare();
         plugin
@@ -294,13 +320,21 @@ impl CompositePlugin {
     }
 
     fn prepare(&mut self) {
+        self.prepare_with(None);
+    }
+
+    /// prepare(), the picture going to the new layout the way `transition` says when there is one.
+    fn prepare_with(&mut self, transition: Option<Spec>) {
         let size = self.size();
         let on = self.on;
         let shown = self.shown_layout();
         let mut hub = self.shared.hub();
         // Off, nothing draws: the background (a canvas-sized picture) is only worked out while it's on
         if on {
-            hub.compositor.prepare(&shown, size);
+            match transition {
+                Some(spec) => hub.compositor.prepare_with(&shown, size, spec, monotonic_ns()),
+                None => hub.compositor.prepare(&shown, size),
+            }
             // a held fallback picture was drawn with the old layout, and the clock can't cache one from it before this plan is in
             hub.fallback_key = None;
         } else {
@@ -364,6 +398,17 @@ impl CompositePlugin {
         host.schedule_save();
     }
 
+    /// set_layout() for switching to another layout (one picked, a preset, the Auto director): the picture goes there the way the
+    /// transition says, where an edit in the editor takes effect at once.
+    pub fn switch_layout(&mut self, host: &mut dyn Host, layout: Layout) {
+        self.layout = layout;
+        self.canvas = host.canvas_size();
+        let (reduced, off) = host.reduced_motion();
+        self.prepare_with(Some(self.transition.for_motion(reduced, off)));
+        self.show(host);
+        host.schedule_save();
+    }
+
     pub fn layouts(&self) -> &[Layout] {
         &self.layouts
     }
@@ -374,7 +419,7 @@ impl CompositePlugin {
 
     pub fn pick(&mut self, host: &mut dyn Host, name: &str) -> bool {
         let Some(layout) = self.layouts.iter().find(|l| l.name == name).cloned() else { return false };
-        self.set_layout(host, layout);
+        self.switch_layout(host, layout);
         true
     }
 
@@ -447,6 +492,13 @@ impl CompositePlugin {
                 ("status".to_string(), json!(self.note_short)),
                 ("status-detail".to_string(), json!(self.note)),
                 ("reset-shown".to_string(), json!(self.reset_shown())),
+                ("transition-items".to_string(), json!(TransitionKind::ALL.iter().map(|k| kind_name(*k)).collect::<Vec<_>>())),
+                ("transition-current".to_string(), json!(TransitionKind::ALL.iter().position(|k| *k == self.transition.kind).unwrap_or(0))),
+                ("ease-items".to_string(), json!(Ease::ALL.iter().map(|e| ease_name(*e)).collect::<Vec<_>>())),
+                ("ease-current".to_string(), json!(Ease::ALL.iter().position(|e| *e == self.transition.ease).unwrap_or(0))),
+                ("transition-ms".to_string(), json!(self.transition.ms)),
+                ("transition-ms-text".to_string(), json!(format!("{} ms", self.transition.ms))),
+                ("transition-shown".to_string(), json!(self.transition.kind != TransitionKind::Cut)),
             ]);
         }
         props
@@ -529,10 +581,16 @@ impl CompositePlugin {
 
     /// The picture's look and whether it's on, from settings or a preset (the saved layouts aside).
     fn apply(&mut self, cfg: &Value) {
-        self.layout = cfg.get("layout").and_then(clean_layout).unwrap_or_default();
-        self.on = cfg.get("on") == Some(&Value::Bool(true));
+        self.take(cfg);
         self.prepare();
         self.wake_clock();
+    }
+
+    /// The settings of cfg, without drawing anything yet.
+    fn take(&mut self, cfg: &Value) {
+        self.layout = cfg.get("layout").and_then(clean_layout).unwrap_or_default();
+        self.on = cfg.get("on") == Some(&Value::Bool(true));
+        self.transition = Spec::clean(cfg.get("transition"));
     }
 }
 
@@ -620,6 +678,25 @@ impl Plugin for CompositePlugin {
                 let on = event.args.first().and_then(Value::as_bool).unwrap_or(false);
                 self.set_on(host, on);
             }
+            "transition-picked" | "ease-picked" | "transition-length-moved" => {
+                let n = event.args.first().and_then(Value::as_f64).unwrap_or(-1.0);
+                match event.callback.as_str() {
+                    "transition-picked" => {
+                        if let Some(k) = (n >= 0.0).then(|| TransitionKind::ALL.get(n as usize)).flatten() {
+                            self.transition.kind = *k;
+                        }
+                    }
+                    "ease-picked" => {
+                        if let Some(e) = (n >= 0.0).then(|| Ease::ALL.get(n as usize)).flatten() {
+                            self.transition.ease = *e;
+                        }
+                    }
+                    _ if n.is_finite() => self.transition.ms = (n.round() as i64).clamp(i64::from(crate::transition::MIN_MS), i64::from(crate::transition::MAX_MS)) as u32,
+                    _ => {}
+                }
+                self.show(host);
+                host.schedule_save();
+            }
             "layout-picked" => {
                 let i = event.args.first().and_then(Value::as_f64).unwrap_or(-1.0);
                 if let Some(name) = (i >= 0.0).then(|| self.names().get(i as usize).cloned()).flatten() {
@@ -683,11 +760,20 @@ impl Plugin for CompositePlugin {
     }
 
     fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
-        vec![telescope_core::settings::SettingSpec::switch("on", "Whether the streams are put into one picture", false)]
+        use telescope_core::settings::SettingSpec;
+        let kinds: Vec<(&str, &str)> = TransitionKind::ALL.iter().map(|k| (k.id(), k.id())).collect();
+        let eases: Vec<(&str, &str)> = Ease::ALL.iter().map(|e| (e.id(), e.id())).collect();
+        let d = Spec::default();
+        vec![
+            SettingSpec::switch("on", "Whether the streams are put into one picture", false),
+            SettingSpec::choice("transition.kind", "How the picture goes to another layout: cut, crossfade, slide, push, zoom, wipe, glide (tiles travel to their new places) or shuffle", &kinds, d.kind.id()),
+            SettingSpec::number("transition.ms", "How long that takes", f64::from(crate::transition::MIN_MS), f64::from(crate::transition::MAX_MS), 0, f64::from(d.ms)).unit("ms"),
+            SettingSpec::choice("transition.ease", "How it eases: springy, smooth, bouncy or even", &eases, d.ease.id()),
+        ]
     }
 
     fn get_config(&self) -> Value {
-        json!({"on": self.on, "layout": layout_dict(&self.layout), "layouts": self.layouts.iter().map(layout_dict).collect::<Vec<_>>()})
+        json!({"on": self.on, "layout": layout_dict(&self.layout), "layouts": self.layouts.iter().map(layout_dict).collect::<Vec<_>>(), "transition": self.transition.dict()})
     }
 
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
@@ -710,7 +796,11 @@ impl Plugin for CompositePlugin {
     fn apply_preset(&mut self, host: &mut dyn Host, cfg: &Value) -> Result<(), ConfigRejected> {
         self.catch_up(host);
         self.canvas = host.canvas_size();
-        self.apply(cfg);
+        self.take(cfg);
+        // a preset that brings another layout goes there the way a switch does
+        let (reduced, off) = host.reduced_motion();
+        self.prepare_with(Some(self.transition.for_motion(reduced, off)));
+        self.wake_clock();
         self.show(host);
         Ok(())
     }

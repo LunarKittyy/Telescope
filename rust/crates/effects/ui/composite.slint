@@ -17,6 +17,16 @@ export component CompositeCard inherits Card {
     callback edit-clicked;
     in property <bool> reset-shown;
     callback reset-clicked;
+    in property <[string]> transition-items;
+    in property <int> transition-current;
+    in property <[string]> ease-items;
+    in property <int> ease-current;
+    in property <float> transition-ms;
+    in property <string> transition-ms-text;
+    in property <bool> transition-shown;
+    callback transition-picked(int);
+    callback ease-picked(int);
+    callback transition-length-moved(float);
 
     title: @tr("One picture");
     tip: @tr("Combine the running streams into one picture.");
@@ -76,6 +86,57 @@ export component CompositeCard inherits Card {
                 icon: Icons.pencil;
                 icon-tint: Theme.ink2;
                 clicked => { root.edit-clicked(); }
+            }
+        }
+        Unfolding {
+            open: true;
+            RailRow {
+                icon: Icons.film;
+                label: @tr("Transition");
+                hue: root.hue;
+                ChoiceField {
+                    horizontal-stretch: 1;
+                    compact: true;
+                    caption: @tr("Transition");
+                    items: transition-items;
+                    current: transition-current;
+                    tip: @tr("Transition");
+                    tip-detail: @tr("How the picture goes from one layout to the next. Glide moves the tiles to their new places and the rest mix the two pictures.");
+                    picked(i) => { root.transition-picked(i); }
+                }
+            }
+        }
+        Unfolding {
+            open: transition-shown;
+            SliderRow {
+                hue: root.hue;
+                label: @tr("Length");
+                minimum: 100;
+                maximum: 3000;
+                value: transition-ms;
+                readout: transition-ms-text;
+                tip-detail: @tr("How long a transition takes.");
+                has-default: true;
+                default-value: 600;
+                moved(v) => { root.transition-length-moved(v); }
+            }
+        }
+        Unfolding {
+            open: transition-shown;
+            RailRow {
+                icon: Icons.timer;
+                label: @tr("Easing");
+                hue: root.hue;
+                ChoiceField {
+                    horizontal-stretch: 1;
+                    compact: true;
+                    caption: @tr("Easing");
+                    items: ease-items;
+                    current: ease-current;
+                    tip: @tr("Easing");
+                    tip-detail: @tr("Springy and Bouncy overshoot a little and settle, Smooth glides without overshooting and Even goes at one speed.");
+                    picked(i) => { root.ease-picked(i); }
+                }
             }
         }
         StatusUnfold { text: status; detail: status-detail; }

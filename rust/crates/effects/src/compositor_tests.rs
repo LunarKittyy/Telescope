@@ -553,3 +553,160 @@ fn linear_scaling_is_the_same_as_the_version_it_replaced() {
         }
     }
 }
+
+// ── Transitions ───────────────────────────────────────────────────────────
+
+mod transitions {
+    use super::*;
+    use crate::transition::{Ease, Kind as How, Spec};
+
+    const SIZE: (u32, u32) = (160, 90);
+
+    fn spec(kind: How) -> Spec {
+        Spec { kind, ms: 1000, ease: Ease::Even }
+    }
+
+    fn two() -> Frames {
+        frames(vec![("a", solid([200, 0, 0], (90, 160)), None), ("b", solid([0, 200, 0], (90, 160)), None)])
+    }
+
+    fn old_layout() -> Layout {
+        Layout { tiles: vec![t("a", 0.0, 0.0, 1.0, 1.0), t("b", 0.7, 0.7, 0.25, 0.25)], ..Layout::default() }
+    }
+
+    fn new_layout() -> Layout {
+        Layout { tiles: vec![t("b", 0.0, 0.0, 1.0, 1.0), t("a", 0.7, 0.7, 0.25, 0.25)], ..Layout::default() }
+    }
+
+    fn started(kind: How, from: &Layout, to: &Layout) -> Compositor {
+        let mut comp = Compositor::default();
+        comp.prepare(from, SIZE);
+        comp.prepare_with(to, SIZE, spec(kind), 1_000);
+        comp
+    }
+
+    fn at(comp: &mut Compositor, t: f64) -> Frame {
+        comp.render_at(&two(), PixelFormat::Bgra, 1_000 + (t * 1e9) as u64).unwrap()
+    }
+
+    #[test]
+    fn every_kind_starts_on_the_old_picture_and_ends_on_the_new_one() {
+        let (from, to) = (old_layout(), new_layout());
+        let (old, new) = (render(&from, &two(), SIZE), render(&to, &two(), SIZE));
+        for kind in How::ALL {
+            let mut comp = started(kind, &from, &to);
+            let first = at(&mut comp, 0.0);
+            if kind == How::Cut {
+                assert_eq!(first.data, new.data, "a cut is the new picture at once");
+                continue;
+            }
+            let diff = |a: &Frame, b: &Frame| a.data.iter().zip(b.data.iter()).filter(|(x, y)| x != y).count();
+            // a first frame is the old picture, give or take the pixels a glide's tiles round differently
+            assert!(diff(&first, &old) < first.data.len() / 50, "{kind:?} begins on the old picture: {}", diff(&first, &old));
+            let last = at(&mut comp, 1.0);
+            assert_eq!(last.data, new.data, "{kind:?} ends on the new picture");
+            assert!(!comp.transitioning(1_000 + 2_000_000_000));
+        }
+    }
+
+    #[test]
+    fn a_cut_a_same_arrangement_and_a_new_size_start_nothing() {
+        let (from, to) = (old_layout(), new_layout());
+        assert!(!started(How::Cut, &from, &to).transitioning(1_000));
+        assert!(!started(How::Glide, &from, &from).transitioning(1_000));
+        let mut comp = Compositor::default();
+        comp.prepare(&from, (160, 90));
+        comp.prepare_with(&to, (320, 180), spec(How::Glide), 1_000);
+        assert!(!comp.transitioning(1_000));
+        // nothing drawn before: it begins on the new layout
+        let mut fresh = Compositor::default();
+        fresh.prepare_with(&to, SIZE, spec(How::Glide), 1_000);
+        assert!(!fresh.transitioning(1_000));
+    }
+
+    #[test]
+    fn a_crossfade_halfway_is_the_two_pictures_mixed_evenly() {
+        let (from, to) = (old_layout(), new_layout());
+        let mut comp = started(How::Crossfade, &from, &to);
+        let mid = at(&mut comp, 0.5);
+        let (old, new) = (render(&from, &two(), SIZE), render(&to, &two(), SIZE));
+        for (y, x) in [(10, 10), (40, 80), (85, 150)] {
+            for c in 0..3 {
+                let want = (i32::from(px(&old, y, x)[c]) + i32::from(px(&new, y, x)[c])) / 2;
+                assert!((i32::from(px(&mid, y, x)[c]) - want).abs() <= 2, "({y}, {x}) channel {c}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_new_tile_fades_in_over_what_is_there() {
+        let from = Layout { tiles: vec![t("a", 0.0, 0.0, 1.0, 1.0)], ..Layout::default() };
+        let to = Layout { tiles: vec![t("a", 0.0, 0.0, 1.0, 1.0), t("b", 0.0, 0.0, 1.0, 1.0)], ..Layout::default() };
+        let mut comp = started(How::Glide, &from, &to);
+        let mid = at(&mut comp, 0.4);
+        let [b, g, _] = px(&mid, 45, 80);
+        // between the blue stream and the green one: some of each
+        assert!(b > 20 && b < 190 && g > 20 && g < 190, "{b} {g}");
+    }
+
+    #[test]
+    fn a_picture_that_changes_size_is_never_half_drawn() {
+        let (from, to) = (old_layout(), new_layout());
+        let mut comp = started(How::Push, &from, &to);
+        for n in 0..=10 {
+            let f = at(&mut comp, n as f64 / 10.0);
+            assert_eq!((f.width, f.height, f.data.len()), (160, 90, 160 * 90 * 4));
+        }
+    }
+
+    /// With TRANSITION_SHOTS naming a folder, a contact sheet of every kind's frames to look at.
+    #[test]
+    fn the_film_of_every_transition() {
+        let Ok(dir) = std::env::var("TRANSITION_SHOTS") else { return };
+        std::fs::create_dir_all(&dir).unwrap();
+        let (w, h) = (320usize, 180usize);
+        let pattern = |bgr: [u8; 3], bar: usize| {
+            let mut data = Vec::new();
+            for y in 0..h {
+                for x in 0..w {
+                    let stripe = ((x + y) / 24) % 2 == 0;
+                    let f = if stripe { 1.0 } else { 0.72 };
+                    let marker = x > bar * 40 && x < bar * 40 + 28 && y > 60 && y < 120;
+                    let c = |v: u8| if marker { 255 } else { (f64::from(v) * f) as u8 };
+                    data.extend_from_slice(&[c(bgr[0]), c(bgr[1]), c(bgr[2]), 255]);
+                }
+            }
+            Frame::new(w as u32, h as u32, PixelFormat::Bgra, data)
+        };
+        let live = frames(vec![
+            ("a", pattern([210, 120, 60], 1), None), ("b", pattern([70, 170, 90], 2), None),
+            ("c", pattern([60, 90, 200], 3), None), ("d", pattern([180, 80, 170], 4), None),
+        ]);
+        let from = Layout { tiles: vec![t("a", 0.0, 0.0, 0.62, 0.62), t("b", 0.66, 0.0, 0.34, 0.34), t("c", 0.66, 0.38, 0.34, 0.34), t("d", 0.0, 0.66, 0.3, 0.3)], ..Layout::default() };
+        let to = Layout { tiles: vec![t("b", 0.0, 0.0, 0.62, 0.62), t("a", 0.66, 0.0, 0.34, 0.34), t("d", 0.66, 0.38, 0.34, 0.34), t("c", 0.34, 0.66, 0.3, 0.3)], ..Layout::default() };
+        let steps = [0.0, 0.12, 0.25, 0.38, 0.5, 0.65, 0.8, 1.0];
+        for ease in [Ease::Springy] {
+            for kind in How::ALL {
+                let mut comp = Compositor::default();
+                comp.prepare(&from, (w as u32, h as u32));
+                comp.prepare_with(&to, (w as u32, h as u32), Spec { kind, ms: 1000, ease }, 0);
+                let (cols, rows) = (4usize, 2usize);
+                let mut sheet = vec![30u8; (cols * w + (cols + 1) * 6) * (rows * h + (rows + 1) * 6) * 4];
+                let sw = cols * w + (cols + 1) * 6;
+                for (n, step) in steps.iter().enumerate() {
+                    let frame = comp.render_at(&live, PixelFormat::Bgra, (step * 1e9) as u64).unwrap();
+                    let (ox, oy) = (6 + (n % cols) * (w + 6), 6 + (n / cols) * (h + 6));
+                    for y in 0..h {
+                        for x in 0..w {
+                            let (s, d) = ((y * w + x) * 4, ((oy + y) * sw + ox + x) * 4);
+                            // BGRA to RGBA for the PNG
+                            sheet[d..d + 4].copy_from_slice(&[frame.data[s + 2], frame.data[s + 1], frame.data[s], 255]);
+                        }
+                    }
+                }
+                let size = tiny_skia::IntSize::from_wh(sw as u32, (rows * h + (rows + 1) * 6) as u32).unwrap();
+                tiny_skia::Pixmap::from_vec(sheet, size).unwrap().save_png(std::path::Path::new(&dir).join(format!("{}.png", kind.id()))).unwrap();
+            }
+        }
+    }
+}
