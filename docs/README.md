@@ -10,7 +10,7 @@ New here? The [Quick Start](../README.md#up-and-running-in-about-two-minutes) is
 - [Plugins](features/plugins.md): switching parts of the app off and installing plugins other people made
 - [MCP server](features/mcp.md): letting an AI app like Claude Desktop read and change Telescope's settings
 - [Manual setup](setup.md): the virtual camera by hand on Linux, loading it at boot, OBS as a Flatpak
-- [Things to try](unusual-setups.md): ideas like a phone from far away, a DSLR as a photo console, the night sky and wildlife
+- [Things to try](unusual-setups.md): ideas like a phone from far away, a DSLR as a photo console, a whiteboard scene, 3D and the night sky
 - [Device compatibility](device-compatibility.md): phones that have been tested
 - [Licenses](licenses.md): what the licence means for you and the third-party parts used
 
