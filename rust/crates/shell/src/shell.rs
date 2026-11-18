@@ -395,19 +395,6 @@ impl telescope_core::frame::CpuStep for DropsBeforeWhenHiding {
     }
 }
 
-/// Whether a frame step is there to hide the picture: one in the Privacy, Cover or Background stage, or a CPU one that says it hides. A step that
-/// panics when asked counts as hiding.
-fn step_hides(stage: telescope_core::frame::FrameStage, step: &telescope_core::frame::FrameStep) -> bool {
-    use telescope_core::frame::{FrameStage, FrameStep};
-    if matches!(stage, FrameStage::Privacy | FrameStage::Cover | FrameStage::Background) {
-        return true;
-    }
-    match step {
-        FrameStep::Cpu(inner) | FrameStep::Either(_, inner) => catch_unwind(AssertUnwindSafe(|| inner.hides())).unwrap_or(true),
-        FrameStep::Shader(_) => false,
-    }
-}
-
 /// Monotonic seconds, the view controller's clock.
 pub fn now_s() -> f64 {
     telescope_core::time::monotonic_ns() as f64 / 1e9
@@ -1458,7 +1445,7 @@ impl State {
         if unwatched || background {
             self.colour_before.lock().unwrap().clear();
         }
-        let hiders = plugin_steps.iter().filter(|st| step_hides(st.stage, &st.step)).map(|st| st.owner.clone()).collect();
+        let hiders = plugin_steps.iter().filter(|st| step_hides(st.stage, &st.step).unwrap_or(true)).map(|st| st.owner.clone()).collect();
         self.hiding_steps.insert(source_id.unwrap_or("").to_string(), hiders);
         self.sync_hidden_flags();
         if let Some(step) = colour {
