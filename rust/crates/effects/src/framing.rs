@@ -65,8 +65,13 @@ pub const MAX_ZOOM: f64 = 10.0;
 const LOST_S: f64 = 2.0;
 /// The person picked to follow, not seen for this long, is let go and everyone is framed again.
 const FOLLOW_GIVE_UP_S: f64 = 30.0;
-/// Someone seen beside the person followed is remembered this long without being seen again.
-const OTHERS_KEPT_S: f64 = 15.0;
+/// How far (in shoulder widths) someone can have moved between two reports back to back, and each second more they were out of sight.
+const REACH_BASE: f64 = 0.8;
+const REACH_PER_S: f64 = 1.5;
+/// A match is only clear when no other is this many times as near.
+const AMBIGUOUS: f64 = 4.0;
+/// A lost person is taken back as the lone unaccounted-for person only within this long of being seen.
+const RESUME_WITHIN_S: f64 = 5.0;
 /// The framing lets the target's centre wander this far (of the window's size) at Speed 5...
 const DEAD_CENTRE: f64 = 0.06;
 /// ...and its zoom this much, and only follows what goes past that.
@@ -214,6 +219,24 @@ pub fn target_box_with<'a>(people: impl IntoIterator<Item = &'a Person>, aspect:
         boxes.push((fold(f64::min, |p| p.0), fold(f64::min, |p| p.1), fold(f64::max, |p| p.0), fold(f64::max, |p| p.1)));
     }
     boxes.into_iter().reduce(|a, b| (a.0.min(b.0), a.1.min(b.1), a.2.max(b.2), a.3.max(b.3)))
+}
+
+/// Shoulder width against torso length, None without both hips.
+fn build(person: &Person, aspect: f64) -> Option<f64> {
+    let (_, width) = body(person, aspect)?;
+    let (l, r) = (person.point("left_hip", SEEN)?, person.point("right_hip", SEEN)?);
+    let (ls, rs) = (person.point("left_shoulder", SEEN)?, person.point("right_shoulder", SEEN)?);
+    let (hip, shoulder) = (((l.0 + r.0) / 2.0, (l.1 + r.1) / 2.0), ((ls.0 + rs.0) / 2.0, (ls.1 + rs.1) / 2.0));
+    let torso = ((hip.0 - shoulder.0) * aspect).hypot(hip.1 - shoulder.1);
+    (torso > 1e-3).then_some(width / torso)
+}
+
+/// Two poses could be one person: builds not more than a third apart, or one not seen well enough to say.
+fn same_build(a: &Person, b: &Person, aspect: f64) -> bool {
+    match (build(a, aspect), build(b, aspect)) {
+        (Some(x), Some(y)) => (x - y).abs() / x.max(y) <= 0.35,
+        _ => true,
+    }
 }
 
 /// Index of the person nearest a spot of the picture as shown at zoom 1: someone the spot is on counts as distance 0, ties go to the nearest body centre.
@@ -857,61 +880,85 @@ impl FramingPlugin {
         }
     }
 
-    /// Takes a report into the one followed. They and everyone else seen lately each go to the nearest person in this report, one to one,
-    /// so someone standing close by can't take their place when the model misses them for a moment. A report with nobody in it changes
-    /// nothing. A person who isn't found stays followed where they were last seen. Someone new turning up where they were is taken for
-    /// them only when nobody else is around who could be: with others about, the lock waits for them to be found again (or for a new pick).
+    /// Takes a report into the one followed, and never guesses who is who. The followed person and everyone else known to be around
+    /// each go to the nearest person in the report, one to one, within how far someone can have moved since they were last seen, and
+    /// only if their build matches (shoulders against torso). The followed person's lock moves to a match only when it is clear:
+    /// when a second person is nearly as near to them, or the match is nearly as near to someone else, the lock stays unresolved
+    /// (nothing is refreshed, so Auto framing holds and then goes wide) until a report is clear again or the pick is made anew. A
+    /// lost person comes back only as the one unaccounted-for person near where they were, soon enough, with a build that fits.
+    /// Everyone met while they are missing is left out of the others, so a returning subject is never filed as a bystander, and the
+    /// others are remembered for as long as the lock lasts. A report with nobody in it changes nothing.
     fn follow_report(&mut self, now: f64, aspect: f64) {
         let Some((old, at)) = self.followed.clone() else { return };
-        if !self.people.iter().any(|p| body(p, aspect).is_some()) {
+        let cands: Vec<usize> = (0..self.people.len()).filter(|&c| body(&self.people[c], aspect).is_some()).collect();
+        if cands.is_empty() {
             return;
         }
-        self.others.retain(|(_, seen)| now - seen < OTHERS_KEPT_S);
-        let before: Vec<&Person> = std::iter::once(&old).chain(self.others.iter().map(|(p, _)| p)).collect();
+        let before: Vec<(&Person, f64)> = std::iter::once((&old, at)).chain(self.others.iter().map(|(p, t)| (p, *t))).collect();
+        // (distance in shoulder widths, entity, candidate) for the pairs that could be the same person
         let mut pairs: Vec<(f64, usize, usize)> = Vec::new();
-        for (e, who) in before.iter().enumerate() {
+        for (e, (who, seen)) in before.iter().enumerate() {
             let Some(((ox, oy), owidth)) = body(who, aspect) else { continue };
-            for (c, person) in self.people.iter().enumerate() {
-                let Some(((x, y), width)) = body(person, aspect) else { continue };
-                let apart = ((x - ox) * aspect).hypot(y - oy);
-                if apart <= SAME_PERSON * width.max(owidth) {
+            let reach = (REACH_BASE + REACH_PER_S * (now - seen)).min(SAME_PERSON);
+            for &c in &cands {
+                let Some(((x, y), width)) = body(&self.people[c], aspect) else { continue };
+                let size = width.max(owidth);
+                let apart = ((x - ox) * aspect).hypot(y - oy) / size;
+                if apart <= reach && same_build(who, &self.people[c], aspect) {
                     pairs.push((apart, e, c));
                 }
             }
         }
         pairs.sort_by(|a, b| a.0.total_cmp(&b.0));
         let (mut taken, mut used) = (vec![false; self.people.len()], vec![false; before.len()]);
-        let mut theirs = None;
-        for (_, e, c) in pairs {
+        let mut matched: Vec<Option<(usize, f64)>> = vec![None; before.len()];
+        for &(apart, e, c) in &pairs {
             if !taken[c] && !used[e] {
                 (taken[c], used[e]) = (true, true);
-                if e == 0 {
-                    theirs = Some(c);
+                matched[e] = Some((c, apart));
+            }
+        }
+        let rival = |e: usize, c: usize, apart: f64, others_too: bool| {
+            let close = |d: f64| d < AMBIGUOUS * apart.max(0.15);
+            pairs.iter().any(|&(d, pe, pc)| (pe == e && pc != c && close(d)) || (others_too && pc == c && pe != e && close(d)))
+        };
+        let mut lock = matched[0].filter(|&(c, apart)| !rival(0, c, apart, true)).map(|(c, _)| c);
+        if lock.is_none() && matched[0].is_none() && now - at <= RESUME_WITHIN_S {
+            // not found: the one person nobody else accounts for, near where they were and built like them, is them
+            let ((ox, oy), owidth) = body(&old, aspect).unwrap_or(((0.0, 0.0), 1.0));
+            let near = |c: usize| {
+                let Some(((x, y), width)) = body(&self.people[c], aspect) else { return false };
+                ((x - ox) * aspect).hypot(y - oy) <= SAME_PERSON * width.max(owidth) && same_build(&old, &self.people[c], aspect)
+            };
+            let unaccounted: Vec<usize> = cands.iter().copied().filter(|&c| !taken[c]).collect();
+            if let [only] = unaccounted[..] {
+                if near(only) {
+                    lock = Some(only);
                 }
             }
         }
-        if theirs.is_none() && self.others.is_empty() {
-            let near = |c: usize| {
-                let (Some(((ox, oy), ow)), Some(((x, y), w))) = (body(&old, aspect), body(&self.people[c], aspect)) else { return false };
-                ((x - ox) * aspect).hypot(y - oy) <= SAME_PERSON * w.max(ow)
-            };
-            let newcomers: Vec<usize> = (0..self.people.len()).filter(|&c| !taken[c] && near(c)).collect();
-            if let [only] = newcomers[..] {
-                theirs = Some(only);
-            }
+        if matched[0].is_some() && lock.is_none() {
+            // unclear who is who: nothing is refreshed, so the lock can't drift onto the wrong person
+            return;
         }
-        // the others as this report has them; anyone it didn't find stays where they were for a while
-        let mut others: Vec<(Person, f64)> = self.people.iter().enumerate()
-            .filter(|(c, p)| Some(*c) != theirs && body(p, aspect).is_some()).map(|(_, p)| (p.clone(), now)).collect();
+        // bystanders as the report has them; anyone it didn't find stays as they were. While the lock is lost new faces aren't added: they might be the lost person
+        let mut others: Vec<(Person, f64)> = Vec::new();
         for (e, (person, seen)) in self.others.iter().enumerate() {
-            if !used[e + 1] {
-                others.push((person.clone(), *seen));
+            match matched[e + 1] {
+                Some((c, _)) if Some(c) != lock => others.push((self.people[c].clone(), now)),
+                _ => others.push((person.clone(), *seen)),
             }
         }
-        self.followed = Some(match theirs {
-            Some(c) => (self.people[c].clone(), now),
-            None => (old, at),
-        });
+        if lock.is_some() {
+            for &c in &cands {
+                if Some(c) != lock && !taken[c] {
+                    others.push((self.people[c].clone(), now));
+                }
+            }
+        }
+        if let Some(c) = lock {
+            self.followed = Some((self.people[c].clone(), now));
+        }
         self.others = others;
     }
 
@@ -1116,6 +1163,10 @@ impl Plugin for FramingPlugin {
         self.last_box = None;
         self.room_state.reset();
         self.ticked_at = None;
+        if self.steering {
+            // and the crop it left on the view is let go, so a quick restart doesn't open on it
+            host.steer_view(TITLE, 1.0, 0.0, 0.0);
+        }
         self.show_following(host);
     }
 

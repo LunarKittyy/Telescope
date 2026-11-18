@@ -429,6 +429,72 @@ fn an_empty_report_then_only_the_bystander_then_the_picked_person_back_keeps_the
     assert!(r.last().1 < 0.52 && r.last().0 > 2.5, "framing {} at {}", r.last().1, r.last().0);
 }
 
+fn picked_pair(a: &Person, b: &Person) -> Rig {
+    let mut r = Rig::new();
+    r.switch(true);
+    r.run(1.0, Some(&[a.clone(), b.clone()]));
+    click_on(&mut r, a);
+    r.run(4.0, Some(&[a.clone(), b.clone()]));
+    assert!(r.last().0 > 2.5, "locked on the picked person first: {}", r.last().0);
+    r
+}
+
+fn unlocked(r: &mut Rig, people: &[Person]) -> bool {
+    // wide again once it has had time to settle
+    r.run(12.0, Some(people));
+    r.last().0 < 1.5
+}
+
+#[test]
+fn when_it_is_unclear_who_is_who_after_a_gap_the_lock_lets_go_instead_of_guessing() {
+    let (a, b) = (at(0.45), at(0.6));
+    let mut r = picked_pair(&a, &b);
+    r.run(0.3, Some(&[]));
+    // they have both moved, and the one now nearest the old spot is the bystander
+    r.run(5.0, Some(&[at(0.38), at(0.48)]));
+    assert!(unlocked(&mut r, &[at(0.38), at(0.48)]), "zoom {}", r.last().0);
+}
+
+#[test]
+fn the_picked_person_is_still_followed_after_crossing_over_a_bystander_of_another_build() {
+    let slight = person(Who { x: 0.3, width: 0.1, ..Who::default() });
+    let broad = person(Who { x: 0.5, width: 0.16, ..Who::default() });
+    let mut r = picked_pair(&slight, &broad);
+    let (slight_now, broad_now) = (person(Who { x: 0.5, width: 0.1, ..Who::default() }), person(Who { x: 0.3, width: 0.16, ..Who::default() }));
+    r.run(5.0, Some(&[slight_now, broad_now]));
+    // the slight one, now in the middle of the picture, is the one framed
+    assert!(r.last().0 > 2.5 && r.last().1.abs() < 0.1, "framing {:?}", r.last());
+}
+
+#[test]
+fn reports_that_alternate_between_the_picked_person_and_the_bystander_keep_the_lock() {
+    let (a, b) = (at(0.45), at(0.6));
+    let mut r = picked_pair(&a, &b);
+    for i in 0..60 {
+        r.run(0.1, Some(std::slice::from_ref(if i % 2 == 0 { &b } else { &a })));
+    }
+    r.run(0.1, Some(std::slice::from_ref(&a)));
+    r.run(2.0, Some(&[a.clone(), b.clone()]));
+    assert!(r.last().0 > 2.5 && r.last().1 < 0.52, "framing {} at {}", r.last().1, r.last().0);
+}
+
+#[test]
+fn a_picked_person_coming_back_from_far_away_is_not_taken_for_a_bystander_and_nobody_else_is_taken_for_them() {
+    let (a, b) = (at(0.45), at(0.6));
+    let mut r = picked_pair(&a, &b);
+    r.run(2.0, Some(std::slice::from_ref(&b)));
+    r.run(5.0, Some(&[at(0.95), b.clone()]));
+    assert!(unlocked(&mut r, &[at(0.95), b.clone()]), "zoom {}", r.last().0);
+}
+
+#[test]
+fn a_quick_restart_does_not_open_on_the_old_crop() {
+    let (a, b) = (at(0.2), at(0.8));
+    let mut r = picked_pair(&a, &b);
+    r.plugin.on_stream_stop(&mut r.host);
+    assert_eq!(r.last(), (1.0, 0.0, 0.0));
+}
+
 #[test]
 fn nothing_can_be_picked_while_framing_is_off_and_turning_it_off_drops_a_pending_pick() {
     let mut r = Rig::new();
