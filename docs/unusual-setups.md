@@ -11,7 +11,25 @@ Telescope doesn't care where the phone is as long as the two can reach each othe
 2. Open Telescope on both and press **Add phone**.
 3. Scan the code. The stream, the effects and the virtual camera work the same.
 
-Now a friend's phone can be a guest camera in your OBS, or a phone left at the cottage can be watched from your desk. Ports and the rest are in [Over Tailscale](features/connection.md#over-tailscale).
+Ports, access rules and checking the connection are in [Over Tailscale](features/connection.md#over-tailscale).
+
+## Have a friend join as a guest camera
+
+With Tailscale a friend's phone can be a camera in your OBS from anywhere, a direct feed that looks much sharper than a screen-captured video call.
+
+1. Your friend joins your tailnet. Tailscale can share a single machine with them so they don't get the rest of your devices.
+2. Press **Add phone** and let them scan the code. Close **Add phone** once they have.
+3. Their phone shows up in the device picker like any other.
+
+The code works like a password. Only show it to the person who should scan it. One code pairs one phone. Remove their phone on the computer when they're done. It works the other way too. Pair your phone with their Telescope to show them something.
+
+## Watch the cottage from your desk
+
+Leave a phone somewhere and watch it from anywhere. Pair it once and it works from your desk after that.
+
+1. Plug the phone into power. Check that Telescope survives a night on it, since some phones still close apps in the background.
+2. Pair it over Tailscale, either while you're there or from home if you can reach it.
+3. Turn on **Wait for my computer** in the phone app. You can then start the camera from your computer without touching the phone.
 
 ## Take photos with a DSLR from your computer
 
@@ -55,7 +73,7 @@ Point the phone at a bird feeder or a garden path and let Phototrap take a burst
 4. Set how many **Photos** a burst takes, the **Pause** before it can go off again and the **Sensitivity**. A higher one catches smaller movements and more false alarms.
 5. Turn on **Armed**. The photos go to the **Save in** folder.
 
-A phone left outside needs power and a dry spot. **Wait for my computer** in the phone app lets you start it from your desk. For a phone far away see [Over Tailscale](features/connection.md#a-phone-you-leave-somewhere).
+A phone left outside needs power and a dry spot. **Wait for my computer** in the phone app lets you start it from your desk. For a phone far away see [Watch the cottage from your desk](#watch-the-cottage-from-your-desk).
 
 ## Put a phone on a microscope
 

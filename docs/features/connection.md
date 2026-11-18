@@ -27,18 +27,6 @@ How it works with Telescope:
 - Pairing needs the **Add phone** dialog open on the computer, because that's the only time its pairing server on port 8765 runs. The phone has to reach the computer for this. After that the computer reaches out to the phone.
 - If you use Tailscale access rules, the phone needs to reach the computer on 8765 while pairing. The computer needs to reach the phone on 8766 and 8080. [Browser camera](sources.md#browser-camera) uses 8767 on the computer. Tailscale's default rules allow all of this.
 
-### Someone else's phone as a camera
-
-A friend joins your tailnet (Tailscale can share a single machine with them so they don't get the rest of your devices), pairs their phone with your Telescope and shows up in OBS as a remote guest. It's a direct camera feed instead of a screen-captured video call and looks a lot sharper.
-
-The QR code carries the token that lets a phone pair and works like a password. Only show it to the person who should scan it. Close **Add phone** once they have. One code pairs one phone. Remove the guest's phone on the computer when they are done and Telescope tells the phone to forget the computer.
-
-### A phone you leave somewhere
-
-A phone at the cottage that you watch from your desk. Pair it once while you're there or over the tailnet if you can reach it. After that it works from anywhere. **Wait for my computer** in the phone app lets you start the camera from your computer without touching the phone, which matters when it's out of reach.
-
-Plug it into power. Some phones still close apps in the background. Check that Telescope survives a night on yours before relying on it.
-
 ### Which path Tailscale uses
 
 Tailscale connects two devices directly when it can and goes through a relay server (DERP) when it can't. A relay adds delay and has less bandwidth. This shows which one you're on:
@@ -50,8 +38,6 @@ tailscale ping <name of the other device>
 A direct connection answers with `via <address>:<port>`. A relayed one reports `via DERP(<region>)`. The first answers can go through the relay while Tailscale is still working out a direct path. Look at a few. `tailscale status` also lists each device as `direct` or `relay`.
 
 If it never leaves DERP a stricter router on either side is usually why. Tailscale's documentation on connection types covers what helps.
-
-You can also pair your phone with someone else's Telescope the same way to show them something. They open **Add phone**, you scan the code and you remove your phone from their list when you're done.
 
 ## Privacy
 
