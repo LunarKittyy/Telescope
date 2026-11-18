@@ -358,7 +358,7 @@ pub fn invoke_global(
             let cu = &instance.root_sub_component.compilation_unit;
             let global = &cu.globals[target_inst.global_idx];
             let function = &global.functions[fn_idx];
-            let expr = function.code.borrow();
+            let expr = cu.shared(&function.code.borrow());
             let mut ctx = crate::eval::EvalContext::for_global(
                 std::rc::Rc::downgrade(&instance.globals),
                 cu.clone(),

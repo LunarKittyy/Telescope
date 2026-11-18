@@ -254,10 +254,9 @@ fn install_property_init(
     match &local_reference.reference {
         LocalMemberIndex::Callback(idx) => {
             let callback = Pin::as_ref(&instance.callbacks[*idx]);
-            let arg_types = instance.compilation_unit.sub_components[instance.sub_component_idx]
+            let arg_types = &instance.compilation_unit.sub_components[instance.sub_component_idx]
                 .callbacks[*idx]
-                .args
-                .clone();
+                .args;
             let handler = make_callback_handler(
                 weak_sub.clone(),
                 shared_mut(&sub.compilation_unit, &binding.expression),
@@ -283,9 +282,10 @@ fn install_property_init(
                     let cb_weak = weak_sub.clone();
                     let cu = &instance.compilation_unit;
                     let sc = &cu.sub_components[instance.sub_component_idx];
-                    let arg_types = match sc.items[*item_index].ty.lookup_property(prop_name) {
-                        Some(i_slint_compiler::langtype::Type::Callback(f)) => f.args.clone(),
-                        _ => Vec::new(),
+                    let callback_type = sc.items[*item_index].ty.lookup_property(prop_name);
+                    let arg_types: &[i_slint_compiler::langtype::Type] = match &callback_type {
+                        Some(i_slint_compiler::langtype::Type::Callback(f)) => &f.args,
+                        _ => &[],
                     };
                     let _ = item.set_callback_handler(
                         prop_name,
@@ -350,7 +350,7 @@ fn install_global_property_init(
             let handler = make_callback_handler(
                 weak_sub.clone(),
                 shared_mut(&sub.compilation_unit, &binding.expression),
-                g.callbacks[*idx].args.clone(),
+                &g.callbacks[*idx].args,
             );
             if let Some(native) = &global.native {
                 let _ = native
@@ -384,7 +384,7 @@ fn install_property_binding(
     binding: &llr::BindingExpression,
     weak_sub: &Weak<SubComponentInstance>,
     ty: &i_slint_compiler::langtype::Type,
-    cu: &Rc<llr::CompilationUnit>,
+    cu: &Rc<crate::component::Unit>,
 ) {
     let expr = shared_mut(cu, &binding.expression);
     let weak_sub_eval = weak_sub.clone();
@@ -450,7 +450,7 @@ fn install_property_binding(
 }
 
 fn animation_for_binding(
-    cu: &Rc<llr::CompilationUnit>,
+    cu: &Rc<crate::component::Unit>,
     animation: Option<&Animation>,
     weak_sub: Weak<SubComponentInstance>,
 ) -> AnimatedBindingKind {
@@ -748,60 +748,12 @@ use crate::eval::{walk_parent, walk_sub_path};
 
 /// Telescope patch: one shared copy of an expression per compilation unit, for the closures of every instance.
 ///
-/// Each instance installs its bindings, handlers and models as closures that need an expression of their own, and the
-/// interpreter deep-copied the expression for each one, so every row a repeater created copied every binding of its
-/// component. The key is the compilation unit's address and the expression's address. The weak handle keeps the unit's
-/// allocation from being reused while the entry exists, so the key can't stand for a different unit later; the compiler's
-/// expressions don't change after the unit is built.
-#[derive(Default)]
-struct PtrHasher(u64);
-
-impl std::hash::Hasher for PtrHasher {
-    fn finish(&self) -> u64 {
-        self.0
-    }
-    fn write(&mut self, bytes: &[u8]) {
-        for b in bytes {
-            self.write_u64(*b as u64);
-        }
-    }
-    fn write_usize(&mut self, n: usize) {
-        self.write_u64(n as u64);
-    }
-    fn write_u64(&mut self, n: u64) {
-        self.0 = (self.0.rotate_left(5) ^ n).wrapping_mul(0x517c_c1b7_2722_0a95);
-    }
+/// The copies live in the unit itself (`Unit::shared`), so they go when the unit does.
+fn shared_expression(cu: &Rc<crate::component::Unit>, e: &Expression) -> Rc<Expression> {
+    cu.shared(e)
 }
 
-type SharedExpressions = std::collections::HashMap<
-    (usize, usize),
-    (Weak<llr::CompilationUnit>, Rc<Expression>),
-    std::hash::BuildHasherDefault<PtrHasher>,
->;
-
-thread_local! {
-    static SHARED_EXPRESSIONS: std::cell::RefCell<SharedExpressions> = Default::default();
-    static NEXT_PURGE: std::cell::Cell<usize> = const { std::cell::Cell::new(4096) };
-}
-
-fn shared_expression(cu: &Rc<llr::CompilationUnit>, e: &Expression) -> Rc<Expression> {
-    let key = (Rc::as_ptr(cu) as usize, e as *const Expression as usize);
-    SHARED_EXPRESSIONS.with(|shared| {
-        let mut shared = shared.borrow_mut();
-        if let Some((_, found)) = shared.get(&key) {
-            return found.clone();
-        }
-        if shared.len() >= NEXT_PURGE.with(|n| n.get()) {
-            shared.retain(|_, (unit, _)| unit.strong_count() > 0);
-            NEXT_PURGE.with(|n| n.set((2 * shared.len()).max(4096)));
-        }
-        let copy = Rc::new(e.clone());
-        shared.insert(key, (Rc::downgrade(cu), copy.clone()));
-        copy
-    })
-}
-
-fn shared_mut(cu: &Rc<llr::CompilationUnit>, e: &MutExpression) -> Rc<Expression> {
+fn shared_mut(cu: &Rc<crate::component::Unit>, e: &MutExpression) -> Rc<Expression> {
     shared_expression(cu, &e.borrow())
 }
 
@@ -810,9 +762,9 @@ fn shared_mut(cu: &Rc<llr::CompilationUnit>, e: &MutExpression) -> Rc<Expression
 fn make_callback_handler(
     weak: Weak<SubComponentInstance>,
     expr: Rc<Expression>,
-    arg_types: Vec<i_slint_compiler::langtype::Type>,
+    arg_types: &[i_slint_compiler::langtype::Type],
 ) -> impl Fn(&[Value]) -> Value + 'static {
-    let arg_types = crate::eval::ArgTypes::from(arg_types.as_slice());
+    let arg_types = crate::eval::ArgTypes::from(arg_types);
     move |args| {
         let Some(owner) = weak.upgrade() else { return Value::Void };
         let mut ctx = EvalContext::with_arguments(Pin::new(owner), args.to_vec());

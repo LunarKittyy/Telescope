@@ -50,7 +50,7 @@ pub struct EvalContext {
     pub current: Option<Pin<Rc<SubComponentInstance>>>,
     /// The compilation unit, for type resolution even when `current` is
     /// `None` (global context).
-    pub compilation_unit: Rc<llr::CompilationUnit>,
+    pub compilation_unit: Rc<crate::component::Unit>,
     /// Shared global storage, used to resolve `MemberReference::Global`.
     pub globals: Weak<GlobalStorage>,
     /// Local variables introduced by `StoreLocalVariable`.
@@ -86,7 +86,7 @@ impl EvalContext {
     }
 
     /// Context rooted in a global. Only `MemberReference::Global` is valid.
-    pub fn for_global(globals: Weak<GlobalStorage>, cu: Rc<llr::CompilationUnit>) -> Self {
+    pub fn for_global(globals: Weak<GlobalStorage>, cu: Rc<crate::component::Unit>) -> Self {
         Self {
             current: None,
             compilation_unit: cu,
@@ -467,8 +467,8 @@ pub fn invoke_function(ctx: &EvalContext, mr: &MemberReference, args: Vec<Value>
                 panic!("invoke_function on non-function global reference")
             };
             let function = &global.compilation_unit.globals[global.global_idx].functions[*idx];
-            // Telescope patch: the body is borrowed for the call, not copied; nothing writes it after load.
-            let code = function.code.borrow();
+            // Telescope patch: the body is the unit's shared copy, so no borrow is held while it runs.
+            let code = global.compilation_unit.shared(&function.code.borrow());
             let mut inner_ctx =
                 EvalContext::for_global(ctx.globals.clone(), global.compilation_unit.clone());
             inner_ctx.function_arg_types =
@@ -485,7 +485,7 @@ pub fn invoke_function(ctx: &EvalContext, mr: &MemberReference, args: Vec<Value>
             };
             let sc = &instance.compilation_unit.sub_components[instance.sub_component_idx];
             let function = &sc.functions[*idx];
-            let code = function.code.borrow();
+            let code = instance.compilation_unit.shared(&function.code.borrow());
             let mut inner_ctx = EvalContext::with_arguments(instance.clone(), args);
             inner_ctx.function_arg_types =
                 ArgTypes::Sub { sub_component: instance.sub_component_idx, function: *idx };

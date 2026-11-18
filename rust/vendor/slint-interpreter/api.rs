@@ -1242,7 +1242,7 @@ impl CompilationResult {
         &self,
         _: i_slint_core::InternalToken,
     ) -> Option<&i_slint_compiler::llr::CompilationUnit> {
-        self.components.values().next().map(|d| &*d.inner.compilation_unit)
+        self.components.values().next().map(|d| d.inner.compilation_unit.unshare())
     }
 }
 

@@ -19,6 +19,74 @@ use smol_str::SmolStr;
 use std::rc::Rc;
 use vtable::VRc;
 
+/// Telescope patch: a compilation unit together with one shared copy of each of its expressions.
+///
+/// Each instance installs its bindings, handlers, models and function calls as closures that need an expression of their
+/// own, and the interpreter deep-copied the expression for each one, so every row a repeater created copied every binding
+/// of its component. The copies are keyed by the expression's address, which stays put while the unit lives, and are
+/// freed with the unit. Expressions don't change after the unit is built, except through the internal
+/// `CompilationResult::compilation_unit` API; handing the unit out there switches the sharing off (`unshare`).
+pub struct Unit {
+    unit: CompilationUnit,
+    shared: std::cell::RefCell<
+        std::collections::HashMap<usize, Rc<Expression>, std::hash::BuildHasherDefault<PtrHasher>>,
+    >,
+    unshared: std::cell::Cell<bool>,
+}
+
+#[derive(Default)]
+pub struct PtrHasher(u64);
+
+impl std::hash::Hasher for PtrHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+    fn write(&mut self, bytes: &[u8]) {
+        for b in bytes {
+            self.write_u64(*b as u64);
+        }
+    }
+    fn write_usize(&mut self, n: usize) {
+        self.write_u64(n as u64);
+    }
+    fn write_u64(&mut self, n: u64) {
+        self.0 = (self.0.rotate_left(5) ^ n).wrapping_mul(0x517c_c1b7_2722_0a95);
+    }
+}
+
+impl Unit {
+    pub fn new(unit: CompilationUnit) -> Self {
+        Self { unit, shared: Default::default(), unshared: Default::default() }
+    }
+
+    /// The shared copy of `e`, which must be an expression of this unit.
+    pub fn shared(&self, e: &Expression) -> Rc<Expression> {
+        if self.unshared.get() {
+            return Rc::new(e.clone());
+        }
+        self.shared
+            .borrow_mut()
+            .entry(e as *const Expression as usize)
+            .or_insert_with(|| Rc::new(e.clone()))
+            .clone()
+    }
+
+    /// The unit for a caller that may edit its expressions: copies made so far are dropped and later ones are not shared.
+    #[cfg_attr(not(feature = "internal"), allow(dead_code))]
+    pub fn unshare(&self) -> &CompilationUnit {
+        self.unshared.set(true);
+        self.shared.borrow_mut().clear();
+        &self.unit
+    }
+}
+
+impl std::ops::Deref for Unit {
+    type Target = CompilationUnit;
+    fn deref(&self) -> &CompilationUnit {
+        &self.unit
+    }
+}
+
 /// Pair of `TypeLoader`s retained alongside a compiled component for
 /// internal tooling (highlight, live preview, LSP).
 ///
@@ -47,7 +115,7 @@ pub struct TypeLoaders {
 /// [`crate::api::ComponentDefinition`].
 #[derive(Clone)]
 pub struct ComponentDefinitionInner {
-    pub compilation_unit: Rc<CompilationUnit>,
+    pub compilation_unit: Rc<Unit>,
     pub public_index: usize,
     /// `None` on both sides when the definition comes from a running
     /// instance without `TypeLoader` references.
@@ -308,9 +376,13 @@ impl ComponentInstanceInner {
     pub fn property_type(&self, name: &str) -> Option<&LangType> {
         let public_index = self.0.public_component_index.unwrap_or(0);
         let unit = &self.0.root_sub_component.compilation_unit;
-        unit.public_components[public_index]
-            .public_properties
-            .get(&normalize_identifier(name))
+        let properties = &unit.public_components[public_index].public_properties;
+        // Only a name with an underscore differs from its normalised form, so only that one is built.
+        properties
+            .get(name)
+            .or_else(|| {
+                if name.contains('_') { properties.get(&normalize_identifier(name)) } else { None }
+            })
             .map(|p| &p.ty)
     }
 
@@ -338,7 +410,7 @@ pub fn build_from_document(
     if matches!(animation_mode, AnimationMode::Static) {
         make_static(&mut unit);
     }
-    let unit = Rc::new(unit);
+    let unit = Rc::new(Unit::new(unit));
     // `lower_to_item_tree` builds `public_components` from `exported_roots()`
     // in iteration order, so the indices line up.
     type_loaders.originals = document.exported_roots().collect();
