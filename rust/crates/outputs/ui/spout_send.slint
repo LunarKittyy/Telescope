@@ -1,0 +1,37 @@
+// The Spout send card: whether the shown stream's picture is shared with other programs, and how that is going.
+
+import { Theme, Icons, Card, SwitchTile } from "@ui-kit/ui-kit.slint";
+
+export component SpoutSendCard inherits Card {
+    in property <string> status-text;
+    in property <string> status-kind: "status_dim";
+    in-out property <bool> checked;
+    in property <bool> enabled: true;
+    callback toggled(bool);
+
+    title: @tr("Spout send");
+    tip: @tr("Share this stream's picture with other programs on this computer, such as OBS.");
+    icon: Icons.monitor;
+
+    SwitchTile {
+        icon: Icons.monitor;
+        text: @tr("Share this stream");
+        tip: @tr("Share this stream's picture with other programs on this computer, such as OBS.");
+        hue: root.hue;
+        enabled: root.enabled;
+        checked <=> root.checked;
+        toggled(on) => { root.checked = on; root.toggled(on); }
+    }
+    Text {
+        height: Theme.u(9);
+        visible: root.status-text != "";
+        text: root.status-text;
+        overflow: elide;
+        vertical-alignment: center;
+        font-family: Theme.font;
+        font-size: Theme.body;
+        accessible-label: @tr("Status");
+        color: root.status-kind == "status_ok" ? Theme.ok : root.status-kind == "status_warn" ? Theme.warn
+            : root.status-kind == "status_err" ? Theme.err : Theme.ink2;
+    }
+}

@@ -141,6 +141,7 @@ fn every_plugin(bus: &telescope_core::BusSender) -> Vec<Box<dyn Plugin>> {
         Box::new(telescope_link::browser::plugin::BrowserCameraPlugin::new(server, Vec::new)),
         Box::new(telescope_outputs::webcam::WebcamPlugin::system()),
         Box::new(telescope_outputs::spout::SpoutPlugin::system()),
+        Box::new(telescope_outputs::spout_send::SpoutSendPlugin::system()),
         Box::new(telescope_effects::cinema::CinemaPlugin::new()),
         Box::new(telescope_effects::background::BackgroundPlugin::with_reader(pictures.clone())),
         Box::new(telescope_effects::face_exposure::FaceExposurePlugin::new()),
@@ -343,7 +344,7 @@ fn every_card_in_the_window_folds() {
     };
     assert!(titles.len() > 20, "{titles:?}");
     // Three show only while their source is picked, which Python's findChildren doesn't mind
-    for name in ["browser_camera", "webcam", "spout"] {
+    for name in ["browser_camera", "webcam", "spout", "spout_send"] {
         w.state.borrow_mut().effects.push(telescope_shell::shell::Effect::Props { plugin: name.into(), ui: "card".into(), props: serde_json::json!({"visible": true}) });
     }
     w.process();

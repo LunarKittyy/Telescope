@@ -155,6 +155,10 @@ impl Machine {
         if self.quiet { telescope_outputs::spout::SpoutPlugin::new(None) } else { telescope_outputs::spout::SpoutPlugin::system() }
     }
 
+    fn spout_send(&self) -> telescope_outputs::spout_send::SpoutSendPlugin {
+        if self.quiet { telescope_outputs::spout_send::SpoutSendPlugin::new(None) } else { telescope_outputs::spout_send::SpoutSendPlugin::system() }
+    }
+
     fn shortcuts(&self, remote: telescope_system::shortcuts::RemoteActions) -> telescope_system::shortcuts::ShortcutsPlugin {
         use telescope_system::shortcuts::ShortcutsPlugin;
         if self.quiet { ShortcutsPlugin::with_backend(remote, Box::new(|_| None)) } else { ShortcutsPlugin::new(remote) }
@@ -211,6 +215,7 @@ fn services(machine: Machine, remote: telescope_system::shortcuts::RemoteActions
                 Box::new(browser),
                 Box::new(machine.webcam()),
                 Box::new(machine.spout()),
+                Box::new(machine.spout_send()),
                 Box::new(telescope_effects::cinema::CinemaPlugin::new()),
                 Box::new(telescope_effects::background::BackgroundPlugin::with_reader(pictures.clone())),
                 Box::new(telescope_effects::face_exposure::FaceExposurePlugin::new()),

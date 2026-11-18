@@ -140,6 +140,7 @@ fn every_plugin(bus: &telescope_core::BusSender) -> Vec<Box<dyn Plugin>> {
         Box::new(telescope_link::browser::plugin::BrowserCameraPlugin::new(server, Vec::new)),
         Box::new(telescope_outputs::webcam::WebcamPlugin::system()),
         Box::new(telescope_outputs::spout::SpoutPlugin::system()),
+        Box::new(telescope_outputs::spout_send::SpoutSendPlugin::system()),
         Box::new(telescope_effects::cinema::CinemaPlugin::new()),
         Box::new(telescope_effects::background::BackgroundPlugin::with_reader(pictures.clone())),
         Box::new(telescope_effects::face_exposure::FaceExposurePlugin::new()),
@@ -373,7 +374,7 @@ fn every_control_in_every_card_says_what_it_is() {
     let w = build(&dir);
     w.ui.window().set_size(slint::LogicalSize::new(1300.0, 9000.0)); // a card scrolled out of view has no place to be found at
     w.ui.show().unwrap();
-    for name in ["browser_camera", "webcam", "spout"] {
+    for name in ["browser_camera", "webcam", "spout", "spout_send"] {
         w.state.borrow_mut().effects.push(telescope_shell::shell::Effect::Props { plugin: name.into(), ui: "card".into(), props: serde_json::json!({"visible": true}) });
     }
     w.process();
@@ -484,7 +485,7 @@ fn a_real_cards_dropdown_works_from_the_keyboard_and_says_so() {
     let w = build(&telescope_core::testing::scratch_dir("a11y-dropdown"));
     w.ui.window().set_size(slint::LogicalSize::new(1300.0, 9000.0));
     w.ui.show().unwrap();
-    for name in ["browser_camera", "webcam", "spout"] {
+    for name in ["browser_camera", "webcam", "spout", "spout_send"] {
         w.state.borrow_mut().effects.push(telescope_shell::shell::Effect::Props { plugin: name.into(), ui: "card".into(), props: serde_json::json!({"visible": true}) });
     }
     w.process();
