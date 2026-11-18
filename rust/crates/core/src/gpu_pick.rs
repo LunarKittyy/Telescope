@@ -251,7 +251,8 @@ pub fn is_crashy(c: &Candidate) -> bool {
 /// `ordered` with one adapter (`Candidate::index`) moved to the front, for a power preference set in the environment. Unchanged when it isn't
 /// there or is the crashy one, which no preference may bring forward.
 pub fn move_to_front(mut ordered: Vec<usize>, candidates: &[Candidate], index: usize) -> Vec<usize> {
-    if candidates.iter().any(|c| c.index == index && is_crashy(c)) {
+    // A power preference only picks between real cards, never software or odd adapters (`none` can name one)
+    if candidates.iter().any(|c| c.index == index && (is_crashy(c) || !matches!(c.kind, Kind::Integrated | Kind::Discrete))) {
         return ordered;
     }
     if let Some(at) = ordered.iter().position(|&i| i == index) {
@@ -408,6 +409,8 @@ mod tests {
         assert_eq!(move_to_front(vec![2, 0, 3], &list, 3), [3, 2, 0]);
         assert_eq!(move_to_front(vec![2, 0, 3], &list, 9), [2, 0, 3]);
         assert_eq!(move_to_front(vec![2, 0, 3], &list, 1), [2, 0, 3], "Intel's Windows Vulkan adapter never goes first");
+        let soft = [c(Api::Vulkan, Kind::Discrete, 0), c(Api::Vulkan, Kind::Cpu, 1)];
+        assert_eq!(move_to_front(vec![0, 1], &soft, 1), [0, 1], "software never goes first");
     }
 
     #[test]

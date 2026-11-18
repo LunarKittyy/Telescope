@@ -459,11 +459,11 @@ msgstr ""
 "\n"
 "Mở nhật ký?"
 
-#: rust/crates/core/src/gpu_marker.rs:133
+#: rust/crates/core/src/gpu_marker.rs:142
 msgid "Telescope switched graphics card"
 msgstr "Telescope đã chuyển card đồ họa"
 
-#: rust/crates/core/src/gpu_marker.rs:134
+#: rust/crates/core/src/gpu_marker.rs:143
 #, python-brace-format
 msgid "The last start of Telescope closed while it was opening {card}. Telescope now uses another graphics card, or the processor if there is none left."
 msgstr "Lần khởi động gần nhất của Telescope đã bị đóng trong khi đang mở {card}. Giờ đây Telescope sẽ dùng card đồ họa khác, hoặc bộ xử lý nếu không còn card nào."

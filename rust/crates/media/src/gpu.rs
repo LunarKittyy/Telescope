@@ -219,7 +219,7 @@ impl Gpu {
 
     fn open_on(adapter: &wgpu::Adapter, card: &Card) -> Result<Gpu, String> {
         let info = adapter.get_info();
-        gpu_marker::mark(card);
+        gpu_marker::mark_unless_marked(card);
         let (device, queue) = pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("telescope frames"),
             required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),

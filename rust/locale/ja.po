@@ -459,11 +459,11 @@ msgstr ""
 "\n"
 "ログを開きますか？"
 
-#: rust/crates/core/src/gpu_marker.rs:133
+#: rust/crates/core/src/gpu_marker.rs:142
 msgid "Telescope switched graphics card"
 msgstr "Telescopeがグラフィック カードを切り替えました"
 
-#: rust/crates/core/src/gpu_marker.rs:134
+#: rust/crates/core/src/gpu_marker.rs:143
 #, python-brace-format
 msgid "The last start of Telescope closed while it was opening {card}. Telescope now uses another graphics card, or the processor if there is none left."
 msgstr "前回のTelescope起動時に{card}を開いている途中で終了しました。Telescopeは別のグラフィック カードを使用するか、他にない場合はプロセッサを使用します。"
