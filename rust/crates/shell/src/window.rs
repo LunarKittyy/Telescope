@@ -1080,9 +1080,19 @@ impl Window {
         }
         // Kept until the overlay is drawn: the picture it goes on may only land later
         let dirty = self.overlay_pending.look(asked);
-        // A tint is painted a frame late, so a frame already painted is painted again once the worker's result for it is in: that is
-        // what brings a stream that stopped sending up to date
-        let tints = passes.iter().any(|(_, p)| p.tints());
+        // Only a tint the card can't draw is the worker's: painted a frame late, so a frame already painted is painted again once its result is in
+        let on_card = {
+            let mut painter = self.painter.borrow_mut();
+            // A painter whose card was lost refuses every frame: the CPU's takes its place, and the picture is painted again at once
+            let services = self.services.as_ref();
+            let stand_in = || services.map(|s| Box::new(crate::preview::ThreadedPainter::for_window(s.media.scaler())) as Box<dyn crate::preview::Painter>);
+            if crate::preview::replace_lost(&mut painter, stand_in) {
+                self.painted.set(0);
+            }
+            painter.as_ref().is_some_and(|p| p.on_card())
+        };
+        let plan = crate::preview_passes::PassWork::plan(&passes, on_card);
+        let tints = plan.cpu_tints;
         let source = {
             use std::hash::{Hash, Hasher};
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -1135,7 +1145,7 @@ impl Window {
         // Passes that tint the picture, or want a look at it, get a CPU copy at the size it is painted at, made on a worker so the
         // window never waits on the graphics card for it; a tint is painted a frame late, from the worker's last result
         let mut worker_up = true;
-        if !take_only && (!again || resized) && self.passes.borrow().needs_copy(&passes) {
+        if !take_only && (!again || resized) && self.passes.borrow().needs_copy(&passes, plan.card) {
             let scaler = || self.services.as_ref().map(|s| s.media.scaler());
             let dirty = self.state.borrow().preview_dirty.clone();
             worker_up = self.passes.borrow_mut().submit(scaler, &passes, &frame, crate::preview_passes::FrameId { source, number }, (w, h), &dirty);
@@ -1168,12 +1178,20 @@ impl Window {
                     let Some(services) = &self.services else { return };
                     *painter = Some(Box::new(crate::preview::CpuPainter(services.media.scaler())));
                 }
+                // The scopes' small copy is only read back for a new frame, and the stripes move on with each one painted
+                let scope = plan.card && (!again || resized) && self.passes.borrow().scope_due(&passes);
+                let spec = plan.spec.map(|s| self.passes.borrow_mut().stepped(s));
                 let Some(image) = painter.as_mut().and_then(|p| {
                     p.derived_from(tag);
+                    p.set_tint(spec, scope);
                     p.paint(&frame, w, h)
                 }) else {
                     return;
                 };
+                if let Some(copy) = painter.as_mut().and_then(|p| p.take_scope()) {
+                    let dirty = self.state.borrow().preview_dirty.clone();
+                    self.passes.borrow_mut().analyse(&passes, &copy, &dirty);
+                }
                 image
             }
         };

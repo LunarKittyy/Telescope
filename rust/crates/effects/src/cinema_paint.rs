@@ -9,7 +9,7 @@ use crate::scopes::{self, Bgra};
 use std::sync::{Arc, Mutex};
 use telescope_core::frame::{Frame, PixelFormat};
 use telescope_core::i18n::tr;
-use telescope_core::preview::PreviewPass;
+use telescope_core::preview::{PreviewPass, TintSpec};
 use telescope_core::text::{app_font, Face, Weight};
 use telescope_core::time::monotonic_ns;
 
@@ -598,6 +598,10 @@ impl PreviewPass for CinemaLayer {
         self.state.lock().unwrap().look.pixels()
     }
 
+    fn tint_spec(&self) -> Option<TintSpec> {
+        self.state.lock().unwrap().look.tint_spec()
+    }
+
     fn tint(&self, frame: &mut Frame) {
         if !self.tints() {
             return;
@@ -611,6 +615,10 @@ impl PreviewPass for CinemaLayer {
 
     fn analyse_fps(&self) -> f32 {
         if self.state.lock().unwrap().look.scope != "off" { SCOPE_FPS } else { 0.0 }
+    }
+
+    fn analyses_small(&self) -> bool {
+        true
     }
 
     fn analyse(&self, frame: &Frame) -> bool {
