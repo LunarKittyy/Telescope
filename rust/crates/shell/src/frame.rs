@@ -41,14 +41,8 @@ fn hwnd_of(w: &slint::winit_030::winit::window::Window) -> Option<isize> {
 #[cfg(windows)]
 fn windows_frame(hwnd: isize, (caption, text): (Option<u32>, Option<u32>)) {
     use std::ffi::c_void;
-    use windows::core::PCWSTR;
-    use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
+    use windows::Win32::Foundation::HWND;
     use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_CAPTION_COLOR, DWMWA_TEXT_COLOR, DWMWA_USE_IMMERSIVE_DARK_MODE};
-    use windows::Win32::System::LibraryLoader::GetModuleHandleW;
-    use windows::Win32::UI::WindowsAndMessaging::{
-        GetSystemMetrics, LoadImageW, SendMessageW, ICON_BIG, ICON_SMALL, IMAGE_ICON, LR_DEFAULTCOLOR, SM_CXICON, SM_CXSMICON, SM_CYICON,
-        SM_CYSMICON, WM_SETICON,
-    };
     let hwnd = HWND(hwnd as *mut c_void);
     let set = |attribute, value: u32| {
         // SAFETY: hwnd is this process's window and value outlives the call at the size passed; Windows 10 refuses the colours, which is fine
@@ -64,13 +58,30 @@ fn windows_frame(hwnd: isize, (caption, text): (Option<u32>, Option<u32>)) {
     if let Some(c) = text {
         set(DWMWA_TEXT_COLOR, c);
     }
-    // The program's icon, resource 1 (build.rs), at the sizes the title bar and the alt-tab list use
-    // SAFETY: the module is this program's and resource 1 is an icon; the handles are the system's and live as long as the program
+    set_icons(hwnd);
+}
+
+/// The program's icon, resource 1 (build.rs), at the sizes the title bar and the alt-tab list use. Loaded shared, so the system owns the
+/// handles (one per size, the same each time, never destroyed here) and a window that has them already is left as it is.
+#[cfg(windows)]
+fn set_icons(hwnd: windows::Win32::Foundation::HWND) {
+    use windows::core::PCWSTR;
+    use windows::Win32::Foundation::{LPARAM, WPARAM};
+    use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetSystemMetrics, LoadImageW, SendMessageW, ICON_BIG, ICON_SMALL, IMAGE_ICON, LR_DEFAULTCOLOR, LR_SHARED, SM_CXICON, SM_CXSMICON,
+        SM_CYICON, SM_CYSMICON, WM_GETICON, WM_SETICON,
+    };
+    // SAFETY: the module is this program's and resource 1 is an icon; a shared handle belongs to the system and must not be destroyed
     unsafe {
         let Ok(module) = GetModuleHandleW(PCWSTR::null()) else { return };
         for (kind, w, h) in [(ICON_SMALL, SM_CXSMICON, SM_CYSMICON), (ICON_BIG, SM_CXICON, SM_CYICON)] {
-            if let Ok(icon) = LoadImageW(Some(module.into()), PCWSTR(std::ptr::without_provenance(1)), IMAGE_ICON, GetSystemMetrics(w), GetSystemMetrics(h), LR_DEFAULTCOLOR) {
-                SendMessageW(hwnd, WM_SETICON, Some(WPARAM(kind as usize)), Some(LPARAM(icon.0 as isize)));
+            let size = (GetSystemMetrics(w), GetSystemMetrics(h));
+            if let Ok(icon) = LoadImageW(Some(module.into()), PCWSTR(std::ptr::without_provenance(1)), IMAGE_ICON, size.0, size.1, LR_DEFAULTCOLOR | LR_SHARED) {
+                let has = SendMessageW(hwnd, WM_GETICON, Some(WPARAM(kind as usize)), Some(LPARAM(0)));
+                if has.0 != icon.0 as isize {
+                    SendMessageW(hwnd, WM_SETICON, Some(WPARAM(kind as usize)), Some(LPARAM(icon.0 as isize)));
+                }
             }
         }
     }
