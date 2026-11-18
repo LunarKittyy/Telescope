@@ -118,9 +118,9 @@ Moving the steps listed above into longer runs on the card is still the idea, to
 
 Background blur, Spout's conversion and the 1998 webcam are done (see [next.md](next.md#doing-the-picture-work-on-the-gpu)). Sharing one working frame and doing effects on the YUV planes were measured and dropped, see [dropped.md](dropped.md).
 
-## The rest of load balancing
+## The front of the chain on the phone
 
-Two parts are left. One is moving steps onto the integrated graphics card while the other card is busy, which needs a second graphics device and changes in how the picture work runs. The other is doing the front of the chain on the phone, which needs a pass on the phone, a protocol message and testing on real phones. Until then the graphics card choice in Settings can put everything on the integrated card.
+Doing the first steps on the phone would take load off the desktop. It needs a pass on the phone, a protocol message and testing on real phones.
 
 ## ARM64
 

@@ -40,7 +40,7 @@ Background blur now runs on the graphics card (4K with everything on went from 5
 
 ## A graphics card choice in Settings
 
-Settings has a graphics card choice for someone whose system picks the wrong card. The guard that skips a card after a crash is tougher and VA-API follows the card you pick. The rest of load balancing (the integrated card, the front of the chain on the phone) is still to do, see [future.md](future.md#the-rest-of-load-balancing).
+Settings has a graphics card choice for someone whose system picks the wrong card. The guard that skips a card after a crash is tougher and VA-API follows the card you pick. Running steps on the integrated card was dropped, see [dropped.md](dropped.md).
 
 ## Fixes for people tracking and Composite
 
