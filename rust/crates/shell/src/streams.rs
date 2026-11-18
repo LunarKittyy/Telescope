@@ -290,7 +290,7 @@ impl Window {
             let cfg = st.plugin_config("stream_output").unwrap_or_else(|| serde_json::json!({"format": "h264"}));
             let dynamic = cfg.get("bitrate_mbps").and_then(Value::as_f64) == Some(-1.0);
             let format = telescope_core::link::StreamFormat { h264: cfg.get("format").and_then(Value::as_str) == Some("h264"), dynamic };
-            let output = st.index("stream_output").and_then(|i| st.slots[i].plugin.as_ref());
+            let output = st.index("stream_output").filter(|&i| st.slots[i].stopped.is_none()).and_then(|i| st.slots[i].plugin.as_ref());
             StreamPlan { format, params: output.and_then(|p| p.stream_params()), opening: output.and_then(|p| p.opening()) }
         });
         Box::new(PhoneKind::new(id.map(String::from), services.link.clone(), plan, opts.request, post, on_timer))
@@ -578,6 +578,13 @@ impl Window {
         };
         if let Some(w) = source.and_then(|s| self.worker_of(&s)) {
             w.inner.update_output(change.width, change.height, change.fps.flatten());
+        }
+    }
+
+    /// A stopped plugin's steps leave the streams behind the panels, the rest kept.
+    pub(crate) fn drop_steps_behind(self: &Rc<Self>, owner: &str) {
+        for w in self.streams.workers.borrow().iter().filter(|w| !w.live.get()) {
+            w.inner.replace_owner_steps(owner, telescope_core::frame::FrameStage::default(), Vec::new());
         }
     }
 

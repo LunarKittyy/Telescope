@@ -106,6 +106,10 @@ struct PipeWireReader {
 }
 
 impl Reader for PipeWireReader {
+    fn set_stop(&mut self, stop: std::sync::Arc<std::sync::atomic::AtomicBool>) {
+        self.consumer.set_stop(stop);
+    }
+
     fn next(&mut self, timeout: Duration) -> Result<Option<Picture>, String> {
         Ok(self.consumer.next(timeout)?.map(|VideoFrame { width, height, format, data }| Picture { width, height, fourcc: format.fourcc(), data }))
     }

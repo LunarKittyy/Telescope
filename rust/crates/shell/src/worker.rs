@@ -288,7 +288,9 @@ pub fn to_nv12(frame: &Frame) -> Frame {
 }
 
 /// What the frame steps may ask about the frame they work on.
-struct Ctx {
+struct Ctx<'a> {
+    /// The worker's stop flag, so a step waiting on the graphics card gives up at a stop.
+    stop: &'a AtomicBool,
     source_id: String,
     vision: Option<Arc<dyn telescope_core::vision::VisionService>>,
     /// How many times the view had turned when the steps these frames go through were handed over: their pictures are of that view.
@@ -297,9 +299,12 @@ struct Ctx {
     entry_epoch: u64,
 }
 
-impl FrameContext for Ctx {
+impl FrameContext for Ctx<'_> {
     fn source_id(&self) -> &str {
         &self.source_id
+    }
+    fn stopped(&self) -> bool {
+        self.stop.load(Ordering::SeqCst)
     }
     fn entry_epoch(&self) -> Option<u64> {
         Some(self.entry_epoch)
@@ -384,6 +389,8 @@ struct Shared {
     /// The frame steps, and the newest packet number that made it out (one frame at a time, never an older one).
     publish: Mutex<(Box<dyn FramePipeline>, u64)>,
     next_steps: Mutex<Option<(Vec<StagedStep>, u64)>>,
+    /// Steps of single plugins to swap from the next frame on, the others left as they are: (owner, stage, steps).
+    next_owner_steps: Mutex<Vec<(String, telescope_core::frame::FrameStage, Vec<telescope_core::frame::FrameStep>)>>,
     /// How many times the view had turned when the steps in the pipeline were handed over (Ctx::view_epoch).
     view_epoch: AtomicU64,
     /// How many times the steps that hide things were run on the frame already out (hide_cached), so frames made before that can be told from the ones after.
@@ -435,6 +442,8 @@ pub trait VideoWorker: Send + Sync {
     fn set_colour(&self, steps: Vec<FrameStep>);
     /// The view turned and this stream keeps its steps (it's behind the panels).
     fn follow_view_epoch(&self) {}
+    /// One plugin's steps swapped from the next frame on, the others kept (a plugin that stopped, on a stream behind the panels).
+    fn replace_owner_steps(&self, _owner: &str, _stage: telescope_core::frame::FrameStage, _steps: Vec<FrameStep>) {}
     fn update_output(&self, width: Option<Option<u32>>, height: Option<Option<u32>>, fps: Option<u32>);
     fn settle(&self);
     fn hold_for_photo(&self, seconds: f32);
@@ -471,6 +480,9 @@ impl VideoWorker for StreamWorker {
     }
     fn follow_view_epoch(&self) {
         StreamWorker::follow_view_epoch(self);
+    }
+    fn replace_owner_steps(&self, owner: &str, stage: telescope_core::frame::FrameStage, steps: Vec<FrameStep>) {
+        StreamWorker::replace_owner_steps(self, owner, stage, steps);
     }
     fn update_output(&self, width: Option<Option<u32>>, height: Option<Option<u32>>, fps: Option<u32>) {
         StreamWorker::update_output(self, width, height, fps);
@@ -541,7 +553,7 @@ impl StreamWorker {
             fps: AtomicU32::new(setup.fps.max(1)), canvas: setup.canvas, stop: AtomicBool::new(false),
             restart_vcam: Flag::default(), retry_now: AtomicBool::new(false), failed_tries: AtomicU32::new(0),
             parked: AtomicBool::new(false), vcam_free: Flag::default(), settle: Mutex::new(Settle::new(Instant::now())),
-            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), next_colour: Mutex::new(None), gate: setup.gate, idle: setup.idle, born: Instant::now(),
+            photo_until: Mutex::new(None), publish: Mutex::new((pipeline, 0)), next_steps: Mutex::new(None), next_owner_steps: Mutex::new(Vec::new()), view_epoch: AtomicU64::new(view_epoch), hidings: AtomicU64::new(0), steps_replaced: AtomicBool::new(false), next_colour: Mutex::new(None), gate: setup.gate, idle: setup.idle, born: Instant::now(),
             seq: AtomicU64::new(1), slot, tap, bytes_total: AtomicU64::new(0), newest_arrival: AtomicU64::new(0), frames_arrived: AtomicU64::new(0), frames_shed: AtomicU64::new(0), published: Mutex::new(0), sent_through: Mutex::new(None), last_sent_number: AtomicU64::new(u64::MAX), stats: stats.clone(),
             last_arrival_fps: Mutex::new(0.0), timing_probe: Mutex::new(None), fps_cell: Mutex::new(None), camera_size: Mutex::new(None), stopper: Mutex::new(None), opening: Mutex::new(Vec::new()),
             preview_size: AtomicU64::new(0), handover_busy: AtomicBool::new(false), handover_ready: Mutex::new(None),
@@ -604,6 +616,11 @@ impl StreamWorker {
     pub fn follow_view_epoch(&self) {
         let epoch = self.shared.vision.as_ref().map_or(0, |f| f.service.view_epoch());
         self.shared.view_epoch.store(epoch, Ordering::SeqCst);
+    }
+
+    /// Swap one plugin's steps from the next frame on, the others left as they are (a plugin that stopped, on a stream behind the panels).
+    pub fn replace_owner_steps(&self, owner: &str, stage: telescope_core::frame::FrameStage, steps: Vec<telescope_core::frame::FrameStep>) {
+        self.shared.next_owner_steps.lock().unwrap().push((owner.to_string(), stage, steps));
     }
 
     /// Swap the colour step from the next frame on, the other steps left as they are (a LUT baked for a stream behind the panels).
@@ -854,6 +871,10 @@ impl Shared {
             return false;
         };
         self.newest_arrival.store(arrived, Ordering::Relaxed);
+        // A frame made while Stop waited isn't published after it
+        if self.stopped() {
+            return false;
+        }
         {
             let mut published = self.published.lock().unwrap();
             // stamped with the epoch it was made under, not the one it comes out in
@@ -879,7 +900,7 @@ impl Shared {
         let pipeline = publish.0.as_mut();
         pipeline.set_steps(steps);
         let entered = self.slot.epoch();
-        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: epoch, entry_epoch: entered };
+        let ctx = Ctx { stop: &self.stop, source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: epoch, entry_epoch: entered };
         let hidden = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pipeline.hide_again(cached, &ctx))).unwrap_or_else(|_| {
             log::error!("Hiding the frame on the camera failed");
             None
@@ -906,6 +927,9 @@ impl Shared {
         }
         if let Some(steps) = self.next_colour.lock().unwrap().take() {
             pipeline.replace_steps("colour", telescope_core::frame::FrameStage::Colour, steps);
+        }
+        for (owner, stage, steps) in std::mem::take(&mut *self.next_owner_steps.lock().unwrap()) {
+            pipeline.replace_steps(&owner, stage, steps);
         }
         let (rw, rh) = *self.size.lock().unwrap();
         let mut frame = match (rw, rh) {
@@ -942,7 +966,7 @@ impl Shared {
         }
         // read before the steps run: a change of steps while they do leaves this frame marked as from before it
         let entered = self.slot.epoch();
-        let ctx = Ctx { source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: self.view_epoch.load(Ordering::SeqCst), entry_epoch: entered };
+        let ctx = Ctx { stop: &self.stop, source_id: self.source_id.clone(), vision: self.vision.as_ref().map(|f| f.service.clone()), view_epoch: self.view_epoch.load(Ordering::SeqCst), entry_epoch: entered };
         (pipeline.process(frame, &ctx), entered)
     }
 
@@ -2295,6 +2319,19 @@ mod tests {
         assert!(!w.shared.publish(999, grey(4, 2, 8)));
         let (frame, count) = w.shared.slot.latest().unwrap();
         assert_eq!((frame.data[0], count), (7, received + 1), "the older one isn't received at all");
+        w.stop();
+    }
+
+    #[test]
+    fn a_frame_that_finishes_after_stop_is_not_published() {
+        let packets = Arc::new(Mutex::new(VecDeque::from([Some(1)])));
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        let w = worker(packets, cams.clone(), log);
+        wait_for(|| cams.opened.lock().unwrap().len() == 1);
+        let received = w.shared.slot.latest().unwrap().1;
+        w.request_stop();
+        assert!(!w.shared.publish(1000, grey(4, 2, 7)));
+        assert_eq!(w.shared.slot.latest().unwrap().1, received, "nothing went out after the stop");
         w.stop();
     }
 
@@ -4026,11 +4063,20 @@ mod tests {
         let w = StreamWorker::start(WorkerSetup { source_id: id.into(), url: "https://127.0.0.1:40003/v1/video".into(), ..setup(opener) }, Arc::new(FakeMedia), Arc::new(FakeOutputs(cams.clone())), telescope_media_free_slot(Duration::ZERO), events).unwrap();
         let n = gaps.len() as u64;
         wait_for(|| w.shared.frames_arrived.load(Ordering::SeqCst) == n);
-        std::thread::sleep(Duration::from_millis(300));
-        let snap = Hub::shared().snapshot();
+        // A busy machine can still be sending the last frame, so wait until every frame is counted one way or the other
+        let counts = || {
+            let snap = Hub::shared().snapshot();
+            let s = snap.sources.iter().find(|s| s.source_id == id).expect("the stream is in the snapshot");
+            (s.totals.received, s.totals.delivered, s.drops.paced)
+        };
+        let until = Instant::now() + Duration::from_secs(5);
+        let mut seen = counts();
+        while (seen.0 < n || seen.1 + seen.2 < seen.0) && Instant::now() < until {
+            std::thread::sleep(Duration::from_millis(10));
+            seen = counts();
+        }
         w.stop();
-        let s = snap.sources.iter().find(|s| s.source_id == id).expect("the stream is in the snapshot");
-        (s.totals.received, s.totals.delivered, s.drops.paced)
+        seen
     }
 
     #[test]

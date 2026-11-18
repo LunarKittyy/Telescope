@@ -253,16 +253,32 @@ impl Codec {
                     } else {
                         None
                     };
-                    #[cfg(not(all(windows, ffmpeg)))]
+                    // On Linux VA-API opens the render node of the picked card, not the first one
+                    #[cfg(all(target_os = "linux", ffmpeg))]
+                    let node = if h == Hw::Vaapi { crate::decode_card::vaapi_device() } else { None };
+                    #[cfg(all(target_os = "linux", ffmpeg))]
+                    let chosen = node.as_ref().map(|n| n.0.clone());
+                    #[cfg(not(any(all(windows, ffmpeg), all(target_os = "linux", ffmpeg))))]
                     let chosen: Option<std::ffi::CString> = None;
                     let name = chosen.as_ref().map_or(ptr::null(), |c| c.as_ptr());
                     let mut r = ff::av_hwdevice_ctx_create(&mut c.hw_device, h.device_type(), name, ptr::null_mut(), 0);
-                    if r < 0 && !name.is_null() && !crate::decode_card::is_chosen() {
+                    #[cfg(all(target_os = "linux", ffmpeg))]
+                    let mut on_picked = r >= 0;
+                    // A chosen card that fails keeps decoding off the default card, except for VA-API: a card with a render node can lack a driver
+                    if r < 0 && !name.is_null() && (h == Hw::Vaapi || !crate::decode_card::is_chosen()) {
                         log::warn!("{} didn't open on the picked card ({}), trying the default one", h.name(), err_text(r));
                         r = ff::av_hwdevice_ctx_create(&mut c.hw_device, h.device_type(), ptr::null(), ptr::null_mut(), 0);
+                        #[cfg(all(target_os = "linux", ffmpeg))]
+                        {
+                            on_picked = false;
+                        }
                     }
                     if r < 0 {
                         return Err(format!("{} didn't open: {}", h.name(), err_text(r)));
+                    }
+                    #[cfg(all(target_os = "linux", ffmpeg))]
+                    if let (Some((_, path)), true) = (&node, on_picked) {
+                        log::info!("Hardware decode runs on render node {path}");
                     }
                     #[cfg(windows)]
                     if h == Hw::D3d11va {

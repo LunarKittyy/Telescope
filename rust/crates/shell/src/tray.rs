@@ -74,7 +74,7 @@ impl Window {
     pub fn refresh_tray_menu(&self) {
         let item = |id: String, title: String| TrayItem { id, title, checkable: false, checked: false, visible: true, enabled: true };
         let mut items = vec![item(SHOW.into(), tr("Show"))];
-        for slot in &self.state.borrow().slots {
+        for slot in self.state.borrow().slots.iter().filter(|s| s.stopped.is_none()) {
             items.extend(slot.tray.iter().map(|a| TrayItem {
                 id: format!("{}/{}", slot.info.name, a.id),
                 title: a.title.clone(),
@@ -134,6 +134,8 @@ impl Window {
     /// _tray_show: up, not minimized, in front.
     pub fn show_window(&self) {
         use slint::winit_030::WinitWindowAccessor;
+        // After a start in the tray its marker is armed now: the first surface is made by the next line
+        telescope_core::gpu_marker::rearm();
         let _ = self.ui.show();
         crate::frame::dress(&self.ui);
         self.ui.window().set_minimized(false);
