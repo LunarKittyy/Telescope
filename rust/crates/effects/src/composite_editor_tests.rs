@@ -320,14 +320,38 @@ fn the_position_and_size_boxes_set_the_box_in_canvas_pixels_and_keep_it_on_the_p
 }
 
 #[test]
-fn a_stream_can_swap_places_with_another_from_the_picked_stream_card() {
+fn a_stream_can_swap_places_with_another_and_takes_its_layer_and_its_shape_of_box() {
     let mut r = open();
-    r.picture(vec![Tile::boxed("a", "Left", 0.0, 0.0, 0.5, 1.0), Tile::boxed("b", "Right", 0.5, 0.0, 0.5, 1.0), Tile::boxed("c", "Corner", 0.8, 0.8, 0.2, 0.2)]);
+    // Screen is big at the back and Face small in front of it
+    r.picture(vec![Tile::boxed("a", "Screen", 0.0, 0.0, 0.8, 0.8), Tile::boxed("b", "Face", 0.6, 0.5, 0.3, 0.45), Tile::boxed("c", "Corner", 0.0, 0.85, 0.15, 0.15)]);
     r.plugin.select(0);
-    assert_eq!((r.props()["swap-items"].clone(), r.props()["swap-enabled"].clone()), (json!(["Right", "Corner"]), json!(true)));
-    r.ui("swap-picked", json!([1]));
-    assert_eq!((r.tile(0).source_id.clone(), r.tile(0).x, r.tile(2).source_id.clone(), r.tile(2).x), ("a".to_string(), 0.8, "c".to_string(), 0.0));
-    assert_eq!(r.props()["selected"], json!(0), "the picked stream stays picked");
+    // the picked one isn't in the choice
+    assert_eq!((r.props()["swap-items"].clone(), r.props()["swap-enabled"].clone()), (json!(["Face", "Corner"]), json!(true)));
+    r.ui("swap-picked", json!([0]));
+    // Screen is now the small one in front, Face the big one behind it
+    assert_eq!(r.sources(), ["b", "a", "c"]);
+    assert_eq!(r.props()["selected"], json!(1), "the picked stream stays picked");
+    assert!((r.tile(0).w - 0.8).abs() < 1e-9 && r.tile(0).x == 0.0, "Face has the big box: {:?}", r.tile(0));
+    // Screen's new box was tall for a wide stream: it is cut to the stream's shape (a 16:9 stream on a 16:9 picture: as tall as it is wide in fractions)
+    assert!((r.tile(1).w - r.tile(1).h).abs() < 1e-9 && r.tile(1).w <= 0.3 + 1e-9, "Screen is not squeezed: {:?}", r.tile(1));
     r.plugin.select(-1);
     assert_eq!(r.props()["swap-enabled"], json!(false));
+}
+
+#[test]
+fn typing_a_size_follows_the_shape_lock_that_dragging_follows() {
+    let mut r = open();
+    // 0.4 x 0.4 of a 320 x 180 picture is 128 x 72 pixels: 16:9
+    r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 0.2, 0.2), Tile::boxed("b", "", 0.1, 0.1, 0.4, 0.4)]);
+    r.plugin.select(1);
+    r.ui("box-committed", json!(["w", "160"]));
+    assert!((r.tile(1).w - 0.5).abs() < 1e-9 && (r.tile(1).h - 0.5).abs() < 1e-9, "the height follows: {:?}", r.tile(1));
+    r.ui("box-committed", json!(["h", "45"]));
+    assert!((r.tile(1).h - 0.25).abs() < 1e-9 && (r.tile(1).w - 0.25).abs() < 1e-9, "and the width follows the height: {:?}", r.tile(1));
+    // a stream that was stretched takes any shape
+    let stretched = Tile { stretch: true, ..r.tile(1) };
+    r.picture(vec![r.tile(0), stretched]);
+    r.plugin.select(1);
+    r.ui("box-committed", json!(["w", "64"]));
+    assert!((r.tile(1).w - 0.2).abs() < 1e-9 && (r.tile(1).h - 0.25).abs() < 1e-9, "{:?}", r.tile(1));
 }

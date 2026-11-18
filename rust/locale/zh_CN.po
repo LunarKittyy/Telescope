@@ -370,7 +370,7 @@ msgstr "降噪"
 msgid "Noise reduction unavailable"
 msgstr "降噪不可用"
 
-#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:664 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:260
+#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:696 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:260
 msgid "Cancel"
 msgstr "取消"
 
@@ -548,7 +548,7 @@ msgstr "更新与关于"
 msgid "Camera"
 msgstr "相机"
 
-#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:530
+#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/composite_editor.slint:553 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:530
 msgid "Look"
 msgstr "外观"
 
@@ -625,7 +625,7 @@ msgstr "关"
 msgid "Blur"
 msgstr "虚化"
 
-#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/background.slint:101 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:181 rust/crates/effects/ui/composite_editor.slint:332 rust/crates/effects/ui/composite_editor.slint:618 rust/crates/effects/ui/composite_editor.slint:620 rust/crates/effects/ui/composite_editor.slint:620
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/background.slint:101 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:181 rust/crates/effects/ui/composite_editor.slint:372 rust/crates/effects/ui/composite_editor.slint:650 rust/crates/effects/ui/composite_editor.slint:652 rust/crates/effects/ui/composite_editor.slint:652
 msgid "Picture"
 msgstr "图片"
 
@@ -657,7 +657,7 @@ msgstr "选择画面"
 msgid "Can't open that picture"
 msgstr "无法打开此图片"
 
-#: rust/crates/effects/src/background.rs:643 rust/crates/effects/src/background.rs:768 rust/crates/effects/src/background.rs:771 rust/crates/effects/src/background.rs:789 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:588
+#: rust/crates/effects/src/background.rs:643 rust/crates/effects/src/background.rs:768 rust/crates/effects/src/background.rs:771 rust/crates/effects/src/background.rs:789 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:620
 msgid "Background"
 msgstr "背景"
 
@@ -673,11 +673,11 @@ msgstr "若没有“背景”插件，将没有“背景”卡片，背景将按
 msgid "Background blur"
 msgstr "背景虚化"
 
-#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:552 rust/crates/effects/ui/composite_editor.slint:604 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:605 rust/crates/effects/ui/composite_editor.slint:636 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Green"
 msgstr "绿色"
 
-#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:552 rust/crates/effects/ui/composite_editor.slint:604 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:605 rust/crates/effects/ui/composite_editor.slint:636 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Blue"
 msgstr "蓝色"
 
@@ -685,7 +685,7 @@ msgstr "蓝色"
 msgid "Picked"
 msgstr "已拾取"
 
-#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:153 rust/crates/effects/ui/chroma_key.slint:166 rust/crates/effects/ui/composite_editor.slint:540 rust/crates/effects/ui/composite_editor.slint:592
+#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:153 rust/crates/effects/ui/chroma_key.slint:166 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/effects/ui/composite_editor.slint:624
 msgid "Colour"
 msgstr "颜色"
 
@@ -842,7 +842,7 @@ msgstr "RGB 分量图"
 msgid "Vectorscope"
 msgstr "矢量示波器"
 
-#: rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:552 rust/crates/effects/ui/composite_editor.slint:604 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:605 rust/crates/effects/ui/composite_editor.slint:636 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Red"
 msgstr "红色"
 
@@ -1002,7 +1002,7 @@ msgstr "画面正常"
 msgid "No stream"
 msgstr "未串流"
 
-#: rust/crates/effects/src/colour_grading.rs:59 rust/crates/effects/ui/composite_editor.slint:621
+#: rust/crates/effects/src/colour_grading.rs:59 rust/crates/effects/ui/composite_editor.slint:653
 msgid "No picture"
 msgstr "无图片"
 
@@ -1207,38 +1207,38 @@ msgstr "平移"
 msgid "{mode}, no snapping"
 msgstr "{mode}，无吸附"
 
-#: rust/crates/effects/src/composite_editor.rs:390
+#: rust/crates/effects/src/composite_editor.rs:415
 #, python-brace-format
 msgid "Layout {n}"
 msgstr "布局 {n}"
 
-#: rust/crates/effects/src/composite_editor.rs:508
+#: rust/crates/effects/src/composite_editor.rs:533
 msgid "Background picture"
 msgstr "背景图片"
 
-#: rust/crates/effects/src/composite_editor.rs:557
+#: rust/crates/effects/src/composite_editor.rs:582
 #, python-brace-format
 msgid "{name} isn't streaming"
 msgstr "{name} 未在串流"
 
-#: rust/crates/effects/src/composite_editor.rs:568
+#: rust/crates/effects/src/composite_editor.rs:593
 #, python-brace-format
 msgid "{name} (not streaming)"
 msgstr "{name}（未串流）"
 
-#: rust/crates/effects/src/composite_editor.rs:572 rust/crates/setup/src/stats.rs:389
+#: rust/crates/effects/src/composite_editor.rs:597 rust/crates/setup/src/stats.rs:389
 msgid "None"
 msgstr "无"
 
-#: rust/crates/effects/src/composite_editor.rs:632
+#: rust/crates/effects/src/composite_editor.rs:657
 msgid "Rename layout"
 msgstr "重命名布局"
 
-#: rust/crates/effects/src/composite_editor.rs:632
+#: rust/crates/effects/src/composite_editor.rs:657
 msgid "Save layout"
 msgstr "保存布局"
 
-#: rust/crates/effects/src/composite_editor.rs:635
+#: rust/crates/effects/src/composite_editor.rs:660
 #, python-brace-format
 msgid "There's already a layout called \"{name}\". Replace it?"
 msgstr "已存在名为“{name}”的布局。是否要替换？"
@@ -1282,7 +1282,7 @@ msgstr "正在输出到 {camera}。"
 msgid "Nothing in it"
 msgstr "内容为空"
 
-#: rust/crates/effects/src/composite_plugin.rs:494 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:434
+#: rust/crates/effects/src/composite_plugin.rs:494 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:474
 msgid "Two streams required"
 msgstr "需要两个串流"
 
@@ -1588,7 +1588,7 @@ msgstr "压暗画面四角；设为 0 以下则会提亮四角。"
 msgid "Finish"
 msgstr "修饰"
 
-#: rust/crates/effects/src/filters.rs:79 rust/crates/effects/ui/composite_editor.slint:477 rust/crates/effects/ui/name_tag.slint:174 rust/crates/effects/ui/name_tag.slint:178 rust/crates/effects/ui/stereo.slint:191
+#: rust/crates/effects/src/filters.rs:79 rust/crates/effects/ui/name_tag.slint:174 rust/crates/effects/ui/name_tag.slint:178 rust/crates/effects/ui/stereo.slint:191
 msgid "Size"
 msgstr "大小"
 
@@ -3118,7 +3118,7 @@ msgstr "放弃“匹配”生成的色彩曲线，保持手机当前的曝光不
 msgid "3D"
 msgstr "3D"
 
-#: rust/crates/effects/src/stereo_plugin.rs:720 rust/crates/effects/ui/composite_editor.slint:361
+#: rust/crates/effects/src/stereo_plugin.rs:720 rust/crates/effects/ui/composite_editor.slint:401
 msgid "Side by side"
 msgstr "并排"
 
@@ -3312,7 +3312,7 @@ msgstr "缩放、平移、翻转、旋转和拉伸画面。"
 msgid "Without the Transforms plugin there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "若没有“变换”插件，将没有“变换”卡片，画面将完全按手机发送的原样输出。"
 
-#: rust/crates/effects/src/transforms.rs:670 rust/crates/effects/src/transforms.rs:725 rust/crates/effects/ui/composite_editor.slint:516 rust/crates/effects/ui/transforms.slint:173 rust/crates/effects/ui/transforms.slint:188 rust/crates/effects/ui/transforms.slint:189 rust/crates/effects/ui/transforms.slint:230 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/transforms.rs:670 rust/crates/effects/src/transforms.rs:725 rust/crates/effects/ui/composite_editor.slint:557 rust/crates/effects/ui/transforms.slint:173 rust/crates/effects/ui/transforms.slint:188 rust/crates/effects/ui/transforms.slint:189 rust/crates/effects/ui/transforms.slint:230 rust/crates/outputs/src/webcam.rs:56
 msgid "Zoom"
 msgstr "缩放"
 
@@ -3324,11 +3324,11 @@ msgstr "左右平移"
 msgid "Pan up/down"
 msgstr "上下平移"
 
-#: rust/crates/effects/src/transforms.rs:673 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/composite_editor.slint:481 rust/crates/effects/ui/composite_editor.slint:482 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/desk.slint:165 rust/crates/effects/ui/desk.slint:172 rust/crates/effects/ui/desk.slint:173 rust/crates/effects/ui/transforms.slint:262 rust/crates/effects/ui/transforms.slint:263
+#: rust/crates/effects/src/transforms.rs:673 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/composite_editor.slint:522 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/desk.slint:165 rust/crates/effects/ui/desk.slint:172 rust/crates/effects/ui/desk.slint:173 rust/crates/effects/ui/transforms.slint:262 rust/crates/effects/ui/transforms.slint:263
 msgid "Width"
 msgstr "宽度"
 
-#: rust/crates/effects/src/transforms.rs:674 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/composite_editor.slint:489 rust/crates/effects/ui/composite_editor.slint:490 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/stereo.slint:177 rust/crates/effects/ui/transforms.slint:279 rust/crates/effects/ui/transforms.slint:280
+#: rust/crates/effects/src/transforms.rs:674 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/composite_editor.slint:530 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/stereo.slint:177 rust/crates/effects/ui/transforms.slint:279 rust/crates/effects/ui/transforms.slint:280
 msgid "Height"
 msgstr "高度"
 
@@ -3604,15 +3604,15 @@ msgstr "替换"
 msgid "Clear the current layout without touching saved layouts."
 msgstr "清除当前布局，但不影响已保存的布局。"
 
-#: rust/crates/effects/ui/composite.slint:40 rust/crates/effects/ui/composite.slint:47 rust/crates/effects/ui/composite.slint:51 rust/crates/effects/ui/composite_editor.slint:383 rust/crates/effects/ui/composite_editor.slint:395 rust/crates/shell/ui/card-order-settings.slint:7
+#: rust/crates/effects/ui/composite.slint:40 rust/crates/effects/ui/composite.slint:47 rust/crates/effects/ui/composite.slint:51 rust/crates/effects/ui/composite_editor.slint:423 rust/crates/effects/ui/composite_editor.slint:435 rust/crates/shell/ui/card-order-settings.slint:7
 msgid "Layout"
 msgstr "布局"
 
-#: rust/crates/effects/ui/composite.slint:60 rust/crates/effects/ui/composite_editor.slint:396
+#: rust/crates/effects/ui/composite.slint:60 rust/crates/effects/ui/composite_editor.slint:436
 msgid "Not saved"
 msgstr "未保存"
 
-#: rust/crates/effects/ui/composite.slint:72 rust/crates/effects/ui/composite.slint:73 rust/crates/effects/ui/composite_editor.slint:229 rust/crates/effects/ui/composite_editor.slint:324
+#: rust/crates/effects/ui/composite.slint:72 rust/crates/effects/ui/composite.slint:73 rust/crates/effects/ui/composite_editor.slint:269 rust/crates/effects/ui/composite_editor.slint:364
 msgid "Edit picture"
 msgstr "编辑画面"
 
@@ -3620,199 +3620,207 @@ msgstr "编辑画面"
 msgid "Open the editor for the layout."
 msgstr "打开布局编辑器。"
 
-#: rust/crates/effects/ui/composite_editor.slint:87
+#: rust/crates/effects/ui/composite_editor.slint:91
 msgid "Picture preview"
 msgstr "画面预览"
 
-#: rust/crates/effects/ui/composite_editor.slint:88
+#: rust/crates/effects/ui/composite_editor.slint:92
 msgid "no picture picked"
 msgstr "未选中画面"
 
-#: rust/crates/effects/ui/composite_editor.slint:88
+#: rust/crates/effects/ui/composite_editor.slint:92
 msgid "picked"
 msgstr "已选中"
 
-#: rust/crates/effects/ui/composite_editor.slint:88
+#: rust/crates/effects/ui/composite_editor.slint:92
 msgid "from the left"
 msgstr "距左侧"
 
-#: rust/crates/effects/ui/composite_editor.slint:88
+#: rust/crates/effects/ui/composite_editor.slint:92
 msgid "from the top"
 msgstr "距顶部"
 
-#: rust/crates/effects/ui/composite_editor.slint:89
+#: rust/crates/effects/ui/composite_editor.slint:93
 msgid "Arrow keys move the picked picture a little, Shift with an arrow moves it further."
 msgstr "方向键可微调所选画面位置，按住 Shift 加方向键可大幅移动。"
 
-#: rust/crates/effects/ui/composite_editor.slint:333
+#: rust/crates/effects/ui/composite_editor.slint:373
 msgid "Drag a stream to move it. Hold Ctrl to move it without snapping. The arrow keys move it a pixel and Shift with them ten."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:360
+#: rust/crates/effects/ui/composite_editor.slint:400
 msgid "Start from"
 msgstr "起始布局"
 
-#: rust/crates/effects/ui/composite_editor.slint:361
+#: rust/crates/effects/ui/composite_editor.slint:401
 msgid "Big and small"
 msgstr "一大一小"
 
-#: rust/crates/effects/ui/composite_editor.slint:361
+#: rust/crates/effects/ui/composite_editor.slint:401
 msgid "Grid"
 msgstr "网格"
 
-#: rust/crates/effects/ui/composite_editor.slint:365
+#: rust/crates/effects/ui/composite_editor.slint:405
 msgid "Start a new layout with the running streams arranged like this."
 msgstr "按此排列方式将正在运行的串流新建为布局。"
 
-#: rust/crates/effects/ui/composite_editor.slint:387
+#: rust/crates/effects/ui/composite_editor.slint:427
 msgid "Save as"
 msgstr "另存为"
 
-#: rust/crates/effects/ui/composite_editor.slint:388
+#: rust/crates/effects/ui/composite_editor.slint:428
 msgid "Save this layout under a new name."
 msgstr "将此布局以新名称保存。"
 
-#: rust/crates/effects/ui/composite_editor.slint:402 rust/crates/effects/ui/composite_editor.slint:402 rust/crates/link/ui/connection.slint:116 rust/crates/setup/src/setup.rs:721 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/src/plugins/presets.rs:215
+#: rust/crates/effects/ui/composite_editor.slint:442 rust/crates/effects/ui/composite_editor.slint:442 rust/crates/link/ui/connection.slint:116 rust/crates/setup/src/setup.rs:721 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/src/plugins/presets.rs:215
 msgid "Rename"
 msgstr "重命名"
 
-#: rust/crates/effects/ui/composite_editor.slint:402
+#: rust/crates/effects/ui/composite_editor.slint:442
 msgid "Rename this layout."
 msgstr "重命名此布局。"
 
-#: rust/crates/effects/ui/composite_editor.slint:403 rust/crates/effects/ui/composite_editor.slint:403 rust/crates/shell/src/plugins/presets.rs:185
+#: rust/crates/effects/ui/composite_editor.slint:443 rust/crates/effects/ui/composite_editor.slint:443 rust/crates/shell/src/plugins/presets.rs:185
 msgid "Delete"
 msgstr "删除"
 
-#: rust/crates/effects/ui/composite_editor.slint:403
+#: rust/crates/effects/ui/composite_editor.slint:443
 msgid "Delete this layout."
 msgstr "删除此布局。"
 
-#: rust/crates/effects/ui/composite_editor.slint:407
+#: rust/crates/effects/ui/composite_editor.slint:447
 msgid "Streams"
 msgstr "视频流"
 
-#: rust/crates/effects/ui/composite_editor.slint:437
+#: rust/crates/effects/ui/composite_editor.slint:477
 msgid "Picked stream"
 msgstr "所选视频流"
 
-#: rust/crates/effects/ui/composite_editor.slint:441
+#: rust/crates/effects/ui/composite_editor.slint:481
 msgid "Fit its shape"
 msgstr "适应原始比例"
 
-#: rust/crates/effects/ui/composite_editor.slint:442
+#: rust/crates/effects/ui/composite_editor.slint:482
 msgid "Give the box the stream's original shape again, without cropping or stretching."
 msgstr "将画面框恢复为串流的原始比例，不裁剪也不拉伸。"
 
-#: rust/crates/effects/ui/composite_editor.slint:449
-msgid "Stream"
-msgstr "视频流"
+#: rust/crates/effects/ui/composite_editor.slint:498
+msgid "Place"
+msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:454 rust/crates/effects/ui/name_tag.slint:129
-msgid "Position"
-msgstr "位置"
+#: rust/crates/effects/ui/composite_editor.slint:502
+msgid "X"
+msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:458 rust/crates/effects/ui/composite_editor.slint:459
+#: rust/crates/effects/ui/composite_editor.slint:503
 msgid "Left"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:460
+#: rust/crates/effects/ui/composite_editor.slint:504
 msgid "How far the left edge of the stream is from the left edge of the picture, in pixels."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:466 rust/crates/effects/ui/composite_editor.slint:467
+#: rust/crates/effects/ui/composite_editor.slint:510
+msgid "Y"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:511
 msgid "Top"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:468
+#: rust/crates/effects/ui/composite_editor.slint:512
 msgid "How far the top edge of the stream is from the top of the picture, in pixels."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:483
+#: rust/crates/effects/ui/composite_editor.slint:521
+msgid "W"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:523
 msgid "The width of the stream's box in pixels."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:491
+#: rust/crates/effects/ui/composite_editor.slint:529
+msgid "H"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:531
 msgid "The height of the stream's box in pixels."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:500 rust/crates/effects/ui/composite_editor.slint:503 rust/crates/effects/ui/composite_editor.slint:508
+#: rust/crates/effects/ui/composite_editor.slint:539 rust/crates/effects/ui/composite_editor.slint:544
 msgid "Swap with"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:504
-msgid "Choose a stream"
+#: rust/crates/effects/ui/composite_editor.slint:540
+msgid "Swap with…"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:509
+#: rust/crates/effects/ui/composite_editor.slint:545
 msgid "Trade this stream's place and size with another stream's."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:517
-msgid "Scroll to zoom and drag with the right mouse button to move. Double-click to reset."
-msgstr "滚轮缩放，按住鼠标右键拖动平移。双击重置。"
-
-#: rust/crates/effects/ui/composite_editor.slint:529
-msgid "Border"
-msgstr "边框"
-
-#: rust/crates/effects/ui/composite_editor.slint:533
-msgid "How thick the border is."
-msgstr "边框的粗细。"
-
-#: rust/crates/effects/ui/composite_editor.slint:542
-msgid "Border colour"
-msgstr "边框颜色"
-
-#: rust/crates/effects/ui/composite_editor.slint:567 rust/crates/setup/ui/setup.slint:589 rust/crates/setup/ui/setup.slint:599
-msgid "Corners"
-msgstr "圆角"
-
-#: rust/crates/effects/ui/composite_editor.slint:571
-msgid "How round the corners are."
-msgstr "圆角的弧度。"
-
-#: rust/crates/effects/ui/composite_editor.slint:578
-msgid "Order"
-msgstr "图层顺序"
-
-#: rust/crates/effects/ui/composite_editor.slint:581
+#: rust/crates/effects/ui/composite_editor.slint:550
 msgid "Send back"
 msgstr "下移一层"
 
-#: rust/crates/effects/ui/composite_editor.slint:582
+#: rust/crates/effects/ui/composite_editor.slint:551
 msgid "Bring forward"
 msgstr "上移一层"
 
-#: rust/crates/effects/ui/composite_editor.slint:594
+#: rust/crates/effects/ui/composite_editor.slint:558
+msgid "Scroll to zoom and drag with the right mouse button to move. Double-click to reset."
+msgstr "滚轮缩放，按住鼠标右键拖动平移。双击重置。"
+
+#: rust/crates/effects/ui/composite_editor.slint:570 rust/crates/setup/ui/setup.slint:589 rust/crates/setup/ui/setup.slint:599
+msgid "Corners"
+msgstr "圆角"
+
+#: rust/crates/effects/ui/composite_editor.slint:574
+msgid "How round the corners are."
+msgstr "圆角的弧度。"
+
+#: rust/crates/effects/ui/composite_editor.slint:582
+msgid "Border"
+msgstr "边框"
+
+#: rust/crates/effects/ui/composite_editor.slint:586
+msgid "How thick the border is."
+msgstr "边框的粗细。"
+
+#: rust/crates/effects/ui/composite_editor.slint:595
+msgid "Border colour"
+msgstr "边框颜色"
+
+#: rust/crates/effects/ui/composite_editor.slint:626
 msgid "Background colour"
 msgstr "背景颜色"
 
-#: rust/crates/effects/ui/composite_editor.slint:620
+#: rust/crates/effects/ui/composite_editor.slint:652
 msgid "Show a picture behind the streams instead of the colour."
 msgstr "在串流画面后方显示背景图片而非纯色。"
 
-#: rust/crates/effects/ui/composite_editor.slint:640 rust/crates/link/ui/connection.slint:686
+#: rust/crates/effects/ui/composite_editor.slint:672 rust/crates/link/ui/connection.slint:686
 msgid "Close"
 msgstr "关闭"
 
-#: rust/crates/effects/ui/composite_editor.slint:651
+#: rust/crates/effects/ui/composite_editor.slint:683
 msgid "Replace layout"
 msgstr "替换布局"
 
-#: rust/crates/effects/ui/composite_editor.slint:654 rust/crates/effects/ui/composite_editor.slint:657 rust/crates/shell/src/plugins/presets.rs:186
+#: rust/crates/effects/ui/composite_editor.slint:686 rust/crates/effects/ui/composite_editor.slint:689 rust/crates/shell/src/plugins/presets.rs:186
 msgid "Name:"
 msgstr "名称："
 
-#: rust/crates/effects/ui/composite_editor.slint:665 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1102 rust/crates/shell/ui/settings.slint:587
+#: rust/crates/effects/ui/composite_editor.slint:697 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1102 rust/crates/shell/ui/settings.slint:587
 msgid "OK"
 msgstr "确定"
 
-#: rust/crates/effects/ui/composite_editor.slint:674 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
+#: rust/crates/effects/ui/composite_editor.slint:706 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
 msgid "No"
 msgstr "否"
 
-#: rust/crates/effects/ui/composite_editor.slint:675 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
+#: rust/crates/effects/ui/composite_editor.slint:707 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
 msgid "Yes"
 msgstr "是"
 
@@ -3947,6 +3955,10 @@ msgstr "第二行"
 #: rust/crates/effects/ui/name_tag.slint:122
 msgid "Position and style"
 msgstr "位置与样式"
+
+#: rust/crates/effects/ui/name_tag.slint:129
+msgid "Position"
+msgstr "位置"
 
 #: rust/crates/effects/ui/name_tag.slint:144
 msgid "Style"
@@ -10725,6 +10737,12 @@ msgstr "已替换"
 #: rust/crates/shell/src/plugins_tab.rs:157
 msgid "Couldn't restart"
 msgstr "无法重启"
+
+#~ msgid "Stream"
+#~ msgstr "视频流"
+
+#~ msgid "Order"
+#~ msgstr "图层顺序"
 
 #~ msgid "Theme, card colours and language."
 #~ msgstr "主题、卡片颜色与语言。"

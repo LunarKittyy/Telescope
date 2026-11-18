@@ -513,15 +513,22 @@ pub fn raised(tiles: &[Tile], index: i64, step: i64) -> Vec<Tile> {
     items
 }
 
-/// tiles with the boxes (place and size) of a and b exchanged: each keeps its own stream, crop, zoom and look.
+/// tiles with a and b trading places: each takes the other's box and the other's layer, and keeps its own stream, crop, zoom and look. The one that was at index a is at b after.
 pub fn swapped(tiles: &[Tile], a: usize, b: usize) -> Vec<Tile> {
     let mut out = tiles.to_vec();
     if a != b && a < out.len() && b < out.len() {
         let (first, second) = ((out[a].x, out[a].y, out[a].w, out[a].h), (out[b].x, out[b].y, out[b].w, out[b].h));
         (out[a].x, out[a].y, out[a].w, out[a].h) = second;
         (out[b].x, out[b].y, out[b].w, out[b].h) = first;
+        out.swap(a, b);
     }
     out
+}
+
+/// The tile's box cut down to the shape of what it shows (the stream's shape less its crop), about the same middle: for a stream that has been given a box of another shape.
+pub fn refit(tile: &Tile, src_aspect: f64, canvas_aspect: f64) -> Tile {
+    let shown = src_aspect * (1.0 - tile.crop_l - tile.crop_r).max(MIN_SHOWN) / (1.0 - tile.crop_t - tile.crop_b).max(MIN_SHOWN);
+    tile.with_box(fit_box(shown, (tile.x, tile.y, tile.w, tile.h), canvas_aspect))
 }
 
 /// A colour as (B, G, R), black for one that isn't "#rrggbb".

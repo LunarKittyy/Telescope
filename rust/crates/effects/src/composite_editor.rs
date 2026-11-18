@@ -337,8 +337,24 @@ impl CompositePlugin {
         match field {
             "x" => new.x = (if by { tile.x + px / cw } else { px / cw }).clamp(0.0, (1.0 - tile.w).max(0.0)),
             "y" => new.y = (if by { tile.y + px / ch } else { px / ch }).clamp(0.0, (1.0 - tile.h).max(0.0)),
-            "w" => new.w = (if by { tile.w + px / cw } else { px / cw }).clamp(MIN_SIZE, (1.0 - tile.x).max(MIN_SIZE)),
-            "h" => new.h = (if by { tile.h + px / ch } else { px / ch }).clamp(MIN_SIZE, (1.0 - tile.y).max(MIN_SIZE)),
+            "w" | "h" => {
+                // a stream that keeps its shape when dragged keeps it when typed, as well: the other side follows
+                let ratio = (tile.w * cw) / (tile.h * ch).max(1e-9);
+                let wanted = if field == "w" { if by { tile.w * cw + px } else { px } } else { (if by { tile.h * ch + px } else { px }) * ratio };
+                let mut w = (wanted / cw).max(MIN_SIZE);
+                if !tile.stretch {
+                    // as big as the picture allows from where the box starts, in the same shape
+                    let most = ((1.0 - tile.x).min((1.0 - tile.y) * ch * ratio / cw)).max(MIN_SIZE);
+                    w = w.min(most);
+                    new.h = (w * cw / ratio / ch).max(MIN_SIZE);
+                } else if field == "h" {
+                    new.h = (if by { tile.h + px / ch } else { px / ch }).clamp(MIN_SIZE, (1.0 - tile.y).max(MIN_SIZE));
+                    w = tile.w;
+                } else {
+                    w = w.min((1.0 - tile.x).max(MIN_SIZE));
+                }
+                new.w = w;
+            }
             _ => return,
         }
         let index = self.editor.as_ref().map_or(-1, |e| e.selected);
@@ -350,7 +366,16 @@ impl CompositePlugin {
         let picked = self.editor.as_ref().map_or(-1, |e| e.selected);
         let others: Vec<usize> = (0..self.layout.tiles.len()).filter(|i| *i as i64 != picked).collect();
         let (Some(&there), true) = (usize::try_from(other).ok().and_then(|o| others.get(o)), picked >= 0) else { return };
-        let tiles = composite::swapped(&self.layout.tiles, picked as usize, there);
+        let mut tiles = composite::swapped(&self.layout.tiles, picked as usize, there);
+        // each is cut to the shape of its new box, so a wide picture isn't squeezed into a tall box
+        let canvas = self.canvas_aspect();
+        for i in [picked as usize, there] {
+            if let Some(aspect) = self.source_aspect(&tiles[i].source_id) {
+                tiles[i] = composite::refit(&tiles[i], aspect, canvas);
+            }
+        }
+        // the picked stream is now where the other was in the layers
+        self.select(there as i64);
         self.set_layout(host, Layout { tiles, ..self.layout.clone() });
     }
 
