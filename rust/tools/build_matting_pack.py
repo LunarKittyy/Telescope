@@ -16,6 +16,7 @@ import shutil
 import sys
 import tarfile
 import tempfile
+import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -35,6 +36,12 @@ FILES = {
     "model": (f"{_RVM}/releases/download/v1.0.0/{MODEL}", "88d4531297118f595bf2fd60f6f566aec2e559393802d1f436c380f0cbbd2828"),
     "rvm-licence": (f"https://raw.githubusercontent.com/PeterL1n/RobustVideoMatting/v1.0.0/LICENSE",
                     "8b1ba204bb69a0ade2bfcf65ef294a920f6bb361b317dba43c7ef29d96332b9b"),
+}
+# ONNX Runtime's GitHub repository went missing in November 2026. These packs from release 5.1.3 hold its files as built from the pins above
+_PUBLISHED = "https://github.com/LunarKittyy/Telescope/releases/download/v5.1.3"
+FILES |= {
+    "ort-linux-published": (f"{_PUBLISHED}/Telescope-matting-linux-e9d896cf4c409646.zip", "58cdaf6e4c5892ef1f9e59507d2162ea76dd3bd33f66425c01fe0b559acdae48"),
+    "ort-windows-published": (f"{_PUBLISHED}/Telescope-matting-windows-aa4cb660620bfbb5.zip", "7c93944eabe0fb5530739b8afc6880ff5662d095743b8925f7da058ba1617cad"),
 }
 PLATFORMS = ("linux", "windows")
 # platform: (the archive's name in FILES, the folder inside it, [(file inside lib/, name in the pack)])
@@ -70,7 +77,11 @@ def fetch(name: str, cache: Path) -> bytes:
 def runtime_files(key: str, cache: Path) -> dict:
     """The library files of ONNX Runtime and its two licence files, by path inside the archive's folder."""
     archive, folder, _ = RUNTIME[key]
-    data = fetch(archive, cache)
+    try:
+        data = fetch(archive, cache)
+    except urllib.error.URLError as e:
+        print(f"  {archive}: {e}, using ONNX Runtime from the pack release 5.1.3 published")
+        return published_runtime_files(key, cache)
     wanted = {f"{folder}/lib/{src}" for src, _ in RUNTIME[key][2]} | {f"{folder}/LICENSE", f"{folder}/ThirdPartyNotices.txt"}
     found = {}
     if archive.endswith("linux"):
@@ -85,6 +96,16 @@ def runtime_files(key: str, cache: Path) -> dict:
                     found[name] = z.read(name)
     if set(found) != wanted:
         sys.exit(f"{archive} lacks {sorted(wanted - set(found))}")
+    return found
+
+
+def published_runtime_files(key: str, cache: Path) -> dict:
+    """The same files as runtime_files, out of the pack an earlier release published (the pack's id still has to match)."""
+    archive, folder, libs = RUNTIME[key]
+    with zipfile.ZipFile(io.BytesIO(fetch(f"{archive}-published", cache))) as z:
+        found = {f"{folder}/lib/{src}": z.read(f"lib/{dest}") for src, dest in libs}
+        found[f"{folder}/LICENSE"] = z.read("licenses/ONNXRUNTIME-LICENSE.txt")
+        found[f"{folder}/ThirdPartyNotices.txt"] = z.read("licenses/ONNXRUNTIME-ThirdPartyNotices.txt")
     return found
 
 
