@@ -301,6 +301,8 @@ impl CompositePlugin {
         // Off, nothing draws: the background (a canvas-sized picture) is only worked out while it's on
         if on {
             hub.compositor.prepare(&shown, size);
+            // a held fallback picture was drawn with the old layout, and the clock can't cache one from it before this plan is in
+            hub.fallback_key = None;
         } else {
             hub.compositor = Compositor::new(self.reader.clone());
         }
@@ -575,8 +577,6 @@ impl Plugin for CompositePlugin {
         match event {
             Event::MaxZoomChanged { max_zoom } => {
                 self.max_zoom = (*max_zoom as f64).max(1.0);
-                // a held fallback picture was drawn with the old zooms
-                self.shared.hub().fallback_key = None;
                 self.canvas = host.canvas_size();
                 self.prepare();
                 self.show(host);

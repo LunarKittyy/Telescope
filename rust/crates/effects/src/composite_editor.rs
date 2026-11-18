@@ -38,7 +38,10 @@ struct Drag {
     /// Where it began, in fractions of the picture and in px, and the tile as it was.
     start: (f64, f64),
     pos: (f64, f64),
+    /// The tile as it was drawn, at the zoom Max zoom allows.
     tile: Tile,
+    /// The zoom the layout has for it, which can be past that: a drag that leaves the shown zoom alone leaves this alone.
+    saved_zoom: f64,
 }
 
 /// The keys held during a pointer event.
@@ -226,9 +229,11 @@ impl CompositePlugin {
         if index < 0 {
             return;
         }
+        let saved = self.layout.tiles.get(index as usize).map_or(1.0, |t| t.zoom);
+        let Some(e) = self.editor.as_mut() else { return };
         let kind = if right { DragKind::Pan } else if handle.is_empty() { DragKind::Move } else { DragKind::Resize(handle) };
         let start = (pos.0 / e.area.0, pos.1 / e.area.1);
-        e.drag = Some(Drag { kind, start, pos, tile: tiles[index as usize].clone() });
+        e.drag = Some(Drag { kind, start, pos, tile: tiles[index as usize].clone(), saved_zoom: saved });
     }
 
     fn pointer_move(&mut self, host: &mut dyn Host, pos: (f64, f64), mods: Mods) {
@@ -240,7 +245,7 @@ impl CompositePlugin {
             e.hover = hover;
             return;
         };
-        let (kind, tile, start, from) = (d.kind.clone(), d.tile.clone(), d.start, d.pos);
+        let (kind, tile, start, from, saved) = (d.kind.clone(), d.tile.clone(), d.start, d.pos, d.saved_zoom);
         let selected = e.selected;
         let (mut dx, mut dy) = (pos.0 / e.area.0 - start.0, pos.1 / e.area.1 - start.1);
         let snapping = !mods.ctrl; // Ctrl: no snapping, as in OBS
@@ -297,6 +302,8 @@ impl CompositePlugin {
         let e = self.editor.as_mut().unwrap();
         e.mode = if snapping || mode == "pan" { text } else { tr("{mode}, no snapping").field("mode", &text) };
         e.guides = (guides_x, guides_y);
+        // switching between resize modes mid-drag works from the zoom the drag began with, not from one an earlier step of it wrote
+        let new = if new.zoom == tile.zoom { Tile { zoom: saved, ..new } } else { new };
         self.replace_tile(host, selected, new);
     }
 

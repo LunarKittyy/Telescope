@@ -165,8 +165,16 @@ fn scrolling_zooms_as_far_as_the_max_zoom_setting() {
     r.ui("wheel", json!([0.3 * AREA.0, 0.3 * AREA.1, AREA.0, AREA.1, 240.0]));
     r.ui("zoom-moved", json!([600.0]));
     assert_eq!(r.tile(0).zoom, 25.0);
-    let (moved, rest) = (crate::composite::moved(&r.tile(0), 0.2, 0.2), r.plugin.layout().clone());
-    r.plugin.set_layout(&mut r.host, Layout { tiles: vec![moved], ..rest });
+    // moving it by the pointer, and resizing it with a Shift in the middle of the drag, leave the saved zoom alone
+    r.plugin.select(0);
+    r.drag((0.3, 0.3), (0.4, 0.4), NO_KEYS);
+    assert!(r.tile(0).x > 0.1);
+    r.pointer("down", (0.5, 0.5), false, NO_KEYS);
+    r.pointer("move", (0.55, 0.55), false, (false, true, false));
+    r.pointer("move", (0.6, 0.6), false, NO_KEYS);
+    r.pointer("up", (0.6, 0.6), false, NO_KEYS);
+    assert_eq!(r.tile(0).zoom, 25.0);
+    assert_eq!(r.plugin.shown_layout().tiles[0].zoom, 6.0);
     r.ui("zoom-moved", json!([600.0]));
     assert_eq!(r.tile(0).zoom, 25.0);
     // scrolling down works from what is shown
