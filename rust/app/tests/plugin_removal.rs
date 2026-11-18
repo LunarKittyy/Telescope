@@ -164,6 +164,7 @@ fn every_plugin(bus: &telescope_core::BusSender) -> Vec<Box<dyn Plugin>> {
         Box::new(telescope_system::startup::StartupPlugin::new(Arc::new(NoAutostart))),
         Box::new(telescope_effects::photos::PhotosPlugin::new()),
         Box::new(telescope_effects::phototrap::PhototrapPlugin::new()),
+        Box::new(telescope_effects::stargazer::StargazerPlugin::new()),
         Box::new(telescope_effects::qr_reader::QrReaderPlugin::new()),
         Box::new(telescope_effects::on_air_plugin::OnAirPlugin::new(Arc::new(telescope_link::web::SystemWeb), Some(outputs))),
         Box::new(telescope_setup::monitoring::MonitoringPlugin::new()),

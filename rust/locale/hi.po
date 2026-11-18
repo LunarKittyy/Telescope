@@ -346,7 +346,7 @@ msgstr "पीला: लिमिटर पीक्स को दबा रह
 msgid "Click to clear"
 msgstr "हटाने के लिए क्लिक करें"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:59 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:210 rust/crates/setup/ui/setup.slint:337 rust/crates/setup/ui/setup.slint:466 rust/crates/shell/src/plugins_tab.rs:726 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:641 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:59 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:210 rust/crates/setup/ui/setup.slint:337 rust/crates/setup/ui/setup.slint:466 rust/crates/shell/src/plugins_tab.rs:726 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr "रीसेट करें"
 
@@ -2463,7 +2463,7 @@ msgstr "कैमरा फ़ोटो नहीं ले सका."
 msgid "Like the video"
 msgstr "वीडियो की तरह"
 
-#: rust/crates/effects/src/photos.rs:57 rust/crates/effects/src/photos.rs:186 rust/crates/effects/src/phototrap.rs:198 rust/crates/effects/src/phototrap.rs:407
+#: rust/crates/effects/src/photos.rs:57 rust/crates/effects/src/photos.rs:186 rust/crates/effects/src/phototrap.rs:198 rust/crates/effects/src/phototrap.rs:407 rust/crates/effects/src/stargazer.rs:654 rust/crates/effects/src/stargazer.rs:921
 #, python-brace-format
 msgid "{seconds} s"
 msgstr "{seconds} s"
@@ -2472,7 +2472,7 @@ msgstr "{seconds} s"
 msgid "Take photo"
 msgstr "फ़ोटो लें"
 
-#: rust/crates/effects/src/photos.rs:177
+#: rust/crates/effects/src/photos.rs:177 rust/crates/effects/src/stargazer.rs:642
 msgid "Open folder"
 msgstr "फ़ोल्डर खोलें"
 
@@ -2546,7 +2546,7 @@ msgstr "{total} में से फ़ोटो {n}"
 msgid "The video is paused while the photo is taken…"
 msgstr "फ़ोटो लिए जाने के दौरान वीडियो रुका हुआ है…"
 
-#: rust/crates/effects/src/photos.rs:554
+#: rust/crates/effects/src/photos.rs:554 rust/crates/effects/src/stargazer.rs:649
 #, python-brace-format
 msgid "Saved {name}"
 msgstr "{name} सेव की गई"
@@ -2790,6 +2790,129 @@ msgstr "QR कोड रीडर प्लगइन के बिना को�
 #: rust/crates/effects/src/qr_reader.rs:742 rust/crates/effects/src/qr_reader.rs:754
 msgid "Read QR codes"
 msgstr "QR कोड पढ़ें"
+
+#: rust/crates/effects/src/stargazer.rs:45
+msgid "Open the folder the stacks are saved in."
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:604
+#, python-brace-format
+msgid "Collecting frame {done} of {total}"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:605
+msgid "Stacking every frame"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:606
+msgid "Recording the trails"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:610
+#, python-brace-format
+msgid "Stacking the sharpest {n} frame"
+msgid_plural "Stacking the sharpest {n} frames"
+msgstr[0] ""
+msgstr[1] ""
+
+#: rust/crates/effects/src/stargazer.rs:617 rust/crates/effects/src/stargazer.rs:636 rust/crates/effects/src/stargazer.rs:922 rust/crates/effects/src/stargazer.rs:922
+msgid "Waiting for the picture"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:619 rust/crates/link/src/connection.rs:826 rust/crates/setup/src/setup.rs:650 rust/crates/setup/src/setup.rs:659 rust/crates/setup/src/setup.rs:678 rust/crates/setup/src/setup.rs:702
+msgid "Ready"
+msgstr "तैयार"
+
+#: rust/crates/effects/src/stargazer.rs:629
+#, python-brace-format
+msgid "In the stack: {frames}, refused: {refused}, time: {time}"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:635
+#, python-brace-format
+msgid "Now {now}, best {best}"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:641
+msgid "Lucky"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:641 rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1062
+msgid "Live"
+msgstr "लाइव"
+
+#: rust/crates/effects/src/stargazer.rs:641 rust/crates/effects/ui/fun_pack.slint:146
+msgid "Trails"
+msgstr "ट्रेल्स"
+
+#: rust/crates/effects/src/stargazer.rs:641 rust/crates/shell/src/plugins/presets.rs:216 rust/crates/system/ui/shortcuts.slint:364
+msgid "Save"
+msgstr "सेव करें"
+
+#: rust/crates/effects/src/stargazer.rs:642
+msgid "Show the stack on the camera"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:652 rust/crates/effects/src/stargazer.rs:920
+#, python-brace-format
+msgid "{n} frames"
+msgstr ""
+
+#. the short form of Start streaming / Stop streaming, on a narrow window
+#: rust/crates/effects/src/stargazer.rs:655 rust/crates/effects/src/stargazer.rs:922 rust/crates/effects/ui/stargazer.slint:135 rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1736 rust/crates/system/src/remote.rs:19
+msgid "Start"
+msgstr "शुरू"
+
+#. the short form of Start streaming / Stop streaming, on a narrow window
+#: rust/crates/effects/src/stargazer.rs:655 rust/crates/effects/ui/stargazer.slint:135 rust/crates/shell/src/window.rs:1742 rust/crates/system/src/remote.rs:19
+msgid "Stop"
+msgstr "रोकें"
+
+#: rust/crates/effects/src/stargazer.rs:655 rust/crates/effects/ui/stargazer.slint:135
+msgid "Stacking"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:722
+msgid "Stopped. The stack is kept until you reset it"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:769
+#, python-brace-format
+msgid "Stopped early and stacked the sharpest {n} frame it had"
+msgid_plural "Stopped early and stacked the sharpest {n} frames it had"
+msgstr[0] ""
+msgstr[1] ""
+
+#: rust/crates/effects/src/stargazer.rs:770
+msgid "Saved the trails"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:771
+#, python-brace-format
+msgid "Saved a stack of {n} frame"
+msgid_plural "Saved a stack of {n} frames"
+msgstr[0] ""
+msgstr[1] ""
+
+#: rust/crates/effects/src/stargazer.rs:777
+msgid "Stopped before enough frames came in, so nothing was saved"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:786
+msgid "Couldn't save the picture"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:854 rust/crates/effects/ui/stargazer.slint:42
+msgid "Stargazer"
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:855
+msgid "Stack frames from a phone clipped to a telescope into a sharper moon or planet, a clearer faint sky or a star trail."
+msgstr ""
+
+#: rust/crates/effects/src/stargazer.rs:856
+msgid "Without the Stargazer plugin there's no Stargazer card and no frames are stacked."
+msgstr ""
 
 #: rust/crates/effects/src/stereo_plugin.rs:56
 msgid "Turn two running streams into one 3D picture."
@@ -3581,10 +3704,6 @@ msgstr "इफ़ेक्ट"
 msgid "Clear"
 msgstr "साफ़ करें"
 
-#: rust/crates/effects/ui/fun_pack.slint:146
-msgid "Trails"
-msgstr "ट्रेल्स"
-
 #: rust/crates/effects/ui/fun_pack.slint:163 rust/crates/effects/ui/stereo.slint:130 rust/crates/outputs/src/webcam.rs:47 rust/crates/shell/ui/cards/camera.slint:238 rust/crates/shell/ui/cards/camera.slint:245 rust/crates/shell/ui/cards/camera.slint:256
 msgid "Brightness"
 msgstr "ब्राइटनेस"
@@ -3951,6 +4070,94 @@ msgstr "कैमरे के सामने दिखाए गए QR को�
 msgid "Show a notification when a QR code is read"
 msgstr "QR कोड पढ़े जाने पर नोटिफ़िकेशन दिखाएं"
 
+#: rust/crates/effects/ui/stargazer.slint:43
+msgid "Stack frames from a telescope into a sharper moon or planet, a faint sky or star trails."
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:57 rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/src/webcam.rs:78 rust/crates/outputs/src/webcam.rs:886 rust/crates/shell/ui/cards/camera.slint:326 rust/crates/shell/ui/cards/camera.slint:334
+msgid "Focus"
+msgstr "फ़ोकस"
+
+#: rust/crates/effects/ui/stargazer.slint:60
+msgid "How sharp the picture is now and the best so far. Turn the focuser to the highest number."
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:64 rust/crates/effects/ui/stargazer.slint:69
+msgid "Stack"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:71
+msgid "Lucky imaging"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:71
+msgid "Live stack"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:71
+msgid "Star trails"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:73
+msgid "Keeps only the sharpest frames of a burst and stacks them. For the moon and planets."
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:74
+msgid "Adds every frame and leaves out what only shows once, like satellites and noise. For faint things."
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:75
+msgid "Keeps the brightest value of one frame every few seconds, so the stars draw lines."
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:85 rust/crates/setup/src/stats.rs:375
+msgid "Frames"
+msgstr "फ़्रेम"
+
+#: rust/crates/effects/ui/stargazer.slint:86
+msgid "Frames to collect"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:87
+msgid "How many frames to look at before stacking the sharpest ones."
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:101
+msgid "Keep"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:102
+msgid "Share to keep"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:103
+msgid "The sharpest share of the frames that gets stacked."
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:116
+msgid "Every"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:117
+msgid "Time between frames"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:118
+msgid "How long to wait before the next frame goes into the trails."
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:130
+msgid "Run"
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:144
+msgid "Sends the stack to the virtual camera in place of the live picture, refreshed about once a second."
+msgstr ""
+
+#: rust/crates/effects/ui/stargazer.slint:153
+msgid "Saved"
+msgstr ""
+
 #: rust/crates/effects/ui/stereo.slint:56
 msgid "Make one 3D picture from two phones."
 msgstr "दो फ़ोनों से एक 3D तस्वीर बनाएं."
@@ -4301,10 +4508,6 @@ msgstr "कंप्यूटर"
 #: rust/crates/link/src/connection.rs:824
 msgid "Checking"
 msgstr "जांच हो रही है"
-
-#: rust/crates/link/src/connection.rs:826 rust/crates/setup/src/setup.rs:650 rust/crates/setup/src/setup.rs:659 rust/crates/setup/src/setup.rs:678 rust/crates/setup/src/setup.rs:702
-msgid "Ready"
-msgstr "तैयार"
 
 #: rust/crates/link/src/connection.rs:827
 msgid "Can't reach the phone"
@@ -5349,10 +5552,6 @@ msgstr "ह्यू"
 msgid "Sharpness"
 msgstr "शार्पनेस"
 
-#: rust/crates/outputs/src/webcam.rs:52 rust/crates/outputs/src/webcam.rs:54 rust/crates/outputs/src/webcam.rs:78 rust/crates/outputs/src/webcam.rs:886 rust/crates/shell/ui/cards/camera.slint:326 rust/crates/shell/ui/cards/camera.slint:334
-msgid "Focus"
-msgstr "फ़ोकस"
-
 #: rust/crates/outputs/src/webcam.rs:52
 msgid "Focus position"
 msgstr "फ़ोकस पोज़ीशन"
@@ -6285,10 +6484,6 @@ msgstr "ऑटोमैटिक मांगा गया"
 #, python-brace-format
 msgid "asked for {n}"
 msgstr "{n} मांगा गया"
-
-#: rust/crates/setup/src/stats.rs:375
-msgid "Frames"
-msgstr "फ़्रेम"
 
 #: rust/crates/setup/src/stats.rs:379
 msgid "Frames in"
@@ -7520,10 +7715,6 @@ msgstr "प्रीसेट का नाम बदलें"
 msgid "Save preset"
 msgstr "प्रीसेट सेव करें"
 
-#: rust/crates/shell/src/plugins/presets.rs:216 rust/crates/system/ui/shortcuts.slint:364
-msgid "Save"
-msgstr "सेव करें"
-
 #: rust/crates/shell/src/plugins/presets.rs:234
 #, python-brace-format
 msgid "There's already a preset called \"{name}\". Replace it?"
@@ -7910,10 +8101,6 @@ msgstr "Telescope इसे मिटा नहीं सका: {error}"
 msgid "Telescope couldn't make its plugins folder: {error}"
 msgstr "Telescope इसका प्लगइन्स फ़ोल्डर नहीं बना सका: {error}"
 
-#: rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1062
-msgid "Live"
-msgstr "लाइव"
-
 #: rust/crates/shell/src/search.rs:31
 msgid "Tab"
 msgstr "टैब"
@@ -8033,11 +8220,6 @@ msgstr "Telescope - सेव नहीं हो सका"
 #: rust/crates/shell/src/shell.rs:1251
 msgid "Could not save settings. Check disk space and permissions."
 msgstr "सेटिंग्स सेव नहीं की जा सकीं. डिस्क स्पेस और अनुमतियां जांचें."
-
-#. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1736 rust/crates/system/src/remote.rs:19
-msgid "Start"
-msgstr "शुरू"
 
 #: rust/crates/shell/src/sources.rs:114
 msgid "Another app on the phone is using the camera"
@@ -8340,11 +8522,6 @@ msgstr "स्ट्रीमिंग शुरू करें"
 #: rust/crates/shell/src/window.rs:1741
 msgid "Stop streaming"
 msgstr "स्ट्रीमिंग रोकें"
-
-#. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/shell/src/window.rs:1742 rust/crates/system/src/remote.rs:19
-msgid "Stop"
-msgstr "रोकें"
 
 #: rust/crates/shell/src/window.rs:2018 rust/crates/shell/src/worker.rs:1339
 #, python-brace-format
@@ -9979,7 +10156,7 @@ msgid "Light"
 msgstr "रोशनी"
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:438
+#: rust/app/src/main.rs:439
 msgid ", "
 msgstr ", "
 
