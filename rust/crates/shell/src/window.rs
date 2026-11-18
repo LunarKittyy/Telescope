@@ -1941,7 +1941,23 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         window.show_window();
     }
     if let Some(hook) = &opts.on_shown {
-        (hook.0)();
+        // With a graphics card chosen in Settings the start isn't done at show() but at the first picture: a card that opens but can't present
+        // to the window's surface fails there, and the crash marker has to stay until then
+        let hook = Rc::new(RefCell::new(Some(hook.0.clone())));
+        let waits = !opts.minimized && !telescope_core::gpu_pick::choice().is_empty();
+        let later = hook.clone();
+        let set = waits && window.ui.window().set_rendering_notifier(move |state, _| {
+            if matches!(state, slint::RenderingState::AfterRendering) {
+                if let Some(run) = later.borrow_mut().take() {
+                    run();
+                }
+            }
+        }).is_ok();
+        if !set {
+            if let Some(run) = hook.borrow_mut().take() {
+                run();
+            }
+        }
     }
     let weak = Rc::downgrade(&window);
     window.ui.window().on_close_requested(move || weak.upgrade().map_or(slint::CloseRequestResponse::HideWindow, |w| w.close_requested()));

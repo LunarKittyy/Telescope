@@ -239,6 +239,9 @@ pub struct SetupPlugin {
     /// The graphics card this computer has, once looked for.
     hw_device: Option<String>,
     pub power_saving: bool,
+    /// The graphics card picked in Video as `gpu_pick::card_id` text, empty for Automatic, and the name it was shown by.
+    pub gpu_card: String,
+    gpu_card_name: String,
     pub plugin_hues: bool,
     /// The look of the windows (Appearance)
     pub look: Look,
@@ -276,6 +279,8 @@ impl SetupPlugin {
             hw_choice: None,
             hw_device: None,
             power_saving: false,
+            gpu_card: String::new(),
+            gpu_card_name: String::new(),
             plugin_hues: true,
             look: Look::Dark,
             language: String::new(),
@@ -380,8 +385,41 @@ impl SetupPlugin {
         })
     }
 
+    /// The Graphics card list: Automatic, then each real card found, with the id each is saved by (Automatic's is empty). A chosen card that isn't
+    /// found now stays in the list, under the name it was picked by, so the choice can be seen.
+    fn gpu_cards(&self) -> Vec<(String, String)> {
+        let mut cards: Vec<(String, String)> = telescope_core::gpu_pick::listed().into_iter().map(|l| (l.id, l.name)).collect();
+        let chosen = self.gpu_card.trim();
+        if !chosen.is_empty() && !cards.iter().any(|(id, _)| id.eq_ignore_ascii_case(chosen)) {
+            let name = if self.gpu_card_name.is_empty() { chosen.to_string() } else { format!("{} {}", self.gpu_card_name, tr("(not found)")) };
+            cards.push((chosen.to_string(), name));
+        }
+        let mut all = vec![(String::new(), tr("Automatic"))];
+        all.extend(cards);
+        all
+    }
+
+    fn gpu_items(&self) -> (Vec<String>, usize) {
+        let cards = self.gpu_cards();
+        let chosen = self.gpu_card.trim();
+        let current = cards.iter().position(|(id, _)| !id.is_empty() && id.eq_ignore_ascii_case(chosen)).unwrap_or(0);
+        (cards.into_iter().map(|(_, name)| name).collect(), current)
+    }
+
+    /// The card is opened once when Telescope starts, so a change waits for the next start.
+    fn gpu_restart_needed(&self) -> bool {
+        !self.gpu_card.trim().eq_ignore_ascii_case(telescope_core::gpu_pick::choice().trim())
+    }
+
+    /// Which card the window opened, so a choice that couldn't be used (a card that was skipped or unplugged) shows.
+    fn gpu_line(&self) -> String {
+        let opened = telescope_core::gpu_pick::opened();
+        if opened.is_empty() { String::new() } else { tr("Using {card}").field("card", &opened) }
+    }
+
     pub fn video_props(&self) -> Value {
         let p = &self.panel;
+        let (gpu_items, gpu_current) = self.gpu_items();
         let status = p.canvas_status.clone().unwrap_or_default();
         let (apply, tip) = if self.linux {
             let note = tr("Applying stops the stream and reloads the virtual camera. Close OBS and other apps using it first.");
@@ -391,6 +429,7 @@ impl SetupPlugin {
         };
         json!({
             "hw-enabled": p.hw_enabled, "hw-checked": self.hw_decode() && (p.hw_enabled || p.hw_line.is_empty()), "hw-line": p.hw_line,
+            "gpu-items": gpu_items, "gpu-current": gpu_current, "gpu-restart": self.gpu_restart_needed(), "gpu-line": self.gpu_line(),
             "saving-checked": self.power_saving,
             "zoom-text": format!("{}×", self.max_zoom),
             "canvas-items": self.canvas_items(), "canvas-current": p.canvas_current,
@@ -877,8 +916,8 @@ impl SetupPlugin {
     fn reset_kept(section: &str) -> &'static [&'static str] {
         match section {
             "video" => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_gain", "limiter", "look", "plugin_hues", "language"],
-            "microphone" => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_zoom", "hw_decode", "hw_decode_chosen", "power_saving", "look", "plugin_hues", "language"],
-            _ => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_zoom", "hw_decode", "hw_decode_chosen", "power_saving", "max_gain", "limiter"],
+            "microphone" => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_zoom", "hw_decode", "hw_decode_chosen", "gpu_card", "gpu_card_name", "power_saving", "look", "plugin_hues", "language"],
+            _ => &["canvas_preset", "custom_canvas_w", "custom_canvas_h", "max_zoom", "hw_decode", "hw_decode_chosen", "gpu_card", "gpu_card_name", "power_saving", "max_gain", "limiter"],
         }
     }
 
@@ -939,6 +978,16 @@ impl SetupPlugin {
     /// The decoder for the next stream: the window reads it from these settings when it starts one.
     pub fn on_hw_decode(&mut self, host: &mut dyn Host, on: bool) {
         self.hw_choice = Some(on);
+        host.schedule_save();
+    }
+
+    /// The graphics card for the next start: index 0 is Automatic, the others follow the list shown.
+    pub fn on_gpu_card(&mut self, host: &mut dyn Host, index: usize, shown: &str) {
+        // The name of the row that was clicked, not its place: the list can have gained a card (a late scan) since it was drawn
+        let cards = self.gpu_cards();
+        let (id, name) = cards.iter().find(|(_, n)| !shown.is_empty() && n == shown).or_else(|| cards.get(index)).cloned().unwrap_or_default();
+        self.gpu_card_name = if id.is_empty() { String::new() } else { name.trim_end_matches(&format!(" {}", tr("(not found)"))).to_string() };
+        self.gpu_card = id;
         host.schedule_save();
     }
 
@@ -1214,6 +1263,8 @@ impl Plugin for SetupPlugin {
             }
             ("virtual-camera" | "video", "copy") => host.copy_text(&text),
             ("video", "hw-toggled") => self.on_hw_decode(host, on),
+            ("video", "gpu-picked") => self.on_gpu_card(host, index.max(0) as usize, event.args.get(1).and_then(Value::as_str).unwrap_or("")),
+            ("video", "restart-clicked") => { host.restart_app(); }
             ("video", "saving-toggled") => self.on_power_saving(host, on),
             ("video", "zoom-committed") => {
                 if let Some(v) = zoom_number(&text) {
@@ -1301,6 +1352,11 @@ impl Plugin for SetupPlugin {
         if self.hw_choice == Some(false) {
             cfg["hw_decode_chosen"] = json!(true);
         }
+        // Written only once chosen
+        if !self.gpu_card.trim().is_empty() {
+            cfg["gpu_card"] = json!(self.gpu_card.trim());
+            cfg["gpu_card_name"] = json!(self.gpu_card_name);
+        }
         // Written only once chosen, so a config that never touched the theme stays as an older Telescope wrote it
         if self.look != Look::Dark {
             cfg["look"] = json!(self.look.name());
@@ -1321,6 +1377,8 @@ impl Plugin for SetupPlugin {
         self.limiter = cfg.get("limiter") != Some(&Value::Bool(false)); // only an explicit off turns it off
         self.hw_choice = telescope_core::media::hardware_decode_choice(Some(cfg));
         self.power_saving = cfg.get("power_saving") == Some(&Value::Bool(true));
+        self.gpu_card = cfg.get("gpu_card").and_then(Value::as_str).unwrap_or("").trim().to_ascii_lowercase();
+        self.gpu_card_name = cfg.get("gpu_card_name").and_then(Value::as_str).unwrap_or("").to_string();
         self.plugin_hues = cfg.get("plugin_hues") != Some(&Value::Bool(false));
         // A config an older Telescope wrote says classic_theme instead
         self.look = match cfg.get("look").and_then(Value::as_str).and_then(Look::from_name) {
