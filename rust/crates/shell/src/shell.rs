@@ -1038,7 +1038,8 @@ impl State {
             if let Some(why) = self.missing_needs(&self.slots[i].info) {
                 self.blocked.insert(self.slots[i].info.name.clone());
                 log::error!("Plugin {} stopped: {why}", self.slots[i].info.name);
-                self.stop_slot(i, &why);
+                // The same path a panic takes, so a dependant that hides things closes Telescope instead of going quietly
+                self.stop_after_panic(i, &why);
             }
         }
     }
@@ -3180,6 +3181,25 @@ mod tests {
         assert!(s.stopped().contains_key("photos") && s.stopped().contains_key("trap"));
         assert_eq!(s.stopped()["trap"], "It needs Photos, which is switched off.");
         assert!(s.blocked.contains("trap"));
+    }
+
+    #[test]
+    fn an_added_plugin_that_hides_things_closes_the_app_when_the_built_in_it_needs_stops() {
+        struct Hider;
+        impl Plugin for Hider {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "hider".into(), added: true, needs: vec!["photos".into()], frame_stage: telescope_core::frame::FrameStage::Privacy, ..Default::default() }
+            }
+        }
+        let mut s = state();
+        s.hiding_panic = record_close;
+        CLOSED.with(|c| c.borrow_mut().clear());
+        s.builtins = vec![PluginInfo { name: "photos".into(), title: "Photos".into(), ..Default::default() }];
+        s.register(stub("photos", json!({}), false).0).unwrap();
+        s.register(Box::new(Hider)).unwrap();
+        s.stop_after_panic(0, "boom");
+        assert_eq!(CLOSED.with(|c| c.borrow().clone()), ["hider"]);
+        assert!(!s.stopped().contains_key("hider"), "it carries on hiding until the app closes");
     }
 
     #[test]

@@ -1260,7 +1260,7 @@ impl Plugin for BrowserCameraPlugin {
     }
 
     fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
-        let sizes: Vec<(&str, &str)> = SIZES.iter().map(|(k, ..)| (*k, *k)).collect();
+        let sizes = [("480p", "854 by 480, the lightest"), ("720p", "1280 by 720"), ("1080p", "1920 by 1080, the sharpest")];
         vec![telescope_core::settings::SettingSpec::choice("size", "The size of the picture the browser page sends", &sizes, DEFAULT_SIZE)]
     }
 

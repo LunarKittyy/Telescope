@@ -481,12 +481,10 @@ impl Plugin for CinemaPlugin {
 
     fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
         use telescope_core::settings::SettingSpec;
-        use crate::cinema_tools::{GUIDES, PEAKING_COLOURS, SCOPES, SIZES};
-        let keys = |list: &[(&'static str, &'static str)]| -> Vec<(&'static str, &'static str)> { list.iter().map(|(k, _)| (*k, *k)).collect() };
-        let scopes = keys(&SCOPES);
-        let guides = keys(&GUIDES);
-        let colours: Vec<(&str, &str)> = PEAKING_COLOURS.iter().map(|(k, ..)| (*k, *k)).collect();
-        let sizes: Vec<(&str, &str)> = SIZES.iter().map(|(k, ..)| (*k, *k)).collect();
+        let scopes = [("off", "No graph"), ("histogram", "How many pixels sit at each brightness"), ("waveform", "Brightness across the width of the picture"), ("parade", "The waveform of red, green and blue side by side"), ("vectorscope", "Colours placed by hue and strength")];
+        let guides = [("off", "No lines"), ("thirds", "A grid of thirds"), ("cross", "A cross through the centre"), ("4x4", "A grid of four by four boxes"), ("golden", "Lines at the golden ratio")];
+        let colours = [("red", "Red outlines"), ("green", "Green outlines"), ("blue", "Blue outlines"), ("white", "White outlines")];
+        let sizes = [("small", "About a quarter of the preview's width"), ("medium", "About a third of the preview's width"), ("large", "Half the preview's width")];
         vec![
             SettingSpec::switch("peaking", "Outlines what is in focus on the preview", false),
             SettingSpec::switch("zebras", "Stripes over what is too bright on the preview", false),

@@ -810,7 +810,7 @@ impl Plugin for StreamOutputPlugin {
         vec![
             SettingSpec::choice("format", "How the phone sends the picture: h264 is Light (much less data), mjpeg is Heavy (every frame a full JPEG)", &[(FORMAT_H264, "Light, H.264 from the phone's encoder"), (FORMAT_MJPEG, "Heavy, a full JPEG for every frame")], FORMAT_H264),
             SettingSpec::number("jpeg_quality", "How sharp the JPEG frames are in Heavy (mjpeg) mode, at the cost of more data", 1.0, MAX_QUALITY as f64, 0, DEFAULT_QUALITY as f64),
-            SettingSpec::number("bitrate_mbps", "How much data the phone sends in Light (h264) mode, 0 is Auto", 0.0, MAX_BITRATE_MBPS as f64, 0, 0.0).unit("Mbps"),
+            SettingSpec::number("bitrate_mbps", "How much data the phone sends in Light (h264) mode, 0 is Auto and -1 is Dynamic", -1.0, MAX_BITRATE_MBPS as f64, 0, 0.0).unit("Mbps"),
         ]
     }
 

@@ -492,7 +492,6 @@ impl Plugin for PrivacyBlurPlugin {
     fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
         use telescope_core::settings::SettingSpec;
         vec![
-            SettingSpec::switch("on", "Whether the picture is hidden by itself when a second person comes into view", false),
             SettingSpec::choice("mode", "What is shown while hidden", &[("blur", "The whole picture blurred"), ("wait", "The wait screen")], "blur"),
         ]
     }

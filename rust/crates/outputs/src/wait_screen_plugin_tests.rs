@@ -461,6 +461,16 @@ fn mirror_is_off_by_default_and_reshows_when_toggled() {
     assert!(!r.plugin.mirror() && !r.shown(0).last().unwrap().2);
 }
 
+#[test]
+fn a_mirror_set_from_outside_reshows_and_saves() {
+    let mut r = Rig::new();
+    r.plugin.apply_preset(&mut r.host, &json!({"mirror": true})).unwrap();
+    assert!(r.plugin.mirror() && r.shown(0).last().unwrap().2);
+    assert_eq!(r.saves(), 1);
+    r.plugin.apply_preset(&mut r.host, &json!({"mirror": true})).unwrap();
+    assert_eq!(r.saves(), 1, "nothing changed");
+}
+
 // test_wait_screen.py::test_shutdown_lets_go_for_good
 #[test]
 fn shutdown_lets_go_for_good() {
