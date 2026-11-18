@@ -119,6 +119,15 @@ pub fn mark(card: &Card) {
     }
 }
 
+/// Like `mark`, but leaves a marker that is already there: the picture work opens its card while the window's card may still be unconfirmed,
+/// and a crash on the window's first picture must not be put on the picture work's card.
+pub fn mark_unless_marked(card: &Card) {
+    let marked = state().folder.as_ref().is_some_and(|f| f.join(MARKER_FILE).exists());
+    if !marked {
+        mark(card);
+    }
+}
+
 /// The window has shown (or the start failed with a message): the card didn't take the program down, so the marker goes.
 pub fn clear() {
     let mut state = state();
@@ -207,6 +216,11 @@ mod tests {
         assert_eq!(begin_start(&folder), Some(card("A", "1")));
         assert!(is_skipped(&card("A", "1")) && !is_skipped(&card("A", "2")));
         assert!(!folder.join(MARKER_FILE).exists());
+        // The picture work's card doesn't take the window's marker over, and does mark when there is none
+        mark_unless_marked(&card("C", "1"));
+        assert_eq!(read::<Card>(&folder.join(MARKER_FILE)), Some(card("C", "1")));
+        mark_unless_marked(&card("D", "1"));
+        assert_eq!(read::<Card>(&folder.join(MARKER_FILE)), Some(card("C", "1")));
         // The skip survives another start that went fine
         mark(&card("B", "1"));
         clear();

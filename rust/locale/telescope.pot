@@ -181,7 +181,7 @@ msgstr ""
 msgid "Remove typing, fan noise and room hiss."
 msgstr ""
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:639 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:662 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:963 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr ""
@@ -228,7 +228,7 @@ msgstr ""
 msgid "Does"
 msgstr ""
 
-#: rust/crates/audio/src/plugin.rs:1086 rust/crates/audio/src/plugin.rs:1159 rust/crates/audio/ui/microphone.slint:167 rust/crates/setup/ui/setup.slint:333
+#: rust/crates/audio/src/plugin.rs:1086 rust/crates/audio/src/plugin.rs:1159 rust/crates/audio/ui/microphone.slint:167 rust/crates/setup/ui/setup.slint:378
 msgid "Microphone"
 msgstr ""
 
@@ -347,7 +347,7 @@ msgstr ""
 msgid "Click to clear"
 msgstr ""
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:70 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:210 rust/crates/setup/ui/setup.slint:337 rust/crates/setup/ui/setup.slint:466 rust/crates/shell/src/plugins_tab.rs:726 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:33 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:70 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:122 rust/crates/effects/ui/on_air.slint:245 rust/crates/effects/ui/photos.slint:143 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:382 rust/crates/setup/ui/setup.slint:511 rust/crates/shell/src/plugins_tab.rs:726 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:119
 msgid "Reset"
 msgstr ""
 
@@ -371,7 +371,7 @@ msgstr ""
 msgid "Noise reduction unavailable"
 msgstr ""
 
-#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:438 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:258
+#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:593 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:483 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:258
 msgid "Cancel"
 msgstr ""
 
@@ -453,11 +453,11 @@ msgid ""
 "Open the log?"
 msgstr ""
 
-#: rust/crates/core/src/gpu_marker.rs:133
+#: rust/crates/core/src/gpu_marker.rs:142
 msgid "Telescope switched graphics card"
 msgstr ""
 
-#: rust/crates/core/src/gpu_marker.rs:134
+#: rust/crates/core/src/gpu_marker.rs:143
 #, python-brace-format
 msgid "The last start of Telescope closed while it was opening {card}. Telescope now uses another graphics card, or the processor if there is none left."
 msgstr ""
@@ -494,7 +494,7 @@ msgstr ""
 msgid "Streaming"
 msgstr ""
 
-#: rust/crates/core/src/plugin.rs:15 rust/crates/setup/ui/setup.slint:206
+#: rust/crates/core/src/plugin.rs:15 rust/crates/setup/ui/setup.slint:212
 msgid "Video"
 msgstr ""
 
@@ -522,7 +522,7 @@ msgstr ""
 msgid "Camera"
 msgstr ""
 
-#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:462
+#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:507
 msgid "Look"
 msgstr ""
 
@@ -591,7 +591,7 @@ msgid "Analysing…"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:73 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:40 rust/crates/effects/src/photos.rs:460 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
+#: rust/crates/effects/src/background.rs:26 rust/crates/effects/src/cinema_tools.rs:32 rust/crates/effects/src/cinema_tools.rs:49 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:82 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:40 rust/crates/effects/src/photos.rs:460 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:292 rust/crates/effects/ui/photos.slint:294 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
 msgid "Off"
 msgstr ""
 
@@ -1225,62 +1225,62 @@ msgstr ""
 msgid "A layout you saved in the editor."
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:418 rust/crates/effects/src/composite_plugin.rs:610 rust/crates/effects/src/composite_plugin.rs:614 rust/crates/effects/src/composite_plugin.rs:627 rust/crates/effects/ui/composite.slint:21
+#: rust/crates/effects/src/composite_plugin.rs:428 rust/crates/effects/src/composite_plugin.rs:633 rust/crates/effects/src/composite_plugin.rs:637 rust/crates/effects/src/composite_plugin.rs:650 rust/crates/effects/ui/composite.slint:21
 msgid "One picture"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:461
+#: rust/crates/effects/src/composite_plugin.rs:471
 msgid "Nothing's in the picture yet."
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:463
+#: rust/crates/effects/src/composite_plugin.rs:473
 msgid "Active once two streams are running."
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:465
+#: rust/crates/effects/src/composite_plugin.rs:475
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:467
+#: rust/crates/effects/src/composite_plugin.rs:477
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:469
+#: rust/crates/effects/src/composite_plugin.rs:479
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:474
+#: rust/crates/effects/src/composite_plugin.rs:484
 msgid "Nothing in it"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:476 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
+#: rust/crates/effects/src/composite_plugin.rs:486 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:424
 msgid "Two streams required"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:478
+#: rust/crates/effects/src/composite_plugin.rs:488
 msgid "Not going out"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:480
+#: rust/crates/effects/src/composite_plugin.rs:490
 msgid "Going out"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:525
+#: rust/crates/effects/src/composite_plugin.rs:535
 msgid "Several cameras in one picture"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:526
+#: rust/crates/effects/src/composite_plugin.rs:536
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:527
+#: rust/crates/effects/src/composite_plugin.rs:537
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:615 rust/crates/effects/src/composite_plugin.rs:639
+#: rust/crates/effects/src/composite_plugin.rs:638 rust/crates/effects/src/composite_plugin.rs:662
 msgid "Picture layout"
 msgstr ""
 
@@ -1709,99 +1709,99 @@ msgid "Zippy"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Fidget"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Shift"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Lean"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Step"
 msgstr ""
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/framing.rs:73
+#: rust/crates/effects/src/framing.rs:82
 msgid "Roam"
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:90
+#: rust/crates/effects/src/framing.rs:99
 msgid "Zoom and pan to follow you."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:91
+#: rust/crates/effects/src/framing.rs:100
 msgid "Set how much of you is in the picture, from only your head to all of you."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:92
+#: rust/crates/effects/src/framing.rs:101
 msgid "How quickly the framing follows when you move."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:93
+#: rust/crates/effects/src/framing.rs:102
 msgid "How much you can move before the framing follows you, from a fidget to walking around."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:94
+#: rust/crates/effects/src/framing.rs:103
 msgid "Show hands"
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:95
+#: rust/crates/effects/src/framing.rs:104
 msgid "Widen the view so your hands are in it too."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:96
+#: rust/crates/effects/src/framing.rs:105
 msgid "Something else is moving the zoom and pan."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:97
+#: rust/crates/effects/src/framing.rs:106
 msgid "Auto framing: how much of you"
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:98
+#: rust/crates/effects/src/framing.rs:107
 msgid "Auto framing speed"
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:617
+#: rust/crates/effects/src/framing.rs:637
 msgid "Follow one person"
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:617
+#: rust/crates/effects/src/framing.rs:637
 msgid "Pick someone"
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:617
+#: rust/crates/effects/src/framing.rs:637
 msgid "Pick someone else"
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:618
+#: rust/crates/effects/src/framing.rs:638
 msgid "Click one person on the preview and Auto framing follows only them, not whoever else is in view."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:618
+#: rust/crates/effects/src/framing.rs:638
 msgid "Follow everyone"
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:619
+#: rust/crates/effects/src/framing.rs:639
 msgid "Frame everyone in view again."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:837
+#: rust/crates/effects/src/framing.rs:861
 msgid "Click the person to follow on the preview. Esc cancels."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:966
+#: rust/crates/effects/src/framing.rs:1086
 msgid "Zoom and pan to keep you in the picture as you move."
 msgstr ""
 
-#: rust/crates/effects/src/framing.rs:967
+#: rust/crates/effects/src/framing.rs:1087
 msgid "Without the Auto framing plugin there's no Auto framing card and the zoom only changes when you change it."
 msgstr ""
 
@@ -1889,81 +1889,81 @@ msgstr ""
 msgid "How many extra times each frame's motion is played."
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:377
+#: rust/crates/effects/src/fun_pack.rs:443
 msgid "Step out of the picture. The empty room is taken after a short countdown."
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:378
+#: rust/crates/effects/src/fun_pack.rs:444
 msgid "Get in place. The clone is taken after a short countdown."
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:379
+#: rust/crates/effects/src/fun_pack.rs:445
 msgid "Let the next keyframe through to restore the picture."
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:380
+#: rust/crates/effects/src/fun_pack.rs:446
 msgid "Remove all clones, or all light trails in Light painting."
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:381
+#: rust/crates/effects/src/fun_pack.rs:447
 msgid "Which way the bands run."
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:393
+#: rust/crates/effects/src/fun_pack.rs:459
 #, python-brace-format
 msgid "Taking the empty room in {n}…"
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:395
+#: rust/crates/effects/src/fun_pack.rs:461
 msgid "Take the empty room again"
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:397 rust/crates/effects/src/fun_pack.rs:782 rust/crates/effects/src/fun_pack.rs:811
+#: rust/crates/effects/src/fun_pack.rs:463 rust/crates/effects/src/fun_pack.rs:848 rust/crates/effects/src/fun_pack.rs:877
 msgid "Take the empty room"
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:399
+#: rust/crates/effects/src/fun_pack.rs:465
 #, python-brace-format
 msgid "Copying you in {n}…"
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:399 rust/crates/effects/src/fun_pack.rs:783 rust/crates/effects/src/fun_pack.rs:819
+#: rust/crates/effects/src/fun_pack.rs:465 rust/crates/effects/src/fun_pack.rs:849 rust/crates/effects/src/fun_pack.rs:885
 msgid "Add a clone"
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:405
+#: rust/crates/effects/src/fun_pack.rs:471
 msgid "The picture changed. Take the empty room again."
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:407
+#: rust/crates/effects/src/fun_pack.rs:473
 msgid "Take the empty room first."
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:539
+#: rust/crates/effects/src/fun_pack.rs:605
 msgid "Take the empty room first so you can be cut out."
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:683 rust/crates/effects/src/fun_pack.rs:774 rust/crates/effects/ui/fun_pack.slint:50
+#: rust/crates/effects/src/fun_pack.rs:749 rust/crates/effects/src/fun_pack.rs:840 rust/crates/effects/ui/fun_pack.slint:50
 msgid "Fun pack"
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:684
+#: rust/crates/effects/src/fun_pack.rs:750
 msgid "Add silly effects like clones, an invisibility cloak, light painting, retro looks and datamosh."
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:685
+#: rust/crates/effects/src/fun_pack.rs:751
 msgid "Without the Fun pack plugin there's no Fun pack card and the picture has no effects."
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:778 rust/crates/effects/src/fun_pack.rs:834
+#: rust/crates/effects/src/fun_pack.rs:844 rust/crates/effects/src/fun_pack.rs:900
 msgid "Datamosh smear"
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:781 rust/crates/effects/src/fun_pack.rs:804
+#: rust/crates/effects/src/fun_pack.rs:847 rust/crates/effects/src/fun_pack.rs:870
 msgid "Fun pack effect"
 msgstr ""
 
-#: rust/crates/effects/src/fun_pack.rs:784 rust/crates/effects/src/fun_pack.rs:826
+#: rust/crates/effects/src/fun_pack.rs:850 rust/crates/effects/src/fun_pack.rs:892
 msgid "Clean up the datamosh"
 msgstr ""
 
@@ -1976,7 +1976,7 @@ msgid "Pill"
 msgstr ""
 
 #. Light and Heavy are the names of the two stream formats
-#: rust/crates/effects/src/name_tag.rs:20 rust/crates/outputs/src/stream_output.rs:790 rust/crates/outputs/src/stream_output.rs:1005 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:116 rust/crates/outputs/ui/stream_output.slint:120 rust/crates/setup/src/stats_phone.rs:98 rust/crates/setup/ui/setup.slint:483
+#: rust/crates/effects/src/name_tag.rs:20 rust/crates/outputs/src/stream_output.rs:790 rust/crates/outputs/src/stream_output.rs:1005 rust/crates/outputs/src/webcam.rs:76 rust/crates/outputs/ui/stream_output.slint:116 rust/crates/outputs/ui/stream_output.slint:120 rust/crates/setup/src/stats_phone.rs:98 rust/crates/setup/ui/setup.slint:528
 msgid "Light"
 msgstr ""
 
@@ -2332,7 +2332,7 @@ msgstr ""
 msgid "Scan"
 msgstr ""
 
-#: rust/crates/effects/src/on_air_plugin.rs:484 rust/crates/effects/src/qr_reader.rs:527 rust/crates/link/ui/browser_camera.slint:178 rust/crates/link/ui/browser_camera.slint:179 rust/crates/setup/src/setup.rs:445 rust/crates/setup/ui/parts.slint:91 rust/crates/setup/ui/parts.slint:92 rust/crates/system/ui/mcp.slint:118 rust/crates/system/ui/mcp.slint:119 rust/crates/system/ui/shortcuts.slint:356
+#: rust/crates/effects/src/on_air_plugin.rs:484 rust/crates/effects/src/qr_reader.rs:527 rust/crates/link/ui/browser_camera.slint:178 rust/crates/link/ui/browser_camera.slint:179 rust/crates/setup/src/setup.rs:484 rust/crates/setup/ui/parts.slint:91 rust/crates/setup/ui/parts.slint:92 rust/crates/system/ui/mcp.slint:118 rust/crates/system/ui/mcp.slint:119 rust/crates/system/ui/shortcuts.slint:356
 msgid "Copy"
 msgstr ""
 
@@ -3327,7 +3327,7 @@ msgstr ""
 msgid "Save this layout under a new name."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:392 rust/crates/effects/ui/composite_editor.slint:392 rust/crates/link/ui/connection.slint:116 rust/crates/setup/src/setup.rs:662 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/src/plugins/presets.rs:215
+#: rust/crates/effects/ui/composite_editor.slint:392 rust/crates/effects/ui/composite_editor.slint:392 rust/crates/link/ui/connection.slint:116 rust/crates/setup/src/setup.rs:701 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/src/plugins/presets.rs:215
 msgid "Rename"
 msgstr ""
 
@@ -3419,7 +3419,7 @@ msgstr ""
 msgid "Name:"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:439 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1065 rust/crates/shell/ui/settings.slint:587
+#: rust/crates/effects/ui/composite_editor.slint:594 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:484 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1065 rust/crates/shell/ui/settings.slint:587
 msgid "OK"
 msgstr ""
 
@@ -4119,7 +4119,7 @@ msgstr ""
 msgid "Browser"
 msgstr ""
 
-#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:745 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1727 rust/crates/system/ui/updates.slint:166
+#: rust/crates/link/src/browser/plugin.rs:930 rust/crates/link/src/connection.rs:133 rust/crates/link/src/plugin.rs:348 rust/crates/link/src/plugin.rs:384 rust/crates/link/src/plugin.rs:410 rust/crates/link/src/plugin.rs:744 rust/crates/setup/src/setup.rs:784 rust/crates/shell/src/plugins/onboarding.rs:144 rust/crates/shell/src/sources.rs:236 rust/crates/shell/src/streams.rs:1727 rust/crates/system/ui/updates.slint:166
 msgid "Try again"
 msgstr ""
 
@@ -4184,7 +4184,7 @@ msgstr ""
 msgid "The stream is still running over {now} and Connect via is still set to {kept}."
 msgstr ""
 
-#: rust/crates/link/src/connection.rs:804
+#: rust/crates/link/src/connection.rs:804 rust/crates/setup/src/setup.rs:397
 msgid "Automatic"
 msgstr ""
 
@@ -4204,7 +4204,7 @@ msgstr ""
 msgid "Checking"
 msgstr ""
 
-#: rust/crates/link/src/connection.rs:826 rust/crates/setup/src/setup.rs:650 rust/crates/setup/src/setup.rs:659 rust/crates/setup/src/setup.rs:678 rust/crates/setup/src/setup.rs:702
+#: rust/crates/link/src/connection.rs:826 rust/crates/setup/src/setup.rs:689 rust/crates/setup/src/setup.rs:698 rust/crates/setup/src/setup.rs:717 rust/crates/setup/src/setup.rs:741
 msgid "Ready"
 msgstr ""
 
@@ -4581,7 +4581,7 @@ msgstr ""
 msgid "The Telescope app on {phone} is older than this one."
 msgstr ""
 
-#: rust/crates/link/src/plugin.rs:1216 rust/crates/setup/src/setup.rs:854 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:712 rust/crates/system/src/shortcuts.rs:856
+#: rust/crates/link/src/plugin.rs:1216 rust/crates/setup/src/setup.rs:893 rust/crates/shell/src/extra_cameras.rs:163 rust/crates/shell/src/streams.rs:712 rust/crates/system/src/shortcuts.rs:856
 msgid "Copy command"
 msgstr ""
 
@@ -5449,7 +5449,7 @@ msgstr ""
 msgid "The camera only sent part of the photo. The part that arrived is saved."
 msgstr ""
 
-#: rust/crates/outputs/src/wininstall.rs:256 rust/crates/setup/src/setup.rs:809
+#: rust/crates/outputs/src/wininstall.rs:256 rust/crates/setup/src/setup.rs:848
 msgid "Installed"
 msgstr ""
 
@@ -5756,7 +5756,7 @@ msgstr ""
 msgid "Checking..."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:185 rust/crates/setup/src/setup.rs:667 rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/shell/src/plugins/onboarding.rs:146
+#: rust/crates/setup/src/setup.rs:185 rust/crates/setup/src/setup.rs:706 rust/crates/shell/src/plugins/onboarding.rs:140 rust/crates/shell/src/plugins/onboarding.rs:146
 msgid "Install driver"
 msgstr ""
 
@@ -5772,291 +5772,300 @@ msgstr ""
 msgid "Not included with this app"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:355
+#: rust/crates/setup/src/setup.rs:360
 msgid "Same as the system"
 msgstr ""
 
 #. after a language's name in the Language list, for a translation that's only a first draft
-#: rust/crates/setup/src/setup.rs:358
+#: rust/crates/setup/src/setup.rs:363
 msgid "(beta)"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:374
+#: rust/crates/setup/src/setup.rs:379
 msgid "Write the setting to /etc/modprobe.d/ and /etc/modules-load.d/ so the module loads after a reboot."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:374
+#: rust/crates/setup/src/setup.rs:379
 msgid "Your password (pkexec or sudo) is required."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:387
+#: rust/crates/setup/src/setup.rs:394 rust/crates/setup/src/setup.rs:989
+msgid "(not found)"
+msgstr ""
+
+#: rust/crates/setup/src/setup.rs:417
+#, python-brace-format
+msgid "Using {card}"
+msgstr ""
+
+#: rust/crates/setup/src/setup.rs:425
 msgid "Applying stops the stream and reloads the virtual camera. Close OBS and other apps using it first."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:388
+#: rust/crates/setup/src/setup.rs:426
 msgid "Apply and reload"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:390
+#: rust/crates/setup/src/setup.rs:428
 msgid "Apply"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:390
+#: rust/crates/setup/src/setup.rs:428
 msgid "Applying restarts the stream at the new size. Remove the source and add it again if OBS loses it."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:419 rust/crates/shell/src/plugins/onboarding.rs:157 rust/crates/shell/src/plugins/onboarding.rs:161 rust/crates/shell/src/plugins/onboarding.rs:164
+#: rust/crates/setup/src/setup.rs:458 rust/crates/shell/src/plugins/onboarding.rs:157 rust/crates/shell/src/plugins/onboarding.rs:161 rust/crates/shell/src/plugins/onboarding.rs:164
 msgid "Install over USB"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:419
+#: rust/crates/setup/src/setup.rs:458
 msgid "Choose APK"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:433
+#: rust/crates/setup/src/setup.rs:472
 msgid "This translation is a first draft and some texts might read a bit oddly."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:434
+#: rust/crates/setup/src/setup.rs:473
 msgid "Missing your language, or spotted a text that reads wrong?"
 msgstr ""
 
 #. keep the <a href="{url}"> link and the name LunarKittyy as they are
-#: rust/crates/setup/src/setup.rs:440
+#: rust/crates/setup/src/setup.rs:479
 #, python-brace-format
 msgid "Made by <a href=\"{url}\">LunarKittyy</a>"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:443
+#: rust/crates/setup/src/setup.rs:482
 #, python-brace-format
 msgid "Version {version}"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:445 rust/crates/system/src/shortcuts.rs:856
+#: rust/crates/setup/src/setup.rs:484 rust/crates/system/src/shortcuts.rs:856
 msgid "Copied"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:526
+#: rust/crates/setup/src/setup.rs:565
 msgid "Off until you restart Telescope because the graphics card failed"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:527
+#: rust/crates/setup/src/setup.rs:566
 msgid "Paused for a few minutes because the graphics card was too slow"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:528
+#: rust/crates/setup/src/setup.rs:567
 #, python-brace-format
 msgid "Found {device}"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:529
+#: rust/crates/setup/src/setup.rs:568
 msgid "No graphics card Telescope can use"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:546
+#: rust/crates/setup/src/setup.rs:585
 #, python-brace-format
 msgid "Ready: {phone} + {obs}"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:548
+#: rust/crates/setup/src/setup.rs:587
 #, python-brace-format
 msgid "Module loaded but {device} not found - another config active"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:550
+#: rust/crates/setup/src/setup.rs:589
 msgid "Not loaded - click Load"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:561
+#: rust/crates/setup/src/setup.rs:600
 msgid "Loading..."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:566
+#: rust/crates/setup/src/setup.rs:605
 msgid "Unloading..."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:572
+#: rust/crates/setup/src/setup.rs:611
 #, python-brace-format
 msgid "Loaded - {message}"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:573
+#: rust/crates/setup/src/setup.rs:612
 #, python-brace-format
 msgid "Unloaded - {message}"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:574
+#: rust/crates/setup/src/setup.rs:613
 #, python-brace-format
 msgid "Failed - {message}"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:583
+#: rust/crates/setup/src/setup.rs:622
 msgid "Working..."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:608
+#: rust/crates/setup/src/setup.rs:647
 msgid "Stop the streams going to them first."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:610
+#: rust/crates/setup/src/setup.rs:649
 msgid "Go back to one camera. Use Add camera to set up the others again."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:611
+#: rust/crates/setup/src/setup.rs:650
 msgid "Your password is required."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:611 rust/crates/shell/src/extra_cameras.rs:87
+#: rust/crates/setup/src/setup.rs:650 rust/crates/shell/src/extra_cameras.rs:87
 msgid "Windows asks for permission."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:618
+#: rust/crates/setup/src/setup.rs:657
 msgid "Removing…"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:625
+#: rust/crates/setup/src/setup.rs:664
 msgid "Removed"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:629
+#: rust/crates/setup/src/setup.rs:668
 #, python-brace-format
 msgid "Couldn't remove them: {message}"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:650 rust/crates/setup/src/setup.rs:656 rust/crates/setup/src/setup.rs:659 rust/crates/setup/src/setup.rs:703
+#: rust/crates/setup/src/setup.rs:689 rust/crates/setup/src/setup.rs:695 rust/crates/setup/src/setup.rs:698 rust/crates/setup/src/setup.rs:742
 msgid "Reinstall"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:652
+#: rust/crates/setup/src/setup.rs:691
 msgid "Update ready"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:652
+#: rust/crates/setup/src/setup.rs:691
 msgid "Some apps can't see the camera"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:653 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
+#: rust/crates/setup/src/setup.rs:692 rust/crates/system/ui/updates.slint:24 rust/crates/system/ui/updates.slint:38
 msgid "Update"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:653
+#: rust/crates/setup/src/setup.rs:692
 msgid "Install the camera every Windows 11 app can see (Windows asks for admin access once)."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:656
+#: rust/crates/setup/src/setup.rs:695
 msgid "Reinstall for a security fix"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:657
+#: rust/crates/setup/src/setup.rs:696
 msgid "Move the driver into Program Files (Windows asks for admin access once)."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:662
+#: rust/crates/setup/src/setup.rs:701
 #, python-brace-format
 msgid "Apps list it as “{name}”"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:663
+#: rust/crates/setup/src/setup.rs:702
 #, python-brace-format
 msgid "Register it again as “{name}”."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:666 rust/crates/shell/src/plugins/onboarding.rs:138 rust/crates/shell/src/plugins/onboarding.rs:146
+#: rust/crates/setup/src/setup.rs:705 rust/crates/shell/src/plugins/onboarding.rs:138 rust/crates/shell/src/plugins/onboarding.rs:146
 msgid "Not installed"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:666
+#: rust/crates/setup/src/setup.rs:705
 msgid "Not installed (Install driver downloads it first)"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:680
+#: rust/crates/setup/src/setup.rs:719
 msgid "Not found. Pairing and installing over USB need adb; Wi-Fi doesn't."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:706 rust/crates/setup/src/setup.rs:870
+#: rust/crates/setup/src/setup.rs:745 rust/crates/setup/src/setup.rs:909
 #, python-brace-format
 msgid "Failed: {message}"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:707
+#: rust/crates/setup/src/setup.rs:746
 msgid "Retry"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:738
+#: rust/crates/setup/src/setup.rs:777
 #, python-brace-format
 msgid "Ready (adb {version}, from Google)"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:739
+#: rust/crates/setup/src/setup.rs:778
 msgid "Ready (adb, from Google)"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:740
+#: rust/crates/setup/src/setup.rs:779
 #, python-brace-format
 msgid "Ready (adb {version})"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:741
+#: rust/crates/setup/src/setup.rs:780
 msgid "Ready (adb)"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:755
+#: rust/crates/setup/src/setup.rs:794
 msgid "Installing over USB needs adb. Install it from your distro's packages."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:757
+#: rust/crates/setup/src/setup.rs:796
 msgid "Installing over USB needs adb. Click Get adb under Virtual camera above."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:765
+#: rust/crates/setup/src/setup.rs:804
 msgid "Select APK"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:766
+#: rust/crates/setup/src/setup.rs:805
 msgid "Android Package (*.apk)"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:783 rust/crates/shell/src/plugins/mod.rs:32
+#: rust/crates/setup/src/setup.rs:822 rust/crates/shell/src/plugins/mod.rs:32
 msgid "No phone found over USB. Plug it in and allow USB debugging when the phone asks."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:799
+#: rust/crates/setup/src/setup.rs:838
 msgid "Installing..."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:831
+#: rust/crates/setup/src/setup.rs:870
 msgid "Reloading loopback..."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:831
+#: rust/crates/setup/src/setup.rs:870
 msgid "Restarting stream..."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:852 rust/crates/shell/src/streams.rs:713
+#: rust/crates/setup/src/setup.rs:891 rust/crates/shell/src/streams.rs:713
 msgid "Resize the virtual camera"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:866
+#: rust/crates/setup/src/setup.rs:905
 msgid "Done - loopback reloaded."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:866
+#: rust/crates/setup/src/setup.rs:905
 msgid "Done - canvas updated."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:868
+#: rust/crates/setup/src/setup.rs:907
 msgid "Failed: still in use. Close OBS and other apps using it, then try again."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:1111
+#: rust/crates/setup/src/setup.rs:1160
 msgid "Advanced settings"
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:1112
+#: rust/crates/setup/src/setup.rs:1161
 msgid "Set up the virtual camera, its size, extra cameras and the video and microphone limits, and check for updates."
 msgstr ""
 
-#: rust/crates/setup/src/setup.rs:1211
+#: rust/crates/setup/src/setup.rs:1260
 msgid "Use my own adb…"
 msgstr ""
 
@@ -6625,367 +6634,392 @@ msgstr ""
 msgid "Pick an adb.exe or platform-tools zip you already have."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:207
+#: rust/crates/setup/ui/setup.slint:213
 msgid "Hardware acceleration, power saving, zoom range and the virtual camera's size."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:211
+#: rust/crates/setup/ui/setup.slint:217
 msgid "Set hardware acceleration, power saving, zoom range and canvas size back to default. The canvas size changes when you press Apply."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:213
+#: rust/crates/setup/ui/setup.slint:219
 msgctxt "search"
 msgid "picture quality image stream camera output"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:220 rust/crates/setup/ui/setup.slint:221
+#: rust/crates/setup/ui/setup.slint:226 rust/crates/setup/ui/setup.slint:227
 msgid "Hardware acceleration"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:222
+#: rust/crates/setup/ui/setup.slint:228
 msgid "Decode the Light format on the graphics card from the next stream on. The processor is used until you restart Telescope if the graphics card fails."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:223
+#: rust/crates/setup/ui/setup.slint:229
 msgctxt "search"
 msgid "hw accel gpu graphics card nvidia cuda amd intel vaapi d3d11 decode decoding h264 faster cpu processor laptop 4k"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:233 rust/crates/setup/ui/setup.slint:234
+#: rust/crates/setup/ui/setup.slint:240 rust/crates/setup/ui/setup.slint:249
+msgid "Graphics card"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:241
+msgid "Which graphics card Telescope uses"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:242
+msgid "Automatic follows what your system picks. Choose a card here if the system picks the wrong one. A change applies after a restart."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:245
+msgctxt "search"
+msgid "gpu graphics card nvidia amd intel integrated discrete laptop hybrid switch choose select"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:262 rust/crates/setup/ui/setup.slint:575
+msgid "Restart to switch"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:262
+msgid "Restart Telescope to use the graphics card you picked."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:264 rust/crates/setup/ui/setup.slint:577 rust/crates/shell/ui/card-order.slint:265 rust/crates/shell/ui/restart-bar.slint:15 rust/crates/shell/ui/restart-bar.slint:45
+msgid "Restart now"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:268 rust/crates/setup/ui/setup.slint:581 rust/crates/shell/src/plugins_tab.rs:729 rust/crates/shell/ui/card-order.slint:265
+msgid "Restart"
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:269
+msgid "Restart Telescope with the graphics card you picked."
+msgstr ""
+
+#: rust/crates/setup/ui/setup.slint:278 rust/crates/setup/ui/setup.slint:279
 msgid "Power-saving effects"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:235
+#: rust/crates/setup/ui/setup.slint:280
 msgid "Use less processor and battery while Background or Auto framing is on. Both react to quick movement a little later."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:236
+#: rust/crates/setup/ui/setup.slint:281
 msgctxt "search"
 msgid "battery power energy watts laptop processor cpu usage fan heat slow blur framing mediapipe lighter effects quality"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:243 rust/crates/setup/ui/setup.slint:252
+#: rust/crates/setup/ui/setup.slint:288 rust/crates/setup/ui/setup.slint:297
 msgid "Max zoom"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:244
+#: rust/crates/setup/ui/setup.slint:289
 msgid "How far the Zoom slider goes"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:245
+#: rust/crates/setup/ui/setup.slint:290
 msgid "Zoom beyond the phone's own range is cropped on this computer."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:248
+#: rust/crates/setup/ui/setup.slint:293
 msgctxt "search"
 msgid "zoom limit magnify telephoto digital crop 10x 30x slider range"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:261 rust/crates/setup/ui/setup.slint:271 rust/crates/setup/ui/setup.slint:286 rust/crates/setup/ui/setup.slint:294
+#: rust/crates/setup/ui/setup.slint:306 rust/crates/setup/ui/setup.slint:316 rust/crates/setup/ui/setup.slint:331 rust/crates/setup/ui/setup.slint:339
 msgid "Canvas size"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:262
+#: rust/crates/setup/ui/setup.slint:307
 msgid "The size of the picture other apps get from the virtual camera"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:263
+#: rust/crates/setup/ui/setup.slint:308
 msgid "On Linux the virtual camera is reloaded for this. Close OBS and other apps using it first."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:266
+#: rust/crates/setup/ui/setup.slint:311
 msgctxt "search"
 msgid "resolution output size 1080p 720p 4k portrait landscape aspect ratio custom width height pixels apply reload"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:334
+#: rust/crates/setup/ui/setup.slint:379
 msgid "Maximum microphone gain and the limiter."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:338
+#: rust/crates/setup/ui/setup.slint:383
 msgid "Set the gain range and limiter back to default."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:340
+#: rust/crates/setup/ui/setup.slint:385
 msgctxt "search"
 msgid "audio sound voice input volume"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:346 rust/crates/setup/ui/setup.slint:355
+#: rust/crates/setup/ui/setup.slint:391 rust/crates/setup/ui/setup.slint:400
 msgid "Max gain"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:347
+#: rust/crates/setup/ui/setup.slint:392
 msgid "How far the Gain slider goes"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:348
+#: rust/crates/setup/ui/setup.slint:393
 msgid "Less range gives finer steps. More range helps a quiet phone."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:351
+#: rust/crates/setup/ui/setup.slint:396
 msgctxt "search"
 msgid "microphone volume loudness boost amplify quiet decibel db slider range"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:363 rust/crates/setup/ui/setup.slint:364
+#: rust/crates/setup/ui/setup.slint:408 rust/crates/setup/ui/setup.slint:409
 msgid "Limiter"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:365
+#: rust/crates/setup/ui/setup.slint:410
 msgid "Keep loud sounds from clipping"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:366
+#: rust/crates/setup/ui/setup.slint:411
 msgctxt "search"
 msgid "microphone audio compressor distortion clipping loud peaks sound"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:386
+#: rust/crates/setup/ui/setup.slint:431
 msgid "Phone app"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:387
+#: rust/crates/setup/ui/setup.slint:432
 msgid "Install the Telescope app on a phone over USB."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:388
+#: rust/crates/setup/ui/setup.slint:433
 msgctxt "search"
 msgid "android install apk usb"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:396
+#: rust/crates/setup/ui/setup.slint:441
 msgid "The phone app that streams the camera to this computer"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:399
+#: rust/crates/setup/ui/setup.slint:444
 msgctxt "search"
 msgid "phone app install usb android reinstall newer version sideload cable"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:406 rust/crates/shell/ui/settings.slint:441 rust/crates/shell/ui/settings.slint:442
+#: rust/crates/setup/ui/setup.slint:451 rust/crates/shell/ui/settings.slint:441 rust/crates/shell/ui/settings.slint:442
 msgid "Install"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:407
+#: rust/crates/setup/ui/setup.slint:452
 msgid "Install the Telescope.apk that came with this app, or an APK you pick, on a phone plugged in over USB."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:417 rust/crates/setup/ui/setup.slint:424
+#: rust/crates/setup/ui/setup.slint:462 rust/crates/setup/ui/setup.slint:469
 msgid "Select device"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:418
+#: rust/crates/setup/ui/setup.slint:463
 msgid "Pick which phone gets the app when more than one is plugged in"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:463
+#: rust/crates/setup/ui/setup.slint:508
 msgid "Theme, card colours and language."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:467
+#: rust/crates/setup/ui/setup.slint:512
 msgid "Set the theme, card colours and language back to default."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:469
+#: rust/crates/setup/ui/setup.slint:514
 msgctxt "search"
 msgid "appearance theme colors colours interface"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:474 rust/crates/setup/ui/setup.slint:482
+#: rust/crates/setup/ui/setup.slint:519 rust/crates/setup/ui/setup.slint:527
 msgid "Theme"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:475
+#: rust/crates/setup/ui/setup.slint:520
 msgid "Dark, classic, OLED black or light for the whole app"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:478
+#: rust/crates/setup/ui/setup.slint:523
 msgctxt "search"
 msgid "theme classic dark blue appearance look old oled black light white"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:483
+#: rust/crates/setup/ui/setup.slint:528
 msgid "Dark"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:483
+#: rust/crates/setup/ui/setup.slint:528
 msgid "Classic"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:483
+#: rust/crates/setup/ui/setup.slint:528
 msgid "OLED"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:490 rust/crates/setup/ui/setup.slint:491 rust/crates/setup/ui/setup.slint:499
+#: rust/crates/setup/ui/setup.slint:535 rust/crates/setup/ui/setup.slint:536 rust/crates/setup/ui/setup.slint:544
 msgid "Card colours"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:492
+#: rust/crates/setup/ui/setup.slint:537
 msgid "Give every card in the main window a different colour."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:495
+#: rust/crates/setup/ui/setup.slint:540
 msgctxt "search"
 msgid "color colour theme appearance monochrome colourful purple hue accent look"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:500
+#: rust/crates/setup/ui/setup.slint:545
 msgid "Colourful"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:500
+#: rust/crates/setup/ui/setup.slint:545
 msgid "Monochrome"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:508 rust/crates/setup/ui/setup.slint:517
+#: rust/crates/setup/ui/setup.slint:553 rust/crates/setup/ui/setup.slint:562
 msgid "Language"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:509
+#: rust/crates/setup/ui/setup.slint:554
 msgid "The language of every text in the app"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:510
+#: rust/crates/setup/ui/setup.slint:555
 msgid "Switching needs a restart."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:513
+#: rust/crates/setup/ui/setup.slint:558
 msgctxt "search"
 msgid "language translation translate locale"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:530
-msgid "Restart to switch"
-msgstr ""
-
-#: rust/crates/setup/ui/setup.slint:530
+#: rust/crates/setup/ui/setup.slint:575
 msgid "Restart Telescope to switch to the new language."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:532 rust/crates/shell/ui/card-order.slint:265 rust/crates/shell/ui/restart-bar.slint:15 rust/crates/shell/ui/restart-bar.slint:45
-msgid "Restart now"
-msgstr ""
-
-#: rust/crates/setup/ui/setup.slint:536 rust/crates/shell/src/plugins_tab.rs:729 rust/crates/shell/ui/card-order.slint:265
-msgid "Restart"
-msgstr ""
-
-#: rust/crates/setup/ui/setup.slint:537
+#: rust/crates/setup/ui/setup.slint:582
 msgid "Restart Telescope in the language you picked."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:550 rust/crates/setup/ui/setup.slint:554
+#: rust/crates/setup/ui/setup.slint:595 rust/crates/setup/ui/setup.slint:599
 msgid "Help translate"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:555
+#: rust/crates/setup/ui/setup.slint:600
 msgid "Fix a text or add a language without any coding."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:576
+#: rust/crates/setup/ui/setup.slint:621
 msgid "About"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:577
+#: rust/crates/setup/ui/setup.slint:622
 msgid "Version, log, bug reports and help."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:578
+#: rust/crates/setup/ui/setup.slint:623
 msgctxt "search"
 msgid "info version help support credits"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:589
+#: rust/crates/setup/ui/setup.slint:634
 msgctxt "search"
 msgid "about author credits made by version number build"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:604
+#: rust/crates/setup/ui/setup.slint:649
 msgid "Log"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:605
+#: rust/crates/setup/ui/setup.slint:650
 msgid "A record of what the app did to help track down a problem"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:608
+#: rust/crates/setup/ui/setup.slint:653
 msgctxt "search"
 msgid "log file open show temp folder"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:609 rust/crates/system/ui/shortcuts.slint:228
+#: rust/crates/setup/ui/setup.slint:654 rust/crates/system/ui/shortcuts.slint:228
 msgid "Open"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:609
+#: rust/crates/setup/ui/setup.slint:654
 msgid "Open log"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:609
+#: rust/crates/setup/ui/setup.slint:654
 msgid "Open the full log. The log is saved in the temp folder, which the system clears."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:613
+#: rust/crates/setup/ui/setup.slint:658
 msgid "Diagnostics"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:614
+#: rust/crates/setup/ui/setup.slint:659
 msgid "Info about your setup to include in a bug report"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:615
+#: rust/crates/setup/ui/setup.slint:660
 msgid "Pairing tokens, addresses and file paths are left out."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:618
+#: rust/crates/setup/ui/setup.slint:663
 msgctxt "search"
 msgid "copy diagnostics info system details"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:621
+#: rust/crates/setup/ui/setup.slint:666
 msgid "Copy diagnostics"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:622
+#: rust/crates/setup/ui/setup.slint:667
 msgid "Copy info for a bug report without pairing tokens, addresses or file paths."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:628
+#: rust/crates/setup/ui/setup.slint:673
 msgid "Bug reports"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:629
+#: rust/crates/setup/ui/setup.slint:674
 msgid "Report a problem on GitHub"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:632
+#: rust/crates/setup/ui/setup.slint:677
 msgctxt "search"
 msgid "bug report diagnostics logs debug support problem issue help copy log file"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:633 rust/crates/setup/ui/setup.slint:633
+#: rust/crates/setup/ui/setup.slint:678 rust/crates/setup/ui/setup.slint:678
 msgid "Report a bug"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:633
+#: rust/crates/setup/ui/setup.slint:678
 msgid "Copy the diagnostics and open the bug form on GitHub."
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:637
+#: rust/crates/setup/ui/setup.slint:682
 msgid "Need help?"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:638
+#: rust/crates/setup/ui/setup.slint:683
 msgid "Fixes for the common problems"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:641
+#: rust/crates/setup/ui/setup.slint:686
 msgctxt "search"
 msgid "help support troubleshooting question faq problem not working stuck ask"
 msgstr ""
 
-#: rust/crates/setup/ui/setup.slint:642
+#: rust/crates/setup/ui/setup.slint:687
 msgid "Troubleshooting"
 msgstr ""
 
@@ -8227,7 +8261,7 @@ msgstr ""
 msgid "Stop"
 msgstr ""
 
-#: rust/crates/shell/src/window.rs:2018 rust/crates/shell/src/worker.rs:1339
+#: rust/crates/shell/src/window.rs:2034 rust/crates/shell/src/worker.rs:1339
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr ""
@@ -9857,7 +9891,7 @@ msgid "Light"
 msgstr ""
 
 #. what goes between the items of a list but the last two, as in "Camera, Microphone and Preview"
-#: rust/app/src/main.rs:437
+#: rust/app/src/main.rs:443
 msgid ", "
 msgstr ""
 
