@@ -482,6 +482,11 @@ export component CompositeEditor inherits Window {
     in property <string> pos-y-text;
     in property <string> size-w-text;
     in property <string> size-h-text;
+    in property <string> crop-l-text;
+    in property <string> crop-t-text;
+    in property <string> crop-r-text;
+    in property <string> crop-b-text;
+    in property <bool> crop-any;
     in property <[string]> swap-items;
     in property <bool> swap-enabled;
     in property <bool> back-enabled;
@@ -518,6 +523,9 @@ export component CompositeEditor inherits Window {
     callback stream-moved(int, int);
     callback box-committed(string, string);
     callback box-step(string, int);
+    callback crop-committed(string, string);
+    callback crop-step(string, int);
+    callback crop-reset();
     callback swap-picked(int);
     callback restack(int);
     callback colour-clicked(string);
@@ -748,6 +756,46 @@ export component CompositeEditor inherits Window {
                                 Button { horizontal-stretch: 1; text: @tr("Send back"); enabled: back-enabled; clicked => { root.restack(-1); } }
                                 Button { horizontal-stretch: 1; text: @tr("Bring forward"); enabled: front-enabled; clicked => { root.restack(1); } }
                             }
+                            SectionHeading { text: @tr("Crop in %"); }
+                            HorizontalLayout {
+                                spacing: Theme.gap;
+                                PlaceField {
+                                    short: @tr("L");
+                                    name: @tr("Crop left");
+                                    detail: @tr("How much of the stream is cut off at its left side, in percent of its width.");
+                                    value: crop-l-text;
+                                    committed(t) => { root.crop-committed("l", t); }
+                                    step(d) => { root.crop-step("l", -d); }
+                                }
+                                PlaceField {
+                                    short: @tr("T");
+                                    name: @tr("Crop top");
+                                    detail: @tr("How much of the stream is cut off at its top, in percent of its height.");
+                                    value: crop-t-text;
+                                    committed(t) => { root.crop-committed("t", t); }
+                                    step(d) => { root.crop-step("t", -d); }
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: Theme.gap;
+                                PlaceField {
+                                    short: @tr("R");
+                                    name: @tr("Crop right");
+                                    detail: @tr("How much of the stream is cut off at its right side, in percent of its width.");
+                                    value: crop-r-text;
+                                    committed(t) => { root.crop-committed("r", t); }
+                                    step(d) => { root.crop-step("r", -d); }
+                                }
+                                PlaceField {
+                                    short: @tr("B");
+                                    name: @tr("Crop bottom");
+                                    detail: @tr("How much of the stream is cut off at its bottom, in percent of its height.");
+                                    value: crop-b-text;
+                                    committed(t) => { root.crop-committed("b", t); }
+                                    step(d) => { root.crop-step("b", -d); }
+                                }
+                            }
+                            Button { text: @tr("Reset crop"); enabled: crop-any; clicked => { root.crop-reset(); } }
                             SectionHeading { text: @tr("Look"); }
                             SliderRow {
                                 label-width: Theme.u(36);

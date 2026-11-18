@@ -370,7 +370,7 @@ msgstr "नॉइज़ रिडक्शन"
 msgid "Noise reduction unavailable"
 msgstr "नॉइज़ रिडक्शन उपलब्ध नहीं है"
 
-#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:894 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:260
+#: rust/crates/audio/ui/microphone.slint:318 rust/crates/effects/src/desk.rs:218 rust/crates/effects/ui/colour_grading.slint:475 rust/crates/effects/ui/composite_editor.slint:942 rust/crates/link/src/browser/plugin.rs:939 rust/crates/link/ui/connection.slint:496 rust/crates/link/ui/connection.slint:724 rust/crates/setup/ui/setup.slint:491 rust/crates/shell/src/plugins/presets.rs:187 rust/crates/shell/ui/settings.slint:586 rust/crates/system/ui/shortcuts.slint:363 rust/crates/system/ui/updates.slint:260
 msgid "Cancel"
 msgstr "रद्द करें"
 
@@ -516,7 +516,7 @@ msgstr "टेली"
 msgid "General"
 msgstr "सामान्य"
 
-#: rust/crates/core/src/plugin.rs:14 rust/crates/effects/src/composite_editor.rs:648 rust/crates/system/src/remote.rs:26
+#: rust/crates/core/src/plugin.rs:14 rust/crates/effects/src/composite_editor.rs:674 rust/crates/system/src/remote.rs:26
 msgid "Streaming"
 msgstr "स्ट्रीमिंग"
 
@@ -548,7 +548,7 @@ msgstr "अपडेट और परिचय"
 msgid "Camera"
 msgstr "कैमरा"
 
-#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/composite_editor.slint:751 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:530
+#: rust/crates/core/src/plugin.rs:26 rust/crates/effects/ui/composite_editor.slint:799 rust/crates/effects/ui/stereo.slint:76 rust/crates/effects/ui/stereo.slint:77 rust/crates/effects/ui/stereo.slint:83 rust/crates/effects/ui/stereo.slint:86 rust/crates/setup/ui/setup.slint:530
 msgid "Look"
 msgstr "रूप-रंग"
 
@@ -625,7 +625,7 @@ msgstr "बंद"
 msgid "Blur"
 msgstr "ब्लर"
 
-#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/background.slint:101 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:181 rust/crates/effects/ui/composite_editor.slint:545 rust/crates/effects/ui/composite_editor.slint:848 rust/crates/effects/ui/composite_editor.slint:850 rust/crates/effects/ui/composite_editor.slint:850
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/background.slint:101 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:181 rust/crates/effects/ui/composite_editor.slint:553 rust/crates/effects/ui/composite_editor.slint:896 rust/crates/effects/ui/composite_editor.slint:898 rust/crates/effects/ui/composite_editor.slint:898
 msgid "Picture"
 msgstr "तस्वीर"
 
@@ -657,7 +657,7 @@ msgstr "तस्वीर चुनें"
 msgid "Can't open that picture"
 msgstr "वह तस्वीर नहीं खुल सकी"
 
-#: rust/crates/effects/src/background.rs:643 rust/crates/effects/src/background.rs:768 rust/crates/effects/src/background.rs:771 rust/crates/effects/src/background.rs:789 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:818
+#: rust/crates/effects/src/background.rs:643 rust/crates/effects/src/background.rs:768 rust/crates/effects/src/background.rs:771 rust/crates/effects/src/background.rs:789 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:866
 msgid "Background"
 msgstr "बैकग्राउंड"
 
@@ -673,11 +673,11 @@ msgstr "बैकग्राउंड प्लगइन के बिना �
 msgid "Background blur"
 msgstr "बैकग्राउंड ब्लर"
 
-#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:803 rust/crates/effects/ui/composite_editor.slint:834 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:43 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:851 rust/crates/effects/ui/composite_editor.slint:882 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Green"
 msgstr "हरा"
 
-#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:803 rust/crates/effects/ui/composite_editor.slint:834 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/chroma_key.rs:29 rust/crates/effects/src/cinema_tools.rs:44 rust/crates/effects/ui/chroma_key.slint:89 rust/crates/effects/ui/chroma_key.slint:94 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:851 rust/crates/effects/ui/composite_editor.slint:882 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Blue"
 msgstr "नीला"
 
@@ -685,7 +685,7 @@ msgstr "नीला"
 msgid "Picked"
 msgstr "चुना गया"
 
-#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:153 rust/crates/effects/ui/chroma_key.slint:166 rust/crates/effects/ui/composite_editor.slint:791 rust/crates/effects/ui/composite_editor.slint:822
+#: rust/crates/effects/src/chroma_key.rs:30 rust/crates/effects/ui/chroma_key.slint:137 rust/crates/effects/ui/chroma_key.slint:142 rust/crates/effects/ui/chroma_key.slint:153 rust/crates/effects/ui/chroma_key.slint:166 rust/crates/effects/ui/composite_editor.slint:839 rust/crates/effects/ui/composite_editor.slint:870
 msgid "Colour"
 msgstr "रंग"
 
@@ -721,7 +721,7 @@ msgstr "प्रीव्यू से चुना गया रंग. दो
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "प्रीव्यू में अपने पीछे की स्क्रीन पर क्लिक करें. Esc दबाकर रद्द करें."
 
-#: rust/crates/effects/src/chroma_key.rs:411 rust/crates/effects/src/chroma_key.rs:447 rust/crates/effects/src/composite_editor.rs:648 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1788 rust/crates/shell/src/window.rs:1815 rust/crates/shell/src/worker.rs:610 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:411 rust/crates/effects/src/chroma_key.rs:447 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1788 rust/crates/shell/src/window.rs:1815 rust/crates/shell/src/worker.rs:610 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "स्ट्रीम नहीं हो रहा है"
 
@@ -842,7 +842,7 @@ msgstr "RGB परेड"
 msgid "Vectorscope"
 msgstr "वेक्टरस्कोप"
 
-#: rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:803 rust/crates/effects/ui/composite_editor.slint:834 rust/crates/ui-kit/ui/widgets/colour.slint:263
+#: rust/crates/effects/src/cinema_tools.rs:42 rust/crates/effects/ui/cinema.slint:175 rust/crates/effects/ui/cinema.slint:176 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365 rust/crates/effects/ui/composite_editor.slint:851 rust/crates/effects/ui/composite_editor.slint:882 rust/crates/ui-kit/ui/widgets/colour.slint:263
 msgid "Red"
 msgstr "लाल"
 
@@ -1002,7 +1002,7 @@ msgstr "ठीक लग रहा है"
 msgid "No stream"
 msgstr "कोई स्ट्रीम नहीं"
 
-#: rust/crates/effects/src/colour_grading.rs:59 rust/crates/effects/ui/composite_editor.slint:851
+#: rust/crates/effects/src/colour_grading.rs:59 rust/crates/effects/ui/composite_editor.slint:899
 msgid "No picture"
 msgstr "कोई तस्वीर नहीं"
 
@@ -1207,33 +1207,33 @@ msgstr "पैन"
 msgid "{mode}, no snapping"
 msgstr "{mode}, बिना स्नैपिंग"
 
-#: rust/crates/effects/src/composite_editor.rs:432
+#: rust/crates/effects/src/composite_editor.rs:458
 #, python-brace-format
 msgid "Layout {n}"
 msgstr "लेआउट {n}"
 
-#: rust/crates/effects/src/composite_editor.rs:588
+#: rust/crates/effects/src/composite_editor.rs:614
 msgid "Background picture"
 msgstr "बैकग्राउंड तस्वीर"
 
-#: rust/crates/effects/src/composite_editor.rs:637
+#: rust/crates/effects/src/composite_editor.rs:663
 #, python-brace-format
 msgid "{name} isn't streaming"
 msgstr "{name} स्ट्रीम नहीं कर रहा है"
 
-#: rust/crates/effects/src/composite_editor.rs:654 rust/crates/setup/src/stats.rs:389
+#: rust/crates/effects/src/composite_editor.rs:680 rust/crates/setup/src/stats.rs:389
 msgid "None"
 msgstr "कोई नहीं"
 
-#: rust/crates/effects/src/composite_editor.rs:716
+#: rust/crates/effects/src/composite_editor.rs:747
 msgid "Rename layout"
 msgstr "लेआउट का नाम बदलें"
 
-#: rust/crates/effects/src/composite_editor.rs:716
+#: rust/crates/effects/src/composite_editor.rs:747
 msgid "Save layout"
 msgstr "लेआउट सेव करें"
 
-#: rust/crates/effects/src/composite_editor.rs:719
+#: rust/crates/effects/src/composite_editor.rs:750
 #, python-brace-format
 msgid "There's already a layout called \"{name}\". Replace it?"
 msgstr "\"{name}\" नाम का लेआउट पहले से मौजूद है. क्या आप इसे बदलना चाहते हैं?"
@@ -1277,7 +1277,7 @@ msgstr "{camera} पर आउटपुट हो रहा है."
 msgid "Nothing in it"
 msgstr "इसमें कुछ नहीं है"
 
-#: rust/crates/effects/src/composite_plugin.rs:494 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:671
+#: rust/crates/effects/src/composite_plugin.rs:494 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:679
 msgid "Two streams required"
 msgstr "दो स्ट्रीम ज़रूरी हैं"
 
@@ -3118,7 +3118,7 @@ msgstr "मैच द्वारा बनाए गए कलर कर्व 
 msgid "3D"
 msgstr "3D"
 
-#: rust/crates/effects/src/stereo_plugin.rs:720 rust/crates/effects/ui/composite_editor.slint:574
+#: rust/crates/effects/src/stereo_plugin.rs:720 rust/crates/effects/ui/composite_editor.slint:582
 msgid "Side by side"
 msgstr "अगल-बगल"
 
@@ -3312,7 +3312,7 @@ msgstr "तस्वीर को ज़ूम, पैन, पलटें, घ�
 msgid "Without the Transforms plugin there's no Transforms card and the picture goes out exactly as the phone sends it."
 msgstr "घुमाव और ज़ूम प्लगइन के बिना कोई घुमाव और ज़ूम कार्ड नहीं होता और तस्वीर बिल्कुल वैसे ही बाहर जाती है जैसे फ़ोन उसे भेजता है."
 
-#: rust/crates/effects/src/transforms.rs:670 rust/crates/effects/src/transforms.rs:725 rust/crates/effects/ui/composite_editor.slint:755 rust/crates/effects/ui/transforms.slint:173 rust/crates/effects/ui/transforms.slint:188 rust/crates/effects/ui/transforms.slint:189 rust/crates/effects/ui/transforms.slint:230 rust/crates/outputs/src/webcam.rs:56
+#: rust/crates/effects/src/transforms.rs:670 rust/crates/effects/src/transforms.rs:725 rust/crates/effects/ui/composite_editor.slint:803 rust/crates/effects/ui/transforms.slint:173 rust/crates/effects/ui/transforms.slint:188 rust/crates/effects/ui/transforms.slint:189 rust/crates/effects/ui/transforms.slint:230 rust/crates/outputs/src/webcam.rs:56
 msgid "Zoom"
 msgstr "ज़ूम"
 
@@ -3324,11 +3324,11 @@ msgstr "बाएं/दाएं पैन करें"
 msgid "Pan up/down"
 msgstr "ऊपर/नीचे पैन करें"
 
-#: rust/crates/effects/src/transforms.rs:673 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/composite_editor.slint:720 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/desk.slint:165 rust/crates/effects/ui/desk.slint:172 rust/crates/effects/ui/desk.slint:173 rust/crates/effects/ui/transforms.slint:262 rust/crates/effects/ui/transforms.slint:263
+#: rust/crates/effects/src/transforms.rs:673 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/composite_editor.slint:728 rust/crates/effects/ui/desk.slint:164 rust/crates/effects/ui/desk.slint:165 rust/crates/effects/ui/desk.slint:172 rust/crates/effects/ui/desk.slint:173 rust/crates/effects/ui/transforms.slint:262 rust/crates/effects/ui/transforms.slint:263
 msgid "Width"
 msgstr "चौड़ाई"
 
-#: rust/crates/effects/src/transforms.rs:674 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/composite_editor.slint:728 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/stereo.slint:177 rust/crates/effects/ui/transforms.slint:279 rust/crates/effects/ui/transforms.slint:280
+#: rust/crates/effects/src/transforms.rs:674 rust/crates/effects/src/transforms.rs:743 rust/crates/effects/ui/composite_editor.slint:736 rust/crates/effects/ui/desk.slint:188 rust/crates/effects/ui/desk.slint:189 rust/crates/effects/ui/desk.slint:196 rust/crates/effects/ui/desk.slint:197 rust/crates/effects/ui/stereo.slint:177 rust/crates/effects/ui/transforms.slint:279 rust/crates/effects/ui/transforms.slint:280
 msgid "Height"
 msgstr "ऊंचाई"
 
@@ -3604,15 +3604,15 @@ msgstr "बदलें"
 msgid "Clear the current layout without touching saved layouts."
 msgstr "सेव किए गए लेआउट्स को छुए बिना मौजूदा लेआउट साफ़ करें."
 
-#: rust/crates/effects/ui/composite.slint:40 rust/crates/effects/ui/composite.slint:47 rust/crates/effects/ui/composite.slint:51 rust/crates/effects/ui/composite_editor.slint:596 rust/crates/effects/ui/composite_editor.slint:608 rust/crates/shell/ui/card-order-settings.slint:7
+#: rust/crates/effects/ui/composite.slint:40 rust/crates/effects/ui/composite.slint:47 rust/crates/effects/ui/composite.slint:51 rust/crates/effects/ui/composite_editor.slint:604 rust/crates/effects/ui/composite_editor.slint:616 rust/crates/shell/ui/card-order-settings.slint:7
 msgid "Layout"
 msgstr "लेआउट"
 
-#: rust/crates/effects/ui/composite.slint:60 rust/crates/effects/ui/composite_editor.slint:609
+#: rust/crates/effects/ui/composite.slint:60 rust/crates/effects/ui/composite_editor.slint:617
 msgid "Not saved"
 msgstr "सेव नहीं किया गया"
 
-#: rust/crates/effects/ui/composite.slint:72 rust/crates/effects/ui/composite.slint:73 rust/crates/effects/ui/composite_editor.slint:437 rust/crates/effects/ui/composite_editor.slint:537
+#: rust/crates/effects/ui/composite.slint:72 rust/crates/effects/ui/composite.slint:73 rust/crates/effects/ui/composite_editor.slint:437 rust/crates/effects/ui/composite_editor.slint:545
 msgid "Edit picture"
 msgstr "तस्वीर एडिट करें"
 
@@ -3680,187 +3680,243 @@ msgstr ""
 msgid "Pin this stream so it can't be moved or changed until it is unlocked."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:546
+#: rust/crates/effects/ui/composite_editor.slint:554
 msgid "Drag a stream to move it. Hold Ctrl to move it without snapping. The arrow keys move it a pixel and Shift with them ten."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:573
+#: rust/crates/effects/ui/composite_editor.slint:581
 msgid "Start from"
 msgstr "इससे शुरू करें"
 
-#: rust/crates/effects/ui/composite_editor.slint:574
+#: rust/crates/effects/ui/composite_editor.slint:582
 msgid "Big and small"
 msgstr "बड़ा और छोटा"
 
-#: rust/crates/effects/ui/composite_editor.slint:574
+#: rust/crates/effects/ui/composite_editor.slint:582
 msgid "Grid"
 msgstr "ग्रिड"
 
-#: rust/crates/effects/ui/composite_editor.slint:578
+#: rust/crates/effects/ui/composite_editor.slint:586
 msgid "Start a new layout with the running streams arranged like this."
 msgstr "चल रही स्ट्रीम को इस तरह सजाकर एक नया लेआउट शुरू करें."
 
-#: rust/crates/effects/ui/composite_editor.slint:600
+#: rust/crates/effects/ui/composite_editor.slint:608
 msgid "Save as"
 msgstr "नए नाम से सेव करें"
 
-#: rust/crates/effects/ui/composite_editor.slint:601
+#: rust/crates/effects/ui/composite_editor.slint:609
 msgid "Save this layout under a new name."
 msgstr "इस लेआउट को नए नाम से सेव करें."
 
-#: rust/crates/effects/ui/composite_editor.slint:615 rust/crates/effects/ui/composite_editor.slint:615 rust/crates/link/ui/connection.slint:116 rust/crates/setup/src/setup.rs:721 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/src/plugins/presets.rs:215
+#: rust/crates/effects/ui/composite_editor.slint:623 rust/crates/effects/ui/composite_editor.slint:623 rust/crates/link/ui/connection.slint:116 rust/crates/setup/src/setup.rs:721 rust/crates/shell/src/plugins/presets.rs:185 rust/crates/shell/src/plugins/presets.rs:215
 msgid "Rename"
 msgstr "नाम बदलें"
 
-#: rust/crates/effects/ui/composite_editor.slint:615
+#: rust/crates/effects/ui/composite_editor.slint:623
 msgid "Rename this layout."
 msgstr "इस लेआउट का नाम बदलें."
 
-#: rust/crates/effects/ui/composite_editor.slint:616 rust/crates/effects/ui/composite_editor.slint:616 rust/crates/shell/src/plugins/presets.rs:185
+#: rust/crates/effects/ui/composite_editor.slint:624 rust/crates/effects/ui/composite_editor.slint:624 rust/crates/shell/src/plugins/presets.rs:185
 msgid "Delete"
 msgstr "मिटाएं"
 
-#: rust/crates/effects/ui/composite_editor.slint:616
+#: rust/crates/effects/ui/composite_editor.slint:624
 msgid "Delete this layout."
 msgstr "इस लेआउट को मिटाएं."
 
-#: rust/crates/effects/ui/composite_editor.slint:620
+#: rust/crates/effects/ui/composite_editor.slint:628
 msgid "Streams"
 msgstr "स्ट्रीम्स"
 
-#: rust/crates/effects/ui/composite_editor.slint:674
+#: rust/crates/effects/ui/composite_editor.slint:682
 msgid "Picked stream"
 msgstr "चुनी गई स्ट्रीम"
 
-#: rust/crates/effects/ui/composite_editor.slint:678
+#: rust/crates/effects/ui/composite_editor.slint:686
 msgid "Fit its shape"
 msgstr "आकार में फ़िट करें"
 
-#: rust/crates/effects/ui/composite_editor.slint:679
+#: rust/crates/effects/ui/composite_editor.slint:687
 msgid "Give the box the stream's original shape again, without cropping or stretching."
 msgstr "बिना काटे या खींचे, बॉक्स को वापस स्ट्रीम का असली आकार दें."
 
-#: rust/crates/effects/ui/composite_editor.slint:684
+#: rust/crates/effects/ui/composite_editor.slint:692
 msgid "Locked. Unlock it in the Streams list to change it."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:696
+#: rust/crates/effects/ui/composite_editor.slint:704
 msgid "Place"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:700
+#: rust/crates/effects/ui/composite_editor.slint:708
 msgid "X"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:701
+#: rust/crates/effects/ui/composite_editor.slint:709
 msgid "Left"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:702
+#: rust/crates/effects/ui/composite_editor.slint:710
 msgid "How far the left edge of the stream is from the left edge of the picture, in pixels."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:708
+#: rust/crates/effects/ui/composite_editor.slint:716
 msgid "Y"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:709
+#: rust/crates/effects/ui/composite_editor.slint:717
 msgid "Top"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:710
+#: rust/crates/effects/ui/composite_editor.slint:718
 msgid "How far the top edge of the stream is from the top of the picture, in pixels."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:719
+#: rust/crates/effects/ui/composite_editor.slint:727
 msgid "W"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:721
+#: rust/crates/effects/ui/composite_editor.slint:729
 msgid "The width of the stream's box in pixels."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:727
+#: rust/crates/effects/ui/composite_editor.slint:735
 msgid "H"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:729
+#: rust/crates/effects/ui/composite_editor.slint:737
 msgid "The height of the stream's box in pixels."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:737 rust/crates/effects/ui/composite_editor.slint:742
+#: rust/crates/effects/ui/composite_editor.slint:745 rust/crates/effects/ui/composite_editor.slint:750
 msgid "Swap with"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:738
+#: rust/crates/effects/ui/composite_editor.slint:746
 msgid "Swap with…"
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:743
+#: rust/crates/effects/ui/composite_editor.slint:751
 msgid "Trade this stream's place and size with another stream's."
 msgstr ""
 
-#: rust/crates/effects/ui/composite_editor.slint:748
+#: rust/crates/effects/ui/composite_editor.slint:756
 msgid "Send back"
 msgstr "पीछे भेजें"
 
-#: rust/crates/effects/ui/composite_editor.slint:749
+#: rust/crates/effects/ui/composite_editor.slint:757
 msgid "Bring forward"
 msgstr "आगे लाएं"
 
-#: rust/crates/effects/ui/composite_editor.slint:756
+#: rust/crates/effects/ui/composite_editor.slint:759
+msgid "Crop in %"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:763
+msgid "L"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:764
+msgid "Crop left"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:765
+msgid "How much of the stream is cut off at its left side, in percent of its width."
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:771
+msgid "T"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:772
+msgid "Crop top"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:773
+msgid "How much of the stream is cut off at its top, in percent of its height."
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:782 rust/crates/ui-kit/ui/widgets/colour.slint:259
+msgid "R"
+msgstr "R"
+
+#: rust/crates/effects/ui/composite_editor.slint:783
+msgid "Crop right"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:784
+msgid "How much of the stream is cut off at its right side, in percent of its width."
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:790 rust/crates/ui-kit/ui/widgets/colour.slint:259
+msgid "B"
+msgstr "B"
+
+#: rust/crates/effects/ui/composite_editor.slint:791
+msgid "Crop bottom"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:792
+msgid "How much of the stream is cut off at its bottom, in percent of its height."
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:798
+msgid "Reset crop"
+msgstr ""
+
+#: rust/crates/effects/ui/composite_editor.slint:804
 msgid "Scroll to zoom and drag with the right mouse button to move. Double-click to reset."
 msgstr "ज़ूम करने के लिए स्क्रॉल करें और खिसकाने के लिए माउस के दाएं बटन से खींचें. रीसेट करने के लिए डबल-क्लिक करें."
 
-#: rust/crates/effects/ui/composite_editor.slint:768 rust/crates/setup/ui/setup.slint:589 rust/crates/setup/ui/setup.slint:599
+#: rust/crates/effects/ui/composite_editor.slint:816 rust/crates/setup/ui/setup.slint:589 rust/crates/setup/ui/setup.slint:599
 msgid "Corners"
 msgstr "कोने"
 
-#: rust/crates/effects/ui/composite_editor.slint:772
+#: rust/crates/effects/ui/composite_editor.slint:820
 msgid "How round the corners are."
 msgstr "कोने कितने गोल हैं."
 
-#: rust/crates/effects/ui/composite_editor.slint:780
+#: rust/crates/effects/ui/composite_editor.slint:828
 msgid "Border"
 msgstr "बॉर्डर"
 
-#: rust/crates/effects/ui/composite_editor.slint:784
+#: rust/crates/effects/ui/composite_editor.slint:832
 msgid "How thick the border is."
 msgstr "बॉर्डर कितना मोटा है."
 
-#: rust/crates/effects/ui/composite_editor.slint:793
+#: rust/crates/effects/ui/composite_editor.slint:841
 msgid "Border colour"
 msgstr "बॉर्डर का रंग"
 
-#: rust/crates/effects/ui/composite_editor.slint:824
+#: rust/crates/effects/ui/composite_editor.slint:872
 msgid "Background colour"
 msgstr "बैकग्राउंड का रंग"
 
-#: rust/crates/effects/ui/composite_editor.slint:850
+#: rust/crates/effects/ui/composite_editor.slint:898
 msgid "Show a picture behind the streams instead of the colour."
 msgstr "रंग के बजाय स्ट्रीम के पीछे कोई तस्वीर दिखाएं."
 
-#: rust/crates/effects/ui/composite_editor.slint:870 rust/crates/link/ui/connection.slint:686
+#: rust/crates/effects/ui/composite_editor.slint:918 rust/crates/link/ui/connection.slint:686
 msgid "Close"
 msgstr "बंद करें"
 
-#: rust/crates/effects/ui/composite_editor.slint:881
+#: rust/crates/effects/ui/composite_editor.slint:929
 msgid "Replace layout"
 msgstr "लेआउट बदलें"
 
-#: rust/crates/effects/ui/composite_editor.slint:884 rust/crates/effects/ui/composite_editor.slint:887 rust/crates/shell/src/plugins/presets.rs:186
+#: rust/crates/effects/ui/composite_editor.slint:932 rust/crates/effects/ui/composite_editor.slint:935 rust/crates/shell/src/plugins/presets.rs:186
 msgid "Name:"
 msgstr "नाम:"
 
-#: rust/crates/effects/ui/composite_editor.slint:895 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1102 rust/crates/shell/ui/settings.slint:587
+#: rust/crates/effects/ui/composite_editor.slint:943 rust/crates/link/ui/connection.slint:498 rust/crates/link/ui/connection.slint:726 rust/crates/setup/ui/setup.slint:492 rust/crates/shell/src/extra_cameras.rs:107 rust/crates/shell/src/notice.rs:47 rust/crates/shell/src/settings.rs:1102 rust/crates/shell/ui/settings.slint:587
 msgid "OK"
 msgstr "ठीक है"
 
-#: rust/crates/effects/ui/composite_editor.slint:904 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
+#: rust/crates/effects/ui/composite_editor.slint:952 rust/crates/link/src/plugin.rs:820 rust/crates/link/ui/connection.slint:768 rust/crates/setup/src/stats_phone.rs:158
 msgid "No"
 msgstr "नहीं"
 
-#: rust/crates/effects/ui/composite_editor.slint:905 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
+#: rust/crates/effects/ui/composite_editor.slint:953 rust/crates/link/src/plugin.rs:819 rust/crates/link/ui/connection.slint:761 rust/crates/setup/src/stats_phone.rs:158 rust/crates/setup/src/stats_phone.rs:162
 msgid "Yes"
 msgstr "हाँ"
 
@@ -10543,16 +10599,8 @@ msgid "Hex"
 msgstr "Hex"
 
 #: rust/crates/ui-kit/ui/widgets/colour.slint:259
-msgid "R"
-msgstr "R"
-
-#: rust/crates/ui-kit/ui/widgets/colour.slint:259
 msgid "G"
 msgstr "G"
-
-#: rust/crates/ui-kit/ui/widgets/colour.slint:259
-msgid "B"
-msgstr "B"
 
 #: rust/crates/ui-kit/ui/widgets/colour.slint:366
 msgid "Saturation and brightness"
