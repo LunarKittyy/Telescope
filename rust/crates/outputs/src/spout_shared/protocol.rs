@@ -3,6 +3,8 @@
 
 /// The file mapping that lists the senders.
 pub const NAMES_MAP: &str = "SpoutSenderNames";
+/// The file mapping that holds the name of the sender receivers take when asked for "the active sender" (one name, NAME_LEN bytes).
+pub const ACTIVE_MAP: &str = "ActiveSenderName";
 /// Bytes each sender name takes in that list, null-terminated; the list ends at the first empty name.
 pub const NAME_LEN: usize = 256;
 

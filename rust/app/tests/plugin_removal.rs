@@ -141,6 +141,7 @@ fn every_plugin(bus: &telescope_core::BusSender) -> Vec<Box<dyn Plugin>> {
         Box::new(telescope_link::browser::plugin::BrowserCameraPlugin::new(server, Vec::new)),
         Box::new(telescope_outputs::webcam::WebcamPlugin::system()),
         Box::new(telescope_outputs::spout::SpoutPlugin::system()),
+        Box::new(telescope_outputs::spout_send::SpoutSendPlugin::system()),
         Box::new(telescope_effects::cinema::CinemaPlugin::new()),
         Box::new(telescope_effects::background::BackgroundPlugin::with_reader(pictures.clone())),
         Box::new(telescope_effects::face_exposure::FaceExposurePlugin::new()),
@@ -194,6 +195,7 @@ const NOT_IN_PRESETS: &[(&str, &str)] = &[
     ("wait_screen", "an image path and a size cache, both machine-bound"),
     ("notes", "the teleprompter's text and display are people's own content, kept out on purpose"),
     ("browser_camera", "its address and known browsers belong to one computer"),
+    ("spout_send", "where pictures are shared with other programs on this computer, not a look"),
 ];
 
 #[test]
@@ -339,6 +341,7 @@ fn starts_streams_and_quits(left_out: Option<&str>) {
     assert!(!w.is_streaming());
     assert!(worker.stops());
     w.shut_down();
+    window::forget(); // the window is kept for callbacks from other threads until it's let go
 }
 
 #[test]
@@ -353,6 +356,8 @@ fn the_app_starts_streams_and_quits_without_any_one_optional_plugin() {
         std::thread::Builder::new().stack_size(32 * 1024 * 1024).spawn(move || loop {
             let Some(left_out) = queue.lock().unwrap().pop() else { return };
             starts_streams_and_quits(left_out.as_deref());
+            // Compiling a window leaves most of a gigabyte freed but held by glibc, and the threads build one after another
+            telescope_system::memory::release_freed_memory();
         }).unwrap()
     }).collect();
     for helper in helpers {
@@ -378,7 +383,7 @@ fn every_card_in_the_window_folds() {
     };
     assert!(titles.len() > 20, "{titles:?}");
     // Three show only while their source is picked, which Python's findChildren doesn't mind
-    for name in ["browser_camera", "webcam", "spout"] {
+    for name in ["browser_camera", "webcam", "spout", "spout_send"] {
         w.state.borrow_mut().effects.push(telescope_shell::shell::Effect::Props { plugin: name.into(), ui: "card".into(), props: serde_json::json!({"visible": true}) });
     }
     w.process();

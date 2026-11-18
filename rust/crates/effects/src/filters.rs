@@ -202,7 +202,7 @@ impl Settings {
 }
 
 fn shader(wgsl: &str, uniforms: Value) -> ShaderStep {
-    ShaderStep { wgsl: wgsl.into(), uniforms, textures: Vec::new() }
+    ShaderStep { keeps_geometry: false, wgsl: wgsl.into(), uniforms, textures: Vec::new() }
 }
 
 /// What the CPU denoise over time remembers, by the stream it saw, each in a lock of its own. The plugin keeps it, so moving a slider
@@ -267,6 +267,10 @@ impl Pixels {
 }
 
 impl CpuStep for Pixels {
+    fn keeps_geometry(&self) -> bool {
+        true
+    }
+
     fn forget_history(&mut self, source: &str) {
         if let Some(forget) = &self.forget {
             forget(source);

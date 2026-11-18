@@ -41,7 +41,7 @@ fn rgba(rgb: &Rgb) -> Frame {
 
 fn on_the_card() -> impl FnMut(Frame) -> Frame {
     let mut pipeline = telescope_media::FfmpegMedia.pipeline().expect("a frame pipeline");
-    let step = FrameStep::Shader(ShaderStep { wgsl: CRT.into(), uniforms: json!({}), textures: Vec::new() });
+    let step = FrameStep::Shader(ShaderStep { keeps_geometry: false, wgsl: CRT.into(), uniforms: json!({}), textures: Vec::new() });
     pipeline.set_steps(vec![StagedStep { owner: NAME.into(), stage: FrameStage::Effects, step }]);
     move |frame| pipeline.process(frame, &Ctx)
 }

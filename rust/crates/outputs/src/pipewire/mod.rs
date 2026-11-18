@@ -3,6 +3,7 @@
 mod connection;
 mod ffi;
 pub mod pod;
+mod sender;
 mod stream;
 mod video;
 
@@ -12,4 +13,5 @@ pub(crate) mod test_source;
 pub use connection::{Connection, Node};
 pub use ffi::{PwBuffer, StreamState};
 pub use stream::{Stream, StreamConfig, StreamHandler, StreamRef, PW_DIRECTION_INPUT, PW_DIRECTION_OUTPUT, PW_STREAM_FLAG_ALLOC_BUFFERS, PW_STREAM_FLAG_AUTOCONNECT, PW_STREAM_FLAG_DRIVER, SPA_ID_INVALID};
+pub use sender::VideoSender;
 pub use video::{VideoConsumer, VideoFormat, VideoFrame};

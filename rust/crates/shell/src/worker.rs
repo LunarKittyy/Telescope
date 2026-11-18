@@ -242,6 +242,9 @@ impl Settle {
     }
 }
 
+/// What a frame's transparency goes over before the virtual camera gets it: black, until a layout can say another colour.
+pub const CAMERA_BACKGROUND: [u8; 3] = [0, 0, 0];
+
 /// frame scaled to fit width x height, keeping its shape, with black bars as needed (the same frame if it fits).
 /// Black in the camera's video range is Y 16, as Python's bars come out.
 pub fn fit_frame(frame: &Frame, width: u32, height: u32) -> Frame {
@@ -1554,7 +1557,7 @@ impl Shared {
                         // A frame a plugin replaced in the slot goes out again but isn't another one
                         let fresh = src.number != self.last_sent_number.load(Ordering::Relaxed);
                         watch.frame(telescope_core::time::monotonic_ns(), &context);
-                        let fit = fit_frame(&src, want.0, want.1);
+                        let fit = fit_frame(&src.flattened(CAMERA_BACKGROUND), want.0, want.1);
                         fitted = Some(if nv12 { to_nv12(&fit) } else { fit });
                         fitted_to = want;
                         shown = Some(src.clone());
@@ -1563,7 +1566,7 @@ impl Shared {
                     None => {
                         let src = shown.clone().unwrap();
                         if want != fitted_to {
-                            let fit = fit_frame(&src, want.0, want.1);
+                            let fit = fit_frame(&src.flattened(CAMERA_BACKGROUND), want.0, want.1);
                             fitted = Some(if nv12 { to_nv12(&fit) } else { fit });
                             fitted_to = want;
                         }

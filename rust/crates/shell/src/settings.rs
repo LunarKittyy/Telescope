@@ -271,7 +271,10 @@ pub fn open(window: &Rc<Window>, tab: &str) {
 /// Drops the settings window, so the next open builds it again (each scene has a window of its own).
 pub fn forget() {
     PLAN.with(|p| *p.borrow_mut() = None);
-    SETTINGS.with(|s| *s.borrow_mut() = None);
+    // A window that is still shown keeps its component alive, and with it everything compiled for the page
+    if let Some(settings) = SETTINGS.with(|s| s.borrow_mut().take()) {
+        let _ = settings.ui.hide();
+    }
 }
 
 /// The window if it's been built, for tests and scenes.
