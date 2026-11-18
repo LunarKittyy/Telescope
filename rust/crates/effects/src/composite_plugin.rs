@@ -288,9 +288,9 @@ impl CompositePlugin {
         Tile { zoom: tile.zoom.min(self.max_zoom), ..tile.clone() }
     }
 
-    /// The layout as it is drawn.
+    /// The layout as it is drawn: the zoom held to Max zoom and the hidden tiles left out.
     pub(crate) fn shown_layout(&self) -> Layout {
-        Layout { tiles: self.layout.tiles.iter().map(|t| self.capped(t)).collect(), ..self.layout.clone() }
+        Layout { tiles: self.layout.tiles.iter().filter(|t| !t.hidden).map(|t| self.capped(t)).collect(), ..self.layout.clone() }
     }
 
     fn prepare(&mut self) {
@@ -469,7 +469,7 @@ impl CompositePlugin {
     fn show(&mut self, host: &mut dyn Host) {
         // While it's on it draws from other streams' frames, which only keep coming when the steps run
         host.want_frames(NAME, self.on);
-        let live = self.layout.tiles.iter().filter(|t| host.is_streaming_from(Some(&t.source_id))).count();
+        let live = self.layout.tiles.iter().filter(|t| !t.hidden && host.is_streaming_from(Some(&t.source_id))).count();
         // the stream it draws on sends the picture of several, not one camera's view
         host.preview_composited(NAME, self.target.as_deref().filter(|_| self.on && live >= 2));
         let camera = self.camera_label.as_str();

@@ -71,6 +71,7 @@ Optional (switch it on under **Streaming and devices** in the Plugins tab of Set
 
 - The switch on the **One picture** card turns it on and **Edit picture…** opens the editor with a live preview
 - Drag a stream to move it. Arrow keys nudge it a pixel at a time and Shift makes that ten
+- The **Streams** list shows the layers with the front one on top. Click a name to pick it. The eye hides a stream from the picture without taking it out of the layout and the lock stops it being moved or changed until it is unlocked. **Send back** and **Bring forward** change the layer
 - **Position** and **Size** under Picked stream take exact values in pixels of the picture (Up and Down change them by one). **Swap with** trades this stream's place and size with another stream's
 - The handles on the corners and sides resize it the way OBS does. A plain drag scales it without changing its shape. Hold Shift to stretch or squash it into any shape and Alt to crop the side you're dragging instead (each side remembers its own crop)
 - Edges snap to the picture's edges and middle and to the other streams. Hold Ctrl to place one freely

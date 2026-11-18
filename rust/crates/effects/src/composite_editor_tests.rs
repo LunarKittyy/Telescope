@@ -197,12 +197,64 @@ fn the_streams_list_puts_streams_in_and_takes_them_out() {
     r.picture(tiles.clone());
     r.picture(tiles); // twice: the list is made afresh, not added to
     let texts: Vec<String> = r.props()["streams"].as_array().unwrap().iter().map(|s| s["text"].as_str().unwrap().to_string()).collect();
-    assert_eq!(texts, ["Phone A", "Phone B", "Old phone (not streaming)"]);
-    r.ui("stream-toggled", json!([1, true]));
+    // the layout's tiles come first with the front one on top, then the running streams that aren't in it
+    assert_eq!(texts, ["Old phone (not streaming)", "Phone A", "Phone B"]);
+    r.ui("stream-toggled", json!([2, true]));
     assert_eq!(r.sources(), ["a", "gone", "b"]);
     assert_eq!(r.props()["selected"], json!(2));
-    r.ui("stream-toggled", json!([0, false]));
+    // now the list reads b, gone, a from the top
+    r.ui("stream-toggled", json!([2, false]));
     assert_eq!(r.sources(), ["gone", "b"]);
+}
+
+#[test]
+fn a_hidden_stream_is_left_out_of_the_picture_and_a_locked_one_takes_no_change() {
+    let mut r = open();
+    r.picture(vec![Tile::boxed("a", "", 0.0, 0.0, 1.0, 1.0), Tile::boxed("b", "", 0.6, 0.6, 0.3, 0.3)]);
+    // the list: b on top
+    let rows = r.props()["streams"].clone();
+    assert_eq!((rows[0]["layer"].clone(), rows[0]["hidden"].clone(), rows[0]["locked"].clone()), (json!(true), json!(false), json!(false)));
+    r.ui("stream-picked", json!([0]));
+    assert_eq!(r.props()["selected"], json!(1));
+    r.ui("stream-hidden", json!([0, true]));
+    assert!(r.tile(1).hidden);
+    assert_eq!(r.plugin.shown_layout().tiles.len(), 1, "it isn't drawn");
+    assert_eq!(r.props()["tiles"][1]["missing"], json!(true), "the editor shows an empty outline for it");
+    // a click on the picture where it is picks the big one behind it
+    r.pointer("down", (0.7, 0.7), false, NO_KEYS);
+    r.pointer("up", (0.7, 0.7), false, NO_KEYS);
+    assert_eq!(r.props()["selected"], json!(0));
+    r.ui("stream-hidden", json!([0, false]));
+    assert_eq!(r.plugin.shown_layout().tiles.len(), 2);
+    // locked: not grabbed on the picture, and the boxes, nudges and swaps do nothing
+    r.ui("stream-locked", json!([0, true]));
+    r.ui("stream-picked", json!([0]));
+    let before = r.tile(1);
+    r.pointer("down", (0.7, 0.7), false, NO_KEYS);
+    r.pointer("move", (0.5, 0.5), false, NO_KEYS);
+    r.pointer("up", (0.5, 0.5), false, NO_KEYS);
+    r.ui("box-committed", json!(["x", "10"]));
+    r.ui("key", json!(["left", false]));
+    r.ui("swap-picked", json!([0]));
+    r.ui("zoom-moved", json!([300.0]));
+    assert_eq!(r.tile(1), Tile { locked: true, ..before.clone() });
+    // the click on the picture went through to the stream behind it; the list picks the locked one again
+    assert_eq!(r.props()["selected"], json!(0));
+    r.ui("stream-picked", json!([0]));
+    assert_eq!(r.props()["tile-locked"], json!(true));
+    // unlocking is allowed, and then it changes again
+    r.ui("stream-locked", json!([0, false]));
+    r.ui("box-committed", json!(["x", "10"]));
+    assert_ne!(r.tile(1).x, before.x);
+}
+
+#[test]
+fn hidden_and_locked_are_saved_only_when_set() {
+    let plain = crate::composite::tile_dict(&Tile::boxed("a", "A", 0.0, 0.0, 1.0, 1.0));
+    assert!(plain.get("hidden").is_none() && plain.get("locked").is_none());
+    let set = Tile { hidden: true, locked: true, ..Tile::boxed("a", "A", 0.0, 0.0, 1.0, 1.0) };
+    let back = crate::composite::clean_tile(&crate::composite::tile_dict(&set)).unwrap();
+    assert!(back.hidden && back.locked);
 }
 
 #[test]
