@@ -562,6 +562,11 @@ fn the_auto_director_saves_the_layout_picked_by_hand_follows_a_rename_and_puts_i
 }
 
 #[test]
+fn the_declared_settings_round_trip() {
+    telescope_core::testing::settings_round_trip(&mut CompositePlugin::new(), &mut telescope_core::testing::FakeHost::new());
+}
+
+#[test]
 fn a_preset_saves_the_picture_but_not_the_saved_layouts() {
     let mut r = rig();
     r.two_streams(0.0);

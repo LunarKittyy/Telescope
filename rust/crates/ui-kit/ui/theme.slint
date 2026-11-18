@@ -213,8 +213,9 @@ export global Theme {
     public pure function u(n: float) -> length { unit * n }
     out property <length> row: unit * 16;
     // How wide the control at the right of a settings row is (a picker, a text box, a segmented choice), the same in every row so the column of them lines up
-    // The larger text gives the names beside them more of the room, so the largest text trades 20 px of it back: the same in every row either way
-    out property <length> control-w: body > 14px ? 240px : 260px;
+    // The larger text gives the names beside them more of the room, so the largest text trades 16 px of it back: the same in every row either way.
+    // A looser density gives the control back what its names take (Comfortable beside Compact and Default at the largest text needs about 270 px).
+    out property <length> control-w: body > 14px ? 244px + max(0px, unit - 2px) * 112 : 260px;
     // How narrow it may get when a long name beside it (a translation) needs the room
     out property <length> control-min: control-w * 0.75;
     // Text larger than the default is wider in the same words: what a value beside a slider is given grows with it, and never shrinks with

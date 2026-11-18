@@ -1357,6 +1357,15 @@ impl Plugin for FramingPlugin {
         }
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        vec![
+            SettingSpec::switch("on", "Whether the picture follows you", false),
+            SettingSpec::number("framing", "How much of you is in frame: 0 head, 1 chest, 2 waist, 3 body", 0.0, FRAMINGS.len() as f64 - 1.0, 1, FRAMING_DEFAULT),
+            SettingSpec::switch("hand", "Whether the framing widens when you hold a hand out", false),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         json!({"on": self.switch, "framing": self.framing_value(), "speed": self.speed, "room": self.room, "hand": self.hand})
     }

@@ -833,6 +833,10 @@ impl State {
         }
         self.effects.push(Effect::Stopped(name));
         self.show_stopped_banner();
+        // A built-in going down takes the added plugins that need it along
+        if !self.slots[i].info.added {
+            self.stop_unmet_needs();
+        }
     }
 
     /// Takes what owner shared out of the registry, telling everyone.
@@ -1023,8 +1027,8 @@ impl State {
         needs_reason(&self.builtins, &info.needs, |n| self.index(n).is_some_and(|i| self.slots[i].stopped.is_none()))
     }
 
-    /// Stops the added plugins whose built-in plugins aren't all running any more (one stopped while the saved settings went in), before
-    /// anything hears on_plugins_ready.
+    /// Stops the added plugins whose built-in plugins aren't all running any more, whether one stopped while the saved settings went in or
+    /// later (stop_slot calls this when a built-in goes down).
     fn stop_unmet_needs(&mut self) {
         for i in 0..self.slots.len() {
             let slot = &self.slots[i];
@@ -1034,7 +1038,8 @@ impl State {
             if let Some(why) = self.missing_needs(&self.slots[i].info) {
                 self.blocked.insert(self.slots[i].info.name.clone());
                 log::error!("Plugin {} stopped: {why}", self.slots[i].info.name);
-                self.stop_slot(i, &why);
+                // The same path a panic takes, so a dependant that hides things closes Telescope instead of going quietly
+                self.stop_after_panic(i, &why);
             }
         }
     }
@@ -1414,12 +1419,20 @@ impl State {
             return true;
         }
         let steps = self.hiding_steps.get(source_id).or_else(|| self.hiding_steps.get(""));
-        steps.is_some_and(|owners| owners.iter().any(|o| !self.hiding.contains_key(o)))
+        steps.is_some_and(|owners| owners.iter().any(|o| !self.hiding.get(o).is_some_and(|per| said(per).is_some())))
     }
 
-    /// Host::set_hiding: recorded at once, so a photo about to go sees a cover asked for in the same batch.
+    /// Host::set_hiding: recorded at once, so a photo about to go sees a cover asked for in the same batch. A device-local plugin holds the shown
+    /// camera's settings, so a report without a stream is that camera's own and no other stream's: only a plugin that isn't device-local speaks
+    /// for all of them (""), and the streams a device-local one hasn't reported on count as hiding if its steps do.
     pub fn set_hiding(&mut self, owner: &str, source_id: Option<&str>, on: bool) {
-        self.hiding.entry(owner.to_string()).or_default().insert(source_id.unwrap_or("").to_string(), on);
+        let local = self.slots.iter().any(|s| s.info.device_local && s.info.name == owner);
+        let key = match source_id {
+            Some(id) => id.to_string(),
+            None if local => self.streams.source_id.clone().or_else(|| self.selected.clone()).unwrap_or_default(),
+            None => String::new(),
+        };
+        self.hiding.entry(owner.to_string()).or_default().insert(key, on);
         self.sync_hidden_flags();
     }
 
@@ -1431,7 +1444,7 @@ impl State {
     }
 
     /// Every flag handed out says what picture_hidden_for says now. A flag no photo holds any more goes.
-    fn sync_hidden_flags(&mut self) {
+    pub(crate) fn sync_hidden_flags(&mut self) {
         self.hidden_flags.retain(|_, flag| Arc::strong_count(flag) > 1);
         for (id, flag) in &self.hidden_flags {
             flag.store(self.picture_hidden_for(id), std::sync::atomic::Ordering::SeqCst);
@@ -3160,6 +3173,44 @@ mod tests {
     }
 
     #[test]
+    fn an_added_plugin_stops_when_a_built_in_it_needs_stops_later() {
+        struct Dependent;
+        impl Plugin for Dependent {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "trap".into(), added: true, needs: vec!["photos".into()], ..Default::default() }
+            }
+        }
+        let mut s = state();
+        s.builtins = vec![PluginInfo { name: "photos".into(), title: "Photos".into(), ..Default::default() }];
+        s.register(stub("photos", json!({}), false).0).unwrap();
+        s.register(Box::new(Dependent)).unwrap();
+        assert!(s.stopped().is_empty());
+        s.stop_after_panic(0, "boom");
+        assert!(s.stopped().contains_key("photos") && s.stopped().contains_key("trap"));
+        assert_eq!(s.stopped()["trap"], "It needs Photos, which is switched off.");
+        assert!(s.blocked.contains("trap"));
+    }
+
+    #[test]
+    fn an_added_plugin_that_hides_things_closes_the_app_when_the_built_in_it_needs_stops() {
+        struct Hider;
+        impl Plugin for Hider {
+            fn info(&self) -> PluginInfo {
+                PluginInfo { name: "hider".into(), added: true, needs: vec!["photos".into()], frame_stage: telescope_core::frame::FrameStage::Privacy, ..Default::default() }
+            }
+        }
+        let mut s = state();
+        s.hiding_panic = record_close;
+        CLOSED.with(|c| c.borrow_mut().clear());
+        s.builtins = vec![PluginInfo { name: "photos".into(), title: "Photos".into(), ..Default::default() }];
+        s.register(stub("photos", json!({}), false).0).unwrap();
+        s.register(Box::new(Hider)).unwrap();
+        s.stop_after_panic(0, "boom");
+        assert_eq!(CLOSED.with(|c| c.borrow().clone()), ["hider"]);
+        assert!(!s.stopped().contains_key("hider"), "it carries on hiding until the app closes");
+    }
+
+    #[test]
     fn built_in_or_added_comes_from_where_the_plugin_came_from_and_a_blocked_one_says_so() {
         let mut s = state();
         let mut cfg = s.file.load();
@@ -3588,6 +3639,77 @@ mod tests {
         drop(flag);
         s.set_hiding("cover", None, true);
         assert!(s.hidden_flags.is_empty());
+    }
+
+    #[test]
+    fn a_plugin_that_stops_leaves_no_stream_hidden_behind_it() {
+        use std::sync::atomic::Ordering::SeqCst;
+        let mut s = state();
+        s.register(stub("background", json!({}), true).0).unwrap();
+        let (a, b) = (s.hidden_flag("a"), s.hidden_flag("b"));
+        s.set_hiding("background", Some("a"), true);
+        s.set_hiding("background", Some("b"), true);
+        // Its shutdown only reports on the shown stream, b
+        s.set_hiding("background", Some("b"), false);
+        assert!(a.load(SeqCst));
+        crate::host::Ctx { state: &mut s, me: "background".into() }.release_everything();
+        assert!(!a.load(SeqCst) && !b.load(SeqCst) && !s.picture_hidden_for("a"), "a isn't left hidden by a plugin that's gone");
+    }
+
+    #[test]
+    fn one_streams_hiding_report_never_clears_anothers() {
+        use std::sync::atomic::Ordering::SeqCst;
+        let mut s = state();
+        s.register(stub("background", json!({}), true).0).unwrap();
+        s.register(stub("blur", json!({}), false).0).unwrap();
+        let (a, b) = (s.hidden_flag("a"), s.hidden_flag("b"));
+        // A device-local plugin hides the stream the panels show
+        s.streams.source_id = Some("a".into());
+        s.set_hiding("background", None, true);
+        s.set_hiding("blur", None, false);
+        assert!(a.load(SeqCst) && s.picture_hidden_for("a"));
+        // The panels move to a stream it isn't hiding: its report is about that one
+        s.streams.source_id = Some("b".into());
+        s.set_hiding("background", None, false);
+        assert!(a.load(SeqCst) && s.picture_hidden_for("a"), "a keeps its own");
+        assert!(!b.load(SeqCst) && !s.picture_hidden_for("b"), "b is not hidden");
+        // One that hides every stream still does, and ends for all of them
+        s.set_hiding("blur", None, true);
+        assert!(a.load(SeqCst) && b.load(SeqCst));
+        s.set_hiding("blur", None, false);
+        assert!(a.load(SeqCst) && !b.load(SeqCst), "blur ending leaves a to background");
+        // Back on a: what it says there is a's
+        s.streams.source_id = Some("a".into());
+        s.set_hiding("background", None, true);
+        s.set_hiding("background", None, false);
+        assert!(!a.load(SeqCst) && !s.picture_hidden_for("a") && !b.load(SeqCst));
+        // A stream asked about by name is unaffected by the others, too
+        s.set_hiding("background", Some("b"), true);
+        assert!(!a.load(SeqCst) && b.load(SeqCst));
+    }
+
+    #[test]
+    fn a_device_local_plugin_speaks_only_for_the_camera_it_was_shown_on() {
+        use std::sync::atomic::Ordering::SeqCst;
+        let mut s = state();
+        s.register(stub("background", json!({}), true).0).unwrap();
+        let (a, b) = (s.hidden_flag("a"), s.hidden_flag("b"));
+        // Both cameras blur: a's report, then the panels move to b, which says the same
+        s.streams.source_id = Some("a".into());
+        s.set_hiding("background", None, true);
+        assert!(a.load(SeqCst) && !b.load(SeqCst), "b has not been told about");
+        s.streams.source_id = Some("b".into());
+        s.set_hiding("background", None, true);
+        assert!(a.load(SeqCst) && b.load(SeqCst));
+        // Back on a, its blur goes off: b keeps its own
+        s.streams.source_id = Some("a".into());
+        s.set_hiding("background", None, false);
+        assert!(!a.load(SeqCst) && b.load(SeqCst) && s.picture_hidden_for("b"), "b is still blurred");
+        // With no camera shown, the report is everyone's
+        s.streams.source_id = None;
+        s.set_hiding("background", None, false);
+        s.set_hiding("background", Some("b"), true);
+        assert!(!a.load(SeqCst) && b.load(SeqCst));
     }
 
     #[test]

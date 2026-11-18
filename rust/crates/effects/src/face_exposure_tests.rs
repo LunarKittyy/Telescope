@@ -445,3 +445,8 @@ fn whole_runs_send_what_python_sends() {
         assert!(!r.wants_people(), "{name}");
     }
 }
+
+#[test]
+fn the_declared_settings_round_trip() {
+    telescope_core::testing::settings_round_trip(&mut FaceExposurePlugin::new(), &mut telescope_core::testing::FakeHost::new());
+}

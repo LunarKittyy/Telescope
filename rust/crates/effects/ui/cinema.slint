@@ -168,9 +168,9 @@ export component CinemaSettings inherits Card {
         named: true;
         hue: root.hue;
         Segmented {
-            preferred-width: Theme.control-w;
+            preferred-width: self.room;
             min-width: Theme.control-min;
-            max-width: Theme.control-w;
+            max-width: self.room;
             hue: root.hue;
             items: [@tr("Red"), @tr("Green"), @tr("Blue"), @tr("White")];
             tips: [@tr("Red"), @tr("Green"), @tr("Blue"), @tr("White")];

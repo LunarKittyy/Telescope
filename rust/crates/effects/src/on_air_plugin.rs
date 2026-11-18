@@ -736,6 +736,11 @@ impl Plugin for OnAirPlugin {
         }
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        let triggers = [("camera", "When the camera is in use"), ("camera_mic", "When the camera or the microphone is in use"), ("mic", "When the microphone is in use"), ("streaming", "While a stream is running")];
+        vec![telescope_core::settings::SettingSpec::choice("trigger", "When the On Air sign lights up", &triggers, DEFAULT_TRIGGER)]
+    }
+
     fn get_config(&self) -> Value {
         json!({
             "trigger": self.trigger, "page": self.page, "token": self.token, "address": self.address,

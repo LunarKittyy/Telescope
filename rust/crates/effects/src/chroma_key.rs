@@ -214,6 +214,8 @@ pub struct ChromaKeyPlugin {
     cached: Option<(TablesKey, Arc<Tables>)>,
     /// What the host was last told with set_hiding: None until it has been.
     told_hiding: Option<bool>,
+    /// A new camera's settings or the shown camera changed: what it hides is told again even if it matches what was told last.
+    retell_hiding: bool,
 }
 
 impl Default for ChromaKeyPlugin {
@@ -258,6 +260,7 @@ impl ChromaKeyPlugin {
             pending: true,
             cached: None,
             told_hiding: None,
+            retell_hiding: false,
         }
     }
 
@@ -330,7 +333,8 @@ impl ChromaKeyPlugin {
     /// Tells the host when the screen starts or stops being keyed out, without waiting for the stream's steps to be made again.
     fn report_hiding(&mut self, host: &mut dyn Host) {
         let hiding = self.on && !self.picking && self.key_colour().is_some();
-        if self.told_hiding != Some(hiding) {
+        if self.retell_hiding || self.told_hiding != Some(hiding) {
+            self.retell_hiding = false;
             self.told_hiding = Some(hiding);
             host.set_hiding(NAME, None, hiding);
         }
@@ -584,8 +588,21 @@ impl Plugin for ChromaKeyPlugin {
         self.show(host);
     }
 
+    fn shutdown(&mut self, host: &mut dyn Host) {
+        if self.told_hiding.take() == Some(true) {
+            host.set_hiding(NAME, None, false);
+        }
+    }
+
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
+        // The panels moved to another camera: the host holds this plugin's report per camera, so it hears again
+        if matches!(event, Event::SourceShown { .. }) {
+            self.retell_hiding = true;
+        }
         self.catch_up(host);
+        if self.retell_hiding {
+            self.report_hiding(host);
+        }
         if let Some(on) = self.paired.hear(event) {
             host.set_ui_props("card", &json!({"active": on}));
         }
@@ -759,6 +776,18 @@ impl Plugin for ChromaKeyPlugin {
         }))
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        vec![
+            SettingSpec::switch("on", "Whether the screen colour is removed from the picture", false),
+            SettingSpec::choice("screen", "Which screen colour is removed", &[("green", "A green screen"), ("blue", "A blue screen")], "green"),
+            SettingSpec::number("tolerance", "How many shades of the screen colour are removed", 0.0, 100.0, 0, 40.0),
+            SettingSpec::number("softness", "How soft the edge around you is", 0.0, 100.0, 0, 30.0),
+            SettingSpec::number("spill", "How much of the screen's colour is taken off your edges and skin", 0.0, 100.0, 0, 60.0),
+            SettingSpec::choice("background", "What shows where the screen was", &[("colour", "The colour chosen on the card"), ("picture", "The picture chosen on the card")], "colour"),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         let mut cfg = Map::new();
         cfg.insert("on".into(), json!(self.on));
@@ -792,6 +821,7 @@ impl Plugin for ChromaKeyPlugin {
         self.status = None;
         // once, with the whole of it: the next hook with a host shows it
         self.pending = true;
+        self.retell_hiding = true;
         Ok(())
     }
 

@@ -479,6 +479,26 @@ impl Plugin for CinemaPlugin {
         }
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        let scopes = [("off", "No graph"), ("histogram", "How many pixels sit at each brightness"), ("waveform", "Brightness across the width of the picture"), ("parade", "The waveform of red, green and blue side by side"), ("vectorscope", "Colours placed by hue and strength")];
+        let guides = [("off", "No lines"), ("thirds", "A grid of thirds"), ("cross", "A cross through the centre"), ("4x4", "A grid of four by four boxes"), ("golden", "Lines at the golden ratio")];
+        let colours = [("red", "Red outlines"), ("green", "Green outlines"), ("blue", "Blue outlines"), ("white", "White outlines")];
+        let sizes = [("small", "About a quarter of the preview's width"), ("medium", "About a third of the preview's width"), ("large", "Half the preview's width")];
+        vec![
+            SettingSpec::switch("peaking", "Outlines what is in focus on the preview", false),
+            SettingSpec::switch("zebras", "Stripes over what is too bright on the preview", false),
+            SettingSpec::switch("false_colour", "Paints the preview by how bright each part is", false),
+            SettingSpec::switch("level", "Shows a level line on the preview", false),
+            SettingSpec::choice("scope", "Which brightness or colour graph shows on the preview", &scopes, "off"),
+            SettingSpec::choice("guides", "Which framing lines show on the preview", &guides, "off"),
+            SettingSpec::choice("peaking_colour", "The colour of the focus outlines", &colours, "red"),
+            SettingSpec::number("peaking_level", "How soft an edge has to be to still be outlined", 1.0, 10.0, 0, 5.0),
+            SettingSpec::number("zebra_level", "How bright something has to be to get stripes", 70.0, 100.0, 0, 95.0).unit("%"),
+            SettingSpec::choice("scope_size", "How big the graph is", &sizes, "medium"),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         let look = &self.look;
         let mut cfg = Map::new();

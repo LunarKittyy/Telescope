@@ -102,7 +102,7 @@ pub(crate) fn on_wayland(window: &slint::Window) -> bool {
 
 /// Whether the system has a mouse button down, where it can be asked.
 #[cfg(windows)]
-fn button_down(_window: &slint::Window) -> Option<bool> {
+pub(crate) fn button_down(_window: &slint::Window) -> Option<bool> {
     use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON, VK_RBUTTON};
     // Both, since these are the physical buttons and the system can have them swapped
     let down = |key: i32| unsafe { GetAsyncKeyState(key) } < 0;
@@ -110,7 +110,7 @@ fn button_down(_window: &slint::Window) -> Option<bool> {
 }
 
 #[cfg(all(unix, not(target_os = "macos")))]
-fn button_down(window: &slint::Window) -> Option<bool> {
+pub(crate) fn button_down(window: &slint::Window) -> Option<bool> {
     use slint::winit_030::winit::raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle};
     use x11_dl::xlib;
     thread_local! {

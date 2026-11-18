@@ -896,6 +896,10 @@ impl Plugin for StatsPlugin {
         }
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        vec![telescope_core::settings::SettingSpec::choice("view", "How much the Stats card shows", &[("standard", "The numbers most people want"), ("nerd", "Every number")], "standard")]
+    }
+
     fn get_config(&self) -> Value {
         json!({"view": self.view.name()})
     }

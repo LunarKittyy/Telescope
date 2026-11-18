@@ -365,3 +365,8 @@ fn each_reset_puts_back_its_own_half() {
     assert!(host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
     assert!(host.calls.iter().any(|c| c == "schedule_save"));
 }
+
+#[test]
+fn the_declared_settings_round_trip() {
+    telescope_core::testing::settings_round_trip(&mut CinemaPlugin::new(), &mut telescope_core::testing::FakeHost::new());
+}

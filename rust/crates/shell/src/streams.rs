@@ -829,7 +829,10 @@ impl Window {
         });
         let still_alive: Box<dyn Fn() -> bool + Send> = Box::new(move || alive.load(std::sync::atomic::Ordering::SeqCst));
         let started = match (camera, phone) {
-            (Some(camera), _) => camera.take(options, folder, on_progress, on_done, still_alive),
+            (Some(camera), _) => match hidden {
+                Some(hidden) => camera.take_unless_hidden(options, folder, on_progress, on_done, still_alive, hidden),
+                None => camera.take(options, folder, on_progress, on_done, still_alive),
+            },
             (None, Some((stills, base, phone))) => match hidden {
                 Some(hidden) => stills.take_unless_hidden(Some(source), &base, &phone, options, folder, on_progress, on_done, still_alive, hidden),
                 None => stills.take(Some(source), &base, &phone, options, folder, on_progress, on_done, still_alive),

@@ -25,12 +25,6 @@ use telescope_core::ui::{SettingsSection, SlintSource, UiEvent};
 use telescope_core::plugin_admin::PluginAdmin;
 
 const FLASH_MS: u64 = 1800;
-/// The size it opens at and its minimum, as in the window's source, in logical pixels.
-const SIZE: (f32, f32) = (940.0, 680.0);
-const LEAST: (f32, f32) = (720.0, 480.0);
-/// What a window keeps clear of the screen's edges (controls.SCREEN_MARGIN).
-const SCREEN_MARGIN: f32 = 48.0;
-
 type Rect = (f32, f32, f32, f32);
 
 /// (tab id, its name, the sections on it in order) for the tabs that have any (settings_window.ordered_tabs).
@@ -128,6 +122,8 @@ pub struct Settings {
     telling: Cell<bool>,
     window: Weak<Window>,
     fitted: Cell<bool>,
+    /// Where it may be, and the size its person wants
+    place: Rc<crate::screen::Placement>,
     flash: slint::Timer,
     /// Looks at the download and the update check while the window is up, and shows what they found.
     watch: slint::Timer,
@@ -439,7 +435,10 @@ fn create(window: &Rc<Window>, plan: Plan) -> Result<Rc<Settings>, String> {
     crate::appearance::apply(&ui);
     // A .zip dropped anywhere on the window installs like the Install button does
     let drops = Rc::new(plugins_tab::DropBatch::default());
+    let place = crate::screen::Placement::new(crate::screen::Limits::settings());
+    let mut follow = crate::screen::follow(&ui, &place);
     crate::keys::watch_scan_codes_and(&ui, move |event| {
+        follow(event);
         if let slint::winit_030::winit::event::WindowEvent::DroppedFile(path) = event {
             if drops.add(path.clone()) {
                 let drops = drops.clone();
@@ -467,6 +466,7 @@ fn create(window: &Rc<Window>, plan: Plan) -> Result<Rc<Settings>, String> {
         telling: Cell::new(false),
         window: Rc::downgrade(window),
         fitted: Cell::new(false),
+        place,
         flash: slint::Timer::default(),
         watch: slint::Timer::default(),
         seen: RefCell::new(String::new()),
@@ -751,37 +751,27 @@ impl Settings {
         true
     }
 
-    /// The first time it opens: _fit_to_screen, from the work area of the screen it came up on (once the system has made the
-    /// window), and moved back in where it sticks out.
+    /// The first time it opens: cut down to the work area of the screen it opens on (the main window's) at its usual size, clear of the edges, and
+    /// put in the middle of the main window, inside that work area.
     fn keep_on_screen(&self) {
         if self.fitted.replace(true) {
             return;
         }
-        crate::screen::when_made(&self.ui, |w| crate::screen::work_area(w).filter(|_| w.inner_size().width > 0), |ui, area| {
-            let Some(settings) = SETTINGS.with(|s| s.borrow().clone()) else { return };
-            let scale = ui.window().scale_factor();
-            settings.fit_to_screen((area.width as f32 / scale, area.height as f32 / scale));
-            settings.centre(ui);
-        });
+        self.centre(&self.ui);
     }
 
     /// In the middle of the main window (a window owned by another opens wherever the system likes, the corner on Windows).
     fn centre(&self, ui: &ComponentInstance) {
-        let scale = ui.window().scale_factor();
-        let least = ((320.0 * scale) as u32, (240.0 * scale) as u32);
         match self.window.upgrade() {
-            Some(main) => crate::screen::centre_over(ui, &main.ui, least),
-            None => crate::screen::keep_inside(ui, least),
+            Some(main) => crate::screen::centre_over(ui, &main.ui, &self.place),
+            None => crate::screen::keep_inside(ui, &self.place),
         }
     }
 
-    /// Opens at its usual size unless the screen is smaller, keeping clear of its edges; a small screen also wins over
-    /// the window's minimum. In logical pixels.
-    pub fn fit_to_screen(&self, screen: (f32, f32)) {
-        let (w, h) = (SIZE.0.min(screen.0 - SCREEN_MARGIN), SIZE.1.min(screen.1 - SCREEN_MARGIN));
-        let _ = self.ui.set_property("least-width", SValue::Number(LEAST.0.min(w) as f64));
-        let _ = self.ui.set_property("least-height", SValue::Number(LEAST.1.min(h) as f64));
-        self.ui.window().set_size(slint::LogicalSize::new(w, h));
+    /// Fits the window as for a screen that is not there (tests): a work area of this many physical pixels at this scale, the frame adding `frame`.
+    /// Gives the inside it comes to, in physical pixels at that scale.
+    pub fn fit_to_work_area(&self, area: (u32, u32), scale: f64, frame: (u32, u32)) -> (u32, u32) {
+        crate::screen::fit_by_hand(&self.ui, &self.place, crate::screen::Area { x: 0, y: 0, width: area.0, height: area.1 }, scale, frame)
     }
 
     fn show_row(&self, row: usize) {

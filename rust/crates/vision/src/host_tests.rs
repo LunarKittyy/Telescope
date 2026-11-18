@@ -456,8 +456,11 @@ fn a_zip_install_and_a_download_cannot_both_hold_the_pack_folder() {
     gate.store(true, Ordering::SeqCst);
     assert_eq!(finished(&bus).len(), 1);
     assert_eq!(h.install_pack_zip(&zip), PackZip::Started);
-    assert_eq!(h.install_pack_zip(&zip), PackZip::Busy, "a second install while the first runs");
     assert_eq!(finished(&bus).len(), 1);
+    // an install is too quick to catch while it runs, so one that is running is stood in for by the flag it holds
+    h.shared.download.lock().unwrap().running = true;
+    assert_eq!(h.install_pack_zip(&zip), PackZip::Busy, "a second install while one runs");
+    h.shared.download.lock().unwrap().running = false;
     assert_eq!(h.install_pack_zip(Path::new("my-plugin.zip")), PackZip::NotPack);
 }
 

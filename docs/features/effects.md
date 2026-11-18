@@ -43,6 +43,7 @@ Optional. Switch it on under **Camera** in the Plugins tab of Settings and the P
 - **Format** is JPEG with a quality setting, HEIC, Ultra HDR (Android 14) or RAW as a DNG, alone or together with a JPEG
 - **Full resolution** under **Mode** uses the sensor's real size (the 50 or 200 MP on sensors that normally give 12). **Night**, **HDR** and **Bokeh** are the phone maker's own modes and show up if the maker lets other apps use them (Android 12)
 - **Shots** can be a burst of up to 60, an exposure bracket for HDR merging or a focus bracket from near to far for focus stacking
+- **DSLRs over USB** take photos from this card on Linux. On Windows a Nikon or Canon shows live view but photos aren't there yet
 - **Merge bracket** appears for a focus bracket or an exposure bracket saved as JPEG (or RAW and JPEG). **Photos** saves only the photos. **Both** adds one merged picture next to them. **Merged** saves only the merged picture and deletes the photos. A focus bracket is merged into a picture that is sharp from near to far, an exposure bracket into one with detail in both the dark and the bright parts. The photos are lined up first, including the small size change as the focus moves. Where something moved between the photos the middle photo is used. The merged picture is a JPEG named after the first photo with `_focus-merged` or `_exposure-merged`. It takes a few seconds after the photos arrive. If the merge fails the photos are still saved
 - **Merged brightness** (exposure brackets only) leans the merged picture toward the darker photos or the lighter ones. The middle is the default
 - **Exposure** takes a long exposure up to what the sensor allows (30 s or more on some phones) at the video's ISO
@@ -98,7 +99,7 @@ An early version for a phone clipped to a telescope, in Lab. Switch it on under 
 - **Live stack** adds every frame and leaves out what only shows once, like satellites and noise. It is for faint things
 - **Star trails** takes the brightest value of one frame every few seconds (**Every**), which draws the stars as lines
 
-**Start** begins a run and **Stop** ends it early. A lucky run stopped early still stacks what it has, if at least 3 frames made the cut. The finished stack is saved as a PNG in Pictures/Telescope/Stargazer and **Open folder** shows it. **Show the stack on the camera** sends it to the virtual camera in place of the live picture, refreshed about once a second.
+**Start** begins a run and **Stop** ends it early. A lucky run stopped early still stacks what it has, if at least 3 frames made the cut. The finished stack is saved as a PNG in Pictures/Telescope/Stargazer and **Open folder** shows it. **Show the stack on the camera** sends it to the virtual camera in place of the live picture, refreshed about once a second. **Reset settings** in the card's header returns **Frames**, **Sharpest** and **Every** to their defaults when no run is going. The mode and the camera switch aren't reset.
 
 A run belongs to one phone and one picture size. Switching phones or changing the resolution ends it and you get the stack so far. Collecting pauses while part of the picture is hidden, by Privacy blur or the wait screen. Lucky imaging holds at most 1.5 GB of frames and the card notes it when that lowers the count. A slow computer drops frames instead of using more memory.
 

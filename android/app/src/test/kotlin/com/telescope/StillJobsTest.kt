@@ -101,16 +101,40 @@ class StillJobsTest {
     }
 
     @Test
-    fun `forgetting a request deletes its files, but only once it's over`() {
+    fun `forgetting a request deletes its files`() {
         val jobs = jobs()
         val id = jobs.start(1, 0)!!
         val file = writeFile(jobs, id, "jpg", 3)
-        jobs.forget(id)
-        assertTrue(file.exists())  // still shooting
         jobs.finish(id)
-        jobs.forget(id)
+        assertFalse(jobs.forget(id), "it was over: nothing to cancel")
         assertFalse(file.exists())
         assertNull(jobs.status(id))
+        assertFalse(jobs.forget(id), "an id that's gone is fine")
+    }
+
+    @Test
+    fun `forgetting a request still shooting cancels it, its files and the ones that come late`() {
+        val jobs = jobs()
+        val id = jobs.start(3, 0)!!
+        val first = writeFile(jobs, id, "jpg", 3)
+        val writing = jobs.newFile(id, "jpg")!!
+        writing.writeBytes(ByteArray(2))
+        assertTrue(jobs.forget(id), "it was still shooting")
+        assertFalse(first.exists())
+        assertNull(jobs.status(id))
+        assertNull(jobs.active())
+        // A file being written when the computer forgot it never becomes one
+        jobs.fileDone(id, writing)
+        assertFalse(writing.exists())
+        assertFalse(File(writing.path.removeSuffix(".part")).exists())
+        // and the shots still queued have nowhere to go
+        assertNull(jobs.newFile(id, "jpg"))
+        jobs.shotTaken(id)
+        jobs.finish(id)
+        assertNull(jobs.status(id))
+        assertEquals(emptyList<String>(), dir.list()!!.toList())
+        // The phone is free for the next photo
+        assertNotNull(jobs.start(1, 0))
     }
 
     @Test

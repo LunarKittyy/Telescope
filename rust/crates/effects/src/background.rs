@@ -490,6 +490,8 @@ pub struct BackgroundPlugin {
     peeking: bool,
     /// What the host was last told with set_hiding: None until it has been.
     told_hiding: Option<bool>,
+    /// A new camera's settings or the shown camera changed: what it hides is told again even if it matches what was told last.
+    retell_hiding: bool,
 }
 
 impl Default for BackgroundPlugin {
@@ -526,6 +528,7 @@ impl BackgroundPlugin {
             pending: true,
             peeking: false,
             told_hiding: None,
+            retell_hiding: false,
         }
     }
 
@@ -564,7 +567,8 @@ impl BackgroundPlugin {
     /// Tells the host when the room starts or stops being hidden, without waiting for the stream's steps to be made again.
     fn report_hiding(&mut self, host: &mut dyn Host) {
         let hiding = self.mode != 0;
-        if self.told_hiding != Some(hiding) {
+        if self.retell_hiding || self.told_hiding != Some(hiding) {
+            self.retell_hiding = false;
             self.told_hiding = Some(hiding);
             host.set_hiding(NAME, None, hiding);
         }
@@ -660,8 +664,21 @@ impl Plugin for BackgroundPlugin {
         self.catch_up(host);
     }
 
+    fn shutdown(&mut self, host: &mut dyn Host) {
+        if self.told_hiding.take() == Some(true) {
+            host.set_hiding(NAME, None, false);
+        }
+    }
+
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
+        // The panels moved to another camera: the host holds this plugin's report per camera, so it hears again
+        if matches!(event, Event::SourceShown { .. }) {
+            self.retell_hiding = true;
+        }
         self.catch_up(host);
+        if self.retell_hiding {
+            self.report_hiding(host);
+        }
         if let Some(on) = self.paired.hear(event) {
             host.set_ui_props("card", &json!({"active": on}));
         }
@@ -793,6 +810,15 @@ impl Plugin for BackgroundPlugin {
         Some(if blur { FrameStep::Either(card_blur(self.blur), step) } else { FrameStep::Cpu(step) })
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        use telescope_core::settings::SettingSpec;
+        vec![
+            SettingSpec::choice("mode", "What goes behind you", &[("off", "Nothing, the picture as it is"), ("blur", "The room blurred"), ("picture", "The picture chosen on the card")], "off"),
+            SettingSpec::number("blur", "How blurred the room is in blur mode", 1.0, 10.0, 0, DEFAULT_BLUR as f64),
+            SettingSpec::number("edges", "How soft the edge around you is", 0.0, 10.0, 0, DEFAULT_EDGES as f64),
+        ]
+    }
+
     fn get_config(&self) -> Value {
         let mut cfg = Map::new();
         cfg.insert("mode".into(), json!(self.mode_name()));
@@ -822,6 +848,7 @@ impl Plugin for BackgroundPlugin {
         self.load_picture(&picture);
         // once, with the whole of it: the next hook with a host shows it
         self.pending = true;
+        self.retell_hiding = true;
         Ok(())
     }
 

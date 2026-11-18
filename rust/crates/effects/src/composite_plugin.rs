@@ -803,6 +803,10 @@ impl Plugin for CompositePlugin {
         Some(FrameStep::Cpu(Box::new(CompositeStep(self.shared.clone()))))
     }
 
+    fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
+        vec![telescope_core::settings::SettingSpec::switch("on", "Whether the streams are put into one picture", false)]
+    }
+
     fn get_config(&self) -> Value {
         // a layout the director cut to isn't what's saved: the one picked by hand is
         let manual = if self.director.is_away() { self.layouts.iter().find(|l| l.name == self.director.home()).unwrap_or(&self.layout) } else { &self.layout };

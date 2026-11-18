@@ -85,8 +85,9 @@ pub trait Rig: Send {
     fn write(&mut self, name: &str, value: &str) -> Result<(), String>;
     /// After the camera ended live view on its own.
     fn restart_live_view(&mut self);
-    /// Takes one photo to the computer and gives each file the camera made; expect is how many to wait for (RAW and JPEG are two).
-    fn capture(&mut self, _expect: usize) -> Result<Vec<Shot>, Incomplete> {
+    /// Takes one photo to the computer and gives each file the camera made; expect is how many to wait for (RAW and JPEG are two). `stop`
+    /// says the picture went hidden: no file is fetched from the camera after that, and what came is the caller's to throw away.
+    fn capture(&mut self, _expect: usize, _stop: &dyn Fn() -> bool) -> Result<Vec<Shot>, Incomplete> {
         Err("this camera can't take photos".into())
     }
     /// A flag that is set when the camera's thread is asked to end, which a photo being waited for ends its wait for.
