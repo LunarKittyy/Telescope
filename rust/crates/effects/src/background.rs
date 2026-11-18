@@ -5,7 +5,7 @@ use crate::cpu::Rgb;
 use crate::shared::{mask_shared, mask_shared_hq};
 use crate::imgops::{blur_quick, compose, Gray};
 use crate::peek;
-use crate::shared::{no_pictures, thumb_of, Paired, PictureReader};
+use crate::shared::{no_pictures, thumb_of, Paired, PictureReader, Wanted};
 use crate::vision_row;
 use serde_json::{json, Map, Value};
 use std::path::Path;
@@ -13,7 +13,7 @@ use std::sync::{Arc, OnceLock};
 use telescope_core::actions::{self, Choice, SliderSpec};
 use telescope_core::config::clamped_int;
 use telescope_core::event::Event;
-use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat, ShaderStep};
+use telescope_core::frame::{Alpha, CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat, ShaderStep};
 use telescope_core::host::{FileDialog, FileDialogKind, Host, RequestId};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::image::{over_rows, planes_up_to_420, resize_linear_fixed, rgb_planes, rgb_to_420, small_rgb, spare_bytes, with_spares};
@@ -168,6 +168,8 @@ enum Backdrop {
 
 struct Step {
     settings: Settings,
+    /// Whose cut-out goes onto the frame as its alpha plane
+    wanted: Wanted,
     /// The picture scaled to cover this frame's size
     covered: Option<Rgb>,
     spares: Vec<Vec<u8>>,
@@ -203,6 +205,8 @@ struct Quarter {
     wide: Option<Wide>,
     /// The blur's weights for one strength
     weights: Option<(i64, Option<Weights>)>,
+    /// The feathered mask as the frame's alpha plane, made the first time a stream wants it and kept with `wide`
+    alpha: Option<Arc<Alpha>>,
 }
 
 /// A feathered mask at the size of the luma plane and of a chroma plane.
@@ -217,6 +221,8 @@ struct Derived {
     size: (usize, usize),
     soft: Option<((i64, i64), Gray)>,
     rest: Option<Gray>,
+    /// `soft` as the frame's alpha plane, made the first time a stream wants it
+    alpha: Option<Arc<Alpha>>,
 }
 
 impl CpuStep for Step {
@@ -323,7 +329,7 @@ const CARD_BLUR: &str = include_str!("background.wgsl");
 
 fn card_blur(strength: i64) -> ShaderStep {
     let nothing = || Frame::new(1, 1, PixelFormat::Rgba, vec![0, 0, 0, 255]);
-    ShaderStep { wgsl: CARD_BLUR.into(), uniforms: card_uniforms(strength), textures: vec![(BLUR_CUTOUT.into(), nothing()), (BLUR_WEIGHTS.into(), nothing())] }
+    ShaderStep { keeps_geometry: false, wgsl: CARD_BLUR.into(), uniforms: card_uniforms(strength), textures: vec![(BLUR_CUTOUT.into(), nothing()), (BLUR_WEIGHTS.into(), nothing())] }
 }
 
 impl Step {
@@ -336,18 +342,20 @@ impl Step {
         }
         let mask = if self.settings.high_quality { mask_shared_hq(ctx, frame) } else { mask_shared(ctx, frame) };
         let Some(rgb) = Rgb::from_frame(frame) else { return };
+        let want = self.wants_cut_out(frame, ctx);
         // No mask yet (vision still loading, or it can't segment) is the same as having lost track: the room stays hidden
         let Some(mask) = mask else { return self.hide_all(frame, &rgb) };
         let size = (rgb.w, rgb.h);
         let mut derived = match self.derived.take() {
             Some(d) if Arc::ptr_eq(&d.src, &mask) && d.size == size => d,
-            _ => Derived { src: mask, size, soft: None, rest: None },
+            _ => Derived { src: mask, size, soft: None, rest: None, alpha: None },
         };
         let src = derived.src.clone();
         let whole = || Gray { w: size.0, h: size.1, data: src.to_vec() };
         let shaping = (self.settings.edges, self.settings.cut_in);
         if derived.soft.as_ref().is_none_or(|(e, _)| *e != shaping) {
             derived.soft = Some((shaping, whole().soften_cut(shaping.0, shaping.1)));
+            derived.alpha = None;
         }
         match self.backdrop() {
             Backdrop::Blur => {
@@ -362,7 +370,17 @@ impl Step {
                 compose(&rgb, edges, self.covering(&picture, &rgb)).write_to(frame);
             }
         }
+        if want {
+            let edges = &derived.soft.as_ref().unwrap().1;
+            let alpha = derived.alpha.get_or_insert_with(|| Arc::new(Alpha::new(rgb.w as u32, rgb.h as u32, edges.data.clone(), false))).clone();
+            frame.set_alpha(alpha);
+        }
         self.derived = Some(derived);
+    }
+
+    /// Whether this frame's stream asked for its cut-out and no step before this one gave it one.
+    fn wants_cut_out(&self, frame: &Frame, ctx: &dyn FrameContext) -> bool {
+        frame.alpha().is_none() && self.wanted.has(ctx.source_id())
     }
 
     /// What goes behind the person: the blur, or the picture. Picture mode with no picture to show (none chosen, or the file can't be read) blurs instead, so the room never shows.
@@ -391,13 +409,14 @@ impl Step {
         let edges = (self.settings.edges, self.settings.cut_in);
         let mut q = match self.quarter.take() {
             Some(q) if Arc::ptr_eq(&q.src, &src) && q.size == (qw, qh) && q.full == (w, h) => q,
-            _ => Quarter { src, size: (qw, qh), full: (w, h), soft: None, rest: None, wide: None, weights: None },
+            _ => Quarter { src, size: (qw, qh), full: (w, h), soft: None, rest: None, wide: None, weights: None, alpha: None },
         };
         if q.soft.as_ref().is_none_or(|(e, _)| *e != edges) {
             let whole = Gray { w: qw, h: qh, data: q.src.to_vec() };
             let cut = whole.cut_in(edges.1);
             q.soft = Some((edges, if edges.0 <= 0 { cut } else { cut.blur(edges.0 as f64 * 0.6) }));
             q.wide = None;
+            q.alpha = None;
         }
         if blur && q.rest.is_none() {
             let whole = Gray { w: qw, h: qh, data: q.src.to_vec() };
@@ -409,6 +428,7 @@ impl Step {
     /// A frame in YUV done on its planes, with no RGB picture of it made at full size: the mask comes at a quarter of the size and is feathered there, the blur is made at an eighth, and both are scaled up as they go over the frame's own planes. Where there's no one in the mask the frame is the background alone. False when this isn't a frame it does that way (the caller does it in RGB).
     fn run_planes(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) -> bool {
         let (w, h) = (frame.width as usize, frame.height as usize);
+        let want = self.wants_cut_out(frame, ctx);
         let (blur, picture) = match self.backdrop() {
             Backdrop::Blur => (true, None),
             Backdrop::Picture(picture) => (false, Some(picture)),
@@ -456,6 +476,11 @@ impl Step {
             }
         }
         frame.replace_data(out);
+        // The alpha is the mask the frame was laid over the background with: nobody in it is all zero. With no mask yet the frame is all background and has no cut-out to give.
+        if let (true, Some(q)) = (want, quarter.as_mut()) {
+            let alpha = q.alpha.get_or_insert_with(|| Arc::new(Alpha::new(w as u32, h as u32, q.wide.as_ref().map_or_else(|| vec![0; w * h], |wide| wide.luma.clone()), false))).clone();
+            frame.set_alpha(alpha);
+        }
         self.quarter = quarter;
         true
     }
@@ -492,6 +517,10 @@ pub struct BackgroundPlugin {
     told_hiding: Option<bool>,
     /// A new camera's settings or the shown camera changed: what it hides is told again even if it matches what was told last.
     retell_hiding: bool,
+    /// The streams whose cut-out is wanted (Event::CutOutWanted), which the steps read
+    wanted: Wanted,
+    /// Blur was switched on by a stream wanting its cut-out while the mode was Off, not picked on the card: it goes back to Off with the last stream's, and is saved as Off meanwhile.
+    auto_on: bool,
 }
 
 impl Default for BackgroundPlugin {
@@ -529,6 +558,8 @@ impl BackgroundPlugin {
             peeking: false,
             told_hiding: None,
             retell_hiding: false,
+            wanted: Wanted::default(),
+            auto_on: false,
         }
     }
 
@@ -619,6 +650,27 @@ impl BackgroundPlugin {
         host.refresh_frame_step();
     }
 
+    /// A stream's picture is asked to carry its cut-out, or no longer. A camera with Background off gets Blur for as long as any stream wants it, so there is something to cut out.
+    fn cut_out_wanted(&mut self, host: &mut dyn Host, source_id: &str, on: bool) {
+        let (moved, empty) = self.wanted.set(source_id, on);
+        // The mode here is the shown camera's, so only a stream shown now has it switched
+        let mine = host.focused_source_id().is_none_or(|shown| shown == source_id);
+        let before = self.mode;
+        if on && self.mode == 0 && mine {
+            self.mode = 1;
+            self.auto_on = true;
+        } else if !on && empty && self.auto_on {
+            self.mode = 0;
+            self.auto_on = false;
+        }
+        if self.mode != before {
+            self.show(host);
+        }
+        if moved || self.mode != before {
+            host.refresh_frame_step();
+        }
+    }
+
     fn choose_picture(&mut self, host: &mut dyn Host) {
         let start = Path::new(&self.picture_path).parent().filter(|p| !self.picture_path.is_empty() && !p.as_os_str().is_empty())
             .map_or_else(|| std::env::home_dir().unwrap_or_default().display().to_string(), |p| p.display().to_string());
@@ -679,6 +731,9 @@ impl Plugin for BackgroundPlugin {
         if self.retell_hiding {
             self.report_hiding(host);
         }
+        if let Event::CutOutWanted { source_id, on } = event {
+            self.cut_out_wanted(host, source_id, *on);
+        }
         if let Some(on) = self.paired.hear(event) {
             host.set_ui_props("card", &json!({"active": on}));
         }
@@ -692,6 +747,7 @@ impl Plugin for BackgroundPlugin {
                     self.load_picture(path);
                     if self.picture_problem.is_empty() {
                         self.mode = 2;
+                        self.auto_on = false;
                     }
                     self.changed(host);
                 }
@@ -717,6 +773,7 @@ impl Plugin for BackgroundPlugin {
             "mode-picked" => {
                 if (n(0) as usize) < MODES.len() {
                     self.mode = n(0) as usize;
+                    self.auto_on = false;
                     self.changed(host);
                 }
             }
@@ -784,6 +841,7 @@ impl Plugin for BackgroundPlugin {
                 let (said, pick) = actions::choice_target(params, &options, Some(self.mode), true)?;
                 if pick {
                     self.mode = said;
+                    self.auto_on = false;
                     self.changed(host);
                 }
                 Some(actions::slider_text(&tr("Background"), &shown[said]))
@@ -805,7 +863,7 @@ impl Plugin for BackgroundPlugin {
         }
         let settings = Settings { mode: self.mode, blur: self.blur, edges: self.edges, cut_in: self.cut_in, picture: self.picture.clone(), high_quality: self.high_quality };
         let blur = MODES[self.mode].0 == "blur";
-        let step = Box::new(Step { settings, covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None, card: CardPictures::default() });
+        let step = Box::new(Step { settings, wanted: self.wanted.clone(), covered: None, spares: Vec::new(), covered_yuv: None, derived: None, quarter: None, card: CardPictures::default() });
         // Blur can go to the graphics card; Picture mode stays on the CPU
         Some(if blur { FrameStep::Either(card_blur(self.blur), step) } else { FrameStep::Cpu(step) })
     }
@@ -821,7 +879,8 @@ impl Plugin for BackgroundPlugin {
 
     fn get_config(&self) -> Value {
         let mut cfg = Map::new();
-        cfg.insert("mode".into(), json!(self.mode_name()));
+        // Blur that a cut-out switched on is not what was chosen, so the settings keep Off
+        cfg.insert("mode".into(), json!(if self.auto_on { MODES[0].0 } else { self.mode_name() }));
         cfg.insert("blur".into(), json!(self.blur));
         cfg.insert("edges".into(), json!(self.edges));
         cfg.insert("picture".into(), json!(self.picture_path));
@@ -839,6 +898,7 @@ impl Plugin for BackgroundPlugin {
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
         let empty = Value::Object(Map::new());
         let cfg = if cfg.is_object() { cfg } else { &empty };
+        self.auto_on = false;
         self.mode = cfg.get("mode").and_then(Value::as_str).and_then(|m| MODES.iter().position(|(k, _)| *k == m)).unwrap_or(0);
         self.blur = clamped_int(cfg.get("blur").unwrap_or(&Value::Null), DEFAULT_BLUR, 1, 10);
         self.edges = clamped_int(cfg.get("edges").unwrap_or(&Value::Null), DEFAULT_EDGES, 0, 10);

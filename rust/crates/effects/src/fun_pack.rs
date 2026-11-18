@@ -907,7 +907,7 @@ impl Plugin for FunPackPlugin {
         let effect = self.effect;
         self.stepped = Some(effect);
         if effect == "game_boy" {
-            return Some(FrameStep::Shader(ShaderStep { wgsl: GAME_BOY.into(), uniforms: json!({}), textures: Vec::new() }));
+            return Some(FrameStep::Shader(ShaderStep { keeps_geometry: false, wgsl: GAME_BOY.into(), uniforms: json!({}), textures: Vec::new() }));
         }
         if !fx::EFFECTS.contains(&effect) {
             return None;
@@ -916,7 +916,7 @@ impl Plugin for FunPackPlugin {
         let step = Box::new(FunStep { hub: self.hub.clone(), frozen, own: Runner::default(), spares: Vec::new() });
         if effect == "crt" {
             // On the card while it has room, so it adds no trip down and back up between the steps that already run there
-            return Some(FrameStep::Either(ShaderStep { wgsl: CRT.into(), uniforms: json!({}), textures: Vec::new() }, step));
+            return Some(FrameStep::Either(ShaderStep { keeps_geometry: false, wgsl: CRT.into(), uniforms: json!({}), textures: Vec::new() }, step));
         }
         Some(FrameStep::Cpu(step))
     }
