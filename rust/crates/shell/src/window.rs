@@ -126,6 +126,7 @@ pub struct Window {
 const POPOUT: &str = r#"
 import { PreviewMarks, PreviewPick, LensOutline, SkeletonLine } from "shell/preview.slint";
 import { FineAxis } from "@ui-kit/ui-kit.slint";
+export { Theme, Motion, Tips } from "@ui-kit/ui-kit.slint";
 
 export struct LayerPath { commands: string, stroke: color, width: length, fill: color, evenodd: bool }
 export struct LayerText { x: length, y: length, text: string, color: color, size: length }
@@ -437,7 +438,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
     let text = doc::window(&cards, &panels, &headers);
     let def = crate::compile::compile("window.slint", &text, files.clone(), "TelescopeWindow")?;
     let ui = def.create().map_err(|e| e.to_string())?;
-    crate::motion::apply(&ui);
+    crate::appearance::apply(&ui);
     set_app_icon(&ui);
     let window = Rc::new(Window {
         state: Rc::new(RefCell::new(state)),
@@ -1290,6 +1291,7 @@ impl Window {
                         });
                     }
                     set_app_icon(&p);
+                    crate::appearance::apply(&p);
                     if let Ok(accent) = self.ui.get_global_property("Theme", "accent-soft") {
                         let _ = p.set_property("marker-colour", accent);
                     }
@@ -1437,7 +1439,7 @@ impl Window {
         if let Ok(look) = self.ui.get_global_property("Theme", "look") {
             let _ = ui.set_global_property("Theme", "look", look);
         }
-        crate::motion::apply(&ui);
+        crate::appearance::apply(&ui);
         let _ = ui.show();
         crate::frame::dress(&ui);
         crate::parent::attach(&ui, &self.ui);
@@ -1621,6 +1623,36 @@ impl Window {
                 }
                 crate::frame::dress(&self.ui);
                 crate::settings::set_look(look);
+            }
+            Effect::Appearance(appearance) => {
+                // Only a change of contrast moves a title bar's colours: dragging the tooltip delay shouldn't touch the frames
+                let before = crate::appearance::current();
+                let reframe = before.contrast != appearance.contrast;
+                // Picking System asks the desktop again, since its setting may have changed since the app started
+                if appearance.motion == telescope_core::host::MotionChoice::System && before.motion != telescope_core::host::MotionChoice::System {
+                    crate::motion::refresh();
+                }
+                crate::appearance::store(appearance);
+                crate::appearance::apply_to(&self.ui, &appearance);
+                for (_, _, open) in self.plugin_windows.borrow().iter() {
+                    crate::appearance::apply_to(open, &appearance);
+                    if reframe {
+                        crate::frame::dress(open);
+                    }
+                }
+                if let Some(popout) = self.popout.borrow().as_ref() {
+                    crate::appearance::apply_to(popout, &appearance);
+                }
+                if let Some(question) = self.slots_question() {
+                    crate::appearance::apply_to(&question, &appearance);
+                    if reframe {
+                        crate::frame::dress(&question);
+                    }
+                }
+                if reframe {
+                    crate::frame::dress(&self.ui);
+                }
+                crate::settings::set_appearance(&appearance);
             }
             Effect::RestartCanvas { plugin, request, shows_command } => self.restart_canvas(&plugin, request, shows_command),
             Effect::RemoveExtras { plugin, request } => self.remove_extras(&plugin, request),

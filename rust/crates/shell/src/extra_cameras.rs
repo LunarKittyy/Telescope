@@ -100,7 +100,7 @@ impl Window {
                 let _ = ui.set_global_property("Theme", name, value);
             }
         }
-        crate::motion::apply(&ui);
+        crate::appearance::apply(&ui);
         let string = |t: &str| SValue::String(t.into());
         let _ = ui.set_property("window-title", string(&tr("Set up more virtual cameras")));
         let _ = ui.set_property("text", string(&text));

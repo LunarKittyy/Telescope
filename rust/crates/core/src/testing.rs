@@ -221,6 +221,8 @@ pub struct FakeHost {
     pub plugin_hues: Option<bool>,
     /// What set_look last said (None until it's called).
     pub look: Option<crate::host::Look>,
+    /// What set_appearance last said (None until it's called).
+    pub appearance: Option<crate::host::Appearance>,
     /// What set_power_saving last said (None until it's called).
     pub power_saving: Option<bool>,
     /// What the plugin last offered the bottom bar (offer_bar_stats), and the ids pinned to it (bar_pins), which pin_to_bar changes.
@@ -528,6 +530,10 @@ impl HostShell for FakeHost {
     fn set_look(&mut self, look: crate::host::Look) {
         self.note(format!("set_look {}", look.name()));
         self.look = Some(look);
+    }
+    fn set_appearance(&mut self, appearance: crate::host::Appearance) {
+        self.note(format!("set_appearance {appearance:?}"));
+        self.appearance = Some(appearance);
     }
     fn pick_file(&mut self, dialog: &FileDialog) -> Option<RequestId> {
         self.note(format!("pick_file {:?} {}", dialog.kind, dialog.title));
