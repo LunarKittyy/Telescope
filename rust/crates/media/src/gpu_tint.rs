@@ -56,12 +56,17 @@ impl Kit {
     }
 }
 
-/// The size the tools judge a w x h picture at: as scopes::shrunk_size has it, at most WORK_WIDTH wide, the shape kept.
-fn work_size(w: u32, h: u32) -> (u32, u32) {
-    if w <= WORK_WIDTH {
+/// A w x h picture shrunk to at most `width` wide, the shape kept, as scopes::shrunk_size has it.
+fn shrunk_to(w: u32, h: u32, width: u32) -> (u32, u32) {
+    if w <= width {
         return (w, h);
     }
-    (WORK_WIDTH, (((h as u64 * WORK_WIDTH as u64) as f64 / w as f64).round_ties_even() as u32).max(1))
+    (width, (((h as u64 * width as u64) as f64 / w as f64).round_ties_even() as u32).max(1))
+}
+
+/// The size the tools judge a w x h picture at: at most WORK_WIDTH wide.
+fn work_size(w: u32, h: u32) -> (u32, u32) {
+    shrunk_to(w, h, WORK_WIDTH)
 }
 
 impl Gpu {
@@ -133,6 +138,44 @@ impl Gpu {
         self.queue.submit([enc.finish()]);
         self.give_back(used);
         Ok(())
+    }
+
+    /// `src` (as paint() leaves it) shrunk to at most `width` wide by area on the card and brought back as RGBA: the small picture the scopes
+    /// work from, about 150 KB at 256 wide, in place of the whole preview coming back.
+    pub fn scope_picture(&self, src: &wgpu::Texture, width: u32) -> Result<Frame, String> {
+        self.card_ok()?;
+        let (w, h) = (src.width(), src.height());
+        if src.format() != WORK || w == 0 || h == 0 || width == 0 {
+            return Err(format!("can't shrink {w}x{h} {:?} to {width} wide", src.format()));
+        }
+        let (ow, oh) = shrunk_to(w, h, width);
+        let mut enc = self.device.create_command_encoder(&Default::default());
+        transfers::preview_down();
+        if (ow, oh) == (w, h) {
+            return Ok(Frame::new(w, h, PixelFormat::Rgba, self.download(enc, &[src], &[4])?));
+        }
+        let kit = self.tint_kit();
+        let settings: [u32; 12] = [0, 0, 0, 0, 0, 0, 0, 0, w, h, ow, oh];
+        let buf = self.uniform(bytemuck_u32(&settings));
+        let picture = src.create_view(&Default::default());
+        let colours = kit.lut.lock().unwrap().texture.create_view(&Default::default());
+        let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("scope shrink"),
+            layout: &kit.layout,
+            entries: &[
+                wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&picture) },
+                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&picture) },
+                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(&picture) },
+                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(&colours) },
+                wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::Sampler(&self.linear) },
+                wgpu::BindGroupEntry { binding: 5, resource: buf.as_entire_binding() },
+            ],
+        });
+        let small = self.texture(ow, oh, WORK);
+        draw(&mut enc, &kit.shrink, &[&bind], &small.create_view(&Default::default()));
+        let out = self.download(enc, &[&small], &[4]);
+        self.give_back([small]);
+        Ok(Frame::new(ow, oh, PixelFormat::Rgba, out?))
     }
 
     /// A frame painted at its own size, tinted and brought back as RGBA, to compare with the CPU's.

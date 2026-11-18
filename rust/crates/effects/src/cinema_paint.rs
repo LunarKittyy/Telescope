@@ -617,6 +617,10 @@ impl PreviewPass for CinemaLayer {
         if self.state.lock().unwrap().look.scope != "off" { SCOPE_FPS } else { 0.0 }
     }
 
+    fn analyses_small(&self) -> bool {
+        true
+    }
+
     fn analyse(&self, frame: &Frame) -> bool {
         if let Some(rgb) = Rgb::from_frame(frame) {
             self.analyse_rgb(&rgb);

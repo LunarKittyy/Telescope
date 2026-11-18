@@ -7,6 +7,7 @@ use std::sync::{Arc, OnceLock};
 use telescope_core::gpu_marker::{self, Card};
 use telescope_core::gpu_pick::{self, Api, Candidate, Kind};
 use telescope_core::media::Scaler;
+use telescope_core::preview::TintSpec;
 use telescope_core::Frame;
 
 /// Draws frames for the preview at the size asked for.
@@ -27,6 +28,21 @@ pub trait Painter {
     /// A different stream: what was made for the last one isn't shown.
     fn restart(&mut self) {}
 
+    /// Whether this painter can draw the Cinema tints itself on the card (and hand back a small copy for the scopes), so the next
+    /// paints need no CPU copy of the picture.
+    fn on_card(&self) -> bool {
+        false
+    }
+
+    /// What the next paint puts on the picture, and whether it also reads a small copy of the untinted picture back for the scopes.
+    /// Only a painter that is `on_card` takes any notice.
+    fn set_tint(&mut self, _spec: Option<TintSpec>, _scope: bool) {}
+
+    /// The small copy of the last paint's picture that `set_tint` asked for, as RGBA.
+    fn take_scope(&mut self) -> Option<Frame> {
+        None
+    }
+
     /// What the frames of the next paints are derived from besides their own data (Colour Compare's line and its before picture),
     /// so a frame made again from the same source is still the same job.
     fn derived_from(&mut self, _tag: u64) {}
@@ -34,18 +50,61 @@ pub trait Painter {
 
 /// Draws frames into textures on the device it was made on (media's scaler, through the app's wiring).
 pub trait TexturePainter {
-    fn paint(&mut self, frame: &Frame, width: u32, height: u32) -> Option<wgpu::Texture>;
+    /// The picture in a texture, with the tools of `tint` on it when there is one.
+    fn paint(&mut self, frame: &Frame, width: u32, height: u32, tint: Option<&TintSpec>) -> Option<wgpu::Texture>;
+
+    /// Whether the card was lost, so the tints are made on the CPU again.
+    fn lost(&self) -> bool {
+        false
+    }
+
+    /// Whether the next paints also make a small copy of the picture before any tint, for `take_scope`.
+    fn scope(&mut self, _wanted: bool) {}
+
+    /// The small copy the last paint made.
+    fn take_scope(&mut self) -> Option<Frame> {
+        None
+    }
 }
 
 /// Makes a texture painter on the device and queue Slint renders with.
 pub type GpuPainterFactory = Arc<dyn Fn(wgpu::Device, wgpu::Queue) -> Box<dyn TexturePainter> + Send + Sync>;
 
 /// A texture painter's textures, handed to Slint as they are.
-pub(crate) struct GpuPainter(pub Box<dyn TexturePainter>);
+pub(crate) struct GpuPainter {
+    painter: Box<dyn TexturePainter>,
+    tint: Option<TintSpec>,
+}
+
+impl GpuPainter {
+    pub(crate) fn new(painter: Box<dyn TexturePainter>) -> GpuPainter {
+        GpuPainter { painter, tint: None }
+    }
+}
 
 impl Painter for GpuPainter {
     fn paint(&mut self, frame: &Frame, width: u32, height: u32) -> Option<slint::Image> {
-        slint::Image::try_from(self.0.paint(frame, width, height)?).map_err(|e| log::warn!("Slint didn't take the preview's texture: {e}")).ok()
+        // Set again before each paint, so a tint that was switched off isn't painted again
+        let tint = self.tint.take();
+        slint::Image::try_from(self.painter.paint(frame, width, height, tint.as_ref())?).map_err(|e| log::warn!("Slint didn't take the preview's texture: {e}")).ok()
+    }
+
+    fn on_card(&self) -> bool {
+        !self.painter.lost()
+    }
+
+    fn set_tint(&mut self, spec: Option<TintSpec>, scope: bool) {
+        self.tint = spec;
+        self.painter.scope(scope);
+    }
+
+    fn take_scope(&mut self) -> Option<Frame> {
+        self.painter.take_scope()
+    }
+
+    fn restart(&mut self) {
+        self.tint = None;
+        self.painter.scope(false);
     }
 }
 
@@ -194,7 +253,7 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
     match opened {
         Ok((device, queue)) => {
             log::info!("The preview paints on the window's graphics card");
-            Some(Box::new(GpuPainter(factory(device, queue))))
+            Some(Box::new(GpuPainter::new(factory(device, queue))))
         }
         Err(e) => {
             log::warn!("The window can't render with wgpu, so the preview is scaled on the CPU: {e}");

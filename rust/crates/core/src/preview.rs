@@ -44,6 +44,12 @@ pub trait PreviewPass: Send + Sync {
         0.0
     }
 
+    /// Whether analyse() only needs the copy shrunk to a small size (the scopes' width), so the host can hand it one read back small
+    /// off the graphics card instead of a full-size one.
+    fn analyses_small(&self) -> bool {
+        false
+    }
+
     /// On a thread of its own, at most analyse_fps a second: a copy of the preview's frame before any tint, to work something
     /// out from (a scope). True asks for paint() to run again.
     fn analyse(&self, _frame: &Frame) -> bool {

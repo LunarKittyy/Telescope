@@ -305,28 +305,67 @@ fn start_diagnostics() {
 }
 
 /// The preview's frames painted by media's GPU scaler on the window's own device, two textures taking turns so the one
-/// Slint shows isn't drawn over.
+/// Slint shows isn't drawn over. A tinted frame is painted into `plain` first and tinted into the one Slint shows.
 struct GpuPreview {
     gpu: telescope_media::gpu::Gpu,
     pictures: [Option<telescope_shell::preview::wgpu::Texture>; 2],
+    plain: Option<telescope_shell::preview::wgpu::Texture>,
     next: usize,
+    scope: bool,
+    scope_picture: Option<telescope_core::Frame>,
+}
+
+impl GpuPreview {
+    fn new(gpu: telescope_media::gpu::Gpu) -> GpuPreview {
+        GpuPreview { gpu, pictures: [None, None], plain: None, next: 0, scope: false, scope_picture: None }
+    }
 }
 
 impl telescope_shell::preview::TexturePainter for GpuPreview {
-    fn paint(&mut self, frame: &telescope_core::Frame, width: u32, height: u32) -> Option<telescope_shell::preview::wgpu::Texture> {
-        let slot = &mut self.pictures[self.next];
-        if slot.as_ref().is_none_or(|t| (t.width(), t.height()) != (width, height)) {
-            *slot = Some(self.gpu.picture(width, height));
-        }
-        let target = slot.clone()?;
+    fn paint(&mut self, frame: &telescope_core::Frame, width: u32, height: u32, tint: Option<&telescope_core::preview::TintSpec>) -> Option<telescope_shell::preview::wgpu::Texture> {
+        let gpu = &self.gpu;
+        let of_size = |slot: &mut Option<telescope_shell::preview::wgpu::Texture>| {
+            if slot.as_ref().is_none_or(|t| (t.width(), t.height()) != (width, height)) {
+                *slot = Some(gpu.picture(width, height));
+            }
+            slot.clone()
+        };
+        let shown = of_size(&mut self.pictures[self.next])?;
         self.next = 1 - self.next;
-        match self.gpu.paint(frame, &target) {
-            Ok(()) => Some(target),
+        let plain = if tint.is_some() { of_size(&mut self.plain)? } else { shown.clone() };
+        self.scope_picture = None;
+        let painted = self.gpu.paint(frame, &plain).and_then(|()| {
+            // The scopes judge the picture before any tint, at their own small size
+            if self.scope {
+                match self.gpu.scope_picture(&plain, telescope_effects::scopes::SCOPE_WIDTH as u32) {
+                    Ok(small) => self.scope_picture = Some(small),
+                    Err(e) => log::warn!("Couldn't read back the preview for the scopes: {e}"),
+                }
+            }
+            match tint {
+                Some(spec) => self.gpu.tint(&plain, &shown, spec),
+                None => Ok(()),
+            }
+        });
+        match painted {
+            Ok(()) => Some(shown),
             Err(e) => {
                 log::warn!("Couldn't paint the preview: {e}");
                 None
             }
         }
+    }
+
+    fn lost(&self) -> bool {
+        self.gpu.is_lost()
+    }
+
+    fn scope(&mut self, wanted: bool) {
+        self.scope = wanted;
+    }
+
+    fn take_scope(&mut self) -> Option<telescope_core::Frame> {
+        self.scope_picture.take()
     }
 }
 
@@ -619,7 +658,7 @@ fn main() {
     telescope_shell::preview::use_gpu_painter(Arc::new(|device, queue| {
         // The second connection to the card opens here, before anything draws: opening it later, from a stream's thread, rescans the Vulkan drivers under the window's rendering
         let _ = telescope_media::gpu::Gpu::shared();
-        Box::new(GpuPreview { gpu: telescope_media::gpu::Gpu::on_device(device, queue), pictures: [None, None], next: 0 })
+        Box::new(GpuPreview::new(telescope_media::gpu::Gpu::on_device(device, queue)))
     }));
     let command = words.first().map(String::as_str);
     if command == Some("scenes") {

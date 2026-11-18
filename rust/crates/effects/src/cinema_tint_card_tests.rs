@@ -6,12 +6,17 @@ use telescope_media::gpu::Gpu;
 
 /// Colour with noise, a luma ramp, blocks, a bright disc and a dark one with hard edges, so every tool has something to judge.
 fn scene(w: usize, h: usize) -> Frame {
+    noisy_scene(w, h, 1.0)
+}
+
+/// `scene` with the noise at `grain` times its size (a camera's is a good deal quieter than the test's).
+fn noisy_scene(w: usize, h: usize, grain: f32) -> Frame {
     let mut n = 7u32;
     let mut data = Vec::with_capacity(w * h * 4);
     for y in 0..h {
         for x in 0..w {
             n = n.wrapping_mul(1664525).wrapping_add(1013904223);
-            let noise = (n >> 28) as f32 - 8.0;
+            let noise = ((n >> 28) as f32 - 8.0) * grain;
             let (u, v) = (x as f32 / w as f32, y as f32 / h as f32);
             let blocks = ((y * 6 / h) % 2) as f32 * 40.0;
             let mut c = [255.0 * u + noise, 120.0 + 90.0 * (v * 7.0).sin() + blocks + noise, 255.0 * (1.0 - u) * 0.6 + blocks + noise];
@@ -141,4 +146,38 @@ fn a_picture_wider_than_the_tools_judge_is_shrunk_first() {
     }
     // An odd shape that doesn't shrink to whole pixels
     compare_within("odd", &Look { zebras: true, zebra_level: 85, peaking: true, ..Look::default() }, &scene(1531, 887), 4, 3.0, 0);
+}
+
+#[test]
+fn the_small_readback_gives_the_scopes_the_picture_the_cpus_copy_does() {
+    let Some(gpu) = Gpu::shared() else {
+        eprintln!("no graphics card; skipped");
+        return;
+    };
+    for (w, h) in [(1280usize, 720usize), (1920, 1080), (1531, 887)] {
+        let frame = noisy_scene(w, h, 0.25);
+        let texture = gpu.picture(w as u32, h as u32);
+        gpu.paint(&frame, &texture).unwrap();
+        let small = gpu.scope_picture(&texture, scopes::SCOPE_WIDTH as u32).unwrap();
+        let (sw, sh) = scopes::shrunk_size(w, h, scopes::SCOPE_WIDTH).unwrap();
+        assert_eq!((small.width as usize, small.height as usize), (sw, sh));
+        assert_eq!(small.data.len(), sw * sh * 4);
+        assert!(small.data.len() < 160_000, "about 150 KB comes back, not the picture");
+        let from_card = Rgb::from_frame(&small).unwrap();
+        let from_cpu = Rgb::from_frame(&frame).unwrap();
+        for name in scopes::SCOPE_NAMES {
+            let (a, b) = (scopes::scope_image(name, &from_card).unwrap(), scopes::scope_image(name, &from_cpu).unwrap());
+            assert_eq!((a.w, a.h), (b.w, b.h));
+            let mean = a.data.iter().zip(&b.data).map(|(p, q)| p.abs_diff(*q) as u64).sum::<u64>() as f64 / a.data.len() as f64;
+            eprintln!("{name} {w}x{h}: mean {mean:.4} levels apart");
+            // The card's average is a level off the CPU's in about 3% of values, which a waveform's sparse dots show most
+            let bound = if name == "waveform" { 4.0 } else { 2.0 };
+            assert!(mean <= bound, "{name} {w}x{h}: the scope from the small readback is {mean:.3} levels from the CPU's");
+        }
+    }
+    // A picture no wider than a scope's is read back as it is
+    let frame = scene(200, 100);
+    let texture = gpu.picture(200, 100);
+    gpu.paint(&frame, &texture).unwrap();
+    assert_eq!(gpu.scope_picture(&texture, scopes::SCOPE_WIDTH as u32).unwrap().data, frame.data);
 }
