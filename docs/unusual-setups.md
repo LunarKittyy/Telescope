@@ -1,7 +1,28 @@
-<!-- covers: rust/crates/link/src/net.rs rust/crates/link/src/pairing.rs rust/crates/link/src/phones.rs android/app/src/main/kotlin/com/telescope/Pairing.kt rust/crates/effects/src/stargazer* rust/crates/effects/src/phototrap* rust/crates/effects/src/composite* rust/crates/effects/src/fun_*; checked: d369c8664 -->
+<!-- covers: rust/crates/link/src/net.rs rust/crates/link/src/pairing.rs rust/crates/link/src/phones.rs android/app/src/main/kotlin/com/telescope/Pairing.kt rust/crates/effects/src/stargazer* rust/crates/effects/src/phototrap* rust/crates/effects/src/photos* rust/crates/effects/src/desk*; checked: d369c8664 -->
 # Things to try with Telescope
 
-A phone camera on your computer is only the start. Here are a few setups to try, some useful and some for fun. Each one is a few steps. The optional plugins are switched on under **Plugins** in Settings and need a restart, see [Switching plugins on and off](features/plugins.md#switching-plugins-on-and-off).
+Here are a few ideas for Telescope that you might not think of first, from a phone on the other side of the world to a camera pointed at the night sky. Each one is a few steps. The optional plugins are switched on under **Plugins** in Settings and need a restart, see [Switching plugins on and off](features/plugins.md#switching-plugins-on-and-off).
+
+## Use a phone from far away
+
+Telescope doesn't care where the phone is as long as the two can reach each other. [Tailscale](https://tailscale.com) is the easy way to get there, since it gives every device an address that works from anywhere and Telescope already knows how to use it.
+
+1. Install Tailscale on the phone and the computer and sign in to the same tailnet.
+2. Open Telescope on both and press **Add phone**.
+3. Scan the code. The stream, the effects and the virtual camera work the same.
+
+It works for a friend's phone as a guest camera in your OBS, a phone left at the cottage or your own phone showing someone something at their place. The details are [further down](#tailscale-in-more-detail).
+
+## Take photos with a DSLR from your computer
+
+Use Telescope as a big live preview and an easier settings console for a DSLR while you take photos. This works on Linux. On Windows a Nikon or Canon shows live view but taking photos isn't there yet.
+
+1. Plug the camera in with live view on. A Nikon needs the dial on M because the other modes refuse most changes. It shows up in the device picker next to the webcams.
+2. Switch on **Photos** under **Camera** and restart. Start the stream.
+3. The **Webcam** card has what the camera lets you change right now, like white balance, focus and aperture. The **Photos** card has **ISO**, **Shutter** and **How many**.
+4. Press **Take photo**. RAW and JPEG together work if the camera supports them. The photos go to the **Save in** folder.
+
+The preview is small, since a Nikon D5100 sends 640×426. More in [Webcams and capture cards](features/sources.md#webcams-and-capture-cards) and [Photos](features/effects.md#photos).
 
 ## Look at the night sky
 
@@ -36,56 +57,16 @@ Hold the phone over the eyepiece and the computer's window is a much bigger scre
 
 The controls on offer follow what the phone's lens can do, see [Camera control](features/camera.md#camera-control).
 
-## Use an old DSLR as a webcam
+## Use the phone as a document camera
 
-A camera you already own can be a very good webcam.
+Point the phone down at a sheet of paper and everyone on the call sees it flat and head-on. It works for homework help, a sketch or signing something.
 
-1. Plug it in. A camera with a USB webcam mode shows up in the device picker as it is. One with a clean HDMI output works through an HDMI capture card, since the computer sees the card as a webcam.
-2. An older DSLR that only does live view over USB also shows up in the picker, as a small picture (a Nikon D5100 sends 640×426). On Windows a Nikon or Canon does this too. That's new and reports are welcome.
-3. Pick it and open the **Webcam** card for what it lets you change, like white balance, focus and aperture.
+1. Switch on **Desk and document mode** under **Camera** and restart.
+2. Start the stream with the phone looking down at the sheet.
+3. Press **Mark the sheet** and drag the four corners onto the corners of the paper. Press **Done**.
+4. **Contrast** evens out the light across the paper and **Black and white** turns the ink black on white.
 
-Every effect works on it like on a phone. More in [Webcams and capture cards](features/sources.md#webcams-and-capture-cards).
-
-## Two cameras in one picture
-
-For an app that takes only one camera, **One picture** puts your face big with the desk small in a corner, two phones side by side or a grid of up to four.
-
-1. Switch on **One picture** under **Streaming and devices** and restart.
-2. Start two streams, a second phone or a webcam with **+**.
-3. Open the **One picture** card and press **Edit picture...**. **Start from** lays them out **Side by side**, **Big and small** or in a **Grid**, then drag to tweak.
-4. Pick the **Telescope** camera in your call or in OBS.
-
-More in [Several cameras in one picture](features/sources.md#several-cameras-in-one-picture).
-
-## Try the Fun pack
-
-The Fun pack is a few effects that don't take themselves seriously.
-
-1. Switch on **Fun pack** under **Extras** and restart.
-2. Open its card and pick an **Effect** like **Clone party**, **Invisibility cloak** or **1998 webcam**.
-3. For **Clone party** wait out the three second countdown, then move and add another, up to eight. For **Invisibility cloak** take the empty room first, then step back into the picture.
-
-The rest are in [Fun pack](features/effects.md#fun-pack).
-
-## Send a game or a 3D scene to your call
-
-Spout capture picks up programs that share their picture through Spout, like games with a stream camera, VTuber programs and 3D tools and sends them out on the virtual camera. It's in Lab too.
-
-1. Switch on **Spout capture** under **Streaming and devices** and restart.
-2. Start the program you want to share.
-3. Pick it in the device picker under the name it shares itself with. Every effect works on it.
-
-On Linux Spout only exists inside Proton and [Spout2PW](https://github.com/tasokait/spout2pw) passes the senders out to PipeWire. More in [Spout capture](features/sources.md#spout-capture).
-
-## Use a phone from far away
-
-Telescope doesn't care where the phone is as long as the two can reach each other. [Tailscale](https://tailscale.com) is the easy way to get there, since it gives every device an address that works from anywhere and Telescope already knows how to use it.
-
-1. Install Tailscale on the phone and the computer and sign in to the same tailnet.
-2. Open Telescope on both and press **Add phone**.
-3. Scan the code. The stream, the effects and the virtual camera work the same.
-
-It works for a friend's phone as a guest camera in your OBS, a phone left at the cottage or your own phone showing someone something at their place. The details are next.
+More in [Desk and document mode](features/picture.md#desk-and-document-mode).
 
 ## Tailscale in more detail
 
