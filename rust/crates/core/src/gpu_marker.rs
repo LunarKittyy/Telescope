@@ -80,10 +80,12 @@ struct State {
     /// A start in the tray: no surface exists yet, so the marker was cleared and is armed again when the window first shows.
     deferred: bool,
     skipped: Vec<Card>,
+    /// Goes up with every `clear`, so work that marked something meanwhile can tell it was cleared underneath.
+    generation: u64,
 }
 
 fn state() -> MutexGuard<'static, State> {
-    static STATE: Mutex<State> = Mutex::new(State { folder: None, home: None, last: None, deferred: false, skipped: Vec::new() });
+    static STATE: Mutex<State> = Mutex::new(State { folder: None, home: None, last: None, deferred: false, skipped: Vec::new(), generation: 0 });
     STATE.lock().unwrap_or_else(|e| e.into_inner())
 }
 
@@ -217,22 +219,28 @@ pub fn mark(card: &Card) {
 /// Marks `card` while `work` runs and puts back what was marked before: the picture work opens its card while the window's may still be
 /// unconfirmed, and a crash in the one must not be put on the other.
 pub fn marked_while<T>(card: &Card, work: impl FnOnce() -> T) -> T {
-    let (folder, last) = {
+    let (folder, last, generation, before) = {
         let state = state();
-        (state.folder.clone(), state.last.clone())
+        let before = state.folder.as_ref().and_then(|folder| read::<Card>(&folder.join(MARKER_FILE)));
+        (state.folder.clone(), state.last.clone(), state.generation, before)
     };
     let Some(folder) = folder else { return work() };
-    let before = read::<Card>(&folder.join(MARKER_FILE));
     mark(card);
     let done = work();
-    match &before {
-        Some(card) => {
-            let _ = serde_json::to_string(card).map(|text| std::fs::write(folder.join(MARKER_FILE), text));
-        }
-        None => {
-            let _ = std::fs::remove_file(folder.join(MARKER_FILE));
+    // A clear meanwhile (the window confirmed) wins: putting the old marker back would outlive a healthy run
+    let now = state();
+    if now.generation == generation && now.folder.as_ref() == Some(&folder) {
+        let path = folder.join(MARKER_FILE);
+        match &before {
+            Some(card) => {
+                let _ = serde_json::to_string(card).map(|text| write_atomic(&path, &text));
+            }
+            None => {
+                let _ = std::fs::remove_file(&path);
+            }
         }
     }
+    drop(now);
     state().last = last;
     done
 }
@@ -271,6 +279,7 @@ pub fn rearm() {
 /// The window has shown (or the start failed with a message): the card didn't take the program down, so the marker goes.
 pub fn clear() {
     let mut state = state();
+    state.generation += 1;
     if let Some(folder) = state.folder.take() {
         let _ = std::fs::remove_file(folder.join(MARKER_FILE));
     }
@@ -392,6 +401,11 @@ mod tests {
         mark(&card("C", "1"));
         assert_eq!(marked_while(&card("D", "1"), || read::<Card>(&folder.join(MARKER_FILE))), Some(card("D", "1")));
         assert_eq!(read::<Card>(&folder.join(MARKER_FILE)), Some(card("C", "1")));
+        // The window confirms while the picture work is inside: the old marker isn't put back
+        marked_while(&card("D", "1"), clear);
+        assert!(!folder.join(MARKER_FILE).exists());
+        begin_start(&folder);
+        mark(&card("C", "1"));
         clear();
         assert_eq!(marked_while(&card("D", "1"), || ()), ());
         assert!(!folder.join(MARKER_FILE).exists());
