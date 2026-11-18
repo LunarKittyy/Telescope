@@ -4,15 +4,16 @@
 //! no shader can hand back: while a pick runs the key steps aside for a CPU step that keeps the newest frame, as Python's process_frame
 //! does (keying waits while its own pick runs, so the screen shows to click on).
 
-use crate::cpu::rgb_at;
-use crate::shared::{hex, hsv_to_rgb, no_pictures, parse_hex, rgb_to_hsv, Paired, PictureReader};
+use crate::chroma_matte;
+use crate::cpu::{rgb_at, Rgb};
+use crate::shared::{hex, hsv_to_rgb, no_pictures, parse_hex, rgb_to_hsv, Paired, PictureReader, Wanted};
 use serde_json::{json, Map, Value};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use telescope_core::actions::{self, Choice, SliderSpec};
 use telescope_core::config::clamped_int;
 use telescope_core::event::Event;
-use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat, ShaderStep, Touch};
+use telescope_core::frame::{Alpha, CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat, ShaderStep, Touch};
 use telescope_core::host::{FileDialog, FileDialogKind, Host, PickKind, Poster, RequestId};
 use telescope_core::i18n::{n_, tr};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo};
@@ -153,6 +154,33 @@ impl CpuStep for Tap {
     }
 }
 
+/// Cuts the person out for the streams that want it: gives the picture the key's matte as its alpha, worked out from the picture as it is before the key runs. It runs in the stage before the key's own, so the matte is the one of the clean picture and nothing else is changed.
+struct Cut {
+    tables: Arc<Tables>,
+    wanted: Wanted,
+}
+
+impl CpuStep for Cut {
+    fn touch(&self, ctx: &dyn FrameContext) -> Touch {
+        if self.wanted.has(ctx.source_id()) { Touch::Reads } else { Touch::Nothing }
+    }
+
+    fn process(&mut self, frame: &mut Frame, ctx: &dyn FrameContext) {
+        // the first producer to attach one is the one used
+        if frame.alpha().is_some() || !self.wanted.has(ctx.source_id()) {
+            return;
+        }
+        let Some(rgb) = Rgb::from_frame(frame) else { return };
+        let data = chroma_matte::cut_out(&rgb.data, (rgb.w, rgb.h), &self.tables);
+        // the colour already has the screen's replacement in it, so it isn't multiplied by the matte
+        frame.set_alpha(Arc::new(Alpha::new(frame.width, frame.height, data, false)));
+    }
+
+    fn keeps_geometry(&self) -> bool {
+        true
+    }
+}
+
 /// A saved colour: three whole numbers 0..255 in a list.
 fn bgr(value: Option<&Value>) -> Option<[u8; 3]> {
     let list = value?.as_array().filter(|l| l.len() == 3)?;
@@ -212,6 +240,8 @@ pub struct ChromaKeyPlugin {
     /// set_config has no host: the card hears the settings with the next hook that has one.
     pending: bool,
     cached: Option<(TablesKey, Arc<Tables>)>,
+    /// The streams whose cut-out is wanted (Event::CutOutWanted), which the step that makes it reads
+    wanted: Wanted,
     /// What the host was last told with set_hiding: None until it has been.
     told_hiding: Option<bool>,
     /// A new camera's settings or the shown camera changed: what it hides is told again even if it matches what was told last.
@@ -259,6 +289,7 @@ impl ChromaKeyPlugin {
             asked: None,
             pending: true,
             cached: None,
+            wanted: Wanted::default(),
             told_hiding: None,
             retell_hiding: false,
         }
@@ -607,6 +638,11 @@ impl Plugin for ChromaKeyPlugin {
             host.set_ui_props("card", &json!({"active": on}));
         }
         match event {
+            Event::CutOutWanted { source_id, on } => {
+                if self.wanted.set(source_id, *on).0 && self.on {
+                    host.refresh_frame_step();
+                }
+            }
             Event::PreviewPickChanged { owner } => {
                 let picking = owner == NAME;
                 if picking != self.picking {
@@ -775,6 +811,12 @@ impl Plugin for ChromaKeyPlugin {
             uniforms: json!({"backdrop": [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, use_picture], "picture": size}),
             textures: vec![("keys".into(), keys), ("picture".into(), picture)],
         }))
+    }
+
+    fn staged_frame_steps(&mut self) -> Vec<(FrameStage, FrameStep)> {
+        let Some(key) = self.key_colour().filter(|_| self.on && !self.picking && self.wanted.any()) else { return Vec::new() };
+        let tables = self.tables(key);
+        vec![(FrameStage::Reading, FrameStep::Cpu(Box::new(Cut { tables, wanted: self.wanted.clone() })))]
     }
 
     fn settings(&self) -> Vec<telescope_core::settings::SettingSpec> {
