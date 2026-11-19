@@ -7,7 +7,7 @@ use crate::pool::Pool;
 use crate::transfers;
 use std::collections::HashMap;
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use telescope_core::gpu_marker::{self, Card};
 use telescope_core::gpu_pick::{self, Api, Candidate, Kind};
@@ -73,7 +73,11 @@ pub(crate) enum Fault {
     BadUpload,
 }
 
+// wgpu compares devices by id alone, and two instances hand out the same ids, so each connection gets its own number
+static NEXT_SERIAL: AtomicU64 = AtomicU64::new(1);
+
 pub struct Gpu {
+    serial: u64,
     device: wgpu::Device,
     queue: wgpu::Queue,
     /// For the convert shader: three planes, a sampler and its settings.
@@ -341,6 +345,7 @@ impl Gpu {
             flag.store(true, Ordering::SeqCst);
         });
         Gpu {
+            serial: NEXT_SERIAL.fetch_add(1, Ordering::Relaxed),
             device,
             queue,
             convert_layout,
@@ -1100,7 +1105,7 @@ impl CardFrame {
     }
 
     fn paint(&self, gpu: &Gpu, target: &wgpu::Texture) -> Option<Result<(), String>> {
-        if self.gpu.device != gpu.device || self.landed.get().is_some() && self.failed.load(Ordering::SeqCst) {
+        if self.gpu.serial != gpu.serial || self.landed.get().is_some() && self.failed.load(Ordering::SeqCst) {
             return None;
         }
         let held = self.held.lock().unwrap_or_else(|e| e.into_inner());
