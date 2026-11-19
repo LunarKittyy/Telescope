@@ -1538,3 +1538,35 @@ fn chroma_key_making_the_cut_out_leaves_the_background_off() {
     rig.event(Event::SharedChanged { key: "chroma_key.keying".into() });
     assert_eq!(rig.plugin.mode_name(), "off");
 }
+
+#[test]
+fn cached_quarter_alpha_does_not_rebuild_luma() {
+    let (scene, mask) = peek::sample_scene(160, 90);
+    let served = Served::new(mask.shrink(40, 22));
+    let mut step = cutting(true, "blur");
+    step.process(&mut i420_of(&scene), &served);
+    let quarter = step.quarter.as_mut().unwrap();
+    let alpha = quarter.alpha((160, 90));
+    quarter.wide = None;
+    assert!(Arc::ptr_eq(&alpha, &quarter.alpha((160, 90))));
+    assert!(quarter.wide.is_none(), "cached alpha needs no luma construction");
+}
+
+#[test]
+fn disabling_either_cut_out_consumer_keeps_background_until_both_release() {
+    for (first, second) in [("composite", "spout_send"), ("spout_send", "composite")] {
+        let mut rig = Rig::new(None, "ready");
+        for owner in [first, second] {
+            rig.event(Event::CutOutWantedBy { owner: owner.into(), source_id: "phone".into(), on: true });
+            rig.event(Event::CutOutWanted { source_id: "phone".into(), on: true });
+        }
+        rig.event(Event::CutOutWantedBy { owner: first.into(), source_id: "phone".into(), on: false });
+        rig.event(Event::CutOutWanted { source_id: "phone".into(), on: false });
+        assert_eq!(rig.plugin.mode_name(), "blur");
+        assert!(rig.plugin.wanted.has("phone"));
+        rig.event(Event::CutOutWantedBy { owner: second.into(), source_id: "phone".into(), on: false });
+        rig.event(Event::CutOutWanted { source_id: "phone".into(), on: false });
+        assert_eq!(rig.plugin.mode_name(), "off");
+        assert!(!rig.plugin.wanted.any());
+    }
+}

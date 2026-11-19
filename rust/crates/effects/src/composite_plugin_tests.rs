@@ -746,7 +746,7 @@ fn a_preset_saved_with_keep_what_is_on_leaves_the_current_layout_alone() {
 
 fn cut_out_events(r: &mut Rig) -> Vec<(String, bool)> {
     let told = r.host.events.iter().filter_map(|e| match e {
-        Event::CutOutWanted { source_id, on } => Some((source_id.clone(), *on)),
+        Event::CutOutWantedBy { owner, source_id, on } if owner == NAME => Some((source_id.clone(), *on)),
         _ => None,
     }).collect();
     r.host.events.clear();

@@ -957,3 +957,17 @@ fn the_cut_out_comes_out_of_the_pipeline_with_the_keyed_picture() {
     let alpha = out.alpha().expect("the cut-out lands with the picture");
     assert_eq!((alpha.data[4 * 64 + 4], alpha.data[18 * 64 + 32]), (0, 255));
 }
+
+#[test]
+fn chroma_cut_out_survives_one_consumers_release() {
+    let mut rig = Rig::new(false);
+    keying(&mut rig);
+    for owner in ["composite", "spout_send"] {
+        rig.event(Event::CutOutWantedBy { owner: owner.into(), source_id: "phone".into(), on: true });
+    }
+    let step = cut_step(&mut rig).unwrap();
+    rig.event(Event::CutOutWantedBy { owner: "composite".into(), source_id: "phone".into(), on: false });
+    assert_eq!(step.touch(&Stream("phone")), Touch::Reads);
+    rig.event(Event::CutOutWantedBy { owner: "spout_send".into(), source_id: "phone".into(), on: false });
+    assert_eq!(step.touch(&Stream("phone")), Touch::Nothing);
+}

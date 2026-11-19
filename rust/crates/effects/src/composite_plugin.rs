@@ -318,7 +318,7 @@ pub struct CompositePlugin {
     editor: Option<editor::Editor>,
     /// Setup's Max zoom: a tile zooms in at most this far.
     max_zoom: f64,
-    /// The streams whose Cut out was last announced on (Event::CutOutWanted), so only a change is announced again.
+    /// The streams whose Cut out was last announced on (Event::CutOutWantedBy), so only a change is announced again.
     cut_outs_told: BTreeSet<String>,
     /// How the picture goes from one layout to the next when one is switched to.
     transition: Spec,
@@ -703,9 +703,11 @@ impl CompositePlugin {
         let on: Vec<String> = want.iter().filter(|s| again || !self.cut_outs_told.contains(*s)).cloned().collect();
         self.cut_outs_told = want;
         for source_id in off {
+            host.emit(Event::CutOutWantedBy { owner: NAME.into(), source_id: source_id.clone(), on: false });
             host.emit(Event::CutOutWanted { source_id, on: false });
         }
         for source_id in on {
+            host.emit(Event::CutOutWantedBy { owner: NAME.into(), source_id: source_id.clone(), on: true });
             host.emit(Event::CutOutWanted { source_id, on: true });
         }
     }
@@ -837,6 +839,7 @@ impl Plugin for CompositePlugin {
 
     fn shutdown(&mut self, host: &mut dyn Host) {
         for source_id in std::mem::take(&mut self.cut_outs_told) {
+            host.emit(Event::CutOutWantedBy { owner: NAME.into(), source_id: source_id.clone(), on: false });
             host.emit(Event::CutOutWanted { source_id, on: false });
         }
         host.cancel_schedule(Self::CUT_OUT_TIMER);

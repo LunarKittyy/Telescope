@@ -2,7 +2,7 @@
 //! phone is paired.
 
 use serde_json::Value;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use telescope_core::frame::{Frame, FrameContext};
 use telescope_core::media::Media;
@@ -27,20 +27,33 @@ pub(crate) fn mask_shared_hq(ctx: &dyn FrameContext, frame: &Frame) -> Option<Ar
     (m.len() == (frame.width * frame.height) as usize).then_some(m)
 }
 
-/// The streams (by source id) whose pictures are asked to carry their cut-out (Event::CutOutWanted). The plugin keeps it up to date and the steps it hands out hold a clone, so a step hears a change without being made again.
+/// Cut-out demand by stream and owner, shared with frame steps so requests take effect without rebuilding them.
 #[derive(Clone, Default)]
-pub struct Wanted(Arc<Mutex<HashSet<String>>>);
+pub struct Wanted(Arc<Mutex<HashMap<String, HashSet<String>>>>);
 
 impl Wanted {
-    /// Sets whether this stream wants it. Whether that changed anything, and whether no stream wants it now.
+    /// Legacy requests share an owner; built-in consumers use set_by.
     pub fn set(&self, source_id: &str, on: bool) -> (bool, bool) {
+        self.set_by("", source_id, on)
+    }
+
+    /// Updates one owner's request, returning whether aggregate demand changed and whether all streams are unwanted.
+    pub fn set_by(&self, owner: &str, source_id: &str, on: bool) -> (bool, bool) {
         let mut set = self.0.lock().unwrap_or_else(|e| e.into_inner());
-        let changed = if on { set.insert(source_id.to_string()) } else { set.remove(source_id) };
-        (changed, set.is_empty())
+        let before = set.contains_key(source_id);
+        if on {
+            set.entry(source_id.to_string()).or_default().insert(owner.to_string());
+        } else if let Some(owners) = set.get_mut(source_id) {
+            owners.remove(owner);
+            if owners.is_empty() {
+                set.remove(source_id);
+            }
+        }
+        (before != set.contains_key(source_id), set.is_empty())
     }
 
     pub fn has(&self, source_id: &str) -> bool {
-        self.0.lock().is_ok_and(|set| set.contains(source_id))
+        self.0.lock().is_ok_and(|set| set.contains_key(source_id))
     }
 
     pub fn any(&self) -> bool {
@@ -200,6 +213,25 @@ impl Paired {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn cut_out_requests_are_idempotent_and_independent_by_owner_and_stream() {
+        for (first, second) in [("composite", "spout_send"), ("spout_send", "composite")] {
+            let wanted = Wanted::default();
+            let step = wanted.clone();
+            assert_eq!(wanted.set_by(first, "phone", true), (true, false));
+            assert_eq!(wanted.set_by(first, "phone", true), (false, false));
+            assert_eq!(wanted.set_by(second, "phone", true), (false, false));
+            wanted.set_by(first, "other", true);
+            assert_eq!(wanted.set_by(first, "phone", false), (false, false));
+            assert!(step.has("phone"));
+            assert_eq!(wanted.set_by(second, "phone", false), (true, false));
+            assert!(!step.has("phone"));
+            assert!(step.has("other"));
+            assert_eq!(wanted.set_by(first, "other", false), (true, true));
+            assert!(!step.any());
+        }
+    }
 
     #[test]
     fn numbers_are_read_as_python_reads_them() {

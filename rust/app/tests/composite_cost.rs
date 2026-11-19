@@ -440,7 +440,7 @@ fn run(case: &Case) {
     plugin.on_ui(&mut host, &UiEvent { ui: "card".into(), callback: "switch-toggled-by-hand".into(), args: vec![json!(true)] });
     plugin.on_event(&mut host, &Event::StreamsChanged { count: n as u32 });
     for event in std::mem::take(&mut host.events) {
-        if matches!(event, Event::CutOutWanted { .. }) {
+        if matches!(event, Event::CutOutWanted { .. } | Event::CutOutWantedBy { .. }) {
             background.on_event(&mut other, &event);
         }
     }

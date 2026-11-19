@@ -99,6 +99,8 @@ struct Shared {
     source: Mutex<String>,
     /// The stream's picture is hidden by another step, so nothing is collected and the stack stays off the camera.
     hidden: AtomicBool,
+    window_hidden: AtomicBool,
+    card_folded: AtomicBool,
     /// The host's own flag for the run's stream, current at every frame (the poll above can be a second behind).
     host_hidden: Mutex<Option<Arc<AtomicBool>>>,
     mode: AtomicU8,
@@ -121,6 +123,10 @@ struct Stack {
 }
 
 impl Shared {
+    fn focus_visible(&self) -> bool {
+        !self.window_hidden.load(Ordering::SeqCst) && !self.card_folded.load(Ordering::SeqCst)
+    }
+
     fn mode(&self) -> Mode {
         Mode::ALL.get(usize::from(self.mode.load(Ordering::SeqCst))).copied().unwrap_or(Mode::Lucky)
     }
@@ -373,7 +379,7 @@ impl Worker {
     }
 
     fn frame(&mut self, run: u64, source: String, frame: Frame) {
-        if self.last_focus.is_none_or(|at| at.elapsed() >= FOCUS_EVERY) {
+        if self.shared.focus_visible() && self.last_focus.is_none_or(|at| at.elapsed() >= FOCUS_EVERY) {
             self.last_focus = Some(Instant::now());
             let plane = Plane::from_frame(&frame, (frame.width as usize).div_ceil(1024));
             self.post("focus", json!({"now": plane.map_or(0.0, |p| sharpness(&p))}));
@@ -560,6 +566,9 @@ impl Handoff {
             return None;
         }
         let run = self.shared.run.load(Ordering::SeqCst);
+        if run == 0 && !self.shared.focus_visible() {
+            return None;
+        }
         let mine = if run == 0 { self.focused_here(source_id) } else { *self.shared.source.lock().unwrap() == source_id };
         let wait = match (run, self.shared.mode()) {
             (0, _) => FOCUS_EVERY,
@@ -1132,6 +1141,8 @@ impl Plugin for StargazerPlugin {
             host.set_ui_props("card", &json!({"active": on}));
         }
         match event {
+            Event::WindowShown { shown } => self.shared.window_hidden.store(!shown, Ordering::SeqCst),
+            Event::CardFolded { key, folded } if key == "stargazer/Stargazer" => self.shared.card_folded.store(*folded, Ordering::SeqCst),
             Event::Posted { owner, token, data } if owner == NAME => self.heard(host, token, data),
             Event::TimerFired { owner, token } if owner == NAME && token == TICK => {
                 self.refresh_hidden(host, true);

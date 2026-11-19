@@ -581,6 +581,10 @@ impl CardPreview {
         });
         match painted {
             Ok(()) => {
+                // Good paints between refusals break the run, but a card already given up on stays out
+                if !self.refused.out() {
+                    self.refused.clear();
+                }
                 Some(shown)
             }
             Err(e) => {
@@ -662,10 +666,17 @@ mod tests {
     }
 
     #[test]
-    fn a_card_that_refused_three_paints_stays_given_up_on_until_a_restart() {
+    fn successful_preview_paints_clear_consecutive_failures() {
         let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
         let mut card = CardPreview::new(gpu, 256);
         let frame = rgba(64, 64, 10);
+        for _ in 0..MISSES + 1 {
+            card.refused.miss();
+            assert!(card.on_card());
+            assert!(card.paint(&frame, 64, 64, None).is_some());
+            assert_eq!(card.refused.0, 0);
+            assert!(card.on_card());
+        }
         for _ in 0..MISSES {
             card.refused.miss();
         }

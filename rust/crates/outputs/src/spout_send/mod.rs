@@ -4,7 +4,7 @@
 //!
 //! The step only copies a handle to the picture and leaves it for a thread of the stream's own, so a slow program reading the sender never holds the stream up. The sender is
 //! made when the first picture comes and goes when they stop. Pictures leave opaque unless a stream is switched to Transparent: then the steps that cut a person out are
-//! asked to (Event::CutOutWanted) and the alpha they leave on the frame goes out as the picture's alpha.
+//! asked to (Event::CutOutWantedBy) and the alpha they leave on the frame goes out as the picture's alpha.
 
 #[cfg(target_os = "linux")]
 pub mod pipewire;
@@ -219,7 +219,7 @@ pub struct SpoutSendPlugin {
     /// The stream the panels show, which the card's switch is for.
     shown: String,
     stopped: bool,
-    /// The streams the producers of the cut-out have been told to cut out for (Event::CutOutWanted), so a change is told once.
+    /// The streams the producers of the cut-out have been told to cut out for (Event::CutOutWantedBy), so a change is told once.
     told: std::collections::BTreeSet<String>,
 }
 
@@ -272,13 +272,16 @@ impl SpoutSendPlugin {
     fn tell_cut_outs(&mut self, host: &mut dyn Host, again: bool) {
         let now = self.shared.transparent();
         for id in now.difference(&self.told).cloned().collect::<Vec<_>>() {
+            host.emit(Event::CutOutWantedBy { owner: NAME.into(), source_id: id.clone(), on: true });
             host.emit(Event::CutOutWanted { source_id: id, on: true });
         }
         for id in self.told.difference(&now).cloned().collect::<Vec<_>>() {
+            host.emit(Event::CutOutWantedBy { owner: NAME.into(), source_id: id.clone(), on: false });
             host.emit(Event::CutOutWanted { source_id: id, on: false });
         }
         if again {
             for id in now.intersection(&self.told).cloned().collect::<Vec<_>>() {
+                host.emit(Event::CutOutWantedBy { owner: NAME.into(), source_id: id.clone(), on: true });
                 host.emit(Event::CutOutWanted { source_id: id, on: true });
             }
         }
@@ -323,6 +326,7 @@ impl Plugin for SpoutSendPlugin {
         self.shared.stop_all();
         // The steps that cut a person out stop doing it, and Background goes back from the Blur it was given for this
         for id in std::mem::take(&mut self.told) {
+            host.emit(Event::CutOutWantedBy { owner: NAME.into(), source_id: id.clone(), on: false });
             host.emit(Event::CutOutWanted { source_id: id, on: false });
         }
     }
