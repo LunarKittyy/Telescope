@@ -367,6 +367,9 @@ impl Pipeline {
 
     /// Brings frame up to date with the card, and drops the card's copy unless keep.
     fn bring_down(&mut self, chain: &mut Chain, frame: &mut Frame, ctx: &dyn FrameContext, keep: bool) {
+        if chain.ahead.is_empty() && frame.surface().is_some() {
+            *frame = frame.materialise();
+        }
         let Some(gpu) = self.gpu.clone().flatten() else { return };
         if let (Some(held), false) = (chain.held.as_mut(), chain.ahead.is_empty()) {
             chain.downs += 1;
@@ -402,6 +405,9 @@ impl Pipeline {
             if let Some(held) = chain.held.take() {
                 gpu.put_down(held);
             }
+        }
+        if frame.surface().is_some() {
+            *frame = frame.materialise();
         }
     }
 
@@ -628,8 +634,8 @@ impl Pipeline {
         if chain.held.is_none() {
             match gpu.lift_with(frame, block_chroma) {
                 Ok(held) => {
+                    if !held.was_imported() { chain.ups += 1; }
                     chain.held = Some(held);
-                    chain.ups += 1;
                 }
                 Err(why) if matches!(entry.kind, Kind::Either(..)) => {
                     self.lost_card(&why);

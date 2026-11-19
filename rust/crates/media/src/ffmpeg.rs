@@ -167,6 +167,12 @@ pub struct Codec {
     // Copies of the bytes handed to FFmpeg with the zeroed tail its bitstream readers may read into
     parse_buf: Vec<u8>,
     unit_buf: Vec<u8>,
+    #[cfg(target_os = "linux")]
+    pub(crate) defer_surfaces: bool,
+    #[cfg(target_os = "linux")]
+    import: std::sync::Arc<crate::vaapi_import::Stream>,
+    #[cfg(target_os = "linux")]
+    import_node: Option<String>,
 }
 
 /// Copies data into buf followed by the AV_INPUT_BUFFER_PADDING_SIZE zero bytes FFmpeg requires after any input.
@@ -234,6 +240,12 @@ impl Codec {
                 sws_out: Padded::default(),
                 parse_buf: Vec::new(),
                 unit_buf: Vec::new(),
+                #[cfg(target_os = "linux")]
+                defer_surfaces: false,
+                #[cfg(target_os = "linux")]
+                import: std::sync::Arc::default(),
+                #[cfg(target_os = "linux")]
+                import_node: None,
             };
             if c.ctx.is_null() || c.packet.is_null() || c.frame.is_null() || c.sw_frame.is_null() || c.held.is_null() || (parse && c.parser.is_null()) {
                 return Err("out of memory opening a decoder".into());
@@ -279,6 +291,7 @@ impl Codec {
                     #[cfg(all(target_os = "linux", ffmpeg))]
                     if let (Some((_, path)), true) = (&node, on_picked) {
                         log::info!("Hardware decode runs on render node {path}");
+                        c.import_node = Some(path.clone());
                     }
                     #[cfg(windows)]
                     if h == Hw::D3d11va {
@@ -288,7 +301,7 @@ impl Codec {
                     (*c.ctx).opaque = h.pixel_format() as i32 as usize as *mut _;
                     (*c.ctx).get_format = Some(pick_hw);
                     // The picture decode_newest holds is a surface the decoder can't use meanwhile
-                    (*c.ctx).extra_hw_frames = 1;
+                    (*c.ctx).extra_hw_frames = 1 + if h == Hw::Vaapi { 6 } else { 0 };
                 }
                 None if parse => {
                     (*c.ctx).thread_count = threads.count;
@@ -494,6 +507,19 @@ impl Codec {
     unsafe fn take_frame(&mut self) -> Result<(Frame, Option<i64>), Fault> {
         // Read off the decoder's own frame (on a card that's the surface, which the copy to memory leaves be)
         let pts = Some((*self.frame).pts).filter(|&p| p != ff::AV_NOPTS_VALUE);
+        #[cfg(target_os = "linux")]
+        if self.defer_surfaces && self.forced.is_none() && (*self.frame).format == ff::AVPixelFormat::AV_PIX_FMT_VAAPI as i32 && self.import.enabled() {
+            match crate::vaapi_import::Surface::capture(self.frame, self.import.clone(), self.import_node.clone()) {
+                Ok(Some(surface)) => {
+                    let frame = Frame::from_surface((*self.frame).width as u32, (*self.frame).height as u32, PixelFormat::I420, surface);
+                    ff::av_frame_unref(self.frame);
+                    self.pictures = self.pictures.saturating_add(1);
+                    return Ok((frame, pts));
+                }
+                Ok(None) => {}
+                Err(why) => self.import.disable(&why),
+            }
+        }
         let mut src = self.frame;
         if Hw::from_pixel_format((*src).format).is_some() {
             self.copy_off_the_card()?;
@@ -578,6 +604,18 @@ impl Codec {
             Some(bgr) => frame.with_lazy_bgr(bgr),
             None => frame,
         }, pts))
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn download_surface(&mut self, surface: *const ff::AVFrame) -> Result<Frame, Fault> {
+        // SAFETY: the caller keeps surface alive under its mutex; this codec is a separate, serialised download context.
+        unsafe {
+            ff::av_frame_unref(self.frame);
+            if ff::av_frame_ref(self.frame, surface) < 0 {
+                return Err(Fault::Broken("couldn't retain a decoded surface".into()));
+            }
+            self.take_frame().map(|(frame, _)| frame)
+        }
     }
 }
 

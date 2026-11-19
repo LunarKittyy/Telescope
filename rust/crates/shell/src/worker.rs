@@ -1086,10 +1086,12 @@ impl Shared {
         }
         // vision looks for people in the frame before the view (view_controller.process_frame)
         if let Some(feed) = self.vision.as_ref().filter(|f| f.service.wants_people()) {
+            frame = frame.materialise();
             let upright = feed.upright.lock().unwrap().for_frame(frame.width, frame.height);
             feed.service.feed_raw(&self.source_id, &frame, upright);
         }
         if let Some(motion) = self.vision.as_ref().and_then(|f| f.motion.as_ref()).filter(|m| m.watching()) {
+            frame = frame.materialise();
             let upright = self.vision.as_ref().map(|f| f.upright.lock().unwrap().for_frame(frame.width, frame.height)).expect("a feed");
             motion.feed(&frame, &self.source_id, Some(&upright), telescope_core::time::monotonic_ns() as f64 / 1e9);
         }

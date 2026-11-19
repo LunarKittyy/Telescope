@@ -261,6 +261,7 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
                 gpu_marker::mark(&card);
                 let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
                     label: Some("telescope window"),
+                    required_features: if cfg!(target_os = "linux") { adapter.features() & wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF } else { wgpu::Features::empty() },
                     required_limits: adapter.limits(),
                     ..Default::default()
                 })).map_err(|e| e.to_string())?;
@@ -291,6 +292,7 @@ pub(crate) fn select_wgpu_backend() -> Option<Box<dyn Painter>> {
         gpu_marker::mark(&card);
         let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("telescope window"),
+                    required_features: if cfg!(target_os = "linux") { adapter.features() & wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF } else { wgpu::Features::empty() },
             required_limits: adapter.limits(),
             ..Default::default()
         })).map_err(|e| e.to_string())?;

@@ -286,11 +286,13 @@ impl Gpu {
         let info = adapter.get_info();
         let (device, queue) = gpu_marker::marked_while(card, || pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("telescope frames"),
+            required_features: if cfg!(target_os = "linux") { adapter.features() & wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF } else { wgpu::Features::empty() },
             required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
             ..Default::default()
         }))).map_err(|e| e.to_string())?;
         telescope_core::machine::set_gpu(info.vendor, &format!("{:?}", info.device_type), &info.name, &format!("{:?}", info.backend), &card.driver);
         if crate::decode_card::set_picked(info.vendor, info.device, &info.device_pci_bus_id) {
+            #[cfg(ffmpeg)]
             crate::h264::refresh_hardware_probe();
         }
         let limit = if info.device_type == wgpu::DeviceType::Cpu { SOFTWARE_READBACK_WAIT } else { READBACK_WAIT };
@@ -300,6 +302,10 @@ impl Gpu {
     /// The same shaders on a device someone else opened (the window's, so the preview can hand its texture to Slint).
     pub fn on_device(device: wgpu::Device, queue: wgpu::Queue) -> Gpu {
         let info = device.adapter_info();
+        if crate::decode_card::set_picked(info.vendor, info.device, &info.device_pci_bus_id) {
+            #[cfg(ffmpeg)]
+            crate::h264::refresh_hardware_probe();
+        }
         let limit = if info.device_type == wgpu::DeviceType::Cpu { SOFTWARE_READBACK_WAIT } else { READBACK_WAIT };
         Gpu::on(device, queue, info.name, limit)
     }
@@ -476,6 +482,8 @@ impl Gpu {
     fn upload(&self, frame: &Frame, used: &mut Vec<wgpu::Texture>) -> Planes {
         let (w, h) = (frame.width, frame.height);
         let (cw, ch) = (chroma(w), chroma(h));
+        let ram;
+        let frame = if frame.surface().is_some() { ram = frame.materialise(); &ram } else { frame };
         let data = &frame.data[..];
         let mut plane = |pw: u32, ph: u32, format: wgpu::TextureFormat, bytes: &[u8], bpp: u32| {
             let t = self.texture(pw, ph, format);
@@ -518,7 +526,11 @@ impl Gpu {
     }
 
     fn convert_pass_with(&self, enc: &mut wgpu::CommandEncoder, planes: &[wgpu::TextureView; 3], mode: Mode, target: &wgpu::Texture, taps: u32, src_size: (u32, u32), block_chroma: bool) {
-        let settings: [u32; 4] = [mode as u32 | if block_chroma { BLOCK_CHROMA } else { 0 }, taps.max(1), src_size.0, src_size.1];
+        self.convert_pass_encoded(enc, planes, mode, target, taps, src_size, block_chroma, 0);
+    }
+
+    fn convert_pass_encoded(&self, enc: &mut wgpu::CommandEncoder, planes: &[wgpu::TextureView; 3], mode: Mode, target: &wgpu::Texture, taps: u32, src_size: (u32, u32), block_chroma: bool, colour: u32) {
+        let settings: [u32; 4] = [mode as u32 | if block_chroma { BLOCK_CHROMA } else { 0 } | colour, taps.max(1), src_size.0, src_size.1];
         let buf = self.uniform(bytemuck_u32(&settings));
         let view = target.create_view(&Default::default());
         let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -728,6 +740,16 @@ impl Gpu {
         if self.take_fault(|f| matches!(f, Fault::LiftPanic)) {
             panic!("an injected panic while lifting");
         }
+        #[cfg(all(target_os = "linux", ffmpeg))]
+        if let Some(source) = frame.surface() {
+            if let Some(surface) = source.as_any().downcast_ref::<crate::vaapi_import::Surface>() {
+                match self.lift_surface(frame, source.clone(), surface, block_chroma) {
+                    Ok(held) => return Ok(held),
+                    Err(why) => surface.disable(&why),
+                }
+            }
+            return self.lift_unguarded(&frame.materialise(), block_chroma);
+        }
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) {
             return Err(format!("{:?} frames can't go on the card", frame.format));
         }
@@ -744,7 +766,30 @@ impl Gpu {
             (enc, used, kept_planes, a, b)
         })?;
         span("upload", began);
-        Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: kept_planes, block_chroma })
+        Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: kept_planes, block_chroma, imported: false })
+    }
+
+    #[cfg(all(target_os = "linux", ffmpeg))]
+    fn lift_surface(&self, frame: &Frame, source: Arc<dyn telescope_core::frame::DecodedSurface>, surface: &crate::vaapi_import::Surface, block_chroma: bool) -> Result<Held, String> {
+        let planes = surface.import(&self.device)?;
+        let (w, h) = (frame.width, frame.height);
+        let converted = self.scoped(|| -> Result<_, String> {
+            let mut enc = self.device.create_command_encoder(&Default::default());
+            // Establish GENERAL as the encoder's first tracked use, before the raw external-queue acquire.
+            enc.transition_resources(std::iter::empty(), planes.iter().map(|texture| wgpu::TextureTransition {
+                texture, selector: None, state: wgpu::TextureUses::RESOURCE | wgpu::TextureUses::COPY_SRC,
+            }));
+            crate::vaapi_import::Surface::ownership(&self.device, &mut enc, &planes, true)?;
+            let views = [planes[0].create_view(&Default::default()), planes[1].create_view(&Default::default()), self.blank.clone()];
+            let (a, b) = (self.texture(w, h, WORK), self.texture(w, h, WORK));
+            self.convert_pass_encoded(&mut enc, &views, Mode::Nv12, &a, 1, (w, h), block_chroma, surface.colour());
+            crate::vaapi_import::Surface::ownership(&self.device, &mut enc, &planes, false)?;
+            self.queue.submit([enc.finish()]);
+            // Keep both the decoder's AVFrame and its imported images until the conversion submission has finished.
+            self.queue.on_submitted_work_done(move || drop((source, planes)));
+            Ok((a, b))
+        })??;
+        Ok(Held { enc: self.device.create_command_encoder(&Default::default()), a: converted.0, b: converted.1, used: Vec::new(), width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: None, block_chroma, imported: true })
     }
 
     /// One shader step on the held picture. Nothing runs yet; land sends it all to the card in one go.
@@ -1073,9 +1118,11 @@ pub struct Held {
     planes: Option<[wgpu::Texture; 3]>,
     /// Whether it went up with YUV chroma read by block, so what is made from planes later is read the same way.
     block_chroma: bool,
+    imported: bool,
 }
 
 impl Held {
+    pub(crate) fn was_imported(&self) -> bool { self.imported }
     pub fn size(&self) -> (u32, u32) {
         (self.width, self.height)
     }
@@ -1139,7 +1186,7 @@ impl telescope_core::media::CardPicture for CardFrame {
                         self.failed.store(true, Ordering::SeqCst);
                     }
                     match self.fallback {
-                        LandingFailure::LastGood => self.metadata.clone(),
+                        LandingFailure::LastGood => self.metadata.materialise(),
                         LandingFailure::Dark => {
                             let (w, h, format) = (self.metadata.width, self.metadata.height, self.metadata.format);
                             let luma = w as usize * h as usize;
