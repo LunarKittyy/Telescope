@@ -631,14 +631,31 @@ avx2_too! {
     }
 }
 
+/// Re-rounds a row's last bytes (past the whole 16s and the 8 after them) in 22 bits as OpenCV's SSE tail does, not in the 15 of the vector path.
+fn exact_tail(src: &[u8], pitch: usize, ch: usize, taps: &[Tap], (y0, y1, p, q): Tap, out: &mut [u8]) {
+    let n = taps.len() * ch;
+    let vec16 = n / 16 * 16;
+    let vec_end = if vec16 + 8 < n { vec16 + 8 } else { vec16 };
+    for i in vec_end..n.min(out.len()) {
+        let (t, c) = (&taps[i / ch], i % ch);
+        let sum = |y: usize| {
+            let row = &src[y * pitch..];
+            row[t.0 * ch + c] as i64 * t.2 as i64 + row[t.1 * ch + c] as i64 * t.3 as i64
+        };
+        out[i] = ((p as i64 * sum(y0) + q as i64 * sum(y1) + (1 << 21)) >> 22).clamp(0, 255) as u8;
+    }
+}
+
 /// OpenCV's fixed-point two-tap resize of a picture w wide with `ch` channels, row by row into dst, whose rows are `stride` long
 /// and start `left` elements in. Rows stop at the end of ys or dst, whichever comes first; a band keeps the two rows it has blended.
-fn blended(src: &[u8], (w, ch): (usize, usize), xs: &[Tap], ys: &[Tap], dst: &mut [u8], stride: usize, left: usize) {
+/// Source rows are `pitch` bytes apart (more than w * ch for a part of a bigger picture); `tail` rounds each row's last bytes as exact_tail.
+fn blended(src: &[u8], (w, ch, pitch): (usize, usize, usize), xs: &[Tap], ys: &[Tap], dst: &mut [u8], stride: usize, left: usize, tail: bool) {
     let rowlen = xs.len() * ch;
+    let taps = xs;
     let xs: Vec<Across> = xs.iter().map(|t| Across { first: t.0 as u32, second: t.1 as u32, p: t.2 as i16, q: t.3 as i16 }).collect();
     let xs = &xs[..];
     let across = |y: usize, into: &mut [i16]| {
-        let row = &src[y * w * ch..][..w * ch];
+        let row = &src[y * pitch..][..w * ch];
         match ch {
             1 => blend_across(row, xs, 1, into),
             3 => blend_across_rgb(row, xs, into),
@@ -662,6 +679,9 @@ fn blended(src: &[u8], (w, ch): (usize, usize), xs: &[Tap], ys: &[Tap], dst: &mu
                 have_bottom = y1;
             }
             blend_down(&top, &bottom, p as i16, q as i16, &mut line[left..]);
+            if tail {
+                exact_tail(src, pitch, ch, taps, (y0, y1, p, q), &mut line[left..]);
+            }
         }
     });
 }
@@ -843,7 +863,7 @@ pub fn resize_area(src: &[u8], w: usize, h: usize, ch: usize, w2: usize, h2: usi
         return out;
     }
     let (xs, ys) = (area_taps(w, w2, ix, sx, true), area_taps(h, h2, iy, sy, false));
-    blended(src, (w, ch), &xs, &ys, &mut out, w2 * ch, 0);
+    blended(src, (w, ch, w * ch), &xs, &ys, &mut out, w2 * ch, 0, false);
     out
 }
 
@@ -893,7 +913,7 @@ pub fn resize_linear_into(src: &[u8], w: usize, h: usize, ch: usize, dst: &mut [
             line[left..][..keep].copy_from_slice(&row[..keep]);
         }
     } else {
-        blended(src, (w, ch), &linear_taps(w, w2, false), &linear_taps(h, h2, true), dst, stride, left);
+        blended(src, (w, ch, w * ch), &linear_taps(w, w2, false), &linear_taps(h, h2, true), dst, stride, left, false);
     }
 }
 
@@ -902,7 +922,86 @@ pub fn resize_linear_into(src: &[u8], w: usize, h: usize, ch: usize, dst: &mut [
 pub fn resample_linear(src: &[u8], w: usize, h: usize, ch: usize, xs: &[Tap], ys: &[Tap]) -> Vec<u8> {
     let mut out = spare_bytes(xs.len() * ys.len() * ch);
     if w > 0 && h > 0 && !xs.is_empty() && !ys.is_empty() && src.len() >= w * h * ch {
-        blended(src, (w, ch), xs, ys, &mut out, xs.len() * ch, 0);
+        blended(src, (w, ch, w * ch), xs, ys, &mut out, xs.len() * ch, 0, false);
+    }
+    out
+}
+
+/// One output row of halve_2x2 from the two source rows it averages: each byte the rounded mean of a 2 x 2 block, ch bytes a pixel.
+fn halve_row_plain(r0: &[u8], r1: &[u8], out: &mut [u8], ch: usize) {
+    for (x, o) in out.iter_mut().enumerate() {
+        let (px, c) = (x / ch, x % ch);
+        let a = 2 * px * ch + c;
+        let sum = r0[a] as u32 + r0[a + ch] as u32 + r1[a] as u32 + r1[a + ch] as u32;
+        *o = ((sum + 2) >> 2) as u8;
+    }
+}
+
+/// halve_row_plain 16 bytes at a time for one and four-byte pixels, in u16 sums with the rounding added once, so the bytes are the same.
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx2")]
+fn halve_row_wide(r0: &[u8], r1: &[u8], out: &mut [u8], ch: usize) {
+    use std::arch::x86_64::*;
+    let done = match ch {
+        1 => out.len() / 16 * 16,
+        4 => out.len() / 16 * 16,
+        _ => 0,
+    };
+    for i in (0..done).step_by(16) {
+        // SAFETY: AVX2 is enabled here, and i + 16 <= out.len(), half the rows' length, so the 32 bytes read from 2 * i and the 16 written are inside
+        unsafe {
+            let a = _mm256_loadu_si256(r0.as_ptr().add(2 * i).cast());
+            let b = _mm256_loadu_si256(r1.as_ptr().add(2 * i).cast());
+            let sums = if ch == 1 {
+                let ones = _mm256_set1_epi8(1);
+                _mm256_add_epi16(_mm256_maddubs_epi16(a, ones), _mm256_maddubs_epi16(b, ones))
+            } else {
+                let zero = _mm256_setzero_si256();
+                let lo = _mm256_add_epi16(_mm256_unpacklo_epi8(a, zero), _mm256_unpacklo_epi8(b, zero));
+                let hi = _mm256_add_epi16(_mm256_unpackhi_epi8(a, zero), _mm256_unpackhi_epi8(b, zero));
+                let lo = _mm256_add_epi16(lo, _mm256_srli_si256::<8>(lo));
+                let hi = _mm256_add_epi16(hi, _mm256_srli_si256::<8>(hi));
+                _mm256_unpacklo_epi64(lo, hi)
+            };
+            let mean = _mm256_srli_epi16::<2>(_mm256_add_epi16(sums, _mm256_set1_epi16(2)));
+            let packed = _mm256_permute4x64_epi64::<0b1000>(_mm256_packus_epi16(mean, mean));
+            _mm_storeu_si128(out.as_mut_ptr().add(i).cast(), _mm256_castsi256_si128(packed));
+        }
+    }
+    halve_row_plain(&r0[2 * done..], &r1[2 * done..], &mut out[done..], ch);
+}
+
+/// cv2.resize to exactly half (INTER_AREA) of the (x0, y0, w, h) box of a picture whose rows are `pitch` pixels: each pixel (a + b + c + d + 2) >> 2 of a 2 x 2 block, an odd last row or column left out.
+pub fn halve_2x2(src: &[u8], pitch: usize, ch: usize, (x0, y0, w, h): (usize, usize, usize, usize)) -> Vec<u8> {
+    let rowlen = w / 2 * ch;
+    let mut out = spare_bytes(rowlen * (h / 2));
+    if rowlen == 0 {
+        return out;
+    }
+    #[cfg(target_arch = "x86_64")]
+    let wide = std::arch::is_x86_feature_detected!("avx2");
+    over_bands(&mut out, rowlen, |first, part| {
+        for (i, line) in part.chunks_exact_mut(rowlen).enumerate() {
+            let at = |dy: usize| ((y0 + 2 * (first + i) + dy) * pitch + x0) * ch;
+            let (r0, r1) = (&src[at(0)..][..2 * rowlen], &src[at(1)..][..2 * rowlen]);
+            #[cfg(target_arch = "x86_64")]
+            if wide {
+                // SAFETY: the processor was asked whether it has AVX2
+                unsafe { halve_row_wide(r0, r1, line, ch) };
+                continue;
+            }
+            halve_row_plain(r0, r1, line, ch);
+        }
+    });
+    out
+}
+
+/// resample_linear on the (x0, y0, w, h) box of a picture whose rows are `pitch` pixels, taps counted from the box's corner, with each row's tail rounded as exact_tail.
+pub fn resample_box(src: &[u8], pitch: usize, ch: usize, (x0, y0, w, h): (usize, usize, usize, usize), xs: &[Tap], ys: &[Tap]) -> Vec<u8> {
+    let mut out = spare_bytes(xs.len() * ys.len() * ch);
+    if w > 0 && h > 0 && !xs.is_empty() && !ys.is_empty() {
+        let from = &src[(y0 * pitch + x0) * ch..];
+        blended(from, (w, ch, pitch * ch), xs, ys, &mut out, xs.len() * ch, 0, true);
     }
     out
 }
@@ -1038,6 +1137,51 @@ mod tests {
 
     // What cv2.resize(.., INTER_LINEAR) and INTER_AREA make of a 6 x 4 picture of random bytes
     const GREY_6X4: [u8; 24] = [139, 74, 229, 241, 169, 65, 6, 160, 149, 106, 38, 175, 188, 205, 175, 229, 98, 249, 10, 148, 95, 86, 147, 198];
+
+    fn pseudo(len: usize, seed: u64) -> Vec<u8> {
+        let mut s = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        (0..len).map(|_| {
+            s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            (s >> 33) as u8
+        }).collect()
+    }
+
+    #[test]
+    fn halving_is_the_rounded_mean_of_each_block_in_any_box_and_size() {
+        // odd sizes and edges, boxes inside bigger pictures, one-byte, three and four-byte pixels, and two big enough to be banded
+        let sizes = [(2, 2), (3, 3), (5, 4), (17, 9), (31, 33), (64, 2), (100, 51), (127, 130), (3600, 600), (1800, 600)];
+        for ch in [1usize, 2, 3, 4] {
+            for (i, &(w, h)) in sizes.iter().enumerate() {
+                let (pitch, x0, y0) = (w + 5, 3, 1);
+                let data = pseudo((pitch + 1) * (h + 3) * ch, (i * 7 + ch) as u64);
+                let got = halve_2x2(&data, pitch, ch, (x0, y0, w, h));
+                let (w2, h2) = (w / 2, h / 2);
+                assert_eq!(got.len(), w2 * h2 * ch, "{ch} channels {w}x{h}");
+                for y in 0..h2 {
+                    for x in 0..w2 {
+                        for c in 0..ch {
+                            let at = |dx: usize, dy: usize| data[((y0 + 2 * y + dy) * pitch + x0 + 2 * x + dx) * ch + c] as u32;
+                            let want = ((at(0, 0) + at(1, 0) + at(0, 1) + at(1, 1) + 2) >> 2) as u8;
+                            assert_eq!(got[(y * w2 + x) * ch + c], want, "{ch} channels {w}x{h} at {x},{y},{c}");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn halving_twice_is_not_one_mean_of_sixteen_but_the_mean_of_the_means() {
+        // 1 1 / 1 2 averages to 1 (5 + 2 >> 2), and four of those with a 2 are the case where the two ways part
+        let data = [1u8, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 2, 2, 2, 2, 2];
+        let once = halve_2x2(&data, 4, 1, (0, 0, 4, 4));
+        let twice = halve_2x2(&once, 2, 1, (0, 0, 2, 2));
+        let sum: u32 = data.iter().map(|&v| v as u32).sum();
+        assert_eq!(once, [1, 1, 2, 2]);
+        assert_eq!(twice, [(1 + 1 + 2 + 2 + 2) as u8 >> 2]);
+        assert_eq!(((sum + 8) >> 4) as u8, 1);
+        assert_ne!(twice[0], ((sum + 8) >> 4) as u8);
+    }
 
     #[test]
     fn linear_matches_cv2_on_all_sizes() {
