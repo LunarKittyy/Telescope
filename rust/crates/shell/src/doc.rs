@@ -247,9 +247,14 @@ fn sum_hints(cards: &[CardPlace], list: &[usize]) -> String {
     format!("max(0px, {} - {GAP}px)", parts.join(" + "))
 }
 
+/// What a card inherits from Card that a plugin may set through its props.
+const CARD_PROPS: &[&str] = &["enabled", "blocked", "idle", "tag", "tag-detail"];
+
 fn aliases(piece: &Piece) -> String {
     let mut out = format!("    in-out property {id}-visible <=> {id}.visible;\n", id = piece.id);
-    for p in &piece.iface.props {
+    // A card also takes the properties it inherits from Card, so a plugin can switch its card off or show a tag
+    let inherited = if piece.iface.card { CARD_PROPS } else { &[] };
+    for p in piece.iface.props.iter().map(String::as_str).chain(inherited.iter().copied().filter(|p| !piece.iface.props.iter().any(|d| d == p))) {
         out.push_str(&format!("    in-out property {}-{p} <=> {}.{p};\n", piece.id, piece.id));
     }
     for p in &piece.iface.outs {

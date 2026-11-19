@@ -403,6 +403,23 @@ fn every_card_in_the_window_folds() {
 }
 
 #[test]
+fn every_card_takes_the_props_a_plugin_may_set_on_it() {
+    let dir = telescope_core::testing::scratch_dir("plugin-removal-card-props");
+    let w = build(&dir, None);
+    let names: Vec<String> = {
+        let st = w.state.borrow();
+        st.cards().into_iter().filter(|&i| st.slots[i].info.optional).map(|i| st.slots[i].info.name.clone()).collect()
+    };
+    assert!(names.iter().any(|n| n == "spout_send"), "{names:?}");
+    for name in &names {
+        for prop in ["enabled", "blocked"] {
+            assert!(w.set_card_property(name, "card", prop, &Value::Bool(false)), "the {name} card has no {prop}");
+        }
+    }
+    w.shut_down();
+}
+
+#[test]
 fn a_plugin_switched_off_and_on_again_has_its_folds_as_it_left_them() {
     let dir = telescope_core::testing::scratch_dir("plugin-removal-off-and-on");
     let first = build(&dir, None);
