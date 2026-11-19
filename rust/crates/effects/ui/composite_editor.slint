@@ -289,6 +289,9 @@ component LayerRow inherits Rectangle {
     in property <bool> held;
     in property <length> held-y;
     in property <bool> any-held;
+    // The row's inset and the drag handle at its right end, which a click picks nothing on
+    property <length> inset: Theme.u(2);
+    property <length> grip-w: Theme.u(8);
     callback eye-clicked(bool);
     callback lock-clicked(bool);
     callback pick-clicked;
@@ -341,13 +344,13 @@ component LayerRow inherits Rectangle {
             }
         }
         // The grip at the right edge is for dragging: a click on it picks nothing
-        clicked => { if (root.layer && !was-dragged && self.mouse-x < root.width - Theme.u(10)) { root.pick-clicked(); } }
+        clicked => { if (root.layer && !was-dragged && self.mouse-x < root.width - root.grip-w - root.inset) { root.pick-clicked(); } }
     }
     Tip { says: root.status; hover: touch.has-hover && touch.mouse-x < Theme.u(18) && !root.any-held; }
     HorizontalLayout {
         // one rhythm: the same inset from the row's edge on the left, top and bottom, and the same gap between the parts
-        padding-left: Theme.u(2);
-        padding-right: Theme.u(2);
+        padding-left: root.inset;
+        padding-right: root.inset;
         spacing: Theme.u(2);
         Rectangle {
             width: Theme.u(14);
@@ -413,7 +416,7 @@ component LayerRow inherits Rectangle {
         }
         // the grip: two columns of three dots
         if root.layer: Rectangle {
-            width: Theme.u(8);
+            width: root.grip-w;
             accessible-role: none;
             for i in 6: Rectangle {
                 x: (parent.width - Theme.u(4.5)) / 2 + Math.mod(i, 2) * Theme.u(3);
@@ -670,6 +673,7 @@ export component CompositeEditor inherits Window {
                                 let shift = held < 0 ? 0 : (held < drop && i > held && i <= drop) ? -1 : (held > drop && i >= drop && i < held) ? 1 : 0;
                                 return (i + shift) * pitch;
                             }
+                            // Not focused by a pick on the preview: the preview takes the arrow keys to nudge the picked picture
                             keys := FocusScope {
                                 key-pressed(e) => {
                                     if (e.text == Key.UpArrow) { root.stream-step(-1); return accept; }
