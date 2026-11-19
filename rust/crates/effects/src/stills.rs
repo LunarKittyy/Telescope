@@ -100,7 +100,7 @@ impl ShotChoice {
     pub fn summary(&self, focus_text: impl Fn(f64) -> String) -> String {
         let mut parts = Vec::new();
         if let Some(seconds) = self.shutter_s {
-            parts.push(shot_exposure_text(seconds));
+            parts.push(exposure_text(seconds));
         }
         if let Some(iso) = self.iso {
             parts.push(tr("ISO {iso}").field("iso", iso));
@@ -113,10 +113,14 @@ impl ShotChoice {
     }
 }
 
-pub fn shot_exposure_text(seconds: f64) -> String {
-    match shutter_n(seconds) {
-        Some(n) => tr("1/{n} s").field("n", n),
-        None => tr("{seconds} s").field("seconds", seconds),
+/// "Like the video" for none, else the shutter speed (1/250 s, 8 s).
+pub fn exposure_text(seconds: f64) -> String {
+    if seconds == 0.0 {
+        tr("Like the video")
+    } else if let Some(n) = shutter_n(seconds) {
+        tr("1/{n} s").field("n", n)
+    } else {
+        tr("{seconds} s").field("seconds", seconds)
     }
 }
 
@@ -340,10 +344,6 @@ pub const FOCUS_SCALE: f64 = 1000.0;
 
 pub fn focus_position(near_diopters: f64, diopters: f64) -> f64 {
     if near_diopters > 0.0 { (diopters / near_diopters * FOCUS_SCALE).clamp(0.0, FOCUS_SCALE) } else { 0.0 }
-}
-
-pub fn focus_diopters(near_diopters: f64, position: f64) -> f64 {
-    position.clamp(0.0, FOCUS_SCALE) / FOCUS_SCALE * near_diopters.max(0.0)
 }
 
 /// The range as the slider has it: where the far end (low) and the near end (high) are on the focus scale.

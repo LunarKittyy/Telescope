@@ -509,7 +509,7 @@ impl Runner<'_> {
         let alive_now = || alive.lock().unwrap_or_else(|e| e.into_inner()).as_ref().is_none_or(|a| a());
         while !self.stopped() {
             if !alive_now() {
-                // Its stream stopped or restarted: the phone drops the photo with it, if it can still say so at all
+                self.forget(&sid);
                 return StillResult::failed("interrupted", "", &saved);
             }
             // Hiding began mid-burst: what the phone still has or is taking is never downloaded, and what is saved already stays
@@ -1411,6 +1411,29 @@ mod tests {
         let (r, _, _) = timed(Phone { polls: 2, ..Phone::default() }, Timings { longest: Duration::ZERO, ..quick() },
                               json!({"format": "jpeg", "exposure_ns": 5_000_000_000i64}), None);
         assert!(r.ok && r.files.len() == 2);
+    }
+
+    #[test]
+    fn cancelling_a_long_photo_tells_the_phone_to_forget_it() {
+        let stills = Stills::new();
+        stills.set_timings(quick());
+        let (server, state) = phone(Phone { polls: 1000, ..Phone::default() });
+        let alive = Arc::new(AtomicBool::new(true));
+        let running = alive.clone();
+        let (progress_tx, progress_rx) = mpsc::channel();
+        let progress_tx = Mutex::new(progress_tx);
+        let (tx, rx) = mpsc::channel();
+        assert!(stills.take(Some("phone-1"), &format!("{}/v1", server.base(false)), PhoneAuth::new("token", ""),
+                            json!({"format": "jpeg", "exposure_ns": 30_000_000_000i64}).as_object().unwrap().clone(),
+                            telescope_core::testing::scratch_dir("stills-cancel"), Box::new(move |r| tx.send(r).unwrap()),
+                            Some(Box::new(move |_| { let _ = progress_tx.lock().unwrap().send(()); })),
+                            Some(Box::new(move || running.load(Ordering::SeqCst)))));
+        progress_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        alive.store(false, Ordering::SeqCst);
+        let result = rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert_eq!(result.code, "interrupted");
+        assert!(result.files.is_empty());
+        assert_eq!(state.lock().unwrap().forgotten, ["abc"]);
     }
 
     #[test]

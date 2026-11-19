@@ -197,6 +197,42 @@ fn a_cover_asked_for_in_the_same_batch_as_a_photo_stops_it_and_it_ends_as_hidden
 }
 
 #[test]
+fn cancelling_a_pending_photo_prevents_it_reaching_the_phone() {
+    let (r, stills) = on_air_with_stills("photos-cancel-queued");
+    r.phone_says("pixel", state_with(json!({"stills_caps": {"formats": ["jpeg"]}})));
+    r.pump();
+    asks(&r, |host| {
+        let request = host.take_still(&skippable(), "/tmp", None).unwrap();
+        host.cancel_still(request);
+    });
+    r.until("it ended", |r| r.did_hear("panel done code interrupted"));
+    assert!(stills.taken.lock().unwrap().is_empty());
+    assert!(r.w.state.borrow().still_alive.is_empty());
+}
+
+#[test]
+fn cancellation_only_ends_the_requested_photo() {
+    let (r, stills) = on_air_with_stills("photos-cancel-running");
+    r.phone_says("pixel", state_with(json!({"stills_caps": {"formats": ["jpeg"]}})));
+    r.pump();
+    let request = asks(&r, |host| host.take_still(&skippable(), "/tmp", None)).unwrap();
+    r.pump();
+    let alive = stills.alive.lock().unwrap().take().unwrap();
+    asks(&r, |host| host.cancel_still(telescope_core::host::RequestId(request.0 + 1)));
+    assert!(alive());
+    asks(&r, |host| host.cancel_still(request));
+    assert!(!alive());
+    stills.done.lock().unwrap().take().unwrap()(json!({"ok": false, "files": [], "code": "interrupted"}));
+    r.until("it ended", |r| r.did_hear("panel done code interrupted"));
+    let next = asks(&r, |host| host.take_still(&skippable(), "/tmp", None)).unwrap();
+    r.pump();
+    asks(&r, |host| host.cancel_still(request));
+    assert!((stills.alive.lock().unwrap().as_ref().unwrap())());
+    asks(&r, |host| host.cancel_still(next));
+    assert!(!(stills.alive.lock().unwrap().as_ref().unwrap())());
+}
+
+#[test]
 fn a_restart_ends_the_photo_on_the_old_session() {
     let (r, stills) = on_air_with_stills("photos-restart");
     r.phone_says("pixel", state_with(json!({"stills_caps": {"formats": ["jpeg"]}})));

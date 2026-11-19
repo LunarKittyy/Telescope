@@ -797,6 +797,10 @@ impl Window {
             posts.push_event(plugin, Event::RequestDone { request, ok: false, message: why.into(), data });
         };
         let fail = |why: &str| end("failed", why);
+        let alive = self.state.borrow().still_alive.iter().find(|(id, ..)| *id == request).map(|(_, _, alive)| alive.clone());
+        let Some(alive) = alive.filter(|alive| alive.load(std::sync::atomic::Ordering::SeqCst)) else {
+            return end("interrupted", &tr("The photo was interrupted."));
+        };
         // The photo comes straight off the phone, so a picture that is hidden now stays untaken when the request said to check
         if self.state.borrow().still_skipped(options, source) {
             return end("hidden", &tr("No photo was taken while part of the picture is hidden."));
@@ -832,8 +836,6 @@ impl Window {
             }
         }
         let options = &options;
-        let alive = Arc::new(std::sync::atomic::AtomicBool::new(true));
-        self.state.borrow_mut().still_alive.push((source.to_string(), alive.clone()));
         let (progress_posts, done_posts, owner, done_owner) = (posts.clone(), posts.clone(), plugin.to_string(), plugin.to_string());
         let on_progress: Box<dyn Fn(Value) + Send> = Box::new(move |data| {
             // The phone may pause the video for it, or a long exposure holds it up: that's no dropped stream
