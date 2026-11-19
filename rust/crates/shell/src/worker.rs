@@ -62,6 +62,8 @@ pub enum WorkerEvent {
     Preview(Vec<u8>, u32, u32),
     /// The decoder changed mid-stream and has nothing to start from until a keyframe.
     NeedsKeyframe,
+    /// The virtual camera couldn't be opened or written to, with why. The phone is fine.
+    CameraFailed(String),
 }
 
 pub type Events = Arc<dyn Fn(WorkerEvent) + Send + Sync>;
@@ -1482,6 +1484,7 @@ impl Shared {
             Err(e) => {
                 self.vcam_free.set();
                 self.status("warn", &fill(&tr("Virtual camera error: {error}"), &[("error", &e)]));
+                (self.events)(WorkerEvent::CameraFailed(e));
                 return false;
             }
         };
@@ -1591,6 +1594,7 @@ impl Shared {
                 drop(published);
                 if let Err(e) = sent {
                     self.status("warn", &fill(&tr("Virtual camera error: {error}"), &[("error", &e)]));
+                    (self.events)(WorkerEvent::CameraFailed(e.to_string()));
                     // A new frame that didn't go is counted here, and the ones the burst passed over before it; a resend isn't another frame
                     if let Some(at) = fresh_at {
                         self.stats.dropped(DropReason::Unknown, 1);
@@ -2162,6 +2166,8 @@ mod tests {
     #[derive(Default)]
     struct Cams {
         opened: Mutex<Vec<(u32, u32, u32, u32)>>,
+        /// Why every open fails, when set.
+        open_error: Mutex<Option<String>>,
         sent: Mutex<Vec<u8>>,
         sent_at: Mutex<Vec<(u8, Instant)>>,
         /// The frames themselves, whole.
@@ -2244,6 +2250,9 @@ mod tests {
         fn open(&self, slot: u32, width: u32, height: u32, fps: u32) -> Result<Box<dyn VideoOutput>, String> {
             self.0.opened.lock().unwrap().push((slot, width, height, fps));
             self.0.life.lock().unwrap().push("open");
+            if let Some(why) = self.0.open_error.lock().unwrap().clone() {
+                return Err(why);
+            }
             let delay = self.0.open_delay_ms.load(Ordering::Relaxed);
             if delay > 0 {
                 std::thread::sleep(Duration::from_millis(delay));
@@ -2396,6 +2405,20 @@ mod tests {
         wait_for(|| cams.sent.lock().unwrap().contains(&40));
         w.stop();
         assert_eq!(cams.opened.lock().unwrap()[0], (0, 6, 2, 30), "the source's decoder made the frame, not media's 4x2 one");
+    }
+
+    #[test]
+    fn a_camera_kept_in_mjpg_is_a_camera_problem_not_a_phone_one() {
+        let (cams, log) = (Arc::new(Cams::default()), Arc::new(Mutex::new(Vec::new())));
+        *cams.open_error.lock().unwrap() = Some("/dev/video9 is set to the MJPG pixel format, which Telescope can't write to it".into());
+        let packets = Arc::new(Mutex::new(VecDeque::from([Some(1), Some(2)])));
+        let w = worker_from(packets, cams, log.clone(), false, Some(3));
+        wait_for(|| log.lock().unwrap().iter().any(|e| matches!(e, WorkerEvent::CameraFailed(_))));
+        w.stop();
+        let log = log.lock().unwrap();
+        assert!(log.iter().any(|e| matches!(e, WorkerEvent::CameraFailed(why) if why.contains("MJPG"))));
+        let phone = |e: &&WorkerEvent| matches!(e, WorkerEvent::Status(k, _) if k == "waiting" || k == "reconnecting") || **e == WorkerEvent::Reconnected;
+        assert_eq!(log.iter().filter(phone).count(), 0, "{log:?}");
     }
 
     #[test]
