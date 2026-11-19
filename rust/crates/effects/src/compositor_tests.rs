@@ -796,6 +796,54 @@ fn linear_scaling_is_the_same_as_the_version_it_replaced() {
     }
 }
 
+/// The scalar halving this replaced, kept to compare every byte against.
+fn halved_reference(src: Region) -> Vec<u8> {
+    let (w2, h2, ch) = (src.w / 2, src.h / 2, src.ch);
+    let mut out = vec![0u8; w2 * h2 * ch];
+    for y in 0..h2 {
+        for x in 0..w2 {
+            for c in 0..ch {
+                let sum = src.at(2 * x, 2 * y, c) as u32 + src.at(2 * x + 1, 2 * y, c) as u32 + src.at(2 * x, 2 * y + 1, c) as u32 + src.at(2 * x + 1, 2 * y + 1, c) as u32;
+                out[(y * w2 + x) * ch + c] = ((sum + 2) >> 2) as u8;
+            }
+        }
+    }
+    out
+}
+
+/// scale_region as it was: the scalar halves repeated, then the scalar linear step.
+fn scale_reference(src: Region, w: usize, h: usize) -> Vec<u8> {
+    if (src.w, src.h) == (w, h) {
+        return src.copy();
+    }
+    if src.w < 2 * w || src.h < 2 * h {
+        return linear_reference(src, w, h);
+    }
+    let mut image = halved_reference(src);
+    let (mut iw, mut ih) = (src.w / 2, src.h / 2);
+    while iw >= 2 * w && ih >= 2 * h {
+        image = halved_reference(Region { data: &image, stride: iw, ch: src.ch, x0: 0, y0: 0, w: iw, h: ih });
+        (iw, ih) = (iw / 2, ih / 2);
+    }
+    if (iw, ih) == (w, h) {
+        return image;
+    }
+    linear_reference(Region { data: &image, stride: iw, ch: src.ch, x0: 0, y0: 0, w: iw, h: ih }, w, h)
+}
+
+#[test]
+fn scaling_a_region_is_the_same_as_the_scalar_halves_and_linear_step() {
+    // crops of bigger planes, odd sizes, every channel count the compositor has, an alpha plane's one byte, and banded ones
+    let cases = [((64usize, 48usize), (16usize, 12usize)), ((65, 49), (8, 6)), ((200, 121), (33, 20)), ((131, 77), (130, 76)), ((97, 31), (49, 15)), ((401, 301), (50, 37)), ((3000, 1200), (700, 301)), ((2000, 1500), (500, 375)), ((1000, 300), (257, 299)), ((15, 9), (7, 4))];
+    for ch in [1usize, 3, 4] {
+        for (i, &((w, h), (w2, h2))) in cases.iter().enumerate() {
+            let data = noise(w + 5, h + 3, ch, (i * 31 + ch) as u64);
+            let region = Region { data: &data, stride: w + 5, ch, x0: 3, y0: 2, w, h };
+            assert!(scale_region(region, w2, h2) == scale_reference(region, w2, h2), "{ch} channels {w}x{h} to {w2}x{h2}");
+        }
+    }
+}
+
 // ── Transitions ───────────────────────────────────────────────────────────
 
 mod transitions {
