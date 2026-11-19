@@ -701,6 +701,8 @@ impl Gpu {
 
     /// As lift, with block_chroma reading YUV chroma a sample to its 2 x 2 block as the CPU does, where lift blends it linearly.
     pub fn lift_with(&self, frame: &Frame, block_chroma: bool) -> Result<Held, String> {
+        #[cfg(test)]
+        let _timing = transfers::measurement::time(transfers::measurement::Stage::Lift);
         self.guarded("putting a picture on the card", || self.lift_unguarded(frame, block_chroma))
     }
 
@@ -789,6 +791,8 @@ impl Gpu {
 
     /// As land, giving up with an error as soon as cancel says so while the card is waited for.
     pub fn land_until(&self, held: &mut Held, cancel: &dyn Fn() -> bool) -> Result<Frame, String> {
+        #[cfg(test)]
+        let _timing = transfers::measurement::time(transfers::measurement::Stage::Land);
         self.card_ok()?;
         let mut enc = std::mem::replace(&mut held.enc, self.device.create_command_encoder(&Default::default()));
         let (w, h) = (held.width, held.height);

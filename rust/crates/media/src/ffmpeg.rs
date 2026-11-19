@@ -456,6 +456,8 @@ impl Codec {
 
     /// The card's picture in sw_frame, in main memory.
     unsafe fn copy_off_the_card(&mut self) -> Result<(), Fault> {
+        #[cfg(test)]
+        let _timing = transfers::measurement::time(transfers::measurement::Stage::Transfer);
         ff::av_frame_unref(self.sw_frame);
         // The card's own NV12 is split in take_frame, unless a test asked for I420
         if self.card_gives_i420 {
@@ -1110,6 +1112,76 @@ pub(crate) mod decode_bench {
         let mut s = v.to_vec();
         s.sort_by(|a, b| a.partial_cmp(b).unwrap());
         s[((s.len() - 1) as f64 * p) as usize]
+    }
+
+    /// TELESCOPE_BENCH_CLIPS=<folder> cargo test --release -p telescope-media decode_lift_land_per_frame -- --ignored --nocapture --test-threads=1
+    #[test]
+    #[ignore = "a measurement, needs recorded H.264 clips and a graphics card"]
+    fn decode_lift_land_per_frame() {
+        use crate::pipeline::{tests::NoContext, Pipeline};
+        use crate::transfers::measurement::{measure, Costs};
+        use std::sync::Arc;
+        use telescope_core::balance::{Balance, Place};
+        use telescope_core::frame::{FrameStage, FrameStep, ShaderStep};
+        use telescope_core::media::{FramePipeline, StagedStep};
+
+        if crate::gpu::Gpu::shared().is_none() {
+            return eprintln!("no graphics card for the frame step; skipped");
+        }
+        let run = |codec: &mut Codec, packets: &[Vec<u8>]| -> Result<Vec<Costs>, Fault> {
+            let mut pipeline = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
+            pipeline.set_steps(vec![StagedStep {
+                owner: "decode measurement".into(), stage: FrameStage::Effects,
+                step: FrameStep::Shader(ShaderStep {
+                    wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { let c = sample(uv); return vec4<f32>(1.0 - c.rgb, 1.0); }".into(),
+                    uniforms: serde_json::json!({}), textures: Vec::new(), keeps_geometry: true,
+                }),
+            }]);
+            let mut rows = Vec::new();
+            for packet in packets {
+                codec.decode_newest(packet)?;
+                let (result, costs) = measure(|| -> Result<bool, Fault> {
+                    let Some(frame) = codec.take_newest()? else { return Ok(false) };
+                    let out = pipeline.process(frame, &NoContext);
+                    assert_eq!(out.data.len(), out.format.size(out.width, out.height));
+                    std::hint::black_box(&out.data);
+                    Ok(true)
+                });
+                if result? {
+                    assert_eq!((costs.up, costs.down), (1, 1), "the frame must run a card step and land once");
+                    rows.push(costs);
+                }
+            }
+            Ok(rows)
+        };
+        for name in ["p1080.h264", "p4k.h264"] {
+            let Some(packets) = packets(name).filter(|p| !p.is_empty()) else {
+                eprintln!("no access units in {name}; skipped");
+                continue;
+            };
+            let mut measured = None;
+            for hw in [Hw::Vaapi, Hw::D3d11va, Hw::Cuda] {
+                let Ok(mut codec) = Codec::h264(Some(hw)) else { continue };
+                match run(&mut codec, &packets) {
+                    Ok(rows) if !rows.is_empty() && rows.iter().all(|r| r.decoded_down == 1) => {
+                        measured = Some((hw.name(), rows));
+                        break;
+                    }
+                    _ => eprintln!("{} could not decode {name}; trying the next decoder", hw.name()),
+                }
+            }
+            let (decoder, rows) = measured.unwrap_or_else(|| {
+                eprintln!("no hardware decoder for {name}; hardware measurement skipped, using software decode");
+                let mut codec = Codec::h264(None).expect("software H.264 decoder");
+                ("software", run(&mut codec, &packets).expect("software decode"))
+            });
+            assert!(!rows.is_empty(), "{name} produced no frames");
+            println!("clip,decoder,frame,decode_transfer_ms,lift_ms,land_ms,decode_down,up,land_down,total_down");
+            for (i, r) in rows.iter().enumerate() {
+                println!("{name},{decoder},{i},{:.4},{:.4},{:.4},{},{},{},{}", r.transfer_ns as f64 / 1e6,
+                    r.lift_ns as f64 / 1e6, r.land_ns as f64 / 1e6, r.decoded_down, r.up, r.down, r.decoded_down + r.down);
+            }
+        }
     }
 
     /// What each picture's copy off a VA-API card takes, asking for I420 and for the card's own NV12.

@@ -65,3 +65,74 @@ pub(crate) fn preview_up() {
 pub(crate) fn preview_down() {
     PREVIEW_DOWN.fetch_add(1, Ordering::Relaxed);
 }
+
+#[cfg(test)]
+pub(crate) mod measurement {
+    use std::cell::Cell;
+    use telescope_core::time::monotonic_ns;
+
+    #[derive(Clone, Copy, Debug, Default)]
+    pub struct Costs {
+        pub transfer_ns: u64,
+        pub lift_ns: u64,
+        pub land_ns: u64,
+        pub decoded_down: u32,
+        pub up: u32,
+        pub down: u32,
+    }
+
+    thread_local! {
+        static CURRENT: Cell<Option<Costs>> = const { Cell::new(None) };
+    }
+
+    pub enum Stage { Transfer, Lift, Land }
+
+    pub struct Timer(Stage, Option<u64>);
+
+    pub fn time(stage: Stage) -> Timer {
+        Timer(stage, CURRENT.with(|c| c.get().map(|_| monotonic_ns())))
+    }
+
+    impl Drop for Timer {
+        fn drop(&mut self) {
+            let Some(began) = self.1 else { return };
+            CURRENT.with(|c| {
+                if let Some(mut costs) = c.get() {
+                    let ns = monotonic_ns().saturating_sub(began);
+                    match self.0 {
+                        Stage::Transfer => { costs.transfer_ns += ns; costs.decoded_down += 1; }
+                        Stage::Lift => { costs.lift_ns += ns; costs.up += 1; }
+                        Stage::Land => { costs.land_ns += ns; costs.down += 1; }
+                    }
+                    c.set(Some(costs));
+                }
+            });
+        }
+    }
+
+    // Thread-local scopes keep other streams and parallel tests out of each frame's figures.
+    pub fn measure<T>(run: impl FnOnce() -> T) -> (T, Costs) {
+        struct Restore(Option<Costs>);
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                CURRENT.with(|c| c.set(self.0));
+            }
+        }
+        let restore = Restore(CURRENT.with(|c| c.replace(Some(Costs::default()))));
+        let out = run();
+        let costs = CURRENT.with(|c| c.get().unwrap());
+        drop(restore);
+        (out, costs)
+    }
+
+    #[test]
+    fn measurements_are_scoped_and_do_not_count_other_threads() {
+        let (_, costs) = measure(|| {
+            drop(time(Stage::Lift));
+            let (_, inner) = measure(|| drop(time(Stage::Land)));
+            assert_eq!((inner.up, inner.down), (0, 1));
+            std::thread::spawn(|| drop(time(Stage::Transfer))).join().unwrap();
+        });
+        assert_eq!((costs.decoded_down, costs.up, costs.down), (0, 1, 0));
+    }
+}
