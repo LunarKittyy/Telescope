@@ -23,6 +23,8 @@ pub fn bgra(frame: &Frame, alpha: Option<&[u8]>, out: &mut Vec<u8>) -> bool {
     }
     match alpha {
         Some(mask) if mask.len() == pixels => out.as_chunks_mut::<4>().0.iter_mut().zip(mask).for_each(|(px, a)| px[3] = *a),
+        // The I420 conversion already left every alpha opaque
+        _ if frame.format == PixelFormat::I420 => {}
         _ => out.as_chunks_mut::<4>().0.iter_mut().for_each(|px| px[3] = 255),
     }
     true
@@ -67,6 +69,16 @@ mod tests {
         for px in out.as_chunks::<4>().0.iter() {
             assert!(px[2] > 200 && px[0] < 60 && px[3] == 255, "{px:?}");
         }
+    }
+
+    #[test]
+    fn an_i420_picture_is_opaque_or_takes_the_mask_whatever_the_buffer_held() {
+        let f = frame(PixelFormat::I420, [81, 81, 81, 81, 90, 240].to_vec());
+        let mut out = vec![7u8; 16];
+        assert!(bgra(&f, None, &mut out));
+        assert!(out.as_chunks::<4>().0.iter().all(|px| px[3] == 255));
+        assert!(bgra(&f, Some(&[0, 64, 128, 200]), &mut out));
+        assert_eq!(out.as_chunks::<4>().0.iter().map(|px| px[3]).collect::<Vec<_>>(), [0, 64, 128, 200]);
     }
 
     #[test]

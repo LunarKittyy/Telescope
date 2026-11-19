@@ -16,7 +16,8 @@ struct Latest {
     /// The size the stream has settled on with whoever reads it, 0 x 0 while it renegotiates after a resize.
     ready_width: AtomicU32,
     ready_height: AtomicU32,
-    bytes: Mutex<Vec<u8>>,
+    /// Shared so a cycle copies it outside the lock, and the sender can swap in the next picture meanwhile.
+    bytes: Mutex<Arc<Vec<u8>>>,
 }
 
 impl Latest {
@@ -100,7 +101,7 @@ fn fill(buffer: *mut PwBuffer, latest: &Latest) {
             return;
         }
         let room = (data.maxsize as usize).min(wanted);
-        let bytes = latest.bytes.lock().unwrap_or_else(|e| e.into_inner());
+        let bytes = latest.bytes.lock().unwrap_or_else(|e| e.into_inner()).clone();
         let n = room.min(bytes.len());
         std::ptr::copy_nonoverlapping(bytes.as_ptr(), data.data.cast::<u8>(), n);
         let chunk = &mut *data.chunk;
@@ -125,7 +126,7 @@ impl VideoSender {
         let hash = description.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3));
         let node = format!("telescope-{readable}-{:08x}", hash >> 32);
         let props = [("media.class", "Video/Source"), ("node.name", node.as_str()), ("node.description", description), ("media.role", "Camera")];
-        let latest = Arc::new(Latest { width: AtomicU32::new(width), height: AtomicU32::new(height), ready_width: AtomicU32::new(0), ready_height: AtomicU32::new(0), bytes: Mutex::new(Vec::new()) });
+        let latest = Arc::new(Latest { width: AtomicU32::new(width), height: AtomicU32::new(height), ready_width: AtomicU32::new(0), ready_height: AtomicU32::new(0), bytes: Mutex::new(Arc::default()) });
         let config = StreamConfig { name: description, props: &props, direction: PW_DIRECTION_OUTPUT, target: SPA_ID_INVALID, flags: PW_STREAM_FLAG_DRIVER | PW_STREAM_FLAG_MAP_BUFFERS };
         let stream = Stream::connect(connection, &config, &[enum_format(width, height)], Box::new(Producer(latest.clone())))?;
         Ok(VideoSender { connection: connection.clone(), stream, latest })
@@ -135,26 +136,40 @@ impl VideoSender {
     pub fn resize(&self, width: u32, height: u32) {
         self.latest.width.store(width, Ordering::SeqCst);
         self.latest.height.store(height, Ordering::SeqCst);
-        self.latest.bytes.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        *self.latest.bytes.lock().unwrap_or_else(|e| e.into_inner()) = Arc::default();
         self.stream.locked(|stream| stream.update_params(&[enum_format(width, height)]));
     }
 
     /// The next picture, `width * height * 4` bytes: it goes out on the cycle this starts.
     pub fn send(&self, bgra: &[u8]) -> Result<(), String> {
+        self.check(bgra.len())?;
+        self.put(bgra.to_vec());
+        Ok(())
+    }
+
+    /// send, taking the picture's buffer; what comes back in its place is the buffer of an earlier picture no cycle is still copying, or an empty one.
+    pub fn send_buffer(&self, bgra: &mut Vec<u8>) -> Result<(), String> {
+        self.check(bgra.len())?;
+        let old = self.put(std::mem::take(bgra));
+        *bgra = Arc::try_unwrap(old).unwrap_or_default();
+        Ok(())
+    }
+
+    fn check(&self, len: usize) -> Result<(), String> {
         if self.connection.is_dead() {
             return Err("PipeWire went away".into());
         }
         let (width, height) = self.latest.size();
         let wanted = width as usize * height as usize * 4;
-        if bgra.len() != wanted {
-            return Err(format!("a picture of {} bytes for a sender of {wanted}", bgra.len()));
+        if len != wanted {
+            return Err(format!("a picture of {len} bytes for a sender of {wanted}"));
         }
-        {
-            let mut bytes = self.latest.bytes.lock().unwrap_or_else(|e| e.into_inner());
-            bytes.clear();
-            bytes.extend_from_slice(bgra);
-        }
-        self.stream.trigger_process();
         Ok(())
+    }
+
+    fn put(&self, bgra: Vec<u8>) -> Arc<Vec<u8>> {
+        let old = std::mem::replace(&mut *self.latest.bytes.lock().unwrap_or_else(|e| e.into_inner()), Arc::new(bgra));
+        self.stream.trigger_process();
+        old
     }
 }

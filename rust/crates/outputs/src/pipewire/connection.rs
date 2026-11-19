@@ -291,6 +291,12 @@ impl Connection {
         result
     }
 
+    /// Waits until the loop thread has run what other threads queued to it so far, with the loop unlocked.
+    pub(super) fn drain_queue(&self) {
+        // SAFETY: the thread loop lives as long as the connection, and the caller doesn't hold its lock
+        unsafe { ffi::loop_drain((self.lib.thread_loop_get_loop)(self.thread_loop)) };
+    }
+
     pub(super) fn lib(&self) -> &'static Lib {
         self.lib
     }

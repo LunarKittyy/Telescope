@@ -24,6 +24,7 @@ image = { workspace = true, features = ["jpeg"] }
 ureq = { workspace = true, features = ["platform-verifier"] }
 
 [dev-dependencies]
+telescope-core = { workspace = true, features = ["scalar-switch"] }
 i-slint-backend-testing = "=1.18.1"
 # the pipeline frame steps run on in the app, so tests run the real shaders
 telescope-media.workspace = true

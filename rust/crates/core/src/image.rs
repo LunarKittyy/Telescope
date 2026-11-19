@@ -19,13 +19,52 @@ macro_rules! avx2_too {
                 plain($($arg),*)
             }
             #[cfg(target_arch = "x86_64")]
-            if std::arch::is_x86_feature_detected!("avx2") {
+            if $crate::image::avx2_wanted() {
                 // SAFETY: the processor was just asked whether it has AVX2
                 return unsafe { wide($($arg),*) };
             }
             plain($($arg),*)
         }
     };
+}
+
+/// Whether the AVX2 build of a function should run: the processor has it, and a test hasn't asked for the plain loops.
+#[cfg(target_arch = "x86_64")]
+#[doc(hidden)]
+#[inline(always)]
+pub fn avx2_wanted() -> bool {
+    #[cfg(any(test, feature = "scalar-switch"))]
+    if scalar_switch::PLAIN.load(std::sync::atomic::Ordering::Relaxed) {
+        return false;
+    }
+    std::arch::is_x86_feature_detected!("avx2")
+}
+
+/// Lets a test run code on the plain loops of every avx2_too function, to compare them with the AVX2 ones.
+#[cfg(any(test, feature = "scalar-switch"))]
+#[doc(hidden)]
+pub mod scalar_switch {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Mutex;
+
+    pub(super) static PLAIN: AtomicBool = AtomicBool::new(false);
+    static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
+
+    struct Reset;
+
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            PLAIN.store(false, Ordering::Relaxed);
+        }
+    }
+
+    /// f with every avx2_too function (and halve_2x2) on its plain loops, whichever thread runs it.
+    pub fn plain<R>(f: impl FnOnce() -> R) -> R {
+        let _lock = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
+        let _reset = Reset;
+        PLAIN.store(true, Ordering::Relaxed);
+        f()
+    }
 }
 
 /// Rounds to a byte. The cast saturates, so this clamps too, and x86-64's baseline has no round instruction: f32::round is a call
@@ -986,7 +1025,7 @@ pub fn halve_2x2_into(src: &[u8], pitch: usize, ch: usize, (x0, y0, w, h): (usiz
         return;
     }
     #[cfg(target_arch = "x86_64")]
-    let wide = std::arch::is_x86_feature_detected!("avx2");
+    let wide = avx2_wanted();
     over_bands(out, stride, |first, part| {
         for (i, line) in part.chunks_exact_mut(stride).enumerate().take((h / 2).saturating_sub(first)) {
             let line = &mut line[left..left + rowlen];
@@ -1178,6 +1217,31 @@ mod tests {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn the_plain_loops_halve_and_resample_to_the_same_bytes_as_the_avx2_ones() {
+        let mut seed = 5u64;
+        let mut next = |m: usize| {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            (seed >> 33) as usize % m
+        };
+        // one-pixel wide, tall and both, then random sizes, some big enough to be banded
+        let mut sizes = vec![(1usize, 1usize), (1, 2), (2, 1), (1, 9), (9, 1), (1, 700), (700, 1), (2, 700), (3, 3), (1800, 600)];
+        sizes.extend((0..40).map(|_| (1 + next(130), 1 + next(130))));
+        for ch in [1usize, 3, 4] {
+            for (i, &(w, h)) in sizes.iter().enumerate() {
+                let (pitch, x0, y0) = (w + 4, 2, 1);
+                let data = pseudo((pitch + 1) * (h + 3) * ch, (i * 13 + ch) as u64);
+                let case = format!("{ch} channels {w}x{h}");
+                let (wide, plain) = (halve_2x2(&data, pitch, ch, (x0, y0, w, h)), scalar_switch::plain(|| halve_2x2(&data, pitch, ch, (x0, y0, w, h))));
+                assert!(wide == plain, "halving {case}");
+                let (w2, h2) = (1 + next(2 * w + 2), 1 + next(2 * h + 2));
+                let (xs, ys) = (linear_taps(w, w2, false), linear_taps(h, h2, true));
+                let (wide, plain) = (resample_box(&data, pitch, ch, (x0, y0, w, h), &xs, &ys), scalar_switch::plain(|| resample_box(&data, pitch, ch, (x0, y0, w, h), &xs, &ys)));
+                assert!(wide == plain, "resampling {case} to {w2}x{h2}");
             }
         }
     }

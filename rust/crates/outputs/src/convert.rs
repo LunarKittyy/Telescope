@@ -94,13 +94,14 @@ fn terms() -> &'static Terms {
     })
 }
 
-/// The RGB yuv_to_rgb makes of a run of luma, each pair of pixels sharing its chroma sample; out is RGBA.
-fn yuv_row_to_rgba(t: &Terms, y: &[u8], u: &[u8], v: &[u8], out: &mut [u8]) {
+/// The RGB yuv_to_rgb makes of a run of luma, each pair of pixels sharing its chroma sample; out is RGBA, or BGRA when BGRA is set.
+fn yuv_row<const BGRA: bool>(t: &Terms, y: &[u8], u: &[u8], v: &[u8], out: &mut [u8]) {
     for ((ys, os), (u, v)) in y.chunks(2).zip(out.chunks_mut(8)).zip(u.iter().zip(v)) {
         let (red, green_v, green_u, blue) = (t.v_red[*v as usize], t.v_green[*v as usize], t.u_green[*u as usize], t.u_blue[*u as usize]);
         for (y, o) in ys.iter().zip(os.as_chunks_mut::<4>().0.iter_mut()) {
             let c = t.luma[*y as usize];
-            o.copy_from_slice(&[round_byte(c + red), round_byte(c - green_u - green_v), round_byte(c + blue), 255]);
+            let (r, g, b) = (round_byte(c + red), round_byte(c - green_u - green_v), round_byte(c + blue));
+            o.copy_from_slice(&if BGRA { [b, g, r, 255] } else { [r, g, b, 255] });
         }
     }
 }
@@ -124,23 +125,26 @@ pub fn i420_to_rgba_flipped_into(frame: &Frame, out: &mut Vec<u8>) {
     let (t, cw) = (terms(), w.div_ceil(2));
     telescope_core::image::over_rows(out, w * 4, |at, line| {
         let row = h - 1 - at;
-        yuv_row_to_rgba(t, &py[row * w..][..w], &pu[(row / 2) * cw..][..cw], &pv[(row / 2) * cw..][..cw], line);
+        yuv_row::<false>(t, &py[row * w..][..w], &pu[(row / 2) * cw..][..cw], &pv[(row / 2) * cw..][..cw], line);
     });
 }
 
 /// An I420 frame as BGRA bytes with the alpha left opaque, top row first, into out which keeps its allocation from one call to the next (black if the frame isn't I420).
 pub fn i420_to_bgra_into(frame: &Frame, out: &mut Vec<u8>) {
     let (w, h) = (frame.width as usize, frame.height as usize);
-    out.clear();
+    let Some((py, pu, pv)) = frame.i420_planes() else {
+        out.clear();
+        out.resize(w * h * 4, 0);
+        return;
+    };
+    // Every byte is written below, so a buffer of the right size isn't cleared first
     out.resize(w * h * 4, 0);
-    let Some((py, pu, pv)) = frame.i420_planes() else { return };
     if w == 0 {
         return;
     }
     let (t, cw) = (terms(), w.div_ceil(2));
     telescope_core::image::over_rows(out, w * 4, |row, line| {
-        yuv_row_to_rgba(t, &py[row * w..][..w], &pu[(row / 2) * cw..][..cw], &pv[(row / 2) * cw..][..cw], line);
-        line.as_chunks_mut::<4>().0.iter_mut().for_each(|px| px.swap(0, 2));
+        yuv_row::<true>(t, &py[row * w..][..w], &pu[(row / 2) * cw..][..cw], &pv[(row / 2) * cw..][..cw], line);
     });
 }
 
@@ -269,6 +273,21 @@ mod tests {
         let bgra: Vec<u8> = (0..w * h).flat_map(|i| [(i * 7) as u8, (i * 13) as u8, (i * 29) as u8, 255]).collect();
         let rgba: Vec<u8> = bgra.as_chunks::<4>().0.iter().flat_map(|p| [p[2], p[1], p[0], 255]).collect();
         assert_eq!(bgra_to_i420(&bgra, w, h).data, rgb_to_i420(&rgba, w, h, 4, false).data);
+    }
+
+    #[test]
+    fn bgra_is_the_flipped_rgba_with_red_and_blue_swapped_even_into_a_dirty_buffer() {
+        for (w, h) in [(37usize, 21usize), (4, 2), (1, 1)] {
+            let cw = w.div_ceil(2);
+            let data: Vec<u8> = (0..w * h + 2 * cw * h.div_ceil(2)).map(|i| (i * 37 + i / 7) as u8).collect();
+            let f = Frame::new(w as u32, h as u32, PixelFormat::I420, data);
+            let rgba = i420_to_rgba_flipped(&f);
+            let want: Vec<u8> = (0..h).flat_map(|row| rgba[(h - 1 - row) * w * 4..][..w * 4].as_chunks::<4>().0.iter().flat_map(|p| [p[2], p[1], p[0], p[3]]).collect::<Vec<_>>()).collect();
+            for mut out in [Vec::new(), vec![9u8; w * h * 4], vec![9u8; 3]] {
+                i420_to_bgra_into(&f, &mut out);
+                assert_eq!(out, want, "{w}x{h}");
+            }
+        }
     }
 
     #[test]
