@@ -338,7 +338,12 @@ impl Plugin for SpoutSendPlugin {
     }
 
     fn setup(&mut self, host: &mut dyn Host) {
+        // Switched on mid-session, the stream in focus was selected before this plugin heard of it
+        if let Some(source) = host.focused_source_id() {
+            self.shown = source;
+        }
         self.sync_sharing(host);
+        self.render(host);
     }
 
     fn shutdown(&mut self, host: &mut dyn Host) {

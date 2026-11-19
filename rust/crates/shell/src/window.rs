@@ -1493,6 +1493,12 @@ impl Window {
         done
     }
 
+    /// Whether a plugin's card is shown in the window now (it has one and it isn't hidden).
+    pub fn card_shown(&self, plugin: &str) -> bool {
+        let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == "card") else { return false };
+        self.ui.get_property(&format!("{}-visible", r.id)) == Ok(SValue::Bool(true))
+    }
+
     /// Sets one property of a plugin's card or header widget, as a scene does to put a card in a state no event gets it into.
     pub fn set_card_property(self: &Rc<Self>, plugin: &str, ui: &str, prop: &str, value: &Value) -> bool {
         let Some(r) = self.pieces.iter().find(|r| r.plugin == plugin && r.ui == ui) else { return false };
