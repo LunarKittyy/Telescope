@@ -180,7 +180,7 @@ msgstr "VB-Cable पाएं"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "टाइपिंग, पंखे का शोर और कमरे की सरसराहट हटाएं."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:975 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:977 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -721,7 +721,7 @@ msgstr "प्रीव्यू से चुना गया रंग. दो
 msgid "Click the screen behind you on the preview. Esc cancels."
 msgstr "प्रीव्यू में अपने पीछे की स्क्रीन पर क्लिक करें. Esc दबाकर रद्द करें."
 
-#: rust/crates/effects/src/chroma_key.rs:444 rust/crates/effects/src/chroma_key.rs:480 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1788 rust/crates/shell/src/window.rs:1815 rust/crates/shell/src/worker.rs:613 rust/crates/system/src/remote.rs:46
+#: rust/crates/effects/src/chroma_key.rs:444 rust/crates/effects/src/chroma_key.rs:480 rust/crates/effects/src/composite_editor.rs:674 rust/crates/effects/src/desk.rs:307 rust/crates/link/src/audio.rs:68 rust/crates/outputs/src/spout/mod.rs:596 rust/crates/outputs/src/webcam.rs:992 rust/crates/setup/src/stats.rs:635 rust/crates/setup/src/stats.rs:789 rust/crates/shell/src/session.rs:93 rust/crates/shell/src/stream_flow.rs:241 rust/crates/shell/src/stream_flow.rs:256 rust/crates/shell/src/streams.rs:717 rust/crates/shell/src/streams.rs:1788 rust/crates/shell/src/window.rs:1863 rust/crates/shell/src/worker.rs:613 rust/crates/system/src/remote.rs:46
 msgid "Not streaming"
 msgstr "स्ट्रीम नहीं हो रहा है"
 
@@ -1326,74 +1326,74 @@ msgstr ""
 msgid "Even"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:634 rust/crates/effects/src/composite_plugin.rs:945 rust/crates/effects/src/composite_plugin.rs:949 rust/crates/effects/src/composite_plugin.rs:962 rust/crates/effects/ui/composite.slint:37
+#: rust/crates/effects/src/composite_plugin.rs:636 rust/crates/effects/src/composite_plugin.rs:947 rust/crates/effects/src/composite_plugin.rs:951 rust/crates/effects/src/composite_plugin.rs:964 rust/crates/effects/ui/composite.slint:37
 msgid "One picture"
 msgstr "एक तस्वीर"
 
-#: rust/crates/effects/src/composite_plugin.rs:726
+#: rust/crates/effects/src/composite_plugin.rs:728
 msgid "Nothing's in the picture yet."
 msgstr "तस्वीर में अभी कुछ नहीं है."
 
-#: rust/crates/effects/src/composite_plugin.rs:728
+#: rust/crates/effects/src/composite_plugin.rs:730
 msgid "Active once two streams are running."
 msgstr "दो स्ट्रीम चलने पर सक्रिय होता है."
 
-#: rust/crates/effects/src/composite_plugin.rs:730
+#: rust/crates/effects/src/composite_plugin.rs:732
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "{camera} पर आउटपुट के लिए सेट है लेकिन वहां कोई स्ट्रीम नहीं चल रही है."
 
-#: rust/crates/effects/src/composite_plugin.rs:732
+#: rust/crates/effects/src/composite_plugin.rs:734
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "{camera} पर स्ट्रीम द्वारा तस्वीर भेजने के बाद वहां आउटपुट देगा."
 
-#: rust/crates/effects/src/composite_plugin.rs:734
+#: rust/crates/effects/src/composite_plugin.rs:736
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "{camera} पर आउटपुट हो रहा है."
 
-#: rust/crates/effects/src/composite_plugin.rs:739
+#: rust/crates/effects/src/composite_plugin.rs:741
 msgid "Nothing in it"
 msgstr "इसमें कुछ नहीं है"
 
-#: rust/crates/effects/src/composite_plugin.rs:741 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:720
+#: rust/crates/effects/src/composite_plugin.rs:743 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:720
 msgid "Two streams required"
 msgstr "दो स्ट्रीम ज़रूरी हैं"
 
-#: rust/crates/effects/src/composite_plugin.rs:743
+#: rust/crates/effects/src/composite_plugin.rs:745
 msgid "Not going out"
 msgstr "आउटपुट बंद है"
 
-#: rust/crates/effects/src/composite_plugin.rs:745
+#: rust/crates/effects/src/composite_plugin.rs:747
 msgid "Going out"
 msgstr "आउटपुट चालू है"
 
-#: rust/crates/effects/src/composite_plugin.rs:811
+#: rust/crates/effects/src/composite_plugin.rs:813
 msgid "Several cameras in one picture"
 msgstr "एक ही तस्वीर में कई कैमरे"
 
-#: rust/crates/effects/src/composite_plugin.rs:812
+#: rust/crates/effects/src/composite_plugin.rs:814
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "अपनी चलाई जाने वाली स्ट्रीम्स को एक वर्चुअल कैमरे पर अगल-बगल या एक-दूसरे के अंदर रखें."
 
-#: rust/crates/effects/src/composite_plugin.rs:813
+#: rust/crates/effects/src/composite_plugin.rs:815
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "कई कैमरे एक तस्वीर में प्लगइन के बिना कोई 'एक तस्वीर' कार्ड नहीं होता और हर स्ट्रीम सिर्फ़ अपने कैमरे पर जाती है."
 
-#: rust/crates/effects/src/composite_plugin.rs:950 rust/crates/effects/src/composite_plugin.rs:975
+#: rust/crates/effects/src/composite_plugin.rs:952 rust/crates/effects/src/composite_plugin.rs:977
 msgid "Picture layout"
 msgstr "तस्वीर का लेआउट"
 
-#: rust/crates/effects/src/composite_plugin.rs:1040
+#: rust/crates/effects/src/composite_plugin.rs:1042
 msgid "One picture layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:1041
+#: rust/crates/effects/src/composite_plugin.rs:1043
 msgid "Bring this layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:1041
+#: rust/crates/effects/src/composite_plugin.rs:1043
 msgid "Leave the layout"
 msgstr ""
 
@@ -3141,12 +3141,12 @@ msgid "{n} frames"
 msgstr ""
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/src/stargazer.rs:1174 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1825 rust/crates/system/src/remote.rs:19
+#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/src/stargazer.rs:1174 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1873 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "शुरू"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/window.rs:1831 rust/crates/system/src/remote.rs:19
+#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/window.rs:1879 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "रोकें"
 
@@ -5012,70 +5012,75 @@ msgstr "इस ऐप को अपडेट की ज़रूरत है"
 
 #: rust/crates/link/src/connection.rs:839
 #, python-brace-format
+msgid "Something else on {phone} is answering where Telescope should, probably another Telescope app such as Telescope (dev). Close it there, then try again."
+msgstr ""
+
+#: rust/crates/link/src/connection.rs:840
+#, python-brace-format
 msgid "Open Telescope on {phone} and keep the app on screen. The phone needs to be on the same network as this computer, or plugged in with a USB cable."
 msgstr "{phone} पर Telescope खोलें और ऐप को स्क्रीन पर रखें. फ़ोन को इस कंप्यूटर के समान नेटवर्क पर होना चाहिए, या USB केबल से जुड़ा होना चाहिए."
 
-#: rust/crates/link/src/connection.rs:841
+#: rust/crates/link/src/connection.rs:842
 #, python-brace-format
 msgid "This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add device and scan the code again."
 msgstr "Telescope का यह वर्ज़न {phone} के साथ कनेक्शन को एन्क्रिप्ट करता है, जिसके लिए दोबारा पेयरिंग ज़रूरी है. डिवाइस जोड़ें पर क्लिक करें और कोड को फिर से स्कैन करें."
 
-#: rust/crates/link/src/connection.rs:842
+#: rust/crates/link/src/connection.rs:843
 #, python-brace-format
 msgid "{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add device to pair it again."
 msgstr "{phone} अब इस कंप्यूटर को नहीं पहचानता (इसे फ़ोन से हटा दिया गया था, या ऐप फिर से इंस्टॉल किया गया था). इसे दोबारा पेयर करने के लिए डिवाइस जोड़ें पर क्लिक करें."
 
-#: rust/crates/link/src/connection.rs:844
+#: rust/crates/link/src/connection.rs:845
 #, python-brace-format
 msgid "{phone} only accepts USB while Local only is on in the phone app. Plug it in with a cable, or turn Local only off on the phone."
 msgstr "फ़ोन ऐप में 'सिर्फ़ लोकल' चालू रहने के दौरान {phone} केवल USB स्वीकार करता है. इसे केबल से लगाएं, या फ़ोन पर 'सिर्फ़ लोकल' बंद करें."
 
-#: rust/crates/link/src/connection.rs:846
+#: rust/crates/link/src/connection.rs:847
 msgid "USB needs adb, which Add device can get."
 msgstr "USB के लिए adb ज़रूरी है, जिसे डिवाइस जोड़ें से पाया जा सकता है."
 
-#: rust/crates/link/src/connection.rs:851
+#: rust/crates/link/src/connection.rs:852
 msgid "the phone isn't answering over USB"
 msgstr "फ़ोन USB पर जवाब नहीं दे रहा है"
 
-#: rust/crates/link/src/connection.rs:852
+#: rust/crates/link/src/connection.rs:853
 #, python-brace-format
 msgid "The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."
 msgstr "कनेक्शन सिर्फ़ USB पर सेट है: {why}. इसके बजाय Wi-Fi का इस्तेमाल करने के लिए ऑटोमैटिक पर स्विच करें."
 
-#: rust/crates/link/src/connection.rs:854
+#: rust/crates/link/src/connection.rs:855
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one. Update it on the phone."
 msgstr "{phone} पर मौजूद Telescope ऐप इससे पुराना है. इसे फ़ोन पर अपडेट करें."
 
-#: rust/crates/link/src/connection.rs:855
+#: rust/crates/link/src/connection.rs:856
 #, python-brace-format
 msgid "The Telescope app on {phone} is newer than this one. Update Telescope on this computer."
 msgstr "{phone} पर मौजूद Telescope ऐप इससे नया है. इस कंप्यूटर पर Telescope को अपडेट करें."
 
-#: rust/crates/link/src/connection.rs:865
+#: rust/crates/link/src/connection.rs:866
 #, python-brace-format
 msgid "Not using USB: {reason}."
 msgstr "USB का इस्तेमाल नहीं हो रहा है: {reason}."
 
-#: rust/crates/link/src/connection.rs:874
+#: rust/crates/link/src/connection.rs:875
 msgid "USB cable"
 msgstr "USB केबल"
 
-#: rust/crates/link/src/connection.rs:882
+#: rust/crates/link/src/connection.rs:883
 #, python-brace-format
 msgid "The phone is streaming to {computer}."
 msgstr "फ़ोन {computer} पर स्ट्रीम कर रहा है."
 
-#: rust/crates/link/src/connection.rs:883
+#: rust/crates/link/src/connection.rs:884
 msgid "The phone is streaming to another computer."
 msgstr "फ़ोन किसी दूसरे कंप्यूटर पर स्ट्रीम कर रहा है."
 
-#: rust/crates/link/src/connection.rs:885
+#: rust/crates/link/src/connection.rs:886
 msgid "Stop the stream there or on the phone, then try again."
 msgstr "वहां या फ़ोन पर स्ट्रीम रोकें, फिर कोशिश करें."
 
-#: rust/crates/link/src/connection.rs:891
+#: rust/crates/link/src/connection.rs:892
 msgid ""
 "The phone hasn't given Telescope camera access.\n"
 "\n"
@@ -5085,7 +5090,7 @@ msgstr ""
 "\n"
 "फ़ोन पर ऐप खोलें और कैमरे की अनुमति दें."
 
-#: rust/crates/link/src/connection.rs:892
+#: rust/crates/link/src/connection.rs:893
 msgid ""
 "The phone is busy starting or stopping a stream.\n"
 "\n"
@@ -5095,7 +5100,7 @@ msgstr ""
 "\n"
 "थोड़ी देर में फिर कोशिश करें."
 
-#: rust/crates/link/src/connection.rs:893
+#: rust/crates/link/src/connection.rs:894
 msgid ""
 "Android didn't let the camera start in the background.\n"
 "\n"
@@ -5105,7 +5110,7 @@ msgstr ""
 "\n"
 "फ़ोन पर Telescope को सामने लाएं और फिर कोशिश करें."
 
-#: rust/crates/link/src/connection.rs:894 rust/crates/link/src/connection.rs:1001
+#: rust/crates/link/src/connection.rs:895 rust/crates/link/src/connection.rs:1002
 msgid ""
 "The phone doesn't recognise this computer anymore.\n"
 "\n"
@@ -5115,37 +5120,37 @@ msgstr ""
 "\n"
 "इसे दोबारा पेयर करने के लिए डिवाइस जोड़ें पर क्लिक करें."
 
-#: rust/crates/link/src/connection.rs:896
+#: rust/crates/link/src/connection.rs:897
 msgid "unknown error"
 msgstr "अज्ञात गड़बड़ी"
 
-#: rust/crates/link/src/connection.rs:897
+#: rust/crates/link/src/connection.rs:898
 #, python-brace-format
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "फ़ोन ने स्ट्रीमिंग शुरू करने के अनुरोध को अस्वीकार कर दिया ({error})."
 
-#: rust/crates/link/src/connection.rs:995 rust/crates/link/src/service.rs:334
+#: rust/crates/link/src/connection.rs:996 rust/crates/link/src/service.rs:334
 msgid "Lost the connection to the phone. Try again."
 msgstr "फ़ोन से कनेक्शन टूट गया. फिर कोशिश करें."
 
-#: rust/crates/link/src/connection.rs:1002
+#: rust/crates/link/src/connection.rs:1003
 msgid "Couldn't reach the phone. Open Telescope on it and try again."
 msgstr "फ़ोन से संपर्क नहीं हो सका. इस पर Telescope खोलें और फिर कोशिश करें."
 
-#: rust/crates/link/src/connection.rs:1012
+#: rust/crates/link/src/connection.rs:1013
 msgid "Starting the phone's camera..."
 msgstr "फ़ोन का कैमरा शुरू हो रहा है..."
 
-#: rust/crates/link/src/connection.rs:1047 rust/crates/link/src/connection.rs:1056
+#: rust/crates/link/src/connection.rs:1048 rust/crates/link/src/connection.rs:1057
 msgid "Lost contact with the phone while its camera was starting."
 msgstr "फ़ोन का कैमरा शुरू होने के दौरान उससे संपर्क टूट गया."
 
-#: rust/crates/link/src/connection.rs:1058
+#: rust/crates/link/src/connection.rs:1059
 #, python-brace-format
 msgid "No answer from the phone for a moment, still waiting... ({seconds}s)"
 msgstr "फ़ोन से कुछ देर तक कोई जवाब नहीं मिला, अभी भी इंतज़ार कर रहे हैं... ({seconds}s)"
 
-#: rust/crates/link/src/connection.rs:1065
+#: rust/crates/link/src/connection.rs:1066
 msgid ""
 "The phone's camera stopped before it finished starting.\n"
 "\n"
@@ -5155,17 +5160,17 @@ msgstr ""
 "\n"
 "फ़ोन पर कोई अनुमति प्रॉम्प्ट या गड़बड़ी देखें."
 
-#: rust/crates/link/src/connection.rs:1067
+#: rust/crates/link/src/connection.rs:1068
 #, python-brace-format
 msgid "Phone's camera is opening... ({seconds}s)"
 msgstr "फ़ोन का कैमरा खुल रहा है... ({seconds}s)"
 
-#: rust/crates/link/src/connection.rs:1067
+#: rust/crates/link/src/connection.rs:1068
 #, python-brace-format
 msgid "Waiting for the phone's camera... ({seconds}s)"
 msgstr "फ़ोन के कैमरे का इंतज़ार किया जा रहा है... ({seconds}s)"
 
-#: rust/crates/link/src/connection.rs:1070
+#: rust/crates/link/src/connection.rs:1071
 msgid ""
 "The phone's camera didn't finish starting in time.\n"
 "\n"
@@ -5175,27 +5180,27 @@ msgstr ""
 "\n"
 "फिर कोशिश करें. अगर कैमरा बार-बार शुरू होने में विफल रहता है, तो फ़ोन पर Telescope खोलें."
 
-#: rust/crates/link/src/phones.rs:300
+#: rust/crates/link/src/phones.rs:306
 msgid "USB can't be used until adb is installed (Add device can get it)"
 msgstr "adb इंस्टॉल होने तक USB का इस्तेमाल नहीं किया जा सकता (डिवाइस जोड़ें इसे प्राप्त कर सकता है)"
 
-#: rust/crates/link/src/phones.rs:301
+#: rust/crates/link/src/phones.rs:307
 msgid "USB can't be used until adb is installed"
 msgstr "adb इंस्टॉल होने तक USB का इस्तेमाल नहीं किया जा सकता"
 
-#: rust/crates/link/src/phones.rs:302
+#: rust/crates/link/src/phones.rs:308
 msgid "no phone plugged in over USB"
 msgstr "USB पर कोई फ़ोन कनेक्ट नहीं है"
 
-#: rust/crates/link/src/phones.rs:303
+#: rust/crates/link/src/phones.rs:309
 msgid "phone plugged in but USB debugging isn't allowed yet (accept the prompt on the phone)"
 msgstr "फ़ोन प्लग इन है लेकिन USB डीबगिंग की अनुमति अभी नहीं है (फ़ोन पर प्रॉम्प्ट स्वीकार करें)"
 
-#: rust/crates/link/src/phones.rs:304
+#: rust/crates/link/src/phones.rs:310
 msgid "the phone plugged in over USB is a different one"
 msgstr "USB पर कनेक्ट फ़ोन कोई दूसरा है"
 
-#: rust/crates/link/src/phones.rs:305
+#: rust/crates/link/src/phones.rs:311
 msgid "phone plugged in but Telescope isn't open on it"
 msgstr "फ़ोन प्लग इन है लेकिन उस पर Telescope नहीं खुला है"
 
@@ -5471,7 +5476,7 @@ msgstr "रेज़ोल्यूशन"
 msgid "The size the browser sends. If the camera doesn't support this size the browser sends what the camera can do."
 msgstr "ब्राउज़र जो साइज़ भेजता है. अगर कैमरा इस साइज़ को सपोर्ट नहीं करता, तो कैमरा जो कर सकता है ब्राउज़र वही भेजता है."
 
-#: rust/crates/link/ui/browser_camera.slint:203 rust/crates/link/ui/browser_camera.slint:206 rust/crates/outputs/ui/spout.slint:23 rust/crates/outputs/ui/spout.slint:28 rust/crates/outputs/ui/spout.slint:29 rust/crates/outputs/ui/stream_output.slint:73 rust/crates/outputs/ui/stream_output.slint:78 rust/crates/outputs/ui/stream_output.slint:84 rust/crates/outputs/ui/webcam.slint:106 rust/crates/outputs/ui/webcam.slint:110 rust/crates/outputs/ui/webcam.slint:111 rust/crates/shell/src/window.rs:789
+#: rust/crates/link/ui/browser_camera.slint:203 rust/crates/link/ui/browser_camera.slint:206 rust/crates/outputs/ui/spout.slint:23 rust/crates/outputs/ui/spout.slint:28 rust/crates/outputs/ui/spout.slint:29 rust/crates/outputs/ui/stream_output.slint:73 rust/crates/outputs/ui/stream_output.slint:78 rust/crates/outputs/ui/stream_output.slint:84 rust/crates/outputs/ui/webcam.slint:106 rust/crates/outputs/ui/webcam.slint:110 rust/crates/outputs/ui/webcam.slint:111 rust/crates/shell/src/window.rs:793
 msgid "Frame rate"
 msgstr "फ़्रेम रेट"
 
@@ -5788,41 +5793,41 @@ msgstr "{name} चालू नहीं है"
 msgid "Start it again or pick another source."
 msgstr "इसे फिर से शुरू करें या कोई दूसरा सोर्स चुनें."
 
-#: rust/crates/outputs/src/spout_send/mod.rs:250
+#: rust/crates/outputs/src/spout_send/mod.rs:258
 msgid "Sharing pictures isn't available on this system."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:253
+#: rust/crates/outputs/src/spout_send/mod.rs:261
 #, python-brace-format
 msgid "Sharing {size} as {name}"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:255
+#: rust/crates/outputs/src/spout_send/mod.rs:263
 msgid "The sender couldn't be started. It tries again with the next picture."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:256
+#: rust/crates/outputs/src/spout_send/mod.rs:264
 msgid "The sender stopped. It tries again with the next picture."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:257
+#: rust/crates/outputs/src/spout_send/mod.rs:265
 msgid "This picture can't be shared."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:259
+#: rust/crates/outputs/src/spout_send/mod.rs:267
 #, python-brace-format
 msgid "Shares as {name} while this stream runs"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:320 rust/crates/outputs/ui/spout_send.slint:14
+#: rust/crates/outputs/src/spout_send/mod.rs:328 rust/crates/outputs/ui/spout_send.slint:14
 msgid "Spout send"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:321
+#: rust/crates/outputs/src/spout_send/mod.rs:329
 msgid "Share a stream's picture with other programs on this computer, such as OBS."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:322
+#: rust/crates/outputs/src/spout_send/mod.rs:330
 msgid "Without Spout send the Spout send card is gone and no picture is shared."
 msgstr ""
 
@@ -6976,7 +6981,7 @@ msgstr "अपने adb का इस्तेमाल करें…"
 msgid "Not available yet"
 msgstr "अभी उपलब्ध नहीं है"
 
-#: rust/crates/setup/src/stats.rs:196 rust/crates/setup/src/stats_phone.rs:88 rust/crates/setup/src/stats_phone.rs:92 rust/crates/shell/src/window.rs:781
+#: rust/crates/setup/src/stats.rs:196 rust/crates/setup/src/stats_phone.rs:88 rust/crates/setup/src/stats_phone.rs:92 rust/crates/shell/src/window.rs:785
 #, python-brace-format
 msgid "{n} fps"
 msgstr "{n} fps"
@@ -7130,7 +7135,7 @@ msgstr "TCP"
 msgid "From the phone"
 msgstr "फ़ोन से"
 
-#: rust/crates/setup/src/stats.rs:427 rust/crates/setup/ui/setup.slint:69 rust/crates/shell/src/window.rs:788
+#: rust/crates/setup/src/stats.rs:427 rust/crates/setup/ui/setup.slint:69 rust/crates/shell/src/window.rs:792
 msgid "Virtual camera"
 msgstr "वर्चुअल कैमरा"
 
@@ -8486,7 +8491,7 @@ msgstr "फ़ोन का कैमरा बंद करें और उस
 msgid "Start with the phone's camera off and stream only its mic."
 msgstr "फ़ोन का कैमरा बंद रखकर शुरू करें और सिर्फ़ उसका माइक स्ट्रीम करें."
 
-#: rust/crates/shell/src/plugins/preview.rs:139 rust/crates/shell/src/tray.rs:76 rust/crates/shell/ui/settings.slint:394
+#: rust/crates/shell/src/plugins/preview.rs:139 rust/crates/shell/src/tray.rs:91 rust/crates/shell/ui/settings.slint:394
 msgid "Show"
 msgstr "दिखाएं"
 
@@ -9110,7 +9115,7 @@ msgstr "फ़ोन का कैमरा शुरू हो रहा है
 msgid "Couldn't start the phone's camera"
 msgstr "फ़ोन का कैमरा शुरू नहीं किया जा सका"
 
-#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1139
+#: rust/crates/shell/src/stream_flow.rs:295 rust/crates/shell/src/worker.rs:1147
 msgid "Connecting..."
 msgstr "कनेक्ट हो रहा है..."
 
@@ -9263,23 +9268,23 @@ msgstr "Telescope: माइक स्ट्रीम हो रहा है, �
 msgid "Telescope: streaming the mic, camera off"
 msgstr "Telescope: माइक स्ट्रीम हो रहा है, कैमरा बंद"
 
-#: rust/crates/shell/src/tray.rs:88
+#: rust/crates/shell/src/tray.rs:103
 msgid "Quit"
 msgstr "बंद करें"
 
-#: rust/crates/shell/src/tray.rs:237
+#: rust/crates/shell/src/tray.rs:255
 msgid "Streaming continues in the background."
 msgstr "स्ट्रीमिंग बैकग्राउंड में जारी रहती है."
 
-#: rust/crates/shell/src/tray.rs:237
+#: rust/crates/shell/src/tray.rs:255
 msgid "Streaming starts automatically when needed."
 msgstr "ज़रूरत पड़ने पर स्ट्रीमिंग अपने आप शुरू हो जाती है."
 
-#: rust/crates/shell/src/tray.rs:238
+#: rust/crates/shell/src/tray.rs:256
 msgid "Right-click the tray icon to quit."
 msgstr "बंद करने के लिए सिस्टम ट्रे आइकन पर राइट-क्लिक करें."
 
-#: rust/crates/shell/src/tray.rs:239
+#: rust/crates/shell/src/tray.rs:257
 msgid "Telescope is still running"
 msgstr "Telescope अभी भी चल रहा है"
 
@@ -9287,31 +9292,31 @@ msgstr "Telescope अभी भी चल रहा है"
 msgid "Telescope - Video Preview"
 msgstr "Telescope - वीडियो प्रीव्यू"
 
-#: rust/crates/shell/src/window.rs:692
+#: rust/crates/shell/src/window.rs:696
 msgid "Telescope (dev)"
 msgstr "Telescope (dev)"
 
-#: rust/crates/shell/src/window.rs:790
+#: rust/crates/shell/src/window.rs:794
 msgid "How much data per second reaches this computer."
 msgstr "हर सेकंड कितना डेटा इस कंप्यूटर तक पहुंचता है."
 
-#: rust/crates/shell/src/window.rs:790
+#: rust/crates/shell/src/window.rs:794
 msgid "Throughput"
 msgstr "थ्रूपुट"
 
-#: rust/crates/shell/src/window.rs:1824 rust/crates/shell/src/window.rs:1825
+#: rust/crates/shell/src/window.rs:1872 rust/crates/shell/src/window.rs:1873
 msgid "Start mic only"
 msgstr "सिर्फ़ माइक शुरू करें"
 
-#: rust/crates/shell/src/window.rs:1824
+#: rust/crates/shell/src/window.rs:1872
 msgid "Start streaming"
 msgstr "स्ट्रीमिंग शुरू करें"
 
-#: rust/crates/shell/src/window.rs:1830
+#: rust/crates/shell/src/window.rs:1878
 msgid "Stop streaming"
 msgstr "स्ट्रीमिंग रोकें"
 
-#: rust/crates/shell/src/window.rs:2153 rust/crates/shell/src/worker.rs:1487
+#: rust/crates/shell/src/window.rs:2197 rust/crates/shell/src/worker.rs:1495
 #, python-brace-format
 msgid "Streaming {size} at {fps} fps to {camera}"
 msgstr "{camera} पर {fps} fps पर {size} स्ट्रीम हो रहा है"
@@ -9321,33 +9326,33 @@ msgstr "{camera} पर {fps} fps पर {size} स्ट्रीम हो र
 msgid "Stream error: {error}"
 msgstr "स्ट्रीम एरर: {error}"
 
-#: rust/crates/shell/src/worker.rs:1139
+#: rust/crates/shell/src/worker.rs:1147
 #, python-brace-format
 msgid "Connecting to {url}..."
 msgstr "{url} से कनेक्ट हो रहा है..."
 
-#: rust/crates/shell/src/worker.rs:1149
+#: rust/crates/shell/src/worker.rs:1157
 #, python-brace-format
 msgid "Can't reach the phone's stream. Trying again in {seconds} s…"
 msgstr "फ़ोन की स्ट्रीम से संपर्क नहीं हो पा रहा है. {seconds} सेकंड में फिर कोशिश की जाएगी…"
 
-#: rust/crates/shell/src/worker.rs:1161
+#: rust/crates/shell/src/worker.rs:1169
 msgid "Waiting for the first frame…"
 msgstr "पहले फ़्रेम का इंतज़ार है…"
 
-#: rust/crates/shell/src/worker.rs:1249
+#: rust/crates/shell/src/worker.rs:1257
 msgid "Stream reconnected"
 msgstr "स्ट्रीम फिर से कनेक्ट हो गई"
 
-#: rust/crates/shell/src/worker.rs:1354
+#: rust/crates/shell/src/worker.rs:1362
 msgid "The video is paused while the phone takes a photo"
 msgstr "फ़ोन द्वारा फ़ोटो लिए जाने के दौरान वीडियो रुका हुआ है"
 
-#: rust/crates/shell/src/worker.rs:1356 rust/crates/shell/src/worker.rs:1362
+#: rust/crates/shell/src/worker.rs:1364 rust/crates/shell/src/worker.rs:1370
 msgid "Stream dropped - reconnecting"
 msgstr "स्ट्रीम टूट गई - फिर से कनेक्ट हो रहा है"
 
-#: rust/crates/shell/src/worker.rs:1476 rust/crates/shell/src/worker.rs:1585
+#: rust/crates/shell/src/worker.rs:1484 rust/crates/shell/src/worker.rs:1593
 #, python-brace-format
 msgid "Virtual camera error: {error}"
 msgstr "वर्चुअल कैमरा एरर: {error}"
