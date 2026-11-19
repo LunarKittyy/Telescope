@@ -23,6 +23,10 @@ pub trait Tray: Send {
     fn set_state(&mut self, _camera: bool, _mic: Option<bool>) {}
     /// The tray item clicked since last asked, or the icon itself as "".
     fn poll_click(&mut self) -> Option<String>;
+    /// Wake the event loop after queuing a click; false when this backend still needs polling.
+    fn set_wake(&mut self, _wake: std::sync::Arc<dyn Fn() + Send + Sync>) -> bool {
+        false
+    }
 }
 
 pub trait Notifier: Send + Sync {

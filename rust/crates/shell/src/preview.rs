@@ -518,9 +518,22 @@ pub fn shown_size(frame: (u32, u32), stage: (u32, u32)) -> (u32, u32) {
     (((w * scale).round() as u32).max(1), ((h * scale).round() as u32).max(1))
 }
 
-/// process_frame's gate: the pop-out always shows; the card only while it's shown in a window someone can see.
-pub fn wants_frames(popout: bool, card: bool, window_seen: bool) -> bool {
-    popout || (card && window_seen)
+/// A hidden or minimised window has nobody looking at its picture.
+pub fn window_seen(visible: bool, minimized: bool) -> bool {
+    visible && !minimized
+}
+
+pub(crate) fn housekeeping_interval(visible: bool, popout_visible: bool, plugin_visible: bool) -> std::time::Duration {
+    if visible || popout_visible || plugin_visible {
+        std::time::Duration::from_millis(100)
+    } else {
+        std::time::Duration::from_secs(1)
+    }
+}
+
+/// process_frame's gate: the pop-out or card must be in a window someone can see.
+pub fn wants_frames(popout_seen: bool, card: bool, window_seen: bool) -> bool {
+    popout_seen || (card && window_seen)
 }
 
 /// Which of a stream's new frames the window's card paints: every second one, counted in frames so the gaps stay even at any
@@ -600,6 +613,31 @@ mod tests {
         assert!(!wants_frames(false, true, false), "nothing to see, so a pass's painted_at must not move");
         assert!(wants_frames(true, true, false));
         assert!(!wants_frames(false, false, true));
+    }
+
+    #[test]
+    fn hidden_and_minimised_windows_do_not_need_frames() {
+        for visible in [false, true] {
+            for minimized in [false, true] {
+                let seen = window_seen(visible, minimized);
+                assert_eq!(seen, visible && !minimized);
+                assert_eq!(wants_frames(seen, false, false), seen, "the pop-out alone");
+                assert_eq!(wants_frames(false, true, seen), seen, "the card alone");
+                assert!(wants_frames(seen, true, true), "a visible card still needs frames");
+            }
+        }
+    }
+
+    #[test]
+    fn housekeeping_slows_only_when_every_window_is_hidden() {
+        for (state, visible) in [("hidden", false), ("visible", true), ("minimised", true)] {
+            for popout in [false, true] {
+                for plugin in [false, true] {
+                    let expected = if state == "hidden" && !popout && !plugin { 1000 } else { 100 };
+                    assert_eq!(housekeeping_interval(visible, popout, plugin), std::time::Duration::from_millis(expected), "{state}, popout={popout}, plugin={plugin}");
+                }
+            }
+        }
     }
 
     /// A scaler that paints the frame's first byte, after a pause, counting its runs.

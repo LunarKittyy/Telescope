@@ -46,10 +46,7 @@ fn click(r: &Rig, what: &str) {
 #[test]
 fn the_tray_icon_says_what_streams() {
     let r = Rig::built_with_mic_tray("tray-says");
-    let settle = || {
-        r.pump();
-        r.w.poll_tray(); // the timer, as nothing else tells it
-    };
+    let settle = || r.pump();
     r.emit(telescope_core::event::Event::MicChanged { enabled: true, muted: false });
     settle();
     r.start();

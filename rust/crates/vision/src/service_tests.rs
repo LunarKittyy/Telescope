@@ -520,6 +520,64 @@ fn released_counter(v: &Vision) -> Arc<Mutex<u32>> {
     released
 }
 
+fn start_tidier(v: &Vision) -> (std::thread::JoinHandle<()>, mpsc::Receiver<()>) {
+    let (quit, stopped) = mpsc::channel();
+    *v.inner.tidier.lock().unwrap() = Some(quit);
+    let weak = Arc::downgrade(&v.inner);
+    let (done, finished) = mpsc::channel();
+    let thread = std::thread::spawn(move || {
+        tidy_loop(weak, stopped);
+        done.send(()).unwrap();
+    });
+    (thread, finished)
+}
+
+#[test]
+fn test_shutdown_interrupts_the_tidy_wait() {
+    for waiting in [false, true] {
+        let (v, _, _) = make(Box::new(|| Err(LoadError::Missing(String::new()))));
+        let (thread, finished) = start_tidier(&v);
+        if waiting {
+            assert_eq!(finished.recv_timeout(Duration::from_millis(20)), Err(mpsc::RecvTimeoutError::Timeout));
+        }
+        v.shutdown();
+        finished.recv_timeout(Duration::from_secs(1)).expect("shutdown must not wait for the two-second deadline");
+        thread.join().unwrap();
+    }
+}
+
+#[test]
+fn test_dropping_the_service_interrupts_the_tidy_wait() {
+    let (v, _, _) = make(Box::new(|| Err(LoadError::Missing(String::new()))));
+    let (thread, finished) = start_tidier(&v);
+    assert_eq!(finished.recv_timeout(Duration::from_millis(20)), Err(mpsc::RecvTimeoutError::Timeout));
+    drop(v);
+    finished.recv_timeout(Duration::from_secs(1)).expect("the tidier must not keep the service alive");
+    thread.join().unwrap();
+}
+
+#[test]
+fn test_the_tidy_deadline_still_closes_unused_models() {
+    let (v, _, _) = make(Box::new(|| Err(LoadError::Missing(String::new()))));
+    let backend = Fake::new();
+    let stream = Arc::new(StreamVision::new());
+    {
+        let mut mask = stream.mask.lock().unwrap();
+        mask.segment = Some(backend.segmenter().unwrap());
+        mask.asked = monotonic() - IDLE_CLOSE_S;
+    }
+    v.inner.streams.lock().unwrap().insert("a".into(), stream);
+    let (released, freed) = mpsc::channel();
+    *v.inner.give_back.lock().unwrap() = Box::new(move || released.send(()).unwrap());
+    let (thread, finished) = start_tidier(&v);
+    assert_eq!(freed.recv_timeout(Duration::from_millis(20)), Err(mpsc::RecvTimeoutError::Timeout));
+    freed.recv_timeout(Duration::from_secs_f64(TIDY_EVERY_S + 1.0)).expect("unused models close at the tidy deadline");
+    assert_eq!(backend.closed(), ["segmenter"]);
+    v.shutdown();
+    finished.recv_timeout(Duration::from_secs(1)).unwrap();
+    thread.join().unwrap();
+}
+
 #[test]
 fn test_a_mask_nobody_asks_for_closes_after_a_while_and_comes_back_when_asked() {
     let r = ready();

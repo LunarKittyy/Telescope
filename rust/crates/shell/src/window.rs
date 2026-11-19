@@ -351,6 +351,10 @@ pub(crate) fn with_window(f: impl FnOnce(&Rc<Window>)) {
     }
 }
 
+fn window_seen(window: &slint::Window) -> bool {
+    crate::preview::window_seen(window.is_visible(), window.is_minimized())
+}
+
 /// A picture as a Slint image, for the formats that are plain pixels.
 fn image_of(frame: &Frame) -> Option<slint::Image> {
     let pixels: Vec<u8> = match frame.format {
@@ -1016,6 +1020,7 @@ impl Window {
         self.show_bar();
         self.paint_pick();
         self.paint_layers();
+        self.refresh_tray_tip();
     }
 
     /// A stream's slot got a frame (WakingSlot): paints the newest one now, and any that came after the wake was asked for with it.
@@ -1026,6 +1031,35 @@ impl Window {
         self.paint_layers();
     }
 
+    pub(crate) fn sync_preview_visibility(&self) {
+        let popout_seen = self.popout_seen();
+        let unwanted = !(window_seen(self.ui.window()) || popout_seen);
+        self.streams.frame_unwanted.store(unwanted, std::sync::atomic::Ordering::SeqCst);
+        if unwanted {
+            self.painted.set(0);
+        }
+        self.set_popout_open(popout_seen);
+        let popout_visible = self.popout.borrow().as_ref().is_some_and(|p| p.window().is_visible());
+        let plugin_visible = self.plugin_windows.borrow().iter().any(|(_, _, ui)| ui.window().is_visible());
+        let interval = crate::preview::housekeeping_interval(self.ui.window().is_visible(), popout_visible, plugin_visible);
+        if self.preview_timer.interval() != interval {
+            self.preview_timer.set_interval(interval);
+        }
+    }
+
+    pub(crate) fn housekeeping(self: &Rc<Self>) {
+        self.sync_preview_visibility();
+        self.watch_focus();
+        self.paint_preview();
+        if window_seen(self.ui.window()) || self.popout_seen() {
+            self.paint_pick();
+            self.paint_layers();
+        }
+        if window_seen(self.ui.window()) {
+            self.update_thumbnails();
+        }
+    }
+
     /// The preview's newest frame from the stream the panels show, painted at the size of the pop-out window when it's
     /// open, else of the card's stage when the card shows one.
     pub fn paint_preview(self: &Rc<Self>) {
@@ -1034,6 +1068,12 @@ impl Window {
         let on = |name: &str| prop(name) == Some(SValue::Bool(true));
         self.follow_popout(on("popout"), match prop("popout-asks") { Some(SValue::Number(n)) => n as i32, _ => 0 });
         let popout = self.popout.borrow().as_ref().map(|p| p.clone_strong());
+        let popout_seen = popout.as_ref().is_some_and(|p| window_seen(p.window()));
+        let card = popout.is_none() && on("visible-card") && on("showing");
+        if !crate::preview::wants_frames(popout_seen, card, window_seen(self.ui.window())) {
+            self.painted.set(0);
+            return;
+        }
         if let Some(p) = &popout {
             for name in ["stage-cursor", "marker-shown", "marker-u", "marker-v", "lens-boxes", "boxes-opacity", "skeleton-lines"] {
                 if let Some(value) = prop(name) {
@@ -1054,12 +1094,6 @@ impl Window {
                 let _ = p.set_property("has-frame", SValue::Bool(false));
             }
             self.painted.set(0);
-            return;
-        }
-        let card = on("visible-card") && on("showing");
-        let window = self.ui.window();
-        let seen = window.is_visible() && !window.is_minimized();
-        if !crate::preview::wants_frames(popout.is_some(), card, seen) {
             return;
         }
         let Some((frame, number)) = self.preview_frame() else { return };
@@ -1131,7 +1165,7 @@ impl Window {
             return;
         }
         // Half the frames on the card unless Smooth is on; what it skips only changes what's painted here, and a resized stage paints at once
-        let due = again || self.cadence.borrow_mut().due(number, popout.is_some() || on("smooth-on"), self.painted.get() == 0 || self.painted_stage.get() != stage);
+        let due = again || self.cadence.borrow_mut().due(number, popout_seen || on("smooth-on"), self.painted.get() == 0 || self.painted_stage.get() != stage);
         // A picture that finished off the window's thread goes up on its own, but the next one is only asked for when the cadence says
         let take_only = match crate::preview::step(due, ready, tints) {
             crate::preview::Step::Skip => return,
@@ -1227,6 +1261,9 @@ impl Window {
         // On the pop-out while it's open: the card is hidden then
         let popout = self.popout.borrow().as_ref().map(|p| p.clone_strong());
         let target = popout.as_ref().unwrap_or(&self.ui);
+        if !window_seen(target.window()) {
+            return;
+        }
         let name = |n: &str| if popout.is_some() { n.to_string() } else { format!("{}-{n}", r.id) };
         let number = |n: &str| match target.get_property(&name(n)) { Ok(SValue::Number(v)) => v as f32, _ => 0.0 };
         let warped = SValue::Bool(self.state.borrow().overlays.warping());
@@ -1270,6 +1307,9 @@ impl Window {
         let Some(r) = self.pieces.iter().find(|r| r.plugin == "preview" && r.ui == "card") else { return };
         let popout = self.popout.borrow().as_ref().map(|p| p.clone_strong());
         let target = popout.as_ref().unwrap_or(&self.ui);
+        if !window_seen(target.window()) {
+            return;
+        }
         let name = |n: &str| if popout.is_some() { n.to_string() } else { format!("{}-{n}", r.id) };
         let number = |n: &str| match target.get_property(&name(n)) { Ok(SValue::Number(v)) => v as f32, _ => 0.0 };
         let st = self.state.borrow();
@@ -1292,13 +1332,18 @@ impl Window {
         }
     }
 
-    /// Opens or closes the pop-out window as the preview card asks, and brings it forward when Pop out is pressed again.
-    /// The pop-out and a plugin's windows are places the picture is looked at, so the stream's steps keep running (idle.rs).
-    fn set_popout_open(&self, open: bool) {
-        let open = open || self.plugin_windows.borrow().iter().any(|(_, _, ui)| ui.window().is_visible());
+    /// Visible pop-out and plugin windows keep the stream's steps running (idle.rs).
+    fn set_popout_open(&self, seen: bool) {
+        let open = seen || self.plugin_windows.borrow().iter().any(|(_, _, ui)| window_seen(ui.window()));
         let mut st = self.state.borrow_mut();
-        st.other_windows = open;
-        st.sync_idle();
+        if st.other_windows != open {
+            st.other_windows = open;
+            st.sync_idle();
+        }
+    }
+
+    fn popout_seen(&self) -> bool {
+        self.popout.borrow().as_ref().is_some_and(|p| window_seen(p.window()))
     }
 
     fn follow_popout(self: &Rc<Self>, open: bool, asks: i32) {
@@ -1345,7 +1390,7 @@ impl Window {
                     crate::screen::keep_inside(&p, &place);
                     *self.popout_place.borrow_mut() = Some(place);
                     *self.popout.borrow_mut() = Some(p);
-                    self.set_popout_open(true);
+                    self.set_popout_open(self.popout_seen());
                     self.layers_drawn.take();
                     self.painted.set(0);
                 }
@@ -1429,6 +1474,7 @@ impl Window {
             let _ = open.show();
             crate::parent::attach(open, &self.ui);
             crate::parent::raise(open, &self.ui);
+            self.sync_preview_visibility();
             return;
         }
         let (file, text) = source_of(plugin, id, &spec.ui);
@@ -1485,6 +1531,7 @@ impl Window {
         crate::parent::attach(&ui, &self.ui);
         crate::screen::keep_inside(&ui, &place);
         self.plugin_windows.borrow_mut().push((plugin.to_string(), id.to_string(), ui));
+        self.sync_preview_visibility();
     }
 
     /// A plugin's own window while it's open.
@@ -1517,6 +1564,7 @@ impl Window {
         };
         let Some((_, _, ui)) = gone else { return };
         let _ = ui.hide();
+        self.sync_preview_visibility();
         slint::Timer::single_shot(Duration::ZERO, move || drop(ui)); // a key the plugin answered by closing it is still on its way out of it
         self.state.borrow_mut().ui_event(plugin, UiEvent { ui: id.into(), callback: "closed".into(), args: Vec::new() });
         self.process();
@@ -2017,19 +2065,15 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
         // A renderer without notifiers (the processor's) can't be waited for, and it doesn't use a graphics card
         start_confirmed();
     }
-    // A new frame wakes the window (frame_ready), so this only covers what has no frame to say it changed: focus, a picture that wants
-    // drawing again with the stream stalled, and the tiles' tiny pictures, so 10 fps costs next to nothing
+    // Frames wake the window; this timer checks focus, stalled pictures and visible thumbnails.
     let weak = Rc::downgrade(&window);
     window.preview_timer.start(slint::TimerMode::Repeated, Duration::from_millis(100), move || {
         if let Some(w) = weak.upgrade() {
-            let seen = w.ui.window().is_visible() && !w.ui.window().is_minimized();
-            w.streams.frame_unwanted.store(!(seen || w.popout.borrow().is_some()), std::sync::atomic::Ordering::SeqCst);
-            w.set_popout_open(w.popout.borrow().is_some());
-            w.paint_preview();
-            w.paint_pick();
-            w.paint_layers();
-            w.watch_focus();
-            w.update_thumbnails();
+            if crate::tray::take_raise() {
+                w.show_window();
+            } else {
+                w.housekeeping();
+            }
         }
     });
     if opts.autostart {
@@ -2077,9 +2121,9 @@ pub fn run(services: Arc<Services>, opts: WindowOptions) -> Result<(), String> {
     window.ui.window().on_close_requested(move || weak.upgrade().map_or(slint::CloseRequestResponse::HideWindow, |w| w.close_requested()));
     window.refresh_tray_menu();
     let tray_timer = slint::Timer::default();
-    if window.has_tray() {
+    if window.has_tray() && !window.watch_tray() {
         let weak = Rc::downgrade(&window);
-        tray_timer.start(slint::TimerMode::Repeated, Duration::from_millis(100), move || {
+        tray_timer.start(slint::TimerMode::Repeated, Duration::from_millis(200), move || {
             if let Some(w) = weak.upgrade() {
                 w.poll_tray();
             }
