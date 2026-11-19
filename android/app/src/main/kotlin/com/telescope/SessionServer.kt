@@ -26,6 +26,7 @@ class SessionServer(
 ) {
     private var serverSocket: ServerSocket? = null
     private val running = AtomicBoolean(false)
+    @Volatile private var busy = false
 
     // Bind failures just report as unreachable, never fatal.
     fun start() {
@@ -40,9 +41,11 @@ class SessionServer(
                 throw e
             }
             serverSocket = socket
+            busy = false
         } catch (e: Exception) {
-            android.util.Log.w(TAG, "Could not bind port $port", e)
+            busy = e is java.net.BindException
             running.set(false)
+            runCatching { android.util.Log.w(TAG, "Could not bind port $port", e) }  // unit tests have no Log
             return
         }
         thread(name = "session-accept", isDaemon = true) {
@@ -67,6 +70,9 @@ class SessionServer(
             }
         }
     }
+
+    // The last bind failed because something else holds the port (the other Telescope build, say).
+    val portBusy: Boolean get() = busy
 
     // Bound and accepting; false after a failed bind or a dead accept loop.
     val listening: Boolean get() = running.get()

@@ -5012,70 +5012,75 @@ msgstr "Diese App benötigt ein Update"
 
 #: rust/crates/link/src/connection.rs:839
 #, python-brace-format
+msgid "Something else on {phone} is answering where Telescope should, probably another Telescope app such as Telescope (dev). Close it there, then try again."
+msgstr ""
+
+#: rust/crates/link/src/connection.rs:840
+#, python-brace-format
 msgid "Open Telescope on {phone} and keep the app on screen. The phone needs to be on the same network as this computer, or plugged in with a USB cable."
 msgstr "Öffne Telescope auf {phone} und lass die App auf dem Bildschirm geöffnet. Das Smartphone muss sich im selben Netzwerk wie dieser Computer befinden oder per USB-Kabel angeschlossen sein."
 
-#: rust/crates/link/src/connection.rs:841
+#: rust/crates/link/src/connection.rs:842
 #, python-brace-format
 msgid "This version of Telescope encrypts the connection to {phone}, which needs a new pairing. Click Add device and scan the code again."
 msgstr "Diese Version von Telescope verschlüsselt die Verbindung zu {phone}, wofür eine neue Kopplung nötig ist. Klicke auf „Gerät hinzufügen“ und scanne den Code erneut."
 
-#: rust/crates/link/src/connection.rs:842
+#: rust/crates/link/src/connection.rs:843
 #, python-brace-format
 msgid "{phone} doesn't recognise this computer anymore (it was removed on the phone, or the app was reinstalled). Click Add device to pair it again."
 msgstr "{phone} erkennt diesen Computer nicht mehr (er wurde auf dem Smartphone entfernt oder die App wurde neu installiert). Klicke auf „Gerät hinzufügen“, um es erneut zu koppeln."
 
-#: rust/crates/link/src/connection.rs:844
+#: rust/crates/link/src/connection.rs:845
 #, python-brace-format
 msgid "{phone} only accepts USB while Local only is on in the phone app. Plug it in with a cable, or turn Local only off on the phone."
 msgstr "{phone} akzeptiert USB nur, wenn „Nur lokal“ in der Smartphone-App eingeschaltet ist. Schließe es per Kabel an oder schalte „Nur lokal“ auf dem Smartphone aus."
 
-#: rust/crates/link/src/connection.rs:846
+#: rust/crates/link/src/connection.rs:847
 msgid "USB needs adb, which Add device can get."
 msgstr "USB benötigt adb; das lässt sich über „Gerät hinzufügen“ einrichten."
 
-#: rust/crates/link/src/connection.rs:851
+#: rust/crates/link/src/connection.rs:852
 msgid "the phone isn't answering over USB"
 msgstr "das Smartphone antwortet nicht über USB"
 
-#: rust/crates/link/src/connection.rs:852
+#: rust/crates/link/src/connection.rs:853
 #, python-brace-format
 msgid "The connection is set to USB only: {why}. Switch to Automatic to use Wi-Fi instead."
 msgstr "Die Verbindung ist auf „Nur USB“ eingestellt: {why}. Wechsle zu „Automatisch“, um stattdessen Wi-Fi zu nutzen."
 
-#: rust/crates/link/src/connection.rs:854
+#: rust/crates/link/src/connection.rs:855
 #, python-brace-format
 msgid "The Telescope app on {phone} is older than this one. Update it on the phone."
 msgstr "Die Telescope-App auf {phone} ist älter als diese. Aktualisiere sie auf dem Smartphone."
 
-#: rust/crates/link/src/connection.rs:855
+#: rust/crates/link/src/connection.rs:856
 #, python-brace-format
 msgid "The Telescope app on {phone} is newer than this one. Update Telescope on this computer."
 msgstr "Die Telescope-App auf {phone} ist neuer als diese. Aktualisiere Telescope auf diesem Computer."
 
-#: rust/crates/link/src/connection.rs:865
+#: rust/crates/link/src/connection.rs:866
 #, python-brace-format
 msgid "Not using USB: {reason}."
 msgstr "USB wird nicht genutzt: {reason}."
 
-#: rust/crates/link/src/connection.rs:874
+#: rust/crates/link/src/connection.rs:875
 msgid "USB cable"
 msgstr "USB-Kabel"
 
-#: rust/crates/link/src/connection.rs:882
+#: rust/crates/link/src/connection.rs:883
 #, python-brace-format
 msgid "The phone is streaming to {computer}."
 msgstr "Das Smartphone streamt an {computer}."
 
-#: rust/crates/link/src/connection.rs:883
+#: rust/crates/link/src/connection.rs:884
 msgid "The phone is streaming to another computer."
 msgstr "Das Smartphone streamt an einen anderen Computer."
 
-#: rust/crates/link/src/connection.rs:885
+#: rust/crates/link/src/connection.rs:886
 msgid "Stop the stream there or on the phone, then try again."
 msgstr "Stoppe den Stream dort oder auf dem Smartphone und versuche es erneut."
 
-#: rust/crates/link/src/connection.rs:891
+#: rust/crates/link/src/connection.rs:892
 msgid ""
 "The phone hasn't given Telescope camera access.\n"
 "\n"
@@ -5085,7 +5090,7 @@ msgstr ""
 "\n"
 "Öffne die App auf dem Smartphone und erlaube die Kameraberechtigung."
 
-#: rust/crates/link/src/connection.rs:892
+#: rust/crates/link/src/connection.rs:893
 msgid ""
 "The phone is busy starting or stopping a stream.\n"
 "\n"
@@ -5095,7 +5100,7 @@ msgstr ""
 "\n"
 "Versuche es gleich noch einmal."
 
-#: rust/crates/link/src/connection.rs:893
+#: rust/crates/link/src/connection.rs:894
 msgid ""
 "Android didn't let the camera start in the background.\n"
 "\n"
@@ -5105,7 +5110,7 @@ msgstr ""
 "\n"
 "Hole Telescope auf dem Smartphone in den Vordergrund und versuche es erneut."
 
-#: rust/crates/link/src/connection.rs:894 rust/crates/link/src/connection.rs:1001
+#: rust/crates/link/src/connection.rs:895 rust/crates/link/src/connection.rs:1002
 msgid ""
 "The phone doesn't recognise this computer anymore.\n"
 "\n"
@@ -5115,37 +5120,37 @@ msgstr ""
 "\n"
 "Klicke auf „Gerät hinzufügen“, um es erneut zu koppeln."
 
-#: rust/crates/link/src/connection.rs:896
+#: rust/crates/link/src/connection.rs:897
 msgid "unknown error"
 msgstr "unbekannter Fehler"
 
-#: rust/crates/link/src/connection.rs:897
+#: rust/crates/link/src/connection.rs:898
 #, python-brace-format
 msgid "The phone rejected the request to start streaming ({error})."
 msgstr "Das Smartphone hat die Anfrage zum Starten des Streamings abgelehnt ({error})."
 
-#: rust/crates/link/src/connection.rs:995 rust/crates/link/src/service.rs:334
+#: rust/crates/link/src/connection.rs:996 rust/crates/link/src/service.rs:334
 msgid "Lost the connection to the phone. Try again."
 msgstr "Verbindung zum Smartphone verloren. Versuche es erneut."
 
-#: rust/crates/link/src/connection.rs:1002
+#: rust/crates/link/src/connection.rs:1003
 msgid "Couldn't reach the phone. Open Telescope on it and try again."
 msgstr "Smartphone nicht erreichbar. Öffne Telescope darauf und versuche es erneut."
 
-#: rust/crates/link/src/connection.rs:1012
+#: rust/crates/link/src/connection.rs:1013
 msgid "Starting the phone's camera..."
 msgstr "Kamera des Smartphones wird gestartet..."
 
-#: rust/crates/link/src/connection.rs:1047 rust/crates/link/src/connection.rs:1056
+#: rust/crates/link/src/connection.rs:1048 rust/crates/link/src/connection.rs:1057
 msgid "Lost contact with the phone while its camera was starting."
 msgstr "Kontakt zum Smartphone beim Starten der Kamera verloren."
 
-#: rust/crates/link/src/connection.rs:1058
+#: rust/crates/link/src/connection.rs:1059
 #, python-brace-format
 msgid "No answer from the phone for a moment, still waiting... ({seconds}s)"
 msgstr "Bislang keine Antwort vom Smartphone, bitte warten... ({seconds}s)"
 
-#: rust/crates/link/src/connection.rs:1065
+#: rust/crates/link/src/connection.rs:1066
 msgid ""
 "The phone's camera stopped before it finished starting.\n"
 "\n"
@@ -5155,17 +5160,17 @@ msgstr ""
 "\n"
 "Prüfe auf dem Smartphone, ob eine Berechtigungsanfrage oder ein Fehler angezeigt wird."
 
-#: rust/crates/link/src/connection.rs:1067
+#: rust/crates/link/src/connection.rs:1068
 #, python-brace-format
 msgid "Phone's camera is opening... ({seconds}s)"
 msgstr "Kamera des Smartphones wird geöffnet... ({seconds}s)"
 
-#: rust/crates/link/src/connection.rs:1067
+#: rust/crates/link/src/connection.rs:1068
 #, python-brace-format
 msgid "Waiting for the phone's camera... ({seconds}s)"
 msgstr "Warten auf die Kamera des Smartphones... ({seconds}s)"
 
-#: rust/crates/link/src/connection.rs:1070
+#: rust/crates/link/src/connection.rs:1071
 msgid ""
 "The phone's camera didn't finish starting in time.\n"
 "\n"
@@ -5175,27 +5180,27 @@ msgstr ""
 "\n"
 "Versuche es erneut. Falls die Kamera wiederholt nicht startet, öffne Telescope auf dem Smartphone."
 
-#: rust/crates/link/src/phones.rs:300
+#: rust/crates/link/src/phones.rs:306
 msgid "USB can't be used until adb is installed (Add device can get it)"
 msgstr "USB kann erst verwendet werden, wenn adb installiert ist („Gerät hinzufügen“ kann es holen)"
 
-#: rust/crates/link/src/phones.rs:301
+#: rust/crates/link/src/phones.rs:307
 msgid "USB can't be used until adb is installed"
 msgstr "USB kann erst verwendet werden, wenn adb installiert ist"
 
-#: rust/crates/link/src/phones.rs:302
+#: rust/crates/link/src/phones.rs:308
 msgid "no phone plugged in over USB"
 msgstr "Kein Smartphone über USB angeschlossen"
 
-#: rust/crates/link/src/phones.rs:303
+#: rust/crates/link/src/phones.rs:309
 msgid "phone plugged in but USB debugging isn't allowed yet (accept the prompt on the phone)"
 msgstr "Smartphone angeschlossen, aber USB-Debugging noch nicht zugelassen (Aufforderung auf dem Smartphone bestätigen)"
 
-#: rust/crates/link/src/phones.rs:304
+#: rust/crates/link/src/phones.rs:310
 msgid "the phone plugged in over USB is a different one"
 msgstr "Das über USB angeschlossene Smartphone ist ein anderes"
 
-#: rust/crates/link/src/phones.rs:305
+#: rust/crates/link/src/phones.rs:311
 msgid "phone plugged in but Telescope isn't open on it"
 msgstr "Smartphone angeschlossen, aber Telescope ist darauf nicht geöffnet"
 

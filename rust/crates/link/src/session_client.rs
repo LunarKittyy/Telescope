@@ -74,6 +74,8 @@ pub enum HelloStatus {
     None,
     /// The phone has Local only on and answers only ping off USB (403).
     UsbOnly,
+    /// Something answered over TLS, but not with the certificate this phone paired with.
+    OtherCert,
 }
 
 /// What GET /v1/hello said.
@@ -152,6 +154,7 @@ impl SessionClient {
             // The session server answers 404 for routes it doesn't know: an app from before /v1/hello
             Err(Error::Http(404)) => return Hello::status(HelloStatus::Missing),
             Err(Error::Http(403)) => return Hello::status(HelloStatus::UsbOnly),
+            Err(e) if https::pin_rejected(&e) => return Hello::status(HelloStatus::OtherCert),
             // LEGACY MIGRATION PATH: only a listener that took the connection but not TLS gets a plain look
             Err(e) if https::handshake_failed(&e) && plain_look(timeout) => return Hello::status(HelloStatus::Missing),
             Err(_) => return Hello::status(HelloStatus::None),
@@ -447,6 +450,13 @@ mod tests {
         assert_eq!(phone(404, b"").1.hello(REQUEST_TIMEOUT).status, HelloStatus::Missing);
         assert_eq!(SessionClient::new("http://127.0.0.1:1", PhoneAuth::new("tok", "")).hello(REQUEST_TIMEOUT).status, HelloStatus::None);
         assert_eq!(phone(200, b"[1]").1.hello(REQUEST_TIMEOUT).status, HelloStatus::None);
+    }
+
+    #[test]
+    fn hello_tells_another_certificate_from_nothing_at_all() {
+        let server = serve(Some("impostor"), Arc::new(|_req| (200, "application/json".into(), br#"{"phoneId": "p1"}"#.to_vec())));
+        let client = SessionClient::new(&server.base(true), PhoneAuth::new("tok", &pin_of("phone")));
+        assert_eq!(client.hello(REQUEST_TIMEOUT).status, HelloStatus::OtherCert);
     }
 
     #[test]
