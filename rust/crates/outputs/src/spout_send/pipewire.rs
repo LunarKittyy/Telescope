@@ -38,6 +38,10 @@ impl Backend for PipeWireBackend {
 }
 
 impl Sender for VideoSender {
+    fn wants_frame(&self) -> bool {
+        VideoSender::wants_frame(self)
+    }
+
     fn resize(&mut self, width: u32, height: u32) -> Result<bool, String> {
         VideoSender::resize(self, width, height);
         Ok(true)

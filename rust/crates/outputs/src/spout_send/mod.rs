@@ -47,6 +47,10 @@ pub trait Backend: Send + Sync {
 
 /// One open sender, gone when dropped.
 pub trait Sender: Send {
+    /// Whether to pack and send the next picture.
+    fn wants_frame(&self) -> bool {
+        true
+    }
     /// Changes the size the sender takes where it is, so whoever reads it stays connected. Ok(false) when it can't and has to be made again.
     fn resize(&mut self, _width: u32, _height: u32) -> Result<bool, String> {
         Ok(false)

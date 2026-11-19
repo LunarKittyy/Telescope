@@ -147,6 +147,47 @@ fn the_step_hands_the_pictures_of_a_shared_stream_to_a_sender_and_skips_the_othe
 }
 
 #[test]
+fn pictures_are_only_packed_and_sent_while_a_reader_is_connected() {
+    use telescope_core::frame::PixelFormat;
+
+    let log = Arc::new(Log::default());
+    log.no_reader.store(true, Ordering::SeqCst);
+    let (tell, states) = std::sync::mpsc::channel();
+    let timeout = Duration::from_secs(5);
+    let tell = Arc::new(move |state| {
+        let _ = tell.send(state);
+    });
+    let worker = Worker::spawn("Telescope test".into(), Arc::new(Mock(log.clone())), tell, Duration::from_secs(60), Duration::from_secs(60), true).unwrap();
+    // Packing NV12 would report a format error, so Idle proves packing was skipped.
+    let unsupported = Frame::new(2, 2, PixelFormat::Nv12, vec![0; 6]);
+    assert!(worker.put(unsupported.clone()));
+    assert_eq!(states.recv_timeout(timeout).unwrap(), State::Idle);
+    assert!(log.sent.lock().unwrap().is_empty());
+    assert_eq!(log.opened.lock().unwrap().len(), 1);
+    assert_eq!(log.closed.load(Ordering::SeqCst), 0);
+
+    log.no_reader.store(false, Ordering::SeqCst);
+    let frame = Frame::new(2, 2, PixelFormat::Rgba, [10, 20, 30, 0].repeat(4));
+    assert!(worker.put(frame.clone()));
+    assert_eq!(states.recv_timeout(timeout).unwrap(), State::Sending(2, 2));
+    assert_eq!(log.sent.lock().unwrap()[0], [30, 20, 10, 255].repeat(4));
+
+    log.no_reader.store(true, Ordering::SeqCst);
+    assert!(worker.put(unsupported.clone()));
+    assert_eq!(states.recv_timeout(timeout).unwrap(), State::Idle);
+    assert_eq!(log.sent.lock().unwrap().len(), 1);
+    assert_eq!(log.closed.load(Ordering::SeqCst), 0);
+
+    log.no_reader.store(false, Ordering::SeqCst);
+    assert!(worker.put(frame));
+    assert_eq!(states.recv_timeout(timeout).unwrap(), State::Sending(2, 2));
+    assert_eq!(log.sent.lock().unwrap().len(), 2);
+    assert_eq!(log.opened.lock().unwrap().len(), 1);
+    assert!(worker.put(unsupported));
+    assert_eq!(states.recv_timeout(timeout).unwrap(), State::Failed(Problem::Format));
+}
+
+#[test]
 fn switching_a_stream_off_takes_its_sender_down() {
     let (mut p, mut host, log) = plugin();
     toggle(&mut p, &mut host, true);
