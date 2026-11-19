@@ -85,7 +85,10 @@
                 "sharpeningHq": true,
                 "hotPixelHq": true,
                 "distortionCorrection": true,
-                "burstMax": 60
+                "burstMax": 60,
+                "exposureMinNs": 125000,
+                "bracketMax": 15,
+                "focusStepsMax": 100
             }
         }
     ],

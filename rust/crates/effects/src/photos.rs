@@ -50,6 +50,9 @@ const MODE_TIP: &str = n_("The video pauses while the phone maker's Night, HDR a
 const LONG_LIST: usize = 12;
 const BIG_STEP: usize = 3;
 const FOCUS_TIP: &str = n_("Number of photos from the nearest focus to the farthest, for focus stacking.");
+const FOCUS_RANGE_TIP: &str = n_("Take the focus bracket between the two handles, from the farthest focus on the left to the nearest on the right. The mark shows where the phone is focused now (in manual focus).");
+const BRACKET_PHOTOS_TIP: &str = n_("Number of photos in the exposure bracket, spread evenly around the video's exposure.");
+const BRACKET_GAP_TIP: &str = n_("EV between photos");
 const BURST_TIP: &str = n_("Number of photos in the burst.");
 const SHOTS_TIP: &str = n_("Take one photo, a burst or a set at different exposures or focus distances.");
 const TIMER_TIP: &str = n_("Wait a few seconds before taking the photo.");
@@ -61,9 +64,37 @@ const QUALITY_RAW_TIP: &str = n_("RAW photos have no quality setting");
 const CAMERA_BUSY: &str = n_("The camera is already taking a photo.");
 const CAMERA_FAILED: &str = n_("The camera couldn't take the photo.");
 
-/// "Like the video" for none, else the seconds (8 s, 0.5 s).
+/// "Like the video" for none, else the shutter speed (1/250 s, 8 s).
 pub fn exposure_text(seconds: f64) -> String {
-    if seconds == 0.0 { tr("Like the video") } else { tr("{seconds} s").field("seconds", format!("{seconds}")) }
+    if seconds == 0.0 {
+        tr("Like the video")
+    } else if let Some(n) = shutter_n(seconds) {
+        tr("1/{n} s").field("n", n.to_string())
+    } else {
+        tr("{seconds} s").field("seconds", format!("{seconds}"))
+    }
+}
+
+/// The range of a focus bracket in one unit, nearest first: 0.25-2 m, 0.25 m-∞.
+pub fn range_text(near: f64, far: f64) -> String {
+    let metres = |d: f64| {
+        let m = (1.0 / d * 100.0).round() / 100.0;
+        if m.fract() == 0.0 { format!("{m:.0}") } else { format!("{m}") }
+    };
+    if far < 0.01 {
+        tr("{near} m-∞").field("near", metres(near))
+    } else {
+        tr("{near}-{far} m").field("near", metres(near)).field("far", metres(far))
+    }
+}
+
+/// A focus distance: 25 cm, 1.5 m, Infinity.
+pub fn distance_text(diopters: f64) -> String {
+    match distance_parts(diopters) {
+        None => tr("Infinity"),
+        Some((cm, false)) => tr("{cm} cm").field("cm", cm.to_string()),
+        Some((tenths, true)) => tr("{m} m").field("m", if tenths % 10 == 0 { (tenths / 10).to_string() } else { format!("{}.{}", tenths / 10, tenths % 10) }),
+    }
 }
 
 fn index_of(list: &[&str], value: &str) -> usize {
@@ -191,7 +222,7 @@ impl PhotosPlugin {
         json!({
             "take-text": tr("Take photo"), "take-tip": tr(TAKE_TIP), "open-text": tr("Open folder"), "open-tip": tr(OPEN_TIP),
             "best-name": tr("Best quality"), "distortion-tips": DISTORTION_TIPS.map(tr), "merge-tips": BRACKET_MERGE_TIPS.map(tr), "merge-off-tip": tr(BRACKET_MERGE_OFF_TIP), "brightness-tip": tr(BRIGHTNESS_TIP),
-            "shots-names": SHOTS.map(|(_, name)| tr(name)), "mode-tip": tr(MODE_TIP), "shots-tip": tr(SHOTS_TIP), "timer-tip": tr(TIMER_TIP), "exposure-tip": tr(EXPOSURE_TIP),
+            "shots-names": SHOTS.map(|(_, name)| tr(name)), "mode-tip": tr(MODE_TIP), "shots-tip": tr(SHOTS_TIP), "timer-tip": tr(TIMER_TIP), 
             "previous-label": tr("Previous"), "next-label": tr("Next"),
             "timer-items": TIMERS.iter().map(|s| Self::timer_text(*s)).collect::<Vec<_>>(),
         })
@@ -205,10 +236,9 @@ impl PhotosPlugin {
         list.iter().map(|k| labels.iter().find(|(key, _)| key == k).map_or_else(|| k.to_string(), |(_, t)| tr(t))).collect()
     }
 
-    /// The range of the How many (0) and Steps (1) boxes.
-    fn number_range(&self, which: usize) -> (i64, i64) {
-        let burst_max = self.effective_caps().burst_max;
-        if which == 0 { (2, burst_max.max(2)) } else { (2, burst_max.clamp(2, 30)) }
+    /// The range of the How many box.
+    fn burst_range(&self) -> (i64, i64) {
+        (2, self.effective_caps().burst_max.max(2))
     }
 
     /// The tiles for what this lens offers, in the order they're shown: the camera's own dials first.
@@ -237,18 +267,26 @@ impl PhotosPlugin {
         if can.shots.len() > 1 {
             tiles.push(tile("shots", tr("Shots"), false, Self::labelled(&can.shots, &SHOTS), index_of(&can.shots, shots)));
         }
-        for (which, key, label, tip) in [(0, "burst", n_("How many"), BURST_TIP), (1, "focus_steps", n_("Steps"), FOCUS_TIP)] {
-            if shots == ["burst", "focus"][which] {
-                let (min, max) = self.number_range(which);
-                let options = (min..=max).map(|n| n.to_string()).collect();
-                let index = int(c, key, 5).clamp(min, max) - min;
-                tiles.push(Tile { tip: tr(tip), ..tile(key, tr(label), true, options, index as usize) });
-            }
+        if shots == "burst" {
+            let (min, max) = self.burst_range();
+            let options = (min..=max).map(|n| n.to_string()).collect();
+            let index = int(c, "burst", 5).clamp(min, max) - min;
+            tiles.push(Tile { tip: tr(BURST_TIP), ..tile("burst", tr("How many"), true, options, index as usize) });
+        }
+        if shots == "focus" {
+            let counts = focus_counts(&caps);
+            let wanted = int(c, "focus_steps", 5);
+            let index = counts.iter().rposition(|n| *n <= wanted).unwrap_or(0);
+            tiles.push(Tile { tip: tr(FOCUS_TIP), ..tile("focus_steps", tr("Steps"), true, counts.iter().map(i64::to_string).collect(), index) });
         }
         if shots == "bracket" {
-            let options = BRACKETS.iter().map(|(_, t, _)| tr(t)).collect();
-            let index = BRACKETS.iter().position(|(k, ..)| *k == text(c, "bracket")).unwrap_or(0);
-            tiles.push(tile("bracket", tr("Bracket"), true, options, index));
+            let (photos, gap) = bracket_shape(&caps, c);
+            let options = (2..=caps.bracket_max.max(2)).map(|n| n.to_string()).collect();
+            tiles.push(Tile { tip: tr(BRACKET_PHOTOS_TIP), ..tile("bracket_photos", tr("Photos"), true, options, (photos - 2) as usize) });
+            let gaps = bracket_gaps(&caps, photos);
+            let options = gaps.iter().map(|g| gap_text(*g)).collect();
+            let index = gaps.iter().position(|g| *g == gap).unwrap_or(0);
+            tiles.push(Tile { tip: tr(BRACKET_GAP_TIP), ..tile("bracket_gap", tr("EV"), true, options, index) });
         }
         if can.exposures.len() > 1 {
             let options = can.exposures.iter().map(|s| exposure_text(*s)).collect();
@@ -290,17 +328,30 @@ impl PhotosPlugin {
         let slot = match shots {
             "burst" => "burst",
             "focus" => "focus_steps",
-            "bracket" => "bracket",
+            "bracket" => "bracket_photos",
             _ => "",
         };
-        json!({
+        let second = if shots == "bracket" { "bracket_gap" } else { "exposure_s" };
+        let focus_range_shown = shots == "focus" && caps.focus_near_max > 0.0;
+        let (near, far) = focus_range(&caps, c);
+        let (low, high) = focus_handles(&caps, c);
+        let full_range = !c.contains_key("focus_near") && !c.contains_key("focus_far");
+        let range = json!({
+            "second-key": second, "second-label": if shots == "bracket" { tr("EV") } else { tr("Exposure") },
+            "second-per": if shots == "bracket" { 3 } else { 1 }, "second-from": if shots == "bracket" { 2 } else { 0 },
+            "second-options": options(second), "second-index": index(second), "second-tip": find(second).map_or_else(String::new, |t| t.tip.clone()),
+            "focus-range-shown": focus_range_shown, "focus-range-enabled": true, "focus-range-changed": !full_range,
+            "focus-low": low, "focus-high": high, "focus-low-text": distance_text(far), "focus-high-text": distance_text(near),
+            "focus-readout": if full_range { tr("All") } else { range_text(near, far) },
+            "focus-range-tip": tr(FOCUS_RANGE_TIP),
+        });
+        let mut props = json!({
             "iso-options": options("iso"), "iso-index": index("iso"), "shutter-options": options("shutter"), "shutter-index": index("shutter"),
             "mode-options": Self::labelled(&can.modes, &MODES), "mode-index": index_of(&can.modes, mode), "mode-enabled": can.modes.len() > 1,
             "format-options": Self::labelled(&can.formats, &FORMATS), "format-index": index_of(&can.formats, format), "format-enabled": can.formats.len() > 1,
             "shots-offered": SHOTS.map(|(key, _)| can.shots.contains(&key)), "shots-index": SHOTS.iter().position(|(key, _)| *key == shots).unwrap_or(0),
             "slot-key": slot, "slot-label": find(slot).map_or_else(String::new, |t| t.label.clone()), "slot-options": options(slot),
             "slot-index": index(slot), "slot-tip": find(slot).map_or_else(String::new, |t| t.tip.clone()),
-            "exposure-options": options("exposure_s"), "exposure-index": index("exposure_s"),
             "distortion-enabled": find("distortion").is_some(), "distortion-index": index("distortion"),
             "merge-enabled": self.merge_possible(), "brightness-enabled": self.merge_possible() && shots == "bracket", "brightness": self.merge_brightness(), "brightness-text": Self::brightness_text(self.merge_brightness()), "merge-index": BRACKET_MERGE.iter().position(|(k, _)| *k == text(c, "bracket_merge")).unwrap_or(0),
             "quality": quality, "quality-text": quality.to_string(), "quality-enabled": format != "raw" && !caps.camera, "quality-tip": quality_tip,
@@ -309,7 +360,11 @@ impl PhotosPlugin {
             "folder-name": Path::new(&self.folder).file_name().map(|n| n.to_string_lossy().into_owned()).filter(|n| !n.is_empty()).unwrap_or_else(|| self.folder.clone()),
             "folder-tip": self.folder, "folder-changed": self.folder != self.default_folder,
             "reset-shown": self.reset_shown(),
-        })
+        });
+        if let (Value::Object(all), Value::Object(more)) = (&mut props, range) {
+            all.extend(more);
+        }
+        props
     }
 
     /// What a Reset leaves alone: where the photos go.
@@ -359,6 +414,7 @@ impl PhotosPlugin {
         json!({
             "active": self.paired.on(), "shown": self.card_shown(),
             "take-enabled": self.caps.is_some() && !self.busy, "take-tip": tip, "open-enabled": !self.last_saved.is_empty(),
+            "focus-live": Self::focus_now(host).is_some(), "focus-live-pos": Self::live_pos(&self.effective_caps(), Self::focus_now(host)).unwrap_or(0.0),
         })
     }
 
@@ -459,11 +515,17 @@ impl PhotosPlugin {
             "format" => can.formats.get(index).map(|v| json!(v)),
             "shots" => SHOTS.get(index).map(|(k, _)| k).filter(|k| can.shots.contains(k)).map(|k| json!(k)),
             "exposure_s" => can.exposures.get(index).map(|s| if s.fract() == 0.0 { json!(*s as i64) } else { json!(s) }),
-            "bracket" => BRACKETS.get(index).map(|(k, ..)| json!(k)),
+            "bracket_photos" => Some(2 + index as i64).filter(|n| *n <= self.effective_caps().bracket_max.max(2)).map(|n| json!(n)),
+            "bracket_gap" => {
+                let caps = self.effective_caps();
+                let (photos, _) = bracket_shape(&caps, &self.choices);
+                bracket_gaps(&caps, photos).get(index).map(|g| json!(g))
+            }
+            "focus_steps" => focus_counts(&self.effective_caps()).get(index).map(|n| json!(n)),
             "distortion" => DISTORTION.get(index).map(|(k, _)| json!(k)),
             "bracket_merge" => BRACKET_MERGE.get(index).map(|(k, _)| json!(k)),
-            "burst" | "focus_steps" => {
-                let (min, max) = self.number_range(usize::from(key == "focus_steps"));
+            "burst" => {
+                let (min, max) = self.burst_range();
                 Some(min + index as i64).filter(|n| *n <= max).map(|n| json!(n))
             }
             // The camera's own lists: picked for the next photo, and not saved
@@ -481,6 +543,39 @@ impl PhotosPlugin {
         if let Some(value) = value {
             self.pick_value(host, key, value);
         }
+    }
+
+    /// Where the phone is focused now in diopters, while it is on manual focus (the number may not follow the lens otherwise).
+    fn focus_now(host: &dyn Host) -> Option<f64> {
+        let state = host.phone_state(None)?;
+        (state.get("focus_mode").and_then(Value::as_str) == Some("manual")).then(|| state.get("focus_distance").and_then(Value::as_f64)).flatten()
+    }
+
+    /// The ends of the focus bracket dragged on the slider (positions on the focus scale). A handle at its end is the lens's end, so
+    /// both at the ends saves no range at all.
+    fn move_focus_range(&mut self, host: &mut dyn Host, low: f64, high: f64) {
+        let caps = self.effective_caps();
+        if caps.focus_near_max <= 0.0 {
+            return;
+        }
+        let diopters = |pos: f64| ((pos / FOCUS_SCALE).clamp(0.0, 1.0) * caps.focus_near_max * 1000.0).round() / 1000.0;
+        if low <= 0.0 {
+            self.choices.shift_remove("focus_far");
+        } else {
+            self.choices.insert("focus_far".into(), json!(diopters(low)));
+        }
+        if high >= FOCUS_SCALE {
+            self.choices.shift_remove("focus_near");
+        } else {
+            self.choices.insert("focus_near".into(), json!(diopters(high)));
+        }
+        self.show_choices(host);
+        host.schedule_save();
+    }
+
+    /// Where the phone is focused now on the focus scale, while it is on manual focus.
+    fn live_pos(caps: &StillCaps, seen: Option<f64>) -> Option<f64> {
+        seen.filter(|_| caps.focus_near_max > 0.0).map(|d| (d / caps.focus_near_max * FOCUS_SCALE).clamp(0.0, FOCUS_SCALE))
     }
 
     /// One step of a dial, `by` entries toward the end of its list (dir) or its start; false when it was already there.
@@ -816,6 +911,10 @@ impl Plugin for PhotosPlugin {
                 }
             }
             "tile-hold-up" => self.release_hold(host),
+            "focus-range-moved" => {
+                let at = |i: usize| event.args.get(i).and_then(Value::as_f64).unwrap_or(0.0);
+                self.move_focus_range(host, at(0), at(1));
+            }
             "brightness-moved" => {
                 let value = event.args.first().and_then(Value::as_f64).unwrap_or(0.0).round() as i64;
                 host.set_ui_props("card", &json!({"brightness-text": Self::brightness_text(value)}));
@@ -937,6 +1036,19 @@ impl Plugin for PhotosPlugin {
             };
             if kept {
                 choices.insert(key, value.clone());
+            }
+        }
+        // A bracket saved as one pick ("3x2") is the same bracket as the two picks that replaced it
+        if !cfg.contains_key("bracket_photos") && !cfg.contains_key("bracket_gap") {
+            if let Some((photos, gap)) = cfg.get("bracket").and_then(Value::as_str).and_then(old_bracket) {
+                choices.insert("bracket_photos".into(), json!(photos));
+                choices.insert("bracket_gap".into(), json!(gap));
+            }
+        }
+        // The ends of a focus bracket have no default: none saved is the lens's whole range
+        for key in ["focus_near", "focus_far"] {
+            if let Some(d) = cfg.get(key).filter(|v| v.as_f64().is_some_and(|d| d.is_finite() && d >= 0.0)) {
+                choices.insert(key.into(), d.clone());
             }
         }
         if !TIMERS.iter().any(|t| *t as f64 == number(&choices, "timer", 0.0)) {
