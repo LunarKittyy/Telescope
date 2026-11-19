@@ -1,7 +1,7 @@
 // The video stage (plugins/preview.py): the letterboxed picture and the toolbar under it, no card chrome.
 
 import { Theme, Icons, Icon, IconButton, ToggleTile, Arrival, FineAxis } from "@ui-kit/ui-kit.slint";
-import { PreviewMarks, PreviewPick, LensOutline, SkeletonLine } from "../../shell/preview.slint";
+import { PreviewMarks, PreviewPick, PreviewMessage, LensOutline, SkeletonLine } from "../../shell/preview.slint";
 
 // A shape a plugin draws on the preview (add_preview_layer), in px of the picture's rect
 export struct LayerPath { commands: string, stroke: color, width: length, fill: color, evenodd: bool }
@@ -42,6 +42,14 @@ export component PreviewCard inherits Rectangle {
     in property <string> pick-handles;
     in property <string> pick-hint;
     in property <string> pick-cursor;
+    in property <bool> message-visible;
+    in property <string> message-text;
+    in property <string> message-detail;
+    in property <string> message-step;
+    in property <string> message-countdown;
+    in property <float> message-progress;
+    in property <bool> message-counting;
+    in property <bool> message-dim;
     // Where the picture sits on the stage (image-fit contain)
     property <float> aspect: has-frame && frame.height > 0 ? frame.width / frame.height : surface.width / max(1px, surface.height);
     out property <length> pic-width: min(surface.width, surface.height * aspect);
@@ -203,6 +211,20 @@ export component PreviewCard inherits Rectangle {
                 border-width: Theme.u(1);
                 border-color: Theme.accent-soft;
                 border-radius: Theme.r-ctl;
+            }
+            if message-visible: PreviewMessage {
+                x: pic-x;
+                y: pic-y;
+                width: pic-width;
+                height: pic-height;
+                text: message-text;
+                detail: message-detail;
+                step: message-step;
+                countdown: message-countdown;
+                progress: message-progress;
+                counting: message-counting;
+                dim: message-dim;
+                font: Theme.font;
             }
             if picking: PreviewPick {
                 width: parent.width;

@@ -239,6 +239,10 @@ Each function gets the event as a table with its fields (`e.source_id` here). Th
 
 Methods that need an owner (the view, preview layers, motion zones) use your plugin's title, which is also what the window shows when your plugin has the view.
 
+`host.set_preview_message(message, source_id)` shows a message on that stream's preview (the shown stream when `source_id` is omitted). Pass a table with translated `text`, `detail` and `step`, optional `remaining_ms` and `total_ms`, `dim` and a required `max_ms` timeout. The host counts down from `remaining_ms`; plugins don't need to send ticks. Pass `nil` to clear your message. Each plugin has one message per stream and the newest appears on top. Clearing it brings back the one underneath. Messages never reach the virtual camera output. A host without Preview ignores the call.
+
+The host also clears a message when its plugin stops, its stream ends or `max_ms` passes. Your plugin receives `preview_message_ended` with `source_id` when the host clears it. Clearing it yourself doesn't send that event.
+
 ### Sharing values with other plugins
 
 Plugins can't call each other. They can leave values for each other with the host instead. `host.share("level", 0.4)` puts a value under your plugin's name (`my_plugin.level`). Any plugin reads it with `host.shared("my_plugin.level")` and finds what's there with `host.shared_keys("my_plugin.")`. Every plugin hears `plugin.events.shared_changed(e)` with `e.key` each time a value changes or goes.

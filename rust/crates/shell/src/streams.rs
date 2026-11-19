@@ -471,6 +471,10 @@ impl Window {
     fn stream_snapshot(&self, flow: &StreamFlow) {
         let s = &flow.sessions;
         let mut st = self.state.borrow_mut();
+        let gone: Vec<String> = st.streams.live.iter().filter(|id| !s.streams.iter().any(|src| src.has_session() && src.id_str() == id.as_str())).cloned().collect();
+        for id in gone {
+            st.let_go_of_photos(Some(&id));
+        }
         st.streams.streaming = !s.streams.is_empty();
         st.streams.starting = s.is_starting();
         st.streams.restarting = s.restarting;
@@ -870,6 +874,7 @@ impl Window {
             }
         }
         let options = &options;
+        self.state.borrow_mut().begin_photo_message(request, source, options, is_camera);
         let (progress_posts, done_posts, owner, done_owner) = (posts.clone(), posts.clone(), plugin.to_string(), plugin.to_string());
         let on_progress: Box<dyn Fn(Value) + Send> = Box::new(move |data| {
             // The phone may pause the video for it, or a long exposure holds it up: that's no dropped stream

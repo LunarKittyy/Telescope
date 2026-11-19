@@ -32,6 +32,7 @@ impl Ctx<'_> {
         self.want_people(&me, false);
         self.watch_motion(&me, &[], 0);
         self.remove_preview_layer(&me);
+        self.state.drop_owner_messages(&me);
         self.cancel_pick(&me);
         self.set_preview_warp(&me, None);
         self.preview_follows(&me, None, None);
@@ -562,6 +563,9 @@ impl HostMotion for Ctx<'_> {
 }
 
 impl HostPreview for Ctx<'_> {
+    fn set_preview_message(&mut self, owner: &str, source_id: Option<&str>, message: Option<PreviewMessage>) {
+        self.state.set_preview_message(owner, source_id, message);
+    }
     fn add_preview_layer(&mut self, owner: &str, layer: PreviewLayer) {
         self.state.layers.insert(owner.to_string(), layer);
     }

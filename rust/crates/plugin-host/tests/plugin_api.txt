@@ -40,6 +40,7 @@ event phones_changed(count: u32)
 event picture_measure_requested(token: String)
 event picture_measured(token: String, ok: bool, message: String, data: Value)
 event posted(owner: String, token: String, data: Value)
+event preview_message_ended(source_id: String)
 event preview_pick_changed(owner: String)
 event preview_picked(owner: String, pick: Option<Pick>)
 event preview_source_changed(shows_own: bool)
@@ -247,6 +248,7 @@ host.sensor_status(source_id?)
 host.set_camera_on(on, auto?) [streams]
 host.set_colour_stage(stage?, order?, source_id?)
 host.set_keep_in_tray(keep) [app]
+host.set_preview_message(message?, source_id?)
 host.set_preview_warp(matrix?)
 host.set_ui_props(ui, props) [waits for the host]
 host.set_view(change)
@@ -286,6 +288,13 @@ payload Pick.full[][]: number
 payload Pick.in_picture[][]: number
 payload Pick.kind: text
 payload Pick.shown[][]: number
+payload PreviewMessage.detail: text
+payload PreviewMessage.dim: true or false
+payload PreviewMessage.max_ms: number
+payload PreviewMessage.remaining_ms: number
+payload PreviewMessage.step: text
+payload PreviewMessage.text: text
+payload PreviewMessage.total_ms: number
 payload RememberedSource.detail: text
 payload RememberedSource.id: text
 payload RememberedSource.name: text

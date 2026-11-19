@@ -192,6 +192,8 @@ events! {
 
     /// Not in plugin.py: a pick_on_preview ended, with the pick or None when cancelled (Python's on_done callback).
     "preview_picked" => PreviewPicked { owner: String, pick: Option<Pick> },
+    /// The host dropped a preview message after its timeout, owner stop or stream end; only its owner hears it.
+    "preview_message_ended" => PreviewMessageEnded { source_id: String },
     /// Not in plugin.py: a host request that finishes later did (Python's on_done callbacks), with what it returned.
     "request_done" => RequestDone { request: RequestId, ok: bool, message: String, data: Value },
     /// Not in plugin.py: progress on a host request that's still going (take_still's on_progress).

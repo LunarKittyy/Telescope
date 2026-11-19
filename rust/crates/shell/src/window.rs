@@ -103,6 +103,7 @@ pub struct Window {
     logged: Cell<bool>,
     /// The preview's pop-out window while it's open, and the card's popout-asks it last answered.
     popout: RefCell<Option<ComponentInstance>>,
+    message_shown: Cell<bool>,
     cadence: RefCell<crate::preview::Cadence>,
     /// It's been fitted to the screen, which it only is as it first opens.
     pub(crate) fitted: Cell<bool>,
@@ -130,7 +131,7 @@ pub struct Window {
 
 /// _PopoutWindow: the picture alone on black, in a window of its own.
 const POPOUT: &str = r#"
-import { PreviewMarks, PreviewPick, LensOutline, SkeletonLine } from "shell/preview.slint";
+import { PreviewMarks, PreviewPick, PreviewMessage, LensOutline, SkeletonLine } from "shell/preview.slint";
 import { FineAxis } from "@ui-kit/ui-kit.slint";
 export { Theme, Motion, Tips } from "@ui-kit/ui-kit.slint";
 
@@ -168,6 +169,14 @@ export component PreviewPopout inherits Window {
     in property <string> pick-handles;
     in property <string> pick-hint;
     in property <string> pick-cursor;
+    in property <bool> message-visible;
+    in property <string> message-text;
+    in property <string> message-detail;
+    in property <string> message-step;
+    in property <string> message-countdown;
+    in property <float> message-progress;
+    in property <bool> message-counting;
+    in property <bool> message-dim;
     property <float> aspect: has-frame && frame.height > 0 ? frame.width / frame.height : root.width / max(1px, root.height);
     out property <length> pic-width: min(root.width, root.height * aspect);
     out property <length> pic-height: pic-width / max(aspect, 0.01);
@@ -267,6 +276,20 @@ export component PreviewPopout inherits Window {
         border-width: 2px;
         border-color: marker-colour;
         border-radius: 6px;
+    }
+    if message-visible: PreviewMessage {
+        x: pic-x;
+        y: pic-y;
+        width: pic-width;
+        height: pic-height;
+        text: message-text;
+        detail: message-detail;
+        step: message-step;
+        countdown: message-countdown;
+        progress: message-progress;
+        counting: message-counting;
+        dim: message-dim;
+        font: layer-font;
     }
     if picking: PreviewPick {
         width: parent.width;
@@ -484,6 +507,7 @@ pub fn build(file: ConfigFile, plugins: impl FnOnce(&BusSender) -> Vec<Box<dyn P
         layers_drawn: RefCell::default(),
         logged: Cell::new(false),
         popout: RefCell::default(),
+        message_shown: Cell::new(false),
         cadence: RefCell::default(),
         fitted: Cell::new(false),
         place: crate::screen::Placement::new(crate::screen::Limits::main()),
@@ -998,6 +1022,7 @@ impl Window {
 
     /// Delivers queued events and carries out what plugins asked for, until nothing more comes.
     pub fn process(self: &Rc<Self>) {
+        self.state.borrow_mut().expire_preview_messages(std::time::Instant::now());
         self.sync_camera(); // the events below may be about it, and plugins read it back
         for _ in 0..50 {
             self.show_bar();
@@ -1026,6 +1051,7 @@ impl Window {
         self.show_bar();
         self.paint_pick();
         self.paint_layers();
+        self.paint_message();
         self.refresh_tray_tip();
     }
 
@@ -1057,6 +1083,16 @@ impl Window {
         self.sync_preview_visibility();
         self.watch_focus();
         self.paint_preview();
+        let now = std::time::Instant::now();
+        let expired = self.state.borrow_mut().expire_preview_messages(now);
+        if expired {
+            self.process();
+        } else {
+            let due = self.state.borrow_mut().preview_messages.due(now);
+            if due {
+                self.paint_message();
+            }
+        }
         if window_seen(self.ui.window()) || self.popout_seen() {
             self.paint_pick();
             self.paint_layers();
@@ -1375,6 +1411,40 @@ impl Window {
         for (n, v) in props {
             if target.get_property(&name(n)).ok().as_ref() != Some(&v) {
                 let _ = target.set_property(&name(n), v);
+            }
+        }
+    }
+
+    fn paint_message(&self) {
+        let Some(r) = self.pieces.iter().find(|r| r.plugin == "preview" && r.ui == "card") else { return };
+        let source = self.preview_focus_id();
+        let drawing = self.state.borrow().preview_messages.drawing(source.as_deref(), std::time::Instant::now());
+        // Nothing shown now and nothing shown last time leaves the properties as they are
+        if !drawing.visible && !self.message_shown.replace(false) {
+            return;
+        }
+        self.message_shown.set(drawing.visible);
+        let text = |s: &str| SValue::String(s.into());
+        let props = [
+            ("message-visible", SValue::Bool(drawing.visible)),
+            ("message-text", text(&drawing.text)),
+            ("message-detail", text(&drawing.detail)),
+            ("message-step", text(&drawing.step)),
+            ("message-countdown", text(&drawing.countdown)),
+            ("message-progress", SValue::Number(drawing.progress as f64)),
+            ("message-counting", SValue::Bool(drawing.counting)),
+            ("message-dim", SValue::Bool(drawing.dim)),
+        ];
+        let popout = self.popout.borrow().as_ref().map(|p| p.clone_strong());
+        for (key, value) in props {
+            let name = format!("{}-{key}", r.id);
+            if self.ui.get_property(&name).ok().as_ref() != Some(&value) {
+                let _ = self.ui.set_property(&name, value.clone());
+            }
+            if let Some(p) = &popout {
+                if p.get_property(key).ok().as_ref() != Some(&value) {
+                    let _ = p.set_property(key, value);
+                }
             }
         }
     }

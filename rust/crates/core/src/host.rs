@@ -101,6 +101,18 @@ pub struct PreviewLayer {
     pub shapes: Vec<Shape>,
 }
 
+/// A translated message on this stream's preview only; max_ms limits how long the host keeps it.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PreviewMessage {
+    pub text: String,
+    pub detail: String,
+    pub step: String,
+    pub remaining_ms: Option<i64>,
+    pub total_ms: Option<i64>,
+    pub dim: bool,
+    pub max_ms: i64,
+}
+
 /// Colours are "#rrggbb" or "#rrggbbaa".
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "shape", rename_all = "snake_case")]
@@ -708,6 +720,8 @@ pub trait HostMotion {
 
 /// Drawing on the preview without it reaching the virtual camera, and asking for points and areas there.
 pub trait HostPreview {
+    /// Replaces this owner's message on source_id (None: the shown stream); None clears it, and hosts without a preview ignore it.
+    fn set_preview_message(&mut self, _owner: &str, _source_id: Option<&str>, _message: Option<PreviewMessage>) {}
     fn add_preview_layer(&mut self, owner: &str, layer: PreviewLayer);
     /// Takes off whatever this owner put on the preview, a layer or a pass.
     fn remove_preview_layer(&mut self, owner: &str);
@@ -894,6 +908,24 @@ impl Registry {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_host_without_a_preview_can_ignore_messages() {
+        struct WithoutPreview;
+        impl HostPreview for WithoutPreview {
+            fn add_preview_layer(&mut self, _owner: &str, _layer: PreviewLayer) {}
+            fn remove_preview_layer(&mut self, _owner: &str) {}
+            fn refresh_preview(&mut self) {}
+            fn pick_on_preview(&mut self, _owner: &str, _kind: PickKind, _start: Option<[[f32; 2]; 4]>, _hint: &str) -> bool { false }
+            fn finish_pick(&mut self, _owner: &str) -> bool { false }
+            fn cancel_pick(&mut self, _owner: &str) {}
+            fn set_preview_warp(&mut self, _owner: &str, _matrix: Option<[f32; 9]>) {}
+        }
+        let message = PreviewMessage { text: "Taking a picture".into(), detail: String::new(), step: String::new(),
+            remaining_ms: Some(10_000), total_ms: Some(10_000), dim: true, max_ms: 80_000 };
+        WithoutPreview.set_preview_message("photos", Some("phone"), Some(message));
+        WithoutPreview.set_preview_message("photos", None, None);
+    }
 
     #[test]
     fn the_registry_keeps_each_plugins_values_under_its_name() {

@@ -51,6 +51,8 @@ Optional. Switch it on under **Camera** in the Plugins tab of Settings and the P
 
 Photos go to the folder under **Save in** (a Telescope folder in your Pictures by default) with the phone's file name. **Open folder** shows the last ones. A plain photo is taken next to the video, which hitches for a moment the first time only. Night, HDR, Bokeh, long exposures and full resolution on some phones pause the video for a few seconds instead and the stream picks up again afterwards without a reconnect. **Take photo** also works as a [keyboard shortcut](app.md#keyboard-shortcuts), even with Telescope in the background. A photo taken that way pops up a notification once it's saved.
 
+A photo that pauses the video puts **Taking a picture** over the preview, with the shot count and an estimated time left. The popped-out preview shows it too and it clears when the photo finishes. The virtual camera holds its last picture without the message.
+
 ## Colour grading
 
 An optional plugin for the look of the picture, switched on in Plugins (it needs no download). Like Background it runs on the computer and works with any phone and with Browser camera. Each phone gets its own grade and grades are saved in presets.

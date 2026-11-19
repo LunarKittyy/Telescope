@@ -2,10 +2,86 @@
 // own, so colours and the font come in as properties. Text sizes and corners follow the window's Theme (Appearance).
 
 import { FineAxis } from "@ui-kit/widgets/fine.slint";
+import { ProgressBar } from "@ui-kit/widgets/progress.slint";
 import { Theme } from "@ui-kit/theme.slint";
 
 export struct LensOutline { label: string, x0: float, y0: float, x1: float, y1: float }
 export struct SkeletonLine { x0: float, y0: float, x1: float, y1: float, sure: bool, out: bool }
+
+// These content colours stay white over the picture in every look, just like the pick overlay.
+export component PreviewMessage inherits Rectangle {
+    in property <string> text;
+    in property <string> detail;
+    in property <string> step;
+    in property <string> countdown;
+    in property <float> progress;
+    in property <bool> counting;
+    in property <bool> dim;
+    in property <string> font: Theme.font;
+    property <float> text-scale: min(2, max(1, root.width / Theme.u(240)));
+
+    clip: true;
+    background: root.dim ? #000000a6 : transparent;
+    accessible-role: groupbox;
+    accessible-label: root.text + (root.detail == "" ? "" : " " + root.detail);
+
+    content := VerticalLayout {
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        width: min(root.width * 0.71, Theme.u(340));
+        height: self.preferred-height;
+        spacing: Theme.u(9);
+        Text {
+            text: root.text;
+            color: white;
+            font-family: root.font;
+            font-size: Theme.card-title * root.text-scale;
+            font-weight: 700;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+            line-height-factor: Theme.line-factor(self.font-size);
+            accessible-role: none;
+        }
+        if root.detail != "": Text {
+            text: root.detail;
+            color: #ffffffbf;
+            font-family: root.font;
+            font-size: Theme.body * root.text-scale;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+            line-height-factor: Theme.line-factor(self.font-size);
+            accessible-role: none;
+        }
+        if root.counting: ProgressBar {
+            height: Theme.u(4);
+            value: root.progress;
+            track: #ffffff40;
+            fill: white;
+            accessible-role: none;
+        }
+        if root.step != "" || root.countdown != "": HorizontalLayout {
+            spacing: Theme.gap;
+            Text {
+                horizontal-stretch: 1;
+                text: root.step;
+                color: #ffffffbf;
+                font-family: root.font;
+                font-size: Theme.body * root.text-scale;
+                overflow: elide;
+                accessible-role: none;
+            }
+            Text {
+                text: root.countdown;
+                color: white;
+                font-family: root.font;
+                font-size: Theme.body * root.text-scale;
+                font-weight: 700;
+                horizontal-alignment: right;
+                accessible-role: none;
+            }
+        }
+    }
+}
 
 // Fills the picture's rect. Skeleton first, lens boxes on top, as paintEvent has them
 export component PreviewMarks {
