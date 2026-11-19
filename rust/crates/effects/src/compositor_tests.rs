@@ -291,7 +291,8 @@ fn four_1080p_streams_draw_quickly_even_on_a_busy_runner() {
         let took = relative(|| {
             comp.render(&all, PixelFormat::I420);
         });
-        assert!(took < 36.0, "{took}");
+        // The ratio only means something in an optimised build, so a debug build just checks that it draws
+        assert!(cfg!(debug_assertions) || took < 36.0, "{took}");
     }
 }
 
