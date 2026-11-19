@@ -62,6 +62,7 @@ const BEST_OFF_TIP: &str = n_("This lens and mode have no extra noise reduction 
 const QUALITY_CAMERA_TIP: &str = n_("JPEG quality is set by the camera");
 const QUALITY_RAW_TIP: &str = n_("RAW photos have no quality setting");
 const CAMERA_BUSY: &str = n_("The camera is already taking a photo.");
+const MERGE_QUEUE_FULL: &str = n_("Still merging the last brackets. Try again in a moment.");
 const CAMERA_FAILED: &str = n_("The camera couldn't take the photo.");
 
 /// "Like the video" for none, else the shutter speed (1/250 s, 8 s).
@@ -710,8 +711,7 @@ impl PhotosPlugin {
         }
         let merge = if let Some(mode) = self.merge_mode() {
             let Some(reservation) = crate::bracket_merge::reserve() else {
-                let text = self.camera_words(CAMERA_BUSY, "The phone is already taking a photo.");
-                self.show_status(host, text, "status_err");
+                self.show_status(host, tr(MERGE_QUEUE_FULL), "status_err");
                 return;
             };
             Some((mode, reservation))
