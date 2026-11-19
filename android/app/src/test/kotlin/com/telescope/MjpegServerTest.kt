@@ -523,8 +523,8 @@ class MjpegServerTest {
                 while (codecs.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(10)
                 assertEquals(listOf(H264Stream.CODEC_H264), codecs.toList())
                 assertTrue(keyRequests.get() >= 1)
-                server.sendH264(byteArrayOf(9), key = false, config = false)  // dropped: not a keyframe
-                server.sendH264(byteArrayOf(0, 0, 0, 1, 0x65), key = true, config = false)
+                server.sendH264(byteArrayOf(9) + H264Stream.AUD, key = false, config = false)  // dropped: not a keyframe
+                server.sendH264(byteArrayOf(0, 0, 0, 1, 0x65) + H264Stream.AUD, key = true, config = false)
                 val want = byteArrayOf(0, 0, 0, 1, 0x67, 0, 0, 0, 1, 0x65) + H264Stream.AUD
                 val got = ByteArray(want.size)
                 var n = 0

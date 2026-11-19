@@ -108,7 +108,7 @@ class DynamicBitrateSocketTest {
                 val packet = ByteArray(maxOf(size, 32)) { 0x55 }
                 byteArrayOf(0, 0, 0, 1, 0x65).copyInto(packet)
                 "%016x".format(System.currentTimeMillis()).toByteArray(StandardCharsets.ISO_8859_1).copyInto(packet, 5)
-                server.sendH264(packet, key, config = false)
+                server.sendH264(packet + H264Stream.AUD, key, config = false)
                 if (frame % 30 == 0) bitrates.add(rate.get())
                 frame++
                 val next = start + frame * 1000L / 30

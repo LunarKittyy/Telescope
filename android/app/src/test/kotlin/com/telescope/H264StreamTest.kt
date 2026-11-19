@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.nio.ByteBuffer
 
 class H264StreamTest {
 
@@ -29,7 +30,7 @@ class H264StreamTest {
 
     @Test
     fun `each frame is followed by a delimiter`() {
-        assertArrayEquals(byteArrayOf(7, 0, 0, 0, 1, 0x09, 0xF0.toByte()), H264Stream.withDelimiter(p(7)))
+        assertArrayEquals(byteArrayOf(7, 0, 0, 0, 1, 0x09, 0xF0.toByte()), H264Stream.packet(ByteBuffer.wrap(p(7)), null, 0))
     }
 
     @Test
@@ -230,13 +231,24 @@ class H264StreamTest {
     }
 
     @Test
-    fun `the packet after the SEI is unchanged and an unknown clock adds nothing`() {
-        val packet = hex(0, 0, 0, 1, 0x65, 0x88, 0x84, 0, 0, 1, 9)
-        val out = H264Stream.withCaptureTime(packet, true, 5_000L)
-        val sei = H264Stream.captureTimeSei(true, 5_000L)
-        assertArrayEquals(sei, out.copyOfRange(0, sei.size))
-        assertArrayEquals(packet, out.copyOfRange(sei.size, out.size))
-        assertArrayEquals(packet, H264Stream.withCaptureTime(packet, null, 5_000L))
+    fun `building a packet matches the old capture time then delimiter layout`() {
+        val codec = hex(0, 0, 0, 1, 0x65, 0x88, 0x84, 0, 0, 1, 9)
+        for (realtime in listOf(true, false, null)) {
+            for (timeNs in listOf(0L, 5_000L, 0x0102030405060708L)) {
+                val old = if (realtime == null) codec else H264Stream.captureTimeSei(realtime, timeNs) + codec
+                val expected = old + H264Stream.AUD
+                val array = ByteBuffer.wrap(codec)
+                assertArrayEquals(expected, H264Stream.packet(array, realtime, timeNs))
+                assertEquals(array.limit(), array.position())
+                val direct = ByteBuffer.allocateDirect(codec.size + 8)
+                direct.position(3)
+                direct.put(codec)
+                direct.limit(3 + codec.size)
+                direct.position(3)
+                assertArrayEquals(expected, H264Stream.packet(direct, realtime, timeNs))
+                assertEquals(direct.limit(), direct.position())
+            }
+        }
         assertEquals(0, H264Stream.captureTimeSei(null, 1).size)
     }
 }

@@ -145,6 +145,7 @@ class MjpegServer(
         if (dead.isNotEmpty()) clients.removeAll(dead.toSet())
     }
 
+    // Non-config packets already end with the delimiter
     fun sendH264(packet: ByteArray, key: Boolean, config: Boolean) {
         if (config) {
             h264Config = packet
@@ -154,15 +155,14 @@ class MjpegServer(
         frameRate.tick()
         udpClients.forEach { it.offer(packet, key) }
         if (h264Clients.isEmpty() && udpClients.isEmpty()) return
-        val framed = H264Stream.withDelimiter(packet)
         var wantKey = false
         for (c in h264Clients) {
             if (givenUp(c.lastWriteAtMs)) { c.close(); continue }
-            if (c.queue.offer(framed, key)) wantKey = true
+            if (c.queue.offer(packet, key)) wantKey = true
         }
         if (wantKey) requestKeyFrame()
-        encodedBytes += framed.size
-        rateBytes += framed.size
+        encodedBytes += packet.size
+        rateBytes += packet.size
         sampleH264Link()
     }
 
