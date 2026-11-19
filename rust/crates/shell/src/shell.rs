@@ -550,8 +550,8 @@ pub struct State {
     pub hidden_flags: BTreeMap<String, Arc<std::sync::atomic::AtomicBool>>,
     /// The streams that take photos with a camera of their own (a DSLR), by their id: the photo service of each, as of the last snapshot.
     pub source_stills: Vec<(String, Arc<dyn telescope_core::source::SourceStills>)>,
-    /// Photos' "still running" flags, by the stream they're taken on: cleared when that stream ends, which ends the photo.
-    pub still_alive: Vec<(String, Arc<std::sync::atomic::AtomicBool>)>,
+    /// Photos' "still running" flags, by request and stream: cleared on cancellation or when that stream ends.
+    pub still_alive: Vec<(RequestId, String, Arc<std::sync::atomic::AtomicBool>)>,
     /// Reads what's on the clipboard (the window pastes it into a hidden box); None before there is a window.
     pub clipboard: Option<Box<dyn Fn() -> Option<String>>>,
     next_request: u64,
@@ -1841,6 +1841,7 @@ impl State {
         let Event::RequestDone { request, data, .. } = event else { return };
         let Some(i) = self.stills.iter().position(|(r, ..)| r == request) else { return };
         let (_, _, source) = self.stills.remove(i);
+        self.still_alive.retain(|(id, ..)| id != request);
         let busy = match self.source_stills.iter().find(|(id, _)| *id == source) {
             Some((_, camera)) => camera.busy(),
             None => self.link.as_ref().and_then(|l| l.stills()).is_some_and(|s| s.busy(Some(&source))),
@@ -1855,7 +1856,7 @@ impl State {
     /// Photos on `source` (all of them for None) end as interrupted: the stream they were taken from is gone.
     pub fn let_go_of_photos(&mut self, source: Option<&str>) {
         self.drop_stream_messages(source);
-        self.still_alive.retain(|(id, alive)| {
+        self.still_alive.retain(|(_, id, alive)| {
             let gone = source.is_none_or(|s| s == id);
             if gone {
                 alive.store(false, std::sync::atomic::Ordering::SeqCst);

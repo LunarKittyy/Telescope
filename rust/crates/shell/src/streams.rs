@@ -521,6 +521,9 @@ impl Window {
         let flow = self.streams.flow.borrow();
         self.stream_snapshot(&flow);
         let s = &flow.sessions;
+        if !s.streams.is_empty() && matches!(self.ui.get_property("streaming"), Ok(SValue::Bool(true))) {
+            self.show_streaming(s.streams.len());
+        }
         let due: Vec<Rc<ShellWorker>> = self.streams.workers.borrow().iter().filter(|w| w.steps_due.replace(false)).cloned().collect();
         self.state.borrow().colour.set_streams(s.streams.iter().map(|x| x.id_str()));
         for w in due {
@@ -558,12 +561,8 @@ impl Window {
         self.streams.workers.borrow().iter().find(|w| w.live.get()).and_then(|w| w.inner.source_id().map(str::to_string))
     }
 
-    /// The newest frame of the stream the preview draws (the one the panels show, or the one it follows), and its number; reads the card back on the caller's thread if need be, so the window paints from preview_picture.
-    pub fn preview_frame(&self) -> Option<(telescope_core::Frame, u64)> {
-        self.preview_worker().and_then(|w| w.inner.slot().latest())
-    }
-
-    pub(crate) fn preview_picture(&self) -> Option<(telescope_core::media::PipelineFrame, u64)> {
+    /// The newest picture of the stream the preview draws (the one the panels show, or the one it follows), and its number; the card isn't read back.
+    pub fn preview_picture(&self) -> Option<(telescope_core::media::PipelineFrame, u64)> {
         self.preview_worker().and_then(|w| w.inner.slot().latest_picture())
     }
 
@@ -801,6 +800,10 @@ impl Window {
             posts.push_event(plugin, Event::RequestDone { request, ok: false, message: why.into(), data });
         };
         let fail = |why: &str| end("failed", why);
+        let alive = self.state.borrow().still_alive.iter().find(|(id, ..)| *id == request).map(|(_, _, alive)| alive.clone());
+        let Some(alive) = alive.filter(|alive| alive.load(std::sync::atomic::Ordering::SeqCst)) else {
+            return end("interrupted", &tr("The photo was interrupted."));
+        };
         // The photo comes straight off the phone, so a picture that is hidden now stays untaken when the request said to check
         if self.state.borrow().still_skipped(options, source) {
             return end("hidden", &tr("No photo was taken while part of the picture is hidden."));
@@ -837,8 +840,6 @@ impl Window {
         }
         let options = &options;
         self.state.borrow_mut().begin_photo_message(request, source, options, is_camera);
-        let alive = Arc::new(std::sync::atomic::AtomicBool::new(true));
-        self.state.borrow_mut().still_alive.push((source.to_string(), alive.clone()));
         let (progress_posts, done_posts, owner, done_owner) = (posts.clone(), posts.clone(), plugin.to_string(), plugin.to_string());
         let on_progress: Box<dyn Fn(Value) + Send> = Box::new(move |data| {
             // The phone may pause the video for it, or a long exposure holds it up: that's no dropped stream
@@ -1792,7 +1793,7 @@ impl FlowHost for Host<'_> {
     }
     fn set_start_button(&mut self, streaming: bool) {
         if streaming {
-            self.w.show_streaming();
+            self.w.show_streaming(1);
         } else {
             self.w.show_idle_button();
         }

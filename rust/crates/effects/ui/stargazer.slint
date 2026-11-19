@@ -6,6 +6,7 @@ export component StargazerCard inherits Card {
     in property <int> mode-index;
     in property <[string]> mode-items;
     in property <bool> running;
+    in property <bool> night-unsupported;
     in property <int> frames: 300;
     in property <string> frames-text;
     in property <int> keep: 10;
@@ -47,13 +48,9 @@ export component StargazerCard inherits Card {
     in property <float> focus-value;
     in property <bool> focus-unset;
     in property <string> focus-readout;
-    in property <bool> focus-live;
-    in property <float> focus-live-pos;
     callback customize-toggled(bool);
     callback shutter-picked(int);
     callback iso-picked(int);
-    callback focus-moved(float);
-    callback focus-reset();
     callback mode-picked(int);
     callback frames-moved(float);
     callback keep-moved(float);
@@ -110,9 +107,9 @@ export component StargazerCard inherits Card {
                     @tr("Stacks only the sharpest frames of a burst. For the moon and planets."),
                     @tr("Adds every frame and leaves out what only shows once, like satellites and noise. For faint things."),
                     @tr("Takes the brightest value of one frame every few seconds, which draws the stars as lines."),
-                    @tr("Takes a long photo with the phone's camera for a faint sky. Not from the video."),
+                    night-unsupported ? @tr("This camera can't do Night yet") : @tr("Takes a long photo with the phone's camera for a faint sky. Not from the video."),
                 ];
-                disabled: [!active || running, !active || running, !active || running, !active || running];
+                disabled: [!active || running, !active || running, !active || running, !active || running || night-unsupported];
                 current: mode-index;
                 picked(i) => { root.mode-picked(i); }
             }
@@ -264,12 +261,8 @@ export component StargazerCard inherits Card {
                     focus-value: root.focus-value;
                     focus-unset: root.focus-unset;
                     focus-readout: root.focus-readout;
-                    focus-live: root.focus-live;
-                    focus-live-pos: root.focus-live-pos;
                     shutter-picked(i) => { root.shutter-picked(i); }
                     iso-picked(i) => { root.iso-picked(i); }
-                    focus-moved(v) => { root.focus-moved(v); }
-                    focus-reset => { root.focus-reset(); }
                 }
             }
         }
@@ -281,7 +274,7 @@ export component StargazerCard inherits Card {
         enabled: active;
         HorizontalLayout {
             spacing: Theme.gap;
-            Button { horizontal-stretch: 1; preferred-width: 1000px; text: run-text; reserve: [@tr("Start"), @tr("Stop"), @tr("Stacking"), @tr("Taking")]; role: "primary"; hue: root.hue; muted: true; on: running; enabled: active && run-enabled; clicked => { root.run-clicked(); } }
+            Button { horizontal-stretch: 1; preferred-width: 1000px; text: run-text; reserve: [@tr("Start"), @tr("Stop"), @tr("Stacking")]; role: "primary"; hue: root.hue; muted: true; on: running; enabled: active && run-enabled; clicked => { root.run-clicked(); } }
             if mode-index == 1 || save-enabled: Button { horizontal-stretch: 1; preferred-width: 1000px; text: save-text; enabled: active && save-enabled; clicked => { root.save-clicked(); } }
             if mode-index == 1: Button { horizontal-stretch: 1; preferred-width: 1000px; text: reset-text; enabled: active && reset-enabled; clicked => { root.reset-clicked(); } }
         }

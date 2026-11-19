@@ -384,6 +384,8 @@ fn a_tip_goes_below_its_control_flips_above_near_the_bottom_and_stays_inside_the
 #[test]
 fn the_first_tip_waits_for_a_rest_and_the_next_one_comes_up_at_once() {
     let (w, _) = open();
+    // Real time must not leak into the 100 ms warm rest on a loaded machine
+    let _still = telescope_shell::offscreen::freeze_clock();
     move_to(&w, at(BUTTON.0, BUTTON.1));
     wait(&w, 300);
     assert_eq!(popups(&w), 0, "not yet, 300 ms in");

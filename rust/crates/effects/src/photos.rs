@@ -65,17 +65,6 @@ const CAMERA_BUSY: &str = n_("The camera is already taking a photo.");
 const MERGE_QUEUE_FULL: &str = n_("Still merging the last brackets. Try again in a moment.");
 const CAMERA_FAILED: &str = n_("The camera couldn't take the photo.");
 
-/// "Like the video" for none, else the shutter speed (1/250 s, 8 s).
-pub fn exposure_text(seconds: f64) -> String {
-    if seconds == 0.0 {
-        tr("Like the video")
-    } else if let Some(n) = shutter_n(seconds) {
-        tr("1/{n} s").field("n", n.to_string())
-    } else {
-        tr("{seconds} s").field("seconds", format!("{seconds}"))
-    }
-}
-
 /// The range of a focus bracket in one unit, nearest first: 0.25-2 m, 0.25 m-∞.
 pub fn range_text(near: f64, far: f64) -> String {
     let metres = |d: f64| {

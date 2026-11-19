@@ -809,6 +809,9 @@ impl HostStills for FakeHost {
         self.still_sources.push(source_id.map(String::from));
         Some(self.request())
     }
+    fn cancel_still(&mut self, request: RequestId) {
+        self.note(format!("cancel_still {}", request.0));
+    }
     fn still_busy(&self, source_id: Option<&str>) -> bool {
         self.still_busy && self.still_stream(source_id)
     }

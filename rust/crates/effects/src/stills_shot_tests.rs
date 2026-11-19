@@ -71,7 +71,9 @@ fn summaries_show_own_values_in_order() {
     assert_eq!(choice.summary(shot_focus_text), "10 s · ISO 800 · focus ∞");
     assert_eq!(ShotChoice { iso: Some(1600), ..ShotChoice::default() }.summary(shot_focus_text), "ISO 1600");
     assert_eq!(ShotChoice::default().summary(shot_focus_text), "Like the camera");
-    assert_eq!(shot_exposure_text(1.0 / 250.0), "1/250 s");
+    assert_eq!(exposure_text(0.0), "Like the video");
+    assert_eq!(exposure_text(1.0 / 250.0), "1/250 s");
+    assert_eq!(exposure_text(10.0), "10 s");
     assert_eq!(shot_focus_text(0.5), "2 m");
     assert_eq!(shot_focus_text(4.0), "25 cm");
     assert_eq!(choice.summary(|_| "Infinity".into()), "10 s · ISO 800 · focus ∞");
@@ -82,11 +84,7 @@ fn summaries_show_own_values_in_order() {
 fn the_focus_scale_runs_from_infinity_to_the_nearest_distance() {
     assert_eq!(focus_position(10.0, 0.0), 0.0);
     assert_eq!(focus_position(10.0, 10.0), FOCUS_SCALE);
-    for d in [0.0, 0.5, 2.5, 10.0] {
-        assert!((focus_diopters(10.0, focus_position(10.0, d)) - d).abs() < 1e-10);
-    }
+    assert_eq!(focus_position(10.0, 2.5), 250.0);
     assert_eq!(focus_position(0.0, 2.0), 0.0);
     assert_eq!(focus_position(10.0, 20.0), FOCUS_SCALE);
-    assert_eq!(focus_diopters(10.0, -1.0), 0.0);
-    assert_eq!(focus_diopters(10.0, 2000.0), 10.0);
 }

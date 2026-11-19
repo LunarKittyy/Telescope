@@ -309,6 +309,9 @@ export component TelescopeWindow inherits Window {
     in property <string> start-text;
     // Translators' short form of the start button, for a narrow window
     in property <string> start-short;
+    // What the start button's tooltip says while it stops more than one stream
+    in property <string> start-tip;
+    in property <string> start-tip-detail;
     in property <bool> streaming;
     in property <bool> start-enabled: true;
     in property <bool> add-visible;
@@ -503,6 +506,8 @@ const HEADER: &str = r#"
                 alignment: center;
                 StartButton {
                     text: root.mode == 2 ? start-short : start-text;
+                    tip: start-tip;
+                    tip-detail: start-tip-detail;
                     streaming: root.streaming;
                     shortcut: "streaming.start_stop";
                     enabled: start-enabled;

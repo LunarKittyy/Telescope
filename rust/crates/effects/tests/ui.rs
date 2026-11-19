@@ -122,7 +122,7 @@ fn the_cards_have_what_their_plugins_use() {
     has_what_the_plugin_uses(&mut trap, &["switch-toggled-by-hand", "draw-clicked", "clear-clicked", "sensitivity-moved", "count-moved", "pause-moved", "night-toggled"]);
     let mut stargazer = StargazerPlugin::new();
     compile(&mut stargazer);
-    has_what_the_plugin_uses(&mut stargazer, &["mode-picked", "frames-moved", "keep-moved", "trail-moved", "run-clicked", "save-clicked", "reset-clicked", "settings-reset-clicked", "camera-toggled", "open-clicked", "customize-toggled", "shutter-picked", "iso-picked", "focus-moved", "focus-reset"]);
+    has_what_the_plugin_uses(&mut stargazer, &["mode-picked", "frames-moved", "keep-moved", "trail-moved", "run-clicked", "save-clicked", "reset-clicked", "settings-reset-clicked", "camera-toggled", "open-clicked", "customize-toggled", "shutter-picked", "iso-picked"]);
     let mut composite = CompositePlugin::new();
     compile(&mut composite);
     has_what_the_plugin_uses(&mut composite, &["switch-toggled-by-hand", "layout-picked", "edit-clicked", "reset-clicked"]);

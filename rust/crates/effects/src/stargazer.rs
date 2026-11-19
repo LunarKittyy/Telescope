@@ -30,6 +30,8 @@ pub const MAX_FRAMES: u32 = 2000;
 pub const DEFAULT_KEEP: u32 = 10;
 pub const DEFAULT_TRAIL_S: u32 = 5;
 const MAX_TRAIL_S: u32 = 60;
+const ISO_STOPS_PER_LABEL: usize = 3;
+const ISO_LABELS: [i64; 10] = [50, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600];
 /// Live stacking leaves out values further than this many standard deviations from the mean.
 const KAPPA: f32 = 2.5;
 /// Pictures waiting for the worker; a newer one is dropped while this many are there.
@@ -755,7 +757,7 @@ impl StargazerPlugin {
     }
 
     fn can_start(&self, host: &dyn Host) -> bool {
-        !self.down && host.is_streaming() && (self.mode != Mode::Night || self.night_caps(host).is_some())
+        !self.down && host.is_streaming() && (self.mode != Mode::Night || self.night_caps(host).is_some_and(|caps| !caps.camera))
     }
 
     fn elapsed(&self) -> f64 {
@@ -799,33 +801,57 @@ impl StargazerPlugin {
         serde_json::from_value(host.still_caps(Some(&source))?).ok()
     }
 
-    fn shot_props(&self, host: &dyn Host) -> Value {
-        let caps = self.night_caps(host);
-        let ranges = caps.as_ref().and_then(|c| c.shot.as_ref());
-        let shutter = ranges.map(stills::shot_shutter_stops).unwrap_or_default();
-        let iso = ranges.map(stills::shot_iso_stops).unwrap_or_default();
-        let mut shutter_text = vec![tr("Camera")];
-        shutter_text.extend(shutter.iter().map(|s| stills::shot_exposure_text(*s)));
-        let mut iso_text = vec![tr("Camera")];
-        iso_text.extend(iso.iter().map(ToString::to_string));
-        let shutter_index = self.shot.shutter_s.and_then(|v| shutter.iter().enumerate()
+    fn night_unsupported(&self, host: &dyn Host) -> bool {
+        self.night_caps(host).is_some_and(|caps| caps.camera)
+    }
+
+    fn shutter_props(&self, caps: Option<&StillCaps>) -> Value {
+        let stops = caps.and_then(|c| c.shot.as_ref()).map(stills::shot_shutter_stops).unwrap_or_default();
+        let mut labels = vec![tr("Camera")];
+        labels.extend(stops.iter().map(|s| stills::exposure_text(*s)));
+        let index = self.shot.shutter_s.and_then(|v| stops.iter().enumerate()
             .min_by(|(_, a), (_, b)| (**a - v).abs().total_cmp(&(**b - v).abs())).map(|(i, _)| i + 1)).unwrap_or(0);
-        let iso_index = self.shot.iso.and_then(|v| iso.iter().enumerate()
-            .min_by_key(|(_, n)| (**n).abs_diff(v)).map(|(i, _)| i + 1)).unwrap_or(0);
-        let iso_from = iso.iter().position(|v| [50, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600].contains(v)).map_or(1, |i| i + 1);
-        let ready = self.phase == Phase::Idle;
-        let near = ranges.and_then(|c| c.focus.as_ref()).map_or(0.0, |f| f.near_diopters);
         json!({
-            "customize-open": self.customize_open, "shot-summary": self.shot.summary(stills::shot_focus_text),
-            "shutter-stops": shutter_text, "shutter-index": shutter_index, "shutter-enabled": ready && !shutter.is_empty(),
-            "shutter-tip": if caps.is_none() { tr("Waiting for the picture") } else if shutter.is_empty() { tr("This phone can't set the shutter speed.") } else { tr("Set the shutter speed for the photo.") },
-            "iso-stops": iso_text, "iso-index": iso_index, "iso-per": 3, "iso-from": iso_from, "iso-enabled": ready && !iso.is_empty(),
-            "iso-tip": if caps.is_none() { tr("Waiting for the picture") } else if iso.is_empty() { tr("This phone can't set the ISO.") } else { tr("Set the ISO for the photo.") },
+            "shutter-stops": labels, "shutter-index": index,
+            "shutter-enabled": self.phase == Phase::Idle && caps.is_some_and(|c| !c.camera) && !stops.is_empty(),
+            "shutter-tip": if caps.is_none() { tr("Waiting for the picture") } else if stops.is_empty() { tr("This phone can't set the shutter speed.") } else { tr("Set the shutter speed for the photo.") },
+        })
+    }
+
+    fn iso_props(&self, caps: Option<&StillCaps>) -> Value {
+        let stops = caps.and_then(|c| c.shot.as_ref()).map(stills::shot_iso_stops).unwrap_or_default();
+        let mut labels = vec![tr("Camera")];
+        labels.extend(stops.iter().map(ToString::to_string));
+        let index = self.shot.iso.and_then(|v| stops.iter().enumerate()
+            .min_by_key(|(_, n)| (**n).abs_diff(v)).map(|(i, _)| i + 1)).unwrap_or(0);
+        let from = stops.iter().position(|v| ISO_LABELS.contains(v)).map_or(1, |i| i + 1);
+        json!({
+            "iso-stops": labels, "iso-index": index, "iso-per": ISO_STOPS_PER_LABEL, "iso-from": from,
+            "iso-enabled": self.phase == Phase::Idle && caps.is_some_and(|c| !c.camera) && !stops.is_empty(),
+            "iso-tip": if caps.is_none() { tr("Waiting for the picture") } else if stops.is_empty() { tr("This phone can't set the ISO.") } else { tr("Set the ISO for the photo.") },
+        })
+    }
+
+    fn focus_props(&self, caps: Option<&StillCaps>) -> Value {
+        let near = caps.and_then(|c| c.shot.as_ref()).and_then(|c| c.focus.as_ref()).map_or(0.0, |f| f.near_diopters);
+        json!({
             "focus-enabled": false, "focus-tip": tr("Setting the focus from here comes in a later version."),
             "focus-value": stills::focus_position(near, self.shot.focus_diopters.unwrap_or(0.0)), "focus-unset": self.shot.focus_diopters.is_none(),
             "focus-readout": self.shot.focus_diopters.map_or_else(|| tr("Camera"), stills::shot_focus_text),
-            "focus-live": false, "focus-live-pos": 0,
         })
+    }
+
+    fn shot_props(&self, host: &dyn Host) -> Value {
+        let caps = self.night_caps(host);
+        let mut props = json!({"customize-open": self.customize_open, "shot-summary": self.shot.summary(stills::shot_focus_text)});
+        if let Some(all) = props.as_object_mut() {
+            for control in [self.shutter_props(caps.as_ref()), self.iso_props(caps.as_ref()), self.focus_props(caps.as_ref())] {
+                if let Value::Object(fields) = control {
+                    all.extend(fields);
+                }
+            }
+        }
+        props
     }
 
     fn pick_shot(&mut self, host: &mut dyn Host, which: &str, index: usize) {
@@ -865,6 +891,7 @@ impl StargazerPlugin {
                 (text, "status_ok")
             }
             Phase::Stacking => (trn("Stacking the sharpest {n} frame", "Stacking the sharpest {n} frames", self.count as i64), "status_warn"),
+            Phase::Idle if self.mode == Mode::Night && self.night_unsupported(host) => (tr("This camera can't do Night yet"), "status_warn"),
             Phase::Idle => {
                 if let Some(problem) = &self.problem {
                     (problem.clone(), "status_err")
@@ -905,12 +932,12 @@ impl StargazerPlugin {
         let name = Path::new(&self.last).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         let saved = if name.is_empty() { String::new() } else { tr("Saved {name}").field("name", name) };
         let mut props = json!({
-            "active": self.paired.on(), "mode-index": self.mode.index(), "running": self.phase != Phase::Idle,
+            "active": self.paired.on(), "mode-index": self.mode.index(), "running": self.phase != Phase::Idle, "night-unsupported": self.night_unsupported(host),
             "frames": self.frames, "frames-text": tr("{n} frames").field("n", self.frames),
             "keep": self.keep, "keep-text": format!("{} %", self.keep),
             "trail": self.trail_s, "trail-text": tr("{seconds} s").field("seconds", self.trail_s),
-            "run-text": if self.taking.is_some() { tr("Taking") } else { match self.phase { Phase::Idle => tr("Start"), Phase::Collecting => tr("Stop"), Phase::Stacking => tr("Stacking") } },
-            "run-enabled": self.taking.is_none() && (self.phase == Phase::Collecting || (idle && self.can_start(host))),
+            "run-text": match self.phase { Phase::Idle => tr("Start"), Phase::Collecting => tr("Stop"), Phase::Stacking => tr("Stacking") },
+            "run-enabled": self.phase == Phase::Collecting || (idle && self.can_start(host)),
             "save-enabled": self.can_save(),
             "settings-reset-shown": self.settings_reset_shown(),
             "reset-enabled": self.mode == Mode::Live && (self.count > 0 || self.refused > 0 || self.phase == Phase::Collecting),
@@ -950,7 +977,7 @@ impl StargazerPlugin {
 
     fn start_night(&mut self, host: &mut dyn Host) {
         let Some(source) = host.focused_source_id() else { return };
-        let Some(caps) = self.night_caps(host) else { return };
+        let Some(caps) = self.night_caps(host).filter(|caps| !caps.camera) else { return };
         let shot = ShotChoice {
             shutter_s: self.shot.shutter_s.filter(|_| caps.shot.as_ref().is_some_and(|c| c.shutter.is_some())),
             iso: self.shot.iso.filter(|_| caps.shot.as_ref().is_some_and(|c| c.iso.is_some())),
@@ -1021,7 +1048,14 @@ impl StargazerPlugin {
 
     /// Ends the run: a lucky one with enough frames stacks what it has, star trails are saved, a live stack stays for saving.
     fn stop(&mut self, host: &mut dyn Host) {
-        if self.phase != Phase::Collecting || self.taking.is_some() {
+        if self.phase != Phase::Collecting {
+            return;
+        }
+        if let Some(request) = self.taking.take() {
+            host.cancel_still(request);
+            self.exposing = false;
+            self.ended(host);
+            self.show(host);
             return;
         }
         self.shared.run.store(0, Ordering::SeqCst);
@@ -1120,7 +1154,7 @@ impl StargazerPlugin {
 
     fn pick_mode(&mut self, host: &mut dyn Host, index: usize) {
         let Some(&mode) = Mode::ALL.get(index) else { return };
-        if self.phase != Phase::Idle || mode == self.mode {
+        if self.phase != Phase::Idle || mode == self.mode || (mode == Mode::Night && self.night_unsupported(host)) {
             self.show(host);
             return;
         }
@@ -1215,11 +1249,14 @@ impl Plugin for StargazerPlugin {
     }
 
     fn shutdown(&mut self, host: &mut dyn Host) {
+        if let Some(request) = self.taking.take() {
+            host.cancel_still(request);
+        }
         self.shared.run.store(0, Ordering::SeqCst);
         self.shared.camera.store(false, Ordering::SeqCst);
         // Switching the plugin off restarts the app, so the worker gets to finish a save in progress (a picture not done in time never has its real name)
         if let Some(feed) = self.feed.take() {
-            if self.phase == Phase::Collecting && self.taking.is_none() {
+            if self.phase == Phase::Collecting && self.mode != Mode::Night {
                 feed.send(Msg::Stop);
             }
             feed.send(Msg::Quit);
@@ -1343,7 +1380,6 @@ impl Plugin for StargazerPlugin {
                 self.show(host);
             }
             "shutter-picked" | "iso-picked" => self.pick_shot(host, &event.callback, number.max(0.0) as usize),
-            "focus-moved" | "focus-reset" => {}
             "open-clicked" => self.open_folder(host),
             _ => {}
         }
