@@ -42,6 +42,7 @@ pub mod qr;
 pub mod redact;
 pub mod services;
 pub mod settings;
+pub mod shot;
 pub mod shader;
 pub mod snapshot;
 pub mod source;

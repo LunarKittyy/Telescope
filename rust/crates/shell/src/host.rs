@@ -653,7 +653,12 @@ impl HostStills for Ctx<'_> {
         if let Some(camera) = self.camera_stills(&id) {
             return camera.caps();
         }
-        self.stills()?.caps(Some(&id))
+        let mut caps = self.stills()?.caps(Some(&id))?;
+        let ranges = telescope_core::shot::phone_ranges(&caps);
+        if let Some(map) = caps.as_object_mut() {
+            map.insert("shot".into(), ranges);
+        }
+        Some(caps)
     }
     fn take_still(&mut self, options: &Value, folder: &str, source_id: Option<&str>) -> Option<RequestId> {
         let id = self.still_source(source_id)?;

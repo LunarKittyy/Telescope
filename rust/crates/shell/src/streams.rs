@@ -815,6 +815,23 @@ impl Window {
             let Some((base, phone)) = found.as_ref().and_then(|src| src.kind.as_phone()?.still_target()) else { return fail(&tr("The phone couldn't take the photo.")) };
             Some((stills, base, phone))
         };
+        // The neutral `shot` becomes the options of whatever takes the photo, fitted to what it reports
+        let mut options = options.clone();
+        let mut applied = Value::Null;
+        if let Some(map) = options.as_object_mut().filter(|m| m.contains_key("shot")) {
+            let result = match &phone {
+                Some((stills, ..)) => {
+                    let ranges = stills.caps(Some(source)).map(|caps| telescope_core::shot::phone_ranges(&caps)).unwrap_or(Value::Null);
+                    telescope_core::shot::apply_to_phone(map, &ranges)
+                }
+                None => Err(telescope_core::shot::ShotRefused { code: "unsupported", why: tr("This camera's settings can't be set for one photo yet.") }),
+            };
+            match result {
+                Ok(done) => applied = done,
+                Err(refused) => return end(refused.code, &refused.why),
+            }
+        }
+        let options = &options;
         let alive = Arc::new(std::sync::atomic::AtomicBool::new(true));
         self.state.borrow_mut().still_alive.push((source.to_string(), alive.clone()));
         let (progress_posts, done_posts, owner, done_owner) = (posts.clone(), posts.clone(), plugin.to_string(), plugin.to_string());
@@ -827,7 +844,10 @@ impl Window {
             }
             progress_posts.push_event(&owner, Event::RequestProgress { request, data });
         });
-        let on_done: Box<dyn FnOnce(Value) + Send> = Box::new(move |data| {
+        let on_done: Box<dyn FnOnce(Value) + Send> = Box::new(move |mut data| {
+            if let (Some(map), false) = (data.as_object_mut(), applied.is_null()) {
+                map.insert("applied".into(), applied);
+            }
             let ok = data.get("ok").and_then(Value::as_bool) == Some(true);
             let message = data.get("error").and_then(Value::as_str).unwrap_or("").to_string();
             done_posts.push_event(&done_owner, Event::RequestDone { request, ok, message, data });

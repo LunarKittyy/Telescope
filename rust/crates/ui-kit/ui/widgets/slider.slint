@@ -74,6 +74,11 @@ export component Slider inherits HorizontalLayout {
     // A double-click puts the slider back here (NoScrollSlider.set_default)
     in property <bool> has-default;
     in property <float> default-value;
+    // A live value to mark on the track (where a lens is focused now), when there is one
+    in property <bool> has-live;
+    in property <float> live: 0;
+    // The slider has no value of its own: no handle and no fill, until a drag or a click on the track gives it one. A double-click or Backspace says `reset` and the owner puts it back here.
+    in property <bool> unset;
     // A tooltip on the slider and its readout: its name, then a line or two more and the keys that do the same
     in property <string> tip;
     in property <string> tip-detail;
@@ -167,6 +172,7 @@ export component Slider inherits HorizontalLayout {
     callback moved(float);
     callback released(float);
     callback typed(string);
+    callback reset();
     spacing: Theme.u(4);
     horizontal-stretch: 1;
     track := Rectangle {
@@ -264,6 +270,7 @@ export component Slider inherits HorizontalLayout {
                 if (e.text == Key.PageDown) { set-to(shown - key-big); return accept; }
                 if (e.text == Key.Home) { set-to(minimum); return accept; }
                 if (e.text == Key.End) { set-to(maximum); return accept; }
+                if (e.text == Key.Backspace && has-default) { root.reset(); return accept; }
                 if (e.text == "\n" && can-type) { start-typing(true); return accept; }
                 reject
             }
@@ -295,7 +302,7 @@ export component Slider inherits HorizontalLayout {
                 border-radius: Theme.r-ctl;
                 background: live-colour;
             }
-            if enabled && fill == "plain": Rectangle {
+            if enabled && fill == "plain" && !unset: Rectangle {
                 x: 0px;
                 y: 0px;
                 height: parent.height;
@@ -339,6 +346,15 @@ export component Slider inherits HorizontalLayout {
             height: Theme.track + Theme.u(4);
             border-radius: Theme.stroke / 2;
             background: enabled ? Theme.ink2.with-alpha(0.7) : Theme.dis;
+        }
+        // Where the lens is now, marked like the centre line
+        if has-live && enabled: Rectangle {
+            x: track.inset + clamp((live - minimum) / max(0.0001, maximum - minimum), 0, 1) * (track.width - 2 * track.inset) - Theme.stroke / 2;
+            y: (parent.height - self.height) / 2;
+            width: Theme.stroke;
+            height: Theme.track + Theme.u(4);
+            border-radius: Theme.stroke / 2;
+            background: Theme.ink2.with-alpha(0.7);
         }
         // A mark on the centre line of a two-way slider is already drawn by that line
         for mark in marks: Rectangle {
@@ -422,6 +438,7 @@ export component Slider inherits HorizontalLayout {
             }
         }
         handle := Rectangle {
+            visible: !unset;
             width: Theme.handle-w;
             height: Theme.handle-h;
             y: (parent.height - self.height) / 2;
@@ -533,6 +550,7 @@ export component Slider inherits HorizontalLayout {
                     touched = true;
                     root.moved(local);
                     root.released(local);
+                    root.reset();
                 }
             }
         }
