@@ -986,10 +986,10 @@ export component CompositeEditor inherits Window {
                 spacing: Theme.u(6);
                 Text { text: @tr("Name:"); font-family: Theme.font; font-size: Theme.body; color: Theme.ink2; }
                 name := TextField {
-                    text: ask-start;
                     label: @tr("Name:");
                     accepted => { root.name-entered(self.text); }
-                    init => { self.focus(); }
+                    // Set once, not bound: the plugin clears ask-start as it answers, while the box is still being taken down
+                    init => { self.text = root.ask-start; self.focus(); }
                 }
                 HorizontalLayout {
                     spacing: Theme.u(4);

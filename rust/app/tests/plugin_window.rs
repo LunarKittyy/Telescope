@@ -144,6 +144,37 @@ fn rename_and_delete_come_on_with_a_saved_layout() {
     assert_eq!(editor.get_property("saved").unwrap(), SValue::Bool(false), "and Delete takes it away");
 }
 
+// Saving a layout by clicking Save as and then OK, Cancel or Enter took the editor down with a panic (the name box was bound to a property the plugin clears as it answers)
+#[test]
+fn the_name_prompt_closes_by_click_and_by_enter() {
+    use i_slint_backend_testing::ElementHandle;
+    use slint::ComponentHandle as _;
+    let (w, _heard) = editing("composite-editor-name-prompt");
+    let editor = w.plugin_window("composite", "editor").expect("the editor is open");
+    let click = |label: &str| {
+        let button = ElementHandle::find_by_accessible_label(&editor, label).next().unwrap_or_else(|| panic!("no {label}"));
+        let (p, s) = (button.absolute_position(), button.size());
+        let (position, left) = (slint::LogicalPosition::new(p.x + s.width / 2.0, p.y + s.height / 2.0), slint::platform::PointerEventButton::Left);
+        editor.window().dispatch_event(slint::platform::WindowEvent::PointerMoved { position });
+        editor.window().dispatch_event(slint::platform::WindowEvent::PointerPressed { position, button: left });
+        editor.window().dispatch_event(slint::platform::WindowEvent::PointerReleased { position, button: left });
+        w.process();
+    };
+    let asking = || editor.get_property("asking-name").unwrap();
+    click("Save as");
+    assert_eq!(asking(), SValue::Bool(true));
+    click("Cancel");
+    assert_eq!(asking(), SValue::Bool(false));
+    click("Save as");
+    click("OK");
+    assert_eq!((asking(), editor.get_property("saved").unwrap()), (SValue::Bool(false), SValue::Bool(true)));
+    click("Save as");
+    editor.window().dispatch_event(slint::platform::WindowEvent::KeyPressed { text: "\n".into() });
+    editor.window().dispatch_event(slint::platform::WindowEvent::KeyReleased { text: "\n".into() });
+    w.process();
+    assert_eq!(asking(), SValue::Bool(false));
+}
+
 struct Offers(Arc<Mutex<Vec<Vec<SourceName>>>>);
 
 struct Browser(&'static str);
