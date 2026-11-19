@@ -918,8 +918,8 @@ impl WebcamPlugin {
                 } else if c.kind == "menu" {
                     row["kind"] = json!("menu");
                     let options: Vec<String> = c.menu.iter().map(|v| {
-                        if let Some(label) = c.labels.get(*v as usize) {
-                            label.clone()
+                        if c.labels.get(*v as usize).is_some() {
+                            choice_text(c, *v as usize)
                         } else if *name == "anti_flicker" {
                             flicker_label(*v).unwrap_or(v.to_string())
                         } else {

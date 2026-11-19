@@ -537,14 +537,25 @@ const POLL: Duration = Duration::from_secs(1);
 pub(crate) fn follow(ui: &ComponentInstance, place: &Rc<Placement>) -> impl FnMut(&winit::event::WindowEvent) + 'static {
     use winit::event::WindowEvent;
     let (weak, place) = (ui.as_weak(), place.clone());
-    let poll = slint::Timer::default();
+    let poll = Rc::new(slint::Timer::default());
     {
-        let (weak, place) = (weak.clone(), place.clone());
-        poll.start(slint::TimerMode::Repeated, POLL, move || look_at_area(weak.clone(), place.clone()));
+        let (weak, place, timer) = (weak.clone(), place.clone(), Rc::downgrade(&poll));
+        poll.start(slint::TimerMode::Repeated, POLL, move || {
+            if weak.upgrade().is_some_and(|ui| ui.window().is_visible() && !ui.window().is_minimized()) {
+                look_at_area(weak.clone(), place.clone());
+            } else if let Some(timer) = timer.upgrade() {
+                timer.stop();
+            }
+        });
     }
     move |event| {
-        // The timer lives as long as the window's filter does
-        let _ = &poll;
+        if !weak.upgrade().is_some_and(|ui| ui.window().is_visible() && !ui.window().is_minimized()) {
+            poll.stop();
+            return;
+        }
+        if !poll.running() {
+            poll.restart();
+        }
         let cause = match event {
             WindowEvent::ScaleFactorChanged { .. } => Cause::Scale,
             WindowEvent::Moved(_) => {
@@ -659,6 +670,26 @@ fn end_of_drag(ui: &ComponentInstance, place: &Rc<Placement>, moves: u64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn work_area_polling_stops_while_hidden_and_restarts_on_a_window_event() {
+        i_slint_backend_testing::init_no_event_loop();
+        let def = crate::compile::compile("poll.slint", "export component Poll inherits Window {}", vec![], "Poll").unwrap();
+        let ui = def.create().unwrap();
+        ui.show().unwrap();
+        let place = Placement::new(Limits::new((100.0, 100.0)));
+        let mut follow = follow(&ui, &place);
+        assert!(slint::platform::duration_until_next_timer_update().is_some());
+        ui.hide().unwrap();
+        i_slint_backend_testing::mock_elapsed_time(POLL);
+        assert!(slint::platform::duration_until_next_timer_update().is_none());
+        ui.show().unwrap();
+        follow(&winit::event::WindowEvent::Focused(true));
+        assert!(slint::platform::duration_until_next_timer_update().is_some());
+        ui.hide().unwrap();
+        follow(&winit::event::WindowEvent::Occluded(true));
+        assert!(slint::platform::duration_until_next_timer_update().is_none());
+    }
 
     const SCREEN: Area = Area { x: 0, y: 0, width: 1280, height: 752 };
     const FRAME: (u32, u32) = (16, 39);

@@ -424,6 +424,7 @@ fn quality_label(raw: i64) -> String {
     .to_string()
 }
 
+// These are stable write keys; choice_text translates their display labels.
 fn white_balance_label(maker: Maker, raw: i64) -> String {
     let named = match (maker, raw) {
         (Maker::Canon, 0) => "Auto",
@@ -452,6 +453,10 @@ fn white_balance_label(maker: Maker, raw: i64) -> String {
 }
 
 impl Rig for PtpCamera {
+    fn menu_unit(&self, name: &str) -> &'static str {
+        if name == "whitebalance" { "ptp-white-balance" } else { "" }
+    }
+
     fn preview(&mut self) -> Result<Vec<u8>, String> {
         self.frame()
     }
