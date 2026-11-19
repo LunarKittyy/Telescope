@@ -1093,3 +1093,31 @@ fn reset_puts_the_sliders_back_and_keeps_the_switch() {
     assert!(host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"reset-shown\":false")));
     assert!(host.calls.iter().any(|c| c == "schedule_save"));
 }
+
+#[test]
+fn denoising_over_time_gives_the_same_pictures_with_scratch_kept_from_earlier_frames() {
+    let p = cpu::DenoiseTime { tolerance: 0.06, keep: 0.9 };
+    let picture = |n: usize, (w, h): (usize, usize)| {
+        let mut img = Rgb::filled(w, h, [0; 3]);
+        for y in 0..h {
+            for x in 0..w {
+                let v = ((x * 7 + y * 13 + n * 5) % 200) as u8 + ((x * y + n) % 9) as u8;
+                img.set(x, y, [v, v / 2 + 10, 255 - v]);
+            }
+        }
+        img
+    };
+    let sizes = [(96, 80), (96, 80), (96, 80), (70, 66), (70, 66), (96, 80), (96, 80)];
+    let mut kept = cpu::Memory::default();
+    for (end, &size) in sizes.iter().enumerate() {
+        let mut got = picture(end, size);
+        cpu::denoise_time(&mut got, &mut kept, &p, "cam", end as u64 * 33_000_000);
+        let mut fresh = cpu::Memory::default();
+        let mut want = picture(0, sizes[0]);
+        for (n, &size) in sizes.iter().enumerate().take(end + 1) {
+            want = picture(n, size);
+            cpu::denoise_time(&mut want, &mut fresh, &p, "cam", n as u64 * 33_000_000);
+        }
+        assert!(got.data == want.data, "frame {end}");
+    }
+}

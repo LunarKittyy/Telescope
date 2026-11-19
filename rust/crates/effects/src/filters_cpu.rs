@@ -487,6 +487,10 @@ pub fn denoise_space(img: &mut Rgb, p: &DenoiseSpace) {
 #[derive(Default)]
 pub struct Memory {
     last: Vec<f32>,
+    // Scratch planes of the last picture's size that denoise_time overwrites each frame instead of allocating
+    diff: Vec<f32>,
+    across: Vec<f32>,
+    weights: Vec<f32>,
     w: usize,
     h: usize,
     source: String,
@@ -521,25 +525,28 @@ pub fn denoise_time(img: &mut Rgb, memory: &mut Memory, p: &DenoiseTime, source:
         return;
     }
     // How different each pixel is from the last picture, and that averaged over its 3 x 3 so a speck of noise doesn't count as movement
-    let mut diff = vec![0f32; w * h];
-    in_bands(&mut diff, w, |first, band| {
+    let Memory { last, diff, across, weights, .. } = &mut *memory;
+    // Every value of the three is written below, so what they held from the last picture is overwritten
+    for plane in [&mut *diff, &mut *across, &mut *weights] {
+        plane.resize(w * h, 0.0);
+    }
+    in_bands(diff, w, |first, band| {
         for (r, row) in band.chunks_exact_mut(w).enumerate() {
             let at = (first + r) * w;
             for (x, o) in row.iter_mut().enumerate() {
-                let (c, l) = (&img.data[(at + x) * 3..][..3], &memory.last[(at + x) * 3..][..3]);
+                let (c, l) = (&img.data[(at + x) * 3..][..3], &last[(at + x) * 3..][..3]);
                 *o = ((c[0] as f32 / 255.0 - l[0]).abs() + (c[1] as f32 / 255.0 - l[1]).abs() + (c[2] as f32 / 255.0 - l[2]).abs()) / 3.0;
             }
         }
     });
-    let mut across = vec![0f32; w * h];
     for y in 0..h {
         let row = &diff[y * w..][..w];
         for x in 0..w {
             across[y * w + x] = row[x.saturating_sub(1)] + row[x] + row[(x + 1).min(w - 1)];
         }
     }
-    let mut weights = vec![0f32; w * h];
-    in_bands(&mut weights, w, |first, band| {
+    let (diff, across) = (&*diff, &*across);
+    in_bands(weights, w, |first, band| {
         for (r, row) in band.chunks_exact_mut(w).enumerate() {
             let y = first + r;
             let (y0, y1) = (y.saturating_sub(1) * w, (y + 1).min(h - 1) * w);
@@ -552,7 +559,7 @@ pub fn denoise_time(img: &mut Rgb, memory: &mut Memory, p: &DenoiseTime, source:
         }
     });
     let width = w * 3;
-    for ((row, last), k) in img.data.chunks_exact_mut(width).zip(memory.last.chunks_exact_mut(width)).zip(weights.chunks_exact(w)) {
+    for ((row, last), k) in img.data.chunks_exact_mut(width).zip(last.chunks_exact_mut(width)).zip(weights.chunks_exact(w)) {
         for ((c, l), k) in row.as_chunks_mut::<3>().0.iter_mut().zip(last.as_chunks_mut::<3>().0).zip(k) {
             for i in 0..3 {
                 let out = c[i] as f32 / 255.0 * (1.0 - k) + l[i] * k;
