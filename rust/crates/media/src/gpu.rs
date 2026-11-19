@@ -774,17 +774,16 @@ impl Gpu {
         let planes = surface.import(&self.device)?;
         let (w, h) = (frame.width, frame.height);
         let converted = self.scoped(|| -> Result<_, String> {
+            // wgpu refuses one encoder that mixes its own commands with raw ones, so the two barriers get encoders of their own
+            let mut acquire = self.device.create_command_encoder(&Default::default());
+            crate::vaapi_import::Surface::ownership(&self.device, &mut acquire, &planes, true)?;
             let mut enc = self.device.create_command_encoder(&Default::default());
-            // Establish GENERAL as the encoder's first tracked use, before the raw external-queue acquire.
-            enc.transition_resources(std::iter::empty(), planes.iter().map(|texture| wgpu::TextureTransition {
-                texture, selector: None, state: wgpu::TextureUses::RESOURCE | wgpu::TextureUses::COPY_SRC,
-            }));
-            crate::vaapi_import::Surface::ownership(&self.device, &mut enc, &planes, true)?;
             let views = [planes[0].create_view(&Default::default()), planes[1].create_view(&Default::default()), self.blank.clone()];
             let (a, b) = (self.texture(w, h, WORK), self.texture(w, h, WORK));
             self.convert_pass_encoded(&mut enc, &views, Mode::Nv12, &a, 1, (w, h), block_chroma, surface.colour());
-            crate::vaapi_import::Surface::ownership(&self.device, &mut enc, &planes, false)?;
-            self.queue.submit([enc.finish()]);
+            let mut release = self.device.create_command_encoder(&Default::default());
+            crate::vaapi_import::Surface::ownership(&self.device, &mut release, &planes, false)?;
+            self.queue.submit([acquire.finish(), enc.finish(), release.finish()]);
             // Keep both the decoder's AVFrame and its imported images until the conversion submission has finished.
             self.queue.on_submitted_work_done(move || drop((source, planes)));
             Ok((a, b))
