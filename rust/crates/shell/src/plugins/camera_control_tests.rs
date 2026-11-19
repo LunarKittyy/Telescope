@@ -916,6 +916,17 @@ fn phone_only_cards_hide_while_a_source_is_picked() {
     assert_eq!((r.props()["phone-only-hidden"].clone(), r.props()["active"].clone()), (json!(false), json!(false)));
 }
 
+// Switched on while a webcam is in focus: the card is hidden from the start, not only after another stream is picked
+#[test]
+fn switched_on_with_a_source_in_focus_the_card_stays_hidden() {
+    let mut host = FakeHost::new();
+    host.focused = Some("webcam:1".into());
+    let mut cam = CameraControl::new();
+    cam.setup(&mut host);
+    assert_eq!(cam.props()["phone-only-hidden"], true);
+    assert!(host.calls.iter().any(|c| c.starts_with("set_ui_props card") && c.contains("\"phone-only-hidden\":true")), "{:?}", host.calls);
+}
+
 // Sol's review, finding 1: the panels go A, B, A through the real window state, which tells the plugins about a focus
 // change before it updates its own picture of what's shown (streams.rs syncs it once the flow is through)
 #[test]
