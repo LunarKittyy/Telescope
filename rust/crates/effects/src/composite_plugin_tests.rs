@@ -413,6 +413,19 @@ fn the_clock_sleeps_until_the_newest_frame_would_stall() {
 }
 
 #[test]
+fn switching_the_target_stream_forgets_when_the_old_one_was_fed() {
+    let mut r = rig();
+    r.two_streams(0.0);
+    let frame = solid([255, 0, 0], (90, 160));
+    r.process(&frame, "a");
+    assert!(r.plugin.shared.fed_at.load(Ordering::Relaxed) > 0, "a step stamps it");
+    r.host.cameras = vec![(0, "b".into(), None, None)];
+    r.plugin.on_event(&mut r.host, &Event::StreamsChanged { count: 2 });
+    assert_eq!(r.plugin.shared.hub().target.as_deref(), Some("b"));
+    assert_eq!(r.plugin.shared.fed_at.load(Ordering::Relaxed), 0, "the new target starts unstamped");
+}
+
+#[test]
 fn a_slow_main_stream_does_not_hold_back_a_faster_one() {
     let mut r = rig();
     r.plugin.shutdown(&mut r.host);

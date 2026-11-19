@@ -414,6 +414,8 @@ impl CompositePlugin {
             self.shared.set_gate(None, Some(target.clone()));
             // another stream's frame isn't this one's
             (hub.main_frame, hub.handed, hub.fallback_key) = (None, None, None);
+            // and neither is its stamp, which would hold back the new target's first stall redraw
+            self.shared.fed_at.store(0, Ordering::Relaxed);
             drop(hub);
             if target.is_some() {
                 self.wake_clock();
