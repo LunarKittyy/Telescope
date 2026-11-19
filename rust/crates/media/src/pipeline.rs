@@ -2551,11 +2551,17 @@ pub(crate) mod tests {
         let mut p = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
         let cover = ShaderStep { keeps_geometry: false, wgsl: "fn effect(uv: vec2<f32>) -> vec4<f32> { if has_previous() { return vec4<f32>(previous(uv).r + 0.2, 0.0, 0.0, 1.0); } return vec4<f32>(0.2, 0.0, 0.0, 1.0); }".into(), uniforms: serde_json::json!({}), textures: Vec::new() };
         p.set_steps(vec![step("blur", FrameStage::Background, HidesUntilCued(cue.clone())), StagedStep { owner: "cover".into(), stage: FrameStage::Cover, step: FrameStep::Shader(cover) }]);
-        let first = p.process(grey(8, 8, 100), &NoContext).data[0];
-        let second = p.process(grey(8, 8, 100), &NoContext).data[0];
+        // Frames a frame apart on their own clock: a history is dropped when its frame is too old, and a busy machine must not decide that
+        let frame = |n: u64| {
+            let mut f = grey(8, 8, 100);
+            f.time_ns = 1_000_000_000 + n * 33_000_000;
+            f
+        };
+        let first = p.process(frame(0), &NoContext).data[0];
+        let second = p.process(frame(1), &NoContext).data[0];
         assert_ne!(first, second, "the step goes on from its last frame");
         cue.store(true, Ordering::SeqCst);
-        let dark = quietly(|| p.process(grey(8, 8, 100), &NoContext)).data[0];
+        let dark = quietly(|| p.process(frame(2), &NoContext)).data[0];
         assert_eq!(dark, first, "a frame that went dark isn't drawn from what the step drew for the clear one");
     }
 

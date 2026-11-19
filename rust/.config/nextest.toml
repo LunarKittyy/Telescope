@@ -13,6 +13,8 @@ fail-fast = false
 real-starts = { max-threads = 1 }
 # The pairing server takes a fixed port first
 pairing-port = { max-threads = 1 }
+# Spout's sender list and active sender name are one for the whole machine, so the Windows tests that make senders take turns
+spout-list = { max-threads = 1 }
 
 [[profile.default.overrides]]
 filter = "binary(commands)"
@@ -21,6 +23,10 @@ test-group = "real-starts"
 [[profile.default.overrides]]
 filter = "binary(integration)"
 test-group = "pairing-port"
+
+[[profile.default.overrides]]
+filter = "package(telescope-outputs) & test(/^spout/)"
+test-group = "spout-list"
 
 # A test that waits on a message bus or a dialog has no business taking long: one that does is killed and fails instead of holding the run
 [[profile.default.overrides]]
