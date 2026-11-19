@@ -178,6 +178,8 @@ export component Status inherits Rectangle {
     property <length> lift: 1phx;
     in property <string> text;
     in property <string> detail;
+    // A name for a screen reader to say in place of the text, blank for the text
+    in property <string> name;
     in property <string> kind;
     in property <length> font-size: Theme.body;
     in property <int> font-weight: Theme.w-value;
@@ -189,7 +191,7 @@ export component Status inherits Rectangle {
     horizontal-stretch: 1;
     preferred-width: label.preferred-width;
     accessible-role: AccessibleRole.text;
-    accessible-label: text;
+    accessible-label: name != "" ? name : text;
     accessible-description: detail;
     label := Text {
         y: -lift;

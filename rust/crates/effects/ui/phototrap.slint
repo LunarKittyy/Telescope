@@ -1,5 +1,5 @@
 // The Phototrap card. Joined after parts.slint, which has the imports.
-// The status rows keep their place with nothing in them, so arming it or a trigger moves nothing.
+// The tally row keeps its place with nothing in it, so a trigger moves nothing.
 
 export component PhototrapCard inherits Card {
     in property <bool> active: true;
@@ -45,6 +45,8 @@ export component PhototrapCard inherits Card {
     title: @tr("Phototrap");
     tip: @tr("Take photos when something moves in the zones you draw on the preview.");
     icon: Icons.eye;
+    header-status: status;
+    header-status-kind: status-kind == "status_ok" ? "ok" : status-kind == "status_warn" ? "warn" : status-kind == "status_err" ? "err" : "";
     enabled: active;
     has-switch: true;
     switch-enabled: active;
@@ -59,10 +61,6 @@ export component PhototrapCard inherits Card {
     reset-detail: @tr("Set the sensitivity, photos, pause and Night back to default. Your zones aren't reset.");
     reset => { root.reset-clicked(); }
 
-    RailRow {
-        has-icon: false;
-        StatusLine { text: status; kind: status-kind; detail: status; }
-    }
     UnfoldGroup {
         StatusUnfold { text: tally; detail: tally; }
     }

@@ -306,6 +306,8 @@ pub struct CompositePlugin {
     pub(crate) note: String,
     /// The short word the card shows for `note`, which is its tooltip.
     note_short: String,
+    /// The kind of `note_short` ("status_ok", "status_warn" or "status_dim").
+    note_kind: &'static str,
     /// set_config has no host: the card hears the settings with the next hook that has one.
     pending: bool,
     /// Where the switch was when a held key began.
@@ -346,7 +348,7 @@ impl CompositePlugin {
         let shared = Arc::new(Shared { hub: Mutex::new(hub), gate: RwLock::new((false, None)), fed_at: AtomicU64::new(0), wake: Condvar::new(), store: Mutex::new(Arc::new(NoFrames)) });
         let mut plugin = CompositePlugin {
             on: false, layout: Layout::default(), layouts: Vec::new(), target: None, camera_size: None, canvas: (None, None), shared,
-            clock: None, camera_label, note: String::new(), note_short: String::new(), pending: false, held: None, reader, editor: None,
+            clock: None, camera_label, note: String::new(), note_short: String::new(), note_kind: "status_dim", pending: false, held: None, reader, editor: None,
             max_zoom: crate::composite::DEFAULT_MAX_ZOOM, cut_outs_told: BTreeSet::new(), transition: Spec::default(), director_on: false,
             director: director::Director::new(),
         };
@@ -646,6 +648,7 @@ impl CompositePlugin {
                 ("director".to_string(), json!(self.director_on)),
                 ("director-enabled".to_string(), json!(names.len() >= 2 || self.director_on)),
                 ("status".to_string(), json!(self.note_short)),
+                ("status-kind".to_string(), json!(self.note_kind)),
                 ("status-detail".to_string(), json!(self.note)),
                 ("reset-shown".to_string(), json!(self.reset_shown())),
                 ("transition-items".to_string(), json!(TransitionKind::ALL.iter().map(|k| kind_name(*k)).collect::<Vec<_>>())),
@@ -728,16 +731,16 @@ impl CompositePlugin {
         } else {
             tr("Outputting on {camera}.").field("camera", camera)
         };
-        self.note_short = if !self.on {
-            String::new()
+        (self.note_short, self.note_kind) = if !self.on {
+            (String::new(), "status_dim")
         } else if self.layout.tiles.is_empty() {
-            tr("Nothing in it")
+            (tr("Nothing in it"), "status_dim")
         } else if live < 2 {
-            tr("Two streams required")
+            (tr("Two streams required"), "status_warn")
         } else if self.target.is_none() || self.shared.store().stream_frame(self.target.as_deref()).is_none() {
-            tr("Not going out")
+            (tr("Not going out"), "status_warn")
         } else {
-            tr("Going out")
+            (tr("Going out"), "status_ok")
         };
         host.set_ui_props("card", &self.card_props());
         self.sync_director(host);
