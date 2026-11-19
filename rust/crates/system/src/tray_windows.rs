@@ -217,11 +217,23 @@ mod real {
         items: Vec<TrayItem>,
         tooltip: String,
         clicks: VecDeque<String>,
+        wake: Option<Arc<dyn Fn() + Send + Sync>>,
         balloons: VecDeque<(String, String, bool)>,
         shows: TrayShows,
     }
 
     type Shared = Arc<Mutex<State>>;
+
+    fn click(shared: &Shared, id: String) {
+        let wake = {
+            let mut st = shared.lock().unwrap();
+            st.clicks.push_back(id);
+            st.wake.clone()
+        };
+        if let Some(wake) = wake {
+            wake();
+        }
+    }
 
     /// What the window procedure needs, on the tray's own thread.
     struct Here {
@@ -295,7 +307,7 @@ mod real {
             PostMessageW(hwnd, WM_NULL, 0, 0);
             DestroyMenu(menu);
             if let Some(id) = picked(&items, command.max(0) as u32) {
-                here.shared.lock().unwrap().clicks.push_back(id);
+                click(&here.shared, id);
             }
         }
     }
@@ -306,7 +318,7 @@ mod real {
             let here = h.as_ref()?;
             match msg {
                 WM_ICON => match icon_event(lparam) {
-                    IconEvent::Activate => here.shared.lock().unwrap().clicks.push_back(String::new()),
+                    IconEvent::Activate => click(&here.shared, String::new()),
                     IconEvent::Menu => show_menu(hwnd, here),
                     IconEvent::Other => {}
                 },
@@ -469,6 +481,11 @@ mod real {
         fn poll_click(&mut self) -> Option<String> {
             self.shared.lock().unwrap().clicks.pop_front()
         }
+
+        fn set_wake(&mut self, wake: Arc<dyn Fn() + Send + Sync>) -> bool {
+            self.shared.lock().unwrap().wake = Some(wake);
+            true
+        }
     }
 
     impl Drop for WindowsTray {
@@ -487,6 +504,27 @@ mod real {
         shared.lock().unwrap().balloons.push_back((title.into(), body.into(), urgent));
         // SAFETY: plain values; the tray thread handles it
         unsafe { PostMessageW(hwnd as Hwnd, WM_BALLOON, 0, 0) != 0 }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn clicks_wake_after_they_are_queued_without_holding_the_lock() {
+            let shared = Shared::default();
+            let weak = Arc::downgrade(&shared);
+            let (sent, received) = std::sync::mpsc::channel();
+            shared.lock().unwrap().wake = Some(Arc::new(move || {
+                let shared = weak.upgrade().unwrap();
+                let st = shared.try_lock().expect("a wake must be able to read the clicks");
+                sent.send(st.clicks.back().cloned().unwrap()).unwrap();
+            }));
+            click(&shared, String::new());
+            click(&shared, "quit".into());
+            assert_eq!(received.try_iter().collect::<Vec<_>>(), ["", "quit"]);
+            assert_eq!(shared.lock().unwrap().clicks.iter().cloned().collect::<Vec<_>>(), ["", "quit"]);
+        }
     }
 }
 

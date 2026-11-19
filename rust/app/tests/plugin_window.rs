@@ -469,6 +469,7 @@ fn a_layer_on_the_preview_moves_to_the_pop_out() {
         vec![Box::new(Outlines) as Box<dyn Plugin>, Box::new(telescope_shell::plugins::preview::Preview::default())]
     }, None, None).unwrap();
     w.ui.window().set_size(slint::LogicalSize::new(1200.0, 800.0));
+    w.ui.show().unwrap();
     w.process();
     w.paint_layers();
     let paths = |ui: &slint_interpreter::ComponentInstance, name: &str| match ui.get_property(name) {

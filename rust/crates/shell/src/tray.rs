@@ -70,6 +70,21 @@ impl Window {
         }
     }
 
+    pub(crate) fn watch_tray(&self) -> bool {
+        let weak = self.ui.as_weak();
+        let wake = std::sync::Arc::new(move || {
+            let _ = weak.upgrade_in_event_loop(|_| with_window(|w| w.poll_tray()));
+        });
+        let mut wakes = false;
+        self.with_tray(|t| {
+            wakes = t.set_wake(wake.clone());
+        });
+        if wakes {
+            wake();
+        }
+        wakes
+    }
+
     /// Show, every plugin's tray actions in registration order, then Quit.
     pub fn refresh_tray_menu(&self) {
         let item = |id: String, title: String| TrayItem { id, title, checkable: false, checked: false, visible: true, enabled: true };
@@ -132,7 +147,7 @@ impl Window {
     }
 
     /// _tray_show: up, not minimized, in front.
-    pub fn show_window(&self) {
+    pub fn show_window(self: &Rc<Self>) {
         use slint::winit_030::WinitWindowAccessor;
         // After a start in the tray its marker is armed now: the first surface is made by the next line
         telescope_core::gpu_marker::rearm();
@@ -143,6 +158,7 @@ impl Window {
         self.keep_on_screen();
         self.report_shown();
         self.reattach_children();
+        self.housekeeping();
     }
 
     /// The windows open under this one go back under it: on Wayland they left it when its toplevel went with the window's hiding.
@@ -174,11 +190,12 @@ impl Window {
 
     fn hide_window(&self) {
         let _ = self.ui.hide();
+        self.sync_preview_visibility();
         self.report_shown();
     }
 
     /// toggle_window: away if it's up and in front (into the tray, or minimized without one), else up.
-    pub(crate) fn toggle_window(&self) {
+    pub(crate) fn toggle_window(self: &Rc<Self>) {
         let w = self.ui.window();
         if w.is_visible() && !w.is_minimized() && self.state.borrow().window_active {
             if self.has_tray() {
@@ -193,13 +210,14 @@ impl Window {
     }
 
     /// start_hidden, for --minimized: in the tray, or minimized where there's none.
-    pub fn start_hidden(&self) {
+    pub fn start_hidden(self: &Rc<Self>) {
         if !self.has_tray() {
             let _ = self.ui.show();
             crate::frame::dress(&self.ui);
             self.ui.window().set_minimized(true);
         }
         self.report_shown();
+        self.housekeeping();
     }
 
     /// _report_shown: the plugins hear whether the window is on screen (the tray and minimized both count as not).
@@ -242,6 +260,7 @@ impl Window {
         let weak = Rc::downgrade(self);
         slint::Timer::single_shot(std::time::Duration::ZERO, move || {
             if let Some(w) = weak.upgrade() {
+                w.sync_preview_visibility();
                 w.report_shown();
                 w.process();
             }
