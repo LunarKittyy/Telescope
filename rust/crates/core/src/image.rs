@@ -1014,13 +1014,21 @@ fn halve_row_wide(r0: &[u8], r1: &[u8], out: &mut [u8], ch: usize) {
 pub fn halve_2x2(src: &[u8], pitch: usize, ch: usize, (x0, y0, w, h): (usize, usize, usize, usize)) -> Vec<u8> {
     let rowlen = w / 2 * ch;
     let mut out = spare_bytes(rowlen * (h / 2));
+    halve_2x2_into(src, pitch, ch, (x0, y0, w, h), &mut out, (rowlen, 0));
+    out
+}
+
+/// halve_2x2 into complete destination rows of (stride, left) bytes, leaving the rest of each row alone.
+pub fn halve_2x2_into(src: &[u8], pitch: usize, ch: usize, (x0, y0, w, h): (usize, usize, usize, usize), out: &mut [u8], (stride, left): (usize, usize)) {
+    let rowlen = w / 2 * ch;
     if rowlen == 0 {
-        return out;
+        return;
     }
     #[cfg(target_arch = "x86_64")]
     let wide = avx2_wanted();
-    over_bands(&mut out, rowlen, |first, part| {
-        for (i, line) in part.chunks_exact_mut(rowlen).enumerate() {
+    over_bands(out, stride, |first, part| {
+        for (i, line) in part.chunks_exact_mut(stride).enumerate().take((h / 2).saturating_sub(first)) {
+            let line = &mut line[left..left + rowlen];
             let at = |dy: usize| ((y0 + 2 * (first + i) + dy) * pitch + x0) * ch;
             let (r0, r1) = (&src[at(0)..][..2 * rowlen], &src[at(1)..][..2 * rowlen]);
             #[cfg(target_arch = "x86_64")]
@@ -1032,17 +1040,21 @@ pub fn halve_2x2(src: &[u8], pitch: usize, ch: usize, (x0, y0, w, h): (usize, us
             halve_row_plain(r0, r1, line, ch);
         }
     });
-    out
 }
 
 /// resample_linear on the (x0, y0, w, h) box of a picture whose rows are `pitch` pixels, taps counted from the box's corner, with each row's tail rounded as exact_tail.
 pub fn resample_box(src: &[u8], pitch: usize, ch: usize, (x0, y0, w, h): (usize, usize, usize, usize), xs: &[Tap], ys: &[Tap]) -> Vec<u8> {
     let mut out = spare_bytes(xs.len() * ys.len() * ch);
+    resample_box_into(src, (pitch, ch), (x0, y0, w, h), xs, ys, &mut out, (xs.len() * ch, 0));
+    out
+}
+
+/// resample_box into complete destination rows of (stride, left) bytes, preserving its row-tail rounding and surrounding pixels.
+pub fn resample_box_into(src: &[u8], (pitch, ch): (usize, usize), (x0, y0, w, h): (usize, usize, usize, usize), xs: &[Tap], ys: &[Tap], out: &mut [u8], (stride, left): (usize, usize)) {
     if w > 0 && h > 0 && !xs.is_empty() && !ys.is_empty() {
         let from = &src[(y0 * pitch + x0) * ch..];
-        blended(from, (w, ch, pitch * ch), xs, ys, &mut out, xs.len() * ch, 0, true);
+        blended(from, (w, ch, pitch * ch), xs, ys, out, stride, left, true);
     }
-    out
 }
 
 /// One pixel's cv2.cvtColor(RGB2GRAY) / BGR2GRAY: OpenCV 4.13's 15-bit weights 9798, 19235 and 3735, rounded by the shift.
