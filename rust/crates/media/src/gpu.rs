@@ -7,8 +7,8 @@ use crate::pool::Pool;
 use crate::transfers;
 use std::collections::HashMap;
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 use telescope_core::gpu_marker::{self, Card};
 use telescope_core::gpu_pick::{self, Api, Candidate, Kind};
 use telescope_core::frame::{Frame, PixelFormat, ShaderStep};
@@ -73,7 +73,11 @@ pub(crate) enum Fault {
     BadUpload,
 }
 
+// wgpu compares devices by id alone, and two instances hand out the same ids, so each connection gets its own number
+static NEXT_SERIAL: AtomicU64 = AtomicU64::new(1);
+
 pub struct Gpu {
+    serial: u64,
     device: wgpu::Device,
     queue: wgpu::Queue,
     /// For the convert shader: three planes, a sampler and its settings.
@@ -217,13 +221,14 @@ fn adapters_to_try(instance: &wgpu::Instance, backends: wgpu::Backends, preferen
     ordered
 }
 
+static SHARED_GPU: Mutex<Option<Option<Arc<Gpu>>>> = Mutex::new(None);
+
 impl Gpu {
     /// The app's one graphics card connection, opened on first use; None when there's no card wgpu can use or
     /// TELESCOPE_NO_GPU is set (for a driver that misbehaves, and for comparing). One that was lost is opened again by the same path, so a
     /// stream that starts afterwards gets a fresh device and caches; streams still running keep the lost one and stay on the CPU.
     pub fn shared() -> Option<Arc<Gpu>> {
-        static GPU: Mutex<Option<Option<Arc<Gpu>>>> = Mutex::new(None);
-        let mut kept = GPU.lock().unwrap_or_else(|e| e.into_inner());
+        let mut kept = SHARED_GPU.lock().unwrap_or_else(|e| e.into_inner());
         if kept.as_ref().and_then(Option::as_ref).is_some_and(|gpu| gpu.is_lost()) {
             log::warn!("The graphics card was lost; opening it again for the streams that start now");
             *kept = None;
@@ -238,6 +243,13 @@ impl Gpu {
                 None
             }
         }).clone()
+    }
+
+    /// Use the window's connection for new pipelines; existing streams keep their own device.
+    pub fn share_with_streams(gpu: Arc<Gpu>) {
+        if std::env::var_os("TELESCOPE_NO_GPU").is_none() {
+            *SHARED_GPU.lock().unwrap_or_else(|e| e.into_inner()) = Some(Some(gpu));
+        }
     }
 
     pub(crate) fn open() -> Result<Gpu, String> {
@@ -273,11 +285,13 @@ impl Gpu {
         let info = adapter.get_info();
         let (device, queue) = gpu_marker::marked_while(card, || pollster::block_on(adapter.request_device(&wgpu::DeviceDescriptor {
             label: Some("telescope frames"),
+            required_features: if cfg!(target_os = "linux") { adapter.features() & wgpu::Features::VULKAN_EXTERNAL_MEMORY_DMA_BUF } else { wgpu::Features::empty() },
             required_limits: wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
             ..Default::default()
         }))).map_err(|e| e.to_string())?;
         telescope_core::machine::set_gpu(info.vendor, &format!("{:?}", info.device_type), &info.name, &format!("{:?}", info.backend), &card.driver);
         if crate::decode_card::set_picked(info.vendor, info.device, &info.device_pci_bus_id) {
+            #[cfg(ffmpeg)]
             crate::h264::refresh_hardware_probe();
         }
         let limit = if info.device_type == wgpu::DeviceType::Cpu { SOFTWARE_READBACK_WAIT } else { READBACK_WAIT };
@@ -286,7 +300,13 @@ impl Gpu {
 
     /// The same shaders on a device someone else opened (the window's, so the preview can hand its texture to Slint).
     pub fn on_device(device: wgpu::Device, queue: wgpu::Queue) -> Gpu {
-        Gpu::on(device, queue, "the window's device".into(), READBACK_WAIT)
+        let info = device.adapter_info();
+        if crate::decode_card::set_picked(info.vendor, info.device, &info.device_pci_bus_id) {
+            #[cfg(ffmpeg)]
+            crate::h264::refresh_hardware_probe();
+        }
+        let limit = if info.device_type == wgpu::DeviceType::Cpu { SOFTWARE_READBACK_WAIT } else { READBACK_WAIT };
+        Gpu::on(device, queue, info.name, limit)
     }
 
     fn on(device: wgpu::Device, queue: wgpu::Queue, adapter_name: String, wait_limit: std::time::Duration) -> Gpu {
@@ -330,6 +350,7 @@ impl Gpu {
             flag.store(true, Ordering::SeqCst);
         });
         Gpu {
+            serial: NEXT_SERIAL.fetch_add(1, Ordering::Relaxed),
             device,
             queue,
             convert_layout,
@@ -459,6 +480,8 @@ impl Gpu {
     fn upload(&self, frame: &Frame, used: &mut Vec<wgpu::Texture>) -> Planes {
         let (w, h) = (frame.width, frame.height);
         let (cw, ch) = (chroma(w), chroma(h));
+        let ram;
+        let frame = if frame.surface().is_some() { ram = frame.materialise(); &ram } else { frame };
         let data = &frame.data[..];
         let mut plane = |pw: u32, ph: u32, format: wgpu::TextureFormat, bytes: &[u8], bpp: u32| {
             let t = self.texture(pw, ph, format);
@@ -501,7 +524,11 @@ impl Gpu {
     }
 
     fn convert_pass_with(&self, enc: &mut wgpu::CommandEncoder, planes: &[wgpu::TextureView; 3], mode: Mode, target: &wgpu::Texture, taps: u32, src_size: (u32, u32), block_chroma: bool) {
-        let settings: [u32; 4] = [mode as u32 | if block_chroma { BLOCK_CHROMA } else { 0 }, taps.max(1), src_size.0, src_size.1];
+        self.convert_pass_encoded(enc, planes, mode, target, taps, src_size, block_chroma, 0);
+    }
+
+    fn convert_pass_encoded(&self, enc: &mut wgpu::CommandEncoder, planes: &[wgpu::TextureView; 3], mode: Mode, target: &wgpu::Texture, taps: u32, src_size: (u32, u32), block_chroma: bool, colour: u32) {
+        let settings: [u32; 4] = [mode as u32 | if block_chroma { BLOCK_CHROMA } else { 0 } | colour, taps.max(1), src_size.0, src_size.1];
         let buf = self.uniform(bytemuck_u32(&settings));
         let view = target.create_view(&Default::default());
         let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -711,6 +738,16 @@ impl Gpu {
         if self.take_fault(|f| matches!(f, Fault::LiftPanic)) {
             panic!("an injected panic while lifting");
         }
+        #[cfg(all(target_os = "linux", ffmpeg))]
+        if let Some(source) = frame.surface() {
+            if let Some(surface) = source.as_any().downcast_ref::<crate::vaapi_import::Surface>() {
+                match self.lift_surface(frame, source.clone(), surface, block_chroma) {
+                    Ok(held) => return Ok(held),
+                    Err(why) => surface.disable(&why),
+                }
+            }
+            return self.lift_unguarded(&frame.materialise(), block_chroma);
+        }
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Nv12 | PixelFormat::Rgba | PixelFormat::Bgra) {
             return Err(format!("{:?} frames can't go on the card", frame.format));
         }
@@ -727,7 +764,29 @@ impl Gpu {
             (enc, used, kept_planes, a, b)
         })?;
         span("upload", began);
-        Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: kept_planes, block_chroma })
+        Ok(Held { enc, a, b, used, width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: kept_planes, block_chroma, imported: false })
+    }
+
+    #[cfg(all(target_os = "linux", ffmpeg))]
+    fn lift_surface(&self, frame: &Frame, source: Arc<dyn telescope_core::frame::DecodedSurface>, surface: &crate::vaapi_import::Surface, block_chroma: bool) -> Result<Held, String> {
+        let planes = surface.import(&self.device)?;
+        let (w, h) = (frame.width, frame.height);
+        let converted = self.scoped(|| -> Result<_, String> {
+            // wgpu refuses one encoder that mixes its own commands with raw ones, so the two barriers get encoders of their own
+            let mut acquire = self.device.create_command_encoder(&Default::default());
+            crate::vaapi_import::Surface::ownership(&self.device, &mut acquire, &planes, true)?;
+            let mut enc = self.device.create_command_encoder(&Default::default());
+            let views = [planes[0].create_view(&Default::default()), planes[1].create_view(&Default::default()), self.blank.clone()];
+            let (a, b) = (self.texture(w, h, WORK), self.texture(w, h, WORK));
+            self.convert_pass_encoded(&mut enc, &views, Mode::Nv12, &a, 1, (w, h), block_chroma, surface.colour());
+            let mut release = self.device.create_command_encoder(&Default::default());
+            crate::vaapi_import::Surface::ownership(&self.device, &mut release, &planes, false)?;
+            self.queue.submit([acquire.finish(), enc.finish(), release.finish()]);
+            // Keep both the decoder's AVFrame and its imported images until the conversion submission has finished.
+            self.queue.on_submitted_work_done(move || drop((source, planes)));
+            Ok((a, b))
+        })??;
+        Ok(Held { enc: self.device.create_command_encoder(&Default::default()), a: converted.0, b: converted.1, used: Vec::new(), width: w, height: h, format: frame.format, number: frame.number, time_ns: frame.time_ns, capture_ns: frame.capture_ns, waited_ns: 0, planes: None, block_chroma, imported: true })
     }
 
     /// One shader step on the held picture. Nothing runs yet; land sends it all to the card in one go.
@@ -836,6 +895,34 @@ impl Gpu {
         result.time_ns = held.time_ns;
         result.capture_ns = held.capture_ns;
         Ok(result)
+    }
+
+    /// Submit the recorded steps without copying any pixels to RAM, after the pipeline's own last submission has finished.
+    pub(crate) fn submit_held(&self, held: &mut Held, pacing: &mut Pacing, cancel: &dyn Fn() -> bool) -> Result<(), String> {
+        self.guarded("submitting a card picture", || {
+            // Wait for this pipeline's previous picture before queuing more work; other streams on the card have their own
+            if let Some(index) = pacing.0.take().filter(|(serial, _)| *serial == self.serial).map(|(_, index)| index) {
+                let began = monotonic_ns();
+                self.wait_for(index, cancel)?;
+                held.waited_ns += monotonic_ns().saturating_sub(began);
+            }
+            let index = self.scoped(|| {
+                let enc = std::mem::replace(&mut held.enc, self.device.create_command_encoder(&Default::default()));
+                self.queue.submit([enc.finish()])
+            })?;
+            pacing.0 = Some((self.serial, index));
+            Ok(())
+        })
+    }
+
+    fn paint_held(&self, picture: &wgpu::Texture, (width, height): (u32, u32), target: &wgpu::Texture) -> Result<(), String> {
+        self.guarded("painting a card picture", || self.scoped(|| {
+            let mut enc = self.device.create_command_encoder(&Default::default());
+            let views = [picture.create_view(&Default::default()), self.blank.clone(), self.blank.clone()];
+            let taps = width.div_ceil(target.width()).max(height.div_ceil(target.height())).clamp(1, 8);
+            self.convert_pass(&mut enc, &views, Mode::Rgba, target, taps, (width, height));
+            self.queue.submit([enc.finish()]);
+        }))
     }
 
     /// Done with a held picture: its textures go back for the next frame.
@@ -1027,15 +1114,107 @@ pub struct Held {
     planes: Option<[wgpu::Texture; 3]>,
     /// Whether it went up with YUV chroma read by block, so what is made from planes later is read the same way.
     block_chroma: bool,
+    imported: bool,
 }
 
 impl Held {
+    pub(crate) fn was_imported(&self) -> bool { self.imported }
     pub fn size(&self) -> (u32, u32) {
         (self.width, self.height)
     }
 
     pub fn take_waited(&mut self) -> u64 {
         std::mem::take(&mut self.waited_ns)
+    }
+}
+
+/// What a pipeline's next submission waits for: its own last one on the card (and the card it was made on, since an index means nothing on another).
+#[derive(Default)]
+pub(crate) struct Pacing(Option<(u64, wgpu::SubmissionIndex)>);
+
+#[derive(Clone, Copy)]
+pub(crate) enum LandingFailure { LastGood, Dark }
+
+/// A submitted pipeline picture with one shared RAM landing, kept entirely in media.
+pub(crate) struct CardFrame {
+    gpu: Arc<Gpu>,
+    /// Only a landing takes this lock; painting uses `shown`, so the window never waits behind a readback.
+    held: Mutex<Option<Held>>,
+    shown: (wgpu::Texture, (u32, u32)),
+    landed: OnceLock<Frame>,
+    /// What the card steps began from, only until the picture lands (its last good frame if the landing fails, and the cut-out it carries): a decoder surface in it isn't held longer.
+    before: Mutex<Option<Frame>>,
+    shape: (u32, u32, PixelFormat),
+    fallback: LandingFailure,
+    failed: Arc<AtomicBool>,
+    balance: Arc<telescope_core::balance::Balance>,
+}
+
+impl CardFrame {
+    pub(crate) fn new(gpu: Arc<Gpu>, held: Held, before: Frame, fallback: LandingFailure, failed: Arc<AtomicBool>, balance: Arc<telescope_core::balance::Balance>) -> Self {
+        let shape = (before.width, before.height, before.format);
+        Self { gpu, shown: (held.a.clone(), held.size()), held: Mutex::new(Some(held)), landed: OnceLock::new(), before: Mutex::new(Some(before)), shape, fallback, failed, balance }
+    }
+
+    /// Whether this card can draw the picture itself: it is on the same device and the card didn't fail to land it.
+    pub(crate) fn paintable(&self, gpu: &Gpu) -> bool {
+        self.gpu.serial == gpu.serial && !(self.landed.get().is_some() && self.failed.load(Ordering::SeqCst))
+    }
+
+    fn paint(&self, gpu: &Gpu, target: &wgpu::Texture) -> Option<Result<(), String>> {
+        self.paintable(gpu).then(|| gpu.paint_held(&self.shown.0, self.shown.1, target))
+    }
+}
+
+impl telescope_core::media::CardPicture for CardFrame {
+    fn land(&self) -> Frame {
+        self.land_until(&|| false)
+    }
+
+    fn land_until(&self, cancel: &dyn Fn() -> bool) -> Frame {
+        self.landed.get_or_init(|| {
+            let mut held = self.held.lock().unwrap_or_else(|e| e.into_inner());
+            let before = self.before.lock().unwrap_or_else(|e| e.into_inner()).take();
+            let began = monotonic_ns();
+            let out = catch_unwind(AssertUnwindSafe(|| self.gpu.land_until(held.as_mut().unwrap(), cancel)));
+            transfers::landed();
+            span("readback", began);
+            match out {
+                Ok(Ok(mut frame)) => {
+                    if let Some(alpha) = before.as_ref().and_then(Frame::alpha) {
+                        frame.set_alpha(alpha.clone());
+                    }
+                    self.balance.note_wait(held.as_mut().unwrap().take_waited());
+                    frame
+                }
+                _ => {
+                    if !cancel() {
+                        log::warn!("Couldn't land a card picture; using its safe fallback and moving this stream to the CPU");
+                        self.failed.store(true, Ordering::SeqCst);
+                    }
+                    match (self.fallback, before) {
+                        (LandingFailure::LastGood, Some(before)) => before.materialise(),
+                        _ => Frame::dark(self.shape.0, self.shape.1, self.shape.2),
+                    }
+                }
+            }
+        }).clone()
+    }
+
+    fn landed(&self) -> Option<Frame> {
+        self.landed.get().cloned()
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl Drop for CardFrame {
+    fn drop(&mut self) {
+        if let Some(held) = self.held.get_mut().unwrap_or_else(|e| e.into_inner()).take() {
+            self.gpu.put_down(held);
+        }
     }
 }
 
