@@ -225,7 +225,7 @@ fn a_thread_that_ends_after_its_stream_was_switched_off_leaves_no_state_behind()
 }
 
 fn cut_out_events(host: &FakeHost) -> Vec<(String, bool)> {
-    host.events.iter().filter_map(|e| if let Event::CutOutWanted { source_id, on } = e { Some((source_id.clone(), *on)) } else { None }).collect()
+    host.events.iter().filter_map(|e| if let Event::CutOutWantedBy { owner, source_id, on } = e { assert_eq!(owner, NAME); Some((source_id.clone(), *on)) } else { None }).collect()
 }
 
 fn toggle_transparent(p: &mut SpoutSendPlugin, host: &mut FakeHost, on: bool) {

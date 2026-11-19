@@ -240,7 +240,7 @@ pub struct ChromaKeyPlugin {
     /// set_config has no host: the card hears the settings with the next hook that has one.
     pending: bool,
     cached: Option<(TablesKey, Arc<Tables>)>,
-    /// The streams whose cut-out is wanted (Event::CutOutWanted), which the step that makes it reads
+    /// The streams whose cut-out is wanted (Event::CutOutWantedBy), which the step that makes it reads
     wanted: Wanted,
     /// What the host was last told with set_hiding: None until it has been.
     told_hiding: Option<bool>,
@@ -642,6 +642,11 @@ impl Plugin for ChromaKeyPlugin {
         match event {
             Event::CutOutWanted { source_id, on } => {
                 if self.wanted.set(source_id, *on).0 && self.on {
+                    host.refresh_frame_step();
+                }
+            }
+            Event::CutOutWantedBy { owner, source_id, on } => {
+                if self.wanted.set_by(owner, source_id, *on).0 && self.on {
                     host.refresh_frame_step();
                 }
             }

@@ -180,7 +180,7 @@ msgstr "Dapatkan VB-Cable"
 msgid "Remove typing, fan noise and room hiss."
 msgstr "Hilangkan suara ketikan, bising kipas, dan desis ruangan."
 
-#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:972 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
+#: rust/crates/audio/src/plugin.rs:989 rust/crates/core/src/actions.rs:64 rust/crates/core/src/actions.rs:267 rust/crates/effects/src/composite_plugin.rs:975 rust/crates/effects/src/notes.rs:706 rust/crates/link/src/browser/plugin.rs:613 rust/crates/link/src/plugin.rs:1430 rust/crates/link/src/plugin.rs:1437 rust/crates/outputs/src/stream_output.rs:972 rust/crates/system/src/shortcuts.rs:545 rust/crates/system/src/shortcuts.rs:547
 #, python-brace-format
 msgid "{label}: {value}"
 msgstr "{label}: {value}"
@@ -346,7 +346,7 @@ msgstr "Kuning: limiter menahan level puncak. Merah: suara mengalami kliping."
 msgid "Click to clear"
 msgstr "Klik untuk membersihkan"
 
-#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:52 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:172 rust/crates/effects/ui/phototrap.slint:60 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:99
+#: rust/crates/audio/ui/microphone.slint:190 rust/crates/effects/src/desk.rs:218 rust/crates/effects/src/stargazer.rs:824 rust/crates/effects/ui/background.slint:49 rust/crates/effects/ui/chroma_key.slint:73 rust/crates/effects/ui/cinema.slint:32 rust/crates/effects/ui/cinema.slint:160 rust/crates/effects/ui/composite.slint:52 rust/crates/effects/ui/filters.slint:53 rust/crates/effects/ui/framing.slint:72 rust/crates/effects/ui/fun_pack.slint:56 rust/crates/effects/ui/name_tag.slint:78 rust/crates/effects/ui/notes.slint:71 rust/crates/effects/ui/on_air.slint:124 rust/crates/effects/ui/on_air.slint:251 rust/crates/effects/ui/photos.slint:172 rust/crates/effects/ui/phototrap.slint:60 rust/crates/effects/ui/privacy_blur.slint:36 rust/crates/effects/ui/stereo.slint:70 rust/crates/effects/ui/transforms.slint:113 rust/crates/link/ui/browser_camera.slint:84 rust/crates/outputs/ui/stream_output.slint:51 rust/crates/outputs/ui/webcam.slint:64 rust/crates/setup/ui/monitoring.slint:76 rust/crates/setup/ui/setup.slint:216 rust/crates/setup/ui/setup.slint:386 rust/crates/setup/ui/setup.slint:534 rust/crates/shell/src/plugins_tab.rs:745 rust/crates/shell/ui/cards/camera.slint:113 rust/crates/shell/ui/cards/preview.slint:310 rust/crates/shell/ui/cards/preview.slint:311 rust/crates/shell/ui/settings.slint:596 rust/crates/system/ui/mcp.slint:38 rust/crates/system/ui/shortcuts.slint:216 rust/crates/system/ui/startup.slint:18 rust/crates/system/ui/startup.slint:67 rust/crates/system/ui/updates.slint:99
 msgid "Reset"
 msgstr "Reset"
 
@@ -400,11 +400,11 @@ msgstr "Stop"
 msgid " stops"
 msgstr " stop"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:226 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:242 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:227 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:242 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Next"
 msgstr "Berikutnya"
 
-#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:226 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:241 rust/crates/shell/src/plugins/presets.rs:355
+#: rust/crates/core/src/actions.rs:214 rust/crates/effects/src/photos.rs:227 rust/crates/link/src/plugin.rs:1385 rust/crates/outputs/src/stream_output.rs:628 rust/crates/outputs/ui/webcam.slint:241 rust/crates/shell/src/plugins/presets.rs:355
 msgid "Previous"
 msgstr "Sebelumnya"
 
@@ -617,7 +617,7 @@ msgid "Analysing…"
 msgstr "Menganalisis…"
 
 #. Room to move, what you can do before the framing follows: off, fidget, shift in your seat, lean over, take a step, move around. Keep them short
-#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/cinema_tools.rs:33 rust/crates/effects/src/cinema_tools.rs:50 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:92 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:42 rust/crates/effects/src/photos.rs:232 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:381 rust/crates/effects/ui/photos.slint:383 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
+#: rust/crates/effects/src/background.rs:27 rust/crates/effects/src/cinema_tools.rs:33 rust/crates/effects/src/cinema_tools.rs:50 rust/crates/effects/src/desk.rs:28 rust/crates/effects/src/framing.rs:92 rust/crates/effects/src/fun_pack.rs:39 rust/crates/effects/src/photos.rs:42 rust/crates/effects/src/photos.rs:233 rust/crates/effects/ui/background.slint:63 rust/crates/effects/ui/background.slint:68 rust/crates/effects/ui/photos.slint:381 rust/crates/effects/ui/photos.slint:383 rust/crates/link/src/browser/plugin.rs:586 rust/crates/outputs/src/webcam.rs:108 rust/crates/setup/ui/setup.slint:655 rust/crates/shell/src/plugins/camera_control.rs:26 rust/crates/shell/ui/cards/camera.slint:78
 msgid "Off"
 msgstr "Nonaktif"
 
@@ -637,39 +637,39 @@ msgstr "Gambar (*.png *.jpg *.jpeg *.webp *.bmp)"
 msgid "Cut out your hair and edges more cleanly, for about 40% of a CPU core."
 msgstr "Potong rambut dan tepi Anda lebih rapi, dengan penggunaan sekitar 40% core CPU."
 
-#: rust/crates/effects/src/background.rs:637 rust/crates/effects/src/chroma_key.rs:43 rust/crates/effects/src/fun_pack.rs:72
+#: rust/crates/effects/src/background.rs:640 rust/crates/effects/src/chroma_key.rs:43 rust/crates/effects/src/fun_pack.rs:72
 msgid "How soft the edge around you is."
 msgstr "Seberapa halus tepi di sekitar Anda."
 
-#: rust/crates/effects/src/background.rs:638
+#: rust/crates/effects/src/background.rs:641
 msgid "Pull the cutout's border in towards you."
 msgstr "Tarik batas potongan ke arah Anda."
 
-#: rust/crates/effects/src/background.rs:639 rust/crates/effects/src/chroma_key.rs:323
+#: rust/crates/effects/src/background.rs:642 rust/crates/effects/src/chroma_key.rs:323
 msgid "Pick the picture that goes behind you."
 msgstr "Pilih gambar untuk latar belakang Anda."
 
-#: rust/crates/effects/src/background.rs:751 rust/crates/effects/src/chroma_key.rs:500
+#: rust/crates/effects/src/background.rs:754 rust/crates/effects/src/chroma_key.rs:500
 msgid "Choose a picture"
 msgstr "Pilih gambar"
 
-#: rust/crates/effects/src/background.rs:761 rust/crates/effects/src/chroma_key.rs:518 rust/crates/effects/src/chroma_key.rs:557 rust/crates/effects/src/chroma_key.rs:576
+#: rust/crates/effects/src/background.rs:764 rust/crates/effects/src/chroma_key.rs:518 rust/crates/effects/src/chroma_key.rs:557 rust/crates/effects/src/chroma_key.rs:576
 msgid "Can't open that picture"
 msgstr "Tidak dapat membuka gambar itu"
 
-#: rust/crates/effects/src/background.rs:769 rust/crates/effects/src/background.rs:902 rust/crates/effects/src/background.rs:905 rust/crates/effects/src/background.rs:924 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:921
+#: rust/crates/effects/src/background.rs:772 rust/crates/effects/src/background.rs:906 rust/crates/effects/src/background.rs:909 rust/crates/effects/src/background.rs:928 rust/crates/effects/ui/background.slint:43 rust/crates/effects/ui/background.slint:56 rust/crates/effects/ui/background.slint:67 rust/crates/effects/ui/composite_editor.slint:921
 msgid "Background"
 msgstr "Latar belakang"
 
-#: rust/crates/effects/src/background.rs:770
+#: rust/crates/effects/src/background.rs:773
 msgid "Blur the background behind you or swap it for a picture."
 msgstr "Buramkan latar belakang di belakang Anda atau ganti dengan gambar."
 
-#: rust/crates/effects/src/background.rs:771
+#: rust/crates/effects/src/background.rs:774
 msgid "Without the Background plugin there's no Background card and the background is shown the way the camera sees it."
 msgstr "Tanpa plugin Latar belakang, tidak ada kartu Latar belakang dan latar belakang ditampilkan seperti yang dilihat kamera."
 
-#: rust/crates/effects/src/background.rs:904 rust/crates/effects/src/background.rs:931
+#: rust/crates/effects/src/background.rs:908 rust/crates/effects/src/background.rs:935
 msgid "Background blur"
 msgstr "Buram latar belakang"
 
@@ -697,7 +697,7 @@ msgstr "Nilai lebih tinggi menghapus lebih banyak nuansa warna layar."
 msgid "Remove the screen's colour from your edges and skin."
 msgstr "Hapus bias warna layar dari tepi dan kulit Anda."
 
-#: rust/crates/effects/src/chroma_key.rs:318 rust/crates/effects/src/chroma_key.rs:604 rust/crates/effects/src/chroma_key.rs:741 rust/crates/effects/src/chroma_key.rs:745 rust/crates/effects/src/chroma_key.rs:763 rust/crates/effects/ui/chroma_key.slint:59
+#: rust/crates/effects/src/chroma_key.rs:318 rust/crates/effects/src/chroma_key.rs:604 rust/crates/effects/src/chroma_key.rs:746 rust/crates/effects/src/chroma_key.rs:750 rust/crates/effects/src/chroma_key.rs:768 rust/crates/effects/ui/chroma_key.slint:59
 msgid "Chroma key"
 msgstr "Chroma key"
 
@@ -753,11 +753,11 @@ msgstr "Ganti layar hijau atau biru di belakang Anda dengan warna atau gambar, t
 msgid "Without the Chroma key plugin there's no Chroma key card and a green screen isn't replaced."
 msgstr "Tanpa plugin Chroma key, tidak ada kartu Chroma key dan layar hijau tidak diganti."
 
-#: rust/crates/effects/src/chroma_key.rs:743 rust/crates/effects/src/chroma_key.rs:778
+#: rust/crates/effects/src/chroma_key.rs:748 rust/crates/effects/src/chroma_key.rs:783
 msgid "Chroma key tolerance"
 msgstr "Toleransi chroma key"
 
-#: rust/crates/effects/src/chroma_key.rs:746 rust/crates/effects/src/chroma_key.rs:772
+#: rust/crates/effects/src/chroma_key.rs:751 rust/crates/effects/src/chroma_key.rs:777
 msgid "Chroma key screen"
 msgstr "Layar chroma key"
 
@@ -1326,74 +1326,74 @@ msgstr ""
 msgid "Even"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:634 rust/crates/effects/src/composite_plugin.rs:942 rust/crates/effects/src/composite_plugin.rs:946 rust/crates/effects/src/composite_plugin.rs:959 rust/crates/effects/ui/composite.slint:37
+#: rust/crates/effects/src/composite_plugin.rs:634 rust/crates/effects/src/composite_plugin.rs:945 rust/crates/effects/src/composite_plugin.rs:949 rust/crates/effects/src/composite_plugin.rs:962 rust/crates/effects/ui/composite.slint:37
 msgid "One picture"
 msgstr "Satu gambar"
 
-#: rust/crates/effects/src/composite_plugin.rs:724
+#: rust/crates/effects/src/composite_plugin.rs:726
 msgid "Nothing's in the picture yet."
 msgstr "Belum ada apa pun di gambar."
 
-#: rust/crates/effects/src/composite_plugin.rs:726
+#: rust/crates/effects/src/composite_plugin.rs:728
 msgid "Active once two streams are running."
 msgstr "Aktif setelah dua stream berjalan."
 
-#: rust/crates/effects/src/composite_plugin.rs:728
+#: rust/crates/effects/src/composite_plugin.rs:730
 #, python-brace-format
 msgid "Set to output on {camera} but no stream is running there."
 msgstr "Disetel untuk output di {camera}, tetapi tidak ada stream yang berjalan di sana."
 
-#: rust/crates/effects/src/composite_plugin.rs:730
+#: rust/crates/effects/src/composite_plugin.rs:732
 #, python-brace-format
 msgid "Will output on {camera} once the stream there sends a picture."
 msgstr "Akan menghasilkan output di {camera} setelah stream di sana mengirimkan gambar."
 
-#: rust/crates/effects/src/composite_plugin.rs:732
+#: rust/crates/effects/src/composite_plugin.rs:734
 #, python-brace-format
 msgid "Outputting on {camera}."
 msgstr "Menghasilkan output di {camera}."
 
-#: rust/crates/effects/src/composite_plugin.rs:737
+#: rust/crates/effects/src/composite_plugin.rs:739
 msgid "Nothing in it"
 msgstr "Masih kosong"
 
-#: rust/crates/effects/src/composite_plugin.rs:739 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:720
+#: rust/crates/effects/src/composite_plugin.rs:741 rust/crates/effects/src/stereo_plugin.rs:733 rust/crates/effects/ui/composite_editor.slint:720
 msgid "Two streams required"
 msgstr "Dua stream diperlukan"
 
-#: rust/crates/effects/src/composite_plugin.rs:741
+#: rust/crates/effects/src/composite_plugin.rs:743
 msgid "Not going out"
 msgstr "Tidak dikirim keluar"
 
-#: rust/crates/effects/src/composite_plugin.rs:743
+#: rust/crates/effects/src/composite_plugin.rs:745
 msgid "Going out"
 msgstr "Dikirim keluar"
 
-#: rust/crates/effects/src/composite_plugin.rs:809
+#: rust/crates/effects/src/composite_plugin.rs:811
 msgid "Several cameras in one picture"
 msgstr "Beberapa kamera dalam satu gambar"
 
-#: rust/crates/effects/src/composite_plugin.rs:810
+#: rust/crates/effects/src/composite_plugin.rs:812
 msgid "Put the streams you run side by side or inside each other on one virtual camera."
 msgstr "Tempatkan stream yang Anda jalankan berdampingan atau bertumpuk di satu kamera virtual."
 
-#: rust/crates/effects/src/composite_plugin.rs:811
+#: rust/crates/effects/src/composite_plugin.rs:813
 msgid "Without the Several cameras in one picture plugin there's no One picture card and each stream only goes to its own camera."
 msgstr "Tanpa plugin Beberapa kamera dalam satu gambar, tidak ada kartu Satu gambar dan setiap stream hanya masuk ke kameranya sendiri."
 
-#: rust/crates/effects/src/composite_plugin.rs:947 rust/crates/effects/src/composite_plugin.rs:972
+#: rust/crates/effects/src/composite_plugin.rs:950 rust/crates/effects/src/composite_plugin.rs:975
 msgid "Picture layout"
 msgstr "Tata letak gambar"
 
-#: rust/crates/effects/src/composite_plugin.rs:1037
+#: rust/crates/effects/src/composite_plugin.rs:1040
 msgid "One picture layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:1038
+#: rust/crates/effects/src/composite_plugin.rs:1041
 msgid "Bring this layout"
 msgstr ""
 
-#: rust/crates/effects/src/composite_plugin.rs:1038
+#: rust/crates/effects/src/composite_plugin.rs:1041
 msgid "Leave the layout"
 msgstr ""
 
@@ -2526,7 +2526,7 @@ msgstr "Bracket eksposur"
 msgid "Focus bracket"
 msgstr "Bracket fokus"
 
-#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:285 rust/crates/effects/src/photos.rs:804 rust/crates/effects/src/photos.rs:941 rust/crates/effects/ui/photos.slint:165 rust/crates/effects/ui/photos.slint:343 rust/crates/effects/ui/photos.slint:345 rust/crates/effects/ui/phototrap.slint:97
+#: rust/crates/effects/src/photos.rs:34 rust/crates/effects/src/photos.rs:286 rust/crates/effects/src/photos.rs:814 rust/crates/effects/src/photos.rs:952 rust/crates/effects/ui/photos.slint:165 rust/crates/effects/ui/photos.slint:343 rust/crates/effects/ui/photos.slint:345 rust/crates/effects/ui/phototrap.slint:97
 msgid "Photos"
 msgstr "Foto"
 
@@ -2638,201 +2638,205 @@ msgstr "Foto RAW tidak memiliki pengaturan kualitas"
 msgid "The camera is already taking a photo."
 msgstr "Kamera sedang mengambil foto."
 
-#: rust/crates/effects/src/photos.rs:65 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:278
+#: rust/crates/effects/src/photos.rs:65
+msgid "Still merging the last brackets. Try again in a moment."
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:66 rust/crates/outputs/src/webcam_capture/gphoto_stills.rs:278
 msgid "The camera couldn't take the photo."
 msgstr "Kamera tidak dapat mengambil foto."
 
-#: rust/crates/effects/src/photos.rs:70
+#: rust/crates/effects/src/photos.rs:71
 msgid "Like the video"
 msgstr "Sama seperti video"
 
-#: rust/crates/effects/src/photos.rs:72
+#: rust/crates/effects/src/photos.rs:73
 #, python-brace-format
 msgid "1/{n} s"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:74 rust/crates/effects/src/photos.rs:232 rust/crates/effects/src/phototrap.rs:313 rust/crates/effects/src/phototrap.rs:686 rust/crates/effects/src/stargazer.rs:828 rust/crates/effects/src/stargazer.rs:1162 rust/crates/setup/src/setup.rs:493
+#: rust/crates/effects/src/photos.rs:75 rust/crates/effects/src/photos.rs:233 rust/crates/effects/src/phototrap.rs:313 rust/crates/effects/src/phototrap.rs:686 rust/crates/effects/src/stargazer.rs:837 rust/crates/effects/src/stargazer.rs:1173 rust/crates/setup/src/setup.rs:493
 #, python-brace-format
 msgid "{seconds} s"
 msgstr "{seconds} s"
 
-#: rust/crates/effects/src/photos.rs:85
+#: rust/crates/effects/src/photos.rs:86
 #, python-brace-format
 msgid "{near} m-∞"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:87
+#: rust/crates/effects/src/photos.rs:88
 #, python-brace-format
 msgid "{near}-{far} m"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:94
-msgid "Infinity"
-msgstr ""
-
 #: rust/crates/effects/src/photos.rs:95
-#, python-brace-format
-msgid "{cm} cm"
+msgid "Infinity"
 msgstr ""
 
 #: rust/crates/effects/src/photos.rs:96
 #, python-brace-format
+msgid "{cm} cm"
+msgstr ""
+
+#: rust/crates/effects/src/photos.rs:97
+#, python-brace-format
 msgid "{m} m"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:223 rust/crates/effects/src/photos.rs:950 rust/crates/effects/src/photos.rs:966 rust/crates/effects/ui/photos.slint:179
+#: rust/crates/effects/src/photos.rs:224 rust/crates/effects/src/photos.rs:961 rust/crates/effects/src/photos.rs:977 rust/crates/effects/ui/photos.slint:179
 msgid "Take photo"
 msgstr "Ambil foto"
 
-#: rust/crates/effects/src/photos.rs:223 rust/crates/effects/src/stargazer.rs:816
+#: rust/crates/effects/src/photos.rs:224 rust/crates/effects/src/stargazer.rs:825
 msgid "Open folder"
 msgstr "Buka folder"
 
-#: rust/crates/effects/src/photos.rs:224
+#: rust/crates/effects/src/photos.rs:225
 msgid "Best quality"
 msgstr "Kualitas terbaik"
 
-#: rust/crates/effects/src/photos.rs:256 rust/crates/effects/ui/photos.slint:200 rust/crates/effects/ui/photos.slint:201
+#: rust/crates/effects/src/photos.rs:257 rust/crates/effects/ui/photos.slint:200 rust/crates/effects/ui/photos.slint:201
 msgid "ISO"
 msgstr "ISO"
 
-#: rust/crates/effects/src/photos.rs:256 rust/crates/effects/ui/photos.slint:210 rust/crates/effects/ui/photos.slint:211 rust/crates/shell/src/plugins/camera_control.rs:1592 rust/crates/shell/src/plugins/camera_control.rs:1872 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:218 rust/crates/shell/ui/cards/camera.slint:229
+#: rust/crates/effects/src/photos.rs:257 rust/crates/effects/ui/photos.slint:210 rust/crates/effects/ui/photos.slint:211 rust/crates/shell/src/plugins/camera_control.rs:1592 rust/crates/shell/src/plugins/camera_control.rs:1872 rust/crates/shell/ui/cards/camera.slint:212 rust/crates/shell/ui/cards/camera.slint:218 rust/crates/shell/ui/cards/camera.slint:229
 msgid "Shutter"
 msgstr "Shutter"
 
-#: rust/crates/effects/src/photos.rs:262 rust/crates/effects/ui/photos.slint:233 rust/crates/effects/ui/photos.slint:238
+#: rust/crates/effects/src/photos.rs:263 rust/crates/effects/ui/photos.slint:233 rust/crates/effects/ui/photos.slint:238
 msgid "Mode"
 msgstr "Mode"
 
-#: rust/crates/effects/src/photos.rs:265 rust/crates/effects/ui/photos.slint:244 rust/crates/effects/ui/photos.slint:248 rust/crates/outputs/src/stream_output.rs:795 rust/crates/outputs/src/stream_output.rs:1021 rust/crates/outputs/src/stream_output.rs:1024 rust/crates/outputs/ui/stream_output.slint:110 rust/crates/outputs/ui/stream_output.slint:122
+#: rust/crates/effects/src/photos.rs:266 rust/crates/effects/ui/photos.slint:244 rust/crates/effects/ui/photos.slint:248 rust/crates/outputs/src/stream_output.rs:795 rust/crates/outputs/src/stream_output.rs:1021 rust/crates/outputs/src/stream_output.rs:1024 rust/crates/outputs/ui/stream_output.slint:110 rust/crates/outputs/ui/stream_output.slint:122
 msgid "Format"
 msgstr "Format"
 
-#: rust/crates/effects/src/photos.rs:268 rust/crates/effects/ui/photos.slint:256 rust/crates/effects/ui/photos.slint:261
+#: rust/crates/effects/src/photos.rs:269 rust/crates/effects/ui/photos.slint:256 rust/crates/effects/ui/photos.slint:261
 msgid "Shots"
 msgstr "Bidikan"
 
-#: rust/crates/effects/src/photos.rs:274 rust/crates/effects/ui/photos.slint:283 rust/crates/effects/ui/photos.slint:284
+#: rust/crates/effects/src/photos.rs:275 rust/crates/effects/ui/photos.slint:283 rust/crates/effects/ui/photos.slint:284
 msgid "How many"
 msgstr "Jumlah"
 
-#: rust/crates/effects/src/photos.rs:280
+#: rust/crates/effects/src/photos.rs:281
 msgid "Steps"
 msgstr "Langkah"
 
-#: rust/crates/effects/src/photos.rs:289 rust/crates/effects/src/photos.rs:340
+#: rust/crates/effects/src/photos.rs:290 rust/crates/effects/src/photos.rs:341
 msgid "EV"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:294 rust/crates/effects/src/photos.rs:340 rust/crates/effects/ui/photos.slint:193 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:166 rust/crates/shell/ui/cards/camera.slint:174
+#: rust/crates/effects/src/photos.rs:295 rust/crates/effects/src/photos.rs:341 rust/crates/effects/ui/photos.slint:193 rust/crates/outputs/src/webcam.rs:46 rust/crates/outputs/src/webcam.rs:54 rust/crates/shell/ui/cards/camera.slint:166 rust/crates/shell/ui/cards/camera.slint:174
 msgid "Exposure"
 msgstr "Eksposur"
 
-#: rust/crates/effects/src/photos.rs:299 rust/crates/effects/ui/photos.slint:374 rust/crates/effects/ui/photos.slint:380
+#: rust/crates/effects/src/photos.rs:300 rust/crates/effects/ui/photos.slint:374 rust/crates/effects/ui/photos.slint:380
 msgid "Distortion fix"
 msgstr "Koreksi distorsi"
 
-#: rust/crates/effects/src/photos.rs:345 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365
+#: rust/crates/effects/src/photos.rs:346 rust/crates/effects/ui/colour_grading.slint:360 rust/crates/effects/ui/colour_grading.slint:365
 msgid "All"
 msgstr "Semua"
 
-#: rust/crates/effects/src/photos.rs:408 rust/crates/effects/src/photos.rs:881
+#: rust/crates/effects/src/photos.rs:409 rust/crates/effects/src/photos.rs:892
 msgid "Start streaming to take photos."
 msgstr "Mulai streaming untuk mengambil foto."
 
-#: rust/crates/effects/src/photos.rs:410
+#: rust/crates/effects/src/photos.rs:411
 msgid "This phone can't take photos from Telescope yet. Update the app on the phone."
 msgstr "Ponsel ini belum dapat mengambil foto dari Telescope. Perbarui aplikasi di ponsel."
 
-#: rust/crates/effects/src/photos.rs:629
+#: rust/crates/effects/src/photos.rs:630
 msgid "Darker"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:629
+#: rust/crates/effects/src/photos.rs:630
 msgid "Lighter"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:629
+#: rust/crates/effects/src/photos.rs:630
 msgid "Middle"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:666
+#: rust/crates/effects/src/photos.rs:667
 msgid "Merging the bracket…"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:677
+#: rust/crates/effects/src/photos.rs:678
 #, python-brace-format
 msgid "Saved {name} from {used} of {frames} photos. The photos are still saved."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:679
+#: rust/crates/effects/src/photos.rs:680
 #, python-brace-format
 msgid "Saved the merged picture {name}. Some photos couldn't be deleted."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:681
+#: rust/crates/effects/src/photos.rs:682
 #, python-brace-format
 msgid "Saved the merged picture {name} from {used} of {frames} photos"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:683
+#: rust/crates/effects/src/photos.rs:684
 #, python-brace-format
 msgid "Saved the merged picture {name}"
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:692 rust/crates/effects/src/photos.rs:757 rust/crates/effects/src/photos.rs:779
+#: rust/crates/effects/src/photos.rs:693 rust/crates/effects/src/photos.rs:767 rust/crates/effects/src/photos.rs:789
 msgid "Photo saved"
 msgstr "Foto disimpan"
 
-#: rust/crates/effects/src/photos.rs:696
+#: rust/crates/effects/src/photos.rs:697
 msgid "The photos are saved but couldn't be merged."
 msgstr ""
 
-#: rust/crates/effects/src/photos.rs:718 rust/crates/effects/src/photos.rs:738
+#: rust/crates/effects/src/photos.rs:728 rust/crates/effects/src/photos.rs:748
 msgid "Taking the photo…"
 msgstr "Mengambil foto…"
 
-#: rust/crates/effects/src/photos.rs:732
+#: rust/crates/effects/src/photos.rs:742
 #, python-brace-format
 msgid "Taking the photo in {seconds} s"
 msgstr "Mengambil foto dalam {seconds} s"
 
-#: rust/crates/effects/src/photos.rs:734
+#: rust/crates/effects/src/photos.rs:744
 #, python-brace-format
 msgid "Photo {n} of {total}"
 msgstr "Foto {n} dari {total}"
 
-#: rust/crates/effects/src/photos.rs:736
+#: rust/crates/effects/src/photos.rs:746
 msgid "The video is paused while the photo is taken…"
 msgstr "Video dijeda saat foto diambil…"
 
-#: rust/crates/effects/src/photos.rs:752 rust/crates/effects/src/stargazer.rs:823
+#: rust/crates/effects/src/photos.rs:762 rust/crates/effects/src/stargazer.rs:832
 #, python-brace-format
 msgid "Saved {name}"
 msgstr "Tersimpan {name}"
 
-#: rust/crates/effects/src/photos.rs:775
+#: rust/crates/effects/src/photos.rs:785
 #, python-brace-format
 msgid "The photo arrived late. Saved {name}"
 msgstr "Foto terlambat tiba. Disimpan {name}"
 
-#: rust/crates/effects/src/photos.rs:789
+#: rust/crates/effects/src/photos.rs:799
 msgid "Save photos in"
 msgstr "Simpan foto di"
 
-#: rust/crates/effects/src/photos.rs:805 rust/crates/effects/ui/photos.slint:166
+#: rust/crates/effects/src/photos.rs:815 rust/crates/effects/ui/photos.slint:166
 msgid "Take full-quality photos on the phone or a DSLR, including RAW if the camera supports it."
 msgstr "Ambil foto berkualitas penuh di ponsel atau DSLR, termasuk RAW jika kamera mendukungnya."
 
-#: rust/crates/effects/src/photos.rs:806
+#: rust/crates/effects/src/photos.rs:816
 msgid "Without the Photos plugin there's no Photos card and no Take photo shortcut."
 msgstr "Tanpa plugin Foto, tidak ada kartu Foto dan tidak ada pintasan Ambil foto."
 
-#: rust/crates/effects/src/photos.rs:943 rust/crates/effects/src/photos.rs:981
+#: rust/crates/effects/src/photos.rs:954 rust/crates/effects/src/photos.rs:992
 msgid "Photo mode"
 msgstr "Mode foto"
 
-#: rust/crates/effects/src/photos.rs:948 rust/crates/effects/src/photos.rs:991
+#: rust/crates/effects/src/photos.rs:959 rust/crates/effects/src/photos.rs:1002
 msgid "Photo timer"
 msgstr "Timer foto"
 
@@ -3068,133 +3072,133 @@ msgstr "Baca kode QR"
 msgid "Open the folder the stacks are saved in."
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:775
+#: rust/crates/effects/src/stargazer.rs:784
 msgid "Paused while part of the picture is hidden"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:778
+#: rust/crates/effects/src/stargazer.rs:787
 #, python-brace-format
 msgid "Collecting frame {done} of {total}"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:779
+#: rust/crates/effects/src/stargazer.rs:788
 msgid "Stacking every frame"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:780
+#: rust/crates/effects/src/stargazer.rs:789
 msgid "Recording the trails"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:784
+#: rust/crates/effects/src/stargazer.rs:793
 #, python-brace-format
 msgid "Stacking the sharpest {n} frame"
 msgid_plural "Stacking the sharpest {n} frames"
 msgstr[0] ""
 
-#: rust/crates/effects/src/stargazer.rs:791 rust/crates/effects/src/stargazer.rs:810 rust/crates/effects/src/stargazer.rs:1163 rust/crates/effects/src/stargazer.rs:1163
+#: rust/crates/effects/src/stargazer.rs:800 rust/crates/effects/src/stargazer.rs:819 rust/crates/effects/src/stargazer.rs:1174 rust/crates/effects/src/stargazer.rs:1174
 msgid "Waiting for the picture"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:793 rust/crates/link/src/connection.rs:826 rust/crates/setup/src/setup.rs:709 rust/crates/setup/src/setup.rs:718 rust/crates/setup/src/setup.rs:737 rust/crates/setup/src/setup.rs:761
+#: rust/crates/effects/src/stargazer.rs:802 rust/crates/link/src/connection.rs:826 rust/crates/setup/src/setup.rs:709 rust/crates/setup/src/setup.rs:718 rust/crates/setup/src/setup.rs:737 rust/crates/setup/src/setup.rs:761
 msgid "Ready"
 msgstr "Siap"
 
-#: rust/crates/effects/src/stargazer.rs:803
+#: rust/crates/effects/src/stargazer.rs:812
 #, python-brace-format
 msgid "In the stack: {frames}, refused: {refused}, time: {time}"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:809
+#: rust/crates/effects/src/stargazer.rs:818
 #, python-brace-format
 msgid "Now {now}, best {best}"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:815
+#: rust/crates/effects/src/stargazer.rs:824
 msgid "Lucky"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:815 rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1083
+#: rust/crates/effects/src/stargazer.rs:824 rust/crates/shell/src/scenes.rs:294 rust/crates/shell/src/streams.rs:1083
 msgid "Live"
 msgstr "Live"
 
-#: rust/crates/effects/src/stargazer.rs:815 rust/crates/effects/ui/fun_pack.slint:146
+#: rust/crates/effects/src/stargazer.rs:824 rust/crates/effects/ui/fun_pack.slint:146
 msgid "Trails"
 msgstr "Jejak"
 
-#: rust/crates/effects/src/stargazer.rs:815 rust/crates/shell/src/plugins/presets.rs:221 rust/crates/system/ui/shortcuts.slint:364
+#: rust/crates/effects/src/stargazer.rs:824 rust/crates/shell/src/plugins/presets.rs:221 rust/crates/system/ui/shortcuts.slint:364
 msgid "Save"
 msgstr "Simpan"
 
-#: rust/crates/effects/src/stargazer.rs:816
+#: rust/crates/effects/src/stargazer.rs:825
 msgid "Show the stack on the camera"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:826 rust/crates/effects/src/stargazer.rs:1161
+#: rust/crates/effects/src/stargazer.rs:835 rust/crates/effects/src/stargazer.rs:1172
 #, python-brace-format
 msgid "{n} frames"
 msgstr ""
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/effects/src/stargazer.rs:829 rust/crates/effects/src/stargazer.rs:1163 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1825 rust/crates/system/src/remote.rs:19
+#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/src/stargazer.rs:1174 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/sources.rs:91 rust/crates/shell/src/window.rs:1825 rust/crates/system/src/remote.rs:19
 msgid "Start"
 msgstr "Mulai"
 
 #. the short form of Start streaming / Stop streaming, on a narrow window
-#: rust/crates/effects/src/stargazer.rs:829 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/window.rs:1831 rust/crates/system/src/remote.rs:19
+#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/ui/stargazer.slint:154 rust/crates/shell/src/window.rs:1831 rust/crates/system/src/remote.rs:19
 msgid "Stop"
 msgstr "Stop"
 
-#: rust/crates/effects/src/stargazer.rs:829 rust/crates/effects/ui/stargazer.slint:154
+#: rust/crates/effects/src/stargazer.rs:838 rust/crates/effects/ui/stargazer.slint:154
 msgid "Stacking"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:903
+#: rust/crates/effects/src/stargazer.rs:912
 msgid "Stopped. Reset starts a new stack"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:948
+#: rust/crates/effects/src/stargazer.rs:957
 #, python-brace-format
 msgid "Stopped early and stacked the sharpest {n} frame it had"
 msgid_plural "Stopped early and stacked the sharpest {n} frames it had"
 msgstr[0] ""
 
-#: rust/crates/effects/src/stargazer.rs:949
+#: rust/crates/effects/src/stargazer.rs:958
 msgid "Saved the trails"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:950
+#: rust/crates/effects/src/stargazer.rs:959
 #, python-brace-format
 msgid "Saved a stack of {n} frame"
 msgid_plural "Saved a stack of {n} frames"
 msgstr[0] ""
 
-#: rust/crates/effects/src/stargazer.rs:956
+#: rust/crates/effects/src/stargazer.rs:965
 msgid "Stopped before enough frames came in. Nothing was saved"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:965
+#: rust/crates/effects/src/stargazer.rs:974
 msgid "Couldn't save the picture"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:970
+#: rust/crates/effects/src/stargazer.rs:979
 #, python-brace-format
 msgid "Memory limits this run to the sharpest {n} frame"
 msgid_plural "Memory limits this run to the sharpest {n} frames"
 msgstr[0] ""
 
-#: rust/crates/effects/src/stargazer.rs:971
+#: rust/crates/effects/src/stargazer.rs:980
 msgid "Stopped because the picture size changed"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:1064 rust/crates/effects/ui/stargazer.slint:45
+#: rust/crates/effects/src/stargazer.rs:1073 rust/crates/effects/ui/stargazer.slint:45
 msgid "Stargazer"
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:1065
+#: rust/crates/effects/src/stargazer.rs:1074
 msgid "Stack frames from a phone clipped to a telescope into a sharper moon or planet, a clearer faint sky or a star trail."
 msgstr ""
 
-#: rust/crates/effects/src/stargazer.rs:1066
+#: rust/crates/effects/src/stargazer.rs:1075
 msgid "Without the Stargazer plugin there's no Stargazer card and no frames are stacked."
 msgstr ""
 
@@ -5805,15 +5809,15 @@ msgstr ""
 msgid "Shares as {name} while this stream runs"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:317 rust/crates/outputs/ui/spout_send.slint:14
+#: rust/crates/outputs/src/spout_send/mod.rs:320 rust/crates/outputs/ui/spout_send.slint:14
 msgid "Spout send"
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:318
+#: rust/crates/outputs/src/spout_send/mod.rs:321
 msgid "Share a stream's picture with other programs on this computer, such as OBS."
 msgstr ""
 
-#: rust/crates/outputs/src/spout_send/mod.rs:319
+#: rust/crates/outputs/src/spout_send/mod.rs:322
 msgid "Without Spout send the Spout send card is gone and no picture is shared."
 msgstr ""
 
@@ -10866,7 +10870,7 @@ msgstr " °C"
 msgid "Add your phone"
 msgstr "Tambahkan ponsel"
 
-#: rust/crates/effects/src/photos.rs:750
+#: rust/crates/effects/src/photos.rs:760
 #, python-brace-format
 msgid "Saved {name} and {n} more"
 msgid_plural "Saved {name} and {n} more"

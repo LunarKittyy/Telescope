@@ -62,6 +62,7 @@ const BEST_OFF_TIP: &str = n_("This lens and mode have no extra noise reduction 
 const QUALITY_CAMERA_TIP: &str = n_("JPEG quality is set by the camera");
 const QUALITY_RAW_TIP: &str = n_("RAW photos have no quality setting");
 const CAMERA_BUSY: &str = n_("The camera is already taking a photo.");
+const MERGE_QUEUE_FULL: &str = n_("Still merging the last brackets. Try again in a moment.");
 const CAMERA_FAILED: &str = n_("The camera couldn't take the photo.");
 
 /// "Like the video" for none, else the shutter speed (1/250 s, 8 s).
@@ -131,7 +132,7 @@ pub struct PhotosPlugin {
     taking: Vec<RequestId>,
     asked: Option<RequestId>,
     /// The brackets being taken that are to be merged: the request, what to save, the JPEG quality and what kind of merge.
-    merges: Vec<(RequestId, String, u8, crate::bracket_merge::Kind, usize)>,
+    merges: Vec<(RequestId, String, u8, crate::bracket_merge::Kind, usize, crate::bracket_merge::Reservation)>,
     /// The newest photo asked for: a merge of an older one finishing later doesn't take Open folder back to its photos.
     latest_take: Option<RequestId>,
     status: (String, &'static str),
@@ -660,9 +661,9 @@ impl PhotosPlugin {
     }
 
     /// The photos of a bracket are in: merge them on a thread of its own, which says when it's done.
-    fn start_merge(&mut self, host: &mut dyn Host, files: &[String], mode: &str, quality: u8, kind: crate::bracket_merge::Kind, request: RequestId, expected: usize) {
+    fn start_merge(&mut self, host: &mut dyn Host, files: &[String], mode: &str, quality: u8, kind: crate::bracket_merge::Kind, request: RequestId, expected: usize, reservation: crate::bracket_merge::Reservation) {
         let Some(poster) = host.poster() else { return };
-        crate::bracket_merge::spawn(poster, files.to_vec(), quality, mode != crate::bracket_merge::MERGED, kind, request.0, expected);
+        reservation.submit(poster, files.to_vec(), quality, mode != crate::bracket_merge::MERGED, kind, request.0, expected);
         self.show_status(host, tr("Merging the bracket…"), "status_dim");
     }
 
@@ -708,10 +709,19 @@ impl PhotosPlugin {
         if caps.camera {
             camera_options(&mut options, self.camera_picks[0].as_deref(), self.camera_picks[1].as_deref());
         }
+        let merge = if let Some(mode) = self.merge_mode() {
+            let Some(reservation) = crate::bracket_merge::reserve() else {
+                self.show_status(host, tr(MERGE_QUEUE_FULL), "status_err");
+                return;
+            };
+            Some((mode, reservation))
+        } else {
+            None
+        };
         match host.take_still(&options, &self.folder, None) {
             Some(id) => {
-                if let Some(mode) = self.merge_mode() {
-                    self.merges.push((id, mode.to_string(), int(&self.choices, "quality", 95).clamp(50, 100) as u8, self.merge_kind(), Self::shots_expected(&options)));
+                if let Some((mode, reservation)) = merge {
+                    self.merges.push((id, mode.to_string(), int(&self.choices, "quality", 95).clamp(50, 100) as u8, self.merge_kind(), Self::shots_expected(&options), reservation));
                 }
                 self.taking.push(id);
                 self.latest_take = Some(id);
@@ -823,6 +833,7 @@ impl Plugin for PhotosPlugin {
 
     fn shutdown(&mut self, host: &mut dyn Host) {
         self.release_hold(host);
+        self.merges.clear();
     }
 
     fn on_event(&mut self, host: &mut dyn Host, event: &Event) {
@@ -853,10 +864,10 @@ impl Plugin for PhotosPlugin {
                 self.taking.retain(|r| r != request);
                 self.done(host, data);
                 if let Some(at) = self.merges.iter().position(|(r, ..)| r == request) {
-                    let (_, mode, quality, kind, expected) = self.merges.remove(at);
+                    let (_, mode, quality, kind, expected, reservation) = self.merges.remove(at);
                     if data.get("ok").and_then(Value::as_bool) == Some(true) {
                         let files = self.last_saved.clone();
-                        self.start_merge(host, &files, &mode, quality, kind, *request, expected);
+                        self.start_merge(host, &files, &mode, quality, kind, *request, expected, reservation);
                     }
                 }
             }
