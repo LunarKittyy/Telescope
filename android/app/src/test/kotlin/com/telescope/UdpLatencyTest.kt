@@ -3,6 +3,7 @@ package com.telescope
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.ByteBuffer
@@ -107,33 +108,60 @@ class UdpLatencyTest {
     // ---- repairs
 
     @Test
+    fun `repair credit counts the header and the short last fragment`() {
+        var now = 0L
+        val q = UdpSendQueue(clock = { now })
+        q.repairBps = 80_000  // ten bytes of credit per millisecond
+        val frame = UdpFrame(5, ByteArray(30 * UdpWire.MAX_PAYLOAD + 1), key = false)
+        repeat(29) { assertTrue(q.offerRepair(frame, it)) }
+        assertFalse(q.offerRepair(frame, 0))
+        assertFalse(q.offerRepair(frame, -1))
+        assertFalse(q.offerRepair(frame, frame.count))
+        assertTrue(q.offerRepair(frame, 30))
+        assertTrue(q.offerRepair(frame, 29))
+        val indexes = (0 until 29).toList() + listOf(30, 29)
+        for (index in indexes) {
+            val repair = q.poll(0) as UdpJob.Repair
+            assertSame(frame, repair.frame)
+            assertEquals(index, repair.index)
+        }
+        // The 30 full fragments and the ten-byte tail spent 33280 bytes, leaving 512 owed
+        assertTrue(q.offerRepair(frame, 0))
+        now = 51
+        assertNull(q.poll(0))
+        now = 52
+        assertTrue(q.poll(0) is UdpJob.Repair)
+    }
+
+    @Test
     fun `repairs are spread over time, expire, and don't hold up a live frame`() {
         var now = 0L
         val q = UdpSendQueue(clock = { now })
         q.repairBps = UdpVideoClient.repairBpsFor(8_000_000)  // 2.4 Mbps
         q.offer(ByteArray(10), key = true)
         q.poll(0)
-        val whole = (0 until 1000).map { ByteArray(1100) }  // a 1 MB keyframe asked for in full
-        whole.forEachIndexed { i, p -> q.offerRepair(1, i, p) }
-        assertFalse(q.offerRepair(1, 0, whole[0]), "the same datagram asked for twice waits once")
+        val whole = UdpFrame(1, ByteArray(1000 * UdpWire.MAX_PAYLOAD), key = false)
+        repeat(whole.count) { q.offerRepair(whole, it) }
+        assertFalse(q.offerRepair(whole, 0), "the same datagram asked for twice waits once")
         var repaired = 0
+        var repairedBytes = 0
         var bytesAt100 = 0
         var liveWaited = -1L
         while (now < 600) {
             if (now == 40L) q.offer(ByteArray(10), key = true)
             while (true) {
                 when (val job = q.poll(0)) {
-                    is UdpJob.Repair -> repaired++
+                    is UdpJob.Repair -> { repaired++; repairedBytes += UdpWire.fragmentSize(job.frame, job.index) }
                     is UdpJob.Live -> liveWaited = now - job.atMs
                     null -> break
                 }
             }
-            if (now == 100L) bytesAt100 = repaired * 1100
+            if (now == 100L) bytesAt100 = repairedBytes
             now++
         }
         println("whole 1 MB frame asked for again: sent %d KB in the first 100 ms and %d KB in all (the rest expired); old code sent 1000 KB at once; live frame waited %d ms"
-            .format(bytesAt100 / 1000, repaired * 1100 / 1000, liveWaited))
-        assertTrue(bytesAt100 <= UdpVideoClient.REPAIR_BURST + 2_400_000 / 8 / 10 + 1100, "$bytesAt100 bytes in 100 ms")
+            .format(bytesAt100 / 1000, repairedBytes / 1000, liveWaited))
+        assertTrue(bytesAt100 <= UdpVideoClient.REPAIR_BURST + 2_400_000 / 8 / 10 + UdpWire.HEADER + UdpWire.MAX_PAYLOAD, "$bytesAt100 bytes in 100 ms")
         assertTrue(repaired < 400, "$repaired datagrams in all")
         assertTrue(liveWaited in 0..1, "the live frame waited $liveWaited ms")
     }
@@ -144,7 +172,8 @@ class UdpLatencyTest {
             var now = 0L
             val q = UdpSendQueue(clock = { now })
             q.repairBps = UdpVideoClient.repairBpsFor(2_000_000)  // the slowest Dynamic paces at: 2 Mbps
-            repeat(140) { q.offerRepair(1, it, ByteArray(1100), key) }  // a 150 KB keyframe asked for in full
+            val frame = UdpFrame(1, ByteArray(140 * UdpWire.MAX_PAYLOAD), key)
+            repeat(frame.count) { q.offerRepair(frame, it) }  // a 150 KB keyframe asked for in full
             var n = 0
             while (now < UdpVideoClient.REPAIR_TTL_MS) { while (q.poll(0) is UdpJob.Repair) n++; now++ }
             return n
@@ -160,12 +189,13 @@ class UdpLatencyTest {
     fun `a repair asked for again after it went out is sent again`() {
         var now = 0L
         val q = UdpSendQueue(clock = { now })
-        assertTrue(q.offerRepair(5, 2, byteArrayOf(1)))
+        val frame = UdpFrame(5, ByteArray(2201), key = false)
+        assertTrue(q.offerRepair(frame, 2))
         assertTrue(q.poll(0) is UdpJob.Repair)
-        assertTrue(q.offerRepair(5, 2, byteArrayOf(1)))
+        assertTrue(q.offerRepair(frame, 2))
         now = UdpVideoClient.REPAIR_TTL_MS + 1
         assertEquals(null, q.poll(0))  // too late: the desktop gave up on it
-        assertTrue(q.offerRepair(5, 2, byteArrayOf(1)))
+        assertTrue(q.offerRepair(frame, 2))
     }
 
     // On the real client over loopback: a whole-frame request used to go out at once from the thread reading feedback
@@ -196,8 +226,8 @@ class UdpLatencyTest {
         }
         try {
             tell(byteArrayOf(UdpWire.HELLO))
-            client.offer(ByteArray(10), key = true)
-            client.offer(ByteArray(600_000) { 7 }, key = false)  // a keyframe's repairs aren't paced, so a plain frame
+            client.offer(ByteArray(10) + H264Stream.AUD, key = true)
+            client.offer(ByteArray(600_000) { 7 } + H264Stream.AUD, key = false)  // a keyframe's repairs aren't paced, so a plain frame
             val parts = drain(700)
             assertTrue(parts >= 540, "the frame itself: $parts datagrams")
             tell(ByteBuffer.allocate(5).put(UdpWire.NACK).putInt(1).array())  // all of frame 1
@@ -238,12 +268,12 @@ class UdpLatencyTest {
         var whole = -1
         var wholeAtMs = 0L
         val seen = HashMap<Int, Int>()
-        val emit = { part: ByteArray ->
-            if (blockedAtBps > 0) advance(nowNs + part.size * 8_000_000_000L / blockedAtBps)
-            val b = ByteBuffer.wrap(part)
+        val emit = { part: ByteArray, length: Int ->
+            if (blockedAtBps > 0) advance(nowNs + length * 8_000_000_000L / blockedAtBps)
+            val b = ByteBuffer.wrap(part, 0, length)
             val frame = b.int; b.short; val count = b.short.toInt()
             counter++
-            bytes += part.size
+            bytes += length
             val n = (seen[frame] ?: 0) + 1
             seen[frame] = n
             if (n == count) { whole = frame; wholeAtMs = nowMs(); seen.remove(frame) }
@@ -272,7 +302,7 @@ class UdpLatencyTest {
                 if (next == nextFrame) {
                     val key = wantKey || frameNo % fps == 0
                     val size = if (!still) bitrate / 8 / fps else if (key) (bitrate / 8 * keySeconds).toInt() else bitrate / 8 / fps / 5
-                    if (queue.offer(ByteArray(size), key)) wantKey = true else if (key) wantKey = false
+                    if (queue.offer(ByteArray(size) + H264Stream.AUD, key)) wantKey = true else if (key) wantKey = false
                     frameNo++
                     encodedBytes += size
                     rateBytes += size
@@ -310,8 +340,8 @@ class UdpLatencyTest {
         while (nowNs < seconds * 1_000_000_000L) {
             val job = queue.poll(0)
             if (job is UdpJob.Live) {
-                val parts = UdpWire.fragments(seq, H264Stream.withDelimiter(job.frame), job.key)
-                transmitter.frame(seq++, parts, job.atMs, job.pacedAtMs)
+                val frame = UdpFrame(seq++, job.frame, job.key)
+                transmitter.frame(frame, job.atMs, job.pacedAtMs)
             } else {
                 advanceTo(minOf(nextFrame, nextReport, nextSample))
             }
