@@ -1153,6 +1153,7 @@ pub(crate) mod decode_bench {
     }
 
     /// TELESCOPE_BENCH_CLIPS=<folder> cargo test --release -p telescope-media decode_lift_land_per_frame -- --ignored --nocapture --test-threads=1
+    /// BENCH_CLIP (p1080 or p4k), BENCH_READER (ram or preview) and BENCH_MODE (transfer or import) each pick one case.
     #[test]
     #[ignore = "a measurement, needs recorded H.264 clips and a graphics card"]
     fn decode_lift_land_per_frame() {
@@ -1166,7 +1167,12 @@ pub(crate) mod decode_bench {
         if crate::gpu::Gpu::shared().is_none() {
             return eprintln!("no graphics card for the frame step; skipped");
         }
-        let run = |codec: &mut Codec, packets: &[Vec<u8>], preview_only: bool| -> Result<Vec<Costs>, Fault> {
+        let run = |codec: &mut Codec, packets: &[Vec<u8>], preview_only: bool, import: bool| -> Result<Vec<Costs>, Fault> {
+            #[cfg(target_os = "linux")]
+            {
+                codec.defer_surfaces = import;
+            }
+            let _ = import;
             let mut pipeline = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
             pipeline.set_steps(vec![StagedStep {
                 owner: "decode measurement".into(), stage: FrameStage::Effects,
@@ -1198,18 +1204,29 @@ pub(crate) mod decode_bench {
             }
             Ok(rows)
         };
+        let wanted = |var: &str, value: &str| std::env::var(var).map_or(true, |v| v == value);
         for name in ["p1080.h264", "p4k.h264"] {
+            if !wanted("BENCH_CLIP", name.trim_end_matches(".h264")) {
+                continue;
+            }
             let Some(packets) = packets(name).filter(|p| !p.is_empty()) else {
                 eprintln!("no access units in {name}; skipped");
                 continue;
             };
-            for preview_only in [false, true] {
+            for (preview_only, import) in [(false, false), (true, false), (false, true), (true, true)] {
                 let reader = if preview_only { "preview" } else { "ram" };
+                let mode = if import { "import" } else { "transfer" };
+                if !wanted("BENCH_READER", reader) || !wanted("BENCH_MODE", mode) {
+                    continue;
+                }
                 let mut measured = None;
                 for hw in [Hw::Vaapi, Hw::D3d11va, Hw::Cuda] {
                     let Ok(mut codec) = Codec::h264(Some(hw)) else { continue };
-                    match run(&mut codec, &packets, preview_only) {
-                        Ok(rows) if !rows.is_empty() && rows.iter().all(|r| r.decoded_down == 1) => {
+                    // A picture that went into Vulkan has no decode download; one that fell back has it inside the lift
+                    match run(&mut codec, &packets, preview_only, import) {
+                        Ok(rows) if !rows.is_empty() && (import || rows.iter().all(|r| r.decoded_down == 1)) => {
+                            let imported = rows.iter().filter(|r| r.decoded_down == 0).count();
+                            eprintln!("{name} {reader} {mode} on {}: {imported} of {} pictures needed no decode download", hw.name(), rows.len());
                             measured = Some((hw.name(), rows));
                             break;
                         }
@@ -1219,15 +1236,51 @@ pub(crate) mod decode_bench {
                 let (decoder, rows) = measured.unwrap_or_else(|| {
                     eprintln!("no hardware decoder for {name}; hardware measurement skipped, using software decode");
                     let mut codec = Codec::h264(None).expect("software H.264 decoder");
-                    ("software", run(&mut codec, &packets, preview_only).expect("software decode"))
+                    ("software", run(&mut codec, &packets, preview_only, false).expect("software decode"))
                 });
                 assert!(!rows.is_empty(), "{name} produced no frames");
-                println!("clip,reader,decoder,frame,decode_transfer_ms,lift_ms,land_ms,decode_down,up,land_down,total_down");
+                println!("clip,reader,mode,decoder,frame,decode_transfer_ms,lift_ms,land_ms,decode_down,up,land_down,total_down");
                 for (i, r) in rows.iter().enumerate() {
-                    println!("{name},{reader},{decoder},{i},{:.4},{:.4},{:.4},{},{},{},{}", r.transfer_ns as f64 / 1e6,
+                    println!("{name},{reader},{mode},{decoder},{i},{:.4},{:.4},{:.4},{},{},{},{}", r.transfer_ns as f64 / 1e6,
                         r.lift_ns as f64 / 1e6, r.land_ns as f64 / 1e6, r.decoded_down, r.up, r.down, r.decoded_down + r.down);
                 }
             }
+        }
+    }
+
+    /// Pictures of the real clips through the import and through the transfer, landed and compared.
+    /// TELESCOPE_BENCH_CLIPS=<folder> cargo test --release -p telescope-media --lib -- --ignored --nocapture imported_pictures_match_the_transfer_on_real_clips
+    #[cfg(target_os = "linux")]
+    #[test]
+    #[ignore = "a measurement, needs recorded H.264 clips, a VA-API card and Vulkan"]
+    fn imported_pictures_match_the_transfer_on_real_clips() {
+        let gpu = crate::gpu::Gpu::shared().expect("a graphics card");
+        for name in ["p1080.h264", "p4k.h264"] {
+            let Some(packets) = packets(name) else { continue };
+            let mut codec = Codec::h264(Some(Hw::Vaapi)).expect("VA-API");
+            codec.defer_surfaces = true;
+            let (mut compared, mut worst, mut total, mut bytes) = (0, 0u8, 0u64, 0u64);
+            for packet in packets.iter().take(60) {
+                codec.decode_newest(packet).unwrap();
+                let Some(frame) = codec.take_newest().unwrap() else { continue };
+                let mut imported = gpu.lift_with(&frame, true).unwrap();
+                assert!(imported.was_imported(), "{name}: the picture was not imported");
+                let imported_pixels = gpu.land(&mut imported).unwrap();
+                gpu.put_down(imported);
+                let mut uploaded = gpu.lift_with(&frame.materialise(), true).unwrap();
+                let transferred = gpu.land(&mut uploaded).unwrap();
+                gpu.put_down(uploaded);
+                assert_eq!(imported_pixels.data.len(), transferred.data.len());
+                for (a, b) in imported_pixels.data.iter().zip(transferred.data.iter()) {
+                    let d = a.abs_diff(*b);
+                    worst = worst.max(d);
+                    total += d as u64;
+                }
+                bytes += transferred.data.len() as u64;
+                compared += 1;
+            }
+            println!("{name}: {compared} pictures, worst level difference {worst}, mean {:.4}", total as f64 / bytes.max(1) as f64);
+            assert!(compared > 0 && worst <= 8, "{name}: imported pictures differ from the transfer by {worst} levels");
         }
     }
 
