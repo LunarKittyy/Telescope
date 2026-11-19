@@ -166,4 +166,19 @@ mod tests {
         let mut sender = backend().unwrap().open(&name, 8, 8).expect("the source should open");
         assert!(sender.send(&[0; 10]).is_err());
     }
+
+    #[test]
+    fn zz_trailing_sends_then_drop() {
+        let Ok(_) = Connection::shared() else { return eprintln!("skipped: PipeWire isn't running") };
+        let backend = backend().unwrap();
+        let pic = picture(64, 36);
+        for round in 0..40 {
+            let name = format!("Telescope send drop test {} {round}", std::process::id());
+            let mut sender = backend.open(&name, 64, 36).expect("the source should open");
+            for _ in 0..3 {
+                sender.send(&pic).unwrap();
+            }
+            drop(sender);
+        }
+    }
 }

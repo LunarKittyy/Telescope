@@ -192,6 +192,8 @@ impl Stream {
 impl Drop for Stream {
     fn drop(&mut self) {
         let lib = self.connection.lib();
+        // pw_stream_trigger_process only queues its work to the loop thread, which would find the stream gone
+        self.connection.drain_queue();
         self.connection.locked(|| {
             // SAFETY: the stream is live and destroyed once, with the loop locked so no callback is running
             unsafe { (lib.stream_destroy)(self.raw) };

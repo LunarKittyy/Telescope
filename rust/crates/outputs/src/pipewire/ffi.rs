@@ -243,6 +243,52 @@ pub unsafe fn core_sync(core: *mut c_void, seq: c_int) {
     }
 }
 
+/// What spa_loop_methods.invoke runs on the loop thread.
+type InvokeFunc = unsafe extern "C" fn(*mut c_void, bool, u32, *const c_void, usize, *mut c_void) -> c_int;
+
+unsafe extern "C" fn nothing(_loop: *mut c_void, _async: bool, _seq: u32, _data: *const c_void, _size: usize, _user: *mut c_void) -> c_int {
+    0
+}
+
+/// The head of spa_interface (type, version) and its callbacks (funcs, data), which is where a spa_loop starts.
+#[repr(C)]
+struct LoopInterface {
+    kind: *const c_char,
+    version: u32,
+    funcs: *const LoopMethods,
+    data: *mut c_void,
+}
+
+/// spa_loop_methods up to invoke.
+#[repr(C)]
+struct LoopMethods {
+    version: u32,
+    add_source: *const c_void,
+    update_source: *const c_void,
+    remove_source: *const c_void,
+    invoke: Option<unsafe extern "C" fn(*mut c_void, InvokeFunc, u32, *const c_void, usize, bool, *mut c_void) -> c_int>,
+}
+
+/// pw_loop_invoke with a do-nothing function and block set: returns once the loop thread has run everything queued to it before, such as a pw_stream_trigger_process.
+/// Needs: `pw_loop` must be a live pw_loop, and the thread loop must not be locked by the caller (the loop thread would wait for it and never run the call).
+pub unsafe fn loop_drain(pw_loop: *mut c_void) {
+    // SAFETY: a pw_loop starts with `system`, then `loop`, a pointer to the spa_loop whose interface head is LoopInterface
+    let interface = unsafe { *(pw_loop.cast::<*const LoopInterface>().add(1)) };
+    if interface.is_null() {
+        return;
+    }
+    // SAFETY: the interface is live as long as the loop is
+    let interface = unsafe { &*interface };
+    if interface.funcs.is_null() {
+        return;
+    }
+    // SAFETY: funcs is a spa_loop_methods table
+    if let Some(invoke) = unsafe { (*interface.funcs).invoke } {
+        // SAFETY: the method's signature is spa_loop_methods.invoke
+        unsafe { invoke(interface.data, nothing, 0, std::ptr::null(), 0, true, std::ptr::null_mut()) };
+    }
+}
+
 /// pw_registry_add_listener.
 /// Needs: `registry` must be live, and `hook` and `data` must outlive the listener.
 pub unsafe fn registry_add_listener(registry: *mut c_void, hook: *mut SpaHook, events: &'static RegistryEvents, data: *mut c_void) {
