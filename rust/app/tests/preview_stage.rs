@@ -505,6 +505,34 @@ fn a_stalled_stream_is_painted_again_at_the_new_size_of_the_popout() {
     assert_eq!(size(&p), (400, 225), "no new frame came, the same one is drawn for the new size");
 }
 
+#[test]
+fn a_popout_skips_hidden_frames_and_paints_the_latest_when_restored() {
+    let s = on_air("stage-popout-restore");
+    let p = s.pop_out();
+    let width = || match p.get_property("frame").unwrap() {
+        SValue::Image(image) => image.size().width,
+        other => panic!("frame is {other:?}"),
+    };
+    for minimized in [true, false] {
+        s.show(0, grey(32, 18));
+        assert_eq!(width(), 32);
+        if minimized {
+            p.window().set_minimized(true);
+        } else {
+            p.hide().unwrap();
+        }
+        s.show(0, blue(64, 36));
+        assert_eq!(width(), 32, "a hidden or minimised pop-out is not painted");
+        if minimized {
+            p.window().set_minimized(false);
+        } else {
+            p.show().unwrap();
+        }
+        s.r.w.paint_preview();
+        assert_eq!(width(), 64, "the latest frame shows even if the stream has stalled");
+    }
+}
+
 // The frame the stream stalled on may be one the card skipped: a resize still paints it
 #[test]
 fn a_stalled_stream_whose_last_frame_was_skipped_is_painted_at_the_new_size() {

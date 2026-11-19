@@ -35,9 +35,21 @@ struct State {
     revision: u32,
     /// Tray item ids clicked, "" for the icon itself.
     clicks: VecDeque<String>,
+    wake: Option<Arc<dyn Fn() + Send + Sync>>,
 }
 
 type Shared = Arc<Mutex<State>>;
+
+fn click(shared: &Shared, id: String) {
+    let wake = {
+        let mut st = shared.lock().unwrap();
+        st.clicks.push_back(id);
+        st.wake.clone()
+    };
+    if let Some(wake) = wake {
+        wake();
+    }
+}
 
 struct Item(Shared);
 
@@ -87,7 +99,7 @@ impl Item {
 
     /// A left click: the icon itself.
     fn activate(&self, _x: i32, _y: i32) {
-        self.0.lock().unwrap().clicks.push_back(String::new());
+        click(&self.0, String::new());
     }
     fn secondary_activate(&self, _x: i32, _y: i32) {}
     fn context_menu(&self, _x: i32, _y: i32) {}
@@ -144,9 +156,12 @@ impl Menu {
     }
 
     fn clicked(&self, id: i32) -> bool {
-        let mut st = self.0.lock().unwrap();
-        let Some(item) = usize::try_from(id - 1).ok().and_then(|i| st.items.get(i)).cloned() else { return false };
-        st.clicks.push_back(item.id);
+        let item = {
+            let st = self.0.lock().unwrap();
+            usize::try_from(id - 1).ok().and_then(|i| st.items.get(i)).cloned()
+        };
+        let Some(item) = item else { return false };
+        click(&self.0, item.id);
         true
     }
 }
@@ -282,6 +297,11 @@ impl Tray for SniTray {
     fn poll_click(&mut self) -> Option<String> {
         self.shared.lock().unwrap().clicks.pop_front()
     }
+
+    fn set_wake(&mut self, wake: Arc<dyn Fn() + Send + Sync>) -> bool {
+        self.shared.lock().unwrap().wake = Some(wake);
+        true
+    }
 }
 
 #[cfg(test)]
@@ -312,6 +332,24 @@ mod tests {
 
     fn item(i: &str, title: &str) -> TrayItem {
         TrayItem { id: i.into(), title: title.into(), checkable: false, checked: false, visible: true, enabled: true }
+    }
+
+    #[test]
+    fn clicks_wake_after_they_are_queued_without_holding_the_lock() {
+        let shared = Shared::default();
+        shared.lock().unwrap().items = vec![item("show", "Show")];
+        let weak = Arc::downgrade(&shared);
+        let (sent, received) = std::sync::mpsc::channel();
+        shared.lock().unwrap().wake = Some(Arc::new(move || {
+            let shared = weak.upgrade().unwrap();
+            let st = shared.try_lock().expect("a wake must be able to read the clicks");
+            sent.send(st.clicks.back().cloned().unwrap()).unwrap();
+        }));
+        Item(shared.clone()).activate(0, 0);
+        assert!(Menu(shared.clone()).clicked(1));
+        assert!(!Menu(shared.clone()).clicked(99));
+        assert_eq!(received.try_iter().collect::<Vec<_>>(), ["", "show"]);
+        assert_eq!(shared.lock().unwrap().clicks.iter().cloned().collect::<Vec<_>>(), ["", "show"]);
     }
 
     #[test]

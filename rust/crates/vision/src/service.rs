@@ -9,6 +9,7 @@
 use crate::ops::{add_weighted, firm_mask, mask_resized, model_input, people_size, turned, Motion, Rgb, MODEL_SIZE};
 use std::collections::{BTreeSet, HashMap};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Condvar, Mutex, Weak};
 use std::thread::JoinHandle;
 use telescope_core::pose::Person;
@@ -279,7 +280,7 @@ pub(crate) struct Inner {
     pub(crate) streams: Mutex<HashMap<String, Arc<StreamVision>>>,
     people_wanted: Mutex<BTreeSet<String>>,
     ms: Mutex<HashMap<&'static str, Vec<f64>>>,
-    tidier: Mutex<bool>,
+    tidier: Mutex<Option<Sender<()>>>,
     closed: AtomicBool,
     callback_lock: Mutex<()>,
     pub(crate) saving: AtomicBool,
@@ -329,7 +330,7 @@ impl Vision {
             streams: Mutex::new(HashMap::new()),
             people_wanted: Mutex::new(BTreeSet::new()),
             ms: Mutex::new(HashMap::new()),
-            tidier: Mutex::new(false),
+            tidier: Mutex::new(None),
             closed: AtomicBool::new(false),
             callback_lock: Mutex::new(()),
             saving: AtomicBool::new(false),
@@ -759,10 +760,12 @@ impl Vision {
         streams.insert(key.to_string(), sv.clone());
         drop(streams);
         let mut tidier = self.inner.tidier.lock().unwrap();
-        if !*tidier {
-            *tidier = true;
+        if tidier.is_none() && !self.inner.closed.load(Ordering::SeqCst) {
+            let (quit, stopped) = mpsc::channel();
             let weak = Arc::downgrade(&self.inner);
-            let _ = std::thread::Builder::new().name("vision-tidy".into()).spawn(move || tidy_loop(weak));
+            if std::thread::Builder::new().name("vision-tidy".into()).spawn(move || tidy_loop(weak, stopped)).is_ok() {
+                *tidier = Some(quit);
+            }
         }
         sv
     }
@@ -839,6 +842,7 @@ impl Vision {
             let _held = self.inner.callback_lock.lock().unwrap();
             self.inner.closed.store(true, Ordering::SeqCst);
         }
+        drop(self.inner.tidier.lock().unwrap().take());
         let keys: Vec<String> = self.inner.streams.lock().unwrap().keys().cloned().collect();
         for key in keys {
             self.drop_stream(&key);
@@ -988,20 +992,14 @@ impl Inner {
     }
 }
 
-fn tidy_loop(inner: Weak<Inner>) {
-    let step = std::time::Duration::from_millis(100);
-    let mut waited = 0.0;
-    loop {
-        std::thread::sleep(step);
-        waited += step.as_secs_f64();
+fn tidy_loop(inner: Weak<Inner>, stopped: Receiver<()>) {
+    let every = std::time::Duration::from_secs_f64(TIDY_EVERY_S);
+    while stopped.recv_timeout(every) == Err(RecvTimeoutError::Timeout) {
         let Some(strong) = inner.upgrade() else { return };
         if strong.closed.load(Ordering::SeqCst) {
             return;
         }
-        if waited >= TIDY_EVERY_S {
-            waited = 0.0;
-            Vision { inner: strong }.tidy(None);
-        }
+        Vision { inner: strong }.tidy(None);
     }
 }
 

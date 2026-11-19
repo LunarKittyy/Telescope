@@ -1,5 +1,6 @@
 package com.telescope
 
+import java.nio.ByteBuffer
 import java.util.ArrayDeque
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
@@ -34,8 +35,6 @@ object H264Stream {
     // ended when the next one starts, so without it every frame would wait for the one after.
     val AUD = byteArrayOf(0, 0, 0, 1, 0x09, 0xF0.toByte())
 
-    fun withDelimiter(packet: ByteArray): ByteArray = packet + AUD
-
     // "TELESCOPE-TIME11": the user_data_unregistered UUID that marks the capture time SEI
     private val TIME_UUID = "TELESCOPE-TIME11".toByteArray(Charsets.US_ASCII)
 
@@ -61,9 +60,16 @@ object H264Stream {
         return head + TIME_UUID + escaped.toByteArray() + byteArrayOf(0x80.toByte())
     }
 
-    /** [packet] with its capture time SEI in front, or as it is when the clock is unknown. */
-    fun withCaptureTime(packet: ByteArray, realtime: Boolean?, timeNs: Long): ByteArray =
-        if (realtime == null) packet else captureTimeSei(realtime, timeNs) + packet
+    // Read the codec bytes straight into the packet, between its capture time and delimiter
+    fun packet(codec: ByteBuffer, realtime: Boolean?, timeNs: Long): ByteArray {
+        val sei = captureTimeSei(realtime, timeNs)
+        val size = codec.remaining()
+        val packet = ByteArray(sei.size + size + AUD.size)
+        sei.copyInto(packet)
+        codec.get(packet, sei.size, size)
+        AUD.copyInto(packet, sei.size + size)
+        return packet
+    }
 
     // 0 asks for the default; anything else is clamped to what the desktop's slider offers.
     fun bitrateFor(requested: Int, width: Int, height: Int, fps: Int): Int =

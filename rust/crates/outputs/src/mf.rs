@@ -42,6 +42,17 @@ pub struct Header {
     pub frame_format: u32,
 }
 
+impl Header {
+    fn reader_size(&self) -> Option<(u32, u32)> {
+        let (w, h) = (self.consumer_width, self.consumer_height);
+        if self.consumer_state != 1 || w == 0 || h == 0 || w % 2 == 1 || h % 2 == 1
+            || w as u64 * h as u64 * 3 / 2 > self.data_capacity as u64 {
+            return None;
+        }
+        Some((w, h))
+    }
+}
+
 fn u32_at(b: &[u8], at: usize) -> u32 {
     u32::from_le_bytes(b[at..at + 4].try_into().unwrap())
 }
@@ -88,13 +99,7 @@ impl SharedView {
 
     /// The size the app reading the camera picked, if one is reading and it's a size frames fit in.
     pub fn reader_size(&mut self) -> Option<(u32, u32)> {
-        let h = self.header();
-        let (w, ht) = (h.consumer_width, h.consumer_height);
-        if h.consumer_state != 1 || w == 0 || ht == 0 || w % 2 == 1 || ht % 2 == 1
-            || w as u64 * ht as u64 * 3 / 2 > h.data_capacity as u64 {
-            return None;
-        }
-        Some((w, ht))
+        self.header().reader_size()
     }
 
     /// Writes an I420 frame of exactly the reader's size as NV12, with the counter odd while it's half written.
@@ -126,13 +131,14 @@ pub struct MfCamera {
     beat: Option<u64>,
     beat_at: Instant,
     linger: Duration,
+    last_write: Option<(Instant, u32, u32)>,
     /// Whether the slot still goes to the Windows 11 camera.
     still_mf: Box<dyn Fn() -> bool + Send>,
 }
 
 impl MfCamera {
     pub fn new(width: u32, height: u32, device: String, open: Opener, still_mf: Box<dyn Fn() -> bool + Send>) -> MfCamera {
-        MfCamera { width, height, device, open, view: None, beat: None, beat_at: Instant::now(), linger: WATCH_LINGER, still_mf }
+        MfCamera { width, height, device, open, view: None, beat: None, beat_at: Instant::now(), linger: WATCH_LINGER, last_write: None, still_mf }
     }
 
     /// The shared memory while an app reads the camera. Let go of once it stops (or stops asking for frames), so the
@@ -150,6 +156,7 @@ impl MfCamera {
             }
         }
         if self.view.is_none() {
+            self.last_write = None;
             self.view = (self.open)();
             if let Some(view) = self.view.as_mut() {
                 self.beat = Some(view.header().heartbeat);
@@ -162,22 +169,36 @@ impl MfCamera {
     pub fn is_open(&self) -> bool {
         self.view.is_some()
     }
-}
 
-impl VideoOutput for MfCamera {
-    fn send(&mut self, frame: &Frame) -> Result<(), String> {
+    fn send_at(&mut self, frame: &Frame, now: Instant) -> Result<(), String> {
         if !matches!(frame.format, PixelFormat::I420 | PixelFormat::Rgba) {
             return Err(format!("The Windows 11 camera takes I420 or RGBA frames, not {:?}", frame.format));
         }
         // No converting for a picture no app is there to see
-        let Some(view) = self.reader() else { return Ok(()) };
-        let Some((w, h)) = view.reader_size() else { return Ok(()) };
+        let Some(header) = self.reader().map(SharedView::header) else { return Ok(()) };
+        let Some((w, h)) = header.reader_size() else { return Ok(()) };
+        if let Some((at, width, height)) = self.last_write {
+            if (w, h) == (width, height) && header.consumer_fps != 0 {
+                // A frame that comes a little early still counts, so jitter never drops a frame at the consumer's own rate.
+                let period = Duration::from_secs_f64(0.75 / header.consumer_fps.clamp(1, 240) as f64);
+                if now - at < period {
+                    return Ok(());
+                }
+            }
+        }
         let frame = match frame.format {
             PixelFormat::Rgba => rgb_to_i420(&frame.data, frame.width, frame.height, 4, false),
             _ => frame.clone(),
         };
-        view.write(&fit_frame(&frame, w, h));
+        self.view.as_mut().unwrap().write(&fit_frame(&frame, w, h));
+        self.last_write = Some((now, w, h));
         Ok(())
+    }
+}
+
+impl VideoOutput for MfCamera {
+    fn send(&mut self, frame: &Frame) -> Result<(), String> {
+        self.send_at(frame, Instant::now())
     }
 
     fn size(&self) -> (u32, u32) {
@@ -289,6 +310,9 @@ pub(crate) mod tests {
                 b[at] = value;
             }
         }
+        fn set_fps(&self, fps: u32) {
+            self.buf.lock().unwrap().as_mut().unwrap()[28..32].copy_from_slice(&fps.to_le_bytes());
+        }
     }
 
     fn cam(o: &Opener, w: u32, h: u32) -> MfCamera {
@@ -306,14 +330,97 @@ pub(crate) mod tests {
         let mut c = cam(&o, 8, 4);
         let data: Vec<u8> = (0..48u8).collect();
         let frame = Frame::new(8, 4, PixelFormat::I420, data.clone());
-        send(&mut c, &o, &frame);
+        let now = Instant::now();
+        c.send_at(&frame, now).unwrap();
         let buf = o.buf.lock().unwrap().clone().unwrap();
         assert_eq!(&buf[64..96], &data[..32]);
         let (u, v): (Vec<u8>, Vec<u8>) = (buf[96..].iter().step_by(2).copied().collect(), buf[97..].iter().step_by(2).copied().collect());
         assert_eq!((u.as_slice(), v.as_slice()), (&data[32..40], &data[40..48]));
         let h = o.header();
         assert_eq!((h.counter, h.frame_width, h.frame_height, h.frame_format), (2, 8, 4, NV12));
-        send(&mut c, &o, &frame);
+        c.send_at(&frame, now + Duration::from_millis(34)).unwrap();
+        assert_eq!(o.header().counter, 4);
+    }
+
+    #[test]
+    fn sixty_fps_into_thirty_writes_every_second_frame_despite_jitter() {
+        let o = Opener::new(Some(reading(8, 4)));
+        let mut c = cam(&o, 8, 4);
+        let frame = grey(8, 4, 235);
+        let now = Instant::now();
+        for i in 0..60 {
+            let elapsed = Duration::from_micros(i * 16_667 - (i % 3) * 200);
+            c.send_at(&frame, now + elapsed).unwrap();
+            assert_eq!(o.header().counter, 2 * (i / 2 + 1), "frame {i}");
+        }
+    }
+
+    #[test]
+    fn a_zero_consumer_rate_writes_every_frame() {
+        let o = Opener::new(Some(reading(8, 4)));
+        o.set_fps(0);
+        let mut c = cam(&o, 8, 4);
+        let now = Instant::now();
+        for i in 1..=60 {
+            c.send_at(&grey(8, 4, 235), now).unwrap();
+            assert_eq!(o.header().counter, i * 2);
+        }
+    }
+
+    #[test]
+    fn consumer_rate_changes_apply_to_the_next_frame() {
+        let o = Opener::new(Some(reading(8, 4)));
+        let mut c = cam(&o, 8, 4);
+        let frame = grey(8, 4, 235);
+        let now = Instant::now();
+        c.send_at(&frame, now).unwrap();
+        c.send_at(&frame, now + Duration::from_millis(16)).unwrap();
+        assert_eq!(o.header().counter, 2);
+        o.set_fps(60);
+        c.send_at(&frame, now + Duration::from_millis(16)).unwrap();
+        assert_eq!(o.header().counter, 4);
+        o.set_fps(15);
+        c.send_at(&frame, now + Duration::from_millis(56)).unwrap();
+        assert_eq!(o.header().counter, 4);
+        c.send_at(&frame, now + Duration::from_millis(76)).unwrap();
+        assert_eq!(o.header().counter, 6);
+        o.set_fps(0);
+        c.send_at(&frame, now + Duration::from_millis(76)).unwrap();
+        assert_eq!(o.header().counter, 8);
+    }
+
+    #[test]
+    fn the_first_frame_after_open_or_resize_is_always_written() {
+        let o = Opener::new(None);
+        let mut c = cam(&o, 8, 4);
+        let frame = grey(8, 4, 235);
+        let now = Instant::now();
+        c.send_at(&frame, now).unwrap();
+        *o.buf.lock().unwrap() = Some(reading(8, 4));
+        c.send_at(&frame, now).unwrap();
+        assert_eq!(o.header().counter, 2);
+        o.set(20, 4);
+        c.send_at(&frame, now).unwrap();
+        assert_eq!((o.header().counter, o.header().frame_width), (4, 4));
+        *o.buf.lock().unwrap() = None;
+        c.send_at(&frame, now).unwrap();
+        assert!(!c.is_open());
+        *o.buf.lock().unwrap() = Some(reading(4, 4));
+        c.send_at(&frame, now).unwrap();
+        assert_eq!(o.header().counter, 2);
+    }
+
+    #[test]
+    fn consumer_rates_above_240_are_clamped() {
+        let o = Opener::new(Some(reading(8, 4)));
+        o.set_fps(u32::MAX);
+        let mut c = cam(&o, 8, 4);
+        let frame = grey(8, 4, 235);
+        let now = Instant::now();
+        c.send_at(&frame, now).unwrap();
+        c.send_at(&frame, now + Duration::from_micros(3_124)).unwrap();
+        assert_eq!(o.header().counter, 2);
+        c.send_at(&frame, now + Duration::from_micros(3_125)).unwrap();
         assert_eq!(o.header().counter, 4);
     }
 

@@ -27,22 +27,42 @@ object UdpWire {
     const val HELLO: Byte = 3     // the desktop's keepalive, which also keeps its firewall open for the replies
     const val REPORT: Byte = 4    // what got through, for Dynamic (UdpReport)
 
-    // One frame cut into datagram-sized plaintexts
-    fun fragments(frame: Int, data: ByteArray, key: Boolean): List<ByteArray> {
-        val count = maxOf(1, (data.size + MAX_PAYLOAD - 1) / MAX_PAYLOAD)
+    fun fragmentCount(size: Int): Int {
+        val count = maxOf(1, size / MAX_PAYLOAD + if (size % MAX_PAYLOAD == 0) 0 else 1)
         require(count <= 0xFFFF) { "frame too big" }
-        return (0 until count).map { i ->
-            val from = i * MAX_PAYLOAD
-            val to = minOf(data.size, from + MAX_PAYLOAD)
-            ByteBuffer.allocate(HEADER + to - from).apply {
-                putInt(frame); putShort(i.toShort()); putShort(count.toShort()); put((if (key) FLAG_KEY else 0).toByte())
-                put(data, from, to - from)
-            }.array()
-        }
+        return count
+    }
+
+    fun fragmentSize(frame: UdpFrame, index: Int): Int {
+        require(index in 0 until frame.count)
+        return HEADER + minOf(MAX_PAYLOAD, frame.data.size - index * MAX_PAYLOAD)
+    }
+
+    // Write one fragment into the sender's buffer, with the same big-endian header as before
+    fun writeFragment(frame: UdpFrame, index: Int, out: ByteArray): Int {
+        val length = fragmentSize(frame, index)
+        require(out.size >= length)
+        out[0] = (frame.seq ushr 24).toByte()
+        out[1] = (frame.seq ushr 16).toByte()
+        out[2] = (frame.seq ushr 8).toByte()
+        out[3] = frame.seq.toByte()
+        out[4] = (index ushr 8).toByte()
+        out[5] = index.toByte()
+        out[6] = (frame.count ushr 8).toByte()
+        out[7] = frame.count.toByte()
+        out[FLAGS_AT] = (if (frame.key) FLAG_KEY else 0).toByte()
+        val from = index * MAX_PAYLOAD
+        frame.data.copyInto(out, HEADER, from, from + length - HEADER)
+        return length
     }
 
     fun nonce(direction: Byte, counter: Long): ByteArray =
         ByteBuffer.allocate(12).put(direction).put(0).put(0).put(0).putLong(counter).array()
+}
+
+// Retain the frame once; repairs only need a reference to it and a fragment index
+class UdpFrame(val seq: Int, val data: ByteArray, val key: Boolean) {
+    val count = UdpWire.fragmentCount(data.size)
 }
 
 // The desktop's report on what got through. Its counts only ever grow (wrapping at 32 bits), so a lost report costs nothing.
@@ -239,13 +259,14 @@ class UdpSeal(key: ByteArray, private val direction: Byte) {
 
     /** [seal] into [out] (counter, then the sealed bytes) instead of a new array; the datagram's length, or -1 if [out] is too small. */
     @Synchronized
-    fun sealInto(plain: ByteArray, out: ByteArray): Int {
-        val size = 8 + plain.size + TAG
+    fun sealInto(plain: ByteArray, out: ByteArray, length: Int = plain.size): Int {
+        require(length in 0..plain.size)
+        val size = 8 + length + TAG
         if (out.size < size) return -1
         val n = counter++
         cipher.init(Cipher.ENCRYPT_MODE, spec, GCMParameterSpec(128, UdpWire.nonce(direction, n)))
         ByteBuffer.wrap(out, 0, 8).putLong(n)
-        cipher.doFinal(plain, 0, plain.size, out, 8)
+        cipher.doFinal(plain, 0, length, out, 8)
         return size
     }
 
@@ -315,7 +336,7 @@ class UdpPacer(private val burst: Int = UdpVideoClient.PACE_BURST) {
 // What the sender does next: a live frame, or a datagram the desktop asked for again
 sealed class UdpJob {
     class Live(val frame: ByteArray, val key: Boolean, val atMs: Long, val pacedAtMs: Long = 0) : UdpJob()
-    class Repair(val plain: ByteArray) : UdpJob()
+    class Repair(val frame: UdpFrame, val index: Int) : UdpJob()
 }
 
 /**
@@ -334,7 +355,7 @@ class UdpSendQueue(
     private val onStale: (waitedMs: Long) -> Unit = {},  // frames dropped unsent, and how long the oldest had waited
     private val paced: () -> Long = { 0L },  // milliseconds the sender has slept on its pacing so far
 ) {
-    private class Wanted(val id: Long, val plain: ByteArray, val key: Boolean, val expiresMs: Long)
+    private class Wanted(val id: Long, val frame: UdpFrame, val index: Int, val expiresMs: Long)
 
     private val lock = ReentrantLock()
     private val ready = lock.newCondition()
@@ -369,14 +390,12 @@ class UdpSendQueue(
         return ask
     }
 
-    /**
-     * Queue one datagram of frame [seq] to go out again; false when it's already waiting or too many are. A keyframe's
-     * datagrams ([key]) are exempt from the rate: without them the desktop gives up and asks for another keyframe.
-     */
-    fun offerRepair(seq: Int, index: Int, plain: ByteArray, key: Boolean = false): Boolean = lock.withLock {
-        val id = (seq.toLong() shl 16) or index.toLong()
+    // Queue a fragment once while it waits; keyframe repairs are exempt from the rate
+    fun offerRepair(frame: UdpFrame, index: Int): Boolean = lock.withLock {
+        if (index !in 0 until frame.count) return false
+        val id = (frame.seq.toLong() shl 16) or index.toLong()
         if (repairs.size >= UdpVideoClient.REPAIR_QUEUE || !wanted.add(id)) return false
-        repairs.add(Wanted(id, plain, key, clock() + UdpVideoClient.REPAIR_TTL_MS))
+        repairs.add(Wanted(id, frame, index, clock() + UdpVideoClient.REPAIR_TTL_MS))
         ready.signalAll()
         true
     }
@@ -394,11 +413,11 @@ class UdpSendQueue(
                 if (waited >= 0) { dropped = maxOf(dropped, waited); if (cleared) ask = true }
                 dropExpired(now)
                 refill(now)
-                if (repairs.isNotEmpty() && (credit > 0 || repairs.peek()!!.key)) {
+                if (repairs.isNotEmpty() && (credit > 0 || repairs.peek()!!.frame.key)) {
                     val r = repairs.remove()
                     wanted.remove(r.id)
-                    if (!r.key) credit -= r.plain.size
-                    job = UdpJob.Repair(r.plain)
+                    if (!r.frame.key) credit -= UdpWire.fragmentSize(r.frame, r.index)
+                    job = UdpJob.Repair(r.frame, r.index)
                 } else {
                     job = live.poll()
                 }
@@ -458,9 +477,12 @@ class UdpTransmitter(
     private val link: UdpLink,
     private val clockNs: () -> Long,
     private val sleepNs: (Long) -> Unit,
-    private val emit: (ByteArray) -> Unit,
+    private val emit: (ByteArray, Int) -> Unit,
     private val pacer: UdpPacer = UdpPacer(),
 ) {
+    // Only the sender thread uses this buffer, and emit finishes reading it before returning
+    private val plainBuf = ByteArray(UdpWire.HEADER + UdpWire.MAX_PAYLOAD)
+
     /** Bits per second Dynamic spreads datagrams out at (UdpVideoClient.paceFor), 0 for as fast as they go. */
     @Volatile var paceBps = 0
 
@@ -470,14 +492,18 @@ class UdpTransmitter(
     val pacedMs: Long get() = pacedNs / 1_000_000
 
     // Everything but the sleeps since the frame queued (pacedAtMs, from UdpJob.Live) counts as its wait: also a send that blocks
-    fun frame(seq: Int, parts: List<ByteArray>, queuedMs: Long, pacedAtMs: Long) {
-        for (part in parts) { pace(part.size); emit(part) }
+    fun frame(frame: UdpFrame, queuedMs: Long, pacedAtMs: Long) {
+        for (index in 0 until frame.count) repair(frame, index)
         val nowMs = clockNs() / 1_000_000
-        link.sent(seq, queuedMs, nowMs, startedMs = nowMs - (pacedMs - pacedAtMs))
+        link.sent(frame.seq, queuedMs, nowMs, startedMs = nowMs - (pacedMs - pacedAtMs))
     }
 
     // Beside the live frames, on the same schedule
-    fun repair(plain: ByteArray) { pace(plain.size); emit(plain) }
+    fun repair(frame: UdpFrame, index: Int) {
+        pace(UdpWire.fragmentSize(frame, index))
+        val length = UdpWire.writeFragment(frame, index, plainBuf)
+        emit(plainBuf, length)
+    }
 
     // A keyframe going out in one burst can overflow a router's buffer on a thin link, which then loses it
     private fun pace(bytes: Int) {
@@ -516,8 +542,8 @@ class UdpVideoClient(
     var paceBps: Int
         get() = transmitter.paceBps
         set(value) { transmitter.paceBps = value; queue.repairBps = repairBpsFor(value) }
-    private val sent = object : LinkedHashMap<Int, List<ByteArray>>() {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, List<ByteArray>>) = size > KEEP_FRAMES
+    private val sent = object : LinkedHashMap<Int, UdpFrame>() {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Int, UdpFrame>) = size > KEEP_FRAMES
     }
     private var frameSeq = 0
     private var lastKeyAskMs = 0L
@@ -562,13 +588,12 @@ class UdpVideoClient(
                 when (val job = queue.poll(500) ?: continue) {
                     is UdpJob.Live -> {
                         // A keyframe carries the encoder's setup, so a desktop can start from any of them
-                        val data = if (job.key) (config() ?: ByteArray(0)) + job.frame else job.frame
-                        val seq = frameSeq++
-                        val parts = UdpWire.fragments(seq, H264Stream.withDelimiter(data), job.key)
-                        synchronized(sent) { sent[seq] = parts }
-                        transmitter.frame(seq, parts, job.atMs, job.pacedAtMs)
+                        val data = if (job.key) config()?.let { it + job.frame } ?: job.frame else job.frame
+                        val frame = UdpFrame(frameSeq++, data, job.key)
+                        synchronized(sent) { sent[frame.seq] = frame }
+                        transmitter.frame(frame, job.atMs, job.pacedAtMs)
                     }
-                    is UdpJob.Repair -> transmitter.repair(job.plain)
+                    is UdpJob.Repair -> transmitter.repair(job.frame, job.index)
                 }
             }
         } catch (_: InterruptedException) {
@@ -600,13 +625,12 @@ class UdpVideoClient(
                 if (plain.size < 5) return
                 val b = ByteBuffer.wrap(plain, 1, plain.size - 1)
                 val seq = b.int
-                val parts = synchronized(sent) { sent[seq] } ?: return
+                val frame = synchronized(sent) { sent[seq] } ?: return
                 // Sent by the sender thread, paced and for a little while only: this thread has reports to read
-                val key = parts.firstOrNull()?.let { it[UdpWire.FLAGS_AT].toInt() and UdpWire.FLAG_KEY != 0 } ?: false
-                if (!b.hasRemaining()) parts.forEachIndexed { i, part -> queue.offerRepair(seq, i, part, key) }
+                if (!b.hasRemaining()) for (i in 0 until frame.count) queue.offerRepair(frame, i)
                 while (b.remaining() >= 2) {
                     val i = b.short.toInt() and 0xFFFF
-                    parts.getOrNull(i)?.let { queue.offerRepair(seq, i, it, key) }
+                    queue.offerRepair(frame, i)
                 }
             }
             UdpWire.REPORT -> UdpReport.parse(plain)?.let { link.report(it, nowMs()) }
@@ -617,19 +641,14 @@ class UdpVideoClient(
         }
     }
 
-    private fun send(plain: ByteArray) {
+    private fun send(plain: ByteArray, plainLength: Int) {
         if (closed) return
         // Only the sender thread gets here, so one buffer and packet do for every datagram
-        val length = out.sealInto(plain, sendBuf)
+        val length = out.sealInto(plain, sendBuf, plainLength)
         try {
-            if (length >= 0) {
-                outPacket.setData(sendBuf, 0, length)
-                outPacket.socketAddress = peer
-                udp.send(outPacket)
-            } else {
-                val sealed = out.seal(plain)
-                udp.send(DatagramPacket(sealed, sealed.size, peer))
-            }
+            outPacket.setData(sendBuf, 0, length)
+            outPacket.socketAddress = peer
+            udp.send(outPacket)
         } catch (_: Exception) {}
     }
 

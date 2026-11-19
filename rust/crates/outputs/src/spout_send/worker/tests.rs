@@ -12,6 +12,7 @@ pub struct Log {
     pub resizable: AtomicBool,
     pub resized: Mutex<Vec<(u32, u32)>>,
     pub panic_open: AtomicBool,
+    pub no_reader: AtomicBool,
 }
 
 pub struct Mock(pub Arc<Log>);
@@ -32,6 +33,10 @@ impl Backend for Mock {
 }
 
 impl Sender for MockSender {
+    fn wants_frame(&self) -> bool {
+        !self.0.no_reader.load(Ordering::SeqCst)
+    }
+
     fn resize(&mut self, width: u32, height: u32) -> Result<bool, String> {
         if self.0.resizable.load(Ordering::SeqCst) {
             self.0.resized.lock().unwrap().push((width, height));

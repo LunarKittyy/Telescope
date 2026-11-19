@@ -5,12 +5,23 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import java.nio.ByteBuffer
 
 class UdpVideoTest {
     private val key = ByteArray(32) { it.toByte() }
     private fun hex(s: String) = s.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+
+    private fun oldFragment(seq: Int, data: ByteArray, key: Boolean, index: Int): ByteArray {
+        val count = maxOf(1, (data.size + UdpWire.MAX_PAYLOAD - 1) / UdpWire.MAX_PAYLOAD)
+        val from = index * UdpWire.MAX_PAYLOAD
+        val to = minOf(data.size, from + UdpWire.MAX_PAYLOAD)
+        return ByteBuffer.allocate(UdpWire.HEADER + to - from).apply {
+            putInt(seq); putShort(index.toShort()); putShort(count.toShort()); put((if (key) UdpWire.FLAG_KEY else 0).toByte())
+            put(data, from, to - from)
+        }.array()
+    }
 
     private class Session(authorized: () -> Boolean = { true }, timeoutMs: Long = 2000L) : java.io.Closeable {
         val desktop = java.net.DatagramSocket(0, java.net.InetAddress.getLoopbackAddress())
@@ -160,12 +171,15 @@ class UdpVideoTest {
         val a = UdpSeal(key, UdpWire.TO_DESKTOP)
         val b = UdpSeal(key, UdpWire.TO_DESKTOP)
         val buf = ByteArray(2048) { 7 }
-        repeat(3) { i ->
-            val plain = ByteArray(10 + i * 400) { (it + i).toByte() }
-            val length = a.sealInto(plain, buf)
-            assertArrayEquals(b.seal(plain), buf.copyOf(length))
+        val plain = ByteArray(UdpWire.HEADER + UdpWire.MAX_PAYLOAD) { it.toByte() }
+        for (size in listOf(plain.size, 810, 10, 0)) {
+            val length = a.sealInto(plain, buf, size)
+            assertEquals(8 + size + UdpSeal.TAG, length)
+            assertArrayEquals(b.seal(plain.copyOf(size)), buf.copyOf(length))
         }
         assertEquals(-1, a.sealInto(ByteArray(100), ByteArray(50)))
+        val length = a.sealInto(plain, buf)
+        assertArrayEquals(b.seal(plain), buf.copyOf(length))
     }
 
     @Test
@@ -193,18 +207,44 @@ class UdpVideoTest {
     }
 
     @Test
-    fun `a frame is cut into numbered pieces that put back together`() {
-        val data = ByteArray(2500) { (it % 251).toByte() }
-        val parts = UdpWire.fragments(7, data, key = true)
-        assertEquals(3, parts.size)
-        val back = parts.map { p ->
-            val b = ByteBuffer.wrap(p)
-            assertEquals(7, b.int)
-            val idx = b.short.toInt(); assertEquals(3, b.short.toInt()); assertEquals(UdpWire.FLAG_KEY, b.get().toInt())
-            idx to p.copyOfRange(UdpWire.HEADER, p.size)
-        }.sortedBy { it.first }.flatMap { it.second.toList() }
-        assertArrayEquals(data, back.toByteArray())
-        assertEquals(1, UdpWire.fragments(1, ByteArray(0), key = false).size)
+    fun `fragments match the old header and payload bytes`() {
+        val buf = ByteArray(UdpWire.HEADER + UdpWire.MAX_PAYLOAD) { 7 }
+        val sizes = listOf(0, 1, 1100, 1101, 3000, 300_000)
+        for (key in listOf(false, true)) {
+            for (size in sizes) {
+                val data = ByteArray(size) { (it % 251).toByte() }
+                val frame = UdpFrame(0x89ABCDEF.toInt(), data, key)
+                assertEquals(maxOf(1, (size + 1099) / 1100), frame.count)
+                val back = java.io.ByteArrayOutputStream()
+                for (index in 0 until frame.count) {
+                    val length = UdpWire.writeFragment(frame, index, buf)
+                    assertEquals(UdpWire.fragmentSize(frame, index), length)
+                    assertArrayEquals(oldFragment(frame.seq, data, key, index), buf.copyOf(length))
+                    back.write(buf, UdpWire.HEADER, length - UdpWire.HEADER)
+                }
+                assertArrayEquals(data, back.toByteArray())
+            }
+        }
+    }
+
+    @Test
+    fun `live frames and repairs use the same buffer and send only their fragment bytes`() {
+        val frame = UdpFrame(7, ByteArray(3000) { (it % 251).toByte() }, key = true)
+        val parts = mutableListOf<ByteArray>()
+        var buffer: ByteArray? = null
+        val transmitter = UdpTransmitter(UdpLink(), { 0L }, {}, { plain, length ->
+            buffer?.let { assertSame(it, plain) }
+            buffer = plain
+            parts.add(plain.copyOf(length))
+        })
+        transmitter.frame(frame, 0, 0)
+        transmitter.repair(frame, 2)
+        val empty = UdpFrame(8, ByteArray(0), key = false)
+        transmitter.frame(empty, 0, 0)
+        assertEquals(5, parts.size)
+        repeat(frame.count) { assertArrayEquals(oldFragment(frame.seq, frame.data, frame.key, it), parts[it]) }
+        assertArrayEquals(parts[2], parts[3])
+        assertArrayEquals(oldFragment(empty.seq, empty.data, empty.key, 0), parts[4])
     }
 
     @Test
@@ -242,17 +282,30 @@ class UdpVideoTest {
             desktop.send(java.net.DatagramPacket(sealed, sealed.size, java.net.InetAddress.getLoopbackAddress(), phonePort))
         }
 
-        client.offer(ByteArray(10), key = false)  // nothing goes before a keyframe
-        client.offer(ByteArray(3000) { 7 }, key = true)
+        val packet = ByteArray(3000) { 7 } + H264Stream.AUD
+        val data = byteArrayOf(9, 9) + packet
+        client.offer(ByteArray(10) + H264Stream.AUD, key = false)  // nothing goes before a keyframe
+        client.offer(packet, key = true)
         val first = receive()
+        assertArrayEquals(oldFragment(0, data, true, 0), first.array())
         assertEquals(0, first.int)  // frame 0
         val count = run { first.short; first.short.toInt() }
         assertEquals(3, count)
-        repeat(count - 1) { receive() }
+        repeat(count - 1) { assertArrayEquals(oldFragment(0, data, true, it + 1), receive().array()) }
 
         tell(ByteBuffer.allocate(7).put(UdpWire.NACK).putInt(0).putShort(1).array())
         val again = receive()
+        assertArrayEquals(oldFragment(0, data, true, 1), again.array())
         assertEquals(0, again.int); assertEquals(1, again.short.toInt())
+
+        tell(ByteBuffer.allocate(7).put(UdpWire.NACK).putInt(0).putShort(2).array())
+        assertArrayEquals(oldFragment(0, data, true, 2), receive().array())
+        tell(ByteBuffer.allocate(5).put(UdpWire.NACK).putInt(0).array())
+        repeat(count) { assertArrayEquals(oldFragment(0, data, true, it), receive().array()) }
+
+        val next = byteArrayOf(1) + H264Stream.AUD
+        client.offer(next, key = false)
+        assertArrayEquals(oldFragment(1, next, false, 0), receive().array())
 
         tell(byteArrayOf(UdpWire.KEYFRAME))
         val deadline = System.currentTimeMillis() + 2000
