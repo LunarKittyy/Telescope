@@ -844,6 +844,28 @@ fn scaling_a_region_is_the_same_as_the_scalar_halves_and_linear_step() {
     }
 }
 
+#[test]
+fn the_plain_loops_scale_a_region_to_the_same_bytes_as_avx2_and_the_reference() {
+    let mut seed = 11u64;
+    let mut next = |m: usize| {
+        seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        (seed >> 33) as usize % m
+    };
+    // one-pixel wide, tall and both, then random crops of bigger planes, a few banded
+    let mut cases = vec![((1usize, 1usize), (1usize, 1usize)), ((1, 1), (3, 2)), ((1, 40), (1, 7)), ((40, 1), (7, 1)), ((1, 9), (4, 1)), ((2, 2), (1, 1)), ((1, 700), (1, 90)), ((700, 1), (90, 1)), ((2400, 900), (300, 113))];
+    cases.extend((0..40).map(|_| ((1 + next(150), 1 + next(150)), (1 + next(170), 1 + next(170)))));
+    for ch in [1usize, 3, 4] {
+        for (i, &((w, h), (w2, h2))) in cases.iter().enumerate() {
+            let data = noise(w + 3, h + 2, ch, (i * 17 + ch) as u64);
+            let region = Region { data: &data, stride: w + 3, ch, x0: 2, y0: 1, w, h };
+            let case = format!("{ch} channels {w}x{h} to {w2}x{h2}");
+            let (wide, plain) = (scale_region(region, w2, h2), telescope_core::image::scalar_switch::plain(|| scale_region(region, w2, h2)));
+            assert!(plain == wide, "plain and avx2 differ, {case}");
+            assert!(plain == scale_reference(region, w2, h2), "plain and reference differ, {case}");
+        }
+    }
+}
+
 // ── Transitions ───────────────────────────────────────────────────────────
 
 mod transitions {
