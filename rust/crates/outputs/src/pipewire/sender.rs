@@ -3,14 +3,15 @@
 
 use super::ffi::{PwBuffer, SPA_DATA_MEM_FD};
 use super::pod::{self, Choice, ObjectPod, Pod, Prop, Scalar, Value};
-use super::{Connection, Stream, StreamConfig, StreamHandler, StreamRef, VideoFormat, PW_DIRECTION_OUTPUT, PW_STREAM_FLAG_DRIVER, SPA_ID_INVALID};
-use std::sync::atomic::{AtomicU32, Ordering};
+use super::{Connection, Stream, StreamConfig, StreamHandler, StreamRef, StreamState, VideoFormat, PW_DIRECTION_OUTPUT, PW_STREAM_FLAG_DRIVER, SPA_ID_INVALID};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
 const PW_STREAM_FLAG_MAP_BUFFERS: u32 = 4;
 
 /// The picture the next cycle puts in a buffer, and the size every one has.
 struct Latest {
+    streaming: AtomicBool,
     width: AtomicU32,
     height: AtomicU32,
     /// The size the stream has settled on with whoever reads it, 0 x 0 while it renegotiates after a resize.
@@ -57,6 +58,10 @@ fn buffers(width: u32, height: u32) -> Pod {
 struct Producer(Arc<Latest>);
 
 impl StreamHandler for Producer {
+    fn state_changed(&mut self, _stream: &StreamRef, state: StreamState, _error: Option<String>) {
+        self.0.streaming.store(state == StreamState::Streaming, Ordering::SeqCst);
+    }
+
     fn param_changed(&mut self, stream: &StreamRef, id: u32, format: Option<ObjectPod>) {
         if id != pod::PARAM_FORMAT {
             return;
@@ -126,10 +131,15 @@ impl VideoSender {
         let hash = description.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3));
         let node = format!("telescope-{readable}-{:08x}", hash >> 32);
         let props = [("media.class", "Video/Source"), ("node.name", node.as_str()), ("node.description", description), ("media.role", "Camera")];
-        let latest = Arc::new(Latest { width: AtomicU32::new(width), height: AtomicU32::new(height), ready_width: AtomicU32::new(0), ready_height: AtomicU32::new(0), bytes: Mutex::new(Arc::default()) });
+        let latest = Arc::new(Latest { streaming: AtomicBool::new(false), width: AtomicU32::new(width), height: AtomicU32::new(height), ready_width: AtomicU32::new(0), ready_height: AtomicU32::new(0), bytes: Mutex::new(Arc::default()) });
         let config = StreamConfig { name: description, props: &props, direction: PW_DIRECTION_OUTPUT, target: SPA_ID_INVALID, flags: PW_STREAM_FLAG_DRIVER | PW_STREAM_FLAG_MAP_BUFFERS };
         let stream = Stream::connect(connection, &config, &[enum_format(width, height)], Box::new(Producer(latest.clone())))?;
         Ok(VideoSender { connection: connection.clone(), stream, latest })
+    }
+
+    /// Whether a reader is ready for pictures, or a send needs to report a lost connection.
+    pub fn wants_frame(&self) -> bool {
+        self.latest.streaming.load(Ordering::SeqCst) || self.connection.is_dead()
     }
 
     /// Offers the same source at another size, which whoever reads it renegotiates, so the node and its id stay.
