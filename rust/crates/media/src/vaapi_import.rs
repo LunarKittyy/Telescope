@@ -10,7 +10,7 @@ use telescope_core::frame::{DecodedSurface, Frame, PixelFormat};
 use wgpu::hal::api::Vulkan;
 use wgpu::hal::Device as _;
 
-const MAX_SURFACES: usize = 6;
+pub(crate) const MAX_SURFACES: usize = 6;
 const R8: u32 = u32::from_le_bytes(*b"R8  ");
 const GR88: u32 = u32::from_le_bytes(*b"GR88");
 const INVALID_MODIFIER: u64 = (1u64 << 56) - 1;
@@ -181,7 +181,8 @@ impl Surface {
         })
     }
 
-    /// Acquire or release external queue ownership, keeping wgpu's tracked layouts in agreement with the raw barriers.
+    /// Acquire or release external queue ownership; EXTERNAL because wgpu doesn't enable VK_EXT_queue_family_foreign.
+    /// A new import starts UNDEFINED and goes to the GENERAL layout wgpu tracks it in; after the convert pass wgpu has left it SHADER_READ_ONLY_OPTIMAL.
     pub(crate) fn ownership(device: &wgpu::Device, enc: &mut wgpu::CommandEncoder, textures: &[wgpu::Texture; 2], acquire: bool) -> Result<(), String> {
         // SAFETY: all handles remain borrowed for the call; this encoder exclusively records the barriers outside any render pass.
         unsafe {
@@ -192,7 +193,7 @@ impl Surface {
                 barriers.push(vk::ImageMemoryBarrier::default()
                     .image(texture.raw_handle())
                     .subresource_range(vk::ImageSubresourceRange::default().aspect_mask(vk::ImageAspectFlags::COLOR).level_count(1).layer_count(1))
-                    .old_layout(if acquire { vk::ImageLayout::GENERAL } else { vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL })
+                    .old_layout(if acquire { vk::ImageLayout::UNDEFINED } else { vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL })
                     .new_layout(vk::ImageLayout::GENERAL)
                     .src_queue_family_index(if acquire { vk::QUEUE_FAMILY_EXTERNAL } else { hal.queue_family_index() })
                     .dst_queue_family_index(if acquire { hal.queue_family_index() } else { vk::QUEUE_FAMILY_EXTERNAL })
@@ -216,19 +217,26 @@ impl DecodedSurface for Surface {
         self.ram.get_or_init(|| {
             let source = self.frame.lock().unwrap_or_else(|e| e.into_inner());
             let mut download = self.stream.download.lock().unwrap_or_else(|e| e.into_inner());
-            let out = (|| {
-                if download.is_none() {
-                    *download = Some(crate::ffmpeg::Codec::h264(None).map_err(|e| format!("{e:?}"))?);
+            let mut failed = String::new();
+            // A second try with a fresh download decoder before the picture is given up on
+            for _ in 0..2 {
+                let tried = (|| {
+                    if download.is_none() {
+                        *download = Some(crate::ffmpeg::Codec::h264(None).map_err(|e| format!("{e:?}"))?);
+                    }
+                    download.as_mut().unwrap().download_surface(source.0).map_err(|e| format!("{e:?}"))
+                })();
+                match tried {
+                    Ok(frame) => return frame,
+                    Err(why) => {
+                        *download = None;
+                        failed = why;
+                    }
                 }
-                download.as_mut().unwrap().download_surface(source.0).map_err(|e| format!("{e:?}"))
-            })();
-            out.unwrap_or_else(|why| {
-                self.stream.disable(&why);
-                let (w, h) = self.size;
-                let mut data = vec![128; PixelFormat::I420.size(w, h)];
-                data[..(w * h) as usize].fill(16);
-                Frame::new(w, h, PixelFormat::I420, data)
-            })
+            }
+            self.stream.disable(&failed);
+            let (w, h) = self.size;
+            Frame::dark(w, h, PixelFormat::I420)
         })
     }
 
@@ -406,7 +414,7 @@ mod tests {
     fn an_imported_vaapi_picture_matches_the_transfer_path() {
         let Some(gpu) = Gpu::shared() else { return eprintln!("no Vulkan device; skipped") };
         let Ok(mut codec) = Codec::h264(Some(Hw::Vaapi)) else { return eprintln!("no VA-API device; skipped") };
-        codec.defer_surfaces = true;
+        codec.surfaces(true);
         for (y, u, v, matrix, range) in [(70, 112, 145, "smpte170m", "tv"), (170, 150, 110, "bt709", "tv"), (110, 100, 152, "bt709", "pc")] {
             let Some(packets) = testenc::h264_yuv(y, u, v, 256, 144, matrix, range) else { return eprintln!("no H.264 encoder; skipped") };
             let frame = decode_surface(&mut codec, &packets).expect("a decoded frame");
@@ -431,7 +439,7 @@ mod tests {
     fn forced_import_failures_still_transfer_this_and_following_vaapi_frames() {
         let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
         let Ok(mut codec) = Codec::h264(Some(Hw::Vaapi)) else { return eprintln!("no VA-API device; skipped") };
-        codec.defer_surfaces = true;
+        codec.surfaces(true);
         let Some(packets) = testenc::h264(&[70, 120, 180], 256, 144, 1) else { return eprintln!("no H.264 encoder; skipped") };
         let first = decode_surface(&mut codec, &packets[..1]).expect("a frame");
         let surface = first.surface().unwrap().as_any().downcast_ref::<Surface>().unwrap();
@@ -459,12 +467,12 @@ mod tests {
             return eprintln!("no VA-API device; skipped");
         }
         let Some(packets) = testenc::h264(&[70, 120, 180, 120, 70], 256, 144, 1) else { return eprintln!("no H.264 encoder; skipped") };
-        let wish = Arc::new(AtomicBool::new(false));
+        let wish = Arc::new(AtomicBool::new(true));
         decoder.set_surface_wish(wish.clone());
         let mut seen = [0, 0];
         for (i, data) in packets.into_iter().enumerate() {
-            // pictures 1 and 3 are the ones the pipeline wants on the card
-            let wanted = i % 2 == 1;
+            // pictures 0, 2 and 4 are the ones the pipeline wants on the card
+            let wanted = i % 2 == 0;
             wish.store(wanted, Ordering::Relaxed);
             let Some(frame) = decoder.decode(&Packet { data, time_ns: 0 }).newest else { continue };
             assert_eq!(frame.surface().is_some(), wanted && decoder.hardware(), "picture {i}");
@@ -474,5 +482,23 @@ mod tests {
             seen[wanted as usize] += 1;
         }
         assert!(seen[0] > 0 && seen[1] > 0, "pictures with and without the wish: {seen:?}");
+    }
+
+    #[test]
+    fn a_decoder_opened_for_a_stream_with_no_card_step_keeps_its_small_pool_and_never_leaves_pictures_on_the_card() {
+        use telescope_core::media::{Decoder, Packet};
+        let Ok(mut decoder) = crate::h264::H264::new(true, None) else { return eprintln!("no decoder; skipped") };
+        if decoder.hw().is_none() {
+            return eprintln!("no VA-API device; skipped");
+        }
+        let Some(packets) = testenc::h264(&[70, 120, 180], 256, 144, 1) else { return eprintln!("no H.264 encoder; skipped") };
+        let wish = Arc::new(AtomicBool::new(false));
+        decoder.set_surface_wish(wish.clone());
+        for (i, data) in packets.into_iter().enumerate() {
+            // A card step that arrives later finds a pool with no room for pictures kept on the card
+            wish.store(i > 0, Ordering::Relaxed);
+            let Some(frame) = decoder.decode(&Packet { data, time_ns: 0 }).newest else { continue };
+            assert!(frame.surface().is_none(), "picture {i} was left on the card");
+        }
     }
 }

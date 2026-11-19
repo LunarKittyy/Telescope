@@ -556,15 +556,17 @@ impl CardPreview {
         self.paint_with(width, height, tint, |gpu, target| gpu.paint(frame, target))
     }
 
-    /// Draw a pipeline texture on the same device, landing only for a different device.
+    /// Draw a pipeline picture on the same device; one for another device, or one the card gave up on, is drawn from memory once landed and is None before.
     pub fn paint_picture(&mut self, frame: &telescope_core::media::PipelineFrame, width: u32, height: u32, tint: Option<&TintSpec>) -> Option<wgpu::Texture> {
-        self.paint_with(width, height, tint, |gpu, target| {
-            if let Some(card) = frame.picture().and_then(|p| p.as_any().downcast_ref::<CardFrame>()) {
-                if let Some(result) = card.paint(gpu, target) {
-                    return result;
-                }
-            }
-            gpu.paint(&frame.land(), target)
+        let card = frame.picture().and_then(|p| p.as_any().downcast_ref::<CardFrame>()).filter(|c| c.paintable(&self.gpu));
+        let landed = match card {
+            Some(_) => None,
+            None => Some(frame.landed()?),
+        };
+        self.paint_with(width, height, tint, |gpu, target| match (card, &landed) {
+            (Some(card), _) => card.paint(gpu, target).unwrap_or_else(|| Err("the picture is no longer on this card".into())),
+            (None, Some(landed)) => gpu.paint(landed, target),
+            (None, None) => Err("no picture to paint".into()),
         })
     }
 

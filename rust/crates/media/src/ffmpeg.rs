@@ -168,7 +168,10 @@ pub struct Codec {
     parse_buf: Vec<u8>,
     unit_buf: Vec<u8>,
     #[cfg(target_os = "linux")]
-    pub(crate) defer_surfaces: bool,
+    defer_surfaces: bool,
+    /// Whether the decoder's pool has room for pictures kept on the card (set before its first picture, see surfaces).
+    #[cfg(target_os = "linux")]
+    surface_room: bool,
     #[cfg(target_os = "linux")]
     import: std::sync::Arc<crate::vaapi_import::Stream>,
     #[cfg(target_os = "linux")]
@@ -190,6 +193,21 @@ impl Codec {
     /// H.264 with low delay, in software (two slice threads) or on hw with no software fallback.
     pub fn h264(hw: Option<Hw>) -> Result<Codec, String> {
         Codec::open(ff::AVCodecID::AV_CODEC_ID_H264, hw, true)
+    }
+
+    /// Whether the next pictures may stay on the card for import (VA-API only); the pool is sized at the first picture, so a decoder started without the wish copies to memory until it is opened again.
+    #[cfg(target_os = "linux")]
+    pub(crate) fn surfaces(&mut self, wish: bool) {
+        if wish && !self.surface_room && self.hw == Some(Hw::Vaapi) {
+            // SAFETY: the context is live, and the pool isn't made yet while it holds no hardware frames context
+            unsafe {
+                if (*self.ctx).hw_frames_ctx.is_null() {
+                    (*self.ctx).extra_hw_frames = 1 + crate::vaapi_import::MAX_SURFACES as i32;
+                    self.surface_room = true;
+                }
+            }
+        }
+        self.defer_surfaces = wish && self.surface_room;
     }
 
     pub fn mjpeg() -> Result<Codec, String> {
@@ -242,6 +260,8 @@ impl Codec {
                 unit_buf: Vec::new(),
                 #[cfg(target_os = "linux")]
                 defer_surfaces: false,
+                #[cfg(target_os = "linux")]
+                surface_room: false,
                 #[cfg(target_os = "linux")]
                 import: std::sync::Arc::default(),
                 #[cfg(target_os = "linux")]
@@ -301,7 +321,7 @@ impl Codec {
                     (*c.ctx).opaque = h.pixel_format() as i32 as usize as *mut _;
                     (*c.ctx).get_format = Some(pick_hw);
                     // The picture decode_newest holds is a surface the decoder can't use meanwhile
-                    (*c.ctx).extra_hw_frames = 1 + if h == Hw::Vaapi { 6 } else { 0 };
+                    (*c.ctx).extra_hw_frames = 1;
                 }
                 None if parse => {
                     (*c.ctx).thread_count = threads.count;
@@ -1170,7 +1190,7 @@ pub(crate) mod decode_bench {
         let run = |codec: &mut Codec, packets: &[Vec<u8>], preview_only: bool, import: bool| -> Result<Vec<Costs>, Fault> {
             #[cfg(target_os = "linux")]
             {
-                codec.defer_surfaces = import;
+                codec.surfaces(import);
             }
             let _ = import;
             let mut pipeline = Pipeline::with_balance(Arc::new(Balance::pinned_to(Place::Card)));
@@ -1258,7 +1278,7 @@ pub(crate) mod decode_bench {
         for name in ["p1080.h264", "p4k.h264"] {
             let Some(packets) = packets(name) else { continue };
             let mut codec = Codec::h264(Some(Hw::Vaapi)).expect("VA-API");
-            codec.defer_surfaces = true;
+            codec.surfaces(true);
             let (mut compared, mut worst, mut total, mut bytes) = (0, 0u8, 0u64, 0u64);
             for packet in packets.iter().take(60) {
                 codec.decode_newest(packet).unwrap();

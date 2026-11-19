@@ -194,6 +194,21 @@ impl Frame {
         Frame { width, height, format, data, number: 0, time_ns: crate::time::monotonic_ns(), capture_ns: None, decoded, alpha: None }
     }
 
+    /// A flat dark picture: black luma and neutral chroma for the YUV formats, opaque black for the others.
+    pub fn dark(width: u32, height: u32, format: PixelFormat) -> Frame {
+        let (luma, all) = (width as usize * height as usize, format.size(width, height));
+        let data = match format {
+            PixelFormat::I420 | PixelFormat::Nv12 => [vec![16; luma], vec![128; all - luma]].concat(),
+            _ => [0, 0, 0, 255].repeat(luma),
+        };
+        Frame::new(width, height, format, data)
+    }
+
+    /// The frame's size, format and stamps with no pixels and no hold on a decoder surface, for a record of a picture that is kept elsewhere.
+    pub fn without_pixels(&self) -> Frame {
+        Frame { width: self.width, height: self.height, format: self.format, data: Arc::default(), number: self.number, time_ns: self.time_ns, capture_ns: self.capture_ns, decoded: None, alpha: self.alpha.clone() }
+    }
+
     /// The surface while the frame still names the decoder's original picture.
     pub fn surface(&self) -> Option<&Arc<dyn DecodedSurface>> {
         self.decoded.as_ref().filter(|d| Weak::as_ptr(&d.of) == Arc::as_ptr(&self.data) && d.size == (self.width, self.height, self.format))?.surface.as_ref()

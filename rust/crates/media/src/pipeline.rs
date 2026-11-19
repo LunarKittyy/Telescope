@@ -228,6 +228,8 @@ pub struct Pipeline {
     forget_due: bool,
     /// Whether the first step to run does it on the card, for the stream's decoder to read (FramePipeline::surface_wish).
     surface_wish: Arc<AtomicBool>,
+    /// This stream's last submission to the card, so streams sharing the card don't wait for each other's pictures.
+    pacing: gpu::Pacing,
 }
 
 impl Drop for Pipeline {
@@ -253,7 +255,7 @@ impl Pipeline {
 
     /// One that listens to this balance instead of the app's, so tests of the card don't move each other's steps.
     pub fn with_balance(balance: Arc<Balance>) -> Pipeline {
-        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false, surface_wish: Arc::default() }
+        Pipeline { steps: Vec::new(), gpu: None, started_ns: None, mask: None, tally: Tally::default(), last_transfers: (0, 0), balance, card_lost: false, deferred_failed: Arc::default(), stats: None, pool: SparePool::default(), on_card: false, last_readback_ns: 0, hiding: Arc::default(), applied: Arc::default(), view_key: None, forget_due: false, surface_wish: Arc::default(), pacing: gpu::Pacing::default() }
     }
 
     fn run(&mut self, mut frame: Frame, ctx: &dyn FrameContext, finish: Finish) -> PipelineFrame {
@@ -322,7 +324,7 @@ impl Pipeline {
         let mut picture = None;
         if matches!(finish, Finish::Card) && !chain.ahead.is_empty() && !ctx.stopped() {
             let gpu = self.gpu.clone().flatten().unwrap();
-            match gpu.submit_held(chain.held.as_mut().unwrap(), &|| ctx.stopped()) {
+            match gpu.submit_held(chain.held.as_mut().unwrap(), &mut self.pacing, &|| ctx.stopped()) {
                 Ok(()) => {
                     self.balance.note_wait(chain.held.as_mut().unwrap().take_waited());
                     let hides = chain.ahead.iter().any(|&i| self.steps[i].hides());
@@ -486,9 +488,15 @@ impl Pipeline {
     /// The steps were changed: what they hide is looked at again, and a step that is gone isn't remembered as on the last frame.
     /// Whether the first step that will run does it on the card, so a decoder picture still there is taken in by it and not copied to memory first.
     fn starts_on_card(&self) -> bool {
-        let on_card = self.balance.place() == Place::Card && !self.card_lost;
+        // No card to open, or one that was lost, leaves nothing for a surface to be used by
+        let card = match &self.gpu {
+            Some(Some(gpu)) => !gpu.is_lost(),
+            Some(None) => false,
+            None => true,
+        };
+        let on_card = card && self.balance.place() == Place::Card && !self.card_lost;
         self.steps.iter().find(|e| !e.skipped()).is_some_and(|e| match &e.kind {
-            Kind::Shader(_) => true,
+            Kind::Shader(_) => card,
             Kind::Either(..) => on_card && !e.no_shader,
             Kind::Cpu(_) => false,
         })
@@ -839,12 +847,7 @@ impl Drop for Trial {
 
 /// A flat dark picture of this size, for a step that broke the frame it was given when there is no copy to go back to.
 fn neutral((w, h): (u32, u32), format: PixelFormat, stands_for: &Frame) -> Frame {
-    let (luma, rest) = (w as usize * h as usize, format.size(w, h));
-    let data = match format {
-        PixelFormat::I420 | PixelFormat::Nv12 => [vec![16; luma], vec![128; rest - luma]].concat(),
-        _ => [0, 0, 0, 255].repeat(luma),
-    };
-    let mut out = Frame::new(w, h, format, data);
+    let mut out = Frame::dark(w, h, format);
     (out.number, out.time_ns, out.capture_ns) = (stands_for.number, stands_for.time_ns, stands_for.capture_ns);
     out
 }
@@ -1572,12 +1575,14 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn a_preview_on_another_device_lands_the_picture_once() {
+    fn a_preview_on_another_device_paints_the_picture_only_once_something_else_landed_it() {
         use crate::transfers::measurement::measure;
         let (Ok(source), Ok(window)) = (Gpu::open(), Gpu::open()) else { return eprintln!("no graphics cards; skipped") };
         let picture = card_pipeline(Arc::new(source)).process_picture(grey(32, 18, 100), &NoContext);
         let mut preview = gpu::CardPreview::new(Arc::new(window), 16);
         let (_, costs) = measure(|| {
+            assert!(preview.paint_picture(&picture, 16, 9, None).is_none(), "the window's painter doesn't read a picture back itself");
+            picture.land();
             assert!(preview.paint_picture(&picture, 16, 9, None).is_some());
             assert!(preview.paint_picture(&picture, 16, 9, None).is_some());
         });
@@ -2979,6 +2984,30 @@ pub(crate) mod tests {
         let landed = out.land();
         assert_eq!(landed.data.len(), PixelFormat::I420.size(8, 8), "the CPU step had a whole picture to work on");
         assert_eq!((landed.data[0], landed.data[1]), (5, 90));
+    }
+
+    /// A decoder picture that says whether anything still holds it.
+    #[derive(Debug)]
+    struct Counted(Frame, #[allow(dead_code)] Arc<()>);
+
+    impl telescope_core::frame::DecodedSurface for Counted {
+        fn ram(&self) -> &Frame {
+            &self.0
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    #[test]
+    fn a_card_picture_lets_go_of_the_decoder_picture_it_was_made_from_once_it_has_landed() {
+        let Some(gpu) = Gpu::shared() else { return eprintln!("no graphics card; skipped") };
+        let alive = Arc::new(());
+        let mut p = card_pipeline(gpu);
+        let out = p.process_picture(Frame::from_surface(8, 8, PixelFormat::I420, Arc::new(Counted(grey(8, 8, 100), alive.clone()))), &NoContext);
+        assert!(out.metadata().data.is_empty() && out.metadata().surface().is_none(), "what is left of the input in the slot's record has no pixels and no hold on the decoder");
+        out.land();
+        assert_eq!(Arc::strong_count(&alive), 1, "the decoder's surface is free again, not held until the picture goes");
     }
 
     #[test]

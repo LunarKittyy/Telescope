@@ -551,7 +551,7 @@ fn decode(codec: &mut Codec, steps: Option<&Steps>, data: &[u8], strict: bool, c
 impl Decoder for H264 {
     fn decode(&mut self, packet: &Packet) -> Decoded {
         #[cfg(target_os = "linux")]
-        { self.codec.defer_surfaces = self.surface_wish.as_ref().is_some_and(|w| w.load(Ordering::Relaxed)); }
+        self.codec.surfaces(self.surface_wish.as_ref().is_some_and(|w| w.load(Ordering::Relaxed)));
         let (mut newest, count) = self.feed(&packet.data);
         if let Some(f) = newest.as_mut() {
             f.time_ns = packet.time_ns;

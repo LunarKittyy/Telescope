@@ -86,7 +86,6 @@ pub struct Gpu {
     convert_module: wgpu::ShaderModule,
     /// Download buffers to use again: mapping a new one each frame costs the card a flush.
     downloads: Mutex<Vec<wgpu::Buffer>>,
-    pending: Mutex<Option<wgpu::SubmissionIndex>>,
     /// For plugin shaders: the picture so far, the sampler, the frame's info, the person mask and the step's last frame.
     frame_layout: wgpu::BindGroupLayout,
     linear: wgpu::Sampler,
@@ -358,7 +357,6 @@ impl Gpu {
             convert: Mutex::default(),
             convert_module,
             downloads: Mutex::default(),
-            pending: Mutex::default(),
             frame_layout,
             linear,
             blank,
@@ -899,12 +897,11 @@ impl Gpu {
         Ok(result)
     }
 
-    /// Submit the recorded steps without copying any pixels to RAM.
-    pub(crate) fn submit_held(&self, held: &mut Held, cancel: &dyn Fn() -> bool) -> Result<(), String> {
+    /// Submit the recorded steps without copying any pixels to RAM, after the pipeline's own last submission has finished.
+    pub(crate) fn submit_held(&self, held: &mut Held, pacing: &mut Pacing, cancel: &dyn Fn() -> bool) -> Result<(), String> {
         self.guarded("submitting a card picture", || {
-            // Wait for the previous picture before queuing more work, without holding a lock across the wait.
-            let pending = self.pending.lock().unwrap_or_else(|e| e.into_inner()).take();
-            if let Some(index) = pending {
+            // Wait for this pipeline's previous picture before queuing more work; other streams on the card have their own
+            if let Some(index) = pacing.0.take().filter(|(serial, _)| *serial == self.serial).map(|(_, index)| index) {
                 let began = monotonic_ns();
                 self.wait_for(index, cancel)?;
                 held.waited_ns += monotonic_ns().saturating_sub(began);
@@ -913,17 +910,17 @@ impl Gpu {
                 let enc = std::mem::replace(&mut held.enc, self.device.create_command_encoder(&Default::default()));
                 self.queue.submit([enc.finish()])
             })?;
-            *self.pending.lock().unwrap_or_else(|e| e.into_inner()) = Some(index);
+            pacing.0 = Some((self.serial, index));
             Ok(())
         })
     }
 
-    fn paint_held(&self, held: &Held, target: &wgpu::Texture) -> Result<(), String> {
+    fn paint_held(&self, picture: &wgpu::Texture, (width, height): (u32, u32), target: &wgpu::Texture) -> Result<(), String> {
         self.guarded("painting a card picture", || self.scoped(|| {
             let mut enc = self.device.create_command_encoder(&Default::default());
-            let views = [held.a.create_view(&Default::default()), self.blank.clone(), self.blank.clone()];
-            let taps = held.width.div_ceil(target.width()).max(held.height.div_ceil(target.height())).clamp(1, 8);
-            self.convert_pass(&mut enc, &views, Mode::Rgba, target, taps, (held.width, held.height));
+            let views = [picture.create_view(&Default::default()), self.blank.clone(), self.blank.clone()];
+            let taps = width.div_ceil(target.width()).max(height.div_ceil(target.height())).clamp(1, 8);
+            self.convert_pass(&mut enc, &views, Mode::Rgba, target, taps, (width, height));
             self.queue.submit([enc.finish()]);
         }))
     }
@@ -1131,31 +1128,41 @@ impl Held {
     }
 }
 
+/// What a pipeline's next submission waits for: its own last one on the card (and the card it was made on, since an index means nothing on another).
+#[derive(Default)]
+pub(crate) struct Pacing(Option<(u64, wgpu::SubmissionIndex)>);
+
 #[derive(Clone, Copy)]
 pub(crate) enum LandingFailure { LastGood, Dark }
 
 /// A submitted pipeline picture with one shared RAM landing, kept entirely in media.
 pub(crate) struct CardFrame {
     gpu: Arc<Gpu>,
+    /// Only a landing takes this lock; painting uses `shown`, so the window never waits behind a readback.
     held: Mutex<Option<Held>>,
+    shown: (wgpu::Texture, (u32, u32)),
     landed: OnceLock<Frame>,
-    metadata: Frame,
+    /// What the card steps began from, only until the picture lands (its last good frame if the landing fails, and the cut-out it carries): a decoder surface in it isn't held longer.
+    before: Mutex<Option<Frame>>,
+    shape: (u32, u32, PixelFormat),
     fallback: LandingFailure,
     failed: Arc<AtomicBool>,
     balance: Arc<telescope_core::balance::Balance>,
 }
 
 impl CardFrame {
-    pub(crate) fn new(gpu: Arc<Gpu>, held: Held, metadata: Frame, fallback: LandingFailure, failed: Arc<AtomicBool>, balance: Arc<telescope_core::balance::Balance>) -> Self {
-        Self { gpu, held: Mutex::new(Some(held)), landed: OnceLock::new(), metadata, fallback, failed, balance }
+    pub(crate) fn new(gpu: Arc<Gpu>, held: Held, before: Frame, fallback: LandingFailure, failed: Arc<AtomicBool>, balance: Arc<telescope_core::balance::Balance>) -> Self {
+        let shape = (before.width, before.height, before.format);
+        Self { gpu, shown: (held.a.clone(), held.size()), held: Mutex::new(Some(held)), landed: OnceLock::new(), before: Mutex::new(Some(before)), shape, fallback, failed, balance }
+    }
+
+    /// Whether this card can draw the picture itself: it is on the same device and the card didn't fail to land it.
+    pub(crate) fn paintable(&self, gpu: &Gpu) -> bool {
+        self.gpu.serial == gpu.serial && !(self.landed.get().is_some() && self.failed.load(Ordering::SeqCst))
     }
 
     fn paint(&self, gpu: &Gpu, target: &wgpu::Texture) -> Option<Result<(), String>> {
-        if self.gpu.serial != gpu.serial || self.landed.get().is_some() && self.failed.load(Ordering::SeqCst) {
-            return None;
-        }
-        let held = self.held.lock().unwrap_or_else(|e| e.into_inner());
-        Some(gpu.paint_held(held.as_ref()?, target))
+        self.paintable(gpu).then(|| gpu.paint_held(&self.shown.0, self.shown.1, target))
     }
 }
 
@@ -1167,13 +1174,14 @@ impl telescope_core::media::CardPicture for CardFrame {
     fn land_until(&self, cancel: &dyn Fn() -> bool) -> Frame {
         self.landed.get_or_init(|| {
             let mut held = self.held.lock().unwrap_or_else(|e| e.into_inner());
+            let before = self.before.lock().unwrap_or_else(|e| e.into_inner()).take();
             let began = monotonic_ns();
             let out = catch_unwind(AssertUnwindSafe(|| self.gpu.land_until(held.as_mut().unwrap(), cancel)));
             transfers::landed();
             span("readback", began);
             match out {
                 Ok(Ok(mut frame)) => {
-                    if let Some(alpha) = self.metadata.alpha() {
+                    if let Some(alpha) = before.as_ref().and_then(Frame::alpha) {
                         frame.set_alpha(alpha.clone());
                     }
                     self.balance.note_wait(held.as_mut().unwrap().take_waited());
@@ -1184,21 +1192,17 @@ impl telescope_core::media::CardPicture for CardFrame {
                         log::warn!("Couldn't land a card picture; using its safe fallback and moving this stream to the CPU");
                         self.failed.store(true, Ordering::SeqCst);
                     }
-                    match self.fallback {
-                        LandingFailure::LastGood => self.metadata.materialise(),
-                        LandingFailure::Dark => {
-                            let (w, h, format) = (self.metadata.width, self.metadata.height, self.metadata.format);
-                            let luma = w as usize * h as usize;
-                            let data = match format {
-                                PixelFormat::I420 | PixelFormat::Nv12 => [vec![16; luma], vec![128; format.size(w, h) - luma]].concat(),
-                                _ => [0, 0, 0, 255].repeat(luma),
-                            };
-                            Frame::new(w, h, format, data)
-                        }
+                    match (self.fallback, before) {
+                        (LandingFailure::LastGood, Some(before)) => before.materialise(),
+                        _ => Frame::dark(self.shape.0, self.shape.1, self.shape.2),
                     }
                 }
             }
         }).clone()
+    }
+
+    fn landed(&self) -> Option<Frame> {
+        self.landed.get().cloned()
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

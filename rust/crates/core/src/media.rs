@@ -273,10 +273,12 @@ pub trait CardPicture: Send + Sync {
     fn land_until(&self, _cancel: &dyn Fn() -> bool) -> Frame {
         self.land()
     }
+    /// The RAM picture if a landing already made it, without waiting for the card.
+    fn landed(&self) -> Option<Frame>;
     fn as_any(&self) -> &dyn std::any::Any;
 }
 
-/// A finished pipeline picture beside its last RAM frame, which is only metadata until land is called.
+/// A finished pipeline picture; with a card picture its own frame has only the size and stamps, and every landing shares the same pixels.
 #[derive(Clone)]
 pub struct PipelineFrame {
     frame: Frame,
@@ -285,9 +287,12 @@ pub struct PipelineFrame {
 
 impl PipelineFrame {
     pub fn new(frame: Frame, picture: Option<Arc<dyn CardPicture>>) -> Self {
+        // The pixels in hand are the picture's input, not what it came to: nothing reads them, and a decoder surface in them would stay held
+        let frame = if picture.is_some() { frame.without_pixels() } else { frame };
         Self { frame, picture }
     }
 
+    /// Size, number and stamps; the pixels are only here when there is no card picture (see landed).
     pub fn metadata(&self) -> &Frame {
         &self.frame
     }
@@ -296,7 +301,7 @@ impl PipelineFrame {
         self.picture.as_ref()
     }
 
-    /// Make the RAM picture at a reader's boundary, keeping the publication's stamps.
+    /// The RAM picture with the publication's stamps, read back from the card if it hasn't been: the caller waits, so never the window's thread or under a lock others need.
     pub fn land(&self) -> Frame {
         self.land_until(&|| false)
     }
@@ -307,6 +312,27 @@ impl PipelineFrame {
         frame.time_ns = self.frame.time_ns;
         frame.capture_ns = self.frame.capture_ns;
         frame
+    }
+
+    /// The RAM picture if it is there without a readback, so a thread that can't wait for the card can still read what has landed.
+    pub fn landed(&self) -> Option<Frame> {
+        let mut frame = match &self.picture {
+            Some(p) => p.landed()?,
+            None => self.frame.clone(),
+        };
+        frame.number = self.frame.number;
+        frame.time_ns = self.frame.time_ns;
+        frame.capture_ns = self.frame.capture_ns;
+        Some(frame)
+    }
+
+    /// The RAM picture if it is there, else a dark one with the same size and stamps standing in for it, for a thread that can't wait for the card.
+    pub fn landed_or_dark(&self) -> Frame {
+        self.landed().unwrap_or_else(|| {
+            let mut dark = Frame::dark(self.frame.width, self.frame.height, self.frame.format);
+            (dark.number, dark.time_ns, dark.capture_ns) = (self.frame.number, self.frame.time_ns, self.frame.capture_ns);
+            dark
+        })
     }
 
     pub fn stamp(&mut self, number: u64, time_ns: u64) {
@@ -352,14 +378,20 @@ pub trait FramePipeline: Send {
 
 /// One stream's newest frames: what it made, and what goes out on its virtual camera (which replace_frame can swap).
 pub trait FrameSlot: Send + Sync {
-    /// Publish without asking for RAM when this slot can keep a card picture.
+    /// Publish a picture that may still be on the card; the publisher already landed it if ram_wanted said so, so readers of pixels find them there.
     fn publish_picture_at(&self, frame: PipelineFrame, epoch: u64) -> u64 {
         self.publish_at(frame.land(), epoch)
     }
-    /// The preview may take a card picture; RAM readers keep using latest.
+    /// The newest picture as kept, for a reader that paints from the card or lands it where waiting is fine; the window's preview reads this and never lands.
     fn latest_picture(&self) -> Option<(PipelineFrame, u64)> {
         self.latest().map(|(f, v)| (f.into(), v))
     }
+    /// Whether anything reads this stream's pictures from memory; the publisher lands each before it goes out when so, on its own thread and outside every lock.
+    fn ram_wanted(&self) -> bool {
+        true
+    }
+    /// A reader that needs pictures in memory and can't land one itself (the window): from the next picture on they are landed before they go out, for a while after the last ask.
+    fn want_ram(&self) {}
     /// Makes frame the stream's newest, numbered after every frame any stream made before; hands back that number.
     fn publish(&self, frame: Frame) -> u64;
     /// The newest frame the stream itself made, numbered, from any thread.
@@ -536,5 +568,37 @@ mod tests {
         std::thread::sleep(Duration::from_millis(20));
         newest.finish();
         assert_eq!(taker.join().unwrap(), (Some(1), None));
+    }
+
+    /// A card picture that only knows its pixels once landed.
+    struct Away(std::sync::OnceLock<Frame>);
+
+    impl CardPicture for Away {
+        fn land(&self) -> Frame {
+            self.0.get_or_init(|| Frame::new(2, 2, crate::frame::PixelFormat::Rgba, vec![9; 16])).clone()
+        }
+        fn landed(&self) -> Option<Frame> {
+            self.0.get().cloned()
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    #[test]
+    fn a_pipeline_picture_on_the_card_keeps_only_its_stamps_until_it_is_landed() {
+        let mut input = Frame::new(2, 2, crate::frame::PixelFormat::Rgba, vec![1; 16]);
+        (input.number, input.capture_ns) = (7, Some(3));
+        let mut picture = PipelineFrame::new(input.clone(), Some(Arc::new(Away(Default::default()))));
+        assert!(picture.metadata().data.is_empty(), "the input's pixels aren't kept beside a picture made from them");
+        assert_eq!((picture.metadata().number, picture.metadata().capture_ns), (7, Some(3)));
+        assert!(picture.landed().is_none());
+        let dark = picture.landed_or_dark();
+        assert_eq!((dark.width, dark.number, dark.data[3]), (2, 7, 255), "a dark stand-in of the same size and number");
+        picture.stamp(8, 100);
+        let landed = picture.land();
+        assert_eq!((landed.data[0], landed.number, landed.time_ns), (9, 8, 100), "landed with the publication's stamps");
+        assert_eq!(picture.landed().unwrap().data[0], 9);
+        assert_eq!(PipelineFrame::from(input).landed().unwrap().data[0], 1, "a picture with none on the card is its own pixels");
     }
 }

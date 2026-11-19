@@ -26,7 +26,12 @@ pub struct Slot {
     epoch: Arc<AtomicU64>,
     /// What this stream's capture times were read against.
     clock: Mutex<Option<Arc<PhoneClock>>>,
+    /// Until when (monotonic ns) something wants this stream's pictures in memory, renewed by every read of one (want_ram).
+    ram_until: AtomicU64,
 }
+
+/// How long a stream goes on landing its pictures before they go out once nothing has read one from memory.
+const RAM_LEASE_NS: u64 = 1_000_000_000;
 
 #[derive(Default)]
 struct SlotState {
@@ -79,7 +84,7 @@ impl Slot {
             st.past.clear();
         } else {
             // read under the lock, so a bump that comes after is told from this frame
-            st.past.push_back((frame.land().into(), entered.unwrap_or_else(|| self.epoch.load(Ordering::SeqCst))));
+            st.past.push_back((frame.clone(), entered.unwrap_or_else(|| self.epoch.load(Ordering::SeqCst))));
             while st.past.len() > keep {
                 st.past.pop_front();
             }
@@ -91,13 +96,20 @@ impl Slot {
         number
     }
 
+    /// The one way a reader gets pixels out of this slot, with no lock held: already landed by the publisher when wanted, else landed here on the reader's own thread.
+    fn in_memory(&self, picture: &PipelineFrame) -> Frame {
+        self.want_ram();
+        picture.land()
+    }
+
     /// `replace`, and when `expected` is given only while the camera's frame still has those pixels, checked under the same lock.
     fn replace_when(&self, mut frame: Frame, number: u64, expected: Option<&Arc<Vec<u8>>>) -> bool {
         let mut st = self.state.lock().unwrap();
         if st.latest.is_none() || st.published.as_ref().map(|f| f.metadata().number) != Some(number) {
             return false;
         }
-        if expected.is_some_and(|e| st.latest.as_ref().is_none_or(|f| !Arc::ptr_eq(&f.land().data, e))) {
+        // A picture nobody landed has no pixels anyone could have taken, so it can't be the one `expected` came from
+        if expected.is_some_and(|e| st.latest.as_ref().and_then(PipelineFrame::landed).is_none_or(|f| !Arc::ptr_eq(&f.data, e))) {
             return false;
         }
         // Still the frame that went out under this number, so a stream counting what it sends doesn't take it for a new one
@@ -133,7 +145,7 @@ impl FrameSlot for Slot {
 
     fn published(&self) -> Option<Frame> {
         let frame = self.state.lock().unwrap().published.clone();
-        frame.map(|f| f.land())
+        frame.map(|f| self.in_memory(&f))
     }
 
     fn replace(&self, frame: Frame, number: u64) -> bool {
@@ -145,7 +157,15 @@ impl FrameSlot for Slot {
     }
 
     fn latest(&self) -> Option<(Frame, u64)> {
-        self.latest_picture().map(|(f, v)| (f.land(), v))
+        self.latest_picture().map(|(f, v)| (self.in_memory(&f), v))
+    }
+
+    fn ram_wanted(&self) -> bool {
+        self.history.load(Ordering::Relaxed) > 0 || monotonic_ns() < self.ram_until.load(Ordering::Relaxed)
+    }
+
+    fn want_ram(&self) {
+        self.ram_until.store(monotonic_ns() + RAM_LEASE_NS, Ordering::Relaxed);
     }
 
     fn set_phone_clock(&self, clock: Option<Arc<PhoneClock>>) {
@@ -172,7 +192,7 @@ impl FrameSlot for Slot {
         // Newest first, so of two as near the newer one is the first and wins
         let frame = st.past.iter().rev().filter(|(_, e)| *e >= epoch).filter_map(|(f, _)| f.metadata().capture_ns.map(|c| (c.abs_diff(capture_ns), f))).min_by_key(|(gap, _)| *gap).map(|(_, f)| f.clone());
         drop(st);
-        frame.map(|f| f.land())
+        frame.map(|f| self.in_memory(&f))
     }
 
     fn wait_newer(&self, seen: u64, timeout: Duration) -> bool {
@@ -297,6 +317,60 @@ mod tests {
 
     fn streams(list: &[(&str, &str, &Arc<Slot>)]) -> Vec<(String, String, Arc<dyn FrameSlot>)> {
         list.iter().map(|(s, n, slot)| (s.to_string(), n.to_string(), (*slot).clone() as Arc<dyn FrameSlot>)).collect()
+    }
+
+    /// A card picture that reads back through `read` and counts how often it did.
+    struct Away {
+        reads: Arc<std::sync::atomic::AtomicUsize>,
+        landed: std::sync::OnceLock<Frame>,
+        read: Box<dyn Fn() + Send + Sync>,
+    }
+
+    impl telescope_core::media::CardPicture for Away {
+        fn land(&self) -> Frame {
+            self.landed.get_or_init(|| {
+                self.reads.fetch_add(1, Ordering::SeqCst);
+                (self.read)();
+                frame(5)
+            }).clone()
+        }
+        fn landed(&self) -> Option<Frame> {
+            self.landed.get().cloned()
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+    }
+
+    fn away(reads: &Arc<std::sync::atomic::AtomicUsize>, read: impl Fn() + Send + Sync + 'static) -> PipelineFrame {
+        PipelineFrame::new(frame(0), Some(Arc::new(Away { reads: reads.clone(), landed: Default::default(), read: Box::new(read) })))
+    }
+
+    #[test]
+    fn readers_land_a_picture_with_no_lock_held_and_ask_for_pictures_in_memory_from_then_on() {
+        let reads = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let slot = Slot::new();
+        assert!(!slot.ram_wanted(), "nothing reads pixels yet, so pictures may stay on the card");
+        // The readback asks the slot for what a reader of its lock would need: a readback made under the lock would never get an answer
+        let probe = {
+            let slot = slot.clone();
+            move || {
+                let slot = slot.clone();
+                let (tx, rx) = std::sync::mpsc::channel();
+                std::thread::spawn(move || tx.send(slot.latest_picture().is_some()).unwrap());
+                assert_eq!(rx.recv_timeout(Duration::from_secs(5)), Ok(true), "the slot was locked during a readback");
+            }
+        };
+        slot.publish_picture_at(away(&reads, probe.clone()), slot.epoch());
+        assert_eq!(reads.load(Ordering::SeqCst), 0, "publishing a picture doesn't read it back");
+        assert_eq!(slot.latest().unwrap().0.data[0], 5);
+        assert_eq!(reads.load(Ordering::SeqCst), 1);
+        assert!(slot.ram_wanted(), "a reader of pixels makes the stream land its pictures from now on");
+        slot.publish_picture_at(away(&reads, probe.clone()), slot.epoch());
+        assert_eq!(slot.published().unwrap().data[0], 5);
+        assert_eq!(reads.load(Ordering::SeqCst), 2);
+        // History readers find every picture in memory, so a stream that keeps history always lands before it publishes
+        assert!(Slot::with_history(Arc::new(AtomicUsize::new(3))).ram_wanted());
     }
 
     #[test]
