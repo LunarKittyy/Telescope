@@ -554,12 +554,8 @@ impl Window {
         self.streams.workers.borrow().iter().find(|w| w.live.get()).and_then(|w| w.inner.source_id().map(str::to_string))
     }
 
-    /// The newest frame of the stream the preview draws (the one the panels show, or the one it follows), and its number; reads the card back on the caller's thread if need be, so the window paints from preview_picture.
-    pub fn preview_frame(&self) -> Option<(telescope_core::Frame, u64)> {
-        self.preview_worker().and_then(|w| w.inner.slot().latest())
-    }
-
-    pub(crate) fn preview_picture(&self) -> Option<(telescope_core::media::PipelineFrame, u64)> {
+    /// The newest picture of the stream the preview draws (the one the panels show, or the one it follows), and its number; the card isn't read back.
+    pub fn preview_picture(&self) -> Option<(telescope_core::media::PipelineFrame, u64)> {
         self.preview_worker().and_then(|w| w.inner.slot().latest_picture())
     }
 
