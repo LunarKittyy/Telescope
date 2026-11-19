@@ -391,6 +391,74 @@ fn a_cut_out_blends_over_the_canvas_like_a_float_reference_within_a_level() {
 }
 
 #[test]
+fn cut_out_bands_and_alpha_runs_match_the_scalar_blend() {
+    fn next(state: &mut u32) -> u8 {
+        *state ^= *state << 13;
+        *state ^= *state >> 17;
+        *state ^= *state << 5;
+        (*state >> 24) as u8
+    }
+
+    let mut state = 0x2468_ace1u32;
+    let cases = [
+        (1, 1, (0, 0, 1, 1)),
+        (9, 7, (1, 1, 7, 5)),
+        (13, 11, (2, 3, 9, 7)),
+        (19, 13, (3, 2, 11, 9)),
+        (17, 15, (0, 0, 17, 15)),
+        (15, 17, (1, 1, 14, 16)),
+        (65, 33, (1, 1, 63, 31)),
+        (1031, 2063, (1, 3, 1027, 2059)),
+    ];
+    for (cw, chh, bx) in cases {
+        let (x, y, w, h) = bx;
+        let radii: &[usize] = if cw > 1000 { &[0, 37] } else { &[0, 1, 7, usize::MAX] };
+        for kind in [Kind::I420, Kind::Rgba, Kind::Bgra] {
+            for &radius in radii {
+                let patterns = if cw > 1000 { 2 } else { 5 };
+                for pattern in 0..patterns {
+                    let luma: Vec<u8> = (0..w * h).map(|i| {
+                        let random = next(&mut state);
+                        match pattern {
+                            0 => random,
+                            4 => match i % 7 { 0 | 1 => 0, 2 | 3 => 255, _ => random },
+                            1 => match ((i % w) / 97 + (i / w) / 31) % 3 {
+                                0 => 0,
+                                1 => 255,
+                                _ => random,
+                            },
+                            2 => 0,
+                            _ => 255,
+                        }
+                    }).collect();
+                    let mut alpha = vec![luma];
+                    if kind == Kind::I420 {
+                        alpha.push(chroma_alpha(&alpha[0], bx));
+                    }
+                    let mut picture = Vec::new();
+                    let specs = planes(kind, cw, chh);
+                    for (p, plane) in specs.iter().enumerate() {
+                        let (x0, y0, x1, y1) = if plane.w == cw { (x, y, x + w, y + h) } else { plane_box(2, bx) };
+                        let mut values: Vec<u8> = (0..(x1 - x0) * (y1 - y0) * plane.ch).map(|_| next(&mut state)).collect();
+                        // Also compare arbitrary colour bytes at zero alpha, without assuming valid premultiplication.
+                        if pattern != 4 {
+                            multiply(&mut values, &alpha[p.min(1)], plane.ch);
+                        }
+                        picture.push(values);
+                    }
+                    let bytes = specs.iter().map(|plane| plane.w * plane.h * plane.ch).sum::<usize>();
+                    let mut actual: Vec<u8> = (0..bytes).map(|_| next(&mut state)).collect();
+                    let mut expected = actual.clone();
+                    paste_over_reference(&mut expected, kind, cw, chh, &picture, &alpha, bx, radius);
+                    paste_over(&mut actual, kind, cw, chh, &picture, &alpha, bx, radius);
+                    assert_eq!(actual, expected, "{kind:?} {cw}x{chh}, box {bx:?}, radius {radius}, pattern {pattern}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn a_cut_out_shows_what_is_under_it_where_the_alpha_is_nothing() {
     let half = |x: usize, _y: usize| if x < 80 { 0 } else { 255 };
     for format in [PixelFormat::Bgra, PixelFormat::I420] {
