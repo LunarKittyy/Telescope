@@ -197,6 +197,8 @@ pub struct FakeHost {
     pub issues: Vec<(String, Issue)>,
     /// What each plugin has on the preview, by owner.
     pub layers: HashMap<String, PreviewLayer>,
+    /// The messages on each stream, by (owner, source id).
+    pub preview_messages: HashMap<(String, String), PreviewMessage>,
     /// The passes plugins put on the preview, by owner.
     pub passes: HashMap<String, Arc<dyn crate::preview::PreviewPass>>,
     /// What sensor_status() answers instead of {"state": "off"}.
@@ -730,6 +732,15 @@ impl HostMotion for FakeHost {
 }
 
 impl HostPreview for FakeHost {
+    fn set_preview_message(&mut self, owner: &str, source_id: Option<&str>, message: Option<PreviewMessage>) {
+        let source = source_id.map(str::to_string).or_else(|| self.focused.clone()).unwrap_or_default();
+        self.note(format!("set_preview_message {owner} {source} {}", message.is_some()));
+        let key = (owner.to_string(), source);
+        match message {
+            Some(message) => { self.preview_messages.insert(key, message); }
+            None => { self.preview_messages.remove(&key); }
+        }
+    }
     fn add_preview_layer(&mut self, owner: &str, layer: PreviewLayer) {
         self.note(format!("add_preview_layer {owner}"));
         self.layers.insert(owner.to_string(), layer);

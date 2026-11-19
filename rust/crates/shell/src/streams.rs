@@ -461,6 +461,10 @@ impl Window {
     fn stream_snapshot(&self, flow: &StreamFlow) {
         let s = &flow.sessions;
         let mut st = self.state.borrow_mut();
+        let gone: Vec<String> = st.streams.live.iter().filter(|id| !s.streams.iter().any(|src| src.has_session() && src.id_str() == id.as_str())).cloned().collect();
+        for id in gone {
+            st.let_go_of_photos(Some(&id));
+        }
         st.streams.streaming = !s.streams.is_empty();
         st.streams.starting = s.is_starting();
         st.streams.restarting = s.restarting;
@@ -832,6 +836,7 @@ impl Window {
             }
         }
         let options = &options;
+        self.state.borrow_mut().begin_photo_message(request, source, options, is_camera);
         let alive = Arc::new(std::sync::atomic::AtomicBool::new(true));
         self.state.borrow_mut().still_alive.push((source.to_string(), alive.clone()));
         let (progress_posts, done_posts, owner, done_owner) = (posts.clone(), posts.clone(), plugin.to_string(), plugin.to_string());
@@ -1908,6 +1913,9 @@ impl FlowHost for Host<'_> {
     }
     fn end_worker(&mut self, worker: Rc<dyn Worker>) {
         let Some(w) = self.w.shell_worker(&worker) else { return };
+        if let Some(source) = w.inner.source_id() {
+            self.w.state.borrow_mut().let_go_of_photos(Some(source));
+        }
         self.w.streams.workers.borrow_mut().retain(|x| x.id != w.id);
         let inner = w.inner.clone();
         // Vision and motion state goes after the worker has stopped, not before: a frame still in flight would make it again

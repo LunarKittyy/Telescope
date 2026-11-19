@@ -5,7 +5,7 @@ use serde_json::to_value;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use telescope_core::event::{LensBox, RememberedSource, SourceName};
-use telescope_core::host::{HostShell, Pick, PickKind, View};
+use telescope_core::host::{HostShell, Pick, PickKind, PreviewMessage, View};
 use telescope_core::plugin::{load_config_tolerantly, Plugin, PluginInfo, StreamInfo};
 use telescope_core::testing::{scratch_dir, FakeHost};
 use telescope_core::ui::{added_issue_key, SlintSource, UiEvent};
@@ -769,6 +769,30 @@ fn repo_is_checked() {
     }
 }
 
+#[test]
+fn preview_messages_use_the_plugins_identity_and_can_be_cleared() {
+    let folder = plugin("message_test", r#"
+        local plugin = { events = {} }
+        function plugin.show()
+          host.set_preview_message({ text = tr("Taking a picture"), detail = tr("Video will come back when done."),
+            step = "", remaining_ms = 10000, total_ms = 10000, dim = true, max_ms = 80000 }, "phone")
+        end
+        function plugin.clear() host.set_preview_message(nil, "phone") end
+        function plugin.events.preview_message_ended(e) plugin.ended = e.source_id end
+        function plugin.last_ended() return plugin.ended end
+        return plugin
+    "#, json!({ "title": "Photos" }));
+    let mut t = PluginTest::open(&folder).unwrap();
+    t.call("show", vec![]).unwrap();
+    let key = ("message_test".into(), "phone".into());
+    assert_eq!(t.host.preview_messages[&key].remaining_ms, Some(10_000));
+    assert_eq!(t.host.preview_messages.len(), 1);
+    t.event(Event::PreviewMessageEnded { source_id: "phone".into() });
+    assert_eq!(t.call("last_ended", vec![]).unwrap(), json!("phone"));
+    t.call("clear", vec![]).unwrap();
+    assert!(t.host.preview_messages.is_empty());
+}
+
 // ── The plugin API, frozen (test_plugin_api.py) ─────────────────────────────
 
 /// Every hook GuestPlugin really calls when Telescope uses it as a Plugin: (hook, how many arguments, whether the host is there).
@@ -897,6 +921,8 @@ fn current_api() -> String {
         ("RememberedSource", to_value(RememberedSource { id: "x".into(), name: "x".into(), detail: "x".into() })),
         ("View", to_value(view)),
         ("Pick", to_value(pick)),
+        ("PreviewMessage", to_value(PreviewMessage { text: "x".into(), detail: "x".into(), step: "x".into(),
+            remaining_ms: Some(1000), total_ms: Some(2000), dim: true, max_ms: 60_000 })),
         ("StreamInfo", to_value(StreamInfo { source_id: "x".into(), url: "x".into(), session: 1 })),
         ("UiEvent", to_value(UiEvent { ui: "x".into(), callback: "x".into(), args: vec![json!(1)] })),
     ];

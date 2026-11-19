@@ -12,7 +12,7 @@ use std::collections::BTreeSet;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 use telescope_core::frame::{FrameStep, ShaderStep};
-use telescope_core::host::{ColourStage, Host, OutputChange, PickKind, PreviewLayer, ViewChange};
+use telescope_core::host::{ColourStage, Host, OutputChange, PickKind, PreviewLayer, PreviewMessage, ViewChange};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::source::RouteSpec;
 use telescope_core::ui::{added_issue_key, issue_owner, ActionSpec, CardSpec, Issue, IssueDoes, SettingsSection, SlintSource, TrayAction, UiEvent, UiSpec};
@@ -212,6 +212,7 @@ pub const HOST_API: &[HostMethod] = &[
     m("motion", &[], None),
     // Preview
     m("add_preview_layer", &["layer"], None),
+    m("set_preview_message", &["message?", "source_id?"], None),
     m("remove_preview_layer", &[], None),
     m("refresh_preview", &[], None),
     m("pick_on_preview", &["kind", "start?", "hint?"], None),
@@ -537,6 +538,7 @@ pub fn call_host(host: &mut dyn Host, info: &PluginInfo, method: &str, args: &Va
         "watch_motion" => host.watch_motion(owner, &arg::<Vec<[f32; 4]>>(args, "zones")?, arg::<Option<u32>>(args, "sensitivity")?.unwrap_or(5)),
         "motion" => return out(host.motion(owner)),
         "add_preview_layer" => host.add_preview_layer(owner, arg::<PreviewLayer>(args, "layer")?),
+        "set_preview_message" => host.set_preview_message(owner, src, arg::<Option<PreviewMessage>>(args, "message")?),
         "remove_preview_layer" => host.remove_preview_layer(owner),
         "refresh_preview" => host.refresh_preview(),
         "pick_on_preview" => return out(host.pick_on_preview(owner, arg::<PickKind>(args, "kind")?, arg(args, "start")?,

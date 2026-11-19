@@ -868,7 +868,7 @@ fn night_follows_its_own_progress_and_saved_file() {
     plugin.on_event(&mut host, &Event::RequestProgress { request: RequestId(request.0 + 1), data: json!({"state": "capturing"}) });
     assert_eq!(plugin.state_props(&host)["status"], "Taking the photo");
     plugin.on_event(&mut host, &Event::RequestProgress { request, data: json!({"state": "capturing"}) });
-    assert_eq!(plugin.state_props(&host)["status"], "Exposing, the video is paused");
+    assert_eq!(plugin.state_props(&host)["status"], "Video paused while exposing");
     plugin.on_event(&mut host, &Event::RequestDone { request: RequestId(request.0 + 1), ok: false, message: String::new(), data: json!({}) });
     assert_eq!(plugin.taking, Some(request));
     plugin.on_event(&mut host, &Event::RequestDone { request, ok: true, message: String::new(), data: json!({"ok": true, "files": ["sky.jpg"], "applied": {"shutter_s": 10.0, "iso": 800}}) });

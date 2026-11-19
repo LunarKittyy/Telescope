@@ -25,6 +25,7 @@ pub(crate) mod parent;
 pub mod preview_passes;
 pub mod plugins;
 pub mod preview;
+mod preview_message;
 pub mod plugins_tab;
 mod reach;
 pub mod scenes;

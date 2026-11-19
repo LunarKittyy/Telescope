@@ -459,6 +459,8 @@ pub struct State {
     pub passes: Vec<(String, Arc<dyn telescope_core::preview::PreviewPass>)>,
     /// The shapes plugins draw on the preview (add_preview_layer), by owner.
     pub layers: BTreeMap<String, telescope_core::host::PreviewLayer>,
+    pub(crate) preview_messages: crate::preview_message::Messages,
+    pub(crate) photo_messages: BTreeMap<u64, crate::preview_message::Photo>,
     /// A pass asked for the preview to be drawn again (refresh_preview, or an analysis that finished).
     pub preview_dirty: Arc<std::sync::atomic::AtomicBool>,
     /// The stream flow's slot_memory: which virtual camera each source went to last.
@@ -594,6 +596,8 @@ impl State {
             overlays: Default::default(),
             passes: Vec::new(),
             layers: BTreeMap::new(),
+            preview_messages: Default::default(),
+            photo_messages: BTreeMap::new(),
             preview_dirty: Arc::new(std::sync::atomic::AtomicBool::new(true)),
             slot_memory: Rc::default(),
             changes_only: Vec::new(),
@@ -1818,6 +1822,7 @@ impl State {
                 self.deliver_to(&owner, &Event::Posted { owner: owner.clone(), token, data });
             }
             for (owner, event) in events {
+                self.photo_message_event(&event);
                 self.still_ended(&event);
                 self.deliver_to(&owner, &event);
             }
@@ -1849,6 +1854,7 @@ impl State {
 
     /// Photos on `source` (all of them for None) end as interrupted: the stream they were taken from is gone.
     pub fn let_go_of_photos(&mut self, source: Option<&str>) {
+        self.drop_stream_messages(source);
         self.still_alive.retain(|(id, alive)| {
             let gone = source.is_none_or(|s| s == id);
             if gone {
