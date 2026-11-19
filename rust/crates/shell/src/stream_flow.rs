@@ -4,7 +4,7 @@
 //! streams that keep running and keeps the plugins that stay put (the mic) on one stream. It reaches the window only
 //! through FlowHost, so the tests drive it with a stand-in and no window.
 
-use crate::session::{same, Sessions, Source, SourceRef, StreamSession, Worker};
+use crate::session::{same, stream_label, Sessions, Source, SourceRef, StreamSession, Worker};
 use serde_json::Value;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -108,6 +108,8 @@ pub struct StreamFlow {
     pub slot_memory: Rc<RefCell<BTreeMap<String, u32>>>,
     /// Source id: the banner action to tell once the panels show it, as it starts next to the others.
     befores: BTreeMap<String, (String, String)>,
+    /// What asked for the next stop, for the log. A stop nobody labelled is a restart.
+    pub stop_reason: &'static str,
 }
 
 fn info(source: &Source, session: &StreamSession) -> StreamInfo {
@@ -750,11 +752,14 @@ impl StreamFlow {
                 others.push(w); // one restarting next to the shown stream
             }
         }
+        let why = std::mem::take(&mut self.stop_reason);
         self.sessions.stopping_all = true;
         for source in others {
+            self.stop_reason = why;
             self.stop(host, remote_stop, Some(source), false);
         }
         self.sessions.stopping_all = false;
+        self.stop_reason = why;
         self.stop(host, remote_stop, None, false);
         if let Some(main) = main.filter(|m| !Rc::ptr_eq(m, &shown)) {
             // The mic has the first stream's settings; idle, they'd be saved as the shown one's
@@ -781,6 +786,10 @@ impl StreamFlow {
 
         // Forget the session before the teardown, so a state fetch on its way sees no session at once.
         let session = source.session();
+        let why = std::mem::take(&mut self.stop_reason);
+        if session.is_some() || was_waking {
+            log::info!("{}: Stopped by {}", stream_label(&source), if why.is_empty() { "a restart" } else { why });
+        }
         self.sessions.forget(&source);
         source.kind.stopped(&source, remote_stop, session.is_some() || was_waking);
         if let Some(session) = session {

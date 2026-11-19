@@ -642,7 +642,10 @@ impl Window {
         let _ = ui.set_callback("tile-stop", move |args| {
             if let (Some(w), Some(SValue::String(id))) = (weak.upgrade(), args.first()) {
                 let id = id.to_string();
-                w.with_flow(move |flow, host| flow.stop_stream(host, Some(&id)));
+                w.with_flow(move |flow, host| {
+                    flow.stop_reason = "the tile's X";
+                    flow.stop_stream(host, Some(&id));
+                });
             }
             SValue::Void
         });
@@ -1697,7 +1700,10 @@ impl Window {
                 }
             }
             Effect::StartAgain(id) => self.start_source(id, None),
-            Effect::Stop(id) => self.with_flow(move |flow, host| flow.stop_stream(host, id.as_deref())),
+            Effect::Stop(id) => self.with_flow(move |flow, host| {
+                flow.stop_reason = "a shortcut, the remote or a plugin";
+                flow.stop_stream(host, id.as_deref());
+            }),
             Effect::StopAll => self.stop_all_streams(),
             Effect::Reconnect(id) => self.with_flow(move |flow, host| flow.reconnect_stream(host, id.as_deref())),
             Effect::UpdateOutput { change, source_id } => self.update_output(&change, source_id.as_deref()),
