@@ -327,8 +327,8 @@ fn a_photo_is_taken_through_the_shell_and_every_plugin_hears_what_became_of_it()
 fn a_photo_the_stream_ends_under_is_let_go() {
     let (mut state, _) = state_with(json!({}));
     let alive = Arc::new(std::sync::atomic::AtomicBool::new(true));
-    state.still_alive.push(("p1".into(), alive.clone()));
-    state.still_alive.push(("p2".into(), Arc::new(std::sync::atomic::AtomicBool::new(true))));
+    state.still_alive.push((telescope_core::host::RequestId(1), "p1".into(), alive.clone()));
+    state.still_alive.push((telescope_core::host::RequestId(2), "p2".into(), Arc::new(std::sync::atomic::AtomicBool::new(true))));
     state.let_go_of_photos(Some("p1"));
     assert!(!alive.load(std::sync::atomic::Ordering::SeqCst) && state.still_alive.len() == 1);
     state.bus.emit(Event::StreamStopped);

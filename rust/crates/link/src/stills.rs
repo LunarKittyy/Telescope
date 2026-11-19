@@ -114,6 +114,9 @@ pub struct StillCaps {
     pub focus_steps_max: i64,
     /// The nearest the lens focuses, in diopters (the lens's minFocusDistance); 0 without manual focus.
     pub focus_near_max: f64,
+    /// The ISO the lens takes, from the current camera entry; 0 when it didn't say.
+    pub iso_min: i64,
+    pub iso_max: i64,
     /// (mode, (width, height)) for the maker's modes that said their size.
     pub extension_sizes: Vec<(String, (i64, i64))>,
 }
@@ -150,7 +153,9 @@ impl StillCaps {
         // A phone that says how many photos a bracket may have also takes the wider spread of EV that goes with them
         let wide = raw.contains_key("bracketMax");
         let near = current.get("minFocusDistance").and_then(Value::as_f64).filter(|d| d.is_finite() && *d > 0.0);
+        let iso = |key: &str| py_int(current.get(key)).map_or(0, |n| n.max(0));
         Some(StillCaps {
+            iso_min: iso("isoMin"), iso_max: iso("isoMax"),
             exposure_min_ns: number("exposureMinNs"),
             bracket_max: if wide { number("bracketMax").clamp(2, 100) } else { 9 },
             ev_max: if wide { 12 } else { 6 },
@@ -504,7 +509,7 @@ impl Runner<'_> {
         let alive_now = || alive.lock().unwrap_or_else(|e| e.into_inner()).as_ref().is_none_or(|a| a());
         while !self.stopped() {
             if !alive_now() {
-                // Its stream stopped or restarted: the phone drops the photo with it, if it can still say so at all
+                self.forget(&sid);
                 return StillResult::failed("interrupted", "", &saved);
             }
             // Hiding began mid-burst: what the phone still has or is taking is never downloaded, and what is saved already stays
@@ -811,6 +816,16 @@ mod tests {
         odd["focusStepsMax"] = json!(0);
         let c = caps(odd).unwrap();
         assert_eq!((c.bracket_max, c.focus_steps_max), (100, 2));
+    }
+
+    #[test]
+    fn the_lens_says_its_iso_range() {
+        let mut state = state_with(full(), Some(1), true);
+        state["cameras"][1]["isoMin"] = json!(50);
+        state["cameras"][1]["isoMax"] = json!(3200);
+        let c = StillCaps::from_state(Some(&state)).unwrap();
+        assert_eq!((c.iso_min, c.iso_max), (50, 3200));
+        assert_eq!((caps(full()).unwrap().iso_min, caps(full()).unwrap().iso_max), (0, 0));
     }
 
     #[test]
@@ -1396,6 +1411,29 @@ mod tests {
         let (r, _, _) = timed(Phone { polls: 2, ..Phone::default() }, Timings { longest: Duration::ZERO, ..quick() },
                               json!({"format": "jpeg", "exposure_ns": 5_000_000_000i64}), None);
         assert!(r.ok && r.files.len() == 2);
+    }
+
+    #[test]
+    fn cancelling_a_long_photo_tells_the_phone_to_forget_it() {
+        let stills = Stills::new();
+        stills.set_timings(quick());
+        let (server, state) = phone(Phone { polls: 1000, ..Phone::default() });
+        let alive = Arc::new(AtomicBool::new(true));
+        let running = alive.clone();
+        let (progress_tx, progress_rx) = mpsc::channel();
+        let progress_tx = Mutex::new(progress_tx);
+        let (tx, rx) = mpsc::channel();
+        assert!(stills.take(Some("phone-1"), &format!("{}/v1", server.base(false)), PhoneAuth::new("token", ""),
+                            json!({"format": "jpeg", "exposure_ns": 30_000_000_000i64}).as_object().unwrap().clone(),
+                            telescope_core::testing::scratch_dir("stills-cancel"), Box::new(move |r| tx.send(r).unwrap()),
+                            Some(Box::new(move |_| { let _ = progress_tx.lock().unwrap().send(()); })),
+                            Some(Box::new(move || running.load(Ordering::SeqCst)))));
+        progress_rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        alive.store(false, Ordering::SeqCst);
+        let result = rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        assert_eq!(result.code, "interrupted");
+        assert!(result.files.is_empty());
+        assert_eq!(state.lock().unwrap().forgotten, ["abc"]);
     }
 
     #[test]

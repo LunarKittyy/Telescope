@@ -745,6 +745,8 @@ pub trait HostStills {
     fn still_caps(&self, source_id: Option<&str>) -> Option<Value>;
     /// Takes a photo with the /v1/still options into folder; None when it can't start. Progress and the result come as events.
     fn take_still(&mut self, options: &Value, folder: &str, source_id: Option<&str>) -> Option<RequestId>;
+    /// Cancels this plugin's pending photo; its thread discards the result and tells the phone to forget it.
+    fn cancel_still(&mut self, request: RequestId);
     fn still_busy(&self, source_id: Option<&str>) -> bool;
     /// Whether pixels of that stream (the shown one for None) are being hidden now (a privacy blur, the wait screen, a background). A
     /// plugin that hides tells the host through `set_hiding`. One whose frame steps exist and that never has told it counts as hiding. A

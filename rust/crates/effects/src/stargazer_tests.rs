@@ -330,18 +330,18 @@ fn a_picture_is_written_whole_or_not_at_all() {
 #[test]
 fn the_settings_round_trip() {
     let mut p = StargazerPlugin::new();
-    let saved = json!({"mode": "trails", "frames": 800, "keep": 25, "interval": 12, "camera": true});
+    let saved = json!({"mode": "trails", "frames": 800, "keep": 25, "interval": 12, "camera": true, "shot": {"shutter_s": 20.0, "iso": 1600}});
     p.set_config(&saved).unwrap();
     assert_eq!(p.get_config(), saved);
     assert!(p.shared.camera.load(Ordering::SeqCst));
     assert_eq!(p.shared.interval_ms.load(Ordering::SeqCst), 12_000);
     // Out of range or nonsense falls back or is clamped, and a run is never part of it
     p.set_config(&json!({"mode": "nonsense", "frames": 5, "keep": 500, "interval": "soon"})).unwrap();
-    assert_eq!(p.get_config(), json!({"mode": "lucky", "frames": 50, "keep": 100, "interval": 5, "camera": false}));
+    assert_eq!(p.get_config(), json!({"mode": "lucky", "frames": 50, "keep": 100, "interval": 5, "camera": false, "shot": StargazerPlugin::default_shot()}));
     p.set_config(&json!({"frames": 99999})).unwrap();
     assert_eq!(p.get_config()["frames"], 2000);
     p.set_config(&json!({})).unwrap();
-    assert_eq!(p.get_config(), json!({"mode": "lucky", "frames": 300, "keep": 10, "interval": 5, "camera": false}));
+    assert_eq!(p.get_config(), json!({"mode": "lucky", "frames": 300, "keep": 10, "interval": 5, "camera": false, "shot": StargazerPlugin::default_shot()}));
     assert_eq!(p.phase, Phase::Idle);
 }
 
@@ -779,4 +779,272 @@ fn stacking_keeps_reading_frames_with_the_card_and_window_hidden() {
     assert!(rig.host.frames_wanted.contains(NAME));
     rig.click("run-clicked", Value::Null);
     assert!(rig.plugin.count > 0);
+}
+
+fn night_host() -> FakeHost {
+    let mut host = FakeHost::new();
+    host.streaming = true;
+    host.focused = Some("phone".into());
+    host.still_only_for = Some("phone".into());
+    host.still_caps = Some(json!({"shot": {
+        "shutter": {"min_ns": 250_000, "max_ns": 20_000_000_000i64},
+        "iso": {"min": 50, "max": 3200}, "focus": {"near_diopters": 10.0}, "freezes_from_ns": 500_000_000,
+    }}));
+    host
+}
+
+fn night_ui(plugin: &mut StargazerPlugin, host: &mut FakeHost, callback: &str, arg: Value) {
+    plugin.on_ui(host, &UiEvent { ui: "card".into(), callback: callback.into(), args: vec![arg] });
+}
+
+fn night_plugin(host: &mut FakeHost) -> StargazerPlugin {
+    let mut plugin = StargazerPlugin::new();
+    plugin.set_config(&json!({"mode": "night"})).unwrap();
+    plugin.setup(host);
+    plugin
+}
+
+#[test]
+fn night_is_the_fourth_mode() {
+    assert_eq!(Mode::ALL, [Mode::Lucky, Mode::Live, Mode::Trails, Mode::Night]);
+    assert_eq!(Mode::Night.index(), 3);
+    assert_eq!(Mode::from_key("night"), Some(Mode::Night));
+    assert_eq!(StargazerPlugin::fixed_props()["mode-items"], json!(["Lucky", "Live", "Trails", "Night"]));
+}
+
+#[test]
+fn the_first_night_pick_saves_defaults_and_never_replaces_saved_choices() {
+    let mut host = night_host();
+    let mut plugin = StargazerPlugin::new();
+    plugin.set_config(&json!({})).unwrap();
+    plugin.setup(&mut host);
+    host.calls.clear();
+    night_ui(&mut plugin, &mut host, "mode-picked", json!(3));
+    assert_eq!(plugin.get_config()["shot"], json!({"shutter_s": 10.0, "iso": 800, "focus_diopters": 0.0}));
+    assert!(host.calls.iter().any(|c| c == "schedule_save"));
+    assert!(plugin.worker.is_none());
+    let saved = json!({"iso": 1600});
+    plugin.set_config(&json!({"shot": saved})).unwrap();
+    night_ui(&mut plugin, &mut host, "mode-picked", json!(3));
+    assert_eq!(plugin.get_config()["shot"], saved);
+    let mut restored = StargazerPlugin::new();
+    restored.set_config(&plugin.get_config()).unwrap();
+    assert_eq!(restored.get_config(), plugin.get_config());
+    assert_eq!(restored.shot.shutter_s, None);
+    assert_eq!(restored.shot.focus_diopters, None);
+}
+
+#[test]
+fn night_takes_one_jpeg_from_the_focused_stream_without_the_worker() {
+    let mut host = night_host();
+    let mut plugin = night_plugin(&mut host);
+    assert_eq!(plugin.state_props(&host)["status"], "Ready");
+    assert!(plugin.frame_step().is_none());
+    night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+    assert_eq!(host.stills_taken.len(), 1);
+    assert_eq!(host.stills_taken[0], (json!({"format": "jpeg", "quality": 95, "rotation": 0,
+        "shot": {"shutter_s": 10.0, "iso": 800}, "skip_if_hidden": true}), plugin.folder.clone()));
+    assert_eq!(host.still_sources, vec![Some("phone".to_string())]);
+    assert_eq!(plugin.phase, Phase::Collecting);
+    assert!(plugin.taking.is_some());
+    assert!(plugin.worker.is_none() && plugin.feed.is_none());
+    assert!(!host.frames_wanted.contains(NAME));
+    assert_eq!(plugin.state_props(&host)["run-text"], "Stop");
+    assert_eq!(plugin.state_props(&host)["run-enabled"], true);
+    assert_eq!(plugin.state_props(&host)["status"], "Taking the photo");
+    night_ui(&mut plugin, &mut host, "mode-picked", json!(0));
+    assert_eq!(plugin.mode, Mode::Night);
+}
+
+#[test]
+fn night_follows_its_own_progress_and_saved_file() {
+    let mut host = night_host();
+    let mut plugin = night_plugin(&mut host);
+    night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+    let request = plugin.taking.unwrap();
+    plugin.on_event(&mut host, &Event::RequestProgress { request: RequestId(request.0 + 1), data: json!({"state": "capturing"}) });
+    assert_eq!(plugin.state_props(&host)["status"], "Taking the photo");
+    plugin.on_event(&mut host, &Event::RequestProgress { request, data: json!({"state": "capturing"}) });
+    assert_eq!(plugin.state_props(&host)["status"], "Video paused while exposing");
+    plugin.on_event(&mut host, &Event::RequestDone { request: RequestId(request.0 + 1), ok: false, message: String::new(), data: json!({}) });
+    assert_eq!(plugin.taking, Some(request));
+    plugin.on_event(&mut host, &Event::RequestDone { request, ok: true, message: String::new(), data: json!({"ok": true, "files": ["sky.jpg"], "applied": {"shutter_s": 10.0, "iso": 800}}) });
+    assert_eq!(plugin.last, "sky.jpg");
+    assert_eq!(plugin.note, "Saved the photo");
+    assert_eq!(plugin.phase, Phase::Idle);
+    assert!(plugin.taking.is_none());
+    assert_eq!(plugin.state_props(&host)["run-enabled"], true);
+    assert_eq!(plugin.state_props(&host)["open-enabled"], true);
+    assert_eq!(plugin.tally(), "");
+    assert!(!host.frames_wanted.contains(NAME));
+}
+
+#[test]
+fn night_shows_the_failure_and_can_try_again() {
+    let mut host = night_host();
+    let mut plugin = night_plugin(&mut host);
+    for (data, expected) in [(json!({"error": "The phone disconnected"}), "The phone disconnected"), (json!({}), "Couldn't take the photo")] {
+        night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+        let request = plugin.taking.unwrap();
+        plugin.on_event(&mut host, &Event::RequestDone { request, ok: false, message: String::new(), data });
+        assert_eq!(plugin.problem.as_deref(), Some(expected));
+        assert_eq!(plugin.phase, Phase::Idle);
+        assert!(plugin.taking.is_none());
+        assert_eq!(plugin.state_props(&host)["run-enabled"], true);
+    }
+    host.still_busy = true;
+    night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+    assert_eq!(plugin.phase, Phase::Idle);
+    assert!(plugin.taking.is_none());
+    assert_eq!(plugin.problem.as_deref(), Some("Couldn't take the photo"));
+}
+
+#[test]
+fn night_only_sends_the_keys_the_caps_allow_and_never_focus() {
+    for (caps, expected) in [
+        (json!({}), json!({})),
+        (json!({"shot": {"iso": {"min": 50, "max": 3200}}}), json!({"iso": 800})),
+        (json!({"shot": {"shutter": {"min_ns": 250_000, "max_ns": 10_000_000_000i64}}}), json!({"shutter_s": 10.0})),
+    ] {
+        let mut host = night_host();
+        host.still_caps = Some(caps);
+        let mut plugin = night_plugin(&mut host);
+        night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+        assert_eq!(host.stills_taken[0].0["shot"], expected);
+        assert!(host.stills_taken[0].0["shot"].get("focus_diopters").is_none());
+    }
+}
+
+#[test]
+fn missing_caps_disable_controls_and_a_missing_shutter_has_its_reason() {
+    let mut host = night_host();
+    let mut plugin = night_plugin(&mut host);
+    let props = plugin.state_props(&host);
+    assert_eq!(props["shot-summary"], "10 s · ISO 800 · focus ∞");
+    assert_eq!(props["focus-readout"], "∞");
+    assert_eq!(props["focus-enabled"], false);
+    assert_eq!(props["shutter-enabled"], true);
+    assert_eq!(props["iso-enabled"], true);
+    host.still_caps = Some(json!({"shot": {"iso": {"min": 50, "max": 3200}}}));
+    let props = plugin.state_props(&host);
+    assert_eq!(props["shutter-enabled"], false);
+    assert_eq!(props["shutter-tip"], "This phone can't set the shutter speed.");
+    assert_eq!(props["iso-enabled"], true);
+    host.still_caps = Some(json!({}));
+    assert_eq!(plugin.state_props(&host)["iso-tip"], "This phone can't set the ISO.");
+    host.still_caps = None;
+    let props = plugin.state_props(&host);
+    assert_eq!(props["shutter-tip"], "Waiting for the picture");
+    assert_eq!(props["iso-tip"], "Waiting for the picture");
+    assert_eq!(props["run-enabled"], false);
+    night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+    assert!(host.stills_taken.is_empty());
+}
+
+#[test]
+fn camera_choices_save_but_the_disclosure_is_temporary_and_focus_is_locked() {
+    let mut host = night_host();
+    let mut plugin = night_plugin(&mut host);
+    host.calls.clear();
+    night_ui(&mut plugin, &mut host, "shutter-picked", json!(0));
+    night_ui(&mut plugin, &mut host, "iso-picked", json!(0));
+    assert_eq!(plugin.shot.shutter_s, None);
+    assert_eq!(plugin.shot.iso, None);
+    assert_eq!(host.calls.iter().filter(|c| c.as_str() == "schedule_save").count(), 2);
+    night_ui(&mut plugin, &mut host, "customize-toggled", json!(true));
+    assert_eq!(plugin.state_props(&host)["customize-open"], true);
+    assert!(plugin.get_config().get("customize-open").is_none());
+    let mut restored = StargazerPlugin::new();
+    restored.set_config(&plugin.get_config()).unwrap();
+    assert!(!restored.customize_open);
+    night_ui(&mut plugin, &mut host, "settings-reset-clicked", Value::Null);
+    assert_eq!(plugin.shot, StargazerPlugin::default_shot());
+    assert_eq!(plugin.mode, Mode::Night);
+}
+
+#[test]
+fn presets_carry_shot_choices_and_older_presets_keep_them() {
+    let mut host = night_host();
+    let mut plugin = night_plugin(&mut host);
+    plugin.apply_preset(&mut host, &json!({"shot": {"iso": 1600}})).unwrap();
+    assert_eq!(plugin.preset_config()["shot"], json!({"iso": 1600}));
+    plugin.apply_preset(&mut host, &json!({"frames": 700})).unwrap();
+    assert_eq!(plugin.shot, ShotChoice { iso: Some(1600), ..ShotChoice::default() });
+    assert_eq!(plugin.frames, 700);
+    assert_eq!(plugin.phase, Phase::Idle);
+}
+
+#[test]
+fn leaving_night_refreshes_the_frame_step_for_video_modes() {
+    let mut host = night_host();
+    let mut plugin = night_plugin(&mut host);
+    assert!(plugin.frame_step().is_none());
+    host.calls.clear();
+    night_ui(&mut plugin, &mut host, "mode-picked", json!(0));
+    assert!(host.calls.iter().any(|c| c == "refresh_frame_step"));
+    assert!(plugin.frame_step().is_some());
+    plugin.shutdown(&mut host);
+}
+
+#[test]
+fn the_dials_pick_their_own_values_and_lock_during_the_photo() {
+    let mut host = night_host();
+    let mut plugin = night_plugin(&mut host);
+    let props = plugin.state_props(&host);
+    let shutter_index = props["shutter-stops"].as_array().unwrap().iter().position(|v| v == "20 s").unwrap();
+    let iso_index = props["iso-stops"].as_array().unwrap().iter().position(|v| v == "1600").unwrap();
+    night_ui(&mut plugin, &mut host, "shutter-picked", json!(shutter_index));
+    night_ui(&mut plugin, &mut host, "iso-picked", json!(iso_index));
+    assert_eq!(plugin.shot.shutter_s, Some(20.0));
+    assert_eq!(plugin.shot.iso, Some(1600));
+    night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+    night_ui(&mut plugin, &mut host, "shutter-picked", json!(0));
+    night_ui(&mut plugin, &mut host, "iso-picked", json!(0));
+    assert_eq!(plugin.shot.shutter_s, Some(20.0));
+    assert_eq!(plugin.shot.iso, Some(1600));
+    let props = plugin.state_props(&host);
+    assert_eq!(props["shutter-enabled"], false);
+    assert_eq!(props["iso-enabled"], false);
+}
+
+#[test]
+fn dslrs_cannot_pick_or_start_night_even_from_saved_settings() {
+    let mut host = night_host();
+    host.still_caps = Some(json!({"camera": true, "formats": ["jpeg"]}));
+    let mut plugin = StargazerPlugin::new();
+    plugin.setup(&mut host);
+    assert_eq!(plugin.state_props(&host)["night-unsupported"], true);
+    night_ui(&mut plugin, &mut host, "mode-picked", json!(3));
+    assert_eq!(plugin.mode, Mode::Lucky);
+    plugin.set_config(&json!({"mode": "night"})).unwrap();
+    let props = plugin.state_props(&host);
+    assert_eq!(props["status"], "This camera can't do Night yet");
+    assert_eq!(props["run-enabled"], false);
+    night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+    assert!(host.stills_taken.is_empty());
+    assert_eq!(plugin.phase, Phase::Idle);
+}
+
+#[test]
+fn stopping_a_night_shot_cancels_it_and_ignores_its_late_reply() {
+    let mut host = night_host();
+    let mut plugin = night_plugin(&mut host);
+    night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+    let request = plugin.taking.unwrap();
+    plugin.on_event(&mut host, &Event::RequestProgress { request, data: json!({"state": "capturing"}) });
+    night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+    assert_eq!(plugin.phase, Phase::Idle);
+    assert!(plugin.taking.is_none());
+    assert!(!plugin.exposing);
+    assert!(host.calls.contains(&format!("cancel_still {}", request.0)));
+    assert_eq!(plugin.state_props(&host)["run-text"], "Start");
+    assert!(plugin.worker.is_none());
+    night_ui(&mut plugin, &mut host, "run-clicked", Value::Null);
+    let next = plugin.taking;
+    plugin.on_event(&mut host, &Event::RequestDone { request, ok: true, message: String::new(), data: json!({"ok": true, "files": ["cancelled.jpg"]}) });
+    assert_eq!(plugin.taking, next);
+    assert_eq!(plugin.phase, Phase::Collecting);
+    assert!(plugin.last.is_empty());
+    plugin.shutdown(&mut host);
+    assert!(host.calls.contains(&format!("cancel_still {}", next.unwrap().0)));
 }

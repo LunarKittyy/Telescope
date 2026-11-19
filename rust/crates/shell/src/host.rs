@@ -653,7 +653,12 @@ impl HostStills for Ctx<'_> {
         if let Some(camera) = self.camera_stills(&id) {
             return camera.caps();
         }
-        self.stills()?.caps(Some(&id))
+        let mut caps = self.stills()?.caps(Some(&id))?;
+        let ranges = telescope_core::shot::phone_ranges(&caps);
+        if let Some(map) = caps.as_object_mut() {
+            map.insert("shot".into(), ranges);
+        }
+        Some(caps)
     }
     fn take_still(&mut self, options: &Value, folder: &str, source_id: Option<&str>) -> Option<RequestId> {
         let id = self.still_source(source_id)?;
@@ -669,8 +674,17 @@ impl HostStills for Ctx<'_> {
         }
         let request = self.state.request_id();
         self.state.stills.push((request, self.me.clone(), id.clone()));
+        self.state.still_alive.push((request, id.clone(), Arc::new(std::sync::atomic::AtomicBool::new(true))));
         self.state.effects.push(Effect::TakeStill { plugin: self.me.clone(), request, source: id, options: options.clone(), folder: folder.into() });
         Some(request)
+    }
+    fn cancel_still(&mut self, request: RequestId) {
+        if !self.state.stills.iter().any(|(id, owner, _)| *id == request && *owner == self.me) {
+            return;
+        }
+        if let Some((_, _, alive)) = self.state.still_alive.iter().find(|(id, ..)| *id == request) {
+            alive.store(false, std::sync::atomic::Ordering::SeqCst);
+        }
     }
     fn still_busy(&self, source_id: Option<&str>) -> bool {
         let Some(id) = self.still_source(source_id) else { return false };

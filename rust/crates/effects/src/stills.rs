@@ -2,9 +2,10 @@
 //! go to unless told otherwise. Plain helpers with no plugin in them, so Photos and Phototrap each use them without using each other.
 
 use crate::shared::py_float;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::path::{Path, PathBuf};
+use telescope_core::i18n::{tr, Fields};
 
 pub const EXTENSIONS: [&str; 4] = ["night", "hdr", "bokeh", "auto"];
 /// The shutter speeds offered, in whole stops: the fast ones as fractions of a second (the n of 1/n), then the long ones in seconds.
@@ -51,6 +52,87 @@ pub struct StillCaps {
     pub camera: bool,
     pub iso: Option<CameraSetting>,
     pub shutter: Option<CameraSetting>,
+    pub shot: Option<ShotCaps>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Deserialize)]
+#[serde(default)]
+pub struct ShotCaps {
+    pub shutter: Option<ShotShutter>,
+    pub iso: Option<ShotIso>,
+    pub focus: Option<ShotFocus>,
+    pub freezes_from_ns: i64,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+pub struct ShotShutter {
+    pub min_ns: i64,
+    pub max_ns: i64,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+pub struct ShotIso {
+    pub min: i64,
+    pub max: i64,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+pub struct ShotFocus {
+    pub near_diopters: f64,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(default)]
+pub struct ShotChoice {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub shutter_s: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub iso: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub focus_diopters: Option<f64>,
+}
+
+impl ShotChoice {
+    pub fn to_options_value(&self) -> Value {
+        json!(self)
+    }
+
+    pub fn summary(&self, focus_text: impl Fn(f64) -> String) -> String {
+        let mut parts = Vec::new();
+        if let Some(seconds) = self.shutter_s {
+            parts.push(exposure_text(seconds));
+        }
+        if let Some(iso) = self.iso {
+            parts.push(tr("ISO {iso}").field("iso", iso));
+        }
+        if let Some(diopters) = self.focus_diopters {
+            let distance = if diopters == 0.0 { tr("∞") } else { focus_text(diopters) };
+            parts.push(tr("focus {distance}").field("distance", distance));
+        }
+        if parts.is_empty() { tr("Like the camera") } else { parts.join(" · ") }
+    }
+}
+
+/// "Like the video" for none, else the shutter speed (1/250 s, 8 s).
+pub fn exposure_text(seconds: f64) -> String {
+    if seconds == 0.0 {
+        tr("Like the video")
+    } else if let Some(n) = shutter_n(seconds) {
+        tr("1/{n} s").field("n", n)
+    } else {
+        tr("{seconds} s").field("seconds", seconds)
+    }
+}
+
+pub fn shot_focus_text(diopters: f64) -> String {
+    match distance_parts(diopters) {
+        None => tr("∞"),
+        Some((cm, false)) => tr("{cm} cm").field("cm", cm),
+        Some((tenths, true)) => {
+            let metres = if tenths % 10 == 0 { (tenths / 10).to_string() } else { format!("{}.{}", tenths / 10, tenths % 10) };
+            tr("{m} m").field("m", metres)
+        }
+    }
 }
 
 /// One of a camera's own lists: what to send back for each entry, how to show it, and which one the camera is on (None: none listed).
@@ -68,7 +150,7 @@ impl Default for StillCaps {
             formats: vec!["jpeg".into()], size: None, max_res: None, max_res_raw: false, extensions: Vec::new(), exposure_max_ns: 0,
             exposure_min_ns: 0, bracket_max: BRACKET_MAX, ev_max: EV_MAX, focus_steps_max: FOCUS_STEPS_MAX, focus_near_max: 0.0,
             bracketing: false, focus_bracketing: false, noise_reduction_hq: false, sharpening_hq: false, hot_pixel_hq: false,
-            distortion: false, burst_max: 1, extension_sizes: Vec::new(), camera: false, iso: None, shutter: None,
+            distortion: false, burst_max: 1, extension_sizes: Vec::new(), camera: false, iso: None, shutter: None, shot: None,
         }
     }
 }
@@ -155,8 +237,45 @@ pub fn offered(caps: &StillCaps, choices: &Choices) -> Offered {
 pub fn shutter_speeds(caps: &StillCaps) -> Vec<f64> {
     let fastest = if caps.exposure_min_ns > 0 { caps.exposure_min_ns as f64 / 1e9 } else { 1.0 };
     let longest = caps.exposure_max_ns as f64 / 1e9;
+    speeds(fastest, longest)
+}
+
+fn speeds(fastest_s: f64, longest_s: f64) -> Vec<f64> {
     let fast = FAST_N.iter().map(|n| 1.0 / f64::from(*n));
-    fast.chain(LONG_S).filter(|s| *s >= fastest * 0.999 && *s <= longest * 1.0001).collect()
+    fast.chain(LONG_S).filter(|s| *s >= fastest_s * 0.999 && *s <= longest_s * 1.0001).collect()
+}
+
+pub fn shot_shutter_stops(caps: &ShotCaps) -> Vec<f64> {
+    let Some(range) = &caps.shutter else { return Vec::new() };
+    if range.min_ns <= 0 || range.max_ns < range.min_ns {
+        return Vec::new();
+    }
+    let (min, max) = (range.min_ns as f64 / 1e9, range.max_ns as f64 / 1e9);
+    let mut stops = speeds(min, max);
+    stops.extend([10.0, 20.0]);
+    stops.retain(|s| *s >= min && *s <= max);
+    for end in [min, max] {
+        if !stops.iter().any(|s| (*s - end).abs() <= end * 0.001) {
+            stops.push(end);
+        }
+    }
+    stops.sort_by(f64::total_cmp);
+    stops.dedup();
+    stops
+}
+
+pub fn shot_iso_stops(caps: &ShotCaps) -> Vec<i64> {
+    let Some(range) = &caps.iso else { return Vec::new() };
+    if range.max <= 0 || range.max < range.min {
+        return Vec::new();
+    }
+    let mut stops: Vec<i64> = [50, 64, 80, 100, 125, 160, 200, 250, 320, 400, 500, 640, 800, 1000, 1250, 1600,
+        2000, 2500, 3200, 4000, 5000, 6400, 8000, 10000, 12800, 16000, 20000, 25600]
+        .into_iter().filter(|v| *v >= range.min && *v <= range.max).collect();
+    if stops.last() != Some(&range.max) {
+        stops.push(range.max);
+    }
+    stops
 }
 
 /// How a shutter speed reads: 1/250 s for the fast ones, 8 s for the long ones.
@@ -222,6 +341,10 @@ pub fn focus_range(caps: &StillCaps, choices: &Choices) -> (f64, f64) {
 
 /// The steps of the focus scale the Camera card's slider and the range slider share: 0 is infinity, this many is the nearest focus.
 pub const FOCUS_SCALE: f64 = 1000.0;
+
+pub fn focus_position(near_diopters: f64, diopters: f64) -> f64 {
+    if near_diopters > 0.0 { (diopters / near_diopters * FOCUS_SCALE).clamp(0.0, FOCUS_SCALE) } else { 0.0 }
+}
 
 /// The range as the slider has it: where the far end (low) and the near end (high) are on the focus scale.
 pub fn focus_handles(caps: &StillCaps, choices: &Choices) -> (f64, f64) {
@@ -386,4 +509,8 @@ pub fn pictures_in(home: &Path, user_dirs: Option<&str>) -> PathBuf {
     }
     PathBuf::from(value)
 }
+
+#[cfg(test)]
+#[path = "stills_shot_tests.rs"]
+mod shot_tests;
 

@@ -3,7 +3,7 @@
 //! every few seconds. All stacking happens on a worker thread of its own; the frame step only hands pictures over.
 
 use crate::shared::Paired;
-use crate::stills::default_folder;
+use crate::stills::{self, default_folder, ShotChoice, StillCaps};
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, AtomicUsize, Ordering};
@@ -13,7 +13,7 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 use telescope_core::event::Event;
 use telescope_core::frame::{CpuStep, Frame, FrameContext, FrameStage, FrameStep, PixelFormat, Touch};
-use telescope_core::host::{Host, Poster};
+use telescope_core::host::{Host, Poster, RequestId};
 use telescope_core::i18n::{n_, tr, trn, Fields};
 use telescope_core::plugin::{ConfigRejected, Plugin, PluginInfo, StreamInfo};
 use telescope_core::settings::{off_default, reset_config};
@@ -30,6 +30,8 @@ pub const MAX_FRAMES: u32 = 2000;
 pub const DEFAULT_KEEP: u32 = 10;
 pub const DEFAULT_TRAIL_S: u32 = 5;
 const MAX_TRAIL_S: u32 = 60;
+const ISO_STOPS_PER_LABEL: usize = 3;
+const ISO_LABELS: [i64; 10] = [50, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600];
 /// Live stacking leaves out values further than this many standard deviations from the mean.
 const KAPPA: f32 = 2.5;
 /// Pictures waiting for the worker; a newer one is dropped while this many are there.
@@ -59,16 +61,18 @@ pub enum Mode {
     Lucky,
     Live,
     Trails,
+    Night,
 }
 
 impl Mode {
-    const ALL: [Mode; 3] = [Mode::Lucky, Mode::Live, Mode::Trails];
+    const ALL: [Mode; 4] = [Mode::Lucky, Mode::Live, Mode::Trails, Mode::Night];
 
     fn key(self) -> &'static str {
         match self {
             Mode::Lucky => "lucky",
             Mode::Live => "live",
             Mode::Trails => "trails",
+            Mode::Night => "night",
         }
     }
 
@@ -240,7 +244,7 @@ impl Job {
     fn new(setup: &Setup) -> Job {
         let capacity = (setup.frames * setup.keep).div_ceil(100).max(1);
         let stacker = match setup.mode {
-            Mode::Lucky => None,
+            Mode::Lucky | Mode::Night => None,
             Mode::Live => Some(Stacker::new(StackMode::Clip { kappa: KAPPA })),
             Mode::Trails => {
                 let mut stacker = Stacker::new(StackMode::Max);
@@ -404,6 +408,7 @@ impl Worker {
         }
         let Some(job) = self.job.as_mut() else { return };
         match job.mode {
+            Mode::Night => return,
             Mode::Lucky => {
                 job.seen += 1;
                 if job.lucky.as_mut().is_some_and(|l| l.add(frame)) {
@@ -562,7 +567,7 @@ impl Handoff {
     /// The run a picture of this stream is wanted for (0: only for the focus readout), None when it isn't wanted at all: another stream than
     /// the run's, or the one the panels show when nothing runs, or a picture something else hides.
     fn wanted(&self, source_id: &str, now: Instant) -> Option<u64> {
-        if self.hidden() || self.shared.queued.load(Ordering::SeqCst) >= QUEUE {
+        if self.shared.mode() == Mode::Night || self.hidden() || self.shared.queued.load(Ordering::SeqCst) >= QUEUE {
             return None;
         }
         let run = self.shared.run.load(Ordering::SeqCst);
@@ -628,6 +633,10 @@ pub struct StargazerPlugin {
     keep: u32,
     trail_s: u32,
     camera: bool,
+    shot: ShotChoice,
+    customize_open: bool,
+    taking: Option<RequestId>,
+    exposing: bool,
     paired: Paired,
     shared: Arc<Shared>,
     poster: Option<Arc<dyn Poster>>,
@@ -683,6 +692,10 @@ impl StargazerPlugin {
             keep: DEFAULT_KEEP,
             trail_s: DEFAULT_TRAIL_S,
             camera: false,
+            shot: Self::default_shot(),
+            customize_open: false,
+            taking: None,
+            exposing: false,
             paired: Paired::default(),
             shared,
             poster: None,
@@ -715,6 +728,10 @@ impl StargazerPlugin {
         }
     }
 
+    fn default_shot() -> ShotChoice {
+        ShotChoice { shutter_s: Some(10.0), iso: Some(800), focus_diopters: Some(0.0) }
+    }
+
     fn now(&self) -> f64 {
         (self.clock)()
     }
@@ -740,7 +757,7 @@ impl StargazerPlugin {
     }
 
     fn can_start(&self, host: &dyn Host) -> bool {
-        !self.down && host.is_streaming()
+        !self.down && host.is_streaming() && (self.mode != Mode::Night || self.night_caps(host).is_some_and(|caps| !caps.camera))
     }
 
     fn elapsed(&self) -> f64 {
@@ -779,18 +796,102 @@ impl StargazerPlugin {
 
     // ── What the card shows ───────────────────────────────────────────
 
+    fn night_caps(&self, host: &dyn Host) -> Option<StillCaps> {
+        let source = host.focused_source_id()?;
+        serde_json::from_value(host.still_caps(Some(&source))?).ok()
+    }
+
+    fn night_unsupported(&self, host: &dyn Host) -> bool {
+        self.night_caps(host).is_some_and(|caps| caps.camera)
+    }
+
+    fn shutter_props(&self, caps: Option<&StillCaps>) -> Value {
+        let stops = caps.and_then(|c| c.shot.as_ref()).map(stills::shot_shutter_stops).unwrap_or_default();
+        let mut labels = vec![tr("Camera")];
+        labels.extend(stops.iter().map(|s| stills::exposure_text(*s)));
+        let index = self.shot.shutter_s.and_then(|v| stops.iter().enumerate()
+            .min_by(|(_, a), (_, b)| (**a - v).abs().total_cmp(&(**b - v).abs())).map(|(i, _)| i + 1)).unwrap_or(0);
+        json!({
+            "shutter-stops": labels, "shutter-index": index,
+            "shutter-enabled": self.phase == Phase::Idle && caps.is_some_and(|c| !c.camera) && !stops.is_empty(),
+            "shutter-tip": if caps.is_none() { tr("Waiting for the picture") } else if stops.is_empty() { tr("This phone can't set the shutter speed.") } else { tr("Set the shutter speed for the photo.") },
+        })
+    }
+
+    fn iso_props(&self, caps: Option<&StillCaps>) -> Value {
+        let stops = caps.and_then(|c| c.shot.as_ref()).map(stills::shot_iso_stops).unwrap_or_default();
+        let mut labels = vec![tr("Camera")];
+        labels.extend(stops.iter().map(ToString::to_string));
+        let index = self.shot.iso.and_then(|v| stops.iter().enumerate()
+            .min_by_key(|(_, n)| (**n).abs_diff(v)).map(|(i, _)| i + 1)).unwrap_or(0);
+        let from = stops.iter().position(|v| ISO_LABELS.contains(v)).map_or(1, |i| i + 1);
+        json!({
+            "iso-stops": labels, "iso-index": index, "iso-per": ISO_STOPS_PER_LABEL, "iso-from": from,
+            "iso-enabled": self.phase == Phase::Idle && caps.is_some_and(|c| !c.camera) && !stops.is_empty(),
+            "iso-tip": if caps.is_none() { tr("Waiting for the picture") } else if stops.is_empty() { tr("This phone can't set the ISO.") } else { tr("Set the ISO for the photo.") },
+        })
+    }
+
+    fn focus_props(&self, caps: Option<&StillCaps>) -> Value {
+        let near = caps.and_then(|c| c.shot.as_ref()).and_then(|c| c.focus.as_ref()).map_or(0.0, |f| f.near_diopters);
+        json!({
+            "focus-enabled": false, "focus-tip": tr("Setting the focus from here comes in a later version."),
+            "focus-value": stills::focus_position(near, self.shot.focus_diopters.unwrap_or(0.0)), "focus-unset": self.shot.focus_diopters.is_none(),
+            "focus-readout": self.shot.focus_diopters.map_or_else(|| tr("Camera"), stills::shot_focus_text),
+        })
+    }
+
+    fn shot_props(&self, host: &dyn Host) -> Value {
+        let caps = self.night_caps(host);
+        let mut props = json!({"customize-open": self.customize_open, "shot-summary": self.shot.summary(stills::shot_focus_text)});
+        if let Some(all) = props.as_object_mut() {
+            for control in [self.shutter_props(caps.as_ref()), self.iso_props(caps.as_ref()), self.focus_props(caps.as_ref())] {
+                if let Value::Object(fields) = control {
+                    all.extend(fields);
+                }
+            }
+        }
+        props
+    }
+
+    fn pick_shot(&mut self, host: &mut dyn Host, which: &str, index: usize) {
+        if self.mode != Mode::Night || self.phase != Phase::Idle {
+            return;
+        }
+        let Some(caps) = self.night_caps(host).and_then(|c| c.shot) else { return };
+        let before = self.shot.clone();
+        if which == "shutter-picked" {
+            let stops = stills::shot_shutter_stops(&caps);
+            if stops.is_empty() || index > stops.len() { return; }
+            self.shot.shutter_s = index.checked_sub(1).map(|i| stops[i]);
+        } else {
+            let stops = stills::shot_iso_stops(&caps);
+            if stops.is_empty() || index > stops.len() { return; }
+            self.shot.iso = index.checked_sub(1).map(|i| stops[i]);
+        }
+        if self.shot != before {
+            host.schedule_save();
+        }
+        self.show(host);
+    }
+
     fn status(&self, host: &dyn Host) -> (String, &'static str) {
         match self.phase {
+            Phase::Collecting if self.taking.is_some() => {
+                (if self.exposing { tr("Video paused while exposing") } else { tr("Taking the photo") }, "status_ok")
+            }
             Phase::Collecting if self.hidden => (tr("Paused while part of the picture is hidden"), "status_warn"),
             Phase::Collecting => {
                 let text = match self.mode {
                     Mode::Lucky => tr("Collecting frame {done} of {total}").field("done", self.collected).field("total", self.target),
                     Mode::Live => tr("Stacking every frame"),
                     Mode::Trails => tr("Recording the trails"),
+                    Mode::Night => tr("Taking the photo"),
                 };
                 (text, "status_ok")
             }
             Phase::Stacking => (trn("Stacking the sharpest {n} frame", "Stacking the sharpest {n} frames", self.count as i64), "status_warn"),
+            Phase::Idle if self.mode == Mode::Night && self.night_unsupported(host) => (tr("This camera can't do Night yet"), "status_warn"),
             Phase::Idle => {
                 if let Some(problem) = &self.problem {
                     (problem.clone(), "status_err")
@@ -806,7 +907,7 @@ impl StargazerPlugin {
     }
 
     fn tally(&self) -> String {
-        if self.count == 0 && self.refused == 0 && self.phase == Phase::Idle {
+        if self.mode == Mode::Night || (self.count == 0 && self.refused == 0 && self.phase == Phase::Idle) {
             return String::new();
         }
         tr("In the stack: {frames}, refused: {refused}, time: {time}")
@@ -821,7 +922,7 @@ impl StargazerPlugin {
     }
 
     fn fixed_props() -> Value {
-        json!({"mode-items": [tr("Lucky"), tr("Live"), tr("Trails")], "save-text": tr("Save"), "reset-text": tr("Reset"),
+        json!({"mode-items": [tr("Lucky"), tr("Live"), tr("Trails"), tr("Night")], "save-text": tr("Save"), "reset-text": tr("Reset"),
                "camera-name": tr("Show the stack on the camera"), "open-text": tr("Open folder"), "open-tip": tr(OPEN_TIP)})
     }
 
@@ -830,8 +931,8 @@ impl StargazerPlugin {
         let idle = self.phase == Phase::Idle;
         let name = Path::new(&self.last).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
         let saved = if name.is_empty() { String::new() } else { tr("Saved {name}").field("name", name) };
-        json!({
-            "active": self.paired.on(), "mode-index": self.mode.index(), "running": self.phase != Phase::Idle,
+        let mut props = json!({
+            "active": self.paired.on(), "mode-index": self.mode.index(), "running": self.phase != Phase::Idle, "night-unsupported": self.night_unsupported(host),
             "frames": self.frames, "frames-text": tr("{n} frames").field("n", self.frames),
             "keep": self.keep, "keep-text": format!("{} %", self.keep),
             "trail": self.trail_s, "trail-text": tr("{seconds} s").field("seconds", self.trail_s),
@@ -842,7 +943,11 @@ impl StargazerPlugin {
             "reset-enabled": self.mode == Mode::Live && (self.count > 0 || self.refused > 0 || self.phase == Phase::Collecting),
             "status": status, "status-kind": kind, "tally": self.tally(), "limit": self.limit, "focus-text": self.focus_text(host),
             "camera": self.camera, "saved": saved, "open-enabled": !self.last.is_empty(),
-        })
+        });
+        if let (Some(all), Value::Object(shot)) = (props.as_object_mut(), self.shot_props(host)) {
+            all.extend(shot);
+        }
+        props
     }
 
     fn all_props(&self, host: &dyn Host) -> Value {
@@ -864,13 +969,56 @@ impl StargazerPlugin {
             self.pending = false;
             let props = self.all_props(host);
             host.set_ui_props("card", &props);
+            host.refresh_frame_step();
         }
     }
 
     // ── Runs ──────────────────────────────────────────────────────────
 
+    fn start_night(&mut self, host: &mut dyn Host) {
+        let Some(source) = host.focused_source_id() else { return };
+        let Some(caps) = self.night_caps(host).filter(|caps| !caps.camera) else { return };
+        let shot = ShotChoice {
+            shutter_s: self.shot.shutter_s.filter(|_| caps.shot.as_ref().is_some_and(|c| c.shutter.is_some())),
+            iso: self.shot.iso.filter(|_| caps.shot.as_ref().is_some_and(|c| c.iso.is_some())),
+            focus_diopters: None,
+        };
+        let options = json!({"format": "jpeg", "quality": 95, "rotation": 0, "shot": shot.to_options_value(), "skip_if_hidden": true});
+        self.problem = None;
+        self.note.clear();
+        if let Some(request) = host.take_still(&options, &self.folder, Some(&source)) {
+            self.source = source;
+            self.taking = Some(request);
+            self.exposing = false;
+            self.phase = Phase::Collecting;
+            host.want_frames(NAME, false);
+        } else {
+            self.problem = Some(tr("Couldn't take the photo"));
+        }
+        self.show(host);
+    }
+
+    fn night_done(&mut self, host: &mut dyn Host, ok: bool, data: &Value) {
+        self.taking = None;
+        self.exposing = false;
+        self.ended(host);
+        let file = data.get("files").and_then(Value::as_array).and_then(|files| files.first()).and_then(Value::as_str).filter(|s| !s.is_empty());
+        if let Some(file) = file.filter(|_| ok && data.get("ok").and_then(Value::as_bool) != Some(false)) {
+            self.last = file.to_string();
+            self.problem = None;
+            self.note = tr("Saved the photo");
+        } else {
+            self.problem = Some(data.get("error").and_then(Value::as_str).filter(|e| !e.is_empty()).map_or_else(|| tr("Couldn't take the photo"), String::from));
+        }
+        self.show(host);
+    }
+
     fn start(&mut self, host: &mut dyn Host) {
         if self.phase != Phase::Idle || !self.can_start(host) {
+            return;
+        }
+        if self.mode == Mode::Night {
+            self.start_night(host);
             return;
         }
         let Some(feed) = self.feed() else { return };
@@ -901,6 +1049,13 @@ impl StargazerPlugin {
     /// Ends the run: a lucky one with enough frames stacks what it has, star trails are saved, a live stack stays for saving.
     fn stop(&mut self, host: &mut dyn Host) {
         if self.phase != Phase::Collecting {
+            return;
+        }
+        if let Some(request) = self.taking.take() {
+            host.cancel_still(request);
+            self.exposing = false;
+            self.ended(host);
+            self.show(host);
             return;
         }
         self.shared.run.store(0, Ordering::SeqCst);
@@ -999,11 +1154,12 @@ impl StargazerPlugin {
 
     fn pick_mode(&mut self, host: &mut dyn Host, index: usize) {
         let Some(&mode) = Mode::ALL.get(index) else { return };
-        if self.phase != Phase::Idle || mode == self.mode {
+        if self.phase != Phase::Idle || mode == self.mode || (mode == Mode::Night && self.night_unsupported(host)) {
             self.show(host);
             return;
         }
         self.change_mode(mode);
+        host.refresh_frame_step();
         self.show(host);
         host.schedule_save();
     }
@@ -1012,7 +1168,9 @@ impl StargazerPlugin {
     fn change_mode(&mut self, mode: Mode) {
         self.mode = mode;
         self.shared.mode.store(mode.index() as u8, Ordering::SeqCst);
-        self.send(Msg::Reset);
+        if let Some(feed) = &self.feed {
+            feed.send(Msg::Reset);
+        }
         (self.collected, self.target, self.count, self.refused, self.banked) = (0, 0, 0, 0, 0.0);
         (self.note, self.problem, self.limit, self.unsaved) = (String::new(), None, String::new(), false);
     }
@@ -1051,7 +1209,7 @@ impl StargazerPlugin {
     fn set_camera(&mut self, host: &mut dyn Host, on: bool) {
         self.camera = on;
         self.shared.camera.store(on, Ordering::SeqCst);
-        if on {
+        if on && self.mode != Mode::Night {
             self.send(Msg::Publish);
         } else {
             *self.shared.result.lock().unwrap() = None;
@@ -1091,11 +1249,14 @@ impl Plugin for StargazerPlugin {
     }
 
     fn shutdown(&mut self, host: &mut dyn Host) {
+        if let Some(request) = self.taking.take() {
+            host.cancel_still(request);
+        }
         self.shared.run.store(0, Ordering::SeqCst);
         self.shared.camera.store(false, Ordering::SeqCst);
         // Switching the plugin off restarts the app, so the worker gets to finish a save in progress (a picture not done in time never has its real name)
         if let Some(feed) = self.feed.take() {
-            if self.phase == Phase::Collecting {
+            if self.phase == Phase::Collecting && self.mode != Mode::Night {
                 feed.send(Msg::Stop);
             }
             feed.send(Msg::Quit);
@@ -1111,6 +1272,7 @@ impl Plugin for StargazerPlugin {
         }
         self.ticking = false;
         self.phase = Phase::Idle;
+        self.taking = None;
         host.want_frames(NAME, false);
         host.cancel_schedule(TICK);
         self.poster = None;
@@ -1141,6 +1303,13 @@ impl Plugin for StargazerPlugin {
             host.set_ui_props("card", &json!({"active": on}));
         }
         match event {
+            Event::RequestProgress { request, data } if Some(*request) == self.taking => {
+                self.exposing = data.get("state").and_then(Value::as_str) == Some("capturing");
+                self.show(host);
+            }
+            Event::RequestDone { request, ok, data, .. } if Some(*request) == self.taking => self.night_done(host, *ok, data),
+            Event::PhoneStateUpdated { .. } | Event::DeviceChanged { .. } | Event::CameraSwitched { .. }
+            | Event::StillCapsChanged { .. } | Event::StillBusyChanged { .. } | Event::SourceSelected { .. } => self.show(host),
             Event::WindowShown { shown } => self.shared.window_hidden.store(!shown, Ordering::SeqCst),
             Event::CardFolded { key, folded } if key == "stargazer/Stargazer" => self.shared.card_folded.store(*folded, Ordering::SeqCst),
             Event::Posted { owner, token, data } if owner == NAME => self.heard(host, token, data),
@@ -1172,6 +1341,11 @@ impl Plugin for StargazerPlugin {
             "active": self.paired.on(), "frames": self.frames, "frames-text": tr("{n} frames").field("n", self.frames), "keep": self.keep,
             "keep-text": format!("{} %", self.keep), "trail": self.trail_s, "trail-text": tr("{seconds} s").field("seconds", self.trail_s),
             "run-text": tr("Start"), "status": tr("Waiting for the picture"), "status-kind": "status_dim", "focus-text": tr("Waiting for the picture"),
+            "mode-index": self.mode.index(), "shot-summary": self.shot.summary(stills::shot_focus_text), "customize-open": self.customize_open,
+            "shutter-stops": [tr("Camera")], "iso-stops": [tr("Camera")],
+            "focus-unset": self.shot.focus_diopters.is_none(), "focus-readout": self.shot.focus_diopters.map_or_else(|| tr("Camera"), stills::shot_focus_text),
+            "shutter-tip": tr("Waiting for the picture"), "iso-tip": tr("Waiting for the picture"),
+            "focus-tip": tr("Setting the focus from here comes in a later version."),
         })) {
             a.extend(s);
         }
@@ -1201,19 +1375,27 @@ impl Plugin for StargazerPlugin {
             "reset-clicked" => self.reset(host),
             "settings-reset-clicked" => self.reset_settings(host),
             "camera-toggled" => self.set_camera(host, flag),
+            "customize-toggled" => {
+                self.customize_open = flag;
+                self.show(host);
+            }
+            "shutter-picked" | "iso-picked" => self.pick_shot(host, &event.callback, number.max(0.0) as usize),
             "open-clicked" => self.open_folder(host),
             _ => {}
         }
     }
 
     fn frame_step(&mut self) -> Option<FrameStep> {
+        if self.mode == Mode::Night {
+            return None;
+        }
         let feed = self.feed()?;
         Some(FrameStep::Cpu(Box::new(Handoff { shared: self.shared.clone(), feed })))
     }
 
     /// A run isn't saved, so a restart never begins stacking.
     fn get_config(&self) -> Value {
-        json!({"mode": self.mode.key(), "frames": self.frames, "keep": self.keep, "interval": self.trail_s, "camera": self.camera})
+        json!({"mode": self.mode.key(), "frames": self.frames, "keep": self.keep, "interval": self.trail_s, "camera": self.camera, "shot": self.shot})
     }
 
     fn set_config(&mut self, cfg: &Value) -> Result<(), ConfigRejected> {
@@ -1225,6 +1407,7 @@ impl Plugin for StargazerPlugin {
         self.keep = number("keep", DEFAULT_KEEP, 1, 100);
         self.trail_s = number("interval", DEFAULT_TRAIL_S, 1, MAX_TRAIL_S);
         self.camera = cfg.get("camera") == Some(&Value::Bool(true));
+        self.shot = cfg.get("shot").cloned().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_else(Self::default_shot);
         self.shared.mode.store(self.mode.index() as u8, Ordering::SeqCst);
         self.shared.interval_ms.store(u64::from(self.trail_s) * 1000, Ordering::SeqCst);
         self.shared.camera.store(self.camera, Ordering::SeqCst);

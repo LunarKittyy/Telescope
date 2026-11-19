@@ -1,5 +1,4 @@
 // The Stargazer card. Joined after parts.slint, which has the imports.
-// The status rows keep their place with nothing in them, so starting a run moves nothing.
 
 export component StargazerCard inherits Card {
     in property <bool> active: true;
@@ -7,6 +6,7 @@ export component StargazerCard inherits Card {
     in property <int> mode-index;
     in property <[string]> mode-items;
     in property <bool> running;
+    in property <bool> night-unsupported;
     in property <int> frames: 300;
     in property <string> frames-text;
     in property <int> keep: 10;
@@ -31,6 +31,26 @@ export component StargazerCard inherits Card {
     in property <string> open-text;
     in property <string> open-tip;
     in property <bool> open-enabled;
+    in property <bool> customize-open;
+    in property <string> shot-summary;
+    in property <[string]> shutter-stops;
+    in property <int> shutter-index;
+    in property <bool> shutter-enabled;
+    in property <string> shutter-tip;
+    in property <[string]> iso-stops;
+    in property <int> iso-index;
+    in property <int> iso-per: 3;
+    in property <int> iso-from: 1;
+    in property <bool> iso-enabled;
+    in property <string> iso-tip;
+    in property <bool> focus-enabled;
+    in property <string> focus-tip;
+    in property <float> focus-value;
+    in property <bool> focus-unset;
+    in property <string> focus-readout;
+    callback customize-toggled(bool);
+    callback shutter-picked(int);
+    callback iso-picked(int);
     callback mode-picked(int);
     callback frames-moved(float);
     callback keep-moved(float);
@@ -44,22 +64,24 @@ export component StargazerCard inherits Card {
 
     title: @tr("Stargazer");
     tip: @tr("Stack frames from a telescope into a sharper moon or planet, a faint sky or star trails.");
+    header-status: status;
+    header-status-kind: status-kind == "status_ok" ? "ok" : status-kind == "status_warn" ? "warn" : status-kind == "status_err" ? "err" : "";
+    header-status-detail: status;
     icon: Icons.star;
     enabled: active;
     has-reset: true;
     reset-lit: settings-reset-shown;
     reset-label: @tr("Reset settings");
-    reset-detail: @tr("Set the frames, sharpest share and time between frames back to default. The mode and the camera switch aren't reset.");
+    reset-detail: @tr("Set the frames, sharpest share, time between frames and photo settings back to default. The mode and the camera switch aren't reset.");
     reset => { root.settings-reset-clicked(); }
 
-    RailRow {
-        has-icon: false;
-        StatusLine { text: status; kind: status-kind; detail: status; }
-    }
     UnfoldGroup {
-        RailRow {
-            has-icon: false;
-            StatusLine { text: tally; detail: tally; }
+        Unfolding {
+            open: tally != "";
+            RailRow {
+                has-icon: false;
+                StatusLine { text: tally; detail: tally; }
+            }
         }
         StatusUnfold { text: limit; kind: "status_warn"; detail: limit; }
     }
@@ -80,13 +102,14 @@ export component StargazerCard inherits Card {
                 hue: root.hue;
                 label: @tr("Stack");
                 items: mode-items;
-                tips: [@tr("Lucky imaging"), @tr("Live stack"), @tr("Star trails")];
+                tips: [@tr("Lucky imaging"), @tr("Live stack"), @tr("Star trails"), @tr("Night shot")];
                 tip-details: [
                     @tr("Stacks only the sharpest frames of a burst. For the moon and planets."),
                     @tr("Adds every frame and leaves out what only shows once, like satellites and noise. For faint things."),
                     @tr("Takes the brightest value of one frame every few seconds, which draws the stars as lines."),
+                    night-unsupported ? @tr("This camera can't do Night yet") : @tr("Takes a long photo with the phone's camera for a faint sky. Not from the video."),
                 ];
-                disabled: [!active || running, !active || running, !active || running];
+                disabled: [!active || running, !active || running, !active || running, !active || running || night-unsupported];
                 current: mode-index;
                 picked(i) => { root.mode-picked(i); }
             }
@@ -141,6 +164,106 @@ export component StargazerCard inherits Card {
                 has-default: true;
                 default-value: 5;
                 moved(v) => { root.trail-moved(v); }
+            }
+        }
+    }
+    Unfolding {
+        open: mode-index == 3;
+        UnfoldGroup {
+            RailRow {
+                icon: Icons.camera;
+                label: @tr("Customize camera");
+                hue: root.hue;
+                enabled: active;
+                Rectangle {
+                    horizontal-stretch: 1;
+                    preferred-width: 1000px;
+                    height: Theme.row;
+                    Button {
+                        width: parent.width;
+                        height: parent.height;
+                        shrinks: true;
+                        enabled: active && !running;
+                        tip: @tr("Customize camera");
+                        tip-detail: root.shot-summary;
+                        accessible-label: @tr("Customize camera");
+                        accessible-value: root.shot-summary;
+                        accessible-expandable: true;
+                        accessible-expanded: root.customize-open;
+                        clicked => { root.customize-toggled(!root.customize-open); }
+                    }
+                    HorizontalLayout {
+                        width: parent.width;
+                        height: parent.height;
+                        padding-left: Theme.u(6);
+                        padding-right: Theme.u(6);
+                        spacing: Theme.gap;
+                        if root.width >= Theme.u(200): Text {
+                            text: @tr("Customize camera");
+                            font-family: Theme.font;
+                            font-size: Theme.body;
+                            font-weight: Theme.w-label;
+                            color: active && !running ? Theme.ink : Theme.dis;
+                            vertical-alignment: center;
+                            overflow: elide;
+                            min-width: 0px;
+                            horizontal-stretch: 1;
+                            accessible-role: none;
+                        }
+                        Text {
+                            text: root.shot-summary;
+                            font-family: Theme.font;
+                            font-size: Theme.body;
+                            font-weight: Theme.w-value;
+                            color: active && !running ? Theme.ink : Theme.dis;
+                            vertical-alignment: center;
+                            horizontal-alignment: right;
+                            overflow: elide;
+                            min-width: 0px;
+                            horizontal-stretch: 1;
+                            accessible-role: none;
+                        }
+                        Rectangle {
+                            width: Theme.u(8);
+                            Path {
+                                width: Theme.u(8);
+                                height: Theme.u(8);
+                                y: round((parent.height - self.height) / 2 / 1phx) * 1phx;
+                                viewbox-x: Theme.stroke / 2 / 1px;
+                                viewbox-y: Theme.stroke / 2 / 1px;
+                                viewbox-width: 16 - Theme.stroke / 1px;
+                                viewbox-height: 16 - Theme.stroke / 1px;
+                                commands: root.customize-open ? "M 4.5 9.5 L 8 6 L 11.5 9.5" : "M 4.5 6.5 L 8 10 L 11.5 6.5";
+                                stroke: active && !running ? Theme.ink : Theme.dis;
+                                stroke-width: Theme.stroke;
+                            }
+                        }
+                    }
+                }
+            }
+            Unfolding {
+                open: root.customize-open;
+                ShotControls {
+                    hue: root.hue;
+                    enabled: active && !running;
+                    shutter-stops: root.shutter-stops;
+                    shutter-index: root.shutter-index;
+                    shutter-enabled: root.shutter-enabled;
+                    shutter-tip: root.shutter-tip;
+                    iso-stops: root.iso-stops;
+                    iso-index: root.iso-index;
+                    iso-per: root.iso-per;
+                    iso-from: root.iso-from;
+                    iso-enabled: root.iso-enabled;
+                    iso-tip: root.iso-tip;
+                    focus-enabled: root.focus-enabled;
+                    focus-tip: root.focus-tip;
+                    focus-value: root.focus-value;
+                    focus-unset: root.focus-unset;
+                    focus-readout: root.focus-readout;
+                    shutter-picked(i) => { root.shutter-picked(i); }
+                    iso-picked(i) => { root.iso-picked(i); }
+                }
             }
         }
     }

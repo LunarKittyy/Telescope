@@ -99,9 +99,11 @@ An early version for a phone clipped to a telescope, in Lab. Switch it on under 
 - **Live stack** adds every frame and leaves out what only shows once, like satellites and noise. It is for faint things
 - **Star trails** takes the brightest value of one frame every few seconds (**Every**), which draws the stars as lines
 
-**Start** begins a run and **Stop** ends it early. A lucky run stopped early still stacks what it has, if at least 3 frames made the cut. The finished stack is saved as a PNG in Pictures/Telescope/Stargazer and **Open folder** shows it. **Show the stack on the camera** sends it to the virtual camera in place of the live picture, refreshed about once a second. **Reset settings** in the card's header returns **Frames**, **Sharpest** and **Every** to their defaults when no run is going. The mode and the camera switch aren't reset.
+**Night** takes one long JPEG photo with the phone's camera for a faint sky. Open **Customize camera** to pick a shutter speed and ISO. Choose **Camera** on a dial to use the camera's own value. It starts at 10 s and ISO 800, held to what the phone can do. Focus can't be set from here yet and the photo uses the camera's focus. The video pauses during a long exposure and the card shows when it is exposing. The photo is saved in Pictures/Telescope/Stargazer.
 
-A run belongs to one phone and one picture size. Switching phones or changing the resolution ends it and you get the stack so far. Collecting pauses while part of the picture is hidden, by Privacy blur or the wait screen. Lucky imaging holds at most 1.5 GB of frames and the card notes it when that lowers the count. A slow computer drops frames instead of using more memory.
+**Start** begins a run and **Stop** ends a video stack early. A Night photo can't be stopped once it starts. A lucky run stopped early still stacks what it has, if at least 3 frames made the cut. The finished stack is saved as a PNG in Pictures/Telescope/Stargazer and **Open folder** shows it. **Show the stack on the camera** sends it to the virtual camera in place of the live picture, refreshed about once a second. **Reset settings** in the card's header returns **Frames**, **Sharpest**, **Every** and the photo settings to their defaults when no run is going. The mode and the camera switch aren't reset.
+
+A video stack belongs to one phone and one picture size. Switching phones or changing the resolution ends it and you get the stack so far. Collecting pauses while part of the picture is hidden, by Privacy blur or the wait screen. Night won't take a photo while the picture is hidden. Lucky imaging holds at most 1.5 GB of frames and the card notes it when that lowers the count. A slow computer drops frames instead of using more memory.
 
 ## Name tag
 
