@@ -1702,6 +1702,12 @@ impl Plugin for CameraControl {
         })
     }
 
+    fn setup(&mut self, host: &mut dyn Host) {
+        // Switched on mid-session, the source in focus was picked before this card heard of it; the phone has no source id
+        self.source = host.focused_source_id().unwrap_or_default();
+        self.refresh(host);
+    }
+
     fn on_plugins_ready(&mut self, host: &mut dyn Host) {
         self.publish_focus_mode(true);
         self.refresh(host);
